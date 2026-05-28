@@ -28,10 +28,8 @@ const monitorExecutionHandlers = {
 export function isMonitorExecutionPayload(value: unknown): value is MonitorExecutionPayload {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
   const source = (value as { source?: unknown }).source
-  const handler =
-    source === INDICATOR_MONITOR_PROVIDER || source === PORTFOLIO_MONITOR_PROVIDER
-      ? monitorExecutionHandlers[source]
-      : null
+  if (typeof source !== 'string') return false
+  const handler = monitorExecutionHandlers[source as keyof typeof monitorExecutionHandlers]
   return handler ? handler.isPayload(value) : false
 }
 

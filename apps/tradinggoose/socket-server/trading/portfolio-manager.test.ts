@@ -200,6 +200,7 @@ describe('TradingPortfolioStreamManager', () => {
       workspaceId: 'workspace-1',
       providerId: 'alpaca',
       serviceId: 'alpaca-live',
+      credentialId: 'oauth-credential-1',
       requestId: expect.any(String),
     })
     expect(getPortfolioDetailMock).toHaveBeenCalledTimes(1)

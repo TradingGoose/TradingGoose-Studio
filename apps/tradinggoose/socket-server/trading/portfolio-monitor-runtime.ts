@@ -16,8 +16,8 @@ import {
 import type { PortfolioMonitorExecutionPayload } from '@/background/portfolio-monitor-execution'
 import type { PortfolioDetail, PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import {
+  createMonitorRuntimeLock,
   getMonitorRuntimeUnavailableStatus,
-  MonitorRuntimeLock,
   type MonitorRuntimeLockHealth,
   type MonitorRuntimeStatus,
 } from '@/socket-server/monitor-runtime-lock'
@@ -34,7 +34,6 @@ const RECONCILE_INTERVAL_MS = 30_000
 export type PortfolioMonitorRuntimeHealth = {
   enabled: boolean
   status: MonitorRuntimeStatus
-  reconcileEndpointEnabled: boolean
   lock: MonitorRuntimeLockHealth
   stats: {
     activeSubscriptions: number
@@ -134,7 +133,7 @@ const isCooldownOpen = (lastFiredAt: string | undefined, cooldownSeconds: number
 
 export class PortfolioMonitorRuntime {
   private readonly logger: LoggerLike
-  private readonly runtimeLock: MonitorRuntimeLock
+  private readonly runtimeLock: ReturnType<typeof createMonitorRuntimeLock>
   private status: MonitorRuntimeStatus = 'not_initialized'
   private running = false
   private starting = false
@@ -148,7 +147,7 @@ export class PortfolioMonitorRuntime {
 
   constructor(loggerLike?: LoggerLike) {
     this.logger = loggerLike ?? logger
-    this.runtimeLock = new MonitorRuntimeLock({
+    this.runtimeLock = createMonitorRuntimeLock({
       key: LOCK_KEY,
       label: 'Portfolio monitor',
       logger: this.logger,
@@ -160,7 +159,6 @@ export class PortfolioMonitorRuntime {
     return {
       enabled: this.running,
       status: this.status,
-      reconcileEndpointEnabled: true,
       lock: this.runtimeLock.getHealth(this.status),
       stats: {
         activeSubscriptions: this.subscriptions.size,

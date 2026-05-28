@@ -543,6 +543,7 @@ export class TradingPortfolioStreamManager {
       workspaceId: streamState.workspaceId,
       providerId: streamState.providerId,
       serviceId: streamState.serviceId,
+      credentialId: streamState.portfolioIdentity?.credentialId,
       requestId: streamState.streamKey,
     })
     this.accountsCache.set(cacheKey, {

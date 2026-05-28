@@ -35,8 +35,8 @@ import { resolveListingContext, resolveProviderSymbol } from '@/providers/market
 import { type AnyMarketProviderId, marketStreamManager } from '@/socket-server/market/manager'
 import type { AuthenticatedSocket } from '@/socket-server/middleware/auth'
 import {
+  createMonitorRuntimeLock,
   getMonitorRuntimeUnavailableStatus,
-  MonitorRuntimeLock,
   type MonitorRuntimeLockHealth,
   type MonitorRuntimeStatus,
 } from '@/socket-server/monitor-runtime-lock'
@@ -44,7 +44,6 @@ import {
 export type IndicatorMonitorRuntimeHealth = {
   enabled: boolean
   status: MonitorRuntimeStatus
-  reconcileEndpointEnabled: boolean
   lock: MonitorRuntimeLockHealth
   stats: {
     activeSubscriptions: number
@@ -323,7 +322,7 @@ async function resolveIndicatorDefinitions(
 
 export class IndicatorMonitorRuntime {
   private readonly logger: LoggerLike
-  private readonly runtimeLock: MonitorRuntimeLock
+  private readonly runtimeLock: ReturnType<typeof createMonitorRuntimeLock>
   private status: MonitorRuntimeStatus = 'not_initialized'
   private running = false
   private starting = false
@@ -339,7 +338,7 @@ export class IndicatorMonitorRuntime {
 
   constructor(loggerLike?: LoggerLike) {
     this.logger = loggerLike ?? logger
-    this.runtimeLock = new MonitorRuntimeLock({
+    this.runtimeLock = createMonitorRuntimeLock({
       key: LOCK_KEY,
       label: 'Indicator monitor',
       logger: this.logger,
@@ -351,7 +350,6 @@ export class IndicatorMonitorRuntime {
     return {
       enabled: this.running,
       status: this.status,
-      reconcileEndpointEnabled: true,
       lock: this.runtimeLock.getHealth(this.status),
       stats: {
         activeSubscriptions: this.subscriptions.size,

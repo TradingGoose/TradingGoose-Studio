@@ -96,6 +96,7 @@ describe('listTradingPortfolioIdentities', () => {
         workspaceId: 'workspace-1',
         providerId: 'alpaca',
         serviceId: 'alpaca-live',
+        credentialId: 'credential-stale',
         requestId: 'request-1',
       })
     ).rejects.toThrow('Trading credential token unavailable: credential-stale')

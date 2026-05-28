@@ -64,18 +64,20 @@ export async function listTradingPortfolioIdentities({
   workspaceId,
   providerId,
   serviceId,
+  credentialId,
   requestId,
 }: {
   userId: string
   workspaceId: string
   providerId: TradingProviderId
   serviceId?: string
+  credentialId?: string
   requestId: string
 }) {
   const provider = getTradingProviderDefinition(providerId)
   if (!provider) throw new Error('Unsupported trading provider')
 
-  const services = provider?.oauth?.services ?? []
+  const services = provider.oauth?.services ?? []
   const serviceIds = services.map(({ serviceId }) => serviceId)
   const selectedServiceId = serviceId
     ? getTradingProviderOAuthServiceId(providerId, serviceId)
@@ -90,9 +92,15 @@ export async function listTradingPortfolioIdentities({
     workspaceId,
     providerIds: targetServiceIds,
   })
-  if (!credentials.length) return []
+  const targetCredentials = credentialId
+    ? credentials.filter((credential) => credential.id === credentialId)
+    : credentials
+  if (credentialId && targetCredentials.length === 0) {
+    throw new Error(`Trading credential unavailable: ${credentialId}`)
+  }
+  if (!targetCredentials.length) return []
 
-  const identityRequests = credentials.map((credential) =>
+  const identityRequests = targetCredentials.map((credential) =>
     listCredentialPortfolioIdentities({
       credential,
       providerId,
@@ -102,11 +110,13 @@ export async function listTradingPortfolioIdentities({
     })
   )
 
+  if (credentialId) return (await Promise.all(identityRequests)).flat()
+
   const settled = await Promise.allSettled(identityRequests)
   const identities = settled.flatMap((result) =>
     result.status === 'fulfilled' ? result.value : []
   )
-  if (settled.some((result) => result.status === 'fulfilled')) return identities
+  if (identities.length > 0) return identities
 
   const firstFailure = settled.find(
     (result): result is PromiseRejectedResult => result.status === 'rejected'

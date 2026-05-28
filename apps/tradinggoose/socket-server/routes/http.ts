@@ -108,7 +108,6 @@ function getDefaultMonitorRuntimeHealth(): MonitorRuntimeHealth {
     indicator: {
       enabled: false,
       status: defaultStatus,
-      reconcileEndpointEnabled: true,
       lock,
       stats: {
         activeSubscriptions: 0,
@@ -121,7 +120,6 @@ function getDefaultMonitorRuntimeHealth(): MonitorRuntimeHealth {
     portfolio: {
       enabled: false,
       status: defaultStatus,
-      reconcileEndpointEnabled: true,
       lock,
       stats: {
         activeSubscriptions: 0,
