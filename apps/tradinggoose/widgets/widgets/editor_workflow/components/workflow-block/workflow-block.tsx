@@ -717,7 +717,7 @@ export const WorkflowBlock = memo(
             <Card
               ref={blockRef}
               className={cn(
-                'relative cursor-default select-none rounded-md border border-border shadow-xs',
+                'relative cursor-default select-none rounded-md border border-border shadow-md',
                 'transition-block-bg transition-ring',
                 'w-[320px]',
                 !isEnabled && 'shadow-sm',
@@ -733,12 +733,12 @@ export const WorkflowBlock = memo(
                   '--block-active-pulse-color': activePulseColor,
                   ...(selected ? { borderColor: blockAccentColor, borderWidth: '1px' } : {}),
                 } as CSSProperties &
-                  Record<
-                    | '--block-active-pulse-color'
-                    | '--block-active-ring-color'
-                    | '--block-hover-color',
-                    string
-                  >
+                Record<
+                  | '--block-active-pulse-color'
+                  | '--block-active-ring-color'
+                  | '--block-hover-color',
+                  string
+                >
               }
             >
               {/* Show debug indicator for pending blocks */}
