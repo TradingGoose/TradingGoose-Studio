@@ -271,7 +271,6 @@ export function MonitorConfigWorkspace({
           workspaceId,
           draft,
           originalMonitor: card.sourceMonitor,
-          referenceData,
         }),
         { optimisticRecord }
       )

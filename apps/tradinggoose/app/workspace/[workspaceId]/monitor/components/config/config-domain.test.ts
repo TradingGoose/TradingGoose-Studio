@@ -473,7 +473,6 @@ describe('config monitor domain', () => {
       workspaceId: 'workspace-1',
       draft,
       originalMonitor: sourceMonitor,
-      referenceData: nextReferenceData,
     })
 
     expect(payload).toMatchObject({
@@ -532,7 +531,6 @@ describe('config monitor domain', () => {
         workspaceId: 'workspace-1',
         draft: clearedDraft,
         originalMonitor: sourceMonitor,
-        referenceData: nextReferenceData,
       })
     ).toMatchObject({ auth: { secrets: {} } })
     expect(

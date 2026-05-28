@@ -268,14 +268,12 @@ export function useMonitorEditorState({
               workspaceId,
               draft: editingDraft,
               originalMonitor: sourceMonitor,
-              referenceData,
             })
           )
         : await monitorActions.createMonitor(
             buildMonitorCreatePayloadFromDraft({
               workspaceId,
               draft: editingDraft,
-              referenceData,
             })
           )
 

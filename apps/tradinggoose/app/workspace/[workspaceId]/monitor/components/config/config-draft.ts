@@ -260,7 +260,6 @@ export const buildMonitorCreatePayloadFromDraft = ({
 }: {
   workspaceId: string
   draft: MonitorDraft
-  referenceData: MonitorReferenceData
 }): MonitorCreateInput => {
   if (draft.source === PORTFOLIO_MONITOR_PROVIDER) {
     return {
@@ -310,7 +309,6 @@ export const buildMonitorUpdatePayloadFromDraft = ({
   workspaceId: string
   draft: MonitorDraft
   originalMonitor: MonitorRecord
-  referenceData: MonitorReferenceData
 }): MonitorUpdateInput => {
   const originalConfig = originalMonitor.providerConfig.monitor
   if (originalMonitor.source === PORTFOLIO_MONITOR_PROVIDER) {
