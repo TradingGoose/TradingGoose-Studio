@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { CheckCheck, ShieldCheck, UserCheck2, X } from 'lucide-react'
 import {
   Alert,
@@ -30,29 +31,26 @@ import {
   useSaveRegistrationMode,
   useUpdateWaitlistStatuses,
 } from '@/hooks/queries/admin-registration'
+import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import type { LocaleCode } from '@/i18n/utils'
 
-const TIME_RANGE_OPTIONS = [
-  { value: 'all', label: 'All time' },
-  { value: '7d', label: '7d' },
-  { value: '30d', label: '30d' },
-  { value: '90d', label: '90d' },
-] as const
+const TIME_RANGE_VALUES = ['all', '7d', '30d', '90d'] as const
 
-type WaitlistTimeRange = (typeof TIME_RANGE_OPTIONS)[number]['value']
+type WaitlistTimeRange = (typeof TIME_RANGE_VALUES)[number]
 
-function formatTimestamp(value: string | null) {
+function formatTimestamp(locale: string, value: string | null, neverLabel: string) {
   if (!value) {
-    return 'Never'
+    return neverLabel
   }
 
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value))
 }
 
 function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Something went wrong'
+  return error instanceof Error ? error.message : null
 }
 
 function getStatusVariant(status: AdminWaitlistEntry['status']) {
@@ -67,8 +65,34 @@ function getStatusVariant(status: AdminWaitlistEntry['status']) {
   return 'secondary' as const
 }
 
-function getStatusLabel(status: WaitlistStatus) {
-  return status === 'signed_up' ? 'Signed up' : status
+function getStatusLabel(
+  status: WaitlistStatus,
+  copy: ReturnType<typeof useAppMessages>['admin']['registration']['status']
+) {
+  switch (status) {
+    case 'pending':
+      return copy.pending
+    case 'approved':
+      return copy.approved
+    case 'rejected':
+      return copy.rejected
+    case 'signed_up':
+      return copy.signedUp
+  }
+}
+
+function getModeLabel(
+  mode: RegistrationMode,
+  copy: ReturnType<typeof useAppMessages>['admin']['registration']['modes']
+) {
+  switch (mode) {
+    case 'open':
+      return copy.open
+    case 'waitlist':
+      return copy.waitlist
+    case 'disabled':
+      return copy.disabled
+  }
 }
 
 function getTimeRangeCutoff(range: WaitlistTimeRange) {
@@ -104,6 +128,8 @@ function getLastActivityAt(entry: AdminWaitlistEntry) {
 }
 
 export function AdminRegistration() {
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages().admin.registration
   const snapshotQuery = useAdminRegistrationSnapshot()
   const saveModeMutation = useSaveRegistrationMode()
   const updateWaitlistMutation = useUpdateWaitlistStatuses()
@@ -140,6 +166,12 @@ export function AdminRegistration() {
       }),
     [activeStatusFilters, normalizedSearchTerm, submittedRange, waitlist]
   )
+  const timeRangeLabels: Record<WaitlistTimeRange, string> = {
+    all: copy.timeRanges.all,
+    '7d': copy.timeRanges['7d'],
+    '30d': copy.timeRanges['30d'],
+    '90d': copy.timeRanges['90d'],
+  }
 
   const selectableIds = useMemo(
     () => filteredWaitlist.filter((entry) => entry.status !== 'signed_up').map((entry) => entry.id),
@@ -201,13 +233,13 @@ export function AdminRegistration() {
     <div className='flex w-full flex-1 items-center gap-3'>
       <div className='hidden items-center gap-2 sm:flex'>
         <ShieldCheck className='h-[18px] w-[18px] text-muted-foreground' />
-        <span className='font-medium text-sm'>Admin registration</span>
+        <span className='font-medium text-sm'>{copy.title}</span>
       </div>
       <div className='flex w-full max-w-xl flex-1'>
         <SearchInput
           value={searchTerm}
           onChange={setSearchTerm}
-          placeholder='Search waitlist entries...'
+          placeholder={copy.searchPlaceholder}
           className='w-full'
         />
       </div>
@@ -216,7 +248,7 @@ export function AdminRegistration() {
 
   const headerRight = (
     <div className='flex items-center gap-2'>
-      <span className='hidden text-[11px] text-muted-foreground xl:inline'>Mode</span>
+      <span className='hidden text-[11px] text-muted-foreground xl:inline'>{copy.mode}</span>
       <div className='flex items-center gap-2 rounded-md border bg-muted/20 p-1'>
         {REGISTRATION_MODE_VALUES.map((mode) => {
           const isActive = registrationMode === mode
@@ -228,9 +260,9 @@ export function AdminRegistration() {
               size='sm'
               disabled={saveModeMutation.isPending && saveModeMutation.variables === mode}
               onClick={() => saveModeMutation.mutate(mode as RegistrationMode)}
-              className='h-7 px-2 capitalize'
+              className='h-7 px-2'
             >
-              {mode}
+              {getModeLabel(mode as RegistrationMode, copy.modes)}
             </Button>
           )
         })}
@@ -241,19 +273,19 @@ export function AdminRegistration() {
   const headerCenter = (
     <div className='hidden items-center gap-3 rounded-md border bg-muted/20 px-3 py-1.5 xl:flex'>
       <div className='flex items-baseline gap-1 whitespace-nowrap'>
-        <span className='text-[11px] text-muted-foreground'>Pending</span>
+        <span className='text-[11px] text-muted-foreground'>{copy.status.pending}</span>
         <span className='font-medium text-[11px] text-foreground'>{counts.pending}</span>
       </div>
       <div className='flex items-baseline gap-1 whitespace-nowrap'>
-        <span className='text-[11px] text-muted-foreground'>Approved</span>
+        <span className='text-[11px] text-muted-foreground'>{copy.status.approved}</span>
         <span className='font-medium text-[11px] text-foreground'>{counts.approved}</span>
       </div>
       <div className='flex items-baseline gap-1 whitespace-nowrap'>
-        <span className='text-[11px] text-muted-foreground'>Rejected</span>
+        <span className='text-[11px] text-muted-foreground'>{copy.status.rejected}</span>
         <span className='font-medium text-[11px] text-foreground'>{counts.rejected}</span>
       </div>
       <div className='flex items-baseline gap-1 whitespace-nowrap'>
-        <span className='text-[11px] text-muted-foreground'>Signed up</span>
+        <span className='text-[11px] text-muted-foreground'>{copy.status.signedUp}</span>
         <span className='font-medium text-[11px] text-foreground'>{counts.signedUp}</span>
       </div>
     </div>
@@ -264,25 +296,27 @@ export function AdminRegistration() {
       <div className='flex h-full min-h-0 flex-col gap-4'>
         {snapshotQuery.isError ? (
           <Alert variant='destructive'>
-            <AlertDescription>{getErrorMessage(snapshotQuery.error)}</AlertDescription>
+            <AlertDescription>{getErrorMessage(snapshotQuery.error) ?? copy.error}</AlertDescription>
           </Alert>
         ) : null}
 
         {saveModeMutation.isError ? (
           <Alert variant='destructive'>
-            <AlertDescription>{getErrorMessage(saveModeMutation.error)}</AlertDescription>
+            <AlertDescription>{getErrorMessage(saveModeMutation.error) ?? copy.error}</AlertDescription>
           </Alert>
         ) : null}
 
         {updateWaitlistMutation.isError ? (
           <Alert variant='destructive'>
-            <AlertDescription>{getErrorMessage(updateWaitlistMutation.error)}</AlertDescription>
+            <AlertDescription>
+              {getErrorMessage(updateWaitlistMutation.error) ?? copy.error}
+            </AlertDescription>
           </Alert>
         ) : null}
 
         {!snapshot && snapshotQuery.isPending ? (
           <div className='flex flex-1 items-center justify-center rounded-lg border bg-background'>
-            <p className='text-muted-foreground text-sm'>Loading registration settings...</p>
+            <p className='text-muted-foreground text-sm'>{copy.loading}</p>
           </div>
         ) : null}
 
@@ -291,29 +325,29 @@ export function AdminRegistration() {
             <div className='flex flex-col gap-3 border-b bg-muted/10 px-4 py-3 lg:flex-row lg:items-center'>
               <div className='flex flex-1 flex-wrap items-center gap-3 lg:min-w-0 lg:flex-nowrap'>
                 <p className='text-muted-foreground text-sm lg:flex-shrink-0'>
-                  <span className='font-medium text-foreground'>{selectedIds.length}</span> selected
+                  {formatTemplate(copy.selectedCount, { count: selectedIds.length })}
                 </p>
 
                 <div className='flex w-full flex-wrap items-center gap-2 rounded-lg border bg-background px-3 py-2 sm:w-auto lg:min-w-0 lg:flex-nowrap'>
                   <span className='font-medium text-[11px] text-muted-foreground uppercase tracking-[0.2em]'>
-                    Submitted
+                    {copy.submitted}
                   </span>
-                  {TIME_RANGE_OPTIONS.map((option) => (
+                  {TIME_RANGE_VALUES.map((option) => (
                     <Button
-                      key={option.value}
+                      key={option}
                       size='sm'
-                      variant={submittedRange === option.value ? 'default' : 'ghost'}
+                      variant={submittedRange === option ? 'default' : 'ghost'}
                       className='h-7 rounded-md px-2 text-[11px]'
-                      onClick={() => setSubmittedRange(option.value)}
+                      onClick={() => setSubmittedRange(option)}
                     >
-                      {option.label}
+                      {timeRangeLabels[option]}
                     </Button>
                   ))}
                 </div>
 
                 <div className='flex w-full flex-wrap items-center gap-2 rounded-lg border bg-background px-3 py-2 sm:w-auto lg:min-w-0 lg:flex-nowrap'>
                   <span className='font-medium text-[11px] text-muted-foreground uppercase tracking-[0.2em]'>
-                    Status
+                    {copy.statusLabel}
                   </span>
                   <Button
                     size='sm'
@@ -321,7 +355,7 @@ export function AdminRegistration() {
                     className='h-7 rounded-md px-2 text-[11px]'
                     onClick={() => setStatusFilters([...WAITLIST_STATUS_VALUES])}
                   >
-                    All
+                    {copy.all}
                   </Button>
                   {WAITLIST_STATUS_VALUES.map((status) => (
                     <Button
@@ -331,7 +365,7 @@ export function AdminRegistration() {
                       className='h-7 rounded-md px-2 text-[11px] capitalize'
                       onClick={() => toggleStatusFilter(status)}
                     >
-                      {getStatusLabel(status)}
+                      {getStatusLabel(status, copy.status)}
                     </Button>
                   ))}
                 </div>
@@ -346,7 +380,7 @@ export function AdminRegistration() {
                   className='min-w-[88px] flex-1 sm:flex-none'
                 >
                   <CheckCheck className='mr-2 h-4 w-4' />
-                  Approve
+                  {copy.actions.approve}
                 </Button>
                 <Button
                   size='sm'
@@ -356,7 +390,7 @@ export function AdminRegistration() {
                   className='min-w-[88px] flex-1 sm:flex-none'
                 >
                   <UserCheck2 className='mr-2 h-4 w-4' />
-                  Reject
+                  {copy.actions.reject}
                 </Button>
                 <Button
                   size='sm'
@@ -366,7 +400,7 @@ export function AdminRegistration() {
                   className='min-w-[88px] flex-1 sm:flex-none'
                 >
                   <X className='mr-2 h-4 w-4' />
-                  Clear
+                  {copy.actions.clear}
                 </Button>
               </div>
             </div>
@@ -382,21 +416,21 @@ export function AdminRegistration() {
                         onCheckedChange={(checked) =>
                           setSelectedIds(checked === true ? selectableIds : [])
                         }
-                        aria-label='Select visible waitlist entries'
+                        aria-label={copy.selectVisible}
                       />
                     </TableHead>
-                    <TableHead className='bg-background'>Email</TableHead>
-                    <TableHead className='bg-background'>Status</TableHead>
-                    <TableHead className='bg-background'>Submitted</TableHead>
-                    <TableHead className='bg-background'>Last activity</TableHead>
-                    <TableHead className='bg-background'>Actions</TableHead>
+                    <TableHead className='bg-background'>{copy.table.email}</TableHead>
+                    <TableHead className='bg-background'>{copy.table.status}</TableHead>
+                    <TableHead className='bg-background'>{copy.table.submitted}</TableHead>
+                    <TableHead className='bg-background'>{copy.table.lastActivity}</TableHead>
+                    <TableHead className='bg-background'>{copy.table.actions}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredWaitlist.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className='py-10 text-center text-muted-foreground'>
-                        No waitlist entries match the current search.
+                        {copy.emptyState}
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -405,8 +439,12 @@ export function AdminRegistration() {
                         updateWaitlistMutation.isPending &&
                         updateWaitlistMutation.variables?.ids?.includes(entry.id)
                       const isSelectable = entry.status !== 'signed_up'
-                      const submittedAt = formatTimestamp(entry.createdAt)
-                      const lastActivityAt = formatTimestamp(getLastActivityAt(entry))
+                      const submittedAt = formatTimestamp(locale, entry.createdAt, copy.never)
+                      const lastActivityAt = formatTimestamp(
+                        locale,
+                        getLastActivityAt(entry),
+                        copy.never
+                      )
 
                       return (
                         <TableRow key={entry.id}>
@@ -422,7 +460,7 @@ export function AdminRegistration() {
                                       : current.filter((id) => id !== entry.id)
                                   )
                                 }
-                                aria-label={`Select ${entry.email}`}
+                                aria-label={formatTemplate(copy.selectEntry, { email: entry.email })}
                               />
                             ) : null}
                           </TableCell>
@@ -439,7 +477,7 @@ export function AdminRegistration() {
                               variant={getStatusVariant(entry.status)}
                               className={ADMIN_STATUS_BADGE_CLASSNAME}
                             >
-                              {getStatusLabel(entry.status)}
+                              {getStatusLabel(entry.status, copy.status)}
                             </Badge>
                           </TableCell>
                           <TableCell>
@@ -468,7 +506,7 @@ export function AdminRegistration() {
                                   onClick={() => updateEntries([entry.id], 'approved')}
                                 >
                                   <CheckCheck className='mr-2 h-4 w-4' />
-                                  Approve
+                                  {copy.actions.approve}
                                 </Button>
                               ) : null}
 
@@ -480,7 +518,7 @@ export function AdminRegistration() {
                                   onClick={() => updateEntries([entry.id], 'rejected')}
                                 >
                                   <UserCheck2 className='mr-2 h-4 w-4' />
-                                  Reject
+                                  {copy.actions.reject}
                                 </Button>
                               ) : null}
                             </div>

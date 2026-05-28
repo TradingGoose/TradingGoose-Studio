@@ -6,6 +6,7 @@ import { MarketProviderSelector } from '@/components/market-selector/provider-se
 import { TradingAccountSelector } from '@/components/trading-selector/account-selector'
 import { TradingProviderSelector } from '@/components/trading-selector/provider-selector'
 import { Label, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui'
+import { formatTemplate } from '@/i18n/template'
 import { DateTimePicker } from '@/components/ui/datetime-picker'
 import { SimpleTimePicker } from '@/components/ui/simple-time-picker'
 import { Slider } from '@/components/ui/slider'
@@ -69,6 +70,7 @@ import { DocumentTagEntry } from './components/document-tag-entry/document-tag-e
 import { KnowledgeTagFilters } from './components/knowledge-tag-filters/knowledge-tag-filters'
 import { useDependsOnGate } from './hooks/use-depends-on-gate'
 import { useSubBlockValue } from './hooks/use-sub-block-value'
+import { useWorkflowI18n, useWorkflowInspectorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 interface SubBlockProps {
   blockId: string
@@ -436,6 +438,8 @@ export const SubBlock = memo(
     contextValues,
   }: SubBlockProps) {
     const [isValidJson, setIsValidJson] = useState(true)
+    const editorCopy = useWorkflowInspectorCopy().workflowEditor
+    const { translateWorkflowLabel } = useWorkflowI18n()
 
     const handleMouseDown = (e: React.MouseEvent) => {
       e.stopPropagation()
@@ -542,7 +546,7 @@ export const SubBlock = memo(
             <Table
               blockId={blockId}
               subBlockId={config.id}
-              columns={config.columns ?? []}
+              columns={(config.columns ?? []).map((column) => translateWorkflowLabel(column))}
               disabled={isDisabled}
             />
           )
@@ -818,7 +822,9 @@ export const SubBlock = memo(
         case 'trigger-save':
           return <TriggerSave blockId={blockId} subBlockId={config.id} disabled={isDisabled} />
         default:
-          return <div>Unknown input type: {config.type}</div>
+          return (
+            <div>{formatTemplate(editorCopy.unknownInputType, { type: String(config.type) })}</div>
+          )
       }
     }
 
@@ -843,7 +849,7 @@ export const SubBlock = memo(
                   <span className='cursor-help text-red-500'>*</span>
                 </TooltipTrigger>
                 <TooltipContent side='top'>
-                  <p>This field is required</p>
+                  <p>{editorCopy.requiredField}</p>
                 </TooltipContent>
               </Tooltip>
             )}
@@ -858,7 +864,7 @@ export const SubBlock = memo(
                   />
                 </TooltipTrigger>
                 <TooltipContent side='top'>
-                  <p>Invalid JSON</p>
+                  <p>{editorCopy.invalidJson}</p>
                 </TooltipContent>
               </Tooltip>
             )}

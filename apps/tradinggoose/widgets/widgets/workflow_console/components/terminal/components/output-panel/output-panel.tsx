@@ -12,6 +12,7 @@ import {
   Play,
 } from 'lucide-react'
 import Image from 'next/image'
+import { useLocale } from 'next-intl'
 import { JsonDisplay, stringifyJsonDisplay } from '@/components/json-display/json-display'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -19,7 +20,9 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { getBlock } from '@/blocks'
+import { formatDurationMs } from '@/i18n/formatters'
 import type { ConsoleEntry as ConsoleEntryType } from '@/stores/console/types'
+import { useWorkflowConsoleCopy } from '../../../../copy'
 import { CodeDisplay } from '../../../code-display/code-display'
 
 const logger = createLogger('OutputPanel')
@@ -184,6 +187,8 @@ export function OutputPanel({
   hideScrollbar = true,
   detailState,
 }: OutputPanelProps) {
+  const copy = useWorkflowConsoleCopy()
+  const locale = useLocale()
   const [isExpanded, setIsExpanded] = useState(true)
   const [showCopySuccess, setShowCopySuccess] = useState(false)
   const [localShowInput, setLocalShowInput] = useState(false) // State for input/output toggle
@@ -362,7 +367,7 @@ export function OutputPanel({
       setTimeout(() => URL.revokeObjectURL(url), 100)
     } catch (error) {
       logger.error('Error downloading image:', error)
-      alert('Failed to download image. Please try again later.')
+      alert(copy.downloadImageFailed)
     }
   }
 
@@ -428,7 +433,7 @@ export function OutputPanel({
           </div>
         )}
         <span className='font-normal text-base text-sm leading-normal'>
-          {entry.blockName || 'Unknown Block'}
+          {entry.blockName || copy.unknownBlock}
         </span>
       </div>
 
@@ -443,26 +448,26 @@ export function OutputPanel({
             <div className='flex items-center gap-1'>
               <AlertCircle className='h-3 w-3 text-[#DC2626] dark:text-[#F87171]' />
               <span className='font-normal text-[#DC2626] text-xs leading-normal dark:text-[#F87171]'>
-                Error
+                {copy.error}
               </span>
             </div>
           ) : isRunning ? (
             <span className='font-normal text-emerald-600 text-xs leading-normal dark:text-emerald-400'>
-              Running
+              {copy.running}
             </span>
           ) : isCanceled ? (
             <span className='font-normal text-muted-foreground text-xs leading-normal'>
-              Canceled
+              {copy.canceled}
             </span>
           ) : (
             <span className='font-normal text-muted-foreground text-xs leading-normal'>
-              {entry.durationMs ?? 0}ms
+              {formatDurationMs(locale, entry.durationMs ?? 0)}
             </span>
           )}
         </div>
         <div className='flex h-5 items-center rounded-lg bg-secondary px-2'>
           <span className='font-normal text-muted-foreground text-xs leading-normal'>
-            {entry.startedAt ? format(new Date(entry.startedAt), 'HH:mm:ss') : 'N/A'}
+            {entry.startedAt ? format(new Date(entry.startedAt), 'HH:mm:ss') : copy.notAvailable}
           </span>
         </div>
         {/* Iteration tag - only show if iteration context exists */}
@@ -486,7 +491,7 @@ export function OutputPanel({
                   : 'bg-secondary text-muted-foreground hover:bg-secondary hover:text-card-foreground'
               }`}
             >
-              <span className='font-normal text-xs leading-normal'>Output</span>
+              <span className='font-normal text-xs leading-normal'>{copy.output}</span>
             </button>
             <button
               onClick={() => setShowInput(true)}
@@ -496,7 +501,7 @@ export function OutputPanel({
                   : 'bg-secondary text-muted-foreground hover:bg-secondary hover:text-card-foreground'
               }`}
             >
-              <span className='font-normal text-xs leading-normal'>Input</span>
+              <span className='font-normal text-xs leading-normal'>{copy.input}</span>
             </button>
             {/* Copy button for code input - only show when input is selected and it's a function block with code */}
             {shouldShowCodeDisplay && !isDetailView && (
@@ -538,7 +543,7 @@ export function OutputPanel({
         {entry.warning && !showInput && !isDetailView && (
           <div className='rounded-lg border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800/50'>
             <div className='mb-1 font-normal text-sm text-yellow-800 leading-normal dark:text-yellow-200'>
-              Warning
+              {copy.warning}
             </div>
             <div className='overflow-hidden whitespace-pre-wrap break-all font-normal text-sm text-yellow-700 leading-normal dark:text-yellow-300'>
               {entry.warning}
@@ -572,7 +577,7 @@ export function OutputPanel({
                           size='sm'
                           className='h-6 w-6 p-0 hover:bg-transparent'
                           onClick={togglePlay}
-                          aria-label={isPlaying ? 'Pause' : 'Play'}
+                          aria-label={isPlaying ? copy.pause : copy.play}
                         >
                           {isPlaying ? (
                             <Pause className='h-3 w-3 text-muted-foreground' />
@@ -585,7 +590,7 @@ export function OutputPanel({
                           size='sm'
                           className='h-6 w-6 p-0 hover:bg-transparent'
                           onClick={downloadAudio}
-                          aria-label='Download audio'
+                          aria-label={copy.downloadAudio}
                         >
                           <Download className='h-3 w-3 text-muted-foreground' />
                         </Button>
@@ -598,7 +603,7 @@ export function OutputPanel({
                         size='sm'
                         className='h-6 w-6 p-0 hover:bg-transparent'
                         onClick={downloadImage}
-                        aria-label='Download image'
+                        aria-label={copy.downloadImage}
                       >
                         <Download className='h-3 w-3 text-muted-foreground' />
                       </Button>
@@ -646,6 +651,7 @@ export function OutputPanel({
                     data={displayData}
                     mode={isDetailView && structuredView ? 'beauty' : 'raw'}
                     wrapText={wrapText}
+                    copyLabel={copy.copyValue}
                     isError={isOutputError}
                     isRunning={isOutputRunning}
                     className={
@@ -671,7 +677,7 @@ export function OutputPanel({
         {!showInput && entry.output == null && !entry.error && (
           <div className='rounded-lg bg-secondary/50 p-3'>
             <div className='text-center font-normal text-muted-foreground text-sm leading-normal'>
-              {isRunning ? 'Running...' : isCanceled ? 'Canceled' : 'No output'}
+              {isRunning ? copy.runningEllipsis : isCanceled ? copy.canceled : copy.noOutput}
             </div>
           </div>
         )}
@@ -680,7 +686,7 @@ export function OutputPanel({
         {showInput && !hasInputData && (
           <div className='rounded-lg bg-secondary/50 p-3'>
             <div className='text-center font-normal text-muted-foreground text-sm leading-normal'>
-              No input
+              {copy.noInput}
             </div>
           </div>
         )}

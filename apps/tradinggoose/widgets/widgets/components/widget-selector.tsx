@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { useSelectorMessages, useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   widgetHeaderControlClassName,
@@ -41,7 +42,9 @@ export function WidgetSelectorComponent({
   disabled,
   renderTrigger,
 }: WidgetSelectorProps) {
-  const categories = useMemo(() => getWidgetCategories(), [])
+  const widgetsCopy = useWorkspaceWidgetsMessages()
+  const categories = useMemo(() => getWidgetCategories(widgetsCopy), [widgetsCopy])
+  const selectorCopy = useSelectorMessages()
   const visibleCategories = useMemo(
     () =>
       categories
@@ -87,7 +90,9 @@ export function WidgetSelectorComponent({
       })
     : triggerContent
 
-  const tooltipText = triggerDisabled ? 'Widget selection unavailable' : 'Select widget'
+  const tooltipText = triggerDisabled
+    ? selectorCopy.widgetSelectionUnavailable
+    : selectorCopy.selectWidget
 
   return (
     <DropdownMenu>

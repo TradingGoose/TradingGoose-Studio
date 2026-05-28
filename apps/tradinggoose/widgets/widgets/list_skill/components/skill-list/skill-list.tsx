@@ -1,9 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { SKILL_NAME_MAX_LENGTH } from '@/lib/skills/import-export'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { useAppMessages } from '@/i18n/client-messages'
 import { useDeleteSkill, useSkills, useUpdateSkill } from '@/hooks/queries/skills'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useSkillsStore } from '@/stores/skills/store'
@@ -31,6 +33,9 @@ export function SkillList({
   panelId,
   pairColor = 'gray',
 }: WidgetComponentProps) {
+  const locale = useLocale()
+  const copy = useAppMessages().workspace.widgets.skillList
+  const skillValidationCopy = useAppMessages().workspace.widgets.skillEditor.validation
   const workspaceId = context?.workspaceId ?? null
   const permissions = useUserPermissionsContext()
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
@@ -136,11 +141,11 @@ export function SkillList({
 
       const normalizedName = normalizeSkillName(name)
       if (!normalizedName) {
-        throw new Error('Skill name is required')
+        throw new Error(skillValidationCopy.nameRequired)
       }
 
       if (normalizedName.length > SKILL_NAME_MAX_LENGTH) {
-        throw new Error(`Skill name must be ${SKILL_NAME_MAX_LENGTH} characters or fewer`)
+        throw new Error(skillValidationCopy.nameTooLong.replace('{{max}}', String(SKILL_NAME_MAX_LENGTH)))
       }
 
       await updateMutation.mutateAsync({
@@ -165,7 +170,7 @@ export function SkillList({
   if (error && listSkills.length === 0) {
     return (
       <SkillListMessage
-        message={error instanceof Error ? error.message : 'Failed to load skills.'}
+        message={error instanceof Error ? error.message : copy.body.failedToLoadSkills}
       />
     )
   }
@@ -173,7 +178,7 @@ export function SkillList({
   return (
     <div className='h-full w-full overflow-hidden p-2'>
       {listSkills.length === 0 ? (
-        <SkillListMessage message='No skills yet.' />
+        <SkillListMessage message={copy.body.noSkillsYet} />
       ) : (
         <div className='h-full space-y-1 overflow-auto'>
           {listSkills.map((skill) => (

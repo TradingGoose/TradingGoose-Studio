@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { ZodError, z } from 'zod'
 import { createLogger } from '@/lib/logs/console/logger'
 import { addToWaitlist, getRegistrationMode } from '@/lib/registration/service'
-import { REGISTRATION_DISABLED_MESSAGE } from '@/lib/registration/shared'
+import { REGISTRATION_DISABLED_REASON } from '@/lib/registration/shared'
 
 const NO_STORE_HEADERS = {
   'Cache-Control': 'no-store',
@@ -31,7 +31,10 @@ export async function POST(request: NextRequest) {
 
     if (registrationMode === 'disabled') {
       return NextResponse.json(
-        { error: REGISTRATION_DISABLED_MESSAGE },
+        {
+          error: REGISTRATION_DISABLED_REASON,
+          code: 'REGISTRATION_DISABLED',
+        },
         {
           status: 403,
           headers: NO_STORE_HEADERS,

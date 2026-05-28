@@ -1,18 +1,27 @@
 import type { Metadata } from 'next'
+import { getLocale } from 'next-intl/server'
 import LegalLayout from '@/app/(landing)/components/legal-layout'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { buildLocalizedAlternates, type LocaleCode } from '@/i18n/utils'
 import { CareersForm } from './careers-form'
 
-export const metadata: Metadata = {
-  title: 'Careers | TradingGoose',
-  description: 'Join the TradingGoose Studio team.',
-  alternates: {
-    canonical: '/careers',
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = (await getLocale()) as LocaleCode
+  const copy = getPublicCopy(locale)
+
+  return {
+    title: copy.meta.careers.title,
+    description: copy.meta.careers.description,
+    alternates: buildLocalizedAlternates(locale, '/careers'),
+  }
 }
 
-export default function CareersPage() {
+export default async function CareersPage() {
+  const locale = (await getLocale()) as LocaleCode
+  const copy = getPublicCopy(locale)
+
   return (
-    <LegalLayout title='Join Our Team' path='/careers'>
+    <LegalLayout title={copy.careers.pageTitle} path='/careers'>
       <CareersForm />
     </LegalLayout>
   )

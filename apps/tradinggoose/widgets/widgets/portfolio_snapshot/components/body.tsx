@@ -1,6 +1,7 @@
 'use client'
 
 import { type ReactNode, useEffect, useMemo, useRef } from 'react'
+import { useLocale } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader } from '@/components/ui/empty'
@@ -15,6 +16,8 @@ import { usePortfolioDetail, usePortfolioPerformance } from '@/hooks/queries/tra
 import { getPortfolioListingExposures } from '@/providers/trading/portfolio-selectors'
 import { getTradingProviderDefinition } from '@/providers/trading/providers'
 import type { TradingPortfolioPerformanceWindow } from '@/providers/trading/types'
+import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import type { LocaleCode } from '@/i18n/utils'
 import type { WidgetComponentProps } from '@/widgets/types'
 import {
   emitPortfolioSnapshotParamsChange,
@@ -59,46 +62,53 @@ const PORTFOLIO_SNAPSHOT_QUOTE_CAP = MARKET_QUOTE_SNAPSHOT_REQUEST_CAP
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value)
 
-const formatCurrency = (value: number | null | undefined, currency = 'USD') => {
+const formatCurrency = (value: number | null | undefined, currency = 'USD', locale = 'en-US') => {
   if (!isFiniteNumber(value)) {
     return 'N/A'
   }
 
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency,
     maximumFractionDigits: 2,
   }).format(value)
 }
 
-const formatPercent = (value: number | null | undefined) => {
+const formatPercent = (value: number | null | undefined, locale = 'en-US') => {
   if (!isFiniteNumber(value)) {
     return 'N/A'
   }
 
-  return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
+  return `${value >= 0 ? '+' : ''}${new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value)}%`
 }
 
-const formatSignedCurrency = (value: number | null | undefined, currency = 'USD') => {
+const formatSignedCurrency = (
+  value: number | null | undefined,
+  currency = 'USD',
+  locale = 'en-US'
+) => {
   if (!isFiniteNumber(value)) {
     return 'N/A'
   }
 
-  const formatted = formatCurrency(Math.abs(value), currency)
+  const formatted = formatCurrency(Math.abs(value), currency, locale)
   return `${value >= 0 ? '+' : '-'}${formatted}`
 }
 
-const formatAsOf = (timestamp: string | undefined) => {
+const formatAsOf = (timestamp: string | undefined, locale = 'en-US') => {
   if (!timestamp) return 'N/A'
   const parsed = Date.parse(timestamp)
   if (!Number.isFinite(parsed)) return 'N/A'
   if (CALENDAR_DAY_TIMESTAMP_PATTERN.test(timestamp)) {
-    return new Intl.DateTimeFormat('en-US', {
+    return new Intl.DateTimeFormat(locale, {
       dateStyle: 'medium',
       timeZone: 'UTC',
     }).format(new Date(parsed))
   }
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(parsed))
@@ -167,6 +177,8 @@ export function PortfolioSnapshotWidgetBody({
   params,
   onWidgetParamsChange,
 }: WidgetComponentProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages().workspace.widgets.portfolioSnapshot.body
   const workspaceId = context?.workspaceId ?? null
   const widgetKey = widget?.key ?? 'portfolio_snapshot'
   const widgetParams =
@@ -342,7 +354,7 @@ export function PortfolioSnapshotWidgetBody({
         message={
           providerAvailabilityQuery.error instanceof Error
             ? providerAvailabilityQuery.error.message
-            : 'Failed to load trading providers.'
+            : copy.failedToLoadTradingProviders
         }
       />
     )
@@ -350,10 +362,10 @@ export function PortfolioSnapshotWidgetBody({
 
   if (!providerId || providerOptions.length === 0) {
     if (providerOptions.length === 0) {
-      return <PortfolioMessage message='No trading providers are configured.' />
+      return <PortfolioMessage message={copy.noTradingProvidersConfigured} />
     }
 
-    return <PortfolioMessage message='Select a trading provider to get started.' />
+    return <PortfolioMessage message={copy.selectTradingProviderToGetStarted} />
   }
 
   if (!activePortfolioIdentity) {
@@ -363,7 +375,7 @@ export function PortfolioSnapshotWidgetBody({
 
     if (!activeServiceId) {
       return (
-        <PortfolioMessage message='Select a broker connection to load this portfolio snapshot.' />
+        <PortfolioMessage message={copy.selectBrokerConnectionToLoadPortfolioSnapshot} />
       )
     }
 
@@ -377,17 +389,17 @@ export function PortfolioSnapshotWidgetBody({
           message={
             accountsQuery.error instanceof Error
               ? accountsQuery.error.message
-              : 'Failed to load broker accounts.'
+              : copy.failedToLoadBrokerAccounts
           }
         />
       )
     }
 
     if (portfolioIdentities.length === 0) {
-      return <PortfolioMessage message='No broker accounts found for this provider connection.' />
+      return <PortfolioMessage message={copy.noBrokerAccountsFoundForThisProviderConnection} />
     }
 
-    return <PortfolioMessage message='Select a broker account to load this portfolio snapshot.' />
+    return <PortfolioMessage message={copy.selectBrokerAccountToLoadPortfolioSnapshot} />
   }
 
   if (snapshotQuery.isLoading && !snapshotQuery.data) {
@@ -400,7 +412,7 @@ export function PortfolioSnapshotWidgetBody({
         message={
           snapshotQuery.error instanceof Error
             ? snapshotQuery.error.message
-            : 'Failed to load portfolio snapshot.'
+            : copy.failedToLoadPortfolioSnapshot
         }
       />
     )
@@ -414,7 +426,7 @@ export function PortfolioSnapshotWidgetBody({
     quoteSnapshotsQuery.error instanceof Error
       ? quoteSnapshotsQuery.error.message
       : quoteSnapshotsQuery.error
-        ? 'Failed to load market quotes.'
+        ? copy.failedToLoadMarketQuotes
         : null
   const quoteSummary = cappedQuotePositions.reduce(
     (summary, position) => {
@@ -443,24 +455,31 @@ export function PortfolioSnapshotWidgetBody({
       : null
   const quotedPositionsHint =
     quotePositions.length > cappedQuotePositions.length
-      ? `Quote metrics use first ${PORTFOLIO_SNAPSHOT_QUOTE_CAP} of ${quotePositions.length} holdings`
+      ? formatTemplate(copy.quoteMetricsUseFirst, {
+          cap: PORTFOLIO_SNAPSHOT_QUOTE_CAP,
+          total: quotePositions.length,
+        })
       : undefined
+  const quotedPositionsText = formatTemplate(copy.quotedPositionsSummary, {
+    quoted: quoteSummary.quotedPositions,
+    total: cappedQuotePositions.length,
+  })
   const quoteStatusText =
     quoteErrorMessage ??
     (quoteSnapshotsQuery.isLoading && !quoteSnapshotsQuery.data
-      ? 'Loading quotes'
+      ? copy.loadingQuotes
       : quoteSnapshotsQuery.isFetching
-        ? 'Refreshing quotes'
+        ? copy.refreshingQuotes
         : (quotedPositionsHint ??
           (marketProviderId
             ? quoteItems.length > 0
-              ? `${quoteSummary.quotedPositions}/${cappedQuotePositions.length} quoted`
-              : 'No holdings with market listings'
-            : 'No market provider')))
+              ? quotedPositionsText
+              : copy.noHoldingsWithMarketListings
+            : copy.noMarketProvider)))
   const accountMetaText = [
     snapshot.providerName ?? providerDefinition?.name ?? providerId,
-    snapshot.accountStatus ?? 'unknown',
-    snapshot.accountType ?? 'unknown',
+    snapshot.accountStatus ?? copy.unknown,
+    snapshot.accountType ?? copy.unknown,
   ].join(' · ')
   const performanceTone = getNumberTone(performance?.summary?.absoluteReturn)
   const quoteDayTone = getNumberTone(quoteDayChange)
@@ -476,9 +495,9 @@ export function PortfolioSnapshotWidgetBody({
         <div className='space-y-3'>
           <section className='overflow-hidden bg-card/30'>
             <div className='flex flex-wrap items-center justify-between gap-3 border-border/60 border-b px-3 py-2.5'>
-              <div className='min-w-0'>
-                <div className='flex min-w-0 flex-wrap items-center gap-2'>
-                  <h3 className='font-medium text-sm'>Performance</h3>
+                <div className='min-w-0'>
+                  <div className='flex min-w-0 flex-wrap items-center gap-2'>
+                  <h3 className='font-medium text-sm'>{copy.performance}</h3>
                   {selectedWindow ? (
                     <Badge
                       variant='outline'
@@ -491,13 +510,13 @@ export function PortfolioSnapshotWidgetBody({
                 <div className='mt-1 truncate text-muted-foreground text-xs'>
                   {snapshot.accountName ?? snapshot.accountId}
                 </div>
-              </div>
+                </div>
 
-              <div
-                role='tablist'
-                aria-label='Performance window'
-                className='flex flex-wrap items-center gap-1'
-              >
+                <div
+                  role='tablist'
+                  aria-label={copy.performanceWindow}
+                  className='flex flex-wrap items-center gap-1'
+                >
                 {activeWindows.map((window) => (
                   <Button
                     key={window}
@@ -534,35 +553,29 @@ export function PortfolioSnapshotWidgetBody({
                   message={
                     performanceQuery.error instanceof Error
                       ? performanceQuery.error.message
-                      : 'Failed to load performance history.'
+                      : copy.failedToLoadPerformanceHistory
                   }
                 />
               ) : performance?.summary ? (
                 <div className='space-y-3'>
                   <MetricGroup>
                     <MetricTile
-                      label='Return'
-                      value={formatSignedCurrency(performance.summary.absoluteReturn, currency)}
-                      hint={formatPercent(performance.summary.percentReturn)}
+                      label={copy.return}
+                      value={formatSignedCurrency(performance.summary.absoluteReturn, currency, locale)}
+                      hint={formatPercent(performance.summary.percentReturn, locale)}
                       tone={performanceTone}
                     />
+                    <MetricTile label={copy.start} value={formatCurrency(performance.summary.startEquity, currency, locale)} />
+                    <MetricTile label={copy.current} value={formatCurrency(performance.summary.endEquity, currency, locale)} />
                     <MetricTile
-                      label='Start'
-                      value={formatCurrency(performance.summary.startEquity, currency)}
-                    />
-                    <MetricTile
-                      label='Current'
-                      value={formatCurrency(performance.summary.endEquity, currency)}
-                    />
-                    <MetricTile
-                      label='High'
-                      value={formatCurrency(performance.summary.highEquity, currency)}
+                      label={copy.high}
+                      value={formatCurrency(performance.summary.highEquity, currency, locale)}
                       tone='positive'
                     />
                     <MetricTile
-                      label='Low'
-                      value={formatCurrency(performance.summary.lowEquity, currency)}
-                      hint={`As of ${formatAsOf(performance.summary.asOf)}`}
+                      label={copy.low}
+                      value={formatCurrency(performance.summary.lowEquity, currency, locale)}
+                      hint={formatTemplate(copy.asOf, { date: formatAsOf(performance.summary.asOf, locale) })}
                     />
                   </MetricGroup>
                   <div className='h-[230px] min-h-[210px] rounded-md border border-border/60 bg-background/70 p-2'>
@@ -576,7 +589,7 @@ export function PortfolioSnapshotWidgetBody({
                 <PortfolioMessage
                   message={
                     performance?.unavailableReason ??
-                    'Performance history is unavailable for the selected account.'
+                    copy.performanceHistoryUnavailable
                   }
                 />
               )}
@@ -587,12 +600,12 @@ export function PortfolioSnapshotWidgetBody({
             <div className='flex flex-wrap items-start justify-between gap-3 border-border/60 border-b px-3 py-2.5'>
               <div className='min-w-0'>
                 <div className='flex min-w-0 flex-wrap items-center gap-2'>
-                  <h3 className='font-medium text-sm'>Current Summary</h3>
+                  <h3 className='font-medium text-sm'>{copy.currentSummary}</h3>
                   <Badge
                     variant='outline'
                     className='rounded-sm px-1.5 py-0 font-medium text-[10px]'
                   >
-                    {snapshot.accountStatus ?? 'unknown'}
+                    {snapshot.accountStatus ?? copy.unknown}
                   </Badge>
                 </div>
                 <div className='mt-1 truncate text-muted-foreground text-xs'>{accountMetaText}</div>
@@ -601,35 +614,35 @@ export function PortfolioSnapshotWidgetBody({
                 <div className='font-medium text-foreground'>
                   {snapshot.accountName ?? snapshot.accountId}
                 </div>
-                <div>As of {formatAsOf(snapshot.asOf)}</div>
+                <div>{formatTemplate(copy.asOf, { date: formatAsOf(snapshot.asOf, locale) })}</div>
               </div>
             </div>
 
             <div className='p-3'>
               <MetricGroup>
                 <MetricTile
-                  label='Portfolio Value'
-                  value={formatCurrency(snapshot.summary.totalPortfolioValue, currency)}
+                  label={copy.portfolioValue}
+                  value={formatCurrency(snapshot.summary.totalPortfolioValue, currency, locale)}
                 />
                 <MetricTile
-                  label='Cash'
-                  value={formatCurrency(snapshot.summary.totalCashValue, currency)}
+                  label={copy.cash}
+                  value={formatCurrency(snapshot.summary.totalCashValue, currency, locale)}
                 />
                 <MetricTile
-                  label='Holdings'
-                  value={formatCurrency(snapshot.summary.totalHoldingsValue, currency)}
+                  label={copy.holdings}
+                  value={formatCurrency(snapshot.summary.totalHoldingsValue, currency, locale)}
                 />
                 <MetricTile
-                  label='Buying Power'
-                  value={formatCurrency(snapshot.summary.buyingPower, currency)}
+                  label={copy.buyingPower}
+                  value={formatCurrency(snapshot.summary.buyingPower, currency, locale)}
                 />
                 <MetricTile
-                  label='Unrealized P&L'
-                  value={formatSignedCurrency(snapshot.summary.totalUnrealizedPnl, currency)}
+                  label={copy.unrealizedPnl}
+                  value={formatSignedCurrency(snapshot.summary.totalUnrealizedPnl, currency, locale)}
                   tone={getNumberTone(snapshot.summary.totalUnrealizedPnl)}
                 />
                 <MetricTile
-                  label='Positions'
+                  label={copy.positions}
                   value={String(snapshot.positions.length)}
                   hint={snapshot.accountId}
                 />
@@ -641,16 +654,16 @@ export function PortfolioSnapshotWidgetBody({
               <div className='flex flex-wrap items-end justify-between gap-2'>
                 <div className='min-w-0'>
                   <div className='flex min-w-0 flex-wrap items-center gap-2'>
-                    <h3 className='font-medium text-sm'>Market Quotes</h3>
+                    <h3 className='font-medium text-sm'>{copy.marketQuotes}</h3>
                     <Badge
                       variant='outline'
                       className='rounded-sm px-1.5 py-0 font-medium text-[10px]'
                     >
-                      {marketProviderName || 'No market provider'}
+                      {marketProviderName || copy.noMarketProvider}
                     </Badge>
                   </div>
                   <div className='mt-1 truncate text-muted-foreground text-xs'>
-                    Quote-backed intraday estimate
+                    {copy.quoteBackedIntradayEstimate}
                   </div>
                 </div>
                 <div className={cn('text-right text-xs', metricToneClassName[quoteStatusTone])}>
@@ -660,30 +673,30 @@ export function PortfolioSnapshotWidgetBody({
 
               <MetricGroup className='mt-2'>
                 <MetricTile
-                  label='Quote Value'
+                  label={copy.quoteValue}
                   value={
                     quoteErrorMessage
                       ? 'N/A'
                       : quoteSummary.quotedPositions > 0
-                        ? formatCurrency(quoteSummary.quoteValue, currency)
+                        ? formatCurrency(quoteSummary.quoteValue, currency, locale)
                         : 'N/A'
                   }
-                  hint={quoteErrorMessage ?? marketProviderId ?? 'No market provider'}
+                  hint={quoteErrorMessage ?? marketProviderId ?? copy.noMarketProvider}
                   tone={quoteErrorMessage ? 'negative' : 'neutral'}
                 />
                 <MetricTile
-                  label='Day Change'
-                  value={quoteErrorMessage ? 'N/A' : formatSignedCurrency(quoteDayChange, currency)}
-                  hint={quoteSnapshotsQuery.isFetching ? 'Refreshing' : undefined}
+                  label={copy.dayChange}
+                  value={quoteErrorMessage ? 'N/A' : formatSignedCurrency(quoteDayChange, currency, locale)}
+                  hint={quoteSnapshotsQuery.isFetching ? copy.refreshingQuotes : undefined}
                   tone={quoteErrorMessage ? 'negative' : quoteDayTone}
                 />
                 <MetricTile
-                  label='Day %'
-                  value={quoteErrorMessage ? 'N/A' : formatPercent(quoteDayPercent)}
+                  label={copy.dayPercent}
+                  value={quoteErrorMessage ? 'N/A' : formatPercent(quoteDayPercent, locale)}
                   tone={quoteErrorMessage ? 'negative' : getNumberTone(quoteDayPercent)}
                 />
                 <MetricTile
-                  label='Quoted Positions'
+                  label={copy.quotedPositions}
                   value={
                     quoteErrorMessage
                       ? `0/${cappedQuotePositions.length}`

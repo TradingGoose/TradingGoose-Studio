@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import { Notebook } from 'lucide-react'
 import Link from 'next/link'
+import { useLocale, useTranslations } from 'next-intl'
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -14,6 +15,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { openBillingPortal } from '@/lib/billing/billing-portal'
 import { createLogger } from '@/lib/logs/console/logger'
+import { localizeDocsUrl, localizeHref, type LocaleCode } from '@/i18n/utils'
 import { getBillingStatus, getSubscriptionStatus, getUsage } from '@/lib/subscription/helpers'
 import { UsageHeader } from '@/global-navbar/settings-modal/components/shared/usage-header'
 import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
@@ -24,45 +26,52 @@ interface SidebarNavProps {
   navItems: NavSection[]
 }
 
-const DOCUMENTATION_NAV_ITEM: NavSection = {
-  title: 'Documentation',
-  url: 'https://docs.tradinggoose.ai',
-  icon: Notebook,
-  section: 'more',
-}
-
 export function SidebarNav({ navItems }: SidebarNavProps) {
+  const locale = useLocale() as LocaleCode
+  const tNavGroups = useTranslations('workspace.nav.groups')
+  const tNav = useTranslations('nav')
   const workspaceItems = navItems.filter((item) => (item.section ?? 'workspace') === 'workspace')
   const adminItems = navItems.filter((item) => item.section === 'admin')
-  const moreItems = withDocumentationItem(navItems.filter((item) => item.section === 'more'))
+  const moreItems = withDocumentationItem(
+    locale,
+    tNav('docs'),
+    navItems.filter((item) => item.section === 'more')
+  )
 
   return (
     <>
-      {renderNavGroup('Workspace', workspaceItems)}
-      {renderNavGroup('System', adminItems)}
-      {renderNavGroup('More', moreItems)}
+      {renderNavGroup(locale, tNavGroups('workspace'), workspaceItems)}
+      {renderNavGroup(locale, tNavGroups('system'), adminItems)}
+      {renderNavGroup(locale, tNavGroups('more'), moreItems)}
     </>
   )
 }
 
-function withDocumentationItem(items: NavSection[]) {
-  if (!items.length || items.some((item) => item.title === DOCUMENTATION_NAV_ITEM.title)) {
+function withDocumentationItem(locale: LocaleCode, docsLabel: string, items: NavSection[]) {
+  const documentationNavItem: NavSection = {
+    title: docsLabel,
+    url: localizeDocsUrl(locale),
+    icon: Notebook,
+    section: 'more',
+  }
+
+  if (!items.length || items.some((item) => item.url === documentationNavItem.url)) {
     return items
   }
 
-  const integrationsIndex = items.findIndex((item) => item.title === 'Integrations')
+  const integrationsIndex = items.findIndex((item) => item.url.endsWith('/integrations'))
   if (integrationsIndex === -1) {
-    return [...items, DOCUMENTATION_NAV_ITEM]
+    return [...items, documentationNavItem]
   }
 
   return [
     ...items.slice(0, integrationsIndex + 1),
-    DOCUMENTATION_NAV_ITEM,
+    documentationNavItem,
     ...items.slice(integrationsIndex + 1),
   ]
 }
 
-function renderNavGroup(label: string, items: NavSection[]) {
+function renderNavGroup(locale: LocaleCode, label: string, items: NavSection[]) {
   if (!items.length) {
     return null
   }
@@ -78,7 +87,7 @@ function renderNavGroup(label: string, items: NavSection[]) {
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton asChild isActive={item.isActive} tooltip={item.title}>
                 <Link
-                  href={item.url}
+                  href={localizeHref(locale, item.url)}
                   target={isExternal ? '_blank' : undefined}
                   rel={isExternal ? 'noopener noreferrer' : undefined}
                 >

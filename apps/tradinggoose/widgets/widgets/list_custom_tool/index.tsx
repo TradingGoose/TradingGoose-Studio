@@ -2,6 +2,7 @@
 
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Upload, Wrench } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +19,8 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
+import { useAppMessages } from '@/i18n/client-messages'
+import type { LocaleCode } from '@/i18n/utils'
 import { parseImportedCustomToolsFile } from '@/lib/custom-tools/import-export'
 import { cn } from '@/lib/utils'
 import {
@@ -105,6 +108,8 @@ function CustomToolCreateMenu({
   onCreateCustomTool?: () => void
   onImportCustomTools?: (content: string, filename?: string) => Promise<void> | void
 }) {
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages().workspace.widgets.customToolList.createMenu
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleCreateCustomTool = useCallback(() => {
@@ -146,12 +151,12 @@ function CustomToolCreateMenu({
                   className={widgetHeaderIconButtonClassName()}
                 >
                   <Plus className='h-4 w-4' />
-                  <span className='sr-only'>Create custom tool</span>
+                  <span className='sr-only'>{copy.createCustomTool}</span>
                 </button>
               </DropdownMenuTrigger>
             </span>
           </TooltipTrigger>
-          <TooltipContent side='top'>Create</TooltipContent>
+          <TooltipContent side='top'>{copy.create}</TooltipContent>
         </Tooltip>
         <DropdownMenuContent
           sideOffset={6}
@@ -167,7 +172,7 @@ function CustomToolCreateMenu({
           >
             <Upload className={widgetHeaderMenuIconClassName} />
             <span className={widgetHeaderMenuTextClassName}>
-              {isImporting ? 'Importing custom tools' : 'Import custom tools'}
+              {isImporting ? copy.importingCustomTools : copy.importCustomTools}
             </span>
           </DropdownMenuItem>
           <DropdownMenuItem
@@ -179,7 +184,7 @@ function CustomToolCreateMenu({
             }}
           >
             <Plus className={widgetHeaderMenuIconClassName} />
-            <span className={widgetHeaderMenuTextClassName}>New custom tool</span>
+            <span className={widgetHeaderMenuTextClassName}>{copy.newCustomTool}</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -300,8 +305,10 @@ const ListCustomToolHeaderRight = ({
   panelId?: string
   pairColor?: PairColor
 }) => {
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages().workspace.widgets.customToolList.header
   if (!workspaceId) {
-    return <span className='text-muted-foreground text-xs'>Explorer</span>
+    return <span className='text-muted-foreground text-xs'>{copy.explorer}</span>
   }
 
   return (
@@ -325,6 +332,8 @@ function ListCustomToolWidgetBodyInner({
   panelId,
 }: WidgetComponentProps) {
   const workspaceId = context?.workspaceId ?? null
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages().workspace.widgets.customToolList.body
   const permissions = useUserPermissionsContext()
   const { data: queryTools = [], isLoading, error } = useCustomTools(workspaceId ?? '')
   const storedTools = useCustomToolsStore((state) =>
@@ -458,7 +467,7 @@ function ListCustomToolWidgetBodyInner({
   if (error && tools.length === 0) {
     return (
       <WidgetStateMessage
-        message={error instanceof Error ? error.message : 'Failed to load custom tools.'}
+        message={error instanceof Error ? error.message : copy.failedToLoadCustomTools}
       />
     )
   }
@@ -466,7 +475,7 @@ function ListCustomToolWidgetBodyInner({
   return (
     <div className='h-full w-full overflow-hidden p-2'>
       {tools.length === 0 ? (
-        <WidgetStateMessage message='No custom tools yet.' />
+        <WidgetStateMessage message={copy.noCustomToolsYet} />
       ) : (
         <div className='h-full space-y-1 overflow-auto'>
           {tools.map((tool) => (
@@ -489,8 +498,10 @@ function ListCustomToolWidgetBodyInner({
 
 const ListCustomToolWidgetBody = (props: WidgetComponentProps) => {
   const workspaceId = props.context?.workspaceId ?? null
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages().workspace.widgets.customToolList.body
   if (!workspaceId) {
-    return <WidgetStateMessage message='Select a workspace to browse custom tools.' />
+    return <WidgetStateMessage message={copy.selectWorkspace} />
   }
 
   return (

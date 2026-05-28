@@ -17,6 +17,7 @@ import { useWand } from '@/hooks/workflow/use-wand'
 import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
 import { useBufferedStringValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-buffered-string-value'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 const logger = createLogger('ShortInput')
 
@@ -71,6 +72,7 @@ export function ShortInput({
   enableTags = true,
   forceEnvVarDropdown = false,
 }: ShortInputProps) {
+  const copy = useWorkflowBlockEditorCopy().shortInput
   const [isFocused, setIsFocused] = useState(false)
   const [streamingLock, setStreamingLock] = useState(false)
   const [showEnvVars, setShowEnvVars] = useState(false)
@@ -453,7 +455,7 @@ export function ShortInput({
         onSubmit={(prompt: string) => wandHook.generateStream({ prompt })}
         onCancel={wandHook.isStreaming ? wandHook.cancelGeneration : wandHook.hidePromptInline}
         onChange={(value: string) => wandHook.updatePromptValue(value)}
-        placeholder={resolvedWandConfig.placeholder || 'Describe what you want to generate...'}
+        placeholder={resolvedWandConfig.placeholder || copy.wandPlaceholder}
       />
 
       <div className='group relative w-full'>
@@ -539,7 +541,7 @@ export function ShortInput({
               size='icon'
               onClick={handleCopy}
               disabled={disabled}
-              aria-label='Copy value'
+              aria-label={copy.copyValue}
               className='h-8 w-8 rounded-sm border border-transparent bg-muted/80 text-muted-foreground shadow-sm transition-all duration-200 hover:bg-muted hover:text-foreground hover:shadow'
             >
               {copied ? <Check className='h-4 w-4' /> : <Copy className='h-4 w-4' />}
@@ -555,7 +557,7 @@ export function ShortInput({
                 wandHook.isPromptVisible ? wandHook.hidePromptInline : wandHook.showPromptInline
               }
               disabled={wandHook.isLoading || wandHook.isStreaming || disabled}
-              aria-label='Generate content with AI'
+              aria-label={copy.generateContentWithAi}
               className='h-8 w-8 rounded-sm border border-transparent bg-muted/80 text-muted-foreground shadow-sm transition-all duration-200 hover:bg-muted hover:text-foreground hover:shadow'
             >
               <Wand2 className='h-4 w-4' />

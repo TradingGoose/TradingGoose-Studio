@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { Check, ChevronDown, RefreshCw } from 'lucide-react'
 import { GmailIcon, OutlookIcon } from '@/components/icons/icons'
 import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
@@ -16,6 +17,8 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { createLogger } from '@/lib/logs/console/logger'
 import { type Credential, getProviderIdFromServiceId, getServiceIdFromScopes } from '@/lib/oauth'
+import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import type { LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('FolderSelector')
 
@@ -47,7 +50,7 @@ export function FolderSelector({
   onChange,
   provider,
   requiredScopes = [],
-  label = 'Select folder',
+  label,
   disabled = false,
   serviceId,
   onFolderInfoChange,
@@ -56,6 +59,8 @@ export function FolderSelector({
   workspaceId,
   isForeignCredential = false,
 }: FolderSelectorProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages().workspace.widgets.workflowLabels
   const [open, setOpen] = useState(false)
   const [credentials, setCredentials] = useState<Credential[]>([])
   const [folders, setFolders] = useState<FolderInfo[]>([])
@@ -67,6 +72,7 @@ export function FolderSelector({
   const [isLoading, setIsLoading] = useState(false)
   const [showOAuthModal, setShowOAuthModal] = useState(false)
   const initialFetchRef = useRef(false)
+  const labelText = label ?? copy.selectFolder
 
   // Initialize selectedFolderId with the effective value
   useEffect(() => {
@@ -337,8 +343,8 @@ export function FolderSelector({
   }
 
   const getFolderLabel = () => {
-    if (provider === 'outlook') return 'folders'
-    return 'labels'
+    if (provider === 'outlook') return copy.folders
+    return copy.labels
   }
 
   return (
@@ -361,7 +367,7 @@ export function FolderSelector({
               ) : (
                 <div className='flex items-center gap-1'>
                   {getFolderIcon('sm')}
-                  <span className='text-muted-foreground'>{label}</span>
+                  <span className='text-muted-foreground'>{labelText}</span>
                 </div>
               )}
               <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
@@ -375,7 +381,7 @@ export function FolderSelector({
                   <div className='flex items-center gap-1'>
                     <span className='text-muted-foreground text-xs'>
                       {credentials.find((cred) => cred.id === selectedCredentialId)?.name ||
-                        'Unknown'}
+                        copy.unknown}
                     </span>
                   </div>
                   {credentials.length > 1 && (
@@ -385,7 +391,7 @@ export function FolderSelector({
                       className='h-6 px-2 text-xs'
                       onClick={() => setOpen(true)}
                     >
-                      Switch
+                      {copy.switch}
                     </Button>
                   )}
                 </div>
@@ -393,7 +399,9 @@ export function FolderSelector({
 
               <Command>
                 <CommandInput
-                  placeholder={`Search ${getFolderLabel()}...`}
+                  placeholder={formatTemplate(copy.searchItems, {
+                    itemName: getFolderLabel().toLowerCase(),
+                  })}
                   onValueChange={handleSearch}
                 />
                 <CommandList>
@@ -401,20 +409,30 @@ export function FolderSelector({
                     {isLoading ? (
                       <div className='flex items-center justify-center p-4'>
                         <RefreshCw className='h-4 w-4 animate-spin' />
-                        <span className='ml-2'>Loading {getFolderLabel()}...</span>
+                        <span className='ml-2'>
+                          {formatTemplate(copy.loadingItems, {
+                            itemName: getFolderLabel().toLowerCase(),
+                          })}
+                        </span>
                       </div>
                     ) : credentials.length === 0 ? (
                       <div className='p-4 text-center'>
-                        <p className='font-medium text-sm'>No accounts connected.</p>
+                        <p className='font-medium text-sm'>{copy.noAccountsConnected}</p>
                         <p className='text-muted-foreground text-xs'>
-                          Connect a {getProviderName()} account to continue.
+                          {formatTemplate(copy.connectProviderAccountToContinue, {
+                            providerName: getProviderName(),
+                          })}
                         </p>
                       </div>
                     ) : (
                       <div className='p-4 text-center'>
-                        <p className='font-medium text-sm'>No {getFolderLabel()} found.</p>
+                        <p className='font-medium text-sm'>
+                          {formatTemplate(copy.noItemsFound, {
+                            itemName: getFolderLabel().toLowerCase(),
+                          })}
+                        </p>
                         <p className='text-muted-foreground text-xs'>
-                          Try a different search or account.
+                          {copy.tryDifferentSearchOrAccount}
                         </p>
                       </div>
                     )}
@@ -424,7 +442,7 @@ export function FolderSelector({
                   {credentials.length > 1 && (
                     <CommandGroup>
                       <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>
-                        Switch Account
+                        {copy.switchAccount}
                       </div>
                       {credentials.map((cred) => (
                         <CommandItem
@@ -447,7 +465,7 @@ export function FolderSelector({
                   {folders.length > 0 && (
                     <CommandGroup>
                       <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>
-                        {getFolderLabel().charAt(0).toUpperCase() + getFolderLabel().slice(1)}
+                        {getFolderLabel()}
                       </div>
                       {folders.map((folder) => (
                         <CommandItem
@@ -472,7 +490,11 @@ export function FolderSelector({
                     <CommandGroup>
                       <CommandItem onSelect={handleAddCredential}>
                         <div className='flex items-center gap-1 text-foreground'>
-                          <span>Connect {getProviderName()} account</span>
+                          <span>
+                            {formatTemplate(copy.connectProviderAccount, {
+                              providerName: getProviderName(),
+                            })}
+                          </span>
                         </div>
                       </CommandItem>
                     </CommandGroup>

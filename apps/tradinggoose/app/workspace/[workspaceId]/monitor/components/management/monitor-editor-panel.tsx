@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
+import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import type { MonitorReferenceData } from '../shared/types'
@@ -32,6 +33,7 @@ function MonitorDetails({
   editorState: MonitorEditorState
   referenceData: MonitorReferenceData
 }) {
+  const { copy } = useMonitorCopy()
   const monitor = editorState.selectedMonitor
   if (!monitor) return null
 
@@ -62,7 +64,7 @@ function MonitorDetails({
       <CardContent className='min-h-0 flex-1 space-y-3 overflow-y-auto p-4 text-sm'>
         <div className='grid grid-cols-2 gap-2'>
           <div className='rounded-md border p-2'>
-            <div className='text-muted-foreground text-xs'>Provider</div>
+            <div className='text-muted-foreground text-xs'>{copy.fields.provider}</div>
             <div>
               {isPortfolio
                 ? (referenceData.tradingProviderById[monitorConfig.providerId]?.name ??
@@ -73,16 +75,16 @@ function MonitorDetails({
           </div>
           <div className='rounded-md border p-2'>
             <div className='text-muted-foreground text-xs'>
-              {isPortfolio ? 'Fire mode' : 'Interval'}
+              {isPortfolio ? 'Fire mode' : copy.fields.interval}
             </div>
             <div>{isPortfolio ? monitorConfig.fireMode : monitorConfig.interval}</div>
           </div>
           <div className='rounded-md border p-2'>
-            <div className='text-muted-foreground text-xs'>Status</div>
-            <div>{monitor.isActive ? 'Active' : 'Paused'}</div>
+            <div className='text-muted-foreground text-xs'>{copy.fields.status}</div>
+            <div>{monitor.isActive ? copy.fields.active : copy.fields.paused}</div>
           </div>
           <div className='rounded-md border p-2'>
-            <div className='text-muted-foreground text-xs'>Monitor ID</div>
+            <div className='text-muted-foreground text-xs'>{copy.fields.monitorId}</div>
             <div className='truncate'>{monitor.monitorId}</div>
           </div>
           {isPortfolio ? (
@@ -109,7 +111,7 @@ function MonitorDetails({
       <CardFooter className='grid shrink-0 grid-cols-2 gap-2 border-t p-3'>
         <Button variant='outline' size='sm' onClick={() => editorState.openEdit(monitor)}>
           <Pencil className='mr-1 h-4 w-4' />
-          Edit
+          {copy.editor.details.edit}
         </Button>
         <Button
           variant='outline'
@@ -122,7 +124,7 @@ function MonitorDetails({
           ) : (
             <Play className='mr-1 h-4 w-4' />
           )}
-          {monitor.isActive ? 'Pause' : 'Resume'}
+          {monitor.isActive ? copy.editor.details.pause : copy.editor.details.resume}
         </Button>
         <Button
           variant='destructive'
@@ -132,7 +134,7 @@ function MonitorDetails({
           disabled={editorState.deletingMonitorId === monitor.monitorId}
         >
           <Trash2 className='mr-1 h-4 w-4' />
-          Delete
+          {copy.editor.details.delete}
         </Button>
       </CardFooter>
     </Card>
@@ -145,16 +147,15 @@ function EditorContent({
   referenceData,
   workspaceId,
 }: MonitorEditorPanelProps) {
+  const { copy } = useMonitorCopy()
   if (editorState.isEditorOpen && editorState.editingDraft) {
     return (
       <Card className='flex h-full min-h-0 flex-col overflow-hidden rounded-xl border bg-card/60 p-3'>
         <CardHeader className='shrink-0 p-0 pb-3'>
           <CardTitle className='font-medium text-sm'>
-            {editorState.editingKey ? 'Edit Monitor' : 'Create Monitor'}
+            {editorState.editingKey ? copy.editor.editTitle : copy.editor.createTitle}
           </CardTitle>
-          <CardDescription className='text-xs'>
-            Configure provider, listing, indicator, workflow target, and inputs.
-          </CardDescription>
+          <CardDescription className='text-xs'>{copy.editor.description}</CardDescription>
           {editorState.panelError ? (
             <p className='mt-2 text-destructive text-xs'>{editorState.panelError}</p>
           ) : null}
@@ -202,6 +203,7 @@ export function MonitorEditorPanel({
   referenceData,
   workspaceId,
 }: MonitorEditorPanelProps) {
+  const { copy } = useMonitorCopy()
   const isMobile = useIsMobile()
   const content = (
     <EditorContent
@@ -210,8 +212,8 @@ export function MonitorEditorPanel({
       referenceData={{
         ...referenceData,
         createDisabledReason:
-          createDisabled && !referenceData.createDisabledReason
-            ? 'Monitor requirements are still loading.'
+        createDisabled && !referenceData.createDisabledReason
+            ? copy.loadingRequirements
             : referenceData.createDisabledReason,
       }}
     />

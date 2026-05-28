@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils'
 import type { WorkflowFieldType } from '@/lib/workflows/value-types'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
+import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 type FieldType = WorkflowFieldType
 
@@ -76,6 +77,7 @@ export function FieldFormat({
   isConnecting = false,
   config,
 }: FieldFormatProps) {
+  const copy = useWorkflowBlockEditorCopy().inputFormat
   const [storeValue, setStoreValue] = useSubBlockValue<Field[]>(blockId, subBlockId)
   const [dragHighlight, setDragHighlight] = useState<Record<string, boolean>>({})
   const valueInputRefs = useRef<Record<string, HTMLInputElement | HTMLTextAreaElement>>({})
@@ -432,7 +434,9 @@ export function FieldFormat({
                             }
                             onBlur={() => handleValueInputBlur(field)}
                             placeholder={
-                              field.type === 'array' ? '[\n  1, 2, 3\n]' : '{\n  "key": "value"\n}'
+                              field.type === 'object'
+                                ? copy.objectValuePlaceholder
+                                : copy.arrayValuePlaceholder
                             }
                             disabled={isPreview || disabled}
                             className={cn(

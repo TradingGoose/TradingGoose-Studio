@@ -1,79 +1,151 @@
 import { describe, expect, it } from 'vitest'
 import type { BlockConfig } from '@/blocks/types'
+import { getWorkflowInspectorCopy } from '@/i18n/workflow-inspector'
+import { localizeWorkflowSubBlockConfigWithCopy } from '@/i18n/workflow-inspector-core'
 import {
   buildTriggerEditingLayout,
   removeTriggerModeSelectorFromRows,
 } from './trigger-editing-layout'
 
 describe('trigger-editing-layout', () => {
-  const blockConfig: Pick<BlockConfig, 'category' | 'subBlocks' | 'triggers'> = {
-    category: 'triggers',
-    triggers: {
-      enabled: true,
-      available: ['github_issue_opened', 'github_issue_closed'],
-    },
+  const regularBlockConfig: Pick<BlockConfig, 'category' | 'subBlocks' | 'triggers'> = {
+    category: 'blocks',
     subBlocks: [
       {
-        id: 'selectedTriggerId',
-        title: 'Trigger Type',
-        type: 'dropdown',
-        mode: 'trigger',
+        id: 'systemPrompt',
+        title: 'System Prompt',
+        type: 'long-input',
+        placeholder: 'Enter system prompt...',
       },
       {
-        id: 'openedRepository',
-        title: 'Opened Repository',
-        type: 'short-input',
-        mode: 'trigger',
-        condition: {
-          field: 'selectedTriggerId',
-          value: 'github_issue_opened',
-        },
+        id: 'userPrompt',
+        title: 'User Prompt',
+        type: 'long-input',
+        placeholder: 'Enter context or user message...',
       },
       {
-        id: 'closedReason',
-        title: 'Closed Reason',
+        id: 'model',
+        title: 'Model',
+        type: 'combobox',
+        placeholder: 'Type or select a model...',
+      },
+      {
+        id: 'temperature',
+        title: 'Temperature',
+        type: 'slider',
+      },
+      {
+        id: 'tools',
+        title: 'Tools',
+        type: 'tool-input',
+      },
+      {
+        id: 'skills',
+        title: 'Skills',
+        type: 'skill-input',
+      },
+      {
+        id: 'apiKey',
+        title: 'API Key',
         type: 'short-input',
-        mode: 'trigger',
-        condition: {
-          field: 'selectedTriggerId',
-          value: 'github_issue_closed',
-        },
+        placeholder: 'Enter your API key',
+      },
+      {
+        id: 'responseFormat',
+        title: 'Response Format',
+        type: 'code',
+        placeholder: 'Enter JSON schema...',
       },
     ],
   }
 
-  it('keeps trigger mode editable in workflow layouts', () => {
+  const triggerBlockConfig: Pick<BlockConfig, 'category' | 'subBlocks' | 'triggers'> = {
+    category: 'blocks',
+    subBlocks: [
+      {
+        id: 'systemPrompt',
+        title: 'System Prompt',
+        type: 'long-input',
+        placeholder: 'Enter system prompt...',
+        mode: 'trigger',
+      },
+      {
+        id: 'userPrompt',
+        title: 'User Prompt',
+        type: 'long-input',
+        placeholder: 'Enter context or user message...',
+        mode: 'trigger',
+      },
+      {
+        id: 'model',
+        title: 'Model',
+        type: 'combobox',
+        placeholder: 'Type or select a model...',
+        mode: 'trigger',
+      },
+      {
+        id: 'apiKey',
+        title: 'API Key',
+        type: 'short-input',
+        placeholder: 'Enter your API key',
+        mode: 'trigger',
+      },
+      {
+        id: 'responseFormat',
+        title: 'Response Format',
+        type: 'code',
+        placeholder: 'Enter JSON schema...',
+        mode: 'trigger',
+      },
+    ],
+  }
+
+  it.each([
+    { locale: 'es' as const },
+    { locale: 'zh-CN' as const },
+  ])('localizes trigger rows through the shared trigger-edit layout for $locale', ({ locale }) => {
+    const inspectorCopy = getWorkflowInspectorCopy(locale)
     const layout = buildTriggerEditingLayout({
-      blockConfig,
+      inspectorCopy,
+      blockType: 'agent',
+      blockConfig: regularBlockConfig,
       blockState: {
-        triggerMode: true,
-        subBlocks: {
-          selectedTriggerId: { value: 'github_issue_closed' },
-        },
+        subBlocks: {},
       },
       shouldDisableWrite: false,
     })
+    const expectedSubBlocks = regularBlockConfig.subBlocks.map((subBlock) =>
+      localizeWorkflowSubBlockConfigWithCopy(inspectorCopy, subBlock, 'agent')
+    )
 
-    expect(layout.regularRows.flat().map((subBlock) => subBlock.id)).toEqual([
-      'selectedTriggerId',
-      'closedReason',
-    ])
+    expect(layout.regularRows.flat().map((subBlock) => subBlock.title)).toEqual(
+      expectedSubBlocks.map((subBlock) => subBlock.title)
+    )
+    expect(layout.regularRows.flat().map((subBlock) => subBlock.placeholder)).toEqual(
+      expectedSubBlocks.map((subBlock) => subBlock.placeholder)
+    )
   })
 
   it('removes the trigger mode selector from deploy rows while keeping the active mode fields', () => {
     const layout = buildTriggerEditingLayout({
-      blockConfig,
+      inspectorCopy: getWorkflowInspectorCopy('es'),
+      blockType: 'agent',
+      blockConfig: triggerBlockConfig,
       blockState: {
         triggerMode: true,
         subBlocks: {
-          selectedTriggerId: { value: 'github_issue_closed' },
+          systemPrompt: { value: 'prompt' },
         },
       },
       shouldDisableWrite: false,
     })
 
     expect(removeTriggerModeSelectorFromRows(layout.regularRows).flat().map((subBlock) => subBlock.id)).toEqual([
-      'closedReason',
+      'systemPrompt',
+      'userPrompt',
+      'model',
+      'apiKey',
+      'responseFormat',
     ])
   })
 })

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { Check, ChevronDown, ExternalLink, FileIcon, FolderIcon, RefreshCw, X } from 'lucide-react'
 import { GoogleDocsIcon, GoogleSheetsIcon } from '@/components/icons/icons'
 import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
@@ -24,6 +25,8 @@ import {
   type OAuthProvider,
   parseProvider,
 } from '@/lib/oauth'
+import { useAppMessages } from '@/i18n/client-messages'
+import type { LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('GoogleDrivePicker')
 
@@ -61,7 +64,7 @@ export function GoogleDrivePicker({
   onChange,
   provider,
   requiredScopes = [],
-  label = 'Select file',
+  label,
   disabled = false,
   serviceId,
   mimeTypeFilter,
@@ -71,6 +74,8 @@ export function GoogleDrivePicker({
   workflowId,
   workspaceId,
 }: GoogleDrivePickerProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages().workspace.widgets.workflowLabels
   const [credentials, setCredentials] = useState<Credential[]>([])
   const [selectedCredentialId, setSelectedCredentialId] = useState<string>('')
   const [selectedFileId, setSelectedFileId] = useState(value)
@@ -84,6 +89,7 @@ export function GoogleDrivePicker({
   const [showOAuthModal, setShowOAuthModal] = useState(false)
   const [credentialsLoaded, setCredentialsLoaded] = useState(false)
   const initialFetchRef = useRef(false)
+  const labelText = label ?? copy.selectFile
 
   // Determine the appropriate service ID based on provider and scopes
   const getServiceId = (): string => {
@@ -421,12 +427,12 @@ export function GoogleDrivePicker({
                 ) : selectedFileId && isLoadingSelectedFile && selectedCredentialId ? (
                   <>
                     <RefreshCw className='h-4 w-4 animate-spin' />
-                    <span className='truncate text-muted-foreground'>Loading document...</span>
+                    <span className='truncate text-muted-foreground'>{copy.loadingDocument}</span>
                   </>
                 ) : (
                   <>
                     {getProviderIcon(provider)}
-                    <span className='truncate text-muted-foreground'>{label}</span>
+                    <span className='truncate text-muted-foreground'>{labelText}</span>
                   </>
                 )}
               </div>
@@ -437,7 +443,7 @@ export function GoogleDrivePicker({
             <PopoverContent className='w-[320px] p-0' align='start'>
               <Command>
                 <CommandInput
-                  placeholder='Search Drive files...'
+                  placeholder={copy.searchDriveFiles}
                   value={searchQuery}
                   onValueChange={setSearchQuery}
                 />
@@ -446,11 +452,11 @@ export function GoogleDrivePicker({
                     {isLoadingFiles ? (
                       <div className='flex items-center justify-center p-4'>
                         <RefreshCw className='h-4 w-4 animate-spin' />
-                        <span className='ml-2'>Loading...</span>
+                        <span className='ml-2'>{copy.loading}</span>
                       </div>
                     ) : (
                       <div className='p-4 text-center'>
-                        <p className='font-medium text-sm'>No files found.</p>
+                        <p className='font-medium text-sm'>{copy.noFilesFound}</p>
                       </div>
                     )}
                   </CommandEmpty>
@@ -511,7 +517,7 @@ export function GoogleDrivePicker({
                     className='flex items-center gap-1 text-muted-foreground text-xs hover:underline'
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <span>Open in Drive</span>
+                    <span>{copy.openInDrive}</span>
                     <ExternalLink className='h-3 w-3' />
                   </a>
                 ) : (
@@ -522,7 +528,7 @@ export function GoogleDrivePicker({
                     className='flex items-center gap-1 text-muted-foreground text-xs hover:underline'
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <span>Open in Drive</span>
+                    <span>{copy.openInDrive}</span>
                     <ExternalLink className='h-3 w-3' />
                   </a>
                 )}

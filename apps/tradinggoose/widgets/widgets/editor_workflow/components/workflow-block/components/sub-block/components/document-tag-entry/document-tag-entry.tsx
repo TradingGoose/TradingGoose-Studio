@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatDisplayText } from '@/components/ui/formatted-text'
@@ -13,6 +14,9 @@ import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-
 import type { SubBlockConfig } from '@/blocks/types'
 import { useKnowledgeBaseTagDefinitions } from '@/hooks/use-knowledge-base-tag-definitions'
 import { useTagSelection } from '@/hooks/use-tag-selection'
+import { translateWorkflowLabel } from '@/i18n/block-editor'
+import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import type { LocaleCode } from '@/i18n/utils'
 
 interface DocumentTagRow {
   id: string
@@ -40,6 +44,9 @@ export function DocumentTagEntry({
   previewValue,
   isConnecting = false,
 }: DocumentTagEntryProps) {
+  const locale = useLocale() as LocaleCode
+  const t = (label: string) => translateWorkflowLabel(locale, label)
+  const copy = useAppMessages().workspace.widgets.blockEditor.documentTagEntry
   const [storeValue, setStoreValue] = useSubBlockValue<string>(blockId, subBlock.id)
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 
@@ -245,15 +252,15 @@ export function DocumentTagEntry({
   }
 
   if (isLoading) {
-    return <div className='p-4 text-muted-foreground text-sm'>Loading tag definitions...</div>
+    return <div className='p-4 text-muted-foreground text-sm'>{t('Loading tag definitions...')}</div>
   }
 
   const renderHeader = () => (
     <thead>
       <tr className='border-b'>
-        <th className='w-2/5 border-r px-4 py-2 text-center font-medium text-sm'>Tag Name</th>
-        <th className='w-1/5 border-r px-4 py-2 text-center font-medium text-sm'>Type</th>
-        <th className='px-4 py-2 text-center font-medium text-sm'>Value</th>
+        <th className='w-2/5 border-r px-4 py-2 text-center font-medium text-sm'>{t('Tag Name')}</th>
+        <th className='w-1/5 border-r px-4 py-2 text-center font-medium text-sm'>{t('Type')}</th>
+        <th className='px-4 py-2 text-center font-medium text-sm'>{t('Value')}</th>
       </tr>
     </thead>
   )
@@ -370,7 +377,7 @@ export function DocumentTagEntry({
       setTimeout(() => setShowTypeDropdown(false), 150)
     }
 
-    const typeOptions = [{ value: 'text', label: 'Text' }]
+    const typeOptions = [{ value: 'text', label: copy.typeText }]
 
     return (
       <td className='border-r p-1'>
@@ -513,7 +520,7 @@ export function DocumentTagEntry({
       {showPreFillButton && (
         <div className='mb-2'>
           <Button variant='outline' size='sm' onClick={handlePreFillTags}>
-            Prefill Existing Tags
+            {copy.prefillExistingTags}
           </Button>
         </div>
       )}
@@ -564,12 +571,15 @@ export function DocumentTagEntry({
             className='h-7 px-2 text-xs'
           >
             <Plus className='mr-1 h-2.5 w-2.5' />
-            Add Tag
+            {copy.addTag}
           </Button>
 
           {/* Tag slots usage indicator */}
           <div className='text-muted-foreground text-xs'>
-            {tagDefinitions.length + newTagsBeingCreated} of {MAX_TAG_SLOTS} tag slots used
+            {formatTemplate(copy.tagSlotsUsed, {
+              used: tagDefinitions.length + newTagsBeingCreated,
+              total: MAX_TAG_SLOTS,
+            })}
           </div>
         </div>
       )}

@@ -1,5 +1,7 @@
 import type { OrderHistorySearchOption } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/order-id-selector/types'
 
+const ORDER_HISTORY_SEARCH_FAILED = 'ORDER_HISTORY_SEARCH_FAILED'
+
 type SearchResponse = {
   data?: {
     results?: OrderHistorySearchOption[]
@@ -33,7 +35,7 @@ export async function fetchOrderHistorySearchOptions(
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as SearchResponse | null
-    const message = payload?.error?.message ?? `Request failed with ${response.status}`
+    const message = payload?.error?.message ?? ORDER_HISTORY_SEARCH_FAILED
     throw new Error(message)
   }
 

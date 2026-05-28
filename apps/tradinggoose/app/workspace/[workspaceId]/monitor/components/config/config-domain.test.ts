@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { MonitorRecord, MonitorReferenceData } from '../shared/types'
+import { getPublicCopy } from '@/i18n/public-copy'
 import { DEFAULT_CONFIG_MONITOR_VIEW_CONFIG } from '../view/view-config'
 import { buildConfigBoardSections } from './config-board-state'
 import { buildConfigMonitorCards } from './config-card-model'
@@ -138,7 +139,8 @@ describe('config monitor domain', () => {
   it('includes execution summary presence suggestions', () => {
     const suggestions = buildConfigSearchSuggestionSet(
       buildConfigMonitorCards([monitor], referenceData, {}),
-      referenceData
+      referenceData,
+      getPublicCopy('en').workspace.monitor
     )
     const serialized = suggestions.map((suggestion) => serializeConfigFilters([suggestion.filter]))
 

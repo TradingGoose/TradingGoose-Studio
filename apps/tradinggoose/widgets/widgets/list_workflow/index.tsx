@@ -2,10 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { LayoutList } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { shallow } from 'zustand/shallow'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { useAppMessages } from '@/i18n/client-messages'
+import type { LocaleCode } from '@/i18n/utils'
 import { useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
@@ -36,6 +39,8 @@ const WorkflowListWidgetBody = ({
   onWidgetParamsChange,
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId ?? null
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages().workspace.widgets.workflowList
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const metadataChannelId = WORKSPACE_BOOTSTRAP_CHANNEL
@@ -99,7 +104,7 @@ const WorkflowListWidgetBody = ({
     loadWorkflows({ workspaceId, channelId: metadataChannelId }).catch((error) => {
       if (!cancelled) {
         console.error('Failed to load workflows for dashboard workflow list widget', error)
-        setLoadError('Unable to load workflows for this workspace.')
+        setLoadError(copy.body.unableToLoadWorkflows)
       }
     })
 
@@ -261,7 +266,7 @@ const WorkflowListWidgetBody = ({
   )
 
   if (!workspaceId) {
-    return <WidgetMessage message='Select a workspace to browse its workflow folders.' />
+    return <WidgetMessage message={copy.body.selectWorkspace} />
   }
 
   if (loadError) {
@@ -313,6 +318,8 @@ export const workflowListWidget: DashboardWidgetDefinition = {
 }
 
 const WorkflowListHeaderRight = ({ workspaceId }: { workspaceId?: string }) => {
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages().workspace.widgets.workflowList
   const handleWorkflowCreated = useCallback(
     (workflowId: string) => {
       if (!workspaceId || !workflowId) {
@@ -328,7 +335,7 @@ const WorkflowListHeaderRight = ({ workspaceId }: { workspaceId?: string }) => {
   )
 
   if (!workspaceId) {
-    return <span className='text-muted-foreground text-xs'>Explorer</span>
+    return <span className='text-muted-foreground text-xs'>{copy.header.explorer}</span>
   }
 
   return (

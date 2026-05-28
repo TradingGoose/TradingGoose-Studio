@@ -6,21 +6,26 @@ import { getIconTileStyle } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import type { BlockConfig } from '@/blocks/types'
+import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 import { useToolbarAddBlock } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar/toolbar-add-block-context'
 
 export type ToolbarBlockProps = {
   config: BlockConfig
+  label?: string
   disabled?: boolean
   enableTriggerMode?: boolean
 }
 
 export function ToolbarBlock({
   config,
+  label,
   disabled = false,
   enableTriggerMode = false,
 }: ToolbarBlockProps) {
+  const { getLocalizedBlockName, getToolbarDisabledReason } = useWorkflowI18n()
   const userPermissions = useUserPermissionsContext()
   const addBlock = useToolbarAddBlock()
+  const localizedLabel = label ?? getLocalizedBlockName(config)
 
   const handleDragStart = (e: React.DragEvent) => {
     if (disabled) {
@@ -71,7 +76,7 @@ export function ToolbarBlock({
           )}
         />
       </div>
-      <span className='font-medium text-sm leading-none'>{config.name}</span>
+      <span className='font-medium text-sm leading-none'>{localizedLabel}</span>
     </div>
   )
 
@@ -80,9 +85,7 @@ export function ToolbarBlock({
       <Tooltip>
         <TooltipTrigger asChild>{blockContent}</TooltipTrigger>
         <TooltipContent>
-          {userPermissions.isOfflineMode
-            ? 'Connection lost - please refresh'
-            : 'Edit permissions required to add blocks'}
+          {getToolbarDisabledReason(Boolean(userPermissions.isOfflineMode))}
         </TooltipContent>
       </Tooltip>
     )

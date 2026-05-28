@@ -4,7 +4,9 @@ import { useCallback, useEffect, useRef, useState, type WheelEvent } from 'react
 import { KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { Check, Pencil, Plus, X } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Sortable, SortableContent, SortableItem, SortableOverlay } from '@/components/ui/sortable'
+import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
 import { cn } from '@/lib/utils'
 
 export type LayoutTab = {
@@ -36,6 +38,8 @@ export function LayoutTabs({
   onRequestRename,
   onDelete,
 }: LayoutTabsProps) {
+  const locale = useLocale()
+  const copy = useAppMessages()
   const tabsScrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -192,7 +196,9 @@ export function LayoutTabs({
                   ) : layout.isActive && (onRename || onRequestRename) ? (
                     <button
                       type='button'
-                      aria-label={`Rename ${layout.name}`}
+                      aria-label={formatTemplate(copy.workspace.layoutTabs.renameAriaLabel, {
+                        name: layout.name,
+                      })}
                       className='pointer-events-none inline-flex h-full w-0 shrink-0 items-center justify-center overflow-hidden text-muted-foreground opacity-0 transition-[width,opacity,color] hover:text-foreground focus-visible:pointer-events-auto focus-visible:w-4 focus-visible:opacity-100 group-hover:pointer-events-auto group-hover:w-4 group-hover:opacity-100'
                       onClick={() => startEdit(layout)}
                       disabled={isBusy}
@@ -203,7 +209,9 @@ export function LayoutTabs({
                   ) : onDelete ? (
                     <button
                       type='button'
-                      aria-label={`Delete ${layout.name}`}
+                      aria-label={formatTemplate(copy.workspace.layoutTabs.deleteAriaLabel, {
+                        name: layout.name,
+                      })}
                       className='pointer-events-none inline-flex h-full w-0 shrink-0 items-center justify-center overflow-hidden text-muted-foreground opacity-0 transition-[width,opacity,color] hover:text-destructive focus-visible:pointer-events-auto focus-visible:w-4 focus-visible:opacity-100 group-hover:pointer-events-auto group-hover:w-4 group-hover:opacity-100'
                       onClick={() => onDelete(layout.id)}
                       disabled={isBusy}
@@ -229,7 +237,7 @@ export function LayoutTabs({
           disabled={isBusy}
         >
           <Plus className='h-3.5 w-3.5' />
-          <span className='sr-only'>Create new layout</span>
+          <span className='sr-only'>{copy.workspace.layoutTabs.createNewLayout}</span>
         </button>
       </div>
       <SortableOverlay>

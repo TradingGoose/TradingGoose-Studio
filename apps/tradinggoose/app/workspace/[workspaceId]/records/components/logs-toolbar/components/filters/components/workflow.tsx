@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
 import { useParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -33,6 +34,7 @@ interface WorkflowOption {
 }
 
 export default function Workflow() {
+  const t = useTranslations('workspace.logs.dashboard.filters')
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const { workflowIds, toggleWorkflowId, setWorkflowIds, folderIds } = useFilterStore()
   const params = useParams()
@@ -72,12 +74,15 @@ export default function Workflow() {
   }, [workspaceId, folderIds])
 
   const getSelectedWorkflowsText = () => {
-    if (workflowIds.length === 0) return 'All workflows'
+    if (workflowIds.length === 0) return t('allWorkflows')
     if (workflowIds.length === 1) {
       const selected = workflows.find((w) => w.id === workflowIds[0])
-      return selected ? selected.name : 'All workflows'
+      return selected ? selected.name : t('allWorkflows')
     }
-    return `${workflowIds.length} workflows selected`
+    return t('selectedWorkflows', {
+      count: workflowIds.length,
+      plural: workflowIds.length === 1 ? '' : 's',
+    })
   }
 
   const isWorkflowSelected = (workflowId: string) => {
@@ -92,7 +97,7 @@ export default function Workflow() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button ref={triggerRef} variant='outline' size='sm' className={filterButtonClass}>
-          {loading ? 'Loading workflows...' : getSelectedWorkflowsText()}
+          {loading ? t('loadingWorkflows') : getSelectedWorkflowsText()}
           <ChevronDown className='ml-2 h-4 w-4 text-muted-foreground' />
         </Button>
       </DropdownMenuTrigger>
@@ -104,9 +109,9 @@ export default function Workflow() {
         className={dropdownContentClass}
       >
         <Command>
-          <CommandInput placeholder='Search workflows...' onValueChange={(v) => setSearch(v)} />
+          <CommandInput placeholder={t('searchWorkflows')} onValueChange={(v) => setSearch(v)} />
           <CommandList className={commandListClass} style={workflowDropdownListStyle}>
-            <CommandEmpty>{loading ? 'Loading workflows...' : 'No workflows found.'}</CommandEmpty>
+            <CommandEmpty>{loading ? t('loadingWorkflows') : t('noWorkflows')}</CommandEmpty>
             <CommandGroup>
               <CommandItem
                 value='all-workflows'
@@ -115,7 +120,7 @@ export default function Workflow() {
                 }}
                 className='cursor-pointer'
               >
-                <span>All workflows</span>
+                <span>{t('allWorkflows')}</span>
                 {workflowIds.length === 0 && (
                   <Check className='ml-auto h-4 w-4 text-muted-foreground' />
                 )}

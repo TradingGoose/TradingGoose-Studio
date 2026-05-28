@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { resolveTimezoneOffset } from '@/components/timezone-selector/fetchers'
 import { Button } from '@/components/ui/button'
 import { createLogger } from '@/lib/logs/console/logger'
 import { parseCronToHumanReadable } from '@/lib/schedules/utils'
 import { formatDateTime } from '@/lib/utils'
+import { useWorkflowDoc } from '@/lib/yjs/use-workflow-doc'
+import { translateWorkflowLabel } from '@/i18n/block-editor'
+import type { LocaleCode } from '@/i18n/utils'
 import { readWorkflowWithValues } from '@/stores/workflows'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
-import { useWorkflowDoc } from '@/lib/yjs/use-workflow-doc'
 import {
   emitScheduleUpdated,
   subscribeScheduleUpdated,
@@ -15,6 +18,7 @@ import {
   useWorkflowChannelId,
   useWorkflowId,
 } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 const logger = createLogger('ScheduleConfig')
 
@@ -25,13 +29,22 @@ interface ScheduleConfigProps {
   disabled?: boolean
 }
 
+type ScheduleErrorKey =
+  | 'completeRequiredScheduleFields'
+  | 'failedToGetCurrentWorkflowState'
+  | 'failedToSaveSchedule'
+  | 'failedToDeleteSchedule'
+
 export function ScheduleConfig({
   blockId,
   subBlockId: _subBlockId,
   isConnecting,
   disabled = false,
 }: ScheduleConfigProps) {
-  const [error, setError] = useState<string | null>(null)
+  const locale = useLocale() as LocaleCode
+  const t = (label: string) => translateWorkflowLabel(locale, label)
+  const copy = useWorkflowBlockEditorCopy().scheduleConfig
+  const [error, setError] = useState<ScheduleErrorKey | null>(null)
   const [scheduleData, setScheduleData] = useState<{
     id: string | null
     nextRunAt: string | null
@@ -156,7 +169,7 @@ export function ScheduleConfig({
   const getScheduleInfo = () => {
     if (!scheduleData.id || !scheduleData.nextRunAt) return null
 
-    let scheduleTiming = 'Unknown schedule'
+    let scheduleTiming = t('Unknown schedule')
 
     if (scheduleData.cronExpression) {
       scheduleTiming = parseCronToHumanReadable(scheduleData.cronExpression, scheduleData.timezone)
@@ -169,12 +182,12 @@ export function ScheduleConfig({
         <div className='truncate font-normal text-sm'>{scheduleTiming}</div>
         <div className='text-muted-foreground text-xs'>
           <div>
-            Next run:{' '}
+            {copy.nextRun}{' '}
             {formatDateTime(new Date(scheduleData.nextRunAt), resolvedUtcOffset ?? undefined)}
           </div>
           {scheduleData.lastRanAt && (
             <div>
-              Last run:{' '}
+              {copy.lastRun}{' '}
               {formatDateTime(new Date(scheduleData.lastRanAt), resolvedUtcOffset ?? undefined)}
             </div>
           )}
@@ -235,7 +248,7 @@ export function ScheduleConfig({
 
     try {
       if (!validateScheduleValues()) {
-        setError('Please complete the required schedule fields before saving.')
+        setError('completeRequiredScheduleFields')
         return false
       }
 
@@ -243,7 +256,7 @@ export function ScheduleConfig({
       // This ensures we send the complete, correct workflow state to the backend
       const currentWorkflowWithValues = readWorkflowWithValues(workflowId, channelId)
       if (!currentWorkflowWithValues) {
-        setError('Failed to get current workflow state')
+        setError('failedToGetCurrentWorkflowState')
         return false
       }
 
@@ -278,7 +291,13 @@ export function ScheduleConfig({
       }
 
       if (!response.ok) {
-        setError(responseData.error || 'Failed to save schedule')
+        logger.error('Failed to save schedule', {
+          workflowId,
+          blockId,
+          status: response.status,
+          responseData,
+        })
+        setError('failedToSaveSchedule')
         return false
       }
 
@@ -313,7 +332,7 @@ export function ScheduleConfig({
       return true
     } catch (error) {
       logger.error('Error saving schedule:', { error })
-      setError('Failed to save schedule')
+      setError('failedToSaveSchedule')
       return false
     } finally {
       setIsSaving(false)
@@ -332,7 +351,14 @@ export function ScheduleConfig({
 
       if (!response.ok) {
         const data = await response.json()
-        setError(data.error || 'Failed to delete schedule')
+        logger.error('Failed to delete schedule', {
+          workflowId,
+          blockId,
+          scheduleId: scheduleData.id,
+          status: response.status,
+          data,
+        })
+        setError('failedToDeleteSchedule')
         return false
       }
 
@@ -363,7 +389,7 @@ export function ScheduleConfig({
       return true
     } catch (error) {
       logger.error('Error deleting schedule:', { error })
-      setError('Failed to delete schedule')
+      setError('failedToDeleteSchedule')
       return false
     } finally {
       setIsDeleting(false)
@@ -391,7 +417,7 @@ export function ScheduleConfig({
 
   return (
     <div className='w-full' onClick={(e) => e.stopPropagation()}>
-      {error && <div className='mb-2 text-red-500 text-sm dark:text-red-400'>{error}</div>}
+      {error && <div className='mb-2 text-red-500 text-sm dark:text-red-400'>{copy[error]}</div>}
 
       {isScheduleActive && (
         <div className='rounded border border-border bg-background px-3 py-2'>
@@ -407,7 +433,7 @@ export function ScheduleConfig({
           onClick={handleSaveSchedule}
           disabled={isConnecting || isSaving || isDeleting || disabled || isLoading}
         >
-          {isSaving ? 'Saving...' : isScheduleActive ? 'Update Schedule' : 'Save Schedule'}
+          {isSaving ? copy.saving : isScheduleActive ? copy.updateSchedule : copy.saveSchedule}
         </Button>
 
         {scheduleData.id && (
@@ -417,7 +443,7 @@ export function ScheduleConfig({
             onClick={handleDeleteSchedule}
             disabled={isConnecting || isSaving || isDeleting || disabled}
           >
-            {isDeleting ? 'Deleting...' : 'Delete'}
+            {isDeleting ? copy.deleting : copy.delete}
           </Button>
         )}
       </div>

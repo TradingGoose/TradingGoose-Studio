@@ -26,6 +26,8 @@ type UseIndicatorLegendArgs = {
   chartReady: number
   dataVersion: number
   runtimeVersion: number
+  locale?: string
+  emptyValue?: string
 }
 
 const resolvePrecision = (value?: number | null) => {
@@ -72,11 +74,21 @@ export const useIndicatorLegend = ({
   chartReady,
   dataVersion,
   runtimeVersion,
+  locale,
+  emptyValue = '--',
 }: UseIndicatorLegendArgs) => {
   const [legendMap, setLegendMap] = useState<Map<string, IndicatorPlotValue[]>>(new Map())
   const lastSignatureRef = useRef<string>('')
 
   const precision = useMemo(() => resolvePrecision(view?.pricePrecision), [view?.pricePrecision])
+  const numberFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(locale || undefined, {
+        minimumFractionDigits: precision,
+        maximumFractionDigits: precision,
+      }),
+    [locale, precision]
+  )
 
   const updateLegend = useCallback(
     (param?: MouseEventParams | null) => {
@@ -98,7 +110,9 @@ export const useIndicatorLegend = ({
           const data = resolveSeriesData(plot.series, param)
           const value = extractValue(data)
           const displayValue =
-            typeof value === 'number' && Number.isFinite(value) ? value.toFixed(precision) : '--'
+            typeof value === 'number' && Number.isFinite(value)
+              ? numberFormatter.format(value)
+              : emptyValue
           signatureParts.push(`${indicatorId}:${plot.key}:${displayValue}`)
           return {
             key: plot.key,
@@ -116,7 +130,7 @@ export const useIndicatorLegend = ({
       lastSignatureRef.current = signature
       setLegendMap(nextMap)
     },
-    [indicatorRuntimeRef, precision]
+    [indicatorRuntimeRef, numberFormatter, emptyValue]
   )
 
   useEffect(() => {

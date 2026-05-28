@@ -1,5 +1,8 @@
+import { getLocale } from 'next-intl/server'
 import { getPublicBillingCatalog } from '@/lib/billing/catalog'
 import { buildHostedPricingNarrative } from '@/lib/billing/public-catalog'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { localizeSiteUrl, type LocaleCode } from '@/i18n/utils'
 
 interface GitHubStats {
   stars: number | null
@@ -138,6 +141,9 @@ export default async function StructuredData() {
     fetchGitHubStats(),
     getPublicBillingCatalog(),
   ])
+  const locale = (await getLocale()) as LocaleCode
+  const copy = getPublicCopy(locale)
+  const siteHomeUrl = localizeSiteUrl(locale, '/')
   const interactionStatistic = buildInteractionCounters(githubStats)
   const pricingNarrative = billingCatalog.billingEnabled
     ? buildHostedPricingNarrative(billingCatalog)
@@ -156,7 +162,7 @@ export default async function StructuredData() {
         legalName: 'TradingGoose Studio',
         description:
           'TradingGoose (also known as TradingGoose Studio) is an open-source visual workflow platform for technical LLM-driven trading, maintained at github.com/TradingGoose/TradingGoose-Studio. It is a drag-and-drop workflow builder for custom indicators, live market monitors, and AI agent automations — not to be confused with the older TradingGoose multi-agent research framework.',
-        url: 'https://tradinggoose.ai',
+        url: siteHomeUrl,
         foundingDate: '2026-04-04',
         knowsAbout: [
           'Algorithmic trading',
@@ -186,14 +192,14 @@ export default async function StructuredData() {
         contactPoint: {
           '@type': 'ContactPoint',
           contactType: 'customer support',
-          availableLanguage: ['en'],
+          availableLanguage: [locale],
         },
         ...(interactionStatistic.length > 0 && { interactionStatistic }),
       },
       {
         '@type': 'WebSite',
         '@id': 'https://tradinggoose.ai/#website',
-        url: 'https://tradinggoose.ai',
+        url: siteHomeUrl,
         name: 'TradingGoose - Visual Workflow Platform for LLM Trading',
         description:
           'Open-source platform for technical LLM-driven trading. Connect data providers, write custom indicators in PineTS, trigger AI agent workflows on market signals.',
@@ -206,17 +212,17 @@ export default async function StructuredData() {
             '@id': 'https://tradinggoose.ai/#searchaction',
             target: {
               '@type': 'EntryPoint',
-              urlTemplate: 'https://tradinggoose.ai/search?q={search_term_string}',
+              urlTemplate: localizeSiteUrl(locale, '/search?q={search_term_string}'),
             },
             'query-input': 'required name=search_term_string',
           },
         ],
-        inLanguage: 'en-US',
+        inLanguage: locale,
       },
       {
         '@type': 'WebPage',
         '@id': 'https://tradinggoose.ai/#webpage',
-        url: 'https://tradinggoose.ai',
+        url: siteHomeUrl,
         name: 'TradingGoose - Build your Trading Analysis with AI Agent Workflows',
         isPartOf: {
           '@id': 'https://tradinggoose.ai/#website',
@@ -231,7 +237,7 @@ export default async function StructuredData() {
         breadcrumb: {
           '@id': 'https://tradinggoose.ai/#breadcrumb',
         },
-        inLanguage: 'en-US',
+        inLanguage: locale,
         speakable: {
           '@type': 'SpeakableSpecification',
           cssSelector: ['h1', 'h2', '.hero-description'],
@@ -239,7 +245,7 @@ export default async function StructuredData() {
         potentialAction: [
           {
             '@type': 'ReadAction',
-            target: ['https://tradinggoose.ai'],
+            target: [siteHomeUrl],
           },
         ],
       },
@@ -250,8 +256,8 @@ export default async function StructuredData() {
           {
             '@type': 'ListItem',
             position: 1,
-            name: 'Home',
-            item: 'https://tradinggoose.ai',
+            name: copy.nav.homeLabel,
+            item: siteHomeUrl,
           },
         ],
       },
@@ -382,7 +388,7 @@ export default async function StructuredData() {
         mainEntityOfPage: { '@id': 'https://tradinggoose.ai/#webpage' },
         datePublished: '2025-01-01T00:00:00+00:00',
         dateModified: new Date().toISOString(),
-        inLanguage: 'en-US',
+        inLanguage: locale,
       },
     ],
   }

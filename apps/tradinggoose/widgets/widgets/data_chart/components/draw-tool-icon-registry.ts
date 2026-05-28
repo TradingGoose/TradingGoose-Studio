@@ -40,37 +40,6 @@ export type DrawToolActionType =
   | 'hideSelected'
   | 'removeSelected'
 
-export const DRAW_TOOL_LABELS: Record<ManualToolType, string> = {
-  TrendLine: 'Trend line',
-  Ray: 'Ray',
-  Arrow: 'Arrow',
-  ExtendedLine: 'Extended line',
-  HorizontalLine: 'Horizontal line',
-  HorizontalRay: 'Horizontal ray',
-  VerticalLine: 'Vertical line',
-  CrossLine: 'Cross line',
-  Callout: 'Callout',
-  Brush: 'Brush',
-  Highlighter: 'Highlighter',
-  Rectangle: 'Rectangle',
-  Circle: 'Circle',
-  Triangle: 'Triangle',
-  Path: 'Path',
-  ParallelChannel: 'Parallel channel',
-  FibRetracement: 'Fib retracement',
-  PriceRange: 'Price range',
-  LongShortPosition: 'Long/short position',
-  Text: 'Text',
-}
-
-export const DRAW_ACTION_LABELS: Record<DrawToolActionType, string> = {
-  clearAll: 'Clear all',
-  hideAll: 'Hide all',
-  showAll: 'Show all',
-  hideSelected: 'Hide selected',
-  removeSelected: 'Remove selected',
-}
-
 export const DRAW_TOOL_ICONS: Record<ManualToolType, LucideIcon> = {
   TrendLine: TrendingUp,
   Ray: MoveRight,

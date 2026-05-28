@@ -46,11 +46,11 @@ import {
   Zap,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import type { Template } from '@/app/workspace/[workspaceId]/templates/templates'
-import { categories } from '@/app/workspace/[workspaceId]/templates/templates'
 import { WorkflowPreview } from '@/app/workspace/[workspaceId]/components/workflow-preview/workflow-preview'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
@@ -59,7 +59,6 @@ const logger = createLogger('TemplateDetails')
 interface TemplateDetailsProps {
   template: Template
   workspaceId: string
-  currentUserId: string
 }
 
 // Icon mapping - reuse from template-card
@@ -110,18 +109,9 @@ const getIconComponent = (icon: string): React.ReactNode => {
   return IconComponent ? <IconComponent className='h-6 w-6' /> : <FileText className='h-6 w-6' />
 }
 
-// Get category display name
-const getCategoryDisplayName = (categoryValue: string): string => {
-  const category = categories.find((c) => c.value === categoryValue)
-  return category?.label || categoryValue
-}
-
-export default function TemplateDetails({
-  template,
-  workspaceId,
-  currentUserId,
-}: TemplateDetailsProps) {
+export default function TemplateDetails({ template, workspaceId }: TemplateDetailsProps) {
   const router = useRouter()
+  const t = useTranslations('workspace.templates')
   const [isStarred, setIsStarred] = useState(template?.isStarred || false)
   const [starCount, setStarCount] = useState(template?.stars || 0)
   const [isStarring, setIsStarring] = useState(false)
@@ -132,8 +122,8 @@ export default function TemplateDetails({
     return (
       <div className='flex h-screen items-center justify-center'>
         <div className='text-center'>
-          <h1 className='mb-4 font-bold text-2xl'>Template Not Found</h1>
-          <p className='text-muted-foreground'>The template you're looking for doesn't exist.</p>
+          <h1 className='mb-4 font-bold text-2xl'>{t('detail.notFoundTitle')}</h1>
+          <p className='text-muted-foreground'>{t('detail.notFoundDescription')}</p>
         </div>
       </div>
     )
@@ -147,8 +137,8 @@ export default function TemplateDetails({
       return (
         <div className='flex h-full items-center justify-center text-center'>
           <div className='text-muted-foreground'>
-            <div className='mb-2 font-medium text-lg'>⚠️ No Workflow Data</div>
-            <div className='text-sm'>This template doesn't contain workflow state data.</div>
+            <div className='mb-2 font-medium text-lg'>{t('detail.noWorkflowDataTitle')}</div>
+            <div className='text-sm'>{t('detail.noWorkflowDataDescription')}</div>
           </div>
         </div>
       )
@@ -178,8 +168,8 @@ export default function TemplateDetails({
       return (
         <div className='flex h-full items-center justify-center text-center'>
           <div className='text-muted-foreground'>
-            <div className='mb-2 font-medium text-lg'>⚠️ Preview Error</div>
-            <div className='text-sm'>Unable to render workflow preview</div>
+            <div className='mb-2 font-medium text-lg'>{t('detail.previewErrorTitle')}</div>
+            <div className='text-sm'>{t('detail.previewErrorDescription')}</div>
           </div>
         </div>
       )
@@ -259,7 +249,7 @@ export default function TemplateDetails({
             className='mb-6 flex items-center gap-2 text-muted-foreground transition-colors hover:text-foreground'
           >
             <ArrowLeft className='h-4 w-4' />
-            <span className='text-sm'>Go back</span>
+            <span className='text-sm'>{t('detail.goBack')}</span>
           </button>
 
           {/* Template header */}
@@ -305,7 +295,7 @@ export default function TemplateDetails({
                 disabled={isUsing}
                 className='bg-amber-600 text-white hover:bg-amber-700'
               >
-                Use this template
+                {t('detail.useThisTemplate')}
               </Button>
             </div>
           </div>
@@ -314,7 +304,7 @@ export default function TemplateDetails({
           <div className='mt-6 flex items-center gap-3 text-muted-foreground text-sm'>
             {/* Category */}
             <div className='flex items-center gap-1 rounded-full bg-secondary px-3 py-1'>
-              <span>{getCategoryDisplayName(template.category)}</span>
+              <span>{t(`categories.${template.category}`)}</span>
             </div>
 
             {/* Views */}
@@ -332,7 +322,9 @@ export default function TemplateDetails({
             {/* Author */}
             <div className='flex items-center gap-1 rounded-full bg-secondary px-3 py-1'>
               <User className='h-3 w-3' />
-              <span>by {template.author}</span>
+              <span>
+                {t('detail.by')} {template.author}
+              </span>
             </div>
           </div>
         </div>
@@ -341,7 +333,7 @@ export default function TemplateDetails({
       {/* Workflow preview */}
       <div className='flex-1 p-6'>
         <div className='mx-auto max-w-7xl'>
-          <h2 className='mb-4 font-semibold text-xl'>Workflow Preview</h2>
+          <h2 className='mb-4 font-semibold text-xl'>{t('detail.workflowPreview')}</h2>
           <div className='h-[600px] w-full'>{renderWorkflowPreview()}</div>
         </div>
       </div>

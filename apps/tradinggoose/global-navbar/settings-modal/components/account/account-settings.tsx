@@ -24,6 +24,8 @@ import { getBaseUrl } from '@/lib/urls/utils'
 import { useProfilePictureUpload } from '@/global-navbar/settings-modal/components/hooks/use-profile-picture-upload'
 import { useGeneralSettings } from '@/hooks/queries/general-settings'
 import { useGeneralStore } from '@/stores/settings/general/store'
+import { useLocale } from 'next-intl'
+import { localizeHref, type LocaleCode } from '@/i18n/utils'
 const logger = createLogger('AccountSettings')
 const DEFAULT_AVATAR_SRC = '/profile/avatar.png'
 
@@ -36,6 +38,7 @@ const toEpochMillis = (value: string | Date | null | undefined): number | null =
 
 export function AccountSettings() {
   const { data: session } = useSession()
+  const locale = useLocale() as LocaleCode
   const userId = session?.user?.id ?? null
 
   // Telemetry state from general store
@@ -300,7 +303,7 @@ export function AccountSettings() {
         },
         body: JSON.stringify({
           email: targetEmail,
-          redirectTo: `${getBaseUrl()}/reset-password`,
+          redirectTo: `${getBaseUrl()}${localizeHref(locale, '/reset-password')}`,
         }),
       })
 

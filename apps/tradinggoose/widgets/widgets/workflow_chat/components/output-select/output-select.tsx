@@ -4,6 +4,8 @@ import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState }
 import { Check, ChevronDown, Search } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { Input } from '@/components/ui/input'
+import { formatTemplate } from '@/i18n/template'
+import { useWorkflowOutputSelectMessages } from '@/i18n/workspace-widget-hooks'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { useWorkflowBlocks, useWorkflowEdges } from '@/lib/yjs/use-workflow-doc'
@@ -23,9 +25,10 @@ export function OutputSelect({
   selectedOutputs = [],
   onOutputSelect,
   disabled = false,
-  placeholder = 'Select output sources',
+  placeholder,
   triggerClassName,
 }: OutputSelectProps) {
+  const copy = useWorkflowOutputSelectMessages()
   const [isOutputDropdownOpen, setIsOutputDropdownOpen] = useState(false)
   const [outputSearch, setOutputSearch] = useState('')
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -67,6 +70,7 @@ export function OutputSelect({
   }
 
   const workflowBlocks = blocks
+  const resolvedPlaceholder = placeholder ?? copy.defaultPlaceholder
 
   // Get workflow outputs for the dropdown
   const workflowOutputs = useMemo(() => {
@@ -115,6 +119,12 @@ export function OutputSelect({
 
       // Add response outputs
       if (Object.keys(outputsToProcess).length > 0) {
+        const blockDisplayName =
+          block.name ||
+          formatTemplate(copy.fallbackBlockName, {
+            id: block.id,
+          })
+
         const addOutput = (path: string, outputObj: any, prefix = '') => {
           const fullPath = prefix ? `${prefix}.${path}` : path
 
@@ -124,7 +134,7 @@ export function OutputSelect({
               id: `${block.id}_${fullPath}`,
               label: `${blockName}.${fullPath}`,
               blockId: block.id,
-              blockName: block.name || `Block ${block.id}`,
+              blockName: blockDisplayName,
               blockType: block.type,
               path: fullPath,
             }
@@ -138,7 +148,7 @@ export function OutputSelect({
               id: `${block.id}_${fullPath}`,
               label: `${blockName}.${fullPath}`,
               blockId: block.id,
-              blockName: block.name || `Block ${block.id}`,
+              blockName: blockDisplayName,
               blockType: block.type,
               path: fullPath,
             }
@@ -157,7 +167,7 @@ export function OutputSelect({
               id: `${block.id}_${fullPath}`,
               label: `${blockName}.${fullPath}`,
               blockId: block.id,
-              blockName: block.name || `Block ${block.id}`,
+              blockName: blockDisplayName,
               blockType: block.type,
               path: fullPath,
             })
@@ -172,14 +182,14 @@ export function OutputSelect({
     })
 
     return outputs
-  }, [workflowBlocks, workflowId, blocks])
+  }, [copy.fallbackBlockName, workflowBlocks, workflowId, blocks])
 
   const isSelectedValue = (o: { id: string }) => selectedOutputs.includes(o.id)
 
   // Get selected outputs display text
   const { selectedOutputsDisplayText, hasSelectedOutputs } = useMemo(() => {
     if (!selectedOutputs || selectedOutputs.length === 0) {
-      return { selectedOutputsDisplayText: placeholder, hasSelectedOutputs: false }
+      return { selectedOutputsDisplayText: resolvedPlaceholder, hasSelectedOutputs: false }
     }
 
     // Ensure all selected outputs exist in the workflowOutputs array by canonical id
@@ -188,7 +198,7 @@ export function OutputSelect({
     )
 
     if (validOutputs.length === 0) {
-      return { selectedOutputsDisplayText: placeholder, hasSelectedOutputs: false }
+      return { selectedOutputsDisplayText: resolvedPlaceholder, hasSelectedOutputs: false }
     }
 
     if (validOutputs.length === 1) {
@@ -196,14 +206,16 @@ export function OutputSelect({
       if (output) {
         return { selectedOutputsDisplayText: output.label, hasSelectedOutputs: true }
       }
-      return { selectedOutputsDisplayText: placeholder, hasSelectedOutputs: false }
+      return { selectedOutputsDisplayText: resolvedPlaceholder, hasSelectedOutputs: false }
     }
 
     return {
-      selectedOutputsDisplayText: `${validOutputs.length} selected`,
+      selectedOutputsDisplayText: formatTemplate(copy.selectedCount, {
+        count: validOutputs.length,
+      }),
       hasSelectedOutputs: true,
     }
-  }, [selectedOutputs, workflowOutputs, placeholder])
+  }, [copy.selectedCount, resolvedPlaceholder, selectedOutputs, workflowOutputs])
 
   // Get first selected output info for display icon
   const selectedOutputInfo = useMemo(() => {
@@ -503,7 +515,7 @@ export function OutputSelect({
                     <Input
                       value={outputSearch}
                       onChange={(event) => setOutputSearch(event.target.value)}
-                      placeholder='Search outputs...'
+                      placeholder={copy.searchPlaceholder}
                       className='h-6 border-0 bg-transparent px-0 text-foreground text-xs placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
                       onKeyDown={handleSearchInputKeyDown}
                       autoComplete='off'
@@ -521,7 +533,7 @@ export function OutputSelect({
                 >
                   {!hasFilteredOutputs ? (
                     <div className='px-3 py-6 text-center text-muted-foreground text-xs'>
-                      {outputSearch.trim() ? 'No matching outputs.' : 'No outputs available.'}
+                      {outputSearch.trim() ? copy.noMatchingOutputs : copy.noOutputsAvailable}
                     </div>
                   ) : (
                     Object.entries(groupedOutputs).map(([blockName, outputs]) => {

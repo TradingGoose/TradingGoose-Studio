@@ -12,6 +12,12 @@ import {
 const MODE_ORDER: MonitorPageMode[] = ['executions', 'config']
 
 type BootstrapMonitorViewsInput = {
+  copy?: {
+    createDefaultView: string
+    invalidViewResponse: string
+    loadViews: string
+  }
+  defaultViewNames?: Partial<Record<MonitorPageMode, string>>
   workspaceId: string
   preferredActiveMode?: MonitorPageMode
   preferredActiveViewIdsByMode?: Partial<Record<MonitorPageMode, string | null>>
@@ -37,6 +43,17 @@ const getErrorMessage = (error: unknown, fallback: string) =>
 const getRowsForMode = (rows: MonitorViewRow[], mode: MonitorPageMode) =>
   rows.filter((row) => row.mode === mode)
 
+const DEFAULT_COPY = {
+  createDefaultView: 'Unable to create default {{name}} view.',
+  invalidViewResponse: 'Invalid monitor view response',
+  loadViews: 'Unable to load monitor views.',
+} as const
+
+const resolveDefaultViewName = (
+  mode: MonitorPageMode,
+  defaultViewNames: Partial<Record<MonitorPageMode, string>>
+) => defaultViewNames[mode] ?? getDefaultMonitorViewName(mode)
+
 const chooseActiveRow = (
   rows: MonitorViewRow[],
   mode: MonitorPageMode,
@@ -53,9 +70,10 @@ const chooseActiveRow = (
 
 const buildFatalResult = (
   error: unknown,
-  preferredActiveMode: MonitorPageMode
+  preferredActiveMode: MonitorPageMode,
+  copy: BootstrapMonitorViewsInput['copy']
 ): BootstrapMonitorViewsResult => {
-  const message = getErrorMessage(error, 'Unable to load monitor views.')
+  const message = getErrorMessage(error, copy?.loadViews ?? DEFAULT_COPY.loadViews)
 
   return {
     viewStateMode: 'error',
@@ -74,6 +92,8 @@ const buildFatalResult = (
 }
 
 export const bootstrapMonitorViews = async ({
+  copy,
+  defaultViewNames = {},
   workspaceId,
   preferredActiveMode = 'executions',
   preferredActiveViewIdsByMode = {},
@@ -89,7 +109,7 @@ export const bootstrapMonitorViews = async ({
   try {
     rows = await listMonitorViews(workspaceId)
   } catch (error) {
-    return buildFatalResult(error, normalizedPreferredMode)
+    return buildFatalResult(error, normalizedPreferredMode, copy)
   }
 
   const errorsByMode: Partial<Record<MonitorPageMode, string>> = {}
@@ -106,8 +126,9 @@ export const bootstrapMonitorViews = async ({
     }
 
     try {
+      const defaultViewName = resolveDefaultViewName(mode, defaultViewNames)
       const createdRow = await createMonitorView(workspaceId, {
-        name: getDefaultMonitorViewName(mode),
+        name: defaultViewName,
         config: getDefaultMonitorViewConfig(mode),
         makeActive: true,
       })
@@ -117,7 +138,10 @@ export const bootstrapMonitorViews = async ({
       rowStateByMode[mode] = 'error'
       errorsByMode[mode] = getErrorMessage(
         error,
-        `Unable to create default ${getDefaultMonitorViewName(mode)} view.`
+        (copy?.createDefaultView ?? DEFAULT_COPY.createDefaultView).replace(
+          '{{name}}',
+          resolveDefaultViewName(mode, defaultViewNames)
+        )
       )
       if (isUnsupportedMonitorViewDataError(error)) {
         errorsByMode[mode] = getErrorMessage(error, errorsByMode[mode]!)
@@ -140,7 +164,7 @@ export const bootstrapMonitorViews = async ({
     const normalizedConfig = normalizeMonitorSavedViewConfig(activeRow.config)
     if (!normalizedConfig || normalizedConfig.mode !== mode || activeRow.mode !== mode) {
       rowStateByMode[mode] = 'error'
-      errorsByMode[mode] = 'Invalid monitor view response'
+      errorsByMode[mode] = copy?.invalidViewResponse ?? DEFAULT_COPY.invalidViewResponse
       continue
     }
 
@@ -161,7 +185,7 @@ export const bootstrapMonitorViews = async ({
     : (renderableModes[0] ?? normalizedPreferredMode)
   const viewsError =
     Object.values(errorsByMode).filter(Boolean).join(' ') ||
-    (viewStateMode === 'error' ? 'Unable to load monitor views.' : null)
+    (viewStateMode === 'error' ? (copy?.loadViews ?? DEFAULT_COPY.loadViews) : null)
 
   return {
     viewStateMode,

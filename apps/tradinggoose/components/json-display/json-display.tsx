@@ -32,6 +32,7 @@ export interface RawJsonViewProps {
   wrapText?: boolean
   redact?: boolean
   className?: string
+  copyLabel?: string
 }
 
 export interface StructuredJsonViewProps {
@@ -45,6 +46,7 @@ export interface StructuredJsonViewProps {
 
 export interface JsonDisplayProps extends StructuredJsonViewProps {
   mode?: JsonDisplayMode
+  copyLabel?: string
 }
 
 export interface JsonDisplayControlsProps {
@@ -103,6 +105,7 @@ export const RawJsonView = ({
   wrapText = true,
   redact = true,
   className,
+  copyLabel = 'Copy value',
 }: RawJsonViewProps) => {
   const [contextMenuPosition, setContextMenuPosition] = useState<{
     x: number
@@ -134,7 +137,7 @@ export const RawJsonView = ({
     >
       <pre
         className={cn(
-          'm-0 px-2 font-sm text-sm text-foreground leading-[inherit]',
+          'm-0 px-2 font-sm text-foreground text-sm leading-[inherit]',
           wrapText
             ? 'whitespace-pre-wrap break-words'
             : 'inline-block min-w-full whitespace-pre break-normal'
@@ -151,7 +154,7 @@ export const RawJsonView = ({
             className='w-full px-3 py-1.5 text-left font-[380] text-sm hover:bg-card'
             onClick={() => copyToClipboard(data, redact)}
           >
-            Copy value
+            {copyLabel}
           </button>
         </div>
       )}

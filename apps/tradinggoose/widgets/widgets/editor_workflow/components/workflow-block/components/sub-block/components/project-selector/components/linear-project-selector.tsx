@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { Check, ChevronDown, RefreshCw } from 'lucide-react'
 import { LinearIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
@@ -11,6 +12,9 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { translateWorkflowLabel } from '@/i18n/block-editor'
+import type { LocaleCode } from '@/i18n/utils'
+import { useWorkspaceBlockEditorMessages } from '@/i18n/workspace-widget-hooks'
 
 export interface LinearProjectInfo {
   id: string
@@ -32,21 +36,41 @@ export function LinearProjectSelector({
   onChange,
   credential,
   teamId,
-  label = 'Select Linear project',
+  label,
   disabled = false,
   workflowId,
 }: LinearProjectSelectorProps) {
+  const locale = useLocale() as LocaleCode
+  const selectorCopy = useWorkspaceBlockEditorMessages().linearProjectSelector
+  const copy = {
+    selectLinearProject: translateWorkflowLabel(locale, 'Select Linear project'),
+    searchProjects: translateWorkflowLabel(locale, 'Search projects...'),
+    loading: translateWorkflowLabel(locale, 'Loading...'),
+    missingCredentialsOrTeam: translateWorkflowLabel(locale, 'Missing credentials or team'),
+    configureLinearCredentialsAndSelectTeam: translateWorkflowLabel(
+      locale,
+      'Please configure Linear credentials and select a team.'
+    ),
+    noProjectsFound: translateWorkflowLabel(locale, 'No projects found'),
+    noProjectsAvailable: translateWorkflowLabel(
+      locale,
+      'No projects available for the selected team.'
+    ),
+    projects: translateWorkflowLabel(locale, 'Projects'),
+  }
   const [projects, setProjects] = useState<LinearProjectInfo[]>([])
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [errorKey, setErrorKey] = useState<keyof typeof selectorCopy.errors | null>(null)
   const [open, setOpen] = useState(false)
   const [selectedProject, setSelectedProject] = useState<LinearProjectInfo | null>(null)
+  const labelText = label ?? copy.selectLinearProject
+  const errorMessage = errorKey ? selectorCopy.errors[errorKey] : null
 
   useEffect(() => {
     if (!credential || !teamId) return
     const controller = new AbortController()
     setLoading(true)
-    setError(null)
+    setErrorKey(null)
 
     fetch('/api/tools/linear/projects', {
       method: 'POST',
@@ -56,14 +80,14 @@ export function LinearProjectSelector({
     })
       .then(async (res) => {
         if (!res.ok) {
-          const errorText = await res.text()
-          throw new Error(`HTTP error! status: ${res.status} - ${errorText}`)
+          await res.text()
+          throw new Error('failedToFetchProjects')
         }
         return res.json()
       })
       .then((data) => {
         if (data.error) {
-          setError(data.error)
+          setErrorKey('failedToFetchProjects')
           setProjects([])
         } else {
           setProjects(data.projects)
@@ -77,7 +101,7 @@ export function LinearProjectSelector({
       })
       .catch((err) => {
         if (err.name === 'AbortError') return
-        setError(err.message)
+        setErrorKey('failedToFetchProjects')
         setProjects([])
       })
       .finally(() => setLoading(false))
@@ -122,7 +146,7 @@ export function LinearProjectSelector({
           ) : (
             <div className='flex items-center gap-1'>
               <LinearIcon className='h-4 w-4' />
-              <span className='text-muted-foreground'>{label}</span>
+              <span className='text-muted-foreground'>{labelText}</span>
             </div>
           )}
           <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
@@ -130,31 +154,29 @@ export function LinearProjectSelector({
       </PopoverTrigger>
       <PopoverContent className='w-[300px] p-0' align='start'>
         <Command>
-          <CommandInput placeholder='Search projects...' />
+          <CommandInput placeholder={copy.searchProjects} />
           <CommandList>
             <CommandEmpty>
               {loading ? (
                 <div className='flex items-center justify-center p-4'>
                   <RefreshCw className='h-4 w-4 animate-spin' />
-                  <span className='ml-2'>Loading projects...</span>
+                  <span className='ml-2'>{copy.loading}</span>
                 </div>
-              ) : error ? (
+              ) : errorMessage ? (
                 <div className='p-4 text-center'>
-                  <p className='text-destructive text-sm'>{error}</p>
+                  <p className='text-destructive text-sm'>{errorMessage}</p>
                 </div>
               ) : !credential || !teamId ? (
                 <div className='p-4 text-center'>
-                  <p className='font-medium text-sm'>Missing credentials or team</p>
+                  <p className='font-medium text-sm'>{copy.missingCredentialsOrTeam}</p>
                   <p className='text-muted-foreground text-xs'>
-                    Please configure Linear credentials and select a team.
+                    {copy.configureLinearCredentialsAndSelectTeam}
                   </p>
                 </div>
               ) : (
                 <div className='p-4 text-center'>
-                  <p className='font-medium text-sm'>No projects found</p>
-                  <p className='text-muted-foreground text-xs'>
-                    No projects available for the selected team.
-                  </p>
+                  <p className='font-medium text-sm'>{copy.noProjectsFound}</p>
+                  <p className='text-muted-foreground text-xs'>{copy.noProjectsAvailable}</p>
                 </div>
               )}
             </CommandEmpty>
@@ -162,7 +184,7 @@ export function LinearProjectSelector({
             {projects.length > 0 && (
               <CommandGroup>
                 <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>
-                  Projects
+                  {copy.projects}
                 </div>
                 {projects.map((project) => (
                   <CommandItem

@@ -1,9 +1,12 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { getEnv, isTruthy } from '@/lib/env'
 import { cn } from '@/lib/utils'
+import { useAppMessages } from '@/i18n/client-messages'
+import { localizeHref, normalizeCallbackUrl, type LocaleCode } from '@/i18n/utils'
 
 interface SSOLoginButtonProps {
   callbackURL?: string
@@ -20,14 +23,21 @@ export function SSOLoginButton({
   variant = 'outline',
 }: SSOLoginButtonProps) {
   const router = useRouter()
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages()
+  const commonCopy = copy.auth.common
 
   if (!isTruthy(getEnv('NEXT_PUBLIC_SSO_ENABLED'))) {
     return null
   }
 
+  const resolvedCallbackURL = callbackURL ? normalizeCallbackUrl(callbackURL) : undefined
+
   const handleSSOClick = () => {
-    const ssoUrl = `/sso${callbackURL ? `?callbackUrl=${encodeURIComponent(callbackURL)}` : ''}`
-    router.push(ssoUrl)
+    const ssoUrl = `/sso${
+      resolvedCallbackURL ? `?callbackUrl=${encodeURIComponent(resolvedCallbackURL)}` : ''
+    }`
+    router.push(localizeHref(locale, ssoUrl))
   }
 
   const primaryBtnClasses =
@@ -42,7 +52,7 @@ export function SSOLoginButton({
       variant={variant === 'outline' ? 'outline' : undefined}
       className={cn(variant === 'outline' ? outlineBtnClasses : primaryBtnClasses, className)}
     >
-      Sign in with SSO
+      {commonCopy.signInWithSso}
     </Button>
   )
 }

@@ -16,6 +16,7 @@ import { useCurrentWorkflow } from '@/hooks/workflow'
 import { getSubflowBlockConfig } from '@/widgets/widgets/editor_workflow/components/subflows/config'
 import { ActionBar } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/action-bar/action-bar'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 
 const SubflowNodeStyles: React.FC = () => {
   return (
@@ -83,6 +84,7 @@ export interface SubflowNodeData extends Record<string, unknown> {
 type SubflowNode = Node<SubflowNodeData, 'subflowNode'>
 
 export const SubflowNodeComponent = memo(({ data, id, selected }: NodeProps<SubflowNode>) => {
+  const { workflowEditorCopy: copy, getLocalizedDefaultBlockName } = useWorkflowI18n()
   const { getNodes } = useReactFlow()
   const updateNodeInternals = useUpdateNodeInternals()
   const userPermissions = useUserPermissionsContext()
@@ -101,7 +103,7 @@ export const SubflowNodeComponent = memo(({ data, id, selected }: NodeProps<Subf
   const endHandleId = isLoop ? 'loop-end-source' : 'parallel-end-source'
   const endTargetHandleId = isLoop ? 'loop-end-target' : 'parallel-end-target'
   const blockColor = subflowConfig.bgColor
-  const blockName = data.name || subflowConfig.name
+  const blockName = getLocalizedDefaultBlockName(data.kind, data.name)
   const BlockIcon = subflowConfig.icon
   const hasPriorityRing = Boolean(data?.hasNestedError)
 
@@ -202,12 +204,12 @@ export const SubflowNodeComponent = memo(({ data, id, selected }: NodeProps<Subf
             <div className='flex items-center gap-2'>
               {isLocked && (
                 <Badge variant='secondary' className='bg-gray-100 text-gray-500 hover:bg-gray-100'>
-                  Locked
+                  {copy.locked}
                 </Badge>
               )}
               {!isEnabled && (
                 <Badge variant='secondary' className='bg-gray-100 text-gray-500 hover:bg-gray-100'>
-                  Disabled
+                  {copy.disabled}
                 </Badge>
               )}
             </div>
@@ -228,7 +230,7 @@ export const SubflowNodeComponent = memo(({ data, id, selected }: NodeProps<Subf
             data-node-role={`${data.kind}-start`}
             data-extent='parent'
           >
-            <span className='font-medium text-sm'>Start</span>
+            <span className='font-medium text-sm'>{copy.start}</span>
             <Handle
               type='source'
               position={Position.Right}
@@ -265,7 +267,7 @@ export const SubflowNodeComponent = memo(({ data, id, selected }: NodeProps<Subf
               }}
               data-parent-id={id}
             />
-            <span className='font-medium text-sm'>End</span>
+            <span className='font-medium text-sm'>{copy.end}</span>
           </div>
 
           <Handle

@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { ConsoleEntry } from '..'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useConsoleStore } from '@/stores/console/store'
+import { useWorkflowConsoleCopy } from '../../copy'
 
 interface ConsoleProps {
   panelWidth: number
@@ -13,6 +14,7 @@ interface ConsoleProps {
 }
 
 export function Console({ panelWidth, hideScrollbar = true }: ConsoleProps) {
+  const copy = useWorkflowConsoleCopy()
   const entries = useConsoleStore((state) => state.entries)
   const { workflowId } = useWorkflowRoute()
 
@@ -24,7 +26,7 @@ export function Console({ panelWidth, hideScrollbar = true }: ConsoleProps) {
     <div className='h-full pt-2'>
       {filteredEntries.length === 0 ? (
         <div className='flex h-full items-center justify-center text-muted-foreground text-sm'>
-          No console entries
+          {copy.noConsoleEntries}
         </div>
       ) : (
         <ScrollArea

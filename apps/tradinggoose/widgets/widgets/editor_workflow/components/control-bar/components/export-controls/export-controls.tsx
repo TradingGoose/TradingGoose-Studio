@@ -9,6 +9,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { useSkills } from '@/hooks/queries/skills'
 import { useWorkflowJsonStore } from '@/stores/workflows/json/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { useWorkflowEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('ExportControls')
@@ -21,6 +22,7 @@ interface ExportControlsProps {
 }
 
 export function ExportControls({ disabled = false, variant = 'workspace' }: ExportControlsProps) {
+  const copy = useWorkflowEditorCopy()
   const [isExporting, setIsExporting] = useState(false)
   const { workflows } = useWorkflowRegistry()
   const { workflowId, channelId } = useWorkflowRoute()
@@ -82,10 +84,10 @@ export function ExportControls({ disabled = false, variant = 'workspace' }: Expo
   const isDisabled = disabled || isExporting || !workflowId || !currentWorkflow
 
   const getTooltipText = () => {
-    if (disabled) return 'Export not available'
-    if (!currentWorkflow) return 'No workflow to export'
-    if (isExporting) return 'Exporting...'
-    return 'Export workflow as JSON'
+    if (disabled) return copy.exportControls.exportNotAvailable
+    if (!currentWorkflow) return copy.exportControls.noWorkflowToExport
+    if (isExporting) return copy.exportControls.exporting
+    return copy.exportControls.exportWorkflowAsJson
   }
 
   const buttonClass =
@@ -103,7 +105,7 @@ export function ExportControls({ disabled = false, variant = 'workspace' }: Expo
           className={buttonClass}
         >
           <ArrowDownToLine className='h-5 w-5' />
-          <span className='sr-only'>Export</span>
+          <span className='sr-only'>{copy.exportControls.export}</span>
         </Button>
       </TooltipTrigger>
       <TooltipContent>{getTooltipText()}</TooltipContent>

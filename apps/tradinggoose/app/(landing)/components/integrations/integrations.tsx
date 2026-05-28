@@ -6,7 +6,10 @@ import { Avatar } from '@/components/ui/avatar'
 import { Card, CardContent } from '@/components/ui/card'
 import { Marquee } from '@/components/ui/marquee'
 import { MotionPreset } from '@/components/ui/motion-preset'
+import { useLocale } from 'next-intl'
 import { useCardGlow } from '@/app/(landing)/components/use-card-glow'
+import { useAppMessages } from '@/i18n/client-messages'
+import type { LocaleCode } from '@/i18n/utils'
 
 type BrandLogo = {
   icon: React.ComponentType<{ className?: string }>
@@ -121,10 +124,35 @@ function LogoAvatar({ icon: Icon, style }: BrandLogo) {
 }
 
 export default function Integrations() {
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages()
   useCardGlow()
+  const integrationsStructuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    '@id': 'https://tradinggoose.ai/#integrations',
+    name: copy.landing.integrations.structuredData.name,
+    description: copy.landing.integrations.structuredData.description,
+    numberOfItems: brandLogos.length,
+    itemListElement: brandLogos.map((logo, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      item: {
+        '@type': 'SoftwareApplication',
+        name: logo.name,
+      },
+    })),
+  }
 
   return (
     <section id='integrations' className='py-8 sm:py-16 lg:py-24'>
+      <script
+        id='landing-integrations-jsonld'
+        type='application/ld+json'
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(integrationsStructuredData).replace(/</g, '\\u003c'),
+        }}
+      />
       <div className='mx-auto px-4 sm:px-6 lg:px-48'>
         <div className='flex items-start justify-between gap-12 max-md:flex-col sm:gap-16 lg:gap-24'>
           {/* Header */}
@@ -152,19 +180,15 @@ export default function Integrations() {
                 />
                 <CardContent className='relative z-10 space-y-4 p-6'>
                   <p className='font-medium text-[11px] text-muted-foreground uppercase tracking-[0.24em]'>
-                    Integrations
+                    {copy.landing.integrations.eyebrow}
                   </p>
 
                   <h2 className='font-semibold text-2xl md:text-3xl lg:text-4xl'>
-                    LLM with more than just prompts.
+                    {copy.landing.integrations.title}
                   </h2>
 
                   <div className='space-y-3 pt-10'>
-                    {[
-                      'Every integration becomes a tool your AI agents can call',
-                      'Built-in blocks for messaging, databases, cloud storage, CRMs, and search',
-                      'Custom MCP servers, skills, and tools you define yourself',
-                    ].map((text) => (
+                    {copy.landing.integrations.bullets.map((text) => (
                       <div key={text} className='flex items-center gap-3'>
                         <span className='h-px w-4 shrink-0 bg-primary' />
                         <p className='text-muted-foreground text-sm'>{text}</p>

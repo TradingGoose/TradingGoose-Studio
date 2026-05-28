@@ -4,6 +4,7 @@ import type React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Download, Filter, Loader2, RefreshCw, ScrollText, Search } from 'lucide-react'
 import { useParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
@@ -53,11 +54,6 @@ import { useFilterStore } from '@/stores/logs/filters/store'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
 
 const PAGE_SIZE = 50
-const RECORD_TAB_LABELS = {
-  orders: 'Orders',
-  logs: 'Logs',
-  stats: 'Stats',
-} satisfies Record<RecordsTab, string>
 
 const selectedRowAnimation = `
   @keyframes borderPulse {
@@ -74,6 +70,13 @@ const selectedRowAnimation = `
 export default function Records() {
   const params = useParams()
   const workspaceId = params.workspaceId as string
+  const t = useTranslations('workspace.records')
+  const tLogs = useTranslations('workspace.logs')
+  const recordTabLabels = {
+    orders: t('tabs.orders'),
+    logs: t('tabs.logs'),
+    stats: t('tabs.stats'),
+  } satisfies Record<RecordsTab, string>
 
   const {
     setWorkspaceId,
@@ -634,9 +637,9 @@ export default function Records() {
       center={
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as RecordsTab)}>
           <TabsList aria-label='Records view' className='h-9 shrink-0 border shadow-sm'>
-            {(Object.keys(RECORD_TAB_LABELS) as RecordsTab[]).map((tab) => (
+            {(Object.keys(recordTabLabels) as RecordsTab[]).map((tab) => (
               <TabsTrigger key={tab} value={tab} className='h-7 px-3 py-0 text-xs'>
-                {RECORD_TAB_LABELS[tab]}
+                {recordTabLabels[tab]}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -874,8 +877,8 @@ export default function Records() {
         isLoading={logDetailQuery.isLoading && !logDetailQuery.data}
         stateContent={
           logDetailQuery.isLoading && !logDetailQuery.data
-            ? 'Loading log details...'
-            : 'Log details unavailable'
+            ? tLogs('details.loading')
+            : tLogs('details.unavailable')
         }
         onClose={() => setIsLogDetailOpen(false)}
         onNavigateNext={() => {

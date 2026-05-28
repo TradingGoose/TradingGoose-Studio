@@ -6,12 +6,14 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { cn } from '@/lib/utils'
+import { useWorkflowEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 interface FloatingControlsProps {
   constrainToContainer?: boolean
 }
 
 export function FloatingControls({ constrainToContainer = false }: FloatingControlsProps) {
+  const copy = useWorkflowEditorCopy()
   const { zoomIn, zoomOut } = useReactFlow()
   // Subscribe to React Flow store so zoom % live-updates while zooming
   const zoom = useStore((s: any) =>
@@ -51,7 +53,7 @@ export function FloatingControls({ constrainToContainer = false }: FloatingContr
               <Minus className='h-2.5 w-2.5' />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Zoom Out</TooltipContent>
+          <TooltipContent>{copy.floatingControls.zoomOut}</TooltipContent>
         </Tooltip>
 
         <div className='flex w-12 items-center justify-center font-medium text-muted-foreground text-sm'>
@@ -74,7 +76,7 @@ export function FloatingControls({ constrainToContainer = false }: FloatingContr
               <Plus className='h-2.5 w-2.5' />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Zoom In</TooltipContent>
+          <TooltipContent>{copy.floatingControls.zoomIn}</TooltipContent>
         </Tooltip>
 
         <div className='mx-1 h-6 w-px bg-border' />
@@ -97,7 +99,7 @@ export function FloatingControls({ constrainToContainer = false }: FloatingContr
           </TooltipTrigger>
           <TooltipContent>
             <div className='text-center'>
-              <p>Undo</p>
+              <p>{copy.floatingControls.undo}</p>
               <p className='text-muted-foreground text-xs'>Cmd+Z</p>
             </div>
           </TooltipContent>
@@ -121,7 +123,7 @@ export function FloatingControls({ constrainToContainer = false }: FloatingContr
           </TooltipTrigger>
           <TooltipContent>
             <div className='text-center'>
-              <p>Redo</p>
+              <p>{copy.floatingControls.redo}</p>
               <p className='text-muted-foreground text-xs'>Cmd+Shift+Z</p>
             </div>
           </TooltipContent>

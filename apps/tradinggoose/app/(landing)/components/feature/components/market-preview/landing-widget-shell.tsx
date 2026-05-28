@@ -2,8 +2,11 @@
 
 import type { ReactNode, WheelEvent } from 'react'
 import { useCallback } from 'react'
+import { useLocale } from 'next-intl'
 import { Card } from '@/components/ui/card'
 import { widgetHeaderControlClassName } from '@/components/widget-header-control'
+import { useAppMessages } from '@/i18n/client-messages'
+import { type LocaleCode } from '@/i18n/utils'
 import { cn } from '@/lib/utils'
 import { getWidgetDefinition } from '@/widgets/registry'
 
@@ -26,6 +29,9 @@ export function LandingWidgetShell({
 }: LandingWidgetShellProps) {
   const widgetDefinition = getWidgetDefinition(widgetKey) ?? getWidgetDefinition('empty')
   const WidgetIcon = widgetDefinition?.icon
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages()
+  const shellCopy = copy.landing.preview.shell
   const handleWheel = useCallback((event: WheelEvent<HTMLDivElement>) => {
     if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return
     event.preventDefault()
@@ -44,14 +50,14 @@ export function LandingWidgetShell({
           <div
             onWheel={handleWheel}
             className='flex w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-            aria-label='Widget header'
+            aria-label={shellCopy.headerAriaLabel}
           >
             <div className='flex w-full flex-nowrap items-center gap-4 py-0.5 font-medium text-accent-foreground text-sm'>
               <div className='flex h-8 flex-grow basis-0 items-center justify-start gap-1 whitespace-nowrap pl-1 text-left'>
                 <button
                   type='button'
                   className={widgetHeaderControlClassName('font-semibold')}
-                  aria-label={widgetDefinition?.title ?? 'Widget'}
+                  aria-label={widgetDefinition?.title ?? shellCopy.widgetLabel}
                 >
                   <span className='flex items-center gap-1 text-muted-foreground hover:text-foreground'>
                     {WidgetIcon ? <WidgetIcon className='h-4 w-4' aria-hidden='true' /> : null}

@@ -1,6 +1,7 @@
 'use client'
 
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { ListingSelector } from '@/components/listing-selector/selector/combo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,6 +18,8 @@ import {
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { getListingIdentityKey, type ListingOption } from '@/lib/listing/identity'
 import type { TradingOrderSubmitRequest } from '@/lib/trading/order-types'
+import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import type { LocaleCode } from '@/i18n/utils'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import { usePortfolioDetail, useSubmitTradingOrder } from '@/hooks/queries/trading-portfolio'
@@ -63,9 +66,13 @@ function CenterState({ children }: { children: string }) {
   return <div className={centerStateClassName}>{children}</div>
 }
 
-const formatCurrency = (value: number | null | undefined, currency = 'USD') => {
+const formatCurrency = (
+  value: number | null | undefined,
+  currency = 'USD',
+  locale = 'en-US'
+) => {
   if (typeof value !== 'number' || !Number.isFinite(value)) return '$ -'
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency,
     maximumFractionDigits: 2,
@@ -93,18 +100,12 @@ const isPositiveNumber = (value: number | undefined): value is number =>
 
 const getNumberValidationMessage = (
   label: string,
-  result: QuickOrderNumberParseResult
+  result: QuickOrderNumberParseResult,
+  enterValidMessage: string
 ): string | null => {
-  if (!result.ok) return `Enter a valid ${label}.`
-  return isPositiveNumber(result.value) ? null : `Enter ${label}.`
+  if (!result.ok) return formatTemplate(enterValidMessage, { field: label })
+  return isPositiveNumber(result.value) ? null : formatTemplate(enterValidMessage, { field: label })
 }
-
-const orderFieldLabels = {
-  limitPrice: 'limit price',
-  stopPrice: 'stop price',
-  trailPrice: 'trail price',
-  trailPercent: 'trail percent',
-} as const
 
 const getValidationMessage = ({
   providerId,
@@ -122,6 +123,8 @@ const getValidationMessage = ({
   trailPrice,
   trailPercent,
   orderTypeMessage,
+  copy,
+  orderFieldLabels,
 }: {
   providerId?: string
   accountId?: string
@@ -138,43 +141,46 @@ const getValidationMessage = ({
   trailPrice: QuickOrderNumberParseResult
   trailPercent: QuickOrderNumberParseResult
   orderTypeMessage?: string | null
+  copy: Record<string, string>
+  orderFieldLabels: Record<'limitPrice' | 'stopPrice' | 'trailPrice' | 'trailPercent', string>
 }) => {
-  if (!providerId || !accountId) return 'Select provider and account.'
-  if (!listing) return 'Select a listing.'
+  if (!providerId || !accountId) return copy.selectProviderAndAccount
+  if (!listing) return copy.selectListing
 
   const resolvedAssetClass = resolveTradingListingAssetClass(listing)
-  if (!resolvedAssetClass) return 'Resolved listing asset class is required.'
-  if (!isTradingOrderListingSupported(providerId, listing))
-    return 'Listing is not supported by this provider.'
+  if (!resolvedAssetClass) return copy.resolvedListingAssetClassRequired
+  if (!isTradingOrderListingSupported(providerId, listing)) return copy.listingIsNotSupportedByThisProvider
   if (orderTypeMessage) return orderTypeMessage
-  if (!orderType) return 'Select an order type.'
-  if (!timeInForce) return 'Select a time in force.'
-  if (!sizingMode || !sizingModeDefinition) return 'Select order size.'
+  if (!orderType) return copy.selectOrderType
+  if (!timeInForce) return copy.selectTimeInForce
+  if (!sizingMode || !sizingModeDefinition) return copy.selectOrderSize
 
   if (sizingMode === 'notional') {
-    const notionalMessage = getNumberValidationMessage('notional amount', notional)
+    const notionalMessage = getNumberValidationMessage('notional amount', notional, copy.enterValid)
     if (notionalMessage) return notionalMessage
     if (
       sizingModeDefinition.orderTypes?.length &&
       !sizingModeDefinition.orderTypes.includes(orderType)
     ) {
-      return 'Notional sizing is not supported for this order type.'
+      return copy.notionalSizingIsNotSupportedForThisOrderType
     }
     if (
       sizingModeDefinition.timeInForce?.length &&
       !sizingModeDefinition.timeInForce.includes(timeInForce)
     ) {
-      return `Notional sizing requires ${sizingModeDefinition.timeInForce.join('/').toUpperCase()}.`
+      return formatTemplate(copy.notionalSizingRequires, {
+        values: sizingModeDefinition.timeInForce.join('/').toUpperCase(),
+      })
     }
   } else {
-    const quantityMessage = getNumberValidationMessage('quantity', quantity)
+    const quantityMessage = getNumberValidationMessage('quantity', quantity, copy.enterValid)
     if (quantityMessage) return quantityMessage
   }
 
   for (const field of orderTypeDefinition?.excludes ?? []) {
     const result = { limitPrice, stopPrice, trailPrice, trailPercent }[field]
     if (isPositiveNumber(getParsedNumberValue(result))) {
-      return `${field} is not supported for this order type.`
+      return formatTemplate(copy.fieldNotSupportedForThisOrderType, { field: orderFieldLabels[field] })
     }
   }
 
@@ -182,16 +188,20 @@ const getValidationMessage = ({
   if (oneOfFields.length) {
     const values = { limitPrice, stopPrice, trailPrice, trailPercent }
     const invalidField = oneOfFields.find((field) => !values[field].ok)
-    if (invalidField) return `Enter a valid ${orderFieldLabels[invalidField]}.`
+    if (invalidField) return formatTemplate(copy.enterValid, { field: orderFieldLabels[invalidField] })
     const providedCount = oneOfFields.filter((field) =>
       isPositiveNumber(getParsedNumberValue(values[field]))
     ).length
-    if (providedCount !== 1) return `${oneOfFields.join(' or ')} is required.`
+    if (providedCount !== 1) {
+      return formatTemplate(copy.oneOfFieldsRequired, {
+        fields: oneOfFields.join(' or '),
+      })
+    }
   }
 
   for (const field of orderTypeDefinition?.requires ?? []) {
     const result = { limitPrice, stopPrice, trailPrice, trailPercent }[field]
-    const message = getNumberValidationMessage(orderFieldLabels[field], result)
+    const message = getNumberValidationMessage(orderFieldLabels[field], result, copy.enterValid)
     if (message) return message
   }
 
@@ -205,10 +215,20 @@ export function QuickOrderWidgetBody({
   params,
   onWidgetParamsChange,
 }: WidgetComponentProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages().workspace.widgets.quickOrder
   const workspaceId = context?.workspaceId ?? null
   const quickOrderParams = (params as QuickOrderBodyParams) ?? null
   const widgetKey = widget?.key ?? 'quick_order'
   const side = quickOrderParams?.side === 'sell' ? 'sell' : 'buy'
+  const sideLabel = side === 'sell' ? copy.header.sell : copy.header.buy
+  const sideLabelLower = sideLabel.toLowerCase()
+  const orderFieldLabels = {
+    limitPrice: copy.body.limitPrice,
+    stopPrice: copy.body.stopPrice,
+    trailPrice: copy.body.trailPrice,
+    trailPercent: copy.body.trailPercent,
+  } as const
 
   useQuickOrderParamsPersistence({
     onWidgetParamsChange,
@@ -328,22 +348,22 @@ export function QuickOrderWidgetBody({
   const defaultOrderType =
     defaultOrderTypeResolution?.ok === true ? defaultOrderTypeResolution.orderType : ''
   const orderTypePlaceholder = !listing
-    ? 'Select listing first'
+    ? copy.body.selectListingFirst
     : !resolvedAssetClass
-      ? 'Asset class unavailable'
+      ? copy.body.assetClassUnavailable
       : !isListingSupported
-        ? 'Listing unsupported'
-        : 'No supported types'
+        ? copy.body.listingUnsupported
+        : copy.body.noSupportedTypes
   const orderTypeMessage =
     listing && !resolvedAssetClass
-      ? 'Resolved listing asset class is required.'
+      ? copy.body.resolvedListingAssetClassRequired
       : listing && resolvedAssetClass && !isListingSupported
-        ? 'Listing is not supported by this provider.'
+        ? copy.body.listingIsNotSupportedByThisProvider
         : requestedOrderTypeResolution?.ok === false &&
             requestedOrderTypeResolution.reason === 'no_supported_order_types'
-          ? 'No supported order types for this listing.'
+          ? copy.body.noSupportedOrderTypesForThisListing
           : requestedOrderTypeResolution?.ok === false
-            ? 'Selected order type is not supported for this listing.'
+            ? copy.body.selectedOrderTypeIsNotSupportedForThisListing
             : null
   const timeInForceOptions = useMemo(
     () => getTradingOrderTimeInForceOptions(providerId),
@@ -420,6 +440,8 @@ export function QuickOrderWidgetBody({
     trailPrice,
     trailPercent,
     orderTypeMessage,
+    copy: copy.body,
+    orderFieldLabels,
   })
 
   useEffect(() => {
@@ -547,15 +569,15 @@ export function QuickOrderWidgetBody({
   }
 
   if (providerAvailabilityQuery.error) {
-    return <CenterState>Failed to load trading providers.</CenterState>
+    return <CenterState>{copy.body.failedToLoadTradingProviders}</CenterState>
   }
 
   if (providerOptions.length === 0) {
-    return <CenterState>No order-capable trading providers are available.</CenterState>
+    return <CenterState>{copy.body.noOrderCapableTradingProvidersAvailable}</CenterState>
   }
 
   if (!providerId) {
-    return <CenterState>Select a trading provider to get started.</CenterState>
+    return <CenterState>{copy.body.selectTradingProviderToGetStarted}</CenterState>
   }
 
   if (!activePortfolioIdentity) {
@@ -568,7 +590,7 @@ export function QuickOrderWidgetBody({
     }
 
     if (!activeServiceId) {
-      return <CenterState>Select a broker connection to submit an order.</CenterState>
+      return <CenterState>{copy.body.selectBrokerConnectionToSubmitAnOrder}</CenterState>
     }
 
     if (accountsQuery.isLoading) {
@@ -580,14 +602,14 @@ export function QuickOrderWidgetBody({
     }
 
     if (accountsQuery.error) {
-      return <CenterState>Failed to load broker accounts.</CenterState>
+      return <CenterState>{copy.body.failedToLoadBrokerAccounts}</CenterState>
     }
 
     if (portfolioIdentities.length === 0) {
-      return <CenterState>No broker accounts found for this provider connection.</CenterState>
+      return <CenterState>{copy.body.noBrokerAccountsFoundForThisProviderConnection}</CenterState>
     }
 
-    return <CenterState>Select a broker account to submit an order.</CenterState>
+    return <CenterState>{copy.body.selectBrokerAccountToSubmitAnOrder}</CenterState>
   }
 
   const canSubmit = Boolean(workspaceId) && !validationMessage && !submitOrder.isPending
@@ -684,11 +706,14 @@ export function QuickOrderWidgetBody({
             }}
           />
 
-          <OrderRow label='Market Price' value={formatCurrency(marketPrice, accountCurrency)} />
+          <OrderRow
+            label={copy.body.marketPrice}
+            value={formatCurrency(marketPrice, accountCurrency, locale)}
+          />
 
           <FieldBlock>
             <Label htmlFor='quick-order-size'>
-              {selectedSizingMode === 'notional' ? 'Notional' : 'Quantity'}
+              {selectedSizingMode === 'notional' ? copy.body.notional : copy.body.quantity}
             </Label>
             <Input
               id='quick-order-size'
@@ -707,7 +732,7 @@ export function QuickOrderWidgetBody({
           </FieldBlock>
 
           <FieldBlock>
-            <Label htmlFor='quick-order-order-type'>Order Type</Label>
+            <Label htmlFor='quick-order-order-type'>{copy.body.orderType}</Label>
             <Select
               value={orderType || undefined}
               disabled={
@@ -733,7 +758,7 @@ export function QuickOrderWidgetBody({
 
           {sizingOptions.length > 1 ? (
             <FieldBlock>
-              <Label>Choose how to {side}</Label>
+              <Label>{formatTemplate(copy.body.chooseHowTo, { side: sideLabelLower })}</Label>
               <RadioGroup
                 className='flex items-center gap-5'
                 value={selectedSizingMode}
@@ -760,10 +785,10 @@ export function QuickOrderWidgetBody({
           ) : null}
 
           <FieldBlock>
-            <Label htmlFor='quick-order-time-in-force'>Time in Force</Label>
+            <Label htmlFor='quick-order-time-in-force'>{copy.body.timeInForce}</Label>
             <Select value={timeInForce || undefined} onValueChange={setTimeInForce}>
               <SelectTrigger id='quick-order-time-in-force' className='h-9'>
-                <SelectValue placeholder='Select time in force' />
+                <SelectValue placeholder={copy.body.selectTimeInForce} />
               </SelectTrigger>
               <SelectContent>
                 {timeInForceOptions.map((option) => (
@@ -777,7 +802,7 @@ export function QuickOrderWidgetBody({
 
           {usesLimitPrice ? (
             <FieldBlock>
-              <Label htmlFor='quick-order-limit-price'>Limit Price</Label>
+              <Label htmlFor='quick-order-limit-price'>{copy.body.limitPrice}</Label>
               <Input
                 id='quick-order-limit-price'
                 className='h-9 font-mono'
@@ -791,7 +816,7 @@ export function QuickOrderWidgetBody({
 
           {usesStopPrice ? (
             <FieldBlock>
-              <Label htmlFor='quick-order-stop-price'>Stop Price</Label>
+              <Label htmlFor='quick-order-stop-price'>{copy.body.stopPrice}</Label>
               <Input
                 id='quick-order-stop-price'
                 className='h-9 font-mono'
@@ -806,7 +831,7 @@ export function QuickOrderWidgetBody({
           {usesTrailPrice || usesTrailPercent ? (
             <div className='grid grid-cols-2 gap-3'>
               <FieldBlock>
-                <Label htmlFor='quick-order-trail-price'>Trail Price</Label>
+                <Label htmlFor='quick-order-trail-price'>{copy.body.trailPrice}</Label>
                 <Input
                   id='quick-order-trail-price'
                   className='h-9 font-mono'
@@ -821,7 +846,7 @@ export function QuickOrderWidgetBody({
                 />
               </FieldBlock>
               <FieldBlock>
-                <Label htmlFor='quick-order-trail-percent'>Trail Percent</Label>
+                <Label htmlFor='quick-order-trail-percent'>{copy.body.trailPercent}</Label>
                 <Input
                   id='quick-order-trail-percent'
                   className='h-9 font-mono'
@@ -840,12 +865,12 @@ export function QuickOrderWidgetBody({
 
           {listing && !resolvedAssetClass ? (
             <div className='rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-amber-300 text-xs'>
-              Resolved listing asset class is required.
+              {copy.body.resolvedListingAssetClassRequired}
             </div>
           ) : null}
           {listing && resolvedAssetClass && !isListingSupported ? (
             <div className='rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-amber-300 text-xs'>
-              Listing is not supported by this provider.
+              {copy.body.listingIsNotSupportedByThisProvider}
             </div>
           ) : null}
           {listing && resolvedAssetClass && isListingSupported && orderTypeMessage ? (
@@ -859,12 +884,12 @@ export function QuickOrderWidgetBody({
       <div className='shrink-0 border-border/70 border-t bg-background/95 px-4 py-3'>
         <div className='space-y-2 pb-3'>
           <OrderRow
-            label={side === 'sell' ? 'Estimated Proceeds' : 'Estimated Cost'}
-            value={formatCurrency(estimatedOrderValue, accountCurrency)}
+            label={side === 'sell' ? copy.body.estimatedProceeds : copy.body.estimatedCost}
+            value={formatCurrency(estimatedOrderValue, accountCurrency, locale)}
           />
           <OrderRow
-            label='Cash Buying Power'
-            value={formatCurrency(cashBuyingPower, accountCurrency)}
+            label={copy.body.cashBuyingPower}
+            value={formatCurrency(cashBuyingPower, accountCurrency, locale)}
           />
         </div>
         {submitOrder.error ? (
@@ -873,7 +898,7 @@ export function QuickOrderWidgetBody({
           <div className='mb-2 text-xs'>
             <div className='space-y-0.5 text-muted-foreground'>
               <div className='text-foreground'>
-                {order.id ? `Order ${order.id}` : 'Order submitted'}
+                {order.id ? `${copy.body.orderPrefix} ${order.id}` : copy.body.orderSubmitted}
                 {order.status ? ` · ${order.status}` : ''}
               </div>
               <div>
@@ -889,7 +914,9 @@ export function QuickOrderWidgetBody({
           </div>
         ) : null}
         <Button type='submit' className='h-10 w-full' disabled={!canSubmit}>
-          {submitOrder.isPending ? 'Submitting...' : `Submit ${side.toUpperCase()} Order`}
+          {submitOrder.isPending
+            ? copy.body.submitting
+            : formatTemplate(copy.body.submitOrder, { side: sideLabel })}
         </Button>
       </div>
     </form>

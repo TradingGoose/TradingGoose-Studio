@@ -1,5 +1,6 @@
 import { afterAll, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
+import enMessages from './i18n/messages/en.json'
 
 global.fetch = vi.fn(() =>
   Promise.resolve({
@@ -20,6 +21,62 @@ const storageMock = {
 
 global.localStorage = storageMock as any
 global.sessionStorage = storageMock as any
+
+vi.mock('next-intl', async () => {
+  const React = await import('react')
+  const LocaleContext = React.createContext('en')
+  const MessagesContext = React.createContext(enMessages)
+
+  const resolveMessage = (messages: Record<string, unknown>, key: string) =>
+    key.split('.').reduce<unknown>((current, segment) => {
+      if (!current || typeof current !== 'object' || Array.isArray(current)) {
+        return undefined
+      }
+      return (current as Record<string, unknown>)[segment]
+    }, messages)
+
+  const formatMessage = (
+    template: string,
+    values?: Record<string, string | number | boolean | null | undefined>
+  ) => {
+    if (!values) {
+      return template
+    }
+
+    return Object.entries(values).reduce(
+      (result, [key, value]) => result.replaceAll(`{{${key}}}`, String(value ?? '')),
+      template
+    )
+  }
+
+  return {
+    NextIntlClientProvider: ({ children, locale, messages }: any) =>
+      React.createElement(
+        LocaleContext.Provider,
+        { value: locale ?? 'en' },
+        React.createElement(MessagesContext.Provider, { value: messages ?? enMessages }, children)
+      ),
+    useLocale: () => React.useContext(LocaleContext),
+    useMessages: () => React.useContext(MessagesContext),
+    useTranslations: (namespace?: string) => {
+      const messages = React.useContext(MessagesContext)
+
+      return (
+        key: string,
+        values?: Record<string, string | number | boolean | null | undefined>
+      ) => {
+        const fullKey = namespace ? `${namespace}.${key}` : key
+        const resolved = resolveMessage(messages, fullKey)
+
+        if (typeof resolved !== 'string') {
+          return fullKey
+        }
+
+        return formatMessage(resolved, values)
+      }
+    },
+  }
+})
 
 vi.mock('@/lib/logs/console/logger', () => {
   const createLogger = vi.fn(() => ({

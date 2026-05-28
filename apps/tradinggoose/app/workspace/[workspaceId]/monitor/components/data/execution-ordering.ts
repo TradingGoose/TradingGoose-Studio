@@ -43,6 +43,15 @@ export type MonitorExecutionItem = {
   sourceLog: MonitorExecutionSourceLog
 }
 
+export type MonitorExecutionGroupLabels = {
+  assetTypeLabels: Partial<Record<string, string>>
+  outcomeLabels: Partial<Record<MonitorExecutionOutcome, string>>
+  removedMonitorLabel: string
+  triggerLabels: Partial<Record<string, string>>
+  unknownLabel: string
+  unknownListingLabel: string
+}
+
 type ExecutionGroupValue = {
   id: string
   label: string
@@ -59,6 +68,34 @@ const OUTCOME_ORDER: Record<MonitorExecutionItem['outcome'], number> = {
 
 const normalize = (value: string | null | undefined) => value?.trim() || ''
 
+const DEFAULT_GROUP_LABELS: MonitorExecutionGroupLabels = {
+  assetTypeLabels: {
+    stock: 'Stock',
+    crypto: 'Crypto',
+    currency: 'Currency',
+    default: 'Default',
+    unknown: 'Unknown',
+  },
+  outcomeLabels: {
+    running: 'Running',
+    success: 'Success',
+    error: 'Error',
+    skipped: 'Skipped',
+    unknown: 'Unknown',
+  },
+  removedMonitorLabel: 'Removed monitor',
+  triggerLabels: {
+    api: 'API',
+    manual: 'Manual',
+    webhook: 'Webhook',
+    chat: 'Chat',
+    schedule: 'Schedule',
+    unknown: 'Unknown',
+  },
+  unknownLabel: 'Unknown',
+  unknownListingLabel: 'Unknown listing',
+}
+
 const compareStrings = (left: string, right: string) =>
   left.localeCompare(right, 'en-US', { numeric: true, sensitivity: 'base' })
 
@@ -70,13 +107,14 @@ const compareNumbers = (left: number | null, right: number | null) => {
 
 export const getExecutionGroupValue = (
   item: MonitorExecutionItem,
-  field: ExecutionMonitorGroupField
+  field: ExecutionMonitorGroupField,
+  labels: MonitorExecutionGroupLabels = DEFAULT_GROUP_LABELS
 ): ExecutionGroupValue => {
   switch (field) {
     case 'outcome':
       return {
         id: item.outcome,
-        label: item.outcome.charAt(0).toUpperCase() + item.outcome.slice(1),
+        label: labels.outcomeLabels[item.outcome] ?? item.outcome,
         sortValue: item.outcome,
       }
     case 'workflow':
@@ -88,37 +126,38 @@ export const getExecutionGroupValue = (
     case 'trigger':
       return {
         id: item.trigger || 'unknown',
-        label: item.trigger || 'Unknown',
+        label:
+          (item.trigger && labels.triggerLabels[item.trigger]) || item.trigger || labels.unknownLabel,
         sortValue: item.trigger || 'unknown',
       }
     case 'listing':
       return {
         id: item.listingLabel || 'unknown',
-        label: item.listingLabel || 'Unknown listing',
+        label: item.listingLabel || labels.unknownListingLabel,
         sortValue: item.listingLabel || 'unknown',
       }
     case 'assetType':
       return {
         id: item.assetType,
-        label: item.assetType.toUpperCase(),
+        label: labels.assetTypeLabels[item.assetType] ?? item.assetType.toUpperCase(),
         sortValue: item.assetType,
       }
     case 'provider':
       return {
         id: item.providerId || 'unknown',
-        label: item.providerId || 'Unknown',
+        label: item.providerId || labels.unknownLabel,
         sortValue: item.providerId || 'unknown',
       }
     case 'interval':
       return {
         id: item.interval || 'unknown',
-        label: item.interval || 'Unknown',
+        label: item.interval || labels.unknownLabel,
         sortValue: item.interval || 'unknown',
       }
     case 'monitor':
       return {
         id: item.monitorId || 'orphaned',
-        label: item.monitorId || 'Removed monitor',
+        label: item.monitorId || labels.removedMonitorLabel,
         sortValue: item.monitorId || 'orphaned',
       }
   }

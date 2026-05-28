@@ -12,6 +12,11 @@ import {
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { isUtcOffset, normalizeUtcOffset } from '@/lib/time-format'
+import { cn } from '@/lib/utils'
+import { getMarketSeriesCapabilities } from '@/providers/market/providers'
+import type { MarketInterval } from '@/providers/market/types'
+import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
 import {
   widgetHeaderControlClassName,
   widgetHeaderIconButtonClassName,
@@ -19,17 +24,22 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
-import { isUtcOffset, normalizeUtcOffset } from '@/lib/time-format'
-import { cn } from '@/lib/utils'
-import { getMarketSeriesCapabilities } from '@/providers/market/providers'
 import type { MarketInterval, MarketRangeUnit } from '@/providers/market/types'
-import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
 import {
   addRangeToDate,
   DEFAULT_RANGE_PRESETS,
-  formatIntervalLabel,
 } from '@/widgets/widgets/data_chart/series-data'
 import { chooseIntervalForRange } from '@/widgets/widgets/data_chart/series-window'
+import {
+  formatDataChartIntervalLabel,
+  formatDataChartNormalizationTooltip,
+  formatDataChartRangeIntervalTooltip,
+  formatDataChartRangeLabel,
+  formatDataChartTimezoneTooltip,
+  getDataChartNormalizationLabel,
+  getDataChartRangePresetLabel,
+  useDataChartCopy,
+} from '@/widgets/widgets/data_chart/copy'
 import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/types'
 
 type TimeZoneOption = Awaited<ReturnType<typeof fetchTimeZoneOptions>>[number]
@@ -47,6 +57,7 @@ const DataChartTimezoneDropdown = ({
   panelId,
   widgetKey,
 }: DataChartTimezoneDropdownProps) => {
+  const copy = useDataChartCopy()
   const [options, setOptions] = useState<TimeZoneOption[]>([])
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
@@ -61,8 +72,10 @@ const DataChartTimezoneDropdown = ({
   )
   const formatUtcOffsetLabel = useCallback((value: string) => {
     const normalized = normalizeUtcOffset(value)
-    return normalized === '+00:00' ? 'UTC+00:00' : `UTC${normalized}`
-  }, [])
+    return normalized === '+00:00'
+      ? `${copy.footer.timezone.utc}+00:00`
+      : `${copy.footer.timezone.utc}${normalized}`
+  }, [copy.footer.timezone.utc])
   const exchangeMeta = useMemo(() => {
     const trimmed = exchangeTimezone?.trim()
     if (!trimmed) return null
@@ -88,8 +101,10 @@ const DataChartTimezoneDropdown = ({
   }, [exchangeTimezone, formatUtcOffsetLabel, options])
   const selectedLabel = selectedTimezone
     ? (selectedOption?.label ?? formatTimezoneLabel(selectedTimezone))
-    : 'Exchange'
-  const tooltipLabel = selectedTimezone ? `Timezone: ${selectedLabel}` : 'Exchange timezone'
+    : copy.footer.timezone.exchange
+  const tooltipLabel = selectedTimezone
+    ? formatDataChartTimezoneTooltip(copy, selectedLabel)
+    : copy.footer.timezone.tooltipFallback
 
   const loadTimezones = useCallback(() => {
     if (loadingRef.current) return
@@ -182,7 +197,7 @@ const DataChartTimezoneDropdown = ({
               >
                 <ClockFading className='h-3.5 w-3.5 bg-background text-muted-foreground' />
                 <span className='max-w-[120px] truncate text-xs font-medium'>
-                  {selectedLabel || 'Exchange'}
+                  {selectedLabel || copy.footer.timezone.exchange}
                 </span>
               </button>
             </DropdownMenuTrigger>
@@ -201,7 +216,7 @@ const DataChartTimezoneDropdown = ({
         <div className='border-b border-border p-2'>
           <Input
             ref={searchInputRef}
-            placeholder='Search timezones...'
+            placeholder={copy.footer.timezone.searchPlaceholder}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             className='h-8'
@@ -213,7 +228,7 @@ const DataChartTimezoneDropdown = ({
         >
           {loading ? (
             <DropdownMenuItem disabled className='justify-center text-muted-foreground'>
-              Loading timezones...
+              {copy.footer.timezone.loading}
             </DropdownMenuItem>
           ) : (
             <>
@@ -227,7 +242,9 @@ const DataChartTimezoneDropdown = ({
                     buildStatusDotClass(exchangeMeta ?? undefined)
                   )}
                 />
-                <span className={cn(widgetHeaderMenuTextClassName, 'truncate')}>Exchange</span>
+                <span className={cn(widgetHeaderMenuTextClassName, 'truncate')}>
+                  {copy.footer.timezone.exchange}
+                </span>
                 {exchangeMeta?.rightLabel ? (
                   <span className='ml-auto text-[10px] text-muted-foreground'>
                     ({exchangeMeta.rightLabel})
@@ -237,7 +254,7 @@ const DataChartTimezoneDropdown = ({
               </DropdownMenuItem>
               {filteredOptions.length === 0 ? (
                 <DropdownMenuItem disabled className='justify-center text-muted-foreground'>
-                  No timezones found.
+                  {copy.footer.timezone.noResults}
                 </DropdownMenuItem>
               ) : (
                 filteredOptions.map((option) => {
@@ -272,23 +289,6 @@ const DataChartTimezoneDropdown = ({
   )
 }
 
-const formatNormalizationLabel = (value: string) =>
-  value.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
-
-const formatRangeLabel = (range: { value: number; unit: MarketRangeUnit }) => {
-  const rawValue = Number(range.value)
-  const value = Number.isFinite(rawValue) && rawValue > 0 ? rawValue : 1
-  const unitLabel =
-    range.unit === 'day'
-      ? 'day'
-      : range.unit === 'week'
-        ? 'week'
-        : range.unit === 'month'
-          ? 'month'
-          : 'year'
-  return `${value} ${unitLabel}${value === 1 ? '' : 's'}`
-}
-
 type DataChartNormalizationDropdownProps = {
   params: DataChartWidgetParams
   panelId?: string
@@ -306,8 +306,12 @@ const DataChartMarketSessionDropdown = ({
   panelId,
   widgetKey,
 }: DataChartMarketSessionDropdownProps) => {
+  const copy = useDataChartCopy()
   const selectedSession = params.view?.marketSession === 'extended' ? 'extended' : 'regular'
-  const sessionLabel = selectedSession === 'extended' ? 'Extended' : 'Regular'
+  const sessionLabel =
+    selectedSession === 'extended'
+      ? copy.footer.session.extended
+      : copy.footer.session.regular
   const sessionIcon = selectedSession === 'extended' ? ClockPlus : Clock
   const tooltipLabel = `${sessionLabel}`
 
@@ -333,7 +337,7 @@ const DataChartMarketSessionDropdown = ({
             <DropdownMenuTrigger asChild>
               <button type='button' className={widgetHeaderIconButtonClassName()}>
                 <SessionIcon className='h-3.5 w-3.5' />
-                <span className='sr-only'>Market session</span>
+                <span className='sr-only'>{copy.footer.session.ariaLabel}</span>
               </button>
             </DropdownMenuTrigger>
           </span>
@@ -342,7 +346,10 @@ const DataChartMarketSessionDropdown = ({
       </Tooltip>
       <DropdownMenuContent align='end' className={cn(widgetHeaderMenuContentClassName, 'w-44')}>
         {(['regular', 'extended'] as const).map((mode) => {
-          const label = mode === 'extended' ? 'Extended session' : 'Regular session'
+          const label =
+            mode === 'extended'
+              ? copy.footer.session.extendedOption
+              : copy.footer.session.regularOption
           const isSelected = mode === selectedSession
           return (
             <DropdownMenuItem
@@ -368,6 +375,7 @@ const DataChartNormalizationDropdown = ({
   panelId,
   widgetKey,
 }: DataChartNormalizationDropdownProps) => {
+  const copy = useDataChartCopy()
   const providerId = typeof params.data?.provider === 'string' ? params.data?.provider.trim() : ''
   const supportedModes = useMemo(() => {
     if (!providerId) return []
@@ -383,8 +391,8 @@ const DataChartNormalizationDropdown = ({
   const selectedMode = supportedModes.includes(rawMode) ? rawMode : ''
   const effectiveMode = selectedMode || fallbackMode
   const tooltipLabel = effectiveMode
-    ? `Normalization: ${formatNormalizationLabel(effectiveMode)}`
-    : 'Normalization unavailable'
+    ? formatDataChartNormalizationTooltip(copy, getDataChartNormalizationLabel(copy, effectiveMode))
+    : copy.footer.normalization.unavailable
 
   const handleNormalizationSelect = (nextMode: string | null) => {
     const { normalization_mode: _normalizationMode, ...nextProviderParamsBase } = (params.data
@@ -419,7 +427,7 @@ const DataChartNormalizationDropdown = ({
                 disabled={isDisabled}
               >
                 <ChartNetwork className='h-3.5 w-3.5' />
-                <span className='sr-only'>Normalization</span>
+                <span className='sr-only'>{copy.footer.normalization.ariaLabel}</span>
               </button>
             </DropdownMenuTrigger>
           </span>
@@ -428,7 +436,9 @@ const DataChartNormalizationDropdown = ({
       </Tooltip>
       <DropdownMenuContent align='end' className={cn(widgetHeaderMenuContentClassName, 'w-52')}>
         {supportedModes.length === 0 ? (
-          <div className='px-2 py-2 text-xs text-muted-foreground'>No normalization options.</div>
+          <div className='px-2 py-2 text-xs text-muted-foreground'>
+            {copy.footer.normalization.noOptions}
+          </div>
         ) : (
           <>
             {supportedModes.map((mode) => {
@@ -443,7 +453,7 @@ const DataChartNormalizationDropdown = ({
                   className={cn(widgetHeaderMenuItemClassName, 'cursor-pointer')}
                 >
                   <span className={cn(widgetHeaderMenuTextClassName, 'truncate')}>
-                    {formatNormalizationLabel(mode)}
+                    {getDataChartNormalizationLabel(copy, mode)}
                   </span>
                   {isSelected ? <Check className='ml-auto h-3.5 w-3.5 text-primary' /> : null}
                 </DropdownMenuItem>
@@ -469,6 +479,7 @@ export const DataChartFooter = ({
   allowedIntervals: MarketInterval[]
   exchangeTimezone?: string | null
 }) => {
+  const copy = useDataChartCopy()
   const availablePresets = DEFAULT_RANGE_PRESETS.filter(
     (preset) => !preset.interval || allowedIntervals.includes(preset.interval)
   )
@@ -535,7 +546,7 @@ export const DataChartFooter = ({
         ref={footerScrollRef}
         onWheel={handleHorizontalWheel}
         className='flex w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-        aria-label='Widget footer'
+        aria-label={copy.footer.ariaLabel}
       >
         <div className='flex w-full flex-nowrap items-center gap-4 py-0.5 text-sm font-medium text-accent-foreground'>
           <div className='flex h-8 flex-grow basis-0 items-center justify-start gap-2 whitespace-nowrap text-left pl-1'>
@@ -554,7 +565,9 @@ export const DataChartFooter = ({
                     >
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span className='inline-flex items-center'>{preset.label}</span>
+                          <span className='inline-flex items-center'>
+                            {getDataChartRangePresetLabel(copy, preset.id)}
+                          </span>
                         </TooltipTrigger>
                         <TooltipContent side='top'>
                           {(() => {
@@ -569,13 +582,13 @@ export const DataChartFooter = ({
                                 : null)
                             const rangeLabel =
                               preset.id === 'all'
-                                ? 'All available data'
-                                : formatRangeLabel(preset.range)
+                                ? copy.footer.range.allAvailableData
+                                : formatDataChartRangeLabel(copy, preset.range)
                             const intervalLabel = resolvedInterval
-                              ? formatIntervalLabel(resolvedInterval)
+                              ? formatDataChartIntervalLabel(copy, resolvedInterval)
                               : null
                             return intervalLabel
-                              ? `${rangeLabel} in ${intervalLabel} interval`
+                              ? formatDataChartRangeIntervalTooltip(copy, rangeLabel, intervalLabel)
                               : rangeLabel
                           })()}
                         </TooltipContent>

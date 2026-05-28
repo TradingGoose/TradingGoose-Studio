@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
+import { defaultLocale, isLocaleCode, localizeHref, type LocaleCode } from '@/i18n/utils'
 
 export default async function WorkspaceLayout({
   children,
@@ -13,18 +14,21 @@ export default async function WorkspaceLayout({
 }) {
   const { workspaceId } = await params
   const requestHeaders = await headers()
+  const localeHeader = requestHeaders.get('x-next-intl-locale')
+  const resolvedLocale = localeHeader ?? ''
+  const locale: LocaleCode = isLocaleCode(resolvedLocale) ? resolvedLocale : defaultLocale
   const session = await getSession(requestHeaders, { disableCookieCache: true })
 
   if (!session?.user?.id) {
     const callbackTarget =
-      requestHeaders.get('x-auth-callback-url') || `/workspace/${workspaceId}/dashboard`
-    redirect(`/login?reauth=1&callbackUrl=${encodeURIComponent(callbackTarget)}`)
+      requestHeaders.get('x-auth-callback-url') || localizeHref(locale, `/workspace/${workspaceId}/dashboard`)
+    redirect(localizeHref(locale, `/login?reauth=1&callbackUrl=${encodeURIComponent(callbackTarget)}`))
   }
 
   const access = await checkWorkspaceAccess(workspaceId, session.user.id)
 
   if (!access.exists || !access.hasAccess) {
-    redirect('/workspace')
+    redirect(localizeHref(locale, '/workspace'))
   }
 
   return (

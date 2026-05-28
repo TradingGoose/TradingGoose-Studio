@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useLocale, useTranslations } from 'next-intl'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { formatDate } from '@/app/workspace/[workspaceId]/records/utils'
 
@@ -28,6 +29,8 @@ export function LineChart({
   unit?: string
   series?: LineChartMultiSeries[]
 }) {
+  const locale = useLocale()
+  const t = useTranslations('workspace.logs.dashboard.chart')
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [containerWidth, setContainerWidth] = useState<number>(420)
   const width = containerWidth
@@ -72,7 +75,7 @@ export function LineChart({
         className='flex items-center justify-center rounded-lg border bg-card p-4'
         style={{ width, height }}
       >
-        <p className='text-muted-foreground text-sm'>No data</p>
+        <p className='text-muted-foreground text-sm'>{t('noData')}</p>
       </div>
     )
   }
@@ -152,12 +155,12 @@ export function LineChart({
   const getCompactDateLabel = (timestamp?: string) => {
     if (!timestamp) return ''
     try {
-      const f = formatDate(timestamp)
+      const f = formatDate(timestamp, locale)
       return `${f.compactDate} · ${f.compactTime}`
     } catch (e) {
       const d = new Date(timestamp)
       if (Number.isNaN(d.getTime())) return ''
-      return d.toLocaleString('en-US', {
+      return d.toLocaleString(locale, {
         month: 'short',
         day: 'numeric',
         hour: '2-digit',
@@ -186,7 +189,7 @@ export function LineChart({
                     key={`legend-${s.id}`}
                     type='button'
                     aria-pressed={activeSeriesId === s.id}
-                    aria-label={`Toggle ${s.label}`}
+                    aria-label={t('toggleSeries', { label: s.label })}
                     className='inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px]'
                     style={{
                       color: s.color,

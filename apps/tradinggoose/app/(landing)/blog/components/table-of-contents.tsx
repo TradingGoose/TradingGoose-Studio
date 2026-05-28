@@ -1,7 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { useAppMessages } from '@/i18n/client-messages'
+import { type LocaleCode } from '@/i18n/utils'
 import type { TOC } from '../lib/types'
 
 interface TableOfContentsProps {
@@ -36,6 +39,9 @@ function useActiveItem(itemIds: string[]) {
 
 export default function TableOfContents({ toc }: TableOfContentsProps) {
   const [mounted, setMounted] = useState(false)
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages()
+  const blogCopy = copy.blog
   const itemIds = toc.map((item) => item.url)
   const activeHeading = useActiveItem(itemIds)
 
@@ -49,7 +55,7 @@ export default function TableOfContents({ toc }: TableOfContentsProps) {
 
   return (
     <div className="space-y-2">
-      <p className="font-medium uppercase">On This Page</p>
+      <p className="font-medium uppercase">{blogCopy.tableOfContents}</p>
       <ul className="m-0 list-none">
         {toc.map((item) => (
           <li key={item.url} className="mt-0">

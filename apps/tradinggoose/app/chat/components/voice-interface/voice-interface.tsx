@@ -5,6 +5,7 @@ import { Mic, MicOff, Phone } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
+import type { ChatCopy } from '@/app/chat/copy'
 import { ParticlesVisualization } from '@/app/chat/components/voice-interface/components/particles'
 
 const logger = createLogger('VoiceInterface')
@@ -53,6 +54,8 @@ interface VoiceInterfaceProps {
   isPlayingAudio?: boolean
   audioContextRef?: RefObject<AudioContext | null>
   messages?: Array<{ content: string; type: 'user' | 'assistant' }>
+  copy: ChatCopy
+  speechRecognitionLang: string
   className?: string
 }
 
@@ -66,6 +69,8 @@ export function VoiceInterface({
   isPlayingAudio = false,
   audioContextRef: sharedAudioContextRef,
   messages = [],
+  copy: _copy,
+  speechRecognitionLang,
   className,
 }: VoiceInterfaceProps) {
   // Simple state machine
@@ -234,7 +239,7 @@ export function VoiceInterface({
 
     recognition.continuous = true
     recognition.interimResults = true
-    recognition.lang = 'en-US'
+    recognition.lang = speechRecognitionLang
 
     recognition.onstart = () => {}
 

@@ -6,6 +6,7 @@ import { isDev } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import { hasAdminPermission } from '@/lib/permissions/utils'
 import { decryptSecret } from '@/lib/utils-server'
+import { CHAT_ERROR_CODES } from '@/app/chat/constants'
 
 const logger = createLogger('ChatAuthUtils')
 
@@ -177,7 +178,7 @@ export async function validateChatAuth(
   deployment: any,
   request: NextRequest,
   parsedBody?: any
-): Promise<{ authorized: boolean; error?: string }> {
+): Promise<{ authorized: boolean; error?: string; code?: string }> {
   const authType = deployment.authType || 'public'
 
   // Public chats are accessible to everyone
@@ -197,38 +198,66 @@ export async function validateChatAuth(
   if (authType === 'password') {
     // For GET requests, we just notify the client that authentication is required
     if (request.method === 'GET') {
-      return { authorized: false, error: 'auth_required_password' }
+      return {
+        authorized: false,
+        error: 'This chat requires a password to access.',
+        code: CHAT_ERROR_CODES.AUTH_REQUIRED_PASSWORD,
+      }
     }
 
     try {
       if (!parsedBody) {
-        return { authorized: false, error: 'Password is required' }
+        return {
+          authorized: false,
+          error: 'Password is required.',
+          code: CHAT_ERROR_CODES.PASSWORD_REQUIRED,
+        }
       }
 
       const { password, input } = parsedBody
 
       if (input && !password) {
-        return { authorized: false, error: 'auth_required_password' }
+        return {
+          authorized: false,
+          error: 'This chat requires a password to access.',
+          code: CHAT_ERROR_CODES.AUTH_REQUIRED_PASSWORD,
+        }
       }
 
       if (!password) {
-        return { authorized: false, error: 'Password is required' }
+        return {
+          authorized: false,
+          error: 'Password is required.',
+          code: CHAT_ERROR_CODES.PASSWORD_REQUIRED,
+        }
       }
 
       if (!deployment.password) {
         logger.error(`[${requestId}] No password set for password-protected chat: ${deployment.id}`)
-        return { authorized: false, error: 'Authentication configuration error' }
+        return {
+          authorized: false,
+          error: 'Authentication configuration error.',
+          code: CHAT_ERROR_CODES.AUTH_CONFIGURATION_ERROR,
+        }
       }
 
       const { decrypted } = await decryptSecret(deployment.password)
       if (password !== decrypted) {
-        return { authorized: false, error: 'Invalid password' }
+        return {
+          authorized: false,
+          error: 'Invalid password. Please try again.',
+          code: CHAT_ERROR_CODES.INVALID_PASSWORD,
+        }
       }
 
       return { authorized: true }
     } catch (error) {
       logger.error(`[${requestId}] Error validating password:`, error)
-      return { authorized: false, error: 'Authentication error' }
+      return {
+        authorized: false,
+        error: 'An error occurred during authentication.',
+        code: CHAT_ERROR_CODES.AUTHENTICATION_ERROR,
+      }
     }
   }
 
@@ -236,24 +265,40 @@ export async function validateChatAuth(
   if (authType === 'email') {
     // For GET requests, we just notify the client that authentication is required
     if (request.method === 'GET') {
-      return { authorized: false, error: 'auth_required_email' }
+      return {
+        authorized: false,
+        error: 'Please provide your email to access this chat.',
+        code: CHAT_ERROR_CODES.AUTH_REQUIRED_EMAIL,
+      }
     }
 
     try {
       // Use the parsed body if provided, otherwise the auth check is not applicable
       if (!parsedBody) {
-        return { authorized: false, error: 'Email is required' }
+        return {
+          authorized: false,
+          error: 'Email is required.',
+          code: CHAT_ERROR_CODES.EMAIL_REQUIRED,
+        }
       }
 
       const { email, input } = parsedBody
 
       // If this is a chat message, not an auth attempt
       if (input && !email) {
-        return { authorized: false, error: 'auth_required_email' }
+        return {
+          authorized: false,
+          error: 'Please provide your email to access this chat.',
+          code: CHAT_ERROR_CODES.AUTH_REQUIRED_EMAIL,
+        }
       }
 
       if (!email) {
-        return { authorized: false, error: 'Email is required' }
+        return {
+          authorized: false,
+          error: 'Email is required.',
+          code: CHAT_ERROR_CODES.EMAIL_REQUIRED,
+        }
       }
 
       const allowedEmails = deployment.allowedEmails || []
@@ -262,38 +307,66 @@ export async function validateChatAuth(
       if (allowedEmails.includes(email)) {
         // Email is allowed but still needs OTP verification
         // Return a special error code that the client will recognize
-        return { authorized: false, error: 'otp_required' }
+        return {
+          authorized: false,
+          error: 'OTP verification required.',
+          code: CHAT_ERROR_CODES.OTP_REQUIRED,
+        }
       }
 
       // Check domain matches (prefixed with @)
       const domain = email.split('@')[1]
       if (domain && allowedEmails.some((allowed: string) => allowed === `@${domain}`)) {
         // Domain is allowed but still needs OTP verification
-        return { authorized: false, error: 'otp_required' }
+        return {
+          authorized: false,
+          error: 'OTP verification required.',
+          code: CHAT_ERROR_CODES.OTP_REQUIRED,
+        }
       }
 
-      return { authorized: false, error: 'Email not authorized' }
+      return {
+        authorized: false,
+        error: 'Email not authorized.',
+        code: CHAT_ERROR_CODES.EMAIL_NOT_AUTHORIZED,
+      }
     } catch (error) {
       logger.error(`[${requestId}] Error validating email:`, error)
-      return { authorized: false, error: 'Authentication error' }
+      return {
+        authorized: false,
+        error: 'An error occurred during authentication.',
+        code: CHAT_ERROR_CODES.AUTHENTICATION_ERROR,
+      }
     }
   }
 
   if (authType === 'sso') {
     if (request.method === 'GET') {
-      return { authorized: false, error: 'auth_required_sso' }
+      return {
+        authorized: false,
+        error: 'This chat requires SSO authentication.',
+        code: CHAT_ERROR_CODES.AUTH_REQUIRED_SSO,
+      }
     }
 
     try {
       if (!parsedBody) {
-        return { authorized: false, error: 'SSO authentication is required' }
+        return {
+          authorized: false,
+          error: 'SSO authentication is required.',
+          code: CHAT_ERROR_CODES.SSO_AUTHENTICATION_REQUIRED,
+        }
       }
 
       const { email, input, checkSSOAccess } = parsedBody
 
       if (checkSSOAccess) {
         if (!email) {
-          return { authorized: false, error: 'Email is required' }
+          return {
+            authorized: false,
+            error: 'Email is required.',
+            code: CHAT_ERROR_CODES.EMAIL_REQUIRED,
+          }
         }
 
         const allowedEmails = deployment.allowedEmails || []
@@ -307,19 +380,31 @@ export async function validateChatAuth(
           return { authorized: true }
         }
 
-        return { authorized: false, error: 'Email not authorized for SSO access' }
+        return {
+          authorized: false,
+          error: 'Email not authorized for SSO access.',
+          code: CHAT_ERROR_CODES.SSO_EMAIL_NOT_AUTHORIZED,
+        }
       }
 
       const { auth } = await import('@/lib/auth')
       const session = await auth.api.getSession({ headers: request.headers })
 
       if (!session || !session.user) {
-        return { authorized: false, error: 'auth_required_sso' }
+        return {
+          authorized: false,
+          error: 'This chat requires SSO authentication.',
+          code: CHAT_ERROR_CODES.AUTH_REQUIRED_SSO,
+        }
       }
 
       const userEmail = session.user.email
       if (!userEmail) {
-        return { authorized: false, error: 'SSO session does not contain email' }
+        return {
+          authorized: false,
+          error: 'SSO session does not contain an email address.',
+          code: CHAT_ERROR_CODES.SSO_SESSION_MISSING_EMAIL,
+        }
       }
 
       const allowedEmails = deployment.allowedEmails || []
@@ -333,12 +418,24 @@ export async function validateChatAuth(
         return { authorized: true }
       }
 
-      return { authorized: false, error: 'Your email is not authorized to access this chat' }
+      return {
+        authorized: false,
+        error: 'Your email is not authorized to access this chat.',
+        code: CHAT_ERROR_CODES.SSO_EMAIL_NOT_AUTHORIZED,
+      }
     } catch (error) {
       logger.error(`[${requestId}] Error validating SSO:`, error)
-      return { authorized: false, error: 'SSO authentication error' }
+      return {
+        authorized: false,
+        error: 'An error occurred during SSO authentication.',
+        code: CHAT_ERROR_CODES.SSO_AUTHENTICATION_ERROR,
+      }
     }
   }
 
-  return { authorized: false, error: 'Unsupported authentication type' }
+  return {
+    authorized: false,
+    error: 'Unsupported authentication type.',
+    code: CHAT_ERROR_CODES.UNSUPPORTED_AUTHENTICATION_TYPE,
+  }
 }

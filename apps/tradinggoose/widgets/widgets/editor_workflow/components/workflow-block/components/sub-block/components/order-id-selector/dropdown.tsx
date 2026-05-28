@@ -1,7 +1,10 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { useLocale } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { translateWorkflowLabel } from '@/i18n/block-editor'
+import type { LocaleCode } from '@/i18n/utils'
 import { OrderIdRow } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/order-id-selector/order-row'
 import type { OrderHistorySearchOption } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/order-id-selector/types'
 
@@ -24,6 +27,7 @@ export function OrderIdSelectorDropdown({
   onHighlightChange,
   onSelect,
 }: OrderIdSelectorDropdownProps) {
+  const locale = useLocale() as LocaleCode
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -47,10 +51,12 @@ export function OrderIdSelectorDropdown({
           onMouseLeave={() => onHighlightChange(-1)}
         >
           {isLoading ? (
-            <div className='py-6 text-center text-muted-foreground text-sm'>Searching...</div>
+            <div className='py-6 text-center text-muted-foreground text-sm'>
+              {translateWorkflowLabel(locale, 'Searching...')}
+            </div>
           ) : results.length === 0 ? (
             <div className='py-6 text-center text-muted-foreground text-sm'>
-              {error || 'No orders found.'}
+              {error || translateWorkflowLabel(locale, 'No orders found.')}
             </div>
           ) : (
             results.map((order, index) => {

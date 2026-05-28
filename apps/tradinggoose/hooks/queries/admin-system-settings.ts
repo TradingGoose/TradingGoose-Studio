@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ADMIN_ERROR_CODES } from '@/app/admin/constants'
 import type { AdminSystemSettingsMutationInput } from '@/lib/admin/system-settings/mutations'
 import type { AdminSystemSettingsSnapshot } from '@/lib/admin/system-settings/types'
 import { adminBillingKeys } from './admin-billing'
@@ -15,6 +16,20 @@ export const adminSystemSettingsKeys = {
 async function parseResponse(response: Response) {
   const text = await response.text()
   return text ? JSON.parse(text) : null
+}
+
+function getResponseErrorCode(payload: unknown, fallback: string) {
+  if (payload && typeof payload === 'object') {
+    const data = payload as Record<string, unknown>
+    if (typeof data.code === 'string' && data.code.trim().length > 0) {
+      return data.code
+    }
+    if (typeof data.error === 'string' && data.error.trim().length > 0) {
+      return data.error
+    }
+  }
+
+  return fallback
 }
 
 function normalizeSnapshot(payload: unknown): AdminSystemSettingsSnapshot {
@@ -65,11 +80,9 @@ async function fetchAdminSystemSettingsSnapshot(): Promise<AdminSystemSettingsSn
 
   const payload = await parseResponse(response)
   if (!response.ok) {
-    const message =
-      payload && typeof payload === 'object' && 'error' in payload
-        ? String(payload.error)
-        : 'Failed to load system settings'
-    throw new Error(message)
+    throw new Error(
+      getResponseErrorCode(payload, ADMIN_ERROR_CODES.FAILED_TO_LOAD_SYSTEM_SETTINGS)
+    )
   }
 
   return normalizeSnapshot(payload)
@@ -100,11 +113,9 @@ export function useUpdateAdminSystemSettings() {
 
       const payload = await parseResponse(response)
       if (!response.ok) {
-        const message =
-          payload && typeof payload === 'object' && 'error' in payload
-            ? String(payload.error)
-            : 'Failed to update system settings'
-        throw new Error(message)
+        throw new Error(
+          getResponseErrorCode(payload, ADMIN_ERROR_CODES.FAILED_TO_UPDATE_SYSTEM_SETTINGS)
+        )
       }
 
       return normalizeSnapshot(payload)

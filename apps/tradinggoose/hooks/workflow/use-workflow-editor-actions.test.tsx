@@ -14,6 +14,7 @@ import {
 const mockAddBlock = vi.hoisted(() => vi.fn())
 const mockUpdateBlockPosition = vi.hoisted(() => vi.fn())
 const mockUpdateBlockPositions = vi.hoisted(() => vi.fn())
+const mockUseLocale = vi.hoisted(() => vi.fn(() => 'en'))
 const mockSession = vi.hoisted(() => ({
   readWorkflowSnapshot: vi.fn(),
 }))
@@ -37,6 +38,10 @@ vi.mock('@/lib/yjs/use-workflow-doc', () => ({
     updateBlockPosition: mockUpdateBlockPosition,
     updateBlockPositions: mockUpdateBlockPositions,
   }),
+}))
+
+vi.mock('next-intl', () => ({
+  useLocale: mockUseLocale,
 }))
 
 vi.mock('@/lib/yjs/workflow-session-host', () => ({
@@ -64,6 +69,8 @@ describe('useWorkflowEditorActions', () => {
     mockAddBlock.mockReset()
     mockUpdateBlockPosition.mockReset()
     mockUpdateBlockPositions.mockReset()
+    mockUseLocale.mockReset()
+    mockUseLocale.mockReturnValue('en')
     mockSession.readWorkflowSnapshot.mockReset()
     mockUseWorkflowRegistry.mockClear()
   })
@@ -147,6 +154,54 @@ describe('useWorkflowEditorActions', () => {
     expect(blockProperties?.initialSubBlockValues).toMatchObject({
       code: 'live-ytext-value',
     })
+  })
+
+  it('duplicates generated default names using the active locale label and next available suffix', async () => {
+    mockUseLocale.mockReturnValue('zh-CN')
+
+    const doc = new Y.Doc()
+    const workflowMap = doc.getMap('workflow')
+
+    workflowMap.set('blocks', {
+      'block-1': {
+        id: 'block-1',
+        type: 'human_in_the_loop',
+        name: 'Human in the Loop 1',
+        enabled: true,
+        position: { x: 10, y: 20 },
+        data: {},
+        subBlocks: {},
+        outputs: {},
+      },
+    })
+    workflowMap.set('edges', [])
+    workflowMap.set('loops', {})
+    workflowMap.set('parallels', {})
+
+    mockSession.readWorkflowSnapshot.mockReturnValue(readWorkflowSnapshot(doc))
+
+    const { useWorkflowEditorActions } = await import('./use-workflow-editor-actions')
+
+    let actions: ReturnType<typeof useWorkflowEditorActions> | null = null
+    function Harness() {
+      actions = useWorkflowEditorActions()
+      return null
+    }
+
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(React.createElement(Harness))
+    })
+
+    await act(async () => {
+      actions?.collaborativeDuplicateBlock('block-1')
+    })
+
+    expect(mockAddBlock).toHaveBeenCalledTimes(1)
+    expect(mockAddBlock.mock.calls[0]?.[2]).toBe('人工参与 2')
   })
 
   it('writes block position updates with the requested transaction origin', async () => {

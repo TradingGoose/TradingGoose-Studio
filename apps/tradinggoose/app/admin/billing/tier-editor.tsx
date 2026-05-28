@@ -2,7 +2,6 @@
 
 import type { FormEvent, ReactNode } from 'react'
 import { ChevronDown, ChevronRight, ShieldCheck } from 'lucide-react'
-import Link from 'next/link'
 import {
   Badge,
   Button,
@@ -19,13 +18,20 @@ import {
   Switch,
   Textarea,
 } from '@/components/ui'
+import type { AdminCopy } from '@/app/admin/copy'
 import type { AdminBillingTierMutationInput } from '@/lib/admin/billing/tier-mutations'
 import type { AdminBillingTierSnapshot } from '@/lib/admin/billing/types'
+import { formatLocalizedNumber, formatUsd } from '@/i18n/formatters'
+import { formatTemplate } from '@/i18n/client-messages'
+import { Link } from '@/i18n/navigation'
+import type { LocaleCode } from '@/i18n/utils'
 import { cn } from '@/lib/utils'
 import { ADMIN_META_BADGE_CLASSNAME, ADMIN_STATUS_BADGE_CLASSNAME } from '@/app/admin/badge-styles'
 
-export function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Something went wrong'
+export type AdminBillingCopy = AdminCopy['billing']
+
+export function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message.trim() ? error.message : fallback
 }
 
 export type TierFormDefaults = {
@@ -63,27 +69,6 @@ export type TierFormDefaults = {
   displayOrder: string
 }
 
-const TIER_STATUS_OPTIONS = [
-  { value: 'draft', label: 'Draft' },
-  { value: 'active', label: 'Active' },
-  { value: 'archived', label: 'Archived' },
-] as const
-
-const TIER_OWNER_TYPE_OPTIONS = [
-  { value: 'user', label: 'User' },
-  { value: 'organization', label: 'Organization' },
-] as const
-
-const TIER_USAGE_SCOPE_OPTIONS = [
-  { value: 'individual', label: 'Individual' },
-  { value: 'pooled', label: 'Pooled' },
-] as const
-
-const TIER_SEAT_MODE_OPTIONS = [
-  { value: 'fixed', label: 'Fixed' },
-  { value: 'adjustable', label: 'Adjustable' },
-] as const
-
 export const DEFAULT_TIER_EDITOR_SECTIONS = {
   general: true,
   pricing: true,
@@ -112,6 +97,47 @@ type TierCommerceLabel = 'free' | 'self-serve' | 'contact-sales'
 type BillingBreadcrumbItem = {
   label: string
   href?: string
+}
+
+const getTierStatusOptions = (copy: AdminBillingCopy) =>
+  [
+    { value: 'draft', label: copy.status.draft },
+    { value: 'active', label: copy.status.active },
+    { value: 'archived', label: copy.status.archived },
+  ] as const
+
+const getTierOwnerTypeOptions = (copy: AdminBillingCopy) =>
+  [
+    { value: 'user', label: copy.ownerTypes.user },
+    { value: 'organization', label: copy.ownerTypes.organization },
+  ] as const
+
+const getTierUsageScopeOptions = (copy: AdminBillingCopy) =>
+  [
+    { value: 'individual', label: copy.usageScopes.individual },
+    { value: 'pooled', label: copy.usageScopes.pooled },
+  ] as const
+
+const getTierSeatModeOptions = (copy: AdminBillingCopy) =>
+  [
+    { value: 'fixed', label: copy.seatModes.fixed },
+    { value: 'adjustable', label: copy.seatModes.adjustable },
+  ] as const
+
+export function getBillingStatusLabel(
+  copy: AdminBillingCopy,
+  status: AdminBillingTierSnapshot['status'] | TierFormDefaults['status']
+) {
+  switch (status) {
+    case 'draft':
+      return copy.status.draft
+    case 'active':
+      return copy.status.active
+    case 'archived':
+      return copy.status.archived
+    default:
+      return status
+  }
 }
 
 export function BillingBreadcrumbs({ items }: { items: BillingBreadcrumbItem[] }) {
@@ -353,16 +379,23 @@ function joinPreviewParts(parts: Array<string | null>) {
   return parts.filter(Boolean).join(' • ')
 }
 
-function formatMissingMessage(items: string[]) {
-  return items.length === 0 ? null : `Missing: ${items.join(', ')}`
+function formatMissingMessage(copy: AdminBillingCopy, items: string[]) {
+  return items.length === 0
+    ? null
+    : formatTemplate(copy.editor.summaries.missing, { items: items.join(', ') })
 }
 
 function isFilled(value: string) {
   return value.trim().length > 0
 }
 
-function formatCurrencyValue(value: string) {
-  return isFilled(value) ? `$${value}` : null
+function formatCurrencyValue(locale: LocaleCode | string, value: string) {
+  if (!isFilled(value)) {
+    return null
+  }
+
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? formatUsd(locale, parsed) : `$${value}`
 }
 
 function hasPositiveNumber(value: string) {
@@ -382,14 +415,20 @@ function countPricingFeatureLines(value: string) {
 }
 
 function getTierSectionSummaries(
-  defaults: TierFormDefaults
+  defaults: TierFormDefaults,
+  locale: LocaleCode | string,
+  copy: AdminBillingCopy
 ): Record<TierEditorSectionId, TierSectionSummary> {
+  const tierStatusOptions = getTierStatusOptions(copy)
+  const tierOwnerTypeOptions = getTierOwnerTypeOptions(copy)
+  const tierUsageScopeOptions = getTierUsageScopeOptions(copy)
+  const tierSeatModeOptions = getTierSeatModeOptions(copy)
   const featureCount = countPricingFeatureLines(defaults.pricingFeatures)
   const commerceLabel = getTierCommerceLabel(defaults)
   const generalMissing = [
-    !isFilled(defaults.displayName) ? 'display name' : null,
-    !isFilled(defaults.description) ? 'description' : null,
-    defaults.isDefault && !defaults.isPublic ? 'default tier must be public' : null,
+    !isFilled(defaults.displayName) ? copy.editor.general.displayName : null,
+    !isFilled(defaults.description) ? copy.editor.general.description : null,
+    defaults.isDefault && !defaults.isPublic ? copy.editor.summaries.defaultTierMustBePublic : null,
   ].filter((value): value is string => Boolean(value))
 
   const accessMissing = [
@@ -397,24 +436,24 @@ function getTierSectionSummaries(
     (defaults.ownerType !== 'user' ||
       defaults.usageScope !== 'individual' ||
       defaults.seatMode !== 'fixed')
-      ? 'default tier must be a public user plan with individual usage and fixed seats'
+      ? copy.editor.summaries.defaultTierMustBePublicPlan
       : null,
     defaults.ownerType === 'user' && defaults.usageScope !== 'individual'
-      ? 'User tiers must use individual usage'
+      ? copy.editor.summaries.userTiersIndividualUsage
       : null,
     defaults.ownerType === 'user' && defaults.seatMode !== 'fixed'
-      ? 'User tiers cannot use adjustable seats'
+      ? copy.editor.summaries.userTiersFixedSeats
       : null,
     defaults.ownerType === 'user' && defaults.canConfigureSso
-      ? 'User tiers cannot configure SSO'
+      ? copy.editor.summaries.userTiersNoSso
       : null,
     defaults.ownerType === 'organization' && !isFilled(defaults.seatCount)
-      ? 'organization tiers must configure a seat count'
+      ? copy.editor.summaries.orgSeatCountRequired
       : null,
     defaults.ownerType === 'organization' &&
     defaults.seatMode === 'fixed' &&
     isFilled(defaults.seatMaximum)
-      ? 'fixed organization tiers cannot configure a maximum seat cap'
+      ? copy.editor.summaries.fixedOrgNoSeatCap
       : null,
   ].filter((value): value is string => Boolean(value))
 
@@ -422,24 +461,24 @@ function getTierSectionSummaries(
     defaults.isPublic &&
     hasPositiveNumber(defaults.monthlyPriceUsd) &&
     !isFilled(defaults.stripeMonthlyPriceId)
-      ? 'monthly Stripe price'
+      ? copy.editor.summaries.monthlyStripePrice
       : null,
     defaults.isPublic &&
     hasPositiveNumber(defaults.yearlyPriceUsd) &&
     !isFilled(defaults.stripeYearlyPriceId)
-      ? 'yearly Stripe price'
+      ? copy.editor.summaries.yearlyStripePrice
       : null,
     commerceLabel === 'free' &&
     (hasPositiveNumber(defaults.monthlyPriceUsd) || hasPositiveNumber(defaults.yearlyPriceUsd))
-      ? 'free tiers cannot set recurring prices'
+      ? copy.editor.summaries.freeTiersNoRecurring
       : null,
   ].filter((value): value is string => Boolean(value))
 
   const seatsMissing =
     defaults.ownerType !== 'organization'
       ? []
-      : [!isFilled(defaults.seatCount) ? 'seat count' : null].filter((value): value is string =>
-          Boolean(value)
+      : [!isFilled(defaults.seatCount) ? copy.editor.seats.seatCount : null].filter(
+          (value): value is string => Boolean(value)
         )
 
   const seatRangeInvalid =
@@ -458,16 +497,22 @@ function getTierSectionSummaries(
   ].filter(isFilled).length
   const limitMissing = [
     defaults.status === 'active' && !isFilled(defaults.includedUsageLimitUsd)
-      ? 'included usage'
+      ? copy.editor.summaries.includedUsage
       : null,
-    defaults.status === 'active' && !isFilled(defaults.storageLimitGb) ? 'storage' : null,
-    defaults.status === 'active' && !isFilled(defaults.concurrencyLimit) ? 'concurrency' : null,
-    defaults.status === 'active' && !isFilled(defaults.syncRateLimitPerMinute) ? 'sync rate' : null,
+    defaults.status === 'active' && !isFilled(defaults.storageLimitGb)
+      ? copy.editor.summaries.storage
+      : null,
+    defaults.status === 'active' && !isFilled(defaults.concurrencyLimit)
+      ? copy.editor.summaries.concurrency
+      : null,
+    defaults.status === 'active' && !isFilled(defaults.syncRateLimitPerMinute)
+      ? copy.editor.summaries.syncRate
+      : null,
     defaults.status === 'active' && !isFilled(defaults.asyncRateLimitPerMinute)
-      ? 'async rate'
+      ? copy.editor.summaries.asyncRate
       : null,
     defaults.status === 'active' && !isFilled(defaults.apiEndpointRateLimitPerMinute)
-      ? 'API rate'
+      ? copy.editor.summaries.apiRate
       : null,
   ].filter((value): value is string => Boolean(value))
 
@@ -478,57 +523,79 @@ function getTierSectionSummaries(
     defaults.copilotCostMultiplier,
   ].filter(isFilled).length
   const meteringMissing = [
-    !isFilled(defaults.workflowExecutionMultiplier) ? 'workflow execution multiplier' : null,
-    !isFilled(defaults.workflowModelCostMultiplier) ? 'workflow model multiplier' : null,
-    !isFilled(defaults.functionExecutionMultiplier) ? 'function runtime multiplier' : null,
-    !isFilled(defaults.copilotCostMultiplier) ? 'copilot multiplier' : null,
+    !isFilled(defaults.workflowExecutionMultiplier)
+      ? copy.editor.summaries.workflowExecutionMultiplier
+      : null,
+    !isFilled(defaults.workflowModelCostMultiplier)
+      ? copy.editor.summaries.workflowModelMultiplier
+      : null,
+    !isFilled(defaults.functionExecutionMultiplier)
+      ? copy.editor.summaries.functionRuntimeMultiplier
+      : null,
+    !isFilled(defaults.copilotCostMultiplier) ? copy.editor.summaries.copilotMultiplier : null,
   ].filter((value): value is string => Boolean(value))
 
   return {
     general: {
       preview: joinPreviewParts([
-        isFilled(defaults.displayName) ? defaults.displayName : 'Untitled tier',
-        getOptionLabel(TIER_STATUS_OPTIONS, defaults.status),
-        defaults.isPublic ? 'Public' : 'Hidden',
-        featureCount > 0 ? `${featureCount} pricing bullets` : 'No pricing bullets',
+        isFilled(defaults.displayName) ? defaults.displayName : copy.editor.summaries.untitledTier,
+        getOptionLabel(tierStatusOptions, defaults.status),
+        defaults.isPublic ? copy.status.public : copy.status.hidden,
+        featureCount > 0
+          ? formatTemplate(copy.editor.summaries.pricingBullets, { count: featureCount })
+          : copy.editor.summaries.noPricingBullets,
       ]),
-      missing: formatMissingMessage(generalMissing),
+      missing: formatMissingMessage(copy, generalMissing),
       status: generalMissing.length === 0 ? 'ready' : 'review',
     },
     access: {
       preview: joinPreviewParts([
-        `${getOptionLabel(TIER_OWNER_TYPE_OPTIONS, defaults.ownerType)} owner`,
-        `${getOptionLabel(TIER_USAGE_SCOPE_OPTIONS, defaults.usageScope)} usage`,
-        `${getOptionLabel(TIER_SEAT_MODE_OPTIONS, defaults.seatMode)} seat billing`,
-        defaults.canEditUsageLimit ? 'Editable usage cap' : 'Fixed usage cap',
-        defaults.canConfigureSso ? 'SSO on' : 'SSO off',
+        formatTemplate(copy.ownerTypes.ownerLabel, {
+          owner: getOptionLabel(tierOwnerTypeOptions, defaults.ownerType),
+        }),
+        formatTemplate(copy.usageScopes.usageLabel, {
+          scope: getOptionLabel(tierUsageScopeOptions, defaults.usageScope),
+        }),
+        formatTemplate(copy.seatModes.seatBillingLabel, {
+          mode: getOptionLabel(tierSeatModeOptions, defaults.seatMode),
+        }),
+        defaults.canEditUsageLimit
+          ? copy.editor.summaries.editableUsageCap
+          : copy.editor.summaries.fixedUsageCap,
+        defaults.canConfigureSso ? copy.editor.summaries.ssoOn : copy.editor.summaries.ssoOff,
       ]),
-      missing: formatMissingMessage(accessMissing),
+      missing: formatMissingMessage(copy, accessMissing),
       status: accessMissing.length === 0 ? 'ready' : 'review',
     },
     pricing: {
       preview: joinPreviewParts([
         commerceLabel === 'free'
-          ? 'Free tier'
+          ? copy.commerce.freeTier
           : commerceLabel === 'contact-sales'
-            ? 'Contact sales'
-            : formatCurrencyValue(defaults.monthlyPriceUsd)
-              ? `${formatCurrencyValue(defaults.monthlyPriceUsd)} monthly`
-              : formatCurrencyValue(defaults.yearlyPriceUsd)
-                ? `${formatCurrencyValue(defaults.yearlyPriceUsd)} yearly`
-                : 'Price unset',
-        formatCurrencyValue(defaults.yearlyPriceUsd)
-          ? `${formatCurrencyValue(defaults.yearlyPriceUsd)} yearly`
+            ? copy.commerce.contactSales
+            : formatCurrencyValue(locale, defaults.monthlyPriceUsd)
+              ? formatTemplate(copy.commerce.monthlyPrice, {
+                  amount: formatCurrencyValue(locale, defaults.monthlyPriceUsd) ?? '',
+                })
+              : formatCurrencyValue(locale, defaults.yearlyPriceUsd)
+                ? formatTemplate(copy.commerce.yearlyPrice, {
+                    amount: formatCurrencyValue(locale, defaults.yearlyPriceUsd) ?? '',
+                  })
+                : copy.commerce.priceUnset,
+        formatCurrencyValue(locale, defaults.yearlyPriceUsd)
+          ? formatTemplate(copy.commerce.yearlyPrice, {
+              amount: formatCurrencyValue(locale, defaults.yearlyPriceUsd) ?? '',
+            })
           : null,
-        `${
-          [
+        formatTemplate(copy.commerce.stripeLinks, {
+          count: [
             defaults.stripeMonthlyPriceId,
             defaults.stripeYearlyPriceId,
             defaults.stripeProductId,
-          ].filter(isFilled).length
-        }/3 Stripe links`,
+          ].filter(isFilled).length,
+        }),
       ]),
-      missing: formatMissingMessage(pricingMissing),
+      missing: formatMissingMessage(copy, pricingMissing),
       status:
         commerceLabel === 'free'
           ? pricingMissing.length === 0
@@ -541,25 +608,26 @@ function getTierSectionSummaries(
     seats: {
       preview:
         defaults.ownerType !== 'organization'
-          ? 'User tiers do not manage organization seats'
+          ? copy.editor.summaries.userTiersNoOrgSeats
           : defaults.seatMode === 'fixed'
             ? joinPreviewParts([
                 isFilled(defaults.seatCount)
-                  ? `${defaults.seatCount} fixed seats`
-                  : 'Seat count unset',
-                'No self-serve seat changes',
+                  ? formatTemplate(copy.commerce.fixedSeatsCount, { count: defaults.seatCount })
+                  : copy.commerce.seatCountUnset,
+                copy.commerce.noSelfServeSeatChanges,
               ])
             : joinPreviewParts([
                 isFilled(defaults.seatCount)
-                  ? `${defaults.seatCount} base seats`
-                  : 'Seat count unset',
+                  ? formatTemplate(copy.commerce.baseSeatsCount, { count: defaults.seatCount })
+                  : copy.commerce.seatCountUnset,
                 isFilled(defaults.seatMaximum)
-                  ? `${defaults.seatMaximum} max seats`
-                  : 'Unlimited seats',
+                  ? formatTemplate(copy.commerce.maxSeatsCount, { count: defaults.seatMaximum })
+                  : copy.commerce.unlimitedSeats,
               ]),
       missing: formatMissingMessage(
+        copy,
         seatRangeInvalid
-          ? [...seatsMissing, 'seat maximum must stay above seat count']
+          ? [...seatsMissing, copy.editor.summaries.seatMaxAboveCount]
           : seatsMissing
       ),
       status:
@@ -572,18 +640,28 @@ function getTierSectionSummaries(
     limits: {
       preview:
         configuredLimitCount === 0
-          ? 'No included usage, storage, concurrency, rate, or retention limits configured'
+          ? copy.editor.summaries.noLimitsConfigured
           : joinPreviewParts([
-              formatCurrencyValue(defaults.includedUsageLimitUsd)
-                ? `${formatCurrencyValue(defaults.includedUsageLimitUsd)} included`
+              formatCurrencyValue(locale, defaults.includedUsageLimitUsd)
+                ? formatTemplate(copy.commerce.includedUsageLabel, {
+                    amount: formatCurrencyValue(locale, defaults.includedUsageLimitUsd) ?? '',
+                  })
                 : null,
-              isFilled(defaults.storageLimitGb) ? `${defaults.storageLimitGb} GB storage` : null,
+              isFilled(defaults.storageLimitGb)
+                ? formatTemplate(copy.commerce.storageLimitLabel, {
+                    value: defaults.storageLimitGb,
+                  })
+                : null,
               isFilled(defaults.concurrencyLimit)
-                ? `${defaults.concurrencyLimit} concurrent`
+                ? formatTemplate(copy.commerce.concurrencyLabel, {
+                    value: defaults.concurrencyLimit,
+                  })
                 : null,
-              `${configuredLimitCount}/7 limits configured`,
+              formatTemplate(copy.editor.summaries.limitsConfigured, {
+                count: configuredLimitCount,
+              }),
             ]),
-      missing: formatMissingMessage(limitMissing),
+      missing: formatMissingMessage(copy, limitMissing),
       status:
         defaults.status !== 'active' && configuredLimitCount === 0
           ? 'optional'
@@ -594,22 +672,31 @@ function getTierSectionSummaries(
     metering: {
       preview:
         configuredMeteringCount === 0
-          ? 'Using base platform pricing only'
+          ? copy.editor.summaries.usingBasePricingOnly
           : joinPreviewParts([
               isFilled(defaults.workflowExecutionMultiplier)
-                ? `${defaults.workflowExecutionMultiplier}x workflow execution`
+                ? formatTemplate(copy.commerce.workflowExecutionLabel, {
+                    value: defaults.workflowExecutionMultiplier,
+                  })
                 : null,
               isFilled(defaults.workflowModelCostMultiplier)
-                ? `${defaults.workflowModelCostMultiplier}x workflow models`
+                ? formatTemplate(copy.commerce.workflowModelsLabel, {
+                    value: defaults.workflowModelCostMultiplier,
+                  })
                 : null,
               isFilled(defaults.functionExecutionMultiplier)
-                ? `${defaults.functionExecutionMultiplier}x function runtime`
+                ? formatTemplate(copy.commerce.functionRuntimeLabel, {
+                    value: defaults.functionExecutionMultiplier,
+                  })
                 : null,
               isFilled(defaults.copilotCostMultiplier)
-                ? `${defaults.copilotCostMultiplier}x copilot`
+                ? formatTemplate(copy.commerce.copilotLabel, {
+                    value: defaults.copilotCostMultiplier,
+                  })
                 : null,
             ]),
-      missing: configuredMeteringCount === 0 ? formatMissingMessage(meteringMissing) : null,
+      missing:
+        configuredMeteringCount === 0 ? formatMissingMessage(copy, meteringMissing) : null,
       status: configuredMeteringCount === 0 ? 'optional' : 'ready',
     },
   }
@@ -659,14 +746,14 @@ export function createTierPreviewState(formData: FormData): TierFormDefaults {
   })
 }
 
-function FieldHint({ children }: { children: string }) {
+function FieldHint({ children }: { children: ReactNode }) {
   return <p className='text-muted-foreground text-xs leading-relaxed'>{children}</p>
 }
 
-function OptionalFieldBadge() {
+function OptionalFieldBadge({ label }: { label: string }) {
   return (
     <Badge variant='outline' className={ADMIN_META_BADGE_CLASSNAME}>
-      Optional
+      {label}
     </Badge>
   )
 }
@@ -678,23 +765,35 @@ export function FieldShell({
   nullable = false,
   blankHint,
   className,
+  optionalLabel,
+  defaultBlankHint,
   children,
 }: {
   id: string
-  label: string
-  hint: string
+  label: ReactNode
+  hint: ReactNode
   nullable?: boolean
-  blankHint?: string
+  blankHint?: ReactNode
   className?: string
+  optionalLabel?: string
+  defaultBlankHint?: ReactNode
   children: ReactNode
 }) {
-  const resolvedHint = nullable ? [hint, blankHint ?? 'Leave blank to clear it.'].join(' ') : hint
+  const resolvedHint = nullable ? (
+    <>
+      {hint}
+      {' '}
+      {blankHint ?? defaultBlankHint}
+    </>
+  ) : (
+    hint
+  )
 
   return (
     <div className={cn('space-y-2', className)}>
       <div className='flex min-h-6 items-center gap-2'>
         <Label htmlFor={id}>{label}</Label>
-        {nullable ? <OptionalFieldBadge /> : null}
+        {nullable && optionalLabel ? <OptionalFieldBadge label={optionalLabel} /> : null}
       </div>
       {children}
       <FieldHint>{resolvedHint}</FieldHint>
@@ -708,6 +807,7 @@ function TierFormSection({
   summary,
   open,
   onOpenChange,
+  statusLabels,
   children,
 }: {
   sectionId: TierEditorSectionId
@@ -715,6 +815,7 @@ function TierFormSection({
   summary: TierSectionSummary
   open: boolean
   onOpenChange: (open: boolean) => void
+  statusLabels: AdminBillingCopy['editor']['sectionStatuses']
   children: ReactNode
 }) {
   return (
@@ -737,10 +838,10 @@ function TierFormSection({
                   )}
                 >
                   {summary.status === 'ready'
-                    ? 'Ready'
+                    ? statusLabels.ready
                     : summary.status === 'review'
-                      ? 'Review'
-                      : 'Optional'}
+                      ? statusLabels.review
+                      : statusLabels.optional}
                 </Badge>
               </div>
               <p className='max-w-3xl text-muted-foreground text-xs leading-relaxed'>
@@ -784,12 +885,12 @@ function SelectField({
 }: {
   id: string
   name?: string
-  label: string
+  label: ReactNode
   defaultValue?: string
   value?: string
   onValueChange?: (value: string) => void
   options: ReadonlyArray<{ value: string; label: string }>
-  hint: string
+  hint: ReactNode
   disabled?: boolean
   className?: string
   triggerClassName?: string
@@ -828,9 +929,9 @@ function SwitchField({
 }: {
   id: string
   name: string
-  label: string
+  label: ReactNode
   defaultChecked: boolean
-  hint?: string
+  hint?: ReactNode
 }) {
   return (
     <div className='flex items-start justify-between gap-4 rounded-md border border-border/60 bg-muted/20 px-3 py-3'>
@@ -846,6 +947,8 @@ function SwitchField({
 }
 
 function TierFormFields({
+  copy,
+  locale,
   initialValues,
   previewValues,
   sectionState,
@@ -853,6 +956,8 @@ function TierFormFields({
   onAccessFieldChange,
   requireStripeMonthlyPriceId = false,
 }: {
+  copy: AdminBillingCopy
+  locale: LocaleCode | string
   initialValues: TierFormDefaults
   previewValues: TierFormDefaults
   sectionState: TierEditorSectionState
@@ -860,47 +965,51 @@ function TierFormFields({
   onAccessFieldChange: (field: keyof TierDerivedAccessFields, value: string) => void
   requireStripeMonthlyPriceId?: boolean
 }) {
-  const sectionSummaries = getTierSectionSummaries(previewValues)
+  const sectionSummaries = getTierSectionSummaries(previewValues, locale, copy)
   const derivedAccessFields = normalizeTierAccessFields(previewValues)
+  const tierStatusOptions = getTierStatusOptions(copy)
+  const tierOwnerTypeOptions = getTierOwnerTypeOptions(copy)
+  const tierUsageScopeOptions = getTierUsageScopeOptions(copy)
+  const tierSeatModeOptions = getTierSeatModeOptions(copy)
 
   return (
     <div>
       <TierFormSection
         sectionId='general'
-        title='General Info'
+        title={copy.editor.sections.general}
         summary={sectionSummaries.general}
         open={sectionState.general}
         onOpenChange={(open) => onSectionStateChange('general', open)}
+        statusLabels={copy.editor.sectionStatuses}
       >
         <div className='space-y-4'>
           <div className='space-y-3'>
-            <FieldHint>Control whether this tier is public and used by default.</FieldHint>
+            <FieldHint>{copy.editor.general.intro}</FieldHint>
             <div className='grid gap-3 md:grid-cols-2'>
               <SwitchField
                 id='isPublic'
                 name='isPublic'
-                label='Public tier'
+                label={copy.editor.general.publicTier}
                 defaultChecked={initialValues.isPublic}
               />
               <SwitchField
                 id='isDefault'
                 name='isDefault'
-                label='Default tier'
+                label={copy.editor.general.defaultTier}
                 defaultChecked={initialValues.isDefault}
               />
             </div>
-            <FieldHint>
-              Default tiers must stay public, free, and user-owned. Billing can only be enabled once
-              the default tier is active.
-            </FieldHint>
+            <FieldHint>{copy.editor.general.defaultRules}</FieldHint>
           </div>
 
           <div className='grid gap-3 md:grid-cols-12'>
             <FieldShell
               id='displayName'
-              label='Display Name'
-              hint='Shown in billing and pricing.'
+              label={copy.editor.general.displayName}
+              hint={copy.editor.general.displayNameHint}
               className='md:col-span-7'
+              optionalLabel={copy.editor.optional}
+              defaultBlankHint={copy.editor.defaultBlankHint}
             >
               <Input
                 id='displayName'
@@ -912,16 +1021,18 @@ function TierFormFields({
             </FieldShell>
             <FieldShell
               id='status'
-              label='Status'
-              hint='Draft is internal. Active is live. Archived blocks new sales.'
+              label={copy.editor.general.status}
+              hint={copy.editor.general.statusHint}
               className='md:col-span-3'
+              optionalLabel={copy.editor.optional}
+              defaultBlankHint={copy.editor.defaultBlankHint}
             >
               <Select name='status' defaultValue={initialValues.status}>
                 <SelectTrigger id='status' className='h-9'>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {TIER_STATUS_OPTIONS.map((option) => (
+                  {tierStatusOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
@@ -931,9 +1042,11 @@ function TierFormFields({
             </FieldShell>
             <FieldShell
               id='displayOrder'
-              label='Display Order'
-              hint='Lower numbers show first.'
+              label={copy.editor.general.displayOrder}
+              hint={copy.editor.general.displayOrderHint}
               className='md:col-span-2'
+              optionalLabel={copy.editor.optional}
+              defaultBlankHint={copy.editor.defaultBlankHint}
             >
               <Input
                 id='displayOrder'
@@ -948,8 +1061,10 @@ function TierFormFields({
           <div className='grid gap-3 md:grid-cols-2'>
             <FieldShell
               id='description'
-              label='Description'
-              hint='Short description shown in billing.'
+              label={copy.editor.general.description}
+              hint={copy.editor.general.descriptionHint}
+              optionalLabel={copy.editor.optional}
+              defaultBlankHint={copy.editor.defaultBlankHint}
             >
               <Textarea
                 id='description'
@@ -960,7 +1075,13 @@ function TierFormFields({
                 required
               />
             </FieldShell>
-            <FieldShell id='pricingFeatures' label='Pricing Features' hint='One feature per line.'>
+            <FieldShell
+              id='pricingFeatures'
+              label={copy.editor.general.pricingFeatures}
+              hint={copy.editor.general.pricingFeaturesHint}
+              optionalLabel={copy.editor.optional}
+              defaultBlankHint={copy.editor.defaultBlankHint}
+            >
               <Textarea
                 id='pricingFeatures'
                 name='pricingFeatures'
@@ -975,26 +1096,29 @@ function TierFormFields({
 
       <TierFormSection
         sectionId='pricing'
-        title='Pricing And Checkout'
+        title={copy.editor.sections.pricing}
         summary={sectionSummaries.pricing}
         open={sectionState.pricing}
         onOpenChange={(open) => onSectionStateChange('pricing', open)}
+        statusLabels={copy.editor.sectionStatuses}
       >
         <div className='space-y-4'>
           <div className='grid gap-4 xl:grid-cols-2'>
             <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>
               <div className='space-y-1'>
-                <p className='font-medium text-sm'>Monthly Checkout</p>
+                <p className='font-medium text-sm'>{copy.editor.pricing.monthlyTitle}</p>
                 <p className='text-muted-foreground text-xs leading-relaxed'>
-                  Set the monthly price and Stripe ID.
+                  {copy.editor.pricing.monthlyDescription}
                 </p>
               </div>
               <FieldShell
                 id='monthlyPriceUsd'
-                label='Monthly Price USD'
-                hint='Monthly base price.'
+                label={copy.editor.pricing.monthlyPrice}
+                hint={copy.editor.pricing.monthlyPriceHint}
                 nullable
-                blankHint='Leave blank for free or contact-sales tiers.'
+                blankHint={copy.editor.pricing.monthlyBlank}
+                optionalLabel={copy.editor.optional}
+                defaultBlankHint={copy.editor.defaultBlankHint}
               >
                 <Input
                   id='monthlyPriceUsd'
@@ -1006,10 +1130,12 @@ function TierFormFields({
               </FieldShell>
               <FieldShell
                 id='stripeMonthlyPriceId'
-                label='Stripe Monthly Price ID'
-                hint='Stripe monthly price ID, like `price_...`.'
+                label={copy.editor.pricing.stripeMonthlyPriceId}
+                hint={copy.editor.pricing.stripeMonthlyPriceIdHint}
                 nullable={!requireStripeMonthlyPriceId}
-                blankHint='Leave blank if monthly checkout is off.'
+                blankHint={copy.editor.pricing.stripeMonthlyPriceIdBlank}
+                optionalLabel={copy.editor.optional}
+                defaultBlankHint={copy.editor.defaultBlankHint}
               >
                 <Input
                   id='stripeMonthlyPriceId'
@@ -1022,17 +1148,19 @@ function TierFormFields({
 
             <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>
               <div className='space-y-1'>
-                <p className='font-medium text-sm'>Yearly Checkout</p>
+                <p className='font-medium text-sm'>{copy.editor.pricing.yearlyTitle}</p>
                 <p className='text-muted-foreground text-xs leading-relaxed'>
-                  Set the yearly price and Stripe ID.
+                  {copy.editor.pricing.yearlyDescription}
                 </p>
               </div>
               <FieldShell
                 id='yearlyPriceUsd'
-                label='Yearly Price USD'
-                hint='Yearly price.'
+                label={copy.editor.pricing.yearlyPrice}
+                hint={copy.editor.pricing.yearlyPriceHint}
                 nullable
-                blankHint='Leave blank if yearly billing is off.'
+                blankHint={copy.editor.pricing.yearlyBlank}
+                optionalLabel={copy.editor.optional}
+                defaultBlankHint={copy.editor.defaultBlankHint}
               >
                 <Input
                   id='yearlyPriceUsd'
@@ -1044,10 +1172,12 @@ function TierFormFields({
               </FieldShell>
               <FieldShell
                 id='stripeYearlyPriceId'
-                label='Stripe Yearly Price ID'
-                hint='Stripe yearly price ID, like `price_...`.'
+                label={copy.editor.pricing.stripeYearlyPriceId}
+                hint={copy.editor.pricing.stripeYearlyPriceIdHint}
                 nullable
-                blankHint='Leave blank if yearly billing is off.'
+                blankHint={copy.editor.pricing.stripeYearlyPriceIdBlank}
+                optionalLabel={copy.editor.optional}
+                defaultBlankHint={copy.editor.defaultBlankHint}
               >
                 <Input
                   id='stripeYearlyPriceId'
@@ -1061,10 +1191,12 @@ function TierFormFields({
           <div className='rounded-md border border-border/60 bg-background px-4 py-4'>
             <FieldShell
               id='stripeProductId'
-              label='Stripe Product ID'
-              hint='Stripe product ID, like `prod_...`.'
+              label={copy.editor.pricing.stripeProductId}
+              hint={copy.editor.pricing.stripeProductIdHint}
               nullable
-              blankHint='Leave blank if unused.'
+              blankHint={copy.editor.pricing.stripeProductIdBlank}
+              optionalLabel={copy.editor.optional}
+              defaultBlankHint={copy.editor.defaultBlankHint}
             >
               <Input
                 id='stripeProductId'
@@ -1078,54 +1210,55 @@ function TierFormFields({
 
       <TierFormSection
         sectionId='access'
-        title='Access Model'
+        title={copy.editor.sections.access}
         summary={sectionSummaries.access}
         open={sectionState.access}
         onOpenChange={(open) => onSectionStateChange('access', open)}
+        statusLabels={copy.editor.sectionStatuses}
       >
         <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-3'>
           <SelectField
             id='ownerType'
             name='ownerType'
-            label='Owner Type'
+            label={copy.editor.access.ownerType}
             value={derivedAccessFields.ownerType}
-            options={TIER_OWNER_TYPE_OPTIONS}
-            hint='Choose user or organization.'
+            options={tierOwnerTypeOptions}
+            hint={copy.editor.access.ownerTypeHint}
             onValueChange={(value) => onAccessFieldChange('ownerType', value)}
           />
           <SelectField
             id='usageScope'
             name='usageScope'
-            label='Usage Scope'
+            label={copy.editor.access.usageScope}
             value={derivedAccessFields.usageScope}
-            options={TIER_USAGE_SCOPE_OPTIONS}
-            hint='Track usage per account or pooled.'
+            options={tierUsageScopeOptions}
+            hint={copy.editor.access.usageScopeHint}
             disabled={derivedAccessFields.ownerType === 'user'}
             onValueChange={(value) => onAccessFieldChange('usageScope', value)}
           />
           <SelectField
             id='seatMode'
             name='seatMode'
-            label='Seat Mode'
+            label={copy.editor.access.seatMode}
             value={derivedAccessFields.seatMode}
-            options={TIER_SEAT_MODE_OPTIONS}
-            hint='Use a fixed seat count or let it change.'
+            options={tierSeatModeOptions}
+            hint={copy.editor.access.seatModeHint}
             disabled={derivedAccessFields.ownerType === 'user'}
             onValueChange={(value) => onAccessFieldChange('seatMode', value)}
           />
           <SwitchField
             id='canEditUsageLimit'
             name='canEditUsageLimit'
-            label='Can edit usage limit'
+            label={copy.editor.access.canEditUsageLimit}
             defaultChecked={initialValues.canEditUsageLimit}
-            hint='Allow usage limit changes.'
+            hint={copy.editor.access.canEditUsageLimitHint}
           />
           <SwitchField
             id='canConfigureSso'
             name='canConfigureSso'
-            label='Can configure SSO'
+            label={copy.editor.access.canConfigureSso}
             defaultChecked={initialValues.canConfigureSso}
-            hint='Allow SSO setup.'
+            hint={copy.editor.access.canConfigureSsoHint}
           />
         </div>
       </TierFormSection>
@@ -1133,13 +1266,20 @@ function TierFormFields({
       {derivedAccessFields.ownerType === 'organization' ? (
         <TierFormSection
           sectionId='seats'
-          title='Seats'
+          title={copy.editor.sections.seats}
           summary={sectionSummaries.seats}
           open={sectionState.seats}
           onOpenChange={(open) => onSectionStateChange('seats', open)}
+          statusLabels={copy.editor.sectionStatuses}
         >
           <div className='grid gap-4 md:grid-cols-2'>
-            <FieldShell id='seatCount' label='Seat Count' hint='Licensed seats or starting seats.'>
+            <FieldShell
+              id='seatCount'
+              label={copy.editor.seats.seatCount}
+              hint={copy.editor.seats.seatCountHint}
+              optionalLabel={copy.editor.optional}
+              defaultBlankHint={copy.editor.defaultBlankHint}
+            >
               <Input
                 id='seatCount'
                 name='seatCount'
@@ -1149,10 +1289,12 @@ function TierFormFields({
             </FieldShell>
             <FieldShell
               id='seatMaximum'
-              label='Maximum Seats'
-              hint='Seat cap for adjustable tiers.'
+              label={copy.editor.seats.seatMaximum}
+              hint={copy.editor.seats.seatMaximumHint}
               nullable
-              blankHint='Leave blank for no cap.'
+              blankHint={copy.editor.seats.seatMaximumBlank}
+              optionalLabel={copy.editor.optional}
+              defaultBlankHint={copy.editor.defaultBlankHint}
             >
               <Input
                 id='seatMaximum'
@@ -1168,27 +1310,30 @@ function TierFormFields({
 
       <TierFormSection
         sectionId='limits'
-        title='Capacity And Limits'
+        title={copy.editor.sections.limits}
         summary={sectionSummaries.limits}
         open={sectionState.limits}
         onOpenChange={(open) => onSectionStateChange('limits', open)}
+        statusLabels={copy.editor.sectionStatuses}
       >
         <div className='space-y-4'>
           <div className='grid gap-4 xl:grid-cols-2'>
             <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>
               <div className='space-y-1'>
-                <p className='font-medium text-sm'>Allowance And Retention</p>
+                <p className='font-medium text-sm'>{copy.editor.limits.allowanceTitle}</p>
                 <p className='text-muted-foreground text-xs leading-relaxed'>
-                  Set usage, storage, and log retention.
+                  {copy.editor.limits.allowanceDescription}
                 </p>
               </div>
               <div className='grid gap-4'>
                 <FieldShell
                   id='includedUsageLimitUsd'
-                  label='Included Usage USD'
-                  hint='Monthly included usage.'
+                  label={copy.editor.limits.includedUsage}
+                  hint={copy.editor.limits.includedUsageHint}
                   nullable
-                  blankHint='Leave blank while drafting.'
+                  blankHint={copy.editor.limits.includedUsageBlank}
+                  optionalLabel={copy.editor.optional}
+                  defaultBlankHint={copy.editor.defaultBlankHint}
                 >
                   <Input
                     id='includedUsageLimitUsd'
@@ -1200,10 +1345,12 @@ function TierFormFields({
                 </FieldShell>
                 <FieldShell
                   id='storageLimitGb'
-                  label='Storage Limit GB'
-                  hint='Storage limit in GB.'
+                  label={copy.editor.limits.storageLimit}
+                  hint={copy.editor.limits.storageLimitHint}
                   nullable
-                  blankHint='Leave blank while drafting.'
+                  blankHint={copy.editor.limits.storageLimitBlank}
+                  optionalLabel={copy.editor.optional}
+                  defaultBlankHint={copy.editor.defaultBlankHint}
                 >
                   <Input
                     id='storageLimitGb'
@@ -1214,10 +1361,12 @@ function TierFormFields({
                 </FieldShell>
                 <FieldShell
                   id='logRetentionDays'
-                  label='Log Retention Days'
-                  hint='How long logs stay available.'
+                  label={copy.editor.limits.logRetentionDays}
+                  hint={copy.editor.limits.logRetentionDaysHint}
                   nullable
-                  blankHint='Leave blank for unlimited.'
+                  blankHint={copy.editor.limits.logRetentionDaysBlank}
+                  optionalLabel={copy.editor.optional}
+                  defaultBlankHint={copy.editor.defaultBlankHint}
                 >
                   <Input
                     id='logRetentionDays'
@@ -1231,17 +1380,19 @@ function TierFormFields({
 
             <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>
               <div className='space-y-1'>
-                <p className='font-medium text-sm'>Execution Throughput</p>
+                <p className='font-medium text-sm'>{copy.editor.limits.throughputTitle}</p>
                 <p className='text-muted-foreground text-xs leading-relaxed'>
-                  Set concurrency and per-minute limits.
+                  {copy.editor.limits.throughputDescription}
                 </p>
               </div>
               <FieldShell
                 id='concurrencyLimit'
-                label='Max Concurrent Executions'
-                hint='Max parallel executions.'
+                label={copy.editor.limits.concurrencyLimit}
+                hint={copy.editor.limits.concurrencyLimitHint}
                 nullable
-                blankHint='Leave blank while drafting.'
+                blankHint={copy.editor.limits.concurrencyLimitBlank}
+                optionalLabel={copy.editor.optional}
+                defaultBlankHint={copy.editor.defaultBlankHint}
               >
                 <Input
                   id='concurrencyLimit'
@@ -1253,10 +1404,12 @@ function TierFormFields({
               <div className='grid gap-4 md:grid-cols-2'>
                 <FieldShell
                   id='syncRateLimitPerMinute'
-                  label='Sync Executions / Min'
-                  hint='Per-minute sync execution limit.'
+                  label={copy.editor.limits.syncRateLimit}
+                  hint={copy.editor.limits.syncRateLimitHint}
                   nullable
-                  blankHint='Leave blank while drafting.'
+                  blankHint={copy.editor.limits.syncRateLimitBlank}
+                  optionalLabel={copy.editor.optional}
+                  defaultBlankHint={copy.editor.defaultBlankHint}
                 >
                   <Input
                     id='syncRateLimitPerMinute'
@@ -1267,10 +1420,12 @@ function TierFormFields({
                 </FieldShell>
                 <FieldShell
                   id='asyncRateLimitPerMinute'
-                  label='Async Executions / Min'
-                  hint='Per-minute async execution limit.'
+                  label={copy.editor.limits.asyncRateLimit}
+                  hint={copy.editor.limits.asyncRateLimitHint}
                   nullable
-                  blankHint='Leave blank while drafting.'
+                  blankHint={copy.editor.limits.asyncRateLimitBlank}
+                  optionalLabel={copy.editor.optional}
+                  defaultBlankHint={copy.editor.defaultBlankHint}
                 >
                   <Input
                     id='asyncRateLimitPerMinute'
@@ -1282,10 +1437,12 @@ function TierFormFields({
               </div>
               <FieldShell
                 id='apiEndpointRateLimitPerMinute'
-                label='API Requests / Min'
-                hint='Per-minute API request limit.'
+                label={copy.editor.limits.apiRateLimit}
+                hint={copy.editor.limits.apiRateLimitHint}
                 nullable
-                blankHint='Leave blank while drafting.'
+                blankHint={copy.editor.limits.apiRateLimitBlank}
+                optionalLabel={copy.editor.optional}
+                defaultBlankHint={copy.editor.defaultBlankHint}
               >
                 <Input
                   id='apiEndpointRateLimitPerMinute'
@@ -1301,18 +1458,21 @@ function TierFormFields({
 
       <TierFormSection
         sectionId='metering'
-        title='Metering'
+        title={copy.editor.sections.metering}
         summary={sectionSummaries.metering}
         open={sectionState.metering}
         onOpenChange={(open) => onSectionStateChange('metering', open)}
+        statusLabels={copy.editor.sectionStatuses}
       >
         <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-3'>
           <FieldShell
             id='workflowExecutionMultiplier'
-            label='Workflow Execution Multiplier'
-            hint='Scales the base workflow execution charge by tier.'
+            label={copy.editor.metering.workflowExecutionMultiplier}
+            hint={copy.editor.metering.workflowExecutionMultiplierHint}
             nullable
-            blankHint='Leave blank for the default 1x.'
+            blankHint={copy.editor.metering.workflowExecutionMultiplierBlank}
+            optionalLabel={copy.editor.optional}
+            defaultBlankHint={copy.editor.defaultBlankHint}
           >
             <Input
               id='workflowExecutionMultiplier'
@@ -1324,10 +1484,12 @@ function TierFormFields({
           </FieldShell>
           <FieldShell
             id='workflowModelCostMultiplier'
-            label='Workflow Model Cost Multiplier'
-            hint='Scales workflow model and tool costs.'
+            label={copy.editor.metering.workflowModelCostMultiplier}
+            hint={copy.editor.metering.workflowModelCostMultiplierHint}
             nullable
-            blankHint='Leave blank for the default 1x.'
+            blankHint={copy.editor.metering.workflowModelCostMultiplierBlank}
+            optionalLabel={copy.editor.optional}
+            defaultBlankHint={copy.editor.defaultBlankHint}
           >
             <Input
               id='workflowModelCostMultiplier'
@@ -1339,10 +1501,12 @@ function TierFormFields({
           </FieldShell>
           <FieldShell
             id='functionExecutionMultiplier'
-            label='Function Runtime Multiplier'
-            hint='Scales the per-second function execution rate by tier.'
+            label={copy.editor.metering.functionExecutionMultiplier}
+            hint={copy.editor.metering.functionExecutionMultiplierHint}
             nullable
-            blankHint='Leave blank for 1x.'
+            blankHint={copy.editor.metering.functionExecutionMultiplierBlank}
+            optionalLabel={copy.editor.optional}
+            defaultBlankHint={copy.editor.defaultBlankHint}
           >
             <Input
               id='functionExecutionMultiplier'
@@ -1354,10 +1518,12 @@ function TierFormFields({
           </FieldShell>
           <FieldShell
             id='copilotCostMultiplier'
-            label='Copilot Cost Multiplier'
-            hint='Copilot cost multiplier.'
+            label={copy.editor.metering.copilotCostMultiplier}
+            hint={copy.editor.metering.copilotCostMultiplierHint}
             nullable
-            blankHint='Leave blank for the default 1x.'
+            blankHint={copy.editor.metering.copilotCostMultiplierBlank}
+            optionalLabel={copy.editor.optional}
+            defaultBlankHint={copy.editor.defaultBlankHint}
           >
             <Input
               id='copilotCostMultiplier'
@@ -1374,13 +1540,17 @@ function TierFormFields({
 }
 
 export function TierEditorHeaderCenter({
+  copy,
+  locale,
   previewValues,
   extraStats = [],
 }: {
+  copy: AdminBillingCopy
+  locale: LocaleCode | string
   previewValues: TierFormDefaults
   extraStats?: Array<{ label: string; value: string }>
 }) {
-  const summaries = getTierSectionSummaries(previewValues)
+  const summaries = getTierSectionSummaries(previewValues, locale, copy)
   const visibleSectionSummaries = (
     normalizeTierAccessFields(previewValues).ownerType === 'organization'
       ? Object.entries(summaries)
@@ -1394,9 +1564,9 @@ export function TierEditorHeaderCenter({
     (summary) => summary.status === 'optional'
   ).length
   const stats = [
-    { label: 'Ready', value: String(readyCount) },
-    { label: 'Review', value: String(reviewCount) },
-    { label: 'Optional', value: String(optionalCount) },
+    { label: copy.editor.sectionStatuses.ready, value: String(readyCount) },
+    { label: copy.editor.sectionStatuses.review, value: String(reviewCount) },
+    { label: copy.editor.sectionStatuses.optional, value: String(optionalCount) },
     ...extraStats,
   ]
 
@@ -1413,6 +1583,8 @@ export function TierEditorHeaderCenter({
 }
 
 export function TierEditorFormSurface({
+  copy,
+  locale,
   formId,
   initialValues,
   previewValues,
@@ -1425,6 +1597,8 @@ export function TierEditorFormSurface({
   onFormChange,
   footer,
 }: {
+  copy: AdminBillingCopy
+  locale: LocaleCode | string
   formId: string
   initialValues: TierFormDefaults
   previewValues: TierFormDefaults
@@ -1442,6 +1616,8 @@ export function TierEditorFormSurface({
       <form id={formId} onSubmit={onSubmit} onChange={onFormChange}>
         <fieldset disabled={disabled}>
           <TierFormFields
+            copy={copy}
+            locale={locale}
             initialValues={initialValues}
             previewValues={previewValues}
             sectionState={sectionState}

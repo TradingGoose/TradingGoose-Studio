@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useLocale } from 'next-intl'
 import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatDisplayText } from '@/components/ui/formatted-text'
@@ -12,6 +13,9 @@ import type { SubBlockConfig } from '@/blocks/types'
 import { useKnowledgeBaseTagDefinitions } from '@/hooks/use-knowledge-base-tag-definitions'
 import { useTagSelection } from '@/hooks/use-tag-selection'
 import { useSubBlockValue } from '../../hooks/use-sub-block-value'
+import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { translateWorkflowLabel } from '@/i18n/block-editor'
+import type { LocaleCode } from '@/i18n/utils'
 
 interface TagFilter {
   id: string
@@ -44,6 +48,9 @@ export function KnowledgeTagFilters({
   previewValue,
   isConnecting = false,
 }: KnowledgeTagFiltersProps) {
+  const locale = useLocale() as LocaleCode
+  const t = (label: string) => translateWorkflowLabel(locale, label)
+  const copy = useAppMessages().workspace.widgets.blockEditor.knowledgeTagFilters
   const [storeValue, setStoreValue] = useSubBlockValue<string | null>(blockId, subBlock.id)
 
   // Hook for immediate tag/dropdown selections
@@ -177,12 +184,16 @@ export function KnowledgeTagFilters({
 
   if (isPreview) {
     const appliedFilters = filters.filter((f) => f.tagName.trim() && f.tagValue.trim()).length
+    const appliedCopy =
+      appliedFilters === 1 ? copy.appliedCountSingular : copy.appliedCountPlural
 
     return (
       <div className='space-y-1'>
-        <Label className='font-medium text-muted-foreground text-xs'>Tag Filters</Label>
+        <Label className='font-medium text-muted-foreground text-xs'>{t('Tag Filters')}</Label>
         <div className='text-muted-foreground text-sm'>
-          {appliedFilters > 0 ? `${appliedFilters} filter(s) applied` : 'No filters'}
+          {appliedFilters > 0
+            ? formatTemplate(appliedCopy, { count: appliedFilters })
+            : t('No filters')}
         </div>
       </div>
     )
@@ -191,8 +202,8 @@ export function KnowledgeTagFilters({
   const renderHeader = () => (
     <thead>
       <tr className='border-b'>
-        <th className='w-2/5 border-r px-4 py-2 text-center font-medium text-sm'>Tag Name</th>
-        <th className='px-4 py-2 text-center font-medium text-sm'>Value</th>
+        <th className='w-2/5 border-r px-4 py-2 text-center font-medium text-sm'>{t('Tag Name')}</th>
+        <th className='px-4 py-2 text-center font-medium text-sm'>{t('Value')}</th>
       </tr>
     </thead>
   )
@@ -240,7 +251,7 @@ export function KnowledgeTagFilters({
           />
           <div className='pointer-events-none absolute inset-0 flex items-center overflow-hidden bg-transparent px-3 text-sm'>
             <div className='whitespace-pre'>
-              {formatDisplayText(cellValue || 'Select tag', {
+              {formatDisplayText(cellValue || t('Select tag'), {
                 accessiblePrefixes,
                 highlightAll: !accessiblePrefixes,
               })}
@@ -353,7 +364,7 @@ export function KnowledgeTagFilters({
   }
 
   if (isLoading) {
-    return <div className='p-4 text-muted-foreground text-sm'>Loading tag definitions...</div>
+    return <div className='p-4 text-muted-foreground text-sm'>{t('Loading tag definitions...')}</div>
   }
 
   return (
@@ -393,12 +404,11 @@ export function KnowledgeTagFilters({
         />
       )}
 
-      {/* Add Filter Button */}
       {!isPreview && !disabled && (
         <div className='mt-3 flex items-center justify-between'>
           <Button variant='outline' size='sm' onClick={handleAddRow} className='h-7 px-2 text-xs'>
             <Plus className='mr-1 h-2.5 w-2.5' />
-            Add Filter
+            {copy.addFilter}
           </Button>
 
           {/* Filter count indicator */}
@@ -408,7 +418,10 @@ export function KnowledgeTagFilters({
             ).length
             return (
               <div className='text-muted-foreground text-xs'>
-                {appliedFilters} filter{appliedFilters !== 1 ? 's' : ''} applied
+                {formatTemplate(
+                  appliedFilters === 1 ? copy.appliedCountSingular : copy.appliedCountPlural,
+                  { count: appliedFilters }
+                )}
               </div>
             )
           })()}

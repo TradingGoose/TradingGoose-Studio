@@ -1,41 +1,37 @@
-import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Link } from '@/i18n/navigation'
+import type { AdminBillingCopy } from './tier-editor'
 import { ADMIN_META_BADGE_CLASSNAME } from '../badge-styles'
 import { AdminPageShell } from '../page-shell'
 
 export function AdminBillingUnavailable({
-  title,
-  description,
+  copy,
 }: {
-  title: string
-  description: string
+  copy: AdminBillingCopy['unavailable']
 }) {
   return (
     <AdminPageShell
       left={
         <div className='flex items-center gap-2'>
           <Badge variant='outline' className={ADMIN_META_BADGE_CLASSNAME}>
-            Admin
+            {copy.badge}
           </Badge>
-          <span>Billing</span>
+          <span>{copy.label}</span>
         </div>
       }
     >
       <div className='mx-auto flex w-full max-w-3xl flex-col gap-6'>
         <Card>
           <CardHeader>
-            <CardTitle>{title}</CardTitle>
-            <CardDescription>{description}</CardDescription>
+            <CardTitle>{copy.title}</CardTitle>
+            <CardDescription>{copy.description}</CardDescription>
           </CardHeader>
           <CardContent className='flex items-center justify-between gap-4'>
-            <p className='text-muted-foreground text-sm'>
-              Configure `STRIPE_SECRET_KEY` in the deployment environment to restore the billing
-              admin UI.
-            </p>
+            <p className='text-muted-foreground text-sm'>{copy.requirement}</p>
             <Button asChild variant='outline'>
-              <Link href='/admin'>Back</Link>
+              <Link href='/admin'>{copy.back}</Link>
             </Button>
           </CardContent>
         </Card>

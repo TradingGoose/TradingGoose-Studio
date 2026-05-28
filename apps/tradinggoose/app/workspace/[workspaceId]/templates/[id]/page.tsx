@@ -1,9 +1,12 @@
 import { db } from '@tradinggoose/db'
 import { templateStars, templates } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
+import { getLocale } from 'next-intl/server'
 import { notFound } from 'next/navigation'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 import TemplateDetails from '@/app/workspace/[workspaceId]/templates/[id]/template'
 import type { Template } from '@/app/workspace/[workspaceId]/templates/templates'
 
@@ -17,6 +20,8 @@ interface TemplatePageProps {
 }
 
 export default async function TemplatePage({ params }: TemplatePageProps) {
+  const locale = (await getLocale()) as LocaleCode
+  const copy = getPublicCopy(locale).workspace.templates
   const { workspaceId, id } = await params
 
   try {
@@ -28,7 +33,7 @@ export default async function TemplatePage({ params }: TemplatePageProps) {
     const session = await getSession()
 
     if (!session?.user?.id) {
-      return <div>Please log in to view this template</div>
+      return <div>{copy.loginRequired}</div>
     }
 
     // Fetch template data first without star status to avoid query issues
@@ -111,7 +116,6 @@ export default async function TemplatePage({ params }: TemplatePageProps) {
       <TemplateDetails
         template={serializedTemplate}
         workspaceId={workspaceId}
-        currentUserId={session.user.id}
       />
     )
   } catch (error) {
@@ -119,9 +123,11 @@ export default async function TemplatePage({ params }: TemplatePageProps) {
     return (
       <div className='flex h-screen items-center justify-center'>
         <div className='text-center'>
-          <h1 className='mb-4 font-bold text-2xl'>Error Loading Template</h1>
-          <p className='text-muted-foreground'>There was an error loading this template.</p>
-          <p className='mt-2 text-muted-foreground text-sm'>Template ID: {id}</p>
+          <h1 className='mb-4 font-bold text-2xl'>{copy.errorPage.title}</h1>
+          <p className='text-muted-foreground'>{copy.errorPage.description}</p>
+          <p className='mt-2 text-muted-foreground text-sm'>
+            {copy.errorPage.templateIdLabel} {id}
+          </p>
         </div>
       </div>
     )

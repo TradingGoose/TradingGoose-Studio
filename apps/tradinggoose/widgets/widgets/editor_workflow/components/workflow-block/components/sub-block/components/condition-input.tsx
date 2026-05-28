@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ChevronDown, ChevronUp, Plus, Trash } from 'lucide-react'
-import { MonacoEditor } from '@/components/monaco-editor'
-import type { MonacoDecoration, MonacoEditorHandle } from '@/components/monaco-editor'
 import { useUpdateNodeInternals } from '@xyflow/react'
+import { ChevronDown, ChevronUp, Plus, Trash } from 'lucide-react'
+import { useLocale } from 'next-intl'
+import type { MonacoDecoration, MonacoEditorHandle } from '@/components/monaco-editor'
+import { MonacoEditor } from '@/components/monaco-editor'
 import { Button } from '@/components/ui/button'
 import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-dropdown'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
@@ -10,12 +11,15 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { isLikelyReferenceSegment, SYSTEM_REFERENCE_PREFIXES } from '@/lib/workflows/references'
+import { useWorkflowEdges, useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
+import { useTagSelection } from '@/hooks/use-tag-selection'
+import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
+import { translateWorkflowLabel } from '@/i18n/block-editor'
+import type { LocaleCode } from '@/i18n/utils'
+import { normalizeBlockName } from '@/stores/workflows/utils'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
-import { useTagSelection } from '@/hooks/use-tag-selection'
-import { normalizeBlockName } from '@/stores/workflows/utils'
-import { useWorkflowEdges, useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
+import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 const logger = createLogger('ConditionInput')
 
@@ -67,6 +71,8 @@ export function ConditionInput({
   previewValue,
   disabled = false,
 }: ConditionInputProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = useWorkflowBlockEditorCopy().conditionInput
   const workspaceId = useWorkspaceId()
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlockId)
 
@@ -75,29 +81,32 @@ export function ConditionInput({
 
   const editorRefs = useRef<Record<string, MonacoEditorHandle | null>>({})
 
-  const shouldHighlightReference = useCallback((part: string): boolean => {
-    if (!part.startsWith('<') || !part.endsWith('>')) {
-      return false
-    }
+  const shouldHighlightReference = useCallback(
+    (part: string): boolean => {
+      if (!part.startsWith('<') || !part.endsWith('>')) {
+        return false
+      }
 
-    if (!isLikelyReferenceSegment(part)) {
-      return false
-    }
+      if (!isLikelyReferenceSegment(part)) {
+        return false
+      }
 
-    if (!accessiblePrefixes) {
-      return true
-    }
+      if (!accessiblePrefixes) {
+        return true
+      }
 
-    const inner = part.slice(1, -1)
-    const [prefix] = inner.split('.')
-    const normalizedPrefix = normalizeBlockName(prefix)
+      const inner = part.slice(1, -1)
+      const [prefix] = inner.split('.')
+      const normalizedPrefix = normalizeBlockName(prefix)
 
-    if (SYSTEM_REFERENCE_PREFIXES.has(normalizedPrefix)) {
-      return true
-    }
+      if (SYSTEM_REFERENCE_PREFIXES.has(normalizedPrefix)) {
+        return true
+      }
 
-    return accessiblePrefixes.has(normalizedPrefix)
-  }, [accessiblePrefixes])
+      return accessiblePrefixes.has(normalizedPrefix)
+    },
+    [accessiblePrefixes]
+  )
 
   const getDecorations = useCallback(
     (value: string): MonacoDecoration[] => {
@@ -329,16 +338,13 @@ export function ConditionInput({
       const dropPosition = editorHandle?.getCursorOffset() ?? currentValue.length
 
       shouldPersistRef.current = true
-      setConditionalBlock(
-        blockId,
-        (block) => ({
-          ...block,
-          value: `${currentValue.slice(0, dropPosition)}<${currentValue.slice(dropPosition)}`,
-          showTags: true,
-          cursorPosition: dropPosition + 1,
-          activeSourceBlockId: data.connectionData?.sourceBlockId || null,
-        })
-      )
+      setConditionalBlock(blockId, (block) => ({
+        ...block,
+        value: `${currentValue.slice(0, dropPosition)}<${currentValue.slice(dropPosition)}`,
+        showTags: true,
+        cursorPosition: dropPosition + 1,
+        activeSourceBlockId: data.connectionData?.sourceBlockId || null,
+      }))
 
       focusEditor(blockId, dropPosition + 1)
     } catch (error) {
@@ -460,7 +466,7 @@ export function ConditionInput({
   if (!isReady || conditionalBlocks.length === 0) {
     return (
       <div className='flex min-h-[150px] items-center justify-center text-muted-foreground'>
-        Loading conditions...
+        {copy.loadingConditions}
       </div>
     )
   }
@@ -478,7 +484,9 @@ export function ConditionInput({
               block.title === 'else' ? 'rounded-lg border-0' : 'rounded-t-lg border-b'
             )}
           >
-            <span className='font-medium text-sm'>{block.title}</span>
+            <span className='font-medium text-sm'>
+              {translateWorkflowLabel(locale, block.title)}
+            </span>
             <div className='flex items-center gap-1'>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -490,10 +498,10 @@ export function ConditionInput({
                     className='h-8 w-8'
                   >
                     <Plus className='h-4 w-4' />
-                    <span className='sr-only'>Add Block</span>
+                    <span className='sr-only'>{copy.addBlock}</span>
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Add Block</TooltipContent>
+                <TooltipContent>{copy.addBlock}</TooltipContent>
               </Tooltip>
 
               <div className='flex items-center'>
@@ -507,10 +515,10 @@ export function ConditionInput({
                       className='h-8 w-8'
                     >
                       <ChevronUp className='h-4 w-4' />
-                      <span className='sr-only'>Move Up</span>
+                      <span className='sr-only'>{copy.moveUp}</span>
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Move Up</TooltipContent>
+                  <TooltipContent>{copy.moveUp}</TooltipContent>
                 </Tooltip>
 
                 <Tooltip>
@@ -529,10 +537,10 @@ export function ConditionInput({
                       className='h-8 w-8'
                     >
                       <ChevronDown className='h-4 w-4' />
-                      <span className='sr-only'>Move Down</span>
+                      <span className='sr-only'>{copy.moveDown}</span>
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Move Down</TooltipContent>
+                  <TooltipContent>{copy.moveDown}</TooltipContent>
                 </Tooltip>
               </div>
 
@@ -546,10 +554,10 @@ export function ConditionInput({
                     className='h-8 w-8 text-destructive hover:text-destructive'
                   >
                     <Trash className='h-4 w-4' />
-                    <span className='sr-only'>Delete Block</span>
+                    <span className='sr-only'>{copy.deleteBlock}</span>
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Delete Condition</TooltipContent>
+                <TooltipContent>{copy.deleteCondition}</TooltipContent>
               </Tooltip>
             </div>
           </div>
@@ -603,7 +611,9 @@ export function ConditionInput({
                       showTags: tagTrigger.show,
                       showEnvVars: envVarTrigger.show,
                       searchTerm: envVarTrigger.show ? envVarTrigger.searchTerm : '',
-                      activeSourceBlockId: tagTrigger.show ? currentBlock.activeSourceBlockId : null,
+                      activeSourceBlockId: tagTrigger.show
+                        ? currentBlock.activeSourceBlockId
+                        : null,
                     }))
                   }}
                   onKeyDown={(e) => {
@@ -616,7 +626,7 @@ export function ConditionInput({
                     }
                   }}
                   language='javascript'
-                  placeholder={block.value.length === 0 ? '<response> === true' : ''}
+                  placeholder={block.value.length === 0 ? copy.placeholder : ''}
                   decorations={getDecorations(block.value)}
                   autoHeight
                   minHeight={46}

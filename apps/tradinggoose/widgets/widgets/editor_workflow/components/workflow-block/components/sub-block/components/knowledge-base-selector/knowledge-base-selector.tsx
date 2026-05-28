@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { Check, ChevronDown, RefreshCw, X } from 'lucide-react'
 import { PackageSearchIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
@@ -13,8 +14,11 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { translateWorkflowLabel } from '@/i18n/block-editor'
 import type { SubBlockConfig } from '@/blocks/types'
 import { fetchKnowledgeBases as fetchWorkspaceKnowledgeBases } from '@/hooks/queries/knowledge'
+import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import type { LocaleCode } from '@/i18n/utils'
 import type { KnowledgeBaseData } from '@/stores/knowledge/store'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
@@ -32,11 +36,19 @@ export function KnowledgeBaseSelector({
   disabled = false,
   onKnowledgeBaseSelect,
 }: KnowledgeBaseSelectorProps) {
+  const locale = useLocale() as LocaleCode
+  const selectorCopy = useAppMessages().workspace.widgets.blockEditor.knowledgeBaseSelector
   const workspaceId = useWorkspaceId()
+  const copy = {
+    searchKnowledgeBases: translateWorkflowLabel(locale, 'Search knowledge bases...'),
+    loadingKnowledgeBases: translateWorkflowLabel(locale, 'Loading knowledge bases...'),
+    noKnowledgeBasesFound: translateWorkflowLabel(locale, 'No knowledge bases found'),
+  }
+  type KnowledgeBaseSelectorErrorCode = keyof typeof selectorCopy.errors
 
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBaseData[]>([])
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<KnowledgeBaseSelectorErrorCode | null>(null)
   const [open, setOpen] = useState(false)
   const [initialFetchDone, setInitialFetchDone] = useState(false)
 
@@ -73,7 +85,8 @@ export function KnowledgeBaseSelector({
       setInitialFetchDone(true)
     } catch (err) {
       if ((err as Error).name === 'AbortError') return
-      setError((err as Error).message)
+      console.error('Failed to fetch knowledge bases', err)
+      setError('failedToFetchKnowledgeBases')
       setKnowledgeBases([])
     } finally {
       setLoading(false)
@@ -159,9 +172,13 @@ export function KnowledgeBaseSelector({
   const getKnowledgeBaseDescription = (knowledgeBase: KnowledgeBaseData) => {
     const docCount = (knowledgeBase as any).docCount
     if (docCount !== undefined) {
-      return `${docCount} document${docCount !== 1 ? 's' : ''}`
+      const documentLabel =
+        docCount === 1
+          ? translateWorkflowLabel(locale, 'document')
+          : translateWorkflowLabel(locale, 'documents')
+      return `${docCount} ${documentLabel}`
     }
-    return knowledgeBase.description || 'No description'
+    return knowledgeBase.description || translateWorkflowLabel(locale, 'No description')
   }
 
   const isKnowledgeBaseSelected = (knowledgeBaseId: string) => {
@@ -169,7 +186,10 @@ export function KnowledgeBaseSelector({
   }
 
   const label =
-    subBlock.placeholder || (isMultiSelect ? 'Select knowledge bases' : 'Select knowledge base')
+    subBlock.placeholder ||
+    (isMultiSelect
+      ? translateWorkflowLabel(locale, 'Select knowledge bases')
+      : translateWorkflowLabel(locale, 'Select knowledge base'))
 
   return (
     <div className='w-full'>
@@ -210,7 +230,9 @@ export function KnowledgeBaseSelector({
               {selectedKnowledgeBases.length > 0 ? (
                 <span className='truncate font-normal'>
                   {isMultiSelect
-                    ? `${selectedKnowledgeBases.length} selected`
+                    ? formatTemplate(translateWorkflowLabel(locale, 'selectedCount'), {
+                        count: selectedKnowledgeBases.length,
+                      })
                     : formatKnowledgeBaseName(selectedKnowledgeBases[0])}
                 </span>
               ) : (
@@ -222,23 +244,23 @@ export function KnowledgeBaseSelector({
         </PopoverTrigger>
         <PopoverContent className='w-[300px] p-0' align='start'>
           <Command>
-            <CommandInput placeholder='Search knowledge bases...' />
+            <CommandInput placeholder={copy.searchKnowledgeBases} />
             <CommandList>
               <CommandEmpty>
                 {loading ? (
                   <div className='flex items-center justify-center p-4'>
                     <RefreshCw className='h-4 w-4 animate-spin' />
-                    <span className='ml-2'>Loading knowledge bases...</span>
+                    <span className='ml-2'>{copy.loadingKnowledgeBases}</span>
                   </div>
                 ) : error ? (
                   <div className='p-4 text-center'>
-                    <p className='text-destructive text-sm'>{error}</p>
+                    <p className='text-destructive text-sm'>{selectorCopy.errors[error]}</p>
                   </div>
                 ) : (
                   <div className='p-4 text-center'>
-                    <p className='font-medium text-sm'>No knowledge bases found</p>
+                    <p className='font-medium text-sm'>{copy.noKnowledgeBasesFound}</p>
                     <p className='text-muted-foreground text-xs'>
-                      Create a knowledge base to get started.
+                      {selectorCopy.emptyStateDescription}
                     </p>
                   </div>
                 )}
@@ -247,7 +269,7 @@ export function KnowledgeBaseSelector({
               {knowledgeBases.length > 0 && (
                 <CommandGroup>
                   <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>
-                    Knowledge Bases
+                    {selectorCopy.groupLabel}
                   </div>
                   {knowledgeBases.map((knowledgeBase) => {
                     const isSelected = isKnowledgeBaseSelected(knowledgeBase.id)

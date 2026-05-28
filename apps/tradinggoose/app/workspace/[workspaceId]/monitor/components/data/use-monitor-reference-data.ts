@@ -1,8 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { INDICATOR_MONITOR_PROVIDER, PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
+import { type MonitorCopy, useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import { fetchOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
+import { INDICATOR_MONITOR_PROVIDER, PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import {
   getMarketMonitorProviderParamDefinitions,
   getMarketProviderIntervals,
@@ -38,13 +39,13 @@ const EMPTY_REFERENCE_DATA: MonitorReferenceData = {
   defaultMarketProviderId: '',
   defaultPortfolioProviderId: '',
   defaultDraftInterval: '1m',
-  createDisabledReason:
-    'No deployed workflow with indicator trigger is available, or no trigger-capable indicator exists.',
+  createDisabledReason: null,
   isLoading: true,
   warning: null,
 }
 
 const buildReferenceData = ({
+  copy,
   workflowTargets,
   workflowOptions,
   indicatorOptions,
@@ -52,6 +53,7 @@ const buildReferenceData = ({
   isLoading,
   warning,
 }: {
+  copy: MonitorCopy
   workflowTargets: WorkflowTargetOption[]
   workflowOptions: WorkflowPickerOption[]
   indicatorOptions: IndicatorOption[]
@@ -91,20 +93,21 @@ const buildReferenceData = ({
       getMarketMonitorProviderParamDefinitions(provider.id),
     ])
   )
-  const defaultMarketProviderId = ''
-  const defaultPortfolioProviderId = ''
-  const defaultDraftInterval = providerIntervalsByProviderId[defaultMarketProviderId]?.[0] ?? '1m'
+  const defaultMarketProviderId = marketProviders[0]?.id ?? ''
+  const defaultPortfolioProviderId = tradingProviders[0]?.id ?? ''
+  const defaultDraftInterval =
+    providerIntervalsByProviderId[defaultMarketProviderId]?.[0] ?? '1m'
   const canCreateIndicatorMonitor =
     indicatorWorkflowTargets.length > 0 && indicatorOptions.length > 0
   const canCreatePortfolioMonitor =
     portfolioWorkflowTargets.length > 0 && tradingProviders.length > 0
   const createDisabledReason = isLoading
-    ? 'Loading monitor requirements...'
+    ? copy.loadingRequirements
     : canCreateIndicatorMonitor || canCreatePortfolioMonitor
       ? null
       : portfolioWorkflowTargets.length > 0 && tradingProviders.length === 0
         ? 'No enabled trading provider is available for portfolio monitors.'
-        : 'No deployed workflow with a monitor trigger is available, or no trigger-capable indicator exists.'
+        : copy.referenceData.createDisabledReason
 
   return {
     workflowTargets,
@@ -130,6 +133,7 @@ const buildReferenceData = ({
 }
 
 export function useMonitorReferenceData(workspaceId: string): MonitorReferenceData {
+  const { copy } = useMonitorCopy()
   const [workflowTargets, setWorkflowTargets] = useState<WorkflowTargetOption[]>([])
   const [workflowOptions, setWorkflowOptions] = useState<WorkflowPickerOption[]>([])
   const [indicatorOptions, setIndicatorOptions] = useState<IndicatorOption[]>([])
@@ -161,21 +165,21 @@ export function useMonitorReferenceData(workspaceId: string): MonitorReferenceDa
       setIndicatorOptions(indicatorResult.value)
     } else {
       setIndicatorOptions([])
-      nextWarning = 'Indicator options are unavailable right now.'
+      nextWarning = copy.referenceData.indicatorOptionsUnavailable
     }
 
     if (targetsResult.status === 'fulfilled') {
       setWorkflowTargets(targetsResult.value)
     } else {
       setWorkflowTargets([])
-      nextWarning = nextWarning ?? 'Workflow targets are unavailable right now.'
+      nextWarning = nextWarning ?? copy.referenceData.workflowTargetsUnavailable
     }
 
     if (workflowsResult.status === 'fulfilled') {
       setWorkflowOptions(workflowsResult.value)
     } else {
       setWorkflowOptions([])
-      nextWarning = nextWarning ?? 'Workflow options are unavailable right now.'
+      nextWarning = nextWarning ?? copy.referenceData.workflowOptionsUnavailable
     }
 
     if (tradingProviderAvailabilityResult.status === 'fulfilled') {
@@ -187,7 +191,13 @@ export function useMonitorReferenceData(workspaceId: string): MonitorReferenceDa
 
     setWarning(nextWarning)
     setIsLoading(false)
-  }, [tradingProviderAvailabilityIds, workspaceId])
+  }, [
+    copy.referenceData.indicatorOptionsUnavailable,
+    copy.referenceData.workflowOptionsUnavailable,
+    copy.referenceData.workflowTargetsUnavailable,
+    tradingProviderAvailabilityIds,
+    workspaceId,
+  ])
 
   useEffect(() => {
     if (!workspaceId) {
@@ -207,6 +217,7 @@ export function useMonitorReferenceData(workspaceId: string): MonitorReferenceDa
     () =>
       workspaceId
         ? buildReferenceData({
+            copy,
             workflowTargets,
             workflowOptions,
             indicatorOptions,
@@ -216,6 +227,7 @@ export function useMonitorReferenceData(workspaceId: string): MonitorReferenceDa
           })
         : { ...EMPTY_REFERENCE_DATA, isLoading: false },
     [
+      copy,
       indicatorOptions,
       isLoading,
       tradingProviderAvailability,

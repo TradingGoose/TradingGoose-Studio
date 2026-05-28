@@ -13,6 +13,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { buildInputsMapFromMeta } from '@/lib/indicators/input-meta'
 import type { InputMetaMap } from '@/lib/indicators/types'
 import { cn } from '@/lib/utils'
+import {
+  formatDataChartCompileFailed,
+  getDataChartIndicatorMetadataLabel,
+  useDataChartCopy,
+  type DataChartCopy,
+} from '@/widgets/widgets/data_chart/copy'
 import type { IndicatorPlotValue } from '@/widgets/widgets/data_chart/hooks/use-indicator-legend'
 
 type IndicatorControlProps = {
@@ -31,11 +37,11 @@ type IndicatorControlProps = {
 const controlButtonClass =
   'inline-flex p-0.5 items-center hover:bg-secondary justify-center rounded-xs bg-background text-muted-foreground transition-colors hover:bg-card hover:text-foreground disabled:opacity-50'
 
-const formatInputValue = (value: unknown) => {
+const formatInputValue = (copy: DataChartCopy, value: unknown) => {
   if (typeof value === 'number' && Number.isFinite(value)) return value.toString()
-  if (typeof value === 'boolean') return value ? 'true' : 'false'
+  if (typeof value === 'boolean') return value ? copy.indicator.trueValue : copy.indicator.falseValue
   if (typeof value === 'string') return value
-  if (value == null) return '--'
+  if (value == null) return copy.indicator.emptyValue
   try {
     return JSON.stringify(value)
   } catch {
@@ -55,6 +61,7 @@ export const IndicatorControl = ({
   onRemove,
   onOpenSettings,
 }: IndicatorControlProps) => {
+  const copy = useDataChartCopy()
   const [isHoveringData, setIsHoveringData] = useState(false)
   const [isErrorOpen, setIsErrorOpen] = useState(false)
   const inputEntries = useMemo(() => {
@@ -71,9 +78,9 @@ export const IndicatorControl = ({
     () =>
       Object.entries(resolvedInputs).map(([title, value]) => ({
         title,
-        value: formatInputValue(value),
+        value: formatInputValue(copy, value),
       })),
-    [resolvedInputs]
+    [copy, resolvedInputs]
   )
 
   const hasSettings = inputEntries.length > 0
@@ -121,10 +128,14 @@ export const IndicatorControl = ({
                 onClick={() => onToggleHidden(indicatorId)}
               >
                 {isHidden ? <EyeOff className='h-3 w-3' /> : <Eye className='h-3 w-3' />}
-                <span className='sr-only'>{isHidden ? 'Show indicator' : 'Hide indicator'}</span>
+                <span className='sr-only'>
+                  {isHidden ? copy.indicator.showIndicator : copy.indicator.hideIndicator}
+                </span>
               </button>
             </TooltipTrigger>
-            <TooltipContent side='top'>{isHidden ? 'Show' : 'Hide'}</TooltipContent>
+            <TooltipContent side='top'>
+              {isHidden ? copy.indicator.show : copy.indicator.hide}
+            </TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -135,10 +146,12 @@ export const IndicatorControl = ({
                 disabled={!hasSettings}
               >
                 <Settings2 className='h-3 w-3' />
-                <span className='sr-only'>Indicator settings</span>
+                <span className='sr-only'>{copy.indicator.settingsAriaLabel}</span>
               </button>
             </TooltipTrigger>
-            <TooltipContent side='top'>{hasSettings ? 'Settings' : 'No settings'}</TooltipContent>
+            <TooltipContent side='top'>
+              {hasSettings ? copy.indicator.settingsTooltip : copy.indicator.noSettings}
+            </TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -148,10 +161,10 @@ export const IndicatorControl = ({
                 onClick={() => onRemove(indicatorId)}
               >
                 <Trash2 className='h-3 w-3' />
-                <span className='sr-only'>Remove indicator</span>
+                <span className='sr-only'>{copy.indicator.removeIndicator}</span>
               </button>
             </TooltipTrigger>
-            <TooltipContent side='top'>Remove</TooltipContent>
+            <TooltipContent side='top'>{copy.indicator.remove}</TooltipContent>
           </Tooltip>
         </div>
       </div>
@@ -169,7 +182,9 @@ export const IndicatorControl = ({
               className='min-w-0 shrink truncate'
               style={plot.color ? { color: plot.color } : undefined}
             >
-              {plotValues.length > 1 ? `${plot.title}: ` : ''}
+              {plotValues.length > 1
+                ? `${getDataChartIndicatorMetadataLabel(copy, plot.title)}: `
+                : ''}
               {plot.displayValue}
             </span>
           ))}
@@ -190,11 +205,11 @@ export const IndicatorControl = ({
                     )}
                   >
                     <TriangleAlert className='h-3 w-3' />
-                    <span className='sr-only'>Indicator error</span>
+                    <span className='sr-only'>{copy.indicator.errorTitle}</span>
                   </button>
                 </DialogTrigger>
               </TooltipTrigger>
-              <TooltipContent side='top'>Indicator error</TooltipContent>
+              <TooltipContent side='top'>{copy.indicator.errorTitle}</TooltipContent>
             </Tooltip>
             <DialogContent className='max-w-md p-0'>
               <div className='flex items-start gap-3 border-b border-border/60 px-5 py-4'>
@@ -202,9 +217,9 @@ export const IndicatorControl = ({
                   <TriangleAlert className='h-4 w-4' />
                 </div>
                 <div className='min-w-0'>
-                  <DialogTitle className='text-base'>Indicator error</DialogTitle>
+                  <DialogTitle className='text-base'>{copy.indicator.errorTitle}</DialogTitle>
                   <DialogDescription className='text-muted-foreground'>
-                    {name} failed to compile.
+                    {formatDataChartCompileFailed(copy, name)}
                   </DialogDescription>
                 </div>
               </div>
@@ -213,7 +228,7 @@ export const IndicatorControl = ({
                   {errorMessage}
                 </div>
                 <p className='mt-3 text-xs text-muted-foreground'>
-                  Check the indicator inputs or script, then try again.
+                  {copy.indicator.errorGuidance}
                 </p>
               </div>
             </DialogContent>

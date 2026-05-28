@@ -1,9 +1,15 @@
 import type { Metadata } from 'next'
 import { getPublicBillingCatalog } from '@/lib/billing/catalog'
 import { buildHostedPricingSummary } from '@/lib/billing/public-catalog'
-import { Background } from '@/app/(landing)/components'
 import Landing from '@/app/(landing)/landing'
+import {
+  buildLocalizedAlternates,
+  getOpenGraphLocale,
+  localizeSiteUrl,
+  type LocaleCode,
+} from '@/i18n/utils'
 import { DEFAULT_META_DESCRIPTION } from '@/lib/branding/metadata'
+import { getLocale } from 'next-intl/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,9 +31,7 @@ const metadataBase: Metadata = {
     description:
       'Open-source platform for technical LLM-driven trading. Custom indicators in PineTS, live market monitors, AI agent workflows triggered by market signals.',
     type: 'website',
-    url: 'https://tradinggoose.ai',
     siteName: 'TradingGoose',
-    locale: 'en_US',
     images: [
       {
         url: '/social-preview.png',
@@ -50,12 +54,6 @@ const metadataBase: Metadata = {
       alt: 'TradingGoose social preview',
     },
   },
-  alternates: {
-    canonical: 'https://tradinggoose.ai/',
-    languages: {
-      'en-US': 'https://tradinggoose.ai',
-    },
-  },
   robots: {
     index: true,
     follow: true,
@@ -75,11 +73,18 @@ const metadataBase: Metadata = {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
+  const locale = (await getLocale()) as LocaleCode
   const billingCatalog = await getPublicBillingCatalog()
   const pricingSummary = buildHostedPricingSummary(billingCatalog)
 
   return {
     ...metadataBase,
+    alternates: buildLocalizedAlternates(locale, '/'),
+    openGraph: {
+      ...metadataBase.openGraph,
+      url: localizeSiteUrl(locale, '/'),
+      locale: getOpenGraphLocale(locale),
+    },
     other: {
       'llm:content-type':
         'visual workflow platform for trading, custom indicators, AI agent workflows for markets',
@@ -93,9 +98,5 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function Page() {
-  return (
-    <Background>
-      <Landing />
-    </Background>
-  )
+  return <Landing />
 }

@@ -32,6 +32,7 @@ import {
   useWorkflowChannelId,
   useWorkflowId,
 } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 import { ActionBar } from './components/action-bar/action-bar'
 import { ConnectionBlocks } from './components/connection-blocks/connection-blocks'
 import { useSubBlockValue } from './components/sub-block/hooks/use-sub-block-value'
@@ -61,6 +62,8 @@ type WorkflowBlockNode = Node<WorkflowBlockProps, 'workflowBlock'>
 export const WorkflowBlock = memo(
   function WorkflowBlock({ id, data, selected }: NodeProps<WorkflowBlockNode>) {
     const { type, config, name, isActive: dataIsActive, isPending } = data
+    const { getLocalizedDefaultBlockName } = useWorkflowI18n()
+    const displayName = getLocalizedDefaultBlockName(type, name)
 
     // State management
     const [, setIsConnecting] = useState(false)
@@ -153,7 +156,7 @@ export const WorkflowBlock = memo(
           createdPortal.remove()
         }
 
-          ; (flow as any)[WORKFLOW_POPOVER_PORTAL_KEY] = portal
+        ;(flow as any)[WORKFLOW_POPOVER_PORTAL_KEY] = portal
       }
 
       if (!portal) return
@@ -580,7 +583,7 @@ export const WorkflowBlock = memo(
       e.stopPropagation() // Prevent drag handler from interfering
       if (isReadOnlyBlock) return
       if (disableInNodeEditing) return
-      setEditedName(name)
+      setEditedName(displayName)
       setIsEditing(true)
     }
 
@@ -603,8 +606,9 @@ export const WorkflowBlock = memo(
         return
       }
       const trimmedName = editedName.trim().slice(0, 18)
-      if (trimmedName && trimmedName !== name && !collaborativeUpdateBlockName(id, trimmedName))
-        return
+      if (trimmedName && trimmedName !== displayName) {
+        collaborativeUpdateBlockName(id, trimmedName)
+      }
       setIsEditing(false)
     }
 
@@ -846,15 +850,15 @@ export const WorkflowBlock = memo(
                           'inline-block cursor-text font-medium text-md hover:text-muted-foreground',
                           !isEnabled && 'text-muted-foreground',
                           (disableInNodeEditing || isReadOnlyBlock) &&
-                          'cursor-default hover:text-foreground'
+                            'cursor-default hover:text-foreground'
                         )}
                         onClick={handleNameClick}
-                        title={name}
+                        title={displayName}
                         style={{
                           maxWidth: !isEnabled ? '140px' : '180px',
                         }}
                       >
-                        {name}
+                        {displayName}
                       </span>
                     )}
                   </div>
@@ -1013,24 +1017,24 @@ export const WorkflowBlock = memo(
                     position: 'absolute',
                     ...(type === 'condition'
                       ? {
-                        right: '-8px',
-                        top: `${60 + conditionRows.length * 29}px`,
-                        bottom: 'auto',
-                        transform: 'translateY(-50%)',
-                      }
+                          right: '-8px',
+                          top: `${60 + conditionRows.length * 29}px`,
+                          bottom: 'auto',
+                          transform: 'translateY(-50%)',
+                        }
                       : useHorizontalErrorHandle
                         ? {
-                          right: '-8px',
-                          top: 'auto',
-                          bottom: '30px',
-                          transform: 'translateY(0)',
-                        }
+                            right: '-8px',
+                            top: 'auto',
+                            bottom: '30px',
+                            transform: 'translateY(0)',
+                          }
                         : {
-                          bottom: '-8px',
-                          left: 'auto',
-                          right: '30px',
-                          transform: 'translateX(0)',
-                        }),
+                            bottom: '-8px',
+                            left: 'auto',
+                            right: '30px',
+                            transform: 'translateX(0)',
+                          }),
                   }}
                   data-nodeid={id}
                   data-handleid='error'

@@ -1,17 +1,23 @@
 'use client'
 
 import { Suspense, useEffect, useState } from 'react'
-import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useLocale } from 'next-intl'
+import { useSearchParams } from 'next/navigation'
 import { createLogger } from '@/lib/logs/console/logger'
+import { Link, useRouter } from '@/i18n/navigation'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { SetNewPasswordForm } from '@/app/(auth)/reset-password/reset-password-form'
+import { useAppMessages } from '@/i18n/client-messages'
+import { localizeHref, type LocaleCode } from '@/i18n/utils'
 import { inter } from '@/app/fonts/inter'
 
 const logger = createLogger('ResetPasswordPage')
 
 function ResetPasswordContent() {
   const router = useRouter()
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages()
+  const resetCopy = copy.auth.resetPassword
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
 
@@ -28,10 +34,10 @@ function ResetPasswordContent() {
     if (!token) {
       setStatusMessage({
         type: 'error',
-        text: 'Invalid or missing reset token. Please request a new password reset link.',
+        text: resetCopy.invalidToken,
       })
     }
-  }, [token])
+  }, [resetCopy.invalidToken, token])
 
   const handleResetPassword = async (password: string) => {
     try {
@@ -51,22 +57,22 @@ function ResetPasswordContent() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.message || 'Failed to reset password')
+        throw new Error(errorData.message || resetCopy.failure)
       }
 
       setStatusMessage({
         type: 'success',
-        text: 'Password reset successful! Redirecting to login...',
+        text: resetCopy.success,
       })
 
       setTimeout(() => {
-        router.push('/login?resetSuccess=true')
+        router.push(localizeHref(locale, '/login?resetSuccess=true'))
       }, 1500)
     } catch (error) {
       logger.error('Error resetting password:', { error })
       setStatusMessage({
         type: 'error',
-        text: error instanceof Error ? error.message : 'Failed to reset password',
+        text: error instanceof Error ? error.message : resetCopy.failure,
       })
     } finally {
       setIsSubmitting(false)
@@ -76,9 +82,9 @@ function ResetPasswordContent() {
   return (
     <>
       <AuthPageHeader
-        eyebrow='Password reset'
-        title='Reset your password'
-        description='Enter a new password for your account'
+        eyebrow={resetCopy.eyebrow}
+        title={resetCopy.title}
+        description={resetCopy.description}
       />
 
       <div className={`${inter.className} mt-8`}>
@@ -96,18 +102,23 @@ function ResetPasswordContent() {
           href='/login'
           className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
         >
-          Back to login
+          {resetCopy.backToLogin}
         </Link>
       </div>
     </>
   )
 }
 
+function ResetPasswordLoadingFallback() {
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages()
+
+  return <div className='flex h-screen items-center justify-center'>{copy.auth.common.loading}</div>
+}
+
 export default function ResetPasswordPage() {
   return (
-    <Suspense
-      fallback={<div className='flex h-screen items-center justify-center'>Loading...</div>}
-    >
+    <Suspense fallback={<ResetPasswordLoadingFallback />}>
       <ResetPasswordContent />
     </Suspense>
   )

@@ -2,16 +2,18 @@ import { memo } from 'react'
 import { Handle, type NodeProps, Position } from '@xyflow/react'
 import { cn } from '@/lib/utils'
 import { getSubflowBlockConfig } from '@/widgets/widgets/editor_workflow/components/subflows/config'
+import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 import { getPreviewDiffClasses } from './preview-diff'
 import type { PreviewCanvasSubflowNode } from './preview-payload-adapter'
 
 function PreviewSubflowInner({ data }: NodeProps<PreviewCanvasSubflowNode>) {
+  const { workflowEditorCopy: copy, getLocalizedDefaultBlockName } = useWorkflowI18n()
   const { name, width, height, enabled, kind } = data
 
   const isLoop = kind === 'loop'
   const subflowConfig = getSubflowBlockConfig(kind)
   const BlockIcon = subflowConfig.icon
-  const blockName = name || subflowConfig.name
+  const blockName = getLocalizedDefaultBlockName(kind, name)
 
   const startHandleId = isLoop ? 'loop-start-source' : 'parallel-start-source'
   const endHandleId = isLoop ? 'loop-end-source' : 'parallel-end-source'
@@ -54,7 +56,7 @@ function PreviewSubflowInner({ data }: NodeProps<PreviewCanvasSubflowNode>) {
       <div className='relative h-[calc(100%-41px)] p-4' />
 
       <div className='-translate-y-1/2 absolute top-1/2 left-4 inline-flex items-center rounded-md border border-border bg-background px-3 py-1 text-xs'>
-        Start
+        {copy.start}
         <Handle
           type='source'
           position={Position.Right}
@@ -74,7 +76,7 @@ function PreviewSubflowInner({ data }: NodeProps<PreviewCanvasSubflowNode>) {
           className='!h-2 !w-2 !border-none !bg-transparent !opacity-0'
           style={{ left: -8, top: '50%', transform: 'translateY(-50%)' }}
         />
-        End
+        {copy.end}
       </div>
       <Handle
         type='source'

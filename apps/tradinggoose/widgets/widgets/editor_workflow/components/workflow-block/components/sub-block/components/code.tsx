@@ -1,34 +1,35 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, Copy, Wand2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-dropdown'
-import { MonacoEditor } from '@/components/monaco-editor'
 import {
   createMonacoFunctionBodyDiagnosticSourceBuilder,
   type MonacoDecoration,
   type MonacoDiagnosticSourceBuilder,
+  MonacoEditor,
   type MonacoEditorHandle,
 } from '@/components/monaco-editor'
+import { Button } from '@/components/ui/button'
+import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-dropdown'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { CodeLanguage } from '@/lib/execution/languages'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { isLikelyReferenceSegment, SYSTEM_REFERENCE_PREFIXES } from '@/lib/workflows/references'
 import { resolveDisplayedSubBlockValue } from '@/lib/workflows/subblock-values'
+import {
+  useWorkflowTextField,
+  useSubBlockValue as useYjsSubBlockValue,
+} from '@/lib/yjs/use-workflow-doc'
+import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
+import type { GenerationType } from '@/blocks/types'
+import { useTagSelection } from '@/hooks/use-tag-selection'
+import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
+import { useWand } from '@/hooks/workflow/use-wand'
+import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
+import { normalizeBlockName } from '@/stores/workflows/utils'
 import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
-import { useWand } from '@/hooks/workflow/use-wand'
-import type { GenerationType } from '@/blocks/types'
-import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
-import { useTagSelection } from '@/hooks/use-tag-selection'
-import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
-import {
-  useSubBlockValue as useYjsSubBlockValue,
-  useWorkflowTextField,
-} from '@/lib/yjs/use-workflow-doc'
-import { normalizeBlockName } from '@/stores/workflows/utils'
+import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 const logger = createLogger('Code')
 
@@ -56,13 +57,11 @@ interface CodeProps {
   }
 }
 
-
-
 export function Code({
   blockId,
   subBlockId,
   isConnecting,
-  placeholder = 'Write JavaScript...',
+  placeholder,
   language = 'javascript',
   generationType = 'javascript-function-body',
   value: propValue,
@@ -75,18 +74,24 @@ export function Code({
   onValidationChange,
   wandConfig,
 }: CodeProps) {
+  const copy = useWorkflowBlockEditorCopy().code
   const workspaceId = useWorkspaceId()
 
   const aiPromptPlaceholder = useMemo(() => {
     switch (generationType) {
       case 'json-schema':
-        return 'Describe the JSON schema to generate...'
+        return copy.jsonSchemaPromptPlaceholder
       case 'json-object':
-        return 'Describe the JSON object to generate...'
+        return copy.jsonObjectPromptPlaceholder
       default:
-        return 'Describe the JavaScript code to generate...'
+        return copy.javascriptPromptPlaceholder
     }
-  }, [generationType])
+  }, [
+    copy.javascriptPromptPlaceholder,
+    copy.jsonObjectPromptPlaceholder,
+    copy.jsonSchemaPromptPlaceholder,
+    generationType,
+  ])
 
   const [streamingLock, setStreamingLock] = useState(false)
   const [showTags, setShowTags] = useState(false)
@@ -130,10 +135,10 @@ export function Code({
 
   const dynamicPlaceholder = useMemo(() => {
     if (isPythonLanguage) {
-      return 'Write Python...'
+      return copy.writePythonPlaceholder
     }
-    return placeholder
-  }, [isPythonLanguage, placeholder])
+    return placeholder ?? copy.writeJavaScriptPlaceholder
+  }, [copy.writeJavaScriptPlaceholder, copy.writePythonPlaceholder, isPythonLanguage, placeholder])
 
   const dynamicWandConfig = useMemo(() => {
     if (isPythonLanguage) {
@@ -147,18 +152,18 @@ The code should be executable within a Python function body context.
 
 Current code context: {context}
 
-IMPORTANT FORMATTING RULES:
+        IMPORTANT FORMATTING RULES:
 1. Reference Environment Variables: Use the exact syntax {{VARIABLE_NAME}}. Do NOT wrap it in quotes.
 2. Reference Input Parameters/Workflow Variables: Use the exact syntax <variable_name>. Do NOT wrap it in quotes.
 3. Function Body ONLY: Do NOT include the function signature (e.g., 'def my_func(...)') or surrounding braces. Return the final value with 'return'.
 4. Imports: You may add imports as needed (standard library or pip-installed packages) without comments.
 5. No Markdown: Do NOT include backticks, code fences, or any markdown.
 6. Clarity: Write clean, readable Python code.`,
-        placeholder: 'Describe the Python function you want to create...',
+        placeholder: copy.pythonWandPlaceholder,
       }
     }
     return wandConfig
-  }, [wandConfig, isPythonLanguage])
+  }, [copy.pythonWandPlaceholder, wandConfig, isPythonLanguage])
 
   const emitTagSelection = useTagSelection(blockId, subBlockId)
 
@@ -194,16 +199,11 @@ IMPORTANT FORMATTING RULES:
     value: textFieldValue,
     yText: sharedYText,
     setValue: setTextFieldValue,
-  } = useWorkflowTextField(
-    blockId,
-    subBlockId,
-    fallbackValue,
-    {
-      enabled: useSharedTextField,
-      autoCreate: useSharedTextField,
-      mirrorDelayMs: useSharedTextField ? 650 : null,
-    }
-  )
+  } = useWorkflowTextField(blockId, subBlockId, fallbackValue, {
+    enabled: useSharedTextField,
+    autoCreate: useSharedTextField,
+    mirrorDelayMs: useSharedTextField ? 650 : null,
+  })
 
   const yText = useSharedTextField ? sharedYText : null
   const code = useSharedTextField ? textFieldValue : fallbackValue
@@ -329,7 +329,6 @@ IMPORTANT FORMATTING RULES:
     [code, isCollapsed, isAiStreaming, isReadOnly]
   )
 
-
   const handleDrop = (e: React.DragEvent) => {
     if (isReadOnly) return
     e.preventDefault()
@@ -379,29 +378,32 @@ IMPORTANT FORMATTING RULES:
     }, 0)
   }
 
-  const shouldHighlightReference = useCallback((part: string): boolean => {
-    if (!part.startsWith('<') || !part.endsWith('>')) {
-      return false
-    }
+  const shouldHighlightReference = useCallback(
+    (part: string): boolean => {
+      if (!part.startsWith('<') || !part.endsWith('>')) {
+        return false
+      }
 
-    if (!isLikelyReferenceSegment(part)) {
-      return false
-    }
+      if (!isLikelyReferenceSegment(part)) {
+        return false
+      }
 
-    if (!accessiblePrefixes) {
-      return true
-    }
+      if (!accessiblePrefixes) {
+        return true
+      }
 
-    const inner = part.slice(1, -1)
-    const [prefix] = inner.split('.')
-    const normalizedPrefix = normalizeBlockName(prefix)
+      const inner = part.slice(1, -1)
+      const [prefix] = inner.split('.')
+      const normalizedPrefix = normalizeBlockName(prefix)
 
-    if (SYSTEM_REFERENCE_PREFIXES.has(normalizedPrefix)) {
-      return true
-    }
+      if (SYSTEM_REFERENCE_PREFIXES.has(normalizedPrefix)) {
+        return true
+      }
 
-    return accessiblePrefixes.has(normalizedPrefix)
-  }, [accessiblePrefixes])
+      return accessiblePrefixes.has(normalizedPrefix)
+    },
+    [accessiblePrefixes]
+  )
 
   const decorations = useMemo<MonacoDecoration[]>(() => {
     if (!code) return []
@@ -449,7 +451,6 @@ IMPORTANT FORMATTING RULES:
     })
   }, [effectiveLanguage, generationType])
 
-
   return (
     <>
       <WandPromptBar
@@ -478,7 +479,7 @@ IMPORTANT FORMATTING RULES:
               size='icon'
               onClick={handleCopy}
               disabled={disabled}
-              aria-label='Copy code'
+              aria-label={copy.copyCode}
               className='h-8 w-8 rounded-sm text-muted-foreground hover:text-foreground'
             >
               {copied ? <Check className='h-4 w-4' /> : <Copy className='h-4 w-4' />}
@@ -490,7 +491,7 @@ IMPORTANT FORMATTING RULES:
               size='icon'
               onClick={isPromptVisible ? hidePromptInline : showPromptInline}
               disabled={isAiLoading || isAiStreaming}
-              aria-label='Generate code with AI'
+              aria-label={copy.generateCodeWithAi}
               className='h-8 w-8 rounded-sm text-muted-foreground hover:text-foreground'
             >
               <Wand2 className='h-4 w-4' />
@@ -502,10 +503,10 @@ IMPORTANT FORMATTING RULES:
               variant='ghost'
               size='sm'
               onClick={toggleCollapsed}
-              aria-label={isCollapsed ? 'Expand code' : 'Collapse code'}
+              aria-label={isCollapsed ? copy.expandCode : copy.collapseCode}
               className='h-8 px-2 text-muted-foreground hover:text-foreground'
             >
-              <span className='text-xs'>{isCollapsed ? 'Expand' : 'Collapse'}</span>
+              <span className='text-xs'>{isCollapsed ? copy.expand : copy.collapse}</span>
             </Button>
           )}
         </div>
@@ -550,7 +551,6 @@ IMPORTANT FORMATTING RULES:
               padding: { top: 8, bottom: 8 },
             }}
           />
-
         </div>
 
         {showEnvVars && !isCollapsed && !isAiStreaming && (

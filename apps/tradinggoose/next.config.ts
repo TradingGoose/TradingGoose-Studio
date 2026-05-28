@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next'
+import createNextIntlPlugin from 'next-intl/plugin'
 import { isDev, isHosted } from '@/lib/environment'
 import { env, isTruthy } from './lib/env'
 import { getMainCSPPolicy, readWorkflowExecutionCSPPolicy } from './lib/security/csp'
@@ -270,4 +271,6 @@ const nextConfig: NextConfig = {
   },
 }
 
-export default nextConfig
+const withNextIntl = createNextIntlPlugin('./i18n/request.ts')
+
+export default withNextIntl(nextConfig)

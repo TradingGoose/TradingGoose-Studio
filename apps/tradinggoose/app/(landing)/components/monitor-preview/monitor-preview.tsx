@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { AnimatePresence, motion } from 'framer-motion'
 import { MarketListingRow } from '@/components/listing-selector/listing/row'
 import { Badge } from '@/components/ui/badge'
@@ -13,6 +14,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import type { ListingOption } from '@/lib/listing/identity'
+import { useAppMessages } from '@/i18n/client-messages'
+import { type LocaleCode } from '@/i18n/utils'
 
 type MonitorEntry = {
   id: string
@@ -22,51 +25,6 @@ type MonitorEntry = {
   workflow: string
   workflowColor: string
   status: 'pending' | 'running' | 'success' | 'failed'
-}
-
-const INDICATORS = [
-  { name: 'RSI < 30', color: '#8b5cf6' },
-  { name: 'MACD Cross', color: '#14b8a6' },
-  { name: 'EMA 21/50', color: '#f59e0b' },
-  { name: 'Supertrend', color: '#ef4444' },
-  { name: 'BB Squeeze', color: '#3b82f6' },
-  { name: 'Volume Spike', color: '#10b981' },
-]
-
-const WORKFLOWS = [
-  { name: 'Sentiment Analysis', color: '#6366f1' },
-  { name: 'Risk Assessment', color: '#f59e0b' },
-  { name: 'Portfolio Rebalance', color: '#22c55e' },
-  { name: 'Earnings Report Check', color: '#3b82f6' },
-  { name: 'Social Media Scan', color: '#8b5cf6' },
-  { name: 'Volatility Analysis', color: '#ef4444' },
-  { name: 'Sector Correlation', color: '#14b8a6' },
-]
-
-const STATUS_CONFIG: Record<
-  MonitorEntry['status'],
-  { label: string; className: string; dotClassName: string }
-> = {
-  pending: {
-    label: 'Pending',
-    className: 'bg-muted text-muted-foreground',
-    dotClassName: 'bg-muted-foreground/60',
-  },
-  running: {
-    label: 'Running',
-    className: 'bg-blue-500/15 text-blue-500 border-blue-500/20',
-    dotClassName: 'bg-blue-500',
-  },
-  success: {
-    label: 'Success',
-    className: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/20',
-    dotClassName: 'bg-emerald-500',
-  },
-  failed: {
-    label: 'Failed',
-    className: 'bg-destructive/15 text-destructive border-destructive/20',
-    dotClassName: 'bg-destructive',
-  },
 }
 
 const INITIAL_STATUSES: MonitorEntry['status'][] = [
@@ -81,10 +39,17 @@ const RANDOM_STATUSES: MonitorEntry['status'][] = ['pending', 'pending', 'runnin
 const INITIAL_ROWS = 6
 const MAX_ROWS = 20
 
-function createRandomEntry(stocks: ListingOption[], counter: number): MonitorEntry {
+type MonitorOption = { name: string; color: string }
+
+function createRandomEntry(
+  stocks: ListingOption[],
+  indicators: MonitorOption[],
+  workflows: MonitorOption[],
+  counter: number
+): MonitorEntry {
   const stock = stocks[Math.floor(Math.random() * stocks.length)]
-  const indicator = INDICATORS[Math.floor(Math.random() * INDICATORS.length)]
-  const workflow = WORKFLOWS[Math.floor(Math.random() * WORKFLOWS.length)]
+  const indicator = indicators[Math.floor(Math.random() * indicators.length)]
+  const workflow = workflows[Math.floor(Math.random() * workflows.length)]
 
   return {
     id: `entry-${counter}`,
@@ -107,10 +72,10 @@ function advanceStatus(status: MonitorEntry['status']): MonitorEntry['status'] {
   return status
 }
 
-function seedEntries(stocks: ListingOption[]): MonitorEntry[] {
+function seedEntries(stocks: ListingOption[], indicators: MonitorOption[], workflows: MonitorOption[]): MonitorEntry[] {
   return stocks.slice(0, INITIAL_ROWS).map((stock, index) => {
-    const indicator = INDICATORS[index % INDICATORS.length]
-    const workflow = WORKFLOWS[(index * 2) % WORKFLOWS.length]
+    const indicator = indicators[index % indicators.length]
+    const workflow = workflows[(index * 2) % workflows.length]
 
     return {
       id: `initial-${index}-${stock.listing_type}-${stock.listing_id || stock.base_id}`,
@@ -125,16 +90,46 @@ function seedEntries(stocks: ListingOption[]): MonitorEntry[] {
 }
 
 export default function MonitorPreview({ stocks }: { stocks: ListingOption[] }) {
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages()
+  const monitorCopy = copy.landing.monitorSection
   const [liveStocks, setLiveStocks] = useState(stocks)
-  const [entries, setEntries] = useState<MonitorEntry[]>(() => seedEntries(stocks))
+  const [entries, setEntries] = useState<MonitorEntry[]>(() =>
+    seedEntries(stocks, monitorCopy.indicatorOptions, monitorCopy.workflowOptions)
+  )
+  const statusConfig: Record<
+    MonitorEntry['status'],
+    { label: string; className: string; dotClassName: string }
+  > = {
+    pending: {
+      label: monitorCopy.statuses.pending,
+      className: 'bg-muted text-muted-foreground',
+      dotClassName: 'bg-muted-foreground/60',
+    },
+    running: {
+      label: monitorCopy.statuses.running,
+      className: 'bg-blue-500/15 text-blue-500 border-blue-500/20',
+      dotClassName: 'bg-blue-500',
+    },
+    success: {
+      label: monitorCopy.statuses.success,
+      className: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/20',
+      dotClassName: 'bg-emerald-500',
+    },
+    failed: {
+      label: monitorCopy.statuses.failed,
+      className: 'bg-destructive/15 text-destructive border-destructive/20',
+      dotClassName: 'bg-destructive',
+    },
+  }
 
   useEffect(() => {
     setLiveStocks(stocks)
   }, [stocks])
 
   useEffect(() => {
-    setEntries(seedEntries(liveStocks))
-  }, [liveStocks])
+    setEntries(seedEntries(liveStocks, monitorCopy.indicatorOptions, monitorCopy.workflowOptions))
+  }, [liveStocks, monitorCopy.indicatorOptions, monitorCopy.workflowOptions])
 
   useEffect(() => {
     if (liveStocks.length === 0) return
@@ -147,7 +142,10 @@ export default function MonitorPreview({ stocks }: { stocks: ListingOption[] }) 
           ...entry,
           status: advanceStatus(entry.status),
         }))
-        const nextEntries = [createRandomEntry(liveStocks, Date.now()), ...updated]
+        const nextEntries = [
+          createRandomEntry(liveStocks, monitorCopy.indicatorOptions, monitorCopy.workflowOptions, Date.now()),
+          ...updated,
+        ]
         return nextEntries.slice(0, MAX_ROWS)
       })
 
@@ -164,18 +162,24 @@ export default function MonitorPreview({ stocks }: { stocks: ListingOption[] }) 
       <Table className='table-fixed'>
         <TableHeader>
           <TableRow className='hover:bg-transparent'>
-            <TableHead className='w-[14rem] max-sm:w-[3rem] max-sm:px-2'>Listing</TableHead>
-            <TableHead className='w-[10rem] max-sm:w-auto max-sm:px-2'>Indicator</TableHead>
-            <TableHead className='w-[12rem] max-sm:w-auto max-sm:px-2'>Workflow</TableHead>
+            <TableHead className='w-[14rem] max-sm:w-[3rem] max-sm:px-2'>
+              {monitorCopy.tableHeaders.listing}
+            </TableHead>
+            <TableHead className='w-[10rem] max-sm:w-auto max-sm:px-2'>
+              {monitorCopy.tableHeaders.indicator}
+            </TableHead>
+            <TableHead className='w-[12rem] max-sm:w-auto max-sm:px-2'>
+              {monitorCopy.tableHeaders.workflow}
+            </TableHead>
             <TableHead className='w-[6rem] text-right max-sm:w-[3rem] max-sm:px-2'>
-              Status
+              {monitorCopy.tableHeaders.status}
             </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           <AnimatePresence initial={false}>
             {entries.map((entry) => {
-              const statusConfig = STATUS_CONFIG[entry.status]
+              const currentStatusConfig = statusConfig[entry.status]
 
               return (
                 <motion.tr
@@ -212,15 +216,15 @@ export default function MonitorPreview({ stocks }: { stocks: ListingOption[] }) 
                   </TableCell>
                   <TableCell className='text-right max-sm:px-2'>
                     <span
-                      className={`inline-block size-2.5 shrink-0 rounded-full sm:hidden ${statusConfig.dotClassName}`}
-                      aria-label={statusConfig.label}
-                      title={statusConfig.label}
+                      className={`inline-block size-2.5 shrink-0 rounded-full sm:hidden ${currentStatusConfig.dotClassName}`}
+                      aria-label={currentStatusConfig.label}
+                      title={currentStatusConfig.label}
                     />
                     <Badge
                       variant='outline'
-                      className={`hidden text-xs sm:inline-flex ${statusConfig.className}`}
+                      className={`hidden text-xs sm:inline-flex ${currentStatusConfig.className}`}
                     >
-                      {statusConfig.label}
+                      {currentStatusConfig.label}
                     </Badge>
                   </TableCell>
                 </motion.tr>

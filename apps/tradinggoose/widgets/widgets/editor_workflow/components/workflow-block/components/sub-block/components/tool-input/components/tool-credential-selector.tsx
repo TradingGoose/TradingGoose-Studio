@@ -18,7 +18,12 @@ import {
   type OAuthService,
   parseProvider,
 } from '@/lib/oauth'
+import { translateWorkflowLabel } from '@/i18n/block-editor'
+import { formatTemplate } from '@/i18n/client-messages'
+import type { LocaleCode } from '@/i18n/utils'
+import { useWorkspaceBlockEditorMessages } from '@/i18n/workspace-widget-hooks'
 import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useLocale } from 'next-intl'
 
 const logger = createLogger('ToolCredentialSelector')
 
@@ -64,16 +69,19 @@ export function ToolCredentialSelector({
   onChange,
   provider,
   requiredScopes = [],
-  label = 'Select account',
+  label,
   serviceId,
   disabled = false,
 }: ToolCredentialSelectorProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = useWorkspaceBlockEditorMessages().toolInput
   const [open, setOpen] = useState(false)
   const [credentials, setCredentials] = useState<Credential[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [showOAuthModal, setShowOAuthModal] = useState(false)
   const [selectedId, setSelectedId] = useState('')
   const activeWorkflowId = useWorkflowId()
+  const labelText = label ?? translateWorkflowLabel(locale, 'Select credential')
 
   // Update selected ID when value changes
   useEffect(() => {
@@ -146,7 +154,9 @@ export function ToolCredentialSelector({
 
   const selectedCredential = credentials.find((cred) => cred.id === selectedId)
   const selectedLabel =
-    selectedCredential?.isOwner === false ? 'Saved by collaborator' : selectedCredential?.name
+    selectedCredential?.isOwner === false
+      ? translateWorkflowLabel(locale, 'Saved by collaborator')
+      : selectedCredential?.name
 
   return (
     <>
@@ -161,12 +171,8 @@ export function ToolCredentialSelector({
           >
             <div className='flex min-w-0 items-center gap-2 overflow-hidden'>
               {getProviderIcon(provider)}
-              <span
-                className={
-                  selectedLabel ? 'truncate font-normal' : 'truncate text-muted-foreground'
-                }
-              >
-                {selectedLabel || label}
+              <span className={selectedLabel ? 'truncate font-normal' : 'truncate text-muted-foreground'}>
+                {selectedLabel || labelText}
               </span>
             </div>
             <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
@@ -179,18 +185,24 @@ export function ToolCredentialSelector({
                 {isLoading ? (
                   <div className='flex items-center justify-center p-4'>
                     <RefreshCw className='h-4 w-4 animate-spin' />
-                    <span className='ml-2'>Loading...</span>
+                    <span className='ml-2'>{translateWorkflowLabel(locale, 'Loading...')}</span>
                   </div>
                 ) : credentials.length === 0 ? (
                   <div className='p-4 text-center'>
-                    <p className='font-medium text-sm'>No accounts connected.</p>
+                    <p className='font-medium text-sm'>
+                      {translateWorkflowLabel(locale, 'No accounts connected.')}
+                    </p>
                     <p className='text-muted-foreground text-xs'>
-                      Connect a {getProviderName(provider)} account to continue.
+                      {formatTemplate(copy.selectProviderAccount, {
+                        provider: getProviderName(provider),
+                      })}
                     </p>
                   </div>
                 ) : (
                   <div className='p-4 text-center'>
-                    <p className='font-medium text-sm'>No accounts found.</p>
+                    <p className='font-medium text-sm'>
+                      {translateWorkflowLabel(locale, 'No accounts found.')}
+                    </p>
                   </div>
                 )}
               </CommandEmpty>
@@ -203,12 +215,14 @@ export function ToolCredentialSelector({
                       value={credential.id}
                       onSelect={() => handleSelect(credential.id)}
                     >
-                      <div className='flex items-center gap-1'>
-                        {getProviderIcon(credential.provider)}
-                        <span className='font-normal'>
-                          {credential.isOwner === false ? 'Saved by collaborator' : credential.name}
-                        </span>
-                      </div>
+                        <div className='flex items-center gap-1'>
+                          {getProviderIcon(credential.provider)}
+                          <span className='font-normal'>
+                            {credential.isOwner === false
+                              ? translateWorkflowLabel(locale, 'Saved by collaborator')
+                              : credential.name}
+                          </span>
+                        </div>
                       {credential.id === selectedId && <Check className='ml-auto h-4 w-4' />}
                     </CommandItem>
                   ))}
@@ -219,7 +233,11 @@ export function ToolCredentialSelector({
                 <CommandItem onSelect={() => setShowOAuthModal(true)}>
                   <div className='flex items-center gap-1'>
                     <Plus className='h-4 w-4' />
-                    <span className='font-normal'>Connect {getProviderName(provider)} account</span>
+                    <span className='font-normal'>
+                      {formatTemplate(copy.selectProviderAccount, {
+                        provider: getProviderName(provider),
+                      })}
+                    </span>
                   </div>
                 </CommandItem>
               </CommandGroup>
@@ -232,7 +250,7 @@ export function ToolCredentialSelector({
         isOpen={showOAuthModal}
         onClose={handleOAuthClose}
         provider={provider}
-        toolName={label}
+        toolName={labelText}
         requiredScopes={requiredScopes}
         serviceId={serviceId}
       />

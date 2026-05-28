@@ -2,7 +2,9 @@
 
 import * as React from 'react'
 import { usePathname, useRouter } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import { generateWorkspaceName } from '@/lib/naming'
+import { type LocaleCode } from '@/i18n/utils'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { Workspace } from './types'
 import { getWorkspaceIdFromPath, getWorkspaceSwitchPath } from './utils'
@@ -17,6 +19,7 @@ export function shouldResetWorkflowRegistryOnWorkspaceSwitch(pathname: string): 
 
 export function useWorkspaceSwitcher({ enabled }: UseWorkspaceSwitcherOptions) {
   const pathname = usePathname() ?? '/'
+  const locale = useLocale() as LocaleCode
   const router = useRouter()
   const switchToWorkspace = useWorkflowRegistry((state) => state.switchToWorkspace)
   const canManageWorkspaces = true
@@ -100,9 +103,9 @@ export function useWorkspaceSwitcher({ enabled }: UseWorkspaceSwitcherOptions) {
         }
       }
 
-      router.push(getWorkspaceSwitchPath(pathname, workspace.id))
+      router.push(getWorkspaceSwitchPath(pathname, workspace.id, undefined, locale))
     },
-    [pathname, router, switchToWorkspace, workspaceId]
+    [locale, pathname, router, switchToWorkspace, workspaceId]
   )
 
   const handleCreateWorkspace = React.useCallback(async () => {

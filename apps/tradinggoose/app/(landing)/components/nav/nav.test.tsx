@@ -4,21 +4,33 @@
 
 import type React from 'react'
 import { act } from 'react'
+import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getRegistrationModeForRender } from '@/lib/registration/service'
+import { getPublicCopy, getScopedPublicMessages } from '@/i18n/public-copy'
 import Nav from './nav'
 import PublicNav from './public-nav'
 
 const mockPush = vi.fn()
+const mockReplace = vi.fn()
+const mockRefresh = vi.fn()
+let mockPathname = '/'
+let mockSearchParams = ''
 
 vi.mock('@/lib/registration/service', () => ({
   getRegistrationModeForRender: vi.fn(),
 }))
 
 vi.mock('next/navigation', () => ({
+  usePathname: () => mockPathname,
   useRouter: () => ({
     push: mockPush,
+    replace: mockReplace,
+    refresh: mockRefresh,
+  }),
+  useSearchParams: () => ({
+    toString: () => mockSearchParams,
   }),
 }))
 
@@ -74,6 +86,10 @@ describe('landing nav registration mode', () => {
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     mockPush.mockReset()
+    mockReplace.mockReset()
+    mockRefresh.mockReset()
+    mockPathname = '/'
+    mockSearchParams = ''
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -99,7 +115,7 @@ describe('landing nav registration mode', () => {
     expect(container.textContent).toContain('Docs')
     expect(container.textContent).toContain('Blog')
     expect(container.textContent).toContain('Login')
-    expect(container.textContent).toContain('Get Early Access')
+    expect(container.textContent).toContain(getPublicCopy('en').registration.waitlist.primary)
   })
 
   it('reuses an already resolved registration mode when provided', async () => {
@@ -114,6 +130,23 @@ describe('landing nav registration mode', () => {
     expect(container.textContent).not.toContain('Login')
   })
 
+  it('renders public nav from scoped nav and registration messages', async () => {
+    await act(async () => {
+      root.render(
+        <NextIntlClientProvider
+          locale='en'
+          messages={getScopedPublicMessages('en', ['nav', 'registration'] as const)}
+        >
+          <Nav registrationMode='open' />
+        </NextIntlClientProvider>
+      )
+    })
+
+    expect(container.textContent).toContain(getPublicCopy('en').nav.docs)
+    expect(container.textContent).toContain(getPublicCopy('en').nav.blog)
+    expect(container.textContent).toContain(getPublicCopy('en').registration.open.primary)
+  })
+
   it('does not render auth controls when auth buttons are hidden', async () => {
     await act(async () => {
       root.render(<Nav variant='auth' hideAuthButtons />)
@@ -121,6 +154,74 @@ describe('landing nav registration mode', () => {
 
     expect(container.textContent).not.toContain('Login')
     expect(container.textContent).not.toContain('Sign up')
-    expect(container.textContent).not.toContain('Get Early Access')
+    expect(container.textContent).not.toContain(getPublicCopy('en').registration.waitlist.primary)
+  })
+
+  it('shows locale names in their native language on the landing switcher', async () => {
+    await act(async () => {
+      root.render(
+        <NextIntlClientProvider locale='es' messages={getPublicCopy('es')}>
+          <Nav variant='auth' hideAuthButtons />
+        </NextIntlClientProvider>
+      )
+    })
+
+    const languageButton = container.querySelector('button')
+    if (!(languageButton instanceof HTMLButtonElement)) {
+      throw new Error('Expected language switcher button to render')
+    }
+
+    expect(languageButton.textContent).toBe('Español')
+  })
+
+  it('switches locales without dropping the current path or query string', async () => {
+    mockPathname = '/es/blog/trading-signals'
+    mockSearchParams = 'from=nav&campaign=i18n'
+
+    await act(async () => {
+      root.render(
+        <NextIntlClientProvider locale='es' messages={getPublicCopy('es')}>
+          <Nav variant='auth' hideAuthButtons />
+        </NextIntlClientProvider>
+      )
+    })
+
+    const languageButton = container.querySelector('button')
+    if (!(languageButton instanceof HTMLButtonElement)) {
+      throw new Error('Expected language switcher button to render')
+    }
+
+    await act(async () => {
+      languageButton.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0 }))
+      languageButton.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
+      languageButton.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    const menuItem = Array.from(document.body.querySelectorAll('[role="menuitem"]')).find((item) =>
+      item.textContent?.includes('简体中文')
+    )
+
+    if (!(menuItem instanceof HTMLElement)) {
+      throw new Error('Expected Chinese locale menu item to render')
+    }
+
+    await act(async () => {
+      menuItem.click()
+    })
+
+    expect(mockReplace).toHaveBeenCalledWith('/zh/blog/trading-signals?from=nav&campaign=i18n')
+    expect(mockRefresh).not.toHaveBeenCalled()
+
+    mockPathname = '/zh/blog/trading-signals'
+
+    await act(async () => {
+      root.render(
+        <NextIntlClientProvider locale='es' messages={getPublicCopy('es')}>
+          <Nav variant='auth' hideAuthButtons />
+        </NextIntlClientProvider>
+      )
+    })
+
+    expect(mockRefresh).toHaveBeenCalledTimes(1)
   })
 })

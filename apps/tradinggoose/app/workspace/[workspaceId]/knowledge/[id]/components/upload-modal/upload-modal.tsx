@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
+import { useTranslations } from 'next-intl'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   ACCEPT_ATTRIBUTE,
@@ -43,6 +44,7 @@ export function UploadModal({
 }: UploadModalProps) {
   const params = useParams<{ workspaceId: string }>()
   const workspaceId = params.workspaceId
+  const t = useTranslations('workspace.knowledge.uploadModal')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [files, setFiles] = useState<FileWithPreview[]>([])
 
@@ -86,10 +88,10 @@ export function UploadModal({
 
   const validateFile = (file: File): string | null => {
     if (file.size > MAX_FILE_SIZE) {
-      return `File "${file.name}" is too large. Maximum size is 100MB.`
+      return t('fileTooLarge', { name: file.name })
     }
     if (!ACCEPTED_FILE_TYPES.includes(file.type)) {
-      return `File "${file.name}" has an unsupported format. Please use PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, MD, PPT, PPTX, HTML, JSON, YAML, or YML files.`
+      return t('unsupportedFileType', { name: file.name })
     }
     return null
   }
@@ -184,13 +186,13 @@ export function UploadModal({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className='flex max-h-[95vh] flex-col overflow-hidden sm:max-w-[600px]'>
         <DialogHeader>
-          <DialogTitle>Upload Documents</DialogTitle>
+        <DialogTitle>{t('title')}</DialogTitle>
         </DialogHeader>
 
         <div className='flex-1 space-y-6 overflow-auto'>
           {/* File Upload Section */}
           <div className='space-y-3'>
-            <Label>Select Files</Label>
+            <Label>{t('selectFiles')}</Label>
 
             {files.length === 0 ? (
               <div
@@ -214,12 +216,9 @@ export function UploadModal({
                 />
                 <div className='space-y-2'>
                   <p className='font-medium text-sm'>
-                    {isDragging ? 'Drop files here!' : 'Drop files here or click to browse'}
+                    {isDragging ? t('dropFilesHere') : t('dropFilesHereOrClickToBrowse')}
                   </p>
-                  <p className='text-muted-foreground text-xs'>
-                    Supports PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, MD, PPT, PPTX, HTML, JSON, YAML,
-                    YML (max 100MB each)
-                  </p>
+                  <p className='text-muted-foreground text-xs'>{t('supportedFormats')}</p>
                 </div>
               </div>
             ) : (
@@ -244,7 +243,7 @@ export function UploadModal({
                     multiple
                   />
                   <p className='text-sm'>
-                    {isDragging ? 'Drop more files here!' : 'Drop more files or click to browse'}
+                    {isDragging ? t('dropMoreFilesHere') : t('dropMoreFilesOrClickToBrowse')}
                   </p>
                 </div>
 
@@ -322,7 +321,7 @@ export function UploadModal({
           <div className='flex gap-3' />
           <div className='flex gap-3'>
             <Button variant='outline' onClick={() => handleClose({ reset: !isUploading })}>
-              {isUploading ? 'Close' : 'Cancel'}
+              {isUploading ? t('close') : t('cancel')}
             </Button>
             <Button
               onClick={handleUpload}
@@ -331,11 +330,11 @@ export function UploadModal({
             >
               {isUploading
                 ? uploadProgress.stage === 'uploading'
-                  ? `Uploading ${uploadProgress.filesCompleted + 1}/${uploadProgress.totalFiles}...`
+                  ? t('uploading')
                   : uploadProgress.stage === 'processing'
-                    ? 'Processing...'
-                    : 'Uploading...'
-                : `Upload ${files.length} file${files.length !== 1 ? 's' : ''}`}
+                    ? t('processing')
+                    : t('uploading')
+                : t('uploadDocuments')}
             </Button>
           </div>
         </div>

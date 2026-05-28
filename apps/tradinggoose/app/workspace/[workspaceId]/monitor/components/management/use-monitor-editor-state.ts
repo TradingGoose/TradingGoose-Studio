@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { INDICATOR_MONITOR_PROVIDER } from '@/lib/monitors/sources'
+import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 import type { ConfigBoardContext } from '../config/config-board-state'
 import {
@@ -37,6 +38,7 @@ export function useMonitorEditorState({
   monitorActions: MonitorRecordActions
   viewConfig: ConfigMonitorViewConfig
 }) {
+  const { copy } = useMonitorCopy()
   const [selectedMonitorId, setSelectedMonitorId] = useState<string | null>(null)
   const [isEditorOpen, setIsEditorOpen] = useState(false)
   const [editingKey, setEditingKey] = useState<string | null>(null)
@@ -280,11 +282,12 @@ export function useMonitorEditorState({
       if (savedMonitor) selectMonitorId(savedMonitor.monitorId)
       closeEditor()
     } catch (error) {
-      setPanelError(error instanceof Error ? error.message : 'Failed to save monitor')
+      setPanelError(error instanceof Error ? error.message : copy.editor.errors.save)
     } finally {
       setSaving(false)
     }
   }, [
+    copy.editor.errors.save,
     editingDraft,
     editingKey,
     monitorActions,
@@ -305,12 +308,12 @@ export function useMonitorEditorState({
         const savedMonitor = await monitorActions.toggleMonitorState(monitor, nextIsActive)
         if (savedMonitor) selectMonitorId(savedMonitor.monitorId)
       } catch (error) {
-        setPanelError(error instanceof Error ? error.message : 'Failed to update monitor state')
+        setPanelError(error instanceof Error ? error.message : copy.editor.errors.updateState)
       } finally {
         setTogglingMonitorId(null)
       }
     },
-    [monitorActions, selectMonitorId]
+    [copy.editor.errors.updateState, monitorActions, selectMonitorId]
   )
 
   const removeMonitor = useCallback(
@@ -325,12 +328,12 @@ export function useMonitorEditorState({
         }
         closeEditor()
       } catch (error) {
-        setPanelError(error instanceof Error ? error.message : 'Failed to delete monitor')
+        setPanelError(error instanceof Error ? error.message : copy.editor.errors.delete)
       } finally {
         setDeletingMonitorId(null)
       }
     },
-    [closeEditor, monitorActions, selectMonitorId, selectedMonitorId]
+    [closeEditor, copy.editor.errors.delete, monitorActions, selectMonitorId, selectedMonitorId]
   )
 
   return {

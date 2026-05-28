@@ -1,9 +1,11 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { type Dispatch, type SetStateAction, useRef, useState } from 'react'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { ChatMessage } from '@/app/chat/components/message/message'
-import { CHAT_ERROR_MESSAGES } from '@/app/chat/constants'
+import { CHAT_ERROR_CODES } from '@/app/chat/constants'
+import { getChatErrorMessage } from '@/app/chat/errors'
+import type { ChatCopy } from '@/app/chat/copy'
 
 const logger = createLogger('UseChatStreaming')
 
@@ -23,7 +25,7 @@ export interface StreamingOptions {
   audioStreamHandler?: (text: string) => Promise<void>
 }
 
-export function useChatStreaming() {
+export function useChatStreaming(chatCopy: ChatCopy) {
   const [isStreamingResponse, setIsStreamingResponse] = useState(false)
   const abortControllerRef = useRef<AbortController | null>(null)
   const accumulatedTextRef = useRef<string>('')
@@ -31,7 +33,9 @@ export function useChatStreaming() {
   const audioStreamingActiveRef = useRef<boolean>(false)
   const lastDisplayedPositionRef = useRef<number>(0) // Track displayed text in synced mode
 
-  const stopStreaming = (setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>) => {
+  const stopStreaming = (
+    setMessages: Dispatch<SetStateAction<ChatMessage[]>>
+  ) => {
     if (abortControllerRef.current) {
       // Abort the fetch request
       abortControllerRef.current.abort()
@@ -47,8 +51,8 @@ export function useChatStreaming() {
           const updatedContent =
             lastMessage.content +
             (lastMessage.content
-              ? '\n\n_Response stopped by user._'
-              : '_Response stopped by user._')
+              ? `\n\n_${getChatErrorMessage(chatCopy, CHAT_ERROR_CODES.RESPONSE_STOPPED_BY_USER)}_`
+              : `_${getChatErrorMessage(chatCopy, CHAT_ERROR_CODES.RESPONSE_STOPPED_BY_USER)}_`)
 
           return [
             ...prev.slice(0, -1),
@@ -70,8 +74,8 @@ export function useChatStreaming() {
 
   const handleStreamedResponse = async (
     response: Response,
-    setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>,
-    setIsLoading: React.Dispatch<React.SetStateAction<boolean>>,
+    setMessages: Dispatch<SetStateAction<ChatMessage[]>>,
+    setIsLoading: Dispatch<SetStateAction<boolean>>,
     scrollToBottom: () => void,
     userHasScrolled?: boolean,
     streamingOptions?: StreamingOptions
@@ -157,7 +161,10 @@ export function useChatStreaming() {
               const { blockId, chunk: contentChunk, event: eventType } = json
 
               if (eventType === 'error' || json.event === 'error') {
-                const errorMessage = json.error || CHAT_ERROR_MESSAGES.GENERIC_ERROR
+                const errorMessage = getChatErrorMessage(
+                  chatCopy,
+                  json.code || json.error || CHAT_ERROR_CODES.GENERIC_ERROR
+                )
                 setMessages((prev) =>
                   prev.map((msg) =>
                     msg.id === messageId

@@ -2,6 +2,7 @@
 
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useDataChartCopy } from '@/widgets/widgets/data_chart/copy'
 
 type PaneControlProps = {
   paneIndex: number
@@ -19,6 +20,7 @@ export const PaneControl = ({
   onMoveUp,
   onMoveDown,
 }: PaneControlProps) => {
+  const copy = useDataChartCopy()
   const disableMoveUp = paneIndex <= 0
   const disableMoveDown = paneIndex >= paneCount - 1
 
@@ -34,10 +36,10 @@ export const PaneControl = ({
               disabled={disableMoveUp}
             >
               <ChevronUp className='h-3 w-3' />
-              <span className='sr-only'>Move pane up</span>
+              <span className='sr-only'>{copy.panes.movePaneUp}</span>
             </button>
           </TooltipTrigger>
-          <TooltipContent side='top'>Move up</TooltipContent>
+          <TooltipContent side='top'>{copy.panes.moveUp}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -48,10 +50,10 @@ export const PaneControl = ({
               disabled={disableMoveDown}
             >
               <ChevronDown className='h-3 w-3' />
-              <span className='sr-only'>Move pane down</span>
+              <span className='sr-only'>{copy.panes.movePaneDown}</span>
             </button>
           </TooltipTrigger>
-          <TooltipContent side='top'>Move down</TooltipContent>
+          <TooltipContent side='top'>{copy.panes.moveDown}</TooltipContent>
         </Tooltip>
       </div>
     </div>

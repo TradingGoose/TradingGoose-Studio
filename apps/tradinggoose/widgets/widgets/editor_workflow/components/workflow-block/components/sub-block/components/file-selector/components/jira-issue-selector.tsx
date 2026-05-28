@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { Check, ChevronDown, ExternalLink, RefreshCw, X } from 'lucide-react'
 import { JiraIcon } from '@/components/icons/icons'
 import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
@@ -21,6 +22,8 @@ import {
   getServiceIdFromScopes,
   type OAuthProvider,
 } from '@/lib/oauth'
+import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import type { LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('JiraIssueSelector')
 
@@ -57,7 +60,7 @@ export function JiraIssueSelector({
   onChange,
   provider,
   requiredScopes = [],
-  label = 'Select Jira issue',
+  label,
   disabled = false,
   serviceId,
   domain,
@@ -69,6 +72,9 @@ export function JiraIssueSelector({
   workflowId,
   workspaceId,
 }: JiraIssueSelectorProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages().workspace.widgets.workflowLabels
+  const selectorCopy = useAppMessages().workspace.widgets.blockEditor.jiraIssueSelector
   const [open, setOpen] = useState(false)
   const [credentials, setCredentials] = useState<Credential[]>([])
   const [issues, setIssues] = useState<JiraIssueInfo[]>([])
@@ -77,8 +83,10 @@ export function JiraIssueSelector({
   const [selectedIssue, setSelectedIssue] = useState<JiraIssueInfo | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [showOAuthModal, setShowOAuthModal] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [errorKey, setErrorKey] = useState<keyof typeof selectorCopy.errors | null>(null)
   const [cloudId, setCloudId] = useState<string | null>(null)
+  const labelText = label ?? copy.selectJiraIssue
+  const errorMessage = errorKey ? selectorCopy.errors[errorKey] : null
 
   // Keep local credential state in sync with persisted credentialId prop
   useEffect(() => {
@@ -157,14 +165,12 @@ export function JiraIssueSelector({
       // Validate domain format
       const trimmedDomain = domain.trim().toLowerCase()
       if (!trimmedDomain.includes('.')) {
-        setError(
-          'Invalid domain format. Please provide the full domain (e.g., your-site.atlassian.net)'
-        )
+        setErrorKey('invalidDomainFormat')
         return
       }
 
       setIsLoading(true)
-      setError(null)
+      setErrorKey(null)
 
       try {
         const response = await fetch('/api/tools/jira/issue', {
@@ -184,7 +190,7 @@ export function JiraIssueSelector({
         if (!response.ok) {
           const errorData = await response.json()
           logger.error('Failed to fetch issue info:', errorData)
-          throw new Error(errorData.error || 'Failed to fetch issue info')
+          throw new Error('failedToFetchIssueInfo')
         }
 
         const data = await response.json()
@@ -204,7 +210,7 @@ export function JiraIssueSelector({
         }
       } catch (error) {
         logger.error('Error fetching issue info:', error)
-        setError((error as Error).message)
+        setErrorKey('failedToFetchIssueInfo')
         // Clear selection on error to prevent infinite retry loops
         setSelectedIssue(null)
         onIssueInfoChange?.(null)
@@ -228,16 +234,14 @@ export function JiraIssueSelector({
       // Validate domain format
       const trimmedDomain = domain.trim().toLowerCase()
       if (!trimmedDomain.includes('.')) {
-        setError(
-          'Invalid domain format. Please provide the full domain (e.g., your-site.atlassian.net)'
-        )
+        setErrorKey('invalidDomainFormat')
         setIssues([])
         setIsLoading(false)
         return
       }
 
       setIsLoading(true)
-      setError(null)
+      setErrorKey(null)
 
       try {
         const queryParams = new URLSearchParams({
@@ -259,7 +263,7 @@ export function JiraIssueSelector({
         if (!response.ok) {
           const errorData = await response.json()
           logger.error('Jira API error:', errorData)
-          throw new Error(errorData.error || 'Failed to fetch issues')
+          throw new Error('failedToFetchIssues')
         }
 
         const data = await response.json()
@@ -304,7 +308,7 @@ export function JiraIssueSelector({
         }
       } catch (error) {
         logger.error('Error fetching issues:', error)
-        setError((error as Error).message)
+        setErrorKey('failedToFetchIssues')
         setIssues([])
       } finally {
         setIsLoading(false)
@@ -370,7 +374,7 @@ export function JiraIssueSelector({
     if (!value) {
       setSelectedIssue(null)
       setIssues([])
-      setError(null)
+      setErrorKey(null)
       onIssueInfoChange?.(null)
     }
   }, [value])
@@ -395,7 +399,7 @@ export function JiraIssueSelector({
   const handleClearSelection = () => {
     setSelectedIssueId('')
     setSelectedIssue(null)
-    setError(null) // Clear any existing errors
+    setErrorKey(null)
     onChange('', undefined)
     onIssueInfoChange?.(null)
   }
@@ -421,7 +425,7 @@ export function JiraIssueSelector({
                 ) : (
                   <>
                     <JiraIcon className='h-4 w-4' />
-                    <span className='truncate text-muted-foreground'>{label}</span>
+                    <span className='truncate text-muted-foreground'>{labelText}</span>
                   </>
                 )}
               </div>
@@ -437,7 +441,7 @@ export function JiraIssueSelector({
                     <JiraIcon className='h-4 w-4' />
                     <span className='text-muted-foreground text-xs'>
                       {credentials.find((cred) => cred.id === selectedCredentialId)?.name ||
-                        'Unknown'}
+                        copy.unknown}
                     </span>
                   </div>
                   {credentials.length > 1 && (
@@ -447,37 +451,44 @@ export function JiraIssueSelector({
                       className='h-6 px-2 text-xs'
                       onClick={() => setOpen(true)}
                     >
-                      Switch
+                      {copy.switch}
                     </Button>
                   )}
                 </div>
               )}
 
               <Command>
-                <CommandInput placeholder='Search issues...' onValueChange={handleSearch} />
+                <CommandInput
+                  placeholder={copy.searchIssues}
+                  onValueChange={handleSearch}
+                />
                 <CommandList>
                   <CommandEmpty>
                     {isLoading ? (
                       <div className='flex items-center justify-center p-4'>
                         <RefreshCw className='h-4 w-4 animate-spin' />
-                        <span className='ml-2'>Loading issues...</span>
+                        <span className='ml-2'>{copy.loadingIssues}</span>
                       </div>
-                    ) : error ? (
+                    ) : errorMessage ? (
                       <div className='p-4 text-center'>
-                        <p className='text-destructive text-sm'>{error}</p>
+                        <p className='text-destructive text-sm'>{errorMessage}</p>
                       </div>
                     ) : credentials.length === 0 ? (
                       <div className='p-4 text-center'>
-                        <p className='font-medium text-sm'>No accounts connected.</p>
+                        <p className='font-medium text-sm'>{copy.noAccountsConnected}</p>
                         <p className='text-muted-foreground text-xs'>
-                          Connect a Jira account to continue.
+                          {formatTemplate(copy.connectProviderAccountToContinue, {
+                            providerName: 'Jira',
+                          })}
                         </p>
                       </div>
                     ) : (
                       <div className='p-4 text-center'>
-                        <p className='font-medium text-sm'>No issues found.</p>
+                        <p className='font-medium text-sm'>
+                          {formatTemplate(copy.noItemsFound, { itemName: copy.issues.toLowerCase() })}
+                        </p>
                         <p className='text-muted-foreground text-xs'>
-                          Try a different search or account.
+                          {copy.tryDifferentSearchOrAccount}
                         </p>
                       </div>
                     )}
@@ -487,7 +498,7 @@ export function JiraIssueSelector({
                   {credentials.length > 1 && (
                     <CommandGroup>
                       <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>
-                        Switch Account
+                        {copy.switchAccount}
                       </div>
                       {credentials.map((cred) => (
                         <CommandItem
@@ -511,7 +522,7 @@ export function JiraIssueSelector({
                   {issues.length > 0 && (
                     <CommandGroup>
                       <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>
-                        Issues
+                        {copy.issues}
                       </div>
                       {issues.map((issue) => (
                         <CommandItem
@@ -535,7 +546,11 @@ export function JiraIssueSelector({
                       <CommandItem onSelect={handleAddCredential}>
                         <div className='flex items-center gap-1 text-foreground'>
                           <JiraIcon className='h-4 w-4' />
-                          <span>Connect Jira account</span>
+                          <span>
+                            {formatTemplate(copy.connectProviderAccount, {
+                              providerName: 'Jira',
+                            })}
+                          </span>
                         </div>
                       </CommandItem>
                     </CommandGroup>
@@ -580,7 +595,7 @@ export function JiraIssueSelector({
                     className='flex items-center gap-1 text-foreground text-xs hover:underline'
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <span>Open in Jira</span>
+                    <span>{copy.openInJira}</span>
                     <ExternalLink className='h-3 w-3' />
                   </a>
                 ) : (

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import { DEFAULT_INDICATOR_MAP } from '@/lib/indicators/default'
 import type { InputMetaMap } from '@/lib/indicators/types'
@@ -28,6 +29,10 @@ import { useListingState } from '@/widgets/widgets/data_chart/hooks/use-listing-
 import { useManualDrawToolsController } from '@/widgets/widgets/data_chart/hooks/use-manual-draw-tools-controller'
 import { usePaneLayoutController } from '@/widgets/widgets/data_chart/hooks/use-pane-layout-controller'
 import { useThemeVersion } from '@/widgets/widgets/data_chart/hooks/use-theme-version'
+import {
+  formatDataChartIntervalLabel,
+  useWorkspaceWidgetsCopy,
+} from '@/widgets/widgets/data_chart/copy'
 import type { BarMs } from '@/widgets/widgets/data_chart/series-data'
 import { intervalToMs } from '@/widgets/widgets/data_chart/series-data'
 import { resolveSeriesWindow } from '@/widgets/widgets/data_chart/series-window'
@@ -56,6 +61,9 @@ export const DataChartWidgetBody = ({
   widget,
   onWidgetParamsChange,
 }: WidgetComponentProps) => {
+  const locale = useLocale()
+  const widgetsCopy = useWorkspaceWidgetsCopy()
+  const copy = widgetsCopy.dataChart
   const workspaceId = context?.workspaceId ?? null
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -76,6 +84,9 @@ export const DataChartWidgetBody = ({
   )
 
   const intervalLabel = seriesWindow.interval ?? ''
+  const intervalDisplayLabel = intervalLabel
+    ? formatDataChartIntervalLabel(copy, intervalLabel)
+    : ''
   const { listing, listingIdentitySignature, resolvedListing, isResolving } = useListingState({
     listingValue,
     intervalLabel,
@@ -206,6 +217,7 @@ export const DataChartWidgetBody = ({
     onDataLoaded: handleDataLoaded,
     onDataUpdated: handleDataUpdated,
     onDataBackfill: handleDataBackfill,
+    errorCopy: copy.errors,
   })
 
   const { data: pineIndicators = [] } = useIndicators(workspaceId ?? '')
@@ -246,7 +258,7 @@ export const DataChartWidgetBody = ({
       })
     })
     return metaMap
-  }, [pineIndicators, pineIndicatorIds])
+  }, [pineIndicators, pineIndicatorIds, widgetsCopy])
 
   useIndicatorSync({
     chartRef,
@@ -260,6 +272,7 @@ export const DataChartWidgetBody = ({
     chartReady,
     indicatorRuntimeRef,
     onIndicatorRuntimeChange: handleIndicatorRuntimeChange,
+    indicatorCopy: copy.indicator,
   })
 
   useChartVisibleRange({
@@ -287,6 +300,8 @@ export const DataChartWidgetBody = ({
     chartReady,
     dataVersion,
     runtimeVersion: indicatorRuntimeVersion,
+    locale,
+    emptyValue: copy.indicator.emptyValue,
   })
   const {
     settingsIndicatorId,
@@ -375,6 +390,7 @@ export const DataChartWidgetBody = ({
     themeVersion,
     dataContext,
     chartReady,
+    locale,
   })
 
   useEffect(() => {
@@ -403,7 +419,7 @@ export const DataChartWidgetBody = ({
     const observer = new ResizeObserver(update)
     observer.observe(element)
     return () => observer.disconnect()
-  }, [legendData, listingLabel, resolvedListing, isResolving, intervalLabel])
+  }, [legendData, listingLabel, resolvedListing, isResolving, intervalDisplayLabel])
 
   const hasProvider = Boolean(providerId)
   const hasListing = Boolean(listing)
@@ -413,24 +429,24 @@ export const DataChartWidgetBody = ({
   if (!workspaceId) {
     return (
       <div className='flex h-full w-full items-center justify-center px-4 text-center text-muted-foreground text-xs'>
-        Select a workspace to load chart data.
+        {copy.body.selectWorkspace}
       </div>
     )
   }
 
   const emptyTitle = !hasProvider
     ? hasListing
-      ? 'Select a provider'
-      : 'Select a provider and listing'
-    : 'Select a listing'
+      ? copy.body.empty.selectProviderTitle
+      : copy.body.empty.selectProviderAndListingTitle
+    : copy.body.empty.selectListingTitle
   const emptyDescription = !hasProvider
     ? hasListing
-      ? 'Choose a provider to display chart data.'
-      : 'Choose a provider and listing to display chart data.'
-    : 'Choose a listing to display chart data.'
+      ? copy.body.empty.chooseProviderDescription
+      : copy.body.empty.chooseProviderAndListingDescription
+    : copy.body.empty.chooseListingDescription
 
-  const errorTitle = 'Failed to load data'
-  const errorDescription = chartError ?? 'Unable to load chart data.'
+  const errorTitle = copy.body.errorTitle
+  const errorDescription = chartError ?? copy.body.errorFallback
 
   return (
     <div className='relative flex h-full w-full flex-col'>
@@ -464,7 +480,7 @@ export const DataChartWidgetBody = ({
             legendData={legendData}
             listingLabel={listingLabel}
             resolvedListing={resolvedListing}
-            intervalLabel={intervalLabel}
+            intervalLabel={intervalDisplayLabel}
             isResolving={isResolving}
             legendContainerRef={legendContainerRef}
             leftOverlayInsetPx={LEFT_OVERLAY_INSET_PX}

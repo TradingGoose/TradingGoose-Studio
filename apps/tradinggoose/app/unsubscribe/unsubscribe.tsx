@@ -2,8 +2,11 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { CheckCircle, Heart, Info, Loader2, XCircle } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { useSearchParams } from 'next/navigation'
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui'
+import { useAppMessages } from '@/i18n/client-messages'
+import { type LocaleCode } from '@/i18n/utils'
 import { useBrandConfig } from '@/lib/branding/branding'
 
 interface UnsubscribeData {
@@ -21,6 +24,9 @@ interface UnsubscribeData {
 }
 
 function UnsubscribeContent() {
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages()
+  const unsubscribeCopy = copy.unsubscribe
   const searchParams = useSearchParams()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<UnsubscribeData | null>(null)
@@ -34,7 +40,7 @@ function UnsubscribeContent() {
 
   useEffect(() => {
     if (!email || !token) {
-      setError('Missing email or token in URL')
+      setError('missing-parameters')
       setLoading(false)
       return
     }
@@ -48,11 +54,11 @@ function UnsubscribeContent() {
         if (data.success) {
           setData(data)
         } else {
-          setError(data.error || 'Invalid unsubscribe link')
+          setError(data.code || data.error || 'invalid-link')
         }
       })
       .catch(() => {
-        setError('Failed to validate unsubscribe link')
+        setError('invalid-link')
       })
       .finally(() => {
         setLoading(false)
@@ -110,10 +116,10 @@ function UnsubscribeContent() {
           }
         }
       } else {
-        setError(result.error || 'Failed to unsubscribe')
+        setError(result.code || result.error || 'failed-processing')
       }
     } catch (error) {
-      setError('Failed to process unsubscribe request')
+      setError('failed-processing')
     } finally {
       setProcessing(false)
     }
@@ -132,29 +138,33 @@ function UnsubscribeContent() {
   }
 
   if (error) {
+    const errorMessage =
+      unsubscribeCopy.errors[error as keyof typeof unsubscribeCopy.errors] ??
+      unsubscribeCopy.errors.unknown
+
     return (
       <div className='flex min-h-screen items-center justify-center bg-background p-4'>
         <Card className='w-full max-w-md border shadow-sm'>
           <CardHeader className='text-center'>
             <XCircle className='mx-auto mb-2 h-12 w-12 text-red-500' />
-            <CardTitle className='text-foreground'>Invalid Unsubscribe Link</CardTitle>
+            <CardTitle className='text-foreground'>{unsubscribeCopy.error.title}</CardTitle>
             <CardDescription className='text-muted-foreground'>
-              This unsubscribe link is invalid or has expired
+              {unsubscribeCopy.error.description}
             </CardDescription>
           </CardHeader>
           <CardContent className='space-y-4'>
             <div className='rounded-lg border bg-red-50 p-4'>
               <p className='text-red-800 text-sm'>
-                <strong>Error:</strong> {error}
+                <strong>{unsubscribeCopy.error.label}</strong> {errorMessage}
               </p>
             </div>
 
             <div className='space-y-3'>
-              <p className='text-muted-foreground text-sm'>This could happen if:</p>
+              <p className='text-muted-foreground text-sm'>{unsubscribeCopy.error.helpTitle}</p>
               <ul className='ml-4 list-inside list-disc space-y-1 text-muted-foreground text-sm'>
-                <li>The link is missing required parameters</li>
-                <li>The link has expired or been used already</li>
-                <li>The link was copied incorrectly</li>
+                <li>{unsubscribeCopy.error.missingParameters}</li>
+                <li>{unsubscribeCopy.error.expiredOrUsed}</li>
+                <li>{unsubscribeCopy.error.copiedIncorrectly}</li>
               </ul>
             </div>
 
@@ -168,16 +178,16 @@ function UnsubscribeContent() {
                 }
                 className='w-full bg-primary font-medium text-white shadow-sm transition-colors duration-200 hover:bg-primary-hover'
               >
-                Contact Support
+                {unsubscribeCopy.error.contactSupport}
               </Button>
               <Button onClick={() => window.history.back()} variant='outline' className='w-full'>
-                Go Back
+                {unsubscribeCopy.error.goBack}
               </Button>
             </div>
 
             <div className='mt-4 text-center'>
               <p className='text-muted-foreground text-xs'>
-                Need immediate help? Email us at{' '}
+                {unsubscribeCopy.error.immediateHelpPrefix}{' '}
                 <a
                   href={`mailto:${brand.supportEmail}`}
                   className='text-muted-foreground hover:underline'
@@ -199,27 +209,26 @@ function UnsubscribeContent() {
         <Card className='w-full max-w-md border shadow-sm'>
           <CardHeader className='text-center'>
             <Info className='mx-auto mb-2 h-12 w-12 text-blue-500' />
-            <CardTitle className='text-foreground'>Important Account Emails</CardTitle>
+            <CardTitle className='text-foreground'>{unsubscribeCopy.transactional.title}</CardTitle>
             <CardDescription className='text-muted-foreground'>
-              This email contains important information about your account
+              {unsubscribeCopy.transactional.description}
             </CardDescription>
           </CardHeader>
           <CardContent className='space-y-4'>
             <div className='rounded-lg border bg-blue-50 p-4'>
               <p className='text-blue-800 text-sm'>
-                <strong>Transactional emails</strong> like password resets, account confirmations,
-                and security alerts cannot be unsubscribed from as they contain essential
-                information for your account security and functionality.
+                <strong>{unsubscribeCopy.transactional.important}</strong>{' '}
+                {unsubscribeCopy.transactional.body}
               </p>
             </div>
 
             <div className='space-y-3'>
               <p className='text-foreground text-sm'>
-                If you no longer wish to receive these emails, you can:
+                {unsubscribeCopy.transactional.optionsPrefix}
               </p>
               <ul className='ml-4 list-inside list-disc space-y-1 text-muted-foreground text-sm'>
-                <li>Close your account entirely</li>
-                <li>Contact our support team for assistance</li>
+                <li>{unsubscribeCopy.transactional.closeAccount}</li>
+                <li>{unsubscribeCopy.transactional.contactSupport}</li>
               </ul>
             </div>
 
@@ -233,10 +242,10 @@ function UnsubscribeContent() {
                 }
                 className='w-full bg-blue-600 text-white hover:bg-blue-700'
               >
-                Contact Support
+                {unsubscribeCopy.transactional.contactButton}
               </Button>
               <Button onClick={() => window.close()} variant='outline' className='w-full'>
-                Close
+                {unsubscribeCopy.transactional.closeButton}
               </Button>
             </div>
           </CardContent>
@@ -251,16 +260,14 @@ function UnsubscribeContent() {
         <Card className='w-full max-w-md border shadow-sm'>
           <CardHeader className='text-center'>
             <CheckCircle className='mx-auto mb-2 h-12 w-12 text-green-500' />
-            <CardTitle className='text-foreground'>Successfully Unsubscribed</CardTitle>
+            <CardTitle className='text-foreground'>{unsubscribeCopy.success.title}</CardTitle>
             <CardDescription className='text-muted-foreground'>
-              You have been unsubscribed from our emails. You will stop receiving emails within 48
-              hours.
+              {unsubscribeCopy.success.description}
             </CardDescription>
           </CardHeader>
           <CardContent className='text-center'>
             <p className='text-muted-foreground text-sm'>
-              If you change your mind, you can always update your email preferences in your account
-              settings or contact us at{' '}
+              {unsubscribeCopy.success.followUpPrefix}{' '}
               <a
                 href={`mailto:${brand.supportEmail}`}
                 className='text-muted-foreground hover:underline'
@@ -279,14 +286,13 @@ function UnsubscribeContent() {
       <Card className='w-full max-w-md border shadow-sm'>
         <CardHeader className='text-center'>
           <Heart className='mx-auto mb-2 h-12 w-12 text-red-500' />
-          <CardTitle className='text-foreground'>We&apos;re sorry to see you go!</CardTitle>
+          <CardTitle className='text-foreground'>{unsubscribeCopy.intro.title}</CardTitle>
           <CardDescription className='text-muted-foreground'>
-            We understand email preferences are personal. Choose which emails you&apos;d like to
-            stop receiving from TradingGoose.
+            {unsubscribeCopy.intro.description}
           </CardDescription>
           <div className='mt-2 rounded-lg border bg-muted/50 p-3'>
             <p className='text-muted-foreground text-xs'>
-              Email: <span className='font-medium text-foreground'>{data?.email}</span>
+              {unsubscribeCopy.main.emailLabel} <span className='font-medium text-foreground'>{data?.email}</span>
             </p>
           </div>
         </CardHeader>
@@ -304,12 +310,12 @@ function UnsubscribeContent() {
                 <CheckCircle className='mr-2 h-4 w-4' />
               ) : null}
               {data?.currentPreferences.unsubscribeAll
-                ? 'Unsubscribed from All Emails'
-                : 'Unsubscribe from All Marketing Emails'}
+                ? unsubscribeCopy.main.allButtonUnsubscribed
+                : unsubscribeCopy.main.allButton}
             </Button>
 
             <div className='text-center text-muted-foreground text-sm'>
-              or choose specific types:
+              {unsubscribeCopy.main.optionsPrefix}
             </div>
 
             <Button
@@ -326,8 +332,8 @@ function UnsubscribeContent() {
                 <CheckCircle className='mr-2 h-4 w-4' />
               ) : null}
               {data?.currentPreferences.unsubscribeMarketing
-                ? 'Unsubscribed from Marketing'
-                : 'Unsubscribe from Marketing Emails'}
+                ? unsubscribeCopy.main.marketingUnsubscribed
+                : unsubscribeCopy.main.marketingButton}
             </Button>
 
             <Button
@@ -344,8 +350,8 @@ function UnsubscribeContent() {
                 <CheckCircle className='mr-2 h-4 w-4' />
               ) : null}
               {data?.currentPreferences.unsubscribeUpdates
-                ? 'Unsubscribed from Updates'
-                : 'Unsubscribe from Product Updates'}
+                ? unsubscribeCopy.main.updatesUnsubscribed
+                : unsubscribeCopy.main.updatesButton}
             </Button>
 
             <Button
@@ -362,21 +368,20 @@ function UnsubscribeContent() {
                 <CheckCircle className='mr-2 h-4 w-4' />
               ) : null}
               {data?.currentPreferences.unsubscribeNotifications
-                ? 'Unsubscribed from Notifications'
-                : 'Unsubscribe from Notifications'}
+                ? unsubscribeCopy.main.notificationsUnsubscribed
+                : unsubscribeCopy.main.notificationsButton}
             </Button>
           </div>
 
           <div className='mt-6 space-y-3'>
             <div className='rounded-lg border bg-muted/50 p-3'>
               <p className='text-center text-muted-foreground text-xs'>
-                <strong>Note:</strong> You&apos;ll continue receiving important account emails like
-                password resets and security alerts.
+                <strong>{unsubscribeCopy.main.notePrefix}</strong> {unsubscribeCopy.main.noteBody}
               </p>
             </div>
 
             <p className='text-center text-muted-foreground text-xs'>
-              Questions? Contact us at{' '}
+              {unsubscribeCopy.main.questionsPrefix}{' '}
               <a
                 href={`mailto:${brand.supportEmail}`}
                 className='text-muted-foreground hover:underline'

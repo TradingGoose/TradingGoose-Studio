@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import Nav from '@/app/(landing)/components/nav/nav'
+import type { ChatCopy } from '@/app/chat/copy'
+import { getChatPasswordAuthErrorMessage } from '@/app/chat/errors'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
 
@@ -18,15 +20,10 @@ interface PasswordAuthProps {
   onAuthSuccess: () => void
   title?: string
   primaryColor?: string
+  copy: ChatCopy
 }
 
-export default function PasswordAuth({
-  identifier,
-  onAuthSuccess,
-  title = 'chat',
-  primaryColor = 'var(--primary-hover)',
-}: PasswordAuthProps) {
-  // Password auth state
+export default function PasswordAuth({ identifier, onAuthSuccess, copy }: PasswordAuthProps) {
   const [password, setPassword] = useState('')
   const [authError, setAuthError] = useState<string | null>(null)
   const [isAuthenticating, setIsAuthenticating] = useState(false)
@@ -36,7 +33,6 @@ export default function PasswordAuth({
   const primaryButtonClasses =
     'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
 
-  // Handle keyboard input for auth forms
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault()
@@ -51,10 +47,9 @@ export default function PasswordAuth({
     setPasswordErrors([])
   }
 
-  // Handle authentication
   const handleAuthenticate = async () => {
     if (!password.trim()) {
-      setPasswordErrors(['Password is required'])
+      setPasswordErrors([copy.auth.password.validation.required])
       setShowValidationError(true)
       return
     }
@@ -63,8 +58,6 @@ export default function PasswordAuth({
     setIsAuthenticating(true)
 
     try {
-      const payload = { password }
-
       const response = await fetch(`/api/chat/${identifier}`, {
         method: 'POST',
         credentials: 'same-origin',
@@ -72,24 +65,23 @@ export default function PasswordAuth({
           'Content-Type': 'application/json',
           'X-Requested-With': 'XMLHttpRequest',
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ password }),
       })
 
       if (!response.ok) {
         const errorData = await response.json()
-        setPasswordErrors([errorData.error || 'Invalid password. Please try again.'])
+        setPasswordErrors([
+          getChatPasswordAuthErrorMessage(copy, errorData.code || errorData.error || null),
+        ])
         setShowValidationError(true)
         return
       }
 
-      // Authentication successful, notify parent
       onAuthSuccess()
-
-      // Reset auth state
       setPassword('')
     } catch (error) {
       logger.error('Authentication error:', error)
-      setPasswordErrors(['An error occurred during authentication'])
+      setPasswordErrors([copy.auth.password.errors.authenticationError])
       setShowValidationError(true)
     } finally {
       setIsAuthenticating(false)
@@ -97,24 +89,20 @@ export default function PasswordAuth({
   }
 
   return (
-    <div className=' '>
+    <div className=''>
       <Nav variant='auth' />
       <div className='flex min-h-[calc(100vh-120px)] items-center justify-center px-4'>
         <div className='w-full max-w-[410px]'>
           <div className='flex flex-col items-center justify-center'>
-            {/* Header */}
             <div className='space-y-1 text-center'>
-              <h1
-                className={`${soehne.className} font-medium text-[32px] tracking-tight`}
-              >
-                Password Required
+              <h1 className={`${soehne.className} font-medium text-[32px] tracking-tight`}>
+                {copy.auth.password.title}
               </h1>
               <p className={`${inter.className} font-[380] text-[16px] text-muted-foreground`}>
-                This chat is password-protected
+                {copy.auth.password.description}
               </p>
             </div>
 
-            {/* Form */}
             <form
               onSubmit={(e) => {
                 e.preventDefault()
@@ -125,7 +113,7 @@ export default function PasswordAuth({
               <div className='space-y-6'>
                 <div className='space-y-2'>
                   <div className='flex items-center justify-between'>
-                    <Label htmlFor='password'>Password</Label>
+                    <Label htmlFor='password'>{copy.auth.password.label}</Label>
                   </div>
                   <div className='relative'>
                     <Input
@@ -136,15 +124,15 @@ export default function PasswordAuth({
                       autoCapitalize='none'
                       autoComplete='new-password'
                       autoCorrect='off'
-                      placeholder='Enter password'
+                      placeholder={copy.auth.password.placeholder}
                       value={password}
                       onChange={handlePasswordChange}
                       onKeyDown={handleKeyDown}
                       className={cn(
                         'rounded-md pr-10 shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                         showValidationError &&
-                        passwordErrors.length > 0 &&
-                        'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                          passwordErrors.length > 0 &&
+                          'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                       )}
                       autoFocus
                     />
@@ -152,7 +140,7 @@ export default function PasswordAuth({
                       type='button'
                       onClick={() => setShowPassword(!showPassword)}
                       className='-translate-y-1/2 absolute top-1/2 right-3 text-gray-500 transition hover:text-gray-700'
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      aria-label={showPassword ? copy.auth.password.hidePassword : copy.auth.password.showPassword}
                     >
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
@@ -168,7 +156,7 @@ export default function PasswordAuth({
               </div>
 
               <Button type='submit' className={primaryButtonClasses} disabled={isAuthenticating}>
-                {isAuthenticating ? 'Authenticating...' : 'Continue'}
+                {isAuthenticating ? copy.auth.password.submitting : copy.auth.password.submit}
               </Button>
             </form>
           </div>

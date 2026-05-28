@@ -74,8 +74,8 @@ import { getSystemOAuthClientCredentialsForRequest } from '@/lib/oauth/system-ma
 import { getOrganizationAccessState } from '@/lib/organization/access'
 import { getRegistrationEligibility, markWaitlistEntrySignedUp } from '@/lib/registration/service'
 import {
-  REGISTRATION_DISABLED_MESSAGE,
-  REGISTRATION_WAITLIST_MESSAGE,
+  REGISTRATION_DISABLED_REASON,
+  REGISTRATION_WAITLIST_REASON,
 } from '@/lib/registration/shared'
 import {
   createStripeClientProxy,
@@ -451,8 +451,8 @@ export const auth = betterAuth({
           throw new APIError('BAD_REQUEST', {
             message:
               eligibility.reason === 'disabled'
-                ? REGISTRATION_DISABLED_MESSAGE
-                : REGISTRATION_WAITLIST_MESSAGE,
+                ? REGISTRATION_DISABLED_REASON
+                : REGISTRATION_WAITLIST_REASON,
           })
         },
         after: async (user) => {

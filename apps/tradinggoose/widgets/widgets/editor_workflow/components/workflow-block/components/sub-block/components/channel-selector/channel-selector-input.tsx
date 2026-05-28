@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useLocale } from 'next-intl'
 import type { SubBlockConfig } from '@/blocks/types'
 import {
   type SlackChannelInfo,
@@ -9,7 +10,9 @@ import {
 import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-depends-on-gate'
 import { useForeignCredential } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-foreign-credential'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
+import { translateWorkflowLabel } from '@/i18n/block-editor'
 import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import type { LocaleCode } from '@/i18n/utils'
 
 interface ChannelSelectorInputProps {
   blockId: string
@@ -26,6 +29,7 @@ export function ChannelSelectorInput({
   onChannelSelect,
   contextValues,
 }: ChannelSelectorInputProps) {
+  const locale = useLocale() as LocaleCode
   const workflowIdFromUrl = useWorkflowId()
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlock.id)
   const [connectedCredential] = useSubBlockValue(blockId, 'credential')
@@ -82,7 +86,7 @@ export function ChannelSelectorInput({
           handleChannelChange(channelId, channelInfo)
         }}
         credential={credential}
-        label={subBlock.placeholder || 'Select Slack channel'}
+        label={subBlock.placeholder || translateWorkflowLabel(locale, 'Select Slack channel')}
         disabled={finalDisabled}
         workflowId={workflowIdFromUrl}
         isForeignCredential={isForeignCredential}

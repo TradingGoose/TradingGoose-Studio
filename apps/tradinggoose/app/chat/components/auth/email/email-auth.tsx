@@ -10,6 +10,9 @@ import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import Nav from '@/app/(landing)/components/nav/nav'
+import type { ChatCopy } from '@/app/chat/copy'
+import { getChatEmailAuthErrorMessage } from '@/app/chat/errors'
+import { formatTemplate } from '@/i18n/client-messages'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
 
@@ -20,31 +23,14 @@ interface EmailAuthProps {
   onAuthSuccess: () => void
   title?: string
   primaryColor?: string
-}
-
-const validateEmailField = (emailValue: string): string[] => {
-  const errors: string[] = []
-
-  if (!emailValue || !emailValue.trim()) {
-    errors.push('Email is required.')
-    return errors
-  }
-
-  const validation = quickValidateEmail(emailValue.trim().toLowerCase())
-  if (!validation.isValid) {
-    errors.push(validation.reason || 'Please enter a valid email address.')
-  }
-
-  return errors
+  copy: ChatCopy
 }
 
 export default function EmailAuth({
   identifier,
   onAuthSuccess,
-  title = 'chat',
-  primaryColor = 'var(--primary-hover)',
+  copy,
 }: EmailAuthProps) {
-  // Email auth state
   const [email, setEmail] = useState('')
   const [authError, setAuthError] = useState<string | null>(null)
   const [isSendingOtp, setIsSendingOtp] = useState(false)
@@ -54,7 +40,6 @@ export default function EmailAuth({
   const primaryButtonClasses =
     'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
 
-  // OTP verification state
   const [showOtpVerification, setShowOtpVerification] = useState(false)
   const [otpValue, setOtpValue] = useState('')
   const [countdown, setCountdown] = useState(0)
@@ -70,7 +55,22 @@ export default function EmailAuth({
     }
   }, [countdown, isResendDisabled])
 
-  // Handle email input key down
+  const validateEmailField = (emailValue: string): string[] => {
+    const errors: string[] = []
+
+    if (!emailValue || !emailValue.trim()) {
+      errors.push(copy.auth.email.validation.required)
+      return errors
+    }
+
+    const validation = quickValidateEmail(emailValue.trim().toLowerCase())
+    if (!validation.isValid) {
+      errors.push(copy.auth.email.validation.invalid)
+    }
+
+    return errors
+  }
+
   const handleEmailKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault()
@@ -81,21 +81,15 @@ export default function EmailAuth({
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newEmail = e.target.value
     setEmail(newEmail)
-
-    // Silently validate but don't show errors until submit
-    const errors = validateEmailField(newEmail)
-    setEmailErrors(errors)
+    setEmailErrors(validateEmailField(newEmail))
     setShowEmailValidationError(false)
   }
 
-  // Handle sending OTP
   const handleSendOtp = async () => {
-    // Validate email on submit
     const emailValidationErrors = validateEmailField(email)
     setEmailErrors(emailValidationErrors)
     setShowEmailValidationError(emailValidationErrors.length > 0)
 
-    // If there are validation errors, stop submission
     if (emailValidationErrors.length > 0) {
       return
     }
@@ -115,7 +109,9 @@ export default function EmailAuth({
 
       if (!response.ok) {
         const errorData = await response.json()
-        setEmailErrors([errorData.error || 'Failed to send verification code'])
+        setEmailErrors([
+          getChatEmailAuthErrorMessage(copy, errorData.code || errorData.error || null),
+        ])
         setShowEmailValidationError(true)
         return
       }
@@ -123,7 +119,7 @@ export default function EmailAuth({
       setShowOtpVerification(true)
     } catch (error) {
       logger.error('Error sending OTP:', error)
-      setEmailErrors(['An error occurred while sending the verification code'])
+      setEmailErrors([copy.auth.email.errors.authenticationError])
       setShowEmailValidationError(true)
     } finally {
       setIsSendingOtp(false)
@@ -152,14 +148,14 @@ export default function EmailAuth({
 
       if (!response.ok) {
         const errorData = await response.json()
-        setAuthError(errorData.error || 'Invalid verification code')
+        setAuthError(getChatEmailAuthErrorMessage(copy, errorData.code || errorData.error || null))
         return
       }
 
       onAuthSuccess()
     } catch (error) {
       logger.error('Error verifying OTP:', error)
-      setAuthError('An error occurred during verification')
+      setAuthError(copy.auth.email.errors.verifyFailed)
     } finally {
       setIsVerifyingOtp(false)
     }
@@ -183,17 +179,16 @@ export default function EmailAuth({
 
       if (!response.ok) {
         const errorData = await response.json()
-        setAuthError(errorData.error || 'Failed to resend verification code')
+        setAuthError(getChatEmailAuthErrorMessage(copy, errorData.code || errorData.error || null))
         setIsResendDisabled(false)
         setCountdown(0)
         return
       }
 
-      // Don't show success message in error state, just reset OTP
       setOtpValue('')
     } catch (error) {
       logger.error('Error resending OTP:', error)
-      setAuthError('An error occurred while resending the verification code')
+      setAuthError(copy.auth.email.errors.resendFailed)
       setIsResendDisabled(false)
       setCountdown(0)
     } finally {
@@ -202,26 +197,22 @@ export default function EmailAuth({
   }
 
   return (
-    <div className=' '>
+    <div className=''>
       <Nav variant='auth' />
       <div className='flex min-h-[calc(100vh-120px)] items-center justify-center px-4'>
         <div className='w-full max-w-[410px]'>
           <div className='flex flex-col items-center justify-center'>
-            {/* Header */}
             <div className='space-y-1 text-center'>
-              <h1
-                className={`${soehne.className} font-medium text-[32px] tracking-tight`}
-              >
-                {showOtpVerification ? 'Verify Your Email' : 'Email Verification'}
+              <h1 className={`${soehne.className} font-medium text-[32px] tracking-tight`}>
+                {showOtpVerification ? copy.auth.email.verifyTitle : copy.auth.email.title}
               </h1>
               <p className={`${inter.className} font-[380] text-[16px] text-muted-foreground`}>
                 {showOtpVerification
-                  ? `A verification code has been sent to ${email}`
-                  : 'This chat requires email verification'}
+                  ? formatTemplate(copy.auth.email.verifiedDescription, { email })
+                  : copy.auth.email.description}
               </p>
             </div>
 
-            {/* Form */}
             <div className={`${inter.className} mt-8 w-full`}>
               {!showOtpVerification ? (
                 <form
@@ -234,12 +225,12 @@ export default function EmailAuth({
                   <div className='space-y-6'>
                     <div className='space-y-2'>
                       <div className='flex items-center justify-between'>
-                        <Label htmlFor='email'>Email</Label>
+                        <Label htmlFor='email'>{copy.auth.email.label}</Label>
                       </div>
                       <Input
                         id='email'
                         name='email'
-                        placeholder='Enter your email'
+                        placeholder={copy.auth.email.placeholder}
                         required
                         autoCapitalize='none'
                         autoComplete='email'
@@ -250,8 +241,8 @@ export default function EmailAuth({
                         className={cn(
                           'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                           showEmailValidationError &&
-                          emailErrors.length > 0 &&
-                          'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                            emailErrors.length > 0 &&
+                            'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                         )}
                         autoFocus
                       />
@@ -269,10 +260,10 @@ export default function EmailAuth({
                     {isSendingOtp ? (
                       <>
                         <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                        Sending Code...
+                        {copy.auth.email.submitting}
                       </>
                     ) : (
-                      'Continue'
+                      copy.auth.email.submit
                     )}
                   </Button>
                 </form>
@@ -280,8 +271,7 @@ export default function EmailAuth({
                 <div className='space-y-8'>
                   <div className='space-y-6'>
                     <p className='text-center text-muted-foreground text-sm'>
-                      Enter the 6-digit code to verify your account. If you don't see it in your
-                      inbox, check your spam folder.
+                      {copy.auth.email.instructions}
                     </p>
 
                     <div className='flex justify-center'>
@@ -306,8 +296,7 @@ export default function EmailAuth({
                                 '!rounded-md h-12 w-12 border text-center font-medium text-lg shadow-sm transition-all duration-200',
                                 'border-gray-300 hover:border-gray-400',
                                 'focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-100',
-                                authError &&
-                                'border-red-500 focus:border-red-500 focus:ring-red-100'
+                                authError && 'border-red-500 focus:border-red-500 focus:ring-red-100'
                               )}
                             />
                           ))}
@@ -315,7 +304,6 @@ export default function EmailAuth({
                       </InputOTP>
                     </div>
 
-                    {/* Error message */}
                     {authError && (
                       <div className='mt-1 space-y-1 text-center text-red-400 text-xs'>
                         <p>{authError}</p>
@@ -328,16 +316,15 @@ export default function EmailAuth({
                     className={primaryButtonClasses}
                     disabled={otpValue.length !== 6 || isVerifyingOtp}
                   >
-                    {isVerifyingOtp ? 'Verifying...' : 'Verify Email'}
+                    {isVerifyingOtp ? copy.auth.email.verifying : copy.auth.email.verifyButton}
                   </Button>
 
                   <div className='text-center'>
                     <p className='text-muted-foreground text-sm'>
-                      Didn't receive a code?{' '}
+                      {copy.auth.email.resendPrompt}{' '}
                       {countdown > 0 ? (
                         <span>
-                          Resend in{' '}
-                          <span className='font-medium text-foreground'>{countdown}s</span>
+                          {formatTemplate(copy.auth.email.resendIn, { countdown })}
                         </span>
                       ) : (
                         <button
@@ -345,7 +332,7 @@ export default function EmailAuth({
                           onClick={handleResendOtp}
                           disabled={isVerifyingOtp || isResendDisabled}
                         >
-                          Resend
+                          {copy.auth.email.resend}
                         </button>
                       )}
                     </p>
@@ -360,7 +347,7 @@ export default function EmailAuth({
                       }}
                       className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
                     >
-                      Change email
+                      {copy.auth.email.changeEmail}
                     </button>
                   </div>
                 </div>

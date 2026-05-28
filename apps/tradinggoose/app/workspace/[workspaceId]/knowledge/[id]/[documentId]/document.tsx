@@ -14,6 +14,7 @@ import {
   X,
 } from 'lucide-react'
 import { useParams, useSearchParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -81,6 +82,7 @@ export function Document({
   const searchParams = useSearchParams()
   const currentPageFromURL = Number.parseInt(searchParams.get('page') || '1', 10)
   const userPermissions = useUserPermissionsContext()
+  const t = useTranslations('workspace.knowledge.document')
 
   // Search state management
   const [searchQuery, setSearchQuery] = useState('')
@@ -505,7 +507,7 @@ export function Document({
           type='text'
           placeholder={
             documentData?.processingStatus === 'completed'
-              ? 'Search chunks...'
+              ? t('searchChunksPlaceholder')
               : 'Document processing...'
           }
           value={searchQuery}
@@ -527,7 +529,7 @@ export function Document({
               className='h-9 rounded-sm px-3'
             >
               <Plus className='h-3.5 w-3.5' />
-              <span>Create Chunk</span>
+              <span>{t('createChunk')}</span>
             </PrimaryButton>
           </div>
         </TooltipTrigger>
@@ -1006,18 +1008,18 @@ export function Document({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {chunksPendingDelete.length === 1 ? 'Delete chunk?' : 'Delete chunks?'}
+              {chunksPendingDelete.length === 1 ? t('deleteChunkTitle') : t('deleteChunksTitle')}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {chunksPendingDelete.length === 1
-                ? 'Deleting this chunk will permanently remove it from this document.'
-                : `Deleting ${chunksPendingDelete.length} chunks will permanently remove them from this document.`}{' '}
-              <span className='text-red-500 dark:text-red-500'>This action cannot be undone.</span>
+                ? t('deleteChunkDescription')
+                : t('deleteChunksDescription', { count: chunksPendingDelete.length })}{' '}
+              <span className='text-red-500 dark:text-red-500'>{t('thisActionCannotBeUndone')}</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className='flex'>
             <AlertDialogCancel className='h-9 w-full rounded-sm' disabled={isDeletingChunks}>
-              Cancel
+              {t('cancel')}
             </AlertDialogCancel>
             <Button
               onClick={handleConfirmDeleteChunks}

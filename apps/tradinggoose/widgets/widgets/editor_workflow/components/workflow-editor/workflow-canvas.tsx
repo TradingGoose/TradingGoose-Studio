@@ -24,7 +24,6 @@ import { useCurrentWorkflow } from '@/hooks/workflow'
 import { useCopilotStore } from '@/stores/copilot/store'
 import { useExecutionStore } from '@/stores/execution/store'
 import { hasWorkflowsInitiallyLoaded, useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { getUniqueBlockName } from '@/stores/workflows/utils'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
@@ -32,6 +31,7 @@ import { isBlockProtected } from '@/stores/workflows/workflow/utils'
 import { ControlBar } from '@/widgets/widgets/editor_workflow/components/control-bar/control-bar'
 import { FloatingControls } from '@/widgets/widgets/editor_workflow/components/floating-controls/floating-controls'
 import { TriggerList } from '@/widgets/widgets/editor_workflow/components/trigger-list/trigger-list'
+import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 import {
   TriggerWarningDialog,
   TriggerWarningType,
@@ -142,6 +142,7 @@ const WorkflowCanvas = React.memo(
     viewportBounds,
   }: WorkflowCanvasProps) => {
     const uiConfig = useMemo(() => ({ ...defaultUIConfig, ...ui }), [ui])
+    const { getLocalizedDefaultBlockName, getLocalizedUniqueBlockName } = useWorkflowI18n()
     // State
     const [isWorkflowReady, setIsWorkflowReady] = useState(false)
 
@@ -658,8 +659,7 @@ const WorkflowCanvas = React.memo(
           // Create a unique ID and name for the container
           const id = crypto.randomUUID()
 
-          const baseName = type === 'loop' ? 'Loop' : 'Parallel'
-          const name = getUniqueBlockName(baseName, blocks)
+          const name = getLocalizedUniqueBlockName(type, blocks)
 
           // Calculate the center position of the viewport
           const centerPosition = projectViewportCenter()
@@ -714,10 +714,7 @@ const WorkflowCanvas = React.memo(
 
         // Create a new block with a unique ID
         const id = crypto.randomUUID()
-        // Prefer semantic default names for triggers; then ensure unique numbering centrally
-        const defaultTriggerName = TriggerUtils.getDefaultTriggerName(type)
-        const baseName = defaultTriggerName || blockConfig.name
-        const name = getUniqueBlockName(baseName, blocks)
+        const name = getLocalizedUniqueBlockName(type, blocks)
 
         // Auto-connect logic
         const isAutoConnectEnabled = AUTO_CONNECT_ENABLED
@@ -746,7 +743,7 @@ const WorkflowCanvas = React.memo(
         if (additionIssue) {
           setTriggerWarning({
             open: true,
-            triggerName: additionIssue.triggerName,
+            triggerName: getLocalizedDefaultBlockName(type),
             type: TriggerWarningType.DUPLICATE_TRIGGER,
           })
           return
@@ -781,13 +778,24 @@ const WorkflowCanvas = React.memo(
       setTriggerWarning,
       projectViewportCenter,
       toolbarScopeId,
+      getLocalizedDefaultBlockName,
+      getLocalizedUniqueBlockName,
     ])
 
     // Handler for trigger selection from list
     const handleTriggerSelect = useCallback(
       (triggerId: string, enableTriggerMode?: boolean) => {
-        // Get the trigger name
-        const triggerName = TriggerUtils.getDefaultTriggerName(triggerId) || triggerId
+        const additionIssue = TriggerUtils.getTriggerAdditionIssue(blocks, triggerId)
+        if (additionIssue) {
+          setTriggerWarning({
+            open: true,
+            triggerName: getLocalizedDefaultBlockName(triggerId),
+            type: TriggerWarningType.DUPLICATE_TRIGGER,
+          })
+          return
+        }
+
+        const triggerName = getLocalizedUniqueBlockName(triggerId, blocks)
 
         // Create the trigger block at the center of the viewport
         const centerPosition = projectViewportCenter()
@@ -806,7 +814,7 @@ const WorkflowCanvas = React.memo(
           enableTriggerMode || false
         )
       },
-      [addBlock, projectViewportCenter]
+      [addBlock, blocks, getLocalizedDefaultBlockName, getLocalizedUniqueBlockName, projectViewportCenter]
     )
 
     // Update the onDrop handler
@@ -835,8 +843,7 @@ const WorkflowCanvas = React.memo(
             // Create a unique ID and name for the container
             const id = crypto.randomUUID()
 
-            const baseName = data.type === 'loop' ? 'Loop' : 'Parallel'
-            const name = getUniqueBlockName(baseName, blocks)
+            const name = getLocalizedUniqueBlockName(data.type, blocks)
 
             // Check if we're dropping inside another container
             if (containerDropTarget) {
@@ -905,15 +912,7 @@ const WorkflowCanvas = React.memo(
 
           // Generate id and name here so they're available in all code paths
           const id = crypto.randomUUID()
-          // Prefer semantic default names for triggers; then ensure unique numbering centrally
-          const defaultTriggerNameDrop = TriggerUtils.getDefaultTriggerName(data.type)
-          const baseName =
-            data.type === 'loop'
-              ? 'Loop'
-              : data.type === 'parallel'
-                ? 'Parallel'
-                : defaultTriggerNameDrop || blockConfig!.name
-          const name = getUniqueBlockName(baseName, blocks)
+          const name = getLocalizedUniqueBlockName(data.type, blocks)
 
           if (containerDropTarget) {
             // Calculate position relative to the container node
@@ -1000,7 +999,7 @@ const WorkflowCanvas = React.memo(
             if (dropIssue) {
               setTriggerWarning({
                 open: true,
-                triggerName: dropIssue.triggerName,
+                triggerName: getLocalizedDefaultBlockName(data.type),
                 type: TriggerWarningType.DUPLICATE_TRIGGER,
               })
               return

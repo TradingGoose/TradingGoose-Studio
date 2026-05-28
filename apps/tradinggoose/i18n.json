@@ -1,0 +1,19 @@
+{
+  "$schema": "https://lingo.dev/schema/i18n.json",
+  "version": "1.15",
+  "engineId": "eng_y8VsxNUigtXeqOuM",
+  "locale": {
+    "source": "en",
+    "targets": [
+      "es",
+      "zh-CN"
+    ]
+  },
+  "buckets": {
+    "json": {
+      "include": [
+        "i18n/messages/[locale].json"
+      ]
+    }
+  }
+}

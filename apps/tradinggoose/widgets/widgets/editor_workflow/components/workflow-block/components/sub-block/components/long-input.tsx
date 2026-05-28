@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { ChevronsUpDown, Wand2 } from 'lucide-react'
 import { useReactFlow } from '@xyflow/react'
+import { ChevronsUpDown, Wand2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-dropdown'
 import { formatDisplayText } from '@/components/ui/formatted-text'
@@ -8,14 +8,15 @@ import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { Textarea } from '@/components/ui/textarea'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
+import { useWorkflowTextField } from '@/lib/yjs/use-workflow-doc'
+import type { SubBlockConfig } from '@/blocks/types'
+import { useTagSelection } from '@/hooks/use-tag-selection'
+import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
+import { useWand } from '@/hooks/workflow/use-wand'
 import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
 import { useBufferedStringValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-buffered-string-value'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
-import { useWand } from '@/hooks/workflow/use-wand'
-import type { SubBlockConfig } from '@/blocks/types'
-import { useTagSelection } from '@/hooks/use-tag-selection'
-import { useWorkflowTextField } from '@/lib/yjs/use-workflow-doc'
+import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 const logger = createLogger('LongInput')
 
@@ -47,6 +48,7 @@ export function LongInput({
   onChange,
   disabled = false,
 }: LongInputProps) {
+  const copy = useWorkflowBlockEditorCopy().longInput
   const workspaceId = useWorkspaceId()
   const [isFocused, setIsFocused] = useState(false)
   const [streamingLock, setStreamingLock] = useState(false)
@@ -363,7 +365,7 @@ export function LongInput({
           onSubmit={(prompt: string) => wandHook.generateStream({ prompt })}
           onCancel={wandHook.isStreaming ? wandHook.cancelGeneration : wandHook.hidePromptInline}
           onChange={wandHook.updatePromptValue}
-          placeholder={resolvedWandConfig.placeholder || 'Describe what you want to generate...'}
+          placeholder={resolvedWandConfig.placeholder || copy.wandPlaceholder}
         />
       )}
 
@@ -377,8 +379,8 @@ export function LongInput({
           className={cn(
             'allow-scroll min-h-full w-full resize-none text-transparent caret-foreground placeholder:text-muted-foreground/50',
             isConnecting &&
-            config?.connectionDroppable !== false &&
-            'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500',
+              config?.connectionDroppable !== false &&
+              'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500',
             wandHook.isStreaming && 'pointer-events-none cursor-not-allowed opacity-50'
           )}
           rows={rows ?? DEFAULT_ROWS}
@@ -437,7 +439,7 @@ export function LongInput({
                 wandHook.isPromptVisible ? wandHook.hidePromptInline : wandHook.showPromptInline
               }
               disabled={wandHook.isLoading || wandHook.isStreaming || disabled}
-              aria-label='Generate content with AI'
+              aria-label={copy.generateContentWithAi}
               className='h-8 w-8 rounded-sm border border-transparent bg-muted/80 text-muted-foreground shadow-sm transition-all duration-200 hover:bg-muted hover:text-foreground hover:shadow'
             >
               <Wand2 className='h-4 w-4' />

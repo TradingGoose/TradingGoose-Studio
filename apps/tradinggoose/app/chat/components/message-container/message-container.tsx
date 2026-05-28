@@ -3,6 +3,7 @@
 import { memo, type RefObject } from 'react'
 import { ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import type { ChatCopy } from '@/app/chat/copy'
 import { type ChatMessage, ClientChatMessage } from '@/app/chat/components/message/message'
 
 interface ChatMessageContainerProps {
@@ -16,6 +17,7 @@ interface ChatMessageContainerProps {
   chatConfig: {
     description?: string
   } | null
+  copy: ChatCopy
 }
 
 export const ChatMessageContainer = memo(function ChatMessageContainer({
@@ -27,9 +29,10 @@ export const ChatMessageContainer = memo(function ChatMessageContainer({
   scrollToBottom,
   scrollToMessage,
   chatConfig,
+  copy,
 }: ChatMessageContainerProps) {
   return (
-    <div className='relative flex flex-1 flex-col overflow-hidden '>
+    <div className='relative flex flex-1 flex-col overflow-hidden'>
       <style jsx>{`
         @keyframes growShrink {
           0%,
@@ -45,7 +48,6 @@ export const ChatMessageContainer = memo(function ChatMessageContainer({
         }
       `}</style>
 
-      {/* Scrollable Messages Area */}
       <div
         ref={messagesContainerRef}
         className='absolute inset-0 touch-pan-y overflow-y-auto overscroll-auto scroll-smooth'
@@ -54,17 +56,18 @@ export const ChatMessageContainer = memo(function ChatMessageContainer({
           {messages.length === 0 ? (
             <div className='flex flex-col items-center justify-center py-10'>
               <div className='space-y-2 text-center'>
-                <h3 className='font-medium text-lg'>How can I help you today?</h3>
+                <h3 className='font-medium text-lg'>{copy.messageContainer.emptyTitle}</h3>
                 <p className='text-muted-foreground text-sm'>
-                  {chatConfig?.description || 'Ask me anything.'}
+                  {chatConfig?.description || copy.messageContainer.emptyDescription}
                 </p>
               </div>
             </div>
           ) : (
-            messages.map((message) => <ClientChatMessage key={message.id} message={message} />)
+            messages.map((message) => (
+              <ClientChatMessage key={message.id} message={message} copy={copy} />
+            ))
           )}
 
-          {/* Loading indicator (shows only when executing) */}
           {isLoading && (
             <div className='px-4 py-5'>
               <div className='mx-auto max-w-3xl'>
@@ -79,12 +82,10 @@ export const ChatMessageContainer = memo(function ChatMessageContainer({
             </div>
           )}
 
-          {/* End of messages marker for scrolling */}
           <div ref={messagesEndRef} />
         </div>
       </div>
 
-      {/* Scroll to bottom button - appears when user scrolls up */}
       {showScrollButton && (
         <div className='-translate-x-1/2 absolute bottom-16 left-1/2 z-20 transform'>
           <Button
@@ -94,7 +95,7 @@ export const ChatMessageContainer = memo(function ChatMessageContainer({
             className='flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1 shadow-lg transition-all hover:bg-gray-50'
           >
             <ArrowDown className='h-3.5 w-3.5' />
-            <span className='sr-only'>Scroll to bottom</span>
+            <span className='sr-only'>{copy.messageContainer.scrollToBottom}</span>
           </Button>
         </div>
       )}

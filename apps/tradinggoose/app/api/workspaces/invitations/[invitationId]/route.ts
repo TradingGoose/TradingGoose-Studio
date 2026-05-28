@@ -12,6 +12,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
+import { getLocaleFromHeaders, localizeHref } from '@/i18n/utils'
 
 // GET /api/workspaces/invitations/[invitationId] - Get invitation details OR accept via token
 export async function GET(
@@ -22,11 +23,14 @@ export async function GET(
   const session = await getSession()
   const token = req.nextUrl.searchParams.get('token')
   const isAcceptFlow = !!token // If token is provided, this is an acceptance flow
+  const locale = getLocaleFromHeaders(req.headers)
 
   if (!session?.user?.id) {
     // For token-based acceptance flows, redirect to login
     if (isAcceptFlow) {
-      return NextResponse.redirect(new URL(`/invite/${invitationId}?token=${token}`, getBaseUrl()))
+      return NextResponse.redirect(
+        new URL(localizeHref(locale, `/invite/${invitationId}?token=${token}`), getBaseUrl())
+      )
     }
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -45,7 +49,7 @@ export async function GET(
     if (!invitation) {
       if (isAcceptFlow) {
         return NextResponse.redirect(
-          new URL(`/invite/${invitationId}?error=invalid-token`, getBaseUrl())
+          new URL(localizeHref(locale, `/invite/${invitationId}?error=invalid-token`), getBaseUrl())
         )
       }
       return NextResponse.json({ error: 'Invitation not found or has expired' }, { status: 404 })
@@ -54,7 +58,7 @@ export async function GET(
     if (new Date() > new Date(invitation.expiresAt)) {
       if (isAcceptFlow) {
         return NextResponse.redirect(
-          new URL(`/invite/${invitation.id}?error=expired`, getBaseUrl())
+          new URL(localizeHref(locale, `/invite/${invitation.id}?error=expired`), getBaseUrl())
         )
       }
       return NextResponse.json({ error: 'Invitation has expired' }, { status: 400 })
@@ -69,7 +73,10 @@ export async function GET(
     if (!workspaceDetails) {
       if (isAcceptFlow) {
         return NextResponse.redirect(
-          new URL(`/invite/${invitation.id}?error=workspace-not-found`, getBaseUrl())
+          new URL(
+            localizeHref(locale, `/invite/${invitation.id}?error=workspace-not-found`),
+            getBaseUrl()
+          )
         )
       }
       return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
@@ -78,7 +85,10 @@ export async function GET(
     if (isAcceptFlow) {
       if (invitation.status !== ('pending' as WorkspaceInvitationStatus)) {
         return NextResponse.redirect(
-          new URL(`/invite/${invitation.id}?error=already-processed`, getBaseUrl())
+          new URL(
+            localizeHref(locale, `/invite/${invitation.id}?error=already-processed`),
+            getBaseUrl()
+          )
         )
       }
 
@@ -93,7 +103,7 @@ export async function GET(
 
       if (!userData) {
         return NextResponse.redirect(
-          new URL(`/invite/${invitation.id}?error=user-not-found`, getBaseUrl())
+          new URL(localizeHref(locale, `/invite/${invitation.id}?error=user-not-found`), getBaseUrl())
         )
       }
 
@@ -101,7 +111,7 @@ export async function GET(
 
       if (!isValidMatch) {
         return NextResponse.redirect(
-          new URL(`/invite/${invitation.id}?error=email-mismatch`, getBaseUrl())
+          new URL(localizeHref(locale, `/invite/${invitation.id}?error=email-mismatch`), getBaseUrl())
         )
       }
 
@@ -127,7 +137,10 @@ export async function GET(
           .where(eq(workspaceInvitation.id, invitation.id))
 
         return NextResponse.redirect(
-          new URL(`/workspace/${invitation.workspaceId}/dashboard`, getBaseUrl())
+          new URL(
+            localizeHref(locale, `/workspace/${invitation.workspaceId}/dashboard`),
+            getBaseUrl()
+          )
         )
       }
 
@@ -152,7 +165,7 @@ export async function GET(
       })
 
       return NextResponse.redirect(
-        new URL(`/workspace/${invitation.workspaceId}/dashboard`, getBaseUrl())
+        new URL(localizeHref(locale, `/workspace/${invitation.workspaceId}/dashboard`), getBaseUrl())
       )
     }
 

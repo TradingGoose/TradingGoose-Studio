@@ -35,7 +35,10 @@
     "docs:generate": "bun run scripts/doc-gen/index.ts",
     "docs:generate:tools": "bun run scripts/doc-gen/index.ts tools",
     "docs:generate:triggers": "bun run scripts/doc-gen/index.ts triggers",
-    "script:indicator": "bun run scripts/indicators/index.ts"
+    "script:indicator": "bun run scripts/indicators/index.ts",
+    "workflow:integration-audit": "bun run scripts/audit-workflow-integration-english-copy.ts",
+    "workflow:integration-i18n": "bun run scripts/workflow-integration-i18n.ts --check",
+    "workflow:integration-i18n:sync": "bun run scripts/workflow-integration-i18n.ts --sync-en"
   },
   "overrides": {
     "react": "19.2.4",

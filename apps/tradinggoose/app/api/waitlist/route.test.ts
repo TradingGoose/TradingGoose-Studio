@@ -91,7 +91,8 @@ describe('waitlist route', () => {
 
     expect(response.status).toBe(403)
     expect(await response.json()).toEqual({
-      error: 'Registration is currently disabled.',
+      error: 'registration_disabled',
+      code: 'REGISTRATION_DISABLED',
     })
     expect(mockAddToWaitlist).not.toHaveBeenCalled()
   })

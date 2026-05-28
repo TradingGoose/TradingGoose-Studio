@@ -5,6 +5,7 @@ import { Search, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useTranslations } from 'next-intl'
 import { serializeQuery } from '@/lib/logs/query-parser'
 import type { QueryPolicy, SearchClause } from '@/lib/logs/query-types'
 import {
@@ -47,6 +48,8 @@ export function AutocompleteSearch({
   externalClauses = [],
   onRemoveExternalClause,
 }: AutocompleteSearchProps) {
+  const t = useTranslations('workspace.logs')
+  const resolvedPlaceholder = placeholder ?? t('searchPlaceholder')
   const suggestionEngine = useMemo(
     () =>
       new SearchSuggestions({
@@ -257,7 +260,7 @@ export function AutocompleteSearch({
                 onKeyDown={handleKeyDown}
                 onFocus={handleFocus}
                 onBlur={handleBlur}
-                placeholder={!hasClauses && !hasTextSearch ? placeholder : ''}
+                placeholder={!hasClauses && !hasTextSearch ? resolvedPlaceholder : ''}
                 className='h-full min-w-[120px] flex-1 bg-transparent outline-none placeholder:text-muted-foreground'
                 autoComplete='off'
                 autoCorrect='off'

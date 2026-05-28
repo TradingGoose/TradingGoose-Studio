@@ -1,5 +1,11 @@
 import type { McpTransport } from '@/lib/mcp/types'
 
+export type McpServersErrorCode =
+  | 'failedToFetchServers'
+  | 'failedToCreateServer'
+  | 'failedToUpdateServer'
+  | 'failedToDeleteServer'
+
 export interface McpServerWithStatus {
   id: string
   name: string
@@ -29,7 +35,7 @@ export interface McpServerWithStatus {
 export interface McpServersState {
   servers: McpServerWithStatus[]
   isLoading: boolean
-  error: string | null
+  errorCode: McpServersErrorCode | null
 }
 
 export interface McpServersActions {
@@ -64,5 +70,5 @@ export interface McpServersActions {
 export const initialState: McpServersState = {
   servers: [],
   isLoading: false,
-  error: null,
+  errorCode: null,
 }

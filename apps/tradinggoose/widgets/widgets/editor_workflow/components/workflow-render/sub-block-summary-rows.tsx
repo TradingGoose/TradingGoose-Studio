@@ -16,6 +16,8 @@ import { cn } from '@/lib/utils'
 import { getTriggerAwareSubBlockStableKey } from '@/lib/workflows/sub-block-keys'
 import { resolveDisplayedSubBlockValue } from '@/lib/workflows/subblock-values'
 import type { SubBlockConfig } from '@/blocks/types'
+import { formatWorkflowTemplate } from '@/i18n/workflow-inspector-core'
+import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 
 export interface SubBlockSummaryConditionRow {
   id: string
@@ -40,8 +42,6 @@ interface JsonPreviewFieldRow {
 }
 
 const EMPTY_VALUE_LABEL = '-'
-const CONFIGURED_VALUE_LABEL = 'Configured'
-const ERROR_ROW_LABEL = 'error'
 const JSON_PREVIEW_ROW_LIMIT = 8
 
 function readSubBlockStateValue(entry: unknown): unknown {
@@ -51,7 +51,11 @@ function readSubBlockStateValue(entry: unknown): unknown {
   return entry
 }
 
-function formatSubBlockSummaryValue(value: unknown): string {
+function formatSummaryOverflow(template: string, count: number): string {
+  return formatWorkflowTemplate(template, { count })
+}
+
+function formatSubBlockSummaryValue(value: unknown, objectItemLabel: string): string {
   if (value === null || value === undefined || value === '') {
     return EMPTY_VALUE_LABEL
   }
@@ -64,7 +68,7 @@ function formatSubBlockSummaryValue(value: unknown): string {
     if (typeof item === 'object' && !Array.isArray(item)) {
       const objectItem = item as Record<string, unknown>
       return String(
-        objectItem.title || objectItem.name || objectItem.label || objectItem.id || '[Object]'
+        objectItem.title || objectItem.name || objectItem.label || objectItem.id || objectItemLabel
       )
     }
 
@@ -146,16 +150,26 @@ function parseJsonDetailValue(value: unknown): unknown {
   }
 }
 
-function buildJsonPreviewFieldRows(value: unknown): JsonPreviewFieldRow[] {
+function buildJsonPreviewFieldRows({
+  value,
+  labels,
+  objectItemLabel,
+  additionalCountTemplate,
+}: {
+  value: unknown
+  labels: Record<string, string>
+  objectItemLabel: string
+  additionalCountTemplate: string
+}): JsonPreviewFieldRow[] {
   const parsedValue = parseJsonDetailValue(value)
 
   if (parsedValue === null || parsedValue === undefined || parsedValue === '') {
-    return [{ title: 'value', value: EMPTY_VALUE_LABEL }]
+    return [{ title: labels.value, value: EMPTY_VALUE_LABEL }]
   }
 
   if (Array.isArray(parsedValue)) {
     if (parsedValue.length === 0) {
-      return [{ title: 'items', value: '0' }]
+      return [{ title: labels.items, value: '0' }]
     }
 
     const firstItem = parsedValue[0]
@@ -163,19 +177,22 @@ function buildJsonPreviewFieldRows(value: unknown): JsonPreviewFieldRow[] {
       const entries = Object.entries(firstItem)
       const rows = entries.slice(0, JSON_PREVIEW_ROW_LIMIT).map(([key, entryValue]) => ({
         title: key,
-        value: formatSubBlockSummaryValue(entryValue),
+        value: formatSubBlockSummaryValue(entryValue, objectItemLabel),
       }))
 
       if (entries.length > JSON_PREVIEW_ROW_LIMIT) {
         rows.push({
-          title: 'fields',
-          value: `+${entries.length - JSON_PREVIEW_ROW_LIMIT} more`,
+          title: labels.fields,
+          value: formatSummaryOverflow(
+            additionalCountTemplate,
+            entries.length - JSON_PREVIEW_ROW_LIMIT
+          ),
         })
       }
 
       if (parsedValue.length > 1) {
         rows.push({
-          title: 'items',
+          title: labels.items,
           value: String(parsedValue.length),
         })
       }
@@ -183,14 +200,18 @@ function buildJsonPreviewFieldRows(value: unknown): JsonPreviewFieldRow[] {
       return rows
     }
 
-    const rows = parsedValue
-      .slice(0, JSON_PREVIEW_ROW_LIMIT)
-      .map((item, index) => ({ title: `[${index}]`, value: formatSubBlockSummaryValue(item) }))
+    const rows = parsedValue.slice(0, JSON_PREVIEW_ROW_LIMIT).map((item, index) => ({
+      title: `[${index}]`,
+      value: formatSubBlockSummaryValue(item, objectItemLabel),
+    }))
 
     if (parsedValue.length > JSON_PREVIEW_ROW_LIMIT) {
       rows.push({
-        title: 'items',
-        value: `+${parsedValue.length - JSON_PREVIEW_ROW_LIMIT} more`,
+        title: labels.items,
+        value: formatSummaryOverflow(
+          additionalCountTemplate,
+          parsedValue.length - JSON_PREVIEW_ROW_LIMIT
+        ),
       })
     }
 
@@ -200,25 +221,33 @@ function buildJsonPreviewFieldRows(value: unknown): JsonPreviewFieldRow[] {
   if (typeof parsedValue === 'object') {
     const entries = Object.entries(parsedValue)
     if (entries.length === 0) {
-      return [{ title: 'object', value: '{}' }]
+      return [{ title: labels.object, value: '{}' }]
     }
 
     const rows = entries.slice(0, JSON_PREVIEW_ROW_LIMIT).map(([key, entryValue]) => ({
       title: key,
-      value: formatSubBlockSummaryValue(entryValue),
+      value: formatSubBlockSummaryValue(entryValue, objectItemLabel),
     }))
 
     if (entries.length > JSON_PREVIEW_ROW_LIMIT) {
       rows.push({
-        title: 'fields',
-        value: `+${entries.length - JSON_PREVIEW_ROW_LIMIT} more`,
+        title: labels.fields,
+        value: formatSummaryOverflow(
+          additionalCountTemplate,
+          entries.length - JSON_PREVIEW_ROW_LIMIT
+        ),
       })
     }
 
     return rows
   }
 
-  return [{ title: 'value', value: formatSubBlockSummaryValue(parsedValue) }]
+  return [
+    {
+      title: labels.value,
+      value: formatSubBlockSummaryValue(parsedValue, objectItemLabel),
+    },
+  ]
 }
 
 function formatSkillInputValue(value: unknown): string {
@@ -292,11 +321,13 @@ function SummaryRow({
 function SummaryListingRow({
   title,
   value,
+  objectItemLabel,
   labelClassName,
   valueClassName,
 }: {
   title: string
   value: unknown
+  objectItemLabel: string
   labelClassName?: string
   valueClassName?: string
 }) {
@@ -326,7 +357,7 @@ function SummaryListingRow({
     return (
       <SummaryRow
         title={title}
-        value={formatSubBlockSummaryValue(value)}
+        value={formatSubBlockSummaryValue(value, objectItemLabel)}
         labelClassName={labelClassName}
         valueClassName={valueClassName}
       />
@@ -357,6 +388,14 @@ export function SubBlockSummaryRows({
   labelClassName,
   valueClassName,
 }: SubBlockSummaryRowsProps) {
+  const {
+    workflowEditorCopy,
+    workflowLabelsCopy: labels,
+    resolveWorkflowDisplayValue,
+  } = useWorkflowI18n()
+  const objectItemLabel = workflowEditorCopy.summary.objectItem
+  const additionalCountTemplate = workflowEditorCopy.summary.additionalCount
+
   return (
     <>
       {conditionRows
@@ -364,7 +403,7 @@ export function SubBlockSummaryRows({
             <SummaryRow
               key={conditionRow.id}
               title={conditionRow.title}
-              value={formatSubBlockSummaryValue(conditionRow.value)}
+              value={formatSubBlockSummaryValue(conditionRow.value, objectItemLabel)}
               labelClassName={labelClassName}
               valueClassName={valueClassName}
             />
@@ -383,14 +422,18 @@ export function SubBlockSummaryRows({
               },
               readSubBlockStateValue(stateToUse[subBlock.id])
             )
+            const localizedValue = resolveWorkflowDisplayValue(
+              { id: subBlock.id, options: subBlock.options },
+              rawValue
+            )
             const isJsonCodeSubBlock = subBlock.type === 'code' && subBlock.language === 'json'
             const displayValue = subBlock.password
               ? rawValue === null || rawValue === undefined || rawValue === ''
                 ? EMPTY_VALUE_LABEL
-                : CONFIGURED_VALUE_LABEL
+                : labels.configured
               : subBlock.type === 'skill-input'
-                ? formatSkillInputValue(rawValue)
-                : formatSubBlockSummaryValue(rawValue)
+                ? formatSkillInputValue(localizedValue)
+                : formatSubBlockSummaryValue(localizedValue, objectItemLabel)
             const title = subBlock.title ?? subBlock.id
 
             if (isJsonCodeSubBlock) {
@@ -406,7 +449,12 @@ export function SubBlockSummaryRows({
                     {title}
                   </p>
                   <div className='ml-3 overflow-hidden rounded-md border border-border bg-background'>
-                    {buildJsonPreviewFieldRows(rawValue).map((jsonRow, jsonRowIndex) => (
+                    {buildJsonPreviewFieldRows({
+                      value: localizedValue,
+                      labels,
+                      objectItemLabel,
+                      additionalCountTemplate,
+                    }).map((jsonRow, jsonRowIndex) => (
                       <div
                         key={`${stableKey}-json-row-${jsonRowIndex}`}
                         className={cn(
@@ -439,6 +487,7 @@ export function SubBlockSummaryRows({
                   key={stableKey}
                   title={title}
                   value={rawValue}
+                  objectItemLabel={objectItemLabel}
                   labelClassName={labelClassName}
                   valueClassName={valueClassName}
                 />
@@ -457,7 +506,7 @@ export function SubBlockSummaryRows({
           })}
       {showErrorRow && (
         <SummaryRow
-          title={ERROR_ROW_LABEL}
+          title={labels.error}
           value={EMPTY_VALUE_LABEL}
           labelClassName={labelClassName}
           valueClassName={valueClassName}

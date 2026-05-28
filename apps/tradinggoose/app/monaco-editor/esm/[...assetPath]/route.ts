@@ -1,4 +1,4 @@
-import { readFile, readdir } from 'node:fs/promises'
+import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { type NextRequest, NextResponse } from 'next/server'
 
@@ -17,15 +17,15 @@ const CONTENT_TYPES: Record<string, string> = {
   '.js': 'application/javascript; charset=utf-8',
   '.js.map': 'application/json; charset=utf-8',
 }
-let monacoVsRootsPromise: Promise<string[]> | undefined
+let monacoAssetRootsPromise: Promise<string[]> | undefined
 
-async function getMonacoVsRoots() {
-  if (monacoVsRootsPromise) {
-    return monacoVsRootsPromise
+async function getMonacoAssetRoots() {
+  if (monacoAssetRootsPromise) {
+    return monacoAssetRootsPromise
   }
 
-  monacoVsRootsPromise = (async () => {
-    const roots = new Set(MONACO_PACKAGE_ROOTS.map((root) => path.resolve(root, 'esm', 'vs')))
+  monacoAssetRootsPromise = (async () => {
+    const roots = new Set(MONACO_PACKAGE_ROOTS.map((root) => path.resolve(root, 'esm')))
 
     for (const bunInstallRoot of MONACO_BUN_INSTALL_ROOTS) {
       try {
@@ -36,7 +36,7 @@ async function getMonacoVsRoots() {
           }
 
           roots.add(
-            path.resolve(bunInstallRoot, entry.name, 'node_modules', 'monaco-editor', 'esm', 'vs')
+            path.resolve(bunInstallRoot, entry.name, 'node_modules', 'monaco-editor', 'esm')
           )
         }
       } catch {}
@@ -45,7 +45,7 @@ async function getMonacoVsRoots() {
     return [...roots]
   })()
 
-  return monacoVsRootsPromise
+  return monacoAssetRootsPromise
 }
 
 export async function GET(
@@ -70,9 +70,9 @@ export async function GET(
     return new NextResponse(null, { status: 400 })
   }
 
-  for (const monacoVsRoot of await getMonacoVsRoots()) {
-    const assetPath = path.resolve(monacoVsRoot, relativePath)
-    if (!assetPath.startsWith(monacoVsRoot)) {
+  for (const monacoAssetRoot of await getMonacoAssetRoots()) {
+    const assetPath = path.resolve(monacoAssetRoot, relativePath)
+    if (!assetPath.startsWith(monacoAssetRoot)) {
       return new NextResponse(null, { status: 403 })
     }
 

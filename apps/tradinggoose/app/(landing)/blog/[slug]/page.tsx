@@ -2,11 +2,19 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Metadata } from 'next'
+import { getLocale } from 'next-intl/server'
 import { Clock } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import BlogLayout from '@/app/(landing)/components/blog-layout'
+import { getPublicCopy } from '@/i18n/public-copy'
+import {
+  buildLocalizedAlternates,
+  getOpenGraphLocale,
+  localizeSiteUrl,
+  type LocaleCode,
+} from '@/i18n/utils'
 import { getPostBySlug } from '../lib/posts'
 import { formatBlogDate } from '../lib/heading-slugs'
 import BreadcrumbNav from '../components/breadcrumb-nav'
@@ -28,6 +36,8 @@ function toPlainTitle(md: string): string {
 }
 
 export async function generateMetadata({ params }: PostPageProps): Promise<Metadata> {
+  const locale = (await getLocale()) as LocaleCode
+  const copy = getPublicCopy(locale)
   const { slug } = await params
   const post = await getPostBySlug(slug)
   if (!post) return {}
@@ -38,16 +48,15 @@ export async function generateMetadata({ params }: PostPageProps): Promise<Metad
   const plainTitle = toPlainTitle(post.title)
 
   return {
-    title: `${plainTitle} | TradingGoose Blog`,
+    title: `${plainTitle} | ${copy.blog.pageTitle}`,
     description: post.description,
-    alternates: {
-      canonical: `/blog/${slug}`,
-    },
+    alternates: buildLocalizedAlternates(locale, `/blog/${slug}`),
     openGraph: {
       title: plainTitle,
       description: post.description,
       type: 'article',
-      url: `/blog/${slug}`,
+      url: localizeSiteUrl(locale, `/blog/${slug}`),
+      locale: getOpenGraphLocale(locale),
       images: post.image ? [{ url: post.image, width: 1200, height: 630, alt: plainTitle }] : [],
     },
     twitter: {
@@ -63,6 +72,8 @@ export default async function PostPage({ params }: PostPageProps) {
   const { slug } = await params
   const post = await getPostBySlug(slug)
   if (!post) notFound()
+  const locale = (await getLocale()) as LocaleCode
+  const copy = getPublicCopy(locale)
 
   const { title, date, image, authors, tags, toc, content, readingTime } = post
   const postPath = `/blog/${slug}`
@@ -78,6 +89,7 @@ export default async function PostPage({ params }: PostPageProps) {
     datePublished: date ? new Date(date).toISOString() : undefined,
     wordCount,
     timeRequired: `PT${readingTime}M`,
+    url: localizeSiteUrl(locale, postPath),
     ...(authors?.length && {
       author: authors.map((a) => ({
         '@type': 'Person',
@@ -91,9 +103,9 @@ export default async function PostPage({ params }: PostPageProps) {
       })),
     }),
     publisher: { '@id': 'https://tradinggoose.ai/#organization' },
-    mainEntityOfPage: { '@type': 'WebPage', '@id': `https://tradinggoose.ai/blog/${slug}` },
+    mainEntityOfPage: { '@type': 'WebPage', '@id': localizeSiteUrl(locale, postPath) },
     ...(tags?.length && { keywords: tags.join(', '), articleSection: tags[0] }),
-    inLanguage: 'en-US',
+    inLanguage: locale,
   }
 
   return (
@@ -133,11 +145,13 @@ export default async function PostPage({ params }: PostPageProps) {
               ))
               : null}
             <span className="text-muted-foreground/50">·</span>
-            {date && <time dateTime={date}>{formatBlogDate(date)}</time>}
+            {date && <time dateTime={date}>{formatBlogDate(date, 'long', locale)}</time>}
             <span className="text-muted-foreground/50">·</span>
             <div className="flex items-center gap-1">
               <Clock className="size-3.5" />
-              <span>{readingTime} min read</span>
+              <span>
+                {readingTime} {copy.blog.readTimeSuffix}
+              </span>
             </div>
           </div>
 

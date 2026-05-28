@@ -3,6 +3,7 @@
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronDown, Loader2, Search, Server } from 'lucide-react'
 import { shallow } from 'zustand/shallow'
+import { useLocale } from 'next-intl'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,17 +13,18 @@ import {
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useAppMessages } from '@/i18n/client-messages'
+import type { LocaleCode } from '@/i18n/utils'
+import { cn } from '@/lib/utils'
+import { useMcpServersStore } from '@/stores/mcp-servers/store'
+import type { McpServerWithStatus } from '@/stores/mcp-servers/types'
 import {
   widgetHeaderControlClassName,
   widgetHeaderMenuContentClassName,
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
-import { cn } from '@/lib/utils'
-import { useMcpServersStore } from '@/stores/mcp-servers/store'
-import type { McpServerWithStatus } from '@/stores/mcp-servers/types'
 
-const DEFAULT_PLACEHOLDER = 'Select MCP server'
 const DROPDOWN_MAX_HEIGHT = '20rem'
 const DROPDOWN_VIEWPORT_HEIGHT = '14rem'
 
@@ -48,24 +50,26 @@ const getServerIconColor = (status?: McpServerWithStatus['connectionStatus']) =>
   return '#64748b'
 }
 
-const getServerLabel = (server?: McpServerWithStatus | null) =>
-  server?.name || server?.id || 'Unnamed server'
+const getServerLabel = (server?: McpServerWithStatus | null, fallbackLabel?: string) =>
+  server?.name || server?.id || fallbackLabel || ''
 
 export function McpDropdown({
   workspaceId,
   value,
   onChange,
   disabled = false,
-  placeholder = DEFAULT_PLACEHOLDER,
+  placeholder,
   align = 'start',
   triggerClassName,
 }: McpDropdownProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages().workspace.widgets.mcpDropdown
   const [searchQuery, setSearchQuery] = useState('')
-  const { servers, isLoading, error, fetchServers } = useMcpServersStore(
+  const { servers, isLoading, errorCode, fetchServers } = useMcpServersStore(
     (state) => ({
       servers: state.servers,
       isLoading: state.isLoading,
-      error: state.error,
+      errorCode: state.errorCode,
       fetchServers: state.fetchServers,
     }),
     shallow
@@ -88,12 +92,13 @@ export function McpDropdown({
   const hasServers = workspaceServers.length > 0
   const isDropdownDisabled = disabled || !workspaceId
   const tooltipText = !workspaceId
-    ? 'Select a workspace to choose MCP servers'
-    : error
-      ? 'Unable to load MCP servers'
+    ? copy.selectWorkspaceFirst
+    : errorCode
+      ? copy.unableToLoad
       : disabled
-        ? 'MCP selection unavailable'
-        : 'Select MCP server'
+        ? copy.mcpSelectionUnavailable
+        : copy.selectMcpServer
+  const resolvedPlaceholder = placeholder ?? copy.selectMcpServer
 
   useEffect(() => {
     setSearchQuery('')
@@ -150,21 +155,21 @@ export function McpDropdown({
     if (!workspaceId) {
       return (
         <p className='px-2 py-4 text-center text-muted-foreground text-xs'>
-          Select a workspace first.
+          {copy.selectWorkspaceFirst}
         </p>
       )
     }
 
-    if (error && !hasServers) {
+    if (errorCode && !hasServers) {
       return (
         <div className='space-y-2 px-3 py-2 text-xs'>
-          <p className='text-destructive'>Unable to load MCP servers.</p>
+          <p className='text-destructive'>{copy.unableToLoad}</p>
           <button
             type='button'
             className='font-semibold text-primary text-xs hover:underline'
             onClick={handleRetry}
           >
-            Retry
+            {copy.retry}
           </button>
         </div>
       )
@@ -174,7 +179,7 @@ export function McpDropdown({
       return (
         <div className='flex items-center gap-1 px-3 py-2 text-muted-foreground text-xs'>
           <Loader2 className='h-3.5 w-3.5 animate-spin' />
-          Loading MCP servers...
+          {copy.loading}
         </div>
       )
     }
@@ -182,7 +187,7 @@ export function McpDropdown({
     if (!hasServers) {
       return (
         <p className='px-2 py-4 text-center text-muted-foreground text-xs'>
-          No MCP servers available yet.
+          {copy.noServersAvailable}
         </p>
       )
     }
@@ -190,7 +195,7 @@ export function McpDropdown({
     if (filteredServers.length === 0) {
       return (
         <p className='px-2 py-4 text-center text-muted-foreground text-xs'>
-          {searchQuery.trim() ? 'No servers found.' : 'No MCP servers available yet.'}
+          {searchQuery.trim() ? copy.noServersFound : copy.noServersAvailable}
         </p>
       )
     }
@@ -224,7 +229,7 @@ export function McpDropdown({
                   />
                 </span>
                 <span className={cn(widgetHeaderMenuTextClassName, 'truncate')}>
-                  {getServerLabel(server)}
+                  {getServerLabel(server, copy.unnamedServer)}
                 </span>
               </div>
               {isSelected ? <Check className='h-3.5 w-3.5 text-primary' /> : null}
@@ -238,27 +243,9 @@ export function McpDropdown({
   const chevronClassName =
     'h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
   const selectedIconColor = getServerIconColor(selectedServer?.connectionStatus)
-  const iconBadge = (
-    <span
-      className='h-5 w-5 rounded-xs p-0.5'
-      style={{ backgroundColor: `${selectedIconColor}20` }}
-      aria-hidden='true'
-    >
-      <Server className='h-full w-full' aria-hidden='true' style={{ color: selectedIconColor }} />
-    </span>
-  )
-  const labelContent = selectedServer ? (
-    <span className='min-w-0 flex-1 truncate text-left font-medium text-foreground text-sm'>
-      {getServerLabel(selectedServer)}
-    </span>
-  ) : (
-    <span className='min-w-0 flex-1 truncate text-left font-medium text-muted-foreground text-sm'>
-      {placeholder}
-    </span>
-  )
 
   return (
-    <DropdownMenu modal={false}>
+    <DropdownMenu>
       <Tooltip>
         <TooltipTrigger asChild>
           <span className='inline-flex'>
@@ -268,32 +255,34 @@ export function McpDropdown({
                 disabled={isDropdownDisabled}
                 className={widgetHeaderControlClassName(
                   cn(
-                    'group flex min-w-[240px] items-center justify-between gap-1',
+                    'group',
+                    !selectedServer && 'text-muted-foreground',
                     triggerClassName
                   )
                 )}
-                aria-haspopup='listbox'
               >
-                {isLoading && !hasServers ? (
-                  <Loader2 className='h-4 w-4 animate-spin text-muted-foreground' />
-                ) : (
-                  iconBadge
-                )}
-                {labelContent}
-                <ChevronDown className={chevronClassName} aria-hidden='true' />
+                <span className='flex items-center gap-1'>
+                  <span
+                    className='flex items-center gap-2 rounded-full'
+                    style={{ color: selectedIconColor }}
+                  >
+                    <Server className='h-3.5 w-3.5' />
+                  </span>
+                  <span className='text-xs'>{selectedServer?.name ?? resolvedPlaceholder}</span>
+                  <ChevronDown className={chevronClassName} />
+                </span>
               </button>
             </DropdownMenuTrigger>
           </span>
         </TooltipTrigger>
         <TooltipContent side='top'>{tooltipText}</TooltipContent>
       </Tooltip>
-
       <DropdownMenuContent
         align={align}
         sideOffset={6}
         className={cn(
           widgetHeaderMenuContentClassName,
-          'max-h-[20rem] w-[240px] overflow-hidden p-0 shadow-lg'
+          'max-h-[20rem] overflow-hidden p-0 shadow-lg'
         )}
         style={{ maxHeight: DROPDOWN_MAX_HEIGHT }}
         onWheel={(event) => event.stopPropagation()}
@@ -305,23 +294,19 @@ export function McpDropdown({
               <Input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                onKeyDown={handleSearchInputKeyDown}
-                placeholder='Search servers...'
+                placeholder={copy.searchPlaceholder}
                 className='h-6 border-0 bg-transparent px-0 text-foreground text-xs placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
+                onKeyDown={handleSearchInputKeyDown}
                 autoComplete='off'
                 autoCorrect='off'
-                spellCheck={false}
-                disabled={isDropdownDisabled}
+                spellCheck='false'
               />
             </div>
           </div>
           <div className='h-full min-h-0 flex-1 overflow-hidden'>
             <ScrollArea
               className='h-full w-full px-2 py-2'
-              style={{
-                height: DROPDOWN_VIEWPORT_HEIGHT,
-                maxHeight: `calc(${DROPDOWN_MAX_HEIGHT} - 4rem)`,
-              }}
+              style={{ height: DROPDOWN_VIEWPORT_HEIGHT, maxHeight: `calc(${DROPDOWN_MAX_HEIGHT} - 4rem)` }}
               onWheelCapture={(event) => event.stopPropagation()}
             >
               {renderMenuBody()}

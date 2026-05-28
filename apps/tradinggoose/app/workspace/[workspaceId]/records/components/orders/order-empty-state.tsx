@@ -1,3 +1,6 @@
+import { useTranslations } from 'next-intl'
+
 export function OrderEmptyState() {
-  return <div className='text-muted-foreground text-sm'>No orders found</div>
+  const t = useTranslations('workspace.records.orders')
+  return <div className='text-muted-foreground text-sm'>{t('emptyState')}</div>
 }

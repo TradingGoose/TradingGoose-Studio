@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Download, Save } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useAppMessages } from '@/i18n/client-messages'
 import { exportSkillsAsJson } from '@/lib/skills/import-export'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useSkillsStore } from '@/stores/skills/store'
@@ -34,6 +36,8 @@ export function SkillEditorSelector({
   widgetKey,
   params,
 }: SkillEditorSelectorProps) {
+  const locale = useLocale()
+  const copy = useAppMessages().workspace.widgets.skillEditor.header
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -60,7 +64,7 @@ export function SkillEditorSelector({
       workspaceId={workspaceId}
       value={resolvedSkillId}
       onChange={handleSkillChange}
-      placeholder='Select skill'
+      placeholder={copy.selectSkill}
       triggerClassName='min-w-[240px]'
     />
   )
@@ -101,6 +105,8 @@ export function SkillEditorExportButton({
   widgetKey,
   pairColor = 'gray',
 }: SkillEditorActionButtonProps) {
+  const locale = useLocale()
+  const copy = useAppMessages().workspace.widgets.skillEditor.header
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -134,7 +140,7 @@ export function SkillEditorExportButton({
 
   const exportDisabled = !workspaceId || !resolvedSkillId || !skill || isDirty
   const tooltipText =
-    exportDisabled && skill && isDirty ? 'Save skill before exporting' : 'Export skill'
+    exportDisabled && skill && isDirty ? copy.saveBeforeExporting : copy.exportSkill
 
   const handleExport = useCallback(() => {
     if (!skill) return
@@ -160,7 +166,7 @@ export function SkillEditorExportButton({
             disabled={exportDisabled}
           >
             <Download className='h-4 w-4' />
-            <span className='sr-only'>Export skill</span>
+            <span className='sr-only'>{copy.exportSkill}</span>
           </Button>
         </span>
       </TooltipTrigger>
@@ -177,6 +183,8 @@ export function SkillEditorSaveButton({
   pairColor = 'gray',
   params,
 }: SkillEditorActionButtonProps) {
+  const locale = useLocale()
+  const copy = useAppMessages().workspace.widgets.skillEditor.header
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -190,8 +198,8 @@ export function SkillEditorSaveButton({
 
   return (
     <EntityEditorHeaderButton
-      tooltip='Save skill'
-      label='Save skill'
+      tooltip={copy.saveSkill}
+      label={copy.saveSkill}
       icon={Save}
       disabled={disabled}
       variant='default'

@@ -2,9 +2,11 @@
 
 import { Component, type ReactNode, useEffect } from 'react'
 import { CircleX } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { createLogger } from '@/lib/logs/console/logger'
+import { useWorkflowEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 const logger = createLogger('ErrorBoundary')
 
@@ -17,11 +19,14 @@ interface ErrorUIProps {
 }
 
 export function ErrorUI({
-  title = "Workflow Error",
-  message = "This workflow encountered an error and is currently unavailable. Please try again later or create a new workflow.",
+  title,
+  message,
   onReset,
   fullScreen = false,
 }: ErrorUIProps) {
+  const copy = useWorkflowEditorCopy().error
+  const resolvedTitle = title ?? copy.title
+  const resolvedMessage = message ?? copy.message
   const containerClass = fullScreen
     ? 'flex flex-col w-full h-screen bg-muted/40'
     : 'flex flex-col w-full h-full bg-muted/40'
@@ -36,12 +41,12 @@ export function ErrorUI({
             <div className='flex justify-center'>
               <CircleX className='h-16 w-16 text-muted-foreground' />
             </div>
-            <h3 className='font-semibold text-lg'>{title}</h3>
-            <p className='text-muted-foreground'>{message}</p>
+            <h3 className='font-semibold text-lg'>{resolvedTitle}</h3>
+            <p className='text-muted-foreground'>{resolvedMessage}</p>
             {onReset ? (
               <div className='flex justify-center'>
                 <Button type='button' variant='outline' onClick={onReset}>
-                  Try again
+                  {copy.tryAgain}
                 </Button>
               </div>
             ) : null}
@@ -92,11 +97,12 @@ export function NextError({ error, reset }: NextErrorProps) {
     // Optionally log the error to an error reporting service
     logger.error('Workflow error:', { error })
   }, [error])
+  const copy = useWorkflowEditorCopy().error
 
   return (
     <ErrorUI
-      title='Application Error'
-      message='Something went wrong with the application. Please try again later.'
+      title={copy.applicationTitle}
+      message={copy.applicationMessage}
       onReset={reset}
     />
   )
@@ -113,13 +119,15 @@ export function NextGlobalError({
   useEffect(() => {
     logger.error('Global workspace error:', { error })
   }, [error])
+  const locale = useLocale()
+  const copy = useWorkflowEditorCopy().error
 
   return (
-    <html lang='en'>
+    <html lang={locale}>
       <body>
         <ErrorUI
-          title='Application Error'
-          message='Something went wrong with the application. Please try again later.'
+          title={copy.applicationTitle}
+          message={copy.applicationMessage}
           onReset={reset}
           fullScreen={true}
         />

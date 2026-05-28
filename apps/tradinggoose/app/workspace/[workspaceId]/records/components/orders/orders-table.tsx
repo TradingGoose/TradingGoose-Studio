@@ -3,6 +3,7 @@
 import type React from 'react'
 import { type RefObject, useMemo } from 'react'
 import { AlertCircle, ArrowDown, ArrowUp, Info, Loader2 } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
 import { MarketListingRow } from '@/components/listing-selector/listing/row'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -149,6 +150,8 @@ export function OrdersTable({
   scrollContainerRef,
   selectedRowRef,
 }: OrdersTableProps) {
+  const locale = useLocale()
+  const t = useTranslations('workspace.records.orders')
   const listingIdentities = useMemo(() => collectListingIdentities(orders), [orders])
   const resolvedListingsQuery = useResolvedListings({
     listings: listingIdentities,
@@ -178,10 +181,10 @@ export function OrdersTable({
                           order={sortOrder}
                           onSortChange={onSortChange}
                         >
-                          Listing
+                          {t('listing')}
                         </SortHead>
                         <TableHead className={tableHeadClassName}>
-                          <HeadLabel>Source</HeadLabel>
+                          <HeadLabel>{t('submissionSource')}</HeadLabel>
                         </TableHead>
                         <SortHead
                           field='side'
@@ -189,7 +192,7 @@ export function OrdersTable({
                           order={sortOrder}
                           onSortChange={onSortChange}
                         >
-                          Side
+                          {t('side')}
                         </SortHead>
                         <SortHead
                           field='orderType'
@@ -197,7 +200,7 @@ export function OrdersTable({
                           order={sortOrder}
                           onSortChange={onSortChange}
                         >
-                          Type
+                          {t('orderType')}
                         </SortHead>
                         <SortHead
                           field='quantity'
@@ -205,7 +208,7 @@ export function OrdersTable({
                           order={sortOrder}
                           onSortChange={onSortChange}
                         >
-                          Quantity
+                          {t('quantity')}
                         </SortHead>
                         <SortHead
                           field='averageFillPrice'
@@ -213,7 +216,7 @@ export function OrdersTable({
                           order={sortOrder}
                           onSortChange={onSortChange}
                         >
-                          Price
+                          {t('executionPrice')}
                         </SortHead>
                         <SortHead
                           field='provider'
@@ -221,7 +224,7 @@ export function OrdersTable({
                           order={sortOrder}
                           onSortChange={onSortChange}
                         >
-                          Provider
+                          {t('provider')}
                         </SortHead>
                         <SortHead
                           field='status'
@@ -229,7 +232,7 @@ export function OrdersTable({
                           order={sortOrder}
                           onSortChange={onSortChange}
                         >
-                          Status
+                          {t('status')}
                         </SortHead>
                         <SortHead
                           field='recordedAt'
@@ -237,7 +240,7 @@ export function OrdersTable({
                           order={sortOrder}
                           onSortChange={onSortChange}
                         >
-                          Created at
+                          {t('recordedAt')}
                         </SortHead>
                         <SortHead
                           field='updatedAt'
@@ -245,10 +248,10 @@ export function OrdersTable({
                           order={sortOrder}
                           onSortChange={onSortChange}
                         >
-                          Updated at
+                          {t('updatedAt')}
                         </SortHead>
                         <TableHead className={cn(tableHeadClassName, 'text-right')}>
-                          <HeadLabel>Actions</HeadLabel>
+                          <HeadLabel>{t('actions')}</HeadLabel>
                         </TableHead>
                       </TableRow>
                     </TableHeader>
@@ -264,7 +267,7 @@ export function OrdersTable({
                     <div className='flex h-full items-center justify-center p-5'>
                       <div className='flex items-center gap-2 text-muted-foreground'>
                         <Loader2 className='h-5 w-5 animate-spin' />
-                        <span className='text-sm'>Loading orders...</span>
+                        <span className='text-sm'>{t('loading')}</span>
                       </div>
                     </div>
                   ) : error ? (
@@ -278,7 +281,7 @@ export function OrdersTable({
                     <div className='flex h-full items-center justify-center'>
                       <div className='flex items-center gap-2 text-muted-foreground'>
                         <Info className='h-5 w-5' />
-                        <span className='text-sm'>No orders found</span>
+                        <span className='text-sm'>{t('emptyState')}</span>
                       </div>
                     </div>
                   ) : (
@@ -287,7 +290,10 @@ export function OrdersTable({
                       <TableBody>
                         {orders.map((order) => {
                           const isSelected = selectedOrderId === order.id
-                          const executionPrice = getExecutionPrice(order)
+                          const executionPrice = getExecutionPrice(order, {
+                            executionPrice: t('executionPrice'),
+                            submittedLimit: t('submittedLimit'),
+                          })
                           const listingIdentity = toListingValueObject(order.listingIdentity)
                           const resolvedListing = listingIdentity
                             ? (resolvedListingsQuery.data?.[
@@ -318,7 +324,7 @@ export function OrdersTable({
                                   />
                                 ) : (
                                   <span className='block truncate text-muted-foreground text-sm'>
-                                    {listingIdentity ? 'Resolving listing' : 'Unknown listing'}
+                                    {listingIdentity ? 'Resolving listing' : t('unknownListing')}
                                   </span>
                                 )}
                               </TableCell>
@@ -341,10 +347,10 @@ export function OrdersTable({
                                   {formatNumber(order.quantity)}
                                 </div>
                                 <div className='text-muted-foreground text-xs'>
-                                  Filled {formatNumber(order.filledQuantity)}
+                                  {t('filled')} {formatNumber(order.filledQuantity)}
                                 </div>
                                 <div className='text-muted-foreground text-xs'>
-                                  Rem {formatNumber(order.remainingQuantity)}
+                                  {t('remaining')} {formatNumber(order.remainingQuantity)}
                                 </div>
                               </TableCell>
                               <TableCell className={tableCellClassName}>
@@ -355,7 +361,7 @@ export function OrdersTable({
                                   {executionPrice.label}
                                 </div>
                                 <div className='text-muted-foreground text-xs'>
-                                  Fee {formatMoney(order.fee)}
+                                  {t('fee')} {formatMoney(order.fee)}
                                 </div>
                               </TableCell>
                               <TableCell className={tableCellClassName}>
@@ -372,12 +378,12 @@ export function OrdersTable({
                               <TableCell
                                 className={cn(tableCellClassName, 'text-muted-foreground text-xs')}
                               >
-                                {formatCompactDateTime(order.recordedAt)}
+                                {formatCompactDateTime(order.recordedAt, locale)}
                               </TableCell>
                               <TableCell
                                 className={cn(tableCellClassName, 'text-muted-foreground text-xs')}
                               >
-                                {formatCompactDateTime(order.updatedAt)}
+                                {formatCompactDateTime(order.updatedAt, locale)}
                               </TableCell>
                               <TableCell className={cn(tableCellClassName, 'text-right')}>
                                 <OrderRowActions

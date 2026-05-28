@@ -15,11 +15,17 @@ import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { Textarea } from '@/components/ui/textarea'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
+import {
+  getLocalizedToolParameterLabel,
+} from '@/i18n/block-editor'
+import { formatTemplate } from '@/i18n/client-messages'
+import type { LocaleCode } from '@/i18n/utils'
+import { useWorkspaceBlockEditorMessages } from '@/i18n/workspace-widget-hooks'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
-import { formatParameterLabel } from '@/tools/params'
+import { useLocale } from 'next-intl'
 
 const logger = createLogger('McpDynamicArgs')
 
@@ -277,6 +283,8 @@ export function McpDynamicArgs({
   previewValue,
   isConnecting = false,
 }: McpDynamicArgsProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = useWorkspaceBlockEditorMessages().toolInput
   const workspaceId = useWorkspaceId()
   const { mcpTools, isLoading } = useMcpTools(workspaceId)
   const [selectedTool] = useSubBlockValue(blockId, 'tool')
@@ -344,6 +352,7 @@ export function McpDynamicArgs({
     const current = currentArgs()
     const value = current[paramName]
     const inputType = getInputType(paramSchema)
+    const parameterLabel = getLocalizedToolParameterLabel(locale, paramName)
 
     switch (inputType) {
       case 'switch':
@@ -359,7 +368,7 @@ export function McpDynamicArgs({
               htmlFor={`${paramName}-switch`}
               className='cursor-pointer font-normal text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70'
             >
-              {formatParameterLabel(paramName)}
+              {parameterLabel}
             </Label>
           </div>
         )
@@ -374,7 +383,7 @@ export function McpDynamicArgs({
             >
               <SelectTrigger className='w-full'>
                 <SelectValue
-                  placeholder={`Select ${formatParameterLabel(paramName).toLowerCase()}`}
+                  placeholder={formatTemplate(copy.selectParameter, { label: parameterLabel })}
                 />
               </SelectTrigger>
               <SelectContent>
@@ -428,15 +437,14 @@ export function McpDynamicArgs({
 
       case 'long-input':
         return (
-          <McpTextareaWithTags
+            <McpTextareaWithTags
             key={`${paramName}-long`}
             value={value || ''}
             onChange={(newValue) => updateParameter(paramName, newValue)}
             placeholder={
               paramSchema.type === 'array'
-                ? `Enter JSON array, e.g. ["item1", "item2"] or comma-separated values`
-                : paramSchema.description ||
-                  `Enter ${formatParameterLabel(paramName).toLowerCase()}`
+                ? copy.enterJsonArrayOrCommaSeparatedValues
+                : paramSchema.description || formatTemplate(copy.enterParameter, { label: parameterLabel })
             }
             disabled={disabled}
             blockId={blockId}
@@ -475,9 +483,8 @@ export function McpDynamicArgs({
             }}
             placeholder={
               paramSchema.type === 'array'
-                ? `Enter JSON array, e.g. ["item1", "item2"] or comma-separated values`
-                : paramSchema.description ||
-                  `Enter ${formatParameterLabel(paramName).toLowerCase()}`
+                ? copy.enterJsonArrayOrCommaSeparatedValues
+                : paramSchema.description || formatTemplate(copy.enterParameter, { label: parameterLabel })
             }
             disabled={disabled}
             isPassword={isPassword}
@@ -493,7 +500,7 @@ export function McpDynamicArgs({
   if (!selectedTool) {
     return (
       <div className='rounded-lg border border-dashed p-8 text-center'>
-        <p className='text-muted-foreground text-sm'>Select a tool to configure its parameters</p>
+        <p className='text-muted-foreground text-sm'>{copy.selectToolToConfigureParameters}</p>
       </div>
     )
   }
@@ -506,7 +513,7 @@ export function McpDynamicArgs({
   ) {
     return (
       <div className='rounded-lg border border-dashed p-8 text-center'>
-        <p className='text-muted-foreground text-sm'>Loading tool schema...</p>
+        <p className='text-muted-foreground text-sm'>{copy.loadingToolSchema}</p>
       </div>
     )
   }
@@ -514,7 +521,7 @@ export function McpDynamicArgs({
   if (!toolSchema?.properties || Object.keys(toolSchema.properties).length === 0) {
     return (
       <div className='rounded-lg border border-dashed p-8 text-center'>
-        <p className='text-muted-foreground text-sm'>This tool requires no parameters</p>
+        <p className='text-muted-foreground text-sm'>{copy.thisToolRequiresNoParameters}</p>
       </div>
     )
   }
@@ -536,7 +543,7 @@ export function McpDynamicArgs({
                       'after:ml-1 after:text-red-500 after:content-["*"]'
                   )}
                 >
-                  {formatParameterLabel(paramName)}
+                  {getLocalizedToolParameterLabel(locale, paramName)}
                 </Label>
               )}
               {renderParameterInput(paramName, paramSchema as any)}

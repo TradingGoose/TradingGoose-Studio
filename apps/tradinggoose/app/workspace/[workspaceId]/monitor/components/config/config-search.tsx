@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { getMonitorOutcomeLabel, useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
+import { formatTemplate } from '@/i18n/client-messages'
 import type { MonitorReferenceData } from '../shared/types'
 import type { ConfigMonitorFilter, ConfigMonitorViewConfig } from '../view/view-config'
 import type { ConfigMonitorCard } from './config-card-model'
@@ -28,15 +30,10 @@ const suggestionKey = (suggestion: Suggestion) => serializeConfigFilters([sugges
 const filterKey = (filter: ConfigMonitorFilter) => serializeConfigFilters([filter])
 const MAX_VISIBLE_SUGGESTIONS = 16
 
-const presenceSuggestionLabels = {
-  lastExecutionAt: ['Has last execution', 'No last execution'],
-  lastOutcome: ['Has last outcome', 'No last outcome'],
-  lastExecutionLogId: ['Has last execution log', 'No last execution log'],
-} as const
-
 export function buildConfigSearchSuggestionSet(
   cards: ConfigMonitorCard[],
-  referenceData: MonitorReferenceData
+  referenceData: MonitorReferenceData,
+  copy: ReturnType<typeof useMonitorCopy>['copy']
 ): Suggestion[] {
   const suggestions = new Map<string, Suggestion>()
   const add = (suggestion: Suggestion) => suggestions.set(suggestionKey(suggestion), suggestion)
@@ -97,17 +94,27 @@ export function buildConfigSearchSuggestionSet(
 
   ;(['active', 'paused'] as const).forEach((status) =>
     add({
-      label: status === 'active' ? 'Active monitors' : 'Paused monitors',
+      label: status === 'active' ? copy.configSearch.activeMonitors : copy.configSearch.pausedMonitors,
       filter: { field: 'status', operator: '=', values: [status] },
     })
   )
   getConfigOutcomeValues().forEach((outcome) =>
     add({
-      label: `Last outcome ${outcome}`,
+      label: formatTemplate(copy.configSearch.lastOutcome, {
+        outcome: getMonitorOutcomeLabel(copy, outcome),
+      }),
       filter: { field: 'lastOutcome', operator: '=', values: [outcome] },
     })
   )
-  Object.entries(presenceSuggestionLabels).forEach(([field, [hasLabel, noLabel]]) => {
+  ;([
+    ['lastExecutionAt', copy.configSearch.hasLastExecution, copy.configSearch.noLastExecution],
+    ['lastOutcome', copy.configSearch.hasLastOutcome, copy.configSearch.noLastOutcome],
+    [
+      'lastExecutionLogId',
+      copy.configSearch.hasLastExecutionLog,
+      copy.configSearch.noLastExecutionLog,
+    ],
+  ] as const).forEach(([field, hasLabel, noLabel]) => {
     add({
       label: hasLabel,
       filter: { field: field as ConfigMonitorFilter['field'], operator: 'has', values: [] },
@@ -145,10 +152,11 @@ export function ConfigMonitorSearch({
   referenceData,
   onUpdateConfig,
 }: ConfigMonitorSearchProps) {
+  const { copy } = useMonitorCopy()
   const searchState = useConfigSearchState({ config, onUpdateConfig })
   const suggestions = useMemo(
-    () => buildConfigSearchSuggestionSet(cards, referenceData),
-    [cards, referenceData]
+    () => buildConfigSearchSuggestionSet(cards, referenceData, copy),
+    [cards, copy, referenceData]
   )
   const activeFilterKeys = useMemo(
     () => new Set(config.quickFilters.map((filter) => filterKey(filter))),
@@ -237,7 +245,7 @@ export function ConfigMonitorSearch({
               })}
               <input
                 value={searchState.rawQuery}
-                placeholder={!hasQuickFilters ? 'Search config monitors...' : ''}
+                placeholder={!hasQuickFilters ? copy.configSearch.placeholder : ''}
                 className='h-full min-w-[120px] flex-1 bg-transparent outline-none placeholder:text-muted-foreground'
                 autoComplete='off'
                 autoCorrect='off'
@@ -272,7 +280,7 @@ export function ConfigMonitorSearch({
                 }}
               >
                 <X className='h-3.5 w-3.5' />
-                <span className='sr-only'>Clear config monitor search</span>
+                <span className='sr-only'>{copy.configSearch.clearSearch}</span>
               </Button>
             )}
           </div>
@@ -287,7 +295,7 @@ export function ConfigMonitorSearch({
             {visibleSuggestions.length > 0 ? (
               <div className='space-y-0.5'>
                 <div className='px-2 py-1 font-medium text-[11px] text-muted-foreground uppercase tracking-wide'>
-                  Quick filters
+                  {copy.configSearch.quickFilters}
                 </div>
                 {visibleSuggestions.map((suggestion) => (
                   <button
@@ -310,7 +318,7 @@ export function ConfigMonitorSearch({
               </div>
             ) : (
               <div className='px-2 py-6 text-center text-muted-foreground text-sm'>
-                No matching quick filters
+                {copy.configSearch.noMatchingQuickFilters}
               </div>
             )}
           </div>
@@ -318,7 +326,7 @@ export function ConfigMonitorSearch({
       </Popover>
       {searchState.invalidTokens.length > 0 ? (
         <p className='mt-1 text-[11px] text-destructive'>
-          Invalid config query tokens: {searchState.invalidTokens.join(', ')}
+          {copy.configSearch.invalidTokensPrefix}: {searchState.invalidTokens.join(', ')}
         </p>
       ) : null}
     </div>

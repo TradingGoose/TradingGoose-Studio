@@ -2,6 +2,8 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { fetchTimeZoneOptions } from '@/components/timezone-selector/fetchers'
+import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
+import { formatTemplate } from '@/i18n/client-messages'
 import { cn } from '@/lib/utils'
 import { formatMonitorTimezoneLabel } from '../shared/monitor-time'
 import { monitorControlSurfaceClass } from '../shared/monitor-ui'
@@ -34,6 +36,7 @@ export function MonitorTimezoneMenu({
   className,
   onTimezoneChange,
 }: MonitorTimezoneMenuProps) {
+  const { copy } = useMonitorCopy()
   const [options, setOptions] = useState<TimeZoneOption[]>([])
   const [loading, setLoading] = useState(false)
   const loadingRef = useRef(false)
@@ -58,6 +61,8 @@ export function MonitorTimezoneMenu({
     [dropdownOptions, selectedTimezone]
   )
   const selectedLabel = selectedOption?.label ?? formatMonitorTimezoneLabel(selectedTimezone)
+  const selectedLabelText =
+    typeof selectedLabel === 'string' ? selectedLabel : String(selectedLabel)
 
   const loadTimezones = useCallback(() => {
     if (loadingRef.current) return
@@ -86,17 +91,17 @@ export function MonitorTimezoneMenu({
     <SearchableDropdown
       value={selectedTimezone}
       options={dropdownOptions}
-      placeholder='UTC'
-      searchPlaceholder='Search timezones...'
-      emptyText={loading ? 'Loading timezones...' : 'No timezones found.'}
+      placeholder={copy.timezone.placeholder}
+      searchPlaceholder={copy.timezone.searchPlaceholder}
+      emptyText={loading ? copy.timezone.loading : copy.timezone.empty}
       disabled={disabled}
       triggerClassName={cn(monitorControlSurfaceClass, className)}
-      triggerLabel={`Timezone: ${selectedLabel}`}
+      triggerLabel={formatTemplate(copy.timezone.triggerLabel, { label: selectedLabelText })}
       onOpenChange={handleOpenChange}
       onValueChange={onTimezoneChange}
       renderTriggerValue={() => (
         <div className='flex shrink-0 items-center gap-2'>
-          <span className='shrink-0 text-muted-foreground text-xs'>Timezone</span>
+          <span className='shrink-0 text-muted-foreground text-xs'>{copy.timezone.label}</span>
           <span className='shrink-0 text-foreground'>{selectedLabel}</span>
         </div>
       )}
@@ -111,7 +116,7 @@ export function MonitorTimezoneMenu({
       footer={
         loading ? (
           <div className='px-2 py-2 text-center text-muted-foreground text-sm'>
-            Loading timezones...
+            {copy.timezone.loading}
           </div>
         ) : null
       }

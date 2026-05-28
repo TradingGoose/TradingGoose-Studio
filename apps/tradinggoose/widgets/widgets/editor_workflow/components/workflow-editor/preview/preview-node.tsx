@@ -5,24 +5,36 @@ import { cn } from '@/lib/utils'
 import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
 import { getBlock } from '@/blocks'
 import { SubBlockSummaryRows } from '@/widgets/widgets/editor_workflow/components/workflow-render/sub-block-summary-rows'
+import { resolveTriggerIdFromSubBlocks } from '@/triggers/resolution'
+import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 import { getPreviewDiffClasses } from './preview-diff'
 import type { PreviewCanvasNode } from './preview-payload-adapter'
 
 export const PreviewNode = memo(function PreviewNode({ id, data }: NodeProps<PreviewCanvasNode>) {
+  const { getLocalizedDefaultBlockName, localizeWorkflowSubBlockConfig } = useWorkflowI18n()
   const blockConfig = useMemo(() => getBlock(data.type) ?? data.config, [data.type, data.config])
+  const localizedBlockName = getLocalizedDefaultBlockName(blockConfig.type, data.name)
+  const previewStateRaw = data.subBlockValues ?? data.blockState?.subBlocks ?? {}
+  const triggerId = resolveTriggerIdFromSubBlocks(previewStateRaw, blockConfig.triggers?.available)
+  const localizedSubBlocks = useMemo(
+    () =>
+      (blockConfig.subBlocks || []).map((subBlock) =>
+        localizeWorkflowSubBlockConfig(subBlock, data.type, triggerId ?? undefined)
+      ),
+    [blockConfig.subBlocks, data.type, localizeWorkflowSubBlockConfig, triggerId]
+  )
   const Icon = blockConfig.icon
   const isEnabled = data.blockState?.enabled ?? true
   const isAdvancedMode = data.blockState?.advancedMode ?? false
   const useHorizontalHandles = data.blockState?.horizontalHandles ?? false
   const isPureTriggerBlock = blockConfig.category === 'triggers'
   const isTriggerMode = Boolean(data.blockState?.triggerMode) || isPureTriggerBlock
-  const previewStateRaw = data.subBlockValues ?? data.blockState?.subBlocks ?? {}
   const showInputHandle = blockConfig.category !== 'triggers'
   const showOutputHandles = data.type !== 'condition' && data.type !== 'response'
   const previewSubBlocks = useMemo(() => {
     return buildSubBlockRows({
       blockId: id,
-      subBlocks: blockConfig.subBlocks || [],
+      subBlocks: localizedSubBlocks,
       stateToUse: previewStateRaw,
       isAdvancedMode,
       isTriggerMode,
@@ -38,6 +50,7 @@ export const PreviewNode = memo(function PreviewNode({ id, data }: NodeProps<Pre
     isTriggerMode,
     isPureTriggerBlock,
     previewStateRaw,
+    localizedSubBlocks,
   ])
 
   return (
@@ -68,7 +81,7 @@ export const PreviewNode = memo(function PreviewNode({ id, data }: NodeProps<Pre
         </div>
 
         <div className='min-w-0'>
-          <p className='truncate font-medium text-sm'>{data.name}</p>
+          <p className='truncate font-medium text-sm'>{localizedBlockName}</p>
           <p className='truncate text-[11px] text-muted-foreground'>{data.type}</p>
         </div>
       </div>

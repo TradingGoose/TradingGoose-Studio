@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Activity, ArrowDown, ArrowDownToLine, ArrowUp, Trash2 } from 'lucide-react'
-import { JsonDisplayControls } from '@/components/json-display/json-display'
+import {
+  Activity,
+  ArrowDown,
+  ArrowDownToLine,
+  ArrowUp,
+  Braces,
+  Trash2,
+  WrapText,
+} from 'lucide-react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
@@ -22,6 +29,7 @@ import { useWorkflowConsoleUiState } from './components/terminal/terminal-ui-sto
 import type { BlockInfo } from './components/terminal/types'
 import { filterEntries } from './components/terminal/utils'
 import WorkflowConsoleApp from './components/workflow-console-app'
+import { useWorkflowConsoleCopy } from './copy'
 
 const WorkflowConsoleWidgetBody = ({
   params,
@@ -31,6 +39,7 @@ const WorkflowConsoleWidgetBody = ({
   widget,
   onWidgetParamsChange,
 }: WidgetComponentProps) => {
+  const copy = useWorkflowConsoleCopy()
   const workspaceId = context?.workspaceId
   const {
     channelId,
@@ -75,11 +84,15 @@ const WorkflowConsoleWidgetBody = ({
   }, [])
 
   if (!workspaceId) {
-    return <WidgetStateMessage message='Select a workspace to load workflows.' />
+    return <WidgetStateMessage message={copy.selectWorkspace} />
   }
 
   if (loadError) {
-    return <WidgetStateMessage message={loadError} />
+    return (
+      <WidgetStateMessage
+        message={copy[loadError as keyof typeof copy] ?? copy.unableToLoadWorkflows}
+      />
+    )
   }
 
   if (!hasLoadedWorkflows || isLoading) {
@@ -91,7 +104,7 @@ const WorkflowConsoleWidgetBody = ({
   }
 
   if (workflowIds.length === 0) {
-    return <WidgetStateMessage message='No workflows available in this workspace.' />
+    return <WidgetStateMessage message={copy.noWorkflows} />
   }
 
   if (!resolvedWorkflowId) {
@@ -132,6 +145,7 @@ const WorkflowConsoleHeaderControls = ({
   widget,
   panelId,
 }: WorkflowConsoleHeaderControlsProps) => {
+  const copy = useWorkflowConsoleCopy()
   const { resolvedWorkflowId } = useWorkflowWidgetState({
     workspaceId,
     pairColor: widget?.pairColor ?? 'gray',
@@ -223,7 +237,7 @@ const WorkflowConsoleHeaderControls = ({
             type='button'
             className={widgetHeaderIconButtonClassName()}
             onClick={toggleSort}
-            aria-label='Sort by time'
+            aria-label={copy.sortByTime}
             disabled={isDisabled || workflowEntries.length === 0}
           >
             {sortConfig.direction === 'desc' ? (
@@ -233,24 +247,43 @@ const WorkflowConsoleHeaderControls = ({
             )}
           </button>
         </TooltipTrigger>
-        <TooltipContent side='top'>Sort by time</TooltipContent>
+        <TooltipContent side='top'>{copy.sortByTime}</TooltipContent>
       </Tooltip>
 
-      <JsonDisplayControls
-        mode={detailView.structuredView ? 'beauty' : 'raw'}
-        onModeChange={(mode) => {
-          if ((mode === 'beauty') !== detailView.structuredView) toggleStructuredView()
-        }}
-        wrapText={detailView.wrapText}
-        onWrapTextChange={(wrapText) => {
-          if (wrapText !== detailView.wrapText) toggleWrapText()
-        }}
-        disabled={isDisabled}
-        showLabels={false}
-        buttonClassName={(active) =>
-          cn(widgetHeaderIconButtonClassName(), active && 'text-primary')
-        }
-      />
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type='button'
+            className={cn(
+              widgetHeaderIconButtonClassName(),
+              detailView.structuredView && 'text-primary'
+            )}
+            onClick={toggleStructuredView}
+            aria-label={copy.toggleStructuredView}
+            aria-pressed={detailView.structuredView}
+            disabled={isDisabled}
+          >
+            <Braces className='h-3.5 w-3.5' />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side='top'>{copy.structuredView}</TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type='button'
+            className={cn(widgetHeaderIconButtonClassName(), detailView.wrapText && 'text-primary')}
+            onClick={toggleWrapText}
+            aria-label={copy.toggleWrapText}
+            aria-pressed={detailView.wrapText}
+            disabled={isDisabled}
+          >
+            <WrapText className='h-3.5 w-3.5' />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side='top'>{copy.wrapText}</TooltipContent>
+      </Tooltip>
 
       <Tooltip>
         <TooltipTrigger asChild>
@@ -258,13 +291,13 @@ const WorkflowConsoleHeaderControls = ({
             type='button'
             className={widgetHeaderIconButtonClassName()}
             onClick={handleExportConsole}
-            aria-label='Download console CSV'
+            aria-label={copy.downloadConsoleCsv}
             disabled={isDisabled || !hasEntries}
           >
             <ArrowDownToLine className='h-3.5 w-3.5' />
           </button>
         </TooltipTrigger>
-        <TooltipContent side='top'>Download CSV</TooltipContent>
+        <TooltipContent side='top'>{copy.downloadCsv}</TooltipContent>
       </Tooltip>
 
       <Tooltip>
@@ -273,13 +306,13 @@ const WorkflowConsoleHeaderControls = ({
             type='button'
             className={widgetHeaderIconButtonClassName()}
             onClick={handleClearConsole}
-            aria-label='Clear console'
+            aria-label={copy.clearConsole}
             disabled={isDisabled || !hasEntries}
           >
             <Trash2 className='h-3.5 w-3.5' />
           </button>
         </TooltipTrigger>
-        <TooltipContent side='top'>Clear console</TooltipContent>
+        <TooltipContent side='top'>{copy.clearConsole}</TooltipContent>
       </Tooltip>
     </div>
   )

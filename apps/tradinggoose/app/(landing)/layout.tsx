@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Background from '@/app/(landing)/components/background/background'
+import IntlProvider from '@/app/intl-provider'
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://tradinggoose.ai'),
@@ -15,5 +16,9 @@ export const metadata: Metadata = {
 }
 
 export default function LandingLayout({ children }: { children: React.ReactNode }) {
-  return <Background>{children}</Background>
+  return (
+    <IntlProvider namespaces={['nav', 'registration', 'landing', 'blog', 'careers'] as const}>
+      <Background>{children}</Background>
+    </IntlProvider>
+  )
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Trash } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,10 +17,13 @@ import { cn } from '@/lib/utils'
 import { useBlock, useSubBlockValue as useYjsSubBlockValue } from '@/lib/yjs/use-workflow-doc'
 import { useTriggerConfigAggregation } from '@/hooks/use-trigger-config-aggregation'
 import { useWebhookManagement } from '@/hooks/use-webhook-management'
+import { translateWorkflowLabel } from '@/i18n/block-editor'
+import type { LocaleCode } from '@/i18n/utils'
 import { getTrigger } from '@/triggers'
 import { SYSTEM_SUBBLOCK_IDS } from '@/triggers/constants'
 import { resolveTriggerIdForBlock } from '@/triggers/resolution'
 import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 const logger = createLogger('TriggerSave')
 
@@ -34,6 +38,8 @@ type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 type DeleteStatus = 'idle' | 'deleting'
 
 export function TriggerSave({ blockId, subBlockId, disabled = false }: TriggerSaveProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = useWorkflowBlockEditorCopy().triggerSave
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [deleteStatus, setDeleteStatus] = useState<DeleteStatus>('idle')
@@ -71,7 +77,7 @@ export function TriggerSave({ blockId, subBlockId, disabled = false }: TriggerSa
         .forEach((subBlock) => {
           if (subBlock.id === 'triggerCredentials') {
             if (!triggerCredentials) {
-              missingFields.push(subBlock.title || 'Credentials')
+              missingFields.push(subBlock.title || translateWorkflowLabel(locale, 'Credentials'))
             }
           } else {
             const value = configToCheck?.[subBlock.id]
@@ -86,7 +92,7 @@ export function TriggerSave({ blockId, subBlockId, disabled = false }: TriggerSa
         missingFields,
       }
     },
-    [triggerDef, triggerCredentials]
+    [triggerDef, triggerCredentials, locale]
   )
 
   const requiredSubBlockIds = useMemo(() => {
@@ -144,7 +150,9 @@ export function TriggerSave({ blockId, subBlockId, disabled = false }: TriggerSa
           triggerId: effectiveTriggerId,
         })
       } else {
-        setErrorMessage(`Missing required fields: ${validation.missingFields.join(', ')}`)
+        setErrorMessage(
+          `${translateWorkflowLabel(locale, 'Missing required fields')}: ${validation.missingFields.join(', ')}`
+        )
         logger.debug('Error message updated', {
           blockId,
           triggerId: effectiveTriggerId,
@@ -181,14 +189,16 @@ export function TriggerSave({ blockId, subBlockId, disabled = false }: TriggerSa
 
       const validation = validateRequiredFields(aggregatedConfig)
       if (!validation.valid) {
-        setErrorMessage(`Missing required fields: ${validation.missingFields.join(', ')}`)
+        setErrorMessage(
+          `${translateWorkflowLabel(locale, 'Missing required fields')}: ${validation.missingFields.join(', ')}`
+        )
         setSaveStatus('error')
         return
       }
 
       const success = await saveConfig(aggregatedConfig ?? {})
       if (!success) {
-        throw new Error('Save config returned false')
+        throw new Error(translateWorkflowLabel(locale, 'Save config returned false'))
       }
 
       setSaveStatus('saved')
@@ -205,7 +215,9 @@ export function TriggerSave({ blockId, subBlockId, disabled = false }: TriggerSa
       })
     } catch (error: any) {
       setSaveStatus('error')
-      setErrorMessage(error?.message || 'An error occurred while saving.')
+      setErrorMessage(
+        error?.message || translateWorkflowLabel(locale, 'An error occurred while saving.')
+      )
       logger.error('Error saving trigger configuration', { error })
     }
   }
@@ -234,12 +246,12 @@ export function TriggerSave({ blockId, subBlockId, disabled = false }: TriggerSa
         })
       } else {
         setDeleteStatus('idle')
-        setErrorMessage('Failed to delete trigger configuration.')
+        setErrorMessage(copy.failedToDeleteTriggerConfiguration)
         logger.error('Failed to delete trigger configuration')
       }
     } catch (error: any) {
       setDeleteStatus('idle')
-      setErrorMessage(error?.message || 'An error occurred while deleting.')
+      setErrorMessage(error?.message || copy.errorWhileDeleting)
       logger.error('Error deleting trigger configuration', { error })
     }
   }
@@ -259,10 +271,10 @@ export function TriggerSave({ blockId, subBlockId, disabled = false }: TriggerSa
             saveStatus === 'error' && '!bg-red-600 !text-white hover:!bg-red-700'
           )}
         >
-          {saveStatus === 'saving' && 'Saving...'}
-          {saveStatus === 'saved' && 'Saved'}
-          {saveStatus === 'error' && 'Error'}
-          {saveStatus === 'idle' && (webhookId ? 'Update Configuration' : 'Save Configuration')}
+          {saveStatus === 'saving' && copy.saving}
+          {saveStatus === 'saved' && copy.saved}
+          {saveStatus === 'error' && copy.error}
+          {saveStatus === 'idle' && (webhookId ? copy.updateConfiguration : copy.saveConfiguration)}
         </Button>
 
         {webhookId && (
@@ -277,17 +289,16 @@ export function TriggerSave({ blockId, subBlockId, disabled = false }: TriggerSa
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Trigger</AlertDialogTitle>
+            <AlertDialogTitle>{copy.deleteTrigger}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this trigger configuration? This will remove the
-              webhook and stop all incoming triggers.{' '}
-              <span className='text-destructive'>This action cannot be undone.</span>
+              {copy.deleteTriggerDescription}{' '}
+              <span className='text-destructive'>{copy.deleteTriggerWarning}</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className='flex'>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{copy.cancel}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteConfirm}>
-              {deleteStatus === 'deleting' ? 'Deleting...' : 'Delete'}
+              {deleteStatus === 'deleting' ? copy.deleting : copy.delete}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

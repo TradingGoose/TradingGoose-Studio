@@ -1,13 +1,16 @@
 'use client'
 
 import Image from 'next/image'
-import Link from 'next/link'
 import { Clock } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Link } from '@/i18n/navigation'
 import { formatBlogDate } from '../lib/heading-slugs'
 import MarkdownTitle from './markdown-title'
 import type { Post } from '../lib/types'
+import { useAppMessages } from '@/i18n/client-messages'
+import { type LocaleCode } from '@/i18n/utils'
 
 interface PostCardProps {
   post: Post
@@ -15,6 +18,10 @@ interface PostCardProps {
 }
 
 export default function PostCard({ post, index }: PostCardProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages()
+  const blogCopy = copy.blog
+
   return (
     <Card className="group relative flex flex-col space-y-2 rounded-2xl border p-3">
       {post.image && (
@@ -43,12 +50,14 @@ export default function PostCard({ post, index }: PostCardProps) {
         )}
 
         <div className="mt-auto flex items-center justify-between gap-2 pt-4 text-sm text-muted-foreground">
-          <span>{formatBlogDate(post.date, 'short')}</span>
+          <span>{formatBlogDate(post.date, 'short', locale)}</span>
 
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1">
               <Clock className="size-4" />
-              <span>{post.readingTime} min read</span>
+              <span>
+                {post.readingTime} {blogCopy.readTimeSuffix}
+              </span>
             </div>
 
             {post.tags && post.tags.length > 0 && (
@@ -61,7 +70,7 @@ export default function PostCard({ post, index }: PostCardProps) {
       </div>
 
       <Link href={`/blog/${post.slug}`} className="absolute inset-0">
-        <span className="sr-only">View Article</span>
+        <span className="sr-only">{blogCopy.viewArticle}</span>
       </Link>
     </Card>
   )

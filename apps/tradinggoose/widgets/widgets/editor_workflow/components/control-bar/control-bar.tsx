@@ -19,10 +19,12 @@ import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/provide
 import { useWorkflowExecution } from '@/hooks/workflow/use-workflow-execution'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
+import { formatTemplate } from '@/i18n/template'
 import {
   DeploymentControls,
   ExportControls,
 } from '@/widgets/widgets/editor_workflow/components/control-bar/components'
+import { useWorkflowEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('ControlBar')
@@ -80,6 +82,7 @@ export function ControlBar({
   className,
   variant = 'widget',
 }: ControlBarProps) {
+  const copy = useWorkflowEditorCopy()
   const { data: session } = useSession()
   const { workflowId, channelId } = useWorkflowRoute()
   const isRegistryLoading = useWorkflowRegistry((state) => state.isLoading)
@@ -352,11 +355,11 @@ export function ControlBar({
     const isDisabled = isExecuting || !canEdit || isAutoLayouting || hasLockedBlocks
 
     const getTooltipText = () => {
-      if (!canEdit) return 'Admin permission required to use auto-layout'
-      if (hasLockedBlocks) return 'Auto-layout is disabled when blocks are locked'
-      if (isExecuting) return 'Cannot auto-layout while workflow is running'
-      if (isAutoLayouting) return 'Applying auto-layout...'
-      return 'Auto layout'
+      if (!canEdit) return copy.controlBar.autoLayoutPermissionRequired
+      if (hasLockedBlocks) return copy.controlBar.autoLayoutLockedBlocks
+      if (isExecuting) return copy.controlBar.autoLayoutWhileRunning
+      if (isAutoLayouting) return copy.controlBar.applyingAutoLayout
+      return copy.controlBar.autoLayout
     }
 
     return (
@@ -382,7 +385,7 @@ export function ControlBar({
               ) : (
                 <LayoutDashboard className='h-5 w-5' />
               )}
-              <span className='sr-only'>Auto Layout</span>
+              <span className='sr-only'>{copy.controlBar.autoLayout}</span>
             </Button>
           )}
         </TooltipTrigger>
@@ -406,7 +409,7 @@ export function ControlBar({
               <X className={cn('h-3.5 w-3.5')} />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Cancel execution</TooltipContent>
+          <TooltipContent>{copy.controlBar.cancelExecution}</TooltipContent>
         </Tooltip>
       )
     }
@@ -415,36 +418,35 @@ export function ControlBar({
       if (hasValidationErrors) {
         return (
           <div className='text-center'>
-            <p className='font-medium text-destructive'>Workflow Has Errors</p>
-            <p className='text-xs'>
-              Nested subflows are not supported. Remove subflow blocks from inside other subflow
-              blocks.
-            </p>
+            <p className='font-medium text-destructive'>{copy.controlBar.workflowHasErrors}</p>
+            <p className='text-xs'>{copy.controlBar.nestedSubflowsUnsupported}</p>
           </div>
         )
       }
 
       if (userPermissions.isLoading) {
-        return 'Checking workflow permissions'
+        return copy.controlBar.checkingWorkflowPermissions
       }
 
       if (!userPermissions.canEdit) {
-        return 'Write permission required to run workflows'
+        return copy.controlBar.writePermissionRequiredToRunWorkflows
       }
 
       if (usageExceeded) {
         return (
           <div className='text-center'>
-            <p className='font-medium text-destructive'>Usage Limit Exceeded</p>
+            <p className='font-medium text-destructive'>{copy.controlBar.usageLimitExceeded}</p>
             <p className='text-xs'>
-              You've used {usageData?.currentUsage?.toFixed(2) || 0}$ of{' '}
-              {usageData?.limit?.toFixed(2) || 0}$ Upgrade your plan to continue.
+              {formatTemplate(copy.controlBar.usageLimitExceededDescription, {
+                currentUsage: usageData?.currentUsage?.toFixed(2) || 0,
+                limit: usageData?.limit?.toFixed(2) || 0,
+              })}
             </p>
           </div>
         )
       }
 
-      return 'Run'
+      return copy.controlBar.run
     }
 
     const handleRunClick = () => {

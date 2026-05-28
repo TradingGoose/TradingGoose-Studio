@@ -1,7 +1,8 @@
 'use client'
 
-import { type RefObject, useCallback, useEffect, useRef, useState } from 'react'
+import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
+import { useLocale } from 'next-intl'
 import { createLogger } from '@/lib/logs/console/logger'
 import { noop } from '@/lib/utils'
 import { getFormattedGitHubStars } from '@/app/(landing)/actions/github'
@@ -17,7 +18,10 @@ import {
   SSOAuth,
   VoiceInterface,
 } from '@/app/chat/components'
-import { CHAT_ERROR_MESSAGES, CHAT_REQUEST_TIMEOUT_MS } from '@/app/chat/constants'
+import { CHAT_ERROR_CODES, CHAT_REQUEST_TIMEOUT_MS } from '@/app/chat/constants'
+import { getChatErrorMessage } from '@/app/chat/errors'
+import { useChatMessages } from '@/i18n/client-messages'
+import type { LocaleCode } from '@/i18n/utils'
 import { useAudioStreaming, useChatStreaming } from '@/app/chat/hooks'
 
 const logger = createLogger('ChatClient')
@@ -106,6 +110,8 @@ function throttle<T extends (...args: any[]) => any>(func: T, delay: number): T 
 }
 
 export default function ChatClient({ identifier }: { identifier: string }) {
+  const locale = useLocale() as LocaleCode
+  const chatCopy = useChatMessages()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -124,7 +130,7 @@ export default function ChatClient({ identifier }: { identifier: string }) {
 
   const [isVoiceFirstMode, setIsVoiceFirstMode] = useState(false)
   const { isStreamingResponse, abortControllerRef, stopStreaming, handleStreamedResponse } =
-    useChatStreaming()
+    useChatStreaming(chatCopy)
   const audioContextRef = useRef<AudioContext | null>(null)
   const { isPlayingAudio, streamTextToAudio, stopAudio } = useAudioStreaming(audioContextRef)
 
@@ -214,22 +220,23 @@ export default function ChatClient({ identifier }: { identifier: string }) {
         // Check if auth is required
         if (response.status === 401) {
           const errorData = await response.json()
+          const errorCode = errorData.code || errorData.error
 
-          if (errorData.error === 'auth_required_password') {
+          if (errorCode === CHAT_ERROR_CODES.AUTH_REQUIRED_PASSWORD) {
             setAuthRequired('password')
             return
           }
-          if (errorData.error === 'auth_required_email') {
+          if (errorCode === CHAT_ERROR_CODES.AUTH_REQUIRED_EMAIL) {
             setAuthRequired('email')
             return
           }
-          if (errorData.error === 'auth_required_sso') {
+          if (errorCode === CHAT_ERROR_CODES.AUTH_REQUIRED_SSO) {
             setAuthRequired('sso')
             return
           }
         }
 
-        throw new Error(`Failed to load chat configuration: ${response.status}`)
+        throw new Error(`${chatCopy.errors.failedToLoadConfig}: ${response.status}`)
       }
 
       // Reset auth required state when authentication is successful
@@ -252,7 +259,7 @@ export default function ChatClient({ identifier }: { identifier: string }) {
       }
     } catch (error) {
       logger.error('Error fetching chat config:', error)
-      setError(CHAT_ERROR_MESSAGES.CHAT_UNAVAILABLE)
+      setError(chatCopy.errors.chatUnavailable)
     }
   }
 
@@ -309,7 +316,7 @@ export default function ChatClient({ identifier }: { identifier: string }) {
 
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
-      content: messageToSend || (files && files.length > 0 ? `Sent ${files.length} file(s)` : ''),
+      content: messageToSend.trim(),
       type: 'user',
       timestamp: new Date(),
       attachments: files?.map((file) => ({
@@ -381,11 +388,16 @@ export default function ChatClient({ identifier }: { identifier: string }) {
       if (!response.ok) {
         const errorData = await response.json()
         logger.error('API error response:', errorData)
-        throw new Error(errorData.error || 'Failed to get response')
+        throw new Error(
+          getChatErrorMessage(
+            chatCopy,
+            errorData.code || errorData.error || CHAT_ERROR_CODES.FAILED_TO_GET_RESPONSE
+          )
+        )
       }
 
       if (!response.body) {
-        throw new Error('Response body is missing')
+        throw new Error(chatCopy.errors.responseBodyMissing)
       }
 
       // Use the streaming hook with audio support
@@ -425,7 +437,7 @@ export default function ChatClient({ identifier }: { identifier: string }) {
       setIsLoading(false)
       const errorMessage: ChatMessage = {
         id: crypto.randomUUID(),
-        content: CHAT_ERROR_MESSAGES.GENERIC_ERROR,
+        content: chatCopy.errors.generic,
         type: 'assistant',
         timestamp: new Date(),
       }
@@ -475,13 +487,14 @@ export default function ChatClient({ identifier }: { identifier: string }) {
 
   // If error, show error message using the extracted component
   if (error) {
-    return <ChatErrorState error={error} starCount={starCount} />
+    return <ChatErrorState error={error} starCount={starCount} copy={chatCopy} />
   }
 
   // If authentication is required, use the extracted components
   if (authRequired) {
     // Get title and description from the URL params or use defaults
-    const title = new URLSearchParams(window.location.search).get('title') || 'chat'
+    const title =
+      new URLSearchParams(window.location.search).get('title') || chatCopy.header.titleFallback
     const primaryColor =
       new URLSearchParams(window.location.search).get('color') || 'var(--primary-hover)'
 
@@ -492,6 +505,7 @@ export default function ChatClient({ identifier }: { identifier: string }) {
           onAuthSuccess={handleAuthSuccess}
           title={title}
           primaryColor={primaryColor}
+          copy={chatCopy}
         />
       )
     }
@@ -502,6 +516,7 @@ export default function ChatClient({ identifier }: { identifier: string }) {
           onAuthSuccess={handleAuthSuccess}
           title={title}
           primaryColor={primaryColor}
+          copy={chatCopy}
         />
       )
     }
@@ -512,6 +527,7 @@ export default function ChatClient({ identifier }: { identifier: string }) {
           onAuthSuccess={handleAuthSuccess}
           title={title}
           primaryColor={primaryColor}
+          copy={chatCopy}
         />
       )
     }
@@ -534,6 +550,8 @@ export default function ChatClient({ identifier }: { identifier: string }) {
         isStreaming={isStreamingResponse}
         isPlayingAudio={isPlayingAudio}
         audioContextRef={audioContextRef}
+        copy={chatCopy}
+        speechRecognitionLang={locale === 'zh-CN' ? 'zh-CN' : locale === 'es' ? 'es-ES' : 'en-US'}
         messages={messages.map((msg) => ({
           content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
           type: msg.type,
@@ -546,7 +564,7 @@ export default function ChatClient({ identifier }: { identifier: string }) {
   return (
     <div className='fixed inset-0 z-[100] flex flex-col bg-background text-foreground'>
       {/* Header component */}
-      <ChatHeader chatConfig={chatConfig} starCount={starCount} />
+      <ChatHeader chatConfig={chatConfig} starCount={starCount} copy={chatCopy} />
 
       {/* Message Container component */}
       <ChatMessageContainer
@@ -558,6 +576,7 @@ export default function ChatClient({ identifier }: { identifier: string }) {
         scrollToBottom={scrollToBottom}
         scrollToMessage={scrollToMessage}
         chatConfig={chatConfig}
+        copy={chatCopy}
       />
 
       {/* Input area (free-standing at the bottom) */}
@@ -570,6 +589,7 @@ export default function ChatClient({ identifier }: { identifier: string }) {
             isStreaming={isStreamingResponse}
             onStopStreaming={() => stopStreaming(setMessages)}
             onVoiceStart={handleVoiceStart}
+            copy={chatCopy}
           />
         </div>
       </div>

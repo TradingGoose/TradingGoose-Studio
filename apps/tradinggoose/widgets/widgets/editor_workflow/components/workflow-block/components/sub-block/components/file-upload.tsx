@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { ChevronDown, X } from 'lucide-react'
 import {
   Command,
@@ -16,7 +17,10 @@ import {
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { createLogger } from '@/lib/logs/console/logger'
+import { translateWorkflowLabel } from '@/i18n/block-editor'
+import { formatFileSize as formatLocalizedFileSize } from '@/i18n/formatters'
 import type { WorkspaceFileRecord } from '@/lib/uploads/contexts/workspace'
+import type { LocaleCode } from '@/i18n/utils'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
@@ -25,6 +29,7 @@ import {
   useWorkflowId,
   useWorkspaceId,
 } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 const logger = createLogger('FileUpload')
 
@@ -59,6 +64,8 @@ export function FileUpload({
   multiple = false,
   disabled = false,
 }: FileUploadProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = useWorkflowBlockEditorCopy().fileUpload
   // State management - handle both single file and array of files
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlockId)
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([])
@@ -158,11 +165,7 @@ export function FileUpload({
   /**
    * Formats file size for display in a human-readable format
    */
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-  }
+  const formatFileSize = (bytes: number): string => formatLocalizedFileSize(locale, bytes)
 
   /**
    * Truncate long file names keeping both start and end segments.
@@ -258,11 +261,11 @@ export function FileUpload({
 
           // Handle error response
           if (!response.ok) {
-            const errorMessage = data.error || `Failed to upload file: ${response.status}`
+            const errorMessage = data.error || copy.uploadFailed
             uploadErrors.push(`${file.name}: ${errorMessage}`)
 
             // Set error message with conditional auto-dismiss
-            setUploadError(errorMessage)
+            setUploadError(copy.uploadFailed)
 
             // Only auto-dismiss duplicate errors, keep other errors (like storage limits) visible
             if (data.isDuplicate || response.status === 409) {
@@ -273,11 +276,11 @@ export function FileUpload({
 
           // Check if response has error even with 200 status
           if (data.success === false) {
-            const errorMessage = data.error || 'Upload failed'
+            const errorMessage = data.error || copy.uploadFailed
             uploadErrors.push(`${file.name}: ${errorMessage}`)
 
             // Set error message with conditional auto-dismiss
-            setUploadError(errorMessage)
+            setUploadError(copy.uploadFailed)
 
             // Only auto-dismiss duplicate errors, keep other errors (like storage limits) visible
             if (data.isDuplicate) {
@@ -296,8 +299,9 @@ export function FileUpload({
           })
         } catch (error) {
           logger.error(`Error uploading ${file.name}:`, error)
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+          const errorMessage = error instanceof Error ? error.message : copy.uploadFailed
           uploadErrors.push(`${file.name}: ${errorMessage}`)
+          setUploadError(copy.uploadFailed)
         }
       }
 
@@ -546,7 +550,7 @@ export function FileUpload({
                     indicatorClassName='bg-foreground'
                   />
                   <div className='mt-1 text-center text-muted-foreground text-xs'>
-                    {uploadProgress < 100 ? 'Uploading...' : 'Upload complete!'}
+                    {uploadProgress < 100 ? copy.uploading : copy.uploadComplete}
                   </div>
                 </div>
               </>
@@ -572,14 +576,16 @@ export function FileUpload({
                   className='relative w-full justify-between'
                   disabled={disabled || loadingWorkspaceFiles}
                 >
-                  <span className='truncate font-normal'>+ Add More</span>
+                  <span className='truncate font-normal'>
+                    {translateWorkflowLabel(locale, 'Add More')}
+                  </span>
                   <ChevronDown className='absolute right-3 h-4 w-4 shrink-0 opacity-50' />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className='w-[320px] p-0' align='start'>
                 <Command>
                   <CommandInput
-                    placeholder='Search files...'
+                    placeholder={translateWorkflowLabel(locale, 'Search files...')}
                     className='text-foreground placeholder:text-muted-foreground'
                   />
                   <CommandList onWheel={(e) => e.stopPropagation()}>
@@ -594,16 +600,16 @@ export function FileUpload({
                           } as React.MouseEvent)
                         }}
                       >
-                        Upload New File
+                        {translateWorkflowLabel(locale, 'Upload New File')}
                       </CommandItem>
                     </CommandGroup>
                     <CommandEmpty>
                       {availableWorkspaceFiles.length === 0
-                        ? 'No files available.'
-                        : 'No files found.'}
+                        ? translateWorkflowLabel(locale, 'No files available.')
+                        : translateWorkflowLabel(locale, 'No files found.')}
                     </CommandEmpty>
-                    {availableWorkspaceFiles.length > 0 && (
-                      <CommandGroup heading='Workspace Files'>
+                  {availableWorkspaceFiles.length > 0 && (
+                    <CommandGroup heading={translateWorkflowLabel(locale, 'Workspace Files')}>
                         {availableWorkspaceFiles.map((file) => (
                           <CommandItem
                             key={file.id}
@@ -647,15 +653,17 @@ export function FileUpload({
                 disabled={disabled || loadingWorkspaceFiles}
               >
                 <span className='truncate font-normal'>
-                  {loadingWorkspaceFiles ? 'Loading files...' : 'Select or upload file'}
+                  {loadingWorkspaceFiles
+                    ? translateWorkflowLabel(locale, 'Loading files...')
+                    : translateWorkflowLabel(locale, 'Select or upload file')}
                 </span>
                 <ChevronDown className='absolute right-3 h-4 w-4 shrink-0 opacity-50' />
               </Button>
             </PopoverTrigger>
             <PopoverContent className='w-[320px] p-0' align='start'>
-              <Command>
-                <CommandInput
-                  placeholder='Search files...'
+                <Command>
+                  <CommandInput
+                  placeholder={translateWorkflowLabel(locale, 'Search files...')}
                   className='text-foreground placeholder:text-muted-foreground'
                 />
                 <CommandList onWheel={(e) => e.stopPropagation()}>
@@ -670,16 +678,16 @@ export function FileUpload({
                         } as React.MouseEvent)
                       }}
                     >
-                      Upload New File
+                      {translateWorkflowLabel(locale, 'Upload New File')}
                     </CommandItem>
                   </CommandGroup>
                   <CommandEmpty>
                     {availableWorkspaceFiles.length === 0
-                      ? 'No files available.'
-                      : 'No files found.'}
+                      ? translateWorkflowLabel(locale, 'No files available.')
+                      : translateWorkflowLabel(locale, 'No files found.')}
                   </CommandEmpty>
                   {availableWorkspaceFiles.length > 0 && (
-                    <CommandGroup heading='Workspace Files'>
+                    <CommandGroup heading={translateWorkflowLabel(locale, 'Workspace Files')}>
                       {availableWorkspaceFiles.map((file) => (
                         <CommandItem
                           key={file.id}

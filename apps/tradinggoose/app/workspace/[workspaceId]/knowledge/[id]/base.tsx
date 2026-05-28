@@ -19,6 +19,7 @@ import {
   X,
 } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
+import { useLocale, useTranslations } from 'next-intl'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -33,6 +34,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { SearchHighlight } from '@/components/ui/search-highlight'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { formatFileSize as formatLocalizedFileSize } from '@/i18n/formatters'
 import type { DocumentSortField, SortOrder } from '@/lib/knowledge/documents/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -65,20 +67,17 @@ function getFileIcon(mimeType: string, filename: string) {
   return <IconComponent className='h-6 w-5 flex-shrink-0' />
 }
 
-function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 Bytes'
-  const k = 1024
-  const sizes = ['Bytes', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return `${Number.parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`
-}
+type DocumentStatusCopy = Record<
+  'pending' | 'processing' | 'failed' | 'enabled' | 'disabled' | 'unknown',
+  string
+>
 
-const getStatusDisplay = (doc: DocumentData) => {
+const getStatusDisplay = (doc: DocumentData, copy: DocumentStatusCopy) => {
   // Consolidated status: show processing status when not completed, otherwise show enabled/disabled
   switch (doc.processingStatus) {
     case 'pending':
       return {
-        text: 'Pending',
+        text: copy.pending,
         className:
           'inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300',
       }
@@ -87,7 +86,7 @@ const getStatusDisplay = (doc: DocumentData) => {
         text: (
           <>
             <Loader2 className='mr-1.5 h-3 w-3 animate-spin' />
-            Processing
+            {copy.processing}
           </>
         ),
         className:
@@ -97,7 +96,7 @@ const getStatusDisplay = (doc: DocumentData) => {
       return {
         text: (
           <>
-            Failed
+            {copy.failed}
             {doc.processingError && <AlertCircle className='ml-1.5 h-3 w-3' />}
           </>
         ),
@@ -107,18 +106,18 @@ const getStatusDisplay = (doc: DocumentData) => {
     case 'completed':
       return doc.enabled
         ? {
-            text: 'Enabled',
+            text: copy.enabled,
             className:
               'inline-flex items-center rounded-md bg-green-100 px-2 py-1 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400',
           }
         : {
-            text: 'Disabled',
+            text: copy.disabled,
             className:
               'inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300',
           }
     default:
       return {
-        text: 'Unknown',
+        text: copy.unknown,
         className:
           'inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300',
       }
@@ -132,6 +131,16 @@ export function KnowledgeBase({
   const userPermissions = useUserPermissionsContext()
   const params = useParams()
   const workspaceId = params.workspaceId as string
+  const locale = useLocale()
+  const t = useTranslations('workspace.knowledge')
+  const statusCopy: DocumentStatusCopy = {
+    pending: t('statuses.pending'),
+    processing: t('statuses.processing'),
+    failed: t('statuses.failed'),
+    enabled: t('statuses.enabled'),
+    disabled: t('statuses.disabled'),
+    unknown: t('statuses.unknown'),
+  }
 
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -620,7 +629,7 @@ export function KnowledgeBase({
   const breadcrumbs = [
     {
       id: 'knowledge-root',
-      label: 'Knowledge',
+      label: t('title'),
       href: `/workspace/${workspaceId}/knowledge`,
     },
     {
@@ -634,7 +643,7 @@ export function KnowledgeBase({
       <SearchInput
         value={searchQuery}
         onChange={handleSearchChange}
-        placeholder='Search documents...'
+        placeholder={t('header.searchDocumentsPlaceholder')}
         isLoading={isLoadingDocuments}
         className='flex-1'
       />
@@ -648,7 +657,7 @@ export function KnowledgeBase({
                 disabled={userPermissions.canEdit !== true}
               >
                 <Plus className='h-3.5 w-3.5' />
-                Add Documents
+                {t('header.addDocuments')}
               </PrimaryButton>
             </span>
           </TooltipTrigger>
@@ -668,11 +677,11 @@ export function KnowledgeBase({
   // Show error state for knowledge base fetch
   if (error && !knowledgeBase) {
     const errorBreadcrumbs = [
-      {
-        id: 'knowledge-root',
-        label: 'Knowledge',
-        href: `/workspace/${workspaceId}/knowledge`,
-      },
+    {
+      id: 'knowledge-root',
+      label: t('title'),
+      href: `/workspace/${workspaceId}/knowledge`,
+    },
       {
         id: 'error',
         label: 'Error',
@@ -813,7 +822,7 @@ export function KnowledgeBase({
             ) : (
               documents.map((doc) => {
                 const isSelected = selectedDocuments.has(doc.id)
-                const statusDisplay = getStatusDisplay(doc)
+                const statusDisplay = getStatusDisplay(doc, statusCopy)
 
                 return (
                   <tr
@@ -854,7 +863,7 @@ export function KnowledgeBase({
                     </td>
                     <td className='px-4 py-3'>
                       <div className='text-muted-foreground text-xs'>
-                        {formatFileSize(doc.fileSize)}
+                        {formatLocalizedFileSize(locale, doc.fileSize)}
                       </div>
                     </td>
                     <td className='px-4 py-3'>
@@ -1155,25 +1164,33 @@ export function KnowledgeBase({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Delete {documentsPendingDelete.length === 1 ? 'file' : 'files'}?
+              {documentsPendingDelete.length === 1
+                ? t('document.deleteFileTitle')
+                : t('document.deleteFilesTitle')}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {documentsPendingDelete.length === 1
-                ? `Deleting "${documentsPendingDelete[0]?.filename}" will permanently remove its source file, chunks, and embeddings from this knowledge base.`
-                : `Deleting ${documentsPendingDelete.length} files will permanently remove their source files, chunks, and embeddings from this knowledge base.`}{' '}
-              <span className='text-red-500 dark:text-red-500'>This action cannot be undone.</span>
+                ? t('document.deleteFileDescription', {
+                    name: documentsPendingDelete[0]?.filename || '',
+                  })
+                : t('document.deleteFilesDescription', {
+                    count: documentsPendingDelete.length,
+                  })}{' '}
+              <span className='text-red-500 dark:text-red-500'>
+                {t('document.thisActionCannotBeUndone')}
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className='flex'>
             <AlertDialogCancel className='h-9 w-full rounded-sm' disabled={isDeletingDocuments}>
-              Cancel
+              {t('document.cancel')}
             </AlertDialogCancel>
             <Button
               onClick={handleConfirmDeleteDocuments}
               disabled={isDeletingDocuments}
               className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
             >
-              {isDeletingDocuments ? 'Deleting...' : 'Delete'}
+              {isDeletingDocuments ? t('document.deleting') : t('document.delete')}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

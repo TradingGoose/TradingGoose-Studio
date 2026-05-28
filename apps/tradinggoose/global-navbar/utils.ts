@@ -11,19 +11,46 @@ import {
   UserRoundPlus,
   Waypoints,
 } from 'lucide-react'
+import { defaultLocale, localizePathname, stripLocaleFromPathname, type LocaleCode } from '@/i18n/utils'
 import type { NavItemLink, NavSection } from './types'
 
+type WorkspaceNavLabels = {
+  workspace: {
+    dashboard: string
+    knowledge: string
+    files: string
+    records: string
+    monitor: string
+  }
+  more: {
+    environment: string
+    apiKeys: string
+    integrations: string
+  }
+}
+
+type AdminNavLabels = {
+  overview: string
+  billing: string
+  services: string
+  integrations: string
+  registration: string
+}
+
 export function getWorkspaceIdFromPath(path: string) {
-  const match = /^\/workspace\/([^/]+)/.exec(path)
+  const { pathname } = stripLocaleFromPathname(path)
+  const match = /^\/workspace\/([^/]+)/.exec(pathname)
   return match?.[1]
 }
 
 export function getWorkspaceSwitchPath(
   path: string,
   targetWorkspaceId: string,
-  searchParams?: string
+  searchParams?: string,
+  locale: LocaleCode = defaultLocale
 ) {
-  const match = /^\/workspace\/[^/]+(?:\/([^/]+))?/.exec(path)
+  const { pathname } = stripLocaleFromPathname(path)
+  const match = /^\/workspace\/[^/]+(?:\/([^/]+))?/.exec(pathname)
   const section = match?.[1] ?? null
 
   // Only allow safe top-level sections to carry over between workspaces.
@@ -40,49 +67,57 @@ export function getWorkspaceSwitchPath(
   ])
   const sectionPath = section && allowedSections.has(section) ? `/${section}` : '/dashboard'
 
-  const basePath = `/workspace/${targetWorkspaceId}${sectionPath}`
+  const basePath = localizePathname(locale, `/workspace/${targetWorkspaceId}${sectionPath}`)
 
   const normalizedSearch = searchParams?.replace(/^\?/, '')
   return normalizedSearch ? `${basePath}?${normalizedSearch}` : basePath
 }
 
-export function createWorkspaceNav(workspaceId?: string): NavItemLink[] {
+export function createWorkspaceNav(
+  copy: WorkspaceNavLabels,
+  locale: LocaleCode = defaultLocale,
+  workspaceId?: string
+): NavItemLink[] {
   if (!workspaceId) {
     return [
-      { title: 'Dashboard', url: '/dashboard', icon: LayoutTemplate, section: 'workspace' },
-      { title: 'Knowledge', url: '/knowledge', icon: LibraryBig, section: 'workspace' },
-      { title: 'Files', url: '/files', icon: Files, section: 'workspace' },
-      { title: 'Monitor', url: '/monitor', icon: Activity, section: 'workspace' },
+      { title: copy.workspace.dashboard, url: localizePathname(locale, '/dashboard'), icon: LayoutTemplate, section: 'workspace' },
+      { title: copy.workspace.knowledge, url: localizePathname(locale, '/knowledge'), icon: LibraryBig, section: 'workspace' },
+      { title: copy.workspace.files, url: localizePathname(locale, '/files'), icon: Files, section: 'workspace' },
+      { title: copy.workspace.monitor, url: localizePathname(locale, '/monitor'), icon: Activity, section: 'workspace' },
     ]
   }
 
-  const base = `/workspace/${workspaceId}`
+  const base = localizePathname(locale, `/workspace/${workspaceId}`)
   return [
-    { title: 'Dashboard', url: `${base}/dashboard`, icon: LayoutTemplate, section: 'workspace' },
-    { title: 'Knowledge', url: `${base}/knowledge`, icon: LibraryBig, section: 'workspace' },
-    { title: 'Files', url: `${base}/files`, icon: Files, section: 'workspace' },
-    { title: 'Records', url: `${base}/records`, icon: ScrollText, section: 'workspace' },
-    { title: 'Monitor', url: `${base}/monitor`, icon: Activity, section: 'workspace' },
-    { title: 'Environment Variable', url: `${base}/environment`, icon: Braces, section: 'more' },
-    { title: 'API Keys', url: `${base}/api-keys`, icon: KeyRound, section: 'more' },
-    { title: 'Integrations', url: `${base}/integrations`, icon: Waypoints, section: 'more' },
+    { title: copy.workspace.dashboard, url: `${base}/dashboard`, icon: LayoutTemplate, section: 'workspace' },
+    { title: copy.workspace.knowledge, url: `${base}/knowledge`, icon: LibraryBig, section: 'workspace' },
+    { title: copy.workspace.files, url: `${base}/files`, icon: Files, section: 'workspace' },
+    { title: copy.workspace.records, url: `${base}/records`, icon: ScrollText, section: 'workspace' },
+    { title: copy.workspace.monitor, url: `${base}/monitor`, icon: Activity, section: 'workspace' },
+    { title: copy.more.environment, url: `${base}/environment`, icon: Braces, section: 'more' },
+    { title: copy.more.apiKeys, url: `${base}/api-keys`, icon: KeyRound, section: 'more' },
+    { title: copy.more.integrations, url: `${base}/integrations`, icon: Waypoints, section: 'more' },
   ]
 }
 
-export function createAdminNav(): NavItemLink[] {
+export function createAdminNav(
+  copy: AdminNavLabels,
+  locale: LocaleCode = defaultLocale
+): NavItemLink[] {
   return [
-    { title: 'Overview', url: '/admin', icon: ShieldCheck, section: 'admin', match: 'exact' },
-    { title: 'Billing', url: '/admin/billing', icon: Receipt, section: 'admin' },
-    { title: 'Services', url: '/admin/services', icon: KeyRound, section: 'admin' },
-    { title: 'Integrations', url: '/admin/integrations', icon: Waypoints, section: 'admin' },
-    { title: 'Registration', url: '/admin/registration', icon: UserRoundPlus, section: 'admin' },
+    { title: copy.overview, url: localizePathname(locale, '/admin'), icon: ShieldCheck, section: 'admin', match: 'exact' },
+    { title: copy.billing, url: localizePathname(locale, '/admin/billing'), icon: Receipt, section: 'admin' },
+    { title: copy.services, url: localizePathname(locale, '/admin/services'), icon: KeyRound, section: 'admin' },
+    { title: copy.integrations, url: localizePathname(locale, '/admin/integrations'), icon: Waypoints, section: 'admin' },
+    { title: copy.registration, url: localizePathname(locale, '/admin/registration'), icon: UserRoundPlus, section: 'admin' },
   ]
 }
 
 export function createNavSections(pathname: string, workspaceItems: NavItemLink[]): NavSection[] {
+  const { pathname: normalizedPathname } = stripLocaleFromPathname(pathname)
   return workspaceItems.map((item) => ({
     ...item,
-    isActive: isPathActive(pathname, item.url, item.match),
+    isActive: isPathActive(normalizedPathname, stripLocaleFromPathname(item.url).pathname, item.match),
   }))
 }
 

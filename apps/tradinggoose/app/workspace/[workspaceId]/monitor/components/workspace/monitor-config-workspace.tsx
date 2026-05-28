@@ -3,7 +3,9 @@
 import { useCallback, useMemo } from 'react'
 import { Notice } from '@/components/ui/notice'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
+import { getConfigBoardLabels, useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { formatTemplate } from '@/i18n/client-messages'
 import { buildConfigBoardSections, type ConfigBoardContext } from '../config/config-board-state'
 import { buildConfigMonitorCards } from '../config/config-card-model'
 import {
@@ -58,56 +60,6 @@ type MonitorConfigWorkspaceProps = {
   onReloadViews: () => void
 }
 
-const DIMENSION_LABELS: Record<ConfigMonitorDimensionField, string> = {
-  workflowTarget: 'Workflow target',
-  indicator: 'Indicator',
-  listing: 'Listing',
-  provider: 'Provider',
-  interval: 'Interval',
-}
-
-const SORT_LABELS: Record<ConfigMonitorSortField, string> = {
-  createdAt: 'Created',
-  updatedAt: 'Updated',
-  workflowTargetLabel: 'Workflow target',
-  indicatorName: 'Indicator',
-  listingLabel: 'Listing',
-  providerId: 'Provider',
-  interval: 'Interval',
-  status: 'Status',
-  lastExecutionAt: 'Last execution',
-  lastOutcome: 'Last outcome',
-}
-
-const VISIBLE_LABELS: Record<ConfigMonitorVisibleField, string> = {
-  workflowTarget: 'Workflow target',
-  indicator: 'Indicator',
-  listing: 'Listing',
-  provider: 'Provider',
-  interval: 'Interval',
-  status: 'Status',
-  createdAt: 'Created',
-  updatedAt: 'Updated',
-  lastExecutionAt: 'Last execution',
-  lastOutcome: 'Last outcome',
-}
-
-const FIELD_SUM_LABELS: Record<ConfigMonitorFieldSum, string> = {
-  count: 'Count',
-  activeCount: 'Active',
-  pausedCount: 'Paused',
-}
-
-const summarizeConfigFieldSums = (fieldSums: ConfigMonitorFieldSum[]) => {
-  if (fieldSums.length === 0) return 'None'
-  if (fieldSums.length === 1) return FIELD_SUM_LABELS[fieldSums[0]!]
-  return `${FIELD_SUM_LABELS[fieldSums[0]!]} +${fieldSums.length - 1}`
-}
-
-const summarizeConfigVisibleFields = (
-  visibleFieldIds: ConfigMonitorViewConfig['kanban']['visibleFieldIds']
-) => `${visibleFieldIds.length} shown`
-
 export function MonitorConfigWorkspace({
   workspaceId,
   viewStateMode,
@@ -124,7 +76,52 @@ export function MonitorConfigWorkspace({
   onUpdateViewConfig,
   onReloadViews,
 }: MonitorConfigWorkspaceProps) {
+  const { copy } = useMonitorCopy()
   const isMobile = useIsMobile()
+  const DIMENSION_LABELS: Record<ConfigMonitorDimensionField, string> = {
+    workflowTarget: copy.fields.workflowTarget,
+    indicator: copy.fields.indicator,
+    listing: copy.fields.listing,
+    provider: copy.fields.provider,
+    interval: copy.fields.interval,
+  }
+  const SORT_LABELS: Record<ConfigMonitorSortField, string> = {
+    createdAt: copy.fields.createdAt,
+    updatedAt: copy.fields.updatedAt,
+    workflowTargetLabel: copy.fields.workflowTarget,
+    indicatorName: copy.fields.indicator,
+    listingLabel: copy.fields.listing,
+    providerId: copy.fields.provider,
+    interval: copy.fields.interval,
+    status: copy.fields.status,
+    lastExecutionAt: copy.fields.lastExecution,
+    lastOutcome: copy.fields.lastOutcome,
+  }
+  const VISIBLE_LABELS: Record<ConfigMonitorVisibleField, string> = {
+    workflowTarget: copy.fields.workflowTarget,
+    indicator: copy.fields.indicator,
+    listing: copy.fields.listing,
+    provider: copy.fields.provider,
+    interval: copy.fields.interval,
+    status: copy.fields.status,
+    createdAt: copy.fields.createdAt,
+    updatedAt: copy.fields.updatedAt,
+    lastExecutionAt: copy.fields.lastExecution,
+    lastOutcome: copy.fields.lastOutcome,
+  }
+  const FIELD_SUM_LABELS: Record<ConfigMonitorFieldSum, string> = {
+    count: copy.fields.count,
+    activeCount: copy.fields.active,
+    pausedCount: copy.fields.paused,
+  }
+  const summarizeConfigFieldSums = (fieldSums: ConfigMonitorFieldSum[]) => {
+    if (fieldSums.length === 0) return copy.shared.none
+    if (fieldSums.length === 1) return FIELD_SUM_LABELS[fieldSums[0]!]
+    return `${FIELD_SUM_LABELS[fieldSums[0]!]} +${fieldSums.length - 1}`
+  }
+  const summarizeConfigVisibleFields = (
+    visibleFieldIds: ConfigMonitorViewConfig['kanban']['visibleFieldIds']
+  ) => formatTemplate(copy.shared.shownCount, { count: visibleFieldIds.length })
   const tarreadMonitorIds = useMemo(
     () => Array.from(new Set(monitorRecords.map((monitor) => monitor.monitorId))).sort(),
     [monitorRecords]
@@ -135,16 +132,25 @@ export function MonitorConfigWorkspace({
     enabled: viewStateMode === 'server' && tarreadMonitorIds.length > 0,
   })
   const cards = useMemo(
-    () => buildConfigMonitorCards(monitorRecords, referenceData, summaries.summariesByMonitorId),
-    [monitorRecords, referenceData, summaries.summariesByMonitorId]
+    () =>
+      buildConfigMonitorCards(monitorRecords, referenceData, summaries.summariesByMonitorId, {
+        unknownListingLabel: copy.execution.unknownListing,
+      }),
+    [copy.execution.unknownListing, monitorRecords, referenceData, summaries.summariesByMonitorId]
   )
   const filteredCards = useMemo(
     () => filterConfigMonitorCards(cards, effectiveConfig),
     [cards, effectiveConfig]
   )
   const sections = useMemo(
-    () => buildConfigBoardSections(filteredCards, effectiveConfig, referenceData),
-    [effectiveConfig, filteredCards, referenceData]
+    () =>
+      buildConfigBoardSections(
+        filteredCards,
+        effectiveConfig,
+        referenceData,
+        getConfigBoardLabels(copy)
+      ),
+    [copy, effectiveConfig, filteredCards, referenceData]
   )
   const cardById = useMemo(() => new Map(cards.map((card) => [card.monitorId, card])), [cards])
   const wrappedMonitorActions = useMemo<MonitorRecordActions>(
@@ -282,9 +288,7 @@ export function MonitorConfigWorkspace({
     return (
       <MonitorStateCard
         loadingLabel={
-          viewStateMode === 'loading'
-            ? 'Loading config views...'
-            : 'Loading monitor requirements...'
+          viewStateMode === 'loading' ? copy.config.loadingViews : copy.loadingRequirements
         }
         className='h-full w-full border-0 bg-transparent'
       />
@@ -294,9 +298,9 @@ export function MonitorConfigWorkspace({
   if (viewStateMode === 'error') {
     return (
       <MonitorStateCard
-        title='Config views unavailable'
-        description={viewsError ?? 'Unable to load config monitor views.'}
-        actionLabel='Retry'
+        title={copy.config.viewsUnavailableTitle}
+        description={viewsError ?? copy.config.viewsUnavailableDescription}
+        actionLabel={copy.shared.retry}
         onAction={onReloadViews}
         className='h-full w-full border-0 bg-transparent'
       />
@@ -305,7 +309,7 @@ export function MonitorConfigWorkspace({
 
   const board = (
     <div className='flex h-full min-h-0 flex-col gap-2 px-1.5'>
-      <MonitorControlBar toolbarLabel='Monitor config controls'>
+      <MonitorControlBar toolbarLabel={copy.config.toolbarLabel}>
         <MonitorTimezoneMenu
           timezone={effectiveConfig.timezone}
           disabled={controlsDisabled}
@@ -318,8 +322,10 @@ export function MonitorConfigWorkspace({
         />
         <MonitorControlSelect
           value={effectiveConfig.groupBy}
-          label='Group'
+          label={copy.controls.group}
           disabled={controlsDisabled}
+          emptyText={copy.shared.noOptions}
+          searchPlaceholder={copy.controls.searchOptions}
           options={CONFIG_MONITOR_DIMENSION_FIELDS.map((field) => ({
             value: field,
             label: DIMENSION_LABELS[field],
@@ -333,10 +339,12 @@ export function MonitorConfigWorkspace({
         />
         <MonitorControlSelect
           value={effectiveConfig.sliceBy ?? 'none'}
-          label='Slice'
+          label={copy.controls.slice}
           disabled={controlsDisabled}
+          emptyText={copy.shared.noOptions}
+          searchPlaceholder={copy.controls.searchOptions}
           options={[
-            { value: 'none', label: 'None' },
+            { value: 'none', label: copy.shared.none },
             ...CONFIG_MONITOR_DIMENSION_FIELDS.filter(
               (field) => field !== effectiveConfig.groupBy
             ).map((field) => ({
@@ -353,10 +361,12 @@ export function MonitorConfigWorkspace({
         />
         <MonitorControlSelect
           value={effectiveConfig.verticalGroupBy ?? 'none'}
-          label='Swimlane'
+          label={copy.controls.swimlane}
           disabled={controlsDisabled}
+          emptyText={copy.shared.noOptions}
+          searchPlaceholder={copy.controls.searchOptions}
           options={[
-            { value: 'none', label: 'None' },
+            { value: 'none', label: copy.shared.none },
             ...CONFIG_MONITOR_DIMENSION_FIELDS.filter(
               (field) => field !== effectiveConfig.groupBy && field !== effectiveConfig.sliceBy
             ).map((field) => ({
@@ -373,10 +383,12 @@ export function MonitorConfigWorkspace({
         />
         <MonitorControlSelect
           value={activeSort?.field ?? 'manual'}
-          label='Sort'
+          label={copy.controls.sort}
           disabled={controlsDisabled}
+          emptyText={copy.shared.noOptions}
+          searchPlaceholder={copy.controls.searchOptions}
           options={[
-            { value: 'manual', label: 'Manual order' },
+            { value: 'manual', label: copy.controls.manualOrder },
             ...CONFIG_MONITOR_SORT_FIELDS.map((field) => ({
               value: field,
               label: SORT_LABELS[field],
@@ -398,9 +410,10 @@ export function MonitorConfigWorkspace({
           }
         />
         <MonitorControlMenu
-          label='Sums'
+          label={copy.controls.sums}
           value={summarizeConfigFieldSums(effectiveConfig.fieldSums)}
           disabled={controlsDisabled}
+          searchPlaceholder={copy.controls.searchOptions}
           options={CONFIG_MONITOR_FIELD_SUMS.map((field) => ({
             value: field,
             label: FIELD_SUM_LABELS[field],
@@ -409,9 +422,10 @@ export function MonitorConfigWorkspace({
           onValueChange={(value) => handleFieldSumToggle(value as ConfigMonitorFieldSum)}
         />
         <MonitorControlMenu
-          label='Fields'
+          label={copy.controls.fields}
           value={summarizeConfigVisibleFields(effectiveConfig.kanban.visibleFieldIds)}
           disabled={controlsDisabled}
+          searchPlaceholder={copy.controls.searchOptions}
           options={CONFIG_MONITOR_VISIBLE_FIELDS.map((field) => ({
             value: field,
             label: VISIBLE_LABELS[field],
@@ -424,7 +438,7 @@ export function MonitorConfigWorkspace({
       {noticeMessage ? <Notice variant='warning'>{noticeMessage}</Notice> : null}
 
       {monitorsLoading ? (
-        <MonitorStateCard loadingLabel='Loading monitor records...' className='h-full' />
+        <MonitorStateCard loadingLabel={copy.config.loadingRecords} className='h-full' />
       ) : (
         <MonitorConfigBoard
           sections={sections}

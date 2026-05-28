@@ -1,6 +1,11 @@
 import type React from 'react'
+import IntlProvider from '@/app/intl-provider'
 import AuthLayoutClient from './layout-client'
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
-  return <AuthLayoutClient>{children}</AuthLayoutClient>
+  return (
+    <IntlProvider namespaces={['nav', 'registration', 'auth'] as const}>
+      <AuthLayoutClient>{children}</AuthLayoutClient>
+    </IntlProvider>
+  )
 }

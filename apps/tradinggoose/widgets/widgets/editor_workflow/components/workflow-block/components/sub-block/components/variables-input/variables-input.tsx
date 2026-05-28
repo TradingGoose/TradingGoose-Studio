@@ -20,6 +20,7 @@ import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-
 import type { Variable, VariableType } from '@/stores/variables/types'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 interface VariableAssignment {
   id: string
@@ -54,6 +55,7 @@ export function VariablesInput({
   disabled = false,
   isConnecting = false,
 }: VariablesInputProps) {
+  const copy = useWorkflowBlockEditorCopy().variablesInput
   const workflowId = useWorkflowId()
   const [storeValue, setStoreValue] = useSubBlockValue<VariableAssignment[]>(blockId, subBlockId)
   const yjsVariables = useWorkflowVariables()
@@ -337,8 +339,10 @@ export function VariablesInput({
                   </div>
 
                   <div className='space-y-1.5'>
-                    <Label className='text-xs'>Value</Label>
-                    {assignment.type === 'object' || assignment.type === 'array' || assignment.type === LISTING_IDENTITY_VALUE_TYPE ? (
+                    <Label className='text-xs'>{copy.valueLabel}</Label>
+                    {assignment.type === 'object' ||
+                    assignment.type === 'array' ||
+                    assignment.type === LISTING_IDENTITY_VALUE_TYPE ? (
                       <Textarea
                         ref={(el) => {
                           if (el) valueInputRefs.current[assignment.id] = el
@@ -352,9 +356,9 @@ export function VariablesInput({
                           )
                         }
                         placeholder={
-                          assignment.type === 'array'
-                            ? '[\n  1, 2, 3\n]'
-                            : '{\n  "key": "value"\n}'
+                          assignment.type === 'object'
+                            ? copy.objectValuePlaceholder
+                            : copy.arrayValuePlaceholder
                         }
                         disabled={isPreview || disabled}
                         className={cn(
@@ -415,7 +419,11 @@ export function VariablesInput({
                         activeSourceBlockId={activeSourceBlockId}
                         inputValue={assignment.value || ''}
                         cursorPosition={cursorPosition}
-                        allowedOutputTypes={assignment.type === LISTING_IDENTITY_VALUE_TYPE ? [LISTING_IDENTITY_VALUE_TYPE] : undefined}
+                        allowedOutputTypes={
+                          assignment.type === LISTING_IDENTITY_VALUE_TYPE
+                            ? [LISTING_IDENTITY_VALUE_TYPE]
+                            : undefined
+                        }
                         onClose={() => setShowTags(false)}
                         className='absolute top-full left-0 z-50 mt-1'
                       />

@@ -1,13 +1,18 @@
-import Link from 'next/link'
+import { getLocale } from 'next-intl/server'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { getBillingGateState } from '@/lib/billing/settings'
+import { Link } from '@/i18n/navigation'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 import { ADMIN_META_BADGE_CLASSNAME } from './badge-styles'
 import { AdminPageShell } from './page-shell'
 import { AdminSystemSettingsSection } from './system-settings-section'
 
 export default async function AdminHomePage() {
+  const locale = (await getLocale()) as LocaleCode
+  const copy = getPublicCopy(locale).admin.home
   const { stripeConfigured } = await getBillingGateState()
 
   return (
@@ -15,19 +20,16 @@ export default async function AdminHomePage() {
       left={
         <div className='flex items-center gap-2'>
           <Badge variant='outline' className={ADMIN_META_BADGE_CLASSNAME}>
-            Admin
+            {copy.badge}
           </Badge>
-          <span>System Overview</span>
+          <span>{copy.systemOverview}</span>
         </div>
       }
     >
       <div className='mx-auto flex w-full max-w-5xl flex-col gap-6'>
         <div className='space-y-2'>
-          <h1 className='font-semibold text-2xl tracking-tight'>System administration</h1>
-          <p className='max-w-2xl text-muted-foreground'>
-            Manage system-owned integrations, credentials, and platform-wide configuration from a
-            dedicated admin area.
-          </p>
+          <h1 className='font-semibold text-2xl tracking-tight'>{copy.title}</h1>
+          <p className='max-w-2xl text-muted-foreground'>{copy.description}</p>
         </div>
 
         <AdminSystemSettingsSection />
@@ -36,18 +38,13 @@ export default async function AdminHomePage() {
           {stripeConfigured ? (
             <Card>
               <CardHeader>
-                <CardTitle>Billing</CardTitle>
-                <CardDescription>
-                  Manage plans, pricing, base charges, and customer-facing billing limits.
-                </CardDescription>
+                <CardTitle>{copy.cards.billing.title}</CardTitle>
+                <CardDescription>{copy.cards.billing.description}</CardDescription>
               </CardHeader>
               <CardContent className='flex items-center justify-between gap-4'>
-                <p className='text-muted-foreground text-sm'>
-                  Open the billing area to create tiers, update pricing, and manage company-wide
-                  billing settings.
-                </p>
+                <p className='text-muted-foreground text-sm'>{copy.cards.billing.body}</p>
                 <Button asChild>
-                  <Link href='/admin/billing'>Open</Link>
+                  <Link href='/admin/billing'>{copy.cards.billing.action}</Link>
                 </Button>
               </CardContent>
             </Card>
@@ -55,54 +52,39 @@ export default async function AdminHomePage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Services</CardTitle>
-              <CardDescription>
-                Configure system-owned API credentials for search, embeddings, OCR, and browser
-                automation.
-              </CardDescription>
+              <CardTitle>{copy.cards.services.title}</CardTitle>
+              <CardDescription>{copy.cards.services.description}</CardDescription>
             </CardHeader>
             <CardContent className='flex items-center justify-between gap-4'>
-              <p className='text-muted-foreground text-sm'>
-                Manage platform-wide service credentials without mixing them into OAuth
-                integrations.
-              </p>
+              <p className='text-muted-foreground text-sm'>{copy.cards.services.body}</p>
               <Button asChild>
-                <Link href='/admin/services'>Open</Link>
+                <Link href='/admin/services'>{copy.cards.services.action}</Link>
               </Button>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Integrations</CardTitle>
-              <CardDescription>
-                Configure system-managed OAuth integrations and provider bundles.
-              </CardDescription>
+              <CardTitle>{copy.cards.integrations.title}</CardTitle>
+              <CardDescription>{copy.cards.integrations.description}</CardDescription>
             </CardHeader>
             <CardContent className='flex items-center justify-between gap-4'>
-              <p className='text-muted-foreground text-sm'>
-                Manage OAuth-backed integration bundles separately from system service
-                credentials.
-              </p>
+              <p className='text-muted-foreground text-sm'>{copy.cards.integrations.body}</p>
               <Button asChild>
-                <Link href='/admin/integrations'>Open</Link>
+                <Link href='/admin/integrations'>{copy.cards.integrations.action}</Link>
               </Button>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Registration</CardTitle>
-              <CardDescription>
-                Control public signup mode and review the waitlist queue.
-              </CardDescription>
+              <CardTitle>{copy.cards.registration.title}</CardTitle>
+              <CardDescription>{copy.cards.registration.description}</CardDescription>
             </CardHeader>
             <CardContent className='flex items-center justify-between gap-4'>
-              <p className='text-muted-foreground text-sm'>
-                Switch between open access, waitlist approval, or fully disabled registration.
-              </p>
+              <p className='text-muted-foreground text-sm'>{copy.cards.registration.body}</p>
               <Button asChild>
-                <Link href='/admin/registration'>Open</Link>
+                <Link href='/admin/registration'>{copy.cards.registration.action}</Link>
               </Button>
             </CardContent>
           </Card>

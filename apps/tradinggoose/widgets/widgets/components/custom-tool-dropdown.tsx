@@ -2,6 +2,7 @@
 
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronDown, Loader2, Search, Wrench } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,18 +12,18 @@ import {
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useAppMessages } from '@/i18n/client-messages'
+import { cn } from '@/lib/utils'
+import { useCustomTools } from '@/hooks/queries/custom-tools'
+import { useCustomToolsStore } from '@/stores/custom-tools/store'
+import type { CustomToolDefinition } from '@/stores/custom-tools/types'
 import {
   widgetHeaderControlClassName,
   widgetHeaderMenuContentClassName,
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
-import { cn } from '@/lib/utils'
-import { useCustomTools } from '@/hooks/queries/custom-tools'
-import { useCustomToolsStore } from '@/stores/custom-tools/store'
-import type { CustomToolDefinition } from '@/stores/custom-tools/types'
 
-const DEFAULT_PLACEHOLDER = 'Select custom tool'
 const DROPDOWN_MAX_HEIGHT = '20rem'
 const DROPDOWN_VIEWPORT_HEIGHT = '14rem'
 const CUSTOM_TOOL_ICON_COLOR = '#d97706'
@@ -38,19 +39,21 @@ interface CustomToolDropdownProps {
   menuClassName?: string
 }
 
-const getToolTitle = (tool?: CustomToolDefinition | null) =>
-  tool?.title || tool?.schema?.function?.name || 'Custom Tool'
+const getToolTitle = (tool?: CustomToolDefinition | null, fallback = '') =>
+  tool?.title || tool?.schema?.function?.name || fallback
 
 export function CustomToolDropdown({
   workspaceId,
   value,
   onChange,
   disabled = false,
-  placeholder = DEFAULT_PLACEHOLDER,
+  placeholder,
   align = 'start',
   triggerClassName,
   menuClassName,
 }: CustomToolDropdownProps) {
+  const locale = useLocale()
+  const copy = useAppMessages().workspace.widgets.customToolDropdown
   const [searchQuery, setSearchQuery] = useState('')
   const {
     data: queryTools = [],
@@ -81,15 +84,15 @@ export function CustomToolDropdown({
     toolsError instanceof Error
       ? toolsError.message
       : toolsError
-        ? 'Unable to load custom tools'
+        ? copy.unableToLoadCustomTools
         : null
   const tooltipText = !workspaceId
-    ? 'Select a workspace to choose custom tools'
+    ? copy.selectWorkspaceToChooseCustomTools
     : errorMessage
-      ? 'Unable to load custom tools'
+      ? copy.unableToLoadCustomTools
       : disabled
-        ? 'Custom tool selection unavailable'
-        : 'Select custom tool'
+        ? copy.selectionUnavailable
+        : copy.tooltip
 
   useEffect(() => {
     setSearchQuery('')
@@ -108,7 +111,7 @@ export function CustomToolDropdown({
     if (!normalizedQuery) return workspaceTools
 
     return workspaceTools.filter((tool) => {
-      const title = getToolTitle(tool).toLowerCase()
+      const title = getToolTitle(tool, copy.untitledCustomTool).toLowerCase()
       const description = tool.schema?.function?.description?.toLowerCase() ?? ''
       return title.includes(normalizedQuery) || description.includes(normalizedQuery)
     })
@@ -129,7 +132,7 @@ export function CustomToolDropdown({
     if (!workspaceId) {
       return (
         <p className='px-2 py-4 text-center text-muted-foreground text-xs'>
-          Select a workspace first.
+          {copy.selectWorkspaceFirst}
         </p>
       )
     }
@@ -137,13 +140,13 @@ export function CustomToolDropdown({
     if (errorMessage && !hasTools) {
       return (
         <div className='space-y-2 px-3 py-2 text-xs'>
-          <p className='text-destructive'>{errorMessage}. Try reloading the widget.</p>
+          <p className='text-destructive'>{errorMessage}</p>
           <button
             type='button'
             className='font-semibold text-primary text-xs hover:underline'
             onClick={handleRetry}
           >
-            Retry
+            {copy.retry}
           </button>
         </div>
       )
@@ -153,7 +156,7 @@ export function CustomToolDropdown({
       return (
         <div className='flex items-center gap-1 px-3 py-2 text-muted-foreground text-xs'>
           <Loader2 className='h-3.5 w-3.5 animate-spin' />
-          Loading custom tools...
+          {copy.loadingCustomTools}
         </div>
       )
     }
@@ -161,7 +164,7 @@ export function CustomToolDropdown({
     if (!hasTools) {
       return (
         <p className='px-2 py-4 text-center text-muted-foreground text-xs'>
-          No custom tools available yet.
+          {copy.noCustomToolsAvailableYet}
         </p>
       )
     }
@@ -169,7 +172,7 @@ export function CustomToolDropdown({
     if (filteredTools.length === 0) {
       return (
         <p className='px-2 py-4 text-center text-muted-foreground text-xs'>
-          {searchQuery.trim() ? 'No custom tools found.' : 'No custom tools available yet.'}
+          {searchQuery.trim() ? copy.noCustomToolsFound : copy.noCustomToolsAvailableYet}
         </p>
       )
     }
@@ -227,11 +230,11 @@ export function CustomToolDropdown({
 
   const labelContent = selectedTool ? (
     <span className='min-w-0 flex-1 truncate text-left font-medium text-foreground text-sm'>
-      {getToolTitle(selectedTool)}
+      {getToolTitle(selectedTool, copy.untitledCustomTool)}
     </span>
   ) : (
     <span className='min-w-0 flex-1 truncate text-left font-medium text-muted-foreground text-sm'>
-      {placeholder}
+      {placeholder ?? copy.placeholder}
     </span>
   )
 
@@ -283,7 +286,7 @@ export function CustomToolDropdown({
               <Input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder='Search tools...'
+                placeholder={copy.searchPlaceholder}
                 className='h-6 border-0 bg-transparent px-0 text-foreground text-xs placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
                 onKeyDown={handleSearchInputKeyDown}
                 autoComplete='off'

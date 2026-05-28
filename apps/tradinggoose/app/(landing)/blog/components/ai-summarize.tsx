@@ -1,11 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useLocale } from 'next-intl'
 import Link from 'next/link'
 import { OpenAIIcon, AnthropicIcon, GeminiIcon, xAIIcon as XAIIcon } from '@/components/icons/provider-icons'
 import { PerplexityIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { type LocaleCode } from '@/i18n/utils'
 
 interface AiSummarizeProps {
   path: string
@@ -14,6 +17,9 @@ interface AiSummarizeProps {
 
 export default function AiSummarize({ path, title }: AiSummarizeProps) {
   const [url, setUrl] = useState(path)
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages()
+  const blogCopy = copy.blog
 
   useEffect(() => {
     setUrl(`${window.location.origin}${path}`)
@@ -51,7 +57,7 @@ export default function AiSummarize({ path, title }: AiSummarizeProps) {
 
   return (
     <div>
-      <h3 className="mb-4 font-medium text-primary">Summarize with AI</h3>
+      <h3 className="mb-4 font-medium text-primary">{blogCopy.summarizeTitle}</h3>
       <TooltipProvider delayDuration={200}>
         <div className="flex flex-wrap gap-3">
           {platforms.map((platform) => (
@@ -62,7 +68,9 @@ export default function AiSummarize({ path, title }: AiSummarizeProps) {
                     href={platform.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    aria-label={`Summarize with ${platform.label}`}
+                    aria-label={formatTemplate(blogCopy.summarizeWithPlatform, {
+                      platform: platform.label,
+                    })}
                   >
                     {platform.icon}
                   </Link>

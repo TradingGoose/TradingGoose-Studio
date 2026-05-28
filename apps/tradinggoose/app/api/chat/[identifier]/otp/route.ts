@@ -8,6 +8,7 @@ import { sendEmail } from '@/lib/email/mailer'
 import { createLogger } from '@/lib/logs/console/logger'
 import { deleteCachedValue, getCachedValue, setCachedValue } from '@/lib/redis'
 import { generateRequestId } from '@/lib/utils'
+import { CHAT_ERROR_CODES } from '@/app/chat/constants'
 import { addCorsHeaders, setChatAuthCookie } from '@/app/api/chat/utils'
 import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
 
@@ -79,7 +80,10 @@ export async function POST(
 
       if (deploymentResult.length === 0) {
         logger.warn(`[${requestId}] Chat not found for identifier: ${identifier}`)
-        return addCorsHeaders(createErrorResponse('Chat not found', 404), request)
+        return addCorsHeaders(
+          createErrorResponse('Chat not found', 404, CHAT_ERROR_CODES.CHAT_NOT_FOUND),
+          request
+        )
       }
 
       const deployment = deploymentResult[0]
@@ -87,7 +91,11 @@ export async function POST(
       // Verify this is an email-protected chat
       if (deployment.authType !== 'email') {
         return addCorsHeaders(
-          createErrorResponse('This chat does not use email authentication', 400),
+          createErrorResponse(
+            'This chat does not use email authentication',
+            400,
+            CHAT_ERROR_CODES.CHAT_AUTH_TYPE_NOT_EMAIL
+          ),
           request
         )
       }
@@ -108,7 +116,11 @@ export async function POST(
 
       if (!isEmailAllowed) {
         return addCorsHeaders(
-          createErrorResponse('Email not authorized for this chat', 403),
+          createErrorResponse(
+            'Email not authorized for this chat',
+            403,
+            CHAT_ERROR_CODES.EMAIL_NOT_AUTHORIZED
+          ),
           request
         )
       }
@@ -133,7 +145,11 @@ export async function POST(
       if (!emailResult.success) {
         logger.error(`[${requestId}] Failed to send OTP email:`, emailResult.message)
         return addCorsHeaders(
-          createErrorResponse('Failed to send verification email', 500),
+          createErrorResponse(
+            'Failed to send verification email',
+            500,
+            CHAT_ERROR_CODES.VERIFICATION_CODE_SEND_FAILED
+          ),
           request
         )
       }
@@ -144,10 +160,14 @@ export async function POST(
 
       logger.info(`[${requestId}] OTP sent to ${email} for chat ${deployment.id}`)
       return addCorsHeaders(createSuccessResponse({ message: 'Verification code sent' }), request)
-    } catch (error: any) {
+      } catch (error: any) {
       if (error instanceof z.ZodError) {
         return addCorsHeaders(
-          createErrorResponse(error.errors[0]?.message || 'Invalid request', 400),
+          createErrorResponse(
+            error.errors[0]?.message || 'Invalid request',
+            400,
+            CHAT_ERROR_CODES.INVALID_REQUEST
+          ),
           request
         )
       }
@@ -156,7 +176,11 @@ export async function POST(
   } catch (error: any) {
     logger.error(`[${requestId}] Error processing OTP request:`, error)
     return addCorsHeaders(
-      createErrorResponse(error.message || 'Failed to process request', 500),
+      createErrorResponse(
+        error.message || 'Failed to process request',
+        500,
+        CHAT_ERROR_CODES.FAILED_TO_PROCESS_REQUEST
+      ),
       request
     )
   }
@@ -191,7 +215,10 @@ export async function PUT(
 
       if (deploymentResult.length === 0) {
         logger.warn(`[${requestId}] Chat not found for identifier: ${identifier}`)
-        return addCorsHeaders(createErrorResponse('Chat not found', 404), request)
+        return addCorsHeaders(
+          createErrorResponse('Chat not found', 404, CHAT_ERROR_CODES.CHAT_NOT_FOUND),
+          request
+        )
       }
 
       const deployment = deploymentResult[0]
@@ -200,14 +227,25 @@ export async function PUT(
       const storedOTP = await getOTP(email, deployment.id)
       if (!storedOTP) {
         return addCorsHeaders(
-          createErrorResponse('No verification code found, request a new one', 400),
+          createErrorResponse(
+            'No verification code found, request a new one',
+            400,
+            CHAT_ERROR_CODES.VERIFICATION_CODE_MISSING
+          ),
           request
         )
       }
 
       // Check if OTP matches
       if (storedOTP !== otp) {
-        return addCorsHeaders(createErrorResponse('Invalid verification code', 400), request)
+        return addCorsHeaders(
+          createErrorResponse(
+            'Invalid verification code',
+            400,
+            CHAT_ERROR_CODES.VERIFICATION_CODE_INVALID
+          ),
+          request
+        )
       }
 
       // OTP is valid, clean up
@@ -220,10 +258,14 @@ export async function PUT(
       setChatAuthCookie(response, deployment.id, deployment.authType)
 
       return response
-    } catch (error: any) {
+      } catch (error: any) {
       if (error instanceof z.ZodError) {
         return addCorsHeaders(
-          createErrorResponse(error.errors[0]?.message || 'Invalid request', 400),
+          createErrorResponse(
+            error.errors[0]?.message || 'Invalid request',
+            400,
+            CHAT_ERROR_CODES.INVALID_REQUEST
+          ),
           request
         )
       }
@@ -232,7 +274,11 @@ export async function PUT(
   } catch (error: any) {
     logger.error(`[${requestId}] Error verifying OTP:`, error)
     return addCorsHeaders(
-      createErrorResponse(error.message || 'Failed to process request', 500),
+      createErrorResponse(
+        error.message || 'Failed to process request',
+        500,
+        CHAT_ERROR_CODES.FAILED_TO_PROCESS_REQUEST
+      ),
       request
     )
   }

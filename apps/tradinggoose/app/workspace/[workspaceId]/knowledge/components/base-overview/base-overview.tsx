@@ -2,8 +2,8 @@
 
 import { type KeyboardEvent, type MouseEvent, type SyntheticEvent, useState } from 'react'
 import { Check, Copy, LibraryBig, Loader2, Trash2 } from 'lucide-react'
-import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import { useLocale, useTranslations } from 'next-intl'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { CopyToWorkspace } from '@/app/workspace/[workspaceId]/knowledge/components/copy-to-workspace/copy-to-workspace'
 import { useKnowledgeStore } from '@/stores/knowledge/store'
+import { Link } from '@/i18n/navigation'
 
 interface BaseOverviewProps {
   id?: string
@@ -27,41 +28,42 @@ interface BaseOverviewProps {
   canEdit?: boolean
 }
 
-function formatRelativeTime(dateString: string): string {
+function formatRelativeTime(dateString: string, locale: string): string {
   const date = new Date(dateString)
   const now = new Date()
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
 
   if (diffInSeconds < 60) {
-    return 'just now'
+    return rtf.format(0, 'second')
   }
   if (diffInSeconds < 3600) {
     const minutes = Math.floor(diffInSeconds / 60)
-    return `${minutes}m ago`
+    return rtf.format(-minutes, 'minute')
   }
   if (diffInSeconds < 86400) {
     const hours = Math.floor(diffInSeconds / 3600)
-    return `${hours}h ago`
+    return rtf.format(-hours, 'hour')
   }
   if (diffInSeconds < 604800) {
     const days = Math.floor(diffInSeconds / 86400)
-    return `${days}d ago`
+    return rtf.format(-days, 'day')
   }
   if (diffInSeconds < 2592000) {
     const weeks = Math.floor(diffInSeconds / 604800)
-    return `${weeks}w ago`
+    return rtf.format(-weeks, 'week')
   }
   if (diffInSeconds < 31536000) {
     const months = Math.floor(diffInSeconds / 2592000)
-    return `${months}mo ago`
+    return rtf.format(-months, 'month')
   }
   const years = Math.floor(diffInSeconds / 31536000)
-  return `${years}y ago`
+  return rtf.format(-years, 'year')
 }
 
-function formatAbsoluteDate(dateString: string): string {
+function formatAbsoluteDate(dateString: string, locale: string): string {
   const date = new Date(dateString)
-  return date.toLocaleDateString('en-US', {
+  return date.toLocaleDateString(locale, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -83,6 +85,8 @@ export function BaseOverview({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const params = useParams()
+  const locale = useLocale()
+  const t = useTranslations('workspace.knowledge.baseOverview')
   const workspaceSlug = params?.workspaceId as string
   const { removeKnowledgeBase } = useKnowledgeStore()
   const canManage = canEdit === true && !!id
@@ -168,7 +172,7 @@ export function BaseOverview({
                 />
                 <button
                   type='button'
-                  aria-label='Delete knowledge base'
+                  aria-label={t('deleteButtonLabel')}
                   className='inline-flex h-7 w-7 items-center justify-center gap-2 rounded-md p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
                   onClick={() => setIsDeleteDialogOpen(true)}
                   disabled={!canManage || isDeleting}
@@ -178,7 +182,7 @@ export function BaseOverview({
                   ) : (
                     <Trash2 className='h-3.5 w-3.5' />
                   )}
-                  <span className='sr-only'>Delete knowledge base</span>
+                  <span className='sr-only'>{t('deleteButtonLabel')}</span>
                 </button>
               </div>
             )}
@@ -187,7 +191,7 @@ export function BaseOverview({
           <div className='flex flex-col gap-2'>
             <div className='flex items-center gap-2 text-muted-foreground text-xs'>
               <span>
-                {docCount} {docCount === 1 ? 'doc' : 'docs'}
+                {docCount} {docCount === 1 ? t('docsSingular') : t('docsPlural')}
               </span>
               <span>•</span>
               <div className='flex items-center gap-2'>
@@ -205,14 +209,14 @@ export function BaseOverview({
             {(createdAt || updatedAt) && (
               <div className='flex items-center gap-2 text-muted-foreground text-xs'>
                 {updatedAt && (
-                  <span title={`Last updated: ${formatAbsoluteDate(updatedAt)}`}>
-                    Updated {formatRelativeTime(updatedAt)}
+                  <span title={`${t('updated')}: ${formatAbsoluteDate(updatedAt, locale)}`}>
+                    {t('updated')} {formatRelativeTime(updatedAt, locale)}
                   </span>
                 )}
                 {updatedAt && createdAt && <span>•</span>}
                 {createdAt && (
-                  <span title={`Created: ${formatAbsoluteDate(createdAt)}`}>
-                    Created {formatRelativeTime(createdAt)}
+                  <span title={`${t('created')}: ${formatAbsoluteDate(createdAt, locale)}`}>
+                    {t('created')} {formatRelativeTime(createdAt, locale)}
                   </span>
                 )}
               </div>
@@ -235,20 +239,23 @@ export function BaseOverview({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Knowledge Base</AlertDialogTitle>
+            <AlertDialogTitle>{t('deleteTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{title}"? This will remove the knowledge base and its{' '}
-              {docCount} document{docCount === 1 ? '' : 's'} permanently.
+              {t('deleteDescription', {
+                title,
+                count: docCount,
+                plural: docCount === 1 ? '' : 's',
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>{t('cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteKnowledgeBase}
               disabled={isDeleting}
               className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
             >
-              {isDeleting ? 'Deleting...' : 'Delete'}
+              {isDeleting ? t('deleting') : t('deleteConfirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

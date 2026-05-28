@@ -3,7 +3,9 @@ import Link from 'next/link'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
 import { BackgroundRippleEffect } from '@/components/ui/background-ripple-effect'
+import { type LocaleCode } from '@/i18n/utils'
 import ChangelogList from './timeline-list'
+import type { PublicCopy } from '@/i18n/public-copy'
 
 export interface ChangelogEntry {
   tag: string
@@ -20,7 +22,14 @@ function extractMentions(body: string): string[] {
   return uniq
 }
 
-export default async function ChangelogContent() {
+type ChangelogCopy = PublicCopy['changelog']
+
+interface ChangelogContentProps {
+  copy: ChangelogCopy
+  locale: LocaleCode
+}
+
+export default async function ChangelogContent({ copy, locale }: ChangelogContentProps) {
   let entries: ChangelogEntry[] = []
 
   try {
@@ -71,11 +80,10 @@ export default async function ChangelogContent() {
             <h1
               className={`${soehne.className} mt-6 font-semibold text-4xl tracking-tight sm:text-5xl`}
             >
-              Changelog
+              {copy.pageTitle}
             </h1>
             <p className={`${inter.className} mt-4 text-muted-foreground text-sm`}>
-              Stay up-to-date with the latest features, improvements, and bug fixes in TradingGoose.
-              All changes are documented here with detailed release notes.
+              {copy.description} {copy.intro}
             </p>
             <hr className='mt-6 border-border' />
 
@@ -87,21 +95,21 @@ export default async function ChangelogContent() {
                 className='inline-flex bg-foreground text-background items-center gap-2 rounded-md border border-border px-3 py-1.5 hover:bg-muted-foreground'
               >
                 <Github className='h-4 w-4' />
-                View on GitHub
+                {copy.viewOnGitHub}
               </Link>
               <Link
                 href='https://docs.tradinggoose.ai'
                 className='inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 bg-card hover:bg-muted'
               >
                 <BookOpen className='h-4 w-4' />
-                Documentation
+                {copy.documentation}
               </Link>
               <Link
                 href='/changelog.xml'
                 className='inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 bg-card hover:bg-muted'
               >
                 <Rss className='h-4 w-4' />
-                RSS Feed
+                {copy.rssFeed}
               </Link>
             </div>
           </div>
@@ -110,7 +118,7 @@ export default async function ChangelogContent() {
         {/* Right timeline */}
         <div className='relative px-4 py-10 sm:px-6 md:px-8 md:py-12'>
           <div className='relative max-w-2xl pl-8'>
-            <ChangelogList initialEntries={entries} />
+            <ChangelogList initialEntries={entries} copy={copy} locale={locale} />
           </div>
         </div>
       </div>

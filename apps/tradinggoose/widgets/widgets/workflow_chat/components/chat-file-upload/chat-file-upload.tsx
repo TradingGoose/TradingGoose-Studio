@@ -2,7 +2,9 @@
 
 import { useRef, useState } from 'react'
 import { File, FileText, Image, Paperclip, X } from 'lucide-react'
+import { formatTemplate } from '@/i18n/template'
 import { createLogger } from '@/lib/logs/console/logger'
+import { useWorkflowChatCopy } from '@/widgets/widgets/workflow_chat/copy'
 
 const logger = createLogger('ChatFileUpload')
 
@@ -33,8 +35,12 @@ export function ChatFileUpload({
   disabled = false,
   onError,
 }: ChatFileUploadProps) {
+  const copy = useWorkflowChatCopy()
   const [isDragOver, setIsDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const formatCopy = (template: string, values: Record<string, string | number>) =>
+    formatTemplate(template, values)
 
   const handleFileSelect = (selectedFiles: FileList | null) => {
     if (!selectedFiles || disabled) return
@@ -47,13 +53,13 @@ export function ChatFileUpload({
 
       // Check file count limit
       if (files.length + newFiles.length >= maxFiles) {
-        errors.push(`Maximum ${maxFiles} files allowed`)
+        errors.push(formatCopy(copy.maximumFilesAllowed, { maxFiles }))
         break
       }
 
       // Check file size
       if (file.size > maxSize * 1024 * 1024) {
-        errors.push(`${file.name} is too large (max ${maxSize}MB)`)
+        errors.push(formatCopy(copy.fileTooLarge, { name: file.name, maxSize }))
         continue
       }
 
@@ -67,7 +73,7 @@ export function ChatFileUpload({
         })
 
         if (!isAccepted) {
-          errors.push(`${file.name} type not supported`)
+          errors.push(formatCopy(copy.fileTypeNotSupported, { name: file.name }))
           continue
         }
       }
@@ -78,7 +84,7 @@ export function ChatFileUpload({
       )
 
       if (isDuplicate) {
-        errors.push(`${file.name} already added`)
+        errors.push(formatCopy(copy.fileAlreadyAdded, { name: file.name }))
         continue
       }
 
@@ -160,10 +166,14 @@ export function ChatFileUpload({
           onClick={() => fileInputRef.current?.click()}
           disabled={disabled || files.length >= maxFiles}
           className='flex items-center gap-1 rounded-md px-2 py-1 text-gray-600 text-sm transition-colors hover:bg-gray-100 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-50'
-          title={files.length >= maxFiles ? `Maximum ${maxFiles} files` : 'Attach files'}
+          title={
+            files.length >= maxFiles
+              ? formatCopy(copy.maximumFilesAllowed, { maxFiles })
+              : copy.attachFiles
+          }
         >
           <Paperclip className='h-4 w-4' />
-          <span className='hidden sm:inline'>Attach</span>
+          <span className='hidden sm:inline'>{copy.attach}</span>
         </button>
 
         <input
@@ -183,7 +193,7 @@ export function ChatFileUpload({
 
         {files.length > 0 && (
           <span className='text-gray-500 text-xs'>
-            {files.length}/{maxFiles} files
+            {formatCopy(copy.selectedFiles, { count: files.length, maxFiles })}
           </span>
         )}
       </div>
@@ -207,7 +217,7 @@ export function ChatFileUpload({
                 type='button'
                 onClick={() => handleRemoveFile(file.id)}
                 className='p-0.5 text-gray-400 transition-colors hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400'
-                title='Remove file'
+                title={copy.removeFile}
               >
                 <X className='h-3 w-3' />
               </button>
@@ -225,7 +235,7 @@ export function ChatFileUpload({
           onDrop={handleDrop}
         >
           <div className='rounded-lg p-4 shadow-lg'>
-            <p className='font-medium text-blue-600'>Drop files here to attach</p>
+            <p className='font-medium text-blue-600'>{copy.dropFilesHere}</p>
           </div>
         </div>
       )}

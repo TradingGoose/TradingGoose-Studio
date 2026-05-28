@@ -17,6 +17,7 @@ const previousActEnvironment = reactActEnvironment.IS_REACT_ACT_ENVIRONMENT
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ workspaceId: 'ws-1' }),
+  usePathname: () => window.location.pathname,
   useRouter: () => ({
     replace: mockReplace,
   }),

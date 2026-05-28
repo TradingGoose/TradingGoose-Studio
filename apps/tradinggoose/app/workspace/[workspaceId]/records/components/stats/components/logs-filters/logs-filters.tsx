@@ -1,6 +1,7 @@
 'use client'
 
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { useTranslations } from 'next-intl'
 import FilterSection from '@/app/workspace/[workspaceId]/records/components/logs-toolbar/components/filters/components/filter-section'
 import FolderFilter from '@/app/workspace/[workspaceId]/records/components/logs-toolbar/components/filters/components/folder'
 import Timeline from '@/app/workspace/[workspaceId]/records/components/logs-toolbar/components/filters/components/timeline'
@@ -8,11 +9,12 @@ import Trigger from '@/app/workspace/[workspaceId]/records/components/logs-toolb
 import Workflow from '@/app/workspace/[workspaceId]/records/components/logs-toolbar/components/filters/components/workflow'
 
 export function LogsFilters() {
+  const t = useTranslations('workspace.logs.dashboard.filters')
   const sections = [
-    { key: 'workflow', title: 'Workflow', component: <Workflow /> },
-    { key: 'folder', title: 'Folder', component: <FolderFilter /> },
-    { key: 'trigger', title: 'Trigger', component: <Trigger /> },
-    { key: 'timeline', title: 'Timeline', component: <Timeline /> },
+    { key: 'workflow', title: t('workflow'), component: <Workflow /> },
+    { key: 'folder', title: t('folder'), component: <FolderFilter /> },
+    { key: 'trigger', title: t('trigger'), component: <Trigger /> },
+    { key: 'timeline', title: t('timeline'), component: <Timeline /> },
   ]
 
   return (

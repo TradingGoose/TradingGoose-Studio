@@ -2,10 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Download, Save, SquareTerminal } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
+import { useAppMessages } from '@/i18n/client-messages'
+import type { LocaleCode } from '@/i18n/utils'
 import { useCustomTools } from '@/hooks/queries/custom-tools'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
@@ -108,6 +111,8 @@ function EditorCustomToolWidgetBody({
   panelId,
   widget,
 }: WidgetComponentProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages().workspace.widgets.customToolEditor
   const workspaceId = context?.workspaceId ?? null
   const { data: queryTools = [], isLoading, error, refetch } = useCustomTools(workspaceId ?? '')
   const storedTools = useCustomToolsStore((state) =>
@@ -219,13 +224,13 @@ function EditorCustomToolWidgetBody({
   })
 
   if (!workspaceId) {
-    return <WidgetStateMessage message='Select a workspace to edit custom tools.' />
+    return <WidgetStateMessage message={copy.body.selectWorkspace} />
   }
 
   if (error && tools.length === 0) {
     return (
       <WidgetStateMessage
-        message={error instanceof Error ? error.message : 'Failed to load custom tools.'}
+        message={error instanceof Error ? error.message : copy.body.failedToLoadCustomTools}
       />
     )
   }
@@ -244,16 +249,16 @@ function EditorCustomToolWidgetBody({
         message={
           isLinkedToColorPair
             ? normalizedRequestedCustomToolId.length > 0
-              ? 'Custom tool not found.'
-              : 'This color has no shared custom tool selected yet.'
-            : 'No custom tools yet.'
+              ? copy.body.customToolNotFound
+              : copy.body.noSharedCustomToolSelected
+            : copy.body.noCustomToolsYet
         }
       />
     )
   }
 
   if (!selectedTool) {
-    return <WidgetStateMessage message='Custom tool not found.' />
+    return <WidgetStateMessage message={copy.body.customToolNotFound} />
   }
 
   return (
@@ -301,6 +306,8 @@ function CustomToolEditorSelector({
   params,
   widgetKey,
 }: CustomToolEditorSelectorProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages().workspace.widgets.customToolEditor.header
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -329,7 +336,7 @@ function CustomToolEditorSelector({
       workspaceId={workspaceId}
       value={selectedToolId}
       onChange={(customToolId) => handleCustomToolChange(customToolId)}
-      placeholder='Select custom tool'
+      placeholder={copy.selectCustomTool}
       triggerClassName='min-w-[240px]'
     />
   )
@@ -351,6 +358,8 @@ function CustomToolEditorSectionSwitch({
   pairColor?: PairColor
   widgetKey?: string
 }) {
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages().workspace.widgets.customToolEditor.header
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -398,7 +407,7 @@ function CustomToolEditorSectionSwitch({
             onClick={() => selectSection(section.id)}
             aria-pressed={isSelected}
           >
-            {section.label}
+            {section.id === 'schema' ? copy.config : copy.code}
           </Button>
         )
       })}
@@ -419,6 +428,8 @@ function CustomToolEditorSaveButton({
   widgetKey?: string
   pairColor?: PairColor
 }) {
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages().workspace.widgets.customToolEditor.header
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -447,11 +458,11 @@ function CustomToolEditorSaveButton({
             disabled={saveDisabled}
           >
             <Save className='h-4 w-4' />
-            <span className='sr-only'>Save custom tool</span>
+            <span className='sr-only'>{copy.saveCustomTool}</span>
           </Button>
         </span>
       </TooltipTrigger>
-      <TooltipContent side='top'>Save custom tool</TooltipContent>
+      <TooltipContent side='top'>{copy.saveCustomTool}</TooltipContent>
     </Tooltip>
   )
 }
@@ -469,6 +480,8 @@ function CustomToolEditorExportButton({
   widgetKey?: string
   pairColor?: PairColor
 }) {
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages().workspace.widgets.customToolEditor.header
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -497,11 +510,11 @@ function CustomToolEditorExportButton({
             disabled={exportDisabled}
           >
             <Download className='h-4 w-4' />
-            <span className='sr-only'>Export custom tool</span>
+            <span className='sr-only'>{copy.exportCustomTool}</span>
           </Button>
         </span>
       </TooltipTrigger>
-      <TooltipContent side='top'>Export custom tool</TooltipContent>
+      <TooltipContent side='top'>{copy.exportCustomTool}</TooltipContent>
     </Tooltip>
   )
 }

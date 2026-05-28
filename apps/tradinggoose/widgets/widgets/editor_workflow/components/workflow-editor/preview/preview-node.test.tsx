@@ -242,4 +242,46 @@ describe('PreviewNode', () => {
     expect(markup).toContain('Input Format')
     expect(markup).toContain('payload')
   })
+
+  it('renders centralized trigger metadata labels instead of legacy inline trigger option labels', () => {
+    const markup = renderToStaticMarkup(
+      createElement(PreviewNode as any, {
+        id: 'trigger-preview-2',
+        data: {
+          type: 'calendly',
+          name: 'Calendly Trigger Tool',
+          config: {
+            type: 'calendly',
+            category: 'tools',
+            bgColor: '#0ea5e9',
+            icon: (props: any) => createElement('svg', props),
+            triggers: {
+              available: ['calendly_webhook'],
+            },
+            subBlocks: [
+              {
+                id: 'selectedTriggerId',
+                title: 'Trigger Type',
+                type: 'dropdown',
+                mode: 'trigger',
+                options: [{ id: 'calendly_webhook', label: 'General Webhook (All Events)' }],
+              },
+            ],
+          },
+          blockState: {
+            triggerMode: true,
+          },
+          subBlockValues: {
+            selectedTriggerId: { value: 'calendly_webhook' },
+          },
+          readOnly: true,
+          isPreview: true,
+        },
+      })
+    )
+
+    expect(markup).toContain('Trigger Type')
+    expect(markup).toContain('Calendly Webhook')
+    expect(markup).not.toContain('General Webhook (All Events)')
+  })
 })

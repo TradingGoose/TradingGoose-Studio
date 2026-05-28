@@ -31,6 +31,7 @@ import { useWorkflowVariables } from '@/lib/yjs/use-workflow-doc'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import type { Variable, VariableType } from '@/stores/variables/types'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { useWorkflowVariablesCopy } from '../../copy'
 
 const logger = createLogger('Variables')
 
@@ -43,6 +44,7 @@ export function Variables({
   workflowId: workflowIdProp,
   hideAddButtons = false,
 }: VariablesProps = {}) {
+  const copy = useWorkflowVariablesCopy()
   const activeWorkflowId = useWorkflowRegistry((state) => state.getActiveWorkflowId())
   const workflowId = workflowIdProp ?? activeWorkflowId
   const yjsVariables = useWorkflowVariables()
@@ -125,7 +127,7 @@ export function Variables({
       case 'object':
         return '{\n  "key": "value"\n}'
       case 'array':
-        return '[\n  1,\n  2,\n  3\n]'
+        return copy.placeholders.array
       case LISTING_IDENTITY_VALUE_TYPE:
         return '{ }'
       default:
@@ -314,7 +316,13 @@ export function Variables({
                         <span className='font-[380]'>Array</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onClick={() => collaborativeUpdateVariable(variable.id, 'type', LISTING_IDENTITY_VALUE_TYPE)}
+                        onClick={() =>
+                          collaborativeUpdateVariable(
+                            variable.id,
+                            'type',
+                            LISTING_IDENTITY_VALUE_TYPE
+                          )
+                        }
                         className='flex cursor-pointer items-center rounded-md px-3 py-2 font-[380] text-card-foreground text-sm hover:bg-secondary/50 focus:bg-secondary/50'
                       >
                         <div className='mr-2 w-5 text-center font-[380] text-sm'>ID</div>

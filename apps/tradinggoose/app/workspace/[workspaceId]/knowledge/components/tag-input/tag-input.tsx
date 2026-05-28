@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { ChevronDown, ChevronRight, Plus, Settings, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Input } from '@/components/ui/input'
@@ -22,12 +23,6 @@ interface TagInputProps {
   documentId?: string | null
 }
 
-const TAG_LABELS = TAG_SLOTS.map((slot, index) => ({
-  key: slot as keyof TagData,
-  label: `Tag ${index + 1}`,
-  placeholder: 'Enter tag value',
-}))
-
 export function TagInput({
   tags,
   onTagsChange,
@@ -38,6 +33,7 @@ export function TagInput({
 }: TagInputProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [showAllTags, setShowAllTags] = useState(false)
+  const t = useTranslations('workspace.knowledge.tags')
 
   // Use custom tag definitions if available
   const { getTagLabel } = useKnowledgeBaseTagDefinitions(knowledgeBaseId)
@@ -59,10 +55,10 @@ export function TagInput({
   const hasAnyTags = Object.values(tags).some((tag) => tag?.trim())
 
   // Create tag labels using custom definitions or fallback to defaults
-  const tagLabels = TAG_LABELS.map(({ key, placeholder }) => ({
-    key,
-    label: getTagLabel(key),
-    placeholder,
+  const tagLabels = TAG_SLOTS.map((slot, index) => ({
+    key: slot as keyof TagData,
+    label: getTagLabel(slot as keyof TagData) || t('tagLabel', { index: index + 1 }),
+    placeholder: t('enterTagValue'),
   }))
 
   const visibleTags = showAllTags ? tagLabels : tagLabels.slice(0, 2)
@@ -78,11 +74,12 @@ export function TagInput({
           >
             <div className='flex items-center gap-2'>
               <Settings className='h-4 w-4 text-muted-foreground' />
-              <Label className='cursor-pointer font-medium text-sm'>Advanced Settings</Label>
+              <Label className='cursor-pointer font-medium text-sm'>{t('advancedSettings')}</Label>
               {hasAnyTags && (
                 <span className='rounded-full bg-[var(--primary)]/10 px-2 py-0.5 text-muted-foreground text-xs'>
-                  {Object.values(tags).filter((tag) => tag?.trim()).length} tag
-                  {Object.values(tags).filter((tag) => tag?.trim()).length !== 1 ? 's' : ''}
+                  {t('tagCount', {
+                    count: Object.values(tags).filter((tag) => tag?.trim()).length,
+                  })}
                 </span>
               )}
             </div>
@@ -97,7 +94,7 @@ export function TagInput({
         <CollapsibleContent className='space-y-4 pt-4'>
           <div className='space-y-3'>
             <div className='flex items-center justify-between'>
-              <Label className='font-medium text-sm'>Document Tags</Label>
+              <Label className='font-medium text-sm'>{t('documentTagsTitle')}</Label>
               {!showAllTags && (
                 <Button
                   type='button'
@@ -107,7 +104,7 @@ export function TagInput({
                   className='h-auto p-1 text-muted-foreground text-xs hover:text-foreground'
                 >
                   <Plus className='mr-1 h-3 w-3' />
-                  More tags
+                  {t('moreTags')}
                 </Button>
               )}
             </div>
@@ -145,8 +142,8 @@ export function TagInput({
               ))}
             </div>
 
-            {showAllTags && (
-              <div className='flex justify-center'>
+                  {showAllTags && (
+                <div className='flex justify-center'>
                 <Button
                   type='button'
                   variant='ghost'
@@ -154,14 +151,14 @@ export function TagInput({
                   onClick={() => setShowAllTags(false)}
                   className='h-auto p-1 text-muted-foreground text-xs hover:text-foreground'
                 >
-                  Show fewer tags
+                  {t('showFewerTags')}
                 </Button>
               </div>
             )}
 
             {hasAnyTags && (
               <div className='rounded-md bg-muted/50 p-3'>
-                <p className='mb-2 text-muted-foreground text-xs'>Active tags:</p>
+                <p className='mb-2 text-muted-foreground text-xs'>{t('activeTags')}</p>
                 <div className='flex flex-wrap gap-1'>
                   {Object.entries(tags).map(([key, value]) => {
                     if (!value?.trim()) return null

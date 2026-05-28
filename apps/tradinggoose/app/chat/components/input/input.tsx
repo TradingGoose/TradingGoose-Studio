@@ -5,10 +5,10 @@ import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { AlertCircle, Paperclip, Send, Square, X } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { formatTemplate } from '@/i18n/client-messages'
+import type { ChatCopy } from '@/app/chat/copy'
 import { VoiceInput } from '@/app/chat/components/input/voice-input'
 
-const PLACEHOLDER_MOBILE = 'Enter a message'
-const PLACEHOLDER_DESKTOP = 'Enter a message or click the mic to speak'
 const MAX_TEXTAREA_HEIGHT = 120 // Max height in pixels (e.g., for about 3-4 lines)
 const MAX_TEXTAREA_HEIGHT_MOBILE = 100 // Smaller for mobile
 
@@ -27,9 +27,10 @@ export const ChatInput: React.FC<{
   onStopStreaming?: () => void
   onVoiceStart?: () => void
   voiceOnly?: boolean
-}> = ({ onSubmit, isStreaming = false, onStopStreaming, onVoiceStart, voiceOnly = false }) => {
+  copy: ChatCopy
+}> = ({ onSubmit, isStreaming = false, onStopStreaming, onVoiceStart, voiceOnly = false, copy }) => {
   const wrapperRef = useRef<HTMLDivElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null) // Ref for the textarea
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isActive, setIsActive] = useState(false)
   const [inputValue, setInputValue] = useState('')
@@ -38,18 +39,15 @@ export const ChatInput: React.FC<{
   const [dragCounter, setDragCounter] = useState(0)
   const isDragOver = dragCounter > 0
 
-  // Check if speech-to-text is available in the browser
   const isSttAvailable =
     typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition)
 
-  // Function to adjust textarea height
   const adjustTextareaHeight = () => {
     if (textareaRef.current) {
       const el = textareaRef.current
-      el.style.height = 'auto' // Reset height to correctly calculate scrollHeight
+      el.style.height = 'auto'
       const scrollHeight = el.scrollHeight
 
-      // Use mobile height on mobile devices, desktop height on desktop
       const isMobile = window.innerWidth < 768
       const maxHeight = isMobile ? MAX_TEXTAREA_HEIGHT_MOBILE : MAX_TEXTAREA_HEIGHT
 
@@ -63,20 +61,18 @@ export const ChatInput: React.FC<{
     }
   }
 
-  // Adjust height on input change
   useEffect(() => {
     adjustTextareaHeight()
   }, [inputValue])
 
-  // Close the input when clicking outside (only when empty)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
         if (!inputValue) {
           setIsActive(false)
           if (textareaRef.current) {
-            textareaRef.current.style.height = 'auto' // Reset height
-            textareaRef.current.style.overflowY = 'hidden' // Ensure overflow is hidden
+            textareaRef.current.style.height = 'auto'
+            textareaRef.current.style.overflowY = 'hidden'
           }
         }
       }
@@ -86,25 +82,22 @@ export const ChatInput: React.FC<{
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [inputValue])
 
-  // Handle focus and initial height when activated
   useEffect(() => {
     if (isActive && textareaRef.current) {
       textareaRef.current.focus()
-      adjustTextareaHeight() // Adjust height when becoming active
+      adjustTextareaHeight()
     }
   }, [isActive])
 
   const handleActivate = () => {
     setIsActive(true)
-    // Focus is now handled by the useEffect above
   }
 
-  // Handle file selection
   const handleFileSelect = async (selectedFiles: FileList | null) => {
     if (!selectedFiles) return
 
     const newFiles: AttachedFile[] = []
-    const maxSize = 10 * 1024 * 1024 // 10MB limit
+    const maxSize = 10 * 1024 * 1024
     const maxFiles = 5
 
     for (let i = 0; i < selectedFiles.length; i++) {
@@ -112,22 +105,25 @@ export const ChatInput: React.FC<{
 
       const file = selectedFiles[i]
 
-      // Check file size
       if (file.size > maxSize) {
-        setUploadErrors((prev) => [...prev, `${file.name} is too large (max 10MB)`])
+        setUploadErrors((prev) => [
+          ...prev,
+          formatTemplate(copy.input.fileTooLarge, { name: file.name }),
+        ])
         continue
       }
 
-      // Check for duplicates
       const isDuplicate = attachedFiles.some(
         (existingFile) => existingFile.name === file.name && existingFile.size === file.size
       )
       if (isDuplicate) {
-        setUploadErrors((prev) => [...prev, `${file.name} already added`])
+        setUploadErrors((prev) => [
+          ...prev,
+          formatTemplate(copy.input.fileAlreadyAdded, { name: file.name }),
+        ])
         continue
       }
 
-      // Read file as data URL if it's an image
       let dataUrl: string | undefined
       if (file.type.startsWith('image/')) {
         try {
@@ -154,7 +150,7 @@ export const ChatInput: React.FC<{
 
     if (newFiles.length > 0) {
       setAttachedFiles([...attachedFiles, ...newFiles])
-      setUploadErrors([]) // Clear errors when files are successfully added
+      setUploadErrors([])
     }
   }
 
@@ -164,13 +160,13 @@ export const ChatInput: React.FC<{
 
   const handleSubmit = () => {
     if (!inputValue.trim() && attachedFiles.length === 0) return
-    onSubmit?.(inputValue.trim(), false, attachedFiles) // false = not voice input
+    onSubmit?.(inputValue.trim(), false, attachedFiles)
     setInputValue('')
     setAttachedFiles([])
-    setUploadErrors([]) // Clear errors when sending message
+    setUploadErrors([])
     if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto' // Reset height after submit
-      textareaRef.current.style.overflowY = 'hidden' // Ensure overflow is hidden
+      textareaRef.current.style.height = 'auto'
+      textareaRef.current.style.overflowY = 'hidden'
     }
     setIsActive(false)
   }
@@ -179,26 +175,28 @@ export const ChatInput: React.FC<{
     setInputValue(e.target.value)
   }
 
-  // Handle voice start with smooth transition to voice-first mode
   const handleVoiceStart = () => {
-    onVoiceStart?.() // This will trigger the voice-first mode transition
+    onVoiceStart?.()
   }
 
-  // Voice-only mode interface (for voice-first UI)
   if (voiceOnly) {
     return (
       <div className='flex items-center justify-center'>
-        {/* Voice Input Only */}
         {isSttAvailable && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <div>
-                  <VoiceInput onVoiceStart={handleVoiceStart} disabled={isStreaming} large={true} />
+                  <VoiceInput
+                    onVoiceStart={handleVoiceStart}
+                    disabled={isStreaming}
+                    large={true}
+                    title={copy.input.startVoiceConversation}
+                  />
                 </div>
               </TooltipTrigger>
               <TooltipContent side='top'>
-                <p>Start voice conversation</p>
+                <p>{copy.input.startVoiceConversation}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -211,7 +209,6 @@ export const ChatInput: React.FC<{
     <>
       <div className='fixed right-0 bottom-0 left-0 flex w-full items-center justify-center bg-gradient-to-t from-white to-transparent px-4 pb-4 text-black md:px-0 md:pb-4'>
         <div ref={wrapperRef} className='w-full max-w-3xl md:max-w-[748px]'>
-          {/* Error Messages */}
           {uploadErrors.length > 0 && (
             <div className='mb-3'>
               <div className='rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800/50 dark:bg-red-950/20'>
@@ -219,7 +216,7 @@ export const ChatInput: React.FC<{
                   <AlertCircle className='mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400' />
                   <div className='flex-1'>
                     <div className='mb-1 font-medium text-red-800 text-sm dark:text-red-300'>
-                      File upload error
+                      {copy.input.fileUploadErrorTitle}
                     </div>
                     <div className='space-y-1'>
                       {uploadErrors.map((error, idx) => (
@@ -234,12 +231,12 @@ export const ChatInput: React.FC<{
             </div>
           )}
 
-          {/* Text Input Area with Controls */}
           <motion.div
-            className={`rounded-2xl border shadow-sm transition-all duration-200 md:rounded-3xl ${isDragOver
+            className={`rounded-2xl border shadow-sm transition-all duration-200 md:rounded-3xl ${
+              isDragOver
                 ? 'border-amber-500 bg-amber-50/50 dark:border-amber-500 dark:bg-amber-950/20'
-                : 'border-gray-200 '
-              }`}
+                : 'border-gray-200'
+            }`}
             onClick={handleActivate}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -272,7 +269,6 @@ export const ChatInput: React.FC<{
               }
             }}
           >
-            {/* File Previews */}
             {attachedFiles.length > 0 && (
               <div className='mb-2 flex flex-wrap gap-2 px-3 pt-3 md:px-4'>
                 {attachedFiles.map((file) => {
@@ -287,18 +283,15 @@ export const ChatInput: React.FC<{
                   return (
                     <div
                       key={file.id}
-                      className={`group relative overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 ${file.dataUrl
+                      className={`group relative overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 ${
+                        file.dataUrl
                           ? 'h-16 w-16 md:h-20 md:w-20'
                           : 'flex h-16 min-w-[120px] max-w-[200px] items-center gap-2 px-2 md:h-20 md:min-w-[140px] md:max-w-[220px] md:px-3'
-                        }`}
+                      }`}
                       title=''
                     >
                       {file.dataUrl ? (
-                        <img
-                          src={file.dataUrl}
-                          alt={file.name}
-                          className='h-full w-full object-cover'
-                        />
+                        <img src={file.dataUrl} alt={file.name} className='h-full w-full object-cover' />
                       ) : (
                         <>
                           <div className='flex h-8 w-8 flex-shrink-0 items-center justify-center rounded bg-gray-100 md:h-10 md:w-10 dark:bg-gray-700'>
@@ -331,7 +324,6 @@ export const ChatInput: React.FC<{
             )}
 
             <div className='flex items-center gap-2 p-3 md:p-4'>
-              {/* Paperclip Button */}
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -345,12 +337,11 @@ export const ChatInput: React.FC<{
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side='top'>
-                    <p>Attach files</p>
+                    <p>{copy.input.attachFiles}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
 
-              {/* Hidden file input */}
               <input
                 ref={fileInputRef}
                 type='file'
@@ -366,14 +357,13 @@ export const ChatInput: React.FC<{
                 disabled={isStreaming}
               />
 
-              {/* Text Input Container */}
               <div className='relative flex-1'>
                 <textarea
                   ref={textareaRef}
                   value={inputValue}
                   onChange={handleInputChange}
                   className='flex w-full resize-none items-center overflow-hidden bg-transparent text-base outline-none placeholder:text-gray-400 md:font-[330]'
-                  placeholder={isDragOver ? 'Drop files here...' : isActive ? '' : ''}
+                  placeholder={isDragOver ? copy.input.dropFilesHere : isActive ? '' : ''}
                   rows={1}
                   style={{
                     minHeight: window.innerWidth >= 768 ? '24px' : '28px',
@@ -389,30 +379,26 @@ export const ChatInput: React.FC<{
                   }}
                 />
 
-                {/* Placeholder */}
                 <div className='pointer-events-none absolute top-0 left-0 flex h-full w-full items-center'>
                   {!isActive && !inputValue && (
                     <>
-                      {/* Mobile placeholder */}
                       <div
                         className='-translate-y-1/2 absolute top-1/2 left-0 transform select-none text-base text-gray-400 md:hidden'
                         style={{ paddingTop: '3px', paddingBottom: '3px' }}
                       >
-                        {isDragOver ? 'Drop files here...' : PLACEHOLDER_MOBILE}
+                        {isDragOver ? copy.input.dropFilesHere : copy.input.placeholderMobile}
                       </div>
-                      {/* Desktop placeholder */}
                       <div
                         className='-translate-y-1/2 absolute top-1/2 left-0 hidden transform select-none font-[330] text-base text-gray-400 md:block'
                         style={{ paddingTop: '4px', paddingBottom: '4px' }}
                       >
-                        {isDragOver ? 'Drop files here...' : PLACEHOLDER_DESKTOP}
+                        {isDragOver ? copy.input.dropFilesHere : copy.input.placeholderDesktop}
                       </div>
                     </>
                   )}
                 </div>
               </div>
 
-              {/* Voice Input */}
               {isSttAvailable && (
                 <TooltipProvider>
                   <Tooltip>
@@ -422,23 +408,24 @@ export const ChatInput: React.FC<{
                           onVoiceStart={handleVoiceStart}
                           disabled={isStreaming}
                           minimal
+                          title={copy.input.startVoiceConversation}
                         />
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side='top'>
-                      <p>Start voice conversation</p>
+                      <p>{copy.input.startVoiceConversation}</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               )}
 
-              {/* Send Button */}
               <button
-                className={`flex items-center justify-center rounded-full p-1.5 text-white transition-colors md:p-2 ${inputValue.trim() || attachedFiles.length > 0
+                className={`flex items-center justify-center rounded-full p-1.5 text-white transition-colors md:p-2 ${
+                  inputValue.trim() || attachedFiles.length > 0
                     ? 'bg-black hover:bg-zinc-700'
                     : 'cursor-default bg-gray-300 hover:bg-gray-400'
-                  }`}
-                title={isStreaming ? 'Stop' : 'Send'}
+                }`}
+                title={isStreaming ? copy.input.stop : copy.input.send}
                 type='button'
                 onClick={(e) => {
                   e.stopPropagation()

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, ExternalLink, RefreshCw, X } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { JiraIcon } from '@/components/icons/icons'
 import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
 import { Button } from '@/components/ui/button'
@@ -21,6 +22,9 @@ import {
   getServiceIdFromScopes,
   type OAuthProvider,
 } from '@/lib/oauth'
+import { translateWorkflowLabel } from '@/i18n/block-editor'
+import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import type { LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('JiraProjectSelector')
 
@@ -59,7 +63,7 @@ export function JiraProjectSelector({
   onChange,
   provider,
   requiredScopes = [],
-  label = 'Select Jira project',
+  label,
   disabled = false,
   serviceId,
   domain,
@@ -70,6 +74,10 @@ export function JiraProjectSelector({
   workflowId,
   workspaceId,
 }: JiraProjectSelectorProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages().workspace.widgets.blockEditor.toolInput
+  const selectorCopy = useAppMessages().workspace.widgets.blockEditor.jiraProjectSelector
+  const labelText = label ?? translateWorkflowLabel(locale, 'Select Jira project')
   const [open, setOpen] = useState(false)
   const [credentials, setCredentials] = useState<Credential[]>([])
   const [projects, setProjects] = useState<JiraProjectInfo[]>([])
@@ -78,8 +86,9 @@ export function JiraProjectSelector({
   const [selectedProject, setSelectedProject] = useState<JiraProjectInfo | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [showOAuthModal, setShowOAuthModal] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [errorKey, setErrorKey] = useState<keyof typeof selectorCopy.errors | null>(null)
   const [cloudId, setCloudId] = useState<string | null>(null)
+  const errorMessage = errorKey ? selectorCopy.errors[errorKey] : null
 
   // Handle search with debounce
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -149,7 +158,7 @@ export function JiraProjectSelector({
       if (!selectedCredentialId || !domain || !projectId) return
 
       setIsLoading(true)
-      setError(null)
+      setErrorKey(null)
 
       try {
         const response = await fetch(`/api/tools/jira/projects`, {
@@ -167,7 +176,7 @@ export function JiraProjectSelector({
         if (!response.ok) {
           const errorData = await response.json()
           logger.error('Jira API error:', errorData)
-          throw new Error(errorData.error || 'Failed to fetch project details')
+          throw new Error('failedToFetchProjectDetails')
         }
 
         const json = await response.json()
@@ -187,7 +196,7 @@ export function JiraProjectSelector({
         }
       } catch (error) {
         logger.error('Error fetching project details:', error)
-        setError((error as Error).message)
+        setErrorKey('failedToFetchProjectDetails')
       } finally {
         setIsLoading(false)
       }
@@ -203,16 +212,14 @@ export function JiraProjectSelector({
       // Validate domain format
       const trimmedDomain = domain.trim().toLowerCase()
       if (!trimmedDomain.includes('.')) {
-        setError(
-          'Invalid domain format. Please provide the full domain (e.g., your-site.atlassian.net)'
-        )
+        setErrorKey('invalidDomainFormat')
         setProjects([])
         setIsLoading(false)
         return
       }
 
       setIsLoading(true)
-      setError(null)
+      setErrorKey(null)
 
       try {
         const queryParams = new URLSearchParams({
@@ -229,7 +236,7 @@ export function JiraProjectSelector({
         if (!response.ok) {
           const errorData = await response.json()
           logger.error('Jira API error:', errorData)
-          throw new Error(errorData.error || 'Failed to fetch projects')
+          throw new Error('failedToFetchProjects')
         }
 
         const data = await response.json()
@@ -258,7 +265,7 @@ export function JiraProjectSelector({
         }
       } catch (error) {
         logger.error('Error fetching projects:', error)
-        setError((error as Error).message)
+        setErrorKey('failedToFetchProjects')
         setProjects([])
       } finally {
         setIsLoading(false)
@@ -343,7 +350,7 @@ export function JiraProjectSelector({
   const handleClearSelection = () => {
     setSelectedProjectId('')
     setSelectedProject(null)
-    setError(null)
+    setErrorKey(null)
     onChange('', undefined)
     onProjectInfoChange?.(null)
   }
@@ -375,7 +382,7 @@ export function JiraProjectSelector({
               ) : (
                 <div className='flex items-center gap-1'>
                   <JiraIcon className='h-4 w-4' />
-                  <span className='text-muted-foreground'>{label}</span>
+                  <span className='text-muted-foreground'>{labelText}</span>
                 </div>
               )}
               <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
@@ -389,7 +396,7 @@ export function JiraProjectSelector({
                     <JiraIcon className='h-4 w-4' />
                     <span className='text-muted-foreground text-xs'>
                       {credentials.find((cred) => cred.id === selectedCredentialId)?.name ||
-                        'Unknown'}
+                        translateWorkflowLabel(locale, 'Unknown')}
                     </span>
                   </div>
                   {credentials.length > 1 && (
@@ -399,35 +406,42 @@ export function JiraProjectSelector({
                       className='h-6 px-2 text-xs'
                       onClick={() => setOpen(true)}
                     >
-                      Switch
+                      {translateWorkflowLabel(locale, 'Switch')}
                     </Button>
                   )}
                 </div>
               )}
 
               <Command>
-                <CommandInput placeholder='Search projects...' onValueChange={handleSearch} />
+                <CommandInput
+                  placeholder={translateWorkflowLabel(locale, 'Search projects...')}
+                  onValueChange={handleSearch}
+                />
                 <CommandList>
                   <CommandEmpty>
                     {isLoading ? (
                       <div className='flex items-center justify-center p-4'>
                         <RefreshCw className='h-4 w-4 animate-spin' />
-                        <span className='ml-2'>Loading projects...</span>
+                        <span className='ml-2'>{translateWorkflowLabel(locale, 'Loading...')}</span>
                       </div>
-                    ) : error ? (
+                    ) : errorMessage ? (
                       <div className='p-4 text-center'>
-                        <p className='text-destructive text-sm'>{error}</p>
+                        <p className='text-destructive text-sm'>{errorMessage}</p>
                       </div>
                     ) : credentials.length === 0 ? (
                       <div className='p-4 text-center'>
-                        <p className='font-medium text-sm'>No accounts connected.</p>
+                        <p className='font-medium text-sm'>
+                          {translateWorkflowLabel(locale, 'No accounts connected.')}
+                        </p>
                         <p className='text-muted-foreground text-xs'>
-                          Connect a Jira account to continue.
+                          {formatTemplate(copy.selectProviderAccount, { provider: 'Jira' })}
                         </p>
                       </div>
                     ) : (
                       <div className='p-4 text-center'>
-                        <p className='font-medium text-sm'>No projects found.</p>
+                        <p className='font-medium text-sm'>
+                          {translateWorkflowLabel(locale, 'No projects found')}
+                        </p>
                         <p className='text-muted-foreground text-xs'>
                           Try a different search or account.
                         </p>
@@ -439,7 +453,7 @@ export function JiraProjectSelector({
                   {credentials.length > 1 && (
                     <CommandGroup>
                       <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>
-                        Switch Account
+                        {translateWorkflowLabel(locale, 'Switch Account')}
                       </div>
                       {credentials.map((cred) => (
                         <CommandItem
@@ -463,7 +477,7 @@ export function JiraProjectSelector({
                   {projects.length > 0 && (
                     <CommandGroup>
                       <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>
-                        Projects
+                        {translateWorkflowLabel(locale, 'Projects')}
                       </div>
                       {projects.map((project) => (
                         <CommandItem
@@ -497,7 +511,9 @@ export function JiraProjectSelector({
                       <CommandItem onSelect={handleAddCredential}>
                         <div className='flex items-center gap-1 text-foreground'>
                           <JiraIcon className='h-4 w-4' />
-                          <span>Connect Jira account</span>
+                          <span>
+                            {formatTemplate(copy.selectProviderAccount, { provider: 'Jira' })}
+                          </span>
                         </div>
                       </CommandItem>
                     </CommandGroup>
@@ -548,7 +564,7 @@ export function JiraProjectSelector({
                     className='flex items-center gap-1 text-foreground text-xs hover:underline'
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <span>Open in Jira</span>
+                    <span>{translateWorkflowLabel(locale, 'Open in Jira')}</span>
                     <ExternalLink className='h-3 w-3' />
                   </a>
                 )}

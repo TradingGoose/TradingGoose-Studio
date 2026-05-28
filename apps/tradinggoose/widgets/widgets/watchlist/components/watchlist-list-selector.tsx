@@ -11,6 +11,7 @@ import {
   useState,
 } from 'react'
 import { Check, ChevronDown, List, Pencil, Search, Trash2 } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,6 +32,9 @@ import {
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { cn } from '@/lib/utils'
+import type { WatchlistRecord } from '@/lib/watchlists/types'
 import {
   widgetHeaderControlClassName,
   widgetHeaderMenuContentClassName,
@@ -66,6 +70,8 @@ export const WatchlistListSelector = ({
   disabled = false,
   align = 'start',
 }: WatchlistListSelectorProps) => {
+  const locale = useLocale()
+  const copy = useAppMessages().workspace.widgets.watchlist.listSelector
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [editingWatchlistId, setEditingWatchlistId] = useState<string | null>(null)
@@ -82,8 +88,8 @@ export const WatchlistListSelector = ({
     return filtered.slice(0, 100)
   }, [watchlists, searchTerm])
   const isEditing = Boolean(editingWatchlistId)
-  const tooltipText = disabled ? 'Watchlist selection unavailable' : 'Select watchlist'
-  const selectionLabel = selectedWatchlist?.name ?? 'Select watchlist'
+  const tooltipText = disabled ? copy.selectionUnavailable : copy.selectLabel
+  const selectionLabel = selectedWatchlist?.name ?? copy.selectLabel
 
   const cancelRename = () => {
     setEditingWatchlistId(null)
@@ -191,7 +197,7 @@ export const WatchlistListSelector = ({
                     cn('group flex w-full min-w-0 items-center justify-between gap-2')
                   )}
                   aria-haspopup='listbox'
-                  aria-label='Select watchlist'
+                  aria-label={copy.selectLabel}
                 >
                   <span className='flex min-w-0 flex-1 items-center gap-2 overflow-hidden'>
                     <span
@@ -230,16 +236,16 @@ export const WatchlistListSelector = ({
           onWheel={(event) => event.stopPropagation()}
         >
           <div className='flex h-full max-h-[inherit] flex-col overflow-hidden rounded-sm'>
-            <div className='border-border/70 border-b p-2'>
-              <div className='flex items-center gap-1 rounded-md border bg-background px-2 py-1.5 text-muted-foreground text-sm'>
-                <Search className='h-3.5 w-3.5 shrink-0' />
-                <Input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder='Search watchlists...'
-                  className='h-6 border-0 bg-transparent px-0 text-foreground text-xs placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
-                  onKeyDown={handleSearchInputKeyDown}
-                  autoComplete='off'
+              <div className='border-border/70 border-b p-2'>
+                <div className='flex items-center gap-1 rounded-md border bg-background px-2 py-1.5 text-muted-foreground text-sm'>
+                  <Search className='h-3.5 w-3.5 shrink-0' />
+                  <Input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder={copy.searchPlaceholder}
+                    className='h-6 border-0 bg-transparent px-0 text-foreground text-xs placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
+                    onKeyDown={handleSearchInputKeyDown}
+                    autoComplete='off'
                   autoCorrect='off'
                   spellCheck='false'
                   disabled={disabled}
@@ -259,7 +265,7 @@ export const WatchlistListSelector = ({
               >
                 {filteredWatchlists.length === 0 ? (
                   <p className='px-2 py-4 text-center text-muted-foreground text-xs'>
-                    No watchlists found.
+                    {copy.noWatchlistsFound}
                   </p>
                 ) : (
                   <div className='flex w-full min-w-0 flex-col gap-1'>
@@ -354,7 +360,7 @@ export const WatchlistListSelector = ({
                                       event.stopPropagation()
                                       handleStartRename(watchlist)
                                     }}
-                                    aria-label={`Rename ${watchlist.name}`}
+                                    aria-label={formatTemplate(copy.renameAriaLabel, { name: watchlist.name })}
                                   >
                                     <Pencil className='!h-3.5 !w-3.5' />
                                   </Button>
@@ -378,7 +384,7 @@ export const WatchlistListSelector = ({
                                       event.stopPropagation()
                                       setDeleteTarget(watchlist)
                                     }}
-                                    aria-label={`Delete ${watchlist.name}`}
+                                    aria-label={formatTemplate(copy.deleteAriaLabel, { name: watchlist.name })}
                                   >
                                     <Trash2 className='!h-3.5 !w-3.5' />
                                   </Button>
@@ -407,17 +413,17 @@ export const WatchlistListSelector = ({
           setDeleteTarget(null)
         }}
       >
-        <AlertDialogContent>
+          <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete watchlist?</AlertDialogTitle>
+            <AlertDialogTitle>{copy.deleteDialogTitle}</AlertDialogTitle>
             <AlertDialogDescription>
               {deleteTarget
-                ? `This action will permanently delete "${deleteTarget.name}".`
-                : 'This action will permanently delete this watchlist.'}
+                ? formatTemplate(copy.deleteDialogDescription, { name: deleteTarget.name })
+                : copy.deleteDialogDescriptionFallback}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeletingWatchlist}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeletingWatchlist}>{copy.cancel}</AlertDialogCancel>
             <AlertDialogAction
               disabled={isDeletingWatchlist}
               onClick={(event) => {
@@ -425,7 +431,7 @@ export const WatchlistListSelector = ({
                 void handleConfirmDelete()
               }}
             >
-              Delete
+              {copy.delete}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

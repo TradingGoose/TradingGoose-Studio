@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { Check, ChevronDown } from 'lucide-react'
 import { useReactFlow } from '@xyflow/react'
 import { Button } from '@/components/ui/button'
@@ -7,7 +8,9 @@ import { formatDisplayText } from '@/components/ui/formatted-text'
 import { Input } from '@/components/ui/input'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { createLogger } from '@/lib/logs/console/logger'
+import { translateWorkflowLabel } from '@/i18n/block-editor'
 import { cn } from '@/lib/utils'
+import type { LocaleCode } from '@/i18n/utils'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
@@ -37,10 +40,12 @@ export function ComboBox({
   subBlockId,
   value: propValue,
   disabled,
-  placeholder = 'Type or select an option...',
+  placeholder,
   isConnecting,
   config,
 }: ComboBoxProps) {
+  const locale = useLocale() as LocaleCode
+  const placeholderText = placeholder ?? translateWorkflowLabel(locale, 'Type or select an option...')
   const workspaceId = useWorkspaceId()
   const [storeValue, setStoreValue] = useSubBlockValue<string>(blockId, subBlockId)
   const [storeInitialized, setStoreInitialized] = useState(false)
@@ -416,7 +421,7 @@ export function ComboBox({
             'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500',
             SelectedIcon ? 'pl-8' : ''
           )}
-          placeholder={placeholder}
+          placeholder={placeholderText}
           value={displayValue}
           onChange={handleChange}
           onFocus={handleFocus}
@@ -479,7 +484,7 @@ export function ComboBox({
             >
               {filteredOptions.length === 0 ? (
                 <div className='py-6 text-center text-muted-foreground text-sm'>
-                  No matching options found.
+                {translateWorkflowLabel(locale, 'No matching options found.')}
                 </div>
               ) : (
                 filteredOptions.map((option, index) => {

@@ -3,6 +3,7 @@
 import type React from 'react'
 import { useMemo } from 'react'
 import { AlertCircle, ChevronDown, ChevronUp, Loader2, RefreshCw, X } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
 import { MarketListingRow } from '@/components/listing-selector/listing/row'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -22,6 +23,7 @@ import {
   formatDateTime,
   formatMoney,
   formatNumber,
+  getExecutionPrice,
   getOrderListingFallback,
   titleCase,
   uppercase,
@@ -85,7 +87,8 @@ const CopyableCode = ({ value }: { value: string | null | undefined }) =>
 
 const changedProviderRows = (
   order: RecordsOrder,
-  providerDetail: ProviderOrderDetailResponse['data']['orderDetail'] | null
+  providerDetail: ProviderOrderDetailResponse['data']['orderDetail'] | null,
+  locale?: string
 ) => {
   if (!providerDetail) return []
   const savedExecutionPrice = order.fillPrice ?? order.averageFillPrice
@@ -106,8 +109,16 @@ const changedProviderRows = (
       formatMoney(savedExecutionPrice),
       formatMoney(providerDetail.averageFillPrice),
     ],
-    ['Updated at', formatDateTime(order.updatedAt), formatDateTime(providerDetail.updatedAt)],
-    ['Filled at', formatDateTime(order.filledAt), formatDateTime(providerDetail.filledAt)],
+    [
+      'Updated at',
+      formatDateTime(order.updatedAt, locale),
+      formatDateTime(providerDetail.updatedAt, locale),
+    ],
+    [
+      'Filled at',
+      formatDateTime(order.filledAt, locale),
+      formatDateTime(providerDetail.filledAt, locale),
+    ],
   ] as const
 
   return rows.filter(([, saved, latest]) => latest !== '—' && latest !== saved)
@@ -173,10 +184,15 @@ function OrderData({
   providerDetail: ProviderOrderDetailResponse | undefined
   providerDetailError: unknown
 }) {
+  const locale = useLocale()
+  const t = useTranslations('workspace.records.orders')
   const active = detail ?? order
-  const executionPrice = active.fillPrice ?? active.averageFillPrice
+  const executionPrice = getExecutionPrice(active, {
+    executionPrice: t('executionPrice'),
+    submittedLimit: t('submittedLimit'),
+  })
   const latestProviderDetail = providerDetail?.data.orderDetail ?? null
-  const providerRows = changedProviderRows(active, latestProviderDetail)
+  const providerRows = changedProviderRows(active, latestProviderDetail, locale)
   const showWorkflow =
     Boolean(active.logId) ||
     Boolean(active.linkedLog?.executionId) ||
@@ -193,13 +209,13 @@ function OrderData({
         {loading ? (
           <div className='flex items-center gap-2 text-muted-foreground text-sm'>
             <Loader2 className='h-4 w-4 animate-spin' />
-            Loading full order record...
+            {t('loadingFullRecord')}
           </div>
         ) : error ? (
           <div className='flex items-center justify-between gap-3 rounded-md border border-destructive/30 p-3 text-destructive text-sm'>
             <span>{error}</span>
             <Button variant='outline' size='sm' onClick={onRetry}>
-              Retry
+              {t('retry')}
             </Button>
           </div>
         ) : null}
@@ -232,7 +248,7 @@ function OrderData({
           {hasValue(active.submittedPrice) ? (
             <DetailRow label='Submitted price' value={formatMoney(active.submittedPrice)} />
           ) : null}
-          <DetailRow label='Execution price' value={formatMoney(executionPrice)} />
+          <DetailRow label={executionPrice.label} value={executionPrice.value} />
           <DetailRow label='Fee' value={formatMoney(active.fee)} />
         </DetailSection>
 
@@ -279,15 +295,17 @@ function OrderData({
         </DetailSection>
 
         <DetailSection title='Timeline'>
-          <DetailRow label='Recorded at' value={formatDateTime(active.recordedAt)} />
+          <DetailRow label='Recorded at' value={formatDateTime(active.recordedAt, locale)} />
           {hasValue(active.submittedAt) ? (
-            <DetailRow label='Submitted at' value={formatDateTime(active.submittedAt)} />
+            <DetailRow label='Submitted at' value={formatDateTime(active.submittedAt, locale)} />
           ) : null}
           {hasValue(active.updatedAt) ? (
-            <DetailRow label='Updated at' value={formatDateTime(active.updatedAt)} />
+            <DetailRow label='Updated at' value={formatDateTime(active.updatedAt, locale)} />
           ) : null}
           {optionalTimelineRows.map(([label, value]) =>
-            value ? <DetailRow key={label} label={label} value={formatDateTime(value)} /> : null
+            value ? (
+              <DetailRow key={label} label={label} value={formatDateTime(value, locale)} />
+            ) : null
           )}
         </DetailSection>
 
@@ -314,10 +332,16 @@ function OrderData({
               <DetailRow label='Level' value={titleCase(active.linkedLog?.level)} />
             ) : null}
             {hasValue(active.linkedLog?.startedAt) ? (
-              <DetailRow label='Started at' value={formatDateTime(active.linkedLog?.startedAt)} />
+              <DetailRow
+                label='Started at'
+                value={formatDateTime(active.linkedLog?.startedAt, locale)}
+              />
             ) : null}
             {hasValue(active.linkedLog?.endedAt) ? (
-              <DetailRow label='Ended at' value={formatDateTime(active.linkedLog?.endedAt)} />
+              <DetailRow
+                label='Ended at'
+                value={formatDateTime(active.linkedLog?.endedAt, locale)}
+              />
             ) : null}
           </DetailSection>
         ) : null}
@@ -345,6 +369,7 @@ export function OrderDetails({
   onRetryDetails,
   onRetryLog,
 }: OrderDetailsProps) {
+  const t = useTranslations('workspace.records.orders')
   const canCheckProvider =
     getTradingProviderOAuthServiceIds(order.provider as TradingProviderId).length > 0
   const providerDetailQuery = useProviderOrderDetail({
@@ -360,7 +385,7 @@ export function OrderDetails({
         isOpen
         headerControls={
           <Button size='sm' variant='ghost' onClick={() => onModeChange('order')}>
-            Order data
+            {t('orderData')}
           </Button>
         }
         onClose={onClose}
@@ -392,18 +417,18 @@ export function OrderDetails({
           {mode === 'log' ? (
             <div className='flex h-full min-h-0 items-center justify-center p-5 text-center text-muted-foreground text-sm'>
               {!order.logId ? (
-                'No log is connected to this order.'
+                t('noLogConnectedToThisOrder')
               ) : linkedLogLoading ? (
                 <span className='flex items-center gap-2'>
                   <Loader2 className='h-4 w-4 animate-spin' />
-                  Loading workflow log...
+                  {t('loadingWorkflowLog')}
                 </span>
               ) : (
                 <div className='space-y-3'>
                   <AlertCircle className='mx-auto h-5 w-5 text-destructive' />
-                  <p>{linkedLogError ?? 'Workflow log unavailable'}</p>
+                  <p>{linkedLogError ?? t('workflowLogUnavailable')}</p>
                   <Button size='sm' variant='outline' onClick={onRetryLog}>
-                    Retry
+                    {t('retry')}
                   </Button>
                 </div>
               )}
@@ -450,10 +475,11 @@ function OrderPanelHeader({
   hasNext: boolean
   hasPrev: boolean
 }) {
+  const t = useTranslations('workspace.records.orders')
   return (
     <div className='z-[9] flex shrink-0 flex-wrap items-center justify-between gap-3 border-b px-3 py-2'>
       <div className='min-w-0'>
-        <h2 className='font-medium text-foreground text-sm'>Order Details</h2>
+        <h2 className='font-medium text-foreground text-sm'>{t('orderData')}</h2>
       </div>
       <div className='flex items-center gap-1'>
         <Button
@@ -462,14 +488,14 @@ function OrderPanelHeader({
           disabled={!order.logId}
           onClick={() => onModeChange('log')}
         >
-          Log detail
+          {t('logDetail')}
         </Button>
         <Button
           size='sm'
           variant={mode === 'order' ? 'secondary' : 'ghost'}
           onClick={() => onModeChange('order')}
         >
-          Order data
+          {t('orderData')}
         </Button>
         <Button
           size='icon'
@@ -486,7 +512,7 @@ function OrderPanelHeader({
           ) : (
             <RefreshCw className='h-4 w-4' />
           )}
-          <span className='sr-only'>Refresh provider order detail</span>
+          <span className='sr-only'>{t('refreshProviderDetail')}</span>
         </Button>
         <Button
           size='icon'
@@ -496,7 +522,7 @@ function OrderPanelHeader({
           onClick={onNavigatePrev}
         >
           <ChevronUp className='h-4 w-4' />
-          <span className='sr-only'>Previous order</span>
+          <span className='sr-only'>{t('previousOrder')}</span>
         </Button>
         <Button
           size='icon'
@@ -506,11 +532,11 @@ function OrderPanelHeader({
           onClick={onNavigateNext}
         >
           <ChevronDown className='h-4 w-4' />
-          <span className='sr-only'>Next order</span>
+          <span className='sr-only'>{t('nextOrder')}</span>
         </Button>
         <Button size='icon' variant='ghost' className='h-7 w-7 p-0' onClick={onClose}>
           <X className='h-4 w-4' />
-          <span className='sr-only'>Close</span>
+          <span className='sr-only'>{t('close')}</span>
         </Button>
       </div>
     </div>

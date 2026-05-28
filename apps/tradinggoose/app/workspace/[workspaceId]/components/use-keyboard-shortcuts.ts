@@ -2,22 +2,13 @@
 
 import { useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { localizeHref, stripLocaleFromPathname } from '@/i18n/utils'
 
-/**
- * Detect if the current platform is Mac
- */
 export function isMacPlatform() {
   if (typeof navigator === 'undefined') return false
   return navigator.platform.toUpperCase().indexOf('MAC') >= 0
 }
 
-/**
- * Get a formatted keyboard shortcut string for display
- * @param key The key part of the shortcut (e.g., "Enter")
- * @param requiresCmd Whether the shortcut requires Cmd/Ctrl
- * @param requiresShift Whether the shortcut requires Shift
- * @param requiresAlt Whether the shortcut requires Alt/Option
- */
 export function getKeyboardShortcutText(
   key: string,
   requiresCmd = false,
@@ -38,20 +29,12 @@ export function getKeyboardShortcutText(
   return parts.join('+')
 }
 
-/**
- * Hook to manage keyboard shortcuts
- * @param onRunWorkflow - Function to run when Cmd/Ctrl+Enter is pressed
- * @param isDisabled - Whether shortcuts should be disabled
- */
 export function useKeyboardShortcuts(onRunWorkflow: () => void, isDisabled = false) {
-  // Memoize the platform detection
   const isMac = useMemo(() => isMacPlatform(), [])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Run workflow with Cmd+Enter (Mac) or Ctrl+Enter (Windows/Linux)
       if (event.key === 'Enter' && ((isMac && event.metaKey) || (!isMac && event.ctrlKey))) {
-        // Don't trigger if user is typing in an input, textarea, or contenteditable element
         const activeElement = document.activeElement
         const isEditableElement =
           activeElement instanceof HTMLInputElement ||
@@ -70,16 +53,12 @@ export function useKeyboardShortcuts(onRunWorkflow: () => void, isDisabled = fal
   }, [onRunWorkflow, isDisabled, isMac])
 }
 
-/**
- * Hook to manage global navigation shortcuts
- */
 export function useGlobalShortcuts() {
   const router = useRouter()
   const isMac = useMemo(() => isMacPlatform(), [])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Don't trigger if user is typing in an input, textarea, or contenteditable element
       const activeElement = document.activeElement
       const isEditableElement =
         activeElement instanceof HTMLInputElement ||
@@ -88,7 +67,6 @@ export function useGlobalShortcuts() {
 
       if (isEditableElement) return
 
-      // Cmd/Ctrl + Shift + L - Navigate to Records
       if (
         event.key.toLowerCase() === 'l' &&
         event.shiftKey &&
@@ -96,14 +74,15 @@ export function useGlobalShortcuts() {
       ) {
         event.preventDefault()
 
-        const pathParts = window.location.pathname.split('/')
+        const { locale, pathname } = stripLocaleFromPathname(window.location.pathname)
+        const pathParts = pathname.split('/')
         const workspaceIndex = pathParts.indexOf('workspace')
 
         if (workspaceIndex !== -1 && pathParts[workspaceIndex + 1]) {
           const workspaceId = pathParts[workspaceIndex + 1]
-          router.push(`/workspace/${workspaceId}/records`)
+          router.push(localizeHref(locale, `/workspace/${workspaceId}/logs`))
         } else {
-          router.push('/workspace')
+          router.push(localizeHref(locale, '/workspace'))
         }
       }
     }

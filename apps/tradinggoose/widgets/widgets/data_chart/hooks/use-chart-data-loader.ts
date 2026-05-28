@@ -14,6 +14,7 @@ import type {
 } from '@/providers/market/types'
 import { useChartRescale } from '@/widgets/widgets/data_chart/hooks/use-chart-rescale'
 import { useLiveBars } from '@/widgets/widgets/data_chart/hooks/use-live-bars'
+import type { DataChartCopy } from '@/widgets/widgets/data_chart/copy'
 import {
   buildIndexMaps,
   DEFAULT_BAR_COUNT,
@@ -85,6 +86,7 @@ type UseChartDataLoaderArgs = {
   onDataLoaded?: () => void
   onDataUpdated?: () => void
   onDataBackfill?: () => void
+  errorCopy: DataChartCopy['errors']
 }
 
 const resolveRetentionRule = (providerId: string | null | undefined, interval?: string | null) => {
@@ -114,6 +116,7 @@ export const useChartDataLoader = ({
   onDataLoaded,
   onDataUpdated,
   onDataBackfill,
+  errorCopy,
 }: UseChartDataLoaderArgs) => {
   const [chartError, setChartError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -336,16 +339,16 @@ export const useChartDataLoader = ({
         payload = null
       }
       if (!response.ok) {
-        throw new Error(resolveProviderErrorMessage(payload, 'Failed to load series data'))
+        throw new Error(resolveProviderErrorMessage(payload, errorCopy.failedToLoadSeriesData))
       }
 
-      return assertMarketSeries(payload)
+      return assertMarketSeries(payload, errorCopy.invalidSeriesPayload)
     }
 
     const fetchSeries = async (): Promise<MarketSeries> => {
       const windows = seriesWindow.windows ?? []
       if (!windows.length) {
-        throw new Error('Invalid time window')
+        throw new Error(errorCopy.invalidTimeWindow)
       }
       return fetchSeriesRequest({
         kind: 'series',
@@ -449,7 +452,7 @@ export const useChartDataLoader = ({
       } catch (error) {
         if (isStale()) return
         console.error('Failed to load chart data', error)
-        setChartError(error instanceof Error ? error.message : 'Failed to load data')
+        setChartError(error instanceof Error ? error.message : errorCopy.failedToLoadData)
       } finally {
         if (!isStale()) {
           setIsLoading(false)
@@ -795,6 +798,7 @@ export const useChartDataLoader = ({
     scheduleRescale,
     startLiveSubscription,
     stopLiveSubscription,
+    errorCopy,
   ])
 
   return { chartError, seriesTimezone, isLoading }

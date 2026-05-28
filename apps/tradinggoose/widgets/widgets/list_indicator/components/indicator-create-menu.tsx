@@ -2,6 +2,7 @@
 
 import { type ChangeEvent, useCallback, useRef } from 'react'
 import { Plus, Upload } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,6 +10,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useAppMessages } from '@/i18n/client-messages'
+import { cn } from '@/lib/utils'
 import {
   widgetHeaderIconButtonClassName,
   widgetHeaderMenuContentClassName,
@@ -16,7 +19,6 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
-import { cn } from '@/lib/utils'
 
 interface IndicatorCreateMenuProps {
   disabled?: boolean
@@ -35,6 +37,8 @@ export function IndicatorCreateMenu({
   onCreateIndicator,
   onImportIndicator,
 }: IndicatorCreateMenuProps) {
+  const locale = useLocale()
+  const copy = useAppMessages().workspace.widgets.indicatorList.createMenu
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleCreateIndicator = useCallback(() => {
@@ -78,12 +82,12 @@ export function IndicatorCreateMenu({
                   className={widgetHeaderIconButtonClassName()}
                 >
                   <Plus className='h-4 w-4' />
-                  <span className='sr-only'>Create indicator</span>
+                  <span className='sr-only'>{copy.createIndicator}</span>
                 </button>
               </DropdownMenuTrigger>
             </span>
           </TooltipTrigger>
-          <TooltipContent side='top'>Create</TooltipContent>
+          <TooltipContent side='top'>{copy.create}</TooltipContent>
         </Tooltip>
         <DropdownMenuContent
           sideOffset={6}
@@ -98,7 +102,7 @@ export function IndicatorCreateMenu({
             }}
           >
             <Plus className={widgetHeaderMenuIconClassName} />
-            <span className={widgetHeaderMenuTextClassName}>New indicator</span>
+            <span className={widgetHeaderMenuTextClassName}>{copy.newIndicator}</span>
           </DropdownMenuItem>
           <DropdownMenuItem
             className={widgetHeaderMenuItemClassName}
@@ -110,7 +114,7 @@ export function IndicatorCreateMenu({
           >
             <Upload className={widgetHeaderMenuIconClassName} />
             <span className={widgetHeaderMenuTextClassName}>
-              {isImporting ? 'Importing indicator' : 'Import indicator'}
+              {isImporting ? copy.importingIndicator : copy.importIndicator}
             </span>
           </DropdownMenuItem>
         </DropdownMenuContent>

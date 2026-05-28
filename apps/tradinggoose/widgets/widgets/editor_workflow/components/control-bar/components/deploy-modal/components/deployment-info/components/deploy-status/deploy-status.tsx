@@ -1,15 +1,17 @@
 'use client'
 
 import { cn } from '@/lib/utils'
+import { useDeploymentCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 interface DeployStatusProps {
   needsRedeployment: boolean
 }
 
 export function DeployStatus({ needsRedeployment }: DeployStatusProps) {
+  const copy = useDeploymentCopy()
   return (
     <div className='flex items-center gap-1'>
-      <span className='font-medium text-muted-foreground text-xs'>Status:</span>
+      <span className='font-medium text-muted-foreground text-xs'>{copy.status}</span>
       <div className='flex items-center gap-1.5'>
         <div className='relative flex items-center justify-center'>
           {needsRedeployment ? (
@@ -32,7 +34,7 @@ export function DeployStatus({ needsRedeployment }: DeployStatusProps) {
               : 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400'
           )}
         >
-          {needsRedeployment ? 'Changes Detected' : 'Active'}
+          {needsRedeployment ? copy.changesDetected : copy.active}
         </span>
       </div>
     </div>

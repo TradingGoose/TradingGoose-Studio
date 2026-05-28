@@ -1,52 +1,16 @@
 import { useMemo } from 'react'
 import { buildSubBlockPreviewRows } from '@/lib/workflows/sub-block-rows'
 import { getBlock } from '@/blocks'
-import type { SubBlockConfig } from '@/blocks/types'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
+import { resolveTriggerIdFromSubBlocks } from '@/triggers/resolution'
+import { getSubflowPreviewSubBlocks } from '@/widgets/widgets/editor_workflow/components/subflows/config'
 import { SubBlockSummaryRows } from '@/widgets/widgets/editor_workflow/components/workflow-render/sub-block-summary-rows'
+import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 
 interface ReadOnlyNodeEditorPanelProps {
   selectedNodeId: string | null
   workflowState: WorkflowState
 }
-
-const loopPreviewSubBlocks: SubBlockConfig[] = [
-  { id: 'loopType', title: 'Loop Type', type: 'dropdown' },
-  {
-    id: 'iterations',
-    title: 'Iterations',
-    type: 'short-input',
-    condition: { field: 'loopType', value: 'for' },
-  },
-  {
-    id: 'collection',
-    title: 'Collection',
-    type: 'long-input',
-    condition: { field: 'loopType', value: 'forEach' },
-  },
-  {
-    id: 'whileCondition',
-    title: 'Condition',
-    type: 'long-input',
-    condition: { field: 'loopType', value: ['while', 'doWhile'] },
-  },
-]
-
-const parallelPreviewSubBlocks: SubBlockConfig[] = [
-  { id: 'parallelType', title: 'Parallel Type', type: 'dropdown' },
-  {
-    id: 'count',
-    title: 'Executions',
-    type: 'short-input',
-    condition: { field: 'parallelType', value: 'count' },
-  },
-  {
-    id: 'distribution',
-    title: 'Collection',
-    type: 'long-input',
-    condition: { field: 'parallelType', value: 'collection' },
-  },
-]
 
 const toSubBlockState = (values: Record<string, unknown>) =>
   Object.fromEntries(
@@ -57,6 +21,12 @@ export function ReadOnlyNodeEditorPanel({
   selectedNodeId,
   workflowState,
 }: ReadOnlyNodeEditorPanelProps) {
+  const {
+    workflowEditorCopy: copy,
+    readOnlyPreviewCopy: previewCopy,
+    getLocalizedDefaultBlockName,
+    localizeWorkflowSubBlockConfig,
+  } = useWorkflowI18n()
   const selectedBlock = useMemo(() => {
     if (!selectedNodeId) {
       return null
@@ -69,9 +39,7 @@ export function ReadOnlyNodeEditorPanel({
     return (
       <aside className='w-80 shrink-0 border-border border-l bg-background/95 p-4'>
         <div className='flex h-full items-center justify-center text-center'>
-          <p className='text-muted-foreground text-sm'>
-            Select a block to view its preview details.
-          </p>
+          <p className='text-muted-foreground text-sm'>{copy.selectBlockToViewPreviewDetails}</p>
         </div>
       </aside>
     )
@@ -81,14 +49,15 @@ export function ReadOnlyNodeEditorPanel({
     return (
       <aside className='w-80 shrink-0 border-border border-l bg-background/95 p-4'>
         <div className='space-y-2'>
-          <h3 className='font-medium text-sm'>Node not found</h3>
-          <p className='text-muted-foreground text-xs'>The selected node is no longer available.</p>
+          <h3 className='font-medium text-sm'>{copy.nodeNotFound}</h3>
+          <p className='text-muted-foreground text-xs'>{copy.selectedNodeUnavailable}</p>
         </div>
       </aside>
     )
   }
 
   const blockConfig = getBlock(selectedBlock.type)
+  const localizedBlockName = getLocalizedDefaultBlockName(selectedBlock.type, selectedBlock.name)
   const previewConfig = (() => {
     if (selectedBlock.type === 'loop') {
       const loop = workflowState.loops?.[selectedBlock.id]
@@ -105,7 +74,7 @@ export function ReadOnlyNodeEditorPanel({
         subBlocks: buildSubBlockPreviewRows({
           blockId: selectedBlock.id,
           stateToUse,
-          subBlocks: loopPreviewSubBlocks,
+          subBlocks: getSubflowPreviewSubBlocks(copy, 'loop'),
         }),
       }
     }
@@ -124,7 +93,7 @@ export function ReadOnlyNodeEditorPanel({
         subBlocks: buildSubBlockPreviewRows({
           blockId: selectedBlock.id,
           stateToUse,
-          subBlocks: parallelPreviewSubBlocks,
+          subBlocks: getSubflowPreviewSubBlocks(copy, 'parallel'),
         }),
       }
     }
@@ -151,25 +120,48 @@ export function ReadOnlyNodeEditorPanel({
     }
   })()
 
+  const localizedPreviewSubBlocks = useMemo(
+    () => {
+      const triggerId = resolveTriggerIdFromSubBlocks(
+        previewConfig.stateToUse,
+        previewConfig.availableTriggerIds
+      )
+
+      return previewConfig.subBlocks.map((subBlock) =>
+        localizeWorkflowSubBlockConfig(subBlock, selectedBlock.type, triggerId ?? undefined)
+      )
+    },
+    [
+      copy,
+      localizeWorkflowSubBlockConfig,
+      previewConfig.availableTriggerIds,
+      previewConfig.stateToUse,
+      previewConfig.subBlocks,
+      selectedBlock.type,
+    ]
+  )
+
   return (
     <aside className='w-80 shrink-0 border-border border-l bg-background/95 p-4'>
       <div className='space-y-4'>
         <header className='space-y-1'>
-          <p className='text-muted-foreground text-xs uppercase tracking-wide'>Preview Inspector</p>
-          <h3 className='line-clamp-2 font-medium text-sm'>{selectedBlock.name}</h3>
+          <p className='text-muted-foreground text-xs uppercase tracking-wide'>
+            {copy.previewInspector}
+          </p>
+          <h3 className='line-clamp-2 font-medium text-sm'>{localizedBlockName}</h3>
         </header>
 
         {previewConfig.subBlocks.length > 0 ? (
           <div className='space-y-2'>
             <SubBlockSummaryRows
               blockId={selectedBlock.id}
-              subBlocks={previewConfig.subBlocks}
+              subBlocks={localizedPreviewSubBlocks}
               stateToUse={previewConfig.stateToUse}
               availableTriggerIds={previewConfig.availableTriggerIds}
             />
           </div>
         ) : (
-          <p className='text-muted-foreground text-xs'>No values to display.</p>
+          <p className='text-muted-foreground text-xs'>{previewCopy.noValuesToDisplay}</p>
         )}
       </div>
     </aside>

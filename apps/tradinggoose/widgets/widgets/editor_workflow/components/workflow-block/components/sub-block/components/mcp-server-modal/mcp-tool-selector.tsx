@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { Check, ChevronDown, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -12,6 +13,8 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useAppMessages } from '@/i18n/client-messages'
+import type { LocaleCode } from '@/i18n/utils'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import type { SubBlockConfig } from '@/blocks/types'
@@ -28,17 +31,21 @@ export function McpToolSelector({
   subBlock,
   disabled = false,
 }: McpToolSelectorProps) {
+  const locale = useLocale() as LocaleCode
+  const workspaceCopy = useAppMessages().workspace.widgets.blockEditor
+  const copy = workspaceCopy.mcpToolSelector
+  const searchCopy = workspaceCopy.toolInput
   const workspaceId = useWorkspaceId()
   const [open, setOpen] = useState(false)
 
-  const { isLoading, error, refreshTools, getToolsByServer } = useMcpTools(workspaceId)
+  const { isLoading, errorCode, refreshTools, getToolsByServer } = useMcpTools(workspaceId)
 
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlock.id)
   const [, setSchemaCache] = useSubBlockValue(blockId, '_toolSchema')
 
   const [serverValue] = useSubBlockValue(blockId, 'server')
 
-  const label = subBlock.placeholder || 'Select tool'
+  const label = subBlock.placeholder || copy.selectTool
 
   const selectedToolId = storeValue || ''
 
@@ -89,10 +96,10 @@ export function McpToolSelector({
       return <span className='truncate font-normal'>{selectedTool.name}</span>
     }
     return (
-      <span className='truncate text-muted-foreground'>
-        {serverValue ? label : 'Select server first'}
-      </span>
-    )
+        <span className='truncate text-muted-foreground'>
+          {serverValue ? label : copy.selectServerFirst}
+        </span>
+      )
   }
 
   const isDisabled = disabled || !serverValue
@@ -115,32 +122,29 @@ export function McpToolSelector({
       </PopoverTrigger>
       <PopoverContent className='w-[250px] p-0' align='start'>
         <Command>
-          <CommandInput placeholder='Search tools...' />
+          <CommandInput placeholder={searchCopy.searchTools} />
           <CommandList>
             <CommandEmpty>
               {isLoading ? (
                 <div className='flex items-center justify-center p-4'>
                   <RefreshCw className='h-4 w-4 animate-spin' />
-                  <span className='ml-2'>Loading tools...</span>
+                  <span className='ml-2'>{copy.loadingTools}</span>
                 </div>
-              ) : error ? (
+              ) : errorCode ? (
                 <div className='p-4 text-center'>
-                  <p className='font-medium text-destructive text-sm'>Error loading tools</p>
-                  <p className='text-muted-foreground text-xs'>{error}</p>
+                  <p className='font-medium text-destructive text-sm'>{copy.errorLoadingTools}</p>
                 </div>
               ) : !serverValue ? (
                 <div className='p-4 text-center'>
-                  <p className='font-medium text-sm'>No server selected</p>
+                  <p className='font-medium text-sm'>{copy.noServerSelected}</p>
                   <p className='text-muted-foreground text-xs'>
-                    Select an MCP server first to see available tools
+                    {copy.selectServerFirstDescription}
                   </p>
                 </div>
               ) : (
                 <div className='p-4 text-center'>
-                  <p className='font-medium text-sm'>No tools found</p>
-                  <p className='text-muted-foreground text-xs'>
-                    The selected server has no available tools
-                  </p>
+                  <p className='font-medium text-sm'>{copy.noToolsFound}</p>
+                  <p className='text-muted-foreground text-xs'>{copy.noToolsFoundDescription}</p>
                 </div>
               )}
             </CommandEmpty>

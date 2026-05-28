@@ -13,10 +13,12 @@ type WidgetHeaderRefreshButtonProps = {
 
 export function WidgetHeaderRefreshButton({
   disabled = false,
-  label = 'Refresh data',
+  label = '',
   tooltip,
   onClick,
 }: WidgetHeaderRefreshButtonProps) {
+  const resolvedLabel = label || tooltip || ''
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -26,14 +28,14 @@ export function WidgetHeaderRefreshButton({
             className={widgetHeaderIconButtonClassName()}
             onClick={onClick}
             disabled={disabled}
-            aria-label={label}
+            aria-label={resolvedLabel}
           >
             <RefreshCw className='h-3.5 w-3.5' />
-            <span className='sr-only'>{label}</span>
+            <span className='sr-only'>{resolvedLabel}</span>
           </button>
         </span>
       </TooltipTrigger>
-      <TooltipContent side='top'>{tooltip ?? label}</TooltipContent>
+      <TooltipContent side='top'>{tooltip ?? resolvedLabel}</TooltipContent>
     </Tooltip>
   )
 }

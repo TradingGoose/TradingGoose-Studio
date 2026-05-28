@@ -1,68 +1,82 @@
 import type { Metadata } from 'next'
+import { getLocale } from 'next-intl/server'
+import { getPublicCopy } from '@/i18n/public-copy'
+import {
+  buildLocalizedAlternates,
+  getOpenGraphLocale,
+  localizeSiteUrl,
+  type LocaleCode,
+} from '@/i18n/utils'
 import ChangelogContent from './components/changelog-content'
 
-export const metadata: Metadata = {
-  title: 'Changelog',
-  description:
-    'Stay up-to-date with the latest features, improvements, and bug fixes in TradingGoose.',
-  alternates: {
-    canonical: 'https://tradinggoose.ai/changelog',
-    types: {
-      'application/rss+xml': '/changelog.xml',
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = (await getLocale()) as LocaleCode
+  const copy = getPublicCopy(locale)
+
+  return {
+    title: copy.meta.changelog.title,
+    description: copy.meta.changelog.description,
+    alternates: {
+      ...buildLocalizedAlternates(locale, '/changelog'),
+      types: {
+        'application/rss+xml': '/changelog.xml',
+      },
     },
-  },
-  openGraph: {
-    title: 'Changelog',
-    description:
-      'Stay up-to-date with the latest features, improvements, and bug fixes in TradingGoose.',
-    type: 'website',
-  },
+    openGraph: {
+      title: copy.meta.changelog.title,
+      description: copy.meta.changelog.description,
+      type: 'website',
+      url: localizeSiteUrl(locale, '/changelog'),
+      locale: getOpenGraphLocale(locale),
+    },
+  }
 }
 
-const changelogStructuredData = {
-  '@context': 'https://schema.org',
-  '@graph': [
-    {
-      '@type': 'TechArticle',
-      headline: 'TradingGoose Studio Changelog',
-      description:
-        'Release notes, new features, improvements, and fixes for TradingGoose Studio.',
-      url: 'https://tradinggoose.ai/changelog',
-      mainEntityOfPage: 'https://tradinggoose.ai/changelog',
-      inLanguage: 'en-US',
-      author: { '@id': 'https://tradinggoose.ai/#organization' },
-      publisher: { '@id': 'https://tradinggoose.ai/#organization' },
-      about: { '@id': 'https://tradinggoose.ai/#software' },
-      isPartOf: { '@id': 'https://tradinggoose.ai/#website' },
-    },
-    {
-      '@type': 'BreadcrumbList',
-      itemListElement: [
-        {
-          '@type': 'ListItem',
-          position: 1,
-          name: 'Home',
-          item: 'https://tradinggoose.ai',
-        },
-        {
-          '@type': 'ListItem',
-          position: 2,
-          name: 'Changelog',
-          item: 'https://tradinggoose.ai/changelog',
-        },
-      ],
-    },
-  ],
-}
+export default async function ChangelogPage() {
+  const locale = (await getLocale()) as LocaleCode
+  const copy = getPublicCopy(locale)
+  const changelogStructuredData = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'TechArticle',
+        headline: copy.changelog.headline,
+        description: copy.changelog.description,
+        url: localizeSiteUrl(locale, '/changelog'),
+        mainEntityOfPage: localizeSiteUrl(locale, '/changelog'),
+        inLanguage: locale,
+        author: { '@id': 'https://tradinggoose.ai/#organization' },
+        publisher: { '@id': 'https://tradinggoose.ai/#organization' },
+        about: { '@id': 'https://tradinggoose.ai/#software' },
+        isPartOf: { '@id': 'https://tradinggoose.ai/#website' },
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          {
+            '@type': 'ListItem',
+            position: 1,
+            name: copy.nav.homeLabel,
+            item: localizeSiteUrl(locale, '/'),
+          },
+          {
+            '@type': 'ListItem',
+            position: 2,
+            name: copy.changelog.breadcrumb,
+            item: localizeSiteUrl(locale, '/changelog'),
+          },
+        ],
+      },
+    ],
+  }
 
-export default function ChangelogPage() {
   return (
     <>
       <script
         type='application/ld+json'
         dangerouslySetInnerHTML={{ __html: JSON.stringify(changelogStructuredData) }}
       />
-      <ChangelogContent />
+      <ChangelogContent copy={copy.changelog} locale={locale} />
     </>
   )
 }

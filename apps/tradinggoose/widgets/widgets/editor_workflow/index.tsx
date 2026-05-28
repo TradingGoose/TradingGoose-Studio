@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Workflow } from 'lucide-react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
+import { useWorkflowEditorMessages } from '@/i18n/workspace-widget-hooks'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
@@ -35,6 +36,7 @@ const WorkflowEditorWidgetBody = ({
   onWidgetParamsChange,
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId
+  const copy = useWorkflowEditorMessages()
   const widgetKey = widget?.key ?? 'editor_workflow'
   const toolbarScopeId = readWorkflowToolbarScopeId(widgetKey, panelId)
   const {
@@ -126,11 +128,11 @@ const WorkflowEditorWidgetBody = ({
   }, [containerElement])
 
   if (!workspaceId) {
-    return <WidgetStateMessage message='Select a workspace to load workflows.' />
+    return <WidgetStateMessage message={copy.selectWorkspaceToLoadWorkflows} />
   }
 
   if (loadError) {
-    return <WidgetStateMessage message={loadError} />
+    return <WidgetStateMessage message={copy[loadError]} />
   }
 
   if (!hasLoadedWorkflows || isLoading) {
@@ -142,12 +144,12 @@ const WorkflowEditorWidgetBody = ({
   }
 
   if (workflowIds.length === 0) {
-    return <WidgetStateMessage message='No workflows available in this workspace.' />
+    return <WidgetStateMessage message={copy.noWorkflowsAvailable} />
   }
 
   if (!resolvedWorkflowId) {
     if (resolvedPairColor !== 'gray') {
-      return <WidgetStateMessage message='This color has no shared workflow selected yet.' />
+      return <WidgetStateMessage message={copy.noSharedWorkflowSelected} />
     }
 
     return (

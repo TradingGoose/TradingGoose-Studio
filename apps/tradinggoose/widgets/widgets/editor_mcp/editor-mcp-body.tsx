@@ -1,9 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useMcpServerTest } from '@/hooks/use-mcp-server-test'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
+import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import type { LocaleCode } from '@/i18n/utils'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useMcpServersStore } from '@/stores/mcp-servers/store'
 import type { McpServerWithStatus } from '@/stores/mcp-servers/types'
@@ -24,21 +27,32 @@ import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/component
 type EditorMcpWidgetBodyProps = WidgetComponentProps
 
 const getServerName = (server?: Pick<McpServerWithStatus, 'name'> | null) =>
-  server?.name?.trim() || 'Unnamed server'
+  server?.name?.trim() || ''
 
-const formatRelativeTime = (dateString?: string) => {
+const formatRelativeTime = (
+  dateString: string | undefined,
+  copy: {
+    justNow: string
+    minutesAgo: string
+    hoursAgo: string
+    daysAgo: string
+    weeksAgo: string
+    monthsAgo: string
+    yearsAgo: string
+  }
+) => {
   if (!dateString) return null
   const date = new Date(dateString)
   const now = new Date()
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
 
-  if (diffInSeconds < 60) return 'just now'
-  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`
-  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`
-  if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`
-  if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 604800)}w ago`
-  if (diffInSeconds < 31536000) return `${Math.floor(diffInSeconds / 2592000)}mo ago`
-  return `${Math.floor(diffInSeconds / 31536000)}y ago`
+  if (diffInSeconds < 60) return copy.justNow
+  if (diffInSeconds < 3600) return formatTemplate(copy.minutesAgo, { count: Math.floor(diffInSeconds / 60) })
+  if (diffInSeconds < 86400) return formatTemplate(copy.hoursAgo, { count: Math.floor(diffInSeconds / 3600) })
+  if (diffInSeconds < 604800) return formatTemplate(copy.daysAgo, { count: Math.floor(diffInSeconds / 86400) })
+  if (diffInSeconds < 2592000) return formatTemplate(copy.weeksAgo, { count: Math.floor(diffInSeconds / 604800) })
+  if (diffInSeconds < 31536000) return formatTemplate(copy.monthsAgo, { count: Math.floor(diffInSeconds / 2592000) })
+  return formatTemplate(copy.yearsAgo, { count: Math.floor(diffInSeconds / 31536000) })
 }
 
 const getStatusClassName = (status?: McpServerWithStatus['connectionStatus']) => {
@@ -53,13 +67,24 @@ const getStatusClassName = (status?: McpServerWithStatus['connectionStatus']) =>
   return 'border-border bg-muted text-muted-foreground'
 }
 
-const getStatusLabel = (status?: McpServerWithStatus['connectionStatus']) => {
-  if (status === 'connected') return 'Connected'
-  if (status === 'error') return 'Error'
-  return 'Disconnected'
+const getStatusLabel = (
+  status: McpServerWithStatus['connectionStatus'] | undefined,
+  copy: {
+    connected: string
+    error: string
+    disconnected: string
+  }
+) => {
+  if (status === 'connected') return copy.connected
+  if (status === 'error') return copy.error
+  return copy.disconnected
 }
 
-const refreshServerApi = async (serverId: string, workspaceId: string) => {
+const refreshServerApi = async (
+  serverId: string,
+  workspaceId: string,
+  fallbackErrorMessage: string
+) => {
   const response = await fetch(
     `/api/mcp/servers/${encodeURIComponent(serverId)}/refresh?workspaceId=${encodeURIComponent(
       workspaceId
@@ -69,7 +94,7 @@ const refreshServerApi = async (serverId: string, workspaceId: string) => {
 
   const data = await response.json().catch(() => ({}))
   if (!response.ok) {
-    throw new Error(data?.error || `Failed to refresh server ${serverId}`)
+    throw new Error(data?.error || fallbackErrorMessage)
   }
 
   return data
@@ -83,6 +108,8 @@ export function EditorMcpWidgetBody({
   widget,
   onWidgetParamsChange,
 }: EditorMcpWidgetBodyProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages().workspace.widgets.mcpEditor
   const workspaceId = context?.workspaceId ?? null
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
@@ -97,14 +124,14 @@ export function EditorMcpWidgetBody({
   const {
     servers,
     isLoading: isServersLoading,
-    error: serverError,
+    errorCode: serverErrorCode,
     fetchServers,
     refreshServer,
     updateServer,
   } = useMcpServersStore((state) => ({
     servers: state.servers,
     isLoading: state.isLoading,
-    error: state.error,
+    errorCode: state.errorCode,
     fetchServers: state.fetchServers,
     refreshServer: state.refreshServer,
     updateServer: state.updateServer,
@@ -198,7 +225,7 @@ export function EditorMcpWidgetBody({
     if (!workspaceId || !selectedServerId || !formDataState.url?.trim()) return
 
     await testConnection({
-      name: formDataState.name.trim() || getServerName(selectedServer),
+      name: formDataState.name.trim() || getServerName(selectedServer) || copy.unnamedServer,
       transport: formDataState.transport,
       url: formDataState.url,
       headers: createMcpSavePayload(formDataState).headers,
@@ -211,24 +238,22 @@ export function EditorMcpWidgetBody({
     if (!workspaceId || !selectedServerId) return
 
     try {
-      await refreshServerApi(selectedServerId, workspaceId)
+      await refreshServerApi(selectedServerId, workspaceId, copy.failedToRefreshMcpServer)
       await refreshServer(workspaceId, selectedServerId)
       await refreshTools(true)
       await fetchServers(workspaceId)
     } catch (refreshError) {
       console.error('Failed to refresh MCP server tools', refreshError)
-      setSaveError(
-        refreshError instanceof Error ? refreshError.message : 'Failed to refresh MCP server.'
-      )
+      setSaveError(copy.failedToRefreshMcpServer)
     }
-  }, [fetchServers, refreshServer, refreshTools, selectedServerId, workspaceId])
+  }, [copy.failedToRefreshMcpServer, fetchServers, refreshServer, refreshTools, selectedServerId, workspaceId])
 
   const handleSave = useCallback(async () => {
     if (!workspaceId || !selectedServerId) return
 
     const payload = createMcpSavePayload(formDataState)
     if (!payload.name) {
-      setSaveError('Server name is required.')
+      setSaveError(copy.serverNameRequired)
       return
     }
 
@@ -239,9 +264,10 @@ export function EditorMcpWidgetBody({
       initialFormDataRef.current = formDataState
       await fetchServers(workspaceId)
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Failed to save MCP server.')
+      console.error('Failed to save MCP server', error)
+      setSaveError(copy.failedToSaveMcpServer)
     }
-  }, [fetchServers, formDataState, selectedServerId, updateServer, workspaceId])
+  }, [copy.failedToSaveMcpServer, copy.serverNameRequired, fetchServers, formDataState, selectedServerId, updateServer, workspaceId])
 
   useMcpEditorActions({
     panelId,
@@ -254,11 +280,11 @@ export function EditorMcpWidgetBody({
   })
 
   if (!workspaceId) {
-    return <WidgetStateMessage message='Select a workspace to edit MCP servers.' />
+    return <WidgetStateMessage message={copy.selectWorkspaceToEdit} />
   }
 
-  if (serverError && workspaceServers.length === 0 && !isServersLoading) {
-    return <WidgetStateMessage message={serverError || 'Failed to load MCP servers.'} />
+  if (serverErrorCode && workspaceServers.length === 0 && !isServersLoading) {
+    return <WidgetStateMessage message={copy.failedToLoadMcpServers} />
   }
 
   if (isServersLoading && workspaceServers.length === 0) {
@@ -274,15 +300,15 @@ export function EditorMcpWidgetBody({
       <WidgetStateMessage
         message={
           isLinkedToColorPair
-            ? 'This color has no shared MCP server selected yet.'
-            : 'Select an MCP server to edit.'
+            ? copy.noSharedMcpServerSelected
+            : copy.selectServerToEdit
         }
       />
     )
   }
 
   if (!selectedServer) {
-    return <WidgetStateMessage message='MCP server not found.' />
+    return <WidgetStateMessage message={copy.mcpServerNotFound} />
   }
 
   const displayStatus = selectedServer.connectionStatus ?? 'disconnected'
@@ -292,12 +318,14 @@ export function EditorMcpWidgetBody({
       <div className='flex-1 space-y-5 overflow-auto p-5'>
         <div className='space-y-2'>
           <div className='flex flex-wrap items-center gap-2'>
-            <h3 className='font-medium text-foreground text-sm'>{getServerName(selectedServer)}</h3>
+            <h3 className='font-medium text-foreground text-sm'>
+              {getServerName(selectedServer) || copy.unnamedServer}
+            </h3>
             <span
               className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-medium text-[10px] ${getStatusClassName(displayStatus)}`}
             >
               <span className='h-1.5 w-1.5 rounded-full bg-current opacity-70' />
-              {getStatusLabel(displayStatus)}
+              {getStatusLabel(displayStatus, copy)}
             </span>
             <span className='rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground'>
               {formDataState.transport.toUpperCase()}
@@ -305,13 +333,25 @@ export function EditorMcpWidgetBody({
           </div>
           <div className='flex flex-wrap items-center gap-2 text-muted-foreground text-xs'>
             {selectedServer.updatedAt ? (
-              <span>Updated {formatRelativeTime(selectedServer.updatedAt)}</span>
+              <span>
+                {formatTemplate(copy.updated, {
+                  time: formatRelativeTime(selectedServer.updatedAt, copy.relativeTime) ?? '',
+                })}
+              </span>
             ) : null}
             {selectedServer.lastToolsRefresh ? (
-              <span>Tools refreshed {formatRelativeTime(selectedServer.lastToolsRefresh)}</span>
+              <span>
+                {formatTemplate(copy.toolsRefreshed, {
+                  time: formatRelativeTime(selectedServer.lastToolsRefresh, copy.relativeTime) ?? '',
+                })}
+              </span>
             ) : null}
             {selectedServer.lastConnected ? (
-              <span>Last connected {formatRelativeTime(selectedServer.lastConnected)}</span>
+              <span>
+                {formatTemplate(copy.lastConnected, {
+                  time: formatRelativeTime(selectedServer.lastConnected, copy.relativeTime) ?? '',
+                })}
+              </span>
             ) : null}
           </div>
         </div>
@@ -328,9 +368,9 @@ export function EditorMcpWidgetBody({
 
         <div className='space-y-3 rounded-md'>
           <div className='flex items-center justify-between'>
-            <p className='text-muted-foreground text-xs uppercase tracking-wide'>Tools</p>
+            <p className='text-muted-foreground text-xs uppercase tracking-wide'>{copy.tools}</p>
             <span className='text-muted-foreground text-xs'>
-              {selectedServerTools.length} total
+              {formatTemplate(copy.toolCount, { count: selectedServerTools.length })}
             </span>
           </div>
 
@@ -349,14 +389,14 @@ export function EditorMcpWidgetBody({
             </div>
           ) : (
             <div className='rounded-md border border-dashed px-3 py-4 text-muted-foreground text-sm'>
-              No tools discovered yet.
+              {copy.noToolsDiscovered}
             </div>
           )}
         </div>
 
         {selectedServer.lastError ? (
           <div className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-sm'>
-            <p className='font-medium'>Last error</p>
+            <p className='font-medium'>{copy.lastError}</p>
             <p className='text-destructive/80 text-xs'>{selectedServer.lastError}</p>
           </div>
         ) : null}

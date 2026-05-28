@@ -5,12 +5,14 @@ import { Button } from '@/components/ui'
 import { isProd } from '@/lib/environment'
 import { getSubscriptionStatus } from '@/lib/subscription/helpers'
 import { useSubscriptionData } from '@/hooks/queries/subscription'
+import { useTranslations } from 'next-intl'
 import { FilterSection, FolderFilter, Level, Timeline, Trigger, Workflow } from './components'
 
 /**
  * Filters component for logs page - includes timeline and other filter options
  */
 export function Filters() {
+  const t = useTranslations('workspace.logs.dashboard.filters')
   const { data: subscriptionData, isLoading } = useSubscriptionData()
   const billingPayload = (subscriptionData as any)?.data ?? subscriptionData
   const subscription = getSubscriptionStatus(billingPayload)
@@ -32,11 +34,11 @@ export function Filters() {
         <div className='mb-4 overflow-hidden rounded-md border border-border'>
           <div className='flex items-center gap-2 border-b bg-background p-3'>
             <TimerOff className='h-4 w-4 text-muted-foreground' />
-            <span className='font-medium text-sm'>Log Retention Policy</span>
+            <span className='font-medium text-sm'>{t('retentionPolicy')}</span>
           </div>
           <div className='p-3'>
             <p className='text-muted-foreground text-xs'>
-              Logs are automatically deleted after {retentionDays} days on this tier.
+              {t('retentionDescription', { days: retentionDays })}
             </p>
             {!isPaid ? (
               <div className='mt-2.5'>
@@ -46,7 +48,7 @@ export function Filters() {
                   className='h-8 w-full px-3 py-1.5 text-xs'
                   onClick={handleUpgradeClick}
                 >
-                  Upgrade Plan
+                  {t('upgradePlan')}
                 </Button>
               </div>
             ) : null}
@@ -54,22 +56,22 @@ export function Filters() {
         </div>
       )}
 
-      <h2 className='mb-4 pl-2 font-medium text-sm'>Filters</h2>
+      <h2 className='mb-4 pl-2 font-medium text-sm'>{t('title')}</h2>
 
       {/* Level Filter */}
-      <FilterSection title='Level' content={<Level />} />
+      <FilterSection title={t('level')} content={<Level />} />
 
       {/* Workflow Filter */}
-      <FilterSection title='Workflow' content={<Workflow />} />
+      <FilterSection title={t('workflow')} content={<Workflow />} />
 
       {/* Folder Filter */}
-      <FilterSection title='Folder' content={<FolderFilter />} />
+      <FilterSection title={t('folder')} content={<FolderFilter />} />
 
       {/* Trigger Filter */}
-      <FilterSection title='Trigger' content={<Trigger />} />
+      <FilterSection title={t('trigger')} content={<Trigger />} />
 
       {/* Timeline Filter */}
-      <FilterSection title='Timeline' content={<Timeline />} />
+      <FilterSection title={t('timeline')} content={<Timeline />} />
     </div>
   )
 }

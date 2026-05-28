@@ -1,10 +1,13 @@
 'use client'
 
 import { Suspense, useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
 import { cn } from '@/lib/utils'
+import { useRouter } from '@/i18n/navigation'
+import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { localizeHref, type LocaleCode } from '@/i18n/utils'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { useVerification } from '@/app/(auth)/verify/use-verification'
 import { inter } from '@/app/fonts/inter'
@@ -24,6 +27,10 @@ function VerificationForm({
   isProduction: boolean
   isEmailVerificationEnabled: boolean
 }) {
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages()
+  const verifyCopy = copy.auth.verify
+  const commonCopy = copy.auth.common
   const {
     otp,
     email,
@@ -35,7 +42,12 @@ function VerificationForm({
     verifyCode,
     resendCode,
     handleOtpChange,
-  } = useVerification({ hasEmailService, isProduction, isEmailVerificationEnabled })
+  } = useVerification({
+    hasEmailService,
+    isProduction,
+    isEmailVerificationEnabled,
+    copy: verifyCopy,
+  })
 
   const [countdown, setCountdown] = useState(0)
   const [isResendDisabled, setIsResendDisabled] = useState(false)
@@ -64,18 +76,20 @@ function VerificationForm({
   return (
     <>
       <AuthPageHeader
-        eyebrow='Verification'
-        title={isVerified ? 'Email Verified!' : 'Verify Your Email'}
+        eyebrow={verifyCopy.eyebrow}
+        title={isVerified ? verifyCopy.verifiedTitle : verifyCopy.pendingTitle}
         description={
           isVerified
-            ? 'Your email has been verified. Redirecting to dashboard...'
+            ? verifyCopy.verifiedDescription
             : !isEmailVerificationEnabled
-              ? 'Email verification is disabled. Redirecting to dashboard...'
+              ? verifyCopy.disabledDescription
               : hasEmailService
-                ? `A verification code has been sent to ${email || 'your email'}`
+                ? formatTemplate(verifyCopy.codeSent, {
+                    email: email || verifyCopy.yourEmail,
+                  })
                 : !isProduction
-                  ? 'Development mode: Check your console logs for the verification code'
-                  : 'Error: Email verification is enabled but no email service is configured'
+                  ? verifyCopy.developmentDescription
+                  : verifyCopy.missingServiceDescription
         }
       />
 
@@ -83,8 +97,9 @@ function VerificationForm({
         <div className={`${inter.className} mt-8 space-y-8`}>
           <div className='space-y-6'>
             <p className='text-center text-muted-foreground text-sm'>
-              Enter the 6-digit code to verify your account.
-              {hasEmailService ? " If you don't see it in your inbox, check your spam folder." : ''}
+              {hasEmailService
+                ? verifyCopy.instructionsWithService
+                : verifyCopy.instructionsWithoutService}
             </p>
 
             <div className='flex justify-center'>
@@ -154,7 +169,6 @@ function VerificationForm({
               </InputOTP>
             </div>
 
-            {/* Error message */}
             {errorMessage && (
               <div className='mt-1 space-y-1 text-center text-red-400 text-xs'>
                 <p>{errorMessage}</p>
@@ -167,24 +181,22 @@ function VerificationForm({
             className={primaryButtonClasses}
             disabled={!isOtpComplete || isLoading}
           >
-            {isLoading ? 'Verifying...' : 'Verify Email'}
+            {isLoading ? verifyCopy.verifyingButton : verifyCopy.verifyButton}
           </Button>
 
           {hasEmailService && (
             <div className='text-center'>
               <p className='text-muted-foreground text-sm'>
-                Didn't receive a code?{' '}
+                {verifyCopy.resendPrompt}{' '}
                 {countdown > 0 ? (
-                  <span>
-                    Resend in <span className='font-medium text-foreground'>{countdown}s</span>
-                  </span>
+                  <span>{formatTemplate(verifyCopy.resendIn, { countdown })}</span>
                 ) : (
                   <button
                     className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
                     onClick={handleResend}
                     disabled={isLoading || isResendDisabled}
                   >
-                    Resend
+                    {verifyCopy.resendButton}
                   </button>
                 )}
               </p>
@@ -199,11 +211,11 @@ function VerificationForm({
                   sessionStorage.removeItem('inviteRedirectUrl')
                   sessionStorage.removeItem('isInviteFlow')
                 }
-                router.push('/signup')
+                router.push(localizeHref(locale, '/signup'))
               }}
               className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
             >
-              Back to signup
+              {commonCopy.backToSignup}
             </button>
           </div>
         </div>

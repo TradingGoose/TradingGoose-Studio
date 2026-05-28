@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo } from 'react'
+import { useLocale } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { getListingIdentityKey, type ListingIdentity } from '@/lib/listing/identity'
 import type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshot-contract'
@@ -10,6 +11,8 @@ import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-ava
 import { usePortfolioDetail } from '@/hooks/queries/trading-portfolio'
 import { useWatchlists } from '@/hooks/queries/watchlists'
 import { getPortfolioListingExposures } from '@/providers/trading/portfolio-selectors'
+import { useAppMessages } from '@/i18n/client-messages'
+import type { LocaleCode } from '@/i18n/utils'
 import { useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { WidgetComponentProps } from '@/widgets/types'
 import {
@@ -67,6 +70,8 @@ export function HeatmapWidgetBody({
   pairColor = 'gray',
   onWidgetParamsChange,
 }: WidgetComponentProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages().workspace.widgets.heatmap.body
   const workspaceId = context?.workspaceId ?? null
   const widgetKey = widget?.key ?? 'heatmap'
   const widgetParams = params && typeof params === 'object' ? (params as HeatmapWidgetParams) : null
@@ -243,7 +248,7 @@ export function HeatmapWidgetBody({
   )
 
   if (!workspaceId) {
-    return <HeatmapMessage message='Select a workspace to use the heatmap.' />
+    return <HeatmapMessage message={copy.selectWorkspaceToUseHeatmap} />
   }
 
   if (sourceMode === 'watchlist') {
@@ -261,7 +266,7 @@ export function HeatmapWidgetBody({
           message={
             watchlistsQuery.error instanceof Error
               ? watchlistsQuery.error.message
-              : 'Failed to load watchlists.'
+              : copy.failedToLoadWatchlists
           }
         />
       )
@@ -283,14 +288,14 @@ export function HeatmapWidgetBody({
           message={
             providerAvailabilityQuery.error instanceof Error
               ? providerAvailabilityQuery.error.message
-              : 'Failed to load trading providers.'
+              : copy.failedToLoadTradingProviders
           }
         />
       )
     }
 
     if (!tradingProviderId || tradingProviderOptions.length === 0) {
-      return <HeatmapMessage message='Select a trading provider to load portfolio holdings.' />
+      return <HeatmapMessage message={copy.selectTradingProviderToLoadPortfolioHoldings} />
     }
 
     if (!activePortfolioIdentity) {
@@ -303,7 +308,7 @@ export function HeatmapWidgetBody({
       }
 
       if (!activeServiceId) {
-        return <HeatmapMessage message='Select a broker connection to load portfolio holdings.' />
+        return <HeatmapMessage message={copy.selectBrokerConnectionToLoadPortfolioHoldings} />
       }
 
       if (accountsQuery.isLoading && portfolioIdentities.length === 0) {
@@ -318,19 +323,19 @@ export function HeatmapWidgetBody({
         return (
           <HeatmapMessage
             message={
-              accountsQuery.error instanceof Error
-                ? accountsQuery.error.message
-                : 'Failed to load broker accounts.'
-            }
-          />
+            accountsQuery.error instanceof Error
+              ? accountsQuery.error.message
+              : copy.failedToLoadBrokerAccounts
+          }
+        />
         )
       }
 
       if (portfolioIdentities.length === 0) {
-        return <HeatmapMessage message='No broker accounts found for this provider connection.' />
+        return <HeatmapMessage message={copy.noBrokerAccountsFoundForThisProviderConnection} />
       }
 
-      return <HeatmapMessage message='Select a broker account to load portfolio holdings.' />
+      return <HeatmapMessage message={copy.selectBrokerAccountToLoadPortfolioHoldings} />
     }
 
     if (snapshotQuery.isLoading && portfolioSources.length === 0) {
@@ -347,7 +352,7 @@ export function HeatmapWidgetBody({
           message={
             snapshotQuery.error instanceof Error
               ? snapshotQuery.error.message
-              : 'Failed to load holdings.'
+              : copy.failedToLoadHoldings
           }
         />
       )
@@ -359,17 +364,17 @@ export function HeatmapWidgetBody({
       <HeatmapMessage
         message={
           sourceMode === 'portfolio'
-            ? 'No holdings listings found for this account.'
-            : 'No watchlist listings found.'
+            ? copy.noHoldingsListingsFoundForThisAccount
+            : copy.noWatchlistListingsFound
         }
       />
     )
   }
 
   const quoteErrorMessage = quoteSnapshotsQuery.error
-    ? quoteSnapshotsQuery.error instanceof Error
-      ? quoteSnapshotsQuery.error.message
-      : 'Failed to load market quotes.'
+      ? quoteSnapshotsQuery.error instanceof Error
+        ? quoteSnapshotsQuery.error.message
+        : copy.failedToLoadMarketQuotes
     : null
 
   return (

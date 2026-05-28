@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { WorkflowPreview } from '@/app/workspace/[workspaceId]/components/workflow-preview/workflow-preview'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
+import { useDeploymentCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 interface DeployedWorkflowCardProps {
   workflowId?: string
@@ -23,6 +24,7 @@ export function DeployedWorkflowCard({
   selectedVersionLabel,
   className,
 }: DeployedWorkflowCardProps) {
+  const copy = useDeploymentCopy()
   type View = 'current' | 'active' | 'selected'
   const hasCurrent = !!currentWorkflowState
   const hasActive = !!activeDeployedWorkflowState
@@ -51,7 +53,7 @@ export function DeployedWorkflowCard({
         )}
       >
         <div className='flex items-center justify-between'>
-          <h3 className='font-medium'>Workflow Preview</h3>
+          <h3 className='font-medium'>{copy.workflowPreview}</h3>
           <div className='flex items-center gap-1'>
             {/* Show Current only when no explicit version is selected */}
             {hasCurrent && !hasSelected && (
@@ -63,7 +65,7 @@ export function DeployedWorkflowCard({
                 )}
                 onClick={() => setView('current')}
               >
-                Current
+                {copy.current}
               </button>
             )}
             {/* Always show Active Deployed */}
@@ -76,7 +78,7 @@ export function DeployedWorkflowCard({
                 )}
                 onClick={() => setView('active')}
               >
-                Active Deployed
+                {copy.activeDeployed}
               </button>
             )}
             {/* If a specific version is selected, show its label */}
@@ -89,7 +91,7 @@ export function DeployedWorkflowCard({
                 )}
                 onClick={() => setView('selected')}
               >
-                {selectedVersionLabel || 'Selected Version'}
+                {selectedVersionLabel || copy.selectedVersion}
               </button>
             )}
           </div>

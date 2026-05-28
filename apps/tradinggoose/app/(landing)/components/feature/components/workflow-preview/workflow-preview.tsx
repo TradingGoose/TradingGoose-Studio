@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Check, ChevronDown, Workflow } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,15 +15,22 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
+import { useAppMessages } from '@/i18n/client-messages'
+import { type LocaleCode } from '@/i18n/utils'
 import { LandingWidgetShell } from '../market-preview/landing-widget-shell'
 import { WorkflowPreviewCanvas } from './workflow-preview-canvas'
-import { TRADING_AGENT_WORKFLOW_DEMOS, type WorkflowPreviewDemo } from './workflow-preview-demos'
+import {
+  buildTradingAgentWorkflowDemos,
+  type WorkflowPreviewDemo,
+} from './workflow-preview-demos'
 
 function WorkflowSelector({
   selectedDemo,
+  demos,
   onSelect,
 }: {
   selectedDemo: WorkflowPreviewDemo
+  demos: WorkflowPreviewDemo[]
   onSelect: (demo: WorkflowPreviewDemo) => void
 }) {
   return (
@@ -62,7 +70,7 @@ function WorkflowSelector({
         sideOffset={6}
         className={`${widgetHeaderMenuContentClassName} w-[260px]`}
       >
-        {TRADING_AGENT_WORKFLOW_DEMOS.map((demo) => {
+        {demos.map((demo) => {
           const isSelected = demo.id === selectedDemo.id
 
           return (
@@ -95,7 +103,18 @@ function WorkflowSelector({
 }
 
 export function WorkflowPreview() {
-  const [selectedDemo, setSelectedDemo] = useState(TRADING_AGENT_WORKFLOW_DEMOS[0])
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages()
+  const workflowCopy = copy.landing.preview.workflow
+  const demos = useMemo(
+    () => buildTradingAgentWorkflowDemos(locale, workflowCopy.demoCopy),
+    [locale, workflowCopy.demoCopy]
+  )
+  const [selectedDemo, setSelectedDemo] = useState<WorkflowPreviewDemo>(demos[0]!)
+
+  useEffect(() => {
+    setSelectedDemo((current) => demos.find((demo) => demo.id === current.id) ?? demos[0]!)
+  }, [demos])
 
   return (
     <div className='flex h-full min-h-[560px] flex-col gap-4'>
@@ -105,6 +124,7 @@ export function WorkflowPreview() {
         headerCenter={
           <WorkflowSelector
             selectedDemo={selectedDemo}
+            demos={demos}
             onSelect={(demo) => setSelectedDemo(demo)}
           />
         }

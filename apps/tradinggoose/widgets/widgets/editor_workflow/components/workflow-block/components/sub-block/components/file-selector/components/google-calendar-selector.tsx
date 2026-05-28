@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { Check, ChevronDown, RefreshCw, X } from 'lucide-react'
 import { GoogleCalendarIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
@@ -14,6 +15,9 @@ import {
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { createLogger } from '@/lib/logs/console/logger'
+import { translateWorkflowLabel } from '@/i18n/block-editor'
+import { useAppMessages } from '@/i18n/client-messages'
+import type { LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('GoogleCalendarSelector')
 
@@ -42,7 +46,7 @@ interface GoogleCalendarSelectorProps {
 export function GoogleCalendarSelector({
   value,
   onChange,
-  label = 'Select Google Calendar',
+  label,
   disabled = false,
   showPreview = true,
   onCalendarInfoChange,
@@ -50,17 +54,38 @@ export function GoogleCalendarSelector({
   workflowId,
   workspaceId,
 }: GoogleCalendarSelectorProps) {
+  const locale = useLocale() as LocaleCode
+  const selectorCopy = useAppMessages().workspace.widgets.blockEditor.googleCalendarSelector
+  const copy = {
+    selectGoogleCalendar: translateWorkflowLabel(locale, 'Select Google Calendar'),
+    searchCalendars: translateWorkflowLabel(locale, 'Search calendars...'),
+    loadingCalendars: translateWorkflowLabel(locale, 'Loading calendars...'),
+    noCalendarsFound: translateWorkflowLabel(locale, 'No calendars found'),
+    noMatchingCalendars: translateWorkflowLabel(locale, 'No matching calendars'),
+    calendars: translateWorkflowLabel(locale, 'Calendars'),
+    primary: translateWorkflowLabel(locale, 'Primary'),
+    googleCalendarAccountRequired: translateWorkflowLabel(
+      locale,
+      'Google Calendar account is required'
+    ),
+    failedToFetchGoogleCalendars: translateWorkflowLabel(
+      locale,
+      'Failed to fetch Google Calendar calendars'
+    ),
+  }
+  type GoogleCalendarSelectorErrorCode = keyof typeof selectorCopy.errors
+  const labelText = label ?? copy.selectGoogleCalendar
   const [open, setOpen] = useState(false)
   const [calendars, setCalendars] = useState<GoogleCalendarInfo[]>([])
   const [selectedCalendarId, setSelectedCalendarId] = useState(value)
   const [selectedCalendar, setSelectedCalendar] = useState<GoogleCalendarInfo | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<GoogleCalendarSelectorErrorCode | null>(null)
   const [initialFetchDone, setInitialFetchDone] = useState(false)
 
   const fetchCalendarsFromAPI = useCallback(async (): Promise<GoogleCalendarInfo[]> => {
     if (!credentialId) {
-      throw new Error('Google Calendar account is required')
+      throw new Error(copy.googleCalendarAccountRequired)
     }
 
     const queryParams = new URLSearchParams({
@@ -75,13 +100,17 @@ export function GoogleCalendarSelector({
     const response = await fetch(`/api/tools/google_calendar/calendars?${queryParams.toString()}`)
 
     if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error || 'Failed to fetch Google Calendar calendars')
+      const errorData = await response.json().catch(() => null)
+      logger.error('Google Calendar calendars request failed', {
+        status: response.status,
+        errorData,
+      })
+      throw new Error('failedToFetchCalendars')
     }
 
     const data = await response.json()
     return data.calendars || []
-  }, [credentialId, workflowId, workspaceId])
+  }, [copy.googleCalendarAccountRequired, credentialId, workflowId, workspaceId])
 
   const fetchCalendars = useCallback(async () => {
     setIsLoading(true)
@@ -103,7 +132,7 @@ export function GoogleCalendarSelector({
       }
     } catch (error) {
       logger.error('Error fetching calendars:', error)
-      setError((error as Error).message)
+      setError('failedToFetchCalendars')
       setCalendars([])
     } finally {
       setIsLoading(false)
@@ -139,7 +168,7 @@ export function GoogleCalendarSelector({
       }
     } catch (error) {
       logger.error('Error fetching calendar info:', error)
-      setError((error as Error).message)
+      setError('failedToFetchCalendars')
     } finally {
       setIsLoading(false)
     }
@@ -202,7 +231,7 @@ export function GoogleCalendarSelector({
   // Get calendar display name
   const getCalendarDisplayName = (calendar: GoogleCalendarInfo) => {
     if (calendar.primary) {
-      return `${calendar.summary} (Primary)`
+      return `${calendar.summary} (${copy.primary})`
     }
     return calendar.summary
   }
@@ -234,7 +263,7 @@ export function GoogleCalendarSelector({
               ) : (
                 <>
                   <GoogleCalendarIcon className='h-4 w-4' />
-                  <span className='truncate text-muted-foreground'>{label}</span>
+                  <span className='truncate text-muted-foreground'>{labelText}</span>
                 </>
               )}
             </div>
@@ -243,28 +272,28 @@ export function GoogleCalendarSelector({
         </PopoverTrigger>
         <PopoverContent className='w-[300px] p-0' align='start'>
           <Command>
-            <CommandInput placeholder='Search calendars...' />
+            <CommandInput placeholder={copy.searchCalendars} />
             <CommandList>
               <CommandEmpty>
                 {isLoading ? (
                   <div className='flex items-center justify-center p-4'>
                     <RefreshCw className='h-4 w-4 animate-spin' />
-                    <span className='ml-2'>Loading calendars...</span>
+                    <span className='ml-2'>{copy.loadingCalendars}</span>
                   </div>
-                ) : error ? (
-                  <div className='p-4 text-center'>
-                    <p className='text-destructive text-sm'>{error}</p>
-                  </div>
-                ) : calendars.length === 0 ? (
-                  <div className='p-4 text-center'>
-                    <p className='font-medium text-sm'>No calendars found</p>
-                    <p className='text-muted-foreground text-xs'>
-                      Please check your Google Calendar account access
-                    </p>
-                  </div>
+              ) : error ? (
+                <div className='p-4 text-center'>
+                  <p className='text-destructive text-sm'>{selectorCopy.errors[error]}</p>
+                </div>
+              ) : calendars.length === 0 ? (
+                <div className='p-4 text-center'>
+                  <p className='font-medium text-sm'>{copy.noCalendarsFound}</p>
+                  <p className='text-muted-foreground text-xs'>
+                      {selectorCopy.emptyStateDescription}
+                  </p>
+                </div>
                 ) : (
                   <div className='p-4 text-center'>
-                    <p className='font-medium text-sm'>No matching calendars</p>
+                    <p className='font-medium text-sm'>{copy.noMatchingCalendars}</p>
                   </div>
                 )}
               </CommandEmpty>
@@ -272,7 +301,7 @@ export function GoogleCalendarSelector({
               {calendars.length > 0 && (
                 <CommandGroup>
                   <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>
-                    Calendars
+                    {copy.calendars}
                   </div>
                   {calendars.map((calendar) => (
                     <CommandItem
@@ -329,7 +358,7 @@ export function GoogleCalendarSelector({
                 {getCalendarDisplayName(selectedCalendar)}
               </h4>
               <div className='text-muted-foreground text-xs'>
-                Access: {selectedCalendar.accessRole}
+                {selectorCopy.accessLabel} {selectedCalendar.accessRole}
               </div>
             </div>
           </div>

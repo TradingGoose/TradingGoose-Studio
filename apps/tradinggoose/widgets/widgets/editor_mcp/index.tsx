@@ -2,7 +2,10 @@
 
 import { Play, RefreshCw, RotateCcw, Save, Server, X } from 'lucide-react'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
+import { useLocale } from 'next-intl'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
+import { useAppMessages } from '@/i18n/client-messages'
+import type { LocaleCode } from '@/i18n/utils'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { emitMcpEditorAction } from '@/widgets/utils/mcp-editor-actions'
@@ -29,6 +32,8 @@ const McpEditorSelector = ({
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
   const setPairContext = useSetPairColorContext()
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages().workspace.widgets.mcpEditor
 
   const resolvedServerId = resolveMcpServerId({
     params,
@@ -54,7 +59,7 @@ const McpEditorSelector = ({
       workspaceId={workspaceId}
       value={resolvedServerId}
       onChange={(nextServerId) => handleServerChange(nextServerId)}
-      placeholder='Select server'
+      placeholder={copy.selectServer}
       triggerClassName='min-w-[240px]'
     />
   )
@@ -75,6 +80,8 @@ const McpEditorHeaderActions = ({
 }) => {
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const pairContext = usePairColorContext(resolvedPairColor)
+  const locale = useLocale() as LocaleCode
+  const copy = useAppMessages().workspace.widgets.mcpEditor
   const selectionState = readEntitySelectionState({
     params,
     pairContext: resolvedPairColor !== 'gray' ? pairContext : null,
@@ -93,40 +100,40 @@ const McpEditorHeaderActions = ({
   return (
     <div className={widgetHeaderButtonGroupClassName()}>
       <EntityEditorHeaderButton
-        tooltip='Refresh tools'
-        label='Refresh tools'
+        tooltip={copy.refreshTools}
+        label={copy.refreshTools}
         icon={RefreshCw}
         onClick={() => emitAction('refresh')}
         disabled={!workspaceId || !hasSelection}
         variant='outline'
       />
       <EntityEditorHeaderButton
-        tooltip='Test connection'
-        label='Test connection'
+        tooltip={copy.testConnection}
+        label={copy.testConnection}
         icon={Play}
         onClick={() => emitAction('test')}
         disabled={!workspaceId || !hasSelection}
         variant='outline'
       />
       <EntityEditorHeaderButton
-        tooltip='Reset form'
-        label='Reset form'
+        tooltip={copy.resetForm}
+        label={copy.resetForm}
         icon={RotateCcw}
         onClick={() => emitAction('reset')}
         disabled={!hasSelection}
         variant='secondary'
       />
       <EntityEditorHeaderButton
-        tooltip='Save server'
-        label='Save server'
+        tooltip={copy.saveServer}
+        label={copy.saveServer}
         icon={Save}
         onClick={() => emitAction('save')}
         disabled={!workspaceId || !hasSelection}
         variant='default'
       />
       <EntityEditorHeaderButton
-        tooltip='Clear selection'
-        label='Clear selection'
+        tooltip={copy.clearSelection}
+        label={copy.clearSelection}
         icon={X}
         onClick={() => emitAction('close')}
         disabled={!hasSelection}

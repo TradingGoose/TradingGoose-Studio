@@ -6,9 +6,15 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
+import { formatTemplate, type PublicCopy } from '@/i18n/client-messages'
+import { type LocaleCode } from '@/i18n/utils'
 import type { ChangelogEntry } from './changelog-content'
 
-type Props = { initialEntries: ChangelogEntry[] }
+type Props = {
+  initialEntries: ChangelogEntry[]
+  copy: PublicCopy['changelog']
+  locale: LocaleCode
+}
 
 function sanitizeContent(body: string): string {
   return body.replace(/&nbsp/g, '')
@@ -55,7 +61,7 @@ function extractMentions(body: string): string[] {
   return Array.from(new Set(matches.map((m) => m.slice(1))))
 }
 
-export default function ChangelogList({ initialEntries }: Props) {
+export default function ChangelogList({ initialEntries, copy, locale }: Props) {
   const [entries, setEntries] = React.useState<ChangelogEntry[]>(initialEntries)
   const [page, setPage] = React.useState<number>(1)
   const [loading, setLoading] = React.useState<boolean>(false)
@@ -107,7 +113,7 @@ export default function ChangelogList({ initialEntries }: Props) {
               </a>
             </Badge>
             <div className={`${inter.className} text-right text-sm text-muted-foreground`}>
-              {new Date(entry.date).toLocaleDateString('en-US', {
+              {new Date(entry.date).toLocaleDateString(locale, {
                 year: 'numeric',
                 month: 'short',
                 day: 'numeric',
@@ -121,14 +127,14 @@ export default function ChangelogList({ initialEntries }: Props) {
                     href={`https://github.com/${contributor}`}
                     target='_blank'
                     rel='noreferrer noopener'
-                    aria-label={`View @${contributor} on GitHub`}
-                    title={`@${contributor}`}
+                    aria-label={formatTemplate(copy.viewContributorAriaLabel, { contributor })}
+                    title={formatTemplate(copy.contributorAvatarAlt, { contributor })}
                     className='block'
                   >
                     <Avatar className='size-5 ring-2 ring-background'>
                       <AvatarImage
                         src={`https://avatars.githubusercontent.com/${contributor}`}
-                        alt={`@${contributor}`}
+                        alt={formatTemplate(copy.contributorAvatarAlt, { contributor })}
                         className='hover:z-10'
                       />
                       <AvatarFallback className='text-[8px]'>
@@ -170,7 +176,7 @@ export default function ChangelogList({ initialEntries }: Props) {
                         <Avatar className='size-5 ring-2 ring-background'>
                           <AvatarImage
                             src={`https://avatars.githubusercontent.com/${contributor}`}
-                            alt={`@${contributor}`}
+                            alt={formatTemplate(copy.contributorAvatarAlt, { contributor })}
                           />
                           <AvatarFallback className='text-[8px]'>
                             {contributor.slice(0, 2).toUpperCase()}
@@ -182,7 +188,7 @@ export default function ChangelogList({ initialEntries }: Props) {
                 )}
               </div>
               <div className={`${inter.className} text-sm text-muted-foreground`}>
-                {new Date(entry.date).toLocaleDateString('en-US', {
+                {new Date(entry.date).toLocaleDateString(locale, {
                   year: 'numeric',
                   month: 'short',
                   day: 'numeric',
@@ -276,7 +282,7 @@ export default function ChangelogList({ initialEntries }: Props) {
             disabled={loading}
             className='rounded-md border border-border px-3 py-1.5 text-[13px] hover:bg-card disabled:opacity-60'
           >
-            {loading ? 'Loading…' : 'Show more'}
+            {loading ? copy.loadingMore : copy.showMore}
           </button>
         </div>
       )}
