@@ -446,7 +446,7 @@ export class PortfolioMonitorRuntime {
     }
 
     try {
-      await enqueuePendingExecution({
+      const handle = await enqueuePendingExecution({
         executionType: 'monitor',
         pendingExecutionId,
         workflowId: config.workflowId,
@@ -457,6 +457,7 @@ export class PortfolioMonitorRuntime {
         requestId: pendingExecutionId,
         payload: executionPayload as unknown as Record<string, unknown>,
       })
+      if (!handle.inserted) return
     } catch (error) {
       if (isPendingExecutionLimitError(error)) {
         this.logger.warn(

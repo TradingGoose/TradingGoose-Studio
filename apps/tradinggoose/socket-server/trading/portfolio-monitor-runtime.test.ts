@@ -144,6 +144,16 @@ function buildPortfolioPayload() {
   }
 }
 
+function attachRuntimeSubscription(
+  runtime: PortfolioMonitorRuntimeInternals,
+  config: ReturnType<typeof buildMonitorConfig>
+) {
+  const updateRuntimeState = vi.fn()
+  runtime.subscriptions.set('monitor-1', { config, unsubscribe: vi.fn() })
+  runtime.updateRuntimeState = updateRuntimeState
+  return updateRuntimeState
+}
+
 describe('PortfolioMonitorRuntime', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -155,7 +165,11 @@ describe('PortfolioMonitorRuntime', () => {
     mocks.getRedisStorageMode.mockReturnValue('redis')
     mocks.dbSelect.mockImplementation(() => buildEmptyMonitorQuery())
     mocks.getApiKeyOwnerUserId.mockResolvedValue('actor-1')
-    mocks.enqueuePendingExecution.mockResolvedValue(undefined)
+    mocks.enqueuePendingExecution.mockResolvedValue({
+      pendingExecutionId: 'pending-monitor-1',
+      billingScopeId: 'user-1',
+      inserted: true,
+    })
     mocks.isPendingExecutionLimitError.mockReturnValue(false)
     mocks.evaluatePortfolioFireCondition.mockReturnValue(true)
   })
@@ -198,7 +212,7 @@ describe('PortfolioMonitorRuntime', () => {
   it('does not persist edge state when enqueue is rejected by backpressure', async () => {
     const runtime = new PortfolioMonitorRuntime() as unknown as PortfolioMonitorRuntimeInternals
     const config = buildMonitorConfig()
-    const updateRuntimeState = vi.fn()
+    const updateRuntimeState = attachRuntimeSubscription(runtime, config)
     const limitError = {
       details: {
         pendingCount: 100,
@@ -206,13 +220,26 @@ describe('PortfolioMonitorRuntime', () => {
       },
     }
 
-    runtime.subscriptions.set('monitor-1', {
-      config,
-      unsubscribe: vi.fn(),
-    })
-    runtime.updateRuntimeState = updateRuntimeState
     mocks.enqueuePendingExecution.mockRejectedValue(limitError)
     mocks.isPendingExecutionLimitError.mockReturnValue(true)
+
+    await runtime.handlePortfolioData('monitor-1', buildPortfolioPayload())
+
+    expect(mocks.enqueuePendingExecution).toHaveBeenCalledTimes(1)
+    expect(updateRuntimeState).not.toHaveBeenCalled()
+    expect(config.runtimeState).toEqual({ wasTrue: false })
+  })
+
+  it('does not persist edge state when enqueue is deduped by ordering key', async () => {
+    const runtime = new PortfolioMonitorRuntime() as unknown as PortfolioMonitorRuntimeInternals
+    const config = buildMonitorConfig()
+    const updateRuntimeState = attachRuntimeSubscription(runtime, config)
+
+    mocks.enqueuePendingExecution.mockResolvedValue({
+      pendingExecutionId: 'pending-monitor-1',
+      billingScopeId: 'user-1',
+      inserted: false,
+    })
 
     await runtime.handlePortfolioData('monitor-1', buildPortfolioPayload())
 
