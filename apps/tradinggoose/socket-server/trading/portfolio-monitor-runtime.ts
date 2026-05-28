@@ -9,14 +9,16 @@ import {
 } from '@/lib/execution/pending-execution'
 import { createLogger } from '@/lib/logs/console/logger'
 import { evaluatePortfolioFireCondition } from '@/lib/monitors/portfolio-conditions'
-import type { PortfolioMonitorProviderConfig } from '@/lib/monitors/portfolio-config'
 import {
-  isMonitorProviderConfigForProvider,
-  PORTFOLIO_MONITOR_PROVIDER,
-} from '@/lib/monitors/sources'
+  type PortfolioMonitorProviderConfig,
+  PortfolioMonitorProviderConfigSchema,
+} from '@/lib/monitors/portfolio-config'
+import { PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import type { PortfolioMonitorExecutionPayload } from '@/background/portfolio-monitor-execution'
 import type { PortfolioDetail, PortfolioIdentity } from '@/providers/trading/portfolio-identity'
+import { getTradingProviderOAuthServiceId } from '@/providers/trading/providers'
+import type { TradingProviderId } from '@/providers/trading/types'
 import {
   createMonitorRuntimeLock,
   getMonitorRuntimeUnavailableStatus,
@@ -58,7 +60,7 @@ type PortfolioMonitorRuntimeConfig = {
   userId: string
   pinnedApiKeyId: string | null
   blockId: string
-  providerId: string
+  providerId: TradingProviderId
   serviceId: string
   credentialId: string
   accountId: string
@@ -76,9 +78,6 @@ type PortfolioMonitorSubscription = {
   unsubscribe: () => void
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  Boolean(value && typeof value === 'object' && !Array.isArray(value))
-
 const toConfig = (
   row: typeof webhook.$inferSelect,
   workflowRow: {
@@ -87,12 +86,13 @@ const toConfig = (
     pinnedApiKeyId: string | null
   }
 ): PortfolioMonitorRuntimeConfig | null => {
-  if (!workflowRow.workspaceId || !isRecord(row.providerConfig)) return null
-  if (!isMonitorProviderConfigForProvider(row.providerConfig, PORTFOLIO_MONITOR_PROVIDER)) {
-    return null
-  }
-  const providerConfig = row.providerConfig as PortfolioMonitorProviderConfig
-  const monitor = providerConfig.monitor
+  if (!workflowRow.workspaceId) return null
+  const providerConfig = PortfolioMonitorProviderConfigSchema.safeParse(row.providerConfig)
+  if (!providerConfig.success) return null
+
+  const monitor = providerConfig.data.monitor
+  const serviceId = getTradingProviderOAuthServiceId(monitor.providerId, monitor.serviceId)
+  if (!serviceId) return null
 
   const normalized: Omit<PortfolioMonitorRuntimeConfig, 'signature'> = {
     id: row.id,
@@ -102,14 +102,14 @@ const toConfig = (
     pinnedApiKeyId: workflowRow.pinnedApiKeyId,
     blockId: monitor.triggerBlockId,
     providerId: monitor.providerId,
-    serviceId: monitor.serviceId,
+    serviceId,
     credentialId: monitor.credentialId,
     accountId: monitor.accountId,
     condition: monitor.condition,
     fireMode: monitor.fireMode,
     cooldownSeconds: monitor.cooldownSeconds,
     pollIntervalSeconds: monitor.pollIntervalSeconds,
-    runtimeState: providerConfig.runtimeState,
+    runtimeState: providerConfig.data.runtimeState,
     updatedAt: row.updatedAt,
   }
 
@@ -368,12 +368,16 @@ export class PortfolioMonitorRuntime {
         pollIntervalSeconds: config.pollIntervalSeconds,
         clientSubscriptionId: `portfolio-monitor:${config.id}`,
         onData: (payload) =>
-          void this.handlePortfolioData(config.id, payload).catch((error) =>
+          void this.handlePortfolioData(config.id, payload).catch((error) => {
+            if (isMonitorRuntimeDatabaseConnectionError(error)) {
+              void this.enterDegradedState('request', error, true)
+              return
+            }
             this.logger.error('Portfolio monitor data handler failed', {
               monitorId: config.id,
               error,
             })
-          ),
+          }),
         onError: (error) => {
           this.logger.warn('Portfolio monitor data subscription failed', {
             monitorId: config.id,
@@ -526,7 +530,7 @@ export class PortfolioMonitorRuntime {
         )
       )
       .limit(1)
-    if (!row || !isRecord(row.webhook.providerConfig)) return null
+    if (!row) return null
     const currentConfig = toConfig(row.webhook, row.workflow)
     if (currentConfig?.signature !== config.signature) return null
     return row.webhook.providerConfig as Record<string, unknown>

@@ -12,6 +12,7 @@ import { PORTFOLIO_MONITOR_PROVIDER, PORTFOLIO_MONITOR_TRIGGER_ID } from '@/lib/
 import type { TradingProviderId } from '@/providers/trading/types'
 
 const nonEmptyString = z.string().trim().min(1)
+const tradingProviderId = nonEmptyString.transform((value) => value as TradingProviderId)
 
 const PortfolioConditionRuleSchema: z.ZodType<any> = z
   .object({
@@ -90,27 +91,36 @@ export const PortfolioMonitorUpdateSchema = z.object({
   isActive: z.boolean().optional(),
 })
 
-export type PortfolioMonitorProviderConfig = {
-  triggerId: typeof PORTFOLIO_MONITOR_TRIGGER_ID
-  version: 1
-  monitor: {
-    triggerBlockId: string
-    providerId: TradingProviderId
-    serviceId: string
-    credentialId: string
-    accountId: string
-    condition: PortfolioFireCondition
-    fireMode: 'edge' | 'while_true'
-    cooldownSeconds: number
-    pollIntervalSeconds: number
-  }
-  runtimeState?: {
-    lastEvaluatedAt?: string
-    lastFiredAt?: string
-    wasTrue?: boolean
-    previousSnapshot?: unknown
-  }
-}
+export const PortfolioMonitorProviderConfigSchema = z
+  .object({
+    triggerId: z.literal(PORTFOLIO_MONITOR_TRIGGER_ID),
+    version: z.literal(1),
+    monitor: z
+      .object({
+        triggerBlockId: nonEmptyString,
+        providerId: tradingProviderId,
+        serviceId: nonEmptyString,
+        credentialId: nonEmptyString,
+        accountId: nonEmptyString,
+        condition: PortfolioFireConditionSchema,
+        fireMode: z.enum(['edge', 'while_true']),
+        cooldownSeconds: z.number().int().min(0).max(86_400),
+        pollIntervalSeconds: z.number().int().min(15).max(3600),
+      })
+      .strict(),
+    runtimeState: z
+      .object({
+        lastEvaluatedAt: z.string().optional(),
+        lastFiredAt: z.string().optional(),
+        wasTrue: z.boolean().optional(),
+        previousSnapshot: z.unknown().optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict()
+
+export type PortfolioMonitorProviderConfig = z.infer<typeof PortfolioMonitorProviderConfigSchema>
 
 export const normalizePortfolioMonitorConfig = (input: {
   triggerBlockId: string

@@ -57,9 +57,14 @@ vi.mock('@/lib/monitors/portfolio-conditions', () => ({
   evaluatePortfolioFireCondition: () => mocks.evaluatePortfolioFireCondition(),
 }))
 
+vi.mock('@/lib/monitors/portfolio-config', () => ({
+  PortfolioMonitorProviderConfigSchema: {
+    safeParse: (value: unknown) => ({ success: true, data: value }),
+  },
+}))
+
 vi.mock('@/lib/monitors/sources', () => ({
   PORTFOLIO_MONITOR_PROVIDER: 'portfolio_trigger',
-  isMonitorProviderConfigForProvider: vi.fn(() => true),
 }))
 
 vi.mock('@/lib/redis', () => ({
