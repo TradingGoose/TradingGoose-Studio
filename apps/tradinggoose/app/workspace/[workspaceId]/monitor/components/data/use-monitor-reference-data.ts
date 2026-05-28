@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fetchOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
+import { INDICATOR_MONITOR_PROVIDER, PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import {
   getMarketMonitorProviderParamDefinitions,
   getMarketProviderIntervals,
@@ -63,8 +64,12 @@ const buildReferenceData = ({
   const workflowTargetByKey = Object.fromEntries(
     workflowTargets.map((target) => [`${target.workflowId}:${target.blockId}`, target])
   )
-  const indicatorWorkflowTargets = workflowTargets.filter((target) => target.source === 'indicator')
-  const portfolioWorkflowTargets = workflowTargets.filter((target) => target.source === 'portfolio')
+  const indicatorWorkflowTargets = workflowTargets.filter(
+    (target) => target.source === INDICATOR_MONITOR_PROVIDER
+  )
+  const portfolioWorkflowTargets = workflowTargets.filter(
+    (target) => target.source === PORTFOLIO_MONITOR_PROVIDER
+  )
   const indicatorById = Object.fromEntries(
     indicatorOptions.map((indicator) => [indicator.id, indicator])
   )

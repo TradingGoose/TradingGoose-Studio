@@ -100,7 +100,6 @@ export const normalizePortfolioMonitorConfig = (input: {
   fireMode?: 'edge' | 'while_true'
   cooldownSeconds?: number
   pollIntervalSeconds?: number
-  previousRuntimeState?: PortfolioMonitorProviderConfig['runtimeState']
 }): PortfolioMonitorProviderConfig => ({
   triggerId: PORTFOLIO_MONITOR_TRIGGER_ID,
   version: 1,
@@ -115,7 +114,6 @@ export const normalizePortfolioMonitorConfig = (input: {
     cooldownSeconds: input.cooldownSeconds ?? 300,
     pollIntervalSeconds: input.pollIntervalSeconds ?? 60,
   },
-  ...(input.previousRuntimeState ? { runtimeState: input.previousRuntimeState } : {}),
 })
 
 export const toPublicPortfolioMonitorProviderConfig = (
@@ -124,13 +122,4 @@ export const toPublicPortfolioMonitorProviderConfig = (
   triggerId: config.triggerId,
   version: config.version,
   monitor: config.monitor,
-  ...(config.runtimeState
-    ? {
-        runtimeState: {
-          lastEvaluatedAt: config.runtimeState.lastEvaluatedAt,
-          lastFiredAt: config.runtimeState.lastFiredAt,
-          wasTrue: config.runtimeState.wasTrue,
-        },
-      }
-    : {}),
 })

@@ -2,10 +2,7 @@ import { db, webhook } from '@tradinggoose/db'
 import { and, eq } from 'drizzle-orm'
 import { checkServerSideUsageLimits } from '@/lib/billing'
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  evaluatePortfolioFireCondition,
-  type PortfolioFireCondition,
-} from '@/lib/monitors/portfolio-conditions'
+import type { PortfolioFireCondition } from '@/lib/monitors/portfolio-conditions'
 import { PORTFOLIO_MONITOR_PROVIDER, PORTFOLIO_MONITOR_TRIGGER_ID } from '@/lib/monitors/sources'
 import {
   loadWorkflowExecutionBlueprint,
@@ -27,19 +24,14 @@ type PortfolioMonitorExecutionMonitor = {
   credentialId: string
   accountId: string
   condition: PortfolioFireCondition
-  fireMode: 'edge' | 'while_true'
-  cooldownSeconds: number
 }
 
 export type PortfolioMonitorExecutionPayload = {
   executionId?: string
-  source: 'portfolio'
+  source: typeof PORTFOLIO_MONITOR_PROVIDER
   monitor: PortfolioMonitorExecutionMonitor
   portfolioIdentity: PortfolioIdentity
   portfolioDetail: PortfolioDetail
-  previousPortfolioDetail?: PortfolioDetail | null
-  previousWasTrue?: boolean
-  lastFiredAt?: string | null
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -51,7 +43,7 @@ export function isPortfolioMonitorExecutionPayload(
   if (!isRecord(value)) return false
   const monitor = value.monitor
   return (
-    value.source === 'portfolio' &&
+    value.source === PORTFOLIO_MONITOR_PROVIDER &&
     isRecord(monitor) &&
     typeof monitor.id === 'string' &&
     typeof monitor.workflowId === 'string' &&
@@ -83,33 +75,8 @@ async function disableMonitor(
   })
 }
 
-const isCooldownOpen = (lastFiredAt: string | null | undefined, cooldownSeconds: number) => {
-  if (!lastFiredAt || cooldownSeconds <= 0) return true
-  const lastFiredMs = Date.parse(lastFiredAt)
-  if (!Number.isFinite(lastFiredMs)) return true
-  return Date.now() - lastFiredMs >= cooldownSeconds * 1000
-}
-
 export async function executePortfolioMonitorJob(payload: PortfolioMonitorExecutionPayload) {
   const requestId = (payload.executionId ?? payload.monitor.id).slice(0, 8)
-  const conditionMatched = evaluatePortfolioFireCondition({
-    condition: payload.monitor.condition,
-    current: payload.portfolioDetail,
-    previous: payload.previousPortfolioDetail,
-  })
-  const crossedEdge = conditionMatched && payload.previousWasTrue !== true
-  const shouldFire =
-    conditionMatched &&
-    (payload.monitor.fireMode === 'while_true' || crossedEdge) &&
-    isCooldownOpen(payload.lastFiredAt, payload.monitor.cooldownSeconds)
-
-  if (!shouldFire) {
-    return {
-      success: true,
-      skipped: conditionMatched ? 'condition_already_true' : 'condition_false',
-    }
-  }
-
   const usageCheck = await checkServerSideUsageLimits({
     userId: payload.monitor.actorUserId,
     workflowId: payload.monitor.workflowId,

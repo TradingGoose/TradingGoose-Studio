@@ -68,7 +68,6 @@ export const alphaVantageProviderConfig: MarketProviderConfig = {
       },
     },
     live: {
-      supportsPolling: true,
       channels: ['quote-snapshots'],
       supportsInterval: false,
       pollingIntervalMs: 60_000,

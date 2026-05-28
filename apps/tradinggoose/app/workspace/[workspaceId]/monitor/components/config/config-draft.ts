@@ -1,4 +1,5 @@
 import type { ListingIdentity } from '@/lib/listing/identity'
+import { INDICATOR_MONITOR_PROVIDER, PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import type {
   MonitorCreateInput,
   MonitorDraft,
@@ -52,7 +53,7 @@ const getDefaultProviderIdForSource = (
   source: MonitorDraft['source'],
   referenceData: MonitorReferenceData
 ) =>
-  source === 'portfolio'
+  source === PORTFOLIO_MONITOR_PROVIDER
     ? referenceData.defaultPortfolioProviderId
     : referenceData.defaultMarketProviderId
 
@@ -152,7 +153,7 @@ export const mergeMonitorDraftPatch = ({
 
 export const buildBlankMonitorDraft = (
   referenceData: MonitorReferenceData,
-  source: MonitorDraft['source'] = 'indicator'
+  source: MonitorDraft['source'] = INDICATOR_MONITOR_PROVIDER
 ) =>
   buildDefaultDraft({
     source,
@@ -186,12 +187,12 @@ export const validateMonitorDraft = ({
     (!workflowTarget || workflowTarget.source !== draft.source)
   ) {
     errors.workflowId =
-      draft.source === 'portfolio'
+      draft.source === PORTFOLIO_MONITOR_PROVIDER
         ? 'Selected workflow target is not deployed with a portfolio state trigger.'
         : 'Selected workflow target is not deployed with an indicator trigger.'
   }
 
-  if (draft.source === 'portfolio') {
+  if (draft.source === PORTFOLIO_MONITOR_PROVIDER) {
     if (draft.providerId && !referenceData.tradingProviderById[draft.providerId]) {
       errors.providerId = 'Selected trading provider is unavailable.'
     }
@@ -261,9 +262,9 @@ export const buildMonitorCreatePayloadFromDraft = ({
   draft: MonitorDraft
   referenceData: MonitorReferenceData
 }): MonitorCreateInput => {
-  if (draft.source === 'portfolio') {
+  if (draft.source === PORTFOLIO_MONITOR_PROVIDER) {
     return {
-      source: 'portfolio',
+      source: PORTFOLIO_MONITOR_PROVIDER,
       workspaceId,
       workflowId: draft.workflowId,
       blockId: draft.blockId,
@@ -282,7 +283,7 @@ export const buildMonitorCreatePayloadFromDraft = ({
   const providerParams = trimRecordValues(draft.providerParamValues)
 
   return {
-    source: 'indicator',
+    source: INDICATOR_MONITOR_PROVIDER,
     workspaceId,
     workflowId: draft.workflowId,
     blockId: draft.blockId,
@@ -312,9 +313,9 @@ export const buildMonitorUpdatePayloadFromDraft = ({
   referenceData: MonitorReferenceData
 }): MonitorUpdateInput => {
   const originalConfig = originalMonitor.providerConfig.monitor
-  if (originalMonitor.source === 'portfolio') {
+  if (originalMonitor.source === PORTFOLIO_MONITOR_PROVIDER) {
     return {
-      source: 'portfolio',
+      source: PORTFOLIO_MONITOR_PROVIDER,
       workspaceId,
       workflowId: draft.workflowId,
       blockId: draft.blockId,
@@ -342,7 +343,7 @@ export const buildMonitorUpdatePayloadFromDraft = ({
   )
 
   return {
-    source: 'indicator',
+    source: INDICATOR_MONITOR_PROVIDER,
     workspaceId,
     workflowId: draft.workflowId,
     blockId: draft.blockId,
@@ -376,7 +377,7 @@ export const buildOptimisticMonitorRecordFromDraft = (
     monitor: {
       ...monitor.providerConfig.monitor,
       providerId: draft.providerId,
-      ...(draft.source === 'portfolio'
+      ...(draft.source === PORTFOLIO_MONITOR_PROVIDER
         ? {
             serviceId: draft.serviceId,
             credentialId: draft.credentialId,

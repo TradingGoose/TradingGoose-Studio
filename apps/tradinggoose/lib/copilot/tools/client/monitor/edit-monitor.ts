@@ -5,6 +5,7 @@ import {
   readMonitorDocumentName,
   serializeMonitorDocument,
 } from '@/lib/copilot/monitor/monitor-documents'
+import { INDICATOR_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import {
   BaseClientTool,
   type BaseClientToolMetadata,
@@ -80,7 +81,7 @@ export class EditMonitorClientTool extends BaseClientTool {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          source: 'indicator',
+          source: INDICATOR_MONITOR_PROVIDER,
           workspaceId,
           workflowId: nextFields.workflowId,
           blockId: nextFields.blockId,

@@ -211,10 +211,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       .set({
         workflowId: nextWorkflowId,
         blockId: null,
-        providerConfig: {
-          ...providerConfig,
-          triggerId: INDICATOR_MONITOR_TRIGGER_ID,
-        },
+        providerConfig,
         isActive: nextIsActive,
         updatedAt: new Date(),
       })

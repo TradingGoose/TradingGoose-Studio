@@ -57,8 +57,6 @@ export interface MarketSeriesRetentionPolicy {
 }
 
 export interface MarketLiveInputCapabilities {
-  supportsStreaming?: boolean
-  supportsPolling?: boolean
   channels?: string[]
   supportsInterval?: boolean
   intervals?: string[]

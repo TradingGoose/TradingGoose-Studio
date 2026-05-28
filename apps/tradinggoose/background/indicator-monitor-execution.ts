@@ -13,7 +13,7 @@ import { normalizeBarsMs } from '@/lib/indicators/series-data'
 import type { BarMs, NormalizedPineSignal } from '@/lib/indicators/types'
 import type { ListingIdentity } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
-import { INDICATOR_MONITOR_PROVIDER } from '@/lib/monitors/sources'
+import { INDICATOR_MONITOR_PROVIDER, INDICATOR_MONITOR_TRIGGER_ID } from '@/lib/monitors/sources'
 import {
   loadWorkflowExecutionBlueprint,
   runPreparedWorkflowExecution,
@@ -44,6 +44,7 @@ type IndicatorMonitorExecutionIndicator = {
 
 export type IndicatorMonitorExecutionPayload = {
   executionId?: string
+  source: typeof INDICATOR_MONITOR_PROVIDER
   monitor: IndicatorMonitorExecutionMonitor
   indicator: IndicatorMonitorExecutionIndicator
   inputsMap: Record<string, unknown>
@@ -96,6 +97,7 @@ export function isIndicatorMonitorExecutionPayload(
   }
 
   return (
+    value.source === INDICATOR_MONITOR_PROVIDER &&
     isMonitor(value.monitor) &&
     isIndicator(value.indicator) &&
     isRecord(value.inputsMap) &&
@@ -317,7 +319,7 @@ export async function executeIndicatorMonitorJob(payload: IndicatorMonitorExecut
       blockId: payload.monitor.blockId,
     },
     triggerData: {
-      source: 'indicator_trigger',
+      source: INDICATOR_MONITOR_TRIGGER_ID,
       executionTarget: 'deployed',
       monitor: {
         id: payload.monitor.id,

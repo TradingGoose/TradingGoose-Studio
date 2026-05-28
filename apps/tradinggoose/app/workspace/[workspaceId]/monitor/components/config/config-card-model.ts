@@ -1,4 +1,5 @@
 import type { ListingIdentity } from '@/lib/listing/identity'
+import { PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import type { MonitorExecutionOutcome } from '../data/execution-ordering'
 import type { MonitorExecutionSummary } from '../data/use-monitor-execution-summaries'
 import type { MonitorRecord, MonitorReferenceData } from '../shared/types'
@@ -83,7 +84,7 @@ export const buildConfigMonitorCards = (
 ): ConfigMonitorCard[] =>
   monitors.map((monitor) => {
     const monitorConfig = monitor.providerConfig.monitor
-    const isPortfolio = monitor.source === 'portfolio'
+    const isPortfolio = monitor.source === PORTFOLIO_MONITOR_PROVIDER
     const workflowTargetKey = readWorkflowTargetKey(monitor.workflowId, monitor.blockId)
     const workflowTarget = referenceData.workflowTargetByKey[workflowTargetKey]
     const indicator = monitorConfig.indicatorId

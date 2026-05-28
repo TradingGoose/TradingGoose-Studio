@@ -19,6 +19,7 @@ import { Switch } from '@/components/ui/switch'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import type { InputMetaMap } from '@/lib/indicators/types'
 import { toListingValue } from '@/lib/listing/identity'
+import { INDICATOR_MONITOR_PROVIDER, PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import { cn } from '@/lib/utils'
 import type {
   MarketProviderOption,
@@ -142,7 +143,7 @@ export function MonitorEditorForm({
     providerIntervals.length > 0 ? providerIntervals : draft.interval ? [draft.interval] : []
   const selectedPortfolioIdentity = useMemo<PortfolioIdentity | null>(() => {
     if (
-      draft.source !== 'portfolio' ||
+      draft.source !== PORTFOLIO_MONITOR_PROVIDER ||
       !draft.providerId ||
       !draft.serviceId ||
       !draft.credentialId ||
@@ -188,13 +189,13 @@ export function MonitorEditorForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value='indicator'>Indicator trigger</SelectItem>
-                <SelectItem value='portfolio'>Portfolio state</SelectItem>
+                <SelectItem value={INDICATOR_MONITOR_PROVIDER}>Indicator trigger</SelectItem>
+                <SelectItem value={PORTFOLIO_MONITOR_PROVIDER}>Portfolio state</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {draft.source === 'portfolio' ? (
+          {draft.source === PORTFOLIO_MONITOR_PROVIDER ? (
             <>
               <div className='grid gap-3 sm:grid-cols-2'>
                 <div className='space-y-2'>

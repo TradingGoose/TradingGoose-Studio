@@ -25,12 +25,14 @@ export async function listTradingPortfolioIdentities({
   requestId: string
 }) {
   const provider = getTradingProviderDefinition(providerId)
+  if (!provider) throw new Error('Unsupported trading provider')
+
   const services = provider?.oauth?.services ?? []
   const serviceIds = services.map(({ serviceId }) => serviceId)
   const selectedServiceId = serviceId
     ? getTradingProviderOAuthServiceId(providerId, serviceId)
     : undefined
-  if (serviceId && !selectedServiceId) return []
+  if (serviceId && !selectedServiceId) throw new Error('Trading provider connection is required')
 
   const targetServiceIds = selectedServiceId ? [selectedServiceId] : serviceIds
   if (!targetServiceIds.length) return []
@@ -41,7 +43,7 @@ export async function listTradingPortfolioIdentities({
     providerIds: targetServiceIds,
   })
 
-  const identities = await Promise.allSettled(
+  const identities = await Promise.all(
     credentials.map(async (credential) => {
       const environment = getTradingProviderOAuthEnvironment(providerId, credential.provider)
       if (!environment) {
@@ -77,13 +79,5 @@ export async function listTradingPortfolioIdentities({
     })
   )
 
-  const fulfilled = identities.flatMap((result) =>
-    result.status === 'fulfilled' ? [result.value] : []
-  )
-  const hasRejectedIdentityLoad = identities.some((result) => result.status === 'rejected')
-  if ((serviceId || !fulfilled.length) && hasRejectedIdentityLoad) {
-    throw new Error('Failed to load trading portfolio identities')
-  }
-
-  return fulfilled.flat()
+  return identities.flat()
 }

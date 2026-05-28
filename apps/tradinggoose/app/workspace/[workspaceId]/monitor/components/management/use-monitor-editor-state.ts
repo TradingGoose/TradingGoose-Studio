@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { INDICATOR_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 import type { ConfigBoardContext } from '../config/config-board-state'
 import {
@@ -106,13 +107,13 @@ export function useMonitorEditorState({
   )
 
   const editingListingInstanceId =
-    isEditorOpen && editingDraft?.source === 'indicator'
+    isEditorOpen && editingDraft?.source === INDICATOR_MONITOR_PROVIDER
       ? `monitor-edit-${editingKey ?? 'new'}`
       : null
 
   useEffect(() => {
     if (
-      editingDraft?.source !== 'indicator' ||
+      editingDraft?.source !== INDICATOR_MONITOR_PROVIDER ||
       !editingDraft.providerId ||
       !editingListingInstanceId
     ) {
@@ -133,7 +134,7 @@ export function useMonitorEditorState({
 
   const openDraft = useCallback(
     (key: string | null, draft: MonitorDraft, errors: Record<string, string> = {}) => {
-      if (draft.source === 'indicator') {
+      if (draft.source === INDICATOR_MONITOR_PROVIDER) {
         const instanceId = `monitor-edit-${key ?? 'new'}`
         ensureListingSelectorInstance(instanceId, {
           providerId: draft.providerId,

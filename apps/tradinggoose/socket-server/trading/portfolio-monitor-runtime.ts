@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto'
 import { db, webhook, workflow } from '@tradinggoose/db'
 import { and, eq } from 'drizzle-orm'
 import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
-import { checkServerSideUsageLimits } from '@/lib/billing'
 import {
   enqueuePendingExecution,
   isPendingExecutionLimitError,
@@ -10,8 +9,10 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 import { evaluatePortfolioFireCondition } from '@/lib/monitors/portfolio-conditions'
 import type { PortfolioMonitorProviderConfig } from '@/lib/monitors/portfolio-config'
-import { PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
-import { blockExistsInDeployment } from '@/lib/workflows/db-helpers'
+import {
+  isMonitorProviderConfigForProvider,
+  PORTFOLIO_MONITOR_PROVIDER,
+} from '@/lib/monitors/sources'
 import type { PortfolioMonitorExecutionPayload } from '@/background/portfolio-monitor-execution'
 import type { PortfolioDetail, PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import {
@@ -65,9 +66,11 @@ const toConfig = (
   }
 ): PortfolioMonitorRuntimeConfig | null => {
   if (!workflowRow.workspaceId || !isRecord(row.providerConfig)) return null
+  if (!isMonitorProviderConfigForProvider(row.providerConfig, PORTFOLIO_MONITOR_PROVIDER)) {
+    return null
+  }
   const providerConfig = row.providerConfig as PortfolioMonitorProviderConfig
   const monitor = providerConfig.monitor
-  if (!monitor) return null
 
   const normalized: Omit<PortfolioMonitorRuntimeConfig, 'signature'> = {
     id: row.id,
@@ -199,27 +202,6 @@ export class PortfolioMonitorRuntime {
         this.subscriptions.delete(config.id)
       }
 
-      if (!(await blockExistsInDeployment(config.workflowId, config.blockId))) {
-        await this.disconnect(config.id, 'missing_trigger_block')
-        continue
-      }
-
-      const actorUserId = await getApiKeyOwnerUserId(config.pinnedApiKeyId)
-      if (!actorUserId) {
-        await this.disconnect(config.id, 'missing_billing_actor')
-        continue
-      }
-
-      const usageCheck = await checkServerSideUsageLimits({
-        userId: actorUserId,
-        workflowId: config.workflowId,
-        workspaceId: config.workspaceId,
-      })
-      if (usageCheck.isExceeded) {
-        await this.disconnect(config.id, 'usage_limit_exceeded')
-        continue
-      }
-
       const subscription = tradingPortfolioStreamManager.subscribeData({
         userId: config.userId,
         workspaceId: config.workspaceId,
@@ -290,7 +272,7 @@ export class PortfolioMonitorRuntime {
 
     const pendingExecutionId = `monitor:${config.id}:${randomUUID()}`
     const executionPayload: PortfolioMonitorExecutionPayload = {
-      source: 'portfolio',
+      source: PORTFOLIO_MONITOR_PROVIDER,
       monitor: {
         id: config.id,
         workflowId: config.workflowId,
@@ -303,14 +285,9 @@ export class PortfolioMonitorRuntime {
         credentialId: config.credentialId,
         accountId: config.accountId,
         condition: config.condition,
-        fireMode: config.fireMode,
-        cooldownSeconds: config.cooldownSeconds,
       },
       portfolioIdentity: payload.portfolioIdentity,
       portfolioDetail: currentDetail,
-      previousPortfolioDetail: previousDetail,
-      previousWasTrue,
-      lastFiredAt: previousLastFiredAt,
     }
 
     try {

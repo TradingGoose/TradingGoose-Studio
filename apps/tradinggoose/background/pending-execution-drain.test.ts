@@ -2,6 +2,7 @@
  * @vitest-environment node
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { INDICATOR_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 
 const {
   dispatchQueuedDocumentProcessingJobMock,
@@ -228,7 +229,7 @@ describe('pendingExecutionDrain', () => {
         workflowId: 'workflow-1',
         workspaceId: 'workspace-1',
         payload: {
-          source: 'indicator',
+          source: INDICATOR_MONITOR_PROVIDER,
           monitor: {
             id: 'monitor-1',
             workflowId: 'workflow-1',

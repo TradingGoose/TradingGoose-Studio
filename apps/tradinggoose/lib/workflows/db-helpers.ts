@@ -1,6 +1,5 @@
 import {
   db,
-  webhook,
   workflow,
   workflowBlocks,
   workflowDeploymentVersion,
@@ -18,7 +17,6 @@ import {
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
 import { createLogger } from '@/lib/logs/console/logger'
-import { MONITOR_WEBHOOK_PROVIDERS } from '@/lib/monitors/sources'
 import { resolveStoredDateValue } from '@/lib/time-format'
 import { sanitizeAgentToolsInBlocks } from '@/lib/workflows/validation'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
@@ -899,19 +897,6 @@ export async function saveWorkflowToNormalizedTables(
       await tx.execute(
         sql`select id from "workflow" where "workflow"."id" = ${workflowId} for update`
       )
-
-      await tx
-        .update(webhook)
-        .set({
-          blockId: null,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(webhook.workflowId, workflowId),
-            inArray(webhook.provider, [...MONITOR_WEBHOOK_PROVIDERS])
-          )
-        )
 
       // Clear existing data for this workflow
       await Promise.all([

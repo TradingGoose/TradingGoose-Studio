@@ -1,3 +1,8 @@
+import {
+  INDICATOR_MONITOR_PROVIDER,
+  PORTFOLIO_MONITOR_PROVIDER,
+  type MonitorWebhookProvider,
+} from '@/lib/monitors/sources'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 
 export type ListMonitorArgs = {
@@ -16,7 +21,7 @@ export type EditMonitorArgs = ReadMonitorArgs & {
 
 export type MonitorRecord = {
   monitorId: string
-  source: 'indicator' | 'portfolio'
+  source: MonitorWebhookProvider
   workflowId: string
   blockId: string
   isActive: boolean
@@ -68,7 +73,7 @@ function getListingLabel(listing: Record<string, unknown> | null | undefined): s
 }
 
 export function buildMonitorName(record: MonitorRecord): string {
-  if (record.source === 'portfolio') {
+  if (record.source === PORTFOLIO_MONITOR_PROVIDER) {
     return `Portfolio state (${record.providerConfig.monitor.accountId || 'account'})`
   }
 
@@ -79,7 +84,7 @@ export function buildMonitorName(record: MonitorRecord): string {
 }
 
 export function toMonitorDocumentFields(record: MonitorRecord) {
-  if (record.source !== 'indicator') {
+  if (record.source !== INDICATOR_MONITOR_PROVIDER) {
     throw new Error('Monitor document editing is only supported for indicator monitors')
   }
 

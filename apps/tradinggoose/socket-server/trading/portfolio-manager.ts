@@ -161,93 +161,35 @@ export class TradingPortfolioStreamManager {
     socket: AuthenticatedSocket,
     payload: TradingPortfolioSubscribePayload
   ): Promise<TradingPortfolioSubscriptionInfo> {
-    if (this.stopped) throw new Error('Trading portfolio stream manager is stopped')
-
     const userId = socket.userId
     if (!userId) throw new Error('Authentication required')
 
-    const workspaceId = resolveWorkspaceId(payload.workspaceId)
-    const providerId = resolveTradingProviderId(payload.provider, payload.portfolioIdentity)
-
-    const channel = resolveChannel(payload.channel)
-    const pollIntervalMs = normalizePollIntervalMs(channel, payload.pollIntervalSeconds)
-    const serviceId = resolveServiceId(
-      providerId,
-      payload.serviceId ?? toPortfolioValueObject(payload.portfolioIdentity)?.serviceId
-    )
-    const portfolioIdentity = resolvePortfolioIdentity(channel, payload, providerId, serviceId)
-    const window = resolvePerformanceWindow(providerId, channel, payload.window)
-    const streamKey = buildStreamKey({
+    const { record } = this.addSubscription({
       userId,
-      workspaceId,
-      providerId,
-      serviceId,
-      portfolioIdentity,
-      channel,
-      window,
-    })
-    const streamState = this.getOrCreateStreamState({
-      streamKey,
-      userId,
-      workspaceId,
-      providerId,
-      serviceId,
-      portfolioIdentity,
-      channel,
-      window,
-    })
-    const subscriptionId = createSubscriptionId({
-      streamKey,
-      socketId: socket.id,
+      workspaceId: payload.workspaceId,
+      provider: payload.provider,
+      serviceId: payload.serviceId,
+      portfolioIdentity: payload.portfolioIdentity,
+      channel: payload.channel,
+      window: payload.window,
+      forceRefresh: payload.forceRefresh,
+      pollIntervalSeconds: payload.pollIntervalSeconds,
       clientSubscriptionId: payload.clientSubscriptionId,
-    })
-    const record: TradingPortfolioSubscriptionRecord = {
-      subscriptionId,
-      clientSubscriptionId: payload.clientSubscriptionId,
-      streamKey,
-      socketId: socket.id,
       socket,
-      provider: providerId,
-      workspaceId,
-      serviceId,
-      portfolioIdentity,
-      channel,
-      window,
-      pollIntervalMs,
-    }
-
-    streamState.subscribers.set(subscriptionId, record)
-    const socketMap = this.socketSubscriptions.get(socket.id) ?? new Map()
-    socketMap.set(subscriptionId, record)
-    this.socketSubscriptions.set(socket.id, socketMap)
-
-    if (streamState.lastPayload) {
-      this.emitData(record, streamState.lastPayload)
-    }
-
-    this.ensurePolling(streamState, Boolean(payload.forceRefresh))
+    })
 
     logger.info('Trading portfolio subscription added', {
       socketId: socket.id,
       userId,
-      providerId,
-      workspaceId,
-      serviceId,
-      portfolioIdentity: redactPortfolioIdentity(portfolioIdentity),
-      channel,
-      window,
+      providerId: record.provider,
+      workspaceId: record.workspaceId,
+      serviceId: record.serviceId,
+      portfolioIdentity: redactPortfolioIdentity(record.portfolioIdentity),
+      channel: record.channel,
+      window: record.window,
     })
 
-    return {
-      subscriptionId,
-      clientSubscriptionId: payload.clientSubscriptionId,
-      provider: providerId,
-      workspaceId,
-      serviceId,
-      portfolioIdentity,
-      channel,
-      window,
-    }
+    return toSubscriptionInfo(record)
   }
 
   subscribeData({
@@ -280,6 +222,57 @@ export class TradingPortfolioStreamManager {
     unsubscribe: () => void
     refresh: () => void
   } {
+    const { record, streamState } = this.addSubscription({
+      userId,
+      workspaceId,
+      provider,
+      serviceId: requestedServiceId,
+      portfolioIdentity: requestedPortfolioIdentity,
+      channel,
+      window: requestedWindow,
+      forceRefresh,
+      pollIntervalSeconds,
+      clientSubscriptionId,
+      onData,
+      onError,
+    })
+
+    return {
+      ...toSubscriptionInfo(record),
+      unsubscribe: () => this.removeRecord(record),
+      refresh: () => void this.pollState(streamState, true),
+    }
+  }
+
+  private addSubscription({
+    userId,
+    workspaceId,
+    provider,
+    serviceId: requestedServiceId,
+    portfolioIdentity: requestedPortfolioIdentity,
+    channel,
+    window: requestedWindow,
+    forceRefresh,
+    pollIntervalSeconds,
+    clientSubscriptionId,
+    socket,
+    onData,
+    onError,
+  }: {
+    userId: string
+    workspaceId?: string
+    provider?: string
+    serviceId?: string
+    portfolioIdentity?: PortfolioIdentity | null
+    channel?: TradingPortfolioChannel
+    window?: TradingPortfolioPerformanceWindow
+    forceRefresh?: boolean
+    pollIntervalSeconds?: number
+    clientSubscriptionId?: string
+    socket?: AuthenticatedSocket
+    onData?: (payload: TradingPortfolioDataPayload) => void
+    onError?: (error: unknown, payload: TradingPortfolioErrorPayload) => void
+  }) {
     if (this.stopped) throw new Error('Trading portfolio stream manager is stopped')
 
     const resolvedWorkspaceId = resolveWorkspaceId(workspaceId)
@@ -325,13 +318,15 @@ export class TradingPortfolioStreamManager {
     })
     const subscriptionId = createSubscriptionId({
       streamKey,
-      socketId: `data:${randomUUID()}`,
+      socketId: socket?.id ?? `data:${randomUUID()}`,
       clientSubscriptionId,
     })
     const record: TradingPortfolioSubscriptionRecord = {
       subscriptionId,
       clientSubscriptionId,
       streamKey,
+      socketId: socket?.id,
+      socket,
       provider: providerId,
       workspaceId: resolvedWorkspaceId,
       serviceId,
@@ -344,16 +339,18 @@ export class TradingPortfolioStreamManager {
     }
 
     streamState.subscribers.set(subscriptionId, record)
+    if (socket) {
+      const socketMap = this.socketSubscriptions.get(socket.id) ?? new Map()
+      socketMap.set(subscriptionId, record)
+      this.socketSubscriptions.set(socket.id, socketMap)
+    }
+
     if (streamState.lastPayload) {
       this.emitData(record, streamState.lastPayload)
     }
     this.ensurePolling(streamState, Boolean(forceRefresh))
 
-    return {
-      ...toSubscriptionInfo(record),
-      unsubscribe: () => this.removeRecord(record),
-      refresh: () => void this.pollState(streamState, true),
-    }
+    return { record, streamState }
   }
 
   unsubscribe(

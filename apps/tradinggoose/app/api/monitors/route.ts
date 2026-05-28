@@ -167,10 +167,7 @@ export async function POST(request: NextRequest) {
         blockId: null,
         path: monitorPath,
         provider: INDICATOR_MONITOR_PROVIDER,
-        providerConfig: {
-          ...providerConfig,
-          triggerId: INDICATOR_MONITOR_TRIGGER_ID,
-        },
+        providerConfig,
         isActive: nextIsActive,
         createdAt: new Date(),
         updatedAt: new Date(),

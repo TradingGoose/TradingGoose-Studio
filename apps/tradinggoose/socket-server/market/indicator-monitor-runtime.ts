@@ -3,7 +3,6 @@ import { db } from '@tradinggoose/db'
 import { pineIndicators, webhook, workflow } from '@tradinggoose/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
 import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
-import { checkServerSideUsageLimits } from '@/lib/billing'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
 import { ExecutionGateError } from '@/lib/execution/execution-concurrency-limit'
 import {
@@ -13,17 +12,18 @@ import {
 import { DEFAULT_INDICATOR_RUNTIME_MAP } from '@/lib/indicators/default/runtime'
 import { resolveDispatchIntervalMs } from '@/lib/indicators/dispatch'
 import { buildInputsMapFromMeta, normalizeInputMetaMap } from '@/lib/indicators/input-meta'
-import { INDICATOR_MONITOR_TRIGGER_ID } from '@/lib/indicators/monitor-config'
 import {
   mapMarketBarToBarMs,
   mapMarketSeriesToBarsMs,
   normalizeBarsMs,
 } from '@/lib/indicators/series-data'
-import { isIndicatorTriggerCapable } from '@/lib/indicators/trigger-detection'
 import type { BarMs } from '@/lib/indicators/types'
 import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
-import { INDICATOR_MONITOR_PROVIDER } from '@/lib/monitors/sources'
+import {
+  INDICATOR_MONITOR_PROVIDER,
+  isMonitorProviderConfigForProvider,
+} from '@/lib/monitors/sources'
 import {
   acquireLock,
   getRedisClient,
@@ -33,7 +33,6 @@ import {
 } from '@/lib/redis'
 import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { decryptSecret } from '@/lib/utils-server'
-import { blockExistsInDeployment } from '@/lib/workflows/db-helpers'
 import { applySavedEntityYjsStateToRows } from '@/lib/yjs/entity-state'
 import type { MonitorExecutionPayload } from '@/background/monitor-execution'
 import { executeProviderRequest } from '@/providers/market'
@@ -165,20 +164,14 @@ const normalizeProviderConfig = (
   if (!isRecord(row.providerConfig)) return null
 
   const providerConfig = row.providerConfig
-  const triggerId = toTrimmedString(providerConfig.triggerId)
-  if (triggerId && triggerId !== INDICATOR_MONITOR_TRIGGER_ID) return null
+  if (!isMonitorProviderConfigForProvider(providerConfig, INDICATOR_MONITOR_PROVIDER)) return null
 
-  if (providerConfig.monitor !== undefined && !isRecord(providerConfig.monitor)) return null
-
-  const monitor = isRecord(providerConfig.monitor) ? providerConfig.monitor : providerConfig
+  const monitor = providerConfig.monitor
   const providerId = toTrimmedString(monitor.providerId)
   const interval = toTrimmedString(monitor.interval)
   const indicatorId = toTrimmedString(monitor.indicatorId)
   const listing = toListingValueObject(monitor.listing as any)
-  const triggerBlockId =
-    toTrimmedString(monitor.triggerBlockId) ??
-    toTrimmedString(monitor.blockId) ??
-    toTrimmedString(row.blockId)
+  const triggerBlockId = toTrimmedString(monitor.triggerBlockId)
 
   if (!providerId || !getMarketProviderConfig(providerId)) return null
   if (!interval || !indicatorId || !listing) return null
@@ -668,47 +661,11 @@ export class IndicatorMonitorRuntime {
           continue
         }
 
-        if (!isIndicatorTriggerCapable(nextIndicator.pineCode)) {
-          await this.disconnectMonitor(monitor.id, 'indicator_not_trigger_capable', {
-            monitorId: monitor.id,
-            workspaceId: monitor.workspaceId,
-            indicatorId: monitor.indicatorId,
-          })
-          this.skippedCount += 1
-          continue
-        }
-
-        if (!(await blockExistsInDeployment(monitor.workflowId, monitor.blockId))) {
-          await this.disconnectMonitor(monitor.id, 'missing_trigger_block', {
-            monitorId: monitor.id,
-            workflowId: monitor.workflowId,
-            blockId: monitor.blockId,
-          })
-          this.skippedCount += 1
-          continue
-        }
-
         const actorUserId = await getApiKeyOwnerUserId(monitor.pinnedApiKeyId)
         if (!actorUserId) {
           await this.disconnectMonitor(monitor.id, 'missing_billing_actor', {
             monitorId: monitor.id,
             workflowId: monitor.workflowId,
-          })
-          this.skippedCount += 1
-          continue
-        }
-
-        const usageCheck = await checkServerSideUsageLimits({
-          userId: actorUserId,
-          workflowId: monitor.workflowId,
-          workspaceId: monitor.workspaceId,
-        })
-        if (usageCheck.isExceeded) {
-          await this.disconnectMonitor(monitor.id, 'usage_limit_exceeded', {
-            monitorId: monitor.id,
-            workflowId: monitor.workflowId,
-            currentUsage: usageCheck.currentUsage,
-            limit: usageCheck.limit,
           })
           this.skippedCount += 1
           continue
@@ -960,7 +917,7 @@ export class IndicatorMonitorRuntime {
 
       const pendingExecutionId = `monitor:${monitor.id}:${randomUUID()}`
       const payload: MonitorExecutionPayload = {
-        source: 'indicator',
+        source: INDICATOR_MONITOR_PROVIDER,
         monitor: {
           id: monitor.id,
           workflowId: monitor.workflowId,

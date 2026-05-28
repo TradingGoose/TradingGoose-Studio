@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/card'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import type { MonitorReferenceData } from '../shared/types'
 import { IndicatorInputSummary } from './indicator-input-fields'
 import { MonitorEditorForm } from './monitor-editor-form'
@@ -40,7 +41,7 @@ function MonitorDetails({
     : undefined
   const workflowTarget =
     referenceData.workflowTargetByKey[`${monitor.workflowId}:${monitor.blockId}`]
-  const isPortfolio = monitor.source === 'portfolio'
+  const isPortfolio = monitor.source === PORTFOLIO_MONITOR_PROVIDER
 
   return (
     <Card className='flex h-full min-h-0 flex-col overflow-hidden rounded-xl border bg-card/60'>

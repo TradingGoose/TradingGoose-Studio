@@ -23,9 +23,11 @@ import {
   getMonitorTriggerIdForProvider,
   INDICATOR_MONITOR_PROVIDER,
   isMonitorProvider,
+  isMonitorProviderConfigForProvider,
   MONITOR_WEBHOOK_PROVIDERS,
   type MonitorTriggerId,
   type MonitorWebhookProvider,
+  PORTFOLIO_MONITOR_PROVIDER,
 } from '@/lib/monitors/sources'
 import { applySavedEntityYjsStateToRows } from '@/lib/yjs/entity-state'
 
@@ -67,11 +69,11 @@ export const listMonitorRows = async ({
 
   if (!blockId) return rows
   return rows.filter((row) => {
-    try {
-      return getTriggerBlockIdFromMonitorConfig(row.webhook.providerConfig) === blockId
-    } catch {
-      return false
-    }
+    if (!isMonitorProvider(row.webhook.provider)) return false
+    return (
+      getTriggerBlockIdFromMonitorConfig(row.webhook.providerConfig, row.webhook.provider) ===
+      blockId
+    )
   })
 }
 
@@ -240,7 +242,7 @@ export const loadIndicatorInputMetadata = async (
 const parseIndicatorProviderConfig = (
   providerConfig: WebhookRow['providerConfig']
 ): IndicatorMonitorProviderConfig => {
-  if (!providerConfig || typeof providerConfig !== 'object') {
+  if (!isMonitorProviderConfigForProvider(providerConfig, INDICATOR_MONITOR_PROVIDER)) {
     throw new Error('Invalid monitor provider config.')
   }
   return providerConfig as IndicatorMonitorProviderConfig
@@ -249,21 +251,18 @@ const parseIndicatorProviderConfig = (
 const parsePortfolioProviderConfig = (
   providerConfig: WebhookRow['providerConfig']
 ): PortfolioMonitorProviderConfig => {
-  if (!providerConfig || typeof providerConfig !== 'object') {
+  if (!isMonitorProviderConfigForProvider(providerConfig, PORTFOLIO_MONITOR_PROVIDER)) {
     throw new Error('Invalid monitor provider config.')
   }
   return providerConfig as PortfolioMonitorProviderConfig
 }
 
-const getTriggerBlockIdFromMonitorConfig = (providerConfig: WebhookRow['providerConfig']) => {
-  if (!providerConfig || typeof providerConfig !== 'object') return null
-  const config = providerConfig as {
-    monitor?: unknown
-    blockId?: unknown
-    triggerBlockId?: unknown
-  }
-  const monitor = config.monitor && typeof config.monitor === 'object' ? config.monitor : config
-  return toTrimmedString((monitor as { triggerBlockId?: unknown }).triggerBlockId)
+const getTriggerBlockIdFromMonitorConfig = (
+  providerConfig: WebhookRow['providerConfig'],
+  provider: MonitorWebhookProvider
+) => {
+  if (!isMonitorProviderConfigForProvider(providerConfig, provider)) return null
+  return toTrimmedString(providerConfig.monitor.triggerBlockId)
 }
 
 const toIndicatorProviderRecord = async (webhookRow: WebhookRow) => {
@@ -330,7 +329,6 @@ export const pauseMonitorsMissingDeployedTrigger = async (workflowId: string) =>
   const rows = await db
     .select({
       id: webhook.id,
-      blockId: webhook.blockId,
       provider: webhook.provider,
       isActive: webhook.isActive,
       providerConfig: webhook.providerConfig,
@@ -346,16 +344,15 @@ export const pauseMonitorsMissingDeployedTrigger = async (workflowId: string) =>
   const now = new Date()
   for (const row of rows) {
     if (!isMonitorProvider(row.provider)) continue
-    const triggerBlockId = getTriggerBlockIdFromMonitorConfig(row.providerConfig)
+    const triggerBlockId = getTriggerBlockIdFromMonitorConfig(row.providerConfig, row.provider)
     if (!triggerBlockId) continue
     if (deployedTriggerBlockIdsByProvider[row.provider].has(triggerBlockId)) continue
-    if (!row.isActive && row.blockId === null) continue
+    if (!row.isActive) continue
 
     await db
       .update(webhook)
       .set({
         isActive: false,
-        blockId: null,
         updatedAt: now,
       })
       .where(eq(webhook.id, row.id))

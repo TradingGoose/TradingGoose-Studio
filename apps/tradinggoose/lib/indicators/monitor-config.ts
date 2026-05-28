@@ -2,15 +2,13 @@ import { z } from 'zod'
 import type { InputMeta, InputMetaMap } from '@/lib/indicators/types'
 import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
 import { toListingValueObject } from '@/lib/listing/identity'
-import { INDICATOR_MONITOR_TRIGGER_ID } from '@/lib/monitors/sources'
+import { INDICATOR_MONITOR_PROVIDER, INDICATOR_MONITOR_TRIGGER_ID } from '@/lib/monitors/sources'
 import { encryptSecret } from '@/lib/utils-server'
 import {
   coerceMarketProviderParamValue,
   getMarketMonitorProviderParamDefinitions,
   getMarketProviderIntervals,
 } from '@/providers/market/providers'
-
-export { INDICATOR_MONITOR_TRIGGER_ID }
 
 const MonitorAuthCreateInputSchema = z.object({
   secrets: z.record(z.string()),
@@ -26,6 +24,7 @@ const ProviderParamsInputSchema = z.record(z.unknown()).optional()
 const IndicatorInputsInputSchema = z.record(z.unknown()).optional()
 
 export const IndicatorMonitorCreateSchema = z.object({
+  source: z.literal(INDICATOR_MONITOR_PROVIDER),
   workspaceId: z.string().min(1),
   workflowId: z.string().min(1),
   blockId: z.string().min(1),
@@ -40,6 +39,7 @@ export const IndicatorMonitorCreateSchema = z.object({
 })
 
 export const IndicatorMonitorUpdateSchema = z.object({
+  source: z.literal(INDICATOR_MONITOR_PROVIDER).optional(),
   workspaceId: z.string().min(1),
   workflowId: z.string().min(1).optional(),
   blockId: z.string().min(1).optional(),
@@ -249,9 +249,7 @@ export const normalizeIndicatorMonitorConfig = async (
   const missingRequiredSecrets = requiredSecretParamIds.filter(
     (fieldId) => !encryptedSecrets[fieldId]
   )
-  const preservesPreviousAuth = !replacingAuth && Boolean(input.previousAuth)
-  const shouldRequireCompleteAuth = !preservesPreviousAuth && (input.requireCompleteAuth ?? true)
-  if (shouldRequireCompleteAuth && missingRequiredSecrets.length > 0) {
+  if ((input.requireCompleteAuth ?? true) && missingRequiredSecrets.length > 0) {
     throw new Error(
       `Missing required auth secret values for provider fields: ${missingRequiredSecrets.join(', ')}`
     )

@@ -57,10 +57,6 @@ vi.mock('@/lib/api-key/service', () => ({
   getApiKeyOwnerUserId: vi.fn(),
 }))
 
-vi.mock('@/lib/billing', () => ({
-  checkServerSideUsageLimits: vi.fn(),
-}))
-
 vi.mock('@/lib/environment/utils', () => ({
   getEffectiveDecryptedEnv: vi.fn(),
 }))
@@ -87,18 +83,10 @@ vi.mock('@/lib/indicators/input-meta', () => ({
   normalizeInputMetaMap: vi.fn(() => ({})),
 }))
 
-vi.mock('@/lib/indicators/monitor-config', () => ({
-  INDICATOR_MONITOR_TRIGGER_ID: 'indicator-monitor',
-}))
-
 vi.mock('@/lib/indicators/series-data', () => ({
   mapMarketBarToBarMs: vi.fn(),
   mapMarketSeriesToBarsMs: vi.fn(() => []),
   normalizeBarsMs: vi.fn(() => []),
-}))
-
-vi.mock('@/lib/indicators/trigger-detection', () => ({
-  isIndicatorTriggerCapable: vi.fn(() => true),
 }))
 
 vi.mock('@/lib/listing/identity', () => ({
@@ -119,10 +107,6 @@ vi.mock('@/lib/trigger/settings', () => ({
 
 vi.mock('@/lib/utils-server', () => ({
   decryptSecret: vi.fn(),
-}))
-
-vi.mock('@/lib/workflows/db-helpers', () => ({
-  blockExistsInDeployment: vi.fn(() => true),
 }))
 
 vi.mock('@/providers/market', () => ({

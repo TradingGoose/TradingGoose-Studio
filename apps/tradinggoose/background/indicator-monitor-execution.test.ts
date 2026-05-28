@@ -3,6 +3,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { INDICATOR_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import type { IndicatorMonitorExecutionPayload } from './indicator-monitor-execution'
 
 const mocks = vi.hoisted(() => ({
@@ -69,6 +70,7 @@ vi.mock('@/lib/workflows/execution-runner', () => ({
 }))
 
 const payload = {
+  source: INDICATOR_MONITOR_PROVIDER,
   monitor: {
     id: 'monitor-1',
     workflowId: 'workflow-1',

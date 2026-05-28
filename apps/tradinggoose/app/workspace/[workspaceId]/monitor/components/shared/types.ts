@@ -2,12 +2,18 @@ import type { ComponentType } from 'react'
 import type { InputMetaMap } from '@/lib/indicators/types'
 import type { ListingIdentity } from '@/lib/listing/identity'
 import type { PortfolioFireCondition } from '@/lib/monitors/portfolio-conditions'
+import {
+  INDICATOR_MONITOR_PROVIDER,
+  PORTFOLIO_MONITOR_PROVIDER,
+  type MonitorTriggerId,
+  type MonitorWebhookProvider,
+} from '@/lib/monitors/sources'
 import type {
   MarketProviderOption,
   MarketProviderParamDefinition,
 } from '@/providers/market/providers'
 
-export type MonitorSource = 'indicator' | 'portfolio'
+export type MonitorSource = MonitorWebhookProvider
 
 export type IndicatorOption = {
   id: string
@@ -20,7 +26,7 @@ export type IndicatorOption = {
 
 export type WorkflowTargetOption = {
   source: MonitorSource
-  triggerId: 'indicator_trigger' | 'portfolio_state_trigger'
+  triggerId: MonitorTriggerId
   workflowId: string
   blockId: string
   workflowName: string
@@ -37,7 +43,7 @@ export type MonitorRecord = {
   blockId: string
   isActive: boolean
   providerConfig: {
-    triggerId: 'indicator_trigger' | 'portfolio_state_trigger'
+    triggerId: MonitorTriggerId
     version: 1
     monitor: {
       providerId: string
@@ -86,7 +92,7 @@ export type MonitorDraft = {
 }
 
 export type IndicatorMonitorCreateInput = {
-  source: 'indicator'
+  source: typeof INDICATOR_MONITOR_PROVIDER
   workspaceId: string
   workflowId: string
   blockId: string
@@ -103,7 +109,7 @@ export type IndicatorMonitorCreateInput = {
 }
 
 export type IndicatorMonitorUpdateInput = {
-  source?: 'indicator'
+  source?: typeof INDICATOR_MONITOR_PROVIDER
   workspaceId: string
   workflowId?: string
   blockId?: string
@@ -125,7 +131,7 @@ export type MonitorStateUpdateInput = {
 }
 
 export type PortfolioMonitorCreateInput = {
-  source: 'portfolio'
+  source: typeof PORTFOLIO_MONITOR_PROVIDER
   workspaceId: string
   workflowId: string
   blockId: string
@@ -141,7 +147,7 @@ export type PortfolioMonitorCreateInput = {
 }
 
 export type PortfolioMonitorUpdateInput = {
-  source?: 'portfolio'
+  source?: typeof PORTFOLIO_MONITOR_PROVIDER
   workspaceId: string
   workflowId?: string
   blockId?: string

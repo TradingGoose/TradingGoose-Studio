@@ -71,7 +71,7 @@ describe('listTradingPortfolioIdentities', () => {
     mocks.listPortfolioIdentities.mockResolvedValue([portfolioIdentity])
   })
 
-  it('throws for a selected service when any same-service account load fails', async () => {
+  it('throws when a credential token cannot be resolved', async () => {
     mocks.credentials = [
       {
         id: 'credential-live',
@@ -109,10 +109,10 @@ describe('listTradingPortfolioIdentities', () => {
         serviceId: 'alpaca-live',
         requestId: 'request-1',
       })
-    ).rejects.toThrow('Failed to load trading portfolio identities')
+    ).rejects.toThrow('Trading credential token unavailable: credential-stale')
   })
 
-  it('returns healthy identities when another service fails during all-service loading', async () => {
+  it('throws instead of partially returning identities when any service fails', async () => {
     mocks.credentials = [
       {
         id: 'credential-live',
@@ -140,6 +140,32 @@ describe('listTradingPortfolioIdentities', () => {
     mocks.refreshAccessTokenIfNeeded.mockImplementation((tokenAccountId: string) =>
       tokenAccountId === 'account-paper' ? null : 'token'
     )
+    const { listTradingPortfolioIdentities } = await import('./portfolio-identities')
+
+    await expect(
+      listTradingPortfolioIdentities({
+        userId: 'user-1',
+        workspaceId: 'workspace-1',
+        providerId: 'alpaca',
+        requestId: 'request-1',
+      })
+    ).rejects.toThrow('Trading credential token unavailable: credential-paper')
+  })
+
+  it('returns identities for all owned trading credentials', async () => {
+    mocks.credentials = [
+      {
+        id: 'credential-live',
+        provider: 'alpaca-live',
+      },
+    ]
+    mocks.credentialAccessById.set('credential-live', {
+      credentialId: 'credential-live',
+      accountId: 'account-live',
+      providerId: 'alpaca-live',
+      credentialOwnerUserId: 'user-1',
+      workspaceId: 'workspace-1',
+    })
     const { listTradingPortfolioIdentities } = await import('./portfolio-identities')
 
     await expect(
