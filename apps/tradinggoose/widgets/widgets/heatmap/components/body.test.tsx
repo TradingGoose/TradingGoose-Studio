@@ -29,14 +29,7 @@ const portfolioIdentity = {
 }
 
 const createPortfolioPosition = (listing: ReturnType<typeof createListing>, quantity: number) => ({
-  symbol: {
-    base: listing.listing_id,
-    quote: 'USD',
-    assetClass: 'stock' as const,
-    active: true,
-    rank: 0,
-    listing,
-  },
+  listingIdentity: listing,
   quantity,
 })
 
@@ -75,13 +68,7 @@ const createPortfolioDetailFromQuantities = (
   createPortfolioDetail(
     quantities.map(({ symbol, quantity }) => {
       const listing = createPortfolioListing(symbol)
-      return {
-        ...createPortfolioPosition(listing, quantity),
-        symbol: {
-          ...createPortfolioPosition(listing, quantity).symbol,
-          base: symbol,
-        },
-      }
+      return createPortfolioPosition(listing, quantity)
     })
   )
 

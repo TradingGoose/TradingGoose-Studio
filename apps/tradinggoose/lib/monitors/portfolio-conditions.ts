@@ -1,3 +1,8 @@
+import {
+  areListingIdentitiesEqual,
+  type ListingIdentity,
+  toListingValueObject,
+} from '@/lib/listing/identity'
 import type { PortfolioDetail } from '@/providers/trading/portfolio-identity'
 
 export const PORTFOLIO_CONDITION_METRICS = [
@@ -40,7 +45,7 @@ export type PortfolioConditionRule = {
   metric: PortfolioConditionMetric
   operator: PortfolioConditionOperator
   value?: number | string | boolean | null
-  symbol?: string | null
+  listing?: ListingIdentity | null
 }
 
 export type PortfolioConditionGroup = {
@@ -75,18 +80,29 @@ const toTargetNumber = (value: unknown): number | null => {
   return null
 }
 
-const normalizeSymbol = (value: string | null | undefined) => value?.trim().toUpperCase() ?? ''
+export const portfolioConditionRequiresListing = (metric: PortfolioConditionMetric) =>
+  metric.startsWith('position.')
 
-const findPosition = (portfolio: PortfolioDetail, symbol: string | null | undefined) => {
-  const normalized = normalizeSymbol(symbol)
-  if (!normalized) return null
+export const isPortfolioConditionValuelessOperator = (operator: PortfolioConditionOperator) =>
+  operator === 'exists' || operator === 'not_exists'
+
+export const isPortfolioConditionOperatorCompatible = (
+  metric: PortfolioConditionMetric,
+  operator: PortfolioConditionOperator
+) => isPortfolioConditionValuelessOperator(operator) === (metric === 'position.exists')
+
+export const getPortfolioConditionOperatorsForMetric = (metric: PortfolioConditionMetric) =>
+  PORTFOLIO_CONDITION_OPERATORS.filter((operator) =>
+    isPortfolioConditionOperatorCompatible(metric, operator)
+  )
+
+const findPosition = (portfolio: PortfolioDetail, listingInput: unknown) => {
+  const listing = toListingValueObject(listingInput)
+  if (!listing) return null
   return (
     portfolio.positions.find((position) => {
-      const base = position.symbol.base.trim().toUpperCase()
-      const quote = position.symbol.quote.trim().toUpperCase()
-      return (
-        normalized === base || normalized === `${base}/${quote}` || normalized === `${base}${quote}`
-      )
+      const positionListing = toListingValueObject(position.listingIdentity)
+      return areListingIdentitiesEqual(positionListing, listing)
     }) ?? null
   )
 }
@@ -117,24 +133,29 @@ const getMetricValue = (
     case 'positions.totalUnrealizedPnl':
       return portfolio.positions.reduce((sum, position) => sum + (position.unrealizedPnl ?? 0), 0)
     case 'position.quantity':
-      return toFiniteNumber(findPosition(portfolio, rule.symbol)?.quantity)
+      return toFiniteNumber(findPosition(portfolio, rule.listing)?.quantity)
     case 'position.marketValue':
-      return toFiniteNumber(findPosition(portfolio, rule.symbol)?.marketValue)
+      return toFiniteNumber(findPosition(portfolio, rule.listing)?.marketValue)
     case 'position.unrealizedPnl':
-      return toFiniteNumber(findPosition(portfolio, rule.symbol)?.unrealizedPnl)
+      return toFiniteNumber(findPosition(portfolio, rule.listing)?.unrealizedPnl)
     case 'position.unrealizedPnlPercent':
-      return toFiniteNumber(findPosition(portfolio, rule.symbol)?.unrealizedPnlPercent)
+      return toFiniteNumber(findPosition(portfolio, rule.listing)?.unrealizedPnlPercent)
     case 'position.exists':
-      return Boolean(findPosition(portfolio, rule.symbol))
+      return Boolean(findPosition(portfolio, rule.listing))
   }
 }
 
 const evaluateRule = (rule: PortfolioConditionRule, context: EvaluationContext) => {
+  if (!isPortfolioConditionOperatorCompatible(rule.metric, rule.operator)) return false
+  if (portfolioConditionRequiresListing(rule.metric) && !toListingValueObject(rule.listing)) {
+    return false
+  }
+
   const currentValue = getMetricValue(context.current, rule)
   const previousValue = getMetricValue(context.previous, rule)
 
-  if (rule.operator === 'exists') return Boolean(currentValue)
-  if (rule.operator === 'not_exists') return !currentValue
+  if (rule.operator === 'exists') return currentValue === true
+  if (rule.operator === 'not_exists') return currentValue === false
 
   const currentNumber = toFiniteNumber(currentValue)
   const previousNumber = toFiniteNumber(previousValue)

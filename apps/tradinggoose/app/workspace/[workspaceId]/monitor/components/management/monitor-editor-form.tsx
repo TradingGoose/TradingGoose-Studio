@@ -260,6 +260,7 @@ export function MonitorEditorForm({
                 condition={draft.condition}
                 disabled={saving}
                 error={errors.condition}
+                tradingProviderId={draft.providerId}
                 onChange={(condition) => onUpdateDraft({ condition })}
               />
 

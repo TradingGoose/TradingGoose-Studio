@@ -17,8 +17,8 @@ vi.mock('@/lib/trading/context', () => ({
     resolveTradingProviderSelectedAccountMock(...args),
 }))
 
-import { getTradingHoldings } from '@/lib/trading/holdings'
-import { tradingHoldingsTool } from '@/tools/trading/holdings'
+import { getTradingPortfolioDetail } from '@/lib/trading/portfolio-detail'
+import { tradingPortfolioDetailTool } from '@/tools/trading/portfolio-detail'
 
 const portfolioIdentity = {
   providerId: 'tradier',
@@ -27,7 +27,7 @@ const portfolioIdentity = {
   accountId: 'ACC-2',
 }
 
-describe('tradingHoldingsTool', () => {
+describe('tradingPortfolioDetailTool', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     getPortfolioDetailMock.mockResolvedValue({ accountId: 'ACC-2' })
@@ -52,8 +52,8 @@ describe('tradingHoldingsTool', () => {
     })
   })
 
-  it('fetches holdings for the selected portfolioIdentity account', async () => {
-    const result = await getTradingHoldings({
+  it('fetches portfolio detail for the selected portfolioIdentity account', async () => {
+    const result = await getTradingPortfolioDetail({
       requestData: {
         workspaceId: 'workspace-1',
         portfolioIdentity,
@@ -64,7 +64,7 @@ describe('tradingHoldingsTool', () => {
 
     expect(result).toMatchObject({
       provider: 'tradier',
-      holdings: { accountId: 'ACC-2' },
+      portfolioDetail: { accountId: 'ACC-2' },
     })
     expect(resolveTradingProviderContextMock).toHaveBeenCalledWith({
       requestData: {
@@ -90,9 +90,9 @@ describe('tradingHoldingsTool', () => {
     })
   })
 
-  it('sends only canonical holdings request data to the holdings route', () => {
+  it('sends only canonical portfolio detail request data to the portfolio detail route', () => {
     expect(
-      tradingHoldingsTool.request.body?.({
+      tradingPortfolioDetailTool.request.body?.({
         portfolioIdentity,
       })
     ).toMatchObject({
@@ -101,7 +101,7 @@ describe('tradingHoldingsTool', () => {
   })
 
   it('declares workspace read scope for tool execution', () => {
-    expect(tradingHoldingsTool.execution).toEqual({
+    expect(tradingPortfolioDetailTool.execution).toEqual({
       workspace: { required: true, access: 'read' },
     })
   })
@@ -110,7 +110,7 @@ describe('tradingHoldingsTool', () => {
     authorizeTradingConnectionRequestMock.mockRejectedValue(new Error('Unauthorized'))
 
     await expect(
-      getTradingHoldings({
+      getTradingPortfolioDetail({
         requestData: {
           workspaceId: 'workspace-1',
           portfolioIdentity,

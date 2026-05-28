@@ -7,7 +7,7 @@ const availableAssetClasses: AssetClass[] = ['stock', 'etf']
 const availability: TradingProviderConfig['availability'] = {
   assetClass: availableAssetClasses,
   order: true,
-  holdings: true,
+  portfolioDetail: true,
 }
 
 const exchangeCodeToMarketMap: TradingProviderConfig['exchangeCodeToMarket'] = {}
@@ -44,7 +44,7 @@ export const tradierTradingProviderConfig: TradingProviderConfig = {
       ],
       timeInForce: ['day', 'gtc', 'pre', 'post'],
     },
-    holdings: {
+    portfolioDetail: {
       performanceWindows: ['1W', '1M', 'YTD', '1Y', 'MAX'],
     },
   },

@@ -3,15 +3,15 @@ import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import { requiredUserOnlyInput } from '@/blocks/utils'
 import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
-import type { TradingHoldingsResponse } from '@/providers/trading/types'
+import type { TradingPortfolioDetailResponse } from '@/providers/trading/types'
 
-export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
-  type: 'trading_holdings',
-  name: 'Trading Holdings',
-  description: 'Fetch canonical portfolio detail from supported brokers.',
+export const TradingPortfolioDetailBlock: BlockConfig<TradingPortfolioDetailResponse> = {
+  type: 'portfolio_detail',
+  name: 'Portfolio Detail',
+  description: 'Fetch full portfolio detail from a selected broker account.',
   authMode: AuthMode.OAuth,
   longDescription:
-    'Trading holdings block that returns canonical portfolio detail for Alpaca or Tradier.',
+    'Portfolio detail block that returns account summary, cash, positions, and orders from Alpaca or Tradier.',
   category: 'tools',
   bgColor: '#115e59',
   icon: DollarIcon,
@@ -21,7 +21,7 @@ export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
       title: 'Broker',
       type: 'trading-provider-selector',
       layout: 'full',
-      tradingProviderKind: 'holdings',
+      tradingProviderKind: 'portfolioDetail',
       placeholder: 'Select broker',
       required: true,
     },
@@ -34,14 +34,14 @@ export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
       dependsOn: ['provider'],
       autoSelectFirstOption: false,
       placeholder: 'Select broker account',
-      description: 'Broker account used to fetch canonical portfolio detail.',
+      description: 'Broker account used to fetch portfolio detail.',
       tradingProviderFieldId: 'provider',
     },
   ],
   tools: {
-    access: ['trading_get_holdings'],
+    access: ['trading_get_portfolio_detail'],
     config: {
-      tool: () => 'trading_get_holdings',
+      tool: () => 'trading_get_portfolio_detail',
       params: (params) => {
         const portfolioIdentity = toPortfolioValueObject(params.portfolioIdentity)
         return {
@@ -57,8 +57,8 @@ export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
     ),
   },
   outputs: {
-    summary: { type: 'string', description: 'Status of holdings retrieval' },
+    summary: { type: 'string', description: 'Status of portfolio detail retrieval' },
     provider: { type: 'string', description: 'Provider used' },
-    holdings: { type: 'json', description: 'Canonical portfolio detail payload' },
+    portfolioDetail: { type: 'json', description: 'Canonical portfolio detail payload' },
   },
 }

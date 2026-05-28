@@ -158,7 +158,7 @@ export interface SubBlockConfig {
   canonicalParamId?: string
   providerType?: 'market' | 'trading'
   marketProviderKind?: 'series' | 'live'
-  tradingProviderKind?: 'order' | 'holdings'
+  tradingProviderKind?: 'order' | 'portfolioDetail'
   tradingProviderFieldId?: string
   required?: boolean | SubBlockCondition | (() => SubBlockCondition)
   defaultValue?: string | number | boolean | Record<string, unknown> | Array<unknown>

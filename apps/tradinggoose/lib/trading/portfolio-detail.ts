@@ -9,26 +9,26 @@ import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
 import { getTradingProviderDefinition } from '@/providers/trading/providers'
 import { TradingServiceError } from './errors'
 
-export interface TradingHoldingsRequest {
+export interface TradingPortfolioDetailRequest {
   workspaceId?: string
   portfolioIdentity?: PortfolioIdentity | null
 }
 
-export type TradingHoldingsResult = {
+export type TradingPortfolioDetailResult = {
   summary: string
   provider: string
-  holdings: PortfolioDetail
+  portfolioDetail: PortfolioDetail
 }
 
-export async function getTradingHoldings({
+export async function getTradingPortfolioDetail({
   requestData,
   requestId,
   userId,
 }: {
-  requestData: TradingHoldingsRequest
+  requestData: TradingPortfolioDetailRequest
   requestId: string
   userId: string
-}): Promise<TradingHoldingsResult> {
+}): Promise<TradingPortfolioDetailResult> {
   const portfolioIdentity = toPortfolioValueObject(requestData.portfolioIdentity)
 
   if (!portfolioIdentity) {
@@ -66,7 +66,7 @@ export async function getTradingHoldings({
     accountId: portfolioIdentity.accountId,
   })
 
-  const holdings = await getPortfolioDetail({
+  const portfolioDetail = await getPortfolioDetail({
     providerId: baseContext.providerId,
     credentialId: baseContext.credentialId,
     tokenAccountId: baseContext.tokenAccountId,
@@ -79,6 +79,6 @@ export async function getTradingHoldings({
   return {
     summary: `Fetched portfolio detail from ${providerDefinition.name}`,
     provider: baseContext.providerId,
-    holdings,
+    portfolioDetail,
   }
 }

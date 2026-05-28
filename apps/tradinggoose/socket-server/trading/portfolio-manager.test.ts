@@ -88,18 +88,11 @@ const portfolioDetail = {
   cashBalances: [],
   positions: [
     {
-      symbol: {
-        base: 'AAPL',
-        quote: 'USD',
-        listing: {
-          listing_id: 'TG_LSTG_AAPL',
-          base_id: '',
-          quote_id: '',
-          listing_type: 'default',
-        },
-        assetClass: 'stock' as const,
-        active: true,
-        rank: 0,
+      listingIdentity: {
+        listing_id: 'TG_LSTG_AAPL',
+        base_id: '',
+        quote_id: '',
+        listing_type: 'default',
       },
       quantity: 2,
     },

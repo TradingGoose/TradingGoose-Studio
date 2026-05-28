@@ -11,7 +11,7 @@ describe('normalizeAlpacaPositions', () => {
           qty: '2',
           side: 'long',
         },
-      ])[0]?.symbol.listing
+      ])[0]?.listingIdentity
     ).toEqual({
       listing_id: 'AAPL',
       base_id: '',
@@ -28,16 +28,11 @@ describe('normalizeAlpacaPositions', () => {
       },
     ])[0]
 
-    expect(cryptoPosition?.symbol).toMatchObject({
-      base: 'DOGE',
-      quote: 'USD',
-      assetClass: 'crypto',
-      listing: {
-        listing_id: '',
-        base_id: 'DOGE',
-        quote_id: 'USD',
-        listing_type: 'crypto',
-      },
+    expect(cryptoPosition?.listingIdentity).toEqual({
+      listing_id: '',
+      base_id: 'DOGE',
+      quote_id: 'USD',
+      listing_type: 'crypto',
     })
   })
 

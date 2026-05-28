@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { HistoricalDataBlock } from '@/blocks/blocks/historical_data'
+import { TradingPortfolioDetailBlock } from '@/blocks/blocks/portfolio_detail'
 import { TradingActionBlock } from '@/blocks/blocks/trading_action'
-import { TradingHoldingsBlock } from '@/blocks/blocks/trading_holdings'
 import { TradingOrderDetailBlock } from '@/blocks/blocks/trading_order_detail'
 import { TradingOrderHistoryBlock } from '@/blocks/blocks/trading_order_history'
 import { getToolParametersConfig } from '@/tools/params'
@@ -100,15 +100,15 @@ describe('trading order block contracts', () => {
     expect(portfolioIdentity?.fetchOptions).toBeUndefined()
   })
 
-  it('uses canonical provider selectors on related market and holdings blocks', () => {
+  it('uses canonical provider selectors on related market and portfolio detail blocks', () => {
     expect(
-      TradingHoldingsBlock.subBlocks.find((subBlock) => subBlock.id === 'provider')
+      TradingPortfolioDetailBlock.subBlocks.find((subBlock) => subBlock.id === 'provider')
     ).toMatchObject({
       type: 'trading-provider-selector',
-      tradingProviderKind: 'holdings',
+      tradingProviderKind: 'portfolioDetail',
     })
     expect(
-      TradingHoldingsBlock.subBlocks.find((subBlock) => subBlock.id === 'portfolioIdentity')
+      TradingPortfolioDetailBlock.subBlocks.find((subBlock) => subBlock.id === 'portfolioIdentity')
     ).toMatchObject({
       type: 'trading-account-selector',
       tradingProviderFieldId: 'provider',

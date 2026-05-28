@@ -38,14 +38,7 @@ const createPortfolioPosition = (
   quantity: number,
   listing = createListing(symbol)
 ) => ({
-  symbol: {
-    base: symbol,
-    quote: 'USD',
-    assetClass: 'stock' as const,
-    active: true,
-    rank: 0,
-    listing,
-  },
+  listingIdentity: listing,
   quantity,
 })
 

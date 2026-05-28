@@ -87,7 +87,7 @@ const marketToExchangeCodeMap: TradingProviderConfig['marketToExchangeCode'] = {
 const availability: TradingProviderConfig['availability'] = {
   assetClass: availableAssetClasses,
   order: true,
-  holdings: true,
+  portfolioDetail: true,
   availableCurrencyBase: [],
   availableCurrencyQuote: [],
   availableCryptoBase: availableCryptoBaseCodes,
@@ -143,7 +143,7 @@ export const alpacaTradingProviderConfig: TradingProviderConfig = {
       ],
       timeInForce: ['day', 'gtc', 'ioc', 'fok'],
     },
-    holdings: {
+    portfolioDetail: {
       performanceWindows: ['1D', '1W', '1M', '3M', 'YTD', '1Y'],
     },
   },

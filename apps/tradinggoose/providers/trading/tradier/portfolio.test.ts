@@ -23,8 +23,8 @@ vi.mock('@/providers/trading/listing-resolution', () => ({
 describe('Tradier portfolio helpers', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
-    resolveTradingListingIdentityMock.mockImplementation((symbol: { base: string }) => ({
-      listing_id: symbol.base,
+    resolveTradingListingIdentityMock.mockImplementation((input: any) => ({
+      listing_id: input?.listing?.listing_id ?? input?.listing?.base_id ?? '',
       base_id: '',
       quote_id: '',
       listing_type: 'default',
@@ -128,7 +128,7 @@ describe('Tradier portfolio helpers', () => {
       totalUnrealizedPnl: 250,
     })
     expect(snapshot.positions).toHaveLength(1)
-    expect(snapshot.positions[0]?.symbol.listing).toEqual({
+    expect(snapshot.positions[0]?.listingIdentity).toEqual({
       listing_id: 'MSFT',
       base_id: '',
       quote_id: '',

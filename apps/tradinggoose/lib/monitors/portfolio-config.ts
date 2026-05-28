@@ -1,21 +1,43 @@
 import { z } from 'zod'
+import { toListingValueObject } from '@/lib/listing/identity'
 import {
+  isPortfolioConditionOperatorCompatible,
+  isPortfolioConditionValuelessOperator,
   PORTFOLIO_CONDITION_METRICS,
   PORTFOLIO_CONDITION_OPERATORS,
   type PortfolioFireCondition,
+  portfolioConditionRequiresListing,
 } from '@/lib/monitors/portfolio-conditions'
 import { PORTFOLIO_MONITOR_PROVIDER, PORTFOLIO_MONITOR_TRIGGER_ID } from '@/lib/monitors/sources'
 import type { TradingProviderId } from '@/providers/trading/types'
 
 const nonEmptyString = z.string().trim().min(1)
 
-const PortfolioConditionRuleSchema: z.ZodType<any> = z.object({
-  id: z.string().optional(),
-  metric: z.enum(PORTFOLIO_CONDITION_METRICS),
-  operator: z.enum(PORTFOLIO_CONDITION_OPERATORS),
-  value: z.union([z.number().finite(), z.string(), z.boolean(), z.null()]).optional(),
-  symbol: z.string().nullable().optional(),
-})
+const PortfolioConditionRuleSchema: z.ZodType<any> = z
+  .object({
+    id: z.string().optional(),
+    metric: z.enum(PORTFOLIO_CONDITION_METRICS),
+    operator: z.enum(PORTFOLIO_CONDITION_OPERATORS),
+    value: z.union([z.number().finite(), z.string(), z.boolean(), z.null()]).optional(),
+    listing: z.unknown().nullish(),
+  })
+  .refine(
+    (rule) =>
+      isPortfolioConditionOperatorCompatible(rule.metric, rule.operator) &&
+      (portfolioConditionRequiresListing(rule.metric)
+        ? Boolean(toListingValueObject(rule.listing))
+        : rule.listing == null),
+    { message: 'Invalid portfolio condition rule' }
+  )
+  .transform((rule) => ({
+    id: rule.id,
+    metric: rule.metric,
+    operator: rule.operator,
+    value: isPortfolioConditionValuelessOperator(rule.operator) ? null : rule.value,
+    listing: portfolioConditionRequiresListing(rule.metric)
+      ? toListingValueObject(rule.listing)
+      : null,
+  }))
 
 const PortfolioConditionNodeSchema: z.ZodType<any> = z.lazy(() =>
   z.union([

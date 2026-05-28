@@ -2,10 +2,13 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
 import { isTradingServiceError } from '@/lib/trading/errors'
-import { getTradingHoldings, type TradingHoldingsRequest } from '@/lib/trading/holdings'
+import {
+  getTradingPortfolioDetail,
+  type TradingPortfolioDetailRequest,
+} from '@/lib/trading/portfolio-detail'
 import { generateRequestId } from '@/lib/utils'
 
-const logger = createLogger('TradingHoldingsAPI')
+const logger = createLogger('TradingPortfolioDetailAPI')
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -22,9 +25,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    let body: TradingHoldingsRequest
+    let body: TradingPortfolioDetailRequest
     try {
-      body = (await request.json()) as TradingHoldingsRequest
+      body = (await request.json()) as TradingPortfolioDetailRequest
     } catch {
       return NextResponse.json(
         { success: false, error: { message: 'Invalid JSON in request body' } },
@@ -48,7 +51,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const holdings = await getTradingHoldings({
+    const portfolioDetail = await getTradingPortfolioDetail({
       requestData: {
         ...body,
         workspaceId: body.workspaceId ?? workspaceId,
@@ -57,10 +60,10 @@ export async function POST(request: NextRequest) {
       userId: auth.userId,
     })
 
-    return NextResponse.json({ success: true, data: holdings }, { status: 200 })
+    return NextResponse.json({ success: true, data: portfolioDetail }, { status: 200 })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to fetch holdings'
-    logger.error(`[${requestId}] Failed to fetch holdings`, { error: message })
+    const message = error instanceof Error ? error.message : 'Failed to fetch portfolio detail'
+    logger.error(`[${requestId}] Failed to fetch portfolio detail`, { error: message })
     return NextResponse.json(
       { success: false, error: { message } },
       { status: isTradingServiceError(error) ? error.status : 500 }

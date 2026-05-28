@@ -1,11 +1,14 @@
-import type { TradingHoldingsRequest } from '@/lib/trading/holdings'
-import type { TradingHoldingsResponse } from '@/providers/trading/types'
+import type { TradingPortfolioDetailRequest } from '@/lib/trading/portfolio-detail'
+import type { TradingPortfolioDetailResponse } from '@/providers/trading/types'
 import type { ToolConfig } from '@/tools/types'
 
-export const tradingHoldingsTool: ToolConfig<TradingHoldingsRequest, TradingHoldingsResponse> = {
-  id: 'trading_get_holdings',
-  name: 'Trading: Get Holdings',
-  description: 'Fetch canonical portfolio detail from Alpaca or Tradier.',
+export const tradingPortfolioDetailTool: ToolConfig<
+  TradingPortfolioDetailRequest,
+  TradingPortfolioDetailResponse
+> = {
+  id: 'trading_get_portfolio_detail',
+  name: 'Trading: Get Portfolio Detail',
+  description: 'Fetch account summary, cash, positions, and orders from Alpaca or Tradier.',
   version: '1.0.0',
   execution: {
     workspace: { required: true, access: 'read' },
@@ -21,7 +24,7 @@ export const tradingHoldingsTool: ToolConfig<TradingHoldingsRequest, TradingHold
   },
 
   request: {
-    url: '/api/tools/trading/holdings',
+    url: '/api/tools/trading/portfolio-detail',
     method: 'POST',
     headers: () => ({
       'Content-Type': 'application/json',
@@ -31,7 +34,7 @@ export const tradingHoldingsTool: ToolConfig<TradingHoldingsRequest, TradingHold
     }),
   },
 
-  transformResponse: async (response): Promise<TradingHoldingsResponse> => {
+  transformResponse: async (response): Promise<TradingPortfolioDetailResponse> => {
     const result = await response.json()
     return {
       success: true,
@@ -40,9 +43,9 @@ export const tradingHoldingsTool: ToolConfig<TradingHoldingsRequest, TradingHold
   },
 
   outputs: {
-    summary: { type: 'string', description: 'Status message for holdings retrieval.' },
+    summary: { type: 'string', description: 'Status message for portfolio detail retrieval.' },
     provider: { type: 'string', description: 'Broker/provider used for the request.' },
-    holdings: {
+    portfolioDetail: {
       type: 'json',
       description: 'Canonical portfolio detail with cash, positions, and summary.',
     },

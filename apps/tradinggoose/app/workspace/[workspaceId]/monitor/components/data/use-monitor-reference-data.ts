@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { fetchOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import { INDICATOR_MONITOR_PROVIDER, PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
+import { fetchOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import {
   getMarketMonitorProviderParamDefinitions,
   getMarketProviderIntervals,
@@ -60,7 +60,10 @@ const buildReferenceData = ({
   warning: string | null
 }): MonitorReferenceData => {
   const marketProviders: MarketProviderOption[] = getMarketProviderOptions()
-  const tradingProviders = getTradingWidgetProviderOptions('holdings', tradingProviderAvailability)
+  const tradingProviders = getTradingWidgetProviderOptions(
+    'portfolioDetail',
+    tradingProviderAvailability
+  )
   const workflowTargetByKey = Object.fromEntries(
     workflowTargets.map((target) => [`${target.workflowId}:${target.blockId}`, target])
   )
@@ -136,7 +139,7 @@ export function useMonitorReferenceData(workspaceId: string): MonitorReferenceDa
   const [isLoading, setIsLoading] = useState(true)
   const [warning, setWarning] = useState<string | null>(null)
   const tradingProviderAvailabilityIds = useMemo(
-    () => getTradingWidgetProviderAvailabilityIds('holdings'),
+    () => getTradingWidgetProviderAvailabilityIds('portfolioDetail'),
     []
   )
 

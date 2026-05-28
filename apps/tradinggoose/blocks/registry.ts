@@ -80,6 +80,7 @@ import { PerplexityBlock } from '@/blocks/blocks/perplexity'
 import { PineconeBlock } from '@/blocks/blocks/pinecone'
 import { PipedriveBlock } from '@/blocks/blocks/pipedrive'
 import { PolymarketBlock } from '@/blocks/blocks/polymarket'
+import { TradingPortfolioDetailBlock } from '@/blocks/blocks/portfolio_detail'
 import { PostgreSQLBlock } from '@/blocks/blocks/postgresql'
 import { PostHogBlock } from '@/blocks/blocks/posthog'
 import { QdrantBlock } from '@/blocks/blocks/qdrant'
@@ -112,7 +113,6 @@ import { TavilyBlock } from '@/blocks/blocks/tavily'
 import { TelegramBlock } from '@/blocks/blocks/telegram'
 import { ThinkingBlock } from '@/blocks/blocks/thinking'
 import { TradingActionBlock } from '@/blocks/blocks/trading_action'
-import { TradingHoldingsBlock } from '@/blocks/blocks/trading_holdings'
 import { TradingOrderDetailBlock } from '@/blocks/blocks/trading_order_detail'
 import { TradingOrderHistoryBlock } from '@/blocks/blocks/trading_order_history'
 import { TranslateBlock } from '@/blocks/blocks/translate'
@@ -230,7 +230,7 @@ export const registry: Record<string, BlockConfig> = {
   telegram: TelegramBlock,
   thinking: ThinkingBlock,
   trading_action: TradingActionBlock,
-  trading_holdings: TradingHoldingsBlock,
+  portfolio_detail: TradingPortfolioDetailBlock,
   trading_order_detail: TradingOrderDetailBlock,
   trading_order_history: TradingOrderHistoryBlock,
   translate: TranslateBlock,

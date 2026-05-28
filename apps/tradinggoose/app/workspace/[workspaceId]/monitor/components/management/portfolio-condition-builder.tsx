@@ -1,6 +1,8 @@
 'use client'
 
+import { useEffect } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
+import { ListingSearchInput } from '@/components/listing-selector/selector/input'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,22 +13,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { toListingValue } from '@/lib/listing/identity'
 import {
+  getPortfolioConditionOperatorsForMetric,
+  isPortfolioConditionValuelessOperator,
   PORTFOLIO_CONDITION_METRICS,
-  PORTFOLIO_CONDITION_OPERATORS,
   type PortfolioConditionGroup,
   type PortfolioConditionMetric,
   type PortfolioConditionNode,
   type PortfolioConditionOperator,
   type PortfolioConditionRule,
   type PortfolioFireCondition,
+  portfolioConditionRequiresListing,
 } from '@/lib/monitors/portfolio-conditions'
 import { cn } from '@/lib/utils'
+import { useListingSelectorStore } from '@/stores/market/selector/store'
 
 type PortfolioConditionBuilderProps = {
   condition: PortfolioFireCondition
   disabled?: boolean
   error?: string
+  tradingProviderId?: string
   onChange: (condition: PortfolioFireCondition) => void
 }
 
@@ -62,8 +69,6 @@ const OPERATOR_LABELS: Record<PortfolioConditionOperator, string> = {
   not_exists: 'Does not exist',
 }
 
-const VALUELESS_OPERATORS = new Set<PortfolioConditionOperator>(['exists', 'not_exists'])
-
 const createId = () =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
@@ -85,26 +90,23 @@ const createGroup = (): PortfolioConditionGroup => ({
 const isGroup = (node: PortfolioConditionNode): node is PortfolioConditionGroup =>
   Array.isArray((node as PortfolioConditionGroup).rules)
 
-const requiresSymbol = (metric: PortfolioConditionMetric) => metric.startsWith('position.')
-
-const operatorsForMetric = (metric: PortfolioConditionMetric) =>
-  metric === 'position.exists'
-    ? PORTFOLIO_CONDITION_OPERATORS.filter((operator) => VALUELESS_OPERATORS.has(operator))
-    : PORTFOLIO_CONDITION_OPERATORS.filter((operator) => !VALUELESS_OPERATORS.has(operator))
-
 const normalizeRuleForMetric = (
   rule: PortfolioConditionRule,
   metric: PortfolioConditionMetric
 ): PortfolioConditionRule => {
-  const operators = operatorsForMetric(metric)
+  const operators = getPortfolioConditionOperatorsForMetric(metric)
   const operator = operators.includes(rule.operator) ? rule.operator : operators[0]!
 
   return {
     ...rule,
     metric,
     operator,
-    ...(requiresSymbol(metric) ? { symbol: rule.symbol ?? '' } : { symbol: null }),
-    ...(VALUELESS_OPERATORS.has(operator) ? { value: null } : { value: rule.value ?? 0 }),
+    ...(portfolioConditionRequiresListing(metric)
+      ? { listing: rule.listing ?? null }
+      : { listing: null }),
+    ...(isPortfolioConditionValuelessOperator(operator)
+      ? { value: null }
+      : { value: rule.value ?? 0 }),
   }
 }
 
@@ -150,6 +152,7 @@ export function PortfolioConditionBuilder({
   condition,
   disabled = false,
   error,
+  tradingProviderId,
   onChange,
 }: PortfolioConditionBuilderProps) {
   const root = condition.root?.rules?.length ? condition.root : createGroup()
@@ -162,6 +165,7 @@ export function PortfolioConditionBuilder({
         group={root}
         path={[]}
         disabled={disabled}
+        tradingProviderId={tradingProviderId}
         onUpdate={(path, updater) => updateRoot(updateNodeAtPath(root, path, updater))}
         onRemove={(path) => updateRoot(removeNodeAtPath(root, path))}
       />
@@ -174,12 +178,14 @@ function ConditionGroupEditor({
   group,
   path,
   disabled,
+  tradingProviderId,
   onUpdate,
   onRemove,
 }: {
   group: PortfolioConditionGroup
   path: number[]
   disabled: boolean
+  tradingProviderId?: string
   onUpdate: (
     path: number[],
     updater: (node: PortfolioConditionNode) => PortfolioConditionNode
@@ -246,6 +252,7 @@ function ConditionGroupEditor({
               group={node}
               path={path.concat(index)}
               disabled={disabled}
+              tradingProviderId={tradingProviderId}
               onUpdate={onUpdate}
               onRemove={onRemove}
             />
@@ -255,6 +262,7 @@ function ConditionGroupEditor({
               rule={node}
               path={path.concat(index)}
               disabled={disabled}
+              tradingProviderId={tradingProviderId}
               onUpdate={onUpdate}
               onRemove={onRemove}
             />
@@ -269,21 +277,38 @@ function ConditionRuleEditor({
   rule,
   path,
   disabled,
+  tradingProviderId,
   onUpdate,
   onRemove,
 }: {
   rule: PortfolioConditionRule
   path: number[]
   disabled: boolean
+  tradingProviderId?: string
   onUpdate: (
     path: number[],
     updater: (node: PortfolioConditionNode) => PortfolioConditionNode
   ) => void
   onRemove: (path: number[]) => void
 }) {
-  const operators = operatorsForMetric(rule.metric)
-  const showSymbol = requiresSymbol(rule.metric)
-  const showValue = !VALUELESS_OPERATORS.has(rule.operator)
+  const operators = getPortfolioConditionOperatorsForMetric(rule.metric)
+  const showListing = portfolioConditionRequiresListing(rule.metric)
+  const showValue = !isPortfolioConditionValuelessOperator(rule.operator)
+  const ruleListingInstanceId = showListing
+    ? `monitor-portfolio-condition-${rule.id ?? path.join('-')}`
+    : null
+  const updateListingSelectorInstance = useListingSelectorStore((state) => state.updateInstance)
+
+  useEffect(() => {
+    if (!ruleListingInstanceId) return
+    updateListingSelectorInstance(ruleListingInstanceId, {
+      selectedListingValue: rule.listing ?? null,
+      selectedListing: rule.listing as any,
+      query: '',
+      results: [],
+      error: undefined,
+    })
+  }, [rule.listing, ruleListingInstanceId, updateListingSelectorInstance])
 
   return (
     <div className='grid gap-2 rounded-md border bg-background p-2 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.8fr)_auto]'>
@@ -316,7 +341,7 @@ function ConditionRuleEditor({
               : {
                   ...node,
                   operator,
-                  value: VALUELESS_OPERATORS.has(operator) ? null : (node.value ?? 0),
+                  value: isPortfolioConditionValuelessOperator(operator) ? null : (node.value ?? 0),
                 }
           )
         }
@@ -334,16 +359,20 @@ function ConditionRuleEditor({
       </Select>
 
       <div className='grid gap-2 sm:grid-cols-2'>
-        {showSymbol ? (
-          <Input
-            value={rule.symbol ?? ''}
-            placeholder='Symbol'
-            className='h-8'
+        {showListing && ruleListingInstanceId ? (
+          <ListingSearchInput
+            instanceId={ruleListingInstanceId}
+            providerType='trading'
+            tradingProviderId={tradingProviderId}
             disabled={disabled}
-            onChange={(event) =>
+            compact
+            onListingChange={(listing) =>
               onUpdate(path, (node) =>
-                isGroup(node) ? node : { ...node, symbol: event.target.value.toUpperCase() }
+                isGroup(node) ? node : { ...node, listing: toListingValue(listing) }
               )
+            }
+            onListingValueChange={() =>
+              onUpdate(path, (node) => (isGroup(node) ? node : { ...node, listing: null }))
             }
           />
         ) : null}
