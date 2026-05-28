@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { db, webhook, workflow } from '@tradinggoose/db'
 import { and, eq } from 'drizzle-orm'
 import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
+import { ExecutionGateError } from '@/lib/execution/execution-concurrency-limit'
 import {
   enqueuePendingExecution,
   isPendingExecutionLimitError,
@@ -13,6 +14,7 @@ import {
   isMonitorProviderConfigForProvider,
   PORTFOLIO_MONITOR_PROVIDER,
 } from '@/lib/monitors/sources'
+import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import type { PortfolioMonitorExecutionPayload } from '@/background/portfolio-monitor-execution'
 import type { PortfolioDetail, PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import {
@@ -470,6 +472,16 @@ export class PortfolioMonitorRuntime {
       })
       if (!handle.inserted) return
     } catch (error) {
+      if (error instanceof ExecutionGateError) {
+        await this.disconnect(config.id, 'invalid_billing_context')
+        return
+      }
+
+      if (error instanceof TriggerExecutionUnavailableError) {
+        await this.disconnect(config.id, 'trigger_execution_disabled')
+        return
+      }
+
       if (isPendingExecutionLimitError(error)) {
         this.logger.warn(
           'Portfolio monitor queue backlog is full; retaining monitor edge for retry',

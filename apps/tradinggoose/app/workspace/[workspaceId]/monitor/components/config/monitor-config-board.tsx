@@ -168,14 +168,7 @@ export function MonitorConfigBoard({
     >
       <MonitorKanbanShell>
         {sections.map((section) => (
-          <MonitorKanbanSection
-            key={section.id}
-            title={section.label}
-            description={`${section.cards.length} monitor configs`}
-            aggregates={section.aggregates}
-            aggregateVariant='secondary'
-            aggregateBadgeClassName='text-[10px]'
-          >
+          <MonitorKanbanSection key={section.id}>
             {section.groups.map((group) => (
               <MonitorKanbanGroup
                 key={`${section.id}:${group.id}`}

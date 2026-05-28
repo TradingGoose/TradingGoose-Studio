@@ -48,10 +48,7 @@ type ConfigBoardGroup = {
 
 export type ConfigBoardSection = {
   id: string
-  label: string
   groups: ConfigBoardGroup[]
-  cards: ConfigMonitorCard[]
-  aggregates: ConfigBoardAggregates
 }
 
 const STATUS_VALUES: Array<{ id: ConfigMonitorStatus; label: string }> = [
@@ -171,7 +168,7 @@ export const buildConfigBoardSections = (
 ): ConfigBoardSection[] => {
   const sectionValues = config.sliceBy
     ? buildAxisValues(config.sliceBy, cards, referenceData)
-    : [{ ...ALL_AXIS_VALUE, label: 'All monitors', sortValue: 'All monitors' }]
+    : [ALL_AXIS_VALUE]
   const groupValues = buildAxisValues(config.groupBy, cards, referenceData)
   const verticalValues = config.verticalGroupBy
     ? buildAxisValues(config.verticalGroupBy, cards, referenceData)
@@ -230,10 +227,7 @@ export const buildConfigBoardSections = (
 
     return {
       id: sectionValue.id,
-      label: sectionValue.label,
       groups,
-      cards: sectionCards,
-      aggregates: aggregateCards(sectionCards, config.fieldSums),
     } satisfies ConfigBoardSection
   })
 }

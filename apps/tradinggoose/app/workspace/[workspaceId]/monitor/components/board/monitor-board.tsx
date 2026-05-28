@@ -204,18 +204,7 @@ export function MonitorBoard({
     >
       <MonitorKanbanShell>
         {sections.map((section) => (
-          <MonitorKanbanSection
-            key={section.id}
-            title={section.label}
-            description={`${section.columns.reduce((sum, column) => sum + column.totalCount, 0)} executions`}
-            actions={
-              !canReorder ? (
-                <Badge variant='secondary' className='text-[10px]'>
-                  Sorted
-                </Badge>
-              ) : null
-            }
-          >
+          <MonitorKanbanSection key={section.id}>
             <MonitorKanbanBoard>
               {section.columns.map((column) => {
                 const canDrop = canReorder && dragState?.columnId === column.id

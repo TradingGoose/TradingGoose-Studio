@@ -172,7 +172,7 @@ describe('config monitor domain', () => {
     )
 
     expect(filtered).toHaveLength(1)
-    expect(sections[0]?.label).toBe('All monitors')
+    expect(sections[0]?.id).toBe('all')
     expect(sections[0]?.groups[0]?.statusLanes[0]?.buckets[0]?.cards[0]?.monitorId).toBe(
       'monitor-1'
     )
@@ -191,7 +191,7 @@ describe('config monitor domain', () => {
     })
 
     expect(sections).toHaveLength(1)
-    expect(sections[0]?.label).toBe('All monitors')
+    expect(sections[0]?.id).toBe('all')
     expect(sections[0]?.groups).toHaveLength(1)
     expect(sections[0]?.groups[0]?.label).toBe('Workflow target')
     expect(sections[0]?.groups[0]?.cards).toEqual([])

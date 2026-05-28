@@ -44,6 +44,10 @@ vi.mock('@/lib/api-key/service', () => ({
   getApiKeyOwnerUserId: (...args: unknown[]) => mocks.getApiKeyOwnerUserId(...args),
 }))
 
+vi.mock('@/lib/execution/execution-concurrency-limit', () => ({
+  ExecutionGateError: class ExecutionGateError extends Error {},
+}))
+
 vi.mock('@/lib/execution/pending-execution', () => ({
   enqueuePendingExecution: (...args: unknown[]) => mocks.enqueuePendingExecution(...args),
   isPendingExecutionLimitError: () => mocks.isPendingExecutionLimitError(),
@@ -64,6 +68,10 @@ vi.mock('@/lib/redis', () => ({
   releaseLock: (...args: unknown[]) => mocks.releaseLock(...args),
   getRedisClient: () => mocks.getRedisClient(),
   getRedisStorageMode: () => mocks.getRedisStorageMode(),
+}))
+
+vi.mock('@/lib/trigger/settings', () => ({
+  TriggerExecutionUnavailableError: class TriggerExecutionUnavailableError extends Error {},
 }))
 
 vi.mock('@/socket-server/trading/portfolio-manager', () => ({

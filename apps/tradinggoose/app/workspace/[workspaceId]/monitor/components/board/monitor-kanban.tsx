@@ -4,10 +4,7 @@ import type { ComponentProps, ReactNode } from 'react'
 import { Badge, type BadgeProps } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import {
-  MonitorAggregateBadges,
-  MonitorBoardShell,
-} from '../shared/monitor-ui'
+import { MonitorAggregateBadges, MonitorBoardShell } from '../shared/monitor-ui'
 import { KanbanBoard, KanbanCard, KanbanCards } from './kanban'
 
 type MonitorKanbanShellProps = ComponentProps<typeof MonitorBoardShell>
@@ -16,26 +13,9 @@ export function MonitorKanbanShell(props: MonitorKanbanShellProps) {
   return <MonitorBoardShell {...props} />
 }
 
-type MonitorKanbanSectionProps = ComponentProps<'section'> & {
-  actions?: ReactNode
-  aggregateBadgeClassName?: string
-  aggregateVariant?: BadgeProps['variant']
-  aggregates?: Record<string, number | string | undefined>
-  description?: ReactNode
-  title: ReactNode
-}
+type MonitorKanbanSectionProps = ComponentProps<'section'>
 
-export function MonitorKanbanSection({
-  actions,
-  aggregateBadgeClassName,
-  aggregateVariant,
-  aggregates = {},
-  children,
-  className,
-  description,
-  title,
-  ...props
-}: MonitorKanbanSectionProps) {
+export function MonitorKanbanSection({ children, className, ...props }: MonitorKanbanSectionProps) {
   return (
     <section
       className={cn('flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col gap-3', className)}
