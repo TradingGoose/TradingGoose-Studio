@@ -5,7 +5,6 @@ import {
   readMonitorDocumentName,
   serializeMonitorDocument,
 } from '@/lib/copilot/monitor/monitor-documents'
-import { INDICATOR_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import {
   BaseClientTool,
   type BaseClientToolMetadata,
@@ -81,17 +80,29 @@ export class EditMonitorClientTool extends BaseClientTool {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          source: INDICATOR_MONITOR_PROVIDER,
+          source: nextFields.source,
           workspaceId,
           workflowId: nextFields.workflowId,
           blockId: nextFields.blockId,
           providerId: nextFields.providerId,
-          interval: nextFields.interval,
-          indicatorId: nextFields.indicatorId,
-          listing: nextFields.listing,
+          ...(nextFields.source === 'portfolio'
+            ? {
+                serviceId: nextFields.serviceId,
+                credentialId: nextFields.credentialId,
+                accountId: nextFields.accountId,
+                condition: nextFields.condition,
+                fireMode: nextFields.fireMode,
+                cooldownSeconds: nextFields.cooldownSeconds,
+                pollIntervalSeconds: nextFields.pollIntervalSeconds,
+              }
+            : {
+                interval: nextFields.interval,
+                indicatorId: nextFields.indicatorId,
+                listing: nextFields.listing,
+                ...(nextFields.providerParams ? { providerParams: nextFields.providerParams } : {}),
+                ...(nextFields.auth ? { auth: nextFields.auth } : {}),
+              }),
           isActive: nextFields.isActive,
-          ...(nextFields.providerParams ? { providerParams: nextFields.providerParams } : {}),
-          ...(nextFields.auth ? { auth: nextFields.auth } : {}),
         }),
       })
       const payload = await response.json().catch(() => ({}))

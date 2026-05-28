@@ -1,7 +1,7 @@
 import {
   getMonitorProviderForTriggerId,
+  getMonitorSourceByTriggerId,
   isMonitorTriggerId,
-  PORTFOLIO_MONITOR_TRIGGER_ID,
 } from '@/lib/monitors/sources'
 import type {
   IndicatorOption,
@@ -148,10 +148,7 @@ export async function loadWorkflowTargetOptions(
 
           const resolvedBlockId = toTrimmed(data?.id) || blockId
           const blockName =
-            toTrimmed(data?.name) ||
-            (data.type === PORTFOLIO_MONITOR_TRIGGER_ID
-              ? 'Portfolio State Trigger'
-              : 'Indicator Trigger')
+            toTrimmed(data?.name) || getMonitorSourceByTriggerId(data.type).triggerLabel
           const source = getMonitorProviderForTriggerId(data.type)
           return {
             source,

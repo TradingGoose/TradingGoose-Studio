@@ -282,6 +282,7 @@ describe('monitor tools', () => {
 
     const monitorDocument = JSON.stringify(
       {
+        source: 'indicator',
         workflowId: 'wf-1',
         blockId: 'trigger-1',
         providerId: 'alpaca',
@@ -337,7 +338,7 @@ describe('monitor tools', () => {
       ToolArgSchemas.edit_monitor.parse({
         monitorId: 'monitor-1',
         monitorDocument:
-          '{"workflowId":"wf-1","blockId":"trigger-1","providerId":"alpaca","interval":"1m","indicatorId":"rsi","listing":{"listing_type":"default","listing_id":"AAPL","base_id":"","quote_id":""},"isActive":true}',
+          '{"source":"indicator","workflowId":"wf-1","blockId":"trigger-1","providerId":"alpaca","interval":"1m","indicatorId":"rsi","listing":{"listing_type":"default","listing_id":"AAPL","base_id":"","quote_id":""},"isActive":true}',
       })
     ).toMatchObject({
       monitorId: 'monitor-1',
@@ -350,7 +351,7 @@ describe('monitor tools', () => {
         monitorName: 'rsi on AAPL (1m)',
         documentFormat: 'tg-monitor-document-v1',
         monitorDocument:
-          '{"workflowId":"wf-1","blockId":"trigger-1","providerId":"alpaca","interval":"1m","indicatorId":"rsi","listing":{"listing_type":"default","listing_id":"AAPL","base_id":"","quote_id":""},"isActive":true}',
+          '{"source":"indicator","workflowId":"wf-1","blockId":"trigger-1","providerId":"alpaca","interval":"1m","indicatorId":"rsi","listing":{"listing_type":"default","listing_id":"AAPL","base_id":"","quote_id":""},"isActive":true}',
       })
     ).toMatchObject({
       surfaceKind: 'monitor',

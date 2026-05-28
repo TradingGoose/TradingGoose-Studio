@@ -1,7 +1,6 @@
 import { db, webhook } from '@tradinggoose/db'
 import { nanoid } from 'nanoid'
 import { type NextRequest, NextResponse } from 'next/server'
-import { resolveOAuthCredentialAccountForUser } from '@/lib/credentials/oauth'
 import {
   IndicatorMonitorCreateSchema,
   normalizeIndicatorMonitorConfig,
@@ -12,24 +11,23 @@ import {
   PortfolioMonitorCreateSchema,
 } from '@/lib/monitors/portfolio-config'
 import {
-  INDICATOR_MONITOR_PROVIDER,
-  INDICATOR_MONITOR_TRIGGER_ID,
+  getMonitorTriggerIdForProvider,
   isMonitorProvider,
   type MonitorWebhookProvider,
   PORTFOLIO_MONITOR_PROVIDER,
-  PORTFOLIO_MONITOR_TRIGGER_ID,
 } from '@/lib/monitors/sources'
-import { listTradingPortfolioIdentities } from '@/lib/trading/portfolio-identities'
 import { generateRequestId } from '@/lib/utils'
 import { authenticateIndicatorRequest, checkWorkspacePermission } from '@/app/api/indicators/utils'
 import { notifyMonitorsReconcile } from '@/app/api/monitors/reconcile'
-import { getTradingProviderOAuthServiceId } from '@/providers/trading/providers'
 import {
   ensureMonitorTriggerBlockInDeployedState,
   ensureTriggerCapableIndicator,
   ensureWorkflowInWorkspace,
+  isMonitorClientError,
   listMonitorRows,
   loadIndicatorInputMetadata,
+  MonitorRequestError,
+  resolvePortfolioMonitorAccount,
   toMonitorRecord,
 } from './shared'
 
@@ -37,6 +35,26 @@ const logger = createLogger('MonitorsAPI')
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
+
+type IndicatorCreatePayload = ReturnType<typeof IndicatorMonitorCreateSchema.parse>
+type PortfolioCreatePayload = ReturnType<typeof PortfolioMonitorCreateSchema.parse>
+type MonitorCreatePayload = IndicatorCreatePayload | PortfolioCreatePayload
+
+const parseCreatePayload = (
+  source: MonitorWebhookProvider,
+  body: unknown
+): MonitorCreatePayload => {
+  const parsed =
+    source === PORTFOLIO_MONITOR_PROVIDER
+      ? PortfolioMonitorCreateSchema.safeParse(body)
+      : IndicatorMonitorCreateSchema.safeParse(body)
+
+  if (!parsed.success) {
+    throw new MonitorRequestError(parsed.error.errors[0]?.message ?? 'Invalid request')
+  }
+
+  return parsed.data
+}
 
 export async function GET(request: NextRequest) {
   const requestId = generateRequestId()
@@ -109,19 +127,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'source is required' }, { status: 400 })
     }
 
-    if (source === PORTFOLIO_MONITOR_PROVIDER) {
-      return createPortfolioMonitor({ body, requestId, userId: auth.userId })
-    }
-
-    const parsed = IndicatorMonitorCreateSchema.safeParse(body)
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.errors[0]?.message ?? 'Invalid request' },
-        { status: 400 }
-      )
-    }
-
-    const payload = parsed.data
+    const payload = parseCreatePayload(source, body)
     const permission = await checkWorkspacePermission({
       userId: auth.userId,
       workspaceId: payload.workspaceId,
@@ -134,25 +140,14 @@ export async function POST(request: NextRequest) {
     await ensureMonitorTriggerBlockInDeployedState(
       payload.workflowId,
       payload.blockId,
-      INDICATOR_MONITOR_TRIGGER_ID
-    )
-    await ensureTriggerCapableIndicator(payload.workspaceId, payload.indicatorId)
-    const indicatorMetadata = await loadIndicatorInputMetadata(
-      payload.workspaceId,
-      payload.indicatorId
+      getMonitorTriggerIdForProvider(source)
     )
     const nextIsActive = (payload.isActive ?? true) && workflowRow.isDeployed === true
-
-    const providerConfig = await normalizeIndicatorMonitorConfig({
-      triggerBlockId: payload.blockId,
-      providerId: payload.providerId,
-      interval: payload.interval,
-      listingInput: payload.listing,
-      indicatorId: payload.indicatorId,
-      authInput: payload.auth,
-      providerParams: payload.providerParams,
-      indicatorInputs: payload.indicatorInputs,
-      indicatorInputMeta: indicatorMetadata.inputMeta,
+    const providerConfig = await buildProviderConfigForCreate({
+      source,
+      payload,
+      userId: auth.userId,
+      requestId,
       requireCompleteAuth: nextIsActive,
     })
 
@@ -166,7 +161,7 @@ export async function POST(request: NextRequest) {
         workflowId: payload.workflowId,
         blockId: null,
         path: monitorPath,
-        provider: INDICATOR_MONITOR_PROVIDER,
+        provider: source,
         providerConfig,
         isActive: nextIsActive,
         createdAt: new Date(),
@@ -179,118 +174,76 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ data: await toMonitorRecord(createdMonitor) }, { status: 201 })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Internal server error'
-    const clientErrorPatterns = [
-      'Missing',
-      'Invalid',
-      'not found',
-      'must be',
-      'does not',
-      'Unable to',
-    ]
-    const isClientError =
-      error instanceof Error &&
-      clientErrorPatterns.some((pattern) => message.toLowerCase().includes(pattern.toLowerCase()))
-
     logger.error(`[${requestId}] Failed to create monitor`, { error })
-    if (isClientError) {
-      return NextResponse.json({ error: message }, { status: 400 })
+    if (error instanceof MonitorRequestError || isMonitorClientError(message)) {
+      return NextResponse.json(
+        {
+          error: message,
+        },
+        {
+          status: error instanceof MonitorRequestError ? error.status : 400,
+        }
+      )
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
-async function createPortfolioMonitor({
-  body,
-  requestId,
+async function buildProviderConfigForCreate({
+  source,
+  payload,
   userId,
+  requestId,
+  requireCompleteAuth,
 }: {
-  body: unknown
-  requestId: string
+  source: MonitorWebhookProvider
+  payload: MonitorCreatePayload
   userId: string
+  requestId: string
+  requireCompleteAuth: boolean
 }) {
-  const parsed = PortfolioMonitorCreateSchema.safeParse(body)
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.errors[0]?.message ?? 'Invalid request' },
-      { status: 400 }
-    )
-  }
-
-  const payload = parsed.data
-  const permission = await checkWorkspacePermission({
-    userId,
-    workspaceId: payload.workspaceId,
-    requireWrite: true,
-    responseShape: 'errorOnly',
-  })
-  if (!permission.ok) return permission.response
-
-  const workflowRow = await ensureWorkflowInWorkspace(payload.workflowId, payload.workspaceId)
-  await ensureMonitorTriggerBlockInDeployedState(
-    payload.workflowId,
-    payload.blockId,
-    PORTFOLIO_MONITOR_TRIGGER_ID
-  )
-
-  const serviceId = getTradingProviderOAuthServiceId(payload.providerId, payload.serviceId)
-  if (!serviceId) {
-    return NextResponse.json({ error: 'Trading provider connection is required' }, { status: 400 })
-  }
-
-  const credentialAccess = await resolveOAuthCredentialAccountForUser({
-    credentialId: payload.credentialId,
-    userId,
-    workspaceId: payload.workspaceId,
-  })
-  if (!credentialAccess || credentialAccess.providerId !== serviceId) {
-    return NextResponse.json({ error: 'Credential not found' }, { status: 404 })
-  }
-
-  const accounts = await listTradingPortfolioIdentities({
-    userId,
-    workspaceId: payload.workspaceId,
-    providerId: payload.providerId,
-    serviceId,
-    requestId,
-  })
-  const account = accounts.find(
-    (candidate) =>
-      candidate.credentialId === payload.credentialId && candidate.accountId === payload.accountId
-  )
-  if (!account) {
-    return NextResponse.json({ error: 'Trading account not found' }, { status: 404 })
-  }
-
-  const nextIsActive = (payload.isActive ?? true) && workflowRow.isDeployed === true
-  const providerConfig = normalizePortfolioMonitorConfig({
-    triggerBlockId: payload.blockId,
-    providerId: payload.providerId,
-    serviceId,
-    credentialId: payload.credentialId,
-    accountId: payload.accountId,
-    condition: payload.condition,
-    fireMode: payload.fireMode,
-    cooldownSeconds: payload.cooldownSeconds,
-    pollIntervalSeconds: payload.pollIntervalSeconds,
-  })
-
-  const monitorId = nanoid()
-  const [createdMonitor] = await db
-    .insert(webhook)
-    .values({
-      id: monitorId,
-      workflowId: payload.workflowId,
-      blockId: null,
-      path: `monitor-${monitorId}`,
-      provider: PORTFOLIO_MONITOR_PROVIDER,
-      providerConfig,
-      isActive: nextIsActive,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+  if (source === PORTFOLIO_MONITOR_PROVIDER) {
+    const portfolioPayload = payload as PortfolioCreatePayload
+    const serviceId = await resolvePortfolioMonitorAccount({
+      userId,
+      workspaceId: portfolioPayload.workspaceId,
+      providerId: portfolioPayload.providerId,
+      serviceId: portfolioPayload.serviceId,
+      credentialId: portfolioPayload.credentialId,
+      accountId: portfolioPayload.accountId,
+      requestId,
     })
-    .returning()
 
-  void notifyMonitorsReconcile({ requestId, logger })
+    return normalizePortfolioMonitorConfig({
+      triggerBlockId: portfolioPayload.blockId,
+      providerId: portfolioPayload.providerId,
+      serviceId,
+      credentialId: portfolioPayload.credentialId,
+      accountId: portfolioPayload.accountId,
+      condition: portfolioPayload.condition,
+      fireMode: portfolioPayload.fireMode,
+      cooldownSeconds: portfolioPayload.cooldownSeconds,
+      pollIntervalSeconds: portfolioPayload.pollIntervalSeconds,
+    })
+  }
 
-  return NextResponse.json({ data: await toMonitorRecord(createdMonitor) }, { status: 201 })
+  const indicatorPayload = payload as IndicatorCreatePayload
+  await ensureTriggerCapableIndicator(indicatorPayload.workspaceId, indicatorPayload.indicatorId)
+  const indicatorMetadata = await loadIndicatorInputMetadata(
+    indicatorPayload.workspaceId,
+    indicatorPayload.indicatorId
+  )
+
+  return normalizeIndicatorMonitorConfig({
+    triggerBlockId: indicatorPayload.blockId,
+    providerId: indicatorPayload.providerId,
+    interval: indicatorPayload.interval,
+    listingInput: indicatorPayload.listing,
+    indicatorId: indicatorPayload.indicatorId,
+    authInput: indicatorPayload.auth,
+    providerParams: indicatorPayload.providerParams,
+    indicatorInputs: indicatorPayload.indicatorInputs,
+    indicatorInputMeta: indicatorMetadata.inputMeta,
+    requireCompleteAuth,
+  })
 }

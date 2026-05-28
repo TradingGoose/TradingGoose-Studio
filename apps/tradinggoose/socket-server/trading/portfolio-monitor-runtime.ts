@@ -16,13 +16,32 @@ import {
 import type { PortfolioMonitorExecutionPayload } from '@/background/portfolio-monitor-execution'
 import type { PortfolioDetail, PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import {
+  getMonitorRuntimeUnavailableStatus,
+  MonitorRuntimeLock,
+  type MonitorRuntimeLockHealth,
+  type MonitorRuntimeStatus,
+} from '@/socket-server/monitor-runtime-lock'
+import {
   type TradingPortfolioDataPayload,
   tradingPortfolioStreamManager,
 } from '@/socket-server/trading/portfolio-manager'
 
 const logger = createLogger('PortfolioMonitorRuntime')
 
+const LOCK_KEY = 'portfolio-monitor-runtime-lock'
 const RECONCILE_INTERVAL_MS = 30_000
+
+export type PortfolioMonitorRuntimeHealth = {
+  enabled: boolean
+  status: MonitorRuntimeStatus
+  reconcileEndpointEnabled: boolean
+  lock: MonitorRuntimeLockHealth
+  stats: {
+    activeSubscriptions: number
+    lastReconcileAt: string | null
+    lastReconcileError: string | null
+  }
+}
 
 type LoggerLike = {
   info: (message: string, ...args: unknown[]) => void
@@ -115,49 +134,178 @@ const isCooldownOpen = (lastFiredAt: string | undefined, cooldownSeconds: number
 
 export class PortfolioMonitorRuntime {
   private readonly logger: LoggerLike
+  private readonly runtimeLock: MonitorRuntimeLock
+  private status: MonitorRuntimeStatus = 'not_initialized'
   private running = false
+  private starting = false
   private reconcileTimer: ReturnType<typeof setInterval> | null = null
+  private retryTimer: ReturnType<typeof setTimeout> | null = null
+  private isReconciling = false
+  private pendingReconcile = false
+  private lastReconcileAt: string | null = null
+  private lastReconcileError: string | null = null
   private subscriptions = new Map<string, PortfolioMonitorSubscription>()
 
   constructor(loggerLike?: LoggerLike) {
     this.logger = loggerLike ?? logger
+    this.runtimeLock = new MonitorRuntimeLock({
+      key: LOCK_KEY,
+      label: 'Portfolio monitor',
+      logger: this.logger,
+      onLost: (error) => this.enterDegradedState('lock', error, true),
+    })
   }
 
-  getHealth() {
+  getHealth(): PortfolioMonitorRuntimeHealth {
     return {
       enabled: this.running,
+      status: this.status,
+      reconcileEndpointEnabled: true,
+      lock: this.runtimeLock.getHealth(this.status),
       stats: {
         activeSubscriptions: this.subscriptions.size,
+        lastReconcileAt: this.lastReconcileAt,
+        lastReconcileError: this.lastReconcileError,
       },
     }
   }
 
   async start() {
-    if (this.running) return
-    this.running = true
-    await this.reconcile('startup')
+    if (this.running || this.starting) return
+
+    this.starting = true
+    try {
+      this.clearRetryTimer()
+
+      if (!(await this.runtimeLock.acquire())) {
+        this.running = false
+        this.status = getMonitorRuntimeUnavailableStatus()
+        this.logger.warn('Portfolio monitor runtime disabled; lock acquisition failed.')
+        this.scheduleRetry()
+        return
+      }
+
+      this.running = true
+      this.status = 'running'
+      this.runtimeLock.stopRenewal()
+      this.clearReconcileTimer()
+      this.runtimeLock.startRenewal()
+
+      await this.reconcile('startup')
+
+      if (!this.running) return
+    } finally {
+      this.starting = false
+    }
+
     this.reconcileTimer = setInterval(() => void this.reconcile('interval'), RECONCILE_INTERVAL_MS)
     this.reconcileTimer.unref?.()
   }
 
-  stop() {
-    if (this.reconcileTimer) {
-      clearInterval(this.reconcileTimer)
-      this.reconcileTimer = null
-    }
-    this.subscriptions.forEach((subscription) => subscription.unsubscribe())
-    this.subscriptions.clear()
+  async stop() {
+    this.clearRetryTimer()
+    this.runtimeLock.stopRenewal()
+    this.clearReconcileTimer()
+    this.stopSubscriptions()
+    await this.runtimeLock.release()
     this.running = false
+    this.starting = false
+    this.status = 'not_initialized'
   }
 
   async requestReconcile() {
-    if (!this.running) await this.start()
+    if (!this.running) {
+      await this.start()
+      if (!this.running) return
+    }
     await this.reconcile('request')
+  }
+
+  private clearRetryTimer() {
+    if (!this.retryTimer) return
+    clearTimeout(this.retryTimer)
+    this.retryTimer = null
+  }
+
+  private clearReconcileTimer() {
+    if (!this.reconcileTimer) return
+    clearInterval(this.reconcileTimer)
+    this.reconcileTimer = null
+  }
+
+  private stopSubscriptions() {
+    this.subscriptions.forEach((subscription) => subscription.unsubscribe())
+    this.subscriptions.clear()
+  }
+
+  private scheduleRetry() {
+    if (this.retryTimer) return
+
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null
+      void this.start()
+    }, RECONCILE_INTERVAL_MS)
+    this.retryTimer.unref?.()
+  }
+
+  private async enterDegradedState(
+    reason: 'startup' | 'interval' | 'request' | 'lock',
+    error: unknown,
+    shouldLogWarning: boolean
+  ) {
+    this.lastReconcileError = error instanceof Error ? error.message : String(error)
+    this.status = 'degraded'
+    this.running = false
+    this.pendingReconcile = false
+    this.runtimeLock.stopRenewal()
+    this.clearReconcileTimer()
+    this.stopSubscriptions()
+    await this.runtimeLock.release()
+    this.scheduleRetry()
+
+    if (shouldLogWarning) {
+      this.logger.warn('Portfolio monitor paused; runtime unavailable', {
+        reason,
+        error:
+          error instanceof Error
+            ? {
+                message: error.message,
+                stack: error.stack,
+              }
+            : error,
+      })
+    }
   }
 
   private async reconcile(reason: 'startup' | 'interval' | 'request') {
     if (!this.running) return
 
+    if (this.isReconciling) {
+      this.pendingReconcile = true
+      return
+    }
+
+    this.isReconciling = true
+    this.lastReconcileError = null
+
+    try {
+      await this.reconcileSubscriptions(reason)
+    } catch (error) {
+      this.lastReconcileError = error instanceof Error ? error.message : String(error)
+      this.logger.error('Portfolio monitor reconcile failed', {
+        reason,
+        error,
+      })
+    } finally {
+      this.isReconciling = false
+      if (this.pendingReconcile) {
+        this.pendingReconcile = false
+        void this.reconcile('request')
+      }
+    }
+  }
+
+  private async reconcileSubscriptions(reason: 'startup' | 'interval' | 'request') {
     const rows = await db
       .select({
         webhook,
@@ -227,8 +375,10 @@ export class PortfolioMonitorRuntime {
 
     this.logger.info('Portfolio monitor reconcile completed', {
       reason,
+      totalRows: rows.length,
       activeSubscriptions: this.subscriptions.size,
     })
+    this.lastReconcileAt = new Date().toISOString()
   }
 
   private async handlePortfolioData(monitorId: string, payload: TradingPortfolioDataPayload) {
@@ -252,17 +402,18 @@ export class PortfolioMonitorRuntime {
       (config.fireMode === 'while_true' || crossedEdge) &&
       isCooldownOpen(previousLastFiredAt, config.cooldownSeconds)
     const evaluatedAt = new Date().toISOString()
-    const nextRuntimeState: PortfolioMonitorProviderConfig['runtimeState'] = {
+    const evaluatedState: PortfolioMonitorProviderConfig['runtimeState'] = {
       lastEvaluatedAt: evaluatedAt,
-      lastFiredAt: shouldFire ? evaluatedAt : previousLastFiredAt,
+      lastFiredAt: previousLastFiredAt,
       wasTrue: conditionMatched,
       previousSnapshot: currentDetail,
     }
 
-    await this.updateRuntimeState(config.id, nextRuntimeState)
-    config.runtimeState = nextRuntimeState
-
-    if (!shouldFire) return
+    if (!shouldFire) {
+      await this.updateRuntimeState(config.id, evaluatedState)
+      config.runtimeState = evaluatedState
+      return
+    }
 
     const actorUserId = await getApiKeyOwnerUserId(config.pinnedApiKeyId)
     if (!actorUserId) {
@@ -304,15 +455,25 @@ export class PortfolioMonitorRuntime {
       })
     } catch (error) {
       if (isPendingExecutionLimitError(error)) {
-        this.logger.warn('Portfolio monitor queue backlog is full; skipping monitor event', {
-          monitorId: config.id,
-          pendingCount: error.details.pendingCount,
-          maxPendingCount: error.details.maxPendingCount,
-        })
+        this.logger.warn(
+          'Portfolio monitor queue backlog is full; retaining monitor edge for retry',
+          {
+            monitorId: config.id,
+            pendingCount: error.details.pendingCount,
+            maxPendingCount: error.details.maxPendingCount,
+          }
+        )
         return
       }
       throw error
     }
+
+    const firedState = {
+      ...evaluatedState,
+      lastFiredAt: evaluatedAt,
+    }
+    await this.updateRuntimeState(config.id, firedState)
+    config.runtimeState = firedState
   }
 
   private async updateRuntimeState(

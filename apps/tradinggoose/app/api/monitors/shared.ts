@@ -29,9 +29,40 @@ import {
   type MonitorWebhookProvider,
   PORTFOLIO_MONITOR_PROVIDER,
 } from '@/lib/monitors/sources'
+import {
+  authorizeTradingConnectionRequest,
+  resolveTradingProviderContext,
+  resolveTradingProviderSelectedAccount,
+} from '@/lib/trading/context'
+import { isTradingServiceError } from '@/lib/trading/errors'
 import { applySavedEntityYjsStateToRows } from '@/lib/yjs/entity-state'
 
 type WebhookRow = typeof webhook.$inferSelect
+
+export class MonitorRequestError extends Error {
+  status: number
+
+  constructor(message: string, status = 400) {
+    super(message)
+    this.name = 'MonitorRequestError'
+    this.status = status
+  }
+}
+
+const MONITOR_CLIENT_ERROR_PATTERNS = [
+  'Missing',
+  'Invalid',
+  'not found',
+  'must be',
+  'does not',
+  'Unable to',
+  'no active deployment',
+]
+
+export const isMonitorClientError = (message: string) =>
+  MONITOR_CLIENT_ERROR_PATTERNS.some((pattern) =>
+    message.toLowerCase().includes(pattern.toLowerCase())
+  )
 
 export const listMonitorRows = async ({
   workspaceId,
@@ -171,6 +202,60 @@ export const ensureWorkflowInWorkspace = async (workflowId: string, workspaceId:
   }
 
   return workflowRow
+}
+
+export const resolvePortfolioMonitorAccount = async ({
+  userId,
+  workspaceId,
+  providerId,
+  serviceId,
+  credentialId,
+  accountId,
+  requestId,
+}: {
+  userId: string
+  workspaceId: string
+  providerId: string
+  serviceId?: string | null
+  credentialId: string
+  accountId: string
+  requestId: string
+}) => {
+  const requestedServiceId = serviceId?.trim()
+  if (!requestedServiceId) {
+    throw new MonitorRequestError('Trading provider connection is required')
+  }
+
+  try {
+    const connection = await authorizeTradingConnectionRequest({
+      credentialId,
+      userId,
+      workspaceId,
+    })
+    const baseContext = await resolveTradingProviderContext({
+      requestData: {
+        provider: providerId,
+        credentialId,
+        serviceId: requestedServiceId,
+        workspaceId,
+      },
+      requestId,
+      userId,
+      connectionOwnerUserId: connection.connectionOwnerUserId,
+      tokenAccountId: connection.tokenAccountId,
+      accountProviderId: connection.accountProviderId,
+    })
+    await resolveTradingProviderSelectedAccount({
+      baseContext,
+      accountId,
+    })
+    return baseContext.serviceId
+  } catch (error) {
+    if (isTradingServiceError(error)) {
+      throw new MonitorRequestError(error.message, error.status)
+    }
+    throw error
+  }
 }
 
 export const ensureTriggerCapableIndicator = async (workspaceId: string, indicatorId: string) => {

@@ -42,17 +42,21 @@ shieldNonYjsUpgradeListeners(httpServer, yjsUpgradeListener)
 
 const indicatorMonitorRuntime = new IndicatorMonitorRuntime(logger)
 const portfolioMonitorRuntime = new PortfolioMonitorRuntime(logger)
+const monitorRuntimes = {
+  indicator: indicatorMonitorRuntime,
+  portfolio: portfolioMonitorRuntime,
+}
 
 io.use(authenticateSocket)
 
 const httpHandler = createHttpHandler(logger, {
-  getMonitorRuntimeHealth: () => indicatorMonitorRuntime.getHealth(),
+  getMonitorRuntimeHealth: () =>
+    Object.fromEntries(
+      Object.entries(monitorRuntimes).map(([source, runtime]) => [source, runtime.getHealth()])
+    ),
   getConnectionCount: () => yjsWss.clients.size + (io.engine?.clientsCount ?? 0),
   onMonitorsReconcile: async () => {
-    await Promise.all([
-      indicatorMonitorRuntime.requestReconcile(),
-      portfolioMonitorRuntime.requestReconcile(),
-    ])
+    await Promise.all(Object.values(monitorRuntimes).map((runtime) => runtime.requestReconcile()))
   },
 })
 httpServer.on('request', httpHandler)
@@ -123,11 +127,10 @@ logger.info('Starting Socket.IO server...', {
 httpServer.listen(PORT, '0.0.0.0', () => {
   logger.info(`Socket.IO server running on port ${PORT}`)
   logger.info(`🏥 Health check available at: http://localhost:${PORT}/health`)
-  void indicatorMonitorRuntime.start().catch((error) => {
-    logger.error('Failed to start indicator monitor runtime', { error })
-  })
-  void portfolioMonitorRuntime.start().catch((error) => {
-    logger.error('Failed to start portfolio monitor runtime', { error })
+  Object.entries(monitorRuntimes).forEach(([source, runtime]) => {
+    void runtime.start().catch((error) => {
+      logger.error(`Failed to start ${source} monitor runtime`, { error })
+    })
   })
 })
 
@@ -143,7 +146,7 @@ const shutdown = () => {
 
   logger.info('Shutting down Socket.IO server...')
   tradingPortfolioStreamManager.stop()
-  void Promise.all([indicatorMonitorRuntime.stop(), portfolioMonitorRuntime.stop()])
+  void Promise.all(Object.values(monitorRuntimes).map((runtime) => runtime.stop()))
     .catch((error) => {
       logger.error('Failed to stop monitor runtimes cleanly', { error })
     })

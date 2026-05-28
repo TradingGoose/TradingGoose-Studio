@@ -1,7 +1,7 @@
 import {
   INDICATOR_MONITOR_PROVIDER,
-  PORTFOLIO_MONITOR_PROVIDER,
   type MonitorWebhookProvider,
+  PORTFOLIO_MONITOR_PROVIDER,
 } from '@/lib/monitors/sources'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 
@@ -32,7 +32,12 @@ export type MonitorRecord = {
       listing?: Record<string, unknown>
       indicatorId?: string
       serviceId?: string
+      credentialId?: string
       accountId?: string
+      condition?: unknown
+      fireMode?: 'edge' | 'while_true'
+      cooldownSeconds?: number
+      pollIntervalSeconds?: number
       auth?: {
         hasEncryptedSecrets?: boolean
         encryptedSecretFieldIds?: string[]
@@ -84,21 +89,34 @@ export function buildMonitorName(record: MonitorRecord): string {
 }
 
 export function toMonitorDocumentFields(record: MonitorRecord) {
-  if (record.source !== INDICATOR_MONITOR_PROVIDER) {
-    throw new Error('Monitor document editing is only supported for indicator monitors')
+  const monitor = record.providerConfig.monitor
+  if (record.source === PORTFOLIO_MONITOR_PROVIDER) {
+    return {
+      source: PORTFOLIO_MONITOR_PROVIDER,
+      workflowId: record.workflowId,
+      blockId: record.blockId,
+      providerId: monitor.providerId,
+      serviceId: monitor.serviceId,
+      credentialId: monitor.credentialId,
+      accountId: monitor.accountId,
+      condition: monitor.condition,
+      fireMode: monitor.fireMode,
+      cooldownSeconds: monitor.cooldownSeconds,
+      pollIntervalSeconds: monitor.pollIntervalSeconds,
+      isActive: record.isActive,
+    }
   }
 
   return {
+    source: INDICATOR_MONITOR_PROVIDER,
     workflowId: record.workflowId,
     blockId: record.blockId,
-    providerId: record.providerConfig.monitor.providerId,
-    interval: record.providerConfig.monitor.interval,
-    indicatorId: record.providerConfig.monitor.indicatorId,
-    listing: record.providerConfig.monitor.listing,
+    providerId: monitor.providerId,
+    interval: monitor.interval,
+    indicatorId: monitor.indicatorId,
+    listing: monitor.listing,
     isActive: record.isActive,
-    ...(record.providerConfig.monitor.providerParams
-      ? { providerParams: record.providerConfig.monitor.providerParams }
-      : {}),
+    ...(monitor.providerParams ? { providerParams: monitor.providerParams } : {}),
   }
 }
 

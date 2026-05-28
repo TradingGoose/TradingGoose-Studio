@@ -71,24 +71,13 @@ describe('listTradingPortfolioIdentities', () => {
     mocks.listPortfolioIdentities.mockResolvedValue([portfolioIdentity])
   })
 
-  it('throws when a credential token cannot be resolved', async () => {
+  it('throws when no credential identities can be resolved', async () => {
     mocks.credentials = [
-      {
-        id: 'credential-live',
-        provider: 'alpaca-live',
-      },
       {
         id: 'credential-stale',
         provider: 'alpaca-live',
       },
     ]
-    mocks.credentialAccessById.set('credential-live', {
-      credentialId: 'credential-live',
-      accountId: 'account-live',
-      providerId: 'alpaca-live',
-      credentialOwnerUserId: 'user-1',
-      workspaceId: 'workspace-1',
-    })
     mocks.credentialAccessById.set('credential-stale', {
       credentialId: 'credential-stale',
       accountId: 'account-stale',
@@ -112,7 +101,7 @@ describe('listTradingPortfolioIdentities', () => {
     ).rejects.toThrow('Trading credential token unavailable: credential-stale')
   })
 
-  it('throws instead of partially returning identities when any service fails', async () => {
+  it('returns identities from healthy credentials when another credential fails', async () => {
     mocks.credentials = [
       {
         id: 'credential-live',
@@ -149,7 +138,7 @@ describe('listTradingPortfolioIdentities', () => {
         providerId: 'alpaca',
         requestId: 'request-1',
       })
-    ).rejects.toThrow('Trading credential token unavailable: credential-paper')
+    ).resolves.toEqual([portfolioIdentity])
   })
 
   it('returns identities for all owned trading credentials', async () => {

@@ -11,6 +11,54 @@ import {
 } from '@/providers/trading/providers'
 import type { TradingProviderId } from '@/providers/trading/types'
 
+type OAuthCredential = Awaited<ReturnType<typeof listOAuthCredentialsForUser>>[number]
+
+async function listCredentialPortfolioIdentities({
+  credential,
+  providerId,
+  userId,
+  workspaceId,
+  requestId,
+}: {
+  credential: OAuthCredential
+  providerId: TradingProviderId
+  userId: string
+  workspaceId: string
+  requestId: string
+}) {
+  const environment = getTradingProviderOAuthEnvironment(providerId, credential.provider)
+  if (!environment) {
+    throw new Error(`Unsupported trading service: ${credential.provider}`)
+  }
+
+  const credentialAccess = await resolveOAuthCredentialAccountForUser({
+    credentialId: credential.id,
+    userId,
+    workspaceId,
+  })
+  if (!credentialAccess) {
+    throw new Error(`Trading credential unavailable: ${credential.id}`)
+  }
+
+  const accessToken = await refreshAccessTokenIfNeeded(
+    credentialAccess.accountId,
+    credentialAccess.credentialOwnerUserId,
+    requestId
+  )
+  if (!accessToken) {
+    throw new Error(`Trading credential token unavailable: ${credential.id}`)
+  }
+
+  return listPortfolioIdentities({
+    providerId,
+    credentialId: credential.id,
+    tokenAccountId: credentialAccess.accountId,
+    serviceId: credential.provider,
+    environment,
+    accessToken,
+  })
+}
+
 export async function listTradingPortfolioIdentities({
   userId,
   workspaceId,
@@ -42,42 +90,28 @@ export async function listTradingPortfolioIdentities({
     workspaceId,
     providerIds: targetServiceIds,
   })
+  if (!credentials.length) return []
 
-  const identities = await Promise.all(
-    credentials.map(async (credential) => {
-      const environment = getTradingProviderOAuthEnvironment(providerId, credential.provider)
-      if (!environment) {
-        throw new Error(`Unsupported trading service: ${credential.provider}`)
-      }
-
-      const credentialAccess = await resolveOAuthCredentialAccountForUser({
-        credentialId: credential.id,
-        userId,
-        workspaceId,
-      })
-      if (!credentialAccess) {
-        throw new Error(`Trading credential unavailable: ${credential.id}`)
-      }
-
-      const accessToken = await refreshAccessTokenIfNeeded(
-        credentialAccess.accountId,
-        credentialAccess.credentialOwnerUserId,
-        requestId
-      )
-      if (!accessToken) {
-        throw new Error(`Trading credential token unavailable: ${credential.id}`)
-      }
-
-      return listPortfolioIdentities({
-        providerId,
-        credentialId: credential.id,
-        tokenAccountId: credentialAccess.accountId,
-        serviceId: credential.provider,
-        environment,
-        accessToken,
-      })
+  const identityRequests = credentials.map((credential) =>
+    listCredentialPortfolioIdentities({
+      credential,
+      providerId,
+      userId,
+      workspaceId,
+      requestId,
     })
   )
 
-  return identities.flat()
+  const settled = await Promise.allSettled(identityRequests)
+  const identities = settled.flatMap((result) =>
+    result.status === 'fulfilled' ? result.value : []
+  )
+  if (settled.some((result) => result.status === 'fulfilled')) return identities
+
+  const firstFailure = settled.find(
+    (result): result is PromiseRejectedResult => result.status === 'rejected'
+  )
+  if (firstFailure) throw firstFailure.reason
+
+  return []
 }

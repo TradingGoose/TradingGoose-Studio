@@ -6,7 +6,6 @@ import {
 } from '@/lib/copilot/review-sessions/identity'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { env } from '@/lib/env'
-import { getRedisClient, getRedisStorageMode } from '@/lib/redis'
 import { seedEntitySession } from '@/lib/yjs/entity-session'
 import {
   getRuntimeStateFromDoc,
@@ -19,6 +18,7 @@ import {
   setWorkflowState,
   type WorkflowSnapshot,
 } from '@/lib/yjs/workflow-session'
+import { getMonitorRuntimeLockHealth } from '@/socket-server/monitor-runtime-lock'
 import { deleteSession, getState, storeState } from '@/socket-server/yjs/persistence'
 import { getExistingDocument, removeDocument } from '@/socket-server/yjs/upstream-utils'
 
@@ -29,19 +29,7 @@ interface Logger {
   warn: (message: string, ...args: any[]) => void
 }
 
-type MonitorRuntimeStatus = 'not_initialized' | 'running' | 'degraded' | 'disabled'
-
-type MonitorRuntimeHealth = {
-  enabled: boolean
-  status: MonitorRuntimeStatus
-  reconcileEndpointEnabled: boolean
-  lock: {
-    mode: 'fail_closed'
-    redisConfigured: boolean
-    redisClientAvailable: boolean
-    degraded: boolean
-  }
-}
+type MonitorRuntimeHealth = Record<string, unknown>
 
 type HttpHandlerOptions = {
   getMonitorRuntimeHealth?: () => MonitorRuntimeHealth
@@ -111,19 +99,35 @@ function rejectUnauthorizedRequest(
 }
 
 function getDefaultMonitorRuntimeHealth(): MonitorRuntimeHealth {
-  const redisConfigured = getRedisStorageMode() === 'redis'
-  const redisClientAvailable = Boolean(getRedisClient())
-  const degraded = redisConfigured && !redisClientAvailable
+  const defaultStatus = getMonitorRuntimeLockHealth('not_initialized').degraded
+    ? 'degraded'
+    : 'not_initialized'
+  const lock = getMonitorRuntimeLockHealth(defaultStatus)
 
   return {
-    enabled: false,
-    status: degraded ? 'degraded' : 'not_initialized',
-    reconcileEndpointEnabled: true,
-    lock: {
-      mode: 'fail_closed',
-      redisConfigured,
-      redisClientAvailable,
-      degraded,
+    indicator: {
+      enabled: false,
+      status: defaultStatus,
+      reconcileEndpointEnabled: true,
+      lock,
+      stats: {
+        activeSubscriptions: 0,
+        lastReconcileAt: null,
+        lastReconcileError: null,
+        dispatchedCount: 0,
+        skippedCount: 0,
+      },
+    },
+    portfolio: {
+      enabled: false,
+      status: defaultStatus,
+      reconcileEndpointEnabled: true,
+      lock,
+      stats: {
+        activeSubscriptions: 0,
+        lastReconcileAt: null,
+        lastReconcileError: null,
+      },
     },
   }
 }
