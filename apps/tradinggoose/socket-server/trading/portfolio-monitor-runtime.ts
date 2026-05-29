@@ -367,8 +367,10 @@ export class PortfolioMonitorRuntime {
         channel: 'account-snapshot',
         pollIntervalSeconds: config.pollIntervalSeconds,
         clientSubscriptionId: `portfolio-monitor:${config.id}`,
-        onData: (payload) =>
-          void this.handlePortfolioData(config.id, payload).catch((error) => {
+        onData: async (payload) => {
+          try {
+            await this.handlePortfolioData(config.id, payload)
+          } catch (error) {
             if (isMonitorRuntimeDatabaseConnectionError(error)) {
               void this.enterDegradedState('request', error, true)
               return
@@ -377,7 +379,8 @@ export class PortfolioMonitorRuntime {
               monitorId: config.id,
               error,
             })
-          }),
+          }
+        },
         onError: (error) => {
           this.logger.warn('Portfolio monitor data subscription failed', {
             monitorId: config.id,

@@ -33,8 +33,8 @@ export const PORTFOLIO_CONDITION_OPERATORS = [
   'neq',
   'crosses_above',
   'crosses_below',
-  'changes_by_abs',
-  'changes_by_percent',
+  'changes_since_previous_by_abs',
+  'changes_since_previous_by_percent',
   'exists',
   'not_exists',
 ] as const
@@ -182,9 +182,9 @@ const evaluateRule = (rule: PortfolioConditionRule, context: EvaluationContext) 
       return previousNumber !== null && previousNumber <= target && currentNumber > target
     case 'crosses_below':
       return previousNumber !== null && previousNumber >= target && currentNumber < target
-    case 'changes_by_abs':
+    case 'changes_since_previous_by_abs':
       return previousNumber !== null && Math.abs(currentNumber - previousNumber) >= Math.abs(target)
-    case 'changes_by_percent':
+    case 'changes_since_previous_by_percent':
       return (
         previousNumber !== null &&
         previousNumber !== 0 &&

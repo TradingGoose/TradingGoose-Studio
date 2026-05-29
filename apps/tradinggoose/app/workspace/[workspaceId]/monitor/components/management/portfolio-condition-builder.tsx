@@ -63,8 +63,8 @@ const OPERATOR_LABELS: Record<PortfolioConditionOperator, string> = {
   neq: '!=',
   crosses_above: 'Crosses above',
   crosses_below: 'Crosses below',
-  changes_by_abs: 'Changes by amount',
-  changes_by_percent: 'Changes by %',
+  changes_since_previous_by_abs: 'Changes since previous update',
+  changes_since_previous_by_percent: 'Changes % since previous update',
   exists: 'Exists',
   not_exists: 'Does not exist',
 }

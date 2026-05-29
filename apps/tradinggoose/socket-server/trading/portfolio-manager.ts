@@ -80,7 +80,7 @@ interface TradingPortfolioSubscriptionRecord extends TradingPortfolioSubscriptio
   streamKey: string
   socketId?: string
   socket?: AuthenticatedSocket
-  onData?: (payload: TradingPortfolioDataPayload) => void
+  onData?: (payload: TradingPortfolioDataPayload) => void | Promise<void>
   onError?: (error: unknown, payload: TradingPortfolioErrorPayload) => void
 }
 
@@ -218,7 +218,7 @@ export class TradingPortfolioStreamManager {
     forceRefresh?: boolean
     pollIntervalSeconds?: number
     clientSubscriptionId?: string
-    onData: (payload: TradingPortfolioDataPayload) => void
+    onData: (payload: TradingPortfolioDataPayload) => void | Promise<void>
     onError?: (error: unknown, payload: TradingPortfolioErrorPayload) => void
   }): TradingPortfolioSubscriptionInfo & {
     unsubscribe: () => void
@@ -272,7 +272,7 @@ export class TradingPortfolioStreamManager {
     pollIntervalSeconds?: number
     clientSubscriptionId?: string
     socket?: AuthenticatedSocket
-    onData?: (payload: TradingPortfolioDataPayload) => void
+    onData?: (payload: TradingPortfolioDataPayload) => void | Promise<void>
     onError?: (error: unknown, payload: TradingPortfolioErrorPayload) => void
   }) {
     if (this.stopped) throw new Error('Trading portfolio stream manager is stopped')
@@ -348,7 +348,7 @@ export class TradingPortfolioStreamManager {
     }
 
     if (streamState.lastPayload) {
-      this.emitData(record, streamState.lastPayload)
+      void this.emitData(record, streamState.lastPayload)
     }
     this.ensurePolling(streamState, Boolean(forceRefresh))
 
@@ -459,7 +459,7 @@ export class TradingPortfolioStreamManager {
           receivedAt: new Date().toISOString(),
         }
         streamState.lastPayload = payload
-        this.emitToSubscribers(streamState, payload)
+        await this.emitToSubscribers(streamState, payload)
         return
       }
 
@@ -486,7 +486,7 @@ export class TradingPortfolioStreamManager {
           receivedAt: new Date().toISOString(),
         }
         streamState.lastPayload = payload
-        this.emitToSubscribers(streamState, payload)
+        await this.emitToSubscribers(streamState, payload)
         return
       }
 
@@ -515,7 +515,7 @@ export class TradingPortfolioStreamManager {
         receivedAt: new Date().toISOString(),
       }
       streamState.lastPayload = payload
-      this.emitToSubscribers(streamState, payload)
+      await this.emitToSubscribers(streamState, payload)
     } catch (error) {
       if (this.stopped) return
       this.emitErrorToSubscribers(streamState, error)
@@ -585,19 +585,21 @@ export class TradingPortfolioStreamManager {
     return account
   }
 
-  private emitToSubscribers(
+  private async emitToSubscribers(
     streamState: TradingPortfolioStreamState,
     payload: TradingPortfolioDataPayload
   ) {
-    streamState.subscribers.forEach((record) => this.emitData(record, payload))
+    await Promise.all(
+      Array.from(streamState.subscribers.values()).map((record) => this.emitData(record, payload))
+    )
   }
 
-  private emitData(
+  private async emitData(
     record: TradingPortfolioSubscriptionRecord,
     payload: TradingPortfolioDataPayload
   ) {
     if (record.onData) {
-      record.onData(payload)
+      await record.onData(payload)
       return
     }
     if (!record.socket) return
