@@ -13,7 +13,6 @@ import { cn } from '@/lib/utils'
 import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 
 type TradingProviderControlsProps = {
-  workspaceId?: string | null
   providerId?: string | null
   providerOptions: TradingProviderOption[]
   onProviderChange?: (providerId: string) => void
@@ -29,7 +28,6 @@ type TradingProviderControlsProps = {
 }
 
 export function TradingProviderControls({
-  workspaceId,
   providerId,
   providerOptions,
   onProviderChange,
@@ -57,7 +55,6 @@ export function TradingProviderControls({
       />
       {hasSelectedProvider ? (
         <TradingAccountSelector
-          workspaceId={workspaceId}
           providerId={selectedProviderId}
           serviceId={serviceId}
           portfolioIdentity={portfolioIdentity}

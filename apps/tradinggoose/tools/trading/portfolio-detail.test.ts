@@ -4,6 +4,7 @@ const getPortfolioDetailMock = vi.fn()
 const authorizeTradingConnectionRequestMock = vi.fn()
 const resolveTradingProviderContextMock = vi.fn()
 const resolveTradingProviderSelectedAccountMock = vi.fn()
+const checkWorkspaceAccessMock = vi.fn()
 
 vi.mock('@/providers/trading/portfolio', () => ({
   getPortfolioDetail: (...args: unknown[]) => getPortfolioDetailMock(...args),
@@ -15,6 +16,10 @@ vi.mock('@/lib/trading/context', () => ({
   resolveTradingProviderContext: (...args: unknown[]) => resolveTradingProviderContextMock(...args),
   resolveTradingProviderSelectedAccount: (...args: unknown[]) =>
     resolveTradingProviderSelectedAccountMock(...args),
+}))
+
+vi.mock('@/lib/permissions/utils', () => ({
+  checkWorkspaceAccess: (...args: unknown[]) => checkWorkspaceAccessMock(...args),
 }))
 
 import { getTradingPortfolioDetail } from '@/lib/trading/portfolio-detail'
@@ -30,6 +35,7 @@ const portfolioIdentity = {
 describe('tradingPortfolioDetailTool', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess: true })
     getPortfolioDetailMock.mockResolvedValue({ accountId: 'ACC-2' })
     authorizeTradingConnectionRequestMock.mockResolvedValue({
       connectionOwnerUserId: 'user-1',
@@ -71,7 +77,6 @@ describe('tradingPortfolioDetailTool', () => {
         provider: 'tradier',
         credentialId: 'oauth-credential-1',
         serviceId: 'tradier-live',
-        workspaceId: 'workspace-1',
       },
       requestId: 'request-1',
       userId: 'user-1',
@@ -123,7 +128,6 @@ describe('tradingPortfolioDetailTool', () => {
     expect(authorizeTradingConnectionRequestMock).toHaveBeenCalledWith({
       credentialId: 'oauth-credential-1',
       userId: 'user-1',
-      workspaceId: 'workspace-1',
     })
     expect(resolveTradingProviderContextMock).not.toHaveBeenCalled()
     expect(getPortfolioDetailMock).not.toHaveBeenCalled()

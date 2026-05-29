@@ -1,6 +1,6 @@
 import {
-  listOAuthCredentialsForUser,
-  resolveOAuthCredentialAccountForUser,
+  listOAuthConnectionAccountsForUser,
+  resolveOAuthConnectionAccountForUser,
 } from '@/lib/credentials/oauth'
 import { refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
 import { listPortfolioIdentities } from '@/providers/trading/portfolio'
@@ -11,49 +11,40 @@ import {
 } from '@/providers/trading/providers'
 import type { TradingProviderId } from '@/providers/trading/types'
 
-type OAuthCredential = Awaited<ReturnType<typeof listOAuthCredentialsForUser>>[number]
+type OAuthConnectionAccount = {
+  tokenAccountId: string
+  providerId: string
+  credentialOwnerUserId: string
+}
 
-async function listCredentialPortfolioIdentities({
-  credential,
+async function listConnectionPortfolioIdentities({
+  connection,
   providerId,
-  userId,
-  workspaceId,
   requestId,
 }: {
-  credential: OAuthCredential
+  connection: OAuthConnectionAccount
   providerId: TradingProviderId
-  userId: string
-  workspaceId: string
   requestId: string
 }) {
-  const environment = getTradingProviderOAuthEnvironment(providerId, credential.provider)
+  const environment = getTradingProviderOAuthEnvironment(providerId, connection.providerId)
   if (!environment) {
-    throw new Error(`Unsupported trading service: ${credential.provider}`)
-  }
-
-  const credentialAccess = await resolveOAuthCredentialAccountForUser({
-    credentialId: credential.id,
-    userId,
-    workspaceId,
-  })
-  if (!credentialAccess) {
-    throw new Error(`Trading credential unavailable: ${credential.id}`)
+    throw new Error(`Unsupported trading service: ${connection.providerId}`)
   }
 
   const accessToken = await refreshAccessTokenIfNeeded(
-    credentialAccess.accountId,
-    credentialAccess.credentialOwnerUserId,
+    connection.tokenAccountId,
+    connection.credentialOwnerUserId,
     requestId
   )
   if (!accessToken) {
-    throw new Error(`Trading credential token unavailable: ${credential.id}`)
+    throw new Error(`Trading connection token unavailable: ${connection.tokenAccountId}`)
   }
 
   return listPortfolioIdentities({
     providerId,
-    credentialId: credential.id,
-    tokenAccountId: credentialAccess.accountId,
-    serviceId: credential.provider,
+    credentialId: connection.tokenAccountId,
+    tokenAccountId: connection.tokenAccountId,
+    serviceId: connection.providerId,
     environment,
     accessToken,
   })
@@ -61,14 +52,12 @@ async function listCredentialPortfolioIdentities({
 
 export async function listTradingPortfolioIdentities({
   userId,
-  workspaceId,
   providerId,
   serviceId,
   credentialId,
   requestId,
 }: {
   userId: string
-  workspaceId: string
   providerId: TradingProviderId
   serviceId?: string
   credentialId?: string
@@ -87,30 +76,34 @@ export async function listTradingPortfolioIdentities({
   const targetServiceIds = selectedServiceId ? [selectedServiceId] : serviceIds
   if (!targetServiceIds.length) return []
 
-  const credentials = await listOAuthCredentialsForUser({
+  if (credentialId) {
+    const connection = await resolveOAuthConnectionAccountForUser({
+      accountId: credentialId,
+      userId,
+    })
+    if (!connection || !targetServiceIds.includes(connection.providerId)) {
+      throw new Error(`Trading connection unavailable: ${credentialId}`)
+    }
+    return listConnectionPortfolioIdentities({
+      connection,
+      providerId,
+      requestId,
+    })
+  }
+
+  const connections = await listOAuthConnectionAccountsForUser({
     userId,
-    workspaceId,
     providerIds: targetServiceIds,
   })
-  const targetCredentials = credentialId
-    ? credentials.filter((credential) => credential.id === credentialId)
-    : credentials
-  if (credentialId && targetCredentials.length === 0) {
-    throw new Error(`Trading credential unavailable: ${credentialId}`)
-  }
-  if (!targetCredentials.length) return []
+  if (!connections.length) return []
 
-  const identityRequests = targetCredentials.map((credential) =>
-    listCredentialPortfolioIdentities({
-      credential,
+  const identityRequests = connections.map((connection) =>
+    listConnectionPortfolioIdentities({
+      connection,
       providerId,
-      userId,
-      workspaceId,
       requestId,
     })
   )
-
-  if (credentialId) return (await Promise.all(identityRequests)).flat()
 
   const settled = await Promise.allSettled(identityRequests)
   const identities = settled.flatMap((result) =>

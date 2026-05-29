@@ -1,4 +1,4 @@
-import { resolveOAuthCredentialAccountForUser } from '@/lib/credentials/oauth'
+import { resolveOAuthConnectionAccountForUser } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
 import { TradingServiceError } from '@/lib/trading/errors'
@@ -17,7 +17,6 @@ type ProviderRequestData = {
   provider: string
   credentialId: string
   serviceId: string
-  workspaceId: string
 }
 
 type PreflightContext = {
@@ -49,16 +48,14 @@ const requireStringField = (input: string | undefined, field: string): string =>
 export async function authorizeTradingConnectionRequest(params: {
   credentialId: string
   userId: string
-  workspaceId: string
 }): Promise<{
   connectionOwnerUserId: string
   tokenAccountId: string
   accountProviderId: string
 }> {
-  const connection = await resolveOAuthCredentialAccountForUser({
-    credentialId: params.credentialId,
+  const connection = await resolveOAuthConnectionAccountForUser({
+    accountId: params.credentialId,
     userId: params.userId,
-    workspaceId: params.workspaceId,
   })
   if (!connection) {
     throw new TradingServiceError('Trading provider connection not found', 404)
@@ -66,7 +63,7 @@ export async function authorizeTradingConnectionRequest(params: {
 
   return {
     connectionOwnerUserId: connection.credentialOwnerUserId,
-    tokenAccountId: connection.accountId,
+    tokenAccountId: connection.tokenAccountId,
     accountProviderId: connection.providerId,
   }
 }

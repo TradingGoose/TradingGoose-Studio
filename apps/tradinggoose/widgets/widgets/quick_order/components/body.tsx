@@ -254,7 +254,6 @@ export function QuickOrderWidgetBody({
     providerOptions.length > 0
   const { accountsQuery, activeServiceId, activePortfolioIdentity, services, portfolioIdentities } =
     usePortfolioIdentitySelection({
-      workspaceId,
       providerId,
       serviceId: quickOrderParams?.serviceId,
       portfolioIdentity: quickOrderParams?.portfolioIdentity,

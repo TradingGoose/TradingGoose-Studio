@@ -1,3 +1,4 @@
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import {
   authorizeTradingConnectionRequest,
   resolveTradingProviderContext,
@@ -38,10 +39,14 @@ export async function getTradingPortfolioDetail({
   if (!workspaceId) {
     throw new TradingServiceError('workspaceId is required')
   }
+  const workspaceAccess = await checkWorkspaceAccess(workspaceId, userId)
+  if (!workspaceAccess.exists || !workspaceAccess.hasAccess) {
+    throw new TradingServiceError('Not found', 404)
+  }
+
   const connectionAuthorization = await authorizeTradingConnectionRequest({
     credentialId: portfolioIdentity.credentialId,
     userId,
-    workspaceId,
   })
 
   const baseContext = await resolveTradingProviderContext({
@@ -49,7 +54,6 @@ export async function getTradingPortfolioDetail({
       provider: portfolioIdentity.providerId,
       credentialId: portfolioIdentity.credentialId,
       serviceId: portfolioIdentity.serviceId,
-      workspaceId,
     },
     requestId,
     userId,

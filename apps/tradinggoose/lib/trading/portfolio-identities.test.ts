@@ -5,18 +5,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-  credentials: [] as Array<{
-    id: string
-    provider: string
+  connections: [] as Array<{
+    tokenAccountId: string
+    providerId: string
+    credentialOwnerUserId: string
   }>,
-  credentialAccessById: new Map<
+  connectionById: new Map<
     string,
     {
-      credentialId: string
-      accountId: string
+      tokenAccountId: string
       providerId: string
       credentialOwnerUserId: string
-      workspaceId: string
     }
   >(),
   refreshAccessTokenIfNeeded: vi.fn(),
@@ -28,9 +27,9 @@ vi.mock('@/lib/oauth/tokens', () => ({
 }))
 
 vi.mock('@/lib/credentials/oauth', () => ({
-  listOAuthCredentialsForUser: vi.fn(() => Promise.resolve(mocks.credentials)),
-  resolveOAuthCredentialAccountForUser: vi.fn(({ credentialId }: { credentialId: string }) =>
-    Promise.resolve(mocks.credentialAccessById.get(credentialId) ?? null)
+  listOAuthConnectionAccountsForUser: vi.fn(() => Promise.resolve(mocks.connections)),
+  resolveOAuthConnectionAccountForUser: vi.fn(({ accountId }: { accountId: string }) =>
+    Promise.resolve(mocks.connectionById.get(accountId) ?? null)
   ),
 }))
 
@@ -57,7 +56,7 @@ vi.mock('@/providers/trading/providers', () => ({
 
 const portfolioIdentity = {
   providerId: 'alpaca',
-  credentialId: 'credential-live',
+  credentialId: 'connection-live',
   serviceId: 'alpaca-live',
   accountId: 'account-1',
 }
@@ -65,103 +64,74 @@ const portfolioIdentity = {
 describe('listTradingPortfolioIdentities', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.credentials = []
-    mocks.credentialAccessById = new Map()
+    mocks.connections = []
+    mocks.connectionById = new Map()
     mocks.refreshAccessTokenIfNeeded.mockResolvedValue('token')
     mocks.listPortfolioIdentities.mockResolvedValue([portfolioIdentity])
   })
 
-  it('throws when no credential identities can be resolved', async () => {
-    mocks.credentials = [
-      {
-        id: 'credential-stale',
-        provider: 'alpaca-live',
-      },
-    ]
-    mocks.credentialAccessById.set('credential-stale', {
-      credentialId: 'credential-stale',
-      accountId: 'account-stale',
+  it('throws when no selected connection identities can be resolved', async () => {
+    mocks.connectionById.set('connection-stale', {
+      tokenAccountId: 'connection-stale',
       providerId: 'alpaca-live',
       credentialOwnerUserId: 'user-1',
-      workspaceId: 'workspace-1',
     })
     mocks.refreshAccessTokenIfNeeded.mockImplementation((tokenAccountId: string) =>
-      tokenAccountId === 'account-stale' ? null : 'token'
+      tokenAccountId === 'connection-stale' ? null : 'token'
     )
     const { listTradingPortfolioIdentities } = await import('./portfolio-identities')
 
     await expect(
       listTradingPortfolioIdentities({
         userId: 'user-1',
-        workspaceId: 'workspace-1',
         providerId: 'alpaca',
         serviceId: 'alpaca-live',
-        credentialId: 'credential-stale',
+        credentialId: 'connection-stale',
         requestId: 'request-1',
       })
-    ).rejects.toThrow('Trading credential token unavailable: credential-stale')
+    ).rejects.toThrow('Trading connection token unavailable: connection-stale')
   })
 
-  it('returns identities from healthy credentials when another credential fails', async () => {
-    mocks.credentials = [
+  it('returns identities from healthy connections when another connection fails', async () => {
+    mocks.connections = [
       {
-        id: 'credential-live',
-        provider: 'alpaca-live',
+        tokenAccountId: 'connection-live',
+        providerId: 'alpaca-live',
+        credentialOwnerUserId: 'user-1',
       },
       {
-        id: 'credential-paper',
-        provider: 'alpaca-paper',
+        tokenAccountId: 'connection-paper',
+        providerId: 'alpaca-paper',
+        credentialOwnerUserId: 'user-1',
       },
     ]
-    mocks.credentialAccessById.set('credential-live', {
-      credentialId: 'credential-live',
-      accountId: 'account-live',
-      providerId: 'alpaca-live',
-      credentialOwnerUserId: 'user-1',
-      workspaceId: 'workspace-1',
-    })
-    mocks.credentialAccessById.set('credential-paper', {
-      credentialId: 'credential-paper',
-      accountId: 'account-paper',
-      providerId: 'alpaca-paper',
-      credentialOwnerUserId: 'user-1',
-      workspaceId: 'workspace-1',
-    })
     mocks.refreshAccessTokenIfNeeded.mockImplementation((tokenAccountId: string) =>
-      tokenAccountId === 'account-paper' ? null : 'token'
+      tokenAccountId === 'connection-paper' ? null : 'token'
     )
     const { listTradingPortfolioIdentities } = await import('./portfolio-identities')
 
     await expect(
       listTradingPortfolioIdentities({
         userId: 'user-1',
-        workspaceId: 'workspace-1',
         providerId: 'alpaca',
         requestId: 'request-1',
       })
     ).resolves.toEqual([portfolioIdentity])
   })
 
-  it('returns identities for all owned trading credentials', async () => {
-    mocks.credentials = [
+  it('returns identities for all owned trading connections', async () => {
+    mocks.connections = [
       {
-        id: 'credential-live',
-        provider: 'alpaca-live',
+        tokenAccountId: 'connection-live',
+        providerId: 'alpaca-live',
+        credentialOwnerUserId: 'user-1',
       },
     ]
-    mocks.credentialAccessById.set('credential-live', {
-      credentialId: 'credential-live',
-      accountId: 'account-live',
-      providerId: 'alpaca-live',
-      credentialOwnerUserId: 'user-1',
-      workspaceId: 'workspace-1',
-    })
     const { listTradingPortfolioIdentities } = await import('./portfolio-identities')
 
     await expect(
       listTradingPortfolioIdentities({
         userId: 'user-1',
-        workspaceId: 'workspace-1',
         providerId: 'alpaca',
         requestId: 'request-1',
       })

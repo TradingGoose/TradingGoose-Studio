@@ -31,7 +31,6 @@ import {
   getTradingWidgetProviderAvailabilityIds,
   getTradingWidgetProviderOptions,
 } from '@/widgets/utils/trading-widget-providers'
-import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import {
   ChannelSelectorInput,
   CheckboxList,
@@ -384,7 +383,6 @@ function SubBlockTradingAccountSelector({
   disabled: boolean
   contextValues?: Record<string, any>
 }) {
-  const route = useOptionalWorkflowRoute()
   const providerFieldId = config.tradingProviderFieldId ?? 'provider'
   const [value, setValue] = useSubBlockValue<PortfolioIdentity | ''>(blockId, config.id)
   const [storeProviderValue] = useSubBlockValue<string>(blockId, providerFieldId)
@@ -407,7 +405,6 @@ function SubBlockTradingAccountSelector({
   return (
     <TooltipProvider>
       <TradingAccountSelector
-        workspaceId={route?.workspaceId}
         providerId={providerId}
         serviceId={requestedServiceId ?? portfolioIdentity?.serviceId}
         portfolioIdentity={portfolioIdentity}

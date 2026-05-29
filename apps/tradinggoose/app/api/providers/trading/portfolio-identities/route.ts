@@ -37,13 +37,9 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const providerId = searchParams.get('provider')?.trim() as TradingProviderId | undefined
   const serviceId = searchParams.get('serviceId')?.trim() || undefined
-  const workspaceId = searchParams.get('workspaceId')?.trim() || undefined
 
   if (!providerId) {
     return NextResponse.json({ error: 'provider is required' }, { status: 400 })
-  }
-  if (!workspaceId) {
-    return NextResponse.json({ error: 'workspaceId is required' }, { status: 400 })
   }
 
   const session = await getSession()
@@ -60,7 +56,6 @@ export async function GET(request: Request) {
   try {
     portfolioIdentities = await listTradingPortfolioIdentities({
       userId: session.user.id,
-      workspaceId,
       providerId,
       serviceId,
       requestId,

@@ -21,7 +21,6 @@ import type {
 type TradingPortfolioChannel = 'accounts' | 'account-snapshot' | 'portfolio-performance'
 
 type TradingAccountsRequest = {
-  workspaceId?: string
   provider?: string
   serviceId?: string
   refreshKey?: number | string | null
@@ -29,6 +28,7 @@ type TradingAccountsRequest = {
 }
 
 type TradingSnapshotRequest = TradingAccountsRequest & {
+  workspaceId?: string
   portfolioIdentity?: PortfolioIdentity | null
 }
 
@@ -169,7 +169,7 @@ function useTradingPortfolioSocketData<T>({
   const shouldSubscribe =
     enabled &&
     Boolean(normalizedProvider) &&
-    Boolean(normalizedWorkspaceId) &&
+    (channel === 'accounts' || Boolean(normalizedWorkspaceId)) &&
     (channel === 'accounts' || Boolean(normalizedPortfolioIdentityKey)) &&
     (channel !== 'portfolio-performance' || Boolean(window))
   const isCurrentRequestResolved = dataState.key === requestKey
@@ -363,7 +363,6 @@ export function usePortfolioIdentities(request: TradingAccountsRequest) {
   return useTradingPortfolioSocketData<PortfolioIdentity[]>({
     channel: 'accounts',
     provider: request.provider,
-    workspaceId: request.workspaceId,
     serviceId: request.serviceId,
     refreshKey: request.refreshKey,
     enabled: request.enabled,

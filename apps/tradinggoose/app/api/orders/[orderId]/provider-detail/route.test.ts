@@ -176,14 +176,12 @@ describe('order provider detail route', () => {
     expect(authorizeTradingConnectionRequest).toHaveBeenCalledWith({
       credentialId: 'oauth-credential-1',
       userId: 'user-1',
-      workspaceId: 'workspace-1',
     })
     expect(resolveTradingProviderContext).toHaveBeenCalledWith({
       requestData: {
         credentialId: 'oauth-credential-1',
         serviceId: 'alpaca-paper',
         provider: 'alpaca',
-        workspaceId: 'workspace-1',
       },
       requestId: 'request-1',
       userId: 'user-1',

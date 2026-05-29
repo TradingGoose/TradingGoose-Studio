@@ -223,7 +223,6 @@ export function MonitorEditorForm({
                 <div className='space-y-2'>
                   <Label className='text-muted-foreground text-xs'>Trading account</Label>
                   <TradingAccountSelector
-                    workspaceId={workspaceId}
                     providerId={draft.providerId}
                     serviceId={draft.serviceId}
                     portfolioIdentity={selectedPortfolioIdentity}
@@ -330,10 +329,10 @@ export function MonitorEditorForm({
                         interval: nextIntervals.includes(draft.interval as any)
                           ? draft.interval
                           : getProviderIntervalFallback({
-                            defaultDraftInterval,
-                            providerId: nextProviderId,
-                            providerIntervalsByProviderId,
-                          }),
+                              defaultDraftInterval,
+                              providerId: nextProviderId,
+                              providerIntervalsByProviderId,
+                            }),
                       })
                     }}
                   />

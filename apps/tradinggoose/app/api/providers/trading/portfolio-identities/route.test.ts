@@ -54,9 +54,7 @@ describe('trading portfolio identities route', () => {
     const { GET } = await import('./route')
 
     const response = await GET(
-      new Request(
-        'http://localhost/api/providers/trading/portfolio-identities?workspaceId=workspace-1&provider=alpaca'
-      )
+      new Request('http://localhost/api/providers/trading/portfolio-identities?provider=alpaca')
     )
 
     expect(response.status).toBe(502)
@@ -80,15 +78,12 @@ describe('trading portfolio identities route', () => {
     const { GET } = await import('./route')
 
     const response = await GET(
-      new Request(
-        'http://localhost/api/providers/trading/portfolio-identities?workspaceId=workspace-1&provider=alpaca'
-      )
+      new Request('http://localhost/api/providers/trading/portfolio-identities?provider=alpaca')
     )
 
     expect(response.status).toBe(200)
     expect(mocks.listPortfolioIdentities).toHaveBeenCalledWith({
       userId: 'user-1',
-      workspaceId: 'workspace-1',
       providerId: 'alpaca',
       serviceId: undefined,
       requestId: 'request-1',

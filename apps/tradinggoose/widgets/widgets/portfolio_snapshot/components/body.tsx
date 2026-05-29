@@ -263,7 +263,6 @@ export function PortfolioSnapshotWidgetBody({
 
   const { accountsQuery, activeServiceId, activePortfolioIdentity, services, portfolioIdentities } =
     usePortfolioIdentitySelection({
-      workspaceId,
       providerId,
       serviceId: widgetParams?.serviceId,
       portfolioIdentity: widgetParams?.portfolioIdentity,

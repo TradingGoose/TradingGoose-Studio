@@ -345,7 +345,6 @@ export async function submitTradingOrder({
   const connectionAuthorization = await authorizeTradingConnectionRequest({
     credentialId: portfolioIdentity.credentialId,
     userId,
-    workspaceId: requestData.workspaceId,
   })
 
   const baseContext = await resolveTradingProviderContext({
@@ -353,7 +352,6 @@ export async function submitTradingOrder({
       provider: portfolioIdentity.providerId,
       credentialId: portfolioIdentity.credentialId,
       serviceId: portfolioIdentity.serviceId,
-      workspaceId: requestData.workspaceId,
     },
     requestId,
     userId,

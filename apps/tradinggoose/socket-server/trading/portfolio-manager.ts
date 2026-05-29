@@ -1,7 +1,10 @@
 import { createHash, randomUUID } from 'crypto'
-import { resolveOAuthCredentialAccountForUser } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
+import {
+  authorizeTradingConnectionRequest,
+  resolveTradingProviderContext,
+} from '@/lib/trading/context'
 import { listTradingPortfolioIdentities } from '@/lib/trading/portfolio-identities'
 import {
   getPortfolioDetail,
@@ -19,7 +22,6 @@ import {
 import { TradingBrokerRequestError } from '@/providers/trading/portfolio-utils'
 import {
   getTradingProviderDefinition,
-  getTradingProviderOAuthEnvironment,
   getTradingProviderOAuthServiceId,
 } from '@/providers/trading/providers'
 import type {
@@ -66,7 +68,7 @@ export interface TradingPortfolioSubscriptionInfo {
   subscriptionId: string
   clientSubscriptionId?: string
   provider: TradingProviderId
-  workspaceId: string
+  workspaceId?: string
   serviceId?: string
   portfolioIdentity?: PortfolioIdentity
   channel: TradingPortfolioChannel
@@ -85,7 +87,7 @@ interface TradingPortfolioSubscriptionRecord extends TradingPortfolioSubscriptio
 interface TradingPortfolioStreamState {
   streamKey: string
   userId: string
-  workspaceId: string
+  workspaceId?: string
   providerId: TradingProviderId
   serviceId?: string
   portfolioIdentity?: PortfolioIdentity
@@ -106,7 +108,7 @@ interface AccountsCacheEntry {
 
 type TradingPortfolioBasePayload = {
   provider: TradingProviderId
-  workspaceId: string
+  workspaceId?: string
   serviceId?: string
   channel: TradingPortfolioChannel
   receivedAt: string
@@ -275,9 +277,9 @@ export class TradingPortfolioStreamManager {
   }) {
     if (this.stopped) throw new Error('Trading portfolio stream manager is stopped')
 
-    const resolvedWorkspaceId = resolveWorkspaceId(workspaceId)
     const providerId = resolveTradingProviderId(provider, requestedPortfolioIdentity)
     const resolvedChannel = resolveChannel(channel)
+    const resolvedWorkspaceId = resolveWorkspaceId(workspaceId, resolvedChannel)
     const serviceId = resolveServiceId(
       providerId,
       requestedServiceId ?? toPortfolioValueObject(requestedPortfolioIdentity)?.serviceId
@@ -540,7 +542,6 @@ export class TradingPortfolioStreamManager {
 
     const promise = listTradingPortfolioIdentities({
       userId: streamState.userId,
-      workspaceId: streamState.workspaceId,
       providerId: streamState.providerId,
       serviceId: streamState.serviceId,
       credentialId: streamState.portfolioIdentity?.credentialId,
@@ -737,41 +738,38 @@ export const tradingPortfolioStreamManager = new TradingPortfolioStreamManager()
 async function resolveTradingPortfolioContext(
   streamState: TradingPortfolioStreamState
 ): Promise<TradingPortfolioBaseContext> {
-  const providerDefinition = getTradingProviderDefinition(streamState.providerId)
-  if (!providerDefinition) throw new Error('Unsupported trading provider')
-
-  const serviceId = getTradingProviderOAuthServiceId(streamState.providerId, streamState.serviceId)
-  if (!serviceId) throw new Error('Trading provider OAuth service is not configured')
-
   const credentialId = streamState.portfolioIdentity?.credentialId
   if (!credentialId) throw new Error('portfolioIdentity credential is required')
+  const workspaceId = streamState.workspaceId
+  if (!workspaceId) throw new Error('workspaceId is required')
+  const serviceId = streamState.serviceId
+  if (!serviceId) throw new Error('Trading provider connection is required')
 
-  const connectionAccount = await resolveOAuthCredentialAccountForUser({
-    credentialId,
-    userId: streamState.userId,
-    workspaceId: streamState.workspaceId,
-  })
-  if (!connectionAccount) throw new Error('Trading provider connection not found')
-  if (connectionAccount.providerId !== serviceId) {
-    throw new Error('Trading provider connection does not match requested service')
+  const workspaceAccess = await checkWorkspaceAccess(workspaceId, streamState.userId)
+  if (!workspaceAccess.exists || !workspaceAccess.hasAccess) {
+    throw new Error('Trading portfolio workspace not found')
   }
 
-  const accessToken = await refreshAccessTokenIfNeeded(
-    connectionAccount.accountId,
-    connectionAccount.credentialOwnerUserId,
-    streamState.streamKey
-  )
-  if (!accessToken) throw new Error('Trading provider connection not found')
-  const environment = getTradingProviderOAuthEnvironment(streamState.providerId, serviceId)
-  if (!environment) throw new Error('Trading provider connection is not configured')
-
-  return {
-    providerId: streamState.providerId,
+  const connection = await authorizeTradingConnectionRequest({
     credentialId,
-    tokenAccountId: connectionAccount.accountId,
-    serviceId: serviceId,
-    environment,
-    accessToken,
+    userId: streamState.userId,
+  })
+
+  const context = await resolveTradingProviderContext({
+    requestData: {
+      provider: streamState.providerId,
+      credentialId,
+      serviceId,
+    },
+    requestId: streamState.streamKey,
+    userId: streamState.userId,
+    connectionOwnerUserId: connection.connectionOwnerUserId,
+    tokenAccountId: connection.tokenAccountId,
+    accountProviderId: connection.accountProviderId,
+  })
+  return {
+    ...context,
+    providerId: streamState.providerId,
   }
 }
 
@@ -789,9 +787,9 @@ function resolveTradingProviderId(
   return providerId as TradingProviderId
 }
 
-function resolveWorkspaceId(workspaceId?: string) {
+function resolveWorkspaceId(workspaceId: string | undefined, channel: TradingPortfolioChannel) {
   const resolvedWorkspaceId = workspaceId?.trim()
-  if (!resolvedWorkspaceId) throw new Error('workspaceId is required')
+  if (!resolvedWorkspaceId && channel !== 'accounts') throw new Error('workspaceId is required')
   return resolvedWorkspaceId
 }
 
@@ -858,7 +856,7 @@ function resolvePerformanceWindow(
 
 function buildStreamKey(config: {
   userId: string
-  workspaceId: string
+  workspaceId?: string
   providerId: TradingProviderId
   serviceId?: string
   portfolioIdentity?: PortfolioIdentity
@@ -869,7 +867,7 @@ function buildStreamKey(config: {
     .update(
       [
         config.userId,
-        config.workspaceId,
+        config.workspaceId ?? '',
         config.providerId,
         config.serviceId ?? '',
         config.channel,
@@ -885,7 +883,7 @@ function buildAccountsCacheKey(streamState: TradingPortfolioStreamState) {
     .update(
       [
         streamState.userId,
-        streamState.workspaceId,
+        streamState.workspaceId ?? '',
         streamState.providerId,
         streamState.serviceId ?? '',
         streamState.portfolioIdentity?.credentialId ?? '',

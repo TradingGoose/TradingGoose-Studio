@@ -74,7 +74,6 @@ export async function getRecordedTradingOrderProviderDetail({
   const connectionAuthorization = await authorizeTradingConnectionRequest({
     credentialId,
     userId,
-    workspaceId,
   })
 
   const baseContext = await resolveTradingProviderContext({
@@ -82,7 +81,6 @@ export async function getRecordedTradingOrderProviderDetail({
       provider: order.provider,
       credentialId,
       serviceId,
-      workspaceId,
     },
     requestId,
     userId,

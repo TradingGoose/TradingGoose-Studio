@@ -144,7 +144,6 @@ function HeatmapPortfolioControls({ workspaceId, panelId, widgetKey, params }: H
 
   return (
     <TradingProviderControls
-      workspaceId={workspaceId}
       providerId={providerId}
       providerOptions={providerOptions}
       serviceId={params?.serviceId}

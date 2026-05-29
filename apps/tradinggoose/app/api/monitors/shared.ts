@@ -230,14 +230,12 @@ export const resolvePortfolioMonitorAccount = async ({
     const connection = await authorizeTradingConnectionRequest({
       credentialId,
       userId,
-      workspaceId,
     })
     const baseContext = await resolveTradingProviderContext({
       requestData: {
         provider: providerId,
         credentialId,
         serviceId: requestedServiceId,
-        workspaceId,
       },
       requestId,
       userId,

@@ -138,7 +138,6 @@ export function HeatmapWidgetBody({
 
   const { accountsQuery, activeServiceId, activePortfolioIdentity, services, portfolioIdentities } =
     usePortfolioIdentitySelection({
-      workspaceId,
       providerId: tradingProviderId,
       serviceId: widgetParams?.serviceId,
       portfolioIdentity: widgetParams?.portfolioIdentity,
