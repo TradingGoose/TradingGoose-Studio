@@ -11,6 +11,14 @@ const MONACO_TRACE_FILES = MONACO_TRACE_ROOTS.flatMap((root) => [
   `${root}/.bun/monaco-editor@*/node_modules/monaco-editor/esm/vs/**/*.js`,
   `${root}/.bun/monaco-editor@*/node_modules/monaco-editor/esm/vs/**/*.js.map`,
 ])
+const PUBLIC_LOCALE_ROUTE_PREFIX = '(?:es|zh)'
+const LOCALIZED_API_ROUTE_SOURCE = `(?:api|${PUBLIC_LOCALE_ROUTE_PREFIX}/api)(?:/.*)?`
+const LOCALIZED_API_ROUTE_LOOKAHEAD = `${LOCALIZED_API_ROUTE_SOURCE}$`
+const LOCALIZED_APP_ROUTE_SOURCE =
+  `(?:${PUBLIC_LOCALE_ROUTE_PREFIX}/)?(?:w|workspace|chat)(?:/.*)?`
+const LOCALIZED_APP_ROUTE_LOOKAHEAD = `${LOCALIZED_APP_ROUTE_SOURCE}$`
+const API_ROUTE_PARAM_EXCLUDING_WORKFLOW_EXECUTION =
+  ':path((?!workflows/[^/]+/execute$).*)'
 
 const nextConfig: NextConfig = {
   devIndicators: false,
@@ -133,52 +141,75 @@ const nextConfig: NextConfig = {
     '@tradinggoose/db',
   ],
   async headers() {
+    const apiRouteHeaders = [
+      { key: 'Access-Control-Allow-Credentials', value: 'true' },
+      {
+        key: 'Access-Control-Allow-Origin',
+        value: env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001',
+      },
+      {
+        key: 'Access-Control-Allow-Methods',
+        value: 'GET,POST,OPTIONS,PUT,DELETE',
+      },
+      {
+        key: 'Access-Control-Allow-Headers',
+        value:
+          'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-API-Key',
+      },
+    ]
+    const permissiveRouteHeaders = [
+      {
+        key: 'Cross-Origin-Embedder-Policy',
+        value: 'unsafe-none',
+      },
+      {
+        key: 'Cross-Origin-Opener-Policy',
+        value: 'same-origin-allow-popups',
+      },
+    ]
+    const workflowExecutionHeaders = [
+      { key: 'Access-Control-Allow-Origin', value: '*' },
+      {
+        key: 'Access-Control-Allow-Methods',
+        value: 'GET,POST,OPTIONS,PUT',
+      },
+      {
+        key: 'Access-Control-Allow-Headers',
+        value:
+          'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-API-Key',
+      },
+      { key: 'Cross-Origin-Embedder-Policy', value: 'unsafe-none' },
+      { key: 'Cross-Origin-Opener-Policy', value: 'unsafe-none' },
+      {
+        key: 'Content-Security-Policy',
+        value: readWorkflowExecutionCSPPolicy(),
+      },
+    ]
+
     return [
       {
-        // API routes CORS headers
-        source: '/api/:path*',
-        headers: [
-          { key: 'Access-Control-Allow-Credentials', value: 'true' },
-          {
-            key: 'Access-Control-Allow-Origin',
-            value: env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001',
-          },
-          {
-            key: 'Access-Control-Allow-Methods',
-            value: 'GET,POST,OPTIONS,PUT,DELETE',
-          },
-          {
-            key: 'Access-Control-Allow-Headers',
-            value:
-              'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-API-Key',
-          },
-        ],
+        // API routes CORS headers, excluding workflow execution which has a dedicated policy
+        source: `/api/${API_ROUTE_PARAM_EXCLUDING_WORKFLOW_EXECUTION}`,
+        headers: apiRouteHeaders,
+      },
+      {
+        // Locale-prefixed API routes use the same CORS headers as the canonical API path,
+        // excluding workflow execution which has a dedicated policy
+        source: `/:locale(es|zh)/api/${API_ROUTE_PARAM_EXCLUDING_WORKFLOW_EXECUTION}`,
+        headers: apiRouteHeaders,
       },
       // For workflow execution API endpoints
       {
         source: '/api/workflows/:id/execute',
-        headers: [
-          { key: 'Access-Control-Allow-Origin', value: '*' },
-          {
-            key: 'Access-Control-Allow-Methods',
-            value: 'GET,POST,OPTIONS,PUT',
-          },
-          {
-            key: 'Access-Control-Allow-Headers',
-            value:
-              'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-API-Key',
-          },
-          { key: 'Cross-Origin-Embedder-Policy', value: 'unsafe-none' },
-          { key: 'Cross-Origin-Opener-Policy', value: 'unsafe-none' },
-          {
-            key: 'Content-Security-Policy',
-            value: readWorkflowExecutionCSPPolicy(),
-          },
-        ],
+        headers: workflowExecutionHeaders,
+      },
+      {
+        source: '/:locale(es|zh)/api/workflows/:id/execute',
+        headers: workflowExecutionHeaders,
       },
       {
         // Exclude Vercel internal resources and static assets from strict COEP, Google Drive Picker to prevent 'refused to connect' issue
-        source: '/((?!_next|_vercel|api|favicon.ico|w/.*|workspace/.*|api/tools/drive).*)',
+        source: `/((?!_next|_vercel|favicon.ico|${LOCALIZED_API_ROUTE_LOOKAHEAD}|${LOCALIZED_APP_ROUTE_LOOKAHEAD}).*)`,
         headers: [
           {
             key: 'Cross-Origin-Embedder-Policy',
@@ -191,18 +222,32 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // For main app routes, Google Drive Picker, and Vercel resources - use permissive policies
-        source: '/(w/.*|workspace/.*|api/tools/drive|_next/.*|_vercel/.*)',
-        headers: [
-          {
-            key: 'Cross-Origin-Embedder-Policy',
-            value: 'unsafe-none',
-          },
-          {
-            key: 'Cross-Origin-Opener-Policy',
-            value: 'same-origin-allow-popups',
-          },
-        ],
+        // For main app routes - use permissive policies
+        source: '/:app(w|workspace|chat)/:path*',
+        headers: permissiveRouteHeaders,
+      },
+      {
+        // Localized public app routes use the same permissive policies
+        source: '/:locale(es|zh)/:app(w|workspace|chat)/:path*',
+        headers: permissiveRouteHeaders,
+      },
+      {
+        // Google Drive Picker uses permissive cross-origin policies
+        source: '/api/tools/drive/:path*',
+        headers: permissiveRouteHeaders,
+      },
+      {
+        source: '/:locale(es|zh)/api/tools/drive/:path*',
+        headers: permissiveRouteHeaders,
+      },
+      {
+        // Vercel static resources use permissive cross-origin policies
+        source: '/_next/:path*',
+        headers: permissiveRouteHeaders,
+      },
+      {
+        source: '/_vercel/:path*',
+        headers: permissiveRouteHeaders,
       },
       // Block access to sourcemap files (defense in depth)
       {
@@ -217,7 +262,7 @@ const nextConfig: NextConfig = {
       // Apply security headers to routes not handled by middleware runtime CSP
       // Middleware handles: /, /workspace/*, /chat/*
       {
-        source: '/((?!workspace|chat$).*)',
+        source: `/((?!${LOCALIZED_API_ROUTE_LOOKAHEAD}|${LOCALIZED_APP_ROUTE_LOOKAHEAD}).*)`,
         headers: [
           {
             key: 'X-Content-Type-Options',

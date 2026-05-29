@@ -1,4 +1,15 @@
 import type { Edge } from '@xyflow/react'
+import { getBlock } from '@/blocks'
+import {
+  getLocalizedDefaultBlockName,
+  getWorkflowEditorCopy,
+  getWorkflowLabelCopy,
+  localizeWorkflowSubBlockConfig,
+  resolveWorkflowDisplayValue,
+  translateWorkflowLabel,
+  type LocaleCode,
+} from '@/i18n/block-editor'
+import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
 import type {
   BlockData,
   BlockState,
@@ -7,14 +18,19 @@ import type {
   SubBlockState,
   WorkflowState,
 } from '@/stores/workflows/workflow/types'
-import { getLocalizedDefaultBlockName, translateWorkflowLabel, type LocaleCode } from '@/i18n/block-editor'
 import { type PublicCopy } from '@/i18n/public-copy'
+import { resolveTriggerIdFromSubBlocks } from '@/triggers/resolution'
+import {
+  adaptPreviewPayloadToCanvas,
+  type PreviewPayloadAdapterResult,
+} from '@/widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-payload-adapter'
+import { buildPreviewSummaryRows } from '@/widgets/widgets/editor_workflow/components/workflow-render/preview-summary'
 
 export interface WorkflowPreviewDemo {
   id: string
   name: string
   color: string
-  workflowState: WorkflowState
+  previewPayload: PreviewPayloadAdapterResult
 }
 
 type WorkflowPreviewDemoCopy = PublicCopy['landing']['preview']['workflow']['demoCopy']
@@ -363,6 +379,84 @@ const localizeDefaultName = (locale: LocaleCode, type: string) =>
   getLocalizedDefaultBlockName(locale, type)
 
 const localizeCustomName = (locale: LocaleCode, label: string) => translateWorkflowLabel(locale, label)
+
+function buildLocalizedPreviewPayload(
+  locale: LocaleCode,
+  workflowState: WorkflowState
+): PreviewPayloadAdapterResult {
+  const workflowEditorCopy = getWorkflowEditorCopy(locale)
+  const workflowLabelsCopy = getWorkflowLabelCopy(locale)
+  const previewPayload = adaptPreviewPayloadToCanvas(workflowState, { includeConfig: false })
+
+  return {
+    nodes: previewPayload.nodes.map((node) => {
+      if (node.type === 'subflowNode') {
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            title: getLocalizedDefaultBlockName(locale, node.data.kind, node.data.name),
+            startLabel: workflowEditorCopy.start,
+            endLabel: workflowEditorCopy.end,
+          },
+        }
+      }
+
+      const blockConfig = getBlock(node.data.type)
+      if (!blockConfig) {
+        return node
+      }
+
+      const previewStateRaw = node.data.subBlockValues ?? node.data.blockState?.subBlocks ?? {}
+      const triggerId = resolveTriggerIdFromSubBlocks(previewStateRaw, blockConfig.triggers?.available)
+      const localizedSubBlocks = (blockConfig.subBlocks || []).map((subBlock) =>
+        localizeWorkflowSubBlockConfig(locale, subBlock, node.data.type, triggerId ?? undefined)
+      )
+      const isPureTriggerBlock = blockConfig.category === 'triggers'
+      const isTriggerMode = Boolean(node.data.blockState?.triggerMode) || isPureTriggerBlock
+      const previewSubBlocks = buildSubBlockRows({
+        blockId: node.id,
+        subBlocks: localizedSubBlocks,
+        stateToUse: previewStateRaw,
+        isAdvancedMode: Boolean(node.data.blockState?.advancedMode),
+        isTriggerMode,
+        isPureTriggerBlock,
+        availableTriggerIds: blockConfig.triggers?.available,
+        hideFromPreview: true,
+        triggerSubBlockOwner: 'all',
+      }).flat()
+
+      return {
+        ...node,
+        data: {
+          type: node.data.type,
+          name: node.data.name,
+          readOnly: true,
+          isPreview: true,
+          diffStatus: node.data.diffStatus,
+          title: getLocalizedDefaultBlockName(locale, node.data.type, node.data.name),
+          summaryRows: buildPreviewSummaryRows({
+            blockId: node.id,
+            subBlocks: previewSubBlocks,
+            stateToUse: previewStateRaw,
+            showErrorRow: blockConfig.category !== 'triggers',
+            availableTriggerIds: blockConfig.triggers?.available,
+            labels: workflowLabelsCopy,
+            objectItemLabel: workflowEditorCopy.summary.objectItem,
+            additionalCountTemplate: workflowEditorCopy.summary.additionalCount,
+            blockType: node.data.type,
+            resolveDisplayValue: (config, value, blockType) =>
+              resolveWorkflowDisplayValue(locale, config, value, blockType),
+          }),
+          objectItemLabel: workflowEditorCopy.summary.objectItem,
+          enabled: node.data.blockState?.enabled ?? true,
+          horizontalHandles: node.data.blockState?.horizontalHandles ?? false,
+        },
+      }
+    }),
+    edges: previewPayload.edges,
+  }
+}
 
 function buildAnalystCoverageState(
   locale: LocaleCode,
@@ -804,19 +898,28 @@ export function buildTradingAgentWorkflowDemos(
       id: 'analyst-coverage',
       name: localizeCustomName(locale, 'Signal Briefing'),
       color: '#0f766e',
-      workflowState: buildAnalystCoverageState(locale, copy.signalBriefing),
+      previewPayload: buildLocalizedPreviewPayload(
+        locale,
+        buildAnalystCoverageState(locale, copy.signalBriefing)
+      ),
     },
     {
       id: 'investment-debate',
       name: localizeCustomName(locale, 'Investment Debate'),
       color: '#2563eb',
-      workflowState: buildInvestmentDebateState(locale, copy.investmentDebate),
+      previewPayload: buildLocalizedPreviewPayload(
+        locale,
+        buildInvestmentDebateState(locale, copy.investmentDebate)
+      ),
     },
     {
       id: 'risk-routing',
       name: localizeCustomName(locale, 'Risk Routing'),
       color: '#dc2626',
-      workflowState: buildRiskRoutingState(locale, copy.riskRouting),
+      previewPayload: buildLocalizedPreviewPayload(
+        locale,
+        buildRiskRoutingState(locale, copy.riskRouting)
+      ),
     },
   ]
 }

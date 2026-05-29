@@ -189,22 +189,22 @@ export function WorkspaceFiles() {
                           <tr>
                             <th className='px-4 pt-2 pb-3 text-left font-medium'>
                               <span className='text-muted-foreground text-xs uppercase tracking-wide'>
-                                Name
+                                {t('headers.name')}
                               </span>
                             </th>
                             <th className='px-4 pt-2 pb-3 text-left font-medium'>
                               <span className='text-muted-foreground text-xs uppercase tracking-wide'>
-                                Size
+                                {t('headers.size')}
                               </span>
                             </th>
                             <th className='px-4 pt-2 pb-3 text-left font-medium'>
                               <span className='text-muted-foreground text-xs uppercase tracking-wide'>
-                                Uploaded
+                                {t('headers.uploaded')}
                               </span>
                             </th>
                             <th className='px-4 pt-2 pb-3 text-left font-medium'>
                               <span className='text-muted-foreground text-xs uppercase tracking-wide'>
-                                Actions
+                                {t('headers.actions')}
                               </span>
                             </th>
                           </tr>

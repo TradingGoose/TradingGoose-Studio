@@ -2,7 +2,6 @@
 
 import { useCallback, useMemo } from 'react'
 import { Minus, Plus } from 'lucide-react'
-import { useLocale } from 'next-intl'
 import {
   Background,
   ConnectionLineType,
@@ -17,11 +16,9 @@ import '@xyflow/react/dist/style.css'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useAppMessages } from '@/i18n/client-messages'
-import { type LocaleCode } from '@/i18n/utils'
-import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import { WorkflowEdge } from '@/widgets/widgets/editor_workflow/components/workflow-edge/workflow-edge'
 import { PreviewNode } from '@/widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-node'
-import { adaptPreviewPayloadToCanvas } from '@/widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-payload-adapter'
+import type { PreviewPayloadAdapterResult } from '@/widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-payload-adapter'
 import { PreviewSubflow } from '@/widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-subflow'
 
 const previewNodeTypesImport: NodeTypes = {
@@ -43,7 +40,6 @@ const PREVIEW_FIT_PADDING = 0.12
 
 function WorkflowPreviewControls() {
   const { zoomIn, zoomOut } = useReactFlow()
-  const locale = useLocale() as LocaleCode
   const copy = useAppMessages()
   const workflowCopy = copy.landing.preview.workflow
   const zoom = useStore((state: { transform?: number[]; viewport?: { zoom?: number } }) =>
@@ -84,16 +80,16 @@ function WorkflowPreviewControls() {
 
 type WorkflowPreviewCanvasProps = {
   workflowKey: string
-  workflowState: WorkflowState
+  previewPayload: PreviewPayloadAdapterResult
   className?: string
 }
 
 type WorkflowPreviewFlowProps = Omit<WorkflowPreviewCanvasProps, 'workflowKey'>
 
-function WorkflowPreviewFlow({ workflowState, className }: WorkflowPreviewFlowProps) {
+function WorkflowPreviewFlow({ previewPayload, className }: WorkflowPreviewFlowProps) {
   const nodeTypes = useMemo(() => previewNodeTypesImport, [])
   const edgeTypes = useMemo(() => previewEdgeTypesImport, [])
-  const { nodes, edges } = useMemo(() => adaptPreviewPayloadToCanvas(workflowState), [workflowState])
+  const { nodes, edges } = previewPayload
 
   const onInit = useCallback((instance: any) => {
     requestAnimationFrame(() => {
@@ -141,16 +137,12 @@ function WorkflowPreviewFlow({ workflowState, className }: WorkflowPreviewFlowPr
 
 export function WorkflowPreviewCanvas({
   workflowKey,
-  workflowState,
+  previewPayload,
   className,
 }: WorkflowPreviewCanvasProps) {
   return (
     <ReactFlowProvider>
-      <WorkflowPreviewFlow
-        key={workflowKey}
-        workflowState={workflowState}
-        className={className}
-      />
+      <WorkflowPreviewFlow key={workflowKey} previewPayload={previewPayload} className={className} />
     </ReactFlowProvider>
   )
 }

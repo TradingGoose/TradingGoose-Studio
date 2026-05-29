@@ -142,7 +142,12 @@ export default function Invite() {
     setIsAccepting(true)
 
     if (invitationType === 'workspace') {
-      window.location.href = `/api/workspaces/invitations/${encodeURIComponent(inviteId)}?token=${encodeURIComponent(token || '')}`
+      window.location.assign(
+        localizeHref(
+          locale,
+          `/api/workspaces/invitations/${encodeURIComponent(inviteId)}?token=${encodeURIComponent(token || '')}`
+        )
+      )
     } else {
       try {
         // Get the organizationId from invitation details

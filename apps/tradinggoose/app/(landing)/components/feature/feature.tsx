@@ -2,17 +2,22 @@
 
 import type React from 'react'
 import { ChartCandlestick, LayoutDashboardIcon, Workflow } from 'lucide-react'
-import { useLocale } from 'next-intl'
 import { BackgroundRippleEffect } from '@/components/ui/background-ripple-effect'
 import { Card } from '@/components/ui/card'
 import { MotionPreset } from '@/components/ui/motion-preset'
 import { useAppMessages } from '@/i18n/client-messages'
-import type { LocaleCode } from '@/i18n/utils'
 import { cn } from '@/lib/utils'
 import { useCardGlow } from '@/app/(landing)/components/use-card-glow'
 import { LayoutPreview } from './components/layout-preview/layout-preview'
+import {
+  LandingMarketPreviewProvider,
+  type LandingMarketPreviewMessages,
+} from './components/market-preview/landing-market-preview-provider'
 import { MarketPreview } from './components/market-preview/market-preview'
-import { WorkflowPreview } from './components/workflow-preview/workflow-preview'
+import {
+  WorkflowPreview,
+  type WorkflowPreviewProps,
+} from './components/workflow-preview/workflow-preview'
 
 type FeatureBullet = {
   title: string
@@ -27,24 +32,6 @@ type FeatureRow = {
   previewSide: 'left' | 'right'
   icon: React.ReactNode
 }
-
-const FEATURE_ROW_LAYOUT = [
-  {
-    preview: <LayoutPreview />,
-    previewSide: 'left' as const,
-    icon: <LayoutDashboardIcon className='size-5' />,
-  },
-  {
-    preview: <MarketPreview />,
-    previewSide: 'right' as const,
-    icon: <ChartCandlestick className='size-5' />,
-  },
-  {
-    preview: <WorkflowPreview />,
-    previewSide: 'left' as const,
-    icon: <Workflow className='size-5' />,
-  },
-] as const
 
 function FeaturePoint({ title }: FeatureBullet) {
   return (
@@ -155,18 +142,43 @@ function FeatureRowSection({
   )
 }
 
-export default function Feature() {
-  const locale = useLocale() as LocaleCode
+interface FeatureProps {
+  marketPreviewMessages: LandingMarketPreviewMessages
+  workflowDemos: WorkflowPreviewProps['demos']
+}
+
+export default function Feature({ marketPreviewMessages, workflowDemos }: FeatureProps) {
   const copy = useAppMessages()
   useCardGlow()
+  const featureRowLayout = [
+    {
+      preview: <LayoutPreview />,
+      previewSide: 'left' as const,
+      icon: <LayoutDashboardIcon className='size-5' />,
+    },
+    {
+      preview: (
+        <LandingMarketPreviewProvider messages={marketPreviewMessages}>
+          <MarketPreview />
+        </LandingMarketPreviewProvider>
+      ),
+      previewSide: 'right' as const,
+      icon: <ChartCandlestick className='size-5' />,
+    },
+    {
+      preview: <WorkflowPreview demos={workflowDemos} />,
+      previewSide: 'left' as const,
+      icon: <Workflow className='size-5' />,
+    },
+  ] as const
   const featureRows = copy.landing.features.rows.map((row, index) => ({
     badge: row.badge,
     title: row.title,
     description: row.description,
     bullets: row.bullets.map((title) => ({ title })),
-    preview: FEATURE_ROW_LAYOUT[index]?.preview ?? null,
-    previewSide: FEATURE_ROW_LAYOUT[index]?.previewSide ?? 'left',
-    icon: FEATURE_ROW_LAYOUT[index]?.icon ?? <Workflow className='size-5' />,
+    preview: featureRowLayout[index]?.preview ?? null,
+    previewSide: featureRowLayout[index]?.previewSide ?? 'left',
+    icon: featureRowLayout[index]?.icon ?? <Workflow className='size-5' />,
   }))
 
   return (

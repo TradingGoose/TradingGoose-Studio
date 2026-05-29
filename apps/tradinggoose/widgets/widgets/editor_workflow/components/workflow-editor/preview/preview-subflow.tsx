@@ -4,17 +4,27 @@ import { cn } from '@/lib/utils'
 import { getSubflowBlockConfig } from '@/widgets/widgets/editor_workflow/components/subflows/config'
 import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 import { getPreviewDiffClasses } from './preview-diff'
-import type { PreviewCanvasSubflowNode } from './preview-payload-adapter'
+import type { PreviewCanvasSubflowNode, PreviewSubflowData } from './preview-payload-adapter'
 
-function PreviewSubflowInner({ data }: NodeProps<PreviewCanvasSubflowNode>) {
-  const { workflowEditorCopy: copy, getLocalizedDefaultBlockName } = useWorkflowI18n()
-  const { name, width, height, enabled, kind } = data
+function hasPrecomputedPreviewContent(data: PreviewSubflowData) {
+  return data.title !== undefined || data.startLabel !== undefined || data.endLabel !== undefined
+}
 
+function PreviewSubflowCard({
+  data,
+  title,
+  startLabel,
+  endLabel,
+}: {
+  data: PreviewCanvasSubflowNode['data']
+  title: string
+  startLabel: string
+  endLabel: string
+}) {
+  const { width, height, enabled, kind } = data
   const isLoop = kind === 'loop'
   const subflowConfig = getSubflowBlockConfig(kind)
   const BlockIcon = subflowConfig.icon
-  const blockName = getLocalizedDefaultBlockName(kind, name)
-
   const startHandleId = isLoop ? 'loop-start-source' : 'parallel-start-source'
   const endHandleId = isLoop ? 'loop-end-source' : 'parallel-end-source'
   const endTargetHandleId = isLoop ? 'loop-end-target' : 'parallel-end-target'
@@ -46,9 +56,9 @@ function PreviewSubflowInner({ data }: NodeProps<PreviewCanvasSubflowNode>) {
           </div>
           <span
             className={cn('truncate font-medium text-sm', !enabled && 'text-muted-foreground')}
-            title={blockName}
+            title={title}
           >
-            {blockName}
+            {title}
           </span>
         </div>
       </div>
@@ -56,7 +66,7 @@ function PreviewSubflowInner({ data }: NodeProps<PreviewCanvasSubflowNode>) {
       <div className='relative h-[calc(100%-41px)] p-4' />
 
       <div className='-translate-y-1/2 absolute top-1/2 left-4 inline-flex items-center rounded-md border border-border bg-background px-3 py-1 text-xs'>
-        {copy.start}
+        {startLabel}
         <Handle
           type='source'
           position={Position.Right}
@@ -76,7 +86,7 @@ function PreviewSubflowInner({ data }: NodeProps<PreviewCanvasSubflowNode>) {
           className='!h-2 !w-2 !border-none !bg-transparent !opacity-0'
           style={{ left: -8, top: '50%', transform: 'translateY(-50%)' }}
         />
-        {copy.end}
+        {endLabel}
       </div>
       <Handle
         type='source'
@@ -90,6 +100,36 @@ function PreviewSubflowInner({ data }: NodeProps<PreviewCanvasSubflowNode>) {
   )
 }
 
-export const PreviewSubflow = memo(PreviewSubflowInner)
+function LocalizedPreviewSubflow({ data }: NodeProps<PreviewCanvasSubflowNode>) {
+  const { workflowEditorCopy: copy, getLocalizedDefaultBlockName } = useWorkflowI18n()
+
+  return (
+    <PreviewSubflowCard
+      data={data}
+      title={getLocalizedDefaultBlockName(data.kind, data.name)}
+      startLabel={copy.start}
+      endLabel={copy.end}
+    />
+  )
+}
+
+function PrecomputedPreviewSubflow({ data }: NodeProps<PreviewCanvasSubflowNode>) {
+  return (
+    <PreviewSubflowCard
+      data={data}
+      title={data.title ?? data.name}
+      startLabel={data.startLabel ?? 'Start'}
+      endLabel={data.endLabel ?? 'End'}
+    />
+  )
+}
+
+export const PreviewSubflow = memo(function PreviewSubflow(props: NodeProps<PreviewCanvasSubflowNode>) {
+  return hasPrecomputedPreviewContent(props.data) ? (
+    <PrecomputedPreviewSubflow {...props} />
+  ) : (
+    <LocalizedPreviewSubflow {...props} />
+  )
+})
 
 PreviewSubflow.displayName = 'PreviewSubflow'

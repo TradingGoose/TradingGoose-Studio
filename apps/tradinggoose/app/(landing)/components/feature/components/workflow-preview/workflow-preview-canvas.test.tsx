@@ -6,15 +6,7 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mockAdaptPreviewPayloadToCanvas = vi.fn()
 let lastReactFlowProps: Record<string, any> | null = null
-
-vi.mock(
-  '@/widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-payload-adapter',
-  () => ({
-    adaptPreviewPayloadToCanvas: (...args: any[]) => mockAdaptPreviewPayloadToCanvas(...args),
-  })
-)
 
 vi.mock('@xyflow/react', () => {
   return {
@@ -80,18 +72,6 @@ describe('WorkflowPreviewCanvas', () => {
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     lastReactFlowProps = null
-    mockAdaptPreviewPayloadToCanvas.mockReset()
-    mockAdaptPreviewPayloadToCanvas.mockReturnValue({
-      nodes: [
-        {
-          id: 'node-1',
-          type: 'previewNode',
-          position: { x: 0, y: 0 },
-          data: {},
-        },
-      ],
-      edges: [{ id: 'edge-1', source: 'node-1', target: 'node-2', type: 'workflowEdge' }],
-    })
 
     container = document.createElement('div')
     document.body.appendChild(container)
@@ -112,7 +92,22 @@ describe('WorkflowPreviewCanvas', () => {
       root.render(
         <WorkflowPreviewCanvas
           workflowKey='demo-a'
-          workflowState={{ blocks: {}, edges: [], loops: {}, parallels: {} } as any}
+          previewPayload={{
+            nodes: [
+              {
+                id: 'node-1',
+                type: 'previewNode',
+                position: { x: 0, y: 0 },
+                data: {
+                  type: 'agent',
+                  name: 'Agent',
+                  readOnly: true,
+                  isPreview: true,
+                },
+              },
+            ],
+            edges: [{ id: 'edge-1', source: 'node-1', target: 'node-2', type: 'workflowEdge' }],
+          }}
         />
       )
     })
@@ -137,28 +132,46 @@ describe('WorkflowPreviewCanvas', () => {
       root.render(
         <WorkflowPreviewCanvas
           workflowKey='demo-a'
-          workflowState={{ blocks: {}, edges: [], loops: {}, parallels: {} } as any}
+          previewPayload={{
+            nodes: [
+              {
+                id: 'node-1',
+                type: 'previewNode',
+                position: { x: 0, y: 0 },
+                data: {
+                  type: 'agent',
+                  name: 'Agent',
+                  readOnly: true,
+                  isPreview: true,
+                },
+              },
+            ],
+            edges: [{ id: 'edge-1', source: 'node-1', target: 'node-2', type: 'workflowEdge' }],
+          }}
         />
       )
-    })
-
-    mockAdaptPreviewPayloadToCanvas.mockReturnValue({
-      nodes: [
-        {
-          id: 'node-2',
-          type: 'previewNode',
-          position: { x: 24, y: 36 },
-          data: {},
-        },
-      ],
-      edges: [],
     })
 
     await act(async () => {
       root.render(
         <WorkflowPreviewCanvas
           workflowKey='demo-b'
-          workflowState={{ blocks: {}, edges: [], loops: {}, parallels: {} } as any}
+          previewPayload={{
+            nodes: [
+              {
+                id: 'node-2',
+                type: 'previewNode',
+                position: { x: 24, y: 36 },
+                data: {
+                  type: 'agent',
+                  name: 'Agent',
+                  readOnly: true,
+                  isPreview: true,
+                },
+              },
+            ],
+            edges: [],
+          }}
         />
       )
     })

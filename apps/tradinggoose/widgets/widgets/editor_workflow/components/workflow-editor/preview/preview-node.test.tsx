@@ -22,6 +22,42 @@ vi.mock('@/blocks', () => ({
   getBlock: () => undefined,
 }))
 
+vi.mock('@/widgets/widgets/editor_workflow/copy', () => ({
+  useWorkflowI18n: () => ({
+    workflowEditorCopy: {
+      summary: {
+        objectItem: 'Object',
+        additionalCount: '+{count}',
+      },
+    },
+    workflowLabelsCopy: {
+      configured: 'Configured',
+      error: 'error',
+      fields: 'fields',
+      items: 'items',
+      object: 'object',
+      value: 'value',
+    },
+    getLocalizedDefaultBlockName: (_blockType: string, blockName?: string) => blockName ?? 'Block',
+    localizeWorkflowSubBlockConfig: (config: any) =>
+      config?.id === 'selectedTriggerId' && Array.isArray(config?.options)
+        ? {
+            ...config,
+            options: config.options.map((option: any) =>
+              option?.id === 'calendly_webhook' ? { ...option, label: 'Calendly Webhook' } : option
+            ),
+          }
+        : config,
+    resolveWorkflowDisplayValue: (config: any, value: unknown) => {
+      if (config?.options && typeof value === 'string') {
+        return config.options.find((option: any) => option?.id === value)?.label ?? value
+      }
+
+      return value
+    },
+  }),
+}))
+
 import { PreviewNode } from './preview-node'
 
 describe('PreviewNode', () => {
@@ -126,6 +162,71 @@ describe('PreviewNode', () => {
     expect(markup).toContain('data-handle-position="left"')
     expect(markup).toContain('data-handle-id="source"')
     expect(markup).toContain('data-handle-position="right"')
+  })
+
+  it('renders precomputed preview summaries when localized summary metadata is provided', () => {
+    const markup = renderToStaticMarkup(
+      createElement(PreviewNode as any, {
+        id: 'agent-precomputed',
+        data: {
+          type: 'agent',
+          name: 'Agent Node',
+          title: 'Localized Agent',
+          config: {
+            category: 'blocks',
+            bgColor: '#00ccff',
+            icon: (props: any) => createElement('svg', props),
+          },
+          summaryRows: [
+            {
+              id: 'summary-1',
+              kind: 'text',
+              title: 'Model',
+              value: 'gpt-5.4-mini',
+            },
+          ],
+          objectItemLabel: 'Object',
+          enabled: true,
+          horizontalHandles: false,
+          readOnly: true,
+          isPreview: true,
+        },
+      })
+    )
+
+    expect(markup).toContain('Localized Agent')
+    expect(markup).toContain('Model')
+    expect(markup).toContain('gpt-5.4-mini')
+  })
+
+  it('throws when precomputed preview summaries are missing localized object item metadata', () => {
+    expect(() =>
+      renderToStaticMarkup(
+        createElement(PreviewNode as any, {
+          id: 'agent-precomputed-error',
+          data: {
+            type: 'agent',
+            name: 'Agent Node',
+            title: 'Localized Agent',
+            config: {
+              category: 'blocks',
+              bgColor: '#00ccff',
+              icon: (props: any) => createElement('svg', props),
+            },
+            summaryRows: [
+              {
+                id: 'summary-1',
+                kind: 'text',
+                title: 'Model',
+                value: 'gpt-5.4-mini',
+              },
+            ],
+            readOnly: true,
+            isPreview: true,
+          },
+        })
+      )
+    ).toThrow('Missing localized object item label for precomputed preview summary rows.')
   })
 
   it('filters conditional preview rows before rendering duplicate subblock ids', () => {

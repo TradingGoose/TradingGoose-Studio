@@ -21,7 +21,6 @@
     "test:coverage": "vitest run --coverage",
     "email:dev": "NODE_OPTIONS='--experimental-vm-modules --disable-warning=ExperimentalWarning' email dev --dir components/emails",
     "type-check": "NODE_OPTIONS=--max-old-space-size=8192 tsc --noEmit",
-    "workflow:integration-audit": "bun run ../../scripts/audit-workflow-integration-english-copy.ts",
     "test:billing:suite": "bun run scripts/test-billing-suite.ts"
   },
   "dependencies": {
@@ -175,6 +174,7 @@
     "critters": "0.0.25",
     "dotenv": "^16.4.7",
     "jsdom": "^26.0.0",
+    "path-to-regexp": "8.4.2",
     "postcss": "^8",
     "react-email": "^5.1.0",
     "tailwindcss": "^3.4.1",

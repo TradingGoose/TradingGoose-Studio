@@ -12,6 +12,7 @@ interface IntlProviderProps {
 
 export default async function IntlProvider({ children, namespaces }: IntlProviderProps) {
   const locale = (await getLocale()) as LocaleCode
+  // Route layouts intentionally scope messages. Include every namespace used by shared children.
   const messages = namespaces?.length ? getScopedPublicMessages(locale, namespaces) : undefined
 
   return (

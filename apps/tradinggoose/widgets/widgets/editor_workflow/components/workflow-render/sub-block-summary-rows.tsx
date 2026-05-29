@@ -13,17 +13,17 @@ import {
   toListingValueObject,
 } from '@/lib/listing/identity'
 import { cn } from '@/lib/utils'
-import { getTriggerAwareSubBlockStableKey } from '@/lib/workflows/sub-block-keys'
-import { resolveDisplayedSubBlockValue } from '@/lib/workflows/subblock-values'
 import type { SubBlockConfig } from '@/blocks/types'
-import { formatWorkflowTemplate } from '@/i18n/workflow-inspector-core'
 import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
+import {
+  buildPreviewSummaryRows,
+  type PreviewSummaryConditionRow as SubBlockSummaryConditionRow,
+  type PreviewSummaryJsonRow,
+  type PreviewSummaryRowData,
+  formatSubBlockSummaryValue,
+} from './preview-summary'
 
-export interface SubBlockSummaryConditionRow {
-  id: string
-  title: string
-  value: string
-}
+export type { SubBlockSummaryConditionRow }
 
 interface SubBlockSummaryRowsProps {
   blockId: string
@@ -34,255 +34,6 @@ interface SubBlockSummaryRowsProps {
   availableTriggerIds?: string[]
   labelClassName?: string
   valueClassName?: string
-}
-
-interface JsonPreviewFieldRow {
-  title: string
-  value: string
-}
-
-const EMPTY_VALUE_LABEL = '-'
-const JSON_PREVIEW_ROW_LIMIT = 8
-
-function readSubBlockStateValue(entry: unknown): unknown {
-  if (entry && typeof entry === 'object' && 'value' in entry) {
-    return (entry as { value: unknown }).value
-  }
-  return entry
-}
-
-function formatSummaryOverflow(template: string, count: number): string {
-  return formatWorkflowTemplate(template, { count })
-}
-
-function formatSubBlockSummaryValue(value: unknown, objectItemLabel: string): string {
-  if (value === null || value === undefined || value === '') {
-    return EMPTY_VALUE_LABEL
-  }
-
-  const getItemDisplayValue = (item: unknown): string => {
-    if (item === null || item === undefined || item === '') {
-      return ''
-    }
-
-    if (typeof item === 'object' && !Array.isArray(item)) {
-      const objectItem = item as Record<string, unknown>
-      return String(
-        objectItem.title || objectItem.name || objectItem.label || objectItem.id || objectItemLabel
-      )
-    }
-
-    return String(item)
-  }
-
-  if (Array.isArray(value)) {
-    const nonEmptyItems = value.filter((item) => item !== null && item !== undefined && item !== '')
-    if (nonEmptyItems.length === 0) {
-      return EMPTY_VALUE_LABEL
-    }
-
-    if (nonEmptyItems.length === 1) {
-      return getItemDisplayValue(nonEmptyItems[0])
-    }
-
-    if (nonEmptyItems.length === 2) {
-      return `${getItemDisplayValue(nonEmptyItems[0])}, ${getItemDisplayValue(nonEmptyItems[1])}`
-    }
-
-    return `${getItemDisplayValue(nonEmptyItems[0])}, ${getItemDisplayValue(nonEmptyItems[1])} +${nonEmptyItems.length - 2}`
-  }
-
-  if (typeof value === 'object') {
-    const entries = Object.entries(value).filter(
-      ([, entryValue]) => entryValue !== null && entryValue !== undefined && entryValue !== ''
-    )
-
-    if (entries.length === 0) {
-      return EMPTY_VALUE_LABEL
-    }
-
-    if (entries.length === 1) {
-      const [entryKey, entryValue] = entries[0]
-      const entryValueString = String(entryValue)
-      const preview =
-        entryValueString.length > 30 ? `${entryValueString.slice(0, 30)}...` : entryValueString
-      return `${entryKey}: ${preview}`
-    }
-
-    const previewKeys = entries
-      .slice(0, 2)
-      .map(([entryKey]) => entryKey)
-      .join(', ')
-
-    return entries.length > 2 ? `${previewKeys} +${entries.length - 2}` : previewKeys
-  }
-
-  if (typeof value === 'string') {
-    return value
-  }
-
-  if (typeof value === 'number' || typeof value === 'boolean') {
-    return String(value)
-  }
-
-  try {
-    const serialized = JSON.stringify(value)
-    return serialized === '{}' || serialized === '[]' ? EMPTY_VALUE_LABEL : serialized
-  } catch {
-    return String(value)
-  }
-}
-
-function parseJsonDetailValue(value: unknown): unknown {
-  if (typeof value !== 'string') {
-    return value
-  }
-
-  const trimmed = value.trim()
-  if (!trimmed || (trimmed[0] !== '{' && trimmed[0] !== '[')) {
-    return value
-  }
-
-  try {
-    return JSON.parse(trimmed)
-  } catch {
-    return value
-  }
-}
-
-function buildJsonPreviewFieldRows({
-  value,
-  labels,
-  objectItemLabel,
-  additionalCountTemplate,
-}: {
-  value: unknown
-  labels: Record<string, string>
-  objectItemLabel: string
-  additionalCountTemplate: string
-}): JsonPreviewFieldRow[] {
-  const parsedValue = parseJsonDetailValue(value)
-
-  if (parsedValue === null || parsedValue === undefined || parsedValue === '') {
-    return [{ title: labels.value, value: EMPTY_VALUE_LABEL }]
-  }
-
-  if (Array.isArray(parsedValue)) {
-    if (parsedValue.length === 0) {
-      return [{ title: labels.items, value: '0' }]
-    }
-
-    const firstItem = parsedValue[0]
-    if (firstItem && typeof firstItem === 'object' && !Array.isArray(firstItem)) {
-      const entries = Object.entries(firstItem)
-      const rows = entries.slice(0, JSON_PREVIEW_ROW_LIMIT).map(([key, entryValue]) => ({
-        title: key,
-        value: formatSubBlockSummaryValue(entryValue, objectItemLabel),
-      }))
-
-      if (entries.length > JSON_PREVIEW_ROW_LIMIT) {
-        rows.push({
-          title: labels.fields,
-          value: formatSummaryOverflow(
-            additionalCountTemplate,
-            entries.length - JSON_PREVIEW_ROW_LIMIT
-          ),
-        })
-      }
-
-      if (parsedValue.length > 1) {
-        rows.push({
-          title: labels.items,
-          value: String(parsedValue.length),
-        })
-      }
-
-      return rows
-    }
-
-    const rows = parsedValue.slice(0, JSON_PREVIEW_ROW_LIMIT).map((item, index) => ({
-      title: `[${index}]`,
-      value: formatSubBlockSummaryValue(item, objectItemLabel),
-    }))
-
-    if (parsedValue.length > JSON_PREVIEW_ROW_LIMIT) {
-      rows.push({
-        title: labels.items,
-        value: formatSummaryOverflow(
-          additionalCountTemplate,
-          parsedValue.length - JSON_PREVIEW_ROW_LIMIT
-        ),
-      })
-    }
-
-    return rows
-  }
-
-  if (typeof parsedValue === 'object') {
-    const entries = Object.entries(parsedValue)
-    if (entries.length === 0) {
-      return [{ title: labels.object, value: '{}' }]
-    }
-
-    const rows = entries.slice(0, JSON_PREVIEW_ROW_LIMIT).map(([key, entryValue]) => ({
-      title: key,
-      value: formatSubBlockSummaryValue(entryValue, objectItemLabel),
-    }))
-
-    if (entries.length > JSON_PREVIEW_ROW_LIMIT) {
-      rows.push({
-        title: labels.fields,
-        value: formatSummaryOverflow(
-          additionalCountTemplate,
-          entries.length - JSON_PREVIEW_ROW_LIMIT
-        ),
-      })
-    }
-
-    return rows
-  }
-
-  return [
-    {
-      title: labels.value,
-      value: formatSubBlockSummaryValue(parsedValue, objectItemLabel),
-    },
-  ]
-}
-
-function formatSkillInputValue(value: unknown): string {
-  if (!Array.isArray(value) || value.length === 0) {
-    return EMPTY_VALUE_LABEL
-  }
-
-  const resolvedNames = value
-    .map((item) => {
-      if (!item || typeof item !== 'object') {
-        return null
-      }
-
-      const storedSkill = item as { skillId?: string; name?: string }
-      if (typeof storedSkill.name === 'string' && storedSkill.name.length > 0) {
-        return storedSkill.name
-      }
-
-      return storedSkill.skillId ?? null
-    })
-    .filter((name): name is string => typeof name === 'string' && name.length > 0)
-
-  if (resolvedNames.length === 0) {
-    return EMPTY_VALUE_LABEL
-  }
-
-  if (resolvedNames.length === 1) {
-    return resolvedNames[0]
-  }
-
-  if (resolvedNames.length === 2) {
-    return `${resolvedNames[0]}, ${resolvedNames[1]}`
-  }
-
-  return `${resolvedNames[0]}, ${resolvedNames[1]} +${resolvedNames.length - 2}`
 }
 
 function SummaryRow({
@@ -313,6 +64,51 @@ function SummaryRow({
         title={valueTitle ?? (isTextValue ? value : undefined)}
       >
         {value}
+      </div>
+    </div>
+  )
+}
+
+function SummaryJsonRow({
+  row,
+  labelClassName,
+  valueClassName,
+}: {
+  row: PreviewSummaryJsonRow
+  labelClassName?: string
+  valueClassName?: string
+}) {
+  return (
+    <div className='flex flex-col gap-1'>
+      <p
+        className={cn('min-w-0 truncate text-muted-foreground capitalize', labelClassName)}
+        title={row.title}
+      >
+        {row.title}
+      </p>
+      <div className='ml-3 overflow-hidden rounded-md border border-border bg-background'>
+        {row.rows.map((jsonRow, index) => (
+          <div
+            key={`${row.id}-json-row-${index}`}
+            className={cn(
+              'flex items-center gap-2 px-3 py-1.5',
+              index > 0 && 'border-border border-t'
+            )}
+          >
+            <p
+              className={cn('min-w-0 truncate text-muted-foreground', labelClassName)}
+              title={jsonRow.title}
+            >
+              {jsonRow.title}
+            </p>
+            <p
+              className={cn('min-w-0 flex-1 truncate text-right', valueClassName)}
+              title={jsonRow.value}
+            >
+              {jsonRow.value}
+            </p>
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -378,6 +174,58 @@ function SummaryListingRow({
   )
 }
 
+export function PrecomputedSubBlockSummaryRows({
+  rows,
+  objectItemLabel,
+  labelClassName,
+  valueClassName,
+}: {
+  rows: PreviewSummaryRowData[]
+  objectItemLabel: string
+  labelClassName?: string
+  valueClassName?: string
+}) {
+  return (
+    <>
+      {rows.map((row) => {
+        if (row.kind === 'json') {
+          return (
+            <SummaryJsonRow
+              key={row.id}
+              row={row}
+              labelClassName={labelClassName}
+              valueClassName={valueClassName}
+            />
+          )
+        }
+
+        if (row.kind === 'listing') {
+          return (
+            <SummaryListingRow
+              key={row.id}
+              title={row.title}
+              value={row.rawValue}
+              objectItemLabel={objectItemLabel}
+              labelClassName={labelClassName}
+              valueClassName={valueClassName}
+            />
+          )
+        }
+
+        return (
+          <SummaryRow
+            key={row.id}
+            title={row.title}
+            value={row.value}
+            labelClassName={labelClassName}
+            valueClassName={valueClassName}
+          />
+        )
+      })}
+    </>
+  )
+}
+
 export function SubBlockSummaryRows({
   blockId,
   subBlocks,
@@ -395,123 +243,25 @@ export function SubBlockSummaryRows({
   } = useWorkflowI18n()
   const objectItemLabel = workflowEditorCopy.summary.objectItem
   const additionalCountTemplate = workflowEditorCopy.summary.additionalCount
+  const rows = buildPreviewSummaryRows({
+    blockId,
+    subBlocks,
+    stateToUse,
+    conditionRows,
+    showErrorRow,
+    availableTriggerIds,
+    labels,
+    objectItemLabel,
+    additionalCountTemplate,
+    resolveDisplayValue: resolveWorkflowDisplayValue,
+  })
 
   return (
-    <>
-      {conditionRows
-        ? conditionRows.map((conditionRow) => (
-            <SummaryRow
-              key={conditionRow.id}
-              title={conditionRow.title}
-              value={formatSubBlockSummaryValue(conditionRow.value, objectItemLabel)}
-              labelClassName={labelClassName}
-              valueClassName={valueClassName}
-            />
-          ))
-        : subBlocks.map((subBlock, index) => {
-            const stableKey = `${getTriggerAwareSubBlockStableKey(
-              blockId,
-              subBlock,
-              stateToUse,
-              availableTriggerIds
-            )}-${index}`
-            const rawValue = resolveDisplayedSubBlockValue(
-              {
-                readOnly: subBlock.readOnly,
-                defaultValue: subBlock.defaultValue,
-              },
-              readSubBlockStateValue(stateToUse[subBlock.id])
-            )
-            const localizedValue = resolveWorkflowDisplayValue(
-              { id: subBlock.id, options: subBlock.options },
-              rawValue
-            )
-            const isJsonCodeSubBlock = subBlock.type === 'code' && subBlock.language === 'json'
-            const displayValue = subBlock.password
-              ? rawValue === null || rawValue === undefined || rawValue === ''
-                ? EMPTY_VALUE_LABEL
-                : labels.configured
-              : subBlock.type === 'skill-input'
-                ? formatSkillInputValue(localizedValue)
-                : formatSubBlockSummaryValue(localizedValue, objectItemLabel)
-            const title = subBlock.title ?? subBlock.id
-
-            if (isJsonCodeSubBlock) {
-              return (
-                <div key={stableKey} className='flex flex-col gap-1'>
-                  <p
-                    className={cn(
-                      'min-w-0 truncate text-muted-foreground capitalize',
-                      labelClassName
-                    )}
-                    title={title}
-                  >
-                    {title}
-                  </p>
-                  <div className='ml-3 overflow-hidden rounded-md border border-border bg-background'>
-                    {buildJsonPreviewFieldRows({
-                      value: localizedValue,
-                      labels,
-                      objectItemLabel,
-                      additionalCountTemplate,
-                    }).map((jsonRow, jsonRowIndex) => (
-                      <div
-                        key={`${stableKey}-json-row-${jsonRowIndex}`}
-                        className={cn(
-                          'flex items-center gap-2 px-3 py-1.5',
-                          jsonRowIndex > 0 && 'border-border border-t'
-                        )}
-                      >
-                        <p
-                          className={cn('min-w-0 truncate text-muted-foreground', labelClassName)}
-                          title={jsonRow.title}
-                        >
-                          {jsonRow.title}
-                        </p>
-                        <p
-                          className={cn('min-w-0 flex-1 truncate text-right', valueClassName)}
-                          title={jsonRow.value}
-                        >
-                          {jsonRow.value}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            }
-
-            if (!subBlock.password && subBlock.type === 'market-selector') {
-              return (
-                <SummaryListingRow
-                  key={stableKey}
-                  title={title}
-                  value={rawValue}
-                  objectItemLabel={objectItemLabel}
-                  labelClassName={labelClassName}
-                  valueClassName={valueClassName}
-                />
-              )
-            }
-
-            return (
-              <SummaryRow
-                key={stableKey}
-                title={title}
-                value={displayValue}
-                labelClassName={labelClassName}
-                valueClassName={valueClassName}
-              />
-            )
-          })}
-      {showErrorRow && (
-        <SummaryRow
-          title={labels.error}
-          value={EMPTY_VALUE_LABEL}
-          labelClassName={labelClassName}
-          valueClassName={valueClassName}
-        />
-      )}
-    </>
+    <PrecomputedSubBlockSummaryRows
+      rows={rows}
+      objectItemLabel={objectItemLabel}
+      labelClassName={labelClassName}
+      valueClassName={valueClassName}
+    />
   )
 }

@@ -20,7 +20,16 @@ export type WorkflowVariablesMessages = WorkspaceWidgetsMessages['workflowVariab
 export type McpDropdownMessages = WorkspaceWidgetsMessages['mcpDropdown']
 
 export function useWorkspaceWidgetsMessages(): WorkspaceWidgetsMessages {
-  return useAppMessages().workspace.widgets
+  // Any route rendering workspace widgets must provide the 'workspace' namespace in IntlProvider.
+  const widgetsMessages = useAppMessages().workspace?.widgets
+
+  if (!widgetsMessages) {
+    throw new Error(
+      "Missing workspace widget messages in NextIntlClientProvider. Include the 'workspace' namespace when rendering workspace widgets."
+    )
+  }
+
+  return widgetsMessages
 }
 
 export function useWorkflowInspectorMessages(): WorkflowInspectorMessages {
