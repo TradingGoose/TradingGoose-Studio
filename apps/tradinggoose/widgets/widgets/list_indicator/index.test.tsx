@@ -55,7 +55,7 @@ vi.mock('@/components/ui/dropdown-menu', () => ({
   ),
 }))
 
-vi.mock('@/widgets/widgets/components/widget-header-control', () => ({
+vi.mock('@/components/widget-header-control', () => ({
   widgetHeaderButtonGroupClassName: () => 'controls',
   widgetHeaderIconButtonClassName: () => 'icon-button',
   widgetHeaderMenuContentClassName: 'menu-content',

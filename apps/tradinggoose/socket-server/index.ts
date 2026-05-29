@@ -10,6 +10,7 @@ import { IndicatorMonitorRuntime } from '@/socket-server/market/indicator-monito
 import { type AuthenticatedSocket, authenticateSocket } from '@/socket-server/middleware/auth'
 import { createHttpHandler } from '@/socket-server/routes/http'
 import { tradingPortfolioStreamManager } from '@/socket-server/trading/portfolio-manager'
+import { PortfolioMonitorRuntime } from '@/socket-server/trading/portfolio-monitor-runtime'
 import {
   isYjsUpgradeRequest,
   shieldNonYjsUpgradeListeners,
@@ -40,14 +41,22 @@ const io = createSocketIOServer(httpServer)
 shieldNonYjsUpgradeListeners(httpServer, yjsUpgradeListener)
 
 const indicatorMonitorRuntime = new IndicatorMonitorRuntime(logger)
+const portfolioMonitorRuntime = new PortfolioMonitorRuntime(logger)
+const monitorRuntimes = {
+  indicator: indicatorMonitorRuntime,
+  portfolio: portfolioMonitorRuntime,
+}
 
 io.use(authenticateSocket)
 
 const httpHandler = createHttpHandler(logger, {
-  getMonitorRuntimeHealth: () => indicatorMonitorRuntime.getHealth(),
+  getMonitorRuntimeHealth: () =>
+    Object.fromEntries(
+      Object.entries(monitorRuntimes).map(([source, runtime]) => [source, runtime.getHealth()])
+    ),
   getConnectionCount: () => yjsWss.clients.size + (io.engine?.clientsCount ?? 0),
-  onIndicatorMonitorsReconcile: async () => {
-    await indicatorMonitorRuntime.requestReconcile()
+  onMonitorsReconcile: async () => {
+    await Promise.all(Object.values(monitorRuntimes).map((runtime) => runtime.requestReconcile()))
   },
 })
 httpServer.on('request', httpHandler)
@@ -118,8 +127,10 @@ logger.info('Starting Socket.IO server...', {
 httpServer.listen(PORT, '0.0.0.0', () => {
   logger.info(`Socket.IO server running on port ${PORT}`)
   logger.info(`🏥 Health check available at: http://localhost:${PORT}/health`)
-  void indicatorMonitorRuntime.start().catch((error) => {
-    logger.error('Failed to start indicator monitor runtime', { error })
+  Object.entries(monitorRuntimes).forEach(([source, runtime]) => {
+    void runtime.start().catch((error) => {
+      logger.error(`Failed to start ${source} monitor runtime`, { error })
+    })
   })
 })
 
@@ -135,10 +146,9 @@ const shutdown = () => {
 
   logger.info('Shutting down Socket.IO server...')
   tradingPortfolioStreamManager.stop()
-  void indicatorMonitorRuntime
-    .stop()
+  void Promise.all(Object.values(monitorRuntimes).map((runtime) => runtime.stop()))
     .catch((error) => {
-      logger.error('Failed to stop indicator monitor runtime cleanly', { error })
+      logger.error('Failed to stop monitor runtimes cleanly', { error })
     })
     .finally(() => {
       void io.close((error) => {

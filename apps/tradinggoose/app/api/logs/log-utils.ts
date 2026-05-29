@@ -11,7 +11,14 @@ import { normalizeOptionalString } from '@/lib/utils'
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 
-const MONITOR_FIELDS = ['id', 'providerId', 'interval', 'indicatorId'] as const
+const MONITOR_FIELDS = [
+  'id',
+  'providerId',
+  'serviceId',
+  'accountId',
+  'interval',
+  'indicatorId',
+] as const
 const MONITOR_LISTING_FIELDS = [
   'listing_type',
   'listing_id',

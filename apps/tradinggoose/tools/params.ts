@@ -210,6 +210,8 @@ export function getToolParametersConfig(
             serviceId: subBlock.serviceId,
             requiredScopes: subBlock.requiredScopes,
             providerType: subBlock.providerType,
+            marketProviderKind: subBlock.marketProviderKind,
+            tradingProviderKind: subBlock.tradingProviderKind,
             tradingProviderFieldId: subBlock.tradingProviderFieldId,
             enableSearch: subBlock.enableSearch,
             searchPlaceholder: subBlock.searchPlaceholder,

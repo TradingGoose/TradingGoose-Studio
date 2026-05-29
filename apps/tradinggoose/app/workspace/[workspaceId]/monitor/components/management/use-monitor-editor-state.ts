@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { INDICATOR_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 import type { ConfigBoardContext } from '../config/config-board-state'
 import {
@@ -13,8 +14,8 @@ import {
 } from '../config/config-draft'
 import { resolveConfigBoardContextPatch } from '../config/config-drop'
 import type {
-  IndicatorMonitorRecord,
   MonitorDraft,
+  MonitorRecord,
   MonitorRecordActions,
   MonitorReferenceData,
 } from '../shared/types'
@@ -31,7 +32,7 @@ export function useMonitorEditorState({
   viewConfig,
 }: {
   workspaceId: string
-  monitorRecords: IndicatorMonitorRecord[]
+  monitorRecords: MonitorRecord[]
   referenceData: MonitorReferenceData
   monitorActions: MonitorRecordActions
   viewConfig: ConfigMonitorViewConfig
@@ -106,10 +107,18 @@ export function useMonitorEditorState({
   )
 
   const editingListingInstanceId =
-    isEditorOpen && editingDraft ? `indicator-monitor-edit-${editingKey ?? 'new'}` : null
+    isEditorOpen && editingDraft?.source === INDICATOR_MONITOR_PROVIDER
+      ? `monitor-edit-${editingKey ?? 'new'}`
+      : null
 
   useEffect(() => {
-    if (!editingDraft?.providerId || !editingListingInstanceId) return
+    if (
+      editingDraft?.source !== INDICATOR_MONITOR_PROVIDER ||
+      !editingDraft.providerId ||
+      !editingListingInstanceId
+    ) {
+      return
+    }
     updateListingSelectorInstance(editingListingInstanceId, {
       providerId: editingDraft.providerId,
       selectedListingValue: editingDraft.listing,
@@ -118,26 +127,29 @@ export function useMonitorEditorState({
   }, [
     editingDraft?.listing,
     editingDraft?.providerId,
+    editingDraft?.source,
     editingListingInstanceId,
     updateListingSelectorInstance,
   ])
 
   const openDraft = useCallback(
     (key: string | null, draft: MonitorDraft, errors: Record<string, string> = {}) => {
-      const instanceId = `indicator-monitor-edit-${key ?? 'new'}`
-      ensureListingSelectorInstance(instanceId, {
-        providerId: draft.providerId,
-        selectedListingValue: draft.listing,
-        selectedListing: draft.listing as any,
-        query: '',
-        results: [],
-        error: undefined,
-      })
-      updateListingSelectorInstance(instanceId, {
-        providerId: draft.providerId,
-        selectedListingValue: draft.listing,
-        selectedListing: draft.listing as any,
-      })
+      if (draft.source === INDICATOR_MONITOR_PROVIDER) {
+        const instanceId = `monitor-edit-${key ?? 'new'}`
+        ensureListingSelectorInstance(instanceId, {
+          providerId: draft.providerId,
+          selectedListingValue: draft.listing,
+          selectedListing: draft.listing as any,
+          query: '',
+          results: [],
+          error: undefined,
+        })
+        updateListingSelectorInstance(instanceId, {
+          providerId: draft.providerId,
+          selectedListingValue: draft.listing,
+          selectedListing: draft.listing as any,
+        })
+      }
       setEditingKey(key)
       setEditingDraft(draft)
       setEditingErrors(errors)
@@ -148,7 +160,7 @@ export function useMonitorEditorState({
   )
 
   const openEdit = useCallback(
-    (monitor: IndicatorMonitorRecord) => {
+    (monitor: MonitorRecord) => {
       selectMonitorId(monitor.monitorId)
       openDraft(monitor.monitorId, buildDraftFromMonitor(monitor))
     },
@@ -173,7 +185,7 @@ export function useMonitorEditorState({
 
   const openRejectedDropProposal = useCallback(
     (
-      monitor: IndicatorMonitorRecord,
+      monitor: MonitorRecord,
       proposal: { draftPatch: Partial<MonitorDraft>; errors: Record<string, string> }
     ) => {
       selectMonitorId(monitor.monitorId)
@@ -256,14 +268,12 @@ export function useMonitorEditorState({
               workspaceId,
               draft: editingDraft,
               originalMonitor: sourceMonitor,
-              referenceData,
             })
           )
         : await monitorActions.createMonitor(
             buildMonitorCreatePayloadFromDraft({
               workspaceId,
               draft: editingDraft,
-              referenceData,
             })
           )
 
@@ -286,7 +296,7 @@ export function useMonitorEditorState({
   ])
 
   const toggleMonitorState = useCallback(
-    async (monitor: IndicatorMonitorRecord) => {
+    async (monitor: MonitorRecord) => {
       const nextIsActive = !monitor.isActive
       setTogglingMonitorId(monitor.monitorId)
       setPanelError(null)

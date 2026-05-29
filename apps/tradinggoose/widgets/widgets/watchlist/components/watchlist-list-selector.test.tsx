@@ -2,13 +2,8 @@
  * @vitest-environment jsdom
  */
 
+import type { ButtonHTMLAttributes, HTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
 import { act } from 'react'
-import type {
-  ButtonHTMLAttributes,
-  HTMLAttributes,
-  InputHTMLAttributes,
-  ReactNode,
-} from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WatchlistListSelector } from '@/widgets/widgets/watchlist/components/watchlist-list-selector'
@@ -27,11 +22,7 @@ vi.mock('@/components/ui/dropdown-menu', () => ({
       {children}
     </div>
   ),
-  DropdownMenuItem: ({
-    children,
-    className,
-    ...props
-  }: HTMLAttributes<HTMLDivElement>) => (
+  DropdownMenuItem: ({ children, className, ...props }: HTMLAttributes<HTMLDivElement>) => (
     <div className={className} {...props}>
       {children}
     </div>
@@ -68,7 +59,7 @@ vi.mock('@/components/ui/alert-dialog', () => ({
   AlertDialogTitle: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }))
 
-vi.mock('@/widgets/widgets/components/widget-header-control', () => ({
+vi.mock('@/components/widget-header-control', () => ({
   widgetHeaderControlClassName: (className?: string) =>
     ['trigger', className].filter(Boolean).join(' '),
   widgetHeaderMenuContentClassName: 'content',
@@ -143,7 +134,9 @@ describe('WatchlistListSelector', () => {
     expect(renameButton).toBeTruthy()
 
     await act(async () => {
-      renameButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true, cancelable: true }))
+      renameButton?.dispatchEvent(
+        new globalThis.MouseEvent('click', { bubbles: true, cancelable: true })
+      )
     })
 
     const input = container.querySelector('input[value="Favorites"]') as HTMLInputElement | null
@@ -152,10 +145,7 @@ describe('WatchlistListSelector', () => {
 
     await act(async () => {
       if (!input) return
-      const valueSetter = Object.getOwnPropertyDescriptor(
-        HTMLInputElement.prototype,
-        'value'
-      )?.set
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
       valueSetter?.call(input, 'Tech')
       input.dispatchEvent(new Event('input', { bubbles: true }))
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
@@ -203,7 +193,9 @@ describe('WatchlistListSelector', () => {
     expect(deleteButton).toBeTruthy()
 
     await act(async () => {
-      deleteButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true, cancelable: true }))
+      deleteButton?.dispatchEvent(
+        new globalThis.MouseEvent('click', { bubbles: true, cancelable: true })
+      )
     })
 
     expect(container.textContent).toContain('Delete watchlist?')
@@ -215,7 +207,9 @@ describe('WatchlistListSelector', () => {
     expect(confirmButton).toBeTruthy()
 
     await act(async () => {
-      confirmButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true, cancelable: true }))
+      confirmButton?.dispatchEvent(
+        new globalThis.MouseEvent('click', { bubbles: true, cancelable: true })
+      )
     })
 
     expect(onDeleteWatchlist).toHaveBeenCalledWith('favorites')

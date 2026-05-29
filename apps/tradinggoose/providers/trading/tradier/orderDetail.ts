@@ -1,11 +1,11 @@
 import { fetchBrokerJson } from '@/providers/trading/portfolio-utils'
 import { buildTradierAuthHeaders, resolveTradierBaseUrl } from '@/providers/trading/tradier/client'
 import type {
-  TradingHoldingsInput,
   TradingOrderDetailInput,
   TradingOrderDetailOutput,
   TradingOrderDetailResult,
   TradingOrderHistoryRecord,
+  TradingPortfolioDetailInput,
   TradingRequestConfig,
 } from '@/providers/trading/types'
 
@@ -49,7 +49,7 @@ export const buildTradierOrderDetailRequest = (
   const baseUrl = resolveTradierBaseUrl()
   const authHeaders = buildTradierAuthHeaders({
     accessToken: params.accessToken,
-  } as TradingHoldingsInput)
+  } as TradingPortfolioDetailInput)
 
   return {
     url: `${baseUrl}/accounts/${encodeURIComponent(accountId)}/orders/${encodeURIComponent(providerOrderId)}`,

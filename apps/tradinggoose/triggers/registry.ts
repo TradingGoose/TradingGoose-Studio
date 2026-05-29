@@ -64,6 +64,7 @@ import {
   microsoftTeamsWebhookTrigger,
 } from '@/triggers/microsoftteams'
 import { outlookPollingTrigger } from '@/triggers/outlook'
+import { portfolioStateTrigger } from '@/triggers/portfolio/trigger'
 import { rssPollingTrigger } from '@/triggers/rss'
 import { scheduleTrigger } from '@/triggers/schedule'
 import { slackWebhookTrigger } from '@/triggers/slack'
@@ -146,5 +147,6 @@ export const TRIGGER_REGISTRY: TriggerRegistry = {
   hubspot_ticket_deleted: hubspotTicketDeletedTrigger,
   hubspot_ticket_property_changed: hubspotTicketPropertyChangedTrigger,
   indicator_trigger: indicatorTrigger,
+  portfolio_state_trigger: portfolioStateTrigger,
   imap_poller: imapPollingTrigger,
 }

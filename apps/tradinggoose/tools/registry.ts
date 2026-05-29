@@ -243,8 +243,8 @@ import { thinkingTool } from '@/tools/thinking'
 import {
   orderHistoryTool,
   tradingActionTool,
-  tradingHoldingsTool,
   tradingOrderDetailTool,
+  tradingPortfolioDetailTool,
 } from '@/tools/trading'
 import { sendSMSTool } from '@/tools/twilio'
 import { typeformFilesTool, typeformInsightsTool, typeformResponsesTool } from '@/tools/typeform'
@@ -460,7 +460,7 @@ export const tools: Record<string, ToolConfig> = {
   mistral_parser: mistralParserTool,
   thinking_tool: thinkingTool,
   trading_place_order: tradingActionTool,
-  trading_get_holdings: tradingHoldingsTool,
+  trading_get_portfolio_detail: tradingPortfolioDetailTool,
   trading_order_detail: tradingOrderDetailTool,
   trading_order_history: orderHistoryTool,
   watchlist_read_lists: watchlistReadListsTool,

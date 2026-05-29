@@ -21,7 +21,7 @@ const mockEmitHeatmapParamsChange = vi.fn()
 
 const portfolioIdentity = {
   providerId: 'alpaca',
-  tokenAccountId: 'oauth-account-1',
+  credentialId: 'oauth-account-1',
   serviceId: 'alpaca-live',
   accountId: 'account-1',
   accountName: 'Paper',
@@ -29,14 +29,7 @@ const portfolioIdentity = {
 }
 
 const createPortfolioPosition = (listing: ReturnType<typeof createListing>, quantity: number) => ({
-  symbol: {
-    base: listing.listing_id,
-    quote: 'USD',
-    assetClass: 'stock' as const,
-    active: true,
-    rank: 0,
-    listing,
-  },
+  listingIdentity: listing,
   quantity,
 })
 
@@ -75,13 +68,7 @@ const createPortfolioDetailFromQuantities = (
   createPortfolioDetail(
     quantities.map(({ symbol, quantity }) => {
       const listing = createPortfolioListing(symbol)
-      return {
-        ...createPortfolioPosition(listing, quantity),
-        symbol: {
-          ...createPortfolioPosition(listing, quantity).symbol,
-          base: symbol,
-        },
-      }
+      return createPortfolioPosition(listing, quantity)
     })
   )
 
@@ -427,6 +414,7 @@ describe('HeatmapWidgetBody', () => {
     })
 
     expect(mockUsePortfolioDetail).toHaveBeenLastCalledWith({
+      workspaceId: 'workspace-1',
       provider: 'alpaca',
       serviceId: 'alpaca-live',
       portfolioIdentity,

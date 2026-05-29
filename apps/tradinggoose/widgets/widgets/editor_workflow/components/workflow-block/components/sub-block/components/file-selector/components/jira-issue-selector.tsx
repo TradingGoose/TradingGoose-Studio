@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, ExternalLink, RefreshCw, X } from 'lucide-react'
 import { JiraIcon } from '@/components/icons/icons'
+import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -20,7 +21,6 @@ import {
   getServiceIdFromScopes,
   type OAuthProvider,
 } from '@/lib/oauth'
-import { OAuthRequiredModal } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/credential-selector/components/oauth-required-modal'
 
 const logger = createLogger('JiraIssueSelector')
 

@@ -13,7 +13,7 @@ import {
 
 const portfolioIdentity = {
   providerId: 'alpaca',
-  tokenAccountId: 'oauth-account-1',
+  credentialId: 'oauth-account-1',
   serviceId: 'alpaca-live',
   accountId: 'acct-1',
 }

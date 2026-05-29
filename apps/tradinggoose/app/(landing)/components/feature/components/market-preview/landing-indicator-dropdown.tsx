@@ -11,13 +11,13 @@ import {
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { cn } from '@/lib/utils'
 import {
   widgetHeaderControlClassName,
   widgetHeaderMenuContentClassName,
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
-} from '@/widgets/widgets/components/widget-header-control'
+} from '@/components/widget-header-control'
+import { cn } from '@/lib/utils'
 import type { LandingMarketIndicatorOption } from './indicators/catalog'
 
 const DEFAULT_PLACEHOLDER = 'Select indicators'

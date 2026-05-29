@@ -6,6 +6,7 @@ import type {
   NormalizedPineSignal,
 } from '@/lib/indicators/types'
 import type { ListingIdentity } from '@/lib/listing/identity'
+import { INDICATOR_MONITOR_PROVIDER, INDICATOR_MONITOR_TRIGGER_ID } from '@/lib/monitors/sources'
 import type { MarketSeries } from '@/providers/market/types'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -88,8 +89,8 @@ export type IndicatorTriggerDispatchPayload = {
     indicatorId: string
   }
   trigger: {
-    provider: 'indicator'
-    source: 'indicator_trigger'
+    provider: typeof INDICATOR_MONITOR_PROVIDER
+    source: typeof INDICATOR_MONITOR_TRIGGER_ID
     executionId: string
     emittedAt: string
   }
@@ -445,8 +446,8 @@ export const buildIndicatorTriggerDispatchPayload = ({
     },
     monitor,
     trigger: {
-      provider: 'indicator',
-      source: 'indicator_trigger',
+      provider: INDICATOR_MONITOR_PROVIDER,
+      source: INDICATOR_MONITOR_TRIGGER_ID,
       executionId,
       emittedAt,
     },

@@ -634,6 +634,8 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
       serviceId: uiComponent?.serviceId,
       requiredScopes: uiComponent?.requiredScopes,
       providerType,
+      marketProviderKind: uiComponent?.marketProviderKind,
+      tradingProviderKind: uiComponent?.tradingProviderKind,
       tradingProviderFieldId: uiComponent?.tradingProviderFieldId,
       enableSearch: uiComponent?.enableSearch,
       searchPlaceholder: uiComponent?.searchPlaceholder,

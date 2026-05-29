@@ -22,7 +22,7 @@ vi.mock('@/components/ui/tooltip', () => ({
   TooltipContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }))
 
-vi.mock('@/widgets/widgets/components/widget-header-control', () => ({
+vi.mock('@/components/widget-header-control', () => ({
   widgetHeaderIconButtonClassName: () => 'icon-button',
   widgetHeaderMenuItemClassName: 'menu-item',
 }))
@@ -66,15 +66,17 @@ const getMenuButtons = (tree: ReactNode) => {
 const findMenuButton = (items: ReactElement[], label: string) =>
   items.find((item) =>
     Children.toArray((item.props as { children?: ReactNode }).children).some(
-      (child) =>
-        isValidElement<{ children?: ReactNode }>(child) && child.props.children === label
+      (child) => isValidElement<{ children?: ReactNode }>(child) && child.props.children === label
     )
   ) as ReactElement<{ onClick?: () => void }> | undefined
 
 describe('WatchlistListActionsButton', () => {
   it('prevents popover auto-focus when opening list actions', () => {
     const tree = WatchlistListActionsButton(createProps())
-    const content = findElementByType(tree, (element) => element.type === popoverMocks.PopoverContent)
+    const content = findElementByType(
+      tree,
+      (element) => element.type === popoverMocks.PopoverContent
+    )
 
     expect(content).not.toBeNull()
 
@@ -169,7 +171,10 @@ describe('WatchlistListActionsButton', () => {
     })
 
     const trigger = findElementByType(tree, (element) => element.type === 'button')
-    const content = findElementByType(tree, (element) => element.type === popoverMocks.PopoverContent)
+    const content = findElementByType(
+      tree,
+      (element) => element.type === popoverMocks.PopoverContent
+    )
 
     expect((trigger?.props as { disabled?: boolean } | undefined)?.disabled).toBe(true)
     expect(content).toBeNull()

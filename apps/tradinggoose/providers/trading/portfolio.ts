@@ -1,14 +1,11 @@
 import { getAlpacaTradingAccounts } from '@/providers/trading/alpaca/accounts'
 import { getAlpacaTradingAccountPerformance } from '@/providers/trading/alpaca/performance'
 import { getAlpacaTradingAccountSnapshot } from '@/providers/trading/alpaca/snapshot'
+import type { PortfolioDetail, PortfolioIdentity } from '@/providers/trading/portfolio-identity'
+import { getTradingPortfolioDetailCapabilities } from '@/providers/trading/providers'
 import { getTradierTradingAccounts } from '@/providers/trading/tradier/accounts'
 import { getTradierTradingAccountPerformance } from '@/providers/trading/tradier/performance'
 import { getTradierTradingAccountSnapshot } from '@/providers/trading/tradier/snapshot'
-import { getTradingHoldingsCapabilities } from '@/providers/trading/providers'
-import type {
-  PortfolioDetail,
-  PortfolioIdentity,
-} from '@/providers/trading/portfolio-identity'
 import type {
   TradingPortfolioAccountContext,
   TradingPortfolioBaseContext,
@@ -20,7 +17,7 @@ import type {
 export const getTradingPortfolioSupportedWindows = (
   providerId: TradingProviderId
 ): TradingPortfolioPerformanceWindow[] => {
-  return [...(getTradingHoldingsCapabilities(providerId)?.performanceWindows ?? [])]
+  return [...(getTradingPortfolioDetailCapabilities(providerId)?.performanceWindows ?? [])]
 }
 
 export const isTradingPortfolioWindowSupported = (providerId: TradingProviderId, window: string) =>

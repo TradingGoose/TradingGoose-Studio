@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronDown, ExternalLink, RefreshCw } from 'lucide-react'
+import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -25,7 +26,6 @@ import {
   parseProvider,
 } from '@/lib/oauth'
 import type { SubBlockConfig } from '@/blocks/types'
-import { OAuthRequiredModal } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/credential-selector/components/oauth-required-modal'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 

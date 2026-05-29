@@ -11,17 +11,17 @@ import {
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { getStableVibrantColor } from '@/lib/colors'
-import { DEFAULT_INDICATORS_META } from '@/lib/indicators/default'
-import { cn } from '@/lib/utils'
-import { useIndicators } from '@/hooks/queries/indicators'
-import { useIndicatorsStore } from '@/stores/indicators/store'
 import {
   widgetHeaderControlClassName,
   widgetHeaderMenuContentClassName,
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
-} from '@/widgets/widgets/components/widget-header-control'
+} from '@/components/widget-header-control'
+import { getStableVibrantColor } from '@/lib/colors'
+import { DEFAULT_INDICATORS_META } from '@/lib/indicators/default'
+import { cn } from '@/lib/utils'
+import { useIndicators } from '@/hooks/queries/indicators'
+import { useIndicatorsStore } from '@/stores/indicators/store'
 
 const DEFAULT_PLACEHOLDER = 'Select indicators'
 const FALLBACK_COLOR = '#3972F6'

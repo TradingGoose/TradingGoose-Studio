@@ -3,8 +3,8 @@ import {
   getTradingWidgetProviderOptions,
 } from '@/widgets/utils/trading-widget-providers'
 import {
-  resolveConfiguredSeriesMarketProviderId,
   getSeriesMarketProviderOptions,
+  resolveConfiguredSeriesMarketProviderId,
 } from '@/widgets/widgets/data_chart/options'
 import type {
   HeatmapSourceMode,
@@ -25,7 +25,7 @@ export const HEATMAP_WATCHLIST_SIZE_METRICS: Array<{
   { id: 'volume', label: 'Volume' },
 ]
 
-const DEFAULT_HEATMAP_TRADING_PROVIDER_OPTIONS = getTradingWidgetProviderOptions('holdings')
+const DEFAULT_HEATMAP_TRADING_PROVIDER_OPTIONS = getTradingWidgetProviderOptions('portfolioDetail')
 
 export const getHeatmapMarketProviderOptions = () => getSeriesMarketProviderOptions()
 
@@ -43,10 +43,10 @@ export const resolveHeatmapWatchlistSizeMetric = (
 ): HeatmapWatchlistSizeMetric => (params?.watchlistSizeMetric === 'volume' ? 'volume' : 'volumeUsd')
 
 export const getHeatmapTradingProviderAvailabilityIds = () =>
-  getTradingWidgetProviderAvailabilityIds('holdings')
+  getTradingWidgetProviderAvailabilityIds('portfolioDetail')
 
 export const getHeatmapTradingProviderOptions = (providerAvailability?: Record<string, boolean>) =>
-  getTradingWidgetProviderOptions('holdings', providerAvailability)
+  getTradingWidgetProviderOptions('portfolioDetail', providerAvailability)
 
 export const resolveHeatmapTradingProviderId = (
   params: HeatmapWidgetParams | null | undefined,

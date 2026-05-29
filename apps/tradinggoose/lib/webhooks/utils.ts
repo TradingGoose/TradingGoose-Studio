@@ -4,6 +4,7 @@ import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getOAuthAccessTokenForStoredCredential } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { isMonitorProvider } from '@/lib/monitors/sources'
 
 const logger = createLogger('WebhookUtils')
 
@@ -526,7 +527,7 @@ export async function formatWebhookInput(
   body: any,
   request: NextRequest
 ): Promise<any> {
-  if (foundWebhook.provider === 'indicator') {
+  if (isMonitorProvider(foundWebhook.provider)) {
     return body
   }
 

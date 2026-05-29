@@ -1,9 +1,6 @@
 import { sumFiniteNumbers, toFiniteNumber } from '@/providers/trading/portfolio-utils'
 import { tradierTradingProviderConfig } from '@/providers/trading/tradier/config'
-import type {
-  UnifiedTradingAccountType,
-  UnifiedTradingPosition,
-} from '@/providers/trading/types'
+import type { UnifiedTradingAccountType, UnifiedTradingPosition } from '@/providers/trading/types'
 import { tradingSymbolToListingIdentity } from '@/providers/trading/utils'
 
 export const TRADIER_DEFAULT_BASE_CURRENCY = 'USD'
@@ -87,15 +84,7 @@ export const normalizeTradierPositions = (positions: unknown): UnifiedTradingPos
       typeof position?.date_acquired === 'string' ? position.date_acquired : undefined
 
     return {
-      symbol: {
-        base: resolvedSymbol?.base ?? 'UNKNOWN',
-        quote: resolvedSymbol?.quote ?? TRADIER_DEFAULT_BASE_CURRENCY,
-        listing: resolvedSymbol?.listing,
-        name: null,
-        assetClass: resolvedSymbol?.assetClass ?? 'stock',
-        active: true,
-        rank: 0,
-      },
+      listingIdentity: resolvedSymbol?.listing ?? null,
       quantity,
       side,
       averagePrice,

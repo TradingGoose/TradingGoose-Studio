@@ -263,6 +263,7 @@ export function QuickOrderWidgetBody({
       emitParamsChange: emitQuickOrderParamsChange,
     })
   const accountSnapshotQuery = usePortfolioDetail({
+    workspaceId: workspaceId ?? undefined,
     provider: hasSelectedProvider && areProviderOptionsReady ? providerId : undefined,
     serviceId: activeServiceId,
     portfolioIdentity: activePortfolioIdentity,

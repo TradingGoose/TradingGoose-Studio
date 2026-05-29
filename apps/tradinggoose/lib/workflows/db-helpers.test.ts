@@ -19,11 +19,6 @@ const mockDb = {
   transaction: vi.fn(),
 }
 
-const mockWebhook = {
-  workflowId: 'workflowId',
-  provider: 'provider',
-}
-
 const mockWorkflowTable = {
   id: 'id',
   variables: 'variables',
@@ -78,7 +73,6 @@ const mockWorkflowSubflows = {
 
 vi.doMock('@tradinggoose/db', () => ({
   db: mockDb,
-  webhook: mockWebhook,
   workflow: mockWorkflowTable,
   workflowBlocks: mockWorkflowBlocks,
   workflowEdges: mockWorkflowEdges,

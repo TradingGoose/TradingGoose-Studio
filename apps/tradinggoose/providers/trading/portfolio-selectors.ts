@@ -24,7 +24,7 @@ export const getPortfolioListingExposures = (
   >()
 
   for (const position of portfolioDetail.positions) {
-    const listing = toListingValueObject(position.symbol.listing)
+    const listing = toListingValueObject(position.listingIdentity)
     if (!listing) continue
 
     const key = getListingIdentityKey(listing)

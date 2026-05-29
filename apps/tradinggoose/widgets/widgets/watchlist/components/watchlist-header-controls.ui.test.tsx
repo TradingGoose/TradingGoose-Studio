@@ -105,7 +105,7 @@ vi.mock('@/components/ui/tooltip', () => ({
   TooltipContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }))
 
-vi.mock('@/widgets/widgets/components/widget-header-control', () => ({
+vi.mock('@/components/widget-header-control', () => ({
   widgetHeaderButtonGroupClassName: (className?: string) =>
     ['controls', className].filter(Boolean).join(' '),
   widgetHeaderIconButtonClassName: () => 'icon-button',

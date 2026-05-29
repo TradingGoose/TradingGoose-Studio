@@ -19,7 +19,7 @@ export interface TradingRequestConfig {
   body?: Record<string, any> | string
 }
 
-export type TradingOperationKind = 'order' | 'holdings'
+export type TradingOperationKind = 'order' | 'portfolioDetail'
 
 export interface TradingSymbolInput {
   listing?: ListingInputValue
@@ -49,13 +49,13 @@ export interface TradingOrderInput extends TradingSymbolInput {
   accountId?: string
 }
 
-export interface TradingHoldingsInput {
+export interface TradingPortfolioDetailInput {
   environment?: 'paper' | 'live'
   accessToken?: string
   accountId?: string
 }
 
-export interface TradingOrderDetailInput extends TradingHoldingsInput {
+export interface TradingOrderDetailInput extends TradingPortfolioDetailInput {
   orderId: string
   provider?: TradingProviderId
 }
@@ -106,6 +106,7 @@ export interface TradingOrderDetailResult {
 
 export interface TradingPortfolioBaseContext {
   providerId: TradingProviderId
+  credentialId: string
   tokenAccountId: string
   serviceId: string
   environment?: 'paper' | 'live'
@@ -156,7 +157,7 @@ export interface UnifiedTradingSymbol {
 export type UnifiedTradingPositionSide = 'long' | 'short' | 'flat' | 'unknown'
 
 export interface UnifiedTradingPosition {
-  symbol: UnifiedTradingSymbol
+  listingIdentity: ListingIdentity | null
   quantity: number
   side?: UnifiedTradingPositionSide
   averagePrice?: number
@@ -288,12 +289,12 @@ export interface TradingActionResponse {
   error?: string
 }
 
-export interface TradingHoldingsResponse {
+export interface TradingPortfolioDetailResponse {
   success: boolean
   output: {
     summary: string
     provider: TradingProviderId
-    holdings: PortfolioDetail
+    portfolioDetail: PortfolioDetail
   }
   error?: string
 }

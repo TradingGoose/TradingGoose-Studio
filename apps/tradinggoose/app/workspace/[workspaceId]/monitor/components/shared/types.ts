@@ -1,7 +1,19 @@
 import type { ComponentType } from 'react'
 import type { InputMetaMap } from '@/lib/indicators/types'
 import type { ListingIdentity } from '@/lib/listing/identity'
-import type { MarketProviderParamDefinition } from '@/providers/market/providers'
+import type { PortfolioFireCondition } from '@/lib/monitors/portfolio-conditions'
+import {
+  INDICATOR_MONITOR_PROVIDER,
+  PORTFOLIO_MONITOR_PROVIDER,
+  type MonitorTriggerId,
+  type MonitorWebhookProvider,
+} from '@/lib/monitors/sources'
+import type {
+  MarketProviderOption,
+  MarketProviderParamDefinition,
+} from '@/providers/market/providers'
+
+export type MonitorSource = MonitorWebhookProvider
 
 export type IndicatorOption = {
   id: string
@@ -13,6 +25,8 @@ export type IndicatorOption = {
 }
 
 export type WorkflowTargetOption = {
+  source: MonitorSource
+  triggerId: MonitorTriggerId
   workflowId: string
   blockId: string
   workflowName: string
@@ -22,19 +36,27 @@ export type WorkflowTargetOption = {
   label: string
 }
 
-export type IndicatorMonitorRecord = {
+export type MonitorRecord = {
   monitorId: string
+  source: MonitorSource
   workflowId: string
   blockId: string
   isActive: boolean
   providerConfig: {
-    triggerId: 'indicator_trigger'
+    triggerId: MonitorTriggerId
     version: 1
     monitor: {
       providerId: string
-      interval: string
-      listing: ListingIdentity
-      indicatorId: string
+      interval?: string
+      listing?: ListingIdentity
+      indicatorId?: string
+      serviceId?: string
+      credentialId?: string
+      accountId?: string
+      condition?: PortfolioFireCondition
+      fireMode?: 'edge' | 'while_true'
+      cooldownSeconds?: number
+      pollIntervalSeconds?: number
       indicatorInputs?: Record<string, unknown>
       auth?: {
         hasEncryptedSecrets?: boolean
@@ -48,12 +70,20 @@ export type IndicatorMonitorRecord = {
 }
 
 export type MonitorDraft = {
+  source: MonitorSource
   workflowId: string
   blockId: string
   providerId: string
   interval: string
   indicatorId: string
   listing: ListingIdentity | null
+  serviceId: string
+  credentialId: string
+  accountId: string
+  condition: PortfolioFireCondition
+  fireMode: 'edge' | 'while_true'
+  cooldownSeconds: number
+  pollIntervalSeconds: number
   secretValues: Record<string, string>
   providerParamValues: Record<string, string>
   indicatorInputs: Record<string, unknown>
@@ -62,6 +92,7 @@ export type MonitorDraft = {
 }
 
 export type IndicatorMonitorCreateInput = {
+  source: typeof INDICATOR_MONITOR_PROVIDER
   workspaceId: string
   workflowId: string
   blockId: string
@@ -78,6 +109,7 @@ export type IndicatorMonitorCreateInput = {
 }
 
 export type IndicatorMonitorUpdateInput = {
+  source?: typeof INDICATOR_MONITOR_PROVIDER
   workspaceId: string
   workflowId?: string
   blockId?: string
@@ -93,12 +125,47 @@ export type IndicatorMonitorUpdateInput = {
   isActive?: boolean
 }
 
-export type IndicatorMonitorStateUpdateInput = {
+export type MonitorStateUpdateInput = {
   workspaceId: string
   isActive: boolean
 }
 
-export type StreamingProviderOption = {
+export type PortfolioMonitorCreateInput = {
+  source: typeof PORTFOLIO_MONITOR_PROVIDER
+  workspaceId: string
+  workflowId: string
+  blockId: string
+  providerId: string
+  serviceId: string
+  credentialId: string
+  accountId: string
+  condition: PortfolioFireCondition
+  fireMode: 'edge' | 'while_true'
+  cooldownSeconds: number
+  pollIntervalSeconds: number
+  isActive: boolean
+}
+
+export type PortfolioMonitorUpdateInput = {
+  source?: typeof PORTFOLIO_MONITOR_PROVIDER
+  workspaceId: string
+  workflowId?: string
+  blockId?: string
+  providerId?: string
+  serviceId?: string
+  credentialId?: string
+  accountId?: string
+  condition?: PortfolioFireCondition
+  fireMode?: 'edge' | 'while_true'
+  cooldownSeconds?: number
+  pollIntervalSeconds?: number
+  isActive?: boolean
+}
+
+export type MonitorCreateInput = IndicatorMonitorCreateInput | PortfolioMonitorCreateInput
+export type MonitorUpdateInput = IndicatorMonitorUpdateInput | PortfolioMonitorUpdateInput
+
+export type TradingProviderOption = {
   id: string
   name: string
   icon?: ComponentType<{ className?: string }>
@@ -114,13 +181,18 @@ export type MonitorReferenceData = {
   workflowTargets: WorkflowTargetOption[]
   workflowTargetByKey: Record<string, WorkflowTargetOption>
   workflowOptions: WorkflowPickerOption[]
+  indicatorWorkflowTargets: WorkflowTargetOption[]
+  portfolioWorkflowTargets: WorkflowTargetOption[]
   indicatorOptions: IndicatorOption[]
   indicatorById: Record<string, IndicatorOption>
-  streamingProviders: StreamingProviderOption[]
-  providerById: Record<string, StreamingProviderOption>
+  marketProviders: MarketProviderOption[]
+  marketProviderById: Record<string, MarketProviderOption>
   providerIntervalsByProviderId: Record<string, string[]>
   providerParamDefinitionsByProviderId: Record<string, MarketProviderParamDefinition[]>
-  defaultDraftProviderId: string
+  tradingProviders: TradingProviderOption[]
+  tradingProviderById: Record<string, TradingProviderOption>
+  defaultMarketProviderId: string
+  defaultPortfolioProviderId: string
   defaultDraftInterval: string
   createDisabledReason: string | null
   isLoading: boolean
@@ -128,20 +200,20 @@ export type MonitorReferenceData = {
 }
 
 type MonitorRecordMutationOptions = {
-  optimisticRecord?: IndicatorMonitorRecord
+  optimisticRecord?: MonitorRecord
 }
 
 export type MonitorRecordActions = {
-  createMonitor: (input: IndicatorMonitorCreateInput) => Promise<IndicatorMonitorRecord | null>
+  createMonitor: (input: MonitorCreateInput) => Promise<MonitorRecord | null>
   updateMonitor: (
     monitorId: string,
-    input: IndicatorMonitorUpdateInput,
+    input: MonitorUpdateInput,
     options?: MonitorRecordMutationOptions
-  ) => Promise<IndicatorMonitorRecord | null>
+  ) => Promise<MonitorRecord | null>
   toggleMonitorState: (
-    monitor: IndicatorMonitorRecord,
+    monitor: MonitorRecord,
     nextIsActive: boolean,
     options?: MonitorRecordMutationOptions
-  ) => Promise<IndicatorMonitorRecord | null>
+  ) => Promise<MonitorRecord | null>
   deleteMonitor: (monitorId: string) => Promise<void>
 }

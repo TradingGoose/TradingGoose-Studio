@@ -4,7 +4,6 @@ import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import {
   coerceMarketProviderParamValue,
-  getMarketProviderOptionsByKind,
   getMarketProviderParamCatalog,
   getMarketProvidersByKind,
   getMarketSeriesCapabilities,
@@ -17,12 +16,6 @@ import type { ToolResponse } from '@/tools/types'
 interface HistoricalDataResponse extends ToolResponse {
   output: MarketSeriesOutput
 }
-
-const providerOptions = () =>
-  getMarketProviderOptionsByKind('series').map((provider) => ({
-    label: provider.name,
-    id: provider.id,
-  }))
 
 const resolveContextValue = (
   contextValues: Record<string, unknown> | undefined,
@@ -232,10 +225,9 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
     {
       id: 'provider',
       title: 'Data Provider',
-      type: 'dropdown',
+      type: 'market-provider-selector',
       layout: 'full',
-      options: providerOptions,
-      value: () => providerOptions()[0]?.id,
+      marketProviderKind: 'series',
       required: true,
     },
     {

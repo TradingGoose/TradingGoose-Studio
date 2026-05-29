@@ -7,13 +7,10 @@ import {
 } from '@/lib/execution/pending-execution'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
-  executeIndicatorMonitorJob,
-  isIndicatorMonitorExecutionPayload,
-} from './indicator-monitor-execution'
-import {
   dispatchQueuedDocumentProcessingJob,
   failQueuedDocumentProcessingJob,
 } from './knowledge-processing'
+import { executeMonitorJob, isMonitorExecutionPayload } from './monitor-execution'
 import { executeScheduleJob, isScheduleExecutionPayload } from './schedule-execution'
 import { executeWebhookJob, isWebhookExecutionPayload } from './webhook-execution'
 import { executeWorkflowJob, isWorkflowExecutionPayload } from './workflow-execution'
@@ -62,12 +59,12 @@ async function dispatchPendingExecution(row: PendingExecutionClaim): Promise<boo
       break
     }
 
-    case 'indicator_monitor': {
-      if (!isIndicatorMonitorExecutionPayload(row.payload)) {
-        throw new Error('Invalid indicator monitor pending payload')
+    case 'monitor': {
+      if (!isMonitorExecutionPayload(row.payload)) {
+        throw new Error('Invalid monitor pending payload')
       }
 
-      await executeIndicatorMonitorJob({
+      await executeMonitorJob({
         ...row.payload,
         executionId: row.id,
       })

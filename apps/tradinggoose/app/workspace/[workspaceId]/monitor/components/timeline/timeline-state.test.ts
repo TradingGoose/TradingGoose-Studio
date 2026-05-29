@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { MonitorExecutionItem } from '../data/execution-ordering'
-import { buildMonitorTimelineGroups } from './timeline-state'
 import { DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG } from '../view/view-config'
+import { buildMonitorTimelineGroups } from './timeline-state'
 
 const buildExecution = (overrides: Partial<MonitorExecutionItem>): MonitorExecutionItem => ({
   logId: 'log-1',
@@ -15,7 +15,10 @@ const buildExecution = (overrides: Partial<MonitorExecutionItem>): MonitorExecut
   workflowName: 'Workflow One',
   workflowColor: '#3972F6',
   monitorId: 'monitor-1',
+  source: 'indicator',
   providerId: 'alpaca',
+  serviceId: null,
+  accountId: null,
   interval: '1m',
   indicatorId: 'rsi',
   assetType: 'stock',

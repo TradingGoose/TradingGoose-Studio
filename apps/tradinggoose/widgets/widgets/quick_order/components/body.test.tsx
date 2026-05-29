@@ -20,7 +20,7 @@ const mockReset = vi.fn()
 
 const portfolioIdentity = {
   providerId: 'alpaca',
-  tokenAccountId: 'oauth-account-1',
+  credentialId: 'oauth-account-1',
   serviceId: 'alpaca-live',
   accountId: 'acct-1',
   accountName: 'Paper Account',
@@ -524,6 +524,7 @@ describe('QuickOrderWidgetBody', () => {
       side: 'buy',
     })
     expect(mockUsePortfolioDetail).toHaveBeenLastCalledWith({
+      workspaceId: 'workspace-1',
       provider: 'alpaca',
       serviceId: 'alpaca-live',
       portfolioIdentity: undefined,

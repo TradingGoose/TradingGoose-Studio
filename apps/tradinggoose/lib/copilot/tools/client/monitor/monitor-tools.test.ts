@@ -38,7 +38,7 @@ describe('monitor tools', () => {
       const url = typeof input === 'string' ? input : input.toString()
       const method = init?.method || 'GET'
 
-      if (url === '/api/indicator-monitors?workspaceId=ws-1' && method === 'GET') {
+      if (url === '/api/monitors?workspaceId=ws-1' && method === 'GET') {
         return {
           ok: true,
           status: 200,
@@ -46,10 +46,13 @@ describe('monitor tools', () => {
             data: [
               {
                 monitorId: 'monitor-1',
+                source: 'indicator',
                 workflowId: 'wf-1',
                 blockId: 'trigger-1',
                 isActive: true,
                 providerConfig: {
+                  triggerId: 'indicator_trigger',
+                  version: 1,
                   monitor: {
                     providerId: 'alpaca',
                     interval: '1m',
@@ -95,7 +98,7 @@ describe('monitor tools', () => {
     await tool.execute()
 
     expect(tool.getState()).toBe(ClientToolCallState.success)
-    expect(fetchMock).toHaveBeenCalledWith('/api/indicator-monitors?workspaceId=ws-1')
+    expect(fetchMock).toHaveBeenCalledWith('/api/monitors?workspaceId=ws-1')
 
     const markCompleteCall = fetchMock.mock.calls.find(([input, init]) => {
       const url = typeof input === 'string' ? input : input.toString()
@@ -123,17 +126,20 @@ describe('monitor tools', () => {
       const url = typeof input === 'string' ? input : input.toString()
       const method = init?.method || 'GET'
 
-      if (url === '/api/indicator-monitors/monitor-1' && method === 'GET') {
+      if (url === '/api/monitors/monitor-1' && method === 'GET') {
         return {
           ok: true,
           status: 200,
           json: async () => ({
             data: {
               monitorId: 'monitor-1',
+              source: 'indicator',
               workflowId: 'wf-1',
               blockId: 'trigger-1',
               isActive: true,
               providerConfig: {
+                triggerId: 'indicator_trigger',
+                version: 1,
                 monitor: {
                   providerId: 'alpaca',
                   interval: '5m',
@@ -205,9 +211,10 @@ describe('monitor tools', () => {
       const url = typeof input === 'string' ? input : input.toString()
       const method = init?.method || 'GET'
 
-      if (url === '/api/indicator-monitors/monitor-1' && method === 'PATCH') {
+      if (url === '/api/monitors/monitor-1' && method === 'PATCH') {
         const payload = JSON.parse(String(init?.body))
         expect(payload).toMatchObject({
+          source: 'indicator',
           workspaceId: 'ws-1',
           workflowId: 'wf-1',
           blockId: 'trigger-1',
@@ -223,10 +230,13 @@ describe('monitor tools', () => {
           json: async () => ({
             data: {
               monitorId: 'monitor-1',
+              source: 'indicator',
               workflowId: 'wf-1',
               blockId: 'trigger-1',
               isActive: false,
               providerConfig: {
+                triggerId: 'indicator_trigger',
+                version: 1,
                 monitor: {
                   providerId: 'alpaca',
                   interval: '15m',
@@ -272,6 +282,7 @@ describe('monitor tools', () => {
 
     const monitorDocument = JSON.stringify(
       {
+        source: 'indicator',
         workflowId: 'wf-1',
         blockId: 'trigger-1',
         providerId: 'alpaca',
@@ -327,7 +338,7 @@ describe('monitor tools', () => {
       ToolArgSchemas.edit_monitor.parse({
         monitorId: 'monitor-1',
         monitorDocument:
-          '{"workflowId":"wf-1","blockId":"trigger-1","providerId":"alpaca","interval":"1m","indicatorId":"rsi","listing":{"listing_type":"default","listing_id":"AAPL","base_id":"","quote_id":""},"isActive":true}',
+          '{"source":"indicator","workflowId":"wf-1","blockId":"trigger-1","providerId":"alpaca","interval":"1m","indicatorId":"rsi","listing":{"listing_type":"default","listing_id":"AAPL","base_id":"","quote_id":""},"isActive":true}',
       })
     ).toMatchObject({
       monitorId: 'monitor-1',
@@ -340,7 +351,7 @@ describe('monitor tools', () => {
         monitorName: 'rsi on AAPL (1m)',
         documentFormat: 'tg-monitor-document-v1',
         monitorDocument:
-          '{"workflowId":"wf-1","blockId":"trigger-1","providerId":"alpaca","interval":"1m","indicatorId":"rsi","listing":{"listing_type":"default","listing_id":"AAPL","base_id":"","quote_id":""},"isActive":true}',
+          '{"source":"indicator","workflowId":"wf-1","blockId":"trigger-1","providerId":"alpaca","interval":"1m","indicatorId":"rsi","listing":{"listing_type":"default","listing_id":"AAPL","base_id":"","quote_id":""},"isActive":true}',
       })
     ).toMatchObject({
       surfaceKind: 'monitor',

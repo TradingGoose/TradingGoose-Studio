@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { IndicatorMonitorRecord, MonitorReferenceData } from '../shared/types'
+import type { MonitorRecord, MonitorReferenceData } from '../shared/types'
 import { DEFAULT_CONFIG_MONITOR_VIEW_CONFIG } from '../view/view-config'
 import { buildConfigBoardSections } from './config-board-state'
 import { buildConfigMonitorCards } from './config-card-model'
@@ -16,6 +16,8 @@ import { buildConfigSearchSuggestionSet } from './config-search'
 const referenceData: MonitorReferenceData = {
   workflowTargets: [
     {
+      source: 'indicator',
+      triggerId: 'indicator_trigger',
       workflowId: 'workflow-1',
       blockId: 'block-1',
       workflowName: 'Workflow One',
@@ -27,6 +29,8 @@ const referenceData: MonitorReferenceData = {
   ],
   workflowTargetByKey: {
     'workflow-1:block-1': {
+      source: 'indicator',
+      triggerId: 'indicator_trigger',
       workflowId: 'workflow-1',
       blockId: 'block-1',
       workflowName: 'Workflow One',
@@ -37,15 +41,32 @@ const referenceData: MonitorReferenceData = {
     },
   },
   workflowOptions: [],
+  indicatorWorkflowTargets: [
+    {
+      source: 'indicator',
+      triggerId: 'indicator_trigger',
+      workflowId: 'workflow-1',
+      blockId: 'block-1',
+      workflowName: 'Workflow One',
+      workflowColor: '#3972F6',
+      isDeployed: true,
+      blockName: 'Indicator Trigger',
+      label: 'Workflow One - Indicator Trigger',
+    },
+  ],
+  portfolioWorkflowTargets: [],
   indicatorOptions: [{ id: 'rsi', name: 'RSI', source: 'default', color: '#3972F6' }],
   indicatorById: {
     rsi: { id: 'rsi', name: 'RSI', source: 'default', color: '#3972F6' },
   },
-  streamingProviders: [{ id: 'alpaca', name: 'Alpaca' }],
-  providerById: { alpaca: { id: 'alpaca', name: 'Alpaca' } },
+  marketProviders: [{ id: 'alpaca', name: 'Alpaca' }],
+  marketProviderById: { alpaca: { id: 'alpaca', name: 'Alpaca' } },
   providerIntervalsByProviderId: { alpaca: ['1m'] },
   providerParamDefinitionsByProviderId: {},
-  defaultDraftProviderId: 'alpaca',
+  tradingProviders: [{ id: 'alpaca', name: 'Alpaca' }],
+  tradingProviderById: { alpaca: { id: 'alpaca', name: 'Alpaca' } },
+  defaultMarketProviderId: '',
+  defaultPortfolioProviderId: '',
   defaultDraftInterval: '1m',
   createDisabledReason: null,
   isLoading: false,
@@ -54,6 +75,7 @@ const referenceData: MonitorReferenceData = {
 
 const monitor = {
   monitorId: 'monitor-1',
+  source: 'indicator',
   workflowId: 'workflow-1',
   blockId: 'block-1',
   isActive: true,
@@ -70,7 +92,7 @@ const monitor = {
   },
   createdAt: '2026-04-23T00:00:00.000Z',
   updatedAt: '2026-04-24T00:00:00.000Z',
-} satisfies IndicatorMonitorRecord
+} satisfies MonitorRecord
 
 describe('config monitor domain', () => {
   it('derives cards with reference labels and nullable summaries', () => {
@@ -150,7 +172,7 @@ describe('config monitor domain', () => {
     )
 
     expect(filtered).toHaveLength(1)
-    expect(sections[0]?.label).toBe('All monitors')
+    expect(sections[0]?.id).toBe('all')
     expect(sections[0]?.groups[0]?.statusLanes[0]?.buckets[0]?.cards[0]?.monitorId).toBe(
       'monitor-1'
     )
@@ -169,7 +191,7 @@ describe('config monitor domain', () => {
     })
 
     expect(sections).toHaveLength(1)
-    expect(sections[0]?.label).toBe('All monitors')
+    expect(sections[0]?.id).toBe('all')
     expect(sections[0]?.groups).toHaveLength(1)
     expect(sections[0]?.groups[0]?.label).toBe('Workflow target')
     expect(sections[0]?.groups[0]?.cards).toEqual([])
@@ -208,7 +230,7 @@ describe('config monitor domain', () => {
     })
   })
 
-  it('falls back to a supported interval when a provider drop changes capabilities', () => {
+  it('falls back to a supported interval when a provider drop changes interval options', () => {
     const card = buildConfigMonitorCards([monitor], referenceData, {})[0]!
     const resolution = resolveConfigBoardContextPatch({
       decodedContext: {
@@ -224,12 +246,9 @@ describe('config monitor domain', () => {
       },
       referenceData: {
         ...referenceData,
-        streamingProviders: [
-          ...referenceData.streamingProviders,
-          { id: 'tradier', name: 'Tradier' },
-        ],
-        providerById: {
-          ...referenceData.providerById,
+        marketProviders: [...referenceData.marketProviders, { id: 'tradier', name: 'Tradier' }],
+        marketProviderById: {
+          ...referenceData.marketProviderById,
           tradier: { id: 'tradier', name: 'Tradier' },
         },
         providerIntervalsByProviderId: {
@@ -255,9 +274,9 @@ describe('config monitor domain', () => {
     const card = buildConfigMonitorCards([monitor], referenceData, {})[0]!
     const nextReferenceData: MonitorReferenceData = {
       ...referenceData,
-      streamingProviders: [...referenceData.streamingProviders, { id: 'tradier', name: 'Tradier' }],
-      providerById: {
-        ...referenceData.providerById,
+      marketProviders: [...referenceData.marketProviders, { id: 'tradier', name: 'Tradier' }],
+      marketProviderById: {
+        ...referenceData.marketProviderById,
         tradier: { id: 'tradier', name: 'Tradier' },
       },
       providerIntervalsByProviderId: {
@@ -310,12 +329,9 @@ describe('config monitor domain', () => {
       },
       referenceData: {
         ...referenceData,
-        streamingProviders: [
-          ...referenceData.streamingProviders,
-          { id: 'tradier', name: 'Tradier' },
-        ],
-        providerById: {
-          ...referenceData.providerById,
+        marketProviders: [...referenceData.marketProviders, { id: 'tradier', name: 'Tradier' }],
+        marketProviderById: {
+          ...referenceData.marketProviderById,
           tradier: { id: 'tradier', name: 'Tradier' },
         },
         providerIntervalsByProviderId: {
@@ -336,7 +352,7 @@ describe('config monitor domain', () => {
   })
 
   it('clears provider-bound draft state when a monitor edit changes provider', () => {
-    const sourceMonitor: IndicatorMonitorRecord = {
+    const sourceMonitor: MonitorRecord = {
       ...monitor,
       providerConfig: {
         ...monitor.providerConfig,
@@ -351,9 +367,9 @@ describe('config monitor domain', () => {
     }
     const nextReferenceData: MonitorReferenceData = {
       ...referenceData,
-      streamingProviders: [...referenceData.streamingProviders, { id: 'tradier', name: 'Tradier' }],
-      providerById: {
-        ...referenceData.providerById,
+      marketProviders: [...referenceData.marketProviders, { id: 'tradier', name: 'Tradier' }],
+      marketProviderById: {
+        ...referenceData.marketProviderById,
         tradier: { id: 'tradier', name: 'Tradier' },
       },
       providerIntervalsByProviderId: {
@@ -393,9 +409,9 @@ describe('config monitor domain', () => {
   it('uses the default draft interval when an editor provider change has no interval list', () => {
     const nextReferenceData: MonitorReferenceData = {
       ...referenceData,
-      streamingProviders: [...referenceData.streamingProviders, { id: 'tradier', name: 'Tradier' }],
-      providerById: {
-        ...referenceData.providerById,
+      marketProviders: [...referenceData.marketProviders, { id: 'tradier', name: 'Tradier' }],
+      marketProviderById: {
+        ...referenceData.marketProviderById,
         tradier: { id: 'tradier', name: 'Tradier' },
       },
       providerIntervalsByProviderId: {
@@ -419,7 +435,7 @@ describe('config monitor domain', () => {
   })
 
   it('builds provider-change updates only from the new provider draft state', () => {
-    const sourceMonitor: IndicatorMonitorRecord = {
+    const sourceMonitor: MonitorRecord = {
       ...monitor,
       providerConfig: {
         ...monitor.providerConfig,
@@ -434,9 +450,9 @@ describe('config monitor domain', () => {
     }
     const nextReferenceData: MonitorReferenceData = {
       ...referenceData,
-      streamingProviders: [...referenceData.streamingProviders, { id: 'tradier', name: 'Tradier' }],
-      providerById: {
-        ...referenceData.providerById,
+      marketProviders: [...referenceData.marketProviders, { id: 'tradier', name: 'Tradier' }],
+      marketProviderById: {
+        ...referenceData.marketProviderById,
         tradier: { id: 'tradier', name: 'Tradier' },
       },
       providerIntervalsByProviderId: {
@@ -457,7 +473,6 @@ describe('config monitor domain', () => {
       workspaceId: 'workspace-1',
       draft,
       originalMonitor: sourceMonitor,
-      referenceData: nextReferenceData,
     })
 
     expect(payload).toMatchObject({
@@ -470,7 +485,7 @@ describe('config monitor domain', () => {
   })
 
   it('treats touched secret fields as replace-all auth updates', () => {
-    const sourceMonitor: IndicatorMonitorRecord = {
+    const sourceMonitor: MonitorRecord = {
       ...monitor,
       providerConfig: {
         ...monitor.providerConfig,
@@ -516,9 +531,8 @@ describe('config monitor domain', () => {
         workspaceId: 'workspace-1',
         draft: clearedDraft,
         originalMonitor: sourceMonitor,
-        referenceData: nextReferenceData,
-      }).auth
-    ).toEqual({ secrets: {} })
+      })
+    ).toMatchObject({ auth: { secrets: {} } })
     expect(
       validateMonitorDraft({ draft: partialActiveDraft, referenceData: nextReferenceData }).errors
     ).toMatchObject({ 'secret:apiSecret': 'API Secret is required.' })

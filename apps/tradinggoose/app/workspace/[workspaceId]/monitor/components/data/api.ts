@@ -1,9 +1,14 @@
+import {
+  getMonitorProviderForTriggerId,
+  getMonitorSourceByTriggerId,
+  isMonitorTriggerId,
+} from '@/lib/monitors/sources'
 import type {
-  IndicatorMonitorCreateInput,
-  IndicatorMonitorRecord,
-  IndicatorMonitorStateUpdateInput,
-  IndicatorMonitorUpdateInput,
   IndicatorOption,
+  MonitorCreateInput,
+  MonitorRecord,
+  MonitorStateUpdateInput,
+  MonitorUpdateInput,
   WorkflowPickerOption,
   WorkflowTargetOption,
 } from '../shared/types'
@@ -110,10 +115,10 @@ const parseMonitorViewsListResponse = async (response: Response): Promise<Monito
   })
 }
 
-const parseMonitorResponse = async (response: Response): Promise<IndicatorMonitorRecord | null> => {
+const parseMonitorResponse = async (response: Response): Promise<MonitorRecord | null> => {
   const payload = await response.json().catch(() => null)
   const data = payload?.data
-  return data && typeof data === 'object' ? (data as IndicatorMonitorRecord) : null
+  return data && typeof data === 'object' ? (data as MonitorRecord) : null
 }
 
 export async function loadWorkflowTargetOptions(
@@ -139,11 +144,15 @@ export async function loadWorkflowTargetOptions(
       return Object.entries(blocks)
         .map(([blockId, blockData]) => {
           const data = blockData as { id?: string; type?: string; name?: string } | undefined
-          if (data?.type !== 'indicator_trigger') return null
+          if (!isMonitorTriggerId(data?.type)) return null
 
           const resolvedBlockId = toTrimmed(data?.id) || blockId
-          const blockName = toTrimmed(data?.name) || 'Indicator Trigger'
+          const blockName =
+            toTrimmed(data?.name) || getMonitorSourceByTriggerId(data.type).triggerLabel
+          const source = getMonitorProviderForTriggerId(data.type)
           return {
+            source,
+            triggerId: data.type,
             workflowId: id,
             blockId: resolvedBlockId,
             workflowName: toTrimmed(workflowRow?.name) || 'Workflow',
@@ -240,10 +249,8 @@ export async function loadIndicatorOptions(workspaceId: string): Promise<Indicat
     .filter((entry: IndicatorOption | null): entry is IndicatorOption => Boolean(entry))
 }
 
-export async function loadMonitors(workspaceId: string): Promise<IndicatorMonitorRecord[]> {
-  const response = await fetch(
-    `/api/indicator-monitors?workspaceId=${encodeURIComponent(workspaceId)}`
-  )
+export async function loadMonitors(workspaceId: string): Promise<MonitorRecord[]> {
+  const response = await fetch(`/api/monitors?workspaceId=${encodeURIComponent(workspaceId)}`)
 
   if (!response.ok) {
     throw new Error(await parseErrorMessage(response))
@@ -253,10 +260,8 @@ export async function loadMonitors(workspaceId: string): Promise<IndicatorMonito
   return Array.isArray(payload?.data) ? payload.data : []
 }
 
-export async function createIndicatorMonitor(
-  body: IndicatorMonitorCreateInput
-): Promise<IndicatorMonitorRecord | null> {
-  const response = await fetch('/api/indicator-monitors', {
+export async function createMonitorRecord(body: MonitorCreateInput): Promise<MonitorRecord | null> {
+  const response = await fetch('/api/monitors', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -269,11 +274,11 @@ export async function createIndicatorMonitor(
   return parseMonitorResponse(response)
 }
 
-export async function updateIndicatorMonitor(
+export async function updateMonitorRecord(
   monitorId: string,
-  body: IndicatorMonitorUpdateInput | IndicatorMonitorStateUpdateInput
-): Promise<IndicatorMonitorRecord | null> {
-  const response = await fetch(`/api/indicator-monitors/${encodeURIComponent(monitorId)}`, {
+  body: MonitorUpdateInput | MonitorStateUpdateInput
+): Promise<MonitorRecord | null> {
+  const response = await fetch(`/api/monitors/${encodeURIComponent(monitorId)}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -286,8 +291,8 @@ export async function updateIndicatorMonitor(
   return parseMonitorResponse(response)
 }
 
-export async function deleteIndicatorMonitor(monitorId: string) {
-  const response = await fetch(`/api/indicator-monitors/${encodeURIComponent(monitorId)}`, {
+export async function deleteMonitorRecord(monitorId: string) {
+  const response = await fetch(`/api/monitors/${encodeURIComponent(monitorId)}`, {
     method: 'DELETE',
   })
 

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown, ExternalLink, FileIcon, FolderIcon, RefreshCw, X } from 'lucide-react'
 import { GoogleDocsIcon, GoogleSheetsIcon } from '@/components/icons/icons'
+import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -23,7 +24,6 @@ import {
   type OAuthProvider,
   parseProvider,
 } from '@/lib/oauth'
-import { OAuthRequiredModal } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/credential-selector/components/oauth-required-modal'
 
 const logger = createLogger('GoogleDrivePicker')
 

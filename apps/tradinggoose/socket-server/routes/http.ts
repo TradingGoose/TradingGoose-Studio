@@ -1,21 +1,24 @@
 import type { IncomingMessage, ServerResponse } from 'http'
 import * as Y from 'yjs'
-import { env } from '@/lib/env'
 import {
   buildReviewTargetDescriptorFromEnvelope,
   parseYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
-import { getRedisClient, getRedisStorageMode } from '@/lib/redis'
-import { getRuntimeStateFromDoc, getRuntimeStateFromUpdate } from '@/lib/yjs/server/bootstrap-review-target'
+import { env } from '@/lib/env'
 import { seedEntitySession } from '@/lib/yjs/entity-session'
+import {
+  getRuntimeStateFromDoc,
+  getRuntimeStateFromUpdate,
+} from '@/lib/yjs/server/bootstrap-review-target'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import {
   getMetadataMap as getWorkflowMetadataMap,
   setVariables,
   setWorkflowState,
   type WorkflowSnapshot,
 } from '@/lib/yjs/workflow-session'
-import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import { getMonitorRuntimeLockHealth } from '@/socket-server/monitor-runtime-lock'
 import { deleteSession, getState, storeState } from '@/socket-server/yjs/persistence'
 import { getExistingDocument, removeDocument } from '@/socket-server/yjs/upstream-utils'
 
@@ -26,31 +29,20 @@ interface Logger {
   warn: (message: string, ...args: any[]) => void
 }
 
-type MonitorRuntimeStatus = 'not_initialized' | 'running' | 'degraded' | 'disabled'
-
-type MonitorRuntimeHealth = {
-  enabled: boolean
-  status: MonitorRuntimeStatus
-  reconcileEndpointEnabled: boolean
-  lock: {
-    mode: 'fail_closed'
-    redisConfigured: boolean
-    redisClientAvailable: boolean
-    degraded: boolean
-  }
-}
+type MonitorRuntimeHealth = Record<string, unknown>
 
 type HttpHandlerOptions = {
   getMonitorRuntimeHealth?: () => MonitorRuntimeHealth
   getConnectionCount?: () => number
-  onIndicatorMonitorsReconcile?: () => Promise<void> | void
+  onMonitorsReconcile?: () => Promise<void> | void
 }
 
 const INTERNAL_SECRET_HEADER = 'x-internal-secret'
 const INTERNAL_YJS_WORKFLOW_APPLY_PATH = /^\/internal\/yjs\/workflows\/([^/]+)\/apply-state$/
 const INTERNAL_YJS_ENTITY_APPLY_PATH = /^\/internal\/yjs\/entities\/([^/]+)\/apply-state$/
 const INTERNAL_YJS_SNAPSHOT_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/snapshot$/
-const INTERNAL_YJS_SESSION_CLEAR_RESEEDED_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/clear-reseeded$/
+const INTERNAL_YJS_SESSION_CLEAR_RESEEDED_PATH =
+  /^\/internal\/yjs\/sessions\/([^/]+)\/clear-reseeded$/
 const INTERNAL_YJS_SESSION_PATH = /^\/internal\/yjs\/sessions\/([^/]+)$/
 
 type ApplyWorkflowStateRequest = {
@@ -107,19 +99,33 @@ function rejectUnauthorizedRequest(
 }
 
 function getDefaultMonitorRuntimeHealth(): MonitorRuntimeHealth {
-  const redisConfigured = getRedisStorageMode() === 'redis'
-  const redisClientAvailable = Boolean(getRedisClient())
-  const degraded = redisConfigured && !redisClientAvailable
+  const defaultStatus = getMonitorRuntimeLockHealth('not_initialized').degraded
+    ? 'degraded'
+    : 'not_initialized'
+  const lock = getMonitorRuntimeLockHealth(defaultStatus)
 
   return {
-    enabled: false,
-    status: degraded ? 'degraded' : 'not_initialized',
-    reconcileEndpointEnabled: true,
-    lock: {
-      mode: 'fail_closed',
-      redisConfigured,
-      redisClientAvailable,
-      degraded,
+    indicator: {
+      enabled: false,
+      status: defaultStatus,
+      lock,
+      stats: {
+        activeSubscriptions: 0,
+        lastReconcileAt: null,
+        lastReconcileError: null,
+        dispatchedCount: 0,
+        skippedCount: 0,
+      },
+    },
+    portfolio: {
+      enabled: false,
+      status: defaultStatus,
+      lock,
+      stats: {
+        activeSubscriptions: 0,
+        lastReconcileAt: null,
+        lastReconcileError: null,
+      },
     },
   }
 }
@@ -411,7 +417,12 @@ async function handleInternalYjsSnapshotRequest(
   }
 }
 
-function matchInternalRoute(pathname: string, pattern: RegExp, method: string, reqMethod?: string): string | null {
+function matchInternalRoute(
+  pathname: string,
+  pattern: RegExp,
+  method: string,
+  reqMethod?: string
+): string | null {
   if (reqMethod !== method) return null
   const match = pathname.match(pattern)?.[1]
   return match ? decodeURIComponent(match) : null
@@ -467,7 +478,12 @@ async function handleInternalYjsRequest(
     return true
   }
 
-  const deleteId = matchInternalRoute(parsedUrl.pathname, INTERNAL_YJS_SESSION_PATH, 'DELETE', req.method)
+  const deleteId = matchInternalRoute(
+    parsedUrl.pathname,
+    INTERNAL_YJS_SESSION_PATH,
+    'DELETE',
+    req.method
+  )
   if (deleteId) {
     await handleInternalYjsSessionDeleteRequest(res, logger, deleteId)
     return true
@@ -476,14 +492,11 @@ async function handleInternalYjsRequest(
   return false
 }
 
-export function createHttpHandler(
-  logger: Logger,
-  options?: HttpHandlerOptions
-) {
+export function createHttpHandler(logger: Logger, options?: HttpHandlerOptions) {
   const resolveMonitorRuntimeHealth =
     options?.getMonitorRuntimeHealth ?? getDefaultMonitorRuntimeHealth
   const resolveConnectionCount = options?.getConnectionCount ?? (() => 0)
-  const triggerIndicatorMonitorsReconcile = options?.onIndicatorMonitorsReconcile
+  const triggerMonitorsReconcile = options?.onMonitorsReconcile
 
   return async (req: IncomingMessage, res: ServerResponse) => {
     if (res.writableEnded || res.headersSent) {
@@ -507,16 +520,16 @@ export function createHttpHandler(
       return
     }
 
-    if (req.method === 'POST' && req.url === '/internal/indicator-monitors/reconcile') {
+    if (req.method === 'POST' && req.url === '/internal/monitors/reconcile') {
       if (rejectUnauthorizedRequest(req, res, logger)) return
 
       try {
-        await triggerIndicatorMonitorsReconcile?.()
-        logger.info('Accepted indicator monitor reconcile request')
+        await triggerMonitorsReconcile?.()
+        logger.info('Accepted monitor reconcile request')
         res.writeHead(200, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify({ success: true }))
       } catch (error) {
-        logger.error('Failed to process indicator monitor reconcile request', { error })
+        logger.error('Failed to process monitor reconcile request', { error })
         res.writeHead(500, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify({ error: 'Failed to process reconcile request' }))
       }

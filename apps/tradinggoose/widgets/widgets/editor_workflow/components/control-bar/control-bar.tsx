@@ -3,6 +3,10 @@
 import { useEffect, useState } from 'react'
 import { LayoutDashboard, Play, RefreshCw, X } from 'lucide-react'
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui'
+import {
+  widgetHeaderButtonGroupClassName,
+  widgetHeaderIconButtonClassName,
+} from '@/components/widget-header-control'
 import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
@@ -15,10 +19,6 @@ import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/provide
 import { useWorkflowExecution } from '@/hooks/workflow/use-workflow-execution'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
-import {
-  widgetHeaderButtonGroupClassName,
-  widgetHeaderIconButtonClassName,
-} from '@/widgets/widgets/components/widget-header-control'
 import {
   DeploymentControls,
   ExportControls,

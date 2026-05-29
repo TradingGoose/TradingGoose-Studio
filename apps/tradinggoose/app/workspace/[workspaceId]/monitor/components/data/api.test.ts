@@ -113,6 +113,11 @@ describe('monitor data api', () => {
                   type: 'indicator_trigger',
                   name: 'EMA Trigger',
                 },
+                'trigger-3': {
+                  id: 'trigger-3',
+                  type: 'portfolio_state_trigger',
+                  name: 'Portfolio Trigger',
+                },
                 'block-1': {
                   id: 'block-1',
                   type: 'agent',
@@ -133,6 +138,8 @@ describe('monitor data api', () => {
 
     await expect(loadWorkflowTargetOptions('workspace 1')).resolves.toEqual([
       {
+        source: 'indicator',
+        triggerId: 'indicator_trigger',
         workflowId: 'workflow-1',
         blockId: 'trigger-1',
         workflowName: 'Momentum',
@@ -142,6 +149,19 @@ describe('monitor data api', () => {
         label: 'Momentum - EMA Trigger',
       },
       {
+        source: 'portfolio',
+        triggerId: 'portfolio_state_trigger',
+        workflowId: 'workflow-1',
+        blockId: 'trigger-3',
+        workflowName: 'Momentum',
+        workflowColor: '#111111',
+        isDeployed: true,
+        blockName: 'Portfolio Trigger',
+        label: 'Momentum - Portfolio Trigger',
+      },
+      {
+        source: 'indicator',
+        triggerId: 'indicator_trigger',
         workflowId: 'workflow-1',
         blockId: 'trigger-2',
         workflowName: 'Momentum',

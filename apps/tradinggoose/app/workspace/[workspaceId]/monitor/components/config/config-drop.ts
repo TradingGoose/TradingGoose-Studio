@@ -1,9 +1,5 @@
 import { toListingValueObject } from '@/lib/listing/identity'
-import type {
-  IndicatorMonitorUpdateInput,
-  MonitorDraft,
-  MonitorReferenceData,
-} from '../shared/types'
+import type { MonitorDraft, MonitorReferenceData, MonitorUpdateInput } from '../shared/types'
 import type { ConfigMonitorViewConfig } from '../view/view-config'
 import type { ConfigBoardContext } from './config-board-state'
 import type { ConfigMonitorCard } from './config-card-model'
@@ -11,7 +7,7 @@ import { getProviderIntervalFallback } from './config-draft'
 
 type ConfigDropResolution = {
   draftPatch: Partial<MonitorDraft>
-  updatePatch: Partial<IndicatorMonitorUpdateInput>
+  updatePatch: Partial<MonitorUpdateInput>
   errors: Record<string, string>
 }
 
@@ -50,7 +46,7 @@ const applyDimension = ({
   }
 
   if (field === 'provider') {
-    if (!referenceData.providerById[value]) {
+    if (!referenceData.marketProviderById[value]) {
       errors.provider = 'Provider is unavailable.'
       return
     }

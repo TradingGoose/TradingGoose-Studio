@@ -12,18 +12,18 @@ import {
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { isUtcOffset, normalizeUtcOffset } from '@/lib/time-format'
-import { cn } from '@/lib/utils'
-import { getMarketSeriesCapabilities } from '@/providers/market/providers'
-import type { MarketInterval, MarketRangeUnit } from '@/providers/market/types'
-import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
 import {
   widgetHeaderControlClassName,
   widgetHeaderIconButtonClassName,
   widgetHeaderMenuContentClassName,
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
-} from '@/widgets/widgets/components/widget-header-control'
+} from '@/components/widget-header-control'
+import { isUtcOffset, normalizeUtcOffset } from '@/lib/time-format'
+import { cn } from '@/lib/utils'
+import { getMarketSeriesCapabilities } from '@/providers/market/providers'
+import type { MarketInterval, MarketRangeUnit } from '@/providers/market/types'
+import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
 import {
   addRangeToDate,
   DEFAULT_RANGE_PRESETS,
@@ -387,11 +387,11 @@ const DataChartNormalizationDropdown = ({
     : 'Normalization unavailable'
 
   const handleNormalizationSelect = (nextMode: string | null) => {
-    const nextProviderParams = { ...(params.data?.providerParams ?? {}) } as Record<string, unknown>
+    const { normalization_mode: _normalizationMode, ...nextProviderParamsBase } = (params.data
+      ?.providerParams ?? {}) as Record<string, unknown>
+    const nextProviderParams = { ...nextProviderParamsBase }
     if (nextMode) {
       nextProviderParams.normalization_mode = nextMode
-    } else {
-      delete nextProviderParams.normalization_mode
     }
     emitDataChartParamsChange({
       params: {
@@ -496,10 +496,15 @@ export const DataChartFooter = ({
     } = (params.data ?? {}) as Record<string, unknown>
     const nextData = { ...nextDataBase }
 
-    const nextView = { ...(params.view ?? {}) } as Record<string, unknown>
-    nextView.rangePresetId = preset.id
-    delete nextView.start
-    delete nextView.end
+    const {
+      start: _start,
+      end: _end,
+      ...nextViewBase
+    } = (params.view ?? {}) as Record<string, unknown>
+    const nextView: Record<string, unknown> = {
+      ...nextViewBase,
+      rangePresetId: preset.id,
+    }
     if (interval) {
       nextView.interval = interval
     }

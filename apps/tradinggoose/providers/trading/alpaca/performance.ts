@@ -20,10 +20,7 @@ import type {
   UnifiedTradingPortfolioPerformancePoint,
 } from '@/providers/trading/types'
 
-type AlpacaTradingPortfolioPerformanceWindow = Exclude<
-  TradingPortfolioPerformanceWindow,
-  'MAX'
->
+type AlpacaTradingPortfolioPerformanceWindow = Exclude<TradingPortfolioPerformanceWindow, 'MAX'>
 
 const isAlpacaPerformanceWindowSupported = (
   window: TradingPortfolioPerformanceWindow
@@ -31,7 +28,7 @@ const isAlpacaPerformanceWindowSupported = (
   window !== 'MAX' && getAlpacaSupportedPerformanceWindows().includes(window)
 
 const getAlpacaSupportedPerformanceWindows = () =>
-  alpacaTradingProviderConfig.capabilities?.holdings?.performanceWindows ?? []
+  alpacaTradingProviderConfig.capabilities?.portfolioDetail?.performanceWindows ?? []
 
 const getNewYorkYear = (now: Date) =>
   Number(

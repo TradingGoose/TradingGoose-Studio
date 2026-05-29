@@ -123,7 +123,7 @@ const orderRow = {
   listingIdentity: { listing_type: 'stock', listing_id: 'AAPL' },
   request: {
     accountId: 'account-1',
-    tokenAccountId: 'oauth-account-1',
+    credentialId: 'oauth-credential-1',
     serviceId: 'alpaca-paper',
     side: 'buy',
   },
@@ -140,6 +140,7 @@ describe('order provider detail route', () => {
     mocks.checkWorkspaceAccess.mockResolvedValue({ exists: true, hasAccess: true })
     vi.mocked(authorizeTradingConnectionRequest).mockResolvedValue({
       connectionOwnerUserId: 'connection-owner-1',
+      tokenAccountId: 'oauth-account-1',
       accountProviderId: 'alpaca-paper',
     })
     vi.mocked(resolveTradingProviderContext).mockResolvedValue({
@@ -173,18 +174,19 @@ describe('order provider detail route', () => {
     expect(mocks.eq).toHaveBeenCalledWith('orderHistoryTable.id', 'order-1')
     expect(mocks.eq).toHaveBeenCalledWith('orderHistoryTable.workspaceId', 'workspace-1')
     expect(authorizeTradingConnectionRequest).toHaveBeenCalledWith({
-      tokenAccountId: 'oauth-account-1',
+      credentialId: 'oauth-credential-1',
       userId: 'user-1',
     })
     expect(resolveTradingProviderContext).toHaveBeenCalledWith({
       requestData: {
-        tokenAccountId: 'oauth-account-1',
+        credentialId: 'oauth-credential-1',
         serviceId: 'alpaca-paper',
         provider: 'alpaca',
       },
       requestId: 'request-1',
       userId: 'user-1',
       connectionOwnerUserId: 'connection-owner-1',
+      tokenAccountId: 'oauth-account-1',
       accountProviderId: 'alpaca-paper',
     })
     expect(executeTradingProviderOrderDetailRequest).toHaveBeenCalledWith(

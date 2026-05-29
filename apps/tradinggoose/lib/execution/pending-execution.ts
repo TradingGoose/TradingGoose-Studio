@@ -22,12 +22,7 @@ const STALE_PROCESSING_WINDOW_MS = 30 * 60 * 1000
 export const PENDING_EXECUTION_LOCK_NAMESPACE = 29_401
 const WORKFLOW_BLOCK_SOURCE = 'workflow_block'
 
-export type PendingExecutionType =
-  | 'workflow'
-  | 'webhook'
-  | 'schedule'
-  | 'indicator_monitor'
-  | 'document'
+export type PendingExecutionType = 'workflow' | 'webhook' | 'schedule' | 'monitor' | 'document'
 
 export type PendingExecutionPayload = Record<string, unknown>
 

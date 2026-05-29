@@ -82,7 +82,6 @@ export const finnhubProviderConfig: MarketProviderConfig = {
       },
     },
     live: {
-      supportsStreaming: true,
       channels: ['trades', 'bars'],
       supportsInterval: false,
     },

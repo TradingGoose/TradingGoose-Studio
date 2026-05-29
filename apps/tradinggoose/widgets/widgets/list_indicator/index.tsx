@@ -2,6 +2,7 @@
 
 import { useCallback } from 'react'
 import { ListChecks } from 'lucide-react'
+import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { parseImportedIndicatorsFile } from '@/lib/indicators/import-export'
 import {
   useUserPermissionsContext,
@@ -14,7 +15,6 @@ import type { IndicatorDefinition } from '@/stores/indicators/types'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { emitIndicatorSelectionChange } from '@/widgets/utils/indicator-selection'
-import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
 import { IndicatorCreateMenu } from '@/widgets/widgets/list_indicator/components/indicator-create-menu'
 import {
   IndicatorList,

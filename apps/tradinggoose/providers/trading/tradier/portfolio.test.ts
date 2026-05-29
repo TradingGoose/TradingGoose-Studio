@@ -23,8 +23,8 @@ vi.mock('@/providers/trading/listing-resolution', () => ({
 describe('Tradier portfolio helpers', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
-    resolveTradingListingIdentityMock.mockImplementation((symbol: { base: string }) => ({
-      listing_id: symbol.base,
+    resolveTradingListingIdentityMock.mockImplementation((input: any) => ({
+      listing_id: input?.listing?.listing_id ?? input?.listing?.base_id ?? '',
       base_id: '',
       quote_id: '',
       listing_type: 'default',
@@ -47,13 +47,13 @@ describe('Tradier portfolio helpers', () => {
         },
         {
           providerId: 'tradier',
-          tokenAccountId: 'oauth-account-1',
+          credentialId: 'oauth-credential-1',
           serviceId: 'tradier-live',
         }
       )
     ).toEqual({
       providerId: 'tradier',
-      tokenAccountId: 'oauth-account-1',
+      credentialId: 'oauth-credential-1',
       serviceId: 'tradier-live',
       accountId: 'ACC-123',
       providerName: 'Tradier',
@@ -110,6 +110,7 @@ describe('Tradier portfolio helpers', () => {
 
     const snapshot = await getTradierTradingAccountSnapshot({
       providerId: 'tradier',
+      credentialId: 'oauth-credential-1',
       tokenAccountId: 'oauth-account-1',
       serviceId: 'tradier-live',
       environment: 'live',
@@ -127,7 +128,7 @@ describe('Tradier portfolio helpers', () => {
       totalUnrealizedPnl: 250,
     })
     expect(snapshot.positions).toHaveLength(1)
-    expect(snapshot.positions[0]?.symbol.listing).toEqual({
+    expect(snapshot.positions[0]?.listingIdentity).toEqual({
       listing_id: 'MSFT',
       base_id: '',
       quote_id: '',
@@ -167,6 +168,7 @@ describe('Tradier portfolio helpers', () => {
   it('returns an explicit unavailable payload for Tradier paper performance in v1', async () => {
     const performance = await getTradierTradingAccountPerformance({
       providerId: 'tradier',
+      credentialId: 'oauth-credential-1',
       tokenAccountId: 'oauth-account-1',
       serviceId: 'tradier-live',
       environment: 'paper',
@@ -185,6 +187,7 @@ describe('Tradier portfolio helpers', () => {
   it('returns an explicit unavailable payload for unsupported Tradier windows', async () => {
     const performance = await getTradierTradingAccountPerformance({
       providerId: 'tradier',
+      credentialId: 'oauth-credential-1',
       tokenAccountId: 'oauth-account-1',
       serviceId: 'tradier-live',
       environment: 'live',

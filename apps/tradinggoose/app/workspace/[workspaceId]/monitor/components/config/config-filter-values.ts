@@ -16,6 +16,8 @@ const sortStrings = (values: string[]) =>
   )
 
 const normalizeListingFilterValue = (rawValue: string) => {
+  if (rawValue.startsWith('portfolio:')) return rawValue
+
   try {
     const parsed = JSON.parse(rawValue)
     const normalized = toListingValueObject(parsed)

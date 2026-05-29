@@ -2,18 +2,18 @@ import { useCallback, useMemo } from 'react'
 import { Braces, Plus } from 'lucide-react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { widgetHeaderIconButtonClassName } from '@/components/widget-header-control'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { WORKFLOW_VARIABLES_ADD_EVENT } from '@/widgets/events'
 import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
-import { widgetHeaderIconButtonClassName } from '@/widgets/widgets/components/widget-header-control'
-import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
 import {
   emitWorkflowSelectionChange,
   useWorkflowSelectionPersistence,
 } from '@/widgets/utils/workflow-selection'
+import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
 import WorkflowVariablesApp from './components/workflow-variables-app'
 
 const WidgetStateMessage = ({ message }: { message: string }) => (
@@ -122,9 +122,7 @@ const WorkflowVariablesHeaderActions = ({
     return typeof value === 'string' && value.trim().length > 0 ? value : null
   }, [widget?.params])
 
-  const activeWorkflowId = useWorkflowRegistry((state) =>
-    state.getActiveWorkflowId(channelId)
-  )
+  const activeWorkflowId = useWorkflowRegistry((state) => state.getActiveWorkflowId(channelId))
 
   const resolvedWorkflowId =
     resolvedPairColor === 'gray' ? (paramsWorkflowId ?? activeWorkflowId) : activeWorkflowId

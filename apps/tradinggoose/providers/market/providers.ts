@@ -57,8 +57,6 @@ export interface MarketSeriesRetentionPolicy {
 }
 
 export interface MarketLiveInputCapabilities {
-  supportsStreaming?: boolean
-  supportsPolling?: boolean
   channels?: string[]
   supportsInterval?: boolean
   intervals?: string[]
@@ -181,6 +179,12 @@ export interface MarketProviderDefinition {
   icon?: React.ComponentType<{ className?: string }>
 }
 
+export type MarketProviderOption = {
+  id: string
+  name: string
+  icon?: React.ComponentType<{ className?: string }>
+}
+
 export const MARKET_PROVIDER_DEFINITIONS: Record<string, MarketProviderDefinition> = {
   'alpha-vantage': {
     id: 'alpha-vantage',
@@ -245,6 +249,15 @@ export function getMarketSeriesCapabilities(
 export function getMarketLiveCapabilities(providerId: string): MarketLiveInputCapabilities | null {
   return getMarketProviderCapabilities(providerId)?.live || null
 }
+
+export function getMarketProviderIntervals(providerId: string): MarketInterval[] {
+  return getMarketSeriesCapabilities(providerId)?.intervals ?? []
+}
+
+export function getMarketProviderPollingIntervalMs(providerId: string): number | undefined {
+  return getMarketLiveCapabilities(providerId)?.pollingIntervalMs
+}
+
 export function getMarketProviderExchangeCodes(providerId: string): string[] {
   return MARKET_PROVIDER_DEFINITIONS[providerId]?.config.exchangeCodes || []
 }
@@ -259,16 +272,14 @@ export function getMarketProviderKinds(providerId: string): MarketDataType[] {
   return Array.from(kinds)
 }
 
-export function getMarketProviderOptions(): Array<{
-  id: string
-  name: string
-  icon?: React.ComponentType<{ className?: string }>
-}> {
-  return Object.values(MARKET_PROVIDER_DEFINITIONS).map((provider) => ({
-    id: provider.id,
-    name: provider.name,
-    icon: provider.icon,
-  }))
+const toMarketProviderOption = (provider: MarketProviderDefinition): MarketProviderOption => ({
+  id: provider.id,
+  name: provider.name,
+  icon: provider.icon,
+})
+
+export function getMarketProviderOptions(): MarketProviderOption[] {
+  return Object.values(MARKET_PROVIDER_DEFINITIONS).map(toMarketProviderOption)
 }
 
 export function getMarketProvidersByKind(kind: MarketDataType): MarketProviderDefinition[] {
@@ -279,16 +290,51 @@ export function getMarketProvidersByKind(kind: MarketDataType): MarketProviderDe
   })
 }
 
-export function getMarketProviderOptionsByKind(kind: MarketDataType): Array<{
-  id: string
-  name: string
-  icon?: React.ComponentType<{ className?: string }>
-}> {
-  return getMarketProvidersByKind(kind).map((provider) => ({
-    id: provider.id,
-    name: provider.name,
-    icon: provider.icon,
-  }))
+export function getMarketProviderOptionsByKind(kind: MarketDataType): MarketProviderOption[] {
+  return getMarketProvidersByKind(kind).map(toMarketProviderOption)
+}
+
+export function getMarketMonitorProviderParamDefinitions(
+  providerId: string
+): MarketProviderParamDefinition[] {
+  const definitions = [
+    ...getMarketProviderParamDefinitions(providerId, 'series'),
+    ...getMarketProviderParamDefinitions(providerId, 'live'),
+  ]
+  const mergedById = new Map<string, MarketProviderParamDefinition>()
+
+  definitions.forEach((definition) => {
+    if (!definition?.id) return
+    const existing = mergedById.get(definition.id)
+    if (!existing) {
+      mergedById.set(definition.id, definition)
+      return
+    }
+
+    mergedById.set(definition.id, {
+      ...existing,
+      ...definition,
+      description: existing.description || definition.description,
+      title: existing.title || definition.title,
+      placeholder: existing.placeholder || definition.placeholder,
+      inputType: existing.inputType || definition.inputType,
+      options: existing.options?.length ? existing.options : definition.options,
+      fetchOptions: existing.fetchOptions ?? definition.fetchOptions,
+      password: existing.password ?? definition.password,
+      mode: existing.mode || definition.mode,
+      layout: existing.layout || definition.layout,
+      min: existing.min ?? definition.min,
+      max: existing.max ?? definition.max,
+      step: existing.step ?? definition.step,
+      integer: existing.integer ?? definition.integer,
+      rows: existing.rows ?? definition.rows,
+      dependsOn: existing.dependsOn ?? definition.dependsOn,
+      required: Boolean(existing.required || definition.required),
+      visibility: mergeParamVisibility(existing.visibility, definition.visibility),
+    })
+  })
+
+  return Array.from(mergedById.values())
 }
 
 export interface MarketProviderParamRegistryEntry {

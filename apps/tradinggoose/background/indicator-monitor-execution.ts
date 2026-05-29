@@ -1,7 +1,7 @@
-import { db } from '@tradinggoose/db'
-import { webhook } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
-import { checkServerSideUsageLimits } from '@/lib/billing'
+import {
+  enqueuePendingExecution,
+  isPendingExecutionLimitError,
+} from '@/lib/execution/pending-execution'
 import {
   applyIndicatorTriggerPayloadBudget,
   buildIndicatorTriggerDispatchPayload,
@@ -13,10 +13,7 @@ import { normalizeBarsMs } from '@/lib/indicators/series-data'
 import type { BarMs, NormalizedPineSignal } from '@/lib/indicators/types'
 import type { ListingIdentity } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  loadWorkflowExecutionBlueprint,
-  runPreparedWorkflowExecution,
-} from '@/lib/workflows/execution-runner'
+import { INDICATOR_MONITOR_PROVIDER, INDICATOR_MONITOR_TRIGGER_ID } from '@/lib/monitors/sources'
 import type { MarketSeries } from '@/providers/market/types'
 
 const logger = createLogger('IndicatorMonitorExecution')
@@ -28,7 +25,7 @@ type IndicatorMonitorExecutionMonitor = {
   userId: string
   actorUserId: string
   blockId: string
-  providerId: 'alpaca' | 'finnhub'
+  providerId: string
   interval: string
   intervalMs: number | null
   indicatorId: string
@@ -43,6 +40,7 @@ type IndicatorMonitorExecutionIndicator = {
 
 export type IndicatorMonitorExecutionPayload = {
   executionId?: string
+  source: typeof INDICATOR_MONITOR_PROVIDER
   monitor: IndicatorMonitorExecutionMonitor
   indicator: IndicatorMonitorExecutionIndicator
   inputsMap: Record<string, unknown>
@@ -66,7 +64,8 @@ const isMonitor = (value: unknown): value is IndicatorMonitorExecutionMonitor =>
     typeof value.userId === 'string' &&
     typeof value.actorUserId === 'string' &&
     typeof value.blockId === 'string' &&
-    (value.providerId === 'alpaca' || value.providerId === 'finnhub') &&
+    typeof value.providerId === 'string' &&
+    value.providerId.trim().length > 0 &&
     typeof value.interval === 'string' &&
     (typeof value.intervalMs === 'number' || value.intervalMs === null) &&
     typeof value.indicatorId === 'string' &&
@@ -94,6 +93,7 @@ export function isIndicatorMonitorExecutionPayload(
   }
 
   return (
+    value.source === INDICATOR_MONITOR_PROVIDER &&
     isMonitor(value.monitor) &&
     isIndicator(value.indicator) &&
     isRecord(value.inputsMap) &&
@@ -157,26 +157,6 @@ const chooseCandidate = ({
       return a.signal.localeCompare(b.signal)
     })[0] ?? null
   )
-}
-
-async function disableMonitor(
-  monitorId: string,
-  reason: string,
-  metadata: Record<string, unknown> = {}
-) {
-  await db
-    .update(webhook)
-    .set({
-      isActive: false,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(webhook.id, monitorId), eq(webhook.provider, 'indicator')))
-
-  logger.warn('Indicator monitor disabled', {
-    monitorId,
-    reason,
-    ...metadata,
-  })
 }
 
 export async function executeIndicatorMonitorJob(payload: IndicatorMonitorExecutionPayload) {
@@ -275,73 +255,68 @@ export async function executeIndicatorMonitorJob(payload: IndicatorMonitorExecut
     })
   }
 
-  const usageCheck = await checkServerSideUsageLimits({
-    userId: payload.monitor.actorUserId,
+  const handle = await enqueuePendingExecution({
+    executionType: 'workflow',
+    pendingExecutionId: eventId,
     workflowId: payload.monitor.workflowId,
     workspaceId,
-  })
-  if (usageCheck.isExceeded) {
-    await disableMonitor(payload.monitor.id, 'usage_limit_exceeded', {
+    userId: payload.monitor.actorUserId,
+    source: 'monitor:indicator',
+    orderingKey: `monitor:${payload.monitor.id}`,
+    requestId: eventId,
+    payload: {
+      executionId: eventId,
       workflowId: payload.monitor.workflowId,
-      currentUsage: usageCheck.currentUsage,
-      limit: usageCheck.limit,
-    })
-    return { success: true, skipped: 'usage_limit_exceeded' as const }
-  }
-
-  const blueprint = await loadWorkflowExecutionBlueprint({
-    workflowId: payload.monitor.workflowId,
-    executionTarget: 'deployed',
-    workflowContext: { workspaceId },
-  })
-  const blocks = blueprint.workflowData.blocks as Record<string, unknown>
-  if (!blocks[payload.monitor.blockId]) {
-    await disableMonitor(payload.monitor.id, 'missing_trigger_block', {
-      workflowId: payload.monitor.workflowId,
-      blockId: payload.monitor.blockId,
-    })
-    return { success: true, skipped: 'missing_trigger_block' as const }
-  }
-
-  const { result } = await runPreparedWorkflowExecution({
-    blueprint,
-    actorUserId: payload.monitor.actorUserId,
-    requestId,
-    executionId: eventId,
-    triggerType: 'webhook',
-    workflowInput: budgetResult.payload,
-    start: {
-      kind: 'block',
-      blockId: payload.monitor.blockId,
-    },
-    triggerData: {
-      source: 'indicator_trigger',
+      userId: payload.monitor.actorUserId,
+      workspaceId,
+      input: budgetResult.payload,
+      triggerType: 'webhook',
       executionTarget: 'deployed',
-      monitor: {
-        id: payload.monitor.id,
-        workflowId: payload.monitor.workflowId,
-        blockId: payload.monitor.blockId,
-        listing: payload.monitor.listing,
-        providerId: payload.monitor.providerId,
-        interval: payload.monitor.interval,
-        indicatorId: payload.monitor.indicatorId,
+      startBlockId: payload.monitor.blockId,
+      triggerData: {
+        source: INDICATOR_MONITOR_TRIGGER_ID,
+        executionTarget: 'deployed',
+        monitor: {
+          id: payload.monitor.id,
+          workflowId: payload.monitor.workflowId,
+          blockId: payload.monitor.blockId,
+          listing: payload.monitor.listing,
+          providerId: payload.monitor.providerId,
+          interval: payload.monitor.interval,
+          indicatorId: payload.monitor.indicatorId,
+        },
       },
     },
+  }).catch((error) => {
+    if (!isPendingExecutionLimitError(error)) throw error
+    logger.warn('Indicator monitor workflow queue backlog is full; skipping workflow dispatch', {
+      monitorId: payload.monitor.id,
+      workflowId: payload.monitor.workflowId,
+      pendingCount: error.details.pendingCount,
+      maxPendingCount: error.details.maxPendingCount,
+    })
+    return null
   })
 
+  if (!handle) {
+    return { success: true, skipped: 'workflow_backlog_full' as const, executionId: eventId }
+  }
+
+  if (!handle.inserted) {
+    return { success: true, skipped: 'duplicate_workflow' as const, executionId: eventId }
+  }
+
   logger.info(`[${requestId}] Indicator monitor execution completed`, {
-    success: result.success,
+    success: true,
     monitorId: payload.monitor.id,
     workflowId: payload.monitor.workflowId,
   })
 
   return {
-    success: result.success,
+    success: true,
     workflowId: payload.monitor.workflowId,
     executionId: eventId,
-    output: result.output,
-    error: result.error,
     executedAt: new Date().toISOString(),
-    provider: 'indicator',
+    provider: INDICATOR_MONITOR_PROVIDER,
   }
 }

@@ -21,7 +21,7 @@ const orderListingSchema = z
 const portfolioIdentitySchema = z
   .object({
     providerId: nonEmptyStringSchema,
-    tokenAccountId: nonEmptyStringSchema,
+    credentialId: nonEmptyStringSchema,
     serviceId: nonEmptyStringSchema,
     accountId: nonEmptyStringSchema,
   })

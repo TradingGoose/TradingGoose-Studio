@@ -13,7 +13,7 @@ vi.mock('@/widgets/utils/watchlist-params', () => ({
   emitWatchlistParamsChange: (...args: unknown[]) => mockEmitWatchlistParamsChange(...args),
 }))
 
-vi.mock('@/widgets/widgets/components/market-provider-controls', () => ({
+vi.mock('@/components/market-selector/provider-controls', () => ({
   MarketProviderControls: (props: {
     value?: string
     className?: string
@@ -43,7 +43,7 @@ vi.mock('@/widgets/widgets/components/market-provider-controls', () => ({
   },
 }))
 
-vi.mock('@/widgets/widgets/components/widget-header-control', () => ({
+vi.mock('@/components/widget-header-control', () => ({
   widgetHeaderButtonGroupClassName: (className?: string) =>
     ['controls', className].filter(Boolean).join(' '),
 }))

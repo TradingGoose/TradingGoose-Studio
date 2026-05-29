@@ -69,7 +69,7 @@ const mockTradingAccountSelector = vi.fn(({ onAccountSelect }: MockTradingAccoun
       onAccountSelect?.({
         portfolioIdentity: {
           providerId: 'alpaca',
-          tokenAccountId: 'oauth-account-1',
+          credentialId: 'oauth-account-1',
           serviceId: 'alpaca-live',
           accountId: 'acct-1',
         },
@@ -88,12 +88,12 @@ vi.mock('@/widgets/utils/quick-order-params', () => ({
   emitQuickOrderParamsChange: (...args: unknown[]) => mockEmitQuickOrderParamsChange(...args),
 }))
 
-vi.mock('@/widgets/widgets/components/market-provider-controls', () => ({
+vi.mock('@/components/market-selector/provider-controls', () => ({
   MarketProviderControls: (props: MockMarketProviderControlsProps) =>
     mockMarketProviderControls(props),
 }))
 
-vi.mock('@/widgets/widgets/components/trading-provider-selector', () => ({
+vi.mock('@/components/trading-selector/provider-selector', () => ({
   TradingProviderSelector: ({ onChange }: { onChange: (provider: string) => void }) => (
     <button type='button' data-testid='provider-selector' onClick={() => onChange('tradier')}>
       provider
@@ -101,12 +101,12 @@ vi.mock('@/widgets/widgets/components/trading-provider-selector', () => ({
   ),
 }))
 
-vi.mock('@/widgets/widgets/components/trading-account-selector', () => ({
+vi.mock('@/components/trading-selector/account-selector', () => ({
   TradingAccountSelector: (props: MockTradingAccountSelectorProps) =>
     mockTradingAccountSelector(props),
 }))
 
-vi.mock('@/widgets/widgets/components/widget-header-control', () => ({
+vi.mock('@/components/widget-header-control', () => ({
   widgetHeaderButtonGroupClassName: (className?: string) =>
     ['controls', className].filter(Boolean).join(' '),
 }))
@@ -373,7 +373,7 @@ describe('QuickOrderHeaderControls', () => {
       params: {
         portfolioIdentity: {
           providerId: 'alpaca',
-          tokenAccountId: 'oauth-account-1',
+          credentialId: 'oauth-account-1',
           serviceId: 'alpaca-live',
           accountId: 'acct-1',
         },

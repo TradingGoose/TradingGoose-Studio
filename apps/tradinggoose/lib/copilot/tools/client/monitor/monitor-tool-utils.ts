@@ -1,3 +1,8 @@
+import {
+  INDICATOR_MONITOR_PROVIDER,
+  type MonitorWebhookProvider,
+  PORTFOLIO_MONITOR_PROVIDER,
+} from '@/lib/monitors/sources'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 
 export type ListMonitorArgs = {
@@ -14,17 +19,25 @@ export type EditMonitorArgs = ReadMonitorArgs & {
   documentFormat?: string
 }
 
-export type IndicatorMonitorRecord = {
+export type MonitorRecord = {
   monitorId: string
+  source: MonitorWebhookProvider
   workflowId: string
   blockId: string
   isActive: boolean
   providerConfig: {
     monitor: {
       providerId: string
-      interval: string
-      listing: Record<string, unknown>
-      indicatorId: string
+      interval?: string
+      listing?: Record<string, unknown>
+      indicatorId?: string
+      serviceId?: string
+      credentialId?: string
+      accountId?: string
+      condition?: unknown
+      fireMode?: 'edge' | 'while_true'
+      cooldownSeconds?: number
+      pollIntervalSeconds?: number
       auth?: {
         hasEncryptedSecrets?: boolean
         encryptedSecretFieldIds?: string[]
@@ -64,30 +77,51 @@ function getListingLabel(listing: Record<string, unknown> | null | undefined): s
   return baseId && quoteId ? `${baseId}/${quoteId}` : baseId || quoteId || 'listing'
 }
 
-export function buildMonitorName(record: IndicatorMonitorRecord): string {
+export function buildMonitorName(record: MonitorRecord): string {
+  if (record.source === PORTFOLIO_MONITOR_PROVIDER) {
+    return `Portfolio state (${record.providerConfig.monitor.accountId || 'account'})`
+  }
+
   const indicatorId = record.providerConfig.monitor.indicatorId || 'indicator'
   const interval = record.providerConfig.monitor.interval || 'interval'
   const listingLabel = getListingLabel(record.providerConfig.monitor.listing)
   return `${indicatorId} on ${listingLabel} (${interval})`
 }
 
-export function toMonitorDocumentFields(record: IndicatorMonitorRecord) {
+export function toMonitorDocumentFields(record: MonitorRecord) {
+  const monitor = record.providerConfig.monitor
+  if (record.source === PORTFOLIO_MONITOR_PROVIDER) {
+    return {
+      source: PORTFOLIO_MONITOR_PROVIDER,
+      workflowId: record.workflowId,
+      blockId: record.blockId,
+      providerId: monitor.providerId,
+      serviceId: monitor.serviceId,
+      credentialId: monitor.credentialId,
+      accountId: monitor.accountId,
+      condition: monitor.condition,
+      fireMode: monitor.fireMode,
+      cooldownSeconds: monitor.cooldownSeconds,
+      pollIntervalSeconds: monitor.pollIntervalSeconds,
+      isActive: record.isActive,
+    }
+  }
+
   return {
+    source: INDICATOR_MONITOR_PROVIDER,
     workflowId: record.workflowId,
     blockId: record.blockId,
-    providerId: record.providerConfig.monitor.providerId,
-    interval: record.providerConfig.monitor.interval,
-    indicatorId: record.providerConfig.monitor.indicatorId,
-    listing: record.providerConfig.monitor.listing,
+    providerId: monitor.providerId,
+    interval: monitor.interval,
+    indicatorId: monitor.indicatorId,
+    listing: monitor.listing,
     isActive: record.isActive,
-    ...(record.providerConfig.monitor.providerParams
-      ? { providerParams: record.providerConfig.monitor.providerParams }
-      : {}),
+    ...(monitor.providerParams ? { providerParams: monitor.providerParams } : {}),
   }
 }
 
-export async function fetchMonitorById(monitorId: string): Promise<IndicatorMonitorRecord> {
-  const response = await fetch(`/api/indicator-monitors/${encodeURIComponent(monitorId)}`)
+export async function fetchMonitorById(monitorId: string): Promise<MonitorRecord> {
+  const response = await fetch(`/api/monitors/${encodeURIComponent(monitorId)}`)
   const payload = await response.json().catch(() => ({}))
 
   if (!response.ok) {
@@ -98,5 +132,5 @@ export async function fetchMonitorById(monitorId: string): Promise<IndicatorMoni
     throw new Error('Invalid monitor response')
   }
 
-  return payload.data as IndicatorMonitorRecord
+  return payload.data as MonitorRecord
 }

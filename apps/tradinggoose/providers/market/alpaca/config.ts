@@ -182,7 +182,6 @@ export const alpacaProviderConfig: MarketProviderConfig = {
       marketSessions: ['regular', 'extended']
     },
     live: {
-      supportsStreaming: true,
       channels: ['bars', 'trades', 'quotes'],
       supportsInterval: false,
     },

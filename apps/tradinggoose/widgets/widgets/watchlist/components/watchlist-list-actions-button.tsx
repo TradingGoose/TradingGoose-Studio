@@ -7,7 +7,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import {
   widgetHeaderIconButtonClassName,
   widgetHeaderMenuItemClassName,
-} from '@/widgets/widgets/components/widget-header-control'
+} from '@/components/widget-header-control'
 
 type WatchlistListActionsButtonProps = {
   open: boolean

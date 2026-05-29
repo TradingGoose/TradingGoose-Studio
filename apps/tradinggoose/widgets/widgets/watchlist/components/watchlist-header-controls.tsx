@@ -2,6 +2,7 @@
 
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check } from 'lucide-react'
+import { MarketProviderControls } from '@/components/market-selector/provider-controls'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,6 +14,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  widgetHeaderButtonGroupClassName,
+  widgetHeaderIconButtonClassName,
+} from '@/components/widget-header-control'
 import { type ListingOption, toListingValue } from '@/lib/listing/identity'
 import { parseImportedWatchlistFile } from '@/lib/watchlists/import-export'
 import type { WatchlistRecord } from '@/lib/watchlists/types'
@@ -30,11 +35,6 @@ import { useListingSelectorStore } from '@/stores/market/selector/store'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { emitWatchlistParamsChange } from '@/widgets/utils/watchlist-params'
-import { MarketProviderControls } from '@/widgets/widgets/components/market-provider-controls'
-import {
-  widgetHeaderButtonGroupClassName,
-  widgetHeaderIconButtonClassName,
-} from '@/widgets/widgets/components/widget-header-control'
 import { WidgetHeaderRefreshButton } from '@/widgets/widgets/components/widget-header-refresh-button'
 import { DataChartListingSelector } from '@/widgets/widgets/data_chart/components/listing-control'
 import {

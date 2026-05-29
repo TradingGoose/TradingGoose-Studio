@@ -1,5 +1,7 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
+import { HistoricalDataBlock } from '@/blocks/blocks/historical_data'
+import { TradingPortfolioDetailBlock } from '@/blocks/blocks/portfolio_detail'
 import { TradingActionBlock } from '@/blocks/blocks/trading_action'
 import { TradingOrderDetailBlock } from '@/blocks/blocks/trading_order_detail'
 import { TradingOrderHistoryBlock } from '@/blocks/blocks/trading_order_history'
@@ -8,10 +10,6 @@ import { tradingOrderDetailTool } from '@/tools/trading/order_detail'
 import { orderHistoryTool } from '@/tools/trading/order_history'
 
 describe('trading order block contracts', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
-
   it('exposes workspace scope on order-history tool and block outputs', () => {
     expect(orderHistoryTool.outputs).toHaveProperty('workspaceId')
     expect(orderHistoryTool.outputs?.history.items?.properties).toEqual(
@@ -75,67 +73,52 @@ describe('trading order block contracts', () => {
         ])
     ).toEqual([
       ['provider', true, 'provider', undefined, undefined, undefined],
-      ['portfolioIdentity', true, 'portfolioIdentity', undefined, undefined, ['provider']],
+      ['portfolioIdentity', true, 'portfolioIdentity', undefined, 'provider', ['provider']],
       ['listing', true, 'listing', 'market', 'provider', ['provider']],
     ])
   })
 
-  it('loads enabled broker provider options from OAuth service availability', async () => {
+  it('uses canonical broker provider and account selector sub-blocks', () => {
     const provider = TradingActionBlock.subBlocks.find((subBlock) => subBlock.id === 'provider')
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        'alpaca-paper': true,
-        'tradier-live': false,
-      }),
-    }))
-    vi.stubGlobal('fetch', fetchMock)
-
-    const options = await provider?.fetchOptions?.('block-1', 'provider', {
-      channelId: 'channel-1',
-      workflowId: 'workflow-1',
-    })
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/auth/oauth/providers?providers=alpaca-live%2Calpaca-paper%2Ctradier-live',
-      {
-        cache: 'no-store',
-      }
-    )
-    expect(options).toEqual([{ id: 'alpaca', label: 'Alpaca' }])
-  })
-
-  it('loads broker account options for the selected provider', async () => {
     const portfolioIdentity = TradingActionBlock.subBlocks.find(
       (subBlock) => subBlock.id === 'portfolioIdentity'
     )
-    const fetchMock = vi.fn(async (url: string) => ({
-      ok: true,
-      json: async () => ({
-        options: [
-          {
-            id: url.includes('provider=alpaca') ? 'alpaca-account' : 'tradier-account',
-            label: url.includes('provider=alpaca') ? 'Alpaca Account' : 'Tradier Account',
-          },
-        ],
-      }),
-    }))
-    vi.stubGlobal('fetch', fetchMock)
 
-    const options = await portfolioIdentity?.fetchOptions?.('block-1', 'portfolioIdentity', {
-      channelId: 'channel-1',
-      workflowId: 'workflow-1',
-      contextValues: { provider: 'alpaca' },
+    expect(provider).toMatchObject({
+      type: 'trading-provider-selector',
+      tradingProviderKind: 'order',
+      required: true,
     })
+    expect(provider?.fetchOptions).toBeUndefined()
+    expect(portfolioIdentity).toMatchObject({
+      type: 'trading-account-selector',
+      tradingProviderFieldId: 'provider',
+      dependsOn: ['provider'],
+      autoSelectFirstOption: false,
+      required: true,
+    })
+    expect(portfolioIdentity?.fetchOptions).toBeUndefined()
+  })
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/providers/trading/portfolio-identities?provider=alpaca',
-      {
-        cache: 'no-store',
-      }
-    )
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(options).toEqual([{ id: 'alpaca-account', label: 'Alpaca Account' }])
+  it('uses canonical provider selectors on related market and portfolio detail blocks', () => {
+    expect(
+      TradingPortfolioDetailBlock.subBlocks.find((subBlock) => subBlock.id === 'provider')
+    ).toMatchObject({
+      type: 'trading-provider-selector',
+      tradingProviderKind: 'portfolioDetail',
+    })
+    expect(
+      TradingPortfolioDetailBlock.subBlocks.find((subBlock) => subBlock.id === 'portfolioIdentity')
+    ).toMatchObject({
+      type: 'trading-account-selector',
+      tradingProviderFieldId: 'provider',
+    })
+    expect(
+      HistoricalDataBlock.subBlocks.find((subBlock) => subBlock.id === 'provider')
+    ).toMatchObject({
+      type: 'market-provider-selector',
+      marketProviderKind: 'series',
+    })
   })
 
   it('declares canonical sizing controls directly on the order block', () => {
@@ -175,7 +158,7 @@ describe('trading order block contracts', () => {
     const params = TradingActionBlock.tools.config!.params!({
       portfolioIdentity: {
         providerId: 'tradier',
-        tokenAccountId: 'oauth-account-1',
+        credentialId: 'oauth-account-1',
         serviceId: 'tradier-live',
         accountId: 'ACC-1',
       },

@@ -9,12 +9,14 @@ const {
   createWorkflowExecutionEventWriterMock,
   writeExecutionEventMock,
   isPendingWorkflowExecutionCancellationRequestedMock,
+  disableMonitorMock,
 } = vi.hoisted(() => ({
   runWorkflowExecutionMock: vi.fn(),
   buildTraceSpansMock: vi.fn(),
   createWorkflowExecutionEventWriterMock: vi.fn(),
   writeExecutionEventMock: vi.fn(),
   isPendingWorkflowExecutionCancellationRequestedMock: vi.fn(),
+  disableMonitorMock: vi.fn(),
 }))
 
 vi.mock('@/lib/execution/workflow-execution-events', () => ({
@@ -38,6 +40,10 @@ vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: vi.fn(() => ({
     info: vi.fn(),
   })),
+}))
+
+vi.mock('./monitor-disable', () => ({
+  disableMonitor: disableMonitorMock,
 }))
 
 import { executeWorkflowJob } from './workflow-execution'
@@ -204,5 +210,37 @@ describe('executeWorkflowJob', () => {
     await call.contextExtensions.shouldCancelExecution()
 
     expect(isPendingWorkflowExecutionCancellationRequestedMock).toHaveBeenCalledWith('execution-1')
+  })
+
+  it('disables monitor workflow sources after permanent dispatch failures', async () => {
+    runWorkflowExecutionMock.mockResolvedValueOnce({
+      dispatchFailureReason: 'usage_limit_exceeded',
+      result: {
+        success: false,
+        output: {},
+        error: 'Usage limit exceeded',
+        metadata: { duration: 0 },
+      },
+    })
+
+    await executeWorkflowJob({
+      workflowId: 'workflow-1',
+      userId: 'user-1',
+      triggerType: 'webhook',
+      startBlockId: 'trigger-1',
+      triggerData: {
+        source: 'indicator_trigger',
+        monitor: { id: 'monitor-1' },
+      },
+    })
+
+    expect(disableMonitorMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        monitorId: 'monitor-1',
+        provider: 'indicator',
+        reason: 'usage_limit_exceeded',
+        workflowId: 'workflow-1',
+      })
+    )
   })
 })

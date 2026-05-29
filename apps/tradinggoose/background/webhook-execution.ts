@@ -2,7 +2,6 @@ import { db } from '@tradinggoose/db'
 import { webhook } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
-import { toListingValueObject } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { WebhookAttachmentProcessor } from '@/lib/webhooks/attachment-processor'
@@ -69,9 +68,6 @@ export type WebhookExecutionPayload = {
   executionTarget?: 'deployed' | 'live'
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
 export function isWebhookExecutionPayload(value: unknown): value is WebhookExecutionPayload {
   if (!value || typeof value !== 'object') {
     return false
@@ -84,50 +80,6 @@ export function isWebhookExecutionPayload(value: unknown): value is WebhookExecu
     typeof candidate.userId === 'string' &&
     typeof candidate.provider === 'string'
   )
-}
-
-const toTrimmedString = (value: unknown): string | null => {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : null
-}
-
-const buildIndicatorTriggerData = (
-  payload: WebhookExecutionPayload
-): Record<string, unknown> | null => {
-  if (payload.provider !== 'indicator') return null
-  if (!isRecord(payload.body)) {
-    return { source: 'indicator_trigger' }
-  }
-
-  const monitorRaw = payload.body.monitor
-  if (!isRecord(monitorRaw)) {
-    return { source: 'indicator_trigger' }
-  }
-
-  const listing = toListingValueObject(monitorRaw.listing as any)
-  const monitor = {
-    id: toTrimmedString(monitorRaw.id),
-    workflowId: toTrimmedString(monitorRaw.workflowId),
-    blockId: toTrimmedString(monitorRaw.blockId),
-    providerId: toTrimmedString(monitorRaw.providerId),
-    interval: toTrimmedString(monitorRaw.interval),
-    indicatorId: toTrimmedString(monitorRaw.indicatorId),
-  }
-
-  const monitorMetadata = Object.fromEntries(
-    Object.entries(monitor).filter(([, value]) => typeof value === 'string' && value.length > 0)
-  )
-
-  return {
-    source: 'indicator_trigger',
-    monitor: listing
-      ? {
-          ...monitorMetadata,
-          listing,
-        }
-      : monitorMetadata,
-  }
 }
 
 async function completeSkippedWebhookExecution(params: {
@@ -222,11 +174,9 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
     executionId,
   })
 
-  const indicatorTriggerData = buildIndicatorTriggerData(payload)
   const triggerData = {
     isTest: payload.testMode === true,
     executionTarget,
-    ...(indicatorTriggerData ?? {}),
   }
 
   let runnerInvoked = false
