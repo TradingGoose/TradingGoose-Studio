@@ -157,10 +157,11 @@ export const normalizePortfolioMonitorConfig = (input: {
   },
 })
 
-export const toPublicPortfolioMonitorProviderConfig = (
-  config: PortfolioMonitorProviderConfig
-): PortfolioMonitorProviderConfig => ({
-  triggerId: config.triggerId,
-  version: config.version,
-  monitor: config.monitor,
-})
+export const toPublicPortfolioMonitorProviderConfig = (config: PortfolioMonitorProviderConfig) => {
+  const { connectionOwnerUserId: _connectionOwnerUserId, ...monitor } = config.monitor
+  return {
+    triggerId: config.triggerId,
+    version: config.version,
+    monitor,
+  }
+}

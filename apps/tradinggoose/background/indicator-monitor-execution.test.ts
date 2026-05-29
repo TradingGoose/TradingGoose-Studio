@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/lib/execution/pending-execution', () => ({
   enqueuePendingExecution: (...args: unknown[]) => mocks.enqueuePendingExecution(...args),
+  isPendingExecutionLimitError: (error: { code?: string }) =>
+    error?.code === 'PENDING_EXECUTION_LIMIT',
 }))
 
 vi.mock('@/lib/indicators/dispatch', () => ({
@@ -127,5 +129,24 @@ describe('executeIndicatorMonitorJob', () => {
         }),
       })
     )
+  })
+
+  it('completes indicator calculation when the workflow backlog is full', async () => {
+    const { executeIndicatorMonitorJob } = await import('./indicator-monitor-execution')
+    mocks.enqueuePendingExecution.mockRejectedValueOnce({
+      code: 'PENDING_EXECUTION_LIMIT',
+      details: {
+        pendingCount: 100,
+        maxPendingCount: 100,
+      },
+    })
+
+    const result = await executeIndicatorMonitorJob(payload)
+
+    expect(result).toMatchObject({
+      success: true,
+      skipped: 'workflow_backlog_full',
+      executionId: 'event-1',
+    })
   })
 })

@@ -1,4 +1,7 @@
-import { enqueuePendingExecution } from '@/lib/execution/pending-execution'
+import {
+  enqueuePendingExecution,
+  isPendingExecutionLimitError,
+} from '@/lib/execution/pending-execution'
 import {
   applyIndicatorTriggerPayloadBudget,
   buildIndicatorTriggerDispatchPayload,
@@ -284,7 +287,20 @@ export async function executeIndicatorMonitorJob(payload: IndicatorMonitorExecut
         },
       },
     },
+  }).catch((error) => {
+    if (!isPendingExecutionLimitError(error)) throw error
+    logger.warn('Indicator monitor workflow queue backlog is full; skipping workflow dispatch', {
+      monitorId: payload.monitor.id,
+      workflowId: payload.monitor.workflowId,
+      pendingCount: error.details.pendingCount,
+      maxPendingCount: error.details.maxPendingCount,
+    })
+    return null
   })
+
+  if (!handle) {
+    return { success: true, skipped: 'workflow_backlog_full' as const, executionId: eventId }
+  }
 
   if (!handle.inserted) {
     return { success: true, skipped: 'duplicate_workflow' as const, executionId: eventId }
