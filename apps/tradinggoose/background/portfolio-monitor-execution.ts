@@ -11,7 +11,6 @@ type PortfolioMonitorExecutionMonitor = {
   id: string
   workflowId: string
   workspaceId: string
-  userId: string
   actorUserId: string
   blockId: string
   providerId: string

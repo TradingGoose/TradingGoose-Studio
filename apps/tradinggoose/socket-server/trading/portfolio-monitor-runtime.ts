@@ -60,7 +60,7 @@ type PortfolioMonitorRuntimeConfig = {
   id: string
   workflowId: string
   workspaceId: string
-  userId: string
+  connectionOwnerUserId: string
   pinnedApiKeyId: string | null
   blockId: string
   providerId: TradingProviderId
@@ -84,7 +84,6 @@ type PortfolioMonitorSubscription = {
 const toConfig = (
   row: typeof webhook.$inferSelect,
   workflowRow: {
-    userId: string
     workspaceId: string | null
     pinnedApiKeyId: string | null
   }
@@ -101,7 +100,7 @@ const toConfig = (
     id: row.id,
     workflowId: row.workflowId,
     workspaceId: workflowRow.workspaceId,
-    userId: workflowRow.userId,
+    connectionOwnerUserId: monitor.connectionOwnerUserId,
     pinnedApiKeyId: workflowRow.pinnedApiKeyId,
     blockId: monitor.triggerBlockId,
     providerId: monitor.providerId,
@@ -321,7 +320,6 @@ export class PortfolioMonitorRuntime {
       .select({
         webhook,
         workflow: {
-          userId: workflow.userId,
           workspaceId: workflow.workspaceId,
           pinnedApiKeyId: workflow.pinnedApiKeyId,
           isDeployed: workflow.isDeployed,
@@ -362,7 +360,7 @@ export class PortfolioMonitorRuntime {
       }
 
       const subscription = tradingPortfolioStreamManager.subscribeData({
-        userId: config.userId,
+        userId: config.connectionOwnerUserId,
         workspaceId: config.workspaceId,
         provider: config.providerId,
         serviceId: config.serviceId,
@@ -458,7 +456,6 @@ export class PortfolioMonitorRuntime {
         id: config.id,
         workflowId: config.workflowId,
         workspaceId: config.workspaceId,
-        userId: config.userId,
         actorUserId,
         blockId: config.blockId,
         providerId: config.providerId,
@@ -523,7 +520,6 @@ export class PortfolioMonitorRuntime {
       .select({
         webhook,
         workflow: {
-          userId: workflow.userId,
           workspaceId: workflow.workspaceId,
           pinnedApiKeyId: workflow.pinnedApiKeyId,
         },

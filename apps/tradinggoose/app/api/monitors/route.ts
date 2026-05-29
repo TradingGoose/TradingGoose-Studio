@@ -204,9 +204,8 @@ async function buildProviderConfigForCreate({
 }) {
   if (source === PORTFOLIO_MONITOR_PROVIDER) {
     const portfolioPayload = payload as PortfolioCreatePayload
-    const serviceId = await resolvePortfolioMonitorAccount({
+    const connection = await resolvePortfolioMonitorAccount({
       userId,
-      workspaceId: portfolioPayload.workspaceId,
       providerId: portfolioPayload.providerId,
       serviceId: portfolioPayload.serviceId,
       credentialId: portfolioPayload.credentialId,
@@ -217,8 +216,9 @@ async function buildProviderConfigForCreate({
     return normalizePortfolioMonitorConfig({
       triggerBlockId: portfolioPayload.blockId,
       providerId: portfolioPayload.providerId,
-      serviceId,
+      serviceId: connection.serviceId,
       credentialId: portfolioPayload.credentialId,
+      connectionOwnerUserId: connection.connectionOwnerUserId,
       accountId: portfolioPayload.accountId,
       condition: portfolioPayload.condition,
       fireMode: portfolioPayload.fireMode,

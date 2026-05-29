@@ -107,6 +107,7 @@ export const PortfolioMonitorProviderConfigSchema = z
         providerId: tradingProviderId,
         serviceId: nonEmptyString,
         credentialId: nonEmptyString,
+        connectionOwnerUserId: nonEmptyString,
         accountId: nonEmptyString,
         condition: PortfolioFireConditionSchema,
         fireMode: z.enum(['edge', 'while_true']),
@@ -133,6 +134,7 @@ export const normalizePortfolioMonitorConfig = (input: {
   providerId: string
   serviceId: string
   credentialId: string
+  connectionOwnerUserId: string
   accountId: string
   condition: PortfolioFireCondition
   fireMode?: 'edge' | 'while_true'
@@ -146,6 +148,7 @@ export const normalizePortfolioMonitorConfig = (input: {
     providerId: input.providerId as TradingProviderId,
     serviceId: input.serviceId,
     credentialId: input.credentialId,
+    connectionOwnerUserId: input.connectionOwnerUserId,
     accountId: input.accountId,
     condition: input.condition,
     fireMode: input.fireMode ?? 'edge',

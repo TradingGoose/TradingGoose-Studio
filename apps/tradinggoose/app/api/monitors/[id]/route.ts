@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util'
 import { db, webhook } from '@tradinggoose/db'
 import { and, eq, inArray } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
@@ -296,30 +297,39 @@ async function buildProviderConfigForUpdate({
     const nextCredentialId = portfolioPayload.credentialId ?? existingMonitor.credentialId
     const nextAccountId = portfolioPayload.accountId ?? existingMonitor.accountId
     const requestedServiceId = portfolioPayload.serviceId ?? existingMonitor.serviceId
-    const nextServiceId = requireCompleteAuth
-      ? await resolvePortfolioMonitorAccount({
-          userId,
-          workspaceId,
-          providerId: nextProviderId,
-          serviceId: requestedServiceId,
-          credentialId: nextCredentialId,
-          accountId: nextAccountId,
-          requestId,
-        })
-      : getTradingProviderOAuthServiceId(nextProviderId as TradingProviderId, requestedServiceId)
-
-    if (!nextServiceId) throw new MonitorRequestError('Trading provider connection is required')
-    const shouldPreserveRuntimeState =
-      nextProviderId === existingMonitor.providerId &&
-      nextServiceId === existingMonitor.serviceId &&
-      nextCredentialId === existingMonitor.credentialId &&
-      nextAccountId === existingMonitor.accountId
+    const requestedOAuthServiceId = getTradingProviderOAuthServiceId(
+      nextProviderId as TradingProviderId,
+      requestedServiceId
+    )
+    if (!requestedOAuthServiceId) {
+      throw new MonitorRequestError('Trading provider connection is required')
+    }
+    const connectionChanged =
+      nextProviderId !== existingMonitor.providerId ||
+      requestedOAuthServiceId !== existingMonitor.serviceId ||
+      nextCredentialId !== existingMonitor.credentialId ||
+      nextAccountId !== existingMonitor.accountId
+    const connection =
+      requireCompleteAuth || connectionChanged
+        ? await resolvePortfolioMonitorAccount({
+            userId,
+            providerId: nextProviderId,
+            serviceId: requestedOAuthServiceId,
+            credentialId: nextCredentialId,
+            accountId: nextAccountId,
+            requestId,
+          })
+        : {
+            serviceId: existingMonitor.serviceId,
+            connectionOwnerUserId: existingMonitor.connectionOwnerUserId,
+          }
 
     const providerConfig = normalizePortfolioMonitorConfig({
       triggerBlockId: nextTriggerBlockId,
       providerId: nextProviderId,
-      serviceId: nextServiceId,
+      serviceId: connection.serviceId,
       credentialId: nextCredentialId,
+      connectionOwnerUserId: connection.connectionOwnerUserId,
       accountId: nextAccountId,
       condition: portfolioPayload.condition ?? existingMonitor.condition,
       fireMode: portfolioPayload.fireMode ?? existingMonitor.fireMode,
@@ -327,6 +337,10 @@ async function buildProviderConfigForUpdate({
       pollIntervalSeconds:
         portfolioPayload.pollIntervalSeconds ?? existingMonitor.pollIntervalSeconds,
     })
+    const shouldPreserveRuntimeState = isDeepStrictEqual(
+      providerConfig.monitor,
+      portfolioConfig.monitor
+    )
     if (shouldPreserveRuntimeState && portfolioConfig.runtimeState !== undefined) {
       providerConfig.runtimeState = portfolioConfig.runtimeState
     }

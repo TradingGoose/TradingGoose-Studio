@@ -206,7 +206,6 @@ export const ensureWorkflowInWorkspace = async (workflowId: string, workspaceId:
 
 export const resolvePortfolioMonitorAccount = async ({
   userId,
-  workspaceId,
   providerId,
   serviceId,
   credentialId,
@@ -214,7 +213,6 @@ export const resolvePortfolioMonitorAccount = async ({
   requestId,
 }: {
   userId: string
-  workspaceId: string
   providerId: string
   serviceId?: string | null
   credentialId: string
@@ -247,7 +245,10 @@ export const resolvePortfolioMonitorAccount = async ({
       baseContext,
       accountId,
     })
-    return baseContext.serviceId
+    return {
+      serviceId: baseContext.serviceId,
+      connectionOwnerUserId: connection.connectionOwnerUserId,
+    }
   } catch (error) {
     if (isTradingServiceError(error)) {
       throw new MonitorRequestError(error.message, error.status)

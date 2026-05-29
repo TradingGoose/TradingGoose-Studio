@@ -117,7 +117,7 @@ function buildMonitorConfig() {
     id: 'monitor-1',
     workflowId: 'workflow-1',
     workspaceId: 'workspace-1',
-    userId: 'user-1',
+    connectionOwnerUserId: 'connection-owner-1',
     pinnedApiKeyId: 'api-key-1',
     blockId: 'block-1',
     providerId: 'alpaca',
