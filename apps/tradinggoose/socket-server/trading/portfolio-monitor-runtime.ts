@@ -17,7 +17,6 @@ import {
   PortfolioMonitorProviderConfigSchema,
 } from '@/lib/monitors/portfolio-config'
 import { PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
-import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import type { PortfolioMonitorExecutionPayload } from '@/background/portfolio-monitor-execution'
 import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import { getTradingProviderOAuthServiceId } from '@/providers/trading/providers'
@@ -484,11 +483,6 @@ export class PortfolioMonitorRuntime {
     } catch (error) {
       if (error instanceof ExecutionGateError) {
         await this.disconnect(config.id, 'invalid_billing_context')
-        return
-      }
-
-      if (error instanceof TriggerExecutionUnavailableError) {
-        await this.disconnect(config.id, 'trigger_execution_disabled')
         return
       }
 

@@ -24,7 +24,6 @@ import {
   INDICATOR_MONITOR_PROVIDER,
   isMonitorProviderConfigForProvider,
 } from '@/lib/monitors/sources'
-import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { decryptSecret } from '@/lib/utils-server'
 import { applySavedEntityYjsStateToRows } from '@/lib/yjs/entity-state'
 import type { MonitorExecutionPayload } from '@/background/monitor-execution'
@@ -859,16 +858,6 @@ export class IndicatorMonitorRuntime {
       } catch (error) {
         if (error instanceof ExecutionGateError) {
           await this.disconnectMonitor(monitor.id, 'invalid_billing_context', {
-            monitorId: monitor.id,
-            workflowId: monitor.workflowId,
-            error: error.message,
-          })
-          this.skippedCount += 1
-          return
-        }
-
-        if (error instanceof TriggerExecutionUnavailableError) {
-          await this.disconnectMonitor(monitor.id, 'trigger_execution_disabled', {
             monitorId: monitor.id,
             workflowId: monitor.workflowId,
             error: error.message,

@@ -101,10 +101,6 @@ vi.mock('@/lib/redis', () => ({
   getRedisStorageMode: getRedisStorageModeMock,
 }))
 
-vi.mock('@/lib/trigger/settings', () => ({
-  TriggerExecutionUnavailableError: class TriggerExecutionUnavailableError extends Error {},
-}))
-
 vi.mock('@/lib/utils-server', () => ({
   decryptSecret: vi.fn(),
 }))

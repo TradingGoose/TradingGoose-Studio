@@ -75,10 +75,6 @@ vi.mock('@/lib/redis', () => ({
   getRedisStorageMode: () => mocks.getRedisStorageMode(),
 }))
 
-vi.mock('@/lib/trigger/settings', () => ({
-  TriggerExecutionUnavailableError: class TriggerExecutionUnavailableError extends Error {},
-}))
-
 vi.mock('@/socket-server/trading/portfolio-manager', () => ({
   tradingPortfolioStreamManager: {
     subscribeData: vi.fn(),
