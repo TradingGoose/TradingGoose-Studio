@@ -848,7 +848,7 @@ export class IndicatorMonitorRuntime {
           workflowId: monitor.workflowId,
           workspaceId: monitor.workspaceId,
           userId: actorUserId,
-          source: 'monitor:indicator',
+          source: 'monitor:indicator:calculation',
           requestId: pendingExecutionId,
           payload,
         })
