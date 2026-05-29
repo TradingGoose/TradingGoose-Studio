@@ -437,7 +437,11 @@ export class PortfolioMonitorRuntime {
     }
 
     if (!shouldFire) {
-      if (await this.updateRuntimeState(config, evaluatedState)) {
+      if (previousWasTrue !== conditionMatched) {
+        if (await this.updateRuntimeState(config, evaluatedState)) {
+          config.runtimeState = evaluatedState
+        }
+      } else {
         config.runtimeState = evaluatedState
       }
       return

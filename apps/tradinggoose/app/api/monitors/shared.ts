@@ -5,7 +5,7 @@ import {
   workflow,
   workflowDeploymentVersion,
 } from '@tradinggoose/db/schema'
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import { DEFAULT_INDICATOR_RUNTIME_MAP } from '@/lib/indicators/default/runtime'
 import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
 import {
@@ -85,6 +85,11 @@ export const listMonitorRows = async ({
   if (workflowId) {
     conditions.push(eq(webhook.workflowId, workflowId))
   }
+
+  if (blockId) {
+    conditions.push(sql`${webhook.providerConfig}->'monitor'->>'triggerBlockId' = ${blockId}`)
+  }
+
   const rows = await db
     .select({
       webhook: webhook,
@@ -97,15 +102,7 @@ export const listMonitorRows = async ({
     .innerJoin(workflow, eq(webhook.workflowId, workflow.id))
     .where(and(...conditions))
     .orderBy(desc(webhook.updatedAt))
-
-  if (!blockId) return rows
-  return rows.filter((row) => {
-    if (!isMonitorProvider(row.webhook.provider)) return false
-    return (
-      getTriggerBlockIdFromMonitorConfig(row.webhook.providerConfig, row.webhook.provider) ===
-      blockId
-    )
-  })
+  return rows
 }
 
 export const getMonitorRowById = async (id: string) => {
