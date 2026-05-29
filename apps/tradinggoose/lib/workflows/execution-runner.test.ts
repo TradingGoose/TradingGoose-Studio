@@ -263,6 +263,25 @@ describe('runPreparedWorkflowExecution', () => {
         error: 'Usage limit exceeded',
       })
     )
+    expect(result.dispatchFailureReason).toBe('usage_limit_exceeded')
+  })
+
+  it('reports missing start blocks as dispatch failures', async () => {
+    const result = await runPreparedWorkflowExecution({
+      blueprint,
+      actorUserId: 'user-1',
+      triggerType: 'webhook',
+      workflowInput: {},
+      executionId: 'execution-1',
+      start: {
+        kind: 'block',
+        blockId: 'missing',
+      },
+    })
+
+    expect(mocks.execute).not.toHaveBeenCalled()
+    expect(result.result.success).toBe(false)
+    expect(result.dispatchFailureReason).toBe('missing_start_block')
   })
 
   it('does not rewrite successful executions as failed when terminal success logging fails', async () => {

@@ -8,7 +8,10 @@ import {
   isPendingExecutionLimitError,
 } from '@/lib/execution/pending-execution'
 import { createLogger } from '@/lib/logs/console/logger'
-import { evaluatePortfolioFireCondition } from '@/lib/monitors/portfolio-conditions'
+import {
+  evaluatePortfolioFireCondition,
+  type PortfolioConditionSnapshot,
+} from '@/lib/monitors/portfolio-conditions'
 import {
   type PortfolioMonitorProviderConfig,
   PortfolioMonitorProviderConfigSchema,
@@ -16,7 +19,7 @@ import {
 import { PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import type { PortfolioMonitorExecutionPayload } from '@/background/portfolio-monitor-execution'
-import type { PortfolioDetail, PortfolioIdentity } from '@/providers/trading/portfolio-identity'
+import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import { getTradingProviderOAuthServiceId } from '@/providers/trading/providers'
 import type { TradingProviderId } from '@/providers/trading/types'
 import {
@@ -406,13 +409,19 @@ export class PortfolioMonitorRuntime {
 
     const config = subscription.config
     const currentDetail = payload.portfolioDetail
-    const previousDetail = config.runtimeState?.previousSnapshot as PortfolioDetail | undefined
+    const currentSnapshot: PortfolioConditionSnapshot = {
+      summary: currentDetail.summary,
+      positions: currentDetail.positions,
+    }
+    const previousSnapshot = config.runtimeState?.previousSnapshot as
+      | PortfolioConditionSnapshot
+      | undefined
     const previousWasTrue = config.runtimeState?.wasTrue
     const previousLastFiredAt = config.runtimeState?.lastFiredAt
     const conditionMatched = evaluatePortfolioFireCondition({
       condition: config.condition,
-      current: currentDetail,
-      previous: previousDetail,
+      current: currentSnapshot,
+      previous: previousSnapshot,
     })
     const crossedEdge = conditionMatched && previousWasTrue !== true
     const shouldFire =
@@ -424,7 +433,7 @@ export class PortfolioMonitorRuntime {
       lastEvaluatedAt: evaluatedAt,
       lastFiredAt: previousLastFiredAt,
       wasTrue: conditionMatched,
-      previousSnapshot: currentDetail,
+      previousSnapshot: currentSnapshot,
     }
 
     if (!shouldFire) {

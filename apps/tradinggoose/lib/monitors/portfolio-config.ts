@@ -13,6 +13,12 @@ import type { TradingProviderId } from '@/providers/trading/types'
 
 const nonEmptyString = z.string().trim().min(1)
 const tradingProviderId = nonEmptyString.transform((value) => value as TradingProviderId)
+const PortfolioConditionSnapshotSchema = z
+  .object({
+    summary: z.unknown(),
+    positions: z.array(z.unknown()),
+  })
+  .strict()
 
 const PortfolioConditionRuleSchema: z.ZodType<any> = z
   .object({
@@ -113,7 +119,7 @@ export const PortfolioMonitorProviderConfigSchema = z
         lastEvaluatedAt: z.string().optional(),
         lastFiredAt: z.string().optional(),
         wasTrue: z.boolean().optional(),
-        previousSnapshot: z.unknown().optional(),
+        previousSnapshot: PortfolioConditionSnapshotSchema.optional(),
       })
       .strict()
       .optional(),

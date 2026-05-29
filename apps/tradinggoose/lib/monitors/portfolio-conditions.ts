@@ -5,6 +5,8 @@ import {
 } from '@/lib/listing/identity'
 import type { PortfolioDetail } from '@/providers/trading/portfolio-identity'
 
+export type PortfolioConditionSnapshot = Pick<PortfolioDetail, 'summary' | 'positions'>
+
 export const PORTFOLIO_CONDITION_METRICS = [
   'summary.totalPortfolioValue',
   'summary.totalCashValue',
@@ -61,8 +63,8 @@ export type PortfolioFireCondition = {
 }
 
 type EvaluationContext = {
-  current: PortfolioDetail
-  previous?: PortfolioDetail | null
+  current: PortfolioConditionSnapshot
+  previous?: PortfolioConditionSnapshot | null
 }
 
 const isGroup = (node: PortfolioConditionNode): node is PortfolioConditionGroup =>
@@ -96,7 +98,7 @@ export const getPortfolioConditionOperatorsForMetric = (metric: PortfolioConditi
     isPortfolioConditionOperatorCompatible(metric, operator)
   )
 
-const findPosition = (portfolio: PortfolioDetail, listingInput: unknown) => {
+const findPosition = (portfolio: PortfolioConditionSnapshot, listingInput: unknown) => {
   const listing = toListingValueObject(listingInput)
   if (!listing) return null
   return (
@@ -108,7 +110,7 @@ const findPosition = (portfolio: PortfolioDetail, listingInput: unknown) => {
 }
 
 const getMetricValue = (
-  portfolio: PortfolioDetail | null | undefined,
+  portfolio: PortfolioConditionSnapshot | null | undefined,
   rule: PortfolioConditionRule
 ): number | boolean | null => {
   if (!portfolio) return null
@@ -208,6 +210,6 @@ export const evaluatePortfolioFireCondition = ({
   previous,
 }: {
   condition: PortfolioFireCondition
-  current: PortfolioDetail
-  previous?: PortfolioDetail | null
+  current: PortfolioConditionSnapshot
+  previous?: PortfolioConditionSnapshot | null
 }) => evaluateNode(condition.root, { current, previous })

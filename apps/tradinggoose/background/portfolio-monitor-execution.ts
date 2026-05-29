@@ -1,14 +1,9 @@
-import { db, webhook } from '@tradinggoose/db'
-import { and, eq } from 'drizzle-orm'
-import { checkServerSideUsageLimits } from '@/lib/billing'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { PortfolioFireCondition } from '@/lib/monitors/portfolio-conditions'
 import { PORTFOLIO_MONITOR_PROVIDER, PORTFOLIO_MONITOR_TRIGGER_ID } from '@/lib/monitors/sources'
-import {
-  loadWorkflowExecutionBlueprint,
-  runPreparedWorkflowExecution,
-} from '@/lib/workflows/execution-runner'
+import { runWorkflowExecution } from '@/lib/workflows/execution-runner'
 import type { PortfolioDetail, PortfolioIdentity } from '@/providers/trading/portfolio-identity'
+import { disableMonitor } from './monitor-disable'
 
 const logger = createLogger('PortfolioMonitorExecution')
 
@@ -55,57 +50,9 @@ export function isPortfolioMonitorExecutionPayload(
   )
 }
 
-async function disableMonitor(
-  monitorId: string,
-  reason: string,
-  metadata: Record<string, unknown> = {}
-) {
-  await db
-    .update(webhook)
-    .set({
-      isActive: false,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(webhook.id, monitorId), eq(webhook.provider, PORTFOLIO_MONITOR_PROVIDER)))
-
-  logger.warn('Portfolio monitor disabled', {
-    monitorId,
-    reason,
-    ...metadata,
-  })
-}
-
 export async function executePortfolioMonitorJob(payload: PortfolioMonitorExecutionPayload) {
   const executionId = payload.executionId ?? `portfolio_state:${payload.monitor.id}:${Date.now()}`
   const requestId = executionId.slice(0, 8)
-  const usageCheck = await checkServerSideUsageLimits({
-    userId: payload.monitor.actorUserId,
-    workflowId: payload.monitor.workflowId,
-    workspaceId: payload.monitor.workspaceId,
-  })
-  if (usageCheck.isExceeded) {
-    await disableMonitor(payload.monitor.id, 'usage_limit_exceeded', {
-      workflowId: payload.monitor.workflowId,
-      currentUsage: usageCheck.currentUsage,
-      limit: usageCheck.limit,
-    })
-    return { success: true, skipped: 'usage_limit_exceeded' as const }
-  }
-
-  const blueprint = await loadWorkflowExecutionBlueprint({
-    workflowId: payload.monitor.workflowId,
-    executionTarget: 'deployed',
-    workflowContext: { workspaceId: payload.monitor.workspaceId },
-  })
-  const blocks = blueprint.workflowData.blocks as Record<string, unknown>
-  if (!blocks[payload.monitor.blockId]) {
-    await disableMonitor(payload.monitor.id, 'missing_trigger_block', {
-      workflowId: payload.monitor.workflowId,
-      blockId: payload.monitor.blockId,
-    })
-    return { success: true, skipped: 'missing_trigger_block' as const }
-  }
-
   const workflowInput = {
     input: `Portfolio state condition matched for ${payload.portfolioIdentity.accountName ?? payload.portfolioIdentity.accountId}`,
     event: 'portfolio_state_condition_matched',
@@ -124,13 +71,15 @@ export async function executePortfolioMonitorJob(payload: PortfolioMonitorExecut
     condition: payload.monitor.condition,
   }
 
-  const { result } = await runPreparedWorkflowExecution({
-    blueprint,
+  const { result, dispatchFailureReason } = await runWorkflowExecution({
+    workflowId: payload.monitor.workflowId,
     actorUserId: payload.monitor.actorUserId,
     requestId,
     executionId,
     triggerType: 'webhook',
     workflowInput,
+    executionTarget: 'deployed',
+    workflowContext: { workspaceId: payload.monitor.workspaceId },
     start: {
       kind: 'block',
       blockId: payload.monitor.blockId,
@@ -148,6 +97,16 @@ export async function executePortfolioMonitorJob(payload: PortfolioMonitorExecut
       },
     },
   })
+  if (dispatchFailureReason) {
+    await disableMonitor({
+      monitorId: payload.monitor.id,
+      provider: PORTFOLIO_MONITOR_PROVIDER,
+      logger,
+      reason: dispatchFailureReason,
+      workflowId: payload.monitor.workflowId,
+      blockId: payload.monitor.blockId,
+    })
+  }
 
   return {
     success: result.success,
