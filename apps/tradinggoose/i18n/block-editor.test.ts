@@ -1,19 +1,24 @@
 import { describe, expect, it } from 'vitest'
 import { GitHubBlock } from '@/blocks/blocks/github'
 import { GmailBlock } from '@/blocks/blocks/gmail'
-import enCopy from './messages/en.json'
-import esCopy from './messages/es.json'
-import zhCnCopy from './messages/zh-CN.json'
+import { InputTriggerBlock } from '@/triggers/blocks/input_trigger'
+import { apiTrigger } from '@/triggers/core/api'
+import { genericWebhookTrigger } from '@/triggers/generic/webhook'
+import { scheduleTrigger } from '@/triggers/schedule/trigger'
 import {
   getLocalizedBlockMetadata,
   getLocalizedDefaultBlockName,
   getLocalizedToolParametersConfig,
   getLocalizedTriggerMetadata,
   getTriggerSubBlockCopy,
+  localizeToolParameter,
   localizeWorkflowSubBlockConfig,
   resolveWorkflowDisplayValue,
   translateWorkflowLabel,
 } from './block-editor'
+import enCopy from './messages/en.json'
+import esCopy from './messages/es.json'
+import zhCnCopy from './messages/zh-CN.json'
 import { getPublicCopy } from './public-copy'
 
 function collectLegacyOptionOverridePaths(
@@ -23,7 +28,10 @@ function collectLegacyOptionOverridePaths(
   const invalidPaths: string[] = []
   const blockEditor = localeCopy.workspace?.widgets?.blockEditor
 
-  const visitSubBlockCollection = (collection: Record<string, any> | undefined, basePath: string) => {
+  const visitSubBlockCollection = (
+    collection: Record<string, any> | undefined,
+    basePath: string
+  ) => {
     if (!collection || typeof collection !== 'object') {
       return
     }
@@ -54,12 +62,16 @@ function collectLegacyOptionOverridePaths(
         continue
       }
 
-      for (const [toolId, parameterCollection] of Object.entries(toolCollection as Record<string, any>)) {
+      for (const [toolId, parameterCollection] of Object.entries(
+        toolCollection as Record<string, any>
+      )) {
         if (!parameterCollection || typeof parameterCollection !== 'object') {
           continue
         }
 
-        for (const [paramId, paramValue] of Object.entries(parameterCollection as Record<string, any>)) {
+        for (const [paramId, paramValue] of Object.entries(
+          parameterCollection as Record<string, any>
+        )) {
           if (
             paramValue &&
             typeof paramValue === 'object' &&
@@ -142,9 +154,7 @@ describe('block-editor i18n helpers', () => {
     expect(translateWorkflowLabel('es', 'Content to Validate')).toBe(esLabels.contentToValidate)
     expect(translateWorkflowLabel('es', 'Validation Type')).toBe(esLabels.validationType)
     expect(translateWorkflowLabel('zh-CN', 'PII Types to Detect')).toBe(zhLabels.piiTypesToDetect)
-    expect(translateWorkflowLabel('zh-CN', 'Configure PII Types')).toBe(
-      zhLabels.configurePiiTypes
-    )
+    expect(translateWorkflowLabel('zh-CN', 'Configure PII Types')).toBe(zhLabels.configurePiiTypes)
   })
 
   it('translates human in the loop workflow labels from the shared namespace', () => {
@@ -208,7 +218,9 @@ describe('block-editor i18n helpers', () => {
       'guardrails'
     )
 
-    expect(localizedConfig.title).toBe(getPublicCopy('es').workspace.widgets.workflowLabels.validationType)
+    expect(localizedConfig.title).toBe(
+      getPublicCopy('es').workspace.widgets.workflowLabels.validationType
+    )
     expect(localizedConfig.placeholder).toBe('Type or select a model...')
     expect(localizedConfig.options).toEqual([
       { id: 'json', label: translateWorkflowLabel('es', 'Valid JSON') },
@@ -276,9 +288,7 @@ describe('block-editor i18n helpers', () => {
     expect(getLocalizedDefaultBlockName('zh-CN', 'schedule', 'Quarterly Schedule 2')).toBe(
       'Quarterly Schedule 2'
     )
-    expect(getLocalizedDefaultBlockName('es', 'agent', 'Analyst Review 7')).toBe(
-      'Analyst Review 7'
-    )
+    expect(getLocalizedDefaultBlockName('es', 'agent', 'Analyst Review 7')).toBe('Analyst Review 7')
   })
 
   it('localizes block metadata and stagehand editor copy through the shared catalog', () => {
@@ -444,7 +454,9 @@ describe('block-editor i18n helpers', () => {
     )
 
     expect(localizedSchema.title).toBe(translateWorkflowLabel('zh-CN', 'Output Schema'))
-    expect(localizedSchema.placeholder).toBe(translateWorkflowLabel('zh-CN', 'Enter JSON schema...'))
+    expect(localizedSchema.placeholder).toBe(
+      translateWorkflowLabel('zh-CN', 'Enter JSON schema...')
+    )
   })
 
   it('localizes trigger-capable tool metadata through the shared block catalog', () => {
@@ -483,6 +495,44 @@ describe('block-editor i18n helpers', () => {
     expect(zhToParam?.uiComponent?.placeholder).toBe('收件人邮箱地址')
     expect(zhBodyParam?.uiComponent?.title).toBe('正文')
     expect(zhBodyParam?.uiComponent?.placeholder).toBe('邮件内容')
+  })
+
+  it('localizes built-in tool parameters through shared block subBlock overrides', () => {
+    const localizedApifyInput = localizeToolParameter(
+      'es',
+      {
+        id: 'input',
+        type: 'string',
+        description: 'Actor input as JSON string',
+        uiComponent: {
+          type: 'code',
+          subBlockId: 'input',
+          title: 'Actor Input',
+          placeholder: '{\n  "startUrl": "https://example.com",\n  "maxPages": 10\n}',
+        },
+      },
+      'apify'
+    )
+    const localizedApifyBuild = localizeToolParameter(
+      'es',
+      {
+        id: 'build',
+        type: 'string',
+        description: 'Actor build version',
+        uiComponent: {
+          type: 'short-input',
+          subBlockId: 'build',
+          title: 'Build',
+          placeholder: 'Actor build (e.g., "latest", "beta", or build tag)',
+        },
+      },
+      'apify'
+    )
+
+    expect(localizedApifyInput.uiComponent?.title).toBe('Entrada del actor')
+    expect(localizedApifyInput.uiComponent?.placeholder).toContain('https://example.com')
+    expect(localizedApifyBuild.uiComponent?.title).toBe('Compilación')
+    expect(localizedApifyBuild.uiComponent?.placeholder).toContain('latest')
   })
 
   it('stores block editor option overrides as arrays so external ids never become locale keys', () => {
@@ -557,7 +607,9 @@ describe('block-editor i18n helpers', () => {
     expect(typeof localizedInstructions.defaultValue).toBe('string')
     expect(localizedInstructions.defaultValue).toContain('Go to your GitHub Repository')
     expect(localizedInstructions.defaultValue).toContain('Payload URL')
-    expect(getTriggerSubBlockCopy('en', 'github_webhook', 'triggerInstructions')?.steps?.length).toBeGreaterThan(0)
+    expect(
+      getTriggerSubBlockCopy('en', 'github_webhook', 'triggerInstructions')?.steps?.length
+    ).toBeGreaterThan(0)
   })
 
   it('prefers trigger metadata names over legacy inline selectedTriggerId labels', () => {
@@ -575,5 +627,47 @@ describe('block-editor i18n helpers', () => {
     expect(localizedTriggerSelector.options).toEqual([
       { id: 'calendly_webhook', label: 'Calendly Webhook' },
     ])
+  })
+
+  it('localizes trigger-only block copy through trigger override entries', () => {
+    const localizedApiInputFormat = localizeWorkflowSubBlockConfig(
+      'es',
+      apiTrigger.subBlocks[0]!,
+      undefined,
+      'api'
+    )
+    const localizedGenericWebhookUrl = localizeWorkflowSubBlockConfig(
+      'es',
+      genericWebhookTrigger.subBlocks[0]!,
+      undefined,
+      'generic_webhook'
+    )
+    const localizedScheduleType = localizeWorkflowSubBlockConfig(
+      'zh-CN',
+      scheduleTrigger.subBlocks[0]!,
+      undefined,
+      'schedule'
+    )
+    const localizedInputTriggerFormat = localizeWorkflowSubBlockConfig(
+      'es',
+      InputTriggerBlock.subBlocks.find((subBlock) => subBlock.id === 'inputFormat')!,
+      'input_trigger'
+    )
+
+    expect(localizedApiInputFormat.title).toBe('Formato de entrada')
+    expect(localizedApiInputFormat.description).toContain('endpoint de la API')
+    expect(localizedGenericWebhookUrl.title).toBe('URL del webhook')
+    expect(localizedGenericWebhookUrl.placeholder).toBe('Se generará la URL del webhook')
+    expect(localizedScheduleType.title).toBe('运行频率')
+    expect(localizedScheduleType.options?.map((option) => option.label)).toEqual([
+      '每隔 X 分钟',
+      '每小时',
+      '每天',
+      '每周',
+      '每月',
+      '自定义 Cron',
+    ])
+    expect(localizedInputTriggerFormat.title).toBe('Formato de entrada')
+    expect(localizedInputTriggerFormat.description).toContain('se ejecuta manualmente')
   })
 })

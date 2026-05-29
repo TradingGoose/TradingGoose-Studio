@@ -8,8 +8,8 @@ import {
   type ToolWithParameters,
 } from '@/tools/params'
 import type { TriggerConfig } from '@/triggers/types'
-import { formatTemplate } from './template'
 import { getPublicCopy, type PublicCopy } from './public-copy'
+import { formatTemplate } from './template'
 import { locales } from './utils'
 
 export type WorkflowInspectorCopy = PublicCopy['workspace']['widgets']['workflowInspector']
@@ -194,10 +194,12 @@ function getDefaultBlockNameCandidates(blockType: string): string[] {
   const candidates = new Set<string>([fallbackName])
 
   for (const locale of locales) {
-    const localizedName = (getPublicCopy(locale).workspace.widgets.blockEditor.blockNames as Record<
-      string,
-      string | undefined
-    >)[blockType]
+    const localizedName = (
+      getPublicCopy(locale).workspace.widgets.blockEditor.blockNames as Record<
+        string,
+        string | undefined
+      >
+    )[blockType]
 
     if (localizedName) {
       candidates.add(localizedName)
@@ -373,7 +375,9 @@ export function getBlockEditorCopyFromInspector(copy: WorkflowInspectorCopy): Bl
   return copy.blockEditor
 }
 
-export function getWorkflowEditorCopyFromInspector(copy: WorkflowInspectorCopy): WorkflowEditorCopy {
+export function getWorkflowEditorCopyFromInspector(
+  copy: WorkflowInspectorCopy
+): WorkflowEditorCopy {
   return copy.workflowEditor
 }
 
@@ -381,7 +385,10 @@ export function getWorkflowLabelCopyFromInspector(copy: WorkflowInspectorCopy): 
   return copy.workflowLabels
 }
 
-export function translateWorkflowToolbarLabelWithCopy(copy: WorkflowToolbarCopy, label: string): string {
+export function translateWorkflowToolbarLabelWithCopy(
+  copy: WorkflowToolbarCopy,
+  label: string
+): string {
   const key = resolveWorkflowToolbarKey(copy, label)
   return key ? (copy as Record<string, string>)[key] : label
 }
@@ -508,17 +515,11 @@ function localizeWorkflowOption<T extends WorkflowOption>(
       option.label,
     group: resolveWorkflowText(inspectorCopy, option.group, option.i18n?.groupKey) ?? option.group,
     searchLabel:
-      resolveWorkflowText(
-        inspectorCopy,
-        option.searchLabel,
-        option.i18n?.searchLabelKey
-      ) ?? option.searchLabel,
+      resolveWorkflowText(inspectorCopy, option.searchLabel, option.i18n?.searchLabelKey) ??
+      option.searchLabel,
     rightLabel:
-      resolveWorkflowText(
-        inspectorCopy,
-        option.rightLabel,
-        option.i18n?.rightLabelKey
-      ) ?? option.rightLabel,
+      resolveWorkflowText(inspectorCopy, option.rightLabel, option.i18n?.rightLabelKey) ??
+      option.rightLabel,
   }
 }
 
@@ -694,8 +695,7 @@ export function getLocalizedUniqueBlockNameWithCopy(
     .map((block) => getGeneratedDefaultNameNumber(blockType, block.name as string))
     .filter((value): value is number => value !== null)
 
-  const maxNumber =
-    existingGeneratedNumbers.length > 0 ? Math.max(...existingGeneratedNumbers) : 0
+  const maxNumber = existingGeneratedNumbers.length > 0 ? Math.max(...existingGeneratedNumbers) : 0
 
   if (existingGeneratedNumbers.length === 0) {
     return `${localizedDefaultBlockName} 1`
@@ -722,9 +722,12 @@ function localizeToolUiComponentOptionsWithCopy(
     return param.uiComponent
   }
 
-  const override = toolId
+  const subBlockId = param.uiComponent.subBlockId ?? param.id
+  const subBlockOverride = getSubBlockOverride(inspectorCopy, blockType, subBlockId)
+  const toolParameterOverride = toolId
     ? getToolParameterOverride(inspectorCopy, blockType, toolId, param.id)
     : undefined
+  const override = mergeSubBlockOverrides(subBlockOverride, toolParameterOverride)
   const optionOverrideMap = getOptionOverrideMap(override?.options)
   const configI18n = param.uiComponent.i18n
 
@@ -788,9 +791,12 @@ export function localizeToolParameterWithCopy(
   blockType?: string,
   toolId?: string
 ): ToolParameterConfig {
-  const override = toolId
+  const subBlockId = param.uiComponent?.subBlockId ?? param.id
+  const subBlockOverride = getSubBlockOverride(inspectorCopy, blockType, subBlockId)
+  const toolParameterOverride = toolId
     ? getToolParameterOverride(inspectorCopy, blockType, toolId, param.id)
     : undefined
+  const override = mergeSubBlockOverrides(subBlockOverride, toolParameterOverride)
   const configI18n = param.i18n
 
   return {
@@ -889,7 +895,13 @@ export function localizeWorkflowSubBlockConfigWithCopy(
           )
         : config.columns?.map((column) => translateWorkflowLabelWithCopy(inspectorCopy, column)),
     defaultValue,
-    options: localizeWorkflowOptionsWithCopy(inspectorCopy, config.options, blockType, config.id, triggerId),
+    options: localizeWorkflowOptionsWithCopy(
+      inspectorCopy,
+      config.options,
+      blockType,
+      config.id,
+      triggerId
+    ),
   }
 }
 

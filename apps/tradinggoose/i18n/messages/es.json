@@ -369,16 +369,8 @@
         "waitlist": "Honk! Presentamos TradingGoose-Studio",
         "open": "Honk! TradingGoose-Studio ya está aquí"
       },
-      "leadWords": [
-        "Construir",
-        "Probar",
-        "Ejecutar"
-      ],
-      "highlightWords": [
-        "Análisis de Trading",
-        "Detección de Señales",
-        "Evaluación de Riesgos"
-      ],
+      "leadWords": ["Construir", "Probar", "Ejecutar"],
+      "highlightWords": ["Análisis de Trading", "Detección de Señales", "Evaluación de Riesgos"],
       "titleConnector": "tu",
       "suffix": "con TradingGoose",
       "description": "Conecta tus propios proveedores de datos, escribe indicadores personalizados para monitorear los precios del mercado y enlázalos en flujos de trabajo que activen operaciones de compra, venta o cualquier acción que definas.",
@@ -712,13 +704,7 @@
         "experience": {
           "label": "Años de experiencia *",
           "placeholder": "Selecciona el nivel de experiencia",
-          "options": [
-            "0-1 años",
-            "1-3 años",
-            "3-5 años",
-            "5-10 años",
-            "10+ años"
-          ]
+          "options": ["0-1 años", "1-3 años", "3-5 años", "5-10 años", "10+ años"]
         },
         "location": {
           "label": "Ubicación *",
@@ -3735,10 +3721,7 @@
             },
             "headers": {
               "title": "Encabezados de Response",
-              "columns": [
-                "Clave",
-                "Valor"
-              ],
+              "columns": ["Clave", "Valor"],
               "description": "Encabezados HTTP adicionales para incluir en la respuesta"
             }
           },
@@ -5961,23 +5944,23 @@
           },
           "gitlab": {
             "accessToken": {
-              "placeholder": "Introduce tu GitLab token de acceso personal",
+              "placeholder": "Introduce tu token de acceso personal de GitLab",
               "title": "Token de acceso personal"
             },
             "assigneeIds": {
-              "placeholder": "Introduce un assignee usuario IDs (separados por comas)",
-              "title": "Assignee IDs"
+              "placeholder": "Introduce los ID de los usuarios asignados (separados por comas)",
+              "title": "ID de asignados"
             },
             "body": {
-              "placeholder": "Introduce una comment texto (Markdown supported)",
+              "placeholder": "Introduce el texto del comentario (compatible con Markdown)",
               "title": "Comentario"
             },
             "description": {
-              "placeholder": "Introduce una descripción (Markdown supported)",
+              "placeholder": "Introduce una descripción (compatible con Markdown)",
               "title": "Descripción"
             },
             "issueIid": {
-              "placeholder": "Introduce una incidencia número (e.g., 1 for incidencia #1)",
+              "placeholder": "Introduce el número de la incidencia (p. ej., 1 para la incidencia #1)",
               "title": "Número de incidencia"
             },
             "issueState": {
@@ -5998,19 +5981,19 @@
               "title": "Estado"
             },
             "labels": {
-              "placeholder": "Introduce una labels (separados por comas)"
+              "placeholder": "Introduce las etiquetas (separadas por comas)"
             },
             "mergeCommitMessage": {
-              "placeholder": "Introduce una custom merge commit mensaje (opcional)",
-              "title": "Fusionar Commit mensaje"
+              "placeholder": "Introduce un mensaje personalizado para el commit de fusión (opcional)",
+              "title": "Mensaje del commit de fusión"
             },
             "mergeRequestIid": {
-              "placeholder": "Introduce una MR número (e.g., 1 for !1)",
+              "placeholder": "Introduce el número del MR (p. ej., 1 para !1)",
               "title": "Número de MR"
             },
             "milestoneId": {
-              "placeholder": "Introduce una milestone ID",
-              "title": "ID de Milestone"
+              "placeholder": "Introduce el ID del hito",
+              "title": "ID del hito"
             },
             "mrState": {
               "options": [
@@ -6028,7 +6011,7 @@
                 },
                 {
                   "id": "merged",
-                  "label": "Merged"
+                  "label": "Fusionado"
                 }
               ],
               "title": "Estado"
@@ -6045,7 +6028,7 @@
                 },
                 {
                   "id": "gitlab_list_issues",
-                  "label": "Listar Issues"
+                  "label": "Listar incidencias"
                 },
                 {
                   "id": "gitlab_get_issue",
@@ -6065,65 +6048,65 @@
                 },
                 {
                   "id": "gitlab_create_issue_note",
-                  "label": "Agregar incidencia Comment"
+                  "label": "Agregar comentario a la incidencia"
                 },
                 {
                   "id": "gitlab_list_merge_requests",
-                  "label": "Listar Merge Requests"
+                  "label": "Listar solicitudes de fusión"
                 },
                 {
                   "id": "gitlab_get_merge_request",
-                  "label": "Obtener Merge Request"
+                  "label": "Obtener solicitud de fusión"
                 },
                 {
                   "id": "gitlab_create_merge_request",
-                  "label": "Crear Merge Request"
+                  "label": "Crear solicitud de fusión"
                 },
                 {
                   "id": "gitlab_update_merge_request",
-                  "label": "Actualizar Merge Request"
+                  "label": "Actualizar solicitud de fusión"
                 },
                 {
                   "id": "gitlab_merge_merge_request",
-                  "label": "Fusionar Merge Request"
+                  "label": "Fusionar solicitud de fusión"
                 },
                 {
                   "id": "gitlab_create_merge_request_note",
-                  "label": "Agregar MR Comment"
+                  "label": "Agregar comentario al MR"
                 },
                 {
                   "id": "gitlab_list_pipelines",
-                  "label": "Listar Pipelines"
+                  "label": "Listar pipelines"
                 },
                 {
                   "id": "gitlab_get_pipeline",
-                  "label": "Obtener Pipeline"
+                  "label": "Obtener pipeline"
                 },
                 {
                   "id": "gitlab_create_pipeline",
-                  "label": "Crear Pipeline"
+                  "label": "Crear pipeline"
                 },
                 {
                   "id": "gitlab_retry_pipeline",
-                  "label": "Reintentar Pipeline"
+                  "label": "Reintentar pipeline"
                 },
                 {
                   "id": "gitlab_cancel_pipeline",
-                  "label": "Cancelar Pipeline"
+                  "label": "Cancelar pipeline"
                 }
               ]
             },
             "page": {
-              "placeholder": "Page number (predeterminado: 1)",
+              "placeholder": "Número de página (predeterminado: 1)",
               "title": "Número de página"
             },
             "perPage": {
-              "placeholder": "Number of results per page (default: 20, max: 100)",
+              "placeholder": "Número de resultados por página (predeterminado: 20, máximo: 100)",
               "title": "Resultados por página"
             },
             "pipelineId": {
-              "placeholder": "Introduce una pipeline ID",
-              "title": "ID de Pipeline"
+              "placeholder": "Introduce el ID del pipeline",
+              "title": "ID del pipeline"
             },
             "pipelineStatus": {
               "options": [
@@ -6156,7 +6139,7 @@
                   "label": "Todos"
                 }
               ],
-              "title": "Pipeline Estado"
+              "title": "Estado del pipeline"
             },
             "projectId": {
               "placeholder": "Introduce el ID o la ruta del proyecto (p. ej., username/project)",
@@ -6164,17 +6147,17 @@
             },
             "ref": {
               "placeholder": "Introduce un nombre de rama o etiqueta",
-              "title": "Branch/Tag"
+              "title": "Rama/etiqueta"
             },
             "removeSourceBranch": {
-              "title": "Eliminar Source Branch"
+              "title": "Eliminar rama de origen"
             },
             "sourceBranch": {
-              "placeholder": "Introduce una source branch nombre",
-              "title": "Source Branch"
+              "placeholder": "Introduce el nombre de la rama de origen",
+              "title": "Rama de origen"
             },
             "squash": {
-              "title": "Squash Commits"
+              "title": "Compactar commits"
             },
             "stateEvent": {
               "options": [
@@ -6184,18 +6167,18 @@
                 },
                 {
                   "id": "reopen",
-                  "label": "Reopen"
+                  "label": "Reabrir"
                 },
                 {
                   "id": "",
-                  "label": "No Change"
+                  "label": "Sin cambios"
                 }
               ],
-              "title": "State Event"
+              "title": "Evento de estado"
             },
             "targetBranch": {
-              "placeholder": "Introduce una target branch nombre (e.g., main)",
-              "title": "Target Branch"
+              "placeholder": "Introduce el nombre de la rama de destino (p. ej., main)",
+              "title": "Rama de destino"
             },
             "title": {
               "placeholder": "Introduce una título",
@@ -8210,6 +8193,12 @@
             "working_hours": {
               "placeholder": "Opcional JSON array: [{\"weekday\": \"monday\", \"start_time\": \"09:00:00\", \"end_time\": \"17:00:00\"}]",
               "title": "Working Hours"
+            }
+          },
+          "input_trigger": {
+            "inputFormat": {
+              "description": "Define el esquema de entrada JSON de este flujo cuando se ejecuta manualmente.",
+              "title": "Formato de entrada"
             }
           },
           "intercom": {
@@ -16499,46 +16488,46 @@
           },
           "typeform": {
             "apiKey": {
-              "placeholder": "Introduce tu Typeform token de acceso personal",
+              "placeholder": "Introduce tu token de acceso personal de Typeform",
               "title": "Token de acceso personal"
             },
             "completed": {
               "options": [
                 {
                   "id": "all",
-                  "label": "All Responses"
+                  "label": "Todas las respuestas"
                 },
                 {
                   "id": "true",
-                  "label": "Only Completed"
+                  "label": "Solo completadas"
                 },
                 {
                   "id": "false",
-                  "label": "Only Incomplete"
+                  "label": "Solo incompletas"
                 }
               ],
               "title": "Completado"
             },
             "fieldId": {
               "placeholder": "Introduce un ID de campo de carga de archivo",
-              "title": "ID de Field"
+              "title": "ID del campo"
             },
             "filename": {
-              "placeholder": "Introduce un exact filename of the archivo",
-              "title": "Filename"
+              "placeholder": "Introduce el nombre exacto del archivo",
+              "title": "Nombre del archivo"
             },
             "formId": {
-              "placeholder": "Introduce tu Typeform ID del formulario",
+              "placeholder": "Introduce el ID de tu formulario de Typeform",
               "title": "ID del formulario"
             },
             "inline": {
-              "title": "Inline Display"
+              "title": "Mostrar en línea"
             },
             "operation": {
               "options": [
                 {
                   "id": "typeform_responses",
-                  "label": "Recuperar Responses"
+                  "label": "Obtener respuestas"
                 },
                 {
                   "id": "typeform_files",
@@ -16546,25 +16535,25 @@
                 },
                 {
                   "id": "typeform_insights",
-                  "label": "Form Insights"
+                  "label": "Información del formulario"
                 }
               ]
             },
             "pageSize": {
-              "placeholder": "Number of responses per page (default: 25)",
+              "placeholder": "Número de respuestas por página (predeterminado: 25)",
               "title": "Tamaño de página"
             },
             "responseId": {
-              "placeholder": "Introduce una respuesta ID (token)",
+              "placeholder": "Introduce el ID de la respuesta (token)",
               "title": "ID de respuesta"
             },
             "since": {
               "placeholder": "YYYY-MM-DD o YYYY-MM-DDTHH:mm:ssZ",
-              "title": "Since"
+              "title": "Desde"
             },
             "until": {
               "placeholder": "YYYY-MM-DD o YYYY-MM-DDTHH:mm:ssZ",
-              "title": "Until"
+              "title": "Hasta"
             }
           },
           "video_generator": {
@@ -18016,6 +18005,9 @@
           "objectType": "Objeto",
           "arrayType": "Arreglo",
           "filesType": "Archivos",
+          "listingIdentityType": "Identidad de listado",
+          "trueValue": "Verdadero",
+          "falseValue": "Falso",
           "value": "Valor",
           "selectValue": "Selecciona un valor",
           "fieldTitle": "Campo",
@@ -18512,6 +18504,16 @@
           }
         },
         "triggers": {
+          "api": {
+            "description": "Inicia el flujo mediante solicitudes HTTP autenticadas",
+            "name": "API",
+            "subBlocks": {
+              "inputFormat": {
+                "description": "Define el esquema de entrada JSON que acepta el endpoint de la API.",
+                "title": "Formato de entrada"
+              }
+            }
+          },
           "airtable_webhook": {
             "name": "Airtable Webhook",
             "description": "Activa el flujo de trabajo a partir de cambios en registros de Airtable, como eventos de creación, actualización y eliminación (requiere credenciales de Airtable)",
@@ -18657,6 +18659,144 @@
               },
               "webhookUrlDisplay": {
                 "placeholder": "La URL del webhook se generará"
+              }
+            }
+          },
+          "generic_webhook": {
+            "description": "Recibe webhooks desde cualquier servicio o API",
+            "name": "Webhook genérico",
+            "subBlocks": {
+              "inputFormat": {
+                "description": "Define el esquema de entrada JSON esperado para este webhook (opcional). Usa el tipo \"files\" para cargas de archivos.",
+                "title": "Formato de entrada"
+              },
+              "requireAuth": {
+                "description": "Requiere autenticación para todas las solicitudes del webhook",
+                "title": "Requerir autenticación"
+              },
+              "secretHeaderName": {
+                "description": "Nombre personalizado del encabezado HTTP para el token. Si se deja en blanco, usa \"Authorization: Bearer TOKEN\"",
+                "placeholder": "X-Secret-Key",
+                "title": "Nombre del encabezado secreto (opcional)"
+              },
+              "token": {
+                "description": "Token utilizado para autenticar solicitudes del webhook mediante un token Bearer o un encabezado personalizado",
+                "placeholder": "Introduce un token de autenticación",
+                "title": "Token de autenticación"
+              },
+              "triggerInstructions": {
+                "steps": [
+                  "Copia la URL del webhook y úsala en tu servicio externo o API.",
+                  "Configura tu servicio para enviar webhooks a esta URL.",
+                  "El webhook aceptará cualquier método HTTP (GET, POST, PUT, DELETE, etc.).",
+                  "Todos los datos de la solicitud (encabezados, cuerpo y parámetros de consulta) estarán disponibles en tu flujo.",
+                  "Si la autenticación está habilitada, incluye el token en las solicitudes usando el encabezado personalizado o \"Authorization: Bearer TOKEN\".",
+                  "Campos comunes como \"event\", \"id\" y \"data\" se extraerán automáticamente de la carga cuando estén disponibles."
+                ],
+                "title": "Instrucciones de configuración"
+              },
+              "webhookUrlDisplay": {
+                "placeholder": "Se generará la URL del webhook",
+                "title": "URL del webhook"
+              }
+            }
+          },
+          "schedule": {
+            "description": "Activa la ejecución del flujo según una programación",
+            "name": "Programado",
+            "subBlocks": {
+              "cronExpression": {
+                "placeholder": "0 0 * * *",
+                "title": "Expresión cron"
+              },
+              "dailyTime": {
+                "title": "Hora"
+              },
+              "hourlyMinute": {
+                "placeholder": "0-59",
+                "title": "Minuto"
+              },
+              "minutesInterval": {
+                "placeholder": "15",
+                "title": "Intervalo (minutos)"
+              },
+              "monthlyDay": {
+                "placeholder": "1-31",
+                "title": "Día del mes"
+              },
+              "monthlyTime": {
+                "title": "Hora"
+              },
+              "scheduleConfig": {
+                "title": "Estado de la programación"
+              },
+              "scheduleType": {
+                "options": [
+                  {
+                    "id": "minutes",
+                    "label": "Cada X minutos"
+                  },
+                  {
+                    "id": "hourly",
+                    "label": "Cada hora"
+                  },
+                  {
+                    "id": "daily",
+                    "label": "Diario"
+                  },
+                  {
+                    "id": "weekly",
+                    "label": "Semanal"
+                  },
+                  {
+                    "id": "monthly",
+                    "label": "Mensual"
+                  },
+                  {
+                    "id": "custom",
+                    "label": "Cron personalizado"
+                  }
+                ],
+                "title": "Frecuencia de ejecución"
+              },
+              "timezone": {
+                "title": "Zona horaria"
+              },
+              "weeklyDay": {
+                "options": [
+                  {
+                    "id": "MON",
+                    "label": "Lunes"
+                  },
+                  {
+                    "id": "TUE",
+                    "label": "Martes"
+                  },
+                  {
+                    "id": "WED",
+                    "label": "Miércoles"
+                  },
+                  {
+                    "id": "THU",
+                    "label": "Jueves"
+                  },
+                  {
+                    "id": "FRI",
+                    "label": "Viernes"
+                  },
+                  {
+                    "id": "SAT",
+                    "label": "Sábado"
+                  },
+                  {
+                    "id": "SUN",
+                    "label": "Domingo"
+                  }
+                ],
+                "title": "Día de la semana"
+              },
+              "weeklyDayTime": {
+                "title": "Hora"
               }
             }
           },

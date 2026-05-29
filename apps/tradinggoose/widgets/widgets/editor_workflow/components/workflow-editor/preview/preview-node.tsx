@@ -148,6 +148,7 @@ function LocalizedPreviewNode({ id, data }: NodeProps<PreviewCanvasNode>) {
       <div className='space-y-1 border-border border-t px-3 py-2'>
         <SubBlockSummaryRows
           blockId={id}
+          blockType={data.type}
           subBlocks={previewSubBlocks}
           stateToUse={previewStateRaw}
           showErrorRow={blockConfig.category !== 'triggers'}

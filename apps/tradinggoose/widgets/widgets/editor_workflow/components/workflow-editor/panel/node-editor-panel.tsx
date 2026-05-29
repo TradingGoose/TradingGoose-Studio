@@ -351,11 +351,11 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
 
   const emptyStateMessage = useMemo(() => {
     if (isTriggerConfigurationView) {
-      return 'This trigger has no editable fields in the panel.'
+      return workflowEditorCopy.triggerNoEditableFields
     }
 
-    return 'No editable fields for this block.'
-  }, [isTriggerConfigurationView])
+    return workflowEditorCopy.blockNoEditableFields
+  }, [isTriggerConfigurationView, workflowEditorCopy])
 
   if (!selectedNodeId) return null
 

@@ -13,6 +13,59 @@ let mockSelectedBlock: any = {
 let mockSelectedLoop: any = null
 let mockSelectedParallel: any = null
 let mockBlockProtection = false
+let mockBlockConfig: any = {
+  category: 'blocks',
+  name: 'Agent',
+  bgColor: '#2873f6',
+  icon: (props: Record<string, unknown>) => createElement('svg', props),
+  subBlocks: [
+    {
+      id: 'systemPrompt',
+      title: 'System Prompt',
+      type: 'long-input',
+      placeholder: 'Enter system prompt...',
+    },
+    {
+      id: 'userPrompt',
+      title: 'User Prompt',
+      type: 'long-input',
+      placeholder: 'Enter context or user message...',
+    },
+    {
+      id: 'model',
+      title: 'Model',
+      type: 'combobox',
+      placeholder: 'Type or select a model...',
+    },
+    {
+      id: 'temperature',
+      title: 'Temperature',
+      type: 'slider',
+    },
+    {
+      id: 'tools',
+      title: 'Tools',
+      type: 'tool-input',
+    },
+    {
+      id: 'skills',
+      title: 'Skills',
+      type: 'skill-input',
+    },
+    {
+      id: 'apiKey',
+      title: 'API Key',
+      type: 'short-input',
+      placeholder: 'Enter your API key',
+    },
+    {
+      id: 'responseFormat',
+      title: 'Response Format',
+      type: 'code',
+      placeholder: 'Enter JSON schema...',
+    },
+  ],
+}
 
 vi.mock('@xyflow/react', () => ({
   Panel: ({ children }: { children: ReactNode }) =>
@@ -68,59 +121,7 @@ vi.mock('@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 }))
 
 vi.mock('@/blocks', () => ({
-  getBlock: () => ({
-    category: 'blocks',
-    name: 'Agent',
-    bgColor: '#2873f6',
-    icon: (props: Record<string, unknown>) => createElement('svg', props),
-    subBlocks: [
-      {
-        id: 'systemPrompt',
-        title: 'System Prompt',
-        type: 'long-input',
-        placeholder: 'Enter system prompt...',
-      },
-      {
-        id: 'userPrompt',
-        title: 'User Prompt',
-        type: 'long-input',
-        placeholder: 'Enter context or user message...',
-      },
-      {
-        id: 'model',
-        title: 'Model',
-        type: 'combobox',
-        placeholder: 'Type or select a model...',
-      },
-      {
-        id: 'temperature',
-        title: 'Temperature',
-        type: 'slider',
-      },
-      {
-        id: 'tools',
-        title: 'Tools',
-        type: 'tool-input',
-      },
-      {
-        id: 'skills',
-        title: 'Skills',
-        type: 'skill-input',
-      },
-      {
-        id: 'apiKey',
-        title: 'API Key',
-        type: 'short-input',
-        placeholder: 'Enter your API key',
-      },
-      {
-        id: 'responseFormat',
-        title: 'Response Format',
-        type: 'code',
-        placeholder: 'Enter JSON schema...',
-      },
-    ],
-  }),
+  getBlock: () => mockBlockConfig,
 }))
 
 vi.mock('@/hooks/workflow/use-workflow-editor-actions', () => ({
@@ -177,6 +178,59 @@ describe('NodeEditorPanel', () => {
     mockSelectedLoop = null
     mockSelectedParallel = null
     mockBlockProtection = false
+    mockBlockConfig = {
+      category: 'blocks',
+      name: 'Agent',
+      bgColor: '#2873f6',
+      icon: (props: Record<string, unknown>) => createElement('svg', props),
+      subBlocks: [
+        {
+          id: 'systemPrompt',
+          title: 'System Prompt',
+          type: 'long-input',
+          placeholder: 'Enter system prompt...',
+        },
+        {
+          id: 'userPrompt',
+          title: 'User Prompt',
+          type: 'long-input',
+          placeholder: 'Enter context or user message...',
+        },
+        {
+          id: 'model',
+          title: 'Model',
+          type: 'combobox',
+          placeholder: 'Type or select a model...',
+        },
+        {
+          id: 'temperature',
+          title: 'Temperature',
+          type: 'slider',
+        },
+        {
+          id: 'tools',
+          title: 'Tools',
+          type: 'tool-input',
+        },
+        {
+          id: 'skills',
+          title: 'Skills',
+          type: 'skill-input',
+        },
+        {
+          id: 'apiKey',
+          title: 'API Key',
+          type: 'short-input',
+          placeholder: 'Enter your API key',
+        },
+        {
+          id: 'responseFormat',
+          title: 'Response Format',
+          type: 'code',
+          placeholder: 'Enter JSON schema...',
+        },
+      ],
+    }
   })
 
   it('renders localized block titles and sub-block copy through the shared row builder', () => {
@@ -220,5 +274,31 @@ describe('NodeEditorPanel', () => {
     )
 
     expect(markup).toContain('No se encontró el nodo')
+  })
+
+  it('renders localized trigger empty-state copy instead of the legacy English fallback', () => {
+    mockSelectedBlock = {
+      id: 'trigger-1',
+      type: 'generic_webhook',
+      name: 'Generic Webhook',
+      enabled: true,
+      subBlocks: {},
+    }
+    mockBlockConfig = {
+      category: 'triggers',
+      name: 'Generic Webhook',
+      bgColor: '#2873f6',
+      icon: (props: Record<string, unknown>) => createElement('svg', props),
+      subBlocks: [],
+    }
+
+    const markup = renderToStaticMarkup(
+      createElement(NodeEditorPanel, {
+        selectedNodeId: 'trigger-1',
+      })
+    )
+
+    expect(markup).toContain('Este disparador no tiene campos editables en el panel.')
+    expect(markup).not.toContain('This trigger has no editable fields in the panel.')
   })
 })

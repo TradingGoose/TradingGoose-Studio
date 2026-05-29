@@ -27,6 +27,7 @@ export type { SubBlockSummaryConditionRow }
 
 interface SubBlockSummaryRowsProps {
   blockId: string
+  blockType?: string
   subBlocks: SubBlockConfig[]
   stateToUse: Record<string, any>
   conditionRows?: SubBlockSummaryConditionRow[]
@@ -228,6 +229,7 @@ export function PrecomputedSubBlockSummaryRows({
 
 export function SubBlockSummaryRows({
   blockId,
+  blockType,
   subBlocks,
   stateToUse,
   conditionRows,
@@ -253,6 +255,7 @@ export function SubBlockSummaryRows({
     labels,
     objectItemLabel,
     additionalCountTemplate,
+    blockType,
     resolveDisplayValue: resolveWorkflowDisplayValue,
   })
 

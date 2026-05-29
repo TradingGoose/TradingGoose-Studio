@@ -369,16 +369,8 @@
         "waitlist": "Honk! Introducing TradingGoose-Studio",
         "open": "Honk! TradingGoose-Studio is here!"
       },
-      "leadWords": [
-        "Build",
-        "Test",
-        "Run"
-      ],
-      "highlightWords": [
-        "Trading Analysis",
-        "Signal Detection",
-        "Risk Assessment"
-      ],
+      "leadWords": ["Build", "Test", "Run"],
+      "highlightWords": ["Trading Analysis", "Signal Detection", "Risk Assessment"],
       "titleConnector": "your",
       "suffix": "with TradingGoose",
       "description": "Connect your own data providers, write custom indicators to monitor market prices, and wire them into workflows that trigger trade, sell, buy, or any action you define.",
@@ -712,13 +704,7 @@
         "experience": {
           "label": "Years of Experience *",
           "placeholder": "Select experience level",
-          "options": [
-            "0-1 years",
-            "1-3 years",
-            "3-5 years",
-            "5-10 years",
-            "10+ years"
-          ]
+          "options": ["0-1 years", "1-3 years", "3-5 years", "5-10 years", "10+ years"]
         },
         "location": {
           "label": "Location *",
@@ -3735,10 +3721,7 @@
             },
             "headers": {
               "title": "Response Headers",
-              "columns": [
-                "Key",
-                "Value"
-              ],
+              "columns": ["Key", "Value"],
               "description": "Additional HTTP headers to include in the response"
             }
           },
@@ -8210,6 +8193,12 @@
             "working_hours": {
               "placeholder": "Optional JSON array: [{\"weekday\": \"monday\", \"start_time\": \"09:00:00\", \"end_time\": \"17:00:00\"}]",
               "title": "Working Hours"
+            }
+          },
+          "input_trigger": {
+            "inputFormat": {
+              "description": "Define the JSON input schema for this workflow when run manually.",
+              "title": "Input Format"
             }
           },
           "intercom": {
@@ -18016,6 +18005,9 @@
           "objectType": "Object",
           "arrayType": "Array",
           "filesType": "Files",
+          "listingIdentityType": "Listing Identity",
+          "trueValue": "True",
+          "falseValue": "False",
           "value": "Value",
           "selectValue": "Select value",
           "fieldTitle": "Field",
@@ -18512,6 +18504,16 @@
           }
         },
         "triggers": {
+          "api": {
+            "description": "Start workflow via authenticated HTTP requests",
+            "name": "API",
+            "subBlocks": {
+              "inputFormat": {
+                "description": "Define the JSON input schema accepted by the API endpoint.",
+                "title": "Input Format"
+              }
+            }
+          },
           "airtable_webhook": {
             "name": "Airtable Webhook",
             "description": "Trigger workflow from Airtable record changes like create, update, and delete events (requires Airtable credentials)",
@@ -18657,6 +18659,144 @@
               },
               "webhookUrlDisplay": {
                 "placeholder": "Webhook URL will be generated"
+              }
+            }
+          },
+          "generic_webhook": {
+            "description": "Receive webhooks from any service or API",
+            "name": "Generic Webhook",
+            "subBlocks": {
+              "inputFormat": {
+                "description": "Define the expected JSON input schema for this webhook (optional). Use type \"files\" for file uploads.",
+                "title": "Input Format"
+              },
+              "requireAuth": {
+                "description": "Require authentication for all webhook requests",
+                "title": "Require Authentication"
+              },
+              "secretHeaderName": {
+                "description": "Custom HTTP header name for the auth token. If blank, uses \"Authorization: Bearer TOKEN\"",
+                "placeholder": "X-Secret-Key",
+                "title": "Secret Header Name (Optional)"
+              },
+              "token": {
+                "description": "Token used to authenticate webhook requests via Bearer token or custom header",
+                "placeholder": "Enter an auth token",
+                "title": "Authentication Token"
+              },
+              "triggerInstructions": {
+                "steps": [
+                  "Copy the webhook URL and use it in your external service or API.",
+                  "Configure your service to send webhooks to this URL.",
+                  "The webhook will receive any HTTP method (GET, POST, PUT, DELETE, etc.).",
+                  "All request data (headers, body, query parameters) will be available in your workflow.",
+                  "If authentication is enabled, include the token in requests using either the custom header or \"Authorization: Bearer TOKEN\".",
+                  "Common fields like \"event\", \"id\", and \"data\" will be automatically extracted from the payload when available."
+                ],
+                "title": "Setup Instructions"
+              },
+              "webhookUrlDisplay": {
+                "placeholder": "Webhook URL will be generated",
+                "title": "Webhook URL"
+              }
+            }
+          },
+          "schedule": {
+            "description": "Trigger workflow execution on a schedule",
+            "name": "Schedule",
+            "subBlocks": {
+              "cronExpression": {
+                "placeholder": "0 0 * * *",
+                "title": "Cron Expression"
+              },
+              "dailyTime": {
+                "title": "Time"
+              },
+              "hourlyMinute": {
+                "placeholder": "0-59",
+                "title": "Minute"
+              },
+              "minutesInterval": {
+                "placeholder": "15",
+                "title": "Interval (minutes)"
+              },
+              "monthlyDay": {
+                "placeholder": "1-31",
+                "title": "Day of Month"
+              },
+              "monthlyTime": {
+                "title": "Time"
+              },
+              "scheduleConfig": {
+                "title": "Schedule Status"
+              },
+              "scheduleType": {
+                "options": [
+                  {
+                    "id": "minutes",
+                    "label": "Every X Minutes"
+                  },
+                  {
+                    "id": "hourly",
+                    "label": "Hourly"
+                  },
+                  {
+                    "id": "daily",
+                    "label": "Daily"
+                  },
+                  {
+                    "id": "weekly",
+                    "label": "Weekly"
+                  },
+                  {
+                    "id": "monthly",
+                    "label": "Monthly"
+                  },
+                  {
+                    "id": "custom",
+                    "label": "Custom Cron"
+                  }
+                ],
+                "title": "Run Frequency"
+              },
+              "timezone": {
+                "title": "Timezone"
+              },
+              "weeklyDay": {
+                "options": [
+                  {
+                    "id": "MON",
+                    "label": "Monday"
+                  },
+                  {
+                    "id": "TUE",
+                    "label": "Tuesday"
+                  },
+                  {
+                    "id": "WED",
+                    "label": "Wednesday"
+                  },
+                  {
+                    "id": "THU",
+                    "label": "Thursday"
+                  },
+                  {
+                    "id": "FRI",
+                    "label": "Friday"
+                  },
+                  {
+                    "id": "SAT",
+                    "label": "Saturday"
+                  },
+                  {
+                    "id": "SUN",
+                    "label": "Sunday"
+                  }
+                ],
+                "title": "Day of Week"
+              },
+              "weeklyDayTime": {
+                "title": "Time"
               }
             }
           },

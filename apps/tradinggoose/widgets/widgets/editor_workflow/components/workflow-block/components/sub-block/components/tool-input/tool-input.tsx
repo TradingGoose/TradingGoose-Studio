@@ -1,9 +1,9 @@
 import type React from 'react'
 import { useEffect, useMemo, useState } from 'react'
-import { useLocale } from 'next-intl'
 import { isEqual } from 'lodash'
 import { Server, WrenchIcon, XIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import { Toggle } from '@/components/ui/toggle'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -29,6 +29,7 @@ import {
   localizeWorkflowSubBlockConfig,
 } from '@/i18n/block-editor'
 import { formatTemplate } from '@/i18n/template'
+import type { LocaleCode } from '@/i18n/utils'
 import { localizeHref } from '@/i18n/utils'
 import { getProviderFromModel, supportsToolUsageControl } from '@/providers/ai/utils'
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
@@ -37,7 +38,6 @@ import {
   isPasswordParameter,
   type ToolParameterConfig,
 } from '@/tools/params'
-import type { LocaleCode } from '@/i18n/utils'
 import { Dropdown } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components'
 import { ToolCredentialSelector } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/tool-credential-selector'
 import { ToolSubBlockRenderer } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/tools/sub-block-renderer'
@@ -397,7 +397,12 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
 
     const dependentParamIds = (() => {
       const toolBlock = allToolBlocks.find((block) => block.type === tool.type)
-      const toolParams = getLocalizedToolParametersConfig(locale, tool.toolId, toolBlock, tool.params)
+      const toolParams = getLocalizedToolParametersConfig(
+        locale,
+        tool.toolId,
+        toolBlock,
+        tool.params
+      )
       const params = toolParams?.userInputParameters ?? []
       const dependencyMap = new Map<string, string[]>()
 
@@ -625,15 +630,16 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
     toolIndex: number,
     currentToolParams: Record<string, any>,
     currentToolContext: Record<string, any>,
-    toolId: string
+    toolId: string,
+    blockType?: string
   ) => {
     const uiComponent = param.uiComponent
     const providerType =
       uiComponent?.providerType || (toolId?.startsWith('trading_') ? 'trading' : 'market')
     const subBlock: SubBlockConfig = {
-      id: param.id,
+      id: uiComponent?.subBlockId ?? param.id,
       type: (uiComponent?.type || 'short-input') as SubBlockConfig['type'],
-      title: getLocalizedToolParameterLabel(locale, param.id, uiComponent?.title),
+      title: uiComponent?.title ?? getLocalizedToolParameterLabel(locale, param.id),
       canonicalParamId: param.id,
       options: uiComponent?.options,
       placeholder: uiComponent?.placeholder || param.description,
@@ -686,10 +692,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
         : undefined,
     }
 
-    const localizedSubBlock = localizeWorkflowSubBlockConfig(
-      locale,
-      subBlock
-    )
+    const localizedSubBlock = localizeWorkflowSubBlockConfig(locale, subBlock, blockType)
 
     return (
       <ToolSubBlockRenderer
@@ -707,23 +710,23 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
     )
   }
 
-    return (
-      <div className='w-full'>
-        {selectedTools.length === 0 ? (
-          <Dropdown
-            blockId={blockId}
-            subBlockId={`${subBlockId}-tool-selector`}
-            options={toolSelectorOptions}
-            placeholder={copy.addTool}
-            useStore={false}
-            valueOverride={toolSelectorValue}
-            onChange={handleToolSelection}
-            disabled={disabled}
-            className='w-full'
-            enableSearch
-            searchPlaceholder={copy.searchTools}
-          />
-        ) : (
+  return (
+    <div className='w-full'>
+      {selectedTools.length === 0 ? (
+        <Dropdown
+          blockId={blockId}
+          subBlockId={`${subBlockId}-tool-selector`}
+          options={toolSelectorOptions}
+          placeholder={copy.addTool}
+          useStore={false}
+          valueOverride={toolSelectorValue}
+          onChange={handleToolSelection}
+          disabled={disabled}
+          className='w-full'
+          enableSearch
+          searchPlaceholder={copy.searchTools}
+        />
+      ) : (
         <div className='flex min-h-[2.5rem] w-full flex-wrap gap-2 rounded-md border border-input bg-transparent p-2 text-sm ring-offset-background'>
           {selectedTools.map((tool, toolIndex) => {
             // Handle custom tools and MCP tools differently
@@ -801,7 +804,9 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
             const displayToolTitle =
               isCustomTool || isMcpTool
                 ? tool.title
-                : (toolBlock ? getLocalizedBlockName(locale, toolBlock) : tool.title)
+                : toolBlock
+                  ? getLocalizedBlockName(locale, toolBlock)
+                  : tool.title
 
             return (
               <div
@@ -924,25 +929,19 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
                               {tool.usageControl === 'auto' && (
                                 <span>
                                   {' '}
-                                  <span className='font-medium'>
-                                    {copy.usageControl.auto}:
-                                  </span>{' '}
+                                  <span className='font-medium'>{copy.usageControl.auto}:</span>{' '}
                                   {copy.usageControl.autoDescription}
                                 </span>
                               )}
                               {tool.usageControl === 'force' && (
                                 <span>
-                                  <span className='font-medium'>
-                                    {copy.usageControl.force}:
-                                  </span>{' '}
+                                  <span className='font-medium'>{copy.usageControl.force}:</span>{' '}
                                   {copy.usageControl.forceDescription}
                                 </span>
                               )}
                               {tool.usageControl === 'none' && (
                                 <span>
-                                  <span className='font-medium'>
-                                    {copy.usageControl.deny}:
-                                  </span>{' '}
+                                  <span className='font-medium'>{copy.usageControl.deny}:</span>{' '}
                                   {copy.usageControl.denyDescription}
                                 </span>
                               )}
@@ -1031,7 +1030,8 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
                                   toolIndex,
                                   currentToolParams,
                                   currentToolContext,
-                                  currentToolId
+                                  currentToolId,
+                                  tool.type
                                 )}
                               </div>
                             </div>

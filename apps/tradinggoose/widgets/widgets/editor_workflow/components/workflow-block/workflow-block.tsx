@@ -26,6 +26,7 @@ import { registry as blockRegistry } from '@/blocks/registry'
 import type { BlockConfig } from '@/blocks/types'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import { useExecutionStore } from '@/stores/execution/store'
+import { resolveTriggerIdFromSubBlocks } from '@/triggers/resolution'
 import { subscribeScheduleUpdated } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/workflow-editor-event-bus'
 import { SubBlockSummaryRows } from '@/widgets/widgets/editor_workflow/components/workflow-render/sub-block-summary-rows'
 import {
@@ -62,7 +63,12 @@ type WorkflowBlockNode = Node<WorkflowBlockProps, 'workflowBlock'>
 export const WorkflowBlock = memo(
   function WorkflowBlock({ id, data, selected }: NodeProps<WorkflowBlockNode>) {
     const { type, config, name, isActive: dataIsActive, isPending } = data
-    const { getLocalizedDefaultBlockName } = useWorkflowI18n()
+    const {
+      formatWorkflowTemplate,
+      getLocalizedDefaultBlockName,
+      localizeWorkflowSubBlockConfig,
+      workflowLabelsCopy,
+    } = useWorkflowI18n()
     const displayName = getLocalizedDefaultBlockName(type, name)
 
     // State management
@@ -502,9 +508,13 @@ export const WorkflowBlock = memo(
 
       const isPureTriggerBlock = config.category === 'triggers'
       const effectiveTrigger = displayTriggerMode || isPureTriggerBlock
+      const triggerId = resolveTriggerIdFromSubBlocks(stateToUse, config.triggers?.available)
+      const localizedSubBlocks = config.subBlocks.map((subBlock) =>
+        localizeWorkflowSubBlockConfig(subBlock, type, triggerId ?? undefined)
+      )
       const rows = buildSubBlockRows({
         blockId: id,
-        subBlocks: config.subBlocks,
+        subBlocks: localizedSubBlocks,
         stateToUse,
         isAdvancedMode: displayAdvancedMode,
         isTriggerMode: effectiveTrigger,
@@ -524,6 +534,8 @@ export const WorkflowBlock = memo(
       data.isPreview,
       data.subBlockValues,
       currentBlock,
+      localizeWorkflowSubBlockConfig,
+      type,
     ])
 
     // Extract rows and state from the memoized value
@@ -536,8 +548,8 @@ export const WorkflowBlock = memo(
       }
 
       const defaultRows = [
-        { id: `${id}-if`, title: 'if', value: '' },
-        { id: `${id}-else`, title: 'else', value: '' },
+        { id: `${id}-if`, title: workflowLabelsCopy.if, value: '' },
+        { id: `${id}-else`, title: workflowLabelsCopy.else, value: '' },
       ]
       const rawConditions = subBlockState.conditions?.value
 
@@ -558,14 +570,26 @@ export const WorkflowBlock = memo(
               typeof condition.id === 'string' && condition.id.length > 0
                 ? condition.id
                 : `${id}-cond-${index}`,
-            title: index === 0 ? 'if' : index === parsedConditions.length - 1 ? 'else' : 'else if',
+            title:
+              index === 0
+                ? workflowLabelsCopy.if
+                : index === parsedConditions.length - 1
+                  ? workflowLabelsCopy.else
+                  : workflowLabelsCopy.elseIf,
             value: typeof condition.value === 'string' ? condition.value : '',
           }
         })
       } catch {
         return defaultRows
       }
-    }, [id, subBlockState.conditions?.value, type])
+    }, [
+      id,
+      subBlockState.conditions?.value,
+      type,
+      workflowLabelsCopy.else,
+      workflowLabelsCopy.elseIf,
+      workflowLabelsCopy.if,
+    ])
     const shouldRenderInNodeSubBlocks = subBlockRows.length > 0
     const shouldShowErrorHandle =
       type === 'condition' ||
@@ -748,7 +772,7 @@ export const WorkflowBlock = memo(
               {/* Show debug indicator for pending blocks */}
               {isPending && (
                 <div className='-top-6 -translate-x-1/2 absolute left-1/2 z-10 transform rounded-t-md bg-yellow-500 px-2 py-0.5 text-white text-xs'>
-                  Next Step
+                  {workflowLabelsCopy.nextStep}
                 </div>
               )}
 
@@ -869,7 +893,7 @@ export const WorkflowBlock = memo(
                       variant='secondary'
                       className='bg-gray-100 text-gray-500 hover:bg-gray-100'
                     >
-                      Locked
+                      {workflowLabelsCopy.locked}
                     </Badge>
                   )}
                   {isWorkflowSelector && childWorkflowId && (
@@ -888,11 +912,13 @@ export const WorkflowBlock = memo(
                         <span className='text-sm'>
                           {childIsDeployed
                             ? isLoadingChildVersion
-                              ? 'Deployed'
+                              ? workflowLabelsCopy.deployed
                               : childActiveVersion != null
-                                ? `Deployed (v${childActiveVersion})`
-                                : 'Deployed'
-                            : 'Not Deployed'}
+                                ? formatWorkflowTemplate(workflowLabelsCopy.deployedWithVersion, {
+                                    version: childActiveVersion,
+                                  })
+                                : workflowLabelsCopy.deployed
+                            : workflowLabelsCopy.notDeployed}
                         </span>
                       </TooltipContent>
                     </Tooltip>
@@ -902,7 +928,7 @@ export const WorkflowBlock = memo(
                       variant='secondary'
                       className='bg-gray-100 text-gray-500 hover:bg-gray-100'
                     >
-                      Disabled
+                      {workflowLabelsCopy.disabled}
                     </Badge>
                   )}
                 </div>
@@ -922,6 +948,7 @@ export const WorkflowBlock = memo(
                   <div className='flex flex-col gap-2'>
                     <SubBlockSummaryRows
                       blockId={id}
+                      blockType={type}
                       subBlocks={flattenedSubBlocks}
                       stateToUse={subBlockState}
                       conditionRows={type === 'condition' ? conditionRows : undefined}

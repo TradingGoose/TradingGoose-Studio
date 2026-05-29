@@ -43,15 +43,37 @@ interface ConditionInputProps {
   disabled?: boolean
 }
 
+export const CONDITION_BRANCH_TITLES = {
+  if: 'if',
+  elseIf: 'else if',
+  else: 'else',
+} as const
+
+type ConditionBranchTitle = (typeof CONDITION_BRANCH_TITLES)[keyof typeof CONDITION_BRANCH_TITLES]
+
 // Generate a stable ID based on the blockId and a suffix
 const generateStableId = (blockId: string, suffix: string): string => {
   return `${blockId}-${suffix}`
 }
 
-const applyConditionBlockTitles = (blocks: ConditionalBlock[]): ConditionalBlock[] => {
+const getConditionBranchTitle = (index: number, total: number): ConditionBranchTitle => {
+  if (index === 0) {
+    return CONDITION_BRANCH_TITLES.if
+  }
+
+  if (index === total - 1) {
+    return CONDITION_BRANCH_TITLES.else
+  }
+
+  return CONDITION_BRANCH_TITLES.elseIf
+}
+
+const isElseBranchTitle = (title: string): boolean => title === CONDITION_BRANCH_TITLES.else
+
+export const applyConditionBlockTitles = <T extends { title: string }>(blocks: T[]): T[] => {
   return blocks.map((block, index) => ({
     ...block,
-    title: index === 0 ? 'if' : index === blocks.length - 1 ? 'else' : 'else if',
+    title: getConditionBranchTitle(index, blocks.length),
   }))
 }
 
@@ -156,8 +178,8 @@ export function ConditionInput({
   // Create default blocks with stable IDs
   const createDefaultBlocks = (): ConditionalBlock[] => [
     {
-      id: generateStableId(blockId, 'if'),
-      title: 'if',
+      id: generateStableId(blockId, CONDITION_BRANCH_TITLES.if),
+      title: CONDITION_BRANCH_TITLES.if,
       value: '',
       showTags: false,
       showEnvVars: false,
@@ -166,8 +188,8 @@ export function ConditionInput({
       activeSourceBlockId: null,
     },
     {
-      id: generateStableId(blockId, 'else'),
-      title: 'else',
+      id: generateStableId(blockId, CONDITION_BRANCH_TITLES.else),
+      title: CONDITION_BRANCH_TITLES.else,
       value: '',
       showTags: false,
       showEnvVars: false,
@@ -392,7 +414,7 @@ export function ConditionInput({
     if (isPreview || disabled) return
 
     const blockIndex = conditionalBlocks.findIndex((block) => block.id === afterId)
-    if (conditionalBlocks[blockIndex]?.title === 'else') return
+    if (isElseBranchTitle(conditionalBlocks[blockIndex]?.title ?? '')) return
 
     const newBlockId = generateStableId(blockId, `else-if-${Date.now()}`)
 
@@ -439,7 +461,7 @@ export function ConditionInput({
     const blockIndex = conditionalBlocks.findIndex((block) => block.id === id)
     if (blockIndex === -1) return
 
-    if (conditionalBlocks[blockIndex]?.title === 'else') return
+    if (isElseBranchTitle(conditionalBlocks[blockIndex]?.title ?? '')) return
 
     if (
       (direction === 'up' && blockIndex === 0) ||
@@ -450,7 +472,7 @@ export function ConditionInput({
     const newBlocks = [...conditionalBlocks]
     const targetIndex = direction === 'up' ? blockIndex - 1 : blockIndex + 1
 
-    if (direction === 'down' && newBlocks[targetIndex]?.title === 'else') return
+    if (direction === 'down' && isElseBranchTitle(newBlocks[targetIndex]?.title ?? '')) return
 
     ;[newBlocks[blockIndex], newBlocks[targetIndex]] = [
       newBlocks[targetIndex],
@@ -481,7 +503,7 @@ export function ConditionInput({
           <div
             className={cn(
               'flex h-10 items-center justify-between overflow-hidden bg-card px-3',
-              block.title === 'else' ? 'rounded-lg border-0' : 'rounded-t-lg border-b'
+              isElseBranchTitle(block.title) ? 'rounded-lg border-0' : 'rounded-t-lg border-b'
             )}
           >
             <span className='font-medium text-sm'>
@@ -494,7 +516,7 @@ export function ConditionInput({
                     variant='ghost'
                     size='sm'
                     onClick={() => addBlock(block.id)}
-                    disabled={isPreview || disabled || block.title === 'else'}
+                    disabled={isPreview || disabled || isElseBranchTitle(block.title)}
                     className='h-8 w-8'
                   >
                     <Plus className='h-4 w-4' />
@@ -511,7 +533,9 @@ export function ConditionInput({
                       variant='ghost'
                       size='sm'
                       onClick={() => moveBlock(block.id, 'up')}
-                      disabled={isPreview || index === 0 || disabled || block.title === 'else'}
+                      disabled={
+                        isPreview || index === 0 || disabled || isElseBranchTitle(block.title)
+                      }
                       className='h-8 w-8'
                     >
                       <ChevronUp className='h-4 w-4' />
@@ -531,8 +555,8 @@ export function ConditionInput({
                         isPreview ||
                         disabled ||
                         index === conditionalBlocks.length - 1 ||
-                        conditionalBlocks[index + 1]?.title === 'else' ||
-                        block.title === 'else'
+                        isElseBranchTitle(conditionalBlocks[index + 1]?.title ?? '') ||
+                        isElseBranchTitle(block.title)
                       }
                       className='h-8 w-8'
                     >
@@ -561,7 +585,7 @@ export function ConditionInput({
               </Tooltip>
             </div>
           </div>
-          {block.title !== 'else' && (
+          {!isElseBranchTitle(block.title) && (
             <div
               className={cn(
                 'relative min-h-[100px] rounded-b-lg bg-background font-mono text-sm',
