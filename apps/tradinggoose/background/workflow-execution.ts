@@ -66,16 +66,15 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
   const isLiveExecution = executionTarget === 'live'
   const isChildExecution = payload.metadata?.source === 'workflow_block'
   const triggerType = payload.triggerType ?? 'manual'
-  const start: WorkflowStart =
-    isLiveExecution && payload.startBlockId
-      ? {
-          kind: 'block',
-          blockId: payload.startBlockId,
-        }
-      : {
-          kind: 'trigger',
-          triggerType: resolveWorkflowStartTriggerType(triggerType),
-        }
+  const start: WorkflowStart = payload.startBlockId
+    ? {
+        kind: 'block',
+        blockId: payload.startBlockId,
+      }
+    : {
+        kind: 'trigger',
+        triggerType: resolveWorkflowStartTriggerType(triggerType),
+      }
 
   logger.info(`[${requestId}] Starting workflow execution: ${workflowId}`, {
     userId: payload.userId,

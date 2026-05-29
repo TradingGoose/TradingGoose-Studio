@@ -1,7 +1,4 @@
-import { db } from '@tradinggoose/db'
-import { webhook } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
-import { checkServerSideUsageLimits } from '@/lib/billing'
+import { enqueuePendingExecution } from '@/lib/execution/pending-execution'
 import {
   applyIndicatorTriggerPayloadBudget,
   buildIndicatorTriggerDispatchPayload,
@@ -14,10 +11,6 @@ import type { BarMs, NormalizedPineSignal } from '@/lib/indicators/types'
 import type { ListingIdentity } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import { INDICATOR_MONITOR_PROVIDER, INDICATOR_MONITOR_TRIGGER_ID } from '@/lib/monitors/sources'
-import {
-  loadWorkflowExecutionBlueprint,
-  runPreparedWorkflowExecution,
-} from '@/lib/workflows/execution-runner'
 import type { MarketSeries } from '@/providers/market/types'
 
 const logger = createLogger('IndicatorMonitorExecution')
@@ -163,26 +156,6 @@ const chooseCandidate = ({
   )
 }
 
-async function disableMonitor(
-  monitorId: string,
-  reason: string,
-  metadata: Record<string, unknown> = {}
-) {
-  await db
-    .update(webhook)
-    .set({
-      isActive: false,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(webhook.id, monitorId), eq(webhook.provider, INDICATOR_MONITOR_PROVIDER)))
-
-  logger.warn('Indicator monitor disabled', {
-    monitorId,
-    reason,
-    ...metadata,
-  })
-}
-
 export async function executeIndicatorMonitorJob(payload: IndicatorMonitorExecutionPayload) {
   const requestId = (payload.executionId ?? payload.monitor.id).slice(0, 8)
   const workspaceId = payload.monitor.workspaceId.trim()
@@ -279,72 +252,54 @@ export async function executeIndicatorMonitorJob(payload: IndicatorMonitorExecut
     })
   }
 
-  const usageCheck = await checkServerSideUsageLimits({
-    userId: payload.monitor.actorUserId,
+  const handle = await enqueuePendingExecution({
+    executionType: 'workflow',
+    pendingExecutionId: eventId,
     workflowId: payload.monitor.workflowId,
     workspaceId,
-  })
-  if (usageCheck.isExceeded) {
-    await disableMonitor(payload.monitor.id, 'usage_limit_exceeded', {
+    userId: payload.monitor.actorUserId,
+    source: 'monitor:indicator',
+    orderingKey: `monitor:${payload.monitor.id}`,
+    requestId: eventId,
+    payload: {
+      executionId: eventId,
       workflowId: payload.monitor.workflowId,
-      currentUsage: usageCheck.currentUsage,
-      limit: usageCheck.limit,
-    })
-    return { success: true, skipped: 'usage_limit_exceeded' as const }
-  }
-
-  const blueprint = await loadWorkflowExecutionBlueprint({
-    workflowId: payload.monitor.workflowId,
-    executionTarget: 'deployed',
-    workflowContext: { workspaceId },
-  })
-  const blocks = blueprint.workflowData.blocks as Record<string, unknown>
-  if (!blocks[payload.monitor.blockId]) {
-    await disableMonitor(payload.monitor.id, 'missing_trigger_block', {
-      workflowId: payload.monitor.workflowId,
-      blockId: payload.monitor.blockId,
-    })
-    return { success: true, skipped: 'missing_trigger_block' as const }
-  }
-
-  const { result } = await runPreparedWorkflowExecution({
-    blueprint,
-    actorUserId: payload.monitor.actorUserId,
-    requestId,
-    executionId: eventId,
-    triggerType: 'webhook',
-    workflowInput: budgetResult.payload,
-    start: {
-      kind: 'block',
-      blockId: payload.monitor.blockId,
-    },
-    triggerData: {
-      source: INDICATOR_MONITOR_TRIGGER_ID,
+      userId: payload.monitor.actorUserId,
+      workspaceId,
+      input: budgetResult.payload,
+      triggerType: 'webhook',
       executionTarget: 'deployed',
-      monitor: {
-        id: payload.monitor.id,
-        workflowId: payload.monitor.workflowId,
-        blockId: payload.monitor.blockId,
-        listing: payload.monitor.listing,
-        providerId: payload.monitor.providerId,
-        interval: payload.monitor.interval,
-        indicatorId: payload.monitor.indicatorId,
+      startBlockId: payload.monitor.blockId,
+      triggerData: {
+        source: INDICATOR_MONITOR_TRIGGER_ID,
+        executionTarget: 'deployed',
+        monitor: {
+          id: payload.monitor.id,
+          workflowId: payload.monitor.workflowId,
+          blockId: payload.monitor.blockId,
+          listing: payload.monitor.listing,
+          providerId: payload.monitor.providerId,
+          interval: payload.monitor.interval,
+          indicatorId: payload.monitor.indicatorId,
+        },
       },
     },
   })
 
+  if (!handle.inserted) {
+    return { success: true, skipped: 'duplicate_workflow' as const, executionId: eventId }
+  }
+
   logger.info(`[${requestId}] Indicator monitor execution completed`, {
-    success: result.success,
+    success: true,
     monitorId: payload.monitor.id,
     workflowId: payload.monitor.workflowId,
   })
 
   return {
-    success: result.success,
+    success: true,
     workflowId: payload.monitor.workflowId,
     executionId: eventId,
-    output: result.output,
-    error: result.error,
     executedAt: new Date().toISOString(),
     provider: INDICATOR_MONITOR_PROVIDER,
   }

@@ -849,7 +849,6 @@ export class IndicatorMonitorRuntime {
           workspaceId: monitor.workspaceId,
           userId: actorUserId,
           source: 'monitor:indicator',
-          orderingKey: `monitor:${monitor.id}`,
           requestId: pendingExecutionId,
           payload,
         })

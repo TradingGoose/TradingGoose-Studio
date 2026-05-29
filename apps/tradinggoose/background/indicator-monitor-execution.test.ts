@@ -7,28 +7,12 @@ import { INDICATOR_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import type { IndicatorMonitorExecutionPayload } from './indicator-monitor-execution'
 
 const mocks = vi.hoisted(() => ({
-  checkServerSideUsageLimits: vi.fn(),
+  enqueuePendingExecution: vi.fn(),
   executeCompiledIndicator: vi.fn(),
-  loadWorkflowExecutionBlueprint: vi.fn(),
-  runPreparedWorkflowExecution: vi.fn(),
 }))
 
-vi.mock('@tradinggoose/db', () => ({
-  db: {
-    update: vi.fn(),
-  },
-}))
-
-vi.mock('@tradinggoose/db/schema', () => ({
-  webhook: {
-    id: 'webhook.id',
-    provider: 'webhook.provider',
-  },
-}))
-
-vi.mock('drizzle-orm', () => ({
-  and: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' })),
-  eq: vi.fn((field: unknown, value: unknown) => ({ field, type: 'eq', value })),
+vi.mock('@/lib/execution/pending-execution', () => ({
+  enqueuePendingExecution: (...args: unknown[]) => mocks.enqueuePendingExecution(...args),
 }))
 
 vi.mock('@/lib/indicators/dispatch', () => ({
@@ -55,18 +39,8 @@ vi.mock('@/lib/indicators/series-data', () => ({
   normalizeBarsMs: vi.fn((bars) => bars),
 }))
 
-vi.mock('@/lib/billing', () => ({
-  checkServerSideUsageLimits: (...args: unknown[]) => mocks.checkServerSideUsageLimits(...args),
-}))
-
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: vi.fn(() => ({ error: vi.fn(), info: vi.fn(), warn: vi.fn() })),
-}))
-
-vi.mock('@/lib/workflows/execution-runner', () => ({
-  loadWorkflowExecutionBlueprint: (...args: unknown[]) =>
-    mocks.loadWorkflowExecutionBlueprint(...args),
-  runPreparedWorkflowExecution: (...args: unknown[]) => mocks.runPreparedWorkflowExecution(...args),
 }))
 
 const payload = {
@@ -101,23 +75,19 @@ const payload = {
 describe('executeIndicatorMonitorJob', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.checkServerSideUsageLimits.mockResolvedValue({ isExceeded: false })
+    mocks.enqueuePendingExecution.mockResolvedValue({
+      billingScopeId: 'workspace-1',
+      inserted: true,
+      pendingExecutionId: 'event-1',
+    })
     mocks.executeCompiledIndicator.mockResolvedValue({
       output: {
         triggers: [{ event: 'cross', signal: 'buy', time: 1 }],
       },
     })
-    mocks.loadWorkflowExecutionBlueprint.mockResolvedValue({
-      workflowData: {
-        blocks: { 'trigger-block': {} },
-      },
-    })
-    mocks.runPreparedWorkflowExecution.mockResolvedValue({
-      result: { success: true, output: { ok: true } },
-    })
   })
 
-  it('rejects missing workspace scope before usage checks', async () => {
+  it('rejects missing workspace scope before queueing workflow execution', async () => {
     const { executeIndicatorMonitorJob } = await import('./indicator-monitor-execution')
 
     await expect(
@@ -127,23 +97,35 @@ describe('executeIndicatorMonitorJob', () => {
       })
     ).rejects.toThrow('Indicator monitor execution requires workspaceId')
 
-    expect(mocks.checkServerSideUsageLimits).not.toHaveBeenCalled()
+    expect(mocks.enqueuePendingExecution).not.toHaveBeenCalled()
   })
 
-  it('passes the resolved workspace scope into usage and blueprint loading', async () => {
+  it('queues triggered workflow execution with the indicator event as the workflow dedupe key', async () => {
     const { executeIndicatorMonitorJob } = await import('./indicator-monitor-execution')
 
-    await executeIndicatorMonitorJob(payload)
+    const result = await executeIndicatorMonitorJob(payload)
 
-    expect(mocks.checkServerSideUsageLimits).toHaveBeenCalledWith(
+    expect(result).toMatchObject({
+      success: true,
+      executionId: 'event-1',
+    })
+    expect(mocks.enqueuePendingExecution).toHaveBeenCalledWith(
       expect.objectContaining({
+        executionType: 'workflow',
+        pendingExecutionId: 'event-1',
+        orderingKey: 'monitor:monitor-1',
+        source: 'monitor:indicator',
         workspaceId: 'workspace-1',
+        payload: expect.objectContaining({
+          executionId: 'event-1',
+          workflowId: 'workflow-1',
+          userId: 'actor-1',
+          workspaceId: 'workspace-1',
+          triggerType: 'webhook',
+          executionTarget: 'deployed',
+          startBlockId: 'trigger-block',
+        }),
       })
     )
-    expect(mocks.loadWorkflowExecutionBlueprint).toHaveBeenCalledWith({
-      executionTarget: 'deployed',
-      workflowContext: { workspaceId: 'workspace-1' },
-      workflowId: 'workflow-1',
-    })
   })
 })
