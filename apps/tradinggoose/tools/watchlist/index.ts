@@ -83,16 +83,6 @@ const transformReadListsResponse = async (
   output: (await response.json()) as WatchlistListsOutput,
 })
 
-const transformReadListItemsResponse = async (
-  response: Response,
-  params?: WatchlistReadListItemsParams
-): Promise<WatchlistToolResponse<WatchlistListItemsOutput>> => {
-  const { watchlists } = (await response.json()) as WatchlistListsOutput
-  const watchlist = watchlists.find((entry) => entry.id === params?.watchlistId)
-  if (!watchlist) throw new Error('Watchlist not found')
-  return { success: true, output: watchlistOutput(watchlist) }
-}
-
 const transformWatchlistResponse = async (
   response: Response
 ): Promise<WatchlistToolResponse<WatchlistListItemsOutput>> => {
@@ -164,8 +154,11 @@ export const watchlistReadListItemsTool: ToolConfig<
   params: {
     watchlistId: watchlistIdParam,
   },
-  request: readWatchlistsRequest,
-  transformResponse: transformReadListItemsResponse,
+  request: {
+    ...readWatchlistsRequest,
+    url: (params) => `/api/watchlists?watchlistId=${encodeURIComponent(params.watchlistId)}`,
+  },
+  transformResponse: transformWatchlistResponse,
   outputs: watchlistListItemsOutputs,
 }
 

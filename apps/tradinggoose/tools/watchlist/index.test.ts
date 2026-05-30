@@ -48,18 +48,16 @@ describe('watchlist tools', () => {
     })
   })
 
-  it('maps read-list-items from the canonical watchlists response', async () => {
+  it('maps read-list-items from the canonical watchlist response', async () => {
     const response = new Response(
       JSON.stringify({
-        watchlists: [
-          {
-            id: 'watchlist-1',
-            items: [
-              { id: 'section-1', type: 'section', label: 'Tech' },
-              { id: 'listing-1', type: 'listing', listing },
-            ],
-          },
-        ],
+        watchlist: {
+          id: 'watchlist-1',
+          items: [
+            { id: 'section-1', type: 'section', label: 'Tech' },
+            { id: 'listing-1', type: 'listing', listing },
+          ],
+        },
       })
     )
 
