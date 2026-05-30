@@ -31,14 +31,14 @@ import {
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { cn } from '@/lib/utils'
-import type { WatchlistRecord } from '@/lib/watchlists/types'
 import {
   widgetHeaderControlClassName,
   widgetHeaderMenuContentClassName,
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
-} from '@/widgets/widgets/components/widget-header-control'
+} from '@/components/widget-header-control'
+import { cn } from '@/lib/utils'
+import type { WatchlistRecord } from '@/lib/watchlists/types'
 
 type WatchlistListSelectorProps = {
   watchlists: WatchlistRecord[]
@@ -160,10 +160,7 @@ export const WatchlistListSelector = ({
   }
 
   const stopItemAction = (
-    event:
-      | MouseEvent<HTMLElement>
-      | PointerEvent<HTMLElement>
-      | FocusEvent<HTMLElement>
+    event: MouseEvent<HTMLElement> | PointerEvent<HTMLElement> | FocusEvent<HTMLElement>
   ) => {
     event.stopPropagation()
   }
@@ -206,9 +203,7 @@ export const WatchlistListSelector = ({
                     <span
                       className={cn(
                         'min-w-0 flex-1 truncate text-left text-sm',
-                        selectedWatchlist
-                          ? 'font-medium text-foreground'
-                          : 'text-muted-foreground'
+                        selectedWatchlist ? 'font-medium text-foreground' : 'text-muted-foreground'
                       )}
                     >
                       {selectionLabel}

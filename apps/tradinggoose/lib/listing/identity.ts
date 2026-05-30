@@ -50,6 +50,29 @@ export type ListingOption = ListingResolved
 export type ListingValue = ListingIdentity | null | undefined
 export type ListingInputValue = ListingIdentity | ListingResolved | string | null | undefined
 
+export function buildListingDisplayOption(
+  listing: ListingIdentity,
+  resolved?: ListingOption | null
+): ListingOption {
+  const base =
+    resolved?.base?.trim() ||
+    (listing.listing_type === 'default' ? listing.listing_id : listing.base_id)
+  const quote =
+    resolved?.quote?.trim() || (listing.listing_type === 'default' ? null : listing.quote_id)
+
+  return {
+    ...listing,
+    ...resolved,
+    base,
+    quote,
+    name:
+      resolved?.name?.trim() ||
+      (listing.listing_type === 'default'
+        ? listing.listing_id
+        : `${listing.base_id}/${listing.quote_id}`),
+  }
+}
+
 const readListingField = (record: Record<string, unknown>, key: string): string | undefined => {
   const value = record[key]
   if (typeof value === 'string') {

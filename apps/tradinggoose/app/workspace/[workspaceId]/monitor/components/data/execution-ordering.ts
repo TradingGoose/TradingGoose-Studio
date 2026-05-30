@@ -28,7 +28,10 @@ export type MonitorExecutionItem = {
   workflowName: string
   workflowColor: string
   monitorId: string | null
+  source: string | null
   providerId: string | null
+  serviceId: string | null
+  accountId: string | null
   interval: string | null
   indicatorId: string | null
   assetType: string

@@ -7,15 +7,15 @@ import {
   getTradingPortfolioSupportedWindows,
   isTradingPortfolioWindowSupported,
 } from '@/providers/trading/portfolio'
-import { getTradingHoldingsCapabilities } from '@/providers/trading/providers'
+import { getTradingPortfolioDetailCapabilities } from '@/providers/trading/providers'
 
 describe('Trading portfolio window contract', () => {
   it('reuses the provider definition supported window lists', () => {
     expect(getTradingPortfolioSupportedWindows('alpaca')).toEqual(
-      getTradingHoldingsCapabilities('alpaca')?.performanceWindows
+      getTradingPortfolioDetailCapabilities('alpaca')?.performanceWindows
     )
     expect(getTradingPortfolioSupportedWindows('tradier')).toEqual(
-      getTradingHoldingsCapabilities('tradier')?.performanceWindows
+      getTradingPortfolioDetailCapabilities('tradier')?.performanceWindows
     )
   })
 

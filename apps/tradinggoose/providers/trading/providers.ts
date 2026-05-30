@@ -1,7 +1,10 @@
 import type React from 'react'
 import { getCanonicalScopesForProvider } from '@/lib/oauth'
 import type { AssetClass } from '@/providers/market/types'
-import { alpacaTradingProviderConfig } from '@/providers/trading/alpaca/config'
+import {
+  alpacaTradingProviderConfig,
+  buildAlpacaOrderDetailSiteUrl,
+} from '@/providers/trading/alpaca/config'
 import { tradierTradingProviderConfig } from '@/providers/trading/tradier/config'
 import type {
   TradingAuthType,
@@ -21,7 +24,7 @@ import type {
 export interface TradingProviderAvailability {
   assetClass: AssetClass[]
   order: boolean
-  holdings: boolean
+  portfolioDetail: boolean
   availableListingQuote?: string[]
   availableCurrencyBase?: string[]
   availableCurrencyQuote?: string[]
@@ -36,13 +39,13 @@ export interface TradingOrderInputCapabilities {
   preview?: boolean
 }
 
-export interface TradingHoldingsInputCapabilities {
+export interface TradingPortfolioDetailInputCapabilities {
   performanceWindows?: TradingPortfolioPerformanceWindow[]
 }
 
 export interface TradingProviderCapabilities {
   order?: TradingOrderInputCapabilities
-  holdings?: TradingHoldingsInputCapabilities
+  portfolioDetail?: TradingPortfolioDetailInputCapabilities
 }
 
 export type TradingOrderTypeRequirement = 'limitPrice' | 'stopPrice' | 'trailPrice' | 'trailPercent'
@@ -116,6 +119,10 @@ export interface TradingProviderDefinition {
   }
   config: TradingProviderConfig
   icon?: React.ComponentType<{ className?: string }>
+  orderDetailSiteUrl?: (input: {
+    providerOrderId?: string | null
+    environment?: string | null
+  }) => string | null
 }
 
 export const TRADING_PROVIDER_DEFINITIONS: Record<string, TradingProviderDefinition> = {
@@ -138,6 +145,7 @@ export const TRADING_PROVIDER_DEFINITIONS: Record<string, TradingProviderDefinit
       timeInForce: 'day',
     },
     config: alpacaTradingProviderConfig,
+    orderDetailSiteUrl: ({ providerOrderId }) => buildAlpacaOrderDetailSiteUrl(providerOrderId),
   },
   tradier: {
     id: 'tradier',
@@ -170,10 +178,10 @@ export function getTradingProviderConfig(
   return TRADING_PROVIDER_DEFINITIONS[providerId]?.config || null
 }
 
-export function getTradingHoldingsCapabilities(
+export function getTradingPortfolioDetailCapabilities(
   providerId: TradingProviderId
-): TradingHoldingsInputCapabilities | null {
-  return TRADING_PROVIDER_DEFINITIONS[providerId]?.config.capabilities?.holdings || null
+): TradingPortfolioDetailInputCapabilities | null {
+  return TRADING_PROVIDER_DEFINITIONS[providerId]?.config.capabilities?.portfolioDetail || null
 }
 
 export function getTradingOrderCapabilities(
@@ -235,7 +243,7 @@ export function getTradingProvidersByKind(kind: TradingOperationKind): TradingPr
   return Object.values(TRADING_PROVIDER_DEFINITIONS).filter((provider) => {
     const availability = provider.config.availability
     if (kind === 'order') return availability.order
-    return availability.holdings
+    return availability.portfolioDetail
   })
 }
 

@@ -13,7 +13,7 @@ import {
   widgetHeaderMenuContentClassName,
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
-} from '@/widgets/widgets/components/widget-header-control'
+} from '@/components/widget-header-control'
 import { LandingWidgetShell } from '../market-preview/landing-widget-shell'
 import { WorkflowPreviewCanvas } from './workflow-preview-canvas'
 import { TRADING_AGENT_WORKFLOW_DEMOS, type WorkflowPreviewDemo } from './workflow-preview-demos'

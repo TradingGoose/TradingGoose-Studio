@@ -10,6 +10,14 @@ const mocks = vi.hoisted(() => ({
     providerId: string
     credentialOwnerUserId: string
   }>,
+  connectionById: new Map<
+    string,
+    {
+      tokenAccountId: string
+      providerId: string
+      credentialOwnerUserId: string
+    }
+  >(),
   refreshAccessTokenIfNeeded: vi.fn(),
   listPortfolioIdentities: vi.fn(),
 }))
@@ -20,6 +28,9 @@ vi.mock('@/lib/oauth/tokens', () => ({
 
 vi.mock('@/lib/credentials/oauth', () => ({
   listOAuthConnectionAccountsForUser: vi.fn(() => Promise.resolve(mocks.connections)),
+  resolveOAuthConnectionAccountForUser: vi.fn(({ accountId }: { accountId: string }) =>
+    Promise.resolve(mocks.connectionById.get(accountId) ?? null)
+  ),
 }))
 
 vi.mock('@/providers/trading/portfolio', () => ({
@@ -45,7 +56,7 @@ vi.mock('@/providers/trading/providers', () => ({
 
 const portfolioIdentity = {
   providerId: 'alpaca',
-  tokenAccountId: 'account-live',
+  credentialId: 'connection-live',
   serviceId: 'alpaca-live',
   accountId: 'account-1',
 }
@@ -54,25 +65,19 @@ describe('listTradingPortfolioIdentities', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.connections = []
+    mocks.connectionById = new Map()
     mocks.refreshAccessTokenIfNeeded.mockResolvedValue('token')
     mocks.listPortfolioIdentities.mockResolvedValue([portfolioIdentity])
   })
 
-  it('throws for a selected service when any same-service account load fails', async () => {
-    mocks.connections = [
-      {
-        tokenAccountId: 'account-live',
-        providerId: 'alpaca-live',
-        credentialOwnerUserId: 'user-1',
-      },
-      {
-        tokenAccountId: 'account-stale',
-        providerId: 'alpaca-live',
-        credentialOwnerUserId: 'user-1',
-      },
-    ]
+  it('throws when no selected connection identities can be resolved', async () => {
+    mocks.connectionById.set('connection-stale', {
+      tokenAccountId: 'connection-stale',
+      providerId: 'alpaca-live',
+      credentialOwnerUserId: 'user-1',
+    })
     mocks.refreshAccessTokenIfNeeded.mockImplementation((tokenAccountId: string) =>
-      tokenAccountId === 'account-stale' ? null : 'token'
+      tokenAccountId === 'connection-stale' ? null : 'token'
     )
     const { listTradingPortfolioIdentities } = await import('./portfolio-identities')
 
@@ -81,27 +86,47 @@ describe('listTradingPortfolioIdentities', () => {
         userId: 'user-1',
         providerId: 'alpaca',
         serviceId: 'alpaca-live',
+        credentialId: 'connection-stale',
         requestId: 'request-1',
       })
-    ).rejects.toThrow('Failed to load trading portfolio identities')
+    ).rejects.toThrow('Trading connection token unavailable: connection-stale')
   })
 
-  it('returns healthy identities when another service fails during all-service loading', async () => {
+  it('returns identities from healthy connections when another connection fails', async () => {
     mocks.connections = [
       {
-        tokenAccountId: 'account-live',
+        tokenAccountId: 'connection-live',
         providerId: 'alpaca-live',
         credentialOwnerUserId: 'user-1',
       },
       {
-        tokenAccountId: 'account-paper',
+        tokenAccountId: 'connection-paper',
         providerId: 'alpaca-paper',
         credentialOwnerUserId: 'user-1',
       },
     ]
     mocks.refreshAccessTokenIfNeeded.mockImplementation((tokenAccountId: string) =>
-      tokenAccountId === 'account-paper' ? null : 'token'
+      tokenAccountId === 'connection-paper' ? null : 'token'
     )
+    const { listTradingPortfolioIdentities } = await import('./portfolio-identities')
+
+    await expect(
+      listTradingPortfolioIdentities({
+        userId: 'user-1',
+        providerId: 'alpaca',
+        requestId: 'request-1',
+      })
+    ).resolves.toEqual([portfolioIdentity])
+  })
+
+  it('returns identities for all owned trading connections', async () => {
+    mocks.connections = [
+      {
+        tokenAccountId: 'connection-live',
+        providerId: 'alpaca-live',
+        credentialOwnerUserId: 'user-1',
+      },
+    ]
     const { listTradingPortfolioIdentities } = await import('./portfolio-identities')
 
     await expect(

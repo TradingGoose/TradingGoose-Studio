@@ -224,6 +224,18 @@ const WorkflowEditorHeaderSelector = ({
   )
 }
 
+type WorkflowEditorHeaderControlsProps = {
+  workspaceId?: string
+  toolbarScopeId: string
+}
+
+const WorkflowEditorHeaderControls = ({
+  workspaceId,
+  toolbarScopeId,
+}: WorkflowEditorHeaderControlsProps) => {
+  return <WorkflowToolbar workspaceId={workspaceId} toolbarScopeId={toolbarScopeId} />
+}
+
 export const workflowEditorWidget: DashboardWidgetDefinition = {
   key: 'editor_workflow',
   title: 'Workflow Editor',
@@ -236,7 +248,12 @@ export const workflowEditorWidget: DashboardWidgetDefinition = {
     const toolbarScopeId = readWorkflowToolbarScopeId(widgetKey, panelId)
 
     return {
-      left: <WorkflowToolbar workspaceId={context?.workspaceId} toolbarScopeId={toolbarScopeId} />,
+      left: (
+        <WorkflowEditorHeaderControls
+          workspaceId={context?.workspaceId}
+          toolbarScopeId={toolbarScopeId}
+        />
+      ),
       center: (
         <WorkflowEditorHeaderSelector
           workspaceId={context?.workspaceId}

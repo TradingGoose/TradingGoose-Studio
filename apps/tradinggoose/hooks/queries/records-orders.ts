@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import type { OrdersFilterState } from '@/lib/records/order-filters'
+import type { TradingProviderOrderDetailResponse } from '@/lib/trading/order-detail'
 
 export const recordsOrderKeys = {
   all: ['records-orders'] as const,
@@ -66,6 +67,8 @@ type RecordsOrdersResponse = {
   pageSize: number
   totalPages: number
 }
+
+export type ProviderOrderDetailResponse = TradingProviderOrderDetailResponse
 
 export function buildOrdersRequestParams(
   workspaceId: string,
@@ -169,11 +172,15 @@ export function useProviderOrderDetail(params: {
           method: 'POST',
         }
       )
-      const payload = await response.json().catch(() => ({}))
+      const payload = (await response
+        .json()
+        .catch(() => ({}))) as Partial<ProviderOrderDetailResponse> & {
+        error?: string
+      }
       if (!response.ok) {
         throw new Error(payload?.error ?? 'Failed to fetch provider order detail')
       }
-      return payload
+      return payload as ProviderOrderDetailResponse
     },
     enabled: Boolean(params.workspaceId && params.orderId && (params.enabled ?? true)),
   })

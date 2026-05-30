@@ -2,7 +2,7 @@
 
 import { RefreshCw } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { widgetHeaderIconButtonClassName } from '@/widgets/widgets/components/widget-header-control'
+import { widgetHeaderIconButtonClassName } from '@/components/widget-header-control'
 
 type WidgetHeaderRefreshButtonProps = {
   disabled?: boolean

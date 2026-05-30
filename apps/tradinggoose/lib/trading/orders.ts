@@ -343,19 +343,20 @@ export async function submitTradingOrder({
     logId: requestData.logId,
   })
   const connectionAuthorization = await authorizeTradingConnectionRequest({
-    tokenAccountId: portfolioIdentity.tokenAccountId,
+    credentialId: portfolioIdentity.credentialId,
     userId,
   })
 
   const baseContext = await resolveTradingProviderContext({
     requestData: {
       provider: portfolioIdentity.providerId,
-      tokenAccountId: portfolioIdentity.tokenAccountId,
+      credentialId: portfolioIdentity.credentialId,
       serviceId: portfolioIdentity.serviceId,
     },
     requestId,
     userId,
     connectionOwnerUserId: connectionAuthorization.connectionOwnerUserId,
+    tokenAccountId: connectionAuthorization.tokenAccountId,
     accountProviderId: connectionAuthorization.accountProviderId,
   })
 
@@ -390,7 +391,7 @@ export async function submitTradingOrder({
   })
   const clientOrderId = createTradingOrderClientOrderId(requestData.idempotencyKey)
   const orderHistoryRequest = compactRecord({
-    tokenAccountId: baseContext.tokenAccountId,
+    credentialId: baseContext.credentialId,
     serviceId: baseContext.serviceId,
     accountId: accountContext.accountId,
     clientOrderId,

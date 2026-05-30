@@ -1,24 +1,25 @@
 import { getTradingPortfolioSupportedWindows } from '@/providers/trading/portfolio'
 import type { TradingPortfolioPerformanceWindow } from '@/providers/trading/types'
 import {
-  resolveConfiguredSeriesMarketProviderId,
-  getSeriesMarketProviderOptions,
-} from '@/widgets/widgets/data_chart/options'
-import {
   getTradingWidgetProviderAvailabilityIds,
   getTradingWidgetProviderOptions,
   resolveTradingWidgetProviderId,
 } from '@/widgets/utils/trading-widget-providers'
+import {
+  getSeriesMarketProviderOptions,
+  resolveConfiguredSeriesMarketProviderId,
+} from '@/widgets/widgets/data_chart/options'
 import type { PortfolioSnapshotWidgetParams } from '@/widgets/widgets/portfolio_snapshot/types'
 
-const DEFAULT_PORTFOLIO_SNAPSHOT_PROVIDER_OPTIONS = getTradingWidgetProviderOptions('holdings')
+const DEFAULT_PORTFOLIO_SNAPSHOT_PROVIDER_OPTIONS =
+  getTradingWidgetProviderOptions('portfolioDetail')
 
 export const getPortfolioSnapshotProviderAvailabilityIds = () =>
-  getTradingWidgetProviderAvailabilityIds('holdings')
+  getTradingWidgetProviderAvailabilityIds('portfolioDetail')
 
 export const getPortfolioSnapshotProviderOptions = (
   providerAvailability?: Record<string, boolean>
-) => getTradingWidgetProviderOptions('holdings', providerAvailability)
+) => getTradingWidgetProviderOptions('portfolioDetail', providerAvailability)
 
 export const resolvePortfolioSnapshotProviderId = (
   params: PortfolioSnapshotWidgetParams | null | undefined,

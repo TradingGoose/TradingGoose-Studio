@@ -1,13 +1,13 @@
+import { fetchBrokerJson } from '@/providers/trading/portfolio-utils'
 import { buildTradierAuthHeaders, resolveTradierBaseUrl } from '@/providers/trading/tradier/client'
 import type {
-  TradingHoldingsInput,
   TradingOrderDetailInput,
+  TradingOrderDetailOutput,
   TradingOrderDetailResult,
   TradingOrderHistoryRecord,
+  TradingPortfolioDetailInput,
   TradingRequestConfig,
 } from '@/providers/trading/types'
-import { fetchBrokerJson } from '@/providers/trading/portfolio-utils'
-import type { TradingOrderDetailOutput } from '@/tools/trading/types'
 
 const firstDefinedString = (...values: unknown[]): string | null => {
   for (const value of values) {
@@ -21,9 +21,7 @@ const firstDefinedString = (...values: unknown[]): string | null => {
   return null
 }
 
-const resolveTradierAccountId = (
-  historyRecord: TradingOrderHistoryRecord
-): string | null =>
+const resolveTradierAccountId = (historyRecord: TradingOrderHistoryRecord): string | null =>
   firstDefinedString(historyRecord.request?.accountId)
 
 export const resolveTradierOrderDetailProviderOrderId = (
@@ -51,7 +49,7 @@ export const buildTradierOrderDetailRequest = (
   const baseUrl = resolveTradierBaseUrl()
   const authHeaders = buildTradierAuthHeaders({
     accessToken: params.accessToken,
-  } as TradingHoldingsInput)
+  } as TradingPortfolioDetailInput)
 
   return {
     url: `${baseUrl}/accounts/${encodeURIComponent(accountId)}/orders/${encodeURIComponent(providerOrderId)}`,

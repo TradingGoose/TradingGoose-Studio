@@ -23,8 +23,8 @@ vi.mock('@/providers/trading/listing-resolution', () => ({
 describe('Alpaca portfolio helpers', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
-    resolveTradingListingIdentityMock.mockImplementation((symbol: { base: string }) => ({
-      listing_id: symbol.base,
+    resolveTradingListingIdentityMock.mockImplementation((input: any) => ({
+      listing_id: input?.listing?.listing_id ?? input?.listing?.base_id ?? '',
       base_id: '',
       quote_id: '',
       listing_type: 'default',
@@ -48,13 +48,13 @@ describe('Alpaca portfolio helpers', () => {
         },
         {
           providerId: 'alpaca',
-          tokenAccountId: 'oauth-account-1',
+          credentialId: 'oauth-credential-1',
           serviceId: 'alpaca-live',
         }
       )
     ).toEqual({
       providerId: 'alpaca',
-      tokenAccountId: 'oauth-account-1',
+      credentialId: 'oauth-credential-1',
       serviceId: 'alpaca-live',
       accountId: 'acct-live',
       providerName: 'Alpaca',
@@ -78,7 +78,7 @@ describe('Alpaca portfolio helpers', () => {
         },
         {
           providerId: 'alpaca',
-          tokenAccountId: 'oauth-account-1',
+          credentialId: 'oauth-credential-1',
           serviceId: 'alpaca-live',
         }
       )
@@ -133,6 +133,7 @@ describe('Alpaca portfolio helpers', () => {
 
     const snapshot = await getAlpacaTradingAccountSnapshot({
       providerId: 'alpaca',
+      credentialId: 'oauth-credential-1',
       tokenAccountId: 'oauth-account-1',
       serviceId: 'alpaca-live',
       environment: 'live',
@@ -151,7 +152,7 @@ describe('Alpaca portfolio helpers', () => {
     })
     expect(snapshot.cashBalances[0]?.amount).toBe(2500)
     expect(snapshot.positions).toHaveLength(1)
-    expect(snapshot.positions[0]?.symbol.listing).toEqual({
+    expect(snapshot.positions[0]?.listingIdentity).toEqual({
       listing_id: 'AAPL',
       base_id: '',
       quote_id: '',
@@ -201,6 +202,7 @@ describe('Alpaca portfolio helpers', () => {
 
     const snapshot = await getAlpacaTradingAccountSnapshot({
       providerId: 'alpaca',
+      credentialId: 'oauth-credential-1',
       tokenAccountId: 'oauth-account-1',
       serviceId: 'alpaca-live',
       environment: 'live',
@@ -217,7 +219,7 @@ describe('Alpaca portfolio helpers', () => {
       equity: 9000,
     })
     expect(snapshot.positions[0]?.quantity).toBe(-25)
-    expect(snapshot.positions[0]?.symbol.listing).toEqual({
+    expect(snapshot.positions[0]?.listingIdentity).toEqual({
       listing_id: 'GME',
       base_id: '',
       quote_id: '',
@@ -276,6 +278,7 @@ describe('Alpaca portfolio helpers', () => {
 
     const performance = await getAlpacaTradingAccountPerformance({
       providerId: 'alpaca',
+      credentialId: 'oauth-credential-1',
       tokenAccountId: 'oauth-account-1',
       serviceId: 'alpaca-live',
       environment: 'live',
@@ -294,6 +297,7 @@ describe('Alpaca portfolio helpers', () => {
 
     const performance = await getAlpacaTradingAccountPerformance({
       providerId: 'alpaca',
+      credentialId: 'oauth-credential-1',
       tokenAccountId: 'oauth-account-1',
       serviceId: 'alpaca-live',
       environment: 'live',

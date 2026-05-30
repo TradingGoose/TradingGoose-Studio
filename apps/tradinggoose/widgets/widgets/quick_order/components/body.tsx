@@ -263,6 +263,7 @@ export function QuickOrderWidgetBody({
       emitParamsChange: emitQuickOrderParamsChange,
     })
   const accountSnapshotQuery = usePortfolioDetail({
+    workspaceId: workspaceId ?? undefined,
     provider: hasSelectedProvider && areProviderOptionsReady ? providerId : undefined,
     serviceId: activeServiceId,
     portfolioIdentity: activePortfolioIdentity,
@@ -669,6 +670,8 @@ export function QuickOrderWidgetBody({
           <ListingSelector
             instanceId={listingInstanceId}
             providerType='trading'
+            marketProviderId={marketProviderId || undefined}
+            tradingProviderId={providerId || undefined}
             className='w-full'
             listingRequired
             onListingChange={(nextListing) => {

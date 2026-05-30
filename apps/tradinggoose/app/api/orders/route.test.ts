@@ -113,7 +113,7 @@ const orderRow = {
   recordedAt: new Date('2026-04-23T00:00:00.000Z'),
   submissionSource: 'workflow',
   logId: 'log-1',
-  listingIdentity: { listing_type: 'default', listing_id: 'AAPL' },
+  listingIdentity: { base_id: '', listing_id: 'AAPL', listing_type: 'default', quote_id: '' },
   request: { side: 'buy', quantity: 1 },
   response: { orderId: 'provider-order-1' },
   normalizedOrder: { symbol: 'AAPL', status: 'filled' },

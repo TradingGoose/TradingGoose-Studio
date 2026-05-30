@@ -36,15 +36,12 @@ export function MonitorControlBar({
       <div
         ref={scrollRef}
         onWheel={handleWheel}
-        className='w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+        className='w-full min-w-0 max-w-full overflow-x-auto rounded-lg border bg-muted p-1 shadow-sm overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
       >
         <div
           role='toolbar'
           aria-label={toolbarLabel}
-          className={cn(
-            'flex min-h-11 w-max min-w-full items-center gap-1 rounded-xl border bg-muted p-1 shadow-sm',
-            contentClassName
-          )}
+          className={cn('flex w-max min-w-full items-center gap-1', contentClassName)}
         >
           {children}
         </div>
@@ -178,7 +175,7 @@ export function MonitorBoardShell({
   return (
     <Card
       className={cn(
-        'flex h-full w-full min-w-0 max-w-full flex-col overflow-hidden rounded-xl border bg-card/40 p-1.5',
+        'flex h-full w-full min-w-0 max-w-full flex-col overflow-hidden rounded-xl border bg-card/60 p-1.5',
         className
       )}
       {...props}
@@ -195,28 +192,6 @@ export function MonitorBoardShell({
   )
 }
 
-type MonitorSectionHeaderProps = ComponentProps<'div'> & {
-  description?: ReactNode
-  title: ReactNode
-}
-
-export function MonitorSectionHeader({
-  children,
-  className,
-  description,
-  title,
-  ...props
-}: MonitorSectionHeaderProps) {
-  return (
-    <div className={cn('flex items-center justify-between gap-3', className)} {...props}>
-      <div>
-        <h2 className='font-medium text-sm'>{title}</h2>
-        {description ? <p className='text-muted-foreground text-xs'>{description}</p> : null}
-      </div>
-      {children ? <div className='flex gap-2'>{children}</div> : null}
-    </div>
-  )
-}
 
 type MonitorAggregateBadgesProps = ComponentProps<'div'> & {
   badgeClassName?: string

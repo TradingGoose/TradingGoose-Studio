@@ -21,7 +21,7 @@ export interface LogFilters {
   indicatorId?: string
   providerId?: string
   interval?: string
-  triggerSource?: 'indicator_trigger'
+  triggerSource?: string
   cursor?: {
     startedAt: string
     id: string
@@ -150,9 +150,16 @@ export function buildLogFilters(filters: LogFilters): SQL<unknown> {
       sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->>'interval' = ${filters.interval}`
     )
   }
-  if (filters.triggerSource) {
+  const triggerSources = (filters.triggerSource ?? '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+  if (triggerSources.length > 0) {
     conditions.push(
-      sql`${workflowExecutionLogs.executionData}->'trigger'->>'source' = ${filters.triggerSource}`
+      inArray(
+        sql<string>`${workflowExecutionLogs.executionData}->'trigger'->>'source'`,
+        triggerSources
+      )
     )
   }
 

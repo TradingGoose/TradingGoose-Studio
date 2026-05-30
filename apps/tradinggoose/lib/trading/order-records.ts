@@ -13,8 +13,8 @@ import {
   normalizeOrderDateFilterValue,
   normalizeOrdersFilterState,
   type OrderStatusFilter,
-  type OrderTimeInForceFilter,
   type OrdersFilterState,
+  type OrderTimeInForceFilter,
 } from '@/lib/records/order-filters'
 
 type JsonRecord = Record<string, any>
@@ -249,8 +249,8 @@ const readOrderRequestString = (row: Pick<RecordsOrderRow, 'request'>, key: stri
 export const readOrderAccountId = (row: Pick<RecordsOrderRow, 'request'>) =>
   readOrderRequestString(row, 'accountId')
 
-export const readOrderTokenAccountId = (row: Pick<RecordsOrderRow, 'request'>) =>
-  readOrderRequestString(row, 'tokenAccountId')
+export const readOrderCredentialId = (row: Pick<RecordsOrderRow, 'request'>) =>
+  readOrderRequestString(row, 'credentialId')
 
 export const readOrderServiceId = (row: Pick<RecordsOrderRow, 'request'>) =>
   readOrderRequestString(row, 'serviceId')
@@ -544,12 +544,12 @@ const orderMessageExpr = () =>
     ...ORDER_MESSAGE_KEYS.map((key) => sql`${orderHistoryTable.response}->'raw'->'order'->> ${key}`)
   )
 
-const submittedAtExpr = () =>
+const updatedAtExpr = () =>
   sql<Date>`COALESCE(
-    ${timestampText(sql`NULLIF(${orderHistoryTable.normalizedOrder}->>'submittedAt', '')`)},
-    ${timestampText(sql`NULLIF(${orderHistoryTable.response}->>'submittedAt', '')`)},
-    ${timestampText(sql`NULLIF(${orderHistoryTable.response}->'raw'->>'submitted_at', '')`)},
-    ${timestampText(sql`NULLIF(${orderHistoryTable.response}->'raw'->'order'->>'submitted_at', '')`)}
+    ${timestampText(sql`NULLIF(${orderHistoryTable.normalizedOrder}->>'updatedAt', '')`)},
+    ${timestampText(sql`NULLIF(${orderHistoryTable.response}->>'updatedAt', '')`)},
+    ${timestampText(sql`NULLIF(${orderHistoryTable.response}->'raw'->>'updated_at', '')`)},
+    ${timestampText(sql`NULLIF(${orderHistoryTable.response}->'raw'->'order'->>'updated_at', '')`)}
   )`
 
 const quantityExpr = () =>
@@ -604,8 +604,7 @@ export function buildOrderWhereCondition(
   if (normalized.status) conditions.push(orderStatusFilterCondition(normalized.status))
   if (normalized.side) conditions.push(eq(orderSideExpr(), normalized.side))
   if (normalized.orderType) conditions.push(eq(orderTypeExpr(), normalized.orderType))
-  if (normalized.timeInForce)
-    conditions.push(timeInForceFilterCondition(normalized.timeInForce))
+  if (normalized.timeInForce) conditions.push(timeInForceFilterCondition(normalized.timeInForce))
 
   if (normalized.orderSearch) {
     const search = `%${normalized.orderSearch}%`
@@ -638,7 +637,7 @@ export function buildOrderWhereCondition(
 }
 
 const sortExpression = (sortBy: OrdersFilterState['orderSortBy']): SQL => {
-  if (sortBy === 'submittedAt') return submittedAtExpr()
+  if (sortBy === 'updatedAt') return updatedAtExpr()
   if (sortBy === 'listing') return listingExpr()
   if (sortBy === 'provider') return sql`${orderHistoryTable.provider}`
   if (sortBy === 'environment') return sql`${orderHistoryTable.environment}`

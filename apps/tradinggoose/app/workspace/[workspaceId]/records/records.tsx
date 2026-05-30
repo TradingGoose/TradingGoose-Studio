@@ -274,7 +274,9 @@ export default function Records() {
 
   const orderDetailQuery = useOrderDetail(workspaceId, selectedOrder?.id)
   const orderLogDetailQuery = useLogDetail(
-    selectedOrder?.logId && isOrderDetailOpen ? selectedOrder.logId : undefined
+    selectedOrder?.logId && isOrderDetailOpen && orderDetailMode === 'log'
+      ? selectedOrder.logId
+      : undefined
   )
 
   useEffect(() => {
@@ -492,7 +494,7 @@ export default function Records() {
   }, [activeTab, logs, orders, selectedLog, selectedLogIndex, selectedOrder, selectedOrderIndex])
 
   const selectOrder = useCallback(
-    (order: RecordsOrder, mode: RecordsOrderDetailMode = order.logId ? 'log' : 'order') => {
+    (order: RecordsOrder, mode: RecordsOrderDetailMode = 'order') => {
       setSelectedOrder(order)
       setSelectedOrderIndex(orders.findIndex((entry) => entry.id === order.id))
       setOrderDetailMode(mode)
@@ -767,7 +769,6 @@ export default function Records() {
   const orderContent = (
     <OrdersTable
       orders={orders}
-      total={ordersTotal}
       selectedOrderId={selectedOrder?.id ?? null}
       loading={ordersLoading}
       error={ordersError}
@@ -777,9 +778,6 @@ export default function Records() {
       sortOrder={normalizedOrdersState.orderSortOrder}
       onSortChange={handleOrderSortChange}
       onOrderClick={selectOrder}
-      onOpenOrder={(order) => selectOrder(order, 'order')}
-      onOpenLog={(order) => selectOrder(order, 'log')}
-      onOpenProvider={(order) => selectOrder(order, 'provider')}
       loaderRef={ordersLoaderRef}
       scrollContainerRef={ordersScrollContainerRef}
       selectedRowRef={selectedOrderRowRef}

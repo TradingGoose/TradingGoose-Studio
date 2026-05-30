@@ -3,6 +3,7 @@ import { isPendingWorkflowExecutionCancellationRequested } from '@/lib/execution
 import { createWorkflowExecutionEventWriter } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
+import { getMonitorProviderForTriggerId, isMonitorTriggerId } from '@/lib/monitors/sources'
 import { createWorkflowExecutionTerminalEventInput } from '@/lib/workflows/execution-events'
 import {
   runWorkflowExecution,
@@ -10,6 +11,7 @@ import {
   type WorkflowStart,
 } from '@/lib/workflows/execution-runner'
 import type { TriggerType } from '@/services/queue'
+import { disableMonitor } from './monitor-disable'
 
 const logger = createLogger('TriggerWorkflowExecution')
 
@@ -66,16 +68,15 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
   const isLiveExecution = executionTarget === 'live'
   const isChildExecution = payload.metadata?.source === 'workflow_block'
   const triggerType = payload.triggerType ?? 'manual'
-  const start: WorkflowStart =
-    isLiveExecution && payload.startBlockId
-      ? {
-          kind: 'block',
-          blockId: payload.startBlockId,
-        }
-      : {
-          kind: 'trigger',
-          triggerType: resolveWorkflowStartTriggerType(triggerType),
-        }
+  const start: WorkflowStart = payload.startBlockId
+    ? {
+        kind: 'block',
+        blockId: payload.startBlockId,
+      }
+    : {
+        kind: 'trigger',
+        triggerType: resolveWorkflowStartTriggerType(triggerType),
+      }
 
   logger.info(`[${requestId}] Starting workflow execution: ${workflowId}`, {
     userId: payload.userId,
@@ -95,7 +96,7 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
       payload.metadata === undefined
         ? payload.triggerData
         : { ...(payload.triggerData ?? {}), queuedExecution: payload.metadata }
-    const { result } = await runWorkflowExecution({
+    const { result, dispatchFailureReason } = await runWorkflowExecution({
       workflowId,
       actorUserId: payload.userId,
       requestId,
@@ -128,6 +129,18 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
           : {}),
       },
     })
+    if (dispatchFailureReason && isMonitorTriggerId(triggerData?.source)) {
+      const monitorId = (triggerData.monitor as { id?: unknown } | null | undefined)?.id
+      if (typeof monitorId === 'string') {
+        await disableMonitor({
+          monitorId,
+          provider: getMonitorProviderForTriggerId(triggerData.source),
+          logger,
+          reason: dispatchFailureReason,
+          workflowId,
+        })
+      }
+    }
 
     const { traceSpans } = buildTraceSpans(result)
     const queuedResult = {

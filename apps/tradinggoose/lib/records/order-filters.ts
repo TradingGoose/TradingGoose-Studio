@@ -2,7 +2,7 @@ import { getTradingOrderTypeFilterValues } from '@/providers/trading/order-types
 
 export const ORDER_SORT_BY_VALUES = [
   'recordedAt',
-  'submittedAt',
+  'updatedAt',
   'listing',
   'provider',
   'environment',

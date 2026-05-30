@@ -7,9 +7,9 @@ import { saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
 import { validateWorkflowPermissions } from '@/lib/workflows/utils'
 import { tryApplyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import { notifyMonitorsReconcile } from '@/app/api/monitors/reconcile'
+import { pauseMonitorsMissingDeployedTrigger } from '@/app/api/monitors/shared'
 import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
-import { notifyIndicatorMonitorsReconcile } from '@/app/api/indicator-monitors/reconcile'
-import { pauseMonitorsMissingDeployedIndicatorTrigger } from '@/app/api/indicator-monitors/shared'
 
 const logger = createLogger('RevertToDeploymentVersionAPI')
 
@@ -118,8 +118,8 @@ export async function POST(
     // Publish the reverted state to Yjs only after the durable writes succeed.
     await tryApplyWorkflowState(id, revertSnapshot, revertVariables)
 
-    await pauseMonitorsMissingDeployedIndicatorTrigger(id)
-    await notifyIndicatorMonitorsReconcile({ requestId, logger })
+    await pauseMonitorsMissingDeployedTrigger(id)
+    await notifyMonitorsReconcile({ requestId, logger })
 
     return createSuccessResponse({
       message: 'Reverted to deployment version',

@@ -58,12 +58,14 @@ export type WorkflowExecutionBlueprint = {
 }
 
 export type WorkflowRunnerExecutionResult = ExecutionResult
+export type WorkflowDispatchFailureReason = 'usage_limit_exceeded' | 'missing_start_block'
 
 export type WorkflowRunnerResult = {
   executionId: string
   result: WorkflowRunnerExecutionResult
   workflowData: WorkflowExecutionBlueprint['workflowData']
   workspaceId: string
+  dispatchFailureReason?: WorkflowDispatchFailureReason
 }
 
 export class WorkflowUsageLimitError extends Error {
@@ -75,6 +77,8 @@ export class WorkflowUsageLimitError extends Error {
     this.statusCode = statusCode
   }
 }
+
+class WorkflowStartBlockError extends Error {}
 
 async function resolveRequiredWorkflowExecutionContext(
   workflowId: string,
@@ -209,7 +213,7 @@ function resolveStartBlockId(params: {
             : params.start.triggerType === 'chat'
               ? 'Chat'
               : 'Manual'
-      throw new Error(
+      throw new WorkflowStartBlockError(
         `No ${triggerName} trigger block found. Add a ${triggerName} Trigger block to this workflow.`
       )
     }
@@ -219,7 +223,9 @@ function resolveStartBlockId(params: {
     )
 
     if (outgoingConnections.length === 0) {
-      throw new Error('Trigger block must be connected to other blocks to execute')
+      throw new WorkflowStartBlockError(
+        'Trigger block must be connected to other blocks to execute'
+      )
     }
 
     return startBlock.blockId
@@ -230,7 +236,9 @@ function resolveStartBlockId(params: {
     params.start.blockId &&
     !params.mergedStates[params.start.blockId]
   ) {
-    throw new Error(`Workflow does not contain trigger block ${params.start.blockId}`)
+    throw new WorkflowStartBlockError(
+      `Workflow does not contain trigger block ${params.start.blockId}`
+    )
   }
 
   if (params.start.kind === 'block' && params.start.blockId) {
@@ -240,7 +248,9 @@ function resolveStartBlockId(params: {
     )
 
     if (outgoingConnections.length === 0) {
-      throw new Error(`Trigger block ${blockId} must be connected to other blocks to execute`)
+      throw new WorkflowStartBlockError(
+        `Trigger block ${blockId} must be connected to other blocks to execute`
+      )
     }
   }
 
@@ -394,6 +404,12 @@ export async function runPreparedWorkflowExecution(params: {
     }
   } catch (error: any) {
     const message = error.message || 'Workflow execution failed'
+    const dispatchFailureReason =
+      error instanceof WorkflowUsageLimitError
+        ? 'usage_limit_exceeded'
+        : error instanceof WorkflowStartBlockError
+          ? 'missing_start_block'
+          : undefined
     result = (error?.executionResult as ExecutionResult | undefined) || {
       success: false,
       output: {},
@@ -419,6 +435,7 @@ export async function runPreparedWorkflowExecution(params: {
       result,
       workflowData: params.blueprint.workflowData,
       workspaceId,
+      dispatchFailureReason,
     }
   }
 

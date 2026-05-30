@@ -2,15 +2,13 @@ import { z } from 'zod'
 import type { InputMeta, InputMetaMap } from '@/lib/indicators/types'
 import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
 import { toListingValueObject } from '@/lib/listing/identity'
+import { INDICATOR_MONITOR_PROVIDER, INDICATOR_MONITOR_TRIGGER_ID } from '@/lib/monitors/sources'
 import { encryptSecret } from '@/lib/utils-server'
 import {
   coerceMarketProviderParamValue,
-  getMarketLiveCapabilities,
-  getMarketProviderParamDefinitions,
-  getMarketSeriesCapabilities,
+  getMarketMonitorProviderParamDefinitions,
+  getMarketProviderIntervals,
 } from '@/providers/market/providers'
-
-export const INDICATOR_MONITOR_TRIGGER_ID = 'indicator_trigger' as const
 
 const MonitorAuthCreateInputSchema = z.object({
   secrets: z.record(z.string()),
@@ -26,6 +24,7 @@ const ProviderParamsInputSchema = z.record(z.unknown()).optional()
 const IndicatorInputsInputSchema = z.record(z.unknown()).optional()
 
 export const IndicatorMonitorCreateSchema = z.object({
+  source: z.literal(INDICATOR_MONITOR_PROVIDER),
   workspaceId: z.string().min(1),
   workflowId: z.string().min(1),
   blockId: z.string().min(1),
@@ -40,6 +39,7 @@ export const IndicatorMonitorCreateSchema = z.object({
 })
 
 export const IndicatorMonitorUpdateSchema = z.object({
+  source: z.literal(INDICATOR_MONITOR_PROVIDER).optional(),
   workspaceId: z.string().min(1),
   workflowId: z.string().min(1).optional(),
   blockId: z.string().min(1).optional(),
@@ -78,8 +78,8 @@ export type IndicatorMonitorProviderConfig = {
   }
 }
 
-const getRequiredLiveSecretParamIds = (providerId: string): string[] =>
-  getMarketProviderParamDefinitions(providerId, 'live')
+const getRequiredMonitorSecretParamIds = (providerId: string): string[] =>
+  getMarketMonitorProviderParamDefinitions(providerId)
     .filter((definition) => definition.password && definition.required)
     .map((definition) => definition.id)
 
@@ -87,7 +87,7 @@ const normalizeProviderParams = (
   providerId: string,
   raw: Record<string, unknown> | undefined
 ): Record<string, unknown> | undefined => {
-  const definitions = getMarketProviderParamDefinitions(providerId, 'live')
+  const definitions = getMarketMonitorProviderParamDefinitions(providerId)
   const nonSecretDefinitions = definitions.filter((definition) => !definition.password)
   const definitionMap = new Map(
     nonSecretDefinitions.map((definition) => [definition.id, definition])
@@ -222,12 +222,7 @@ type NormalizeMonitorConfigInput = {
 export const normalizeIndicatorMonitorConfig = async (
   input: NormalizeMonitorConfigInput
 ): Promise<IndicatorMonitorProviderConfig> => {
-  const liveCapabilities = getMarketLiveCapabilities(input.providerId)
-  if (!liveCapabilities?.supportsStreaming) {
-    throw new Error(`Provider ${input.providerId} does not support live streaming.`)
-  }
-
-  const intervalOptions = getMarketSeriesCapabilities(input.providerId)?.intervals ?? []
+  const intervalOptions = getMarketProviderIntervals(input.providerId)
   if (!intervalOptions.includes(input.interval as any)) {
     throw new Error(`Interval ${input.interval} is not supported for provider ${input.providerId}.`)
   }
@@ -237,7 +232,7 @@ export const normalizeIndicatorMonitorConfig = async (
     throw new Error('Invalid listing value.')
   }
 
-  const requiredSecretParamIds = getRequiredLiveSecretParamIds(input.providerId)
+  const requiredSecretParamIds = getRequiredMonitorSecretParamIds(input.providerId)
   const replacingAuth = input.authInput !== undefined
   const incomingSecretValues = input.authInput?.secrets ?? {}
   const encryptedSecrets: Record<string, string> = replacingAuth
@@ -254,9 +249,7 @@ export const normalizeIndicatorMonitorConfig = async (
   const missingRequiredSecrets = requiredSecretParamIds.filter(
     (fieldId) => !encryptedSecrets[fieldId]
   )
-  const preservesPreviousAuth = !replacingAuth && Boolean(input.previousAuth)
-  const shouldRequireCompleteAuth = !preservesPreviousAuth && (input.requireCompleteAuth ?? true)
-  if (shouldRequireCompleteAuth && missingRequiredSecrets.length > 0) {
+  if ((input.requireCompleteAuth ?? true) && missingRequiredSecrets.length > 0) {
     throw new Error(
       `Missing required auth secret values for provider fields: ${missingRequiredSecrets.join(', ')}`
     )

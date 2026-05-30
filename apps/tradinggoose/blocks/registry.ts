@@ -80,6 +80,7 @@ import { PerplexityBlock } from '@/blocks/blocks/perplexity'
 import { PineconeBlock } from '@/blocks/blocks/pinecone'
 import { PipedriveBlock } from '@/blocks/blocks/pipedrive'
 import { PolymarketBlock } from '@/blocks/blocks/polymarket'
+import { TradingPortfolioDetailBlock } from '@/blocks/blocks/portfolio_detail'
 import { PostgreSQLBlock } from '@/blocks/blocks/postgresql'
 import { PostHogBlock } from '@/blocks/blocks/posthog'
 import { QdrantBlock } from '@/blocks/blocks/qdrant'
@@ -112,7 +113,6 @@ import { TavilyBlock } from '@/blocks/blocks/tavily'
 import { TelegramBlock } from '@/blocks/blocks/telegram'
 import { ThinkingBlock } from '@/blocks/blocks/thinking'
 import { TradingActionBlock } from '@/blocks/blocks/trading_action'
-import { TradingHoldingsBlock } from '@/blocks/blocks/trading_holdings'
 import { TradingOrderDetailBlock } from '@/blocks/blocks/trading_order_detail'
 import { TradingOrderHistoryBlock } from '@/blocks/blocks/trading_order_history'
 import { TranslateBlock } from '@/blocks/blocks/translate'
@@ -125,6 +125,7 @@ import { VariablesBlock } from '@/blocks/blocks/variables'
 import { VideoGeneratorBlock } from '@/blocks/blocks/video_generator'
 import { VisionBlock } from '@/blocks/blocks/vision'
 import { WaitBlock } from '@/blocks/blocks/wait'
+import { WatchlistBlock } from '@/blocks/blocks/watchlist'
 import { WealthboxBlock } from '@/blocks/blocks/wealthbox'
 import { WebflowBlock } from '@/blocks/blocks/webflow'
 import { WebhookRequestBlock } from '@/blocks/blocks/webhook_request'
@@ -146,6 +147,7 @@ import { ImapBlock } from '@/triggers/blocks/imap'
 import { IndicatorTriggerBlock } from '@/triggers/blocks/indicator_trigger'
 import { InputTriggerBlock } from '@/triggers/blocks/input_trigger'
 import { ManualTriggerBlock } from '@/triggers/blocks/manual_trigger'
+import { PortfolioStateTriggerBlock } from '@/triggers/blocks/portfolio_state_trigger'
 import { RssBlock } from '@/triggers/blocks/rss'
 import { ScheduleBlock } from '@/triggers/blocks/schedule'
 
@@ -200,6 +202,7 @@ export const registry: Record<string, BlockConfig> = {
   outlook: OutlookBlock,
   onedrive: OneDriveBlock,
   parallel_ai: ParallelBlock,
+  portfolio_state_trigger: PortfolioStateTriggerBlock,
   perplexity: PerplexityBlock,
   pinecone: PineconeBlock,
   postgresql: PostgreSQLBlock,
@@ -227,7 +230,7 @@ export const registry: Record<string, BlockConfig> = {
   telegram: TelegramBlock,
   thinking: ThinkingBlock,
   trading_action: TradingActionBlock,
-  trading_holdings: TradingHoldingsBlock,
+  portfolio_detail: TradingPortfolioDetailBlock,
   trading_order_detail: TradingOrderDetailBlock,
   trading_order_history: TradingOrderHistoryBlock,
   translate: TranslateBlock,
@@ -236,6 +239,7 @@ export const registry: Record<string, BlockConfig> = {
   variables: VariablesBlock,
   vision: VisionBlock,
   wait: WaitBlock,
+  watchlist: WatchlistBlock,
   wealthbox: WealthboxBlock,
   webflow: WebflowBlock,
   whatsapp: WhatsAppBlock,

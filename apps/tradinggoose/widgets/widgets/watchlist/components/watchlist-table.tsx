@@ -26,6 +26,7 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { ChevronRight, Pencil, Trash2, X } from 'lucide-react'
 import { getListingPrimary, MarketListingRow } from '@/components/listing-selector/listing/row'
+import { ListingSearchInput } from '@/components/listing-selector/selector/input'
 import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
 import {
   AlertDialog,
@@ -41,6 +42,7 @@ import { Button } from '@/components/ui/button'
 import { Sortable, SortableContent, SortableItem } from '@/components/ui/sortable'
 import {
   areListingIdentitiesEqual,
+  buildListingDisplayOption,
   type ListingIdentity,
   type ListingOption,
   toListingValue,
@@ -53,7 +55,6 @@ import type {
   WatchlistSectionItem,
 } from '@/lib/watchlists/types'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
-import { WatchlistListingSelector } from '@/widgets/widgets/watchlist/components/watchlist-listing-selector'
 import {
   createWatchlistListingSortableId,
   createWatchlistSectionSortableId,
@@ -118,23 +119,6 @@ const COLUMN_COUNT = 6
 const formatPrice = (value: number | null) => (value == null ? '-' : priceFormatter.format(value))
 const formatPercent = (value: number | null) =>
   value == null ? '-' : `${percentFormatter.format(value)}%`
-
-const buildListingOption = (
-  listing: ListingIdentity,
-  resolved?: ListingOption | null
-): ListingOption => ({
-  ...listing,
-  ...resolved,
-  base:
-    resolved?.base?.trim() ||
-    (listing.listing_type === 'default' ? listing.listing_id : listing.base_id),
-  quote: resolved?.quote?.trim() || (listing.listing_type === 'default' ? null : listing.quote_id),
-  name:
-    resolved?.name?.trim() ||
-    (listing.listing_type === 'default'
-      ? listing.listing_id
-      : `${listing.base_id}/${listing.quote_id}`),
-})
 
 const stopSortableActivation = (
   event:
@@ -302,7 +286,7 @@ export const WatchlistTable = ({
       isLoading: false,
       error: undefined,
       selectedListingValue: row.item.listing,
-      selectedListing: buildListingOption(
+      selectedListing: buildListingDisplayOption(
         row.listing,
         areListingIdentitiesEqual(resolvedByItemId[row.itemId]?.identity, row.listing)
           ? resolvedByItemId[row.itemId]?.resolved
@@ -539,8 +523,9 @@ export const WatchlistTable = ({
 
     return (
       <div className='relative z-20 flex items-center bg-background'>
-        <WatchlistListingSelector
+        <ListingSearchInput
           instanceId={instanceId}
+          variant='header'
           providerType='market'
           disabled={isMutating}
           activateOnMount
@@ -560,7 +545,7 @@ export const WatchlistTable = ({
       areListingIdentitiesEqual(resolvedByItemId[row.itemId]?.identity, row.listing)
         ? resolvedByItemId[row.itemId]?.resolved
         : null
-    const listing = buildListingOption(row.listing, resolved)
+    const listing = buildListingDisplayOption(row.listing, resolved)
     const listingLabel = listing.quote?.trim()
       ? `${getListingPrimary(listing)}/${listing.quote.trim()}`
       : getListingPrimary(listing)

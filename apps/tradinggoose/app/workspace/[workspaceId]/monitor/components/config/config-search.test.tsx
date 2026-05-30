@@ -20,21 +20,26 @@ const referenceData: MonitorReferenceData = {
   workflowTargets: [],
   workflowTargetByKey: {},
   workflowOptions: [],
+  indicatorWorkflowTargets: [],
+  portfolioWorkflowTargets: [],
   indicatorOptions: [{ id: 'rsi', name: 'RSI', source: 'default', color: '#3972F6' }],
   indicatorById: {
     rsi: { id: 'rsi', name: 'RSI', source: 'default', color: '#3972F6' },
   },
-  streamingProviders: [
+  marketProviders: [
     { id: 'alpaca', name: 'Alpaca' },
     { id: 'finnhub', name: 'Finnhub' },
   ],
-  providerById: {
+  marketProviderById: {
     alpaca: { id: 'alpaca', name: 'Alpaca' },
     finnhub: { id: 'finnhub', name: 'Finnhub' },
   },
   providerIntervalsByProviderId: { alpaca: ['1m', '5m'], finnhub: ['1d'] },
   providerParamDefinitionsByProviderId: {},
-  defaultDraftProviderId: 'alpaca',
+  tradingProviders: [{ id: 'alpaca', name: 'Alpaca' }],
+  tradingProviderById: { alpaca: { id: 'alpaca', name: 'Alpaca' } },
+  defaultMarketProviderId: '',
+  defaultPortfolioProviderId: '',
   defaultDraftInterval: '1m',
   createDisabledReason: null,
   isLoading: false,

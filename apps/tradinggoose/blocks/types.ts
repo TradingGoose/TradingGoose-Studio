@@ -63,6 +63,9 @@ export type SubBlockType =
   | 'document-selector' // Document selector for knowledge bases
   | 'document-tag-entry' // Document tag entry for creating documents
   | 'market-selector' // Market listing selector (provider/currency/listing)
+  | 'market-provider-selector' // Market data provider selector
+  | 'trading-provider-selector' // Trading broker/provider selector
+  | 'trading-account-selector' // Trading broker account selector
   | 'order-id-selector' // Trading order selector backed by order history
   | 'mcp-server-selector' // MCP server selector
   | 'mcp-tool-selector' // MCP tool selector
@@ -129,6 +132,7 @@ export interface ParamConfig {
 export interface BlockOptionLoaderContext {
   channelId: string
   workflowId: string | null
+  workspaceId?: string
   contextValues?: Record<string, unknown>
 }
 
@@ -153,7 +157,9 @@ export interface SubBlockConfig {
   mode?: 'basic' | 'advanced' | 'both' | 'trigger' // Default is 'both' if not specified
   canonicalParamId?: string
   providerType?: 'market' | 'trading'
-  providerFieldId?: string
+  marketProviderKind?: 'series' | 'live'
+  tradingProviderKind?: 'order' | 'portfolioDetail'
+  tradingProviderFieldId?: string
   required?: boolean | SubBlockCondition | (() => SubBlockCondition)
   defaultValue?: string | number | boolean | Record<string, unknown> | Array<unknown>
   options?: SubBlockOption[] | (() => SubBlockOption[])
@@ -163,7 +169,7 @@ export interface SubBlockConfig {
     subBlockId: string,
     context: BlockOptionLoaderContext
   ) => Promise<SubBlockOption[]>
-  optionsStore?: 'marketProviders'
+  fetchOptionsCondition?: SubBlockCondition
   min?: number
   max?: number
   columns?: string[]

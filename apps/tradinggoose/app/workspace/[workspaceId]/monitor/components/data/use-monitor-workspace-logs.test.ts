@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { parseQuery, queryToApiParams } from '@/lib/logs/query-parser'
 import { MONITOR_QUERY_POLICY } from '@/lib/logs/query-policy'
 import { useLogsList } from '@/hooks/queries/logs'
-import type { IndicatorMonitorRecord } from '../shared/types'
+import type { MonitorRecord } from '../shared/types'
 import { DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG } from '../view/view-config'
 import {
   buildMonitorExecutionLogFilters,
@@ -80,7 +80,7 @@ function HookHarness({
   },
 }: {
   onRender: (value: ReturnType<typeof useMonitorWorkspaceLogs>) => void
-  monitors?: IndicatorMonitorRecord[]
+  monitors?: MonitorRecord[]
   viewConfig?: typeof DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG
 }) {
   const value = useMonitorWorkspaceLogs({
@@ -146,7 +146,7 @@ describe('useMonitorWorkspaceLogs', () => {
         searchQuery: 'provider:#alpaca workflow:#wf-1',
         queryPolicy: expect.objectContaining({ key: 'monitor' }),
         queryPolicyKey: 'monitor',
-        triggerSource: 'indicator_trigger',
+        triggerSource: 'indicator_trigger,portfolio_state_trigger',
       })
     )
     expect(snapshots.at(-1)?.executionItems[0]?.monitorId).toBe('monitor-1')
@@ -285,7 +285,7 @@ describe('useMonitorWorkspaceLogs', () => {
             ...DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG,
             quickFilters: [{ field: 'assetType', operator: 'include', values: ['stock'] }],
           },
-          monitors: [{ monitorId: 'monitor-1' } as IndicatorMonitorRecord],
+          monitors: [{ monitorId: 'monitor-1' } as MonitorRecord],
           onRender: (value) => {
             snapshots.push(value)
           },

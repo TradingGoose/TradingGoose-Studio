@@ -1,12 +1,5 @@
 import { isWorkflowParamType } from '@/lib/workflows/value-types'
-import type {
-  BlockOptionLoaderContext,
-  BlockOutput,
-  OutputFieldDefinition,
-  ParamConfig,
-  ParamType,
-  SubBlockOption,
-} from '@/blocks/types'
+import type { BlockOutput, OutputFieldDefinition, ParamConfig, ParamType } from '@/blocks/types'
 import type { ToolConfig } from '@/tools/types'
 
 export function resolveOutputType(
@@ -68,34 +61,4 @@ export const buildInputsFromToolParams = (
         } satisfies ParamConfig,
       ])
   )
-}
-
-const readContextString = (contextValues: Record<string, unknown> | undefined, key: string) => {
-  const value = contextValues?.[key]
-  if (typeof value === 'string') return value
-  if (value && typeof value === 'object' && 'value' in value) {
-    return String((value as { value?: unknown }).value ?? '')
-  }
-  return ''
-}
-
-export const fetchTradingPortfolioIdentityOptions = async (
-  _blockId: string,
-  _subBlockId: string,
-  context: BlockOptionLoaderContext
-): Promise<SubBlockOption[]> => {
-  const provider = readContextString(context.contextValues, 'provider')
-  if (!provider) return []
-
-  const params = new URLSearchParams({ provider })
-
-  const response = await fetch(`/api/providers/trading/portfolio-identities?${params}`, {
-    cache: 'no-store',
-  })
-  if (!response.ok) {
-    throw new Error('Failed to load trading accounts')
-  }
-
-  const data = (await response.json()) as { options?: SubBlockOption[] }
-  return data.options ?? []
 }

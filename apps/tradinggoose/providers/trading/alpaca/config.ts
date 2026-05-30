@@ -8,6 +8,11 @@ export const ALPACA_PAPER_TRADING_BASE_URL = 'https://paper-api.alpaca.markets'
 export const resolveAlpacaTradingBaseUrl = (environment?: string | null) =>
   environment === 'paper' ? ALPACA_PAPER_TRADING_BASE_URL : ALPACA_LIVE_TRADING_BASE_URL
 
+export const buildAlpacaOrderDetailSiteUrl = (providerOrderId?: string | null) =>
+  providerOrderId?.trim()
+    ? `https://app.alpaca.markets/dashboard/order/${encodeURIComponent(providerOrderId.trim())}`
+    : null
+
 const availableAssetClasses: AssetClass[] = ['stock', 'crypto']
 const availableCryptoQuoteCodes = ['USD', 'USDC', 'USDT', 'BTC']
 const availableCryptoBaseCodes = [
@@ -82,7 +87,7 @@ const marketToExchangeCodeMap: TradingProviderConfig['marketToExchangeCode'] = {
 const availability: TradingProviderConfig['availability'] = {
   assetClass: availableAssetClasses,
   order: true,
-  holdings: true,
+  portfolioDetail: true,
   availableCurrencyBase: [],
   availableCurrencyQuote: [],
   availableCryptoBase: availableCryptoBaseCodes,
@@ -138,7 +143,7 @@ export const alpacaTradingProviderConfig: TradingProviderConfig = {
       ],
       timeInForce: ['day', 'gtc', 'ioc', 'fok'],
     },
-    holdings: {
+    portfolioDetail: {
       performanceWindows: ['1D', '1W', '1M', '3M', 'YTD', '1Y'],
     },
   },

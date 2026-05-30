@@ -78,7 +78,7 @@ describe('normalizeIndicatorMonitorConfig', () => {
     providerParams: { feed: 'iex' },
   }
 
-  it('preserves existing partial auth without rechecking newly required secrets', async () => {
+  it('requires complete auth even when preserving existing secrets', async () => {
     await expect(
       normalizeIndicatorMonitorConfig({
         ...baseInput,
@@ -87,16 +87,7 @@ describe('normalizeIndicatorMonitorConfig', () => {
           secretVersion: 1,
         },
       })
-    ).resolves.toEqual(
-      expect.objectContaining({
-        monitor: expect.objectContaining({
-          auth: {
-            encryptedSecrets: { apiKey: 'encrypted-api-key' },
-            secretVersion: 1,
-          },
-        }),
-      })
-    )
+    ).rejects.toThrow('Missing required auth secret values for provider fields: apiSecret')
   })
 
   it('replaces stored auth when explicit auth is provided', async () => {
@@ -160,5 +151,17 @@ describe('normalizeIndicatorMonitorConfig', () => {
     await expect(normalizeIndicatorMonitorConfig(baseInput)).rejects.toThrow(
       'Missing required auth secret values for provider fields: apiKey, apiSecret'
     )
+  })
+
+  it('allows polling-backed market providers through the same monitor config path', async () => {
+    const result = await normalizeIndicatorMonitorConfig({
+      ...baseInput,
+      providerId: 'yahoo-finance',
+      interval: '1m',
+      providerParams: {},
+    })
+
+    expect(result.monitor.providerId).toBe('yahoo-finance')
+    expect(result.monitor.interval).toBe('1m')
   })
 })

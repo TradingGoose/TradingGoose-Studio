@@ -1,96 +1,120 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { ChangeEvent, FocusEvent, KeyboardEvent } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { formatDisplayText } from '@/components/ui/formatted-text'
-import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
-import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
-import { cn } from '@/lib/utils'
-import { MarketListingRow, getListingPrimary } from '@/components/listing-selector/listing/row'
-import { ListingSelectorDropdown } from '@/components/listing-selector/selector/dropdown'
+import { createPortal } from 'react-dom'
 import {
   triggerCryptoRankUpdate,
   triggerCurrencyRankUpdate,
   triggerListingRankUpdate,
 } from '@/components/listing-selector/listing/rank-updates'
 import {
+  getListingDisplaySymbol,
+  hasListingDisplayDetails,
+  ListingDisplayRow,
+  MarketListingRow,
+} from '@/components/listing-selector/listing/row'
+import { ListingSelectorDropdownContent } from '@/components/listing-selector/selector/dropdown'
+import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
+import { useMarketListingSearch } from '@/components/listing-selector/selector/use-listing-search'
+import { Button } from '@/components/ui/button'
+import { formatDisplayText } from '@/components/ui/formatted-text'
+import { Input } from '@/components/ui/input'
+import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
+import { widgetHeaderControlClassName } from '@/components/widget-header-control'
+import {
   areListingIdentitiesEqual,
   LISTING_IDENTITY_VALUE_TYPE,
+  type ListingOption,
   toListingValue,
   toListingValueObject,
-  type ListingIdentity,
-  type ListingOption,
 } from '@/lib/listing/identity'
-import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
+import { cn } from '@/lib/utils'
+import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import {
   createEmptyListingSelectorInstance,
   useListingSelectorStore,
 } from '@/stores/market/selector/store'
-import { useMarketListingSearch } from '@/components/listing-selector/selector/use-listing-search'
 
-export interface StockSelectorProps {
+export interface ListingSearchInputProps {
   instanceId: string
   blockId?: string
   disabled?: boolean
   compact?: boolean
   className?: string
+  variant?: 'field' | 'header'
   providerType?: 'market' | 'trading'
+  marketProviderId?: string
+  tradingProviderId?: string
+  activateOnMount?: boolean
+  candidateListings?: ListingOption[]
+  candidateListingsLoading?: boolean
+  candidateListingsError?: string
   onListingChange?: (listing: ListingOption | null) => void
   onListingValueChange?: (value: string | null) => void
   onListingTagSelect?: (value: string) => void
 }
 
-const hasResolvedListingMetadata = (listing?: ListingOption | null): boolean => {
-  if (!listing) return false
-  return Boolean(listing.name?.trim() || listing.iconUrl?.trim())
-}
-
-export function StockSelector({
+export function ListingSearchInput({
   instanceId,
   blockId,
   disabled,
   compact = false,
   className,
+  variant = 'field',
   providerType = 'market',
+  marketProviderId,
+  tradingProviderId,
+  activateOnMount = false,
+  candidateListings,
+  candidateListingsLoading,
+  candidateListingsError,
   onListingChange,
   onListingValueChange,
   onListingTagSelect,
-}: StockSelectorProps) {
+}: ListingSearchInputProps) {
+  const isHeader = variant === 'header'
   const ensureInstance = useListingSelectorStore((state) => state.ensureInstance)
   const updateInstance = useListingSelectorStore((state) => state.updateInstance)
   const instance = useListingSelectorStore((state) => state.instances[instanceId])
+  const containerRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const hydrateRequestRef = useRef(0)
+  const hasActivatedOnMountRef = useRef(false)
+  const [open, setOpen] = useState(false)
+  const [highlightedIndex, setHighlightedIndex] = useState(-1)
+  const [showTags, setShowTags] = useState(false)
+  const [cursorPosition, setCursorPosition] = useState(0)
+  const [variableCommitted, setVariableCommitted] = useState(false)
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
+  const [dropdownPosition, setDropdownPosition] = useState<{
+    top: number
+    left: number
+    width: number
+  } | null>(null)
+  const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 
   useEffect(() => {
     ensureInstance(instanceId)
   }, [ensureInstance, instanceId])
 
   const safeInstance = instance ?? createEmptyListingSelectorInstance()
-  const {
-    query,
-    results,
-    isLoading,
-    error,
-    selectedListing,
-    providerId,
-  } = safeInstance
+  const { query, results, isLoading, error, selectedListing, providerId } = safeInstance
+  const selectedLabel = selectedListing ? getListingDisplaySymbol(selectedListing) : ''
+  const selectedListingIdentity = toListingValueObject(
+    safeInstance.selectedListingValue ?? selectedListing ?? null
+  )
+  const hasUnresolvedSelection = Boolean(selectedListingIdentity) && !selectedListing
+  const displayValue = open ? query : selectedLabel || query
+  const showTagOverlay = !open && !selectedListing && Boolean(query?.trim().includes('<'))
+  const showListingDropdown = open && !showTags
+  const showRichOverlay = !open && !!selectedListing
+  const showPlaceholderOverlay =
+    isHeader && !open && !selectedListing && !query?.trim() && !hasUnresolvedSelection
+  const hideInputText = showRichOverlay || showTagOverlay || showPlaceholderOverlay
 
-  const [open, setOpen] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const [highlightedIndex, setHighlightedIndex] = useState(-1)
-  const [showTags, setShowTags] = useState(false)
-  const [cursorPosition, setCursorPosition] = useState(0)
-  const [variableCommitted, setVariableCommitted] = useState(false)
-  const hydratedListingRef = useRef<ListingIdentity | null>(null)
-  const hydrateRequestRef = useRef(0)
-  const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
-
-  const isVariableListingInput = useCallback((value: string) => {
-    const trimmed = value.trim()
-    if (!trimmed) return false
-    return trimmed.startsWith('<')
-  }, [])
+  const isVariableListingInput = (value: string) => value.trim().startsWith('<')
 
   const commitVariableValue = (value: string, source: 'input' | 'tag' = 'input') => {
     updateInstance(instanceId, {
@@ -110,7 +134,7 @@ export function StockSelector({
     onListingValueChange?.(value)
   }
 
-  const clearVariableValue = () => {
+  const clearValue = () => {
     updateInstance(instanceId, {
       query: '',
       results: [],
@@ -123,33 +147,8 @@ export function StockSelector({
     onListingValueChange?.(null)
   }
 
-  useMarketListingSearch({
-    open,
-    query,
-    providerId,
-    providerType,
-    instanceId,
-    updateInstance,
-    isVariableInput: isVariableListingInput,
-  })
-
-  const selectedLabel = useMemo(() => {
-    if (!selectedListing) return ''
-    const primary = getListingPrimary(selectedListing)
-    const quote = selectedListing.quote?.trim()
-    return quote ? `${primary}/${quote}` : primary
-  }, [selectedListing])
-
-  const displayValue = open ? query : selectedLabel || query
-  const showRichOverlay = !open && !!selectedListing
-  const showTagOverlay = !open && !selectedListing && Boolean(query?.trim().includes('<'))
-  const showListingDropdown = open && !showTags
-  const hideInputText = showRichOverlay || showTagOverlay
-
   const handleSelect = (listing: ListingOption) => {
-    const primary = getListingPrimary(listing)
-    const quote = listing.quote?.trim()
-    const nextLabel = quote ? `${primary}/${quote}` : primary
+    const nextLabel = getListingDisplaySymbol(listing)
     updateInstance(instanceId, {
       selectedListingValue: toListingValue(listing),
       selectedListing: listing,
@@ -161,16 +160,17 @@ export function StockSelector({
     setHighlightedIndex(-1)
     setShowTags(false)
     setVariableCommitted(false)
-    const listingType = listing.listing_type
-    if (listingType === 'default') {
+
+    if (listing.listing_type === 'default') {
       triggerListingRankUpdate(listing)
     }
-    if (listingType === 'crypto' && listing.base_id) {
+    if (listing.listing_type === 'crypto' && listing.base_id) {
       triggerCryptoRankUpdate(listing.base_id)
     }
-    if (listingType === 'currency' && listing.base_id) {
+    if (listing.listing_type === 'currency' && listing.base_id) {
       triggerCurrencyRankUpdate(listing.base_id)
     }
+
     onListingChange?.(listing)
   }
 
@@ -178,9 +178,7 @@ export function StockSelector({
     const lastOpen = value.lastIndexOf('<')
     const lastClose = value.indexOf('>', lastOpen + 1)
     const rawTag =
-      lastOpen >= 0
-        ? value.slice(lastOpen + 1, lastClose >= 0 ? lastClose : value.length)
-        : value
+      lastOpen >= 0 ? value.slice(lastOpen + 1, lastClose >= 0 ? lastClose : value.length) : value
     const trimmedTag = rawTag.trim()
     const normalizedValue = trimmedTag ? `<${trimmedTag}>` : value
     commitVariableValue(normalizedValue, 'tag')
@@ -189,6 +187,132 @@ export function StockSelector({
     setHighlightedIndex(-1)
     setCursorPosition(normalizedValue.length)
   }
+
+  const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return
+
+    const nextValue = event.target.value
+    const newCursorPosition = event.target.selectionStart ?? nextValue.length
+    setCursorPosition(newCursorPosition)
+
+    const tagTrigger = blockId ? checkTagTrigger(nextValue, newCursorPosition) : { show: false }
+    setShowTags(Boolean(blockId) && tagTrigger.show)
+
+    if (!nextValue.trim()) {
+      setShowTags(false)
+      clearValue()
+      return
+    }
+
+    const isVariable = isVariableListingInput(nextValue)
+    if (!isVariable && variableCommitted) {
+      setVariableCommitted(false)
+      onListingValueChange?.(null)
+    }
+
+    if (isVariable) {
+      commitVariableValue(nextValue)
+      return
+    }
+
+    setOpen(true)
+    setHighlightedIndex(-1)
+    const patch: Partial<typeof safeInstance> = { query: nextValue }
+    if (selectedListing && selectedLabel && nextValue.trim() !== selectedLabel) {
+      patch.selectedListingValue = null
+      patch.selectedListing = null
+    }
+    updateInstance(instanceId, patch)
+  }
+
+  const handleFocus = () => {
+    if (disabled) return
+
+    setOpen(true)
+    setHighlightedIndex(-1)
+    const position = inputRef.current?.selectionStart ?? query.length
+    setCursorPosition(position)
+    const tagTrigger = blockId ? checkTagTrigger(query, position) : { show: false }
+    setShowTags(Boolean(blockId) && tagTrigger.show)
+  }
+
+  const handleBlur = (_event: FocusEvent<HTMLInputElement>) => {
+    if (disabled) return
+
+    setTimeout(() => {
+      const activeElement = document.activeElement
+      if (!activeElement || !activeElement.closest('[data-market-selector]')) {
+        if (isVariableListingInput(query)) {
+          commitVariableValue(query)
+        }
+        setOpen(false)
+        setHighlightedIndex(-1)
+        if (selectedLabel && query !== selectedLabel) {
+          updateInstance(instanceId, { query: selectedLabel })
+        }
+      }
+    }, 150)
+  }
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Escape') {
+      setOpen(false)
+      setHighlightedIndex(-1)
+      setShowTags(false)
+      return
+    }
+
+    if (showTags) return
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      if (!open) {
+        setOpen(true)
+        if (results.length > 0) {
+          setHighlightedIndex(0)
+        }
+      } else if (results.length > 0) {
+        setHighlightedIndex((prev) => (prev < results.length - 1 ? prev + 1 : 0))
+      }
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      if (open && results.length > 0) {
+        setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : results.length - 1))
+      }
+    }
+
+    if (event.key === 'Enter' && open && highlightedIndex >= 0) {
+      event.preventDefault()
+      const selected = results[highlightedIndex]
+      if (selected) {
+        handleSelect(selected)
+      }
+      return
+    }
+
+    if (event.key === 'Enter' && isVariableListingInput(query)) {
+      event.preventDefault()
+      commitVariableValue(query)
+      setOpen(false)
+      setHighlightedIndex(-1)
+    }
+  }
+
+  useMarketListingSearch({
+    open,
+    query,
+    providerId,
+    providerType,
+    marketProviderId,
+    tradingProviderId,
+    instanceId,
+    updateInstance,
+    candidateListings,
+    candidateListingsLoading,
+    candidateListingsError,
+  })
 
   useEffect(() => {
     if (!open) return
@@ -199,26 +323,36 @@ export function StockSelector({
   }, [open])
 
   useEffect(() => {
-    const selectedValue =
-      safeInstance.selectedListingValue ?? safeInstance.selectedListing ?? null
+    if (!activateOnMount || disabled || hasActivatedOnMountRef.current) return
+    hasActivatedOnMountRef.current = true
+    const nextQuery = query || selectedLabel
+    if (nextQuery && query !== nextQuery) {
+      updateInstance(instanceId, { query: nextQuery })
+    }
+    setCursorPosition(nextQuery.length)
+    setShowTags(false)
+    setHighlightedIndex(-1)
+    setOpen(true)
+  }, [activateOnMount, disabled, instanceId, query, selectedLabel, updateInstance])
+
+  useEffect(() => {
+    const selectedValue = safeInstance.selectedListingValue ?? safeInstance.selectedListing ?? null
     if (!selectedValue) {
-      hydratedListingRef.current = null
+      hydrateRequestRef.current += 1
       return
     }
 
     const identity = toListingValueObject(selectedValue)
-    if (!identity) return
-
-    if (safeInstance.selectedListing && hasResolvedListingMetadata(safeInstance.selectedListing)) {
-      hydratedListingRef.current = identity
+    if (!identity) {
+      hydrateRequestRef.current += 1
       return
     }
 
-    if (areListingIdentitiesEqual(hydratedListingRef.current, identity)) {
+    if (safeInstance.selectedListing && hasListingDisplayDetails(safeInstance.selectedListing)) {
+      hydrateRequestRef.current += 1
       return
     }
 
-    hydratedListingRef.current = identity
     const requestId = ++hydrateRequestRef.current
     let cancelled = false
 
@@ -226,12 +360,17 @@ export function StockSelector({
       .then((resolved) => {
         if (cancelled || hydrateRequestRef.current !== requestId) return
         if (!resolved) return
+        const currentInstance = useListingSelectorStore.getState().instances[instanceId]
+        const currentIdentity = toListingValueObject(
+          currentInstance?.selectedListingValue ?? currentInstance?.selectedListing ?? null
+        )
+        if (!areListingIdentitiesEqual(currentIdentity, identity)) return
         updateInstance(instanceId, {
           selectedListing: resolved,
           selectedListingValue: identity,
         })
       })
-      .catch(() => { })
+      .catch(() => {})
 
     return () => {
       cancelled = true
@@ -254,152 +393,128 @@ export function StockSelector({
     })
   }, [results])
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    setPortalTarget(document.body)
+  }, [])
+
+  useEffect(() => {
+    if (!showListingDropdown) {
+      setDropdownPosition(null)
+      return
+    }
+
+    const updatePosition = () => {
+      const container = containerRef.current
+      if (!container) return
+      const rect = container.getBoundingClientRect()
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+      })
+    }
+
+    updatePosition()
+    window.addEventListener('resize', updatePosition)
+    window.addEventListener('scroll', updatePosition, true)
+    return () => {
+      window.removeEventListener('resize', updatePosition)
+      window.removeEventListener('scroll', updatePosition, true)
+    }
+  }, [showListingDropdown])
+
+  const listingDropdown = showListingDropdown ? (
+    <div
+      className={cn(
+        dropdownPosition ? 'absolute z-[1000]' : 'absolute top-full left-0 z-[200] mt-1 w-full'
+      )}
+      style={
+        dropdownPosition
+          ? {
+              top: dropdownPosition.top,
+              left: dropdownPosition.left,
+              width: dropdownPosition.width,
+            }
+          : undefined
+      }
+      data-market-selector
+      data-market-selector-id={instanceId}
+      onWheel={(event) => event.stopPropagation()}
+    >
+      <ListingSelectorDropdownContent
+        results={results}
+        isLoading={isLoading}
+        error={error}
+        highlightedIndex={highlightedIndex}
+        onHighlightChange={setHighlightedIndex}
+        onSelect={handleSelect}
+        renderListing={(listing) => (
+          <ListingDisplayRow listing={listing} showSecondary={isHeader} />
+        )}
+        scrollStyle={{ scrollbarWidth: 'thin', overscrollBehavior: 'contain' }}
+        onWheelCapture={(event) => event.stopPropagation()}
+        onTouchMove={(event) => event.stopPropagation()}
+      />
+    </div>
+  ) : null
+
   return (
     <div
+      ref={containerRef}
       className={cn('relative w-full', className)}
       data-market-selector
+      data-market-selector-id={instanceId}
     >
       <div className='relative'>
         <Input
           ref={inputRef}
           name={`listing-search-${instanceId}`}
           className={cn(
-            'w-full pr-10',
-            compact ? 'h-8 text-sm' : 'h-10',
+            isHeader
+              ? widgetHeaderControlClassName('w-full justify-center pr-9 font-medium text-sm')
+              : ['w-full pr-10', compact ? 'h-8 text-sm' : 'h-10'],
             hideInputText && 'text-transparent caret-transparent placeholder:text-transparent'
           )}
-          placeholder='Select listing'
+          placeholder={isHeader ? 'Search listings...' : 'Select listing'}
           autoComplete='off'
           data-1p-ignore='true'
           data-lpignore='true'
           data-form-type='other'
           value={displayValue}
-          onChange={(event) => {
-            if (disabled) return
-            const nextValue = event.target.value
-            const newCursorPosition = event.target.selectionStart ?? nextValue.length
-            setCursorPosition(newCursorPosition)
-            const tagTrigger = blockId ? checkTagTrigger(nextValue, newCursorPosition) : { show: false }
-            setShowTags(Boolean(blockId) && tagTrigger.show)
-
-            if (!nextValue.trim()) {
-              clearVariableValue()
-              setShowTags(false)
-              return
-            }
-
-            const isVariable = isVariableListingInput(nextValue)
-            if (!isVariable && variableCommitted) {
-              setVariableCommitted(false)
-              onListingValueChange?.(null)
-            }
-
-            if (isVariable) {
-              commitVariableValue(nextValue)
-              return
-            }
-
-            const patch: Partial<typeof safeInstance> = { query: nextValue }
-            if (selectedListing && selectedLabel && nextValue.trim() !== selectedLabel) {
-              patch.selectedListingValue = null
-              patch.selectedListing = null
-            }
-            updateInstance(instanceId, patch)
-          }}
-          onFocus={() => {
-            if (disabled) return
-            setOpen(true)
-            setHighlightedIndex(-1)
-            const position = inputRef.current?.selectionStart ?? query.length
-            setCursorPosition(position)
-            const tagTrigger = blockId ? checkTagTrigger(query, position) : { show: false }
-            setShowTags(Boolean(blockId) && tagTrigger.show)
-          }}
-          onBlur={() => {
-            if (disabled) return
-            setTimeout(() => {
-              const activeElement = document.activeElement
-              if (!activeElement || !activeElement.closest('[data-market-selector]')) {
-                if (isVariableListingInput(query)) {
-                  commitVariableValue(query)
-                }
-                setOpen(false)
-                setHighlightedIndex(-1)
-                if (selectedLabel && query !== selectedLabel) {
-                  updateInstance(instanceId, { query: selectedLabel })
-                }
-              }
-            }, 150)
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') {
-              setOpen(false)
-              setHighlightedIndex(-1)
-              setShowTags(false)
-              return
-            }
-
-            if (showTags) {
-              return
-            }
-
-            if (event.key === 'ArrowDown') {
-              event.preventDefault()
-              if (!open) {
-                setOpen(true)
-                if (results.length > 0) {
-                  setHighlightedIndex(0)
-                }
-              } else if (results.length > 0) {
-                setHighlightedIndex((prev) => (prev < results.length - 1 ? prev + 1 : 0))
-              }
-            }
-
-            if (event.key === 'ArrowUp') {
-              event.preventDefault()
-              if (open && results.length > 0) {
-                setHighlightedIndex((prev) =>
-                  prev > 0 ? prev - 1 : results.length - 1
-                )
-              }
-            }
-
-            if (event.key === 'Enter' && open && highlightedIndex >= 0) {
-              event.preventDefault()
-              const selected = results[highlightedIndex]
-              if (selected) {
-                handleSelect(selected)
-              }
-              return
-            }
-
-            if (event.key === 'Enter' && isVariableListingInput(query)) {
-              event.preventDefault()
-              commitVariableValue(query)
-              setOpen(false)
-              setHighlightedIndex(-1)
-            }
-          }}
+          onChange={handleInputChange}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
           disabled={disabled}
           type='text'
         />
         {showRichOverlay ? (
           <div
             className={cn(
-              'pointer-events-none absolute inset-y-0 left-0 flex items-center w-full',
-              compact ? 'px-2' : 'px-1'
+              'pointer-events-none absolute inset-y-0 left-0 flex w-full items-center',
+              isHeader ? 'px-1' : compact ? 'px-2' : 'px-1'
             )}
           >
-            <MarketListingRow
-              listing={selectedListing}
-              showAssetClass={!compact}
-              compact={compact}
-              className='w-full'
-            />
+            {isHeader ? (
+              <ListingDisplayRow listing={selectedListing} />
+            ) : (
+              <MarketListingRow
+                listing={selectedListing}
+                showAssetClass={!compact}
+                compact={compact}
+                className='w-full'
+              />
+            )}
+          </div>
+        ) : null}
+        {showPlaceholderOverlay ? (
+          <div className='pointer-events-none absolute inset-y-0 left-0 flex w-full items-center px-1'>
+            <ListingDisplayRow listing={null} />
           </div>
         ) : null}
         {showTagOverlay ? (
-          <div className='pointer-events-none absolute inset-y-0 left-0 flex items-center px-3 w-full'>
+          <div className='pointer-events-none absolute inset-y-0 left-0 flex w-full items-center px-3'>
             <div className='w-full truncate text-sm'>
               {formatDisplayText(query, {
                 accessiblePrefixes,
@@ -409,9 +524,10 @@ export function StockSelector({
           </div>
         ) : null}
         <Button
+          type='button'
           variant='ghost'
           size='sm'
-          className='absolute right-1 top-1/2 z-10 h-6 w-6 -translate-y-1/2 p-0 bg-transparent'
+          className='-translate-y-1/2 absolute top-1/2 right-1 z-10 h-6 w-6 bg-transparent p-0'
           disabled={disabled}
           onMouseDown={(event) => {
             event.preventDefault()
@@ -429,20 +545,17 @@ export function StockSelector({
           }}
         >
           <ChevronDown
-            className={cn('h-4 w-4 opacity-0 transition-transform', open && 'rotate-180 opacity-50')}
+            className={cn(
+              'h-4 w-4 opacity-0 transition-transform',
+              open && 'rotate-180 opacity-50'
+            )}
           />
         </Button>
       </div>
 
-      <ListingSelectorDropdown
-        visible={showListingDropdown}
-        results={results}
-        isLoading={isLoading}
-        error={error}
-        highlightedIndex={highlightedIndex}
-        onHighlightChange={setHighlightedIndex}
-        onSelect={handleSelect}
-      />
+      {listingDropdown && portalTarget && dropdownPosition
+        ? createPortal(listingDropdown, portalTarget)
+        : listingDropdown}
       {blockId ? (
         <TagDropdown
           visible={showTags}

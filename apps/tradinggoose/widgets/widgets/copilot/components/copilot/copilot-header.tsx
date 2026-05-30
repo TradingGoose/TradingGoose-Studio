@@ -18,13 +18,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { cn } from '@/lib/utils'
-import { getCopilotStore } from '@/stores/copilot/store'
-import type { CopilotChat } from '@/stores/copilot/types'
 import {
   widgetHeaderControlClassName,
   widgetHeaderIconButtonClassName,
-} from '@/widgets/widgets/components/widget-header-control'
+} from '@/components/widget-header-control'
+import { cn } from '@/lib/utils'
+import { getCopilotStore } from '@/stores/copilot/store'
+import type { CopilotChat } from '@/stores/copilot/types'
 
 const formatRelativeTime = (value: Date | string | undefined) => {
   if (!value) return ''
@@ -193,16 +193,11 @@ export function CopilotHeader({
 
   const { currentChat, chats, isLoadingChats, isSendingMessage } = state
   const scopedChats = useMemo(
-    () =>
-      (chats || []).filter(
-        (chat) => (chat.workspaceId ?? null) === (workspaceId ?? null)
-      ),
+    () => (chats || []).filter((chat) => (chat.workspaceId ?? null) === (workspaceId ?? null)),
     [chats, workspaceId]
   )
   const scopedCurrentChat =
-    currentChat && (currentChat.workspaceId ?? null) === (workspaceId ?? null)
-      ? currentChat
-      : null
+    currentChat && (currentChat.workspaceId ?? null) === (workspaceId ?? null) ? currentChat : null
   const grouped = groupChats(scopedChats)
 
   const handleSelectChat = async (chat: CopilotChat) => {

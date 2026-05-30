@@ -12,12 +12,14 @@ import {
 } from '@/components/ui/card'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import type { MonitorReferenceData } from '../shared/types'
 import { IndicatorInputSummary } from './indicator-input-fields'
 import { MonitorEditorForm } from './monitor-editor-form'
 import type { MonitorEditorState } from './use-monitor-editor-state'
 
 type MonitorEditorPanelProps = {
+  workspaceId: string
   editorState: MonitorEditorState
   referenceData: MonitorReferenceData
   createDisabled?: boolean
@@ -34,15 +36,20 @@ function MonitorDetails({
   if (!monitor) return null
 
   const monitorConfig = monitor.providerConfig.monitor
-  const indicator = referenceData.indicatorById[monitorConfig.indicatorId]
+  const indicator = monitorConfig.indicatorId
+    ? referenceData.indicatorById[monitorConfig.indicatorId]
+    : undefined
   const workflowTarget =
     referenceData.workflowTargetByKey[`${monitor.workflowId}:${monitor.blockId}`]
+  const isPortfolio = monitor.source === PORTFOLIO_MONITOR_PROVIDER
 
   return (
     <Card className='flex h-full min-h-0 flex-col overflow-hidden rounded-xl border bg-card/60'>
       <CardHeader className='shrink-0 border-b px-4 py-3'>
         <CardTitle className='font-medium text-sm'>
-          {indicator?.name ?? monitorConfig.indicatorId}
+          {isPortfolio
+            ? monitorConfig.accountId || 'Portfolio state'
+            : (indicator?.name ?? monitorConfig.indicatorId)}
         </CardTitle>
         <CardDescription className='text-xs'>
           {workflowTarget?.label ?? `${monitor.workflowId}:${monitor.blockId}`}
@@ -57,13 +64,18 @@ function MonitorDetails({
           <div className='rounded-md border p-2'>
             <div className='text-muted-foreground text-xs'>Provider</div>
             <div>
-              {referenceData.providerById[monitorConfig.providerId]?.name ??
-                monitorConfig.providerId}
+              {isPortfolio
+                ? (referenceData.tradingProviderById[monitorConfig.providerId]?.name ??
+                  monitorConfig.providerId)
+                : (referenceData.marketProviderById[monitorConfig.providerId]?.name ??
+                  monitorConfig.providerId)}
             </div>
           </div>
           <div className='rounded-md border p-2'>
-            <div className='text-muted-foreground text-xs'>Interval</div>
-            <div>{monitorConfig.interval}</div>
+            <div className='text-muted-foreground text-xs'>
+              {isPortfolio ? 'Fire mode' : 'Interval'}
+            </div>
+            <div>{isPortfolio ? monitorConfig.fireMode : monitorConfig.interval}</div>
           </div>
           <div className='rounded-md border p-2'>
             <div className='text-muted-foreground text-xs'>Status</div>
@@ -73,11 +85,25 @@ function MonitorDetails({
             <div className='text-muted-foreground text-xs'>Monitor ID</div>
             <div className='truncate'>{monitor.monitorId}</div>
           </div>
+          {isPortfolio ? (
+            <>
+              <div className='rounded-md border p-2'>
+                <div className='text-muted-foreground text-xs'>Account</div>
+                <div className='truncate'>{monitorConfig.accountId}</div>
+              </div>
+              <div className='rounded-md border p-2'>
+                <div className='text-muted-foreground text-xs'>Cooldown</div>
+                <div>{monitorConfig.cooldownSeconds ?? 0}s</div>
+              </div>
+            </>
+          ) : null}
         </div>
-        <IndicatorInputSummary
-          inputMeta={indicator?.inputMeta}
-          sparseInputs={monitorConfig.indicatorInputs ?? {}}
-        />
+        {!isPortfolio ? (
+          <IndicatorInputSummary
+            inputMeta={indicator?.inputMeta}
+            sparseInputs={monitorConfig.indicatorInputs ?? {}}
+          />
+        ) : null}
       </CardContent>
 
       <CardFooter className='grid shrink-0 grid-cols-2 gap-2 border-t p-3'>
@@ -117,6 +143,7 @@ function EditorContent({
   createDisabled = false,
   editorState,
   referenceData,
+  workspaceId,
 }: MonitorEditorPanelProps) {
   if (editorState.isEditorOpen && editorState.editingDraft) {
     return (
@@ -133,11 +160,13 @@ function EditorContent({
           ) : null}
         </CardHeader>
         <MonitorEditorForm
+          workspaceId={workspaceId}
           editingKey={editorState.editingKey}
           draft={editorState.editingDraft}
           errors={editorState.editingErrors}
           saving={editorState.saving}
-          streamingProviders={referenceData.streamingProviders}
+          marketProviders={referenceData.marketProviders}
+          tradingProviders={referenceData.tradingProviders}
           providerIntervals={
             referenceData.providerIntervalsByProviderId[editorState.editingDraft.providerId] ?? []
           }
@@ -171,11 +200,13 @@ export function MonitorEditorPanel({
   createDisabled = false,
   editorState,
   referenceData,
+  workspaceId,
 }: MonitorEditorPanelProps) {
   const isMobile = useIsMobile()
   const content = (
     <EditorContent
       editorState={editorState}
+      workspaceId={workspaceId}
       referenceData={{
         ...referenceData,
         createDisabledReason:

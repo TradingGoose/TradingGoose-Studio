@@ -6,7 +6,7 @@ import {
 
 describe('trading widget provider helpers', () => {
   it('filters provider options by availability and resolves invalid persisted providers', () => {
-    const options = getTradingWidgetProviderOptions('holdings', {
+    const options = getTradingWidgetProviderOptions('portfolioDetail', {
       'alpaca-paper': true,
       'tradier-live': false,
     })

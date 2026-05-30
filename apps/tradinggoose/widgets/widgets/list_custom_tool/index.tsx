@@ -10,6 +10,14 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  widgetHeaderButtonGroupClassName,
+  widgetHeaderIconButtonClassName,
+  widgetHeaderMenuContentClassName,
+  widgetHeaderMenuIconClassName,
+  widgetHeaderMenuItemClassName,
+  widgetHeaderMenuTextClassName,
+} from '@/components/widget-header-control'
 import { parseImportedCustomToolsFile } from '@/lib/custom-tools/import-export'
 import { cn } from '@/lib/utils'
 import {
@@ -38,14 +46,6 @@ import {
   CUSTOM_TOOL_LIST_WIDGET_KEY,
   resolveCustomToolId,
 } from '@/widgets/widgets/_shared/custom_tool/utils'
-import {
-  widgetHeaderButtonGroupClassName,
-  widgetHeaderIconButtonClassName,
-  widgetHeaderMenuContentClassName,
-  widgetHeaderMenuIconClassName,
-  widgetHeaderMenuItemClassName,
-  widgetHeaderMenuTextClassName,
-} from '@/widgets/widgets/components/widget-header-control'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 
 const DEFAULT_CUSTOM_TOOL_NAME = 'newCustomTool'

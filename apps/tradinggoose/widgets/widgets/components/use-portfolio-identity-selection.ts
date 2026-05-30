@@ -1,13 +1,13 @@
 'use client'
 
 import { useEffect, useMemo } from 'react'
+import { useTradingServices } from '@/components/trading-selector/services'
 import { usePortfolioIdentities } from '@/hooks/queries/trading-portfolio'
 import {
   arePortfolioIdentitiesEqual,
   type PortfolioIdentity,
   toPortfolioValueObject,
 } from '@/providers/trading/portfolio-identity'
-import { useTradingServices } from '@/widgets/widgets/components/trading-services'
 
 type EmitPortfolioParamsChange = (input: {
   params: Record<string, unknown>

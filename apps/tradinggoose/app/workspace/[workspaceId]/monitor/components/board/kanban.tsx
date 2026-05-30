@@ -632,7 +632,7 @@ export function KanbanCards({
     <section
       aria-labelledby={`column-${columnId}-title`}
       className={cn(
-        'flex h-full min-h-0 w-[320px] shrink-0 flex-col overflow-hidden rounded-xl border bg-card/60',
+        'flex h-full min-h-0 w-[320px] shrink-0 flex-col overflow-hidden rounded-xl border bg-background',
         isDropTarget && 'border-primary shadow-[0_0_0_1px_hsl(var(--primary))]',
         className
       )}

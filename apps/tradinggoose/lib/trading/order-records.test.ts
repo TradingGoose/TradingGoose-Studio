@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => {
     isNull: vi.fn((field: unknown) => ({ field, type: 'isNull' })),
     lte: vi.fn((field: unknown, value: unknown) => ({ field, type: 'lte', value })),
     or: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'or' })),
+    resolveListingIdentity: vi.fn(),
     sql,
   }
 })
@@ -56,9 +57,14 @@ vi.mock('drizzle-orm', () => ({
   sql: mocks.sql,
 }))
 
+vi.mock('@/lib/listing/resolve', () => ({
+  resolveListingIdentity: (...args: unknown[]) => mocks.resolveListingIdentity(...args),
+}))
+
 describe('order record utils', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.resolveListingIdentity.mockResolvedValue(null)
   })
 
   it('serializes linked order records and redacts secrets from full detail payloads', async () => {
@@ -76,7 +82,7 @@ describe('order record utils', () => {
           startedAt: new Date('2026-04-23T00:00:00.000Z'),
           workflowSummary: { name: 'Workflow' },
         },
-        listingIdentity: { listing_id: 'AAPL', listing_type: 'stock' },
+        listingIdentity: { base_id: '', listing_id: 'AAPL', listing_type: 'default', quote_id: '' },
         normalizedOrder: {
           averageFillPrice: '184.25',
           side: 'buy',
@@ -88,7 +94,7 @@ describe('order record utils', () => {
         request: {
           accountId: 'account-1',
           accessToken: 'secret-token',
-          tokenAccountId: 'oauth-account-1',
+          credentialId: 'oauth-account-1',
           serviceId: 'alpaca-paper',
           orderType: 'limit',
           quantity: '5',
@@ -123,7 +129,7 @@ describe('order record utils', () => {
         id: 'log-1',
         workflowName: 'Workflow',
       },
-      listing: { listingType: 'stock', symbol: 'AAPL' },
+      listing: { listingType: 'default', symbol: 'AAPL' },
       message: 'Broker rejected order',
       orderType: 'limit',
       providerOrderId: 'provider-order-1',
@@ -137,7 +143,7 @@ describe('order record utils', () => {
     expect(record.request).toMatchObject({
       accountId: '[redacted]',
       accessToken: '[redacted]',
-      tokenAccountId: '[redacted]',
+      credentialId: '[redacted]',
       serviceId: '[redacted]',
     })
     expect(record.response).toMatchObject({
@@ -331,5 +337,23 @@ describe('order record utils', () => {
         return Array.from(strings).join('').includes('ILIKE') && values.includes(joinedExpression)
       })
     ).toBe(true)
+  })
+
+  it('sorts updated orders by updated order timestamps without submitted-at fallback', async () => {
+    const { buildOrderOrderBy } = await import('./order-records')
+
+    buildOrderOrderBy({
+      orderSortBy: 'updatedAt',
+      orderSortOrder: 'desc',
+    } as any)
+
+    const sqlText = (mocks.sql.mock.calls as [TemplateStringsArray, ...unknown[]][])
+      .map(([strings]) => Array.from(strings).join(''))
+      .join('\n')
+
+    expect(sqlText).toContain("->>'updatedAt'")
+    expect(sqlText).toContain("->>'updated_at'")
+    expect(sqlText).not.toContain("->>'submittedAt'")
+    expect(sqlText).not.toContain("->>'submitted_at'")
   })
 })

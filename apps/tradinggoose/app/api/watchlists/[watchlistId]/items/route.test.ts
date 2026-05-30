@@ -4,12 +4,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockRequest } from '@/app/api/__test-utils__/utils'
 
-const mockGetSession = vi.fn()
+const mockCheckSessionOrInternalAuth = vi.fn()
 const mockGetUserEntityPermissions = vi.fn()
 const mockAddListingToWatchlist = vi.fn()
 const mockUpdateWatchlistItemListing = vi.fn()
 const mockAddSectionToWatchlist = vi.fn()
 const mockRenameWatchlistSection = vi.fn()
+const mockRemoveListingFromWatchlist = vi.fn()
 const mockRemoveWatchlistItem = vi.fn()
 const mockRemoveWatchlistSection = vi.fn()
 
@@ -22,8 +23,8 @@ vi.mock('@/lib/logs/console/logger', () => ({
   }),
 }))
 
-vi.mock('@/lib/auth', () => ({
-  getSession: mockGetSession,
+vi.mock('@/lib/auth/hybrid', () => ({
+  checkSessionOrInternalAuth: mockCheckSessionOrInternalAuth,
 }))
 
 vi.mock('@/lib/permissions/utils', () => ({
@@ -38,6 +39,7 @@ vi.mock('@/lib/watchlists/operations', async () => {
     updateWatchlistItemListing: mockUpdateWatchlistItemListing,
     addSectionToWatchlist: mockAddSectionToWatchlist,
     renameWatchlistSection: mockRenameWatchlistSection,
+    removeListingFromWatchlist: mockRemoveListingFromWatchlist,
     removeWatchlistItem: mockRemoveWatchlistItem,
     removeWatchlistSection: mockRemoveWatchlistSection,
   }
@@ -46,7 +48,7 @@ vi.mock('@/lib/watchlists/operations', async () => {
 describe('Watchlist items API route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
+    mockCheckSessionOrInternalAuth.mockResolvedValue({ success: true, userId: 'user-1' })
     mockGetUserEntityPermissions.mockResolvedValue('admin')
   })
 
@@ -162,6 +164,47 @@ describe('Watchlist items API route', () => {
       },
       'watchlist-1',
       'item-1'
+    )
+  })
+
+  it('removes a listing through POST action removeListing', async () => {
+    mockRemoveListingFromWatchlist.mockResolvedValue({
+      id: 'watchlist-1',
+      workspaceId: 'workspace-1',
+      userId: 'user-1',
+      name: 'Default',
+      isSystem: true,
+      items: [],
+      settings: { showLogo: true, showTicker: true, showDescription: true },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    })
+
+    const listing = {
+      listing_id: 'aapl-id',
+      base_id: '',
+      quote_id: '',
+      listing_type: 'default',
+    }
+    const { POST } = await import('@/app/api/watchlists/[watchlistId]/items/route')
+    const request = createMockRequest('POST', {
+      workspaceId: 'workspace-1',
+      action: 'removeListing',
+      listing,
+    })
+
+    const response = await POST(request, {
+      params: Promise.resolve({ watchlistId: 'watchlist-1' }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(mockRemoveListingFromWatchlist).toHaveBeenCalledWith(
+      {
+        workspaceId: 'workspace-1',
+        userId: 'user-1',
+      },
+      'watchlist-1',
+      listing
     )
   })
 

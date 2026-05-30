@@ -8,12 +8,7 @@ export type TradingProviderId = 'alpaca' | 'tradier' | (string & {})
 
 export type TradingAuthType = 'oauth'
 
-export type TradingOrderType =
-  | 'market'
-  | 'limit'
-  | 'stop'
-  | 'stop_limit'
-  | 'trailing_stop'
+export type TradingOrderType = 'market' | 'limit' | 'stop' | 'stop_limit' | 'trailing_stop'
 
 export type TradingOrderSizingMode = 'quantity' | 'notional'
 
@@ -24,7 +19,7 @@ export interface TradingRequestConfig {
   body?: Record<string, any> | string
 }
 
-export type TradingOperationKind = 'order' | 'holdings'
+export type TradingOperationKind = 'order' | 'portfolioDetail'
 
 export interface TradingSymbolInput {
   listing?: ListingInputValue
@@ -54,13 +49,13 @@ export interface TradingOrderInput extends TradingSymbolInput {
   accountId?: string
 }
 
-export interface TradingHoldingsInput {
+export interface TradingPortfolioDetailInput {
   environment?: 'paper' | 'live'
   accessToken?: string
   accountId?: string
 }
 
-export interface TradingOrderDetailInput extends TradingHoldingsInput {
+export interface TradingOrderDetailInput extends TradingPortfolioDetailInput {
   orderId: string
   provider?: TradingProviderId
 }
@@ -77,13 +72,41 @@ export interface TradingOrderHistoryRecord {
   normalizedOrder?: Record<string, any> | null
 }
 
+export interface TradingOrderDetailOutput {
+  appOrderId: string
+  provider: TradingProviderId
+  providerOrderId: string
+  environment?: string | null
+  clientOrderId?: string | null
+  createdAt?: string | null
+  updatedAt?: string | null
+  submittedAt?: string | null
+  filledAt?: string | null
+  canceledAt?: string | null
+  expiredAt?: string | null
+  symbol?: string | null
+  side?: string | null
+  status?: string | null
+  orderType?: string | null
+  timeInForce?: string | null
+  quantity?: string | number | null
+  filledQuantity?: string | number | null
+  remainingQuantity?: string | number | null
+  notional?: string | number | null
+  limitPrice?: string | number | null
+  stopPrice?: string | number | null
+  averageFillPrice?: string | number | null
+  raw?: unknown
+}
+
 export interface TradingOrderDetailResult {
   providerOrderId: string
-  orderDetail: Record<string, any>
+  orderDetail: TradingOrderDetailOutput
 }
 
 export interface TradingPortfolioBaseContext {
   providerId: TradingProviderId
+  credentialId: string
   tokenAccountId: string
   serviceId: string
   environment?: 'paper' | 'live'
@@ -134,7 +157,7 @@ export interface UnifiedTradingSymbol {
 export type UnifiedTradingPositionSide = 'long' | 'short' | 'flat' | 'unknown'
 
 export interface UnifiedTradingPosition {
-  symbol: UnifiedTradingSymbol
+  listingIdentity: ListingIdentity | null
   quantity: number
   side?: UnifiedTradingPositionSide
   averagePrice?: number
@@ -266,12 +289,12 @@ export interface TradingActionResponse {
   error?: string
 }
 
-export interface TradingHoldingsResponse {
+export interface TradingPortfolioDetailResponse {
   success: boolean
   output: {
     summary: string
     provider: TradingProviderId
-    holdings: PortfolioDetail
+    portfolioDetail: PortfolioDetail
   }
   error?: string
 }

@@ -9,8 +9,8 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { deployWorkflow, loadWorkflowState } from '@/lib/workflows/db-helpers'
 import { hasWorkflowChanged, validateWorkflowPermissions } from '@/lib/workflows/utils'
-import { notifyIndicatorMonitorsReconcile } from '@/app/api/indicator-monitors/reconcile'
-import { pauseMonitorsMissingDeployedIndicatorTrigger } from '@/app/api/indicator-monitors/shared'
+import { notifyMonitorsReconcile } from '@/app/api/monitors/reconcile'
+import { pauseMonitorsMissingDeployedTrigger } from '@/app/api/monitors/shared'
 import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
 
 const logger = createLogger('WorkflowDeployAPI')
@@ -272,8 +272,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     logger.info(`[${requestId}] Workflow deployed successfully: ${id}`)
 
-    await pauseMonitorsMissingDeployedIndicatorTrigger(id)
-    await notifyIndicatorMonitorsReconcile({ requestId, logger })
+    await pauseMonitorsMissingDeployedTrigger(id)
+    await notifyMonitorsReconcile({ requestId, logger })
 
     const responseApiKeyInfo = keyInfo ? `${keyInfo.name} (${keyInfo.type})` : 'Default key'
 
@@ -331,7 +331,7 @@ export async function DELETE(
 
     logger.info(`[${requestId}] Workflow undeployed successfully: ${id}`)
 
-    await notifyIndicatorMonitorsReconcile({ requestId, logger })
+    await notifyMonitorsReconcile({ requestId, logger })
 
     // Track workflow undeployment
     try {

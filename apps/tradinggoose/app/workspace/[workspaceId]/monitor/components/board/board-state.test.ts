@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { buildMonitorBoardSections } from './board-state'
 import type { MonitorExecutionItem } from '../data/execution-ordering'
 import { DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG } from '../view/view-config'
+import { buildMonitorBoardSections } from './board-state'
 
 const buildExecution = (overrides: Partial<MonitorExecutionItem>): MonitorExecutionItem => ({
   logId: 'log-1',
@@ -15,7 +15,10 @@ const buildExecution = (overrides: Partial<MonitorExecutionItem>): MonitorExecut
   workflowName: 'Workflow One',
   workflowColor: '#3972F6',
   monitorId: 'monitor-1',
+  source: 'indicator',
   providerId: 'alpaca',
+  serviceId: null,
+  accountId: null,
   interval: '1m',
   indicatorId: 'rsi',
   assetType: 'stock',

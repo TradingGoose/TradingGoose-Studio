@@ -48,7 +48,7 @@ vi.mock('@/components/listing-selector/listing/rank-updates', () => ({
   triggerListingRankUpdate: vi.fn(),
 }))
 
-vi.mock('@/widgets/widgets/components/widget-header-control', () => ({
+vi.mock('@/components/widget-header-control', () => ({
   widgetHeaderControlClassName: (className?: string) =>
     ['trigger', className].filter(Boolean).join(' '),
 }))
@@ -119,10 +119,7 @@ describe('DataChartListingControl', () => {
 
     await act(async () => {
       if (!input) return
-      const valueSetter = Object.getOwnPropertyDescriptor(
-        HTMLInputElement.prototype,
-        'value'
-      )?.set
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
       valueSetter?.call(input, 'M')
       input.dispatchEvent(new Event('input', { bubbles: true }))
       await Promise.resolve()

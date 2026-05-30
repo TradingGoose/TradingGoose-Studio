@@ -1,7 +1,20 @@
 import type { MarketProviderParamDefinition } from '@/providers/market/providers'
-import type { IndicatorMonitorRecord, MonitorDraft } from './types'
+import type { MonitorDraft, MonitorRecord } from './types'
 
 const toTrimmed = (value: unknown): string => (typeof value === 'string' ? value.trim() : '')
+
+export const DEFAULT_PORTFOLIO_FIRE_CONDITION = {
+  root: {
+    combinator: 'and' as const,
+    rules: [
+      {
+        metric: 'summary.totalPortfolioValue' as const,
+        operator: 'gt' as const,
+        value: 0,
+      },
+    ],
+  },
+}
 
 export const parseErrorMessage = async (response: Response): Promise<string> => {
   try {
@@ -50,40 +63,57 @@ const mapProviderParamsToDraftValues = (
   )
 }
 
-export const buildDraftFromMonitor = (monitor: IndicatorMonitorRecord): MonitorDraft => {
+export const buildDraftFromMonitor = (monitor: MonitorRecord): MonitorDraft => {
   const auth = monitor.providerConfig.monitor.auth
+  const monitorConfig = monitor.providerConfig.monitor
 
   return {
+    source: monitor.source,
     workflowId: monitor.workflowId,
     blockId: monitor.blockId,
-    providerId: monitor.providerConfig.monitor.providerId,
-    interval: monitor.providerConfig.monitor.interval,
-    indicatorId: monitor.providerConfig.monitor.indicatorId,
-    listing: monitor.providerConfig.monitor.listing,
+    providerId: monitorConfig.providerId,
+    interval: monitorConfig.interval ?? '',
+    indicatorId: monitorConfig.indicatorId ?? '',
+    listing: monitorConfig.listing ?? null,
+    serviceId: monitorConfig.serviceId ?? '',
+    credentialId: monitorConfig.credentialId ?? '',
+    accountId: monitorConfig.accountId ?? '',
+    condition: monitorConfig.condition ?? DEFAULT_PORTFOLIO_FIRE_CONDITION,
+    fireMode: monitorConfig.fireMode ?? 'edge',
+    cooldownSeconds: monitorConfig.cooldownSeconds ?? 300,
+    pollIntervalSeconds: monitorConfig.pollIntervalSeconds ?? 60,
     secretValues: {},
-    providerParamValues: mapProviderParamsToDraftValues(
-      monitor.providerConfig.monitor.providerParams
-    ),
-    indicatorInputs: { ...(monitor.providerConfig.monitor.indicatorInputs ?? {}) },
+    providerParamValues: mapProviderParamsToDraftValues(monitorConfig.providerParams),
+    indicatorInputs: { ...(monitorConfig.indicatorInputs ?? {}) },
     existingEncryptedSecretFieldIds: auth?.encryptedSecretFieldIds ?? [],
     isActive: monitor.isActive,
   }
 }
 
 export const buildDefaultDraft = ({
+  source = 'indicator',
   providerId,
   interval,
 }: {
+  source?: MonitorDraft['source']
   providerId: string
   interval: string
 }): MonitorDraft => {
   return {
+    source,
     workflowId: '',
     blockId: '',
     providerId,
     interval,
     indicatorId: '',
     listing: null,
+    serviceId: '',
+    credentialId: '',
+    accountId: '',
+    condition: DEFAULT_PORTFOLIO_FIRE_CONDITION,
+    fireMode: 'edge',
+    cooldownSeconds: 300,
+    pollIntervalSeconds: 60,
     secretValues: {},
     providerParamValues: {},
     indicatorInputs: {},

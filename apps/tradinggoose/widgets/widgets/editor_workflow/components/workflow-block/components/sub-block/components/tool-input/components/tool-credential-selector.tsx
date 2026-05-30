@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Check, ChevronDown, ExternalLink, Plus, RefreshCw } from 'lucide-react'
+import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -17,7 +18,6 @@ import {
   type OAuthService,
   parseProvider,
 } from '@/lib/oauth'
-import { OAuthRequiredModal } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/credential-selector/components/oauth-required-modal'
 import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('ToolCredentialSelector')

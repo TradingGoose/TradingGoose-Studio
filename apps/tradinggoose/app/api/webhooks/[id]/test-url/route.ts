@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { isMonitorProvider } from '@/lib/monitors/sources'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { generateRequestId } from '@/lib/utils'
@@ -46,8 +47,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Webhook not found' }, { status: 404 })
     }
 
-    if (rows[0].webhook.provider === 'indicator') {
-      logger.warn(`[${requestId}] Denied test-url mint for indicator webhook ${id}`)
+    if (isMonitorProvider(rows[0].webhook.provider)) {
+      logger.warn(`[${requestId}] Denied test-url mint for monitor webhook ${id}`)
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

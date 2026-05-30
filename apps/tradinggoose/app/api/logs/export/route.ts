@@ -11,6 +11,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { isMonitorTriggerId } from '@/lib/monitors/sources'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { normalizeOptionalString } from '@/lib/utils'
 import {
@@ -24,6 +25,14 @@ const logger = createLogger('LogsExportAPI')
 
 export const revalidate = 0
 const EXPORT_PAGE_SIZE = 1000
+
+const MonitorTriggerSourceParamSchema = z
+  .preprocess((value) => {
+    if (typeof value !== 'string') return value
+    const trimmed = value.trim()
+    return trimmed.length === 0 ? undefined : trimmed
+  }, z.string().optional())
+  .refine((value) => !value || splitCsv(value).every(isMonitorTriggerId), 'Invalid triggerSource')
 
 const ExportParamsSchema = z.object({
   level: z.string().optional(),
@@ -72,11 +81,7 @@ const ExportParamsSchema = z.object({
   costMinExclusive: z.string().optional(),
   costMax: z.coerce.number().optional(),
   costMaxExclusive: z.string().optional(),
-  triggerSource: z.preprocess((value) => {
-    if (typeof value !== 'string') return value
-    const trimmed = value.trim()
-    return trimmed.length === 0 ? undefined : trimmed
-  }, z.literal('indicator_trigger').optional()),
+  triggerSource: MonitorTriggerSourceParamSchema,
   workspaceId: z.string(),
 })
 
@@ -271,10 +276,14 @@ export async function GET(request: NextRequest) {
       parseBooleanFlag(params.costMaxExclusive)
     )
 
-    if (params.triggerSource) {
+    const triggerSources = splitCsv(params.triggerSource)
+    if (triggerSources.length > 0) {
       conditions = and(
         conditions,
-        sql`${workflowExecutionLogs.executionData}->'trigger'->>'source' = ${params.triggerSource}`
+        inArray(
+          sql<string>`${workflowExecutionLogs.executionData}->'trigger'->>'source'`,
+          triggerSources
+        )
       )
     }
 

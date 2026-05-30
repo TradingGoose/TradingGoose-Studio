@@ -1,11 +1,8 @@
-import { buildAlpacaAuthHeaders } from '@/providers/trading/alpaca/auth'
-import {
-  alpacaTradingProviderConfig,
-} from '@/providers/trading/alpaca/config'
+import { alpacaTradingProviderConfig } from '@/providers/trading/alpaca/config'
 import { sumFiniteNumbers, toFiniteNumber } from '@/providers/trading/portfolio-utils'
 import type {
   UnifiedTradingPosition,
-  UnifiedTradingSymbol,
+  UnifiedTradingSymbolAssetClass,
 } from '@/providers/trading/types'
 import { tradingSymbolToListingIdentity } from '@/providers/trading/utils'
 
@@ -20,9 +17,7 @@ export const mapAlpacaPositionSide = (value: unknown): UnifiedTradingPosition['s
   return 'unknown'
 }
 
-export const mapAlpacaAssetClass = (
-  value: unknown
-): UnifiedTradingSymbol['assetClass'] | null => {
+export const mapAlpacaAssetClass = (value: unknown): UnifiedTradingSymbolAssetClass | null => {
   switch (value) {
     case 'crypto':
       return 'crypto'
@@ -60,9 +55,7 @@ export const normalizeAlpacaPositions = (positions: unknown): UnifiedTradingPosi
       assetClass,
       defaultQuote: ALPACA_DEFAULT_BASE_CURRENCY,
     })
-    const base = resolvedSymbol?.base ?? 'UNKNOWN'
     const quote = resolvedSymbol?.quote ?? ALPACA_DEFAULT_BASE_CURRENCY
-    const symbolAssetClass = resolvedSymbol?.assetClass ?? assetClass
     const side = mapAlpacaPositionSide(position?.side)
     const rawQuantity = toFiniteNumber(position?.qty ?? position?.quantity) ?? 0
     const quantity = side === 'short' ? -Math.abs(rawQuantity) : rawQuantity
@@ -72,15 +65,7 @@ export const normalizeAlpacaPositions = (positions: unknown): UnifiedTradingPosi
 
     return [
       {
-        symbol: {
-          base,
-          quote,
-          listing: resolvedSymbol?.listing,
-          name: null,
-          assetClass: symbolAssetClass,
-          active: true,
-          rank: 0,
-        },
+        listingIdentity: resolvedSymbol?.listing ?? null,
         quantity,
         side,
         averagePrice: toFiniteNumber(position?.avg_entry_price),

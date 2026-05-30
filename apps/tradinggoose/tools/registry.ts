@@ -66,7 +66,6 @@ import {
   listMattersTool,
 } from '@/tools/google_vault'
 import { guardrailsValidateTool } from '@/tools/guardrails'
-import { historicalDataTool } from '@/tools/market_data'
 import { requestTool as httpRequest } from '@/tools/http'
 import { huggingfaceChatTool } from '@/tools/huggingface'
 import {
@@ -86,6 +85,7 @@ import {
 } from '@/tools/knowledge'
 import { linearCreateIssueTool, linearReadIssuesTool } from '@/tools/linear'
 import { linkupSearchTool } from '@/tools/linkup'
+import { historicalDataTool } from '@/tools/market_data'
 import { mem0AddMemoriesTool, mem0GetMemoriesTool, mem0SearchMemoriesTool } from '@/tools/mem0'
 import { memoryAddTool, memoryDeleteTool, memoryGetAllTool, memoryGetTool } from '@/tools/memory'
 import {
@@ -145,6 +145,13 @@ import {
   pineconeUpsertTextTool,
 } from '@/tools/pinecone'
 import {
+  deleteTool as postgresDeleteTool,
+  executeTool as postgresExecuteTool,
+  insertTool as postgresInsertTool,
+  queryTool as postgresQueryTool,
+  updateTool as postgresUpdateTool,
+} from '@/tools/postgresql'
+import {
   posthogBatchEventsTool,
   posthogCaptureEventTool,
   posthogCreateAnnotationTool,
@@ -189,13 +196,6 @@ import {
   posthogUpdatePropertyDefinitionTool,
   posthogUpdateSurveyTool,
 } from '@/tools/posthog'
-import {
-  deleteTool as postgresDeleteTool,
-  executeTool as postgresExecuteTool,
-  insertTool as postgresInsertTool,
-  queryTool as postgresQueryTool,
-  updateTool as postgresUpdateTool,
-} from '@/tools/postgresql'
 import { qdrantFetchTool, qdrantSearchTool, qdrantUpsertTool } from '@/tools/qdrant'
 import { redditGetCommentsTool, redditGetPostsTool, redditHotPostsTool } from '@/tools/reddit'
 import { mailSendTool } from '@/tools/resend'
@@ -221,12 +221,6 @@ import { slackCanvasTool, slackMessageReaderTool, slackMessageTool } from '@/too
 import { smsSendTool } from '@/tools/sms'
 import { stagehandAgentTool, stagehandExtractTool } from '@/tools/stagehand'
 import {
-  orderHistoryTool,
-  tradingActionTool,
-  tradingHoldingsTool,
-  tradingOrderDetailTool,
-} from '@/tools/trading'
-import {
   supabaseDeleteTool,
   supabaseGetRowTool,
   supabaseInsertTool,
@@ -246,10 +240,22 @@ import {
   telegramSendVideoTool,
 } from '@/tools/telegram'
 import { thinkingTool } from '@/tools/thinking'
+import {
+  orderHistoryTool,
+  tradingActionTool,
+  tradingOrderDetailTool,
+  tradingPortfolioDetailTool,
+} from '@/tools/trading'
 import { sendSMSTool } from '@/tools/twilio'
 import { typeformFilesTool, typeformInsightsTool, typeformResponsesTool } from '@/tools/typeform'
 import type { ToolConfig } from '@/tools/types'
 import { visionTool } from '@/tools/vision'
+import {
+  watchlistAddListingTool,
+  watchlistReadListItemsTool,
+  watchlistReadListsTool,
+  watchlistRemoveListingTool,
+} from '@/tools/watchlist'
 import {
   wealthboxReadContactTool,
   wealthboxReadNoteTool,
@@ -454,9 +460,13 @@ export const tools: Record<string, ToolConfig> = {
   mistral_parser: mistralParserTool,
   thinking_tool: thinkingTool,
   trading_place_order: tradingActionTool,
-  trading_get_holdings: tradingHoldingsTool,
+  trading_get_portfolio_detail: tradingPortfolioDetailTool,
   trading_order_detail: tradingOrderDetailTool,
   trading_order_history: orderHistoryTool,
+  watchlist_read_lists: watchlistReadListsTool,
+  watchlist_read_list_items: watchlistReadListItemsTool,
+  watchlist_add_listing: watchlistAddListingTool,
+  watchlist_remove_listing: watchlistRemoveListingTool,
   stagehand_extract: stagehandExtractTool,
   stagehand_agent: stagehandAgentTool,
   mem0_add_memories: mem0AddMemoriesTool,

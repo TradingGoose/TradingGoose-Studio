@@ -19,15 +19,15 @@ import { type LayoutTab, LayoutTabs } from '@/app/workspace/[workspaceId]/dashbo
 import { buildConfigMonitorCards } from '@/app/workspace/[workspaceId]/monitor/components/config/config-card-model'
 import { ConfigMonitorSearch } from '@/app/workspace/[workspaceId]/monitor/components/config/config-search'
 import {
-  createIndicatorMonitor,
+  createMonitorRecord,
   createMonitorView,
-  deleteIndicatorMonitor,
+  deleteMonitorRecord,
   listMonitorViews,
   loadMonitors,
   removeMonitorView,
   reorderMonitorViews,
   setActiveMonitorView,
-  updateIndicatorMonitor,
+  updateMonitorRecord,
   updateMonitorView,
 } from '@/app/workspace/[workspaceId]/monitor/components/data/api'
 import { useMonitorReferenceData } from '@/app/workspace/[workspaceId]/monitor/components/data/use-monitor-reference-data'
@@ -38,10 +38,10 @@ import {
 } from '@/app/workspace/[workspaceId]/monitor/components/data/use-monitor-workspace-logs'
 import { MonitorStateCard } from '@/app/workspace/[workspaceId]/monitor/components/shared/monitor-ui'
 import type {
-  IndicatorMonitorCreateInput,
-  IndicatorMonitorRecord,
-  IndicatorMonitorUpdateInput,
+  MonitorCreateInput,
+  MonitorRecord,
   MonitorRecordActions,
+  MonitorUpdateInput,
 } from '@/app/workspace/[workspaceId]/monitor/components/shared/types'
 import { bootstrapMonitorViews } from '@/app/workspace/[workspaceId]/monitor/components/view/view-bootstrap'
 import {
@@ -120,7 +120,7 @@ const normalizeConfigForMode = (
 export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
   const pathname = usePathname()
   const workingStateScope = `${workspaceId}:${userId}`
-  const [monitors, setMonitors] = useState<IndicatorMonitorRecord[]>([])
+  const [monitors, setMonitors] = useState<MonitorRecord[]>([])
   const [monitorsLoading, setMonitorsLoading] = useState(true)
   const [monitorsError, setMonitorsError] = useState<string | null>(null)
   const referenceData = useMonitorReferenceData(workspaceId)
@@ -666,7 +666,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
     anchor.remove()
   }, [executionViewConfig, workspaceId])
 
-  const upsertMonitor = useCallback((nextMonitor: IndicatorMonitorRecord) => {
+  const upsertMonitor = useCallback((nextMonitor: MonitorRecord) => {
     setMonitors((current) => [
       nextMonitor,
       ...current.filter((monitor) => monitor.monitorId !== nextMonitor.monitorId),
@@ -675,11 +675,11 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
   }, [])
 
   const handleCreateMonitor = useCallback(
-    async (input: IndicatorMonitorCreateInput) => {
+    async (input: MonitorCreateInput) => {
       setMonitorsError(null)
 
       try {
-        const savedMonitor = await createIndicatorMonitor(input)
+        const savedMonitor = await createMonitorRecord(input)
         if (savedMonitor) {
           upsertMonitor(savedMonitor)
         }
@@ -696,11 +696,11 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
   const handleUpdateMonitor = useCallback(
     async (
       monitorId: string,
-      input: IndicatorMonitorUpdateInput,
+      input: MonitorUpdateInput,
       options?: Parameters<MonitorRecordActions['updateMonitor']>[2]
     ) => {
       setMonitorsError(null)
-      let previousMonitors: IndicatorMonitorRecord[] | null = null
+      let previousMonitors: MonitorRecord[] | null = null
 
       if (options?.optimisticRecord) {
         setMonitors((current) => {
@@ -712,7 +712,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
       }
 
       try {
-        const savedMonitor = await updateIndicatorMonitor(monitorId, input)
+        const savedMonitor = await updateMonitorRecord(monitorId, input)
         if (savedMonitor) {
           upsertMonitor(savedMonitor)
         }
@@ -731,12 +731,12 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
 
   const handleToggleMonitorState = useCallback(
     async (
-      monitor: IndicatorMonitorRecord,
+      monitor: MonitorRecord,
       nextIsActive: boolean,
       options?: Parameters<MonitorRecordActions['toggleMonitorState']>[2]
     ) => {
       setMonitorsError(null)
-      let previousMonitors: IndicatorMonitorRecord[] | null = null
+      let previousMonitors: MonitorRecord[] | null = null
 
       if (options?.optimisticRecord) {
         setMonitors((current) => {
@@ -748,7 +748,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
       }
 
       try {
-        const savedMonitor = await updateIndicatorMonitor(monitor.monitorId, {
+        const savedMonitor = await updateMonitorRecord(monitor.monitorId, {
           workspaceId,
           isActive: nextIsActive,
         })
@@ -772,7 +772,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
     setMonitorsError(null)
 
     try {
-      await deleteIndicatorMonitor(monitorId)
+      await deleteMonitorRecord(monitorId)
       setMonitors((current) => current.filter((monitor) => monitor.monitorId !== monitorId))
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to delete monitor'

@@ -21,6 +21,14 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  widgetHeaderButtonGroupClassName,
+  widgetHeaderIconButtonClassName,
+  widgetHeaderMenuContentClassName,
+  widgetHeaderMenuIconClassName,
+  widgetHeaderMenuItemClassName,
+  widgetHeaderMenuTextClassName,
+} from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
 import {
   useUserPermissionsContext,
@@ -35,14 +43,6 @@ import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/
 import { MCP_SERVER_DEFAULTS } from '@/widgets/utils/mcp-defaults'
 import { emitMcpSelectionChange, useMcpSelectionPersistence } from '@/widgets/utils/mcp-selection'
 import { resolveMcpServerId } from '@/widgets/widgets/_shared/mcp/utils'
-import {
-  widgetHeaderButtonGroupClassName,
-  widgetHeaderIconButtonClassName,
-  widgetHeaderMenuContentClassName,
-  widgetHeaderMenuIconClassName,
-  widgetHeaderMenuItemClassName,
-  widgetHeaderMenuTextClassName,
-} from '@/widgets/widgets/components/widget-header-control'
 
 const DEFAULT_MCP_SERVER = {
   ...MCP_SERVER_DEFAULTS,

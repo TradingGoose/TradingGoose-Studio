@@ -1,6 +1,7 @@
 'use client'
 
 import { Play, RefreshCw, RotateCcw, Save, Server, X } from 'lucide-react'
+import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
@@ -9,7 +10,6 @@ import { emitMcpSelectionChange } from '@/widgets/utils/mcp-selection'
 import { readEntitySelectionState, resolveMcpServerId } from '@/widgets/widgets/_shared/mcp/utils'
 import { EntityEditorHeaderButton } from '@/widgets/widgets/components/entity-editor-buttons'
 import { McpDropdown } from '@/widgets/widgets/components/mcp-dropdown'
-import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
 import { EditorMcpWidgetBody } from '@/widgets/widgets/editor_mcp/editor-mcp-body'
 
 const McpEditorSelector = ({
@@ -82,9 +82,7 @@ const McpEditorHeaderActions = ({
   })
   const hasSelection = !!selectionState.selectedEntityId
 
-  const emitAction = (
-    action: 'save' | 'refresh' | 'close' | 'reset' | 'test'
-  ) => {
+  const emitAction = (action: 'save' | 'refresh' | 'close' | 'reset' | 'test') => {
     emitMcpEditorAction({
       action,
       panelId,

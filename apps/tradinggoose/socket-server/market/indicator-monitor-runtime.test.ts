@@ -57,10 +57,6 @@ vi.mock('@/lib/api-key/service', () => ({
   getApiKeyOwnerUserId: vi.fn(),
 }))
 
-vi.mock('@/lib/billing', () => ({
-  checkServerSideUsageLimits: vi.fn(),
-}))
-
 vi.mock('@/lib/environment/utils', () => ({
   getEffectiveDecryptedEnv: vi.fn(),
 }))
@@ -87,18 +83,10 @@ vi.mock('@/lib/indicators/input-meta', () => ({
   normalizeInputMetaMap: vi.fn(() => ({})),
 }))
 
-vi.mock('@/lib/indicators/monitor-config', () => ({
-  INDICATOR_MONITOR_TRIGGER_ID: 'indicator-monitor',
-}))
-
 vi.mock('@/lib/indicators/series-data', () => ({
   mapMarketBarToBarMs: vi.fn(),
   mapMarketSeriesToBarsMs: vi.fn(() => []),
   normalizeBarsMs: vi.fn(() => []),
-}))
-
-vi.mock('@/lib/indicators/trigger-detection', () => ({
-  isIndicatorTriggerCapable: vi.fn(() => true),
 }))
 
 vi.mock('@/lib/listing/identity', () => ({
@@ -113,28 +101,16 @@ vi.mock('@/lib/redis', () => ({
   getRedisStorageMode: getRedisStorageModeMock,
 }))
 
-vi.mock('@/lib/trigger/settings', () => ({
-  TriggerExecutionUnavailableError: class TriggerExecutionUnavailableError extends Error {},
-}))
-
 vi.mock('@/lib/utils-server', () => ({
   decryptSecret: vi.fn(),
-}))
-
-vi.mock('@/lib/workflows/db-helpers', () => ({
-  blockExistsInDeployment: vi.fn(() => true),
 }))
 
 vi.mock('@/providers/market', () => ({
   executeProviderRequest: vi.fn(),
 }))
 
-vi.mock('@/providers/market/alpaca/config', () => ({
-  alpacaProviderConfig: {},
-}))
-
-vi.mock('@/providers/market/finnhub/config', () => ({
-  finnhubProviderConfig: {},
+vi.mock('@/providers/market/providers', () => ({
+  getMarketProviderConfig: vi.fn(() => ({})),
 }))
 
 vi.mock('@/providers/market/utils', () => ({
@@ -190,7 +166,7 @@ describe('IndicatorMonitorRuntime lock lifecycle', () => {
     expect(acquireLockMock).toHaveBeenCalledWith(
       'indicator-monitor-runtime-lock',
       expect.any(String),
-      90,
+      90
     )
     expect(runtime.getHealth().status).toBe('running')
 
@@ -199,7 +175,7 @@ describe('IndicatorMonitorRuntime lock lifecycle', () => {
     expect(renewLockMock).toHaveBeenCalledWith(
       'indicator-monitor-runtime-lock',
       expect.any(String),
-      90,
+      90
     )
 
     await runtime.stop()
@@ -226,7 +202,7 @@ describe('IndicatorMonitorRuntime lock lifecycle', () => {
       'Indicator monitor paused; runtime unavailable',
       expect.objectContaining({
         reason: 'lock',
-      }),
+      })
     )
 
     await runtime.stop()
@@ -244,7 +220,7 @@ describe('IndicatorMonitorRuntime lock lifecycle', () => {
 
     expect(releaseLockMock).toHaveBeenCalledWith(
       'indicator-monitor-runtime-lock',
-      expect.any(String),
+      expect.any(String)
     )
 
     const renewCallCount = renewLockMock.mock.calls.length

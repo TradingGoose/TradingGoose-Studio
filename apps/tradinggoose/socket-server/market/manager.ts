@@ -8,13 +8,19 @@ import {
   type MarketQuoteSnapshot,
 } from '@/lib/market/quote-snapshot-contract'
 import { buildMarketQuoteSnapshot } from '@/lib/market/quote-snapshots'
+import { executeProviderRequest } from '@/providers/market'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
 import {
-  getMarketLiveCapabilities,
   getMarketProviderConfig,
+  getMarketProviderPollingIntervalMs,
 } from '@/providers/market/providers'
-import type { MarketBar, MarketProviderAuth, MarketProviderParams } from '@/providers/market/types'
+import type {
+  MarketBar,
+  MarketProviderAuth,
+  MarketProviderParams,
+  MarketSeries,
+} from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
 import type { AuthenticatedSocket } from '@/socket-server/middleware/auth'
 import {
@@ -31,8 +37,8 @@ const MIN_POLLING_INTERVAL_MS = 5_000
 const POLLING_CONCURRENCY = 5
 
 export type MarketProviderId = 'alpaca' | 'finnhub'
-export type PollingMarketProviderId = 'alpha-vantage' | 'yahoo-finance'
-export type AnyMarketProviderId = MarketProviderId | PollingMarketProviderId
+export type PollingMarketProviderId = string
+export type AnyMarketProviderId = string
 export type MarketStreamChannel = 'bars' | 'trades' | 'quotes'
 export type MarketChannel = MarketStreamChannel | 'quote-snapshots'
 
@@ -99,6 +105,7 @@ interface StreamState {
   pollingInFlight?: boolean
   pollingIntervalMs?: number
   quoteSnapshotCache: Map<string, MarketQuoteSnapshot>
+  marketBarCache: Map<string, MarketBar>
   subscribersBySymbol: Map<string, Map<string, MarketSubscriptionRecord>>
 }
 
@@ -384,13 +391,12 @@ export class MarketStreamManager {
     }
 
     const channel = payload.channel ?? 'quote-snapshots'
-    if (channel !== 'quote-snapshots') {
-      throw new Error('Polling market providers support quote snapshots only')
+    if (channel !== 'quote-snapshots' && channel !== 'bars') {
+      throw new Error('Polling market providers support bars and quote snapshots only')
     }
 
-    const capabilities = getMarketLiveCapabilities(payload.provider)
-    if (!capabilities?.supportsPolling) {
-      throw new Error(`Provider ${payload.provider} does not support polling market streams`)
+    if (channel === 'bars' && !payload.interval?.trim()) {
+      throw new Error('interval is required to poll market bars')
     }
 
     const providerConfig = getMarketProviderConfig(payload.provider)
@@ -500,6 +506,15 @@ export class MarketStreamManager {
       }
     }
 
+    if (record.channel === 'bars' && record.interval) {
+      const cached = streamState.marketBarCache.get(
+        buildPollingBarCacheKey(record.symbol, record.interval)
+      )
+      if (cached) {
+        this.emitMarketBar(record, cached)
+      }
+    }
+
     if (!streamState.stream) {
       this.ensurePolling(streamState)
     }
@@ -561,6 +576,7 @@ export class MarketStreamManager {
       auth: config.auth,
       providerParams: config.providerParams,
       quoteSnapshotCache: new Map(),
+      marketBarCache: new Map(),
       subscribersBySymbol: new Map(),
     }
 
@@ -587,6 +603,7 @@ export class MarketStreamManager {
       providerParams: config.providerParams,
       pollingIntervalMs: config.pollingIntervalMs,
       quoteSnapshotCache: new Map(),
+      marketBarCache: new Map(),
       subscribersBySymbol: new Map(),
     }
 
@@ -720,54 +737,121 @@ export class MarketStreamManager {
     })
   }
 
+  private emitMarketBar(record: MarketSubscriptionRecord, bar: MarketBar, raw?: unknown) {
+    record.socket.emit('market-bar', {
+      provider: record.provider,
+      market: record.market,
+      channel: record.channel,
+      subscriptionId: record.subscriptionId,
+      clientSubscriptionId: record.clientSubscriptionId,
+      listing: record.listing,
+      listingBase: record.listingBase,
+      listingQuote: record.listingQuote,
+      symbol: record.symbol,
+      interval: record.interval,
+      bar,
+      receivedAt: new Date().toISOString(),
+      raw,
+    })
+  }
+
+  private emitMarketBarToSymbolSubscribers(
+    streamState: StreamState,
+    symbol: string,
+    interval: string,
+    bar: MarketBar,
+    raw?: unknown
+  ) {
+    const subscribers = streamState.subscribersBySymbol.get(symbol)
+    if (!subscribers) return
+
+    subscribers.forEach((record) => {
+      if (record.channel !== 'bars' || record.interval !== interval) return
+      this.emitMarketBar(record, bar, raw)
+    })
+  }
+
   private ensurePolling(streamState: StreamState) {
     if (streamState.pollingTimer) return
     const intervalMs = streamState.pollingIntervalMs ?? DEFAULT_POLLING_INTERVAL_MS
     streamState.pollingTimer = setInterval(() => {
-      void this.pollQuoteSnapshots(streamState)
+      void this.pollMarketData(streamState)
     }, intervalMs)
     streamState.pollingTimer.unref?.()
-    void this.pollQuoteSnapshots(streamState)
+    void this.pollMarketData(streamState)
   }
 
-  private async pollQuoteSnapshots(streamState: StreamState) {
+  private async pollMarketData(streamState: StreamState) {
     if (streamState.pollingInFlight) return
 
-    const records = new Map<string, MarketSubscriptionRecord>()
+    const tasks: Array<{
+      type: 'quote-snapshot' | 'bar'
+      symbol: string
+      interval?: string
+      record: MarketSubscriptionRecord
+    }> = []
     streamState.subscribersBySymbol.forEach((subscribers, symbol) => {
-      const record = Array.from(subscribers.values()).find(
+      const quoteRecord = Array.from(subscribers.values()).find(
         (subscriber) => subscriber.channel === 'quote-snapshots' && subscriber.listing
       )
-      if (record) records.set(symbol, record)
+
+      if (quoteRecord) {
+        tasks.push({ type: 'quote-snapshot', symbol, record: quoteRecord })
+      }
+
+      const barRecordsByInterval = new Map<string, MarketSubscriptionRecord>()
+      subscribers.forEach((subscriber) => {
+        if (subscriber.channel !== 'bars' || !subscriber.listing || !subscriber.interval) return
+        if (!barRecordsByInterval.has(subscriber.interval)) {
+          barRecordsByInterval.set(subscriber.interval, subscriber)
+        }
+      })
+      barRecordsByInterval.forEach((record, interval) => {
+        tasks.push({ type: 'bar', symbol, interval, record })
+      })
     })
 
-    if (records.size === 0) return
+    if (tasks.length === 0) return
 
     streamState.pollingInFlight = true
     try {
-      const pending = Array.from(records.entries())
+      const pending = [...tasks]
       const workers = Array.from(
         { length: Math.min(POLLING_CONCURRENCY, pending.length) },
         async () => {
           while (pending.length > 0) {
             const next = pending.shift()
             if (!next) return
-            const [symbol, record] = next
             try {
-              const snapshot = await buildMarketQuoteSnapshot({
-                provider: record.provider,
-                listing: record.listing as ListingIdentity,
-                auth: streamState.auth,
-                providerParams: streamState.providerParams,
-              })
-              streamState.quoteSnapshotCache.set(symbol, snapshot)
-              this.emitQuoteSnapshotToSymbolSubscribers(streamState, symbol, snapshot)
+              if (next.type === 'quote-snapshot') {
+                const snapshot = await buildMarketQuoteSnapshot({
+                  provider: next.record.provider,
+                  listing: next.record.listing as ListingIdentity,
+                  auth: streamState.auth,
+                  providerParams: streamState.providerParams,
+                })
+                streamState.quoteSnapshotCache.set(next.symbol, snapshot)
+                this.emitQuoteSnapshotToSymbolSubscribers(streamState, next.symbol, snapshot)
+                continue
+              }
+
+              await this.pollMarketBar(streamState, next.symbol, next.interval!, next.record)
             } catch (error) {
-              const snapshot = createEmptyMarketQuoteSnapshot(
-                error instanceof Error ? error.message : 'Failed to poll quote snapshot'
+              if (next.type === 'quote-snapshot') {
+                const snapshot = createEmptyMarketQuoteSnapshot(
+                  error instanceof Error ? error.message : 'Failed to poll quote snapshot'
+                )
+                streamState.quoteSnapshotCache.set(next.symbol, snapshot)
+                this.emitQuoteSnapshotToSymbolSubscribers(streamState, next.symbol, snapshot)
+                continue
+              }
+
+              this.emitMarketPollingError(
+                streamState,
+                next.symbol,
+                next.interval!,
+                error instanceof Error ? error.message : 'Failed to poll market bar'
               )
-              streamState.quoteSnapshotCache.set(symbol, snapshot)
-              this.emitQuoteSnapshotToSymbolSubscribers(streamState, symbol, snapshot)
             }
           }
         }
@@ -777,6 +861,57 @@ export class MarketStreamManager {
     } finally {
       streamState.pollingInFlight = false
     }
+  }
+
+  private async pollMarketBar(
+    streamState: StreamState,
+    symbol: string,
+    interval: string,
+    record: MarketSubscriptionRecord
+  ) {
+    const response = await executeProviderRequest(record.provider, {
+      kind: 'series',
+      listing: record.listing as ListingIdentity,
+      interval,
+      auth: streamState.auth,
+      providerParams: {
+        ...(streamState.providerParams ?? {}),
+        allowEmpty: true,
+      },
+      windows: [{ mode: 'bars', barCount: 1 }],
+    })
+    const series = response as MarketSeries
+    const bar = series.bars[series.bars.length - 1]
+    if (!bar) return
+
+    const cacheKey = buildPollingBarCacheKey(symbol, interval)
+    const cached = streamState.marketBarCache.get(cacheKey)
+    if (cached && areMarketBarsEqual(cached, bar)) return
+
+    streamState.marketBarCache.set(cacheKey, bar)
+    this.emitMarketBarToSymbolSubscribers(streamState, symbol, interval, bar)
+  }
+
+  private emitMarketPollingError(
+    streamState: StreamState,
+    symbol: string,
+    interval: string,
+    message: string
+  ) {
+    const subscribers = streamState.subscribersBySymbol.get(symbol)
+    if (!subscribers) return
+
+    subscribers.forEach((record) => {
+      if (record.channel !== 'bars' || record.interval !== interval) return
+      record.socket.emit('market-error', {
+        provider: record.provider,
+        market: record.market,
+        channel: record.channel,
+        subscriptionId: record.subscriptionId,
+        clientSubscriptionId: record.clientSubscriptionId,
+        message,
+      })
+    })
   }
 
   private handleStreamError(streamKey: string, message: string, detail?: any) {
@@ -887,10 +1022,8 @@ export class MarketStreamManager {
 export const marketStreamManager = new MarketStreamManager()
 
 function resolveProviderId(provider?: AnyMarketProviderId): AnyMarketProviderId {
-  if (provider === 'finnhub') return 'finnhub'
-  if (provider === 'yahoo-finance') return 'yahoo-finance'
-  if (provider === 'alpha-vantage') return 'alpha-vantage'
-  if (provider === 'alpaca') return 'alpaca'
+  const providerId = typeof provider === 'string' ? provider.trim() : ''
+  if (providerId && getMarketProviderConfig(providerId)) return providerId
   throw new Error('market provider is required')
 }
 
@@ -994,6 +1127,22 @@ function buildPollingStreamKey(config: {
   return createHash('sha256').update(base).digest('hex')
 }
 
+function buildPollingBarCacheKey(symbol: string, interval: string): string {
+  return `${symbol}|${interval}`
+}
+
+function areMarketBarsEqual(left: MarketBar, right: MarketBar): boolean {
+  return (
+    left.timeStamp === right.timeStamp &&
+    left.open === right.open &&
+    left.high === right.high &&
+    left.low === right.low &&
+    left.close === right.close &&
+    left.volume === right.volume &&
+    left.turnover === right.turnover
+  )
+}
+
 function createSubscriptionId({
   streamKey,
   channel,
@@ -1007,13 +1156,9 @@ function createSubscriptionId({
   interval: string
   clientSubscriptionId?: string
 }) {
-  return [
-    streamKey,
-    channel,
-    symbol,
-    interval,
-    clientSubscriptionId?.trim() || randomUUID(),
-  ].join(':')
+  return [streamKey, channel, symbol, interval, clientSubscriptionId?.trim() || randomUUID()].join(
+    ':'
+  )
 }
 
 function resolvePollingIntervalMs(
@@ -1021,10 +1166,9 @@ function resolvePollingIntervalMs(
   providerParams?: MarketProviderParams
 ): number {
   const configured = Number(providerParams?.pollingIntervalMs ?? providerParams?.pollIntervalMs)
-  const capabilityDefault =
-    getMarketLiveCapabilities(provider)?.pollingIntervalMs ?? DEFAULT_POLLING_INTERVAL_MS
-  const requested =
-    Number.isFinite(configured) && configured > 0 ? configured : capabilityDefault
+  const providerDefault =
+    getMarketProviderPollingIntervalMs(provider) ?? DEFAULT_POLLING_INTERVAL_MS
+  const requested = Number.isFinite(configured) && configured > 0 ? configured : providerDefault
   return Math.max(MIN_POLLING_INTERVAL_MS, requested)
 }
 
@@ -1036,10 +1180,7 @@ function updateSnapshotFromTrade(
   if (price === null) return previous ?? createEmptyMarketQuoteSnapshot()
 
   const previousClose = previous?.previousClose ?? null
-  const change =
-    previousClose !== null
-      ? price - previousClose
-      : (previous?.change ?? null)
+  const change = previousClose !== null ? price - previousClose : (previous?.change ?? null)
   const changePercent =
     previousClose !== null && previousClose !== 0
       ? ((price - previousClose) / previousClose) * 100

@@ -69,7 +69,7 @@ vi.mock('@/widgets/hooks/use-workflow-widget-state', () => ({
   useWorkflowWidgetState: () => mockWorkflowWidgetState,
 }))
 
-vi.mock('@/widgets/widgets/components/widget-header-control', () => ({
+vi.mock('@/components/widget-header-control', () => ({
   widgetHeaderButtonGroupClassName: () => 'controls',
   widgetHeaderControlClassName: (className?: string) => className ?? '',
   widgetHeaderIconButtonClassName: () => 'icon-button',

@@ -57,7 +57,7 @@ export function buildConfigSearchSuggestionSet(
       filter: { field: 'indicator', operator: '=', values: [indicator.id] },
     })
   )
-  referenceData.streamingProviders.forEach((provider) =>
+  referenceData.marketProviders.forEach((provider) =>
     add({
       label: provider.name,
       filter: { field: 'provider', operator: '=', values: [provider.id] },

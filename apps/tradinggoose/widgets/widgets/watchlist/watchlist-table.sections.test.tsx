@@ -23,7 +23,7 @@ const mockResolveListing = vi.fn()
 const mockEnsureListingSelectorInstance = vi.fn()
 const mockUpdateListingSelectorInstance = vi.fn()
 const mockResetListingSelectorInstance = vi.fn()
-const mockWatchlistListingSelectorRender = vi.fn()
+const mockStockSelectorRender = vi.fn()
 
 vi.mock('@/components/listing-selector/listing/row', () => ({
   getListingPrimary: (listing: { name?: string; listing_id?: string }) =>
@@ -41,8 +41,8 @@ vi.mock('@/components/listing-selector/listing/row', () => ({
   ),
 }))
 
-vi.mock('@/widgets/widgets/watchlist/components/watchlist-listing-selector', () => ({
-  WatchlistListingSelector: ({
+vi.mock('@/components/listing-selector/selector/input', () => ({
+  ListingSearchInput: ({
     instanceId,
     activateOnMount,
     onListingChange,
@@ -57,15 +57,15 @@ vi.mock('@/widgets/widgets/watchlist/components/watchlist-listing-selector', () 
       name?: string
     }) => void
   }) => {
-    mockWatchlistListingSelectorRender({ instanceId, activateOnMount })
+    mockStockSelectorRender({ instanceId, activateOnMount })
     return (
-      <div data-testid={`watchlist-listing-selector-${instanceId}`}>
-        <button type='button' data-testid={`watchlist-listing-selector-focus-${instanceId}`}>
-          watchlist-listing-selector-focus
+      <div data-testid={`stock-selector-${instanceId}`}>
+        <button type='button' data-testid={`stock-selector-focus-${instanceId}`}>
+          stock-selector-focus
         </button>
         <button
           type='button'
-          data-testid={`watchlist-listing-selector-select-${instanceId}`}
+          data-testid={`stock-selector-select-${instanceId}`}
           onClick={() =>
             onListingChange?.({
               listing_id: 'eth-id',
@@ -76,7 +76,7 @@ vi.mock('@/widgets/widgets/watchlist/components/watchlist-listing-selector', () 
             })
           }
         >
-          watchlist-listing-selector-select
+          stock-selector-select
         </button>
       </div>
     )
@@ -569,17 +569,17 @@ describe('WatchlistTable section interactions', () => {
     })
 
     const selector = container.querySelector(
-      '[data-testid="watchlist-listing-selector-watchlist-listing-editor-listing-1"]'
+      '[data-testid="stock-selector-watchlist-listing-editor-listing-1"]'
     )
 
     expect(selector).toBeTruthy()
-    expect(mockWatchlistListingSelectorRender).toHaveBeenLastCalledWith({
+    expect(mockStockSelectorRender).toHaveBeenLastCalledWith({
       instanceId: 'watchlist-listing-editor-listing-1',
       activateOnMount: true,
     })
 
     const selectButton = container.querySelector(
-      '[data-testid="watchlist-listing-selector-select-watchlist-listing-editor-listing-1"]'
+      '[data-testid="stock-selector-select-watchlist-listing-editor-listing-1"]'
     )
 
     await act(async () => {
@@ -628,7 +628,7 @@ describe('WatchlistTable section interactions', () => {
     })
 
     const selectButton = container.querySelector(
-      '[data-testid="watchlist-listing-selector-select-watchlist-listing-editor-listing-1"]'
+      '[data-testid="stock-selector-select-watchlist-listing-editor-listing-1"]'
     )
 
     await act(async () => {
@@ -675,7 +675,9 @@ describe('WatchlistTable section interactions', () => {
       await Promise.resolve()
     })
 
-    expect(container.textContent).toContain('Bitcoin')
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('Bitcoin')
+    })
 
     const updatedWatchlist: WatchlistRecord = {
       ...watchlist,
@@ -705,9 +707,11 @@ describe('WatchlistTable section interactions', () => {
       await Promise.resolve()
     })
 
-    expect(mockResolveListing).toHaveBeenCalledTimes(2)
-    expect(container.textContent).toContain('Apple')
-    expect(container.textContent).not.toContain('Bitcoin')
+    await vi.waitFor(() => {
+      expect(mockResolveListing).toHaveBeenCalledTimes(2)
+      expect(container.textContent).toContain('Apple')
+      expect(container.textContent).not.toContain('Bitcoin')
+    })
   })
 
   it('keeps symbol edit mode active for internal clicks and cancels it on outside clicks without saving', async () => {
@@ -726,10 +730,10 @@ describe('WatchlistTable section interactions', () => {
     })
 
     const selector = container.querySelector(
-      '[data-testid="watchlist-listing-selector-watchlist-listing-editor-listing-1"]'
+      '[data-testid="stock-selector-watchlist-listing-editor-listing-1"]'
     )
     const focusButton = container.querySelector(
-      '[data-testid="watchlist-listing-selector-focus-watchlist-listing-editor-listing-1"]'
+      '[data-testid="stock-selector-focus-watchlist-listing-editor-listing-1"]'
     )
     const editingRow = Array.from(container.querySelectorAll('tr')).find(
       (row) =>
@@ -748,9 +752,7 @@ describe('WatchlistTable section interactions', () => {
     })
 
     expect(
-      container.querySelector(
-        '[data-testid="watchlist-listing-selector-watchlist-listing-editor-listing-1"]'
-      )
+      container.querySelector('[data-testid="stock-selector-watchlist-listing-editor-listing-1"]')
     ).toBeTruthy()
     expect(onUpdateItemListing).not.toHaveBeenCalled()
 
@@ -759,9 +761,7 @@ describe('WatchlistTable section interactions', () => {
     })
 
     expect(
-      container.querySelector(
-        '[data-testid="watchlist-listing-selector-watchlist-listing-editor-listing-1"]'
-      )
+      container.querySelector('[data-testid="stock-selector-watchlist-listing-editor-listing-1"]')
     ).toBeNull()
     expect(onUpdateItemListing).not.toHaveBeenCalled()
   })

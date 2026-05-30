@@ -2,7 +2,10 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
 import { isTradingServiceError } from '@/lib/trading/errors'
-import { getRecordedTradingOrderProviderDetail } from '@/lib/trading/order-detail'
+import {
+  getRecordedTradingOrderProviderDetail,
+  type TradingProviderOrderDetailResponse,
+} from '@/lib/trading/order-detail'
 import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('OrderProviderDetailAPI')
@@ -34,7 +37,7 @@ export async function POST(
       workspaceId,
     })
 
-    return NextResponse.json({ data: providerDetail })
+    return NextResponse.json({ data: providerDetail } satisfies TradingProviderOrderDetailResponse)
   } catch (error) {
     if (isTradingServiceError(error)) {
       return NextResponse.json({ error: error.message }, { status: error.status })

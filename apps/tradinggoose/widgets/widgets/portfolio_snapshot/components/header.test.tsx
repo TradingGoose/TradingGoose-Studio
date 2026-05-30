@@ -22,7 +22,7 @@ const mockTradingAccountSelector = vi.fn(({ onAccountSelect }: MockTradingAccoun
       onAccountSelect?.({
         portfolioIdentity: {
           providerId: 'alpaca',
-          tokenAccountId: 'oauth-account-1',
+          credentialId: 'oauth-account-1',
           serviceId: 'alpaca-live',
           accountId: 'acct-1',
         },
@@ -42,17 +42,17 @@ vi.mock('@/widgets/utils/portfolio-snapshot-params', () => ({
     mockEmitPortfolioSnapshotParamsChange(...args),
 }))
 
-vi.mock('@/widgets/widgets/components/widget-header-control', () => ({
+vi.mock('@/components/widget-header-control', () => ({
   widgetHeaderButtonGroupClassName: (className?: string) =>
     ['controls', className].filter(Boolean).join(' '),
   widgetHeaderIconButtonClassName: () => 'icon-button',
 }))
 
-vi.mock('@/widgets/widgets/components/market-provider-settings-button', () => ({
+vi.mock('@/components/market-selector/provider-settings-button', () => ({
   MarketProviderSettingsButton: () => <button type='button'>Market settings</button>,
 }))
 
-vi.mock('@/widgets/widgets/components/market-provider-selector', () => ({
+vi.mock('@/components/market-selector/provider-selector', () => ({
   MarketProviderSelector: ({
     value,
     onChange,
@@ -70,7 +70,7 @@ vi.mock('@/widgets/widgets/components/market-provider-selector', () => ({
   ),
 }))
 
-vi.mock('@/widgets/widgets/components/trading-provider-selector', () => ({
+vi.mock('@/components/trading-selector/provider-selector', () => ({
   TradingProviderSelector: ({
     value,
     onChange,
@@ -88,7 +88,7 @@ vi.mock('@/widgets/widgets/components/trading-provider-selector', () => ({
   ),
 }))
 
-vi.mock('@/widgets/widgets/components/trading-account-selector', () => ({
+vi.mock('@/components/trading-selector/account-selector', () => ({
   TradingAccountSelector: (props: MockTradingAccountSelectorProps) =>
     mockTradingAccountSelector(props),
 }))
@@ -146,7 +146,7 @@ describe('PortfolioSnapshotHeaderControls', () => {
       provider: 'alpaca',
       portfolioIdentity: {
         providerId: 'alpaca',
-        tokenAccountId: 'oauth-account-1',
+        credentialId: 'oauth-account-1',
         serviceId: 'alpaca-live',
         accountId: 'acct-1',
       },
@@ -220,7 +220,7 @@ describe('PortfolioSnapshotHeaderControls', () => {
       params: {
         portfolioIdentity: {
           providerId: 'alpaca',
-          tokenAccountId: 'oauth-account-1',
+          credentialId: 'oauth-account-1',
           serviceId: 'alpaca-live',
           accountId: 'acct-1',
         },

@@ -3,11 +3,11 @@ import { resolveAlpacaTradingBaseUrl } from '@/providers/trading/alpaca/config'
 import { fetchBrokerJson } from '@/providers/trading/portfolio-utils'
 import type {
   TradingOrderDetailInput,
+  TradingOrderDetailOutput,
   TradingOrderDetailResult,
   TradingOrderHistoryRecord,
   TradingRequestConfig,
 } from '@/providers/trading/types'
-import type { TradingOrderDetailOutput } from '@/tools/trading/types'
 
 const firstDefinedString = (...values: unknown[]): string | null => {
   for (const value of values) {

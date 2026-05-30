@@ -31,8 +31,7 @@ describe('Workflow Deploy API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/utils', () => ({
-      validateWorkflowPermissions: (...args: unknown[]) =>
-        mockValidateWorkflowPermissions(...args),
+      validateWorkflowPermissions: (...args: unknown[]) => mockValidateWorkflowPermissions(...args),
       hasWorkflowChanged: vi.fn().mockReturnValue(false),
     }))
 
@@ -46,12 +45,12 @@ describe('Workflow Deploy API Route', () => {
       removePublishedChatsForWorkflowTx: vi.fn(),
     }))
 
-    vi.doMock('@/app/api/indicator-monitors/reconcile', () => ({
-      notifyIndicatorMonitorsReconcile: vi.fn().mockResolvedValue(undefined),
+    vi.doMock('@/app/api/monitors/reconcile', () => ({
+      notifyMonitorsReconcile: vi.fn().mockResolvedValue(undefined),
     }))
 
-    vi.doMock('@/app/api/indicator-monitors/shared', () => ({
-      pauseMonitorsMissingDeployedIndicatorTrigger: vi.fn().mockResolvedValue(undefined),
+    vi.doMock('@/app/api/monitors/shared', () => ({
+      pauseMonitorsMissingDeployedTrigger: vi.fn().mockResolvedValue(undefined),
     }))
 
     vi.doMock('@/app/api/workflows/utils', () => ({

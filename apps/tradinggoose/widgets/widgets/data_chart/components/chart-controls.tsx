@@ -8,16 +8,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { cn } from '@/lib/utils'
-import type { MarketInterval } from '@/providers/market/types'
-import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
-import { IndicatorDropdown } from '@/widgets/widgets/components/pine-indicator-dropdown'
 import {
   widgetHeaderButtonGroupClassName,
   widgetHeaderIconButtonClassName,
   widgetHeaderMenuContentClassName,
   widgetHeaderMenuItemClassName,
-} from '@/widgets/widgets/components/widget-header-control'
+} from '@/components/widget-header-control'
+import { cn } from '@/lib/utils'
+import type { MarketInterval } from '@/providers/market/types'
+import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
+import { IndicatorDropdown } from '@/widgets/widgets/components/pine-indicator-dropdown'
 import { CANDLE_TYPE_OPTIONS } from '@/widgets/widgets/data_chart/options'
 import { formatIntervalLabel } from '@/widgets/widgets/data_chart/series-data'
 import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/types'

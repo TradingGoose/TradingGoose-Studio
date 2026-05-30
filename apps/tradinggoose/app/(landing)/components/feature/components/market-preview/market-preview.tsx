@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { executeBrowserPineIndicator } from '@/lib/indicators/browser-execution'
 import { buildInputsMapFromMeta } from '@/lib/indicators/input-meta'
 import { buildIndexMaps, mapMarketSeriesToBarsMs } from '@/lib/indicators/series-data'
@@ -16,7 +17,6 @@ import {
   emitDataChartParamsChange,
   useDataChartParamsPersistence,
 } from '@/widgets/utils/chart-params'
-import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
 import { DataChartCandleTypeDropdown } from '@/widgets/widgets/data_chart/components/chart-controls'
 import { ChartPaneOverlays } from '@/widgets/widgets/data_chart/components/chart-pane-overlays'
 import { DrawToolsSidebar } from '@/widgets/widgets/data_chart/components/draw-tools-sidebar'

@@ -43,7 +43,15 @@ describe('MonitorBoard interactions', () => {
       workflowName: 'Workflow One',
       workflowColor: '#3972F6',
       monitorId: 'monitor-1',
+
+      source: 'indicator',
+
       providerId: 'alpaca',
+
+      serviceId: null,
+
+      accountId: null,
+
       interval: '1m',
       indicatorId: 'rsi',
       assetType: 'stock',

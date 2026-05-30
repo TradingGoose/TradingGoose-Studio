@@ -10,25 +10,30 @@ import { TradingServiceError } from '@/lib/trading/errors'
 import {
   deepRedactSecrets,
   readOrderAccountId,
+  readOrderCredentialId,
   readOrderServiceId,
-  readOrderTokenAccountId,
 } from '@/lib/trading/order-records'
 import { executeTradingProviderOrderDetailRequest } from '@/providers/trading'
 import { TradingBrokerRequestError } from '@/providers/trading/portfolio-utils'
-import type { TradingOrderDetailInput, TradingOrderHistoryRecord } from '@/providers/trading/types'
+import type {
+  TradingOrderDetailInput,
+  TradingOrderDetailResult,
+  TradingOrderHistoryRecord,
+} from '@/providers/trading/types'
 
 export type TradingProviderOrderDetailResult = {
   appOrderId: string
   logId: string | null
   orderId: string
-  orderDetail: Record<string, any>
+  orderDetail: TradingOrderDetailResult['orderDetail']
   provider: string
   providerOrderId: string
-  providerDetail: {
-    providerOrderId: string
-    orderDetail: Record<string, any>
-  }
+  providerDetail: TradingOrderDetailResult
   workspaceId: string
+}
+
+export type TradingProviderOrderDetailResponse = {
+  data: TradingProviderOrderDetailResult
 }
 
 export async function getRecordedTradingOrderProviderDetail({
@@ -61,25 +66,26 @@ export async function getRecordedTradingOrderProviderDetail({
     throw new TradingServiceError('Tradier order history record is missing accountId')
   }
 
-  const tokenAccountId = readOrderTokenAccountId(order)
+  const credentialId = readOrderCredentialId(order)
   const serviceId = readOrderServiceId(order)
-  if (!tokenAccountId || !serviceId) {
+  if (!credentialId || !serviceId) {
     throw new TradingServiceError('Order history record is missing trading connection context')
   }
   const connectionAuthorization = await authorizeTradingConnectionRequest({
-    tokenAccountId,
+    credentialId,
     userId,
   })
 
   const baseContext = await resolveTradingProviderContext({
     requestData: {
       provider: order.provider,
-      tokenAccountId,
+      credentialId,
       serviceId,
     },
     requestId,
     userId,
     connectionOwnerUserId: connectionAuthorization.connectionOwnerUserId,
+    tokenAccountId: connectionAuthorization.tokenAccountId,
     accountProviderId: connectionAuthorization.accountProviderId,
   })
 
@@ -108,7 +114,9 @@ export async function getRecordedTradingOrderProviderDetail({
     appOrderId: order.id,
     logId: order.logId,
     orderId,
-    orderDetail: deepRedactSecrets(providerDetail.orderDetail) as Record<string, any>,
+    orderDetail: deepRedactSecrets(
+      providerDetail.orderDetail
+    ) as TradingProviderOrderDetailResult['orderDetail'],
     provider: order.provider,
     providerOrderId: providerDetail.providerOrderId,
     providerDetail: deepRedactSecrets(

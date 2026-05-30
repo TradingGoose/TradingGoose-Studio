@@ -4,6 +4,11 @@ import { useCallback, useMemo } from 'react'
 import { Ban, MessageCircle } from 'lucide-react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  widgetHeaderButtonGroupClassName,
+  widgetHeaderControlClassName,
+  widgetHeaderIconButtonClassName,
+} from '@/components/widget-header-control'
 import { useChatStore } from '@/stores/chat/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
@@ -11,15 +16,10 @@ import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-stat
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import {
-  widgetHeaderButtonGroupClassName,
-  widgetHeaderControlClassName,
-  widgetHeaderIconButtonClassName,
-} from '@/widgets/widgets/components/widget-header-control'
-import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
-import {
   emitWorkflowSelectionChange,
   useWorkflowSelectionPersistence,
 } from '@/widgets/utils/workflow-selection'
+import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
 import { OutputSelect } from './components'
 import WorkflowChatApp, { WorkflowChatSessionProviders } from './components/workflow-chat-app'
 
@@ -301,9 +301,7 @@ export const chatWidget: DashboardWidgetDefinition = {
             workspaceId={context?.workspaceId}
             channelId={channelId}
             fallbackWorkflowId={workflowIdParam}
-            triggerClassName={widgetHeaderControlClassName(
-              'flex items-center gap-1 min-w-[240px]'
-            )}
+            triggerClassName={widgetHeaderControlClassName('flex items-center gap-1 min-w-[240px]')}
           />
         </div>
       ),

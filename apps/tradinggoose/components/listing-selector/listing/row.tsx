@@ -56,6 +56,17 @@ export function getListingDisplayFallback(listing: ListingOption): string {
   return symbol.slice(0, 2).toUpperCase()
 }
 
+export function hasListingDisplayDetails(listing?: ListingOption | null): boolean {
+  if (!listing) return false
+
+  const base = listing.base?.trim()
+  if (!base) return false
+
+  if (listing.listing_type === 'default') return true
+
+  return Boolean(listing.quote?.trim())
+}
+
 export function getFlagData(
   countryCode?: string | null
 ): { emoji: string; codepoints: string } | null {
@@ -130,12 +141,12 @@ export function ListingDisplayRow({
         <img
           src={flagImageUrl}
           alt={`${listing?.countryCode ?? ''} flag`}
-          className='ml-1 h-3.5 w-3.5'
+          className='ml-1 h-3.5 w-3.5 ml-auto'
           loading='lazy'
         />
       ) : null}
       {assetClassLabel && listing ? (
-        <span className='ml-auto p-1 font-semibold text-muted-foreground text-xs'>
+        <span className='p-1 font-semibold text-muted-foreground text-xs'>
           {assetClassLabel}
         </span>
       ) : null}

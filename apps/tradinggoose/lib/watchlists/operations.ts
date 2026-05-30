@@ -757,6 +757,37 @@ export async function removeWatchlistItem(
   })
 }
 
+export async function removeListingFromWatchlist(
+  scope: WatchlistScope,
+  watchlistId: string,
+  listingInput: ListingIdentity
+): Promise<WatchlistRecord> {
+  const listing = toListingValueObject(listingInput)
+  if (!listing) {
+    throw new WatchlistOperationError('Invalid listing payload', 400)
+  }
+
+  return db.transaction(async (tx) => {
+    const row = await fetchWatchlistRow(tx, watchlistId, scope)
+    const { items } = await loadWatchlistRows(tx, row)
+    const target = items.find((item) => {
+      const identity = toListingValueObject(item.listing as ListingInputValue)
+      return identity ? areListingIdentitiesEqual(identity, listing) : false
+    })
+
+    if (!target) {
+      return mapRecordInTx(tx, row)
+    }
+
+    await tx
+      .delete(watchlistItem)
+      .where(and(eq(watchlistItem.id, target.id), eq(watchlistItem.watchlistId, row.id)))
+
+    const updated = await touchWatchlist(tx, row.id)
+    return mapRecordInTx(tx, updated)
+  })
+}
+
 export async function removeWatchlistSection(
   scope: WatchlistScope,
   watchlistId: string,

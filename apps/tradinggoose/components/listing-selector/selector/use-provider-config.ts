@@ -11,90 +11,68 @@ export type ProviderSearchConfig = {
   currencyQuoteCodes: string[]
 }
 
-export function useMarketProviderSearchConfig(providerId?: string): ProviderSearchConfig {
-  const providerConfig = useMemo(
-    () => (providerId ? getMarketProviderConfig(providerId) : null),
-    [providerId]
+type ProviderSearchConfigSource = {
+  availability?: {
+    assetClass?: readonly string[]
+    availableListingQuote?: readonly string[]
+    availableCurrencyQuote?: readonly string[]
+    availableCryptoQuote?: readonly string[]
+  }
+  exchangeCodeToMarket?: Record<string, string>
+}
+
+const EMPTY_PROVIDER_SEARCH_CONFIG: ProviderSearchConfig = {
+  assetClasses: [],
+  marketCodes: [],
+  listingQuoteCodes: [],
+  cryptoQuoteCodes: [],
+  currencyQuoteCodes: [],
+}
+
+const toProviderSearchConfig = (
+  providerConfig: ProviderSearchConfigSource | null | undefined
+): ProviderSearchConfig => {
+  const availability = providerConfig?.availability
+  return {
+    assetClasses: uniqueStrings(availability?.assetClass ?? []),
+    marketCodes: uniqueStrings(Object.values(providerConfig?.exchangeCodeToMarket ?? {})),
+    listingQuoteCodes: uniqueStrings(availability?.availableListingQuote ?? []),
+    cryptoQuoteCodes: uniqueStrings(availability?.availableCryptoQuote ?? []),
+    currencyQuoteCodes: uniqueStrings(availability?.availableCurrencyQuote ?? []),
+  }
+}
+
+const combineValues = (left: string[], right: string[]): string[] => {
+  if (!left.length) return right
+  if (!right.length) return left
+  const rightValues = new Set(right)
+  return left.filter((value) => rightValues.has(value))
+}
+
+export const combineProviderSearchConfigs = (
+  configs: ProviderSearchConfig[]
+): ProviderSearchConfig =>
+  configs.reduce(
+    (combined, config) => ({
+      assetClasses: combineValues(combined.assetClasses, config.assetClasses),
+      marketCodes: combineValues(combined.marketCodes, config.marketCodes),
+      listingQuoteCodes: combineValues(combined.listingQuoteCodes, config.listingQuoteCodes),
+      cryptoQuoteCodes: combineValues(combined.cryptoQuoteCodes, config.cryptoQuoteCodes),
+      currencyQuoteCodes: combineValues(combined.currencyQuoteCodes, config.currencyQuoteCodes),
+    }),
+    EMPTY_PROVIDER_SEARCH_CONFIG
   )
 
-  const assetClasses = useMemo(() => {
-    const values = providerConfig?.availability.assetClass ?? []
-    return uniqueStrings(values)
-  }, [providerConfig])
-
-  const listingQuoteCodes = useMemo(() => {
-    const availability = providerConfig?.availability
-    return uniqueStrings(availability?.availableListingQuote ?? [])
-  }, [providerConfig])
-
-  const currencyQuoteCodes = useMemo(() => {
-    const availability = providerConfig?.availability
-    return uniqueStrings(availability?.availableCurrencyQuote ?? [])
-  }, [providerConfig])
-
-  const cryptoQuoteCodes = useMemo(() => {
-    const availability = providerConfig?.availability
-    return uniqueStrings(availability?.availableCryptoQuote ?? [])
-  }, [providerConfig])
-
-  const marketCodes = useMemo(() => {
-    const map = providerConfig?.exchangeCodeToMarket ?? {}
-    const codes = Object.values(map)
-    return uniqueStrings(codes)
-  }, [providerConfig])
-
+export function useMarketProviderSearchConfig(providerId?: string): ProviderSearchConfig {
   return useMemo(
-    () => ({
-      assetClasses,
-      marketCodes,
-      listingQuoteCodes,
-      cryptoQuoteCodes,
-      currencyQuoteCodes,
-    }),
-    [assetClasses, marketCodes, listingQuoteCodes, cryptoQuoteCodes, currencyQuoteCodes]
+    () => toProviderSearchConfig(providerId ? getMarketProviderConfig(providerId) : null),
+    [providerId]
   )
 }
 
 export function useTradingProviderSearchConfig(providerId?: string): ProviderSearchConfig {
-  const providerConfig = useMemo(
-    () => (providerId ? getTradingProviderConfig(providerId) : null),
-    [providerId]
-  )
-
-  const assetClasses = useMemo(() => {
-    const values = providerConfig?.availability.assetClass ?? []
-    return uniqueStrings(values)
-  }, [providerConfig])
-
-  const listingQuoteCodes = useMemo(() => {
-    const availability = providerConfig?.availability
-    return uniqueStrings(availability?.availableListingQuote ?? [])
-  }, [providerConfig])
-
-  const currencyQuoteCodes = useMemo(() => {
-    const availability = providerConfig?.availability
-    return uniqueStrings(availability?.availableCurrencyQuote ?? [])
-  }, [providerConfig])
-
-  const cryptoQuoteCodes = useMemo(() => {
-    const availability = providerConfig?.availability
-    return uniqueStrings(availability?.availableCryptoQuote ?? [])
-  }, [providerConfig])
-
-  const marketCodes = useMemo(() => {
-    const map = providerConfig?.exchangeCodeToMarket ?? {}
-    const codes = Object.values(map)
-    return uniqueStrings(codes)
-  }, [providerConfig])
-
   return useMemo(
-    () => ({
-      assetClasses,
-      marketCodes,
-      listingQuoteCodes,
-      cryptoQuoteCodes,
-      currencyQuoteCodes,
-    }),
-    [assetClasses, marketCodes, listingQuoteCodes, cryptoQuoteCodes, currencyQuoteCodes]
+    () => toProviderSearchConfig(providerId ? getTradingProviderConfig(providerId) : null),
+    [providerId]
   )
 }

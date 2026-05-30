@@ -12,18 +12,25 @@ export type MarketListingSearchRequest = {
 
 export function buildMarketSearchRequest(args: {
   rawQuery: string
-  providerId?: string
-  providerType?: 'market' | 'trading'
   providerConfig: ProviderSearchConfig
 }): MarketListingSearchRequest {
-  const { rawQuery, providerId, providerType = 'market', providerConfig } = args
+  const { rawQuery, providerConfig } = args
   const trimmed = rawQuery.trim()
 
   const queryParams: Record<string, string> = {}
-  const filtersPayload: Record<string, unknown> = {
-    limit: 50,
-  }
+  const filtersPayload: Record<string, unknown> = {}
   const parsedQuery: ParsedMarketQuery = trimmed ? parseCategorizedSearchQuery(trimmed) : {}
+  if (
+    parsedQuery.assetClass &&
+    providerConfig.assetClasses.length &&
+    !providerConfig.assetClasses.includes(parsedQuery.assetClass)
+  ) {
+    return {
+      queryParams,
+      requestKey: JSON.stringify(queryParams),
+    }
+  }
+
   const resolvedAssetClasses = parsedQuery.assetClass
     ? [parsedQuery.assetClass]
     : providerConfig.assetClasses.length
@@ -67,23 +74,9 @@ export function buildMarketSearchRequest(args: {
   if (parsedQuery.region) {
     filtersPayload.region = [parsedQuery.region]
   }
-  if (Object.keys(filtersPayload).length > 0) {
-    queryParams.filters = JSON.stringify(filtersPayload)
+  if (Object.keys(queryParams).length > 0 || Object.keys(filtersPayload).length > 0) {
+    queryParams.filters = JSON.stringify({ limit: 50, ...filtersPayload })
   }
 
-  const requestKey = JSON.stringify({
-    trimmed,
-    rawQuery,
-    providerId,
-    providerType,
-    assetClasses: resolvedAssetClasses,
-    marketCodes: resolvedMarketCodes,
-    listingQuoteCodes: providerConfig.listingQuoteCodes,
-    cryptoQuoteCodes: providerConfig.cryptoQuoteCodes,
-    currencyQuoteCodes: providerConfig.currencyQuoteCodes,
-    parsedQuery,
-    filters: filtersPayload,
-  })
-
-  return { queryParams, requestKey }
+  return { queryParams, requestKey: JSON.stringify(queryParams) }
 }

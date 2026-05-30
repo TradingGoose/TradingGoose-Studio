@@ -7,16 +7,16 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  createIndicatorMonitor,
+  createMonitorRecord,
   createMonitorView,
-  deleteIndicatorMonitor,
+  deleteMonitorRecord,
   loadIndicatorOptions,
   loadMonitors,
   loadWorkflowOptions,
   loadWorkflowTargetOptions,
   removeMonitorView,
   setActiveMonitorView,
-  updateIndicatorMonitor,
+  updateMonitorRecord,
   updateMonitorView,
 } from '@/app/workspace/[workspaceId]/monitor/components/data/api'
 import { bootstrapMonitorViews } from '@/app/workspace/[workspaceId]/monitor/components/view/view-bootstrap'
@@ -259,10 +259,17 @@ vi.mock('@/hooks/queries/logs', async (importOriginal) => {
   }
 })
 
+vi.mock('@/hooks/queries/oauth-provider-availability', () => ({
+  fetchOAuthProviderAvailability: vi.fn().mockResolvedValue({
+    'alpaca-paper': true,
+    'tradier-live': false,
+  }),
+}))
+
 vi.mock('@/app/workspace/[workspaceId]/monitor/components/data/api', () => ({
   createMonitorView: vi.fn(),
-  createIndicatorMonitor: vi.fn(),
-  deleteIndicatorMonitor: vi.fn(),
+  createMonitorRecord: vi.fn(),
+  deleteMonitorRecord: vi.fn(),
   listMonitorViews: vi.fn(),
   loadIndicatorOptions: vi.fn().mockResolvedValue([]),
   loadMonitors: vi.fn().mockResolvedValue([]),
@@ -271,7 +278,7 @@ vi.mock('@/app/workspace/[workspaceId]/monitor/components/data/api', () => ({
   removeMonitorView: vi.fn(),
   reorderMonitorViews: vi.fn(),
   setActiveMonitorView: vi.fn(),
-  updateIndicatorMonitor: vi.fn(),
+  updateMonitorRecord: vi.fn(),
   updateMonitorView: vi.fn(),
 }))
 
@@ -280,15 +287,15 @@ vi.mock('@/app/workspace/[workspaceId]/monitor/components/view/view-bootstrap', 
 }))
 
 const mockedBootstrapMonitorViews = vi.mocked(bootstrapMonitorViews)
-const mockedCreateIndicatorMonitor = vi.mocked(createIndicatorMonitor)
+const mockedCreateMonitorRecord = vi.mocked(createMonitorRecord)
 const mockedCreateMonitorView = vi.mocked(createMonitorView)
-const mockedDeleteIndicatorMonitor = vi.mocked(deleteIndicatorMonitor)
+const mockedDeleteMonitorRecord = vi.mocked(deleteMonitorRecord)
 const mockedLoadIndicatorOptions = vi.mocked(loadIndicatorOptions)
 const mockedLoadMonitors = vi.mocked(loadMonitors)
 const mockedLoadWorkflowOptions = vi.mocked(loadWorkflowOptions)
 const mockedLoadWorkflowTargetOptions = vi.mocked(loadWorkflowTargetOptions)
 const mockedUpdateMonitorView = vi.mocked(updateMonitorView)
-const mockedUpdateIndicatorMonitor = vi.mocked(updateIndicatorMonitor)
+const mockedUpdateMonitorRecord = vi.mocked(updateMonitorRecord)
 const mockedRemoveMonitorView = vi.mocked(removeMonitorView)
 const mockedSetActiveMonitorView = vi.mocked(setActiveMonitorView)
 
@@ -315,6 +322,7 @@ const buildViewRow = ({
 
 const buildMonitorRow = (monitorId: string) => ({
   monitorId,
+  source: 'indicator' as const,
   workflowId: 'workflow-1',
   blockId: 'block-1',
   isActive: true,
@@ -384,9 +392,9 @@ describe('MonitorPage', () => {
         config: { ...DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG, layout: 'timeline' },
       })
     )
-    mockedCreateIndicatorMonitor.mockResolvedValue(buildMonitorRow('monitor-created') as any)
-    mockedUpdateIndicatorMonitor.mockResolvedValue(buildMonitorRow('monitor-1') as any)
-    mockedDeleteIndicatorMonitor.mockResolvedValue(undefined)
+    mockedCreateMonitorRecord.mockResolvedValue(buildMonitorRow('monitor-created') as any)
+    mockedUpdateMonitorRecord.mockResolvedValue(buildMonitorRow('monitor-1') as any)
+    mockedDeleteMonitorRecord.mockResolvedValue(undefined)
     mockedLoadMonitors.mockResolvedValue([])
     mockedLoadWorkflowOptions.mockResolvedValue([])
     mockedUpdateMonitorView.mockImplementation(async (_workspaceId, viewId, input) =>
@@ -705,7 +713,7 @@ describe('MonitorPage', () => {
     const url = new URL(anchor?.href ?? '', 'http://localhost')
 
     expect(url.searchParams.get('workspaceId')).toBe('workspace-1')
-    expect(url.searchParams.get('triggerSource')).toBe('indicator_trigger')
+    expect(url.searchParams.get('triggerSource')).toBe('indicator_trigger,portfolio_state_trigger')
     expect(url.searchParams.get('workflowName')).toBe('Workflow One')
     expect(url.searchParams.get('providerId')).toBe('alpaca')
     expect(url.searchParams.has('search')).toBe(false)
@@ -1010,6 +1018,8 @@ describe('MonitorPage', () => {
     ])
     mockedLoadWorkflowTargetOptions.mockResolvedValueOnce([
       {
+        source: 'indicator',
+        triggerId: 'indicator_trigger',
         workflowId: 'workflow-1',
         blockId: 'block-1',
         workflowName: 'Workflow One',
@@ -1112,7 +1122,7 @@ describe('MonitorPage', () => {
 
     await click('config')
     await click('Create monitor')
-    expect(mockedCreateIndicatorMonitor).toHaveBeenCalledWith(
+    expect(mockedCreateMonitorRecord).toHaveBeenCalledWith(
       expect.objectContaining({
         workspaceId: 'workspace-1',
         workflowId: 'workflow-1',
@@ -1120,7 +1130,7 @@ describe('MonitorPage', () => {
     )
 
     await click('Toggle monitor')
-    expect(mockedUpdateIndicatorMonitor).toHaveBeenCalledWith(
+    expect(mockedUpdateMonitorRecord).toHaveBeenCalledWith(
       'monitor-1',
       expect.objectContaining({
         workspaceId: 'workspace-1',
@@ -1129,7 +1139,7 @@ describe('MonitorPage', () => {
     )
 
     await click('Delete monitor')
-    expect(mockedDeleteIndicatorMonitor).toHaveBeenCalledWith('monitor-1')
+    expect(mockedDeleteMonitorRecord).toHaveBeenCalledWith('monitor-1')
   })
 
   it('refreshes the full monitor workspace from the page shell', async () => {

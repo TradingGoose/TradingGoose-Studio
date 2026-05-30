@@ -1,14 +1,15 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { getSession } from '@/lib/auth'
+import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import {
   addListingToWatchlist,
   addSectionToWatchlist,
-  renameWatchlistSection,
+  removeListingFromWatchlist,
   removeWatchlistItem,
   removeWatchlistSection,
+  renameWatchlistSection,
   updateWatchlistItemListing,
   WatchlistOperationError,
 } from '@/lib/watchlists/operations'
@@ -23,6 +24,7 @@ const WatchlistItemsSchema = z.object({
     'addSection',
     'renameSection',
     'removeItem',
+    'removeListing',
     'removeSection',
   ]),
   listing: z
@@ -39,12 +41,12 @@ const WatchlistItemsSchema = z.object({
   sectionId: z.string().trim().min(1).optional(),
 })
 
-const requireSessionUser = async () => {
-  const session = await getSession()
-  if (!session?.user?.id) {
-    throw new WatchlistOperationError('Unauthorized', 401)
+const requireSessionUser = async (request: NextRequest) => {
+  const auth = await checkSessionOrInternalAuth(request, { requireWorkflowId: false })
+  if (!auth.success || !auth.userId) {
+    throw new WatchlistOperationError(auth.error || 'Unauthorized', 401)
   }
-  return session.user.id
+  return auth.userId
 }
 
 const requireWorkspacePermission = async (userId: string, workspaceId: string) => {
@@ -76,7 +78,7 @@ export async function POST(
   { params }: { params: Promise<{ watchlistId: string }> }
 ) {
   try {
-    const userId = await requireSessionUser()
+    const userId = await requireSessionUser(request)
     const { watchlistId } = await params
     const parsed = WatchlistItemsSchema.parse(await request.json())
     await requireWorkspacePermission(userId, parsed.workspaceId)
@@ -125,7 +127,12 @@ export async function POST(
       if (!parsed.label) {
         return NextResponse.json({ error: 'label is required' }, { status: 400 })
       }
-      const watchlist = await renameWatchlistSection(scope, watchlistId, parsed.sectionId, parsed.label)
+      const watchlist = await renameWatchlistSection(
+        scope,
+        watchlistId,
+        parsed.sectionId,
+        parsed.label
+      )
       return NextResponse.json({ watchlist }, { status: 200 })
     }
 
@@ -134,6 +141,14 @@ export async function POST(
         return NextResponse.json({ error: 'sectionId is required' }, { status: 400 })
       }
       const watchlist = await removeWatchlistSection(scope, watchlistId, parsed.sectionId)
+      return NextResponse.json({ watchlist }, { status: 200 })
+    }
+
+    if (parsed.action === 'removeListing') {
+      if (!parsed.listing) {
+        return NextResponse.json({ error: 'listing is required' }, { status: 400 })
+      }
+      const watchlist = await removeListingFromWatchlist(scope, watchlistId, parsed.listing)
       return NextResponse.json({ watchlist }, { status: 200 })
     }
 

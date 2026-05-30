@@ -197,7 +197,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   list_monitors: {
     description:
-      'List indicator monitors in the current workspace, optionally filtered by workflow or block.',
+      'List monitors in the current workspace, optionally filtered by workflow or block.',
     kind: 'list',
     surfaceKind: 'monitor',
   },

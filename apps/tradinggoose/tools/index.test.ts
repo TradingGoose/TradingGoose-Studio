@@ -729,7 +729,7 @@ describe('Automatic Internal Route Detection', () => {
         resourceId: { type: 'string', required: true },
       },
       request: {
-        url: (params: any) => `/api/resources/${params.resourceId}`,
+        url: (params: any) => `/api/resources/${params.resourceId}?filter=active`,
         method: 'GET',
         headers: () => ({ 'Content-Type': 'application/json' }),
       },
@@ -746,8 +746,10 @@ describe('Automatic Internal Route Detection', () => {
     // Mock fetch for the internal API call
     global.fetch = Object.assign(
       vi.fn().mockImplementation(async (url) => {
-        // Should call the internal API directly with the resolved dynamic URL
-        expect(url).toBe('http://localhost:3000/api/resources/123')
+        // Dynamic internal URLs use the same centralized context query handling as static URLs.
+        expect(url).toBe(
+          'http://localhost:3000/api/resources/123?filter=active&workspaceId=workspace-1'
+        )
         const responseData = { success: true, data: 'test' }
         return {
           ok: true,
@@ -762,7 +764,11 @@ describe('Automatic Internal Route Detection', () => {
       { preconnect: vi.fn() }
     ) as typeof fetch
 
-    const result = await executeTool('test_dynamic_internal', { resourceId: '123' }, false)
+    const result = await executeTool(
+      'test_dynamic_internal',
+      { resourceId: '123', _context: { workspaceId: 'workspace-1' } },
+      false
+    )
 
     expect(result.success).toBe(true)
     expect(result.output.result).toBe('Dynamic internal route success')

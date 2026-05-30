@@ -4,8 +4,8 @@ import {
   fetchBrokerJson,
   toFiniteNumber,
 } from '@/providers/trading/portfolio-utils'
-import { tradierTradingProviderConfig } from '@/providers/trading/tradier/config'
 import { buildTradierAuthHeaders, resolveTradierBaseUrl } from '@/providers/trading/tradier/client'
+import { tradierTradingProviderConfig } from '@/providers/trading/tradier/config'
 import type {
   TradingPortfolioAccountContext,
   TradingPortfolioPerformanceWindow,
@@ -14,7 +14,7 @@ import type {
 } from '@/providers/trading/types'
 
 const getTradierSupportedPerformanceWindows = () =>
-  tradierTradingProviderConfig.capabilities?.holdings?.performanceWindows ?? []
+  tradierTradingProviderConfig.capabilities?.portfolioDetail?.performanceWindows ?? []
 
 type TradierTradingPortfolioPerformanceWindow = Exclude<
   TradingPortfolioPerformanceWindow,

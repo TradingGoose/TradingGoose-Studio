@@ -1,3 +1,4 @@
+import { toListingValueObject } from '@/lib/listing/identity'
 import { resolveTradingListingIdentity } from '@/providers/trading/listing-resolution'
 import type {
   PortfolioDetail,
@@ -14,15 +15,14 @@ import type {
 const resolvePortfolioPositions = async (positions: UnifiedTradingPosition[]) =>
   Promise.all(
     positions.map(async (position) => {
-      const listing = await resolveTradingListingIdentity(position.symbol)
-      if (!listing) return position
+      const listingIdentity = toListingValueObject(position.listingIdentity)
+      const resolvedListingIdentity = listingIdentity
+        ? await resolveTradingListingIdentity({ listing: listingIdentity })
+        : null
 
       return {
         ...position,
-        symbol: {
-          ...position.symbol,
-          listing,
-        },
+        listingIdentity: resolvedListingIdentity ?? listingIdentity,
       }
     })
   )
