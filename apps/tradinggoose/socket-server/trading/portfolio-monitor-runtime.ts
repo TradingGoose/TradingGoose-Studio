@@ -77,6 +77,7 @@ type PortfolioMonitorRuntimeConfig = {
 
 type PortfolioMonitorSubscription = {
   config: PortfolioMonitorRuntimeConfig
+  previousSnapshot?: PortfolioConditionSnapshot
   unsubscribe: () => void
 }
 
@@ -413,32 +414,34 @@ export class PortfolioMonitorRuntime {
       summary: currentDetail.summary,
       positions: currentDetail.positions,
     }
-    const previousSnapshot = config.runtimeState?.previousSnapshot as
-      | PortfolioConditionSnapshot
-      | undefined
-    const previousWasTrue = config.runtimeState?.wasTrue
+    const previousSnapshot = subscription.previousSnapshot
+    const previousWasTrue = config.runtimeState?.wasTrue === true
     const previousLastFiredAt = config.runtimeState?.lastFiredAt
     const conditionMatched = evaluatePortfolioFireCondition({
       condition: config.condition,
       current: currentSnapshot,
       previous: previousSnapshot,
     })
-    const crossedEdge = conditionMatched && previousWasTrue !== true
+    const crossedEdge = conditionMatched && !previousWasTrue
     const shouldFire =
       conditionMatched &&
       (config.fireMode === 'while_true' || crossedEdge) &&
       isCooldownOpen(previousLastFiredAt, config.cooldownSeconds)
     const evaluatedAt = new Date().toISOString()
     const evaluatedState: PortfolioMonitorProviderConfig['runtimeState'] = {
-      lastEvaluatedAt: evaluatedAt,
       lastFiredAt: previousLastFiredAt,
       wasTrue: conditionMatched,
-      previousSnapshot: currentSnapshot,
     }
 
     if (!shouldFire) {
-      if (await this.updateRuntimeState(config, evaluatedState)) {
+      if (previousWasTrue !== conditionMatched) {
+        if (await this.updateRuntimeState(config, evaluatedState)) {
+          config.runtimeState = evaluatedState
+          subscription.previousSnapshot = currentSnapshot
+        }
+      } else {
         config.runtimeState = evaluatedState
+        subscription.previousSnapshot = currentSnapshot
       }
       return
     }
@@ -509,6 +512,7 @@ export class PortfolioMonitorRuntime {
     }
     if (await this.updateRuntimeState(config, firedState)) {
       config.runtimeState = firedState
+      subscription.previousSnapshot = currentSnapshot
     }
   }
 
