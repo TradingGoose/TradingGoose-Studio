@@ -114,8 +114,9 @@ export const PortfolioMonitorProviderConfigSchema = z
         lastFiredAt: z.string().optional(),
         wasTrue: z.boolean().optional(),
       })
-      .strict()
-      .optional(),
+      .strip()
+      .optional()
+      .catch(undefined),
   })
   .strict()
 
