@@ -5,6 +5,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import {
   createWatchlist,
+  getWatchlist,
   listWatchlists,
   WatchlistOperationError,
 } from '@/lib/watchlists/operations'
@@ -62,6 +63,12 @@ export async function GET(request: NextRequest) {
     }
 
     await requireWorkspacePermission(userId, workspaceId)
+
+    const watchlistId = request.nextUrl.searchParams.get('watchlistId')?.trim()
+    if (watchlistId) {
+      const watchlist = await getWatchlist({ workspaceId, userId }, watchlistId)
+      return NextResponse.json({ watchlist }, { status: 200 })
+    }
 
     const watchlists = await listWatchlists({
       workspaceId,
