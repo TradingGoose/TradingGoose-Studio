@@ -44,8 +44,10 @@ describe('useMarketListingSearch', () => {
     vi.useRealTimers()
   })
 
-  it('does not search a blank open selector without query or provider criteria', async () => {
+  it('searches a blank open selector without query or provider criteria', async () => {
     const updateInstance = vi.fn()
+
+    fetchListingsMock.mockResolvedValue([])
 
     await act(async () => {
       root.render(
@@ -60,13 +62,13 @@ describe('useMarketListingSearch', () => {
       await Promise.resolve()
     })
 
-    expect(fetchListingsMock).not.toHaveBeenCalled()
-
-    expect(updateInstance).toHaveBeenCalledWith('test-selector', {
-      results: [],
-      isLoading: false,
-      error: undefined,
-    })
+    expect(fetchListingsMock).toHaveBeenCalledTimes(1)
+    expect(fetchListingsMock).toHaveBeenCalledWith(
+      {
+        filters: JSON.stringify({ limit: 50 }),
+      },
+      expect.any(AbortSignal)
+    )
   })
 
   it('searches a blank open selector with combined market and trading provider criteria', async () => {
@@ -156,7 +158,7 @@ describe('useMarketListingSearch', () => {
       await Promise.resolve()
     })
 
-    expect(fetchListingsMock).not.toHaveBeenCalled()
+    expect(fetchListingsMock).toHaveBeenCalledTimes(1)
 
     fetchListingsMock.mockClear()
     updateInstance.mockClear()

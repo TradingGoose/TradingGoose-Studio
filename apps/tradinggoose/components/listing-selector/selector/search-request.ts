@@ -74,9 +74,7 @@ export function buildMarketSearchRequest(args: {
   if (parsedQuery.region) {
     filtersPayload.region = [parsedQuery.region]
   }
-  if (Object.keys(queryParams).length > 0 || Object.keys(filtersPayload).length > 0) {
-    queryParams.filters = JSON.stringify({ limit: 50, ...filtersPayload })
-  }
+  queryParams.filters = JSON.stringify({ limit: 50, ...filtersPayload })
 
   return { queryParams, requestKey: JSON.stringify(queryParams) }
 }

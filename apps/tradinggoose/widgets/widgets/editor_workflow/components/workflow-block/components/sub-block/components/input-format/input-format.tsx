@@ -20,10 +20,11 @@ import {
 } from '@/components/ui/select'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { Textarea } from '@/components/ui/textarea'
-import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
+import { LISTING_IDENTITY_VALUE_TYPE, type ListingInputValue } from '@/lib/listing/identity'
 import { cn } from '@/lib/utils'
 import type { WorkflowFieldType } from '@/lib/workflows/value-types'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
+import { ListingSelectorInput } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/listing-selector/listing-selector'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
@@ -33,7 +34,7 @@ interface Field {
   id: string
   name: string
   type?: FieldType
-  value?: string
+  value?: unknown
   collapsed?: boolean
 }
 
@@ -62,6 +63,9 @@ const DEFAULT_FIELD: Field = {
   value: '',
   collapsed: false,
 }
+
+const stringifyFieldValue = (value: unknown): string =>
+  typeof value === 'string' ? value : value == null ? '' : (JSON.stringify(value, null, 2) ?? '')
 
 export function FieldFormat({
   blockId,
@@ -133,7 +137,7 @@ export function FieldFormat({
     const initial: Record<string, string> = {}
     ;(fields || []).forEach((f) => {
       if (localValues[f.id] === undefined) {
-        initial[f.id] = (f.value as string) || ''
+        initial[f.id] = stringifyFieldValue(f.value)
       }
     })
     if (Object.keys(initial).length > 0) {
@@ -201,7 +205,7 @@ export function FieldFormat({
 
     if (input) {
       const currentValue =
-        localValues[fieldId] ?? (fields.find((f) => f.id === fieldId)?.value as string) ?? ''
+        localValues[fieldId] ?? stringifyFieldValue(fields.find((f) => f.id === fieldId)?.value)
       const dropPosition = (input as any).selectionStart ?? currentValue.length
       const newValue = `${currentValue.slice(0, dropPosition)}<${currentValue.slice(dropPosition)}`
       setLocalValues((prev) => ({ ...prev, [fieldId]: newValue }))
@@ -439,7 +443,7 @@ export function FieldFormat({
                       <div className='relative'>
                         {field.type === 'boolean' ? (
                           <Select
-                            value={localValues[field.id] ?? (field.value as string) ?? ''}
+                            value={localValues[field.id] ?? stringifyFieldValue(field.value)}
                             onValueChange={(v) => {
                               setLocalValues((prev) => ({ ...prev, [field.id]: v }))
                               if (!isPreview && !disabled) updateField(field.id, 'value', v)
@@ -453,15 +457,21 @@ export function FieldFormat({
                               <SelectItem value='false'>{copy.falseValue}</SelectItem>
                             </SelectContent>
                           </Select>
-                        ) : field.type === 'object' ||
-                          field.type === 'array' ||
-                          field.type === LISTING_IDENTITY_VALUE_TYPE ? (
+                        ) : field.type === LISTING_IDENTITY_VALUE_TYPE ? (
+                          <ListingSelectorInput
+                            blockId={blockId}
+                            subBlockId={`${subBlockId}-${field.id}`}
+                            value={field.value as ListingInputValue}
+                            disabled={isPreview || disabled}
+                            onChange={(value) => updateField(field.id, 'value', value)}
+                          />
+                        ) : field.type === 'object' || field.type === 'array' ? (
                           <Textarea
                             ref={(el) => {
                               if (el) valueInputRefs.current[field.id] = el
                             }}
                             name='value'
-                            value={localValues[field.id] ?? (field.value as string) ?? ''}
+                            value={localValues[field.id] ?? stringifyFieldValue(field.value)}
                             onChange={(e) =>
                               handleValueInputChange(
                                 field.id,
@@ -498,7 +508,7 @@ export function FieldFormat({
                                 if (el) valueInputRefs.current[field.id] = el
                               }}
                               name='value'
-                              value={localValues[field.id] ?? field.value ?? ''}
+                              value={localValues[field.id] ?? stringifyFieldValue(field.value)}
                               onChange={(e) =>
                                 handleValueInputChange(
                                   field.id,
@@ -535,7 +545,7 @@ export function FieldFormat({
                                 style={{ scrollbarWidth: 'none', minWidth: 'fit-content' }}
                               >
                                 {formatDisplayText(
-                                  (localValues[field.id] ?? field.value ?? '')?.toString(),
+                                  localValues[field.id] ?? stringifyFieldValue(field.value),
                                   accessiblePrefixes
                                     ? { accessiblePrefixes }
                                     : { highlightAll: true }
@@ -555,7 +565,7 @@ export function FieldFormat({
                           }}
                           blockId={blockId}
                           activeSourceBlockId={activeSourceBlockId}
-                          inputValue={localValues[field.id] ?? (field.value as string) ?? ''}
+                          inputValue={localValues[field.id] ?? stringifyFieldValue(field.value)}
                           cursorPosition={cursorPosition}
                           onClose={() => setShowTags(false)}
                         />

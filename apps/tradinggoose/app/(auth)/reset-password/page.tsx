@@ -1,21 +1,18 @@
 'use client'
 
 import { Suspense, useEffect, useState } from 'react'
-import { useLocale } from 'next-intl'
 import { useSearchParams } from 'next/navigation'
 import { createLogger } from '@/lib/logs/console/logger'
-import { Link, useRouter } from '@/i18n/navigation'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { SetNewPasswordForm } from '@/app/(auth)/reset-password/reset-password-form'
-import { useAppMessages } from '@/i18n/client-messages'
-import { localizeHref, type LocaleCode } from '@/i18n/utils'
 import { inter } from '@/app/fonts/inter'
+import { useAppMessages } from '@/i18n/client-messages'
+import { Link, useRouter } from '@/i18n/navigation'
 
 const logger = createLogger('ResetPasswordPage')
 
 function ResetPasswordContent() {
   const router = useRouter()
-  const locale = useLocale() as LocaleCode
   const copy = useAppMessages()
   const resetCopy = copy.auth.resetPassword
   const searchParams = useSearchParams()
@@ -66,7 +63,7 @@ function ResetPasswordContent() {
       })
 
       setTimeout(() => {
-        router.push(localizeHref(locale, '/login?resetSuccess=true'))
+        router.push('/login?resetSuccess=true')
       }, 1500)
     } catch (error) {
       logger.error('Error resetting password:', { error })
@@ -110,7 +107,6 @@ function ResetPasswordContent() {
 }
 
 function ResetPasswordLoadingFallback() {
-  const locale = useLocale() as LocaleCode
   const copy = useAppMessages()
 
   return <div className='flex h-screen items-center justify-center'>{copy.auth.common.loading}</div>
