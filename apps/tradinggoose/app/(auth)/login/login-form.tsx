@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
-import { useLocale } from 'next-intl'
 import { useSearchParams } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -14,23 +14,23 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { client } from '@/lib/auth-client'
-import { handleAuthError } from '@/lib/auth/auth-error-handler'
 import { normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
+import { handleAuthError } from '@/lib/auth/auth-error-handler'
+import { client } from '@/lib/auth-client'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getAuthRegistrationHref, type RegistrationMode } from '@/lib/registration/shared'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { cn } from '@/lib/utils'
-import { Link, useRouter } from '@/i18n/navigation'
-import { useAppMessages } from '@/i18n/client-messages'
-import { localizeHref, localizePathname, normalizeCallbackUrl, type LocaleCode } from '@/i18n/utils'
-import { SocialLoginButtons } from '@/app/(auth)/components/social-login-buttons'
-import { SSOLoginButton } from '@/app/(auth)/components/sso-login-button'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { AuthWaitlistNote } from '@/app/(auth)/components/auth-waitlist-note'
+import { SocialLoginButtons } from '@/app/(auth)/components/social-login-buttons'
+import { SSOLoginButton } from '@/app/(auth)/components/sso-login-button'
 import { inter } from '@/app/fonts/inter'
+import { useAppMessages } from '@/i18n/client-messages'
+import { Link, useRouter } from '@/i18n/navigation'
+import { type LocaleCode, localizeHref, localizePathname, normalizeCallbackUrl } from '@/i18n/utils'
 
 const logger = createLogger('LoginForm')
 
@@ -183,6 +183,75 @@ export default function LoginPage({
     setShowValidationError(false)
   }
 
+  const resolveLoginErrorMessage = (error: any) => {
+    const rawMessage =
+      error?.message ??
+      error?.response?.statusText ??
+      error?.response?.data?.error ??
+      error?.response?.data?.message
+    const message = typeof rawMessage === 'string' && rawMessage.trim() ? rawMessage.trim() : null
+    const authErrorCode =
+      normalizeAuthErrorCode(error?.code) ??
+      normalizeAuthErrorCode(message) ??
+      normalizeAuthErrorCode(error?.error)
+    const searchable = [authErrorCode, message, error?.code, error?.error]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+
+    if (authErrorCode?.includes('EMAIL_NOT_VERIFIED')) {
+      return null
+    }
+    if (
+      authErrorCode === 'EMAIL_AND_PASSWORD_SIGN_IN_IS_NOT_ENABLED' ||
+      authErrorCode === 'BAD_REQUEST' ||
+      searchable.includes('email and password sign in is not enabled')
+    ) {
+      return loginCopy.errors.emailSignInDisabled
+    }
+    if (
+      authErrorCode === 'INVALID_CREDENTIALS' ||
+      authErrorCode === 'INVALID_PASSWORD' ||
+      searchable.includes('invalid password')
+    ) {
+      return loginCopy.errors.invalidCredentials
+    }
+    if (
+      authErrorCode === 'USER_NOT_FOUND' ||
+      authErrorCode === 'NOT_FOUND' ||
+      searchable.includes('not found')
+    ) {
+      return loginCopy.errors.noAccount
+    }
+    if (authErrorCode === 'MISSING_CREDENTIALS') {
+      return loginCopy.errors.missingCredentials
+    }
+    if (authErrorCode === 'EMAIL_PASSWORD_DISABLED') {
+      return loginCopy.errors.emailPasswordDisabled
+    }
+    if (authErrorCode === 'FAILED_TO_CREATE_SESSION') {
+      return loginCopy.errors.failedToCreateSession
+    }
+    if (authErrorCode === 'TOO_MANY_ATTEMPTS' || searchable.includes('too many attempts')) {
+      return loginCopy.errors.tooManyAttempts
+    }
+    if (authErrorCode === 'ACCOUNT_LOCKED' || searchable.includes('account locked')) {
+      return loginCopy.errors.accountLocked
+    }
+    if (authErrorCode === 'NETWORK_ERROR' || searchable.includes('network')) {
+      return loginCopy.errors.network
+    }
+    if (
+      authErrorCode === 'RATE_LIMIT' ||
+      authErrorCode === 'TOO_MANY_REQUESTS' ||
+      searchable.includes('rate limit')
+    ) {
+      return loginCopy.errors.rateLimit
+    }
+
+    return message ?? undefined
+  }
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setIsLoading(true)
@@ -221,13 +290,16 @@ export default function LoginPage({
           onError: (ctx) => {
             console.error('Login error:', ctx.error)
             const errorMessage: string[] = []
-            const authErrorCode =
-              normalizeAuthErrorCode(ctx.error.code) ?? normalizeAuthErrorCode(ctx.error.message)
+            const resolvedMessage = resolveLoginErrorMessage(ctx.error)
 
             const status =
               (ctx.error as any)?.status ??
               (ctx.error as any)?.statusCode ??
               (ctx.error as any)?.response?.status
+
+            if (resolvedMessage === null) {
+              return
+            }
 
             // If the backend rejected the request due to an invalid/expired auth state, hard reset auth.
             if (status === 401) {
@@ -235,37 +307,8 @@ export default function LoginPage({
               errorMessage.push(loginCopy.errors.sessionExpired)
             }
 
-            if (authErrorCode === 'EMAIL_NOT_VERIFIED') {
-              return
-            }
-            if (
-              authErrorCode === 'EMAIL_AND_PASSWORD_SIGN_IN_IS_NOT_ENABLED' ||
-              authErrorCode === 'BAD_REQUEST'
-            ) {
-              errorMessage.push(loginCopy.errors.emailSignInDisabled)
-            } else if (
-              authErrorCode === 'INVALID_CREDENTIALS' ||
-              authErrorCode === 'INVALID_PASSWORD'
-            ) {
-              errorMessage.push(loginCopy.errors.invalidCredentials)
-            } else if (authErrorCode === 'USER_NOT_FOUND') {
-              errorMessage.push(loginCopy.errors.noAccount)
-            } else if (authErrorCode === 'MISSING_CREDENTIALS') {
-              errorMessage.push(loginCopy.errors.missingCredentials)
-            } else if (authErrorCode === 'EMAIL_PASSWORD_DISABLED') {
-              errorMessage.push(loginCopy.errors.emailPasswordDisabled)
-            } else if (authErrorCode === 'FAILED_TO_CREATE_SESSION') {
-              errorMessage.push(loginCopy.errors.failedToCreateSession)
-            } else if (authErrorCode === 'TOO_MANY_ATTEMPTS') {
-              errorMessage.push(loginCopy.errors.tooManyAttempts)
-            } else if (authErrorCode === 'ACCOUNT_LOCKED') {
-              errorMessage.push(loginCopy.errors.accountLocked)
-            } else if (authErrorCode === 'NETWORK_ERROR') {
-              errorMessage.push(loginCopy.errors.network)
-            } else if (authErrorCode === 'RATE_LIMIT' || authErrorCode === 'TOO_MANY_REQUESTS') {
-              errorMessage.push(loginCopy.errors.rateLimit)
-            } else {
-              errorMessage.push(loginCopy.errors.unableToSignIn)
+            if (resolvedMessage) {
+              errorMessage.push(resolvedMessage)
             }
 
             if (errorMessage.length === 0) {
@@ -279,7 +322,10 @@ export default function LoginPage({
       )
 
       if (!result || result.error) {
-        setPasswordErrors([loginCopy.errors.unableToSignInNow])
+        const message =
+          resolveLoginErrorMessage(result?.error) ?? loginCopy.errors.unableToSignInNow
+
+        setPasswordErrors([message])
         setShowValidationError(true)
         setIsLoading(false)
         return
@@ -333,7 +379,30 @@ export default function LoginPage({
       })
 
       if (!response.ok) {
-        throw new Error(loginCopy.resetDialog.error)
+        const errorData = await response.json().catch(() => ({}))
+        const rawMessage =
+          errorData?.message ??
+          errorData?.error?.message ??
+          errorData?.error ??
+          loginCopy.resetDialog.error
+        const errorMessage =
+          typeof rawMessage === 'string' ? rawMessage : loginCopy.resetDialog.error
+        const normalizedErrorMessage = errorMessage.toLowerCase()
+
+        if (
+          normalizedErrorMessage.includes('invalid body parameters') ||
+          normalizedErrorMessage.includes('invalid email')
+        ) {
+          throw new Error(loginCopy.resetDialog.emailInvalid)
+        }
+        if (normalizedErrorMessage.includes('email is required')) {
+          throw new Error(loginCopy.resetDialog.emailRequired)
+        }
+        if (normalizedErrorMessage.includes('user not found')) {
+          throw new Error(loginCopy.errors.noAccount)
+        }
+
+        throw new Error(errorMessage)
       }
 
       setResetStatus({
@@ -349,7 +418,7 @@ export default function LoginPage({
       logger.error('Error requesting password reset:', { error })
       setResetStatus({
         type: 'error',
-        message: loginCopy.resetDialog.error,
+        message: error instanceof Error ? error.message : loginCopy.resetDialog.error,
       })
     } finally {
       setIsSubmittingReset(false)
@@ -503,14 +572,14 @@ export default function LoginPage({
       )}
 
       <div
-        className={`${inter.className} text-muted absolute right-0 bottom-0 left-0 px-8 pb-8 text-center font-[340] text-[13px] leading-relaxed sm:px-8 md:px-[44px]`}
+        className={`${inter.className} absolute right-0 bottom-0 left-0 px-8 pb-8 text-center font-[340] text-[13px] text-muted leading-relaxed sm:px-8 md:px-[44px]`}
       >
         {commonCopy.termsLeadSigningIn}{' '}
         <Link
           href='/terms'
           target='_blank'
           rel='noopener noreferrer'
-          className='hover:text-primary underline underline-offset-4'
+          className='underline underline-offset-4 hover:text-primary'
         >
           {commonCopy.termsOfService}
         </Link>{' '}
@@ -519,7 +588,7 @@ export default function LoginPage({
           href='/privacy'
           target='_blank'
           rel='noopener noreferrer'
-          className='hover:text-primary underline underline-offset-4'
+          className='underline underline-offset-4 hover:text-primary'
         >
           {commonCopy.privacyPolicy}
         </Link>
@@ -528,7 +597,7 @@ export default function LoginPage({
       <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
         <DialogContent className='card card-shadow max-w-[540px] rounded-md border backdrop-blur-sm'>
           <DialogHeader>
-            <DialogTitle className='text-primary font-semibold text-xl tracking-tight'>
+            <DialogTitle className='font-semibold text-primary text-xl tracking-tight'>
               {loginCopy.resetDialog.title}
             </DialogTitle>
             <DialogDescription className='text-muted-foreground text-sm'>

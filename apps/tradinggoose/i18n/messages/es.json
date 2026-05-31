@@ -177,7 +177,8 @@
     "social": {
       "github": "GitHub",
       "google": "Google",
-      "connecting": "Conectando..."
+      "connecting": "Conectando...",
+      "cancelled": "Se canceló el inicio de sesión con {{provider}}. Inténtelo de nuevo."
     },
     "verify": {
       "eyebrow": "Verificación",
@@ -2677,6 +2678,7 @@
         "loading": "Cargando servidores MCP...",
         "noServersAvailable": "Aún no hay servidores MCP disponibles.",
         "noServersFound": "No se encontraron servidores.",
+        "addServerInDashboardWidgets": "Agrega un servidor en los widgets del panel MCP.",
         "unnamedServer": "Servidor sin nombre"
       },
       "console": {

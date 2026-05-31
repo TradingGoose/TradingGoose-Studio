@@ -150,6 +150,40 @@ describe('proxy auth routing', () => {
     expect(response.headers.get('location')).toBe('http://localhost:3000/zh/invite/abc?token=abc')
   })
 
+  it('exempts canonical webhook trigger API requests from suspicious user-agent filtering', async () => {
+    mockGetSessionCookie.mockReturnValue(undefined)
+
+    const { proxy } = await import('./proxy')
+    const response = await proxy(
+      new NextRequest('http://localhost:3000/api/webhooks/trigger/webhook-1', {
+        headers: {
+          'user-agent': 'sqlmap',
+        },
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('x-middleware-rewrite')).toBeNull()
+  })
+
+  it('exempts localized webhook trigger API requests before rewriting to the canonical API path', async () => {
+    mockGetSessionCookie.mockReturnValue(undefined)
+
+    const { proxy } = await import('./proxy')
+    const response = await proxy(
+      new NextRequest('http://localhost:3000/es/api/webhooks/trigger/webhook-1', {
+        headers: {
+          'user-agent': 'sqlmap',
+        },
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('x-middleware-rewrite')).toBe(
+      'http://localhost:3000/api/webhooks/trigger/webhook-1'
+    )
+  })
+
   it('rewrites localized markdown requests with the normalized content path', async () => {
     mockGetSessionCookie.mockReturnValue(undefined)
 

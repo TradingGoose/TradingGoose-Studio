@@ -1,14 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useLocale } from 'next-intl'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import { client, useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getInviteErrorCode, type InviteErrorCode } from '@/app/invite/[id]/utils'
 import { InviteLayout, InviteStatusCard } from '@/app/invite/components'
 import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
-import { localizeHref, type LocaleCode } from '@/i18n/utils'
+import { type LocaleCode, localizeHref } from '@/i18n/utils'
 
 const logger = createLogger('InviteById')
 
@@ -143,10 +143,7 @@ export default function Invite() {
 
     if (invitationType === 'workspace') {
       window.location.assign(
-        localizeHref(
-          locale,
-          `/api/workspaces/invitations/${encodeURIComponent(inviteId)}?token=${encodeURIComponent(token || '')}`
-        )
+        `/api/workspaces/invitations/${encodeURIComponent(inviteId)}?token=${encodeURIComponent(token || '')}`
       )
     } else {
       try {

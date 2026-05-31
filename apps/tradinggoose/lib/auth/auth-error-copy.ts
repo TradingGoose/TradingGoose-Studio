@@ -115,30 +115,25 @@ export function getAuthErrorContent(
     const primaryAction =
       groupKey === 'accountCreation'
         ? actionCopy.signup
-        : groupKey === 'accountExists'
-          ? actionCopy.login
-          : groupKey === 'emailVerification'
-            ? actionCopy.verify
-            : groupKey === 'waitlistLimited'
-              ? actionCopy.waitlist
-              : groupKey === 'registrationDisabled'
-                ? actionCopy.home
-                : actionCopy.login
+        : groupKey === 'emailVerification'
+          ? actionCopy.verify
+          : groupKey === 'waitlistLimited'
+            ? actionCopy.waitlist
+            : actionCopy.login
     const secondaryAction =
-      groupKey === 'accountCreation'
+      groupKey === 'accountCreation' ||
+      groupKey === 'emailVerification' ||
+      groupKey === 'waitlistLimited'
         ? actionCopy.login
         : groupKey === 'accountExists'
           ? actionCopy.signup
-          : groupKey === 'waitlistLimited'
-            ? actionCopy.login
-            : groupKey === 'registrationDisabled'
-              ? actionCopy.login
-              : actionCopy.home
+          : actionCopy.home
     const content: AuthErrorContent = {
       title: group.title,
-      description: normalizedDescription && descriptionCode && !resolveAuthErrorGroupKey(descriptionCode)
-        ? normalizedDescription
-        : group.description,
+      description:
+        normalizedDescription && descriptionCode && !resolveAuthErrorGroupKey(descriptionCode)
+          ? normalizedDescription
+          : group.description,
       primaryAction,
       secondaryAction,
     }

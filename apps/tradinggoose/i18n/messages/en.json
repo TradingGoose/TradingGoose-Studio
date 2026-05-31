@@ -177,7 +177,8 @@
     "social": {
       "github": "GitHub",
       "google": "Google",
-      "connecting": "Connecting..."
+      "connecting": "Connecting...",
+      "cancelled": "{{provider}} sign in was cancelled. Please try again."
     },
     "verify": {
       "eyebrow": "Verification",
@@ -2663,6 +2664,7 @@
         "loading": "Loading MCP servers...",
         "noServersAvailable": "No MCP servers available yet.",
         "noServersFound": "No servers found.",
+        "addServerInDashboardWidgets": "Add a server in the MCP dashboard widgets.",
         "unnamedServer": "Unnamed server"
       },
       "console": {

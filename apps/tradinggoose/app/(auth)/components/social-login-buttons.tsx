@@ -1,15 +1,15 @@
 'use client'
 
 import { type ReactNode, useEffect, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { GithubIcon, GoogleIcon } from '@/components/icons/icons'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { client } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useLocale } from 'next-intl'
 import { inter } from '@/app/fonts/inter'
-import { useAppMessages } from '@/i18n/client-messages'
-import { localizeHref, localizePathname, type LocaleCode } from '@/i18n/utils'
+import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { type LocaleCode, localizeHref, localizePathname } from '@/i18n/utils'
 
 const logger = createLogger('SocialLoginButtons')
 
@@ -45,16 +45,57 @@ export function SocialLoginButtons({
 
   if (!mounted) return null
 
+  function resolveSocialErrorMessage(providerLabel: string, err: any) {
+    const errorText = [
+      err?.code,
+      err?.message,
+      err?.error,
+      err?.response?.statusText,
+      err?.response?.data?.error,
+      err?.response?.data?.message,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+
+    if (
+      errorText.includes('account exists') ||
+      errorText.includes('already exists') ||
+      errorText.includes('user already exists')
+    ) {
+      return copy.auth.signup.errors.accountExists
+    }
+    if (errorText.includes('cancelled') || errorText.includes('canceled')) {
+      return formatTemplate(socialCopy.cancelled, { provider: providerLabel })
+    }
+    if (errorText.includes('network')) {
+      return copy.auth.login.errors.network
+    }
+    if (errorText.includes('rate limit') || errorText.includes('too many')) {
+      return copy.auth.login.errors.rateLimit
+    }
+
+    return copy.auth.error.default.description
+  }
+
   async function signInWithGithub() {
     if (!githubAvailable) return
 
     setIsGithubLoading(true)
     setErrorMessage('')
     try {
-      await client.signIn.social({ provider: 'github', callbackURL: resolvedCallbackURL })
+      const result = await client.signIn.social({
+        provider: 'github',
+        callbackURL: resolvedCallbackURL,
+      })
+
+      if (result?.error) {
+        logger.error('GitHub social sign-in failed', { error: result.error })
+        setErrorMessage(resolveSocialErrorMessage(socialCopy.github, result.error))
+      }
     } catch (err: any) {
       logger.error('GitHub social sign-in failed', { error: err })
-      setErrorMessage(copy.auth.error.default.description)
+      setErrorMessage(resolveSocialErrorMessage(socialCopy.github, err))
     } finally {
       setIsGithubLoading(false)
     }
@@ -66,10 +107,18 @@ export function SocialLoginButtons({
     setIsGoogleLoading(true)
     setErrorMessage('')
     try {
-      await client.signIn.social({ provider: 'google', callbackURL: resolvedCallbackURL })
+      const result = await client.signIn.social({
+        provider: 'google',
+        callbackURL: resolvedCallbackURL,
+      })
+
+      if (result?.error) {
+        logger.error('Google social sign-in failed', { error: result.error })
+        setErrorMessage(resolveSocialErrorMessage(socialCopy.google, result.error))
+      }
     } catch (err: any) {
       logger.error('Google social sign-in failed', { error: err })
-      setErrorMessage(copy.auth.error.default.description)
+      setErrorMessage(resolveSocialErrorMessage(socialCopy.google, err))
     } finally {
       setIsGoogleLoading(false)
     }

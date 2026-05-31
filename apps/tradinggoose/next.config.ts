@@ -6,19 +6,17 @@ import { getMainCSPPolicy, readWorkflowExecutionCSPPolicy } from './lib/security
 
 const MONACO_TRACE_ROOTS = ['./node_modules', './apps/tradinggoose/node_modules'] as const
 const MONACO_TRACE_FILES = MONACO_TRACE_ROOTS.flatMap((root) => [
-  `${root}/monaco-editor/esm/vs/**/*.js`,
-  `${root}/monaco-editor/esm/vs/**/*.js.map`,
-  `${root}/.bun/monaco-editor@*/node_modules/monaco-editor/esm/vs/**/*.js`,
-  `${root}/.bun/monaco-editor@*/node_modules/monaco-editor/esm/vs/**/*.js.map`,
+  `${root}/monaco-editor/esm/**/*.js`,
+  `${root}/monaco-editor/esm/**/*.js.map`,
+  `${root}/.bun/monaco-editor@*/node_modules/monaco-editor/esm/**/*.js`,
+  `${root}/.bun/monaco-editor@*/node_modules/monaco-editor/esm/**/*.js.map`,
 ])
 const PUBLIC_LOCALE_ROUTE_PREFIX = '(?:es|zh)'
 const LOCALIZED_API_ROUTE_SOURCE = `(?:api|${PUBLIC_LOCALE_ROUTE_PREFIX}/api)(?:/.*)?`
 const LOCALIZED_API_ROUTE_LOOKAHEAD = `${LOCALIZED_API_ROUTE_SOURCE}$`
-const LOCALIZED_APP_ROUTE_SOURCE =
-  `(?:${PUBLIC_LOCALE_ROUTE_PREFIX}/)?(?:w|workspace|chat)(?:/.*)?`
+const LOCALIZED_APP_ROUTE_SOURCE = `(?:${PUBLIC_LOCALE_ROUTE_PREFIX}/)?(?:w|workspace|chat)(?:/.*)?`
 const LOCALIZED_APP_ROUTE_LOOKAHEAD = `${LOCALIZED_APP_ROUTE_SOURCE}$`
-const API_ROUTE_PARAM_EXCLUDING_WORKFLOW_EXECUTION =
-  ':path((?!workflows/[^/]+/execute$).*)'
+const API_ROUTE_PARAM_EXCLUDING_WORKFLOW_EXECUTION = ':path((?!workflows/[^/]+/execute$).*)'
 
 const nextConfig: NextConfig = {
   devIndicators: false,
@@ -81,7 +79,7 @@ const nextConfig: NextConfig = {
   },
   output: isTruthy(env.DOCKER_BUILD) ? 'standalone' : undefined,
   outputFileTracingIncludes: {
-    '/monaco-editor/esm/vs/**/*': MONACO_TRACE_FILES,
+    '/monaco-editor/esm/**/*': MONACO_TRACE_FILES,
   },
   turbopack: {
     resolveExtensions: ['.tsx', '.ts', '.jsx', '.js', '.mjs', '.json'],

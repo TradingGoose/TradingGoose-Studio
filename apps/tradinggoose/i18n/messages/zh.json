@@ -177,7 +177,8 @@
     "social": {
       "github": "GitHub",
       "google": "Google",
-      "connecting": "正在连接..."
+      "connecting": "正在连接...",
+      "cancelled": "{{provider}} 登录已取消。请重试。"
     },
     "verify": {
       "eyebrow": "验证",
@@ -2677,6 +2678,7 @@
         "loading": "正在加载 MCP 服务器…",
         "noServersAvailable": "暂无可用 MCP 服务器。",
         "noServersFound": "未找到服务器。",
+        "addServerInDashboardWidgets": "请在 MCP 仪表板组件中添加服务器。",
         "unnamedServer": "未命名的服务器"
       },
       "console": {

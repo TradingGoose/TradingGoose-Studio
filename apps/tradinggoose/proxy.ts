@@ -10,9 +10,9 @@ import {
 } from '@/lib/markdown/negotiation'
 import {
   defaultLocale,
+  type LocaleCode,
   localizePathname,
   stripLocaleFromPathname,
-  type LocaleCode,
 } from '@/i18n/utils'
 import { createLogger } from './lib/logs/console/logger'
 import { generateRuntimeCSP } from './lib/security/csp'
@@ -200,7 +200,8 @@ function handleWorkspaceInvitationAPI(
 
 function handleSecurityFiltering(request: NextRequest): NextResponse | null {
   const userAgent = request.headers.get('user-agent') || ''
-  const isWebhookEndpoint = request.nextUrl.pathname.startsWith('/api/webhooks/trigger/')
+  const { pathname: normalizedPathname } = stripLocaleFromPathname(request.nextUrl.pathname)
+  const isWebhookEndpoint = normalizedPathname.startsWith('/api/webhooks/trigger/')
   const isSuspicious = SUSPICIOUS_UA_PATTERNS.some((pattern) => pattern.test(userAgent))
 
   if (isSuspicious && !isWebhookEndpoint) {

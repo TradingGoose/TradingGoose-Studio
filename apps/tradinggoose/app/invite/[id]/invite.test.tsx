@@ -36,15 +36,13 @@ const mockInvitationResponse = {
 }
 let mockLocale = 'es'
 let mockInviteId = 'invitation-1'
-let lastStatusCardProps:
-  | {
-      type?: string
-      actions?: Array<{
-        label: string
-        onClick: () => void | Promise<void>
-      }>
-    }
-  | null = null
+let lastStatusCardProps: {
+  type?: string
+  actions?: Array<{
+    label: string
+    onClick: () => void | Promise<void>
+  }>
+} | null = null
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
 
@@ -169,7 +167,11 @@ describe('Invite page workspace acceptance', () => {
     mockSearchParamsValues.token = 'workspace-token'
     lastStatusCardProps = null
     sessionStorage.clear()
-    window.history.replaceState({}, '', 'http://localhost:3000/es/invite/invitation-1?token=workspace-token')
+    window.history.replaceState(
+      {},
+      '',
+      'http://localhost:3000/es/invite/invitation-1?token=workspace-token'
+    )
     vi.spyOn(console, 'error').mockImplementation(() => {})
     mockFetch.mockResolvedValue(mockInvitationResponse)
     vi.stubGlobal('fetch', mockFetch)
@@ -190,8 +192,10 @@ describe('Invite page workspace acceptance', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  it('navigates through the localized workspace invitation API path for non-default locales', async () => {
+  it('navigates through the canonical workspace invitation API path for non-default locales', async () => {
     const Invite = (await import('./invite')).default
+    const originalWindow = window
+    const mockLocationAssign = vi.fn()
 
     await act(async () => {
       root.render(<Invite />)
@@ -209,14 +213,27 @@ describe('Invite page workspace acceptance', () => {
 
     expect(acceptAction).toBeDefined()
 
+    vi.stubGlobal(
+      'window',
+      new Proxy(originalWindow, {
+        get(target, property, receiver) {
+          if (property === 'location') {
+            return { assign: mockLocationAssign }
+          }
+
+          return Reflect.get(target, property, receiver)
+        },
+      })
+    )
+
     await act(async () => {
       await acceptAction?.onClick()
     })
 
-    expect(mockLocalizeHref).toHaveBeenCalledWith(
-      'es',
+    expect(mockLocationAssign).toHaveBeenCalledWith(
       '/api/workspaces/invitations/invitation-1?token=workspace-token'
     )
+    expect(mockLocalizeHref).not.toHaveBeenCalled()
   })
 
   it('localizes the auth callback URL for signed-out invite flows', async () => {
@@ -240,7 +257,10 @@ describe('Invite page workspace acceptance', () => {
       await signInAction?.onClick()
     })
 
-    expect(mockLocalizeHref).toHaveBeenCalledWith('es', '/invite/invitation-1?token=workspace-token')
+    expect(mockLocalizeHref).toHaveBeenCalledWith(
+      'es',
+      '/invite/invitation-1?token=workspace-token'
+    )
     expect(mockPush).toHaveBeenCalledWith(
       '/es/login?callbackUrl=%2Fes%2Finvite%2Finvitation-1%3Ftoken%3Dworkspace-token&invite_flow=true'
     )
