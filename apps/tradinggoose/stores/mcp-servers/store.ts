@@ -1,5 +1,5 @@
-import { createWithEqualityFn as create } from 'zustand/traditional'
 import { devtools } from 'zustand/middleware'
+import { createWithEqualityFn as create } from 'zustand/traditional'
 import { createLogger } from '@/lib/logs/console/logger'
 import { initialState, type McpServersActions, type McpServersState } from './types'
 
@@ -11,7 +11,7 @@ export const useMcpServersStore = create<McpServersState & McpServersActions>()(
       ...initialState,
 
       fetchServers: async (workspaceId: string) => {
-        set({ isLoading: true, errorCode: null })
+        set({ isLoading: true, error: null })
 
         try {
           const response = await fetch(`/api/mcp/servers?workspaceId=${workspaceId}`)
@@ -21,18 +21,19 @@ export const useMcpServersStore = create<McpServersState & McpServersActions>()(
             throw new Error(data.error || 'Failed to fetch servers')
           }
 
-          set({ servers: data.data?.servers || [], isLoading: false, errorCode: null })
+          set({ servers: data.data?.servers || [], isLoading: false })
           logger.info(
             `Fetched ${data.data?.servers?.length || 0} MCP servers for workspace ${workspaceId}`
           )
         } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to fetch servers'
           logger.error('Failed to fetch MCP servers:', error)
-          set({ errorCode: 'failedToFetchServers', isLoading: false })
+          set({ error: errorMessage, isLoading: false })
         }
       },
 
       createServer: async (workspaceId: string, config) => {
-        set({ isLoading: true, errorCode: null })
+        set({ isLoading: true, error: null })
 
         try {
           const requestBody = {
@@ -77,20 +78,20 @@ export const useMcpServersStore = create<McpServersState & McpServersActions>()(
           set((state) => ({
             servers: [...state.servers, newServer],
             isLoading: false,
-            errorCode: null,
           }))
 
           logger.info(`Created MCP server: ${config.name} in workspace: ${workspaceId}`)
           return newServer
         } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to create server'
           logger.error('Failed to create MCP server:', error)
-          set({ errorCode: 'failedToCreateServer', isLoading: false })
+          set({ error: errorMessage, isLoading: false })
           throw error
         }
       },
 
       updateServer: async (workspaceId: string, id: string, updates) => {
-        set({ isLoading: true, errorCode: null })
+        set({ isLoading: true, error: null })
 
         try {
           const response = await fetch(`/api/mcp/servers/${id}?workspaceId=${workspaceId}`, {
@@ -118,20 +119,20 @@ export const useMcpServersStore = create<McpServersState & McpServersActions>()(
                 : server
             ),
             isLoading: false,
-            errorCode: null,
           }))
 
           logger.info(`Updated MCP server: ${id} in workspace: ${workspaceId}`)
           return updatedServer
         } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to update server'
           logger.error('Failed to update MCP server:', error)
-          set({ errorCode: 'failedToUpdateServer', isLoading: false })
+          set({ error: errorMessage, isLoading: false })
           throw error
         }
       },
 
       deleteServer: async (workspaceId: string, id: string) => {
-        set({ isLoading: true, errorCode: null })
+        set({ isLoading: true, error: null })
 
         try {
           const response = await fetch(
@@ -150,13 +151,13 @@ export const useMcpServersStore = create<McpServersState & McpServersActions>()(
           set((state) => ({
             servers: state.servers.filter((server) => server.id !== id),
             isLoading: false,
-            errorCode: null,
           }))
 
           logger.info(`Deleted MCP server: ${id} from workspace: ${workspaceId}`)
         } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to delete server'
           logger.error('Failed to delete MCP server:', error)
-          set({ errorCode: 'failedToDeleteServer', isLoading: false })
+          set({ error: errorMessage, isLoading: false })
           throw error
         }
       },

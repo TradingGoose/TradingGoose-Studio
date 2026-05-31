@@ -15,8 +15,6 @@ import { useMcpServersStore } from '@/stores/mcp-servers/store'
 
 const logger = createLogger('useMcpTools')
 
-export type McpToolsErrorCode = 'failedToDiscoverTools'
-
 export interface McpToolForUI {
   id: string
   name: string
@@ -32,7 +30,7 @@ export interface McpToolForUI {
 export interface UseMcpToolsResult {
   mcpTools: McpToolForUI[]
   isLoading: boolean
-  errorCode: McpToolsErrorCode | null
+  error: string | null
   refreshTools: (forceRefresh?: boolean) => Promise<void>
   getToolsByServer: (serverId: string) => McpToolForUI[]
 }
@@ -40,7 +38,7 @@ export interface UseMcpToolsResult {
 export function useMcpTools(workspaceId: string): UseMcpToolsResult {
   const [mcpTools, setMcpTools] = useState<McpToolForUI[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const [errorCode, setErrorCode] = useState<McpToolsErrorCode | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const normalizedWorkspaceId = workspaceId.trim()
 
   const servers = useMcpServersStore((state) => state.servers)
@@ -61,13 +59,13 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
     async (forceRefresh = false) => {
       if (!normalizedWorkspaceId) {
         setMcpTools([])
-        setErrorCode(null)
+        setError(null)
         setIsLoading(false)
         return
       }
 
       setIsLoading(true)
-      setErrorCode(null)
+      setError(null)
 
       try {
         logger.info('Discovering MCP tools', { forceRefresh, workspaceId: normalizedWorkspaceId })
@@ -107,8 +105,9 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
           `Discovered ${transformedTools.length} MCP tools from ${data.data.byServer ? Object.keys(data.data.byServer).length : 0} servers`
         )
       } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to discover MCP tools'
         logger.error('Error discovering MCP tools:', err)
-        setErrorCode('failedToDiscoverTools')
+        setError(errorMessage)
         setMcpTools([])
       } finally {
         setIsLoading(false)
@@ -127,7 +126,7 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
   useEffect(() => {
     if (!normalizedWorkspaceId) {
       setMcpTools([])
-      setErrorCode(null)
+      setError(null)
       setIsLoading(false)
       return
     }
@@ -171,7 +170,7 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
   return {
     mcpTools,
     isLoading,
-    errorCode,
+    error,
     refreshTools,
     getToolsByServer,
   }

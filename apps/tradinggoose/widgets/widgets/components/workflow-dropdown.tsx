@@ -3,7 +3,6 @@
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronDown, Loader2, Search, Workflow } from 'lucide-react'
 import { shallow } from 'zustand/shallow'
-import { useLocale } from 'next-intl'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,10 +18,9 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
-import { useWorkflowDropdownMessages } from '@/i18n/workspace-widget-hooks'
-import type { LocaleCode } from '@/i18n/utils'
 import { cn } from '@/lib/utils'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
+import { useWorkflowDropdownMessages } from '@/i18n/workspace-widget-hooks'
+import { useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
 import { WORKSPACE_BOOTSTRAP_CHANNEL } from '@/stores/workflows/registry/types'
@@ -56,9 +54,7 @@ export function WorkflowDropdown({
   menuClassName,
   includeMarketplace = true,
 }: WorkflowDropdownProps) {
-  const locale = useLocale() as LocaleCode
   const copy = useWorkflowDropdownMessages()
-  const [internalValue, setInternalValue] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [hasRequestedLoad, setHasRequestedLoad] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -79,7 +75,6 @@ export function WorkflowDropdown({
     shallow
   )
 
-  const pairContext = usePairColorContext(resolvedPairColor)
   const setPairContext = useSetPairColorContext()
 
   const workspaceWorkflows = useMemo(() => {
@@ -100,8 +95,7 @@ export function WorkflowDropdown({
     return scoped.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
   }, [registryWorkflows, workspaceId, includeMarketplace])
 
-  const isControlled = typeof value !== 'undefined'
-  const selectedWorkflowId = isControlled ? (value ?? null) : internalValue
+  const selectedWorkflowId = value ?? null
   const selectedWorkflow = workspaceWorkflows.find((workflow) => workflow.id === selectedWorkflowId)
   const isLoading = metadataHydrationPhase === 'metadata-loading'
   const isDropdownDisabled = disabled || !workspaceId
@@ -118,35 +112,7 @@ export function WorkflowDropdown({
     setLoadError(null)
     setHasRequestedLoad(false)
     setSearchQuery('')
-    if (!isControlled) {
-      setInternalValue(null)
-    }
-  }, [workspaceId, isControlled])
-
-  useEffect(() => {
-    if (isControlled || !isPairContextActive) {
-      return
-    }
-
-    const nextId = pairContext?.workflowId ?? null
-    if (!nextId) {
-      return
-    }
-
-    if (!workspaceWorkflows.some((workflow) => workflow.id === nextId)) {
-      return
-    }
-
-    setInternalValue(nextId)
-  }, [isControlled, isPairContextActive, pairContext?.workflowId, workspaceWorkflows])
-
-  useEffect(() => {
-    if (isControlled || internalValue || workspaceWorkflows.length === 0) {
-      return
-    }
-
-    setInternalValue(workspaceWorkflows[0].id)
-  }, [isControlled, internalValue, workspaceWorkflows])
+  }, [workspaceId])
 
   useEffect(() => {
     if (!workspaceId || workspaceWorkflows.length > 0 || hasRequestedLoad) {
@@ -181,15 +147,8 @@ export function WorkflowDropdown({
       return
     }
 
-    if (!isControlled) {
-      setInternalValue(workflow.id)
-    }
-
     if (isPairContextActive) {
-      setPairContext(resolvedPairColor, {
-        ...(pairContext ?? {}),
-        workflowId: workflow.id,
-      })
+      setPairContext(resolvedPairColor, { workflowId: workflow.id })
     }
 
     onChange?.(workflow.id, workflow)
@@ -220,7 +179,7 @@ export function WorkflowDropdown({
         workflow.id.toLowerCase().includes(normalizedQuery)
       )
     })
-  }, [workspaceWorkflows, searchQuery])
+  }, [workspaceWorkflows, searchQuery, copy.untitledWorkflow])
 
   const renderMenuBody = () => {
     if (!workspaceId) {
@@ -282,9 +241,16 @@ export function WorkflowDropdown({
               <div className='flex min-w-0 items-center gap-2'>
                 <span
                   className='h-5 w-5 rounded-xs p-0.5'
+                  style={{
+                    backgroundColor: `${workflow.color}20`,
+                  }}
                   aria-hidden='true'
                 >
-                  <Workflow className='h-full w-full' aria-hidden='true' />
+                  <Workflow
+                    className='h-full'
+                    aria-hidden='true'
+                    style={{ color: workflow.color }}
+                  />
                 </span>
                 <span className={cn(widgetHeaderMenuTextClassName, 'truncate')}>
                   {workflow.name || copy.untitledWorkflow}
@@ -298,8 +264,32 @@ export function WorkflowDropdown({
     )
   }
 
+  const chevronClassName =
+    'h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
+  const selectedWorkflowColor = selectedWorkflow?.color ?? '#64748b'
+  const colorBadge = (
+    <div
+      className='h-5 w-5 rounded-xs p-0.5'
+      style={{
+        backgroundColor: `${selectedWorkflowColor}20`,
+      }}
+      aria-hidden='true'
+    >
+      <Workflow className='h-4 w-4' aria-hidden='true' style={{ color: selectedWorkflowColor }} />
+    </div>
+  )
+  const labelContent = selectedWorkflow ? (
+    <span className='min-w-0 flex-1 truncate text-left font-medium text-foreground text-sm'>
+      {selectedWorkflow.name || copy.untitledWorkflow}
+    </span>
+  ) : (
+    <span className='min-w-0 flex-1 truncate text-left font-medium text-muted-foreground text-sm'>
+      {resolvedPlaceholder}
+    </span>
+  )
+
   return (
-    <DropdownMenu>
+    <DropdownMenu modal={false}>
       <Tooltip>
         <TooltipTrigger asChild>
           <span className='inline-flex'>
@@ -309,18 +299,15 @@ export function WorkflowDropdown({
                 disabled={isDropdownDisabled}
                 className={widgetHeaderControlClassName(
                   cn(
-                    'group',
-                    !selectedWorkflow && 'text-muted-foreground',
+                    'group flex min-w-[240px] items-center justify-between gap-1',
                     triggerClassName
                   )
                 )}
+                aria-haspopup='listbox'
               >
-                <span className='flex items-center gap-1'>
-                  <span className='text-xs'>
-                    {selectedWorkflow?.name ?? resolvedPlaceholder}
-                  </span>
-                  <ChevronDown className='h-3.5 w-3.5 transition-transform group-data-[state=open]:rotate-180' />
-                </span>
+                {colorBadge}
+                {labelContent}
+                <ChevronDown className={chevronClassName} aria-hidden='true' />
               </button>
             </DropdownMenuTrigger>
           </span>
@@ -332,7 +319,7 @@ export function WorkflowDropdown({
         sideOffset={6}
         className={cn(
           widgetHeaderMenuContentClassName,
-          'max-h-[20rem] overflow-hidden p-0 shadow-lg',
+          'max-h-[20rem] w-[240px] overflow-hidden p-0 shadow-lg',
           menuClassName
         )}
         style={{ maxHeight: DROPDOWN_MAX_HEIGHT }}
@@ -351,13 +338,17 @@ export function WorkflowDropdown({
                 autoComplete='off'
                 autoCorrect='off'
                 spellCheck='false'
+                disabled={isDropdownDisabled}
               />
             </div>
           </div>
           <div className='h-full min-h-0 flex-1 overflow-hidden'>
             <ScrollArea
               className='h-full w-full px-2 py-2'
-              style={{ height: DROPDOWN_VIEWPORT_HEIGHT, maxHeight: `calc(${DROPDOWN_MAX_HEIGHT} - 4rem)` }}
+              style={{
+                height: DROPDOWN_VIEWPORT_HEIGHT,
+                maxHeight: `calc(${DROPDOWN_MAX_HEIGHT} - 4rem)`,
+              }}
               onWheelCapture={(event) => event.stopPropagation()}
             >
               {renderMenuBody()}

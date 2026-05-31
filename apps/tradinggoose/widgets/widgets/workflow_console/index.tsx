@@ -1,13 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  Activity,
-  ArrowDown,
-  ArrowDownToLine,
-  ArrowUp,
-  Braces,
-  Trash2,
-  WrapText,
-} from 'lucide-react'
+import { Activity, ArrowDown, ArrowDownToLine, ArrowUp, Trash2 } from 'lucide-react'
+import { JsonDisplayControls } from '@/components/json-display/json-display'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
@@ -250,40 +243,29 @@ const WorkflowConsoleHeaderControls = ({
         <TooltipContent side='top'>{copy.sortByTime}</TooltipContent>
       </Tooltip>
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type='button'
-            className={cn(
-              widgetHeaderIconButtonClassName(),
-              detailView.structuredView && 'text-primary'
-            )}
-            onClick={toggleStructuredView}
-            aria-label={copy.toggleStructuredView}
-            aria-pressed={detailView.structuredView}
-            disabled={isDisabled}
-          >
-            <Braces className='h-3.5 w-3.5' />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side='top'>{copy.structuredView}</TooltipContent>
-      </Tooltip>
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type='button'
-            className={cn(widgetHeaderIconButtonClassName(), detailView.wrapText && 'text-primary')}
-            onClick={toggleWrapText}
-            aria-label={copy.toggleWrapText}
-            aria-pressed={detailView.wrapText}
-            disabled={isDisabled}
-          >
-            <WrapText className='h-3.5 w-3.5' />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side='top'>{copy.wrapText}</TooltipContent>
-      </Tooltip>
+      <JsonDisplayControls
+        mode={detailView.structuredView ? 'beauty' : 'raw'}
+        onModeChange={(mode) => {
+          if ((mode === 'beauty') !== detailView.structuredView) toggleStructuredView()
+        }}
+        wrapText={detailView.wrapText}
+        onWrapTextChange={(wrapText) => {
+          if (wrapText !== detailView.wrapText) toggleWrapText()
+        }}
+        disabled={isDisabled}
+        showLabels={false}
+        buttonClassName={(active) =>
+          cn(widgetHeaderIconButtonClassName(), active && 'text-primary')
+        }
+        copy={{
+          showBeautyTitle: copy.structuredView,
+          showRawTitle: copy.toggleStructuredView,
+          toggleModeAriaLabel: copy.toggleStructuredView,
+          disableWrapTitle: copy.toggleWrapText,
+          enableWrapTitle: copy.wrapText,
+          toggleWrapAriaLabel: copy.toggleWrapText,
+        }}
+      />
 
       <Tooltip>
         <TooltipTrigger asChild>

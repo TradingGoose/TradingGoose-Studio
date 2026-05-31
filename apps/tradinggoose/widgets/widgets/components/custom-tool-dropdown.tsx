@@ -2,7 +2,6 @@
 
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronDown, Loader2, Search, Wrench } from 'lucide-react'
-import { useLocale } from 'next-intl'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,17 +11,17 @@ import {
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useAppMessages } from '@/i18n/client-messages'
-import { cn } from '@/lib/utils'
-import { useCustomTools } from '@/hooks/queries/custom-tools'
-import { useCustomToolsStore } from '@/stores/custom-tools/store'
-import type { CustomToolDefinition } from '@/stores/custom-tools/types'
 import {
   widgetHeaderControlClassName,
   widgetHeaderMenuContentClassName,
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
+import { cn } from '@/lib/utils'
+import { useCustomTools } from '@/hooks/queries/custom-tools'
+import { useAppMessages } from '@/i18n/client-messages'
+import { useCustomToolsStore } from '@/stores/custom-tools/store'
+import type { CustomToolDefinition } from '@/stores/custom-tools/types'
 
 const DROPDOWN_MAX_HEIGHT = '20rem'
 const DROPDOWN_VIEWPORT_HEIGHT = '14rem'
@@ -52,7 +51,6 @@ export function CustomToolDropdown({
   triggerClassName,
   menuClassName,
 }: CustomToolDropdownProps) {
-  const locale = useLocale()
   const copy = useAppMessages().workspace.widgets.customToolDropdown
   const [searchQuery, setSearchQuery] = useState('')
   const {
@@ -204,7 +202,7 @@ export function CustomToolDropdown({
                   />
                 </span>
                 <span className={cn(widgetHeaderMenuTextClassName, 'truncate')}>
-                  {getToolTitle(tool)}
+                  {getToolTitle(tool, copy.untitledCustomTool)}
                 </span>
               </div>
               {isSelected ? <Check className='h-3.5 w-3.5 text-primary' /> : null}

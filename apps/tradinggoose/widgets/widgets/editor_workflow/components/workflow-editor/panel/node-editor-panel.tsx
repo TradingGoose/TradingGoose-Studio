@@ -115,8 +115,12 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
       ? getLocalizedDefaultBlockName(selectedBlock.type, selectedBlock.name)
       : ''
 
-    if (trimmedName && trimmedName !== currentDisplayName) {
-      collaborativeUpdateBlockName(blockId, trimmedName)
+    if (
+      trimmedName &&
+      trimmedName !== currentDisplayName &&
+      !collaborativeUpdateBlockName(blockId, trimmedName)
+    ) {
+      return
     }
 
     renamingBlockIdRef.current = null

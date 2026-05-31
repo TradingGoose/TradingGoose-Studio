@@ -1,6 +1,5 @@
 'use client'
 
-import { useLocale } from 'next-intl'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,16 +7,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useAppMessages } from '@/i18n/client-messages'
-import type { LocaleCode } from '@/i18n/utils'
-import { cn } from '@/lib/utils'
-import { PAIR_COLOR_META, PAIR_COLOR_OPTIONS, type PairColor } from '@/widgets/pair-colors'
 import {
   widgetHeaderControlClassName,
   widgetHeaderMenuContentClassName,
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
+import { cn } from '@/lib/utils'
+import { useAppMessages } from '@/i18n/client-messages'
+import { PAIR_COLOR_META, PAIR_COLOR_OPTIONS, type PairColor } from '@/widgets/pair-colors'
 
 interface PairColorDropdownProps {
   color: PairColor
@@ -25,7 +23,6 @@ interface PairColorDropdownProps {
 }
 
 export function PairColorDropdown({ color, onChange }: PairColorDropdownProps) {
-  const locale = useLocale() as LocaleCode
   const copy = useAppMessages().workspace.widgets.pairColor
   const meta = PAIR_COLOR_META[color]
   const disabled = !onChange

@@ -2,10 +2,8 @@
 
 import { Play, RefreshCw, RotateCcw, Save, Server, X } from 'lucide-react'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
-import { useLocale } from 'next-intl'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useAppMessages } from '@/i18n/client-messages'
-import type { LocaleCode } from '@/i18n/utils'
+import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { emitMcpEditorAction } from '@/widgets/utils/mcp-editor-actions'
@@ -32,7 +30,6 @@ const McpEditorSelector = ({
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
   const setPairContext = useSetPairColorContext()
-  const locale = useLocale() as LocaleCode
   const copy = useAppMessages().workspace.widgets.mcpEditor
 
   const resolvedServerId = resolveMcpServerId({
@@ -80,7 +77,6 @@ const McpEditorHeaderActions = ({
 }) => {
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const pairContext = usePairColorContext(resolvedPairColor)
-  const locale = useLocale() as LocaleCode
   const copy = useAppMessages().workspace.widgets.mcpEditor
   const selectionState = readEntitySelectionState({
     params,

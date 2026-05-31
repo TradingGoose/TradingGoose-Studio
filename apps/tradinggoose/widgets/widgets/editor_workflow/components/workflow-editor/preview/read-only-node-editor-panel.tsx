@@ -120,22 +120,14 @@ export function ReadOnlyNodeEditorPanel({
     }
   })()
 
-  const localizedPreviewSubBlocks = useMemo(() => {
-    const triggerId = resolveTriggerIdFromSubBlocks(
-      previewConfig.stateToUse,
-      previewConfig.availableTriggerIds
-    )
-
-    return previewConfig.subBlocks.map((subBlock) =>
-      localizeWorkflowSubBlockConfig(subBlock, selectedBlock.type, triggerId ?? undefined)
-    )
-  }, [
-    localizeWorkflowSubBlockConfig,
-    previewConfig.availableTriggerIds,
+  const triggerId = resolveTriggerIdFromSubBlocks(
     previewConfig.stateToUse,
-    previewConfig.subBlocks,
-    selectedBlock.type,
-  ])
+    previewConfig.availableTriggerIds
+  )
+
+  const localizedPreviewSubBlocks = previewConfig.subBlocks.map((subBlock) =>
+    localizeWorkflowSubBlockConfig(subBlock, selectedBlock.type, triggerId ?? undefined)
+  )
 
   return (
     <aside className='w-80 shrink-0 border-border border-l bg-background/95 p-4'>

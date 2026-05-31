@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useLocale } from 'next-intl'
 import { Check, ChevronDown, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -13,12 +12,11 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import type { SubBlockConfig } from '@/blocks/types'
 import { useAppMessages } from '@/i18n/client-messages'
-import type { LocaleCode } from '@/i18n/utils'
+import { useEnabledServers, useMcpServersStore } from '@/stores/mcp-servers/store'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import type { SubBlockConfig } from '@/blocks/types'
-import { useEnabledServers, useMcpServersStore } from '@/stores/mcp-servers/store'
 
 interface McpServerSelectorProps {
   blockId: string
@@ -26,17 +24,12 @@ interface McpServerSelectorProps {
   disabled?: boolean
 }
 
-export function McpServerSelector({
-  blockId,
-  subBlock,
-  disabled = false,
-}: McpServerSelectorProps) {
-  const locale = useLocale() as LocaleCode
+export function McpServerSelector({ blockId, subBlock, disabled = false }: McpServerSelectorProps) {
   const copy = useAppMessages().workspace.widgets.mcpDropdown
   const workspaceId = useWorkspaceId()
   const [open, setOpen] = useState(false)
 
-  const { fetchServers, isLoading, errorCode } = useMcpServersStore()
+  const { fetchServers, isLoading, error } = useMcpServersStore()
   const enabledServers = useEnabledServers()
 
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlock.id)
@@ -96,14 +89,17 @@ export function McpServerSelector({
                   <RefreshCw className='h-4 w-4 animate-spin' />
                   <span className='ml-2'>{copy.loading}</span>
                 </div>
-              ) : errorCode ? (
+              ) : error ? (
                 <div className='p-4 text-center'>
                   <p className='font-medium text-destructive text-sm'>{copy.failedToLoad}</p>
+                  <p className='text-muted-foreground text-xs'>{error}</p>
                 </div>
               ) : (
                 <div className='p-4 text-center'>
                   <p className='font-medium text-sm'>{copy.noServersAvailable}</p>
-                  <p className='text-muted-foreground text-xs'>{copy.noServersFound}</p>
+                  <p className='text-muted-foreground text-xs'>
+                    {copy.addServerInDashboardWidgets}
+                  </p>
                 </div>
               )}
             </CommandEmpty>

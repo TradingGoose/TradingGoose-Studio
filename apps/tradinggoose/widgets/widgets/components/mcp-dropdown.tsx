@@ -3,7 +3,6 @@
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronDown, Loader2, Search, Server } from 'lucide-react'
 import { shallow } from 'zustand/shallow'
-import { useLocale } from 'next-intl'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,17 +12,16 @@ import {
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useAppMessages } from '@/i18n/client-messages'
-import type { LocaleCode } from '@/i18n/utils'
-import { cn } from '@/lib/utils'
-import { useMcpServersStore } from '@/stores/mcp-servers/store'
-import type { McpServerWithStatus } from '@/stores/mcp-servers/types'
 import {
   widgetHeaderControlClassName,
   widgetHeaderMenuContentClassName,
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
+import { cn } from '@/lib/utils'
+import { useAppMessages } from '@/i18n/client-messages'
+import { useMcpServersStore } from '@/stores/mcp-servers/store'
+import type { McpServerWithStatus } from '@/stores/mcp-servers/types'
 
 const DROPDOWN_MAX_HEIGHT = '20rem'
 const DROPDOWN_VIEWPORT_HEIGHT = '14rem'
@@ -62,14 +60,13 @@ export function McpDropdown({
   align = 'start',
   triggerClassName,
 }: McpDropdownProps) {
-  const locale = useLocale() as LocaleCode
   const copy = useAppMessages().workspace.widgets.mcpDropdown
   const [searchQuery, setSearchQuery] = useState('')
-  const { servers, isLoading, errorCode, fetchServers } = useMcpServersStore(
+  const { servers, isLoading, error, fetchServers } = useMcpServersStore(
     (state) => ({
       servers: state.servers,
       isLoading: state.isLoading,
-      errorCode: state.errorCode,
+      error: state.error,
       fetchServers: state.fetchServers,
     }),
     shallow
@@ -93,7 +90,7 @@ export function McpDropdown({
   const isDropdownDisabled = disabled || !workspaceId
   const tooltipText = !workspaceId
     ? copy.selectWorkspaceFirst
-    : errorCode
+    : error
       ? copy.unableToLoad
       : disabled
         ? copy.mcpSelectionUnavailable
@@ -160,10 +157,10 @@ export function McpDropdown({
       )
     }
 
-    if (errorCode && !hasServers) {
+    if (error && !hasServers) {
       return (
         <div className='space-y-2 px-3 py-2 text-xs'>
-          <p className='text-destructive'>{copy.unableToLoad}</p>
+          <p className='text-destructive'>{error}</p>
           <button
             type='button'
             className='font-semibold text-primary text-xs hover:underline'
@@ -243,9 +240,27 @@ export function McpDropdown({
   const chevronClassName =
     'h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
   const selectedIconColor = getServerIconColor(selectedServer?.connectionStatus)
+  const iconBadge = (
+    <span
+      className='h-5 w-5 rounded-xs p-0.5'
+      style={{ backgroundColor: `${selectedIconColor}20` }}
+      aria-hidden='true'
+    >
+      <Server className='h-full w-full' aria-hidden='true' style={{ color: selectedIconColor }} />
+    </span>
+  )
+  const labelContent = selectedServer ? (
+    <span className='min-w-0 flex-1 truncate text-left font-medium text-foreground text-sm'>
+      {getServerLabel(selectedServer, copy.unnamedServer)}
+    </span>
+  ) : (
+    <span className='min-w-0 flex-1 truncate text-left font-medium text-muted-foreground text-sm'>
+      {resolvedPlaceholder}
+    </span>
+  )
 
   return (
-    <DropdownMenu>
+    <DropdownMenu modal={false}>
       <Tooltip>
         <TooltipTrigger asChild>
           <span className='inline-flex'>
@@ -255,22 +270,19 @@ export function McpDropdown({
                 disabled={isDropdownDisabled}
                 className={widgetHeaderControlClassName(
                   cn(
-                    'group',
-                    !selectedServer && 'text-muted-foreground',
+                    'group flex min-w-[240px] items-center justify-between gap-1',
                     triggerClassName
                   )
                 )}
+                aria-haspopup='listbox'
               >
-                <span className='flex items-center gap-1'>
-                  <span
-                    className='flex items-center gap-2 rounded-full'
-                    style={{ color: selectedIconColor }}
-                  >
-                    <Server className='h-3.5 w-3.5' />
-                  </span>
-                  <span className='text-xs'>{selectedServer?.name ?? resolvedPlaceholder}</span>
-                  <ChevronDown className={chevronClassName} />
-                </span>
+                {isLoading && !hasServers ? (
+                  <Loader2 className='h-4 w-4 animate-spin text-muted-foreground' />
+                ) : (
+                  iconBadge
+                )}
+                {labelContent}
+                <ChevronDown className={chevronClassName} aria-hidden='true' />
               </button>
             </DropdownMenuTrigger>
           </span>
@@ -282,7 +294,7 @@ export function McpDropdown({
         sideOffset={6}
         className={cn(
           widgetHeaderMenuContentClassName,
-          'max-h-[20rem] overflow-hidden p-0 shadow-lg'
+          'max-h-[20rem] w-[240px] overflow-hidden p-0 shadow-lg'
         )}
         style={{ maxHeight: DROPDOWN_MAX_HEIGHT }}
         onWheel={(event) => event.stopPropagation()}
@@ -300,13 +312,17 @@ export function McpDropdown({
                 autoComplete='off'
                 autoCorrect='off'
                 spellCheck='false'
+                disabled={isDropdownDisabled}
               />
             </div>
           </div>
           <div className='h-full min-h-0 flex-1 overflow-hidden'>
             <ScrollArea
               className='h-full w-full px-2 py-2'
-              style={{ height: DROPDOWN_VIEWPORT_HEIGHT, maxHeight: `calc(${DROPDOWN_MAX_HEIGHT} - 4rem)` }}
+              style={{
+                height: DROPDOWN_VIEWPORT_HEIGHT,
+                maxHeight: `calc(${DROPDOWN_MAX_HEIGHT} - 4rem)`,
+              }}
               onWheelCapture={(event) => event.stopPropagation()}
             >
               {renderMenuBody()}

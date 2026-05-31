@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pencil, Plus, Server, Trash2 } from 'lucide-react'
-import { useLocale } from 'next-intl'
 import { shallow } from 'zustand/shallow'
 import {
   AlertDialog,
@@ -30,14 +29,13 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
-import { useAppMessages } from '@/i18n/client-messages'
-import type { LocaleCode } from '@/i18n/utils'
 import { cn } from '@/lib/utils'
 import {
   useUserPermissionsContext,
   WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
+import { useAppMessages } from '@/i18n/client-messages'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useMcpServersStore } from '@/stores/mcp-servers/store'
 import type { McpServerWithStatus } from '@/stores/mcp-servers/types'
@@ -118,7 +116,6 @@ const ListMcpHeaderRightContent = ({
   panelId?: string
   pairColor?: PairColor
 }) => {
-  const locale = useLocale() as LocaleCode
   const copy = useAppMessages().workspace.widgets.mcpList
   const permissions = useUserPermissionsContext()
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
@@ -187,7 +184,6 @@ const ListMcpHeaderRight = ({
   panelId?: string
   pairColor?: PairColor
 }) => {
-  const locale = useLocale() as LocaleCode
   const copy = useAppMessages().workspace.widgets.mcpList
   if (!workspaceId) {
     return <span className='text-muted-foreground text-xs'>{copy.header.explorer}</span>
@@ -214,17 +210,16 @@ const ListMcpWidgetContent = ({
   panelId,
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId ?? null
-  const locale = useLocale() as LocaleCode
   const copy = useAppMessages().workspace.widgets.mcpList
   const permissions = useUserPermissionsContext()
   const [hasRequestedLoad, setHasRequestedLoad] = useState(false)
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
-  const { servers, isLoading, errorCode, fetchServers, deleteServer, updateServer } =
+  const { servers, isLoading, error, fetchServers, deleteServer, updateServer } =
     useMcpServersStore(
       (state) => ({
         servers: state.servers,
         isLoading: state.isLoading,
-        errorCode: state.errorCode,
+        error: state.error,
         fetchServers: state.fetchServers,
         deleteServer: state.deleteServer,
         updateServer: state.updateServer,
@@ -407,8 +402,8 @@ const ListMcpWidgetContent = ({
     return <WidgetMessage message={copy.body.selectWorkspace} />
   }
 
-  if (errorCode && workspaceServers.length === 0) {
-    return <WidgetMessage message={copy.body.failedToLoadMcpServers} />
+  if (error && workspaceServers.length === 0) {
+    return <WidgetMessage message={error} />
   }
 
   if ((isLoading || !hasRequestedLoad) && workspaceServers.length === 0) {
@@ -460,7 +455,6 @@ const McpServerListItem = ({
   canEdit: boolean
   isDeleting: boolean
 }) => {
-  const locale = useLocale() as LocaleCode
   const copy = useAppMessages().workspace.widgets.mcpList.listItem
   const [isHovered, setIsHovered] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -621,7 +615,7 @@ const McpServerListItem = ({
                 event.stopPropagation()
                 handleStartEdit()
               }}
-              >
+            >
               <Pencil className='!h-3.5 !w-3.5' />
               <span className='sr-only'>{copy.renameMcpServer}</span>
             </Button>
@@ -686,7 +680,6 @@ export const listMcpWidget: DashboardWidgetDefinition = {
   category: 'list',
   description: 'Browse and manage MCP servers for the workspace.',
   component: (props: WidgetComponentProps) => {
-    const locale = useLocale() as LocaleCode
     const copy = useAppMessages().workspace.widgets.mcpList
     const workspaceId = props.context?.workspaceId ?? null
 

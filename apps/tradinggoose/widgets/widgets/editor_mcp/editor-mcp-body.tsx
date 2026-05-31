@@ -1,12 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocale } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useMcpServerTest } from '@/hooks/use-mcp-server-test'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
 import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
-import type { LocaleCode } from '@/i18n/utils'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useMcpServersStore } from '@/stores/mcp-servers/store'
 import type { McpServerWithStatus } from '@/stores/mcp-servers/types'
@@ -47,11 +45,16 @@ const formatRelativeTime = (
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
 
   if (diffInSeconds < 60) return copy.justNow
-  if (diffInSeconds < 3600) return formatTemplate(copy.minutesAgo, { count: Math.floor(diffInSeconds / 60) })
-  if (diffInSeconds < 86400) return formatTemplate(copy.hoursAgo, { count: Math.floor(diffInSeconds / 3600) })
-  if (diffInSeconds < 604800) return formatTemplate(copy.daysAgo, { count: Math.floor(diffInSeconds / 86400) })
-  if (diffInSeconds < 2592000) return formatTemplate(copy.weeksAgo, { count: Math.floor(diffInSeconds / 604800) })
-  if (diffInSeconds < 31536000) return formatTemplate(copy.monthsAgo, { count: Math.floor(diffInSeconds / 2592000) })
+  if (diffInSeconds < 3600)
+    return formatTemplate(copy.minutesAgo, { count: Math.floor(diffInSeconds / 60) })
+  if (diffInSeconds < 86400)
+    return formatTemplate(copy.hoursAgo, { count: Math.floor(diffInSeconds / 3600) })
+  if (diffInSeconds < 604800)
+    return formatTemplate(copy.daysAgo, { count: Math.floor(diffInSeconds / 86400) })
+  if (diffInSeconds < 2592000)
+    return formatTemplate(copy.weeksAgo, { count: Math.floor(diffInSeconds / 604800) })
+  if (diffInSeconds < 31536000)
+    return formatTemplate(copy.monthsAgo, { count: Math.floor(diffInSeconds / 2592000) })
   return formatTemplate(copy.yearsAgo, { count: Math.floor(diffInSeconds / 31536000) })
 }
 
@@ -108,7 +111,6 @@ export function EditorMcpWidgetBody({
   widget,
   onWidgetParamsChange,
 }: EditorMcpWidgetBodyProps) {
-  const locale = useLocale() as LocaleCode
   const copy = useAppMessages().workspace.widgets.mcpEditor
   const workspaceId = context?.workspaceId ?? null
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
@@ -124,14 +126,14 @@ export function EditorMcpWidgetBody({
   const {
     servers,
     isLoading: isServersLoading,
-    errorCode: serverErrorCode,
+    error: serverError,
     fetchServers,
     refreshServer,
     updateServer,
   } = useMcpServersStore((state) => ({
     servers: state.servers,
     isLoading: state.isLoading,
-    errorCode: state.errorCode,
+    error: state.error,
     fetchServers: state.fetchServers,
     refreshServer: state.refreshServer,
     updateServer: state.updateServer,
@@ -246,7 +248,14 @@ export function EditorMcpWidgetBody({
       console.error('Failed to refresh MCP server tools', refreshError)
       setSaveError(copy.failedToRefreshMcpServer)
     }
-  }, [copy.failedToRefreshMcpServer, fetchServers, refreshServer, refreshTools, selectedServerId, workspaceId])
+  }, [
+    copy.failedToRefreshMcpServer,
+    fetchServers,
+    refreshServer,
+    refreshTools,
+    selectedServerId,
+    workspaceId,
+  ])
 
   const handleSave = useCallback(async () => {
     if (!workspaceId || !selectedServerId) return
@@ -267,7 +276,15 @@ export function EditorMcpWidgetBody({
       console.error('Failed to save MCP server', error)
       setSaveError(copy.failedToSaveMcpServer)
     }
-  }, [copy.failedToSaveMcpServer, copy.serverNameRequired, fetchServers, formDataState, selectedServerId, updateServer, workspaceId])
+  }, [
+    copy.failedToSaveMcpServer,
+    copy.serverNameRequired,
+    fetchServers,
+    formDataState,
+    selectedServerId,
+    updateServer,
+    workspaceId,
+  ])
 
   useMcpEditorActions({
     panelId,
@@ -283,8 +300,8 @@ export function EditorMcpWidgetBody({
     return <WidgetStateMessage message={copy.selectWorkspaceToEdit} />
   }
 
-  if (serverErrorCode && workspaceServers.length === 0 && !isServersLoading) {
-    return <WidgetStateMessage message={copy.failedToLoadMcpServers} />
+  if (serverError && workspaceServers.length === 0 && !isServersLoading) {
+    return <WidgetStateMessage message={serverError} />
   }
 
   if (isServersLoading && workspaceServers.length === 0) {
@@ -298,11 +315,7 @@ export function EditorMcpWidgetBody({
   if (!selectedServerId) {
     return (
       <WidgetStateMessage
-        message={
-          isLinkedToColorPair
-            ? copy.noSharedMcpServerSelected
-            : copy.selectServerToEdit
-        }
+        message={isLinkedToColorPair ? copy.noSharedMcpServerSelected : copy.selectServerToEdit}
       />
     )
   }
@@ -342,7 +355,8 @@ export function EditorMcpWidgetBody({
             {selectedServer.lastToolsRefresh ? (
               <span>
                 {formatTemplate(copy.toolsRefreshed, {
-                  time: formatRelativeTime(selectedServer.lastToolsRefresh, copy.relativeTime) ?? '',
+                  time:
+                    formatRelativeTime(selectedServer.lastToolsRefresh, copy.relativeTime) ?? '',
                 })}
               </span>
             ) : null}

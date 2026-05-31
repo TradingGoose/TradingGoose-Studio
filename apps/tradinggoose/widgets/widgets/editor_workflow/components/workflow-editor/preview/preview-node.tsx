@@ -4,11 +4,11 @@ import { getIconTileStyle } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
 import { getBlock } from '@/blocks'
+import { resolveTriggerIdFromSubBlocks } from '@/triggers/resolution'
 import {
   PrecomputedSubBlockSummaryRows,
   SubBlockSummaryRows,
 } from '@/widgets/widgets/editor_workflow/components/workflow-render/sub-block-summary-rows'
-import { resolveTriggerIdFromSubBlocks } from '@/triggers/resolution'
 import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 import { getPreviewDiffClasses } from './preview-diff'
 import type { PreviewCanvasNode, PreviewNodeData } from './preview-payload-adapter'
@@ -98,42 +98,48 @@ function PreviewNodeCard({
 
 function LocalizedPreviewNode({ id, data }: NodeProps<PreviewCanvasNode>) {
   const { getLocalizedDefaultBlockName, localizeWorkflowSubBlockConfig } = useWorkflowI18n()
-  const blockConfig = useMemo(() => getBlock(data.type) ?? data.config ?? null, [data.type, data.config])
+  const blockConfig = useMemo(
+    () => getBlock(data.type) ?? data.config ?? null,
+    [data.type, data.config]
+  )
   const previewStateRaw = data.subBlockValues ?? data.blockState?.subBlocks ?? {}
-
-  if (!blockConfig) {
-    return null
-  }
-
-  const localizedBlockName = getLocalizedDefaultBlockName(blockConfig.type, data.name)
-  const triggerId = resolveTriggerIdFromSubBlocks(previewStateRaw, blockConfig.triggers?.available)
+  const localizedBlockName = blockConfig
+    ? getLocalizedDefaultBlockName(blockConfig.type, data.name)
+    : data.name
+  const triggerId = blockConfig
+    ? resolveTriggerIdFromSubBlocks(previewStateRaw, blockConfig.triggers?.available)
+    : null
   const localizedSubBlocks = useMemo(
     () =>
-      (blockConfig.subBlocks || []).map((subBlock) =>
-        localizeWorkflowSubBlockConfig(subBlock, data.type, triggerId ?? undefined)
-      ),
-    [blockConfig.subBlocks, data.type, localizeWorkflowSubBlockConfig, triggerId]
+      blockConfig
+        ? (blockConfig.subBlocks || []).map((subBlock) =>
+            localizeWorkflowSubBlockConfig(subBlock, data.type, triggerId ?? undefined)
+          )
+        : [],
+    [blockConfig, data.type, localizeWorkflowSubBlockConfig, triggerId]
   )
   const isEnabled = data.blockState?.enabled ?? true
   const isAdvancedMode = data.blockState?.advancedMode ?? false
   const useHorizontalHandles = data.blockState?.horizontalHandles ?? false
-  const isPureTriggerBlock = blockConfig.category === 'triggers'
+  const isPureTriggerBlock = blockConfig?.category === 'triggers'
   const isTriggerMode = Boolean(data.blockState?.triggerMode) || isPureTriggerBlock
   const previewSubBlocks = useMemo(
     () =>
-      buildSubBlockRows({
-        blockId: id,
-        subBlocks: localizedSubBlocks,
-        stateToUse: previewStateRaw,
-        isAdvancedMode,
-        isTriggerMode,
-        isPureTriggerBlock,
-        availableTriggerIds: blockConfig.triggers?.available,
-        hideFromPreview: true,
-        triggerSubBlockOwner: 'all',
-      }).flat(),
+      blockConfig
+        ? buildSubBlockRows({
+            blockId: id,
+            subBlocks: localizedSubBlocks,
+            stateToUse: previewStateRaw,
+            isAdvancedMode,
+            isTriggerMode,
+            isPureTriggerBlock,
+            availableTriggerIds: blockConfig.triggers?.available,
+            hideFromPreview: true,
+            triggerSubBlockOwner: 'all',
+          }).flat()
+        : [],
     [
-      blockConfig.triggers?.available,
+      blockConfig?.triggers?.available,
       id,
       isAdvancedMode,
       isPureTriggerBlock,
@@ -142,6 +148,10 @@ function LocalizedPreviewNode({ id, data }: NodeProps<PreviewCanvasNode>) {
       previewStateRaw,
     ]
   )
+
+  if (!blockConfig) {
+    return null
+  }
 
   const summary =
     previewSubBlocks.length > 0 ? (

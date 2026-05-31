@@ -1,4 +1,9 @@
-import { createElement, type ReactNode } from 'react'
+/**
+ * @vitest-environment jsdom
+ */
+
+import { act, createElement, type ReactNode } from 'react'
+import { createRoot, type Root } from 'react-dom/client'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getPublicCopy } from '@/i18n/public-copy'
@@ -13,6 +18,7 @@ let mockSelectedBlock: any = {
 let mockSelectedLoop: any = null
 let mockSelectedParallel: any = null
 let mockBlockProtection = false
+const mockCollaborativeUpdateBlockName = vi.fn(() => true)
 let mockBlockConfig: any = {
   category: 'blocks',
   name: 'Agent',
@@ -127,7 +133,7 @@ vi.mock('@/blocks', () => ({
 vi.mock('@/hooks/workflow/use-workflow-editor-actions', () => ({
   useWorkflowEditorActions: () => ({
     collaborativeToggleBlockAdvancedMode: vi.fn(),
-    collaborativeUpdateBlockName: vi.fn(),
+    collaborativeUpdateBlockName: mockCollaborativeUpdateBlockName,
     collaborativeUpdateIterationCollection: vi.fn(),
     collaborativeUpdateIterationCount: vi.fn(),
     collaborativeUpdateLoopType: vi.fn(),
@@ -166,8 +172,25 @@ vi.mock('@/widgets/widgets/editor_workflow/components/workflow-render/sub-block-
 
 import { NodeEditorPanel } from './node-editor-panel'
 
+let container: HTMLDivElement | null = null
+let root: Root | null = null
+const reactActEnvironment = globalThis as typeof globalThis & {
+  IS_REACT_ACT_ENVIRONMENT?: boolean
+}
+
 describe('NodeEditorPanel', () => {
   afterEach(() => {
+    if (root) {
+      act(() => {
+        root?.unmount()
+      })
+      root = null
+    }
+    container?.remove()
+    container = null
+    mockCollaborativeUpdateBlockName.mockReset()
+    mockCollaborativeUpdateBlockName.mockImplementation(() => true)
+    reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
     mockSelectedBlock = {
       id: 'agent-1',
       type: 'agent',
@@ -262,6 +285,88 @@ describe('NodeEditorPanel', () => {
     expect(markup).not.toContain('Temperature')
     expect(markup).not.toContain('API Key')
     expect(markup).not.toContain('Response Format')
+  })
+
+  it('keeps the localized rename editor open when saving a changed name fails', async () => {
+    reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
+    mockCollaborativeUpdateBlockName.mockReturnValue(false)
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(
+        createElement(NodeEditorPanel, {
+          selectedNodeId: 'agent-1',
+        })
+      )
+    })
+
+    const renameButton = container.querySelector(
+      'button[aria-label="Rename node"]'
+    ) as HTMLButtonElement | null
+
+    await act(async () => {
+      renameButton?.dispatchEvent(
+        new globalThis.MouseEvent('click', { bubbles: true, cancelable: true })
+      )
+    })
+
+    const input = container.querySelector('input[type="text"]') as HTMLInputElement | null
+
+    expect(input?.value).toBe('Agente')
+
+    await act(async () => {
+      if (!input) return
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+      valueSetter?.call(input, 'Nuevo nombre')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    })
+
+    expect(mockCollaborativeUpdateBlockName).toHaveBeenCalledWith('agent-1', 'Nuevo nombre')
+    expect(container.querySelector('input[type="text"]')).toBeTruthy()
+    expect((container.querySelector('input[type="text"]') as HTMLInputElement | null)?.value).toBe(
+      'Nuevo nombre'
+    )
+    expect(container.querySelector('button[aria-label="Save name"]')).toBeTruthy()
+  })
+
+  it('closes the localized rename editor without saving when the name is unchanged', async () => {
+    reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(
+        createElement(NodeEditorPanel, {
+          selectedNodeId: 'agent-1',
+        })
+      )
+    })
+
+    const renameButton = container.querySelector(
+      'button[aria-label="Rename node"]'
+    ) as HTMLButtonElement | null
+
+    await act(async () => {
+      renameButton?.dispatchEvent(
+        new globalThis.MouseEvent('click', { bubbles: true, cancelable: true })
+      )
+    })
+
+    const input = container.querySelector('input[type="text"]') as HTMLInputElement | null
+
+    expect(input?.value).toBe('Agente')
+
+    await act(async () => {
+      input?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    })
+
+    expect(mockCollaborativeUpdateBlockName).not.toHaveBeenCalled()
+    expect(container.querySelector('input[type="text"]')).toBeNull()
+    expect(container.textContent).toContain('Agente')
   })
 
   it('renders the missing-node fallback instead of crashing when the selected block is absent', () => {

@@ -2,7 +2,6 @@
 
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronDown, Loader2, Search, ToolCase } from 'lucide-react'
-import { useLocale } from 'next-intl'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,16 +11,16 @@ import {
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useAppMessages } from '@/i18n/client-messages'
-import { cn } from '@/lib/utils'
-import { useSkills } from '@/hooks/queries/skills'
-import type { SkillDefinition } from '@/stores/skills/types'
 import {
   widgetHeaderControlClassName,
   widgetHeaderMenuContentClassName,
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
+import { cn } from '@/lib/utils'
+import { useSkills } from '@/hooks/queries/skills'
+import { useAppMessages } from '@/i18n/client-messages'
+import type { SkillDefinition } from '@/stores/skills/types'
 
 const DROPDOWN_MAX_HEIGHT = '20rem'
 const DROPDOWN_VIEWPORT_HEIGHT = '14rem'
@@ -38,8 +37,7 @@ interface SkillDropdownProps {
   menuClassName?: string
 }
 
-const getSkillTitle = (skill?: SkillDefinition | null, fallback = '') =>
-  skill?.name || fallback
+const getSkillTitle = (skill?: SkillDefinition | null, fallback = '') => skill?.name || fallback
 
 export function SkillDropdown({
   workspaceId,
@@ -51,7 +49,6 @@ export function SkillDropdown({
   triggerClassName,
   menuClassName,
 }: SkillDropdownProps) {
-  const locale = useLocale()
   const copy = useAppMessages().workspace.widgets.skillDropdown
   const [searchQuery, setSearchQuery] = useState('')
   const {

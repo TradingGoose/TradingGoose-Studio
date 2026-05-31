@@ -58,6 +58,14 @@ export interface JsonDisplayControlsProps {
   disabled?: boolean
   className?: string
   buttonClassName?: string | ((active: boolean) => string)
+  copy?: {
+    showRawTitle?: string
+    showBeautyTitle?: string
+    disableWrapTitle?: string
+    enableWrapTitle?: string
+    toggleModeAriaLabel?: string
+    toggleWrapAriaLabel?: string
+  }
 }
 
 const BADGE_STYLES: Record<ValueType, string> = {
@@ -486,6 +494,7 @@ export function JsonDisplayControls({
   disabled = false,
   className,
   buttonClassName,
+  copy,
 }: JsonDisplayControlsProps) {
   const resolveButtonClassName = (active: boolean) =>
     cn(
@@ -493,6 +502,13 @@ export function JsonDisplayControls({
       active && 'text-foreground',
       typeof buttonClassName === 'function' ? buttonClassName(active) : buttonClassName
     )
+  const modeTitle =
+    mode === 'beauty'
+      ? (copy?.showRawTitle ?? 'Show raw JSON')
+      : (copy?.showBeautyTitle ?? 'Show beauty view')
+  const wrapTitle = wrapText
+    ? (copy?.disableWrapTitle ?? 'Disable wrapping')
+    : (copy?.enableWrapTitle ?? 'Enable wrapping')
 
   return (
     <div className={cn('flex items-center gap-1', className)}>
@@ -500,8 +516,8 @@ export function JsonDisplayControls({
         type='button'
         className={resolveButtonClassName(mode === 'beauty')}
         onClick={() => onModeChange(mode === 'beauty' ? 'raw' : 'beauty')}
-        title={mode === 'beauty' ? 'Show raw JSON' : 'Show beauty view'}
-        aria-label='Toggle JSON display mode'
+        title={modeTitle}
+        aria-label={copy?.toggleModeAriaLabel ?? 'Toggle JSON display mode'}
         aria-pressed={mode === 'beauty'}
         disabled={disabled}
       >
@@ -512,8 +528,8 @@ export function JsonDisplayControls({
         type='button'
         className={resolveButtonClassName(wrapText)}
         onClick={() => onWrapTextChange(!wrapText)}
-        title={wrapText ? 'Disable wrapping' : 'Enable wrapping'}
-        aria-label='Toggle JSON text wrapping'
+        title={wrapTitle}
+        aria-label={copy?.toggleWrapAriaLabel ?? 'Toggle JSON text wrapping'}
         aria-pressed={wrapText}
         disabled={disabled}
       >
