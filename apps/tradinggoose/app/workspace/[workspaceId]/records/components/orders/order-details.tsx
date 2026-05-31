@@ -23,7 +23,6 @@ import {
   formatDateTime,
   formatMoney,
   formatNumber,
-  getExecutionPrice,
   getOrderListingFallback,
   titleCase,
   uppercase,
@@ -187,10 +186,7 @@ function OrderData({
   const locale = useLocale()
   const t = useTranslations('workspace.records.orders')
   const active = detail ?? order
-  const executionPrice = getExecutionPrice(active, {
-    executionPrice: t('executionPrice'),
-    submittedLimit: t('submittedLimit'),
-  })
+  const executionPrice = active.fillPrice ?? active.averageFillPrice
   const latestProviderDetail = providerDetail?.data.orderDetail ?? null
   const providerRows = changedProviderRows(active, latestProviderDetail, locale)
   const showWorkflow =
@@ -248,7 +244,7 @@ function OrderData({
           {hasValue(active.submittedPrice) ? (
             <DetailRow label='Submitted price' value={formatMoney(active.submittedPrice)} />
           ) : null}
-          <DetailRow label={executionPrice.label} value={executionPrice.value} />
+          <DetailRow label={t('executionPrice')} value={formatMoney(executionPrice)} />
           <DetailRow label='Fee' value={formatMoney(active.fee)} />
         </DetailSection>
 
