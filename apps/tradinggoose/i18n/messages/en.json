@@ -20488,9 +20488,7 @@
         "setCount": "{{count}} set",
         "all": "All",
         "allExecutions": "All executions",
-        "allMonitors": "All monitors",
         "monitorsCount": "{{count}} monitors",
-        "monitorConfigsCount": "{{count}} monitor configs",
         "monitorControls": "Monitor controls"
       },
       "execution": {
@@ -20504,7 +20502,6 @@
         "closeInspector": "Close inspector",
         "kanban": "Kanban",
         "timeline": "Timeline",
-        "sorted": "Sorted",
         "limitLabel": "Limit {{count}}",
         "running": "Running",
         "unknown": "Unknown",

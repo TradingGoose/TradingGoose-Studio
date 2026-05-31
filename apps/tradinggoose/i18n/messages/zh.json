@@ -20505,9 +20505,7 @@
         "setCount": "已设置 {{count}} 项",
         "all": "全部",
         "allExecutions": "全部执行",
-        "allMonitors": "全部监控",
         "monitorsCount": "{{count}} 个监控",
-        "monitorConfigsCount": "{{count}} 个监控配置",
         "monitorControls": "监控控件"
       },
       "execution": {
@@ -20521,7 +20519,6 @@
         "closeInspector": "关闭检查器",
         "kanban": "看板",
         "timeline": "时间线",
-        "sorted": "已排序",
         "limitLabel": "限制 {{count}}",
         "running": "运行中",
         "unknown": "未知",

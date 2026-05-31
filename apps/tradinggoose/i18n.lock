@@ -10721,9 +10721,7 @@ checksums:
     workspace/monitor/shared/setCount: 5367af1c250497504a4bd7b9fbdb776a
     workspace/monitor/shared/all: 5e2e93f8e2a5f315b6fecdd0a0e6f55f
     workspace/monitor/shared/allExecutions: af64fae6701952fd3b6aea19e65cee15
-    workspace/monitor/shared/allMonitors: da5354ed6362e886e1e97ae15e941646
     workspace/monitor/shared/monitorsCount: e06dd52d1e82e987b21fb5ee14039a9d
-    workspace/monitor/shared/monitorConfigsCount: d5021e3fde3f2c3c7665f1c9424e739d
     workspace/monitor/shared/monitorControls: e5aef40f3efe59a4894c8319b0afee21
     workspace/monitor/execution/toolbarLabel: 358628ff0b13c173e6088f3dd604a3d3
     workspace/monitor/execution/loadingViews: 875a2bdf47780dbbd05c3c66e0d45e34
@@ -10735,7 +10733,6 @@ checksums:
     workspace/monitor/execution/closeInspector: 540ccecadab8b0a449e94d4f301e1f75
     workspace/monitor/execution/kanban: 14609e506d2c735e9ab23fe9d605da16
     workspace/monitor/execution/timeline: 342b1e646f0634e47112092db1a24f49
-    workspace/monitor/execution/sorted: 5137ba289f60c05194dd4546844cf1cc
     workspace/monitor/execution/limitLabel: b3be3c1205c3190bc62b4e18f4256d78
     workspace/monitor/execution/running: 010d4795c3d5df31edde92a3441d7017
     workspace/monitor/execution/unknown: 5cd12b882fe90320f93130c1b50e2e32

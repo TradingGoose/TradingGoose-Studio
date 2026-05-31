@@ -20505,9 +20505,7 @@
         "setCount": "{{count}} configurados",
         "all": "Todos",
         "allExecutions": "Todas las ejecuciones",
-        "allMonitors": "Todos los monitores",
         "monitorsCount": "{{count}} monitores",
-        "monitorConfigsCount": "{{count}} configuraciones de monitor",
         "monitorControls": "Controles del monitor"
       },
       "execution": {
@@ -20521,7 +20519,6 @@
         "closeInspector": "Cerrar inspector",
         "kanban": "Kanban",
         "timeline": "Cronología",
-        "sorted": "Ordenado",
         "limitLabel": "Límite {{count}}",
         "running": "En ejecución",
         "unknown": "Desconocido",
