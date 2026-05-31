@@ -48,18 +48,12 @@ type ConfigBoardGroup = {
 
 export type ConfigBoardSection = {
   id: string
-  label: string
-  cards: ConfigMonitorCard[]
-  aggregates: ConfigBoardAggregates
   groups: ConfigBoardGroup[]
 }
 
 type ConfigBoardLabels = {
   allLabel: string
-  allMonitorsLabel: string
   emptyDimensionLabels: Record<ConfigMonitorDimensionField, string>
-  noExecutionsLabel: string
-  noOutcomeLabel: string
   statusLabels: Record<ConfigMonitorStatus, string>
 }
 
@@ -84,10 +78,7 @@ const ALL_AXIS_VALUE: ConfigAxisValue = {
 
 const DEFAULT_CONFIG_BOARD_LABELS: ConfigBoardLabels = {
   allLabel: ALL_AXIS_VALUE.label,
-  allMonitorsLabel: 'All monitors',
   emptyDimensionLabels: DIMENSION_EMPTY_LABELS,
-  noExecutionsLabel: 'No executions',
-  noOutcomeLabel: 'No outcome',
   statusLabels: {
     active: 'Active',
     paused: 'Paused',
@@ -194,7 +185,7 @@ export const buildConfigBoardSections = (
 ): ConfigBoardSection[] => {
   const sectionValues = config.sliceBy
     ? buildAxisValues(config.sliceBy, cards, referenceData, labels)
-    : [{ ...ALL_AXIS_VALUE, label: labels.allMonitorsLabel, sortValue: labels.allMonitorsLabel }]
+    : [ALL_AXIS_VALUE]
   const groupValues = buildAxisValues(config.groupBy, cards, referenceData, labels)
   const verticalValues = config.verticalGroupBy
     ? buildAxisValues(config.verticalGroupBy, cards, referenceData, labels)
@@ -253,9 +244,6 @@ export const buildConfigBoardSections = (
 
     return {
       id: sectionValue.id,
-      label: sectionValue.label,
-      cards: sectionCards,
-      aggregates: aggregateCards(sectionCards, config.fieldSums),
       groups,
     } satisfies ConfigBoardSection
   })

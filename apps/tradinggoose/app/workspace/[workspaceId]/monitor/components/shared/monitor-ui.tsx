@@ -43,10 +43,7 @@ export function MonitorControlBar({
         <div
           role='toolbar'
           aria-label={toolbarLabel ?? copy.shared.monitorControls}
-          className={cn(
-            'flex min-h-11 w-max min-w-full items-center gap-1 rounded-xl border bg-muted p-1 shadow-sm',
-            contentClassName
-          )}
+          className={cn('flex w-max min-w-full items-center gap-1', contentClassName)}
         >
           {children}
         </div>

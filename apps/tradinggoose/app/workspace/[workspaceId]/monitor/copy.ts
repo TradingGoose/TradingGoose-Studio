@@ -3,10 +3,7 @@
 import { useLocale } from 'next-intl'
 import { type PublicCopy, useAppMessages } from '@/i18n/client-messages'
 import type { LocaleCode } from '@/i18n/utils'
-import type {
-  MonitorExecutionGroupLabels,
-  MonitorExecutionOutcome,
-} from '@/app/workspace/[workspaceId]/monitor/components/data/execution-ordering'
+import type { MonitorExecutionGroupLabels } from '@/app/workspace/[workspaceId]/monitor/components/data/execution-ordering'
 import type {
   ConfigMonitorDimensionField,
   ConfigMonitorStatus,
@@ -26,10 +23,7 @@ type MonitorBoardLabels = {
 
 type ConfigBoardLabels = {
   allLabel: string
-  allMonitorsLabel: string
   emptyDimensionLabels: Record<ConfigMonitorDimensionField, string>
-  noExecutionsLabel: string
-  noOutcomeLabel: string
   statusLabels: Record<ConfigMonitorStatus, string>
 }
 
@@ -230,7 +224,6 @@ export function getMonitorBoardLabels(copy: MonitorCopy): MonitorBoardLabels {
 export function getConfigBoardLabels(copy: MonitorCopy): ConfigBoardLabels {
   return {
     allLabel: copy.shared.all,
-    allMonitorsLabel: copy.shared.allMonitors,
     emptyDimensionLabels: {
       workflowTarget: copy.fields.workflowTarget,
       indicator: copy.fields.indicator,
@@ -238,8 +231,6 @@ export function getConfigBoardLabels(copy: MonitorCopy): ConfigBoardLabels {
       provider: copy.fields.provider,
       interval: copy.fields.interval,
     },
-    noExecutionsLabel: copy.config.noExecutions,
-    noOutcomeLabel: copy.config.noOutcome,
     statusLabels: {
       active: copy.fields.active,
       paused: copy.fields.paused,

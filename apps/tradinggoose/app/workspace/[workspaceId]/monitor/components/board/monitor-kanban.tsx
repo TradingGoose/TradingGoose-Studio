@@ -13,50 +13,14 @@ export function MonitorKanbanShell(props: MonitorKanbanShellProps) {
   return <MonitorBoardShell {...props} />
 }
 
-type MonitorKanbanSectionProps = ComponentProps<'section'> & {
-  actions?: ReactNode
-  aggregateBadgeClassName?: string
-  aggregateClassName?: string
-  aggregateVariant?: BadgeProps['variant']
-  aggregates?: Record<string, number | string | undefined>
-  description?: ReactNode
-  title?: ReactNode
-}
+type MonitorKanbanSectionProps = ComponentProps<'section'>
 
-export function MonitorKanbanSection({
-  actions,
-  aggregateBadgeClassName,
-  aggregateClassName,
-  aggregateVariant,
-  aggregates = {},
-  children,
-  className,
-  description,
-  title,
-  ...props
-}: MonitorKanbanSectionProps) {
+export function MonitorKanbanSection({ children, className, ...props }: MonitorKanbanSectionProps) {
   return (
     <section
       className={cn('flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col gap-3', className)}
       {...props}
     >
-      {title || description || actions ? (
-        <div className='flex items-start justify-between gap-3 px-1'>
-          <div className='min-w-0 space-y-1'>
-            {title ? <div className='font-medium text-sm'>{title}</div> : null}
-            {description ? (
-              <div className='text-muted-foreground text-xs'>{description}</div>
-            ) : null}
-          </div>
-          {actions ? <div className='shrink-0'>{actions}</div> : null}
-        </div>
-      ) : null}
-      <MonitorAggregateBadges
-        entries={aggregates}
-        className={cn('px-1', aggregateClassName)}
-        variant={aggregateVariant}
-        badgeClassName={aggregateBadgeClassName}
-      />
       {children}
     </section>
   )

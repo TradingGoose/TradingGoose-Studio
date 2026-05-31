@@ -424,7 +424,7 @@ function PortfolioMonitorFields({
         onChange={(condition) => onUpdateDraft({ condition })}
       />
 
-      <div className='grid gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.8fr)]'>
+      <div className='grid gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.8fr)_auto]'>
         <div className='space-y-2'>
           <Label className='text-muted-foreground text-xs'>Fire mode</Label>
           <Select
