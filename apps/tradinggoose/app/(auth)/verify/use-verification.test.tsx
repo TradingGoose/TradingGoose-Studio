@@ -44,12 +44,16 @@ vi.mock('@/lib/auth-client', () => ({
   }),
 }))
 
+interface VerificationControls {
+  handleOtpChange: (value: string) => void
+}
+
 interface VerificationHarnessProps {
-  locale: 'en' | 'es' | 'zh-CN'
+  locale: 'en' | 'es' | 'zh'
   hasEmailService?: boolean
   isProduction?: boolean
   isEmailVerificationEnabled?: boolean
-  onReady: (controls: ReturnType<typeof useVerification>) => void
+  onReady: (controls: VerificationControls) => void
 }
 
 function VerificationHarness({
@@ -134,8 +138,8 @@ describe('useVerification', () => {
   })
 
   async function renderHarness(
-    locale: 'en' | 'es' | 'zh-CN',
-    onReady: (controls: ReturnType<typeof useVerification>) => void
+    locale: 'en' | 'es' | 'zh',
+    onReady: (controls: VerificationControls) => void
   ) {
     await act(async () => {
       root.render(
@@ -151,15 +155,11 @@ describe('useVerification', () => {
     mockEmailOtpSignIn.mockResolvedValue({})
     mockRefetchSession.mockResolvedValue(undefined)
 
-    let controls: ReturnType<typeof useVerification> | null = null
+    let controls!: VerificationControls
 
-    await renderHarness('zh-CN', (value) => {
+    await renderHarness('zh', (value) => {
       controls = value
     })
-
-    if (!controls) {
-      throw new Error('Expected verification controls to initialize')
-    }
 
     await act(async () => {
       controls.handleOtpChange('123456')
@@ -186,15 +186,11 @@ describe('useVerification', () => {
       .spyOn(i18nUtils, 'localizeHref')
       .mockReturnValue('#invite-redirect')
 
-    let controls: ReturnType<typeof useVerification> | null = null
+    let controls!: VerificationControls
 
-    await renderHarness('zh-CN', (value) => {
+    await renderHarness('zh', (value) => {
       controls = value
     })
-
-    if (!controls) {
-      throw new Error('Expected verification controls to initialize')
-    }
 
     await act(async () => {
       controls.handleOtpChange('123456')
@@ -205,7 +201,7 @@ describe('useVerification', () => {
     })
 
     expect(mockPush).not.toHaveBeenCalled()
-    expect(localizeHrefSpy).toHaveBeenCalledWith('zh-CN', '/workspace/ws-1/dashboard')
+    expect(localizeHrefSpy).toHaveBeenCalledWith('zh', '/workspace/ws-1/dashboard')
     expect(window.location.hash).toBe('#invite-redirect')
   })
 })

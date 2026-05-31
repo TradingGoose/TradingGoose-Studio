@@ -125,7 +125,7 @@ vi.mock('@/widgets/widgets/editor_workflow/context/workflow-route-context', () =
 
 import { WorkflowBlock } from './workflow-block'
 
-const renderWithLocale = (element: React.ReactElement, locale: 'es' | 'en' | 'zh-CN' = 'es') =>
+const renderWithLocale = (element: React.ReactElement, locale: 'es' | 'en' | 'zh' = 'es') =>
   renderToStaticMarkup(
     <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
       {element}

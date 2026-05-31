@@ -1,25 +1,25 @@
-export type LocaleCode = 'en' | 'es' | 'zh-CN'
+export type LocaleCode = 'en' | 'es' | 'zh'
 
-export const locales = ['en', 'es', 'zh-CN'] as const
+export const locales = ['en', 'es', 'zh'] as const
 export const defaultLocale: LocaleCode = 'en'
 export const SITE_BASE_URL = 'https://tradinggoose.ai'
 const LOCALE_DISPLAY_NAMES: Record<LocaleCode, string> = {
   en: 'English',
   es: 'Español',
-  'zh-CN': '简体中文',
+  zh: '简体中文',
 }
 const DOCS_BASE_URL = 'https://docs.tradinggoose.ai'
 
 const PUBLIC_LOCALE_PATH_SEGMENTS: Record<LocaleCode, string> = {
   en: 'en',
   es: 'es',
-  'zh-CN': 'zh',
+  zh: 'zh',
 }
 
 const OPEN_GRAPH_LOCALE_MAP: Record<LocaleCode, string> = {
   en: 'en_US',
   es: 'es_ES',
-  'zh-CN': 'zh_CN',
+  zh: 'zh_CN',
 }
 
 export function getLocalePathSegment(locale: LocaleCode) {

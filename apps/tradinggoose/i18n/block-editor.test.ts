@@ -18,7 +18,7 @@ import {
 } from './block-editor'
 import enCopy from './messages/en.json'
 import esCopy from './messages/es.json'
-import zhCnCopy from './messages/zh-CN.json'
+import zhCopy from './messages/zh.json'
 import { getPublicCopy } from './public-copy'
 
 function collectLegacyOptionOverridePaths(
@@ -114,86 +114,86 @@ function collectLegacyOptionOverridePaths(
 
 describe('block-editor i18n helpers', () => {
   it('translates tools labels and strips trailing colons before lookup', () => {
-    expect(translateWorkflowLabel('zh-CN', 'Tools')).toBe('工具')
-    expect(translateWorkflowLabel('zh-CN', 'Response Format:')).toBe('响应格式')
+    expect(translateWorkflowLabel('zh', 'Tools')).toBe('工具')
+    expect(translateWorkflowLabel('zh', 'Response Format:')).toBe('响应格式')
   })
 
   it('translates webhook labels from the shared workflow label namespace', () => {
     const esLabels = getPublicCopy('es').workspace.widgets.workflowLabels
-    const zhLabels = getPublicCopy('zh-CN').workspace.widgets.workflowLabels
+    const zhLabels = getPublicCopy('zh').workspace.widgets.workflowLabels
 
     expect(translateWorkflowLabel('es', 'Webhook URL:')).toBe(esLabels.webhookUrl)
     expect(translateWorkflowLabel('es', 'Payload')).toBe(esLabels.payload)
-    expect(translateWorkflowLabel('zh-CN', 'signingSecret')).toBe(zhLabels.signingSecret)
-    expect(translateWorkflowLabel('zh-CN', 'Additional Headers')).toBe(zhLabels.additionalHeaders)
+    expect(translateWorkflowLabel('zh', 'signingSecret')).toBe(zhLabels.signingSecret)
+    expect(translateWorkflowLabel('zh', 'Additional Headers')).toBe(zhLabels.additionalHeaders)
   })
 
   it('resolves shared workflow labels through the stable resolver', () => {
     expect(translateWorkflowLabel('es', 'System Prompt')).toBe('Prompt del sistema')
-    expect(translateWorkflowLabel('zh-CN', 'System Prompt')).toBe('系统提示词')
+    expect(translateWorkflowLabel('zh', 'System Prompt')).toBe('系统提示词')
     expect(translateWorkflowLabel('es', 'Task')).toBe('Tarea')
-    expect(translateWorkflowLabel('zh-CN', 'Variables')).toBe('变量')
+    expect(translateWorkflowLabel('zh', 'Variables')).toBe('变量')
   })
 
   it('translates shared API block labels and stable aliases', () => {
     const esLabels = getPublicCopy('es').workspace.widgets.workflowLabels
-    const zhLabels = getPublicCopy('zh-CN').workspace.widgets.workflowLabels
+    const zhLabels = getPublicCopy('zh').workspace.widgets.workflowLabels
 
     expect(translateWorkflowLabel('es', 'URL:')).toBe(esLabels.url)
     expect(translateWorkflowLabel('es', 'Method')).toBe(esLabels.method)
     expect(translateWorkflowLabel('es', 'Query Params')).toBe(esLabels.queryParams)
     expect(translateWorkflowLabel('es', 'headers')).toBe(esLabels.headers)
-    expect(translateWorkflowLabel('zh-CN', 'Body')).toBe(zhLabels.body)
-    expect(translateWorkflowLabel('zh-CN', 'params')).toBe('params')
+    expect(translateWorkflowLabel('zh', 'Body')).toBe(zhLabels.body)
+    expect(translateWorkflowLabel('zh', 'params')).toBe('params')
   })
 
   it('translates guardrails workflow labels from the shared namespace', () => {
     const esLabels = getPublicCopy('es').workspace.widgets.workflowLabels
-    const zhLabels = getPublicCopy('zh-CN').workspace.widgets.workflowLabels
+    const zhLabels = getPublicCopy('zh').workspace.widgets.workflowLabels
 
     expect(translateWorkflowLabel('es', 'Content to Validate')).toBe(esLabels.contentToValidate)
     expect(translateWorkflowLabel('es', 'Validation Type')).toBe(esLabels.validationType)
-    expect(translateWorkflowLabel('zh-CN', 'PII Types to Detect')).toBe(zhLabels.piiTypesToDetect)
-    expect(translateWorkflowLabel('zh-CN', 'Configure PII Types')).toBe(zhLabels.configurePiiTypes)
+    expect(translateWorkflowLabel('zh', 'PII Types to Detect')).toBe(zhLabels.piiTypesToDetect)
+    expect(translateWorkflowLabel('zh', 'Configure PII Types')).toBe(zhLabels.configurePiiTypes)
   })
 
   it('translates human in the loop workflow labels from the shared namespace', () => {
     const esLabels = getPublicCopy('es').workspace.widgets.workflowLabels
-    const zhLabels = getPublicCopy('zh-CN').workspace.widgets.workflowLabels
+    const zhLabels = getPublicCopy('zh').workspace.widgets.workflowLabels
 
     expect(translateWorkflowLabel('es', 'Display Data')).toBe(esLabels.displayData)
     expect(translateWorkflowLabel('es', 'Notification (Send URL)')).toBe(
       esLabels.notificationSendUrl
     )
-    expect(translateWorkflowLabel('zh-CN', 'Resume Form')).toBe(zhLabels.resumeForm)
+    expect(translateWorkflowLabel('zh', 'Resume Form')).toBe(zhLabels.resumeForm)
   })
 
   it('translates shared knowledge workflow labels from the shared namespace', () => {
     expect(translateWorkflowLabel('es', 'Operation')).toBe('Operación')
     expect(translateWorkflowLabel('es', 'Search Query')).toBe('Consulta de búsqueda')
-    expect(translateWorkflowLabel('zh-CN', 'Number of Results')).toBe('结果数量')
+    expect(translateWorkflowLabel('zh', 'Number of Results')).toBe('结果数量')
   })
 
   it('translates landing workflow preview labels through the shared resolver', () => {
     expect(translateWorkflowLabel('es', 'Signal Briefing')).toBe('Resumen de señales')
-    expect(translateWorkflowLabel('zh-CN', 'Risk Committee')).toBe('风险委员会')
+    expect(translateWorkflowLabel('zh', 'Risk Committee')).toBe('风险委员会')
   })
 
   it('translates memory workflow labels from the shared namespace', () => {
     const esLabels = getPublicCopy('es').workspace.widgets.workflowLabels
-    const zhLabels = getPublicCopy('zh-CN').workspace.widgets.workflowLabels
+    const zhLabels = getPublicCopy('zh').workspace.widgets.workflowLabels
 
     expect(translateWorkflowLabel('es', 'Role')).toBe(esLabels.role)
     expect(translateWorkflowLabel('es', 'Content')).toBe(esLabels.content)
-    expect(translateWorkflowLabel('zh-CN', 'ID')).toBe(zhLabels.id)
-    expect(translateWorkflowLabel('zh-CN', 'Add Memory')).toBe(zhLabels.addMemory)
+    expect(translateWorkflowLabel('zh', 'ID')).toBe(zhLabels.id)
+    expect(translateWorkflowLabel('zh', 'Add Memory')).toBe(zhLabels.addMemory)
   })
 
   it('resolves workflow inspector key paths directly', () => {
     expect(translateWorkflowLabel('es', 'workflowInspector.workflowEditor.previewInspector')).toBe(
       'Inspector de vista previa'
     )
-    expect(translateWorkflowLabel('zh-CN', 'workflowInspector.workflowLabels.systemPrompt')).toBe(
+    expect(translateWorkflowLabel('zh', 'workflowInspector.workflowLabels.systemPrompt')).toBe(
       '系统提示词'
     )
   })
@@ -245,47 +245,47 @@ describe('block-editor i18n helpers', () => {
     expect(resolveWorkflowDisplayValue('es', config, 'json')).toBe(
       translateWorkflowLabel('es', 'Valid JSON')
     )
-    expect(resolveWorkflowDisplayValue('zh-CN', config, ['PERSON', 'EMAIL_ADDRESS'])).toEqual([
-      translateWorkflowLabel('zh-CN', 'Person name'),
-      translateWorkflowLabel('zh-CN', 'Email address'),
+    expect(resolveWorkflowDisplayValue('zh', config, ['PERSON', 'EMAIL_ADDRESS'])).toEqual([
+      translateWorkflowLabel('zh', 'Person name'),
+      translateWorkflowLabel('zh', 'Email address'),
     ])
   })
 
   it('localizes trigger and subflow names through stable block-type keys', () => {
     expect(getLocalizedDefaultBlockName('es', 'input_trigger')).toBe('Formulario de entrada')
-    expect(getLocalizedDefaultBlockName('zh-CN', 'schedule')).toBe(
-      getPublicCopy('zh-CN').workspace.widgets.blockEditor.blockNames.schedule
+    expect(getLocalizedDefaultBlockName('zh', 'schedule')).toBe(
+      getPublicCopy('zh').workspace.widgets.blockEditor.blockNames.schedule
     )
-    expect(getLocalizedDefaultBlockName('zh-CN', 'loop')).toBe('循环')
+    expect(getLocalizedDefaultBlockName('zh', 'loop')).toBe('循环')
   })
 
   it('keeps custom block names intact for deploy-modal tab labels when the stored name differs from the registry default', () => {
     expect(getLocalizedDefaultBlockName('es', 'schedule', 'Custom Schedule')).toBe(
       'Custom Schedule'
     )
-    expect(getLocalizedDefaultBlockName('zh-CN', 'parallel_ai', 'Parallel AI Custom')).toBe(
+    expect(getLocalizedDefaultBlockName('zh', 'parallel_ai', 'Parallel AI Custom')).toBe(
       'Parallel AI Custom'
     )
   })
 
   it('localizes generated default names with numeric suffixes across locales', () => {
-    const zhBlockNames = getPublicCopy('zh-CN').workspace.widgets.blockEditor.blockNames
+    const zhBlockNames = getPublicCopy('zh').workspace.widgets.blockEditor.blockNames
     const esBlockNames = getPublicCopy('es').workspace.widgets.blockEditor.blockNames
 
-    expect(getLocalizedDefaultBlockName('zh-CN', 'human_in_the_loop', 'Human in the Loop 1')).toBe(
+    expect(getLocalizedDefaultBlockName('zh', 'human_in_the_loop', 'Human in the Loop 1')).toBe(
       `${zhBlockNames.human_in_the_loop} 1`
     )
-    expect(getLocalizedDefaultBlockName('zh-CN', 'input_trigger', 'Formulario de entrada 2')).toBe(
+    expect(getLocalizedDefaultBlockName('zh', 'input_trigger', 'Formulario de entrada 2')).toBe(
       `${zhBlockNames.input_trigger} 2`
     )
     expect(getLocalizedDefaultBlockName('es', 'loop', 'Loop 3')).toBe(`${esBlockNames.loop} 3`)
-    expect(getLocalizedDefaultBlockName('zh-CN', 'parallel', 'Paralelo 4')).toBe(
+    expect(getLocalizedDefaultBlockName('zh', 'parallel', 'Paralelo 4')).toBe(
       `${zhBlockNames.parallel} 4`
     )
   })
 
   it('keeps custom numbered block names intact when they do not match generated defaults', () => {
-    expect(getLocalizedDefaultBlockName('zh-CN', 'schedule', 'Quarterly Schedule 2')).toBe(
+    expect(getLocalizedDefaultBlockName('zh', 'schedule', 'Quarterly Schedule 2')).toBe(
       'Quarterly Schedule 2'
     )
     expect(getLocalizedDefaultBlockName('es', 'agent', 'Analyst Review 7')).toBe('Analyst Review 7')
@@ -329,7 +329,7 @@ describe('block-editor i18n helpers', () => {
     expect(stagehandMetadata.description).toBe('Extraer datos de sitios web')
     expect(stagehandMetadata.longDescription).toContain('datos estructurados de páginas web')
 
-    const stagehandAgentMetadata = getLocalizedBlockMetadata('zh-CN', {
+    const stagehandAgentMetadata = getLocalizedBlockMetadata('zh', {
       type: 'stagehand_agent',
       name: 'Stagehand Agent',
       description: 'Autonomous web browsing agent',
@@ -338,7 +338,7 @@ describe('block-editor i18n helpers', () => {
     })
 
     expect(stagehandAgentMetadata.name).toBe(
-      getPublicCopy('zh-CN').workspace.widgets.blockEditor.blockNames.stagehand_agent
+      getPublicCopy('zh').workspace.widgets.blockEditor.blockNames.stagehand_agent
     )
     expect(stagehandAgentMetadata.description).toBe('自主网页浏览代理')
     expect(stagehandAgentMetadata.longDescription).toContain('浏览网页并执行任务')
@@ -361,7 +361,7 @@ describe('block-editor i18n helpers', () => {
       'rss',
     ] as const
 
-    for (const locale of ['es', 'zh-CN'] as const) {
+    for (const locale of ['es', 'zh'] as const) {
       const blockEditorCopy = getPublicCopy(locale).workspace.widgets.blockEditor
 
       for (const type of previouslyUncoveredTypes) {
@@ -401,7 +401,7 @@ describe('block-editor i18n helpers', () => {
     )
 
     const localizedVariables = localizeWorkflowSubBlockConfig(
-      'zh-CN',
+      'zh',
       {
         id: 'variables',
         title: 'Variables',
@@ -443,7 +443,7 @@ describe('block-editor i18n helpers', () => {
     expect(localizedApiKey.placeholder).toBe('Introduce tu clave de API de Anthropic')
 
     const localizedSchema = localizeWorkflowSubBlockConfig(
-      'zh-CN',
+      'zh',
       {
         id: 'outputSchema',
         title: 'Output Schema',
@@ -453,9 +453,9 @@ describe('block-editor i18n helpers', () => {
       'stagehand_agent'
     )
 
-    expect(localizedSchema.title).toBe(translateWorkflowLabel('zh-CN', 'Output Schema'))
+    expect(localizedSchema.title).toBe(translateWorkflowLabel('zh', 'Output Schema'))
     expect(localizedSchema.placeholder).toBe(
-      translateWorkflowLabel('zh-CN', 'Enter JSON schema...')
+      translateWorkflowLabel('zh', 'Enter JSON schema...')
     )
   })
 
@@ -466,9 +466,9 @@ describe('block-editor i18n helpers', () => {
       longDescription: GitHubBlock.longDescription,
     })
 
-    expect(getLocalizedBlockMetadata('zh-CN', GmailBlock)).toEqual({
+    expect(getLocalizedBlockMetadata('zh', GmailBlock)).toEqual({
       name: 'Gmail',
-      description: getPublicCopy('zh-CN').workspace.widgets.blockEditor.blockDescriptions.gmail,
+      description: getPublicCopy('zh').workspace.widgets.blockEditor.blockDescriptions.gmail,
       longDescription: GmailBlock.longDescription,
     })
   })
@@ -487,7 +487,7 @@ describe('block-editor i18n helpers', () => {
       'Introduce el ID del mensaje que quieres leer (opcional)'
     )
 
-    const zhSendConfig = getLocalizedToolParametersConfig('zh-CN', 'gmail_send', GmailBlock)
+    const zhSendConfig = getLocalizedToolParametersConfig('zh', 'gmail_send', GmailBlock)
     const zhToParam = zhSendConfig?.userInputParameters.find((param) => param.id === 'to')
     const zhBodyParam = zhSendConfig?.userInputParameters.find((param) => param.id === 'body')
 
@@ -539,7 +539,7 @@ describe('block-editor i18n helpers', () => {
     expect([
       ...collectLegacyOptionOverridePaths(enCopy as Record<string, any>, 'en'),
       ...collectLegacyOptionOverridePaths(esCopy as Record<string, any>, 'es'),
-      ...collectLegacyOptionOverridePaths(zhCnCopy as Record<string, any>, 'zh-CN'),
+      ...collectLegacyOptionOverridePaths(zhCopy as Record<string, any>, 'zh'),
     ]).toEqual([])
   })
 
@@ -643,7 +643,7 @@ describe('block-editor i18n helpers', () => {
       'generic_webhook'
     )
     const localizedScheduleType = localizeWorkflowSubBlockConfig(
-      'zh-CN',
+      'zh',
       scheduleTrigger.subBlocks[0]!,
       undefined,
       'schedule'

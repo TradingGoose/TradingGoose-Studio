@@ -13,7 +13,7 @@ describe('data chart copy helpers', () => {
   it('formats interval labels with localized singular and plural units', () => {
     const enCopy = getPublicCopy('en').workspace.widgets.dataChart
     const esCopy = getPublicCopy('es').workspace.widgets.dataChart
-    const zhCopy = getPublicCopy('zh-CN').workspace.widgets.dataChart
+    const zhCopy = getPublicCopy('zh').workspace.widgets.dataChart
 
     expect(formatDataChartIntervalLabel(enCopy, '1m')).toBe('1 minute')
     expect(formatDataChartIntervalLabel(enCopy, '2h')).toBe('2 hours')
@@ -25,7 +25,7 @@ describe('data chart copy helpers', () => {
   it('formats range labels and range interval tooltips from locale copy', () => {
     const enCopy = getPublicCopy('en').workspace.widgets.dataChart
     const esCopy = getPublicCopy('es').workspace.widgets.dataChart
-    const zhCopy = getPublicCopy('zh-CN').workspace.widgets.dataChart
+    const zhCopy = getPublicCopy('zh').workspace.widgets.dataChart
 
     expect(formatDataChartRangeLabel(enCopy, { value: 5, unit: 'day' })).toBe('5 days')
     expect(formatDataChartRangeLabel(esCopy, { value: 1, unit: 'week' })).toBe('1 semana')
@@ -37,7 +37,7 @@ describe('data chart copy helpers', () => {
 
   it('resolves known technical display labels through copy keys', () => {
     const esCopy = getPublicCopy('es').workspace.widgets.dataChart
-    const zhCopy = getPublicCopy('zh-CN').workspace.widgets.dataChart
+    const zhCopy = getPublicCopy('zh').workspace.widgets.dataChart
 
     expect(getDataChartCandleTypeLabel(esCopy, 'area')).toBe('Área')
     expect(getDataChartRangePresetLabel(zhCopy, '1d')).toBe('1日')

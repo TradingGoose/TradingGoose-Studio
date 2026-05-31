@@ -1793,7 +1793,7 @@ export const widgetsExtraCopy = {
       },
     },
   },
-  'zh-CN': {
+  zh: {
     workspace: {
       widgets: {
         providerControls: {

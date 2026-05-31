@@ -83,14 +83,14 @@ describe('client messages hooks', () => {
   it('reads workflow inspector copy from the workspace widget hook', async () => {
     await act(async () => {
       root.render(
-        <NextIntlClientProvider locale='zh-CN' messages={getPublicCopy('zh-CN')}>
+        <NextIntlClientProvider locale='zh' messages={getPublicCopy('zh')}>
           <WorkflowInspectorProbe />
         </NextIntlClientProvider>
       )
     })
 
     expect(container.textContent).toContain(
-      getPublicCopy('zh-CN').workspace.widgets.workflowInspector.workflowEditor.previewInspector
+      getPublicCopy('zh').workspace.widgets.workflowInspector.workflowEditor.previewInspector
     )
   })
 

@@ -551,7 +551,7 @@ export default function ChatClient({ identifier }: { identifier: string }) {
         isPlayingAudio={isPlayingAudio}
         audioContextRef={audioContextRef}
         copy={chatCopy}
-        speechRecognitionLang={locale === 'zh-CN' ? 'zh-CN' : locale === 'es' ? 'es-ES' : 'en-US'}
+        speechRecognitionLang={locale === 'zh' ? 'zh-CN' : locale === 'es' ? 'es-ES' : 'en-US'}
         messages={messages.map((msg) => ({
           content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
           type: msg.type,

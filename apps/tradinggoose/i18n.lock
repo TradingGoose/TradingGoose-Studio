@@ -250,7 +250,7 @@ checksums:
     auth/sso/errors/failed: 2f842ba4fc0d911dd70ef38c5385e5c9
     localeNames/en: e1eeeb379f86a015d6e581fcbc4af7f3
     localeNames/es: e1cd9645ddb854071941a3a23af9eaaf
-    localeNames/zh-CN: 56d7ebc7e245c2150d34cd2908dec619
+    localeNames/zh: 56d7ebc7e245c2150d34cd2908dec619
     landing/hero/statusBadges/disabled: 90d4faa8512f2689f3a89eaa8967d048
     landing/hero/statusBadges/waitlist: 89b7644e577453acdacd629a6c05791e
     landing/hero/statusBadges/open: ced2762b03cc4428c666f84b01120cf9
@@ -2555,14 +2555,27 @@ checksums:
     workspace/widgets/blockEditor/blockNames/parallel: 0cdd24b912c1ee72522916db76092c00
     workspace/widgets/blockEditor/blockNames/parallel_ai: dbaa9ca9cf37fe3a83b7106391a471b3
     workspace/widgets/blockEditor/blockNames/input_trigger: 229bc271f40d5c7de2f33d5e5adc3705
+    workspace/widgets/blockEditor/blockNames/indicator_trigger: b1f53602988b28571894db2cb3e0262d
     workspace/widgets/blockEditor/blockNames/manual_trigger: 772ff39554ea76c8db86f09b7d96fcb9
     workspace/widgets/blockEditor/blockNames/api_trigger: 01d9819514e27056dcc69463194b63d2
+    workspace/widgets/blockEditor/blockNames/api: 01d9819514e27056dcc69463194b63d2
     workspace/widgets/blockEditor/blockNames/chat_trigger: 1171b63c16b3431dca319af1804de2a0
     workspace/widgets/blockEditor/blockNames/generic_webhook: 70f95b2c27f2c3840b500fcaf79ee83c
     workspace/widgets/blockEditor/blockNames/webhook: 70f95b2c27f2c3840b500fcaf79ee83c
+    workspace/widgets/blockEditor/blockNames/webhook_request: 70f95b2c27f2c3840b500fcaf79ee83c
     workspace/widgets/blockEditor/blockNames/schedule: a75428cb811bc50150cecde090a3a0d5
     workspace/widgets/blockEditor/blockNames/agent: a5c36b9f3c5e71bfa2aa0cb196654512
+    workspace/widgets/blockEditor/blockNames/condition: 2e611efab84fc1e990b708e74672c38b
+    workspace/widgets/blockEditor/blockNames/function: 78f81382850e1c3bb6a3b404c55d3dc2
+    workspace/widgets/blockEditor/blockNames/guardrails: 722934d11bc41f6e50b1cfc3dbadaf26
+    workspace/widgets/blockEditor/blockNames/human_in_the_loop: 435f2e5f47799ce049365b279b4fda31
+    workspace/widgets/blockEditor/blockNames/imap: b578e5df9a37263d79d61eea1550b381
+    workspace/widgets/blockEditor/blockNames/knowledge: 434d6cd2ab58b3fcfca0d49e0b354c8b
+    workspace/widgets/blockEditor/blockNames/memory: 7e91fe4b762eaa7410fa882788e1504b
+    workspace/widgets/blockEditor/blockNames/note: e0337f202c911423275f834edeffc54b
     workspace/widgets/blockEditor/blockNames/perplexity: 3c56e3a39b8ae929c9d1cfb89a669296
+    workspace/widgets/blockEditor/blockNames/router: c14965d732abc6e402c866dd7272a37f
+    workspace/widgets/blockEditor/blockNames/rss: 1763bebd6001500cdfc1b5127b0c1cde
     workspace/widgets/blockEditor/blockNames/translate: 59f9803b27e2030ba7323ed239116cf7
     workspace/widgets/blockEditor/blockNames/tts: 5908802e0dba429fb4ed860d0dd612d4
     workspace/widgets/blockEditor/blockNames/openai: fa8817f12be63fbbebd49f0cb7b3e57a
@@ -2692,14 +2705,27 @@ checksums:
     workspace/widgets/blockEditor/blockDescriptions/workflow: 4c36235ba9a9472ee85d1d5ae029ae7b
     workspace/widgets/blockEditor/blockDescriptions/parallel_ai: 66052c04f1a39257443e5a104a3b8d57
     workspace/widgets/blockEditor/blockDescriptions/input_trigger: e10913cbebcd053d30e56f4177315d4c
+    workspace/widgets/blockEditor/blockDescriptions/indicator_trigger: 10a6f620fd7043adb939d235c6a2ecb3
     workspace/widgets/blockEditor/blockDescriptions/manual_trigger: 77bad54cd67ab495cb5532673995b22e
     workspace/widgets/blockEditor/blockDescriptions/api_trigger: 51aac49a78ad09cf926caae22069576d
+    workspace/widgets/blockEditor/blockDescriptions/api: 23feee06b894432d71a80a5264c7af00
     workspace/widgets/blockEditor/blockDescriptions/chat_trigger: fd357ad02b31b8992fc093b4617511f2
+    workspace/widgets/blockEditor/blockDescriptions/condition: e28210a806e48ba090ff7959626ff342
+    workspace/widgets/blockEditor/blockDescriptions/function: 0ce8aac909963af09006f59383554059
     workspace/widgets/blockEditor/blockDescriptions/generic_webhook: 13b4e5bceef6d1104e43d51d90fecf8e
+    workspace/widgets/blockEditor/blockDescriptions/guardrails: babb8b254e7d4dba8c3a9e93446edf0f
     workspace/widgets/blockEditor/blockDescriptions/webhook: 8cf076a732e45252be257854f61d5c54
+    workspace/widgets/blockEditor/blockDescriptions/webhook_request: b837f2d4ae1ec11a65302ff4488aed6f
+    workspace/widgets/blockEditor/blockDescriptions/human_in_the_loop: 809b0bf3fbd33df1d3a3da25881c0f8b
+    workspace/widgets/blockEditor/blockDescriptions/imap: a3ac2f556f8a1d72eee5058799e45b4f
+    workspace/widgets/blockEditor/blockDescriptions/knowledge: 68eb0d71f0d5be4552c4529c0fe9f4c9
+    workspace/widgets/blockEditor/blockDescriptions/memory: eb391c869e4d86d21e4ee08ffff2a318
+    workspace/widgets/blockEditor/blockDescriptions/note: 7315bf4083069f8bf9e6483aa732718f
     workspace/widgets/blockEditor/blockDescriptions/schedule: 3a10eb581faaec784e5d637c65d6b146
     workspace/widgets/blockEditor/blockDescriptions/agent: 70378b5241d90380fe0b1d30c51c7978
     workspace/widgets/blockEditor/blockDescriptions/perplexity: 2042c1b576eb65181f889f576d8b44a7
+    workspace/widgets/blockEditor/blockDescriptions/router: 74172a0db66704afc530e0401bebc806
+    workspace/widgets/blockEditor/blockDescriptions/rss: 60b483deca83eeb5fbb9285ac2c77fb6
     workspace/widgets/blockEditor/blockDescriptions/translate: e14f86dbc2ab15b974a043ad79e17e19
     workspace/widgets/blockEditor/blockDescriptions/tts: d14928cbf0e453f5275b68d9ba867328
     workspace/widgets/blockEditor/blockDescriptions/openai: bfc940a2457833e4d57b3d709cd80fa0
@@ -4859,6 +4885,8 @@ checksums:
     workspace/widgets/blockEditor/subBlocks/incidentio/visibility/title: 1ff412f8fcde0f460acbf11153649646
     workspace/widgets/blockEditor/subBlocks/incidentio/working_hours/placeholder: 5a2bb180779eeda376da5a67c8a12e4d
     workspace/widgets/blockEditor/subBlocks/incidentio/working_hours/title: ba5a9d4aeb2115431906be1fa91f14d3
+    workspace/widgets/blockEditor/subBlocks/input_trigger/inputFormat/description: ccd967171be8792d057c5a12f0a86dc8
+    workspace/widgets/blockEditor/subBlocks/input_trigger/inputFormat/title: 719f12d7798681f196557373f32bed4a
     workspace/widgets/blockEditor/subBlocks/intercom/accessToken/placeholder: d303c768eb88790c1ab976a214fbe46a
     workspace/widgets/blockEditor/subBlocks/intercom/accessToken/title: e25fcf14c00d8fe3607e493315711bff
     workspace/widgets/blockEditor/subBlocks/intercom/admin_id/placeholder: 0edfc4d14cf0b8e4cf6a992c06556a77
@@ -9225,6 +9253,9 @@ checksums:
     workspace/widgets/blockEditor/inputFormat/objectType: 317ffa9365a5c322e3021224ce2f0369
     workspace/widgets/blockEditor/inputFormat/arrayType: 96b74e395d9f41e85827cd5985bd21df
     workspace/widgets/blockEditor/inputFormat/filesType: aee803d2f576ac1200c73b691191a916
+    workspace/widgets/blockEditor/inputFormat/listingIdentityType: f352ea334deed7258fd4656b9ab5ee1e
+    workspace/widgets/blockEditor/inputFormat/trueValue: 59278a86fd5e3f593dadbf04d95ea08f
+    workspace/widgets/blockEditor/inputFormat/falseValue: 41f6cab1a102e400d519b0b18736aa6e
     workspace/widgets/blockEditor/inputFormat/value: 34b0eaa85808b15cbc4be94c64d0146b
     workspace/widgets/blockEditor/inputFormat/selectValue: 7fe6a83a7205ac6f1b891c7c3dbf250d
     workspace/widgets/blockEditor/inputFormat/fieldTitle: cfd632297d7809a3539e90c9cd4728d9
@@ -9568,6 +9599,10 @@ checksums:
     workspace/widgets/blockEditor/webhookSettings/deleteDialog/cancel: 2e2a849c2223911717de8caa2c71bade
     workspace/widgets/blockEditor/webhookSettings/deleteDialog/confirm: 8bcf303dd10a645b5baacb02b47d72c9
     workspace/widgets/blockEditor/webhookSettings/deleteDialog/deleting: 683cd814a3fc94e50b3e4e4a9c90c19c
+    workspace/widgets/blockEditor/triggers/api/description: be37cadc8c0709e6a9231330ebc7e542
+    workspace/widgets/blockEditor/triggers/api/name: 01d9819514e27056dcc69463194b63d2
+    workspace/widgets/blockEditor/triggers/api/subBlocks/inputFormat/description: 1ab37c9a0f35c3f6a5818c853ebf191a
+    workspace/widgets/blockEditor/triggers/api/subBlocks/inputFormat/title: 719f12d7798681f196557373f32bed4a
     workspace/widgets/blockEditor/triggers/airtable_webhook/name: d45a99961bb6f4fee121984f2962811d
     workspace/widgets/blockEditor/triggers/airtable_webhook/description: 93c084d83c1177d2cd54850a37e4a348
     workspace/widgets/blockEditor/triggers/airtable_webhook/subBlocks/baseId/description: 7e8127d51ced7a3c35bd0874b2a623cb
@@ -9643,6 +9678,69 @@ checksums:
     workspace/widgets/blockEditor/triggers/circleback_meeting_completed/subBlocks/webhookSecret/description: 3328ff14694ad23e5401608e092be896
     workspace/widgets/blockEditor/triggers/circleback_meeting_completed/subBlocks/webhookSecret/placeholder: 1f280c28d83d73f135bf2672ee13760d
     workspace/widgets/blockEditor/triggers/circleback_meeting_completed/subBlocks/webhookUrlDisplay/placeholder: bb1106fb2b46344ba31a1e3df577d604
+    workspace/widgets/blockEditor/triggers/generic_webhook/description: ef2a78a0b93a1eafaf1eadee232a69ed
+    workspace/widgets/blockEditor/triggers/generic_webhook/name: fe2b3d2074e83233e31656238a0e86d0
+    workspace/widgets/blockEditor/triggers/generic_webhook/subBlocks/inputFormat/description: 79476b658e37945187e268b471dee9c1
+    workspace/widgets/blockEditor/triggers/generic_webhook/subBlocks/inputFormat/title: 719f12d7798681f196557373f32bed4a
+    workspace/widgets/blockEditor/triggers/generic_webhook/subBlocks/requireAuth/description: 535faf1b3e4e05593a710dc09af77be5
+    workspace/widgets/blockEditor/triggers/generic_webhook/subBlocks/requireAuth/title: 893ca23b2c7eeef5fecacc3b85e17fd9
+    workspace/widgets/blockEditor/triggers/generic_webhook/subBlocks/secretHeaderName/description: aa8d115ce70771a981303373d94d4333
+    workspace/widgets/blockEditor/triggers/generic_webhook/subBlocks/secretHeaderName/placeholder: e3543afb9e6f28235539800b7e26f79c
+    workspace/widgets/blockEditor/triggers/generic_webhook/subBlocks/secretHeaderName/title: a5c10e7c2b4a22bc481f0b90a4f8944c
+    workspace/widgets/blockEditor/triggers/generic_webhook/subBlocks/token/description: 89fc5696dc94f292a269637d5c8f3016
+    workspace/widgets/blockEditor/triggers/generic_webhook/subBlocks/token/placeholder: e393fc432b4b332ab22188a8e3ffe880
+    workspace/widgets/blockEditor/triggers/generic_webhook/subBlocks/token/title: 9e94849ed27481d8b3132beb89be4aee
+    workspace/widgets/blockEditor/triggers/generic_webhook/subBlocks/triggerInstructions/steps/0: ae73ab22d43b225dfd244066f9c61717
+    workspace/widgets/blockEditor/triggers/generic_webhook/subBlocks/triggerInstructions/steps/1: 2360e5d9ac40d0138aaceb07c6868a05
+    workspace/widgets/blockEditor/triggers/generic_webhook/subBlocks/triggerInstructions/steps/2: 18b6f42ca3a6634ed63caa50121d74ff
+    workspace/widgets/blockEditor/triggers/generic_webhook/subBlocks/triggerInstructions/steps/3: c5780a98b3076f0b4a9d01bba04ff1f6
+    workspace/widgets/blockEditor/triggers/generic_webhook/subBlocks/triggerInstructions/steps/4: 1fc19d853b7a408add095590db3f7742
+    workspace/widgets/blockEditor/triggers/generic_webhook/subBlocks/triggerInstructions/steps/5: 778243da5335b00b8d573d5e37dc83f8
+    workspace/widgets/blockEditor/triggers/generic_webhook/subBlocks/triggerInstructions/title: 50968f14a6962ad730daf36a373e4cdd
+    workspace/widgets/blockEditor/triggers/generic_webhook/subBlocks/webhookUrlDisplay/placeholder: bb1106fb2b46344ba31a1e3df577d604
+    workspace/widgets/blockEditor/triggers/generic_webhook/subBlocks/webhookUrlDisplay/title: 0a87b419dda16574987ae38a9ce3e51b
+    workspace/widgets/blockEditor/triggers/schedule/description: 3a10eb581faaec784e5d637c65d6b146
+    workspace/widgets/blockEditor/triggers/schedule/name: a75428cb811bc50150cecde090a3a0d5
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/cronExpression/placeholder: 7af1c866625a8072ac93f604cd868ba0
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/cronExpression/title: 01c55e809c29e1bb7f1fa43a14e1eb50
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/dailyTime/title: b504a03d52e8001bfdc5cb6205364f42
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/hourlyMinute/placeholder: 9aaa3dbf197691f2a4d9121f923cd38b
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/hourlyMinute/title: 80783bcee67a5681b8184a25746c2779
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/minutesInterval/title: 323b86711b787d4a966f94eeb25be0f8
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/monthlyDay/placeholder: c04fd2dbd956902f8f689cb98458010e
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/monthlyDay/title: 8db587380d8a951354dfcbaea58a485a
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/monthlyTime/title: b504a03d52e8001bfdc5cb6205364f42
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/scheduleConfig/title: 937b0fe12e89a598f01c8aeade1f117b
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/scheduleType/options/0/id: 1198ce09f54542a89fbafbf64ef13b93
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/scheduleType/options/0/label: d6532af9cba5cfa6bc9073541dce3619
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/scheduleType/options/1/id: 1279d0b6bb2ec0106dabe38bdaaddf9c
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/scheduleType/options/1/label: 0914634171f881a15cec64b6e4cad255
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/scheduleType/options/2/id: 17675128808a4a734942c2aa01894993
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/scheduleType/options/2/label: 5574eee83ead295147d3a9ae2e62bb8c
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/scheduleType/options/3/id: f837e01205c1d485227976c3eca63027
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/scheduleType/options/3/label: 9e687411dbf1248496a4ae5dd5391679
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/scheduleType/options/4/id: d037f08d6c8cd9036dc3e4d54cbe4f58
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/scheduleType/options/4/label: 818f1192e32bb855597f930d3e78806e
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/scheduleType/options/5/id: 8cbb77db768a8426a5bf86e835b7c0af
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/scheduleType/options/5/label: 64e8272fe58b3bc27d1163a1dcbe887a
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/scheduleType/title: a08e40372137c2a48af413989be56791
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/timezone/title: 370780b854bdbef55320f977a4fb9ddb
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/weeklyDay/options/0/id: 5b6aa15b3b4b6a701b7408c7fc1edbe7
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/weeklyDay/options/0/label: b4b1c8396e445e8b7956c747da2cf601
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/weeklyDay/options/1/id: 54beeef04c8bc28de8620b8589e2de3f
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/weeklyDay/options/1/label: 5667db9a55f400c374b8a39724e85a97
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/weeklyDay/options/2/id: d13cea36e879b21512a7b309f9ee80c1
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/weeklyDay/options/2/label: 61f1e0b70e7ce89cd5e0c067aa78f4ff
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/weeklyDay/options/3/id: 439fa207e36a0d728888e81631a297fe
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/weeklyDay/options/3/label: 01e20fb9f69123568120f93299f66436
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/weeklyDay/options/4/id: c4ce0516e5e51c562e489e3b53d52494
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/weeklyDay/options/4/label: 320c91ba40b99148d9eabd578b89ddc6
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/weeklyDay/options/5/id: e89e9aa42d30a3f562da6936f2827324
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/weeklyDay/options/5/label: 77b65adf8ae2b69eaed51b6104ded65e
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/weeklyDay/options/6/id: 41f3681a98f34f8eef9c5a74e4559e36
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/weeklyDay/options/6/label: d21934fb36dd8a82e36352968207d44e
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/weeklyDay/title: 401c8750559560ce71e03960f2500d20
+    workspace/widgets/blockEditor/triggers/schedule/subBlocks/weeklyDayTime/title: b504a03d52e8001bfdc5cb6205364f42
     workspace/widgets/blockEditor/triggers/fireflies_transcription_complete/name: 22b93c8bfa7a70a8bf77c8fe26a4b919
     workspace/widgets/blockEditor/triggers/fireflies_transcription_complete/description: cfb239ddf1c0b175d61c3f6e7dcbaf06
     workspace/widgets/blockEditor/triggers/fireflies_transcription_complete/subBlocks/triggerInstructions/steps/0: b8ef3c71c62e9bd260efbcaf0d353e69
@@ -10256,6 +10354,19 @@ checksums:
     workspace/widgets/blockEditor/triggers/grain_webhook/subBlocks/triggerInstructions/steps/3: df454c069f16f899c976a58206c384cc
     workspace/widgets/blockEditor/triggers/circleback_meeting_notes/name: 2a686bf394ee24a0548a5238bf6e1448
     workspace/widgets/blockEditor/triggers/circleback_meeting_notes/description: 98d02a013c577163f2699cce9686552e
+    workspace/widgets/blockEditor/triggers/circleback_meeting_notes/subBlocks/webhookUrlDisplay/placeholder: bb1106fb2b46344ba31a1e3df577d604
+    workspace/widgets/blockEditor/triggers/circleback_meeting_notes/subBlocks/webhookSecret/title: 91594fa8588e4232e155a65d07419bf7
+    workspace/widgets/blockEditor/triggers/circleback_meeting_notes/subBlocks/webhookSecret/placeholder: 1f280c28d83d73f135bf2672ee13760d
+    workspace/widgets/blockEditor/triggers/circleback_meeting_notes/subBlocks/webhookSecret/description: 3328ff14694ad23e5401608e092be896
+    workspace/widgets/blockEditor/triggers/circleback_meeting_notes/subBlocks/triggerInstructions/title: 50968f14a6962ad730daf36a373e4cdd
+    workspace/widgets/blockEditor/triggers/circleback_meeting_notes/subBlocks/triggerInstructions/steps/0: 0bf6f3479e1d6647c2abfd68a06fd403
+    workspace/widgets/blockEditor/triggers/circleback_meeting_notes/subBlocks/triggerInstructions/steps/1: 89f2ab90bb07cb2617c5f9e75ceccc87
+    workspace/widgets/blockEditor/triggers/circleback_meeting_notes/subBlocks/triggerInstructions/steps/2: 44cd53a15c2864b7178164f2f053fd6e
+    workspace/widgets/blockEditor/triggers/circleback_meeting_notes/subBlocks/triggerInstructions/steps/3: fcfd17dff7ad50dd8952fce4356e187e
+    workspace/widgets/blockEditor/triggers/circleback_meeting_notes/subBlocks/triggerInstructions/steps/4: d3abcfaeda89c9e2da68205593c2dcad
+    workspace/widgets/blockEditor/triggers/circleback_meeting_notes/subBlocks/triggerInstructions/steps/5: ab24f313f52a354375b3bb47e5f442f6
+    workspace/widgets/blockEditor/triggers/circleback_meeting_notes/subBlocks/triggerInstructions/steps/6: 591407d4ed44296828c3519011092039
+    workspace/widgets/blockEditor/triggers/circleback_meeting_notes/subBlocks/triggerInstructions/steps/7: 08df2c77fb40e31199a491cd313bfcb9
     workspace/widgets/workflowEditor/previewInspector: 6e45b39db9fd1998bce8427b95b7861c
     workspace/widgets/workflowEditor/selectBlockToViewPreviewDetails: 0e7ea2d94fbb847de2a233e933f35089
     workspace/widgets/workflowEditor/nodeNotFound: 8a0c2d7ddcd3d2f7010b31f8fd0efe68

@@ -102,7 +102,7 @@ describe('trigger-editing-layout', () => {
 
   it.each([
     { locale: 'es' as const },
-    { locale: 'zh-CN' as const },
+    { locale: 'zh' as const },
   ])('localizes trigger rows through the shared trigger-edit layout for $locale', ({ locale }) => {
     const inspectorCopy = getWorkflowInspectorCopy(locale)
     const layout = buildTriggerEditingLayout({

@@ -157,7 +157,7 @@ describe('useWorkflowEditorActions', () => {
   })
 
   it('duplicates generated default names using the active locale label and next available suffix', async () => {
-    mockUseLocale.mockReturnValue('zh-CN')
+    mockUseLocale.mockReturnValue('zh')
 
     const doc = new Y.Doc()
     const workflowMap = doc.getMap('workflow')

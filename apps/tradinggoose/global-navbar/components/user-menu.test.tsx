@@ -188,9 +188,9 @@ describe('UserMenu language selector', () => {
     window.matchMedia = originalMatchMedia
   })
 
-  it('renders the zh-CN theme trigger label from the raw workspace template', async () => {
+  it('renders the zh theme trigger label from the raw workspace template', async () => {
     await act(async () => {
-      renderUserMenu(root, 'zh-CN')
+      renderUserMenu(root, 'zh')
       await flush()
     })
 
@@ -201,7 +201,7 @@ describe('UserMenu language selector', () => {
     expect(getThemeButton('主题：系统')).toBeInTheDocument()
   })
 
-  it('switches to zh-CN without dropping the workspace path or query string and refreshes after navigation', async () => {
+  it('switches to zh without dropping the workspace path or query string and refreshes after navigation', async () => {
     mockSearchParams = 'layout=main'
 
     await act(async () => {
@@ -228,11 +228,11 @@ describe('UserMenu language selector', () => {
     expect(mockRefresh).toHaveBeenCalledTimes(1)
   })
 
-  it('switches from zh-CN to the default locale path', async () => {
+  it('switches from zh to the default locale path', async () => {
     mockPathname = '/zh/workspace/ws-1/dashboard'
 
     await act(async () => {
-      renderUserMenu(root, 'zh-CN')
+      renderUserMenu(root, 'zh')
       await flush()
     })
 

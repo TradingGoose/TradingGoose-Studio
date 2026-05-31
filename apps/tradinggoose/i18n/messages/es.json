@@ -360,7 +360,7 @@
   "localeNames": {
     "en": "Inglés",
     "es": "Español",
-    "zh-CN": "Chino simplificado"
+    "zh": "Chino simplificado"
   },
   "landing": {
     "hero": {
@@ -369,8 +369,16 @@
         "waitlist": "Honk! Presentamos TradingGoose-Studio",
         "open": "Honk! TradingGoose-Studio ya está aquí"
       },
-      "leadWords": ["Construir", "Probar", "Ejecutar"],
-      "highlightWords": ["Análisis de Trading", "Detección de Señales", "Evaluación de Riesgos"],
+      "leadWords": [
+        "Construir",
+        "Probar",
+        "Ejecutar"
+      ],
+      "highlightWords": [
+        "Análisis de Trading",
+        "Detección de Señales",
+        "Evaluación de Riesgos"
+      ],
       "titleConnector": "tu",
       "suffix": "con TradingGoose",
       "description": "Conecta tus propios proveedores de datos, escribe indicadores personalizados para monitorear los precios del mercado y enlázalos en flujos de trabajo que activen operaciones de compra, venta o cualquier acción que definas.",
@@ -704,7 +712,13 @@
         "experience": {
           "label": "Años de experiencia *",
           "placeholder": "Selecciona el nivel de experiencia",
-          "options": ["0-1 años", "1-3 años", "3-5 años", "5-10 años", "10+ años"]
+          "options": [
+            "0-1 años",
+            "1-3 años",
+            "3-5 años",
+            "5-10 años",
+            "10+ años"
+          ]
         },
         "location": {
           "label": "Ubicación *",
@@ -1838,6 +1852,7 @@
         "profileDetails": "Detalles del perfil",
         "profileDetailsDescription": "Actualice su nombre y administre el acceso.",
         "fullName": "Nombre completo",
+        "emailAddress": "Dirección de correo electrónico",
         "emailHint": "Los cambios de correo electrónico son gestionados por el soporte.",
         "passwordReset": "Restablecimiento de contraseña",
         "passwordResetDescription": "Le enviaremos un enlace seguro por correo electrónico.",
@@ -1867,8 +1882,7 @@
           "noEmail": "No se encontró una dirección de correo electrónico para esta cuenta.",
           "passwordResetSent": "Enlace de restablecimiento de contraseña enviado a tu bandeja de entrada.",
           "passwordResetFailed": "No se pudo enviar el correo de restablecimiento de contraseña."
-        },
-        "emailAddress": "Dirección de correo electrónico"
+        }
       },
       "help": {
         "requestType": "Solicitud",
@@ -3153,11 +3167,14 @@
         "india": "India",
         "other": "Otros",
         "personName": "Nombre de persona",
+        "emailAddress": "Dirección de correo electrónico",
         "phoneNumber": "Número de teléfono",
         "location": "Ubicación",
         "dateOrTime": "Fecha u hora",
+        "ipAddress": "Dirección IP",
         "creditCardNumber": "Número de tarjeta de crédito",
         "internationalBankAccountNumber": "Número internacional de cuenta bancaria (IBAN)",
+        "cryptocurrencyWalletAddress": "Dirección de billetera de criptomonedas",
         "medicalLicenseNumber": "Número de licencia médica",
         "nationalityReligionPoliticalGroup": "Nacionalidad / religión / grupo político",
         "usBankAccountNumber": "Número de cuenta bancaria de EE. UU.",
@@ -3274,10 +3291,7 @@
         "eventPayloadExample": "Ejemplo de carga útil del evento",
         "webhookUrlWillBeGenerated": "La URL del webhook se generará",
         "setupInstructions": "Instrucciones de configuración",
-        "enabled": "Habilitado",
-        "emailAddress": "Dirección de correo electrónico",
-        "ipAddress": "Dirección IP",
-        "cryptocurrencyWalletAddress": "Dirección de billetera de criptomonedas"
+        "enabled": "Habilitado"
       },
       "blockEditor": {
         "blockNames": {
@@ -3721,7 +3735,10 @@
             },
             "headers": {
               "title": "Encabezados de Response",
-              "columns": ["Clave", "Valor"],
+              "columns": [
+                "Clave",
+                "Valor"
+              ],
               "description": "Encabezados HTTP adicionales para incluir en la respuesta"
             }
           },
@@ -9417,6 +9434,10 @@
               "placeholder": "Number of resultados (predeterminado: 10, máx.: 1000)",
               "title": "Cantidad"
             },
+            "emailAddress": {
+              "placeholder": "Dirección de Correo electrónico del miembro",
+              "title": "Dirección de correo electrónico"
+            },
             "emailTypeOption": {
               "options": [
                 {
@@ -9966,10 +9987,6 @@
             "workflowId": {
               "placeholder": "ID de Automation flujo de trabajo",
               "title": "ID de flujo de trabajo"
-            },
-            "emailAddress": {
-              "placeholder": "Dirección de Correo electrónico del miembro",
-              "title": "Dirección de correo electrónico"
             }
           },
           "mailgun": {
@@ -10066,6 +10083,10 @@
             "limit": {
               "title": "Límite"
             },
+            "memberAddress": {
+              "placeholder": "member@example.com",
+              "title": "Correo electrónico del miembro"
+            },
             "memberName": {
               "placeholder": "Juan Pérez",
               "title": "Nombre de miembro"
@@ -10146,10 +10167,6 @@
             "vars": {
               "placeholder": "{\"key\": \"value\"}",
               "title": "Variables personalizadas"
-            },
-            "memberAddress": {
-              "placeholder": "member@example.com",
-              "title": "Correo electrónico del miembro"
             }
           },
           "mcp": {
@@ -12487,6 +12504,10 @@
             "body": {
               "placeholder": "correo electrónico body contenido"
             },
+            "fromAddress": {
+              "placeholder": "sender@yourdomain.com",
+              "title": "Dirección de From"
+            },
             "resendApiKey": {
               "placeholder": "Your Resend API key",
               "title": "Resend API Key"
@@ -12498,10 +12519,6 @@
             "to": {
               "placeholder": "recipient@example.com",
               "title": "Hasta"
-            },
-            "fromAddress": {
-              "placeholder": "sender@yourdomain.com",
-              "title": "Dirección de From"
             }
           },
           "s3": {
@@ -16725,6 +16742,10 @@
               "placeholder": "YYYY-MM-DDTHH:mm:ssZ (e.g., 2015-05-24T11:00:00Z)",
               "title": "Fecha de vencimiento"
             },
+            "emailAddress": {
+              "placeholder": "Introduce Dirección de correo electrónico",
+              "title": "Dirección de correo electrónico"
+            },
             "firstName": {
               "placeholder": "Introduce una First nombre",
               "title": "Nombre"
@@ -16780,10 +16801,6 @@
             "title": {
               "placeholder": "Introduce una título",
               "title": "Título"
-            },
-            "emailAddress": {
-              "placeholder": "Introduce Dirección de correo electrónico",
-              "title": "Dirección de correo electrónico"
             }
           },
           "webflow": {
@@ -20788,9 +20805,9 @@
         "description": "Estos valores controlan la identidad del remitente de la plataforma y la bandeja de soporte.",
         "emailDomain": "Dominio de correo",
         "emailDomainPlaceholder": "tradinggoose.ai",
-        "helper": "Déjalo en blanco para usar el remitente predeterminado construido a partir del dominio de correo.",
         "fromEmailAddress": "Dirección de correo remitente",
-        "fromEmailAddressPlaceholder": "TradingGoose <noreply@tradinggoose.ai>"
+        "fromEmailAddressPlaceholder": "TradingGoose <noreply@tradinggoose.ai>",
+        "helper": "Déjalo en blanco para usar el remitente predeterminado construido a partir del dominio de correo."
       },
       "alerts": {
         "billingDisabledUntilTier": "La facturación permanecerá deshabilitada hasta que exista un nivel público predeterminado activo. Puedes dejar el nivel predeterminado en borrador mientras lo editas, luego activarlo y volver a habilitar la facturación aquí."

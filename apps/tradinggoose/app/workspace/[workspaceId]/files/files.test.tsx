@@ -167,9 +167,9 @@ describe('WorkspaceFiles table headers', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment
   })
 
-  it('renders the files table headers in Chinese when zh-CN is active', async () => {
+  it('renders the files table headers in Chinese when zh is active', async () => {
     await act(async () => {
-      await renderWorkspaceFiles(root, 'zh-CN')
+      await renderWorkspaceFiles(root, 'zh')
     })
 
     const headerRowText = container.querySelector('thead')?.textContent ?? ''

@@ -162,7 +162,7 @@ describe('auth locale redirects', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  async function renderWithLocale(locale: 'en' | 'es' | 'zh-CN', element: React.ReactElement) {
+  async function renderWithLocale(locale: 'en' | 'es' | 'zh', element: React.ReactElement) {
     await act(async () => {
       root.render(
         <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
@@ -200,7 +200,7 @@ describe('auth locale redirects', () => {
     })
   }
 
-  it.each(['es', 'zh-CN'] as const)(
+  it.each(['es', 'zh'] as const)(
     'pushes the canonical verify path after signup for %s',
     async (locale) => {
       mockSignUpEmail.mockResolvedValue({ user: { id: 'user-1' } })
@@ -226,7 +226,7 @@ describe('auth locale redirects', () => {
     }
   )
 
-  it.each(['es', 'zh-CN'] as const)(
+  it.each(['es', 'zh'] as const)(
     'pushes the canonical verify path after an unverified login for %s',
     async (locale) => {
       mockSignInEmail.mockRejectedValue({ code: 'EMAIL_NOT_VERIFIED' })

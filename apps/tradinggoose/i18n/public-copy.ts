@@ -1,6 +1,6 @@
 import enCopy from './messages/en.json'
 import esCopy from './messages/es.json'
-import zhCnCopy from './messages/zh-CN.json'
+import zhCopy from './messages/zh.json'
 import { formatTemplate } from './template'
 import { widgetsExtraCopy } from './widgets-extra-copy'
 import { defaultLocale, type LocaleCode } from './utils'
@@ -39,7 +39,7 @@ export type PublicMessageNamespace = keyof PublicCopy
 const PUBLIC_COPY = {
   en: enCopy,
   es: esCopy,
-  'zh-CN': zhCnCopy,
+  zh: zhCopy,
 } satisfies Record<LocaleCode, CoreCopy>
 const publicCopyCache = new Map<LocaleCode, PublicCopy>()
 

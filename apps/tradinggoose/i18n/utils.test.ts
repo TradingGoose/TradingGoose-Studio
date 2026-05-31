@@ -28,24 +28,23 @@ describe('i18n utils', () => {
   })
 
   it('localizes pathnames without dropping the current slug', () => {
-    expect(localizePathname('zh-CN', '/blog/trading-signals')).toBe(
+    expect(localizePathname('zh', '/blog/trading-signals')).toBe(
       '/zh/blog/trading-signals'
     )
-    expect(localizePathname('zh-CN', '/blog/trading-signals')).not.toContain('/zh-CN')
     expect(localizePathname('en', '/blog/trading-signals')).toBe('/blog/trading-signals')
   })
 
   it('preserves query strings on already localized URLs', () => {
-    expect(localizePathname('zh-CN', '/blog/trading-signals?from=nav')).toBe(
+    expect(localizePathname('zh', '/blog/trading-signals?from=nav')).toBe(
       '/zh/blog/trading-signals?from=nav'
     )
   })
 
   it('localizes internal hrefs without double-prefixing locale segments', () => {
-    expect(localizeHref('zh-CN', '/workspace/ws-1/dashboard?layoutId=layout-1')).toBe(
+    expect(localizeHref('zh', '/workspace/ws-1/dashboard?layoutId=layout-1')).toBe(
       '/zh/workspace/ws-1/dashboard?layoutId=layout-1'
     )
-    expect(localizeHref('zh-CN', '/zh/login?reauth=1')).toBe('/zh/login?reauth=1')
+    expect(localizeHref('zh', '/zh/login?reauth=1')).toBe('/zh/login?reauth=1')
     expect(localizeHref('en', '/zh/workspace')).toBe('/workspace')
   })
 
@@ -70,12 +69,12 @@ describe('i18n utils', () => {
   })
 
   it('builds locale-aware request headers', () => {
-    const headers = buildLocaleRequestHeaders('zh-CN', {
+    const headers = buildLocaleRequestHeaders('zh', {
       'Content-Type': 'application/json',
     })
 
     expect(headers.get('content-type')).toBe('application/json')
-    expect(headers.get('x-next-intl-locale')).toBe('zh-CN')
+    expect(headers.get('x-next-intl-locale')).toBe('zh')
   })
 
   it('resolves the request locale from request headers with an English fallback', () => {
@@ -85,14 +84,14 @@ describe('i18n utils', () => {
   })
 
   it('builds localized site URLs and alternate hreflang mappings', () => {
-    expect(localizeSiteUrl('zh-CN', '/blog')).toBe('https://tradinggoose.ai/zh/blog')
+    expect(localizeSiteUrl('zh', '/blog')).toBe('https://tradinggoose.ai/zh/blog')
 
     expect(buildLocalizedAlternates('es', '/blog')).toEqual({
       canonical: 'https://tradinggoose.ai/es/blog',
       languages: {
         en: 'https://tradinggoose.ai/blog',
         es: 'https://tradinggoose.ai/es/blog',
-        'zh-CN': 'https://tradinggoose.ai/zh/blog',
+        'zh': 'https://tradinggoose.ai/zh/blog',
         'x-default': 'https://tradinggoose.ai/blog',
       },
     })
@@ -100,12 +99,12 @@ describe('i18n utils', () => {
 
   it('maps Open Graph locales using canonical regional codes', () => {
     expect(getOpenGraphLocale('es')).toBe('es_ES')
-    expect(getOpenGraphLocale('zh-CN')).toBe('zh_CN')
+    expect(getOpenGraphLocale('zh')).toBe('zh_CN')
   })
 
   it('keeps locale display names native to each language', () => {
     expect(getLocaleDisplayName('en')).toBe('English')
     expect(getLocaleDisplayName('es')).toBe('Español')
-    expect(getLocaleDisplayName('zh-CN')).toBe('简体中文')
+    expect(getLocaleDisplayName('zh')).toBe('简体中文')
   })
 })

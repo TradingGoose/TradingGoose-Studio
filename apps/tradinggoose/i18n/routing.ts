@@ -4,12 +4,7 @@ import { defaultLocale, locales } from './utils'
 export const routing = defineRouting({
   locales,
   defaultLocale,
-  localePrefix: {
-    mode: 'as-needed',
-    prefixes: {
-      'zh-CN': '/zh',
-    },
-  },
+  localePrefix: 'as-needed',
   localeDetection: false,
 })
 
