@@ -5,6 +5,7 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { SUPPORTED_MARKET_ASSET_CLASSES } from '@/components/listing-selector/search-utils'
 import { useMarketListingSearch } from '@/components/listing-selector/selector/use-listing-search'
 
 const reactActEnvironment = globalThis as typeof globalThis & {
@@ -65,7 +66,7 @@ describe('useMarketListingSearch', () => {
     expect(fetchListingsMock).toHaveBeenCalledTimes(1)
     expect(fetchListingsMock).toHaveBeenCalledWith(
       {
-        filters: JSON.stringify({ limit: 50 }),
+        filters: JSON.stringify({ limit: 50, asset_class: [...SUPPORTED_MARKET_ASSET_CLASSES] }),
       },
       expect.any(AbortSignal)
     )
@@ -190,7 +191,7 @@ describe('useMarketListingSearch', () => {
     expect(fetchListingsMock).toHaveBeenCalledTimes(1)
     expect(fetchListingsMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        filters: JSON.stringify({ limit: 50 }),
+        filters: JSON.stringify({ limit: 50, asset_class: [...SUPPORTED_MARKET_ASSET_CLASSES] }),
         search_query: 'AAPL',
       }),
       expect.any(AbortSignal)

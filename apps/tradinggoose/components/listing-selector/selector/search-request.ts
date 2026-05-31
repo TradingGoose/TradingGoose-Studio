@@ -1,5 +1,6 @@
 import {
   type ParsedMarketQuery,
+  SUPPORTED_MARKET_ASSET_CLASSES,
   parseCategorizedSearchQuery,
   serializeArrayParam,
 } from '@/components/listing-selector/search-utils'
@@ -35,7 +36,7 @@ export function buildMarketSearchRequest(args: {
     ? [parsedQuery.assetClass]
     : providerConfig.assetClasses.length
       ? providerConfig.assetClasses
-      : []
+      : [...SUPPORTED_MARKET_ASSET_CLASSES]
 
   if (resolvedAssetClasses.length) {
     filtersPayload.asset_class = resolvedAssetClasses
