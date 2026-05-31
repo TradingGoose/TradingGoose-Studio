@@ -205,7 +205,7 @@ export default function Invite() {
   }
 
   if (!session?.user && !isPending) {
-    const callbackUrl = encodeURIComponent(getCallbackUrl())
+    const callbackUrl = encodeURIComponent(localizeHref(locale, getCallbackUrl()))
 
     return (
       <InviteLayout>

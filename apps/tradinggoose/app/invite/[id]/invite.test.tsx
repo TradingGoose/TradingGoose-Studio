@@ -25,7 +25,7 @@ const mockSession = {
     user: {
       id: 'user-1',
     },
-  },
+  } as { user: { id: string } } | null,
   isPending: false,
 }
 const mockInvitationResponse = {
@@ -158,6 +158,12 @@ describe('Invite page workspace acceptance', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     mockLocale = 'es'
     mockInviteId = 'invitation-1'
+    mockSession.data = {
+      user: {
+        id: 'user-1',
+      },
+    }
+    mockSession.isPending = false
     mockSearchParamsValues.error = null
     mockSearchParamsValues.new = null
     mockSearchParamsValues.token = 'workspace-token'
@@ -210,6 +216,33 @@ describe('Invite page workspace acceptance', () => {
     expect(mockLocalizeHref).toHaveBeenCalledWith(
       'es',
       '/api/workspaces/invitations/invitation-1?token=workspace-token'
+    )
+  })
+
+  it('localizes the auth callback URL for signed-out invite flows', async () => {
+    mockSession.data = null
+
+    const Invite = (await import('./invite')).default
+
+    await act(async () => {
+      root.render(<Invite />)
+      await flush()
+      await flush()
+    })
+
+    expect(lastStatusCardProps?.type).toBe('login')
+
+    const signInAction = lastStatusCardProps?.actions?.[0]
+
+    expect(signInAction).toBeDefined()
+
+    await act(async () => {
+      await signInAction?.onClick()
+    })
+
+    expect(mockLocalizeHref).toHaveBeenCalledWith('es', '/invite/invitation-1?token=workspace-token')
+    expect(mockPush).toHaveBeenCalledWith(
+      '/es/login?callbackUrl=%2Fes%2Finvite%2Finvitation-1%3Ftoken%3Dworkspace-token&invite_flow=true'
     )
   })
 })
