@@ -200,7 +200,7 @@ export function useVerification({
           if (isInviteFlow && redirectUrl) {
             window.location.href = localizeHref(locale, redirectUrl)
           } else {
-            router.push(localizeHref(locale, '/workspace'))
+            router.push('/workspace')
           }
         }, 1000)
       } else {
@@ -283,7 +283,7 @@ export function useVerification({
           if (isInviteFlow && redirectUrl) {
             window.location.href = localizeHref(locale, redirectUrl)
           } else {
-            router.push(localizeHref(locale, '/workspace'))
+            router.push('/workspace')
           }
         }
 

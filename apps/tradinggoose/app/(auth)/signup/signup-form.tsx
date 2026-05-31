@@ -378,7 +378,7 @@ function SignupFormContent({
         logger.warn('Failed to send sign-in OTP after signup; user can press Resend', otpErr)
       }
 
-      router.push(localizeHref(locale, '/verify?fromSignup=true'))
+      router.push('/verify?fromSignup=true')
     } catch (error) {
       logger.error('Signup error:', error)
       setIsLoading(false)

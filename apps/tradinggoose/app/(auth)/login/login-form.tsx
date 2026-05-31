@@ -289,7 +289,7 @@ export default function LoginPage({
         if (typeof window !== 'undefined') {
           sessionStorage.setItem('verificationEmail', email)
         }
-        router.push(localizeHref(locale, '/verify'))
+        router.push('/verify')
         return
       }
 

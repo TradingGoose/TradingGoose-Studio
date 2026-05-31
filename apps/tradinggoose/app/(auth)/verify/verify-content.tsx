@@ -1,13 +1,11 @@
 'use client'
 
 import { Suspense, useEffect, useState } from 'react'
-import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
 import { cn } from '@/lib/utils'
 import { useRouter } from '@/i18n/navigation'
 import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
-import { localizeHref, type LocaleCode } from '@/i18n/utils'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { useVerification } from '@/app/(auth)/verify/use-verification'
 import { inter } from '@/app/fonts/inter'
@@ -27,7 +25,6 @@ function VerificationForm({
   isProduction: boolean
   isEmailVerificationEnabled: boolean
 }) {
-  const locale = useLocale() as LocaleCode
   const copy = useAppMessages()
   const verifyCopy = copy.auth.verify
   const commonCopy = copy.auth.common
@@ -211,7 +208,7 @@ function VerificationForm({
                   sessionStorage.removeItem('inviteRedirectUrl')
                   sessionStorage.removeItem('isInviteFlow')
                 }
-                router.push(localizeHref(locale, '/signup'))
+                router.push('/signup')
               }}
               className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
             >
