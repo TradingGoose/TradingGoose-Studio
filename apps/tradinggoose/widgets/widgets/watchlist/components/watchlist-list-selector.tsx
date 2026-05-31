@@ -32,9 +32,6 @@ import {
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
-import { cn } from '@/lib/utils'
-import type { WatchlistRecord } from '@/lib/watchlists/types'
 import {
   widgetHeaderControlClassName,
   widgetHeaderMenuContentClassName,
@@ -43,6 +40,7 @@ import {
 } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
 import type { WatchlistRecord } from '@/lib/watchlists/types'
+import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
 
 type WatchlistListSelectorProps = {
   watchlists: WatchlistRecord[]
@@ -236,16 +234,16 @@ export const WatchlistListSelector = ({
           onWheel={(event) => event.stopPropagation()}
         >
           <div className='flex h-full max-h-[inherit] flex-col overflow-hidden rounded-sm'>
-              <div className='border-border/70 border-b p-2'>
-                <div className='flex items-center gap-1 rounded-md border bg-background px-2 py-1.5 text-muted-foreground text-sm'>
-                  <Search className='h-3.5 w-3.5 shrink-0' />
-                  <Input
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder={copy.searchPlaceholder}
-                    className='h-6 border-0 bg-transparent px-0 text-foreground text-xs placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
-                    onKeyDown={handleSearchInputKeyDown}
-                    autoComplete='off'
+            <div className='border-border/70 border-b p-2'>
+              <div className='flex items-center gap-1 rounded-md border bg-background px-2 py-1.5 text-muted-foreground text-sm'>
+                <Search className='h-3.5 w-3.5 shrink-0' />
+                <Input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder={copy.searchPlaceholder}
+                  className='h-6 border-0 bg-transparent px-0 text-foreground text-xs placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
+                  onKeyDown={handleSearchInputKeyDown}
+                  autoComplete='off'
                   autoCorrect='off'
                   spellCheck='false'
                   disabled={disabled}
@@ -360,7 +358,9 @@ export const WatchlistListSelector = ({
                                       event.stopPropagation()
                                       handleStartRename(watchlist)
                                     }}
-                                    aria-label={formatTemplate(copy.renameAriaLabel, { name: watchlist.name })}
+                                    aria-label={formatTemplate(copy.renameAriaLabel, {
+                                      name: watchlist.name,
+                                    })}
                                   >
                                     <Pencil className='!h-3.5 !w-3.5' />
                                   </Button>
@@ -384,7 +384,9 @@ export const WatchlistListSelector = ({
                                       event.stopPropagation()
                                       setDeleteTarget(watchlist)
                                     }}
-                                    aria-label={formatTemplate(copy.deleteAriaLabel, { name: watchlist.name })}
+                                    aria-label={formatTemplate(copy.deleteAriaLabel, {
+                                      name: watchlist.name,
+                                    })}
                                   >
                                     <Trash2 className='!h-3.5 !w-3.5' />
                                   </Button>
@@ -413,7 +415,7 @@ export const WatchlistListSelector = ({
           setDeleteTarget(null)
         }}
       >
-          <AlertDialogContent>
+        <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{copy.deleteDialogTitle}</AlertDialogTitle>
             <AlertDialogDescription>

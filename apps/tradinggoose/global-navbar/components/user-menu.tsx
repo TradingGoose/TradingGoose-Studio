@@ -23,6 +23,11 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useLocale, useMessages, useTranslations } from 'next-intl'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar'
+import {
+  widgetHeaderControlClassName,
+  widgetHeaderMenuContentClassName,
+  widgetHeaderMenuItemClassName,
+} from '@/components/widget-header-control'
 import { signOut } from '@/lib/auth-client'
 import { openBillingPortal } from '@/lib/billing/billing-portal'
 import { isHosted } from '@/lib/environment'
@@ -46,11 +51,6 @@ import {
 } from '@/i18n/utils'
 import { clearUserData } from '@/stores'
 import { useGeneralStore } from '@/stores/settings/general/store'
-import {
-  widgetHeaderControlClassName,
-  widgetHeaderMenuContentClassName,
-  widgetHeaderMenuItemClassName,
-} from '@/widgets/widgets/components/widget-header-control'
 import { getInitials } from '../utils'
 import {
   DropdownMenu,

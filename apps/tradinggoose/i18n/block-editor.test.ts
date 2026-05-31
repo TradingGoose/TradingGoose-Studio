@@ -659,7 +659,12 @@ describe('block-editor i18n helpers', () => {
     expect(localizedGenericWebhookUrl.title).toBe('URL del webhook')
     expect(localizedGenericWebhookUrl.placeholder).toBe('Se generará la URL del webhook')
     expect(localizedScheduleType.title).toBe('运行频率')
-    expect(localizedScheduleType.options?.map((option) => option.label)).toEqual([
+    const localizedScheduleTypeOptions =
+      typeof localizedScheduleType.options === 'function'
+        ? localizedScheduleType.options()
+        : localizedScheduleType.options
+
+    expect(localizedScheduleTypeOptions?.map((option) => option.label)).toEqual([
       '每隔 X 分钟',
       '每小时',
       '每天',

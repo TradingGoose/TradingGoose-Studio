@@ -135,8 +135,6 @@ function HeatmapWatchlistSizeControls({ panelId, widgetKey, params }: HeaderCont
 
 function HeatmapPortfolioControls({ workspaceId, panelId, widgetKey, params }: HeaderControlProps) {
   const copy = useAppMessages().workspace.widgets.heatmap.header
-function HeatmapPortfolioControls({ workspaceId, panelId, widgetKey, params }: HeaderControlProps) {
-  const copy = useAppMessages().workspace.widgets.heatmap.header
   const providerAvailabilityQuery = useOAuthProviderAvailability(
     getHeatmapTradingProviderAvailabilityIds()
   )

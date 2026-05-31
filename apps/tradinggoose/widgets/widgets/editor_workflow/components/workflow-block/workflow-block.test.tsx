@@ -127,7 +127,9 @@ import { WorkflowBlock } from './workflow-block'
 
 const renderWithLocale = (element: React.ReactElement, locale: 'es' | 'en' | 'zh-CN' = 'es') =>
   renderToStaticMarkup(
-    createElement(NextIntlClientProvider, { locale, messages: getPublicCopy(locale) }, element)
+    <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
+      {element}
+    </NextIntlClientProvider>
   )
 
 describe('WorkflowBlock localization', () => {

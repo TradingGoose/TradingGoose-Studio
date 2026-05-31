@@ -48,6 +48,9 @@ type ConfigBoardGroup = {
 
 export type ConfigBoardSection = {
   id: string
+  label: string
+  cards: ConfigMonitorCard[]
+  aggregates: ConfigBoardAggregates
   groups: ConfigBoardGroup[]
 }
 
@@ -250,6 +253,9 @@ export const buildConfigBoardSections = (
 
     return {
       id: sectionValue.id,
+      label: sectionValue.label,
+      cards: sectionCards,
+      aggregates: aggregateCards(sectionCards, config.fieldSums),
       groups,
     } satisfies ConfigBoardSection
   })
