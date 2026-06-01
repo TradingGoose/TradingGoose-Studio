@@ -1875,6 +1875,8 @@
           "nameRequired": "请提供姓名。",
           "saveError": "无法保存个人资料设置。",
           "nameRequiredValidation": "姓名为必填项",
+          "profilePictureFileTooLarge": "文件 {{name}} 过大，最大允许 5MB。",
+          "profilePictureUnsupportedFormat": "文件 {{name}} 不是受支持的图片格式。请使用 PNG 或 JPEG。",
           "profilePictureUpdateError": "更新个人资料图片失败",
           "profilePictureRemoveError": "移除个人资料图片失败",
           "unableToUpdateProfilePicture": "无法更新个人资料图片。",
@@ -1903,6 +1905,7 @@
         "dropImagesBrowse": "拖放图片到这里，或点击浏览",
         "imageHint": "JPEG、PNG、WebP、GIF（每张最大20MB）",
         "uploadedImages": "已上传图片",
+        "previewAlt": "预览 {{index}}",
         "cancel": "取消",
         "submit": "提交",
         "submitting": "提交中...",
@@ -3306,6 +3309,7 @@
           "parallel_ai": "Parallel AI",
           "input_trigger": "输入表单",
           "indicator_trigger": "指标监控",
+          "portfolio_state_trigger": "投资组合监控",
           "manual_trigger": "手动",
           "api_trigger": "API",
           "api": "API",
@@ -3458,6 +3462,7 @@
           "parallel_ai": "使用 Parallel AI 搜索",
           "input_trigger": "通过定义的输入模式手动启动工作流",
           "indicator_trigger": "根据监控工作区管理的指标监控事件触发工作流。",
+          "portfolio_state_trigger": "根据监控工作区管理的投资组合监控事件触发工作流。",
           "manual_trigger": "从编辑器中手动启动工作流",
           "api_trigger": "暴露为 HTTP API 端点",
           "api": "使用任意 API",
@@ -18533,6 +18538,28 @@
               }
             }
           },
+          "indicator_trigger": {
+            "subBlocks": {
+              "triggerInstructions": {
+                "steps": [
+                  "前往 /workspace/[workspaceId]/monitor 管理指标监控。",
+                  "在那里配置提供商、标的、周期、指标和工作流目标。"
+                ],
+                "title": "设置说明"
+              }
+            }
+          },
+          "portfolio_state_trigger": {
+            "subBlocks": {
+              "triggerInstructions": {
+                "steps": [
+                  "前往 /workspace/[workspaceId]/monitor 管理投资组合监控。",
+                  "在那里配置经纪账户、条件和工作流目标。"
+                ],
+                "title": "设置说明"
+              }
+            }
+          },
           "airtable_webhook": {
             "name": "Airtable Webhook",
             "description": "通过Airtable 录制 changes like 创建, 更新, and 删除事件(requires Airtable 凭据)触发 workflow",
@@ -20577,16 +20604,26 @@
         },
         "form": {
           "auth": "认证",
+          "cooldownSeconds": "冷却秒数",
           "createMonitor": "创建监控",
           "feed": "数据源",
+          "fireMode": "触发模式",
+          "fireModeEdge": "条件变为真时",
+          "fireModeWhileTrue": "条件保持为真时",
           "indicatorInputs": "指标输入",
           "indicatorPlaceholder": "选择指标",
           "intervalPlaceholder": "选择间隔",
+          "pollSeconds": "轮询秒数",
           "providerPlaceholder": "选择提供商",
           "saveChanges": "保存更改",
           "saving": "正在保存...",
+          "sourceIndicator": "指标触发器",
+          "sourceLabel": "监控来源",
+          "sourcePortfolio": "投资组合状态",
           "statusDescription": "新监控默认以暂停状态开始，除非在此启用。",
           "statusTitle": "监控状态",
+          "tradingAccount": "交易账户",
+          "tradingProvider": "交易提供商",
           "workflowTargetPlaceholder": "选择工作流目标"
         },
         "errors": {

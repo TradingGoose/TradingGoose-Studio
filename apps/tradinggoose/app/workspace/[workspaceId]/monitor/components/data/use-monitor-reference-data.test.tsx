@@ -4,7 +4,9 @@
 
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
+import { NextIntlClientProvider } from 'next-intl'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getPublicCopy } from '@/i18n/public-copy'
 import type { MonitorReferenceData } from '../shared/types'
 
 const {
@@ -88,7 +90,11 @@ describe('useMonitorReferenceData', () => {
     const snapshots: MonitorReferenceData[] = []
 
     await act(async () => {
-      root.render(<Harness onRender={(referenceData) => snapshots.push(referenceData)} />)
+      root.render(
+        <NextIntlClientProvider locale='en' messages={getPublicCopy('en')}>
+          <Harness onRender={(referenceData) => snapshots.push(referenceData)} />
+        </NextIntlClientProvider>
+      )
     })
     await act(async () => {
       await Promise.resolve()
@@ -100,11 +106,19 @@ describe('useMonitorReferenceData', () => {
       'alpaca-paper',
       'tradier-live',
     ])
+    expect(loadWorkflowTargetOptionsMock).toHaveBeenCalledWith('workspace-1', {
+      workflowName: getPublicCopy('en').workspace.monitor.fields.workflow,
+      triggerBlockNames: {
+        indicator_trigger: getPublicCopy('en').workspace.widgets.blockEditor.blockNames.indicator_trigger,
+        portfolio_state_trigger:
+          getPublicCopy('en').workspace.widgets.blockEditor.blockNames.portfolio_state_trigger,
+      },
+    })
     expect(snapshots.at(-1)?.tradingProviders).toEqual([{ id: 'alpaca', name: 'Alpaca' }])
     expect(snapshots.at(-1)?.tradingProviderById).toEqual({
       alpaca: { id: 'alpaca', name: 'Alpaca' },
     })
-    expect(snapshots.at(-1)?.defaultPortfolioProviderId).toBe('')
+    expect(snapshots.at(-1)?.defaultPortfolioProviderId).toBe('alpaca')
     expect(snapshots.at(-1)?.createDisabledReason).toBeNull()
   })
 })

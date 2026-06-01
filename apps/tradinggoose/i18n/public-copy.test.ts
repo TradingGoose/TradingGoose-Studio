@@ -395,6 +395,19 @@ describe('public copy', () => {
     expect(getPublicCopy('zh').workspace.settingsModal.sso.callbackUrlHelp).toContain('回调 URL')
   })
 
+  it('includes localized account and help settings modal additions', () => {
+    expect(
+      formatTemplate(
+        getPublicCopy('en').workspace.settingsModal.account.status.profilePictureFileTooLarge,
+        { name: 'avatar.png' }
+      )
+    ).toContain('avatar.png')
+    expect(
+      getPublicCopy('es').workspace.settingsModal.account.status.profilePictureUnsupportedFormat
+    ).toContain('PNG')
+    expect(getPublicCopy('zh').workspace.settingsModal.help.previewAlt).toBe('预览 {{index}}')
+  })
+
   it('includes localized deployment and block-editor copy for workflow editor surfaces', () => {
     const enWidgets = getPublicCopy('en').workspace.widgets
     const esWidgets = getPublicCopy('es').workspace.widgets
@@ -438,6 +451,54 @@ describe('public copy', () => {
       expect(missingNames).toEqual([])
       expect(missingDescriptions).toEqual([])
     }
+  })
+
+  it('includes localized monitor trigger override and portfolio block metadata copy', () => {
+    const enBlockEditor = getPublicCopy('en').workspace.widgets.blockEditor
+    const esBlockEditor = getPublicCopy('es').workspace.widgets.blockEditor
+    const zhBlockEditor = getPublicCopy('zh').workspace.widgets.blockEditor
+    const enTriggers = enBlockEditor.triggers as Record<string, unknown>
+    const esTriggers = esBlockEditor.triggers as Record<string, unknown>
+    const zhTriggers = zhBlockEditor.triggers as Record<string, unknown>
+
+    expect(normalizeShape(esTriggers.indicator_trigger)).toEqual(
+      normalizeShape(enTriggers.indicator_trigger)
+    )
+    expect(normalizeShape(zhTriggers.indicator_trigger)).toEqual(
+      normalizeShape(enTriggers.indicator_trigger)
+    )
+    expect(normalizeShape(esTriggers.portfolio_state_trigger)).toEqual(
+      normalizeShape(enTriggers.portfolio_state_trigger)
+    )
+    expect(normalizeShape(zhTriggers.portfolio_state_trigger)).toEqual(
+      normalizeShape(enTriggers.portfolio_state_trigger)
+    )
+
+    expect(enBlockEditor.blockNames.portfolio_state_trigger).toBe('Portfolio Monitor')
+    expect(esBlockEditor.blockNames.portfolio_state_trigger).toBe('Monitor de portafolio')
+    expect(zhBlockEditor.blockNames.portfolio_state_trigger).toBe('投资组合监控')
+    expect(enBlockEditor.blockDescriptions.portfolio_state_trigger).toBe(
+      'Trigger workflow from portfolio monitor events managed in the monitor workspace.'
+    )
+    expect(esBlockEditor.blockDescriptions.portfolio_state_trigger).toBe(
+      'Activa el flujo de trabajo desde eventos del monitor de portafolio gestionados en el espacio de monitoreo.'
+    )
+    expect(zhBlockEditor.blockDescriptions.portfolio_state_trigger).toBe(
+      '根据监控工作区管理的投资组合监控事件触发工作流。'
+    )
+  })
+
+  it('keeps monitor editor form copy aligned across locales for the remaining portfolio labels', () => {
+    const enForm = getPublicCopy('en').workspace.monitor.editor.form
+    const esForm = getPublicCopy('es').workspace.monitor.editor.form
+    const zhForm = getPublicCopy('zh').workspace.monitor.editor.form
+
+    expect(normalizeShape(esForm)).toEqual(normalizeShape(enForm))
+    expect(normalizeShape(zhForm)).toEqual(normalizeShape(enForm))
+    expect(esForm.sourceLabel).not.toBe(enForm.sourceLabel)
+    expect(zhForm.tradingProvider).not.toBe(enForm.tradingProvider)
+    expect(esForm.fireModeEdge).not.toBe(enForm.fireModeEdge)
+    expect(zhForm.pollSeconds).not.toBe(enForm.pollSeconds)
   })
 
   it('keeps chart widget copy structurally aligned across locales', () => {
@@ -499,6 +560,10 @@ describe('public copy', () => {
     expect(zhWidgets.dataChart.body.errorTitle).not.toBe(enWidgets.dataChart.body.errorTitle)
     expect(esWidgets.listingSelector.searchPlaceholder).not.toBe(
       enWidgets.listingSelector.searchPlaceholder
+    )
+    expect(esWidgets.listingSelector.searching).not.toBe(enWidgets.listingSelector.searching)
+    expect(zhWidgets.listingSelector.noListingsFound).not.toBe(
+      enWidgets.listingSelector.noListingsFound
     )
   })
 

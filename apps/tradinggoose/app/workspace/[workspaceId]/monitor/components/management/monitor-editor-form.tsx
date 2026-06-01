@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { useWorkspaceBlockEditorMessages } from '@/i18n/workspace-widget-hooks'
 import type { InputMetaMap } from '@/lib/indicators/types'
 import { toListingValue } from '@/lib/listing/identity'
 import { INDICATOR_MONITOR_PROVIDER, PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
@@ -338,21 +339,25 @@ function IndicatorMonitorFields({
 }
 
 function PortfolioMonitorFields({
+  copy,
   draft,
   errors,
   saving,
   tradingProviders,
   availableWorkflowTargets,
   workflowTargetValue,
+  portfolioTriggerToolName,
   selectedPortfolioIdentity,
   onUpdateDraft,
 }: {
+  copy: MonitorCopy
   draft: MonitorDraft
   errors: Record<string, string>
   saving: boolean
   tradingProviders: TradingProviderOption[]
   availableWorkflowTargets: WorkflowTargetOption[]
   workflowTargetValue?: string
+  portfolioTriggerToolName: string
   selectedPortfolioIdentity: PortfolioIdentity | null
   onUpdateDraft: (patch: Partial<MonitorDraft>) => void
 }) {
@@ -360,12 +365,11 @@ function PortfolioMonitorFields({
     <>
       <div className='grid gap-3 sm:grid-cols-2'>
         <div className='space-y-2'>
-          <Label className='text-muted-foreground text-xs'>Trading provider</Label>
+          <Label className='text-muted-foreground text-xs'>{copy.editor.form.tradingProvider}</Label>
           <TradingProviderSelector
             value={draft.providerId}
             options={tradingProviders}
             disabled={saving}
-            placeholder='Select trading provider'
             variant='form'
             onChange={(providerId) =>
               onUpdateDraft({
@@ -380,15 +384,13 @@ function PortfolioMonitorFields({
         </div>
 
         <div className='space-y-2'>
-          <Label className='text-muted-foreground text-xs'>Trading account</Label>
+          <Label className='text-muted-foreground text-xs'>{copy.editor.form.tradingAccount}</Label>
           <TradingAccountSelector
             providerId={draft.providerId}
             serviceId={draft.serviceId}
             portfolioIdentity={selectedPortfolioIdentity}
             disabled={saving}
-            placeholder='Select account'
-            tooltipText='Select trading account'
-            toolName='Portfolio Monitor'
+            toolName={portfolioTriggerToolName}
             variant='form'
             onAccountSelect={(selection) => {
               const account = selection.portfolioIdentity
@@ -411,8 +413,8 @@ function PortfolioMonitorFields({
         value={workflowTargetValue}
         targets={availableWorkflowTargets}
         errors={errors}
-        label='Workflow Target'
-        placeholder='Select workflow target'
+        label={copy.fields.workflowTarget}
+        placeholder={copy.editor.form.workflowTargetPlaceholder}
         onUpdateDraft={onUpdateDraft}
       />
 
@@ -426,7 +428,7 @@ function PortfolioMonitorFields({
 
       <div className='grid gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.8fr)_auto]'>
         <div className='space-y-2'>
-          <Label className='text-muted-foreground text-xs'>Fire mode</Label>
+          <Label className='text-muted-foreground text-xs'>{copy.editor.form.fireMode}</Label>
           <Select
             value={draft.fireMode}
             onValueChange={(fireMode: MonitorDraft['fireMode']) => onUpdateDraft({ fireMode })}
@@ -435,14 +437,14 @@ function PortfolioMonitorFields({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value='edge'>When condition turns true</SelectItem>
-              <SelectItem value='while_true'>While condition is true</SelectItem>
+              <SelectItem value='edge'>{copy.editor.form.fireModeEdge}</SelectItem>
+              <SelectItem value='while_true'>{copy.editor.form.fireModeWhileTrue}</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div className='space-y-2'>
-          <Label className='text-muted-foreground text-xs'>Cooldown seconds</Label>
+          <Label className='text-muted-foreground text-xs'>{copy.editor.form.cooldownSeconds}</Label>
           <Input
             type='number'
             min={0}
@@ -456,7 +458,7 @@ function PortfolioMonitorFields({
         </div>
 
         <div className='space-y-2'>
-          <Label className='text-muted-foreground text-xs'>Poll seconds</Label>
+          <Label className='text-muted-foreground text-xs'>{copy.editor.form.pollSeconds}</Label>
           <Input
             type='number'
             min={15}
@@ -498,11 +500,13 @@ export function MonitorEditorForm({
   onUpdateIndicatorInputs,
 }: MonitorEditorFormProps) {
   const { copy } = useMonitorCopy()
+  const blockEditorCopy = useWorkspaceBlockEditorMessages()
   const workflowTargetValue =
     draft.workflowId && draft.blockId ? `${draft.workflowId}:${draft.blockId}` : undefined
   const availableWorkflowTargets = workflowTargets.filter(
     (target) => target.source === draft.source
   )
+  const portfolioTriggerToolName = blockEditorCopy.blockNames.portfolio_state_trigger
   const intervalOptions =
     providerIntervals.length > 0 ? providerIntervals : draft.interval ? [draft.interval] : []
   const selectedPortfolioIdentity = useMemo<PortfolioIdentity | null>(() => {
@@ -541,7 +545,7 @@ export function MonitorEditorForm({
           </div>
 
           <div className='space-y-2'>
-            <Label className='text-muted-foreground text-xs'>Monitor source</Label>
+            <Label className='text-muted-foreground text-xs'>{copy.editor.form.sourceLabel}</Label>
             <Select
               value={draft.source}
               disabled={saving || Boolean(editingKey)}
@@ -551,20 +555,26 @@ export function MonitorEditorForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={INDICATOR_MONITOR_PROVIDER}>Indicator trigger</SelectItem>
-                <SelectItem value={PORTFOLIO_MONITOR_PROVIDER}>Portfolio state</SelectItem>
+                <SelectItem value={INDICATOR_MONITOR_PROVIDER}>
+                  {copy.editor.form.sourceIndicator}
+                </SelectItem>
+                <SelectItem value={PORTFOLIO_MONITOR_PROVIDER}>
+                  {copy.editor.form.sourcePortfolio}
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           {draft.source === PORTFOLIO_MONITOR_PROVIDER ? (
             <PortfolioMonitorFields
+              copy={copy}
               draft={draft}
               errors={errors}
               saving={saving}
               tradingProviders={tradingProviders}
               availableWorkflowTargets={availableWorkflowTargets}
               workflowTargetValue={workflowTargetValue}
+              portfolioTriggerToolName={portfolioTriggerToolName}
               selectedPortfolioIdentity={selectedPortfolioIdentity}
               onUpdateDraft={onUpdateDraft}
             />

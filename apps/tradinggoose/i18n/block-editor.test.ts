@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { GitHubBlock } from '@/blocks/blocks/github'
 import { GmailBlock } from '@/blocks/blocks/gmail'
 import { InputTriggerBlock } from '@/triggers/blocks/input_trigger'
+import { PortfolioStateTriggerBlock } from '@/triggers/blocks/portfolio_state_trigger'
 import { apiTrigger } from '@/triggers/core/api'
 import { genericWebhookTrigger } from '@/triggers/generic/webhook'
 import { scheduleTrigger } from '@/triggers/schedule/trigger'
@@ -612,6 +613,39 @@ describe('block-editor i18n helpers', () => {
     ).toBeGreaterThan(0)
   })
 
+  it('localizes monitor trigger instructions through centralized trigger override entries', () => {
+    const fallbackInstruction = 'legacy inline instructions'
+    const localizedIndicatorInstructions = localizeWorkflowSubBlockConfig(
+      'es',
+      {
+        id: 'triggerInstructions',
+        title: 'Setup Instructions',
+        type: 'text',
+        defaultValue: fallbackInstruction,
+      },
+      undefined,
+      'indicator_trigger'
+    )
+    const localizedPortfolioInstructions = localizeWorkflowSubBlockConfig(
+      'zh',
+      {
+        id: 'triggerInstructions',
+        title: 'Setup Instructions',
+        type: 'text',
+        defaultValue: fallbackInstruction,
+      },
+      undefined,
+      'portfolio_state_trigger'
+    )
+
+    expect(localizedIndicatorInstructions.defaultValue).toContain(
+      'gestionar los monitores de indicadores'
+    )
+    expect(localizedIndicatorInstructions.defaultValue).not.toContain(fallbackInstruction)
+    expect(localizedPortfolioInstructions.defaultValue).toContain('投资组合监控')
+    expect(localizedPortfolioInstructions.defaultValue).not.toContain(fallbackInstruction)
+  })
+
   it('prefers trigger metadata names over legacy inline selectedTriggerId labels', () => {
     const localizedTriggerSelector = localizeWorkflowSubBlockConfig(
       'en',
@@ -627,6 +661,15 @@ describe('block-editor i18n helpers', () => {
     expect(localizedTriggerSelector.options).toEqual([
       { id: 'calendly_webhook', label: 'Calendly Webhook' },
     ])
+  })
+
+  it('localizes portfolio trigger block metadata through centralized block editor copy', () => {
+    expect(getLocalizedBlockMetadata('es', PortfolioStateTriggerBlock)).toEqual({
+      name: 'Monitor de portafolio',
+      description:
+        'Activa el flujo de trabajo desde eventos del monitor de portafolio gestionados en el espacio de monitoreo.',
+      longDescription: undefined,
+    })
   })
 
   it('localizes trigger-only block copy through trigger override entries', () => {

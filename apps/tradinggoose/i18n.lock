@@ -109,6 +109,7 @@ checksums:
     auth/social/github: 6e1cf3c00fa6fbe24afcc78ea3b5f3e4
     auth/social/google: 6cc462fb53d90d404f48d5a6695c1de1
     auth/social/connecting: 0627ab04701831ecbde4135e1ef9210c
+    auth/social/cancelled: 6f460ca61b6a423c2c36cce2585a41d9
     auth/verify/eyebrow: 33fc4ee308e79667653c2513ec043189
     auth/verify/pendingTitle: 1682e88a6eb7c961ae918fefc7325e2f
     auth/verify/verifiedTitle: b84db813b6a3a3746ab9d77fb7060cc6
@@ -1371,6 +1372,8 @@ checksums:
     workspace/settingsModal/account/status/nameRequired: 4830683dd37f0b692f9d9e8d89ef67b4
     workspace/settingsModal/account/status/saveError: 38d4e76523aa58a73c61ade19ecea240
     workspace/settingsModal/account/status/nameRequiredValidation: 9cfb07618c3bfb2d8d50f93c983e9ae6
+    workspace/settingsModal/account/status/profilePictureFileTooLarge: 632ba26c038c1e00bbcac774a719aecf
+    workspace/settingsModal/account/status/profilePictureUnsupportedFormat: 2e224372955d92e61a7c6856f238de17
     workspace/settingsModal/account/status/profilePictureUpdateError: 6f9933ae2903b5bdb2a93179026469b0
     workspace/settingsModal/account/status/profilePictureRemoveError: cd8f1549f5697ee34eefa35ad66247c8
     workspace/settingsModal/account/status/unableToUpdateProfilePicture: 8afebffb4b2aa80727d2f1e8f0517844
@@ -1394,6 +1397,7 @@ checksums:
     workspace/settingsModal/help/dropImagesBrowse: 945866994ec8eccda8327b9086841b23
     workspace/settingsModal/help/imageHint: c73fd7ef0d3b6123a2ed4faea0f112f5
     workspace/settingsModal/help/uploadedImages: 6c8f1f24f527bacacbda8b22b2f3781d
+    workspace/settingsModal/help/previewAlt: 7cb6da16869fe5fd76aea32efdaefc36
     workspace/settingsModal/help/cancel: 2e2a849c2223911717de8caa2c71bade
     workspace/settingsModal/help/submit: 7c91ef5f747eea9f77a9c4f23e19fb2e
     workspace/settingsModal/help/submitting: 6845d212e994f3023c5287bdd3b74875
@@ -1957,6 +1961,7 @@ checksums:
     workspace/widgets/mcpDropdown/loading: 9c2541af6c686911e51c03c9cb4b15ac
     workspace/widgets/mcpDropdown/noServersAvailable: 5c24c5ebc8ef682796b223728ad209fc
     workspace/widgets/mcpDropdown/noServersFound: 5728078a224c7e748b4753b4aab0654b
+    workspace/widgets/mcpDropdown/addServerInDashboardWidgets: a9349294618f2a14c316e9d3f7a6e744
     workspace/widgets/mcpDropdown/unnamedServer: 96d9ebf9c891668e1af610c8adec2287
     workspace/widgets/console/selectWorkspace: 9ae07dd3c40e7de00c3402fca9d25015
     workspace/widgets/console/noWorkflows: c5f0a30c532f2f498d225865ff8bab46
@@ -2556,6 +2561,7 @@ checksums:
     workspace/widgets/blockEditor/blockNames/parallel_ai: dbaa9ca9cf37fe3a83b7106391a471b3
     workspace/widgets/blockEditor/blockNames/input_trigger: 229bc271f40d5c7de2f33d5e5adc3705
     workspace/widgets/blockEditor/blockNames/indicator_trigger: b1f53602988b28571894db2cb3e0262d
+    workspace/widgets/blockEditor/blockNames/portfolio_state_trigger: 260548961c7f517d5d2ee98009aab2a3
     workspace/widgets/blockEditor/blockNames/manual_trigger: 772ff39554ea76c8db86f09b7d96fcb9
     workspace/widgets/blockEditor/blockNames/api_trigger: 01d9819514e27056dcc69463194b63d2
     workspace/widgets/blockEditor/blockNames/api: 01d9819514e27056dcc69463194b63d2
@@ -2706,6 +2712,7 @@ checksums:
     workspace/widgets/blockEditor/blockDescriptions/parallel_ai: 66052c04f1a39257443e5a104a3b8d57
     workspace/widgets/blockEditor/blockDescriptions/input_trigger: e10913cbebcd053d30e56f4177315d4c
     workspace/widgets/blockEditor/blockDescriptions/indicator_trigger: 10a6f620fd7043adb939d235c6a2ecb3
+    workspace/widgets/blockEditor/blockDescriptions/portfolio_state_trigger: a07999fa862fef6e31400750e1efcd6a
     workspace/widgets/blockEditor/blockDescriptions/manual_trigger: 77bad54cd67ab495cb5532673995b22e
     workspace/widgets/blockEditor/blockDescriptions/api_trigger: 51aac49a78ad09cf926caae22069576d
     workspace/widgets/blockEditor/blockDescriptions/api: 23feee06b894432d71a80a5264c7af00
@@ -9603,6 +9610,12 @@ checksums:
     workspace/widgets/blockEditor/triggers/api/name: 01d9819514e27056dcc69463194b63d2
     workspace/widgets/blockEditor/triggers/api/subBlocks/inputFormat/description: 1ab37c9a0f35c3f6a5818c853ebf191a
     workspace/widgets/blockEditor/triggers/api/subBlocks/inputFormat/title: 719f12d7798681f196557373f32bed4a
+    workspace/widgets/blockEditor/triggers/indicator_trigger/subBlocks/triggerInstructions/steps/0: 2347668dc20db05cdc1ff8da89d40933
+    workspace/widgets/blockEditor/triggers/indicator_trigger/subBlocks/triggerInstructions/steps/1: 16d1f5dc30b59e30cf756b105446e990
+    workspace/widgets/blockEditor/triggers/indicator_trigger/subBlocks/triggerInstructions/title: 50968f14a6962ad730daf36a373e4cdd
+    workspace/widgets/blockEditor/triggers/portfolio_state_trigger/subBlocks/triggerInstructions/steps/0: d29596b6b94a4ccebf5914630b3ac111
+    workspace/widgets/blockEditor/triggers/portfolio_state_trigger/subBlocks/triggerInstructions/steps/1: ed0a845cf4b71ce029bb5364b420c1cc
+    workspace/widgets/blockEditor/triggers/portfolio_state_trigger/subBlocks/triggerInstructions/title: 50968f14a6962ad730daf36a373e4cdd
     workspace/widgets/blockEditor/triggers/airtable_webhook/name: d45a99961bb6f4fee121984f2962811d
     workspace/widgets/blockEditor/triggers/airtable_webhook/description: 93c084d83c1177d2cd54850a37e4a348
     workspace/widgets/blockEditor/triggers/airtable_webhook/subBlocks/baseId/description: 7e8127d51ced7a3c35bd0874b2a623cb
@@ -10780,16 +10793,26 @@ checksums:
     workspace/monitor/editor/details/pause: 2d5bb31f91a5dedd5d24367ad5315a8e
     workspace/monitor/editor/details/resume: cf8b3eb1ef66177869213433095d9136
     workspace/monitor/editor/form/auth: 424e3635a6e3d9574f023c10cd5e6f62
+    workspace/monitor/editor/form/cooldownSeconds: f46df53dfd59f6a565841e05262cd13f
     workspace/monitor/editor/form/createMonitor: 1a78040e4c8f811e25c339f18a7b019c
     workspace/monitor/editor/form/feed: c43580f7c529b87a9339a169b66e3f7d
+    workspace/monitor/editor/form/fireMode: e7cc967cccef1da56a569a132990140a
+    workspace/monitor/editor/form/fireModeEdge: 8cce301f2efd09c390255a668c674ddf
+    workspace/monitor/editor/form/fireModeWhileTrue: 2147489a80a561a41e8572a38afe6c1a
     workspace/monitor/editor/form/indicatorInputs: a8ed0185e67522025ac60dbfca509f7c
     workspace/monitor/editor/form/indicatorPlaceholder: 5228ade403b12fc6a3e6862b683d4d61
     workspace/monitor/editor/form/intervalPlaceholder: 660c9a0487ad053f62e25aada5ebdab3
+    workspace/monitor/editor/form/pollSeconds: b16867dc8f5136d2d274b4069cb28a2f
     workspace/monitor/editor/form/providerPlaceholder: b1e63121f1345cc3885aad6f68b6d9d5
     workspace/monitor/editor/form/saveChanges: d895276cde226e9225eca1e74aa799f4
     workspace/monitor/editor/form/saving: 7cb2d8f012d57db8a62187b65ef164dc
+    workspace/monitor/editor/form/sourceIndicator: d8d5790e72f74071bc6b21ca15f393eb
+    workspace/monitor/editor/form/sourceLabel: cd80a79f9f6d0e2c176492bda7a6b1dc
+    workspace/monitor/editor/form/sourcePortfolio: 0348942dc3c390c56c7dedcbd236f892
     workspace/monitor/editor/form/statusDescription: d5cc5dbea277c5ad2b85d7a4d0e83e0a
     workspace/monitor/editor/form/statusTitle: 9e4323bd74686fe5d8d457be857a3f98
+    workspace/monitor/editor/form/tradingAccount: 5312e21e6b9b61405b19f17fc7dde6ac
+    workspace/monitor/editor/form/tradingProvider: 4cf3307d0853033384ac77d7a55a24a6
     workspace/monitor/editor/form/workflowTargetPlaceholder: 6a0cb7c67c26a793428d3ef713df5747
     workspace/monitor/editor/errors/delete: 53a541dfe06415843257739a250acb22
     workspace/monitor/editor/errors/save: 4b0edb6af355423786bf2edcfcce5b11

@@ -1875,6 +1875,8 @@
           "nameRequired": "Proporcione un nombre.",
           "saveError": "No se pueden guardar los ajustes del perfil.",
           "nameRequiredValidation": "El nombre es obligatorio",
+          "profilePictureFileTooLarge": "El archivo {{name}} es demasiado grande. El tamaño máximo es 5 MB.",
+          "profilePictureUnsupportedFormat": "El archivo {{name}} no es un formato de imagen compatible. Use PNG o JPEG.",
           "profilePictureUpdateError": "Error al actualizar la foto de perfil",
           "profilePictureRemoveError": "Error al eliminar la foto de perfil",
           "unableToUpdateProfilePicture": "No se puede actualizar la foto de perfil.",
@@ -1903,6 +1905,7 @@
         "dropImagesBrowse": "Arrastra imágenes aquí o haz clic para examinar",
         "imageHint": "JPEG, PNG, WebP, GIF (máx. 20MB cada uno)",
         "uploadedImages": "Imágenes subidas",
+        "previewAlt": "Vista previa {{index}}",
         "cancel": "Cancelar",
         "submit": "Enviar",
         "submitting": "Enviando...",
@@ -3306,6 +3309,7 @@
           "parallel_ai": "IA paralela",
           "input_trigger": "Formulario de entrada",
           "indicator_trigger": "Monitor de indicadores",
+          "portfolio_state_trigger": "Monitor de portafolio",
           "manual_trigger": "Manual",
           "api_trigger": "API",
           "api": "API",
@@ -3458,6 +3462,7 @@
           "parallel_ai": "Buscar con IA paralela",
           "input_trigger": "Inicia el flujo manualmente con un esquema de entrada definido",
           "indicator_trigger": "Activa el flujo de trabajo desde eventos del monitor de indicadores gestionados en el espacio de monitoreo.",
+          "portfolio_state_trigger": "Activa el flujo de trabajo desde eventos del monitor de portafolio gestionados en el espacio de monitoreo.",
           "manual_trigger": "Inicia el flujo manualmente desde el editor",
           "api_trigger": "Expone el flujo como un endpoint HTTP API",
           "api": "Usar cualquier API",
@@ -18533,6 +18538,28 @@
               }
             }
           },
+          "indicator_trigger": {
+            "subBlocks": {
+              "triggerInstructions": {
+                "steps": [
+                  "Ve a /workspace/[workspaceId]/monitor para gestionar los monitores de indicadores.",
+                  "Configura allí el proveedor, el listado, el intervalo, el indicador y el destino del flujo de trabajo."
+                ],
+                "title": "Instrucciones de configuración"
+              }
+            }
+          },
+          "portfolio_state_trigger": {
+            "subBlocks": {
+              "triggerInstructions": {
+                "steps": [
+                  "Ve a /workspace/[workspaceId]/monitor para gestionar los monitores de portafolio.",
+                  "Configura allí la cuenta del bróker, la condición y el destino del flujo de trabajo."
+                ],
+                "title": "Instrucciones de configuración"
+              }
+            }
+          },
           "airtable_webhook": {
             "name": "Airtable Webhook",
             "description": "Activa el flujo de trabajo a partir de cambios en registros de Airtable, como eventos de creación, actualización y eliminación (requiere credenciales de Airtable)",
@@ -20577,16 +20604,26 @@
         },
         "form": {
           "auth": "Autenticación",
+          "cooldownSeconds": "Segundos de enfriamiento",
           "createMonitor": "Crear monitor",
           "feed": "Fuente",
+          "fireMode": "Modo de activación",
+          "fireModeEdge": "Cuando la condición pasa a verdadera",
+          "fireModeWhileTrue": "Mientras la condición sea verdadera",
           "indicatorInputs": "Entradas del indicador",
           "indicatorPlaceholder": "Seleccionar indicador",
           "intervalPlaceholder": "Seleccionar intervalo",
+          "pollSeconds": "Segundos de sondeo",
           "providerPlaceholder": "Seleccionar proveedor",
           "saveChanges": "Guardar cambios",
           "saving": "Guardando...",
+          "sourceIndicator": "Disparador de indicador",
+          "sourceLabel": "Origen del monitor",
+          "sourcePortfolio": "Estado del portafolio",
           "statusDescription": "Los monitores nuevos comienzan pausados a menos que se habiliten aquí.",
           "statusTitle": "Estado del monitor",
+          "tradingAccount": "Cuenta de trading",
+          "tradingProvider": "Proveedor de trading",
           "workflowTargetPlaceholder": "Seleccionar destino del flujo"
         },
         "errors": {

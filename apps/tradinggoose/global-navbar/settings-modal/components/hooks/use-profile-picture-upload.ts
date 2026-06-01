@@ -6,21 +6,28 @@ const logger = createLogger('ProfilePictureUpload')
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 const ACCEPTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg']
 
+interface ProfilePictureUploadMessages {
+  fileTooLarge: (fileName: string) => string
+  unsupportedFormat: (fileName: string) => string
+  uploadFailed: string
+}
+
 interface UseProfilePictureUploadProps {
+  messages: ProfilePictureUploadMessages
   onUpload?: (url: string | null) => void
   onError?: (error: string) => void
   currentImage?: string | null
 }
 
 export function useProfilePictureUpload({
+  messages,
   onUpload,
   onError,
   currentImage,
-}: UseProfilePictureUploadProps = {}) {
+}: UseProfilePictureUploadProps) {
   const previewRef = useRef<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentImage || null)
-  const [fileName, setFileName] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
 
   useEffect(() => {
@@ -35,13 +42,13 @@ export function useProfilePictureUpload({
 
   const validateFile = useCallback((file: File): string | null => {
     if (file.size > MAX_FILE_SIZE) {
-      return `File "${file.name}" is too large. Maximum size is 5MB.`
+      return messages.fileTooLarge(file.name)
     }
     if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-      return `File "${file.name}" is not a supported image format. Please use PNG or JPEG.`
+      return messages.unsupportedFormat(file.name)
     }
     return null
-  }, [])
+  }, [messages])
 
   const handleThumbnailClick = useCallback(() => {
     fileInputRef.current?.click()
@@ -135,9 +142,10 @@ export function useProfilePictureUpload({
       logger.info(`Profile picture uploaded successfully via server upload: ${publicUrl}`)
       return publicUrl
     } catch (error) {
-      throw new Error(error instanceof Error ? error.message : 'Failed to upload profile picture')
+      logger.error('Failed to upload profile picture', error)
+      throw new Error(messages.uploadFailed)
     }
-  }, [])
+  }, [messages.uploadFailed])
 
   const handleFileChange = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -148,8 +156,6 @@ export function useProfilePictureUpload({
           onError?.(validationError)
           return
         }
-
-        setFileName(file.name)
 
         const newPreviewUrl = URL.createObjectURL(file)
 
@@ -170,8 +176,7 @@ export function useProfilePictureUpload({
 
           onUpload?.(serverUrl)
         } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : 'Failed to upload profile picture'
+          const errorMessage = error instanceof Error ? error.message : messages.uploadFailed
           onError?.(errorMessage)
 
           URL.revokeObjectURL(newPreviewUrl)
@@ -185,19 +190,6 @@ export function useProfilePictureUpload({
     [onUpload, onError, uploadFileToServer, validateFile, currentImage]
   )
 
-  const handleRemove = useCallback(() => {
-    if (previewRef.current) {
-      URL.revokeObjectURL(previewRef.current)
-      previewRef.current = null
-    }
-    setPreviewUrl(null)
-    setFileName(null)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
-    onUpload?.(null)
-  }, [onUpload])
-
   useEffect(() => {
     return () => {
       if (previewRef.current) {
@@ -208,11 +200,9 @@ export function useProfilePictureUpload({
 
   return {
     previewUrl,
-    fileName,
     fileInputRef,
     handleThumbnailClick,
     handleFileChange,
-    handleRemove,
     isUploading,
   }
 }

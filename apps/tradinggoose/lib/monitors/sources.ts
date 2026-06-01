@@ -8,14 +8,10 @@ export const MONITOR_SOURCES = [
   {
     provider: INDICATOR_MONITOR_PROVIDER,
     triggerId: INDICATOR_MONITOR_TRIGGER_ID,
-    label: 'Indicator trigger',
-    triggerLabel: 'Indicator Trigger',
   },
   {
     provider: PORTFOLIO_MONITOR_PROVIDER,
     triggerId: PORTFOLIO_MONITOR_TRIGGER_ID,
-    label: 'Portfolio state',
-    triggerLabel: 'Portfolio State Trigger',
   },
 ] as const
 

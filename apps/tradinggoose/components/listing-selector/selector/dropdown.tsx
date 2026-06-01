@@ -9,6 +9,7 @@ import {
   type WheelEvent,
 } from 'react'
 import { MarketListingRow } from '@/components/listing-selector/listing/row'
+import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import type { ListingOption } from '@/lib/listing/identity'
 import { cn } from '@/lib/utils'
 
@@ -38,6 +39,7 @@ export function ListingSelectorDropdownContent({
   onTouchMove,
 }: ListingSelectorDropdownContentProps) {
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const copy = useWorkspaceWidgetsMessages().listingSelector
 
   useEffect(() => {
     if (highlightedIndex < 0 || !dropdownRef.current) return
@@ -58,10 +60,10 @@ export function ListingSelectorDropdownContent({
         onTouchMove={onTouchMove}
       >
         {isLoading ? (
-          <div className='py-6 text-center text-muted-foreground text-sm'>Searching...</div>
+          <div className='py-6 text-center text-muted-foreground text-sm'>{copy.searching}</div>
         ) : results.length === 0 ? (
           <div className='py-6 text-center text-muted-foreground text-sm'>
-            {error || 'No listings found.'}
+            {error || copy.noListingsFound}
           </div>
         ) : (
           results.map((listing, index) => {

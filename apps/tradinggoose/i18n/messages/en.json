@@ -1861,6 +1861,8 @@
           "nameRequired": "Please provide a name.",
           "saveError": "Unable to save profile settings.",
           "nameRequiredValidation": "Name is required",
+          "profilePictureFileTooLarge": "File {{name}} is too large. Maximum size is 5MB.",
+          "profilePictureUnsupportedFormat": "File {{name}} is not a supported image format. Please use PNG or JPEG.",
           "profilePictureUpdateError": "Failed to update profile picture",
           "profilePictureRemoveError": "Failed to remove profile picture",
           "unableToUpdateProfilePicture": "Unable to update profile picture.",
@@ -1889,6 +1891,7 @@
         "dropImagesBrowse": "Drop images here or click to browse",
         "imageHint": "JPEG, PNG, WebP, GIF (max 20MB each)",
         "uploadedImages": "Uploaded Images",
+        "previewAlt": "Preview {{index}}",
         "cancel": "Cancel",
         "submit": "Submit",
         "submitting": "Submitting...",
@@ -3292,6 +3295,7 @@
           "parallel_ai": "Parallel AI",
           "input_trigger": "Input Form",
           "indicator_trigger": "Indicator Monitor",
+          "portfolio_state_trigger": "Portfolio Monitor",
           "manual_trigger": "Manual",
           "api_trigger": "API",
           "api": "API",
@@ -3444,6 +3448,7 @@
           "parallel_ai": "Search with Parallel AI",
           "input_trigger": "Start workflow manually with a defined input schema",
           "indicator_trigger": "Trigger workflow from indicator monitor events managed in the monitor workspace.",
+          "portfolio_state_trigger": "Trigger workflow from portfolio monitor events managed in the monitor workspace.",
           "manual_trigger": "Start workflow manually from the editor",
           "api_trigger": "Expose as HTTP API endpoint",
           "api": "Use any API",
@@ -18516,6 +18521,28 @@
               }
             }
           },
+          "indicator_trigger": {
+            "subBlocks": {
+              "triggerInstructions": {
+                "steps": [
+                  "Go to /workspace/[workspaceId]/monitor to manage indicator monitors.",
+                  "Configure the provider, listing, interval, indicator, and workflow target there."
+                ],
+                "title": "Setup Instructions"
+              }
+            }
+          },
+          "portfolio_state_trigger": {
+            "subBlocks": {
+              "triggerInstructions": {
+                "steps": [
+                  "Go to /workspace/[workspaceId]/monitor to manage portfolio monitors.",
+                  "Configure the broker account, condition, and workflow target there."
+                ],
+                "title": "Setup Instructions"
+              }
+            }
+          },
           "airtable_webhook": {
             "name": "Airtable Webhook",
             "description": "Trigger workflow from Airtable record changes like create, update, and delete events (requires Airtable credentials)",
@@ -20560,16 +20587,26 @@
         },
         "form": {
           "auth": "Auth",
+          "cooldownSeconds": "Cooldown seconds",
           "createMonitor": "Create Monitor",
           "feed": "Feed",
+          "fireMode": "Fire mode",
+          "fireModeEdge": "When condition turns true",
+          "fireModeWhileTrue": "While condition is true",
           "indicatorInputs": "Indicator Inputs",
           "indicatorPlaceholder": "Select indicator",
           "intervalPlaceholder": "Select interval",
+          "pollSeconds": "Poll seconds",
           "providerPlaceholder": "Select provider",
           "saveChanges": "Save Changes",
           "saving": "Saving...",
+          "sourceIndicator": "Indicator trigger",
+          "sourceLabel": "Monitor source",
+          "sourcePortfolio": "Portfolio state",
           "statusDescription": "New monitors start paused unless enabled here.",
           "statusTitle": "Monitor status",
+          "tradingAccount": "Trading account",
+          "tradingProvider": "Trading provider",
           "workflowTargetPlaceholder": "Select workflow target"
         },
         "errors": {

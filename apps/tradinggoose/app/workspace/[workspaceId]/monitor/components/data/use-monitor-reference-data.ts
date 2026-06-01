@@ -3,7 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { type MonitorCopy, useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import { fetchOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
-import { INDICATOR_MONITOR_PROVIDER, PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
+import { getLocalizedDefaultBlockName } from '@/i18n/block-editor'
+import {
+  INDICATOR_MONITOR_PROVIDER,
+  INDICATOR_MONITOR_TRIGGER_ID,
+  PORTFOLIO_MONITOR_PROVIDER,
+  PORTFOLIO_MONITOR_TRIGGER_ID,
+} from '@/lib/monitors/sources'
 import {
   getMarketMonitorProviderParamDefinitions,
   getMarketProviderIntervals,
@@ -133,7 +139,7 @@ const buildReferenceData = ({
 }
 
 export function useMonitorReferenceData(workspaceId: string): MonitorReferenceData {
-  const { copy } = useMonitorCopy()
+  const { copy, locale } = useMonitorCopy()
   const [workflowTargets, setWorkflowTargets] = useState<WorkflowTargetOption[]>([])
   const [workflowOptions, setWorkflowOptions] = useState<WorkflowPickerOption[]>([])
   const [indicatorOptions, setIndicatorOptions] = useState<IndicatorOption[]>([])
@@ -146,6 +152,22 @@ export function useMonitorReferenceData(workspaceId: string): MonitorReferenceDa
     () => getTradingWidgetProviderAvailabilityIds('portfolioDetail'),
     []
   )
+  const workflowTargetFallbackCopy = useMemo(
+    () => ({
+      workflowName: copy.fields.workflow,
+      triggerBlockNames: {
+        [INDICATOR_MONITOR_TRIGGER_ID]: getLocalizedDefaultBlockName(
+          locale,
+          INDICATOR_MONITOR_TRIGGER_ID
+        ),
+        [PORTFOLIO_MONITOR_TRIGGER_ID]: getLocalizedDefaultBlockName(
+          locale,
+          PORTFOLIO_MONITOR_TRIGGER_ID
+        ),
+      },
+    }),
+    [copy.fields.workflow, locale]
+  )
 
   const loadReferenceData = useCallback(async () => {
     setIsLoading(true)
@@ -154,7 +176,7 @@ export function useMonitorReferenceData(workspaceId: string): MonitorReferenceDa
     const [indicatorResult, targetsResult, workflowsResult, tradingProviderAvailabilityResult] =
       await Promise.allSettled([
         loadIndicatorOptions(workspaceId),
-        loadWorkflowTargetOptions(workspaceId),
+        loadWorkflowTargetOptions(workspaceId, workflowTargetFallbackCopy),
         loadWorkflowOptions(workspaceId),
         fetchOAuthProviderAvailability(tradingProviderAvailabilityIds),
       ])
@@ -196,6 +218,7 @@ export function useMonitorReferenceData(workspaceId: string): MonitorReferenceDa
     copy.referenceData.workflowOptionsUnavailable,
     copy.referenceData.workflowTargetsUnavailable,
     tradingProviderAvailabilityIds,
+    workflowTargetFallbackCopy,
     workspaceId,
   ])
 
