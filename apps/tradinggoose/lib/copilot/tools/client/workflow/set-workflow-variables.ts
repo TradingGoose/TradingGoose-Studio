@@ -12,11 +12,13 @@ import {
   getRegisteredWorkflowSession,
   getVariablesForWorkflow,
 } from '@/lib/yjs/workflow-session-registry'
+import { VariableManager } from '@/lib/variables/variable-manager'
+import { isWorkflowVariableType, type WorkflowVariableType } from '@/lib/workflows/value-types'
 
 interface OperationItem {
   operation: 'add' | 'edit' | 'delete'
   name: string
-  type?: 'plain' | 'number' | 'boolean' | 'array' | 'object'
+  type?: WorkflowVariableType
   value?: string
 }
 
@@ -66,36 +68,6 @@ export class SetWorkflowVariablesClientTool extends BaseClientTool {
         throw new Error('No live Yjs session for this workflow')
       }
 
-      // Helper to convert string -> typed value
-      function coerceValue(
-        value: string | undefined,
-        type?: 'plain' | 'number' | 'boolean' | 'array' | 'object'
-      ) {
-        if (value === undefined) return value
-        const t = type || 'plain'
-        try {
-          if (t === 'number') {
-            const n = Number(value)
-            if (Number.isNaN(n)) return value
-            return n
-          }
-          if (t === 'boolean') {
-            const v = String(value).trim().toLowerCase()
-            if (v === 'true') return true
-            if (v === 'false') return false
-            return value
-          }
-          if (t === 'array' || t === 'object') {
-            const parsed = JSON.parse(value)
-            if (t === 'array' && Array.isArray(parsed)) return parsed
-            if (t === 'object' && parsed && typeof parsed === 'object' && !Array.isArray(parsed))
-              return parsed
-            return value
-          }
-        } catch {}
-        return value
-      }
-
       // Build mutable map by variable name
       const byName: Record<string, any> = {}
       Object.values(currentVarsRecord).forEach((v: any) => {
@@ -105,12 +77,18 @@ export class SetWorkflowVariablesClientTool extends BaseClientTool {
       // Apply operations in order
       for (const op of payload.operations || []) {
         const key = String(op.name)
-        const nextType = (op.type as any) || byName[key]?.type || 'plain'
+        const nextType = op.type ?? byName[key]?.type ?? 'plain'
         if (op.operation === 'delete') {
           delete byName[key]
           continue
         }
-        const typedValue = coerceValue(op.value, nextType)
+        if (!isWorkflowVariableType(nextType)) {
+          throw new Error(`Unsupported variable type: ${String(nextType)}`)
+        }
+        const typedValue =
+          op.value === undefined
+            ? undefined
+            : VariableManager.parseInputForStorage(op.value, nextType)
         if (op.operation === 'add') {
           byName[key] = {
             id: crypto.randomUUID(),

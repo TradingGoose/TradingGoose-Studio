@@ -194,6 +194,10 @@ describe('getBlocksMetadataServerTool', () => {
     expect(result.metadata.input_trigger?.mermaidExamples.minimalDocument).not.toContain(
       '"inputSchema"'
     )
+    expect(
+      result.metadata.input_trigger?.subBlocks?.find((subBlock) => subBlock.id === 'inputFormat')
+        ?.description
+    ).toContain('listingIdentity')
     expect(result.metadata.input_trigger?.inputReferenceGrammar).toEqual(
       expect.objectContaining({
         hardRequirement: true,

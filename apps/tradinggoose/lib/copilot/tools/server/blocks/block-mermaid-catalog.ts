@@ -16,6 +16,8 @@ import {
   buildWorkflowBlockMermaidContract,
   buildWorkflowBlockMermaidShape,
 } from '@/lib/workflows/block-mermaid-contract'
+import { LISTING_IDENTITY_JSON_SCHEMA, LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
+import { WORKFLOW_FIELD_TYPES } from '@/lib/workflows/value-types'
 import { registry as blockRegistry } from '@/blocks/registry'
 import { AuthMode, type BlockConfig } from '@/blocks/types'
 
@@ -191,6 +193,16 @@ function resolveSubBlockOptions(subBlock: BlockConfig['subBlocks'][number]) {
   }))
 }
 
+function resolveSubBlockDescription(subBlock: BlockConfig['subBlocks'][number]) {
+  if (subBlock.type !== 'input-format') return subBlock.description
+
+  const typeDescription = [
+    `Supported field types: ${WORKFLOW_FIELD_TYPES.join(', ')}.`,
+    `${LISTING_IDENTITY_VALUE_TYPE} uses this canonical JSON schema: ${JSON.stringify(LISTING_IDENTITY_JSON_SCHEMA)}.`,
+  ].join(' ')
+  return [subBlock.description, typeDescription].filter(Boolean).join(' ')
+}
+
 function buildSubBlockSummaries(
   blockConfig: BlockConfig | undefined
 ): BlockProfile['subBlocks'] | undefined {
@@ -200,6 +212,7 @@ function buildSubBlockSummaries(
 
   const subBlocks: BlockSubBlockSummary[] = blockConfig.subBlocks.map((subBlock) => {
     const options = resolveSubBlockOptions(subBlock)
+    const description = resolveSubBlockDescription(subBlock)
 
     return {
       id: subBlock.id,
@@ -207,7 +220,7 @@ function buildSubBlockSummaries(
       type: subBlock.type,
       ...(subBlock.mode ? { mode: subBlock.mode } : {}),
       ...(typeof subBlock.required === 'boolean' ? { required: subBlock.required } : {}),
-      ...(subBlock.description ? { description: subBlock.description } : {}),
+      ...(description ? { description } : {}),
       ...(subBlock.placeholder ? { placeholder: subBlock.placeholder } : {}),
       ...(subBlock.canonicalParamId ? { canonicalParamId: subBlock.canonicalParamId } : {}),
       ...(subBlock.language ? { language: subBlock.language } : {}),

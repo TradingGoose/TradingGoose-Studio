@@ -56,8 +56,8 @@
       "auth": "注册"
     },
     "waitlist": {
-      "primary": "加入候补名单",
-      "auth": "加入候补名单"
+      "primary": "获取抢先体验",
+      "auth": "获取抢先体验"
     },
     "disabled": {
       "primary": "即将推出",
@@ -208,7 +208,7 @@
     "login": {
       "eyebrow": "登录",
       "title": "欢迎回来",
-      "description": "请输入您的凭据",
+      "description": "请输入您的登录信息",
       "submit": "登录",
       "submitting": "登录中...",
       "divider": "或继续使用",
