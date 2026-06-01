@@ -24,12 +24,6 @@ export const portfolioStateTrigger: TriggerConfig = {
       identity: { type: 'object', description: 'Trading portfolio identity.' },
       detail: { type: 'object', description: 'Portfolio detail snapshot.' },
     },
-    monitor: {
-      id: { type: 'string', description: 'Monitor id.' },
-      providerId: { type: 'string', description: 'Trading provider id.' },
-      serviceId: { type: 'string', description: 'Trading service id.' },
-      accountId: { type: 'string', description: 'Trading account id.' },
-    },
     condition: { type: 'json', description: 'Matched portfolio fire condition.' },
   },
 }
