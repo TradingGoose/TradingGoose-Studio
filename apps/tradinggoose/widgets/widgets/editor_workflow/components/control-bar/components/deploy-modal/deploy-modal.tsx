@@ -50,6 +50,7 @@ import {
 } from '@/lib/chat/deployment-config'
 import { getEnv } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
+import { isMonitorTriggerId } from '@/lib/monitors/sources'
 import { getIconTileStyle, sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import type { WorkflowDeploymentVersionResponse } from '@/lib/workflows/db-helpers'
@@ -569,12 +570,11 @@ export function DeployModal({
             : activeTriggerDeployTab
               ? {
                   title: activeTriggerDeployTab.label,
-                  description:
-                    activeTriggerDeployTab.triggerId === 'indicator_trigger'
-                      ? copy.indicatorMonitorsDescription
-                      : activeTriggerDeployTab.hasConfigurableFields
-                        ? copy.triggerModeManagedDescription
-                        : copy.reviewTriggerBeforeDeployment,
+                  description: isMonitorTriggerId(activeTriggerDeployTab.triggerId)
+                    ? copy.indicatorMonitorsDescription
+                    : activeTriggerDeployTab.hasConfigurableFields
+                      ? copy.triggerModeManagedDescription
+                      : copy.reviewTriggerBeforeDeployment,
                 }
               : null
   const sharedApiKeyDisplay =

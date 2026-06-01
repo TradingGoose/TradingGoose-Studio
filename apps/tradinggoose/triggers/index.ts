@@ -1,3 +1,4 @@
+import { isMonitorTriggerId } from '@/lib/monitors/sources'
 import { generateMockPayloadFromOutputsDefinition } from '@/lib/workflows/triggers/trigger-utils'
 import type { SubBlockConfig } from '@/blocks/types'
 import { TRIGGER_REGISTRY } from '@/triggers/registry'
@@ -7,6 +8,7 @@ const NATIVE_TRIGGER_PROVIDER_KEYS = new Set([
   'core',
   'schedule',
   'indicator',
+  'portfolio',
   'generic',
   'imap',
   'rss',
@@ -16,7 +18,6 @@ const TRIGGER_SYSTEM_SUBBLOCK_IDS = new Set([
   'selectedTriggerId',
   'webhookUrlDisplay',
   'triggerSave',
-  'triggerInstructions',
 ])
 
 export function getTrigger(triggerId: string): TriggerConfig | undefined {
@@ -30,23 +31,34 @@ export function getTrigger(triggerId: string): TriggerConfig | undefined {
     subBlocks: [...trigger.subBlocks],
   }
 
-  const originalSelectedTrigger = trigger.subBlocks.find((subBlock) => subBlock.id === 'selectedTriggerId')
-  const originalWebhookUrlDisplay = trigger.subBlocks.find((subBlock) => subBlock.id === 'webhookUrlDisplay')
-  const hasSystemShell = trigger.subBlocks.some((subBlock) => TRIGGER_SYSTEM_SUBBLOCK_IDS.has(subBlock.id))
-  const triggerOptions =
-    originalSelectedTrigger?.options
-      ? (typeof originalSelectedTrigger.options === 'function'
-          ? originalSelectedTrigger.options()
-          : originalSelectedTrigger.options
-        ).map((option) => ({
-          id: option.id,
-          label: option.label,
-        }))
-      : []
+  const originalSelectedTrigger = trigger.subBlocks.find(
+    (subBlock) => subBlock.id === 'selectedTriggerId'
+  )
+  const originalWebhookUrlDisplay = trigger.subBlocks.find(
+    (subBlock) => subBlock.id === 'webhookUrlDisplay'
+  )
+  const originalTriggerInstructions = trigger.subBlocks.find(
+    (subBlock) => subBlock.id === 'triggerInstructions'
+  )
+  const hasSystemShell = trigger.subBlocks.some((subBlock) =>
+    TRIGGER_SYSTEM_SUBBLOCK_IDS.has(subBlock.id)
+  )
+  const triggerOptions = originalSelectedTrigger?.options
+    ? (typeof originalSelectedTrigger.options === 'function'
+        ? originalSelectedTrigger.options()
+        : originalSelectedTrigger.options
+      ).map((option) => ({
+        id: option.id,
+        label: option.label,
+      }))
+    : []
 
   if (hasSystemShell) {
     const extraFields = clonedTrigger.subBlocks.filter(
-      (subBlock) => !TRIGGER_SYSTEM_SUBBLOCK_IDS.has(subBlock.id) && subBlock.id !== 'samplePayload'
+      (subBlock) =>
+        !TRIGGER_SYSTEM_SUBBLOCK_IDS.has(subBlock.id) &&
+        subBlock.id !== 'triggerInstructions' &&
+        subBlock.id !== 'samplePayload'
     )
 
     clonedTrigger.subBlocks = buildTriggerSubBlocks({
@@ -59,6 +71,7 @@ export function getTrigger(triggerId: string): TriggerConfig | undefined {
         typeof originalWebhookUrlDisplay?.placeholder === 'string'
           ? originalWebhookUrlDisplay.placeholder
           : undefined,
+      instructionsDefaultValue: originalTriggerInstructions?.defaultValue,
     })
   }
 
@@ -77,7 +90,7 @@ export function getTrigger(triggerId: string): TriggerConfig | undefined {
     (trigger.webhook ||
       trigger.id.includes('webhook') ||
       trigger.id.includes('poller') ||
-      trigger.id === 'indicator_trigger')
+      isMonitorTriggerId(trigger.id))
   ) {
     const samplePayloadExists = clonedTrigger.subBlocks.some((sb) => sb.id === 'samplePayload')
 
@@ -151,6 +164,7 @@ export interface BuildTriggerSubBlocksOptions {
   includeWebhookUrl?: boolean
   extraFields?: SubBlockConfig[]
   webhookPlaceholder?: string
+  instructionsDefaultValue?: SubBlockConfig['defaultValue']
 }
 
 export function buildTriggerSubBlocks(options: BuildTriggerSubBlocksOptions): SubBlockConfig[] {
@@ -161,6 +175,7 @@ export function buildTriggerSubBlocks(options: BuildTriggerSubBlocksOptions): Su
     includeWebhookUrl = true,
     extraFields = [],
     webhookPlaceholder = 'Webhook URL will be generated',
+    instructionsDefaultValue = '',
   } = options
 
   const blocks: SubBlockConfig[] = []
@@ -212,7 +227,7 @@ export function buildTriggerSubBlocks(options: BuildTriggerSubBlocksOptions): Su
     title: 'Setup Instructions',
     hideFromPreview: true,
     type: 'text',
-    defaultValue: '',
+    defaultValue: instructionsDefaultValue,
     mode: 'trigger',
     condition: triggerCondition,
   })
