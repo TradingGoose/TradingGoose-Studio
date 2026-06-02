@@ -18,8 +18,9 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
+import { useRouter } from '@/i18n/navigation'
 import {
   AlertDialog,
   AlertDialogCancel,

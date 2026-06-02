@@ -1,14 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useLocale } from 'next-intl'
-import Link from 'next/link'
 import { OpenAIIcon, AnthropicIcon, GeminiIcon, xAIIcon as XAIIcon } from '@/components/icons/provider-icons'
 import { PerplexityIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
-import { type LocaleCode } from '@/i18n/utils'
 
 interface AiSummarizeProps {
   path: string
@@ -17,7 +14,6 @@ interface AiSummarizeProps {
 
 export default function AiSummarize({ path, title }: AiSummarizeProps) {
   const [url, setUrl] = useState(path)
-  const locale = useLocale() as LocaleCode
   const copy = useAppMessages()
   const blogCopy = copy.blog
 
@@ -64,7 +60,7 @@ export default function AiSummarize({ path, title }: AiSummarizeProps) {
             <Tooltip key={platform.label}>
               <TooltipTrigger asChild>
                 <Button variant="outline" size="icon" asChild>
-                  <Link
+                  <a
                     href={platform.href}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -73,7 +69,7 @@ export default function AiSummarize({ path, title }: AiSummarizeProps) {
                     })}
                   >
                     {platform.icon}
-                  </Link>
+                  </a>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>{platform.label}</TooltipContent>

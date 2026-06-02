@@ -1,8 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { usePathname } from 'next/navigation'
-import { useLocale, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import {
   Sidebar,
   SidebarContent,
@@ -18,7 +17,7 @@ import { getBrandConfig } from '@/lib/branding/branding'
 import { isHosted } from '@/lib/environment'
 import { getOrganizationAccessState } from '@/lib/organization/access'
 import { getUserRole } from '@/lib/organization/helpers'
-import { localizeHref, stripLocaleFromPathname, type LocaleCode } from '@/i18n/utils'
+import { usePathname } from '@/i18n/navigation'
 import { useOrganizations } from '@/hooks/queries/organization'
 import { NavbarHeader } from './components/navbar-header'
 import { SidebarNav, SidebarUsageIndicator } from './components/sidebar-nav'
@@ -50,13 +49,9 @@ export function GlobalNavbar({
   navigationMode?: 'workspace' | 'admin'
 }) {
   const pathname = usePathname() ?? '/'
-  const locale = useLocale() as LocaleCode
   const tWorkspaceNav = useTranslations('workspace.nav')
   const brand = React.useMemo(() => getBrandConfig(), [])
-  const { pathname: normalizedPathname } = React.useMemo(
-    () => stripLocaleFromPathname(pathname),
-    [pathname]
-  )
+  const normalizedPathname = pathname
   const { data: sessionData, isPending: isSessionLoading } = useSession()
   const workspaceId = React.useMemo(() => getWorkspaceIdFromPath(normalizedPathname), [normalizedPathname])
   const workspaceNavCopy = React.useMemo(
@@ -89,9 +84,9 @@ export function GlobalNavbar({
   const navItems = React.useMemo(
     () =>
       navigationMode === 'admin'
-        ? createAdminNav(adminNavCopy, locale)
-        : createWorkspaceNav(workspaceNavCopy, locale, workspaceId),
-    [adminNavCopy, locale, navigationMode, workspaceId, workspaceNavCopy]
+        ? createAdminNav(adminNavCopy)
+        : createWorkspaceNav(workspaceNavCopy, workspaceId),
+    [adminNavCopy, navigationMode, workspaceId, workspaceNavCopy]
   )
   const navMain = React.useMemo<NavSection[]>(
     () => createNavSections(normalizedPathname, navItems),
@@ -152,10 +147,10 @@ export function GlobalNavbar({
     }
 
     return {
-      href: localizeHref(locale, '/admin'),
+      href: '/admin',
       label: tWorkspaceNav('systemAdmin'),
     }
-  }, [isSystemAdmin, locale, navigationMode, tWorkspaceNav])
+  }, [isSystemAdmin, navigationMode, tWorkspaceNav])
 
   const resolveSettingsSection = React.useCallback(
     (section: SettingsSection): SettingsSection => {

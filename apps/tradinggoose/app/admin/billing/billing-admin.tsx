@@ -2,7 +2,6 @@
 
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { Plus, Receipt } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 import { useLocale } from 'next-intl'
 import {
   Alert,
@@ -32,8 +31,8 @@ import {
 } from '@/hooks/queries/admin-billing'
 import { formatLocalizedNumber, formatUsd } from '@/i18n/formatters'
 import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
-import { Link } from '@/i18n/navigation'
-import { localizeHref, type LocaleCode } from '@/i18n/utils'
+import { Link, useRouter } from '@/i18n/navigation'
+import { type LocaleCode } from '@/i18n/utils'
 import {
   type AdminBillingCopy,
   BillingBreadcrumbs,
@@ -544,7 +543,7 @@ export function AdminBilling() {
   )
 
   const headerRight = (
-    <PrimaryButton onClick={() => router.push(localizeHref(locale, '/admin/billing/create'))}>
+    <PrimaryButton onClick={() => router.push('/admin/billing/create')}>
       <Plus className='h-3.5 w-3.5' />
       <span>{copy.overview.createTier}</span>
     </PrimaryButton>
@@ -624,7 +623,7 @@ export function AdminBilling() {
                   title={copy.overview.emptyTitle}
                   description={copy.overview.emptyDescription}
                   buttonText={copy.overview.emptyButton}
-                  onClick={() => router.push(localizeHref(locale, '/admin/billing/create'))}
+                  onClick={() => router.push('/admin/billing/create')}
                   icon={<Receipt className='h-4 w-4 text-muted-foreground' />}
                 />
               ) : filteredTiers.length === 0 ? (
@@ -706,7 +705,7 @@ export function AdminBillingCreateTier() {
         throw new Error(copy.errors.createdTierMissingId)
       }
 
-      router.push(localizeHref(locale, `/admin/billing/${tierId}`))
+      router.push(`/admin/billing/${tierId}`)
     } catch (submitError) {
       setError(getErrorMessage(submitError, copy.errors.unknown))
     }

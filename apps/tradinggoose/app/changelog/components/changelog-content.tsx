@@ -1,9 +1,8 @@
 import { BookOpen, Github, Rss } from 'lucide-react'
-import Link from 'next/link'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
 import { BackgroundRippleEffect } from '@/components/ui/background-ripple-effect'
-import { type LocaleCode } from '@/i18n/utils'
+import { localizeDocsUrl, type LocaleCode } from '@/i18n/utils'
 import ChangelogList from './timeline-list'
 import type { PublicCopy } from '@/i18n/public-copy'
 
@@ -88,7 +87,7 @@ export default async function ChangelogContent({ copy, locale }: ChangelogConten
             <hr className='mt-6 border-border' />
 
             <div className='mt-6 flex flex-wrap items-center gap-3 text-sm'>
-              <Link
+              <a
                 href='https://github.com/tradinggoose/tradinggoose-studio/releases'
                 target='_blank'
                 rel='noopener noreferrer'
@@ -96,21 +95,23 @@ export default async function ChangelogContent({ copy, locale }: ChangelogConten
               >
                 <Github className='h-4 w-4' />
                 {copy.viewOnGitHub}
-              </Link>
-              <Link
-                href='https://docs.tradinggoose.ai'
+              </a>
+              <a
+                href={localizeDocsUrl(locale)}
+                target='_blank'
+                rel='noopener noreferrer'
                 className='inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 bg-card hover:bg-muted'
               >
                 <BookOpen className='h-4 w-4' />
                 {copy.documentation}
-              </Link>
-              <Link
+              </a>
+              <a
                 href='/changelog.xml'
                 className='inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 bg-card hover:bg-muted'
               >
                 <Rss className='h-4 w-4' />
                 {copy.rssFeed}
-              </Link>
+              </a>
             </div>
           </div>
         </div>

@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import {
   Background,
   ConnectionLineType,
@@ -24,6 +23,7 @@ import { useCurrentWorkflow } from '@/hooks/workflow'
 import { useCopilotStore } from '@/stores/copilot/store'
 import { useExecutionStore } from '@/stores/execution/store'
 import { hasWorkflowsInitiallyLoaded, useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { getUniqueBlockName } from '@/stores/workflows/utils'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
@@ -86,6 +86,7 @@ import {
   type ToolbarAddBlockRequest,
 } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar/toolbar-add-block-dispatcher'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useRouter } from '@/i18n/navigation'
 
 const logger = createLogger('Workflow')
 
@@ -142,7 +143,7 @@ const WorkflowCanvas = React.memo(
     viewportBounds,
   }: WorkflowCanvasProps) => {
     const uiConfig = useMemo(() => ({ ...defaultUIConfig, ...ui }), [ui])
-    const { getLocalizedDefaultBlockName, getLocalizedUniqueBlockName } = useWorkflowI18n()
+    const { getLocalizedDefaultBlockName } = useWorkflowI18n()
     // State
     const [isWorkflowReady, setIsWorkflowReady] = useState(false)
 
@@ -281,6 +282,10 @@ const WorkflowCanvas = React.memo(
 
     // Extract workflow data from the abstraction
     const { blocks, edges } = currentWorkflow
+    const getCanonicalUniqueBlockName = useCallback(
+      (type: string) => getUniqueBlockName(getBlock(type)?.name ?? type, blocks),
+      [blocks]
+    )
     const resolvedSelectedNodeId = selectedNodeId && blocks[selectedNodeId] ? selectedNodeId : null
     const hasLockedBlocks = useMemo(
       () => Object.values(blocks).some((block) => Boolean(block.locked)),
@@ -659,7 +664,7 @@ const WorkflowCanvas = React.memo(
           // Create a unique ID and name for the container
           const id = crypto.randomUUID()
 
-          const name = getLocalizedUniqueBlockName(type, blocks)
+          const name = getCanonicalUniqueBlockName(type)
 
           // Calculate the center position of the viewport
           const centerPosition = projectViewportCenter()
@@ -714,7 +719,7 @@ const WorkflowCanvas = React.memo(
 
         // Create a new block with a unique ID
         const id = crypto.randomUUID()
-        const name = getLocalizedUniqueBlockName(type, blocks)
+        const name = getCanonicalUniqueBlockName(type)
 
         // Auto-connect logic
         const isAutoConnectEnabled = AUTO_CONNECT_ENABLED
@@ -779,7 +784,7 @@ const WorkflowCanvas = React.memo(
       projectViewportCenter,
       toolbarScopeId,
       getLocalizedDefaultBlockName,
-      getLocalizedUniqueBlockName,
+      getCanonicalUniqueBlockName,
     ])
 
     // Handler for trigger selection from list
@@ -795,7 +800,7 @@ const WorkflowCanvas = React.memo(
           return
         }
 
-        const triggerName = getLocalizedUniqueBlockName(triggerId, blocks)
+        const triggerName = getCanonicalUniqueBlockName(triggerId)
 
         // Create the trigger block at the center of the viewport
         const centerPosition = projectViewportCenter()
@@ -814,7 +819,7 @@ const WorkflowCanvas = React.memo(
           enableTriggerMode || false
         )
       },
-      [addBlock, blocks, getLocalizedDefaultBlockName, getLocalizedUniqueBlockName, projectViewportCenter]
+      [addBlock, blocks, getCanonicalUniqueBlockName, getLocalizedDefaultBlockName, projectViewportCenter]
     )
 
     // Update the onDrop handler
@@ -843,7 +848,7 @@ const WorkflowCanvas = React.memo(
             // Create a unique ID and name for the container
             const id = crypto.randomUUID()
 
-            const name = getLocalizedUniqueBlockName(data.type, blocks)
+            const name = getCanonicalUniqueBlockName(data.type)
 
             // Check if we're dropping inside another container
             if (containerDropTarget) {
@@ -912,7 +917,7 @@ const WorkflowCanvas = React.memo(
 
           // Generate id and name here so they're available in all code paths
           const id = crypto.randomUUID()
-          const name = getLocalizedUniqueBlockName(data.type, blocks)
+          const name = getCanonicalUniqueBlockName(data.type)
 
           if (containerDropTarget) {
             // Calculate position relative to the container node
@@ -1052,6 +1057,8 @@ const WorkflowCanvas = React.memo(
         isPointInLoopNodeWrapper,
         getNodes,
         setTriggerWarning,
+        getCanonicalUniqueBlockName,
+        getLocalizedDefaultBlockName,
       ]
     )
 

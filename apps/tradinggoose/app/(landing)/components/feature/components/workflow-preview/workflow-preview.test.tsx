@@ -6,7 +6,7 @@ import { act } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getPublicCopy, getScopedPublicMessages } from '@/i18n/public-copy'
+import { getPublicCopy } from '@/i18n/public-copy'
 
 vi.mock('@xyflow/react', () => ({
   __esModule: true,
@@ -136,7 +136,7 @@ describe('WorkflowPreview', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  it('renders localized workflow preview nodes from landing-only provider messages', async () => {
+  it('renders localized workflow preview nodes from app provider messages', async () => {
     const copy = getPublicCopy('en')
     const demos = buildTradingAgentWorkflowDemos('en', copy.landing.preview.workflow.demoCopy)
     const investmentDebateDemo = demos.find((demo) => demo.id === 'investment-debate')
@@ -147,7 +147,7 @@ describe('WorkflowPreview', () => {
       root.render(
         <NextIntlClientProvider
           locale='en'
-          messages={getScopedPublicMessages('en', ['landing'] as const)}
+          messages={getPublicCopy('en')}
         >
           <WorkflowPreview demos={[investmentDebateDemo!]} />
         </NextIntlClientProvider>
@@ -249,7 +249,7 @@ describe('WorkflowPreview', () => {
       root.render(
         <NextIntlClientProvider
           locale='es'
-          messages={getScopedPublicMessages('es', ['landing'] as const)}
+          messages={getPublicCopy('es')}
         >
           <WorkflowPreview demos={[demo]} />
         </NextIntlClientProvider>

@@ -10,7 +10,6 @@ import {
   getLocalizedBlockMetadataWithCopy,
   getLocalizedBlockNameWithCopy,
   getLocalizedDefaultBlockNameWithCopy,
-  getLocalizedUniqueBlockNameWithCopy,
   getLocalizedToolParameterLabelWithCopy,
   getLocalizedToolParametersConfigWithCopy,
   getMcpToolSelectorCopyFromInspector,
@@ -109,12 +108,6 @@ export function useWorkflowI18n() {
       ) => getLocalizedBlockMetadataWithCopy(inspectorCopy, block),
       getLocalizedDefaultBlockName: (blockType: string, blockName?: string) =>
         getLocalizedDefaultBlockNameWithCopy(inspectorCopy, blockType, blockName),
-      getLocalizedUniqueBlockName: (
-        blockType: string,
-        existingBlocks: Record<string, { type?: string; name?: string }>,
-        blockName?: string
-      ) =>
-        getLocalizedUniqueBlockNameWithCopy(inspectorCopy, blockType, existingBlocks, blockName),
       getLocalizedToolParameterLabel: (paramId: string, label?: string) =>
         getLocalizedToolParameterLabelWithCopy(inspectorCopy, paramId, label),
       localizeToolParameter: (

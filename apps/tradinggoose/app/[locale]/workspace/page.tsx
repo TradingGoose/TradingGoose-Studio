@@ -1,19 +1,18 @@
 'use client'
 
 import { useEffect } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
-import { useLocale, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
-import { localizeHref, normalizeCallbackUrl, type LocaleCode } from '@/i18n/utils'
+import { usePathname, useRouter } from '@/i18n/navigation'
+import { normalizeCallbackUrl } from '@/i18n/utils'
 
 const logger = createLogger('WorkspacePage')
 
 export default function WorkspacePage() {
   const router = useRouter()
   const pathname = usePathname()
-  const locale = useLocale() as LocaleCode
   const tWorkspace = useTranslations('workspace')
   const { data: session, isPending, error: sessionError } = useSession()
 
@@ -27,7 +26,7 @@ export default function WorkspacePage() {
         logger.info('User not authenticated, redirecting to home', {
           hasSessionError: Boolean(sessionError),
         })
-        router.replace(localizeHref(locale, '/'))
+        router.replace('/')
         return
       }
 
@@ -37,12 +36,11 @@ export default function WorkspacePage() {
         const redirectWorkflowId = urlParams.get('redirect_workflow')
 
         if (callbackUrl) {
-          const localizedCallbackUrl = localizeHref(locale, callbackUrl)
-          const localizedCallbackPath = new URL(localizedCallbackUrl, window.location.origin).pathname
+          const callbackPath = new URL(callbackUrl, window.location.origin).pathname
 
-          if (localizedCallbackPath !== pathname) {
+          if (callbackPath !== pathname) {
             logger.info('Redirecting to callback URL from workspace root', { callbackUrl })
-            router.replace(localizedCallbackUrl)
+            router.replace(callbackUrl)
             return
           }
         }
@@ -58,7 +56,7 @@ export default function WorkspacePage() {
                 logger.info(
                   `Redirecting workflow ${redirectWorkflowId} to workspace ${workspaceId} dashboard`
                 )
-                router.replace(localizeHref(locale, `/workspace/${workspaceId}/dashboard`))
+                router.replace(`/workspace/${workspaceId}/dashboard`)
                 return
               }
             }
@@ -75,7 +73,7 @@ export default function WorkspacePage() {
           logger.info('Unauthorized to fetch workspaces, redirecting to home', {
             status: response.status,
           })
-          router.replace(localizeHref(locale, '/'))
+          router.replace('/')
           return
         }
 
@@ -89,7 +87,7 @@ export default function WorkspacePage() {
             status: response.status,
             body: errorBody,
           })
-          router.replace(localizeHref(locale, '/'))
+          router.replace('/')
           return
         }
 
@@ -116,7 +114,7 @@ export default function WorkspacePage() {
                 logger.info(
                   `Created default workspace ${newWorkspace.id}, redirecting to dashboard`
                 )
-                router.replace(localizeHref(locale, `/workspace/${newWorkspace.id}/dashboard`))
+                router.replace(`/workspace/${newWorkspace.id}/dashboard`)
                 return
               }
             }
@@ -126,21 +124,21 @@ export default function WorkspacePage() {
             logger.error('Error creating default workspace:', createError)
           }
 
-          router.replace(localizeHref(locale, '/'))
+          router.replace('/')
           return
         }
 
         const firstWorkspace = workspaces[0]
         logger.info(`Redirecting to workspace ${firstWorkspace.id} dashboard`)
-        router.replace(localizeHref(locale, `/workspace/${firstWorkspace.id}/dashboard`))
+        router.replace(`/workspace/${firstWorkspace.id}/dashboard`)
       } catch (error) {
         logger.error('Error fetching workspaces for redirect:', error)
-        router.replace(localizeHref(locale, '/'))
+        router.replace('/')
       }
     }
 
     void redirectToFirstWorkspace()
-  }, [isPending, locale, pathname, router, session, sessionError, tWorkspace])
+  }, [isPending, pathname, router, session, sessionError, tWorkspace])
 
   return (
     <div className='flex h-screen w-full items-center justify-center'>

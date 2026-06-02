@@ -82,7 +82,7 @@ describe('proxy auth routing', () => {
     expect(response.cookies.get('better-auth.session_token')?.maxAge).toBe(0)
   })
 
-  it('preserves locale when redirecting localized protected routes to login', async () => {
+  it('preserves locale on the login route while keeping callback targets canonical', async () => {
     mockGetSessionCookie.mockReturnValue(undefined)
 
     const { proxy } = await import('./proxy')
@@ -92,7 +92,7 @@ describe('proxy auth routing', () => {
 
     expect(response.status).toBe(307)
     expect(response.headers.get('location')).toBe(
-      'http://localhost:3000/es/login?callbackUrl=%2Fes%2Fworkspace%2Fws-1%2Fdashboard%3FlayoutId%3Dlayout-1'
+      'http://localhost:3000/es/login?callbackUrl=%2Fworkspace%2Fws-1%2Fdashboard%3FlayoutId%3Dlayout-1'
     )
   })
 

@@ -20,7 +20,6 @@ import {
   Search,
   Shapes,
 } from 'lucide-react'
-import { usePathname, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Input } from '@/components/ui/input'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
@@ -35,6 +34,7 @@ import { normalizeOptionalString } from '@/lib/utils'
 import { type LayoutTab, LayoutTabs } from '@/app/workspace/[workspaceId]/dashboard/layout-tabs'
 import { GlobalNavbarHeader } from '@/global-navbar'
 import { useKnowledgeBasesList } from '@/hooks/use-knowledge'
+import { usePathname, useRouter } from '@/i18n/navigation'
 import {
   normalizePairColorContext,
   type PairColorContext,

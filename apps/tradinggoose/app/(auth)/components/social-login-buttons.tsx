@@ -1,15 +1,14 @@
 'use client'
 
 import { type ReactNode, useEffect, useState } from 'react'
-import { useLocale } from 'next-intl'
 import { GithubIcon, GoogleIcon } from '@/components/icons/icons'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { client } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { inter } from '@/app/fonts/inter'
 import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
-import { type LocaleCode, localizeHref, localizePathname } from '@/i18n/utils'
 
 const logger = createLogger('SocialLoginButtons')
 
@@ -32,12 +31,10 @@ export function SocialLoginButtons({
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [mounted, setMounted] = useState(false)
-  const locale = useLocale() as LocaleCode
+  const authRedirectUrls = useAuthRedirectUrls()
   const copy = useAppMessages()
   const socialCopy = copy.auth.social
-  const resolvedCallbackURL = callbackURL
-    ? localizeHref(locale, callbackURL)
-    : localizePathname(locale, '/workspace')
+  const resolvedCallbackURL = authRedirectUrls.providerCallbackPath(callbackURL)
 
   useEffect(() => {
     setMounted(true)

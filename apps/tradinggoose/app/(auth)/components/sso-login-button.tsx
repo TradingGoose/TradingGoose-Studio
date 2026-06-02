@@ -1,12 +1,11 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { getEnv, isTruthy } from '@/lib/env'
 import { cn } from '@/lib/utils'
 import { useAppMessages } from '@/i18n/client-messages'
-import { localizeHref, normalizeCallbackUrl, type LocaleCode } from '@/i18n/utils'
+import { useRouter } from '@/i18n/navigation'
+import { normalizeCallbackUrl } from '@/i18n/utils'
 
 interface SSOLoginButtonProps {
   callbackURL?: string
@@ -23,7 +22,6 @@ export function SSOLoginButton({
   variant = 'outline',
 }: SSOLoginButtonProps) {
   const router = useRouter()
-  const locale = useLocale() as LocaleCode
   const copy = useAppMessages()
   const commonCopy = copy.auth.common
 
@@ -37,7 +35,7 @@ export function SSOLoginButton({
     const ssoUrl = `/sso${
       resolvedCallbackURL ? `?callbackUrl=${encodeURIComponent(resolvedCallbackURL)}` : ''
     }`
-    router.push(localizeHref(locale, ssoUrl))
+    router.push(ssoUrl)
   }
 
   const primaryBtnClasses =

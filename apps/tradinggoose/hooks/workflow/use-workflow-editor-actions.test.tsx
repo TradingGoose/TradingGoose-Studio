@@ -14,7 +14,6 @@ import {
 const mockAddBlock = vi.hoisted(() => vi.fn())
 const mockUpdateBlockPosition = vi.hoisted(() => vi.fn())
 const mockUpdateBlockPositions = vi.hoisted(() => vi.fn())
-const mockUseLocale = vi.hoisted(() => vi.fn(() => 'en'))
 const mockSession = vi.hoisted(() => ({
   readWorkflowSnapshot: vi.fn(),
 }))
@@ -38,10 +37,6 @@ vi.mock('@/lib/yjs/use-workflow-doc', () => ({
     updateBlockPosition: mockUpdateBlockPosition,
     updateBlockPositions: mockUpdateBlockPositions,
   }),
-}))
-
-vi.mock('next-intl', () => ({
-  useLocale: mockUseLocale,
 }))
 
 vi.mock('@/lib/yjs/workflow-session-host', () => ({
@@ -69,8 +64,6 @@ describe('useWorkflowEditorActions', () => {
     mockAddBlock.mockReset()
     mockUpdateBlockPosition.mockReset()
     mockUpdateBlockPositions.mockReset()
-    mockUseLocale.mockReset()
-    mockUseLocale.mockReturnValue('en')
     mockSession.readWorkflowSnapshot.mockReset()
     mockUseWorkflowRegistry.mockClear()
   })
@@ -156,9 +149,7 @@ describe('useWorkflowEditorActions', () => {
     })
   })
 
-  it('duplicates generated default names using the active locale label and next available suffix', async () => {
-    mockUseLocale.mockReturnValue('zh')
-
+  it('duplicates generated default names using canonical stored names and next available suffix', async () => {
     const doc = new Y.Doc()
     const workflowMap = doc.getMap('workflow')
 
@@ -201,7 +192,7 @@ describe('useWorkflowEditorActions', () => {
     })
 
     expect(mockAddBlock).toHaveBeenCalledTimes(1)
-    expect(mockAddBlock.mock.calls[0]?.[2]).toBe('人工参与 2')
+    expect(mockAddBlock.mock.calls[0]?.[2]).toBe('Human in the Loop 2')
   })
 
   it('writes block position updates with the requested transaction origin', async () => {

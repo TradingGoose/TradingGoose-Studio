@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Activity, Download, Loader2, RefreshCw } from 'lucide-react'
-import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -69,6 +68,7 @@ import { AutocompleteSearch } from '@/app/workspace/[workspaceId]/records/compon
 import { GlobalNavbarHeader } from '@/global-navbar'
 import { buildLogsRequestParams, useLogDetail } from '@/hooks/queries/logs'
 import { formatTemplate } from '@/i18n/client-messages'
+import { usePathname } from '@/i18n/navigation'
 import {
   getMonitorModeLabel,
   useMonitorCopy,

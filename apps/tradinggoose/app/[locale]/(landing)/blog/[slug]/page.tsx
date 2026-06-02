@@ -1,5 +1,4 @@
 import Image from 'next/image'
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Metadata } from 'next'
 import { getLocale } from 'next-intl/server'
@@ -127,7 +126,7 @@ export default async function PostPage({ params }: PostPageProps) {
           <div className="flex items-center gap-3">
             {authors?.length
               ? authors.map((author) => (
-                <Link
+                <a
                   key={author.github}
                   href={author.profileUrl}
                   className="flex items-center gap-2"
@@ -141,7 +140,7 @@ export default async function PostPage({ params }: PostPageProps) {
                     </AvatarFallback>
                   </Avatar>
                   <span className="font-medium text-foreground">{author.name}</span>
-                </Link>
+                </a>
               ))
               : null}
             <span className="text-muted-foreground/50">·</span>

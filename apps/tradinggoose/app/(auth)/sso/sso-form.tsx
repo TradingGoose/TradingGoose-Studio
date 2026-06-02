@@ -1,11 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useLocale } from 'next-intl'
 import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { client } from '@/lib/auth-client'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
@@ -14,7 +14,7 @@ import { getAuthRegistrationHref, type RegistrationMode } from '@/lib/registrati
 import { cn } from '@/lib/utils'
 import { Link } from '@/i18n/navigation'
 import { useAppMessages } from '@/i18n/client-messages'
-import { localizeHref, localizePathname, normalizeCallbackUrl, type LocaleCode } from '@/i18n/utils'
+import { normalizeCallbackUrl } from '@/i18n/utils'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { AuthWaitlistNote } from '@/app/(auth)/components/auth-waitlist-note'
 import { inter } from '@/app/fonts/inter'
@@ -44,7 +44,7 @@ const validateEmailField = (
 }
 
 export default function SSOForm({ registrationMode }: { registrationMode: RegistrationMode }) {
-  const locale = useLocale() as LocaleCode
+  const authRedirectUrls = useAuthRedirectUrls()
   const copy = useAppMessages()
   const commonCopy = copy.auth.common
   const ssoCopy = copy.auth.sso
@@ -59,7 +59,6 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
   const [callbackUrl, setCallbackUrl] = useState(defaultCallbackPath)
   const registrationHref = getAuthRegistrationHref(registrationMode)
   const registrationLabel = copy.registration[registrationMode].auth
-  const localizedCallbackUrl = localizeHref(locale, callbackUrl)
   const callbackUrlParam = encodeURIComponent(callbackUrl)
 
   useEffect(() => {
@@ -136,8 +135,10 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
     try {
       await client.signIn.sso({
         email: emailValue,
-        callbackURL: localizedCallbackUrl,
-        errorCallbackURL: `${localizePathname(locale, '/sso')}?error=sso_failed&callbackUrl=${callbackUrlParam}`,
+        callbackURL: authRedirectUrls.providerCallbackPath(callbackUrl),
+        errorCallbackURL: authRedirectUrls.providerErrorPath(
+          `/sso?error=sso_failed&callbackUrl=${callbackUrlParam}`
+        ),
       })
     } catch (err) {
       logger.error('SSO sign-in failed', { error: err, email: emailValue })

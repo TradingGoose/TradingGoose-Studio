@@ -2,7 +2,6 @@
 
 import { useMemo } from 'react'
 import { Notebook } from 'lucide-react'
-import Link from 'next/link'
 import { useLocale, useTranslations } from 'next-intl'
 import {
   SidebarGroup,
@@ -15,7 +14,8 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { openBillingPortal } from '@/lib/billing/billing-portal'
 import { createLogger } from '@/lib/logs/console/logger'
-import { localizeDocsUrl, localizeHref, type LocaleCode } from '@/i18n/utils'
+import { Link } from '@/i18n/navigation'
+import { localizeDocsUrl, type LocaleCode } from '@/i18n/utils'
 import { getBillingStatus, getSubscriptionStatus, getUsage } from '@/lib/subscription/helpers'
 import { UsageHeader } from '@/global-navbar/settings-modal/components/shared/usage-header'
 import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
@@ -40,9 +40,9 @@ export function SidebarNav({ navItems }: SidebarNavProps) {
 
   return (
     <>
-      {renderNavGroup(locale, tNavGroups('workspace'), workspaceItems)}
-      {renderNavGroup(locale, tNavGroups('system'), adminItems)}
-      {renderNavGroup(locale, tNavGroups('more'), moreItems)}
+      {renderNavGroup(tNavGroups('workspace'), workspaceItems)}
+      {renderNavGroup(tNavGroups('system'), adminItems)}
+      {renderNavGroup(tNavGroups('more'), moreItems)}
     </>
   )
 }
@@ -71,7 +71,7 @@ function withDocumentationItem(locale: LocaleCode, docsLabel: string, items: Nav
   ]
 }
 
-function renderNavGroup(locale: LocaleCode, label: string, items: NavSection[]) {
+function renderNavGroup(label: string, items: NavSection[]) {
   if (!items.length) {
     return null
   }
@@ -87,7 +87,7 @@ function renderNavGroup(locale: LocaleCode, label: string, items: NavSection[]) 
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton asChild isActive={item.isActive} tooltip={item.title}>
                 <Link
-                  href={localizeHref(locale, item.url)}
+                  href={item.url}
                   target={isExternal ? '_blank' : undefined}
                   rel={isExternal ? 'noopener noreferrer' : undefined}
                 >

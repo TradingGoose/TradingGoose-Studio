@@ -42,9 +42,9 @@ import {
   Zap,
 } from 'lucide-react'
 import { useParams } from 'next/navigation'
-import { useLocale, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import { createLogger } from '@/lib/logs/console/logger'
-import { localizeHref, type LocaleCode } from '@/i18n/utils'
+import { useRouter } from '@/i18n/navigation'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { getBlock } from '@/blocks/registry'
@@ -251,7 +251,7 @@ export function TemplateCard({
   onStarChange,
 }: TemplateCardProps) {
   const t = useTranslations('workspace.templates')
-  const locale = useLocale() as LocaleCode
+  const router = useRouter()
   const params = useParams()
 
   // Local state for optimistic updates
@@ -357,8 +357,7 @@ export function TemplateCard({
           onTemplateUsed()
         }
 
-        // Use window.location.href for more reliable navigation
-        window.location.href = localizeHref(locale, workflowUrl)
+        router.push(workflowUrl)
       } else {
         const errorText = await response.text()
         logger.error('Failed to use template:', response.statusText, errorText)

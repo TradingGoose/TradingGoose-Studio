@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, ExternalLink, Search, Waypoints } from 'lucide-react'
-import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { useLocale, useTranslations } from 'next-intl'
+import { useParams, useSearchParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -18,12 +18,11 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { OAUTH_PROVIDERS } from '@/lib/oauth/oauth'
 import { cn } from '@/lib/utils'
 import { GlobalNavbarHeader } from '@/global-navbar'
-import { localizeHref, type LocaleCode } from '@/i18n/utils'
+import { useRouter } from '@/i18n/navigation'
 
 const logger = createLogger('Integrations')
 
 export function Integrations() {
-  const locale = useLocale() as LocaleCode
   const t = useTranslations('workspace.integrations')
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -126,14 +125,14 @@ export function Integrations() {
       refetch().catch((error) => logger.error('Failed to refresh services after OAuth', error))
 
       // Clear the URL parameters
-      router.replace(localizeHref(locale, `/workspace/${workspaceId}/integrations`))
+      router.replace(`/workspace/${workspaceId}/integrations`)
     } else if (error) {
       const message = errorDescription || t('errors.oauth')
       logger.error('OAuth error:', { error, errorDescription })
       setAuthError(message)
-      router.replace(localizeHref(locale, `/workspace/${workspaceId}/integrations`))
+      router.replace(`/workspace/${workspaceId}/integrations`)
     }
-  }, [locale, refetch, router, searchParams, t, workspaceId])
+  }, [refetch, router, searchParams, t, workspaceId])
 
   // Handle connect button click
   const handleConnect = async (service: ServiceInfo) => {

@@ -12,7 +12,6 @@ import {
   getLocalizedBlockMetadataWithCopy,
   getLocalizedBlockNameWithCopy,
   getLocalizedDefaultBlockNameWithCopy,
-  getLocalizedUniqueBlockNameWithCopy,
   getLocalizedTriggerMetadataWithCopy,
   getLocalizedToolParameterLabelWithCopy,
   getLocalizedToolParametersConfigWithCopy,
@@ -157,20 +156,6 @@ export function getLocalizedDefaultBlockName(
   blockName?: string
 ): string {
   return getLocalizedDefaultBlockNameWithCopy(getWorkflowInspectorCopy(locale), blockType, blockName)
-}
-
-export function getLocalizedUniqueBlockName(
-  locale: LocaleCode,
-  blockType: string,
-  existingBlocks: Record<string, { type?: string; name?: string }>,
-  blockName?: string
-): string {
-  return getLocalizedUniqueBlockNameWithCopy(
-    getWorkflowInspectorCopy(locale),
-    blockType,
-    existingBlocks,
-    blockName
-  )
 }
 
 export function getLocalizedToolParameterLabel(

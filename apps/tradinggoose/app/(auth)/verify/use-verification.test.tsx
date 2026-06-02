@@ -7,7 +7,6 @@ import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getPublicCopy } from '@/i18n/public-copy'
-import * as i18nUtils from '@/i18n/utils'
 import { useVerification } from './use-verification'
 
 const mockPush = vi.hoisted(() => vi.fn())
@@ -176,15 +175,12 @@ describe('useVerification', () => {
     expect(mockPush).toHaveBeenCalledWith('/workspace')
   })
 
-  it('keeps browser-level invite redirects locale-aware via localizeHref', async () => {
+  it('pushes canonical invite redirects through generated navigation', async () => {
     sessionStore.set('verificationEmail', 'ada@example.com')
     sessionStore.set('inviteRedirectUrl', '/workspace/ws-1/dashboard')
     sessionStore.set('isInviteFlow', 'true')
     mockEmailOtpSignIn.mockResolvedValue({})
     mockRefetchSession.mockResolvedValue(undefined)
-    const localizeHrefSpy = vi
-      .spyOn(i18nUtils, 'localizeHref')
-      .mockReturnValue('#invite-redirect')
 
     let controls!: VerificationControls
 
@@ -200,8 +196,6 @@ describe('useVerification', () => {
       await vi.advanceTimersByTimeAsync(1300)
     })
 
-    expect(mockPush).not.toHaveBeenCalled()
-    expect(localizeHrefSpy).toHaveBeenCalledWith('zh', '/workspace/ws-1/dashboard')
-    expect(window.location.hash).toBe('#invite-redirect')
+    expect(mockPush).toHaveBeenCalledWith('/workspace/ws-1/dashboard')
   })
 })

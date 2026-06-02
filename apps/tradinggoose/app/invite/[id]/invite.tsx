@@ -1,20 +1,18 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { useLocale } from 'next-intl'
+import { useParams, useSearchParams } from 'next/navigation'
 import { client, useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getInviteErrorCode, type InviteErrorCode } from '@/app/invite/[id]/utils'
 import { InviteLayout, InviteStatusCard } from '@/app/invite/components'
 import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
-import { type LocaleCode, localizeHref } from '@/i18n/utils'
+import { useRouter } from '@/i18n/navigation'
 
 const logger = createLogger('InviteById')
 
 export default function Invite() {
   const router = useRouter()
-  const locale = useLocale() as LocaleCode
   const params = useParams()
   const inviteId = params.id as string
   const searchParams = useSearchParams()
@@ -144,7 +142,6 @@ export default function Invite() {
     if (invitationType === 'workspace') {
       const acceptParams = new URLSearchParams({
         token: token || '',
-        locale,
       })
 
       window.location.assign(
@@ -182,7 +179,7 @@ export default function Invite() {
         setAccepted(true)
 
         setTimeout(() => {
-          router.push(localizeHref(locale, '/workspace'))
+          router.push('/workspace')
         }, 2000)
       } catch (err: any) {
         logger.error('Error accepting invitation:', err)
@@ -207,7 +204,7 @@ export default function Invite() {
   }
 
   if (!session?.user && !isPending) {
-    const callbackUrl = encodeURIComponent(localizeHref(locale, getCallbackUrl()))
+    const callbackUrl = encodeURIComponent(getCallbackUrl())
 
     return (
       <InviteLayout>
@@ -226,16 +223,12 @@ export default function Invite() {
                   {
                     label: inviteCopy.login.createAccount,
                     onClick: () =>
-                      router.push(
-                        localizeHref(locale, `/signup?callbackUrl=${callbackUrl}&invite_flow=true`)
-                      ),
+                      router.push(`/signup?callbackUrl=${callbackUrl}&invite_flow=true`),
                   },
                   {
                     label: inviteCopy.login.iAlreadyHaveAccount,
                     onClick: () =>
-                      router.push(
-                        localizeHref(locale, `/login?callbackUrl=${callbackUrl}&invite_flow=true`)
-                      ),
+                      router.push(`/login?callbackUrl=${callbackUrl}&invite_flow=true`),
                     variant: 'outline' as const,
                   },
                 ]
@@ -243,25 +236,18 @@ export default function Invite() {
                   {
                     label: inviteCopy.login.signIn,
                     onClick: () =>
-                      router.push(
-                        localizeHref(locale, `/login?callbackUrl=${callbackUrl}&invite_flow=true`)
-                      ),
+                      router.push(`/login?callbackUrl=${callbackUrl}&invite_flow=true`),
                   },
                   {
                     label: inviteCopy.login.createAccount,
                     onClick: () =>
-                      router.push(
-                        localizeHref(
-                          locale,
-                          `/signup?callbackUrl=${callbackUrl}&invite_flow=true&new=true`
-                        )
-                      ),
+                      router.push(`/signup?callbackUrl=${callbackUrl}&invite_flow=true&new=true`),
                     variant: 'outline' as const,
                   },
                 ]),
             {
               label: copy.auth.common.returnHome,
-              onClick: () => router.push(localizeHref(locale, '/')),
+              onClick: () => router.push('/'),
             },
           ]}
         />
@@ -304,12 +290,12 @@ export default function Invite() {
             actions={[
               {
                 label: inviteCopy.warning.manageTeamSettings,
-                onClick: () => router.push(localizeHref(locale, '/workspace')),
+                onClick: () => router.push('/workspace'),
                 variant: 'default' as const,
               },
               {
                 label: copy.auth.common.returnHome,
-                onClick: () => router.push(localizeHref(locale, '/')),
+                onClick: () => router.push('/'),
                 variant: 'ghost' as const,
               },
             ]}
@@ -331,7 +317,7 @@ export default function Invite() {
           actions={[
             {
               label: copy.auth.common.returnHome,
-              onClick: () => router.push(localizeHref(locale, '/')),
+              onClick: () => router.push('/'),
               variant: 'default' as const,
             },
           ]}
@@ -353,7 +339,7 @@ export default function Invite() {
           actions={[
             {
               label: copy.auth.common.returnHome,
-              onClick: () => router.push(localizeHref(locale, '/')),
+              onClick: () => router.push('/'),
             },
           ]}
         />
@@ -383,7 +369,7 @@ export default function Invite() {
           },
           {
             label: copy.auth.common.returnHome,
-            onClick: () => router.push(localizeHref(locale, '/')),
+            onClick: () => router.push('/'),
             variant: 'ghost',
           },
         ]}

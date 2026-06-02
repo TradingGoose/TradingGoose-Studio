@@ -19,7 +19,7 @@ import {
   User,
   Users,
 } from 'lucide-react'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { useLocale, useMessages, useTranslations } from 'next-intl'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar'
@@ -36,18 +36,17 @@ import { getOrganizationAccessState } from '@/lib/organization/access'
 import { getUserRole } from '@/lib/organization/helpers'
 import { getSubscriptionStatus } from '@/lib/subscription/helpers'
 import { cn } from '@/lib/utils'
-import { buildLocaleSwitchHref } from '@/app/(landing)/components/nav/locale-switcher'
 import { HelpModal } from '@/global-navbar/settings-modal/components/help/help-modal'
 import type { SettingsSection } from '@/global-navbar/settings-modal/types'
 import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
 import { useSubscriptionData } from '@/hooks/queries/subscription'
 import { formatTemplate } from '@/i18n/client-messages'
+import { usePathname, useRouter } from '@/i18n/navigation'
 import {
   getLocaleDisplayName,
   isLocaleCode,
   type LocaleCode,
   locales,
-  localizeHref,
 } from '@/i18n/utils'
 import { clearUserData } from '@/stores'
 import { useGeneralStore } from '@/stores/settings/general/store'
@@ -113,7 +112,6 @@ export function UserMenu({
   const messages = useMessages() as UserMenuMessages
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [isOpeningBillingPortal, setIsOpeningBillingPortal] = useState(false)
-  const [pendingLocaleHref, setPendingLocaleHref] = useState<string | null>(null)
   const [avatarOverride, setAvatarOverride] = useState<{
     url: string | null
     version: number | string | null
@@ -236,16 +234,6 @@ export function UserMenu({
     return () => window.removeEventListener('user-avatar-updated', handler)
   }, [])
 
-  useEffect(() => {
-    if (!pendingLocaleHref) return
-
-    const currentHref = search ? `${pathname}?${search}` : pathname
-    if (currentHref !== pendingLocaleHref) return
-
-    setPendingLocaleHref(null)
-    router.refresh()
-  }, [pathname, pendingLocaleHref, router, search])
-
   const effectiveAvatar = avatarOverride.url ?? userAvatar
   const effectiveVersion = avatarOverride.version ?? userAvatarVersion
 
@@ -271,7 +259,7 @@ export function UserMenu({
     } catch (error) {
       logger.error('Error signing out:', { error })
     } finally {
-      router.push(localizeHref(locale, '/login?fromLogout=true'))
+      router.push('/login?fromLogout=true')
       setIsSigningOut(false)
     }
   }
@@ -290,9 +278,8 @@ export function UserMenu({
       return
     }
 
-    const nextHref = buildLocaleSwitchHref(nextLocale, pathname, searchParams)
-    setPendingLocaleHref(nextHref)
-    router.replace(nextHref)
+    const href = search ? `${pathname}?${search}` : pathname
+    router.replace(href, { locale: nextLocale })
   }
 
   const handleOpenBillingPortal = async () => {
@@ -584,7 +571,7 @@ export function UserMenu({
                     <DropdownMenuItem
                       onSelect={(event) => {
                         event.preventDefault()
-                        router.push(localizeHref(locale, systemNavigation.href))
+                            router.push(systemNavigation.href)
                       }}
                     >
                       <ShieldCheck />

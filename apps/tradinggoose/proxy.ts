@@ -13,8 +13,8 @@ import {
   defaultLocale,
   isLocaleCode,
   type LocaleCode,
-  localizePathname,
 } from '@/i18n/utils'
+import { getRouteBoundaryHref } from '@/i18n/route-boundary'
 import { routing } from '@/i18n/routing'
 import { createLogger } from './lib/logs/console/logger'
 import { generateRuntimeCSP } from './lib/security/csp'
@@ -103,7 +103,7 @@ function isCanonicalRouteHandlerPath(pathname: string) {
 
 function buildLoginRedirect(request: NextRequest, callback?: string) {
   const { locale } = resolveLocaleRoute(request.nextUrl.pathname)
-  const loginUrl = new URL(localizePathname(locale, '/login'), request.url)
+  const loginUrl = new URL(getRouteBoundaryHref(locale, '/login'), request.url)
 
   if (callback) {
     loginUrl.searchParams.set('callbackUrl', callback)
@@ -128,9 +128,9 @@ function isAuthRoute(pathname: string): boolean {
   return AUTH_ROUTES.has(normalizedPathname)
 }
 
-function getLocalizedCallbackPath(pathname: string, search: string) {
-  const { locale, pathname: normalizedPathname } = resolveLocaleRoute(pathname)
-  return `${localizePathname(locale, normalizedPathname)}${search}`
+function getCanonicalCallbackPath(pathname: string, search: string) {
+  const { pathname: normalizedPathname } = resolveLocaleRoute(pathname)
+  return `${normalizedPathname}${search}`
 }
 
 function isMarkdownRequestPath(pathname: string) {
@@ -221,7 +221,7 @@ export async function proxy(request: NextRequest) {
   const reauth = url.searchParams.get('reauth') === '1'
 
   if (isProtectedPath && !hasActiveSession) {
-    const callbackTarget = getLocalizedCallbackPath(url.pathname, url.search)
+    const callbackTarget = getCanonicalCallbackPath(url.pathname, url.search)
     return buildLoginRedirect(request, callbackTarget)
   }
 
@@ -233,7 +233,7 @@ export async function proxy(request: NextRequest) {
     }
 
     if (hasActiveSession) {
-      return NextResponse.redirect(new URL(localizePathname(locale, '/workspace'), request.url))
+      return NextResponse.redirect(new URL(getRouteBoundaryHref(locale, '/workspace'), request.url))
     }
   }
 

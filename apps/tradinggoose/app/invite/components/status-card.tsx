@@ -1,12 +1,10 @@
 'use client'
 
 import { AlertCircle, CheckCircle2, Mail, RotateCcw, ShieldX, UserPlus, Users2 } from 'lucide-react'
-import { useLocale } from 'next-intl'
-import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useAppMessages } from '@/i18n/client-messages'
-import { localizeHref, type LocaleCode } from '@/i18n/utils'
+import { useRouter } from '@/i18n/navigation'
 import { useBrandConfig } from '@/lib/branding/branding'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
@@ -62,7 +60,6 @@ export function InviteStatusCard({
   isExpiredError = false,
 }: InviteStatusCardProps) {
   const router = useRouter()
-  const locale = useLocale() as LocaleCode
   const copy = useAppMessages()
   const brandConfig = useBrandConfig()
   const primaryButtonClasses =
@@ -117,7 +114,7 @@ export function InviteStatusCard({
           <Button
             variant='outline'
             className='w-full rounded-md border-primary font-medium text-[15px] text-primary transition-colors duration-200 hover:bg-primary hover:text-black'
-            onClick={() => router.push(localizeHref(locale, '/'))}
+            onClick={() => router.push('/')}
           >
               <RotateCcw className='mr-2 h-4 w-4' />
               {copy.invite.requestNewInvitation}

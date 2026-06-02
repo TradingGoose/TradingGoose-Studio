@@ -2,7 +2,6 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
-import { useLocale } from 'next-intl'
 import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,12 +19,7 @@ import { type RegistrationMode } from '@/lib/registration/shared'
 import { cn } from '@/lib/utils'
 import { Link, useRouter } from '@/i18n/navigation'
 import { useAppMessages } from '@/i18n/client-messages'
-import {
-  localizeHref,
-  normalizeCallbackUrl,
-  stripLocaleFromPathname,
-  type LocaleCode,
-} from '@/i18n/utils'
+import { normalizeCallbackUrl } from '@/i18n/utils'
 import { SocialLoginButtons } from '@/app/(auth)/components/social-login-buttons'
 import { SSOLoginButton } from '@/app/(auth)/components/sso-login-button'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
@@ -35,7 +29,6 @@ import { inter } from '@/app/fonts/inter'
 const logger = createLogger('SignupForm')
 
 function SignupFormLoadingFallback() {
-  const locale = useLocale() as LocaleCode
   const copy = useAppMessages()
 
   return <div className='flex h-screen items-center justify-center'>{copy.auth.common.loading}</div>
@@ -90,7 +83,6 @@ function SignupFormContent({
   registrationMode: RegistrationMode
 }) {
   const router = useRouter()
-  const locale = useLocale() as LocaleCode
   const copy = useAppMessages()
   const commonCopy = copy.auth.common
   const signupCopy = copy.auth.signup
@@ -135,7 +127,7 @@ function SignupFormContent({
 
         const redirectPathname = new URL(normalizedRedirectUrl, 'http://tradinggoose.local')
           .pathname
-        if (stripLocaleFromPathname(redirectPathname).pathname.startsWith('/invite/')) {
+        if (redirectPathname.startsWith('/invite/')) {
           setIsInviteFlow(true)
         }
       } else {

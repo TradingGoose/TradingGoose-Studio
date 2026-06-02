@@ -607,7 +607,7 @@ export const WorkflowBlock = memo(
       e.stopPropagation() // Prevent drag handler from interfering
       if (isReadOnlyBlock) return
       if (disableInNodeEditing) return
-      setEditedName(displayName)
+      setEditedName(name)
       setIsEditing(true)
     }
 
@@ -630,7 +630,7 @@ export const WorkflowBlock = memo(
         return
       }
       const trimmedName = editedName.trim().slice(0, 18)
-      if (trimmedName && trimmedName !== displayName) {
+      if (trimmedName && trimmedName !== name) {
         collaborativeUpdateBlockName(id, trimmedName)
       }
       setIsEditing(false)

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Info, Loader2 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
+import { useRouter } from '@/i18n/navigation'
 import type { WorkflowLog } from '@/lib/logs/types'
 import { cn } from '@/lib/utils'
 import LineChart, {

@@ -9,9 +9,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockPush = vi.fn()
 const mockFetch = vi.fn()
-const mockLocalizeHref = vi.fn((locale: string, href: string) =>
-  locale === 'es' ? `/es${href}` : href
-)
 const mockSearchParamsValues = {
   error: null as string | null,
   new: null as string | null,
@@ -34,7 +31,6 @@ const mockInvitationResponse = {
     workspaceName: 'Signals',
   })),
 }
-let mockLocale = 'es'
 let mockInviteId = 'invitation-1'
 let lastStatusCardProps: {
   type?: string
@@ -46,16 +42,15 @@ let lastStatusCardProps: {
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
 
-vi.mock('next-intl', () => ({
-  useLocale: () => mockLocale,
-}))
-
 vi.mock('next/navigation', () => ({
   useParams: () => ({ id: mockInviteId }),
+  useSearchParams: () => mockSearchParams,
+}))
+
+vi.mock('@/i18n/navigation', () => ({
   useRouter: () => ({
     push: mockPush,
   }),
-  useSearchParams: () => mockSearchParams,
 }))
 
 vi.mock('@/lib/auth-client', () => ({
@@ -134,15 +129,6 @@ vi.mock('@/i18n/client-messages', () => ({
   }),
 }))
 
-vi.mock('@/i18n/utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/i18n/utils')>()
-
-  return {
-    ...actual,
-    localizeHref: mockLocalizeHref,
-  }
-})
-
 describe('Invite page workspace acceptance', () => {
   let container: HTMLDivElement
   let root: Root
@@ -154,7 +140,6 @@ describe('Invite page workspace acceptance', () => {
     vi.clearAllMocks()
     vi.resetModules()
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
-    mockLocale = 'es'
     mockInviteId = 'invitation-1'
     mockSession.data = {
       user: {
@@ -233,10 +218,9 @@ describe('Invite page workspace acceptance', () => {
     expect(mockLocationAssign).toHaveBeenCalledWith(
       '/api/workspaces/invitations/invitation-1?token=workspace-token'
     )
-    expect(mockLocalizeHref).not.toHaveBeenCalled()
   })
 
-  it('localizes the auth callback URL for signed-out invite flows', async () => {
+  it('uses canonical auth callback URLs for signed-out invite flows', async () => {
     mockSession.data = null
 
     const Invite = (await import('./invite')).default
@@ -257,12 +241,8 @@ describe('Invite page workspace acceptance', () => {
       await signInAction?.onClick()
     })
 
-    expect(mockLocalizeHref).toHaveBeenCalledWith(
-      'es',
-      '/invite/invitation-1?token=workspace-token'
-    )
     expect(mockPush).toHaveBeenCalledWith(
-      '/es/login?callbackUrl=%2Fes%2Finvite%2Finvitation-1%3Ftoken%3Dworkspace-token&invite_flow=true'
+      '/login?callbackUrl=%2Finvite%2Finvitation-1%3Ftoken%3Dworkspace-token&invite_flow=true'
     )
   })
 })

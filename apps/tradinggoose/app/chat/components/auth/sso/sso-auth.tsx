@@ -1,8 +1,6 @@
 'use client'
 
 import { type KeyboardEvent, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,7 +12,7 @@ import type { ChatMessages } from '@/i18n/message-types'
 import { getChatSsoAuthErrorMessage } from '@/app/chat/errors'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
-import { localizeHref, type LocaleCode } from '@/i18n/utils'
+import { useRouter } from '@/i18n/navigation'
 
 const logger = createLogger('SSOAuth')
 
@@ -28,7 +26,6 @@ interface SSOAuthProps {
 
 export default function SSOAuth({ identifier, copy }: SSOAuthProps) {
   const router = useRouter()
-  const locale = useLocale() as LocaleCode
   const [email, setEmail] = useState('')
   const [emailErrors, setEmailErrors] = useState<string[]>([])
   const [showEmailValidationError, setShowEmailValidationError] = useState(false)
@@ -98,13 +95,8 @@ export default function SSOAuth({ identifier, copy }: SSOAuthProps) {
         return
       }
 
-      const callbackUrl = localizeHref(locale, `/chat/${identifier}`)
-      router.push(
-        localizeHref(
-          locale,
-          `/sso?email=${encodeURIComponent(email)}&callbackUrl=${encodeURIComponent(callbackUrl)}`
-        )
-      )
+      const callbackUrl = `/chat/${identifier}`
+      router.push(`/sso?email=${encodeURIComponent(email)}&callbackUrl=${encodeURIComponent(callbackUrl)}`)
     } catch (error) {
       logger.error('SSO authentication error:', error)
       setEmailErrors([copy.auth.sso.errors.authenticationError])

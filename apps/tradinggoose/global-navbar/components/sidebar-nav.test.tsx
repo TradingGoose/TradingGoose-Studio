@@ -9,23 +9,23 @@ import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SidebarProvider } from '@/components/ui/sidebar'
-import { getPublicCopy, getScopedPublicMessages } from '@/i18n/public-copy'
+import { getPublicCopy } from '@/i18n/public-copy'
 import { localizeDocsUrl } from '@/i18n/utils'
 import type { NavSection } from '../types'
 import { SidebarNav } from './sidebar-nav'
 
-vi.mock('next/link', () => ({
-  default: ({
+vi.mock('@/i18n/navigation', () => ({
+  Link: ({
     children,
     href,
     prefetch: _prefetch,
     ...props
-  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & {
+  }: Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & {
     children?: React.ReactNode
-    href: string
+    href: string | { pathname?: string }
     prefetch?: boolean
   }) => (
-    <a href={href} {...props}>
+    <a href={typeof href === 'string' ? href : (href.pathname ?? '')} {...props}>
       {children}
     </a>
   ),
@@ -99,7 +99,7 @@ describe('SidebarNav', () => {
       root.render(
         <NextIntlClientProvider
           locale='es'
-          messages={getScopedPublicMessages('es', ['nav', 'workspace'] as const)}
+          messages={getPublicCopy('es')}
         >
           <SidebarProvider>
             <SidebarNav navItems={navItems} />

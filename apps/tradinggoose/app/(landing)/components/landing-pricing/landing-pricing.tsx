@@ -1,8 +1,6 @@
 'use client'
 
 import { CircleIcon } from 'lucide-react'
-import { useLocale } from 'next-intl'
-import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { MotionPreset } from '@/components/ui/motion-preset'
@@ -17,7 +15,7 @@ import { toPlanFeatures } from '@/global-navbar/settings-modal/components/subscr
 import { usePublicBillingCatalog } from '@/hooks/queries/public-billing-catalog'
 import { useRegistrationState } from '@/hooks/queries/registration'
 import { useAppMessages } from '@/i18n/client-messages'
-import { localizeHref, type LocaleCode } from '@/i18n/utils'
+import { useRouter } from '@/i18n/navigation'
 
 interface PricingTierCard {
   id: string
@@ -33,7 +31,6 @@ interface PricingTierCard {
 
 export default function LandingPricing() {
   const router = useRouter()
-  const locale = useLocale() as LocaleCode
   const copy = useAppMessages()
   const pricingCopy = copy.landing.pricing
   const registrationQuery = useRegistrationState()
@@ -93,7 +90,7 @@ export default function LandingPricing() {
       return
     }
 
-    router.push(localizeHref(locale, registrationPrimaryHref))
+    router.push(registrationPrimaryHref)
   }
 
   return (

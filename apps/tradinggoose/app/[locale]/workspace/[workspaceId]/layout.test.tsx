@@ -9,8 +9,21 @@ const mockGetSession = vi.fn()
 const mockCheckWorkspaceAccess = vi.fn()
 const mockHeaders = vi.fn()
 
-vi.mock('next/navigation', () => ({
-  redirect: (url: string) => mockRedirect(url),
+vi.mock('@/i18n/navigation', () => ({
+  redirect: ({ href, locale }: { href: string | { pathname: string; query?: Record<string, string> }; locale?: string }) => {
+    const canonicalPath =
+      typeof href === 'string'
+        ? href
+        : `${href.pathname}${
+            href.query ? `?${new URLSearchParams(href.query).toString()}` : ''
+          }`
+    const localizedPath =
+      locale && locale !== 'en' && canonicalPath.startsWith('/')
+        ? `/${locale}${canonicalPath}`
+        : canonicalPath
+
+    return mockRedirect(localizedPath)
+  },
 }))
 
 vi.mock('next/headers', () => ({
@@ -53,11 +66,11 @@ describe('Workspace layout access guard', () => {
         params: Promise.resolve({ locale: 'es', workspaceId: 'ws-1' }),
       })
     ).rejects.toThrow(
-      'redirect:/es/login?reauth=1&callbackUrl=%2Fes%2Fworkspace%2Fws-1%2Fdashboard'
+      'redirect:/es/login?reauth=1&callbackUrl=%2Fworkspace%2Fws-1%2Fdashboard'
     )
 
     expect(mockRedirect).toHaveBeenCalledWith(
-      '/es/login?reauth=1&callbackUrl=%2Fes%2Fworkspace%2Fws-1%2Fdashboard'
+      '/es/login?reauth=1&callbackUrl=%2Fworkspace%2Fws-1%2Fdashboard'
     )
     expect(mockGetSession).toHaveBeenCalledWith(expect.any(Headers), { disableCookieCache: true })
     expect(mockCheckWorkspaceAccess).not.toHaveBeenCalled()

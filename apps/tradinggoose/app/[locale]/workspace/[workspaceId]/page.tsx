@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation'
-import { isLocaleCode, localizeHref, type LocaleCode } from '@/i18n/utils'
+import { redirect } from '@/i18n/navigation'
+import { type LocaleCode } from '@/i18n/utils'
 
 export default async function WorkspacePage({
   params,
@@ -7,7 +7,7 @@ export default async function WorkspacePage({
   params: Promise<{ locale: string; workspaceId: string }>
 }) {
   const { locale: routeLocale, workspaceId } = await params
-  const locale: LocaleCode = isLocaleCode(routeLocale) ? routeLocale : 'en'
+  const locale = routeLocale as LocaleCode
 
-  redirect(localizeHref(locale, `/workspace/${workspaceId}/dashboard`))
+  redirect({ href: `/workspace/${workspaceId}/dashboard`, locale })
 }

@@ -269,20 +269,14 @@ describe('block-editor i18n helpers', () => {
     )
   })
 
-  it('localizes generated default names with numeric suffixes across locales', () => {
+  it('localizes canonical generated default names with numeric suffixes', () => {
     const zhBlockNames = getPublicCopy('zh').workspace.widgets.blockEditor.blockNames
     const esBlockNames = getPublicCopy('es').workspace.widgets.blockEditor.blockNames
 
     expect(getLocalizedDefaultBlockName('zh', 'human_in_the_loop', 'Human in the Loop 1')).toBe(
       `${zhBlockNames.human_in_the_loop} 1`
     )
-    expect(getLocalizedDefaultBlockName('zh', 'input_trigger', 'Formulario de entrada 2')).toBe(
-      `${zhBlockNames.input_trigger} 2`
-    )
     expect(getLocalizedDefaultBlockName('es', 'loop', 'Loop 3')).toBe(`${esBlockNames.loop} 3`)
-    expect(getLocalizedDefaultBlockName('zh', 'parallel', 'Paralelo 4')).toBe(
-      `${zhBlockNames.parallel} 4`
-    )
   })
 
   it('keeps custom numbered block names intact when they do not match generated defaults', () => {
@@ -290,6 +284,10 @@ describe('block-editor i18n helpers', () => {
       'Quarterly Schedule 2'
     )
     expect(getLocalizedDefaultBlockName('es', 'agent', 'Analyst Review 7')).toBe('Analyst Review 7')
+    expect(getLocalizedDefaultBlockName('zh', 'input_trigger', 'Formulario de entrada 2')).toBe(
+      'Formulario de entrada 2'
+    )
+    expect(getLocalizedDefaultBlockName('zh', 'parallel', 'Paralelo 4')).toBe('Paralelo 4')
   })
 
   it('localizes block metadata and stagehand editor copy through the shared catalog', () => {

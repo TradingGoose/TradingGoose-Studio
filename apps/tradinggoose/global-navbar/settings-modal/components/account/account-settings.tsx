@@ -10,7 +10,7 @@ import {
   useState,
 } from 'react'
 import { AlertCircle, Check, Info, Loader2, Pencil, X } from 'lucide-react'
-import { useLocale, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -18,13 +18,12 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { AgentIcon } from '@/components/icons/icons'
+import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useSession } from '@/lib/auth-client'
-import { getBaseUrl } from '@/lib/urls/utils'
 import { useProfilePictureUpload } from '@/global-navbar/settings-modal/components/hooks/use-profile-picture-upload'
 import { useGeneralSettings } from '@/hooks/queries/general-settings'
 import { useGeneralStore } from '@/stores/settings/general/store'
-import { localizeHref, type LocaleCode } from '@/i18n/utils'
 const logger = createLogger('AccountSettings')
 const DEFAULT_AVATAR_SRC = '/profile/avatar.png'
 
@@ -37,7 +36,7 @@ const toEpochMillis = (value: string | Date | null | undefined): number | null =
 
 export function AccountSettings() {
   const { data: session } = useSession()
-  const locale = useLocale() as LocaleCode
+  const authRedirectUrls = useAuthRedirectUrls()
   const tAccount = useTranslations('workspace.settingsModal.account')
   const userId = session?.user?.id ?? null
 
@@ -270,7 +269,7 @@ export function AccountSettings() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: targetEmail,
-          redirectTo: `${getBaseUrl()}${localizeHref(locale, '/reset-password')}`,
+          redirectTo: authRedirectUrls.passwordResetUrl(),
         }),
       })
 

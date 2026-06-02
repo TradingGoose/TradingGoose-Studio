@@ -2,7 +2,6 @@
 
 import { type FormEvent, useMemo, useState } from 'react'
 import { Receipt } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 import { useLocale } from 'next-intl'
 import { Alert, AlertDescription, Button } from '@/components/ui'
 import type { AdminBillingTierSnapshot } from '@/lib/admin/billing/types'
@@ -14,7 +13,8 @@ import {
   useUpdateAdminBillingTier,
 } from '@/hooks/queries/admin-billing'
 import { useAppMessages } from '@/i18n/client-messages'
-import { localizeHref, type LocaleCode } from '@/i18n/utils'
+import { useRouter } from '@/i18n/navigation'
+import { type LocaleCode } from '@/i18n/utils'
 import {
   BillingBreadcrumbs,
   buildTierMutationInput,
@@ -122,7 +122,7 @@ function AdminBillingTierDetailEditorPage({ tier }: { tier: AdminBillingTierSnap
 
     try {
       await deleteTier.mutateAsync(tier.id)
-      router.push(localizeHref(locale, '/admin/billing'))
+      router.push('/admin/billing')
     } catch (deleteError) {
       setError(getErrorMessage(deleteError, copy.errors.unknown))
     }
@@ -226,7 +226,7 @@ export function AdminBillingTierDetail({ tierId }: { tierId: string }) {
             title={copy.tierDetail.notFoundTitle}
             description={copy.tierDetail.notFoundDescription}
             buttonText={copy.tierDetail.notFoundButton}
-            onClick={() => router.push(localizeHref(locale, '/admin/billing'))}
+            onClick={() => router.push('/admin/billing')}
             icon={<Receipt className='h-4 w-4 text-muted-foreground' />}
           />
         ) : null}

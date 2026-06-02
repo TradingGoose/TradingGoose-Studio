@@ -1,8 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useLocale } from 'next-intl'
-import Link from 'next/link'
 import { Check, LinkIcon } from 'lucide-react'
 import {
   xIcon as XIcon,
@@ -13,7 +11,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
-import { type LocaleCode } from '@/i18n/utils'
 
 interface SocialShareProps {
   path: string
@@ -23,7 +20,6 @@ interface SocialShareProps {
 export default function SocialShare({ path, text }: SocialShareProps) {
   const [copied, setCopied] = useState(false)
   const [url, setUrl] = useState(path)
-  const locale = useLocale() as LocaleCode
   const copy = useAppMessages()
   const blogCopy = copy.blog
 
@@ -72,14 +68,14 @@ export default function SocialShare({ path, text }: SocialShareProps) {
             <Tooltip key={link.label}>
               <TooltipTrigger asChild>
                 <Button variant="outline" size="icon" asChild>
-                  <Link
+                  <a
                     href={link.href}
                     target="_blank"
                     rel="nofollow noopener noreferrer"
                     aria-label={formatTemplate(blogCopy.shareOn, { platform: link.label })}
                   >
                     {link.icon}
-                  </Link>
+                  </a>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>{link.label}</TooltipContent>

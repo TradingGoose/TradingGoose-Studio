@@ -1,13 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useLocale } from 'next-intl'
 import { useSearchParams } from 'next/navigation'
 import { useRouter } from '@/i18n/navigation'
 import { normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
 import { client, useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
-import { localizeHref, normalizeCallbackUrl, type LocaleCode } from '@/i18n/utils'
+import { normalizeCallbackUrl } from '@/i18n/utils'
 import type { PublicCopy } from '@/i18n/client-messages'
 
 const logger = createLogger('useVerification')
@@ -96,7 +95,6 @@ export function useVerification({
   copy,
 }: UseVerificationParams): UseVerificationReturn {
   const router = useRouter()
-  const locale = useLocale() as LocaleCode
   const searchParams = useSearchParams()
   const { refetch: refetchSession } = useSession()
   const [otp, setOtp] = useState('')
@@ -198,7 +196,7 @@ export function useVerification({
 
         setTimeout(() => {
           if (isInviteFlow && redirectUrl) {
-            window.location.href = localizeHref(locale, redirectUrl)
+            router.push(redirectUrl)
           } else {
             router.push('/workspace')
           }
@@ -281,7 +279,7 @@ export function useVerification({
           }
 
           if (isInviteFlow && redirectUrl) {
-            window.location.href = localizeHref(locale, redirectUrl)
+            router.push(redirectUrl)
           } else {
             router.push('/workspace')
           }
@@ -290,7 +288,7 @@ export function useVerification({
         handleRedirect()
       }
     }
-  }, [isEmailVerificationEnabled, locale, redirectUrl, router, isInviteFlow])
+  }, [isEmailVerificationEnabled, redirectUrl, router, isInviteFlow])
 
   return {
     otp,

@@ -27,7 +27,7 @@ vi.mock('next/navigation.js', () => ({
 }))
 
 vi.mock('next-intl', async () => {
-  const { formatTemplate, getScopedPublicMessages } = await import('@/i18n/public-copy')
+  const { formatTemplate, getPublicCopy } = await import('@/i18n/public-copy')
 
   function resolveNestedMessage(source: unknown, path: string) {
     return path.split('.').reduce<unknown>((current, segment) => {
@@ -43,7 +43,7 @@ vi.mock('next-intl', async () => {
     useLocale: () => intlState.locale,
     useTranslations: (namespace: string) => {
       return (key: string, values?: Record<string, string | number>) => {
-        const messages = getScopedPublicMessages(intlState.locale, ['workspace'] as const)
+        const messages = getPublicCopy(intlState.locale)
         const template = resolveNestedMessage(messages, `${namespace}.${key}`)
 
         if (typeof template !== 'string') {

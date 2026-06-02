@@ -42,7 +42,7 @@ export function stripLocaleFromPathname(pathname: string): { locale: LocaleCode;
   }
 }
 
-export function localizePathname(locale: LocaleCode, pathname: string) {
+function prefixLocalePathname(locale: LocaleCode, pathname: string) {
   const normalized = pathname === '/' ? '/' : pathname.replace(/\/+$/, '')
 
   if (locale === defaultLocale) {
@@ -50,17 +50,6 @@ export function localizePathname(locale: LocaleCode, pathname: string) {
   }
 
   return normalized === '/' ? `/${locale}` : `/${locale}${normalized}`
-}
-
-export function localizeHref(locale: LocaleCode, href: string) {
-  if (!href.startsWith('/') || href.startsWith('//')) {
-    return href
-  }
-
-  const parsedUrl = new URL(href, 'http://tradinggoose.local')
-  const { pathname } = stripLocaleFromPathname(parsedUrl.pathname)
-
-  return `${localizePathname(locale, pathname)}${parsedUrl.search}${parsedUrl.hash}`
 }
 
 export function normalizeCallbackUrl(
@@ -79,7 +68,8 @@ export function normalizeCallbackUrl(
 
   if (trimmedHref.startsWith('/')) {
     const parsedUrl = new URL(trimmedHref, 'http://tradinggoose.local')
-    return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`
+    const { pathname } = stripLocaleFromPathname(parsedUrl.pathname)
+    return `${pathname}${parsedUrl.search}${parsedUrl.hash}`
   }
 
   if (!currentOrigin) {
@@ -93,14 +83,15 @@ export function normalizeCallbackUrl(
       return null
     }
 
-    return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`
+    const { pathname } = stripLocaleFromPathname(parsedUrl.pathname)
+    return `${pathname}${parsedUrl.search}${parsedUrl.hash}`
   } catch {
     return null
   }
 }
 
 export function localizeUrl(baseUrl: string, locale: LocaleCode, pathname: string) {
-  return `${baseUrl}${localizePathname(locale, pathname)}`
+  return `${baseUrl}${prefixLocalePathname(locale, pathname)}`
 }
 
 export function localizeSiteUrl(locale: LocaleCode, pathname: string) {
@@ -113,12 +104,6 @@ export function localizeDocsUrl(locale: LocaleCode, pathname = '/') {
 
 export function getOpenGraphLocale(locale: LocaleCode) {
   return OPEN_GRAPH_LOCALE_MAP[locale]
-}
-
-export function getLocaleFromSearchParams(searchParams: URLSearchParams) {
-  const locale = searchParams.get('locale')
-
-  return locale && isLocaleCode(locale) ? locale : defaultLocale
 }
 
 export function buildLocalizedAlternates(locale: LocaleCode, pathname: string) {

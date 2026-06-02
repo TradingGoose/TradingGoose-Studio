@@ -6,7 +6,7 @@ import { act } from 'react'
 import { NextIntlClientProvider, useMessages } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { getPublicCopy, getScopedPublicMessages } from '@/i18n/public-copy'
+import { getPublicCopy } from '@/i18n/public-copy'
 import { useDataChartCopy } from '@/widgets/widgets/data_chart/copy'
 import {
   LandingMarketPreviewProvider,
@@ -73,7 +73,7 @@ describe('LandingMarketPreviewProvider', () => {
       root.render(
         <NextIntlClientProvider
           locale='en'
-          messages={getScopedPublicMessages('en', ['landing'] as const)}
+          messages={getPublicCopy('en')}
         >
           <LandingMarketPreviewProvider messages={messages}>
             <MarketPreviewMessagesProbe />

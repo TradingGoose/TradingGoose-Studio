@@ -5,10 +5,9 @@
 import { act } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
-import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { useAppMessages, useAuthMessages } from './client-messages'
-import { getPublicCopy, getScopedPublicMessages } from './public-copy'
+import { getPublicCopy } from './public-copy'
 import { useWorkflowInspectorMessages } from './workspace-widget-hooks'
 
 function AuthMessageProbe() {
@@ -64,13 +63,10 @@ describe('client messages hooks', () => {
     expect(container.textContent).toContain(getPublicCopy('es').auth.common.signIn)
   })
 
-  it('reads scoped nav and registration copy from the provider-backed app hook', async () => {
+  it('reads nav and registration copy from the provider-backed app hook', async () => {
     await act(async () => {
       root.render(
-        <NextIntlClientProvider
-          locale='en'
-          messages={getScopedPublicMessages('en', ['nav', 'registration'] as const)}
-        >
+        <NextIntlClientProvider locale='en' messages={getPublicCopy('en')}>
           <AppMessageProbe />
         </NextIntlClientProvider>
       )
@@ -91,21 +87,6 @@ describe('client messages hooks', () => {
 
     expect(container.textContent).toContain(
       getPublicCopy('zh').workspace.widgets.workflowEditor.previewInspector
-    )
-  })
-
-  it('throws a helpful error when workspace widget messages are missing from scoped provider messages', () => {
-    expect(() =>
-      renderToStaticMarkup(
-        <NextIntlClientProvider
-          locale='en'
-          messages={getScopedPublicMessages('en', ['nav', 'landing'] as const)}
-        >
-          <WorkflowInspectorProbe />
-        </NextIntlClientProvider>
-      )
-    ).toThrow(
-      "Missing workspace widget messages in NextIntlClientProvider. Include the 'workspace' namespace when rendering workspace widgets."
     )
   })
 })

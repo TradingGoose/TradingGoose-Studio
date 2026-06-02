@@ -12,7 +12,21 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
-import { getLocaleFromSearchParams, localizeHref } from '@/i18n/utils'
+import { getRouteBoundaryUrl } from '@/i18n/route-boundary'
+import { defaultLocale, stripLocaleFromPathname } from '@/i18n/utils'
+
+function getRedirectLocale(req: NextRequest) {
+  const referer = req.headers.get('referer')
+  if (!referer) {
+    return defaultLocale
+  }
+
+  try {
+    return stripLocaleFromPathname(new URL(referer).pathname).locale
+  } catch {
+    return defaultLocale
+  }
+}
 
 // GET /api/workspaces/invitations/[invitationId] - Get invitation details OR accept via token
 export async function GET(
@@ -23,14 +37,13 @@ export async function GET(
   const session = await getSession()
   const token = req.nextUrl.searchParams.get('token')
   const isAcceptFlow = !!token // If token is provided, this is an acceptance flow
-  const locale = getLocaleFromSearchParams(req.nextUrl.searchParams)
+  const redirectUrl = (href: string) =>
+    new URL(getRouteBoundaryUrl(getBaseUrl(), getRedirectLocale(req), href))
 
   if (!session?.user?.id) {
     // For token-based acceptance flows, redirect to login
     if (isAcceptFlow) {
-      return NextResponse.redirect(
-        new URL(localizeHref(locale, `/invite/${invitationId}?token=${token}`), getBaseUrl())
-      )
+      return NextResponse.redirect(redirectUrl(`/invite/${invitationId}?token=${token}`))
     }
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -49,7 +62,7 @@ export async function GET(
     if (!invitation) {
       if (isAcceptFlow) {
         return NextResponse.redirect(
-          new URL(localizeHref(locale, `/invite/${invitationId}?error=invalid-token`), getBaseUrl())
+          redirectUrl(`/invite/${invitationId}?error=invalid-token`)
         )
       }
       return NextResponse.json({ error: 'Invitation not found or has expired' }, { status: 404 })
@@ -57,9 +70,7 @@ export async function GET(
 
     if (new Date() > new Date(invitation.expiresAt)) {
       if (isAcceptFlow) {
-        return NextResponse.redirect(
-          new URL(localizeHref(locale, `/invite/${invitation.id}?error=expired`), getBaseUrl())
-        )
+        return NextResponse.redirect(redirectUrl(`/invite/${invitation.id}?error=expired`))
       }
       return NextResponse.json({ error: 'Invitation has expired' }, { status: 400 })
     }
@@ -73,10 +84,7 @@ export async function GET(
     if (!workspaceDetails) {
       if (isAcceptFlow) {
         return NextResponse.redirect(
-          new URL(
-            localizeHref(locale, `/invite/${invitation.id}?error=workspace-not-found`),
-            getBaseUrl()
-          )
+          redirectUrl(`/invite/${invitation.id}?error=workspace-not-found`)
         )
       }
       return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
@@ -85,10 +93,7 @@ export async function GET(
     if (isAcceptFlow) {
       if (invitation.status !== ('pending' as WorkspaceInvitationStatus)) {
         return NextResponse.redirect(
-          new URL(
-            localizeHref(locale, `/invite/${invitation.id}?error=already-processed`),
-            getBaseUrl()
-          )
+          redirectUrl(`/invite/${invitation.id}?error=already-processed`)
         )
       }
 
@@ -103,7 +108,7 @@ export async function GET(
 
       if (!userData) {
         return NextResponse.redirect(
-          new URL(localizeHref(locale, `/invite/${invitation.id}?error=user-not-found`), getBaseUrl())
+          redirectUrl(`/invite/${invitation.id}?error=user-not-found`)
         )
       }
 
@@ -111,7 +116,7 @@ export async function GET(
 
       if (!isValidMatch) {
         return NextResponse.redirect(
-          new URL(localizeHref(locale, `/invite/${invitation.id}?error=email-mismatch`), getBaseUrl())
+          redirectUrl(`/invite/${invitation.id}?error=email-mismatch`)
         )
       }
 
@@ -137,10 +142,7 @@ export async function GET(
           .where(eq(workspaceInvitation.id, invitation.id))
 
         return NextResponse.redirect(
-          new URL(
-            localizeHref(locale, `/workspace/${invitation.workspaceId}/dashboard`),
-            getBaseUrl()
-          )
+          redirectUrl(`/workspace/${invitation.workspaceId}/dashboard`)
         )
       }
 
@@ -165,7 +167,7 @@ export async function GET(
       })
 
       return NextResponse.redirect(
-        new URL(localizeHref(locale, `/workspace/${invitation.workspaceId}/dashboard`), getBaseUrl())
+        redirectUrl(`/workspace/${invitation.workspaceId}/dashboard`)
       )
     }
 

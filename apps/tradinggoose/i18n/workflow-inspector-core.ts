@@ -1,6 +1,5 @@
 import { getBlock } from '@/blocks'
 import type { BlockConfig, SubBlockConfig, SubBlockOption } from '@/blocks/types'
-import { getUniqueBlockName } from '@/stores/workflows/utils'
 import {
   formatParameterLabel,
   getToolParametersConfig,
@@ -10,7 +9,7 @@ import {
 import type { TriggerConfig } from '@/triggers/types'
 import { getPublicCopy, type PublicCopy } from './public-copy'
 import { formatTemplate } from './template'
-import { locales } from './utils'
+import { defaultLocale } from './utils'
 
 export type WorkflowInspectorCopy = Pick<
   PublicCopy['workspace']['widgets'],
@@ -32,11 +31,6 @@ type LocalizedBlockMetadata = {
 type LocalizedTriggerMetadata = {
   name: string
   description: string
-}
-
-type NamedBlockLike = {
-  type?: string
-  name?: string
 }
 
 type BlockEditorOptionOverride = {
@@ -83,7 +77,6 @@ const TRAILING_COLON_PATTERN = /:\s*$/
 const NON_ALPHANUMERIC_PATTERN = /[^A-Za-z0-9]+/g
 const LEADING_NON_ALPHA_PATTERN = /^[^A-Za-z]+/
 const GENERATED_NAME_SUFFIX_PATTERN = /(\s+\d+)$/
-const blockDefaultNameCandidatesCache = new Map<string, string[]>()
 
 function normalizeWorkflowLabel(label: string) {
   return label.replace(TRAILING_COLON_PATTERN, '').trim()
@@ -183,75 +176,40 @@ function getBlockLongDescriptionOverrides(copy: WorkflowInspectorCopy): Record<s
   return (copy.blockEditor.blockLongDescriptions ?? {}) as Record<string, string>
 }
 
+function getCanonicalDefaultBlockName(blockType: string) {
+  return (
+    (getPublicCopy(defaultLocale).workspace.widgets.blockEditor.blockNames as Record<
+      string,
+      string | undefined
+    >)[blockType] ??
+    getBlock(blockType)?.name ??
+    blockType
+  )
+}
+
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-function getDefaultBlockNameCandidates(blockType: string): string[] {
-  const cachedCandidates = blockDefaultNameCandidatesCache.get(blockType)
-  if (cachedCandidates) {
-    return cachedCandidates
-  }
-
-  const fallbackName = getBlock(blockType)?.name ?? blockType
-  const candidates = new Set<string>([fallbackName])
-
-  for (const locale of locales) {
-    const localizedName = (
-      getPublicCopy(locale).workspace.widgets.blockEditor.blockNames as Record<
-        string,
-        string | undefined
-      >
-    )[blockType]
-
-    if (localizedName) {
-      candidates.add(localizedName)
-    }
-  }
-
-  const resolvedCandidates = [...candidates]
-    .map((candidate) => candidate.trim())
-    .filter((candidate) => candidate.length > 0)
-
-  blockDefaultNameCandidatesCache.set(blockType, resolvedCandidates)
-
-  return resolvedCandidates
-}
-
-function getGeneratedDefaultNameSuffix(blockType: string, blockName: string): string | null {
+function getCanonicalGeneratedNameSuffix(defaultBlockName: string, blockName: string): string | null {
+  const normalizedDefaultName = defaultBlockName.trim()
   const normalizedName = blockName.trim()
-  if (!normalizedName) {
+  if (!normalizedDefaultName || !normalizedName) {
     return null
   }
 
-  for (const candidate of getDefaultBlockNameCandidates(blockType)) {
-    if (normalizedName === candidate) {
-      return ''
-    }
+  if (normalizedName === normalizedDefaultName) {
+    return ''
+  }
 
-    const match = normalizedName.match(
-      new RegExp(`^${escapeRegExp(candidate)}${GENERATED_NAME_SUFFIX_PATTERN.source}$`)
-    )
-    if (match) {
-      return match[1] ?? ''
-    }
+  const match = normalizedName.match(
+    new RegExp(`^${escapeRegExp(normalizedDefaultName)}${GENERATED_NAME_SUFFIX_PATTERN.source}$`)
+  )
+  if (match) {
+    return match[1] ?? ''
   }
 
   return null
-}
-
-function getGeneratedDefaultNameNumber(blockType: string, blockName: string): number | null {
-  const generatedNameSuffix = getGeneratedDefaultNameSuffix(blockType, blockName)
-  if (generatedNameSuffix === null) {
-    return null
-  }
-
-  if (!generatedNameSuffix) {
-    return 0
-  }
-
-  const parsedValue = Number.parseInt(generatedNameSuffix.trim(), 10)
-  return Number.isFinite(parsedValue) ? parsedValue : null
 }
 
 function getBlockSubBlockOverrides(
@@ -656,55 +614,23 @@ export function getLocalizedDefaultBlockNameWithCopy(
   blockName?: string
 ): string {
   const block = getBlock(blockType)
-  const defaultBlockName = block?.name ?? blockType
+  const defaultBlockName = getCanonicalDefaultBlockName(blockType)
   const localizedDefaultBlockName = getLocalizedBlockNameWithCopy(
     inspectorCopy,
     blockType,
-    defaultBlockName
+    block?.name ?? defaultBlockName
   )
 
   if (!blockName) {
     return localizedDefaultBlockName
   }
 
-  const generatedNameSuffix = getGeneratedDefaultNameSuffix(blockType, blockName)
+  const generatedNameSuffix = getCanonicalGeneratedNameSuffix(defaultBlockName, blockName)
   if (generatedNameSuffix !== null) {
     return `${localizedDefaultBlockName}${generatedNameSuffix}`
   }
 
-  if (blockName && blockName !== defaultBlockName) {
-    return blockName
-  }
-
-  return localizedDefaultBlockName
-}
-
-export function getLocalizedUniqueBlockNameWithCopy(
-  inspectorCopy: WorkflowInspectorCopy,
-  blockType: string,
-  existingBlocks: Record<string, NamedBlockLike>,
-  blockName?: string
-): string {
-  if (blockName) {
-    const generatedNameNumber = getGeneratedDefaultNameNumber(blockType, blockName)
-    if (generatedNameNumber === null) {
-      return getUniqueBlockName(blockName, existingBlocks)
-    }
-  }
-
-  const localizedDefaultBlockName = getLocalizedDefaultBlockNameWithCopy(inspectorCopy, blockType)
-  const existingGeneratedNumbers = Object.values(existingBlocks)
-    .filter((block) => block?.type === blockType && typeof block.name === 'string')
-    .map((block) => getGeneratedDefaultNameNumber(blockType, block.name as string))
-    .filter((value): value is number => value !== null)
-
-  const maxNumber = existingGeneratedNumbers.length > 0 ? Math.max(...existingGeneratedNumbers) : 0
-
-  if (existingGeneratedNumbers.length === 0) {
-    return `${localizedDefaultBlockName} 1`
-  }
-
-  return `${localizedDefaultBlockName} ${maxNumber + 1}`
+  return blockName
 }
 
 export function getLocalizedToolParameterLabelWithCopy(

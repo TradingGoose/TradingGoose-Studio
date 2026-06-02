@@ -102,22 +102,20 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
   const handleStartRename = useCallback(() => {
     if (!selectedBlock || shouldDisableWrite) return
     renamingBlockIdRef.current = selectedBlock.id
-    setEditedName(getLocalizedDefaultBlockName(selectedBlock.type, selectedBlock.name))
+    setEditedName(selectedBlock.name)
     setIsRenaming(true)
-  }, [getLocalizedDefaultBlockName, selectedBlock, shouldDisableWrite])
+  }, [selectedBlock, shouldDisableWrite])
 
   const handleSaveRename = useCallback(() => {
     const blockId = renamingBlockIdRef.current
     if (!blockId || !isRenaming) return
 
     const trimmedName = editedName.trim()
-    const currentDisplayName = selectedBlock
-      ? getLocalizedDefaultBlockName(selectedBlock.type, selectedBlock.name)
-      : ''
+    const currentName = selectedBlock?.name ?? ''
 
     if (
       trimmedName &&
-      trimmedName !== currentDisplayName &&
+      trimmedName !== currentName &&
       !collaborativeUpdateBlockName(blockId, trimmedName)
     ) {
       return
@@ -129,7 +127,6 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
   }, [
     collaborativeUpdateBlockName,
     editedName,
-    getLocalizedDefaultBlockName,
     isRenaming,
     selectedBlock,
   ])

@@ -34,13 +34,13 @@ describe('global navbar utils', () => {
   })
 
   it('adds monitor to the workspace navigation', () => {
-    expect(createWorkspaceNav(workspaceNavLabels, 'en', 'ws-1').map((item) => item.url)).toContain(
+    expect(createWorkspaceNav(workspaceNavLabels, 'ws-1').map((item) => item.url)).toContain(
       '/workspace/ws-1/monitor'
     )
   })
 
   it('adds records to the workspace navigation', () => {
-    const recordsItem = createWorkspaceNav(workspaceNavLabels, 'en', 'ws-1').find(
+    const recordsItem = createWorkspaceNav(workspaceNavLabels, 'ws-1').find(
       (item) => item.title === 'Records'
     )
 
@@ -49,15 +49,10 @@ describe('global navbar utils', () => {
   })
 
   it('does not expose removed records or logs routes without a workspace id', () => {
-    const urls = createWorkspaceNav(workspaceNavLabels, 'en').map((item) => item.url)
+    const urls = createWorkspaceNav(workspaceNavLabels).map((item) => item.url)
 
     expect(urls).not.toContain('/records')
     expect(urls).not.toContain('/logs')
   })
 
-  it('preserves locale prefixes when switching workspaces', () => {
-    expect(
-      getWorkspaceSwitchPath('/es/workspace/ws-1/monitor', 'ws-2', 'layout=roadmap', 'es')
-    ).toBe('/es/workspace/ws-2/monitor?layout=roadmap')
-  })
 })

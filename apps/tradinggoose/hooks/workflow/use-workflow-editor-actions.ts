@@ -1,16 +1,12 @@
 import { useCallback } from 'react'
-import { useLocale } from 'next-intl'
 import type { Edge } from '@xyflow/react'
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  getLocalizedUniqueBlockName,
-  type LocaleCode,
-} from '@/i18n/block-editor'
 import type { YjsOrigin } from '@/lib/yjs/transaction-origins'
 import { useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
 import { useWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { getBlock } from '@/blocks'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { getUniqueBlockName } from '@/stores/workflows/utils'
 import type { Position } from '@/stores/workflows/workflow/types'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
@@ -21,7 +17,6 @@ const logger = createLogger('WorkflowEditorActions')
  * Workflow editor mutations backed directly by the live Yjs session.
  */
 export function useWorkflowEditorActions() {
-  const locale = useLocale() as LocaleCode
   const workflowRoute = useOptionalWorkflowRoute()
   const channelId = workflowRoute?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
   const routeWorkflowId = workflowRoute?.workflowId ?? null
@@ -271,12 +266,7 @@ export function useWorkflowEditorActions() {
         y: sourceBlock.position.y + 20,
       }
 
-      const newName = getLocalizedUniqueBlockName(
-        locale,
-        sourceBlock.type,
-        currentBlocks,
-        sourceBlock.name
-      )
+      const newName = getUniqueBlockName(sourceBlock.name, currentBlocks)
 
       // Collect source subblock values so they are applied in the same
       // transaction as addBlock (avoids N separate Yjs transactions).
@@ -309,7 +299,7 @@ export function useWorkflowEditorActions() {
         }
       )
     },
-    [getBlocksSnapshot, locale, mutations]
+    [getBlocksSnapshot, mutations]
   )
 
   const collaborativeUpdateLoopType = useCallback(

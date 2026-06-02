@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
-import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -16,12 +15,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
 import { handleAuthError } from '@/lib/auth/auth-error-handler'
+import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { client } from '@/lib/auth-client'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getAuthRegistrationHref, type RegistrationMode } from '@/lib/registration/shared'
-import { getBaseUrl } from '@/lib/urls/utils'
 import { cn } from '@/lib/utils'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { AuthWaitlistNote } from '@/app/(auth)/components/auth-waitlist-note'
@@ -30,7 +29,7 @@ import { SSOLoginButton } from '@/app/(auth)/components/sso-login-button'
 import { inter } from '@/app/fonts/inter'
 import { useAppMessages } from '@/i18n/client-messages'
 import { Link, useRouter } from '@/i18n/navigation'
-import { type LocaleCode, localizeHref, localizePathname, normalizeCallbackUrl } from '@/i18n/utils'
+import { normalizeCallbackUrl } from '@/i18n/utils'
 
 const logger = createLogger('LoginForm')
 
@@ -94,7 +93,7 @@ export default function LoginPage({
   registrationMode: RegistrationMode
 }) {
   const router = useRouter()
-  const locale = useLocale() as LocaleCode
+  const authRedirectUrls = useAuthRedirectUrls()
   const copy = useAppMessages()
   const loginCopy = copy.auth.login
   const commonCopy = copy.auth.common
@@ -111,7 +110,6 @@ export default function LoginPage({
 
   const [callbackUrl, setCallbackUrl] = useState(defaultCallbackPath)
   const [isInviteFlow, setIsInviteFlow] = useState(false)
-  const localizedCallbackUrl = localizeHref(locale, callbackUrl)
 
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false)
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('')
@@ -284,7 +282,7 @@ export default function LoginPage({
         {
           email,
           password,
-          callbackURL: localizedCallbackUrl,
+          callbackURL: authRedirectUrls.providerCallbackPath(callbackUrl),
         },
         {
           onError: (ctx) => {
@@ -374,7 +372,7 @@ export default function LoginPage({
         },
         body: JSON.stringify({
           email: forgotPasswordEmail,
-          redirectTo: `${getBaseUrl()}${localizePathname(locale, '/reset-password')}`,
+          redirectTo: authRedirectUrls.passwordResetUrl(),
         }),
       })
 

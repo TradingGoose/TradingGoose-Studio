@@ -18,7 +18,6 @@ type WidenLiteralValues<T> = T extends string
 
 type CoreCopy = WidenLiteralValues<typeof enCopy>
 export type PublicCopy = CoreCopy
-export type PublicMessageNamespace = keyof PublicCopy
 
 const PUBLIC_COPY = {
   en: enCopy,
@@ -29,17 +28,6 @@ const PUBLIC_COPY = {
 export function getPublicCopy(locale: LocaleCode | string | undefined): PublicCopy {
   const resolvedLocale = (locale && locale in PUBLIC_COPY ? locale : defaultLocale) as LocaleCode
   return PUBLIC_COPY[resolvedLocale]
-}
-
-export function getScopedPublicMessages<const TNamespace extends PublicMessageNamespace>(
-  locale: LocaleCode | string | undefined,
-  namespaces: readonly TNamespace[]
-): Pick<PublicCopy, TNamespace> {
-  const publicCopy = getPublicCopy(locale)
-
-  return Object.fromEntries(
-    namespaces.map((namespace) => [namespace, publicCopy[namespace]])
-  ) as Pick<PublicCopy, TNamespace>
 }
 
 export { formatTemplate }

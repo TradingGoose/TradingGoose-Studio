@@ -1,20 +1,17 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useLocale } from 'next-intl'
-import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { useBrandConfig } from '@/lib/branding/branding'
 import Nav from '@/app/(landing)/components/nav/nav'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
 import { useAppMessages } from '@/i18n/client-messages'
-import { localizeHref, type LocaleCode } from '@/i18n/utils'
+import { useRouter } from '@/i18n/navigation'
 
 export default function NotFoundContent() {
   const brandConfig = useBrandConfig()
   const router = useRouter()
-  const locale = useLocale() as LocaleCode
   const copy = useAppMessages()
   const notFoundCopy = copy.notFound
   const primaryButtonClasses =
@@ -50,7 +47,7 @@ export default function NotFoundContent() {
             <div className='mt-8 w-full space-y-3'>
               <Button
                 type='button'
-                onClick={() => router.push(localizeHref(locale, '/'))}
+                onClick={() => router.push('/')}
                 className={primaryButtonClasses}
               >
                 {notFoundCopy.returnHome}

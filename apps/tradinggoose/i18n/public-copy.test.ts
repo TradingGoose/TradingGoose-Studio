@@ -6,7 +6,7 @@ import {
 } from '@/widgets/widgets/data_chart/components/draw-tool-icon-registry'
 import { CANDLE_TYPE_OPTIONS } from '@/widgets/widgets/data_chart/options'
 import { DEFAULT_RANGE_PRESETS } from '@/widgets/widgets/data_chart/series-data'
-import { formatTemplate, getPublicCopy, getScopedPublicMessages } from './public-copy'
+import { formatTemplate, getPublicCopy } from './public-copy'
 
 function normalizeShape(value: unknown): unknown {
   if (Array.isArray(value)) {
@@ -36,17 +36,6 @@ describe('public copy', () => {
     expect(getPublicCopy('en').meta.landing.title).toContain('TradingGoose')
     expect(getPublicCopy('es').blog.readTimeSuffix).toBe('min de lectura')
     expect(getPublicCopy('zh').meta.landing.seo.socialPreviewAlt).toContain('TradingGoose')
-  })
-
-  it('scopes public messages to the requested namespaces', () => {
-    const fullCopy = getPublicCopy('en')
-    const scopedCopy = getScopedPublicMessages('en', ['nav', 'registration'] as const)
-    const serializedCopy = JSON.parse(JSON.stringify(scopedCopy)) as Record<string, unknown>
-
-    expect(Object.keys(scopedCopy).sort()).toEqual(['nav', 'registration'])
-    expect(scopedCopy.nav).toBe(fullCopy.nav)
-    expect(scopedCopy.registration).toBe(fullCopy.registration)
-    expect('auth' in serializedCopy).toBe(false)
   })
 
   it('keeps zh auth copy translated', () => {

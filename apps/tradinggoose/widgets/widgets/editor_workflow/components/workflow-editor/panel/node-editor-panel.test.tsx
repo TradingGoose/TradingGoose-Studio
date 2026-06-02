@@ -287,7 +287,7 @@ describe('NodeEditorPanel', () => {
     expect(markup).not.toContain('Response Format')
   })
 
-  it('keeps the localized rename editor open when saving a changed name fails', async () => {
+  it('keeps the canonical rename editor open when saving a changed name fails', async () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     mockCollaborativeUpdateBlockName.mockReturnValue(false)
     container = document.createElement('div')
@@ -314,7 +314,7 @@ describe('NodeEditorPanel', () => {
 
     const input = container.querySelector('input[type="text"]') as HTMLInputElement | null
 
-    expect(input?.value).toBe('Agente')
+    expect(input?.value).toBe('Agent')
 
     await act(async () => {
       if (!input) return
@@ -332,7 +332,7 @@ describe('NodeEditorPanel', () => {
     expect(container.querySelector('button[aria-label="Save name"]')).toBeTruthy()
   })
 
-  it('closes the localized rename editor without saving when the name is unchanged', async () => {
+  it('closes the canonical rename editor without saving when the name is unchanged', async () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     container = document.createElement('div')
     document.body.appendChild(container)
@@ -358,7 +358,7 @@ describe('NodeEditorPanel', () => {
 
     const input = container.querySelector('input[type="text"]') as HTMLInputElement | null
 
-    expect(input?.value).toBe('Agente')
+    expect(input?.value).toBe('Agent')
 
     await act(async () => {
       input?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))

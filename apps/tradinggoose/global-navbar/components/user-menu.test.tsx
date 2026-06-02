@@ -31,14 +31,17 @@ const previousActEnvironment = reactActEnvironment.IS_REACT_ACT_ENVIRONMENT
 const originalMatchMedia = window.matchMedia
 
 vi.mock('next/navigation', () => ({
+  useSearchParams: () => ({
+    toString: () => mockSearchParams,
+  }),
+}))
+
+vi.mock('@/i18n/navigation', () => ({
   usePathname: () => mockPathname,
   useRouter: () => ({
     push: mockPush,
     replace: mockReplace,
     refresh: mockRefresh,
-  }),
-  useSearchParams: () => ({
-    toString: () => mockSearchParams,
   }),
 }))
 
@@ -201,7 +204,7 @@ describe('UserMenu language selector', () => {
     expect(getThemeButton('主题：系统')).toBeInTheDocument()
   })
 
-  it('switches to zh without dropping the workspace path or query string and refreshes after navigation', async () => {
+  it('switches to zh without dropping the workspace path or query string', async () => {
     mockSearchParams = 'layout=main'
 
     await act(async () => {
@@ -215,21 +218,23 @@ describe('UserMenu language selector', () => {
       await selectLanguage('简体中文')
     })
 
-    expect(mockReplace).toHaveBeenCalledWith('/zh/workspace/ws-1/dashboard?layout=main')
+    expect(mockReplace).toHaveBeenCalledWith('/workspace/ws-1/dashboard?layout=main', {
+      locale: 'zh',
+    })
     expect(mockRefresh).not.toHaveBeenCalled()
 
-    mockPathname = '/zh/workspace/ws-1/dashboard'
+    mockPathname = '/workspace/ws-1/dashboard'
 
     await act(async () => {
       renderUserMenu(root, 'en')
       await flush()
     })
 
-    expect(mockRefresh).toHaveBeenCalledTimes(1)
+    expect(mockRefresh).not.toHaveBeenCalled()
   })
 
   it('switches from zh to the default locale path', async () => {
-    mockPathname = '/zh/workspace/ws-1/dashboard'
+    mockPathname = '/workspace/ws-1/dashboard'
 
     await act(async () => {
       renderUserMenu(root, 'zh')
@@ -242,6 +247,6 @@ describe('UserMenu language selector', () => {
       await selectLanguage('English')
     })
 
-    expect(mockReplace).toHaveBeenCalledWith('/workspace/ws-1/dashboard')
+    expect(mockReplace).toHaveBeenCalledWith('/workspace/ws-1/dashboard', { locale: 'en' })
   })
 })

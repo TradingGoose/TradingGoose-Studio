@@ -8,7 +8,7 @@ import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getRegistrationModeForRender } from '@/lib/registration/service'
-import { getPublicCopy, getScopedPublicMessages } from '@/i18n/public-copy'
+import { getPublicCopy } from '@/i18n/public-copy'
 import Nav from './nav'
 import PublicNav from './public-nav'
 
@@ -23,12 +23,6 @@ vi.mock('@/lib/registration/service', () => ({
 }))
 
 vi.mock('next/navigation', () => ({
-  usePathname: () => mockPathname,
-  useRouter: () => ({
-    push: mockPush,
-    replace: mockReplace,
-    refresh: mockRefresh,
-  }),
   useSearchParams: () => ({
     toString: () => mockSearchParams,
   }),
@@ -44,21 +38,27 @@ vi.mock('next/image', () => ({
   ),
 }))
 
-vi.mock('next/link', () => ({
-  default: ({
+vi.mock('@/i18n/navigation', () => ({
+  Link: ({
     children,
     href,
     prefetch: _prefetch,
     ...props
-  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & {
+  }: Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & {
     children?: React.ReactNode
-    href: string
+    href: string | { pathname?: string }
     prefetch?: boolean
   }) => (
-    <a href={href} {...props}>
+    <a href={typeof href === 'string' ? href : (href.pathname ?? '')} {...props}>
       {children}
     </a>
   ),
+  usePathname: () => mockPathname,
+  useRouter: () => ({
+    push: mockPush,
+    replace: mockReplace,
+    refresh: mockRefresh,
+  }),
 }))
 
 vi.mock('@/app/fonts/soehne/soehne', () => ({
@@ -135,7 +135,7 @@ describe('landing nav registration mode', () => {
       root.render(
         <NextIntlClientProvider
           locale='en'
-          messages={getScopedPublicMessages('en', ['nav', 'registration'] as const)}
+          messages={getPublicCopy('en')}
         >
           <Nav registrationMode='open' />
         </NextIntlClientProvider>
@@ -175,7 +175,7 @@ describe('landing nav registration mode', () => {
   })
 
   it('switches locales without dropping the current path or query string', async () => {
-    mockPathname = '/es/blog/trading-signals'
+    mockPathname = '/blog/trading-signals'
     mockSearchParams = 'from=nav&campaign=i18n'
 
     await act(async () => {
@@ -209,10 +209,12 @@ describe('landing nav registration mode', () => {
       menuItem.click()
     })
 
-    expect(mockReplace).toHaveBeenCalledWith('/zh/blog/trading-signals?from=nav&campaign=i18n')
+    expect(mockReplace).toHaveBeenCalledWith('/blog/trading-signals?from=nav&campaign=i18n', {
+      locale: 'zh',
+    })
     expect(mockRefresh).not.toHaveBeenCalled()
 
-    mockPathname = '/zh/blog/trading-signals'
+    mockPathname = '/blog/trading-signals'
 
     await act(async () => {
       root.render(
@@ -222,6 +224,6 @@ describe('landing nav registration mode', () => {
       )
     })
 
-    expect(mockRefresh).toHaveBeenCalledTimes(1)
+    expect(mockRefresh).not.toHaveBeenCalled()
   })
 })

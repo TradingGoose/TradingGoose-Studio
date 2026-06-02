@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Check, ChevronDownIcon, LanguagesIcon, MenuIcon } from 'lucide-react'
 import Image from 'next/image'
-import Link from 'next/link'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { useLocale } from 'next-intl'
 import { GithubIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
@@ -25,12 +24,11 @@ import {
 } from '@/lib/registration/shared'
 import { getFormattedGitHubStars } from '@/app/(landing)/actions/github'
 import { soehne } from '@/app/fonts/soehne/soehne'
-import { buildLocaleSwitchHref } from '@/app/(landing)/components/nav/locale-switcher'
 import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { Link, usePathname, useRouter } from '@/i18n/navigation'
 import {
   getLocaleDisplayName,
   localizeDocsUrl,
-  localizeHref,
   locales,
   type LocaleCode,
 } from '@/i18n/utils'
@@ -49,23 +47,8 @@ function LanguageSwitcher() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [isOpen, setIsOpen] = useState(false)
-  const [pendingLocaleHref, setPendingLocaleHref] = useState<string | null>(null)
 
   const search = searchParams.toString()
-
-  useEffect(() => {
-    if (!pendingLocaleHref) {
-      return
-    }
-
-    const currentHref = search ? `${pathname}?${search}` : pathname
-    if (currentHref !== pendingLocaleHref) {
-      return
-    }
-
-    setPendingLocaleHref(null)
-    router.refresh()
-  }, [pathname, pendingLocaleHref, router, search])
 
   const changeLocale = (nextLocale: LocaleCode) => {
     if (nextLocale === locale) {
@@ -74,9 +57,8 @@ function LanguageSwitcher() {
     }
 
     setIsOpen(false)
-    const nextHref = buildLocaleSwitchHref(nextLocale, pathname, searchParams)
-    setPendingLocaleHref(nextHref)
-    router.replace(nextHref)
+    const href = search ? `${pathname}?${search}` : pathname
+    router.replace(href, { locale: nextLocale })
   }
 
   return (
@@ -147,30 +129,29 @@ export default function Nav({
   }, [variant])
 
   const navigateToLogin = useCallback(() => {
-    router.push(localizeHref(locale, '/login?reauth=1'))
-  }, [locale, router])
+    router.push('/login?reauth=1')
+  }, [router])
 
   const navigateToPrimaryCta = useCallback(() => {
     if (!registrationPrimaryHref) {
       return
     }
 
-    router.push(localizeHref(locale, registrationPrimaryHref))
-  }, [locale, registrationPrimaryHref, router])
+    router.push(registrationPrimaryHref)
+  }, [registrationPrimaryHref, router])
 
   const desktopNavLinks = variant === 'landing' && (
     <div className='hidden items-center gap-6 font-medium text-muted-foreground text-sm md:flex'>
-      <Link
+      <a
         href={localizeDocsUrl(locale)}
         target='_blank'
         rel='noopener noreferrer'
         className='transition-colors hover:text-foreground'
-        prefetch={false}
       >
         {copy.nav.docs}
-      </Link>
+      </a>
       <Link
-        href={localizeHref(locale, '/blog')}
+        href='/blog'
         className='transition-colors hover:text-foreground'
         prefetch={false}
       >
@@ -222,7 +203,7 @@ export default function Nav({
     >
       <div className='mx-auto flex w-full items-center justify-between gap-4 px-4 py-2 sm:px-6 md:px-10'>
         <Link
-          href={localizeHref(locale, '/?from=nav')}
+          href='/?from=nav'
           aria-label={formatTemplate(copy.nav.homeAriaLabel, { brand: brand.name })}
           itemProp='url'
           className='flex h-9 items-center gap-2'
@@ -269,18 +250,17 @@ export default function Nav({
               <DropdownMenuContent className='w-64' align='end'>
                 <DropdownMenuGroup>
                   <DropdownMenuItem>
-                    <Link
+                    <a
                       href={localizeDocsUrl(locale)}
                       target='_blank'
                       rel='noopener noreferrer'
                       className='w-full'
-                      prefetch={false}
                     >
                       {copy.nav.docs}
-                    </Link>
+                    </a>
                   </DropdownMenuItem>
                   <DropdownMenuItem>
-                    <Link href={localizeHref(locale, '/blog')} className='w-full' prefetch={false}>
+                    <Link href='/blog' className='w-full' prefetch={false}>
                       {copy.nav.blog}
                     </Link>
                   </DropdownMenuItem>

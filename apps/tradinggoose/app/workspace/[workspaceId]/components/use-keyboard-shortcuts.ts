@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
-import { localizeHref, stripLocaleFromPathname } from '@/i18n/utils'
+import { usePathname, useRouter } from '@/i18n/navigation'
 
 export function isMacPlatform() {
   if (typeof navigator === 'undefined') return false
@@ -55,6 +54,7 @@ export function useKeyboardShortcuts(onRunWorkflow: () => void, isDisabled = fal
 
 export function useGlobalShortcuts() {
   const router = useRouter()
+  const pathname = usePathname() ?? '/'
   const isMac = useMemo(() => isMacPlatform(), [])
 
   useEffect(() => {
@@ -74,20 +74,19 @@ export function useGlobalShortcuts() {
       ) {
         event.preventDefault()
 
-        const { locale, pathname } = stripLocaleFromPathname(window.location.pathname)
         const pathParts = pathname.split('/')
         const workspaceIndex = pathParts.indexOf('workspace')
 
         if (workspaceIndex !== -1 && pathParts[workspaceIndex + 1]) {
           const workspaceId = pathParts[workspaceIndex + 1]
-          router.push(localizeHref(locale, `/workspace/${workspaceId}/logs`))
+          router.push(`/workspace/${workspaceId}/logs`)
         } else {
-          router.push(localizeHref(locale, '/workspace'))
+          router.push('/workspace')
         }
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [router, isMac])
+  }, [pathname, router, isMac])
 }

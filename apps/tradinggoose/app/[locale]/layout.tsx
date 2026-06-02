@@ -13,6 +13,7 @@ import '@/app/globals.css'
 
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { SessionProvider } from '@/lib/session/session-context'
+import IntlProvider from '@/app/intl-provider'
 import { ProviderModelsBootstrap } from '@/app/provider-models-bootstrap'
 import { QueryProvider } from '@/app/query-provider'
 import { ThemeProvider } from '@/app/theme-provider'
@@ -118,8 +119,10 @@ export default async function RootLayout({
               <SessionProvider>
                 <ProviderModelsBootstrap />
                 <TooltipProvider delayDuration={100} skipDelayDuration={0}>
-                  <ZoomPrevention />
-                  {children}
+                  <IntlProvider>
+                    <ZoomPrevention />
+                    {children}
+                  </IntlProvider>
                 </TooltipProvider>
               </SessionProvider>
             </QueryProvider>

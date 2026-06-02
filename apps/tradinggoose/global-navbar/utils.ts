@@ -11,7 +11,6 @@ import {
   UserRoundPlus,
   Waypoints,
 } from 'lucide-react'
-import { defaultLocale, localizePathname, stripLocaleFromPathname, type LocaleCode } from '@/i18n/utils'
 import type { NavItemLink, NavSection } from './types'
 
 type WorkspaceNavLabels = {
@@ -38,19 +37,16 @@ type AdminNavLabels = {
 }
 
 export function getWorkspaceIdFromPath(path: string) {
-  const { pathname } = stripLocaleFromPathname(path)
-  const match = /^\/workspace\/([^/]+)/.exec(pathname)
+  const match = /^\/workspace\/([^/]+)/.exec(path)
   return match?.[1]
 }
 
 export function getWorkspaceSwitchPath(
   path: string,
   targetWorkspaceId: string,
-  searchParams?: string,
-  locale: LocaleCode = defaultLocale
+  searchParams?: string
 ) {
-  const { pathname } = stripLocaleFromPathname(path)
-  const match = /^\/workspace\/[^/]+(?:\/([^/]+))?/.exec(pathname)
+  const match = /^\/workspace\/[^/]+(?:\/([^/]+))?/.exec(path)
   const section = match?.[1] ?? null
 
   // Only allow safe top-level sections to carry over between workspaces.
@@ -67,7 +63,7 @@ export function getWorkspaceSwitchPath(
   ])
   const sectionPath = section && allowedSections.has(section) ? `/${section}` : '/dashboard'
 
-  const basePath = localizePathname(locale, `/workspace/${targetWorkspaceId}${sectionPath}`)
+  const basePath = `/workspace/${targetWorkspaceId}${sectionPath}`
 
   const normalizedSearch = searchParams?.replace(/^\?/, '')
   return normalizedSearch ? `${basePath}?${normalizedSearch}` : basePath
@@ -75,19 +71,18 @@ export function getWorkspaceSwitchPath(
 
 export function createWorkspaceNav(
   copy: WorkspaceNavLabels,
-  locale: LocaleCode = defaultLocale,
   workspaceId?: string
 ): NavItemLink[] {
   if (!workspaceId) {
     return [
-      { title: copy.workspace.dashboard, url: localizePathname(locale, '/dashboard'), icon: LayoutTemplate, section: 'workspace' },
-      { title: copy.workspace.knowledge, url: localizePathname(locale, '/knowledge'), icon: LibraryBig, section: 'workspace' },
-      { title: copy.workspace.files, url: localizePathname(locale, '/files'), icon: Files, section: 'workspace' },
-      { title: copy.workspace.monitor, url: localizePathname(locale, '/monitor'), icon: Activity, section: 'workspace' },
+      { title: copy.workspace.dashboard, url: '/dashboard', icon: LayoutTemplate, section: 'workspace' },
+      { title: copy.workspace.knowledge, url: '/knowledge', icon: LibraryBig, section: 'workspace' },
+      { title: copy.workspace.files, url: '/files', icon: Files, section: 'workspace' },
+      { title: copy.workspace.monitor, url: '/monitor', icon: Activity, section: 'workspace' },
     ]
   }
 
-  const base = localizePathname(locale, `/workspace/${workspaceId}`)
+  const base = `/workspace/${workspaceId}`
   return [
     { title: copy.workspace.dashboard, url: `${base}/dashboard`, icon: LayoutTemplate, section: 'workspace' },
     { title: copy.workspace.knowledge, url: `${base}/knowledge`, icon: LibraryBig, section: 'workspace' },
@@ -101,23 +96,21 @@ export function createWorkspaceNav(
 }
 
 export function createAdminNav(
-  copy: AdminNavLabels,
-  locale: LocaleCode = defaultLocale
+  copy: AdminNavLabels
 ): NavItemLink[] {
   return [
-    { title: copy.overview, url: localizePathname(locale, '/admin'), icon: ShieldCheck, section: 'admin', match: 'exact' },
-    { title: copy.billing, url: localizePathname(locale, '/admin/billing'), icon: Receipt, section: 'admin' },
-    { title: copy.services, url: localizePathname(locale, '/admin/services'), icon: KeyRound, section: 'admin' },
-    { title: copy.integrations, url: localizePathname(locale, '/admin/integrations'), icon: Waypoints, section: 'admin' },
-    { title: copy.registration, url: localizePathname(locale, '/admin/registration'), icon: UserRoundPlus, section: 'admin' },
+    { title: copy.overview, url: '/admin', icon: ShieldCheck, section: 'admin', match: 'exact' },
+    { title: copy.billing, url: '/admin/billing', icon: Receipt, section: 'admin' },
+    { title: copy.services, url: '/admin/services', icon: KeyRound, section: 'admin' },
+    { title: copy.integrations, url: '/admin/integrations', icon: Waypoints, section: 'admin' },
+    { title: copy.registration, url: '/admin/registration', icon: UserRoundPlus, section: 'admin' },
   ]
 }
 
 export function createNavSections(pathname: string, workspaceItems: NavItemLink[]): NavSection[] {
-  const { pathname: normalizedPathname } = stripLocaleFromPathname(pathname)
   return workspaceItems.map((item) => ({
     ...item,
-    isActive: isPathActive(normalizedPathname, stripLocaleFromPathname(item.url).pathname, item.match),
+    isActive: isPathActive(pathname, item.url, item.match),
   }))
 }
 

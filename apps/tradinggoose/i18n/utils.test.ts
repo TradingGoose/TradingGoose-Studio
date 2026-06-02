@@ -2,10 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildLocalizedAlternates,
   getLocaleDisplayName,
-  getLocaleFromSearchParams,
   getOpenGraphLocale,
-  localizeHref,
-  localizePathname,
   localizeSiteUrl,
   normalizeCallbackUrl,
   stripLocaleFromPathname,
@@ -26,27 +23,6 @@ describe('i18n utils', () => {
     })
   })
 
-  it('localizes pathnames without dropping the current slug', () => {
-    expect(localizePathname('zh', '/blog/trading-signals')).toBe(
-      '/zh/blog/trading-signals'
-    )
-    expect(localizePathname('en', '/blog/trading-signals')).toBe('/blog/trading-signals')
-  })
-
-  it('preserves query strings on already localized URLs', () => {
-    expect(localizePathname('zh', '/blog/trading-signals?from=nav')).toBe(
-      '/zh/blog/trading-signals?from=nav'
-    )
-  })
-
-  it('localizes internal hrefs without double-prefixing locale segments', () => {
-    expect(localizeHref('zh', '/workspace/ws-1/dashboard?layoutId=layout-1')).toBe(
-      '/zh/workspace/ws-1/dashboard?layoutId=layout-1'
-    )
-    expect(localizeHref('zh', '/zh/login?reauth=1')).toBe('/zh/login?reauth=1')
-    expect(localizeHref('en', '/zh/workspace')).toBe('/workspace')
-  })
-
   it('normalizes safe callback URLs to internal paths', () => {
     expect(normalizeCallbackUrl('/workspace/ws-1/dashboard?layoutId=layout-1')).toBe(
       '/workspace/ws-1/dashboard?layoutId=layout-1'
@@ -56,7 +32,7 @@ describe('i18n utils', () => {
         'https://tradinggoose.ai/es/workspace/ws-1/dashboard?layoutId=layout-1',
         'https://tradinggoose.ai'
       )
-    ).toBe('/es/workspace/ws-1/dashboard?layoutId=layout-1')
+    ).toBe('/workspace/ws-1/dashboard?layoutId=layout-1')
   })
 
   it('rejects unsafe callback URLs', () => {
@@ -65,12 +41,6 @@ describe('i18n utils', () => {
       normalizeCallbackUrl('https://malicious.example/workspace', 'https://tradinggoose.ai')
     ).toBeNull()
     expect(normalizeCallbackUrl('workspace/ws-1/dashboard')).toBeNull()
-  })
-
-  it('resolves explicit API locale search params with an English fallback', () => {
-    expect(getLocaleFromSearchParams(new URLSearchParams('locale=es'))).toBe('es')
-    expect(getLocaleFromSearchParams(new URLSearchParams('locale=unknown'))).toBe('en')
-    expect(getLocaleFromSearchParams(new URLSearchParams())).toBe('en')
   })
 
   it('builds localized site URLs and alternate hreflang mappings', () => {

@@ -2,7 +2,6 @@ import type React from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { isEqual } from 'lodash'
 import { Server, WrenchIcon, XIcon } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 import { useLocale } from 'next-intl'
 import { Toggle } from '@/components/ui/toggle'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -29,8 +28,8 @@ import {
   localizeWorkflowSubBlockConfig,
 } from '@/i18n/block-editor'
 import { formatTemplate } from '@/i18n/template'
+import { useRouter } from '@/i18n/navigation'
 import type { LocaleCode } from '@/i18n/utils'
-import { localizeHref } from '@/i18n/utils'
 import { getProviderFromModel, supportsToolUsageControl } from '@/providers/ai/utils'
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
 import {
@@ -313,7 +312,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
 
     if (selectedId === 'action:add-mcp') {
       if (workspaceId) {
-        router.push(localizeHref(locale, `/workspace/${workspaceId}/dashboard`))
+        router.push(`/workspace/${workspaceId}/dashboard`)
       }
       setToolSelectorValue(undefined)
       return
