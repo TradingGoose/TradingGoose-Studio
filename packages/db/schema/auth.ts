@@ -172,11 +172,19 @@ export const settings = pgTable('settings', {
     .unique(), // One settings record per user
 
   theme: text('theme').notNull().default('system'),
+  preferredLocale: text('preferred_locale').notNull().default('en'),
   telemetryEnabled: boolean('telemetry_enabled').notNull().default(true),
   emailPreferences: json('email_preferences').notNull().default('{}'),
   billingUsageNotificationsEnabled: boolean('billing_usage_notifications_enabled')
     .notNull()
     .default(true),
 
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
+
+export const emailRecipientPreference = pgTable('email_recipient_preference', {
+  email: text('email').primaryKey(),
+  preferredLocale: text('preferred_locale').notNull().default('en'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })

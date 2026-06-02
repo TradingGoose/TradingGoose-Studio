@@ -8,6 +8,7 @@ import { getSession } from '@/lib/auth'
 import { getOrganizationBillingData } from '@/lib/billing/core/organization'
 import { getUserUsageData } from '@/lib/billing/core/usage'
 import { validateSeatAvailability } from '@/lib/billing/validation/seat-management'
+import { resolveEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -169,7 +170,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     const { id: organizationId } = await params
-    const { email, role = 'member' } = await request.json()
+    const { email, role = 'member', locale: requestLocale } = await request.json()
 
     // Validate input
     if (!email) {
@@ -291,17 +292,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .from(user)
       .where(eq(user.id, session.user.id))
       .limit(1)
+    const locale = await resolveEmailLocale({
+      email: normalizedEmail,
+      fallbackLocale: requestLocale,
+    })
 
     const emailHtml = await renderInvitationEmail(
       inviter[0]?.name || 'Someone',
       organizationEntry[0]?.name || 'organization',
       `${getBaseUrl()}/invite/organization?id=${invitationId}`,
-      normalizedEmail
+      normalizedEmail,
+      locale
     )
 
     const emailResult = await sendEmail({
       to: normalizedEmail,
-      subject: getEmailSubject('invitation'),
+      subject: getEmailSubject('invitation', locale, {
+        organizationName: organizationEntry[0]?.name || 'organization',
+      }),
       html: emailHtml,
       emailType: 'transactional',
     })

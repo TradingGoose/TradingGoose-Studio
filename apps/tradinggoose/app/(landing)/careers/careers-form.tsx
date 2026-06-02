@@ -181,6 +181,7 @@ export function CareersForm() {
       formData.append('experience', experience)
       formData.append('location', location)
       formData.append('message', message)
+      formData.append('locale', locale)
       if (resume) formData.append('resume', resume)
 
       const response = await fetch('/api/careers/submit', {

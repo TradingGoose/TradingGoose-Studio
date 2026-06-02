@@ -7,6 +7,7 @@ import {
   renderWaitlistConfirmationEmail,
 } from '@/components/emails/render-email'
 import { type EmailOptions, sendBatchEmails, sendEmail } from '@/lib/email/mailer'
+import { persistAnonymousEmailLocale, resolveEmailLocale } from '@/lib/email/locale'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -104,13 +105,14 @@ export async function listWaitlistEntries(): Promise<WaitlistRow[]> {
   return rows as WaitlistRow[]
 }
 
-export async function addToWaitlist(email: string): Promise<WaitlistRow> {
+export async function addToWaitlist(email: string, locale?: string | null): Promise<WaitlistRow> {
   const normalizedEmail = normalizeEmail(email)
   const validation = quickValidateEmail(normalizedEmail)
   if (!validation.isValid) {
     throw new Error(validation.reason || 'Invalid email address')
   }
 
+  const preferredLocale = await persistAnonymousEmailLocale(normalizedEmail, locale)
   const existing = await getWaitlistEntryByEmail(normalizedEmail)
   if (existing) {
     return existing
@@ -132,7 +134,7 @@ export async function addToWaitlist(email: string): Promise<WaitlistRow> {
   }
 
   await db.insert(waitlist).values(entry)
-  await sendWaitlistConfirmationEmail(entry.email)
+  await sendWaitlistConfirmationEmail(entry.email, preferredLocale)
   return entry
 }
 
@@ -276,12 +278,12 @@ export async function hasPendingRegistrationInvitation(email: string) {
   return Boolean(workspaceRow[0] || organizationRow[0])
 }
 
-async function sendWaitlistConfirmationEmail(email: string) {
+async function sendWaitlistConfirmationEmail(email: string, locale: string) {
   try {
-    const html = await renderWaitlistConfirmationEmail(email)
+    const html = await renderWaitlistConfirmationEmail(email, locale)
     const result = await sendEmail({
       to: email,
-      subject: getEmailSubject('waitlist-confirmation'),
+      subject: getEmailSubject('waitlist-confirmation', locale),
       html,
       emailType: 'transactional',
     })
@@ -302,15 +304,15 @@ async function sendWaitlistConfirmationEmail(email: string) {
 
 async function createWaitlistApprovalEmail(
   email: string,
-  baseUrl: string,
-  subject: string
+  baseUrl: string
 ): Promise<EmailOptions | null> {
   try {
     const signupLink = `${baseUrl}/signup?email=${encodeURIComponent(email)}`
+    const locale = await resolveEmailLocale({ email })
     return {
       to: email,
-      subject,
-      html: await renderWaitlistApprovedEmail(email, signupLink),
+      subject: getEmailSubject('waitlist-approved', locale),
+      html: await renderWaitlistApprovedEmail(email, signupLink, locale),
       emailType: 'transactional',
     }
   } catch (error) {
@@ -324,12 +326,11 @@ async function createWaitlistApprovalEmail(
 
 async function sendWaitlistApprovalEmails(emails: string[]) {
   const baseUrl = getBaseUrl()
-  const subject = getEmailSubject('waitlist-approved')
 
   for (let index = 0; index < emails.length; index += RESEND_BATCH_EMAIL_LIMIT) {
     const batch = emails.slice(index, index + RESEND_BATCH_EMAIL_LIMIT)
     const renderedEmails = await Promise.all(
-      batch.map((email) => createWaitlistApprovalEmail(email, baseUrl, subject))
+      batch.map((email) => createWaitlistApprovalEmail(email, baseUrl))
     )
     const batchEmails = renderedEmails.filter((email): email is EmailOptions => email !== null)
 

@@ -9,7 +9,12 @@ import {
 } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
+import {
+  getEmailSubject,
+  renderWorkspaceInvitationEmail,
+} from '@/components/emails/render-email'
 import { getSession } from '@/lib/auth'
+import { resolveEmailLocale } from '@/lib/email/locale'
 import { hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { getRouteBoundaryUrl } from '@/i18n/route-boundary'
@@ -283,23 +288,19 @@ export async function POST(
     const baseUrl = getBaseUrl()
     const invitationLink = `${baseUrl}/invite/${invitationId}?token=${newToken}`
 
-    const [{ render }, { WorkspaceInvitationEmail }, { sendEmail }] = await Promise.all([
-      import('@react-email/render'),
-      import('@/components/emails/workspace-invitation'),
-      import('@/lib/email/mailer'),
-    ])
+    const [{ sendEmail }] = await Promise.all([import('@/lib/email/mailer')])
+    const locale = await resolveEmailLocale({ email: invitation.email })
 
-    const emailHtml = await render(
-      WorkspaceInvitationEmail({
-        workspaceName: ws.name,
-        inviterName: session.user.name || session.user.email || 'A user',
-        invitationLink,
-      })
-    )
+    const emailHtml = await renderWorkspaceInvitationEmail({
+      workspaceName: ws.name,
+      inviterName: session.user.name || session.user.email || 'A user',
+      invitationLink,
+      locale,
+    })
 
     const result = await sendEmail({
       to: invitation.email,
-      subject: `You've been invited to join "${ws.name}" on TradingGoose`,
+      subject: getEmailSubject('workspace-invitation', locale, { workspaceName: ws.name }),
       html: emailHtml,
       emailType: 'transactional',
     })

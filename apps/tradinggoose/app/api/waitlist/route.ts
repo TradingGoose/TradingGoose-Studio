@@ -3,6 +3,7 @@ import { ZodError, z } from 'zod'
 import { createLogger } from '@/lib/logs/console/logger'
 import { addToWaitlist, getRegistrationMode } from '@/lib/registration/service'
 import { REGISTRATION_DISABLED_REASON } from '@/lib/registration/shared'
+import { locales } from '@/i18n/utils'
 
 const NO_STORE_HEADERS = {
   'Cache-Control': 'no-store',
@@ -12,6 +13,7 @@ const logger = createLogger('WaitlistAPI')
 
 const waitlistRequestSchema = z.object({
   email: z.string().trim().email(),
+  locale: z.enum(locales).optional(),
 })
 
 export const dynamic = 'force-dynamic'
@@ -44,7 +46,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const payload = waitlistRequestSchema.parse(body)
-    const entry = await addToWaitlist(payload.email)
+    const entry = await addToWaitlist(payload.email, payload.locale)
 
     return NextResponse.json(
       {

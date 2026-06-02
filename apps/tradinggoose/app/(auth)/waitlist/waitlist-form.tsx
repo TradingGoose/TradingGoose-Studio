@@ -54,7 +54,7 @@ export function WaitlistForm() {
       const response = await fetch('/api/waitlist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: normalizedEmail }),
+        body: JSON.stringify({ email: normalizedEmail, locale }),
       })
 
       const payload = (await response.json().catch(() => null)) as

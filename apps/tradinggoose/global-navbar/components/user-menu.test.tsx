@@ -13,12 +13,14 @@ const mockPush = vi.fn()
 const mockReplace = vi.fn()
 const mockRefresh = vi.fn()
 const mockSetTheme = vi.fn()
+const mockUpdateSetting = vi.fn()
 let mockPathname = '/workspace/ws-1/dashboard'
 let mockSearchParams = ''
 
 const generalState = {
   theme: 'system' as const,
   setTheme: mockSetTheme,
+  updateSetting: mockUpdateSetting,
   isLoading: false,
   isThemeLoading: false,
 }
@@ -172,6 +174,8 @@ describe('UserMenu language selector', () => {
     mockReplace.mockReset()
     mockRefresh.mockReset()
     mockSetTheme.mockReset()
+    mockUpdateSetting.mockReset()
+    mockUpdateSetting.mockResolvedValue(undefined)
     mockPathname = '/workspace/ws-1/dashboard'
     mockSearchParams = ''
     container = document.createElement('div')
@@ -221,6 +225,7 @@ describe('UserMenu language selector', () => {
     expect(mockReplace).toHaveBeenCalledWith('/workspace/ws-1/dashboard?layout=main', {
       locale: 'zh',
     })
+    expect(mockUpdateSetting).toHaveBeenCalledWith('preferredLocale', 'zh')
     expect(mockRefresh).not.toHaveBeenCalled()
 
     mockPathname = '/workspace/ws-1/dashboard'
@@ -248,5 +253,6 @@ describe('UserMenu language selector', () => {
     })
 
     expect(mockReplace).toHaveBeenCalledWith('/workspace/ws-1/dashboard', { locale: 'en' })
+    expect(mockUpdateSetting).toHaveBeenCalledWith('preferredLocale', 'en')
   })
 })

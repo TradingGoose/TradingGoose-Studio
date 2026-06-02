@@ -119,6 +119,7 @@ export function UserMenu({
   const logger = createLogger('UserMenu')
   const theme = useGeneralStore((state) => state.theme)
   const setTheme = useGeneralStore((state) => state.setTheme)
+  const updateSetting = useGeneralStore((state) => state.updateSetting)
   const isGeneralLoading = useGeneralStore((state) => state.isLoading)
   const isThemeLoading = useGeneralStore((state) => state.isThemeLoading)
   const { data: organizationsData } = useOrganizations()
@@ -273,12 +274,17 @@ export function UserMenu({
     }
   }
 
-  const handleLocaleChange = (nextLocale: string) => {
+  const handleLocaleChange = async (nextLocale: string) => {
     if (!isLocaleCode(nextLocale) || nextLocale === locale) {
       return
     }
 
     const href = search ? `${pathname}?${search}` : pathname
+    try {
+      await updateSetting('preferredLocale', nextLocale)
+    } catch (error) {
+      logger.error('Failed to persist preferred locale:', { error, locale: nextLocale })
+    }
     router.replace(href, { locale: nextLocale })
   }
 

@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -19,7 +20,7 @@ import { type RegistrationMode } from '@/lib/registration/shared'
 import { cn } from '@/lib/utils'
 import { Link, useRouter } from '@/i18n/navigation'
 import { useAppMessages } from '@/i18n/client-messages'
-import { normalizeCallbackUrl } from '@/i18n/utils'
+import { normalizeCallbackUrl, type LocaleCode } from '@/i18n/utils'
 import { SocialLoginButtons } from '@/app/(auth)/components/social-login-buttons'
 import { SSOLoginButton } from '@/app/(auth)/components/sso-login-button'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
@@ -83,6 +84,7 @@ function SignupFormContent({
   registrationMode: RegistrationMode
 }) {
   const router = useRouter()
+  const locale = useLocale() as LocaleCode
   const copy = useAppMessages()
   const commonCopy = copy.auth.common
   const signupCopy = copy.auth.signup
@@ -348,9 +350,17 @@ function SignupFormContent({
 
       try {
         await refetchSession()
+        const localeResponse = await fetch('/api/users/me/settings', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ preferredLocale: locale }),
+        })
+        if (!localeResponse.ok) {
+          throw new Error('Failed to persist preferred locale after signup')
+        }
         logger.info('Session refreshed after successful signup')
       } catch (sessionError) {
-        logger.error('Failed to refresh session after signup:', sessionError)
+        logger.error('Failed to refresh session or persist locale after signup:', sessionError)
       }
 
       if (typeof window !== 'undefined') {

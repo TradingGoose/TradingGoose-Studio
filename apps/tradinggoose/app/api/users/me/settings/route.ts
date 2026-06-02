@@ -7,11 +7,13 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
+import { defaultLocale, locales } from '@/i18n/utils'
 
 const logger = createLogger('UserSettingsAPI')
 
 const SettingsSchema = z.object({
   theme: z.enum(['system', 'light', 'dark']).optional(),
+  preferredLocale: z.enum(locales).optional(),
   telemetryEnabled: z.boolean().optional(),
   emailPreferences: z
     .object({
@@ -27,6 +29,7 @@ const SettingsSchema = z.object({
 // Default settings values
 const defaultSettings = {
   theme: 'system',
+  preferredLocale: defaultLocale,
   telemetryEnabled: true,
   emailPreferences: {},
   billingUsageNotificationsEnabled: true,
@@ -57,6 +60,7 @@ export async function GET() {
       {
         data: {
           theme: userSettings.theme,
+          preferredLocale: userSettings.preferredLocale ?? defaultLocale,
           telemetryEnabled: userSettings.telemetryEnabled,
           emailPreferences: userSettings.emailPreferences ?? {},
           billingUsageNotificationsEnabled: userSettings.billingUsageNotificationsEnabled ?? true,

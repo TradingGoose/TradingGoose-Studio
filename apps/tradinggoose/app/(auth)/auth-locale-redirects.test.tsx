@@ -18,6 +18,7 @@ const mockSignInEmail = vi.hoisted(() => vi.fn())
 const mockSendVerificationOtp = vi.hoisted(() => vi.fn())
 const mockRefetchSession = vi.hoisted(() => vi.fn())
 const mockUseVerification = vi.hoisted(() => vi.fn())
+const mockFetch = vi.hoisted(() => vi.fn())
 const testState = vi.hoisted(() => ({
   searchParams: new URLSearchParams(),
 }))
@@ -151,6 +152,9 @@ describe('auth locale redirects', () => {
     mockSendVerificationOtp.mockReset()
     mockRefetchSession.mockReset()
     mockUseVerification.mockReset()
+    mockFetch.mockReset()
+    mockFetch.mockResolvedValue(new Response('{}', { status: 200 }))
+    global.fetch = mockFetch
   })
 
   afterEach(() => {

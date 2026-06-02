@@ -4,6 +4,8 @@ import { eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { renderOTPEmail } from '@/components/emails/render-email'
+import { getEmailSubject } from '@/components/emails/render-email'
+import { persistAnonymousEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
 import { createLogger } from '@/lib/logs/console/logger'
 import { deleteCachedValue, getCachedValue, setCachedValue } from '@/lib/redis'
@@ -11,6 +13,7 @@ import { generateRequestId } from '@/lib/utils'
 import { CHAT_ERROR_CODES } from '@/app/chat/constants'
 import { addCorsHeaders, setChatAuthCookie } from '@/app/api/chat/utils'
 import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
+import { locales } from '@/i18n/utils'
 
 const logger = createLogger('ChatOtpAPI')
 
@@ -42,6 +45,7 @@ async function deleteOTP(email: string, chatId: string): Promise<void> {
 
 const otpRequestSchema = z.object({
   email: z.string().email('Invalid email address'),
+  locale: z.enum(locales).optional(),
 })
 
 const otpVerifySchema = z.object({
@@ -64,7 +68,7 @@ export async function POST(
     let body
     try {
       body = await request.json()
-      const { email } = otpRequestSchema.parse(body)
+      const { email, locale: requestLocale } = otpRequestSchema.parse(body)
 
       // Find the chat deployment
       const deploymentResult = await db
@@ -128,17 +132,19 @@ export async function POST(
       const otp = generateOTP()
 
       await storeOTP(email, deployment.id, otp)
+      const locale = await persistAnonymousEmailLocale(email, requestLocale)
 
       const emailHtml = await renderOTPEmail(
         otp,
         email,
-        'email-verification',
-        deployment.title || 'Chat'
+        'chat-access',
+        deployment.title || 'Chat',
+        locale
       )
 
       const emailResult = await sendEmail({
         to: email,
-        subject: `Verification code for ${deployment.title || 'Chat'}`,
+        subject: getEmailSubject('chat-access', locale, { chatTitle: deployment.title || 'Chat' }),
         html: emailHtml,
       })
 

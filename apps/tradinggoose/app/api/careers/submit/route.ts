@@ -1,11 +1,13 @@
 import { render } from '@react-email/components'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import CareersConfirmationEmail from '@/components/emails/careers/careers-confirmation-email'
+import { getEmailSubject, renderCareersConfirmationEmail } from '@/components/emails/render-email'
 import CareersSubmissionEmail from '@/components/emails/careers/careers-submission-email'
+import { persistAnonymousEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
+import { locales } from '@/i18n/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,6 +31,7 @@ const CareersSubmissionSchema = z.object({
   experience: z.enum(['0-1', '1-3', '3-5', '5-10', '10+']),
   location: z.string().min(2, 'Please enter your location'),
   message: z.string().min(50, 'Please tell us more about yourself (at least 50 characters)'),
+  locale: z.enum(locales).optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -48,6 +51,7 @@ export async function POST(request: NextRequest) {
       experience: formData.get('experience') as string,
       location: formData.get('location') as string,
       message: formData.get('message') as string,
+      locale: (formData.get('locale') as string | null) || undefined,
     }
 
     // Extract and validate resume file
@@ -118,13 +122,12 @@ export async function POST(request: NextRequest) {
       })
     )
 
-    const confirmationEmailHtml = await render(
-      CareersConfirmationEmail({
-        name: validatedData.name,
-        position: validatedData.position,
-        submittedDate,
-      })
-    )
+    const locale = await persistAnonymousEmailLocale(validatedData.email, validatedData.locale)
+    const confirmationEmailHtml = await renderCareersConfirmationEmail({
+      name: validatedData.name,
+      position: validatedData.position,
+      locale,
+    })
 
     // Send email with resume attachment
     const careersEmailResult = await sendEmail({
@@ -151,7 +154,9 @@ export async function POST(request: NextRequest) {
 
     const confirmationResult = await sendEmail({
       to: validatedData.email,
-      subject: `Your Application to TradingGoose - ${validatedData.position}`,
+      subject: getEmailSubject('careers-confirmation', locale, {
+        position: validatedData.position,
+      }),
       html: confirmationEmailHtml,
       emailType: 'transactional',
       replyTo: validatedData.email,

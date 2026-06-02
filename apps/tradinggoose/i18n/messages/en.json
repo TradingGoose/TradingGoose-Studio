@@ -22069,5 +22069,207 @@
         "createdTierMissingId": "Created tier response did not include a tier id"
       }
     }
+  },
+  "emails": {
+    "shared": {
+      "tagline": "LLM Technical Trading Analysis Workflow System",
+      "team": "The {{brandName}} Team",
+      "openBrand": "Open {{brandName}}",
+      "expires15": "This code expires in 15 minutes.",
+      "expires24": "This link is valid for the next 24 hours.",
+      "expires48": "Invitations expire in 48 hours for security.",
+      "expires7": "This invitation expires in 7 days.",
+      "ignore": "If you did not request this, you can safely ignore this email.",
+      "sentOn": "Sent on {{date}}.",
+      "sentOnTo": "Sent on {{date}} to {{email}}.",
+      "submittedOnTo": "Submitted on {{date}} to {{email}}.",
+      "approvedOnFor": "Approved on {{date}} for {{email}}.",
+      "sentOnFor": "Sent on {{date}} for your {{typeLabel}}{{emailPart}}.",
+      "emailPartFrom": " from {{email}}"
+    },
+    "footer": {
+      "copyright": "(c) {{year}} {{brandName}}, All Rights Reserved",
+      "questions": "Questions? Email",
+      "privacy": "Privacy Policy",
+      "terms": "Terms of Service",
+      "unsubscribe": "Unsubscribe"
+    },
+    "subjects": {
+      "sign-in": "Sign in to {{brandName}}",
+      "email-verification": "Verify your email for {{brandName}}",
+      "forget-password": "Reset your {{brandName}} password",
+      "reset-password": "Reset your {{brandName}} password",
+      "change-email": "Verify your new email for {{brandName}}",
+      "chat-access": "Verification code for {{chatTitle}}",
+      "invitation": "You've been invited to join {{organizationName}} on {{brandName}}",
+      "batch-invitation": "You've been invited to join {{organizationName}} and workspaces on {{brandName}}",
+      "workspace-invitation": "You've been invited to join {{workspaceName}} on {{brandName}}",
+      "help-confirmation": "Your request has been received",
+      "enterprise-subscription": "Your organization billing is now active on {{brandName}}",
+      "plan-welcome": "Your {{planName}} tier is now active on {{brandName}}",
+      "usage-threshold": "You're nearing your monthly budget on {{brandName}}",
+      "free-tier-upgrade": "Your current tier is nearing its included usage on {{brandName}}",
+      "payment-failed": "{{brandName}} payment failed - action required",
+      "waitlist-confirmation": "We received your {{brandName}} access request",
+      "waitlist-approved": "Your {{brandName}} access request was approved",
+      "careers-confirmation": "Your application to {{brandName}} - {{position}}"
+    },
+    "otp": {
+      "titles": {
+        "sign-in": "Sign in to {{brandName}}",
+        "email-verification": "Verify your email for {{brandName}}",
+        "forget-password": "Reset your password for {{brandName}}",
+        "change-email": "Verify your new email for {{brandName}}",
+        "chat-access": "Access {{chatTitle}}"
+      },
+      "body": "Use the code below to continue."
+    },
+    "resetPassword": {
+      "title": "Reset your password",
+      "intro": "We received a request to reset the password for your {{brandName}} account.",
+      "action": "Use the button below to choose a new password.",
+      "cta": "Reset Password",
+      "accountFallback": "your account email",
+      "sentLine": "Sent on {{date}} to {{account}}."
+    },
+    "invitation": {
+      "preview": "{{inviterName}} invited you to join {{organizationName}} on {{brandName}}",
+      "title": "You've been invited to join {{organizationName}}!",
+      "intro": "{{inviterName}} invited you to collaborate on {{brandName}}.",
+      "body": "Accept the invitation to get access to shared projects and workflows.",
+      "cta": "Join Now"
+    },
+    "batchInvitation": {
+      "preview": "Join {{organizationName}} on {{brandName}}",
+      "title": "You've been invited to join {{organizationName}}.",
+      "intro": "{{inviterName}} added you as a {{roleLabel}} on {{brandName}}.",
+      "adminDescription": "As an Admin, you'll manage billing, teammates, and workspace access across the organization.",
+      "memberDescription": "As a Member, you can collaborate on shared billing and accept workspace invites.",
+      "workspaceAccess": "Workspace Access ({{count}} {{workspaceWord}}):",
+      "workspaceLine": "- {{workspaceName}} - {{permissionLabel}}",
+      "workspaceSingular": "workspace",
+      "workspacePlural": "workspaces",
+      "closing": "By accepting, you'll join {{organizationName}}.",
+      "closingWithWorkspaces": "By accepting, you'll join {{organizationName}} and unlock access to {{count}} {{workspaceWord}}.",
+      "cta": "Accept Invitation",
+      "roleLabels": {
+        "admin": "Admin",
+        "member": "Member"
+      },
+      "permissionLabels": {
+        "admin": "Admin (full access)",
+        "write": "Editor (can edit workflows)",
+        "read": "Viewer (read-only access)"
+      }
+    },
+    "workspaceInvitation": {
+      "preview": "Join the {{workspaceName}} workspace on {{brandName}}",
+      "title": "You're invited to {{workspaceName}}",
+      "intro": "{{inviterName}} asked you to collaborate in the {{workspaceName}} workspace on {{brandName}}. Accept to access shared projects and data.",
+      "cta": "Accept Invitation"
+    },
+    "help": {
+      "title": "Thanks for reaching out",
+      "preview": "{{brandName}}: we received your {{typeLabel}}",
+      "intro": "We received your {{typeLabel}} and will follow up shortly.",
+      "attachments": "You attached {{count}} {{fileWord}}. We will review everything you shared.",
+      "responseTime": "We typically respond within a few hours. If you need immediate help, email us anytime at {{supportEmail}}.",
+      "fileSingular": "file",
+      "filePlural": "files",
+      "typeLabels": {
+        "bug": "Bug Report",
+        "feedback": "Feedback",
+        "feature_request": "Feature Request",
+        "other": "General Inquiry"
+      }
+    },
+    "waitlist": {
+      "confirmation": {
+        "preview": "Your access request has been received",
+        "title": "You're on the waitlist",
+        "intro": "We received your access request for {{brandName}} and added {{email}} to the waitlist.",
+        "body": "We will review your request and email you again if this address is approved for sign up. Keep using this same email for every sign-in method."
+      },
+      "approved": {
+        "preview": "Your waitlist request has been approved",
+        "title": "Your access is ready",
+        "intro": "{{email}} is now approved to create an account on {{brandName}}.",
+        "body": "Finish signing up with this same email address to activate your access.",
+        "cta": "Finish sign up",
+        "methodReminder": "Use the same approved email for email/password, Google, GitHub, or any other sign-in method."
+      }
+    },
+    "billing": {
+      "enterprise": {
+        "title": "Organization billing activated",
+        "welcome": "Welcome aboard, {{userName}}.",
+        "body": "Your organization billing tier is live on {{brandName}}. You now have expanded capacity, advanced controls, and organization-wide access.",
+        "cta": "Access Your Account",
+        "nextStepsTitle": "Next steps",
+        "nextSteps": [
+          "- Invite teammates to your organization",
+          "- Configure permissions for workspaces",
+          "- Start building workflows with the new limits"
+        ],
+        "help": "Need help getting started? Reply to this email and our team will assist you."
+      },
+      "planWelcome": {
+        "preview": "{{brandName}}: your {{planName}} tier is active",
+        "title": "{{planName}} tier activated",
+        "namedWelcome": "Welcome, {{userName}}!",
+        "welcome": "Welcome!",
+        "body": "You're all set on the {{planName}} tier for {{brandName}}. Explore your new limits and ship faster with your team.",
+        "help": "Want to discuss your tier or get personalized help getting started? Schedule a 15-minute call with our team.",
+        "settings": "Need to invite teammates, adjust usage limits, or manage billing? Visit Settings -> Subscription anytime."
+      },
+      "usage": {
+        "preview": "{{brandName}}: You're at {{percentUsed}}% of your {{planName}} monthly budget",
+        "title": "You're at {{percentUsed}}% of your budget",
+        "intro": "{{userNamePrefix}}your {{planName}} tier usage is nearing the monthly limit.",
+        "recommendation": "To avoid interruptions, consider increasing your monthly limit.",
+        "usageLine": "{{currentUsage}} / {{limit}} used",
+        "percentLine": "{{percentUsed}}% of this month's budget",
+        "cta": "Review limits",
+        "reason": "We send this once when your usage reaches the configured billing warning threshold so you have time to adjust your tier or limit."
+      },
+      "freeTier": {
+        "currentTierFallback": "your current tier",
+        "preview": "{{brandName}}: {{currentTierName}} is nearing its included usage",
+        "title": "Your included usage is almost used",
+        "greeting": "Hi {{userName}},",
+        "greetingFallback": "there",
+        "usage": "You've used {{currentUsage}} of the {{limit}} included in {{currentTierName}} ({{percentUsed}}%).",
+        "body": "Review your available billing tiers now so you can expand your usage before this month's limit interrupts new work.",
+        "recommendedTitle": "Recommended next tier",
+        "recommendedTier": "Recommended next tier: {{tierName}}",
+        "recommendedPrice": "Starts at {{price}}/month",
+        "recommendedUsage": "{{usage}} included usage each month",
+        "cta": "Review Billing Tiers",
+        "oneTime": "This is a one-time notification after your default tier crosses its upgrade threshold."
+      },
+      "paymentFailed": {
+        "title": "We were unable to process your payment.",
+        "greeting": "Hi {{userName}},",
+        "greetingFallback": "there",
+        "body": "Your {{brandName}} account has been temporarily blocked to prevent service interruptions and unexpected charges. To restore access immediately, please update your payment method.",
+        "detailsTitle": "Payment Details",
+        "amountDue": "Amount due: {{amount}}",
+        "paymentMethod": "Payment method: **** {{lastFourDigits}}",
+        "reason": "Reason: {{reason}}",
+        "cta": "Update Payment Method",
+        "nextSteps": "Your workflows and automations are currently paused. Update your payment method to restore service immediately. Stripe will automatically retry the charge once payment is updated.",
+        "help": "Common reasons for payment failures include expired cards, insufficient funds, or incorrect billing information. If you continue to experience issues, contact support.",
+        "sentLine": "Sent on {{date}}. This is a critical transactional notification."
+      }
+    },
+    "careers": {
+      "preview": "Your application to {{brandName}} has been received",
+      "title": "We received your application",
+      "greeting": "Hello {{name}},",
+      "body": "Thanks for your interest in joining the {{brandName}} team. We received your application for the {{position}} role.",
+      "review": "Our team carefully reviews every application and will get back to you within the next few weeks. If your qualifications match what we're looking for, we'll reach out to schedule an initial conversation.",
+      "explore": "In the meantime, explore our documentation at {{docsUrl}} or read the latest on our blog at {{blogUrl}}.",
+      "sentLine": "This confirmation was sent on {{dateTime}}."
+    }
   }
 }

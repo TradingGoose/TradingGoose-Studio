@@ -12,6 +12,7 @@ export const useGeneralStore = create<GeneralStore>()(
       (set, get) => {
         const store: General = {
           theme: 'system',
+          preferredLocale: 'en',
           telemetryEnabled: true,
           isLoading: false,
           error: null,

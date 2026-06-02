@@ -22069,5 +22069,207 @@
         "createdTierMissingId": "La respuesta del nivel creado no incluyó un id de nivel"
       }
     }
+  },
+  "emails": {
+    "shared": {
+      "tagline": "Sistema de flujos de análisis técnico con LLM para trading",
+      "team": "El equipo de {{brandName}}",
+      "openBrand": "Abrir {{brandName}}",
+      "expires15": "Este código vence en 15 minutos.",
+      "expires24": "Este enlace es válido durante las próximas 24 horas.",
+      "expires48": "Las invitaciones vencen en 48 horas por seguridad.",
+      "expires7": "Esta invitación vence en 7 días.",
+      "ignore": "Si no solicitaste esto, puedes ignorar este correo.",
+      "sentOn": "Enviado el {{date}}.",
+      "sentOnTo": "Enviado el {{date}} a {{email}}.",
+      "submittedOnTo": "Enviado el {{date}} a {{email}}.",
+      "approvedOnFor": "Aprobado el {{date}} para {{email}}.",
+      "sentOnFor": "Enviado el {{date}} para tu {{typeLabel}}{{emailPart}}.",
+      "emailPartFrom": " desde {{email}}"
+    },
+    "footer": {
+      "copyright": "(c) {{year}} {{brandName}}, Todos los derechos reservados",
+      "questions": "¿Preguntas? Escribe a",
+      "privacy": "Política de privacidad",
+      "terms": "Términos de servicio",
+      "unsubscribe": "Cancelar suscripción"
+    },
+    "subjects": {
+      "sign-in": "Inicia sesión en {{brandName}}",
+      "email-verification": "Verifica tu correo para {{brandName}}",
+      "forget-password": "Restablece tu contraseña de {{brandName}}",
+      "reset-password": "Restablece tu contraseña de {{brandName}}",
+      "change-email": "Verifica tu nuevo correo para {{brandName}}",
+      "chat-access": "Código de verificación para {{chatTitle}}",
+      "invitation": "Te invitaron a unirte a {{organizationName}} en {{brandName}}",
+      "batch-invitation": "Te invitaron a unirte a {{organizationName}} y a espacios de trabajo en {{brandName}}",
+      "workspace-invitation": "Te invitaron a unirte a {{workspaceName}} en {{brandName}}",
+      "help-confirmation": "Recibimos tu solicitud",
+      "enterprise-subscription": "La facturación de tu organización ya está activa en {{brandName}}",
+      "plan-welcome": "Tu nivel {{planName}} ya está activo en {{brandName}}",
+      "usage-threshold": "Te acercas a tu presupuesto mensual en {{brandName}}",
+      "free-tier-upgrade": "Tu nivel actual se acerca a su uso incluido en {{brandName}}",
+      "payment-failed": "Falló el pago de {{brandName}} - acción requerida",
+      "waitlist-confirmation": "Recibimos tu solicitud de acceso a {{brandName}}",
+      "waitlist-approved": "Tu solicitud de acceso a {{brandName}} fue aprobada",
+      "careers-confirmation": "Tu postulación a {{brandName}} - {{position}}"
+    },
+    "otp": {
+      "titles": {
+        "sign-in": "Inicia sesión en {{brandName}}",
+        "email-verification": "Verifica tu correo para {{brandName}}",
+        "forget-password": "Restablece tu contraseña de {{brandName}}",
+        "change-email": "Verifica tu nuevo correo para {{brandName}}",
+        "chat-access": "Accede a {{chatTitle}}"
+      },
+      "body": "Usa el código siguiente para continuar."
+    },
+    "resetPassword": {
+      "title": "Restablece tu contraseña",
+      "intro": "Recibimos una solicitud para restablecer la contraseña de tu cuenta de {{brandName}}.",
+      "action": "Usa el botón siguiente para elegir una nueva contraseña.",
+      "cta": "Restablecer contraseña",
+      "accountFallback": "el correo de tu cuenta",
+      "sentLine": "Enviado el {{date}} a {{account}}."
+    },
+    "invitation": {
+      "preview": "{{inviterName}} te invitó a unirte a {{organizationName}} en {{brandName}}",
+      "title": "Te invitaron a unirte a {{organizationName}}.",
+      "intro": "{{inviterName}} te invitó a colaborar en {{brandName}}.",
+      "body": "Acepta la invitación para acceder a proyectos y flujos compartidos.",
+      "cta": "Unirse ahora"
+    },
+    "batchInvitation": {
+      "preview": "Únete a {{organizationName}} en {{brandName}}",
+      "title": "Te invitaron a unirte a {{organizationName}}.",
+      "intro": "{{inviterName}} te agregó como {{roleLabel}} en {{brandName}}.",
+      "adminDescription": "Como administrador, podrás gestionar facturación, compañeros y acceso a espacios de trabajo de la organización.",
+      "memberDescription": "Como miembro, puedes colaborar en facturación compartida y aceptar invitaciones a espacios de trabajo.",
+      "workspaceAccess": "Acceso a espacios de trabajo ({{count}} {{workspaceWord}}):",
+      "workspaceLine": "- {{workspaceName}} - {{permissionLabel}}",
+      "workspaceSingular": "espacio",
+      "workspacePlural": "espacios",
+      "closing": "Al aceptar, te unirás a {{organizationName}}.",
+      "closingWithWorkspaces": "Al aceptar, te unirás a {{organizationName}} y tendrás acceso a {{count}} {{workspaceWord}}.",
+      "cta": "Aceptar invitación",
+      "roleLabels": {
+        "admin": "Administrador",
+        "member": "Miembro"
+      },
+      "permissionLabels": {
+        "admin": "Administrador (acceso completo)",
+        "write": "Editor (puede editar flujos)",
+        "read": "Lector (solo lectura)"
+      }
+    },
+    "workspaceInvitation": {
+      "preview": "Únete al espacio {{workspaceName}} en {{brandName}}",
+      "title": "Te invitaron a {{workspaceName}}",
+      "intro": "{{inviterName}} te pidió colaborar en el espacio {{workspaceName}} en {{brandName}}. Acepta para acceder a proyectos y datos compartidos.",
+      "cta": "Aceptar invitación"
+    },
+    "help": {
+      "title": "Gracias por escribirnos",
+      "preview": "{{brandName}}: recibimos tu {{typeLabel}}",
+      "intro": "Recibimos tu {{typeLabel}} y responderemos pronto.",
+      "attachments": "Adjuntaste {{count}} {{fileWord}}. Revisaremos todo lo que compartiste.",
+      "responseTime": "Normalmente respondemos en pocas horas. Si necesitas ayuda inmediata, escríbenos a {{supportEmail}}.",
+      "fileSingular": "archivo",
+      "filePlural": "archivos",
+      "typeLabels": {
+        "bug": "reporte de error",
+        "feedback": "comentario",
+        "feature_request": "solicitud de función",
+        "other": "consulta general"
+      }
+    },
+    "waitlist": {
+      "confirmation": {
+        "preview": "Recibimos tu solicitud de acceso",
+        "title": "Estás en la lista de espera",
+        "intro": "Recibimos tu solicitud de acceso a {{brandName}} y agregamos {{email}} a la lista de espera.",
+        "body": "Revisaremos tu solicitud y te enviaremos otro correo si esta dirección se aprueba para registrarse. Usa este mismo correo en todos los métodos de inicio de sesión."
+      },
+      "approved": {
+        "preview": "Tu solicitud de lista de espera fue aprobada",
+        "title": "Tu acceso está listo",
+        "intro": "{{email}} ya puede crear una cuenta en {{brandName}}.",
+        "body": "Termina el registro con esta misma dirección de correo para activar tu acceso.",
+        "cta": "Terminar registro",
+        "methodReminder": "Usa el mismo correo aprobado para email/contraseña, Google, GitHub o cualquier otro método de inicio de sesión."
+      }
+    },
+    "billing": {
+      "enterprise": {
+        "title": "Facturación de organización activada",
+        "welcome": "Bienvenido, {{userName}}.",
+        "body": "El nivel de facturación de tu organización ya está activo en {{brandName}}. Ahora tienes más capacidad, controles avanzados y acceso para toda la organización.",
+        "cta": "Acceder a tu cuenta",
+        "nextStepsTitle": "Siguientes pasos",
+        "nextSteps": [
+          "- Invita compañeros a tu organización",
+          "- Configura permisos para espacios de trabajo",
+          "- Empieza a crear flujos con los nuevos límites"
+        ],
+        "help": "¿Necesitas ayuda para empezar? Responde a este correo y nuestro equipo te asistirá."
+      },
+      "planWelcome": {
+        "preview": "{{brandName}}: tu nivel {{planName}} está activo",
+        "title": "Nivel {{planName}} activado",
+        "namedWelcome": "¡Bienvenido, {{userName}}!",
+        "welcome": "¡Bienvenido!",
+        "body": "Ya estás listo en el nivel {{planName}} de {{brandName}}. Explora tus nuevos límites y avanza más rápido con tu equipo.",
+        "help": "¿Quieres hablar sobre tu nivel o recibir ayuda personalizada? Agenda una llamada de 15 minutos con nuestro equipo.",
+        "settings": "¿Necesitas invitar compañeros, ajustar límites de uso o gestionar facturación? Visita Configuración -> Suscripción cuando quieras."
+      },
+      "usage": {
+        "preview": "{{brandName}}: estás al {{percentUsed}}% de tu presupuesto mensual de {{planName}}",
+        "title": "Estás al {{percentUsed}}% de tu presupuesto",
+        "intro": "{{userNamePrefix}}el uso de tu nivel {{planName}} se acerca al límite mensual.",
+        "recommendation": "Para evitar interrupciones, considera aumentar tu límite mensual.",
+        "usageLine": "{{currentUsage}} / {{limit}} usados",
+        "percentLine": "{{percentUsed}}% del presupuesto de este mes",
+        "cta": "Revisar límites",
+        "reason": "Enviamos este correo una vez cuando tu uso alcanza el umbral de advertencia configurado, para que tengas tiempo de ajustar tu nivel o límite."
+      },
+      "freeTier": {
+        "currentTierFallback": "tu nivel actual",
+        "preview": "{{brandName}}: {{currentTierName}} se acerca a su uso incluido",
+        "title": "Tu uso incluido está casi agotado",
+        "greeting": "Hola {{userName}},",
+        "greetingFallback": "there",
+        "usage": "Has usado {{currentUsage}} de los {{limit}} incluidos en {{currentTierName}} ({{percentUsed}}%).",
+        "body": "Revisa los niveles de facturación disponibles para ampliar tu uso antes de que el límite de este mes interrumpa nuevo trabajo.",
+        "recommendedTitle": "Siguiente nivel recomendado",
+        "recommendedTier": "Siguiente nivel recomendado: {{tierName}}",
+        "recommendedPrice": "Desde {{price}}/mes",
+        "recommendedUsage": "{{usage}} de uso incluido cada mes",
+        "cta": "Revisar niveles de facturación",
+        "oneTime": "Esta es una notificación única después de que tu nivel predeterminado cruza el umbral de actualización."
+      },
+      "paymentFailed": {
+        "title": "No pudimos procesar tu pago.",
+        "greeting": "Hola {{userName}},",
+        "greetingFallback": "there",
+        "body": "Tu cuenta de {{brandName}} fue bloqueada temporalmente para evitar interrupciones del servicio y cargos inesperados. Para restaurar el acceso de inmediato, actualiza tu método de pago.",
+        "detailsTitle": "Detalles del pago",
+        "amountDue": "Importe pendiente: {{amount}}",
+        "paymentMethod": "Método de pago: **** {{lastFourDigits}}",
+        "reason": "Motivo: {{reason}}",
+        "cta": "Actualizar método de pago",
+        "nextSteps": "Tus flujos y automatizaciones están pausados. Actualiza tu método de pago para restaurar el servicio de inmediato. Stripe reintentará el cargo automáticamente cuando el pago se actualice.",
+        "help": "Las causas comunes incluyen tarjetas vencidas, fondos insuficientes o datos de facturación incorrectos. Si el problema continúa, contacta a soporte.",
+        "sentLine": "Enviado el {{date}}. Esta es una notificación transaccional crítica."
+      }
+    },
+    "careers": {
+      "preview": "Recibimos tu postulación a {{brandName}}",
+      "title": "Recibimos tu postulación",
+      "greeting": "Hola {{name}},",
+      "body": "Gracias por tu interés en unirte al equipo de {{brandName}}. Recibimos tu postulación para el puesto {{position}}.",
+      "review": "Nuestro equipo revisa cuidadosamente cada postulación y te responderá en las próximas semanas. Si tus calificaciones coinciden con lo que buscamos, nos pondremos en contacto para agendar una primera conversación.",
+      "explore": "Mientras tanto, explora nuestra documentación en {{docsUrl}} o lee lo último en nuestro blog en {{blogUrl}}.",
+      "sentLine": "Esta confirmación se envió el {{dateTime}}."
+    }
   }
 }

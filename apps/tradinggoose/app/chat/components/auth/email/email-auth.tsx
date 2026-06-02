@@ -2,6 +2,7 @@
 
 import { type KeyboardEvent, useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
@@ -13,6 +14,7 @@ import Nav from '@/app/(landing)/components/nav/nav'
 import type { ChatMessages } from '@/i18n/message-types'
 import { getChatEmailAuthErrorMessage } from '@/app/chat/errors'
 import { formatTemplate } from '@/i18n/client-messages'
+import { type LocaleCode } from '@/i18n/utils'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
 
@@ -31,6 +33,7 @@ export default function EmailAuth({
   onAuthSuccess,
   copy,
 }: EmailAuthProps) {
+  const locale = useLocale() as LocaleCode
   const [email, setEmail] = useState('')
   const [authError, setAuthError] = useState<string | null>(null)
   const [isSendingOtp, setIsSendingOtp] = useState(false)
@@ -104,7 +107,7 @@ export default function EmailAuth({
           'Content-Type': 'application/json',
           'X-Requested-With': 'XMLHttpRequest',
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, locale }),
       })
 
       if (!response.ok) {
@@ -174,7 +177,7 @@ export default function EmailAuth({
           'Content-Type': 'application/json',
           'X-Requested-With': 'XMLHttpRequest',
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, locale }),
       })
 
       if (!response.ok) {

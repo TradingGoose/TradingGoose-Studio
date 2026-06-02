@@ -4,6 +4,12 @@ import { baseStyles } from '@/components/emails/base-styles'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { isHosted } from '@/lib/environment'
 import { getBaseUrl } from '@/lib/urls/utils'
+import {
+  type EmailLocale,
+  emailText,
+  getEmailCopy,
+  normalizeEmailTemplateLocale,
+} from '@/components/emails/email-copy'
 
 interface UnsubscribeOptions {
   unsubscribeToken?: string
@@ -13,10 +19,14 @@ interface UnsubscribeOptions {
 interface EmailFooterProps {
   baseUrl?: string
   unsubscribe?: UnsubscribeOptions
+  locale?: EmailLocale
 }
 
-export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe }: EmailFooterProps) => {
+export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe, locale }: EmailFooterProps) => {
+  const resolvedLocale = normalizeEmailTemplateLocale(locale)
+  const copy = getEmailCopy(resolvedLocale)
   const brand = getBrandConfig()
+  const year = new Date().getFullYear()
 
   return (
     <Container style={baseStyles.footer}>
@@ -65,9 +75,9 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe }: EmailFooter
                     color: '#7c8299',
                   }}
                 >
-                  (c) {new Date().getFullYear()} {brand.name}, All Rights Reserved
+                  {emailText(copy.footer.copyright, { year, brandName: brand.name })}
                   <br />
-                  Questions? Email{' '}
+                  {copy.footer.questions}{' '}
                   <a
                     href={`mailto:${brand.supportEmail}`}
                     style={{
@@ -110,7 +120,7 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe }: EmailFooter
                             }}
                             rel='noopener noreferrer'
                           >
-                            Privacy Policy
+                            {copy.footer.privacy}
                           </a>{' '}
                           |{' '}
                           <a
@@ -123,7 +133,7 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe }: EmailFooter
                             }}
                             rel='noopener noreferrer'
                           >
-                            Terms of Service
+                            {copy.footer.terms}
                           </a>{' '}
                           |{' '}
                           <a
@@ -140,7 +150,7 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe }: EmailFooter
                             }}
                             rel='noopener noreferrer'
                           >
-                            Unsubscribe
+                            {copy.footer.unsubscribe}
                           </a>
                         </p>
                       </td>

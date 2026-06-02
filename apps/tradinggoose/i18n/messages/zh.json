@@ -22069,5 +22069,207 @@
         "createdTierMissingId": "创建层级的响应未包含层级 id"
       }
     }
+  },
+  "emails": {
+    "shared": {
+      "tagline": "LLM 技术交易分析工作流系统",
+      "team": "{{brandName}} 团队",
+      "openBrand": "打开 {{brandName}}",
+      "expires15": "此代码将在 15 分钟后过期。",
+      "expires24": "此链接在接下来的 24 小时内有效。",
+      "expires48": "出于安全考虑，邀请将在 48 小时后过期。",
+      "expires7": "此邀请将在 7 天后过期。",
+      "ignore": "如果这不是你发起的请求，可以忽略此邮件。",
+      "sentOn": "发送时间：{{date}}。",
+      "sentOnTo": "发送时间：{{date}}，收件人：{{email}}。",
+      "submittedOnTo": "提交时间：{{date}}，邮箱：{{email}}。",
+      "approvedOnFor": "批准时间：{{date}}，邮箱：{{email}}。",
+      "sentOnFor": "发送时间：{{date}}，关于你的{{typeLabel}}{{emailPart}}。",
+      "emailPartFrom": "，来自 {{email}}"
+    },
+    "footer": {
+      "copyright": "(c) {{year}} {{brandName}}，保留所有权利",
+      "questions": "有问题？发送邮件至",
+      "privacy": "隐私政策",
+      "terms": "服务条款",
+      "unsubscribe": "退订"
+    },
+    "subjects": {
+      "sign-in": "登录 {{brandName}}",
+      "email-verification": "验证你的 {{brandName}} 邮箱",
+      "forget-password": "重置你的 {{brandName}} 密码",
+      "reset-password": "重置你的 {{brandName}} 密码",
+      "change-email": "验证你的新 {{brandName}} 邮箱",
+      "chat-access": "{{chatTitle}} 验证码",
+      "invitation": "你被邀请加入 {{brandName}} 上的 {{organizationName}}",
+      "batch-invitation": "你被邀请加入 {{brandName}} 上的 {{organizationName}} 和工作区",
+      "workspace-invitation": "你被邀请加入 {{brandName}} 上的 {{workspaceName}}",
+      "help-confirmation": "我们已收到你的请求",
+      "enterprise-subscription": "你的组织账单已在 {{brandName}} 激活",
+      "plan-welcome": "你的 {{planName}} 层级已在 {{brandName}} 激活",
+      "usage-threshold": "你接近 {{brandName}} 的月度预算",
+      "free-tier-upgrade": "你当前层级接近包含用量上限",
+      "payment-failed": "{{brandName}} 付款失败 - 需要处理",
+      "waitlist-confirmation": "我们已收到你的 {{brandName}} 访问申请",
+      "waitlist-approved": "你的 {{brandName}} 访问申请已获批准",
+      "careers-confirmation": "你对 {{brandName}} 的申请 - {{position}}"
+    },
+    "otp": {
+      "titles": {
+        "sign-in": "登录 {{brandName}}",
+        "email-verification": "验证你的 {{brandName}} 邮箱",
+        "forget-password": "重置你的 {{brandName}} 密码",
+        "change-email": "验证你的新 {{brandName}} 邮箱",
+        "chat-access": "访问 {{chatTitle}}"
+      },
+      "body": "使用下面的代码继续。"
+    },
+    "resetPassword": {
+      "title": "重置你的密码",
+      "intro": "我们收到了重置你的 {{brandName}} 账户密码的请求。",
+      "action": "使用下面的按钮设置新密码。",
+      "cta": "重置密码",
+      "accountFallback": "你的账户邮箱",
+      "sentLine": "发送时间：{{date}}，账户：{{account}}。"
+    },
+    "invitation": {
+      "preview": "{{inviterName}} 邀请你加入 {{brandName}} 上的 {{organizationName}}",
+      "title": "你被邀请加入 {{organizationName}}。",
+      "intro": "{{inviterName}} 邀请你在 {{brandName}} 上协作。",
+      "body": "接受邀请即可访问共享项目和工作流。",
+      "cta": "立即加入"
+    },
+    "batchInvitation": {
+      "preview": "加入 {{brandName}} 上的 {{organizationName}}",
+      "title": "你被邀请加入 {{organizationName}}。",
+      "intro": "{{inviterName}} 将你添加为 {{brandName}} 上的 {{roleLabel}}。",
+      "adminDescription": "作为管理员，你可以管理组织的账单、成员和工作区访问权限。",
+      "memberDescription": "作为成员，你可以参与共享账单协作并接受工作区邀请。",
+      "workspaceAccess": "工作区访问权限（{{count}} 个{{workspaceWord}}）：",
+      "workspaceLine": "- {{workspaceName}} - {{permissionLabel}}",
+      "workspaceSingular": "工作区",
+      "workspacePlural": "工作区",
+      "closing": "接受后，你将加入 {{organizationName}}。",
+      "closingWithWorkspaces": "接受后，你将加入 {{organizationName}} 并获得 {{count}} 个{{workspaceWord}}的访问权限。",
+      "cta": "接受邀请",
+      "roleLabels": {
+        "admin": "管理员",
+        "member": "成员"
+      },
+      "permissionLabels": {
+        "admin": "管理员（完整访问）",
+        "write": "编辑者（可编辑工作流）",
+        "read": "查看者（只读访问）"
+      }
+    },
+    "workspaceInvitation": {
+      "preview": "加入 {{brandName}} 上的 {{workspaceName}} 工作区",
+      "title": "你被邀请加入 {{workspaceName}}",
+      "intro": "{{inviterName}} 邀请你在 {{brandName}} 的 {{workspaceName}} 工作区协作。接受后即可访问共享项目和数据。",
+      "cta": "接受邀请"
+    },
+    "help": {
+      "title": "感谢你的反馈",
+      "preview": "{{brandName}}：我们已收到你的{{typeLabel}}",
+      "intro": "我们已收到你的{{typeLabel}}，会尽快跟进。",
+      "attachments": "你附加了 {{count}} 个{{fileWord}}。我们会查看你分享的内容。",
+      "responseTime": "我们通常会在几小时内回复。如需即时帮助，请发送邮件至 {{supportEmail}}。",
+      "fileSingular": "文件",
+      "filePlural": "文件",
+      "typeLabels": {
+        "bug": "错误报告",
+        "feedback": "反馈",
+        "feature_request": "功能请求",
+        "other": "一般咨询"
+      }
+    },
+    "waitlist": {
+      "confirmation": {
+        "preview": "我们已收到你的访问申请",
+        "title": "你已加入等待名单",
+        "intro": "我们已收到你对 {{brandName}} 的访问申请，并将 {{email}} 加入等待名单。",
+        "body": "我们会审核你的申请。如果此邮箱获准注册，我们会再次发送邮件。请在所有登录方式中使用同一个邮箱。"
+      },
+      "approved": {
+        "preview": "你的等待名单申请已获批准",
+        "title": "你的访问权限已准备好",
+        "intro": "{{email}} 现在可以在 {{brandName}} 创建账户。",
+        "body": "请使用同一个邮箱完成注册以激活访问权限。",
+        "cta": "完成注册",
+        "methodReminder": "请为邮箱/密码、Google、GitHub 或任何其他登录方式使用同一个已批准邮箱。"
+      }
+    },
+    "billing": {
+      "enterprise": {
+        "title": "组织账单已激活",
+        "welcome": "欢迎，{{userName}}。",
+        "body": "你的组织账单层级已在 {{brandName}} 生效。现在你拥有更高容量、高级控制和组织范围访问权限。",
+        "cta": "访问你的账户",
+        "nextStepsTitle": "后续步骤",
+        "nextSteps": [
+          "- 邀请团队成员加入组织",
+          "- 配置工作区权限",
+          "- 使用新限制开始构建工作流"
+        ],
+        "help": "需要入门帮助？回复此邮件，我们的团队会协助你。"
+      },
+      "planWelcome": {
+        "preview": "{{brandName}}：你的 {{planName}} 层级已激活",
+        "title": "{{planName}} 层级已激活",
+        "namedWelcome": "欢迎，{{userName}}！",
+        "welcome": "欢迎！",
+        "body": "你已启用 {{brandName}} 的 {{planName}} 层级。探索新的限制，与团队更快交付。",
+        "help": "想讨论你的层级或获取个性化入门帮助？可以与我们的团队预约 15 分钟通话。",
+        "settings": "需要邀请队友、调整用量限制或管理账单？可随时访问设置 -> 订阅。"
+      },
+      "usage": {
+        "preview": "{{brandName}}：你已使用 {{planName}} 月度预算的 {{percentUsed}}%",
+        "title": "你已使用预算的 {{percentUsed}}%",
+        "intro": "{{userNamePrefix}}你的 {{planName}} 层级用量接近月度限制。",
+        "recommendation": "为避免中断，请考虑提高月度限制。",
+        "usageLine": "已使用 {{currentUsage}} / {{limit}}",
+        "percentLine": "本月预算的 {{percentUsed}}%",
+        "cta": "查看限制",
+        "reason": "当你的用量达到配置的账单警告阈值时，我们只发送一次此邮件，让你有时间调整层级或限制。"
+      },
+      "freeTier": {
+        "currentTierFallback": "你当前的层级",
+        "preview": "{{brandName}}：{{currentTierName}} 接近包含用量上限",
+        "title": "你的包含用量即将用完",
+        "greeting": "你好 {{userName}}，",
+        "greetingFallback": "there",
+        "usage": "你已使用 {{currentUsage}}，包含额度为 {{limit}}，当前层级为 {{currentTierName}}（{{percentUsed}}%）。",
+        "body": "请查看可用账单层级，在本月限制影响新工作之前扩展你的用量。",
+        "recommendedTitle": "推荐的下一层级",
+        "recommendedTier": "推荐的下一层级：{{tierName}}",
+        "recommendedPrice": "{{price}}/月起",
+        "recommendedUsage": "每月包含 {{usage}} 用量",
+        "cta": "查看账单层级",
+        "oneTime": "这是默认层级超过升级阈值后的单次通知。"
+      },
+      "paymentFailed": {
+        "title": "我们无法处理你的付款。",
+        "greeting": "你好 {{userName}}，",
+        "greetingFallback": "there",
+        "body": "你的 {{brandName}} 账户已暂时阻止，以避免服务中断和意外费用。请更新付款方式以立即恢复访问。",
+        "detailsTitle": "付款详情",
+        "amountDue": "应付金额：{{amount}}",
+        "paymentMethod": "付款方式：**** {{lastFourDigits}}",
+        "reason": "原因：{{reason}}",
+        "cta": "更新付款方式",
+        "nextSteps": "你的工作流和自动化当前已暂停。更新付款方式即可立即恢复服务。付款更新后，Stripe 会自动重试扣款。",
+        "help": "常见失败原因包括卡片过期、余额不足或账单信息错误。如果问题持续，请联系支持。",
+        "sentLine": "发送时间：{{date}}。这是一条重要交易通知。"
+      }
+    },
+    "careers": {
+      "preview": "我们已收到你对 {{brandName}} 的申请",
+      "title": "我们已收到你的申请",
+      "greeting": "你好 {{name}}，",
+      "body": "感谢你有兴趣加入 {{brandName}} 团队。我们已收到你对 {{position}} 职位的申请。",
+      "review": "我们的团队会认真审核每一份申请，并在接下来的几周内回复你。如果你的资历符合我们的需求，我们会联系你安排初次沟通。",
+      "explore": "与此同时，你可以查看我们的文档 {{docsUrl}}，或在博客 {{blogUrl}} 阅读最新内容。",
+      "sentLine": "此确认邮件发送时间：{{dateTime}}。"
+    }
   }
 }

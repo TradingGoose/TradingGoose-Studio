@@ -94,6 +94,11 @@ vi.mock('@/lib/email/mailer', () => ({
   sendEmail: (...args: unknown[]) => mockSendEmail(...args),
 }))
 
+vi.mock('@/lib/email/locale', () => ({
+  persistAnonymousEmailLocale: vi.fn().mockResolvedValue('en'),
+  resolveEmailLocale: vi.fn().mockResolvedValue('en'),
+}))
+
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => mockLogger,
 }))

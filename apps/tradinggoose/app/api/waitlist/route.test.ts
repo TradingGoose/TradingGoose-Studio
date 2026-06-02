@@ -55,7 +55,7 @@ describe('waitlist route', () => {
       email: 'goose@example.com',
       status: 'pending',
     })
-    expect(mockAddToWaitlist).toHaveBeenCalledWith('goose@example.com')
+    expect(mockAddToWaitlist).toHaveBeenCalledWith('goose@example.com', undefined)
   })
 
   it('rejects submissions when registration is open', async () => {
