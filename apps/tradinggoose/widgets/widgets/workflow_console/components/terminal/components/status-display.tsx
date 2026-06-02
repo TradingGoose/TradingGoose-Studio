@@ -1,7 +1,7 @@
 'use client'
 
 import { Badge } from '@/components/ui/badge'
-import { useWorkflowConsoleCopy } from '../../../copy'
+import { useWorkflowConsoleMessages } from '@/i18n/workspace-widget-hooks'
 
 interface StatusDisplayProps {
   isRunning: boolean
@@ -14,7 +14,7 @@ export function StatusDisplay({
   isCanceled,
   formattedDuration,
 }: StatusDisplayProps) {
-  const copy = useWorkflowConsoleCopy()
+  const copy = useWorkflowConsoleMessages()
   if (isRunning) {
     return (
       <Badge className='bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'>

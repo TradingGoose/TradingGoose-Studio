@@ -6,7 +6,7 @@ import { motion } from 'framer-motion'
 import { AlertCircle, Paperclip, Send, Square, X } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { formatTemplate } from '@/i18n/client-messages'
-import type { ChatCopy } from '@/app/chat/copy'
+import type { ChatMessages } from '@/i18n/message-types'
 import { VoiceInput } from '@/app/chat/components/input/voice-input'
 
 const MAX_TEXTAREA_HEIGHT = 120 // Max height in pixels (e.g., for about 3-4 lines)
@@ -27,7 +27,7 @@ export const ChatInput: React.FC<{
   onStopStreaming?: () => void
   onVoiceStart?: () => void
   voiceOnly?: boolean
-  copy: ChatCopy
+  copy: ChatMessages
 }> = ({ onSubmit, isStreaming = false, onStopStreaming, onVoiceStart, voiceOnly = false, copy }) => {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)

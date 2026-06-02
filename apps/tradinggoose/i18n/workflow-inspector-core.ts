@@ -12,7 +12,10 @@ import { getPublicCopy, type PublicCopy } from './public-copy'
 import { formatTemplate } from './template'
 import { locales } from './utils'
 
-export type WorkflowInspectorCopy = PublicCopy['workspace']['widgets']['workflowInspector']
+export type WorkflowInspectorCopy = Pick<
+  PublicCopy['workspace']['widgets'],
+  'blockEditor' | 'workflowEditor' | 'workflowLabels'
+>
 export type WorkflowToolbarCopy = PublicCopy['workspace']['widgets']['workflowToolbar']
 export type WorkflowLabelCopy = WorkflowInspectorCopy['workflowLabels']
 export type BlockEditorCopy = WorkflowInspectorCopy['blockEditor']

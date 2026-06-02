@@ -1,10 +1,13 @@
 import { getRequestConfig } from 'next-intl/server'
+import { hasLocale } from 'next-intl'
 import { getPublicCopy } from './public-copy'
-import { defaultLocale, isLocaleCode } from './utils'
+import { routing } from './routing'
 
 export default getRequestConfig(async ({ requestLocale }) => {
   const requestedLocale = await requestLocale
-  const locale = requestedLocale && isLocaleCode(requestedLocale) ? requestedLocale : defaultLocale
+  const locale = hasLocale(routing.locales, requestedLocale)
+    ? requestedLocale
+    : routing.defaultLocale
 
   return {
     locale,

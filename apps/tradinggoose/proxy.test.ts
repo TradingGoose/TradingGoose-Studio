@@ -17,6 +17,23 @@ vi.mock('./lib/security/csp', () => ({
   generateRuntimeCSP: vi.fn(async () => "default-src 'self'"),
 }))
 
+vi.mock('next-intl/middleware', async () => {
+  const { NextResponse } = await vi.importActual<typeof import('next/server')>('next/server')
+
+  return {
+    default: () => (request: { nextUrl: URL; url: string }) => {
+      const url = new URL(request.url)
+
+      if (url.pathname === '/en' || url.pathname.startsWith('/en/')) {
+        url.pathname = url.pathname === '/en' ? '/' : url.pathname.slice('/en'.length)
+        return NextResponse.redirect(url)
+      }
+
+      return NextResponse.next()
+    },
+  }
+})
+
 describe('proxy auth routing', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -105,7 +122,7 @@ describe('proxy auth routing', () => {
     expect(response.headers.get('location')).toBe('http://localhost:3000/login')
   })
 
-  it('rewrites localized landing routes to the canonical internal page', async () => {
+  it('lets next-intl handle localized landing routes without stripping the locale', async () => {
     mockGetSessionCookie.mockReturnValue(undefined)
 
     const { proxy } = await import('./proxy')
@@ -119,35 +136,25 @@ describe('proxy auth routing', () => {
 
     expect(response.status).toBe(200)
     expect(response.headers.get('location')).toBeNull()
-    expect(response.headers.get('x-middleware-rewrite')).toBe('http://localhost:3000/')
+    expect(response.headers.get('x-middleware-rewrite')).not.toBe('http://localhost:3000/')
   })
 
-  it('rewrites localized workspace invitation API requests to the unlocalized API path', async () => {
+  it('does not rewrite localized API-shaped paths to canonical API routes', async () => {
     mockGetSessionCookie.mockReturnValue('session-cookie')
 
     const { proxy } = await import('./proxy')
     const response = await proxy(
-      new NextRequest('http://localhost:3000/es/api/workspaces/invitations/invitation-1?token=abc')
+      new NextRequest('http://localhost:3000/es/api/workspaces/invitations/invitation-1?token=abc', {
+        headers: {
+          'user-agent': 'vitest',
+        },
+      })
     )
 
     expect(response.status).toBe(200)
-    expect(response.headers.get('x-middleware-rewrite')).toBe(
+    expect(response.headers.get('x-middleware-rewrite')).not.toBe(
       'http://localhost:3000/api/workspaces/invitations/invitation-1?token=abc'
     )
-  })
-
-  it('redirects unauthenticated localized invitation accept API requests to invite UI', async () => {
-    mockGetSessionCookie.mockReturnValue(undefined)
-
-    const { proxy } = await import('./proxy')
-    const response = await proxy(
-      new NextRequest(
-        'http://localhost:3000/zh/api/workspaces/invitations/invitation-1/accept?token=abc'
-      )
-    )
-
-    expect(response.status).toBe(307)
-    expect(response.headers.get('location')).toBe('http://localhost:3000/zh/invite/abc?token=abc')
   })
 
   it('exempts canonical webhook trigger API requests from suspicious user-agent filtering', async () => {
@@ -166,7 +173,7 @@ describe('proxy auth routing', () => {
     expect(response.headers.get('x-middleware-rewrite')).toBeNull()
   })
 
-  it('exempts localized webhook trigger API requests before rewriting to the canonical API path', async () => {
+  it('does not exempt localized API-shaped webhook paths from suspicious user-agent filtering', async () => {
     mockGetSessionCookie.mockReturnValue(undefined)
 
     const { proxy } = await import('./proxy')
@@ -178,10 +185,8 @@ describe('proxy auth routing', () => {
       })
     )
 
-    expect(response.status).toBe(200)
-    expect(response.headers.get('x-middleware-rewrite')).toBe(
-      'http://localhost:3000/api/webhooks/trigger/webhook-1'
-    )
+    expect(response.status).toBe(403)
+    expect(response.headers.get('x-middleware-rewrite')).toBeNull()
   })
 
   it('rewrites localized markdown requests with the normalized content path', async () => {

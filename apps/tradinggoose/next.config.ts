@@ -12,8 +12,8 @@ const MONACO_TRACE_FILES = MONACO_TRACE_ROOTS.flatMap((root) => [
   `${root}/.bun/monaco-editor@*/node_modules/monaco-editor/esm/**/*.js.map`,
 ])
 const PUBLIC_LOCALE_ROUTE_PREFIX = '(?:es|zh)'
-const LOCALIZED_API_ROUTE_SOURCE = `(?:api|${PUBLIC_LOCALE_ROUTE_PREFIX}/api)(?:/.*)?`
-const LOCALIZED_API_ROUTE_LOOKAHEAD = `${LOCALIZED_API_ROUTE_SOURCE}$`
+const API_ROUTE_LOOKAHEAD = 'api(?:/.*)?$'
+const INGEST_ROUTE_LOOKAHEAD = 'ingest(?:/.*)?$'
 const LOCALIZED_APP_ROUTE_SOURCE = `(?:${PUBLIC_LOCALE_ROUTE_PREFIX}/)?(?:w|workspace|chat)(?:/.*)?`
 const LOCALIZED_APP_ROUTE_LOOKAHEAD = `${LOCALIZED_APP_ROUTE_SOURCE}$`
 const API_ROUTE_PARAM_EXCLUDING_WORKFLOW_EXECUTION = ':path((?!workflows/[^/]+/execute$).*)'
@@ -190,24 +190,14 @@ const nextConfig: NextConfig = {
         source: `/api/${API_ROUTE_PARAM_EXCLUDING_WORKFLOW_EXECUTION}`,
         headers: apiRouteHeaders,
       },
-      {
-        // Locale-prefixed API routes use the same CORS headers as the canonical API path,
-        // excluding workflow execution which has a dedicated policy
-        source: `/:locale(es|zh)/api/${API_ROUTE_PARAM_EXCLUDING_WORKFLOW_EXECUTION}`,
-        headers: apiRouteHeaders,
-      },
       // For workflow execution API endpoints
       {
         source: '/api/workflows/:id/execute',
         headers: workflowExecutionHeaders,
       },
       {
-        source: '/:locale(es|zh)/api/workflows/:id/execute',
-        headers: workflowExecutionHeaders,
-      },
-      {
         // Exclude Vercel internal resources and static assets from strict COEP, Google Drive Picker to prevent 'refused to connect' issue
-        source: `/((?!_next|_vercel|favicon.ico|${LOCALIZED_API_ROUTE_LOOKAHEAD}|${LOCALIZED_APP_ROUTE_LOOKAHEAD}).*)`,
+        source: `/((?!_next|_vercel|favicon.ico|${API_ROUTE_LOOKAHEAD}|${INGEST_ROUTE_LOOKAHEAD}|${LOCALIZED_APP_ROUTE_LOOKAHEAD}).*)`,
         headers: [
           {
             key: 'Cross-Origin-Embedder-Policy',
@@ -235,10 +225,6 @@ const nextConfig: NextConfig = {
         headers: permissiveRouteHeaders,
       },
       {
-        source: '/:locale(es|zh)/api/tools/drive/:path*',
-        headers: permissiveRouteHeaders,
-      },
-      {
         // Vercel static resources use permissive cross-origin policies
         source: '/_next/:path*',
         headers: permissiveRouteHeaders,
@@ -257,10 +243,10 @@ const nextConfig: NextConfig = {
           },
         ],
       },
-      // Apply security headers to routes not handled by middleware runtime CSP
-      // Middleware handles: /, /workspace/*, /chat/*
+      // Apply security headers to routes not handled by middleware runtime CSP.
+      // Proxy runtime CSP handles home, workspace, and chat routes after locale normalization.
       {
-        source: `/((?!${LOCALIZED_API_ROUTE_LOOKAHEAD}|${LOCALIZED_APP_ROUTE_LOOKAHEAD}).*)`,
+        source: `/((?!${API_ROUTE_LOOKAHEAD}|${INGEST_ROUTE_LOOKAHEAD}|${LOCALIZED_APP_ROUTE_LOOKAHEAD}).*)`,
         headers: [
           {
             key: 'X-Content-Type-Options',
@@ -280,13 +266,6 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     const redirects = []
-
-    // Redirect /building to /blog (legacy URL support)
-    redirects.push({
-      source: '/building/:path*',
-      destination: '/blog/:path*',
-      permanent: true,
-    })
 
     // Only enable domain redirects for the hosted version
     if (isHosted) {

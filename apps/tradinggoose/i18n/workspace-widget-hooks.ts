@@ -3,12 +3,15 @@
 import { useAppMessages } from './client-messages'
 import type { WorkspaceWidgetsMessages } from './message-types'
 
-export type WorkflowInspectorMessages = WorkspaceWidgetsMessages['workflowInspector']
+export type WorkflowInspectorMessages = Pick<
+  WorkspaceWidgetsMessages,
+  'blockEditor' | 'workflowEditor' | 'workflowLabels'
+>
 export type WorkflowToolbarMessages = WorkspaceWidgetsMessages['workflowToolbar']
 export type WorkflowEditorMessages = WorkspaceWidgetsMessages['workflowEditor']
 export type WorkspaceBlockEditorMessages = WorkspaceWidgetsMessages['blockEditor']
-export type WorkflowLabelMessages = WorkflowInspectorMessages['workflowLabels']
-export type BlockEditorMessages = WorkflowInspectorMessages['blockEditor']
+export type WorkflowLabelMessages = WorkspaceWidgetsMessages['workflowLabels']
+export type BlockEditorMessages = WorkspaceWidgetsMessages['blockEditor']
 export type WorkflowDropdownMessages = WorkspaceWidgetsMessages['workflowDropdown']
 export type SelectorMessages = WorkspaceWidgetsMessages['selector']
 export type DeploymentMessages = WorkspaceWidgetsMessages['deployment']
@@ -33,7 +36,7 @@ export function useWorkspaceWidgetsMessages(): WorkspaceWidgetsMessages {
 }
 
 export function useWorkflowInspectorMessages(): WorkflowInspectorMessages {
-  return useWorkspaceWidgetsMessages().workflowInspector
+  return useWorkspaceWidgetsMessages()
 }
 
 export function useWorkflowToolbarMessages(): WorkflowToolbarMessages {
@@ -49,11 +52,11 @@ export function useWorkspaceBlockEditorMessages(): WorkspaceBlockEditorMessages 
 }
 
 export function useWorkflowLabelMessages(): WorkflowLabelMessages {
-  return useWorkflowInspectorMessages().workflowLabels
+  return useWorkspaceWidgetsMessages().workflowLabels
 }
 
 export function useBlockEditorMessages(): BlockEditorMessages {
-  return useWorkflowInspectorMessages().blockEditor
+  return useWorkspaceWidgetsMessages().blockEditor
 }
 
 export function useWorkflowDropdownMessages(): WorkflowDropdownMessages {

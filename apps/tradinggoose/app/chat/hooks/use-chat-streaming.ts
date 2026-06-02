@@ -5,7 +5,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import type { ChatMessage } from '@/app/chat/components/message/message'
 import { CHAT_ERROR_CODES } from '@/app/chat/constants'
 import { getChatErrorMessage } from '@/app/chat/errors'
-import type { ChatCopy } from '@/app/chat/copy'
+import type { ChatMessages } from '@/i18n/message-types'
 
 const logger = createLogger('UseChatStreaming')
 
@@ -25,7 +25,7 @@ export interface StreamingOptions {
   audioStreamHandler?: (text: string) => Promise<void>
 }
 
-export function useChatStreaming(chatCopy: ChatCopy) {
+export function useChatStreaming(chatCopy: ChatMessages) {
   const [isStreamingResponse, setIsStreamingResponse] = useState(false)
   const abortControllerRef = useRef<AbortController | null>(null)
   const accumulatedTextRef = useRef<string>('')

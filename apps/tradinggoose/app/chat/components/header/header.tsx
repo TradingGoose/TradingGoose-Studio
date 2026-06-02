@@ -4,7 +4,7 @@ import Image from 'next/image'
 import { GithubIcon } from '@/components/icons/icons'
 import { Link } from '@/i18n/navigation'
 import { formatTemplate } from '@/i18n/client-messages'
-import type { ChatCopy } from '@/app/chat/copy'
+import type { ChatMessages } from '@/i18n/message-types'
 import { inter } from '@/app/fonts/inter'
 
 interface ChatHeaderProps {
@@ -18,7 +18,7 @@ interface ChatHeaderProps {
     }
   } | null
   starCount: string
-  copy: ChatCopy
+  copy: ChatMessages
 }
 
 export function ChatHeader({ chatConfig, starCount, copy }: ChatHeaderProps) {

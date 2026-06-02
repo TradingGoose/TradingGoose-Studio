@@ -24,7 +24,7 @@ import { getBaseUrl } from '@/lib/urls/utils'
 import { useProfilePictureUpload } from '@/global-navbar/settings-modal/components/hooks/use-profile-picture-upload'
 import { useGeneralSettings } from '@/hooks/queries/general-settings'
 import { useGeneralStore } from '@/stores/settings/general/store'
-import { buildLocaleRequestHeaders, localizeHref, type LocaleCode } from '@/i18n/utils'
+import { localizeHref, type LocaleCode } from '@/i18n/utils'
 const logger = createLogger('AccountSettings')
 const DEFAULT_AVATAR_SRC = '/profile/avatar.png'
 
@@ -91,7 +91,7 @@ export function AccountSettings() {
     try {
       const response = await fetch('/api/users/me/profile', {
         method: 'PATCH',
-        headers: buildLocaleRequestHeaders(locale, { 'Content-Type': 'application/json' }),
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: imageUrl }),
       })
 
@@ -153,9 +153,7 @@ export function AccountSettings() {
       if (!session?.user) return
 
       try {
-        const response = await fetch('/api/users/me/profile', {
-          headers: buildLocaleRequestHeaders(locale),
-        })
+        const response = await fetch('/api/users/me/profile')
         if (!response.ok) {
           throw new Error('Failed to fetch profile')
         }
@@ -191,7 +189,7 @@ export function AccountSettings() {
     }
 
     void fetchProfile()
-  }, [locale, session?.user, userId])
+  }, [session?.user, userId])
 
   const startEditingName = () => {
     setEditingNameValue(name)
@@ -227,7 +225,7 @@ export function AccountSettings() {
     try {
       const response = await fetch('/api/users/me/profile', {
         method: 'PATCH',
-        headers: buildLocaleRequestHeaders(locale, { 'Content-Type': 'application/json' }),
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: trimmedName }),
       })
 
@@ -269,7 +267,7 @@ export function AccountSettings() {
     try {
       const response = await fetch('/api/auth/forget-password', {
         method: 'POST',
-        headers: buildLocaleRequestHeaders(locale, { 'Content-Type': 'application/json' }),
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: targetEmail,
           redirectTo: `${getBaseUrl()}${localizeHref(locale, '/reset-password')}`,

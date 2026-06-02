@@ -3,7 +3,6 @@ import type { ToolParameterConfig } from '@/tools/params'
 import type { TriggerConfig } from '@/triggers/types'
 import { getPublicCopy } from './public-copy'
 import type { LocaleCode } from './utils'
-import { getWorkflowInspectorCopy } from './workflow-inspector'
 import {
   formatWorkflowTemplate as formatWorkflowTemplateWithCopy,
   getActionBarCopyFromInspector,
@@ -31,18 +30,19 @@ import {
   resolveWorkflowDisplayValueWithCopy,
   translateWorkflowLabelWithCopy,
   translateWorkflowToolbarLabelWithCopy,
+  type WorkflowInspectorCopy,
   type WorkflowOption,
 } from './workflow-inspector-core'
 
 export type { LocaleCode } from './utils'
 export type { WorkflowOption } from './workflow-inspector-core'
 
-function getInspectorCopy(locale: LocaleCode) {
-  return getWorkflowInspectorCopy(locale)
+export function getWorkflowInspectorCopy(locale: LocaleCode): WorkflowInspectorCopy {
+  return getPublicCopy(locale).workspace.widgets
 }
 
 export function getBlockEditorCopy(locale: LocaleCode) {
-  return getBlockEditorCopyFromInspector(getInspectorCopy(locale))
+  return getBlockEditorCopyFromInspector(getWorkflowInspectorCopy(locale))
 }
 
 export function getTriggerSubBlockCopy(
@@ -50,7 +50,7 @@ export function getTriggerSubBlockCopy(
   triggerId: string,
   subBlockId: string
 ) {
-  return getTriggerSubBlockCopyFromInspector(getInspectorCopy(locale), triggerId, subBlockId)
+  return getTriggerSubBlockCopyFromInspector(getWorkflowInspectorCopy(locale), triggerId, subBlockId)
 }
 
 export function localizeWorkflowOptions(
@@ -61,7 +61,7 @@ export function localizeWorkflowOptions(
   triggerId?: string
 ) {
   return localizeWorkflowOptionsWithCopy(
-    getInspectorCopy(locale),
+    getWorkflowInspectorCopy(locale),
     options,
     blockType,
     subBlockId,
@@ -74,35 +74,35 @@ export function getWorkflowToolbarCopy(locale: LocaleCode) {
 }
 
 export function getWorkflowLabelCopy(locale: LocaleCode) {
-  return getWorkflowLabelCopyFromInspector(getInspectorCopy(locale))
+  return getWorkflowLabelCopyFromInspector(getWorkflowInspectorCopy(locale))
 }
 
 export function getToolInputCopy(locale: LocaleCode) {
-  return getToolInputCopyFromInspector(getInspectorCopy(locale))
+  return getToolInputCopyFromInspector(getWorkflowInspectorCopy(locale))
 }
 
 export function getActionBarCopy(locale: LocaleCode) {
-  return getActionBarCopyFromInspector(getInspectorCopy(locale))
+  return getActionBarCopyFromInspector(getWorkflowInspectorCopy(locale))
 }
 
 export function getWorkflowEditorCopy(locale: LocaleCode) {
-  return getWorkflowEditorCopyFromInspector(getInspectorCopy(locale))
+  return getWorkflowEditorCopyFromInspector(getWorkflowInspectorCopy(locale))
 }
 
 export function getMcpToolSelectorCopy(locale: LocaleCode) {
-  return getMcpToolSelectorCopyFromInspector(getInspectorCopy(locale))
+  return getMcpToolSelectorCopyFromInspector(getWorkflowInspectorCopy(locale))
 }
 
 export function getToolbarDisabledReason(locale: LocaleCode, isOfflineMode: boolean): string {
-  return getToolbarDisabledReasonFromInspector(getInspectorCopy(locale), isOfflineMode)
+  return getToolbarDisabledReasonFromInspector(getWorkflowInspectorCopy(locale), isOfflineMode)
 }
 
 export function getReadOnlyPreviewCopy(locale: LocaleCode) {
-  return getReadOnlyPreviewCopyFromInspector(getInspectorCopy(locale))
+  return getReadOnlyPreviewCopyFromInspector(getWorkflowInspectorCopy(locale))
 }
 
 export function getTriggerWarningCopy(locale: LocaleCode, triggerName: string) {
-  return getTriggerWarningCopyFromInspector(getInspectorCopy(locale), triggerName)
+  return getTriggerWarningCopyFromInspector(getWorkflowInspectorCopy(locale), triggerName)
 }
 
 export function getLocalizedBlockName(
@@ -110,7 +110,7 @@ export function getLocalizedBlockName(
   blockOrType: Pick<BlockConfig, 'type' | 'name'> | string,
   fallbackName?: string
 ): string {
-  return getLocalizedBlockNameWithCopy(getInspectorCopy(locale), blockOrType, fallbackName)
+  return getLocalizedBlockNameWithCopy(getWorkflowInspectorCopy(locale), blockOrType, fallbackName)
 }
 
 export function getLocalizedBlockDescription(
@@ -119,7 +119,7 @@ export function getLocalizedBlockDescription(
   fallbackDescription?: string
 ): string {
   return getLocalizedBlockDescriptionWithCopy(
-    getInspectorCopy(locale),
+    getWorkflowInspectorCopy(locale),
     blockOrType,
     fallbackDescription
   )
@@ -129,14 +129,14 @@ export function getLocalizedBlockMetadata(
   locale: LocaleCode,
   block: Pick<BlockConfig, 'type' | 'name' | 'description' | 'longDescription'>
 ) {
-  return getLocalizedBlockMetadataWithCopy(getInspectorCopy(locale), block)
+  return getLocalizedBlockMetadataWithCopy(getWorkflowInspectorCopy(locale), block)
 }
 
 export function getLocalizedTriggerMetadata(
   locale: LocaleCode,
   trigger: Pick<TriggerConfig, 'id' | 'name' | 'description'> | string
 ) {
-  return getLocalizedTriggerMetadataWithCopy(getInspectorCopy(locale), trigger)
+  return getLocalizedTriggerMetadataWithCopy(getWorkflowInspectorCopy(locale), trigger)
 }
 
 export function getLocalizedBlockLongDescription(
@@ -145,7 +145,7 @@ export function getLocalizedBlockLongDescription(
   fallbackLongDescription?: string
 ) {
   return getLocalizedBlockLongDescriptionWithCopy(
-    getInspectorCopy(locale),
+    getWorkflowInspectorCopy(locale),
     block,
     fallbackLongDescription
   )
@@ -156,7 +156,7 @@ export function getLocalizedDefaultBlockName(
   blockType: string,
   blockName?: string
 ): string {
-  return getLocalizedDefaultBlockNameWithCopy(getInspectorCopy(locale), blockType, blockName)
+  return getLocalizedDefaultBlockNameWithCopy(getWorkflowInspectorCopy(locale), blockType, blockName)
 }
 
 export function getLocalizedUniqueBlockName(
@@ -166,7 +166,7 @@ export function getLocalizedUniqueBlockName(
   blockName?: string
 ): string {
   return getLocalizedUniqueBlockNameWithCopy(
-    getInspectorCopy(locale),
+    getWorkflowInspectorCopy(locale),
     blockType,
     existingBlocks,
     blockName
@@ -178,7 +178,7 @@ export function getLocalizedToolParameterLabel(
   paramId: string,
   label?: string
 ): string {
-  return getLocalizedToolParameterLabelWithCopy(getInspectorCopy(locale), paramId, label)
+  return getLocalizedToolParameterLabelWithCopy(getWorkflowInspectorCopy(locale), paramId, label)
 }
 
 export function localizeToolParameter(
@@ -187,7 +187,7 @@ export function localizeToolParameter(
   blockType?: string,
   toolId?: string
 ): ToolParameterConfig {
-  return localizeToolParameterWithCopy(getInspectorCopy(locale), param, blockType, toolId)
+  return localizeToolParameterWithCopy(getWorkflowInspectorCopy(locale), param, blockType, toolId)
 }
 
 export function getLocalizedToolParametersConfig(
@@ -197,7 +197,7 @@ export function getLocalizedToolParametersConfig(
   contextValues?: Record<string, any>
 ) {
   return getLocalizedToolParametersConfigWithCopy(
-    getInspectorCopy(locale),
+    getWorkflowInspectorCopy(locale),
     toolId,
     blockConfig,
     contextValues
@@ -209,7 +209,7 @@ export function translateWorkflowToolbarLabel(locale: LocaleCode, label: string)
 }
 
 export function translateWorkflowLabel(locale: LocaleCode, label: string): string {
-  return translateWorkflowLabelWithCopy(getInspectorCopy(locale), label)
+  return translateWorkflowLabelWithCopy(getWorkflowInspectorCopy(locale), label)
 }
 
 export function localizeWorkflowSubBlockConfig(
@@ -219,7 +219,7 @@ export function localizeWorkflowSubBlockConfig(
   triggerId?: string
 ): SubBlockConfig {
   return localizeWorkflowSubBlockConfigWithCopy(
-    getInspectorCopy(locale),
+    getWorkflowInspectorCopy(locale),
     config,
     blockType,
     triggerId
@@ -232,7 +232,12 @@ export function resolveWorkflowDisplayValue(
   value: unknown,
   blockType?: string
 ): unknown {
-  return resolveWorkflowDisplayValueWithCopy(getInspectorCopy(locale), config, value, blockType)
+  return resolveWorkflowDisplayValueWithCopy(
+    getWorkflowInspectorCopy(locale),
+    config,
+    value,
+    blockType
+  )
 }
 
 export function formatWorkflowTemplate(template: string, values: Record<string, string | number>) {

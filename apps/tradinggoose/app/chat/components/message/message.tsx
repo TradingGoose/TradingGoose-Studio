@@ -3,7 +3,7 @@
 import { memo, useMemo, useState } from 'react'
 import { Check, Copy, File as FileIcon, FileText, Image as ImageIcon } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import type { ChatCopy } from '@/app/chat/copy'
+import type { ChatMessages } from '@/i18n/message-types'
 import MarkdownRenderer from './components/markdown-renderer'
 
 export interface ChatAttachment {
@@ -38,7 +38,7 @@ export const ClientChatMessage = memo(
     copy,
   }: {
     message: ChatMessage
-    copy: ChatCopy
+    copy: ChatMessages
   }) {
     const [isCopied, setIsCopied] = useState(false)
 

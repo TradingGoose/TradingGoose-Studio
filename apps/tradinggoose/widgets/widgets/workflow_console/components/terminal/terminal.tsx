@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 import { useConsoleStore } from '@/stores/console/store'
 import type { ConsoleEntry } from '@/stores/console/types'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { useWorkflowConsoleCopy } from '../../copy'
+import { useWorkflowConsoleMessages } from '@/i18n/workspace-widget-hooks'
 import { OutputPanel, StatusDisplay } from './components'
 import { useWorkflowConsoleUiState } from './terminal-ui-store'
 import type { EntryNode, ExecutionGroup } from './types'
@@ -342,7 +342,7 @@ export const Terminal = memo(function Terminal({
   hideScrollbar = true,
   uiKey,
 }: TerminalProps) {
-  const copy = useWorkflowConsoleCopy()
+  const copy = useWorkflowConsoleMessages()
   const entries = useConsoleStore((state) => state.entries)
   const { workflowId } = useWorkflowRoute()
   const resolvedUiKey = uiKey || 'workflow-console'

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import Nav from '@/app/(landing)/components/nav/nav'
-import type { ChatCopy } from '@/app/chat/copy'
+import type { ChatMessages } from '@/i18n/message-types'
 import { getChatPasswordAuthErrorMessage } from '@/app/chat/errors'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
@@ -20,7 +20,7 @@ interface PasswordAuthProps {
   onAuthSuccess: () => void
   title?: string
   primaryColor?: string
-  copy: ChatCopy
+  copy: ChatMessages
 }
 
 export default function PasswordAuth({ identifier, onAuthSuccess, copy }: PasswordAuthProps) {

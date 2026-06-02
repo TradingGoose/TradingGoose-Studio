@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
-import { useWorkflowConsoleCopy } from '../../../copy'
+import { useWorkflowConsoleMessages } from '@/i18n/workspace-widget-hooks'
 import type { BlockInfo, TerminalFilters } from '../types'
 import { getBlockIcon } from '../utils'
 
@@ -35,7 +35,7 @@ export function FilterPopover({
   triggerClassName,
   disabled = false,
 }: FilterPopoverProps) {
-  const copy = useWorkflowConsoleCopy()
+  const copy = useWorkflowConsoleMessages()
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>

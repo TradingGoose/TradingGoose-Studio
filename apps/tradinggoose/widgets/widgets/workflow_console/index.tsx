@@ -22,7 +22,7 @@ import { useWorkflowConsoleUiState } from './components/terminal/terminal-ui-sto
 import type { BlockInfo } from './components/terminal/types'
 import { filterEntries } from './components/terminal/utils'
 import WorkflowConsoleApp from './components/workflow-console-app'
-import { useWorkflowConsoleCopy } from './copy'
+import { useWorkflowConsoleMessages } from '@/i18n/workspace-widget-hooks'
 
 const WorkflowConsoleWidgetBody = ({
   params,
@@ -32,7 +32,7 @@ const WorkflowConsoleWidgetBody = ({
   widget,
   onWidgetParamsChange,
 }: WidgetComponentProps) => {
-  const copy = useWorkflowConsoleCopy()
+  const copy = useWorkflowConsoleMessages()
   const workspaceId = context?.workspaceId
   const {
     channelId,
@@ -138,7 +138,7 @@ const WorkflowConsoleHeaderControls = ({
   widget,
   panelId,
 }: WorkflowConsoleHeaderControlsProps) => {
-  const copy = useWorkflowConsoleCopy()
+  const copy = useWorkflowConsoleMessages()
   const { resolvedWorkflowId } = useWorkflowWidgetState({
     workspaceId,
     pairColor: widget?.pairColor ?? 'gray',

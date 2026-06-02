@@ -10,20 +10,10 @@ const LOCALE_DISPLAY_NAMES: Record<LocaleCode, string> = {
 }
 const DOCS_BASE_URL = 'https://docs.tradinggoose.ai'
 
-const PUBLIC_LOCALE_PATH_SEGMENTS: Record<LocaleCode, string> = {
-  en: 'en',
-  es: 'es',
-  zh: 'zh',
-}
-
 const OPEN_GRAPH_LOCALE_MAP: Record<LocaleCode, string> = {
   en: 'en_US',
   es: 'es_ES',
   zh: 'zh_CN',
-}
-
-export function getLocalePathSegment(locale: LocaleCode) {
-  return PUBLIC_LOCALE_PATH_SEGMENTS[locale]
 }
 
 export function isLocaleCode(value: string): value is LocaleCode {
@@ -38,15 +28,11 @@ export function stripLocaleFromPathname(pathname: string): { locale: LocaleCode;
   const segments = pathname.split('/').filter(Boolean)
   const firstSegment = segments[0]
 
-  if (firstSegment) {
-    const locale = locales.find((candidate) => getLocalePathSegment(candidate) === firstSegment)
-
-    if (locale) {
-      const stripped = `/${segments.slice(1).join('/')}`.replace(/\/+$/, '')
-      return {
-        locale,
-        pathname: stripped || '/',
-      }
+  if (firstSegment && isLocaleCode(firstSegment)) {
+    const stripped = `/${segments.slice(1).join('/')}`.replace(/\/+$/, '')
+    return {
+      locale: firstSegment,
+      pathname: stripped || '/',
     }
   }
 
@@ -58,13 +44,12 @@ export function stripLocaleFromPathname(pathname: string): { locale: LocaleCode;
 
 export function localizePathname(locale: LocaleCode, pathname: string) {
   const normalized = pathname === '/' ? '/' : pathname.replace(/\/+$/, '')
-  const localeSegment = getLocalePathSegment(locale)
 
   if (locale === defaultLocale) {
     return normalized
   }
 
-  return normalized === '/' ? `/${localeSegment}` : `/${localeSegment}${normalized}`
+  return normalized === '/' ? `/${locale}` : `/${locale}${normalized}`
 }
 
 export function localizeHref(locale: LocaleCode, href: string) {
@@ -114,13 +99,6 @@ export function normalizeCallbackUrl(
   }
 }
 
-export function buildLocaleRequestHeaders(locale: LocaleCode, headers?: HeadersInit) {
-  const requestHeaders = new Headers(headers)
-  requestHeaders.set('x-next-intl-locale', locale)
-
-  return requestHeaders
-}
-
 export function localizeUrl(baseUrl: string, locale: LocaleCode, pathname: string) {
   return `${baseUrl}${localizePathname(locale, pathname)}`
 }
@@ -137,9 +115,8 @@ export function getOpenGraphLocale(locale: LocaleCode) {
   return OPEN_GRAPH_LOCALE_MAP[locale]
 }
 
-export function getLocaleFromHeaders(headers: HeadersInit | Headers | undefined | null) {
-  const requestHeaders = new Headers(headers ?? undefined)
-  const locale = requestHeaders.get('x-next-intl-locale')
+export function getLocaleFromSearchParams(searchParams: URLSearchParams) {
+  const locale = searchParams.get('locale')
 
   return locale && isLocaleCode(locale) ? locale : defaultLocale
 }

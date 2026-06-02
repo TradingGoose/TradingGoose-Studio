@@ -15,7 +15,7 @@ import { useWorkflowExecution } from '@/hooks/workflow/use-workflow-execution'
 import { useChatStore } from '@/stores/chat/store'
 import type { ChatMessage as StoredChatMessage } from '@/stores/chat/types'
 import { useExecutionStore } from '@/stores/execution/store'
-import { useWorkflowChatCopy } from '../../copy'
+import { useWorkflowChatMessages } from '@/i18n/workspace-widget-hooks'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { ChatMessage } from '..'
 
@@ -36,7 +36,7 @@ interface ChatProps {
 }
 
 export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: ChatProps) {
-  const copy = useWorkflowChatCopy()
+  const copy = useWorkflowChatMessages()
   const locale = useLocale()
   const { workflowId: currentWorkflowId } = useWorkflowRoute()
 

@@ -90,7 +90,7 @@ describe('client messages hooks', () => {
     })
 
     expect(container.textContent).toContain(
-      getPublicCopy('zh').workspace.widgets.workflowInspector.workflowEditor.previewInspector
+      getPublicCopy('zh').workspace.widgets.workflowEditor.previewInspector
     )
   })
 

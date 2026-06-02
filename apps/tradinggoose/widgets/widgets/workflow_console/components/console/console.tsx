@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import { ConsoleEntry } from '..'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useConsoleStore } from '@/stores/console/store'
-import { useWorkflowConsoleCopy } from '../../copy'
+import { useWorkflowConsoleMessages } from '@/i18n/workspace-widget-hooks'
 
 interface ConsoleProps {
   panelWidth: number
@@ -14,7 +14,7 @@ interface ConsoleProps {
 }
 
 export function Console({ panelWidth, hideScrollbar = true }: ConsoleProps) {
-  const copy = useWorkflowConsoleCopy()
+  const copy = useWorkflowConsoleMessages()
   const entries = useConsoleStore((state) => state.entries)
   const { workflowId } = useWorkflowRoute()
 

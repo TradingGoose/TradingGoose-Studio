@@ -5,7 +5,7 @@ import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { useBrandConfig } from '@/lib/branding/branding'
 import Nav from '@/app/(landing)/components/nav/nav'
-import type { ChatCopy } from '@/app/chat/copy'
+import type { ChatMessages } from '@/i18n/message-types'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
 import { localizeHref, type LocaleCode } from '@/i18n/utils'
@@ -13,7 +13,7 @@ import { localizeHref, type LocaleCode } from '@/i18n/utils'
 interface ChatErrorStateProps {
   error: string
   starCount: string
-  copy: ChatCopy
+  copy: ChatMessages
 }
 
 export function ChatErrorState({ error, copy }: ChatErrorStateProps) {

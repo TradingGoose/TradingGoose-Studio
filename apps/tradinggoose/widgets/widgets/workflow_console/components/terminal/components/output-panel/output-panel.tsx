@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils'
 import { getBlock } from '@/blocks'
 import { formatDurationMs } from '@/i18n/formatters'
 import type { ConsoleEntry as ConsoleEntryType } from '@/stores/console/types'
-import { useWorkflowConsoleCopy } from '../../../../copy'
+import { useWorkflowConsoleMessages } from '@/i18n/workspace-widget-hooks'
 import { CodeDisplay } from '../../../code-display/code-display'
 
 const logger = createLogger('OutputPanel')
@@ -187,7 +187,7 @@ export function OutputPanel({
   hideScrollbar = true,
   detailState,
 }: OutputPanelProps) {
-  const copy = useWorkflowConsoleCopy()
+  const copy = useWorkflowConsoleMessages()
   const locale = useLocale()
   const [isExpanded, setIsExpanded] = useState(true)
   const [showCopySuccess, setShowCopySuccess] = useState(false)

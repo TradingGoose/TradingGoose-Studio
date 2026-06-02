@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { X } from 'lucide-react'
-import { useLocale, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,7 +21,6 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { createLogger } from '@/lib/logs/console/logger'
-import { buildLocaleRequestHeaders, type LocaleCode } from '@/i18n/utils'
 import { SettingsModal } from '../../settings-modal'
 
 const helpLogger = createLogger('HelpModal')
@@ -59,7 +58,6 @@ export interface HelpModalProps {
 }
 
 export function HelpModal({ open, onOpenChange }: HelpModalProps) {
-  const locale = useLocale() as LocaleCode
   const tHelp = useTranslations('workspace.settingsModal.help')
   const tTitles = useTranslations('workspace.settingsModal.titles')
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -278,7 +276,6 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
 
         const response = await fetch('/api/help', {
           method: 'POST',
-          headers: buildLocaleRequestHeaders(locale),
           body: formData,
         })
 
@@ -302,7 +299,7 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
         setIsSubmitting(false)
       }
     },
-    [images, locale, reset, tHelp]
+    [images, reset, tHelp]
   )
 
   const handleClose = useCallback(() => {

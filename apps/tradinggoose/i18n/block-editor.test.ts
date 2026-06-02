@@ -22,7 +22,7 @@ import esCopy from './messages/es.json'
 import zhCopy from './messages/zh.json'
 import { getPublicCopy } from './public-copy'
 
-function collectLegacyOptionOverridePaths(
+function collectObjectOptionOverridePaths(
   localeCopy: Record<string, any>,
   locale: string
 ): string[] {
@@ -538,9 +538,9 @@ describe('block-editor i18n helpers', () => {
 
   it('stores block editor option overrides as arrays so external ids never become locale keys', () => {
     expect([
-      ...collectLegacyOptionOverridePaths(enCopy as Record<string, any>, 'en'),
-      ...collectLegacyOptionOverridePaths(esCopy as Record<string, any>, 'es'),
-      ...collectLegacyOptionOverridePaths(zhCopy as Record<string, any>, 'zh'),
+      ...collectObjectOptionOverridePaths(enCopy as Record<string, any>, 'en'),
+      ...collectObjectOptionOverridePaths(esCopy as Record<string, any>, 'es'),
+      ...collectObjectOptionOverridePaths(zhCopy as Record<string, any>, 'zh'),
     ]).toEqual([])
   })
 
@@ -599,7 +599,7 @@ describe('block-editor i18n helpers', () => {
         id: 'triggerInstructions',
         title: 'Setup Instructions',
         type: 'text',
-        defaultValue: 'legacy inline instructions',
+        defaultValue: 'inline fallback instructions',
       },
       'github',
       'github_webhook'
@@ -614,7 +614,7 @@ describe('block-editor i18n helpers', () => {
   })
 
   it('localizes monitor trigger instructions through centralized trigger override entries', () => {
-    const fallbackInstruction = 'legacy inline instructions'
+    const fallbackInstruction = 'inline fallback instructions'
     const localizedIndicatorInstructions = localizeWorkflowSubBlockConfig(
       'es',
       {
@@ -646,7 +646,7 @@ describe('block-editor i18n helpers', () => {
     expect(localizedPortfolioInstructions.defaultValue).not.toContain(fallbackInstruction)
   })
 
-  it('prefers trigger metadata names over legacy inline selectedTriggerId labels', () => {
+  it('prefers trigger metadata names over inline selectedTriggerId labels', () => {
     const localizedTriggerSelector = localizeWorkflowSubBlockConfig(
       'en',
       {

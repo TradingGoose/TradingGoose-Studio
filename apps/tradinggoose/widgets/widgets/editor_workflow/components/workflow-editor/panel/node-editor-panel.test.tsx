@@ -381,7 +381,7 @@ describe('NodeEditorPanel', () => {
     expect(markup).toContain('No se encontró el nodo')
   })
 
-  it('renders localized trigger empty-state copy instead of the legacy English fallback', () => {
+  it('renders localized trigger empty-state copy instead of inline English fallback copy', () => {
     mockSelectedBlock = {
       id: 'trigger-1',
       type: 'generic_webhook',

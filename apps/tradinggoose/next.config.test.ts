@@ -1,14 +1,8 @@
-import { match } from 'path-to-regexp'
 import { describe, expect, it } from 'vitest'
 import { getMainCSPPolicy, readWorkflowExecutionCSPPolicy } from './lib/security/csp'
 import nextConfig from './next.config'
 
 type HeaderRules = Awaited<ReturnType<NonNullable<typeof nextConfig.headers>>>
-type RouteParams = Record<string, string | string[] | undefined>
-
-const PUBLIC_LOCALES = new Set(['es', 'zh'])
-const PUBLIC_APP_ROUTES = new Set(['w', 'workspace', 'chat'])
-const WORKFLOW_EXECUTION_PATH = /^workflows\/[^/]+\/execute$/
 
 async function getHeaderRules(): Promise<HeaderRules> {
   const rules = await nextConfig.headers?.()
@@ -20,45 +14,29 @@ async function getHeaderRules(): Promise<HeaderRules> {
   return rules
 }
 
-function getSplatPath(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value.join('/') : value ?? ''
-}
-
 function buildSourceMatcher(source: string) {
   if (source.includes('/((?!') || source === '/(.*)\\.map$') {
     const matcher = new RegExp(`^${source}$`)
     return (path: string) => matcher.test(path)
   }
 
-  const normalizedSource = source
-    .replace('/:path((?!workflows/[^/]+/execute$).*)', '{/*path}')
-    .replace(':locale(es|zh)', ':locale')
-    .replace(':app(w|workspace|chat)', ':app')
-    .replace(/\/:path\*/g, '{/*path}')
-  const matcher = match<RouteParams>(normalizedSource)
-
-  return (path: string) => {
-    const result = matcher(path)
-    if (!result) {
-      return false
-    }
-
-    if (source.includes(':locale(es|zh)') && !PUBLIC_LOCALES.has(String(result.params.locale))) {
-      return false
-    }
-
-    if (source.includes(':app(w|workspace|chat)') && !PUBLIC_APP_ROUTES.has(String(result.params.app))) {
-      return false
-    }
-
-    if (
-      source.includes(':path((?!workflows/[^/]+/execute$).*)') &&
-      WORKFLOW_EXECUTION_PATH.test(getSplatPath(result.params.path))
-    ) {
-      return false
-    }
-
-    return true
+  switch (source) {
+    case '/api/:path((?!workflows/[^/]+/execute$).*)':
+      return (path: string) => /^\/api\/.+$/.test(path) && !/^\/api\/workflows\/[^/]+\/execute$/.test(path)
+    case '/api/workflows/:id/execute':
+      return (path: string) => /^\/api\/workflows\/[^/]+\/execute$/.test(path)
+    case '/:app(w|workspace|chat)/:path*':
+      return (path: string) => /^\/(?:w|workspace|chat)(?:\/.*)?$/.test(path)
+    case '/:locale(es|zh)/:app(w|workspace|chat)/:path*':
+      return (path: string) => /^\/(?:es|zh)\/(?:w|workspace|chat)(?:\/.*)?$/.test(path)
+    case '/api/tools/drive/:path*':
+      return (path: string) => /^\/api\/tools\/drive(?:\/.*)?$/.test(path)
+    case '/_next/:path*':
+      return (path: string) => /^\/_next(?:\/.*)?$/.test(path)
+    case '/_vercel/:path*':
+      return (path: string) => /^\/_vercel(?:\/.*)?$/.test(path)
+    default:
+      throw new Error(`Unhandled header source pattern: ${source}`)
   }
 }
 
@@ -99,11 +77,10 @@ describe('next.config headers routing', () => {
     ]
     const permissiveInternalResourcePaths = [
       '/api/tools/drive/files',
-      '/zh/api/tools/drive/files',
       '/_next/static/chunks/main.js',
       '/_vercel/insights/view',
     ]
-    const apiPaths = ['/es/api/workspaces/invitations/invitation-1']
+    const apiPaths = ['/api/workspaces/invitations/invitation-1']
 
     for (const path of [...appPaths, ...permissiveInternalResourcePaths]) {
       expectHeaderValue(rules, path, 'Cross-Origin-Embedder-Policy', 'unsafe-none')
@@ -123,6 +100,7 @@ describe('next.config headers routing', () => {
   it('keeps strict cross-origin and public-page CSP headers on representative public routes', async () => {
     const rules = await getHeaderRules()
     const publicPaths = ['/', '/privacy', '/es/privacy', '/blog/hello-world']
+    const infrastructurePaths = ['/ingest/e']
 
     for (const path of publicPaths) {
       expectHeaderValue(rules, path, 'Cross-Origin-Embedder-Policy', 'credentialless')
@@ -130,15 +108,16 @@ describe('next.config headers routing', () => {
       expectHeaderValue(rules, path, 'Content-Security-Policy', getMainCSPPolicy())
       expectNoHeaderValue(rules, path, 'Cross-Origin-Opener-Policy', 'same-origin-allow-popups')
     }
+
+    for (const path of infrastructurePaths) {
+      expectNoHeaderValue(rules, path, 'Content-Security-Policy', getMainCSPPolicy())
+      expectNoHeaderValue(rules, path, 'Cross-Origin-Embedder-Policy', 'credentialless')
+    }
   })
 
   it('keeps workflow execution routes on the specialized execution header policy only', async () => {
     const rules = await getHeaderRules()
-    const executionPaths = [
-      '/api/workflows/test/execute',
-      '/es/api/workflows/test/execute',
-      '/zh/api/workflows/test/execute',
-    ]
+    const executionPaths = ['/api/workflows/test/execute']
 
     for (const path of executionPaths) {
       expect(getHeaderValues(rules, path, 'Access-Control-Allow-Origin')).toEqual(['*'])

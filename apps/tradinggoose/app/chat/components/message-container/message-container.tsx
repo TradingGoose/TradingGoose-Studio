@@ -3,7 +3,7 @@
 import { memo, type RefObject } from 'react'
 import { ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import type { ChatCopy } from '@/app/chat/copy'
+import type { ChatMessages } from '@/i18n/message-types'
 import { type ChatMessage, ClientChatMessage } from '@/app/chat/components/message/message'
 
 interface ChatMessageContainerProps {
@@ -17,7 +17,7 @@ interface ChatMessageContainerProps {
   chatConfig: {
     description?: string
   } | null
-  copy: ChatCopy
+  copy: ChatMessages
 }
 
 export const ChatMessageContainer = memo(function ChatMessageContainer({

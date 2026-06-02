@@ -1,13 +1,11 @@
 /** @vitest-environment jsdom */
 
-import { act } from 'react'
+import { act, type ReactNode } from 'react'
+import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getPublicCopy } from '@/i18n/public-copy'
 import { ChatFileUpload } from './chat-file-upload'
-
-vi.mock('next-intl', () => ({
-  useLocale: () => 'es',
-}))
 
 describe('ChatFileUpload', () => {
   let container: HTMLDivElement
@@ -30,9 +28,17 @@ describe('ChatFileUpload', () => {
     vi.clearAllMocks()
   })
 
+  const renderWithMessages = (element: ReactNode) => {
+    root.render(
+      <NextIntlClientProvider locale='es' messages={getPublicCopy('es')}>
+        {element}
+      </NextIntlClientProvider>
+    )
+  }
+
   it('renders localized attach copy for the current locale', () => {
     act(() => {
-      root.render(<ChatFileUpload files={[]} onFilesChange={vi.fn()} />)
+      renderWithMessages(<ChatFileUpload files={[]} onFilesChange={vi.fn()} />)
     })
 
     expect(container.textContent).toContain('Adjuntar')
@@ -43,7 +49,7 @@ describe('ChatFileUpload', () => {
     const onError = vi.fn()
 
     act(() => {
-      root.render(
+      renderWithMessages(
         <ChatFileUpload
           files={[]}
           onFilesChange={vi.fn()}

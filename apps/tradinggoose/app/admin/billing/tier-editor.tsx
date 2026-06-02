@@ -18,7 +18,7 @@ import {
   Switch,
   Textarea,
 } from '@/components/ui'
-import type { AdminCopy } from '@/app/admin/copy'
+import type { AdminMessages } from '@/i18n/message-types'
 import type { AdminBillingTierMutationInput } from '@/lib/admin/billing/tier-mutations'
 import type { AdminBillingTierSnapshot } from '@/lib/admin/billing/types'
 import { formatLocalizedNumber, formatUsd } from '@/i18n/formatters'
@@ -28,7 +28,7 @@ import type { LocaleCode } from '@/i18n/utils'
 import { cn } from '@/lib/utils'
 import { ADMIN_META_BADGE_CLASSNAME, ADMIN_STATUS_BADGE_CLASSNAME } from '@/app/admin/badge-styles'
 
-export type AdminBillingCopy = AdminCopy['billing']
+export type AdminBillingCopy = AdminMessages['billing']
 
 export function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message.trim() ? error.message : fallback

@@ -12,7 +12,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
-import { getLocaleFromHeaders, localizeHref } from '@/i18n/utils'
+import { getLocaleFromSearchParams, localizeHref } from '@/i18n/utils'
 
 // GET /api/workspaces/invitations/[invitationId] - Get invitation details OR accept via token
 export async function GET(
@@ -23,7 +23,7 @@ export async function GET(
   const session = await getSession()
   const token = req.nextUrl.searchParams.get('token')
   const isAcceptFlow = !!token // If token is provided, this is an acceptance flow
-  const locale = getLocaleFromHeaders(req.headers)
+  const locale = getLocaleFromSearchParams(req.nextUrl.searchParams)
 
   if (!session?.user?.id) {
     // For token-based acceptance flows, redirect to login

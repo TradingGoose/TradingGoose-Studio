@@ -2806,13 +2806,13 @@
         }
       },
       "mcpEditor": {
-        "selectWorkspaceToEdit": "选择要编辑MCP服务器的工作区。",
-        "selectServerToEdit": "选择要编辑的MCP服务器。",
+        "selectWorkspaceToEdit": "选择一个工作区以编辑 MCP 服务器。",
+        "selectServerToEdit": "选择一个 MCP 服务器进行编辑。",
         "saveDraftHint": "保存此草稿以启用连接测试、工具刷新和规范重载。",
-        "failedToLoadMcpServers": "加载MCP服务器失败。",
+        "failedToLoadMcpServers": "无法加载 MCP 服务器。",
         "tools": "工具",
         "saveRequired": "需要保存",
-        "noToolsDiscovered": "尚未发现任何工具。",
+        "noToolsDiscovered": "未发现工具。",
         "saveThisServerToRefreshAndInspectDiscoveredMcpTools": "保存此服务器以刷新并检查发现的MCP工具。",
         "refreshTools": "刷新工具",
         "testConnection": "测试连接",
@@ -2820,20 +2820,33 @@
         "saveServer": "保存服务器",
         "clearSelection": "清除选择",
         "selectServer": "选择服务器",
-        "serverNameRequired": "服务器名称是必填项。",
-        "failedToRefreshMcpServer": "刷新MCP服务器失败。",
+        "serverNameRequired": "服务器名称为必填项。",
+        "failedToRefreshMcpServer": "无法刷新 MCP 服务器工具。",
         "failedToSaveMcpServer": "保存MCP服务器失败。",
-        "toolCount": "共{{count}}个",
+        "toolCount": "{{count}} 个工具",
         "loading": "加载中...",
         "connected": "已连接",
         "error": "错误",
         "draft": "草稿",
-        "disconnected": "已断开连接",
+        "disconnected": "未连接",
         "unnamedServer": "未命名服务器",
         "updated": "更新于 {{time}}",
-        "toolsRefreshed": "工具已刷新 {{time}}",
-        "lastConnected": "上次连接 {{time}}",
-        "lastError": "上次错误"
+        "toolsRefreshed": "工具已于 {{time}} 刷新",
+        "lastConnected": "上次连接于 {{time}}",
+        "lastError": "最后错误",
+        "noSharedMcpServerSelected": "此颜色尚未选择共享 MCP 服务器。",
+        "mcpServerNotFound": "未找到 MCP 服务器。",
+        "selectWorkspaceToEditMcpServers": "选择一个工作区以编辑 MCP 服务器。",
+        "serverNameIsRequired": "服务器名称为必填项。",
+        "relativeTime": {
+          "justNow": "刚刚",
+          "minutesAgo": "{{count}} 分钟前",
+          "hoursAgo": "{{count}} 小时前",
+          "daysAgo": "{{count}} 天前",
+          "weeksAgo": "{{count}} 周前",
+          "monthsAgo": "{{count}} 个月前",
+          "yearsAgo": "{{count}} 年前"
+        }
       },
       "triggerList": {
         "coreTriggers": "核心触发器",
@@ -20200,6 +20213,37 @@
         "summary": {
           "objectItem": "[对象]",
           "additionalCount": "+{{count}} 更多"
+        },
+        "selectWorkspaceToLoadWorkflows": "选择一个工作区以加载工作流。",
+        "noWorkflowsAvailable": "此工作区没有可用的工作流。",
+        "unableToLoadWorkflows": "无法加载工作流",
+        "authenticationRequiredToLoadWorkflows": "加载工作流需要身份验证",
+        "noSharedWorkflowSelected": "此颜色尚未选择共享工作流。",
+        "error": {
+          "title": "工作流错误",
+          "message": "此工作流遇到错误，当前不可用。请稍后重试或创建新的工作流。",
+          "applicationTitle": "应用错误",
+          "applicationMessage": "应用出现了问题。请稍后重试。",
+          "tryAgain": "重试"
+        },
+        "triggerList": {
+          "addTrigger": "点击添加触发器",
+          "searchPlaceholder": "搜索触发器",
+          "close": "关闭",
+          "coreTriggers": "核心触发器",
+          "integrationTriggers": "集成触发器",
+          "noResultsFound": "未找到“{{query}}”的结果"
+        },
+        "connectionStatus": {
+          "reconnected": "已重新连接",
+          "connectionLost": "连接已断开，请刷新",
+          "pleaseRefreshToContinueEditing": "请刷新以继续编辑",
+          "refreshPageToContinueEditing": "刷新页面以继续编辑"
+        },
+        "triggerWarning": {
+          "duplicateTitle": "仅允许一个 {{triggerName}} 触发器",
+          "duplicateDescription": "一个工作流只能有一个 {{triggerName}} 触发器块。请在添加新的之前移除现有的。",
+          "dismiss": "知道了"
         }
       },
       "apiKey": {
@@ -20388,6 +20432,718 @@
         "importWorkflow": "导入工作流",
         "creating": "正在创建...",
         "importing": "正在导入..."
+      },
+      "providerControls": {
+        "marketSelector": {
+          "placeholder": "选择市场提供商",
+          "ariaLabel": "选择市场提供商",
+          "tooltip": "选择市场数据提供商",
+          "selectionUnavailable": "提供商选择不可用",
+          "noProviders": "没有提供商",
+          "selectedLabel": "市场：{{providerName}}",
+          "fallbackProviderName": "市场"
+        },
+        "tradingSelector": {
+          "placeholder": "选择交易提供商",
+          "ariaLabel": "选择交易提供商",
+          "tooltip": "选择券商",
+          "selectionUnavailable": "提供商选择不可用",
+          "noProviders": "没有提供商",
+          "selectedLabel": "券商：{{providerName}}",
+          "fallbackProviderName": "券商"
+        },
+        "accountSelector": {
+          "placeholder": "选择账户",
+          "ariaLabel": "选择交易账户",
+          "tooltip": "选择交易账户",
+          "loadingAccount": "正在加载账户...",
+          "loadingProviderConnection": "正在加载提供商连接...",
+          "unableToLoadProviderConnection": "无法加载提供商连接。",
+          "selectConnection": "选择一个 {{providerName}} 连接。",
+          "noAccountConnected": "没有连接的 {{providerName}} 账户。",
+          "loadingBrokerAccounts": "正在加载券商账户...",
+          "unableToLoadBrokerAccounts": "无法加载券商账户。",
+          "noBrokerAccountsFound": "未找到券商账户。",
+          "reconnectAccount": "重新连接 {{providerName}} 账户",
+          "connectAccount": "连接 {{providerName}} 账户",
+          "fallbackProviderName": "券商"
+        },
+        "settingsButton": {
+          "triggerLabel": "配置 {{providerName}} 提供商",
+          "triggerTooltip": "提供商设置",
+          "title": "提供商设置",
+          "description": "为此小组件保存凭据。",
+          "select": "选择",
+          "save": "保存",
+          "cancel": "取消",
+          "fallbackProviderName": "市场"
+        }
+      },
+      "watchlist": {
+        "header": {
+          "explorer": "资源管理器",
+          "selectWorkspace": "选择一个工作区以使用 watchlist。",
+          "addListingAriaLabel": "将标的加入 watchlist",
+          "addListingTooltip": "将标的加入 watchlist",
+          "listActionsAriaLabel": "列表操作",
+          "listActionsTooltip": "列表操作",
+          "defaultWatchlistPrefix": "Watchlist",
+          "defaultSectionPrefix": "分区",
+          "selectMarketProvider": "选择 watchlist",
+          "createWatchlist": "创建 watchlist",
+          "createSection": "创建分区",
+          "import": "导入",
+          "export": "导出",
+          "deleteWatchlist": "删除 watchlist",
+          "refresh": "刷新数据"
+        },
+        "listSelector": {
+          "selectionUnavailable": "Watchlist 选择不可用",
+          "selectLabel": "选择 watchlist",
+          "searchPlaceholder": "搜索 watchlists...",
+          "noWatchlistsFound": "未找到 watchlists。",
+          "renameAriaLabel": "重命名 {{name}}",
+          "deleteAriaLabel": "删除 {{name}}",
+          "deleteDialogTitle": "删除 watchlist？",
+          "deleteDialogDescription": "此操作将永久删除“{{name}}”。",
+          "deleteDialogDescriptionFallback": "此操作将永久删除此 watchlist。",
+          "cancel": "取消",
+          "delete": "删除"
+        },
+        "body": {
+          "selectWorkspace": "选择一个工作区以使用 watchlists。",
+          "failedToLoadWatchlists": "无法加载 watchlists。",
+          "createWatchlistToGetStarted": "创建一个 watchlist 开始使用。",
+          "noItemsInThisWatchlist": "此 watchlist 中没有项目。",
+          "symbol": "符号",
+          "asset": "资产",
+          "last": "最新",
+          "change": "变化",
+          "changePercent": "变化 %",
+          "actions": "操作",
+          "cancelSymbolEdit": "取消符号编辑",
+          "editSymbol": "编辑符号",
+          "removeSymbol": "移除符号",
+          "renameSection": "重命名分区",
+          "deleteSection": "删除分区",
+          "collapseSection": "折叠分区",
+          "expandSection": "展开分区",
+          "deleteSymbolDialogTitle": "删除符号？",
+          "deleteSymbolDialogDescription": "移除 {{name}} 将把它从 watchlist 中删除。",
+          "deleteSymbolDialogDescriptionFallback": "移除此符号将把它从 watchlist 中删除。",
+          "deleteSymbolDialogDescriptionHighlight": "此操作无法撤销。",
+          "deleteSectionDialogTitle": "删除分区？",
+          "deleteSectionDialogDescription": "此操作还会移除分区中的所有符号。",
+          "deleting": "删除中...",
+          "cancel": "取消",
+          "delete": "删除",
+          "sectionDelete": "删除分区"
+        }
+      },
+      "skillList": {
+        "createMenu": {
+          "manageSkills": "管理 skills",
+          "importSkills": "导入 skills",
+          "importingSkills": "正在导入 skills",
+          "newSkill": "新建 skill",
+          "create": "创建"
+        },
+        "header": {
+          "explorer": "资源管理器"
+        },
+        "body": {
+          "selectWorkspace": "选择一个工作区以浏览其 skills。",
+          "noSkillsYet": "暂无 skills。",
+          "failedToLoadSkills": "无法加载 skills。"
+        },
+        "listItem": {
+          "untitledSkill": "Skill",
+          "renameSkill": "重命名 skill",
+          "deleteSkill": "删除 skill",
+          "deleteDialogTitle": "删除 skill？",
+          "deleteDialogDescription": "删除此 skill 将永久移除其说明内容。",
+          "deleteDialogDescriptionHighlight": "此操作无法撤销。",
+          "cancel": "取消",
+          "delete": "删除"
+        }
+      },
+      "skillEditor": {
+        "body": {
+          "selectWorkspace": "选择一个工作区以编辑 skills。",
+          "failedToLoadSkills": "无法加载 skills。",
+          "skillNotFound": "未找到 skill。",
+          "selectSkillToEdit": "选择一个 skill 进行编辑。",
+          "noSharedSkillSelected": "此颜色尚未选择共享 skill。"
+        },
+        "header": {
+          "selectSkill": "选择 skill",
+          "saveBeforeExporting": "导出前请先保存 skill",
+          "exportSkill": "导出 skill",
+          "saveSkill": "保存 skill"
+        },
+        "validation": {
+          "nameRequired": "Skill 名称是必填项。",
+          "nameTooLong": "Skill 名称必须少于 {{max}} 个字符。",
+          "descriptionRequired": "Skill 描述是必填项。",
+          "contentRequired": "Skill 内容是必填项。",
+          "duplicateName": "已存在名为“{{name}}”的 skill。",
+          "saveFailed": "无法保存 skill。"
+        },
+        "form": {
+          "nameLabel": "名称",
+          "descriptionLabel": "描述",
+          "instructionsLabel": "说明",
+          "namePlaceholder": "市场研究",
+          "descriptionPlaceholder": "这个 skill 帮助代理做什么",
+          "instructionsPlaceholder": "在这里编写代理应加载的 skill 说明。",
+          "helperText": "请使用清晰且工作区唯一的名称。导入的重复项会自动重命名。"
+        },
+        "defaults": {
+          "name": "新 Skill",
+          "description": "描述这个 skill 的作用。",
+          "content": "在此添加 skill 说明。"
+        }
+      },
+      "indicatorList": {
+        "createMenu": {
+          "createIndicator": "创建指标",
+          "create": "创建",
+          "newIndicator": "新指标",
+          "importingIndicator": "正在导入指标",
+          "importIndicator": "导入指标"
+        },
+        "header": {
+          "explorer": "资源管理器"
+        },
+        "body": {
+          "selectWorkspace": "选择一个工作区以浏览其指标。",
+          "noIndicatorsYet": "暂无指标。",
+          "failedToLoadIndicators": "无法加载指标。"
+        },
+        "listItem": {
+          "untitledIndicator": "未命名指标",
+          "duplicateIndicator": "复制指标",
+          "renameIndicator": "重命名指标",
+          "deleteIndicator": "删除指标",
+          "deleteDialogTitle": "删除指标？",
+          "deleteDialogDescription": "删除此指标将永久移除其代码和配置。",
+          "deleteDialogDescriptionHighlight": "此操作无法撤销。",
+          "cancel": "取消",
+          "delete": "删除"
+        }
+      },
+      "indicatorEditor": {
+        "body": {
+          "selectWorkspace": "选择一个工作区以编辑指标。",
+          "failedToLoadIndicators": "无法加载指标。",
+          "indicatorNotFound": "未找到指标。",
+          "selectIndicatorToEdit": "选择一个指标进行编辑。",
+          "noSharedIndicatorSelected": "此颜色尚未选择共享指标。"
+        },
+        "header": {
+          "selectIndicator": "选择指标",
+          "saveBeforeExporting": "导出前请先保存指标",
+          "exportIndicator": "导出指标",
+          "saveIndicator": "保存指标",
+          "verifyIndicator": "验证指标"
+        }
+      },
+      "indicatorDropdown": {
+        "placeholder": "选择指标",
+        "tooltip": "选择指标",
+        "searchPlaceholder": "搜索指标...",
+        "selectionUnavailable": "指标选择不可用",
+        "selectWorkspaceFirst": "请先选择一个工作区。",
+        "unableToLoadIndicators": "无法加载指标",
+        "failedToLoadIndicators": "无法加载指标",
+        "loadingIndicators": "正在加载指标...",
+        "noIndicatorsAvailableYet": "暂无可用指标。",
+        "noIndicatorsFound": "未找到指标。",
+        "retry": "重试",
+        "defaultIndicators": "默认指标",
+        "customIndicators": "自定义指标"
+      },
+      "skillDropdown": {
+        "placeholder": "选择技能",
+        "tooltip": "选择技能",
+        "searchPlaceholder": "搜索技能...",
+        "selectionUnavailable": "技能选择不可用",
+        "selectWorkspaceFirst": "请先选择工作区。",
+        "selectWorkspaceToChooseSkills": "选择工作区以选择技能。",
+        "unableToLoadSkills": "无法加载技能",
+        "loadingSkills": "正在加载技能...",
+        "noSkillsAvailableYet": "还没有可用的技能。",
+        "noSkillsFound": "未找到技能。",
+        "retry": "重试",
+        "untitledSkill": "未命名技能"
+      },
+      "customToolDropdown": {
+        "placeholder": "选择自定义工具",
+        "tooltip": "选择自定义工具",
+        "searchPlaceholder": "搜索自定义工具...",
+        "selectionUnavailable": "自定义工具选择不可用",
+        "selectWorkspaceFirst": "请先选择工作区。",
+        "selectWorkspaceToChooseCustomTools": "选择工作区以选择自定义工具。",
+        "unableToLoadCustomTools": "无法加载自定义工具",
+        "loadingCustomTools": "正在加载自定义工具...",
+        "noCustomToolsAvailableYet": "还没有可用的自定义工具。",
+        "noCustomToolsFound": "未找到自定义工具。",
+        "retry": "重试",
+        "untitledCustomTool": "未命名自定义工具"
+      },
+      "customToolList": {
+        "createMenu": {
+          "createCustomTool": "创建自定义工具",
+          "create": "创建",
+          "importCustomTools": "导入自定义工具",
+          "importingCustomTools": "正在导入自定义工具",
+          "newCustomTool": "新自定义工具"
+        },
+        "header": {
+          "explorer": "资源管理器"
+        },
+        "body": {
+          "selectWorkspace": "选择一个工作区以浏览自定义工具。",
+          "noCustomToolsYet": "暂无自定义工具。",
+          "failedToLoadCustomTools": "无法加载自定义工具。"
+        },
+        "listItem": {
+          "untitledCustomTool": "自定义工具",
+          "renameCustomTool": "重命名自定义工具",
+          "deleteCustomTool": "删除自定义工具",
+          "deleteDialogTitle": "删除自定义工具？",
+          "deleteDialogDescription": "删除此工具将永久移除其代码和配置。",
+          "deleteDialogDescriptionHighlight": "此操作无法撤销。",
+          "cancel": "取消",
+          "delete": "删除"
+        }
+      },
+      "customToolEditor": {
+        "body": {
+          "selectWorkspace": "选择一个工作区以编辑自定义工具。",
+          "failedToLoadCustomTools": "无法加载自定义工具。",
+          "customToolNotFound": "未找到自定义工具。",
+          "noSharedCustomToolSelected": "此颜色尚未选择共享自定义工具。",
+          "noCustomToolsYet": "还没有自定义工具。"
+        },
+        "header": {
+          "selectCustomTool": "选择自定义工具",
+          "config": "配置",
+          "code": "代码",
+          "saveCustomTool": "保存自定义工具",
+          "exportCustomTool": "导出自定义工具"
+        },
+        "validation": {
+          "failedToLoadToolData": "无法加载工具数据，请重试。",
+          "missingTypeFunction": "缺少 \"type\": \"function\"",
+          "missingFunctionName": "缺少 function.name 字段",
+          "missingFunctionParameters": "缺少 function.parameters 对象",
+          "missingParametersType": "缺少 parameters.type 字段",
+          "missingParametersProperties": "缺少 parameters.properties 字段",
+          "parametersPropertiesMustBeObject": "parameters.properties 必须是对象",
+          "invalidJsonFormat": "JSON 格式无效",
+          "schemaCannotBeEmpty": "Schema 不能为空",
+          "schemaMustBeFunctionType": "Schema 必须有值为 \"function\" 的 \"type\" 字段",
+          "schemaMustHaveFunctionName": "Schema 必须有一个带 \"name\" 字段的 \"function\" 对象",
+          "failedToValidateSchema": "无法验证自定义工具 schema，请检查输入后重试。",
+          "duplicateName": "已存在名为 \"{{name}}\" 的工具",
+          "failedToSave": "无法保存自定义工具，请检查输入后重试。"
+        },
+        "form": {
+          "schemaPlaceholder": "描述要生成的 JSON schema...",
+          "schemaLabel": "工具配置",
+          "codePlaceholder": "描述要生成的 JavaScript 函数...",
+          "codeLabel": "工具代码",
+          "availableParameters": "可用参数：",
+          "autocompleteHint": "开始输入参数名以进行自动补全。",
+          "availableParametersPanel": "可用参数",
+          "codeComment": "// 当工具被调用时，这段代码会执行。"
+        }
+      },
+      "workflowList": {
+        "body": {
+          "selectWorkspace": "选择一个工作区以浏览其工作流文件夹。",
+          "unableToLoadWorkflows": "无法加载该工作区的工作流。"
+        },
+        "header": {
+          "explorer": "资源管理器"
+        }
+      },
+      "mcpList": {
+        "createMenu": {
+          "createMcpServer": "创建 MCP 服务器",
+          "create": "创建",
+          "newMcpServer": "新的 MCP 服务器"
+        },
+        "header": {
+          "explorer": "资源管理器"
+        },
+        "body": {
+          "selectWorkspace": "选择一个工作区以浏览 MCP 服务器。",
+          "failedToLoadMcpServers": "无法加载 MCP 服务器。",
+          "noMcpServersYet": "暂无 MCP 服务器。"
+        },
+        "listItem": {
+          "unnamedMcpServer": "未命名服务器",
+          "renameMcpServer": "重命名 MCP 服务器",
+          "deleteMcpServer": "删除 MCP 服务器",
+          "deleteDialogTitle": "删除 MCP 服务器？",
+          "deleteDialogDescription": "删除此 MCP 服务器将永久移除其配置。",
+          "deleteDialogDescriptionHighlight": "此操作无法撤销。",
+          "cancel": "取消",
+          "delete": "删除"
+        },
+        "defaults": {
+          "newMcpServerName": "新的 MCP 服务器"
+        }
+      },
+      "portfolioSnapshot": {
+        "header": {
+          "title": "投资组合快照",
+          "refresh": "刷新投资组合快照"
+        },
+        "body": {
+          "noTradingProvidersConfigured": "尚未配置交易提供商。",
+          "selectTradingProviderToGetStarted": "选择一个交易提供商开始使用。",
+          "selectBrokerConnectionToLoadPortfolioSnapshot": "选择一个券商连接以加载此投资组合快照。",
+          "noBrokerAccountsFoundForThisProviderConnection": "此连接未找到券商账户。",
+          "selectBrokerAccountToLoadPortfolioSnapshot": "选择一个券商账户以加载此投资组合快照。",
+          "failedToLoadTradingProviders": "无法加载交易提供商。",
+          "failedToLoadBrokerAccounts": "无法加载券商账户。",
+          "failedToLoadPortfolioSnapshot": "无法加载投资组合快照。",
+          "failedToLoadMarketQuotes": "无法加载市场报价。",
+          "failedToLoadPerformanceHistory": "无法加载绩效历史。",
+          "performance": "绩效",
+          "performanceWindow": "绩效窗口",
+          "currentSummary": "当前摘要",
+          "marketQuotes": "市场报价",
+          "quoteBackedIntradayEstimate": "基于报价的盘中估算",
+          "loadingQuotes": "正在加载报价",
+          "refreshingQuotes": "正在刷新报价",
+          "noHoldingsWithMarketListings": "没有带市场列表的持仓",
+          "noMarketProvider": "没有市场提供商",
+          "quoteMetricsUseFirst": "报价指标仅使用前 {{cap}} 个中的 {{total}} 个持仓",
+          "quotedPositionsSummary": "{{quoted}}/{{total}} 个已报价",
+          "performanceHistoryUnavailable": "所选账户没有可用的绩效历史。",
+          "asOf": "截至 {{date}}",
+          "return": "回报",
+          "start": "开始",
+          "current": "当前",
+          "high": "最高",
+          "low": "最低",
+          "portfolioValue": "投资组合价值",
+          "cash": "现金",
+          "holdings": "持仓",
+          "buyingPower": "购买力",
+          "unrealizedPnl": "未实现盈亏",
+          "positions": "仓位",
+          "quoteValue": "报价价值",
+          "dayChange": "日变化",
+          "dayPercent": "日涨跌%",
+          "quotedPositions": "已报价持仓",
+          "cashBuyingPower": "现金购买力",
+          "estimatedCost": "预计成本",
+          "estimatedProceeds": "预计收益",
+          "orderSubmitted": "订单已提交",
+          "submitting": "提交中...",
+          "orderPrefix": "订单",
+          "submitOrder": "提交 {{side}} 订单",
+          "unknown": "未知"
+        }
+      },
+      "heatmap": {
+        "header": {
+          "title": "热力图",
+          "refresh": "刷新热力图",
+          "watchlistSourceMode": "Watchlist",
+          "portfolioSourceMode": "投资组合",
+          "volumeUsdSizeMetric": "美元成交量",
+          "volumeSizeMetric": "成交量"
+        },
+        "body": {
+          "selectWorkspaceToUseHeatmap": "选择一个工作区以使用热力图。",
+          "failedToLoadWatchlists": "无法加载 watchlists。",
+          "failedToLoadTradingProviders": "无法加载交易提供商。",
+          "selectTradingProviderToLoadPortfolioHoldings": "选择一个交易提供商以加载投资组合持仓。",
+          "selectBrokerConnectionToLoadPortfolioHoldings": "选择一个券商连接以加载投资组合持仓。",
+          "failedToLoadBrokerAccounts": "无法加载券商账户。",
+          "noBrokerAccountsFoundForThisProviderConnection": "此连接未找到券商账户。",
+          "selectBrokerAccountToLoadPortfolioHoldings": "选择一个券商账户以加载投资组合持仓。",
+          "failedToLoadHoldings": "无法加载持仓。",
+          "noHoldingsListingsFoundForThisAccount": "未找到此账户的持仓列表。",
+          "noWatchlistListingsFound": "未找到 watchlist 列表。",
+          "failedToLoadMarketQuotes": "无法加载市场报价。"
+        }
+      },
+      "quickOrder": {
+        "header": {
+          "title": "快速下单",
+          "buy": "买入",
+          "sell": "卖出"
+        },
+        "body": {
+          "failedToLoadTradingProviders": "无法加载交易提供商。",
+          "noOrderCapableTradingProvidersAvailable": "没有可下单的交易提供商。",
+          "selectTradingProviderToGetStarted": "选择一个交易提供商开始使用。",
+          "selectBrokerConnectionToSubmitAnOrder": "选择一个券商连接以提交订单。",
+          "failedToLoadBrokerAccounts": "无法加载券商账户。",
+          "noBrokerAccountsFoundForThisProviderConnection": "此连接未找到券商账户。",
+          "selectBrokerAccountToSubmitAnOrder": "选择一个券商账户以提交订单。",
+          "selectProviderAndAccount": "选择提供商和账户。",
+          "selectListing": "选择一个标的。",
+          "resolvedListingAssetClassRequired": "已解析的标的资产类别是必需的。",
+          "listingIsNotSupportedByThisProvider": "此提供商不支持该标的。",
+          "selectOrderType": "选择订单类型。",
+          "selectTimeInForce": "选择有效期限。",
+          "selectOrderSize": "选择订单数量。",
+          "notionalSizingIsNotSupportedForThisOrderType": "该订单类型不支持名义金额下单。",
+          "notionalSizingRequires": "名义金额下单需要 {{values}}。",
+          "fieldNotSupportedForThisOrderType": "{{field}} 不支持该订单类型。",
+          "enterValid": "请输入有效的 {{field}}。",
+          "oneOfFieldsRequired": "需要 {{fields}}。",
+          "marketPrice": "市价",
+          "notional": "名义金额",
+          "quantity": "数量",
+          "orderType": "订单类型",
+          "chooseHowTo": "选择如何 {{side}}",
+          "timeInForce": "有效期限",
+          "limitPrice": "限价",
+          "stopPrice": "止损价",
+          "trailPrice": "追踪价",
+          "trailPercent": "追踪百分比",
+          "estimatedProceeds": "预计收益",
+          "estimatedCost": "预计成本",
+          "cashBuyingPower": "现金购买力",
+          "selectListingFirst": "请先选择标的",
+          "assetClassUnavailable": "资产类别不可用",
+          "listingUnsupported": "标的不受支持",
+          "noSupportedTypes": "没有受支持的类型",
+          "noSupportedOrderTypesForThisListing": "该标的没有受支持的订单类型。",
+          "selectedOrderTypeIsNotSupportedForThisListing": "所选订单类型不支持该标的。",
+          "orderSubmitted": "订单已提交",
+          "submitting": "提交中...",
+          "orderPrefix": "订单",
+          "sideLabel": "{{side}}",
+          "submitOrder": "提交 {{side}} 订单"
+        }
+      },
+      "dataChart": {
+        "header": {
+          "refresh": "刷新数据"
+        },
+        "body": {
+          "selectWorkspace": "选择一个工作区以加载图表数据。",
+          "empty": {
+            "selectProviderTitle": "选择提供商",
+            "selectProviderAndListingTitle": "选择提供商和标的",
+            "selectListingTitle": "选择标的",
+            "chooseProviderDescription": "选择一个提供商以显示图表数据。",
+            "chooseProviderAndListingDescription": "选择一个提供商和标的以显示图表数据。",
+            "chooseListingDescription": "选择一个标的以显示图表数据。"
+          },
+          "errorTitle": "数据加载失败",
+          "errorFallback": "无法加载图表数据。"
+        },
+        "controls": {
+          "intervalAriaLabel": "选择周期",
+          "intervalTooltip": "周期",
+          "noIntervals": "没有可用周期",
+          "candleStyleAriaLabel": "K 线样式",
+          "candleStyleTooltip": "K 线样式",
+          "candleTypes": {
+            "candle_solid": "实心",
+            "candle_stroke": "空心",
+            "candle_up_stroke": "上涨空心",
+            "candle_down_stroke": "下跌空心",
+            "ohlc": "OHLC 条形",
+            "area": "面积"
+          }
+        },
+        "footer": {
+          "ariaLabel": "组件页脚",
+          "timezone": {
+            "exchange": "交易所",
+            "utc": "UTC",
+            "tooltip": "时区：{{timezone}}",
+            "tooltipFallback": "交易所时区",
+            "searchPlaceholder": "搜索时区...",
+            "loading": "正在加载时区...",
+            "noResults": "未找到时区。"
+          },
+          "range": {
+            "allAvailableData": "全部可用数据",
+            "rangeIntervalTooltip": "{{range}}，周期 {{interval}}",
+            "presets": {
+              "1d": "1日",
+              "5d": "5日",
+              "1w": "1周",
+              "1m": "1月",
+              "3m": "3月",
+              "6m": "6月",
+              "1y": "1年",
+              "5y": "5年",
+              "all": "全部"
+            },
+            "units": {
+              "day": {
+                "singular": "天",
+                "plural": "天"
+              },
+              "week": {
+                "singular": "周",
+                "plural": "周"
+              },
+              "month": {
+                "singular": "个月",
+                "plural": "个月"
+              },
+              "year": {
+                "singular": "年",
+                "plural": "年"
+              }
+            }
+          },
+          "session": {
+            "ariaLabel": "市场时段",
+            "regular": "常规",
+            "extended": "延长",
+            "regularOption": "常规时段",
+            "extendedOption": "延长时段"
+          },
+          "normalization": {
+            "ariaLabel": "复权",
+            "tooltip": "复权：{{mode}}",
+            "unavailable": "复权不可用",
+            "noOptions": "没有复权选项。",
+            "modes": {
+              "raw": "未复权",
+              "adjusted": "已复权",
+              "split_adjusted": "拆股复权",
+              "total_return": "总回报"
+            }
+          }
+        },
+        "drawTools": {
+          "groups": {
+            "lines": "线条工具",
+            "notes": "注释工具",
+            "freehand": "手绘工具",
+            "shapes": "形状工具"
+          },
+          "unavailable": "{{tool}} 在本会话中不可用",
+          "tools": {
+            "TrendLine": "趋势线",
+            "Ray": "射线",
+            "Arrow": "箭头",
+            "ExtendedLine": "延长线",
+            "HorizontalLine": "水平线",
+            "HorizontalRay": "水平射线",
+            "VerticalLine": "垂直线",
+            "CrossLine": "十字线",
+            "Callout": "标注",
+            "Brush": "画笔",
+            "Highlighter": "荧光笔",
+            "Rectangle": "矩形",
+            "Circle": "圆形",
+            "Triangle": "三角形",
+            "Path": "路径",
+            "ParallelChannel": "平行通道",
+            "FibRetracement": "斐波那契回撤",
+            "PriceRange": "价格范围",
+            "LongShortPosition": "多/空仓位",
+            "Text": "文本"
+          },
+          "actions": {
+            "clearAll": "全部清除",
+            "hideAll": "全部隐藏",
+            "showAll": "全部显示",
+            "hideSelected": "隐藏所选",
+            "removeSelected": "移除所选"
+          }
+        },
+        "indicator": {
+          "trueValue": "是",
+          "falseValue": "否",
+          "emptyValue": "--",
+          "showIndicator": "显示指标",
+          "hideIndicator": "隐藏指标",
+          "show": "显示",
+          "hide": "隐藏",
+          "settingsAriaLabel": "指标设置",
+          "settingsTooltip": "设置",
+          "noSettings": "无设置",
+          "removeIndicator": "移除指标",
+          "remove": "移除",
+          "errorTitle": "指标错误",
+          "compileFailed": "{{name}} 编译失败。",
+          "errorGuidance": "检查指标输入或脚本，然后重试。",
+          "settingsSubtitle": "指标设置",
+          "close": "关闭",
+          "noConfigurableInputs": "没有可配置输入。",
+          "cancel": "取消",
+          "save": "保存",
+          "plotFallback": "绘图 {{index}}",
+          "executionErrorFallback": "指标执行失败",
+          "metadataLabels": {
+            "Length": "长度",
+            "Long": "多头",
+            "Short": "空头",
+            "ZigZag": "ZigZag"
+          }
+        },
+        "panes": {
+          "movePaneUp": "上移面板",
+          "moveUp": "上移",
+          "movePaneDown": "下移面板",
+          "moveDown": "下移"
+        },
+        "legend": {
+          "value": "值：",
+          "open": "开：",
+          "high": "高：",
+          "low": "低：",
+          "close": "收："
+        },
+        "listingOverlay": {
+          "flagAlt": "{{countryCode}} 国旗"
+        },
+        "errors": {
+          "failedToLoadSeriesData": "序列数据加载失败",
+          "invalidTimeWindow": "时间窗口无效",
+          "failedToLoadData": "数据加载失败",
+          "invalidSeriesPayload": "序列数据载荷无效"
+        },
+        "intervalUnits": {
+          "minute": {
+            "singular": "分钟",
+            "plural": "分钟"
+          },
+          "hour": {
+            "singular": "小时",
+            "plural": "小时"
+          },
+          "day": {
+            "singular": "天",
+            "plural": "天"
+          },
+          "week": {
+            "singular": "周",
+            "plural": "周"
+          },
+          "month": {
+            "singular": "个月",
+            "plural": "个月"
+          }
+        }
+      },
+      "listingSelector": {
+        "label": "标的",
+        "listingFallback": "标的",
+        "selectListing": "选择标的",
+        "flagAlt": "{{countryCode}} 国旗",
+        "searching": "正在搜索...",
+        "noListingsFound": "未找到标的。",
+        "searchPlaceholder": "搜索标的..."
       }
     },
     "layoutTabs": {

@@ -344,7 +344,7 @@ describe('PreviewNode', () => {
     expect(markup).toContain('payload')
   })
 
-  it('renders centralized trigger metadata labels instead of legacy inline trigger option labels', () => {
+  it('renders centralized trigger metadata labels instead of inline trigger option labels', () => {
     const markup = renderToStaticMarkup(
       createElement(PreviewNode as any, {
         id: 'trigger-preview-2',

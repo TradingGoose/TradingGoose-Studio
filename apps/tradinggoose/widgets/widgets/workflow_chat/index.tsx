@@ -20,7 +20,7 @@ import {
   useWorkflowSelectionPersistence,
 } from '@/widgets/utils/workflow-selection'
 import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
-import { useWorkflowChatCopy } from './copy'
+import { useWorkflowChatMessages } from '@/i18n/workspace-widget-hooks'
 import { OutputSelect } from './components'
 import WorkflowChatApp, { WorkflowChatSessionProviders } from './components/workflow-chat-app'
 
@@ -32,7 +32,7 @@ const ChatWidgetBody = ({
   widget,
   onWidgetParamsChange,
 }: WidgetComponentProps) => {
-  const copy = useWorkflowChatCopy()
+  const copy = useWorkflowChatMessages()
   const workspaceId = context?.workspaceId
   const {
     channelId,
@@ -131,7 +131,7 @@ function ChatOutputsHeader({
   fallbackWorkflowId?: string | null
   triggerClassName?: string
 }) {
-  const copy = useWorkflowChatCopy()
+  const copy = useWorkflowChatMessages()
   const { selectedWorkflowOutputs, setSelectedWorkflowOutput } = useChatStore()
   const workflowId = useChannelWorkflowId(channelId, fallbackWorkflowId)
 
@@ -241,7 +241,7 @@ function ClearChatButton({
   channelId: string
   fallbackWorkflowId?: string | null
 }) {
-  const copy = useWorkflowChatCopy()
+  const copy = useWorkflowChatMessages()
   const workflowId = useChannelWorkflowId(channelId, fallbackWorkflowId)
   const clearChat = useChatStore((state) => state.clearChat)
   const hasMessages = useChatStore(

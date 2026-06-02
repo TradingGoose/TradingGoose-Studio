@@ -2807,33 +2807,46 @@
       },
       "mcpEditor": {
         "selectWorkspaceToEdit": "Selecciona un espacio de trabajo para editar servidores MCP.",
-        "selectServerToEdit": "Selecciona un servidor MCP para editarlo.",
+        "selectServerToEdit": "Selecciona un servidor MCP para editar.",
         "saveDraftHint": "Guarda este borrador para habilitar pruebas de conexión, actualización de herramientas y recarga canónica.",
         "failedToLoadMcpServers": "No se pudieron cargar los servidores MCP.",
         "tools": "Herramientas",
         "saveRequired": "Se requiere guardar",
-        "noToolsDiscovered": "Aún no se han descubierto herramientas.",
+        "noToolsDiscovered": "No se detectaron herramientas.",
         "saveThisServerToRefreshAndInspectDiscoveredMcpTools": "Guarda este servidor para actualizar e inspeccionar las herramientas MCP descubiertas.",
         "refreshTools": "Actualizar herramientas",
         "testConnection": "Probar conexión",
         "resetForm": "Restablecer formulario",
         "saveServer": "Guardar servidor",
-        "clearSelection": "Borrar selección",
+        "clearSelection": "Limpiar selección",
         "selectServer": "Seleccionar servidor",
-        "serverNameRequired": "Se requiere el nombre del servidor.",
-        "failedToRefreshMcpServer": "No se pudo actualizar el servidor MCP.",
+        "serverNameRequired": "El nombre del servidor es obligatorio.",
+        "failedToRefreshMcpServer": "No se pudieron actualizar las herramientas del servidor MCP.",
         "failedToSaveMcpServer": "No se pudo guardar el servidor MCP.",
-        "toolCount": "{{count}} en total",
+        "toolCount": "{{count}} herramientas",
         "loading": "Cargando...",
         "connected": "Conectado",
         "error": "Error",
         "draft": "Borrador",
         "disconnected": "Desconectado",
         "unnamedServer": "Servidor sin nombre",
-        "updated": "Actualizado hace {{time}}",
-        "toolsRefreshed": "Herramientas actualizadas hace {{time}}",
-        "lastConnected": "Última conexión hace {{time}}",
-        "lastError": "Último error"
+        "updated": "Actualizado {{time}}",
+        "toolsRefreshed": "Herramientas actualizadas {{time}}",
+        "lastConnected": "Última conexión {{time}}",
+        "lastError": "Último error",
+        "noSharedMcpServerSelected": "Este color aún no tiene un servidor MCP compartido seleccionado.",
+        "mcpServerNotFound": "No se encontró el servidor MCP.",
+        "selectWorkspaceToEditMcpServers": "Selecciona un espacio de trabajo para editar servidores MCP.",
+        "serverNameIsRequired": "El nombre del servidor es obligatorio.",
+        "relativeTime": {
+          "justNow": "ahora mismo",
+          "minutesAgo": "hace {{count}} min",
+          "hoursAgo": "hace {{count}} h",
+          "daysAgo": "hace {{count}} d",
+          "weeksAgo": "hace {{count}} sem",
+          "monthsAgo": "hace {{count}} meses",
+          "yearsAgo": "hace {{count}} a"
+        }
       },
       "triggerList": {
         "coreTriggers": "Disparadores principales",
@@ -20200,6 +20213,37 @@
         "summary": {
           "objectItem": "[Objeto]",
           "additionalCount": "+{{count}} más"
+        },
+        "selectWorkspaceToLoadWorkflows": "Selecciona un espacio de trabajo para cargar flujos de trabajo.",
+        "noWorkflowsAvailable": "No hay flujos de trabajo disponibles en este espacio de trabajo.",
+        "unableToLoadWorkflows": "No se pudieron cargar los flujos de trabajo",
+        "authenticationRequiredToLoadWorkflows": "Se requiere autenticación para cargar los flujos de trabajo",
+        "noSharedWorkflowSelected": "Este color aún no tiene un flujo de trabajo compartido seleccionado.",
+        "error": {
+          "title": "Error del flujo de trabajo",
+          "message": "Este flujo de trabajo encontró un error y no está disponible actualmente. Inténtalo de nuevo más tarde o crea un nuevo flujo de trabajo.",
+          "applicationTitle": "Error de aplicación",
+          "applicationMessage": "Algo salió mal con la aplicación. Inténtalo de nuevo más tarde.",
+          "tryAgain": "Intentar de nuevo"
+        },
+        "triggerList": {
+          "addTrigger": "Hacer clic para agregar trigger",
+          "searchPlaceholder": "Buscar triggers",
+          "close": "Cerrar",
+          "coreTriggers": "Triggers principales",
+          "integrationTriggers": "Triggers de integración",
+          "noResultsFound": "No se encontraron resultados para \"{{query}}\""
+        },
+        "connectionStatus": {
+          "reconnected": "Reconectado",
+          "connectionLost": "La conexión se perdió, por favor actualiza",
+          "pleaseRefreshToContinueEditing": "Actualiza la página para seguir editando",
+          "refreshPageToContinueEditing": "Actualiza la página para seguir editando"
+        },
+        "triggerWarning": {
+          "duplicateTitle": "Solo se permite un trigger de {{triggerName}}",
+          "duplicateDescription": "Un flujo de trabajo solo puede tener un bloque trigger de {{triggerName}}. Elimina el existente antes de agregar uno nuevo.",
+          "dismiss": "Entendido"
         }
       },
       "apiKey": {
@@ -20388,6 +20432,718 @@
         "importWorkflow": "Importar flujo",
         "creating": "Creando...",
         "importing": "Importando..."
+      },
+      "providerControls": {
+        "marketSelector": {
+          "placeholder": "Seleccionar proveedor de mercado",
+          "ariaLabel": "Seleccionar proveedor de mercado",
+          "tooltip": "Seleccionar proveedor de datos de mercado",
+          "selectionUnavailable": "La selección de proveedor no está disponible",
+          "noProviders": "No hay proveedores",
+          "selectedLabel": "Mercado: {{providerName}}",
+          "fallbackProviderName": "Mercado"
+        },
+        "tradingSelector": {
+          "placeholder": "Seleccionar proveedor de trading",
+          "ariaLabel": "Seleccionar proveedor de trading",
+          "tooltip": "Seleccionar broker",
+          "selectionUnavailable": "La selección de proveedor no está disponible",
+          "noProviders": "No hay proveedores",
+          "selectedLabel": "Broker: {{providerName}}",
+          "fallbackProviderName": "Bróker"
+        },
+        "accountSelector": {
+          "placeholder": "Seleccionar cuenta",
+          "ariaLabel": "Seleccionar cuenta de trading",
+          "tooltip": "Seleccionar cuenta de trading",
+          "loadingAccount": "Cargando cuenta...",
+          "loadingProviderConnection": "Cargando conexión del proveedor...",
+          "unableToLoadProviderConnection": "No se pudo cargar la conexión del proveedor.",
+          "selectConnection": "Selecciona una conexión de {{providerName}}.",
+          "noAccountConnected": "No hay ninguna cuenta de {{providerName}} conectada.",
+          "loadingBrokerAccounts": "Cargando cuentas del broker...",
+          "unableToLoadBrokerAccounts": "No se pudieron cargar las cuentas del broker.",
+          "noBrokerAccountsFound": "No se encontraron cuentas del broker.",
+          "reconnectAccount": "Reconectar cuenta de {{providerName}}",
+          "connectAccount": "Conectar cuenta de {{providerName}}",
+          "fallbackProviderName": "Bróker"
+        },
+        "settingsButton": {
+          "triggerLabel": "Configurar proveedor {{providerName}}",
+          "triggerTooltip": "Ajustes del proveedor",
+          "title": "Ajustes del proveedor",
+          "description": "Guarda las credenciales para este widget.",
+          "select": "Seleccionar",
+          "save": "Guardar",
+          "cancel": "Cancelar",
+          "fallbackProviderName": "Mercado"
+        }
+      },
+      "watchlist": {
+        "header": {
+          "explorer": "Explorador",
+          "selectWorkspace": "Selecciona un espacio de trabajo para usar watchlists.",
+          "addListingAriaLabel": "Agregar listado a la watchlist",
+          "addListingTooltip": "Agregar listado a la watchlist",
+          "listActionsAriaLabel": "Acciones de lista",
+          "listActionsTooltip": "Acciones de lista",
+          "defaultWatchlistPrefix": "Watchlist",
+          "defaultSectionPrefix": "Sección",
+          "selectMarketProvider": "Seleccionar watchlist",
+          "createWatchlist": "Crear watchlist",
+          "createSection": "Crear sección",
+          "import": "Importar",
+          "export": "Exportar",
+          "deleteWatchlist": "Eliminar watchlist",
+          "refresh": "Actualizar datos"
+        },
+        "listSelector": {
+          "selectionUnavailable": "La selección de watchlist no está disponible",
+          "selectLabel": "Seleccionar watchlist",
+          "searchPlaceholder": "Buscar watchlists...",
+          "noWatchlistsFound": "No se encontraron watchlists.",
+          "renameAriaLabel": "Renombrar {{name}}",
+          "deleteAriaLabel": "Eliminar {{name}}",
+          "deleteDialogTitle": "¿Eliminar watchlist?",
+          "deleteDialogDescription": "Esta acción eliminará permanentemente \"{{name}}\".",
+          "deleteDialogDescriptionFallback": "Esta acción eliminará permanentemente esta watchlist.",
+          "cancel": "Cancelar",
+          "delete": "Eliminar"
+        },
+        "body": {
+          "selectWorkspace": "Selecciona un espacio de trabajo para usar watchlists.",
+          "failedToLoadWatchlists": "No se pudieron cargar las watchlists.",
+          "createWatchlistToGetStarted": "Crea una watchlist para empezar.",
+          "noItemsInThisWatchlist": "No hay elementos en esta watchlist.",
+          "symbol": "Símbolo",
+          "asset": "Activo",
+          "last": "Último",
+          "change": "Cambio",
+          "changePercent": "Cambio %",
+          "actions": "Acciones",
+          "cancelSymbolEdit": "Cancelar edición del símbolo",
+          "editSymbol": "Editar símbolo",
+          "removeSymbol": "Eliminar símbolo",
+          "renameSection": "Renombrar sección",
+          "deleteSection": "Eliminar sección",
+          "collapseSection": "Colapsar sección",
+          "expandSection": "Expandir sección",
+          "deleteSymbolDialogTitle": "¿Eliminar símbolo?",
+          "deleteSymbolDialogDescription": "Eliminar {{name}} lo quitará de la watchlist.",
+          "deleteSymbolDialogDescriptionFallback": "Eliminar este símbolo lo quitará de la watchlist.",
+          "deleteSymbolDialogDescriptionHighlight": "Esta acción no se puede deshacer.",
+          "deleteSectionDialogTitle": "¿Eliminar sección?",
+          "deleteSectionDialogDescription": "Esta acción también eliminará todos los símbolos dentro de la sección.",
+          "deleting": "Eliminando...",
+          "cancel": "Cancelar",
+          "delete": "Eliminar",
+          "sectionDelete": "Eliminar sección"
+        }
+      },
+      "skillList": {
+        "createMenu": {
+          "manageSkills": "Administrar skills",
+          "importSkills": "Importar skills",
+          "importingSkills": "Importando skills",
+          "newSkill": "Nueva skill",
+          "create": "Crear"
+        },
+        "header": {
+          "explorer": "Explorador"
+        },
+        "body": {
+          "selectWorkspace": "Selecciona un espacio de trabajo para explorar sus skills.",
+          "noSkillsYet": "Aún no hay skills.",
+          "failedToLoadSkills": "No se pudieron cargar las skills."
+        },
+        "listItem": {
+          "untitledSkill": "Skill",
+          "renameSkill": "Renombrar skill",
+          "deleteSkill": "Eliminar skill",
+          "deleteDialogTitle": "¿Eliminar skill?",
+          "deleteDialogDescription": "Eliminar esta skill borrará permanentemente sus instrucciones del espacio de trabajo.",
+          "deleteDialogDescriptionHighlight": "Esta acción no se puede deshacer.",
+          "cancel": "Cancelar",
+          "delete": "Eliminar"
+        }
+      },
+      "skillEditor": {
+        "body": {
+          "selectWorkspace": "Selecciona un espacio de trabajo para editar skills.",
+          "failedToLoadSkills": "No se pudieron cargar las skills.",
+          "skillNotFound": "No se encontró la skill.",
+          "selectSkillToEdit": "Selecciona una skill para editar.",
+          "noSharedSkillSelected": "Este color aún no tiene una skill compartida seleccionada."
+        },
+        "header": {
+          "selectSkill": "Seleccionar skill",
+          "saveBeforeExporting": "Guarda la skill antes de exportarla",
+          "exportSkill": "Exportar skill",
+          "saveSkill": "Guardar skill"
+        },
+        "validation": {
+          "nameRequired": "El nombre de la skill es obligatorio.",
+          "nameTooLong": "El nombre de la skill debe tener {{max}} caracteres o menos.",
+          "descriptionRequired": "La descripción de la skill es obligatoria.",
+          "contentRequired": "El contenido de la skill es obligatorio.",
+          "duplicateName": "Ya existe una skill llamada \"{{name}}\".",
+          "saveFailed": "No se pudo guardar la skill."
+        },
+        "form": {
+          "nameLabel": "Nombre",
+          "descriptionLabel": "Descripción",
+          "instructionsLabel": "Instrucciones",
+          "namePlaceholder": "Investigación de mercado",
+          "descriptionPlaceholder": "Qué ayuda a hacer esta skill al agente",
+          "instructionsPlaceholder": "Escribe aquí las instrucciones que debe cargar el agente.",
+          "helperText": "Usa un nombre claro y único por espacio de trabajo. Los duplicados importados se renombran automáticamente."
+        },
+        "defaults": {
+          "name": "Nueva Skill",
+          "description": "Describe qué hace esta skill.",
+          "content": "Añade aquí las instrucciones de la skill."
+        }
+      },
+      "indicatorList": {
+        "createMenu": {
+          "createIndicator": "Crear indicador",
+          "create": "Crear",
+          "newIndicator": "Nuevo indicador",
+          "importingIndicator": "Importando indicador",
+          "importIndicator": "Importar indicador"
+        },
+        "header": {
+          "explorer": "Explorador"
+        },
+        "body": {
+          "selectWorkspace": "Selecciona un espacio de trabajo para explorar sus indicadores.",
+          "noIndicatorsYet": "Aún no hay indicadores.",
+          "failedToLoadIndicators": "No se pudieron cargar los indicadores."
+        },
+        "listItem": {
+          "untitledIndicator": "Indicador sin título",
+          "duplicateIndicator": "Duplicar indicador",
+          "renameIndicator": "Renombrar indicador",
+          "deleteIndicator": "Eliminar indicador",
+          "deleteDialogTitle": "¿Eliminar indicador?",
+          "deleteDialogDescription": "Eliminar este indicador borrará permanentemente su código y configuración.",
+          "deleteDialogDescriptionHighlight": "Esta acción no se puede deshacer.",
+          "cancel": "Cancelar",
+          "delete": "Eliminar"
+        }
+      },
+      "indicatorEditor": {
+        "body": {
+          "selectWorkspace": "Selecciona un espacio de trabajo para editar indicadores.",
+          "failedToLoadIndicators": "No se pudieron cargar los indicadores.",
+          "indicatorNotFound": "No se encontró el indicador.",
+          "selectIndicatorToEdit": "Selecciona un indicador para editar.",
+          "noSharedIndicatorSelected": "Este color aún no tiene un indicador compartido seleccionado."
+        },
+        "header": {
+          "selectIndicator": "Seleccionar indicador",
+          "saveBeforeExporting": "Guarda el indicador antes de exportarlo",
+          "exportIndicator": "Exportar indicador",
+          "saveIndicator": "Guardar indicador",
+          "verifyIndicator": "Verificar indicador"
+        }
+      },
+      "indicatorDropdown": {
+        "placeholder": "Seleccionar indicadores",
+        "tooltip": "Seleccionar indicadores",
+        "searchPlaceholder": "Buscar indicadores...",
+        "selectionUnavailable": "La selección de indicadores no está disponible",
+        "selectWorkspaceFirst": "Selecciona primero un espacio de trabajo.",
+        "unableToLoadIndicators": "No se pudieron cargar los indicadores",
+        "failedToLoadIndicators": "No se pudieron cargar los indicadores",
+        "loadingIndicators": "Cargando indicadores...",
+        "noIndicatorsAvailableYet": "Aún no hay indicadores disponibles.",
+        "noIndicatorsFound": "No se encontraron indicadores.",
+        "retry": "Reintentar",
+        "defaultIndicators": "Indicadores predeterminados",
+        "customIndicators": "Indicadores personalizados"
+      },
+      "skillDropdown": {
+        "placeholder": "Seleccionar skills",
+        "tooltip": "Seleccionar skills",
+        "searchPlaceholder": "Buscar skills...",
+        "selectionUnavailable": "La selección de skills no está disponible",
+        "selectWorkspaceFirst": "Selecciona primero un espacio de trabajo.",
+        "selectWorkspaceToChooseSkills": "Selecciona un espacio de trabajo para elegir skills.",
+        "unableToLoadSkills": "No se pudieron cargar las skills",
+        "loadingSkills": "Cargando skills...",
+        "noSkillsAvailableYet": "Aún no hay skills disponibles.",
+        "noSkillsFound": "No se encontraron skills.",
+        "retry": "Reintentar",
+        "untitledSkill": "Skill sin título"
+      },
+      "customToolDropdown": {
+        "placeholder": "Seleccionar herramientas personalizadas",
+        "tooltip": "Seleccionar herramientas personalizadas",
+        "searchPlaceholder": "Buscar herramientas personalizadas...",
+        "selectionUnavailable": "La selección de herramientas personalizadas no está disponible",
+        "selectWorkspaceFirst": "Selecciona primero un espacio de trabajo.",
+        "selectWorkspaceToChooseCustomTools": "Selecciona un espacio de trabajo para elegir herramientas personalizadas.",
+        "unableToLoadCustomTools": "No se pudieron cargar las herramientas personalizadas",
+        "loadingCustomTools": "Cargando herramientas personalizadas...",
+        "noCustomToolsAvailableYet": "Aún no hay herramientas personalizadas disponibles.",
+        "noCustomToolsFound": "No se encontraron herramientas personalizadas.",
+        "retry": "Reintentar",
+        "untitledCustomTool": "Herramienta personalizada sin título"
+      },
+      "customToolList": {
+        "createMenu": {
+          "createCustomTool": "Crear herramienta personalizada",
+          "create": "Crear",
+          "importCustomTools": "Importar herramientas personalizadas",
+          "importingCustomTools": "Importando herramientas personalizadas",
+          "newCustomTool": "Nueva herramienta personalizada"
+        },
+        "header": {
+          "explorer": "Explorador"
+        },
+        "body": {
+          "selectWorkspace": "Selecciona un espacio de trabajo para explorar herramientas personalizadas.",
+          "noCustomToolsYet": "Aún no hay herramientas personalizadas.",
+          "failedToLoadCustomTools": "No se pudieron cargar las herramientas personalizadas."
+        },
+        "listItem": {
+          "untitledCustomTool": "Herramienta personalizada",
+          "renameCustomTool": "Renombrar herramienta personalizada",
+          "deleteCustomTool": "Eliminar herramienta personalizada",
+          "deleteDialogTitle": "¿Eliminar herramienta personalizada?",
+          "deleteDialogDescription": "Eliminar esta herramienta borrará permanentemente su código y configuración.",
+          "deleteDialogDescriptionHighlight": "Esta acción no se puede deshacer.",
+          "cancel": "Cancelar",
+          "delete": "Eliminar"
+        }
+      },
+      "customToolEditor": {
+        "body": {
+          "selectWorkspace": "Selecciona un espacio de trabajo para editar herramientas personalizadas.",
+          "failedToLoadCustomTools": "No se pudieron cargar las herramientas personalizadas.",
+          "customToolNotFound": "No se encontró la herramienta personalizada.",
+          "noSharedCustomToolSelected": "Este color aún no tiene una herramienta personalizada compartida seleccionada.",
+          "noCustomToolsYet": "Aún no hay herramientas personalizadas."
+        },
+        "header": {
+          "selectCustomTool": "Seleccionar herramienta personalizada",
+          "config": "Config",
+          "code": "Código",
+          "saveCustomTool": "Guardar herramienta personalizada",
+          "exportCustomTool": "Exportar herramienta personalizada"
+        },
+        "validation": {
+          "failedToLoadToolData": "No se pudieron cargar los datos de la herramienta. Inténtalo de nuevo.",
+          "missingTypeFunction": "Falta \"type\": \"function\"",
+          "missingFunctionName": "Falta el campo function.name",
+          "missingFunctionParameters": "Falta el objeto function.parameters",
+          "missingParametersType": "Falta el campo parameters.type",
+          "missingParametersProperties": "Falta el campo parameters.properties",
+          "parametersPropertiesMustBeObject": "parameters.properties debe ser un objeto",
+          "invalidJsonFormat": "Formato JSON inválido",
+          "schemaCannotBeEmpty": "El esquema no puede estar vacío",
+          "schemaMustBeFunctionType": "El esquema debe tener un campo \"type\" con valor \"function\"",
+          "schemaMustHaveFunctionName": "El esquema debe tener un objeto \"function\" con un campo \"name\"",
+          "failedToValidateSchema": "No se pudo validar el esquema de la herramienta personalizada. Revisa tus datos e inténtalo de nuevo.",
+          "duplicateName": "Ya existe una herramienta llamada \"{{name}}\"",
+          "failedToSave": "No se pudo guardar la herramienta personalizada. Revisa tus datos e inténtalo de nuevo."
+        },
+        "form": {
+          "schemaPlaceholder": "Describe el esquema JSON a generar...",
+          "schemaLabel": "Configuración de la herramienta",
+          "codePlaceholder": "Describe la función JavaScript a generar...",
+          "codeLabel": "Código de la herramienta",
+          "availableParameters": "Parámetros disponibles:",
+          "autocompleteHint": "Empieza a escribir el nombre de un parámetro para autocompletar.",
+          "availableParametersPanel": "Parámetros disponibles",
+          "codeComment": "// Este código se ejecutará cuando se invoque la herramienta."
+        }
+      },
+      "workflowList": {
+        "body": {
+          "selectWorkspace": "Selecciona un espacio de trabajo para explorar sus carpetas de flujos de trabajo.",
+          "unableToLoadWorkflows": "No se pudieron cargar los flujos de trabajo de este espacio de trabajo."
+        },
+        "header": {
+          "explorer": "Explorador"
+        }
+      },
+      "mcpList": {
+        "createMenu": {
+          "createMcpServer": "Crear servidor MCP",
+          "create": "Crear",
+          "newMcpServer": "Nuevo servidor MCP"
+        },
+        "header": {
+          "explorer": "Explorador"
+        },
+        "body": {
+          "selectWorkspace": "Selecciona un espacio de trabajo para explorar servidores MCP.",
+          "failedToLoadMcpServers": "No se pudieron cargar los servidores MCP.",
+          "noMcpServersYet": "Aún no hay servidores MCP."
+        },
+        "listItem": {
+          "unnamedMcpServer": "Servidor sin nombre",
+          "renameMcpServer": "Renombrar servidor MCP",
+          "deleteMcpServer": "Eliminar servidor MCP",
+          "deleteDialogTitle": "¿Eliminar servidor MCP?",
+          "deleteDialogDescription": "Eliminar este servidor MCP borrará permanentemente su configuración.",
+          "deleteDialogDescriptionHighlight": "Esta acción no se puede deshacer.",
+          "cancel": "Cancelar",
+          "delete": "Eliminar"
+        },
+        "defaults": {
+          "newMcpServerName": "Nuevo servidor MCP"
+        }
+      },
+      "portfolioSnapshot": {
+        "header": {
+          "title": "Resumen de cartera",
+          "refresh": "Actualizar resumen de cartera"
+        },
+        "body": {
+          "noTradingProvidersConfigured": "No hay proveedores de trading configurados.",
+          "selectTradingProviderToGetStarted": "Selecciona un proveedor de trading para comenzar.",
+          "selectBrokerConnectionToLoadPortfolioSnapshot": "Selecciona una conexión de broker para cargar este resumen de cartera.",
+          "noBrokerAccountsFoundForThisProviderConnection": "No se encontraron cuentas de broker para esta conexión.",
+          "selectBrokerAccountToLoadPortfolioSnapshot": "Selecciona una cuenta de broker para cargar este resumen de cartera.",
+          "failedToLoadTradingProviders": "No se pudieron cargar los proveedores de trading.",
+          "failedToLoadBrokerAccounts": "No se pudieron cargar las cuentas de broker.",
+          "failedToLoadPortfolioSnapshot": "No se pudo cargar el resumen de cartera.",
+          "failedToLoadMarketQuotes": "No se pudieron cargar las cotizaciones de mercado.",
+          "failedToLoadPerformanceHistory": "No se pudo cargar el historial de rendimiento.",
+          "performance": "Rendimiento",
+          "performanceWindow": "Ventana de rendimiento",
+          "currentSummary": "Resumen actual",
+          "marketQuotes": "Cotizaciones de mercado",
+          "quoteBackedIntradayEstimate": "Estimación intradía basada en cotizaciones",
+          "loadingQuotes": "Cargando cotizaciones",
+          "refreshingQuotes": "Actualizando cotizaciones",
+          "noHoldingsWithMarketListings": "No hay posiciones con listados de mercado",
+          "noMarketProvider": "Sin proveedor de mercado",
+          "quoteMetricsUseFirst": "Las métricas de cotización usan las primeras {{cap}} de {{total}} posiciones",
+          "quotedPositionsSummary": "{{quoted}}/{{total}} cotizadas",
+          "performanceHistoryUnavailable": "El historial de rendimiento no está disponible para la cuenta seleccionada.",
+          "asOf": "A fecha de {{date}}",
+          "return": "Rendimiento",
+          "start": "Inicio",
+          "current": "Actual",
+          "high": "Máximo",
+          "low": "Mínimo",
+          "portfolioValue": "Valor de la cartera",
+          "cash": "Efectivo",
+          "holdings": "Posiciones",
+          "buyingPower": "Poder de compra",
+          "unrealizedPnl": "P&L no realizado",
+          "positions": "Posiciones",
+          "quoteValue": "Valor de cotización",
+          "dayChange": "Cambio del día",
+          "dayPercent": "% del día",
+          "quotedPositions": "Posiciones cotizadas",
+          "cashBuyingPower": "Poder de compra en efectivo",
+          "estimatedCost": "Costo estimado",
+          "estimatedProceeds": "Ingresos estimados",
+          "orderSubmitted": "Orden enviada",
+          "submitting": "Enviando...",
+          "orderPrefix": "Orden",
+          "submitOrder": "Enviar orden {{side}}",
+          "unknown": "desconocido"
+        }
+      },
+      "heatmap": {
+        "header": {
+          "title": "Mapa de calor",
+          "refresh": "Actualizar mapa de calor",
+          "watchlistSourceMode": "Watchlist",
+          "portfolioSourceMode": "Cartera",
+          "volumeUsdSizeMetric": "Volumen USD",
+          "volumeSizeMetric": "Volumen"
+        },
+        "body": {
+          "selectWorkspaceToUseHeatmap": "Selecciona un espacio de trabajo para usar el mapa de calor.",
+          "failedToLoadWatchlists": "No se pudieron cargar las watchlists.",
+          "failedToLoadTradingProviders": "No se pudieron cargar los proveedores de trading.",
+          "selectTradingProviderToLoadPortfolioHoldings": "Selecciona un proveedor de trading para cargar las posiciones de la cartera.",
+          "selectBrokerConnectionToLoadPortfolioHoldings": "Selecciona una conexión de broker para cargar las posiciones de la cartera.",
+          "failedToLoadBrokerAccounts": "No se pudieron cargar las cuentas de broker.",
+          "noBrokerAccountsFoundForThisProviderConnection": "No se encontraron cuentas de broker para esta conexión.",
+          "selectBrokerAccountToLoadPortfolioHoldings": "Selecciona una cuenta de broker para cargar las posiciones de la cartera.",
+          "failedToLoadHoldings": "No se pudieron cargar las posiciones.",
+          "noHoldingsListingsFoundForThisAccount": "No se encontraron listados de posiciones para esta cuenta.",
+          "noWatchlistListingsFound": "No se encontraron listados de watchlist.",
+          "failedToLoadMarketQuotes": "No se pudieron cargar las cotizaciones de mercado."
+        }
+      },
+      "quickOrder": {
+        "header": {
+          "title": "Orden rápida",
+          "buy": "COMPRAR",
+          "sell": "VENDER"
+        },
+        "body": {
+          "failedToLoadTradingProviders": "No se pudieron cargar los proveedores de trading.",
+          "noOrderCapableTradingProvidersAvailable": "No hay proveedores de trading capaces de enviar órdenes.",
+          "selectTradingProviderToGetStarted": "Selecciona un proveedor de trading para comenzar.",
+          "selectBrokerConnectionToSubmitAnOrder": "Selecciona una conexión de broker para enviar una orden.",
+          "failedToLoadBrokerAccounts": "No se pudieron cargar las cuentas de broker.",
+          "noBrokerAccountsFoundForThisProviderConnection": "No se encontraron cuentas de broker para esta conexión.",
+          "selectBrokerAccountToSubmitAnOrder": "Selecciona una cuenta de broker para enviar una orden.",
+          "selectProviderAndAccount": "Selecciona proveedor y cuenta.",
+          "selectListing": "Selecciona un listado.",
+          "resolvedListingAssetClassRequired": "La clase de activo del listado resuelto es obligatoria.",
+          "listingIsNotSupportedByThisProvider": "Este proveedor no admite este listado.",
+          "selectOrderType": "Selecciona un tipo de orden.",
+          "selectTimeInForce": "Selecciona una vigencia.",
+          "selectOrderSize": "Selecciona el tamaño de la orden.",
+          "notionalSizingIsNotSupportedForThisOrderType": "El tamaño notional no es compatible con este tipo de orden.",
+          "notionalSizingRequires": "El tamaño notional requiere {{values}}.",
+          "fieldNotSupportedForThisOrderType": "{{field}} no es compatible con este tipo de orden.",
+          "enterValid": "Introduce un valor válido para {{field}}.",
+          "oneOfFieldsRequired": "Se requiere {{fields}}.",
+          "marketPrice": "Precio de mercado",
+          "notional": "Notional",
+          "quantity": "Cantidad",
+          "orderType": "Tipo de orden",
+          "chooseHowTo": "Elige cómo {{side}}",
+          "timeInForce": "Vigencia",
+          "limitPrice": "Precio límite",
+          "stopPrice": "Precio stop",
+          "trailPrice": "Precio trailing",
+          "trailPercent": "Porcentaje trailing",
+          "estimatedProceeds": "Ingresos estimados",
+          "estimatedCost": "Costo estimado",
+          "cashBuyingPower": "Poder de compra en efectivo",
+          "selectListingFirst": "Selecciona primero un listado",
+          "assetClassUnavailable": "Clase de activo no disponible",
+          "listingUnsupported": "Listado no compatible",
+          "noSupportedTypes": "No hay tipos compatibles",
+          "noSupportedOrderTypesForThisListing": "No hay tipos de orden compatibles para este listado.",
+          "selectedOrderTypeIsNotSupportedForThisListing": "El tipo de orden seleccionado no es compatible con este listado.",
+          "orderSubmitted": "Orden enviada",
+          "submitting": "Enviando...",
+          "orderPrefix": "Orden",
+          "sideLabel": "{{side}}",
+          "submitOrder": "Enviar orden {{side}}"
+        }
+      },
+      "dataChart": {
+        "header": {
+          "refresh": "Actualizar datos"
+        },
+        "body": {
+          "selectWorkspace": "Selecciona un espacio de trabajo para cargar datos del gráfico.",
+          "empty": {
+            "selectProviderTitle": "Selecciona un proveedor",
+            "selectProviderAndListingTitle": "Selecciona un proveedor y un listado",
+            "selectListingTitle": "Selecciona un listado",
+            "chooseProviderDescription": "Elige un proveedor para mostrar datos del gráfico.",
+            "chooseProviderAndListingDescription": "Elige un proveedor y un listado para mostrar datos del gráfico.",
+            "chooseListingDescription": "Elige un listado para mostrar datos del gráfico."
+          },
+          "errorTitle": "No se pudieron cargar los datos",
+          "errorFallback": "No se pudieron cargar los datos del gráfico."
+        },
+        "controls": {
+          "intervalAriaLabel": "Seleccionar intervalo",
+          "intervalTooltip": "Intervalo",
+          "noIntervals": "No hay intervalos",
+          "candleStyleAriaLabel": "Estilo de vela",
+          "candleStyleTooltip": "Estilo de vela",
+          "candleTypes": {
+            "candle_solid": "Sólida",
+            "candle_stroke": "Hueca",
+            "candle_up_stroke": "Alcista hueca",
+            "candle_down_stroke": "Bajista hueca",
+            "ohlc": "Barra OHLC",
+            "area": "Área"
+          }
+        },
+        "footer": {
+          "ariaLabel": "Pie del widget",
+          "timezone": {
+            "exchange": "Bolsa",
+            "utc": "UTC",
+            "tooltip": "Zona horaria: {{timezone}}",
+            "tooltipFallback": "Zona horaria de la bolsa",
+            "searchPlaceholder": "Buscar zonas horarias...",
+            "loading": "Cargando zonas horarias...",
+            "noResults": "No se encontraron zonas horarias."
+          },
+          "range": {
+            "allAvailableData": "Todos los datos disponibles",
+            "rangeIntervalTooltip": "{{range}} en intervalo de {{interval}}",
+            "presets": {
+              "1d": "1D",
+              "5d": "5D",
+              "1w": "1S",
+              "1m": "1M",
+              "3m": "3M",
+              "6m": "6M",
+              "1y": "1A",
+              "5y": "5A",
+              "all": "Todo"
+            },
+            "units": {
+              "day": {
+                "singular": "día",
+                "plural": "días"
+              },
+              "week": {
+                "singular": "semana",
+                "plural": "semanas"
+              },
+              "month": {
+                "singular": "mes",
+                "plural": "meses"
+              },
+              "year": {
+                "singular": "año",
+                "plural": "años"
+              }
+            }
+          },
+          "session": {
+            "ariaLabel": "Sesión de mercado",
+            "regular": "Regular",
+            "extended": "Extendida",
+            "regularOption": "Sesión regular",
+            "extendedOption": "Sesión extendida"
+          },
+          "normalization": {
+            "ariaLabel": "Normalización",
+            "tooltip": "Normalización: {{mode}}",
+            "unavailable": "Normalización no disponible",
+            "noOptions": "No hay opciones de normalización.",
+            "modes": {
+              "raw": "Sin ajustar",
+              "adjusted": "Ajustado",
+              "split_adjusted": "Ajustado por splits",
+              "total_return": "Retorno total"
+            }
+          }
+        },
+        "drawTools": {
+          "groups": {
+            "lines": "Herramientas de líneas",
+            "notes": "Herramientas de notas",
+            "freehand": "Herramientas a mano alzada",
+            "shapes": "Herramientas de formas"
+          },
+          "unavailable": "{{tool}} no está disponible en esta sesión",
+          "tools": {
+            "TrendLine": "Línea de tendencia",
+            "Ray": "Rayo",
+            "Arrow": "Flecha",
+            "ExtendedLine": "Línea extendida",
+            "HorizontalLine": "Línea horizontal",
+            "HorizontalRay": "Rayo horizontal",
+            "VerticalLine": "Línea vertical",
+            "CrossLine": "Línea cruzada",
+            "Callout": "Llamada",
+            "Brush": "Pincel",
+            "Highlighter": "Resaltador",
+            "Rectangle": "Rectángulo",
+            "Circle": "Círculo",
+            "Triangle": "Triángulo",
+            "Path": "Trayecto",
+            "ParallelChannel": "Canal paralelo",
+            "FibRetracement": "Retroceso de Fibonacci",
+            "PriceRange": "Rango de precio",
+            "LongShortPosition": "Posición larga/corta",
+            "Text": "Texto"
+          },
+          "actions": {
+            "clearAll": "Borrar todo",
+            "hideAll": "Ocultar todo",
+            "showAll": "Mostrar todo",
+            "hideSelected": "Ocultar selección",
+            "removeSelected": "Eliminar selección"
+          }
+        },
+        "indicator": {
+          "trueValue": "verdadero",
+          "falseValue": "falso",
+          "emptyValue": "--",
+          "showIndicator": "Mostrar indicador",
+          "hideIndicator": "Ocultar indicador",
+          "show": "Mostrar",
+          "hide": "Ocultar",
+          "settingsAriaLabel": "Ajustes del indicador",
+          "settingsTooltip": "Ajustes",
+          "noSettings": "Sin ajustes",
+          "removeIndicator": "Eliminar indicador",
+          "remove": "Eliminar",
+          "errorTitle": "Error del indicador",
+          "compileFailed": "{{name}} no se pudo compilar.",
+          "errorGuidance": "Revisa las entradas o el script del indicador e inténtalo de nuevo.",
+          "settingsSubtitle": "Ajustes del indicador",
+          "close": "Cerrar",
+          "noConfigurableInputs": "No hay entradas configurables.",
+          "cancel": "Cancelar",
+          "save": "Guardar",
+          "plotFallback": "Gráfico {{index}}",
+          "executionErrorFallback": "No se pudieron ejecutar los indicadores",
+          "metadataLabels": {
+            "Length": "Longitud",
+            "Long": "Largo",
+            "Short": "Corto",
+            "ZigZag": "ZigZag"
+          }
+        },
+        "panes": {
+          "movePaneUp": "Mover panel arriba",
+          "moveUp": "Mover arriba",
+          "movePaneDown": "Mover panel abajo",
+          "moveDown": "Mover abajo"
+        },
+        "legend": {
+          "value": "Valor:",
+          "open": "A:",
+          "high": "Máx:",
+          "low": "Mín:",
+          "close": "C:"
+        },
+        "listingOverlay": {
+          "flagAlt": "Bandera de {{countryCode}}"
+        },
+        "errors": {
+          "failedToLoadSeriesData": "No se pudieron cargar los datos de la serie",
+          "invalidTimeWindow": "Ventana de tiempo no válida",
+          "failedToLoadData": "No se pudieron cargar los datos",
+          "invalidSeriesPayload": "Carga de serie no válida"
+        },
+        "intervalUnits": {
+          "minute": {
+            "singular": "minuto",
+            "plural": "minutos"
+          },
+          "hour": {
+            "singular": "hora",
+            "plural": "horas"
+          },
+          "day": {
+            "singular": "día",
+            "plural": "días"
+          },
+          "week": {
+            "singular": "semana",
+            "plural": "semanas"
+          },
+          "month": {
+            "singular": "mes",
+            "plural": "meses"
+          }
+        }
+      },
+      "listingSelector": {
+        "label": "Listado",
+        "listingFallback": "Listado",
+        "selectListing": "Seleccionar listado",
+        "flagAlt": "Bandera de {{countryCode}}",
+        "searching": "Buscando...",
+        "noListingsFound": "No se encontraron listados.",
+        "searchPlaceholder": "Buscar listados..."
       }
     },
     "layoutTabs": {

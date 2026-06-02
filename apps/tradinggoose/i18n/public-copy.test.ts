@@ -174,16 +174,10 @@ describe('public copy', () => {
     const enWidgets = getPublicCopy('en').workspace.widgets
     const esWidgets = getPublicCopy('es').workspace.widgets
     const zhWidgets = getPublicCopy('zh').workspace.widgets
-    expect(enWidgets.workflowInspector.workflowEditor).toBe(enWidgets.workflowEditor)
-    expect(esWidgets.workflowInspector.blockEditor).toBe(esWidgets.blockEditor)
-    expect(zhWidgets.workflowInspector.workflowLabels).toBe(zhWidgets.workflowLabels)
-    expect(enWidgets.workflowInspector.workflowEditor.previewInspector).toBe(
-      'Preview Inspector'
-    )
-    expect(esWidgets.workflowInspector.workflowEditor.previewInspector).toBe(
-      'Inspector de vista previa'
-    )
-    expect(zhWidgets.workflowInspector.workflowLabels.systemPrompt).toBe('系统提示词')
+    expect('workflowInspector' in enWidgets).toBe(false)
+    expect(enWidgets.workflowEditor.previewInspector).toBe('Preview Inspector')
+    expect(esWidgets.workflowEditor.previewInspector).toBe('Inspector de vista previa')
+    expect(zhWidgets.workflowLabels.systemPrompt).toBe('系统提示词')
     expect(getPublicCopy('es').workspace.widgets.blockEditor.blockNames.stagehand).toBe(
       'Extracción de Stagehand'
     )
@@ -572,9 +566,6 @@ describe('public copy', () => {
       const widgets = getPublicCopy(locale).workspace.widgets
 
       expect(Object.keys(widgets.workflowLabels).every((key) => !key.includes('.'))).toBe(true)
-      expect(
-        Object.keys(widgets.workflowInspector.workflowLabels).every((key) => !key.includes('.'))
-      ).toBe(true)
     }
   })
 

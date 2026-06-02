@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildLocalizedAlternates,
-  buildLocaleRequestHeaders,
   getLocaleDisplayName,
-  getLocaleFromHeaders,
+  getLocaleFromSearchParams,
   getOpenGraphLocale,
   localizeHref,
   localizePathname,
@@ -68,19 +67,10 @@ describe('i18n utils', () => {
     expect(normalizeCallbackUrl('workspace/ws-1/dashboard')).toBeNull()
   })
 
-  it('builds locale-aware request headers', () => {
-    const headers = buildLocaleRequestHeaders('zh', {
-      'Content-Type': 'application/json',
-    })
-
-    expect(headers.get('content-type')).toBe('application/json')
-    expect(headers.get('x-next-intl-locale')).toBe('zh')
-  })
-
-  it('resolves the request locale from request headers with an English fallback', () => {
-    expect(getLocaleFromHeaders({ 'x-next-intl-locale': 'es' })).toBe('es')
-    expect(getLocaleFromHeaders({ 'x-next-intl-locale': 'unknown' })).toBe('en')
-    expect(getLocaleFromHeaders(undefined)).toBe('en')
+  it('resolves explicit API locale search params with an English fallback', () => {
+    expect(getLocaleFromSearchParams(new URLSearchParams('locale=es'))).toBe('es')
+    expect(getLocaleFromSearchParams(new URLSearchParams('locale=unknown'))).toBe('en')
+    expect(getLocaleFromSearchParams(new URLSearchParams())).toBe('en')
   })
 
   it('builds localized site URLs and alternate hreflang mappings', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BlockConfig } from '@/blocks/types'
-import { getWorkflowInspectorCopy } from '@/i18n/workflow-inspector'
+import { getWorkflowInspectorCopy } from '@/i18n/block-editor'
 import { localizeWorkflowSubBlockConfigWithCopy } from '@/i18n/workflow-inspector-core'
 import {
   buildTriggerEditingLayout,

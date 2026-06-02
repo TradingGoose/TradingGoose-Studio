@@ -71,7 +71,7 @@ describe('data chart localized component copy', () => {
       )
     })
 
-    expect(container.textContent).toContain('TODO')
+    expect(container.textContent).toContain('Todo')
     expect(container.getAttribute('aria-label')).toBeNull()
     expect(container.querySelector('[aria-label="Pie del widget"]')).toBeTruthy()
   })

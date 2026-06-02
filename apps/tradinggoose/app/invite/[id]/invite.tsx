@@ -142,8 +142,13 @@ export default function Invite() {
     setIsAccepting(true)
 
     if (invitationType === 'workspace') {
+      const acceptParams = new URLSearchParams({
+        token: token || '',
+        locale,
+      })
+
       window.location.assign(
-        `/api/workspaces/invitations/${encodeURIComponent(inviteId)}?token=${encodeURIComponent(token || '')}`
+        `/api/workspaces/invitations/${encodeURIComponent(inviteId)}?${acceptParams.toString()}`
       )
     } else {
       try {

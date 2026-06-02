@@ -1,5 +1,5 @@
 import { ADMIN_ERROR_CODES } from './constants'
-import type { AdminCopy } from './copy'
+import type { AdminMessages } from '@/i18n/message-types'
 
 function normalizeAdminErrorCode(code: string | null | undefined): string {
   return (code || '')
@@ -10,7 +10,7 @@ function normalizeAdminErrorCode(code: string | null | undefined): string {
 }
 
 export function getAdminSystemSettingsErrorMessage(
-  copy: AdminCopy['systemSettings'],
+  copy: AdminMessages['systemSettings'],
   codeOrMessage: string | null | undefined
 ) {
   switch (normalizeAdminErrorCode(codeOrMessage)) {

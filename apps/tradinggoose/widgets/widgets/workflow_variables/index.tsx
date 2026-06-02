@@ -14,7 +14,7 @@ import {
   useWorkflowSelectionPersistence,
 } from '@/widgets/utils/workflow-selection'
 import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
-import { useWorkflowVariablesCopy } from './copy'
+import { useWorkflowVariablesMessages } from '@/i18n/workspace-widget-hooks'
 import WorkflowVariablesApp from './components/workflow-variables-app'
 
 const WidgetStateMessage = ({ message }: { message: string }) => (
@@ -31,7 +31,7 @@ const WorkflowVariablesWidgetBody = ({
   widget,
   onWidgetParamsChange,
 }: WidgetComponentProps) => {
-  const copy = useWorkflowVariablesCopy()
+  const copy = useWorkflowVariablesMessages()
   const workspaceId = context?.workspaceId
   const {
     channelId,
@@ -111,7 +111,7 @@ const WorkflowVariablesHeaderActions = ({
   widget,
   panelId,
 }: WorkflowVariablesHeaderActionsProps) => {
-  const copy = useWorkflowVariablesCopy()
+  const copy = useWorkflowVariablesMessages()
   const { channelId, resolvedPairColor, widgetKey } = resolveWidgetChannel({
     pairColor: widget?.pairColor,
     widget,

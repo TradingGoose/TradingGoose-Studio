@@ -162,8 +162,7 @@ describe('Workspace Invitation [invitationId] API Route', () => {
       mockGetSession.mockResolvedValue(null)
 
       const request = new NextRequest(
-        'http://localhost/api/workspaces/invitations/token-abc123?token=token-abc123',
-        { headers: { 'x-next-intl-locale': 'es' } }
+        'http://localhost/api/workspaces/invitations/token-abc123?token=token-abc123&locale=es'
       )
       const params = Promise.resolve({ invitationId: 'token-abc123' })
 
@@ -198,8 +197,7 @@ describe('Workspace Invitation [invitationId] API Route', () => {
       })
 
       const request = new NextRequest(
-        'http://localhost/api/workspaces/invitations/token-abc123?token=token-abc123',
-        { headers: { 'x-next-intl-locale': 'es' } }
+        'http://localhost/api/workspaces/invitations/token-abc123?token=token-abc123&locale=es'
       )
       const params = Promise.resolve({ invitationId: 'token-abc123' })
 
@@ -227,8 +225,7 @@ describe('Workspace Invitation [invitationId] API Route', () => {
       mockDbResults.push([mockWorkspace])
 
       const request = new NextRequest(
-        'http://localhost/api/workspaces/invitations/token-abc123?token=token-abc123',
-        { headers: { 'x-next-intl-locale': 'es' } }
+        'http://localhost/api/workspaces/invitations/token-abc123?token=token-abc123&locale=es'
       )
       const params = Promise.resolve({ invitationId: 'token-abc123' })
 
@@ -252,8 +249,7 @@ describe('Workspace Invitation [invitationId] API Route', () => {
       mockDbResults.push([{ ...mockUser, email: 'wrong@example.com' }])
 
       const request = new NextRequest(
-        'http://localhost/api/workspaces/invitations/token-abc123?token=token-abc123',
-        { headers: { 'x-next-intl-locale': 'es' } }
+        'http://localhost/api/workspaces/invitations/token-abc123?token=token-abc123&locale=es'
       )
       const params = Promise.resolve({ invitationId: 'token-abc123' })
 

@@ -10,7 +10,7 @@ import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import Nav from '@/app/(landing)/components/nav/nav'
-import type { ChatCopy } from '@/app/chat/copy'
+import type { ChatMessages } from '@/i18n/message-types'
 import { getChatEmailAuthErrorMessage } from '@/app/chat/errors'
 import { formatTemplate } from '@/i18n/client-messages'
 import { inter } from '@/app/fonts/inter'
@@ -23,7 +23,7 @@ interface EmailAuthProps {
   onAuthSuccess: () => void
   title?: string
   primaryColor?: string
-  copy: ChatCopy
+  copy: ChatMessages
 }
 
 export default function EmailAuth({

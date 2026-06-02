@@ -1,5 +1,5 @@
 import { CHAT_ERROR_CODES } from './constants'
-import type { ChatCopy } from './copy'
+import type { ChatMessages } from '@/i18n/message-types'
 
 function normalizeChatErrorCode(code: string | null | undefined): string {
   return (code || '')
@@ -9,7 +9,7 @@ function normalizeChatErrorCode(code: string | null | undefined): string {
     .replaceAll(' ', '_')
 }
 
-export function getChatErrorMessage(copy: ChatCopy, codeOrMessage: string | null | undefined) {
+export function getChatErrorMessage(copy: ChatMessages, codeOrMessage: string | null | undefined) {
   switch (normalizeChatErrorCode(codeOrMessage)) {
     case CHAT_ERROR_CODES.CHAT_NOT_FOUND:
     case CHAT_ERROR_CODES.CHAT_UNAVAILABLE:
@@ -43,7 +43,7 @@ export function getChatErrorMessage(copy: ChatCopy, codeOrMessage: string | null
 }
 
 export function getChatPasswordAuthErrorMessage(
-  copy: ChatCopy,
+  copy: ChatMessages,
   codeOrMessage: string | null | undefined
 ) {
   switch (normalizeChatErrorCode(codeOrMessage)) {
@@ -63,7 +63,7 @@ export function getChatPasswordAuthErrorMessage(
 }
 
 export function getChatEmailAuthErrorMessage(
-  copy: ChatCopy,
+  copy: ChatMessages,
   codeOrMessage: string | null | undefined
 ) {
   switch (normalizeChatErrorCode(codeOrMessage)) {
@@ -97,7 +97,7 @@ export function getChatEmailAuthErrorMessage(
   }
 }
 
-export function getChatSsoAuthErrorMessage(copy: ChatCopy, codeOrMessage: string | null | undefined) {
+export function getChatSsoAuthErrorMessage(copy: ChatMessages, codeOrMessage: string | null | undefined) {
   switch (normalizeChatErrorCode(codeOrMessage)) {
     case CHAT_ERROR_CODES.AUTH_REQUIRED_SSO:
     case CHAT_ERROR_CODES.SSO_AUTHENTICATION_REQUIRED:
@@ -118,7 +118,7 @@ export function getChatSsoAuthErrorMessage(copy: ChatCopy, codeOrMessage: string
   }
 }
 
-export function getChatInputErrorMessage(copy: ChatCopy, codeOrMessage: string | null | undefined) {
+export function getChatInputErrorMessage(copy: ChatMessages, codeOrMessage: string | null | undefined) {
   switch (normalizeChatErrorCode(codeOrMessage)) {
     case CHAT_ERROR_CODES.RESPONSE_STOPPED_BY_USER:
       return copy.errors.responseStoppedByUser

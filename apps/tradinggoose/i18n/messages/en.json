@@ -370,8 +370,16 @@
         "waitlist": "Honk! Introducing TradingGoose-Studio",
         "open": "Honk! TradingGoose-Studio is here!"
       },
-      "leadWords": ["Build", "Test", "Run"],
-      "highlightWords": ["Trading Analysis", "Signal Detection", "Risk Assessment"],
+      "leadWords": [
+        "Build",
+        "Test",
+        "Run"
+      ],
+      "highlightWords": [
+        "Trading Analysis",
+        "Signal Detection",
+        "Risk Assessment"
+      ],
       "titleConnector": "your",
       "suffix": "with TradingGoose",
       "description": "Connect your own data providers, write custom indicators to monitor market prices, and wire them into workflows that trigger trade, sell, buy, or any action you define.",
@@ -705,7 +713,13 @@
         "experience": {
           "label": "Years of Experience *",
           "placeholder": "Select experience level",
-          "options": ["0-1 years", "1-3 years", "3-5 years", "5-10 years", "10+ years"]
+          "options": [
+            "0-1 years",
+            "1-3 years",
+            "3-5 years",
+            "5-10 years",
+            "10+ years"
+          ]
         },
         "location": {
           "label": "Location *",
@@ -2798,7 +2812,7 @@
         "failedToLoadMcpServers": "Failed to load MCP servers.",
         "tools": "Tools",
         "saveRequired": "Save required",
-        "noToolsDiscovered": "No tools discovered yet.",
+        "noToolsDiscovered": "No tools discovered.",
         "saveThisServerToRefreshAndInspectDiscoveredMcpTools": "Save this server to refresh and inspect discovered MCP tools.",
         "refreshTools": "Refresh tools",
         "testConnection": "Test connection",
@@ -2807,9 +2821,9 @@
         "clearSelection": "Clear selection",
         "selectServer": "Select server",
         "serverNameRequired": "Server name is required.",
-        "failedToRefreshMcpServer": "Failed to refresh MCP server.",
+        "failedToRefreshMcpServer": "Failed to refresh MCP server tools.",
         "failedToSaveMcpServer": "Failed to save MCP server.",
-        "toolCount": "{{count}} total",
+        "toolCount": "{{count}} tools",
         "loading": "Loading...",
         "connected": "Connected",
         "error": "Error",
@@ -2819,7 +2833,20 @@
         "updated": "Updated {{time}}",
         "toolsRefreshed": "Tools refreshed {{time}}",
         "lastConnected": "Last connected {{time}}",
-        "lastError": "Last error"
+        "lastError": "Last error",
+        "noSharedMcpServerSelected": "This color has no shared MCP server selected yet.",
+        "mcpServerNotFound": "MCP server not found.",
+        "selectWorkspaceToEditMcpServers": "Select a workspace to edit MCP servers.",
+        "serverNameIsRequired": "Server name is required.",
+        "relativeTime": {
+          "justNow": "just now",
+          "minutesAgo": "{{count}}m ago",
+          "hoursAgo": "{{count}}h ago",
+          "daysAgo": "{{count}}d ago",
+          "weeksAgo": "{{count}}w ago",
+          "monthsAgo": "{{count}}mo ago",
+          "yearsAgo": "{{count}}y ago"
+        }
       },
       "triggerList": {
         "coreTriggers": "Core Triggers",
@@ -3728,7 +3755,10 @@
             },
             "headers": {
               "title": "Response Headers",
-              "columns": ["Key", "Value"],
+              "columns": [
+                "Key",
+                "Value"
+              ],
               "description": "Additional HTTP headers to include in the response"
             }
           },
@@ -20183,6 +20213,37 @@
         "summary": {
           "objectItem": "[Object]",
           "additionalCount": "+{{count}} more"
+        },
+        "selectWorkspaceToLoadWorkflows": "Select a workspace to load workflows.",
+        "noWorkflowsAvailable": "No workflows available in this workspace.",
+        "unableToLoadWorkflows": "Unable to load workflows",
+        "authenticationRequiredToLoadWorkflows": "Authentication required to load workflows",
+        "noSharedWorkflowSelected": "This color has no shared workflow selected yet.",
+        "error": {
+          "title": "Workflow Error",
+          "message": "This workflow encountered an error and is currently unavailable. Please try again later or create a new workflow.",
+          "applicationTitle": "Application Error",
+          "applicationMessage": "Something went wrong with the application. Please try again later.",
+          "tryAgain": "Try again"
+        },
+        "triggerList": {
+          "addTrigger": "Click to Add Trigger",
+          "searchPlaceholder": "Search triggers",
+          "close": "Close",
+          "coreTriggers": "Core Triggers",
+          "integrationTriggers": "Integration Triggers",
+          "noResultsFound": "No results found for \"{{query}}\""
+        },
+        "connectionStatus": {
+          "reconnected": "Reconnected",
+          "connectionLost": "Connection lost - please refresh",
+          "pleaseRefreshToContinueEditing": "Please refresh to continue editing",
+          "refreshPageToContinueEditing": "Refresh page to continue editing"
+        },
+        "triggerWarning": {
+          "duplicateTitle": "Only one {{triggerName}} trigger allowed",
+          "duplicateDescription": "A workflow can only have one {{triggerName}} trigger block. Please remove the existing one before adding a new one.",
+          "dismiss": "Got it"
         }
       },
       "apiKey": {
@@ -20371,6 +20432,718 @@
         "importWorkflow": "Import workflow",
         "creating": "Creating...",
         "importing": "Importing..."
+      },
+      "providerControls": {
+        "marketSelector": {
+          "placeholder": "Select Market Provider",
+          "ariaLabel": "Select market provider",
+          "tooltip": "Select market data provider",
+          "selectionUnavailable": "Provider selection unavailable",
+          "noProviders": "No providers",
+          "selectedLabel": "Market: {{providerName}}",
+          "fallbackProviderName": "Market"
+        },
+        "tradingSelector": {
+          "placeholder": "Select Trading Provider",
+          "ariaLabel": "Select trading provider",
+          "tooltip": "Select broker",
+          "selectionUnavailable": "Provider selection unavailable",
+          "noProviders": "No providers",
+          "selectedLabel": "Broker: {{providerName}}",
+          "fallbackProviderName": "Broker"
+        },
+        "accountSelector": {
+          "placeholder": "Select account",
+          "ariaLabel": "Select trading account",
+          "tooltip": "Select trading account",
+          "loadingAccount": "Loading account...",
+          "loadingProviderConnection": "Loading provider connection...",
+          "unableToLoadProviderConnection": "Unable to load provider connection.",
+          "selectConnection": "Select a {{providerName}} connection.",
+          "noAccountConnected": "No {{providerName}} account connected.",
+          "loadingBrokerAccounts": "Loading broker accounts...",
+          "unableToLoadBrokerAccounts": "Unable to load broker accounts.",
+          "noBrokerAccountsFound": "No broker accounts found.",
+          "reconnectAccount": "Reconnect {{providerName}} account",
+          "connectAccount": "Connect {{providerName}} account",
+          "fallbackProviderName": "broker"
+        },
+        "settingsButton": {
+          "triggerLabel": "Configure {{providerName}} provider",
+          "triggerTooltip": "Provider settings",
+          "title": "Provider settings",
+          "description": "Save credentials for this widget.",
+          "select": "Select",
+          "save": "Save",
+          "cancel": "Cancel",
+          "fallbackProviderName": "Market"
+        }
+      },
+      "watchlist": {
+        "header": {
+          "explorer": "Explorer",
+          "selectWorkspace": "Select a workspace to use watchlists.",
+          "addListingAriaLabel": "Add listing to watchlist",
+          "addListingTooltip": "Add listing to watchlist",
+          "listActionsAriaLabel": "List actions",
+          "listActionsTooltip": "List actions",
+          "defaultWatchlistPrefix": "Watchlist",
+          "defaultSectionPrefix": "Section",
+          "selectMarketProvider": "Select watchlist",
+          "createWatchlist": "Create Watchlist",
+          "createSection": "Create Section",
+          "import": "Import",
+          "export": "Export",
+          "deleteWatchlist": "Delete watchlist",
+          "refresh": "Refresh data"
+        },
+        "listSelector": {
+          "selectionUnavailable": "Watchlist selection unavailable",
+          "selectLabel": "Select watchlist",
+          "searchPlaceholder": "Search watchlists...",
+          "noWatchlistsFound": "No watchlists found.",
+          "renameAriaLabel": "Rename {{name}}",
+          "deleteAriaLabel": "Delete {{name}}",
+          "deleteDialogTitle": "Delete watchlist?",
+          "deleteDialogDescription": "This action will permanently delete \"{{name}}\".",
+          "deleteDialogDescriptionFallback": "This action will permanently delete this watchlist.",
+          "cancel": "Cancel",
+          "delete": "Delete"
+        },
+        "body": {
+          "selectWorkspace": "Select a workspace to use watchlists.",
+          "failedToLoadWatchlists": "Failed to load watchlists.",
+          "createWatchlistToGetStarted": "Create a watchlist to get started.",
+          "noItemsInThisWatchlist": "No items in this watchlist.",
+          "symbol": "Symbol",
+          "asset": "Asset",
+          "last": "Last",
+          "change": "Change",
+          "changePercent": "Change %",
+          "actions": "Actions",
+          "cancelSymbolEdit": "Cancel symbol edit",
+          "editSymbol": "Edit symbol",
+          "removeSymbol": "Remove symbol",
+          "renameSection": "Rename section",
+          "deleteSection": "Delete section",
+          "collapseSection": "Collapse section",
+          "expandSection": "Expand section",
+          "deleteSymbolDialogTitle": "Delete symbol?",
+          "deleteSymbolDialogDescription": "Removing {{name}} will delete it from the watchlist.",
+          "deleteSymbolDialogDescriptionFallback": "Removing this symbol will delete it from the watchlist.",
+          "deleteSymbolDialogDescriptionHighlight": "This action cannot be undone.",
+          "deleteSectionDialogTitle": "Delete section?",
+          "deleteSectionDialogDescription": "This action will also remove all symbols inside the section.",
+          "deleting": "Deleting...",
+          "cancel": "Cancel",
+          "delete": "Delete",
+          "sectionDelete": "Delete section"
+        }
+      },
+      "skillList": {
+        "createMenu": {
+          "manageSkills": "Manage skills",
+          "importSkills": "Import skills",
+          "importingSkills": "Importing skills",
+          "newSkill": "New skill",
+          "create": "Create"
+        },
+        "header": {
+          "explorer": "Explorer"
+        },
+        "body": {
+          "selectWorkspace": "Select a workspace to browse its skills.",
+          "noSkillsYet": "No skills yet.",
+          "failedToLoadSkills": "Failed to load skills."
+        },
+        "listItem": {
+          "untitledSkill": "Skill",
+          "renameSkill": "Rename skill",
+          "deleteSkill": "Delete skill",
+          "deleteDialogTitle": "Delete skill?",
+          "deleteDialogDescription": "Deleting this skill will permanently remove its instructions from the workspace.",
+          "deleteDialogDescriptionHighlight": "This action cannot be undone.",
+          "cancel": "Cancel",
+          "delete": "Delete"
+        }
+      },
+      "skillEditor": {
+        "body": {
+          "selectWorkspace": "Select a workspace to edit skills.",
+          "failedToLoadSkills": "Failed to load skills.",
+          "skillNotFound": "Skill not found.",
+          "selectSkillToEdit": "Select a skill to edit.",
+          "noSharedSkillSelected": "This color has no shared skill selected yet."
+        },
+        "header": {
+          "selectSkill": "Select skill",
+          "saveBeforeExporting": "Save skill before exporting",
+          "exportSkill": "Export skill",
+          "saveSkill": "Save skill"
+        },
+        "validation": {
+          "nameRequired": "Skill name is required.",
+          "nameTooLong": "Skill name must be {{max}} characters or fewer.",
+          "descriptionRequired": "Skill description is required.",
+          "contentRequired": "Skill content is required.",
+          "duplicateName": "A skill named \"{{name}}\" already exists.",
+          "saveFailed": "Failed to save skill."
+        },
+        "form": {
+          "nameLabel": "Name",
+          "descriptionLabel": "Description",
+          "instructionsLabel": "Instructions",
+          "namePlaceholder": "Market Research",
+          "descriptionPlaceholder": "What this skill helps the agent do",
+          "instructionsPlaceholder": "Write the skill instructions the agent should load.",
+          "helperText": "Use a clear workspace-unique name. Imported duplicates are renamed automatically."
+        },
+        "defaults": {
+          "name": "New Skill",
+          "description": "Describe what this skill does.",
+          "content": "Add skill instructions here."
+        }
+      },
+      "indicatorList": {
+        "createMenu": {
+          "createIndicator": "Create indicator",
+          "create": "Create",
+          "newIndicator": "New indicator",
+          "importingIndicator": "Importing indicator",
+          "importIndicator": "Import indicator"
+        },
+        "header": {
+          "explorer": "Explorer"
+        },
+        "body": {
+          "selectWorkspace": "Select a workspace to browse its indicators.",
+          "noIndicatorsYet": "No indicators yet.",
+          "failedToLoadIndicators": "Failed to load indicators."
+        },
+        "listItem": {
+          "untitledIndicator": "Untitled indicator",
+          "duplicateIndicator": "Duplicate indicator",
+          "renameIndicator": "Rename indicator",
+          "deleteIndicator": "Delete indicator",
+          "deleteDialogTitle": "Delete indicator?",
+          "deleteDialogDescription": "Deleting this indicator will permanently remove its code and configuration.",
+          "deleteDialogDescriptionHighlight": "This action cannot be undone.",
+          "cancel": "Cancel",
+          "delete": "Delete"
+        }
+      },
+      "indicatorEditor": {
+        "body": {
+          "selectWorkspace": "Select a workspace to edit indicators.",
+          "failedToLoadIndicators": "Failed to load indicators.",
+          "indicatorNotFound": "Indicator not found.",
+          "selectIndicatorToEdit": "Select an indicator to edit.",
+          "noSharedIndicatorSelected": "This color has no shared indicator selected yet."
+        },
+        "header": {
+          "selectIndicator": "Select indicator",
+          "saveBeforeExporting": "Save indicator before exporting",
+          "exportIndicator": "Export indicator",
+          "saveIndicator": "Save indicator",
+          "verifyIndicator": "Verify indicator"
+        }
+      },
+      "indicatorDropdown": {
+        "placeholder": "Select indicators",
+        "tooltip": "Select indicators",
+        "searchPlaceholder": "Search indicators...",
+        "selectionUnavailable": "Indicator selection unavailable",
+        "selectWorkspaceFirst": "Select a workspace first.",
+        "unableToLoadIndicators": "Unable to load indicators",
+        "failedToLoadIndicators": "Failed to load indicators",
+        "loadingIndicators": "Loading indicators...",
+        "noIndicatorsAvailableYet": "No indicators available yet.",
+        "noIndicatorsFound": "No indicators found.",
+        "retry": "Retry",
+        "defaultIndicators": "Default indicators",
+        "customIndicators": "Custom indicators"
+      },
+      "skillDropdown": {
+        "placeholder": "Select skills",
+        "tooltip": "Select skills",
+        "searchPlaceholder": "Search skills...",
+        "selectionUnavailable": "Skill selection unavailable",
+        "selectWorkspaceFirst": "Select a workspace first.",
+        "selectWorkspaceToChooseSkills": "Select a workspace to choose skills.",
+        "unableToLoadSkills": "Unable to load skills",
+        "loadingSkills": "Loading skills...",
+        "noSkillsAvailableYet": "No skills available yet.",
+        "noSkillsFound": "No skills found.",
+        "retry": "Retry",
+        "untitledSkill": "Untitled skill"
+      },
+      "customToolDropdown": {
+        "placeholder": "Select custom tools",
+        "tooltip": "Select custom tools",
+        "searchPlaceholder": "Search custom tools...",
+        "selectionUnavailable": "Custom tool selection unavailable",
+        "selectWorkspaceFirst": "Select a workspace first.",
+        "selectWorkspaceToChooseCustomTools": "Select a workspace to choose custom tools.",
+        "unableToLoadCustomTools": "Unable to load custom tools",
+        "loadingCustomTools": "Loading custom tools...",
+        "noCustomToolsAvailableYet": "No custom tools available yet.",
+        "noCustomToolsFound": "No custom tools found.",
+        "retry": "Retry",
+        "untitledCustomTool": "Untitled custom tool"
+      },
+      "customToolList": {
+        "createMenu": {
+          "createCustomTool": "Create custom tool",
+          "create": "Create",
+          "importCustomTools": "Import custom tools",
+          "importingCustomTools": "Importing custom tools",
+          "newCustomTool": "New custom tool"
+        },
+        "header": {
+          "explorer": "Explorer"
+        },
+        "body": {
+          "selectWorkspace": "Select a workspace to browse custom tools.",
+          "noCustomToolsYet": "No custom tools yet.",
+          "failedToLoadCustomTools": "Failed to load custom tools."
+        },
+        "listItem": {
+          "untitledCustomTool": "Custom Tool",
+          "renameCustomTool": "Rename custom tool",
+          "deleteCustomTool": "Delete custom tool",
+          "deleteDialogTitle": "Delete custom tool?",
+          "deleteDialogDescription": "Deleting this custom tool will permanently remove its code and configuration.",
+          "deleteDialogDescriptionHighlight": "This action cannot be undone.",
+          "cancel": "Cancel",
+          "delete": "Delete"
+        }
+      },
+      "customToolEditor": {
+        "body": {
+          "selectWorkspace": "Select a workspace to edit custom tools.",
+          "failedToLoadCustomTools": "Failed to load custom tools.",
+          "customToolNotFound": "Custom tool not found.",
+          "noSharedCustomToolSelected": "This color has no shared custom tool selected yet.",
+          "noCustomToolsYet": "No custom tools yet."
+        },
+        "header": {
+          "selectCustomTool": "Select custom tool",
+          "config": "Config",
+          "code": "Code",
+          "saveCustomTool": "Save custom tool",
+          "exportCustomTool": "Export custom tool"
+        },
+        "validation": {
+          "failedToLoadToolData": "Failed to load tool data. Please try again.",
+          "missingTypeFunction": "Missing \"type\": \"function\"",
+          "missingFunctionName": "Missing function.name field",
+          "missingFunctionParameters": "Missing function.parameters object",
+          "missingParametersType": "Missing parameters.type field",
+          "missingParametersProperties": "Missing parameters.properties field",
+          "parametersPropertiesMustBeObject": "parameters.properties must be an object",
+          "invalidJsonFormat": "Invalid JSON format",
+          "schemaCannotBeEmpty": "Schema cannot be empty",
+          "schemaMustBeFunctionType": "Schema must have a \"type\" field set to \"function\"",
+          "schemaMustHaveFunctionName": "Schema must have a \"function\" object with a \"name\" field",
+          "failedToValidateSchema": "Failed to validate custom tool schema. Please check your inputs and try again.",
+          "duplicateName": "A tool with the name \"{{name}}\" already exists",
+          "failedToSave": "Failed to save custom tool. Please check your inputs and try again."
+        },
+        "form": {
+          "schemaPlaceholder": "Describe the JSON schema to generate...",
+          "schemaLabel": "Tool Config",
+          "codePlaceholder": "Describe the JavaScript function to generate...",
+          "codeLabel": "Tool Code",
+          "availableParameters": "Available parameters:",
+          "autocompleteHint": "Start typing a parameter name for autocomplete.",
+          "availableParametersPanel": "Available Parameters",
+          "codeComment": "// This code will be executed when the tool is called."
+        }
+      },
+      "workflowList": {
+        "body": {
+          "selectWorkspace": "Select a workspace to browse its workflow folders.",
+          "unableToLoadWorkflows": "Unable to load workflows for this workspace."
+        },
+        "header": {
+          "explorer": "Explorer"
+        }
+      },
+      "mcpList": {
+        "createMenu": {
+          "createMcpServer": "Create MCP server",
+          "create": "Create",
+          "newMcpServer": "New MCP server"
+        },
+        "header": {
+          "explorer": "Explorer"
+        },
+        "body": {
+          "selectWorkspace": "Select a workspace to browse MCP servers.",
+          "failedToLoadMcpServers": "Failed to load MCP servers.",
+          "noMcpServersYet": "No MCP servers yet."
+        },
+        "listItem": {
+          "unnamedMcpServer": "Unnamed server",
+          "renameMcpServer": "Rename MCP server",
+          "deleteMcpServer": "Delete MCP server",
+          "deleteDialogTitle": "Delete MCP server?",
+          "deleteDialogDescription": "Deleting this MCP server will permanently remove its configuration.",
+          "deleteDialogDescriptionHighlight": "This action cannot be undone.",
+          "cancel": "Cancel",
+          "delete": "Delete"
+        },
+        "defaults": {
+          "newMcpServerName": "New MCP Server"
+        }
+      },
+      "portfolioSnapshot": {
+        "header": {
+          "title": "Portfolio Snapshot",
+          "refresh": "Refresh portfolio snapshot"
+        },
+        "body": {
+          "noTradingProvidersConfigured": "No trading providers are configured.",
+          "selectTradingProviderToGetStarted": "Select a trading provider to get started.",
+          "selectBrokerConnectionToLoadPortfolioSnapshot": "Select a broker connection to load this portfolio snapshot.",
+          "noBrokerAccountsFoundForThisProviderConnection": "No broker accounts found for this provider connection.",
+          "selectBrokerAccountToLoadPortfolioSnapshot": "Select a broker account to load this portfolio snapshot.",
+          "failedToLoadTradingProviders": "Failed to load trading providers.",
+          "failedToLoadBrokerAccounts": "Failed to load broker accounts.",
+          "failedToLoadPortfolioSnapshot": "Failed to load portfolio snapshot.",
+          "failedToLoadMarketQuotes": "Failed to load market quotes.",
+          "failedToLoadPerformanceHistory": "Failed to load performance history.",
+          "performance": "Performance",
+          "performanceWindow": "Performance window",
+          "currentSummary": "Current Summary",
+          "marketQuotes": "Market Quotes",
+          "quoteBackedIntradayEstimate": "Quote-backed intraday estimate",
+          "loadingQuotes": "Loading quotes",
+          "refreshingQuotes": "Refreshing quotes",
+          "noHoldingsWithMarketListings": "No holdings with market listings",
+          "noMarketProvider": "No market provider",
+          "quoteMetricsUseFirst": "Quote metrics use first {{cap}} of {{total}} holdings",
+          "quotedPositionsSummary": "{{quoted}}/{{total}} quoted",
+          "performanceHistoryUnavailable": "Performance history is unavailable for the selected account.",
+          "asOf": "As of {{date}}",
+          "return": "Return",
+          "start": "Start",
+          "current": "Current",
+          "high": "High",
+          "low": "Low",
+          "portfolioValue": "Portfolio Value",
+          "cash": "Cash",
+          "holdings": "Holdings",
+          "buyingPower": "Buying Power",
+          "unrealizedPnl": "Unrealized P&L",
+          "positions": "Positions",
+          "quoteValue": "Quote Value",
+          "dayChange": "Day Change",
+          "dayPercent": "Day %",
+          "quotedPositions": "Quoted Positions",
+          "cashBuyingPower": "Cash Buying Power",
+          "estimatedCost": "Estimated Cost",
+          "estimatedProceeds": "Estimated Proceeds",
+          "orderSubmitted": "Order submitted",
+          "submitting": "Submitting...",
+          "orderPrefix": "Order",
+          "submitOrder": "Submit {{side}} Order",
+          "unknown": "unknown"
+        }
+      },
+      "heatmap": {
+        "header": {
+          "title": "Heatmap",
+          "refresh": "Refresh heatmap",
+          "watchlistSourceMode": "Watchlist",
+          "portfolioSourceMode": "Portfolio",
+          "volumeUsdSizeMetric": "Volume USD",
+          "volumeSizeMetric": "Volume"
+        },
+        "body": {
+          "selectWorkspaceToUseHeatmap": "Select a workspace to use the heatmap.",
+          "failedToLoadWatchlists": "Failed to load watchlists.",
+          "failedToLoadTradingProviders": "Failed to load trading providers.",
+          "selectTradingProviderToLoadPortfolioHoldings": "Select a trading provider to load portfolio holdings.",
+          "selectBrokerConnectionToLoadPortfolioHoldings": "Select a broker connection to load portfolio holdings.",
+          "failedToLoadBrokerAccounts": "Failed to load broker accounts.",
+          "noBrokerAccountsFoundForThisProviderConnection": "No broker accounts found for this provider connection.",
+          "selectBrokerAccountToLoadPortfolioHoldings": "Select a broker account to load portfolio holdings.",
+          "failedToLoadHoldings": "Failed to load holdings.",
+          "noHoldingsListingsFoundForThisAccount": "No holdings listings found for this account.",
+          "noWatchlistListingsFound": "No watchlist listings found.",
+          "failedToLoadMarketQuotes": "Failed to load market quotes."
+        }
+      },
+      "quickOrder": {
+        "header": {
+          "title": "Quick Order",
+          "buy": "BUY",
+          "sell": "SELL"
+        },
+        "body": {
+          "failedToLoadTradingProviders": "Failed to load trading providers.",
+          "noOrderCapableTradingProvidersAvailable": "No order-capable trading providers are available.",
+          "selectTradingProviderToGetStarted": "Select a trading provider to get started.",
+          "selectBrokerConnectionToSubmitAnOrder": "Select a broker connection to submit an order.",
+          "failedToLoadBrokerAccounts": "Failed to load broker accounts.",
+          "noBrokerAccountsFoundForThisProviderConnection": "No broker accounts found for this provider connection.",
+          "selectBrokerAccountToSubmitAnOrder": "Select a broker account to submit an order.",
+          "selectProviderAndAccount": "Select provider and account.",
+          "selectListing": "Select a listing.",
+          "resolvedListingAssetClassRequired": "Resolved listing asset class is required.",
+          "listingIsNotSupportedByThisProvider": "Listing is not supported by this provider.",
+          "selectOrderType": "Select an order type.",
+          "selectTimeInForce": "Select a time in force.",
+          "selectOrderSize": "Select order size.",
+          "notionalSizingIsNotSupportedForThisOrderType": "Notional sizing is not supported for this order type.",
+          "notionalSizingRequires": "Notional sizing requires {{values}}.",
+          "fieldNotSupportedForThisOrderType": "{{field}} is not supported for this order type.",
+          "enterValid": "Enter a valid {{field}}.",
+          "oneOfFieldsRequired": "{{fields}} is required.",
+          "marketPrice": "Market Price",
+          "notional": "Notional",
+          "quantity": "Quantity",
+          "orderType": "Order Type",
+          "chooseHowTo": "Choose how to {{side}}",
+          "timeInForce": "Time in Force",
+          "limitPrice": "Limit Price",
+          "stopPrice": "Stop Price",
+          "trailPrice": "Trail Price",
+          "trailPercent": "Trail Percent",
+          "estimatedProceeds": "Estimated Proceeds",
+          "estimatedCost": "Estimated Cost",
+          "cashBuyingPower": "Cash Buying Power",
+          "selectListingFirst": "Select listing first",
+          "assetClassUnavailable": "Asset class unavailable",
+          "listingUnsupported": "Listing unsupported",
+          "noSupportedTypes": "No supported types",
+          "noSupportedOrderTypesForThisListing": "No supported order types for this listing.",
+          "selectedOrderTypeIsNotSupportedForThisListing": "Selected order type is not supported for this listing.",
+          "orderSubmitted": "Order submitted",
+          "submitting": "Submitting...",
+          "orderPrefix": "Order",
+          "sideLabel": "{{side}}",
+          "submitOrder": "Submit {{side}} Order"
+        }
+      },
+      "dataChart": {
+        "header": {
+          "refresh": "Refresh data"
+        },
+        "body": {
+          "selectWorkspace": "Select a workspace to load chart data.",
+          "empty": {
+            "selectProviderTitle": "Select a provider",
+            "selectProviderAndListingTitle": "Select a provider and listing",
+            "selectListingTitle": "Select a listing",
+            "chooseProviderDescription": "Choose a provider to display chart data.",
+            "chooseProviderAndListingDescription": "Choose a provider and listing to display chart data.",
+            "chooseListingDescription": "Choose a listing to display chart data."
+          },
+          "errorTitle": "Failed to load data",
+          "errorFallback": "Unable to load chart data."
+        },
+        "controls": {
+          "intervalAriaLabel": "Select interval",
+          "intervalTooltip": "Interval",
+          "noIntervals": "No intervals",
+          "candleStyleAriaLabel": "Candle style",
+          "candleStyleTooltip": "Candle style",
+          "candleTypes": {
+            "candle_solid": "Solid",
+            "candle_stroke": "Hollow",
+            "candle_up_stroke": "Up Hollow",
+            "candle_down_stroke": "Down Hollow",
+            "ohlc": "Bar Stroke",
+            "area": "Area"
+          }
+        },
+        "footer": {
+          "ariaLabel": "Widget footer",
+          "timezone": {
+            "exchange": "Exchange",
+            "utc": "UTC",
+            "tooltip": "Timezone: {{timezone}}",
+            "tooltipFallback": "Exchange timezone",
+            "searchPlaceholder": "Search timezones...",
+            "loading": "Loading timezones...",
+            "noResults": "No timezones found."
+          },
+          "range": {
+            "allAvailableData": "All available data",
+            "rangeIntervalTooltip": "{{range}} in {{interval}} interval",
+            "presets": {
+              "1d": "1D",
+              "5d": "5D",
+              "1w": "1W",
+              "1m": "1M",
+              "3m": "3M",
+              "6m": "6M",
+              "1y": "1Y",
+              "5y": "5Y",
+              "all": "ALL"
+            },
+            "units": {
+              "day": {
+                "singular": "day",
+                "plural": "days"
+              },
+              "week": {
+                "singular": "week",
+                "plural": "weeks"
+              },
+              "month": {
+                "singular": "month",
+                "plural": "months"
+              },
+              "year": {
+                "singular": "year",
+                "plural": "years"
+              }
+            }
+          },
+          "session": {
+            "ariaLabel": "Market session",
+            "regular": "Regular",
+            "extended": "Extended",
+            "regularOption": "Regular session",
+            "extendedOption": "Extended session"
+          },
+          "normalization": {
+            "ariaLabel": "Normalization",
+            "tooltip": "Normalization: {{mode}}",
+            "unavailable": "Normalization unavailable",
+            "noOptions": "No normalization options.",
+            "modes": {
+              "raw": "Raw",
+              "adjusted": "Adjusted",
+              "split_adjusted": "Split adjusted",
+              "total_return": "Total return"
+            }
+          }
+        },
+        "drawTools": {
+          "groups": {
+            "lines": "Lines tools",
+            "notes": "Notes tools",
+            "freehand": "Freehand tools",
+            "shapes": "Shapes tools"
+          },
+          "unavailable": "{{tool}} is unavailable in this session",
+          "tools": {
+            "TrendLine": "Trend line",
+            "Ray": "Ray",
+            "Arrow": "Arrow",
+            "ExtendedLine": "Extended line",
+            "HorizontalLine": "Horizontal line",
+            "HorizontalRay": "Horizontal ray",
+            "VerticalLine": "Vertical line",
+            "CrossLine": "Cross line",
+            "Callout": "Callout",
+            "Brush": "Brush",
+            "Highlighter": "Highlighter",
+            "Rectangle": "Rectangle",
+            "Circle": "Circle",
+            "Triangle": "Triangle",
+            "Path": "Path",
+            "ParallelChannel": "Parallel channel",
+            "FibRetracement": "Fib retracement",
+            "PriceRange": "Price range",
+            "LongShortPosition": "Long/short position",
+            "Text": "Text"
+          },
+          "actions": {
+            "clearAll": "Clear all",
+            "hideAll": "Hide all",
+            "showAll": "Show all",
+            "hideSelected": "Hide selected",
+            "removeSelected": "Remove selected"
+          }
+        },
+        "indicator": {
+          "trueValue": "true",
+          "falseValue": "false",
+          "emptyValue": "--",
+          "showIndicator": "Show indicator",
+          "hideIndicator": "Hide indicator",
+          "show": "Show",
+          "hide": "Hide",
+          "settingsAriaLabel": "Indicator settings",
+          "settingsTooltip": "Settings",
+          "noSettings": "No settings",
+          "removeIndicator": "Remove indicator",
+          "remove": "Remove",
+          "errorTitle": "Indicator error",
+          "compileFailed": "{{name}} failed to compile.",
+          "errorGuidance": "Check the indicator inputs or script, then try again.",
+          "settingsSubtitle": "Indicator settings",
+          "close": "Close",
+          "noConfigurableInputs": "No configurable inputs.",
+          "cancel": "Cancel",
+          "save": "Save",
+          "plotFallback": "Plot {{index}}",
+          "executionErrorFallback": "Failed to execute indicators",
+          "metadataLabels": {
+            "Length": "Length",
+            "Long": "Long",
+            "Short": "Short",
+            "ZigZag": "ZigZag"
+          }
+        },
+        "panes": {
+          "movePaneUp": "Move pane up",
+          "moveUp": "Move up",
+          "movePaneDown": "Move pane down",
+          "moveDown": "Move down"
+        },
+        "legend": {
+          "value": "Value:",
+          "open": "O:",
+          "high": "H:",
+          "low": "L:",
+          "close": "C:"
+        },
+        "listingOverlay": {
+          "flagAlt": "{{countryCode}} flag"
+        },
+        "errors": {
+          "failedToLoadSeriesData": "Failed to load series data",
+          "invalidTimeWindow": "Invalid time window",
+          "failedToLoadData": "Failed to load data",
+          "invalidSeriesPayload": "Invalid series payload"
+        },
+        "intervalUnits": {
+          "minute": {
+            "singular": "minute",
+            "plural": "minutes"
+          },
+          "hour": {
+            "singular": "hour",
+            "plural": "hours"
+          },
+          "day": {
+            "singular": "day",
+            "plural": "days"
+          },
+          "week": {
+            "singular": "week",
+            "plural": "weeks"
+          },
+          "month": {
+            "singular": "month",
+            "plural": "months"
+          }
+        }
+      },
+      "listingSelector": {
+        "label": "Listing",
+        "listingFallback": "Listing",
+        "selectListing": "Select listing",
+        "flagAlt": "{{countryCode}} flag",
+        "searching": "Searching...",
+        "noListingsFound": "No listings found.",
+        "searchPlaceholder": "Search listings..."
       }
     },
     "layoutTabs": {

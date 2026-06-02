@@ -4,7 +4,7 @@ import { useRef, useState } from 'react'
 import { File, FileText, Image, Paperclip, X } from 'lucide-react'
 import { formatTemplate } from '@/i18n/template'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useWorkflowChatCopy } from '@/widgets/widgets/workflow_chat/copy'
+import { useWorkflowChatMessages } from '@/i18n/workspace-widget-hooks'
 
 const logger = createLogger('ChatFileUpload')
 
@@ -35,7 +35,7 @@ export function ChatFileUpload({
   disabled = false,
   onError,
 }: ChatFileUploadProps) {
-  const copy = useWorkflowChatCopy()
+  const copy = useWorkflowChatMessages()
   const [isDragOver, setIsDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
