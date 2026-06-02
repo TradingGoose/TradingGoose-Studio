@@ -1,5 +1,4 @@
 export * from './base-styles'
 export { default as EmailFooter } from './footer'
 export { EmailHeader } from './header'
-export { LocalizedEmail } from './localized-email'
 export * from './render-email'

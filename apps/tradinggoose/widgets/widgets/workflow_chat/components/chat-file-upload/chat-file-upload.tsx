@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { File, FileText, Image, Paperclip, X } from 'lucide-react'
-import { formatTemplate } from '@/i18n/template'
+import { formatTemplate } from '@/i18n/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useWorkflowChatMessages } from '@/i18n/workspace-widget-hooks'
 

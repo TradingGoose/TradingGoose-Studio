@@ -1,6 +1,6 @@
 'use client'
 
-import { formatTemplate } from '@/i18n/template'
+import { formatTemplate } from '@/i18n/utils'
 import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import { ProviderSelector, type ProviderSelectorVariant } from '@/components/provider-selector'
 import { OAUTH_PROVIDERS, parseProvider } from '@/lib/oauth'

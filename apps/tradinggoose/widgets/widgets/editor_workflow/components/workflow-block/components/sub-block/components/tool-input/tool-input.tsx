@@ -27,7 +27,7 @@ import {
   getToolInputCopy,
   localizeWorkflowSubBlockConfig,
 } from '@/i18n/block-editor'
-import { formatTemplate } from '@/i18n/template'
+import { formatTemplate } from '@/i18n/utils'
 import { useRouter } from '@/i18n/navigation'
 import type { LocaleCode } from '@/i18n/utils'
 import { getProviderFromModel, supportsToolUsageControl } from '@/providers/ai/utils'

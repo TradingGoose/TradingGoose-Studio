@@ -54,6 +54,7 @@ vi.mock('@tradinggoose/db/schema', () => ({
     createdAt: 'waitlist.createdAt',
     email: 'waitlist.email',
     id: 'waitlist.id',
+    preferredLocale: 'waitlist.preferredLocale',
     rejectedAt: 'waitlist.rejectedAt',
     rejectedByUserId: 'waitlist.rejectedByUserId',
     signedUpAt: 'waitlist.signedUpAt',
@@ -95,8 +96,8 @@ vi.mock('@/lib/email/mailer', () => ({
 }))
 
 vi.mock('@/lib/email/locale', () => ({
-  persistAnonymousEmailLocale: vi.fn().mockResolvedValue('en'),
-  resolveEmailLocale: vi.fn().mockResolvedValue('en'),
+  normalizeEmailLocale: (locale?: string | null) =>
+    locale === 'en' || locale === 'es' || locale === 'zh' ? locale : 'en',
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -140,8 +141,8 @@ describe('registration service waitlist approvals', () => {
 
   it('sends changed approval emails through the batch mailer', async () => {
     mockSelectWhere.mockResolvedValueOnce([
-      { email: 'alpha@example.com', id: 'entry-1', status: 'pending' },
-      { email: 'beta@example.com', id: 'entry-2', status: 'rejected' },
+      { email: 'alpha@example.com', id: 'entry-1', preferredLocale: 'es', status: 'pending' },
+      { email: 'beta@example.com', id: 'entry-2', preferredLocale: 'zh', status: 'rejected' },
     ])
 
     await updateWaitlistStatuses({
@@ -168,12 +169,23 @@ describe('registration service waitlist approvals', () => {
       ],
     })
     expect(mockSendEmail).not.toHaveBeenCalled()
+    expect(mockRenderWaitlistApprovedEmail).toHaveBeenCalledWith(
+      'alpha@example.com',
+      'https://app.tradinggoose.ai/signup?email=alpha%40example.com',
+      'es'
+    )
+    expect(mockRenderWaitlistApprovedEmail).toHaveBeenCalledWith(
+      'beta@example.com',
+      'https://app.tradinggoose.ai/signup?email=beta%40example.com',
+      'zh'
+    )
   })
 
   it('chunks approval email batches to the Resend request limit', async () => {
     const rows = Array.from({ length: 101 }, (_, index) => ({
       email: `user-${index}@example.com`,
       id: `entry-${index}`,
+      preferredLocale: 'en',
       status: 'pending',
     }))
 
@@ -192,7 +204,7 @@ describe('registration service waitlist approvals', () => {
 
   it('does not send approval emails for rejected status updates', async () => {
     mockSelectWhere.mockResolvedValueOnce([
-      { email: 'alpha@example.com', id: 'entry-1', status: 'pending' },
+      { email: 'alpha@example.com', id: 'entry-1', preferredLocale: 'en', status: 'pending' },
     ])
 
     await updateWaitlistStatuses({

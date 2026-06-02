@@ -6,7 +6,7 @@ import { MarketProviderSelector } from '@/components/market-selector/provider-se
 import { TradingAccountSelector } from '@/components/trading-selector/account-selector'
 import { TradingProviderSelector } from '@/components/trading-selector/provider-selector'
 import { Label, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui'
-import { formatTemplate } from '@/i18n/template'
+import { formatTemplate } from '@/i18n/utils'
 import { DateTimePicker } from '@/components/ui/datetime-picker'
 import { SimpleTimePicker } from '@/components/ui/simple-time-picker'
 import { Slider } from '@/components/ui/slider'

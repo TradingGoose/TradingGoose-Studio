@@ -1,8 +1,7 @@
 import enCopy from './messages/en.json'
 import esCopy from './messages/es.json'
 import zhCopy from './messages/zh.json'
-import { formatTemplate } from './template'
-import { defaultLocale, type LocaleCode } from './utils'
+import { defaultLocale, formatTemplate, type LocaleCode } from './utils'
 
 type WidenLiteralValues<T> = T extends string
   ? string

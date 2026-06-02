@@ -4,7 +4,7 @@ import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState }
 import { Check, ChevronDown, Search } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { Input } from '@/components/ui/input'
-import { formatTemplate } from '@/i18n/template'
+import { formatTemplate } from '@/i18n/utils'
 import { useWorkflowOutputSelectMessages } from '@/i18n/workspace-widget-hooks'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'

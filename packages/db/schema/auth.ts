@@ -181,10 +181,3 @@ export const settings = pgTable('settings', {
 
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
-
-export const emailRecipientPreference = pgTable('email_recipient_preference', {
-  email: text('email').primaryKey(),
-  preferredLocale: text('preferred_locale').notNull().default('en'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-})

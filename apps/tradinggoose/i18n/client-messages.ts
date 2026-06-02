@@ -17,7 +17,7 @@ import type {
   WorkspaceMessages,
 } from './message-types'
 
-export { formatTemplate } from './template'
+export { formatTemplate } from './utils'
 export type { PublicCopy, PublicMessages } from './message-types'
 
 export function useAppMessages(): PublicMessages {

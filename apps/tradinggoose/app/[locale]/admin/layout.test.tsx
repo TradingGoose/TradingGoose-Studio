@@ -2,7 +2,6 @@ import type React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-let capturedNamespaces: readonly string[] | undefined
 let capturedGlobalNavbarProps:
   | {
       isSystemAdmin?: boolean
@@ -23,19 +22,6 @@ vi.mock('@/lib/admin/access', () => ({
   getSystemAdminAccess: (...args: unknown[]) => mockGetSystemAdminAccess(...args),
 }))
 
-vi.mock('@/app/intl-provider', () => ({
-  default: ({
-    children,
-    namespaces,
-  }: {
-    children: React.ReactNode
-    namespaces?: readonly string[]
-  }) => {
-    capturedNamespaces = namespaces
-    return <div data-testid='intl-provider'>{children}</div>
-  },
-}))
-
 vi.mock('@/global-navbar', () => ({
   GlobalNavbar: ({
     children,
@@ -51,15 +37,14 @@ vi.mock('@/global-navbar', () => ({
   },
 }))
 
-describe('Admin layout i18n namespaces', () => {
+describe('Admin layout', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.resetModules()
-    capturedNamespaces = undefined
     capturedGlobalNavbarProps = undefined
   })
 
-  it('provides nav, workspace, and admin messages to the admin navbar tree', async () => {
+  it('renders admin content inside the admin navbar', async () => {
     mockGetSystemAdminAccess.mockResolvedValue({
       isSystemAdmin: false,
       canBootstrapSystemAdmin: true,
@@ -69,7 +54,6 @@ describe('Admin layout i18n namespaces', () => {
     const result = await AdminLayout({ children: <div>admin content</div> })
 
     expect(renderToStaticMarkup(result)).toContain('admin content')
-    expect(capturedNamespaces).toEqual(expect.arrayContaining(['nav', 'workspace', 'admin']))
     expect(capturedGlobalNavbarProps).toEqual({
       isSystemAdmin: false,
       navigationMode: 'admin',

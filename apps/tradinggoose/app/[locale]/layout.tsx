@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { notFound } from 'next/navigation'
 import Script from 'next/script'
 import { PUBLIC_ENV_KEY } from 'next-runtime-env'
-import { hasLocale } from 'next-intl'
+import { hasLocale, NextIntlClientProvider } from 'next-intl'
 import { setRequestLocale } from 'next-intl/server'
 import { generateBrandedMetadata } from '@/lib/branding/metadata'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -13,7 +13,6 @@ import '@/app/globals.css'
 
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { SessionProvider } from '@/lib/session/session-context'
-import IntlProvider from '@/app/intl-provider'
 import { ProviderModelsBootstrap } from '@/app/provider-models-bootstrap'
 import { QueryProvider } from '@/app/query-provider'
 import { ThemeProvider } from '@/app/theme-provider'
@@ -108,22 +107,22 @@ export default async function RootLayout({
         <meta name='color-scheme' content='light dark' />
         <meta name='format-detection' content='telephone=no' />
         <meta httpEquiv='x-ua-compatible' content='ie=edge' />
+      </head>
+      <body suppressHydrationWarning>
         <Script id='public-env' strategy='beforeInteractive'>
           {`window['${PUBLIC_ENV_KEY}'] = ${publicEnv};`}
         </Script>
-      </head>
-      <body suppressHydrationWarning>
         <PostHogProvider>
           <ThemeProvider>
             <QueryProvider>
               <SessionProvider>
-                <ProviderModelsBootstrap />
-                <TooltipProvider delayDuration={100} skipDelayDuration={0}>
-                  <IntlProvider>
+                <NextIntlClientProvider key={locale} locale={locale}>
+                  <ProviderModelsBootstrap />
+                  <TooltipProvider delayDuration={100} skipDelayDuration={0}>
                     <ZoomPrevention />
                     {children}
-                  </IntlProvider>
-                </TooltipProvider>
+                  </TooltipProvider>
+                </NextIntlClientProvider>
               </SessionProvider>
             </QueryProvider>
           </ThemeProvider>

@@ -8,8 +8,7 @@ import {
 } from '@/tools/params'
 import type { TriggerConfig } from '@/triggers/types'
 import { getPublicCopy, type PublicCopy } from './public-copy'
-import { formatTemplate } from './template'
-import { defaultLocale } from './utils'
+import { defaultLocale, formatTemplate } from './utils'
 
 export type WorkflowInspectorCopy = Pick<
   PublicCopy['workspace']['widgets'],

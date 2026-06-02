@@ -19,7 +19,7 @@ import {
   parseProvider,
 } from '@/lib/oauth'
 import { startOAuthConnectFlow } from '@/lib/oauth/connect'
-import { formatTemplate } from '@/i18n/template'
+import { formatTemplate } from '@/i18n/utils'
 import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 const logger = createLogger('OAuthRequiredModal')

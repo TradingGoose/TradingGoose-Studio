@@ -39,7 +39,7 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn, generatePassword } from '@/lib/utils'
 import type { PublicCopy } from '@/i18n/client-messages'
-import { formatTemplate } from '@/i18n/template'
+import { formatTemplate } from '@/i18n/utils'
 import type {
   LogLevel as StoreLogLevel,
   TriggerType as StoreTriggerType,

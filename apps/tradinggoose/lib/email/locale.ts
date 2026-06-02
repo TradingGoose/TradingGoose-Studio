@@ -1,7 +1,6 @@
 import { db } from '@tradinggoose/db'
-import { emailRecipientPreference, settings, user } from '@tradinggoose/db/schema'
+import { settings, user, waitlist } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
-import { nanoid } from 'nanoid'
 import { defaultLocale, isLocaleCode, type LocaleCode } from '@/i18n/utils'
 
 export function normalizeEmailLocale(locale: string | null | undefined): LocaleCode {
@@ -10,54 +9,6 @@ export function normalizeEmailLocale(locale: string | null | undefined): LocaleC
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase()
-}
-
-export async function persistAuthenticatedPreferredLocale(userId: string, locale: string) {
-  const preferredLocale = normalizeEmailLocale(locale)
-
-  await db
-    .insert(settings)
-    .values({
-      id: nanoid(),
-      userId,
-      preferredLocale,
-      updatedAt: new Date(),
-    })
-    .onConflictDoUpdate({
-      target: settings.userId,
-      set: {
-        preferredLocale,
-        updatedAt: new Date(),
-      },
-    })
-
-  return preferredLocale
-}
-
-export async function persistAnonymousEmailLocale(email: string, locale: string | null | undefined) {
-  const normalizedEmail = normalizeEmail(email)
-  if (!normalizedEmail) {
-    return defaultLocale
-  }
-
-  const preferredLocale = normalizeEmailLocale(locale)
-
-  await db
-    .insert(emailRecipientPreference)
-    .values({
-      email: normalizedEmail,
-      preferredLocale,
-      updatedAt: new Date(),
-    })
-    .onConflictDoUpdate({
-      target: emailRecipientPreference.email,
-      set: {
-        preferredLocale,
-        updatedAt: new Date(),
-      },
-    })
-
-  return preferredLocale
 }
 
 export async function resolveEmailLocale({
@@ -99,13 +50,13 @@ export async function resolveEmailLocale({
       return normalizeEmailLocale(fallbackLocale)
     }
 
-    const anonymousRows = await db
-      .select({ preferredLocale: emailRecipientPreference.preferredLocale })
-      .from(emailRecipientPreference)
-      .where(eq(emailRecipientPreference.email, normalizedEmail))
+    const waitlistRows = await db
+      .select({ preferredLocale: waitlist.preferredLocale })
+      .from(waitlist)
+      .where(eq(waitlist.email, normalizedEmail))
       .limit(1)
 
-    const anonymousPreferredLocale = anonymousRows[0]?.preferredLocale
+    const anonymousPreferredLocale = waitlistRows[0]?.preferredLocale
     if (anonymousPreferredLocale && isLocaleCode(anonymousPreferredLocale)) {
       return anonymousPreferredLocale
     }

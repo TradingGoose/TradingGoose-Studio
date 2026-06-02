@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getEmailSubject, renderCareersConfirmationEmail } from '@/components/emails/render-email'
 import CareersSubmissionEmail from '@/components/emails/careers/careers-submission-email'
-import { persistAnonymousEmailLocale } from '@/lib/email/locale'
+import { normalizeEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
       })
     )
 
-    const locale = await persistAnonymousEmailLocale(validatedData.email, validatedData.locale)
+    const locale = normalizeEmailLocale(validatedData.locale)
     const confirmationEmailHtml = await renderCareersConfirmationEmail({
       name: validatedData.name,
       position: validatedData.position,

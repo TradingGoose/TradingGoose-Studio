@@ -73,7 +73,7 @@ describe('LandingMarketPreviewProvider', () => {
       root.render(
         <NextIntlClientProvider
           locale='en'
-          messages={getPublicCopy('en')}
+          messages={{ landing: copy.landing }}
         >
           <LandingMarketPreviewProvider messages={messages}>
             <MarketPreviewMessagesProbe />

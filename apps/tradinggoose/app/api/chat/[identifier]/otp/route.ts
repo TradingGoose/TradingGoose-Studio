@@ -5,7 +5,7 @@ import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { renderOTPEmail } from '@/components/emails/render-email'
 import { getEmailSubject } from '@/components/emails/render-email'
-import { persistAnonymousEmailLocale } from '@/lib/email/locale'
+import { normalizeEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
 import { createLogger } from '@/lib/logs/console/logger'
 import { deleteCachedValue, getCachedValue, setCachedValue } from '@/lib/redis'
@@ -132,7 +132,7 @@ export async function POST(
       const otp = generateOTP()
 
       await storeOTP(email, deployment.id, otp)
-      const locale = await persistAnonymousEmailLocale(email, requestLocale)
+      const locale = normalizeEmailLocale(requestLocale)
 
       const emailHtml = await renderOTPEmail(
         otp,

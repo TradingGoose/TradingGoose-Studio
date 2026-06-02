@@ -19,7 +19,7 @@ import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/provide
 import { useWorkflowExecution } from '@/hooks/workflow/use-workflow-execution'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
-import { formatTemplate } from '@/i18n/template'
+import { formatTemplate } from '@/i18n/utils'
 import {
   DeploymentControls,
   ExportControls,

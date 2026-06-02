@@ -5,9 +5,14 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { OrderIdRow } from './order-row'
 
-vi.mock('next-intl', () => ({
-  useLocale: () => 'es',
-}))
+vi.mock('next-intl', async () => {
+  const { getPublicCopy } = await import('@/i18n/public-copy')
+
+  return {
+    useLocale: () => 'es',
+    useMessages: () => getPublicCopy('es'),
+  }
+})
 
 describe('OrderIdRow', () => {
   let container: HTMLDivElement

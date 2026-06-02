@@ -7,7 +7,7 @@ import {
   renderWaitlistConfirmationEmail,
 } from '@/components/emails/render-email'
 import { type EmailOptions, sendBatchEmails, sendEmail } from '@/lib/email/mailer'
-import { persistAnonymousEmailLocale, resolveEmailLocale } from '@/lib/email/locale'
+import { normalizeEmailLocale } from '@/lib/email/locale'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -45,6 +45,7 @@ export interface WaitlistRow {
   rejectedByUserId: string | null
   signedUpAt: Date | null
   userId: string | null
+  preferredLocale: string
   createdAt: Date
   updatedAt: Date
 }
@@ -112,9 +113,24 @@ export async function addToWaitlist(email: string, locale?: string | null): Prom
     throw new Error(validation.reason || 'Invalid email address')
   }
 
-  const preferredLocale = await persistAnonymousEmailLocale(normalizedEmail, locale)
+  const preferredLocale = normalizeEmailLocale(locale)
   const existing = await getWaitlistEntryByEmail(normalizedEmail)
   if (existing) {
+    if (existing.preferredLocale !== preferredLocale) {
+      await db
+        .update(waitlist)
+        .set({
+          preferredLocale,
+          updatedAt: new Date(),
+        })
+        .where(eq(waitlist.id, existing.id))
+
+      return {
+        ...existing,
+        preferredLocale,
+      }
+    }
+
     return existing
   }
 
@@ -129,6 +145,7 @@ export async function addToWaitlist(email: string, locale?: string | null): Prom
     rejectedByUserId: null,
     signedUpAt: null,
     userId: null,
+    preferredLocale,
     createdAt: now,
     updatedAt: now,
   }
@@ -149,7 +166,12 @@ export async function updateWaitlistStatuses(params: {
   }
 
   const rows = await db
-    .select({ id: waitlist.id, email: waitlist.email, status: waitlist.status })
+    .select({
+      id: waitlist.id,
+      email: waitlist.email,
+      preferredLocale: waitlist.preferredLocale,
+      status: waitlist.status,
+    })
     .from(waitlist)
     .where(inArray(waitlist.id, ids))
 
@@ -183,7 +205,12 @@ export async function updateWaitlistStatuses(params: {
     .where(inArray(waitlist.id, idsToUpdate))
 
   if (params.status === 'approved') {
-    await sendWaitlistApprovalEmails(rowsToUpdate.map((row) => row.email))
+    await sendWaitlistApprovalEmails(
+      rowsToUpdate.map((row) => ({
+        email: row.email,
+        preferredLocale: row.preferredLocale,
+      }))
+    )
   }
 }
 
@@ -304,11 +331,12 @@ async function sendWaitlistConfirmationEmail(email: string, locale: string) {
 
 async function createWaitlistApprovalEmail(
   email: string,
-  baseUrl: string
+  baseUrl: string,
+  preferredLocale: string
 ): Promise<EmailOptions | null> {
   try {
     const signupLink = `${baseUrl}/signup?email=${encodeURIComponent(email)}`
-    const locale = await resolveEmailLocale({ email })
+    const locale = normalizeEmailLocale(preferredLocale)
     return {
       to: email,
       subject: getEmailSubject('waitlist-approved', locale),
@@ -324,13 +352,17 @@ async function createWaitlistApprovalEmail(
   }
 }
 
-async function sendWaitlistApprovalEmails(emails: string[]) {
+async function sendWaitlistApprovalEmails(
+  recipients: Array<{ email: string; preferredLocale: string }>
+) {
   const baseUrl = getBaseUrl()
 
-  for (let index = 0; index < emails.length; index += RESEND_BATCH_EMAIL_LIMIT) {
-    const batch = emails.slice(index, index + RESEND_BATCH_EMAIL_LIMIT)
+  for (let index = 0; index < recipients.length; index += RESEND_BATCH_EMAIL_LIMIT) {
+    const batch = recipients.slice(index, index + RESEND_BATCH_EMAIL_LIMIT)
     const renderedEmails = await Promise.all(
-      batch.map((email) => createWaitlistApprovalEmail(email, baseUrl))
+      batch.map(({ email, preferredLocale }) =>
+        createWaitlistApprovalEmail(email, baseUrl, preferredLocale)
+      )
     )
     const batchEmails = renderedEmails.filter((email): email is EmailOptions => email !== null)
 
