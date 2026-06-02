@@ -1,8 +1,7 @@
 'use client'
 
 import { createLogger } from '@/lib/logs/console/logger'
-import { getRouteBoundaryHref } from '@/i18n/route-boundary'
-import { stripLocaleFromPathname } from '@/i18n/utils'
+import { localizeUrl, stripLocaleFromPathname } from '@/i18n/utils'
 
 const logger = createLogger('AuthErrorHandler')
 let isHandlingAuthError = false
@@ -85,7 +84,11 @@ export async function handleAuthError(reason?: string) {
   const callbackUrl = `${pathname}${window.location.search}`
   logger.warn('Handling authentication error', { reason, callbackUrl })
   window.location.replace(
-    getRouteBoundaryHref(locale, `/login?reauth=1&callbackUrl=${encodeURIComponent(callbackUrl)}`)
+    localizeUrl(
+      window.location.origin,
+      locale,
+      `/login?reauth=1&callbackUrl=${encodeURIComponent(callbackUrl)}`
+    )
   )
 }
 

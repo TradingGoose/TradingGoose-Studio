@@ -22,7 +22,7 @@ import esCopy from './messages/es.json'
 import zhCopy from './messages/zh.json'
 import { getPublicCopy } from './public-copy'
 
-function collectObjectOptionOverridePaths(
+function collectNonArrayOptionOverridePaths(
   localeCopy: Record<string, any>,
   locale: string
 ): string[] {
@@ -43,12 +43,11 @@ function collectObjectOptionOverridePaths(
       }
 
       for (const [subBlockId, subBlockValue] of Object.entries(entryValue as Record<string, any>)) {
-        if (
-          subBlockValue &&
-          typeof subBlockValue === 'object' &&
-          'options' in (subBlockValue as Record<string, any>) &&
-          !Array.isArray((subBlockValue as Record<string, any>).options)
-        ) {
+        if (!subBlockValue || typeof subBlockValue !== 'object') {
+          continue
+        }
+        const options = (subBlockValue as Record<string, any>)?.options
+        if ('options' in (subBlockValue as Record<string, any>) && !Array.isArray(options)) {
           invalidPaths.push(`${locale}:${basePath}.${entryId}.${subBlockId}.options`)
         }
       }
@@ -73,12 +72,11 @@ function collectObjectOptionOverridePaths(
         for (const [paramId, paramValue] of Object.entries(
           parameterCollection as Record<string, any>
         )) {
-          if (
-            paramValue &&
-            typeof paramValue === 'object' &&
-            'options' in (paramValue as Record<string, any>) &&
-            !Array.isArray((paramValue as Record<string, any>).options)
-          ) {
+          if (!paramValue || typeof paramValue !== 'object') {
+            continue
+          }
+          const options = (paramValue as Record<string, any>)?.options
+          if ('options' in (paramValue as Record<string, any>) && !Array.isArray(options)) {
             invalidPaths.push(
               `${locale}:workspace.widgets.blockEditor.toolParameters.${blockType}.${toolId}.${paramId}.options`
             )
@@ -96,12 +94,11 @@ function collectObjectOptionOverridePaths(
       }
 
       for (const [subBlockId, subBlockValue] of Object.entries(subBlocks as Record<string, any>)) {
-        if (
-          subBlockValue &&
-          typeof subBlockValue === 'object' &&
-          'options' in (subBlockValue as Record<string, any>) &&
-          !Array.isArray((subBlockValue as Record<string, any>).options)
-        ) {
+        if (!subBlockValue || typeof subBlockValue !== 'object') {
+          continue
+        }
+        const options = (subBlockValue as Record<string, any>)?.options
+        if ('options' in (subBlockValue as Record<string, any>) && !Array.isArray(options)) {
           invalidPaths.push(
             `${locale}:workspace.widgets.blockEditor.triggers.${triggerId}.subBlocks.${subBlockId}.options`
           )
@@ -114,80 +111,75 @@ function collectObjectOptionOverridePaths(
 }
 
 describe('block-editor i18n helpers', () => {
-  it('translates tools labels and strips trailing colons before lookup', () => {
-    expect(translateWorkflowLabel('zh', 'Tools')).toBe('工具')
-    expect(translateWorkflowLabel('zh', 'Response Format:')).toBe('响应格式')
+  it('translates workflow labels by canonical key', () => {
+    expect(translateWorkflowLabel('zh', 'tools')).toBe('工具')
+    expect(translateWorkflowLabel('zh', 'responseFormat')).toBe('响应格式')
   })
 
   it('translates webhook labels from the shared workflow label namespace', () => {
     const esLabels = getPublicCopy('es').workspace.widgets.workflowLabels
     const zhLabels = getPublicCopy('zh').workspace.widgets.workflowLabels
 
-    expect(translateWorkflowLabel('es', 'Webhook URL:')).toBe(esLabels.webhookUrl)
-    expect(translateWorkflowLabel('es', 'Payload')).toBe(esLabels.payload)
+    expect(translateWorkflowLabel('es', 'webhookUrl')).toBe(esLabels.webhookUrl)
+    expect(translateWorkflowLabel('es', 'payload')).toBe(esLabels.payload)
     expect(translateWorkflowLabel('zh', 'signingSecret')).toBe(zhLabels.signingSecret)
-    expect(translateWorkflowLabel('zh', 'Additional Headers')).toBe(zhLabels.additionalHeaders)
+    expect(translateWorkflowLabel('zh', 'additionalHeaders')).toBe(zhLabels.additionalHeaders)
   })
 
-  it('resolves shared workflow labels through the stable resolver', () => {
-    expect(translateWorkflowLabel('es', 'System Prompt')).toBe('Prompt del sistema')
-    expect(translateWorkflowLabel('zh', 'System Prompt')).toBe('系统提示词')
-    expect(translateWorkflowLabel('es', 'Task')).toBe('Tarea')
-    expect(translateWorkflowLabel('zh', 'Variables')).toBe('变量')
+  it('resolves shared workflow labels through canonical keys', () => {
+    expect(translateWorkflowLabel('es', 'systemPrompt')).toBe('Prompt del sistema')
+    expect(translateWorkflowLabel('zh', 'systemPrompt')).toBe('系统提示词')
   })
 
-  it('translates shared API block labels and stable aliases', () => {
+  it('translates shared API block labels by canonical key', () => {
     const esLabels = getPublicCopy('es').workspace.widgets.workflowLabels
     const zhLabels = getPublicCopy('zh').workspace.widgets.workflowLabels
 
-    expect(translateWorkflowLabel('es', 'URL:')).toBe(esLabels.url)
-    expect(translateWorkflowLabel('es', 'Method')).toBe(esLabels.method)
-    expect(translateWorkflowLabel('es', 'Query Params')).toBe(esLabels.queryParams)
+    expect(translateWorkflowLabel('es', 'method')).toBe(esLabels.method)
+    expect(translateWorkflowLabel('es', 'queryParams')).toBe(esLabels.queryParams)
     expect(translateWorkflowLabel('es', 'headers')).toBe(esLabels.headers)
-    expect(translateWorkflowLabel('zh', 'Body')).toBe(zhLabels.body)
-    expect(translateWorkflowLabel('zh', 'params')).toBe('params')
+    expect(translateWorkflowLabel('zh', 'body')).toBe(zhLabels.body)
   })
 
-  it('translates guardrails workflow labels from the shared namespace', () => {
-    const esLabels = getPublicCopy('es').workspace.widgets.workflowLabels
+  it('keeps guardrails block copy in the block editor catalog', () => {
+    const esGuardrails = getPublicCopy('es').workspace.widgets.blockEditor.subBlocks.guardrails
+    const zhGuardrails = getPublicCopy('zh').workspace.widgets.blockEditor.subBlocks.guardrails
     const zhLabels = getPublicCopy('zh').workspace.widgets.workflowLabels
 
-    expect(translateWorkflowLabel('es', 'Content to Validate')).toBe(esLabels.contentToValidate)
-    expect(translateWorkflowLabel('es', 'Validation Type')).toBe(esLabels.validationType)
-    expect(translateWorkflowLabel('zh', 'PII Types to Detect')).toBe(zhLabels.piiTypesToDetect)
-    expect(translateWorkflowLabel('zh', 'Configure PII Types')).toBe(zhLabels.configurePiiTypes)
+    expect(esGuardrails.input.title).toBe('Contenido a validar')
+    expect(esGuardrails.validationType.title).toBe('Tipo de validación')
+    expect(zhGuardrails.piiEntityTypes.title).toBe('要检测的 PII 类型')
+    expect(translateWorkflowLabel('zh', 'configurePiiTypes')).toBe(zhLabels.configurePiiTypes)
   })
 
   it('translates human in the loop workflow labels from the shared namespace', () => {
     const esLabels = getPublicCopy('es').workspace.widgets.workflowLabels
     const zhLabels = getPublicCopy('zh').workspace.widgets.workflowLabels
 
-    expect(translateWorkflowLabel('es', 'Display Data')).toBe(esLabels.displayData)
-    expect(translateWorkflowLabel('es', 'Notification (Send URL)')).toBe(
-      esLabels.notificationSendUrl
-    )
-    expect(translateWorkflowLabel('zh', 'Resume Form')).toBe(zhLabels.resumeForm)
+    expect(translateWorkflowLabel('es', 'displayData')).toBe(esLabels.displayData)
+    expect(translateWorkflowLabel('es', 'notificationSendUrl')).toBe(esLabels.notificationSendUrl)
+    expect(translateWorkflowLabel('zh', 'resumeForm')).toBe(zhLabels.resumeForm)
   })
 
   it('translates shared knowledge workflow labels from the shared namespace', () => {
-    expect(translateWorkflowLabel('es', 'Operation')).toBe('Operación')
-    expect(translateWorkflowLabel('es', 'Search Query')).toBe('Consulta de búsqueda')
-    expect(translateWorkflowLabel('zh', 'Number of Results')).toBe('结果数量')
+    expect(translateWorkflowLabel('es', 'operation')).toBe('Operación')
+    expect(translateWorkflowLabel('es', 'searchQuery')).toBe('Consulta de búsqueda')
+    expect(translateWorkflowLabel('zh', 'numberOfResults')).toBe('结果数量')
   })
 
   it('translates landing workflow preview labels through the shared resolver', () => {
-    expect(translateWorkflowLabel('es', 'Signal Briefing')).toBe('Resumen de señales')
-    expect(translateWorkflowLabel('zh', 'Risk Committee')).toBe('风险委员会')
+    expect(translateWorkflowLabel('es', 'signalBriefing')).toBe('Resumen de señales')
+    expect(translateWorkflowLabel('zh', 'riskCommittee')).toBe('风险委员会')
   })
 
   it('translates memory workflow labels from the shared namespace', () => {
     const esLabels = getPublicCopy('es').workspace.widgets.workflowLabels
     const zhLabels = getPublicCopy('zh').workspace.widgets.workflowLabels
 
-    expect(translateWorkflowLabel('es', 'Role')).toBe(esLabels.role)
-    expect(translateWorkflowLabel('es', 'Content')).toBe(esLabels.content)
-    expect(translateWorkflowLabel('zh', 'ID')).toBe(zhLabels.id)
-    expect(translateWorkflowLabel('zh', 'Add Memory')).toBe(zhLabels.addMemory)
+    expect(translateWorkflowLabel('es', 'role')).toBe(esLabels.role)
+    expect(translateWorkflowLabel('es', 'content')).toBe(esLabels.content)
+    expect(translateWorkflowLabel('zh', 'id')).toBe(zhLabels.id)
+    expect(translateWorkflowLabel('zh', 'addMemory')).toBe(zhLabels.addMemory)
   })
 
   it('resolves workflow inspector key paths directly', () => {
@@ -199,11 +191,13 @@ describe('block-editor i18n helpers', () => {
     )
   })
 
-  it('falls back to the source label when no shared workflow mapping exists', () => {
-    expect(translateWorkflowLabel('es', 'Unmapped Workflow Label')).toBe('Unmapped Workflow Label')
+  it('throws when a workflow label key is missing', () => {
+    expect(() => translateWorkflowLabel('es', 'Unmapped Workflow Label')).toThrow(
+      'Missing workflow label translation'
+    )
   })
 
-  it('localizes placeholders, titles, and static options through the shared config helper', () => {
+  it('localizes titles and static options through block editor overrides', () => {
     const localizedConfig = localizeWorkflowSubBlockConfig(
       'es',
       {
@@ -213,43 +207,51 @@ describe('block-editor i18n helpers', () => {
         placeholder: 'Type or select a model...',
         options: [
           { id: 'json', label: 'Valid JSON' },
-          { id: 'pii', label: 'PII Detection', group: 'Common' },
+          {
+            id: 'pii',
+            label: 'PII Detection',
+            group: 'Common',
+          },
         ],
       },
       'guardrails'
     )
 
-    expect(localizedConfig.title).toBe(
-      getPublicCopy('es').workspace.widgets.workflowLabels.validationType
-    )
+    const guardrailsCopy = getPublicCopy('es').workspace.widgets.blockEditor.subBlocks.guardrails
+    expect(localizedConfig.title).toBe(guardrailsCopy.validationType.title)
     expect(localizedConfig.placeholder).toBe('Type or select a model...')
-    expect(localizedConfig.options).toEqual([
-      { id: 'json', label: translateWorkflowLabel('es', 'Valid JSON') },
+    const localizedOptions =
+      typeof localizedConfig.options === 'function'
+        ? localizedConfig.options()
+        : localizedConfig.options
+    expect(
+      localizedOptions?.map((option) => ({
+        id: option.id,
+        label: option.label,
+        group: option.group,
+      }))
+    ).toEqual([
+      { id: 'json', label: 'JSON válido', group: undefined },
       {
         id: 'pii',
-        label: translateWorkflowLabel('es', 'PII Detection'),
-        group: translateWorkflowLabel('es', 'Common'),
+        label: 'Detección de PII',
+        group: 'Common',
       },
     ])
   })
 
   it('resolves localized display values for guardrails option ids', () => {
     const config = {
-      id: 'piiTypes',
+      id: 'piiEntityTypes',
       options: [
-        { id: 'json', label: 'Valid JSON' },
-        { id: 'PERSON', label: 'Person name' },
-        { id: 'EMAIL_ADDRESS', label: 'Email address' },
+        { id: 'PERSON', label: 'Person name', group: 'Common' },
+        { id: 'EMAIL_ADDRESS', label: 'Email address', group: 'Common' },
       ],
     }
 
-    expect(resolveWorkflowDisplayValue('es', config, 'json')).toBe(
-      translateWorkflowLabel('es', 'Valid JSON')
-    )
-    expect(resolveWorkflowDisplayValue('zh', config, ['PERSON', 'EMAIL_ADDRESS'])).toEqual([
-      translateWorkflowLabel('zh', 'Person name'),
-      translateWorkflowLabel('zh', 'Email address'),
-    ])
+    expect(
+      resolveWorkflowDisplayValue('zh', config, ['PERSON', 'EMAIL_ADDRESS'], 'guardrails')
+    ).toEqual(['姓名', '电子邮箱'])
   })
 
   it('localizes trigger and subflow names through stable block-type keys', () => {
@@ -452,23 +454,21 @@ describe('block-editor i18n helpers', () => {
       'stagehand_agent'
     )
 
-    expect(localizedSchema.title).toBe(translateWorkflowLabel('zh', 'Output Schema'))
-    expect(localizedSchema.placeholder).toBe(
-      translateWorkflowLabel('zh', 'Enter JSON schema...')
-    )
+    expect(localizedSchema.title).toBe('输出架构')
+    expect(localizedSchema.placeholder).toBe('输入 JSON 模式...')
   })
 
   it('localizes trigger-capable tool metadata through the shared block catalog', () => {
     expect(getLocalizedBlockMetadata('es', GitHubBlock)).toEqual({
       name: 'GitHub',
       description: 'Interactuar con GitHub o activar flujos desde eventos de GitHub',
-      longDescription: GitHubBlock.longDescription,
+      longDescription: undefined,
     })
 
     expect(getLocalizedBlockMetadata('zh', GmailBlock)).toEqual({
       name: 'Gmail',
       description: getPublicCopy('zh').workspace.widgets.blockEditor.blockDescriptions.gmail,
-      longDescription: GmailBlock.longDescription,
+      longDescription: undefined,
     })
   })
 
@@ -534,15 +534,15 @@ describe('block-editor i18n helpers', () => {
     expect(localizedApifyBuild.uiComponent?.placeholder).toContain('latest')
   })
 
-  it('stores block editor option overrides as arrays so external ids never become locale keys', () => {
+  it('stores block editor option overrides as arrays so arbitrary ids remain message values', () => {
     expect([
-      ...collectObjectOptionOverridePaths(enCopy as Record<string, any>, 'en'),
-      ...collectObjectOptionOverridePaths(esCopy as Record<string, any>, 'es'),
-      ...collectObjectOptionOverridePaths(zhCopy as Record<string, any>, 'zh'),
+      ...collectNonArrayOptionOverridePaths(enCopy as Record<string, any>, 'en'),
+      ...collectNonArrayOptionOverridePaths(esCopy as Record<string, any>, 'es'),
+      ...collectNonArrayOptionOverridePaths(zhCopy as Record<string, any>, 'zh'),
     ]).toEqual([])
   })
 
-  it('localizes dotted option ids through array-based option overrides', () => {
+  it('localizes dotted option ids through array option overrides', () => {
     const localizedBrowserModel = localizeWorkflowSubBlockConfig(
       'en',
       {
@@ -612,14 +612,14 @@ describe('block-editor i18n helpers', () => {
   })
 
   it('localizes monitor trigger instructions through centralized trigger override entries', () => {
-    const fallbackInstruction = 'inline fallback instructions'
+    const inlineInstruction = 'inline instructions'
     const localizedIndicatorInstructions = localizeWorkflowSubBlockConfig(
       'es',
       {
         id: 'triggerInstructions',
         title: 'Setup Instructions',
         type: 'text',
-        defaultValue: fallbackInstruction,
+        defaultValue: inlineInstruction,
       },
       undefined,
       'indicator_trigger'
@@ -630,7 +630,7 @@ describe('block-editor i18n helpers', () => {
         id: 'triggerInstructions',
         title: 'Setup Instructions',
         type: 'text',
-        defaultValue: fallbackInstruction,
+        defaultValue: inlineInstruction,
       },
       undefined,
       'portfolio_state_trigger'
@@ -639,9 +639,9 @@ describe('block-editor i18n helpers', () => {
     expect(localizedIndicatorInstructions.defaultValue).toContain(
       'gestionar los monitores de indicadores'
     )
-    expect(localizedIndicatorInstructions.defaultValue).not.toContain(fallbackInstruction)
+    expect(localizedIndicatorInstructions.defaultValue).not.toContain(inlineInstruction)
     expect(localizedPortfolioInstructions.defaultValue).toContain('投资组合监控')
-    expect(localizedPortfolioInstructions.defaultValue).not.toContain(fallbackInstruction)
+    expect(localizedPortfolioInstructions.defaultValue).not.toContain(inlineInstruction)
   })
 
   it('prefers trigger metadata names over inline selectedTriggerId labels', () => {

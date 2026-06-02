@@ -85,7 +85,7 @@ export function TradingAccountSelector({
   const providerDefinition = trimmedProviderId
     ? getTradingProviderDefinition(trimmedProviderId)
     : undefined
-  const providerName = providerDefinition?.name ?? copy.fallbackProviderName
+  const providerName = providerDefinition?.name ?? copy.defaultProviderName
   const resolvedPlaceholder = placeholder ?? copy.placeholder
   const resolvedTooltipText = tooltipText ?? copy.tooltip
   const oauthProvider = providerDefinition?.oauth?.provider
@@ -223,9 +223,7 @@ export function TradingAccountSelector({
             </div>
           ) : portfolioIdentities.length === 0 ? (
             <div className='px-3 py-2 text-muted-foreground text-xs'>
-              {accountsQuery.error
-                ? copy.unableToLoadBrokerAccounts
-                : copy.noBrokerAccountsFound}
+              {accountsQuery.error ? copy.unableToLoadBrokerAccounts : copy.noBrokerAccountsFound}
             </div>
           ) : (
             portfolioIdentities.map((account) => {
@@ -281,7 +279,7 @@ export function TradingAccountSelector({
                       {
                         providerName:
                           getTradingServiceName(trimmedProviderId, serviceId) ||
-                          copy.fallbackProviderName,
+                          copy.defaultProviderName,
                       }
                     )}
                   </span>

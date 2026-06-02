@@ -1,9 +1,9 @@
 'use client'
 
-import { formatTemplate } from '@/i18n/utils'
-import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import { ProviderSelector, type ProviderSelectorVariant } from '@/components/provider-selector'
 import { OAUTH_PROVIDERS, parseProvider } from '@/lib/oauth'
+import { formatTemplate } from '@/i18n/utils'
+import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import { getTradingProviderDefinition } from '@/providers/trading/providers'
 
 export type TradingProviderOption = {
@@ -68,7 +68,7 @@ export function TradingProviderSelector({
         currentVariant === 'form'
           ? option.name
           : formatTemplate(copy.selectedLabel, {
-              providerName: option.name || copy.fallbackProviderName,
+              providerName: option.name || copy.defaultProviderName,
             })
       }
     />

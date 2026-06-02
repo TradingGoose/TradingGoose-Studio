@@ -1,28 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useLocale } from 'next-intl'
-import { Check, ChevronDown } from 'lucide-react'
 import { useReactFlow } from '@xyflow/react'
+import { Check, ChevronDown } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-dropdown'
 import { formatDisplayText } from '@/components/ui/formatted-text'
 import { Input } from '@/components/ui/input'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { createLogger } from '@/lib/logs/console/logger'
-import { translateWorkflowLabel } from '@/i18n/block-editor'
 import { cn } from '@/lib/utils'
+import type { SubBlockConfig } from '@/blocks/types'
+import { useTagSelection } from '@/hooks/use-tag-selection'
+import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
+import { translateWorkflowLabel } from '@/i18n/block-editor'
 import type { LocaleCode } from '@/i18n/utils'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
-import type { SubBlockConfig } from '@/blocks/types'
-import { useTagSelection } from '@/hooks/use-tag-selection'
 
 const logger = createLogger('ComboBox')
 
 interface ComboBoxProps {
   options:
-  | Array<string | { label: string; id: string }>
-  | (() => Array<string | { label: string; id: string }>)
+    | Array<string | { label: string; id: string }>
+    | (() => Array<string | { label: string; id: string }>)
   defaultValue?: string
   blockId: string
   subBlockId: string
@@ -45,7 +45,7 @@ export function ComboBox({
   config,
 }: ComboBoxProps) {
   const locale = useLocale() as LocaleCode
-  const placeholderText = placeholder ?? translateWorkflowLabel(locale, 'Type or select an option...')
+  const placeholderText = placeholder ?? translateWorkflowLabel(locale, 'typeOrSelectAnOption')
   const workspaceId = useWorkspaceId()
   const [storeValue, setStoreValue] = useSubBlockValue<string>(blockId, subBlockId)
   const [storeInitialized, setStoreInitialized] = useState(false)
@@ -417,8 +417,8 @@ export function ComboBox({
           className={cn(
             'allow-scroll w-full overflow-auto pr-10 text-transparent caret-foreground placeholder:text-muted-foreground/50',
             isConnecting &&
-            config?.connectionDroppable !== false &&
-            'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500',
+              config?.connectionDroppable !== false &&
+              'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500',
             SelectedIcon ? 'pl-8' : ''
           )}
           placeholder={placeholderText}
@@ -472,9 +472,7 @@ export function ComboBox({
 
       {/* Dropdown */}
       {open && (
-        <div
-          className='absolute top-full left-0 z-[100] mt-1 w-full min-w-[286px] overflow-visible'
-        >
+        <div className='absolute top-full left-0 z-[100] mt-1 w-full min-w-[286px] overflow-visible'>
           <div className='allow-scroll fade-in-0 zoom-in-95 animate-in rounded-md border bg-popover text-popover-foreground shadow-lg'>
             <div
               ref={dropdownRef}
@@ -484,7 +482,7 @@ export function ComboBox({
             >
               {filteredOptions.length === 0 ? (
                 <div className='py-6 text-center text-muted-foreground text-sm'>
-                {translateWorkflowLabel(locale, 'No matching options found.')}
+                  {translateWorkflowLabel(locale, 'noMatchingOptionsFound')}
                 </div>
               ) : (
                 filteredOptions.map((option, index) => {

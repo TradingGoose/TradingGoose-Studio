@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   getEmailSubject,
+  renderPlanWelcomeEmail,
   renderWaitlistConfirmationEmail,
   renderWorkspaceInvitationEmail,
 } from '@/components/emails/render-email'
@@ -40,6 +41,16 @@ describe('localized email rendering', () => {
 
     expect(html).toContain('Estás en la lista de espera')
     expect(html).toContain('ada@example.com')
+    expect(html).toContain('https://test.tradinggoose.ai/es/privacy')
+    expect(html).toContain('https://test.tradinggoose.ai/es/terms')
+  })
+
+  it('localizes generated email app links by locale', async () => {
+    const html = await renderPlanWelcomeEmail({ planName: 'Pro', locale: 'es' })
+
+    expect(html).toContain('https://test.tradinggoose.ai/es/login')
+    expect(html).toContain('https://test.tradinggoose.ai/es/privacy')
+    expect(html).toContain('https://test.tradinggoose.ai/es/terms')
   })
 
   it('renders invite links exactly as supplied', async () => {

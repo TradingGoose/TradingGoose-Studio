@@ -6,7 +6,6 @@ import { MarketProviderSelector } from '@/components/market-selector/provider-se
 import { TradingAccountSelector } from '@/components/trading-selector/account-selector'
 import { TradingProviderSelector } from '@/components/trading-selector/provider-selector'
 import { Label, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui'
-import { formatTemplate } from '@/i18n/utils'
 import { DateTimePicker } from '@/components/ui/datetime-picker'
 import { SimpleTimePicker } from '@/components/ui/simple-time-picker'
 import { Slider } from '@/components/ui/slider'
@@ -20,6 +19,7 @@ import {
 import { cn } from '@/lib/utils'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
+import { formatTemplate } from '@/i18n/utils'
 import {
   getMarketProviderOptions,
   getMarketProviderOptionsByKind,
@@ -66,11 +66,11 @@ import {
   TriggerSave,
   VariablesInput,
 } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components'
+import { useWorkflowInspectorCopy } from '@/widgets/widgets/editor_workflow/copy'
 import { DocumentTagEntry } from './components/document-tag-entry/document-tag-entry'
 import { KnowledgeTagFilters } from './components/knowledge-tag-filters/knowledge-tag-filters'
 import { useDependsOnGate } from './hooks/use-depends-on-gate'
 import { useSubBlockValue } from './hooks/use-sub-block-value'
-import { useWorkflowI18n, useWorkflowInspectorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 interface SubBlockProps {
   blockId: string
@@ -439,7 +439,6 @@ export const SubBlock = memo(
   }: SubBlockProps) {
     const [isValidJson, setIsValidJson] = useState(true)
     const editorCopy = useWorkflowInspectorCopy().workflowEditor
-    const { translateWorkflowLabel } = useWorkflowI18n()
 
     const handleMouseDown = (e: React.MouseEvent) => {
       e.stopPropagation()
@@ -546,7 +545,7 @@ export const SubBlock = memo(
             <Table
               blockId={blockId}
               subBlockId={config.id}
-              columns={(config.columns ?? []).map((column) => translateWorkflowLabel(column))}
+              columns={config.columns ?? []}
               disabled={isDisabled}
             />
           )

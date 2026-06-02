@@ -147,12 +147,6 @@ export interface SubBlockOption {
   observesDst?: boolean
   searchLabel?: string
   rightLabel?: string
-  i18n?: {
-    labelKey?: string
-    groupKey?: string
-    searchLabelKey?: string
-    rightLabelKey?: string
-  }
 }
 
 export interface SubBlockConfig {
@@ -180,14 +174,6 @@ export interface SubBlockConfig {
   max?: number
   columns?: string[]
   placeholder?: string
-  i18n?: {
-    titleKey?: string
-    placeholderKey?: string
-    searchPlaceholderKey?: string
-    descriptionKey?: string
-    tooltipKey?: string
-    columnKeys?: string[]
-  }
   format?: TimeFormat
   timezone?: string
   clearable?: boolean

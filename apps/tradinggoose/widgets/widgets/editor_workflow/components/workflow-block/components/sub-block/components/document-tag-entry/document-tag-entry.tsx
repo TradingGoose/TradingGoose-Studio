@@ -1,22 +1,22 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { useLocale } from 'next-intl'
 import { Plus, Trash2 } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { formatDisplayText } from '@/components/ui/formatted-text'
 import { Input } from '@/components/ui/input'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { MAX_TAG_SLOTS } from '@/lib/knowledge/consts'
 import { cn } from '@/lib/utils'
-import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
-import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useKnowledgeBaseTagDefinitions } from '@/hooks/use-knowledge-base-tag-definitions'
 import { useTagSelection } from '@/hooks/use-tag-selection'
+import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
 import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
 import type { LocaleCode } from '@/i18n/utils'
+import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 
 interface DocumentTagRow {
   id: string
@@ -45,7 +45,7 @@ export function DocumentTagEntry({
   isConnecting = false,
 }: DocumentTagEntryProps) {
   const locale = useLocale() as LocaleCode
-  const t = (label: string) => translateWorkflowLabel(locale, label)
+  const t = (key: string) => translateWorkflowLabel(locale, key)
   const copy = useAppMessages().workspace.widgets.blockEditor.documentTagEntry
   const [storeValue, setStoreValue] = useSubBlockValue<string>(blockId, subBlock.id)
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
@@ -252,15 +252,15 @@ export function DocumentTagEntry({
   }
 
   if (isLoading) {
-    return <div className='p-4 text-muted-foreground text-sm'>{t('Loading tag definitions...')}</div>
+    return <div className='p-4 text-muted-foreground text-sm'>{t('loadingTagDefinitions')}</div>
   }
 
   const renderHeader = () => (
     <thead>
       <tr className='border-b'>
-        <th className='w-2/5 border-r px-4 py-2 text-center font-medium text-sm'>{t('Tag Name')}</th>
-        <th className='w-1/5 border-r px-4 py-2 text-center font-medium text-sm'>{t('Type')}</th>
-        <th className='px-4 py-2 text-center font-medium text-sm'>{t('Value')}</th>
+        <th className='w-2/5 border-r px-4 py-2 text-center font-medium text-sm'>{t('tagName')}</th>
+        <th className='w-1/5 border-r px-4 py-2 text-center font-medium text-sm'>{t('type')}</th>
+        <th className='px-4 py-2 text-center font-medium text-sm'>{t('value')}</th>
       </tr>
     </thead>
   )

@@ -79,7 +79,7 @@ export function useGlobalShortcuts() {
 
         if (workspaceIndex !== -1 && pathParts[workspaceIndex + 1]) {
           const workspaceId = pathParts[workspaceIndex + 1]
-          router.push(`/workspace/${workspaceId}/logs`)
+          router.push(`/workspace/${workspaceId}/records`)
         } else {
           router.push('/workspace')
         }

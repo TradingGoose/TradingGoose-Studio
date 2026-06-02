@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useLocale } from 'next-intl'
 import { Check, ChevronDown, Hash, Lock, RefreshCw } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { SlackIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import {
@@ -44,16 +44,16 @@ export function SlackChannelSelector({
   const locale = useLocale() as LocaleCode
   const selectorCopy = useWorkspaceBlockEditorMessages().slackChannelSelector
   const copy = {
-    selectSlackChannel: translateWorkflowLabel(locale, 'Select Slack channel'),
-    searchChannels: translateWorkflowLabel(locale, 'Search channels...'),
-    loadingChannels: translateWorkflowLabel(locale, 'Loading channels...'),
-    missingCredentials: translateWorkflowLabel(locale, 'Missing credentials'),
-    configureSlackCredentials: translateWorkflowLabel(locale, 'Please configure Slack credentials.'),
-    noChannelsFound: translateWorkflowLabel(locale, 'No channels found'),
-    noChannelsAvailable: translateWorkflowLabel(locale, 'No channels available for this Slack workspace.'),
-    channels: translateWorkflowLabel(locale, 'Channels'),
-    private: translateWorkflowLabel(locale, 'Private'),
-    usingSharedAccount: translateWorkflowLabel(locale, 'Using a shared account'),
+    selectSlackChannel: translateWorkflowLabel(locale, 'selectSlackChannel'),
+    searchChannels: translateWorkflowLabel(locale, 'searchChannels'),
+    loadingChannels: translateWorkflowLabel(locale, 'loadingChannels'),
+    missingCredentials: translateWorkflowLabel(locale, 'missingCredentials'),
+    configureSlackCredentials: translateWorkflowLabel(locale, 'configureSlackCredentials'),
+    noChannelsFound: translateWorkflowLabel(locale, 'noChannelsFound'),
+    noChannelsAvailable: translateWorkflowLabel(locale, 'noChannelsAvailable'),
+    channels: translateWorkflowLabel(locale, 'channels'),
+    private: translateWorkflowLabel(locale, 'private'),
+    usingSharedAccount: translateWorkflowLabel(locale, 'usingSharedAccount'),
   }
   type SlackChannelSelectorErrorCode = keyof typeof selectorCopy.errors
   const labelText = label ?? copy.selectSlackChannel
@@ -225,7 +225,9 @@ export function SlackChannelSelector({
                       {getChannelIcon(channel)}
                       <span className='truncate font-normal'>{formatChannelName(channel)}</span>
                       {channel.isPrivate && (
-                        <span className='ml-auto text-muted-foreground text-xs'>{copy.private}</span>
+                        <span className='ml-auto text-muted-foreground text-xs'>
+                          {copy.private}
+                        </span>
                       )}
                     </div>
                     {channel.id === value && <Check className='ml-auto h-4 w-4' />}

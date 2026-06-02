@@ -1,15 +1,15 @@
-import * as React from 'react'
 import { Container, Img, Link, Section, Text } from '@react-email/components'
 import { baseStyles } from '@/components/emails/base-styles'
-import { getBrandConfig } from '@/lib/branding/branding'
-import { isHosted } from '@/lib/environment'
-import { getBaseUrl } from '@/lib/urls/utils'
 import {
   type EmailLocale,
   emailText,
   getEmailCopy,
   normalizeEmailTemplateLocale,
 } from '@/components/emails/email-copy'
+import { getBrandConfig } from '@/lib/branding/branding'
+import { isHosted } from '@/lib/environment'
+import { getBaseUrl } from '@/lib/urls/utils'
+import { localizeUrl } from '@/i18n/utils'
 
 interface UnsubscribeOptions {
   unsubscribeToken?: string
@@ -27,6 +27,12 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe, locale }: Ema
   const copy = getEmailCopy(resolvedLocale)
   const brand = getBrandConfig()
   const year = new Date().getFullYear()
+  const privacyUrl = localizeUrl(baseUrl, resolvedLocale, '/privacy')
+  const termsUrl = localizeUrl(baseUrl, resolvedLocale, '/terms')
+  const unsubscribeUrl =
+    unsubscribe?.unsubscribeToken && unsubscribe?.email
+      ? `${localizeUrl(baseUrl, resolvedLocale, '/unsubscribe')}?token=${unsubscribe.unsubscribeToken}&email=${encodeURIComponent(unsubscribe.email)}`
+      : '{{{RESEND_UNSUBSCRIBE_URL}}}'
 
   return (
     <Container style={baseStyles.footer}>
@@ -50,7 +56,10 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe, locale }: Ema
                         </Link>
                       </td>
                       <td align='center' style={{ padding: '0 8px' }}>
-                        <Link href='https://github.com/TradingGoose/TradingGoose-Studio' rel='noopener noreferrer'>
+                        <Link
+                          href='https://github.com/TradingGoose/TradingGoose-Studio'
+                          rel='noopener noreferrer'
+                        >
                           <Img
                             src='https://avatars.githubusercontent.com/u/9919'
                             width='24'
@@ -60,7 +69,6 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe, locale }: Ema
                           />
                         </Link>
                       </td>
-
                     </tr>
                   </tbody>
                 </table>
@@ -75,7 +83,10 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe, locale }: Ema
                     color: '#7c8299',
                   }}
                 >
-                  {emailText(copy.footer.copyright, { year, brandName: brand.name })}
+                  {emailText(resolvedLocale, copy.footer.copyright, {
+                    year,
+                    brandName: brand.name,
+                  })}
                   <br />
                   {copy.footer.questions}{' '}
                   <a
@@ -96,11 +107,7 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe, locale }: Ema
                     </>
                   )}
                 </Text>
-                <table
-                  cellPadding={0}
-                  cellSpacing={0}
-                  style={{ width: '100%', marginTop: '6px' }}
-                >
+                <table cellPadding={0} cellSpacing={0} style={{ width: '100%', marginTop: '6px' }}>
                   <tbody>
                     <tr>
                       <td align='center'>
@@ -111,7 +118,7 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe, locale }: Ema
                           }}
                         >
                           <a
-                            href={`${baseUrl}/privacy`}
+                            href={privacyUrl}
                             style={{
                               color: baseStyles.link.color,
                               textDecoration: 'underline',
@@ -124,7 +131,7 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe, locale }: Ema
                           </a>{' '}
                           |{' '}
                           <a
-                            href={`${baseUrl}/terms`}
+                            href={termsUrl}
                             style={{
                               color: baseStyles.link.color,
                               textDecoration: 'underline',
@@ -137,11 +144,7 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe, locale }: Ema
                           </a>{' '}
                           |{' '}
                           <a
-                            href={
-                              unsubscribe?.unsubscribeToken && unsubscribe?.email
-                                ? `${baseUrl}/unsubscribe?token=${unsubscribe.unsubscribeToken}&email=${encodeURIComponent(unsubscribe.email)}`
-                                : '{{{RESEND_UNSUBSCRIBE_URL}}}'
-                            }
+                            href={unsubscribeUrl}
                             style={{
                               color: baseStyles.link.color,
                               textDecoration: 'underline',

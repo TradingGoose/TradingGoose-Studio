@@ -1,4 +1,7 @@
+import { createTranslator } from 'next-intl'
+
 export type LocaleCode = 'en' | 'es' | 'zh'
+export type LocaleInput = LocaleCode | string | null | undefined
 
 export const locales = ['en', 'es', 'zh'] as const
 export const defaultLocale: LocaleCode = 'en'
@@ -20,11 +23,18 @@ export function isLocaleCode(value: string): value is LocaleCode {
   return (locales as readonly string[]).includes(value)
 }
 
+export function normalizeLocaleCode(locale: LocaleInput): LocaleCode {
+  return locale && isLocaleCode(locale) ? locale : defaultLocale
+}
+
 export function getLocaleDisplayName(locale: LocaleCode) {
   return LOCALE_DISPLAY_NAMES[locale]
 }
 
-export function stripLocaleFromPathname(pathname: string): { locale: LocaleCode; pathname: string } {
+export function stripLocaleFromPathname(pathname: string): {
+  locale: LocaleCode
+  pathname: string
+} {
   const segments = pathname.split('/').filter(Boolean)
   const firstSegment = segments[0]
 
@@ -50,6 +60,17 @@ function prefixLocalePathname(locale: LocaleCode, pathname: string) {
   }
 
   return normalized === '/' ? `/${locale}` : `/${locale}${normalized}`
+}
+
+function assertCanonicalInternalPathname(pathname: string) {
+  if (!pathname.startsWith('/') || pathname.startsWith('//')) {
+    throw new Error(`Expected a canonical internal pathname, received "${pathname}"`)
+  }
+
+  const firstSegment = pathname.split(/[?#]/, 1)[0].split('/').filter(Boolean)[0]
+  if (firstSegment && isLocaleCode(firstSegment)) {
+    throw new Error(`Expected an unlocalized internal pathname, received "${pathname}"`)
+  }
 }
 
 export function normalizeCallbackUrl(
@@ -90,8 +111,9 @@ export function normalizeCallbackUrl(
   }
 }
 
-export function localizeUrl(baseUrl: string, locale: LocaleCode, pathname: string) {
-  return `${baseUrl}${prefixLocalePathname(locale, pathname)}`
+export function localizeUrl(baseUrl: string, locale: LocaleInput, pathname: string) {
+  assertCanonicalInternalPathname(pathname)
+  return `${baseUrl.replace(/\/+$/, '')}${prefixLocalePathname(normalizeLocaleCode(locale), pathname)}`
 }
 
 export function localizeSiteUrl(locale: LocaleCode, pathname: string) {
@@ -118,9 +140,24 @@ export function buildLocalizedAlternates(locale: LocaleCode, pathname: string) {
   }
 }
 
-export function formatTemplate(template: string, values: Record<string, string | number>) {
-  return Object.entries(values).reduce(
-    (result, [key, value]) => result.replaceAll(`{{${key}}}`, String(value)),
-    template
-  )
+export function formatTemplate(
+  template: string,
+  values: Record<string, string | number | Date>,
+  locale: LocaleCode = defaultLocale
+) {
+  let formatError: unknown
+  const translator = createTranslator({
+    locale,
+    messages: { value: template },
+    onError(error) {
+      formatError = error
+    },
+  })
+  const formatted = translator('value', values)
+
+  if (formatError) {
+    throw formatError
+  }
+
+  return formatted
 }

@@ -47,8 +47,8 @@
     "homeLabel": "Home",
     "languageLabel": "Language",
     "primaryNavigation": "Primary navigation",
-    "githubRepositoryAriaLabel": "GitHub repository - {{stars}} stars",
-    "homeAriaLabel": "{{brand}} home"
+    "githubRepositoryAriaLabel": "GitHub repository - {stars} stars",
+    "homeAriaLabel": "{brand} home"
   },
   "registration": {
     "open": {
@@ -178,7 +178,7 @@
       "github": "GitHub",
       "google": "Google",
       "connecting": "Connecting...",
-      "cancelled": "{{provider}} sign in was cancelled. Please try again."
+      "cancelled": "{provider} sign in was cancelled. Please try again."
     },
     "verify": {
       "eyebrow": "Verification",
@@ -186,7 +186,7 @@
       "verifiedTitle": "Email Verified!",
       "verifiedDescription": "Your email has been verified. Redirecting to dashboard...",
       "disabledDescription": "Email verification is disabled. Redirecting to dashboard...",
-      "codeSent": "A verification code has been sent to {{email}}",
+      "codeSent": "A verification code has been sent to {email}",
       "developmentDescription": "Development mode: Check your console logs for the verification code",
       "missingServiceDescription": "Error: Email verification is enabled but no email service is configured",
       "instructionsWithService": "Enter the 6-digit code to verify your account. If you don't see it in your inbox, check your spam folder.",
@@ -194,7 +194,7 @@
       "verifyButton": "Verify Email",
       "verifyingButton": "Verifying...",
       "resendPrompt": "Didn't receive a code?",
-      "resendIn": "Resend in {{countdown}}s",
+      "resendIn": "Resend in {countdown}s",
       "resendButton": "Resend",
       "yourEmail": "your email",
       "errors": {
@@ -370,16 +370,8 @@
         "waitlist": "Honk! Introducing TradingGoose-Studio",
         "open": "Honk! TradingGoose-Studio is here!"
       },
-      "leadWords": [
-        "Build",
-        "Test",
-        "Run"
-      ],
-      "highlightWords": [
-        "Trading Analysis",
-        "Signal Detection",
-        "Risk Assessment"
-      ],
+      "leadWords": ["Build", "Test", "Run"],
+      "highlightWords": ["Trading Analysis", "Signal Detection", "Risk Assessment"],
       "titleConnector": "your",
       "suffix": "with TradingGoose",
       "description": "Connect your own data providers, write custom indicators to monitor market prices, and wire them into workflows that trigger trade, sell, buy, or any action you define.",
@@ -412,7 +404,7 @@
     },
     "footer": {
       "description": "AI workflow platform for technical LLM trading",
-      "copyright": "© {{year}} {{brand}}. Built for visual trading workflows.",
+      "copyright": "© {year} {brand}. Built for visual trading workflows.",
       "links": {
         "docs": "Docs",
         "blog": "Blog",
@@ -654,11 +646,11 @@
   },
   "blog": {
     "pageTitle": "Blog",
-    "pageDescription": "Insights on trading automation, workflow design, and building smarter strategies. {{count}} articles and counting.",
+    "pageDescription": "Insights on trading automation, workflow design, and building smarter strategies. {count} articles and counting.",
     "searchPlaceholder": "Search articles",
     "emptyTitle": "No posts yet",
     "emptyDescription": "Check back soon - new articles are on the way.",
-    "noMatches": "No posts matching \"{{query}}\"",
+    "noMatches": "No posts matching \"{query}\"",
     "noMatchesDescription": "Try a different search term.",
     "readTimeSuffix": "min read",
     "viewArticle": "View Article",
@@ -666,11 +658,11 @@
     "breadcrumbBlog": "Blog",
     "tableOfContents": "On This Page",
     "shareTitle": "Share This Article",
-    "shareOn": "Share on {{platform}}",
+    "shareOn": "Share on {platform}",
     "copyLink": "Copy link",
     "copied": "Copied!",
     "summarizeTitle": "Summarize with AI",
-    "summarizeWithPlatform": "Summarize with {{platform}}",
+    "summarizeWithPlatform": "Summarize with {platform}",
     "articleSingular": "article",
     "articlePlural": "articles"
   },
@@ -713,13 +705,7 @@
         "experience": {
           "label": "Years of Experience *",
           "placeholder": "Select experience level",
-          "options": [
-            "0-1 years",
-            "1-3 years",
-            "3-5 years",
-            "5-10 years",
-            "10+ years"
-          ]
+          "options": ["0-1 years", "1-3 years", "3-5 years", "5-10 years", "10+ years"]
         },
         "location": {
           "label": "Location *",
@@ -772,8 +758,8 @@
     "rssFeed": "RSS Feed",
     "loadingMore": "Loading...",
     "showMore": "Show more",
-    "viewContributorAriaLabel": "View @{{contributor}} on GitHub",
-    "contributorAvatarAlt": "@{{contributor}}",
+    "viewContributorAriaLabel": "View @{contributor} on GitHub",
+    "contributorAvatarAlt": "@{contributor}",
     "breadcrumb": "Changelog"
   },
   "legal": {
@@ -783,12 +769,12 @@
     "terms": {
       "title": "Terms of Service",
       "lastUpdatedDate": "2026-03-28",
-      "bodyMarkdown": "These Terms of Service govern your access to and use of the {{projectName}} website, app, APIs, and any project-operated hosted services (collectively, the Service).\n\nIf you use a self-hosted deployment or a deployment operated by someone other than the TradingGoose project owner, that operator is responsible for its own service terms, privacy disclosures, security practices, billing, and compliance.\n\nBy accessing or using the Service, you agree to these Terms. If you do not agree, do not use the Service.\n\n## 1. Open-Source License\n\n{{projectName}} source code is made available separately under the project's AGPL-3.0-only license and applicable third-party licenses. These Terms govern the project-operated website and hosted Service and do not replace or reduce rights granted to you under the source-code license.\n\nLicense and attribution details are available in the repository and on the [Licenses & Notices](/licenses) page.\n\n## 2. Eligibility, Accounts, and Access\n\nYou may need an account to use some parts of the Service. You must provide accurate information, keep your credentials secure, and are responsible for activity that occurs through your account.\n\nYou are responsible for maintaining the confidentiality of login credentials, API keys, OAuth connections, broker credentials, and any other access methods linked to your account or workflows.\n\nWe may suspend or restrict access if we reasonably believe an account is being used in a way that violates these Terms, threatens security, or creates legal or operational risk.\n\n## 3. Acceptable Use\n\nYou may not use the Service to:\n\n- Break the law or violate the rights of others.\n- Upload, transmit, or automate unlawful, infringing, abusive, or malicious content.\n- Attempt unauthorized access, interfere with the Service, or disrupt other users.\n- Use the Service to distribute malware, spam, or fraudulent activity.\n- Misuse connected accounts, OAuth credentials, broker accounts, or third-party APIs that you do not control or are not authorized to use.\n- Use the Service in a way that would require regulatory registrations, disclosures, or permissions that you do not have.\n\n## 4. Your Content, Workflows, and Integrations\n\nYou retain ownership of content, files, prompts, workflow definitions, indicator scripts, credentials, and other data you submit or connect through the Service (Your Content).\n\nYou grant us a limited license to host, process, store, transmit, and display Your Content only as needed to operate, secure, support, and improve the Service.\n\nYou are responsible for making sure you have the rights and permissions needed to use Your Content and any third-party services, market data sources, broker accounts, or APIs you connect.\n\n## 5. Third-Party Services and Connected Accounts\n\nThe Service may interoperate with third-party services, including model providers, storage providers, communication services, identity providers, analytics services, payment processors, market-data services, and broker platforms.\n\nYour use of those third-party services remains subject to their own terms, privacy notices, fees, technical limits, and availability.\n\nWe are not responsible for outages, errors, pricing changes, API changes, account restrictions, execution failures, or other actions taken by third-party services.\n\n## 6. Paid Features and Billing\n\nSome deployments may offer paid plans, usage-based billing, or subscription features. If you purchase paid access, you agree to pay applicable fees, taxes, and charges described at the time of purchase.\n\nBilling may be handled by third-party payment processors such as Stripe. We do not store full payment card details ourselves.\n\nFailure to pay may result in suspension or downgrade of paid features. Pricing and plan terms may change prospectively.\n\n## 7. Analytics, Research, and Automation Only\n\n{{projectName}} is provided as software for analytics, research, charting, monitoring, workflow automation, and related technical operations. It is not a broker-dealer, exchange, investment adviser, fiduciary, or execution venue.\n\nThe Service does not provide financial, investment, legal, accounting, or tax advice. Any outputs, charts, alerts, scripts, model responses, workflow results, or automations are informational tools only.\n\nYou are solely responsible for evaluating information, reviewing outputs, managing risk, determining suitability, and deciding whether to place trades, submit orders, or take any other action based on the Service.\n\n## 8. Trading Actions, Broker Integrations, and Market Data\n\nSome deployments may enable workflows or tools that interact with third-party brokers, exchanges, prediction markets, or market-data providers. Any such trading action is initiated at your direction and carried out, if at all, by the relevant third-party provider.\n\nWe are not responsible for trades, orders, cancellations, fills, partial fills, rejected orders, delayed execution, stale prices, incorrect symbols, model mistakes, workflow logic errors, unavailable APIs, market-data inaccuracies, or losses of any kind arising from actions taken through or based on the Service.\n\nYou are responsible for configuring safeguards, testing workflows, supervising automated behavior, and confirming that any connected trading activity complies with applicable law and the third-party provider's rules.\n\n## 9. Availability, Experimental Features, and Changes\n\nThe Service may change over time. We may add, modify, suspend, or remove features at any time, including integrations, hosted capabilities, and experimental features.\n\nSome capabilities may be marked experimental, beta, preview, or otherwise incomplete. You use those features at your own risk.\n\nWe may suspend or terminate access to the project-operated Service if you violate these Terms, create security or legal risk, or misuse the Service. You may stop using the Service at any time.\n\n## 10. Intellectual Property and Branding\n\nThe Service includes open-source code, third-party components, and project-owned branding and content. Open-source and third-party materials remain subject to their respective licenses.\n\nUnless a license expressly allows otherwise, the {{projectName}} name, logos, and brand assets may not be used in a way that implies endorsement, affiliation, or source without permission.\n\n## 11. Disclaimers\n\nThe Service is provided on an AS IS and AS AVAILABLE basis without warranties of any kind to the fullest extent permitted by law. We do not warrant uninterrupted operation, accuracy, profitability, availability of integrations, suitability for a particular strategy, or that the Service will prevent losses or errors.\n\n## 12. Limitation of Liability\n\nTo the fullest extent permitted by law, we are not liable for indirect, incidental, special, consequential, exemplary, or punitive damages, or for loss of profits, revenue, trading losses, brokerage losses, goodwill, data, or business interruption arising from or related to the Service.\n\nIf liability cannot be excluded, it is limited to the amount you paid us for the project-operated Service during the 12 months before the claim arose.\n\n## 13. Indemnity\n\nTo the extent permitted by law, you will be responsible for claims, losses, and costs arising from your misuse of the Service, your connected accounts, your content, your workflows, or your violation of these Terms or applicable law.\n\n## 14. Changes to These Terms\n\nWe may update these Terms from time to time. When we do, we will update the Last updated date on this page. Your continued use of the project-operated Service after an update becomes effective means you accept the revised Terms.\n\n## 15. Contact and Copyright Notices\n\nIf you have questions about these Terms, or if you believe material available through a project-operated Service infringes your rights, contact us at [{{supportEmail}}](mailto:{{supportEmail}}).\n\nPlease include enough detail for us to understand and review your request. We do not currently publish a separate mailing address for legal notices on this page."
+      "bodyMarkdown": "These Terms of Service govern your access to and use of the {projectName} website, app, APIs, and any project-operated hosted services (collectively, the Service).\n\nIf you use a self-hosted deployment or a deployment operated by someone other than the TradingGoose project owner, that operator is responsible for its own service terms, privacy disclosures, security practices, billing, and compliance.\n\nBy accessing or using the Service, you agree to these Terms. If you do not agree, do not use the Service.\n\n## 1. Open-Source License\n\n{projectName} source code is made available separately under the project's AGPL-3.0-only license and applicable third-party licenses. These Terms govern the project-operated website and hosted Service and do not replace or reduce rights granted to you under the source-code license.\n\nLicense and attribution details are available in the repository and on the [Licenses & Notices](/licenses) page.\n\n## 2. Eligibility, Accounts, and Access\n\nYou may need an account to use some parts of the Service. You must provide accurate information, keep your credentials secure, and are responsible for activity that occurs through your account.\n\nYou are responsible for maintaining the confidentiality of login credentials, API keys, OAuth connections, broker credentials, and any other access methods linked to your account or workflows.\n\nWe may suspend or restrict access if we reasonably believe an account is being used in a way that violates these Terms, threatens security, or creates legal or operational risk.\n\n## 3. Acceptable Use\n\nYou may not use the Service to:\n\n- Break the law or violate the rights of others.\n- Upload, transmit, or automate unlawful, infringing, abusive, or malicious content.\n- Attempt unauthorized access, interfere with the Service, or disrupt other users.\n- Use the Service to distribute malware, spam, or fraudulent activity.\n- Misuse connected accounts, OAuth credentials, broker accounts, or third-party APIs that you do not control or are not authorized to use.\n- Use the Service in a way that would require regulatory registrations, disclosures, or permissions that you do not have.\n\n## 4. Your Content, Workflows, and Integrations\n\nYou retain ownership of content, files, prompts, workflow definitions, indicator scripts, credentials, and other data you submit or connect through the Service (Your Content).\n\nYou grant us a limited license to host, process, store, transmit, and display Your Content only as needed to operate, secure, support, and improve the Service.\n\nYou are responsible for making sure you have the rights and permissions needed to use Your Content and any third-party services, market data sources, broker accounts, or APIs you connect.\n\n## 5. Third-Party Services and Connected Accounts\n\nThe Service may interoperate with third-party services, including model providers, storage providers, communication services, identity providers, analytics services, payment processors, market-data services, and broker platforms.\n\nYour use of those third-party services remains subject to their own terms, privacy notices, fees, technical limits, and availability.\n\nWe are not responsible for outages, errors, pricing changes, API changes, account restrictions, execution failures, or other actions taken by third-party services.\n\n## 6. Paid Features and Billing\n\nSome deployments may offer paid plans, usage-based billing, or subscription features. If you purchase paid access, you agree to pay applicable fees, taxes, and charges described at the time of purchase.\n\nBilling may be handled by third-party payment processors such as Stripe. We do not store full payment card details ourselves.\n\nFailure to pay may result in suspension or downgrade of paid features. Pricing and plan terms may change prospectively.\n\n## 7. Analytics, Research, and Automation Only\n\n{projectName} is provided as software for analytics, research, charting, monitoring, workflow automation, and related technical operations. It is not a broker-dealer, exchange, investment adviser, fiduciary, or execution venue.\n\nThe Service does not provide financial, investment, legal, accounting, or tax advice. Any outputs, charts, alerts, scripts, model responses, workflow results, or automations are informational tools only.\n\nYou are solely responsible for evaluating information, reviewing outputs, managing risk, determining suitability, and deciding whether to place trades, submit orders, or take any other action based on the Service.\n\n## 8. Trading Actions, Broker Integrations, and Market Data\n\nSome deployments may enable workflows or tools that interact with third-party brokers, exchanges, prediction markets, or market-data providers. Any such trading action is initiated at your direction and carried out, if at all, by the relevant third-party provider.\n\nWe are not responsible for trades, orders, cancellations, fills, partial fills, rejected orders, delayed execution, stale prices, incorrect symbols, model mistakes, workflow logic errors, unavailable APIs, market-data inaccuracies, or losses of any kind arising from actions taken through or based on the Service.\n\nYou are responsible for configuring safeguards, testing workflows, supervising automated behavior, and confirming that any connected trading activity complies with applicable law and the third-party provider's rules.\n\n## 9. Availability, Experimental Features, and Changes\n\nThe Service may change over time. We may add, modify, suspend, or remove features at any time, including integrations, hosted capabilities, and experimental features.\n\nSome capabilities may be marked experimental, beta, preview, or otherwise incomplete. You use those features at your own risk.\n\nWe may suspend or terminate access to the project-operated Service if you violate these Terms, create security or legal risk, or misuse the Service. You may stop using the Service at any time.\n\n## 10. Intellectual Property and Branding\n\nThe Service includes open-source code, third-party components, and project-owned branding and content. Open-source and third-party materials remain subject to their respective licenses.\n\nUnless a license expressly allows otherwise, the {projectName} name, logos, and brand assets may not be used in a way that implies endorsement, affiliation, or source without permission.\n\n## 11. Disclaimers\n\nThe Service is provided on an AS IS and AS AVAILABLE basis without warranties of any kind to the fullest extent permitted by law. We do not warrant uninterrupted operation, accuracy, profitability, availability of integrations, suitability for a particular strategy, or that the Service will prevent losses or errors.\n\n## 12. Limitation of Liability\n\nTo the fullest extent permitted by law, we are not liable for indirect, incidental, special, consequential, exemplary, or punitive damages, or for loss of profits, revenue, trading losses, brokerage losses, goodwill, data, or business interruption arising from or related to the Service.\n\nIf liability cannot be excluded, it is limited to the amount you paid us for the project-operated Service during the 12 months before the claim arose.\n\n## 13. Indemnity\n\nTo the extent permitted by law, you will be responsible for claims, losses, and costs arising from your misuse of the Service, your connected accounts, your content, your workflows, or your violation of these Terms or applicable law.\n\n## 14. Changes to These Terms\n\nWe may update these Terms from time to time. When we do, we will update the Last updated date on this page. Your continued use of the project-operated Service after an update becomes effective means you accept the revised Terms.\n\n## 15. Contact and Copyright Notices\n\nIf you have questions about these Terms, or if you believe material available through a project-operated Service infringes your rights, contact us at [{supportEmail}](mailto:{supportEmail}).\n\nPlease include enough detail for us to understand and review your request. We do not currently publish a separate mailing address for legal notices on this page."
     },
     "privacy": {
       "title": "Privacy Policy",
       "lastUpdatedDate": "2026-03-28",
-      "bodyMarkdown": "This Privacy Policy describes how {{projectName}} handles personal data when the TradingGoose project owner operates the website, app, APIs, or hosted services (collectively, the Service).\n\nIf you use a self-hosted deployment or a deployment operated by someone else, that operator is responsible for its own privacy notice, data handling, cookies, analytics, integrations, and security practices.\n\n## 1. Scope and Roles\n\nThis Privacy Policy applies to project-operated deployments of {{projectName}}. For self-hosted deployments or deployments operated by someone else, that operator controls its own configuration, storage, integrations, analytics, retention, and compliance.\n\nIn those cases, the third-party operator, not the TradingGoose project owner, is the primary controller or operator for that deployment's user data.\n\n## 2. Information We Collect\n\n### Account and authentication data\n\nWe may collect information you provide when creating or using an account, such as your name, email address, login method, profile details, organization membership, and account settings.\n\n### Content and workflow data\n\nWe may process prompts, chats, files, documents, workflow definitions, logs, indicator scripts, watchlists, templates, and other content you submit or generate through the Service.\n\n### Connected account and integration data\n\nIf you connect third-party services, we may receive account identifiers, OAuth tokens, metadata, and the third-party data you authorize us to access. Depending on what you enable, this may include services such as Google, GitHub, Microsoft, Slack, Stripe, and broker or market-data providers.\n\n### Payment and subscription data\n\nIf paid plans or usage billing are enabled, billing is handled through payment providers such as Stripe. We may receive billing metadata such as customer IDs, subscription status, invoices, and payment outcomes, but we do not store full payment card details ourselves.\n\n### Technical and usage data\n\nWe may automatically collect information such as IP address, browser type, device information, timestamps, error data, request logs, feature usage, page visits, and performance metrics.\n\n### Cookies, local storage, and analytics\n\nThe Service uses cookies, local storage, and similar technologies for authentication, session management, preferences, security, and product analytics.\n\nIf analytics features are enabled by the deployment, they may include OpenTelemetry event collection and PostHog analytics. PostHog may collect page views, clicks, form interactions, and session replay data. Password fields are masked in replay, but other form inputs may not be.\n\n### Optional training dataset exports\n\nSome deployments may enable optional copilot-training features. If you explicitly use those features, the recorded workflow-edit dataset you choose to submit may be sent to a configured indexing or training service.\n\n## 3. Sources of Information\n\nWe may collect information directly from:\n\n- You, when you create an account, upload content, connect services, or contact us.\n- Your browser, device, and use of the Service.\n- Third-party accounts and APIs that you choose to connect.\n- Payment providers, analytics providers, hosting vendors, and operational vendors.\n\nWe may also derive operational or diagnostic information from logs, execution results, billing events, and system telemetry.\n\n## 4. How We Use Information\n\nWe may use information we collect to:\n\n- Provide, maintain, and secure the Service.\n- Authenticate users and manage accounts, organizations, and permissions.\n- Store, execute, and troubleshoot workflows, chats, files, and integrations.\n- Process payments, subscriptions, usage limits, and billing communications.\n- Respond to support requests, bug reports, and product feedback.\n- Monitor performance, reliability, fraud, abuse, and security incidents.\n- Improve the Service and develop new features.\n- Comply with legal obligations and enforce our terms and policies.\n\nIf you use AI or automation features, your content may be processed by model providers or integration providers selected by you or configured by the deployment in order to deliver the requested feature.\n\n## 5. How We Share Information\n\nWe may share information with:\n\n- Service providers that help us operate the Service, such as hosting, storage, email, analytics, logging, and payment vendors.\n- Third-party platforms, model providers, and APIs when needed to run the workflows, integrations, or features you enable.\n- Law enforcement, regulators, courts, or other parties when legally required.\n- A successor or buyer in connection with a merger, acquisition, financing, or transfer of the Service.\n\nWe do not sell personal information for money. Third-party service transfers may still occur when you enable connected features or when a deployment uses analytics or other operational vendors.\n\n## 6. Google, AI Providers, Broker Integrations, and Other Connected-Service Data\n\nIf you connect Google or other third-party services, we access and use that data only as needed to provide the features you enable, subject to your permissions and the connected provider's terms.\n\nWe do not use Google user data obtained through Google APIs to train generalized AI or ML models.\n\nOutside the optional training-dataset feature described above, we do not use your workflow content to train generalized models for the Service.\n\n## 7. Cookies, Local Storage, Telemetry, and Analytics\n\nThe Service uses cookies, local storage, and related technologies for login sessions, authentication state, UI preferences, account settings, security, product analytics, and similar operational functions.\n\nFor project-operated deployments, anonymous telemetry may be enabled by default and may be controllable through product settings depending on the deployment and your account state.\n\nSome deployments may also enable PostHog or similar analytics tooling for page analytics, interaction analytics, and session replay. If you run a self-hosted deployment, your operator controls whether such tooling is enabled and where data is sent.\n\n## 8. International Processing\n\nInformation may be processed in the United States and other countries where our vendors, infrastructure, or connected service providers operate. Data-protection laws may differ between jurisdictions.\n\n## 9. Retention\n\nWe keep information for as long as reasonably necessary to operate the Service, maintain your account, process billing, investigate abuse, comply with legal obligations, and resolve disputes.\n\nRetention periods may vary by data type and deployment configuration. Self-hosted or third-party operators control their own retention settings for their deployments.\n\n## 10. Security\n\nWe use reasonable administrative, technical, and organizational safeguards to protect information, but no system is completely secure. You are also responsible for protecting your account credentials, API keys, and connected third-party accounts.\n\n## 11. Your Choices and Rights\n\nDepending on where you live, you may have rights to access, correct, delete, export, or object to certain uses of your personal data.\n\nYou may also be able to control some collection directly through product settings, such as anonymous telemetry preferences, or by disconnecting third-party accounts.\n\nIf you are in the EEA, UK, or another jurisdiction with similar rights, you may also have rights related to restriction, objection, withdrawal of consent where consent is used, and complaint to a supervisory authority.\n\nIf you are a California resident, you may have rights to know, access, correct, delete, and receive information about categories of personal information we collect, use, and disclose for project-operated deployments, subject to legal exceptions.\n\nTo make a privacy-related request for a project-operated deployment, contact [{{supportEmail}}](mailto:{{supportEmail}}). If you use a self-hosted or third-party deployment, contact that operator instead.\n\n## 12. Children's Privacy\n\nThe Service is not intended for children under 18, and we do not knowingly collect personal data from children through the project-operated Service.\n\n## 13. External Services\n\nThis Privacy Policy does not cover third-party services, brokerages, model providers, market-data providers, or sites that you connect to or visit through the Service. Review those providers' own terms and privacy notices.\n\n## 14. Changes to This Policy\n\nWe may update this Privacy Policy from time to time. When we do, we will update the Last updated date on this page. Material changes will apply when posted unless a longer notice period is required by law.\n\n## 15. Contact\n\nIf you have questions, requests, or complaints regarding this Privacy Policy for a project-operated deployment, contact us at [{{supportEmail}}](mailto:{{supportEmail}}).\n\nWe do not currently publish a separate mailing address on this page. If that changes, we will update this policy."
+      "bodyMarkdown": "This Privacy Policy describes how {projectName} handles personal data when the TradingGoose project owner operates the website, app, APIs, or hosted services (collectively, the Service).\n\nIf you use a self-hosted deployment or a deployment operated by someone else, that operator is responsible for its own privacy notice, data handling, cookies, analytics, integrations, and security practices.\n\n## 1. Scope and Roles\n\nThis Privacy Policy applies to project-operated deployments of {projectName}. For self-hosted deployments or deployments operated by someone else, that operator controls its own configuration, storage, integrations, analytics, retention, and compliance.\n\nIn those cases, the third-party operator, not the TradingGoose project owner, is the primary controller or operator for that deployment's user data.\n\n## 2. Information We Collect\n\n### Account and authentication data\n\nWe may collect information you provide when creating or using an account, such as your name, email address, login method, profile details, organization membership, and account settings.\n\n### Content and workflow data\n\nWe may process prompts, chats, files, documents, workflow definitions, logs, indicator scripts, watchlists, templates, and other content you submit or generate through the Service.\n\n### Connected account and integration data\n\nIf you connect third-party services, we may receive account identifiers, OAuth tokens, metadata, and the third-party data you authorize us to access. Depending on what you enable, this may include services such as Google, GitHub, Microsoft, Slack, Stripe, and broker or market-data providers.\n\n### Payment and subscription data\n\nIf paid plans or usage billing are enabled, billing is handled through payment providers such as Stripe. We may receive billing metadata such as customer IDs, subscription status, invoices, and payment outcomes, but we do not store full payment card details ourselves.\n\n### Technical and usage data\n\nWe may automatically collect information such as IP address, browser type, device information, timestamps, error data, request logs, feature usage, page visits, and performance metrics.\n\n### Cookies, local storage, and analytics\n\nThe Service uses cookies, local storage, and similar technologies for authentication, session management, preferences, security, and product analytics.\n\nIf analytics features are enabled by the deployment, they may include OpenTelemetry event collection and PostHog analytics. PostHog may collect page views, clicks, form interactions, and session replay data. Password fields are masked in replay, but other form inputs may not be.\n\n### Optional training dataset exports\n\nSome deployments may enable optional copilot-training features. If you explicitly use those features, the recorded workflow-edit dataset you choose to submit may be sent to a configured indexing or training service.\n\n## 3. Sources of Information\n\nWe may collect information directly from:\n\n- You, when you create an account, upload content, connect services, or contact us.\n- Your browser, device, and use of the Service.\n- Third-party accounts and APIs that you choose to connect.\n- Payment providers, analytics providers, hosting vendors, and operational vendors.\n\nWe may also derive operational or diagnostic information from logs, execution results, billing events, and system telemetry.\n\n## 4. How We Use Information\n\nWe may use information we collect to:\n\n- Provide, maintain, and secure the Service.\n- Authenticate users and manage accounts, organizations, and permissions.\n- Store, execute, and troubleshoot workflows, chats, files, and integrations.\n- Process payments, subscriptions, usage limits, and billing communications.\n- Respond to support requests, bug reports, and product feedback.\n- Monitor performance, reliability, fraud, abuse, and security incidents.\n- Improve the Service and develop new features.\n- Comply with legal obligations and enforce our terms and policies.\n\nIf you use AI or automation features, your content may be processed by model providers or integration providers selected by you or configured by the deployment in order to deliver the requested feature.\n\n## 5. How We Share Information\n\nWe may share information with:\n\n- Service providers that help us operate the Service, such as hosting, storage, email, analytics, logging, and payment vendors.\n- Third-party platforms, model providers, and APIs when needed to run the workflows, integrations, or features you enable.\n- Law enforcement, regulators, courts, or other parties when legally required.\n- A successor or buyer in connection with a merger, acquisition, financing, or transfer of the Service.\n\nWe do not sell personal information for money. Third-party service transfers may still occur when you enable connected features or when a deployment uses analytics or other operational vendors.\n\n## 6. Google, AI Providers, Broker Integrations, and Other Connected-Service Data\n\nIf you connect Google or other third-party services, we access and use that data only as needed to provide the features you enable, subject to your permissions and the connected provider's terms.\n\nWe do not use Google user data obtained through Google APIs to train generalized AI or ML models.\n\nOutside the optional training-dataset feature described above, we do not use your workflow content to train generalized models for the Service.\n\n## 7. Cookies, Local Storage, Telemetry, and Analytics\n\nThe Service uses cookies, local storage, and related technologies for login sessions, authentication state, UI preferences, account settings, security, product analytics, and similar operational functions.\n\nFor project-operated deployments, anonymous telemetry may be enabled by default and may be controllable through product settings depending on the deployment and your account state.\n\nSome deployments may also enable PostHog or similar analytics tooling for page analytics, interaction analytics, and session replay. If you run a self-hosted deployment, your operator controls whether such tooling is enabled and where data is sent.\n\n## 8. International Processing\n\nInformation may be processed in the United States and other countries where our vendors, infrastructure, or connected service providers operate. Data-protection laws may differ between jurisdictions.\n\n## 9. Retention\n\nWe keep information for as long as reasonably necessary to operate the Service, maintain your account, process billing, investigate abuse, comply with legal obligations, and resolve disputes.\n\nRetention periods may vary by data type and deployment configuration. Self-hosted or third-party operators control their own retention settings for their deployments.\n\n## 10. Security\n\nWe use reasonable administrative, technical, and organizational safeguards to protect information, but no system is completely secure. You are also responsible for protecting your account credentials, API keys, and connected third-party accounts.\n\n## 11. Your Choices and Rights\n\nDepending on where you live, you may have rights to access, correct, delete, export, or object to certain uses of your personal data.\n\nYou may also be able to control some collection directly through product settings, such as anonymous telemetry preferences, or by disconnecting third-party accounts.\n\nIf you are in the EEA, UK, or another jurisdiction with similar rights, you may also have rights related to restriction, objection, withdrawal of consent where consent is used, and complaint to a supervisory authority.\n\nIf you are a California resident, you may have rights to know, access, correct, delete, and receive information about categories of personal information we collect, use, and disclose for project-operated deployments, subject to legal exceptions.\n\nTo make a privacy-related request for a project-operated deployment, contact [{supportEmail}](mailto:{supportEmail}). If you use a self-hosted or third-party deployment, contact that operator instead.\n\n## 12. Children's Privacy\n\nThe Service is not intended for children under 18, and we do not knowingly collect personal data from children through the project-operated Service.\n\n## 13. External Services\n\nThis Privacy Policy does not cover third-party services, brokerages, model providers, market-data providers, or sites that you connect to or visit through the Service. Review those providers' own terms and privacy notices.\n\n## 14. Changes to This Policy\n\nWe may update this Privacy Policy from time to time. When we do, we will update the Last updated date on this page. Material changes will apply when posted unless a longer notice period is required by law.\n\n## 15. Contact\n\nIf you have questions, requests, or complaints regarding this Privacy Policy for a project-operated deployment, contact us at [{supportEmail}](mailto:{supportEmail}).\n\nWe do not currently publish a separate mailing address on this page. If that changes, we will update this policy."
     },
     "licenses": {
       "title": "Licenses & Notices",
@@ -820,7 +806,7 @@
     },
     "warning": {
       "title": "Already Part of a Team",
-      "currentOrgWithName": "You are currently a member of \"{{name}}\". You must leave your current organization before accepting a new invitation.",
+      "currentOrgWithName": "You are currently a member of \"{name}\". You must leave your current organization before accepting a new invitation.",
       "currentOrg": "You are already a member of an organization. Leave your current organization before accepting a new invitation.",
       "manageTeamSettings": "Manage Team Settings"
     },
@@ -829,12 +815,12 @@
     },
     "success": {
       "title": "Welcome!",
-      "description": "You have successfully joined {{name}}. Redirecting to your workspace..."
+      "description": "You have successfully joined {name}. Redirecting to your workspace..."
     },
     "invitation": {
       "organizationTitle": "Organization Invitation",
       "workspaceTitle": "Workspace Invitation",
-      "description": "You've been invited to join {{name}}. Click accept below to join.",
+      "description": "You've been invited to join {name}. Click accept below to join.",
       "accept": "Accept Invitation"
     },
     "errors": {
@@ -1042,7 +1028,7 @@
         "createTooltip": "Write permission required to create knowledge bases"
       },
       "errors": {
-        "load": "Error loading knowledge bases: {{error}}",
+        "load": "Error loading knowledge bases: {error}",
         "retry": "Try again"
       },
       "emptyState": {
@@ -1078,7 +1064,7 @@
         "copyId": "Copy knowledge base ID",
         "deleteButtonLabel": "Delete knowledge base",
         "deleteTitle": "Delete Knowledge Base",
-        "deleteDescription": "Are you sure you want to delete \"{{title}}\"? This will remove the knowledge base and its {{count}} document{{plural}} permanently.",
+        "deleteDescription": "Are you sure you want to delete \"{title}\"? This will remove the knowledge base and its {count} document{plural} permanently.",
         "cancel": "Cancel",
         "deleteConfirm": "Delete",
         "deleting": "Deleting..."
@@ -1112,7 +1098,7 @@
         "nextChunk": "Next chunk",
         "previousPage": "previous page",
         "nextPage": "next page",
-        "editingChunk": "Editing chunk #{{index}} • Page {{currentPage}} of {{totalPages}}",
+        "editingChunk": "Editing chunk #{index} • Page {currentPage} of {totalPages}",
         "cancel": "Cancel",
         "errors": {
           "failedToCreateChunk": "Failed to create chunk",
@@ -1150,8 +1136,8 @@
         "creating": "Creating...",
         "failedToCreateKnowledgeBase": "Failed to create knowledge base",
         "unknownError": "An unknown error occurred",
-        "fileTooLarge": "File {{name}} is too large. Maximum size is 100MB per file.",
-        "unsupportedFileType": "File {{name}} has an unsupported format. Please use PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, MD, PPT, PPTX, HTML, JSON, YAML, or YML.",
+        "fileTooLarge": "File {name} is too large. Maximum size is 100MB per file.",
+        "unsupportedFileType": "File {name} has an unsupported format. Please use PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, MD, PPT, PPTX, HTML, JSON, YAML, or YML.",
         "processingError": "An error occurred while processing files. Please try again.",
         "validation": {
           "nameRequired": "Name is required",
@@ -1180,8 +1166,8 @@
         "uploadDocuments": "Upload Documents",
         "uploading": "Uploading...",
         "processing": "Processing...",
-        "fileTooLarge": "File \"{{name}}\" is too large. Maximum size is 100MB.",
-        "unsupportedFileType": "File \"{{name}}\" has an unsupported format. Please use PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, MD, PPT, PPTX, HTML, JSON, YAML, or YML files."
+        "fileTooLarge": "File \"{name}\" is too large. Maximum size is 100MB.",
+        "unsupportedFileType": "File \"{name}\" has an unsupported format. Please use PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, MD, PPT, PPTX, HTML, JSON, YAML, or YML files."
       },
       "document": {
         "searchChunksPlaceholder": "Search chunks...",
@@ -1189,13 +1175,13 @@
         "deleteChunkTitle": "Delete chunk?",
         "deleteChunksTitle": "Delete chunks?",
         "deleteChunkDescription": "Deleting this chunk will permanently remove it from this document.",
-        "deleteChunksDescription": "Deleting {{count}} chunks will permanently remove them from this document.",
+        "deleteChunksDescription": "Deleting {count} chunks will permanently remove them from this document.",
         "thisActionCannotBeUndone": "This action cannot be undone.",
         "cancel": "Cancel",
         "deleteFileTitle": "Delete file?",
         "deleteFilesTitle": "Delete files?",
-        "deleteFileDescription": "Deleting \"{{name}}\" will permanently remove its source file, chunks, and embeddings from this knowledge base.",
-        "deleteFilesDescription": "Deleting {{count}} files will permanently remove their source files, chunks, and embeddings from this knowledge base.",
+        "deleteFileDescription": "Deleting \"{name}\" will permanently remove its source file, chunks, and embeddings from this knowledge base.",
+        "deleteFilesDescription": "Deleting {count} files will permanently remove their source files, chunks, and embeddings from this knowledge base.",
         "delete": "Delete",
         "deleting": "Deleting..."
       },
@@ -1210,8 +1196,8 @@
         "addTag": "Add Tag",
         "emptyState": "No tags added yet. Click \"Add Tag\" to get started.",
         "advancedSettings": "Advanced Settings",
-        "tagCount": "{{count}} tag{{count, plural, one {} other {s}}}",
-        "slotsUsed": "{{used}} of {{total}} tag slots used",
+        "tagCount": "{count} tag{count, plural, one {} other {s}}",
+        "slotsUsed": "{used} of {total} tag slots used",
         "editTag": "Edit Tag",
         "addNewTag": "Add New Tag",
         "tagName": "Tag Name",
@@ -1234,15 +1220,15 @@
         "moreTags": "More tags",
         "showFewerTags": "Show fewer tags",
         "activeTags": "Active tags:",
-        "tagLabel": "Tag {{index}}",
+        "tagLabel": "Tag {index}",
         "deleteTagTitle": "Delete Tag",
-        "deleteTagDescription": "Are you sure you want to delete the \"{{name}}\" tag? This will remove this tag from {{count}} document{{plural}}.",
+        "deleteTagDescription": "Are you sure you want to delete the \"{name}\" tag? This will remove this tag from {count} document{plural}.",
         "thisActionCannotBeUndone": "This action cannot be undone.",
         "affectedDocuments": "Affected documents:",
         "deleting": "Deleting...",
-        "documentsUsingTagTitle": "Documents using \"{{name}}\"",
-        "documentsUsingTagDescriptionSingular": "{{count}} document is currently using this tag definition.",
-        "documentsUsingTagDescriptionPlural": "{{count}} documents are currently using this tag definition.",
+        "documentsUsingTagTitle": "Documents using \"{name}\"",
+        "documentsUsingTagDescriptionSingular": "{count} document is currently using this tag definition.",
+        "documentsUsingTagDescriptionPlural": "{count} documents are currently using this tag definition.",
         "singularIs": "is",
         "pluralAre": "are",
         "tagUnusedHelp": "This tag definition is not being used by any documents. You can safely delete it to free up the tag slot."
@@ -1286,7 +1272,7 @@
         "refreshing": "Refreshing...",
         "chart": {
           "noData": "No data available.",
-          "toggleSeries": "Toggle series {{label}}"
+          "toggleSeries": "Toggle series {label}"
         },
         "filters": {
           "title": "Filters",
@@ -1295,7 +1281,7 @@
           "suggestedFilters": "Suggested filters",
           "textSearch": "Text search",
           "searchPlaceholder": "Search logs...",
-          "filterOptionsPlaceholder": "No options found for {{title}}.",
+          "filterOptionsPlaceholder": "No options found for {title}.",
           "searchWorkflows": "Search workflows...",
           "searchFolders": "Search folders...",
           "searchOptions": "Search options...",
@@ -1305,11 +1291,11 @@
           "noFolders": "No folders found.",
           "noOptions": "No options found.",
           "allWorkflows": "All workflows",
-          "selectedWorkflows": "{{count}} selected workflow{{plural}}",
+          "selectedWorkflows": "{count} selected workflow{plural}",
           "allFolders": "All folders",
-          "selectedFolders": "{{count}} selected folder{{plural}}",
+          "selectedFolders": "{count} selected folder{plural}",
           "allTriggers": "All triggers",
-          "selectedTriggers": "{{count}} selected trigger{{plural}}",
+          "selectedTriggers": "{count} selected trigger{plural}",
           "allTime": "All time",
           "past30Minutes": "Past 30 minutes",
           "pastHour": "Past hour",
@@ -1334,7 +1320,7 @@
           "trigger": "Trigger",
           "timeline": "Timeline",
           "retentionPolicy": "Log Retention Policy",
-          "retentionDescription": "Logs are automatically deleted after {{days}} days on this tier.",
+          "retentionDescription": "Logs are automatically deleted after {days} days on this tier.",
           "upgradePlan": "Upgrade Plan"
         },
         "metrics": {
@@ -1345,15 +1331,15 @@
         },
         "workflows": {
           "title": "Workflows",
-          "legend": "Each cell is approximately {{duration}} of the selected range. Click a cell to filter details.",
-          "count": "{{count}} workflow",
-          "countPlural": "{{count}} workflows",
-          "filteredFrom": " (filtered from {{count}})",
-          "noMatches": "No workflows found matching \"{{query}}\".",
+          "legend": "Each cell is approximately {duration} of the selected range. Click a cell to filter details.",
+          "count": "{count} workflow",
+          "countPlural": "{count} workflows",
+          "filteredFrom": " (filtered from {count})",
+          "noMatches": "No workflows found matching \"{query}\".",
           "selectedSegment": "Selected segment",
-          "filteredTo": "Filtered to {{timestamp}}",
-          "selectedRangeMore": " (+{{count}} more segment{{plural}})",
-          "selectedRangeExecutions": "— {{count}} execution{{plural}}",
+          "filteredTo": "Filtered to {timestamp}",
+          "selectedRangeMore": " (+{count} more segment{plural})",
+          "selectedRangeExecutions": "— {count} execution{plural}",
           "clearFilter": "Clear filter",
           "executions": "Executions",
           "success": "Success",
@@ -1372,13 +1358,13 @@
           "noExecutions": "No executions",
           "loadingMore": "Loading more...",
           "scrollToLoadMore": "Scroll to load more",
-          "succeeded": "{{success}}/{{total}} succeeded",
-          "segment": "Segment {{index}}",
+          "succeeded": "{success}/{total} succeeded",
+          "segment": "Segment {index}",
           "allWorkflows": "All workflows",
-          "multipleSelected": "{{count}} workflows selected",
-          "durationDay": "{{count}} day{{plural}}",
-          "durationHour": "{{count}} hour{{plural}}",
-          "durationMinute": "{{count}} minute{{plural}}"
+          "multipleSelected": "{count} workflows selected",
+          "durationDay": "{count} day{plural}",
+          "durationHour": "{count} hour{plural}",
+          "durationMinute": "{count} minute{plural}"
         }
       },
       "list": {
@@ -1396,7 +1382,7 @@
         "noLogs": "No logs found",
         "unknownWorkflow": "Unknown Workflow",
         "errorPrefix": "Error: ",
-        "runningMs": "{{value}} ms"
+        "runningMs": "{value} ms"
       },
       "details": {
         "title": "Log Details",
@@ -1422,17 +1408,17 @@
         "modelOutput": "Model Output:",
         "total": "Total:",
         "tokens": "Tokens:",
-        "modelBreakdown": "Model Breakdown ({{count}})",
+        "modelBreakdown": "Model Breakdown ({count})",
         "input": "Input:",
         "output": "Output:",
-        "totalCostNote": "Total cost includes a base execution charge of {{amount}} plus any model usage costs.",
+        "totalCostNote": "Total cost includes a base execution charge of {amount} plus any model usage costs.",
         "notAvailable": "Not available",
         "unknownSize": "Unknown size",
         "unknownType": "Unknown type",
         "unknownWorkflow": "Unknown",
         "unknownLevel": "unknown",
         "unknownValue": "Unknown",
-        "runningMs": "{{value}} ms",
+        "runningMs": "{value} ms",
         "traceSpans": {
           "workflowExecution": "Workflow execution",
           "collapseAll": "Collapse all",
@@ -1445,21 +1431,21 @@
           "initialResponse": "Initial response",
           "modelResponse": "Model response",
           "modelGeneration": "Model generation",
-          "tokens": "{{count}} token{{plural}}",
+          "tokens": "{count} token{plural}",
           "tokensUnavailable": "Tokens unavailable",
-          "tokensInOut": "{{input}} in / {{output}} out",
-          "tokensTotal": "{{count}} total token{{plural}}",
-          "tokensTotalSuffix": " ({{count}} total)",
+          "tokensInOut": "{input} in / {output} out",
+          "tokensTotal": "{count} total token{plural}",
+          "tokensTotalSuffix": " ({count} total)",
           "input": "Input",
           "output": "Output",
           "total": "Total",
           "start": "Start",
-          "plusMs": "+{{ms}} ms",
-          "betweenBlocks": "Gap of {{ms}} ms",
+          "plusMs": "+{ms} ms",
+          "betweenBlocks": "Gap of {ms} ms",
           "inputSection": "Input",
           "outputSection": "Output",
           "errorSection": "Error",
-          "segmentTimingTooltip": "{{type}}{{nameSuffix}} took {{duration}} ms"
+          "segmentTimingTooltip": "{type}{nameSuffix} took {duration} ms"
         },
         "download": {
           "downloading": "Downloading...",
@@ -1559,8 +1545,8 @@
         }
       },
       "searchEmpty": {
-        "workspace": "No workspace environment variables found matching \"{{query}}\".",
-        "personal": "No personal environment variables found matching \"{{query}}\"."
+        "workspace": "No workspace environment variables found matching \"{query}\".",
+        "personal": "No personal environment variables found matching \"{query}\"."
       },
       "headers": {
         "createdAt": "Created At",
@@ -1583,7 +1569,7 @@
     },
     "apiKeys": {
       "title": "API Keys",
-      "cardTitle": "{{scope}} API Keys",
+      "cardTitle": "{scope} API Keys",
       "searchPlaceholder": "Search keys...",
       "scope": {
         "workspace": "Workspace",
@@ -1605,7 +1591,7 @@
           "button": "Create Key"
         }
       },
-      "searchEmpty": "No {{scope}} API keys found matching \"{{query}}\".",
+      "searchEmpty": "No {scope} API keys found matching \"{query}\".",
       "headers": {
         "createdAt": "Created At",
         "name": "Name",
@@ -1616,20 +1602,20 @@
       "labels": {
         "never": "Never",
         "billingTier": "Billing tier",
-        "lastUsed": "Last used: {{date}}",
+        "lastUsed": "Last used: {date}",
         "saveName": "Save API key name",
-        "rename": "Rename {{scope}} API key",
-        "reveal": "Reveal {{scope}} API key",
-        "hide": "Hide {{scope}} API key",
-        "copy": "Copy {{scope}} API key",
-        "save": "Save {{scope}} API key",
+        "rename": "Rename {scope} API key",
+        "reveal": "Reveal {scope} API key",
+        "hide": "Hide {scope} API key",
+        "copy": "Copy {scope} API key",
+        "save": "Save {scope} API key",
         "cancelRename": "Cancel rename",
-        "delete": "Delete {{scope}} API key",
+        "delete": "Delete {scope} API key",
         "nameRequired": "Name is required",
-        "duplicateName": "A {{scope}} API key named \"{{name}}\" already exists.",
-        "failedRename": "Failed to rename {{scope}} API key.",
-        "unableRename": "Unable to rename {{scope}} API key. Please try again.",
-        "failedCreate": "Failed to create {{scope}} API key. Please try again.",
+        "duplicateName": "A {scope} API key named \"{name}\" already exists.",
+        "failedRename": "Failed to rename {scope} API key.",
+        "unableRename": "Unable to rename {scope} API key. Please try again.",
+        "failedCreate": "Failed to create {scope} API key. Please try again.",
         "workspaceAccess": "This key grants access to all workflows and files within this workspace. Copy it immediately after creation as you will not be able to see it again.",
         "personalAccess": "This key grants access to your personal workflows and files. Copy it immediately after creation as you will not be able to see it again.",
         "onlyTimeYouWillSee": "This is the only time you will see the full key. Copy and store it securely.",
@@ -1637,15 +1623,15 @@
         "workspacePermissions": "You need edit or admin access to manage workspace API keys."
       },
       "dialogs": {
-        "createTitle": "Create {{scope}} API key",
+        "createTitle": "Create {scope} API key",
         "createNameLabel": "Name",
         "createNamePlaceholder": "e.g., Production MCP Server",
         "createButton": "Create Key",
-        "newKeyTitle": "Your {{scope}} API key",
+        "newKeyTitle": "Your {scope} API key",
         "newKeyDescription": "This is the only time you will see the full key. Copy and store it securely.",
-        "deleteTitle": "Delete {{scope}} API key?",
+        "deleteTitle": "Delete {scope} API key?",
         "deleteDescription": "This will immediately revoke access for any integrations using this key.",
-        "deletePrompt": "Type {{name}} to confirm.",
+        "deletePrompt": "Type {name} to confirm.",
         "deletePlaceholder": "API key name",
         "cancel": "Cancel",
         "deleteButton": "Delete Key",
@@ -1684,7 +1670,7 @@
         "searchPlaceholder": "Search orders...",
         "filters": "Filters",
         "orderFilters": "Order filters",
-        "showingOf": "Showing {{loadedCount}} of {{totalCount}}",
+        "showingOf": "Showing {loadedCount} of {totalCount}",
         "clear": "Clear",
         "allProviders": "All providers",
         "allEnvironments": "All environments",
@@ -1761,7 +1747,7 @@
       "disconnect": "Disconnect",
       "emptyState": {
         "noConnectible": "No connectible integrations are configured.",
-        "noSearchMatches": "No services found matching \"{{query}}\""
+        "noSearchMatches": "No services found matching \"{query}\""
       },
       "errors": {
         "loadAvailability": "Failed to load provider availability",
@@ -1774,7 +1760,7 @@
       "upload": {
         "idle": "Upload File",
         "uploading": "Uploading...",
-        "uploadingWithCount": "Uploading {{completed}}/{{total}}...",
+        "uploadingWithCount": "Uploading {completed}/{total}...",
         "button": "Upload File"
       },
       "headers": {
@@ -1798,7 +1784,7 @@
       },
       "deleteDialog": {
         "title": "Delete file?",
-        "descriptionWithName": "Deleting \"{{name}}\" will permanently remove it from this workspace.",
+        "descriptionWithName": "Deleting \"{name}\" will permanently remove it from this workspace.",
         "description": "Deleting this file will permanently remove it from this workspace.",
         "warning": "This action cannot be undone.",
         "cancel": "Cancel",
@@ -1808,7 +1794,7 @@
       "errors": {
         "billingTier": "Billing tier",
         "uploadFailed": "Upload failed",
-        "unsupportedFileType": "Unsupported file type: {{files}}"
+        "unsupportedFileType": "Unsupported file type: {files}"
       }
     },
     "userMenu": {
@@ -1824,7 +1810,7 @@
       "loggingOut": "Logging out…",
       "billingPortalSelectOrganization": "Select an organization to manage billing.",
       "billingPortalFailed": "Failed to open billing portal",
-      "themeLabel": "Theme: {{theme}}",
+      "themeLabel": "Theme: {theme}",
       "languageLabel": "Language",
       "themeOptions": {
         "light": "Light",
@@ -1875,8 +1861,8 @@
           "nameRequired": "Please provide a name.",
           "saveError": "Unable to save profile settings.",
           "nameRequiredValidation": "Name is required",
-          "profilePictureFileTooLarge": "File {{name}} is too large. Maximum size is 5MB.",
-          "profilePictureUnsupportedFormat": "File {{name}} is not a supported image format. Please use PNG or JPEG.",
+          "profilePictureFileTooLarge": "File {name} is too large. Maximum size is 5MB.",
+          "profilePictureUnsupportedFormat": "File {name} is not a supported image format. Please use PNG or JPEG.",
           "profilePictureUpdateError": "Failed to update profile picture",
           "profilePictureRemoveError": "Failed to remove profile picture",
           "unableToUpdateProfilePicture": "Unable to update profile picture.",
@@ -1905,7 +1891,7 @@
         "dropImagesBrowse": "Drop images here or click to browse",
         "imageHint": "JPEG, PNG, WebP, GIF (max 20MB each)",
         "uploadedImages": "Uploaded Images",
-        "previewAlt": "Preview {{index}}",
+        "previewAlt": "Preview {index}",
         "cancel": "Cancel",
         "submit": "Submit",
         "submitting": "Submitting...",
@@ -1916,8 +1902,8 @@
           "subjectRequired": "Subject is required",
           "messageRequired": "Message is required",
           "requestTypeRequired": "Please select a request type",
-          "fileTooLarge": "File {{name}} is too large. Maximum size is 20MB.",
-          "unsupportedFormat": "File {{name}} has an unsupported format. Please use JPEG, PNG, WebP, or GIF.",
+          "fileTooLarge": "File {name} is too large. Maximum size is 20MB.",
+          "unsupportedFormat": "File {name} has an unsupported format. Please use JPEG, PNG, WebP, or GIF.",
           "processing": "An error occurred while processing images. Please try again.",
           "submitFailed": "Failed to submit help request",
           "unknown": "An unknown error occurred"
@@ -1955,7 +1941,7 @@
           "custom": "Custom",
           "seats": "seats"
         },
-        "seatsText": "{{count}} seats",
+        "seatsText": "{count} seats",
         "descriptions": {
           "manage": "Open Stripe Billing Portal to cancel, restore, or update your subscription.",
           "usageNotifications": "Email me when usage reaches the billing warning threshold",
@@ -1981,7 +1967,7 @@
         "actions": {
           "manage": "Manage",
           "contact": "Contact",
-          "upgradeTo": "Upgrade to {{name}}"
+          "upgradeTo": "Upgrade to {name}"
         },
         "badges": {
           "resolvePayment": "Resolve Payment",
@@ -2000,8 +1986,8 @@
       },
       "team": {
         "error": "Error",
-        "defaultTeamName": "{{name}}'s Team",
-        "billingHowWorksSeatCost": "{{seats}} seat{{plural}} cost ${{amount}} per month.",
+        "defaultTeamName": "{name}'s Team",
+        "billingHowWorksSeatCost": "{seats} seat{plural} cost ${amount} per month.",
         "billingHowWorksUsageTracked": "Usage is tracked across all workspaces in the organization.",
         "billingHowWorksIncreaseLimit": "Increase the limit when the organization needs more capacity.",
         "billingHowWorksOverage": "Overages are billed according to the active plan.",
@@ -2025,16 +2011,16 @@
         "subscriptionMayNeedTransfer": "Your subscription may need to be transferred to this organization.",
         "setUpTeamSubscription": "Set Up Team Subscription",
         "seats": "Seats",
-        "pricePerSeat": "({{price}}/month each)",
-        "used": "{{count}} used",
-        "total": "{{count}} total",
+        "pricePerSeat": "({price}/month each)",
+        "used": "{count} used",
+        "total": "{count} total",
         "removeSeat": "Remove Seat",
         "addSeat": "Add Seat",
         "seat": "seat",
         "numberOfSeats": "Number of seats",
-        "yourTeamWillHave": "Your team will have {{count}} {{seatWord}} with a total of ${{cost}} inference credits per month.",
-        "minimumSeatsNoMax": "Minimum {{minimum}} seats. No maximum seat cap applies to this tier.",
-        "chooseBetweenSeats": "Choose between {{minimum}} and {{maximum}} seats for this tier.",
+        "yourTeamWillHave": "Your team will have {count} {seatWord} with a total of ${cost} inference credits per month.",
+        "minimumSeatsNoMax": "Minimum {minimum} seats. No maximum seat cap applies to this tier.",
+        "chooseBetweenSeats": "Choose between {minimum} and {maximum} seats for this tier.",
         "currentSeats": "Current seats:",
         "newSeats": "New seats:",
         "monthlyCostChange": "Monthly cost change:",
@@ -2043,7 +2029,7 @@
         "leaveOrganization": "Leave Organization",
         "removeTeamMember": "Remove Team Member",
         "leaveOrganizationDescription": "Are you sure you want to leave this organization? You will lose access to all team resources.",
-        "removeMemberDescription": "Are you sure you want to remove {{name}} from the team?",
+        "removeMemberDescription": "Are you sure you want to remove {name} from the team?",
         "alsoReduceSeatCount": "Also reduce seat count in my subscription",
         "reduceSeatCountDescription": "If selected, your team seat count will be reduced by 1, lowering your monthly billing.",
         "thisActionCannotBeUndone": "This action cannot be undone.",
@@ -2055,7 +2041,7 @@
         "noPublicAdjustableTier": "No public adjustable organization tier is configured",
         "addSeats": {
           "title": "Add Team Seats",
-          "description": "Each seat costs ${{price}}/month and provides ${{price}} in monthly inference credits. Adjust the number of licensed seats for your team.",
+          "description": "Each seat costs ${price}/month and provides ${price} in monthly inference credits. Adjust the number of licensed seats for your team.",
           "confirm": "Update Seats"
         },
         "billing": {
@@ -2075,7 +2061,7 @@
         "members": {
           "title": "Team members",
           "empty": "No team members yet.",
-          "sharedUsage": "Shared usage: ${{amount}}",
+          "sharedUsage": "Shared usage: ${amount}",
           "pending": "Pending",
           "billing": "Billing",
           "usage": "Usage",
@@ -2097,13 +2083,13 @@
           "unavailable": "Invite unavailable",
           "workspaceAccess": "Workspace access",
           "optional": "Optional",
-          "selected": "{{count}} selected workspace{{plural}}",
+          "selected": "{count} selected workspace{plural}",
           "grantAccess": "Grant access to specific workspaces and choose a permission level.",
           "noWorkspacesAvailable": "No workspaces available.",
           "needAdminAccess": "You need admin access to assign workspaces.",
           "owner": "Owner",
           "sentSuccess": "Invitation sent.",
-          "sentSuccessWithAccess": "Invitation sent with access to {{count}} workspace{{plural}}.",
+          "sentSuccessWithAccess": "Invitation sent with access to {count} workspace{plural}.",
           "invalidEmail": "Please enter a valid email address.",
           "permissions": {
             "read": {
@@ -2180,7 +2166,7 @@
         "providerError": "Failed to configure SSO provider",
         "reloadError": "Failed to reload SSO providers",
         "validation": {
-          "fieldRequired": "{{field}} is required.",
+          "fieldRequired": "{field} is required.",
           "providerIdRequired": "Provider ID is required.",
           "providerIdPattern": "Use letters, numbers, and dashes only.",
           "issuerUrlRequired": "Issuer URL is required.",
@@ -2235,11 +2221,11 @@
       "webhook": {
         "common": {
           "configureButton": "Configure Webhook",
-          "connectedLabel": "{{provider}} connected",
-          "configureTitle": "Configure {{provider}} Webhook",
-          "editTitle": "Edit {{provider}} Webhook",
+          "connectedLabel": "{provider} connected",
+          "configureTitle": "Configure {provider} Webhook",
+          "editTitle": "Edit {provider} Webhook",
           "close": "Close",
-          "learnMoreAbout": "Learn more about {{topic}}",
+          "learnMoreAbout": "Learn more about {topic}",
           "showSecret": "Show secret",
           "hideSecret": "Hide secret",
           "copyValue": "Copy value",
@@ -2254,14 +2240,14 @@
           "validConfiguration": "Webhook configuration is valid",
           "testFailure": "Webhook test failed",
           "telegramSslError": "Telegram requires a publicly accessible HTTPS URL with a valid SSL certificate.",
-          "telegramTestFailure": "Telegram webhook test failed: {{error}}",
+          "telegramTestFailure": "Telegram webhook test failed: {error}",
           "testError": "An unexpected error occurred while testing the webhook",
           "testUrlLabel": "Test webhook URL",
           "testUrlHint": "Use this temporary URL to send a sample request to your workflow.",
           "generate": "Generate",
           "generating": "Generating...",
           "regenerate": "Regenerate",
-          "expiresAt": "Expires at {{timestamp}}",
+          "expiresAt": "Expires at {timestamp}",
           "delete": "Delete",
           "deleting": "Deleting...",
           "testWebhook": "Test webhook",
@@ -2315,7 +2301,7 @@
               "copyWebhookUrl": "Copy the webhook URL.",
               "configureService": "Paste it into the service that will send the webhook.",
               "includeBearerHeader": "Include an Authorization header with the generated token.",
-              "includeNamedHeader": "Include a {{header}} header with the generated token."
+              "includeNamedHeader": "Include a {header} header with the generated token."
             }
           },
           "github": {
@@ -2347,7 +2333,7 @@
               "addWebhook": "Go to Webhooks and click Add webhook.",
               "pastePayloadUrlPrefix": "Paste the",
               "pastePayloadUrlSuffix": "into the Payload URL field.",
-              "selectContentType": "Set Content type to {{contentType}}.",
+              "selectContentType": "Set Content type to {contentType}.",
               "enterWebhookSecretPrefix": "Copy the generated secret into",
               "enterWebhookSecretSuffix": ".",
               "setSslVerification": "Enable SSL verification unless you are testing in a controlled environment.",
@@ -2386,7 +2372,7 @@
             "notice": {
               "payloadTitle": "Gmail Event Payload Example"
             },
-            "fallbackLabels": {
+            "defaultLabels": {
               "inbox": "Inbox",
               "sent": "Sent",
               "important": "Important",
@@ -2425,7 +2411,7 @@
             "notice": {
               "payloadTitle": "Outlook Event Payload Example"
             },
-            "fallbackFolders": {
+            "defaultFolders": {
               "inbox": "Inbox",
               "sentItems": "Sent Items",
               "drafts": "Drafts",
@@ -2702,7 +2688,7 @@
         "downloadConsoleCsv": "Download console CSV",
         "downloadCsv": "Download CSV",
         "clearConsole": "Clear console",
-        "noResults": "No results found for \"{{query}}\"",
+        "noResults": "No results found for \"{query}\"",
         "showLess": "Show less",
         "showMore": "Show more",
         "copyValue": "Copy value",
@@ -2727,10 +2713,10 @@
         "noConsoleEntries": "No console entries",
         "generatedImageAlt": "Generated image",
         "downloadImageFailed": "Failed to download image. Please try again later.",
-        "summaryItemsSingular": "{{count}} item",
-        "summaryItemsPlural": "{{count}} items",
-        "summaryKeysSingular": "{{count}} key",
-        "summaryKeysPlural": "{{count}} keys"
+        "summaryItemsSingular": "{count} item",
+        "summaryItemsPlural": "{count} items",
+        "summaryKeysSingular": "{count} key",
+        "summaryKeysPlural": "{count} keys"
       },
       "workflowChat": {
         "selectWorkspace": "Select a workspace to load workflows.",
@@ -2744,22 +2730,22 @@
         "fileUploadError": "File upload error",
         "attachFiles": "Attach files",
         "attach": "Attach",
-        "maximumFilesAllowed": "Maximum {{maxFiles}} files allowed",
-        "selectedFiles": "{{count}}/{{maxFiles}} files",
+        "maximumFilesAllowed": "Maximum {maxFiles} files allowed",
+        "selectedFiles": "{count}/{maxFiles} files",
         "removeFile": "Remove file",
         "dropFilesHere": "Drop files here to attach",
         "typeMessage": "Type a message...",
-        "uploadedFiles": "Uploaded {{count}} file{{plural}}",
-        "fileTooLarge": "{{name}} is too large (max {{maxSize}}MB)",
-        "fileTypeNotSupported": "{{name}} type not supported",
-        "fileAlreadyAdded": "{{name}} already added",
+        "uploadedFiles": "Uploaded {count} file{plural}",
+        "fileTooLarge": "{name} is too large (max {maxSize}MB)",
+        "fileTypeNotSupported": "{name} type not supported",
+        "fileAlreadyAdded": "{name} already added",
         "workflowExecutionFailed": "Workflow execution failed.",
         "errorPrefix": "Error: "
       },
       "workflowOutputSelect": {
         "defaultPlaceholder": "Select output sources",
-        "fallbackBlockName": "Block {{id}}",
-        "selectedCount": "{{count}} selected",
+        "defaultBlockName": "Block {id}",
+        "selectedCount": "{count} selected",
         "searchPlaceholder": "Search outputs...",
         "noMatchingOutputs": "No matching outputs.",
         "noOutputsAvailable": "No outputs available."
@@ -2823,16 +2809,16 @@
         "serverNameRequired": "Server name is required.",
         "failedToRefreshMcpServer": "Failed to refresh MCP server tools.",
         "failedToSaveMcpServer": "Failed to save MCP server.",
-        "toolCount": "{{count}} tools",
+        "toolCount": "{count} tools",
         "loading": "Loading...",
         "connected": "Connected",
         "error": "Error",
         "draft": "Draft",
         "disconnected": "Disconnected",
         "unnamedServer": "Unnamed server",
-        "updated": "Updated {{time}}",
-        "toolsRefreshed": "Tools refreshed {{time}}",
-        "lastConnected": "Last connected {{time}}",
+        "updated": "Updated {time}",
+        "toolsRefreshed": "Tools refreshed {time}",
+        "lastConnected": "Last connected {time}",
         "lastError": "Last error",
         "noSharedMcpServerSelected": "This color has no shared MCP server selected yet.",
         "mcpServerNotFound": "MCP server not found.",
@@ -2840,12 +2826,12 @@
         "serverNameIsRequired": "Server name is required.",
         "relativeTime": {
           "justNow": "just now",
-          "minutesAgo": "{{count}}m ago",
-          "hoursAgo": "{{count}}h ago",
-          "daysAgo": "{{count}}d ago",
-          "weeksAgo": "{{count}}w ago",
-          "monthsAgo": "{{count}}mo ago",
-          "yearsAgo": "{{count}}y ago"
+          "minutesAgo": "{count}m ago",
+          "hoursAgo": "{count}h ago",
+          "daysAgo": "{count}d ago",
+          "weeksAgo": "{count}w ago",
+          "monthsAgo": "{count}mo ago",
+          "yearsAgo": "{count}y ago"
         }
       },
       "triggerList": {
@@ -2854,7 +2840,7 @@
         "searchPlaceholder": "Search triggers",
         "openTriggerList": "Click to Add Trigger",
         "close": "Close",
-        "noResults": "No results found for \"{{query}}\""
+        "noResults": "No results found for \"{query}\""
       },
       "workflowToolbar": {
         "selectWorkspace": "Select a workspace to browse blocks",
@@ -2862,14 +2848,13 @@
         "tools": "Tools",
         "triggers": "Triggers",
         "special": "Special",
-        "browseLabel": "Browse {{label}}",
-        "searchPlaceholder": "Search {{label}}...",
-        "noResults": "No {{label}} found."
+        "browseLabel": "Browse {label}",
+        "searchPlaceholder": "Search {label}...",
+        "noResults": "No {label} found."
       },
       "workflowLabels": {
         "systemPrompt": "System Prompt",
         "userPrompt": "User Prompt",
-        "model": "Model",
         "temperature": "Temperature",
         "Signal Briefing": "Signal Briefing",
         "Indicator Monitor": "Indicator Monitor",
@@ -2909,10 +2894,8 @@
         "decisionRouter": "Decision Router",
         "increasePosition": "Increase Position",
         "reduceExposure": "Reduce Exposure",
-        "apiKey": "API Key",
         "skills": "Skills",
         "tools": "Tools",
-        "url": "URL",
         "method": "Method",
         "queryParams": "Query Params",
         "headers": "Headers",
@@ -2928,7 +2911,6 @@
         "reasoningEffort": "Reasoning Effort",
         "verbosity": "Verbosity",
         "configured": "Configured",
-        "value": "Value",
         "items": "Items",
         "fields": "Fields",
         "object": "Object",
@@ -2949,41 +2931,22 @@
         "nextStep": "Next Step",
         "locked": "Locked",
         "deployed": "Deployed",
-        "deployedWithVersion": "Deployed (v{{version}})",
+        "deployedWithVersion": "Deployed (v{version})",
         "notDeployed": "Not Deployed",
         "disabled": "Disabled",
-        "key": "Key",
         "start": "Start",
         "end": "End",
-        "removeSkill": "Remove {{name}}",
+        "removeSkill": "Remove {name}",
         "currentWorkflow": "Current Workflow",
         "currentSkill": "Current Skill",
         "currentTool": "Current Tool",
         "currentIndicator": "Current Indicator",
         "currentMcpServer": "Current MCP Server",
-        "task": "Task",
-        "Task": "Task",
-        "variables": "Variables",
-        "Variables": "Variables",
-        "startingUrl": "Starting URL",
-        "Starting URL": "Starting URL",
-        "outputSchema": "Output Schema",
-        "Output Schema": "Output Schema",
-        "anthropicApiKey": "Anthropic API Key",
-        "Anthropic API Key": "Anthropic API Key",
         "workflows": "Workflows",
         "customTools": "Custom Tools",
         "indicators": "Indicators",
         "mcpServers": "MCP Servers",
         "allWorkflows": "All workflows",
-        "contentToValidate": "Content to Validate",
-        "enterContentToValidate": "Enter content to validate",
-        "validationType": "Validation Type",
-        "validJson": "Valid JSON",
-        "regexMatch": "Regex Match",
-        "hallucinationCheck": "Hallucination Check",
-        "piiDetection": "PII Detection",
-        "regexPattern": "Regex Pattern",
         "operation": "Operation",
         "id": "ID",
         "role": "Role",
@@ -3001,12 +2964,6 @@
         "enterMemoryIdentifierToDelete": "Enter memory identifier to delete",
         "selectAgentRole": "Select agent role",
         "enterMessageContent": "Enter message content",
-        "Enter the starting URL for the agent": "Enter the starting URL for the agent",
-        "enterTheStartingUrlForTheAgent": "Enter the starting URL for the agent",
-        "enterTheTaskOrGoalForTheAgentToAchieveReferenceVariablesUsingKeySyntax": "Enter the task or goal for the agent to achieve. Reference variables using %key% syntax.",
-        "Enter your Anthropic API key": "Enter your Anthropic API key",
-        "enterYourAnthropicApiKey": "Enter your Anthropic API key",
-        "knowledgeBase": "Knowledge Base",
         "selectKnowledgeBase": "Select knowledge base",
         "selectKnowledgeBases": "Select knowledge bases",
         "searchQuery": "Search Query",
@@ -3022,13 +2979,13 @@
         "searchTeams": "Search teams...",
         "searchKnowledgeBases": "Search knowledge bases...",
         "searchFiles": "Search files...",
-        "searchItems": "Search {{itemName}}...",
-        "loadingItems": "Loading {{itemName}}...",
-        "noItemsFound": "No {{itemName}} found.",
-        "noItemsFoundInService": "No {{itemName}} were found in your {{serviceName}}.",
-        "connectProviderAccountToContinue": "Connect a {{providerName}} account to continue.",
-        "connectProviderAccount": "Connect {{providerName}} account",
-        "openInProvider": "Open in {{providerName}}",
+        "searchItems": "Search {itemName}...",
+        "loadingItems": "Loading {itemName}...",
+        "noItemsFound": "No {itemName} found.",
+        "noItemsFoundInService": "No {itemName} were found in your {serviceName}.",
+        "connectProviderAccountToContinue": "Connect a {providerName} account to continue.",
+        "connectProviderAccount": "Connect {providerName} account",
+        "openInProvider": "Open in {providerName}",
         "openInDrive": "Open in Drive",
         "openInConfluence": "Open in Confluence",
         "openInJira": "Open in Jira",
@@ -3059,25 +3016,11 @@
         "selectContact": "Select contact",
         "selectItem": "Select item",
         "selectATeamFirst": "Select a team first",
-        "typeOrSelectModel": "Type or select a model...",
-        "confidence": "Confidence",
         "numberOfResults": "Number of Results",
-        "numberOfChunksToRetrieve": "Number of Chunks to Retrieve",
-        "enterYourApiKey": "Enter your API key",
-        "piiTypesToDetect": "PII Types to Detect",
-        "action": "Action",
-        "blockRequest": "Block Request",
-        "maskPii": "Mask PII",
-        "language": "Language",
-        "english": "English",
-        "spanish": "Spanish",
-        "italian": "Italian",
-        "polish": "Polish",
-        "finnish": "Finnish",
         "configurePiiTypes": "Configure PII Types",
         "noneSelected": "None selected",
         "allSelected": "All selected",
-        "selectedCount": "{{count}} selected",
+        "selectedCount": "{count} selected",
         "selectPiiTypesToDetect": "Select PII Types to Detect",
         "choosePiiTypesToDetect": "Choose which types of personally identifiable information to detect and block.",
         "selectAllEntities": "Select all entities",
@@ -3147,7 +3090,7 @@
         "contacts": "Contacts",
         "tagFilters": "Tag Filters",
         "noFilters": "No filters",
-        "filtersApplied": "{{count}} filter(s) applied",
+        "filtersApplied": "{count} filter(s) applied",
         "tagName": "Tag Name",
         "selectTag": "Select tag",
         "tryDifferentSearchOrAccount": "Try a different search or account.",
@@ -3174,51 +3117,7 @@
         "missingRequiredFields": "Missing required fields",
         "saveConfigReturnedFalse": "Save config returned false",
         "anErrorOccurredWhileSaving": "An error occurred while saving.",
-        "common": "Common",
-        "usa": "USA",
-        "uk": "UK",
-        "spain": "Spain",
-        "italy": "Italy",
-        "poland": "Poland",
-        "singapore": "Singapore",
-        "australia": "Australia",
-        "india": "India",
         "other": "Other",
-        "personName": "Person name",
-        "emailAddress": "Email address",
-        "phoneNumber": "Phone number",
-        "location": "Location",
-        "dateOrTime": "Date or time",
-        "ipAddress": "IP address",
-        "creditCardNumber": "Credit card number",
-        "internationalBankAccountNumber": "International bank account number (IBAN)",
-        "cryptocurrencyWalletAddress": "Cryptocurrency wallet address",
-        "medicalLicenseNumber": "Medical license number",
-        "nationalityReligionPoliticalGroup": "Nationality / religion / political group",
-        "usBankAccountNumber": "US bank account number",
-        "usDriverLicenseNumber": "US driver license number",
-        "usIndividualTaxpayerIdentificationNumber": "US individual taxpayer identification number (ITIN)",
-        "usPassportNumber": "US passport number",
-        "usSocialSecurityNumber": "US Social Security number",
-        "ukNationalInsuranceNumber": "UK National Insurance number",
-        "ukNhsNumber": "UK NHS number",
-        "spanishNifNumber": "Spanish NIF number",
-        "spanishNieNumber": "Spanish NIE number",
-        "italianFiscalCode": "Italian fiscal code",
-        "italianDriverLicense": "Italian driver license",
-        "italianIdentityCard": "Italian identity card",
-        "italianPassport": "Italian passport",
-        "polishPesel": "Polish PESEL",
-        "singaporeNricFin": "Singapore NRIC/FIN",
-        "australianBusinessNumber": "Australian business number (ABN)",
-        "australianCompanyNumber": "Australian company number (ACN)",
-        "australianTaxFileNumber": "Australian tax file number (TFN)",
-        "australianMedicareNumber": "Australian Medicare number",
-        "indianAadhaar": "Indian Aadhaar",
-        "indianPan": "Indian PAN",
-        "indianVehicleRegistration": "Indian vehicle registration",
-        "indianVoterNumber": "Indian voter number",
-        "indianPassport": "Indian passport",
         "Provider": "Provider",
         "Text": "Text",
         "Prompt": "Prompt",
@@ -3268,7 +3167,6 @@
         "Variable Assignments": "Variable Assignments",
         "Wait Amount": "Wait Amount",
         "Unit": "Unit",
-        "enterJsonSchema": "Enter JSON schema...",
         "describeTheAIAgentYouWantToCreate": "Describe the AI agent you want to create...",
         "enterSystemPrompt": "Enter system prompt...",
         "enterContextOrUserMessage": "Enter context or user message...",
@@ -3309,7 +3207,15 @@
         "eventPayloadExample": "Event Payload Example",
         "webhookUrlWillBeGenerated": "Webhook URL will be generated",
         "setupInstructions": "Setup Instructions",
-        "enabled": "Enabled"
+        "enabled": "Enabled",
+        "pleaseSelectSharePointCredentialsFirst": "Please select SharePoint credentials first",
+        "pleaseSelectMicrosoftPlannerCredentialsFirst": "Please select Microsoft Planner credentials first",
+        "pleaseEnterAPlanIdFirst": "Please enter a Plan ID first",
+        "pleaseSelectMicrosoftTeamsCredentialsFirst": "Please select Microsoft Teams credentials first",
+        "pleaseSelectWealthboxCredentialsFirst": "Please select Wealthbox credentials first",
+        "pleaseSelectGoogleDriveCredentialsFirst": "Please select Google Drive credentials first",
+        "url": "URL",
+        "value": "Value"
       },
       "blockEditor": {
         "blockNames": {
@@ -3465,7 +3371,9 @@
           "youtube": "YouTube",
           "zendesk": "Zendesk",
           "zep": "Zep",
-          "zoom": "Zoom"
+          "zoom": "Zoom",
+          "portfolio_detail": "Portfolio Detail",
+          "watchlist": "Watchlist"
         },
         "blockDescriptions": {
           "response": "Send structured API response",
@@ -3618,7 +3526,9 @@
           "youtube": "Interact with YouTube videos, channels, and playlists",
           "zendesk": "Manage support tickets, users, and organizations in Zendesk",
           "zep": "Long-term memory for AI agents",
-          "zoom": "Create and manage Zoom meetings and recordings"
+          "zoom": "Create and manage Zoom meetings and recordings",
+          "portfolio_detail": "Fetch full portfolio detail from a selected broker account.",
+          "watchlist": "Read watchlists and add or remove listing items."
         },
         "blockLongDescriptions": {
           "response": "Integrate Response into the workflow. Can send build or edit structured responses into a final workflow response.",
@@ -3755,10 +3665,7 @@
             },
             "headers": {
               "title": "Response Headers",
-              "columns": [
-                "Key",
-                "Value"
-              ],
+              "columns": ["Key", "Value"],
               "description": "Additional HTTP headers to include in the response"
             }
           },
@@ -15031,11 +14938,6 @@
               "title": "URL"
             }
           },
-          "stagehand_agent": {
-            "variables": {
-              "title": "Variables"
-            }
-          },
           "stripe": {
             "active": {
               "options": [
@@ -17997,6 +17899,299 @@
             "waitingRoom": {
               "title": "Waiting Room"
             }
+          },
+          "stagehand_agent": {
+            "startUrl": {
+              "title": "Starting URL",
+              "placeholder": "Enter the starting URL for the agent"
+            },
+            "task": {
+              "title": "Task",
+              "placeholder": "Enter the task or goal for the agent to achieve. Reference variables using %key% syntax."
+            },
+            "variables": {
+              "title": "Variables",
+              "columns": ["Key", "Value"]
+            },
+            "apiKey": {
+              "title": "Anthropic API Key",
+              "placeholder": "Enter your Anthropic API key"
+            },
+            "outputSchema": {
+              "title": "Output Schema",
+              "placeholder": "Enter JSON schema..."
+            }
+          },
+          "guardrails": {
+            "input": {
+              "title": "Content to Validate",
+              "placeholder": "Enter content to validate"
+            },
+            "validationType": {
+              "title": "Validation Type",
+              "options": [
+                {
+                  "id": "json",
+                  "label": "Valid JSON"
+                },
+                {
+                  "id": "regex",
+                  "label": "Regex Match"
+                },
+                {
+                  "id": "hallucination",
+                  "label": "Hallucination Check"
+                },
+                {
+                  "id": "pii",
+                  "label": "PII Detection"
+                }
+              ]
+            },
+            "regex": {
+              "title": "Regex Pattern"
+            },
+            "knowledgeBaseId": {
+              "title": "Knowledge Base",
+              "placeholder": "Select knowledge base"
+            },
+            "model": {
+              "title": "Model",
+              "placeholder": "Type or select a model..."
+            },
+            "threshold": {
+              "title": "Confidence"
+            },
+            "topK": {
+              "title": "Number of Chunks to Retrieve"
+            },
+            "apiKey": {
+              "title": "API Key",
+              "placeholder": "Enter your API key"
+            },
+            "piiEntityTypes": {
+              "title": "PII Types to Detect",
+              "options": [
+                {
+                  "id": "PERSON",
+                  "label": "Person name",
+                  "group": "Common"
+                },
+                {
+                  "id": "EMAIL_ADDRESS",
+                  "label": "Email address",
+                  "group": "Common"
+                },
+                {
+                  "id": "PHONE_NUMBER",
+                  "label": "Phone number",
+                  "group": "Common"
+                },
+                {
+                  "id": "LOCATION",
+                  "label": "Location",
+                  "group": "Common"
+                },
+                {
+                  "id": "DATE_TIME",
+                  "label": "Date or time",
+                  "group": "Common"
+                },
+                {
+                  "id": "IP_ADDRESS",
+                  "label": "IP address",
+                  "group": "Common"
+                },
+                {
+                  "id": "URL",
+                  "label": "URL",
+                  "group": "Common"
+                },
+                {
+                  "id": "CREDIT_CARD",
+                  "label": "Credit card number",
+                  "group": "Common"
+                },
+                {
+                  "id": "IBAN_CODE",
+                  "label": "International bank account number (IBAN)",
+                  "group": "Common"
+                },
+                {
+                  "id": "CRYPTO",
+                  "label": "Cryptocurrency wallet address",
+                  "group": "Common"
+                },
+                {
+                  "id": "MEDICAL_LICENSE",
+                  "label": "Medical license number",
+                  "group": "Common"
+                },
+                {
+                  "id": "NRP",
+                  "label": "Nationality / religion / political group",
+                  "group": "Common"
+                },
+                {
+                  "id": "US_BANK_NUMBER",
+                  "label": "US bank account number",
+                  "group": "USA"
+                },
+                {
+                  "id": "US_DRIVER_LICENSE",
+                  "label": "US driver license number",
+                  "group": "USA"
+                },
+                {
+                  "id": "US_ITIN",
+                  "label": "US individual taxpayer identification number (ITIN)",
+                  "group": "USA"
+                },
+                {
+                  "id": "US_PASSPORT",
+                  "label": "US passport number",
+                  "group": "USA"
+                },
+                {
+                  "id": "US_SSN",
+                  "label": "US Social Security number",
+                  "group": "USA"
+                },
+                {
+                  "id": "UK_NINO",
+                  "label": "UK National Insurance number",
+                  "group": "UK"
+                },
+                {
+                  "id": "UK_NHS",
+                  "label": "UK NHS number",
+                  "group": "UK"
+                },
+                {
+                  "id": "ES_NIF",
+                  "label": "Spanish NIF number",
+                  "group": "Spain"
+                },
+                {
+                  "id": "ES_NIE",
+                  "label": "Spanish NIE number",
+                  "group": "Spain"
+                },
+                {
+                  "id": "IT_FISCAL_CODE",
+                  "label": "Italian fiscal code",
+                  "group": "Italy"
+                },
+                {
+                  "id": "IT_DRIVER_LICENSE",
+                  "label": "Italian driver license",
+                  "group": "Italy"
+                },
+                {
+                  "id": "IT_IDENTITY_CARD",
+                  "label": "Italian identity card",
+                  "group": "Italy"
+                },
+                {
+                  "id": "IT_PASSPORT",
+                  "label": "Italian passport",
+                  "group": "Italy"
+                },
+                {
+                  "id": "PL_PESEL",
+                  "label": "Polish PESEL",
+                  "group": "Poland"
+                },
+                {
+                  "id": "SG_NRIC_FIN",
+                  "label": "Singapore NRIC/FIN",
+                  "group": "Singapore"
+                },
+                {
+                  "id": "AU_ABN",
+                  "label": "Australian business number (ABN)",
+                  "group": "Australia"
+                },
+                {
+                  "id": "AU_ACN",
+                  "label": "Australian company number (ACN)",
+                  "group": "Australia"
+                },
+                {
+                  "id": "AU_TFN",
+                  "label": "Australian tax file number (TFN)",
+                  "group": "Australia"
+                },
+                {
+                  "id": "AU_MEDICARE",
+                  "label": "Australian Medicare number",
+                  "group": "Australia"
+                },
+                {
+                  "id": "IN_AADHAAR",
+                  "label": "Indian Aadhaar",
+                  "group": "India"
+                },
+                {
+                  "id": "IN_PAN",
+                  "label": "Indian PAN",
+                  "group": "India"
+                },
+                {
+                  "id": "IN_VEHICLE_REGISTRATION",
+                  "label": "Indian vehicle registration",
+                  "group": "India"
+                },
+                {
+                  "id": "IN_VOTER",
+                  "label": "Indian voter number",
+                  "group": "India"
+                },
+                {
+                  "id": "IN_PASSPORT",
+                  "label": "Indian passport",
+                  "group": "India"
+                }
+              ]
+            },
+            "piiMode": {
+              "title": "Action",
+              "options": [
+                {
+                  "id": "block",
+                  "label": "Block Request"
+                },
+                {
+                  "id": "mask",
+                  "label": "Mask PII"
+                }
+              ]
+            },
+            "piiLanguage": {
+              "title": "Language",
+              "options": [
+                {
+                  "id": "en",
+                  "label": "English"
+                },
+                {
+                  "id": "es",
+                  "label": "Spanish"
+                },
+                {
+                  "id": "it",
+                  "label": "Italian"
+                },
+                {
+                  "id": "pl",
+                  "label": "Polish"
+                },
+                {
+                  "id": "fi",
+                  "label": "Finnish"
+                }
+              ]
+            }
           }
         },
         "variablesInput": {
@@ -18008,7 +18203,7 @@
           "noVariablesDefinedInWorkflow": "No variables defined in this workflow.",
           "addVariablesInPanel": "Add them in the Variables panel.",
           "valueLabel": "Value",
-          "typedValuePlaceholder": "{{type}} value",
+          "typedValuePlaceholder": "{type} value",
           "allVariablesAssignedButton": "All Variables Assigned",
           "addVariableAssignment": "Add Variable Assignment",
           "objectValuePlaceholder": "{\n  \"key\": \"value\"\n}",
@@ -18021,7 +18216,7 @@
           "selectedWorkflowNeedsInputTrigger": "The selected workflow needs an Input Trigger with defined fields"
         },
         "evalInput": {
-          "metricLabel": "Metric {{index}}",
+          "metricLabel": "Metric {index}",
           "addMetric": "Add Metric",
           "deleteMetric": "Delete Metric",
           "name": "Name",
@@ -18032,7 +18227,7 @@
           "maxValue": "Max Value"
         },
         "inputFormat": {
-          "addTitle": "Add {{title}}",
+          "addTitle": "Add {title}",
           "deleteField": "Delete Field",
           "name": "Name",
           "type": "Type",
@@ -18112,12 +18307,12 @@
         },
         "oauthRequiredModal": {
           "additionalAccessRequired": "Additional Access Required",
-          "toolRequiresAccess": "The \"{{toolName}}\" tool requires access to your {{providerName}} account to function properly.",
-          "connectProvider": "Connect {{providerName}}",
-          "connectProviderDescription": "You need to connect your {{providerName}} account to continue",
+          "toolRequiresAccess": "The \"{toolName}\" tool requires access to your {providerName} account to function properly.",
+          "connectProvider": "Connect {providerName}",
+          "connectProviderDescription": "You need to connect your {providerName} account to continue",
           "permissionsRequested": "Permissions requested",
           "cancel": "Cancel",
-          "connectService": "Connect {{serviceName}}",
+          "connectService": "Connect {serviceName}",
           "connectNow": "Connect Now"
         },
         "dropdown": {
@@ -18179,19 +18374,19 @@
           "errors": {
             "failedToFetchDocuments": "Failed to fetch documents"
           },
-          "chunkCountSingular": "{{count}} chunk",
-          "chunkCountPlural": "{{count}} chunks"
+          "chunkCountSingular": "{count} chunk",
+          "chunkCountPlural": "{count} chunks"
         },
         "knowledgeTagFilters": {
           "addFilter": "Add Filter",
-          "appliedCountSingular": "{{count}} filter applied",
-          "appliedCountPlural": "{{count}} filters applied"
+          "appliedCountSingular": "{count} filter applied",
+          "appliedCountPlural": "{count} filters applied"
         },
         "documentTagEntry": {
           "typeText": "Text",
           "prefillExistingTags": "Prefill Existing Tags",
           "addTag": "Add Tag",
-          "tagSlotsUsed": "{{used}} of {{total}} tag slots used"
+          "tagSlotsUsed": "{used} of {total} tag slots used"
         },
         "confluenceFileSelector": {
           "errors": {
@@ -18274,9 +18469,9 @@
           "addTool": "Add Tool",
           "searchTools": "Search tools...",
           "account": "Account",
-          "selectProviderAccount": "Select {{provider}} account",
-          "selectParameter": "Select {{label}}",
-          "enterParameter": "Enter {{label}}",
+          "selectProviderAccount": "Select {provider} account",
+          "selectParameter": "Select {label}",
+          "enterParameter": "Enter {label}",
           "enterJsonArrayOrCommaSeparatedValues": "Enter JSON array, e.g. [\"item1\", \"item2\"] or comma-separated values",
           "selectToolToConfigureParameters": "Select a tool to configure its parameters",
           "loadingToolSchema": "Loading tool schema...",
@@ -18308,8 +18503,8 @@
           "unsupportedValue": "Unsupported value"
         },
         "triggerWarning": {
-          "duplicateTitle": "Only one {{triggerName}} trigger allowed",
-          "duplicateDescription": "A workflow can only have one {{triggerName}} trigger block. Please remove the existing one before adding a new one.",
+          "duplicateTitle": "Only one {triggerName} trigger allowed",
+          "duplicateDescription": "A workflow can only have one {triggerName} trigger block. Please remove the existing one before adding a new one.",
           "dismiss": "Got it"
         },
         "templateModal": {
@@ -18421,8 +18616,8 @@
           "title": "Webhook Notifications",
           "searchPlaceholder": "Search webhooks...",
           "emptyState": "Click \"Add Webhook\" below to get started",
-          "webhookLabel": "Webhook {{index}}",
-          "noSearchMatches": "No webhooks found matching \"{{query}}\"",
+          "webhookLabel": "Webhook {index}",
+          "noSearchMatches": "No webhooks found matching \"{query}\"",
           "actions": {
             "copyUrl": "Copy webhook URL",
             "test": "Test webhook",
@@ -18527,7 +18722,7 @@
             "validationFailed": "Validation failed. Review the webhook settings and try again."
           },
           "testStatus": {
-            "success": "Test webhook sent successfully ({{status}})",
+            "success": "Test webhook sent successfully ({status})",
             "failure": "Test webhook failed.",
             "sendFailed": "Failed to send test webhook"
           },
@@ -20147,7 +20342,7 @@
         "selectBlockToViewPreviewDetails": "Select a block to view its preview details.",
         "nodeNotFound": "Node not found",
         "selectedNodeUnavailable": "The selected node is no longer available.",
-        "missingBlockConfiguration": "Missing block configuration for `{{type}}`.",
+        "missingBlockConfiguration": "Missing block configuration for `{type}`.",
         "controlsUnavailable": "Controls unavailable",
         "saveName": "Save name",
         "renameNode": "Rename node",
@@ -20169,7 +20364,7 @@
         "collectionItems": "Collection Items",
         "collectionItemsPlaceholder": "['item1', 'item2', 'item3']",
         "parallelItems": "Parallel Items",
-        "enterValueBetween": "Enter a value between 1 and {{max}}",
+        "enterValueBetween": "Enter a value between 1 and {max}",
         "hideAdditionalFields": "Hide additional fields",
         "showAdditionalFields": "Show additional fields",
         "additionalFields": "Additional fields",
@@ -20177,7 +20372,7 @@
         "blockNoEditableFields": "No editable fields for this block.",
         "requiredField": "This field is required",
         "invalidJson": "Invalid JSON",
-        "unknownInputType": "Unknown input type: {{type}}",
+        "unknownInputType": "Unknown input type: {type}",
         "loop": "Loop",
         "parallel": "Parallel",
         "start": "Start",
@@ -20194,7 +20389,7 @@
           "checkingWorkflowPermissions": "Checking workflow permissions",
           "writePermissionRequiredToRunWorkflows": "Write permission required to run workflows",
           "usageLimitExceeded": "Usage Limit Exceeded",
-          "usageLimitExceededDescription": "You've used {{currentUsage}}$ of {{limit}}$. Upgrade your plan to continue.",
+          "usageLimitExceededDescription": "You've used {currentUsage}$ of {limit}$. Upgrade your plan to continue.",
           "run": "Run"
         },
         "floatingControls": {
@@ -20212,7 +20407,7 @@
         },
         "summary": {
           "objectItem": "[Object]",
-          "additionalCount": "+{{count}} more"
+          "additionalCount": "+{count} more"
         },
         "selectWorkspaceToLoadWorkflows": "Select a workspace to load workflows.",
         "noWorkflowsAvailable": "No workflows available in this workspace.",
@@ -20232,7 +20427,7 @@
           "close": "Close",
           "coreTriggers": "Core Triggers",
           "integrationTriggers": "Integration Triggers",
-          "noResultsFound": "No results found for \"{{query}}\""
+          "noResultsFound": "No results found for \"{query}\""
         },
         "connectionStatus": {
           "reconnected": "Reconnected",
@@ -20241,8 +20436,8 @@
           "refreshPageToContinueEditing": "Refresh page to continue editing"
         },
         "triggerWarning": {
-          "duplicateTitle": "Only one {{triggerName}} trigger allowed",
-          "duplicateDescription": "A workflow can only have one {{triggerName}} trigger block. Please remove the existing one before adding a new one.",
+          "duplicateTitle": "Only one {triggerName} trigger allowed",
+          "duplicateDescription": "A workflow can only have one {triggerName} trigger block. Please remove the existing one before adding a new one.",
           "dismiss": "Got it"
         }
       },
@@ -20299,7 +20494,7 @@
         "deployApi": "Deploy API",
         "needsRedeployment": "Needs Redeployment",
         "deployWorkflowTitle": "Deploy Workflow",
-        "deployVersion": "Deploy {{versionName}}",
+        "deployVersion": "Deploy {versionName}",
         "active": "active",
         "inactive": "Inactive",
         "close": "Close",
@@ -20337,7 +20532,7 @@
         "reviewTriggerBeforeDeployment": "Review this trigger before deployment. No additional configuration is required.",
         "triggerConfigurationUnavailable": "Trigger configuration is unavailable.",
         "noAdditionalTriggerConfigurationRequired": "This trigger deploys with the workflow. No additional configuration is required.",
-        "completeRequiredFieldsBeforeDeploying": "Complete required fields before deploying: {{fields}}.",
+        "completeRequiredFieldsBeforeDeploying": "Complete required fields before deploying: {fields}.",
         "saveTriggerConfigurationBeforeDeploying": "Save this trigger configuration to provision its webhook before deploying.",
         "triggerSettingsChangedSinceLastSave": "Trigger settings changed since the last save. Save the trigger before deploying.",
         "triggerConfigurationReady": "Trigger configuration looks ready. Review the values below before deploying.",
@@ -20391,7 +20586,7 @@
           "failedToSavePassword": "Failed to save chat password",
           "auth": {
             "accessControl": "Access Control",
-            "selectAccessAriaLabel": "Select {{type}} access",
+            "selectAccessAriaLabel": "Select {type} access",
             "publicAccess": "Public Access",
             "publicAccessDescription": "Anyone can access your chat",
             "passwordProtected": "Password Protected",
@@ -20440,8 +20635,8 @@
           "tooltip": "Select market data provider",
           "selectionUnavailable": "Provider selection unavailable",
           "noProviders": "No providers",
-          "selectedLabel": "Market: {{providerName}}",
-          "fallbackProviderName": "Market"
+          "selectedLabel": "Market: {providerName}",
+          "defaultProviderName": "Market"
         },
         "tradingSelector": {
           "placeholder": "Select Trading Provider",
@@ -20449,8 +20644,8 @@
           "tooltip": "Select broker",
           "selectionUnavailable": "Provider selection unavailable",
           "noProviders": "No providers",
-          "selectedLabel": "Broker: {{providerName}}",
-          "fallbackProviderName": "Broker"
+          "selectedLabel": "Broker: {providerName}",
+          "defaultProviderName": "Broker"
         },
         "accountSelector": {
           "placeholder": "Select account",
@@ -20459,24 +20654,24 @@
           "loadingAccount": "Loading account...",
           "loadingProviderConnection": "Loading provider connection...",
           "unableToLoadProviderConnection": "Unable to load provider connection.",
-          "selectConnection": "Select a {{providerName}} connection.",
-          "noAccountConnected": "No {{providerName}} account connected.",
+          "selectConnection": "Select a {providerName} connection.",
+          "noAccountConnected": "No {providerName} account connected.",
           "loadingBrokerAccounts": "Loading broker accounts...",
           "unableToLoadBrokerAccounts": "Unable to load broker accounts.",
           "noBrokerAccountsFound": "No broker accounts found.",
-          "reconnectAccount": "Reconnect {{providerName}} account",
-          "connectAccount": "Connect {{providerName}} account",
-          "fallbackProviderName": "broker"
+          "reconnectAccount": "Reconnect {providerName} account",
+          "connectAccount": "Connect {providerName} account",
+          "defaultProviderName": "broker"
         },
         "settingsButton": {
-          "triggerLabel": "Configure {{providerName}} provider",
+          "triggerLabel": "Configure {providerName} provider",
           "triggerTooltip": "Provider settings",
           "title": "Provider settings",
           "description": "Save credentials for this widget.",
           "select": "Select",
           "save": "Save",
           "cancel": "Cancel",
-          "fallbackProviderName": "Market"
+          "defaultProviderName": "Market"
         }
       },
       "watchlist": {
@@ -20502,10 +20697,10 @@
           "selectLabel": "Select watchlist",
           "searchPlaceholder": "Search watchlists...",
           "noWatchlistsFound": "No watchlists found.",
-          "renameAriaLabel": "Rename {{name}}",
-          "deleteAriaLabel": "Delete {{name}}",
+          "renameAriaLabel": "Rename {name}",
+          "deleteAriaLabel": "Delete {name}",
           "deleteDialogTitle": "Delete watchlist?",
-          "deleteDialogDescription": "This action will permanently delete \"{{name}}\".",
+          "deleteDialogDescription": "This action will permanently delete \"{name}\".",
           "deleteDialogDescriptionFallback": "This action will permanently delete this watchlist.",
           "cancel": "Cancel",
           "delete": "Delete"
@@ -20529,7 +20724,7 @@
           "collapseSection": "Collapse section",
           "expandSection": "Expand section",
           "deleteSymbolDialogTitle": "Delete symbol?",
-          "deleteSymbolDialogDescription": "Removing {{name}} will delete it from the watchlist.",
+          "deleteSymbolDialogDescription": "Removing {name} will delete it from the watchlist.",
           "deleteSymbolDialogDescriptionFallback": "Removing this symbol will delete it from the watchlist.",
           "deleteSymbolDialogDescriptionHighlight": "This action cannot be undone.",
           "deleteSectionDialogTitle": "Delete section?",
@@ -20583,10 +20778,10 @@
         },
         "validation": {
           "nameRequired": "Skill name is required.",
-          "nameTooLong": "Skill name must be {{max}} characters or fewer.",
+          "nameTooLong": "Skill name must be {max} characters or fewer.",
           "descriptionRequired": "Skill description is required.",
           "contentRequired": "Skill content is required.",
-          "duplicateName": "A skill named \"{{name}}\" already exists.",
+          "duplicateName": "A skill named \"{name}\" already exists.",
           "saveFailed": "Failed to save skill."
         },
         "form": {
@@ -20746,7 +20941,7 @@
           "schemaMustBeFunctionType": "Schema must have a \"type\" field set to \"function\"",
           "schemaMustHaveFunctionName": "Schema must have a \"function\" object with a \"name\" field",
           "failedToValidateSchema": "Failed to validate custom tool schema. Please check your inputs and try again.",
-          "duplicateName": "A tool with the name \"{{name}}\" already exists",
+          "duplicateName": "A tool with the name \"{name}\" already exists",
           "failedToSave": "Failed to save custom tool. Please check your inputs and try again."
         },
         "form": {
@@ -20822,10 +21017,10 @@
           "refreshingQuotes": "Refreshing quotes",
           "noHoldingsWithMarketListings": "No holdings with market listings",
           "noMarketProvider": "No market provider",
-          "quoteMetricsUseFirst": "Quote metrics use first {{cap}} of {{total}} holdings",
-          "quotedPositionsSummary": "{{quoted}}/{{total}} quoted",
+          "quoteMetricsUseFirst": "Quote metrics use first {cap} of {total} holdings",
+          "quotedPositionsSummary": "{quoted}/{total} quoted",
           "performanceHistoryUnavailable": "Performance history is unavailable for the selected account.",
-          "asOf": "As of {{date}}",
+          "asOf": "As of {date}",
           "return": "Return",
           "start": "Start",
           "current": "Current",
@@ -20847,7 +21042,7 @@
           "orderSubmitted": "Order submitted",
           "submitting": "Submitting...",
           "orderPrefix": "Order",
-          "submitOrder": "Submit {{side}} Order",
+          "submitOrder": "Submit {side} Order",
           "unknown": "unknown"
         }
       },
@@ -20897,15 +21092,15 @@
           "selectTimeInForce": "Select a time in force.",
           "selectOrderSize": "Select order size.",
           "notionalSizingIsNotSupportedForThisOrderType": "Notional sizing is not supported for this order type.",
-          "notionalSizingRequires": "Notional sizing requires {{values}}.",
-          "fieldNotSupportedForThisOrderType": "{{field}} is not supported for this order type.",
-          "enterValid": "Enter a valid {{field}}.",
-          "oneOfFieldsRequired": "{{fields}} is required.",
+          "notionalSizingRequires": "Notional sizing requires {values}.",
+          "fieldNotSupportedForThisOrderType": "{field} is not supported for this order type.",
+          "enterValid": "Enter a valid {field}.",
+          "oneOfFieldsRequired": "{fields} is required.",
           "marketPrice": "Market Price",
           "notional": "Notional",
           "quantity": "Quantity",
           "orderType": "Order Type",
-          "chooseHowTo": "Choose how to {{side}}",
+          "chooseHowTo": "Choose how to {side}",
           "timeInForce": "Time in Force",
           "limitPrice": "Limit Price",
           "stopPrice": "Stop Price",
@@ -20923,8 +21118,8 @@
           "orderSubmitted": "Order submitted",
           "submitting": "Submitting...",
           "orderPrefix": "Order",
-          "sideLabel": "{{side}}",
-          "submitOrder": "Submit {{side}} Order"
+          "sideLabel": "{side}",
+          "submitOrder": "Submit {side} Order"
         }
       },
       "dataChart": {
@@ -20964,7 +21159,7 @@
           "timezone": {
             "exchange": "Exchange",
             "utc": "UTC",
-            "tooltip": "Timezone: {{timezone}}",
+            "tooltip": "Timezone: {timezone}",
             "tooltipFallback": "Exchange timezone",
             "searchPlaceholder": "Search timezones...",
             "loading": "Loading timezones...",
@@ -20972,7 +21167,7 @@
           },
           "range": {
             "allAvailableData": "All available data",
-            "rangeIntervalTooltip": "{{range}} in {{interval}} interval",
+            "rangeIntervalTooltip": "{range} in {interval} interval",
             "presets": {
               "1d": "1D",
               "5d": "5D",
@@ -21012,7 +21207,7 @@
           },
           "normalization": {
             "ariaLabel": "Normalization",
-            "tooltip": "Normalization: {{mode}}",
+            "tooltip": "Normalization: {mode}",
             "unavailable": "Normalization unavailable",
             "noOptions": "No normalization options.",
             "modes": {
@@ -21030,7 +21225,7 @@
             "freehand": "Freehand tools",
             "shapes": "Shapes tools"
           },
-          "unavailable": "{{tool}} is unavailable in this session",
+          "unavailable": "{tool} is unavailable in this session",
           "tools": {
             "TrendLine": "Trend line",
             "Ray": "Ray",
@@ -21075,14 +21270,14 @@
           "removeIndicator": "Remove indicator",
           "remove": "Remove",
           "errorTitle": "Indicator error",
-          "compileFailed": "{{name}} failed to compile.",
+          "compileFailed": "{name} failed to compile.",
           "errorGuidance": "Check the indicator inputs or script, then try again.",
           "settingsSubtitle": "Indicator settings",
           "close": "Close",
           "noConfigurableInputs": "No configurable inputs.",
           "cancel": "Cancel",
           "save": "Save",
-          "plotFallback": "Plot {{index}}",
+          "plotFallback": "Plot {index}",
           "executionErrorFallback": "Failed to execute indicators",
           "metadataLabels": {
             "Length": "Length",
@@ -21105,7 +21300,7 @@
           "close": "C:"
         },
         "listingOverlay": {
-          "flagAlt": "{{countryCode}} flag"
+          "flagAlt": "{countryCode} flag"
         },
         "errors": {
           "failedToLoadSeriesData": "Failed to load series data",
@@ -21140,7 +21335,7 @@
         "label": "Listing",
         "listingFallback": "Listing",
         "selectListing": "Select listing",
-        "flagAlt": "{{countryCode}} flag",
+        "flagAlt": "{countryCode} flag",
         "searching": "Searching...",
         "noListingsFound": "No listings found.",
         "searchPlaceholder": "Search listings..."
@@ -21148,8 +21343,8 @@
     },
     "layoutTabs": {
       "createNewLayout": "Create new layout",
-      "renameAriaLabel": "Rename {{name}}",
-      "deleteAriaLabel": "Delete {{name}}"
+      "renameAriaLabel": "Rename {name}",
+      "deleteAriaLabel": "Delete {name}"
     },
     "monitor": {
       "title": "Monitor",
@@ -21180,7 +21375,7 @@
       "errors": {
         "activateView": "Failed to activate view",
         "configViewsUnavailable": "Config views are unavailable right now.",
-        "createDefaultView": "Unable to create default {{name}} view.",
+        "createDefaultView": "Unable to create default {name} view.",
         "createMonitor": "Failed to create monitor",
         "createView": "Failed to create view",
         "deleteMonitor": "Failed to delete monitor",
@@ -21282,13 +21477,13 @@
         "today": "Today",
         "boundaries": "Boundaries",
         "todayAndBoundaries": "Today + Boundaries",
-        "shownCount": "{{count}} shown",
-        "itemsCount": "{{count}} items",
-        "executionsCount": "{{count}} executions",
-        "setCount": "{{count}} set",
+        "shownCount": "{count} shown",
+        "itemsCount": "{count} items",
+        "executionsCount": "{count} executions",
+        "setCount": "{count} set",
         "all": "All",
         "allExecutions": "All executions",
-        "monitorsCount": "{{count}} monitors",
+        "monitorsCount": "{count} monitors",
         "monitorControls": "Monitor controls"
       },
       "execution": {
@@ -21302,7 +21497,7 @@
         "closeInspector": "Close inspector",
         "kanban": "Kanban",
         "timeline": "Timeline",
-        "limitLabel": "Limit {{count}}",
+        "limitLabel": "Limit {count}",
         "running": "Running",
         "unknown": "Unknown",
         "unknownListing": "Unknown listing",
@@ -21322,7 +21517,7 @@
         "loadingRecords": "Loading monitor records...",
         "noExecutions": "No executions",
         "noOutcome": "No outcome",
-        "addMonitorIn": "Add monitor in {{title}}"
+        "addMonitorIn": "Add monitor in {title}"
       },
       "configSearch": {
         "activeMonitors": "Active monitors",
@@ -21331,7 +21526,7 @@
         "hasLastExecutionLog": "Has last execution log",
         "hasLastOutcome": "Has last outcome",
         "invalidTokensPrefix": "Invalid config query tokens",
-        "lastOutcome": "Last outcome: {{outcome}}",
+        "lastOutcome": "Last outcome: {outcome}",
         "noLastExecution": "No last execution",
         "noLastExecutionLog": "No last execution log",
         "noLastOutcome": "No last outcome",
@@ -21346,7 +21541,7 @@
         "loading": "Loading timezones...",
         "placeholder": "UTC",
         "searchPlaceholder": "Search timezones...",
-        "triggerLabel": "Timezone: {{label}}"
+        "triggerLabel": "Timezone: {label}"
       },
       "editor": {
         "createTitle": "Create Monitor",
@@ -21394,7 +21589,7 @@
         "scaleLabel": "Scale",
         "scaleAriaLabel": "Timeline scale",
         "searchZoomLevels": "Search zoom levels...",
-        "zoomLabel": "Zoom: {{zoom}}",
+        "zoomLabel": "Zoom: {zoom}",
         "scrollPrevious": "Scroll to previous date range",
         "scrollNext": "Scroll to next date range",
         "groupsTitle": "Groups",
@@ -21413,9 +21608,9 @@
       "navigationAriaLabel": "Chat header",
       "titleFallback": "TradingGoose Chat",
       "brandName": "TradingGoose",
-      "logoAlt": "Logo for {{title}}",
-      "githubRepositoryAriaLabel": "View the TradingGoose repository on GitHub with {{stars}} stars",
-      "homeAriaLabel": "Go to {{brand}} home"
+      "logoAlt": "Logo for {title}",
+      "githubRepositoryAriaLabel": "View the TradingGoose repository on GitHub with {stars} stars",
+      "homeAriaLabel": "Go to {brand} home"
     },
     "error": {
       "title": "Chat unavailable",
@@ -21453,8 +21648,8 @@
       "startVoiceConversation": "Start voice conversation",
       "send": "Send",
       "stop": "Stop",
-      "fileTooLarge": "{{name}} is too large.",
-      "fileAlreadyAdded": "{{name}} is already attached."
+      "fileTooLarge": "{name} is too large.",
+      "fileAlreadyAdded": "{name} is already attached."
     },
     "auth": {
       "password": {
@@ -21480,7 +21675,7 @@
         "title": "Enter your email",
         "verifyTitle": "Verify your email",
         "description": "This chat uses email verification.",
-        "verifiedDescription": "We sent a verification code to {{email}}.",
+        "verifiedDescription": "We sent a verification code to {email}.",
         "label": "Email",
         "placeholder": "Enter your email",
         "submit": "Send code",
@@ -21489,7 +21684,7 @@
         "verifying": "Verifying...",
         "instructions": "Enter the 6-digit code we sent you.",
         "resendPrompt": "Didn't receive a code?",
-        "resendIn": "Resend in {{countdown}}s",
+        "resendIn": "Resend in {countdown}s",
         "resend": "Resend code",
         "changeEmail": "Change email",
         "validation": {
@@ -21621,7 +21816,7 @@
       "searchPlaceholder": "Search waitlist entries...",
       "mode": "Mode",
       "loading": "Loading registration settings...",
-      "selectedCount": "{{count}} selected",
+      "selectedCount": "{count} selected",
       "submitted": "Submitted",
       "timeRanges": {
         "all": "All time",
@@ -21651,7 +21846,7 @@
       },
       "emptyState": "No waitlist entries match the current search.",
       "selectVisible": "Select visible waitlist entries",
-      "selectEntry": "Select {{email}}",
+      "selectEntry": "Select {email}",
       "never": "Never",
       "error": "Something went wrong",
       "modes": {
@@ -21683,8 +21878,8 @@
         "title": "Settings",
         "description": "Configure runtime behavior and endpoint defaults for this service.",
         "none": "This service does not expose stored settings.",
-        "storedValue": "Stored value: {{value}}",
-        "defaultValue": "Default: {{value}}",
+        "storedValue": "Stored value: {value}",
+        "defaultValue": "Default: {value}",
         "notConfigured": "Not configured",
         "notSet": "Not set",
         "enabled": "Enabled",
@@ -21696,21 +21891,21 @@
         "optional": "Optional"
       },
       "placeholders": {
-        "enterValue": "Enter {{label}}",
-        "replaceValue": "Enter a new {{label}} to replace the stored value"
+        "enterValue": "Enter {label}",
+        "replaceValue": "Enter a new {label} to replace the stored value"
       },
       "actions": {
-        "saveField": "Save {{label}}",
-        "cancelEditingField": "Cancel editing {{label}}",
-        "editField": "Edit {{label}}",
-        "clearField": "Clear {{label}}"
+        "saveField": "Save {label}",
+        "cancelEditingField": "Cancel editing {label}",
+        "editField": "Edit {label}",
+        "clearField": "Clear {label}"
       },
       "summary": {
-        "requiredCredentialsSet": "{{configured}}/{{total}} required credentials set",
+        "requiredCredentialsSet": "{configured}/{total} required credentials set",
         "noRequiredCredentials": "No required credentials",
-        "requiredSettingsResolved": "{{configured}}/{{total}} required settings resolved",
+        "requiredSettingsResolved": "{configured}/{total} required settings resolved",
         "noRequiredSettings": "No required settings",
-        "missing": "Missing {{labels}}."
+        "missing": "Missing {labels}."
       },
       "footer": {
         "saving": "Saving changes...",
@@ -21740,29 +21935,29 @@
         "description": "Set the secrets for this system-managed OAuth provider.",
         "none": "This provider does not require stored credentials.",
         "noMatches": "No credentials match the current search.",
-        "fallbackDescription": "Provider credential"
+        "defaultDescription": "Provider credential"
       },
       "services": {
         "title": "OAuth services",
         "description": "Enable or disable the services that inherit this provider's credentials.",
         "none": "This provider does not expose any OAuth services.",
         "noMatches": "No services match the current search.",
-        "inheritsFrom": "Inherits credentials from {{name}}."
+        "inheritsFrom": "Inherits credentials from {name}."
       },
       "placeholders": {
-        "enterValue": "Enter {{label}}",
-        "replaceValue": "Enter a new {{label}} to replace the stored value"
+        "enterValue": "Enter {label}",
+        "replaceValue": "Enter a new {label} to replace the stored value"
       },
       "summary": {
-        "serviceCount": "{{count}} service{{plural}}",
+        "serviceCount": "{count} service{plural}",
         "servicePlural": "s",
-        "requiredCredentialsSet": "{{configured}}/{{total}} required credentials set",
-        "credentialsSet": "{{count}} credential{{plural}} set",
+        "requiredCredentialsSet": "{configured}/{total} required credentials set",
+        "credentialsSet": "{count} credential{plural} set",
         "credentialPlural": "s",
         "noRequiredCredentials": "No required credentials",
-        "enabledCount": "{{count}} enabled",
+        "enabledCount": "{count} enabled",
         "noServicesAvailable": "No services available",
-        "missing": "Missing {{labels}}."
+        "missing": "Missing {labels}."
       },
       "error": "Something went wrong"
     },
@@ -21788,21 +21983,21 @@
         "organization": "Organization",
         "userOwner": "User owner",
         "organizationOwner": "Organization owner",
-        "ownerLabel": "{{owner}} owner"
+        "ownerLabel": "{owner} owner"
       },
       "usageScopes": {
         "individual": "Individual",
         "pooled": "Pooled",
         "individualUsage": "Individual usage",
         "pooledUsage": "Pooled usage",
-        "usageLabel": "{{scope}} usage"
+        "usageLabel": "{scope} usage"
       },
       "seatModes": {
         "fixed": "Fixed",
         "adjustable": "Adjustable",
         "fixedSeats": "Fixed seats",
         "adjustableSeats": "Adjustable seats",
-        "seatBillingLabel": "{{mode}} seat billing"
+        "seatBillingLabel": "{mode} seat billing"
       },
       "commerce": {
         "custom": "Custom",
@@ -21810,23 +22005,23 @@
         "selfServe": "Self-serve",
         "contactSales": "Contact sales",
         "priceUnset": "Price unset",
-        "monthlyPrice": "{{amount}} monthly",
-        "yearlyPrice": "{{amount}} yearly",
-        "stripeLinks": "{{count}}/3 Stripe links",
-        "usdIncluded": "{{value}} USD included",
-        "gbStorage": "{{value}} GB storage",
-        "concurrent": "{{value}} concurrent",
-        "includedUsageLabel": "{{amount}} included",
-        "storageLimitLabel": "{{value}} GB storage",
-        "concurrencyLabel": "{{value}} concurrent",
-        "workflowExecutionLabel": "{{value}}x workflow execution",
-        "workflowModelsLabel": "{{value}}x workflow models",
-        "functionRuntimeLabel": "{{value}}x function runtime",
-        "copilotLabel": "{{value}}x copilot",
+        "monthlyPrice": "{amount} monthly",
+        "yearlyPrice": "{amount} yearly",
+        "stripeLinks": "{count}/3 Stripe links",
+        "usdIncluded": "{value} USD included",
+        "gbStorage": "{value} GB storage",
+        "concurrent": "{value} concurrent",
+        "includedUsageLabel": "{amount} included",
+        "storageLimitLabel": "{value} GB storage",
+        "concurrencyLabel": "{value} concurrent",
+        "workflowExecutionLabel": "{value}x workflow execution",
+        "workflowModelsLabel": "{value}x workflow models",
+        "functionRuntimeLabel": "{value}x function runtime",
+        "copilotLabel": "{value}x copilot",
         "seatCountUnset": "Seat count unset",
-        "fixedSeatsCount": "{{count}} fixed seats",
-        "baseSeatsCount": "{{count}} base seats",
-        "maxSeatsCount": "{{count}} max seats",
+        "fixedSeatsCount": "{count} fixed seats",
+        "baseSeatsCount": "{count} base seats",
+        "maxSeatsCount": "{count} max seats",
         "noSelfServeSeatChanges": "No self-serve seat changes",
         "unlimitedSeats": "Unlimited seats"
       },
@@ -21834,7 +22029,7 @@
         "searchPlaceholder": "Search tiers...",
         "createTier": "Create tier",
         "loadingInventory": "Loading billing inventory...",
-        "subscriptionCount": "{{count}} subscriptions",
+        "subscriptionCount": "{count} subscriptions",
         "currentTiersTitle": "Current tiers",
         "currentTiersDescription": "Open a tier to update pricing, availability, customer limits, and included usage.",
         "emptyTitle": "Create your first billing tier",
@@ -21848,8 +22043,8 @@
           "default": "Default",
           "notSet": "Not set",
           "rates": "Rates",
-          "workflowRunRate": "Workflow/run ${{amount}}",
-          "functionSecondRate": "Function/sec ${{amount}}"
+          "workflowRunRate": "Workflow/run ${amount}",
+          "functionSecondRate": "Function/sec ${amount}"
         }
       },
       "create": {
@@ -22029,10 +22224,10 @@
           "copilotCostMultiplierBlank": "Leave blank for the default 1x."
         },
         "summaries": {
-          "missing": "Missing: {{items}}",
+          "missing": "Missing: {items}",
           "untitledTier": "Untitled tier",
           "noPricingBullets": "No pricing bullets",
-          "pricingBullets": "{{count}} pricing bullets",
+          "pricingBullets": "{count} pricing bullets",
           "defaultTierMustBePublic": "default tier must be public",
           "defaultTierMustBePublicPlan": "default tier must be a public user plan with individual usage and fixed seats",
           "userTiersIndividualUsage": "User tiers must use individual usage",
@@ -22060,7 +22255,7 @@
           "userTiersNoOrgSeats": "User tiers do not manage organization seats",
           "seatMaxAboveCount": "seat maximum must stay above seat count",
           "noLimitsConfigured": "No included usage, storage, concurrency, rate, or retention limits configured",
-          "limitsConfigured": "{{count}}/7 limits configured",
+          "limitsConfigured": "{count}/7 limits configured",
           "usingBasePricingOnly": "Using base platform pricing only"
         }
       },
@@ -22073,84 +22268,84 @@
   "emails": {
     "shared": {
       "tagline": "LLM Technical Trading Analysis Workflow System",
-      "team": "The {{brandName}} Team",
-      "openBrand": "Open {{brandName}}",
+      "team": "The {brandName} Team",
+      "openBrand": "Open {brandName}",
       "expires15": "This code expires in 15 minutes.",
       "expires24": "This link is valid for the next 24 hours.",
       "expires48": "Invitations expire in 48 hours for security.",
       "expires7": "This invitation expires in 7 days.",
       "ignore": "If you did not request this, you can safely ignore this email.",
-      "sentOn": "Sent on {{date}}.",
-      "sentOnTo": "Sent on {{date}} to {{email}}.",
-      "submittedOnTo": "Submitted on {{date}} to {{email}}.",
-      "approvedOnFor": "Approved on {{date}} for {{email}}.",
-      "sentOnFor": "Sent on {{date}} for your {{typeLabel}}{{emailPart}}.",
-      "emailPartFrom": " from {{email}}"
+      "sentOn": "Sent on {date}.",
+      "sentOnTo": "Sent on {date} to {email}.",
+      "submittedOnTo": "Submitted on {date} to {email}.",
+      "approvedOnFor": "Approved on {date} for {email}.",
+      "sentOnFor": "Sent on {date} for your {typeLabel}{emailPart}.",
+      "emailPartFrom": " from {email}"
     },
     "footer": {
-      "copyright": "(c) {{year}} {{brandName}}, All Rights Reserved",
+      "copyright": "(c) {year} {brandName}, All Rights Reserved",
       "questions": "Questions? Email",
       "privacy": "Privacy Policy",
       "terms": "Terms of Service",
       "unsubscribe": "Unsubscribe"
     },
     "subjects": {
-      "sign-in": "Sign in to {{brandName}}",
-      "email-verification": "Verify your email for {{brandName}}",
-      "forget-password": "Reset your {{brandName}} password",
-      "reset-password": "Reset your {{brandName}} password",
-      "change-email": "Verify your new email for {{brandName}}",
-      "chat-access": "Verification code for {{chatTitle}}",
-      "invitation": "You've been invited to join {{organizationName}} on {{brandName}}",
-      "batch-invitation": "You've been invited to join {{organizationName}} and workspaces on {{brandName}}",
-      "workspace-invitation": "You've been invited to join {{workspaceName}} on {{brandName}}",
+      "sign-in": "Sign in to {brandName}",
+      "email-verification": "Verify your email for {brandName}",
+      "forget-password": "Reset your {brandName} password",
+      "reset-password": "Reset your {brandName} password",
+      "change-email": "Verify your new email for {brandName}",
+      "chat-access": "Verification code for {chatTitle}",
+      "invitation": "You've been invited to join {organizationName} on {brandName}",
+      "batch-invitation": "You've been invited to join {organizationName} and workspaces on {brandName}",
+      "workspace-invitation": "You've been invited to join {workspaceName} on {brandName}",
       "help-confirmation": "Your request has been received",
-      "enterprise-subscription": "Your organization billing is now active on {{brandName}}",
-      "plan-welcome": "Your {{planName}} tier is now active on {{brandName}}",
-      "usage-threshold": "You're nearing your monthly budget on {{brandName}}",
-      "free-tier-upgrade": "Your current tier is nearing its included usage on {{brandName}}",
-      "payment-failed": "{{brandName}} payment failed - action required",
-      "waitlist-confirmation": "We received your {{brandName}} access request",
-      "waitlist-approved": "Your {{brandName}} access request was approved",
-      "careers-confirmation": "Your application to {{brandName}} - {{position}}"
+      "enterprise-subscription": "Your organization billing is now active on {brandName}",
+      "plan-welcome": "Your {planName} tier is now active on {brandName}",
+      "usage-threshold": "You're nearing your monthly budget on {brandName}",
+      "free-tier-upgrade": "Your current tier is nearing its included usage on {brandName}",
+      "payment-failed": "{brandName} payment failed - action required",
+      "waitlist-confirmation": "We received your {brandName} access request",
+      "waitlist-approved": "Your {brandName} access request was approved",
+      "careers-confirmation": "Your application to {brandName} - {position}"
     },
     "otp": {
       "titles": {
-        "sign-in": "Sign in to {{brandName}}",
-        "email-verification": "Verify your email for {{brandName}}",
-        "forget-password": "Reset your password for {{brandName}}",
-        "change-email": "Verify your new email for {{brandName}}",
-        "chat-access": "Access {{chatTitle}}"
+        "sign-in": "Sign in to {brandName}",
+        "email-verification": "Verify your email for {brandName}",
+        "forget-password": "Reset your password for {brandName}",
+        "change-email": "Verify your new email for {brandName}",
+        "chat-access": "Access {chatTitle}"
       },
       "body": "Use the code below to continue."
     },
     "resetPassword": {
       "title": "Reset your password",
-      "intro": "We received a request to reset the password for your {{brandName}} account.",
+      "intro": "We received a request to reset the password for your {brandName} account.",
       "action": "Use the button below to choose a new password.",
       "cta": "Reset Password",
       "accountFallback": "your account email",
-      "sentLine": "Sent on {{date}} to {{account}}."
+      "sentLine": "Sent on {date} to {account}."
     },
     "invitation": {
-      "preview": "{{inviterName}} invited you to join {{organizationName}} on {{brandName}}",
-      "title": "You've been invited to join {{organizationName}}!",
-      "intro": "{{inviterName}} invited you to collaborate on {{brandName}}.",
+      "preview": "{inviterName} invited you to join {organizationName} on {brandName}",
+      "title": "You've been invited to join {organizationName}!",
+      "intro": "{inviterName} invited you to collaborate on {brandName}.",
       "body": "Accept the invitation to get access to shared projects and workflows.",
       "cta": "Join Now"
     },
     "batchInvitation": {
-      "preview": "Join {{organizationName}} on {{brandName}}",
-      "title": "You've been invited to join {{organizationName}}.",
-      "intro": "{{inviterName}} added you as a {{roleLabel}} on {{brandName}}.",
+      "preview": "Join {organizationName} on {brandName}",
+      "title": "You've been invited to join {organizationName}.",
+      "intro": "{inviterName} added you as a {roleLabel} on {brandName}.",
       "adminDescription": "As an Admin, you'll manage billing, teammates, and workspace access across the organization.",
       "memberDescription": "As a Member, you can collaborate on shared billing and accept workspace invites.",
-      "workspaceAccess": "Workspace Access ({{count}} {{workspaceWord}}):",
-      "workspaceLine": "- {{workspaceName}} - {{permissionLabel}}",
+      "workspaceAccess": "Workspace Access ({count} {workspaceWord}):",
+      "workspaceLine": "- {workspaceName} - {permissionLabel}",
       "workspaceSingular": "workspace",
       "workspacePlural": "workspaces",
-      "closing": "By accepting, you'll join {{organizationName}}.",
-      "closingWithWorkspaces": "By accepting, you'll join {{organizationName}} and unlock access to {{count}} {{workspaceWord}}.",
+      "closing": "By accepting, you'll join {organizationName}.",
+      "closingWithWorkspaces": "By accepting, you'll join {organizationName} and unlock access to {count} {workspaceWord}.",
       "cta": "Accept Invitation",
       "roleLabels": {
         "admin": "Admin",
@@ -22163,17 +22358,17 @@
       }
     },
     "workspaceInvitation": {
-      "preview": "Join the {{workspaceName}} workspace on {{brandName}}",
-      "title": "You're invited to {{workspaceName}}",
-      "intro": "{{inviterName}} asked you to collaborate in the {{workspaceName}} workspace on {{brandName}}. Accept to access shared projects and data.",
+      "preview": "Join the {workspaceName} workspace on {brandName}",
+      "title": "You're invited to {workspaceName}",
+      "intro": "{inviterName} asked you to collaborate in the {workspaceName} workspace on {brandName}. Accept to access shared projects and data.",
       "cta": "Accept Invitation"
     },
     "help": {
       "title": "Thanks for reaching out",
-      "preview": "{{brandName}}: we received your {{typeLabel}}",
-      "intro": "We received your {{typeLabel}} and will follow up shortly.",
-      "attachments": "You attached {{count}} {{fileWord}}. We will review everything you shared.",
-      "responseTime": "We typically respond within a few hours. If you need immediate help, email us anytime at {{supportEmail}}.",
+      "preview": "{brandName}: we received your {typeLabel}",
+      "intro": "We received your {typeLabel} and will follow up shortly.",
+      "attachments": "You attached {count} {fileWord}. We will review everything you shared.",
+      "responseTime": "We typically respond within a few hours. If you need immediate help, email us anytime at {supportEmail}.",
       "fileSingular": "file",
       "filePlural": "files",
       "typeLabels": {
@@ -22187,13 +22382,13 @@
       "confirmation": {
         "preview": "Your access request has been received",
         "title": "You're on the waitlist",
-        "intro": "We received your access request for {{brandName}} and added {{email}} to the waitlist.",
+        "intro": "We received your access request for {brandName} and added {email} to the waitlist.",
         "body": "We will review your request and email you again if this address is approved for sign up. Keep using this same email for every sign-in method."
       },
       "approved": {
         "preview": "Your waitlist request has been approved",
         "title": "Your access is ready",
-        "intro": "{{email}} is now approved to create an account on {{brandName}}.",
+        "intro": "{email} is now approved to create an account on {brandName}.",
         "body": "Finish signing up with this same email address to activate your access.",
         "cta": "Finish sign up",
         "methodReminder": "Use the same approved email for email/password, Google, GitHub, or any other sign-in method."
@@ -22202,8 +22397,8 @@
     "billing": {
       "enterprise": {
         "title": "Organization billing activated",
-        "welcome": "Welcome aboard, {{userName}}.",
-        "body": "Your organization billing tier is live on {{brandName}}. You now have expanded capacity, advanced controls, and organization-wide access.",
+        "welcome": "Welcome aboard, {userName}.",
+        "body": "Your organization billing tier is live on {brandName}. You now have expanded capacity, advanced controls, and organization-wide access.",
         "cta": "Access Your Account",
         "nextStepsTitle": "Next steps",
         "nextSteps": [
@@ -22214,62 +22409,62 @@
         "help": "Need help getting started? Reply to this email and our team will assist you."
       },
       "planWelcome": {
-        "preview": "{{brandName}}: your {{planName}} tier is active",
-        "title": "{{planName}} tier activated",
-        "namedWelcome": "Welcome, {{userName}}!",
+        "preview": "{brandName}: your {planName} tier is active",
+        "title": "{planName} tier activated",
+        "namedWelcome": "Welcome, {userName}!",
         "welcome": "Welcome!",
-        "body": "You're all set on the {{planName}} tier for {{brandName}}. Explore your new limits and ship faster with your team.",
+        "body": "You're all set on the {planName} tier for {brandName}. Explore your new limits and ship faster with your team.",
         "help": "Want to discuss your tier or get personalized help getting started? Schedule a 15-minute call with our team.",
         "settings": "Need to invite teammates, adjust usage limits, or manage billing? Visit Settings -> Subscription anytime."
       },
       "usage": {
-        "preview": "{{brandName}}: You're at {{percentUsed}}% of your {{planName}} monthly budget",
-        "title": "You're at {{percentUsed}}% of your budget",
-        "intro": "{{userNamePrefix}}your {{planName}} tier usage is nearing the monthly limit.",
+        "preview": "{brandName}: You're at {percentUsed}% of your {planName} monthly budget",
+        "title": "You're at {percentUsed}% of your budget",
+        "intro": "{userNamePrefix}your {planName} tier usage is nearing the monthly limit.",
         "recommendation": "To avoid interruptions, consider increasing your monthly limit.",
-        "usageLine": "{{currentUsage}} / {{limit}} used",
-        "percentLine": "{{percentUsed}}% of this month's budget",
+        "usageLine": "{currentUsage} / {limit} used",
+        "percentLine": "{percentUsed}% of this month's budget",
         "cta": "Review limits",
         "reason": "We send this once when your usage reaches the configured billing warning threshold so you have time to adjust your tier or limit."
       },
       "freeTier": {
         "currentTierFallback": "your current tier",
-        "preview": "{{brandName}}: {{currentTierName}} is nearing its included usage",
+        "preview": "{brandName}: {currentTierName} is nearing its included usage",
         "title": "Your included usage is almost used",
-        "greeting": "Hi {{userName}},",
+        "greeting": "Hi {userName},",
         "greetingFallback": "there",
-        "usage": "You've used {{currentUsage}} of the {{limit}} included in {{currentTierName}} ({{percentUsed}}%).",
+        "usage": "You've used {currentUsage} of the {limit} included in {currentTierName} ({percentUsed}%).",
         "body": "Review your available billing tiers now so you can expand your usage before this month's limit interrupts new work.",
         "recommendedTitle": "Recommended next tier",
-        "recommendedTier": "Recommended next tier: {{tierName}}",
-        "recommendedPrice": "Starts at {{price}}/month",
-        "recommendedUsage": "{{usage}} included usage each month",
+        "recommendedTier": "Recommended next tier: {tierName}",
+        "recommendedPrice": "Starts at {price}/month",
+        "recommendedUsage": "{usage} included usage each month",
         "cta": "Review Billing Tiers",
         "oneTime": "This is a one-time notification after your default tier crosses its upgrade threshold."
       },
       "paymentFailed": {
         "title": "We were unable to process your payment.",
-        "greeting": "Hi {{userName}},",
+        "greeting": "Hi {userName},",
         "greetingFallback": "there",
-        "body": "Your {{brandName}} account has been temporarily blocked to prevent service interruptions and unexpected charges. To restore access immediately, please update your payment method.",
+        "body": "Your {brandName} account has been temporarily blocked to prevent service interruptions and unexpected charges. To restore access immediately, please update your payment method.",
         "detailsTitle": "Payment Details",
-        "amountDue": "Amount due: {{amount}}",
-        "paymentMethod": "Payment method: **** {{lastFourDigits}}",
-        "reason": "Reason: {{reason}}",
+        "amountDue": "Amount due: {amount}",
+        "paymentMethod": "Payment method: **** {lastFourDigits}",
+        "reason": "Reason: {reason}",
         "cta": "Update Payment Method",
         "nextSteps": "Your workflows and automations are currently paused. Update your payment method to restore service immediately. Stripe will automatically retry the charge once payment is updated.",
         "help": "Common reasons for payment failures include expired cards, insufficient funds, or incorrect billing information. If you continue to experience issues, contact support.",
-        "sentLine": "Sent on {{date}}. This is a critical transactional notification."
+        "sentLine": "Sent on {date}. This is a critical transactional notification."
       }
     },
     "careers": {
-      "preview": "Your application to {{brandName}} has been received",
+      "preview": "Your application to {brandName} has been received",
       "title": "We received your application",
-      "greeting": "Hello {{name}},",
-      "body": "Thanks for your interest in joining the {{brandName}} team. We received your application for the {{position}} role.",
+      "greeting": "Hello {name},",
+      "body": "Thanks for your interest in joining the {brandName} team. We received your application for the {position} role.",
       "review": "Our team carefully reviews every application and will get back to you within the next few weeks. If your qualifications match what we're looking for, we'll reach out to schedule an initial conversation.",
-      "explore": "In the meantime, explore our documentation at {{docsUrl}} or read the latest on our blog at {{blogUrl}}.",
-      "sentLine": "This confirmation was sent on {{dateTime}}."
+      "explore": "In the meantime, explore our documentation at {docsUrl} or read the latest on our blog at {blogUrl}.",
+      "sentLine": "This confirmation was sent on {dateTime}."
     }
   }
 }

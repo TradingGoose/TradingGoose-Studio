@@ -4,6 +4,8 @@ import { Fragment, memo, useCallback, useEffect, useRef, useState } from 'react'
 import { useLocale } from 'next-intl'
 import { Card } from '@/components/ui/card'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
+import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import type { LocaleCode } from '@/i18n/utils'
 import {
   createDefaultLayoutState,
   createLayoutNodeId,
@@ -11,8 +13,6 @@ import {
   type WidgetInstance,
 } from '@/widgets/layout'
 import { WidgetActionMenu } from '@/widgets/widgets/components/widget-action-menu'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
-import { type LocaleCode } from '@/i18n/utils'
 
 const PANEL_MIN_SIZE = 10
 const MIN_SPLIT_SIZE = PANEL_MIN_SIZE * 2
@@ -110,7 +110,7 @@ function LayoutPreviewPanelSurface({
             </p>
           </div>
           <p className='text-muted-foreground text-xs tabular-nums'>
-            {formatTemplate('{{width}}% {{widthLabel}} · {{height}}% {{heightLabel}}', {
+            {formatTemplate('{width}% {widthLabel} · {height}% {heightLabel}', {
               width: Math.round(availableWidth),
               height: Math.round(availableHeight),
               widthLabel: layoutCopy.widthLabel,

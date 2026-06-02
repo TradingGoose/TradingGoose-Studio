@@ -70,6 +70,19 @@ const getConditionBranchTitle = (index: number, total: number): ConditionBranchT
 
 const isElseBranchTitle = (title: string): boolean => title === CONDITION_BRANCH_TITLES.else
 
+const getLocalizedConditionBranchTitle = (locale: LocaleCode, title: string) => {
+  switch (title) {
+    case CONDITION_BRANCH_TITLES.if:
+      return translateWorkflowLabel(locale, 'if')
+    case CONDITION_BRANCH_TITLES.elseIf:
+      return translateWorkflowLabel(locale, 'elseIf')
+    case CONDITION_BRANCH_TITLES.else:
+      return translateWorkflowLabel(locale, 'else')
+    default:
+      return title
+  }
+}
+
 export const applyConditionBlockTitles = <T extends { title: string }>(blocks: T[]): T[] => {
   return blocks.map((block, index) => ({
     ...block,
@@ -507,7 +520,7 @@ export function ConditionInput({
             )}
           >
             <span className='font-medium text-sm'>
-              {translateWorkflowLabel(locale, block.title)}
+              {getLocalizedConditionBranchTitle(locale, block.title)}
             </span>
             <div className='flex items-center gap-1'>
               <Tooltip>

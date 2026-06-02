@@ -4,6 +4,7 @@ import {
   getLocaleDisplayName,
   getOpenGraphLocale,
   localizeSiteUrl,
+  localizeUrl,
   normalizeCallbackUrl,
   stripLocaleFromPathname,
 } from './utils'
@@ -51,10 +52,31 @@ describe('i18n utils', () => {
       languages: {
         en: 'https://tradinggoose.ai/blog',
         es: 'https://tradinggoose.ai/es/blog',
-        'zh': 'https://tradinggoose.ai/zh/blog',
+        zh: 'https://tradinggoose.ai/zh/blog',
         'x-default': 'https://tradinggoose.ai/blog',
       },
     })
+  })
+
+  it('builds absolute localized app URLs from canonical internal paths', () => {
+    expect(localizeUrl('https://tradinggoose.ai/', 'es', '/reset-password?token=abc')).toBe(
+      'https://tradinggoose.ai/es/reset-password?token=abc'
+    )
+    expect(localizeUrl('https://tradinggoose.ai', 'en', '/workspace')).toBe(
+      'https://tradinggoose.ai/workspace'
+    )
+    expect(localizeUrl('https://tradinggoose.ai', 'invalid', '/login')).toBe(
+      'https://tradinggoose.ai/login'
+    )
+  })
+
+  it('rejects non-canonical app URL inputs', () => {
+    expect(() => localizeUrl('https://tradinggoose.ai', 'es', '/zh/login')).toThrow(
+      'Expected an unlocalized internal pathname'
+    )
+    expect(() => localizeUrl('https://tradinggoose.ai', 'es', 'https://example.com')).toThrow(
+      'Expected a canonical internal pathname'
+    )
   })
 
   it('maps Open Graph locales using canonical regional codes', () => {

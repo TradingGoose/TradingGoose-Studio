@@ -53,9 +53,6 @@ export interface ToolParameterConfig {
   userProvided?: boolean // User filled this parameter
   description?: string
   default?: unknown
-  i18n?: {
-    descriptionKey?: string
-  }
   // UI component information from block config
   uiComponent?: UIComponentConfig
 }
@@ -236,14 +233,7 @@ export function getToolParametersConfig(
             autoSelectFirstOption: subBlock.autoSelectFirstOption,
             dependsOn: resolveDependsOn(subBlock.dependsOn),
             fetchOptions: subBlock.fetchOptions,
-            i18n: subBlock.i18n,
           }
-          toolParam.i18n =
-            subBlock.i18n?.descriptionKey || toolParam.description
-              ? {
-                  descriptionKey: subBlock.i18n?.descriptionKey,
-                }
-              : undefined
         }
       }
 

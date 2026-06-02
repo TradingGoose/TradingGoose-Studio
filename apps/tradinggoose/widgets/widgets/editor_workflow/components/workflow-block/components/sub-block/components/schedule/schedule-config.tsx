@@ -42,7 +42,7 @@ export function ScheduleConfig({
   disabled = false,
 }: ScheduleConfigProps) {
   const locale = useLocale() as LocaleCode
-  const t = (label: string) => translateWorkflowLabel(locale, label)
+  const t = (key: string) => translateWorkflowLabel(locale, key)
   const copy = useWorkflowBlockEditorCopy().scheduleConfig
   const [error, setError] = useState<ScheduleErrorKey | null>(null)
   const [scheduleData, setScheduleData] = useState<{
@@ -169,7 +169,7 @@ export function ScheduleConfig({
   const getScheduleInfo = () => {
     if (!scheduleData.id || !scheduleData.nextRunAt) return null
 
-    let scheduleTiming = t('Unknown schedule')
+    let scheduleTiming = t('unknownSchedule')
 
     if (scheduleData.cronExpression) {
       scheduleTiming = parseCronToHumanReadable(scheduleData.cronExpression, scheduleData.timezone)

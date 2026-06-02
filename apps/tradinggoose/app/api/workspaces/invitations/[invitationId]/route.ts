@@ -9,16 +9,12 @@ import {
 } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
-import {
-  getEmailSubject,
-  renderWorkspaceInvitationEmail,
-} from '@/components/emails/render-email'
+import { getEmailSubject, renderWorkspaceInvitationEmail } from '@/components/emails/render-email'
 import { getSession } from '@/lib/auth'
 import { resolveEmailLocale } from '@/lib/email/locale'
 import { hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
-import { getRouteBoundaryUrl } from '@/i18n/route-boundary'
-import { defaultLocale, stripLocaleFromPathname } from '@/i18n/utils'
+import { defaultLocale, localizeUrl, stripLocaleFromPathname } from '@/i18n/utils'
 
 function getRedirectLocale(req: NextRequest) {
   const referer = req.headers.get('referer')
@@ -43,7 +39,7 @@ export async function GET(
   const token = req.nextUrl.searchParams.get('token')
   const isAcceptFlow = !!token // If token is provided, this is an acceptance flow
   const redirectUrl = (href: string) =>
-    new URL(getRouteBoundaryUrl(getBaseUrl(), getRedirectLocale(req), href))
+    new URL(localizeUrl(getBaseUrl(), getRedirectLocale(req), href))
 
   if (!session?.user?.id) {
     // For token-based acceptance flows, redirect to login
@@ -66,9 +62,7 @@ export async function GET(
 
     if (!invitation) {
       if (isAcceptFlow) {
-        return NextResponse.redirect(
-          redirectUrl(`/invite/${invitationId}?error=invalid-token`)
-        )
+        return NextResponse.redirect(redirectUrl(`/invite/${invitationId}?error=invalid-token`))
       }
       return NextResponse.json({ error: 'Invitation not found or has expired' }, { status: 404 })
     }
@@ -112,17 +106,13 @@ export async function GET(
         .then((rows) => rows[0])
 
       if (!userData) {
-        return NextResponse.redirect(
-          redirectUrl(`/invite/${invitation.id}?error=user-not-found`)
-        )
+        return NextResponse.redirect(redirectUrl(`/invite/${invitation.id}?error=user-not-found`))
       }
 
       const isValidMatch = userEmail === invitationEmail
 
       if (!isValidMatch) {
-        return NextResponse.redirect(
-          redirectUrl(`/invite/${invitation.id}?error=email-mismatch`)
-        )
+        return NextResponse.redirect(redirectUrl(`/invite/${invitation.id}?error=email-mismatch`))
       }
 
       const existingPermission = await db
@@ -146,9 +136,7 @@ export async function GET(
           })
           .where(eq(workspaceInvitation.id, invitation.id))
 
-        return NextResponse.redirect(
-          redirectUrl(`/workspace/${invitation.workspaceId}/dashboard`)
-        )
+        return NextResponse.redirect(redirectUrl(`/workspace/${invitation.workspaceId}/dashboard`))
       }
 
       await db.transaction(async (tx) => {
@@ -171,9 +159,7 @@ export async function GET(
           .where(eq(workspaceInvitation.id, invitation.id))
       })
 
-      return NextResponse.redirect(
-        redirectUrl(`/workspace/${invitation.workspaceId}/dashboard`)
-      )
+      return NextResponse.redirect(redirectUrl(`/workspace/${invitation.workspaceId}/dashboard`))
     }
 
     return NextResponse.json({
@@ -285,11 +271,10 @@ export async function POST(
       .set({ token: newToken, expiresAt: newExpiresAt, updatedAt: new Date() })
       .where(eq(workspaceInvitation.id, invitationId))
 
-    const baseUrl = getBaseUrl()
-    const invitationLink = `${baseUrl}/invite/${invitationId}?token=${newToken}`
-
     const [{ sendEmail }] = await Promise.all([import('@/lib/email/mailer')])
     const locale = await resolveEmailLocale({ email: invitation.email })
+    const baseUrl = getBaseUrl()
+    const invitationLink = `${localizeUrl(baseUrl, locale, `/invite/${invitationId}`)}?token=${newToken}`
 
     const emailHtml = await renderWorkspaceInvitationEmail({
       workspaceName: ws.name,

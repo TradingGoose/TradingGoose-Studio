@@ -30,11 +30,11 @@ import {
   useBlockEditorMessages,
   useDeploymentMessages,
   useMcpDropdownMessages,
-  useWorkspaceBlockEditorMessages,
   useWorkflowApiKeyMessages,
   useWorkflowInspectorMessages,
   useWorkflowOutputSelectMessages,
   useWorkflowToolbarMessages,
+  useWorkspaceBlockEditorMessages,
 } from '@/i18n/workspace-widget-hooks'
 
 export function useWorkflowEditorCopy() {
@@ -84,28 +84,28 @@ export function useWorkflowI18n() {
       toolInputCopy: getToolInputCopyFromInspector(inspectorCopy),
       mcpToolSelectorCopy: getMcpToolSelectorCopyFromInspector(inspectorCopy),
       readOnlyPreviewCopy: getReadOnlyPreviewCopyFromInspector(inspectorCopy),
-      translateWorkflowLabel: (label: string) => translateWorkflowLabelWithCopy(inspectorCopy, label),
-      translateWorkflowToolbarLabel: (label: string) =>
-        translateWorkflowToolbarLabelWithCopy(toolbarCopy, label),
+      translateWorkflowLabel: (key: string) => translateWorkflowLabelWithCopy(inspectorCopy, key),
+      translateWorkflowToolbarLabel: (key: string) =>
+        translateWorkflowToolbarLabelWithCopy(toolbarCopy, key),
       getToolbarDisabledReason: (isOfflineMode: boolean) =>
         getToolbarDisabledReasonFromInspector(inspectorCopy, isOfflineMode),
       getTriggerWarningCopy: (triggerName: string) =>
         getTriggerWarningCopyFromInspector(inspectorCopy, triggerName),
       getLocalizedBlockName: (
         blockOrType: Parameters<typeof getLocalizedBlockNameWithCopy>[1],
-        fallbackName?: string
-      ) => getLocalizedBlockNameWithCopy(inspectorCopy, blockOrType, fallbackName),
+        providedName?: string
+      ) => getLocalizedBlockNameWithCopy(inspectorCopy, blockOrType, providedName),
       getLocalizedBlockDescription: (
         blockOrType: Parameters<typeof getLocalizedBlockDescriptionWithCopy>[1],
-        fallbackDescription?: string
-      ) => getLocalizedBlockDescriptionWithCopy(inspectorCopy, blockOrType, fallbackDescription),
+        providedDescription?: string
+      ) => getLocalizedBlockDescriptionWithCopy(inspectorCopy, blockOrType, providedDescription),
       getLocalizedBlockLongDescription: (
         blockOrType: Parameters<typeof getLocalizedBlockLongDescriptionWithCopy>[1],
-        fallbackDescription?: string
-      ) => getLocalizedBlockLongDescriptionWithCopy(inspectorCopy, blockOrType, fallbackDescription),
-      getLocalizedBlockMetadata: (
-        block: Parameters<typeof getLocalizedBlockMetadataWithCopy>[1]
-      ) => getLocalizedBlockMetadataWithCopy(inspectorCopy, block),
+        providedDescription?: string
+      ) =>
+        getLocalizedBlockLongDescriptionWithCopy(inspectorCopy, blockOrType, providedDescription),
+      getLocalizedBlockMetadata: (block: Parameters<typeof getLocalizedBlockMetadataWithCopy>[1]) =>
+        getLocalizedBlockMetadataWithCopy(inspectorCopy, block),
       getLocalizedDefaultBlockName: (blockType: string, blockName?: string) =>
         getLocalizedDefaultBlockNameWithCopy(inspectorCopy, blockType, blockName),
       getLocalizedToolParameterLabel: (paramId: string, label?: string) =>
@@ -119,13 +119,15 @@ export function useWorkflowI18n() {
         toolId: string,
         blockConfig?: Parameters<typeof getLocalizedToolParametersConfigWithCopy>[2],
         contextValues?: Parameters<typeof getLocalizedToolParametersConfigWithCopy>[3]
-      ) => getLocalizedToolParametersConfigWithCopy(inspectorCopy, toolId, blockConfig, contextValues),
+      ) =>
+        getLocalizedToolParametersConfigWithCopy(inspectorCopy, toolId, blockConfig, contextValues),
       localizeWorkflowOptions: (
         options: Parameters<typeof localizeWorkflowOptionsWithCopy>[1],
         blockType?: string,
         subBlockId?: string,
         triggerId?: string
-      ) => localizeWorkflowOptionsWithCopy(inspectorCopy, options, blockType, subBlockId, triggerId),
+      ) =>
+        localizeWorkflowOptionsWithCopy(inspectorCopy, options, blockType, subBlockId, triggerId),
       localizeWorkflowSubBlockConfig: (
         config: Parameters<typeof localizeWorkflowSubBlockConfigWithCopy>[1],
         blockType?: string,

@@ -24,6 +24,7 @@ import { LISTING_IDENTITY_VALUE_TYPE, type ListingInputValue } from '@/lib/listi
 import { cn } from '@/lib/utils'
 import type { WorkflowFieldType } from '@/lib/workflows/value-types'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
+import { formatTemplate } from '@/i18n/client-messages'
 import { ListingSelectorInput } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/listing-selector/listing-selector'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
@@ -111,7 +112,7 @@ export function FieldFormat({
 
   const value = isPreview ? previewValue : storeValue
   const fields: Field[] = Array.isArray(value) ? value : []
-  const formatAddTitle = (label: string) => copy.addTitle.replace('{{title}}', label)
+  const formatAddTitle = (label: string) => formatTemplate(copy.addTitle, { title: label })
   const getFieldTypeLabel = (fieldType?: FieldType) => {
     switch (fieldType) {
       case 'string':

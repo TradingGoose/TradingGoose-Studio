@@ -1,8 +1,8 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { useLocale } from 'next-intl'
 import { ChevronDown, X } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import {
   Command,
   CommandEmpty,
@@ -17,9 +17,9 @@ import {
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { createLogger } from '@/lib/logs/console/logger'
+import type { WorkspaceFileRecord } from '@/lib/uploads/contexts/workspace'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
 import { formatFileSize as formatLocalizedFileSize } from '@/i18n/formatters'
-import type { WorkspaceFileRecord } from '@/lib/uploads/contexts/workspace'
 import type { LocaleCode } from '@/i18n/utils'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
@@ -577,7 +577,7 @@ export function FileUpload({
                   disabled={disabled || loadingWorkspaceFiles}
                 >
                   <span className='truncate font-normal'>
-                    {translateWorkflowLabel(locale, 'Add More')}
+                    {translateWorkflowLabel(locale, 'addMore')}
                   </span>
                   <ChevronDown className='absolute right-3 h-4 w-4 shrink-0 opacity-50' />
                 </Button>
@@ -585,7 +585,7 @@ export function FileUpload({
               <PopoverContent className='w-[320px] p-0' align='start'>
                 <Command>
                   <CommandInput
-                    placeholder={translateWorkflowLabel(locale, 'Search files...')}
+                    placeholder={translateWorkflowLabel(locale, 'searchFiles')}
                     className='text-foreground placeholder:text-muted-foreground'
                   />
                   <CommandList onWheel={(e) => e.stopPropagation()}>
@@ -600,16 +600,16 @@ export function FileUpload({
                           } as React.MouseEvent)
                         }}
                       >
-                        {translateWorkflowLabel(locale, 'Upload New File')}
+                        {translateWorkflowLabel(locale, 'uploadNewFile')}
                       </CommandItem>
                     </CommandGroup>
                     <CommandEmpty>
                       {availableWorkspaceFiles.length === 0
-                        ? translateWorkflowLabel(locale, 'No files available.')
-                        : translateWorkflowLabel(locale, 'No files found.')}
+                        ? translateWorkflowLabel(locale, 'noFilesAvailable')
+                        : translateWorkflowLabel(locale, 'noFilesFound')}
                     </CommandEmpty>
-                  {availableWorkspaceFiles.length > 0 && (
-                    <CommandGroup heading={translateWorkflowLabel(locale, 'Workspace Files')}>
+                    {availableWorkspaceFiles.length > 0 && (
+                      <CommandGroup heading={translateWorkflowLabel(locale, 'workspaceFiles')}>
                         {availableWorkspaceFiles.map((file) => (
                           <CommandItem
                             key={file.id}
@@ -654,16 +654,16 @@ export function FileUpload({
               >
                 <span className='truncate font-normal'>
                   {loadingWorkspaceFiles
-                    ? translateWorkflowLabel(locale, 'Loading files...')
-                    : translateWorkflowLabel(locale, 'Select or upload file')}
+                    ? translateWorkflowLabel(locale, 'loadingFiles')
+                    : translateWorkflowLabel(locale, 'selectOrUploadFile')}
                 </span>
                 <ChevronDown className='absolute right-3 h-4 w-4 shrink-0 opacity-50' />
               </Button>
             </PopoverTrigger>
             <PopoverContent className='w-[320px] p-0' align='start'>
-                <Command>
-                  <CommandInput
-                  placeholder={translateWorkflowLabel(locale, 'Search files...')}
+              <Command>
+                <CommandInput
+                  placeholder={translateWorkflowLabel(locale, 'searchFiles')}
                   className='text-foreground placeholder:text-muted-foreground'
                 />
                 <CommandList onWheel={(e) => e.stopPropagation()}>
@@ -678,16 +678,16 @@ export function FileUpload({
                         } as React.MouseEvent)
                       }}
                     >
-                      {translateWorkflowLabel(locale, 'Upload New File')}
+                      {translateWorkflowLabel(locale, 'uploadNewFile')}
                     </CommandItem>
                   </CommandGroup>
                   <CommandEmpty>
                     {availableWorkspaceFiles.length === 0
-                      ? translateWorkflowLabel(locale, 'No files available.')
-                      : translateWorkflowLabel(locale, 'No files found.')}
+                      ? translateWorkflowLabel(locale, 'noFilesAvailable')
+                      : translateWorkflowLabel(locale, 'noFilesFound')}
                   </CommandEmpty>
                   {availableWorkspaceFiles.length > 0 && (
-                    <CommandGroup heading={translateWorkflowLabel(locale, 'Workspace Files')}>
+                    <CommandGroup heading={translateWorkflowLabel(locale, 'workspaceFiles')}>
                       {availableWorkspaceFiles.map((file) => (
                         <CommandItem
                           key={file.id}

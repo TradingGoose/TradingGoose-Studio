@@ -1,21 +1,21 @@
 'use client'
 
 import { useState } from 'react'
-import { useLocale } from 'next-intl'
 import { Plus, Trash2 } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { formatDisplayText } from '@/components/ui/formatted-text'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
-import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useKnowledgeBaseTagDefinitions } from '@/hooks/use-knowledge-base-tag-definitions'
 import { useTagSelection } from '@/hooks/use-tag-selection'
-import { useSubBlockValue } from '../../hooks/use-sub-block-value'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
+import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
 import type { LocaleCode } from '@/i18n/utils'
+import { useSubBlockValue } from '../../hooks/use-sub-block-value'
 
 interface TagFilter {
   id: string
@@ -49,7 +49,7 @@ export function KnowledgeTagFilters({
   isConnecting = false,
 }: KnowledgeTagFiltersProps) {
   const locale = useLocale() as LocaleCode
-  const t = (label: string) => translateWorkflowLabel(locale, label)
+  const t = (key: string) => translateWorkflowLabel(locale, key)
   const copy = useAppMessages().workspace.widgets.blockEditor.knowledgeTagFilters
   const [storeValue, setStoreValue] = useSubBlockValue<string | null>(blockId, subBlock.id)
 
@@ -184,16 +184,15 @@ export function KnowledgeTagFilters({
 
   if (isPreview) {
     const appliedFilters = filters.filter((f) => f.tagName.trim() && f.tagValue.trim()).length
-    const appliedCopy =
-      appliedFilters === 1 ? copy.appliedCountSingular : copy.appliedCountPlural
+    const appliedCopy = appliedFilters === 1 ? copy.appliedCountSingular : copy.appliedCountPlural
 
     return (
       <div className='space-y-1'>
-        <Label className='font-medium text-muted-foreground text-xs'>{t('Tag Filters')}</Label>
+        <Label className='font-medium text-muted-foreground text-xs'>{t('tagFilters')}</Label>
         <div className='text-muted-foreground text-sm'>
           {appliedFilters > 0
             ? formatTemplate(appliedCopy, { count: appliedFilters })
-            : t('No filters')}
+            : t('noFilters')}
         </div>
       </div>
     )
@@ -202,8 +201,8 @@ export function KnowledgeTagFilters({
   const renderHeader = () => (
     <thead>
       <tr className='border-b'>
-        <th className='w-2/5 border-r px-4 py-2 text-center font-medium text-sm'>{t('Tag Name')}</th>
-        <th className='px-4 py-2 text-center font-medium text-sm'>{t('Value')}</th>
+        <th className='w-2/5 border-r px-4 py-2 text-center font-medium text-sm'>{t('tagName')}</th>
+        <th className='px-4 py-2 text-center font-medium text-sm'>{t('value')}</th>
       </tr>
     </thead>
   )
@@ -251,7 +250,7 @@ export function KnowledgeTagFilters({
           />
           <div className='pointer-events-none absolute inset-0 flex items-center overflow-hidden bg-transparent px-3 text-sm'>
             <div className='whitespace-pre'>
-              {formatDisplayText(cellValue || t('Select tag'), {
+              {formatDisplayText(cellValue || t('selectTag'), {
                 accessiblePrefixes,
                 highlightAll: !accessiblePrefixes,
               })}
@@ -364,7 +363,7 @@ export function KnowledgeTagFilters({
   }
 
   if (isLoading) {
-    return <div className='p-4 text-muted-foreground text-sm'>{t('Loading tag definitions...')}</div>
+    return <div className='p-4 text-muted-foreground text-sm'>{t('loadingTagDefinitions')}</div>
   }
 
   return (

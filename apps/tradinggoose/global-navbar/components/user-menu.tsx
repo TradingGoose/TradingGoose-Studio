@@ -42,12 +42,7 @@ import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organi
 import { useSubscriptionData } from '@/hooks/queries/subscription'
 import { formatTemplate } from '@/i18n/client-messages'
 import { usePathname, useRouter } from '@/i18n/navigation'
-import {
-  getLocaleDisplayName,
-  isLocaleCode,
-  type LocaleCode,
-  locales,
-} from '@/i18n/utils'
+import { getLocaleDisplayName, isLocaleCode, type LocaleCode, locales } from '@/i18n/utils'
 import { clearUserData } from '@/stores'
 import { useGeneralStore } from '@/stores/settings/general/store'
 import { getInitials } from '../utils'
@@ -151,9 +146,7 @@ export function UserMenu({
   const currentThemeOption =
     THEME_OPTIONS.find((option) => option.value === theme) ?? THEME_OPTIONS[0]
   const currentThemeLabel = themeOptionLabels[currentThemeOption.value]
-  // This label intentionally bypasses next-intl interpolation because workspace copy uses
-  // {{token}} templates instead of ICU placeholders.
-  const themeLabelTemplate = messages.workspace?.userMenu?.themeLabel ?? 'Theme: {{theme}}'
+  const themeLabelTemplate = messages.workspace?.userMenu?.themeLabel ?? 'Theme: {theme}'
   const currentThemeAriaLabel = formatTemplate(themeLabelTemplate, { theme: currentThemeLabel })
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
   const activeOrganization = organizationsData?.activeOrganization
@@ -577,7 +570,7 @@ export function UserMenu({
                     <DropdownMenuItem
                       onSelect={(event) => {
                         event.preventDefault()
-                            router.push(systemNavigation.href)
+                        router.push(systemNavigation.href)
                       }}
                     >
                       <ShieldCheck />

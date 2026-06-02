@@ -47,8 +47,8 @@
     "homeLabel": "首页",
     "languageLabel": "语言",
     "primaryNavigation": "主导航",
-    "githubRepositoryAriaLabel": "GitHub 仓库 - {{stars}} 星",
-    "homeAriaLabel": "{{brand}} 首页"
+    "githubRepositoryAriaLabel": "GitHub 仓库 - {stars} 星",
+    "homeAriaLabel": "{brand} 首页"
   },
   "registration": {
     "open": {
@@ -178,7 +178,7 @@
       "github": "GitHub",
       "google": "Google",
       "connecting": "正在连接...",
-      "cancelled": "{{provider}} 登录已取消。请重试。"
+      "cancelled": "{provider} 登录已取消。请重试。"
     },
     "verify": {
       "eyebrow": "验证",
@@ -186,7 +186,7 @@
       "verifiedTitle": "邮箱已验证！",
       "verifiedDescription": "您的邮箱已验证。正在重定向到仪表盘...",
       "disabledDescription": "邮箱验证已禁用。正在重定向到仪表盘...",
-      "codeSent": "验证码已发送至 {{email}}",
+      "codeSent": "验证码已发送至 {email}",
       "developmentDescription": "开发模式：请查看控制台日志以获取验证码",
       "missingServiceDescription": "错误：邮箱验证已启用但未配置邮件服务",
       "instructionsWithService": "输入6位验证码以验证您的账户。如果在收件箱中未找到，请检查垃圾邮件文件夹。",
@@ -194,7 +194,7 @@
       "verifyButton": "验证邮箱",
       "verifyingButton": "正在验证...",
       "resendPrompt": "未收到验证码？",
-      "resendIn": "{{countdown}}秒后重新发送",
+      "resendIn": "{countdown}秒后重新发送",
       "resendButton": "重新发送",
       "yourEmail": "您的邮箱",
       "errors": {
@@ -370,25 +370,12 @@
         "waitlist": "嘟！隆重推出 TradingGoose-Studio",
         "open": "嘟！TradingGoose-Studio 已上线"
       },
-      "leadWords": [
-        "构建",
-        "测试",
-        "运行"
-      ],
-      "highlightWords": [
-        "交易分析",
-        "信号检测",
-        "风险评估"
-      ],
+      "leadWords": ["构建", "测试", "运行"],
+      "highlightWords": ["交易分析", "信号检测", "风险评估"],
       "titleConnector": "你的",
       "suffix": "与 TradingGoose",
       "description": "连接你自己的数据提供商，编写自定义指标以监控市场价格，并将其接入工作流，从而触发交易、卖出、买入或你定义的任何操作。",
-      "featureBadges": [
-        "AI Agent 工作流",
-        "自定义指标",
-        "自带数据",
-        "集成"
-      ],
+      "featureBadges": ["AI Agent 工作流", "自定义指标", "自带数据", "集成"],
       "learnMore": "了解更多",
       "logoAlt": "TradingGoose 标志"
     },
@@ -412,7 +399,7 @@
     },
     "footer": {
       "description": "面向技术型LLM交易的AI工作流平台",
-      "copyright": "© {{year}} {{brand}}。专为可视化交易工作流打造。",
+      "copyright": "© {year} {brand}。专为可视化交易工作流打造。",
       "links": {
         "docs": "文档",
         "blog": "博客",
@@ -610,21 +597,13 @@
           "badge": "工作空间",
           "title": "组件布局",
           "description": "拆分工作区，将组件并排或堆叠放置。为每个工作区保存并切换命名的布局。",
-          "bullets": [
-            "递归拆分",
-            "每个工作区保存的布局",
-            "共享组件操作菜单"
-          ]
+          "bullets": ["递归拆分", "每个工作区保存的布局", "共享组件操作菜单"]
         },
         {
           "badge": "图表",
           "title": "指标与实时数据",
           "description": "内置指标以及一个用于编写自定义指标的 PineTS 编辑器。连接您自己的数据提供商，实时监控价格。",
-          "bullets": [
-            "可配置的指标输入",
-            "每根 K 线实时重新执行",
-            "十字准线图例与图表标记"
-          ]
+          "bullets": ["可配置的指标输入", "每根 K 线实时重新执行", "十字准线图例与图表标记"]
         },
         {
           "badge": "工作流",
@@ -654,11 +633,11 @@
   },
   "blog": {
     "pageTitle": "博客",
-    "pageDescription": "关于交易自动化、工作流设计和构建更智能策略的洞察。{{count}} 篇文章，持续更新。",
+    "pageDescription": "关于交易自动化、工作流设计和构建更智能策略的洞察。{count} 篇文章，持续更新。",
     "searchPlaceholder": "搜索文章",
     "emptyTitle": "暂无文章",
     "emptyDescription": "请稍后再来——新文章即将发布。",
-    "noMatches": "未找到匹配\"{{query}}\"的文章",
+    "noMatches": "未找到匹配\"{query}\"的文章",
     "noMatchesDescription": "请尝试其他搜索词。",
     "readTimeSuffix": "分钟阅读",
     "viewArticle": "查看详情",
@@ -666,11 +645,11 @@
     "breadcrumbBlog": "博客",
     "tableOfContents": "本页内容",
     "shareTitle": "分享本文",
-    "shareOn": "在{{platform}}上分享",
+    "shareOn": "在{platform}上分享",
     "copyLink": "复制链接",
     "copied": "已复制！",
     "summarizeTitle": "AI 摘要",
-    "summarizeWithPlatform": "使用{{platform}}生成摘要",
+    "summarizeWithPlatform": "使用{platform}生成摘要",
     "articleSingular": "篇文章",
     "articlePlural": "篇文章"
   },
@@ -713,13 +692,7 @@
         "experience": {
           "label": "工作年限 *",
           "placeholder": "请选择经验级别",
-          "options": [
-            "0-1 年",
-            "1-3 年",
-            "3-5 年",
-            "5-10 年",
-            "10 年以上"
-          ]
+          "options": ["0-1 年", "1-3 年", "3-5 年", "5-10 年", "10 年以上"]
         },
         "location": {
           "label": "所在地 *",
@@ -772,8 +745,8 @@
     "rssFeed": "RSS 订阅源",
     "loadingMore": "加载中...",
     "showMore": "显示更多",
-    "viewContributorAriaLabel": "在 GitHub 上查看 @{{contributor}}",
-    "contributorAvatarAlt": "@{{contributor}}",
+    "viewContributorAriaLabel": "在 GitHub 上查看 @{contributor}",
+    "contributorAvatarAlt": "@{contributor}",
     "breadcrumb": "更新日志"
   },
   "legal": {
@@ -783,12 +756,12 @@
     "terms": {
       "title": "服务条款",
       "lastUpdatedDate": "2026-03-28",
-      "bodyMarkdown": "这些服务条款管辖您对 {{projectName}} 网站、应用程序、API 以及任何由项目运营的托管服务（统称为“服务”）的访问和使用。\n\n如果您使用的是自行托管部署或由非 TradingGoose 项目所有者运营的部署，则该运营商对其自身的服务条款、隐私声明、安全实践、计费和合规性负责。\n\n通过访问或使用服务，即表示您同意这些条款。如果您不同意，请勿使用服务。\n\n## 1. 开源许可证\n\n{{projectName}} 源代码根据项目的 AGPL-3.0-only 许可证和适用的第三方许可证单独提供。这些条款管理项目运营的网站和托管服务，并且不会取代或减少源代码许可证授予您的权利。\n\n许可证和署名详情可在仓库以及 [许可证与声明](/licenses) 页面获取。\n\n## 2. 资格、账户与访问\n\n您可能需要拥有账户才能使用服务的某些部分。您必须提供准确的信息，保护您的凭证安全，并对通过您账户发生的活动负责。\n\n您有责任维护登录凭证、API 密钥、OAuth 连接、经纪商凭证以及链接到您账户或工作流的任何其他访问方式的机密性。\n\n如果我们合理认为账户的使用违反了这些条款、威胁安全或造成法律或运营风险，我们可能会暂停或限制访问。\n\n## 3. 可接受使用\n\n您不得将服务用于：\n\n- 违反法律或侵犯他人权利。\n- 上传、传输或自动化非法、侵权、滥用或恶意内容。\n- 尝试未经授权的访问、干扰服务或干扰其他用户。\n- 使用服务分发恶意软件、垃圾邮件或进行欺诈活动。\n- 滥用您不控制或未获授权使用的关联账户、OAuth 凭证、经纪商账户或第三方 API。\n- 以需要您不具备的监管注册、披露或许可的方式使用服务。\n\n## 4. 您的内容、工作流与集成\n\n您保留通过服务提交或连接的内容、文件、提示词、工作流定义、指标脚本、凭证和其他数据（“您的内容”）的所有权。\n\n您授予我们有限的许可，仅用于运营、保护、支持和改进服务所需的主机、处理、存储、传输和展示您的内容。\n\n您有责任确保拥有使用您的内容以及您连接的任何第三方服务、市场数据源、经纪商账户或 API 所需的权利和权限。\n\n## 5. 第三方服务与关联账户\n\n服务可能与第三方服务互操作，包括模型提供商、存储提供商、通信服务、身份提供商、分析服务、支付处理器、市场数据服务和经纪商平台。\n\n您对这些第三方服务的使用仍受其自身条款、隐私声明、费用、技术限制和可用性的约束。\n\n对于第三方服务的中断、错误、价格变更、API 更改、账户限制、执行失败或其他行为，我们概不负责。\n\n## 6. 付费功能与计费\n\n某些部署可能提供付费计划、按使用量计费或订阅功能。如果您购买付费访问权限，即表示您同意支付购买时描述的适用费用、税费和收费。\n\n计费可能由第三方支付处理器（如 Stripe）处理。我们本身不存储完整的支付卡详细信息。\n\n未能支付可能导致付费功能被暂停或降级。定价和计划条款可能发生前瞻性变更。\n\n## 7. 仅限分析、研究与自动化\n\n{{projectName}} 作为提供分析、研究、图表、监控、工作流自动化及相关技术操作的软件。它不是经纪-交易商、交易所、投资顾问、受托人或执行场所。\n\n服务不提供财务、投资、法律、会计或税务建议。任何输出、图表、警报、脚本、模型响应、工作流结果或自动化工具仅供信息参考。\n\n您全权负责评估信息、审核输出、管理风险、确定适宜性，并决定是否基于服务进行交易、提交订单或采取任何其他行动。\n\n## 8. 交易操作、经纪商集成与市场数据\n\n某些部署可能启用与第三方经纪商、交易所、预测市场或市场数据提供商交互的工作流或工具。任何此类交易操作均由您指示发起，并由相关第三方提供商（如有）执行。\n\n对于因通过或基于服务采取的行动而产生的交易、订单、取消、成交、部分成交、拒绝订单、延迟执行、过时价格、错误代码、模型错误、工作流逻辑错误、不可用 API、市场数据不准确或任何类型的损失，我们概不负责。\n\n您有责任配置保护措施、测试工作流、监督自动化行为，并确认任何连接的交易活动符合适用法律和第三方提供商的规则。\n\n## 9. 可用性、实验性功能与变更\n\n服务可能随时间变化。我们可能随时添加、修改、暂停或删除功能，包括集成、托管功能和实验性功能。\n\n某些功能可能被标记为实验性、测试版、预览版或以其他方式被视为不完整。您需自行承担使用这些功能的风险。\n\n如果您违反这些条款、造成安全或法律风险或滥用服务，我们可能暂停或终止您对项目运营服务的访问权限。您可以随时停止使用服务。\n\n## 10. 知识产权与品牌\n\n服务包括开源代码、第三方组件以及项目拥有的品牌和内容。开源和第三方材料仍受其各自许可证的约束。\n\n除非许可证明确允许，否则未经许可，不得以暗示背书、关联或来源的方式使用 {{projectName}} 名称、徽标和品牌资产。\n\n## 11. 免责声明\n\n在法律允许的最大范围内，服务按“现状”和“可用”提供，不附带任何形式的保证。我们不保证服务不间断运行、准确性、盈利性、集成的可用性、适用于特定策略，或服务能够防止损失或错误。\n\n## 12. 责任限制\n\n在法律允许的最大范围内，对于因服务引起或与之相关的间接、附带、特殊、后果性、惩戒性或惩罚性损害赔偿，或利润损失、收入损失、交易损失、经纪损失、商誉损失、数据损失或业务中断，我们概不负责。\n\n如果无法排除责任，则责任上限为您就项目运营服务在索赔发生前 12 个月内向我们支付的金额。\n\n## 13. 赔偿\n\n在法律允许的范围内，您将对因滥用服务、您的关联账户、您的内容、您的工作流或违反这些条款或适用法律而引起的索赔、损失和费用负责。\n\n## 14. 条款变更\n\n我们可能不时更新这些条款。更新时，我们将更新本页面的最后更新日期。更新生效后您继续使用项目运营服务即表示您接受修订后的条款。\n\n## 15. 联系方式与版权通知\n\n如果您对这些条款有疑问，或者认为通过项目运营服务提供的材料侵犯了您的权利，请通过 [{{supportEmail}}](mailto:{{supportEmail}}) 联系我们。\n\n请提供足够详细的信息以便我们理解和审核您的请求。我们目前不在此页面公布用于法律通知的单独邮寄地址。"
+      "bodyMarkdown": "这些服务条款管辖您对 {projectName} 网站、应用程序、API 以及任何由项目运营的托管服务（统称为“服务”）的访问和使用。\n\n如果您使用的是自行托管部署或由非 TradingGoose 项目所有者运营的部署，则该运营商对其自身的服务条款、隐私声明、安全实践、计费和合规性负责。\n\n通过访问或使用服务，即表示您同意这些条款。如果您不同意，请勿使用服务。\n\n## 1. 开源许可证\n\n{projectName} 源代码根据项目的 AGPL-3.0-only 许可证和适用的第三方许可证单独提供。这些条款管理项目运营的网站和托管服务，并且不会取代或减少源代码许可证授予您的权利。\n\n许可证和署名详情可在仓库以及 [许可证与声明](/licenses) 页面获取。\n\n## 2. 资格、账户与访问\n\n您可能需要拥有账户才能使用服务的某些部分。您必须提供准确的信息，保护您的凭证安全，并对通过您账户发生的活动负责。\n\n您有责任维护登录凭证、API 密钥、OAuth 连接、经纪商凭证以及链接到您账户或工作流的任何其他访问方式的机密性。\n\n如果我们合理认为账户的使用违反了这些条款、威胁安全或造成法律或运营风险，我们可能会暂停或限制访问。\n\n## 3. 可接受使用\n\n您不得将服务用于：\n\n- 违反法律或侵犯他人权利。\n- 上传、传输或自动化非法、侵权、滥用或恶意内容。\n- 尝试未经授权的访问、干扰服务或干扰其他用户。\n- 使用服务分发恶意软件、垃圾邮件或进行欺诈活动。\n- 滥用您不控制或未获授权使用的关联账户、OAuth 凭证、经纪商账户或第三方 API。\n- 以需要您不具备的监管注册、披露或许可的方式使用服务。\n\n## 4. 您的内容、工作流与集成\n\n您保留通过服务提交或连接的内容、文件、提示词、工作流定义、指标脚本、凭证和其他数据（“您的内容”）的所有权。\n\n您授予我们有限的许可，仅用于运营、保护、支持和改进服务所需的主机、处理、存储、传输和展示您的内容。\n\n您有责任确保拥有使用您的内容以及您连接的任何第三方服务、市场数据源、经纪商账户或 API 所需的权利和权限。\n\n## 5. 第三方服务与关联账户\n\n服务可能与第三方服务互操作，包括模型提供商、存储提供商、通信服务、身份提供商、分析服务、支付处理器、市场数据服务和经纪商平台。\n\n您对这些第三方服务的使用仍受其自身条款、隐私声明、费用、技术限制和可用性的约束。\n\n对于第三方服务的中断、错误、价格变更、API 更改、账户限制、执行失败或其他行为，我们概不负责。\n\n## 6. 付费功能与计费\n\n某些部署可能提供付费计划、按使用量计费或订阅功能。如果您购买付费访问权限，即表示您同意支付购买时描述的适用费用、税费和收费。\n\n计费可能由第三方支付处理器（如 Stripe）处理。我们本身不存储完整的支付卡详细信息。\n\n未能支付可能导致付费功能被暂停或降级。定价和计划条款可能发生前瞻性变更。\n\n## 7. 仅限分析、研究与自动化\n\n{projectName} 作为提供分析、研究、图表、监控、工作流自动化及相关技术操作的软件。它不是经纪-交易商、交易所、投资顾问、受托人或执行场所。\n\n服务不提供财务、投资、法律、会计或税务建议。任何输出、图表、警报、脚本、模型响应、工作流结果或自动化工具仅供信息参考。\n\n您全权负责评估信息、审核输出、管理风险、确定适宜性，并决定是否基于服务进行交易、提交订单或采取任何其他行动。\n\n## 8. 交易操作、经纪商集成与市场数据\n\n某些部署可能启用与第三方经纪商、交易所、预测市场或市场数据提供商交互的工作流或工具。任何此类交易操作均由您指示发起，并由相关第三方提供商（如有）执行。\n\n对于因通过或基于服务采取的行动而产生的交易、订单、取消、成交、部分成交、拒绝订单、延迟执行、过时价格、错误代码、模型错误、工作流逻辑错误、不可用 API、市场数据不准确或任何类型的损失，我们概不负责。\n\n您有责任配置保护措施、测试工作流、监督自动化行为，并确认任何连接的交易活动符合适用法律和第三方提供商的规则。\n\n## 9. 可用性、实验性功能与变更\n\n服务可能随时间变化。我们可能随时添加、修改、暂停或删除功能，包括集成、托管功能和实验性功能。\n\n某些功能可能被标记为实验性、测试版、预览版或以其他方式被视为不完整。您需自行承担使用这些功能的风险。\n\n如果您违反这些条款、造成安全或法律风险或滥用服务，我们可能暂停或终止您对项目运营服务的访问权限。您可以随时停止使用服务。\n\n## 10. 知识产权与品牌\n\n服务包括开源代码、第三方组件以及项目拥有的品牌和内容。开源和第三方材料仍受其各自许可证的约束。\n\n除非许可证明确允许，否则未经许可，不得以暗示背书、关联或来源的方式使用 {projectName} 名称、徽标和品牌资产。\n\n## 11. 免责声明\n\n在法律允许的最大范围内，服务按“现状”和“可用”提供，不附带任何形式的保证。我们不保证服务不间断运行、准确性、盈利性、集成的可用性、适用于特定策略，或服务能够防止损失或错误。\n\n## 12. 责任限制\n\n在法律允许的最大范围内，对于因服务引起或与之相关的间接、附带、特殊、后果性、惩戒性或惩罚性损害赔偿，或利润损失、收入损失、交易损失、经纪损失、商誉损失、数据损失或业务中断，我们概不负责。\n\n如果无法排除责任，则责任上限为您就项目运营服务在索赔发生前 12 个月内向我们支付的金额。\n\n## 13. 赔偿\n\n在法律允许的范围内，您将对因滥用服务、您的关联账户、您的内容、您的工作流或违反这些条款或适用法律而引起的索赔、损失和费用负责。\n\n## 14. 条款变更\n\n我们可能不时更新这些条款。更新时，我们将更新本页面的最后更新日期。更新生效后您继续使用项目运营服务即表示您接受修订后的条款。\n\n## 15. 联系方式与版权通知\n\n如果您对这些条款有疑问，或者认为通过项目运营服务提供的材料侵犯了您的权利，请通过 [{supportEmail}](mailto:{supportEmail}) 联系我们。\n\n请提供足够详细的信息以便我们理解和审核您的请求。我们目前不在此页面公布用于法律通知的单独邮寄地址。"
     },
     "privacy": {
       "title": "隐私政策",
       "lastUpdatedDate": "2026-03-28",
-      "bodyMarkdown": "本隐私政策描述了当 {{projectName}} 项目所有者运营网站、应用程序、API 或托管服务（统称为“服务”）时，{{projectName}} 如何处理个人数据。\n\n如果您使用的是自托管部署或由他人运营的部署，则该运营商负责其自身的隐私声明、数据处理、Cookie、分析、集成和安全实践。\n\n## 1. 范围与角色\n\n本隐私政策适用于 {{projectName}} 项目运营的部署。对于自托管部署或由他人运营的部署，该运营商控制其自身的配置、存储、集成、分析、保留和合规性。\n\n在这些情况下，第三方运营商（而非 {{projectName}} 项目所有者）是该部署用户数据的主要控制者或运营者。\n\n## 2. 我们收集的信息\n\n### 账户与身份验证数据\n\n我们可能会收集您在创建或使用账户时提供的信息，例如您的姓名、电子邮件地址、登录方式、个人资料详情、组织成员身份和账户设置。\n\n### 内容与工作流数据\n\n我们可能会处理您通过服务提交或生成的提示、聊天记录、文件、文档、工作流定义、日志、指标脚本、自选股列表、模板以及其他内容。\n\n### 关联账户与集成数据\n\n如果您连接第三方服务，我们可能会收到账户标识符、OAuth 令牌、元数据以及您授权我们访问的第三方数据。根据您启用的内容，这可能包括 Google、GitHub、Microsoft、Slack、Stripe 以及券商或市场数据提供商等服务。\n\n### 付款与订阅数据\n\n如果启用了付费计划或使用量计费，计费将通过 Stripe 等支付提供商处理。我们可能会收到计费元数据，如客户 ID、订阅状态、发票和付款结果，但我们不会自行存储完整的支付卡详细信息。\n\n### 技术与使用数据\n\n我们可能会自动收集信息，例如 IP 地址、浏览器类型、设备信息、时间戳、错误数据、请求日志、功能使用情况、页面访问次数和性能指标。\n\n### Cookie、本地存储与分析\n\n服务使用 Cookie、本地存储和类似技术进行身份验证、会话管理、偏好设置、安全性和产品分析。\n\n如果部署启用了分析功能，则可能包括 OpenTelemetry 事件收集和 PostHog 分析。PostHog 可能会收集页面浏览量、点击次数、表单交互和会话重放数据。密码字段在重放中会被屏蔽，但其他表单输入可能不会被屏蔽。\n\n### 可选训练数据集导出\n\n某些部署可能启用可选的副驾驶训练功能。如果您明确使用这些功能，您选择提交的记录工作流编辑数据集可能会被发送到已配置的索引或训练服务。\n\n## 3. 信息来源\n\n我们可能直接从以下来源收集信息：\n\n- 您（当您创建账户、上传内容、连接服务或联系我们时）。\n- 您的浏览器、设备和服务的使用情况。\n- 您选择连接的第三方账户和 API。\n- 支付提供商、分析提供商、托管供应商和运营供应商。\n\n我们还可能从日志、执行结果、计费事件和系统遥测中获取运营或诊断信息。\n\n## 4. 我们如何使用信息\n\n我们可能使用收集的信息来：\n\n- 提供、维护和保护服务。\n- 对用户进行身份验证并管理账户、组织和权限。\n- 存储、执行工作流、聊天、文件和集成并进行故障排除。\n- 处理付款、订阅、使用限制和计费通信。\n- 响应支持请求、错误报告和产品反馈。\n- 监控性能、可靠性、欺诈、滥用和安全事件。\n- 改进服务和开发新功能。\n- 遵守法律义务并执行我们的条款和政策。\n\n如果您使用 AI 或自动化功能，您的内容可能会由您选择的或部署配置的模型提供商或集成提供商处理，以便交付请求的功能。\n\n## 5. 我们如何共享信息\n\n我们可能会与以下各方共享信息：\n\n- 帮助我们运营服务的服务提供商，例如托管、存储、电子邮件、分析、日志记录和支付供应商。\n- 运行您启用的工作流、集成或功能所需的第三方平台、模型提供商和 API。\n- 法律要求的执法机构、监管机构、法院或其他相关方。\n- 与服务相关的合并、收购、融资或转让中的继承者或购买方。\n\n我们不会为了金钱而出售个人信息。当您启用连接功能或部署使用分析或其他运营供应商时，仍可能发生第三方服务传输。\n\n## 6. Google、AI 提供商、券商集成和其他连接服务的数据\n\n如果您连接 Google 或其他第三方服务，我们仅在提供您启用的功能所需时访问和使用这些数据，并遵守您的权限和连接提供商的条款。\n\n我们不会将通过 Google API 获得的 Google 用户数据用于训练通用 AI 或 ML 模型。\n\n除了上述可选训练数据集功能外，我们不会使用您的工作流内容来训练服务的通用模型。\n\n## 7. Cookie、本地存储、遥测与分析\n\n服务使用 Cookie、本地存储和相关技术进行登录会话、身份验证状态、UI 偏好设置、账户设置、安全性、产品分析和类似的运营功能。\n\n对于项目运营的部署，匿名遥测可能默认启用，并且可能通过产品设置进行控制，具体取决于部署和您的账户状态。\n\n某些部署还可能启用 PostHog 或类似的分析工具，用于页面分析、交互分析和会话重放。如果您运行自托管部署，您的运营商控制此类工具是否启用以及数据发送位置。\n\n## 8. 国际处理\n\n信息可能在美国以及我们的供应商、基础设施或连接服务提供商运营的其他国家/地区进行处理。不同司法管辖区的数据保护法律可能有所不同。\n\n## 9. 保留期限\n\n我们会在合理必要的期限内保留信息，以运营服务、维护您的账户、处理计费、调查滥用、遵守法律义务和解决争议。\n\n保留期限可能因数据类型和部署配置而异。自托管或第三方运营商控制其部署的自身保留设置。\n\n## 10. 安全\n\n我们采用合理的行政、技术和组织保障措施来保护信息，但没有任何系统是绝对安全的。您也有责任保护您的账户凭据、API 密钥和关联的第三方账户。\n\n## 11. 您的选择与权利\n\n根据您所在的地点，您可能拥有访问、更正、删除、导出或反对某些个人数据使用的权利。\n\n您还可以通过产品设置（例如匿名遥测偏好）或断开第三方账户连接来直接控制某些数据收集。\n\n如果您位于欧洲经济区、英国或具有类似权利的其他司法管辖区，您可能还拥有限制、反对、撤回同意（在使用同意的情况下）以及向监管机构投诉的权利。\n\n如果您是加州居民，您可能拥有了解、访问、更正、删除和接收我们为项目运营的部署所收集、使用和披露的个人信息类别的信息，但需遵守法律例外情况。\n\n如需就项目运营的部署提出隐私相关请求，请通过 [{{supportEmail}}](mailto:{{supportEmail}}) 联系我们。如果您使用的是自托管或第三方部署，请联系该运营商。\n\n## 12. 儿童隐私\n\n服务不面向 18 岁以下儿童，我们不会通过项目运营的服务故意收集儿童的个人数据。\n\n## 13. 外部服务\n\n本隐私政策不涵盖您通过服务连接的第三方服务、券商、模型提供商、市场数据提供商或网站。请查看这些提供商自身的条款和隐私声明。\n\n## 14. 本政策的变更\n\n我们可能会不时更新本隐私政策。更新时，我们将更新此页面上的“最后更新”日期。重大变更将在发布时生效，除非法律要求更长的通知期。\n\n## 15. 联系方式\n\n如果您对项目运营的部署的本隐私政策有疑问、请求或投诉，请通过 [{{supportEmail}}](mailto:{{supportEmail}}) 联系我们。\n\n我们目前不在本页面上公布单独的邮寄地址。如果情况有变，我们将更新本政策。"
+      "bodyMarkdown": "本隐私政策描述了当 {projectName} 项目所有者运营网站、应用程序、API 或托管服务（统称为“服务”）时，{projectName} 如何处理个人数据。\n\n如果您使用的是自托管部署或由他人运营的部署，则该运营商负责其自身的隐私声明、数据处理、Cookie、分析、集成和安全实践。\n\n## 1. 范围与角色\n\n本隐私政策适用于 {projectName} 项目运营的部署。对于自托管部署或由他人运营的部署，该运营商控制其自身的配置、存储、集成、分析、保留和合规性。\n\n在这些情况下，第三方运营商（而非 {projectName} 项目所有者）是该部署用户数据的主要控制者或运营者。\n\n## 2. 我们收集的信息\n\n### 账户与身份验证数据\n\n我们可能会收集您在创建或使用账户时提供的信息，例如您的姓名、电子邮件地址、登录方式、个人资料详情、组织成员身份和账户设置。\n\n### 内容与工作流数据\n\n我们可能会处理您通过服务提交或生成的提示、聊天记录、文件、文档、工作流定义、日志、指标脚本、自选股列表、模板以及其他内容。\n\n### 关联账户与集成数据\n\n如果您连接第三方服务，我们可能会收到账户标识符、OAuth 令牌、元数据以及您授权我们访问的第三方数据。根据您启用的内容，这可能包括 Google、GitHub、Microsoft、Slack、Stripe 以及券商或市场数据提供商等服务。\n\n### 付款与订阅数据\n\n如果启用了付费计划或使用量计费，计费将通过 Stripe 等支付提供商处理。我们可能会收到计费元数据，如客户 ID、订阅状态、发票和付款结果，但我们不会自行存储完整的支付卡详细信息。\n\n### 技术与使用数据\n\n我们可能会自动收集信息，例如 IP 地址、浏览器类型、设备信息、时间戳、错误数据、请求日志、功能使用情况、页面访问次数和性能指标。\n\n### Cookie、本地存储与分析\n\n服务使用 Cookie、本地存储和类似技术进行身份验证、会话管理、偏好设置、安全性和产品分析。\n\n如果部署启用了分析功能，则可能包括 OpenTelemetry 事件收集和 PostHog 分析。PostHog 可能会收集页面浏览量、点击次数、表单交互和会话重放数据。密码字段在重放中会被屏蔽，但其他表单输入可能不会被屏蔽。\n\n### 可选训练数据集导出\n\n某些部署可能启用可选的副驾驶训练功能。如果您明确使用这些功能，您选择提交的记录工作流编辑数据集可能会被发送到已配置的索引或训练服务。\n\n## 3. 信息来源\n\n我们可能直接从以下来源收集信息：\n\n- 您（当您创建账户、上传内容、连接服务或联系我们时）。\n- 您的浏览器、设备和服务的使用情况。\n- 您选择连接的第三方账户和 API。\n- 支付提供商、分析提供商、托管供应商和运营供应商。\n\n我们还可能从日志、执行结果、计费事件和系统遥测中获取运营或诊断信息。\n\n## 4. 我们如何使用信息\n\n我们可能使用收集的信息来：\n\n- 提供、维护和保护服务。\n- 对用户进行身份验证并管理账户、组织和权限。\n- 存储、执行工作流、聊天、文件和集成并进行故障排除。\n- 处理付款、订阅、使用限制和计费通信。\n- 响应支持请求、错误报告和产品反馈。\n- 监控性能、可靠性、欺诈、滥用和安全事件。\n- 改进服务和开发新功能。\n- 遵守法律义务并执行我们的条款和政策。\n\n如果您使用 AI 或自动化功能，您的内容可能会由您选择的或部署配置的模型提供商或集成提供商处理，以便交付请求的功能。\n\n## 5. 我们如何共享信息\n\n我们可能会与以下各方共享信息：\n\n- 帮助我们运营服务的服务提供商，例如托管、存储、电子邮件、分析、日志记录和支付供应商。\n- 运行您启用的工作流、集成或功能所需的第三方平台、模型提供商和 API。\n- 法律要求的执法机构、监管机构、法院或其他相关方。\n- 与服务相关的合并、收购、融资或转让中的继承者或购买方。\n\n我们不会为了金钱而出售个人信息。当您启用连接功能或部署使用分析或其他运营供应商时，仍可能发生第三方服务传输。\n\n## 6. Google、AI 提供商、券商集成和其他连接服务的数据\n\n如果您连接 Google 或其他第三方服务，我们仅在提供您启用的功能所需时访问和使用这些数据，并遵守您的权限和连接提供商的条款。\n\n我们不会将通过 Google API 获得的 Google 用户数据用于训练通用 AI 或 ML 模型。\n\n除了上述可选训练数据集功能外，我们不会使用您的工作流内容来训练服务的通用模型。\n\n## 7. Cookie、本地存储、遥测与分析\n\n服务使用 Cookie、本地存储和相关技术进行登录会话、身份验证状态、UI 偏好设置、账户设置、安全性、产品分析和类似的运营功能。\n\n对于项目运营的部署，匿名遥测可能默认启用，并且可能通过产品设置进行控制，具体取决于部署和您的账户状态。\n\n某些部署还可能启用 PostHog 或类似的分析工具，用于页面分析、交互分析和会话重放。如果您运行自托管部署，您的运营商控制此类工具是否启用以及数据发送位置。\n\n## 8. 国际处理\n\n信息可能在美国以及我们的供应商、基础设施或连接服务提供商运营的其他国家/地区进行处理。不同司法管辖区的数据保护法律可能有所不同。\n\n## 9. 保留期限\n\n我们会在合理必要的期限内保留信息，以运营服务、维护您的账户、处理计费、调查滥用、遵守法律义务和解决争议。\n\n保留期限可能因数据类型和部署配置而异。自托管或第三方运营商控制其部署的自身保留设置。\n\n## 10. 安全\n\n我们采用合理的行政、技术和组织保障措施来保护信息，但没有任何系统是绝对安全的。您也有责任保护您的账户凭据、API 密钥和关联的第三方账户。\n\n## 11. 您的选择与权利\n\n根据您所在的地点，您可能拥有访问、更正、删除、导出或反对某些个人数据使用的权利。\n\n您还可以通过产品设置（例如匿名遥测偏好）或断开第三方账户连接来直接控制某些数据收集。\n\n如果您位于欧洲经济区、英国或具有类似权利的其他司法管辖区，您可能还拥有限制、反对、撤回同意（在使用同意的情况下）以及向监管机构投诉的权利。\n\n如果您是加州居民，您可能拥有了解、访问、更正、删除和接收我们为项目运营的部署所收集、使用和披露的个人信息类别的信息，但需遵守法律例外情况。\n\n如需就项目运营的部署提出隐私相关请求，请通过 [{supportEmail}](mailto:{supportEmail}) 联系我们。如果您使用的是自托管或第三方部署，请联系该运营商。\n\n## 12. 儿童隐私\n\n服务不面向 18 岁以下儿童，我们不会通过项目运营的服务故意收集儿童的个人数据。\n\n## 13. 外部服务\n\n本隐私政策不涵盖您通过服务连接的第三方服务、券商、模型提供商、市场数据提供商或网站。请查看这些提供商自身的条款和隐私声明。\n\n## 14. 本政策的变更\n\n我们可能会不时更新本隐私政策。更新时，我们将更新此页面上的“最后更新”日期。重大变更将在发布时生效，除非法律要求更长的通知期。\n\n## 15. 联系方式\n\n如果您对项目运营的部署的本隐私政策有疑问、请求或投诉，请通过 [{supportEmail}](mailto:{supportEmail}) 联系我们。\n\n我们目前不在本页面上公布单独的邮寄地址。如果情况有变，我们将更新本政策。"
     },
     "licenses": {
       "title": "许可与声明",
@@ -820,7 +793,7 @@
     },
     "warning": {
       "title": "已是团队成员",
-      "currentOrgWithName": "您当前是 \"{{name}}\" 的成员。在接受新邀请之前，您必须离开当前组织。",
+      "currentOrgWithName": "您当前是 \"{name}\" 的成员。在接受新邀请之前，您必须离开当前组织。",
       "currentOrg": "您已经是一个组织的成员。在接受新邀请之前，请离开当前组织。",
       "manageTeamSettings": "管理团队设置"
     },
@@ -829,12 +802,12 @@
     },
     "success": {
       "title": "欢迎！",
-      "description": "您已成功加入 {{name}}。正在重定向到您的工作区..."
+      "description": "您已成功加入 {name}。正在重定向到您的工作区..."
     },
     "invitation": {
       "organizationTitle": "组织邀请",
       "workspaceTitle": "工作区邀请",
-      "description": "您已受邀加入 {{name}}。请点击下方接受以加入。",
+      "description": "您已受邀加入 {name}。请点击下方接受以加入。",
       "accept": "接受邀请"
     },
     "errors": {
@@ -1042,7 +1015,7 @@
         "createTooltip": "需要写入权限才能创建知识库"
       },
       "errors": {
-        "load": "加载知识库时出错：{{error}}",
+        "load": "加载知识库时出错：{error}",
         "retry": "重试"
       },
       "emptyState": {
@@ -1078,7 +1051,7 @@
         "copyId": "复制知识库 ID",
         "deleteButtonLabel": "删除知识库",
         "deleteTitle": "删除知识库",
-        "deleteDescription": "确定要删除“{{title}}”吗？此操作将永久删除该知识库及其 {{count}} 个文档{{plural}}。",
+        "deleteDescription": "确定要删除“{title}”吗？此操作将永久删除该知识库及其 {count} 个文档{plural}。",
         "cancel": "取消",
         "deleteConfirm": "删除",
         "deleting": "删除中..."
@@ -1112,7 +1085,7 @@
         "nextChunk": "下一个块",
         "previousPage": "上一页",
         "nextPage": "下一页",
-        "editingChunk": "编辑块 #{{index}} • 第 {{currentPage}} 页，共 {{totalPages}} 页",
+        "editingChunk": "编辑块 #{index} • 第 {currentPage} 页，共 {totalPages} 页",
         "cancel": "取消",
         "errors": {
           "failedToCreateChunk": "创建块失败",
@@ -1150,8 +1123,8 @@
         "creating": "正在创建...",
         "failedToCreateKnowledgeBase": "创建知识库失败",
         "unknownError": "发生未知错误",
-        "fileTooLarge": "文件 {{name}} 过大。单个文件最大 100MB。",
-        "unsupportedFileType": "文件 {{name}} 格式不受支持。请使用 PDF、DOC、DOCX、TXT、CSV、XLS、XLSX、MD、PPT、PPTX、HTML、JSON、YAML 或 YML 格式。",
+        "fileTooLarge": "文件 {name} 过大。单个文件最大 100MB。",
+        "unsupportedFileType": "文件 {name} 格式不受支持。请使用 PDF、DOC、DOCX、TXT、CSV、XLS、XLSX、MD、PPT、PPTX、HTML、JSON、YAML 或 YML 格式。",
         "processingError": "处理文件时发生错误，请重试。",
         "validation": {
           "nameRequired": "名称不能为空",
@@ -1180,8 +1153,8 @@
         "uploadDocuments": "上传文档",
         "uploading": "正在上传...",
         "processing": "正在处理...",
-        "fileTooLarge": "文件“{{name}}”过大。最大大小为 100MB。",
-        "unsupportedFileType": "文件“{{name}}”格式不支持。请使用 PDF、DOC、DOCX、TXT、CSV、XLS、XLSX、MD、PPT、PPTX、HTML、JSON、YAML 或 YML 文件。"
+        "fileTooLarge": "文件“{name}”过大。最大大小为 100MB。",
+        "unsupportedFileType": "文件“{name}”格式不支持。请使用 PDF、DOC、DOCX、TXT、CSV、XLS、XLSX、MD、PPT、PPTX、HTML、JSON、YAML 或 YML 文件。"
       },
       "document": {
         "searchChunksPlaceholder": "搜索块...",
@@ -1189,13 +1162,13 @@
         "deleteChunkTitle": "删除块？",
         "deleteChunksTitle": "删除块？",
         "deleteChunkDescription": "删除此块将永久将其从此文档中移除。",
-        "deleteChunksDescription": "删除 {{count}} 个块将永久将其从此文档中移除。",
+        "deleteChunksDescription": "删除 {count} 个块将永久将其从此文档中移除。",
         "thisActionCannotBeUndone": "此操作无法撤消。",
         "cancel": "取消",
         "deleteFileTitle": "删除文件？",
         "deleteFilesTitle": "删除文件？",
-        "deleteFileDescription": "删除\"{{name}}\"将永久移除其源文件、数据块和嵌入内容，从此知识库中清除。",
-        "deleteFilesDescription": "删除 {{count}} 个文件将永久移除其源文件、数据块和嵌入内容，从此知识库中清除。",
+        "deleteFileDescription": "删除\"{name}\"将永久移除其源文件、数据块和嵌入内容，从此知识库中清除。",
+        "deleteFilesDescription": "删除 {count} 个文件将永久移除其源文件、数据块和嵌入内容，从此知识库中清除。",
         "delete": "删除",
         "deleting": "正在删除..."
       },
@@ -1210,8 +1183,8 @@
         "addTag": "添加标签",
         "emptyState": "尚未添加任何标签。点击\"添加标签\"开始操作。",
         "advancedSettings": "高级设置",
-        "tagCount": "{{count}} 个标签",
-        "slotsUsed": "已使用 {{used}} / {{total}} 个标签位",
+        "tagCount": "{count} 个标签",
+        "slotsUsed": "已使用 {used} / {total} 个标签位",
         "editTag": "编辑标签",
         "addNewTag": "添加新标签",
         "tagName": "标签名称",
@@ -1234,15 +1207,15 @@
         "moreTags": "更多标签",
         "showFewerTags": "显示较少标签",
         "activeTags": "活跃标签：",
-        "tagLabel": "标签 {{index}}",
+        "tagLabel": "标签 {index}",
         "deleteTagTitle": "删除标签",
-        "deleteTagDescription": "确定要删除标签“{{name}}”吗？这将从{{count}}个文档中移除此标签。",
+        "deleteTagDescription": "确定要删除标签“{name}”吗？这将从{count}个文档中移除此标签。",
         "thisActionCannotBeUndone": "此操作无法撤销。",
         "affectedDocuments": "受影响的文档：",
         "deleting": "正在删除...",
-        "documentsUsingTagTitle": "使用“{{name}}”的文档",
-        "documentsUsingTagDescriptionSingular": "有 {{count}} 个文档当前正在使用此标签定义。",
-        "documentsUsingTagDescriptionPlural": "有 {{count}} 个文档当前正在使用此标签定义。",
+        "documentsUsingTagTitle": "使用“{name}”的文档",
+        "documentsUsingTagDescriptionSingular": "有 {count} 个文档当前正在使用此标签定义。",
+        "documentsUsingTagDescriptionPlural": "有 {count} 个文档当前正在使用此标签定义。",
         "singularIs": "是",
         "pluralAre": "是",
         "tagUnusedHelp": "此标签定义未被任何文档使用。您可以安全地删除它以释放标签槽位。"
@@ -1286,7 +1259,7 @@
         "refreshing": "正在刷新...",
         "chart": {
           "noData": "暂无可用数据。",
-          "toggleSeries": "切换序列 {{label}}"
+          "toggleSeries": "切换序列 {label}"
         },
         "filters": {
           "title": "筛选条件",
@@ -1295,7 +1268,7 @@
           "suggestedFilters": "建议筛选条件",
           "textSearch": "文本搜索",
           "searchPlaceholder": "搜索日志...",
-          "filterOptionsPlaceholder": "未找到{{title}}的相关选项。",
+          "filterOptionsPlaceholder": "未找到{title}的相关选项。",
           "searchWorkflows": "搜索工作流...",
           "searchFolders": "搜索文件夹...",
           "searchOptions": "搜索选项...",
@@ -1305,11 +1278,11 @@
           "noFolders": "未找到文件夹。",
           "noOptions": "未找到选项。",
           "allWorkflows": "所有工作流",
-          "selectedWorkflows": "已选择 {{count}} 个工作流",
+          "selectedWorkflows": "已选择 {count} 个工作流",
           "allFolders": "所有文件夹",
-          "selectedFolders": "已选择 {{count}} 个文件夹",
+          "selectedFolders": "已选择 {count} 个文件夹",
           "allTriggers": "所有触发器",
-          "selectedTriggers": "已选择 {{count}} 个触发器",
+          "selectedTriggers": "已选择 {count} 个触发器",
           "allTime": "所有时间",
           "past30Minutes": "过去30分钟",
           "pastHour": "过去1小时",
@@ -1334,7 +1307,7 @@
           "trigger": "触发器",
           "timeline": "时间线",
           "retentionPolicy": "日志保留策略",
-          "retentionDescription": "在此层级，日志将在{{days}}天后自动删除。",
+          "retentionDescription": "在此层级，日志将在{days}天后自动删除。",
           "upgradePlan": "升级计划"
         },
         "metrics": {
@@ -1345,15 +1318,15 @@
         },
         "workflows": {
           "title": "工作流",
-          "legend": "每个单元格代表所选范围的 {{duration}}。点击某个单元格可筛选详细信息。",
-          "count": "{{count}} 个工作流",
-          "countPlural": "{{count}} 个工作流",
-          "filteredFrom": "（从 {{count}} 个中筛选）",
-          "noMatches": "未找到匹配 \"{{query}}\" 的工作流。",
+          "legend": "每个单元格代表所选范围的 {duration}。点击某个单元格可筛选详细信息。",
+          "count": "{count} 个工作流",
+          "countPlural": "{count} 个工作流",
+          "filteredFrom": "（从 {count} 个中筛选）",
+          "noMatches": "未找到匹配 \"{query}\" 的工作流。",
           "selectedSegment": "已选片段",
-          "filteredTo": "筛选至 {{timestamp}}",
-          "selectedRangeMore": "（+{{count}} 个片段）",
-          "selectedRangeExecutions": "— {{count}} 次执行",
+          "filteredTo": "筛选至 {timestamp}",
+          "selectedRangeMore": "（+{count} 个片段）",
+          "selectedRangeExecutions": "— {count} 次执行",
           "clearFilter": "清除筛选",
           "executions": "执行次数",
           "success": "成功",
@@ -1372,13 +1345,13 @@
           "noExecutions": "无执行",
           "loadingMore": "正在加载更多...",
           "scrollToLoadMore": "滚动以加载更多",
-          "succeeded": "{{success}}/{{total}} 成功",
-          "segment": "分段 {{index}}",
+          "succeeded": "{success}/{total} 成功",
+          "segment": "分段 {index}",
           "allWorkflows": "所有工作流",
-          "multipleSelected": "已选择 {{count}} 个工作流",
-          "durationDay": "{{count}} 天",
-          "durationHour": "{{count}} 小时",
-          "durationMinute": "{{count}} 分钟"
+          "multipleSelected": "已选择 {count} 个工作流",
+          "durationDay": "{count} 天",
+          "durationHour": "{count} 小时",
+          "durationMinute": "{count} 分钟"
         }
       },
       "list": {
@@ -1396,7 +1369,7 @@
         "noLogs": "未找到日志",
         "unknownWorkflow": "未知工作流",
         "errorPrefix": "错误：",
-        "runningMs": "{{value}} 毫秒"
+        "runningMs": "{value} 毫秒"
       },
       "details": {
         "title": "日志详情",
@@ -1422,17 +1395,17 @@
         "modelOutput": "模型输出：",
         "total": "总计：",
         "tokens": "令牌：",
-        "modelBreakdown": "模型明细（{{count}}）",
+        "modelBreakdown": "模型明细（{count}）",
         "input": "输入：",
         "output": "输出：",
-        "totalCostNote": "总费用包括基础执行费 {{amount}} 以及任何模型使用费用。",
+        "totalCostNote": "总费用包括基础执行费 {amount} 以及任何模型使用费用。",
         "notAvailable": "不可用",
         "unknownSize": "未知大小",
         "unknownType": "未知类型",
         "unknownWorkflow": "未知",
         "unknownLevel": "未知",
         "unknownValue": "未知",
-        "runningMs": "{{value}} 毫秒",
+        "runningMs": "{value} 毫秒",
         "traceSpans": {
           "workflowExecution": "工作流执行",
           "collapseAll": "全部折叠",
@@ -1445,21 +1418,21 @@
           "initialResponse": "初始响应",
           "modelResponse": "模型响应",
           "modelGeneration": "模型生成",
-          "tokens": "{{count}} 个令牌",
+          "tokens": "{count} 个令牌",
           "tokensUnavailable": "令牌不可用",
-          "tokensInOut": "输入 {{input}} / 输出 {{output}}",
-          "tokensTotal": "共 {{count}} 个令牌",
-          "tokensTotalSuffix": "（共 {{count}} 个）",
+          "tokensInOut": "输入 {input} / 输出 {output}",
+          "tokensTotal": "共 {count} 个令牌",
+          "tokensTotalSuffix": "（共 {count} 个）",
           "input": "输入",
           "output": "输出",
           "total": "总计",
           "start": "开始",
-          "plusMs": "+{{ms}} ms",
-          "betweenBlocks": "间隔 {{ms}} ms",
+          "plusMs": "+{ms} ms",
+          "betweenBlocks": "间隔 {ms} ms",
           "inputSection": "输入",
           "outputSection": "输出",
           "errorSection": "错误",
-          "segmentTimingTooltip": "{{type}}{{nameSuffix}} 耗时 {{duration}} ms"
+          "segmentTimingTooltip": "{type}{nameSuffix} 耗时 {duration} ms"
         },
         "download": {
           "downloading": "正在下载...",
@@ -1559,8 +1532,8 @@
         }
       },
       "searchEmpty": {
-        "workspace": "未找到匹配\"{{query}}\"的工作区环境变量。",
-        "personal": "未找到匹配\"{{query}}\"的个人环境变量。"
+        "workspace": "未找到匹配\"{query}\"的工作区环境变量。",
+        "personal": "未找到匹配\"{query}\"的个人环境变量。"
       },
       "headers": {
         "createdAt": "创建时间",
@@ -1583,7 +1556,7 @@
     },
     "apiKeys": {
       "title": "API 密钥",
-      "cardTitle": "{{scope}} API 密钥",
+      "cardTitle": "{scope} API 密钥",
       "searchPlaceholder": "搜索密钥...",
       "scope": {
         "workspace": "工作区",
@@ -1605,7 +1578,7 @@
           "button": "创建密钥"
         }
       },
-      "searchEmpty": "未找到与\"{{query}}\"匹配的{{scope}} API 密钥。",
+      "searchEmpty": "未找到与\"{query}\"匹配的{scope} API 密钥。",
       "headers": {
         "createdAt": "创建时间",
         "name": "名称",
@@ -1616,20 +1589,20 @@
       "labels": {
         "never": "从未",
         "billingTier": "计费层级",
-        "lastUsed": "上次使用：{{date}}",
+        "lastUsed": "上次使用：{date}",
         "saveName": "保存 API 密钥名称",
-        "rename": "重命名{{scope}}API 密钥",
-        "reveal": "显示{{scope}}API 密钥",
-        "hide": "隐藏{{scope}}API 密钥",
-        "copy": "复制{{scope}}API 密钥",
-        "save": "保存{{scope}}API 密钥",
+        "rename": "重命名{scope}API 密钥",
+        "reveal": "显示{scope}API 密钥",
+        "hide": "隐藏{scope}API 密钥",
+        "copy": "复制{scope}API 密钥",
+        "save": "保存{scope}API 密钥",
         "cancelRename": "取消重命名",
-        "delete": "删除{{scope}}API 密钥",
+        "delete": "删除{scope}API 密钥",
         "nameRequired": "名称为必填项",
-        "duplicateName": "名为“{{name}}”的{{scope}}API 密钥已存在。",
-        "failedRename": "重命名{{scope}}API 密钥失败。",
-        "unableRename": "无法重命名{{scope}}API 密钥，请重试。",
-        "failedCreate": "创建{{scope}}API 密钥失败，请重试。",
+        "duplicateName": "名为“{name}”的{scope}API 密钥已存在。",
+        "failedRename": "重命名{scope}API 密钥失败。",
+        "unableRename": "无法重命名{scope}API 密钥，请重试。",
+        "failedCreate": "创建{scope}API 密钥失败，请重试。",
         "workspaceAccess": "此密钥授予对该工作区内所有工作流和文件的访问权限。请在创建后立即复制，因为之后将无法再次查看。",
         "personalAccess": "此密钥授予对个人工作流和文件的访问权限。请在创建后立即复制，因为之后将无法再次查看。",
         "onlyTimeYouWillSee": "这是您唯一一次看到完整密钥的机会，请复制并妥善保管。",
@@ -1637,15 +1610,15 @@
         "workspacePermissions": "您需要编辑或管理员权限才能管理工作区 API 密钥。"
       },
       "dialogs": {
-        "createTitle": "创建{{scope}}API 密钥",
+        "createTitle": "创建{scope}API 密钥",
         "createNameLabel": "名称",
         "createNamePlaceholder": "例如：生产 MCP 服务器",
         "createButton": "创建密钥",
-        "newKeyTitle": "您的{{scope}}API 密钥",
+        "newKeyTitle": "您的{scope}API 密钥",
         "newKeyDescription": "这是您唯一一次看到完整密钥的机会，请复制并妥善保管。",
-        "deleteTitle": "删除{{scope}}API密钥？",
+        "deleteTitle": "删除{scope}API密钥？",
         "deleteDescription": "此操作将立即撤销所有使用此密钥的集成的访问权限。",
-        "deletePrompt": "输入{{name}}以确认。",
+        "deletePrompt": "输入{name}以确认。",
         "deletePlaceholder": "API密钥名称",
         "cancel": "取消",
         "deleteButton": "删除密钥",
@@ -1684,7 +1657,7 @@
         "searchPlaceholder": "搜索订单…",
         "filters": "筛选",
         "orderFilters": "订单筛选",
-        "showingOf": "显示 {{loadedCount}} / {{totalCount}}",
+        "showingOf": "显示 {loadedCount} / {totalCount}",
         "clear": "清除",
         "allProviders": "所有提供商",
         "allEnvironments": "所有环境",
@@ -1761,7 +1734,7 @@
       "disconnect": "断开连接",
       "emptyState": {
         "noConnectible": "未配置可连接的集成。",
-        "noSearchMatches": "未找到与\"{{query}}\"匹配的服务"
+        "noSearchMatches": "未找到与\"{query}\"匹配的服务"
       },
       "errors": {
         "loadAvailability": "加载提供商可用性失败",
@@ -1774,7 +1747,7 @@
       "upload": {
         "idle": "上传文件",
         "uploading": "上传中...",
-        "uploadingWithCount": "上传中 {{completed}}/{{total}}...",
+        "uploadingWithCount": "上传中 {completed}/{total}...",
         "button": "上传文件"
       },
       "headers": {
@@ -1798,7 +1771,7 @@
       },
       "deleteDialog": {
         "title": "确认删除文件？",
-        "descriptionWithName": "删除 \"{{name}}\" 将会将其从此工作区中永久移除。",
+        "descriptionWithName": "删除 \"{name}\" 将会将其从此工作区中永久移除。",
         "description": "删除此文件将会将其从此工作区中永久移除。",
         "warning": "此操作无法撤销。",
         "cancel": "取消",
@@ -1808,7 +1781,7 @@
       "errors": {
         "billingTier": "计费层级",
         "uploadFailed": "上传失败",
-        "unsupportedFileType": "不支持的文件类型：{{files}}"
+        "unsupportedFileType": "不支持的文件类型：{files}"
       }
     },
     "userMenu": {
@@ -1824,7 +1797,7 @@
       "loggingOut": "正在退出登录...",
       "billingPortalSelectOrganization": "请选择要管理计费的组织。",
       "billingPortalFailed": "打开计费门户失败",
-      "themeLabel": "主题：{{theme}}",
+      "themeLabel": "主题：{theme}",
       "languageLabel": "语言",
       "themeOptions": {
         "light": "浅色",
@@ -1875,8 +1848,8 @@
           "nameRequired": "请提供姓名。",
           "saveError": "无法保存个人资料设置。",
           "nameRequiredValidation": "姓名为必填项",
-          "profilePictureFileTooLarge": "文件 {{name}} 过大，最大允许 5MB。",
-          "profilePictureUnsupportedFormat": "文件 {{name}} 不是受支持的图片格式。请使用 PNG 或 JPEG。",
+          "profilePictureFileTooLarge": "文件 {name} 过大，最大允许 5MB。",
+          "profilePictureUnsupportedFormat": "文件 {name} 不是受支持的图片格式。请使用 PNG 或 JPEG。",
           "profilePictureUpdateError": "更新个人资料图片失败",
           "profilePictureRemoveError": "移除个人资料图片失败",
           "unableToUpdateProfilePicture": "无法更新个人资料图片。",
@@ -1905,7 +1878,7 @@
         "dropImagesBrowse": "拖放图片到这里，或点击浏览",
         "imageHint": "JPEG、PNG、WebP、GIF（每张最大20MB）",
         "uploadedImages": "已上传图片",
-        "previewAlt": "预览 {{index}}",
+        "previewAlt": "预览 {index}",
         "cancel": "取消",
         "submit": "提交",
         "submitting": "提交中...",
@@ -1916,8 +1889,8 @@
           "subjectRequired": "请填写主题",
           "messageRequired": "请填写消息内容",
           "requestTypeRequired": "请选择请求类型",
-          "fileTooLarge": "文件 {{name}} 过大，最大允许20MB。",
-          "unsupportedFormat": "文件 {{name}} 格式不支持，请使用 JPEG、PNG、WebP 或 GIF 格式。",
+          "fileTooLarge": "文件 {name} 过大，最大允许20MB。",
+          "unsupportedFormat": "文件 {name} 格式不支持，请使用 JPEG、PNG、WebP 或 GIF 格式。",
           "processing": "处理图片时出错，请重试。",
           "submitFailed": "提交帮助请求失败",
           "unknown": "发生未知错误"
@@ -1955,7 +1928,7 @@
           "custom": "自定义",
           "seats": "席位"
         },
-        "seatsText": "{{count}} 个席位",
+        "seatsText": "{count} 个席位",
         "descriptions": {
           "manage": "打开 Stripe 结算门户以取消、恢复或更新您的订阅。",
           "usageNotifications": "当用量达到结算警告阈值时发送邮件通知我",
@@ -1981,7 +1954,7 @@
         "actions": {
           "manage": "管理",
           "contact": "联系",
-          "upgradeTo": "升级至{{name}}"
+          "upgradeTo": "升级至{name}"
         },
         "badges": {
           "resolvePayment": "解决付款问题",
@@ -2000,8 +1973,8 @@
       },
       "team": {
         "error": "错误",
-        "defaultTeamName": "{{name}} 的团队",
-        "billingHowWorksSeatCost": "{{seats}} 个席位每月花费 ${{amount}}。",
+        "defaultTeamName": "{name} 的团队",
+        "billingHowWorksSeatCost": "{seats} 个席位每月花费 ${amount}。",
         "billingHowWorksUsageTracked": "使用量在组织的所有工作空间中追踪。",
         "billingHowWorksIncreaseLimit": "当组织需要更多容量时，请提高限制。",
         "billingHowWorksOverage": "超额使用费根据当前活跃套餐计费。",
@@ -2025,16 +1998,16 @@
         "subscriptionMayNeedTransfer": "您的订阅可能需要转移到此组织。",
         "setUpTeamSubscription": "设置团队订阅",
         "seats": "席位",
-        "pricePerSeat": "（每席位每月{{price}}）",
-        "used": "已使用 {{count}} 个",
-        "total": "总共 {{count}} 个",
+        "pricePerSeat": "（每席位每月{price}）",
+        "used": "已使用 {count} 个",
+        "total": "总共 {count} 个",
         "removeSeat": "移除席位",
         "addSeat": "添加席位",
         "seat": "席位",
         "numberOfSeats": "席位数量",
-        "yourTeamWillHave": "您的团队将拥有 {{count}} 个{{seatWord}}，每月共 ${{cost}} 推理积分。",
-        "minimumSeatsNoMax": "最少 {{minimum}} 个席位。此层级无最大席位上限。",
-        "chooseBetweenSeats": "请在此层级选择 {{minimum}} 到 {{maximum}} 个席位。",
+        "yourTeamWillHave": "您的团队将拥有 {count} 个{seatWord}，每月共 ${cost} 推理积分。",
+        "minimumSeatsNoMax": "最少 {minimum} 个席位。此层级无最大席位上限。",
+        "chooseBetweenSeats": "请在此层级选择 {minimum} 到 {maximum} 个席位。",
         "currentSeats": "当前席位：",
         "newSeats": "新席位：",
         "monthlyCostChange": "月度费用变动：",
@@ -2043,7 +2016,7 @@
         "leaveOrganization": "退出组织",
         "removeTeamMember": "移除团队成员",
         "leaveOrganizationDescription": "确定要退出此组织吗？您将失去所有团队资源的访问权限。",
-        "removeMemberDescription": "确定要将 {{name}} 从团队中移除吗？",
+        "removeMemberDescription": "确定要将 {name} 从团队中移除吗？",
         "alsoReduceSeatCount": "同时减少订阅中的席位数量",
         "reduceSeatCountDescription": "如果选中，您的团队席位数量将减少 1，从而降低您的月度费用。",
         "thisActionCannotBeUndone": "此操作无法撤销。",
@@ -2055,7 +2028,7 @@
         "noPublicAdjustableTier": "未配置公开可调整的组织层级",
         "addSeats": {
           "title": "添加团队席位",
-          "description": "每个席位每月费用为 ${{price}}，并提供 ${{price}} 的月度推理积分。调整团队许可席位数量。",
+          "description": "每个席位每月费用为 ${price}，并提供 ${price} 的月度推理积分。调整团队许可席位数量。",
           "confirm": "更新席位"
         },
         "billing": {
@@ -2075,7 +2048,7 @@
         "members": {
           "title": "团队成员",
           "empty": "暂无团队成员。",
-          "sharedUsage": "共享用量：${{amount}}",
+          "sharedUsage": "共享用量：${amount}",
           "pending": "待处理",
           "billing": "计费",
           "usage": "用量",
@@ -2097,13 +2070,13 @@
           "unavailable": "邀请不可用",
           "workspaceAccess": "工作区访问权限",
           "optional": "可选",
-          "selected": "已选择 {{count}} 个工作区",
+          "selected": "已选择 {count} 个工作区",
           "grantAccess": "授予特定工作区的访问权限并选择权限级别。",
           "noWorkspacesAvailable": "无可用工作区。",
           "needAdminAccess": "您需要管理员权限才能分配工作区。",
           "owner": "所有者",
           "sentSuccess": "邀请已发送。",
-          "sentSuccessWithAccess": "邀请已发送，授予 {{count}} 个工作区的访问权限。",
+          "sentSuccessWithAccess": "邀请已发送，授予 {count} 个工作区的访问权限。",
           "invalidEmail": "请输入有效的电子邮件地址。",
           "permissions": {
             "read": {
@@ -2180,7 +2153,7 @@
         "providerError": "配置 SSO 提供商失败",
         "reloadError": "重新加载 SSO 提供商失败",
         "validation": {
-          "fieldRequired": "{{field}} 为必填项。",
+          "fieldRequired": "{field} 为必填项。",
           "providerIdRequired": "提供商 ID 为必填项。",
           "providerIdPattern": "仅可使用字母、数字和短横线。",
           "issuerUrlRequired": "颁发者 URL 为必填项。",
@@ -2235,11 +2208,11 @@
       "webhook": {
         "common": {
           "configureButton": "配置 Webhook",
-          "connectedLabel": "{{provider}} 已连接",
-          "configureTitle": "配置 {{provider}} Webhook",
-          "editTitle": "编辑 {{provider}} Webhook",
+          "connectedLabel": "{provider} 已连接",
+          "configureTitle": "配置 {provider} Webhook",
+          "editTitle": "编辑 {provider} Webhook",
           "close": "关闭",
-          "learnMoreAbout": "了解更多关于{{topic}}",
+          "learnMoreAbout": "了解更多关于{topic}",
           "showSecret": "显示密钥",
           "hideSecret": "隐藏密钥",
           "copyValue": "复制值",
@@ -2254,14 +2227,14 @@
           "validConfiguration": "Webhook 配置有效",
           "testFailure": "Webhook 测试失败",
           "telegramSslError": "Telegram 要求使用具有有效 SSL 证书的公开可访问的 HTTPS URL。",
-          "telegramTestFailure": "Telegram Webhook 测试失败：{{error}}",
+          "telegramTestFailure": "Telegram Webhook 测试失败：{error}",
           "testError": "测试 Webhook 时发生意外错误",
           "testUrlLabel": "测试 Webhook URL",
           "testUrlHint": "使用此临时URL向你的工作流发送一个示例请求。",
           "generate": "生成",
           "generating": "正在生成...",
           "regenerate": "重新生成",
-          "expiresAt": "于{{timestamp}}过期",
+          "expiresAt": "于{timestamp}过期",
           "delete": "删除",
           "deleting": "正在删除...",
           "testWebhook": "测试webhook",
@@ -2315,7 +2288,7 @@
               "copyWebhookUrl": "复制Webhook URL。",
               "configureService": "将其粘贴到将要发送Webhook的服务中。",
               "includeBearerHeader": "在Authorization标头中携带生成的令牌。",
-              "includeNamedHeader": "在{{header}}标头中携带生成的令牌。"
+              "includeNamedHeader": "在{header}标头中携带生成的令牌。"
             }
           },
           "github": {
@@ -2347,7 +2320,7 @@
               "addWebhook": "进入 Webhooks 页面，并点击添加 Webhook。",
               "pastePayloadUrlPrefix": "将",
               "pastePayloadUrlSuffix": "粘贴到“Payload URL”字段中。",
-              "selectContentType": "将内容类型设置为 {{contentType}}。",
+              "selectContentType": "将内容类型设置为 {contentType}。",
               "enterWebhookSecretPrefix": "将生成的密钥复制到",
               "enterWebhookSecretSuffix": "中。",
               "setSslVerification": "除非在受控环境中进行测试，否则请启用 SSL 验证。",
@@ -2386,7 +2359,7 @@
             "notice": {
               "payloadTitle": "Gmail 事件负载示例"
             },
-            "fallbackLabels": {
+            "defaultLabels": {
               "inbox": "收件箱",
               "sent": "已发送",
               "important": "重要",
@@ -2425,7 +2398,7 @@
             "notice": {
               "payloadTitle": "Outlook 事件负载示例"
             },
-            "fallbackFolders": {
+            "defaultFolders": {
               "inbox": "收件箱",
               "sentItems": "已发送邮件",
               "drafts": "草稿",
@@ -2702,7 +2675,7 @@
         "downloadConsoleCsv": "下载控制台 CSV",
         "downloadCsv": "下载 CSV",
         "clearConsole": "清除控制台",
-        "noResults": "未找到“{{query}}”的结果",
+        "noResults": "未找到“{query}”的结果",
         "showLess": "显示较少",
         "showMore": "显示更多",
         "copyValue": "复制值",
@@ -2727,10 +2700,10 @@
         "noConsoleEntries": "无控制台条目",
         "generatedImageAlt": "生成的图片",
         "downloadImageFailed": "下载图片失败，请稍后重试。",
-        "summaryItemsSingular": "{{count}} 项",
-        "summaryItemsPlural": "{{count}} 项",
-        "summaryKeysSingular": "{{count}} 个键",
-        "summaryKeysPlural": "{{count}} 个键"
+        "summaryItemsSingular": "{count} 项",
+        "summaryItemsPlural": "{count} 项",
+        "summaryKeysSingular": "{count} 个键",
+        "summaryKeysPlural": "{count} 个键"
       },
       "workflowChat": {
         "selectWorkspace": "选择一个工作区以加载工作流。",
@@ -2744,22 +2717,22 @@
         "fileUploadError": "文件上传失败",
         "attachFiles": "附加文件",
         "attach": "附加",
-        "maximumFilesAllowed": "最多允许 {{maxFiles}} 个文件",
-        "selectedFiles": "{{count}}/{{maxFiles}} 个文件",
+        "maximumFilesAllowed": "最多允许 {maxFiles} 个文件",
+        "selectedFiles": "{count}/{maxFiles} 个文件",
         "removeFile": "删除文件",
         "dropFilesHere": "将文件拖拽到此处以附加",
         "typeMessage": "输入消息...",
-        "uploadedFiles": "已上传 {{count}} 个文件",
-        "fileTooLarge": "{{name}} 文件太大（最大 {{maxSize}}MB）",
-        "fileTypeNotSupported": "不支持 {{name}} 的文件类型",
-        "fileAlreadyAdded": "{{name}} 已添加",
+        "uploadedFiles": "已上传 {count} 个文件",
+        "fileTooLarge": "{name} 文件太大（最大 {maxSize}MB）",
+        "fileTypeNotSupported": "不支持 {name} 的文件类型",
+        "fileAlreadyAdded": "{name} 已添加",
         "workflowExecutionFailed": "工作流执行失败。",
         "errorPrefix": "错误："
       },
       "workflowOutputSelect": {
         "defaultPlaceholder": "选择输出源",
-        "fallbackBlockName": "块 {{id}}",
-        "selectedCount": "已选 {{count}} 项",
+        "defaultBlockName": "块 {id}",
+        "selectedCount": "已选 {count} 项",
         "searchPlaceholder": "搜索输出...",
         "noMatchingOutputs": "无匹配输出。",
         "noOutputsAvailable": "暂无可用输出。"
@@ -2823,16 +2796,16 @@
         "serverNameRequired": "服务器名称为必填项。",
         "failedToRefreshMcpServer": "无法刷新 MCP 服务器工具。",
         "failedToSaveMcpServer": "保存MCP服务器失败。",
-        "toolCount": "{{count}} 个工具",
+        "toolCount": "{count} 个工具",
         "loading": "加载中...",
         "connected": "已连接",
         "error": "错误",
         "draft": "草稿",
         "disconnected": "未连接",
         "unnamedServer": "未命名服务器",
-        "updated": "更新于 {{time}}",
-        "toolsRefreshed": "工具已于 {{time}} 刷新",
-        "lastConnected": "上次连接于 {{time}}",
+        "updated": "更新于 {time}",
+        "toolsRefreshed": "工具已于 {time} 刷新",
+        "lastConnected": "上次连接于 {time}",
         "lastError": "最后错误",
         "noSharedMcpServerSelected": "此颜色尚未选择共享 MCP 服务器。",
         "mcpServerNotFound": "未找到 MCP 服务器。",
@@ -2840,12 +2813,12 @@
         "serverNameIsRequired": "服务器名称为必填项。",
         "relativeTime": {
           "justNow": "刚刚",
-          "minutesAgo": "{{count}} 分钟前",
-          "hoursAgo": "{{count}} 小时前",
-          "daysAgo": "{{count}} 天前",
-          "weeksAgo": "{{count}} 周前",
-          "monthsAgo": "{{count}} 个月前",
-          "yearsAgo": "{{count}} 年前"
+          "minutesAgo": "{count} 分钟前",
+          "hoursAgo": "{count} 小时前",
+          "daysAgo": "{count} 天前",
+          "weeksAgo": "{count} 周前",
+          "monthsAgo": "{count} 个月前",
+          "yearsAgo": "{count} 年前"
         }
       },
       "triggerList": {
@@ -2854,7 +2827,7 @@
         "searchPlaceholder": "搜索触发器",
         "openTriggerList": "点击添加触发器",
         "close": "关闭",
-        "noResults": "未找到与\"{{query}}\"匹配的结果"
+        "noResults": "未找到与\"{query}\"匹配的结果"
       },
       "workflowToolbar": {
         "selectWorkspace": "选择工作区以浏览模块",
@@ -2862,14 +2835,13 @@
         "tools": "工具",
         "triggers": "触发器",
         "special": "特殊",
-        "browseLabel": "浏览{{label}}",
-        "searchPlaceholder": "搜索{{label}}…",
-        "noResults": "未找到{{label}}。"
+        "browseLabel": "浏览{label}",
+        "searchPlaceholder": "搜索{label}…",
+        "noResults": "未找到{label}。"
       },
       "workflowLabels": {
         "systemPrompt": "系统提示词",
         "userPrompt": "用户提示词",
-        "model": "模型",
         "temperature": "温度",
         "Signal Briefing": "信号简报",
         "Indicator Monitor": "指标监控",
@@ -2909,10 +2881,8 @@
         "decisionRouter": "决策路由器",
         "increasePosition": "增加持仓",
         "reduceExposure": "降低敞口",
-        "apiKey": "API 密钥",
         "skills": "技能",
         "tools": "工具",
-        "url": "URL",
         "method": "方法",
         "queryParams": "查询参数",
         "headers": "标头",
@@ -2928,7 +2898,6 @@
         "reasoningEffort": "推理力度",
         "verbosity": "详细程度",
         "configured": "已配置",
-        "value": "值",
         "items": "项",
         "fields": "字段",
         "object": "对象",
@@ -2949,41 +2918,22 @@
         "nextStep": "下一步",
         "locked": "已锁定",
         "deployed": "已部署",
-        "deployedWithVersion": "已部署 (v{{version}})",
+        "deployedWithVersion": "已部署 (v{version})",
         "notDeployed": "未部署",
         "disabled": "已禁用",
-        "key": "键",
         "start": "开始",
         "end": "结束",
-        "removeSkill": "移除 {{name}}",
+        "removeSkill": "移除 {name}",
         "currentWorkflow": "当前工作流",
         "currentSkill": "当前技能",
         "currentTool": "当前工具",
         "currentIndicator": "当前指标",
         "currentMcpServer": "当前 MCP 服务器",
-        "task": "任务",
-        "Task": "任务",
-        "variables": "变量",
-        "Variables": "变量",
-        "startingUrl": "起始 URL",
-        "Starting URL": "起始 URL",
-        "outputSchema": "输出架构",
-        "Output Schema": "输出架构",
-        "anthropicApiKey": "Anthropic API 密钥",
-        "Anthropic API Key": "Anthropic API 密钥",
         "workflows": "工作流",
         "customTools": "自定义工具",
         "indicators": "指标",
         "mcpServers": "MCP 服务器",
         "allWorkflows": "所有工作流",
-        "contentToValidate": "待验证内容",
-        "enterContentToValidate": "输入待验证内容",
-        "validationType": "验证类型",
-        "validJson": "有效 JSON",
-        "regexMatch": "正则匹配",
-        "hallucinationCheck": "幻觉检查",
-        "piiDetection": "PII 检测",
-        "regexPattern": "正则模式",
         "operation": "操作",
         "id": "ID",
         "role": "角色",
@@ -3001,12 +2951,6 @@
         "enterMemoryIdentifierToDelete": "输入要删除的记忆标识符",
         "selectAgentRole": "选择智能体角色",
         "enterMessageContent": "输入消息内容",
-        "Enter the starting URL for the agent": "输入智能体的起始URL",
-        "enterTheStartingUrlForTheAgent": "输入智能体的起始URL",
-        "enterTheTaskOrGoalForTheAgentToAchieveReferenceVariablesUsingKeySyntax": "输入智能体要完成的任务或目标。使用 %key% 语法引用变量。",
-        "Enter your Anthropic API key": "输入您的 Anthropic API 密钥",
-        "enterYourAnthropicApiKey": "输入您的 Anthropic API 密钥",
-        "knowledgeBase": "知识库",
         "selectKnowledgeBase": "选择知识库",
         "selectKnowledgeBases": "选择知识库",
         "searchQuery": "搜索查询",
@@ -3022,13 +2966,13 @@
         "searchTeams": "搜索团队...",
         "searchKnowledgeBases": "搜索知识库...",
         "searchFiles": "搜索文件...",
-        "searchItems": "搜索 {{itemName}}...",
-        "loadingItems": "正在加载 {{itemName}}...",
-        "noItemsFound": "未找到{{itemName}}。",
-        "noItemsFoundInService": "在您的{{serviceName}}中未找到{{itemName}}。",
-        "connectProviderAccountToContinue": "关联 {{providerName}} 帐户以继续。",
-        "connectProviderAccount": "关联 {{providerName}} 帐户",
-        "openInProvider": "在 {{providerName}} 中打开",
+        "searchItems": "搜索 {itemName}...",
+        "loadingItems": "正在加载 {itemName}...",
+        "noItemsFound": "未找到{itemName}。",
+        "noItemsFoundInService": "在您的{serviceName}中未找到{itemName}。",
+        "connectProviderAccountToContinue": "关联 {providerName} 帐户以继续。",
+        "connectProviderAccount": "关联 {providerName} 帐户",
+        "openInProvider": "在 {providerName} 中打开",
         "openInDrive": "在 Drive 中打开",
         "openInConfluence": "在 Confluence 中打开",
         "openInJira": "在 Jira 中打开",
@@ -3059,25 +3003,11 @@
         "selectContact": "选择联系人",
         "selectItem": "选择项目",
         "selectATeamFirst": "请先选择团队",
-        "typeOrSelectModel": "输入或选择模型...",
-        "confidence": "置信度",
         "numberOfResults": "结果数量",
-        "numberOfChunksToRetrieve": "检索块数",
-        "enterYourApiKey": "输入您的 API 密钥",
-        "piiTypesToDetect": "要检测的 PII 类型",
-        "action": "操作",
-        "blockRequest": "阻止请求",
-        "maskPii": "遮盖 PII",
-        "language": "语言",
-        "english": "英语",
-        "spanish": "西班牙语",
-        "italian": "意大利语",
-        "polish": "波兰语",
-        "finnish": "芬兰语",
         "configurePiiTypes": "配置PII类型",
         "noneSelected": "未选择",
         "allSelected": "全选",
-        "selectedCount": "已选择 {{count}} 项",
+        "selectedCount": "已选择 {count} 项",
         "selectPiiTypesToDetect": "选择要检测的PII类型",
         "choosePiiTypesToDetect": "选择要检测和阻止的个人身份信息类型。",
         "selectAllEntities": "选择所有实体",
@@ -3147,7 +3077,7 @@
         "contacts": "联系人",
         "tagFilters": "标签过滤器",
         "noFilters": "无过滤器",
-        "filtersApplied": "已应用 {{count}} 个过滤器",
+        "filtersApplied": "已应用 {count} 个过滤器",
         "tagName": "标签名称",
         "selectTag": "选择标签",
         "tryDifferentSearchOrAccount": "请尝试其他搜索或账户。",
@@ -3174,51 +3104,7 @@
         "missingRequiredFields": "缺少必填字段",
         "saveConfigReturnedFalse": "保存配置返回 false",
         "anErrorOccurredWhileSaving": "保存时发生错误。",
-        "common": "常用",
-        "usa": "美国",
-        "uk": "英国",
-        "spain": "西班牙",
-        "italy": "意大利",
-        "poland": "波兰",
-        "singapore": "新加坡",
-        "australia": "澳大利亚",
-        "india": "印度",
         "other": "其他",
-        "personName": "姓名",
-        "emailAddress": "电子邮箱",
-        "phoneNumber": "电话号码",
-        "location": "位置",
-        "dateOrTime": "日期或时间",
-        "ipAddress": "IP 地址",
-        "creditCardNumber": "信用卡号",
-        "internationalBankAccountNumber": "国际银行账号 (IBAN)",
-        "cryptocurrencyWalletAddress": "加密货币钱包地址",
-        "medicalLicenseNumber": "医疗执照号码",
-        "nationalityReligionPoliticalGroup": "国籍/宗教/政治团体",
-        "usBankAccountNumber": "美国银行账号",
-        "usDriverLicenseNumber": "美国驾照号码",
-        "usIndividualTaxpayerIdentificationNumber": "美国个人纳税人识别号码 (ITIN)",
-        "usPassportNumber": "美国护照号码",
-        "usSocialSecurityNumber": "美国社会安全号码",
-        "ukNationalInsuranceNumber": "英国国民保险号码",
-        "ukNhsNumber": "英国NHS号码",
-        "spanishNifNumber": "西班牙NIF号码",
-        "spanishNieNumber": "西班牙NIE号码",
-        "italianFiscalCode": "意大利税号",
-        "italianDriverLicense": "意大利驾驶执照",
-        "italianIdentityCard": "意大利身份证",
-        "italianPassport": "意大利护照",
-        "polishPesel": "波兰PESEL",
-        "singaporeNricFin": "新加坡NRIC/FIN",
-        "australianBusinessNumber": "澳大利亚商业编号（ABN）",
-        "australianCompanyNumber": "澳大利亚公司编号（ACN）",
-        "australianTaxFileNumber": "澳大利亚税号（TFN）",
-        "australianMedicareNumber": "澳大利亚Medicare号码",
-        "indianAadhaar": "印度Aadhaar",
-        "indianPan": "印度PAN",
-        "indianVehicleRegistration": "印度车辆登记",
-        "indianVoterNumber": "印度选民号码",
-        "indianPassport": "印度护照",
         "Provider": "提供商",
         "Text": "文本",
         "Prompt": "提示",
@@ -3268,7 +3154,6 @@
         "Variable Assignments": "变量赋值",
         "Wait Amount": "等待时长",
         "Unit": "单位",
-        "enterJsonSchema": "输入 JSON 模式...",
         "describeTheAIAgentYouWantToCreate": "描述你想要创建的 AI 代理...",
         "enterSystemPrompt": "输入系统提示...",
         "enterContextOrUserMessage": "输入上下文或用户消息...",
@@ -3309,7 +3194,15 @@
         "eventPayloadExample": "事件负载示例",
         "webhookUrlWillBeGenerated": "Webhook URL 将自动生成",
         "setupInstructions": "设置说明",
-        "enabled": "已启用"
+        "enabled": "已启用",
+        "pleaseSelectSharePointCredentialsFirst": "请先选择 SharePoint 凭据",
+        "pleaseSelectMicrosoftPlannerCredentialsFirst": "请先选择 Microsoft Planner 凭据",
+        "pleaseEnterAPlanIdFirst": "请先输入计划 ID",
+        "pleaseSelectMicrosoftTeamsCredentialsFirst": "请先选择 Microsoft Teams 凭据",
+        "pleaseSelectWealthboxCredentialsFirst": "请先选择 Wealthbox 凭据",
+        "pleaseSelectGoogleDriveCredentialsFirst": "请先选择 Google Drive 凭据",
+        "url": "URL",
+        "value": "值"
       },
       "blockEditor": {
         "blockNames": {
@@ -3465,7 +3358,9 @@
           "youtube": "YouTube",
           "zendesk": "Zendesk",
           "zep": "Zep",
-          "zoom": "Zoom"
+          "zoom": "Zoom",
+          "portfolio_detail": "投资组合详情",
+          "watchlist": "自选列表"
         },
         "blockDescriptions": {
           "response": "发送结构化 API 响应",
@@ -3618,7 +3513,9 @@
           "youtube": "与 YouTube 视频、频道和播放列表交互",
           "zendesk": "在 Zendesk 中管理支持工单、用户和组织",
           "zep": "AI 智能体的长期记忆",
-          "zoom": "创建和管理 Zoom 会议及录制"
+          "zoom": "创建和管理 Zoom 会议及录制",
+          "portfolio_detail": "从所选券商账户获取完整的投资组合详情。",
+          "watchlist": "读取自选列表并添加或移除标的项目。"
         },
         "blockLongDescriptions": {
           "response": "将响应集成到工作流中。可以构建或编辑结构化响应，并将其放入最终的工作流响应中。",
@@ -3755,10 +3652,7 @@
             },
             "headers": {
               "title": "响应头",
-              "columns": [
-                "键",
-                "值"
-              ],
+              "columns": ["键", "值"],
               "description": "要包含在响应中的其他 HTTP 头"
             }
           },
@@ -15031,11 +14925,6 @@
               "title": "URL"
             }
           },
-          "stagehand_agent": {
-            "variables": {
-              "title": "Variables"
-            }
-          },
           "stripe": {
             "active": {
               "options": [
@@ -16998,7 +16887,7 @@
               "title": "Featured 图片 ID"
             },
             "file": {
-              "placeholder": "引用文件 from previous block (e.g., {{block_name.文件}})",
+              "placeholder": "引用前一个块的文件（例如 {{block_name.file}}）",
               "title": "文件引用"
             },
             "filename": {
@@ -17997,6 +17886,299 @@
             "waitingRoom": {
               "title": "等待 Room"
             }
+          },
+          "stagehand_agent": {
+            "startUrl": {
+              "title": "起始 URL",
+              "placeholder": "输入智能体的起始URL"
+            },
+            "task": {
+              "title": "任务",
+              "placeholder": "输入智能体要完成的任务或目标。使用 %key% 语法引用变量。"
+            },
+            "variables": {
+              "title": "变量",
+              "columns": ["键", "值"]
+            },
+            "apiKey": {
+              "title": "Anthropic API 密钥",
+              "placeholder": "输入您的 Anthropic API 密钥"
+            },
+            "outputSchema": {
+              "title": "输出架构",
+              "placeholder": "输入 JSON 模式..."
+            }
+          },
+          "guardrails": {
+            "input": {
+              "title": "待验证内容",
+              "placeholder": "输入待验证内容"
+            },
+            "validationType": {
+              "title": "验证类型",
+              "options": [
+                {
+                  "id": "json",
+                  "label": "有效 JSON"
+                },
+                {
+                  "id": "regex",
+                  "label": "正则匹配"
+                },
+                {
+                  "id": "hallucination",
+                  "label": "幻觉检查"
+                },
+                {
+                  "id": "pii",
+                  "label": "PII 检测"
+                }
+              ]
+            },
+            "regex": {
+              "title": "正则模式"
+            },
+            "knowledgeBaseId": {
+              "title": "知识库",
+              "placeholder": "选择知识库"
+            },
+            "model": {
+              "title": "模型",
+              "placeholder": "输入或选择模型..."
+            },
+            "threshold": {
+              "title": "置信度"
+            },
+            "topK": {
+              "title": "检索块数"
+            },
+            "apiKey": {
+              "title": "API 密钥",
+              "placeholder": "输入您的 API 密钥"
+            },
+            "piiEntityTypes": {
+              "title": "要检测的 PII 类型",
+              "options": [
+                {
+                  "id": "PERSON",
+                  "label": "姓名",
+                  "group": "常用"
+                },
+                {
+                  "id": "EMAIL_ADDRESS",
+                  "label": "电子邮箱",
+                  "group": "常用"
+                },
+                {
+                  "id": "PHONE_NUMBER",
+                  "label": "电话号码",
+                  "group": "常用"
+                },
+                {
+                  "id": "LOCATION",
+                  "label": "位置",
+                  "group": "常用"
+                },
+                {
+                  "id": "DATE_TIME",
+                  "label": "日期或时间",
+                  "group": "常用"
+                },
+                {
+                  "id": "IP_ADDRESS",
+                  "label": "IP 地址",
+                  "group": "常用"
+                },
+                {
+                  "id": "URL",
+                  "label": "URL",
+                  "group": "常用"
+                },
+                {
+                  "id": "CREDIT_CARD",
+                  "label": "信用卡号",
+                  "group": "常用"
+                },
+                {
+                  "id": "IBAN_CODE",
+                  "label": "国际银行账号 (IBAN)",
+                  "group": "常用"
+                },
+                {
+                  "id": "CRYPTO",
+                  "label": "加密货币钱包地址",
+                  "group": "常用"
+                },
+                {
+                  "id": "MEDICAL_LICENSE",
+                  "label": "医疗执照号码",
+                  "group": "常用"
+                },
+                {
+                  "id": "NRP",
+                  "label": "国籍/宗教/政治团体",
+                  "group": "常用"
+                },
+                {
+                  "id": "US_BANK_NUMBER",
+                  "label": "美国银行账号",
+                  "group": "美国"
+                },
+                {
+                  "id": "US_DRIVER_LICENSE",
+                  "label": "美国驾照号码",
+                  "group": "美国"
+                },
+                {
+                  "id": "US_ITIN",
+                  "label": "美国个人纳税人识别号码 (ITIN)",
+                  "group": "美国"
+                },
+                {
+                  "id": "US_PASSPORT",
+                  "label": "美国护照号码",
+                  "group": "美国"
+                },
+                {
+                  "id": "US_SSN",
+                  "label": "美国社会安全号码",
+                  "group": "美国"
+                },
+                {
+                  "id": "UK_NINO",
+                  "label": "英国国民保险号码",
+                  "group": "英国"
+                },
+                {
+                  "id": "UK_NHS",
+                  "label": "英国NHS号码",
+                  "group": "英国"
+                },
+                {
+                  "id": "ES_NIF",
+                  "label": "西班牙NIF号码",
+                  "group": "西班牙"
+                },
+                {
+                  "id": "ES_NIE",
+                  "label": "西班牙NIE号码",
+                  "group": "西班牙"
+                },
+                {
+                  "id": "IT_FISCAL_CODE",
+                  "label": "意大利税号",
+                  "group": "意大利"
+                },
+                {
+                  "id": "IT_DRIVER_LICENSE",
+                  "label": "意大利驾驶执照",
+                  "group": "意大利"
+                },
+                {
+                  "id": "IT_IDENTITY_CARD",
+                  "label": "意大利身份证",
+                  "group": "意大利"
+                },
+                {
+                  "id": "IT_PASSPORT",
+                  "label": "意大利护照",
+                  "group": "意大利"
+                },
+                {
+                  "id": "PL_PESEL",
+                  "label": "波兰PESEL",
+                  "group": "波兰"
+                },
+                {
+                  "id": "SG_NRIC_FIN",
+                  "label": "新加坡NRIC/FIN",
+                  "group": "新加坡"
+                },
+                {
+                  "id": "AU_ABN",
+                  "label": "澳大利亚商业编号（ABN）",
+                  "group": "澳大利亚"
+                },
+                {
+                  "id": "AU_ACN",
+                  "label": "澳大利亚公司编号（ACN）",
+                  "group": "澳大利亚"
+                },
+                {
+                  "id": "AU_TFN",
+                  "label": "澳大利亚税号（TFN）",
+                  "group": "澳大利亚"
+                },
+                {
+                  "id": "AU_MEDICARE",
+                  "label": "澳大利亚Medicare号码",
+                  "group": "澳大利亚"
+                },
+                {
+                  "id": "IN_AADHAAR",
+                  "label": "印度Aadhaar",
+                  "group": "印度"
+                },
+                {
+                  "id": "IN_PAN",
+                  "label": "印度PAN",
+                  "group": "印度"
+                },
+                {
+                  "id": "IN_VEHICLE_REGISTRATION",
+                  "label": "印度车辆登记",
+                  "group": "印度"
+                },
+                {
+                  "id": "IN_VOTER",
+                  "label": "印度选民号码",
+                  "group": "印度"
+                },
+                {
+                  "id": "IN_PASSPORT",
+                  "label": "印度护照",
+                  "group": "印度"
+                }
+              ]
+            },
+            "piiMode": {
+              "title": "操作",
+              "options": [
+                {
+                  "id": "block",
+                  "label": "阻止请求"
+                },
+                {
+                  "id": "mask",
+                  "label": "遮盖 PII"
+                }
+              ]
+            },
+            "piiLanguage": {
+              "title": "语言",
+              "options": [
+                {
+                  "id": "en",
+                  "label": "英语"
+                },
+                {
+                  "id": "es",
+                  "label": "西班牙语"
+                },
+                {
+                  "id": "it",
+                  "label": "意大利语"
+                },
+                {
+                  "id": "pl",
+                  "label": "波兰语"
+                },
+                {
+                  "id": "fi",
+                  "label": "芬兰语"
+                }
+              ]
+            }
           }
         },
         "variablesInput": {
@@ -18008,7 +18190,7 @@
           "noVariablesDefinedInWorkflow": "此工作流中未定义任何变量。",
           "addVariablesInPanel": "请在“变量”面板中添加。",
           "valueLabel": "值",
-          "typedValuePlaceholder": "{{type}} 值",
+          "typedValuePlaceholder": "{type} 值",
           "allVariablesAssignedButton": "所有变量均已分配",
           "addVariableAssignment": "添加变量赋值",
           "objectValuePlaceholder": "{\n  \"key\": \"value\"\n}",
@@ -18021,7 +18203,7 @@
           "selectedWorkflowNeedsInputTrigger": "所选工作流需要一个已定义字段的输入触发器"
         },
         "evalInput": {
-          "metricLabel": "指标 {{index}}",
+          "metricLabel": "指标 {index}",
           "addMetric": "添加指标",
           "deleteMetric": "删除指标",
           "name": "名称",
@@ -18032,7 +18214,7 @@
           "maxValue": "最大值"
         },
         "inputFormat": {
-          "addTitle": "添加{{title}}",
+          "addTitle": "添加{title}",
           "deleteField": "删除字段",
           "name": "名称",
           "type": "类型",
@@ -18112,12 +18294,12 @@
         },
         "oauthRequiredModal": {
           "additionalAccessRequired": "需要额外访问权限",
-          "toolRequiresAccess": "“{{toolName}}”工具需要访问你的 {{providerName}} 账户才能正常工作。",
-          "connectProvider": "连接 {{providerName}}",
-          "connectProviderDescription": "你需要连接 {{providerName}} 账户才能继续",
+          "toolRequiresAccess": "“{toolName}”工具需要访问你的 {providerName} 账户才能正常工作。",
+          "connectProvider": "连接 {providerName}",
+          "connectProviderDescription": "你需要连接 {providerName} 账户才能继续",
           "permissionsRequested": "请求的权限",
           "cancel": "取消",
-          "connectService": "连接 {{serviceName}}",
+          "connectService": "连接 {serviceName}",
           "connectNow": "立即连接"
         },
         "dropdown": {
@@ -18179,19 +18361,19 @@
           "errors": {
             "failedToFetchDocuments": "无法获取文档"
           },
-          "chunkCountSingular": "{{count}} 个分块",
-          "chunkCountPlural": "{{count}} 个分块"
+          "chunkCountSingular": "{count} 个分块",
+          "chunkCountPlural": "{count} 个分块"
         },
         "knowledgeTagFilters": {
           "addFilter": "添加筛选条件",
-          "appliedCountSingular": "已应用 {{count}} 个筛选条件",
-          "appliedCountPlural": "已应用 {{count}} 个筛选条件"
+          "appliedCountSingular": "已应用 {count} 个筛选条件",
+          "appliedCountPlural": "已应用 {count} 个筛选条件"
         },
         "documentTagEntry": {
           "typeText": "文本",
           "prefillExistingTags": "预填充现有标签",
           "addTag": "添加标签",
-          "tagSlotsUsed": "已使用 {{used}} / {{total}} 个标签槽位"
+          "tagSlotsUsed": "已使用 {used} / {total} 个标签槽位"
         },
         "confluenceFileSelector": {
           "errors": {
@@ -18274,9 +18456,9 @@
           "addTool": "添加工具",
           "searchTools": "搜索工具...",
           "account": "账户",
-          "selectProviderAccount": "选择 {{provider}} 账户",
-          "selectParameter": "选择 {{label}}",
-          "enterParameter": "输入 {{label}}",
+          "selectProviderAccount": "选择 {provider} 账户",
+          "selectParameter": "选择 {label}",
+          "enterParameter": "输入 {label}",
           "enterJsonArrayOrCommaSeparatedValues": "输入 JSON 数组，例如 [\"item1\", \"item2\"] 或逗号分隔的值",
           "selectToolToConfigureParameters": "选择一个工具以配置其参数",
           "loadingToolSchema": "正在加载工具架构...",
@@ -18308,8 +18490,8 @@
           "unsupportedValue": "不支持的值"
         },
         "triggerWarning": {
-          "duplicateTitle": "只允许一个 {{triggerName}} 触发器",
-          "duplicateDescription": "一个工作流只能有一个 {{triggerName}} 触发器块。请先删除已有的触发器，再添加新的。",
+          "duplicateTitle": "只允许一个 {triggerName} 触发器",
+          "duplicateDescription": "一个工作流只能有一个 {triggerName} 触发器块。请先删除已有的触发器，再添加新的。",
           "dismiss": "知道了"
         },
         "templateModal": {
@@ -18421,8 +18603,8 @@
           "title": "Webhook 通知",
           "searchPlaceholder": "搜索 Webhook...",
           "emptyState": "点击下方“添加 Webhook”开始",
-          "webhookLabel": "Webhook {{index}}",
-          "noSearchMatches": "未找到匹配“{{query}}”的 Webhook",
+          "webhookLabel": "Webhook {index}",
+          "noSearchMatches": "未找到匹配“{query}”的 Webhook",
           "actions": {
             "copyUrl": "复制 Webhook URL",
             "test": "测试 Webhook",
@@ -18527,7 +18709,7 @@
             "validationFailed": "验证失败。请检查 Webhook 设置后重试。"
           },
           "testStatus": {
-            "success": "测试 Webhook 发送成功（{{status}}）",
+            "success": "测试 Webhook 发送成功（{status}）",
             "failure": "测试 Webhook 失败。",
             "sendFailed": "无法发送测试 Webhook"
           },
@@ -20147,7 +20329,7 @@
         "selectBlockToViewPreviewDetails": "选择一个块以查看其预览详情。",
         "nodeNotFound": "未找到节点",
         "selectedNodeUnavailable": "所选节点已不可用。",
-        "missingBlockConfiguration": "缺少 `{{type}}` 的块配置。",
+        "missingBlockConfiguration": "缺少 `{type}` 的块配置。",
         "controlsUnavailable": "控件不可用",
         "saveName": "保存名称",
         "renameNode": "重命名节点",
@@ -20169,7 +20351,7 @@
         "collectionItems": "集合项",
         "collectionItemsPlaceholder": "['item1', 'item2', 'item3']",
         "parallelItems": "并行项",
-        "enterValueBetween": "请输入 1 到 {{max}} 之间的值",
+        "enterValueBetween": "请输入 1 到 {max} 之间的值",
         "hideAdditionalFields": "隐藏附加字段",
         "showAdditionalFields": "显示附加字段",
         "additionalFields": "附加字段",
@@ -20177,7 +20359,7 @@
         "blockNoEditableFields": "此块没有可编辑字段。",
         "requiredField": "此字段为必填项",
         "invalidJson": "JSON 无效",
-        "unknownInputType": "未知输入类型：{{type}}",
+        "unknownInputType": "未知输入类型：{type}",
         "loop": "循环",
         "parallel": "并行",
         "start": "开始",
@@ -20194,7 +20376,7 @@
           "checkingWorkflowPermissions": "正在检查工作流权限",
           "writePermissionRequiredToRunWorkflows": "运行工作流需要写入权限",
           "usageLimitExceeded": "已超出使用限制",
-          "usageLimitExceededDescription": "你已使用 {{currentUsage}}$ / {{limit}}$。请升级方案以继续。",
+          "usageLimitExceededDescription": "你已使用 {currentUsage}$ / {limit}$。请升级方案以继续。",
           "run": "运行"
         },
         "floatingControls": {
@@ -20212,7 +20394,7 @@
         },
         "summary": {
           "objectItem": "[对象]",
-          "additionalCount": "+{{count}} 更多"
+          "additionalCount": "+{count} 更多"
         },
         "selectWorkspaceToLoadWorkflows": "选择一个工作区以加载工作流。",
         "noWorkflowsAvailable": "此工作区没有可用的工作流。",
@@ -20232,7 +20414,7 @@
           "close": "关闭",
           "coreTriggers": "核心触发器",
           "integrationTriggers": "集成触发器",
-          "noResultsFound": "未找到“{{query}}”的结果"
+          "noResultsFound": "未找到“{query}”的结果"
         },
         "connectionStatus": {
           "reconnected": "已重新连接",
@@ -20241,8 +20423,8 @@
           "refreshPageToContinueEditing": "刷新页面以继续编辑"
         },
         "triggerWarning": {
-          "duplicateTitle": "仅允许一个 {{triggerName}} 触发器",
-          "duplicateDescription": "一个工作流只能有一个 {{triggerName}} 触发器块。请在添加新的之前移除现有的。",
+          "duplicateTitle": "仅允许一个 {triggerName} 触发器",
+          "duplicateDescription": "一个工作流只能有一个 {triggerName} 触发器块。请在添加新的之前移除现有的。",
           "dismiss": "知道了"
         }
       },
@@ -20299,7 +20481,7 @@
         "deployApi": "部署 API",
         "needsRedeployment": "需要重新部署",
         "deployWorkflowTitle": "部署工作流",
-        "deployVersion": "部署 {{versionName}}",
+        "deployVersion": "部署 {versionName}",
         "active": "已激活",
         "inactive": "未激活",
         "close": "关闭",
@@ -20337,7 +20519,7 @@
         "reviewTriggerBeforeDeployment": "在部署前检查此触发器。无需额外配置。",
         "triggerConfigurationUnavailable": "触发器配置不可用。",
         "noAdditionalTriggerConfigurationRequired": "此触发器会随工作流一起部署，无需额外配置。",
-        "completeRequiredFieldsBeforeDeploying": "部署前请先完成必填字段：{{fields}}。",
+        "completeRequiredFieldsBeforeDeploying": "部署前请先完成必填字段：{fields}。",
         "saveTriggerConfigurationBeforeDeploying": "请先保存此触发器配置以在部署前创建其 Webhook。",
         "triggerSettingsChangedSinceLastSave": "触发器设置自上次保存后已更改。请在部署前先保存触发器。",
         "triggerConfigurationReady": "触发器配置看起来已准备就绪。请在部署前检查下方的值。",
@@ -20391,7 +20573,7 @@
           "failedToSavePassword": "无法保存聊天密码",
           "auth": {
             "accessControl": "访问控制",
-            "selectAccessAriaLabel": "选择{{type}}访问方式",
+            "selectAccessAriaLabel": "选择{type}访问方式",
             "publicAccess": "公开访问",
             "publicAccessDescription": "任何人都可以访问你的聊天",
             "passwordProtected": "密码保护",
@@ -20440,8 +20622,8 @@
           "tooltip": "选择市场数据提供商",
           "selectionUnavailable": "提供商选择不可用",
           "noProviders": "没有提供商",
-          "selectedLabel": "市场：{{providerName}}",
-          "fallbackProviderName": "市场"
+          "selectedLabel": "市场：{providerName}",
+          "defaultProviderName": "市场"
         },
         "tradingSelector": {
           "placeholder": "选择交易提供商",
@@ -20449,8 +20631,8 @@
           "tooltip": "选择券商",
           "selectionUnavailable": "提供商选择不可用",
           "noProviders": "没有提供商",
-          "selectedLabel": "券商：{{providerName}}",
-          "fallbackProviderName": "券商"
+          "selectedLabel": "券商：{providerName}",
+          "defaultProviderName": "券商"
         },
         "accountSelector": {
           "placeholder": "选择账户",
@@ -20459,24 +20641,24 @@
           "loadingAccount": "正在加载账户...",
           "loadingProviderConnection": "正在加载提供商连接...",
           "unableToLoadProviderConnection": "无法加载提供商连接。",
-          "selectConnection": "选择一个 {{providerName}} 连接。",
-          "noAccountConnected": "没有连接的 {{providerName}} 账户。",
+          "selectConnection": "选择一个 {providerName} 连接。",
+          "noAccountConnected": "没有连接的 {providerName} 账户。",
           "loadingBrokerAccounts": "正在加载券商账户...",
           "unableToLoadBrokerAccounts": "无法加载券商账户。",
           "noBrokerAccountsFound": "未找到券商账户。",
-          "reconnectAccount": "重新连接 {{providerName}} 账户",
-          "connectAccount": "连接 {{providerName}} 账户",
-          "fallbackProviderName": "券商"
+          "reconnectAccount": "重新连接 {providerName} 账户",
+          "connectAccount": "连接 {providerName} 账户",
+          "defaultProviderName": "券商"
         },
         "settingsButton": {
-          "triggerLabel": "配置 {{providerName}} 提供商",
+          "triggerLabel": "配置 {providerName} 提供商",
           "triggerTooltip": "提供商设置",
           "title": "提供商设置",
           "description": "为此小组件保存凭据。",
           "select": "选择",
           "save": "保存",
           "cancel": "取消",
-          "fallbackProviderName": "市场"
+          "defaultProviderName": "市场"
         }
       },
       "watchlist": {
@@ -20502,10 +20684,10 @@
           "selectLabel": "选择 watchlist",
           "searchPlaceholder": "搜索 watchlists...",
           "noWatchlistsFound": "未找到 watchlists。",
-          "renameAriaLabel": "重命名 {{name}}",
-          "deleteAriaLabel": "删除 {{name}}",
+          "renameAriaLabel": "重命名 {name}",
+          "deleteAriaLabel": "删除 {name}",
           "deleteDialogTitle": "删除 watchlist？",
-          "deleteDialogDescription": "此操作将永久删除“{{name}}”。",
+          "deleteDialogDescription": "此操作将永久删除“{name}”。",
           "deleteDialogDescriptionFallback": "此操作将永久删除此 watchlist。",
           "cancel": "取消",
           "delete": "删除"
@@ -20529,7 +20711,7 @@
           "collapseSection": "折叠分区",
           "expandSection": "展开分区",
           "deleteSymbolDialogTitle": "删除符号？",
-          "deleteSymbolDialogDescription": "移除 {{name}} 将把它从 watchlist 中删除。",
+          "deleteSymbolDialogDescription": "移除 {name} 将把它从 watchlist 中删除。",
           "deleteSymbolDialogDescriptionFallback": "移除此符号将把它从 watchlist 中删除。",
           "deleteSymbolDialogDescriptionHighlight": "此操作无法撤销。",
           "deleteSectionDialogTitle": "删除分区？",
@@ -20583,10 +20765,10 @@
         },
         "validation": {
           "nameRequired": "Skill 名称是必填项。",
-          "nameTooLong": "Skill 名称必须少于 {{max}} 个字符。",
+          "nameTooLong": "Skill 名称必须少于 {max} 个字符。",
           "descriptionRequired": "Skill 描述是必填项。",
           "contentRequired": "Skill 内容是必填项。",
-          "duplicateName": "已存在名为“{{name}}”的 skill。",
+          "duplicateName": "已存在名为“{name}”的 skill。",
           "saveFailed": "无法保存 skill。"
         },
         "form": {
@@ -20746,7 +20928,7 @@
           "schemaMustBeFunctionType": "Schema 必须有值为 \"function\" 的 \"type\" 字段",
           "schemaMustHaveFunctionName": "Schema 必须有一个带 \"name\" 字段的 \"function\" 对象",
           "failedToValidateSchema": "无法验证自定义工具 schema，请检查输入后重试。",
-          "duplicateName": "已存在名为 \"{{name}}\" 的工具",
+          "duplicateName": "已存在名为 \"{name}\" 的工具",
           "failedToSave": "无法保存自定义工具，请检查输入后重试。"
         },
         "form": {
@@ -20822,10 +21004,10 @@
           "refreshingQuotes": "正在刷新报价",
           "noHoldingsWithMarketListings": "没有带市场列表的持仓",
           "noMarketProvider": "没有市场提供商",
-          "quoteMetricsUseFirst": "报价指标仅使用前 {{cap}} 个中的 {{total}} 个持仓",
-          "quotedPositionsSummary": "{{quoted}}/{{total}} 个已报价",
+          "quoteMetricsUseFirst": "报价指标仅使用前 {cap} 个中的 {total} 个持仓",
+          "quotedPositionsSummary": "{quoted}/{total} 个已报价",
           "performanceHistoryUnavailable": "所选账户没有可用的绩效历史。",
-          "asOf": "截至 {{date}}",
+          "asOf": "截至 {date}",
           "return": "回报",
           "start": "开始",
           "current": "当前",
@@ -20847,7 +21029,7 @@
           "orderSubmitted": "订单已提交",
           "submitting": "提交中...",
           "orderPrefix": "订单",
-          "submitOrder": "提交 {{side}} 订单",
+          "submitOrder": "提交 {side} 订单",
           "unknown": "未知"
         }
       },
@@ -20897,15 +21079,15 @@
           "selectTimeInForce": "选择有效期限。",
           "selectOrderSize": "选择订单数量。",
           "notionalSizingIsNotSupportedForThisOrderType": "该订单类型不支持名义金额下单。",
-          "notionalSizingRequires": "名义金额下单需要 {{values}}。",
-          "fieldNotSupportedForThisOrderType": "{{field}} 不支持该订单类型。",
-          "enterValid": "请输入有效的 {{field}}。",
-          "oneOfFieldsRequired": "需要 {{fields}}。",
+          "notionalSizingRequires": "名义金额下单需要 {values}。",
+          "fieldNotSupportedForThisOrderType": "{field} 不支持该订单类型。",
+          "enterValid": "请输入有效的 {field}。",
+          "oneOfFieldsRequired": "需要 {fields}。",
           "marketPrice": "市价",
           "notional": "名义金额",
           "quantity": "数量",
           "orderType": "订单类型",
-          "chooseHowTo": "选择如何 {{side}}",
+          "chooseHowTo": "选择如何 {side}",
           "timeInForce": "有效期限",
           "limitPrice": "限价",
           "stopPrice": "止损价",
@@ -20923,8 +21105,8 @@
           "orderSubmitted": "订单已提交",
           "submitting": "提交中...",
           "orderPrefix": "订单",
-          "sideLabel": "{{side}}",
-          "submitOrder": "提交 {{side}} 订单"
+          "sideLabel": "{side}",
+          "submitOrder": "提交 {side} 订单"
         }
       },
       "dataChart": {
@@ -20964,7 +21146,7 @@
           "timezone": {
             "exchange": "交易所",
             "utc": "UTC",
-            "tooltip": "时区：{{timezone}}",
+            "tooltip": "时区：{timezone}",
             "tooltipFallback": "交易所时区",
             "searchPlaceholder": "搜索时区...",
             "loading": "正在加载时区...",
@@ -20972,7 +21154,7 @@
           },
           "range": {
             "allAvailableData": "全部可用数据",
-            "rangeIntervalTooltip": "{{range}}，周期 {{interval}}",
+            "rangeIntervalTooltip": "{range}，周期 {interval}",
             "presets": {
               "1d": "1日",
               "5d": "5日",
@@ -21012,7 +21194,7 @@
           },
           "normalization": {
             "ariaLabel": "复权",
-            "tooltip": "复权：{{mode}}",
+            "tooltip": "复权：{mode}",
             "unavailable": "复权不可用",
             "noOptions": "没有复权选项。",
             "modes": {
@@ -21030,7 +21212,7 @@
             "freehand": "手绘工具",
             "shapes": "形状工具"
           },
-          "unavailable": "{{tool}} 在本会话中不可用",
+          "unavailable": "{tool} 在本会话中不可用",
           "tools": {
             "TrendLine": "趋势线",
             "Ray": "射线",
@@ -21075,14 +21257,14 @@
           "removeIndicator": "移除指标",
           "remove": "移除",
           "errorTitle": "指标错误",
-          "compileFailed": "{{name}} 编译失败。",
+          "compileFailed": "{name} 编译失败。",
           "errorGuidance": "检查指标输入或脚本，然后重试。",
           "settingsSubtitle": "指标设置",
           "close": "关闭",
           "noConfigurableInputs": "没有可配置输入。",
           "cancel": "取消",
           "save": "保存",
-          "plotFallback": "绘图 {{index}}",
+          "plotFallback": "绘图 {index}",
           "executionErrorFallback": "指标执行失败",
           "metadataLabels": {
             "Length": "长度",
@@ -21105,7 +21287,7 @@
           "close": "收："
         },
         "listingOverlay": {
-          "flagAlt": "{{countryCode}} 国旗"
+          "flagAlt": "{countryCode} 国旗"
         },
         "errors": {
           "failedToLoadSeriesData": "序列数据加载失败",
@@ -21140,7 +21322,7 @@
         "label": "标的",
         "listingFallback": "标的",
         "selectListing": "选择标的",
-        "flagAlt": "{{countryCode}} 国旗",
+        "flagAlt": "{countryCode} 国旗",
         "searching": "正在搜索...",
         "noListingsFound": "未找到标的。",
         "searchPlaceholder": "搜索标的..."
@@ -21148,8 +21330,8 @@
     },
     "layoutTabs": {
       "createNewLayout": "创建新布局",
-      "renameAriaLabel": "重命名 {{name}}",
-      "deleteAriaLabel": "删除 {{name}}"
+      "renameAriaLabel": "重命名 {name}",
+      "deleteAriaLabel": "删除 {name}"
     },
     "monitor": {
       "title": "监控",
@@ -21180,7 +21362,7 @@
       "errors": {
         "activateView": "无法激活视图",
         "configViewsUnavailable": "配置视图当前不可用。",
-        "createDefaultView": "无法创建默认的 {{name}} 视图。",
+        "createDefaultView": "无法创建默认的 {name} 视图。",
         "createMonitor": "无法创建监控",
         "createView": "无法创建视图",
         "deleteMonitor": "无法删除监控",
@@ -21282,13 +21464,13 @@
         "today": "今天",
         "boundaries": "边界",
         "todayAndBoundaries": "今天 + 边界",
-        "shownCount": "显示 {{count}} 项",
-        "itemsCount": "{{count}} 项",
-        "executionsCount": "{{count}} 次执行",
-        "setCount": "已设置 {{count}} 项",
+        "shownCount": "显示 {count} 项",
+        "itemsCount": "{count} 项",
+        "executionsCount": "{count} 次执行",
+        "setCount": "已设置 {count} 项",
         "all": "全部",
         "allExecutions": "全部执行",
-        "monitorsCount": "{{count}} 个监控",
+        "monitorsCount": "{count} 个监控",
         "monitorControls": "监控控件"
       },
       "execution": {
@@ -21302,7 +21484,7 @@
         "closeInspector": "关闭检查器",
         "kanban": "看板",
         "timeline": "时间线",
-        "limitLabel": "限制 {{count}}",
+        "limitLabel": "限制 {count}",
         "running": "运行中",
         "unknown": "未知",
         "unknownListing": "未知标的",
@@ -21322,7 +21504,7 @@
         "loadingRecords": "正在加载监控记录...",
         "noExecutions": "无执行记录",
         "noOutcome": "无结果",
-        "addMonitorIn": "在 {{title}} 中添加监控"
+        "addMonitorIn": "在 {title} 中添加监控"
       },
       "configSearch": {
         "activeMonitors": "启用的监控",
@@ -21331,7 +21513,7 @@
         "hasLastExecutionLog": "有最近执行日志",
         "hasLastOutcome": "有最近结果",
         "invalidTokensPrefix": "无效的配置查询标记",
-        "lastOutcome": "最近结果：{{outcome}}",
+        "lastOutcome": "最近结果：{outcome}",
         "noLastExecution": "无最近执行",
         "noLastExecutionLog": "无最近执行日志",
         "noLastOutcome": "无最近结果",
@@ -21346,7 +21528,7 @@
         "loading": "正在加载时区...",
         "placeholder": "UTC",
         "searchPlaceholder": "搜索时区...",
-        "triggerLabel": "时区：{{label}}"
+        "triggerLabel": "时区：{label}"
       },
       "editor": {
         "createTitle": "创建监控",
@@ -21394,7 +21576,7 @@
         "scaleLabel": "缩放",
         "scaleAriaLabel": "时间线缩放",
         "searchZoomLevels": "搜索缩放级别...",
-        "zoomLabel": "缩放：{{zoom}}",
+        "zoomLabel": "缩放：{zoom}",
         "scrollPrevious": "滚动到上一个日期范围",
         "scrollNext": "滚动到下一个日期范围",
         "groupsTitle": "分组",
@@ -21413,9 +21595,9 @@
       "navigationAriaLabel": "聊天页眉",
       "titleFallback": "TradingGoose 聊天",
       "brandName": "TradingGoose",
-      "logoAlt": "{{title}} 徽标",
-      "githubRepositoryAriaLabel": "在 GitHub 上查看 TradingGoose 仓库，拥有 {{stars}} 颗星",
-      "homeAriaLabel": "前往 {{brand}} 首页"
+      "logoAlt": "{title} 徽标",
+      "githubRepositoryAriaLabel": "在 GitHub 上查看 TradingGoose 仓库，拥有 {stars} 颗星",
+      "homeAriaLabel": "前往 {brand} 首页"
     },
     "error": {
       "title": "聊天不可用",
@@ -21453,8 +21635,8 @@
       "startVoiceConversation": "开始语音对话",
       "send": "发送",
       "stop": "停止",
-      "fileTooLarge": "{{name}} 过大。",
-      "fileAlreadyAdded": "{{name}} 已添加。"
+      "fileTooLarge": "{name} 过大。",
+      "fileAlreadyAdded": "{name} 已添加。"
     },
     "auth": {
       "password": {
@@ -21480,7 +21662,7 @@
         "title": "输入你的邮箱",
         "verifyTitle": "验证你的邮箱",
         "description": "此聊天使用邮箱验证。",
-        "verifiedDescription": "我们已向 {{email}} 发送验证码。",
+        "verifiedDescription": "我们已向 {email} 发送验证码。",
         "label": "电子邮件",
         "placeholder": "输入你的邮箱",
         "submit": "发送验证码",
@@ -21489,7 +21671,7 @@
         "verifying": "验证中...",
         "instructions": "输入我们发送给你的 6 位验证码。",
         "resendPrompt": "没有收到验证码？",
-        "resendIn": "{{countdown}} 秒后重新发送",
+        "resendIn": "{countdown} 秒后重新发送",
         "resend": "重新发送验证码",
         "changeEmail": "更改邮箱",
         "validation": {
@@ -21621,7 +21803,7 @@
       "searchPlaceholder": "搜索候补名单条目...",
       "mode": "模式",
       "loading": "正在加载注册设置...",
-      "selectedCount": "已选择 {{count}} 项",
+      "selectedCount": "已选择 {count} 项",
       "submitted": "提交时间",
       "timeRanges": {
         "all": "全部时间",
@@ -21651,7 +21833,7 @@
       },
       "emptyState": "没有候补名单条目匹配当前搜索。",
       "selectVisible": "选择可见的候补名单条目",
-      "selectEntry": "选择 {{email}}",
+      "selectEntry": "选择 {email}",
       "never": "从未",
       "error": "发生错误",
       "modes": {
@@ -21683,8 +21865,8 @@
         "title": "设置",
         "description": "为此服务配置运行时行为和端点默认值。",
         "none": "此服务不提供存储设置。",
-        "storedValue": "已存储值：{{value}}",
-        "defaultValue": "默认值：{{value}}",
+        "storedValue": "已存储值：{value}",
+        "defaultValue": "默认值：{value}",
         "notConfigured": "未配置",
         "notSet": "未设置",
         "enabled": "已启用",
@@ -21696,21 +21878,21 @@
         "optional": "可选"
       },
       "placeholders": {
-        "enterValue": "输入 {{label}}",
-        "replaceValue": "输入新的 {{label}} 以替换已存储的值"
+        "enterValue": "输入 {label}",
+        "replaceValue": "输入新的 {label} 以替换已存储的值"
       },
       "actions": {
-        "saveField": "保存 {{label}}",
-        "cancelEditingField": "取消编辑 {{label}}",
-        "editField": "编辑 {{label}}",
-        "clearField": "清除 {{label}}"
+        "saveField": "保存 {label}",
+        "cancelEditingField": "取消编辑 {label}",
+        "editField": "编辑 {label}",
+        "clearField": "清除 {label}"
       },
       "summary": {
-        "requiredCredentialsSet": "已设置 {{configured}}/{{total}} 个必填凭据",
+        "requiredCredentialsSet": "已设置 {configured}/{total} 个必填凭据",
         "noRequiredCredentials": "没有必填凭据",
-        "requiredSettingsResolved": "已解决 {{configured}}/{{total}} 个必填设置",
+        "requiredSettingsResolved": "已解决 {configured}/{total} 个必填设置",
         "noRequiredSettings": "没有必填设置",
-        "missing": "缺少 {{labels}}。"
+        "missing": "缺少 {labels}。"
       },
       "footer": {
         "saving": "正在保存更改...",
@@ -21740,29 +21922,29 @@
         "description": "为该系统管理的 OAuth 提供商设置密钥。",
         "none": "此提供商不需要存储凭据。",
         "noMatches": "没有凭据匹配当前搜索。",
-        "fallbackDescription": "提供商凭据"
+        "defaultDescription": "提供商凭据"
       },
       "services": {
         "title": "OAuth 服务",
         "description": "启用或禁用继承此提供商凭据的服务。",
         "none": "此提供商不提供任何 OAuth 服务。",
         "noMatches": "没有服务匹配当前搜索。",
-        "inheritsFrom": "继承自 {{name}} 的凭据。"
+        "inheritsFrom": "继承自 {name} 的凭据。"
       },
       "placeholders": {
-        "enterValue": "输入 {{label}}",
-        "replaceValue": "输入新的 {{label}} 以替换已存储的值"
+        "enterValue": "输入 {label}",
+        "replaceValue": "输入新的 {label} 以替换已存储的值"
       },
       "summary": {
-        "serviceCount": "{{count}} 个服务{{plural}}",
+        "serviceCount": "{count} 个服务{plural}",
         "servicePlural": "s",
-        "requiredCredentialsSet": "已设置 {{configured}}/{{total}} 个必填凭据",
-        "credentialsSet": "已设置 {{count}} 个凭据{{plural}}",
+        "requiredCredentialsSet": "已设置 {configured}/{total} 个必填凭据",
+        "credentialsSet": "已设置 {count} 个凭据{plural}",
         "credentialPlural": "s",
         "noRequiredCredentials": "没有必填凭据",
-        "enabledCount": "已启用 {{count}} 个",
+        "enabledCount": "已启用 {count} 个",
         "noServicesAvailable": "没有可用服务",
-        "missing": "缺少 {{labels}}。"
+        "missing": "缺少 {labels}。"
       },
       "error": "发生错误"
     },
@@ -21788,21 +21970,21 @@
         "organization": "组织",
         "userOwner": "用户所有者",
         "organizationOwner": "组织所有者",
-        "ownerLabel": "{{owner}}所有者"
+        "ownerLabel": "{owner}所有者"
       },
       "usageScopes": {
         "individual": "独立",
         "pooled": "共享",
         "individualUsage": "独立使用",
         "pooledUsage": "共享使用",
-        "usageLabel": "{{scope}}使用"
+        "usageLabel": "{scope}使用"
       },
       "seatModes": {
         "fixed": "固定",
         "adjustable": "可调整",
         "fixedSeats": "固定席位",
         "adjustableSeats": "可调整席位",
-        "seatBillingLabel": "{{mode}}席位计费"
+        "seatBillingLabel": "{mode}席位计费"
       },
       "commerce": {
         "custom": "自定义",
@@ -21810,23 +21992,23 @@
         "selfServe": "自助购买",
         "contactSales": "联系销售",
         "priceUnset": "价格未设置",
-        "monthlyPrice": "{{amount}} / 月",
-        "yearlyPrice": "{{amount}} / 年",
-        "stripeLinks": "{{count}}/3 个 Stripe 链接",
-        "usdIncluded": "含 {{value}} 美元",
-        "gbStorage": "{{value}} GB 存储",
-        "concurrent": "{{value}} 并发",
-        "includedUsageLabel": "含 {{amount}}",
-        "storageLimitLabel": "{{value}} GB 存储",
-        "concurrencyLabel": "{{value}} 并发",
-        "workflowExecutionLabel": "{{value}}x 工作流执行",
-        "workflowModelsLabel": "{{value}}x 工作流模型",
-        "functionRuntimeLabel": "{{value}}x 函数运行时",
-        "copilotLabel": "{{value}}x Copilot",
+        "monthlyPrice": "{amount} / 月",
+        "yearlyPrice": "{amount} / 年",
+        "stripeLinks": "{count}/3 个 Stripe 链接",
+        "usdIncluded": "含 {value} 美元",
+        "gbStorage": "{value} GB 存储",
+        "concurrent": "{value} 并发",
+        "includedUsageLabel": "含 {amount}",
+        "storageLimitLabel": "{value} GB 存储",
+        "concurrencyLabel": "{value} 并发",
+        "workflowExecutionLabel": "{value}x 工作流执行",
+        "workflowModelsLabel": "{value}x 工作流模型",
+        "functionRuntimeLabel": "{value}x 函数运行时",
+        "copilotLabel": "{value}x Copilot",
         "seatCountUnset": "席位数量未设置",
-        "fixedSeatsCount": "{{count}} 个固定席位",
-        "baseSeatsCount": "{{count}} 个基础席位",
-        "maxSeatsCount": "{{count}} 个最大席位",
+        "fixedSeatsCount": "{count} 个固定席位",
+        "baseSeatsCount": "{count} 个基础席位",
+        "maxSeatsCount": "{count} 个最大席位",
         "noSelfServeSeatChanges": "不支持自助调整席位",
         "unlimitedSeats": "无限席位"
       },
@@ -21834,7 +22016,7 @@
         "searchPlaceholder": "搜索层级...",
         "createTier": "创建层级",
         "loadingInventory": "正在加载计费目录...",
-        "subscriptionCount": "{{count}} 个订阅",
+        "subscriptionCount": "{count} 个订阅",
         "currentTiersTitle": "当前层级",
         "currentTiersDescription": "打开层级以更新价格、可用性、客户限制和包含用量。",
         "emptyTitle": "创建你的第一个计费层级",
@@ -21848,8 +22030,8 @@
           "default": "默认",
           "notSet": "未设置",
           "rates": "费率",
-          "workflowRunRate": "工作流/次 ${{amount}}",
-          "functionSecondRate": "函数/秒 ${{amount}}"
+          "workflowRunRate": "工作流/次 ${amount}",
+          "functionSecondRate": "函数/秒 ${amount}"
         }
       },
       "create": {
@@ -22029,10 +22211,10 @@
           "copilotCostMultiplierBlank": "默认 1x 可留空。"
         },
         "summaries": {
-          "missing": "缺少：{{items}}",
+          "missing": "缺少：{items}",
           "untitledTier": "未命名层级",
           "noPricingBullets": "没有定价要点",
-          "pricingBullets": "{{count}} 个定价要点",
+          "pricingBullets": "{count} 个定价要点",
           "defaultTierMustBePublic": "默认层级必须是公开的",
           "defaultTierMustBePublicPlan": "默认层级必须是公开的用户计划，并使用独立用量和固定席位",
           "userTiersIndividualUsage": "用户层级必须使用独立用量",
@@ -22060,7 +22242,7 @@
           "userTiersNoOrgSeats": "用户层级不管理组织席位",
           "seatMaxAboveCount": "最大席位数必须大于席位数量",
           "noLimitsConfigured": "未配置包含用量、存储、并发、速率或保留限制",
-          "limitsConfigured": "{{count}}/7 项限制已配置",
+          "limitsConfigured": "{count}/7 项限制已配置",
           "usingBasePricingOnly": "仅使用平台基础定价"
         }
       },
@@ -22073,84 +22255,84 @@
   "emails": {
     "shared": {
       "tagline": "LLM 技术交易分析工作流系统",
-      "team": "{{brandName}} 团队",
-      "openBrand": "打开 {{brandName}}",
+      "team": "{brandName} 团队",
+      "openBrand": "打开 {brandName}",
       "expires15": "此代码将在 15 分钟后过期。",
       "expires24": "此链接在接下来的 24 小时内有效。",
       "expires48": "出于安全考虑，邀请将在 48 小时后过期。",
       "expires7": "此邀请将在 7 天后过期。",
       "ignore": "如果这不是你发起的请求，可以忽略此邮件。",
-      "sentOn": "发送时间：{{date}}。",
-      "sentOnTo": "发送时间：{{date}}，收件人：{{email}}。",
-      "submittedOnTo": "提交时间：{{date}}，邮箱：{{email}}。",
-      "approvedOnFor": "批准时间：{{date}}，邮箱：{{email}}。",
-      "sentOnFor": "发送时间：{{date}}，关于你的{{typeLabel}}{{emailPart}}。",
-      "emailPartFrom": "，来自 {{email}}"
+      "sentOn": "发送时间：{date}。",
+      "sentOnTo": "发送时间：{date}，收件人：{email}。",
+      "submittedOnTo": "提交时间：{date}，邮箱：{email}。",
+      "approvedOnFor": "批准时间：{date}，邮箱：{email}。",
+      "sentOnFor": "发送时间：{date}，关于你的{typeLabel}{emailPart}。",
+      "emailPartFrom": "，来自 {email}"
     },
     "footer": {
-      "copyright": "(c) {{year}} {{brandName}}，保留所有权利",
+      "copyright": "(c) {year} {brandName}，保留所有权利",
       "questions": "有问题？发送邮件至",
       "privacy": "隐私政策",
       "terms": "服务条款",
       "unsubscribe": "退订"
     },
     "subjects": {
-      "sign-in": "登录 {{brandName}}",
-      "email-verification": "验证你的 {{brandName}} 邮箱",
-      "forget-password": "重置你的 {{brandName}} 密码",
-      "reset-password": "重置你的 {{brandName}} 密码",
-      "change-email": "验证你的新 {{brandName}} 邮箱",
-      "chat-access": "{{chatTitle}} 验证码",
-      "invitation": "你被邀请加入 {{brandName}} 上的 {{organizationName}}",
-      "batch-invitation": "你被邀请加入 {{brandName}} 上的 {{organizationName}} 和工作区",
-      "workspace-invitation": "你被邀请加入 {{brandName}} 上的 {{workspaceName}}",
+      "sign-in": "登录 {brandName}",
+      "email-verification": "验证你的 {brandName} 邮箱",
+      "forget-password": "重置你的 {brandName} 密码",
+      "reset-password": "重置你的 {brandName} 密码",
+      "change-email": "验证你的新 {brandName} 邮箱",
+      "chat-access": "{chatTitle} 验证码",
+      "invitation": "你被邀请加入 {brandName} 上的 {organizationName}",
+      "batch-invitation": "你被邀请加入 {brandName} 上的 {organizationName} 和工作区",
+      "workspace-invitation": "你被邀请加入 {brandName} 上的 {workspaceName}",
       "help-confirmation": "我们已收到你的请求",
-      "enterprise-subscription": "你的组织账单已在 {{brandName}} 激活",
-      "plan-welcome": "你的 {{planName}} 层级已在 {{brandName}} 激活",
-      "usage-threshold": "你接近 {{brandName}} 的月度预算",
+      "enterprise-subscription": "你的组织账单已在 {brandName} 激活",
+      "plan-welcome": "你的 {planName} 层级已在 {brandName} 激活",
+      "usage-threshold": "你接近 {brandName} 的月度预算",
       "free-tier-upgrade": "你当前层级接近包含用量上限",
-      "payment-failed": "{{brandName}} 付款失败 - 需要处理",
-      "waitlist-confirmation": "我们已收到你的 {{brandName}} 访问申请",
-      "waitlist-approved": "你的 {{brandName}} 访问申请已获批准",
-      "careers-confirmation": "你对 {{brandName}} 的申请 - {{position}}"
+      "payment-failed": "{brandName} 付款失败 - 需要处理",
+      "waitlist-confirmation": "我们已收到你的 {brandName} 访问申请",
+      "waitlist-approved": "你的 {brandName} 访问申请已获批准",
+      "careers-confirmation": "你对 {brandName} 的申请 - {position}"
     },
     "otp": {
       "titles": {
-        "sign-in": "登录 {{brandName}}",
-        "email-verification": "验证你的 {{brandName}} 邮箱",
-        "forget-password": "重置你的 {{brandName}} 密码",
-        "change-email": "验证你的新 {{brandName}} 邮箱",
-        "chat-access": "访问 {{chatTitle}}"
+        "sign-in": "登录 {brandName}",
+        "email-verification": "验证你的 {brandName} 邮箱",
+        "forget-password": "重置你的 {brandName} 密码",
+        "change-email": "验证你的新 {brandName} 邮箱",
+        "chat-access": "访问 {chatTitle}"
       },
       "body": "使用下面的代码继续。"
     },
     "resetPassword": {
       "title": "重置你的密码",
-      "intro": "我们收到了重置你的 {{brandName}} 账户密码的请求。",
+      "intro": "我们收到了重置你的 {brandName} 账户密码的请求。",
       "action": "使用下面的按钮设置新密码。",
       "cta": "重置密码",
       "accountFallback": "你的账户邮箱",
-      "sentLine": "发送时间：{{date}}，账户：{{account}}。"
+      "sentLine": "发送时间：{date}，账户：{account}。"
     },
     "invitation": {
-      "preview": "{{inviterName}} 邀请你加入 {{brandName}} 上的 {{organizationName}}",
-      "title": "你被邀请加入 {{organizationName}}。",
-      "intro": "{{inviterName}} 邀请你在 {{brandName}} 上协作。",
+      "preview": "{inviterName} 邀请你加入 {brandName} 上的 {organizationName}",
+      "title": "你被邀请加入 {organizationName}。",
+      "intro": "{inviterName} 邀请你在 {brandName} 上协作。",
       "body": "接受邀请即可访问共享项目和工作流。",
       "cta": "立即加入"
     },
     "batchInvitation": {
-      "preview": "加入 {{brandName}} 上的 {{organizationName}}",
-      "title": "你被邀请加入 {{organizationName}}。",
-      "intro": "{{inviterName}} 将你添加为 {{brandName}} 上的 {{roleLabel}}。",
+      "preview": "加入 {brandName} 上的 {organizationName}",
+      "title": "你被邀请加入 {organizationName}。",
+      "intro": "{inviterName} 将你添加为 {brandName} 上的 {roleLabel}。",
       "adminDescription": "作为管理员，你可以管理组织的账单、成员和工作区访问权限。",
       "memberDescription": "作为成员，你可以参与共享账单协作并接受工作区邀请。",
-      "workspaceAccess": "工作区访问权限（{{count}} 个{{workspaceWord}}）：",
-      "workspaceLine": "- {{workspaceName}} - {{permissionLabel}}",
+      "workspaceAccess": "工作区访问权限（{count} 个{workspaceWord}）：",
+      "workspaceLine": "- {workspaceName} - {permissionLabel}",
       "workspaceSingular": "工作区",
       "workspacePlural": "工作区",
-      "closing": "接受后，你将加入 {{organizationName}}。",
-      "closingWithWorkspaces": "接受后，你将加入 {{organizationName}} 并获得 {{count}} 个{{workspaceWord}}的访问权限。",
+      "closing": "接受后，你将加入 {organizationName}。",
+      "closingWithWorkspaces": "接受后，你将加入 {organizationName} 并获得 {count} 个{workspaceWord}的访问权限。",
       "cta": "接受邀请",
       "roleLabels": {
         "admin": "管理员",
@@ -22163,17 +22345,17 @@
       }
     },
     "workspaceInvitation": {
-      "preview": "加入 {{brandName}} 上的 {{workspaceName}} 工作区",
-      "title": "你被邀请加入 {{workspaceName}}",
-      "intro": "{{inviterName}} 邀请你在 {{brandName}} 的 {{workspaceName}} 工作区协作。接受后即可访问共享项目和数据。",
+      "preview": "加入 {brandName} 上的 {workspaceName} 工作区",
+      "title": "你被邀请加入 {workspaceName}",
+      "intro": "{inviterName} 邀请你在 {brandName} 的 {workspaceName} 工作区协作。接受后即可访问共享项目和数据。",
       "cta": "接受邀请"
     },
     "help": {
       "title": "感谢你的反馈",
-      "preview": "{{brandName}}：我们已收到你的{{typeLabel}}",
-      "intro": "我们已收到你的{{typeLabel}}，会尽快跟进。",
-      "attachments": "你附加了 {{count}} 个{{fileWord}}。我们会查看你分享的内容。",
-      "responseTime": "我们通常会在几小时内回复。如需即时帮助，请发送邮件至 {{supportEmail}}。",
+      "preview": "{brandName}：我们已收到你的{typeLabel}",
+      "intro": "我们已收到你的{typeLabel}，会尽快跟进。",
+      "attachments": "你附加了 {count} 个{fileWord}。我们会查看你分享的内容。",
+      "responseTime": "我们通常会在几小时内回复。如需即时帮助，请发送邮件至 {supportEmail}。",
       "fileSingular": "文件",
       "filePlural": "文件",
       "typeLabels": {
@@ -22187,13 +22369,13 @@
       "confirmation": {
         "preview": "我们已收到你的访问申请",
         "title": "你已加入等待名单",
-        "intro": "我们已收到你对 {{brandName}} 的访问申请，并将 {{email}} 加入等待名单。",
+        "intro": "我们已收到你对 {brandName} 的访问申请，并将 {email} 加入等待名单。",
         "body": "我们会审核你的申请。如果此邮箱获准注册，我们会再次发送邮件。请在所有登录方式中使用同一个邮箱。"
       },
       "approved": {
         "preview": "你的等待名单申请已获批准",
         "title": "你的访问权限已准备好",
-        "intro": "{{email}} 现在可以在 {{brandName}} 创建账户。",
+        "intro": "{email} 现在可以在 {brandName} 创建账户。",
         "body": "请使用同一个邮箱完成注册以激活访问权限。",
         "cta": "完成注册",
         "methodReminder": "请为邮箱/密码、Google、GitHub 或任何其他登录方式使用同一个已批准邮箱。"
@@ -22202,74 +22384,70 @@
     "billing": {
       "enterprise": {
         "title": "组织账单已激活",
-        "welcome": "欢迎，{{userName}}。",
-        "body": "你的组织账单层级已在 {{brandName}} 生效。现在你拥有更高容量、高级控制和组织范围访问权限。",
+        "welcome": "欢迎，{userName}。",
+        "body": "你的组织账单层级已在 {brandName} 生效。现在你拥有更高容量、高级控制和组织范围访问权限。",
         "cta": "访问你的账户",
         "nextStepsTitle": "后续步骤",
-        "nextSteps": [
-          "- 邀请团队成员加入组织",
-          "- 配置工作区权限",
-          "- 使用新限制开始构建工作流"
-        ],
+        "nextSteps": ["- 邀请团队成员加入组织", "- 配置工作区权限", "- 使用新限制开始构建工作流"],
         "help": "需要入门帮助？回复此邮件，我们的团队会协助你。"
       },
       "planWelcome": {
-        "preview": "{{brandName}}：你的 {{planName}} 层级已激活",
-        "title": "{{planName}} 层级已激活",
-        "namedWelcome": "欢迎，{{userName}}！",
+        "preview": "{brandName}：你的 {planName} 层级已激活",
+        "title": "{planName} 层级已激活",
+        "namedWelcome": "欢迎，{userName}！",
         "welcome": "欢迎！",
-        "body": "你已启用 {{brandName}} 的 {{planName}} 层级。探索新的限制，与团队更快交付。",
+        "body": "你已启用 {brandName} 的 {planName} 层级。探索新的限制，与团队更快交付。",
         "help": "想讨论你的层级或获取个性化入门帮助？可以与我们的团队预约 15 分钟通话。",
         "settings": "需要邀请队友、调整用量限制或管理账单？可随时访问设置 -> 订阅。"
       },
       "usage": {
-        "preview": "{{brandName}}：你已使用 {{planName}} 月度预算的 {{percentUsed}}%",
-        "title": "你已使用预算的 {{percentUsed}}%",
-        "intro": "{{userNamePrefix}}你的 {{planName}} 层级用量接近月度限制。",
+        "preview": "{brandName}：你已使用 {planName} 月度预算的 {percentUsed}%",
+        "title": "你已使用预算的 {percentUsed}%",
+        "intro": "{userNamePrefix}你的 {planName} 层级用量接近月度限制。",
         "recommendation": "为避免中断，请考虑提高月度限制。",
-        "usageLine": "已使用 {{currentUsage}} / {{limit}}",
-        "percentLine": "本月预算的 {{percentUsed}}%",
+        "usageLine": "已使用 {currentUsage} / {limit}",
+        "percentLine": "本月预算的 {percentUsed}%",
         "cta": "查看限制",
         "reason": "当你的用量达到配置的账单警告阈值时，我们只发送一次此邮件，让你有时间调整层级或限制。"
       },
       "freeTier": {
         "currentTierFallback": "你当前的层级",
-        "preview": "{{brandName}}：{{currentTierName}} 接近包含用量上限",
+        "preview": "{brandName}：{currentTierName} 接近包含用量上限",
         "title": "你的包含用量即将用完",
-        "greeting": "你好 {{userName}}，",
+        "greeting": "你好 {userName}，",
         "greetingFallback": "there",
-        "usage": "你已使用 {{currentUsage}}，包含额度为 {{limit}}，当前层级为 {{currentTierName}}（{{percentUsed}}%）。",
+        "usage": "你已使用 {currentUsage}，包含额度为 {limit}，当前层级为 {currentTierName}（{percentUsed}%）。",
         "body": "请查看可用账单层级，在本月限制影响新工作之前扩展你的用量。",
         "recommendedTitle": "推荐的下一层级",
-        "recommendedTier": "推荐的下一层级：{{tierName}}",
-        "recommendedPrice": "{{price}}/月起",
-        "recommendedUsage": "每月包含 {{usage}} 用量",
+        "recommendedTier": "推荐的下一层级：{tierName}",
+        "recommendedPrice": "{price}/月起",
+        "recommendedUsage": "每月包含 {usage} 用量",
         "cta": "查看账单层级",
         "oneTime": "这是默认层级超过升级阈值后的单次通知。"
       },
       "paymentFailed": {
         "title": "我们无法处理你的付款。",
-        "greeting": "你好 {{userName}}，",
+        "greeting": "你好 {userName}，",
         "greetingFallback": "there",
-        "body": "你的 {{brandName}} 账户已暂时阻止，以避免服务中断和意外费用。请更新付款方式以立即恢复访问。",
+        "body": "你的 {brandName} 账户已暂时阻止，以避免服务中断和意外费用。请更新付款方式以立即恢复访问。",
         "detailsTitle": "付款详情",
-        "amountDue": "应付金额：{{amount}}",
-        "paymentMethod": "付款方式：**** {{lastFourDigits}}",
-        "reason": "原因：{{reason}}",
+        "amountDue": "应付金额：{amount}",
+        "paymentMethod": "付款方式：**** {lastFourDigits}",
+        "reason": "原因：{reason}",
         "cta": "更新付款方式",
         "nextSteps": "你的工作流和自动化当前已暂停。更新付款方式即可立即恢复服务。付款更新后，Stripe 会自动重试扣款。",
         "help": "常见失败原因包括卡片过期、余额不足或账单信息错误。如果问题持续，请联系支持。",
-        "sentLine": "发送时间：{{date}}。这是一条重要交易通知。"
+        "sentLine": "发送时间：{date}。这是一条重要交易通知。"
       }
     },
     "careers": {
-      "preview": "我们已收到你对 {{brandName}} 的申请",
+      "preview": "我们已收到你对 {brandName} 的申请",
       "title": "我们已收到你的申请",
-      "greeting": "你好 {{name}}，",
-      "body": "感谢你有兴趣加入 {{brandName}} 团队。我们已收到你对 {{position}} 职位的申请。",
+      "greeting": "你好 {name}，",
+      "body": "感谢你有兴趣加入 {brandName} 团队。我们已收到你对 {position} 职位的申请。",
       "review": "我们的团队会认真审核每一份申请，并在接下来的几周内回复你。如果你的资历符合我们的需求，我们会联系你安排初次沟通。",
-      "explore": "与此同时，你可以查看我们的文档 {{docsUrl}}，或在博客 {{blogUrl}} 阅读最新内容。",
-      "sentLine": "此确认邮件发送时间：{{dateTime}}。"
+      "explore": "与此同时，你可以查看我们的文档 {docsUrl}，或在博客 {blogUrl} 阅读最新内容。",
+      "sentLine": "此确认邮件发送时间：{dateTime}。"
     }
   }
 }

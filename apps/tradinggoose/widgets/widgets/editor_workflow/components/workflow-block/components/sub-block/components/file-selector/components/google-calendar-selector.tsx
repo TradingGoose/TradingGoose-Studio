@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { useLocale } from 'next-intl'
 import { Check, ChevronDown, RefreshCw, X } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { GoogleCalendarIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import {
@@ -57,21 +57,15 @@ export function GoogleCalendarSelector({
   const locale = useLocale() as LocaleCode
   const selectorCopy = useAppMessages().workspace.widgets.blockEditor.googleCalendarSelector
   const copy = {
-    selectGoogleCalendar: translateWorkflowLabel(locale, 'Select Google Calendar'),
-    searchCalendars: translateWorkflowLabel(locale, 'Search calendars...'),
-    loadingCalendars: translateWorkflowLabel(locale, 'Loading calendars...'),
-    noCalendarsFound: translateWorkflowLabel(locale, 'No calendars found'),
-    noMatchingCalendars: translateWorkflowLabel(locale, 'No matching calendars'),
-    calendars: translateWorkflowLabel(locale, 'Calendars'),
-    primary: translateWorkflowLabel(locale, 'Primary'),
-    googleCalendarAccountRequired: translateWorkflowLabel(
-      locale,
-      'Google Calendar account is required'
-    ),
-    failedToFetchGoogleCalendars: translateWorkflowLabel(
-      locale,
-      'Failed to fetch Google Calendar calendars'
-    ),
+    selectGoogleCalendar: translateWorkflowLabel(locale, 'selectGoogleCalendar'),
+    searchCalendars: translateWorkflowLabel(locale, 'searchCalendars'),
+    loadingCalendars: translateWorkflowLabel(locale, 'loadingCalendars'),
+    noCalendarsFound: translateWorkflowLabel(locale, 'noCalendarsFound'),
+    noMatchingCalendars: translateWorkflowLabel(locale, 'noMatchingCalendars'),
+    calendars: translateWorkflowLabel(locale, 'calendars'),
+    primary: translateWorkflowLabel(locale, 'primary'),
+    googleCalendarAccountRequired: translateWorkflowLabel(locale, 'googleCalendarAccountRequired'),
+    failedToFetchGoogleCalendars: translateWorkflowLabel(locale, 'failedToFetchGoogleCalendars'),
   }
   type GoogleCalendarSelectorErrorCode = keyof typeof selectorCopy.errors
   const labelText = label ?? copy.selectGoogleCalendar
@@ -280,17 +274,17 @@ export function GoogleCalendarSelector({
                     <RefreshCw className='h-4 w-4 animate-spin' />
                     <span className='ml-2'>{copy.loadingCalendars}</span>
                   </div>
-              ) : error ? (
-                <div className='p-4 text-center'>
-                  <p className='text-destructive text-sm'>{selectorCopy.errors[error]}</p>
-                </div>
-              ) : calendars.length === 0 ? (
-                <div className='p-4 text-center'>
-                  <p className='font-medium text-sm'>{copy.noCalendarsFound}</p>
-                  <p className='text-muted-foreground text-xs'>
+                ) : error ? (
+                  <div className='p-4 text-center'>
+                    <p className='text-destructive text-sm'>{selectorCopy.errors[error]}</p>
+                  </div>
+                ) : calendars.length === 0 ? (
+                  <div className='p-4 text-center'>
+                    <p className='font-medium text-sm'>{copy.noCalendarsFound}</p>
+                    <p className='text-muted-foreground text-xs'>
                       {selectorCopy.emptyStateDescription}
-                  </p>
-                </div>
+                    </p>
+                  </div>
                 ) : (
                   <div className='p-4 text-center'>
                     <p className='font-medium text-sm'>{copy.noMatchingCalendars}</p>

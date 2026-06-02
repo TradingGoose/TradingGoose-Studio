@@ -1,8 +1,8 @@
 'use client'
 
+import { ProviderSelector, type ProviderSelectorVariant } from '@/components/provider-selector'
 import { formatTemplate } from '@/i18n/utils'
 import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
-import { ProviderSelector, type ProviderSelectorVariant } from '@/components/provider-selector'
 import type { MarketProviderOption } from '@/providers/market/providers'
 
 interface MarketProviderSelectorProps {
@@ -46,7 +46,7 @@ export function MarketProviderSelector({
         currentVariant === 'form'
           ? option.name
           : formatTemplate(copy.selectedLabel, {
-              providerName: option.name || copy.fallbackProviderName,
+              providerName: option.name || copy.defaultProviderName,
             })
       }
     />

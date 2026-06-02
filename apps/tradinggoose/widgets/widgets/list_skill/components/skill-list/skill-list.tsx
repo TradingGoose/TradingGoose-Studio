@@ -5,8 +5,8 @@ import { useLocale } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { SKILL_NAME_MAX_LENGTH } from '@/lib/skills/import-export'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { useAppMessages } from '@/i18n/client-messages'
 import { useDeleteSkill, useSkills, useUpdateSkill } from '@/hooks/queries/skills'
+import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useSkillsStore } from '@/stores/skills/store'
 import type { PairColor } from '@/widgets/pair-colors'
@@ -145,7 +145,9 @@ export function SkillList({
       }
 
       if (normalizedName.length > SKILL_NAME_MAX_LENGTH) {
-        throw new Error(skillValidationCopy.nameTooLong.replace('{{max}}', String(SKILL_NAME_MAX_LENGTH)))
+        throw new Error(
+          formatTemplate(skillValidationCopy.nameTooLong, { max: SKILL_NAME_MAX_LENGTH })
+        )
       }
 
       await updateMutation.mutateAsync({

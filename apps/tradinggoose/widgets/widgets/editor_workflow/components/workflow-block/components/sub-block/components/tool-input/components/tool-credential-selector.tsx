@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Check, ChevronDown, ExternalLink, Plus, RefreshCw } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
 import { Button } from '@/components/ui/button'
 import {
@@ -23,7 +24,6 @@ import { formatTemplate } from '@/i18n/client-messages'
 import type { LocaleCode } from '@/i18n/utils'
 import { useWorkspaceBlockEditorMessages } from '@/i18n/workspace-widget-hooks'
 import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { useLocale } from 'next-intl'
 
 const logger = createLogger('ToolCredentialSelector')
 
@@ -81,7 +81,7 @@ export function ToolCredentialSelector({
   const [showOAuthModal, setShowOAuthModal] = useState(false)
   const [selectedId, setSelectedId] = useState('')
   const activeWorkflowId = useWorkflowId()
-  const labelText = label ?? translateWorkflowLabel(locale, 'Select credential')
+  const labelText = label ?? translateWorkflowLabel(locale, 'selectCredential')
 
   // Update selected ID when value changes
   useEffect(() => {
@@ -155,7 +155,7 @@ export function ToolCredentialSelector({
   const selectedCredential = credentials.find((cred) => cred.id === selectedId)
   const selectedLabel =
     selectedCredential?.isOwner === false
-      ? translateWorkflowLabel(locale, 'Saved by collaborator')
+      ? translateWorkflowLabel(locale, 'savedByCollaborator')
       : selectedCredential?.name
 
   return (
@@ -171,7 +171,11 @@ export function ToolCredentialSelector({
           >
             <div className='flex min-w-0 items-center gap-2 overflow-hidden'>
               {getProviderIcon(provider)}
-              <span className={selectedLabel ? 'truncate font-normal' : 'truncate text-muted-foreground'}>
+              <span
+                className={
+                  selectedLabel ? 'truncate font-normal' : 'truncate text-muted-foreground'
+                }
+              >
                 {selectedLabel || labelText}
               </span>
             </div>
@@ -185,12 +189,12 @@ export function ToolCredentialSelector({
                 {isLoading ? (
                   <div className='flex items-center justify-center p-4'>
                     <RefreshCw className='h-4 w-4 animate-spin' />
-                    <span className='ml-2'>{translateWorkflowLabel(locale, 'Loading...')}</span>
+                    <span className='ml-2'>{translateWorkflowLabel(locale, 'loading')}</span>
                   </div>
                 ) : credentials.length === 0 ? (
                   <div className='p-4 text-center'>
                     <p className='font-medium text-sm'>
-                      {translateWorkflowLabel(locale, 'No accounts connected.')}
+                      {translateWorkflowLabel(locale, 'noAccountsConnected')}
                     </p>
                     <p className='text-muted-foreground text-xs'>
                       {formatTemplate(copy.selectProviderAccount, {
@@ -201,7 +205,7 @@ export function ToolCredentialSelector({
                 ) : (
                   <div className='p-4 text-center'>
                     <p className='font-medium text-sm'>
-                      {translateWorkflowLabel(locale, 'No accounts found.')}
+                      {translateWorkflowLabel(locale, 'noAccountsFound')}
                     </p>
                   </div>
                 )}
@@ -215,14 +219,14 @@ export function ToolCredentialSelector({
                       value={credential.id}
                       onSelect={() => handleSelect(credential.id)}
                     >
-                        <div className='flex items-center gap-1'>
-                          {getProviderIcon(credential.provider)}
-                          <span className='font-normal'>
-                            {credential.isOwner === false
-                              ? translateWorkflowLabel(locale, 'Saved by collaborator')
-                              : credential.name}
-                          </span>
-                        </div>
+                      <div className='flex items-center gap-1'>
+                        {getProviderIcon(credential.provider)}
+                        <span className='font-normal'>
+                          {credential.isOwner === false
+                            ? translateWorkflowLabel(locale, 'savedByCollaborator')
+                            : credential.name}
+                        </span>
+                      </div>
                       {credential.id === selectedId && <Check className='ml-auto h-4 w-4' />}
                     </CommandItem>
                   ))}

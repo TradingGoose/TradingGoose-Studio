@@ -1,18 +1,22 @@
-import { getPublicCopy, formatTemplate } from '@/i18n/public-copy'
-import { defaultLocale, isLocaleCode, type LocaleCode } from '@/i18n/utils'
+import { formatTemplate, getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleInput, normalizeLocaleCode } from '@/i18n/utils'
 
-export type EmailLocale = LocaleCode | string | null | undefined
+export type EmailLocale = LocaleInput
 
-export function normalizeEmailTemplateLocale(locale: EmailLocale): LocaleCode {
-  return locale && isLocaleCode(locale) ? locale : defaultLocale
+export function normalizeEmailTemplateLocale(locale: EmailLocale) {
+  return normalizeLocaleCode(locale)
 }
 
 export function getEmailCopy(locale: EmailLocale) {
   return getPublicCopy(normalizeEmailTemplateLocale(locale)).emails
 }
 
-export function emailText(template: string, values: Record<string, string | number>) {
-  return formatTemplate(template, values)
+export function emailText(
+  locale: EmailLocale,
+  template: string,
+  values: Record<string, string | number>
+) {
+  return formatTemplate(template, values, normalizeEmailTemplateLocale(locale))
 }
 
 export function formatEmailDate(locale: EmailLocale, date: Date) {

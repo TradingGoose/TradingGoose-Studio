@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useLocale } from 'next-intl'
 import { Check, ChevronDown, ExternalLink, RefreshCw } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
 import { Button } from '@/components/ui/button'
 import {
@@ -49,10 +49,10 @@ export function CredentialSelector({
   const locale = useLocale() as LocaleCode
   const copy = useAppMessages().workspace.widgets.blockEditor.toolInput
   const labelCopy = {
-    searchCredentials: translateWorkflowLabel(locale, 'Search credentials...'),
-    loadingCredentials: translateWorkflowLabel(locale, 'Loading credentials...'),
-    noCredentialsFound: translateWorkflowLabel(locale, 'No credentials found.'),
-    connectNewAccountToContinue: translateWorkflowLabel(locale, 'Connect a new account to continue.'),
+    searchCredentials: translateWorkflowLabel(locale, 'searchCredentials'),
+    loadingCredentials: translateWorkflowLabel(locale, 'loadingCredentials'),
+    noCredentialsFound: translateWorkflowLabel(locale, 'noCredentialsFound'),
+    connectNewAccountToContinue: translateWorkflowLabel(locale, 'connectNewAccountToContinue'),
   }
   const [open, setOpen] = useState(false)
   const [credentials, setCredentials] = useState<Credential[]>([])
@@ -67,7 +67,7 @@ export function CredentialSelector({
   // Extract values from subBlock config
   const provider = subBlock.provider as OAuthProvider
   const requiredScopes = subBlock.requiredScopes || []
-  const label = subBlock.placeholder || translateWorkflowLabel(locale, 'Select credential')
+  const label = subBlock.placeholder || translateWorkflowLabel(locale, 'selectCredential')
   const serviceId = subBlock.serviceId
   const serviceIds = subBlock.serviceIds
 
@@ -168,7 +168,7 @@ export function CredentialSelector({
   const isForeign = !!(selectedId && selectedCredential?.isOwner === false)
 
   const displayName = isForeign
-    ? translateWorkflowLabel(locale, 'Saved by collaborator')
+    ? translateWorkflowLabel(locale, 'savedByCollaborator')
     : selectedCredential
       ? selectedCredential.name
       : undefined
@@ -281,9 +281,9 @@ export function CredentialSelector({
                       <div className='flex min-w-0 items-center gap-1'>
                         {getProviderIcon(cred.provider)}
                         <span className='min-w-0 truncate font-normal'>
-        {cred.isOwner === false
-          ? translateWorkflowLabel(locale, 'Saved by collaborator')
-          : cred.name}
+                          {cred.isOwner === false
+                            ? translateWorkflowLabel(locale, 'savedByCollaborator')
+                            : cred.name}
                         </span>
                         {showServiceNames ? (
                           <span className='shrink-0 text-muted-foreground text-xs'>

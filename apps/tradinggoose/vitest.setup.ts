@@ -23,6 +23,7 @@ global.localStorage = storageMock as any
 global.sessionStorage = storageMock as any
 
 vi.mock('next-intl', async () => {
+  const actual = await vi.importActual<typeof import('next-intl')>('next-intl')
   const React = await import('react')
   const LocaleContext = React.createContext('en')
   const MessagesContext = React.createContext(enMessages)
@@ -36,20 +37,29 @@ vi.mock('next-intl', async () => {
     }, messages)
 
   const formatMessage = (
+    locale: string,
     template: string,
     values?: Record<string, string | number | boolean | null | undefined>
   ) => {
-    if (!values) {
-      return template
+    let formatError: unknown
+    const translator = actual.createTranslator({
+      locale,
+      messages: { value: template },
+      onError(error) {
+        formatError = error
+      },
+    })
+    const formatted = translator('value', values as Record<string, string | number | Date>)
+
+    if (formatError) {
+      throw formatError
     }
 
-    return Object.entries(values).reduce(
-      (result, [key, value]) => result.replaceAll(`{{${key}}}`, String(value ?? '')),
-      template
-    )
+    return formatted
   }
 
   return {
+    ...actual,
     NextIntlClientProvider: ({ children, locale, messages }: any) =>
       React.createElement(
         LocaleContext.Provider,
@@ -60,6 +70,7 @@ vi.mock('next-intl', async () => {
     useMessages: () => React.useContext(MessagesContext),
     useTranslations: (namespace?: string) => {
       const messages = React.useContext(MessagesContext)
+      const locale = React.useContext(LocaleContext)
 
       return (
         key: string,
@@ -72,7 +83,7 @@ vi.mock('next-intl', async () => {
           return fullKey
         }
 
-        return formatMessage(resolved, values)
+        return formatMessage(locale, resolved, values)
       }
     },
   }
@@ -180,9 +191,7 @@ vi.mock('@/blocks/registry', () => {
     Object.values(registry).filter((block) => block.category === category)
   )
   const getAllBlockTypes = vi.fn(() => Object.keys(registry))
-  const isValidBlockType = vi.fn((type: string) =>
-    Object.prototype.hasOwnProperty.call(registry, type)
-  )
+  const isValidBlockType = vi.fn((type: string) => Object.hasOwn(registry, type))
 
   return {
     registry,

@@ -1,6 +1,6 @@
 import { getSessionCookie } from 'better-auth/cookies'
-import createMiddleware from 'next-intl/middleware'
 import { type NextRequest, NextResponse } from 'next/server'
+import createMiddleware from 'next-intl/middleware'
 import { appendHomepageDiscoveryLinks } from '@/lib/discovery/link-headers'
 import {
   appendVaryHeader,
@@ -9,13 +9,14 @@ import {
   MARKDOWN_RENDER_ROUTE,
   requestAcceptsMarkdown,
 } from '@/lib/markdown/negotiation'
+import { routing } from '@/i18n/routing'
 import {
   defaultLocale,
   isLocaleCode,
   type LocaleCode,
+  localizeUrl,
+  stripLocaleFromPathname,
 } from '@/i18n/utils'
-import { getRouteBoundaryHref } from '@/i18n/route-boundary'
-import { routing } from '@/i18n/routing'
 import { createLogger } from './lib/logs/console/logger'
 import { generateRuntimeCSP } from './lib/security/csp'
 
@@ -58,22 +59,12 @@ interface LocaleRoute {
 }
 
 function resolveLocaleRoute(pathname: string): LocaleRoute {
-  const segments = pathname.split('/').filter(Boolean)
-  const firstSegment = segments[0]
-
-  if (firstSegment && isLocaleCode(firstSegment)) {
-    const stripped = `/${segments.slice(1).join('/')}`.replace(/\/+$/, '')
-    return {
-      locale: firstSegment,
-      pathname: stripped || '/',
-      hasLocalePrefix: true,
-    }
-  }
-
+  const firstSegment = pathname.split('/').filter(Boolean)[0]
+  const { locale, pathname: normalizedPathname } = stripLocaleFromPathname(pathname)
   return {
-    locale: defaultLocale,
-    pathname: pathname || '/',
-    hasLocalePrefix: false,
+    locale,
+    pathname: normalizedPathname,
+    hasLocalePrefix: Boolean(firstSegment && isLocaleCode(firstSegment)),
   }
 }
 
@@ -103,7 +94,7 @@ function isCanonicalRouteHandlerPath(pathname: string) {
 
 function buildLoginRedirect(request: NextRequest, callback?: string) {
   const { locale } = resolveLocaleRoute(request.nextUrl.pathname)
-  const loginUrl = new URL(getRouteBoundaryHref(locale, '/login'), request.url)
+  const loginUrl = new URL(localizeUrl(request.nextUrl.origin, locale, '/login'))
 
   if (callback) {
     loginUrl.searchParams.set('callbackUrl', callback)
@@ -233,7 +224,7 @@ export async function proxy(request: NextRequest) {
     }
 
     if (hasActiveSession) {
-      return NextResponse.redirect(new URL(getRouteBoundaryHref(locale, '/workspace'), request.url))
+      return NextResponse.redirect(new URL(localizeUrl(url.origin, locale, '/workspace')))
     }
   }
 

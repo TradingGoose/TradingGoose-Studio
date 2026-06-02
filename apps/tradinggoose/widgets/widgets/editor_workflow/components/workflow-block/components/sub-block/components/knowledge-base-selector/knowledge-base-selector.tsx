@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useLocale } from 'next-intl'
 import { Check, ChevronDown, RefreshCw, X } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { PackageSearchIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,9 +14,9 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { translateWorkflowLabel } from '@/i18n/block-editor'
 import type { SubBlockConfig } from '@/blocks/types'
 import { fetchKnowledgeBases as fetchWorkspaceKnowledgeBases } from '@/hooks/queries/knowledge'
+import { translateWorkflowLabel } from '@/i18n/block-editor'
 import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
 import type { LocaleCode } from '@/i18n/utils'
 import type { KnowledgeBaseData } from '@/stores/knowledge/store'
@@ -40,9 +40,9 @@ export function KnowledgeBaseSelector({
   const selectorCopy = useAppMessages().workspace.widgets.blockEditor.knowledgeBaseSelector
   const workspaceId = useWorkspaceId()
   const copy = {
-    searchKnowledgeBases: translateWorkflowLabel(locale, 'Search knowledge bases...'),
-    loadingKnowledgeBases: translateWorkflowLabel(locale, 'Loading knowledge bases...'),
-    noKnowledgeBasesFound: translateWorkflowLabel(locale, 'No knowledge bases found'),
+    searchKnowledgeBases: translateWorkflowLabel(locale, 'searchKnowledgeBases'),
+    loadingKnowledgeBases: translateWorkflowLabel(locale, 'loadingKnowledgeBases'),
+    noKnowledgeBasesFound: translateWorkflowLabel(locale, 'noKnowledgeBasesFound'),
   }
   type KnowledgeBaseSelectorErrorCode = keyof typeof selectorCopy.errors
 
@@ -178,7 +178,7 @@ export function KnowledgeBaseSelector({
           : translateWorkflowLabel(locale, 'documents')
       return `${docCount} ${documentLabel}`
     }
-    return knowledgeBase.description || translateWorkflowLabel(locale, 'No description')
+    return knowledgeBase.description || translateWorkflowLabel(locale, 'noDescription')
   }
 
   const isKnowledgeBaseSelected = (knowledgeBaseId: string) => {
@@ -188,8 +188,8 @@ export function KnowledgeBaseSelector({
   const label =
     subBlock.placeholder ||
     (isMultiSelect
-      ? translateWorkflowLabel(locale, 'Select knowledge bases')
-      : translateWorkflowLabel(locale, 'Select knowledge base'))
+      ? translateWorkflowLabel(locale, 'selectKnowledgeBases')
+      : translateWorkflowLabel(locale, 'selectKnowledgeBase'))
 
   return (
     <div className='w-full'>

@@ -52,11 +52,11 @@ export function OrderIdSelectorDropdown({
         >
           {isLoading ? (
             <div className='py-6 text-center text-muted-foreground text-sm'>
-              {translateWorkflowLabel(locale, 'Searching...')}
+              {translateWorkflowLabel(locale, 'searching')}
             </div>
           ) : results.length === 0 ? (
             <div className='py-6 text-center text-muted-foreground text-sm'>
-              {error || translateWorkflowLabel(locale, 'No orders found.')}
+              {error || translateWorkflowLabel(locale, 'noOrdersFound')}
             </div>
           ) : (
             results.map((order, index) => {

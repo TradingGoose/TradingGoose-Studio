@@ -1,5 +1,6 @@
 import { EmailClient, type EmailMessage } from '@azure/communication-email'
 import { Resend } from 'resend'
+import type { EmailLocale } from '@/components/emails/email-copy'
 import { generateUnsubscribeToken, isUnsubscribed } from '@/lib/email/unsubscribe'
 import { getFromEmailAddress } from '@/lib/email/utils'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -8,6 +9,7 @@ import {
   resolveResendServiceConfig,
 } from '@/lib/system-services/runtime'
 import { getBaseUrl } from '@/lib/urls/utils'
+import { localizeUrl } from '@/i18n/utils'
 
 const logger = createLogger('Mailer')
 
@@ -30,6 +32,7 @@ export interface EmailOptions {
   includeUnsubscribe?: boolean
   attachments?: EmailAttachment[]
   replyTo?: string
+  locale?: EmailLocale
 }
 
 export interface BatchEmailOptions {
@@ -207,6 +210,7 @@ async function processEmailData(options: EmailOptions): Promise<ProcessedEmailDa
     includeUnsubscribe = true,
     attachments,
     replyTo,
+    locale,
   } = options
 
   const senderEmail = from || (await getFromEmailAddress())
@@ -221,7 +225,7 @@ async function processEmailData(options: EmailOptions): Promise<ProcessedEmailDa
     const primaryEmail = Array.isArray(to) ? to[0] : to
     const unsubscribeToken = generateUnsubscribeToken(primaryEmail, emailType)
     const baseUrl = getBaseUrl()
-    const unsubscribeUrl = `${baseUrl}/unsubscribe?token=${unsubscribeToken}&email=${encodeURIComponent(primaryEmail)}`
+    const unsubscribeUrl = `${localizeUrl(baseUrl, locale, '/unsubscribe')}?token=${unsubscribeToken}&email=${encodeURIComponent(primaryEmail)}`
 
     headers['List-Unsubscribe'] = `<${unsubscribeUrl}>`
     headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click'

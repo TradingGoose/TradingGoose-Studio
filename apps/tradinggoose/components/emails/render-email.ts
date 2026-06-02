@@ -1,5 +1,4 @@
 import { render } from '@react-email/components'
-import { LocalizedEmail } from '@/components/emails/localized-email'
 import {
   type EmailLocale,
   emailText,
@@ -9,8 +8,10 @@ import {
   getEmailCopy,
   normalizeEmailTemplateLocale,
 } from '@/components/emails/email-copy'
+import { LocalizedEmail } from '@/components/emails/localized-email'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { getBaseUrl } from '@/lib/urls/utils'
+import { localizeUrl } from '@/i18n/utils'
 
 export type EmailSubjectType =
   | 'sign-in'
@@ -32,7 +33,13 @@ export type EmailSubjectType =
   | 'waitlist-approved'
   | 'careers-confirmation'
 
-const otpTypes = ['sign-in', 'email-verification', 'forget-password', 'change-email', 'chat-access'] as const
+const otpTypes = [
+  'sign-in',
+  'email-verification',
+  'forget-password',
+  'change-email',
+  'chat-access',
+] as const
 type OtpType = (typeof otpTypes)[number]
 
 function commonValues(values: Record<string, string | number> = {}) {
@@ -48,7 +55,7 @@ function commonValues(values: Record<string, string | number> = {}) {
 }
 
 function text(locale: EmailLocale, template: string, values: Record<string, string | number> = {}) {
-  return emailText(template, commonValues(values))
+  return emailText(locale, template, commonValues(values))
 }
 
 export function getEmailSubject(
@@ -287,6 +294,7 @@ export async function renderEnterpriseSubscriptionEmail(
 ): Promise<string> {
   const copy = getEmailCopy(locale)
   const baseUrl = getBaseUrl()
+  const loginUrl = localizeUrl(baseUrl, locale, '/login')
 
   return await render(
     LocalizedEmail({
@@ -297,7 +305,7 @@ export async function renderEnterpriseSubscriptionEmail(
         text(locale, copy.billing.enterprise.welcome, { userName }),
         text(locale, copy.billing.enterprise.body),
       ],
-      cta: { href: `${baseUrl}/login`, label: copy.billing.enterprise.cta },
+      cta: { href: loginUrl, label: copy.billing.enterprise.cta },
       detailsTitle: copy.billing.enterprise.nextStepsTitle,
       details: copy.billing.enterprise.nextSteps,
       muted: [copy.billing.enterprise.help],
@@ -369,19 +377,25 @@ export async function renderFreeTierUpgradeEmail(params: {
   const details: string[] = []
 
   if (params.recommendedTierName) {
-    details.push(text(params.locale, copy.billing.freeTier.recommendedTier, {
-      tierName: params.recommendedTierName,
-    }))
+    details.push(
+      text(params.locale, copy.billing.freeTier.recommendedTier, {
+        tierName: params.recommendedTierName,
+      })
+    )
   }
   if (params.recommendedTierPriceUsd) {
-    details.push(text(params.locale, copy.billing.freeTier.recommendedPrice, {
-      price: formatEmailCurrency(params.locale, params.recommendedTierPriceUsd),
-    }))
+    details.push(
+      text(params.locale, copy.billing.freeTier.recommendedPrice, {
+        price: formatEmailCurrency(params.locale, params.recommendedTierPriceUsd),
+      })
+    )
   }
   if (params.recommendedTierIncludedUsageLimitUsd) {
-    details.push(text(params.locale, copy.billing.freeTier.recommendedUsage, {
-      usage: formatEmailCurrency(params.locale, params.recommendedTierIncludedUsageLimitUsd),
-    }))
+    details.push(
+      text(params.locale, copy.billing.freeTier.recommendedUsage, {
+        usage: formatEmailCurrency(params.locale, params.recommendedTierIncludedUsageLimitUsd),
+      })
+    )
   }
   details.push(...(params.recommendedTierFeatures ?? []).slice(0, 3))
 
@@ -429,14 +443,18 @@ export async function renderPaymentFailedEmail(params: {
   ]
 
   if (params.lastFourDigits) {
-    details.push(text(params.locale, copy.billing.paymentFailed.paymentMethod, {
-      lastFourDigits: params.lastFourDigits,
-    }))
+    details.push(
+      text(params.locale, copy.billing.paymentFailed.paymentMethod, {
+        lastFourDigits: params.lastFourDigits,
+      })
+    )
   }
   if (params.failureReason) {
-    details.push(text(params.locale, copy.billing.paymentFailed.reason, {
-      reason: params.failureReason,
-    }))
+    details.push(
+      text(params.locale, copy.billing.paymentFailed.reason, {
+        reason: params.failureReason,
+      })
+    )
   }
 
   return await render(
@@ -519,6 +537,7 @@ export async function renderPlanWelcomeEmail(params: {
 }): Promise<string> {
   const copy = getEmailCopy(params.locale)
   const baseUrl = getBaseUrl()
+  const loginUrl = localizeUrl(baseUrl, params.locale, '/login')
 
   return await render(
     LocalizedEmail({
@@ -529,14 +548,16 @@ export async function renderPlanWelcomeEmail(params: {
       title: text(params.locale, copy.billing.planWelcome.title, { planName: params.planName }),
       paragraphs: [
         params.userName
-          ? text(params.locale, copy.billing.planWelcome.namedWelcome, { userName: params.userName })
+          ? text(params.locale, copy.billing.planWelcome.namedWelcome, {
+              userName: params.userName,
+            })
           : copy.billing.planWelcome.welcome,
         text(params.locale, copy.billing.planWelcome.body, { planName: params.planName }),
         copy.billing.planWelcome.help,
         copy.billing.planWelcome.settings,
       ],
       cta: {
-        href: params.loginLink || `${baseUrl}/login`,
+        href: params.loginLink || loginUrl,
         label: text(params.locale, copy.shared.openBrand, { brandName: getBrandConfig().name }),
       },
       footerLine: text(params.locale, copy.shared.sentOn, {
@@ -563,7 +584,10 @@ export async function renderCareersConfirmationEmail(params: {
         text(params.locale, copy.careers.greeting, { name: params.name }),
         text(params.locale, copy.careers.body, { position: params.position }),
         copy.careers.review,
-        text(params.locale, copy.careers.explore, { docsUrl: 'https://docs.tradinggoose.ai', blogUrl: `${baseUrl}/blog` }),
+        text(params.locale, copy.careers.explore, {
+          docsUrl: 'https://docs.tradinggoose.ai',
+          blogUrl: `${baseUrl}/blog`,
+        }),
       ],
       footerLine: text(params.locale, copy.careers.sentLine, {
         dateTime: formatEmailDateTime(params.locale, new Date()),

@@ -1,10 +1,10 @@
 import { db } from '@tradinggoose/db'
 import { settings, user, waitlist } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
-import { defaultLocale, isLocaleCode, type LocaleCode } from '@/i18n/utils'
+import { isLocaleCode, type LocaleCode, normalizeLocaleCode } from '@/i18n/utils'
 
 export function normalizeEmailLocale(locale: string | null | undefined): LocaleCode {
-  return locale && isLocaleCode(locale) ? locale : defaultLocale
+  return normalizeLocaleCode(locale)
 }
 
 function normalizeEmail(email: string) {

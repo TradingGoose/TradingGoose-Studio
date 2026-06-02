@@ -47,8 +47,8 @@
     "homeLabel": "Inicio",
     "languageLabel": "Idioma",
     "primaryNavigation": "Navegación principal",
-    "githubRepositoryAriaLabel": "Repositorio de GitHub - {{stars}} estrellas",
-    "homeAriaLabel": "Inicio de {{brand}}"
+    "githubRepositoryAriaLabel": "Repositorio de GitHub - {stars} estrellas",
+    "homeAriaLabel": "Inicio de {brand}"
   },
   "registration": {
     "open": {
@@ -178,7 +178,7 @@
       "github": "GitHub",
       "google": "Google",
       "connecting": "Conectando...",
-      "cancelled": "Se canceló el inicio de sesión con {{provider}}. Inténtelo de nuevo."
+      "cancelled": "Se canceló el inicio de sesión con {provider}. Inténtelo de nuevo."
     },
     "verify": {
       "eyebrow": "Verificación",
@@ -186,7 +186,7 @@
       "verifiedTitle": "¡Correo electrónico verificado!",
       "verifiedDescription": "Tu correo electrónico ha sido verificado. Redirigiendo al panel...",
       "disabledDescription": "Verificación de correo desactivada. Redirigiendo al panel…",
-      "codeSent": "Se ha enviado un código de verificación a {{email}}",
+      "codeSent": "Se ha enviado un código de verificación a {email}",
       "developmentDescription": "Modo de desarrollo: Revisa los registros de la consola para obtener el código de verificación",
       "missingServiceDescription": "Error: La verificación de correo está habilitada pero no hay ningún servicio de correo configurado",
       "instructionsWithService": "Ingresa el código de 6 dígitos para verificar tu cuenta. Si no lo ves en tu bandeja de entrada, revisa la carpeta de spam.",
@@ -194,7 +194,7 @@
       "verifyButton": "Verificar correo",
       "verifyingButton": "Verificando…",
       "resendPrompt": "¿No recibiste un código?",
-      "resendIn": "Reenviar en {{countdown}}s",
+      "resendIn": "Reenviar en {countdown}s",
       "resendButton": "Reenviar",
       "yourEmail": "tu correo",
       "errors": {
@@ -370,16 +370,8 @@
         "waitlist": "Honk! Presentamos TradingGoose-Studio",
         "open": "Honk! TradingGoose-Studio ya está aquí"
       },
-      "leadWords": [
-        "Construir",
-        "Probar",
-        "Ejecutar"
-      ],
-      "highlightWords": [
-        "Análisis de Trading",
-        "Detección de Señales",
-        "Evaluación de Riesgos"
-      ],
+      "leadWords": ["Construir", "Probar", "Ejecutar"],
+      "highlightWords": ["Análisis de Trading", "Detección de Señales", "Evaluación de Riesgos"],
       "titleConnector": "tu",
       "suffix": "con TradingGoose",
       "description": "Conecta tus propios proveedores de datos, escribe indicadores personalizados para monitorear los precios del mercado y enlázalos en flujos de trabajo que activen operaciones de compra, venta o cualquier acción que definas.",
@@ -412,7 +404,7 @@
     },
     "footer": {
       "description": "Plataforma de flujos de trabajo con IA para trading técnico con LLM",
-      "copyright": "© {{year}} {{brand}}. Creado para flujos de trabajo de trading visual.",
+      "copyright": "© {year} {brand}. Creado para flujos de trabajo de trading visual.",
       "links": {
         "docs": "Documentación",
         "blog": "Blog",
@@ -654,11 +646,11 @@
   },
   "blog": {
     "pageTitle": "Blog",
-    "pageDescription": "Información sobre automatización de trading, diseño de flujos de trabajo y creación de estrategias más inteligentes. {{count}} artículos y contando.",
+    "pageDescription": "Información sobre automatización de trading, diseño de flujos de trabajo y creación de estrategias más inteligentes. {count} artículos y contando.",
     "searchPlaceholder": "Buscar artículos",
     "emptyTitle": "Aún no hay publicaciones",
     "emptyDescription": "Vuelve pronto, hay nuevos artículos en camino.",
-    "noMatches": "No hay publicaciones que coincidan con \"{{query}}\"",
+    "noMatches": "No hay publicaciones que coincidan con \"{query}\"",
     "noMatchesDescription": "Prueba con otro término de búsqueda.",
     "readTimeSuffix": "min de lectura",
     "viewArticle": "Ver artículo",
@@ -666,11 +658,11 @@
     "breadcrumbBlog": "Blog",
     "tableOfContents": "En esta página",
     "shareTitle": "Compartir este artículo",
-    "shareOn": "Compartir en {{platform}}",
+    "shareOn": "Compartir en {platform}",
     "copyLink": "Copiar enlace",
     "copied": "¡Copiado!",
     "summarizeTitle": "Resumir con IA",
-    "summarizeWithPlatform": "Resumir con {{platform}}",
+    "summarizeWithPlatform": "Resumir con {platform}",
     "articleSingular": "artículo",
     "articlePlural": "artículos"
   },
@@ -713,13 +705,7 @@
         "experience": {
           "label": "Años de experiencia *",
           "placeholder": "Selecciona el nivel de experiencia",
-          "options": [
-            "0-1 años",
-            "1-3 años",
-            "3-5 años",
-            "5-10 años",
-            "10+ años"
-          ]
+          "options": ["0-1 años", "1-3 años", "3-5 años", "5-10 años", "10+ años"]
         },
         "location": {
           "label": "Ubicación *",
@@ -772,8 +758,8 @@
     "rssFeed": "RSS",
     "loadingMore": "Cargando...",
     "showMore": "Mostrar más",
-    "viewContributorAriaLabel": "Ver a @{{contributor}} en GitHub",
-    "contributorAvatarAlt": "@{{contributor}}",
+    "viewContributorAriaLabel": "Ver a @{contributor} en GitHub",
+    "contributorAvatarAlt": "@{contributor}",
     "breadcrumb": "Registro de cambios"
   },
   "legal": {
@@ -783,12 +769,12 @@
     "terms": {
       "title": "Términos del servicio",
       "lastUpdatedDate": "2026-03-28",
-      "bodyMarkdown": "Estos Términos del servicio regulan su acceso y uso del sitio web, la aplicación, las API y cualquier servicio alojado operado por el proyecto {{projectName}} (en conjunto, el Servicio).\n\nSi utiliza una implementación autohospedada o una implementación operada por alguien distinto del propietario del proyecto TradingGoose, ese operador es responsable de sus propios términos del servicio, avisos de privacidad, prácticas de seguridad, facturación y cumplimiento.\n\nAl acceder o usar el Servicio, usted acepta estos Términos. Si no está de acuerdo, no use el Servicio.\n\n## 1. Licencia de código abierto\n\nEl código fuente de {{projectName}} se pone a disposición por separado bajo la licencia AGPL-3.0-only del proyecto y las licencias de terceros aplicables. Estos Términos regulan el sitio web y el Servicio alojado operados por el proyecto, y no sustituyen ni reducen los derechos que le otorga la licencia del código fuente.\n\nLos detalles de licencias y atribución están disponibles en el repositorio y en la página [Licenses & Notices](/licenses).\n\n## 2. Elegibilidad, cuentas y acceso\n\nEs posible que necesite una cuenta para usar algunas partes del Servicio. Debe proporcionar información precisa, mantener sus credenciales seguras y es responsable de la actividad que ocurra a través de su cuenta.\n\nUsted es responsable de mantener la confidencialidad de las credenciales de inicio de sesión, las claves API, las conexiones OAuth, las credenciales de brokers y cualquier otro método de acceso vinculado a su cuenta o sus flujos de trabajo.\n\nPodemos suspender o restringir el acceso si creemos razonablemente que una cuenta se está utilizando de una manera que incumple estos Términos, amenaza la seguridad o crea un riesgo legal u operativo.\n\n## 3. Uso aceptable\n\nNo puede usar el Servicio para:\n\n- Infringir la ley o vulnerar los derechos de terceros.\n- Subir, transmitir o automatizar contenido ilícito, infractor, abusivo o malicioso.\n- Intentar obtener acceso no autorizado, interferir con el Servicio o interrumpir a otros usuarios.\n- Usar el Servicio para distribuir malware, spam o actividad fraudulenta.\n- Hacer un uso indebido de cuentas conectadas, credenciales OAuth, cuentas de brokers o API de terceros que no controla o para las que no está autorizado.\n- Usar el Servicio de una manera que requiera registros regulatorios, divulgaciones o permisos que no tiene.\n\n## 4. Su contenido, flujos de trabajo e integraciones\n\nUsted conserva la propiedad del contenido, archivos, prompts, definiciones de flujos de trabajo, scripts de indicadores, credenciales y otros datos que envía o conecta a través del Servicio (Su contenido).\n\nNos concede una licencia limitada para alojar, procesar, almacenar, transmitir y mostrar Su contenido solo en la medida necesaria para operar, proteger, dar soporte y mejorar el Servicio.\n\nUsted es responsable de asegurarse de que cuenta con los derechos y permisos necesarios para usar Su contenido y cualquier servicio de terceros, fuente de datos de mercado, cuenta de broker o API que conecte.\n\n## 5. Servicios de terceros y cuentas conectadas\n\nEl Servicio puede interoperar con servicios de terceros, incluidos proveedores de modelos, proveedores de almacenamiento, servicios de comunicación, proveedores de identidad, servicios de análisis, procesadores de pagos, servicios de datos de mercado y plataformas de brokers.\n\nSu uso de esos servicios de terceros sigue estando sujeto a sus propios términos, avisos de privacidad, tarifas, límites técnicos y disponibilidad.\n\nNo somos responsables de interrupciones, errores, cambios de precios, cambios de API, restricciones de cuenta, fallos de ejecución ni otras acciones realizadas por servicios de terceros.\n\n## 6. Funciones de pago y facturación\n\nAlgunas implementaciones pueden ofrecer planes de pago, facturación por uso o funciones por suscripción. Si compra acceso de pago, acepta pagar las tarifas, impuestos y cargos aplicables descritos en el momento de la compra.\n\nLa facturación puede gestionarse mediante procesadores de pago de terceros como Stripe. Nosotros no almacenamos los datos completos de las tarjetas de pago.\n\nLa falta de pago puede dar lugar a la suspensión o degradación de las funciones de pago. Los precios y los términos de los planes pueden cambiar de forma prospectiva.\n\n## 7. Solo análisis, investigación y automatización\n\n{{projectName}} se proporciona como software para análisis, investigación, gráficos, monitoreo, automatización de flujos de trabajo y operaciones técnicas relacionadas. No es un broker-dealer, una bolsa, un asesor de inversiones, un fiduciario ni un centro de ejecución.\n\nEl Servicio no proporciona asesoramiento financiero, de inversión, legal, contable ni fiscal. Cualquier salida, gráfico, alerta, script, respuesta de modelo, resultado de flujo de trabajo o automatización es solo una herramienta informativa.\n\nUsted es el único responsable de evaluar la información, revisar las salidas, gestionar el riesgo, determinar la idoneidad y decidir si realiza operaciones, envía órdenes o toma cualquier otra acción basándose en el Servicio.\n\n## 8. Acciones de trading, integraciones con brokers y datos de mercado\n\nAlgunas implementaciones pueden habilitar flujos de trabajo o herramientas que interactúan con brokers, bolsas, mercados de predicción o proveedores de datos de mercado de terceros. Cualquier acción de trading de este tipo se inicia bajo su dirección y la ejecuta, en su caso, el proveedor tercero correspondiente.\n\nNo somos responsables de operaciones, órdenes, cancelaciones, ejecuciones, ejecuciones parciales, órdenes rechazadas, ejecución retrasada, precios desactualizados, símbolos incorrectos, errores de modelo, errores en la lógica del flujo de trabajo, API no disponibles, inexactitudes en los datos de mercado ni pérdidas de ningún tipo derivadas de acciones realizadas a través del Servicio o basadas en él.\n\nUsted es responsable de configurar medidas de protección, probar flujos de trabajo, supervisar el comportamiento automatizado y confirmar que cualquier actividad de trading conectada cumple la legislación aplicable y las reglas del proveedor tercero.\n\n## 9. Disponibilidad, funciones experimentales y cambios\n\nEl Servicio puede cambiar con el tiempo. Podemos agregar, modificar, suspender o retirar funciones en cualquier momento, incluidas integraciones, capacidades alojadas y funciones experimentales.\n\nAlgunas capacidades pueden estar marcadas como experimentales, beta, vista previa o incompletas. Usted usa esas funciones bajo su propio riesgo.\n\nPodemos suspender o terminar el acceso al Servicio operado por el proyecto si incumple estos Términos, crea un riesgo de seguridad o legal, o hace un uso indebido del Servicio. Puede dejar de usar el Servicio en cualquier momento.\n\n## 10. Propiedad intelectual y marca\n\nEl Servicio incluye código de código abierto, componentes de terceros y marca y contenido propiedad del proyecto. Los materiales de código abierto y de terceros siguen sujetos a sus respectivas licencias.\n\nSalvo que una licencia lo permita expresamente, el nombre, los logotipos y los recursos de marca de {{projectName}} no pueden usarse de una manera que implique respaldo, afiliación u origen sin permiso.\n\n## 11. Exenciones de responsabilidad\n\nEl Servicio se proporciona TAL CUAL y SEGÚN DISPONIBILIDAD, sin garantías de ningún tipo en la máxima medida permitida por la ley. No garantizamos un funcionamiento ininterrumpido, exactitud, rentabilidad, disponibilidad de integraciones, idoneidad para una estrategia concreta ni que el Servicio evite pérdidas o errores.\n\n## 12. Limitación de responsabilidad\n\nEn la máxima medida permitida por la ley, no somos responsables de daños indirectos, incidentales, especiales, consecuentes, ejemplares o punitivos, ni de la pérdida de beneficios, ingresos, pérdidas de trading, pérdidas de corretaje, fondo de comercio, datos o interrupción del negocio derivados del Servicio o relacionados con él.\n\nSi la responsabilidad no puede excluirse, se limita al importe que nos pagó por el Servicio operado por el proyecto durante los 12 meses anteriores al surgimiento de la reclamación.\n\n## 13. Indemnización\n\nEn la medida permitida por la ley, usted será responsable de las reclamaciones, pérdidas y costes derivados de su uso indebido del Servicio, sus cuentas conectadas, su contenido, sus flujos de trabajo o su incumplimiento de estos Términos o de la legislación aplicable.\n\n## 14. Cambios en estos Términos\n\nPodemos actualizar estos Términos periódicamente. Cuando lo hagamos, actualizaremos la fecha de Última actualización en esta página. Su uso continuado del Servicio operado por el proyecto después de que una actualización entre en vigor significa que acepta los Términos revisados.\n\n## 15. Contacto y avisos de copyright\n\nSi tiene preguntas sobre estos Términos, o cree que el material disponible a través de un Servicio operado por el proyecto infringe sus derechos, contáctenos en [{{supportEmail}}](mailto:{{supportEmail}}).\n\nIncluya suficiente detalle para que podamos entender y revisar su solicitud. Actualmente no publicamos una dirección postal independiente para avisos legales en esta página."
+      "bodyMarkdown": "Estos Términos del servicio regulan su acceso y uso del sitio web, la aplicación, las API y cualquier servicio alojado operado por el proyecto {projectName} (en conjunto, el Servicio).\n\nSi utiliza una implementación autohospedada o una implementación operada por alguien distinto del propietario del proyecto TradingGoose, ese operador es responsable de sus propios términos del servicio, avisos de privacidad, prácticas de seguridad, facturación y cumplimiento.\n\nAl acceder o usar el Servicio, usted acepta estos Términos. Si no está de acuerdo, no use el Servicio.\n\n## 1. Licencia de código abierto\n\nEl código fuente de {projectName} se pone a disposición por separado bajo la licencia AGPL-3.0-only del proyecto y las licencias de terceros aplicables. Estos Términos regulan el sitio web y el Servicio alojado operados por el proyecto, y no sustituyen ni reducen los derechos que le otorga la licencia del código fuente.\n\nLos detalles de licencias y atribución están disponibles en el repositorio y en la página [Licenses & Notices](/licenses).\n\n## 2. Elegibilidad, cuentas y acceso\n\nEs posible que necesite una cuenta para usar algunas partes del Servicio. Debe proporcionar información precisa, mantener sus credenciales seguras y es responsable de la actividad que ocurra a través de su cuenta.\n\nUsted es responsable de mantener la confidencialidad de las credenciales de inicio de sesión, las claves API, las conexiones OAuth, las credenciales de brokers y cualquier otro método de acceso vinculado a su cuenta o sus flujos de trabajo.\n\nPodemos suspender o restringir el acceso si creemos razonablemente que una cuenta se está utilizando de una manera que incumple estos Términos, amenaza la seguridad o crea un riesgo legal u operativo.\n\n## 3. Uso aceptable\n\nNo puede usar el Servicio para:\n\n- Infringir la ley o vulnerar los derechos de terceros.\n- Subir, transmitir o automatizar contenido ilícito, infractor, abusivo o malicioso.\n- Intentar obtener acceso no autorizado, interferir con el Servicio o interrumpir a otros usuarios.\n- Usar el Servicio para distribuir malware, spam o actividad fraudulenta.\n- Hacer un uso indebido de cuentas conectadas, credenciales OAuth, cuentas de brokers o API de terceros que no controla o para las que no está autorizado.\n- Usar el Servicio de una manera que requiera registros regulatorios, divulgaciones o permisos que no tiene.\n\n## 4. Su contenido, flujos de trabajo e integraciones\n\nUsted conserva la propiedad del contenido, archivos, prompts, definiciones de flujos de trabajo, scripts de indicadores, credenciales y otros datos que envía o conecta a través del Servicio (Su contenido).\n\nNos concede una licencia limitada para alojar, procesar, almacenar, transmitir y mostrar Su contenido solo en la medida necesaria para operar, proteger, dar soporte y mejorar el Servicio.\n\nUsted es responsable de asegurarse de que cuenta con los derechos y permisos necesarios para usar Su contenido y cualquier servicio de terceros, fuente de datos de mercado, cuenta de broker o API que conecte.\n\n## 5. Servicios de terceros y cuentas conectadas\n\nEl Servicio puede interoperar con servicios de terceros, incluidos proveedores de modelos, proveedores de almacenamiento, servicios de comunicación, proveedores de identidad, servicios de análisis, procesadores de pagos, servicios de datos de mercado y plataformas de brokers.\n\nSu uso de esos servicios de terceros sigue estando sujeto a sus propios términos, avisos de privacidad, tarifas, límites técnicos y disponibilidad.\n\nNo somos responsables de interrupciones, errores, cambios de precios, cambios de API, restricciones de cuenta, fallos de ejecución ni otras acciones realizadas por servicios de terceros.\n\n## 6. Funciones de pago y facturación\n\nAlgunas implementaciones pueden ofrecer planes de pago, facturación por uso o funciones por suscripción. Si compra acceso de pago, acepta pagar las tarifas, impuestos y cargos aplicables descritos en el momento de la compra.\n\nLa facturación puede gestionarse mediante procesadores de pago de terceros como Stripe. Nosotros no almacenamos los datos completos de las tarjetas de pago.\n\nLa falta de pago puede dar lugar a la suspensión o degradación de las funciones de pago. Los precios y los términos de los planes pueden cambiar de forma prospectiva.\n\n## 7. Solo análisis, investigación y automatización\n\n{projectName} se proporciona como software para análisis, investigación, gráficos, monitoreo, automatización de flujos de trabajo y operaciones técnicas relacionadas. No es un broker-dealer, una bolsa, un asesor de inversiones, un fiduciario ni un centro de ejecución.\n\nEl Servicio no proporciona asesoramiento financiero, de inversión, legal, contable ni fiscal. Cualquier salida, gráfico, alerta, script, respuesta de modelo, resultado de flujo de trabajo o automatización es solo una herramienta informativa.\n\nUsted es el único responsable de evaluar la información, revisar las salidas, gestionar el riesgo, determinar la idoneidad y decidir si realiza operaciones, envía órdenes o toma cualquier otra acción basándose en el Servicio.\n\n## 8. Acciones de trading, integraciones con brokers y datos de mercado\n\nAlgunas implementaciones pueden habilitar flujos de trabajo o herramientas que interactúan con brokers, bolsas, mercados de predicción o proveedores de datos de mercado de terceros. Cualquier acción de trading de este tipo se inicia bajo su dirección y la ejecuta, en su caso, el proveedor tercero correspondiente.\n\nNo somos responsables de operaciones, órdenes, cancelaciones, ejecuciones, ejecuciones parciales, órdenes rechazadas, ejecución retrasada, precios desactualizados, símbolos incorrectos, errores de modelo, errores en la lógica del flujo de trabajo, API no disponibles, inexactitudes en los datos de mercado ni pérdidas de ningún tipo derivadas de acciones realizadas a través del Servicio o basadas en él.\n\nUsted es responsable de configurar medidas de protección, probar flujos de trabajo, supervisar el comportamiento automatizado y confirmar que cualquier actividad de trading conectada cumple la legislación aplicable y las reglas del proveedor tercero.\n\n## 9. Disponibilidad, funciones experimentales y cambios\n\nEl Servicio puede cambiar con el tiempo. Podemos agregar, modificar, suspender o retirar funciones en cualquier momento, incluidas integraciones, capacidades alojadas y funciones experimentales.\n\nAlgunas capacidades pueden estar marcadas como experimentales, beta, vista previa o incompletas. Usted usa esas funciones bajo su propio riesgo.\n\nPodemos suspender o terminar el acceso al Servicio operado por el proyecto si incumple estos Términos, crea un riesgo de seguridad o legal, o hace un uso indebido del Servicio. Puede dejar de usar el Servicio en cualquier momento.\n\n## 10. Propiedad intelectual y marca\n\nEl Servicio incluye código de código abierto, componentes de terceros y marca y contenido propiedad del proyecto. Los materiales de código abierto y de terceros siguen sujetos a sus respectivas licencias.\n\nSalvo que una licencia lo permita expresamente, el nombre, los logotipos y los recursos de marca de {projectName} no pueden usarse de una manera que implique respaldo, afiliación u origen sin permiso.\n\n## 11. Exenciones de responsabilidad\n\nEl Servicio se proporciona TAL CUAL y SEGÚN DISPONIBILIDAD, sin garantías de ningún tipo en la máxima medida permitida por la ley. No garantizamos un funcionamiento ininterrumpido, exactitud, rentabilidad, disponibilidad de integraciones, idoneidad para una estrategia concreta ni que el Servicio evite pérdidas o errores.\n\n## 12. Limitación de responsabilidad\n\nEn la máxima medida permitida por la ley, no somos responsables de daños indirectos, incidentales, especiales, consecuentes, ejemplares o punitivos, ni de la pérdida de beneficios, ingresos, pérdidas de trading, pérdidas de corretaje, fondo de comercio, datos o interrupción del negocio derivados del Servicio o relacionados con él.\n\nSi la responsabilidad no puede excluirse, se limita al importe que nos pagó por el Servicio operado por el proyecto durante los 12 meses anteriores al surgimiento de la reclamación.\n\n## 13. Indemnización\n\nEn la medida permitida por la ley, usted será responsable de las reclamaciones, pérdidas y costes derivados de su uso indebido del Servicio, sus cuentas conectadas, su contenido, sus flujos de trabajo o su incumplimiento de estos Términos o de la legislación aplicable.\n\n## 14. Cambios en estos Términos\n\nPodemos actualizar estos Términos periódicamente. Cuando lo hagamos, actualizaremos la fecha de Última actualización en esta página. Su uso continuado del Servicio operado por el proyecto después de que una actualización entre en vigor significa que acepta los Términos revisados.\n\n## 15. Contacto y avisos de copyright\n\nSi tiene preguntas sobre estos Términos, o cree que el material disponible a través de un Servicio operado por el proyecto infringe sus derechos, contáctenos en [{supportEmail}](mailto:{supportEmail}).\n\nIncluya suficiente detalle para que podamos entender y revisar su solicitud. Actualmente no publicamos una dirección postal independiente para avisos legales en esta página."
     },
     "privacy": {
       "title": "Política de privacidad",
       "lastUpdatedDate": "2026-03-28",
-      "bodyMarkdown": "Esta Política de privacidad describe cómo {{projectName}} gestiona los datos personales cuando el propietario del proyecto TradingGoose opera el sitio web, la aplicación, las API o los servicios alojados (en conjunto, el Servicio).\n\nSi utiliza una implementación autohospedada o una implementación operada por otra persona, ese operador es responsable de su propio aviso de privacidad, tratamiento de datos, cookies, análisis, integraciones y prácticas de seguridad.\n\n## 1. Alcance y funciones\n\nEsta Política de privacidad se aplica a las implementaciones de {{projectName}} operadas por el proyecto. En el caso de implementaciones autohospedadas o implementaciones operadas por terceros, ese operador controla su propia configuración, almacenamiento, integraciones, análisis, retención y cumplimiento.\n\nEn esos casos, el operador tercero, y no el propietario del proyecto TradingGoose, es el controlador u operador principal de los datos de usuario de esa implementación.\n\n## 2. Información que recopilamos\n\n### Datos de cuenta y autenticación\n\nPodemos recopilar la información que usted proporciona al crear o usar una cuenta, como su nombre, dirección de correo electrónico, método de inicio de sesión, datos de perfil, pertenencia a organizaciones y ajustes de cuenta.\n\n### Datos de contenido y flujos de trabajo\n\nPodemos procesar prompts, chats, archivos, documentos, definiciones de flujos de trabajo, registros, scripts de indicadores, listas de seguimiento, plantillas y otro contenido que usted envíe o genere a través del Servicio.\n\n### Datos de cuentas conectadas e integraciones\n\nSi conecta servicios de terceros, podemos recibir identificadores de cuenta, tokens OAuth, metadatos y los datos de terceros a los que nos autoriza a acceder. Según lo que habilite, esto puede incluir servicios como Google, GitHub, Microsoft, Slack, Stripe y proveedores de brokers o datos de mercado.\n\n### Datos de pago y suscripción\n\nSi se habilitan planes de pago o facturación por uso, la facturación se gestiona a través de proveedores de pago como Stripe. Podemos recibir metadatos de facturación como ID de cliente, estado de la suscripción, facturas y resultados de pago, pero no almacenamos los datos completos de las tarjetas de pago.\n\n### Datos técnicos y de uso\n\nPodemos recopilar automáticamente información como la dirección IP, el tipo de navegador, la información del dispositivo, marcas de tiempo, datos de errores, registros de solicitudes, uso de funciones, visitas a páginas y métricas de rendimiento.\n\n### Cookies, almacenamiento local y análisis\n\nEl Servicio utiliza cookies, almacenamiento local y tecnologías similares para autenticación, gestión de sesiones, preferencias, seguridad y análisis del producto.\n\nSi las funciones de análisis están habilitadas en la implementación, pueden incluir recopilación de eventos de OpenTelemetry y análisis de PostHog. PostHog puede recopilar vistas de página, clics, interacciones con formularios y datos de repetición de sesión. Los campos de contraseña se enmascaran en la repetición, pero otros campos de formulario pueden no estarlo.\n\n### Exportaciones opcionales de conjuntos de datos de entrenamiento\n\nAlgunas implementaciones pueden habilitar funciones opcionales de entrenamiento para copiloto. Si usted usa explícitamente esas funciones, el conjunto de datos registrado de edición de flujos de trabajo que decida enviar puede remitirse a un servicio de indexación o entrenamiento configurado.\n\n## 3. Fuentes de información\n\nPodemos recopilar información directamente de:\n\n- Usted, cuando crea una cuenta, sube contenido, conecta servicios o se comunica con nosotros.\n- Su navegador, su dispositivo y su uso del Servicio.\n- Cuentas y API de terceros que usted decide conectar.\n- Proveedores de pago, proveedores de análisis, proveedores de hosting y proveedores operativos.\n\nTambién podemos derivar información operativa o de diagnóstico a partir de registros, resultados de ejecución, eventos de facturación y telemetría del sistema.\n\n## 4. Cómo usamos la información\n\nPodemos usar la información que recopilamos para:\n\n- Proporcionar, mantener y proteger el Servicio.\n- Autenticar usuarios y gestionar cuentas, organizaciones y permisos.\n- Almacenar, ejecutar y resolver problemas de flujos de trabajo, chats, archivos e integraciones.\n- Procesar pagos, suscripciones, límites de uso y comunicaciones de facturación.\n- Responder a solicitudes de soporte, informes de errores y comentarios sobre el producto.\n- Supervisar rendimiento, fiabilidad, fraude, abuso e incidentes de seguridad.\n- Mejorar el Servicio y desarrollar nuevas funciones.\n- Cumplir obligaciones legales y hacer cumplir nuestros términos y políticas.\n\nSi utiliza funciones de IA o automatización, su contenido puede ser procesado por proveedores de modelos o proveedores de integración seleccionados por usted o configurados por la implementación para ofrecer la función solicitada.\n\n## 5. Cómo compartimos la información\n\nPodemos compartir información con:\n\n- Proveedores de servicios que nos ayudan a operar el Servicio, como proveedores de hosting, almacenamiento, correo electrónico, análisis, registro y pagos.\n- Plataformas de terceros, proveedores de modelos y API cuando sea necesario para ejecutar los flujos de trabajo, integraciones o funciones que usted habilite.\n- Fuerzas del orden, reguladores, tribunales u otras partes cuando la ley lo exija.\n- Un sucesor o comprador en relación con una fusión, adquisición, financiación o transferencia del Servicio.\n\nNo vendemos información personal a cambio de dinero. Aun así, pueden producirse transferencias a servicios de terceros cuando usted habilita funciones conectadas o cuando una implementación utiliza análisis u otros proveedores operativos.\n\n## 6. Google, proveedores de IA, integraciones con brokers y otros datos de servicios conectados\n\nSi conecta Google u otros servicios de terceros, accedemos y usamos esos datos solo según sea necesario para proporcionar las funciones que usted habilita, sujeto a sus permisos y a los términos del proveedor conectado.\n\nNo usamos los datos de usuarios de Google obtenidos a través de las API de Google para entrenar modelos generales de IA o ML.\n\nFuera de la función opcional de conjunto de datos de entrenamiento descrita antes, no usamos el contenido de sus flujos de trabajo para entrenar modelos generales para el Servicio.\n\n## 7. Cookies, almacenamiento local, telemetría y análisis\n\nEl Servicio utiliza cookies, almacenamiento local y tecnologías relacionadas para sesiones de inicio de sesión, estado de autenticación, preferencias de la interfaz, ajustes de cuenta, seguridad, análisis del producto y funciones operativas similares.\n\nEn las implementaciones operadas por el proyecto, la telemetría anónima puede estar habilitada de forma predeterminada y puede controlarse desde los ajustes del producto, según la implementación y el estado de su cuenta.\n\nAlgunas implementaciones también pueden habilitar PostHog o herramientas de análisis similares para análisis de páginas, análisis de interacción y repetición de sesiones. Si ejecuta una implementación autohospedada, su operador controla si esa herramienta está habilitada y a dónde se envían los datos.\n\n## 8. Procesamiento internacional\n\nLa información puede procesarse en Estados Unidos y otros países donde operan nuestros proveedores, infraestructura o proveedores de servicios conectados. Las leyes de protección de datos pueden diferir entre jurisdicciones.\n\n## 9. Retención\n\nConservamos la información durante el tiempo razonablemente necesario para operar el Servicio, mantener su cuenta, procesar la facturación, investigar abusos, cumplir obligaciones legales y resolver disputas.\n\nLos periodos de retención pueden variar según el tipo de datos y la configuración de la implementación. Los operadores autohospedados o terceros controlan sus propios ajustes de retención para sus implementaciones.\n\n## 10. Seguridad\n\nUsamos salvaguardas administrativas, técnicas y organizativas razonables para proteger la información, pero ningún sistema es completamente seguro. Usted también es responsable de proteger las credenciales de su cuenta, las claves API y las cuentas de terceros conectadas.\n\n## 11. Sus opciones y derechos\n\nSegún el lugar donde viva, puede tener derechos para acceder, corregir, eliminar, exportar u oponerse a determinados usos de sus datos personales.\n\nTambién puede controlar parte de la recopilación directamente desde los ajustes del producto, como las preferencias de telemetría anónima, o desconectando cuentas de terceros.\n\nSi se encuentra en el EEE, el Reino Unido u otra jurisdicción con derechos similares, también puede tener derechos relacionados con la restricción, la oposición, la retirada del consentimiento cuando se utilice el consentimiento y la reclamación ante una autoridad supervisora.\n\nSi es residente de California, puede tener derechos a conocer, acceder, corregir, eliminar y recibir información sobre las categorías de información personal que recopilamos, usamos y divulgamos para implementaciones operadas por el proyecto, sujeto a excepciones legales.\n\nPara realizar una solicitud relacionada con la privacidad para una implementación operada por el proyecto, contáctenos en [{{supportEmail}}](mailto:{{supportEmail}}). Si usa una implementación autohospedada o de terceros, contacte a ese operador en su lugar.\n\n## 12. Privacidad infantil\n\nEl Servicio no está dirigido a menores de 18 años y no recopilamos conscientemente datos personales de menores a través del Servicio operado por el proyecto.\n\n## 13. Servicios externos\n\nEsta Política de privacidad no cubre servicios de terceros, brokers, proveedores de modelos, proveedores de datos de mercado ni sitios a los que usted se conecte o visite a través del Servicio. Revise los propios términos y avisos de privacidad de esos proveedores.\n\n## 14. Cambios en esta política\n\nPodemos actualizar esta Política de privacidad periódicamente. Cuando lo hagamos, actualizaremos la fecha de Última actualización en esta página. Los cambios materiales se aplicarán cuando se publiquen, salvo que la ley exija un periodo de aviso más largo.\n\n## 15. Contacto\n\nSi tiene preguntas, solicitudes o reclamaciones relacionadas con esta Política de privacidad para una implementación operada por el proyecto, contáctenos en [{{supportEmail}}](mailto:{{supportEmail}}).\n\nActualmente no publicamos una dirección postal independiente en esta página. Si eso cambia, actualizaremos esta política."
+      "bodyMarkdown": "Esta Política de privacidad describe cómo {projectName} gestiona los datos personales cuando el propietario del proyecto TradingGoose opera el sitio web, la aplicación, las API o los servicios alojados (en conjunto, el Servicio).\n\nSi utiliza una implementación autohospedada o una implementación operada por otra persona, ese operador es responsable de su propio aviso de privacidad, tratamiento de datos, cookies, análisis, integraciones y prácticas de seguridad.\n\n## 1. Alcance y funciones\n\nEsta Política de privacidad se aplica a las implementaciones de {projectName} operadas por el proyecto. En el caso de implementaciones autohospedadas o implementaciones operadas por terceros, ese operador controla su propia configuración, almacenamiento, integraciones, análisis, retención y cumplimiento.\n\nEn esos casos, el operador tercero, y no el propietario del proyecto TradingGoose, es el controlador u operador principal de los datos de usuario de esa implementación.\n\n## 2. Información que recopilamos\n\n### Datos de cuenta y autenticación\n\nPodemos recopilar la información que usted proporciona al crear o usar una cuenta, como su nombre, dirección de correo electrónico, método de inicio de sesión, datos de perfil, pertenencia a organizaciones y ajustes de cuenta.\n\n### Datos de contenido y flujos de trabajo\n\nPodemos procesar prompts, chats, archivos, documentos, definiciones de flujos de trabajo, registros, scripts de indicadores, listas de seguimiento, plantillas y otro contenido que usted envíe o genere a través del Servicio.\n\n### Datos de cuentas conectadas e integraciones\n\nSi conecta servicios de terceros, podemos recibir identificadores de cuenta, tokens OAuth, metadatos y los datos de terceros a los que nos autoriza a acceder. Según lo que habilite, esto puede incluir servicios como Google, GitHub, Microsoft, Slack, Stripe y proveedores de brokers o datos de mercado.\n\n### Datos de pago y suscripción\n\nSi se habilitan planes de pago o facturación por uso, la facturación se gestiona a través de proveedores de pago como Stripe. Podemos recibir metadatos de facturación como ID de cliente, estado de la suscripción, facturas y resultados de pago, pero no almacenamos los datos completos de las tarjetas de pago.\n\n### Datos técnicos y de uso\n\nPodemos recopilar automáticamente información como la dirección IP, el tipo de navegador, la información del dispositivo, marcas de tiempo, datos de errores, registros de solicitudes, uso de funciones, visitas a páginas y métricas de rendimiento.\n\n### Cookies, almacenamiento local y análisis\n\nEl Servicio utiliza cookies, almacenamiento local y tecnologías similares para autenticación, gestión de sesiones, preferencias, seguridad y análisis del producto.\n\nSi las funciones de análisis están habilitadas en la implementación, pueden incluir recopilación de eventos de OpenTelemetry y análisis de PostHog. PostHog puede recopilar vistas de página, clics, interacciones con formularios y datos de repetición de sesión. Los campos de contraseña se enmascaran en la repetición, pero otros campos de formulario pueden no estarlo.\n\n### Exportaciones opcionales de conjuntos de datos de entrenamiento\n\nAlgunas implementaciones pueden habilitar funciones opcionales de entrenamiento para copiloto. Si usted usa explícitamente esas funciones, el conjunto de datos registrado de edición de flujos de trabajo que decida enviar puede remitirse a un servicio de indexación o entrenamiento configurado.\n\n## 3. Fuentes de información\n\nPodemos recopilar información directamente de:\n\n- Usted, cuando crea una cuenta, sube contenido, conecta servicios o se comunica con nosotros.\n- Su navegador, su dispositivo y su uso del Servicio.\n- Cuentas y API de terceros que usted decide conectar.\n- Proveedores de pago, proveedores de análisis, proveedores de hosting y proveedores operativos.\n\nTambién podemos derivar información operativa o de diagnóstico a partir de registros, resultados de ejecución, eventos de facturación y telemetría del sistema.\n\n## 4. Cómo usamos la información\n\nPodemos usar la información que recopilamos para:\n\n- Proporcionar, mantener y proteger el Servicio.\n- Autenticar usuarios y gestionar cuentas, organizaciones y permisos.\n- Almacenar, ejecutar y resolver problemas de flujos de trabajo, chats, archivos e integraciones.\n- Procesar pagos, suscripciones, límites de uso y comunicaciones de facturación.\n- Responder a solicitudes de soporte, informes de errores y comentarios sobre el producto.\n- Supervisar rendimiento, fiabilidad, fraude, abuso e incidentes de seguridad.\n- Mejorar el Servicio y desarrollar nuevas funciones.\n- Cumplir obligaciones legales y hacer cumplir nuestros términos y políticas.\n\nSi utiliza funciones de IA o automatización, su contenido puede ser procesado por proveedores de modelos o proveedores de integración seleccionados por usted o configurados por la implementación para ofrecer la función solicitada.\n\n## 5. Cómo compartimos la información\n\nPodemos compartir información con:\n\n- Proveedores de servicios que nos ayudan a operar el Servicio, como proveedores de hosting, almacenamiento, correo electrónico, análisis, registro y pagos.\n- Plataformas de terceros, proveedores de modelos y API cuando sea necesario para ejecutar los flujos de trabajo, integraciones o funciones que usted habilite.\n- Fuerzas del orden, reguladores, tribunales u otras partes cuando la ley lo exija.\n- Un sucesor o comprador en relación con una fusión, adquisición, financiación o transferencia del Servicio.\n\nNo vendemos información personal a cambio de dinero. Aun así, pueden producirse transferencias a servicios de terceros cuando usted habilita funciones conectadas o cuando una implementación utiliza análisis u otros proveedores operativos.\n\n## 6. Google, proveedores de IA, integraciones con brokers y otros datos de servicios conectados\n\nSi conecta Google u otros servicios de terceros, accedemos y usamos esos datos solo según sea necesario para proporcionar las funciones que usted habilita, sujeto a sus permisos y a los términos del proveedor conectado.\n\nNo usamos los datos de usuarios de Google obtenidos a través de las API de Google para entrenar modelos generales de IA o ML.\n\nFuera de la función opcional de conjunto de datos de entrenamiento descrita antes, no usamos el contenido de sus flujos de trabajo para entrenar modelos generales para el Servicio.\n\n## 7. Cookies, almacenamiento local, telemetría y análisis\n\nEl Servicio utiliza cookies, almacenamiento local y tecnologías relacionadas para sesiones de inicio de sesión, estado de autenticación, preferencias de la interfaz, ajustes de cuenta, seguridad, análisis del producto y funciones operativas similares.\n\nEn las implementaciones operadas por el proyecto, la telemetría anónima puede estar habilitada de forma predeterminada y puede controlarse desde los ajustes del producto, según la implementación y el estado de su cuenta.\n\nAlgunas implementaciones también pueden habilitar PostHog o herramientas de análisis similares para análisis de páginas, análisis de interacción y repetición de sesiones. Si ejecuta una implementación autohospedada, su operador controla si esa herramienta está habilitada y a dónde se envían los datos.\n\n## 8. Procesamiento internacional\n\nLa información puede procesarse en Estados Unidos y otros países donde operan nuestros proveedores, infraestructura o proveedores de servicios conectados. Las leyes de protección de datos pueden diferir entre jurisdicciones.\n\n## 9. Retención\n\nConservamos la información durante el tiempo razonablemente necesario para operar el Servicio, mantener su cuenta, procesar la facturación, investigar abusos, cumplir obligaciones legales y resolver disputas.\n\nLos periodos de retención pueden variar según el tipo de datos y la configuración de la implementación. Los operadores autohospedados o terceros controlan sus propios ajustes de retención para sus implementaciones.\n\n## 10. Seguridad\n\nUsamos salvaguardas administrativas, técnicas y organizativas razonables para proteger la información, pero ningún sistema es completamente seguro. Usted también es responsable de proteger las credenciales de su cuenta, las claves API y las cuentas de terceros conectadas.\n\n## 11. Sus opciones y derechos\n\nSegún el lugar donde viva, puede tener derechos para acceder, corregir, eliminar, exportar u oponerse a determinados usos de sus datos personales.\n\nTambién puede controlar parte de la recopilación directamente desde los ajustes del producto, como las preferencias de telemetría anónima, o desconectando cuentas de terceros.\n\nSi se encuentra en el EEE, el Reino Unido u otra jurisdicción con derechos similares, también puede tener derechos relacionados con la restricción, la oposición, la retirada del consentimiento cuando se utilice el consentimiento y la reclamación ante una autoridad supervisora.\n\nSi es residente de California, puede tener derechos a conocer, acceder, corregir, eliminar y recibir información sobre las categorías de información personal que recopilamos, usamos y divulgamos para implementaciones operadas por el proyecto, sujeto a excepciones legales.\n\nPara realizar una solicitud relacionada con la privacidad para una implementación operada por el proyecto, contáctenos en [{supportEmail}](mailto:{supportEmail}). Si usa una implementación autohospedada o de terceros, contacte a ese operador en su lugar.\n\n## 12. Privacidad infantil\n\nEl Servicio no está dirigido a menores de 18 años y no recopilamos conscientemente datos personales de menores a través del Servicio operado por el proyecto.\n\n## 13. Servicios externos\n\nEsta Política de privacidad no cubre servicios de terceros, brokers, proveedores de modelos, proveedores de datos de mercado ni sitios a los que usted se conecte o visite a través del Servicio. Revise los propios términos y avisos de privacidad de esos proveedores.\n\n## 14. Cambios en esta política\n\nPodemos actualizar esta Política de privacidad periódicamente. Cuando lo hagamos, actualizaremos la fecha de Última actualización en esta página. Los cambios materiales se aplicarán cuando se publiquen, salvo que la ley exija un periodo de aviso más largo.\n\n## 15. Contacto\n\nSi tiene preguntas, solicitudes o reclamaciones relacionadas con esta Política de privacidad para una implementación operada por el proyecto, contáctenos en [{supportEmail}](mailto:{supportEmail}).\n\nActualmente no publicamos una dirección postal independiente en esta página. Si eso cambia, actualizaremos esta política."
     },
     "licenses": {
       "title": "Licencias y avisos",
@@ -820,7 +806,7 @@
     },
     "warning": {
       "title": "Ya formas parte de un equipo",
-      "currentOrgWithName": "Actualmente eres miembro de \"{{name}}\". Debes salir de tu organización actual antes de aceptar una nueva invitación.",
+      "currentOrgWithName": "Actualmente eres miembro de \"{name}\". Debes salir de tu organización actual antes de aceptar una nueva invitación.",
       "currentOrg": "Ya eres miembro de una organización. Sal de tu organización actual antes de aceptar una nueva invitación.",
       "manageTeamSettings": "Administrar configuración del equipo"
     },
@@ -829,12 +815,12 @@
     },
     "success": {
       "title": "¡Bienvenido!",
-      "description": "Te uniste correctamente a {{name}}. Redirigiendo a tu espacio de trabajo..."
+      "description": "Te uniste correctamente a {name}. Redirigiendo a tu espacio de trabajo..."
     },
     "invitation": {
       "organizationTitle": "Invitación a la organización",
       "workspaceTitle": "Invitación al espacio de trabajo",
-      "description": "Te han invitado a unirte a {{name}}. Haz clic en aceptar abajo para unirte.",
+      "description": "Te han invitado a unirte a {name}. Haz clic en aceptar abajo para unirte.",
       "accept": "Aceptar invitación"
     },
     "errors": {
@@ -1042,7 +1028,7 @@
         "createTooltip": "Se requiere permiso de escritura para crear bases de conocimiento"
       },
       "errors": {
-        "load": "Error al cargar las bases de conocimiento: {{error}}",
+        "load": "Error al cargar las bases de conocimiento: {error}",
         "retry": "Reintentar"
       },
       "emptyState": {
@@ -1078,7 +1064,7 @@
         "copyId": "Copiar ID de la base de conocimiento",
         "deleteButtonLabel": "Eliminar base de conocimiento",
         "deleteTitle": "Eliminar base de conocimiento",
-        "deleteDescription": "¿Estás seguro de que quieres eliminar \"{{title}}\"? Esto eliminará la base de conocimiento y sus {{count}} documento{{plural}} de forma permanente.",
+        "deleteDescription": "¿Estás seguro de que quieres eliminar \"{title}\"? Esto eliminará la base de conocimiento y sus {count} documento{plural} de forma permanente.",
         "cancel": "Cancelar",
         "deleteConfirm": "Eliminar",
         "deleting": "Eliminando..."
@@ -1112,7 +1098,7 @@
         "nextChunk": "Siguiente fragmento",
         "previousPage": "página anterior",
         "nextPage": "página siguiente",
-        "editingChunk": "Editando fragmento #{{index}} • Página {{currentPage}} de {{totalPages}}",
+        "editingChunk": "Editando fragmento #{index} • Página {currentPage} de {totalPages}",
         "cancel": "Cancelar",
         "errors": {
           "failedToCreateChunk": "Error al crear el fragmento",
@@ -1150,8 +1136,8 @@
         "creating": "Creando...",
         "failedToCreateKnowledgeBase": "No se pudo crear la base de conocimiento",
         "unknownError": "Ocurrió un error desconocido",
-        "fileTooLarge": "El archivo {{name}} es demasiado grande. El tamaño máximo es 100 MB por archivo.",
-        "unsupportedFileType": "El archivo {{name}} tiene un formato no compatible. Utilice PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, MD, PPT, PPTX, HTML, JSON, YAML o YML.",
+        "fileTooLarge": "El archivo {name} es demasiado grande. El tamaño máximo es 100 MB por archivo.",
+        "unsupportedFileType": "El archivo {name} tiene un formato no compatible. Utilice PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, MD, PPT, PPTX, HTML, JSON, YAML o YML.",
         "processingError": "Ocurrió un error al procesar los archivos. Inténtelo de nuevo.",
         "validation": {
           "nameRequired": "El nombre es obligatorio",
@@ -1180,8 +1166,8 @@
         "uploadDocuments": "Cargar documentos",
         "uploading": "Cargando...",
         "processing": "Procesando...",
-        "fileTooLarge": "El archivo \"{{name}}\" es demasiado grande. El tamaño máximo es 100 MB.",
-        "unsupportedFileType": "El archivo \"{{name}}\" tiene un formato no compatible. Utilice archivos PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, MD, PPT, PPTX, HTML, JSON, YAML o YML."
+        "fileTooLarge": "El archivo \"{name}\" es demasiado grande. El tamaño máximo es 100 MB.",
+        "unsupportedFileType": "El archivo \"{name}\" tiene un formato no compatible. Utilice archivos PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, MD, PPT, PPTX, HTML, JSON, YAML o YML."
       },
       "document": {
         "searchChunksPlaceholder": "Buscar fragmentos...",
@@ -1189,13 +1175,13 @@
         "deleteChunkTitle": "¿Eliminar fragmento?",
         "deleteChunksTitle": "¿Eliminar fragmentos?",
         "deleteChunkDescription": "Eliminar este fragmento lo quitará permanentemente de este documento.",
-        "deleteChunksDescription": "Eliminar {{count}} fragmentos los quitará permanentemente de este documento.",
+        "deleteChunksDescription": "Eliminar {count} fragmentos los quitará permanentemente de este documento.",
         "thisActionCannotBeUndone": "Esta acción no se puede deshacer.",
         "cancel": "Cancelar",
         "deleteFileTitle": "¿Eliminar archivo?",
         "deleteFilesTitle": "¿Eliminar archivos?",
-        "deleteFileDescription": "Eliminar \"{{name}}\" quitará permanentemente su archivo de origen, fragmentos y embeddings de esta base de conocimiento.",
-        "deleteFilesDescription": "Eliminar {{count}} archivos quitará permanentemente sus archivos de origen, fragmentos y embeddings de esta base de conocimiento.",
+        "deleteFileDescription": "Eliminar \"{name}\" quitará permanentemente su archivo de origen, fragmentos y embeddings de esta base de conocimiento.",
+        "deleteFilesDescription": "Eliminar {count} archivos quitará permanentemente sus archivos de origen, fragmentos y embeddings de esta base de conocimiento.",
         "delete": "Eliminar",
         "deleting": "Eliminando..."
       },
@@ -1210,8 +1196,8 @@
         "addTag": "Agregar etiqueta",
         "emptyState": "Aún no se han agregado etiquetas. Haga clic en \"Agregar etiqueta\" para comenzar.",
         "advancedSettings": "Configuración avanzada",
-        "tagCount": "{{count}} etiqueta{{count, plural, one {} other {s}}}",
-        "slotsUsed": "{{used}} de {{total}} ranuras de etiqueta usadas",
+        "tagCount": "{count} etiqueta{count, plural, one {} other {s}}",
+        "slotsUsed": "{used} de {total} ranuras de etiqueta usadas",
         "editTag": "Editar etiqueta",
         "addNewTag": "Agregar nueva etiqueta",
         "tagName": "Nombre de la etiqueta",
@@ -1234,15 +1220,15 @@
         "moreTags": "Más etiquetas",
         "showFewerTags": "Mostrar menos etiquetas",
         "activeTags": "Etiquetas activas:",
-        "tagLabel": "Etiqueta {{index}}",
+        "tagLabel": "Etiqueta {index}",
         "deleteTagTitle": "Eliminar etiqueta",
-        "deleteTagDescription": "¿Está seguro de que desea eliminar la etiqueta \"{{name}}\"? Esto quitará esta etiqueta de {{count}} documento{{plural}}.",
+        "deleteTagDescription": "¿Está seguro de que desea eliminar la etiqueta \"{name}\"? Esto quitará esta etiqueta de {count} documento{plural}.",
         "thisActionCannotBeUndone": "Esta acción no se puede deshacer.",
         "affectedDocuments": "Documentos afectados:",
         "deleting": "Eliminando...",
-        "documentsUsingTagTitle": "Documentos que usan \"{{name}}\"",
-        "documentsUsingTagDescriptionSingular": "{{count}} documento usa actualmente esta definición de etiqueta.",
-        "documentsUsingTagDescriptionPlural": "{{count}} documentos usan actualmente esta definición de etiqueta.",
+        "documentsUsingTagTitle": "Documentos que usan \"{name}\"",
+        "documentsUsingTagDescriptionSingular": "{count} documento usa actualmente esta definición de etiqueta.",
+        "documentsUsingTagDescriptionPlural": "{count} documentos usan actualmente esta definición de etiqueta.",
         "singularIs": "usa",
         "pluralAre": "usan",
         "tagUnusedHelp": "Esta definición de etiqueta no está siendo utilizada por ningún documento. Puede eliminarla de forma segura para liberar la ranura."
@@ -1286,7 +1272,7 @@
         "refreshing": "Actualizando...",
         "chart": {
           "noData": "No hay datos disponibles.",
-          "toggleSeries": "Alternar serie {{label}}"
+          "toggleSeries": "Alternar serie {label}"
         },
         "filters": {
           "title": "Filtros",
@@ -1295,7 +1281,7 @@
           "suggestedFilters": "Filtros sugeridos",
           "textSearch": "Búsqueda de texto",
           "searchPlaceholder": "Buscar registros...",
-          "filterOptionsPlaceholder": "No se encontraron opciones para {{title}}.",
+          "filterOptionsPlaceholder": "No se encontraron opciones para {title}.",
           "searchWorkflows": "Buscar flujos de trabajo...",
           "searchFolders": "Buscar carpetas...",
           "searchOptions": "Buscar opciones...",
@@ -1305,11 +1291,11 @@
           "noFolders": "No se encontraron carpetas.",
           "noOptions": "No se encontraron opciones.",
           "allWorkflows": "Todos los flujos de trabajo",
-          "selectedWorkflows": "{{count}} flujo de trabajo{{plural}} seleccionado",
+          "selectedWorkflows": "{count} flujo de trabajo{plural} seleccionado",
           "allFolders": "Todas las carpetas",
-          "selectedFolders": "{{count}} carpeta{{plural}} seleccionada",
+          "selectedFolders": "{count} carpeta{plural} seleccionada",
           "allTriggers": "Todos los disparadores",
-          "selectedTriggers": "{{count}} disparador{{plural}} seleccionado",
+          "selectedTriggers": "{count} disparador{plural} seleccionado",
           "allTime": "Todo el tiempo",
           "past30Minutes": "Últimos 30 minutos",
           "pastHour": "Última hora",
@@ -1334,7 +1320,7 @@
           "trigger": "Disparador",
           "timeline": "Cronología",
           "retentionPolicy": "Política de retención de registros",
-          "retentionDescription": "Los registros se eliminan automáticamente después de {{days}} días en este nivel.",
+          "retentionDescription": "Los registros se eliminan automáticamente después de {days} días en este nivel.",
           "upgradePlan": "Actualizar plan"
         },
         "metrics": {
@@ -1345,15 +1331,15 @@
         },
         "workflows": {
           "title": "Flujos de trabajo",
-          "legend": "Cada celda representa aproximadamente {{duration}} del rango seleccionado. Haga clic en una celda para filtrar los detalles.",
-          "count": "{{count}} flujo de trabajo",
-          "countPlural": "{{count}} flujos de trabajo",
-          "filteredFrom": " (filtrados de {{count}})",
-          "noMatches": "No se encontraron flujos de trabajo que coincidan con \"{{query}}\".",
+          "legend": "Cada celda representa aproximadamente {duration} del rango seleccionado. Haga clic en una celda para filtrar los detalles.",
+          "count": "{count} flujo de trabajo",
+          "countPlural": "{count} flujos de trabajo",
+          "filteredFrom": " (filtrados de {count})",
+          "noMatches": "No se encontraron flujos de trabajo que coincidan con \"{query}\".",
           "selectedSegment": "Segmento seleccionado",
-          "filteredTo": "Filtrado a {{timestamp}}",
-          "selectedRangeMore": " (+{{count}} segmento más{{plural}})",
-          "selectedRangeExecutions": "— {{count}} ejecución{{plural}}",
+          "filteredTo": "Filtrado a {timestamp}",
+          "selectedRangeMore": " (+{count} segmento más{plural})",
+          "selectedRangeExecutions": "— {count} ejecución{plural}",
           "clearFilter": "Limpiar filtro",
           "executions": "Ejecuciones",
           "success": "Éxito",
@@ -1372,13 +1358,13 @@
           "noExecutions": "Sin ejecuciones",
           "loadingMore": "Cargando más...",
           "scrollToLoadMore": "Desplázate para cargar más",
-          "succeeded": "{{success}}/{{total}} exitosos",
-          "segment": "Segmento {{index}}",
+          "succeeded": "{success}/{total} exitosos",
+          "segment": "Segmento {index}",
           "allWorkflows": "Todos los flujos de trabajo",
-          "multipleSelected": "{{count}} flujos de trabajo seleccionados",
-          "durationDay": "{{count}} día{{plural}}",
-          "durationHour": "{{count}} hora{{plural}}",
-          "durationMinute": "{{count}} minuto{{plural}}"
+          "multipleSelected": "{count} flujos de trabajo seleccionados",
+          "durationDay": "{count} día{plural}",
+          "durationHour": "{count} hora{plural}",
+          "durationMinute": "{count} minuto{plural}"
         }
       },
       "list": {
@@ -1396,7 +1382,7 @@
         "noLogs": "No se encontraron registros",
         "unknownWorkflow": "Flujo de trabajo desconocido",
         "errorPrefix": "Error: ",
-        "runningMs": "{{value}} ms"
+        "runningMs": "{value} ms"
       },
       "details": {
         "title": "Detalles del registro",
@@ -1422,17 +1408,17 @@
         "modelOutput": "Salida del modelo:",
         "total": "Total:",
         "tokens": "Tokens:",
-        "modelBreakdown": "Desglose del modelo ({{count}})",
+        "modelBreakdown": "Desglose del modelo ({count})",
         "input": "Entrada:",
         "output": "Salida:",
-        "totalCostNote": "El costo total incluye un cargo base de ejecución de {{amount}} más los costos de uso del modelo.",
+        "totalCostNote": "El costo total incluye un cargo base de ejecución de {amount} más los costos de uso del modelo.",
         "notAvailable": "No disponible",
         "unknownSize": "Tamaño desconocido",
         "unknownType": "Tipo desconocido",
         "unknownWorkflow": "Desconocido",
         "unknownLevel": "desconocido",
         "unknownValue": "Desconocido",
-        "runningMs": "{{value}} ms",
+        "runningMs": "{value} ms",
         "traceSpans": {
           "workflowExecution": "Ejecución del flujo de trabajo",
           "collapseAll": "Contraer todo",
@@ -1445,21 +1431,21 @@
           "initialResponse": "Respuesta inicial",
           "modelResponse": "Respuesta del modelo",
           "modelGeneration": "Generación del modelo",
-          "tokens": "{{count}} token{{plural}}",
+          "tokens": "{count} token{plural}",
           "tokensUnavailable": "Tokens no disponibles",
-          "tokensInOut": "{{input}} entrada / {{output}} salida",
-          "tokensTotal": "{{count}} token{{plural}} total",
-          "tokensTotalSuffix": " ({{count}} en total)",
+          "tokensInOut": "{input} entrada / {output} salida",
+          "tokensTotal": "{count} token{plural} total",
+          "tokensTotalSuffix": " ({count} en total)",
           "input": "Entrada",
           "output": "Salida",
           "total": "Total",
           "start": "Inicio",
-          "plusMs": "+{{ms}} ms",
-          "betweenBlocks": "Intervalo de {{ms}} ms",
+          "plusMs": "+{ms} ms",
+          "betweenBlocks": "Intervalo de {ms} ms",
           "inputSection": "Entrada",
           "outputSection": "Salida",
           "errorSection": "Error",
-          "segmentTimingTooltip": "{{type}}{{nameSuffix}} tomó {{duration}} ms"
+          "segmentTimingTooltip": "{type}{nameSuffix} tomó {duration} ms"
         },
         "download": {
           "downloading": "Descargando...",
@@ -1559,8 +1545,8 @@
         }
       },
       "searchEmpty": {
-        "workspace": "No se encontraron variables de entorno del espacio de trabajo que coincidan con \"{{query}}\".",
-        "personal": "No se encontraron variables de entorno personales que coincidan con \"{{query}}\"."
+        "workspace": "No se encontraron variables de entorno del espacio de trabajo que coincidan con \"{query}\".",
+        "personal": "No se encontraron variables de entorno personales que coincidan con \"{query}\"."
       },
       "headers": {
         "createdAt": "Creado el",
@@ -1583,7 +1569,7 @@
     },
     "apiKeys": {
       "title": "Claves API",
-      "cardTitle": "Claves API de {{scope}}",
+      "cardTitle": "Claves API de {scope}",
       "searchPlaceholder": "Buscar claves...",
       "scope": {
         "workspace": "Espacio de trabajo",
@@ -1605,7 +1591,7 @@
           "button": "Crear clave"
         }
       },
-      "searchEmpty": "No se encontraron claves API de {{scope}} que coincidan con \"{{query}}\".",
+      "searchEmpty": "No se encontraron claves API de {scope} que coincidan con \"{query}\".",
       "headers": {
         "createdAt": "Fecha de creación",
         "name": "Nombre",
@@ -1616,20 +1602,20 @@
       "labels": {
         "never": "Nunca",
         "billingTier": "Nivel de facturación",
-        "lastUsed": "Último uso: {{date}}",
+        "lastUsed": "Último uso: {date}",
         "saveName": "Guardar nombre de la clave API",
-        "rename": "Renombrar clave API de {{scope}}",
-        "reveal": "Revelar clave API de {{scope}}",
-        "hide": "Ocultar clave API de {{scope}}",
-        "copy": "Copiar clave API de {{scope}}",
-        "save": "Guardar clave API de {{scope}}",
+        "rename": "Renombrar clave API de {scope}",
+        "reveal": "Revelar clave API de {scope}",
+        "hide": "Ocultar clave API de {scope}",
+        "copy": "Copiar clave API de {scope}",
+        "save": "Guardar clave API de {scope}",
         "cancelRename": "Cancelar cambio de nombre",
-        "delete": "Eliminar clave API de {{scope}}",
+        "delete": "Eliminar clave API de {scope}",
         "nameRequired": "El nombre es obligatorio",
-        "duplicateName": "Ya existe una clave API de {{scope}} llamada \"{{name}}\".",
-        "failedRename": "Error al renombrar la clave API de {{scope}}.",
-        "unableRename": "No se puede renombrar la clave API de {{scope}}. Inténtalo de nuevo.",
-        "failedCreate": "Error al crear la clave API de {{scope}}. Inténtalo de nuevo.",
+        "duplicateName": "Ya existe una clave API de {scope} llamada \"{name}\".",
+        "failedRename": "Error al renombrar la clave API de {scope}.",
+        "unableRename": "No se puede renombrar la clave API de {scope}. Inténtalo de nuevo.",
+        "failedCreate": "Error al crear la clave API de {scope}. Inténtalo de nuevo.",
         "workspaceAccess": "Esta clave otorga acceso a todos los flujos de trabajo y archivos dentro de este espacio de trabajo. Cópiala inmediatamente después de crearla, ya que no podrás volver a verla.",
         "personalAccess": "Esta clave otorga acceso a tus flujos de trabajo y archivos personales. Cópiala inmediatamente después de crearla, ya que no podrás volver a verla.",
         "onlyTimeYouWillSee": "Esta es la única vez que verás la clave completa. Cópiala y guárdala de forma segura.",
@@ -1637,15 +1623,15 @@
         "workspacePermissions": "Necesitas acceso de edición o administrador para gestionar las claves API del espacio de trabajo."
       },
       "dialogs": {
-        "createTitle": "Crear clave API de {{scope}}",
+        "createTitle": "Crear clave API de {scope}",
         "createNameLabel": "Nombre",
         "createNamePlaceholder": "p. ej., Servidor MCP de producción",
         "createButton": "Crear clave",
-        "newKeyTitle": "Tu clave API de {{scope}}",
+        "newKeyTitle": "Tu clave API de {scope}",
         "newKeyDescription": "Esta es la única vez que verás la clave completa. Cópiala y guárdala de forma segura.",
-        "deleteTitle": "¿Eliminar la clave API de {{scope}}?",
+        "deleteTitle": "¿Eliminar la clave API de {scope}?",
         "deleteDescription": "Esto revocará inmediatamente el acceso de cualquier integración que use esta clave.",
-        "deletePrompt": "Escribe {{name}} para confirmar.",
+        "deletePrompt": "Escribe {name} para confirmar.",
         "deletePlaceholder": "Nombre de la clave API",
         "cancel": "Cancelar",
         "deleteButton": "Eliminar clave",
@@ -1684,7 +1670,7 @@
         "searchPlaceholder": "Buscar órdenes...",
         "filters": "Filtros",
         "orderFilters": "Filtros de órdenes",
-        "showingOf": "Mostrando {{loadedCount}} de {{totalCount}}",
+        "showingOf": "Mostrando {loadedCount} de {totalCount}",
         "clear": "Limpiar",
         "allProviders": "Todos los proveedores",
         "allEnvironments": "Todos los entornos",
@@ -1761,7 +1747,7 @@
       "disconnect": "Desconectar",
       "emptyState": {
         "noConnectible": "No hay integraciones conectables configuradas.",
-        "noSearchMatches": "No se encontraron servicios que coincidan con \"{{query}}\""
+        "noSearchMatches": "No se encontraron servicios que coincidan con \"{query}\""
       },
       "errors": {
         "loadAvailability": "Error al cargar la disponibilidad del proveedor",
@@ -1774,7 +1760,7 @@
       "upload": {
         "idle": "Subir archivo",
         "uploading": "Subiendo...",
-        "uploadingWithCount": "Subiendo {{completed}}/{{total}}...",
+        "uploadingWithCount": "Subiendo {completed}/{total}...",
         "button": "Subir archivo"
       },
       "headers": {
@@ -1798,7 +1784,7 @@
       },
       "deleteDialog": {
         "title": "¿Eliminar archivo?",
-        "descriptionWithName": "Eliminar \"{{name}}\" lo eliminará permanentemente de este espacio de trabajo.",
+        "descriptionWithName": "Eliminar \"{name}\" lo eliminará permanentemente de este espacio de trabajo.",
         "description": "Eliminar este archivo lo eliminará permanentemente de este espacio de trabajo.",
         "warning": "Esta acción no se puede deshacer.",
         "cancel": "Cancelar",
@@ -1808,7 +1794,7 @@
       "errors": {
         "billingTier": "Nivel de facturación",
         "uploadFailed": "Error al cargar",
-        "unsupportedFileType": "Tipo de archivo no compatible: {{files}}"
+        "unsupportedFileType": "Tipo de archivo no compatible: {files}"
       }
     },
     "userMenu": {
@@ -1824,7 +1810,7 @@
       "loggingOut": "Cerrando sesión…",
       "billingPortalSelectOrganization": "Seleccione una organización para gestionar la facturación.",
       "billingPortalFailed": "Error al abrir el portal de facturación",
-      "themeLabel": "Tema: {{theme}}",
+      "themeLabel": "Tema: {theme}",
       "languageLabel": "Idioma",
       "themeOptions": {
         "light": "Claro",
@@ -1875,8 +1861,8 @@
           "nameRequired": "Proporcione un nombre.",
           "saveError": "No se pueden guardar los ajustes del perfil.",
           "nameRequiredValidation": "El nombre es obligatorio",
-          "profilePictureFileTooLarge": "El archivo {{name}} es demasiado grande. El tamaño máximo es 5 MB.",
-          "profilePictureUnsupportedFormat": "El archivo {{name}} no es un formato de imagen compatible. Use PNG o JPEG.",
+          "profilePictureFileTooLarge": "El archivo {name} es demasiado grande. El tamaño máximo es 5 MB.",
+          "profilePictureUnsupportedFormat": "El archivo {name} no es un formato de imagen compatible. Use PNG o JPEG.",
           "profilePictureUpdateError": "Error al actualizar la foto de perfil",
           "profilePictureRemoveError": "Error al eliminar la foto de perfil",
           "unableToUpdateProfilePicture": "No se puede actualizar la foto de perfil.",
@@ -1905,7 +1891,7 @@
         "dropImagesBrowse": "Arrastra imágenes aquí o haz clic para examinar",
         "imageHint": "JPEG, PNG, WebP, GIF (máx. 20MB cada uno)",
         "uploadedImages": "Imágenes subidas",
-        "previewAlt": "Vista previa {{index}}",
+        "previewAlt": "Vista previa {index}",
         "cancel": "Cancelar",
         "submit": "Enviar",
         "submitting": "Enviando...",
@@ -1916,8 +1902,8 @@
           "subjectRequired": "El asunto es obligatorio",
           "messageRequired": "El mensaje es obligatorio",
           "requestTypeRequired": "Seleccione un tipo de solicitud",
-          "fileTooLarge": "El archivo {{name}} es demasiado grande. El tamaño máximo es 20 MB.",
-          "unsupportedFormat": "El archivo {{name}} tiene un formato no compatible. Use JPEG, PNG, WebP o GIF.",
+          "fileTooLarge": "El archivo {name} es demasiado grande. El tamaño máximo es 20 MB.",
+          "unsupportedFormat": "El archivo {name} tiene un formato no compatible. Use JPEG, PNG, WebP o GIF.",
           "processing": "Ocurrió un error al procesar las imágenes. Inténtelo de nuevo.",
           "submitFailed": "Error al enviar la solicitud de ayuda",
           "unknown": "Ocurrió un error desconocido"
@@ -1955,7 +1941,7 @@
           "custom": "Personalizado",
           "seats": "Asientos"
         },
-        "seatsText": "{{count}} asientos",
+        "seatsText": "{count} asientos",
         "descriptions": {
           "manage": "Abra el Portal de Facturación de Stripe para cancelar, restaurar o actualizar su suscripción.",
           "usageNotifications": "Envíeme un correo electrónico cuando el uso alcance el umbral de advertencia de facturación.",
@@ -1981,7 +1967,7 @@
         "actions": {
           "manage": "Gestionar",
           "contact": "Contactar",
-          "upgradeTo": "Actualizar a {{name}}"
+          "upgradeTo": "Actualizar a {name}"
         },
         "badges": {
           "resolvePayment": "Resolver pago",
@@ -2000,8 +1986,8 @@
       },
       "team": {
         "error": "Error",
-        "defaultTeamName": "Equipo de {{name}}",
-        "billingHowWorksSeatCost": "El costo de {{seats}} asiento{{plural}} es de ${{amount}} al mes.",
+        "defaultTeamName": "Equipo de {name}",
+        "billingHowWorksSeatCost": "El costo de {seats} asiento{plural} es de ${amount} al mes.",
         "billingHowWorksUsageTracked": "El uso se rastrea en todos los espacios de trabajo de la organización.",
         "billingHowWorksIncreaseLimit": "Aumenta el límite cuando la organización necesite más capacidad.",
         "billingHowWorksOverage": "Los excesos se facturan según el plan activo.",
@@ -2025,16 +2011,16 @@
         "subscriptionMayNeedTransfer": "Es posible que tu suscripción deba transferirse a esta organización.",
         "setUpTeamSubscription": "Configurar suscripción de equipo",
         "seats": "Asientos",
-        "pricePerSeat": "({{price}}/mes cada uno)",
-        "used": "{{count}} usado",
-        "total": "{{count}} en total",
+        "pricePerSeat": "({price}/mes cada uno)",
+        "used": "{count} usado",
+        "total": "{count} en total",
         "removeSeat": "Eliminar asiento",
         "addSeat": "Agregar asiento",
         "seat": "asiento",
         "numberOfSeats": "Número de asientos",
-        "yourTeamWillHave": "Tu equipo tendrá {{count}} {{seatWord}} con un total de ${{cost}} créditos de inferencia por mes.",
-        "minimumSeatsNoMax": "Mínimo {{minimum}} asientos. No hay límite máximo de asientos para este plan.",
-        "chooseBetweenSeats": "Elige entre {{minimum}} y {{maximum}} asientos para este plan.",
+        "yourTeamWillHave": "Tu equipo tendrá {count} {seatWord} con un total de ${cost} créditos de inferencia por mes.",
+        "minimumSeatsNoMax": "Mínimo {minimum} asientos. No hay límite máximo de asientos para este plan.",
+        "chooseBetweenSeats": "Elige entre {minimum} y {maximum} asientos para este plan.",
         "currentSeats": "Asientos actuales:",
         "newSeats": "Asientos nuevos:",
         "monthlyCostChange": "Cambio de costo mensual:",
@@ -2043,7 +2029,7 @@
         "leaveOrganization": "Salir de la organización",
         "removeTeamMember": "Eliminar miembro del equipo",
         "leaveOrganizationDescription": "¿Estás seguro de que quieres salir de esta organización? Perderás el acceso a todos los recursos del equipo.",
-        "removeMemberDescription": "¿Estás seguro de que quieres eliminar a {{name}} del equipo?",
+        "removeMemberDescription": "¿Estás seguro de que quieres eliminar a {name} del equipo?",
         "alsoReduceSeatCount": "Reducir también el número de asientos en mi suscripción",
         "reduceSeatCountDescription": "Si se selecciona, el número de asientos de tu equipo se reducirá en 1, lo que disminuirá tu facturación mensual.",
         "thisActionCannotBeUndone": "Esta acción no se puede deshacer.",
@@ -2055,7 +2041,7 @@
         "noPublicAdjustableTier": "No hay ningún nivel de organización ajustable público configurado",
         "addSeats": {
           "title": "Agregar asientos de equipo",
-          "description": "Cada asiento cuesta ${{price}}/mes y proporciona ${{price}} en créditos de inferencia mensuales. Ajusta la cantidad de asientos con licencia para tu equipo.",
+          "description": "Cada asiento cuesta ${price}/mes y proporciona ${price} en créditos de inferencia mensuales. Ajusta la cantidad de asientos con licencia para tu equipo.",
           "confirm": "Actualizar asientos"
         },
         "billing": {
@@ -2075,7 +2061,7 @@
         "members": {
           "title": "Miembros del equipo",
           "empty": "Aún no hay miembros en el equipo.",
-          "sharedUsage": "Uso compartido: ${{amount}}",
+          "sharedUsage": "Uso compartido: ${amount}",
           "pending": "Pendiente",
           "billing": "Facturación",
           "usage": "Uso",
@@ -2097,13 +2083,13 @@
           "unavailable": "Invitación no disponible",
           "workspaceAccess": "Acceso al espacio de trabajo",
           "optional": "Opcional",
-          "selected": "{{count}} espacio de trabajo seleccionado{{plural}}",
+          "selected": "{count} espacio de trabajo seleccionado{plural}",
           "grantAccess": "Conceder acceso a espacios de trabajo específicos y elegir un nivel de permiso.",
           "noWorkspacesAvailable": "No hay espacios de trabajo disponibles.",
           "needAdminAccess": "Necesita acceso de administrador para asignar espacios de trabajo.",
           "owner": "Propietario",
           "sentSuccess": "Invitación enviada.",
-          "sentSuccessWithAccess": "Invitación enviada con acceso a {{count}} espacio de trabajo{{plural}}.",
+          "sentSuccessWithAccess": "Invitación enviada con acceso a {count} espacio de trabajo{plural}.",
           "invalidEmail": "Ingrese una dirección de correo electrónico válida.",
           "permissions": {
             "read": {
@@ -2180,7 +2166,7 @@
         "providerError": "Error al configurar el proveedor SSO",
         "reloadError": "Error al recargar los proveedores SSO",
         "validation": {
-          "fieldRequired": "{{field}} es obligatorio.",
+          "fieldRequired": "{field} es obligatorio.",
           "providerIdRequired": "El ID del proveedor es obligatorio.",
           "providerIdPattern": "Use solo letras, números y guiones.",
           "issuerUrlRequired": "La URL del emisor es obligatoria.",
@@ -2235,11 +2221,11 @@
       "webhook": {
         "common": {
           "configureButton": "Configurar webhook",
-          "connectedLabel": "{{provider}} conectado",
-          "configureTitle": "Configurar webhook de {{provider}}",
-          "editTitle": "Editar webhook de {{provider}}",
+          "connectedLabel": "{provider} conectado",
+          "configureTitle": "Configurar webhook de {provider}",
+          "editTitle": "Editar webhook de {provider}",
           "close": "Cerrar",
-          "learnMoreAbout": "Más información sobre {{topic}}",
+          "learnMoreAbout": "Más información sobre {topic}",
           "showSecret": "Mostrar secreto",
           "hideSecret": "Ocultar secreto",
           "copyValue": "Copiar valor",
@@ -2254,14 +2240,14 @@
           "validConfiguration": "La configuración del webhook es válida",
           "testFailure": "La prueba del webhook falló",
           "telegramSslError": "Telegram requiere una URL HTTPS pública con un certificado SSL válido.",
-          "telegramTestFailure": "La prueba del webhook de Telegram falló: {{error}}",
+          "telegramTestFailure": "La prueba del webhook de Telegram falló: {error}",
           "testError": "Ocurrió un error inesperado al probar el webhook",
           "testUrlLabel": "URL de prueba del webhook",
           "testUrlHint": "Usa esta URL temporal para enviar una solicitud de ejemplo a tu flujo.",
           "generate": "Generar",
           "generating": "Generando...",
           "regenerate": "Regenerar",
-          "expiresAt": "Caduca el {{timestamp}}",
+          "expiresAt": "Caduca el {timestamp}",
           "delete": "Eliminar",
           "deleting": "Eliminando...",
           "testWebhook": "Probar webhook",
@@ -2315,7 +2301,7 @@
               "copyWebhookUrl": "Copia la URL del webhook.",
               "configureService": "Pégala en el servicio que enviará el webhook.",
               "includeBearerHeader": "Incluye un encabezado Authorization con el token generado.",
-              "includeNamedHeader": "Incluye un encabezado {{header}} con el token generado."
+              "includeNamedHeader": "Incluye un encabezado {header} con el token generado."
             }
           },
           "github": {
@@ -2347,7 +2333,7 @@
               "addWebhook": "Ve a Webhooks y haz clic en \"Add webhook\".",
               "pastePayloadUrlPrefix": "Pega la",
               "pastePayloadUrlSuffix": "en el campo Payload URL.",
-              "selectContentType": "Establece Content type en {{contentType}}.",
+              "selectContentType": "Establece Content type en {contentType}.",
               "enterWebhookSecretPrefix": "Copia el secreto generado en",
               "enterWebhookSecretSuffix": ".",
               "setSslVerification": "Activa la verificación SSL salvo que estés probando en un entorno controlado.",
@@ -2386,7 +2372,7 @@
             "notice": {
               "payloadTitle": "Ejemplo de carga útil de evento de Gmail"
             },
-            "fallbackLabels": {
+            "defaultLabels": {
               "inbox": "Bandeja de entrada",
               "sent": "Enviados",
               "important": "Importante",
@@ -2425,7 +2411,7 @@
             "notice": {
               "payloadTitle": "Ejemplo de carga útil de evento de Outlook"
             },
-            "fallbackFolders": {
+            "defaultFolders": {
               "inbox": "Bandeja de entrada",
               "sentItems": "Elementos enviados",
               "drafts": "Borradores",
@@ -2702,7 +2688,7 @@
         "downloadConsoleCsv": "Descargar CSV de la consola",
         "downloadCsv": "Descargar CSV",
         "clearConsole": "Limpiar consola",
-        "noResults": "No se encontraron resultados para \"{{query}}\"",
+        "noResults": "No se encontraron resultados para \"{query}\"",
         "showLess": "Mostrar menos",
         "showMore": "Mostrar más",
         "copyValue": "Copiar valor",
@@ -2727,10 +2713,10 @@
         "noConsoleEntries": "No hay entradas en la consola",
         "generatedImageAlt": "Imagen generada",
         "downloadImageFailed": "No se pudo descargar la imagen. Inténtalo de nuevo más tarde.",
-        "summaryItemsSingular": "{{count}} elemento",
-        "summaryItemsPlural": "{{count}} elementos",
-        "summaryKeysSingular": "{{count}} clave",
-        "summaryKeysPlural": "{{count}} claves"
+        "summaryItemsSingular": "{count} elemento",
+        "summaryItemsPlural": "{count} elementos",
+        "summaryKeysSingular": "{count} clave",
+        "summaryKeysPlural": "{count} claves"
       },
       "workflowChat": {
         "selectWorkspace": "Selecciona un espacio de trabajo para cargar flujos de trabajo.",
@@ -2744,22 +2730,22 @@
         "fileUploadError": "Error de carga de archivos",
         "attachFiles": "Adjuntar archivos",
         "attach": "Adjuntar",
-        "maximumFilesAllowed": "Máximo {{maxFiles}} archivos permitidos",
-        "selectedFiles": "{{count}}/{{maxFiles}} archivos",
+        "maximumFilesAllowed": "Máximo {maxFiles} archivos permitidos",
+        "selectedFiles": "{count}/{maxFiles} archivos",
         "removeFile": "Quitar archivo",
         "dropFilesHere": "Suelta archivos aquí para adjuntarlos",
         "typeMessage": "Escribe un mensaje...",
-        "uploadedFiles": "Se cargaron {{count}} archivo{{plural}}",
-        "fileTooLarge": "{{name}} es demasiado grande (máx. {{maxSize}} MB)",
-        "fileTypeNotSupported": "El tipo de {{name}} no es compatible",
-        "fileAlreadyAdded": "{{name}} ya fue agregado",
+        "uploadedFiles": "Se cargaron {count} archivo{plural}",
+        "fileTooLarge": "{name} es demasiado grande (máx. {maxSize} MB)",
+        "fileTypeNotSupported": "El tipo de {name} no es compatible",
+        "fileAlreadyAdded": "{name} ya fue agregado",
         "workflowExecutionFailed": "La ejecución del flujo de trabajo falló.",
         "errorPrefix": "Error: "
       },
       "workflowOutputSelect": {
         "defaultPlaceholder": "Seleccionar fuentes de salida",
-        "fallbackBlockName": "Bloque {{id}}",
-        "selectedCount": "{{count}} seleccionados",
+        "defaultBlockName": "Bloque {id}",
+        "selectedCount": "{count} seleccionados",
         "searchPlaceholder": "Buscar salidas...",
         "noMatchingOutputs": "No hay salidas coincidentes.",
         "noOutputsAvailable": "No hay salidas disponibles."
@@ -2823,16 +2809,16 @@
         "serverNameRequired": "El nombre del servidor es obligatorio.",
         "failedToRefreshMcpServer": "No se pudieron actualizar las herramientas del servidor MCP.",
         "failedToSaveMcpServer": "No se pudo guardar el servidor MCP.",
-        "toolCount": "{{count}} herramientas",
+        "toolCount": "{count} herramientas",
         "loading": "Cargando...",
         "connected": "Conectado",
         "error": "Error",
         "draft": "Borrador",
         "disconnected": "Desconectado",
         "unnamedServer": "Servidor sin nombre",
-        "updated": "Actualizado {{time}}",
-        "toolsRefreshed": "Herramientas actualizadas {{time}}",
-        "lastConnected": "Última conexión {{time}}",
+        "updated": "Actualizado {time}",
+        "toolsRefreshed": "Herramientas actualizadas {time}",
+        "lastConnected": "Última conexión {time}",
         "lastError": "Último error",
         "noSharedMcpServerSelected": "Este color aún no tiene un servidor MCP compartido seleccionado.",
         "mcpServerNotFound": "No se encontró el servidor MCP.",
@@ -2840,12 +2826,12 @@
         "serverNameIsRequired": "El nombre del servidor es obligatorio.",
         "relativeTime": {
           "justNow": "ahora mismo",
-          "minutesAgo": "hace {{count}} min",
-          "hoursAgo": "hace {{count}} h",
-          "daysAgo": "hace {{count}} d",
-          "weeksAgo": "hace {{count}} sem",
-          "monthsAgo": "hace {{count}} meses",
-          "yearsAgo": "hace {{count}} a"
+          "minutesAgo": "hace {count} min",
+          "hoursAgo": "hace {count} h",
+          "daysAgo": "hace {count} d",
+          "weeksAgo": "hace {count} sem",
+          "monthsAgo": "hace {count} meses",
+          "yearsAgo": "hace {count} a"
         }
       },
       "triggerList": {
@@ -2854,7 +2840,7 @@
         "searchPlaceholder": "Buscar disparadores",
         "openTriggerList": "Haz clic para agregar disparador",
         "close": "Cerrar",
-        "noResults": "No se encontraron resultados para \"{{query}}\""
+        "noResults": "No se encontraron resultados para \"{query}\""
       },
       "workflowToolbar": {
         "selectWorkspace": "Selecciona un espacio de trabajo para explorar bloques",
@@ -2862,14 +2848,13 @@
         "tools": "Herramientas",
         "triggers": "Disparadores",
         "special": "Especial",
-        "browseLabel": "Explorar {{label}}",
-        "searchPlaceholder": "Buscar {{label}}...",
-        "noResults": "No se encontraron {{label}}."
+        "browseLabel": "Explorar {label}",
+        "searchPlaceholder": "Buscar {label}...",
+        "noResults": "No se encontraron {label}."
       },
       "workflowLabels": {
         "systemPrompt": "Prompt del sistema",
         "userPrompt": "Prompt del usuario",
-        "model": "Modelo",
         "temperature": "Temperatura",
         "Signal Briefing": "Resumen de señales",
         "Indicator Monitor": "Monitor de indicadores",
@@ -2909,10 +2894,8 @@
         "decisionRouter": "Enrutador de decisiones",
         "increasePosition": "Aumentar posición",
         "reduceExposure": "Reducir exposición",
-        "apiKey": "Clave API",
         "skills": "Habilidades",
         "tools": "Herramientas",
-        "url": "URL",
         "method": "Método",
         "queryParams": "Parámetros de consulta",
         "headers": "Encabezados",
@@ -2928,7 +2911,6 @@
         "reasoningEffort": "Esfuerzo de razonamiento",
         "verbosity": "Nivel de detalle",
         "configured": "Configurado",
-        "value": "Valor",
         "items": "Elementos",
         "fields": "Campos",
         "object": "Objeto",
@@ -2949,41 +2931,22 @@
         "nextStep": "Siguiente paso",
         "locked": "Bloqueado",
         "deployed": "Desplegado",
-        "deployedWithVersion": "Desplegado (v{{version}})",
+        "deployedWithVersion": "Desplegado (v{version})",
         "notDeployed": "No desplegado",
         "disabled": "Deshabilitado",
-        "key": "Clave",
         "start": "Inicio",
         "end": "Fin",
-        "removeSkill": "Eliminar {{name}}",
+        "removeSkill": "Eliminar {name}",
         "currentWorkflow": "Flujo actual",
         "currentSkill": "Habilidad actual",
         "currentTool": "Herramienta actual",
         "currentIndicator": "Indicador actual",
         "currentMcpServer": "Servidor MCP actual",
-        "task": "Tarea",
-        "Task": "Tarea",
-        "variables": "Variables",
-        "Variables": "Variables",
-        "startingUrl": "URL de inicio",
-        "Starting URL": "URL de inicio",
-        "outputSchema": "Esquema de salida",
-        "Output Schema": "Esquema de salida",
-        "anthropicApiKey": "Clave de API de Anthropic",
-        "Anthropic API Key": "Clave de API de Anthropic",
         "workflows": "Flujos de trabajo",
         "customTools": "Herramientas personalizadas",
         "indicators": "Indicadores",
         "mcpServers": "Servidores MCP",
         "allWorkflows": "Todos los flujos de trabajo",
-        "contentToValidate": "Contenido a validar",
-        "enterContentToValidate": "Ingresa el contenido a validar",
-        "validationType": "Tipo de validación",
-        "validJson": "JSON válido",
-        "regexMatch": "Coincidencia regex",
-        "hallucinationCheck": "Verificación de alucinaciones",
-        "piiDetection": "Detección de PII",
-        "regexPattern": "Patrón regex",
         "operation": "Operación",
         "id": "Identificador",
         "role": "Rol",
@@ -3001,12 +2964,6 @@
         "enterMemoryIdentifierToDelete": "Ingresa el identificador de memoria para eliminar",
         "selectAgentRole": "Selecciona el rol del agente",
         "enterMessageContent": "Ingresa el contenido del mensaje",
-        "Enter the starting URL for the agent": "Introduce la URL de inicio del agente",
-        "enterTheStartingUrlForTheAgent": "Introduce la URL de inicio del agente",
-        "enterTheTaskOrGoalForTheAgentToAchieveReferenceVariablesUsingKeySyntax": "Introduce la tarea u objetivo que el agente debe lograr. Haz referencia a variables usando la sintaxis %key%.",
-        "Enter your Anthropic API key": "Introduce tu clave de API de Anthropic",
-        "enterYourAnthropicApiKey": "Introduce tu clave de API de Anthropic",
-        "knowledgeBase": "Base de conocimiento",
         "selectKnowledgeBase": "Seleccionar base de conocimiento",
         "selectKnowledgeBases": "Seleccionar bases de conocimiento",
         "searchQuery": "Consulta de búsqueda",
@@ -3022,13 +2979,13 @@
         "searchTeams": "Buscar equipos...",
         "searchKnowledgeBases": "Buscar bases de conocimiento...",
         "searchFiles": "Buscar archivos...",
-        "searchItems": "Buscar {{itemName}}...",
-        "loadingItems": "Cargando {{itemName}}...",
-        "noItemsFound": "No se encontraron {{itemName}}.",
-        "noItemsFoundInService": "No se encontraron {{itemName}} en tu {{serviceName}}.",
-        "connectProviderAccountToContinue": "Conecta una cuenta de {{providerName}} para continuar.",
-        "connectProviderAccount": "Conectar cuenta de {{providerName}}",
-        "openInProvider": "Abrir en {{providerName}}",
+        "searchItems": "Buscar {itemName}...",
+        "loadingItems": "Cargando {itemName}...",
+        "noItemsFound": "No se encontraron {itemName}.",
+        "noItemsFoundInService": "No se encontraron {itemName} en tu {serviceName}.",
+        "connectProviderAccountToContinue": "Conecta una cuenta de {providerName} para continuar.",
+        "connectProviderAccount": "Conectar cuenta de {providerName}",
+        "openInProvider": "Abrir en {providerName}",
         "openInDrive": "Abrir en Drive",
         "openInConfluence": "Abrir en Confluence",
         "openInJira": "Abrir en Jira",
@@ -3059,25 +3016,11 @@
         "selectContact": "Selecciona un contacto",
         "selectItem": "Selecciona un elemento",
         "selectATeamFirst": "Selecciona primero un equipo",
-        "typeOrSelectModel": "Escribe o selecciona un modelo...",
-        "confidence": "Confianza",
         "numberOfResults": "Número de resultados",
-        "numberOfChunksToRetrieve": "Número de fragmentos a recuperar",
-        "enterYourApiKey": "Ingresa tu clave API",
-        "piiTypesToDetect": "Tipos de PII a detectar",
-        "action": "Acción",
-        "blockRequest": "Bloquear solicitud",
-        "maskPii": "Enmascarar PII",
-        "language": "Idioma",
-        "english": "Inglés",
-        "spanish": "Español",
-        "italian": "Italiano",
-        "polish": "Polaco",
-        "finnish": "Finlandés",
         "configurePiiTypes": "Configurar tipos de PII",
         "noneSelected": "Ninguno seleccionado",
         "allSelected": "Todos seleccionados",
-        "selectedCount": "{{count}} seleccionados",
+        "selectedCount": "{count} seleccionados",
         "selectPiiTypesToDetect": "Seleccionar tipos de PII a detectar",
         "choosePiiTypesToDetect": "Elige qué tipos de información de identificación personal detectar y bloquear.",
         "selectAllEntities": "Seleccionar todas las entidades",
@@ -3147,7 +3090,7 @@
         "contacts": "Contactos",
         "tagFilters": "Filtros de etiquetas",
         "noFilters": "Sin filtros",
-        "filtersApplied": "{{count}} filtro(s) aplicado(s)",
+        "filtersApplied": "{count} filtro(s) aplicado(s)",
         "tagName": "Nombre de etiqueta",
         "selectTag": "Selecciona una etiqueta",
         "tryDifferentSearchOrAccount": "Intenta una búsqueda o una cuenta diferente.",
@@ -3174,51 +3117,7 @@
         "missingRequiredFields": "Faltan campos obligatorios",
         "saveConfigReturnedFalse": "Guardar configuración devolvió falso",
         "anErrorOccurredWhileSaving": "Se produjo un error al guardar.",
-        "common": "Comunes",
-        "usa": "EE. UU.",
-        "uk": "Reino Unido",
-        "spain": "España",
-        "italy": "Italia",
-        "poland": "Polonia",
-        "singapore": "Singapur",
-        "australia": "Australia",
-        "india": "India",
         "other": "Otros",
-        "personName": "Nombre de persona",
-        "emailAddress": "Dirección de correo electrónico",
-        "phoneNumber": "Número de teléfono",
-        "location": "Ubicación",
-        "dateOrTime": "Fecha u hora",
-        "ipAddress": "Dirección IP",
-        "creditCardNumber": "Número de tarjeta de crédito",
-        "internationalBankAccountNumber": "Número internacional de cuenta bancaria (IBAN)",
-        "cryptocurrencyWalletAddress": "Dirección de billetera de criptomonedas",
-        "medicalLicenseNumber": "Número de licencia médica",
-        "nationalityReligionPoliticalGroup": "Nacionalidad / religión / grupo político",
-        "usBankAccountNumber": "Número de cuenta bancaria de EE. UU.",
-        "usDriverLicenseNumber": "Número de licencia de conducir de EE. UU.",
-        "usIndividualTaxpayerIdentificationNumber": "Número de identificación personal del contribuyente de EE. UU. (ITIN)",
-        "usPassportNumber": "Número de pasaporte de EE. UU.",
-        "usSocialSecurityNumber": "Número de Seguro Social de EE. UU.",
-        "ukNationalInsuranceNumber": "Número de Seguro Nacional del Reino Unido",
-        "ukNhsNumber": "Número del NHS del Reino Unido",
-        "spanishNifNumber": "Número NIF español",
-        "spanishNieNumber": "Número NIE español",
-        "italianFiscalCode": "Código fiscal italiano",
-        "italianDriverLicense": "Licencia de conducir italiana",
-        "italianIdentityCard": "Documento de identidad italiano",
-        "italianPassport": "Pasaporte italiano",
-        "polishPesel": "PESEL polaco",
-        "singaporeNricFin": "NRIC/FIN de Singapur",
-        "australianBusinessNumber": "Número de empresa australiano (ABN)",
-        "australianCompanyNumber": "Número de compañía australiano (ACN)",
-        "australianTaxFileNumber": "Número de archivo fiscal australiano (TFN)",
-        "australianMedicareNumber": "Número de Medicare australiano",
-        "indianAadhaar": "Aadhaar de la India",
-        "indianPan": "PAN de la India",
-        "indianVehicleRegistration": "Matrícula vehicular de la India",
-        "indianVoterNumber": "Número de votante de la India",
-        "indianPassport": "Pasaporte de la India",
         "Provider": "Proveedor",
         "Text": "Texto",
         "Prompt": "Instrucción",
@@ -3268,7 +3167,6 @@
         "Variable Assignments": "Asignaciones de variables",
         "Wait Amount": "Tiempo de espera",
         "Unit": "Unidad",
-        "enterJsonSchema": "Introduce el esquema JSON...",
         "describeTheAIAgentYouWantToCreate": "Describe el agente de IA que quieres crear...",
         "enterSystemPrompt": "Introduce el prompt del sistema...",
         "enterContextOrUserMessage": "Introduce contexto o mensaje de usuario...",
@@ -3309,7 +3207,15 @@
         "eventPayloadExample": "Ejemplo de carga útil del evento",
         "webhookUrlWillBeGenerated": "La URL del webhook se generará",
         "setupInstructions": "Instrucciones de configuración",
-        "enabled": "Habilitado"
+        "enabled": "Habilitado",
+        "pleaseSelectSharePointCredentialsFirst": "Selecciona primero las credenciales de SharePoint",
+        "pleaseSelectMicrosoftPlannerCredentialsFirst": "Selecciona primero las credenciales de Microsoft Planner",
+        "pleaseEnterAPlanIdFirst": "Introduce primero un ID de plan",
+        "pleaseSelectMicrosoftTeamsCredentialsFirst": "Selecciona primero las credenciales de Microsoft Teams",
+        "pleaseSelectWealthboxCredentialsFirst": "Selecciona primero las credenciales de Wealthbox",
+        "pleaseSelectGoogleDriveCredentialsFirst": "Selecciona primero las credenciales de Google Drive",
+        "url": "URL",
+        "value": "Valor"
       },
       "blockEditor": {
         "blockNames": {
@@ -3465,7 +3371,9 @@
           "youtube": "YouTube",
           "zendesk": "Zendesk",
           "zep": "Zep",
-          "zoom": "Zoom"
+          "zoom": "Zoom",
+          "portfolio_detail": "Detalle de portafolio",
+          "watchlist": "Lista de seguimiento"
         },
         "blockDescriptions": {
           "response": "Envía una respuesta de API estructurada",
@@ -3618,7 +3526,9 @@
           "youtube": "Interactuar con videos, canales y listas de reproducción de YouTube",
           "zendesk": "Gestionar tickets de soporte, usuarios y organizaciones en Zendesk",
           "zep": "Memoria a largo plazo para agentes de IA",
-          "zoom": "Crear y gestionar reuniones y grabaciones de Zoom"
+          "zoom": "Crear y gestionar reuniones y grabaciones de Zoom",
+          "portfolio_detail": "Obtiene el detalle completo del portafolio desde una cuenta de broker seleccionada.",
+          "watchlist": "Lee listas de seguimiento y agrega o elimina elementos de listado."
         },
         "blockLongDescriptions": {
           "response": "Integra Response en el flujo de trabajo. Puede enviar, construir o editar respuestas estructuradas en una respuesta final del flujo de trabajo.",
@@ -3755,10 +3665,7 @@
             },
             "headers": {
               "title": "Encabezados de Response",
-              "columns": [
-                "Clave",
-                "Valor"
-              ],
+              "columns": ["Clave", "Valor"],
               "description": "Encabezados HTTP adicionales para incluir en la respuesta"
             }
           },
@@ -6774,7 +6681,7 @@
               "title": "Cuenta de Google"
             },
             "findText": {
-              "placeholder": "Text to find (e.g., {{placeholder}})",
+              "placeholder": "Texto a buscar (p. ej., {{placeholder}})",
               "title": "Buscar texto"
             },
             "folderId": {
@@ -10825,7 +10732,7 @@
               "title": "Nombre de archivo"
             },
             "fileReference": {
-              "placeholder": "Referenciar archivo from previous block (e.g., {{block_1.file}})",
+              "placeholder": "Referenciar archivo del bloque anterior (p. ej., {{block_1.file}})",
               "title": "Archivo"
             },
             "folderName": {
@@ -15031,11 +14938,6 @@
               "title": "URL"
             }
           },
-          "stagehand_agent": {
-            "variables": {
-              "title": "Variables"
-            }
-          },
           "stripe": {
             "active": {
               "options": [
@@ -17997,6 +17899,299 @@
             "waitingRoom": {
               "title": "Waiting Room"
             }
+          },
+          "stagehand_agent": {
+            "startUrl": {
+              "title": "URL de inicio",
+              "placeholder": "Introduce la URL de inicio del agente"
+            },
+            "task": {
+              "title": "Tarea",
+              "placeholder": "Introduce la tarea u objetivo que el agente debe lograr. Haz referencia a variables usando la sintaxis %key%."
+            },
+            "variables": {
+              "title": "Variables",
+              "columns": ["Clave", "Valor"]
+            },
+            "apiKey": {
+              "title": "Clave de API de Anthropic",
+              "placeholder": "Introduce tu clave de API de Anthropic"
+            },
+            "outputSchema": {
+              "title": "Esquema de salida",
+              "placeholder": "Introduce el esquema JSON..."
+            }
+          },
+          "guardrails": {
+            "input": {
+              "title": "Contenido a validar",
+              "placeholder": "Ingresa el contenido a validar"
+            },
+            "validationType": {
+              "title": "Tipo de validación",
+              "options": [
+                {
+                  "id": "json",
+                  "label": "JSON válido"
+                },
+                {
+                  "id": "regex",
+                  "label": "Coincidencia regex"
+                },
+                {
+                  "id": "hallucination",
+                  "label": "Verificación de alucinaciones"
+                },
+                {
+                  "id": "pii",
+                  "label": "Detección de PII"
+                }
+              ]
+            },
+            "regex": {
+              "title": "Patrón regex"
+            },
+            "knowledgeBaseId": {
+              "title": "Base de conocimiento",
+              "placeholder": "Seleccionar base de conocimiento"
+            },
+            "model": {
+              "title": "Modelo",
+              "placeholder": "Escribe o selecciona un modelo..."
+            },
+            "threshold": {
+              "title": "Confianza"
+            },
+            "topK": {
+              "title": "Número de fragmentos a recuperar"
+            },
+            "apiKey": {
+              "title": "Clave API",
+              "placeholder": "Ingresa tu clave API"
+            },
+            "piiEntityTypes": {
+              "title": "Tipos de PII a detectar",
+              "options": [
+                {
+                  "id": "PERSON",
+                  "label": "Nombre de persona",
+                  "group": "Comunes"
+                },
+                {
+                  "id": "EMAIL_ADDRESS",
+                  "label": "Dirección de correo electrónico",
+                  "group": "Comunes"
+                },
+                {
+                  "id": "PHONE_NUMBER",
+                  "label": "Número de teléfono",
+                  "group": "Comunes"
+                },
+                {
+                  "id": "LOCATION",
+                  "label": "Ubicación",
+                  "group": "Comunes"
+                },
+                {
+                  "id": "DATE_TIME",
+                  "label": "Fecha u hora",
+                  "group": "Comunes"
+                },
+                {
+                  "id": "IP_ADDRESS",
+                  "label": "Dirección IP",
+                  "group": "Comunes"
+                },
+                {
+                  "id": "URL",
+                  "label": "URL",
+                  "group": "Comunes"
+                },
+                {
+                  "id": "CREDIT_CARD",
+                  "label": "Número de tarjeta de crédito",
+                  "group": "Comunes"
+                },
+                {
+                  "id": "IBAN_CODE",
+                  "label": "Número internacional de cuenta bancaria (IBAN)",
+                  "group": "Comunes"
+                },
+                {
+                  "id": "CRYPTO",
+                  "label": "Dirección de billetera de criptomonedas",
+                  "group": "Comunes"
+                },
+                {
+                  "id": "MEDICAL_LICENSE",
+                  "label": "Número de licencia médica",
+                  "group": "Comunes"
+                },
+                {
+                  "id": "NRP",
+                  "label": "Nacionalidad / religión / grupo político",
+                  "group": "Comunes"
+                },
+                {
+                  "id": "US_BANK_NUMBER",
+                  "label": "Número de cuenta bancaria de EE. UU.",
+                  "group": "EE. UU."
+                },
+                {
+                  "id": "US_DRIVER_LICENSE",
+                  "label": "Número de licencia de conducir de EE. UU.",
+                  "group": "EE. UU."
+                },
+                {
+                  "id": "US_ITIN",
+                  "label": "Número de identificación personal del contribuyente de EE. UU. (ITIN)",
+                  "group": "EE. UU."
+                },
+                {
+                  "id": "US_PASSPORT",
+                  "label": "Número de pasaporte de EE. UU.",
+                  "group": "EE. UU."
+                },
+                {
+                  "id": "US_SSN",
+                  "label": "Número de Seguro Social de EE. UU.",
+                  "group": "EE. UU."
+                },
+                {
+                  "id": "UK_NINO",
+                  "label": "Número de Seguro Nacional del Reino Unido",
+                  "group": "Reino Unido"
+                },
+                {
+                  "id": "UK_NHS",
+                  "label": "Número del NHS del Reino Unido",
+                  "group": "Reino Unido"
+                },
+                {
+                  "id": "ES_NIF",
+                  "label": "Número NIF español",
+                  "group": "España"
+                },
+                {
+                  "id": "ES_NIE",
+                  "label": "Número NIE español",
+                  "group": "España"
+                },
+                {
+                  "id": "IT_FISCAL_CODE",
+                  "label": "Código fiscal italiano",
+                  "group": "Italia"
+                },
+                {
+                  "id": "IT_DRIVER_LICENSE",
+                  "label": "Licencia de conducir italiana",
+                  "group": "Italia"
+                },
+                {
+                  "id": "IT_IDENTITY_CARD",
+                  "label": "Documento de identidad italiano",
+                  "group": "Italia"
+                },
+                {
+                  "id": "IT_PASSPORT",
+                  "label": "Pasaporte italiano",
+                  "group": "Italia"
+                },
+                {
+                  "id": "PL_PESEL",
+                  "label": "PESEL polaco",
+                  "group": "Polonia"
+                },
+                {
+                  "id": "SG_NRIC_FIN",
+                  "label": "NRIC/FIN de Singapur",
+                  "group": "Singapur"
+                },
+                {
+                  "id": "AU_ABN",
+                  "label": "Número de empresa australiano (ABN)",
+                  "group": "Australia"
+                },
+                {
+                  "id": "AU_ACN",
+                  "label": "Número de compañía australiano (ACN)",
+                  "group": "Australia"
+                },
+                {
+                  "id": "AU_TFN",
+                  "label": "Número de archivo fiscal australiano (TFN)",
+                  "group": "Australia"
+                },
+                {
+                  "id": "AU_MEDICARE",
+                  "label": "Número de Medicare australiano",
+                  "group": "Australia"
+                },
+                {
+                  "id": "IN_AADHAAR",
+                  "label": "Aadhaar de la India",
+                  "group": "India"
+                },
+                {
+                  "id": "IN_PAN",
+                  "label": "PAN de la India",
+                  "group": "India"
+                },
+                {
+                  "id": "IN_VEHICLE_REGISTRATION",
+                  "label": "Matrícula vehicular de la India",
+                  "group": "India"
+                },
+                {
+                  "id": "IN_VOTER",
+                  "label": "Número de votante de la India",
+                  "group": "India"
+                },
+                {
+                  "id": "IN_PASSPORT",
+                  "label": "Pasaporte de la India",
+                  "group": "India"
+                }
+              ]
+            },
+            "piiMode": {
+              "title": "Acción",
+              "options": [
+                {
+                  "id": "block",
+                  "label": "Bloquear solicitud"
+                },
+                {
+                  "id": "mask",
+                  "label": "Enmascarar PII"
+                }
+              ]
+            },
+            "piiLanguage": {
+              "title": "Idioma",
+              "options": [
+                {
+                  "id": "en",
+                  "label": "Inglés"
+                },
+                {
+                  "id": "es",
+                  "label": "Español"
+                },
+                {
+                  "id": "it",
+                  "label": "Italiano"
+                },
+                {
+                  "id": "pl",
+                  "label": "Polaco"
+                },
+                {
+                  "id": "fi",
+                  "label": "Finlandés"
+                }
+              ]
+            }
           }
         },
         "variablesInput": {
@@ -18008,7 +18203,7 @@
           "noVariablesDefinedInWorkflow": "No hay variables definidas en este flujo.",
           "addVariablesInPanel": "Agrégalas en el panel Variables.",
           "valueLabel": "Valor",
-          "typedValuePlaceholder": "Valor de tipo {{type}}",
+          "typedValuePlaceholder": "Valor de tipo {type}",
           "allVariablesAssignedButton": "Todas las variables asignadas",
           "addVariableAssignment": "Agregar asignación de variable",
           "objectValuePlaceholder": "{\n  \"key\": \"value\"\n}",
@@ -18021,7 +18216,7 @@
           "selectedWorkflowNeedsInputTrigger": "El flujo seleccionado necesita un disparador de entrada con campos definidos"
         },
         "evalInput": {
-          "metricLabel": "Métrica {{index}}",
+          "metricLabel": "Métrica {index}",
           "addMetric": "Agregar métrica",
           "deleteMetric": "Eliminar métrica",
           "name": "Nombre",
@@ -18032,7 +18227,7 @@
           "maxValue": "Valor máximo"
         },
         "inputFormat": {
-          "addTitle": "Agregar {{title}}",
+          "addTitle": "Agregar {title}",
           "deleteField": "Eliminar campo",
           "name": "Nombre",
           "type": "Tipo",
@@ -18112,12 +18307,12 @@
         },
         "oauthRequiredModal": {
           "additionalAccessRequired": "Se requiere acceso adicional",
-          "toolRequiresAccess": "La herramienta \"{{toolName}}\" requiere acceso a tu cuenta de {{providerName}} para funcionar correctamente.",
-          "connectProvider": "Conectar {{providerName}}",
-          "connectProviderDescription": "Necesitas conectar tu cuenta de {{providerName}} para continuar",
+          "toolRequiresAccess": "La herramienta \"{toolName}\" requiere acceso a tu cuenta de {providerName} para funcionar correctamente.",
+          "connectProvider": "Conectar {providerName}",
+          "connectProviderDescription": "Necesitas conectar tu cuenta de {providerName} para continuar",
           "permissionsRequested": "Permisos solicitados",
           "cancel": "Cancelar",
-          "connectService": "Conectar {{serviceName}}",
+          "connectService": "Conectar {serviceName}",
           "connectNow": "Conectar ahora"
         },
         "dropdown": {
@@ -18179,19 +18374,19 @@
           "errors": {
             "failedToFetchDocuments": "No se pudieron obtener los documentos"
           },
-          "chunkCountSingular": "{{count}} fragmento",
-          "chunkCountPlural": "{{count}} fragmentos"
+          "chunkCountSingular": "{count} fragmento",
+          "chunkCountPlural": "{count} fragmentos"
         },
         "knowledgeTagFilters": {
           "addFilter": "Agregar filtro",
-          "appliedCountSingular": "{{count}} filtro aplicado",
-          "appliedCountPlural": "{{count}} filtros aplicados"
+          "appliedCountSingular": "{count} filtro aplicado",
+          "appliedCountPlural": "{count} filtros aplicados"
         },
         "documentTagEntry": {
           "typeText": "Texto",
           "prefillExistingTags": "Rellenar etiquetas existentes",
           "addTag": "Agregar etiqueta",
-          "tagSlotsUsed": "{{used}} de {{total}} espacios de etiquetas usados"
+          "tagSlotsUsed": "{used} de {total} espacios de etiquetas usados"
         },
         "confluenceFileSelector": {
           "errors": {
@@ -18274,9 +18469,9 @@
           "addTool": "Agregar herramienta",
           "searchTools": "Buscar herramientas...",
           "account": "Cuenta",
-          "selectProviderAccount": "Selecciona la cuenta de {{provider}}",
-          "selectParameter": "Selecciona {{label}}",
-          "enterParameter": "Ingresa {{label}}",
+          "selectProviderAccount": "Selecciona la cuenta de {provider}",
+          "selectParameter": "Selecciona {label}",
+          "enterParameter": "Ingresa {label}",
           "enterJsonArrayOrCommaSeparatedValues": "Ingresa un arreglo JSON, por ejemplo, [\"item1\", \"item2\"] o valores separados por comas",
           "selectToolToConfigureParameters": "Selecciona una herramienta para configurar sus parámetros",
           "loadingToolSchema": "Cargando esquema de la herramienta...",
@@ -18308,8 +18503,8 @@
           "unsupportedValue": "Valor no compatible"
         },
         "triggerWarning": {
-          "duplicateTitle": "Solo se permite un disparador de {{triggerName}}",
-          "duplicateDescription": "Un flujo solo puede tener un bloque disparador de {{triggerName}}. Elimina el existente antes de agregar uno nuevo.",
+          "duplicateTitle": "Solo se permite un disparador de {triggerName}",
+          "duplicateDescription": "Un flujo solo puede tener un bloque disparador de {triggerName}. Elimina el existente antes de agregar uno nuevo.",
           "dismiss": "Entendido"
         },
         "templateModal": {
@@ -18421,8 +18616,8 @@
           "title": "Notificaciones por webhook",
           "searchPlaceholder": "Buscar webhooks...",
           "emptyState": "Haz clic en \"Agregar webhook\" para comenzar",
-          "webhookLabel": "Webhook {{index}}",
-          "noSearchMatches": "No se encontraron webhooks que coincidan con \"{{query}}\"",
+          "webhookLabel": "Webhook {index}",
+          "noSearchMatches": "No se encontraron webhooks que coincidan con \"{query}\"",
           "actions": {
             "copyUrl": "Copiar URL del webhook",
             "test": "Probar webhook",
@@ -18527,7 +18722,7 @@
             "validationFailed": "La validación falló. Revisa la configuración del webhook e inténtalo de nuevo."
           },
           "testStatus": {
-            "success": "Webhook de prueba enviado correctamente ({{status}})",
+            "success": "Webhook de prueba enviado correctamente ({status})",
             "failure": "La prueba del webhook falló.",
             "sendFailed": "No se pudo enviar el webhook de prueba"
           },
@@ -20147,7 +20342,7 @@
         "selectBlockToViewPreviewDetails": "Selecciona un bloque para ver sus detalles de vista previa.",
         "nodeNotFound": "No se encontró el nodo",
         "selectedNodeUnavailable": "El nodo seleccionado ya no está disponible.",
-        "missingBlockConfiguration": "Falta la configuración del bloque para `{{type}}`.",
+        "missingBlockConfiguration": "Falta la configuración del bloque para `{type}`.",
         "controlsUnavailable": "Controles no disponibles",
         "saveName": "Guardar nombre",
         "renameNode": "Renombrar nodo",
@@ -20169,7 +20364,7 @@
         "collectionItems": "Elementos de la colección",
         "collectionItemsPlaceholder": "['item1', 'item2', 'item3']",
         "parallelItems": "Elementos en paralelo",
-        "enterValueBetween": "Introduce un valor entre 1 y {{max}}",
+        "enterValueBetween": "Introduce un valor entre 1 y {max}",
         "hideAdditionalFields": "Ocultar campos adicionales",
         "showAdditionalFields": "Mostrar campos adicionales",
         "additionalFields": "Campos adicionales",
@@ -20177,7 +20372,7 @@
         "blockNoEditableFields": "Este bloque no tiene campos editables.",
         "requiredField": "Este campo es obligatorio",
         "invalidJson": "JSON no válido",
-        "unknownInputType": "Tipo de entrada desconocido: {{type}}",
+        "unknownInputType": "Tipo de entrada desconocido: {type}",
         "loop": "Bucle",
         "parallel": "Paralelo",
         "start": "Inicio",
@@ -20194,7 +20389,7 @@
           "checkingWorkflowPermissions": "Comprobando permisos del flujo",
           "writePermissionRequiredToRunWorkflows": "Se requieren permisos de escritura para ejecutar flujos",
           "usageLimitExceeded": "Límite de uso superado",
-          "usageLimitExceededDescription": "Has usado {{currentUsage}}$ de {{limit}}$. Actualiza tu plan para continuar.",
+          "usageLimitExceededDescription": "Has usado {currentUsage}$ de {limit}$. Actualiza tu plan para continuar.",
           "run": "Ejecutar"
         },
         "floatingControls": {
@@ -20212,7 +20407,7 @@
         },
         "summary": {
           "objectItem": "[Objeto]",
-          "additionalCount": "+{{count}} más"
+          "additionalCount": "+{count} más"
         },
         "selectWorkspaceToLoadWorkflows": "Selecciona un espacio de trabajo para cargar flujos de trabajo.",
         "noWorkflowsAvailable": "No hay flujos de trabajo disponibles en este espacio de trabajo.",
@@ -20232,7 +20427,7 @@
           "close": "Cerrar",
           "coreTriggers": "Triggers principales",
           "integrationTriggers": "Triggers de integración",
-          "noResultsFound": "No se encontraron resultados para \"{{query}}\""
+          "noResultsFound": "No se encontraron resultados para \"{query}\""
         },
         "connectionStatus": {
           "reconnected": "Reconectado",
@@ -20241,8 +20436,8 @@
           "refreshPageToContinueEditing": "Actualiza la página para seguir editando"
         },
         "triggerWarning": {
-          "duplicateTitle": "Solo se permite un trigger de {{triggerName}}",
-          "duplicateDescription": "Un flujo de trabajo solo puede tener un bloque trigger de {{triggerName}}. Elimina el existente antes de agregar uno nuevo.",
+          "duplicateTitle": "Solo se permite un trigger de {triggerName}",
+          "duplicateDescription": "Un flujo de trabajo solo puede tener un bloque trigger de {triggerName}. Elimina el existente antes de agregar uno nuevo.",
           "dismiss": "Entendido"
         }
       },
@@ -20299,7 +20494,7 @@
         "deployApi": "Desplegar API",
         "needsRedeployment": "Necesita redepliegue",
         "deployWorkflowTitle": "Desplegar flujo",
-        "deployVersion": "Desplegar {{versionName}}",
+        "deployVersion": "Desplegar {versionName}",
         "active": "activo",
         "inactive": "Inactivo",
         "close": "Cerrar",
@@ -20337,7 +20532,7 @@
         "reviewTriggerBeforeDeployment": "Revisa este disparador antes del despliegue. No se requiere configuración adicional.",
         "triggerConfigurationUnavailable": "La configuración del disparador no está disponible.",
         "noAdditionalTriggerConfigurationRequired": "Este disparador se despliega con el flujo. No se requiere configuración adicional.",
-        "completeRequiredFieldsBeforeDeploying": "Completa los campos obligatorios antes de desplegar: {{fields}}.",
+        "completeRequiredFieldsBeforeDeploying": "Completa los campos obligatorios antes de desplegar: {fields}.",
         "saveTriggerConfigurationBeforeDeploying": "Guarda esta configuración del disparador para aprovisionar su webhook antes de desplegar.",
         "triggerSettingsChangedSinceLastSave": "La configuración del disparador cambió desde el último guardado. Guarda el disparador antes de desplegar.",
         "triggerConfigurationReady": "La configuración del disparador parece lista. Revisa los valores abajo antes de desplegar.",
@@ -20391,7 +20586,7 @@
           "failedToSavePassword": "No se pudo guardar la contraseña del chat",
           "auth": {
             "accessControl": "Control de acceso",
-            "selectAccessAriaLabel": "Seleccionar acceso de tipo {{type}}",
+            "selectAccessAriaLabel": "Seleccionar acceso de tipo {type}",
             "publicAccess": "Acceso público",
             "publicAccessDescription": "Cualquiera puede acceder a tu chat",
             "passwordProtected": "Protegido con contraseña",
@@ -20440,8 +20635,8 @@
           "tooltip": "Seleccionar proveedor de datos de mercado",
           "selectionUnavailable": "La selección de proveedor no está disponible",
           "noProviders": "No hay proveedores",
-          "selectedLabel": "Mercado: {{providerName}}",
-          "fallbackProviderName": "Mercado"
+          "selectedLabel": "Mercado: {providerName}",
+          "defaultProviderName": "Mercado"
         },
         "tradingSelector": {
           "placeholder": "Seleccionar proveedor de trading",
@@ -20449,8 +20644,8 @@
           "tooltip": "Seleccionar broker",
           "selectionUnavailable": "La selección de proveedor no está disponible",
           "noProviders": "No hay proveedores",
-          "selectedLabel": "Broker: {{providerName}}",
-          "fallbackProviderName": "Bróker"
+          "selectedLabel": "Broker: {providerName}",
+          "defaultProviderName": "Bróker"
         },
         "accountSelector": {
           "placeholder": "Seleccionar cuenta",
@@ -20459,24 +20654,24 @@
           "loadingAccount": "Cargando cuenta...",
           "loadingProviderConnection": "Cargando conexión del proveedor...",
           "unableToLoadProviderConnection": "No se pudo cargar la conexión del proveedor.",
-          "selectConnection": "Selecciona una conexión de {{providerName}}.",
-          "noAccountConnected": "No hay ninguna cuenta de {{providerName}} conectada.",
+          "selectConnection": "Selecciona una conexión de {providerName}.",
+          "noAccountConnected": "No hay ninguna cuenta de {providerName} conectada.",
           "loadingBrokerAccounts": "Cargando cuentas del broker...",
           "unableToLoadBrokerAccounts": "No se pudieron cargar las cuentas del broker.",
           "noBrokerAccountsFound": "No se encontraron cuentas del broker.",
-          "reconnectAccount": "Reconectar cuenta de {{providerName}}",
-          "connectAccount": "Conectar cuenta de {{providerName}}",
-          "fallbackProviderName": "Bróker"
+          "reconnectAccount": "Reconectar cuenta de {providerName}",
+          "connectAccount": "Conectar cuenta de {providerName}",
+          "defaultProviderName": "Bróker"
         },
         "settingsButton": {
-          "triggerLabel": "Configurar proveedor {{providerName}}",
+          "triggerLabel": "Configurar proveedor {providerName}",
           "triggerTooltip": "Ajustes del proveedor",
           "title": "Ajustes del proveedor",
           "description": "Guarda las credenciales para este widget.",
           "select": "Seleccionar",
           "save": "Guardar",
           "cancel": "Cancelar",
-          "fallbackProviderName": "Mercado"
+          "defaultProviderName": "Mercado"
         }
       },
       "watchlist": {
@@ -20502,10 +20697,10 @@
           "selectLabel": "Seleccionar watchlist",
           "searchPlaceholder": "Buscar watchlists...",
           "noWatchlistsFound": "No se encontraron watchlists.",
-          "renameAriaLabel": "Renombrar {{name}}",
-          "deleteAriaLabel": "Eliminar {{name}}",
+          "renameAriaLabel": "Renombrar {name}",
+          "deleteAriaLabel": "Eliminar {name}",
           "deleteDialogTitle": "¿Eliminar watchlist?",
-          "deleteDialogDescription": "Esta acción eliminará permanentemente \"{{name}}\".",
+          "deleteDialogDescription": "Esta acción eliminará permanentemente \"{name}\".",
           "deleteDialogDescriptionFallback": "Esta acción eliminará permanentemente esta watchlist.",
           "cancel": "Cancelar",
           "delete": "Eliminar"
@@ -20529,7 +20724,7 @@
           "collapseSection": "Colapsar sección",
           "expandSection": "Expandir sección",
           "deleteSymbolDialogTitle": "¿Eliminar símbolo?",
-          "deleteSymbolDialogDescription": "Eliminar {{name}} lo quitará de la watchlist.",
+          "deleteSymbolDialogDescription": "Eliminar {name} lo quitará de la watchlist.",
           "deleteSymbolDialogDescriptionFallback": "Eliminar este símbolo lo quitará de la watchlist.",
           "deleteSymbolDialogDescriptionHighlight": "Esta acción no se puede deshacer.",
           "deleteSectionDialogTitle": "¿Eliminar sección?",
@@ -20583,10 +20778,10 @@
         },
         "validation": {
           "nameRequired": "El nombre de la skill es obligatorio.",
-          "nameTooLong": "El nombre de la skill debe tener {{max}} caracteres o menos.",
+          "nameTooLong": "El nombre de la skill debe tener {max} caracteres o menos.",
           "descriptionRequired": "La descripción de la skill es obligatoria.",
           "contentRequired": "El contenido de la skill es obligatorio.",
-          "duplicateName": "Ya existe una skill llamada \"{{name}}\".",
+          "duplicateName": "Ya existe una skill llamada \"{name}\".",
           "saveFailed": "No se pudo guardar la skill."
         },
         "form": {
@@ -20746,7 +20941,7 @@
           "schemaMustBeFunctionType": "El esquema debe tener un campo \"type\" con valor \"function\"",
           "schemaMustHaveFunctionName": "El esquema debe tener un objeto \"function\" con un campo \"name\"",
           "failedToValidateSchema": "No se pudo validar el esquema de la herramienta personalizada. Revisa tus datos e inténtalo de nuevo.",
-          "duplicateName": "Ya existe una herramienta llamada \"{{name}}\"",
+          "duplicateName": "Ya existe una herramienta llamada \"{name}\"",
           "failedToSave": "No se pudo guardar la herramienta personalizada. Revisa tus datos e inténtalo de nuevo."
         },
         "form": {
@@ -20822,10 +21017,10 @@
           "refreshingQuotes": "Actualizando cotizaciones",
           "noHoldingsWithMarketListings": "No hay posiciones con listados de mercado",
           "noMarketProvider": "Sin proveedor de mercado",
-          "quoteMetricsUseFirst": "Las métricas de cotización usan las primeras {{cap}} de {{total}} posiciones",
-          "quotedPositionsSummary": "{{quoted}}/{{total}} cotizadas",
+          "quoteMetricsUseFirst": "Las métricas de cotización usan las primeras {cap} de {total} posiciones",
+          "quotedPositionsSummary": "{quoted}/{total} cotizadas",
           "performanceHistoryUnavailable": "El historial de rendimiento no está disponible para la cuenta seleccionada.",
-          "asOf": "A fecha de {{date}}",
+          "asOf": "A fecha de {date}",
           "return": "Rendimiento",
           "start": "Inicio",
           "current": "Actual",
@@ -20847,7 +21042,7 @@
           "orderSubmitted": "Orden enviada",
           "submitting": "Enviando...",
           "orderPrefix": "Orden",
-          "submitOrder": "Enviar orden {{side}}",
+          "submitOrder": "Enviar orden {side}",
           "unknown": "desconocido"
         }
       },
@@ -20897,15 +21092,15 @@
           "selectTimeInForce": "Selecciona una vigencia.",
           "selectOrderSize": "Selecciona el tamaño de la orden.",
           "notionalSizingIsNotSupportedForThisOrderType": "El tamaño notional no es compatible con este tipo de orden.",
-          "notionalSizingRequires": "El tamaño notional requiere {{values}}.",
-          "fieldNotSupportedForThisOrderType": "{{field}} no es compatible con este tipo de orden.",
-          "enterValid": "Introduce un valor válido para {{field}}.",
-          "oneOfFieldsRequired": "Se requiere {{fields}}.",
+          "notionalSizingRequires": "El tamaño notional requiere {values}.",
+          "fieldNotSupportedForThisOrderType": "{field} no es compatible con este tipo de orden.",
+          "enterValid": "Introduce un valor válido para {field}.",
+          "oneOfFieldsRequired": "Se requiere {fields}.",
           "marketPrice": "Precio de mercado",
           "notional": "Notional",
           "quantity": "Cantidad",
           "orderType": "Tipo de orden",
-          "chooseHowTo": "Elige cómo {{side}}",
+          "chooseHowTo": "Elige cómo {side}",
           "timeInForce": "Vigencia",
           "limitPrice": "Precio límite",
           "stopPrice": "Precio stop",
@@ -20923,8 +21118,8 @@
           "orderSubmitted": "Orden enviada",
           "submitting": "Enviando...",
           "orderPrefix": "Orden",
-          "sideLabel": "{{side}}",
-          "submitOrder": "Enviar orden {{side}}"
+          "sideLabel": "{side}",
+          "submitOrder": "Enviar orden {side}"
         }
       },
       "dataChart": {
@@ -20964,7 +21159,7 @@
           "timezone": {
             "exchange": "Bolsa",
             "utc": "UTC",
-            "tooltip": "Zona horaria: {{timezone}}",
+            "tooltip": "Zona horaria: {timezone}",
             "tooltipFallback": "Zona horaria de la bolsa",
             "searchPlaceholder": "Buscar zonas horarias...",
             "loading": "Cargando zonas horarias...",
@@ -20972,7 +21167,7 @@
           },
           "range": {
             "allAvailableData": "Todos los datos disponibles",
-            "rangeIntervalTooltip": "{{range}} en intervalo de {{interval}}",
+            "rangeIntervalTooltip": "{range} en intervalo de {interval}",
             "presets": {
               "1d": "1D",
               "5d": "5D",
@@ -21012,7 +21207,7 @@
           },
           "normalization": {
             "ariaLabel": "Normalización",
-            "tooltip": "Normalización: {{mode}}",
+            "tooltip": "Normalización: {mode}",
             "unavailable": "Normalización no disponible",
             "noOptions": "No hay opciones de normalización.",
             "modes": {
@@ -21030,7 +21225,7 @@
             "freehand": "Herramientas a mano alzada",
             "shapes": "Herramientas de formas"
           },
-          "unavailable": "{{tool}} no está disponible en esta sesión",
+          "unavailable": "{tool} no está disponible en esta sesión",
           "tools": {
             "TrendLine": "Línea de tendencia",
             "Ray": "Rayo",
@@ -21075,14 +21270,14 @@
           "removeIndicator": "Eliminar indicador",
           "remove": "Eliminar",
           "errorTitle": "Error del indicador",
-          "compileFailed": "{{name}} no se pudo compilar.",
+          "compileFailed": "{name} no se pudo compilar.",
           "errorGuidance": "Revisa las entradas o el script del indicador e inténtalo de nuevo.",
           "settingsSubtitle": "Ajustes del indicador",
           "close": "Cerrar",
           "noConfigurableInputs": "No hay entradas configurables.",
           "cancel": "Cancelar",
           "save": "Guardar",
-          "plotFallback": "Gráfico {{index}}",
+          "plotFallback": "Gráfico {index}",
           "executionErrorFallback": "No se pudieron ejecutar los indicadores",
           "metadataLabels": {
             "Length": "Longitud",
@@ -21105,7 +21300,7 @@
           "close": "C:"
         },
         "listingOverlay": {
-          "flagAlt": "Bandera de {{countryCode}}"
+          "flagAlt": "Bandera de {countryCode}"
         },
         "errors": {
           "failedToLoadSeriesData": "No se pudieron cargar los datos de la serie",
@@ -21140,7 +21335,7 @@
         "label": "Listado",
         "listingFallback": "Listado",
         "selectListing": "Seleccionar listado",
-        "flagAlt": "Bandera de {{countryCode}}",
+        "flagAlt": "Bandera de {countryCode}",
         "searching": "Buscando...",
         "noListingsFound": "No se encontraron listados.",
         "searchPlaceholder": "Buscar listados..."
@@ -21148,8 +21343,8 @@
     },
     "layoutTabs": {
       "createNewLayout": "Crear nuevo diseño",
-      "renameAriaLabel": "Renombrar {{name}}",
-      "deleteAriaLabel": "Eliminar {{name}}"
+      "renameAriaLabel": "Renombrar {name}",
+      "deleteAriaLabel": "Eliminar {name}"
     },
     "monitor": {
       "title": "Monitoreo",
@@ -21180,7 +21375,7 @@
       "errors": {
         "activateView": "No se pudo activar la vista",
         "configViewsUnavailable": "Las vistas de configuración no están disponibles en este momento.",
-        "createDefaultView": "No se pudo crear la vista predeterminada {{name}}.",
+        "createDefaultView": "No se pudo crear la vista predeterminada {name}.",
         "createMonitor": "No se pudo crear el monitor",
         "createView": "No se pudo crear la vista",
         "deleteMonitor": "No se pudo eliminar el monitor",
@@ -21282,13 +21477,13 @@
         "today": "Hoy",
         "boundaries": "Límites",
         "todayAndBoundaries": "Hoy + límites",
-        "shownCount": "{{count}} mostrados",
-        "itemsCount": "{{count}} elementos",
-        "executionsCount": "{{count}} ejecuciones",
-        "setCount": "{{count}} configurados",
+        "shownCount": "{count} mostrados",
+        "itemsCount": "{count} elementos",
+        "executionsCount": "{count} ejecuciones",
+        "setCount": "{count} configurados",
         "all": "Todos",
         "allExecutions": "Todas las ejecuciones",
-        "monitorsCount": "{{count}} monitores",
+        "monitorsCount": "{count} monitores",
         "monitorControls": "Controles del monitor"
       },
       "execution": {
@@ -21302,7 +21497,7 @@
         "closeInspector": "Cerrar inspector",
         "kanban": "Kanban",
         "timeline": "Cronología",
-        "limitLabel": "Límite {{count}}",
+        "limitLabel": "Límite {count}",
         "running": "En ejecución",
         "unknown": "Desconocido",
         "unknownListing": "Activo desconocido",
@@ -21322,7 +21517,7 @@
         "loadingRecords": "Cargando registros de monitor...",
         "noExecutions": "Sin ejecuciones",
         "noOutcome": "Sin resultado",
-        "addMonitorIn": "Agregar monitor en {{title}}"
+        "addMonitorIn": "Agregar monitor en {title}"
       },
       "configSearch": {
         "activeMonitors": "Monitores activos",
@@ -21331,7 +21526,7 @@
         "hasLastExecutionLog": "Tiene registro de última ejecución",
         "hasLastOutcome": "Tiene último resultado",
         "invalidTokensPrefix": "Tokens inválidos de la consulta de configuración",
-        "lastOutcome": "Último resultado: {{outcome}}",
+        "lastOutcome": "Último resultado: {outcome}",
         "noLastExecution": "Sin última ejecución",
         "noLastExecutionLog": "Sin registro de última ejecución",
         "noLastOutcome": "Sin último resultado",
@@ -21346,7 +21541,7 @@
         "loading": "Cargando zonas horarias...",
         "placeholder": "UTC",
         "searchPlaceholder": "Buscar zonas horarias...",
-        "triggerLabel": "Zona horaria: {{label}}"
+        "triggerLabel": "Zona horaria: {label}"
       },
       "editor": {
         "createTitle": "Crear monitor",
@@ -21394,7 +21589,7 @@
         "scaleLabel": "Escala",
         "scaleAriaLabel": "Escala de la cronología",
         "searchZoomLevels": "Buscar niveles de zoom...",
-        "zoomLabel": "Zoom: {{zoom}}",
+        "zoomLabel": "Zoom: {zoom}",
         "scrollPrevious": "Desplazarse al rango de fechas anterior",
         "scrollNext": "Desplazarse al siguiente rango de fechas",
         "groupsTitle": "Grupos",
@@ -21413,9 +21608,9 @@
       "navigationAriaLabel": "Encabezado del chat",
       "titleFallback": "Chat de TradingGoose",
       "brandName": "TradingGoose",
-      "logoAlt": "Logotipo de {{title}}",
-      "githubRepositoryAriaLabel": "Ver el repositorio de TradingGoose en GitHub con {{stars}} estrellas",
-      "homeAriaLabel": "Ir a la página principal de {{brand}}"
+      "logoAlt": "Logotipo de {title}",
+      "githubRepositoryAriaLabel": "Ver el repositorio de TradingGoose en GitHub con {stars} estrellas",
+      "homeAriaLabel": "Ir a la página principal de {brand}"
     },
     "error": {
       "title": "Chat no disponible",
@@ -21453,8 +21648,8 @@
       "startVoiceConversation": "Iniciar conversación por voz",
       "send": "Enviar",
       "stop": "Detener",
-      "fileTooLarge": "{{name}} es demasiado grande.",
-      "fileAlreadyAdded": "{{name}} ya está adjunto."
+      "fileTooLarge": "{name} es demasiado grande.",
+      "fileAlreadyAdded": "{name} ya está adjunto."
     },
     "auth": {
       "password": {
@@ -21480,7 +21675,7 @@
         "title": "Ingresa tu correo",
         "verifyTitle": "Verifica tu correo",
         "description": "Este chat usa verificación por correo.",
-        "verifiedDescription": "Enviamos un código de verificación a {{email}}.",
+        "verifiedDescription": "Enviamos un código de verificación a {email}.",
         "label": "Correo electrónico",
         "placeholder": "Ingresa tu correo",
         "submit": "Enviar código",
@@ -21489,7 +21684,7 @@
         "verifying": "Verificando...",
         "instructions": "Introduce el código de 6 dígitos que te enviamos.",
         "resendPrompt": "¿No recibiste un código?",
-        "resendIn": "Reenviar en {{countdown}}s",
+        "resendIn": "Reenviar en {countdown}s",
         "resend": "Reenviar código",
         "changeEmail": "Cambiar correo",
         "validation": {
@@ -21621,7 +21816,7 @@
       "searchPlaceholder": "Buscar entradas de la lista de espera...",
       "mode": "Modo",
       "loading": "Cargando la configuración de registro...",
-      "selectedCount": "{{count}} seleccionados",
+      "selectedCount": "{count} seleccionados",
       "submitted": "Enviado",
       "timeRanges": {
         "all": "Todo el tiempo",
@@ -21651,7 +21846,7 @@
       },
       "emptyState": "Ninguna entrada de la lista de espera coincide con la búsqueda actual.",
       "selectVisible": "Seleccionar entradas visibles de la lista de espera",
-      "selectEntry": "Seleccionar {{email}}",
+      "selectEntry": "Seleccionar {email}",
       "never": "Nunca",
       "error": "Algo salió mal",
       "modes": {
@@ -21683,8 +21878,8 @@
         "title": "Configuración",
         "description": "Configura el comportamiento de ejecución y los valores predeterminados del endpoint para este servicio.",
         "none": "Este servicio no expone configuraciones almacenadas.",
-        "storedValue": "Valor guardado: {{value}}",
-        "defaultValue": "Predeterminado: {{value}}",
+        "storedValue": "Valor guardado: {value}",
+        "defaultValue": "Predeterminado: {value}",
         "notConfigured": "Sin configurar",
         "notSet": "Sin establecer",
         "enabled": "Habilitado",
@@ -21696,21 +21891,21 @@
         "optional": "Opcional"
       },
       "placeholders": {
-        "enterValue": "Ingresa {{label}}",
-        "replaceValue": "Ingresa un nuevo {{label}} para reemplazar el valor guardado"
+        "enterValue": "Ingresa {label}",
+        "replaceValue": "Ingresa un nuevo {label} para reemplazar el valor guardado"
       },
       "actions": {
-        "saveField": "Guardar {{label}}",
-        "cancelEditingField": "Cancelar edición de {{label}}",
-        "editField": "Editar {{label}}",
-        "clearField": "Borrar {{label}}"
+        "saveField": "Guardar {label}",
+        "cancelEditingField": "Cancelar edición de {label}",
+        "editField": "Editar {label}",
+        "clearField": "Borrar {label}"
       },
       "summary": {
-        "requiredCredentialsSet": "{{configured}}/{{total}} credenciales obligatorias configuradas",
+        "requiredCredentialsSet": "{configured}/{total} credenciales obligatorias configuradas",
         "noRequiredCredentials": "No hay credenciales obligatorias",
-        "requiredSettingsResolved": "{{configured}}/{{total}} configuraciones obligatorias resueltas",
+        "requiredSettingsResolved": "{configured}/{total} configuraciones obligatorias resueltas",
         "noRequiredSettings": "No hay configuraciones obligatorias",
-        "missing": "Falta {{labels}}."
+        "missing": "Falta {labels}."
       },
       "footer": {
         "saving": "Guardando cambios...",
@@ -21740,29 +21935,29 @@
         "description": "Define los secretos para este proveedor OAuth gestionado por el sistema.",
         "none": "Este proveedor no requiere credenciales almacenadas.",
         "noMatches": "Ninguna credencial coincide con la búsqueda actual.",
-        "fallbackDescription": "Credencial del proveedor"
+        "defaultDescription": "Credencial del proveedor"
       },
       "services": {
         "title": "Servicios OAuth",
         "description": "Activa o desactiva los servicios que heredan las credenciales de este proveedor.",
         "none": "Este proveedor no expone servicios OAuth.",
         "noMatches": "Ningún servicio coincide con la búsqueda actual.",
-        "inheritsFrom": "Hereda credenciales de {{name}}."
+        "inheritsFrom": "Hereda credenciales de {name}."
       },
       "placeholders": {
-        "enterValue": "Ingresa {{label}}",
-        "replaceValue": "Ingresa un nuevo {{label}} para reemplazar el valor guardado"
+        "enterValue": "Ingresa {label}",
+        "replaceValue": "Ingresa un nuevo {label} para reemplazar el valor guardado"
       },
       "summary": {
-        "serviceCount": "{{count}} servicio{{plural}}",
+        "serviceCount": "{count} servicio{plural}",
         "servicePlural": "es",
-        "requiredCredentialsSet": "{{configured}}/{{total}} credenciales obligatorias configuradas",
-        "credentialsSet": "{{count}} credencial{{plural}} configurada{{plural}}",
+        "requiredCredentialsSet": "{configured}/{total} credenciales obligatorias configuradas",
+        "credentialsSet": "{count} credencial{plural} configurada{plural}",
         "credentialPlural": "es",
         "noRequiredCredentials": "No hay credenciales obligatorias",
-        "enabledCount": "{{count}} habilitados",
+        "enabledCount": "{count} habilitados",
         "noServicesAvailable": "No hay servicios disponibles",
-        "missing": "Falta {{labels}}."
+        "missing": "Falta {labels}."
       },
       "error": "Algo salió mal"
     },
@@ -21788,21 +21983,21 @@
         "organization": "Organización",
         "userOwner": "Propietario usuario",
         "organizationOwner": "Propietario de organización",
-        "ownerLabel": "Propietario {{owner}}"
+        "ownerLabel": "Propietario {owner}"
       },
       "usageScopes": {
         "individual": "Individual",
         "pooled": "Compartido",
         "individualUsage": "Uso individual",
         "pooledUsage": "Uso compartido",
-        "usageLabel": "Uso {{scope}}"
+        "usageLabel": "Uso {scope}"
       },
       "seatModes": {
         "fixed": "Fijo",
         "adjustable": "Ajustable",
         "fixedSeats": "Asientos fijos",
         "adjustableSeats": "Asientos ajustables",
-        "seatBillingLabel": "Facturación de asientos {{mode}}"
+        "seatBillingLabel": "Facturación de asientos {mode}"
       },
       "commerce": {
         "custom": "Personalizado",
@@ -21810,23 +22005,23 @@
         "selfServe": "Autoservicio",
         "contactSales": "Contactar ventas",
         "priceUnset": "Precio sin definir",
-        "monthlyPrice": "{{amount}} mensual",
-        "yearlyPrice": "{{amount}} anual",
-        "stripeLinks": "{{count}}/3 enlaces de Stripe",
-        "usdIncluded": "{{value}} USD incluidos",
-        "gbStorage": "{{value}} GB de almacenamiento",
-        "concurrent": "{{value}} concurrentes",
-        "includedUsageLabel": "{{amount}} incluidos",
-        "storageLimitLabel": "{{value}} GB de almacenamiento",
-        "concurrencyLabel": "{{value}} concurrentes",
-        "workflowExecutionLabel": "{{value}}x ejecución de flujo",
-        "workflowModelsLabel": "{{value}}x modelos de flujo",
-        "functionRuntimeLabel": "{{value}}x tiempo de ejecución de funciones",
-        "copilotLabel": "{{value}}x copiloto",
+        "monthlyPrice": "{amount} mensual",
+        "yearlyPrice": "{amount} anual",
+        "stripeLinks": "{count}/3 enlaces de Stripe",
+        "usdIncluded": "{value} USD incluidos",
+        "gbStorage": "{value} GB de almacenamiento",
+        "concurrent": "{value} concurrentes",
+        "includedUsageLabel": "{amount} incluidos",
+        "storageLimitLabel": "{value} GB de almacenamiento",
+        "concurrencyLabel": "{value} concurrentes",
+        "workflowExecutionLabel": "{value}x ejecución de flujo",
+        "workflowModelsLabel": "{value}x modelos de flujo",
+        "functionRuntimeLabel": "{value}x tiempo de ejecución de funciones",
+        "copilotLabel": "{value}x copiloto",
         "seatCountUnset": "Cantidad de asientos sin definir",
-        "fixedSeatsCount": "{{count}} asientos fijos",
-        "baseSeatsCount": "{{count}} asientos base",
-        "maxSeatsCount": "{{count}} asientos máximos",
+        "fixedSeatsCount": "{count} asientos fijos",
+        "baseSeatsCount": "{count} asientos base",
+        "maxSeatsCount": "{count} asientos máximos",
         "noSelfServeSeatChanges": "Sin cambios de asientos en autoservicio",
         "unlimitedSeats": "Asientos ilimitados"
       },
@@ -21834,7 +22029,7 @@
         "searchPlaceholder": "Buscar niveles...",
         "createTier": "Crear nivel",
         "loadingInventory": "Cargando inventario de facturación...",
-        "subscriptionCount": "{{count}} suscripciones",
+        "subscriptionCount": "{count} suscripciones",
         "currentTiersTitle": "Niveles actuales",
         "currentTiersDescription": "Abre un nivel para actualizar precios, disponibilidad, límites para clientes y uso incluido.",
         "emptyTitle": "Crea tu primer nivel de facturación",
@@ -21848,8 +22043,8 @@
           "default": "Predeterminado",
           "notSet": "Sin definir",
           "rates": "Tarifas",
-          "workflowRunRate": "Flujo/ejecución ${{amount}}",
-          "functionSecondRate": "Función/segundo ${{amount}}"
+          "workflowRunRate": "Flujo/ejecución ${amount}",
+          "functionSecondRate": "Función/segundo ${amount}"
         }
       },
       "create": {
@@ -22029,10 +22224,10 @@
           "copilotCostMultiplierBlank": "Déjalo en blanco para el 1x predeterminado."
         },
         "summaries": {
-          "missing": "Falta: {{items}}",
+          "missing": "Falta: {items}",
           "untitledTier": "Nivel sin título",
           "noPricingBullets": "Sin puntos de precios",
-          "pricingBullets": "{{count}} puntos de precios",
+          "pricingBullets": "{count} puntos de precios",
           "defaultTierMustBePublic": "el nivel predeterminado debe ser público",
           "defaultTierMustBePublicPlan": "el nivel predeterminado debe ser un plan público de usuario con uso individual y asientos fijos",
           "userTiersIndividualUsage": "los niveles de usuario deben usar uso individual",
@@ -22060,7 +22255,7 @@
           "userTiersNoOrgSeats": "Los niveles de usuario no gestionan asientos de organización",
           "seatMaxAboveCount": "el máximo de asientos debe permanecer por encima de la cantidad de asientos",
           "noLimitsConfigured": "No hay límites configurados de uso incluido, almacenamiento, concurrencia, tasa o retención",
-          "limitsConfigured": "{{count}}/7 límites configurados",
+          "limitsConfigured": "{count}/7 límites configurados",
           "usingBasePricingOnly": "Usando solo el precio base de la plataforma"
         }
       },
@@ -22073,84 +22268,84 @@
   "emails": {
     "shared": {
       "tagline": "Sistema de flujos de análisis técnico con LLM para trading",
-      "team": "El equipo de {{brandName}}",
-      "openBrand": "Abrir {{brandName}}",
+      "team": "El equipo de {brandName}",
+      "openBrand": "Abrir {brandName}",
       "expires15": "Este código vence en 15 minutos.",
       "expires24": "Este enlace es válido durante las próximas 24 horas.",
       "expires48": "Las invitaciones vencen en 48 horas por seguridad.",
       "expires7": "Esta invitación vence en 7 días.",
       "ignore": "Si no solicitaste esto, puedes ignorar este correo.",
-      "sentOn": "Enviado el {{date}}.",
-      "sentOnTo": "Enviado el {{date}} a {{email}}.",
-      "submittedOnTo": "Enviado el {{date}} a {{email}}.",
-      "approvedOnFor": "Aprobado el {{date}} para {{email}}.",
-      "sentOnFor": "Enviado el {{date}} para tu {{typeLabel}}{{emailPart}}.",
-      "emailPartFrom": " desde {{email}}"
+      "sentOn": "Enviado el {date}.",
+      "sentOnTo": "Enviado el {date} a {email}.",
+      "submittedOnTo": "Enviado el {date} a {email}.",
+      "approvedOnFor": "Aprobado el {date} para {email}.",
+      "sentOnFor": "Enviado el {date} para tu {typeLabel}{emailPart}.",
+      "emailPartFrom": " desde {email}"
     },
     "footer": {
-      "copyright": "(c) {{year}} {{brandName}}, Todos los derechos reservados",
+      "copyright": "(c) {year} {brandName}, Todos los derechos reservados",
       "questions": "¿Preguntas? Escribe a",
       "privacy": "Política de privacidad",
       "terms": "Términos de servicio",
       "unsubscribe": "Cancelar suscripción"
     },
     "subjects": {
-      "sign-in": "Inicia sesión en {{brandName}}",
-      "email-verification": "Verifica tu correo para {{brandName}}",
-      "forget-password": "Restablece tu contraseña de {{brandName}}",
-      "reset-password": "Restablece tu contraseña de {{brandName}}",
-      "change-email": "Verifica tu nuevo correo para {{brandName}}",
-      "chat-access": "Código de verificación para {{chatTitle}}",
-      "invitation": "Te invitaron a unirte a {{organizationName}} en {{brandName}}",
-      "batch-invitation": "Te invitaron a unirte a {{organizationName}} y a espacios de trabajo en {{brandName}}",
-      "workspace-invitation": "Te invitaron a unirte a {{workspaceName}} en {{brandName}}",
+      "sign-in": "Inicia sesión en {brandName}",
+      "email-verification": "Verifica tu correo para {brandName}",
+      "forget-password": "Restablece tu contraseña de {brandName}",
+      "reset-password": "Restablece tu contraseña de {brandName}",
+      "change-email": "Verifica tu nuevo correo para {brandName}",
+      "chat-access": "Código de verificación para {chatTitle}",
+      "invitation": "Te invitaron a unirte a {organizationName} en {brandName}",
+      "batch-invitation": "Te invitaron a unirte a {organizationName} y a espacios de trabajo en {brandName}",
+      "workspace-invitation": "Te invitaron a unirte a {workspaceName} en {brandName}",
       "help-confirmation": "Recibimos tu solicitud",
-      "enterprise-subscription": "La facturación de tu organización ya está activa en {{brandName}}",
-      "plan-welcome": "Tu nivel {{planName}} ya está activo en {{brandName}}",
-      "usage-threshold": "Te acercas a tu presupuesto mensual en {{brandName}}",
-      "free-tier-upgrade": "Tu nivel actual se acerca a su uso incluido en {{brandName}}",
-      "payment-failed": "Falló el pago de {{brandName}} - acción requerida",
-      "waitlist-confirmation": "Recibimos tu solicitud de acceso a {{brandName}}",
-      "waitlist-approved": "Tu solicitud de acceso a {{brandName}} fue aprobada",
-      "careers-confirmation": "Tu postulación a {{brandName}} - {{position}}"
+      "enterprise-subscription": "La facturación de tu organización ya está activa en {brandName}",
+      "plan-welcome": "Tu nivel {planName} ya está activo en {brandName}",
+      "usage-threshold": "Te acercas a tu presupuesto mensual en {brandName}",
+      "free-tier-upgrade": "Tu nivel actual se acerca a su uso incluido en {brandName}",
+      "payment-failed": "Falló el pago de {brandName} - acción requerida",
+      "waitlist-confirmation": "Recibimos tu solicitud de acceso a {brandName}",
+      "waitlist-approved": "Tu solicitud de acceso a {brandName} fue aprobada",
+      "careers-confirmation": "Tu postulación a {brandName} - {position}"
     },
     "otp": {
       "titles": {
-        "sign-in": "Inicia sesión en {{brandName}}",
-        "email-verification": "Verifica tu correo para {{brandName}}",
-        "forget-password": "Restablece tu contraseña de {{brandName}}",
-        "change-email": "Verifica tu nuevo correo para {{brandName}}",
-        "chat-access": "Accede a {{chatTitle}}"
+        "sign-in": "Inicia sesión en {brandName}",
+        "email-verification": "Verifica tu correo para {brandName}",
+        "forget-password": "Restablece tu contraseña de {brandName}",
+        "change-email": "Verifica tu nuevo correo para {brandName}",
+        "chat-access": "Accede a {chatTitle}"
       },
       "body": "Usa el código siguiente para continuar."
     },
     "resetPassword": {
       "title": "Restablece tu contraseña",
-      "intro": "Recibimos una solicitud para restablecer la contraseña de tu cuenta de {{brandName}}.",
+      "intro": "Recibimos una solicitud para restablecer la contraseña de tu cuenta de {brandName}.",
       "action": "Usa el botón siguiente para elegir una nueva contraseña.",
       "cta": "Restablecer contraseña",
       "accountFallback": "el correo de tu cuenta",
-      "sentLine": "Enviado el {{date}} a {{account}}."
+      "sentLine": "Enviado el {date} a {account}."
     },
     "invitation": {
-      "preview": "{{inviterName}} te invitó a unirte a {{organizationName}} en {{brandName}}",
-      "title": "Te invitaron a unirte a {{organizationName}}.",
-      "intro": "{{inviterName}} te invitó a colaborar en {{brandName}}.",
+      "preview": "{inviterName} te invitó a unirte a {organizationName} en {brandName}",
+      "title": "Te invitaron a unirte a {organizationName}.",
+      "intro": "{inviterName} te invitó a colaborar en {brandName}.",
       "body": "Acepta la invitación para acceder a proyectos y flujos compartidos.",
       "cta": "Unirse ahora"
     },
     "batchInvitation": {
-      "preview": "Únete a {{organizationName}} en {{brandName}}",
-      "title": "Te invitaron a unirte a {{organizationName}}.",
-      "intro": "{{inviterName}} te agregó como {{roleLabel}} en {{brandName}}.",
+      "preview": "Únete a {organizationName} en {brandName}",
+      "title": "Te invitaron a unirte a {organizationName}.",
+      "intro": "{inviterName} te agregó como {roleLabel} en {brandName}.",
       "adminDescription": "Como administrador, podrás gestionar facturación, compañeros y acceso a espacios de trabajo de la organización.",
       "memberDescription": "Como miembro, puedes colaborar en facturación compartida y aceptar invitaciones a espacios de trabajo.",
-      "workspaceAccess": "Acceso a espacios de trabajo ({{count}} {{workspaceWord}}):",
-      "workspaceLine": "- {{workspaceName}} - {{permissionLabel}}",
+      "workspaceAccess": "Acceso a espacios de trabajo ({count} {workspaceWord}):",
+      "workspaceLine": "- {workspaceName} - {permissionLabel}",
       "workspaceSingular": "espacio",
       "workspacePlural": "espacios",
-      "closing": "Al aceptar, te unirás a {{organizationName}}.",
-      "closingWithWorkspaces": "Al aceptar, te unirás a {{organizationName}} y tendrás acceso a {{count}} {{workspaceWord}}.",
+      "closing": "Al aceptar, te unirás a {organizationName}.",
+      "closingWithWorkspaces": "Al aceptar, te unirás a {organizationName} y tendrás acceso a {count} {workspaceWord}.",
       "cta": "Aceptar invitación",
       "roleLabels": {
         "admin": "Administrador",
@@ -22163,17 +22358,17 @@
       }
     },
     "workspaceInvitation": {
-      "preview": "Únete al espacio {{workspaceName}} en {{brandName}}",
-      "title": "Te invitaron a {{workspaceName}}",
-      "intro": "{{inviterName}} te pidió colaborar en el espacio {{workspaceName}} en {{brandName}}. Acepta para acceder a proyectos y datos compartidos.",
+      "preview": "Únete al espacio {workspaceName} en {brandName}",
+      "title": "Te invitaron a {workspaceName}",
+      "intro": "{inviterName} te pidió colaborar en el espacio {workspaceName} en {brandName}. Acepta para acceder a proyectos y datos compartidos.",
       "cta": "Aceptar invitación"
     },
     "help": {
       "title": "Gracias por escribirnos",
-      "preview": "{{brandName}}: recibimos tu {{typeLabel}}",
-      "intro": "Recibimos tu {{typeLabel}} y responderemos pronto.",
-      "attachments": "Adjuntaste {{count}} {{fileWord}}. Revisaremos todo lo que compartiste.",
-      "responseTime": "Normalmente respondemos en pocas horas. Si necesitas ayuda inmediata, escríbenos a {{supportEmail}}.",
+      "preview": "{brandName}: recibimos tu {typeLabel}",
+      "intro": "Recibimos tu {typeLabel} y responderemos pronto.",
+      "attachments": "Adjuntaste {count} {fileWord}. Revisaremos todo lo que compartiste.",
+      "responseTime": "Normalmente respondemos en pocas horas. Si necesitas ayuda inmediata, escríbenos a {supportEmail}.",
       "fileSingular": "archivo",
       "filePlural": "archivos",
       "typeLabels": {
@@ -22187,13 +22382,13 @@
       "confirmation": {
         "preview": "Recibimos tu solicitud de acceso",
         "title": "Estás en la lista de espera",
-        "intro": "Recibimos tu solicitud de acceso a {{brandName}} y agregamos {{email}} a la lista de espera.",
+        "intro": "Recibimos tu solicitud de acceso a {brandName} y agregamos {email} a la lista de espera.",
         "body": "Revisaremos tu solicitud y te enviaremos otro correo si esta dirección se aprueba para registrarse. Usa este mismo correo en todos los métodos de inicio de sesión."
       },
       "approved": {
         "preview": "Tu solicitud de lista de espera fue aprobada",
         "title": "Tu acceso está listo",
-        "intro": "{{email}} ya puede crear una cuenta en {{brandName}}.",
+        "intro": "{email} ya puede crear una cuenta en {brandName}.",
         "body": "Termina el registro con esta misma dirección de correo para activar tu acceso.",
         "cta": "Terminar registro",
         "methodReminder": "Usa el mismo correo aprobado para email/contraseña, Google, GitHub o cualquier otro método de inicio de sesión."
@@ -22202,8 +22397,8 @@
     "billing": {
       "enterprise": {
         "title": "Facturación de organización activada",
-        "welcome": "Bienvenido, {{userName}}.",
-        "body": "El nivel de facturación de tu organización ya está activo en {{brandName}}. Ahora tienes más capacidad, controles avanzados y acceso para toda la organización.",
+        "welcome": "Bienvenido, {userName}.",
+        "body": "El nivel de facturación de tu organización ya está activo en {brandName}. Ahora tienes más capacidad, controles avanzados y acceso para toda la organización.",
         "cta": "Acceder a tu cuenta",
         "nextStepsTitle": "Siguientes pasos",
         "nextSteps": [
@@ -22214,62 +22409,62 @@
         "help": "¿Necesitas ayuda para empezar? Responde a este correo y nuestro equipo te asistirá."
       },
       "planWelcome": {
-        "preview": "{{brandName}}: tu nivel {{planName}} está activo",
-        "title": "Nivel {{planName}} activado",
-        "namedWelcome": "¡Bienvenido, {{userName}}!",
+        "preview": "{brandName}: tu nivel {planName} está activo",
+        "title": "Nivel {planName} activado",
+        "namedWelcome": "¡Bienvenido, {userName}!",
         "welcome": "¡Bienvenido!",
-        "body": "Ya estás listo en el nivel {{planName}} de {{brandName}}. Explora tus nuevos límites y avanza más rápido con tu equipo.",
+        "body": "Ya estás listo en el nivel {planName} de {brandName}. Explora tus nuevos límites y avanza más rápido con tu equipo.",
         "help": "¿Quieres hablar sobre tu nivel o recibir ayuda personalizada? Agenda una llamada de 15 minutos con nuestro equipo.",
         "settings": "¿Necesitas invitar compañeros, ajustar límites de uso o gestionar facturación? Visita Configuración -> Suscripción cuando quieras."
       },
       "usage": {
-        "preview": "{{brandName}}: estás al {{percentUsed}}% de tu presupuesto mensual de {{planName}}",
-        "title": "Estás al {{percentUsed}}% de tu presupuesto",
-        "intro": "{{userNamePrefix}}el uso de tu nivel {{planName}} se acerca al límite mensual.",
+        "preview": "{brandName}: estás al {percentUsed}% de tu presupuesto mensual de {planName}",
+        "title": "Estás al {percentUsed}% de tu presupuesto",
+        "intro": "{userNamePrefix}el uso de tu nivel {planName} se acerca al límite mensual.",
         "recommendation": "Para evitar interrupciones, considera aumentar tu límite mensual.",
-        "usageLine": "{{currentUsage}} / {{limit}} usados",
-        "percentLine": "{{percentUsed}}% del presupuesto de este mes",
+        "usageLine": "{currentUsage} / {limit} usados",
+        "percentLine": "{percentUsed}% del presupuesto de este mes",
         "cta": "Revisar límites",
         "reason": "Enviamos este correo una vez cuando tu uso alcanza el umbral de advertencia configurado, para que tengas tiempo de ajustar tu nivel o límite."
       },
       "freeTier": {
         "currentTierFallback": "tu nivel actual",
-        "preview": "{{brandName}}: {{currentTierName}} se acerca a su uso incluido",
+        "preview": "{brandName}: {currentTierName} se acerca a su uso incluido",
         "title": "Tu uso incluido está casi agotado",
-        "greeting": "Hola {{userName}},",
+        "greeting": "Hola {userName},",
         "greetingFallback": "there",
-        "usage": "Has usado {{currentUsage}} de los {{limit}} incluidos en {{currentTierName}} ({{percentUsed}}%).",
+        "usage": "Has usado {currentUsage} de los {limit} incluidos en {currentTierName} ({percentUsed}%).",
         "body": "Revisa los niveles de facturación disponibles para ampliar tu uso antes de que el límite de este mes interrumpa nuevo trabajo.",
         "recommendedTitle": "Siguiente nivel recomendado",
-        "recommendedTier": "Siguiente nivel recomendado: {{tierName}}",
-        "recommendedPrice": "Desde {{price}}/mes",
-        "recommendedUsage": "{{usage}} de uso incluido cada mes",
+        "recommendedTier": "Siguiente nivel recomendado: {tierName}",
+        "recommendedPrice": "Desde {price}/mes",
+        "recommendedUsage": "{usage} de uso incluido cada mes",
         "cta": "Revisar niveles de facturación",
         "oneTime": "Esta es una notificación única después de que tu nivel predeterminado cruza el umbral de actualización."
       },
       "paymentFailed": {
         "title": "No pudimos procesar tu pago.",
-        "greeting": "Hola {{userName}},",
+        "greeting": "Hola {userName},",
         "greetingFallback": "there",
-        "body": "Tu cuenta de {{brandName}} fue bloqueada temporalmente para evitar interrupciones del servicio y cargos inesperados. Para restaurar el acceso de inmediato, actualiza tu método de pago.",
+        "body": "Tu cuenta de {brandName} fue bloqueada temporalmente para evitar interrupciones del servicio y cargos inesperados. Para restaurar el acceso de inmediato, actualiza tu método de pago.",
         "detailsTitle": "Detalles del pago",
-        "amountDue": "Importe pendiente: {{amount}}",
-        "paymentMethod": "Método de pago: **** {{lastFourDigits}}",
-        "reason": "Motivo: {{reason}}",
+        "amountDue": "Importe pendiente: {amount}",
+        "paymentMethod": "Método de pago: **** {lastFourDigits}",
+        "reason": "Motivo: {reason}",
         "cta": "Actualizar método de pago",
         "nextSteps": "Tus flujos y automatizaciones están pausados. Actualiza tu método de pago para restaurar el servicio de inmediato. Stripe reintentará el cargo automáticamente cuando el pago se actualice.",
         "help": "Las causas comunes incluyen tarjetas vencidas, fondos insuficientes o datos de facturación incorrectos. Si el problema continúa, contacta a soporte.",
-        "sentLine": "Enviado el {{date}}. Esta es una notificación transaccional crítica."
+        "sentLine": "Enviado el {date}. Esta es una notificación transaccional crítica."
       }
     },
     "careers": {
-      "preview": "Recibimos tu postulación a {{brandName}}",
+      "preview": "Recibimos tu postulación a {brandName}",
       "title": "Recibimos tu postulación",
-      "greeting": "Hola {{name}},",
-      "body": "Gracias por tu interés en unirte al equipo de {{brandName}}. Recibimos tu postulación para el puesto {{position}}.",
+      "greeting": "Hola {name},",
+      "body": "Gracias por tu interés en unirte al equipo de {brandName}. Recibimos tu postulación para el puesto {position}.",
       "review": "Nuestro equipo revisa cuidadosamente cada postulación y te responderá en las próximas semanas. Si tus calificaciones coinciden con lo que buscamos, nos pondremos en contacto para agendar una primera conversación.",
-      "explore": "Mientras tanto, explora nuestra documentación en {{docsUrl}} o lee lo último en nuestro blog en {{blogUrl}}.",
-      "sentLine": "Esta confirmación se envió el {{dateTime}}."
+      "explore": "Mientras tanto, explora nuestra documentación en {docsUrl} o lee lo último en nuestro blog en {blogUrl}.",
+      "sentLine": "Esta confirmación se envió el {dateTime}."
     }
   }
 }

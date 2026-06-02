@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useLocale } from 'next-intl'
 import { Check, ChevronDown, RefreshCw } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { LinearIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import {
@@ -42,14 +42,14 @@ export function LinearTeamSelector({
   const locale = useLocale() as LocaleCode
   const selectorCopy = useWorkspaceBlockEditorMessages().linearTeamSelector
   const copy = {
-    selectLinearTeam: translateWorkflowLabel(locale, 'Select Linear team'),
-    searchTeams: translateWorkflowLabel(locale, 'Search teams...'),
-    loading: translateWorkflowLabel(locale, 'Loading...'),
-    missingCredentials: translateWorkflowLabel(locale, 'Missing credentials'),
-    configureLinearCredentials: translateWorkflowLabel(locale, 'Please configure Linear credentials.'),
-    noTeamsFound: translateWorkflowLabel(locale, 'No teams found'),
-    noTeamsAvailable: translateWorkflowLabel(locale, 'No teams available for this Linear account.'),
-    teams: translateWorkflowLabel(locale, 'Teams'),
+    selectLinearTeam: translateWorkflowLabel(locale, 'selectLinearTeam'),
+    searchTeams: translateWorkflowLabel(locale, 'searchTeams'),
+    loading: translateWorkflowLabel(locale, 'loading'),
+    missingCredentials: translateWorkflowLabel(locale, 'missingCredentials'),
+    configureLinearCredentials: translateWorkflowLabel(locale, 'configureLinearCredentials'),
+    noTeamsFound: translateWorkflowLabel(locale, 'noTeamsFound'),
+    noTeamsAvailable: translateWorkflowLabel(locale, 'noTeamsAvailable'),
+    teams: translateWorkflowLabel(locale, 'teams'),
   }
   const labelText = label ?? copy.selectLinearTeam
   const [teams, setTeams] = useState<LinearTeamInfo[]>([])

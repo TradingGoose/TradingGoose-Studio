@@ -77,7 +77,7 @@ export function TriggerSave({ blockId, subBlockId, disabled = false }: TriggerSa
         .forEach((subBlock) => {
           if (subBlock.id === 'triggerCredentials') {
             if (!triggerCredentials) {
-              missingFields.push(subBlock.title || translateWorkflowLabel(locale, 'Credentials'))
+              missingFields.push(subBlock.title || translateWorkflowLabel(locale, 'credentials'))
             }
           } else {
             const value = configToCheck?.[subBlock.id]
@@ -151,7 +151,7 @@ export function TriggerSave({ blockId, subBlockId, disabled = false }: TriggerSa
         })
       } else {
         setErrorMessage(
-          `${translateWorkflowLabel(locale, 'Missing required fields')}: ${validation.missingFields.join(', ')}`
+          `${translateWorkflowLabel(locale, 'missingRequiredFields')}: ${validation.missingFields.join(', ')}`
         )
         logger.debug('Error message updated', {
           blockId,
@@ -190,7 +190,7 @@ export function TriggerSave({ blockId, subBlockId, disabled = false }: TriggerSa
       const validation = validateRequiredFields(aggregatedConfig)
       if (!validation.valid) {
         setErrorMessage(
-          `${translateWorkflowLabel(locale, 'Missing required fields')}: ${validation.missingFields.join(', ')}`
+          `${translateWorkflowLabel(locale, 'missingRequiredFields')}: ${validation.missingFields.join(', ')}`
         )
         setSaveStatus('error')
         return
@@ -198,7 +198,7 @@ export function TriggerSave({ blockId, subBlockId, disabled = false }: TriggerSa
 
       const success = await saveConfig(aggregatedConfig ?? {})
       if (!success) {
-        throw new Error(translateWorkflowLabel(locale, 'Save config returned false'))
+        throw new Error(translateWorkflowLabel(locale, 'saveConfigReturnedFalse'))
       }
 
       setSaveStatus('saved')
@@ -216,7 +216,7 @@ export function TriggerSave({ blockId, subBlockId, disabled = false }: TriggerSa
     } catch (error: any) {
       setSaveStatus('error')
       setErrorMessage(
-        error?.message || translateWorkflowLabel(locale, 'An error occurred while saving.')
+        error?.message || translateWorkflowLabel(locale, 'anErrorOccurredWhileSaving')
       )
       logger.error('Error saving trigger configuration', { error })
     }

@@ -1,15 +1,16 @@
 import type { Edge } from '@xyflow/react'
+import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
 import { getBlock } from '@/blocks'
 import {
   getLocalizedDefaultBlockName,
   getWorkflowEditorCopy,
   getWorkflowLabelCopy,
+  type LocaleCode,
   localizeWorkflowSubBlockConfig,
   resolveWorkflowDisplayValue,
   translateWorkflowLabel,
-  type LocaleCode,
 } from '@/i18n/block-editor'
-import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
+import type { PublicCopy } from '@/i18n/public-copy'
 import type {
   BlockData,
   BlockState,
@@ -18,7 +19,6 @@ import type {
   SubBlockState,
   WorkflowState,
 } from '@/stores/workflows/workflow/types'
-import { type PublicCopy } from '@/i18n/public-copy'
 import { resolveTriggerIdFromSubBlocks } from '@/triggers/resolution'
 import {
   adaptPreviewPayloadToCanvas,
@@ -378,7 +378,7 @@ const createConditionBlock = ({
 const localizeDefaultName = (locale: LocaleCode, type: string) =>
   getLocalizedDefaultBlockName(locale, type)
 
-const localizeCustomName = (locale: LocaleCode, label: string) => translateWorkflowLabel(locale, label)
+const localizeCustomName = (locale: LocaleCode, key: string) => translateWorkflowLabel(locale, key)
 
 function buildLocalizedPreviewPayload(
   locale: LocaleCode,
@@ -408,7 +408,10 @@ function buildLocalizedPreviewPayload(
       }
 
       const previewStateRaw = node.data.subBlockValues ?? node.data.blockState?.subBlocks ?? {}
-      const triggerId = resolveTriggerIdFromSubBlocks(previewStateRaw, blockConfig.triggers?.available)
+      const triggerId = resolveTriggerIdFromSubBlocks(
+        previewStateRaw,
+        blockConfig.triggers?.available
+      )
       const localizedSubBlocks = (blockConfig.subBlocks || []).map((subBlock) =>
         localizeWorkflowSubBlockConfig(locale, subBlock, node.data.type, triggerId ?? undefined)
       )
@@ -467,11 +470,15 @@ function buildAnalystCoverageState(
       trigger: createBlock({
         id: 'trigger',
         type: 'indicator_trigger',
-        name: localizeCustomName(locale, 'Indicator Monitor'),
+        name: localizeCustomName(locale, 'indicatorMonitor'),
         position: { x: 150, y: 234 },
         height: 132,
         subBlocks: {
-          triggerInstructions: createSubBlock('triggerInstructions', 'text', copy.triggerInstructions),
+          triggerInstructions: createSubBlock(
+            'triggerInstructions',
+            'text',
+            copy.triggerInstructions
+          ),
         },
       }),
       marketData: createHistoricalDataBlock({
@@ -494,7 +501,7 @@ function buildAnalystCoverageState(
       }),
       marketAnalyst: createAgentBlock({
         id: 'marketAnalyst',
-        name: localizeCustomName(locale, 'Market Analyst'),
+        name: localizeCustomName(locale, 'marketAnalyst'),
         position: { x: 1570, y: 184 },
         systemPrompt: copy.marketAnalystSystemPrompt,
         userPrompt: copy.marketAnalystUserPrompt,
@@ -567,7 +574,7 @@ function buildInvestmentDebateState(
       }),
       analystDossier: createAgentBlock({
         id: 'analystDossier',
-        name: localizeCustomName(locale, 'Analyst Dossier'),
+        name: localizeCustomName(locale, 'analystDossier'),
         position: { x: 860, y: 191 },
         systemPrompt: copy.analystDossierSystemPrompt,
         userPrompt: copy.analystDossierUserPrompt,
@@ -577,13 +584,13 @@ function buildInvestmentDebateState(
       }),
       investmentDebate: createLoopBlock({
         id: 'investmentDebate',
-        name: localizeCustomName(locale, 'Bull vs Bear Debate'),
+        name: localizeCustomName(locale, 'bullVsBearDebate'),
         position: { x: 1215, y: 150 },
         size: { width: 951.75, height: 741 },
       }),
       bullResearcher: createAgentBlock({
         id: 'bullResearcher',
-        name: localizeCustomName(locale, 'Bull Researcher'),
+        name: localizeCustomName(locale, 'bullResearcher'),
         position: { x: 180, y: 100 },
         parentId: 'investmentDebate',
         systemPrompt: copy.bullResearcherSystemPrompt,
@@ -594,7 +601,7 @@ function buildInvestmentDebateState(
       }),
       bearResearcher: createAgentBlock({
         id: 'bearResearcher',
-        name: localizeCustomName(locale, 'Bear Researcher'),
+        name: localizeCustomName(locale, 'bearResearcher'),
         position: { x: 481.75, y: 323 },
         parentId: 'investmentDebate',
         systemPrompt: copy.bearResearcherSystemPrompt,
@@ -605,7 +612,7 @@ function buildInvestmentDebateState(
       }),
       researchManager: createAgentBlock({
         id: 'researchManager',
-        name: localizeCustomName(locale, 'Research Manager'),
+        name: localizeCustomName(locale, 'researchManager'),
         position: { x: 2171.75, y: 187 },
         systemPrompt: copy.researchManagerSystemPrompt,
         userPrompt: copy.researchManagerUserPrompt,
@@ -710,7 +717,7 @@ function buildRiskRoutingState(
       }),
       traderProposal: createAgentBlock({
         id: 'traderProposal',
-        name: localizeCustomName(locale, 'Trader Proposal'),
+        name: localizeCustomName(locale, 'traderProposal'),
         position: { x: 860, y: 191 },
         systemPrompt: copy.traderProposalSystemPrompt,
         userPrompt: copy.traderProposalUserPrompt,
@@ -720,13 +727,13 @@ function buildRiskRoutingState(
       }),
       riskCommittee: createLoopBlock({
         id: 'riskCommittee',
-        name: localizeCustomName(locale, 'Risk Committee'),
+        name: localizeCustomName(locale, 'riskCommittee'),
         position: { x: 1215, y: 150 },
         size: { width: 1253.5, height: 952 },
       }),
       aggressiveAnalyst: createAgentBlock({
         id: 'aggressiveAnalyst',
-        name: localizeCustomName(locale, 'Aggressive Analyst'),
+        name: localizeCustomName(locale, 'aggressiveAnalyst'),
         position: { x: 180, y: 100 },
         parentId: 'riskCommittee',
         systemPrompt: copy.aggressiveAnalystSystemPrompt,
@@ -737,7 +744,7 @@ function buildRiskRoutingState(
       }),
       conservativeAnalyst: createAgentBlock({
         id: 'conservativeAnalyst',
-        name: localizeCustomName(locale, 'Conservative Analyst'),
+        name: localizeCustomName(locale, 'conservativeAnalyst'),
         position: { x: 481.75, y: 319 },
         parentId: 'riskCommittee',
         systemPrompt: copy.conservativeAnalystSystemPrompt,
@@ -748,7 +755,7 @@ function buildRiskRoutingState(
       }),
       neutralAnalyst: createAgentBlock({
         id: 'neutralAnalyst',
-        name: localizeCustomName(locale, 'Neutral Analyst'),
+        name: localizeCustomName(locale, 'neutralAnalyst'),
         position: { x: 783.5, y: 538 },
         parentId: 'riskCommittee',
         systemPrompt: copy.neutralAnalystSystemPrompt,
@@ -759,7 +766,7 @@ function buildRiskRoutingState(
       }),
       portfolioManager: createAgentBlock({
         id: 'portfolioManager',
-        name: localizeCustomName(locale, 'Portfolio Manager'),
+        name: localizeCustomName(locale, 'portfolioManager'),
         position: { x: 2473.5, y: 187 },
         systemPrompt: copy.portfolioManagerSystemPrompt,
         userPrompt: copy.portfolioManagerUserPrompt,
@@ -770,7 +777,7 @@ function buildRiskRoutingState(
       }),
       decisionRouter: createConditionBlock({
         id: 'decisionRouter',
-        name: localizeCustomName(locale, 'Decision Router'),
+        name: localizeCustomName(locale, 'decisionRouter'),
         position: { x: 2828.5, y: 214 },
         conditions: [
           {
@@ -789,7 +796,7 @@ function buildRiskRoutingState(
       }),
       increasePosition: createTradingActionBlock({
         id: 'increasePosition',
-        name: localizeCustomName(locale, 'Increase Position'),
+        name: localizeCustomName(locale, 'increasePosition'),
         position: { x: 3183.5, y: 150 },
         side: 'buy',
         listing: 'NVDA',
@@ -807,7 +814,7 @@ function buildRiskRoutingState(
       }),
       reduceExposure: createTradingActionBlock({
         id: 'reduceExposure',
-        name: localizeCustomName(locale, 'Reduce Exposure'),
+        name: localizeCustomName(locale, 'reduceExposure'),
         position: { x: 3183.5, y: 536 },
         side: 'sell',
         listing: 'NVDA',
@@ -896,7 +903,7 @@ export function buildTradingAgentWorkflowDemos(
   return [
     {
       id: 'analyst-coverage',
-      name: localizeCustomName(locale, 'Signal Briefing'),
+      name: localizeCustomName(locale, 'signalBriefing'),
       color: '#0f766e',
       previewPayload: buildLocalizedPreviewPayload(
         locale,
@@ -905,7 +912,7 @@ export function buildTradingAgentWorkflowDemos(
     },
     {
       id: 'investment-debate',
-      name: localizeCustomName(locale, 'Investment Debate'),
+      name: localizeCustomName(locale, 'investmentDebate'),
       color: '#2563eb',
       previewPayload: buildLocalizedPreviewPayload(
         locale,
@@ -914,7 +921,7 @@ export function buildTradingAgentWorkflowDemos(
     },
     {
       id: 'risk-routing',
-      name: localizeCustomName(locale, 'Risk Routing'),
+      name: localizeCustomName(locale, 'riskRouting'),
       color: '#dc2626',
       previewPayload: buildLocalizedPreviewPayload(
         locale,

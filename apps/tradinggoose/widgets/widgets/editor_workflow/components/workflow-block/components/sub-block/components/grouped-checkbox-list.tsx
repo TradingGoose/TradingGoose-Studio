@@ -11,8 +11,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { formatWorkflowTemplate } from '@/i18n/workflow-inspector-core'
+import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 
 interface GroupedCheckboxListProps {
@@ -37,7 +37,7 @@ export function GroupedCheckboxList({
     const groups: Record<string, { label: string; id: string }[]> = {}
 
     options.forEach((option) => {
-      const groupName = option.group || translateWorkflowLabel('Other')
+      const groupName = option.group || translateWorkflowLabel('other')
       if (!groups[groupName]) {
         groups[groupName] = []
       }
@@ -76,16 +76,16 @@ export function GroupedCheckboxList({
     if (noneSelected) {
       return (
         <span className='text-muted-foreground text-sm'>
-          {translateWorkflowLabel('None selected')}
+          {translateWorkflowLabel('noneSelected')}
         </span>
       )
     }
     if (allSelected) {
-      return <span className='text-sm'>{translateWorkflowLabel('All selected')}</span>
+      return <span className='text-sm'>{translateWorkflowLabel('allSelected')}</span>
     }
     return (
       <span className='text-sm'>
-        {formatWorkflowTemplate(translateWorkflowLabel('{{count}} selected'), {
+        {formatWorkflowTemplate(translateWorkflowLabel('selectedCount'), {
           count: selectedValues.length,
         })}
       </span>
@@ -102,7 +102,7 @@ export function GroupedCheckboxList({
         >
           <span className='flex items-center gap-1 text-muted-foreground'>
             <Settings2 className='h-4 w-4' />
-            <span>{translateWorkflowLabel('Configure PII Types')}</span>
+            <span>{translateWorkflowLabel('configurePiiTypes')}</span>
           </span>
           <SelectedCountDisplay />
         </Button>
@@ -112,11 +112,9 @@ export function GroupedCheckboxList({
         onWheel={(e) => e.stopPropagation()}
       >
         <DialogHeader>
-          <DialogTitle>{translateWorkflowLabel('Select PII Types to Detect')}</DialogTitle>
+          <DialogTitle>{translateWorkflowLabel('selectPiiTypesToDetect')}</DialogTitle>
           <p className='text-muted-foreground text-sm'>
-            {translateWorkflowLabel(
-              'Choose which types of personally identifiable information to detect and block.'
-            )}
+            {translateWorkflowLabel('choosePiiTypesToDetect')}
           </p>
         </DialogHeader>
 
@@ -139,7 +137,7 @@ export function GroupedCheckboxList({
               htmlFor='select-all'
               className='cursor-pointer font-medium text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70'
             >
-              {translateWorkflowLabel('Select all entities')}
+              {translateWorkflowLabel('selectAllEntities')}
             </label>
           </div>
           <Button
@@ -150,7 +148,7 @@ export function GroupedCheckboxList({
             className='w-[85px]'
           >
             <span className='flex items-center gap-1'>
-              {translateWorkflowLabel('Clear')}
+              {translateWorkflowLabel('clear')}
               {!noneSelected && <span>({selectedValues.length})</span>}
             </span>
           </Button>

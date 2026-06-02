@@ -1,13 +1,13 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { useLocale } from 'next-intl'
 import { ToolCase, XIcon } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { cn } from '@/lib/utils'
-import { translateWorkflowLabel } from '@/i18n/block-editor'
-import { formatTemplate } from '@/i18n/utils'
-import type { LocaleCode } from '@/i18n/utils'
 import { useSkills } from '@/hooks/queries/skills'
+import { translateWorkflowLabel } from '@/i18n/block-editor'
+import type { LocaleCode } from '@/i18n/utils'
+import { formatTemplate } from '@/i18n/utils'
 import { Dropdown } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
@@ -49,7 +49,7 @@ export function SkillInput({ blockId, subBlockId, disabled = false }: SkillInput
         label: skill.name,
         id: skill.id,
         icon: ToolCase,
-        group: translateWorkflowLabel(locale, 'Skills'),
+        group: translateWorkflowLabel(locale, 'skills'),
       }))
   }, [locale, selectedSkillIds, workspaceSkills])
 
@@ -75,14 +75,14 @@ export function SkillInput({ blockId, subBlockId, disabled = false }: SkillInput
           blockId={blockId}
           subBlockId={`${subBlockId}-skill-selector`}
           options={dropdownOptions}
-          placeholder={translateWorkflowLabel(locale, 'Add Skill')}
+          placeholder={translateWorkflowLabel(locale, 'addSkill')}
           useStore={false}
           valueOverride={selectorValue}
           onChange={handleSkillSelection}
           disabled={disabled || !workspaceId}
           className='w-full'
           enableSearch
-          searchPlaceholder={translateWorkflowLabel(locale, 'Search skills...')}
+          searchPlaceholder={translateWorkflowLabel(locale, 'searchSkills')}
         />
       ) : (
         <div className='flex min-h-[2.5rem] w-full flex-wrap gap-2 rounded-md border border-input bg-transparent p-2 text-sm ring-offset-background'>
@@ -115,7 +115,7 @@ export function SkillInput({ blockId, subBlockId, disabled = false }: SkillInput
                       type='button'
                       className='ml-2 flex-shrink-0 text-muted-foreground transition-colors hover:text-foreground'
                       onClick={() => handleRemoveSkill(storedSkill.skillId)}
-                      aria-label={formatTemplate(translateWorkflowLabel(locale, 'Remove Skill'), {
+                      aria-label={formatTemplate(translateWorkflowLabel(locale, 'removeSkill'), {
                         name: resolvedName,
                       })}
                     >
@@ -131,14 +131,14 @@ export function SkillInput({ blockId, subBlockId, disabled = false }: SkillInput
             blockId={blockId}
             subBlockId={`${subBlockId}-skill-selector-inline`}
             options={dropdownOptions}
-            placeholder={translateWorkflowLabel(locale, 'Add Skill')}
+            placeholder={translateWorkflowLabel(locale, 'addSkill')}
             useStore={false}
             valueOverride={selectorValue}
             onChange={handleSkillSelection}
             disabled={disabled || !workspaceId}
             className='w-full'
             enableSearch
-            searchPlaceholder={translateWorkflowLabel(locale, 'Search skills...')}
+            searchPlaceholder={translateWorkflowLabel(locale, 'searchSkills')}
           />
         </div>
       )}

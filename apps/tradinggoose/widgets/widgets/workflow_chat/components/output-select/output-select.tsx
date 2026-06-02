@@ -4,12 +4,12 @@ import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState }
 import { Check, ChevronDown, Search } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { Input } from '@/components/ui/input'
-import { formatTemplate } from '@/i18n/utils'
-import { useWorkflowOutputSelectMessages } from '@/i18n/workspace-widget-hooks'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { useWorkflowBlocks, useWorkflowEdges } from '@/lib/yjs/use-workflow-doc'
 import { getBlock } from '@/blocks'
+import { formatTemplate } from '@/i18n/utils'
+import { useWorkflowOutputSelectMessages } from '@/i18n/workspace-widget-hooks'
 
 interface OutputSelectProps {
   workflowId: string | null
@@ -121,7 +121,7 @@ export function OutputSelect({
       if (Object.keys(outputsToProcess).length > 0) {
         const blockDisplayName =
           block.name ||
-          formatTemplate(copy.fallbackBlockName, {
+          formatTemplate(copy.defaultBlockName, {
             id: block.id,
           })
 
@@ -182,7 +182,7 @@ export function OutputSelect({
     })
 
     return outputs
-  }, [copy.fallbackBlockName, workflowBlocks, workflowId, blocks])
+  }, [copy.defaultBlockName, workflowBlocks, workflowId, blocks])
 
   const isSelectedValue = (o: { id: string }) => selectedOutputs.includes(o.id)
 
@@ -193,9 +193,7 @@ export function OutputSelect({
     }
 
     // Ensure all selected outputs exist in the workflowOutputs array by canonical id
-    const validOutputs = selectedOutputs.filter((val) =>
-      workflowOutputs.some((o) => o.id === val)
-    )
+    const validOutputs = selectedOutputs.filter((val) => workflowOutputs.some((o) => o.id === val))
 
     if (validOutputs.length === 0) {
       return { selectedOutputsDisplayText: resolvedPlaceholder, hasSelectedOutputs: false }
@@ -221,9 +219,7 @@ export function OutputSelect({
   const selectedOutputInfo = useMemo(() => {
     if (!selectedOutputs || selectedOutputs.length === 0) return null
 
-    const validOutputs = selectedOutputs.filter((val) =>
-      workflowOutputs.some((o) => o.id === val)
-    )
+    const validOutputs = selectedOutputs.filter((val) => workflowOutputs.some((o) => o.id === val))
     if (validOutputs.length === 0) return null
 
     const output = workflowOutputs.find((o) => o.id === validOutputs[0])
@@ -243,12 +239,12 @@ export function OutputSelect({
     const filteredOutputs = !normalizedQuery
       ? workflowOutputs
       : workflowOutputs.filter((output) => {
-        return (
-          output.label.toLowerCase().includes(normalizedQuery) ||
-          output.blockName.toLowerCase().includes(normalizedQuery) ||
-          output.path.toLowerCase().includes(normalizedQuery)
-        )
-      })
+          return (
+            output.label.toLowerCase().includes(normalizedQuery) ||
+            output.blockName.toLowerCase().includes(normalizedQuery) ||
+            output.path.toLowerCase().includes(normalizedQuery)
+          )
+        })
 
     const groups: Record<string, typeof workflowOutputs> = {}
     const blockDistances: Record<string, number> = {}
@@ -359,15 +355,15 @@ export function OutputSelect({
   const triggerButtonClassName = triggerClassName
     ? cn(triggerClassName, 'justify-between')
     : cn(
-      'flex h-9 w-full items-center justify-between rounded-sm px-3 py-1.5 font-normal text-sm shadow-xs transition-colors',
-      isOutputDropdownOpen
-        ? 'bg-background text-muted-foreground'
-        : 'bg-background text-muted-foreground hover:text-muted-foreground'
-    )
+        'flex h-9 w-full items-center justify-between rounded-sm px-3 py-1.5 font-normal text-sm shadow-xs transition-colors',
+        isOutputDropdownOpen
+          ? 'bg-background text-muted-foreground'
+          : 'bg-background text-muted-foreground hover:text-muted-foreground'
+      )
 
   const colorBadge = selectedOutputInfo ? (
     <div
-      className='h-5 w-5 p-0.5 rounded-xs'
+      className='h-5 w-5 rounded-xs p-0.5'
       style={{
         backgroundColor: selectedOutputColor ? `${selectedOutputColor}20` : undefined,
       }}
@@ -389,11 +385,11 @@ export function OutputSelect({
   )
 
   const labelContent = hasSelectedOutputs ? (
-    <span className='min-w-0 flex-1 truncate text-left text-sm font-medium text-foreground'>
+    <span className='min-w-0 flex-1 truncate text-left font-medium text-foreground text-sm'>
       {selectedOutputsDisplayText}
     </span>
   ) : (
-    <span className='min-w-0 flex-1 truncate text-left text-sm font-medium text-muted-foreground'>
+    <span className='min-w-0 flex-1 truncate text-left font-medium text-muted-foreground text-sm'>
       {selectedOutputsDisplayText}
     </span>
   )
@@ -505,7 +501,7 @@ export function OutputSelect({
             data-rs-scroll-lock-ignore
           >
             <div
-              className='overflow-hidden rounded-sm bg-background shadow-xs border border-border'
+              className='overflow-hidden rounded-sm border border-border bg-background shadow-xs'
               style={{ maxHeight: portalStyle.height }}
             >
               <div className='flex max-h-[inherit] flex-col'>
@@ -539,7 +535,7 @@ export function OutputSelect({
                     Object.entries(groupedOutputs).map(([blockName, outputs]) => {
                       return (
                         <div key={blockName}>
-                          <div className='border-t px-3 pt-1.5 pb-0.5 font-normal text-muted-foreground text-xs first:border-t-0 border-transparent'>
+                          <div className='border-transparent border-t px-3 pt-1.5 pb-0.5 font-normal text-muted-foreground text-xs first:border-t-0'>
                             {blockName}
                           </div>
                           <div>

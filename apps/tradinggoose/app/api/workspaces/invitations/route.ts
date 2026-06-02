@@ -10,15 +10,13 @@ import {
 } from '@tradinggoose/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
-import {
-  getEmailSubject,
-  renderWorkspaceInvitationEmail,
-} from '@/components/emails/render-email'
+import { getEmailSubject, renderWorkspaceInvitationEmail } from '@/components/emails/render-email'
 import { getSession } from '@/lib/auth'
 import { resolveEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
+import { localizeUrl } from '@/i18n/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -237,10 +235,10 @@ async function sendInvitationEmail({
   fallbackLocale?: string | null
 }) {
   try {
+    const locale = await resolveEmailLocale({ email: to, fallbackLocale })
     const baseUrl = getBaseUrl()
     // Use invitation ID in path, token in query parameter for security
-    const invitationLink = `${baseUrl}/invite/${invitationId}?token=${token}`
-    const locale = await resolveEmailLocale({ email: to, fallbackLocale })
+    const invitationLink = `${localizeUrl(baseUrl, locale, `/invite/${invitationId}`)}?token=${token}`
 
     const emailHtml = await renderWorkspaceInvitationEmail({
       workspaceName,

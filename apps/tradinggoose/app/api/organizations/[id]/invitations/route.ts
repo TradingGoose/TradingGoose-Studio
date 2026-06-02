@@ -27,6 +27,7 @@ import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
 import { hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
+import { localizeUrl } from '@/i18n/utils'
 
 const logger = createLogger('OrganizationInvitations')
 
@@ -345,7 +346,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           organizationEntry[0]?.name || 'organization',
           role,
           workspaceInvitationsWithNames,
-          `${getBaseUrl()}/invite/${orgInvitation.id}`,
+          localizeUrl(getBaseUrl(), emailLocale, `/invite/${orgInvitation.id}`),
           emailLocale
         )
 
@@ -361,7 +362,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         const emailHtml = await renderInvitationEmail(
           inviter[0]?.name || 'Someone',
           organizationEntry[0]?.name || 'organization',
-          `${getBaseUrl()}/invite/${orgInvitation.id}`,
+          localizeUrl(getBaseUrl(), emailLocale, `/invite/${orgInvitation.id}`),
           email,
           emailLocale
         )

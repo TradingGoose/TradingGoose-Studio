@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react'
 import { useLocale } from 'next-intl'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import type { SubBlockConfig } from '@/blocks/types'
+import { translateWorkflowLabel } from '@/i18n/block-editor'
+import type { LocaleCode } from '@/i18n/utils'
 import {
   type JiraProjectInfo,
   JiraProjectSelector,
@@ -18,9 +21,6 @@ import {
 import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-depends-on-gate'
 import { useForeignCredential } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-foreign-credential'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
-import { translateWorkflowLabel } from '@/i18n/block-editor'
-import type { SubBlockConfig } from '@/blocks/types'
-import type { LocaleCode } from '@/i18n/utils'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 interface ProjectSelectorInputProps {
@@ -93,13 +93,13 @@ export function ProjectSelectorInput({
           <TooltipTrigger asChild>
             <div className='w-full'>
               {subBlock.id === 'teamId' ? (
-                  <LinearTeamSelector
+                <LinearTeamSelector
                   value={selectedProjectId}
                   onChange={(teamId: string, teamInfo?: LinearTeamInfo) => {
                     handleProjectChange(teamId, teamInfo)
                   }}
                   credential={(linearCredential as string) || ''}
-                  label={subBlock.placeholder || translateWorkflowLabel(locale, 'Select Linear team')}
+                  label={subBlock.placeholder || translateWorkflowLabel(locale, 'selectLinearTeam')}
                   disabled={finalDisabled}
                   showPreview={true}
                   workflowId={workflowId || ''}
@@ -118,7 +118,8 @@ export function ProjectSelectorInput({
                       credential={credential}
                       teamId={teamId}
                       label={
-                        subBlock.placeholder || translateWorkflowLabel(locale, 'Select Linear project')
+                        subBlock.placeholder ||
+                        translateWorkflowLabel(locale, 'selectLinearProject')
                       }
                       disabled={isDisabled}
                       workflowId={workflowId || ''}
@@ -130,7 +131,7 @@ export function ProjectSelectorInput({
           </TooltipTrigger>
           {!(linearCredential as string) && (
             <TooltipContent side='top'>
-              <p>{translateWorkflowLabel(locale, 'Please select a Linear account first')}</p>
+              <p>{translateWorkflowLabel(locale, 'pleaseSelectALinearAccountFirst')}</p>
             </TooltipContent>
           )}
         </Tooltip>
@@ -151,7 +152,7 @@ export function ProjectSelectorInput({
               provider='jira'
               requiredScopes={subBlock.requiredScopes || []}
               serviceId={subBlock.serviceId}
-              label={subBlock.placeholder || translateWorkflowLabel(locale, 'Select Jira project')}
+              label={subBlock.placeholder || translateWorkflowLabel(locale, 'selectJiraProject')}
               disabled={finalDisabled}
               showPreview={true}
               onProjectInfoChange={setProjectInfo}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useLocale } from 'next-intl'
 import { Check, ChevronDown, RefreshCw } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { LinearIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import {
@@ -43,20 +43,17 @@ export function LinearProjectSelector({
   const locale = useLocale() as LocaleCode
   const selectorCopy = useWorkspaceBlockEditorMessages().linearProjectSelector
   const copy = {
-    selectLinearProject: translateWorkflowLabel(locale, 'Select Linear project'),
-    searchProjects: translateWorkflowLabel(locale, 'Search projects...'),
-    loading: translateWorkflowLabel(locale, 'Loading...'),
-    missingCredentialsOrTeam: translateWorkflowLabel(locale, 'Missing credentials or team'),
+    selectLinearProject: translateWorkflowLabel(locale, 'selectLinearProject'),
+    searchProjects: translateWorkflowLabel(locale, 'searchProjects'),
+    loading: translateWorkflowLabel(locale, 'loading'),
+    missingCredentialsOrTeam: translateWorkflowLabel(locale, 'missingCredentialsOrTeam'),
     configureLinearCredentialsAndSelectTeam: translateWorkflowLabel(
       locale,
-      'Please configure Linear credentials and select a team.'
+      'configureLinearCredentialsAndSelectTeam'
     ),
-    noProjectsFound: translateWorkflowLabel(locale, 'No projects found'),
-    noProjectsAvailable: translateWorkflowLabel(
-      locale,
-      'No projects available for the selected team.'
-    ),
-    projects: translateWorkflowLabel(locale, 'Projects'),
+    noProjectsFound: translateWorkflowLabel(locale, 'noProjectsFound'),
+    noProjectsAvailable: translateWorkflowLabel(locale, 'noProjectsAvailable'),
+    projects: translateWorkflowLabel(locale, 'projects'),
   }
   const [projects, setProjects] = useState<LinearProjectInfo[]>([])
   const [loading, setLoading] = useState(false)

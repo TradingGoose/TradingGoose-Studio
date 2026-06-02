@@ -13,6 +13,7 @@ import { sendEmail } from '@/lib/email/mailer'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
+import { localizeUrl } from '@/i18n/utils'
 
 const logger = createLogger('OrganizationMembersAPI')
 
@@ -296,11 +297,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       email: normalizedEmail,
       fallbackLocale: requestLocale,
     })
+    const invitationLink = `${localizeUrl(getBaseUrl(), locale, '/invite/organization')}?id=${invitationId}`
 
     const emailHtml = await renderInvitationEmail(
       inviter[0]?.name || 'Someone',
       organizationEntry[0]?.name || 'organization',
-      `${getBaseUrl()}/invite/organization?id=${invitationId}`,
+      invitationLink,
       normalizedEmail,
       locale
     )

@@ -77,7 +77,7 @@ export function JiraProjectSelector({
   const locale = useLocale() as LocaleCode
   const copy = useAppMessages().workspace.widgets.blockEditor.toolInput
   const selectorCopy = useAppMessages().workspace.widgets.blockEditor.jiraProjectSelector
-  const labelText = label ?? translateWorkflowLabel(locale, 'Select Jira project')
+  const labelText = label ?? translateWorkflowLabel(locale, 'selectJiraProject')
   const [open, setOpen] = useState(false)
   const [credentials, setCredentials] = useState<Credential[]>([])
   const [projects, setProjects] = useState<JiraProjectInfo[]>([])
@@ -396,7 +396,7 @@ export function JiraProjectSelector({
                     <JiraIcon className='h-4 w-4' />
                     <span className='text-muted-foreground text-xs'>
                       {credentials.find((cred) => cred.id === selectedCredentialId)?.name ||
-                        translateWorkflowLabel(locale, 'Unknown')}
+                        translateWorkflowLabel(locale, 'unknown')}
                     </span>
                   </div>
                   {credentials.length > 1 && (
@@ -406,7 +406,7 @@ export function JiraProjectSelector({
                       className='h-6 px-2 text-xs'
                       onClick={() => setOpen(true)}
                     >
-                      {translateWorkflowLabel(locale, 'Switch')}
+                      {translateWorkflowLabel(locale, 'switch')}
                     </Button>
                   )}
                 </div>
@@ -414,7 +414,7 @@ export function JiraProjectSelector({
 
               <Command>
                 <CommandInput
-                  placeholder={translateWorkflowLabel(locale, 'Search projects...')}
+                  placeholder={translateWorkflowLabel(locale, 'searchProjects')}
                   onValueChange={handleSearch}
                 />
                 <CommandList>
@@ -422,7 +422,7 @@ export function JiraProjectSelector({
                     {isLoading ? (
                       <div className='flex items-center justify-center p-4'>
                         <RefreshCw className='h-4 w-4 animate-spin' />
-                        <span className='ml-2'>{translateWorkflowLabel(locale, 'Loading...')}</span>
+                        <span className='ml-2'>{translateWorkflowLabel(locale, 'loading')}</span>
                       </div>
                     ) : errorMessage ? (
                       <div className='p-4 text-center'>
@@ -431,7 +431,7 @@ export function JiraProjectSelector({
                     ) : credentials.length === 0 ? (
                       <div className='p-4 text-center'>
                         <p className='font-medium text-sm'>
-                          {translateWorkflowLabel(locale, 'No accounts connected.')}
+                          {translateWorkflowLabel(locale, 'noAccountsConnected')}
                         </p>
                         <p className='text-muted-foreground text-xs'>
                           {formatTemplate(copy.selectProviderAccount, { provider: 'Jira' })}
@@ -440,7 +440,7 @@ export function JiraProjectSelector({
                     ) : (
                       <div className='p-4 text-center'>
                         <p className='font-medium text-sm'>
-                          {translateWorkflowLabel(locale, 'No projects found')}
+                          {translateWorkflowLabel(locale, 'noProjectsFound')}
                         </p>
                         <p className='text-muted-foreground text-xs'>
                           Try a different search or account.
@@ -453,7 +453,7 @@ export function JiraProjectSelector({
                   {credentials.length > 1 && (
                     <CommandGroup>
                       <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>
-                        {translateWorkflowLabel(locale, 'Switch Account')}
+                        {translateWorkflowLabel(locale, 'switchAccount')}
                       </div>
                       {credentials.map((cred) => (
                         <CommandItem
@@ -477,7 +477,7 @@ export function JiraProjectSelector({
                   {projects.length > 0 && (
                     <CommandGroup>
                       <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>
-                        {translateWorkflowLabel(locale, 'Projects')}
+                        {translateWorkflowLabel(locale, 'projects')}
                       </div>
                       {projects.map((project) => (
                         <CommandItem
@@ -564,7 +564,7 @@ export function JiraProjectSelector({
                     className='flex items-center gap-1 text-foreground text-xs hover:underline'
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <span>{translateWorkflowLabel(locale, 'Open in Jira')}</span>
+                    <span>{translateWorkflowLabel(locale, 'openInJira')}</span>
                     <ExternalLink className='h-3 w-3' />
                   </a>
                 )}

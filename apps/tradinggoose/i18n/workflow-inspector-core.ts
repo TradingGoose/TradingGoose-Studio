@@ -35,7 +35,12 @@ type LocalizedTriggerMetadata = {
 type BlockEditorOptionOverride = {
   id: string
   label: string
+  group?: string
+  searchLabel?: string
+  rightLabel?: string
 }
+type BlockEditorOptionOverrides = BlockEditorOptionOverride[]
+type BlockEditorOptionOverrideMap = Record<string, Omit<BlockEditorOptionOverride, 'id'>>
 
 type BlockEditorSubBlockOverride = Partial<
   Pick<
@@ -49,7 +54,10 @@ type BlockEditorSubBlockOverride = Partial<
     | 'defaultValue'
   >
 > & {
-  options?: BlockEditorOptionOverride[]
+  options?: BlockEditorOptionOverrides
+}
+type MergedBlockEditorSubBlockOverride = Omit<BlockEditorSubBlockOverride, 'options'> & {
+  options?: BlockEditorOptionOverrideMap
 }
 
 type BlockEditorTriggerSubBlockOverride = BlockEditorSubBlockOverride & {
@@ -72,51 +80,12 @@ type BlockEditorTriggerOverrides = Record<
 
 type TriggerOverride = BlockEditorTriggerOverrides[string]
 
-const TRAILING_COLON_PATTERN = /:\s*$/
-const NON_ALPHANUMERIC_PATTERN = /[^A-Za-z0-9]+/g
-const LEADING_NON_ALPHA_PATTERN = /^[^A-Za-z]+/
 const GENERATED_NAME_SUFFIX_PATTERN = /(\s+\d+)$/
-
-function normalizeWorkflowLabel(label: string) {
-  return label.replace(TRAILING_COLON_PATTERN, '').trim()
-}
-
-function toStableMessageKey(label: string) {
-  const normalized = normalizeWorkflowLabel(label)
-
-  if (!normalized) {
-    return normalized
-  }
-
-  if (/^[a-z][A-Za-z0-9]*$/.test(normalized)) {
-    return normalized
-  }
-
-  const tokens = normalized
-    .replaceAll('&', ' and ')
-    .replaceAll('/', ' ')
-    .replaceAll('.', ' ')
-    .replaceAll('{{', ' ')
-    .replaceAll('}}', ' ')
-    .replace(LEADING_NON_ALPHA_PATTERN, '')
-    .split(NON_ALPHANUMERIC_PATTERN)
-    .filter(Boolean)
-
-  if (tokens.length === 0) {
-    return normalized
-  }
-
-  return tokens
-    .map((token, index) => {
-      const lower = token.toLowerCase()
-      return index === 0 ? lower : `${lower.charAt(0).toUpperCase()}${lower.slice(1)}`
-    })
-    .join('')
-}
+const WORKFLOW_INSPECTOR_KEY_PREFIX = 'workflowInspector.'
 
 function resolveInspectorPath(copy: WorkflowInspectorCopy, label: string) {
-  if (!label.startsWith('workflowInspector.')) {
-    return null
+  if (!label.startsWith(WORKFLOW_INSPECTOR_KEY_PREFIX)) {
+    return undefined
   }
 
   const path = label.split('.').slice(1)
@@ -128,39 +97,29 @@ function resolveInspectorPath(copy: WorkflowInspectorCopy, label: string) {
     return (current as Record<string, unknown>)[segment]
   }, copy)
 
-  return typeof resolvedValue === 'string' ? resolvedValue : null
+  if (typeof resolvedValue !== 'string') {
+    throw new Error(`Missing workflow inspector translation for key "${label}".`)
+  }
+
+  return resolvedValue
 }
 
-function resolveWorkflowLabelKey(copy: WorkflowLabelCopy, label: string) {
-  const copyRecord = copy as Record<string, string>
-  const normalizedLabel = normalizeWorkflowLabel(label)
-
-  if (typeof copyRecord[normalizedLabel] === 'string') {
-    return normalizedLabel
+function requireWorkflowLabel(copy: WorkflowLabelCopy, key: string) {
+  const value = (copy as Record<string, unknown>)[key]
+  if (typeof value !== 'string') {
+    throw new Error(`Missing workflow label translation for key "${key}".`)
   }
 
-  const stableKey = toStableMessageKey(normalizedLabel)
-  if (stableKey && typeof copyRecord[stableKey] === 'string') {
-    return stableKey
-  }
-
-  return null
+  return value
 }
 
-function resolveWorkflowToolbarKey(copy: WorkflowToolbarCopy, label: string) {
-  const copyRecord = copy as Record<string, string>
-  const normalizedLabel = normalizeWorkflowLabel(label)
-
-  if (typeof copyRecord[normalizedLabel] === 'string') {
-    return normalizedLabel
+function requireWorkflowToolbarLabel(copy: WorkflowToolbarCopy, key: string) {
+  const value = (copy as Record<string, unknown>)[key]
+  if (typeof value !== 'string') {
+    throw new Error(`Missing workflow toolbar translation for key "${key}".`)
   }
 
-  const stableKey = toStableMessageKey(normalizedLabel)
-  if (stableKey && typeof copyRecord[stableKey] === 'string') {
-    return stableKey
-  }
-
-  return null
+  return value
 }
 
 function getBlockNameOverrides(copy: WorkflowInspectorCopy): Record<string, string> {
@@ -175,12 +134,31 @@ function getBlockLongDescriptionOverrides(copy: WorkflowInspectorCopy): Record<s
   return (copy.blockEditor.blockLongDescriptions ?? {}) as Record<string, string>
 }
 
+function requireLocalizedBlockText(
+  overrides: Record<string, string>,
+  blockType: string,
+  field: 'name' | 'description'
+) {
+  const value = overrides[blockType]
+  if (typeof value === 'string') {
+    return value
+  }
+
+  if (getBlock(blockType)) {
+    throw new Error(`Missing localized block ${field} for block type "${blockType}".`)
+  }
+
+  return undefined
+}
+
 function getCanonicalDefaultBlockName(blockType: string) {
   return (
-    (getPublicCopy(defaultLocale).workspace.widgets.blockEditor.blockNames as Record<
-      string,
-      string | undefined
-    >)[blockType] ??
+    (
+      getPublicCopy(defaultLocale).workspace.widgets.blockEditor.blockNames as Record<
+        string,
+        string | undefined
+      >
+    )[blockType] ??
     getBlock(blockType)?.name ??
     blockType
   )
@@ -190,7 +168,10 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-function getCanonicalGeneratedNameSuffix(defaultBlockName: string, blockName: string): string | null {
+function getCanonicalGeneratedNameSuffix(
+  defaultBlockName: string,
+  blockName: string
+): string | null {
   const normalizedDefaultName = defaultBlockName.trim()
   const normalizedName = blockName.trim()
   if (!normalizedDefaultName || !normalizedName) {
@@ -226,61 +207,39 @@ function getTriggerOverrides(copy: WorkflowInspectorCopy): BlockEditorTriggerOve
 }
 
 function mergeOptionOverrides(
-  fallbackOptions: BlockEditorOptionOverride[] | undefined,
-  localeOptions: BlockEditorOptionOverride[] | undefined
-): BlockEditorOptionOverride[] | undefined {
-  if (!fallbackOptions && !localeOptions) {
+  baseOptions: BlockEditorOptionOverrides | undefined,
+  overrideOptions: BlockEditorOptionOverrides | undefined
+): BlockEditorOptionOverrideMap | undefined {
+  if (!baseOptions && !overrideOptions) {
     return undefined
   }
 
-  const merged = new Map<string, BlockEditorOptionOverride>()
+  const merged: BlockEditorOptionOverrideMap = {}
 
-  for (const option of fallbackOptions ?? []) {
-    if (typeof option?.id !== 'string' || typeof option?.label !== 'string') {
+  for (const option of [...(baseOptions ?? []), ...(overrideOptions ?? [])]) {
+    if (typeof option?.id !== 'string' || typeof option.label !== 'string') {
       continue
     }
 
-    merged.set(option.id, option)
+    const { id, ...override } = option
+    merged[id] = override
   }
-
-  for (const option of localeOptions ?? []) {
-    if (typeof option?.id !== 'string' || typeof option?.label !== 'string') {
-      continue
-    }
-
-    merged.set(option.id, option)
-  }
-
-  return [...merged.values()]
+  return Object.keys(merged).length > 0 ? merged : undefined
 }
 
-function getOptionOverrideMap(
-  options: BlockEditorOptionOverride[] | undefined
-): Map<string, string> | undefined {
-  if (!options || options.length === 0) {
-    return undefined
-  }
-
-  return new Map(
-    options
-      .filter((option) => typeof option?.id === 'string' && typeof option?.label === 'string')
-      .map((option) => [option.id, option.label])
-  )
-}
-
-function mergeSubBlockOverrides<T extends { options?: BlockEditorOptionOverride[] }>(
-  fallbackOverride: T | undefined,
-  localeOverride: T | undefined
-): T | undefined {
-  if (!fallbackOverride && !localeOverride) {
+function mergeSubBlockOverrides(
+  baseOverride: BlockEditorSubBlockOverride | undefined,
+  override: BlockEditorSubBlockOverride | undefined
+): MergedBlockEditorSubBlockOverride | undefined {
+  if (!baseOverride && !override) {
     return undefined
   }
 
   return {
-    ...fallbackOverride,
-    ...localeOverride,
-    options: mergeOptionOverrides(fallbackOverride?.options, localeOverride?.options),
-  } as T
+    ...baseOverride,
+    ...override,
+    options: mergeOptionOverrides(baseOverride?.options, override?.options),
+  }
 }
 
 function getSubBlockOverride(
@@ -347,29 +306,21 @@ export function getWorkflowLabelCopyFromInspector(copy: WorkflowInspectorCopy): 
 
 export function translateWorkflowToolbarLabelWithCopy(
   copy: WorkflowToolbarCopy,
-  label: string
+  key: string
 ): string {
-  const key = resolveWorkflowToolbarKey(copy, label)
-  return key ? (copy as Record<string, string>)[key] : label
+  return requireWorkflowToolbarLabel(copy, key)
 }
 
 export function translateWorkflowLabelWithCopy(
   inspectorCopy: WorkflowInspectorCopy,
-  label: string
+  key: string
 ): string {
-  const resolvedPathValue = resolveInspectorPath(inspectorCopy, label)
+  const resolvedPathValue = resolveInspectorPath(inspectorCopy, key)
   if (resolvedPathValue) {
     return resolvedPathValue
   }
 
-  const workflowLabels = getWorkflowLabelCopyFromInspector(inspectorCopy)
-  const key = resolveWorkflowLabelKey(workflowLabels, label)
-
-  if (key) {
-    return (workflowLabels as Record<string, string>)[key]
-  }
-
-  return label
+  return requireWorkflowLabel(getWorkflowLabelCopyFromInspector(inspectorCopy), key)
 }
 
 export function getToolInputCopyFromInspector(copy: WorkflowInspectorCopy) {
@@ -435,25 +386,13 @@ function formatTriggerInstructionSteps(steps: string[]): string {
     .join('')
 }
 
-function resolveWorkflowText(
-  inspectorCopy: WorkflowInspectorCopy,
-  value: string | undefined,
-  explicitKey?: string
-) {
-  if (explicitKey) {
-    return translateWorkflowLabelWithCopy(inspectorCopy, explicitKey)
-  }
-
-  return value ? translateWorkflowLabelWithCopy(inspectorCopy, value) : value
-}
-
 function localizeWorkflowOption<T extends WorkflowOption>(
   inspectorCopy: WorkflowInspectorCopy,
   option: T,
-  optionOverrides?: Map<string, string>,
+  optionOverrides?: BlockEditorOptionOverrideMap,
   subBlockId?: string
 ): T {
-  const optionOverrideLabel = optionOverrides?.get(option.id)
+  const optionOverride = optionOverrides?.[option.id]
   const triggerOptionLabel =
     subBlockId === 'selectedTriggerId'
       ? getLocalizedTriggerMetadataWithCopy(inspectorCopy, {
@@ -465,21 +404,10 @@ function localizeWorkflowOption<T extends WorkflowOption>(
 
   return {
     ...option,
-    label:
-      triggerOptionLabel ??
-      resolveWorkflowText(
-        inspectorCopy,
-        optionOverrideLabel ?? option.label,
-        option.i18n?.labelKey
-      ) ??
-      option.label,
-    group: resolveWorkflowText(inspectorCopy, option.group, option.i18n?.groupKey) ?? option.group,
-    searchLabel:
-      resolveWorkflowText(inspectorCopy, option.searchLabel, option.i18n?.searchLabelKey) ??
-      option.searchLabel,
-    rightLabel:
-      resolveWorkflowText(inspectorCopy, option.rightLabel, option.i18n?.rightLabelKey) ??
-      option.rightLabel,
+    label: triggerOptionLabel ?? optionOverride?.label ?? option.label,
+    group: optionOverride?.group ?? option.group,
+    searchLabel: optionOverride?.searchLabel ?? option.searchLabel,
+    rightLabel: optionOverride?.rightLabel ?? option.rightLabel,
   }
 }
 
@@ -494,21 +422,24 @@ export function localizeWorkflowOptionsWithCopy(
     return options
   }
 
-  const optionOverrides = mergeSubBlockOverrides(
-    blockType && subBlockId ? getSubBlockOverride(inspectorCopy, blockType, subBlockId) : undefined,
-    getTriggerSubBlockCopyFromInspector(inspectorCopy, triggerId, subBlockId ?? '')
-  )?.options
-  const optionOverrideMap = getOptionOverrideMap(optionOverrides)
+  const blockOverride =
+    blockType && subBlockId ? getSubBlockOverride(inspectorCopy, blockType, subBlockId) : undefined
+  const triggerOverride = getTriggerSubBlockCopyFromInspector(
+    inspectorCopy,
+    triggerId,
+    subBlockId ?? ''
+  )
+  const optionOverrides = mergeOptionOverrides(blockOverride?.options, triggerOverride?.options)
 
   if (typeof options === 'function') {
     return () =>
       options().map((option) =>
-        localizeWorkflowOption(inspectorCopy, option, optionOverrideMap, subBlockId)
+        localizeWorkflowOption(inspectorCopy, option, optionOverrides, subBlockId)
       )
   }
 
   return options.map((option) =>
-    localizeWorkflowOption(inspectorCopy, option, optionOverrideMap, subBlockId)
+    localizeWorkflowOption(inspectorCopy, option, optionOverrides, subBlockId)
   )
 }
 
@@ -524,61 +455,75 @@ function getLocalizedWorkflowOptionsWithCopy(
   }
 
   const resolvedOptions = typeof options === 'function' ? options() : options
-  const optionOverrides = mergeSubBlockOverrides(
-    blockType && subBlockId ? getSubBlockOverride(inspectorCopy, blockType, subBlockId) : undefined,
-    getTriggerSubBlockCopyFromInspector(inspectorCopy, triggerId, subBlockId ?? '')
-  )?.options
-  const optionOverrideMap = getOptionOverrideMap(optionOverrides)
+  const blockOverride =
+    blockType && subBlockId ? getSubBlockOverride(inspectorCopy, blockType, subBlockId) : undefined
+  const triggerOverride = getTriggerSubBlockCopyFromInspector(
+    inspectorCopy,
+    triggerId,
+    subBlockId ?? ''
+  )
+  const optionOverrides = mergeOptionOverrides(blockOverride?.options, triggerOverride?.options)
 
   return resolvedOptions.map((option) =>
-    localizeWorkflowOption(inspectorCopy, option, optionOverrideMap, subBlockId)
+    localizeWorkflowOption(inspectorCopy, option, optionOverrides, subBlockId)
   )
 }
 
 export function getLocalizedBlockNameWithCopy(
   inspectorCopy: WorkflowInspectorCopy,
   blockOrType: Pick<BlockConfig, 'type' | 'name'> | string,
-  fallbackName?: string
+  providedName?: string
 ): string {
   const blockType = typeof blockOrType === 'string' ? blockOrType : blockOrType.type
+  const localizedName = requireLocalizedBlockText(
+    getBlockNameOverrides(inspectorCopy),
+    blockType,
+    'name'
+  )
   const blockName =
     typeof blockOrType === 'string'
-      ? (fallbackName ?? getBlock(blockOrType)?.name ?? blockOrType)
-      : (blockOrType.name ?? fallbackName ?? getBlock(blockType)?.name ?? blockType)
+      ? (providedName ?? getBlock(blockOrType)?.name ?? blockOrType)
+      : (blockOrType.name ?? providedName ?? getBlock(blockType)?.name ?? blockType)
 
-  return getBlockNameOverrides(inspectorCopy)[blockType] ?? blockName
+  return localizedName ?? blockName
 }
 
 export function getLocalizedBlockDescriptionWithCopy(
   inspectorCopy: WorkflowInspectorCopy,
   blockOrType: Pick<BlockConfig, 'type' | 'description'> | string,
-  fallbackDescription?: string
+  providedDescription?: string
 ): string {
   const blockType = typeof blockOrType === 'string' ? blockOrType : blockOrType.type
+  const localizedDescription = requireLocalizedBlockText(
+    getBlockDescriptionOverrides(inspectorCopy),
+    blockType,
+    'description'
+  )
   const blockDescription =
     typeof blockOrType === 'string'
-      ? (fallbackDescription ?? getBlock(blockType)?.description ?? '')
-      : (blockOrType.description ?? fallbackDescription ?? getBlock(blockType)?.description ?? '')
+      ? (providedDescription ?? getBlock(blockType)?.description ?? '')
+      : (blockOrType.description ?? providedDescription ?? getBlock(blockType)?.description ?? '')
 
-  return getBlockDescriptionOverrides(inspectorCopy)[blockType] ?? blockDescription
+  return localizedDescription ?? blockDescription
 }
 
 export function getLocalizedBlockLongDescriptionWithCopy(
   inspectorCopy: WorkflowInspectorCopy,
   block: Pick<BlockConfig, 'type' | 'longDescription'> | string,
-  fallbackLongDescription?: string
+  providedLongDescription?: string
 ): string | undefined {
   const blockType = typeof block === 'string' ? block : block.type
-  const longDescription =
-    typeof block === 'string'
-      ? (fallbackLongDescription ?? getBlock(blockType)?.longDescription)
-      : (block.longDescription ?? fallbackLongDescription ?? getBlock(blockType)?.longDescription)
-
-  if (!longDescription) {
-    return undefined
+  const localizedLongDescription = getBlockLongDescriptionOverrides(inspectorCopy)[blockType]
+  if (typeof localizedLongDescription === 'string') {
+    return localizedLongDescription
   }
 
-  return getBlockLongDescriptionOverrides(inspectorCopy)[blockType] ?? longDescription
+  const longDescription =
+    typeof block === 'string'
+      ? (providedLongDescription ?? getBlock(blockType)?.longDescription)
+      : (block.longDescription ?? providedLongDescription ?? getBlock(blockType)?.longDescription)
+
+  return getBlock(blockType) ? undefined : longDescription
 }
 
 export function getLocalizedBlockMetadataWithCopy(
@@ -597,13 +542,15 @@ export function getLocalizedTriggerMetadataWithCopy(
   trigger: Pick<TriggerConfig, 'id' | 'name' | 'description'> | string
 ): LocalizedTriggerMetadata {
   const triggerId = typeof trigger === 'string' ? trigger : trigger.id
-  const fallbackName = typeof trigger === 'string' ? triggerId : trigger.name
-  const fallbackDescription = typeof trigger === 'string' ? '' : trigger.description
   const override = getTriggerOverride(inspectorCopy, triggerId)
 
+  if (typeof override?.name !== 'string' || typeof override?.description !== 'string') {
+    throw new Error(`Missing localized trigger metadata for trigger "${triggerId}".`)
+  }
+
   return {
-    name: override?.name ?? fallbackName,
-    description: override?.description ?? fallbackDescription,
+    name: override.name,
+    description: override.description,
   }
 }
 
@@ -633,11 +580,11 @@ export function getLocalizedDefaultBlockNameWithCopy(
 }
 
 export function getLocalizedToolParameterLabelWithCopy(
-  inspectorCopy: WorkflowInspectorCopy,
+  _inspectorCopy: WorkflowInspectorCopy,
   paramId: string,
   label?: string
 ): string {
-  return translateWorkflowLabelWithCopy(inspectorCopy, label ?? formatParameterLabel(paramId))
+  return label ?? formatParameterLabel(paramId)
 }
 
 function localizeToolUiComponentOptionsWithCopy(
@@ -656,60 +603,18 @@ function localizeToolUiComponentOptionsWithCopy(
     ? getToolParameterOverride(inspectorCopy, blockType, toolId, param.id)
     : undefined
   const override = mergeSubBlockOverrides(subBlockOverride, toolParameterOverride)
-  const optionOverrideMap = getOptionOverrideMap(override?.options)
-  const configI18n = param.uiComponent.i18n
 
   return {
     ...param.uiComponent,
-    title: override?.title
-      ? translateWorkflowLabelWithCopy(inspectorCopy, override.title)
-      : param.uiComponent.title
-        ? resolveWorkflowText(inspectorCopy, param.uiComponent.title, configI18n?.titleKey)
-        : param.uiComponent.title,
-    placeholder: override?.placeholder
-      ? translateWorkflowLabelWithCopy(inspectorCopy, override.placeholder)
-      : param.uiComponent.placeholder
-        ? resolveWorkflowText(
-            inspectorCopy,
-            param.uiComponent.placeholder,
-            configI18n?.placeholderKey
-          )
-        : param.uiComponent.placeholder,
-    searchPlaceholder: override?.searchPlaceholder
-      ? translateWorkflowLabelWithCopy(inspectorCopy, override.searchPlaceholder)
-      : param.uiComponent.searchPlaceholder
-        ? resolveWorkflowText(
-            inspectorCopy,
-            param.uiComponent.searchPlaceholder,
-            configI18n?.searchPlaceholderKey
-          )
-        : param.uiComponent.searchPlaceholder,
-    description: override?.description
-      ? translateWorkflowLabelWithCopy(inspectorCopy, override.description)
-      : param.uiComponent.description
-        ? resolveWorkflowText(
-            inspectorCopy,
-            param.uiComponent.description,
-            configI18n?.descriptionKey
-          )
-        : param.uiComponent.description,
-    tooltip: override?.tooltip
-      ? translateWorkflowLabelWithCopy(inspectorCopy, override.tooltip)
-      : param.uiComponent.tooltip
-        ? resolveWorkflowText(inspectorCopy, param.uiComponent.tooltip, configI18n?.tooltipKey)
-        : param.uiComponent.tooltip,
+    title: override?.title ?? param.uiComponent.title,
+    placeholder: override?.placeholder ?? param.uiComponent.placeholder,
+    searchPlaceholder: override?.searchPlaceholder ?? param.uiComponent.searchPlaceholder,
+    description: override?.description ?? param.uiComponent.description,
+    tooltip: override?.tooltip ?? param.uiComponent.tooltip,
     options: param.uiComponent.options?.map((option) =>
-      localizeWorkflowOption(inspectorCopy, option as WorkflowOption, optionOverrideMap)
+      localizeWorkflowOption(inspectorCopy, option as WorkflowOption, override?.options)
     ),
-    columns: override?.columns
-      ? override.columns.map((column) => translateWorkflowLabelWithCopy(inspectorCopy, column))
-      : configI18n?.columnKeys
-        ? configI18n.columnKeys.map((columnKey) =>
-            translateWorkflowLabelWithCopy(inspectorCopy, columnKey)
-          )
-        : param.uiComponent.columns?.map((column) =>
-            translateWorkflowLabelWithCopy(inspectorCopy, column)
-          ),
+    columns: override?.columns ?? param.uiComponent.columns,
   }
 }
 
@@ -725,15 +630,10 @@ export function localizeToolParameterWithCopy(
     ? getToolParameterOverride(inspectorCopy, blockType, toolId, param.id)
     : undefined
   const override = mergeSubBlockOverrides(subBlockOverride, toolParameterOverride)
-  const configI18n = param.i18n
 
   return {
     ...param,
-    description: override?.description
-      ? translateWorkflowLabelWithCopy(inspectorCopy, override.description)
-      : param.description
-        ? resolveWorkflowText(inspectorCopy, param.description, configI18n?.descriptionKey)
-        : undefined,
+    description: override?.description ?? param.description,
     uiComponent: localizeToolUiComponentOptionsWithCopy(inspectorCopy, param, blockType, toolId),
   }
 }
@@ -786,42 +686,12 @@ export function localizeWorkflowSubBlockConfigWithCopy(
 
   return {
     ...config,
-    title: override?.title
-      ? translateWorkflowLabelWithCopy(inspectorCopy, override.title)
-      : config.title
-        ? resolveWorkflowText(inspectorCopy, config.title, config.i18n?.titleKey)
-        : undefined,
-    placeholder: override?.placeholder
-      ? translateWorkflowLabelWithCopy(inspectorCopy, override.placeholder)
-      : config.placeholder
-        ? resolveWorkflowText(inspectorCopy, config.placeholder, config.i18n?.placeholderKey)
-        : undefined,
-    searchPlaceholder: override?.searchPlaceholder
-      ? translateWorkflowLabelWithCopy(inspectorCopy, override.searchPlaceholder)
-      : config.searchPlaceholder
-        ? resolveWorkflowText(
-            inspectorCopy,
-            config.searchPlaceholder,
-            config.i18n?.searchPlaceholderKey
-          )
-        : undefined,
-    description: override?.description
-      ? translateWorkflowLabelWithCopy(inspectorCopy, override.description)
-      : config.description
-        ? resolveWorkflowText(inspectorCopy, config.description, config.i18n?.descriptionKey)
-        : config.description,
-    tooltip: override?.tooltip
-      ? translateWorkflowLabelWithCopy(inspectorCopy, override.tooltip)
-      : config.tooltip
-        ? resolveWorkflowText(inspectorCopy, config.tooltip, config.i18n?.tooltipKey)
-        : config.tooltip,
-    columns: override?.columns
-      ? override.columns.map((column) => translateWorkflowLabelWithCopy(inspectorCopy, column))
-      : config.i18n?.columnKeys
-        ? config.i18n.columnKeys.map((columnKey) =>
-            translateWorkflowLabelWithCopy(inspectorCopy, columnKey)
-          )
-        : config.columns?.map((column) => translateWorkflowLabelWithCopy(inspectorCopy, column)),
+    title: override?.title ?? config.title,
+    placeholder: override?.placeholder ?? config.placeholder,
+    searchPlaceholder: override?.searchPlaceholder ?? config.searchPlaceholder,
+    description: override?.description ?? config.description,
+    tooltip: override?.tooltip ?? config.tooltip,
+    columns: override?.columns ?? config.columns,
     defaultValue,
     options: localizeWorkflowOptionsWithCopy(
       inspectorCopy,

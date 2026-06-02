@@ -12,14 +12,14 @@ import {
   getLocalizedBlockMetadataWithCopy,
   getLocalizedBlockNameWithCopy,
   getLocalizedDefaultBlockNameWithCopy,
-  getLocalizedTriggerMetadataWithCopy,
   getLocalizedToolParameterLabelWithCopy,
   getLocalizedToolParametersConfigWithCopy,
+  getLocalizedTriggerMetadataWithCopy,
   getMcpToolSelectorCopyFromInspector,
   getReadOnlyPreviewCopyFromInspector,
-  getTriggerSubBlockCopyFromInspector,
   getToolbarDisabledReasonFromInspector,
   getToolInputCopyFromInspector,
+  getTriggerSubBlockCopyFromInspector,
   getTriggerWarningCopyFromInspector,
   getWorkflowEditorCopyFromInspector,
   getWorkflowLabelCopyFromInspector,
@@ -30,7 +30,6 @@ import {
   translateWorkflowLabelWithCopy,
   translateWorkflowToolbarLabelWithCopy,
   type WorkflowInspectorCopy,
-  type WorkflowOption,
 } from './workflow-inspector-core'
 
 export type { LocaleCode } from './utils'
@@ -44,12 +43,12 @@ export function getBlockEditorCopy(locale: LocaleCode) {
   return getBlockEditorCopyFromInspector(getWorkflowInspectorCopy(locale))
 }
 
-export function getTriggerSubBlockCopy(
-  locale: LocaleCode,
-  triggerId: string,
-  subBlockId: string
-) {
-  return getTriggerSubBlockCopyFromInspector(getWorkflowInspectorCopy(locale), triggerId, subBlockId)
+export function getTriggerSubBlockCopy(locale: LocaleCode, triggerId: string, subBlockId: string) {
+  return getTriggerSubBlockCopyFromInspector(
+    getWorkflowInspectorCopy(locale),
+    triggerId,
+    subBlockId
+  )
 }
 
 export function localizeWorkflowOptions(
@@ -107,20 +106,20 @@ export function getTriggerWarningCopy(locale: LocaleCode, triggerName: string) {
 export function getLocalizedBlockName(
   locale: LocaleCode,
   blockOrType: Pick<BlockConfig, 'type' | 'name'> | string,
-  fallbackName?: string
+  providedName?: string
 ): string {
-  return getLocalizedBlockNameWithCopy(getWorkflowInspectorCopy(locale), blockOrType, fallbackName)
+  return getLocalizedBlockNameWithCopy(getWorkflowInspectorCopy(locale), blockOrType, providedName)
 }
 
 export function getLocalizedBlockDescription(
   locale: LocaleCode,
   blockOrType: Pick<BlockConfig, 'type' | 'description'> | string,
-  fallbackDescription?: string
+  providedDescription?: string
 ): string {
   return getLocalizedBlockDescriptionWithCopy(
     getWorkflowInspectorCopy(locale),
     blockOrType,
-    fallbackDescription
+    providedDescription
   )
 }
 
@@ -141,12 +140,12 @@ export function getLocalizedTriggerMetadata(
 export function getLocalizedBlockLongDescription(
   locale: LocaleCode,
   block: Pick<BlockConfig, 'type' | 'longDescription'> | string,
-  fallbackLongDescription?: string
+  providedLongDescription?: string
 ) {
   return getLocalizedBlockLongDescriptionWithCopy(
     getWorkflowInspectorCopy(locale),
     block,
-    fallbackLongDescription
+    providedLongDescription
   )
 }
 
@@ -155,7 +154,11 @@ export function getLocalizedDefaultBlockName(
   blockType: string,
   blockName?: string
 ): string {
-  return getLocalizedDefaultBlockNameWithCopy(getWorkflowInspectorCopy(locale), blockType, blockName)
+  return getLocalizedDefaultBlockNameWithCopy(
+    getWorkflowInspectorCopy(locale),
+    blockType,
+    blockName
+  )
 }
 
 export function getLocalizedToolParameterLabel(
@@ -189,12 +192,12 @@ export function getLocalizedToolParametersConfig(
   )
 }
 
-export function translateWorkflowToolbarLabel(locale: LocaleCode, label: string): string {
-  return translateWorkflowToolbarLabelWithCopy(getWorkflowToolbarCopy(locale), label)
+export function translateWorkflowToolbarLabel(locale: LocaleCode, key: string): string {
+  return translateWorkflowToolbarLabelWithCopy(getWorkflowToolbarCopy(locale), key)
 }
 
-export function translateWorkflowLabel(locale: LocaleCode, label: string): string {
-  return translateWorkflowLabelWithCopy(getWorkflowInspectorCopy(locale), label)
+export function translateWorkflowLabel(locale: LocaleCode, key: string): string {
+  return translateWorkflowLabelWithCopy(getWorkflowInspectorCopy(locale), key)
 }
 
 export function localizeWorkflowSubBlockConfig(

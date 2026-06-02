@@ -24,12 +24,14 @@ function normalizeShape(value: unknown): unknown {
   return null
 }
 
-const toolbarVisibleBlockTypes = [...new Set(
-  Object.values(registry)
-    .filter((block) => !block.hideFromToolbar)
-    .map((block) => block.type)
-    .filter((type): type is string => typeof type === 'string')
-)].sort()
+const toolbarVisibleBlockTypes = [
+  ...new Set(
+    Object.values(registry)
+      .filter((block) => !block.hideFromToolbar)
+      .map((block) => block.type)
+      .filter((type): type is string => typeof type === 'string')
+  ),
+].sort()
 
 describe('public copy', () => {
   it('loads translated locale files directly', () => {
@@ -70,9 +72,9 @@ describe('public copy', () => {
     expect(getPublicCopy('es').landing.preview.workflow.demoCopy.investmentDebate.notionTitle).toBe(
       'Memorando del comité de inversión'
     )
-    expect(
-      getPublicCopy('zh').landing.preview.workflow.demoCopy.riskRouting.webhookNote
-    ).toContain('风险系统')
+    expect(getPublicCopy('zh').landing.preview.workflow.demoCopy.riskRouting.webhookNote).toContain(
+      '风险系统'
+    )
   })
 
   it('includes localized blog and not found copy', () => {
@@ -129,7 +131,7 @@ describe('public copy', () => {
 
   it('includes localized verification screen copy', () => {
     expect(getPublicCopy('en').auth.verify.pendingTitle).toBe('Verify Your Email')
-    expect(getPublicCopy('en').auth.verify.resendIn).toBe('Resend in {{countdown}}s')
+    expect(getPublicCopy('en').auth.verify.resendIn).toBe('Resend in {countdown}s')
     expect(getPublicCopy('es').auth.verify.verifyButton).toBe('Verificar correo')
     expect(getPublicCopy('es').auth.verify.errors.resendFailed).toContain('reenviar')
     expect(getPublicCopy('zh').auth.verify.instructionsWithoutService).toBe(
@@ -158,7 +160,7 @@ describe('public copy', () => {
     expect(getPublicCopy('en').workspace.widgets.workflowLabels.tools).toBe('Tools')
     expect(getPublicCopy('zh').workspace.widgets.workflowLabels.tools).toBe('工具')
     expect(getPublicCopy('en').workspace.widgets.workflowLabels.deployedWithVersion).toBe(
-      'Deployed (v{{version}})'
+      'Deployed (v{version})'
     )
     const enWidgets = getPublicCopy('en').workspace.widgets
     const esWidgets = getPublicCopy('es').workspace.widgets
@@ -182,7 +184,7 @@ describe('public copy', () => {
     expect(getPublicCopy('en').workspace.knowledge.title).toBe('Knowledge')
     expect(getPublicCopy('en').workspace.templates.title).toBe('Templates')
     expect(getPublicCopy('es').workspace.templates.sections.your).toBe('Tus plantillas')
-    expect(getPublicCopy('zh').workspace.layoutTabs.renameAriaLabel).toContain('{{name}}')
+    expect(getPublicCopy('zh').workspace.layoutTabs.renameAriaLabel).toContain('{name}')
     expect(getPublicCopy('zh').workspace.logs.title.logs).toBe('日志')
     expect(getPublicCopy('en').workspace.widgets.selector.selectWidget).toBe('Select widget')
     expect(getPublicCopy('en').workspace.widgets.selector.categories.trading).toBe('Trading')
@@ -199,21 +201,19 @@ describe('public copy', () => {
     expect(
       getPublicCopy('es').workspace.widgets.webhook.providers.generic.sections.authentication
     ).toBe('Autenticación')
-    expect(
-      getPublicCopy('zh').workspace.widgets.webhook.providers.slack.notice.payloadTitle
-    ).toBe('Slack 事件负载示例')
-    expect(getPublicCopy('en').workspace.widgets.webhook.providers.gmail.fallbackLabels.inbox).toBe(
+    expect(getPublicCopy('zh').workspace.widgets.webhook.providers.slack.notice.payloadTitle).toBe(
+      'Slack 事件负载示例'
+    )
+    expect(getPublicCopy('en').workspace.widgets.webhook.providers.gmail.defaultLabels.inbox).toBe(
       'Inbox'
     )
     expect(
-      getPublicCopy('zh').workspace.widgets.webhook.providers.outlook.fallbackFolders.sentItems
+      getPublicCopy('zh').workspace.widgets.webhook.providers.outlook.defaultFolders.sentItems
     ).toBe('已发送邮件')
     expect(getPublicCopy('es').workspace.widgets.workflowCreateMenu.createWorkflow).toBe(
       'Nuevo flujo'
     )
-    expect(getPublicCopy('zh').workspace.widgets.workflowEditor.previewInspector).toBe(
-      '预览检查器'
-    )
+    expect(getPublicCopy('zh').workspace.widgets.workflowEditor.previewInspector).toBe('预览检查器')
     expect(getPublicCopy('en').workspace.widgets.pairColor.selectWidgetColor).toBe(
       'Select widget color'
     )
@@ -222,7 +222,7 @@ describe('public copy', () => {
     expect(getPublicCopy('es').workspace.widgets.workflowChat.attachFiles).toBe('Adjuntar archivos')
     expect(getPublicCopy('es').workspace.widgets.workflowChat.attach).toBe('Adjuntar')
     expect(getPublicCopy('en').workspace.widgets.workflowChat.maximumFilesAllowed).toContain(
-      '{{maxFiles}}'
+      '{maxFiles}'
     )
     expect(getPublicCopy('en').workspace.widgets.workflowVariables.unableToLoadWorkflows).toBe(
       'Unable to load workflows'
@@ -233,20 +233,20 @@ describe('public copy', () => {
     expect(getPublicCopy('zh').workspace.widgets.workflowEditor.whileConditionPlaceholder).toBe(
       '<counter.value> < 10'
     )
-    expect(
-      getPublicCopy('en').workspace.widgets.workflowEditor.collectionItemsPlaceholder
-    ).toBe("['item1', 'item2', 'item3']")
+    expect(getPublicCopy('en').workspace.widgets.workflowEditor.collectionItemsPlaceholder).toBe(
+      "['item1', 'item2', 'item3']"
+    )
     expect(
       getPublicCopy('en').workspace.widgets.blockEditor.googleCalendarSelector.accessLabel
     ).toBe('Access:')
-    expect(
-      getPublicCopy('es').workspace.widgets.blockEditor.knowledgeBaseSelector.groupLabel
-    ).toBe('Bases de conocimiento')
+    expect(getPublicCopy('es').workspace.widgets.blockEditor.knowledgeBaseSelector.groupLabel).toBe(
+      'Bases de conocimiento'
+    )
     expect(
       getPublicCopy('zh').workspace.widgets.blockEditor.documentSelector.chunkCountPlural
-    ).toBe('{{count}} 个分块')
+    ).toBe('{count} 个分块')
     expect(getPublicCopy('en').workspace.widgets.blockEditor.documentTagEntry.tagSlotsUsed).toBe(
-      '{{used}} of {{total}} tag slots used'
+      '{used} of {total} tag slots used'
     )
     expect(getPublicCopy('zh').workspace.widgets.workflowVariables.addVariable).toBe('添加变量')
     expect(getPublicCopy('en').workspace.widgets.blockEditor.templateModal.title.publish).toBe(
@@ -268,9 +268,9 @@ describe('public copy', () => {
     expect(
       getPublicCopy('en').workspace.widgets.blockEditor.webhookSettings.errors.validationFailed
     ).toBe('Validation failed. Review the webhook settings and try again.')
-    expect(getPublicCopy('zh').workspace.widgets.blockEditor.webhookSettings.testStatus.failure).toBe(
-      '测试 Webhook 失败。'
-    )
+    expect(
+      getPublicCopy('zh').workspace.widgets.blockEditor.webhookSettings.testStatus.failure
+    ).toBe('测试 Webhook 失败。')
     expect(getPublicCopy('es').workspace.widgets.blockEditor.webhookSettings.actions.add).toBe(
       'Agregar webhook'
     )
@@ -342,30 +342,30 @@ describe('public copy', () => {
     expect(getPublicCopy('zh').workspace.widgets.workflowLabels.numberOfResults).toBe('结果数量')
   })
 
-  it('includes localized guardrails workflow labels', () => {
-    expect(getPublicCopy('en').workspace.widgets.workflowLabels.contentToValidate).toBe(
-      'Content to Validate'
-    )
-    expect(getPublicCopy('en').workspace.widgets.workflowLabels.validationType).toBe(
-      'Validation Type'
-    )
+  it('includes localized guardrails block editor copy', () => {
+    const enGuardrails = getPublicCopy('en').workspace.widgets.blockEditor.subBlocks.guardrails
+    const esGuardrails = getPublicCopy('es').workspace.widgets.blockEditor.subBlocks.guardrails
+    const zhGuardrails = getPublicCopy('zh').workspace.widgets.blockEditor.subBlocks.guardrails
+
+    expect(enGuardrails.input.title).toBe('Content to Validate')
+    expect(enGuardrails.validationType.title).toBe('Validation Type')
     expect(getPublicCopy('en').workspace.widgets.workflowLabels.configurePiiTypes).toBe(
       'Configure PII Types'
     )
-    expect(getPublicCopy('es').workspace.widgets.workflowLabels.contentToValidate).toBe(
-      'Contenido a validar'
-    )
-    expect(getPublicCopy('es').workspace.widgets.workflowLabels.blockRequest).toBe(
+    expect(esGuardrails.input.title).toBe('Contenido a validar')
+    expect(esGuardrails.piiMode.options.find((option) => option.id === 'block')?.label).toBe(
       'Bloquear solicitud'
     )
-    expect(getPublicCopy('es').workspace.widgets.workflowLabels.common).toBe('Comunes')
-    expect(getPublicCopy('zh').workspace.widgets.workflowLabels.validationType).toBe('验证类型')
-    expect(getPublicCopy('zh').workspace.widgets.workflowLabels.maskPii).not.toBe(
-      getPublicCopy('en').workspace.widgets.workflowLabels.maskPii
+    expect(
+      esGuardrails.piiEntityTypes.options.find((option) => option.id === 'PERSON')?.group
+    ).toBe('Comunes')
+    expect(zhGuardrails.validationType.title).toBe('验证类型')
+    expect(zhGuardrails.piiMode.options.find((option) => option.id === 'mask')?.label).not.toBe(
+      enGuardrails.piiMode.options.find((option) => option.id === 'mask')?.label
     )
-    expect(getPublicCopy('zh').workspace.widgets.workflowLabels.personName).not.toBe(
-      getPublicCopy('en').workspace.widgets.workflowLabels.personName
-    )
+    expect(
+      zhGuardrails.piiEntityTypes.options.find((option) => option.id === 'PERSON')?.label
+    ).not.toBe(enGuardrails.piiEntityTypes.options.find((option) => option.id === 'PERSON')?.label)
   })
 
   it('includes localized SSO callback helper copy', () => {
@@ -388,7 +388,7 @@ describe('public copy', () => {
     expect(
       getPublicCopy('es').workspace.settingsModal.account.status.profilePictureUnsupportedFormat
     ).toContain('PNG')
-    expect(getPublicCopy('zh').workspace.settingsModal.help.previewAlt).toBe('预览 {{index}}')
+    expect(getPublicCopy('zh').workspace.settingsModal.help.previewAlt).toBe('预览 {index}')
   })
 
   it('includes localized deployment and block-editor copy for workflow editor surfaces', () => {
@@ -413,8 +413,12 @@ describe('public copy', () => {
     const esWidgets = getPublicCopy('es').workspace.widgets
     const zhWidgets = getPublicCopy('zh').workspace.widgets
 
-    expect(normalizeShape(esWidgets.workflowLabels)).toEqual(normalizeShape(enWidgets.workflowLabels))
-    expect(normalizeShape(zhWidgets.workflowLabels)).toEqual(normalizeShape(enWidgets.workflowLabels))
+    expect(normalizeShape(esWidgets.workflowLabels)).toEqual(
+      normalizeShape(enWidgets.workflowLabels)
+    )
+    expect(normalizeShape(zhWidgets.workflowLabels)).toEqual(
+      normalizeShape(enWidgets.workflowLabels)
+    )
     expect(normalizeShape(esWidgets.blockEditor)).toEqual(normalizeShape(enWidgets.blockEditor))
     expect(normalizeShape(zhWidgets.blockEditor)).toEqual(normalizeShape(enWidgets.blockEditor))
   })

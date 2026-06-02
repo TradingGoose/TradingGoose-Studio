@@ -1,3 +1,4 @@
+import { formatTemplate } from '@/i18n/utils'
 import { isUnsupportedMonitorViewDataError } from '../data/api'
 import {
   type CreateMonitorViewBody,
@@ -44,7 +45,7 @@ const getRowsForMode = (rows: MonitorViewRow[], mode: MonitorPageMode) =>
   rows.filter((row) => row.mode === mode)
 
 const DEFAULT_COPY = {
-  createDefaultView: 'Unable to create default {{name}} view.',
+  createDefaultView: 'Unable to create default {name} view.',
   invalidViewResponse: 'Invalid monitor view response',
   loadViews: 'Unable to load monitor views.',
 } as const
@@ -138,10 +139,9 @@ export const bootstrapMonitorViews = async ({
       rowStateByMode[mode] = 'error'
       errorsByMode[mode] = getErrorMessage(
         error,
-        (copy?.createDefaultView ?? DEFAULT_COPY.createDefaultView).replace(
-          '{{name}}',
-          resolveDefaultViewName(mode, defaultViewNames)
-        )
+        formatTemplate(copy?.createDefaultView ?? DEFAULT_COPY.createDefaultView, {
+          name: resolveDefaultViewName(mode, defaultViewNames),
+        })
       )
       if (isUnsupportedMonitorViewDataError(error)) {
         errorsByMode[mode] = getErrorMessage(error, errorsByMode[mode]!)

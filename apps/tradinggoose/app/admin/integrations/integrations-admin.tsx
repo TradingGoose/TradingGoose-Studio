@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useLocale } from 'next-intl'
 import { ChevronDown, ChevronRight, ShieldCheck } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import {
   Alert,
   AlertDescription,
@@ -168,9 +168,7 @@ export function AdminIntegrations() {
         ) : null}
 
         <Alert className='border-border/60 bg-muted/20'>
-          <AlertDescription>
-            {copy.info}
-          </AlertDescription>
+          <AlertDescription>{copy.info}</AlertDescription>
         </Alert>
 
         {!draft && integrationsQuery.isPending ? (
@@ -232,14 +230,19 @@ export function AdminIntegrations() {
                                   <Badge variant='outline' className={ADMIN_META_BADGE_CLASSNAME}>
                                     {formatTemplate(copy.summary.serviceCount, {
                                       count: bundleServices.length,
-                                      plural: bundleServices.length === 1 ? '' : copy.summary.servicePlural,
+                                      plural:
+                                        bundleServices.length === 1
+                                          ? ''
+                                          : copy.summary.servicePlural,
                                     })}
                                   </Badge>
                                   <Badge
                                     variant='outline'
                                     className={`${ADMIN_STATUS_BADGE_CLASSNAME} ${INTEGRATION_SECTION_STATUS_BADGE_CLASSNAME[summary.status]}`}
                                   >
-                                    {summary.status === 'ready' ? copy.status.ready : copy.status.review}
+                                    {summary.status === 'ready'
+                                      ? copy.status.ready
+                                      : copy.status.review}
                                   </Badge>
                                 </div>
                                 <p className='max-w-3xl text-muted-foreground text-xs leading-relaxed'>
@@ -264,22 +267,22 @@ export function AdminIntegrations() {
                           <CollapsibleContent className='border-border/60 border-t bg-muted/10 px-4 py-4 sm:px-5'>
                             <div className='space-y-4'>
                               <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>
-                              <div className='space-y-1'>
-                                <p className='font-medium text-sm'>{copy.credentials.title}</p>
-                                <p className='text-muted-foreground text-xs leading-relaxed'>
-                                  {copy.credentials.description}
-                                </p>
-                              </div>
+                                <div className='space-y-1'>
+                                  <p className='font-medium text-sm'>{copy.credentials.title}</p>
+                                  <p className='text-muted-foreground text-xs leading-relaxed'>
+                                    {copy.credentials.description}
+                                  </p>
+                                </div>
 
-                              {secretFields.length === 0 ? (
-                                <p className='text-muted-foreground text-sm'>
-                                  {copy.credentials.none}
-                                </p>
-                              ) : visibleSecretFields.length === 0 ? (
-                                <p className='text-muted-foreground text-sm'>
-                                  {copy.credentials.noMatches}
-                                </p>
-                              ) : (
+                                {secretFields.length === 0 ? (
+                                  <p className='text-muted-foreground text-sm'>
+                                    {copy.credentials.none}
+                                  </p>
+                                ) : visibleSecretFields.length === 0 ? (
+                                  <p className='text-muted-foreground text-sm'>
+                                    {copy.credentials.noMatches}
+                                  </p>
+                                ) : (
                                   <div className='grid gap-3 md:grid-cols-2'>
                                     {visibleSecretFields.map((secret) => {
                                       const credentialField = getCredentialFieldConfig(
@@ -326,7 +329,7 @@ export function AdminIntegrations() {
                               </div>
 
                               <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>
-                              <div className='space-y-1'>
+                                <div className='space-y-1'>
                                   <p className='font-medium text-sm'>{copy.services.title}</p>
                                   <p className='text-muted-foreground text-xs leading-relaxed'>
                                     {copy.services.description}
@@ -583,7 +586,7 @@ function getCredentialFieldConfig(
       .filter(Boolean)
       .map((segment) => segment[0]?.toUpperCase() + segment.slice(1))
       .join(' '),
-    note: copy.credentials.fallbackDescription,
+    note: copy.credentials.defaultDescription,
     placeholder: formatTemplate(copy.placeholders.enterValue, {
       label: credentialKey.replaceAll('_', ' '),
     }),

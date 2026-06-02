@@ -6,7 +6,7 @@ import FooterHoverText from '@/app/(landing)/components/footer/footer-hover-text
 import { soehne } from '@/app/fonts/soehne/soehne'
 import { Link } from '@/i18n/navigation'
 import { formatTemplate, getPublicCopy } from '@/i18n/public-copy'
-import { localizeDocsUrl, type LocaleCode } from '@/i18n/utils'
+import { type LocaleCode, localizeDocsUrl } from '@/i18n/utils'
 
 type FooterLinkKey =
   | 'docs'
@@ -108,9 +108,10 @@ export default async function Footer({ fullWidth = false }: FooterProps) {
             </div>
 
             <p className='max-w-[28rem] text-balance font-light text-xs leading-relaxed'>
-              {copy.landing.footer.copyright
-                .replace('{{year}}', String(new Date().getFullYear()))
-                .replace('{{brand}}', brand.name)}
+              {formatTemplate(copy.landing.footer.copyright, {
+                year: new Date().getFullYear(),
+                brand: brand.name,
+              })}
             </p>
           </div>
 
