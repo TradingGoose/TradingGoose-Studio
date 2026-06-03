@@ -35,7 +35,7 @@ import {
   WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useMcpServersStore } from '@/stores/mcp-servers/store'
 import type { McpServerWithStatus } from '@/stores/mcp-servers/types'
@@ -116,7 +116,7 @@ const ListMcpHeaderRightContent = ({
   panelId?: string
   pairColor?: PairColor
 }) => {
-  const copy = useAppMessages().workspace.widgets.mcpList
+  const copy = useMessages().workspace.widgets.mcpList
   const permissions = useUserPermissionsContext()
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
@@ -184,7 +184,7 @@ const ListMcpHeaderRight = ({
   panelId?: string
   pairColor?: PairColor
 }) => {
-  const copy = useAppMessages().workspace.widgets.mcpList
+  const copy = useMessages().workspace.widgets.mcpList
   if (!workspaceId) {
     return <span className='text-muted-foreground text-xs'>{copy.header.explorer}</span>
   }
@@ -210,7 +210,7 @@ const ListMcpWidgetContent = ({
   panelId,
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId ?? null
-  const copy = useAppMessages().workspace.widgets.mcpList
+  const copy = useMessages().workspace.widgets.mcpList
   const permissions = useUserPermissionsContext()
   const [hasRequestedLoad, setHasRequestedLoad] = useState(false)
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
@@ -455,7 +455,7 @@ const McpServerListItem = ({
   canEdit: boolean
   isDeleting: boolean
 }) => {
-  const copy = useAppMessages().workspace.widgets.mcpList.listItem
+  const copy = useMessages().workspace.widgets.mcpList.listItem
   const [isHovered, setIsHovered] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(server.name ?? '')
@@ -680,7 +680,7 @@ export const listMcpWidget: DashboardWidgetDefinition = {
   category: 'list',
   description: 'Browse and manage MCP servers for the workspace.',
   component: (props: WidgetComponentProps) => {
-    const copy = useAppMessages().workspace.widgets.mcpList
+    const copy = useMessages().workspace.widgets.mcpList
     const workspaceId = props.context?.workspaceId ?? null
 
     if (!workspaceId) {

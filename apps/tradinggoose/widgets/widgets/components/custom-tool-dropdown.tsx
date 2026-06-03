@@ -19,7 +19,7 @@ import {
 } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
 import { useCustomTools } from '@/hooks/queries/custom-tools'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
 
@@ -51,7 +51,7 @@ export function CustomToolDropdown({
   triggerClassName,
   menuClassName,
 }: CustomToolDropdownProps) {
-  const copy = useAppMessages().workspace.widgets.customToolDropdown
+  const copy = useMessages().workspace.widgets.customToolDropdown
   const [searchQuery, setSearchQuery] = useState('')
   const {
     data: queryTools = [],

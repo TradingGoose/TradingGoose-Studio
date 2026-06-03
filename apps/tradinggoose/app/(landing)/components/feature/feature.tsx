@@ -5,7 +5,7 @@ import { ChartCandlestick, LayoutDashboardIcon, Workflow } from 'lucide-react'
 import { BackgroundRippleEffect } from '@/components/ui/background-ripple-effect'
 import { Card } from '@/components/ui/card'
 import { MotionPreset } from '@/components/ui/motion-preset'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { useCardGlow } from '@/app/(landing)/components/use-card-glow'
 import { LayoutPreview } from './components/layout-preview/layout-preview'
@@ -148,7 +148,7 @@ interface FeatureProps {
 }
 
 export default function Feature({ marketPreviewMessages, workflowDemos }: FeatureProps) {
-  const copy = useAppMessages()
+  const copy = useMessages()
   useCardGlow()
   const featureRowLayout = [
     {

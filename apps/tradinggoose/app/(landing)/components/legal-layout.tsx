@@ -45,7 +45,9 @@ export default async function LegalLayout({ title, children, path }: LegalLayout
       {breadcrumbStructuredData && (
         <script
           type='application/ld+json'
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbStructuredData) }}
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(breadcrumbStructuredData).replace(/</g, '\\u003c'),
+          }}
         />
       )}
       <PublicNav />

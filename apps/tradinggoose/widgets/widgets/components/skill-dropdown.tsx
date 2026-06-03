@@ -19,7 +19,7 @@ import {
 } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
 import { useSkills } from '@/hooks/queries/skills'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import type { SkillDefinition } from '@/stores/skills/types'
 
 const DROPDOWN_MAX_HEIGHT = '20rem'
@@ -49,7 +49,7 @@ export function SkillDropdown({
   triggerClassName,
   menuClassName,
 }: SkillDropdownProps) {
-  const copy = useAppMessages().workspace.widgets.skillDropdown
+  const copy = useMessages().workspace.widgets.skillDropdown
   const [searchQuery, setSearchQuery] = useState('')
   const {
     data: skills = [],

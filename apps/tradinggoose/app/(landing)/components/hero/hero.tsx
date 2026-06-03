@@ -22,7 +22,7 @@ import {
   getRegistrationPrimaryHref,
   type RegistrationMode,
 } from '@/lib/registration/shared'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { localizeDocsUrl, type LocaleCode } from '@/i18n/utils'
 
 const Hero = ({ registrationMode }: { registrationMode: RegistrationMode }) => {
@@ -43,7 +43,7 @@ const Hero = ({ registrationMode }: { registrationMode: RegistrationMode }) => {
   const spanRef7 = useRef<HTMLSpanElement>(null)
   const spanRef8 = useRef<HTMLSpanElement>(null)
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages()
+  const copy = useMessages()
 
   const registrationPrimaryHref = getRegistrationPrimaryHref(registrationMode)
   const registrationPrimaryLabel = copy.registration[registrationMode].primary

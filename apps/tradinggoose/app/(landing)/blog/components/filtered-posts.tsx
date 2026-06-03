@@ -6,7 +6,8 @@ import { FileText, SearchIcon, SearchX } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 import { type LocaleCode } from '@/i18n/utils'
 import PostCard from './post-card'
 import type { Post } from '../lib/types'
@@ -18,7 +19,7 @@ interface FilteredPostProps {
 export default function FilteredPosts({ posts }: FilteredPostProps) {
   const [searchValue, setSearchValue] = useState('')
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages()
+  const copy = useMessages()
   const blogCopy = copy.blog
 
   if (posts.length === 0) {

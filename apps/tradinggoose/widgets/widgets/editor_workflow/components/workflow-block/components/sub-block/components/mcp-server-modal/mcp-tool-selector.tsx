@@ -14,7 +14,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
@@ -25,7 +25,7 @@ interface McpToolSelectorProps {
 }
 
 export function McpToolSelector({ blockId, subBlock, disabled = false }: McpToolSelectorProps) {
-  const workspaceCopy = useAppMessages().workspace.widgets.blockEditor
+  const workspaceCopy = useMessages().workspace.widgets.blockEditor
   const copy = workspaceCopy.mcpToolSelector
   const searchCopy = workspaceCopy.toolInput
   const workspaceId = useWorkspaceId()

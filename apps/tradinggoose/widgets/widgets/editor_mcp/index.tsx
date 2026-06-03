@@ -2,7 +2,7 @@
 
 import { Play, RefreshCw, RotateCcw, Save, Server, X } from 'lucide-react'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
@@ -30,7 +30,7 @@ const McpEditorSelector = ({
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
   const setPairContext = useSetPairColorContext()
-  const copy = useAppMessages().workspace.widgets.mcpEditor
+  const copy = useMessages().workspace.widgets.mcpEditor
 
   const resolvedServerId = resolveMcpServerId({
     params,
@@ -77,7 +77,7 @@ const McpEditorHeaderActions = ({
 }) => {
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const pairContext = usePairColorContext(resolvedPairColor)
-  const copy = useAppMessages().workspace.widgets.mcpEditor
+  const copy = useMessages().workspace.widgets.mcpEditor
   const selectionState = readEntitySelectionState({
     params,
     pairContext: resolvedPairColor !== 'gray' ? pairContext : null,

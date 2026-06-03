@@ -18,11 +18,13 @@ import {
   Switch,
   Textarea,
 } from '@/components/ui'
-import type { AdminMessages } from '@/i18n/message-types'
+import type { Messages } from 'next-intl'
+
+type AdminMessages = Messages['admin']
 import type { AdminBillingTierMutationInput } from '@/lib/admin/billing/tier-mutations'
 import type { AdminBillingTierSnapshot } from '@/lib/admin/billing/types'
 import { formatLocalizedNumber, formatUsd } from '@/i18n/formatters'
-import { formatTemplate } from '@/i18n/client-messages'
+import { formatTemplate } from '@/i18n/utils'
 import { Link } from '@/i18n/navigation'
 import type { LocaleCode } from '@/i18n/utils'
 import { cn } from '@/lib/utils'

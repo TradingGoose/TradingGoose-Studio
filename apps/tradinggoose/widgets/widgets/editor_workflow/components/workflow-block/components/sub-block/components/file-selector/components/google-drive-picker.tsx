@@ -25,7 +25,7 @@ import {
   type OAuthProvider,
   parseProvider,
 } from '@/lib/oauth'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import type { LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('GoogleDrivePicker')
@@ -75,7 +75,7 @@ export function GoogleDrivePicker({
   workspaceId,
 }: GoogleDrivePickerProps) {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().workspace.widgets.workflowLabels
+  const copy = useMessages().workspace.widgets.workflowLabels
   const [credentials, setCredentials] = useState<Credential[]>([])
   const [selectedCredentialId, setSelectedCredentialId] = useState<string>('')
   const [selectedFileId, setSelectedFileId] = useState(value)

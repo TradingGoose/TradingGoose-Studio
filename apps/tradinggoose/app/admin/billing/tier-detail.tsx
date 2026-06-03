@@ -12,7 +12,7 @@ import {
   useDeleteAdminBillingTier,
   useUpdateAdminBillingTier,
 } from '@/hooks/queries/admin-billing'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { useRouter } from '@/i18n/navigation'
 import { type LocaleCode } from '@/i18n/utils'
 import {
@@ -32,7 +32,7 @@ import {
 
 function AdminBillingTierDetailEditorPage({ tier }: { tier: AdminBillingTierSnapshot }) {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().admin.billing
+  const copy = useMessages().admin.billing
   const router = useRouter()
   const updateTier = useUpdateAdminBillingTier()
   const deleteTier = useDeleteAdminBillingTier()
@@ -184,7 +184,7 @@ function AdminBillingTierDetailEditorPage({ tier }: { tier: AdminBillingTierSnap
 
 export function AdminBillingTierDetail({ tierId }: { tierId: string }) {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().admin.billing
+  const copy = useMessages().admin.billing
   const router = useRouter()
   const snapshotQuery = useAdminBillingSnapshot()
   const snapshot = snapshotQuery.data

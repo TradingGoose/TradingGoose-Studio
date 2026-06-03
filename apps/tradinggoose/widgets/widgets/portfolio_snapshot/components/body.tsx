@@ -16,7 +16,8 @@ import { usePortfolioDetail, usePortfolioPerformance } from '@/hooks/queries/tra
 import { getPortfolioListingExposures } from '@/providers/trading/portfolio-selectors'
 import { getTradingProviderDefinition } from '@/providers/trading/providers'
 import type { TradingPortfolioPerformanceWindow } from '@/providers/trading/types'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
 import type { WidgetComponentProps } from '@/widgets/types'
 import {
@@ -178,7 +179,7 @@ export function PortfolioSnapshotWidgetBody({
   onWidgetParamsChange,
 }: WidgetComponentProps) {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().workspace.widgets.portfolioSnapshot.body
+  const copy = useMessages().workspace.widgets.portfolioSnapshot.body
   const workspaceId = context?.workspaceId ?? null
   const widgetKey = widget?.key ?? 'portfolio_snapshot'
   const widgetParams =

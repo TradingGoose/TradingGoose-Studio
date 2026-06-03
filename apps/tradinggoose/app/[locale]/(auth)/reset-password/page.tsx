@@ -6,14 +6,14 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { SetNewPasswordForm } from '@/app/(auth)/reset-password/reset-password-form'
 import { inter } from '@/app/fonts/inter'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { Link, useRouter } from '@/i18n/navigation'
 
 const logger = createLogger('ResetPasswordPage')
 
 function ResetPasswordContent() {
   const router = useRouter()
-  const copy = useAppMessages()
+  const copy = useMessages()
   const resetCopy = copy.auth.resetPassword
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
@@ -107,7 +107,7 @@ function ResetPasswordContent() {
 }
 
 function ResetPasswordLoadingFallback() {
-  const copy = useAppMessages()
+  const copy = useMessages()
 
   return <div className='flex h-screen items-center justify-center'>{copy.auth.common.loading}</div>
 }

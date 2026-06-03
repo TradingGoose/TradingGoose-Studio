@@ -6,13 +6,13 @@ import { useBrandConfig } from '@/lib/branding/branding'
 import Nav from '@/app/(landing)/components/nav/nav'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { useRouter } from '@/i18n/navigation'
 
 export default function NotFoundContent() {
   const brandConfig = useBrandConfig()
   const router = useRouter()
-  const copy = useAppMessages()
+  const copy = useMessages()
   const notFoundCopy = copy.notFound
   const primaryButtonClasses =
     'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'

@@ -23,7 +23,8 @@ import {
   type OAuthProvider,
 } from '@/lib/oauth'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('JiraProjectSelector')
@@ -75,8 +76,8 @@ export function JiraProjectSelector({
   workspaceId,
 }: JiraProjectSelectorProps) {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().workspace.widgets.blockEditor.toolInput
-  const selectorCopy = useAppMessages().workspace.widgets.blockEditor.jiraProjectSelector
+  const copy = useMessages().workspace.widgets.blockEditor.toolInput
+  const selectorCopy = useMessages().workspace.widgets.blockEditor.jiraProjectSelector
   const labelText = label ?? translateWorkflowLabel(locale, 'selectJiraProject')
   const [open, setOpen] = useState(false)
   const [credentials, setCredentials] = useState<Credential[]>([])

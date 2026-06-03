@@ -10,7 +10,8 @@ import {
 } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 
 interface SocialShareProps {
   path: string
@@ -20,7 +21,7 @@ interface SocialShareProps {
 export default function SocialShare({ path, text }: SocialShareProps) {
   const [copied, setCopied] = useState(false)
   const [url, setUrl] = useState(path)
-  const copy = useAppMessages()
+  const copy = useMessages()
   const blogCopy = copy.blog
 
   useEffect(() => {

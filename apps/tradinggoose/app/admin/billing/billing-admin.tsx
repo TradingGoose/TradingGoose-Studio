@@ -30,7 +30,8 @@ import {
   useUpdateAdminBillingSettings,
 } from '@/hooks/queries/admin-billing'
 import { formatLocalizedNumber, formatUsd } from '@/i18n/formatters'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 import { Link, useRouter } from '@/i18n/navigation'
 import { type LocaleCode } from '@/i18n/utils'
 import {
@@ -500,7 +501,7 @@ function BillingSettingsCard({
 
 export function AdminBilling() {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().admin.billing
+  const copy = useMessages().admin.billing
   const snapshotQuery = useAdminBillingSnapshot()
   const snapshot = snapshotQuery.data
   const router = useRouter()
@@ -645,7 +646,7 @@ export function AdminBilling() {
 
 export function AdminBillingCreateTier() {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().admin.billing
+  const copy = useMessages().admin.billing
   const router = useRouter()
   const createTier = useCreateAdminBillingTier()
   const [error, setError] = useState<string | null>(null)

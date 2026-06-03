@@ -5,7 +5,7 @@ import { CheckCircle, Heart, Info, Loader2, XCircle } from 'lucide-react'
 import { useLocale } from 'next-intl'
 import { useSearchParams } from 'next/navigation'
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { type LocaleCode } from '@/i18n/utils'
 import { useBrandConfig } from '@/lib/branding/branding'
 
@@ -25,7 +25,7 @@ interface UnsubscribeData {
 
 function UnsubscribeContent() {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages()
+  const copy = useMessages()
   const unsubscribeCopy = copy.unsubscribe
   const searchParams = useSearchParams()
   const [loading, setLoading] = useState(true)

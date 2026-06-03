@@ -19,7 +19,7 @@ import {
 import { type RegistrationMode } from '@/lib/registration/shared'
 import { cn } from '@/lib/utils'
 import { Link, useRouter } from '@/i18n/navigation'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { normalizeCallbackUrl, type LocaleCode } from '@/i18n/utils'
 import { SocialLoginButtons } from '@/app/(auth)/components/social-login-buttons'
 import { SSOLoginButton } from '@/app/(auth)/components/sso-login-button'
@@ -30,7 +30,7 @@ import { inter } from '@/app/fonts/inter'
 const logger = createLogger('SignupForm')
 
 function SignupFormLoadingFallback() {
-  const copy = useAppMessages()
+  const copy = useMessages()
 
   return <div className='flex h-screen items-center justify-center'>{copy.auth.common.loading}</div>
 }
@@ -85,7 +85,7 @@ function SignupFormContent({
 }) {
   const router = useRouter()
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages()
+  const copy = useMessages()
   const commonCopy = copy.auth.common
   const signupCopy = copy.auth.signup
   const defaultCallbackPath = '/workspace'

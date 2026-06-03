@@ -15,7 +15,8 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { SubBlockConfig } from '@/blocks/types'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
 import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-depends-on-gate'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
@@ -52,7 +53,7 @@ export function DocumentSelector({
   onDocumentSelect,
 }: DocumentSelectorProps) {
   const locale = useLocale() as LocaleCode
-  const selectorCopy = useAppMessages().workspace.widgets.blockEditor.documentSelector
+  const selectorCopy = useMessages().workspace.widgets.blockEditor.documentSelector
   type DocumentSelectorErrorCode = keyof typeof selectorCopy.errors | 'noKnowledgeBaseSelected'
   const [documents, setDocuments] = useState<DocumentData[]>([])
   const [error, setError] = useState<DocumentSelectorErrorCode | null>(null)

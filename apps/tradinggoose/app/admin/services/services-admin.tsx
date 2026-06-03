@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages, type Messages } from 'next-intl'
 import { Check, ChevronDown, ChevronRight, KeyRound, Pencil, Trash2, X } from 'lucide-react'
 import {
   Alert,
@@ -23,7 +23,7 @@ import { ADMIN_META_BADGE_CLASSNAME, ADMIN_STATUS_BADGE_CLASSNAME } from '@/app/
 import { AdminPageShell } from '@/app/admin/page-shell'
 import { SearchInput } from '@/app/workspace/[workspaceId]/knowledge/components'
 import { useAdminServicesSnapshot, useSaveAdminService } from '@/hooks/queries/admin-services'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
 
 const EMPTY_SNAPSHOT: AdminSystemServicesSnapshot = {
@@ -35,6 +35,8 @@ type ServiceSectionSummary = {
   missing: string | null
   status: 'ready' | 'review'
 }
+
+type AdminServicesCopy = Messages['admin']['services']
 
 const SERVICE_SECTION_STATUS_BADGE_CLASSNAME = {
   ready: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/20',
@@ -49,7 +51,7 @@ type EditingSetting = {
 
 export function AdminServices() {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().admin.services
+  const copy = useMessages().admin.services
   const servicesQuery = useAdminServicesSnapshot()
   const saveServiceMutation = useSaveAdminService()
   const [searchTerm, setSearchTerm] = useState('')
@@ -533,7 +535,7 @@ export function AdminServices() {
 }
 
 type TextSettingFieldProps = {
-  copy: ReturnType<typeof useAppMessages>['admin']['services']
+  copy: AdminServicesCopy
   isEditing: boolean
   isSaving: boolean
   setting: AdminSystemService['settings'][number]
@@ -728,7 +730,7 @@ function isServiceConfigured(service: AdminSystemService) {
 
 function getServiceSectionSummary(
   service: AdminSystemService,
-  copy: ReturnType<typeof useAppMessages>['admin']['services']
+  copy: AdminServicesCopy
 ): ServiceSectionSummary {
   const requiredCredentials = service.credentials.filter((credential) => credential.required)
   const requiredSettings = service.settings.filter((setting) => setting.required)

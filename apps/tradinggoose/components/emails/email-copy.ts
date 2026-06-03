@@ -1,4 +1,5 @@
-import { formatTemplate, getPublicCopy } from '@/i18n/public-copy'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { formatTemplate } from '@/i18n/utils'
 import { type LocaleInput, normalizeLocaleCode } from '@/i18n/utils'
 
 export type EmailLocale = LocaleInput

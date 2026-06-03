@@ -5,7 +5,7 @@ import { Download, FileUp, ListPlus, Plus, Trash2 } from 'lucide-react'
 import { useLocale } from 'next-intl'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import {
   widgetHeaderIconButtonClassName,
   widgetHeaderMenuItemClassName,
@@ -50,7 +50,7 @@ export const WatchlistListActionsButton = ({
   onDeleteWatchlist,
 }: WatchlistListActionsButtonProps) => {
   const locale = useLocale()
-  const copy = useAppMessages().workspace.widgets.watchlist.header
+  const copy = useMessages().workspace.widgets.watchlist.header
   const closeAndRun = (action: () => void) => {
     onOpenChange(false)
     action()

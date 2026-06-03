@@ -5,7 +5,8 @@ import { getBrandConfig } from '@/lib/branding/branding'
 import FooterHoverText from '@/app/(landing)/components/footer/footer-hover-text'
 import { soehne } from '@/app/fonts/soehne/soehne'
 import { Link } from '@/i18n/navigation'
-import { formatTemplate, getPublicCopy } from '@/i18n/public-copy'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { formatTemplate } from '@/i18n/utils'
 import { type LocaleCode, localizeDocsUrl } from '@/i18n/utils'
 
 type FooterLinkKey =

@@ -11,7 +11,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { type LocaleCode } from '@/i18n/utils'
 
 interface BreadcrumbNavProps {
@@ -20,7 +20,7 @@ interface BreadcrumbNavProps {
 
 export default function BreadcrumbNav({ pageTitle }: Readonly<BreadcrumbNavProps>) {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages()
+  const copy = useMessages()
   const blogCopy = copy.blog
 
   return (

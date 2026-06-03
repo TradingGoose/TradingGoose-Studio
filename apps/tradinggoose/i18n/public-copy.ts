@@ -1,32 +1,18 @@
+import type { Messages } from 'next-intl'
 import enCopy from './messages/en.json'
 import esCopy from './messages/es.json'
 import zhCopy from './messages/zh.json'
-import { defaultLocale, formatTemplate, type LocaleCode } from './utils'
+import { defaultLocale, isLocaleCode, type AppLocale } from './routing'
 
-type WidenLiteralValues<T> = T extends string
-  ? string
-  : T extends number
-    ? number
-    : T extends boolean
-      ? boolean
-      : T extends readonly (infer U)[]
-        ? WidenLiteralValues<U>[]
-        : T extends object
-          ? { [K in keyof T]: WidenLiteralValues<T[K]> }
-          : T
-
-type CoreCopy = WidenLiteralValues<typeof enCopy>
-export type PublicCopy = CoreCopy
+export type PublicCopy = Messages
 
 const PUBLIC_COPY = {
   en: enCopy,
   es: esCopy,
   zh: zhCopy,
-} satisfies Record<LocaleCode, CoreCopy>
+} satisfies Record<AppLocale, PublicCopy>
 
-export function getPublicCopy(locale: LocaleCode | string | undefined): PublicCopy {
-  const resolvedLocale = (locale && locale in PUBLIC_COPY ? locale : defaultLocale) as LocaleCode
+export function getPublicCopy(locale: AppLocale | string | undefined): PublicCopy {
+  const resolvedLocale = locale && isLocaleCode(locale) ? locale : defaultLocale
   return PUBLIC_COPY[resolvedLocale]
 }
-
-export { formatTemplate }

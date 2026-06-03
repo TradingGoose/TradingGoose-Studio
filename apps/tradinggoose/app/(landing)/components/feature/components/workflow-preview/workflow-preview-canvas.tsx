@@ -15,7 +15,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { WorkflowEdge } from '@/widgets/widgets/editor_workflow/components/workflow-edge/workflow-edge'
 import { PreviewNode } from '@/widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-node'
 import type { PreviewPayloadAdapterResult } from '@/widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-payload-adapter'
@@ -40,7 +40,7 @@ const PREVIEW_FIT_PADDING = 0.12
 
 function WorkflowPreviewControls() {
   const { zoomIn, zoomOut } = useReactFlow()
-  const copy = useAppMessages()
+  const copy = useMessages()
   const workflowCopy = copy.landing.preview.workflow
   const zoom = useStore((state: { transform?: number[]; viewport?: { zoom?: number } }) =>
     Array.isArray(state.transform) ? state.transform[2] : state.viewport?.zoom

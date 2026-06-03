@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useLocale } from 'next-intl'
 import { cn } from '@/lib/utils'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { type LocaleCode } from '@/i18n/utils'
 import type { TOC } from '../lib/types'
 
@@ -40,7 +40,7 @@ function useActiveItem(itemIds: string[]) {
 export default function TableOfContents({ toc }: TableOfContentsProps) {
   const [mounted, setMounted] = useState(false)
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages()
+  const copy = useMessages()
   const blogCopy = copy.blog
   const itemIds = toc.map((item) => item.url)
   const activeHeading = useActiveItem(itemIds)

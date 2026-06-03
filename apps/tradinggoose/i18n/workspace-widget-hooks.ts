@@ -1,7 +1,9 @@
 'use client'
 
-import { useAppMessages } from './client-messages'
-import type { WorkspaceWidgetsMessages } from './message-types'
+import { useMessages } from 'next-intl'
+import type { Messages } from 'next-intl'
+
+type WorkspaceWidgetsMessages = Messages['workspace']['widgets']
 
 export type WorkflowInspectorMessages = Pick<
   WorkspaceWidgetsMessages,
@@ -24,7 +26,7 @@ export type McpDropdownMessages = WorkspaceWidgetsMessages['mcpDropdown']
 
 export function useWorkspaceWidgetsMessages(): WorkspaceWidgetsMessages {
   // Any route rendering workspace widgets must provide the 'workspace' namespace in IntlProvider.
-  const widgetsMessages = useAppMessages().workspace?.widgets
+  const widgetsMessages = useMessages().workspace?.widgets
 
   if (!widgetsMessages) {
     throw new Error(

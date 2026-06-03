@@ -6,7 +6,8 @@ import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { Check, Pencil, Plus, X } from 'lucide-react'
 import { useLocale } from 'next-intl'
 import { Sortable, SortableContent, SortableItem, SortableOverlay } from '@/components/ui/sortable'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 import { cn } from '@/lib/utils'
 
 export type LayoutTab = {
@@ -39,7 +40,7 @@ export function LayoutTabs({
   onDelete,
 }: LayoutTabsProps) {
   const locale = useLocale()
-  const copy = useAppMessages()
+  const copy = useMessages()
   const tabsScrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const [editingId, setEditingId] = useState<string | null>(null)

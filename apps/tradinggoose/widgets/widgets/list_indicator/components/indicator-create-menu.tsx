@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { cn } from '@/lib/utils'
 import {
   widgetHeaderIconButtonClassName,
@@ -38,7 +38,7 @@ export function IndicatorCreateMenu({
   onImportIndicator,
 }: IndicatorCreateMenuProps) {
   const locale = useLocale()
-  const copy = useAppMessages().workspace.widgets.indicatorList.createMenu
+  const copy = useMessages().workspace.widgets.indicatorList.createMenu
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleCreateIndicator = useCallback(() => {

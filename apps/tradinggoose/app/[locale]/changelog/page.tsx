@@ -74,7 +74,9 @@ export default async function ChangelogPage() {
     <>
       <script
         type='application/ld+json'
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(changelogStructuredData) }}
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(changelogStructuredData).replace(/</g, '\\u003c'),
+        }}
       />
       <ChangelogContent copy={copy.changelog} locale={locale} />
     </>

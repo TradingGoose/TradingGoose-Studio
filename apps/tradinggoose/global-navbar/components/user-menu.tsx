@@ -40,8 +40,8 @@ import { HelpModal } from '@/global-navbar/settings-modal/components/help/help-m
 import type { SettingsSection } from '@/global-navbar/settings-modal/types'
 import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
 import { useSubscriptionData } from '@/hooks/queries/subscription'
-import { formatTemplate } from '@/i18n/client-messages'
-import { usePathname, useRouter } from '@/i18n/navigation'
+import { formatTemplate } from '@/i18n/utils'
+import { replaceLocaleDocument, usePathname, useRouter } from '@/i18n/navigation'
 import { getLocaleDisplayName, isLocaleCode, type LocaleCode, locales } from '@/i18n/utils'
 import { clearUserData } from '@/stores'
 import { useGeneralStore } from '@/stores/settings/general/store'
@@ -278,7 +278,7 @@ export function UserMenu({
     } catch (error) {
       logger.error('Failed to persist preferred locale:', { error, locale: nextLocale })
     }
-    router.replace(href, { locale: nextLocale })
+    replaceLocaleDocument(nextLocale, href)
   }
 
   const handleOpenBillingPortal = async () => {

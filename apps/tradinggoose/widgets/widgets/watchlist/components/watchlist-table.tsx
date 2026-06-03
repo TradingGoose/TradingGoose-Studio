@@ -50,7 +50,8 @@ import {
 } from '@/lib/listing/identity'
 import type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshot-contract'
 import { cn } from '@/lib/utils'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
 import type {
   WatchlistListingItem,
@@ -152,7 +153,7 @@ export const WatchlistTable = ({
   onSelectListing,
 }: WatchlistTableProps) => {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().workspace.widgets.watchlist.body
+  const copy = useMessages().workspace.widgets.watchlist.body
   const ensureListingSelectorInstance = useListingSelectorStore((state) => state.ensureInstance)
   const updateListingSelectorInstance = useListingSelectorStore((state) => state.updateInstance)
   const resetListingSelectorInstance = useListingSelectorStore((state) => state.resetInstance)

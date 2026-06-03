@@ -5,7 +5,8 @@ import { OpenAIIcon, AnthropicIcon, GeminiIcon, xAIIcon as XAIIcon } from '@/com
 import { PerplexityIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 
 interface AiSummarizeProps {
   path: string
@@ -14,7 +15,7 @@ interface AiSummarizeProps {
 
 export default function AiSummarize({ path, title }: AiSummarizeProps) {
   const [url, setUrl] = useState(path)
-  const copy = useAppMessages()
+  const copy = useMessages()
   const blogCopy = copy.blog
 
   useEffect(() => {

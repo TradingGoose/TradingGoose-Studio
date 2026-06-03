@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { cn } from '@/lib/utils'
 import type { IndicatorDefinition } from '@/stores/indicators/types'
 
@@ -42,7 +42,7 @@ export function IndicatorListItem({
   isDeleting,
 }: IndicatorListItemProps) {
   const locale = useLocale()
-  const copy = useAppMessages().workspace.widgets.indicatorList.listItem
+  const copy = useMessages().workspace.widgets.indicatorList.listItem
   const [isHovered, setIsHovered] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(indicator.name ?? '')

@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { defaultLocale, locales } from '@/i18n/utils'
+import { defaultLocale, isLocaleCode, locales } from '@/i18n/utils'
 
 const logger = createLogger('UserSettingsAPI')
 
@@ -35,6 +35,18 @@ const defaultSettings = {
   billingUsageNotificationsEnabled: true,
 }
 
+function withPreferredLocaleCookie(response: NextResponse, locale: string | null | undefined) {
+  if (locale && isLocaleCode(locale)) {
+    response.cookies.set('NEXT_LOCALE', locale, {
+      path: '/',
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: 'lax',
+    })
+  }
+
+  return response
+}
+
 export async function GET() {
   const requestId = generateRequestId()
 
@@ -56,11 +68,13 @@ export async function GET() {
 
     const userSettings = result[0]
 
+    const preferredLocale = userSettings.preferredLocale ?? defaultLocale
+
     return NextResponse.json(
       {
         data: {
           theme: userSettings.theme,
-          preferredLocale: userSettings.preferredLocale ?? defaultLocale,
+          preferredLocale,
           telemetryEnabled: userSettings.telemetryEnabled,
           emailPreferences: userSettings.emailPreferences ?? {},
           billingUsageNotificationsEnabled: userSettings.billingUsageNotificationsEnabled ?? true,
@@ -112,7 +126,10 @@ export async function PATCH(request: Request) {
           },
         })
 
-      return NextResponse.json({ success: true }, { status: 200 })
+      return withPreferredLocaleCookie(
+        NextResponse.json({ success: true }, { status: 200 }),
+        validatedData.preferredLocale
+      )
     } catch (validationError) {
       if (validationError instanceof z.ZodError) {
         logger.warn(`[${requestId}] Invalid settings data`, {

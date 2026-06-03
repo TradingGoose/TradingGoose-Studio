@@ -3,10 +3,10 @@
 import { DiscordIcon } from '@/components/icons/icons'
 import { BackgroundRippleEffect } from '@/components/ui/background-ripple-effect'
 import { Button } from '@/components/ui/button'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 
 export default function CallToAction() {
-  const copy = useAppMessages()
+  const copy = useMessages()
 
   return (
     <section className='px-4 py-16 md:py-24'>

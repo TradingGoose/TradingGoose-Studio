@@ -1,7 +1,9 @@
 'use client'
 
-import { formatTemplate } from '@/i18n/client-messages'
-import type { WorkspaceWidgetsMessages } from '@/i18n/message-types'
+import { formatTemplate } from '@/i18n/utils'
+import type { Messages } from 'next-intl'
+
+type WorkspaceWidgetsMessages = Messages['workspace']['widgets']
 import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import type { MarketRangeUnit } from '@/providers/market/types'
 import type {

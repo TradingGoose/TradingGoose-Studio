@@ -11,9 +11,11 @@ import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import Nav from '@/app/(landing)/components/nav/nav'
-import type { ChatMessages } from '@/i18n/message-types'
+import type { Messages } from 'next-intl'
+
+type ChatMessages = Messages['chat']
 import { getChatEmailAuthErrorMessage } from '@/app/chat/errors'
-import { formatTemplate } from '@/i18n/client-messages'
+import { formatTemplate } from '@/i18n/utils'
 import { type LocaleCode } from '@/i18n/utils'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'

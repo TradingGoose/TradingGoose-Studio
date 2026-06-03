@@ -13,7 +13,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getAuthRegistrationHref, type RegistrationMode } from '@/lib/registration/shared'
 import { cn } from '@/lib/utils'
 import { Link } from '@/i18n/navigation'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { normalizeCallbackUrl } from '@/i18n/utils'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { AuthWaitlistNote } from '@/app/(auth)/components/auth-waitlist-note'
@@ -45,7 +45,7 @@ const validateEmailField = (
 
 export default function SSOForm({ registrationMode }: { registrationMode: RegistrationMode }) {
   const authRedirectUrls = useAuthRedirectUrls()
-  const copy = useAppMessages()
+  const copy = useMessages()
   const commonCopy = copy.auth.common
   const ssoCopy = copy.auth.sso
   const defaultCallbackPath = '/workspace'

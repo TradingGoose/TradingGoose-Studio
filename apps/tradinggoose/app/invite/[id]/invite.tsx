@@ -6,7 +6,8 @@ import { client, useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getInviteErrorCode, type InviteErrorCode } from '@/app/invite/[id]/utils'
 import { InviteLayout, InviteStatusCard } from '@/app/invite/components'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 import { useRouter } from '@/i18n/navigation'
 
 const logger = createLogger('InviteById')
@@ -17,7 +18,7 @@ export default function Invite() {
   const inviteId = params.id as string
   const searchParams = useSearchParams()
   const { data: session, isPending } = useSession()
-  const copy = useAppMessages()
+  const copy = useMessages()
   const inviteCopy = copy.invite
   const inviteErrors = inviteCopy.errors as Record<InviteErrorCode, string>
   const [invitationDetails, setInvitationDetails] = useState<any>(null)

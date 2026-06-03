@@ -27,7 +27,7 @@ import { AuthWaitlistNote } from '@/app/(auth)/components/auth-waitlist-note'
 import { SocialLoginButtons } from '@/app/(auth)/components/social-login-buttons'
 import { SSOLoginButton } from '@/app/(auth)/components/sso-login-button'
 import { inter } from '@/app/fonts/inter'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { Link, useRouter } from '@/i18n/navigation'
 import { normalizeCallbackUrl } from '@/i18n/utils'
 
@@ -94,7 +94,7 @@ export default function LoginPage({
 }) {
   const router = useRouter()
   const authRedirectUrls = useAuthRedirectUrls()
-  const copy = useAppMessages()
+  const copy = useMessages()
   const loginCopy = copy.auth.login
   const commonCopy = copy.auth.common
   const authRegistrationLabel = copy.registration[registrationMode].auth

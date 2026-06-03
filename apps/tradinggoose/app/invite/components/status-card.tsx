@@ -3,7 +3,7 @@
 import { AlertCircle, CheckCircle2, Mail, RotateCcw, ShieldX, UserPlus, Users2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { useRouter } from '@/i18n/navigation'
 import { useBrandConfig } from '@/lib/branding/branding'
 import { inter } from '@/app/fonts/inter'
@@ -60,7 +60,7 @@ export function InviteStatusCard({
   isExpiredError = false,
 }: InviteStatusCardProps) {
   const router = useRouter()
-  const copy = useAppMessages()
+  const copy = useMessages()
   const brandConfig = useBrandConfig()
   const primaryButtonClasses =
     'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'

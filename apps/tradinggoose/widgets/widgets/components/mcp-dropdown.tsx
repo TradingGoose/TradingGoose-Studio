@@ -19,7 +19,7 @@ import {
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { useMcpServersStore } from '@/stores/mcp-servers/store'
 import type { McpServerWithStatus } from '@/stores/mcp-servers/types'
 
@@ -60,7 +60,7 @@ export function McpDropdown({
   align = 'start',
   triggerClassName,
 }: McpDropdownProps) {
-  const copy = useAppMessages().workspace.widgets.mcpDropdown
+  const copy = useMessages().workspace.widgets.mcpDropdown
   const [searchQuery, setSearchQuery] = useState('')
   const { servers, isLoading, error, fetchServers } = useMcpServersStore(
     (state) => ({

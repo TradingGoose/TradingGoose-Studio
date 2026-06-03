@@ -19,7 +19,7 @@ import {
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { type LocaleCode } from '@/i18n/utils'
 import type { LandingMarketIndicatorOption } from './indicators/catalog'
 
@@ -42,7 +42,7 @@ export function LandingIndicatorDropdown({
   align = 'end',
 }: LandingIndicatorDropdownProps) {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().landing.preview.indicatorDropdown
+  const copy = useMessages().landing.preview.indicatorDropdown
   const selectionPlaceholder = placeholder ?? copy.placeholder
   const [searchQuery, setSearchQuery] = useState('')
   const selectedIndicatorSet = new Set(value)

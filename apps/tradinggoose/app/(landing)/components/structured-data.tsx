@@ -4,63 +4,7 @@ import { buildHostedPricingNarrative } from '@/lib/billing/public-catalog'
 import { getPublicCopy } from '@/i18n/public-copy'
 import { localizeSiteUrl, type LocaleCode } from '@/i18n/utils'
 
-interface GitHubStats {
-  stars: number | null
-  forks: number | null
-  subscribers: number | null
-}
-
-async function fetchGitHubStats(): Promise<GitHubStats> {
-  try {
-    const res = await fetch('https://api.github.com/repos/TradingGoose/TradingGoose-Studio', {
-      headers: { Accept: 'application/vnd.github+json' },
-      // Revalidate daily — stars change slowly and API has rate limits.
-      next: { revalidate: 86400 },
-    })
-    if (!res.ok) return { stars: null, forks: null, subscribers: null }
-    const data = (await res.json()) as {
-      stargazers_count?: number
-      forks_count?: number
-      subscribers_count?: number
-    }
-    return {
-      stars: typeof data.stargazers_count === 'number' ? data.stargazers_count : null,
-      forks: typeof data.forks_count === 'number' ? data.forks_count : null,
-      subscribers: typeof data.subscribers_count === 'number' ? data.subscribers_count : null,
-    }
-  } catch {
-    return { stars: null, forks: null, subscribers: null }
-  }
-}
-
-function buildInteractionCounters(stats: GitHubStats) {
-  const counters: Array<Record<string, unknown>> = []
-  if (stats.stars !== null) {
-    counters.push({
-      '@type': 'InteractionCounter',
-      interactionType: { '@type': 'LikeAction' },
-      userInteractionCount: stats.stars,
-      name: 'GitHub stars',
-    })
-  }
-  if (stats.forks !== null) {
-    counters.push({
-      '@type': 'InteractionCounter',
-      interactionType: { '@type': 'ShareAction' },
-      userInteractionCount: stats.forks,
-      name: 'GitHub forks',
-    })
-  }
-  if (stats.subscribers !== null) {
-    counters.push({
-      '@type': 'InteractionCounter',
-      interactionType: { '@type': 'FollowAction' },
-      userInteractionCount: stats.subscribers,
-      name: 'GitHub watchers',
-    })
-  }
-  return counters
-}
+const STRUCTURED_DATA_MODIFIED_AT = '2026-04-04T00:00:00+00:00'
 
 function buildStructuredOffers(catalog: Awaited<ReturnType<typeof getPublicBillingCatalog>>) {
   if (!catalog.billingEnabled) {
@@ -137,14 +81,10 @@ function buildStructuredOffers(catalog: Awaited<ReturnType<typeof getPublicBilli
 }
 
 export default async function StructuredData() {
-  const [githubStats, billingCatalog] = await Promise.all([
-    fetchGitHubStats(),
-    getPublicBillingCatalog(),
-  ])
+  const billingCatalog = await getPublicBillingCatalog()
   const locale = (await getLocale()) as LocaleCode
   const copy = getPublicCopy(locale)
   const siteHomeUrl = localizeSiteUrl(locale, '/')
-  const interactionStatistic = buildInteractionCounters(githubStats)
   const pricingNarrative = billingCatalog.billingEnabled
     ? buildHostedPricingNarrative(billingCatalog)
     : ''
@@ -194,7 +134,6 @@ export default async function StructuredData() {
           contactType: 'customer support',
           availableLanguage: [locale],
         },
-        ...(interactionStatistic.length > 0 && { interactionStatistic }),
       },
       {
         '@type': 'WebSite',
@@ -231,7 +170,7 @@ export default async function StructuredData() {
           '@id': 'https://tradinggoose.ai/#software',
         },
         datePublished: '2025-01-01T00:00:00+00:00',
-        dateModified: new Date().toISOString(),
+        dateModified: STRUCTURED_DATA_MODIFIED_AT,
         description:
           'Build AI-powered trading analysis workflows with TradingGoose. Connect live data providers, write custom indicators, and deploy agents that trigger on market signals.',
         breadcrumb: {
@@ -387,7 +326,7 @@ export default async function StructuredData() {
         publisher: { '@id': 'https://tradinggoose.ai/#organization' },
         mainEntityOfPage: { '@id': 'https://tradinggoose.ai/#webpage' },
         datePublished: '2025-01-01T00:00:00+00:00',
-        dateModified: new Date().toISOString(),
+        dateModified: STRUCTURED_DATA_MODIFIED_AT,
         inLanguage: locale,
       },
     ],
@@ -397,7 +336,9 @@ export default async function StructuredData() {
     <>
       <script
         type='application/ld+json'
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(structuredData).replace(/</g, '\\u003c'),
+        }}
       />
       {/* LLM-friendly semantic hints */}
       {/* About: TradingGoose is a visual workflow platform for technical LLM-driven trading */}

@@ -38,7 +38,7 @@ import {
 } from '@/components/ui'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn, generatePassword } from '@/lib/utils'
-import type { PublicCopy } from '@/i18n/client-messages'
+import type { Messages } from 'next-intl'
 import { formatTemplate } from '@/i18n/utils'
 import type {
   LogLevel as StoreLogLevel,
@@ -74,7 +74,7 @@ interface WebhookSettingsProps {
 
 function getWebhookLogLevelChipLabel(
   level: NotificationLogLevel,
-  copy: PublicCopy['workspace']['widgets']['blockEditor']['webhookSettings']
+  copy: Messages['workspace']['widgets']['blockEditor']['webhookSettings']
 ) {
   switch (level) {
     case 'info':
@@ -86,7 +86,7 @@ function getWebhookLogLevelChipLabel(
 
 function getWebhookTriggerChipLabel(
   trigger: NotificationTrigger,
-  copy: PublicCopy['workspace']['widgets']['blockEditor']['webhookSettings']
+  copy: Messages['workspace']['widgets']['blockEditor']['webhookSettings']
 ) {
   switch (trigger) {
     case 'api':

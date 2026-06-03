@@ -3,7 +3,7 @@
 import { Button } from '@/components/ui/button'
 import { getEnv, isTruthy } from '@/lib/env'
 import { cn } from '@/lib/utils'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { useRouter } from '@/i18n/navigation'
 import { normalizeCallbackUrl } from '@/i18n/utils'
 
@@ -22,7 +22,7 @@ export function SSOLoginButton({
   variant = 'outline',
 }: SSOLoginButtonProps) {
   const router = useRouter()
-  const copy = useAppMessages()
+  const copy = useMessages()
   const commonCopy = copy.auth.common
 
   if (!isTruthy(getEnv('NEXT_PUBLIC_SSO_ENABLED'))) {

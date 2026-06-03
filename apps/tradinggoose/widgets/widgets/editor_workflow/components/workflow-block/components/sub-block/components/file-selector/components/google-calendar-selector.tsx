@@ -16,7 +16,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { createLogger } from '@/lib/logs/console/logger'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import type { LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('GoogleCalendarSelector')
@@ -55,7 +55,7 @@ export function GoogleCalendarSelector({
   workspaceId,
 }: GoogleCalendarSelectorProps) {
   const locale = useLocale() as LocaleCode
-  const selectorCopy = useAppMessages().workspace.widgets.blockEditor.googleCalendarSelector
+  const selectorCopy = useMessages().workspace.widgets.blockEditor.googleCalendarSelector
   const copy = {
     selectGoogleCalendar: translateWorkflowLabel(locale, 'selectGoogleCalendar'),
     searchCalendars: translateWorkflowLabel(locale, 'searchCalendars'),

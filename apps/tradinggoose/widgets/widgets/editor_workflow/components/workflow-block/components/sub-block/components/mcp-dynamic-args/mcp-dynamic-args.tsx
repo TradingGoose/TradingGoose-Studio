@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils'
 import {
   getLocalizedToolParameterLabel,
 } from '@/i18n/block-editor'
-import { formatTemplate } from '@/i18n/client-messages'
+import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
 import { useWorkspaceBlockEditorMessages } from '@/i18n/workspace-widget-hooks'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'

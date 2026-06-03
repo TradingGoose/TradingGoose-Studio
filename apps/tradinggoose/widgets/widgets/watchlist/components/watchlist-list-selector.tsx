@@ -40,7 +40,8 @@ import {
 } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
 import type { WatchlistRecord } from '@/lib/watchlists/types'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 
 type WatchlistListSelectorProps = {
   watchlists: WatchlistRecord[]
@@ -69,7 +70,7 @@ export const WatchlistListSelector = ({
   align = 'start',
 }: WatchlistListSelectorProps) => {
   const locale = useLocale()
-  const copy = useAppMessages().workspace.widgets.watchlist.listSelector
+  const copy = useMessages().workspace.widgets.watchlist.listSelector
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [editingWatchlistId, setEditingWatchlistId] = useState<string | null>(null)

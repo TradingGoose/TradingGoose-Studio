@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocale } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { useSkills } from '@/hooks/queries/skills'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
@@ -25,7 +25,7 @@ export function EditorSkillWidgetBody({
   onWidgetParamsChange,
 }: EditorSkillWidgetBodyProps) {
   const locale = useLocale()
-  const copy = useAppMessages().workspace.widgets.skillEditor.body
+  const copy = useMessages().workspace.widgets.skillEditor.body
   const workspaceId = context?.workspaceId ?? null
   const { data: skills = [], isLoading, error } = useSkills(workspaceId ?? '')
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor

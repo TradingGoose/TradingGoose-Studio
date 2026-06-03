@@ -14,7 +14,8 @@ import { useKnowledgeBaseTagDefinitions } from '@/hooks/use-knowledge-base-tag-d
 import { useTagSelection } from '@/hooks/use-tag-selection'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 
@@ -46,7 +47,7 @@ export function DocumentTagEntry({
 }: DocumentTagEntryProps) {
   const locale = useLocale() as LocaleCode
   const t = (key: string) => translateWorkflowLabel(locale, key)
-  const copy = useAppMessages().workspace.widgets.blockEditor.documentTagEntry
+  const copy = useMessages().workspace.widgets.blockEditor.documentTagEntry
   const [storeValue, setStoreValue] = useSubBlockValue<string>(blockId, subBlock.id)
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 

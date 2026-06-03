@@ -19,7 +19,8 @@ import {
   widgetHeaderButtonGroupClassName,
   widgetHeaderIconButtonClassName,
 } from '@/components/widget-header-control'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 import { type ListingOption, toListingValue } from '@/lib/listing/identity'
 import { parseImportedWatchlistFile } from '@/lib/watchlists/import-export'
 import type { WatchlistRecord } from '@/lib/watchlists/types'
@@ -202,7 +203,7 @@ export const WatchlistHeaderCenterControls = ({
   widget,
 }: WatchlistHeaderControlsSlotProps) => {
   const locale = useLocale()
-  const copy = useAppMessages().workspace.widgets.watchlist.header
+  const copy = useMessages().workspace.widgets.watchlist.header
   const widgetKey = widget?.key ?? 'watchlist'
   const params = resolveWatchlistParams(widget)
   const providerId = resolveProviderId(params)
@@ -325,7 +326,7 @@ export const WatchlistHeaderRightControls = ({
   widget,
 }: WatchlistHeaderControlsSlotProps) => {
   const locale = useLocale()
-  const copy = useAppMessages().workspace.widgets.watchlist
+  const copy = useMessages().workspace.widgets.watchlist
   const [listActionsOpen, setListActionsOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)

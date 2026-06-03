@@ -5,7 +5,7 @@ import { useCallback } from 'react'
 import { useLocale } from 'next-intl'
 import { Card } from '@/components/ui/card'
 import { widgetHeaderControlClassName } from '@/components/widget-header-control'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { type LocaleCode } from '@/i18n/utils'
 import { cn } from '@/lib/utils'
 import { getWidgetDefinition } from '@/widgets/registry'
@@ -30,7 +30,7 @@ export function LandingWidgetShell({
   const widgetDefinition = getWidgetDefinition(widgetKey) ?? getWidgetDefinition('empty')
   const WidgetIcon = widgetDefinition?.icon
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages()
+  const copy = useMessages()
   const shellCopy = copy.landing.preview.shell
   const handleWheel = useCallback((event: WheelEvent<HTMLDivElement>) => {
     if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return

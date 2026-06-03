@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
 import { cn } from '@/lib/utils'
 import { useRouter } from '@/i18n/navigation'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { useVerification } from '@/app/(auth)/verify/use-verification'
 import { inter } from '@/app/fonts/inter'
@@ -25,7 +26,7 @@ function VerificationForm({
   isProduction: boolean
   isEmailVerificationEnabled: boolean
 }) {
-  const copy = useAppMessages()
+  const copy = useMessages()
   const verifyCopy = copy.auth.verify
   const commonCopy = copy.auth.common
   const {

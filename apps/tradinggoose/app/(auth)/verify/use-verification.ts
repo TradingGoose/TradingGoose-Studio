@@ -7,10 +7,10 @@ import { normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
 import { client, useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { normalizeCallbackUrl } from '@/i18n/utils'
-import type { PublicCopy } from '@/i18n/client-messages'
+import type { Messages } from 'next-intl'
 
 const logger = createLogger('useVerification')
-type VerifyCopy = PublicCopy['auth']['verify']
+type VerifyCopy = Messages['auth']['verify']
 
 const VERIFICATION_ERROR_CODE_GROUPS = {
   expired: new Set([

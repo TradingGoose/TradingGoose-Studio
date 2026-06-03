@@ -22,7 +22,8 @@ import {
   getServiceIdFromScopes,
   type OAuthProvider,
 } from '@/lib/oauth'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('JiraIssueSelector')
@@ -73,8 +74,8 @@ export function JiraIssueSelector({
   workspaceId,
 }: JiraIssueSelectorProps) {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().workspace.widgets.workflowLabels
-  const selectorCopy = useAppMessages().workspace.widgets.blockEditor.jiraIssueSelector
+  const copy = useMessages().workspace.widgets.workflowLabels
+  const selectorCopy = useMessages().workspace.widgets.blockEditor.jiraIssueSelector
   const [open, setOpen] = useState(false)
   const [credentials, setCredentials] = useState<Credential[]>([])
   const [issues, setIssues] = useState<JiraIssueInfo[]>([])

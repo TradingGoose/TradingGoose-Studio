@@ -3,8 +3,10 @@
 import Image from 'next/image'
 import { GithubIcon } from '@/components/icons/icons'
 import { Link } from '@/i18n/navigation'
-import { formatTemplate } from '@/i18n/client-messages'
-import type { ChatMessages } from '@/i18n/message-types'
+import { formatTemplate } from '@/i18n/utils'
+import type { Messages } from 'next-intl'
+
+type ChatMessages = Messages['chat']
 import { inter } from '@/app/fonts/inter'
 
 interface ChatHeaderProps {

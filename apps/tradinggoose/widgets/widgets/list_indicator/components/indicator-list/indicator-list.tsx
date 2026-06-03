@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { useLocale } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import {
   useCreateIndicator,
   useDeleteIndicator,
@@ -37,7 +37,7 @@ export function IndicatorList({
   pairColor = 'gray',
 }: WidgetComponentProps) {
   const locale = useLocale()
-  const copy = useAppMessages().workspace.widgets.indicatorList
+  const copy = useMessages().workspace.widgets.indicatorList
   const workspaceId = context?.workspaceId ?? null
   const permissions = useUserPermissionsContext()
   const [copyingIds, setCopyingIds] = useState<Set<string>>(new Set())

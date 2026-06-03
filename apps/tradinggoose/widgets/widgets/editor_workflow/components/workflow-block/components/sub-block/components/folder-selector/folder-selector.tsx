@@ -17,7 +17,8 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { createLogger } from '@/lib/logs/console/logger'
 import { type Credential, getProviderIdFromServiceId, getServiceIdFromScopes } from '@/lib/oauth'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('FolderSelector')
@@ -60,7 +61,7 @@ export function FolderSelector({
   isForeignCredential = false,
 }: FolderSelectorProps) {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().workspace.widgets.workflowLabels
+  const copy = useMessages().workspace.widgets.workflowLabels
   const [open, setOpen] = useState(false)
   const [credentials, setCredentials] = useState<Credential[]>([])
   const [folders, setFolders] = useState<FolderInfo[]>([])

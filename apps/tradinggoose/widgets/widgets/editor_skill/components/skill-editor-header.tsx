@@ -5,7 +5,7 @@ import { Download, Save } from 'lucide-react'
 import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { exportSkillsAsJson } from '@/lib/skills/import-export'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useSkillsStore } from '@/stores/skills/store'
@@ -37,7 +37,7 @@ export function SkillEditorSelector({
   params,
 }: SkillEditorSelectorProps) {
   const locale = useLocale()
-  const copy = useAppMessages().workspace.widgets.skillEditor.header
+  const copy = useMessages().workspace.widgets.skillEditor.header
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -106,7 +106,7 @@ export function SkillEditorExportButton({
   pairColor = 'gray',
 }: SkillEditorActionButtonProps) {
   const locale = useLocale()
-  const copy = useAppMessages().workspace.widgets.skillEditor.header
+  const copy = useMessages().workspace.widgets.skillEditor.header
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -184,7 +184,7 @@ export function SkillEditorSaveButton({
   params,
 }: SkillEditorActionButtonProps) {
   const locale = useLocale()
-  const copy = useAppMessages().workspace.widgets.skillEditor.header
+  const copy = useMessages().workspace.widgets.skillEditor.header
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)

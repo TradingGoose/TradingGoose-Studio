@@ -6,7 +6,7 @@ import { TradingProviderControls } from '@/components/trading-selector/provider-
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { useLocale } from 'next-intl'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import type { LocaleCode } from '@/i18n/utils'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { emitPortfolioSnapshotParamsChange } from '@/widgets/utils/portfolio-snapshot-params'
@@ -34,7 +34,7 @@ export function PortfolioSnapshotHeaderControls({
   params,
 }: HeaderControlProps) {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().workspace.widgets.portfolioSnapshot.header
+  const copy = useMessages().workspace.widgets.portfolioSnapshot.header
   const providerAvailabilityQuery = useOAuthProviderAvailability(
     getPortfolioSnapshotProviderAvailabilityIds()
   )
@@ -123,7 +123,7 @@ export function PortfolioSnapshotHeaderControls({
 
 function PortfolioSnapshotRefreshControl({ panelId, widgetKey, params }: HeaderControlProps) {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().workspace.widgets.portfolioSnapshot.header
+  const copy = useMessages().workspace.widgets.portfolioSnapshot.header
   const providerId = typeof params?.provider === 'string' ? params.provider.trim() : ''
 
   return (

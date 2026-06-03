@@ -6,13 +6,14 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
-import { formatTemplate, type PublicCopy } from '@/i18n/client-messages'
+import type { Messages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 import { type LocaleCode } from '@/i18n/utils'
 import type { ChangelogEntry } from './changelog-content'
 
 type Props = {
   initialEntries: ChangelogEntry[]
-  copy: PublicCopy['changelog']
+  copy: Messages['changelog']
   locale: LocaleCode
 }
 

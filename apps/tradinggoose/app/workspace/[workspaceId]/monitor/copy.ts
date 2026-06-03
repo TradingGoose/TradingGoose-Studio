@@ -1,7 +1,6 @@
 'use client'
 
-import { useLocale } from 'next-intl'
-import { type PublicCopy, useAppMessages } from '@/i18n/client-messages'
+import { useLocale, useMessages, type Messages } from 'next-intl'
 import type { LocaleCode } from '@/i18n/utils'
 import type { MonitorExecutionGroupLabels } from '@/app/workspace/[workspaceId]/monitor/components/data/execution-ordering'
 import type {
@@ -10,7 +9,7 @@ import type {
   ExecutionMonitorGroupField,
 } from '@/app/workspace/[workspaceId]/monitor/components/view/view-config'
 
-export type MonitorCopy = PublicCopy['workspace']['monitor']
+export type MonitorCopy = Messages['workspace']['monitor']
 
 type MonitorBoardLabels = {
   allExecutionsLabel: string
@@ -32,7 +31,7 @@ export function useMonitorCopy() {
 
   return {
     locale,
-    copy: useAppMessages().workspace.monitor,
+    copy: useMessages().workspace.monitor,
   }
 }
 

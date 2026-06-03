@@ -20,7 +20,7 @@ import {
   SKILL_EDITOR_WIDGET_KEY,
   SKILL_LIST_WIDGET_KEY,
 } from '@/widgets/widgets/_shared/skill/utils'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { SkillCreateMenu } from '@/widgets/widgets/list_skill/components/skill-create-menu'
 import {
   SkillList,
@@ -60,7 +60,7 @@ const SkillListHeaderRight = ({
   pairColor?: PairColor
 }) => {
   const locale = useLocale()
-  const copy = useAppMessages().workspace.widgets
+  const copy = useMessages().workspace.widgets
   const permissions = useUserPermissionsContext()
   const createSkillMutation = useCreateSkill()
   const importMutation = useImportSkills()
@@ -159,7 +159,7 @@ const ListSkillHeaderRight = ({
   pairColor?: PairColor
 }) => {
   const locale = useLocale()
-  const copy = useAppMessages().workspace.widgets.skillList
+  const copy = useMessages().workspace.widgets.skillList
   if (!workspaceId) {
     return <span className='text-muted-foreground text-xs'>{copy.header.explorer}</span>
   }
@@ -175,7 +175,7 @@ const ListSkillHeaderRight = ({
 
 const ListSkillWidgetBody = (props: WidgetComponentProps) => {
   const locale = useLocale()
-  const copy = useAppMessages().workspace.widgets.skillList
+  const copy = useMessages().workspace.widgets.skillList
   const workspaceId = props.context?.workspaceId ?? null
   if (!workspaceId) {
     return <SkillListMessage message={copy.body.selectWorkspace} />

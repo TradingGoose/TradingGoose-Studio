@@ -14,7 +14,7 @@ import {
 } from '@/app/workspace/[workspaceId]/monitor/copy'
 import { LogDetails } from '@/app/workspace/[workspaceId]/records/components/log-details/log-details'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { formatTemplate } from '@/i18n/client-messages'
+import { formatTemplate } from '@/i18n/utils'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
 import { buildMonitorBoardSections } from '../board/board-state'
 import { MonitorBoard } from '../board/monitor-board'

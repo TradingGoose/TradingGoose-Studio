@@ -5,7 +5,9 @@ import { Mic, MicOff, Phone } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
-import type { ChatMessages } from '@/i18n/message-types'
+import type { Messages } from 'next-intl'
+
+type ChatMessages = Messages['chat']
 import { ParticlesVisualization } from '@/app/chat/components/voice-interface/components/particles'
 
 const logger = createLogger('VoiceInterface')

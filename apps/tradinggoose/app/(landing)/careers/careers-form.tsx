@@ -17,7 +17,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { cn } from '@/lib/utils'
 import { soehne } from '@/app/fonts/soehne/soehne'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { type LocaleCode } from '@/i18n/utils'
 
 const validateName = (name: string, message: string): string[] => {
@@ -89,7 +89,7 @@ const validateMessage = (message: string, validationMessage: string): string[] =
 
 export function CareersForm() {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().careers.form
+  const copy = useMessages().careers.form
   const contactEmail = copy.helpers.contactEmail
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle')

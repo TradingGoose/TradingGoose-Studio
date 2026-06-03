@@ -9,7 +9,7 @@ import { Link } from '@/i18n/navigation'
 import { formatBlogDate } from '../lib/heading-slugs'
 import MarkdownTitle from './markdown-title'
 import type { Post } from '../lib/types'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { type LocaleCode } from '@/i18n/utils'
 
 interface PostCardProps {
@@ -19,7 +19,7 @@ interface PostCardProps {
 
 export default function PostCard({ post, index }: PostCardProps) {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages()
+  const copy = useMessages()
   const blogCopy = copy.blog
 
   return (

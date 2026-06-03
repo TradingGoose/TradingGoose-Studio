@@ -18,7 +18,8 @@ import {
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { getListingIdentityKey, type ListingOption } from '@/lib/listing/identity'
 import type { TradingOrderSubmitRequest } from '@/lib/trading/order-types'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
@@ -216,7 +217,7 @@ export function QuickOrderWidgetBody({
   onWidgetParamsChange,
 }: WidgetComponentProps) {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().workspace.widgets.quickOrder
+  const copy = useMessages().workspace.widgets.quickOrder
   const workspaceId = context?.workspaceId ?? null
   const quickOrderParams = (params as QuickOrderBodyParams) ?? null
   const widgetKey = widget?.key ?? 'quick_order'

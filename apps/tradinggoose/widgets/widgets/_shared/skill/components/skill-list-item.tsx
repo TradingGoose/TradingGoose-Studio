@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { cn } from '@/lib/utils'
 import type { SkillDefinition } from '@/stores/skills/types'
 
@@ -38,7 +38,7 @@ export function SkillListItem({
   isDeleting = false,
 }: SkillListItemProps) {
   const locale = useLocale()
-  const copy = useAppMessages().workspace.widgets.skillList.listItem
+  const copy = useMessages().workspace.widgets.skillList.listItem
   const [isHovered, setIsHovered] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(skill.name)

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { type LocaleCode } from '@/i18n/utils'
 import { inter } from '@/app/fonts/inter'
 
@@ -34,7 +34,7 @@ export function RequestResetForm({
   className,
 }: RequestResetFormProps) {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().auth.resetPassword
+  const copy = useMessages().auth.resetPassword
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -95,7 +95,7 @@ export function SetNewPasswordForm({
   className,
 }: SetNewPasswordFormProps) {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().auth.resetPassword
+  const copy = useMessages().auth.resetPassword
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [validationMessage, setValidationMessage] = useState('')

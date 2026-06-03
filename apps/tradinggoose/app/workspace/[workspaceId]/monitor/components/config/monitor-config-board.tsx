@@ -5,7 +5,7 @@ import { Plus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
-import { formatTemplate } from '@/i18n/client-messages'
+import { formatTemplate } from '@/i18n/utils'
 import { type KanbanDragEvent, type KanbanDropDirection, KanbanProvider } from '../board/kanban'
 import {
   MonitorKanbanBoard,

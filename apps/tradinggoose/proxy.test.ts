@@ -139,6 +139,23 @@ describe('proxy auth routing', () => {
     expect(response.headers.get('x-middleware-rewrite')).not.toBe('http://localhost:3000/')
   })
 
+  it('redirects root requests to the locale remembered by NEXT_LOCALE', async () => {
+    mockGetSessionCookie.mockReturnValue('session-cookie')
+
+    const { proxy } = await import('./proxy')
+    const response = await proxy(
+      new NextRequest('http://localhost:3000/?source=nav', {
+        headers: {
+          cookie: 'NEXT_LOCALE=zh',
+          'user-agent': 'vitest',
+        },
+      })
+    )
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get('location')).toBe('http://localhost:3000/zh?source=nav')
+  })
+
   it('does not rewrite localized API-shaped paths to canonical API routes', async () => {
     mockGetSessionCookie.mockReturnValue('session-cookie')
 

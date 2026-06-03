@@ -14,7 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import type { ListingOption } from '@/lib/listing/identity'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { type LocaleCode } from '@/i18n/utils'
 
 type MonitorEntry = {
@@ -91,7 +91,7 @@ function seedEntries(stocks: ListingOption[], indicators: MonitorOption[], workf
 
 export default function MonitorPreview({ stocks }: { stocks: ListingOption[] }) {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages()
+  const copy = useMessages()
   const monitorCopy = copy.landing.monitorSection
   const [liveStocks, setLiveStocks] = useState(stocks)
   const [entries, setEntries] = useState<MonitorEntry[]>(() =>

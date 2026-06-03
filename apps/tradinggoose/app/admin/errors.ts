@@ -1,5 +1,7 @@
 import { ADMIN_ERROR_CODES } from './constants'
-import type { AdminMessages } from '@/i18n/message-types'
+import type { Messages } from 'next-intl'
+
+type AdminMessages = Messages['admin']
 
 function normalizeAdminErrorCode(code: string | null | undefined): string {
   return (code || '')

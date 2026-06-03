@@ -28,7 +28,8 @@ import {
 } from '@/lib/oauth'
 import type { SubBlockConfig } from '@/blocks/types'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
@@ -47,7 +48,7 @@ export function CredentialSelector({
   disabled = false,
 }: CredentialSelectorProps) {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().workspace.widgets.blockEditor.toolInput
+  const copy = useMessages().workspace.widgets.blockEditor.toolInput
   const labelCopy = {
     searchCredentials: translateWorkflowLabel(locale, 'searchCredentials'),
     loadingCredentials: translateWorkflowLabel(locale, 'loadingCredentials'),

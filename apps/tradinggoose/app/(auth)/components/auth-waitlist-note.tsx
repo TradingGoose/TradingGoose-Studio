@@ -2,12 +2,12 @@
 
 import { useLocale } from 'next-intl'
 import { inter } from '@/app/fonts/inter'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { type LocaleCode } from '@/i18n/utils'
 
 export function AuthWaitlistNote() {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages()
+  const copy = useMessages()
 
   return (
     <div

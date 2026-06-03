@@ -20,7 +20,7 @@ import {
 } from '@/app/chat/components'
 import { CHAT_ERROR_CODES, CHAT_REQUEST_TIMEOUT_MS } from '@/app/chat/constants'
 import { getChatErrorMessage } from '@/app/chat/errors'
-import { useChatMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import type { LocaleCode } from '@/i18n/utils'
 import { useAudioStreaming, useChatStreaming } from '@/app/chat/hooks'
 
@@ -111,7 +111,7 @@ function throttle<T extends (...args: any[]) => any>(func: T, delay: number): T 
 
 export default function ChatClient({ identifier }: { identifier: string }) {
   const locale = useLocale() as LocaleCode
-  const chatCopy = useChatMessages()
+  const chatCopy = useMessages().chat
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)

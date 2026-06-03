@@ -1,10 +1,11 @@
 import { createTranslator } from 'next-intl'
+import { defaultLocale, isLocaleCode, locales, type AppLocale } from './routing'
 
-export type LocaleCode = 'en' | 'es' | 'zh'
+export type LocaleCode = AppLocale
 export type LocaleInput = LocaleCode | string | null | undefined
 
-export const locales = ['en', 'es', 'zh'] as const
-export const defaultLocale: LocaleCode = 'en'
+export { defaultLocale, isLocaleCode, locales }
+
 export const SITE_BASE_URL = 'https://tradinggoose.ai'
 const LOCALE_DISPLAY_NAMES: Record<LocaleCode, string> = {
   en: 'English',
@@ -17,10 +18,6 @@ const OPEN_GRAPH_LOCALE_MAP: Record<LocaleCode, string> = {
   en: 'en_US',
   es: 'es_ES',
   zh: 'zh_CN',
-}
-
-export function isLocaleCode(value: string): value is LocaleCode {
-  return (locales as readonly string[]).includes(value)
 }
 
 export function normalizeLocaleCode(locale: LocaleInput): LocaleCode {

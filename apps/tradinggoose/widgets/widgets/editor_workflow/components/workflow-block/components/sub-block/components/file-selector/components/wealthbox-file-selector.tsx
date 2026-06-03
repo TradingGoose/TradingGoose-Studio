@@ -21,7 +21,8 @@ import {
   getServiceIdFromScopes,
   type OAuthProvider,
 } from '@/lib/oauth'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('WealthboxFileSelector')
@@ -67,7 +68,7 @@ export function WealthboxFileSelector({
   workspaceId,
 }: WealthboxFileSelectorProps) {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().workspace.widgets.workflowLabels
+  const copy = useMessages().workspace.widgets.workflowLabels
   const [open, setOpen] = useState(false)
   const [credentials, setCredentials] = useState<Credential[]>([])
   const [selectedCredentialId, setSelectedCredentialId] = useState<string>(credentialId || '')

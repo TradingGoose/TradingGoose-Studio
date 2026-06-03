@@ -4,7 +4,8 @@ import { Fragment, memo, useCallback, useEffect, useRef, useState } from 'react'
 import { useLocale } from 'next-intl'
 import { Card } from '@/components/ui/card'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
 import {
   createDefaultLayoutState,
@@ -44,7 +45,7 @@ function LayoutPreviewPanelSurface({
   const bodyRef = useRef<HTMLDivElement>(null)
   const [panelSize, setPanelSize] = useState({ width: 0, height: 0 })
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages()
+  const copy = useMessages()
   const layoutCopy = copy.landing.preview.layout
 
   const handleHorizontalWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {

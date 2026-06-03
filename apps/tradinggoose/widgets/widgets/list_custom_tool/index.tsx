@@ -19,7 +19,7 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import type { LocaleCode } from '@/i18n/utils'
 import { parseImportedCustomToolsFile } from '@/lib/custom-tools/import-export'
 import { cn } from '@/lib/utils'
@@ -109,7 +109,7 @@ function CustomToolCreateMenu({
   onImportCustomTools?: (content: string, filename?: string) => Promise<void> | void
 }) {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().workspace.widgets.customToolList.createMenu
+  const copy = useMessages().workspace.widgets.customToolList.createMenu
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleCreateCustomTool = useCallback(() => {
@@ -306,7 +306,7 @@ const ListCustomToolHeaderRight = ({
   pairColor?: PairColor
 }) => {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().workspace.widgets.customToolList.header
+  const copy = useMessages().workspace.widgets.customToolList.header
   if (!workspaceId) {
     return <span className='text-muted-foreground text-xs'>{copy.explorer}</span>
   }
@@ -333,7 +333,7 @@ function ListCustomToolWidgetBodyInner({
 }: WidgetComponentProps) {
   const workspaceId = context?.workspaceId ?? null
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().workspace.widgets.customToolList.body
+  const copy = useMessages().workspace.widgets.customToolList.body
   const permissions = useUserPermissionsContext()
   const { data: queryTools = [], isLoading, error } = useCustomTools(workspaceId ?? '')
   const storedTools = useCustomToolsStore((state) =>
@@ -499,7 +499,7 @@ function ListCustomToolWidgetBodyInner({
 const ListCustomToolWidgetBody = (props: WidgetComponentProps) => {
   const workspaceId = props.context?.workspaceId ?? null
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().workspace.widgets.customToolList.body
+  const copy = useMessages().workspace.widgets.customToolList.body
   if (!workspaceId) {
     return <WidgetStateMessage message={copy.selectWorkspace} />
   }

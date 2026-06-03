@@ -20,7 +20,7 @@ import {
   parseProvider,
 } from '@/lib/oauth'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
-import { formatTemplate } from '@/i18n/client-messages'
+import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
 import { useWorkspaceBlockEditorMessages } from '@/i18n/workspace-widget-hooks'
 import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'

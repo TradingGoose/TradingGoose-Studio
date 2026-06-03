@@ -8,7 +8,7 @@ import {
   useMonitorCopy,
 } from '@/app/workspace/[workspaceId]/monitor/copy'
 import { formatDurationMs, formatUsd } from '@/i18n/formatters'
-import { formatTemplate } from '@/i18n/client-messages'
+import { formatTemplate } from '@/i18n/utils'
 import { formatMonitorDateTime } from '../shared/monitor-time'
 import type {
   ExecutionMonitorQuickFilterField,

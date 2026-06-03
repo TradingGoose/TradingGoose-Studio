@@ -7,7 +7,7 @@ import { shallow } from 'zustand/shallow'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import type { LocaleCode } from '@/i18n/utils'
 import { useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
@@ -40,7 +40,7 @@ const WorkflowListWidgetBody = ({
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId ?? null
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().workspace.widgets.workflowList
+  const copy = useMessages().workspace.widgets.workflowList
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const metadataChannelId = WORKSPACE_BOOTSTRAP_CHANNEL
@@ -319,7 +319,7 @@ export const workflowListWidget: DashboardWidgetDefinition = {
 
 const WorkflowListHeaderRight = ({ workspaceId }: { workspaceId?: string }) => {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().workspace.widgets.workflowList
+  const copy = useMessages().workspace.widgets.workflowList
   const handleWorkflowCreated = useCallback(
     (workflowId: string) => {
       if (!workspaceId || !workflowId) {

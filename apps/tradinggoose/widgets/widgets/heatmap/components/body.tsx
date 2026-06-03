@@ -11,7 +11,7 @@ import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-ava
 import { usePortfolioDetail } from '@/hooks/queries/trading-portfolio'
 import { useWatchlists } from '@/hooks/queries/watchlists'
 import { getPortfolioListingExposures } from '@/providers/trading/portfolio-selectors'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import type { LocaleCode } from '@/i18n/utils'
 import { useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { WidgetComponentProps } from '@/widgets/types'
@@ -71,7 +71,7 @@ export function HeatmapWidgetBody({
   onWidgetParamsChange,
 }: WidgetComponentProps) {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().workspace.widgets.heatmap.body
+  const copy = useMessages().workspace.widgets.heatmap.body
   const workspaceId = context?.workspaceId ?? null
   const widgetKey = widget?.key ?? 'heatmap'
   const widgetParams = params && typeof params === 'object' ? (params as HeatmapWidgetParams) : null

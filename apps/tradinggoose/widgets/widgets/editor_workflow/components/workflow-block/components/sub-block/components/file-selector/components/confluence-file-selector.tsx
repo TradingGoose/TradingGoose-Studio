@@ -22,7 +22,8 @@ import {
   getServiceIdFromScopes,
   type OAuthProvider,
 } from '@/lib/oauth'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('ConfluenceFileSelector')
@@ -71,8 +72,8 @@ export function ConfluenceFileSelector({
   isForeignCredential = false,
 }: ConfluenceFileSelectorProps) {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().workspace.widgets.workflowLabels
-  const selectorCopy = useAppMessages().workspace.widgets.blockEditor.confluenceFileSelector
+  const copy = useMessages().workspace.widgets.workflowLabels
+  const selectorCopy = useMessages().workspace.widgets.blockEditor.confluenceFileSelector
   const [open, setOpen] = useState(false)
   const [credentials, setCredentials] = useState<Credential[]>([])
   const [files, setFiles] = useState<ConfluenceFileInfo[]>([])

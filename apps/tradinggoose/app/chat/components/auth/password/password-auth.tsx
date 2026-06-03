@@ -8,7 +8,9 @@ import { Label } from '@/components/ui/label'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import Nav from '@/app/(landing)/components/nav/nav'
-import type { ChatMessages } from '@/i18n/message-types'
+import type { Messages } from 'next-intl'
+
+type ChatMessages = Messages['chat']
 import { getChatPasswordAuthErrorMessage } from '@/app/chat/errors'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'

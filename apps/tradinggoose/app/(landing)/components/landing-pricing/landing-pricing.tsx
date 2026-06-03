@@ -14,7 +14,7 @@ import { useCardGlow } from '@/app/(landing)/components/use-card-glow'
 import { toPlanFeatures } from '@/global-navbar/settings-modal/components/subscription/plan-configs'
 import { usePublicBillingCatalog } from '@/hooks/queries/public-billing-catalog'
 import { useRegistrationState } from '@/hooks/queries/registration'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { useRouter } from '@/i18n/navigation'
 
 interface PricingTierCard {
@@ -31,7 +31,7 @@ interface PricingTierCard {
 
 export default function LandingPricing() {
   const router = useRouter()
-  const copy = useAppMessages()
+  const copy = useMessages()
   const pricingCopy = copy.landing.pricing
   const registrationQuery = useRegistrationState()
   const registrationMode = registrationQuery.data?.registrationMode ?? DEFAULT_REGISTRATION_MODE

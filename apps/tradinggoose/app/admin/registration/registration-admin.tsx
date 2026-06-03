@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages, type Messages } from 'next-intl'
 import { CheckCheck, ShieldCheck, UserCheck2, X } from 'lucide-react'
 import {
   Alert,
@@ -31,12 +31,14 @@ import {
   useSaveRegistrationMode,
   useUpdateWaitlistStatuses,
 } from '@/hooks/queries/admin-registration'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
 
 const TIME_RANGE_VALUES = ['all', '7d', '30d', '90d'] as const
 
 type WaitlistTimeRange = (typeof TIME_RANGE_VALUES)[number]
+type RegistrationStatusCopy = Messages['admin']['registration']['status']
+type RegistrationModeCopy = Messages['admin']['registration']['modes']
 
 function formatTimestamp(locale: string, value: string | null, neverLabel: string) {
   if (!value) {
@@ -65,10 +67,7 @@ function getStatusVariant(status: AdminWaitlistEntry['status']) {
   return 'secondary' as const
 }
 
-function getStatusLabel(
-  status: WaitlistStatus,
-  copy: ReturnType<typeof useAppMessages>['admin']['registration']['status']
-) {
+function getStatusLabel(status: WaitlistStatus, copy: RegistrationStatusCopy) {
   switch (status) {
     case 'pending':
       return copy.pending
@@ -81,10 +80,7 @@ function getStatusLabel(
   }
 }
 
-function getModeLabel(
-  mode: RegistrationMode,
-  copy: ReturnType<typeof useAppMessages>['admin']['registration']['modes']
-) {
+function getModeLabel(mode: RegistrationMode, copy: RegistrationModeCopy) {
   switch (mode) {
     case 'open':
       return copy.open
@@ -129,7 +125,7 @@ function getLastActivityAt(entry: AdminWaitlistEntry) {
 
 export function AdminRegistration() {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().admin.registration
+  const copy = useMessages().admin.registration
   const snapshotQuery = useAdminRegistrationSnapshot()
   const saveModeMutation = useSaveRegistrationMode()
   const updateWaitlistMutation = useUpdateWaitlistStatuses()

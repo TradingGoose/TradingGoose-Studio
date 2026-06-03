@@ -1,5 +1,7 @@
 import { CHAT_ERROR_CODES } from './constants'
-import type { ChatMessages } from '@/i18n/message-types'
+import type { Messages } from 'next-intl'
+
+type ChatMessages = Messages['chat']
 
 function normalizeChatErrorCode(code: string | null | undefined): string {
   return (code || '')

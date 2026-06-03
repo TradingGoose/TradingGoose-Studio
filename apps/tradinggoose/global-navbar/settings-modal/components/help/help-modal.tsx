@@ -32,10 +32,12 @@ const SCROLL_DELAY_MS = 100
 const SUCCESS_RESET_DELAY_MS = 2000
 const DEFAULT_REQUEST_TYPE = 'bug'
 
-type HelpMessageResolver = (
-  key: string,
-  values?: Record<string, string | number | Date>
-) => string
+type HelpFormMessageKey =
+  | 'errorMessages.subjectRequired'
+  | 'errorMessages.messageRequired'
+  | 'errorMessages.requestTypeRequired'
+
+type HelpMessageResolver = (key: HelpFormMessageKey) => string
 
 const createHelpFormSchema = (tHelp: HelpMessageResolver) =>
   z.object({

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Check, ChevronDownIcon, LanguagesIcon, MenuIcon } from 'lucide-react'
 import Image from 'next/image'
 import { useSearchParams } from 'next/navigation'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages } from 'next-intl'
 import { GithubIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import {
@@ -24,14 +24,15 @@ import {
 } from '@/lib/registration/shared'
 import { getFormattedGitHubStars } from '@/app/(landing)/actions/github'
 import { soehne } from '@/app/fonts/soehne/soehne'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
-import { Link, usePathname, useRouter } from '@/i18n/navigation'
+import { formatTemplate } from '@/i18n/utils'
+import { Link, replaceLocaleDocument, usePathname, useRouter } from '@/i18n/navigation'
 import {
   getLocaleDisplayName,
   localizeDocsUrl,
   locales,
   type LocaleCode,
 } from '@/i18n/utils'
+import { useGeneralStore } from '@/stores/settings/general/store'
 
 const logger = createLogger('nav')
 
@@ -46,11 +47,12 @@ function LanguageSwitcher() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const updateSetting = useGeneralStore((state) => state.updateSetting)
   const [isOpen, setIsOpen] = useState(false)
 
   const search = searchParams.toString()
 
-  const changeLocale = (nextLocale: LocaleCode) => {
+  const changeLocale = async (nextLocale: LocaleCode) => {
     if (nextLocale === locale) {
       setIsOpen(false)
       return
@@ -58,7 +60,12 @@ function LanguageSwitcher() {
 
     setIsOpen(false)
     const href = search ? `${pathname}?${search}` : pathname
-    router.replace(href, { locale: nextLocale })
+    try {
+      await updateSetting('preferredLocale', nextLocale)
+    } catch (error) {
+      logger.error('Failed to persist preferred locale:', { error, locale: nextLocale })
+    }
+    replaceLocaleDocument(nextLocale, href)
   }
 
   return (
@@ -75,7 +82,7 @@ function LanguageSwitcher() {
           <DropdownMenuItem
             key={code}
             onSelect={() => {
-              changeLocale(code)
+              void changeLocale(code)
             }}
             className='flex items-center gap-2'
           >
@@ -97,7 +104,7 @@ export default function Nav({
   const router = useRouter()
   const brand = useBrandConfig()
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages()
+  const copy = useMessages()
   const hasResolvedRegistrationMode = registrationMode !== null
   const registrationPrimaryHref = registrationMode
     ? getRegistrationPrimaryHref(registrationMode)

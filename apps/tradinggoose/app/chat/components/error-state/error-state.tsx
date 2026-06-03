@@ -3,7 +3,9 @@
 import { Button } from '@/components/ui/button'
 import { useBrandConfig } from '@/lib/branding/branding'
 import Nav from '@/app/(landing)/components/nav/nav'
-import type { ChatMessages } from '@/i18n/message-types'
+import type { Messages } from 'next-intl'
+
+type ChatMessages = Messages['chat']
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
 import { useRouter } from '@/i18n/navigation'

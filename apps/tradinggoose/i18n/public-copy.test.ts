@@ -6,7 +6,8 @@ import {
 } from '@/widgets/widgets/data_chart/components/draw-tool-icon-registry'
 import { CANDLE_TYPE_OPTIONS } from '@/widgets/widgets/data_chart/options'
 import { DEFAULT_RANGE_PRESETS } from '@/widgets/widgets/data_chart/series-data'
-import { formatTemplate, getPublicCopy } from './public-copy'
+import { getPublicCopy } from './public-copy'
+import { formatTemplate } from './utils'
 
 function normalizeShape(value: unknown): unknown {
   if (Array.isArray(value)) {

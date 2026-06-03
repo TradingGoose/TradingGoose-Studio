@@ -14,7 +14,7 @@ import {
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { PAIR_COLOR_META, PAIR_COLOR_OPTIONS, type PairColor } from '@/widgets/pair-colors'
 
 interface PairColorDropdownProps {
@@ -23,7 +23,7 @@ interface PairColorDropdownProps {
 }
 
 export function PairColorDropdown({ color, onChange }: PairColorDropdownProps) {
-  const copy = useAppMessages().workspace.widgets.pairColor
+  const copy = useMessages().workspace.widgets.pairColor
   const meta = PAIR_COLOR_META[color]
   const disabled = !onChange
 

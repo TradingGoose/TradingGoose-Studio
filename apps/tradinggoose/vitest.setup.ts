@@ -1,6 +1,7 @@
 import { afterAll, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 import enMessages from './i18n/messages/en.json'
+import type { LocaleCode } from './i18n/utils'
 
 global.fetch = vi.fn(() =>
   Promise.resolve({
@@ -25,7 +26,7 @@ global.sessionStorage = storageMock as any
 vi.mock('next-intl', async () => {
   const actual = await vi.importActual<typeof import('next-intl')>('next-intl')
   const React = await import('react')
-  const LocaleContext = React.createContext('en')
+  const LocaleContext = React.createContext<LocaleCode>('en')
   const MessagesContext = React.createContext(enMessages)
 
   const resolveMessage = (messages: Record<string, unknown>, key: string) =>
@@ -37,7 +38,7 @@ vi.mock('next-intl', async () => {
     }, messages)
 
   const formatMessage = (
-    locale: string,
+    locale: LocaleCode,
     template: string,
     values?: Record<string, string | number | boolean | null | undefined>
   ) => {

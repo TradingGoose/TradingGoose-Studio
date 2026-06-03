@@ -16,7 +16,7 @@ import type { IndicatorDefinition } from '@/stores/indicators/types'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { emitIndicatorSelectionChange } from '@/widgets/utils/indicator-selection'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { IndicatorCreateMenu } from '@/widgets/widgets/list_indicator/components/indicator-create-menu'
 import {
   IndicatorList,
@@ -57,7 +57,7 @@ const IndicatorListHeaderRight = ({
   pairColor?: PairColor
 }) => {
   const locale = useLocale()
-  const copy = useAppMessages().workspace.widgets
+  const copy = useMessages().workspace.widgets
   const permissions = useUserPermissionsContext()
   const createIndicatorMutation = useCreateIndicator()
   const importMutation = useImportIndicators()
@@ -157,7 +157,7 @@ const ListIndicatorHeaderRight = ({
   pairColor?: PairColor
 }) => {
   const locale = useLocale()
-  const copy = useAppMessages().workspace.widgets.indicatorList
+  const copy = useMessages().workspace.widgets.indicatorList
   if (!workspaceId) {
     return <span className='text-muted-foreground text-xs'>{copy.header.explorer}</span>
   }
@@ -177,7 +177,7 @@ const ListIndicatorHeaderRight = ({
 
 const ListIndicatorWidgetBody = (props: WidgetComponentProps) => {
   const locale = useLocale()
-  const copy = useAppMessages().workspace.widgets.indicatorList
+  const copy = useMessages().workspace.widgets.indicatorList
   const workspaceId = props.context?.workspaceId ?? null
   if (!workspaceId) {
     return <IndicatorListMessage message={copy.body.selectWorkspace} />

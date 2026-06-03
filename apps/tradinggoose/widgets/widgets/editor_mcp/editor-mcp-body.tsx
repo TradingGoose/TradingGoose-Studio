@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useMcpServerTest } from '@/hooks/use-mcp-server-test'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useMcpServersStore } from '@/stores/mcp-servers/store'
 import type { McpServerWithStatus } from '@/stores/mcp-servers/types'
@@ -111,7 +112,7 @@ export function EditorMcpWidgetBody({
   widget,
   onWidgetParamsChange,
 }: EditorMcpWidgetBodyProps) {
-  const copy = useAppMessages().workspace.widgets.mcpEditor
+  const copy = useMessages().workspace.widgets.mcpEditor
   const workspaceId = context?.workspaceId ?? null
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'

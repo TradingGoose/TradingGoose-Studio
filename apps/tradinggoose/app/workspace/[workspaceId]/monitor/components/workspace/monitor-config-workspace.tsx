@@ -5,7 +5,7 @@ import { Notice } from '@/components/ui/notice'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { getConfigBoardLabels, useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { formatTemplate } from '@/i18n/client-messages'
+import { formatTemplate } from '@/i18n/utils'
 import { buildConfigBoardSections, type ConfigBoardContext } from '../config/config-board-state'
 import { buildConfigMonitorCards } from '../config/config-card-model'
 import {

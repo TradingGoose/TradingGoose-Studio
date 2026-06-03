@@ -3,7 +3,9 @@
 import { memo, type RefObject } from 'react'
 import { ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import type { ChatMessages } from '@/i18n/message-types'
+import type { Messages } from 'next-intl'
+
+type ChatMessages = Messages['chat']
 import { type ChatMessage, ClientChatMessage } from '@/app/chat/components/message/message'
 
 interface ChatMessageContainerProps {

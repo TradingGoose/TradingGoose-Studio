@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { ChevronDown, ChevronRight, ShieldCheck } from 'lucide-react'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages, type Messages } from 'next-intl'
 import {
   Alert,
   AlertDescription,
@@ -27,7 +27,7 @@ import {
   useAdminIntegrationsSnapshot,
   useSaveAdminIntegrationBundle,
 } from '@/hooks/queries/admin-integrations'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
 
 const EMPTY_SNAPSHOT: AdminIntegrationsSnapshot = {
@@ -41,6 +41,8 @@ type IntegrationBundleSectionSummary = {
   status: 'ready' | 'review'
 }
 
+type AdminIntegrationsCopy = Messages['admin']['integrations']
+
 const INTEGRATION_SECTION_STATUS_BADGE_CLASSNAME = {
   ready: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/20',
   review: 'bg-destructive/15 text-destructive border-destructive/20',
@@ -48,7 +50,7 @@ const INTEGRATION_SECTION_STATUS_BADGE_CLASSNAME = {
 
 export function AdminIntegrations() {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().admin.integrations
+  const copy = useMessages().admin.integrations
   const integrationsQuery = useAdminIntegrationsSnapshot()
   const saveBundleMutation = useSaveAdminIntegrationBundle()
   const [searchTerm, setSearchTerm] = useState('')
@@ -569,7 +571,7 @@ function compareSecretsForComparison(
 function getCredentialFieldConfig(
   bundleId: string,
   credentialKey: string,
-  copy: ReturnType<typeof useAppMessages>['admin']['integrations']
+  copy: AdminIntegrationsCopy
 ) {
   const matchingField = getSystemIntegrationCatalogCredentialFields(bundleId).find(
     (field) => field.key === credentialKey
@@ -612,7 +614,7 @@ function isBundleConfigured(bundleId: string, secrets: AdminIntegrationSecret[])
 }
 
 function getBundleSectionSummary(
-  copy: ReturnType<typeof useAppMessages>['admin']['integrations'],
+  copy: AdminIntegrationsCopy,
   bundleId: string,
   bundleServices: AdminIntegrationDefinition[],
   secretFields: AdminIntegrationSecret[]

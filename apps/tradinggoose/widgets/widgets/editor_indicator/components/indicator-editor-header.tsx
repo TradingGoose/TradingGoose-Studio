@@ -5,7 +5,7 @@ import { Check, Download, Save } from 'lucide-react'
 import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { exportIndicatorsAsJson } from '@/lib/indicators/import-export'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useIndicatorsStore } from '@/stores/indicators/store'
@@ -33,7 +33,7 @@ export function IndicatorEditorSelector({
   widgetKey,
 }: IndicatorEditorSelectorProps) {
   const locale = useLocale()
-  const copy = useAppMessages().workspace.widgets.indicatorEditor.header
+  const copy = useMessages().workspace.widgets.indicatorEditor.header
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -106,7 +106,7 @@ export function IndicatorEditorExportButton({
   pairColor = 'gray',
 }: IndicatorEditorActionButtonProps) {
   const locale = useLocale()
-  const copy = useAppMessages().workspace.widgets.indicatorEditor.header
+  const copy = useMessages().workspace.widgets.indicatorEditor.header
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -187,7 +187,7 @@ export function IndicatorEditorSaveButton({
   pairColor = 'gray',
 }: IndicatorEditorActionButtonProps) {
   const locale = useLocale()
-  const copy = useAppMessages().workspace.widgets.indicatorEditor.header
+  const copy = useMessages().workspace.widgets.indicatorEditor.header
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -235,7 +235,7 @@ export function IndicatorEditorVerifyButton({
   pairColor = 'gray',
 }: IndicatorEditorActionButtonProps) {
   const locale = useLocale()
-  const copy = useAppMessages().workspace.widgets.indicatorEditor.header
+  const copy = useMessages().workspace.widgets.indicatorEditor.header
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)

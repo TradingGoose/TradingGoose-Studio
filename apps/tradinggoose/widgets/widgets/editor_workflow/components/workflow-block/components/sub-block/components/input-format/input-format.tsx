@@ -24,7 +24,7 @@ import { LISTING_IDENTITY_VALUE_TYPE, type ListingInputValue } from '@/lib/listi
 import { cn } from '@/lib/utils'
 import type { WorkflowFieldType } from '@/lib/workflows/value-types'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
-import { formatTemplate } from '@/i18n/client-messages'
+import { formatTemplate } from '@/i18n/utils'
 import { ListingSelectorInput } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/listing-selector/listing-selector'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'

@@ -6,7 +6,7 @@ import { Alert, AlertDescription, Button, Input, Label } from '@/components/ui'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { cn } from '@/lib/utils'
 import { Link } from '@/i18n/navigation'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { type LocaleCode } from '@/i18n/utils'
 import { inter } from '@/app/fonts/inter'
 
@@ -14,7 +14,7 @@ type WaitlistResponseStatus = 'pending' | 'approved' | 'rejected' | 'signed_up'
 
 export function WaitlistForm() {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages()
+  const copy = useMessages()
   const commonCopy = copy.auth.common
   const waitlistCopy = copy.auth.waitlist
   const [email, setEmail] = useState('')

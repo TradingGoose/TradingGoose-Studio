@@ -28,7 +28,7 @@ import {
   useAdminSystemSettingsSnapshot,
   useUpdateAdminSystemSettings,
 } from '@/hooks/queries/admin-system-settings'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import type { LocaleCode } from '@/i18n/utils'
 import { getAdminSystemSettingsErrorMessage } from './errors'
 import { ADMIN_META_BADGE_CLASSNAME } from './badge-styles'
@@ -47,7 +47,7 @@ const EMPTY_SNAPSHOT: AdminSystemSettingsSnapshot = {
 
 export function AdminSystemSettingsSection() {
   const locale = useLocale() as LocaleCode
-  const publicCopy = useAppMessages()
+  const publicCopy = useMessages()
   const copy = publicCopy.admin.systemSettings
   const registrationCopy = publicCopy.registration
   const snapshotQuery = useAdminSystemSettingsSnapshot()

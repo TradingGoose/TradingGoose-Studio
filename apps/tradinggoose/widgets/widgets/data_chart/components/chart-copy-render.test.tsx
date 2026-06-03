@@ -8,6 +8,7 @@ import { NextIntlClientProvider } from 'next-intl'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 import { DataChartCandleTypeDropdown } from './chart-controls'
 import { DataChartFooter } from './footer'
 import { IndicatorControl } from './indicator-control'
@@ -40,7 +41,7 @@ describe('data chart localized component copy', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  const renderWithLocale = (element: React.ReactNode, locale = 'es') => {
+  const renderWithLocale = (element: React.ReactNode, locale: LocaleCode = 'es') => {
     root.render(
       <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
         <TooltipProvider>{element}</TooltipProvider>

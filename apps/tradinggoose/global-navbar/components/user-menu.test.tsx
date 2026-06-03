@@ -12,6 +12,7 @@ import { UserMenu } from './user-menu'
 const mockPush = vi.fn()
 const mockReplace = vi.fn()
 const mockRefresh = vi.fn()
+const mockReplaceLocaleDocument = vi.fn()
 const mockSetTheme = vi.fn()
 const mockUpdateSetting = vi.fn()
 let mockPathname = '/workspace/ws-1/dashboard'
@@ -45,6 +46,8 @@ vi.mock('@/i18n/navigation', () => ({
     replace: mockReplace,
     refresh: mockRefresh,
   }),
+  replaceLocaleDocument: (...args: Parameters<typeof mockReplaceLocaleDocument>) =>
+    mockReplaceLocaleDocument(...args),
 }))
 
 vi.mock('@/hooks/queries/organization', () => ({
@@ -173,6 +176,7 @@ describe('UserMenu language selector', () => {
     mockPush.mockReset()
     mockReplace.mockReset()
     mockRefresh.mockReset()
+    mockReplaceLocaleDocument.mockReset()
     mockSetTheme.mockReset()
     mockUpdateSetting.mockReset()
     mockUpdateSetting.mockResolvedValue(undefined)
@@ -222,9 +226,11 @@ describe('UserMenu language selector', () => {
       await selectLanguage('简体中文')
     })
 
-    expect(mockReplace).toHaveBeenCalledWith('/workspace/ws-1/dashboard?layout=main', {
-      locale: 'zh',
-    })
+    expect(mockReplaceLocaleDocument).toHaveBeenCalledWith(
+      'zh',
+      '/workspace/ws-1/dashboard?layout=main'
+    )
+    expect(mockReplace).not.toHaveBeenCalled()
     expect(mockUpdateSetting).toHaveBeenCalledWith('preferredLocale', 'zh')
     expect(mockRefresh).not.toHaveBeenCalled()
 
@@ -252,7 +258,8 @@ describe('UserMenu language selector', () => {
       await selectLanguage('English')
     })
 
-    expect(mockReplace).toHaveBeenCalledWith('/workspace/ws-1/dashboard', { locale: 'en' })
+    expect(mockReplaceLocaleDocument).toHaveBeenCalledWith('en', '/workspace/ws-1/dashboard')
+    expect(mockReplace).not.toHaveBeenCalled()
     expect(mockUpdateSetting).toHaveBeenCalledWith('preferredLocale', 'en')
   })
 })

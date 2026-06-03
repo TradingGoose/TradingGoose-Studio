@@ -6,7 +6,8 @@ import { LoadingAgent } from '@/components/ui/loading-agent'
 import { SKILL_NAME_MAX_LENGTH } from '@/lib/skills/import-export'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useDeleteSkill, useSkills, useUpdateSkill } from '@/hooks/queries/skills'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useSkillsStore } from '@/stores/skills/store'
 import type { PairColor } from '@/widgets/pair-colors'
@@ -34,8 +35,8 @@ export function SkillList({
   pairColor = 'gray',
 }: WidgetComponentProps) {
   const locale = useLocale()
-  const copy = useAppMessages().workspace.widgets.skillList
-  const skillValidationCopy = useAppMessages().workspace.widgets.skillEditor.validation
+  const copy = useMessages().workspace.widgets.skillList
+  const skillValidationCopy = useMessages().workspace.widgets.skillEditor.validation
   const workspaceId = context?.workspaceId ?? null
   const permissions = useUserPermissionsContext()
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())

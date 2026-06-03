@@ -1,7 +1,8 @@
 import { type Metadata } from 'next'
 import { getLocale } from 'next-intl/server'
 import BlogLayout from '@/app/(landing)/components/blog-layout'
-import { formatTemplate, getPublicCopy } from '@/i18n/public-copy'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { formatTemplate } from '@/i18n/utils'
 import {
   buildLocalizedAlternates,
   getOpenGraphLocale,

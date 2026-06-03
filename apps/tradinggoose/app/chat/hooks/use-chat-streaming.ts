@@ -5,7 +5,9 @@ import { createLogger } from '@/lib/logs/console/logger'
 import type { ChatMessage } from '@/app/chat/components/message/message'
 import { CHAT_ERROR_CODES } from '@/app/chat/constants'
 import { getChatErrorMessage } from '@/app/chat/errors'
-import type { ChatMessages } from '@/i18n/message-types'
+import type { Messages } from 'next-intl'
+
+type ChatMessages = Messages['chat']
 
 const logger = createLogger('UseChatStreaming')
 

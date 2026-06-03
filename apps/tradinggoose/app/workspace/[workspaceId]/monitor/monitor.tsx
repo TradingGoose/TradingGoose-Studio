@@ -67,7 +67,7 @@ import { MonitorExecutionWorkspace } from '@/app/workspace/[workspaceId]/monitor
 import { AutocompleteSearch } from '@/app/workspace/[workspaceId]/records/components/logs-toolbar'
 import { GlobalNavbarHeader } from '@/global-navbar'
 import { buildLogsRequestParams, useLogDetail } from '@/hooks/queries/logs'
-import { formatTemplate } from '@/i18n/client-messages'
+import { formatTemplate } from '@/i18n/utils'
 import { usePathname } from '@/i18n/navigation'
 import {
   getMonitorModeLabel,

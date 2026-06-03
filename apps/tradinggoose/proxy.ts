@@ -22,6 +22,7 @@ import { generateRuntimeCSP } from './lib/security/csp'
 
 const logger = createLogger('Proxy')
 const handleI18nRouting = createMiddleware(routing)
+const LOCALE_COOKIE = 'NEXT_LOCALE'
 
 const AUTH_ROUTES = new Set(['/login', '/signup'])
 const AUTH_COOKIE_KEYS = [
@@ -170,6 +171,23 @@ function rewriteMarkdownRequest(request: NextRequest): NextResponse | null {
   })
 }
 
+function redirectRootToPreferredLocale(request: NextRequest): NextResponse | null {
+  const preferredLocale = request.cookies.get(LOCALE_COOKIE)?.value
+
+  if (
+    request.nextUrl.pathname !== '/' ||
+    !preferredLocale ||
+    !isLocaleCode(preferredLocale) ||
+    preferredLocale === defaultLocale
+  ) {
+    return null
+  }
+
+  const redirectUrl = new URL(localizeUrl(request.nextUrl.origin, preferredLocale, '/'))
+  redirectUrl.search = request.nextUrl.search
+  return NextResponse.redirect(redirectUrl)
+}
+
 function handleSecurityFiltering(request: NextRequest): NextResponse | null {
   const userAgent = request.headers.get('user-agent') || ''
   const isWebhookEndpoint = request.nextUrl.pathname.startsWith('/api/webhooks/trigger/')
@@ -233,6 +251,9 @@ export async function proxy(request: NextRequest) {
 
   const markdownRewrite = rewriteMarkdownRequest(request)
   if (markdownRewrite) return markdownRewrite
+
+  const localeRedirect = redirectRootToPreferredLocale(request)
+  if (localeRedirect) return localeRedirect
 
   const response = isCanonicalRouteHandlerPath(url.pathname)
     ? NextResponse.next()

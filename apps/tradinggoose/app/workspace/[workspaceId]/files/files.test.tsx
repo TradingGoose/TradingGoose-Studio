@@ -27,7 +27,8 @@ vi.mock('next/navigation.js', () => ({
 }))
 
 vi.mock('next-intl', async () => {
-  const { formatTemplate, getPublicCopy } = await import('@/i18n/public-copy')
+  const { createTranslator } = await vi.importActual<typeof import('next-intl')>('next-intl')
+  const { getPublicCopy } = await import('@/i18n/public-copy')
 
   function resolveNestedMessage(source: unknown, path: string) {
     return path.split('.').reduce<unknown>((current, segment) => {
@@ -54,10 +55,10 @@ vi.mock('next-intl', async () => {
           return template
         }
 
-        return formatTemplate(
-          template,
-          Object.fromEntries(Object.entries(values).map(([name, value]) => [name, String(value)]))
-        )
+        return createTranslator({
+          locale: intlState.locale as LocaleCode,
+          messages: { value: template },
+        })('value', values)
       }
     },
   }

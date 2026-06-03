@@ -81,54 +81,6 @@ vi.mock('@/app/invite/components', () => ({
   },
 }))
 
-vi.mock('@/i18n/client-messages', () => ({
-  formatTemplate: (template: string, values: Record<string, string>) =>
-    template.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? ''),
-  useAppMessages: () => ({
-    auth: {
-      common: {
-        returnHome: 'Return home',
-      },
-    },
-    invite: {
-      defaultOrganizationName: 'Organization',
-      defaultWorkspaceName: 'Workspace',
-      errors: {
-        unknown: 'Unknown error',
-      },
-      error: {
-        title: 'Invite error',
-      },
-      invitation: {
-        accept: 'Accept',
-        description: 'Join {name}',
-        organizationTitle: 'Join organization',
-        workspaceTitle: 'Join workspace',
-      },
-      loadingDescription: 'Loading invitation details',
-      loadingTitle: 'Loading invitation',
-      login: {
-        createAccount: 'Create account',
-        existingUserDescription: 'Sign in to continue',
-        iAlreadyHaveAccount: 'I already have an account',
-        newUserDescription: 'Create an account to continue',
-        signIn: 'Sign in',
-        title: 'Sign in required',
-      },
-      success: {
-        description: 'Joined {name}',
-        title: 'Invitation accepted',
-      },
-      warning: {
-        currentOrg: 'Already in an organization',
-        currentOrgWithName: 'Already in {name}',
-        manageTeamSettings: 'Manage team settings',
-        title: 'Organization conflict',
-      },
-    },
-  }),
-}))
-
 describe('Invite page workspace acceptance', () => {
   let container: HTMLDivElement
   let root: Root

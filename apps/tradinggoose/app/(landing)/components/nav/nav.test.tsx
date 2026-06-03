@@ -15,8 +15,11 @@ import PublicNav from './public-nav'
 const mockPush = vi.fn()
 const mockReplace = vi.fn()
 const mockRefresh = vi.fn()
+const mockReplaceLocaleDocument = vi.fn()
+const mockUpdateSetting = vi.fn()
 let mockPathname = '/'
 let mockSearchParams = ''
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 vi.mock('@/lib/registration/service', () => ({
   getRegistrationModeForRender: vi.fn(),
@@ -59,6 +62,8 @@ vi.mock('@/i18n/navigation', () => ({
     replace: mockReplace,
     refresh: mockRefresh,
   }),
+  replaceLocaleDocument: (...args: Parameters<typeof mockReplaceLocaleDocument>) =>
+    mockReplaceLocaleDocument(...args),
 }))
 
 vi.mock('@/app/fonts/soehne/soehne', () => ({
@@ -75,6 +80,11 @@ vi.mock('@/lib/branding/branding', () => ({
   }),
 }))
 
+vi.mock('@/stores/settings/general/store', () => ({
+  useGeneralStore: (selector: (state: { updateSetting: typeof mockUpdateSetting }) => unknown) =>
+    selector({ updateSetting: mockUpdateSetting }),
+}))
+
 describe('landing nav registration mode', () => {
   let container: HTMLDivElement
   let root: Root
@@ -88,6 +98,9 @@ describe('landing nav registration mode', () => {
     mockPush.mockReset()
     mockReplace.mockReset()
     mockRefresh.mockReset()
+    mockReplaceLocaleDocument.mockReset()
+    mockUpdateSetting.mockReset()
+    mockUpdateSetting.mockResolvedValue(undefined)
     mockPathname = '/'
     mockSearchParams = ''
     container = document.createElement('div')
@@ -207,11 +220,15 @@ describe('landing nav registration mode', () => {
 
     await act(async () => {
       menuItem.click()
+      await flush()
     })
 
-    expect(mockReplace).toHaveBeenCalledWith('/blog/trading-signals?from=nav&campaign=i18n', {
-      locale: 'zh',
-    })
+    expect(mockUpdateSetting).toHaveBeenCalledWith('preferredLocale', 'zh')
+    expect(mockReplaceLocaleDocument).toHaveBeenCalledWith(
+      'zh',
+      '/blog/trading-signals?from=nav&campaign=i18n'
+    )
+    expect(mockReplace).not.toHaveBeenCalled()
     expect(mockRefresh).not.toHaveBeenCalled()
 
     mockPathname = '/blog/trading-signals'

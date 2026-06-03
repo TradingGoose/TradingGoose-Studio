@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { exportCustomToolsAsJson } from '@/lib/custom-tools/import-export'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
-import { formatTemplate } from '@/i18n/client-messages'
+import { formatTemplate } from '@/i18n/utils'
 import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import { useUpdateCustomTool } from '@/hooks/queries/custom-tools'
 import { useWand } from '@/hooks/workflow/use-wand'

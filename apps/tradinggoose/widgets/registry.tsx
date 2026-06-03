@@ -4,7 +4,9 @@ import type {
   WidgetCategoryGroup,
 } from '@/widgets/types'
 import { copilotWidget } from '@/widgets/widgets/copilot'
-import type { WorkspaceWidgetsMessages } from '@/i18n/message-types'
+import type { Messages } from 'next-intl'
+
+type WorkspaceWidgetsMessages = Messages['workspace']['widgets']
 import { dataChartWidget } from '@/widgets/widgets/data_chart'
 import { editorCustomToolWidget } from '@/widgets/widgets/editor_custom_tool/index'
 import { editorIndicatorWidget } from '@/widgets/widgets/editor_indicator'

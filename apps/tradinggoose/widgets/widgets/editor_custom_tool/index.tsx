@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import type { LocaleCode } from '@/i18n/utils'
 import { useCustomTools } from '@/hooks/queries/custom-tools'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
@@ -112,7 +112,7 @@ function EditorCustomToolWidgetBody({
   widget,
 }: WidgetComponentProps) {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().workspace.widgets.customToolEditor
+  const copy = useMessages().workspace.widgets.customToolEditor
   const workspaceId = context?.workspaceId ?? null
   const { data: queryTools = [], isLoading, error, refetch } = useCustomTools(workspaceId ?? '')
   const storedTools = useCustomToolsStore((state) =>
@@ -307,7 +307,7 @@ function CustomToolEditorSelector({
   widgetKey,
 }: CustomToolEditorSelectorProps) {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().workspace.widgets.customToolEditor.header
+  const copy = useMessages().workspace.widgets.customToolEditor.header
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -359,7 +359,7 @@ function CustomToolEditorSectionSwitch({
   widgetKey?: string
 }) {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().workspace.widgets.customToolEditor.header
+  const copy = useMessages().workspace.widgets.customToolEditor.header
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -429,7 +429,7 @@ function CustomToolEditorSaveButton({
   pairColor?: PairColor
 }) {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().workspace.widgets.customToolEditor.header
+  const copy = useMessages().workspace.widgets.customToolEditor.header
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -481,7 +481,7 @@ function CustomToolEditorExportButton({
   pairColor?: PairColor
 }) {
   const locale = useLocale() as LocaleCode
-  const copy = useAppMessages().workspace.widgets.customToolEditor.header
+  const copy = useMessages().workspace.widgets.customToolEditor.header
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)

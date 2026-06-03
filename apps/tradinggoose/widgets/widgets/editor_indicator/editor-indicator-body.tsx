@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { useLocale } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { useIndicators } from '@/hooks/queries/indicators'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
@@ -25,7 +25,7 @@ export function EditorIndicatorWidgetBody({
   onWidgetParamsChange,
 }: EditorIndicatorWidgetBodyProps) {
   const locale = useLocale()
-  const copy = useAppMessages().workspace.widgets.indicatorEditor.body
+  const copy = useMessages().workspace.widgets.indicatorEditor.body
   const workspaceId = context?.workspaceId ?? null
   const { data: indicators = [], isLoading, error } = useIndicators(workspaceId ?? '')
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor

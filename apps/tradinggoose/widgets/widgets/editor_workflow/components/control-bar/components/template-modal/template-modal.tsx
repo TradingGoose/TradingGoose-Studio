@@ -86,7 +86,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { buildWorkflowStateForTemplate } from '@/lib/workflows/state-builder'
 import { categories } from '@/app/workspace/[workspaceId]/templates/templates'
-import type { PublicCopy } from '@/i18n/client-messages'
+import type { Messages } from 'next-intl'
 import { useWorkspaceBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 const logger = createLogger('TemplateModal')
@@ -168,7 +168,7 @@ const icons = [
 
 function getTemplateCategoryLabel(
   category: (typeof categories)[number]['value'],
-  copy: PublicCopy['workspace']['widgets']['blockEditor']['templateModal']
+  copy: Messages['workspace']['widgets']['blockEditor']['templateModal']
 ) {
   switch (category) {
     case 'marketing':
@@ -188,7 +188,7 @@ function getTemplateCategoryLabel(
 
 function getTemplateIconLabel(
   icon: (typeof icons)[number]['value'],
-  copy: PublicCopy['workspace']['widgets']['blockEditor']['templateModal']
+  copy: Messages['workspace']['widgets']['blockEditor']['templateModal']
 ) {
   switch (icon) {
     case 'FileText':

@@ -17,7 +17,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import type { SubBlockConfig } from '@/blocks/types'
 import { fetchKnowledgeBases as fetchWorkspaceKnowledgeBases } from '@/hooks/queries/knowledge'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
 import type { KnowledgeBaseData } from '@/stores/knowledge/store'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
@@ -37,7 +38,7 @@ export function KnowledgeBaseSelector({
   onKnowledgeBaseSelect,
 }: KnowledgeBaseSelectorProps) {
   const locale = useLocale() as LocaleCode
-  const selectorCopy = useAppMessages().workspace.widgets.blockEditor.knowledgeBaseSelector
+  const selectorCopy = useMessages().workspace.widgets.blockEditor.knowledgeBaseSelector
   const workspaceId = useWorkspaceId()
   const copy = {
     searchKnowledgeBases: translateWorkflowLabel(locale, 'searchKnowledgeBases'),

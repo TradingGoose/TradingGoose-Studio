@@ -8,7 +8,8 @@ import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { client } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { inter } from '@/app/fonts/inter'
-import { formatTemplate, useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 
 const logger = createLogger('SocialLoginButtons')
 
@@ -32,7 +33,7 @@ export function SocialLoginButtons({
   const [errorMessage, setErrorMessage] = useState('')
   const [mounted, setMounted] = useState(false)
   const authRedirectUrls = useAuthRedirectUrls()
-  const copy = useAppMessages()
+  const copy = useMessages()
   const socialCopy = copy.auth.social
   const resolvedCallbackURL = authRedirectUrls.providerCallbackPath(callbackURL)
 

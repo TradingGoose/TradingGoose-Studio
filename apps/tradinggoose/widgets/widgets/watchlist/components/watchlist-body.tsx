@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo } from 'react'
 import { useLocale } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { areListingIdentitiesEqual, type ListingIdentity } from '@/lib/listing/identity'
-import { useAppMessages } from '@/i18n/client-messages'
+import { useMessages } from 'next-intl'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import {
   useRemoveWatchlistItem,
@@ -51,7 +51,7 @@ export const WatchlistWidgetBody = ({
   onWidgetParamsChange,
 }: WidgetComponentProps) => {
   const locale = useLocale()
-  const copy = useAppMessages().workspace.widgets.watchlist.body
+  const copy = useMessages().workspace.widgets.watchlist.body
   const workspaceId = context?.workspaceId ?? null
   const widgetKey = widget?.key ?? 'watchlist'
   const resolvedPairColor = ((widget?.pairColor ?? pairColor ?? 'gray') as PairColor) ?? 'gray'
