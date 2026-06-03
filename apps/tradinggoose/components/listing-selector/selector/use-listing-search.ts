@@ -19,6 +19,7 @@ type UseMarketListingSearchOptions = {
   providerType?: 'market' | 'trading'
   marketProviderId?: string
   tradingProviderId?: string
+  assetClassFilter?: string | null
   instanceId: string
   updateInstance: UpdateInstance
   candidateListings?: ListingOption[]
@@ -44,6 +45,17 @@ const listingMatchesQuery = (listing: ListingOption, query: string): boolean => 
     .includes(query)
 }
 
+const listingMatchesAssetClass = (
+  listing: ListingOption,
+  assetClassFilter?: string | null
+): boolean => {
+  if (!assetClassFilter) return true
+  const normalizedFilter = assetClassFilter.trim().toLowerCase()
+  const listingAssetClass = listing.assetClass?.trim().toLowerCase()
+  if (listingAssetClass) return listingAssetClass === normalizedFilter
+  return listing.listing_type === normalizedFilter
+}
+
 export function useMarketListingSearch({
   open,
   query,
@@ -51,6 +63,7 @@ export function useMarketListingSearch({
   providerType = 'market',
   marketProviderId,
   tradingProviderId,
+  assetClassFilter,
   instanceId,
   updateInstance,
   candidateListings,
@@ -113,8 +126,10 @@ export function useMarketListingSearch({
       }
 
       updateInstance(instanceId, {
-        results: candidateListings.filter((listing) =>
-          listingMatchesQuery(listing, trimmedQuery.toLowerCase())
+        results: candidateListings.filter(
+          (listing) =>
+            listingMatchesAssetClass(listing, assetClassFilter) &&
+            listingMatchesQuery(listing, trimmedQuery.toLowerCase())
         ),
         isLoading: false,
         error: candidateListingsError,
@@ -134,6 +149,7 @@ export function useMarketListingSearch({
     const { queryParams, requestKey } = buildMarketSearchRequest({
       rawQuery: debouncedQuery,
       providerConfig,
+      assetClassFilter,
     })
     if (Object.keys(queryParams).length === 0) {
       abortInFlightRequest()
@@ -180,6 +196,7 @@ export function useMarketListingSearch({
     providerType,
     marketProviderId,
     tradingProviderId,
+    assetClassFilter,
     providerConfig,
     instanceId,
     updateInstance,

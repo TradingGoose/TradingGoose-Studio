@@ -1,36 +1,31 @@
 'use client'
 
-import { type KeyboardEvent, useEffect, useMemo, useState } from 'react'
-import { Activity, Check, ChevronDown, Loader2, Search } from 'lucide-react'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Activity, ChevronDown, Home, Loader2, User } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
+import {
+  type SidebarDropdownGroup,
+  type SidebarDropdownItem,
+  SidebarDropdownMenuContent,
+} from '@/components/ui/sidebar-dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
+import { widgetHeaderControlClassName } from '@/components/widget-header-control'
 import { getStableVibrantColor } from '@/lib/colors'
 import { DEFAULT_INDICATORS_META } from '@/lib/indicators/default'
 import { cn } from '@/lib/utils'
 import { useIndicators } from '@/hooks/queries/indicators'
+import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import { useIndicatorsStore } from '@/stores/indicators/store'
-import {
-  widgetHeaderControlClassName,
-  widgetHeaderMenuContentClassName,
-  widgetHeaderMenuItemClassName,
-  widgetHeaderMenuTextClassName,
-} from '@/components/widget-header-control'
 
 const FALLBACK_COLOR = '#3972F6'
-const DROPDOWN_MAX_HEIGHT = '20rem'
-const DROPDOWN_VIEWPORT_HEIGHT = '14rem'
+
+type IndicatorFilterId = 'default' | 'custom'
 
 type IndicatorOption = {
   id: string
   name: string
+  source: IndicatorFilterId
   color?: string
 }
 
@@ -72,6 +67,11 @@ export function IndicatorDropdown({
   const [internalValue, setInternalValue] = useState<string[]>([])
   const [loadError, setLoadError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [activeFilterId, setActiveFilterId] = useState<IndicatorFilterId>(
+    includeDefaults ? 'default' : 'custom'
+  )
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const isMultiSelect = selectionMode === 'multiple'
 
@@ -102,6 +102,7 @@ export function IndicatorDropdown({
         ? DEFAULT_INDICATORS_META.map((indicator) => ({
             id: indicator.id,
             name: indicator.name,
+            source: 'default' as const,
             color: getStableVibrantColor(indicator.id),
           }))
         : [],
@@ -113,6 +114,7 @@ export function IndicatorDropdown({
       workspaceIndicators.map((indicator) => ({
         id: indicator.id,
         name: indicator.name || indicator.id,
+        source: 'custom' as const,
         color: indicator.color,
       })),
     [workspaceIndicators]
@@ -125,7 +127,8 @@ export function IndicatorDropdown({
 
   const isControlled = typeof value !== 'undefined'
   const selectedIndicatorIds = isControlled ? (value ?? []) : internalValue
-  const selectedIndicatorSet = new Set(selectedIndicatorIds)
+  const firstSelectedIndicatorId = selectedIndicatorIds[0] ?? null
+  const selectedIndicatorSet = useMemo(() => new Set(selectedIndicatorIds), [selectedIndicatorIds])
   const selectedIndicatorId = !isMultiSelect ? (selectedIndicatorIds[0] ?? null) : null
   const selectedIndicator = !isMultiSelect
     ? indicatorOptions.find((indicator) => indicator.id === selectedIndicatorId)
@@ -156,10 +159,12 @@ export function IndicatorDropdown({
   useEffect(() => {
     setLoadError(null)
     setSearchQuery('')
+    setDropdownOpen(false)
+    setActiveFilterId(includeDefaults ? 'default' : 'custom')
     if (!isControlled) {
       setInternalValue([])
     }
-  }, [workspaceId, isControlled])
+  }, [workspaceId, isControlled, includeDefaults])
 
   useEffect(() => {
     if (queryError) {
@@ -173,23 +178,13 @@ export function IndicatorDropdown({
     }
   }, [indicatorOptions.length, loadError])
 
-  const filteredDefaultIndicators = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase()
-    if (!query) return defaultIndicatorOptions
-    return defaultIndicatorOptions.filter((option) => option.name?.toLowerCase().includes(query))
-  }, [defaultIndicatorOptions, searchQuery])
-
-  const filteredCustomIndicators = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase()
-    if (!query) return customIndicatorOptions
-    return customIndicatorOptions.filter((option) => option.name?.toLowerCase().includes(query))
-  }, [customIndicatorOptions, searchQuery])
-
-  const handleSearchInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Escape') {
-      return
-    }
-  }
+  const selectedFilterId = useMemo<IndicatorFilterId>(() => {
+    if (!includeDefaults) return 'custom'
+    if (!firstSelectedIndicatorId) return 'default'
+    return defaultIndicatorOptions.some((option) => option.id === firstSelectedIndicatorId)
+      ? 'default'
+      : 'custom'
+  }, [defaultIndicatorOptions, firstSelectedIndicatorId, includeDefaults])
 
   const handleSelectionChange = (nextIds: string[]) => {
     if (isControlled) {
@@ -228,6 +223,7 @@ export function IndicatorDropdown({
     if (selectedIndicatorIds.length === 1) return first.name
     return `${first.name} +${selectedIndicatorIds.length - 1}`
   }, [copy.placeholder, indicatorOptions, placeholder, selectedIndicatorIds])
+  const hasSelection = selectedIndicatorIds.length > 0
 
   const colorBadge = (
     <div
@@ -245,217 +241,204 @@ export function IndicatorDropdown({
     </div>
   )
 
-  const labelContent =
-    selectedIndicatorIds.length > 0 ? (
-      <span className='min-w-0 flex-1 truncate text-left font-medium text-foreground text-sm'>
-        {selectionLabel}
-      </span>
-    ) : (
-      <span className='min-w-0 flex-1 truncate text-left font-medium text-muted-foreground text-sm'>
-        {selectionLabel}
-      </span>
-    )
+  const indicatorGroups = useMemo<SidebarDropdownGroup[]>(() => {
+    const groups: SidebarDropdownGroup[] = []
+    if (includeDefaults) {
+      groups.push({
+        id: 'default',
+        label: copy.defaultIndicators,
+        icon: Home,
+      })
+    }
+    groups.push({
+      id: 'custom',
+      label: copy.customIndicators,
+      icon: User,
+    })
+    return groups
+  }, [copy.customIndicators, copy.defaultIndicators, includeDefaults])
 
-  const chevronClassName =
-    'h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
+  const shouldShowLoadingState = (isLoading || isFetching) && !hasIndicators
+  const emptyContent = (() => {
+    if (loadError && !hasIndicators) {
+      return (
+        <div className='space-y-2 text-xs'>
+          <p className='text-destructive'>{loadError}</p>
+          <button
+            type='button'
+            className='font-semibold text-primary text-xs hover:underline'
+            onClick={handleRetry}
+          >
+            {copy.retry}
+          </button>
+        </div>
+      )
+    }
+
+    if (searchQuery.trim()) return copy.noIndicatorsFound
+    return copy.noIndicatorsAvailableYet
+  })()
+
+  const loadingContent = (
+    <div className='flex items-center justify-center gap-1 text-muted-foreground text-xs'>
+      <Loader2 className='h-3.5 w-3.5 animate-spin' />
+      {copy.loadingIndicators}
+    </div>
+  )
+
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase()
+  const sidebarItems = useMemo<SidebarDropdownItem[]>(
+    () =>
+      indicatorOptions
+        .filter((option) => {
+          if (!normalizedSearchQuery) return true
+          return option.name.toLowerCase().includes(normalizedSearchQuery)
+        })
+        .map((option) => ({
+          id: option.id,
+          groupId: option.source,
+          label: option.name,
+          selected: selectedIndicatorSet.has(option.id),
+          icon: (
+            <div
+              className='h-5 w-5 rounded-xs p-0.5'
+              style={{
+                backgroundColor: `${option.color ?? FALLBACK_COLOR}20`,
+              }}
+              aria-hidden='true'
+            >
+              <Activity
+                className='h-4 w-4 text-muted-foreground'
+                aria-hidden='true'
+                style={{ color: option.color ?? FALLBACK_COLOR }}
+              />
+            </div>
+          ),
+        })),
+    [indicatorOptions, normalizedSearchQuery, selectedIndicatorSet]
+  )
+
+  const visibleIndicatorGroups = useMemo(() => {
+    if (!normalizedSearchQuery) return indicatorGroups
+    const groupIds = new Set(sidebarItems.map((item) => item.groupId))
+    return indicatorGroups.filter((group) => groupIds.has(group.id))
+  }, [indicatorGroups, normalizedSearchQuery, sidebarItems])
+
+  const displayedActiveFilterId = visibleIndicatorGroups.some(
+    (group) => group.id === activeFilterId
+  )
+    ? activeFilterId
+    : (visibleIndicatorGroups[0]?.id ?? null)
+
+  const setOpen = (open: boolean) => {
+    setDropdownOpen(open)
+    if (open) {
+      setActiveFilterId(selectedFilterId)
+      return
+    }
+    setSearchQuery('')
+  }
+
+  const triggerValue = dropdownOpen ? searchQuery : hasSelection ? selectionLabel : ''
+  const triggerPlaceholder = dropdownOpen ? copy.searchPlaceholder : selectionLabel
 
   return (
-    <DropdownMenu modal={false}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className='inline-flex'>
-            <DropdownMenuTrigger asChild>
-              <button
-                type='button'
+    <Popover open={dropdownOpen} onOpenChange={setOpen}>
+      <PopoverAnchor asChild>
+        <div className='relative inline-flex min-w-[220px]'>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Input
+                ref={inputRef}
                 disabled={isDropdownDisabled}
+                value={triggerValue}
+                placeholder={triggerPlaceholder}
                 className={widgetHeaderControlClassName(
                   cn(
-                    'group flex min-w-[220px] items-center justify-between gap-2',
+                    'h-7 min-w-[220px] truncate rounded-sm py-1 pr-8 pl-8 font-medium text-sm focus-visible:ring-0 focus-visible:ring-offset-0',
+                    !hasSelection && !dropdownOpen && 'text-muted-foreground',
                     triggerClassName
                   )
                 )}
+                role='combobox'
+                aria-expanded={dropdownOpen}
                 aria-haspopup='listbox'
-              >
-                {isLoading ? (
-                  <Loader2 className='h-4 w-4 animate-spin text-muted-foreground' />
-                ) : (
-                  colorBadge
-                )}
-                {labelContent}
-                <ChevronDown className={chevronClassName} aria-hidden='true' />
-              </button>
-            </DropdownMenuTrigger>
-          </span>
-        </TooltipTrigger>
-        <TooltipContent side='top'>{tooltipText}</TooltipContent>
-      </Tooltip>
-      <DropdownMenuContent
+                onFocus={() => setOpen(true)}
+                onChange={(event) => {
+                  setSearchQuery(event.target.value)
+                  if (!dropdownOpen) {
+                    setOpen(true)
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') {
+                    setOpen(false)
+                    inputRef.current?.blur()
+                  }
+                }}
+              />
+            </TooltipTrigger>
+            <TooltipContent side='top'>{tooltipText}</TooltipContent>
+          </Tooltip>
+          <div className='-translate-y-1/2 pointer-events-none absolute top-1/2 left-2 flex'>
+            {isLoading ? (
+              <Loader2 className='h-4 w-4 animate-spin text-muted-foreground' />
+            ) : (
+              colorBadge
+            )}
+          </div>
+          <button
+            type='button'
+            tabIndex={-1}
+            disabled={isDropdownDisabled}
+            className='-translate-y-1/2 absolute top-1/2 right-1 flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed'
+            onMouseDown={(event) => {
+              event.preventDefault()
+              if (isDropdownDisabled) return
+              const nextOpen = !dropdownOpen
+              setOpen(nextOpen)
+              if (nextOpen) {
+                inputRef.current?.focus()
+              } else {
+                inputRef.current?.blur()
+              }
+            }}
+            aria-label={dropdownOpen ? 'Close indicators' : 'Open indicators'}
+          >
+            <ChevronDown
+              className={cn('h-4 w-4 transition-transform', dropdownOpen && 'rotate-180')}
+              aria-hidden='true'
+            />
+          </button>
+        </div>
+      </PopoverAnchor>
+      <PopoverContent
+        align='start'
         sideOffset={6}
         className={cn(
-          widgetHeaderMenuContentClassName,
-          'max-h-[20rem] w-[240px] overflow-hidden p-0 shadow-lg',
+          'w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-md p-0 shadow-lg',
           menuClassName
         )}
-        style={{ maxHeight: DROPDOWN_MAX_HEIGHT }}
+        onOpenAutoFocus={(event) => event.preventDefault()}
+        onCloseAutoFocus={(event) => event.preventDefault()}
         onWheel={(event) => event.stopPropagation()}
       >
-        <div className='flex h-full max-h-[inherit] flex-col'>
-          <div className='border-border/70 border-b p-2'>
-            <div className='flex items-center gap-1 rounded-md border bg-background px-2 py-1.5 text-muted-foreground text-sm'>
-              <Search className='h-3.5 w-3.5 shrink-0' />
-                <Input
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder={copy.searchPlaceholder}
-                  className='h-6 border-0 bg-transparent px-0 text-foreground text-xs placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
-                onKeyDown={handleSearchInputKeyDown}
-                autoComplete='off'
-                autoCorrect='off'
-                spellCheck='false'
-                disabled={isDropdownDisabled}
-              />
-            </div>
-          </div>
-          <div className='h-full min-h-0 flex-1 overflow-hidden'>
-            <ScrollArea
-              className={cn(
-                'h-full w-full px-2 py-2',
-                '[&_[data-radix-scroll-area-viewport]>div]:!block',
-                '[&_[data-radix-scroll-area-viewport]>div]:w-full',
-                '[&_[data-radix-scroll-area-viewport]>div]:max-w-full',
-                '[&_[data-radix-scroll-area-viewport]>div]:overflow-hidden'
-              )}
-              style={{
-                height: DROPDOWN_VIEWPORT_HEIGHT,
-              }}
-            >
-              {(() => {
-                if (!workspaceId) {
-                  return (
-                    <p className='px-2 py-4 text-center text-muted-foreground text-xs'>
-                      {copy.selectWorkspaceFirst}
-                    </p>
-                  )
-                }
-
-                const hasFilteredIndicators =
-                  filteredDefaultIndicators.length > 0 || filteredCustomIndicators.length > 0
-
-                if (loadError && !hasIndicators) {
-                  return (
-                    <div className='space-y-2 px-3 py-2 text-xs'>
-                      <p className='text-destructive'>{loadError}</p>
-                      <button
-                        type='button'
-                        className='font-semibold text-primary text-xs hover:underline'
-                        onClick={handleRetry}
-                      >
-                        {copy.retry}
-                      </button>
-                    </div>
-                  )
-                }
-
-                const shouldShowLoadingState = (isLoading || isFetching) && !hasIndicators
-                if (shouldShowLoadingState) {
-                  return (
-                    <div className='flex items-center gap-1 px-3 py-2 text-muted-foreground text-xs'>
-                      <Loader2 className='h-3.5 w-3.5 animate-spin' />
-                      {copy.loadingIndicators}
-                    </div>
-                  )
-                }
-
-                if (!hasIndicators) {
-                  return (
-                    <p className='px-2 py-4 text-center text-muted-foreground text-xs'>
-                      {copy.noIndicatorsAvailableYet}
-                    </p>
-                  )
-                }
-
-                if (!hasFilteredIndicators) {
-                  return (
-                    <p className='px-2 py-4 text-center text-muted-foreground text-xs'>
-                      {searchQuery.trim() ? copy.noIndicatorsFound : copy.noIndicatorsAvailableYet}
-                    </p>
-                  )
-                }
-
-                const sections = [
-                  {
-                    key: 'default',
-                    label: filteredDefaultIndicators.length > 0 ? copy.defaultIndicators : null,
-                    items: filteredDefaultIndicators,
-                  },
-                  {
-                    key: 'custom',
-                    label: filteredDefaultIndicators.length > 0 ? copy.customIndicators : null,
-                    items: filteredCustomIndicators,
-                  },
-                ].filter((section) => section.items.length > 0)
-
-                return (
-                  <div className='flex w-full min-w-0 flex-col gap-2'>
-                    {loadError ? (
-                      <div className='space-y-1 px-2 py-1 text-destructive text-xs'>
-                        <p>{loadError}</p>
-                        <button
-                          type='button'
-                          className='font-semibold text-[10px] text-primary hover:underline'
-                          onClick={handleRetry}
-                        >
-                          {copy.retry}
-                        </button>
-                      </div>
-                    ) : null}
-                    {sections.map((section) => (
-                      <div key={section.key} className='flex w-full min-w-0 flex-col gap-1'>
-                        {section.label ? (
-                          <div className='px-2 pt-1 text-[10px] text-muted-foreground uppercase tracking-wide'>
-                            {section.label}
-                          </div>
-                        ) : null}
-                        {section.items.map((option) => {
-                          const isSelected = selectedIndicatorSet.has(option.id)
-                          return (
-                            <DropdownMenuItem
-                              key={option.id}
-                              className={cn(widgetHeaderMenuItemClassName, 'items-center gap-2')}
-                              onSelect={(event) => {
-                                if (isMultiSelect) {
-                                  event.preventDefault()
-                                }
-                                handleToggleIndicator(option.id)
-                              }}
-                            >
-                              <div
-                                className='h-5 w-5 rounded-xs p-0.5'
-                                style={{
-                                  backgroundColor: `${option.color ?? FALLBACK_COLOR}20`,
-                                }}
-                                aria-hidden='true'
-                              >
-                                <Activity
-                                  className='h-4 w-4 text-muted-foreground'
-                                  aria-hidden='true'
-                                  style={{ color: option.color ?? FALLBACK_COLOR }}
-                                />
-                              </div>
-                              <span className={widgetHeaderMenuTextClassName}>{option.name}</span>
-                              {isSelected && <Check className='h-4 w-4 text-foreground' />}
-                            </DropdownMenuItem>
-                          )
-                        })}
-                      </div>
-                    ))}
-                  </div>
-                )
-              })()}
-            </ScrollArea>
-          </div>
-        </div>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        <SidebarDropdownMenuContent
+          groups={visibleIndicatorGroups}
+          items={sidebarItems}
+          activeGroupId={displayedActiveFilterId}
+          onActiveGroupChange={(groupId) => setActiveFilterId(groupId as IndicatorFilterId)}
+          onSelectItem={(item) => {
+            handleToggleIndicator(item.id)
+            if (!isMultiSelect) {
+              setOpen(false)
+              inputRef.current?.blur()
+            }
+          }}
+          loadingContent={shouldShowLoadingState ? loadingContent : null}
+          emptyContent={emptyContent}
+        />
+      </PopoverContent>
+    </Popover>
   )
 }

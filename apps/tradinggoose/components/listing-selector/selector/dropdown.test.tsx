@@ -3,8 +3,8 @@
  */
 
 import { act, type ComponentProps } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
 import { NextIntlClientProvider } from 'next-intl'
+import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getPublicCopy } from '@/i18n/public-copy'
 import { ListingSelectorDropdownContent } from './dropdown'
@@ -40,6 +40,9 @@ describe('ListingSelectorDropdownContent localized copy', () => {
       root.render(
         <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
           <ListingSelectorDropdownContent
+            groups={[{ id: 'all', label: 'All' }]}
+            activeGroupId='all'
+            onActiveGroupChange={vi.fn()}
             results={[]}
             isLoading={false}
             highlightedIndex={-1}

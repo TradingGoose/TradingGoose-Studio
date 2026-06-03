@@ -1,12 +1,13 @@
 import { AgentIcon } from '@/components/icons/icons'
 import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
-import type { BlockConfig } from '@/blocks/types'
+import type { BlockConfig, SubBlockOption, SubBlockOptionGroup } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import {
   getAllModelProviders,
   getHostedModels,
   getMaxTemperature,
+  getProviderFromModel,
   getProviderIcon,
   MODELS_WITH_REASONING_EFFORT,
   MODELS_WITH_VERBOSITY,
@@ -29,6 +30,42 @@ const getAvailableModels = () => {
   const ollamaModels = providersState.providers.ollama.models
   const openrouterModels = providersState.providers.openrouter.models
   return Array.from(new Set([...baseModels, ...ollamaModels, ...openrouterModels]))
+}
+
+const getAvailableModelOptions = (): SubBlockOption[] => {
+  return getAvailableModels().map((model) => {
+    const providerId = getProviderFromModel(model)
+    const provider = providers[providerId]
+    const icon = provider?.icon ?? getProviderIcon(model)
+
+    return {
+      label: model,
+      id: model,
+      group: providerId,
+      searchLabel: `${model} ${provider?.name ?? providerId}`,
+      ...(icon && { icon }),
+    }
+  })
+}
+
+const getAvailableModelGroups = (): SubBlockOptionGroup[] => {
+  const seenProviderIds = new Set<string>()
+  const groups: SubBlockOptionGroup[] = []
+
+  for (const model of getAvailableModels()) {
+    const providerId = getProviderFromModel(model)
+    if (seenProviderIds.has(providerId)) continue
+
+    const provider = providers[providerId]
+    seenProviderIds.add(providerId)
+    groups.push({
+      id: providerId,
+      label: provider?.name ?? providerId,
+      ...(provider?.icon && { icon: provider.icon }),
+    })
+  }
+
+  return groups
 }
 
 interface AgentResponse extends ToolResponse {
@@ -170,19 +207,14 @@ Create a system prompt appropriately detailed for the request, using clear langu
       layout: 'half',
       placeholder: 'Type or select a model...',
       required: true,
+      dropdownMode: 'sidebar',
+      optionGroups: getAvailableModelGroups,
       value: () => {
         const allModels = getAvailableModels()
         if (allModels.includes('gpt-4o')) return 'gpt-4o'
         return allModels[0]
       },
-      options: () => {
-        const allModels = getAvailableModels()
-
-        return allModels.map((model) => {
-          const icon = getProviderIcon(model)
-          return { label: model, id: model, ...(icon && { icon }) }
-        })
-      },
+      options: getAvailableModelOptions,
     },
     {
       id: 'temperature',

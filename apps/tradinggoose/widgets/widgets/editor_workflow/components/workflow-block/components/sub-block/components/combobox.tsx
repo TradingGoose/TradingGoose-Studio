@@ -6,10 +6,15 @@ import { Button } from '@/components/ui/button'
 import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-dropdown'
 import { formatDisplayText } from '@/components/ui/formatted-text'
 import { Input } from '@/components/ui/input'
+import {
+  type SidebarDropdownGroup,
+  type SidebarDropdownItem,
+  SidebarDropdownMenuContent,
+} from '@/components/ui/sidebar-dropdown-menu'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
-import type { SubBlockConfig } from '@/blocks/types'
+import type { SubBlockConfig, SubBlockOption } from '@/blocks/types'
 import { useTagSelection } from '@/hooks/use-tag-selection'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
@@ -20,9 +25,7 @@ import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workfl
 const logger = createLogger('ComboBox')
 
 interface ComboBoxProps {
-  options:
-    | Array<string | { label: string; id: string }>
-    | (() => Array<string | { label: string; id: string }>)
+  options: Array<string | SubBlockOption> | (() => Array<string | SubBlockOption>)
   defaultValue?: string
   blockId: string
   subBlockId: string
@@ -55,6 +58,7 @@ export function ComboBox({
   const [searchTerm, setSearchTerm] = useState('')
   const [cursorPosition, setCursorPosition] = useState(0)
   const [activeSourceBlockId, setActiveSourceBlockId] = useState<string | null>(null)
+  const [activeSidebarGroupId, setActiveSidebarGroupId] = useState<string | null>(null)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const [hasTyped, setHasTyped] = useState(false)
 
@@ -67,19 +71,43 @@ export function ComboBox({
   const reactFlowInstance = useReactFlow()
 
   const value = propValue !== undefined ? propValue : storeValue
+  const displayValue = value?.toString() ?? ''
 
   // Evaluate options if it's a function
   const evaluatedOptions = useMemo(() => {
     return typeof options === 'function' ? options() : options
   }, [options])
 
-  const getOptionValue = (option: string | { label: string; id: string }) => {
-    return typeof option === 'string' ? option : option.id
+  const getOptionValue = (option: string | SubBlockOption) => {
+    return typeof option === 'string' ? option : String(option.value ?? option.id)
   }
 
-  const getOptionLabel = (option: string | { label: string; id: string }) => {
+  const getOptionLabel = (option: string | SubBlockOption) => {
     return typeof option === 'string' ? option : option.label
   }
+
+  const getOptionGroup = (option: string | SubBlockOption) => {
+    return typeof option === 'string' ? 'Options' : (option.group ?? 'Options')
+  }
+
+  const getOptionSearchText = (option: string | SubBlockOption) => {
+    if (typeof option === 'string') return option
+    return option.searchLabel ?? option.label
+  }
+
+  const getOptionIcon = (option: string | SubBlockOption) => {
+    return typeof option === 'string' ? null : (option.icon ?? null)
+  }
+
+  const selectedOption = useMemo(() => {
+    if (value === null || value === undefined) return undefined
+
+    return evaluatedOptions.find((opt) => {
+      const optionValue = getOptionValue(opt)
+      const optionLabel = getOptionLabel(opt)
+      return optionValue === value || optionLabel === value
+    })
+  }, [evaluatedOptions, value, getOptionLabel, getOptionValue])
 
   // Get the default option value (prefer gpt-4o, then provided defaultValue, then first option)
   const defaultOptionValue = useMemo(() => {
@@ -139,10 +167,65 @@ export function ComboBox({
     return evaluatedOptions.filter((option) => {
       const label = getOptionLabel(option).toLowerCase()
       const optionValue = getOptionValue(option).toLowerCase()
+      const searchLabel = getOptionSearchText(option).toLowerCase()
       const search = currentValue.toLowerCase()
-      return label.includes(search) || optionValue.includes(search)
+      return label.includes(search) || optionValue.includes(search) || searchLabel.includes(search)
     })
-  }, [evaluatedOptions, value, open, getOptionLabel, getOptionValue, hasTyped])
+  }, [evaluatedOptions, value, open, getOptionLabel, getOptionValue, getOptionSearchText, hasTyped])
+
+  const configuredSidebarGroups = useMemo<SidebarDropdownGroup[]>(() => {
+    const optionGroups = config.optionGroups
+    if (!optionGroups) return []
+    return typeof optionGroups === 'function' ? optionGroups() : optionGroups
+  }, [config.optionGroups])
+
+  const sidebarItems = useMemo<SidebarDropdownItem[]>(
+    () =>
+      filteredOptions.map((option) => {
+        const optionValue = getOptionValue(option)
+        const Icon = getOptionIcon(option)
+        return {
+          id: optionValue,
+          groupId: getOptionGroup(option),
+          label: getOptionLabel(option),
+          selected: displayValue === optionValue || displayValue === getOptionLabel(option),
+          icon: Icon ? <Icon className='h-3 w-3 shrink-0' /> : null,
+        }
+      }),
+    [displayValue, filteredOptions, getOptionGroup, getOptionIcon, getOptionLabel, getOptionValue]
+  )
+
+  const sidebarGroups = useMemo<SidebarDropdownGroup[]>(() => {
+    const groupIds = Array.from(new Set(sidebarItems.map((item) => item.groupId)))
+    if (configuredSidebarGroups.length === 0) {
+      return groupIds.map((groupId) => ({ id: groupId, label: groupId }))
+    }
+
+    const configuredGroupIds = new Set(configuredSidebarGroups.map((group) => group.id))
+    return [
+      ...configuredSidebarGroups.filter((group) => groupIds.includes(group.id)),
+      ...groupIds
+        .filter((groupId) => !configuredGroupIds.has(groupId))
+        .map((groupId) => ({ id: groupId, label: groupId })),
+    ]
+  }, [configuredSidebarGroups, sidebarItems])
+
+  const usesSidebarMode = config.dropdownMode === 'sidebar'
+  const selectedSidebarGroupId = selectedOption ? getOptionGroup(selectedOption) : null
+  const currentSidebarGroupId =
+    activeSidebarGroupId && sidebarGroups.some((group) => group.id === activeSidebarGroupId)
+      ? activeSidebarGroupId
+      : null
+  const currentSelectedSidebarGroupId =
+    selectedSidebarGroupId && sidebarGroups.some((group) => group.id === selectedSidebarGroupId)
+      ? selectedSidebarGroupId
+      : null
+  const resolvedActiveSidebarGroupId =
+    currentSidebarGroupId ?? currentSelectedSidebarGroupId ?? sidebarGroups[0]?.id ?? null
+  const activeSidebarItems = useMemo(
+    () => sidebarItems.filter((item) => item.groupId === resolvedActiveSidebarGroupId),
+    [resolvedActiveSidebarGroupId, sidebarItems]
+  )
 
   // Event handlers
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -222,23 +305,33 @@ export function ComboBox({
 
     if (e.key === 'ArrowDown') {
       e.preventDefault()
+      const optionCount = usesSidebarMode ? activeSidebarItems.length : filteredOptions.length
       if (!open) {
         setOpen(true)
         setHighlightedIndex(0)
       } else {
-        setHighlightedIndex((prev) => (prev < filteredOptions.length - 1 ? prev + 1 : 0))
+        setHighlightedIndex((prev) => (prev < optionCount - 1 ? prev + 1 : 0))
       }
     }
 
     if (e.key === 'ArrowUp') {
       e.preventDefault()
       if (open) {
-        setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : filteredOptions.length - 1))
+        const optionCount = usesSidebarMode ? activeSidebarItems.length : filteredOptions.length
+        setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : optionCount - 1))
       }
     }
 
     if (e.key === 'Enter' && open && highlightedIndex >= 0) {
       e.preventDefault()
+      if (usesSidebarMode) {
+        const selectedItem = activeSidebarItems[highlightedIndex]
+        if (selectedItem) {
+          handleSelect(selectedItem.id)
+        }
+        return
+      }
+
       const selectedOption = filteredOptions[highlightedIndex]
       if (selectedOption) {
         handleSelect(getOptionValue(selectedOption))
@@ -392,17 +485,6 @@ export function ComboBox({
     }
   }, [open])
 
-  // Display value with formatting
-  const displayValue = value?.toString() ?? ''
-  const selectedOption = useMemo(() => {
-    if (value === null || value === undefined) return undefined
-
-    return evaluatedOptions.find((opt) => {
-      const optionValue = getOptionValue(opt)
-      const optionLabel = getOptionLabel(opt)
-      return optionValue === value || optionLabel === value
-    })
-  }, [evaluatedOptions, value])
   const SelectedIcon =
     selectedOption && typeof selectedOption === 'object' && 'icon' in selectedOption
       ? (selectedOption.icon as React.ComponentType<{ className?: string }>)
@@ -472,15 +554,37 @@ export function ComboBox({
 
       {/* Dropdown */}
       {open && (
-        <div className='absolute top-full left-0 z-[100] mt-1 w-full min-w-[286px] overflow-visible'>
+        <div
+          className={cn(
+            'absolute top-full left-0 z-[100] mt-1 w-full overflow-visible',
+            usesSidebarMode ? 'min-w-80' : 'min-w-60'
+          )}
+        >
           <div className='allow-scroll fade-in-0 zoom-in-95 animate-in rounded-md border bg-popover text-popover-foreground shadow-lg'>
             <div
               ref={dropdownRef}
-              className='allow-scroll max-h-48 overflow-y-auto p-1'
+              className={cn(
+                'allow-scroll',
+                usesSidebarMode ? 'overflow-hidden p-0' : 'max-h-48 overflow-y-auto p-1'
+              )}
               style={{ scrollbarWidth: 'thin' }}
               onMouseLeave={() => setHighlightedIndex(-1)}
             >
-              {filteredOptions.length === 0 ? (
+              {usesSidebarMode ? (
+                <SidebarDropdownMenuContent
+                  groups={sidebarGroups}
+                  items={sidebarItems}
+                  activeGroupId={resolvedActiveSidebarGroupId}
+                  highlightedItemId={activeSidebarItems[highlightedIndex]?.id ?? null}
+                  onActiveGroupChange={(groupId) => {
+                    setActiveSidebarGroupId(groupId)
+                    setHighlightedIndex(-1)
+                  }}
+                  onSelectItem={(item) => handleSelect(item.id)}
+                  loadingContent={null}
+                  emptyContent={translateWorkflowLabel(locale, 'noMatchingOptionsFound')}
+                />
+              ) : filteredOptions.length === 0 ? (
                 <div className='py-6 text-center text-muted-foreground text-sm'>
                   {translateWorkflowLabel(locale, 'noMatchingOptionsFound')}
                 </div>
