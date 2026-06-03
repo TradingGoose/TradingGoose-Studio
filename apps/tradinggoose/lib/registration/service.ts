@@ -8,6 +8,7 @@ import {
 } from '@/components/emails/render-email'
 import { type EmailOptions, sendBatchEmails, sendEmail } from '@/lib/email/mailer'
 import { normalizeEmailLocale } from '@/lib/email/locale'
+import { localizeUrl } from '@/i18n/utils'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -335,8 +336,8 @@ async function createWaitlistApprovalEmail(
   preferredLocale: string
 ): Promise<EmailOptions | null> {
   try {
-    const signupLink = `${baseUrl}/signup?email=${encodeURIComponent(email)}`
     const locale = normalizeEmailLocale(preferredLocale)
+    const signupLink = localizeUrl(baseUrl, locale, `/signup?email=${encodeURIComponent(email)}`)
     return {
       to: email,
       subject: getEmailSubject('waitlist-approved', locale),

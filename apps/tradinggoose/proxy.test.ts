@@ -94,6 +94,7 @@ describe('proxy auth routing', () => {
     expect(response.headers.get('location')).toBe(
       'http://localhost:3000/es/login?callbackUrl=%2Fworkspace%2Fws-1%2Fdashboard%3FlayoutId%3Dlayout-1'
     )
+    expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('es')
   })
 
   it('redirects authenticated localized auth routes to the localized workspace root', async () => {
@@ -137,14 +138,18 @@ describe('proxy auth routing', () => {
     expect(response.status).toBe(200)
     expect(response.headers.get('location')).toBeNull()
     expect(response.headers.get('x-middleware-rewrite')).not.toBe('http://localhost:3000/')
+    expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('es')
   })
 
-  it('redirects root requests to the locale remembered by NEXT_LOCALE', async () => {
+  it.each([
+    ['root', 'http://localhost:3000/?source=nav', 'http://localhost:3000/zh?source=nav'],
+    ['workspace', 'http://localhost:3000/workspace', 'http://localhost:3000/zh/workspace'],
+  ])('redirects canonical %s requests to the locale remembered by NEXT_LOCALE', async (_, url, location) => {
     mockGetSessionCookie.mockReturnValue('session-cookie')
 
     const { proxy } = await import('./proxy')
     const response = await proxy(
-      new NextRequest('http://localhost:3000/?source=nav', {
+      new NextRequest(url, {
         headers: {
           cookie: 'NEXT_LOCALE=zh',
           'user-agent': 'vitest',
@@ -153,7 +158,7 @@ describe('proxy auth routing', () => {
     )
 
     expect(response.status).toBe(307)
-    expect(response.headers.get('location')).toBe('http://localhost:3000/zh?source=nav')
+    expect(response.headers.get('location')).toBe(location)
   })
 
   it('does not rewrite localized API-shaped paths to canonical API routes', async () => {

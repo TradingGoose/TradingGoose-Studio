@@ -6,7 +6,7 @@ export type LocaleInput = LocaleCode | string | null | undefined
 
 export { defaultLocale, isLocaleCode, locales }
 
-export const SITE_BASE_URL = 'https://tradinggoose.ai'
+export const SITE_BASE_URL = 'https://www.tradinggoose.ai'
 const LOCALE_DISPLAY_NAMES: Record<LocaleCode, string> = {
   en: 'English',
   es: 'Español',

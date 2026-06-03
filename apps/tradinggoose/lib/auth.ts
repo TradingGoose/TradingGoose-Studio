@@ -28,6 +28,7 @@ import {
   renderPasswordResetEmail,
 } from '@/components/emails/render-email'
 import { sendBillingTierWelcomeEmail } from '@/lib/billing'
+import { localizeUrl } from '@/i18n/utils'
 import { authorizeSubscriptionReference } from '@/lib/billing/authorization'
 import {
   ensureDefaultUserSubscription,
@@ -1827,9 +1828,9 @@ export const auth = betterAuth({
         try {
           const { invitation, organization, inviter } = data
 
-          const inviteUrl = `${getBaseUrl()}/invite/${invitation.id}`
           const inviterName = inviter.user?.name || 'A team member'
           const locale = await resolveEmailLocale({ email: invitation.email })
+          const inviteUrl = localizeUrl(getBaseUrl(), locale, `/invite/${invitation.id}`)
 
           const html = await renderInvitationEmail(
             inviterName,

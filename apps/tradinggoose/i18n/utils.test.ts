@@ -45,15 +45,15 @@ describe('i18n utils', () => {
   })
 
   it('builds localized site URLs and alternate hreflang mappings', () => {
-    expect(localizeSiteUrl('zh', '/blog')).toBe('https://tradinggoose.ai/zh/blog')
+    expect(localizeSiteUrl('zh', '/blog')).toBe('https://www.tradinggoose.ai/zh/blog')
 
     expect(buildLocalizedAlternates('es', '/blog')).toEqual({
-      canonical: 'https://tradinggoose.ai/es/blog',
+      canonical: 'https://www.tradinggoose.ai/es/blog',
       languages: {
-        en: 'https://tradinggoose.ai/blog',
-        es: 'https://tradinggoose.ai/es/blog',
-        zh: 'https://tradinggoose.ai/zh/blog',
-        'x-default': 'https://tradinggoose.ai/blog',
+        en: 'https://www.tradinggoose.ai/blog',
+        es: 'https://www.tradinggoose.ai/es/blog',
+        zh: 'https://www.tradinggoose.ai/zh/blog',
+        'x-default': 'https://www.tradinggoose.ai/blog',
       },
     })
   })

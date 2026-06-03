@@ -156,13 +156,13 @@ describe('registration service waitlist approvals', () => {
       emails: [
         {
           emailType: 'transactional',
-          html: '<p>alpha@example.com:https://app.tradinggoose.ai/signup?email=alpha%40example.com</p>',
+          html: '<p>alpha@example.com:https://app.tradinggoose.ai/es/signup?email=alpha%40example.com</p>',
           subject: 'Your TradingGoose access request was approved',
           to: 'alpha@example.com',
         },
         {
           emailType: 'transactional',
-          html: '<p>beta@example.com:https://app.tradinggoose.ai/signup?email=beta%40example.com</p>',
+          html: '<p>beta@example.com:https://app.tradinggoose.ai/zh/signup?email=beta%40example.com</p>',
           subject: 'Your TradingGoose access request was approved',
           to: 'beta@example.com',
         },
@@ -171,12 +171,12 @@ describe('registration service waitlist approvals', () => {
     expect(mockSendEmail).not.toHaveBeenCalled()
     expect(mockRenderWaitlistApprovedEmail).toHaveBeenCalledWith(
       'alpha@example.com',
-      'https://app.tradinggoose.ai/signup?email=alpha%40example.com',
+      'https://app.tradinggoose.ai/es/signup?email=alpha%40example.com',
       'es'
     )
     expect(mockRenderWaitlistApprovedEmail).toHaveBeenCalledWith(
       'beta@example.com',
-      'https://app.tradinggoose.ai/signup?email=beta%40example.com',
+      'https://app.tradinggoose.ai/zh/signup?email=beta%40example.com',
       'zh'
     )
   })

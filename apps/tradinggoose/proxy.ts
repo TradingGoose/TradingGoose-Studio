@@ -23,6 +23,7 @@ import { generateRuntimeCSP } from './lib/security/csp'
 const logger = createLogger('Proxy')
 const handleI18nRouting = createMiddleware(routing)
 const LOCALE_COOKIE = 'NEXT_LOCALE'
+const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
 const AUTH_ROUTES = new Set(['/login', '/signup'])
 const AUTH_COOKIE_KEYS = [
@@ -75,6 +76,13 @@ function buildNormalizedUrl(request: NextRequest, pathname: string) {
   return normalizedUrl
 }
 
+function resolveRequestLocale(request: NextRequest, route = resolveLocaleRoute(request.nextUrl.pathname)) {
+  const preferredLocale = request.cookies.get(LOCALE_COOKIE)?.value
+  return route.hasLocalePrefix || !preferredLocale || !isLocaleCode(preferredLocale)
+    ? route.locale
+    : preferredLocale
+}
+
 function isCanonicalRouteHandlerPath(pathname: string) {
   return (
     pathname === '/api' ||
@@ -94,14 +102,14 @@ function isCanonicalRouteHandlerPath(pathname: string) {
 }
 
 function buildLoginRedirect(request: NextRequest, callback?: string) {
-  const { locale } = resolveLocaleRoute(request.nextUrl.pathname)
+  const locale = resolveRequestLocale(request)
   const loginUrl = new URL(localizeUrl(request.nextUrl.origin, locale, '/login'))
 
   if (callback) {
     loginUrl.searchParams.set('callbackUrl', callback)
   }
 
-  return NextResponse.redirect(loginUrl)
+  return withLocaleCookie(NextResponse.redirect(loginUrl), locale)
 }
 
 function isProtectedAppPath(pathname: string): boolean {
@@ -171,11 +179,22 @@ function rewriteMarkdownRequest(request: NextRequest): NextResponse | null {
   })
 }
 
-function redirectRootToPreferredLocale(request: NextRequest): NextResponse | null {
+function withLocaleCookie(response: NextResponse, locale: LocaleCode) {
+  response.cookies.set(LOCALE_COOKIE, locale, {
+    path: '/',
+    maxAge: LOCALE_COOKIE_MAX_AGE,
+    sameSite: 'lax',
+  })
+  return response
+}
+
+function redirectToCookieLocale(request: NextRequest, route: LocaleRoute): NextResponse | null {
   const preferredLocale = request.cookies.get(LOCALE_COOKIE)?.value
 
   if (
-    request.nextUrl.pathname !== '/' ||
+    route.hasLocalePrefix ||
+    isCanonicalRouteHandlerPath(request.nextUrl.pathname) ||
+    (request.method !== 'GET' && request.method !== 'HEAD') ||
     !preferredLocale ||
     !isLocaleCode(preferredLocale) ||
     preferredLocale === defaultLocale
@@ -183,7 +202,7 @@ function redirectRootToPreferredLocale(request: NextRequest): NextResponse | nul
     return null
   }
 
-  const redirectUrl = new URL(localizeUrl(request.nextUrl.origin, preferredLocale, '/'))
+  const redirectUrl = new URL(localizeUrl(request.nextUrl.origin, preferredLocale, route.pathname))
   redirectUrl.search = request.nextUrl.search
   return NextResponse.redirect(redirectUrl)
 }
@@ -238,11 +257,15 @@ export async function proxy(request: NextRequest) {
     if (reauth) {
       const response = handleI18nRouting(request)
       clearAuthCookies(response)
-      return response
+      return route.hasLocalePrefix ? withLocaleCookie(response, locale) : response
     }
 
     if (hasActiveSession) {
-      return NextResponse.redirect(new URL(localizeUrl(url.origin, locale, '/workspace')))
+      const requestLocale = resolveRequestLocale(request, route)
+      return withLocaleCookie(
+        NextResponse.redirect(new URL(localizeUrl(url.origin, requestLocale, '/workspace'))),
+        requestLocale
+      )
     }
   }
 
@@ -252,7 +275,7 @@ export async function proxy(request: NextRequest) {
   const markdownRewrite = rewriteMarkdownRequest(request)
   if (markdownRewrite) return markdownRewrite
 
-  const localeRedirect = redirectRootToPreferredLocale(request)
+  const localeRedirect = redirectToCookieLocale(request, route)
   if (localeRedirect) return localeRedirect
 
   const response = isCanonicalRouteHandlerPath(url.pathname)
@@ -277,7 +300,7 @@ export async function proxy(request: NextRequest) {
     appendHomepageDiscoveryLinks(response.headers, locale)
   }
 
-  return response
+  return route.hasLocalePrefix ? withLocaleCookie(response, locale) : response
 }
 
 export const config = {
