@@ -1,6 +1,6 @@
-import { getRequestConfig } from 'next-intl/server'
 import { hasLocale } from 'next-intl'
-import { getPublicCopy } from './public-copy'
+import { getRequestConfig } from 'next-intl/server'
+import { getClientMessages } from './public-copy'
 import { routing } from './routing'
 
 export default getRequestConfig(async ({ requestLocale }) => {
@@ -11,6 +11,6 @@ export default getRequestConfig(async ({ requestLocale }) => {
 
   return {
     locale,
-    messages: getPublicCopy(locale),
+    messages: getClientMessages(locale),
   }
 })

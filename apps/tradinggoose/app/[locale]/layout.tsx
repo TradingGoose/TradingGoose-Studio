@@ -1,12 +1,13 @@
 import type { Metadata, Viewport } from 'next'
 import { notFound } from 'next/navigation'
 import Script from 'next/script'
-import { PUBLIC_ENV_KEY } from 'next-runtime-env'
 import { hasLocale, NextIntlClientProvider } from 'next-intl'
 import { setRequestLocale } from 'next-intl/server'
+import { PUBLIC_ENV_KEY } from 'next-runtime-env'
 import { generateBrandedMetadata } from '@/lib/branding/metadata'
 import { createLogger } from '@/lib/logs/console/logger'
 import { PostHogProvider } from '@/lib/posthog/provider'
+import { getClientMessages } from '@/i18n/public-copy'
 import { routing } from '@/i18n/routing'
 import 'monaco-editor/min/vs/editor/editor.main.css'
 import '@/app/globals.css'
@@ -116,7 +117,11 @@ export default async function RootLayout({
           <ThemeProvider>
             <QueryProvider>
               <SessionProvider>
-                <NextIntlClientProvider key={locale} locale={locale}>
+                <NextIntlClientProvider
+                  key={locale}
+                  locale={locale}
+                  messages={getClientMessages(locale)}
+                >
                   <ProviderModelsBootstrap />
                   <TooltipProvider delayDuration={100} skipDelayDuration={0}>
                     <ZoomPrevention />

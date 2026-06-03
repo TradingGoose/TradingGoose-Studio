@@ -144,7 +144,6 @@ export async function PATCH(request: Request) {
     }
   } catch (error: any) {
     logger.error(`[${requestId}] Settings update error`, error)
-    // Return success on error instead of error response
-    return NextResponse.json({ success: true }, { status: 200 })
+    return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 })
   }
 }

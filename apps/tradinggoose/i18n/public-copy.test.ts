@@ -6,7 +6,7 @@ import {
 } from '@/widgets/widgets/data_chart/components/draw-tool-icon-registry'
 import { CANDLE_TYPE_OPTIONS } from '@/widgets/widgets/data_chart/options'
 import { DEFAULT_RANGE_PRESETS } from '@/widgets/widgets/data_chart/series-data'
-import { getPublicCopy } from './public-copy'
+import { getClientMessages, getPublicCopy } from './public-copy'
 import { formatTemplate } from './utils'
 
 function normalizeShape(value: unknown): unknown {
@@ -39,6 +39,15 @@ describe('public copy', () => {
     expect(getPublicCopy('en').meta.landing.title).toContain('TradingGoose')
     expect(getPublicCopy('es').blog.readTimeSuffix).toBe('min de lectura')
     expect(getPublicCopy('zh').meta.landing.seo.socialPreviewAlt).toContain('TradingGoose')
+    expect(Object.keys(getClientMessages('en'))).not.toEqual(
+      expect.arrayContaining(['workspace', 'admin', 'emails'])
+    )
+    expect(getClientMessages('es', 'workspace')).toHaveProperty(
+      'workspace.userMenu.accountDetail',
+      'Detalles de la cuenta'
+    )
+    expect(getClientMessages('zh', 'admin')).toHaveProperty('admin.home.badge', '管理员')
+    expect(getClientMessages('en', 'admin')).toHaveProperty('registration.open.primary')
   })
 
   it('keeps zh auth copy translated', () => {

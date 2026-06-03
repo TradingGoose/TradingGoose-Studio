@@ -18,6 +18,10 @@ vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
 }))
 
+vi.mock('next-intl/server', () => ({
+  getLocale: () => 'en',
+}))
+
 vi.mock('@/lib/admin/access', () => ({
   getSystemAdminAccess: (...args: unknown[]) => mockGetSystemAdminAccess(...args),
 }))
