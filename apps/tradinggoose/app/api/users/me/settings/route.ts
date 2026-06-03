@@ -26,7 +26,6 @@ const SettingsSchema = z.object({
   billingUsageNotificationsEnabled: z.boolean().optional(),
 })
 
-// Default settings values
 const defaultSettings = {
   theme: 'system',
   preferredLocale: defaultLocale,
@@ -53,7 +52,6 @@ export async function GET() {
   try {
     const session = await getSession()
 
-    // Return default settings for unauthenticated users instead of 401 error
     if (!session?.user?.id) {
       logger.info(`[${requestId}] Returning default settings for unauthenticated user`)
       return NextResponse.json({ data: defaultSettings }, { status: 200 })
@@ -84,8 +82,7 @@ export async function GET() {
     )
   } catch (error: any) {
     logger.error(`[${requestId}] Settings fetch error`, error)
-    // Return default settings on error instead of error response
-    return NextResponse.json({ data: defaultSettings }, { status: 200 })
+    return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 })
   }
 }
 
@@ -95,12 +92,8 @@ export async function PATCH(request: Request) {
   try {
     const session = await getSession()
 
-    // Return success for unauthenticated users instead of error
     if (!session?.user?.id) {
-      logger.info(
-        `[${requestId}] Settings update attempted by unauthenticated user - acknowledged without saving`
-      )
-      return NextResponse.json({ success: true }, { status: 200 })
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
     const userId = session.user.id
@@ -109,7 +102,6 @@ export async function PATCH(request: Request) {
     try {
       const validatedData = SettingsSchema.parse(body)
 
-      // Store the settings
       await db
         .insert(settings)
         .values({

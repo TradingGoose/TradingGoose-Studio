@@ -77,11 +77,6 @@ export const useGeneralStore = create<GeneralStore>()(
             )
           },
           updateSetting: async (key, value) => {
-            if (typeof window !== 'undefined' && window.location.pathname.startsWith('/chat/')) {
-              logger.debug(`Skipping setting update for ${key} on chat page`)
-              return
-            }
-
             try {
               const apiKey =
                 key === 'isBillingUsageNotificationsEnabled'
