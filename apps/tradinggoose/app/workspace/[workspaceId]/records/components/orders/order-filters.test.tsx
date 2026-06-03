@@ -65,7 +65,7 @@ describe('OrderFilters', () => {
       root.render(<OrderFilters searchValue='' onSearchChange={onSearchChange} />)
     })
 
-    const searchInput = container.querySelector('input[placeholder="Search orders"]')
+    const searchInput = container.querySelector('input[placeholder="Search orders..."]')
     expect(searchInput).toBeInstanceOf(HTMLInputElement)
     expect(container.querySelector('select')).toBeNull()
   })

@@ -520,7 +520,7 @@ describe('MonitorExecutionWorkspace', () => {
       )
     })
 
-    await selectOption('Started at ↓', 'Workflow ↓')
+    await selectOption('Started ↓', 'Workflow ↓')
 
     const updater = onUpdateViewConfig.mock.calls.at(-1)?.[0]
     if (typeof updater !== 'function') {
@@ -631,7 +631,9 @@ describe('MonitorExecutionWorkspace', () => {
       )
     })
 
-    const toolbar = container.querySelector('[role="toolbar"][aria-label="Monitor view controls"]')
+    const toolbar = container.querySelector(
+      '[role="toolbar"][aria-label="Execution monitor controls"]'
+    )
     if (!(toolbar instanceof HTMLElement)) {
       throw new Error('Expected monitor view toolbar to render')
     }
@@ -641,7 +643,7 @@ describe('MonitorExecutionWorkspace', () => {
     expect(toolbar.textContent).toContain('Markers')
     expect(toolbar.textContent).toContain('Today')
     expect(toolbar.textContent).toContain('Sort')
-    expect(toolbar.textContent).toContain('Started at')
+    expect(toolbar.textContent).toContain('Started')
     expect(toolbar.textContent).not.toContain('Dates')
     expect(toolbar.textContent).not.toContain('Zoom level')
     expect(toolbar.textContent).not.toContain('120%')

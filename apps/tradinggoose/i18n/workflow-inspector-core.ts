@@ -113,6 +113,11 @@ function requireWorkflowLabel(copy: WorkflowLabelCopy, key: string) {
   return value
 }
 
+function getOptionalWorkflowLabel(copy: WorkflowLabelCopy, key: string): string | undefined {
+  const value = (copy as Record<string, unknown>)[key]
+  return typeof value === 'string' ? value : undefined
+}
+
 function requireWorkflowToolbarLabel(copy: WorkflowToolbarCopy, key: string) {
   const value = (copy as Record<string, unknown>)[key]
   if (typeof value !== 'string') {
@@ -580,11 +585,15 @@ export function getLocalizedDefaultBlockNameWithCopy(
 }
 
 export function getLocalizedToolParameterLabelWithCopy(
-  _inspectorCopy: WorkflowInspectorCopy,
+  inspectorCopy: WorkflowInspectorCopy,
   paramId: string,
   label?: string
 ): string {
-  return label ?? formatParameterLabel(paramId)
+  return (
+    getOptionalWorkflowLabel(getWorkflowLabelCopyFromInspector(inspectorCopy), paramId) ??
+    label ??
+    formatParameterLabel(paramId)
+  )
 }
 
 function localizeToolUiComponentOptionsWithCopy(
@@ -677,6 +686,10 @@ export function localizeWorkflowSubBlockConfigWithCopy(
   const blockOverride = getSubBlockOverride(inspectorCopy, blockType, config.id)
   const triggerOverride = getTriggerSubBlockCopyFromInspector(inspectorCopy, triggerId, config.id)
   const override = mergeSubBlockOverrides(blockOverride, triggerOverride)
+  const workflowLabelTitle = getOptionalWorkflowLabel(
+    getWorkflowLabelCopyFromInspector(inspectorCopy),
+    config.id
+  )
   const defaultValue =
     config.type === 'text'
       ? triggerOverride?.steps?.length
@@ -686,7 +699,7 @@ export function localizeWorkflowSubBlockConfigWithCopy(
 
   return {
     ...config,
-    title: override?.title ?? config.title,
+    title: override?.title ?? workflowLabelTitle ?? config.title,
     placeholder: override?.placeholder ?? config.placeholder,
     searchPlaceholder: override?.searchPlaceholder ?? config.searchPlaceholder,
     description: override?.description ?? config.description,

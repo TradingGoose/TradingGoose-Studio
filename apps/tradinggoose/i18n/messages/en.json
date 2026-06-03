@@ -1729,6 +1729,7 @@
         "remaining": "Rem",
         "recorded": "Recorded",
         "copyOrderId": "Copy order id",
+        "openProviderOrderDetail": "Open provider order detail",
         "refreshProviderDetail": "Refresh provider detail",
         "unknown": "Unknown"
       }
@@ -2896,6 +2897,8 @@
         "reduceExposure": "Reduce Exposure",
         "skills": "Skills",
         "tools": "Tools",
+        "model": "Model",
+        "apiKey": "API Key",
         "method": "Method",
         "queryParams": "Query Params",
         "headers": "Headers",

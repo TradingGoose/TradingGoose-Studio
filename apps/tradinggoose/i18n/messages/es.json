@@ -1729,6 +1729,7 @@
         "remaining": "Rest.",
         "recorded": "Registrado",
         "copyOrderId": "Copiar ID de orden",
+        "openProviderOrderDetail": "Abrir detalle de la orden del proveedor",
         "refreshProviderDetail": "Actualizar detalle del proveedor",
         "unknown": "Desconocido"
       }
@@ -2896,6 +2897,8 @@
         "reduceExposure": "Reducir exposición",
         "skills": "Habilidades",
         "tools": "Herramientas",
+        "model": "Modelo",
+        "apiKey": "Clave API",
         "method": "Método",
         "queryParams": "Parámetros de consulta",
         "headers": "Encabezados",

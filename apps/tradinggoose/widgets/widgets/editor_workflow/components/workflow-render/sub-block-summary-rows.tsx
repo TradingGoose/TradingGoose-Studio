@@ -17,10 +17,10 @@ import type { SubBlockConfig } from '@/blocks/types'
 import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 import {
   buildPreviewSummaryRows,
-  type PreviewSummaryConditionRow as SubBlockSummaryConditionRow,
+  formatSubBlockSummaryValue,
   type PreviewSummaryJsonRow,
   type PreviewSummaryRowData,
-  formatSubBlockSummaryValue,
+  type PreviewSummaryConditionRow as SubBlockSummaryConditionRow,
 } from './preview-summary'
 
 export type { SubBlockSummaryConditionRow }
@@ -241,13 +241,14 @@ export function SubBlockSummaryRows({
   const {
     workflowEditorCopy,
     workflowLabelsCopy: labels,
+    localizeWorkflowSubBlockConfig,
     resolveWorkflowDisplayValue,
   } = useWorkflowI18n()
   const objectItemLabel = workflowEditorCopy.summary.objectItem
   const additionalCountTemplate = workflowEditorCopy.summary.additionalCount
   const rows = buildPreviewSummaryRows({
     blockId,
-    subBlocks,
+    subBlocks: subBlocks.map((subBlock) => localizeWorkflowSubBlockConfig(subBlock, blockType)),
     stateToUse,
     conditionRows,
     showErrorRow,

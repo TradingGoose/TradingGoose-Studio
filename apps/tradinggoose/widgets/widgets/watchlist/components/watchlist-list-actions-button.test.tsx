@@ -1,13 +1,35 @@
-import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
-import { describe, expect, it, vi } from 'vitest'
+/**
+ * @vitest-environment jsdom
+ */
+
+import type { ReactNode } from 'react'
+import { act } from 'react'
+import { NextIntlClientProvider } from 'next-intl'
+import { createRoot, type Root } from 'react-dom/client'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import enMessages from '@/i18n/messages/en.json'
 import { WatchlistListActionsButton } from '@/widgets/widgets/watchlist/components/watchlist-list-actions-button'
 
 const popoverMocks = vi.hoisted(() => {
+  const state: {
+    contentProps: { onOpenAutoFocus?: (event: { preventDefault: () => void }) => void } | null
+  } = {
+    contentProps: null,
+  }
   const Popover = ({ children }: { children: ReactNode }) => <div>{children}</div>
   const PopoverTrigger = ({ children }: { children: ReactNode }) => <div>{children}</div>
-  const PopoverContent = ({ children }: { children: ReactNode }) => <div>{children}</div>
+  const PopoverContent = ({
+    children,
+    ...props
+  }: {
+    children: ReactNode
+    onOpenAutoFocus?: (event: { preventDefault: () => void }) => void
+  }) => {
+    state.contentProps = props
+    return <div data-testid='popover-content'>{children}</div>
+  }
 
-  return { Popover, PopoverTrigger, PopoverContent }
+  return { Popover, PopoverTrigger, PopoverContent, state }
 })
 
 vi.mock('@/components/ui/popover', () => ({
@@ -27,22 +49,6 @@ vi.mock('@/components/widget-header-control', () => ({
   widgetHeaderMenuItemClassName: 'menu-item',
 }))
 
-const findElementByType = (
-  node: ReactNode,
-  matcher: (element: ReactElement) => boolean
-): ReactElement | null => {
-  if (!isValidElement(node)) return null
-  if (matcher(node)) return node
-
-  const children = Children.toArray((node.props as { children?: ReactNode }).children)
-  for (const child of children) {
-    const match = findElementByType(child, matcher)
-    if (match) return match
-  }
-
-  return null
-}
-
 const createProps = () => ({
   open: true,
   onOpenChange: vi.fn(),
@@ -53,39 +59,48 @@ const createProps = () => ({
   onDeleteWatchlist: vi.fn(),
 })
 
-const getMenuButtons = (tree: ReactNode) => {
-  const content = findElementByType(tree, (element) => element.type === popoverMocks.PopoverContent)
-
-  expect(content).not.toBeNull()
-
-  return Children.toArray((content!.props as { children?: ReactNode }).children).filter(
-    isValidElement
-  ) as ReactElement[]
+const reactActEnvironment = globalThis as typeof globalThis & {
+  IS_REACT_ACT_ENVIRONMENT?: boolean
 }
 
-const findMenuButton = (items: ReactElement[], label: string) =>
-  items.find((item) =>
-    Children.toArray((item.props as { children?: ReactNode }).children).some(
-      (child) => isValidElement<{ children?: ReactNode }>(child) && child.props.children === label
-    )
-  ) as ReactElement<{ onClick?: () => void }> | undefined
+const getMenuButtons = (container: HTMLElement) =>
+  Array.from(container.querySelectorAll('[data-testid="popover-content"] button'))
+
+const findMenuButton = (items: Element[], label: string) =>
+  items.find((item) => item.textContent === label) as HTMLButtonElement | undefined
 
 describe('WatchlistListActionsButton', () => {
+  let container: HTMLDivElement
+  let root: Root
+
+  beforeEach(() => {
+    reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
+    popoverMocks.state.contentProps = null
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+  })
+
+  afterEach(() => {
+    act(() => root.unmount())
+    container.remove()
+    reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
+  })
+
+  const renderActionsButton = (props = createProps()) => {
+    act(() => {
+      root.render(
+        <NextIntlClientProvider locale='en' messages={enMessages}>
+          <WatchlistListActionsButton {...props} />
+        </NextIntlClientProvider>
+      )
+    })
+  }
+
   it('prevents popover auto-focus when opening list actions', () => {
-    const tree = WatchlistListActionsButton(createProps())
-    const content = findElementByType(
-      tree,
-      (element) => element.type === popoverMocks.PopoverContent
-    )
+    renderActionsButton()
 
-    expect(content).not.toBeNull()
-
-    const onOpenAutoFocus = (
-      content!.props as {
-        onOpenAutoFocus?: (event: { preventDefault: () => void }) => void
-      }
-    ).onOpenAutoFocus
-
+    const onOpenAutoFocus = popoverMocks.state.contentProps?.onOpenAutoFocus
     expect(onOpenAutoFocus).toBeTypeOf('function')
 
     const preventDefault = vi.fn()
@@ -96,8 +111,8 @@ describe('WatchlistListActionsButton', () => {
 
   it('renders the reduced watchlist action set', () => {
     const props = createProps()
-    const tree = WatchlistListActionsButton(props)
-    const items = getMenuButtons(tree)
+    renderActionsButton(props)
+    const items = getMenuButtons(container)
 
     expect(items).toHaveLength(5)
     expect(findMenuButton(items, 'Add Symbol')).toBeUndefined()
@@ -111,18 +126,20 @@ describe('WatchlistListActionsButton', () => {
 
   it('renders an icon-only trigger and closes menu before running create watchlist action', () => {
     const props = createProps()
-    const tree = WatchlistListActionsButton(props)
-    const trigger = findElementByType(tree, (element) => element.type === 'button')
+    renderActionsButton(props)
+    const trigger = container.querySelector('button')
 
     expect(trigger).not.toBeNull()
-    expect((trigger!.props as { className?: string }).className).toContain('icon-button')
+    expect(trigger?.className).toContain('icon-button')
 
-    const items = getMenuButtons(tree)
+    const items = getMenuButtons(container)
     const createWatchlistButton = findMenuButton(items, 'Create Watchlist')
 
-    expect(createWatchlistButton?.props.onClick).toBeTypeOf('function')
+    expect(createWatchlistButton).toBeInstanceOf(HTMLButtonElement)
 
-    createWatchlistButton?.props.onClick?.()
+    act(() => {
+      createWatchlistButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
 
     expect(props.onOpenChange).toHaveBeenCalledWith(false)
     expect(props.onCreateWatchlist).toHaveBeenCalledOnce()
@@ -130,26 +147,28 @@ describe('WatchlistListActionsButton', () => {
 
   it('closes menu before running create section action', () => {
     const props = createProps()
-    const tree = WatchlistListActionsButton(props)
-    const items = getMenuButtons(tree)
+    renderActionsButton(props)
+    const items = getMenuButtons(container)
     const createSectionButton = findMenuButton(items, 'Create Section')
 
-    expect(createSectionButton?.props.onClick).toBeTypeOf('function')
+    expect(createSectionButton).toBeInstanceOf(HTMLButtonElement)
 
-    createSectionButton?.props.onClick?.()
+    act(() => {
+      createSectionButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
 
     expect(props.onOpenChange).toHaveBeenCalledWith(false)
     expect(props.onCreateSection).toHaveBeenCalledOnce()
   })
 
   it('hides disabled actions instead of rendering disabled menu buttons', () => {
-    const tree = WatchlistListActionsButton({
+    renderActionsButton({
       ...createProps(),
       importDisabled: true,
       deleteWatchlistDisabled: true,
     })
 
-    const items = getMenuButtons(tree)
+    const items = getMenuButtons(container)
 
     expect(findMenuButton(items, 'Add Symbol')).toBeUndefined()
     expect(findMenuButton(items, 'Import')).toBeUndefined()
@@ -161,7 +180,7 @@ describe('WatchlistListActionsButton', () => {
   })
 
   it('disables the trigger when every action is unavailable', () => {
-    const tree = WatchlistListActionsButton({
+    renderActionsButton({
       ...createProps(),
       createWatchlistDisabled: true,
       createSectionDisabled: true,
@@ -170,13 +189,10 @@ describe('WatchlistListActionsButton', () => {
       deleteWatchlistDisabled: true,
     })
 
-    const trigger = findElementByType(tree, (element) => element.type === 'button')
-    const content = findElementByType(
-      tree,
-      (element) => element.type === popoverMocks.PopoverContent
-    )
+    const trigger = container.querySelector('button')
+    const content = container.querySelector('[data-testid="popover-content"]')
 
-    expect((trigger?.props as { disabled?: boolean } | undefined)?.disabled).toBe(true)
+    expect(trigger?.disabled).toBe(true)
     expect(content).toBeNull()
   })
 })

@@ -50,11 +50,11 @@ export function OrderRowActions({ order, providerOrderDetailUrl }: OrderRowActio
                 onClick={stop}
               >
                 <ExternalLink className='h-4 w-4' />
-                <span className='sr-only'>{t('refreshProviderDetail')}</span>
+                <span className='sr-only'>{t('openProviderOrderDetail')}</span>
               </a>
             </Button>
           </TooltipTrigger>
-          <TooltipContent>{t('refreshProviderDetail')}</TooltipContent>
+          <TooltipContent>{t('openProviderOrderDetail')}</TooltipContent>
         </Tooltip>
       ) : null}
     </div>

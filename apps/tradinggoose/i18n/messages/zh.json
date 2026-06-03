@@ -1716,6 +1716,7 @@
         "remaining": "剩余",
         "recorded": "已记录",
         "copyOrderId": "复制订单ID",
+        "openProviderOrderDetail": "打开提供商订单详情",
         "refreshProviderDetail": "刷新提供商详情",
         "unknown": "未知"
       }
@@ -2883,6 +2884,8 @@
         "reduceExposure": "降低敞口",
         "skills": "技能",
         "tools": "工具",
+        "model": "模型",
+        "apiKey": "API 密钥",
         "method": "方法",
         "queryParams": "查询参数",
         "headers": "标头",
