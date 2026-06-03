@@ -13,25 +13,31 @@ const { mockResolveResendServiceConfig, mockResolveAzureCommunicationEmailServic
 
 vi.mock('resend', () => {
   return {
-    Resend: vi.fn().mockImplementation(() => ({
-      emails: {
-        send: (...args: any[]) => mockSend(...args),
-      },
-      batch: {
-        send: (...args: any[]) => mockBatchSend(...args),
-      },
-      contacts: {
-        create: (...args: any[]) => mockContactsCreate(...args),
-      },
-    })),
+    Resend: vi.fn().mockImplementation(function () {
+      void new.target
+      return {
+        emails: {
+          send: (...args: any[]) => mockSend(...args),
+        },
+        batch: {
+          send: (...args: any[]) => mockBatchSend(...args),
+        },
+        contacts: {
+          create: (...args: any[]) => mockContactsCreate(...args),
+        },
+      }
+    }),
   }
 })
 
 vi.mock('@azure/communication-email', () => {
   return {
-    EmailClient: vi.fn().mockImplementation(() => ({
-      beginSend: (...args: any[]) => mockAzureBeginSend(...args),
-    })),
+    EmailClient: vi.fn().mockImplementation(function () {
+      void new.target
+      return {
+        beginSend: (...args: any[]) => mockAzureBeginSend(...args),
+      }
+    }),
   }
 })
 

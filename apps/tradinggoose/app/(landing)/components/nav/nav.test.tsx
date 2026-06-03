@@ -95,11 +95,8 @@ describe('landing nav registration mode', () => {
 
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
-    mockPush.mockReset()
-    mockReplace.mockReset()
-    mockRefresh.mockReset()
-    mockReplaceLocaleDocument.mockReset()
-    mockUpdateSetting.mockReset()
+    vi.clearAllMocks()
+    vi.mocked(getRegistrationModeForRender).mockReset()
     mockUpdateSetting.mockResolvedValue(undefined)
     mockPathname = '/'
     mockSearchParams = ''
@@ -146,10 +143,7 @@ describe('landing nav registration mode', () => {
   it('renders public nav from scoped nav and registration messages', async () => {
     await act(async () => {
       root.render(
-        <NextIntlClientProvider
-          locale='en'
-          messages={getPublicCopy('en')}
-        >
+        <NextIntlClientProvider locale='en' messages={getPublicCopy('en')}>
           <Nav registrationMode='open' />
         </NextIntlClientProvider>
       )

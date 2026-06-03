@@ -90,6 +90,31 @@ vi.mock('next-intl', async () => {
   }
 })
 
+vi.mock('next-intl/navigation', async () => {
+  const React = await import('react')
+  const toHref = (href: string | { pathname?: string }) =>
+    typeof href === 'string' ? href : (href.pathname ?? '')
+
+  return {
+    createNavigation: () => ({
+      Link: ({ children, href, prefetch: _prefetch, ...props }: any) =>
+        React.createElement('a', { href: toHref(href), ...props }, children),
+      getPathname: ({ href }: { href: string | { pathname?: string } }) => toHref(href),
+      redirect: vi.fn(),
+      permanentRedirect: vi.fn(),
+      usePathname: () => '/',
+      useRouter: () => ({
+        back: vi.fn(),
+        forward: vi.fn(),
+        prefetch: vi.fn(),
+        push: vi.fn(),
+        refresh: vi.fn(),
+        replace: vi.fn(),
+      }),
+    }),
+  }
+})
+
 vi.mock('@/lib/logs/console/logger', () => {
   const createLogger = vi.fn(() => ({
     debug: vi.fn(),

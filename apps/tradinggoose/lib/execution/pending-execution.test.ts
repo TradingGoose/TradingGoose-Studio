@@ -144,10 +144,13 @@ vi.mock('@/background/pending-execution-drain', () => ({
 }))
 
 vi.mock('@/lib/logs/execution/logging-session', () => ({
-  LoggingSession: vi.fn(() => ({
-    start: loggingStartMock,
-    completeWithError: loggingCompleteWithErrorMock,
-  })),
+  LoggingSession: vi.fn(function () {
+    void new.target
+    return {
+      start: loggingStartMock,
+      completeWithError: loggingCompleteWithErrorMock,
+    }
+  }),
 }))
 
 import { cancelPendingWorkflowExecution } from '@/lib/workflows/queued-execution-cancellation'

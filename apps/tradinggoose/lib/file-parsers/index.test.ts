@@ -131,59 +131,86 @@ describe('File Parsers', () => {
     }))
 
     vi.doMock('@/lib/file-parsers/pdf-parser', () => ({
-      PdfParser: vi.fn().mockImplementation(() => ({
-        parseFile: mockPdfParseFile,
-        parseBuffer: mockPdfParseBuffer,
-      })),
+      PdfParser: vi.fn().mockImplementation(function () {
+        void new.target
+        return {
+          parseFile: mockPdfParseFile,
+          parseBuffer: mockPdfParseBuffer,
+        }
+      }),
     }))
 
     vi.doMock('@/lib/file-parsers/csv-parser', () => ({
-      CsvParser: vi.fn().mockImplementation(() => ({
-        parseFile: mockCsvParseFile,
-        parseBuffer: mockCsvParseBuffer,
-      })),
+      CsvParser: vi.fn().mockImplementation(function () {
+        void new.target
+        return {
+          parseFile: mockCsvParseFile,
+          parseBuffer: mockCsvParseBuffer,
+        }
+      }),
     }))
 
     vi.doMock('@/lib/file-parsers/docx-parser', () => ({
-      DocxParser: vi.fn().mockImplementation(() => ({
-        parseFile: mockDocxParseFile,
-      })),
+      DocxParser: vi.fn().mockImplementation(function () {
+        void new.target
+        return {
+          parseFile: mockDocxParseFile,
+        }
+      }),
     }))
 
     vi.doMock('@/lib/file-parsers/doc-parser', () => ({
-      DocParser: vi.fn().mockImplementation(() => ({
-        parseFile: mockDocParseFile,
-      })),
+      DocParser: vi.fn().mockImplementation(function () {
+        void new.target
+        return {
+          parseFile: mockDocParseFile,
+        }
+      }),
     }))
 
     vi.doMock('@/lib/file-parsers/txt-parser', () => ({
-      TxtParser: vi.fn().mockImplementation(() => ({
-        parseFile: mockTxtParseFile,
-      })),
+      TxtParser: vi.fn().mockImplementation(function () {
+        void new.target
+        return {
+          parseFile: mockTxtParseFile,
+        }
+      }),
     }))
 
     vi.doMock('@/lib/file-parsers/md-parser', () => ({
-      MdParser: vi.fn().mockImplementation(() => ({
-        parseFile: mockMdParseFile,
-      })),
+      MdParser: vi.fn().mockImplementation(function () {
+        void new.target
+        return {
+          parseFile: mockMdParseFile,
+        }
+      }),
     }))
 
     vi.doMock('@/lib/file-parsers/pptx-parser', () => ({
-      PptxParser: vi.fn().mockImplementation(() => ({
-        parseFile: mockPptxParseFile,
-      })),
+      PptxParser: vi.fn().mockImplementation(function () {
+        void new.target
+        return {
+          parseFile: mockPptxParseFile,
+        }
+      }),
     }))
 
     vi.doMock('@/lib/file-parsers/html-parser', () => ({
-      HtmlParser: vi.fn().mockImplementation(() => ({
-        parseFile: mockHtmlParseFile,
-      })),
+      HtmlParser: vi.fn().mockImplementation(function () {
+        void new.target
+        return {
+          parseFile: mockHtmlParseFile,
+        }
+      }),
     }))
 
     vi.doMock('@/lib/file-parsers/xlsx-parser', () => ({
-      XlsxParser: vi.fn().mockImplementation(() => ({
-        parseFile: mockXlsxParseFile,
-      })),
+      XlsxParser: vi.fn().mockImplementation(function () {
+        void new.target
+        return {
+          parseFile: mockXlsxParseFile,
+        }
+      }),
     }))
 
     vi.doMock('@/lib/file-parsers/json-parser', () => ({

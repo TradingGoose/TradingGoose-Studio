@@ -45,7 +45,8 @@ vi.mock('@/lib/environment/utils', () => ({
 }))
 
 vi.mock('@/lib/logs/execution/logging-session', () => ({
-  LoggingSession: vi.fn().mockImplementation((...args) => {
+  LoggingSession: vi.fn().mockImplementation(function (...args) {
+    void new.target
     mocks.loggingSessionConstructor(...args)
     return {
       start: mocks.start,
@@ -83,13 +84,16 @@ vi.mock('@/lib/workflows/variable-utils', () => ({
 }))
 
 vi.mock('@/serializer', () => ({
-  Serializer: vi.fn().mockImplementation(() => ({
-    serializeWorkflow: vi.fn((_blocks, edges, loops, parallels) => ({
-      connections: edges,
-      loops,
-      parallels,
-    })),
-  })),
+  Serializer: vi.fn().mockImplementation(function () {
+    void new.target
+    return {
+      serializeWorkflow: vi.fn((_blocks, edges, loops, parallels) => ({
+        connections: edges,
+        loops,
+        parallels,
+      })),
+    }
+  }),
 }))
 
 vi.mock('@/stores/workflows/server-utils', () => ({
@@ -97,7 +101,8 @@ vi.mock('@/stores/workflows/server-utils', () => ({
 }))
 
 vi.mock('@/executor', () => ({
-  Executor: vi.fn().mockImplementation((options) => {
+  Executor: vi.fn().mockImplementation(function (options) {
+    void new.target
     mocks.executorConstructor(options)
     return {
       execute: mocks.execute,
