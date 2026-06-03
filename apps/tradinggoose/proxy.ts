@@ -11,6 +11,7 @@ import {
 } from '@/lib/markdown/negotiation'
 import { routing } from '@/i18n/routing'
 import {
+  CANONICAL_CALLBACK_PATH_HEADER,
   defaultLocale,
   isLocaleCode,
   type LocaleCode,
@@ -76,7 +77,10 @@ function buildNormalizedUrl(request: NextRequest, pathname: string) {
   return normalizedUrl
 }
 
-function resolveRequestLocale(request: NextRequest, route = resolveLocaleRoute(request.nextUrl.pathname)) {
+function resolveRequestLocale(
+  request: NextRequest,
+  route = resolveLocaleRoute(request.nextUrl.pathname)
+) {
   const preferredLocale = request.cookies.get(LOCALE_COOKIE)?.value
   return route.hasLocalePrefix || !preferredLocale || !isLocaleCode(preferredLocale)
     ? route.locale
@@ -284,6 +288,17 @@ export async function proxy(request: NextRequest) {
 
   if (response.headers.has('location')) {
     return response
+  }
+
+  if (isProtectedPath) {
+    const requestHeaders = new Headers(request.headers)
+    requestHeaders.set(
+      CANONICAL_CALLBACK_PATH_HEADER,
+      getCanonicalCallbackPath(url.pathname, url.search)
+    )
+    NextResponse.next({ request: { headers: requestHeaders } }).headers.forEach((value, key) => {
+      response.headers.set(key, value)
+    })
   }
 
   response.headers.set('Vary', appendVaryHeader(appendVaryHeader(null, 'User-Agent'), 'Accept'))

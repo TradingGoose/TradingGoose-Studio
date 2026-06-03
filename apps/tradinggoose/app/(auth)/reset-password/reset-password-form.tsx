@@ -1,14 +1,12 @@
 'use client'
 
-import { useLocale } from 'next-intl'
 import { useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
+import { useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-import { useMessages } from 'next-intl'
-import { type LocaleCode } from '@/i18n/utils'
 import { inter } from '@/app/fonts/inter'
 
 const primaryButtonClasses =
@@ -33,7 +31,6 @@ export function RequestResetForm({
   statusMessage,
   className,
 }: RequestResetFormProps) {
-  const locale = useLocale() as LocaleCode
   const copy = useMessages().auth.resetPassword
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -94,7 +91,6 @@ export function SetNewPasswordForm({
   statusMessage,
   className,
 }: SetNewPasswordFormProps) {
-  const locale = useLocale() as LocaleCode
   const copy = useMessages().auth.resetPassword
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')

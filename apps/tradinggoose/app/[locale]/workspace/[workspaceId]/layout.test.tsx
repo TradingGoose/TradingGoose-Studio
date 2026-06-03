@@ -1,6 +1,7 @@
 import type React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { CANONICAL_CALLBACK_PATH_HEADER } from '@/i18n/utils'
 
 const mockRedirect = vi.fn((url: string) => {
   throw new Error(`redirect:${url}`)
@@ -10,13 +11,17 @@ const mockCheckWorkspaceAccess = vi.fn()
 const mockHeaders = vi.fn()
 
 vi.mock('@/i18n/navigation', () => ({
-  redirect: ({ href, locale }: { href: string | { pathname: string; query?: Record<string, string> }; locale?: string }) => {
+  redirect: ({
+    href,
+    locale,
+  }: {
+    href: string | { pathname: string; query?: Record<string, string> }
+    locale?: string
+  }) => {
     const canonicalPath =
       typeof href === 'string'
         ? href
-        : `${href.pathname}${
-            href.query ? `?${new URLSearchParams(href.query).toString()}` : ''
-          }`
+        : `${href.pathname}${href.query ? `?${new URLSearchParams(href.query).toString()}` : ''}`
     const localizedPath =
       locale && locale !== 'en' && canonicalPath.startsWith('/')
         ? `/${locale}${canonicalPath}`
@@ -56,6 +61,9 @@ describe('Workspace layout access guard', () => {
   })
 
   it('redirects to login with the current callback target when there is no authenticated session', async () => {
+    mockHeaders.mockResolvedValue(
+      new Headers([[CANONICAL_CALLBACK_PATH_HEADER, '/workspace/ws-1/files?layoutId=layout-1']])
+    )
     mockGetSession.mockResolvedValue(null)
 
     const WorkspaceLayout = (await import('./layout')).default
@@ -66,11 +74,11 @@ describe('Workspace layout access guard', () => {
         params: Promise.resolve({ locale: 'es', workspaceId: 'ws-1' }),
       })
     ).rejects.toThrow(
-      'redirect:/es/login?reauth=1&callbackUrl=%2Fworkspace%2Fws-1%2Fdashboard'
+      'redirect:/es/login?reauth=1&callbackUrl=%2Fworkspace%2Fws-1%2Ffiles%3FlayoutId%3Dlayout-1'
     )
 
     expect(mockRedirect).toHaveBeenCalledWith(
-      '/es/login?reauth=1&callbackUrl=%2Fworkspace%2Fws-1%2Fdashboard'
+      '/es/login?reauth=1&callbackUrl=%2Fworkspace%2Fws-1%2Ffiles%3FlayoutId%3Dlayout-1'
     )
     expect(mockGetSession).toHaveBeenCalledWith(expect.any(Headers), { disableCookieCache: true })
     expect(mockCheckWorkspaceAccess).not.toHaveBeenCalled()

@@ -1,5 +1,5 @@
 import { createTranslator } from 'next-intl'
-import { defaultLocale, isLocaleCode, locales, type AppLocale } from './routing'
+import { type AppLocale, defaultLocale, isLocaleCode, locales } from './routing'
 
 export type LocaleCode = AppLocale
 export type LocaleInput = LocaleCode | string | null | undefined
@@ -7,6 +7,7 @@ export type LocaleInput = LocaleCode | string | null | undefined
 export { defaultLocale, isLocaleCode, locales }
 
 export const SITE_BASE_URL = 'https://www.tradinggoose.ai'
+export const CANONICAL_CALLBACK_PATH_HEADER = 'x-tradinggoose-callback-path'
 const LOCALE_DISPLAY_NAMES: Record<LocaleCode, string> = {
   en: 'English',
   es: 'Español',

@@ -173,7 +173,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { id: organizationId } = await params
     const { email, role = 'member', locale: requestLocale } = await request.json()
 
-    // Validate input
     if (!email) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 })
     }
@@ -182,7 +181,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
     }
 
-    // Validate and normalize email
     const normalizedEmail = email.trim().toLowerCase()
     const validation = quickValidateEmail(normalizedEmail)
     if (!validation.isValid) {
@@ -192,7 +190,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       )
     }
 
-    // Verify user has admin access
     const memberEntry = await db
       .select()
       .from(member)
@@ -210,7 +207,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
     }
 
-    // Check if user is already a member
     const existingUser = await db
       .select({ id: user.id })
       .from(user)
@@ -234,7 +230,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
     }
 
-    // Check for existing pending invitation
     const existingInvitation = await db
       .select()
       .from(invitation)
@@ -254,7 +249,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       )
     }
 
-    // Check seat availability after filtering existing members and pending invitations.
     const seatValidation = await validateSeatAvailability(organizationId, 1)
     if (!seatValidation.canInvite) {
       return NextResponse.json(
@@ -266,10 +260,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       )
     }
 
-    // Create invitation
     const invitationId = randomUUID()
     const expiresAt = new Date()
-    expiresAt.setDate(expiresAt.getDate() + 7) // 7 days expiry
+    expiresAt.setDate(expiresAt.getDate() + 7)
 
     await db.insert(invitation).values({
       id: invitationId,
@@ -297,7 +290,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       email: normalizedEmail,
       fallbackLocale: requestLocale,
     })
-    const invitationLink = `${localizeUrl(getBaseUrl(), locale, '/invite/organization')}?id=${invitationId}`
+    const invitationLink = localizeUrl(getBaseUrl(), locale, `/invite/${invitationId}`)
 
     const emailHtml = await renderInvitationEmail(
       inviter[0]?.name || 'Someone',
@@ -328,7 +321,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         email: normalizedEmail,
         error: emailResult.message,
       })
-      // Don't fail the request if email fails
     }
 
     return NextResponse.json({
