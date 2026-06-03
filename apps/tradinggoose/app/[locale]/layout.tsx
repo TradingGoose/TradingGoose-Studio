@@ -5,9 +5,7 @@ import { hasLocale, NextIntlClientProvider } from 'next-intl'
 import { setRequestLocale } from 'next-intl/server'
 import { PUBLIC_ENV_KEY } from 'next-runtime-env'
 import { generateBrandedMetadata } from '@/lib/branding/metadata'
-import { createLogger } from '@/lib/logs/console/logger'
 import { PostHogProvider } from '@/lib/posthog/provider'
-import { getClientMessages } from '@/i18n/public-copy'
 import { routing } from '@/i18n/routing'
 import 'monaco-editor/min/vs/editor/editor.main.css'
 import '@/app/globals.css'
@@ -18,48 +16,6 @@ import { ProviderModelsBootstrap } from '@/app/provider-models-bootstrap'
 import { QueryProvider } from '@/app/query-provider'
 import { ThemeProvider } from '@/app/theme-provider'
 import { ZoomPrevention } from '@/app/zoom-prevention'
-
-const logger = createLogger('RootLayout')
-
-const BROWSER_EXTENSION_ATTRIBUTES = [
-  'data-new-gr-c-s-check-loaded',
-  'data-gr-ext-installed',
-  'data-gr-ext-disabled',
-  'data-grammarly',
-  'data-fgm',
-  'data-lt-installed',
-  'data-sharkid',
-  'data-sharklabel',
-  'data-sharkidcontainer',
-  'shark-icon-container',
-]
-
-if (typeof window !== 'undefined') {
-  const originalError = console.error
-  console.error = (...args) => {
-    const messages = args.filter((arg): arg is string => typeof arg === 'string')
-    const isHydrationError = messages.some((message) => message.includes('Hydration'))
-
-    if (!isHydrationError) {
-      originalError.apply(console, args)
-      return
-    }
-
-    const isExtensionError = BROWSER_EXTENSION_ATTRIBUTES.some((attr) =>
-      messages.some((message) => message.includes(attr))
-    )
-
-    if (isExtensionError) {
-      return
-    }
-
-    logger.error('Hydration Error', {
-      details: args,
-      componentStack: messages.find((message) => message.includes('component stack')),
-    })
-    originalError.apply(console, args)
-  }
-}
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -107,7 +63,6 @@ export default async function RootLayout({
         {/* Basic head hints that are not covered by the Metadata API */}
         <meta name='color-scheme' content='light dark' />
         <meta name='format-detection' content='telephone=no' />
-        <meta httpEquiv='x-ua-compatible' content='ie=edge' />
       </head>
       <body suppressHydrationWarning>
         <Script id='public-env' strategy='beforeInteractive'>
@@ -117,11 +72,7 @@ export default async function RootLayout({
           <ThemeProvider>
             <QueryProvider>
               <SessionProvider>
-                <NextIntlClientProvider
-                  key={locale}
-                  locale={locale}
-                  messages={getClientMessages(locale)}
-                >
+                <NextIntlClientProvider key={locale} locale={locale}>
                   <ProviderModelsBootstrap />
                   <TooltipProvider delayDuration={100} skipDelayDuration={0}>
                     <ZoomPrevention />
