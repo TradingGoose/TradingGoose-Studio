@@ -87,8 +87,7 @@ export function normalizeCallbackUrl(
 
   if (trimmedHref.startsWith('/')) {
     const parsedUrl = new URL(trimmedHref, 'http://tradinggoose.local')
-    const { pathname } = stripLocaleFromPathname(parsedUrl.pathname)
-    return `${pathname}${parsedUrl.search}${parsedUrl.hash}`
+    return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`
   }
 
   if (!currentOrigin) {
@@ -102,8 +101,7 @@ export function normalizeCallbackUrl(
       return null
     }
 
-    const { pathname } = stripLocaleFromPathname(parsedUrl.pathname)
-    return `${pathname}${parsedUrl.search}${parsedUrl.hash}`
+    return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`
   } catch {
     return null
   }

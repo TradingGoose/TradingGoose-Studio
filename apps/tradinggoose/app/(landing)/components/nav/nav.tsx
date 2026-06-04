@@ -254,7 +254,7 @@ export default function Nav({
                   <span className='sr-only'>{copy.nav.menu}</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className='w-64' align='end'>
+              <DropdownMenuContent className='w-64'>
                 <DropdownMenuGroup>
                   <DropdownMenuItem>
                     <a
@@ -282,7 +282,7 @@ export default function Nav({
                       <span aria-live='polite'>{githubStars}</span>
                     </a>
                   </DropdownMenuItem>
-                      {registrationActions ? (
+                  {registrationActions ? (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem className='!bg-transparent'>

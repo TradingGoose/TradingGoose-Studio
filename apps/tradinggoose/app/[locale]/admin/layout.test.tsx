@@ -18,10 +18,6 @@ vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
 }))
 
-vi.mock('next-intl/server', () => ({
-  getLocale: () => 'en',
-}))
-
 vi.mock('@/lib/admin/access', () => ({
   getSystemAdminAccess: (...args: unknown[]) => mockGetSystemAdminAccess(...args),
 }))
@@ -55,7 +51,10 @@ describe('Admin layout', () => {
     })
 
     const AdminLayout = (await import('./layout')).default
-    const result = await AdminLayout({ children: <div>admin content</div> })
+    const result = await AdminLayout({
+      children: <div>admin content</div>,
+      params: Promise.resolve({ locale: 'zh' }),
+    })
 
     expect(renderToStaticMarkup(result)).toContain('admin content')
     expect(capturedGlobalNavbarProps).toEqual({
@@ -72,7 +71,12 @@ describe('Admin layout', () => {
 
     const AdminLayout = (await import('./layout')).default
 
-    await expect(AdminLayout({ children: <div>admin content</div> })).rejects.toThrow('notFound')
+    await expect(
+      AdminLayout({
+        children: <div>admin content</div>,
+        params: Promise.resolve({ locale: 'zh' }),
+      })
+    ).rejects.toThrow('notFound')
     expect(mockNotFound).toHaveBeenCalledTimes(1)
   })
 })

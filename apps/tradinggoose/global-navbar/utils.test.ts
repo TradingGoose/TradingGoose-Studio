@@ -1,6 +1,11 @@
 import { ScrollText } from 'lucide-react'
 import { describe, expect, it } from 'vitest'
-import { createWorkspaceNav, getWorkspaceSwitchPath } from '@/global-navbar/utils'
+import {
+  createWorkspaceNav,
+  getAdminNavState,
+  getWorkspaceNavState,
+  getWorkspaceSwitchPath,
+} from '@/global-navbar/utils'
 
 const workspaceNavLabels = {
   workspace: {
@@ -18,19 +23,24 @@ const workspaceNavLabels = {
 }
 
 describe('global navbar utils', () => {
-  it('keeps the records section when switching workspaces', () => {
-    expect(getWorkspaceSwitchPath('/workspace/ws-1/records', 'ws-2', 'tab=logs')).toBe(
+  it('builds workspace switch paths from typed sections', () => {
+    expect(getWorkspaceSwitchPath('ws-2', 'records', 'tab=logs')).toBe(
       '/workspace/ws-2/records?tab=logs'
     )
+    expect(getWorkspaceSwitchPath('ws-2', null)).toBe('/workspace/ws-2/dashboard')
   })
 
-  it('keeps the monitor section when switching workspaces', () => {
-    expect(getWorkspaceSwitchPath('/workspace/ws-1/monitor', 'ws-2')).toBe(
-      '/workspace/ws-2/monitor'
-    )
-    expect(getWorkspaceSwitchPath('/workspace/ws-1/monitor', 'ws-2', 'layout=roadmap')).toBe(
-      '/workspace/ws-2/monitor?layout=roadmap'
-    )
+  it('derives nav state from app router segments', () => {
+    expect(getWorkspaceNavState(['ws-1', 'files'])).toEqual({
+      workspaceId: 'ws-1',
+      activeKey: 'files',
+    })
+    expect(getWorkspaceNavState(['ws-1', 'w', 'workflow-1'])).toEqual({
+      workspaceId: 'ws-1',
+      activeKey: 'dashboard',
+    })
+    expect(getAdminNavState([])).toEqual({ activeKey: 'overview' })
+    expect(getAdminNavState(['billing'])).toEqual({ activeKey: 'billing' })
   })
 
   it('adds monitor to the workspace navigation', () => {
@@ -49,10 +59,6 @@ describe('global navbar utils', () => {
   })
 
   it('does not expose removed records or logs routes without a workspace id', () => {
-    const urls = createWorkspaceNav(workspaceNavLabels).map((item) => item.url)
-
-    expect(urls).not.toContain('/records')
-    expect(urls).not.toContain('/logs')
+    expect(createWorkspaceNav(workspaceNavLabels)).toEqual([])
   })
-
 })

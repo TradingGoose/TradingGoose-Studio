@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useSelectedLayoutSegments } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import {
   Sidebar,
@@ -17,7 +18,6 @@ import { getBrandConfig } from '@/lib/branding/branding'
 import { isHosted } from '@/lib/environment'
 import { getOrganizationAccessState } from '@/lib/organization/access'
 import { getUserRole } from '@/lib/organization/helpers'
-import { usePathname } from '@/i18n/navigation'
 import { useOrganizations } from '@/hooks/queries/organization'
 import { NavbarHeader } from './components/navbar-header'
 import { SidebarNav, SidebarUsageIndicator } from './components/sidebar-nav'
@@ -33,11 +33,9 @@ import {
   createAdminNav,
   createNavSections,
   createWorkspaceNav,
-  getWorkspaceIdFromPath,
+  getAdminNavState,
+  getWorkspaceNavState,
 } from './utils'
-
-const AUTH_ROUTE_PREFIXES = ['/login', '/signup', '/reset-password', '/verify', '/sso'] as const
-const LANDING_ROUTE_PREFIXES = ['/privacy', '/terms', '/careers', '/blog'] as const
 
 export function GlobalNavbar({
   children,
@@ -48,12 +46,19 @@ export function GlobalNavbar({
   isSystemAdmin?: boolean
   navigationMode?: 'workspace' | 'admin'
 }) {
-  const pathname = usePathname() ?? '/'
+  const selectedSegments = useSelectedLayoutSegments()
   const tWorkspaceNav = useTranslations('workspace.nav')
   const brand = React.useMemo(() => getBrandConfig(), [])
-  const normalizedPathname = pathname
   const { data: sessionData, isPending: isSessionLoading } = useSession()
-  const workspaceId = React.useMemo(() => getWorkspaceIdFromPath(normalizedPathname), [normalizedPathname])
+  const workspaceNavState = React.useMemo(
+    () => getWorkspaceNavState(selectedSegments),
+    [selectedSegments]
+  )
+  const adminNavState = React.useMemo(() => getAdminNavState(selectedSegments), [selectedSegments])
+  const workspaceId = navigationMode === 'workspace' ? workspaceNavState.workspaceId : undefined
+  const activeKey =
+    navigationMode === 'admin' ? adminNavState.activeKey : workspaceNavState.activeKey
+  const workspaceSection = navigationMode === 'workspace' ? workspaceNavState.activeKey : null
   const workspaceNavCopy = React.useMemo(
     () => ({
       workspace: {
@@ -89,26 +94,14 @@ export function GlobalNavbar({
     [adminNavCopy, navigationMode, workspaceId, workspaceNavCopy]
   )
   const navMain = React.useMemo<NavSection[]>(
-    () => createNavSections(normalizedPathname, navItems),
-    [navItems, normalizedPathname]
+    () => createNavSections(navItems, activeKey),
+    [activeKey, navItems]
   )
   const activeNavItem = React.useMemo(() => navMain.find((item) => item.isActive), [navMain])
   const isAuthenticated = Boolean(sessionData?.user?.id)
-  const isAuthRoute = React.useMemo(
-    () => AUTH_ROUTE_PREFIXES.some((route) => normalizedPathname.startsWith(route)),
-    [normalizedPathname]
-  )
-  const isLandingRoute = React.useMemo(
-    () =>
-      normalizedPathname === '/' ||
-      LANDING_ROUTE_PREFIXES.some((route) => normalizedPathname.startsWith(route)),
-    [normalizedPathname]
-  )
-  const isSidebarRoute = React.useMemo(() => navMain.some((item) => item.isActive), [navMain])
-  const shouldRenderNavbar = isSidebarRoute && !isLandingRoute && !isAuthRoute
-  const shouldShowSkeleton = shouldRenderNavbar && isSessionLoading
+  const shouldShowSkeleton = isSessionLoading
   const { data: organizationsData } = useOrganizations({
-    enabled: shouldRenderNavbar && isAuthenticated && !isSessionLoading,
+    enabled: isAuthenticated && !isSessionLoading,
   })
   const billingEnabled = organizationsData?.billingData?.data?.billingEnabled ?? true
   const activeOrganization = organizationsData?.activeOrganization
@@ -138,7 +131,9 @@ export function GlobalNavbar({
     userAvatarOverride.version ??
     (sessionData?.user?.updatedAt ? new Date(sessionData.user.updatedAt).getTime() : null)
   const workspaceSwitcher = useWorkspaceSwitcher({
-    enabled: shouldRenderNavbar && isAuthenticated && !isSessionLoading,
+    enabled: isAuthenticated && !isSessionLoading,
+    workspaceId,
+    section: workspaceSection,
   })
   const canManageWorkspaces = workspaceSwitcher.canManageWorkspaces
   const systemNavigation = React.useMemo(() => {
@@ -286,10 +281,6 @@ export function GlobalNavbar({
       window.removeEventListener('user-avatar-updated', handleAvatarEvent)
     }
   }, [userId])
-
-  if (!shouldRenderNavbar) {
-    return <GlobalNavbarHeaderProvider>{children}</GlobalNavbarHeaderProvider>
-  }
 
   if (shouldShowSkeleton) {
     return (

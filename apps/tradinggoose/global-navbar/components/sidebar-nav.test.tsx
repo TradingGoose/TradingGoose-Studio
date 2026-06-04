@@ -3,8 +3,8 @@
  */
 
 import type React from 'react'
-import { Notebook, Waypoints } from 'lucide-react'
 import { act } from 'react'
+import { Notebook, Waypoints } from 'lucide-react'
 import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -81,12 +81,14 @@ describe('SidebarNav', () => {
   it('adds the localized docs link after integrations in the more section', async () => {
     const navItems: NavSection[] = [
       {
+        key: 'usage',
         title: 'Usage',
         url: '/workspace/demo/usage',
         icon: Notebook,
         section: 'workspace',
       },
       {
+        key: 'integrations',
         title: 'Integrations',
         url: '/workspace/demo/integrations',
         icon: Waypoints,
@@ -97,10 +99,7 @@ describe('SidebarNav', () => {
 
     await act(async () => {
       root.render(
-        <NextIntlClientProvider
-          locale='es'
-          messages={getPublicCopy('es')}
-        >
+        <NextIntlClientProvider locale='es' messages={getPublicCopy('es')}>
           <SidebarProvider>
             <SidebarNav navItems={navItems} />
           </SidebarProvider>

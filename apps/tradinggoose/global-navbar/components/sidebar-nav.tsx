@@ -14,12 +14,12 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { openBillingPortal } from '@/lib/billing/billing-portal'
 import { createLogger } from '@/lib/logs/console/logger'
-import { Link } from '@/i18n/navigation'
-import { localizeDocsUrl, type LocaleCode } from '@/i18n/utils'
 import { getBillingStatus, getSubscriptionStatus, getUsage } from '@/lib/subscription/helpers'
 import { UsageHeader } from '@/global-navbar/settings-modal/components/shared/usage-header'
 import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
 import { useSubscriptionData } from '@/hooks/queries/subscription'
+import { Link } from '@/i18n/navigation'
+import { type LocaleCode, localizeDocsUrl } from '@/i18n/utils'
 import type { NavSection } from '../types'
 
 interface SidebarNavProps {
@@ -49,6 +49,7 @@ export function SidebarNav({ navItems }: SidebarNavProps) {
 
 function withDocumentationItem(locale: LocaleCode, docsLabel: string, items: NavSection[]) {
   const documentationNavItem: NavSection = {
+    key: 'docs',
     title: docsLabel,
     url: localizeDocsUrl(locale),
     icon: Notebook,
@@ -59,7 +60,7 @@ function withDocumentationItem(locale: LocaleCode, docsLabel: string, items: Nav
     return items
   }
 
-  const integrationsIndex = items.findIndex((item) => item.url.endsWith('/integrations'))
+  const integrationsIndex = items.findIndex((item) => item.key === 'integrations')
   if (integrationsIndex === -1) {
     return [...items, documentationNavItem]
   }

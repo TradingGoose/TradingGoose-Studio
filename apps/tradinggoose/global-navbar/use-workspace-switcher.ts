@@ -2,25 +2,25 @@
 
 import * as React from 'react'
 import { generateWorkspaceName } from '@/lib/naming'
-import { usePathname, useRouter } from '@/i18n/navigation'
+import { useRouter } from '@/i18n/navigation'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { Workspace } from './types'
-import { getWorkspaceIdFromPath, getWorkspaceSwitchPath } from './utils'
+import { getWorkspaceSwitchPath, type WorkspaceNavKey } from './utils'
 
 interface UseWorkspaceSwitcherOptions {
   enabled: boolean
+  workspaceId?: string
+  section?: WorkspaceNavKey | null
 }
 
-export function shouldResetWorkflowRegistryOnWorkspaceSwitch(pathname: string): boolean {
-  return Boolean(getWorkspaceIdFromPath(pathname))
-}
-
-export function useWorkspaceSwitcher({ enabled }: UseWorkspaceSwitcherOptions) {
-  const pathname = usePathname() ?? '/'
+export function useWorkspaceSwitcher({
+  enabled,
+  workspaceId,
+  section,
+}: UseWorkspaceSwitcherOptions) {
   const router = useRouter()
   const switchToWorkspace = useWorkflowRegistry((state) => state.switchToWorkspace)
   const canManageWorkspaces = true
-  const workspaceId = React.useMemo(() => getWorkspaceIdFromPath(pathname), [pathname])
   const [workspaces, setWorkspaces] = React.useState<Workspace[]>([])
   const [activeWorkspace, setActiveWorkspace] = React.useState<Workspace | null>(null)
   const [isWorkspacesLoading, setIsWorkspacesLoading] = React.useState(enabled)
@@ -92,7 +92,7 @@ export function useWorkspaceSwitcher({ enabled }: UseWorkspaceSwitcherOptions) {
         return
       }
 
-      if (shouldResetWorkflowRegistryOnWorkspaceSwitch(pathname)) {
+      if (workspaceId) {
         try {
           await switchToWorkspace(workspace.id)
         } catch (error) {
@@ -100,9 +100,9 @@ export function useWorkspaceSwitcher({ enabled }: UseWorkspaceSwitcherOptions) {
         }
       }
 
-      router.push(getWorkspaceSwitchPath(pathname, workspace.id))
+      router.push(getWorkspaceSwitchPath(workspace.id, section))
     },
-    [pathname, router, switchToWorkspace, workspaceId]
+    [router, section, switchToWorkspace, workspaceId]
   )
 
   const handleCreateWorkspace = React.useCallback(async () => {

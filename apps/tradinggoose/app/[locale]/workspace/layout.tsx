@@ -1,13 +1,20 @@
 import type React from 'react'
 import { NextIntlClientProvider } from 'next-intl'
-import { getLocale } from 'next-intl/server'
 import { getSystemAdminAccess } from '@/lib/admin/access'
 import WorkspaceLayoutClient from '@/app/workspace/layout-client'
 import { GlobalNavbar } from '@/global-navbar'
 import { getClientMessages } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 
-export default async function WorkspaceRootLayout({ children }: { children: React.ReactNode }) {
-  const [access, locale] = await Promise.all([getSystemAdminAccess(), getLocale()])
+export default async function WorkspaceRootLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode
+  params: Promise<{ locale: string }>
+}) {
+  const [{ locale: routeLocale }, access] = await Promise.all([params, getSystemAdminAccess()])
+  const locale = routeLocale as LocaleCode
 
   return (
     <NextIntlClientProvider locale={locale} messages={getClientMessages(locale, 'workspace')}>

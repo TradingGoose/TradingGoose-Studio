@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from 'next'
 import { notFound } from 'next/navigation'
-import Script from 'next/script'
 import { hasLocale, NextIntlClientProvider } from 'next-intl'
 import { setRequestLocale } from 'next-intl/server'
-import { PUBLIC_ENV_KEY } from 'next-runtime-env'
+import { PublicEnvScript } from 'next-runtime-env'
 import { generateBrandedMetadata } from '@/lib/branding/metadata'
 import { PostHogProvider } from '@/lib/posthog/provider'
+import { getClientMessages } from '@/i18n/public-copy'
 import { routing } from '@/i18n/routing'
 import 'monaco-editor/min/vs/editor/editor.main.css'
 import '@/app/globals.css'
@@ -32,14 +32,6 @@ export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }))
 }
 
-function getPublicEnvSnapshot() {
-  return Object.fromEntries(
-    Object.entries(process.env).filter(
-      ([key, value]) => key.startsWith('NEXT_PUBLIC_') && typeof value === 'string'
-    )
-  )
-}
-
 export default async function RootLayout({
   children,
   params,
@@ -55,24 +47,24 @@ export default async function RootLayout({
 
   setRequestLocale(locale)
 
-  const publicEnv = JSON.stringify(getPublicEnvSnapshot()).replace(/</g, '\\u003c')
-
   return (
     <html lang={locale} suppressHydrationWarning>
       <head>
+        <PublicEnvScript disableNextScript />
         {/* Basic head hints that are not covered by the Metadata API */}
         <meta name='color-scheme' content='light dark' />
         <meta name='format-detection' content='telephone=no' />
       </head>
       <body suppressHydrationWarning>
-        <Script id='public-env' strategy='beforeInteractive'>
-          {`window['${PUBLIC_ENV_KEY}'] = ${publicEnv};`}
-        </Script>
         <PostHogProvider>
           <ThemeProvider>
             <QueryProvider>
               <SessionProvider>
-                <NextIntlClientProvider key={locale} locale={locale}>
+                <NextIntlClientProvider
+                  key={locale}
+                  locale={locale}
+                  messages={getClientMessages(locale)}
+                >
                   <ProviderModelsBootstrap />
                   <TooltipProvider delayDuration={100} skipDelayDuration={0}>
                     <ZoomPrevention />

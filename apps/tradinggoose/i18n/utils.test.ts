@@ -30,7 +30,7 @@ describe('i18n utils', () => {
     )
     expect(
       normalizeCallbackUrl(
-        'https://tradinggoose.ai/es/workspace/ws-1/dashboard?layoutId=layout-1',
+        'https://tradinggoose.ai/workspace/ws-1/dashboard?layoutId=layout-1',
         'https://tradinggoose.ai'
       )
     ).toBe('/workspace/ws-1/dashboard?layoutId=layout-1')

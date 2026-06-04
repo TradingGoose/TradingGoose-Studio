@@ -1,11 +1,11 @@
 import type { LucideIcon } from 'lucide-react'
 
 export interface NavItemLink {
+  key: string
   title: string
   url: string
   icon: LucideIcon
   section?: 'workspace' | 'admin' | 'more'
-  match?: 'exact' | 'prefix'
 }
 
 export interface NavSection extends NavItemLink {

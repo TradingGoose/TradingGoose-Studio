@@ -1,9 +1,9 @@
 /** @vitest-environment jsdom */
 
-import React, { act } from 'react'
+import { act } from 'react'
+import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { NextIntlClientProvider } from 'next-intl'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { getPublicCopy } from '@/i18n/public-copy'
 import type { LocaleCode } from '@/i18n/utils'
