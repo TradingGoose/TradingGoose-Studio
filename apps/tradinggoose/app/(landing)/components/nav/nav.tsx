@@ -77,7 +77,7 @@ function LanguageSwitcher() {
           <ChevronDownIcon className='h-4 w-4' />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align='end' className='w-48'>
+      <DropdownMenuContent className='w-48'>
         {locales.map((code) => (
           <DropdownMenuItem
             key={code}
