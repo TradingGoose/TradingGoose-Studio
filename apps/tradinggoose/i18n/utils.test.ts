@@ -45,17 +45,28 @@ describe('i18n utils', () => {
   })
 
   it('builds localized site URLs and alternate hreflang mappings', () => {
-    expect(localizeSiteUrl('zh', '/blog')).toBe('https://www.tradinggoose.ai/zh/blog')
+    const previousAppUrl = process.env.NEXT_PUBLIC_APP_URL
+    process.env.NEXT_PUBLIC_APP_URL = 'https://preview.example.com'
 
-    expect(buildLocalizedAlternates('es', '/blog')).toEqual({
-      canonical: 'https://www.tradinggoose.ai/es/blog',
-      languages: {
-        en: 'https://www.tradinggoose.ai/blog',
-        es: 'https://www.tradinggoose.ai/es/blog',
-        zh: 'https://www.tradinggoose.ai/zh/blog',
-        'x-default': 'https://www.tradinggoose.ai/blog',
-      },
-    })
+    try {
+      expect(localizeSiteUrl('zh', '/blog')).toBe('https://preview.example.com/zh/blog')
+
+      expect(buildLocalizedAlternates('es', '/blog')).toEqual({
+        canonical: 'https://preview.example.com/es/blog',
+        languages: {
+          en: 'https://preview.example.com/blog',
+          es: 'https://preview.example.com/es/blog',
+          zh: 'https://preview.example.com/zh/blog',
+          'x-default': 'https://preview.example.com/blog',
+        },
+      })
+    } finally {
+      if (previousAppUrl === undefined) {
+        process.env.NEXT_PUBLIC_APP_URL = undefined
+      } else {
+        process.env.NEXT_PUBLIC_APP_URL = previousAppUrl
+      }
+    }
   })
 
   it('builds absolute localized app URLs from canonical internal paths', () => {

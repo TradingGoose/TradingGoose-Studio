@@ -1,4 +1,5 @@
 import { createTranslator } from 'next-intl'
+import { getBaseUrl } from '@/lib/urls/utils'
 import { type AppLocale, defaultLocale, isLocaleCode, locales } from './routing'
 
 export type LocaleCode = AppLocale
@@ -6,7 +7,7 @@ export type LocaleInput = LocaleCode | string | null | undefined
 
 export { defaultLocale, isLocaleCode, locales }
 
-export const SITE_BASE_URL = 'https://www.tradinggoose.ai'
+export const SITE_BASE_URL = getBaseUrl()
 export const CANONICAL_CALLBACK_PATH_HEADER = 'x-tradinggoose-callback-path'
 const LOCALE_DISPLAY_NAMES: Record<LocaleCode, string> = {
   en: 'English',
@@ -113,7 +114,7 @@ export function localizeUrl(baseUrl: string, locale: LocaleInput, pathname: stri
 }
 
 export function localizeSiteUrl(locale: LocaleCode, pathname: string) {
-  return localizeUrl(SITE_BASE_URL, locale, pathname)
+  return localizeUrl(getBaseUrl(), locale, pathname)
 }
 
 export function localizeDocsUrl(locale: LocaleCode, pathname = '/') {
@@ -125,13 +126,15 @@ export function getOpenGraphLocale(locale: LocaleCode) {
 }
 
 export function buildLocalizedAlternates(locale: LocaleCode, pathname: string) {
-  const canonical = localizeSiteUrl(locale, pathname)
+  const baseUrl = getBaseUrl()
 
   return {
-    canonical,
+    canonical: localizeUrl(baseUrl, locale, pathname),
     languages: Object.fromEntries([
-      ...locales.map((candidate) => [candidate, localizeSiteUrl(candidate, pathname)] as const),
-      ['x-default', localizeSiteUrl(defaultLocale, pathname)] as const,
+      ...locales.map(
+        (candidate) => [candidate, localizeUrl(baseUrl, candidate, pathname)] as const
+      ),
+      ['x-default', localizeUrl(baseUrl, defaultLocale, pathname)] as const,
     ]),
   }
 }

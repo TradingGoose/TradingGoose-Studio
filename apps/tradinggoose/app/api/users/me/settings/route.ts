@@ -61,24 +61,30 @@ export async function GET() {
     const result = await db.select().from(settings).where(eq(settings.userId, userId)).limit(1)
 
     if (!result.length) {
-      return NextResponse.json({ data: defaultSettings }, { status: 200 })
+      return withPreferredLocaleCookie(
+        NextResponse.json({ data: defaultSettings }, { status: 200 }),
+        defaultSettings.preferredLocale
+      )
     }
 
     const userSettings = result[0]
 
     const preferredLocale = userSettings.preferredLocale ?? defaultLocale
 
-    return NextResponse.json(
-      {
-        data: {
-          theme: userSettings.theme,
-          preferredLocale,
-          telemetryEnabled: userSettings.telemetryEnabled,
-          emailPreferences: userSettings.emailPreferences ?? {},
-          billingUsageNotificationsEnabled: userSettings.billingUsageNotificationsEnabled ?? true,
+    return withPreferredLocaleCookie(
+      NextResponse.json(
+        {
+          data: {
+            theme: userSettings.theme,
+            preferredLocale,
+            telemetryEnabled: userSettings.telemetryEnabled,
+            emailPreferences: userSettings.emailPreferences ?? {},
+            billingUsageNotificationsEnabled: userSettings.billingUsageNotificationsEnabled ?? true,
+          },
         },
-      },
-      { status: 200 }
+        { status: 200 }
+      ),
+      preferredLocale
     )
   } catch (error: any) {
     logger.error(`[${requestId}] Settings fetch error`, error)
