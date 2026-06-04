@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 
-import type { ReactNode } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
 import { act } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
@@ -49,7 +49,9 @@ vi.mock('@/components/widget-header-control', () => ({
   widgetHeaderMenuItemClassName: 'menu-item',
 }))
 
-const createProps = () => ({
+type WatchlistListActionsButtonTestProps = ComponentProps<typeof WatchlistListActionsButton>
+
+const createProps = (): WatchlistListActionsButtonTestProps => ({
   open: true,
   onOpenChange: vi.fn(),
   onCreateWatchlist: vi.fn(),
@@ -87,7 +89,7 @@ describe('WatchlistListActionsButton', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  const renderActionsButton = (props = createProps()) => {
+  const renderActionsButton = (props: WatchlistListActionsButtonTestProps = createProps()) => {
     act(() => {
       root.render(
         <NextIntlClientProvider locale='en' messages={enMessages}>
