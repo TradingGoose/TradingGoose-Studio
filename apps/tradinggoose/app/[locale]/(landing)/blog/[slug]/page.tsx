@@ -12,6 +12,7 @@ import {
   buildLocalizedAlternates,
   getOpenGraphLocale,
   localizeSiteUrl,
+  SITE_BASE_URL,
   type LocaleCode,
 } from '@/i18n/utils'
 import { getPostBySlug } from '@/app/(landing)/blog/lib/posts'
@@ -101,7 +102,7 @@ export default async function PostPage({ params }: PostPageProps) {
         ],
       })),
     }),
-    publisher: { '@id': 'https://tradinggoose.ai/#organization' },
+    publisher: { '@id': `${SITE_BASE_URL}/#organization` },
     mainEntityOfPage: { '@type': 'WebPage', '@id': localizeSiteUrl(locale, postPath) },
     ...(tags?.length && { keywords: tags.join(', '), articleSection: tags[0] }),
     inLanguage: locale,

@@ -2,9 +2,11 @@ import { getLocale } from 'next-intl/server'
 import { getPublicBillingCatalog } from '@/lib/billing/catalog'
 import { buildHostedPricingNarrative } from '@/lib/billing/public-catalog'
 import { getPublicCopy } from '@/i18n/public-copy'
-import { localizeSiteUrl, type LocaleCode } from '@/i18n/utils'
+import { type LocaleCode, localizeSiteUrl, SITE_BASE_URL } from '@/i18n/utils'
 
 const STRUCTURED_DATA_MODIFIED_AT = '2026-04-04T00:00:00+00:00'
+const siteEntityUrl = (id: string) => `${SITE_BASE_URL}/#${id}`
+const siteAssetUrl = (pathname: string) => `${SITE_BASE_URL}${pathname}`
 
 function buildStructuredOffers(catalog: Awaited<ReturnType<typeof getPublicBillingCatalog>>) {
   if (!catalog.billingEnabled) {
@@ -14,11 +16,11 @@ function buildStructuredOffers(catalog: Awaited<ReturnType<typeof getPublicBilli
   const offers: Array<Record<string, unknown>> = catalog.publicTiers.map((tier) => {
     const baseOffer: Record<string, unknown> = {
       '@type': 'Offer',
-      '@id': `https://tradinggoose.ai/#offer-${tier.id}`,
+      '@id': siteEntityUrl(`offer-${tier.id}`),
       name: tier.displayName,
       description: tier.description,
       availability: 'https://schema.org/InStock',
-      seller: { '@id': 'https://tradinggoose.ai/#organization' },
+      seller: { '@id': siteEntityUrl('organization') },
       eligibleRegion: { '@type': 'Place', name: 'Worldwide' },
     }
 
@@ -65,11 +67,11 @@ function buildStructuredOffers(catalog: Awaited<ReturnType<typeof getPublicBilli
   if (catalog.enterprisePlaceholder) {
     offers.push({
       '@type': 'Offer',
-      '@id': 'https://tradinggoose.ai/#offer-enterprise',
+      '@id': siteEntityUrl('offer-enterprise'),
       name: catalog.enterprisePlaceholder.displayName,
       description: catalog.enterprisePlaceholder.description,
       availability: 'https://schema.org/InStock',
-      seller: { '@id': 'https://tradinggoose.ai/#organization' },
+      seller: { '@id': siteEntityUrl('organization') },
       eligibleRegion: { '@type': 'Place', name: 'Worldwide' },
       ...(catalog.enterprisePlaceholder.contactUrl
         ? { url: catalog.enterprisePlaceholder.contactUrl }
@@ -96,7 +98,7 @@ export default async function StructuredData() {
     '@graph': [
       {
         '@type': 'Organization',
-        '@id': 'https://tradinggoose.ai/#organization',
+        '@id': siteEntityUrl('organization'),
         name: 'TradingGoose',
         alternateName: ['TradingGoose Studio', 'TradingGoose.ai'],
         legalName: 'TradingGoose Studio',
@@ -115,19 +117,18 @@ export default async function StructuredData() {
         ],
         logo: {
           '@type': 'ImageObject',
-          '@id': 'https://tradinggoose.ai/#logo',
-          url: 'https://tradinggoose.ai/favicon/web-app-manifest-512x512.png',
-          contentUrl: 'https://tradinggoose.ai/favicon/web-app-manifest-512x512.png',
+          '@id': siteEntityUrl('logo'),
+          url: siteAssetUrl('/favicon/web-app-manifest-512x512.png'),
+          contentUrl: siteAssetUrl('/favicon/web-app-manifest-512x512.png'),
           width: 512,
           height: 512,
           caption: 'TradingGoose Logo',
         },
-        image: { '@id': 'https://tradinggoose.ai/#logo' },
+        image: { '@id': siteEntityUrl('logo') },
         sameAs: [
           'https://github.com/TradingGoose/TradingGoose-Studio',
           'https://discord.gg/wavf5JWhuT',
           'https://docs.tradinggoose.ai',
-          'https://www.tradinggoose.ai',
         ],
         contactPoint: {
           '@type': 'ContactPoint',
@@ -137,18 +138,18 @@ export default async function StructuredData() {
       },
       {
         '@type': 'WebSite',
-        '@id': 'https://tradinggoose.ai/#website',
+        '@id': siteEntityUrl('website'),
         url: siteHomeUrl,
         name: 'TradingGoose - Visual Workflow Platform for LLM Trading',
         description:
           'Open-source platform for technical LLM-driven trading. Connect data providers, write custom indicators in PineTS, trigger AI agent workflows on market signals.',
         publisher: {
-          '@id': 'https://tradinggoose.ai/#organization',
+          '@id': siteEntityUrl('organization'),
         },
         potentialAction: [
           {
             '@type': 'SearchAction',
-            '@id': 'https://tradinggoose.ai/#searchaction',
+            '@id': siteEntityUrl('searchaction'),
             target: {
               '@type': 'EntryPoint',
               urlTemplate: localizeSiteUrl(locale, '/search?q={search_term_string}'),
@@ -160,21 +161,21 @@ export default async function StructuredData() {
       },
       {
         '@type': 'WebPage',
-        '@id': 'https://tradinggoose.ai/#webpage',
+        '@id': siteEntityUrl('webpage'),
         url: siteHomeUrl,
         name: 'TradingGoose - Build your Trading Analysis with AI Agent Workflows',
         isPartOf: {
-          '@id': 'https://tradinggoose.ai/#website',
+          '@id': siteEntityUrl('website'),
         },
         about: {
-          '@id': 'https://tradinggoose.ai/#software',
+          '@id': siteEntityUrl('software'),
         },
         datePublished: '2025-01-01T00:00:00+00:00',
         dateModified: STRUCTURED_DATA_MODIFIED_AT,
         description:
           'Build AI-powered trading analysis workflows with TradingGoose. Connect live data providers, write custom indicators, and deploy agents that trigger on market signals.',
         breadcrumb: {
-          '@id': 'https://tradinggoose.ai/#breadcrumb',
+          '@id': siteEntityUrl('breadcrumb'),
         },
         inLanguage: locale,
         speakable: {
@@ -190,7 +191,7 @@ export default async function StructuredData() {
       },
       {
         '@type': 'BreadcrumbList',
-        '@id': 'https://tradinggoose.ai/#breadcrumb',
+        '@id': siteEntityUrl('breadcrumb'),
         itemListElement: [
           {
             '@type': 'ListItem',
@@ -202,7 +203,7 @@ export default async function StructuredData() {
       },
       {
         '@type': 'SoftwareApplication',
-        '@id': 'https://tradinggoose.ai/#software',
+        '@id': siteEntityUrl('software'),
         name: 'TradingGoose Studio',
         description:
           'Open-source visual workflow platform for technical LLM-driven trading. Connect your own market data providers, write custom indicators in PineTS, monitor live prices, and route signals into AI agent workflows that place trades, send alerts, or rebalance portfolios.',
@@ -224,14 +225,14 @@ export default async function StructuredData() {
         screenshot: [
           {
             '@type': 'ImageObject',
-            url: 'https://tradinggoose.ai/favicon/web-app-manifest-512x512.png',
+            url: siteAssetUrl('/favicon/web-app-manifest-512x512.png'),
             caption: 'TradingGoose visual trading workflow builder',
           },
         ],
       },
       {
         '@type': 'FAQPage',
-        '@id': 'https://tradinggoose.ai/#faq',
+        '@id': siteEntityUrl('faq'),
         mainEntity: [
           {
             '@type': 'Question',
@@ -317,14 +318,14 @@ export default async function StructuredData() {
       },
       {
         '@type': 'Article',
-        '@id': 'https://tradinggoose.ai/#article-disambiguation',
+        '@id': siteEntityUrl('article-disambiguation'),
         headline:
           'TradingGoose Studio: open-source visual workflow platform for LLM-driven trading',
         description:
           'Canonical reference page for TradingGoose Studio. This is the drag-and-drop workflow builder with PineTS custom indicators, live market monitors, and AI agent automation — distinct from the older TradingGoose multi-agent LLM research framework.',
-        author: { '@id': 'https://tradinggoose.ai/#organization' },
-        publisher: { '@id': 'https://tradinggoose.ai/#organization' },
-        mainEntityOfPage: { '@id': 'https://tradinggoose.ai/#webpage' },
+        author: { '@id': siteEntityUrl('organization') },
+        publisher: { '@id': siteEntityUrl('organization') },
+        mainEntityOfPage: { '@id': siteEntityUrl('webpage') },
         datePublished: '2025-01-01T00:00:00+00:00',
         dateModified: STRUCTURED_DATA_MODIFIED_AT,
         inLanguage: locale,

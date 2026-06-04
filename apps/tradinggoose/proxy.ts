@@ -172,6 +172,7 @@ function rewriteMarkdownRequest(request: NextRequest): NextResponse | null {
 
   const rewriteUrl = new URL(MARKDOWN_RENDER_ROUTE, request.url)
   rewriteUrl.searchParams.set('path', normalizedPathname)
+  rewriteUrl.searchParams.set('locale', locale)
 
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set(MARKDOWN_BYPASS_HEADER, '1')
@@ -276,11 +277,11 @@ export async function proxy(request: NextRequest) {
   const securityBlock = handleSecurityFiltering(request)
   if (securityBlock) return securityBlock
 
-  const markdownRewrite = rewriteMarkdownRequest(request)
-  if (markdownRewrite) return markdownRewrite
-
   const localeRedirect = redirectToCookieLocale(request, route)
   if (localeRedirect) return localeRedirect
+
+  const markdownRewrite = rewriteMarkdownRequest(request)
+  if (markdownRewrite) return markdownRewrite
 
   const response = isCanonicalRouteHandlerPath(url.pathname)
     ? NextResponse.next()

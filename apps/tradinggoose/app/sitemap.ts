@@ -1,8 +1,9 @@
 import type { MetadataRoute } from 'next'
 import { getAllPosts } from '@/app/(landing)/blog/lib/posts'
+import { SITE_BASE_URL } from '@/i18n/utils'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = 'https://tradinggoose.ai'
+  const baseUrl = SITE_BASE_URL
   const posts = await getAllPosts()
 
   // Keep the sitemap focused on stable public-entry pages.

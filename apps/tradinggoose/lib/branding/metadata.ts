@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { getBrandConfig } from '@/lib/branding/branding'
-import { getBaseUrl } from '@/lib/urls/utils'
+import { SITE_BASE_URL } from '@/i18n/utils'
 
 export const DEFAULT_META_DESCRIPTION =
   'Open-source LLM trading platform. Connect data providers, write custom indicators in PineTS, and trigger AI agent workflows on live signals.'
@@ -42,7 +42,7 @@ export function generateBrandedMetadata(override: Partial<Metadata> = {}): Metad
     referrer: 'origin-when-cross-origin',
     creator: brand.name,
     publisher: brand.name,
-    metadataBase: new URL(getBaseUrl()),
+    metadataBase: new URL(SITE_BASE_URL),
     alternates: {
       languages: {
         'en-US': '/en-US',
@@ -62,7 +62,7 @@ export function generateBrandedMetadata(override: Partial<Metadata> = {}): Metad
     openGraph: {
       type: 'website',
       locale: 'en_US',
-      url: getBaseUrl(),
+      url: SITE_BASE_URL,
       title: defaultTitle,
       description: summaryFull,
       siteName: brand.name,
@@ -133,7 +133,7 @@ export function generateStructuredData() {
     alternateName: ['TradingGoose Studio', 'TradingGoose.ai'],
     description:
       'TradingGoose (also known as TradingGoose Studio) is an open-source visual workflow platform for technical LLM-driven trading, maintained at github.com/TradingGoose/TradingGoose-Studio. Connect your own market data providers, write custom indicators in PineTS, monitor live prices, and route signals into AI agent workflows that trigger trades, alerts, portfolio rebalancing, or any action you define. Not affiliated with the older TradingGoose multi-agent LLM research framework.',
-    url: 'https://tradinggoose.ai',
+    url: SITE_BASE_URL,
     sameAs: [
       'https://github.com/TradingGoose/TradingGoose-Studio',
       'https://docs.tradinggoose.ai',
@@ -152,7 +152,7 @@ export function generateStructuredData() {
       '@type': 'Organization',
       name: 'TradingGoose Studio',
       alternateName: 'TradingGoose',
-      url: 'https://tradinggoose.ai',
+      url: SITE_BASE_URL,
       sameAs: [
         'https://github.com/TradingGoose/TradingGoose-Studio',
         'https://discord.gg/wavf5JWhuT',

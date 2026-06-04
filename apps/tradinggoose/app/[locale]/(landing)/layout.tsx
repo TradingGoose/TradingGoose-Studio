@@ -1,8 +1,9 @@
 import type { Metadata } from 'next'
 import Background from '@/app/(landing)/components/background/background'
+import { SITE_BASE_URL } from '@/i18n/utils'
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://tradinggoose.ai'),
+  metadataBase: new URL(SITE_BASE_URL),
   manifest: '/manifest.webmanifest',
   icons: {
     icon: '/favicon.ico',

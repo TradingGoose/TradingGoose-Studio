@@ -1,13 +1,14 @@
 import type { Metadata } from 'next'
 import { getLocale } from 'next-intl/server'
+import ChangelogContent from '@/app/changelog/components/changelog-content'
 import { getPublicCopy } from '@/i18n/public-copy'
 import {
   buildLocalizedAlternates,
   getOpenGraphLocale,
-  localizeSiteUrl,
   type LocaleCode,
+  localizeSiteUrl,
+  SITE_BASE_URL,
 } from '@/i18n/utils'
-import ChangelogContent from '@/app/changelog/components/changelog-content'
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = (await getLocale()) as LocaleCode
@@ -45,10 +46,10 @@ export default async function ChangelogPage() {
         url: localizeSiteUrl(locale, '/changelog'),
         mainEntityOfPage: localizeSiteUrl(locale, '/changelog'),
         inLanguage: locale,
-        author: { '@id': 'https://tradinggoose.ai/#organization' },
-        publisher: { '@id': 'https://tradinggoose.ai/#organization' },
-        about: { '@id': 'https://tradinggoose.ai/#software' },
-        isPartOf: { '@id': 'https://tradinggoose.ai/#website' },
+        author: { '@id': `${SITE_BASE_URL}/#organization` },
+        publisher: { '@id': `${SITE_BASE_URL}/#organization` },
+        about: { '@id': `${SITE_BASE_URL}/#software` },
+        isPartOf: { '@id': `${SITE_BASE_URL}/#website` },
       },
       {
         '@type': 'BreadcrumbList',

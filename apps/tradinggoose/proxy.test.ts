@@ -144,33 +144,39 @@ describe('proxy auth routing', () => {
   it.each([
     ['root', 'http://localhost:3000/?source=nav', 'http://localhost:3000/zh?source=nav'],
     ['workspace', 'http://localhost:3000/workspace', 'http://localhost:3000/zh/workspace'],
-  ])('redirects canonical %s requests to the locale remembered by NEXT_LOCALE', async (_, url, location) => {
-    mockGetSessionCookie.mockReturnValue('session-cookie')
+  ])(
+    'redirects canonical %s requests to the locale remembered by NEXT_LOCALE',
+    async (_, url, location) => {
+      mockGetSessionCookie.mockReturnValue('session-cookie')
 
-    const { proxy } = await import('./proxy')
-    const response = await proxy(
-      new NextRequest(url, {
-        headers: {
-          cookie: 'NEXT_LOCALE=zh',
-          'user-agent': 'vitest',
-        },
-      })
-    )
+      const { proxy } = await import('./proxy')
+      const response = await proxy(
+        new NextRequest(url, {
+          headers: {
+            cookie: 'NEXT_LOCALE=zh',
+            'user-agent': 'vitest',
+          },
+        })
+      )
 
-    expect(response.status).toBe(307)
-    expect(response.headers.get('location')).toBe(location)
-  })
+      expect(response.status).toBe(307)
+      expect(response.headers.get('location')).toBe(location)
+    }
+  )
 
   it('does not rewrite localized API-shaped paths to canonical API routes', async () => {
     mockGetSessionCookie.mockReturnValue('session-cookie')
 
     const { proxy } = await import('./proxy')
     const response = await proxy(
-      new NextRequest('http://localhost:3000/es/api/workspaces/invitations/invitation-1?token=abc', {
-        headers: {
-          'user-agent': 'vitest',
-        },
-      })
+      new NextRequest(
+        'http://localhost:3000/es/api/workspaces/invitations/invitation-1?token=abc',
+        {
+          headers: {
+            'user-agent': 'vitest',
+          },
+        }
+      )
     )
 
     expect(response.status).toBe(200)
@@ -226,7 +232,7 @@ describe('proxy auth routing', () => {
 
     expect(response.status).toBe(200)
     expect(response.headers.get('x-middleware-rewrite')).toBe(
-      'http://localhost:3000/api/markdown?path=%2Fterms'
+      'http://localhost:3000/api/markdown?path=%2Fterms&locale=es'
     )
   })
 })
