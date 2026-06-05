@@ -2,6 +2,9 @@
 
 import { memo } from 'react'
 import { Plus } from 'lucide-react'
+import { useLocale } from 'next-intl'
+import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
+import { formatTemplate, type LocaleCode } from '@/i18n/utils'
 import { cn } from '@/lib/utils'
 
 interface ContextUsagePillProps {
@@ -12,6 +15,9 @@ interface ContextUsagePillProps {
 
 export const ContextUsagePill = memo(
   ({ percentage, className, onCreateNewChat }: ContextUsagePillProps) => {
+    const locale = useLocale() as LocaleCode
+    const copilotCopy = useCopilotMessages()
+
     // Don't render if invalid (but DO render if 0 or very small)
     if (percentage === null || percentage === undefined || Number.isNaN(percentage)) return null
 
@@ -27,6 +33,12 @@ export const ContextUsagePill = memo(
 
     // Format: show 1 decimal for <1%, 0 decimals for >=1%
     const formattedPercentage = percentage < 1 ? percentage.toFixed(1) : percentage.toFixed(0)
+    const fullPercentage = percentage.toFixed(2)
+    const title = formatTemplate(
+      copilotCopy.contextUsage.title,
+      { percentage: fullPercentage },
+      locale
+    )
 
     return (
       <div
@@ -36,7 +48,7 @@ export const ContextUsagePill = memo(
           isHighUsage && 'border border-red-500/50',
           className
         )}
-        title={`Context used in this chat: ${percentage.toFixed(2)}%`}
+        title={title}
       >
         <span>{formattedPercentage}%</span>
         {isHighUsage && onCreateNewChat && (
@@ -46,7 +58,7 @@ export const ContextUsagePill = memo(
               onCreateNewChat()
             }}
             className='inline-flex items-center justify-center transition-opacity hover:opacity-70'
-            title='Recommended: Start a new chat for better quality'
+            title={copilotCopy.contextUsage.recommendedNewChat}
             type='button'
           >
             <Plus className='h-3 w-3' />

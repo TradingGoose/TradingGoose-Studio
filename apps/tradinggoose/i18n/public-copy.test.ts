@@ -110,6 +110,22 @@ describe('public copy', () => {
     expect(getPublicCopy('zh').admin.integrations.title).toBe('系统管理的 OAuth')
   })
 
+  it('includes localized workspace copilot widget copy', () => {
+    const enCopilot = getPublicCopy('en').workspace.widgets.copilot
+    const esCopilot = getPublicCopy('es').workspace.widgets.copilot
+    const zhCopilot = getPublicCopy('zh').workspace.widgets.copilot
+
+    expect(enCopilot.welcome.cards.reviewChangesSafely.title).toBe('Review changes safely')
+    expect(esCopilot.welcome.cards.reviewChangesSafely.title).toBe(
+      'Revisar cambios con seguridad'
+    )
+    expect(zhCopilot.input.attachFile).toBe('附加文件')
+    expect(esCopilot.message.copy).toBe('Copiar')
+    expect(zhCopilot.message.sources).toBe('来源：')
+    expect(esCopilot.accessLevel.limited.label).toBe('Limitado')
+    expect(zhCopilot.history.groups.today).toBe('今天')
+  })
+
   it('includes localized legal copy', () => {
     expect(getPublicCopy('en').meta.terms.title).toBe('Terms of Service | TradingGoose')
     expect(getPublicCopy('es').meta.licenses.title).toBe('Licencias y avisos | TradingGoose')

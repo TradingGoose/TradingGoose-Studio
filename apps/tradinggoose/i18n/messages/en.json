@@ -21342,6 +21342,106 @@
         "searching": "Searching...",
         "noListingsFound": "No listings found.",
         "searchPlaceholder": "Search listings..."
+      },
+      "copilot": {
+        "welcome": {
+          "subtitleLimited": "Ask questions and review tools before they run",
+          "subtitleFull": "Ask questions and let tools run without extra approval",
+          "cards": {
+            "understandWorkflows": {
+              "title": "Understand workflows",
+              "question": "What does my workflow do?"
+            },
+            "reviewChangesSafely": {
+              "title": "Review changes safely",
+              "question": "Help me update this workflow safely"
+            },
+            "planNextSteps": {
+              "title": "Plan next steps",
+              "question": "What should I change in this workflow next?"
+            },
+            "buildEditWorkflows": {
+              "title": "Build & edit workflows",
+              "question": "Help me build a workflow"
+            },
+            "optimizeWorkflows": {
+              "title": "Optimize workflows",
+              "question": "Help me optimize my workflow"
+            },
+            "debugWorkflows": {
+              "title": "Debug workflows",
+              "question": "Help me debug my workflow"
+            }
+          },
+          "tipPrefix": "Tip: Use",
+          "tipSuffix": "to reference chats, workflows, knowledge, blocks, or templates",
+          "shiftEnter": "Shift+Enter for newline"
+        },
+        "input": {
+          "placeholderLimited": "Ask questions or review tools before they run",
+          "placeholderFull": "Ask questions or let tools run without extra approval",
+          "dropFilesHere": "Drop files here...",
+          "insertMention": "Insert @",
+          "attachFile": "Attach file",
+          "stopGeneration": "Stop generation"
+        },
+        "message": {
+          "editPlaceholder": "Edit your message...",
+          "stopGeneration": "Stop generation",
+          "sources": "Sources:",
+          "copy": "Copy"
+        },
+        "contextUsage": {
+          "title": "Context used in this chat: {percentage}%",
+          "recommendedNewChat": "Recommended: Start a new chat for better quality"
+        },
+        "todo": {
+          "title": "Todo List",
+          "expand": "Expand todo list",
+          "collapse": "Collapse todo list"
+        },
+        "history": {
+          "newChat": "New chat",
+          "untitledCurrentChat": "this chat",
+          "updated": "Updated {value}",
+          "justNow": "Just now",
+          "loading": "Loading…",
+          "noChatsYet": "No chats yet",
+          "openChatHistory": "Open chat history",
+          "deleteChatAria": "Delete chat",
+          "deleteDialogTitle": "Delete chat",
+          "deleteDialogDescription": "This action will permanently delete {title} and all associated data. This cannot be undone.",
+          "cancel": "Cancel",
+          "deleteAction": "Delete chat",
+          "startNewChat": "Start new chat",
+          "sending": "Sending…",
+          "groups": {
+            "today": "Today",
+            "yesterday": "Yesterday",
+            "thisWeek": "This Week",
+            "lastWeek": "Last Week",
+            "older": "Older"
+          }
+        },
+        "accessLevel": {
+          "limited": {
+            "label": "Limited",
+            "description": "Reviews each tool before it runs."
+          },
+          "full": {
+            "label": "Full",
+            "description": "Allows tools to run without extra approval."
+          }
+        },
+        "model": {
+          "choose": "Choose model",
+          "label": "Model",
+          "lite": "Lite",
+          "providers": {
+            "anthropic": "Anthropic",
+            "openai": "OpenAI"
+          }
+        }
       }
     },
     "layoutTabs": {

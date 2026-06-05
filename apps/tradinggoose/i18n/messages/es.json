@@ -21342,6 +21342,106 @@
         "searching": "Buscando...",
         "noListingsFound": "No se encontraron listados.",
         "searchPlaceholder": "Buscar listados..."
+      },
+      "copilot": {
+        "welcome": {
+          "subtitleLimited": "Haz preguntas y revisa las herramientas antes de que se ejecuten",
+          "subtitleFull": "Haz preguntas y deja que las herramientas se ejecuten sin aprobación adicional",
+          "cards": {
+            "understandWorkflows": {
+              "title": "Entender flujos de trabajo",
+              "question": "¿Qué hace mi flujo de trabajo?"
+            },
+            "reviewChangesSafely": {
+              "title": "Revisar cambios con seguridad",
+              "question": "Ayúdame a actualizar este flujo de trabajo de forma segura"
+            },
+            "planNextSteps": {
+              "title": "Planificar siguientes pasos",
+              "question": "¿Qué debería cambiar en este flujo de trabajo a continuación?"
+            },
+            "buildEditWorkflows": {
+              "title": "Crear y editar flujos de trabajo",
+              "question": "Ayúdame a crear un flujo de trabajo"
+            },
+            "optimizeWorkflows": {
+              "title": "Optimizar flujos de trabajo",
+              "question": "Ayúdame a optimizar mi flujo de trabajo"
+            },
+            "debugWorkflows": {
+              "title": "Depurar flujos de trabajo",
+              "question": "Ayúdame a depurar mi flujo de trabajo"
+            }
+          },
+          "tipPrefix": "Consejo: usa",
+          "tipSuffix": "para hacer referencia a chats, flujos de trabajo, conocimiento, bloques o plantillas",
+          "shiftEnter": "Shift+Enter para nueva línea"
+        },
+        "input": {
+          "placeholderLimited": "Haz preguntas o revisa las herramientas antes de que se ejecuten",
+          "placeholderFull": "Haz preguntas o deja que las herramientas se ejecuten sin aprobación adicional",
+          "dropFilesHere": "Suelta archivos aquí...",
+          "insertMention": "Insertar @",
+          "attachFile": "Adjuntar archivo",
+          "stopGeneration": "Detener generación"
+        },
+        "message": {
+          "editPlaceholder": "Edita tu mensaje...",
+          "stopGeneration": "Detener generación",
+          "sources": "Fuentes:",
+          "copy": "Copiar"
+        },
+        "contextUsage": {
+          "title": "Contexto usado en este chat: {percentage}%",
+          "recommendedNewChat": "Recomendado: inicia un chat nuevo para obtener mejor calidad"
+        },
+        "todo": {
+          "title": "Lista de tareas",
+          "expand": "Expandir lista de tareas",
+          "collapse": "Contraer lista de tareas"
+        },
+        "history": {
+          "newChat": "Nuevo chat",
+          "untitledCurrentChat": "este chat",
+          "updated": "Actualizado {value}",
+          "justNow": "Justo ahora",
+          "loading": "Cargando…",
+          "noChatsYet": "Aún no hay chats",
+          "openChatHistory": "Abrir historial de chats",
+          "deleteChatAria": "Eliminar chat",
+          "deleteDialogTitle": "Eliminar chat",
+          "deleteDialogDescription": "Esta acción eliminará permanentemente {title} y todos los datos asociados. No se puede deshacer.",
+          "cancel": "Cancelar",
+          "deleteAction": "Eliminar chat",
+          "startNewChat": "Iniciar un chat nuevo",
+          "sending": "Enviando…",
+          "groups": {
+            "today": "Hoy",
+            "yesterday": "Ayer",
+            "thisWeek": "Esta semana",
+            "lastWeek": "La semana pasada",
+            "older": "Anteriores"
+          }
+        },
+        "accessLevel": {
+          "limited": {
+            "label": "Limitado",
+            "description": "Revisa cada herramienta antes de ejecutarla."
+          },
+          "full": {
+            "label": "Completo",
+            "description": "Permite que las herramientas se ejecuten sin aprobación adicional."
+          }
+        },
+        "model": {
+          "choose": "Elegir modelo",
+          "label": "Modelo",
+          "lite": "Lite",
+          "providers": {
+            "anthropic": "Anthropic",
+            "openai": "OpenAI"
+          }
+        }
       }
     },
     "layoutTabs": {

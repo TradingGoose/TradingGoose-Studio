@@ -5,6 +5,7 @@ import { Check, Copy } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 
 const getTextContent = (element: React.ReactNode): string => {
   if (typeof element === 'string') {
@@ -129,6 +130,7 @@ interface CopilotMarkdownRendererProps {
 }
 
 export default function CopilotMarkdownRenderer({ content }: CopilotMarkdownRendererProps) {
+  const copilotCopy = useCopilotMessages()
   const [copiedCodeBlocks, setCopiedCodeBlocks] = useState<Record<string, boolean>>({})
 
   // Reset copy success state after 2 seconds
@@ -266,7 +268,7 @@ export default function CopilotMarkdownRenderer({ content }: CopilotMarkdownRend
               <button
                 onClick={handleCopy}
                 className='text-muted-foreground transition-colors hover:text-gray-300'
-                title='Copy'
+                title={copilotCopy.message.copy}
               >
                 {showCopySuccess ? (
                   <Check className='h-3 w-3' strokeWidth={2} />
@@ -385,7 +387,7 @@ export default function CopilotMarkdownRenderer({ content }: CopilotMarkdownRend
         />
       ),
     }),
-    [copiedCodeBlocks]
+    [copiedCodeBlocks, copilotCopy.message.copy]
   )
 
   return (

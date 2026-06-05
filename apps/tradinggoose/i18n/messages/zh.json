@@ -21329,6 +21329,106 @@
         "searching": "正在搜索...",
         "noListingsFound": "未找到标的。",
         "searchPlaceholder": "搜索标的..."
+      },
+      "copilot": {
+        "welcome": {
+          "subtitleLimited": "提问并在工具执行前先审核",
+          "subtitleFull": "提问并允许工具无需额外批准直接执行",
+          "cards": {
+            "understandWorkflows": {
+              "title": "了解工作流",
+              "question": "我的工作流是做什么的？"
+            },
+            "reviewChangesSafely": {
+              "title": "安全地审查更改",
+              "question": "帮我安全地更新这个工作流"
+            },
+            "planNextSteps": {
+              "title": "规划下一步",
+              "question": "这个工作流接下来我应该改什么？"
+            },
+            "buildEditWorkflows": {
+              "title": "构建和编辑工作流",
+              "question": "帮我构建一个工作流"
+            },
+            "optimizeWorkflows": {
+              "title": "优化工作流",
+              "question": "帮我优化我的工作流"
+            },
+            "debugWorkflows": {
+              "title": "调试工作流",
+              "question": "帮我调试我的工作流"
+            }
+          },
+          "tipPrefix": "提示：使用",
+          "tipSuffix": "来引用聊天、工作流、知识、区块或模板",
+          "shiftEnter": "Shift+Enter 换行"
+        },
+        "input": {
+          "placeholderLimited": "提问或在工具执行前先审核",
+          "placeholderFull": "提问或允许工具无需额外批准直接执行",
+          "dropFilesHere": "将文件拖放到此处...",
+          "insertMention": "插入 @",
+          "attachFile": "附加文件",
+          "stopGeneration": "停止生成"
+        },
+        "message": {
+          "editPlaceholder": "编辑你的消息...",
+          "stopGeneration": "停止生成",
+          "sources": "来源：",
+          "copy": "复制"
+        },
+        "contextUsage": {
+          "title": "此聊天已使用上下文：{percentage}%",
+          "recommendedNewChat": "建议：开始一个新聊天以获得更好的质量"
+        },
+        "todo": {
+          "title": "待办列表",
+          "expand": "展开待办列表",
+          "collapse": "收起待办列表"
+        },
+        "history": {
+          "newChat": "新聊天",
+          "untitledCurrentChat": "此聊天",
+          "updated": "更新于 {value}",
+          "justNow": "刚刚",
+          "loading": "加载中…",
+          "noChatsYet": "还没有聊天",
+          "openChatHistory": "打开聊天历史",
+          "deleteChatAria": "删除聊天",
+          "deleteDialogTitle": "删除聊天",
+          "deleteDialogDescription": "此操作将永久删除 {title} 及其所有相关数据。此操作无法撤销。",
+          "cancel": "取消",
+          "deleteAction": "删除聊天",
+          "startNewChat": "开始新聊天",
+          "sending": "发送中…",
+          "groups": {
+            "today": "今天",
+            "yesterday": "昨天",
+            "thisWeek": "本周",
+            "lastWeek": "上周",
+            "older": "更早"
+          }
+        },
+        "accessLevel": {
+          "limited": {
+            "label": "受限",
+            "description": "每个工具在执行前都需要审核。"
+          },
+          "full": {
+            "label": "完全",
+            "description": "允许工具无需额外批准直接执行。"
+          }
+        },
+        "model": {
+          "choose": "选择模型",
+          "label": "模型",
+          "lite": "Lite",
+          "providers": {
+            "anthropic": "Anthropic",
+            "openai": "OpenAI"
+          }
+        }
       }
     },
     "layoutTabs": {

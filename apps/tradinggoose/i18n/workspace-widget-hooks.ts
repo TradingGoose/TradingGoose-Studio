@@ -23,6 +23,7 @@ export type WorkflowChatMessages = WorkspaceWidgetsMessages['workflowChat']
 export type WorkflowConsoleMessages = WorkspaceWidgetsMessages['console']
 export type WorkflowVariablesMessages = WorkspaceWidgetsMessages['workflowVariables']
 export type McpDropdownMessages = WorkspaceWidgetsMessages['mcpDropdown']
+export type CopilotMessages = WorkspaceWidgetsMessages['copilot']
 
 export function useWorkspaceWidgetsMessages(): WorkspaceWidgetsMessages {
   // Any route rendering workspace widgets must provide the 'workspace' namespace in IntlProvider.
@@ -95,4 +96,8 @@ export function useWorkflowVariablesMessages(): WorkflowVariablesMessages {
 
 export function useMcpDropdownMessages(): McpDropdownMessages {
   return useWorkspaceWidgetsMessages().mcpDropdown
+}
+
+export function useCopilotMessages(): CopilotMessages {
+  return useWorkspaceWidgetsMessages().copilot
 }
