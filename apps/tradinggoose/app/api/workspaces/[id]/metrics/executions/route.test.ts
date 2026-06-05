@@ -7,14 +7,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   mockGetSession,
+  mockCheckWorkspaceAccess,
   mockSelect,
-  mockPermissionLimit,
   mockWorkflowsWhere,
   mockLogsWhere,
   mockLeftJoin,
 } = vi.hoisted(() => {
   const mockGetSession = vi.fn()
-  const mockPermissionLimit = vi.fn()
+  const mockCheckWorkspaceAccess = vi.fn()
   const mockWorkflowsWhere = vi.fn()
   const mockLogsWhere = vi.fn()
   const mockLeftJoin = vi.fn(() => ({
@@ -24,8 +24,8 @@ const {
 
   return {
     mockGetSession,
+    mockCheckWorkspaceAccess,
     mockSelect,
-    mockPermissionLimit,
     mockWorkflowsWhere,
     mockLogsWhere,
     mockLeftJoin,
@@ -39,11 +39,6 @@ vi.mock('@tradinggoose/db', () => ({
 }))
 
 vi.mock('@tradinggoose/db/schema', () => ({
-  permissions: {
-    entityId: 'permissions.entityId',
-    entityType: 'permissions.entityType',
-    userId: 'permissions.userId',
-  },
   workflow: {
     folderId: 'workflow.folderId',
     id: 'workflow.id',
@@ -84,6 +79,10 @@ vi.mock('@/lib/auth', () => ({
   getSession: (...args: unknown[]) => mockGetSession(...args),
 }))
 
+vi.mock('@/lib/permissions/utils', () => ({
+  checkWorkspaceAccess: (...args: unknown[]) => mockCheckWorkspaceAccess(...args),
+}))
+
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: vi.fn(() => ({
     error: vi.fn(),
@@ -108,14 +107,8 @@ describe('workspace execution metrics route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
+    mockCheckWorkspaceAccess.mockResolvedValue({ exists: true, hasAccess: true })
     mockSelect
-      .mockReturnValueOnce({
-        from: vi.fn(() => ({
-          where: vi.fn(() => ({
-            limit: mockPermissionLimit,
-          })),
-        })),
-      })
       .mockReturnValueOnce({
         from: vi.fn(() => ({
           where: mockWorkflowsWhere,
@@ -126,7 +119,6 @@ describe('workspace execution metrics route', () => {
           leftJoin: mockLeftJoin,
         })),
       })
-    mockPermissionLimit.mockResolvedValue([{ id: 'permission-1' }])
     mockWorkflowsWhere.mockResolvedValue([])
     mockLogsWhere.mockResolvedValue([
       {
@@ -197,5 +189,24 @@ describe('workspace execution metrics route', () => {
           condition.value.includes('folder-1')
       )
     ).toBe(true)
+    expect(mockCheckWorkspaceAccess).toHaveBeenCalledWith('workspace-1', 'user-1')
+  })
+
+  it('returns not found when canonical workspace access is denied', async () => {
+    mockCheckWorkspaceAccess.mockResolvedValue({ exists: true, hasAccess: false })
+    const { GET } = await import('./route')
+
+    const response = await GET(
+      new NextRequest(
+        'http://localhost/api/workspaces/workspace-1/metrics/executions?startTime=2026-04-23T00:00:00.000Z&endTime=2026-04-23T01:00:00.000Z&segments=1'
+      ),
+      { params: Promise.resolve({ id: 'workspace-1' }) }
+    )
+
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual({
+      error: 'Workspace not found or access denied',
+    })
+    expect(mockSelect).not.toHaveBeenCalled()
   })
 })

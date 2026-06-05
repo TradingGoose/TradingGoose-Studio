@@ -1,10 +1,11 @@
 import { db } from '@tradinggoose/db'
-import { permissions, workflow, workflowExecutionLogs } from '@tradinggoose/db/schema'
+import { workflow, workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { and, eq, gte, inArray, lte, or, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 
 const logger = createLogger('MetricsExecutionsAPI')
 
@@ -40,19 +41,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const totalMs = Math.max(1, end.getTime() - start.getTime())
     const segmentMs = Math.max(1, Math.floor(totalMs / Math.max(1, segments)))
 
-    const [permission] = await db
-      .select()
-      .from(permissions)
-      .where(
-        and(
-          eq(permissions.entityType, 'workspace'),
-          eq(permissions.entityId, workspaceId),
-          eq(permissions.userId, userId)
-        )
-      )
-      .limit(1)
-    if (!permission) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const access = await checkWorkspaceAccess(workspaceId, userId)
+    if (!access.exists || !access.hasAccess) {
+      return NextResponse.json({ error: 'Workspace not found or access denied' }, { status: 404 })
     }
     const workflowIds = qp.workflowIds?.split(',').filter(Boolean) ?? []
     const folderIds = qp.folderIds?.split(',').filter(Boolean) ?? []
