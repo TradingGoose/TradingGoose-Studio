@@ -2,6 +2,7 @@ import { db } from '@tradinggoose/db'
 import { settings } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
+import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
@@ -10,6 +11,7 @@ import { generateRequestId } from '@/lib/utils'
 import { defaultLocale, isLocaleCode, locales } from '@/i18n/utils'
 
 const logger = createLogger('UserSettingsAPI')
+const LOCALE_COOKIE = 'NEXT_LOCALE'
 
 const SettingsSchema = z.object({
   theme: z.enum(['system', 'light', 'dark']).optional(),
@@ -36,7 +38,7 @@ const defaultSettings = {
 
 function withPreferredLocaleCookie(response: NextResponse, locale: string | null | undefined) {
   if (locale && isLocaleCode(locale)) {
-    response.cookies.set('NEXT_LOCALE', locale, {
+    response.cookies.set(LOCALE_COOKIE, locale, {
       path: '/',
       maxAge: 60 * 60 * 24 * 365,
       sameSite: 'lax',
@@ -44,6 +46,11 @@ function withPreferredLocaleCookie(response: NextResponse, locale: string | null
   }
 
   return response
+}
+
+async function getRuntimeLocale() {
+  const locale = (await cookies()).get(LOCALE_COOKIE)?.value
+  return locale && isLocaleCode(locale) ? locale : defaultLocale
 }
 
 export async function GET() {
@@ -61,10 +68,8 @@ export async function GET() {
     const result = await db.select().from(settings).where(eq(settings.userId, userId)).limit(1)
 
     if (!result.length) {
-      return withPreferredLocaleCookie(
-        NextResponse.json({ data: defaultSettings }, { status: 200 }),
-        defaultSettings.preferredLocale
-      )
+      const preferredLocale = await getRuntimeLocale()
+      return NextResponse.json({ data: { ...defaultSettings, preferredLocale } }, { status: 200 })
     }
 
     const userSettings = result[0]
