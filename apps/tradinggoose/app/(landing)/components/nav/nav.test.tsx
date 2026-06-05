@@ -17,6 +17,7 @@ const mockReplace = vi.fn()
 const mockRefresh = vi.fn()
 const mockReplaceLocaleDocument = vi.fn()
 const mockUpdateSetting = vi.fn()
+let mockSessionUserId: string | null = null
 let mockPathname = '/'
 let mockSearchParams = ''
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
@@ -80,6 +81,15 @@ vi.mock('@/lib/branding/branding', () => ({
   }),
 }))
 
+vi.mock('@/lib/auth-client', () => ({
+  useSession: () => ({
+    data: mockSessionUserId ? { user: { id: mockSessionUserId } } : null,
+    isPending: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
+}))
+
 vi.mock('@/stores/settings/general/store', () => ({
   useGeneralStore: (selector: (state: { updateSetting: typeof mockUpdateSetting }) => unknown) =>
     selector({ updateSetting: mockUpdateSetting }),
@@ -98,6 +108,7 @@ describe('landing nav registration mode', () => {
     vi.clearAllMocks()
     vi.mocked(getRegistrationModeForRender).mockReset()
     mockUpdateSetting.mockResolvedValue(undefined)
+    mockSessionUserId = null
     mockPathname = '/'
     mockSearchParams = ''
     container = document.createElement('div')
@@ -217,7 +228,7 @@ describe('landing nav registration mode', () => {
       await flush()
     })
 
-    expect(mockUpdateSetting).toHaveBeenCalledWith('preferredLocale', 'zh')
+    expect(mockUpdateSetting).not.toHaveBeenCalled()
     expect(mockReplaceLocaleDocument).toHaveBeenCalledWith(
       'zh',
       '/blog/trading-signals?from=nav&campaign=i18n'

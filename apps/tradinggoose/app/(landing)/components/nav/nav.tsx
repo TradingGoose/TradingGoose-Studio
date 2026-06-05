@@ -16,21 +16,19 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Separator } from '@/components/ui/separator'
+import { useSession } from '@/lib/auth-client'
 import { useBrandConfig } from '@/lib/branding/branding'
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  getRegistrationPrimaryHref,
-  type RegistrationMode,
-} from '@/lib/registration/shared'
+import { getRegistrationPrimaryHref, type RegistrationMode } from '@/lib/registration/shared'
 import { getFormattedGitHubStars } from '@/app/(landing)/actions/github'
 import { soehne } from '@/app/fonts/soehne/soehne'
-import { formatTemplate } from '@/i18n/utils'
 import { Link, replaceLocaleDocument, usePathname, useRouter } from '@/i18n/navigation'
 import {
+  formatTemplate,
   getLocaleDisplayName,
-  localizeDocsUrl,
-  locales,
   type LocaleCode,
+  locales,
+  localizeDocsUrl,
 } from '@/i18n/utils'
 import { useGeneralStore } from '@/stores/settings/general/store'
 
@@ -48,6 +46,7 @@ function LanguageSwitcher() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const updateSetting = useGeneralStore((state) => state.updateSetting)
+  const { data: session } = useSession()
   const [isOpen, setIsOpen] = useState(false)
 
   const search = searchParams.toString()
@@ -60,10 +59,12 @@ function LanguageSwitcher() {
 
     setIsOpen(false)
     const href = search ? `${pathname}?${search}` : pathname
-    try {
-      await updateSetting('preferredLocale', nextLocale)
-    } catch (error) {
-      logger.error('Failed to persist preferred locale:', { error, locale: nextLocale })
+    if (session?.user?.id) {
+      try {
+        await updateSetting('preferredLocale', nextLocale)
+      } catch (error) {
+        logger.error('Failed to persist preferred locale:', { error, locale: nextLocale })
+      }
     }
     replaceLocaleDocument(nextLocale, href)
   }
@@ -157,11 +158,7 @@ export default function Nav({
       >
         {copy.nav.docs}
       </a>
-      <Link
-        href='/blog'
-        className='transition-colors hover:text-foreground'
-        prefetch={false}
-      >
+      <Link href='/blog' className='transition-colors hover:text-foreground' prefetch={false}>
         {copy.nav.blog}
       </Link>
       <a
@@ -244,7 +241,9 @@ export default function Nav({
             <Separator orientation='vertical' className='hidden h-6 md:block' />
           ) : null}
 
-          {registrationActions ? <div className='hidden items-center gap-2 md:flex'>{registrationActions}</div> : null}
+          {registrationActions ? (
+            <div className='hidden items-center gap-2 md:flex'>{registrationActions}</div>
+          ) : null}
 
           {variant === 'landing' ? (
             <DropdownMenu>
