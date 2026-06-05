@@ -251,8 +251,7 @@ export function MonitorBoard({
                     canDrop={canDrop}
                     onDropOverColumn={() => handleDropAtColumn(column)}
                     itemIds={column.items.map((item) => item.logId)}
-                    summary={formatTemplate(copy.shared.itemsCount, { count: column.totalCount })}
-                    metaAction={
+                    headerAction={
                       column.limit ? (
                         <Badge variant='outline' className='text-[10px]'>
                           {formatTemplate(copy.execution.limitLabel, { count: column.limit })}

@@ -1,7 +1,7 @@
 import {
   type ParsedMarketQuery,
-  SUPPORTED_MARKET_ASSET_CLASSES,
   parseCategorizedSearchQuery,
+  SUPPORTED_MARKET_ASSET_CLASSES,
   serializeArrayParam,
 } from '@/components/listing-selector/search-utils'
 import type { ProviderSearchConfig } from '@/components/listing-selector/selector/use-provider-config'
@@ -14,17 +14,19 @@ export type MarketListingSearchRequest = {
 export function buildMarketSearchRequest(args: {
   rawQuery: string
   providerConfig: ProviderSearchConfig
+  assetClassFilter?: string | null
 }): MarketListingSearchRequest {
-  const { rawQuery, providerConfig } = args
+  const { rawQuery, providerConfig, assetClassFilter } = args
   const trimmed = rawQuery.trim()
 
   const queryParams: Record<string, string> = {}
   const filtersPayload: Record<string, unknown> = {}
   const parsedQuery: ParsedMarketQuery = trimmed ? parseCategorizedSearchQuery(trimmed) : {}
+  const requestedAssetClass = assetClassFilter?.trim().toLowerCase() || parsedQuery.assetClass
   if (
-    parsedQuery.assetClass &&
+    requestedAssetClass &&
     providerConfig.assetClasses.length &&
-    !providerConfig.assetClasses.includes(parsedQuery.assetClass)
+    !providerConfig.assetClasses.includes(requestedAssetClass)
   ) {
     return {
       queryParams,
@@ -32,8 +34,8 @@ export function buildMarketSearchRequest(args: {
     }
   }
 
-  const resolvedAssetClasses = parsedQuery.assetClass
-    ? [parsedQuery.assetClass]
+  const resolvedAssetClasses = requestedAssetClass
+    ? [requestedAssetClass]
     : providerConfig.assetClasses.length
       ? providerConfig.assetClasses
       : [...SUPPORTED_MARKET_ASSET_CLASSES]

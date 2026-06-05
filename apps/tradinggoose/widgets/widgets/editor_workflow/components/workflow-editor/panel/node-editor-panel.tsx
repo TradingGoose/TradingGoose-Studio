@@ -42,6 +42,9 @@ const PARALLEL_TYPE_OPTIONS: Array<{ value: ParallelType; label: string }> = [
   { value: 'collection', label: 'Parallel Each' },
 ]
 
+const panelClassName =
+  'allow-scroll !m-2 max-h-[calc(100%-1rem)] min-w-0 w-[calc(100%-1rem)] max-w-96 overflow-y-auto rounded-lg border bg-card shadow-md'
+
 export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
   const { workflowEditorCopy, workflowInspectorCopy, getLocalizedDefaultBlockName } =
     useWorkflowI18n()
@@ -124,12 +127,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     renamingBlockIdRef.current = null
     setIsRenaming(false)
     setEditedName('')
-  }, [
-    collaborativeUpdateBlockName,
-    editedName,
-    isRenaming,
-    selectedBlock,
-  ])
+  }, [collaborativeUpdateBlockName, editedName, isRenaming, selectedBlock])
 
   const handleCancelRename = useCallback(() => {
     renamingBlockIdRef.current = null
@@ -364,7 +362,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     return (
       <Panel
         position='top-right'
-        className='allow-scroll max-h-[calc(100%-2rem)] w-96 overflow-y-auto rounded-lg border bg-card p-4 shadow-md'
+        className={`${panelClassName} p-4`}
         onMouseDown={stopPanelEvent}
         onPointerDown={stopPanelEvent}
         onClick={stopPanelEvent}
@@ -382,7 +380,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     return (
       <Panel
         position='top-right'
-        className='allow-scroll max-h-[calc(100%-2rem)] w-96 overflow-y-auto rounded-lg border bg-card p-4 shadow-md'
+        className={`${panelClassName} p-4`}
         onMouseDown={stopPanelEvent}
         onPointerDown={stopPanelEvent}
         onClick={stopPanelEvent}
@@ -401,7 +399,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
   return (
     <Panel
       position='top-right'
-      className='allow-scroll max-h-[calc(100%-2rem)] w-96 overflow-y-auto rounded-lg border bg-card px-4 pb-4 shadow-md'
+      className={`${panelClassName} px-4 pb-4`}
       onMouseDown={stopPanelEvent}
       onPointerDown={stopPanelEvent}
       onClick={stopPanelEvent}

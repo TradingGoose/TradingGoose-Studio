@@ -104,6 +104,34 @@ describe('useMarketListingSearch', () => {
     )
   })
 
+  it('scopes market searches to the selected asset class filter', async () => {
+    const updateInstance = vi.fn()
+
+    fetchListingsMock.mockResolvedValue([])
+
+    await act(async () => {
+      root.render(
+        <HookHarness
+          open
+          query=''
+          providerType='market'
+          assetClassFilter='crypto'
+          instanceId='test-selector'
+          updateInstance={updateInstance}
+        />
+      )
+      await Promise.resolve()
+    })
+
+    expect(fetchListingsMock).toHaveBeenCalledTimes(1)
+    expect(fetchListingsMock).toHaveBeenCalledWith(
+      {
+        filters: JSON.stringify({ limit: 50, asset_class: ['crypto'] }),
+      },
+      expect.any(AbortSignal)
+    )
+  })
+
   it('does not let explicit asset prefixes bypass combined provider criteria', async () => {
     const updateInstance = vi.fn()
 
@@ -281,15 +309,16 @@ describe('useMarketListingSearch', () => {
     })
   })
 
-  it('filters scoped candidate listings without calling market search', async () => {
+  it('filters scoped candidate listings by selected asset class without calling market search', async () => {
     const updateInstance = vi.fn()
 
     await act(async () => {
       root.render(
         <HookHarness
           open
-          query='btc'
+          query=''
           providerType='market'
+          assetClassFilter='crypto'
           instanceId='test-selector'
           updateInstance={updateInstance}
           candidateListings={[

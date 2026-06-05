@@ -149,6 +149,12 @@ export interface SubBlockOption {
   rightLabel?: string
 }
 
+export interface SubBlockOptionGroup {
+  id: string
+  label: string
+  icon?: React.ComponentType<{ className?: string }>
+}
+
 export interface SubBlockConfig {
   id: string
   title?: string
@@ -193,6 +199,8 @@ export interface SubBlockConfig {
   showCopyButton?: boolean
   enableSearch?: boolean
   searchPlaceholder?: string
+  dropdownMode?: 'default' | 'sidebar'
+  optionGroups?: SubBlockOptionGroup[] | (() => SubBlockOptionGroup[])
   autoSelectFirstOption?: boolean
   connectionDroppable?: boolean
   hidden?: boolean
