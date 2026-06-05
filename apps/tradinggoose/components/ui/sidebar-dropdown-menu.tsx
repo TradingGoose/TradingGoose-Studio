@@ -73,7 +73,7 @@ export function SidebarDropdownMenuContent({
                     aria-label={Icon ? group.label : undefined}
                     data-active={isActive ? 'true' : undefined}
                     className={cn(
-                      'flex h-8 w-full min-w-0 items-center rounded-sm text-muted-foreground text-xs transition-colors hover:bg-accent hover:text-accent-foreground data-[active=true]:bg-accent data-[active=true]:text-accent-foreground',
+                      'flex h-8 w-full min-w-0 items-center rounded-sm text-muted-foreground text-xs transition-colors hover:bg-muted hover:text-accent-foreground data-[active=true]:bg-muted data-[active=true]:text-accent-foreground',
                       Icon ? 'w-8 shrink-0 justify-center px-0' : 'gap-2 px-2 text-left'
                     )}
                     onMouseDown={(event) => event.preventDefault()}
