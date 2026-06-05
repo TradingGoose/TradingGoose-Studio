@@ -272,7 +272,7 @@ export default function Records() {
     ordersQuery.error instanceof Error
       ? ordersQuery.error.message
       : ordersQuery.error
-        ? 'Failed to fetch orders'
+        ? t('orders.failedToFetchOrders')
         : null
 
   const orderDetailQuery = useOrderDetail(workspaceId, selectedOrder?.id)
@@ -342,7 +342,7 @@ export default function Records() {
     logsQuery.error instanceof Error
       ? logsQuery.error.message
       : logsQuery.error
-        ? 'Failed to fetch logs'
+        ? tLogs('errors.fetchLogs')
         : null
 
   useEffect(() => {
@@ -596,7 +596,7 @@ export default function Records() {
         <div className='flex min-w-0 flex-1 items-center gap-3'>
           <div className='hidden shrink-0 items-center gap-2 sm:flex'>
             <ScrollText className='h-[18px] w-[18px] text-muted-foreground' />
-            <span className='font-medium text-sm'>Records</span>
+            <span className='font-medium text-sm'>{t('title')}</span>
           </div>
           {activeTab === 'orders' ? (
             <OrderFilters searchValue={orderSearchInput} onSearchChange={setOrderSearchInput} />
@@ -605,7 +605,7 @@ export default function Records() {
               value={logSearchQuery}
               onChange={setLogSearchQuery}
               queryPolicy={LOGS_QUERY_POLICY}
-              placeholder='Search logs...'
+              placeholder={tLogs('searchPlaceholder')}
               workflowsData={availableWorkflows}
               foldersData={availableFolders}
               className='w-full'
@@ -622,7 +622,7 @@ export default function Records() {
                 <input
                   value={statsSearchQuery}
                   onChange={(event) => setStatsSearchQuery(event.target.value)}
-                  placeholder='Search workflows'
+                  placeholder={tLogs('dashboard.searchPlaceholder')}
                   className='h-full min-w-[120px] flex-1 bg-transparent outline-none placeholder:text-muted-foreground'
                   autoComplete='off'
                   autoCorrect='off'
@@ -636,7 +636,7 @@ export default function Records() {
       }
       center={
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as RecordsTab)}>
-          <TabsList aria-label='Records view' className='h-9 shrink-0 border shadow-sm'>
+          <TabsList aria-label={t('tabsAriaLabel')} className='h-9 shrink-0 border shadow-sm'>
             {(Object.keys(recordTabLabels) as RecordsTab[]).map((tab) => (
               <TabsTrigger key={tab} value={tab} className='h-7 px-3 py-0 text-xs'>
                 {recordTabLabels[tab]}
@@ -669,7 +669,7 @@ export default function Records() {
               )}
               aria-pressed={isLive}
             >
-              Live
+              {tLogs('live')}
             </Button>
           ) : activeTab === 'stats' ? (
             <>
@@ -681,8 +681,8 @@ export default function Records() {
                     className='h-9 gap-2 rounded-md border-border bg-background px-3'
                   >
                     <Filter className='h-4 w-4' />
-                    <span className='hidden lg:inline'>Filters</span>
-                    <span className='sr-only lg:hidden'>Filters</span>
+                    <span className='hidden lg:inline'>{tLogs('dashboard.filters.title')}</span>
+                    <span className='sr-only lg:hidden'>{tLogs('dashboard.filters.title')}</span>
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className='w-[320px] p-0' align='end'>
@@ -703,7 +703,7 @@ export default function Records() {
                 )}
                 aria-pressed={statsLive}
               >
-                Live
+                {tLogs('live')}
               </Button>
             </>
           ) : null}
@@ -722,10 +722,12 @@ export default function Records() {
                   ) : (
                     <RefreshCw className='h-5 w-5' />
                   )}
-                  <span className='sr-only'>Refresh stats</span>
+                  <span className='sr-only'>{tLogs('dashboard.refresh')}</span>
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>{statsIsRefetching ? 'Refreshing...' : 'Refresh'}</TooltipContent>
+              <TooltipContent>
+                {statsIsRefetching ? tLogs('dashboard.refreshing') : tLogs('dashboard.refresh')}
+              </TooltipContent>
             </Tooltip>
           ) : (
             <>
@@ -743,10 +745,10 @@ export default function Records() {
                     ) : (
                       <RefreshCw className='h-5 w-5' />
                     )}
-                    <span className='sr-only'>Refresh</span>
+                    <span className='sr-only'>{tLogs('actions.refresh')}</span>
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Refresh</TooltipContent>
+                <TooltipContent>{tLogs('actions.refresh')}</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -757,10 +759,10 @@ export default function Records() {
                     className='h-9 rounded-md hover:bg-secondary'
                   >
                     <Download className='h-5 w-5' />
-                    <span className='sr-only'>Export CSV</span>
+                    <span className='sr-only'>{tLogs('actions.exportCsv')}</span>
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Export CSV</TooltipContent>
+                <TooltipContent>{tLogs('actions.exportCsv')}</TooltipContent>
               </Tooltip>
             </>
           )}
@@ -838,7 +840,7 @@ export default function Records() {
           orderDetailQuery.error instanceof Error
             ? orderDetailQuery.error.message
             : orderDetailQuery.error
-              ? 'Failed to load order detail'
+              ? t('orders.failedToLoadOrderDetail')
               : null
         }
         linkedLog={orderLogDetailQuery.data ?? null}
@@ -847,7 +849,7 @@ export default function Records() {
           orderLogDetailQuery.error instanceof Error
             ? orderLogDetailQuery.error.message
             : orderLogDetailQuery.error
-              ? 'Failed to load workflow log'
+              ? t('orders.failedToLoadWorkflowLog')
               : null
         }
         mode={orderDetailMode}

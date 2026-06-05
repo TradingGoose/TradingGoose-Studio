@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Info, Loader2 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { useRouter } from '@/i18n/navigation'
 import type { WorkflowLog } from '@/lib/logs/types'
 import { cn } from '@/lib/utils'
+import {
+  getLogLevelOption,
+  getLogTriggerColor,
+  getLogTriggerOption,
+} from '@/app/workspace/[workspaceId]/records/components/logs-toolbar/components/filters/components/shared'
 import LineChart, {
   type LineChartPoint,
 } from '@/app/workspace/[workspaceId]/records/components/stats/components/line-chart'
-import { getTriggerColor } from '@/app/workspace/[workspaceId]/records/components/stats/utils'
 import { extractOutput, formatDate } from '@/app/workspace/[workspaceId]/records/utils'
+import { useRouter } from '@/i18n/navigation'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 export interface WorkflowDetailsData {
@@ -75,6 +79,7 @@ export function WorkflowDetails({
   const router = useRouter()
   const locale = useLocale()
   const t = useTranslations('workspace.logs.dashboard.workflows')
+  const tFilters = useTranslations('workspace.logs.dashboard.filters')
   const { workflows } = useWorkflowRegistry()
   const workflowColor = useMemo(
     () => workflows[expandedWorkflowId]?.color || '#3972F6',
@@ -265,7 +270,9 @@ export function WorkflowDetails({
                       timestamp: e.timestamp,
                       value: ((e.value || 0) / 100) * (details.executionCounts[i]?.value || 0),
                     }))
-                    return <LineChart data={failures} label={t('failures')} color='#f59e0b' unit='' />
+                    return (
+                      <LineChart data={failures} label={t('failures')} color='#f59e0b' unit='' />
+                    )
                   })()}
                 </div>
               )
@@ -310,13 +317,11 @@ export function WorkflowDetails({
                     if (logsToDisplay.length === 0) {
                       return (
                         <div className='flex h-full items-center justify-center py-8'>
-                            <div className='flex items-center gap-2 text-muted-foreground'>
-                              <Info className='h-5 w-5' />
-                              <span className='text-sm'>
-                                {t('noExecutions')}
-                              </span>
-                            </div>
+                          <div className='flex items-center gap-2 text-muted-foreground'>
+                            <Info className='h-5 w-5' />
+                            <span className='text-sm'>{t('noExecutions')}</span>
                           </div>
+                        </div>
                       )
                     }
 
@@ -329,6 +334,8 @@ export function WorkflowDetails({
                       const outputsStr = readWorkflowLogOutputText(log)
                       const errorStr = readWorkflowLogErrorText(log) || ''
                       const isExpanded = expandedRowId === log.id
+                      const levelOption = getLogLevelOption(log.level)
+                      const triggerOption = getLogTriggerOption(log.trigger)
 
                       return (
                         <div
@@ -365,7 +372,7 @@ export function WorkflowDetails({
                                     : 'bg-secondary text-card-foreground'
                                 )}
                               >
-                                {log.level}
+                                {levelOption ? tFilters(levelOption.labelKey) : log.level}
                               </div>
                             </div>
 
@@ -381,10 +388,10 @@ export function WorkflowDetails({
                                   style={
                                     log.trigger.toLowerCase() === 'manual'
                                       ? undefined
-                                      : { backgroundColor: getTriggerColor(log.trigger) }
+                                      : { backgroundColor: getLogTriggerColor(log.trigger) }
                                   }
                                 >
-                                  {log.trigger}
+                                  {triggerOption ? tFilters(triggerOption.labelKey) : log.trigger}
                                 </div>
                               ) : (
                                 <div className='text-muted-foreground text-xs'>—</div>

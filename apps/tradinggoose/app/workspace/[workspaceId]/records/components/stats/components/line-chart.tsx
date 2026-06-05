@@ -428,16 +428,16 @@ export function LineChart({
 
               const formatTick = (d: Date) => {
                 if (spanMs <= 36 * 60 * 60 * 1000) {
-                  return d.toLocaleTimeString('en-US', {
+                  return d.toLocaleTimeString(locale, {
                     hour: '2-digit',
                     minute: '2-digit',
                     hour12: false,
                   })
                 }
                 if (spanMs <= 90 * 24 * 60 * 60 * 1000) {
-                  return d.toLocaleString('en-US', { month: 'short', day: 'numeric' })
+                  return d.toLocaleString(locale, { month: 'short', day: 'numeric' })
                 }
-                return d.toLocaleString('en-US', { month: 'short', year: 'numeric' })
+                return d.toLocaleString(locale, { month: 'short', year: 'numeric' })
               }
 
               return idx.map((i) => {
@@ -465,7 +465,7 @@ export function LineChart({
               const unitSuffix = (unit || '').trim()
               const showInTicks = unitSuffix === '%'
               const fmtCompact = (v: number) =>
-                new Intl.NumberFormat('en-US', {
+                new Intl.NumberFormat(locale, {
                   notation: 'compact',
                   maximumFractionDigits: 1,
                 })

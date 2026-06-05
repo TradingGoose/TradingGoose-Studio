@@ -1,4 +1,5 @@
 import { Check, ChevronDown } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -8,19 +9,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useFilterStore } from '@/stores/logs/filters/store'
-import type { LogLevel } from '@/stores/logs/filters/types'
+import { logLevelOptions } from './shared'
 
 export default function Level() {
+  const t = useTranslations('workspace.logs.dashboard.filters')
   const { level, setLevel } = useFilterStore()
-  const specificLevels: { value: LogLevel; label: string; color: string }[] = [
-    { value: 'error', label: 'Error', color: 'bg-destructive/100' },
-    { value: 'info', label: 'Info', color: 'bg-muted-foreground/100' },
-  ]
 
   const getDisplayLabel = () => {
-    if (level === 'all') return 'Any status'
-    const selected = specificLevels.find((l) => l.value === level)
-    return selected ? selected.label : 'Any status'
+    if (level === 'all') return t('anyStatus')
+    const selected = logLevelOptions.find((option) => option.value === level)
+    return selected ? t(selected.labelKey) : t('anyStatus')
   }
 
   return (
@@ -47,13 +45,13 @@ export default function Level() {
           }}
           className='flex cursor-pointer items-center justify-between rounded-md px-3 py-2 font-[380] text-card-foreground text-sm hover:bg-secondary/50 focus:bg-secondary/50'
         >
-          <span>Any status</span>
+          <span>{t('anyStatus')}</span>
           {level === 'all' && <Check className='h-4 w-4 text-muted-foreground' />}
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
 
-        {specificLevels.map((levelItem) => (
+        {logLevelOptions.map((levelItem) => (
           <DropdownMenuItem
             key={levelItem.value}
             onSelect={(e) => {
@@ -64,7 +62,7 @@ export default function Level() {
           >
             <div className='flex items-center'>
               <div className={`mr-2 h-2 w-2 rounded-full ${levelItem.color}`} />
-              {levelItem.label}
+              {t(levelItem.labelKey)}
             </div>
             {level === levelItem.value && <Check className='h-4 w-4 text-muted-foreground' />}
           </DropdownMenuItem>

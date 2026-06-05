@@ -12,30 +12,16 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { formatDurationMs } from '@/i18n/formatters'
 import { cn } from '@/lib/utils'
+import {
+  getLogLevelOption,
+  getLogTriggerColor,
+  getLogTriggerOption,
+} from '@/app/workspace/[workspaceId]/records/components/logs-toolbar/components/filters/components/shared'
 import Timeline from '@/app/workspace/[workspaceId]/records/components/logs-toolbar/components/filters/components/timeline'
 import { formatDate } from '@/app/workspace/[workspaceId]/records/utils'
+import { formatDurationMs } from '@/i18n/formatters'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
-
-const getTriggerColor = (trigger: string | null | undefined): string => {
-  if (!trigger) return '#9ca3af'
-
-  switch (trigger.toLowerCase()) {
-    case 'manual':
-      return '#9ca3af'
-    case 'schedule':
-      return '#10b981'
-    case 'webhook':
-      return '#f97316'
-    case 'chat':
-      return '#8b5cf6'
-    case 'api':
-      return '#3b82f6'
-    default:
-      return '#9ca3af'
-  }
-}
 
 export interface LogsListProps {
   logs: WorkflowLog[]
@@ -64,6 +50,7 @@ export function LogsList({
 }: LogsListProps) {
   const locale = useLocale()
   const t = useTranslations('workspace.logs.list')
+  const tFilters = useTranslations('workspace.logs.dashboard.filters')
   return (
     <div className='flex h-full max-h-full min-h-0 min-w-0 flex-1 overflow-hidden'>
       <div className='flex h-full max-h-full min-h-0 flex-1 flex-col overflow-hidden'>
@@ -167,6 +154,8 @@ export function LogsList({
                         {logs.map((log) => {
                           const formattedDate = formatDate(log.startedAt ?? log.createdAt, locale)
                           const isSelected = selectedLogId === log.id
+                          const levelOption = getLogLevelOption(log.level)
+                          const triggerOption = getLogTriggerOption(log.trigger)
 
                           return (
                             <TableRow
@@ -200,7 +189,7 @@ export function LogsList({
                                       : 'bg-secondary text-card-foreground'
                                   )}
                                 >
-                                  {log.level}
+                                  {levelOption ? tFilters(levelOption.labelKey) : log.level}
                                 </div>
                               </TableCell>
                               <TableCell className='px-4 py-3 text-center align-middle'>
@@ -227,10 +216,10 @@ export function LogsList({
                                     style={
                                       log.trigger.toLowerCase() === 'manual'
                                         ? undefined
-                                        : { backgroundColor: getTriggerColor(log.trigger) }
+                                        : { backgroundColor: getLogTriggerColor(log.trigger) }
                                     }
                                   >
-                                    {log.trigger}
+                                    {triggerOption ? tFilters(triggerOption.labelKey) : log.trigger}
                                   </div>
                                 ) : (
                                   <div className='text-muted-foreground text-xs'>—</div>

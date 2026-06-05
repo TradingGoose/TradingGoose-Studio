@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Search, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { useTranslations } from 'next-intl'
 import { serializeQuery } from '@/lib/logs/query-parser'
 import type { QueryPolicy, SearchClause } from '@/lib/logs/query-types'
 import {
@@ -37,7 +37,7 @@ export function AutocompleteSearch({
   value,
   onChange,
   queryPolicy,
-  placeholder = 'Search logs...',
+  placeholder,
   workflowsData = [],
   foldersData = [],
   availableMonitorRows = [],
