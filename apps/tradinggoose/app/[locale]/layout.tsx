@@ -6,7 +6,7 @@ import { PublicEnvScript } from 'next-runtime-env'
 import { generateBrandedMetadata } from '@/lib/branding/metadata'
 import { PostHogProvider } from '@/lib/posthog/provider'
 import { getClientMessages } from '@/i18n/public-copy'
-import { routing } from '@/i18n/routing'
+import { type AppLocale, routing } from '@/i18n/routing'
 import 'monaco-editor/min/vs/editor/editor.main.css'
 import '@/app/globals.css'
 
@@ -26,7 +26,16 @@ export const viewport: Viewport = {
   ],
 }
 
-export const metadata: Metadata = generateBrandedMetadata()
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>
+}): Promise<Metadata> {
+  const { locale } = await params
+  return generateBrandedMetadata(
+    hasLocale(routing.locales, locale) ? (locale as AppLocale) : routing.defaultLocale
+  )
+}
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }))

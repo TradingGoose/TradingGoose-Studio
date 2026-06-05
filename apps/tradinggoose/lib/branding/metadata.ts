@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { getBrandConfig } from '@/lib/branding/branding'
-import { SITE_BASE_URL } from '@/i18n/utils'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { defaultLocale, getOpenGraphLocale, type LocaleCode, SITE_BASE_URL } from '@/i18n/utils'
 
 export const DEFAULT_META_DESCRIPTION =
   'Open-source LLM trading platform. Connect data providers, write custom indicators in PineTS, and trigger AI agent workflows on live signals.'
@@ -8,46 +9,30 @@ export const DEFAULT_META_DESCRIPTION =
 /**
  * Generate dynamic metadata based on brand configuration
  */
-export function generateBrandedMetadata(override: Partial<Metadata> = {}): Metadata {
+export function generateBrandedMetadata(
+  locale: LocaleCode = defaultLocale,
+  override: Partial<Metadata> = {}
+): Metadata {
   const brand = getBrandConfig()
+  const copy = getPublicCopy(locale)
+  const landingMeta = copy.meta.landing
 
   const defaultTitle = brand.name
-  const summaryFull = `TradingGoose is an open-source visual workflow platform for technical LLM-driven trading. Connect your own market data providers, write custom indicators in PineTS, monitor live prices, and wire signals into AI agent workflows that place trades, send alerts, rebalance portfolios, or run any action you define. Build workspaces with split-panel widgets, chart multiple indicators, and backtest strategies against historical candle data.`
 
   return {
     title: {
       template: `%s | ${brand.name}`,
       default: defaultTitle,
     },
-    description: DEFAULT_META_DESCRIPTION,
+    description: landingMeta.description,
     applicationName: brand.name,
     authors: [{ name: brand.name }],
     generator: 'Next.js',
-    keywords: [
-      'AI trading workflows',
-      'LLM trading agents',
-      'technical trading automation',
-      'custom trading indicators',
-      'PineTS indicators',
-      'visual trading workflow builder',
-      'trading signal automation',
-      'market data workflow',
-      'backtesting platform',
-      'open source trading platform',
-      'algorithmic trading',
-      'trading bot workflow',
-      'AI trading assistant',
-      'quant workflow tools',
-    ],
+    keywords: landingMeta.seo.keywords,
     referrer: 'origin-when-cross-origin',
     creator: brand.name,
     publisher: brand.name,
     metadataBase: new URL(SITE_BASE_URL),
-    alternates: {
-      languages: {
-        'en-US': '/en-US',
-      },
-    },
     robots: {
       index: true,
       follow: true,
@@ -61,10 +46,9 @@ export function generateBrandedMetadata(override: Partial<Metadata> = {}): Metad
     },
     openGraph: {
       type: 'website',
-      locale: 'en_US',
-      url: SITE_BASE_URL,
-      title: defaultTitle,
-      description: summaryFull,
+      locale: getOpenGraphLocale(locale),
+      title: landingMeta.openGraphTitle,
+      description: landingMeta.openGraphDescription,
       siteName: brand.name,
       images: [
         {
@@ -77,8 +61,8 @@ export function generateBrandedMetadata(override: Partial<Metadata> = {}): Metad
     },
     twitter: {
       card: 'summary_large_image',
-      title: defaultTitle,
-      description: summaryFull,
+      title: landingMeta.openGraphTitle,
+      description: landingMeta.openGraphDescription,
       images: [{ url: '/social-preview.png', alt: brand.name }],
       creator: '@BruzWJ',
     },
