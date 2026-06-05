@@ -106,7 +106,7 @@ export function IndicatorDropdown({
             color: getStableVibrantColor(indicator.id),
           }))
         : [],
-    [includeDefaults, widgetsCopy]
+    [includeDefaults]
   )
 
   const customIndicatorOptions = useMemo<IndicatorOption[]>(
@@ -260,6 +260,8 @@ export function IndicatorDropdown({
 
   const shouldShowLoadingState = (isLoading || isFetching) && !hasIndicators
   const emptyContent = (() => {
+    if (!workspaceId) return copy.selectWorkspaceFirst
+
     if (loadError && !hasIndicators) {
       return (
         <div className='space-y-2 text-xs'>

@@ -36,6 +36,23 @@ interface ComboBoxProps {
   config: SubBlockConfig
 }
 
+const getOptionValue = (option: string | SubBlockOption) =>
+  typeof option === 'string' ? option : String(option.value ?? option.id)
+
+const getOptionLabel = (option: string | SubBlockOption) =>
+  typeof option === 'string' ? option : option.label
+
+const getOptionGroup = (option: string | SubBlockOption) =>
+  typeof option === 'string' ? 'Options' : (option.group ?? 'Options')
+
+const getOptionSearchText = (option: string | SubBlockOption) => {
+  if (typeof option === 'string') return option
+  return option.searchLabel ?? option.label
+}
+
+const getOptionIcon = (option: string | SubBlockOption) =>
+  typeof option === 'string' ? null : (option.icon ?? null)
+
 export function ComboBox({
   options,
   defaultValue,
@@ -78,27 +95,6 @@ export function ComboBox({
     return typeof options === 'function' ? options() : options
   }, [options])
 
-  const getOptionValue = (option: string | SubBlockOption) => {
-    return typeof option === 'string' ? option : String(option.value ?? option.id)
-  }
-
-  const getOptionLabel = (option: string | SubBlockOption) => {
-    return typeof option === 'string' ? option : option.label
-  }
-
-  const getOptionGroup = (option: string | SubBlockOption) => {
-    return typeof option === 'string' ? 'Options' : (option.group ?? 'Options')
-  }
-
-  const getOptionSearchText = (option: string | SubBlockOption) => {
-    if (typeof option === 'string') return option
-    return option.searchLabel ?? option.label
-  }
-
-  const getOptionIcon = (option: string | SubBlockOption) => {
-    return typeof option === 'string' ? null : (option.icon ?? null)
-  }
-
   const selectedOption = useMemo(() => {
     if (value === null || value === undefined) return undefined
 
@@ -107,7 +103,7 @@ export function ComboBox({
       const optionLabel = getOptionLabel(opt)
       return optionValue === value || optionLabel === value
     })
-  }, [evaluatedOptions, value, getOptionLabel, getOptionValue])
+  }, [evaluatedOptions, value])
 
   // Get the default option value (prefer gpt-4o, then provided defaultValue, then first option)
   const defaultOptionValue = useMemo(() => {
@@ -128,7 +124,7 @@ export function ComboBox({
     }
 
     return undefined
-  }, [defaultValue, evaluatedOptions, getOptionValue, subBlockId])
+  }, [defaultValue, evaluatedOptions, subBlockId])
 
   // Mark store as initialized on first render
   useEffect(() => {
@@ -171,7 +167,7 @@ export function ComboBox({
       const search = currentValue.toLowerCase()
       return label.includes(search) || optionValue.includes(search) || searchLabel.includes(search)
     })
-  }, [evaluatedOptions, value, open, getOptionLabel, getOptionValue, getOptionSearchText, hasTyped])
+  }, [evaluatedOptions, value, open, hasTyped])
 
   const configuredSidebarGroups = useMemo<SidebarDropdownGroup[]>(() => {
     const optionGroups = config.optionGroups
@@ -192,7 +188,7 @@ export function ComboBox({
           icon: Icon ? <Icon className='h-3 w-3 shrink-0' /> : null,
         }
       }),
-    [displayValue, filteredOptions, getOptionGroup, getOptionIcon, getOptionLabel, getOptionValue]
+    [displayValue, filteredOptions]
   )
 
   const sidebarGroups = useMemo<SidebarDropdownGroup[]>(() => {
@@ -580,6 +576,7 @@ export function ComboBox({
                     setActiveSidebarGroupId(groupId)
                     setHighlightedIndex(-1)
                   }}
+                  onHighlightItem={(_item, index) => setHighlightedIndex(index)}
                   onSelectItem={(item) => handleSelect(item.id)}
                   loadingContent={null}
                   emptyContent={translateWorkflowLabel(locale, 'noMatchingOptionsFound')}
