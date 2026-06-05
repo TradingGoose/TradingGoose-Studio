@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   isBillingEnabledForRuntimeMock,
@@ -57,6 +57,14 @@ vi.mock('@/lib/logs/console/logger', () => ({
 }))
 
 describe('execution billing context resolution', () => {
+  let executionConcurrencyLimit: typeof import('./execution-concurrency-limit')
+  let billingSubscription: typeof import('@/lib/billing/core/subscription')
+
+  beforeAll(async () => {
+    executionConcurrencyLimit = await import('./execution-concurrency-limit')
+    billingSubscription = await import('@/lib/billing/core/subscription')
+  }, 30_000)
+
   beforeEach(() => {
     vi.clearAllMocks()
     isBillingEnabledForRuntimeMock.mockResolvedValue(true)
@@ -64,8 +72,8 @@ describe('execution billing context resolution', () => {
   })
 
   it('falls back to no billing context outside production when local tier resolution fails', async () => {
-    const { resolveServerExecutionBillingContext } = await import('./execution-concurrency-limit')
-    const { MissingBillingSubscriptionError } = await import('@/lib/billing/core/subscription')
+    const { resolveServerExecutionBillingContext } = executionConcurrencyLimit
+    const { MissingBillingSubscriptionError } = billingSubscription
 
     resolveWorkspaceBillingContextMock.mockRejectedValueOnce(
       new MissingBillingSubscriptionError('No active subscription')
@@ -91,8 +99,8 @@ describe('execution billing context resolution', () => {
   })
 
   it('keeps production billing context failures blocking execution', async () => {
-    const { resolveServerExecutionBillingContext } = await import('./execution-concurrency-limit')
-    const { MissingBillingSubscriptionError } = await import('@/lib/billing/core/subscription')
+    const { resolveServerExecutionBillingContext } = executionConcurrencyLimit
+    const { MissingBillingSubscriptionError } = billingSubscription
 
     isProdMock.mockReturnValue(true)
     resolveWorkspaceBillingContextMock.mockRejectedValueOnce(
@@ -108,7 +116,7 @@ describe('execution billing context resolution', () => {
   })
 
   it('surfaces unexpected local billing context resolution failures', async () => {
-    const { resolveServerExecutionBillingContext } = await import('./execution-concurrency-limit')
+    const { resolveServerExecutionBillingContext } = executionConcurrencyLimit
 
     resolveWorkspaceBillingContextMock.mockRejectedValueOnce(
       new Error('database connection failed')
@@ -126,7 +134,7 @@ describe('execution billing context resolution', () => {
   })
 
   it('does not fallback for plain local errors that only match the old subscription substring', async () => {
-    const { resolveServerExecutionBillingContext } = await import('./execution-concurrency-limit')
+    const { resolveServerExecutionBillingContext } = executionConcurrencyLimit
 
     resolveWorkspaceBillingContextMock.mockRejectedValueOnce(
       new Error('No active subscription query failed')
@@ -144,10 +152,8 @@ describe('execution billing context resolution', () => {
   })
 
   it('falls back to no concurrency limit outside production when local tier lookup fails', async () => {
-    const { resolveServerExecutionBillingTierForScope } = await import(
-      './execution-concurrency-limit'
-    )
-    const { MissingBillingSubscriptionError } = await import('@/lib/billing/core/subscription')
+    const { resolveServerExecutionBillingTierForScope } = executionConcurrencyLimit
+    const { MissingBillingSubscriptionError } = billingSubscription
 
     requireActiveSubscriptionForReferenceMock.mockRejectedValueOnce(
       new MissingBillingSubscriptionError('No active subscription')
@@ -169,9 +175,7 @@ describe('execution billing context resolution', () => {
   })
 
   it('surfaces unexpected local billing tier lookup failures', async () => {
-    const { resolveServerExecutionBillingTierForScope } = await import(
-      './execution-concurrency-limit'
-    )
+    const { resolveServerExecutionBillingTierForScope } = executionConcurrencyLimit
 
     requireActiveSubscriptionForReferenceMock.mockRejectedValueOnce(
       new Error('database connection failed')

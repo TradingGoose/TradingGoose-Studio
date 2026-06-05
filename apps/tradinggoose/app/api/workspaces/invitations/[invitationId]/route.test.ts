@@ -162,7 +162,8 @@ describe('Workspace Invitation [invitationId] API Route', () => {
       mockGetSession.mockResolvedValue(null)
 
       const request = new NextRequest(
-        'http://localhost/api/workspaces/invitations/token-abc123?token=token-abc123'
+        'http://localhost/api/workspaces/invitations/token-abc123?token=token-abc123',
+        { headers: { referer: 'https://test.tradinggoose.ai/es/invite/token-abc123' } }
       )
       const params = Promise.resolve({ invitationId: 'token-abc123' })
 
@@ -170,7 +171,7 @@ describe('Workspace Invitation [invitationId] API Route', () => {
 
       expect(response.status).toBe(307)
       expect(response.headers.get('location')).toBe(
-        'https://test.tradinggoose.ai/invite/token-abc123?token=token-abc123'
+        'https://test.tradinggoose.ai/es/invite/token-abc123?token=token-abc123'
       )
     })
 
@@ -197,7 +198,8 @@ describe('Workspace Invitation [invitationId] API Route', () => {
       })
 
       const request = new NextRequest(
-        'http://localhost/api/workspaces/invitations/token-abc123?token=token-abc123'
+        'http://localhost/api/workspaces/invitations/token-abc123?token=token-abc123',
+        { headers: { referer: 'https://test.tradinggoose.ai/es/invite/token-abc123' } }
       )
       const params = Promise.resolve({ invitationId: 'token-abc123' })
 
@@ -205,7 +207,7 @@ describe('Workspace Invitation [invitationId] API Route', () => {
 
       expect(response.status).toBe(307)
       expect(response.headers.get('location')).toBe(
-        'https://test.tradinggoose.ai/workspace/workspace-456/dashboard'
+        'https://test.tradinggoose.ai/es/workspace/workspace-456/dashboard'
       )
     })
 
@@ -225,7 +227,8 @@ describe('Workspace Invitation [invitationId] API Route', () => {
       mockDbResults.push([mockWorkspace])
 
       const request = new NextRequest(
-        'http://localhost/api/workspaces/invitations/token-abc123?token=token-abc123'
+        'http://localhost/api/workspaces/invitations/token-abc123?token=token-abc123',
+        { headers: { referer: 'https://test.tradinggoose.ai/es/invite/token-abc123' } }
       )
       const params = Promise.resolve({ invitationId: 'token-abc123' })
 
@@ -233,7 +236,7 @@ describe('Workspace Invitation [invitationId] API Route', () => {
 
       expect(response.status).toBe(307)
       expect(response.headers.get('location')).toBe(
-        'https://test.tradinggoose.ai/invite/invitation-789?error=expired'
+        'https://test.tradinggoose.ai/es/invite/invitation-789?error=expired'
       )
     })
 
@@ -249,7 +252,8 @@ describe('Workspace Invitation [invitationId] API Route', () => {
       mockDbResults.push([{ ...mockUser, email: 'wrong@example.com' }])
 
       const request = new NextRequest(
-        'http://localhost/api/workspaces/invitations/token-abc123?token=token-abc123'
+        'http://localhost/api/workspaces/invitations/token-abc123?token=token-abc123',
+        { headers: { referer: 'https://test.tradinggoose.ai/es/invite/token-abc123' } }
       )
       const params = Promise.resolve({ invitationId: 'token-abc123' })
 
@@ -257,7 +261,7 @@ describe('Workspace Invitation [invitationId] API Route', () => {
 
       expect(response.status).toBe(307)
       expect(response.headers.get('location')).toBe(
-        'https://test.tradinggoose.ai/invite/invitation-789?error=email-mismatch'
+        'https://test.tradinggoose.ai/es/invite/invitation-789?error=email-mismatch'
       )
     })
   })

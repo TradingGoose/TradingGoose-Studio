@@ -20,6 +20,7 @@ import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-a
 import { getSubflowBlockConfig } from '@/widgets/widgets/editor_workflow/components/subflows/config'
 import { buildTriggerEditingLayout } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/trigger-editing-layout'
 import { SubBlockEditRows } from '@/widgets/widgets/editor_workflow/components/workflow-render/sub-block-edit-rows'
+import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 
 interface NodeEditorPanelProps {
   selectedNodeId: string | null
@@ -42,6 +43,8 @@ const PARALLEL_TYPE_OPTIONS: Array<{ value: ParallelType; label: string }> = [
 ]
 
 export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
+  const { workflowEditorCopy, workflowInspectorCopy, getLocalizedDefaultBlockName } =
+    useWorkflowI18n()
   const userPermissions = useUserPermissionsContext()
   const selectedBlock = useBlock(selectedNodeId ?? '')
   const selectedLoop = useLoop(selectedNodeId ?? '')
@@ -99,7 +102,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
   const handleStartRename = useCallback(() => {
     if (!selectedBlock || shouldDisableWrite) return
     renamingBlockIdRef.current = selectedBlock.id
-    setEditedName(selectedBlock.name || '')
+    setEditedName(selectedBlock.name)
     setIsRenaming(true)
   }, [selectedBlock, shouldDisableWrite])
 
@@ -108,12 +111,25 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     if (!blockId || !isRenaming) return
 
     const trimmedName = editedName.trim()
-    if (trimmedName && !collaborativeUpdateBlockName(blockId, trimmedName)) return
+    const currentName = selectedBlock?.name ?? ''
+
+    if (
+      trimmedName &&
+      trimmedName !== currentName &&
+      !collaborativeUpdateBlockName(blockId, trimmedName)
+    ) {
+      return
+    }
 
     renamingBlockIdRef.current = null
     setIsRenaming(false)
     setEditedName('')
-  }, [collaborativeUpdateBlockName, editedName, isRenaming])
+  }, [
+    collaborativeUpdateBlockName,
+    editedName,
+    isRenaming,
+    selectedBlock,
+  ])
 
   const handleCancelRename = useCallback(() => {
     renamingBlockIdRef.current = null
@@ -227,6 +243,9 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
 
   const subflowIterationInputValue = tempIterationValue ?? String(subflowIterations)
   const subflowMaxIterations = selectedBlock?.type === 'loop' ? 100 : 20
+  const selectedBlockDisplayName = selectedBlock
+    ? getLocalizedDefaultBlockName(selectedBlock.type, selectedBlock.name)
+    : ''
 
   const handleSubflowTypeChange = useCallback(
     (newType: string) => {
@@ -322,20 +341,22 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     isTriggerConfigurationView,
   } = useMemo(() => {
     return buildTriggerEditingLayout({
+      inspectorCopy: workflowInspectorCopy,
+      blockType: selectedBlock?.type ?? '',
       blockId: selectedBlock?.id,
       blockConfig,
       blockState: selectedBlock,
       shouldDisableWrite,
     })
-  }, [blockConfig, selectedBlock, shouldDisableWrite])
+  }, [blockConfig, selectedBlock, shouldDisableWrite, workflowInspectorCopy])
 
   const emptyStateMessage = useMemo(() => {
     if (isTriggerConfigurationView) {
-      return 'This trigger has no editable fields in the panel.'
+      return workflowEditorCopy.triggerNoEditableFields
     }
 
-    return 'No editable fields for this block.'
-  }, [isTriggerConfigurationView])
+    return workflowEditorCopy.blockNoEditableFields
+  }, [isTriggerConfigurationView, workflowEditorCopy])
 
   if (!selectedNodeId) return null
 
@@ -350,7 +371,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
         onWheel={stopPanelEvent}
         onTouchStart={stopPanelEvent}
       >
-        <div className='text-sm'>Node not found</div>
+        <div className='text-sm'>{workflowEditorCopy.nodeNotFound}</div>
       </Panel>
     )
   }
@@ -423,7 +444,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
               ) : (
                 <h3
                   className='min-w-0 flex-1 cursor-pointer truncate pr-[8px] font-medium text-sm'
-                  title={selectedBlock.name}
+                  title={selectedBlockDisplayName}
                   onDoubleClick={handleStartRename}
                   onMouseDown={(e) => {
                     if (e.detail === 2) {
@@ -431,7 +452,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
                     }
                   }}
                 >
-                  {selectedBlock.name}
+                  {selectedBlockDisplayName}
                 </h3>
               )}
             </div>

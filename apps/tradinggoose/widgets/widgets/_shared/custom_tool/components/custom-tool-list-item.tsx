@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Pencil, Trash2, Wrench } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -13,6 +14,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useMessages } from 'next-intl'
+import type { LocaleCode } from '@/i18n/utils'
 import { cn } from '@/lib/utils'
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
 
@@ -26,8 +29,8 @@ interface CustomToolListItemProps {
   isDeleting?: boolean
 }
 
-const getCustomToolTitle = (tool: CustomToolDefinition) =>
-  tool.title || tool.schema?.function?.name || 'Custom Tool'
+const getCustomToolTitle = (tool: CustomToolDefinition, fallback = '') =>
+  tool.title || tool.schema?.function?.name || fallback
 
 export function CustomToolListItem({
   tool,
@@ -38,17 +41,19 @@ export function CustomToolListItem({
   canEdit,
   isDeleting = false,
 }: CustomToolListItemProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = useMessages().workspace.widgets.customToolList.listItem
   const [isHovered, setIsHovered] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
-  const [editValue, setEditValue] = useState(getCustomToolTitle(tool))
+  const [editValue, setEditValue] = useState(getCustomToolTitle(tool, copy.untitledCustomTool))
   const [isRenaming, setIsRenaming] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const nameLabel = getCustomToolTitle(tool)
+  const nameLabel = getCustomToolTitle(tool, copy.untitledCustomTool)
 
   useEffect(() => {
-    setEditValue(getCustomToolTitle(tool))
-  }, [tool.title, tool.schema?.function?.name])
+    setEditValue(getCustomToolTitle(tool, copy.untitledCustomTool))
+  }, [copy.untitledCustomTool, tool.title, tool.schema?.function?.name])
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -60,7 +65,7 @@ export function CustomToolListItem({
   const handleStartEdit = () => {
     if (!canEdit) return
     setIsEditing(true)
-    setEditValue(getCustomToolTitle(tool))
+    setEditValue(getCustomToolTitle(tool, copy.untitledCustomTool))
   }
 
   const handleSaveEdit = async () => {
@@ -199,7 +204,7 @@ export function CustomToolListItem({
               }}
             >
               <Pencil className='!h-3.5 !w-3.5' />
-              <span className='sr-only'>Rename custom tool</span>
+              <span className='sr-only'>{copy.renameCustomTool}</span>
             </Button>
             <Button
               variant='ghost'
@@ -209,7 +214,7 @@ export function CustomToolListItem({
               className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground disabled:opacity-50'
             >
               <Trash2 className='!h-3.5 !w-3.5' />
-              <span className='sr-only'>Delete custom tool</span>
+              <span className='sr-only'>{copy.deleteCustomTool}</span>
             </Button>
           </div>
         )}
@@ -225,15 +230,17 @@ export function CustomToolListItem({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete custom tool?</AlertDialogTitle>
+            <AlertDialogTitle>{copy.deleteDialogTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              Deleting this custom tool will permanently remove its code and configuration.{' '}
-              <span className='text-red-500 dark:text-red-500'>This action cannot be undone.</span>
+              {copy.deleteDialogDescription}{' '}
+              <span className='text-red-500 dark:text-red-500'>
+                {copy.deleteDialogDescriptionHighlight}
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className='flex'>
             <AlertDialogCancel className='h-9 w-full rounded-sm' disabled={isDeleting}>
-              Cancel
+              {copy.cancel}
             </AlertDialogCancel>
             <Button
               onClick={(event) => {
@@ -244,7 +251,7 @@ export function CustomToolListItem({
               variant='destructive'
               className='h-9 w-full rounded-sm'
             >
-              Delete
+              {copy.delete}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

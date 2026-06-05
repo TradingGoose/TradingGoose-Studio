@@ -5,7 +5,6 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockPush = vi.fn()
-let mockPathname = '/workspace/ws-1/dashboard'
 let mockSwitchToWorkspace = vi.fn()
 let fetchMock: ReturnType<typeof vi.fn>
 let originalFetch: typeof globalThis.fetch
@@ -27,8 +26,7 @@ afterAll(() => {
   reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment
 })
 
-vi.mock('next/navigation', () => ({
-  usePathname: () => mockPathname,
+vi.mock('@/i18n/navigation', () => ({
   useRouter: () => ({
     push: mockPush,
   }),
@@ -43,31 +41,10 @@ vi.mock('@/stores/workflows/registry/store', () => ({
     }),
 }))
 
-describe('shouldResetWorkflowRegistryOnWorkspaceSwitch', () => {
-  it('returns false outside workspace-scoped routes', async () => {
-    const { shouldResetWorkflowRegistryOnWorkspaceSwitch } = await import(
-      '@/global-navbar/use-workspace-switcher'
-    )
-    expect(shouldResetWorkflowRegistryOnWorkspaceSwitch('/admin')).toBe(false)
-    expect(shouldResetWorkflowRegistryOnWorkspaceSwitch('/admin/integrations')).toBe(false)
-    expect(shouldResetWorkflowRegistryOnWorkspaceSwitch('/login')).toBe(false)
-  })
-
-  it('returns true inside workspace-scoped routes', async () => {
-    const { shouldResetWorkflowRegistryOnWorkspaceSwitch } = await import(
-      '@/global-navbar/use-workspace-switcher'
-    )
-    expect(shouldResetWorkflowRegistryOnWorkspaceSwitch('/workspace/ws-1/dashboard')).toBe(true)
-    expect(shouldResetWorkflowRegistryOnWorkspaceSwitch('/workspace/ws-1/monitor')).toBe(true)
-    expect(shouldResetWorkflowRegistryOnWorkspaceSwitch('/workspace/ws-1/w/wf-1')).toBe(true)
-  })
-})
-
 describe('useWorkspaceSwitcher', () => {
   beforeEach(() => {
     mockPush.mockReset()
     mockSwitchToWorkspace = vi.fn()
-    mockPathname = '/workspace/ws-1/dashboard'
     latestValue = null
 
     fetchMock = vi.fn(async () => ({
@@ -113,8 +90,6 @@ describe('useWorkspaceSwitcher', () => {
       latestValue = useWorkspaceSwitcher({ enabled: true })
       return null
     }
-
-    mockPathname = '/admin'
 
     await act(async () => {
       root?.render(React.createElement(Harness))

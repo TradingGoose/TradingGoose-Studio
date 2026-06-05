@@ -16,6 +16,7 @@ import {
 } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/order-id-selector/types'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 interface OrderIdSelectorInputProps {
   blockId: string
@@ -43,6 +44,7 @@ export function OrderIdSelectorInput({
   disabled = false,
   config,
 }: OrderIdSelectorInputProps) {
+  const copy = useWorkflowBlockEditorCopy().orderIdSelector
   const workspaceId = useWorkspaceId()
   const [storeValue, setStoreValue] = useSubBlockValue<string | null>(blockId, subBlockId)
 
@@ -159,7 +161,7 @@ export function OrderIdSelectorInput({
         if (controller.signal.aborted) return
 
         setIsLoading(false)
-        setError(requestError instanceof Error ? requestError.message : 'Search failed')
+        setError(copy.searchFailed)
       })
 
     return () => {
@@ -179,7 +181,7 @@ export function OrderIdSelectorInput({
   const showRichOverlay = !open && Boolean(selectedOrder)
   const displayValue = open ? query : (selectedOrder?.id ?? query)
 
-  const label = config?.title ?? 'Order ID'
+  const label = config?.title ?? copy.label
   const isRequired = config?.required === true
 
   return (
@@ -199,7 +201,7 @@ export function OrderIdSelectorInput({
                 'w-full pr-10',
                 showRichOverlay && 'text-transparent caret-transparent placeholder:text-transparent'
               )}
-              placeholder='Search order by ID, symbol, or date'
+              placeholder={copy.searchPlaceholder}
               autoComplete='off'
               disabled={disabled}
               onChange={(event) => {

@@ -30,6 +30,7 @@ type UseChartStylesArgs = {
   themeVersion: number
   dataContext: DataChartDataContext
   chartReady: number
+  locale?: string
 }
 
 const AXIS_BORDER_COLOR = '#88888825'
@@ -79,6 +80,7 @@ export const useChartStyles = ({
   themeVersion,
   dataContext,
   chartReady,
+  locale,
 }: UseChartStylesArgs) => {
   const lastCandleTypeRef = useRef<string | null>(null)
   const lastPrecisionRef = useRef<number | null>(null)
@@ -166,8 +168,12 @@ export const useChartStyles = ({
       chart.applyOptions(chartOverrides)
     }
 
-    const { timezone, locale } = buildTimeFormatterConfig(chartSettings, seriesTimezone)
-    const resolvedLocale = locale
+    const { timezone, locale: formatterLocale } = buildTimeFormatterConfig(
+      chartSettings,
+      seriesTimezone,
+      locale
+    )
+    const resolvedLocale = formatterLocale
     const precision = resolvePriceFormat(chartSettings?.pricePrecision).precision
     const hasPriceFormatterOverride =
       typeof localizationOverride === 'object' &&
@@ -245,5 +251,6 @@ export const useChartStyles = ({
     dataContext,
     mainSeriesRef,
     chartReady,
+    locale,
   ])
 }

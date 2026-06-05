@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { ListingSearchInput } from '@/components/listing-selector/selector/input'
+import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import type { ListingOption } from '@/lib/listing/identity'
 import { cn } from '@/lib/utils'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
@@ -40,6 +41,7 @@ export function ListingSelector({
   listingRequired,
 }: ListingSelectorProps) {
   const ensureInstance = useListingSelectorStore((state) => state.ensureInstance)
+  const copy = useWorkspaceWidgetsMessages().listingSelector
 
   useEffect(() => {
     ensureInstance(instanceId)
@@ -49,7 +51,7 @@ export function ListingSelector({
     <div className={cn('flex w-full flex-col gap-2', className)}>
       <div className='space-y-1.5'>
         <div className='flex items-center font-medium text-muted-foreground text-xs'>
-          Listing
+          {copy.label}
           {listingRequired ? <span className='ml-1 text-red-500'>*</span> : null}
         </div>
         <ListingSearchInput

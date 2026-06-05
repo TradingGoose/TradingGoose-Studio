@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Eye, MoreHorizontal, Plus, Trash2, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import {
   Button,
   DropdownMenu,
@@ -66,6 +67,7 @@ export function KnowledgeBaseTags({ knowledgeBaseId }: KnowledgeBaseTagsProps) {
   const { tagDefinitions: kbTagDefinitions, fetchTagDefinitions: refreshTagDefinitions } =
     useKnowledgeBaseTagDefinitions(knowledgeBaseId)
   const userPermissions = useUserPermissionsContext()
+  const t = useTranslations('workspace.knowledge.tags')
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [selectedTag, setSelectedTag] = useState<TagDefinition | null>(null)
@@ -278,16 +280,18 @@ export function KnowledgeBaseTags({ knowledgeBaseId }: KnowledgeBaseTagsProps) {
           <div className='px-2 py-2'>
             {/* KB Tag Definitions Section */}
             <div className='mb-1 space-y-1'>
-              <div className='font-medium text-muted-foreground text-xs'>Knowledge Base Tags</div>
+              <div className='font-medium text-muted-foreground text-xs'>
+                {t('knowledgeBaseTagsTitle')}
+              </div>
               <div>
                 {/* Existing Tag Definitions */}
                 <div>
                   {kbTagDefinitions.length === 0 && !isCreating ? (
                     <div className='mb-1 rounded-md border border-dashed bg-card p-3 text-center'>
-                      <p className='text-muted-foreground text-xs'>
-                        No tag definitions yet.
-                        <br />
-                      </p>
+                        <p className='text-muted-foreground text-xs'>
+                          {t('noTagDefinitionsYet')}
+                          <br />
+                        </p>
                     </div>
                   ) : (
                     kbTagDefinitions.length > 0 &&
@@ -325,14 +329,14 @@ export function KnowledgeBaseTags({ knowledgeBaseId }: KnowledgeBaseTagsProps) {
                                     className='cursor-pointer rounded-md px-3 py-2 text-sm hover:bg-secondary/50'
                                   >
                                     <Eye className='mr-2 h-3 w-3 flex-shrink-0' />
-                                    <span className='whitespace-nowrap'>View Docs</span>
+                                    <span className='whitespace-nowrap'>{t('viewDocuments')}</span>
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
                                     onClick={() => handleDeleteTag(tag)}
                                     className='cursor-pointer rounded-md px-3 py-2 text-red-600 text-sm hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950'
                                   >
                                     <Trash2 className='mr-2 h-3 w-3' />
-                                    Delete Tag
+                                    {t('deleteTag')}
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
@@ -355,7 +359,7 @@ export function KnowledgeBaseTags({ knowledgeBaseId }: KnowledgeBaseTagsProps) {
                       disabled={kbTagDefinitions.length >= MAX_TAG_SLOTS}
                     >
                       <Plus className='h-4 w-4' />
-                      Add Tag Definition
+                      {t('addTagDefinition')}
                     </Button>
                   </div>
                 )}
@@ -365,7 +369,7 @@ export function KnowledgeBaseTags({ knowledgeBaseId }: KnowledgeBaseTagsProps) {
                   <div className='mb-1 w-full max-w-full space-y-2 rounded-md border bg-card p-2'>
                     <div className='space-y-1.5'>
                       <div className='flex items-center justify-between'>
-                        <Label className='font-medium text-xs'>Tag Name</Label>
+                        <Label className='font-medium text-xs'>{t('tagName')}</Label>
                         <Button
                           variant='ghost'
                           size='sm'
@@ -380,7 +384,7 @@ export function KnowledgeBaseTags({ knowledgeBaseId }: KnowledgeBaseTagsProps) {
                         onChange={(e) =>
                           setCreateForm({ ...createForm, displayName: e.target.value })
                         }
-                        placeholder='Enter tag name'
+                        placeholder={t('enterTagName')}
                         className='h-8 w-full rounded-md text-sm'
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && canSave()) {
@@ -395,13 +399,13 @@ export function KnowledgeBaseTags({ knowledgeBaseId }: KnowledgeBaseTagsProps) {
                       />
                       {nameConflict && (
                         <div className='text-red-600 text-xs'>
-                          A tag with this name already exists
+                          {t('tagNameExists')}
                         </div>
                       )}
                     </div>
 
                     <div className='space-y-1.5'>
-                      <Label className='font-medium text-xs'>Type</Label>
+                      <Label className='font-medium text-xs'>{t('type')}</Label>
                       <Select
                         value={createForm.fieldType}
                         onValueChange={(value) =>
@@ -412,7 +416,7 @@ export function KnowledgeBaseTags({ knowledgeBaseId }: KnowledgeBaseTagsProps) {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value='text'>Text</SelectItem>
+                          <SelectItem value='text'>{t('text')}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -425,14 +429,14 @@ export function KnowledgeBaseTags({ knowledgeBaseId }: KnowledgeBaseTagsProps) {
                         className='h-7 w-full text-xs'
                         disabled={!canSave() || isSaving}
                       >
-                        {isSaving ? 'Creating...' : 'Save'}
+                        {isSaving ? t('creating') : t('save')}
                       </Button>
                     </div>
                   </div>
                 )}
 
                 <div className='mt-2 text-muted-foreground text-xs'>
-                  {kbTagDefinitions.length} of {MAX_TAG_SLOTS} tag slots used
+                  {t('slotsUsed', { used: kbTagDefinitions.length, total: MAX_TAG_SLOTS })}
                 </div>
               </div>
             </div>
@@ -444,21 +448,23 @@ export function KnowledgeBaseTags({ knowledgeBaseId }: KnowledgeBaseTagsProps) {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Tag</AlertDialogTitle>
+            <AlertDialogTitle>{t('deleteTagTitle')}</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div>
                 <div className='mb-2'>
-                  Are you sure you want to delete the "{selectedTag?.displayName}" tag? This will
-                  remove this tag from {selectedTagUsage?.documentCount || 0} document
-                  {selectedTagUsage?.documentCount !== 1 ? 's' : ''}.{' '}
+                  {t('deleteTagDescription', {
+                    name: selectedTag?.displayName || '',
+                    count: selectedTagUsage?.documentCount || 0,
+                    plural: selectedTagUsage?.documentCount !== 1 ? 's' : '',
+                  })}{' '}
                   <span className='text-red-500 dark:text-red-500'>
-                    This action cannot be undone.
+                    {t('thisActionCannotBeUndone')}
                   </span>
                 </div>
 
                 {selectedTagUsage && selectedTagUsage.documentCount > 0 && (
                   <div className='mt-4'>
-                    <div className='mb-2 font-medium text-sm'>Affected documents:</div>
+                    <div className='mb-2 font-medium text-sm'>{t('affectedDocuments')}</div>
                     <DocumentList
                       documents={selectedTagUsage.documents}
                       totalCount={selectedTagUsage.documentCount}
@@ -471,14 +477,14 @@ export function KnowledgeBaseTags({ knowledgeBaseId }: KnowledgeBaseTagsProps) {
           </AlertDialogHeader>
           <AlertDialogFooter className='flex'>
             <AlertDialogCancel className='h-9 w-full rounded-sm' disabled={isDeleting}>
-              Cancel
+              {t('cancel')}
             </AlertDialogCancel>
             <Button
               onClick={confirmDeleteTag}
               disabled={isDeleting}
               className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
             >
-              {isDeleting ? 'Deleting...' : 'Delete Tag'}
+              {isDeleting ? t('deleting') : t('deleteTag')}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -488,20 +494,25 @@ export function KnowledgeBaseTags({ knowledgeBaseId }: KnowledgeBaseTagsProps) {
       <AlertDialog open={viewDocumentsDialogOpen} onOpenChange={setViewDocumentsDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Documents using "{selectedTag?.displayName}"</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t('documentsUsingTagTitle', { name: selectedTag?.displayName || '' })}
+            </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div>
                 <div className='mb-4 text-muted-foreground'>
-                  {selectedTagUsage?.documentCount || 0} document
-                  {selectedTagUsage?.documentCount !== 1 ? 's are' : ' is'} currently using this tag
-                  definition.
+                  {selectedTagUsage?.documentCount === 1
+                    ? t('documentsUsingTagDescriptionSingular', {
+                        count: selectedTagUsage?.documentCount || 0,
+                      })
+                    : t('documentsUsingTagDescriptionPlural', {
+                        count: selectedTagUsage?.documentCount || 0,
+                      })}
                 </div>
 
                 {selectedTagUsage?.documentCount === 0 ? (
                   <div className='rounded-md bg-muted/30 p-6 text-center'>
                     <div className='text-muted-foreground text-sm'>
-                      This tag definition is not being used by any documents. You can safely delete
-                      it to free up the tag slot.
+                      {t('tagUnusedHelp')}
                     </div>
                   </div>
                 ) : (

@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Marquee } from '@/components/ui/marquee'
 import { MotionPreset } from '@/components/ui/motion-preset'
 import { useCardGlow } from '@/app/(landing)/components/use-card-glow'
+import { useMessages } from 'next-intl'
 
 type BrandLogo = {
   icon: React.ComponentType<{ className?: string }>
@@ -121,6 +122,7 @@ function LogoAvatar({ icon: Icon, style }: BrandLogo) {
 }
 
 export default function Integrations() {
+  const copy = useMessages()
   useCardGlow()
 
   return (
@@ -152,19 +154,15 @@ export default function Integrations() {
                 />
                 <CardContent className='relative z-10 space-y-4 p-6'>
                   <p className='font-medium text-[11px] text-muted-foreground uppercase tracking-[0.24em]'>
-                    Integrations
+                    {copy.landing.integrations.eyebrow}
                   </p>
 
                   <h2 className='font-semibold text-2xl md:text-3xl lg:text-4xl'>
-                    LLM with more than just prompts.
+                    {copy.landing.integrations.title}
                   </h2>
 
                   <div className='space-y-3 pt-10'>
-                    {[
-                      'Every integration becomes a tool your AI agents can call',
-                      'Built-in blocks for messaging, databases, cloud storage, CRMs, and search',
-                      'Custom MCP servers, skills, and tools you define yourself',
-                    ].map((text) => (
+                    {copy.landing.integrations.bullets.map((text) => (
                       <div key={text} className='flex items-center gap-3'>
                         <span className='h-px w-4 shrink-0 bg-primary' />
                         <p className='text-muted-foreground text-sm'>{text}</p>

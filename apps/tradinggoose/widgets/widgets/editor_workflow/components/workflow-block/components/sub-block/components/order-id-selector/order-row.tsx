@@ -1,18 +1,11 @@
 'use client'
 
-import { format } from 'date-fns'
+import { useLocale } from 'next-intl'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { formatLocalizedNumber, formatUsd } from '@/i18n/formatters'
 import { cn } from '@/lib/utils'
 import type { OrderHistorySearchOption } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/order-id-selector/types'
-
-const SHARE_FORMATTER = new Intl.NumberFormat('en-US', {
-  maximumFractionDigits: 8,
-})
-
-const USD_FORMATTER = new Intl.NumberFormat('en-US', {
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 2,
-})
+import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 export const getOrderEnvironmentEmoji = (environment?: string | null): string => {
   const normalized = environment?.trim().toLowerCase()
@@ -34,45 +27,66 @@ export const getOrderFallback = (order: OrderHistorySearchOption): string => {
   return primary.slice(0, 2).toUpperCase()
 }
 
-const formatOrderDate = (value?: string | null): string | null => {
+const formatOrderDate = (locale: string, value?: string | null): string | null => {
   if (!value) return null
   const date = new Date(value)
   if (!Number.isFinite(date.getTime())) return null
-  return format(date, 'MMM dd')
+  return new Intl.DateTimeFormat(locale, {
+    month: 'short',
+    day: '2-digit',
+  }).format(date)
 }
 
-const formatQuantity = (quantity: number): string => {
-  const normalized = SHARE_FORMATTER.format(quantity)
-  const label = Math.abs(quantity) === 1 ? 'Share' : 'Shares'
+const formatQuantity = (
+  locale: string,
+  quantity: number,
+  copy: {
+    quantitySingular: string
+    quantityPlural: string
+  }
+): string => {
+  const normalized = formatLocalizedNumber(locale, quantity, { maximumFractionDigits: 8 })
+  const label = Math.abs(quantity) === 1 ? copy.quantitySingular : copy.quantityPlural
   return `${normalized} ${label}`
 }
 
-const formatNotional = (amount: number): string => {
-  return `$${USD_FORMATTER.format(amount)} USD`
+const formatNotional = (locale: string, amount: number): string => {
+  return `${formatUsd(locale, amount, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })} USD`
 }
 
-export const formatOrderAmountAndDate = (order: OrderHistorySearchOption): string => {
-  const dateLabel = formatOrderDate(order.placedAt || order.recordedAt)
+export const formatOrderAmountAndDate = (
+  locale: string,
+  order: OrderHistorySearchOption,
+  copy: {
+    quantitySingular: string
+    quantityPlural: string
+  }
+): string => {
+  const dateLabel = formatOrderDate(locale, order.placedAt || order.recordedAt)
 
   if (typeof order.quantity === 'number' && Number.isFinite(order.quantity)) {
     return dateLabel
-      ? `${formatQuantity(order.quantity)}, ${dateLabel}`
-      : formatQuantity(order.quantity)
+      ? `${formatQuantity(locale, order.quantity, copy)}, ${dateLabel}`
+      : formatQuantity(locale, order.quantity, copy)
   }
 
   if (typeof order.notional === 'number' && Number.isFinite(order.notional)) {
-    return dateLabel
-      ? `${formatNotional(order.notional)}, ${dateLabel}`
-      : formatNotional(order.notional)
+    return dateLabel ? `${formatNotional(locale, order.notional)}, ${dateLabel}` : formatNotional(locale, order.notional)
   }
 
   return dateLabel ?? '—'
 }
 
-export const formatOrderAction = (side?: string | null): string => {
+export const formatOrderAction = (
+  side: string | null | undefined,
+  copy: { buy: string; sell: string }
+): string => {
   const normalized = side?.trim().toLowerCase()
-  if (normalized === 'buy') return 'Buy'
-  if (normalized === 'sell') return 'Sell'
+  if (normalized === 'buy') return copy.buy
+  if (normalized === 'sell') return copy.sell
   return '—'
 }
 
@@ -85,14 +99,18 @@ export interface OrderIdRowProps {
 
 export function OrderIdRow({
   order,
-  placeholderTitle = 'Select order',
-  placeholderSubtitle = 'Search by order ID, symbol, or date',
+  placeholderTitle,
+  placeholderSubtitle,
   className,
 }: OrderIdRowProps) {
+  const locale = useLocale()
+  const copy = useWorkflowBlockEditorCopy().orderIdSelector
   const primary = order ? getOrderPrimary(order) : ''
   const quote = order?.quote?.trim() || ''
-  const summary = order ? formatOrderAmountAndDate(order) : placeholderSubtitle
-  const actionLabel = formatOrderAction(order?.side)
+  const resolvedPlaceholderTitle = placeholderTitle || copy.placeholderTitle
+  const resolvedPlaceholderSubtitle = placeholderSubtitle || copy.placeholderSubtitle
+  const summary = order ? formatOrderAmountAndDate(locale, order, copy) : resolvedPlaceholderSubtitle
+  const actionLabel = formatOrderAction(order?.side, copy)
   const environmentEmoji = getOrderEnvironmentEmoji(order?.environment)
 
   return (
@@ -114,10 +132,12 @@ export function OrderIdRow({
           </span>
         ) : (
           <span className='max-w-full truncate font-semibold text-muted-foreground text-sm'>
-            {placeholderTitle}
+            {resolvedPlaceholderTitle}
           </span>
         )}
-        <span className='max-w-full truncate text-muted-foreground text-xs'>{summary}</span>
+        <span className='max-w-full truncate text-muted-foreground text-xs'>
+          {order ? summary : resolvedPlaceholderSubtitle}
+        </span>
       </div>
       {order ? (
         <span className='ml-auto font-semibold text-muted-foreground text-xs'>{actionLabel}</span>

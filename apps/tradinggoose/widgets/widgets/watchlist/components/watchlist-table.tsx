@@ -14,6 +14,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { useLocale } from 'next-intl'
 import {
   type DragOverEvent,
   KeyboardSensor,
@@ -49,6 +50,9 @@ import {
 } from '@/lib/listing/identity'
 import type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshot-contract'
 import { cn } from '@/lib/utils'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
+import type { LocaleCode } from '@/i18n/utils'
 import type {
   WatchlistListingItem,
   WatchlistRecord,
@@ -104,21 +108,22 @@ type ListingToDelete = {
   label: string
 }
 
-const percentFormatter = new Intl.NumberFormat('en-US', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-})
-
-const priceFormatter = new Intl.NumberFormat('en-US', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-})
-
 const COLUMN_COUNT = 6
 
-const formatPrice = (value: number | null) => (value == null ? '-' : priceFormatter.format(value))
-const formatPercent = (value: number | null) =>
-  value == null ? '-' : `${percentFormatter.format(value)}%`
+const formatPrice = (value: number | null, locale: string) =>
+  value == null
+    ? '-'
+    : new Intl.NumberFormat(locale, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(value)
+const formatPercent = (value: number | null, locale: string) =>
+  value == null
+    ? '-'
+    : `${new Intl.NumberFormat(locale, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(value)}%`
 
 const stopSortableActivation = (
   event:
@@ -147,6 +152,8 @@ export const WatchlistTable = ({
   isLinkedSelection = false,
   onSelectListing,
 }: WatchlistTableProps) => {
+  const locale = useLocale() as LocaleCode
+  const copy = useMessages().workspace.widgets.watchlist.body
   const ensureListingSelectorInstance = useListingSelectorStore((state) => state.ensureInstance)
   const updateListingSelectorInstance = useListingSelectorStore((state) => state.updateInstance)
   const resetListingSelectorInstance = useListingSelectorStore((state) => state.resetInstance)
@@ -512,7 +519,7 @@ export const WatchlistTable = ({
     return (
       <div className='flex h-full max-h-full min-h-0 flex-col overflow-hidden bg-background'>
         <div className='flex h-full items-center justify-center px-4 text-center text-muted-foreground text-sm'>
-          No items in this watchlist.
+          {copy.noItemsInThisWatchlist}
         </div>
       </div>
     )
@@ -591,11 +598,11 @@ export const WatchlistTable = ({
             <span className='text-sm'>{assetClass}</span>
           </td>
           <td className='p-3 text-center align-middle'>
-            <span className='text-sm'>{formatPrice(quote?.lastPrice ?? null)}</span>
+            <span className='text-sm'>{formatPrice(quote?.lastPrice ?? null, locale)}</span>
           </td>
           <td className='p-3 text-center align-middle'>
             <span className={cn('text-sm', resolveWatchlistValueColorClass(quote?.change ?? null))}>
-              {formatPrice(quote?.change ?? null)}
+              {formatPrice(quote?.change ?? null, locale)}
             </span>
           </td>
           <td className='p-3 text-center align-middle'>
@@ -605,7 +612,7 @@ export const WatchlistTable = ({
                 resolveWatchlistValueColorClass(quote?.changePercent ?? null)
               )}
             >
-              {formatPercent(quote?.changePercent ?? null)}
+              {formatPercent(quote?.changePercent ?? null, locale)}
             </span>
           </td>
           <td className='p-3 text-center align-middle'>
@@ -634,7 +641,7 @@ export const WatchlistTable = ({
                     disabled={isMutating}
                   >
                     <X className='!h-3.5 !w-3.5' />
-                    <span className='sr-only'>Cancel symbol edit</span>
+                    <span className='sr-only'>{copy.cancelSymbolEdit}</span>
                   </Button>
                 ) : (
                   <Button
@@ -652,7 +659,7 @@ export const WatchlistTable = ({
                     disabled={isMutating}
                   >
                     <Pencil className='!h-3.5 !w-3.5' />
-                    <span className='sr-only'>Edit symbol</span>
+                    <span className='sr-only'>{copy.editSymbol}</span>
                   </Button>
                 )}
                 <Button
@@ -673,7 +680,7 @@ export const WatchlistTable = ({
                   disabled={isMutating}
                 >
                   <Trash2 className='!h-3.5 !w-3.5' />
-                  <span className='sr-only'>Remove symbol</span>
+                  <span className='sr-only'>{copy.removeSymbol}</span>
                 </Button>
               </div>
             </div>
@@ -702,22 +709,22 @@ export const WatchlistTable = ({
             <thead className='sticky top-0 z-10 border-b bg-card'>
               <tr>
                 <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
-                  <span className='text-muted-foreground text-xs leading-none'>Symbol</span>
+                  <span className='text-muted-foreground text-xs leading-none'>{copy.symbol}</span>
                 </th>
                 <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
-                  <span className='text-muted-foreground text-xs leading-none'>Asset</span>
+                  <span className='text-muted-foreground text-xs leading-none'>{copy.asset}</span>
                 </th>
                 <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
-                  <span className='text-muted-foreground text-xs leading-none'>Last</span>
+                  <span className='text-muted-foreground text-xs leading-none'>{copy.last}</span>
                 </th>
                 <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
-                  <span className='text-muted-foreground text-xs leading-none'>Change</span>
+                  <span className='text-muted-foreground text-xs leading-none'>{copy.change}</span>
                 </th>
                 <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
-                  <span className='text-muted-foreground text-xs leading-none'>Change %</span>
+                  <span className='text-muted-foreground text-xs leading-none'>{copy.changePercent}</span>
                 </th>
                 <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
-                  <span className='text-muted-foreground text-xs leading-none'>Actions</span>
+                  <span className='text-muted-foreground text-xs leading-none'>{copy.actions}</span>
                 </th>
               </tr>
             </thead>
@@ -786,15 +793,15 @@ export const WatchlistTable = ({
                                     [section.section.id]: !(current[section.section.id] ?? true),
                                   }))
                                 }}
-                              >
-                                <ChevronRight
-                                  className={cn(
-                                    'h-3.5 w-3.5 transition-transform',
-                                    isExpanded && 'rotate-90'
-                                  )}
-                                />
+                                >
+                                  <ChevronRight
+                                    className={cn(
+                                      'h-3.5 w-3.5 transition-transform',
+                                      isExpanded && 'rotate-90'
+                                    )}
+                                  />
                                 <span className='sr-only'>
-                                  {isExpanded ? 'Collapse section' : 'Expand section'}
+                                  {isExpanded ? copy.collapseSection : copy.expandSection}
                                 </span>
                               </Button>
 
@@ -848,9 +855,9 @@ export const WatchlistTable = ({
                                     startSectionRename(section.section)
                                   }}
                                   disabled={isMutating || isEditingSection}
-                                >
+                                  >
                                   <Pencil className='!h-3.5 !w-3.5' />
-                                  <span className='sr-only'>Rename section</span>
+                                  <span className='sr-only'>{copy.renameSection}</span>
                                 </Button>
                                 <Button
                                   type='button'
@@ -865,9 +872,9 @@ export const WatchlistTable = ({
                                     setSectionToDelete(section.section)
                                   }}
                                   disabled={isMutating}
-                                >
+                                  >
                                   <Trash2 className='!h-3.5 !w-3.5' />
-                                  <span className='sr-only'>Delete section</span>
+                                  <span className='sr-only'>{copy.deleteSection}</span>
                                 </Button>
                               </div>
                             </div>
@@ -891,15 +898,21 @@ export const WatchlistTable = ({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete symbol?</AlertDialogTitle>
+            <AlertDialogTitle>{copy.deleteSymbolDialogTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              Removing {listingToDelete?.label ?? 'this symbol'} will delete it from the watchlist.{' '}
-              <span className='text-red-500 dark:text-red-500'>This action cannot be undone.</span>
+              {listingToDelete
+                ? formatTemplate(copy.deleteSymbolDialogDescription, {
+                    name: listingToDelete.label,
+                  })
+                : copy.deleteSymbolDialogDescriptionFallback}{' '}
+              <span className='text-red-500 dark:text-red-500'>
+                {copy.deleteSymbolDialogDescriptionHighlight}
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className='flex'>
             <AlertDialogCancel className='h-9 w-full rounded-sm' disabled={isMutating}>
-              Cancel
+              {copy.cancel}
             </AlertDialogCancel>
             <Button
               onClick={(event) => {
@@ -909,7 +922,7 @@ export const WatchlistTable = ({
               disabled={isMutating}
               className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
             >
-              {isMutating ? 'Deleting...' : 'Delete'}
+              {isMutating ? copy.deleting : copy.delete}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -921,13 +934,13 @@ export const WatchlistTable = ({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete section?</AlertDialogTitle>
+            <AlertDialogTitle>{copy.deleteSectionDialogTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              This action will also remove all symbols inside the section.
+              {copy.deleteSectionDialogDescription}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isMutating}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isMutating}>{copy.cancel}</AlertDialogCancel>
             <AlertDialogAction
               disabled={isMutating}
               onClick={(event) => {
@@ -935,7 +948,7 @@ export const WatchlistTable = ({
                 void handleConfirmSectionDelete()
               }}
             >
-              Delete section
+              {copy.sectionDelete}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -5,11 +5,19 @@ import { ChartCandlestick, LayoutDashboardIcon, Workflow } from 'lucide-react'
 import { BackgroundRippleEffect } from '@/components/ui/background-ripple-effect'
 import { Card } from '@/components/ui/card'
 import { MotionPreset } from '@/components/ui/motion-preset'
+import { useMessages } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { useCardGlow } from '@/app/(landing)/components/use-card-glow'
 import { LayoutPreview } from './components/layout-preview/layout-preview'
+import {
+  LandingMarketPreviewProvider,
+  type LandingMarketPreviewMessages,
+} from './components/market-preview/landing-market-preview-provider'
 import { MarketPreview } from './components/market-preview/market-preview'
-import { WorkflowPreview } from './components/workflow-preview/workflow-preview'
+import {
+  WorkflowPreview,
+  type WorkflowPreviewProps,
+} from './components/workflow-preview/workflow-preview'
 
 type FeatureBullet = {
   title: string
@@ -24,51 +32,6 @@ type FeatureRow = {
   previewSide: 'left' | 'right'
   icon: React.ReactNode
 }
-
-const FEATURE_ROWS: FeatureRow[] = [
-  {
-    badge: 'Workspace',
-    title: 'Widget layouts',
-    description:
-      'Split the workspace to place widgets side by side or stacked. Save and switch between named layouts per workspace.',
-    bullets: [
-      { title: 'Recursive splitting' },
-      { title: 'Saved layouts per workspace' },
-      { title: 'Shared widget action menu' },
-    ],
-    preview: <LayoutPreview />,
-    previewSide: 'left',
-    icon: <LayoutDashboardIcon className='size-5' />,
-  },
-  {
-    badge: 'Charting',
-    title: 'Indicators and live data',
-    description:
-      'Built-in indicators and a PineTS editor for writing custom ones. Connect your own data provider and monitor prices in real time.',
-    bullets: [
-      { title: 'Configurable indicator inputs' },
-      { title: 'Live re-execution per bar' },
-      { title: 'Crosshair legend and chart markers' },
-    ],
-    preview: <MarketPreview />,
-    previewSide: 'right',
-    icon: <ChartCandlestick className='size-5' />,
-  },
-  {
-    badge: 'Workflows',
-    title: 'AI-powered workflows',
-    description:
-      'Build workflows on a canvas with AI agent blocks that make LLM-driven decisions. Integrate with Slack, Discord, GitHub, Gmail, and more — then route orders to Alpaca or Tradier.',
-    bullets: [
-      { title: 'AI agent blocks for autonomous analysis and decisions' },
-      { title: 'Integrations with Slack, Discord, GitHub, Gmail, and more' },
-      { title: 'Data, condition, loop, parallel, and trading action blocks' },
-    ],
-    preview: <WorkflowPreview />,
-    previewSide: 'left',
-    icon: <Workflow className='size-5' />,
-  },
-]
 
 function FeaturePoint({ title }: FeatureBullet) {
   return (
@@ -179,14 +142,50 @@ function FeatureRowSection({
   )
 }
 
-export default function Feature() {
+interface FeatureProps {
+  marketPreviewMessages: LandingMarketPreviewMessages
+  workflowDemos: WorkflowPreviewProps['demos']
+}
+
+export default function Feature({ marketPreviewMessages, workflowDemos }: FeatureProps) {
+  const copy = useMessages()
   useCardGlow()
+  const featureRowLayout = [
+    {
+      preview: <LayoutPreview />,
+      previewSide: 'left' as const,
+      icon: <LayoutDashboardIcon className='size-5' />,
+    },
+    {
+      preview: (
+        <LandingMarketPreviewProvider messages={marketPreviewMessages}>
+          <MarketPreview />
+        </LandingMarketPreviewProvider>
+      ),
+      previewSide: 'right' as const,
+      icon: <ChartCandlestick className='size-5' />,
+    },
+    {
+      preview: <WorkflowPreview demos={workflowDemos} />,
+      previewSide: 'left' as const,
+      icon: <Workflow className='size-5' />,
+    },
+  ] as const
+  const featureRows = copy.landing.features.rows.map((row, index) => ({
+    badge: row.badge,
+    title: row.title,
+    description: row.description,
+    bullets: row.bullets.map((title) => ({ title })),
+    preview: featureRowLayout[index]?.preview ?? null,
+    previewSide: featureRowLayout[index]?.previewSide ?? 'left',
+    icon: featureRowLayout[index]?.icon ?? <Workflow className='size-5' />,
+  }))
 
   return (
     <section
       id='feature'
       className='relative isolate w-full overflow-hidden py-20 sm:py-28'
-      aria-label='Feature'
+      aria-label={copy.landing.features.eyebrow}
     >
       <div
         className='pointer-events-none absolute inset-0 z-[-1]'
@@ -216,7 +215,7 @@ export default function Feature() {
             component='p'
             className='font-medium text-[11px] text-muted-foreground uppercase tracking-[0.24em]'
           >
-            Features
+            {copy.landing.features.eyebrow}
           </MotionPreset>
           <MotionPreset
             fade
@@ -225,7 +224,7 @@ export default function Feature() {
             delay={0.12}
             className='mt-5 font-semibold text-3xl text-foreground tracking-tight sm:text-5xl'
           >
-            Your workspace, your way
+            {copy.landing.features.title}
           </MotionPreset>
           <MotionPreset
             fade
@@ -234,12 +233,12 @@ export default function Feature() {
             delay={0.24}
             className='mx-auto mt-4 max-w-2xl text-lg text-muted-foreground leading-8'
           >
-            Layouts, charts, and workflows — each designed to work on its own or together.
+            {copy.landing.features.description}
           </MotionPreset>
         </div>
 
         <div className='mt-24 space-y-24 lg:mt-32 lg:space-y-56'>
-          {FEATURE_ROWS.map((row, index) => (
+          {featureRows.map((row, index) => (
             <FeatureRowSection key={row.title} {...row} index={index} />
           ))}
         </div>

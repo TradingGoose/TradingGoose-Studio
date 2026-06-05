@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { getIconTileStyle } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 import { SubflowBlockConfigs } from '@/widgets/widgets/editor_workflow/components/subflows/config'
 import { useToolbarAddBlock } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar/toolbar-add-block-context'
 
@@ -12,16 +13,19 @@ type ParallelToolbarItemProps = {
   disabled?: boolean
 }
 
+// Custom component for the Parallel Tool
 export default function ParallelToolbarItem({ disabled = false }: ParallelToolbarItemProps) {
+  const ParallelTool = SubflowBlockConfigs.parallel
+  const { getLocalizedBlockName, getToolbarDisabledReason } = useWorkflowI18n()
   const userPermissions = useUserPermissionsContext()
   const addBlock = useToolbarAddBlock()
-  const parallelTool = SubflowBlockConfigs.parallel
-  const ParallelIcon = parallelTool.icon
+  const label = getLocalizedBlockName('parallel')
   const handleDragStart = (e: React.DragEvent) => {
     if (disabled) {
       e.preventDefault()
       return
     }
+    // Only send the essential data for the parallel node
     const simplifiedData = {
       type: 'parallel',
     }
@@ -29,6 +33,7 @@ export default function ParallelToolbarItem({ disabled = false }: ParallelToolba
     e.dataTransfer.effectAllowed = 'move'
   }
 
+  // Handle click to add parallel block
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
       if (disabled) return
@@ -56,16 +61,16 @@ export default function ParallelToolbarItem({ disabled = false }: ParallelToolba
     >
       <div
         className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm'
-        style={getIconTileStyle(parallelTool.bgColor, '30')}
+        style={getIconTileStyle(ParallelTool.bgColor, '30')}
       >
-        <ParallelIcon
+        <ParallelTool.icon
           className={cn(
             'h-[14px] w-[14px] transition-transform duration-200',
             !disabled && 'group-hover:scale-110'
           )}
         />
       </div>
-      <span className='font-medium text-sm leading-none'>{parallelTool.name}</span>
+      <span className='font-medium text-sm leading-none'>{label}</span>
     </div>
   )
 
@@ -74,9 +79,7 @@ export default function ParallelToolbarItem({ disabled = false }: ParallelToolba
       <Tooltip>
         <TooltipTrigger asChild>{blockContent}</TooltipTrigger>
         <TooltipContent>
-          {userPermissions.isOfflineMode
-            ? 'Connection lost - please refresh'
-            : 'Edit permissions required to add blocks'}
+          {getToolbarDisabledReason(Boolean(userPermissions.isOfflineMode))}
         </TooltipContent>
       </Tooltip>
     )

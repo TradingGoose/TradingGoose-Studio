@@ -2,6 +2,7 @@
 
 import { CopyButton } from '@/components/ui/copy-button'
 import { Label } from '@/components/ui/label'
+import { useDeploymentCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 interface ExampleCommandProps {
   command: string
@@ -18,6 +19,7 @@ export function ExampleCommand({
   showLabel = true,
   getInputFormatExample,
 }: ExampleCommandProps) {
+  const copy = useDeploymentCopy()
   const formatCurlCommand = (command: string, apiKey: string) => {
     if (!command.includes('curl')) return command
 
@@ -52,7 +54,7 @@ export function ExampleCommand({
       {/* Example Command */}
       <div className='space-y-1.5'>
         <div className='flex items-center justify-between'>
-          {showLabel && <Label className='font-medium text-sm'>Example</Label>}
+          {showLabel && <Label className='font-medium text-sm'>{copy.example}</Label>}
         </div>
 
         <div className='group relative overflow-x-auto rounded-md border bg-background transition-colors hover:bg-card/50'>

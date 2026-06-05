@@ -3,15 +3,19 @@ import { Img, Section, Text } from '@react-email/components'
 import { baseStyles } from '@/components/emails/base-styles'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { getBaseUrl } from '@/lib/urls/utils'
+import { type EmailLocale, getEmailCopy } from '@/components/emails/email-copy'
 
 interface EmailHeaderProps {
   tagline?: string
+  locale?: EmailLocale
 }
 
-export const EmailHeader = ({ tagline = 'LLM Technical Trading Analysis Workflow System' }: EmailHeaderProps) => {
+export const EmailHeader = ({ tagline, locale }: EmailHeaderProps) => {
   const brand = getBrandConfig()
   const baseUrl = getBaseUrl()
   const logoSrc = `${baseUrl}/favicon/goose.png`
+  const copy = getEmailCopy(locale)
+  const resolvedTagline = tagline ?? copy.shared.tagline
 
   return (
     <Section style={baseStyles.header}>
@@ -31,7 +35,7 @@ export const EmailHeader = ({ tagline = 'LLM Technical Trading Analysis Workflow
               <span style={{ ...baseStyles.brandName, display: 'inline-block', margin: 0 }}>
                 {brand.name}
               </span>
-              {tagline ? <Text style={baseStyles.tagline}>{tagline}</Text> : null}
+              {resolvedTagline ? <Text style={baseStyles.tagline}>{resolvedTagline}</Text> : null}
             </td>
           </tr>
         </tbody>

@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { useTranslations } from 'next-intl'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { ChunkData, DocumentData } from '@/stores/knowledge/store'
 
@@ -36,6 +37,7 @@ export function CreateChunkModal({
   knowledgeBaseId,
   onChunkCreated,
 }: CreateChunkModalProps) {
+  const t = useTranslations('workspace.knowledge.chunkModal')
   const [content, setContent] = useState('')
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -73,7 +75,7 @@ export function CreateChunkModal({
 
       if (!response.ok) {
         const result = await response.json()
-        throw new Error(result.error || 'Failed to create chunk')
+        throw new Error(result.error || t('errors.failedToCreateChunk'))
       }
 
       const result = await response.json()
@@ -87,11 +89,11 @@ export function CreateChunkModal({
 
         onClose()
       } else {
-        throw new Error(result.error || 'Failed to create chunk')
+        throw new Error(result.error || t('errors.failedToCreateChunk'))
       }
     } catch (err) {
       logger.error('Error creating chunk:', err)
-      setError(err instanceof Error ? err.message : 'An error occurred')
+      setError(err instanceof Error ? err.message : t('errors.generic'))
     } finally {
       isProcessingRef.current = false
       setIsCreating(false)
@@ -129,8 +131,8 @@ export function CreateChunkModal({
           hideCloseButton
         >
           <DialogHeader className='flex-shrink-0 border-b px-6 py-4'>
-            <div className='flex items-center justify-between'>
-              <DialogTitle className='font-medium text-lg'>Create Chunk</DialogTitle>
+              <div className='flex items-center justify-between'>
+              <DialogTitle className='font-medium text-lg'>{t('createTitle')}</DialogTitle>
               <Button
                 variant='ghost'
                 size='icon'
@@ -138,7 +140,7 @@ export function CreateChunkModal({
                 onClick={handleCloseAttempt}
               >
                 <X className='h-4 w-4' />
-                <span className='sr-only'>Close</span>
+                <span className='sr-only'>{t('close')}</span>
               </Button>
             </div>
           </DialogHeader>
@@ -151,9 +153,9 @@ export function CreateChunkModal({
                   <div className='flex items-center gap-3 rounded-lg border bg-muted/30 p-4'>
                     <div className='min-w-0 flex-1'>
                       <p className='font-medium text-sm'>
-                        {document?.filename || 'Unknown Document'}
+                        {document?.filename || t('unknownDocument')}
                       </p>
-                      <p className='text-muted-foreground text-xs'>Adding chunk to this document</p>
+                      <p className='text-muted-foreground text-xs'>{t('addingChunk')}</p>
                     </div>
                   </div>
 
@@ -169,13 +171,13 @@ export function CreateChunkModal({
                 {/* Content Input Section - Expands to fill remaining space */}
                 <div className='mt-4 flex flex-1 flex-col'>
                   <Label htmlFor='content' className='mb-2 font-medium text-sm'>
-                    Chunk Content
+                    {t('chunkContent')}
                   </Label>
                   <Textarea
                     id='content'
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
-                    placeholder='Enter the content for this chunk...'
+                    placeholder={t('chunkContentPlaceholder')}
                     className='flex-1 resize-none'
                     disabled={isCreating}
                   />
@@ -187,7 +189,7 @@ export function CreateChunkModal({
             <div className='mt-auto border-t px-6 pt-4 pb-6'>
               <div className='flex justify-between'>
                 <Button variant='outline' onClick={handleCloseAttempt} disabled={isCreating}>
-                  Cancel
+                  {t('cancel')}
                 </Button>
                 <Button
                   onClick={handleCreateChunk}
@@ -197,10 +199,10 @@ export function CreateChunkModal({
                   {isCreating ? (
                     <>
                       <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                      Creating...
+                      {t('creating')}
                     </>
                   ) : (
-                    'Create Chunk'
+                    t('createButton')
                   )}
                 </Button>
               </div>
@@ -213,16 +215,16 @@ export function CreateChunkModal({
       <AlertDialog open={showUnsavedChangesAlert} onOpenChange={setShowUnsavedChangesAlert}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Discard changes?</AlertDialogTitle>
-            <AlertDialogDescription>
-              You have unsaved changes. Are you sure you want to close without saving?
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t('discardChangesTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('discardChangesDescription')}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setShowUnsavedChangesAlert(false)}>
-              Keep editing
+              {t('keepEditing')}
             </AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDiscard}>Discard changes</AlertDialogAction>
+            <AlertDialogAction onClick={handleConfirmDiscard}>
+              {t('discardChanges')}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { ChevronDown, ChevronRight, ShieldCheck } from 'lucide-react'
+import { useLocale, useMessages, type Messages } from 'next-intl'
 import {
   Alert,
   AlertDescription,
@@ -26,6 +27,8 @@ import {
   useAdminIntegrationsSnapshot,
   useSaveAdminIntegrationBundle,
 } from '@/hooks/queries/admin-integrations'
+import { formatTemplate } from '@/i18n/utils'
+import type { LocaleCode } from '@/i18n/utils'
 
 const EMPTY_SNAPSHOT: AdminIntegrationsSnapshot = {
   definitions: [],
@@ -38,12 +41,16 @@ type IntegrationBundleSectionSummary = {
   status: 'ready' | 'review'
 }
 
+type AdminIntegrationsCopy = Messages['admin']['integrations']
+
 const INTEGRATION_SECTION_STATUS_BADGE_CLASSNAME = {
   ready: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/20',
   review: 'bg-destructive/15 text-destructive border-destructive/20',
 } as const
 
 export function AdminIntegrations() {
+  const locale = useLocale() as LocaleCode
+  const copy = useMessages().admin.integrations
   const integrationsQuery = useAdminIntegrationsSnapshot()
   const saveBundleMutation = useSaveAdminIntegrationBundle()
   const [searchTerm, setSearchTerm] = useState('')
@@ -91,8 +98,6 @@ export function AdminIntegrations() {
         return null
       }
 
-      const summary = getBundleSectionSummary(bundle.id, bundleServices, secretFields)
-
       return {
         bundle,
         bundleServices,
@@ -100,7 +105,7 @@ export function AdminIntegrations() {
         visibleServices,
         visibleSecretFields,
         isConfigured: isBundleConfigured(bundle.id, secretFields),
-        summary,
+        summary: getBundleSectionSummary(copy, bundle.id, bundleServices, secretFields),
       }
     })
     .filter((bundleView) => bundleView !== null)
@@ -112,22 +117,22 @@ export function AdminIntegrations() {
     )
   ).length
   const headerStats = [
-    { label: 'Providers', value: String(bundles.length) },
-    { label: 'Services', value: String(services.length) },
-    { label: 'Configured', value: String(configuredBundleCount) },
+    { label: copy.headerStats.providers, value: String(bundles.length) },
+    { label: copy.headerStats.services, value: String(services.length) },
+    { label: copy.headerStats.configured, value: String(configuredBundleCount) },
   ]
 
   const headerLeft = (
     <div className='flex w-full flex-1 items-center gap-3'>
       <div className='hidden items-center gap-2 sm:flex'>
         <ShieldCheck className='h-[18px] w-[18px] text-muted-foreground' />
-        <span className='font-medium text-sm'>System-managed OAuth</span>
+        <span className='font-medium text-sm'>{copy.title}</span>
       </div>
       <div className='flex w-full max-w-xl flex-1'>
         <SearchInput
           value={searchTerm}
           onChange={setSearchTerm}
-          placeholder='Search system-managed OAuth integrations...'
+          placeholder={copy.searchPlaceholder}
           className='w-full'
         />
       </div>
@@ -150,27 +155,27 @@ export function AdminIntegrations() {
       <div className='mx-auto flex w-full max-w-6xl flex-col gap-4'>
         {integrationsQuery.isError ? (
           <Alert variant='destructive'>
-            <AlertDescription>{getErrorMessage(integrationsQuery.error)}</AlertDescription>
+            <AlertDescription>
+              {getErrorMessage(integrationsQuery.error, copy.error)}
+            </AlertDescription>
           </Alert>
         ) : null}
 
         {saveBundleMutation.isError ? (
           <Alert variant='destructive'>
-            <AlertDescription>{getErrorMessage(saveBundleMutation.error)}</AlertDescription>
+            <AlertDescription>
+              {getErrorMessage(saveBundleMutation.error, copy.error)}
+            </AlertDescription>
           </Alert>
         ) : null}
 
         <Alert className='border-border/60 bg-muted/20'>
-          <AlertDescription>
-            These rows manage system-managed OAuth integrations for runtime services like Google
-            Drive and GitHub repository access. Better Auth social sign-in for GitHub and Google
-            stays env-only in <code>apps/tradinggoose/.env.example</code> and is not edited here.
-          </AlertDescription>
+          <AlertDescription>{copy.info}</AlertDescription>
         </Alert>
 
         {!draft && integrationsQuery.isPending ? (
           <div className='flex min-h-[280px] items-center justify-center rounded-lg border bg-background'>
-            <p className='text-muted-foreground text-sm'>Loading integration catalog...</p>
+            <p className='text-muted-foreground text-sm'>{copy.loading}</p>
           </div>
         ) : null}
 
@@ -178,7 +183,7 @@ export function AdminIntegrations() {
           <div>
             {filteredBundleViews.length === 0 ? (
               <div className='flex min-h-[240px] items-center justify-center rounded-lg border border-dashed bg-muted/20 px-6 py-10 text-center text-muted-foreground text-sm'>
-                No system-managed OAuth integrations match the current search.
+                {copy.emptyState}
               </div>
             ) : (
               <div className='overflow-hidden rounded-lg border border-border bg-background'>
@@ -220,19 +225,26 @@ export function AdminIntegrations() {
                             >
                               <div className='min-w-0 flex-1 space-y-1'>
                                 <p className='text-[11px] text-muted-foreground uppercase tracking-[0.18em]'>
-                                  System-managed OAuth provider
+                                  {copy.providerLabel}
                                 </p>
                                 <div className='flex flex-wrap items-center gap-2'>
                                   <h3 className='font-medium text-sm'>{bundle.displayName}</h3>
                                   <Badge variant='outline' className={ADMIN_META_BADGE_CLASSNAME}>
-                                    {bundleServices.length} service
-                                    {bundleServices.length === 1 ? '' : 's'}
+                                    {formatTemplate(copy.summary.serviceCount, {
+                                      count: bundleServices.length,
+                                      plural:
+                                        bundleServices.length === 1
+                                          ? ''
+                                          : copy.summary.servicePlural,
+                                    })}
                                   </Badge>
                                   <Badge
                                     variant='outline'
                                     className={`${ADMIN_STATUS_BADGE_CLASSNAME} ${INTEGRATION_SECTION_STATUS_BADGE_CLASSNAME[summary.status]}`}
                                   >
-                                    {summary.status === 'ready' ? 'Ready' : 'Review'}
+                                    {summary.status === 'ready'
+                                      ? copy.status.ready
+                                      : copy.status.review}
                                   </Badge>
                                 </div>
                                 <p className='max-w-3xl text-muted-foreground text-xs leading-relaxed'>
@@ -258,26 +270,27 @@ export function AdminIntegrations() {
                             <div className='space-y-4'>
                               <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>
                                 <div className='space-y-1'>
-                                  <p className='font-medium text-sm'>Provider credentials</p>
+                                  <p className='font-medium text-sm'>{copy.credentials.title}</p>
                                   <p className='text-muted-foreground text-xs leading-relaxed'>
-                                    Set the secrets for this system-managed OAuth provider.
+                                    {copy.credentials.description}
                                   </p>
                                 </div>
 
                                 {secretFields.length === 0 ? (
                                   <p className='text-muted-foreground text-sm'>
-                                    This provider does not require stored credentials.
+                                    {copy.credentials.none}
                                   </p>
                                 ) : visibleSecretFields.length === 0 ? (
                                   <p className='text-muted-foreground text-sm'>
-                                    No credentials match the current search.
+                                    {copy.credentials.noMatches}
                                   </p>
                                 ) : (
                                   <div className='grid gap-3 md:grid-cols-2'>
                                     {visibleSecretFields.map((secret) => {
                                       const credentialField = getCredentialFieldConfig(
                                         bundle.id,
-                                        secret.credentialKey
+                                        secret.credentialKey,
+                                        copy
                                       )
                                       const isSecretConfigured = hasSecretValue(secret)
 
@@ -293,7 +306,9 @@ export function AdminIntegrations() {
                                           disabled={isSavingBundle}
                                           placeholder={
                                             isSecretConfigured
-                                              ? `Enter a new ${credentialField.label.toLowerCase()} to replace the stored value`
+                                              ? formatTemplate(copy.placeholders.replaceValue, {
+                                                  label: credentialField.label.toLowerCase(),
+                                                })
                                               : credentialField.placeholder
                                           }
                                           onSave={(value) =>
@@ -317,20 +332,19 @@ export function AdminIntegrations() {
 
                               <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>
                                 <div className='space-y-1'>
-                                  <p className='font-medium text-sm'>OAuth services</p>
+                                  <p className='font-medium text-sm'>{copy.services.title}</p>
                                   <p className='text-muted-foreground text-xs leading-relaxed'>
-                                    Enable or disable the services that inherit this provider's
-                                    credentials.
+                                    {copy.services.description}
                                   </p>
                                 </div>
 
                                 {bundleServices.length === 0 ? (
                                   <p className='text-muted-foreground text-sm'>
-                                    This provider does not expose any OAuth services.
+                                    {copy.services.none}
                                   </p>
                                 ) : visibleServices.length === 0 ? (
                                   <p className='text-muted-foreground text-sm'>
-                                    No services match the current search.
+                                    {copy.services.noMatches}
                                   </p>
                                 ) : (
                                   <div className='space-y-3'>
@@ -359,8 +373,9 @@ export function AdminIntegrations() {
                                               </div>
                                             ) : null}
                                             <p className='text-muted-foreground text-xs'>
-                                              Inherits credentials from{' '}
-                                              {parent?.displayName ?? bundle.displayName}.
+                                              {formatTemplate(copy.services.inheritsFrom, {
+                                                name: parent?.displayName ?? bundle.displayName,
+                                              })}
                                             </p>
                                           </div>
                                           <Switch
@@ -553,7 +568,11 @@ function compareSecretsForComparison(
   )
 }
 
-function getCredentialFieldConfig(bundleId: string, credentialKey: string) {
+function getCredentialFieldConfig(
+  bundleId: string,
+  credentialKey: string,
+  copy: AdminIntegrationsCopy
+) {
   const matchingField = getSystemIntegrationCatalogCredentialFields(bundleId).find(
     (field) => field.key === credentialKey
   )
@@ -569,8 +588,10 @@ function getCredentialFieldConfig(bundleId: string, credentialKey: string) {
       .filter(Boolean)
       .map((segment) => segment[0]?.toUpperCase() + segment.slice(1))
       .join(' '),
-    note: 'Provider credential',
-    placeholder: `Enter ${credentialKey.replaceAll('_', ' ')}`,
+    note: copy.credentials.defaultDescription,
+    placeholder: formatTemplate(copy.placeholders.enterValue, {
+      label: credentialKey.replaceAll('_', ' '),
+    }),
     isSensitive: true,
     required: true,
   }
@@ -593,6 +614,7 @@ function isBundleConfigured(bundleId: string, secrets: AdminIntegrationSecret[])
 }
 
 function getBundleSectionSummary(
+  copy: AdminIntegrationsCopy,
   bundleId: string,
   bundleServices: AdminIntegrationDefinition[],
   secretFields: AdminIntegrationSecret[]
@@ -613,16 +635,29 @@ function getBundleSectionSummary(
 
   return {
     preview: joinSummaryParts([
-      `${bundleServices.length} service${bundleServices.length === 1 ? '' : 's'}`,
+      formatTemplate(copy.summary.serviceCount, {
+        count: bundleServices.length,
+        plural: bundleServices.length === 1 ? '' : copy.summary.servicePlural,
+      }),
       requiredFields.length > 0
-        ? `${configuredRequiredCount}/${requiredFields.length} required credentials set`
+        ? formatTemplate(copy.summary.requiredCredentialsSet, {
+            configured: configuredRequiredCount,
+            total: requiredFields.length,
+          })
         : configuredSecretCount > 0
-          ? `${configuredSecretCount} credential${configuredSecretCount === 1 ? '' : 's'} set`
-          : 'No required credentials',
-      bundleServices.length > 0 ? `${enabledServiceCount} enabled` : 'No services available',
+          ? formatTemplate(copy.summary.credentialsSet, {
+              count: configuredSecretCount,
+              plural: configuredSecretCount === 1 ? '' : copy.summary.credentialPlural,
+            })
+          : copy.summary.noRequiredCredentials,
+      bundleServices.length > 0
+        ? formatTemplate(copy.summary.enabledCount, { count: enabledServiceCount })
+        : copy.summary.noServicesAvailable,
     ]),
     missing:
-      missingRequiredLabels.length > 0 ? `Missing ${missingRequiredLabels.join(', ')}.` : null,
+      missingRequiredLabels.length > 0
+        ? formatTemplate(copy.summary.missing, { labels: missingRequiredLabels.join(', ') })
+        : null,
     status: missingRequiredLabels.length === 0 ? 'ready' : 'review',
   }
 }
@@ -670,10 +705,10 @@ function normalizeIdentifierValue(value: string) {
   return value.replaceAll(/[^a-z0-9]+/gi, '').toLowerCase()
 }
 
-function getErrorMessage(error: unknown) {
+function getErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error) {
     return error.message
   }
 
-  return 'Something went wrong'
+  return fallback
 }

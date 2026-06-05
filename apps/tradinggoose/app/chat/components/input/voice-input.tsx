@@ -44,6 +44,7 @@ interface VoiceInputProps {
   disabled?: boolean
   large?: boolean
   minimal?: boolean
+  title: string
 }
 
 export function VoiceInput({
@@ -52,10 +53,10 @@ export function VoiceInput({
   disabled = false,
   large = false,
   minimal = false,
+  title,
 }: VoiceInputProps) {
   const [isSupported, setIsSupported] = useState(false)
 
-  // Check if speech recognition is supported
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     setIsSupported(!!SpeechRecognition)
@@ -79,7 +80,7 @@ export function VoiceInput({
         className={`flex items-center justify-center rounded-full p-1.5 text-gray-600 transition-colors duration-200 hover:bg-gray-100 md:p-2 ${
           disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
         }`}
-        title='Start voice conversation'
+        title={title}
       >
         <Mic size={16} className='md:h-5 md:w-5' />
       </button>
@@ -89,7 +90,6 @@ export function VoiceInput({
   if (large) {
     return (
       <div className='flex flex-col items-center'>
-        {/* Large Voice Button */}
         <motion.button
           type='button'
           onClick={handleVoiceClick}
@@ -101,7 +101,7 @@ export function VoiceInput({
           } ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          title='Start voice conversation'
+          title={title}
         >
           <Mic size={32} />
         </motion.button>
@@ -111,7 +111,6 @@ export function VoiceInput({
 
   return (
     <div className='flex items-center'>
-      {/* Voice Button - Now matches send button styling */}
       <motion.button
         type='button'
         onClick={handleVoiceClick}
@@ -123,7 +122,7 @@ export function VoiceInput({
         } ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        title='Start voice conversation'
+        title={title}
       >
         <Mic size={16} className='md:hidden' />
         <Mic size={18} className='hidden md:block' />

@@ -29,14 +29,20 @@ export async function GET(req: NextRequest) {
 
     if (!email || !token) {
       logger.warn(`[${requestId}] Missing email or token in GET request`)
-      return NextResponse.json({ error: 'Missing email or token parameter' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'missing_email_or_token', code: 'missing-parameters' },
+        { status: 400 }
+      )
     }
 
     // Verify token and get email type
     const tokenVerification = verifyUnsubscribeToken(email, token)
     if (!tokenVerification.valid) {
       logger.warn(`[${requestId}] Invalid unsubscribe token for email: ${email}`)
-      return NextResponse.json({ error: 'Invalid or expired unsubscribe link' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'invalid_or_expired_unsubscribe_link', code: 'invalid-link' },
+        { status: 400 }
+      )
     }
 
     const emailType = tokenVerification.emailType as EmailType
@@ -59,7 +65,7 @@ export async function GET(req: NextRequest) {
     })
   } catch (error) {
     logger.error(`[${requestId}] Error processing unsubscribe GET request:`, error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: 'internal_server_error', code: 'internal-error' }, { status: 500 })
   }
 }
 
@@ -75,7 +81,7 @@ export async function POST(req: NextRequest) {
         errors: result.error.format(),
       })
       return NextResponse.json(
-        { error: 'Invalid request data', details: result.error.format() },
+        { error: 'invalid_request_data', code: 'invalid-request-data', details: result.error.format() },
         { status: 400 }
       )
     }
@@ -86,7 +92,10 @@ export async function POST(req: NextRequest) {
     const tokenVerification = verifyUnsubscribeToken(email, token)
     if (!tokenVerification.valid) {
       logger.warn(`[${requestId}] Invalid unsubscribe token for email: ${email}`)
-      return NextResponse.json({ error: 'Invalid or expired unsubscribe link' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'invalid_or_expired_unsubscribe_link', code: 'invalid-link' },
+        { status: 400 }
+      )
     }
 
     const emailType = tokenVerification.emailType as EmailType
@@ -97,10 +106,10 @@ export async function POST(req: NextRequest) {
       logger.warn(`[${requestId}] Attempted to unsubscribe from transactional email: ${email}`)
       return NextResponse.json(
         {
-          error: 'Cannot unsubscribe from transactional emails',
+          error: 'cannot_unsubscribe_from_transactional_emails',
+          code: 'transactional',
           isTransactional: true,
-          message:
-            'Transactional emails cannot be unsubscribed from as they contain important account information.',
+          message: 'transactional_emails_unsubscribable',
         },
         { status: 400 }
       )
@@ -125,7 +134,10 @@ export async function POST(req: NextRequest) {
 
     if (!success) {
       logger.error(`[${requestId}] Failed to update unsubscribe preferences for: ${email}`)
-      return NextResponse.json({ error: 'Failed to process unsubscribe request' }, { status: 500 })
+      return NextResponse.json(
+        { error: 'failed_to_process_unsubscribe_request', code: 'failed-processing' },
+        { status: 500 }
+      )
     }
 
     logger.info(`[${requestId}] Successfully unsubscribed ${email} from ${type}`)
@@ -134,6 +146,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         success: true,
+        code: 'success',
         message: `Successfully unsubscribed from ${type} emails`,
         email,
         type,
@@ -143,6 +156,6 @@ export async function POST(req: NextRequest) {
     )
   } catch (error) {
     logger.error(`[${requestId}] Error processing unsubscribe POST request:`, error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: 'internal_server_error', code: 'internal-error' }, { status: 500 })
   }
 }

@@ -21,6 +21,8 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { usePortfolioIdentities } from '@/hooks/queries/trading-portfolio'
+import { formatTemplate } from '@/i18n/utils'
+import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import {
   arePortfolioIdentitiesEqual,
   getPortfolioIdentityKey,
@@ -70,19 +72,22 @@ export function TradingAccountSelector({
   serviceId,
   portfolioIdentity,
   disabled = false,
-  placeholder = 'Select account',
-  tooltipText = 'Select trading account',
+  placeholder,
+  tooltipText,
   toolName = 'Trading',
   onAccountSelect,
   variant = 'widget',
 }: TradingAccountSelectorProps) {
+  const copy = useWorkspaceWidgetsMessages().providerControls.accountSelector
   const [showOAuthModal, setShowOAuthModal] = useState(false)
   const [oauthModalServiceId, setOAuthModalServiceId] = useState<string | null>(null)
   const trimmedProviderId = typeof providerId === 'string' ? providerId.trim() : ''
   const providerDefinition = trimmedProviderId
     ? getTradingProviderDefinition(trimmedProviderId)
     : undefined
-  const providerName = providerDefinition?.name ?? 'broker'
+  const providerName = providerDefinition?.name ?? copy.defaultProviderName
+  const resolvedPlaceholder = placeholder ?? copy.placeholder
+  const resolvedTooltipText = tooltipText ?? copy.tooltip
   const oauthProvider = providerDefinition?.oauth?.provider
   const isEnabled = Boolean(trimmedProviderId) && !disabled
   const selectedPortfolioIdentity = toPortfolioValueObject(portfolioIdentity)
@@ -110,8 +115,8 @@ export function TradingAccountSelector({
   const buttonLabel = selectedOption
     ? getAccountName(selectedOption)
     : hasUnresolvedSelectedAccount && isLoadingAccounts
-      ? 'Loading account...'
-      : placeholder
+      ? copy.loadingAccount
+      : resolvedPlaceholder
   const ProviderIcon = resolveTradingProviderIcon(trimmedProviderId)
 
   const handleOAuthClose = () => {
@@ -137,7 +142,7 @@ export function TradingAccountSelector({
                   disabled={!trimmedProviderId || disabled}
                   className={providerSelectorTriggerClassName(variant, 'gap-2')}
                   aria-haspopup='listbox'
-                  aria-label='Select trading account'
+                  aria-label={copy.ariaLabel}
                 >
                   <div className='flex min-w-0 items-center gap-1.5'>
                     {ProviderIcon ? (
@@ -165,7 +170,7 @@ export function TradingAccountSelector({
               </DropdownMenuTrigger>
             </span>
           </TooltipTrigger>
-          <TooltipContent side='top'>{tooltipText}</TooltipContent>
+          <TooltipContent side='top'>{resolvedTooltipText}</TooltipContent>
         </Tooltip>
         <DropdownMenuContent
           sideOffset={6}
@@ -177,18 +182,18 @@ export function TradingAccountSelector({
           {services.isLoading ? (
             <div className='flex items-center gap-2 px-3 py-2 text-muted-foreground text-xs'>
               <RefreshCw className='h-3.5 w-3.5 animate-spin' />
-              Loading provider connection...
+              {copy.loadingProviderConnection}
             </div>
           ) : services.error ? (
             <div className='px-3 py-2 text-muted-foreground text-xs'>
-              Unable to load provider connection.
+              {copy.unableToLoadProviderConnection}
             </div>
           ) : services.serviceIds.length > 1 &&
             services.connectedServiceIds.length > 0 &&
             !activeServiceId ? (
             <>
               <div className='px-3 py-2 text-muted-foreground text-xs'>
-                Select a {providerName} connection.
+                {formatTemplate(copy.selectConnection, { providerName })}
               </div>
               {services.connectedServiceIds.map((serviceId) => (
                 <DropdownMenuItem
@@ -209,18 +214,16 @@ export function TradingAccountSelector({
             </>
           ) : !hasConnection ? (
             <div className='px-3 py-2 text-muted-foreground text-xs'>
-              No {providerName} account connected.
+              {formatTemplate(copy.noAccountConnected, { providerName })}
             </div>
           ) : isLoadingAccounts ? (
             <div className='flex items-center gap-2 px-3 py-2 text-muted-foreground text-xs'>
               <RefreshCw className='h-3.5 w-3.5 animate-spin' />
-              Loading broker accounts...
+              {copy.loadingBrokerAccounts}
             </div>
           ) : portfolioIdentities.length === 0 ? (
             <div className='px-3 py-2 text-muted-foreground text-xs'>
-              {accountsQuery.error
-                ? 'Unable to load broker accounts.'
-                : 'No broker accounts found.'}
+              {accountsQuery.error ? copy.unableToLoadBrokerAccounts : copy.noBrokerAccountsFound}
             </div>
           ) : (
             portfolioIdentities.map((account) => {
@@ -269,9 +272,16 @@ export function TradingAccountSelector({
                 >
                   <Plus className='h-3.5 w-3.5 text-muted-foreground' />
                   <span>
-                    {services.connectedServiceIds.includes(serviceId)
-                      ? `Reconnect ${getTradingServiceName(trimmedProviderId, serviceId)} account`
-                      : `Connect ${getTradingServiceName(trimmedProviderId, serviceId)} account`}
+                    {formatTemplate(
+                      services.connectedServiceIds.includes(serviceId)
+                        ? copy.reconnectAccount
+                        : copy.connectAccount,
+                      {
+                        providerName:
+                          getTradingServiceName(trimmedProviderId, serviceId) ||
+                          copy.defaultProviderName,
+                      }
+                    )}
                   </span>
                 </DropdownMenuItem>
               ))}

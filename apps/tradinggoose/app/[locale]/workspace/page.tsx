@@ -1,0 +1,151 @@
+'use client'
+
+import { useEffect } from 'react'
+import { useTranslations } from 'next-intl'
+import { LoadingAgent } from '@/components/ui/loading-agent'
+import { useSession } from '@/lib/auth-client'
+import { createLogger } from '@/lib/logs/console/logger'
+import { usePathname, useRouter } from '@/i18n/navigation'
+import { normalizeCallbackUrl } from '@/i18n/utils'
+
+const logger = createLogger('WorkspacePage')
+
+export default function WorkspacePage() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const tWorkspace = useTranslations('workspace')
+  const { data: session, isPending, error: sessionError } = useSession()
+
+  useEffect(() => {
+    const redirectToFirstWorkspace = async () => {
+      if (isPending) {
+        return
+      }
+
+      if (sessionError || !session?.user) {
+        logger.info('User not authenticated, redirecting to home', {
+          hasSessionError: Boolean(sessionError),
+        })
+        router.replace('/')
+        return
+      }
+
+      try {
+        const urlParams = new URLSearchParams(window.location.search)
+        const callbackUrl = normalizeCallbackUrl(urlParams.get('callbackUrl'), window.location.origin)
+        const redirectWorkflowId = urlParams.get('redirect_workflow')
+
+        if (callbackUrl) {
+          const callbackPath = new URL(callbackUrl, window.location.origin).pathname
+
+          if (callbackPath !== pathname) {
+            logger.info('Redirecting to callback URL from workspace root', { callbackUrl })
+            router.replace(callbackUrl)
+            return
+          }
+        }
+
+        if (redirectWorkflowId) {
+          try {
+            const workflowResponse = await fetch(`/api/workflows/${redirectWorkflowId}`)
+            if (workflowResponse.ok) {
+              const workflowData = await workflowResponse.json()
+              const workspaceId = workflowData.data?.workspaceId
+
+              if (workspaceId) {
+                logger.info(
+                  `Redirecting workflow ${redirectWorkflowId} to workspace ${workspaceId} dashboard`
+                )
+                router.replace(`/workspace/${workspaceId}/dashboard`)
+                return
+              }
+            }
+          } catch (error) {
+            logger.error('Error fetching workflow for redirect:', error)
+          }
+        }
+
+        const response = await fetch('/api/workspaces', {
+          credentials: 'include',
+        })
+
+        if (response.status === 401 || response.status === 403) {
+          logger.info('Unauthorized to fetch workspaces, redirecting to home', {
+            status: response.status,
+          })
+          router.replace('/')
+          return
+        }
+
+        if (!response.ok) {
+          let errorBody = ''
+          try {
+            errorBody = await response.text()
+          } catch {}
+
+          logger.error('Failed to fetch workspaces for redirect', {
+            status: response.status,
+            body: errorBody,
+          })
+          router.replace('/')
+          return
+        }
+
+        const data = await response.json()
+        const workspaces = data.workspaces || []
+
+        if (workspaces.length === 0) {
+          logger.warn('No workspaces found for user, creating default workspace')
+
+          try {
+            const createResponse = await fetch('/api/workspaces', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ name: tWorkspace('defaults.newWorkspaceName') }),
+            })
+
+            if (createResponse.ok) {
+              const createData = await createResponse.json()
+              const newWorkspace = createData.workspace
+
+              if (newWorkspace?.id) {
+                logger.info(
+                  `Created default workspace ${newWorkspace.id}, redirecting to dashboard`
+                )
+                router.replace(`/workspace/${newWorkspace.id}/dashboard`)
+                return
+              }
+            }
+
+            logger.error('Failed to create default workspace')
+          } catch (createError) {
+            logger.error('Error creating default workspace:', createError)
+          }
+
+          router.replace('/')
+          return
+        }
+
+        const firstWorkspace = workspaces[0]
+        logger.info(`Redirecting to workspace ${firstWorkspace.id} dashboard`)
+        router.replace(`/workspace/${firstWorkspace.id}/dashboard`)
+      } catch (error) {
+        logger.error('Error fetching workspaces for redirect:', error)
+        router.replace('/')
+      }
+    }
+
+    void redirectToFirstWorkspace()
+  }, [isPending, pathname, router, session, sessionError, tWorkspace])
+
+  return (
+    <div className='flex h-screen w-full items-center justify-center'>
+      <div className='flex flex-col items-center justify-center text-center align-middle'>
+        <LoadingAgent size='lg' />
+        <span className='sr-only'>{tWorkspace('entry.loading')}</span>
+      </div>
+    </div>
+  )
+}

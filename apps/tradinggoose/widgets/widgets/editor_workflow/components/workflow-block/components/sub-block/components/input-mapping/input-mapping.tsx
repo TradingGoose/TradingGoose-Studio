@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { cn } from '@/lib/utils'
+import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 
@@ -52,6 +53,7 @@ export function InputMapping({
   disabled = false,
   isConnecting = false,
 }: InputMappingProps) {
+  const copy = useWorkflowBlockEditorCopy().inputMapping
   const [mapping, setMapping] = useSubBlockValue(blockId, subBlockId)
   const [selectedWorkflowId] = useSubBlockValue(blockId, 'workflowId')
 
@@ -134,10 +136,8 @@ export function InputMapping({
             d='M13 10V3L4 14h7v7l9-11h-7z'
           />
         </svg>
-        <p className='font-medium text-muted-foreground text-sm'>No workflow selected</p>
-        <p className='mt-1 text-muted-foreground/80 text-xs'>
-          Select a workflow above to configure inputs
-        </p>
+        <p className='font-medium text-muted-foreground text-sm'>{copy.noWorkflowSelected}</p>
+        <p className='mt-1 text-muted-foreground/80 text-xs'>{copy.selectWorkflowAbove}</p>
       </div>
     )
   }
@@ -158,9 +158,9 @@ export function InputMapping({
             d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
           />
         </svg>
-        <p className='font-medium text-muted-foreground text-sm'>No input fields defined</p>
+        <p className='font-medium text-muted-foreground text-sm'>{copy.noInputFieldsDefined}</p>
         <p className='mt-1 max-w-[200px] text-muted-foreground/80 text-xs'>
-          The selected workflow needs an Input Trigger with defined fields
+          {copy.selectedWorkflowNeedsInputTrigger}
         </p>
       </div>
     )

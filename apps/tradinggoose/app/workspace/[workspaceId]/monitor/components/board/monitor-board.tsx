@@ -2,6 +2,13 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
+import {
+  getMonitorAssetTypeLabel,
+  getMonitorTriggerLabel,
+  useMonitorCopy,
+} from '@/app/workspace/[workspaceId]/monitor/copy'
+import { formatDurationMs, formatUsd } from '@/i18n/formatters'
+import { formatTemplate } from '@/i18n/utils'
 import { formatMonitorDateTime } from '../shared/monitor-time'
 import type {
   ExecutionMonitorQuickFilterField,
@@ -37,28 +44,41 @@ type DragState = {
   columnId: string
 } | null
 
-const formatVisibleField = (item: any, field: ExecutionMonitorVisibleFieldId, timezone: string) => {
+const formatVisibleField = (
+  item: any,
+  field: ExecutionMonitorVisibleFieldId,
+  timezone: string,
+  locale: string,
+  copy: ReturnType<typeof useMonitorCopy>['copy']
+) => {
   switch (field) {
     case 'workflow':
       return item.workflowName
     case 'provider':
-      return item.providerId || 'Unknown'
+      return item.providerId || copy.execution.unknown
     case 'interval':
-      return item.interval || 'Unknown'
+      return item.interval || copy.execution.unknown
     case 'assetType':
-      return item.assetType.toUpperCase()
+      return getMonitorAssetTypeLabel(copy, item.assetType)
     case 'trigger':
-      return item.trigger || 'Unknown'
+      return item.trigger ? getMonitorTriggerLabel(copy, item.trigger) : copy.execution.unknown
     case 'startedAt':
       return formatMonitorDateTime(new Date(item.startedAt), timezone)
     case 'endedAt':
-      return item.endedAt ? formatMonitorDateTime(new Date(item.endedAt), timezone) : 'Running'
+      return item.endedAt
+        ? formatMonitorDateTime(new Date(item.endedAt), timezone)
+        : copy.execution.running
     case 'durationMs':
-      return typeof item.durationMs === 'number' ? `${item.durationMs}ms` : '—'
+      return typeof item.durationMs === 'number' ? formatDurationMs(locale, item.durationMs) : '—'
     case 'cost':
-      return typeof item.cost === 'number' ? `$${item.cost.toFixed(4)}` : '—'
+      return typeof item.cost === 'number'
+        ? formatUsd(locale, item.cost, {
+            minimumFractionDigits: 4,
+            maximumFractionDigits: 4,
+          })
+        : '—'
     case 'monitor':
-      return item.monitorId || 'Removed monitor'
+      return item.monitorId || copy.execution.removedMonitor
   }
 }
 
@@ -148,7 +168,20 @@ export function MonitorBoard({
   isQuickFilterActive,
   onReorderColumnCards,
 }: MonitorBoardProps) {
+  const { copy, locale } = useMonitorCopy()
   const [dragState, setDragState] = useState<DragState>(null)
+  const fieldLabels: Partial<Record<ExecutionMonitorVisibleFieldId, string>> = {
+    workflow: copy.fields.workflow,
+    provider: copy.fields.provider,
+    interval: copy.fields.interval,
+    assetType: copy.fields.assetType,
+    trigger: copy.fields.trigger,
+    startedAt: copy.fields.startedAt,
+    endedAt: copy.fields.endedAt,
+    durationMs: copy.fields.duration,
+    cost: copy.fields.cost,
+    monitor: copy.fields.monitor,
+  }
   const cardColumnById = useMemo(() => {
     const entries = sections.flatMap((section) =>
       section.columns.flatMap((column) =>
@@ -218,11 +251,11 @@ export function MonitorBoard({
                     canDrop={canDrop}
                     onDropOverColumn={() => handleDropAtColumn(column)}
                     itemIds={column.items.map((item) => item.logId)}
-                    summary={`${column.totalCount} items`}
+                    summary={formatTemplate(copy.shared.itemsCount, { count: column.totalCount })}
                     metaAction={
                       column.limit ? (
                         <Badge variant='outline' className='text-[10px]'>
-                          Limit {column.limit}
+                          {formatTemplate(copy.execution.limitLabel, { count: column.limit })}
                         </Badge>
                       ) : null
                     }
@@ -280,8 +313,8 @@ export function MonitorBoard({
                                 <MonitorKanbanFieldChip
                                   key={`${item.logId}:${fieldId}`}
                                   active={isActive}
-                                  label={fieldId}
-                                  value={formatVisibleField(item, fieldId, timezone)}
+                                  label={fieldLabels[fieldId] ?? fieldId}
+                                  value={formatVisibleField(item, fieldId, timezone, locale, copy)}
                                   onClick={(event) => {
                                     event.stopPropagation()
                                     if (quickFilterField && quickFilterValue) {
@@ -295,12 +328,12 @@ export function MonitorBoard({
 
                           {item.isOrphaned ? (
                             <Badge variant='destructive' className='text-[10px]'>
-                              Source monitor unavailable
+                              {copy.execution.sourceMonitorUnavailable}
                             </Badge>
                           ) : null}
                           {item.isPartial ? (
                             <Badge variant='outline' className='text-[10px]'>
-                              Snapshot incomplete
+                              {copy.execution.snapshotIncomplete}
                             </Badge>
                           ) : null}
                         </MonitorKanbanCard>

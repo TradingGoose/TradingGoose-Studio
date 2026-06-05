@@ -2,8 +2,10 @@
 
 import type { ReactNode } from 'react'
 import { Download, FileUp, ListPlus, Plus, Trash2 } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useMessages } from 'next-intl'
 import {
   widgetHeaderIconButtonClassName,
   widgetHeaderMenuItemClassName,
@@ -47,6 +49,8 @@ export const WatchlistListActionsButton = ({
   onExport,
   onDeleteWatchlist,
 }: WatchlistListActionsButtonProps) => {
+  const locale = useLocale()
+  const copy = useMessages().workspace.widgets.watchlist.header
   const closeAndRun = (action: () => void) => {
     onOpenChange(false)
     action()
@@ -58,7 +62,7 @@ export const WatchlistListActionsButton = ({
     visibleActions.push({
       key: 'create-watchlist',
       icon: <Plus className='h-3.5 w-3.5' />,
-      label: 'Create Watchlist',
+      label: copy.createWatchlist,
       onClick: () => closeAndRun(onCreateWatchlist),
     })
   }
@@ -67,7 +71,7 @@ export const WatchlistListActionsButton = ({
     visibleActions.push({
       key: 'create-section',
       icon: <ListPlus className='h-3.5 w-3.5' />,
-      label: 'Create Section',
+      label: copy.createSection,
       onClick: () => closeAndRun(onCreateSection),
     })
   }
@@ -76,7 +80,7 @@ export const WatchlistListActionsButton = ({
     visibleActions.push({
       key: 'import',
       icon: <FileUp className='h-3.5 w-3.5' />,
-      label: 'Import',
+      label: copy.import,
       onClick: () => closeAndRun(onImport),
     })
   }
@@ -85,7 +89,7 @@ export const WatchlistListActionsButton = ({
     visibleActions.push({
       key: 'export',
       icon: <Download className='h-3.5 w-3.5' />,
-      label: 'Export',
+      label: copy.export,
       onClick: () => closeAndRun(onExport),
     })
   }
@@ -94,7 +98,7 @@ export const WatchlistListActionsButton = ({
     visibleActions.push({
       key: 'delete-watchlist',
       icon: <Trash2 className='h-3.5 w-3.5' />,
-      label: 'Delete watchlist',
+      label: copy.deleteWatchlist,
       onClick: () => closeAndRun(onDeleteWatchlist),
     })
   }
@@ -108,17 +112,17 @@ export const WatchlistListActionsButton = ({
           <span className='inline-flex'>
             <PopoverTrigger asChild>
               <button
-                type='button'
-                className={widgetHeaderIconButtonClassName()}
-                disabled={triggerDisabled}
-              >
-                <Plus className='h-3.5 w-3.5' />
-                <span className='sr-only'>List actions</span>
+              type='button'
+              className={widgetHeaderIconButtonClassName()}
+              disabled={triggerDisabled}
+            >
+              <Plus className='h-3.5 w-3.5' />
+                <span className='sr-only'>{copy.listActionsAriaLabel}</span>
               </button>
             </PopoverTrigger>
           </span>
         </TooltipTrigger>
-        <TooltipContent side='top'>List actions</TooltipContent>
+        <TooltipContent side='top'>{copy.listActionsTooltip}</TooltipContent>
       </Tooltip>
       {visibleActions.length > 0 ? (
         <PopoverContent

@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
+import { useMessages } from 'next-intl'
 import { useSkills } from '@/hooks/queries/skills'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
@@ -22,6 +24,8 @@ export function EditorSkillWidgetBody({
   widget,
   onWidgetParamsChange,
 }: EditorSkillWidgetBodyProps) {
+  const locale = useLocale()
+  const copy = useMessages().workspace.widgets.skillEditor.body
   const workspaceId = context?.workspaceId ?? null
   const { data: skills = [], isLoading, error } = useSkills(workspaceId ?? '')
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
@@ -116,13 +120,13 @@ export function EditorSkillWidgetBody({
   }, [skill, skillId])
 
   if (!workspaceId) {
-    return <WidgetStateMessage message='Select a workspace to edit skills.' />
+    return <WidgetStateMessage message={copy.selectWorkspace} />
   }
 
   if (error && skills.length === 0) {
     return (
       <WidgetStateMessage
-        message={error instanceof Error ? error.message : 'Failed to load skills.'}
+        message={error instanceof Error ? error.message : copy.failedToLoadSkills}
       />
     )
   }
@@ -141,16 +145,16 @@ export function EditorSkillWidgetBody({
         message={
           isLinkedToColorPair
             ? normalizedRequestedSkillId.length > 0
-              ? 'Skill not found.'
-              : 'This color has no shared skill selected yet.'
-            : 'Select a skill to edit.'
+              ? copy.skillNotFound
+              : copy.noSharedSkillSelected
+            : copy.selectSkillToEdit
         }
       />
     )
   }
 
   if (!skill) {
-    return <WidgetStateMessage message='Skill not found.' />
+    return <WidgetStateMessage message={copy.skillNotFound} />
   }
 
   return (

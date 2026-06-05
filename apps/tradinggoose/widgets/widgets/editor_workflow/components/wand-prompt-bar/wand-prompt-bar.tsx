@@ -3,6 +3,7 @@ import { Send, XIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 interface WandPromptBarProps {
   isVisible: boolean
@@ -24,9 +25,11 @@ export function WandPromptBar({
   onSubmit,
   onCancel,
   onChange,
-  placeholder = 'Describe what you want to generate...',
+  placeholder,
   className,
 }: WandPromptBarProps) {
+  const blockEditorCopy = useWorkflowBlockEditorCopy()
+  const copy = blockEditorCopy.shortInput
   const promptBarRef = useRef<HTMLDivElement>(null)
   const [isExiting, setIsExiting] = useState(false)
 
@@ -93,9 +96,9 @@ export function WandPromptBar({
 
         <div className='relative flex-1'>
           <Input
-            value={isStreaming ? 'Generating...' : promptValue}
+            value={isStreaming ? blockEditorCopy.wandPromptBar.generating : promptValue}
             onChange={(e) => !isStreaming && onChange(e.target.value)}
-            placeholder={placeholder}
+            placeholder={placeholder ?? copy.wandPlaceholder}
             className={cn(
               'rounded-xl border-0 text-foreground text-sm placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0',
               isStreaming && 'text-foreground/70',

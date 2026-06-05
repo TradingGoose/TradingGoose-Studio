@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { WorkspaceFileRecord } from '@/lib/uploads/contexts/workspace'
 
@@ -64,6 +65,7 @@ interface FilesResponse {
 }
 
 export function useWorkspaceFilesManager(workspaceId?: string | null) {
+  const t = useTranslations('workspace.files')
   const [files, setFiles] = useState<WorkspaceFileRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
@@ -71,7 +73,7 @@ export function useWorkspaceFilesManager(workspaceId?: string | null) {
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState<UploadProgress>({ completed: 0, total: 0 })
   const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null)
-  const [tierDisplayName, setTierDisplayName] = useState<string>('Billing tier')
+  const [tierDisplayName, setTierDisplayName] = useState<string>(t('errors.billingTier'))
   const [isPaidTier, setIsPaidTier] = useState(false)
   const [storageLoading, setStorageLoading] = useState(true)
 
@@ -99,7 +101,7 @@ export function useWorkspaceFilesManager(workspaceId?: string | null) {
 
       if (data.success && data.storage) {
         setStorageInfo(data.storage)
-        setTierDisplayName(data.usage?.tier?.displayName || 'Billing tier')
+        setTierDisplayName(data.usage?.tier?.displayName || t('errors.billingTier'))
         setIsPaidTier(isPaidTierFromUsageTier(data.usage?.tier))
       }
     } catch (error) {
@@ -144,13 +146,13 @@ export function useWorkspaceFilesManager(workspaceId?: string | null) {
 
             const data = await response.json()
             if (!data.success) {
-              lastError = data.error || 'Upload failed'
+              lastError = data.error || t('errors.uploadFailed')
             } else {
               setUploadProgress({ completed: i + 1, total: allowedFiles.length })
             }
           } catch (error) {
             logger.error('Error uploading file:', error)
-            lastError = 'Upload failed'
+            lastError = t('errors.uploadFailed')
           }
         }
 
@@ -158,7 +160,7 @@ export function useWorkspaceFilesManager(workspaceId?: string | null) {
         await loadStorageInfo()
 
         if (unsupported.length) {
-          lastError = `Unsupported file type: ${unsupported.join(', ')}`
+          lastError = t('errors.unsupportedFileType', { files: unsupported.join(', ') })
         }
 
         if (lastError) {
@@ -166,7 +168,7 @@ export function useWorkspaceFilesManager(workspaceId?: string | null) {
         }
       } catch (error) {
         logger.error('Error uploading file:', error)
-        setUploadError('Upload failed')
+        setUploadError(t('errors.uploadFailed'))
         setTimeout(() => setUploadError(null), 5000)
       } finally {
         setUploading(false)

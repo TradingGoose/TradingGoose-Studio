@@ -3,6 +3,7 @@
 import type React from 'react'
 import { useState } from 'react'
 import { Check, Copy, ExternalLink } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { RecordsOrder } from '@/hooks/queries/records-orders'
@@ -15,6 +16,7 @@ interface OrderRowActionsProps {
 
 export function OrderRowActions({ order, providerOrderDetailUrl }: OrderRowActionsProps) {
   const [copied, setCopied] = useState(false)
+  const t = useTranslations('workspace.records.orders')
 
   const stop = (event: React.MouseEvent) => event.stopPropagation()
 
@@ -31,10 +33,10 @@ export function OrderRowActions({ order, providerOrderDetailUrl }: OrderRowActio
         <TooltipTrigger asChild>
           <Button size='icon' variant='ghost' className='h-8 w-8' onClick={handleCopy}>
             {copied ? <Check className='h-4 w-4' /> : <Copy className='h-4 w-4' />}
-            <span className='sr-only'>Copy order id</span>
+            <span className='sr-only'>{t('copyOrderId')}</span>
           </Button>
         </TooltipTrigger>
-        <TooltipContent>Copy order id</TooltipContent>
+        <TooltipContent>{t('copyOrderId')}</TooltipContent>
       </Tooltip>
 
       {providerOrderDetailUrl ? (
@@ -48,11 +50,11 @@ export function OrderRowActions({ order, providerOrderDetailUrl }: OrderRowActio
                 onClick={stop}
               >
                 <ExternalLink className='h-4 w-4' />
-                <span className='sr-only'>Open provider order detail</span>
+                <span className='sr-only'>{t('openProviderOrderDetail')}</span>
               </a>
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Open provider order detail</TooltipContent>
+          <TooltipContent>{t('openProviderOrderDetail')}</TooltipContent>
         </Tooltip>
       ) : null}
     </div>

@@ -15,10 +15,10 @@ import {
 import '@xyflow/react/dist/style.css'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import type { WorkflowState } from '@/stores/workflows/workflow/types'
+import { useMessages } from 'next-intl'
 import { WorkflowEdge } from '@/widgets/widgets/editor_workflow/components/workflow-edge/workflow-edge'
 import { PreviewNode } from '@/widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-node'
-import { adaptPreviewPayloadToCanvas } from '@/widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-payload-adapter'
+import type { PreviewPayloadAdapterResult } from '@/widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-payload-adapter'
 import { PreviewSubflow } from '@/widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-subflow'
 
 const previewNodeTypesImport: NodeTypes = {
@@ -40,6 +40,8 @@ const PREVIEW_FIT_PADDING = 0.12
 
 function WorkflowPreviewControls() {
   const { zoomIn, zoomOut } = useReactFlow()
+  const copy = useMessages()
+  const workflowCopy = copy.landing.preview.workflow
   const zoom = useStore((state: { transform?: number[]; viewport?: { zoom?: number } }) =>
     Array.isArray(state.transform) ? state.transform[2] : state.viewport?.zoom
   )
@@ -54,7 +56,7 @@ function WorkflowPreviewControls() {
           onClick={() => zoomOut({ duration: 200 })}
           disabled={currentZoom <= 10}
           className='h-7 w-7 rounded-sm hover:bg-background disabled:cursor-not-allowed disabled:opacity-50'
-          aria-label='Zoom out workflow preview'
+          aria-label={workflowCopy.zoomOut}
         >
           <Minus className='h-3 w-3' />
         </Button>
@@ -67,7 +69,7 @@ function WorkflowPreviewControls() {
           onClick={() => zoomIn({ duration: 200 })}
           disabled={currentZoom >= 130}
           className='h-7 w-7 rounded-sm hover:bg-background disabled:cursor-not-allowed disabled:opacity-50'
-          aria-label='Zoom in workflow preview'
+          aria-label={workflowCopy.zoomIn}
         >
           <Plus className='h-3 w-3' />
         </Button>
@@ -78,16 +80,16 @@ function WorkflowPreviewControls() {
 
 type WorkflowPreviewCanvasProps = {
   workflowKey: string
-  workflowState: WorkflowState
+  previewPayload: PreviewPayloadAdapterResult
   className?: string
 }
 
 type WorkflowPreviewFlowProps = Omit<WorkflowPreviewCanvasProps, 'workflowKey'>
 
-function WorkflowPreviewFlow({ workflowState, className }: WorkflowPreviewFlowProps) {
+function WorkflowPreviewFlow({ previewPayload, className }: WorkflowPreviewFlowProps) {
   const nodeTypes = useMemo(() => previewNodeTypesImport, [])
   const edgeTypes = useMemo(() => previewEdgeTypesImport, [])
-  const { nodes, edges } = useMemo(() => adaptPreviewPayloadToCanvas(workflowState), [workflowState])
+  const { nodes, edges } = previewPayload
 
   const onInit = useCallback((instance: any) => {
     requestAnimationFrame(() => {
@@ -135,16 +137,12 @@ function WorkflowPreviewFlow({ workflowState, className }: WorkflowPreviewFlowPr
 
 export function WorkflowPreviewCanvas({
   workflowKey,
-  workflowState,
+  previewPayload,
   className,
 }: WorkflowPreviewCanvasProps) {
   return (
     <ReactFlowProvider>
-      <WorkflowPreviewFlow
-        key={workflowKey}
-        workflowState={workflowState}
-        className={className}
-      />
+      <WorkflowPreviewFlow key={workflowKey} previewPayload={previewPayload} className={className} />
     </ReactFlowProvider>
   )
 }

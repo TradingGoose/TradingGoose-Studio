@@ -9,12 +9,12 @@ export const commandListClass = 'overflow-y-auto overflow-x-hidden'
 export type SortOption = 'name' | 'createdAt' | 'updatedAt' | 'docCount'
 export type SortOrder = 'asc' | 'desc'
 
-export const SORT_OPTIONS = [
-  { value: 'updatedAt-desc', label: 'Last Updated' },
-  { value: 'createdAt-desc', label: 'Newest First' },
-  { value: 'createdAt-asc', label: 'Oldest First' },
-  { value: 'name-asc', label: 'Name (A-Z)' },
-  { value: 'name-desc', label: 'Name (Z-A)' },
-  { value: 'docCount-desc', label: 'Most Documents' },
-  { value: 'docCount-asc', label: 'Least Documents' },
+export const SORT_OPTION_DEFINITIONS = [
+  { value: 'updatedAt-desc', labelKey: 'sort.lastUpdated' },
+  { value: 'createdAt-desc', labelKey: 'sort.newestFirst' },
+  { value: 'createdAt-asc', labelKey: 'sort.oldestFirst' },
+  { value: 'name-asc', labelKey: 'sort.nameAsc' },
+  { value: 'name-desc', labelKey: 'sort.nameDesc' },
+  { value: 'docCount-desc', labelKey: 'sort.mostDocuments' },
+  { value: 'docCount-asc', labelKey: 'sort.leastDocuments' },
 ] as const

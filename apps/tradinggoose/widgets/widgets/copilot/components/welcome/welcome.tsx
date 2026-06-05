@@ -1,6 +1,7 @@
 'use client'
 
 import { Blocks, LibraryBig, Workflow } from 'lucide-react'
+import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
 
 interface CopilotWelcomeProps {
@@ -9,48 +10,50 @@ interface CopilotWelcomeProps {
 }
 
 export function CopilotWelcome({ onQuestionClick, accessLevel = 'limited' }: CopilotWelcomeProps) {
+  const copilotCopy = useCopilotMessages()
+
   const handleQuestionClick = (question: string) => {
     onQuestionClick?.(question)
   }
 
   const subtitle =
     accessLevel === 'full'
-      ? 'Ask questions and let tools run without extra approval'
-      : 'Ask questions and review tools before they run'
+      ? copilotCopy.welcome.subtitleFull
+      : copilotCopy.welcome.subtitleLimited
 
   const capabilities =
     accessLevel === 'full'
       ? [
           {
-            title: 'Build & edit workflows',
-            question: 'Help me build a workflow',
+            title: copilotCopy.welcome.cards.buildEditWorkflows.title,
+            question: copilotCopy.welcome.cards.buildEditWorkflows.question,
             Icon: Workflow,
           },
           {
-            title: 'Optimize workflows',
-            question: 'Help me optimize my workflow',
+            title: copilotCopy.welcome.cards.optimizeWorkflows.title,
+            question: copilotCopy.welcome.cards.optimizeWorkflows.question,
             Icon: Blocks,
           },
           {
-            title: 'Debug workflows',
-            question: 'Help me debug my workflow',
+            title: copilotCopy.welcome.cards.debugWorkflows.title,
+            question: copilotCopy.welcome.cards.debugWorkflows.question,
             Icon: LibraryBig,
           },
         ]
       : [
           {
-            title: 'Understand workflows',
-            question: 'What does my workflow do?',
+            title: copilotCopy.welcome.cards.understandWorkflows.title,
+            question: copilotCopy.welcome.cards.understandWorkflows.question,
             Icon: Workflow,
           },
           {
-            title: 'Review changes safely',
-            question: 'Help me update this workflow safely',
+            title: copilotCopy.welcome.cards.reviewChangesSafely.title,
+            question: copilotCopy.welcome.cards.reviewChangesSafely.question,
             Icon: Blocks,
           },
           {
-            title: 'Plan next steps',
-            question: 'What should I change in this workflow next?',
+            title: copilotCopy.welcome.cards.planNextSteps.title,
+            question: copilotCopy.welcome.cards.planNextSteps.question,
             Icon: LibraryBig,
           },
         ]
@@ -88,10 +91,11 @@ export function CopilotWelcome({ onQuestionClick, accessLevel = 'limited' }: Cop
         {/* Tips */}
         <div className='mt-6 text-center text-[11px] text-muted-foreground'>
           <p>
-            Tip: Use <span className='font-medium text-foreground'>@</span> to reference chats,
-            workflows, knowledge, blocks, or templates
+            {copilotCopy.welcome.tipPrefix}{' '}
+            <span className='font-medium text-foreground'>@</span>{' '}
+            {copilotCopy.welcome.tipSuffix}
           </p>
-          <p className='mt-1.5'>Shift+Enter for newline</p>
+          <p className='mt-1.5'>{copilotCopy.welcome.shiftEnter}</p>
         </div>
       </div>
     </div>

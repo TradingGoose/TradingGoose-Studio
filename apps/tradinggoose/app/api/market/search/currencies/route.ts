@@ -39,13 +39,5 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const hasSearch = CurrenciesSearchKeys.some((key) => parsed.data[key] !== undefined)
-  if (!hasSearch) {
-    return NextResponse.json(
-      { error: 'At least one search parameter is required.' },
-      { status: 400 }
-    )
-  }
-
   return proxyMarketRequest(request, ['search', 'currencies'])
 }

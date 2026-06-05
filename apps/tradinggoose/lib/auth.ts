@@ -28,6 +28,7 @@ import {
   renderPasswordResetEmail,
 } from '@/components/emails/render-email'
 import { sendBillingTierWelcomeEmail } from '@/lib/billing'
+import { localizeUrl } from '@/i18n/utils'
 import { authorizeSubscriptionReference } from '@/lib/billing/authorization'
 import {
   ensureDefaultUserSubscription,
@@ -58,6 +59,7 @@ import {
   handleSubscriptionDeleted,
 } from '@/lib/billing/webhooks/subscription'
 import { addVerifiedUserEmailToAudience, sendEmail } from '@/lib/email/mailer'
+import { resolveEmailLocale } from '@/lib/email/locale'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { env, getEnv } from '@/lib/env'
 import { isEmailVerificationEnabled } from '@/lib/environment'
@@ -74,8 +76,8 @@ import { getSystemOAuthClientCredentialsForRequest } from '@/lib/oauth/system-ma
 import { getOrganizationAccessState } from '@/lib/organization/access'
 import { getRegistrationEligibility, markWaitlistEntrySignedUp } from '@/lib/registration/service'
 import {
-  REGISTRATION_DISABLED_MESSAGE,
-  REGISTRATION_WAITLIST_MESSAGE,
+  REGISTRATION_DISABLED_REASON,
+  REGISTRATION_WAITLIST_REASON,
 } from '@/lib/registration/shared'
 import {
   createStripeClientProxy,
@@ -451,8 +453,8 @@ export const auth = betterAuth({
           throw new APIError('BAD_REQUEST', {
             message:
               eligibility.reason === 'disabled'
-                ? REGISTRATION_DISABLED_MESSAGE
-                : REGISTRATION_WAITLIST_MESSAGE,
+                ? REGISTRATION_DISABLED_REASON
+                : REGISTRATION_WAITLIST_REASON,
           })
         },
         after: async (user) => {
@@ -587,12 +589,13 @@ export const auth = betterAuth({
     throwOnInvalidCredentials: true,
     sendResetPassword: async ({ user, url, token }, request) => {
       const username = user.name || ''
+      const locale = await resolveEmailLocale({ userId: user.id, email: user.email })
 
-      const html = await renderPasswordResetEmail(username, url)
+      const html = await renderPasswordResetEmail(username, url, locale)
 
       const result = await sendEmail({
         to: user.email,
-        subject: getEmailSubject('reset-password'),
+        subject: getEmailSubject('reset-password', locale),
         html,
         emailType: 'transactional',
       })
@@ -679,11 +682,12 @@ export const auth = betterAuth({
             )
           }
 
-          const html = await renderOTPEmail(data.otp, data.email, data.type)
+          const locale = await resolveEmailLocale({ email: data.email })
+          const html = await renderOTPEmail(data.otp, data.email, data.type, undefined, locale)
 
           const result = await sendEmail({
             to: data.email,
-            subject: getEmailSubject(data.type),
+            subject: getEmailSubject(data.type, locale),
             html,
             emailType: 'transactional',
           })
@@ -1824,19 +1828,23 @@ export const auth = betterAuth({
         try {
           const { invitation, organization, inviter } = data
 
-          const inviteUrl = `${getBaseUrl()}/invite/${invitation.id}`
           const inviterName = inviter.user?.name || 'A team member'
+          const locale = await resolveEmailLocale({ email: invitation.email })
+          const inviteUrl = localizeUrl(getBaseUrl(), locale, `/invite/${invitation.id}`)
 
           const html = await renderInvitationEmail(
             inviterName,
             organization.name,
             inviteUrl,
-            invitation.email
+            invitation.email,
+            locale
           )
 
           const result = await sendEmail({
             to: invitation.email,
-            subject: `${inviterName} has invited you to join ${organization.name} on TradingGoose`,
+            subject: getEmailSubject('invitation', locale, {
+              organizationName: organization.name,
+            }),
             html,
             emailType: 'transactional',
           })

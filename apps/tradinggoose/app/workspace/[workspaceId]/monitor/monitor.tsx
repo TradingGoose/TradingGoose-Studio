@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Activity, Download, Loader2, RefreshCw } from 'lucide-react'
-import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -52,7 +51,6 @@ import {
   DEFAULT_EXECUTION_PANEL_SIZES,
   type ExecutionMonitorQuickFilterField,
   type ExecutionMonitorViewConfig,
-  getNextMonitorViewName,
   MONITOR_PAGE_MODES,
   type MonitorPageMode,
   type MonitorSavedViewConfig,
@@ -69,6 +67,12 @@ import { MonitorExecutionWorkspace } from '@/app/workspace/[workspaceId]/monitor
 import { AutocompleteSearch } from '@/app/workspace/[workspaceId]/records/components/logs-toolbar'
 import { GlobalNavbarHeader } from '@/global-navbar'
 import { buildLogsRequestParams, useLogDetail } from '@/hooks/queries/logs'
+import { formatTemplate } from '@/i18n/utils'
+import { usePathname } from '@/i18n/navigation'
+import {
+  getMonitorModeLabel,
+  useMonitorCopy,
+} from '@/app/workspace/[workspaceId]/monitor/copy'
 
 type MonitorPageProps = {
   workspaceId: string
@@ -117,7 +121,32 @@ const normalizeConfigForMode = (
     ? normalizeConfigMonitorViewConfig(configs.config)
     : normalizeExecutionMonitorViewConfig(configs.executions)
 
+const getNextLocalizedMonitorViewName = (
+  rows: MonitorViewRow[],
+  mode: MonitorPageMode,
+  baseName: string
+) => {
+  const existingNames = new Set(
+    rows
+      .filter((row) => row.mode === mode)
+      .map((row) => row.name.trim())
+      .filter(Boolean)
+  )
+
+  if (!existingNames.has(baseName)) {
+    return baseName
+  }
+
+  let index = 2
+  while (existingNames.has(`${baseName} ${index}`)) {
+    index += 1
+  }
+
+  return `${baseName} ${index}`
+}
+
 export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
+  const { copy } = useMonitorCopy()
   const pathname = usePathname()
   const workingStateScope = `${workspaceId}:${userId}`
   const [monitors, setMonitors] = useState<MonitorRecord[]>([])
@@ -461,6 +490,11 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
       preferredActiveViewIdsByMode: workingStateRef.current.activeViewIdsByMode,
       listMonitorViews,
       createMonitorView,
+      defaultViewNames: {
+        executions: copy.mode.executions,
+        config: copy.mode.config,
+      },
+      copy: copy.errors,
     })
 
     if (bootstrapRequestRef.current !== requestId) {
@@ -537,9 +571,9 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
     } catch (error) {
       setMonitors([])
       setMonitorsLoading(false)
-      setMonitorsError(error instanceof Error ? error.message : 'Failed to load monitors')
+      setMonitorsError(error instanceof Error ? error.message : copy.errors.loadMonitors)
     }
-  }, [workspaceId])
+  }, [copy.errors.loadMonitors, workspaceId])
 
   useEffect(() => {
     void loadMonitorData()
@@ -642,13 +676,13 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
       await Promise.allSettled([refresh(), loadMonitorData(), reloadViewState()])
     } catch (errorValue) {
       setViewsError(
-        errorValue instanceof Error ? errorValue.message : 'Failed to persist view before refresh'
+        errorValue instanceof Error ? errorValue.message : copy.errors.persistBeforeRefresh
       )
       await Promise.allSettled([refresh(), loadMonitorData()])
     } finally {
       setIsRefreshingAll(false)
     }
-  }, [loadMonitorData, persistDirtyModes, refresh, reloadViewState])
+  }, [copy.errors.persistBeforeRefresh, loadMonitorData, persistDirtyModes, refresh, reloadViewState])
 
   const handleExportExecutionLogs = useCallback(() => {
     const filters = buildMonitorExecutionLogFilters(executionViewConfig)
@@ -685,12 +719,12 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
         }
         return savedMonitor
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to create monitor'
+        const message = error instanceof Error ? error.message : copy.errors.createMonitor
         setMonitorsError(message)
         throw error instanceof Error ? error : new Error(message)
       }
     },
-    [upsertMonitor]
+    [copy.errors.createMonitor, upsertMonitor]
   )
 
   const handleUpdateMonitor = useCallback(
@@ -721,12 +755,12 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
         if (previousMonitors) {
           setMonitors(previousMonitors)
         }
-        const message = error instanceof Error ? error.message : 'Failed to update monitor'
+        const message = error instanceof Error ? error.message : copy.errors.updateMonitor
         setMonitorsError(message)
         throw error instanceof Error ? error : new Error(message)
       }
     },
-    [upsertMonitor]
+    [copy.errors.updateMonitor, upsertMonitor]
   )
 
   const handleToggleMonitorState = useCallback(
@@ -760,12 +794,12 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
         if (previousMonitors) {
           setMonitors(previousMonitors)
         }
-        const message = error instanceof Error ? error.message : 'Failed to update monitor state'
+        const message = error instanceof Error ? error.message : copy.errors.updateMonitorState
         setMonitorsError(message)
         throw error instanceof Error ? error : new Error(message)
       }
     },
-    [upsertMonitor, workspaceId]
+    [copy.errors.updateMonitorState, upsertMonitor, workspaceId]
   )
 
   const handleDeleteMonitor = useCallback(async (monitorId: string) => {
@@ -775,11 +809,11 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
       await deleteMonitorRecord(monitorId)
       setMonitors((current) => current.filter((monitor) => monitor.monitorId !== monitorId))
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to delete monitor'
+      const message = error instanceof Error ? error.message : copy.errors.deleteMonitor
       setMonitorsError(message)
       throw error instanceof Error ? error : new Error(message)
     }
-  }, [])
+  }, [copy.errors.deleteMonitor])
 
   const handleReorderColumnCards = useCallback(
     (columnId: string, nextExecutionIds: string[]) => {
@@ -813,8 +847,14 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
   const handleOpenCreateViewDialog = useCallback(() => {
     setViewsError(null)
     setViewNameDialog({ kind: 'create', mode: activeMode })
-    setNameDialogValue(getNextMonitorViewName(activeModeRows, activeMode))
-  }, [activeMode, activeModeRows])
+    setNameDialogValue(
+      getNextLocalizedMonitorViewName(
+        activeModeRows,
+        activeMode,
+        getMonitorModeLabel(copy, activeMode)
+      )
+    )
+  }, [activeMode, activeModeRows, copy])
 
   const handleOpenRenameViewDialog = useCallback(
     (viewId: string) => {
@@ -882,7 +922,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
           setConfigsByMode((current) => ({ ...current, executions: nextConfig }))
         }
       } catch (errorValue) {
-        setViewsError(errorValue instanceof Error ? errorValue.message : 'Failed to activate view')
+        setViewsError(errorValue instanceof Error ? errorValue.message : copy.errors.activateView)
       } finally {
         setViewBusyAction(null)
       }
@@ -895,6 +935,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
       setActiveModeViewId,
       updateWorkingState,
       workspaceId,
+      copy.errors.activateView,
     ]
   )
 
@@ -903,20 +944,20 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
 
     const trimmedName = nameDialogValue.trim()
     if (!trimmedName) {
-      setViewsError('Name cannot be empty')
+      setViewsError(copy.errors.nameEmpty)
       return
     }
 
     const dialogState = viewNameDialog
     if (dialogState.mode !== activeMode) {
-      setViewsError('Saved view dialog is stale. Close it and try again.')
+      setViewsError(copy.errors.dialogStale)
       return
     }
     if (
       dialogState.kind === 'rename' &&
       !activeModeRows.some((row) => row.id === dialogState.viewId && row.mode === dialogState.mode)
     ) {
-      setViewsError('Saved view dialog is stale. Close it and try again.')
+      setViewsError(copy.errors.dialogStale)
       return
     }
 
@@ -996,8 +1037,8 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
         errorValue instanceof Error
           ? errorValue.message
           : dialogState.kind === 'create'
-            ? 'Failed to create view'
-            : 'Failed to rename view'
+            ? copy.errors.createView
+            : copy.errors.renameView
       )
     } finally {
       setNameDialogBusy(false)
@@ -1010,10 +1051,14 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
     nameDialogValue,
     persistDirtyModes,
     setActiveModeViewId,
-    updateWorkingState,
-    viewNameDialog,
-    workspaceId,
-  ])
+      updateWorkingState,
+      viewNameDialog,
+      workspaceId,
+      copy.errors.createView,
+      copy.errors.dialogStale,
+      copy.errors.nameEmpty,
+      copy.errors.renameView,
+    ])
 
   const handleReorderViews = useCallback(
     async (nextLayouts: LayoutTab[]) => {
@@ -1042,12 +1087,12 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
         })
       } catch (errorValue) {
         setViewRows(previousRows)
-        setViewsError(errorValue instanceof Error ? errorValue.message : 'Failed to reorder views')
+        setViewsError(errorValue instanceof Error ? errorValue.message : copy.errors.reorderViews)
       } finally {
         setViewBusyAction(null)
       }
     },
-    [activeMode, activeModeRows, activeModeViewId, viewRows, workspaceId]
+    [activeMode, activeModeRows, activeModeViewId, viewRows, workspaceId, copy.errors.reorderViews]
   )
 
   const handleDeleteView = useCallback(
@@ -1105,7 +1150,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
         }
       } catch (errorValue) {
         setViewRows(previousRows)
-        setViewsError(errorValue instanceof Error ? errorValue.message : 'Failed to delete view')
+        setViewsError(errorValue instanceof Error ? errorValue.message : copy.errors.deleteView)
       } finally {
         setViewBusyAction(null)
       }
@@ -1119,6 +1164,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
       updateWorkingState,
       viewRows,
       workspaceId,
+      copy.errors.deleteView,
     ]
   )
 
@@ -1126,11 +1172,13 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
     async (nextMode: MonitorPageMode) => {
       if (nextMode === activeMode) return true
       if (!renderableModes.includes(nextMode)) {
-        setViewsError(`${nextMode === 'config' ? 'Config' : 'Execution'} views are unavailable.`)
+        setViewsError(
+          nextMode === 'config' ? copy.errors.configViewsUnavailable : copy.errors.executionViewsUnavailable
+        )
         return false
       }
       if (nextMode === 'config' && referenceData.isLoading) {
-        setViewsError('Monitor requirements are still loading.')
+        setViewsError(copy.errors.requirementsLoading)
         return false
       }
 
@@ -1140,7 +1188,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
         setViewsError(
           error instanceof Error
             ? error.message
-            : 'Failed to persist monitor views before switching modes.'
+            : copy.errors.persistBeforeSwitching
         )
         return false
       }
@@ -1155,12 +1203,25 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
       }))
       return true
     },
-    [activeMode, persistDirtyModes, referenceData.isLoading, renderableModes, updateWorkingState]
+    [
+      activeMode,
+      persistDirtyModes,
+      referenceData.isLoading,
+      renderableModes,
+      updateWorkingState,
+      copy.errors.configViewsUnavailable,
+      copy.errors.executionViewsUnavailable,
+      copy.errors.persistBeforeSwitching,
+      copy.errors.requirementsLoading,
+    ]
   )
 
   const configHeaderCards = useMemo(
-    () => buildConfigMonitorCards(monitors, referenceData, {}),
-    [monitors, referenceData]
+    () =>
+      buildConfigMonitorCards(monitors, referenceData, {}, {
+        unknownListingLabel: copy.execution.unknownListing,
+      }),
+    [copy.execution.unknownListing, monitors, referenceData]
   )
   const viewControlsBusy =
     Boolean(viewBusyAction) ||
@@ -1176,7 +1237,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
     <div className='flex w-full flex-1 items-center gap-3'>
       <div className='hidden items-center gap-2 sm:flex'>
         <Activity className='h-[18px] w-[18px] text-muted-foreground' />
-        <span className='font-medium text-sm'>Monitor</span>
+        <span className='font-medium text-sm'>{copy.title}</span>
       </div>
       {activeMode === 'executions' ? (
         <div className='flex w-full flex-1'>
@@ -1185,14 +1246,14 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
             onChange={commitFilterQuery}
             queryPolicy={MONITOR_QUERY_POLICY}
             workflowsData={workflowSuggestions}
-            placeholder='Search executions...'
+            placeholder={copy.searchExecutionsPlaceholder}
             className='w-full'
           />
         </div>
       ) : referenceData.isLoading ? (
         <div className='flex w-full flex-1 items-center gap-2 text-muted-foreground text-sm'>
           <Loader2 className='h-4 w-4 animate-spin' />
-          Loading monitor requirements...
+          {copy.loadingRequirements}
         </div>
       ) : (
         <div className='flex w-full flex-1'>
@@ -1230,10 +1291,10 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
         {viewStateMode === 'loading' ? (
           <span className='inline-flex items-center gap-2'>
             <Loader2 className='h-4 w-4 animate-spin' />
-            Loading views…
+            {copy.loadingViews}
           </span>
         ) : (
-          'Views unavailable'
+          copy.viewsUnavailable
         )}
       </div>
     )
@@ -1249,7 +1310,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
           disabled={!renderableModes.includes('executions') || shellActionsDisabled}
         >
           <Download className='h-4 w-4' />
-          Export CSV
+          {copy.exportCsv}
         </Button>
       ) : null}
       <Tabs
@@ -1258,7 +1319,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
           void handleChangeMode(value as MonitorPageMode)
         }}
       >
-        <TabsList aria-label='Monitor mode' className='shrink-0 rounded-md'>
+        <TabsList aria-label={copy.modeAriaLabel} className='shrink-0 rounded-md'>
           {(['executions', 'config'] as const).map((mode) => (
             <TabsTrigger
               key={mode}
@@ -1269,7 +1330,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
                 (mode === 'config' ? configModeDisabled : !renderableModes.includes(mode))
               }
             >
-              {mode}
+              {getMonitorModeLabel(copy, mode)}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -1288,7 +1349,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
         ) : (
           <RefreshCw className='h-4 w-4' />
         )}
-        <span className='sr-only'>Refresh monitor workspace</span>
+        <span className='sr-only'>{copy.refreshWorkspace}</span>
       </Button>
     </div>
   )
@@ -1362,7 +1423,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
         logDetailQuery.error instanceof Error
           ? logDetailQuery.error.message
           : logDetailQuery.error
-            ? 'Failed to load execution details'
+            ? copy.errors.loadExecutionDetails
             : null
       }
       panelSizes={workingState.executionPanelSizes}
@@ -1404,12 +1465,12 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
   )
   const fatalWorkspaceError = (
     <MonitorStateCard
-      title='Views unavailable'
-      description={viewsError ?? 'Monitor views could not be loaded for this workspace.'}
+      title={copy.viewsUnavailable}
+      description={viewsError ?? copy.viewsUnavailableDescription}
       actionLabel={
         <>
           {viewStateReloading ? <Loader2 className='mr-2 h-4 w-4 animate-spin' /> : null}
-          Reload views
+          {copy.reloadViews}
         </>
       }
       actionDisabled={viewStateReloading}
@@ -1421,7 +1482,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
   )
   const configReferenceLoadingWorkspace = (
     <MonitorStateCard
-      loadingLabel='Loading monitor requirements...'
+      loadingLabel={copy.loadingRequirements}
       className='h-full w-full border-0 bg-transparent'
     />
   )
@@ -1436,13 +1497,14 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
   const viewNameDialogMode = viewNameDialog?.mode ?? activeMode
   const viewNameDialogDescription =
     viewNameDialog?.kind === 'rename'
-      ? 'Rename this saved monitor view without changing its workspace settings.'
+      ? copy.dialog.renameDescription
       : viewNameDialogMode === 'config'
-        ? 'Create a new saved view from the current monitor configuration workspace settings.'
-        : 'Create a new saved view from the current execution workspace settings.'
-  const viewNameDialogTitle = viewNameDialog?.kind === 'rename' ? 'Rename View' : 'Create View'
+        ? copy.dialog.createConfigDescription
+        : copy.dialog.createExecutionDescription
+  const viewNameDialogTitle =
+    viewNameDialog?.kind === 'rename' ? copy.dialog.renameTitle : copy.dialog.createTitle
   const viewNameDialogSubmitLabel =
-    viewNameDialog?.kind === 'rename' ? 'Rename view' : 'Create view'
+    viewNameDialog?.kind === 'rename' ? copy.dialog.renameSubmit : copy.dialog.createSubmit
 
   return (
     <div className='flex h-full min-h-0 w-full min-w-0 flex-col'>
@@ -1460,7 +1522,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
           <Input
             value={nameDialogValue}
             onChange={(event) => setNameDialogValue(event.target.value)}
-            placeholder='View name'
+            placeholder={copy.dialog.namePlaceholder}
             disabled={nameDialogBusy}
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
@@ -1471,7 +1533,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
           />
           <DialogFooter>
             <Button variant='outline' onClick={handleCloseNameDialog} disabled={nameDialogBusy}>
-              Cancel
+              {copy.dialog.cancel}
             </Button>
             <Button
               onClick={() => {

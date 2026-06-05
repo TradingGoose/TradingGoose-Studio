@@ -17,6 +17,23 @@ vi.mock('./lib/security/csp', () => ({
   generateRuntimeCSP: vi.fn(async () => "default-src 'self'"),
 }))
 
+vi.mock('next-intl/middleware', async () => {
+  const { NextResponse } = await vi.importActual<typeof import('next/server')>('next/server')
+
+  return {
+    default: () => (request: { nextUrl: URL; url: string }) => {
+      const url = new URL(request.url)
+
+      if (url.pathname === '/en' || url.pathname.startsWith('/en/')) {
+        url.pathname = url.pathname === '/en' ? '/' : url.pathname.slice('/en'.length)
+        return NextResponse.redirect(url)
+      }
+
+      return NextResponse.next()
+    },
+  }
+})
+
 describe('proxy auth routing', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -63,5 +80,159 @@ describe('proxy auth routing', () => {
     expect(response.status).toBe(200)
     expect(response.headers.get('location')).toBeNull()
     expect(response.cookies.get('better-auth.session_token')?.maxAge).toBe(0)
+  })
+
+  it('preserves locale on the login route while keeping callback targets canonical', async () => {
+    mockGetSessionCookie.mockReturnValue(undefined)
+
+    const { proxy } = await import('./proxy')
+    const response = await proxy(
+      new NextRequest('http://localhost:3000/es/workspace/ws-1/dashboard?layoutId=layout-1')
+    )
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get('location')).toBe(
+      'http://localhost:3000/es/login?callbackUrl=%2Fworkspace%2Fws-1%2Fdashboard%3FlayoutId%3Dlayout-1'
+    )
+    expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('es')
+  })
+
+  it('redirects authenticated localized auth routes to the localized workspace root', async () => {
+    mockGetSessionCookie.mockReturnValue('session-cookie')
+
+    const { proxy } = await import('./proxy')
+    const response = await proxy(new NextRequest('http://localhost:3000/es/login'))
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get('location')).toBe('http://localhost:3000/es/workspace')
+  })
+
+  it('normalizes default-locale prefixed routes before rendering', async () => {
+    mockGetSessionCookie.mockReturnValue(undefined)
+
+    const { proxy } = await import('./proxy')
+    const response = await proxy(
+      new NextRequest('http://localhost:3000/en/login', {
+        headers: {
+          'user-agent': 'vitest',
+        },
+      })
+    )
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get('location')).toBe('http://localhost:3000/login')
+  })
+
+  it('lets next-intl handle localized landing routes without stripping the locale', async () => {
+    mockGetSessionCookie.mockReturnValue(undefined)
+
+    const { proxy } = await import('./proxy')
+    const response = await proxy(
+      new NextRequest('http://localhost:3000/es', {
+        headers: {
+          'user-agent': 'vitest',
+        },
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('location')).toBeNull()
+    expect(response.headers.get('x-middleware-rewrite')).not.toBe('http://localhost:3000/')
+    expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('es')
+  })
+
+  it.each([
+    ['root', 'http://localhost:3000/?source=nav', 'http://localhost:3000/zh?source=nav'],
+    ['workspace', 'http://localhost:3000/workspace', 'http://localhost:3000/zh/workspace'],
+  ])(
+    'redirects canonical %s requests to the locale remembered by NEXT_LOCALE',
+    async (_, url, location) => {
+      mockGetSessionCookie.mockReturnValue('session-cookie')
+
+      const { proxy } = await import('./proxy')
+      const response = await proxy(
+        new NextRequest(url, {
+          headers: {
+            cookie: 'NEXT_LOCALE=zh',
+            'user-agent': 'vitest',
+          },
+        })
+      )
+
+      expect(response.status).toBe(307)
+      expect(response.headers.get('location')).toBe(location)
+    }
+  )
+
+  it('does not rewrite localized API-shaped paths to canonical API routes', async () => {
+    mockGetSessionCookie.mockReturnValue('session-cookie')
+
+    const { proxy } = await import('./proxy')
+    const response = await proxy(
+      new NextRequest(
+        'http://localhost:3000/es/api/workspaces/invitations/invitation-1?token=abc',
+        {
+          headers: {
+            'user-agent': 'vitest',
+          },
+        }
+      )
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('x-middleware-rewrite')).not.toBe(
+      'http://localhost:3000/api/workspaces/invitations/invitation-1?token=abc'
+    )
+  })
+
+  it('exempts canonical webhook trigger API requests from suspicious user-agent filtering', async () => {
+    mockGetSessionCookie.mockReturnValue(undefined)
+
+    const { proxy } = await import('./proxy')
+    const response = await proxy(
+      new NextRequest('http://localhost:3000/api/webhooks/trigger/webhook-1', {
+        headers: {
+          'user-agent': 'sqlmap',
+        },
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('x-middleware-rewrite')).toBeNull()
+  })
+
+  it('does not exempt localized API-shaped webhook paths from suspicious user-agent filtering', async () => {
+    mockGetSessionCookie.mockReturnValue(undefined)
+
+    const { proxy } = await import('./proxy')
+    const response = await proxy(
+      new NextRequest('http://localhost:3000/es/api/webhooks/trigger/webhook-1', {
+        headers: {
+          'user-agent': 'sqlmap',
+        },
+      })
+    )
+
+    expect(response.status).toBe(403)
+    expect(response.headers.get('x-middleware-rewrite')).toBeNull()
+  })
+
+  it('rewrites localized markdown requests with the normalized content path', async () => {
+    mockGetSessionCookie.mockReturnValue(undefined)
+
+    const { proxy } = await import('./proxy')
+    const response = await proxy(
+      new NextRequest('http://localhost:3000/es/terms', {
+        headers: {
+          accept: 'text/markdown',
+          'user-agent': 'vitest',
+        },
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('x-middleware-rewrite')).toBe(
+      'http://localhost:3000/api/markdown?path=%2Fterms&locale=es'
+    )
   })
 })

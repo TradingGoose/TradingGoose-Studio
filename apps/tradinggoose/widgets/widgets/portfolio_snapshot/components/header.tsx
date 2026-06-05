@@ -4,7 +4,10 @@ import { useMemo } from 'react'
 import { MarketProviderControls } from '@/components/market-selector/provider-controls'
 import { TradingProviderControls } from '@/components/trading-selector/provider-controls'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
+import { useLocale } from 'next-intl'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
+import { useMessages } from 'next-intl'
+import type { LocaleCode } from '@/i18n/utils'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { emitPortfolioSnapshotParamsChange } from '@/widgets/utils/portfolio-snapshot-params'
 import { WidgetHeaderRefreshButton } from '@/widgets/widgets/components/widget-header-refresh-button'
@@ -30,6 +33,8 @@ export function PortfolioSnapshotHeaderControls({
   widgetKey,
   params,
 }: HeaderControlProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = useMessages().workspace.widgets.portfolioSnapshot.header
   const providerAvailabilityQuery = useOAuthProviderAvailability(
     getPortfolioSnapshotProviderAvailabilityIds()
   )
@@ -85,7 +90,7 @@ export function PortfolioSnapshotHeaderControls({
           providerOptions={providerOptions}
           serviceId={params?.serviceId}
           portfolioIdentity={params?.portfolioIdentity}
-          toolName='Portfolio Snapshot'
+          toolName={copy.title}
           onProviderChange={(nextProvider) => {
             if (!nextProvider || nextProvider === providerId) return
 
@@ -117,11 +122,13 @@ export function PortfolioSnapshotHeaderControls({
 }
 
 function PortfolioSnapshotRefreshControl({ panelId, widgetKey, params }: HeaderControlProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = useMessages().workspace.widgets.portfolioSnapshot.header
   const providerId = typeof params?.provider === 'string' ? params.provider.trim() : ''
 
   return (
     <WidgetHeaderRefreshButton
-      label='Refresh portfolio snapshot'
+      label={copy.refresh}
       disabled={!providerId}
       onClick={() => {
         if (!providerId) return

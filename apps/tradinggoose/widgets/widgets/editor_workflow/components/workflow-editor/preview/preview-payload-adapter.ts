@@ -2,6 +2,7 @@ import type { Edge, Node } from '@xyflow/react'
 import { getBlock } from '@/blocks'
 import type { BlockConfig } from '@/blocks/types'
 import type { BlockState, WorkflowState } from '@/stores/workflows/workflow/types'
+import type { PreviewSummaryRowData } from '@/widgets/widgets/editor_workflow/components/workflow-render/preview-summary'
 import {
   buildPreviewDiffStatusMap,
   type PreviewDiffOperation,
@@ -11,7 +12,7 @@ import {
 export interface PreviewNodeData extends Record<string, unknown> {
   type: string
   name: string
-  config: BlockConfig
+  config?: BlockConfig
   readOnly: true
   blockState?: BlockState
   subBlockValues?: Record<string, any>
@@ -21,6 +22,11 @@ export interface PreviewNodeData extends Record<string, unknown> {
   hasNestedError?: boolean
   kind?: 'loop' | 'parallel'
   diffStatus?: PreviewDiffStatus
+  title?: string
+  summaryRows?: PreviewSummaryRowData[]
+  objectItemLabel?: string
+  enabled?: boolean
+  horizontalHandles?: boolean
 }
 
 export interface PreviewSubflowData extends Record<string, unknown> {
@@ -31,6 +37,9 @@ export interface PreviewSubflowData extends Record<string, unknown> {
   isPreview: true
   kind: 'loop' | 'parallel'
   diffStatus?: PreviewDiffStatus
+  title?: string
+  startLabel?: string
+  endLabel?: string
 }
 
 export type PreviewCanvasNode = Node<PreviewNodeData, 'previewNode'>
@@ -77,6 +86,7 @@ function calculateAbsolutePosition(
 
 interface PreviewPayloadAdapterOptions {
   operations?: PreviewDiffOperation[]
+  includeConfig?: boolean
 }
 
 export function adaptPreviewPayloadToCanvas(
@@ -85,6 +95,7 @@ export function adaptPreviewPayloadToCanvas(
 ): PreviewPayloadAdapterResult {
   const nodes: Array<PreviewCanvasNode | PreviewCanvasSubflowNode> = []
   const diffStatuses = buildPreviewDiffStatusMap(options?.operations)
+  const includeConfig = options?.includeConfig !== false
 
   Object.values(workflowState.blocks).forEach((block) => {
     const absolutePosition = calculateAbsolutePosition(block, workflowState.blocks)
@@ -120,7 +131,7 @@ export function adaptPreviewPayloadToCanvas(
       data: {
         type: block.type,
         name: block.name,
-        config: blockConfig,
+        ...(includeConfig ? { config: blockConfig } : {}),
         readOnly: true,
         blockState: block,
         subBlockValues: block.subBlocks,

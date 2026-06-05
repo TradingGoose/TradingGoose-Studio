@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { CopyPlus } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,6 +38,7 @@ export function CopyToWorkspace({
   currentWorkspaceId,
   disabled = false,
 }: CopyToWorkspaceProps) {
+  const t = useTranslations('workspace.knowledge.copyToWorkspace')
   const queryClient = useQueryClient()
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -48,7 +50,7 @@ export function CopyToWorkspace({
         setIsLoading(true)
         const response = await fetch('/api/workspaces')
         if (!response.ok) {
-          throw new Error('Failed to fetch workspaces')
+          throw new Error(t('failedToFetchWorkspaces'))
         }
 
         const data = await response.json()
@@ -89,7 +91,7 @@ export function CopyToWorkspace({
 
       const result = await response.json()
       if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Failed to copy knowledge base')
+        throw new Error(result.error || t('failedToCopy'))
       }
 
       if (workspaceId === currentWorkspaceId) {
@@ -115,13 +117,13 @@ export function CopyToWorkspace({
               type='button'
               className='inline-flex h-7 w-7 items-center justify-center gap-2 rounded-md p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
               disabled={disabled || isLoading || isCopying}
-              aria-label='Copy knowledge base to workspace'
+              aria-label={t('button')}
             >
               <CopyPlus className='h-3.5 w-3.5' />
             </button>
           </DropdownMenuTrigger>
         </TooltipTrigger>
-        <TooltipContent side='top'>Copy to workspace</TooltipContent>
+        <TooltipContent side='top'>{t('tooltip')}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent
         align='end'
@@ -148,7 +150,9 @@ export function CopyToWorkspace({
 
           {workspaces.length === 0 && !isLoading && (
             <DropdownMenuItem disabled className='px-3 py-2'>
-              <span className='text-muted-foreground text-xs'>No workspaces with write access</span>
+              <span className='text-muted-foreground text-xs'>
+                {t('noWorkspacesWithWriteAccess')}
+              </span>
             </DropdownMenuItem>
           )}
         </div>

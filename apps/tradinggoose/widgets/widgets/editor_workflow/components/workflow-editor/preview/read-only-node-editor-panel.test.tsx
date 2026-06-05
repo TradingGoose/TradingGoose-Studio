@@ -29,6 +29,47 @@ vi.mock('@/blocks', () => ({
   ),
 }))
 
+vi.mock('@/widgets/widgets/editor_workflow/copy', () => ({
+  useWorkflowI18n: () => ({
+    workflowEditorCopy: {
+      previewInspector: 'Preview Inspector',
+      selectBlockToViewPreviewDetails: 'Select a block to view its preview details.',
+      nodeNotFound: 'Node not found',
+      selectedNodeUnavailable: 'The selected node is no longer available.',
+      loopTypeLabel: 'Type',
+      loopIterations: 'Iterations',
+      collectionItems: 'Collection',
+      whileCondition: 'While Condition',
+      parallelTypeLabel: 'Parallel Type',
+      parallelExecutions: 'Executions',
+      summary: {
+        objectItem: 'Object',
+        additionalCount: '+{count}',
+      },
+    },
+    readOnlyPreviewCopy: {
+      noValuesToDisplay: 'No values to display.',
+    },
+    workflowLabelsCopy: {
+      configured: 'Configured',
+      error: 'error',
+      fields: 'fields',
+      items: 'items',
+      object: 'object',
+      value: 'value',
+    },
+    getLocalizedDefaultBlockName: (_blockType: string, blockName?: string) => blockName ?? 'Block',
+    localizeWorkflowSubBlockConfig: (config: any) => config,
+    resolveWorkflowDisplayValue: (config: any, value: unknown) => {
+      if (config?.options && typeof value === 'string') {
+        return config.options.find((option: any) => option?.id === value)?.label ?? value
+      }
+
+      return value
+    },
+  }),
+}))
+
 function createWorkflowState(): WorkflowState {
   return {
     blocks: {

@@ -1,5 +1,6 @@
 import {
   type ParsedMarketQuery,
+  SUPPORTED_MARKET_ASSET_CLASSES,
   parseCategorizedSearchQuery,
   serializeArrayParam,
 } from '@/components/listing-selector/search-utils'
@@ -35,7 +36,7 @@ export function buildMarketSearchRequest(args: {
     ? [parsedQuery.assetClass]
     : providerConfig.assetClasses.length
       ? providerConfig.assetClasses
-      : []
+      : [...SUPPORTED_MARKET_ASSET_CLASSES]
 
   if (resolvedAssetClasses.length) {
     filtersPayload.asset_class = resolvedAssetClasses
@@ -74,9 +75,7 @@ export function buildMarketSearchRequest(args: {
   if (parsedQuery.region) {
     filtersPayload.region = [parsedQuery.region]
   }
-  if (Object.keys(queryParams).length > 0 || Object.keys(filtersPayload).length > 0) {
-    queryParams.filters = JSON.stringify({ limit: 50, ...filtersPayload })
-  }
+  queryParams.filters = JSON.stringify({ limit: 50, ...filtersPayload })
 
   return { queryParams, requestKey: JSON.stringify(queryParams) }
 }

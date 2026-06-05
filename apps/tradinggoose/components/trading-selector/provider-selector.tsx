@@ -2,6 +2,8 @@
 
 import { ProviderSelector, type ProviderSelectorVariant } from '@/components/provider-selector'
 import { OAUTH_PROVIDERS, parseProvider } from '@/lib/oauth'
+import { formatTemplate } from '@/i18n/utils'
+import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import { getTradingProviderDefinition } from '@/providers/trading/providers'
 
 export type TradingProviderOption = {
@@ -32,18 +34,17 @@ type TradingProviderSelectorProps = {
   variant?: ProviderSelectorVariant
 }
 
-const DEFAULT_PLACEHOLDER = 'Select Trading Provider'
-
 export function TradingProviderSelector({
   value,
   options,
   onChange,
   disabled = false,
-  placeholder = DEFAULT_PLACEHOLDER,
+  placeholder,
   triggerClassName,
   menuClassName,
   variant = 'widget',
 }: TradingProviderSelectorProps) {
+  const copy = useWorkspaceWidgetsMessages().providerControls.tradingSelector
   const optionsWithIcons = options.map((option) => ({
     ...option,
     icon: resolveTradingProviderIcon(option.id),
@@ -55,14 +56,20 @@ export function TradingProviderSelector({
       options={optionsWithIcons}
       onChange={onChange}
       disabled={disabled}
-      placeholder={placeholder}
+      placeholder={placeholder ?? copy.placeholder}
       triggerClassName={triggerClassName}
       menuClassName={menuClassName}
       variant={variant}
-      ariaLabel='Select trading provider'
-      tooltipText='Select broker'
+      ariaLabel={copy.ariaLabel}
+      tooltipText={copy.tooltip}
+      selectionUnavailableText={copy.selectionUnavailable}
+      emptyText={copy.noProviders}
       formatSelectedLabel={(option, currentVariant) =>
-        currentVariant === 'form' ? option.name : `Broker: ${option.name}`
+        currentVariant === 'form'
+          ? option.name
+          : formatTemplate(copy.selectedLabel, {
+              providerName: option.name || copy.defaultProviderName,
+            })
       }
     />
   )

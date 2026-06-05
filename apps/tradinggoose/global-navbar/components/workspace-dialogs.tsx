@@ -2,6 +2,7 @@
 
 import React, { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Loader2, RotateCw, X } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { useParams } from 'next/navigation'
 import {
   AlertDialog,
@@ -30,6 +31,7 @@ import {
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import type { WorkspacePermissions } from '@/hooks/use-workspace-permissions'
 import { API_ENDPOINTS } from '@/stores/constants'
+import { type LocaleCode } from '@/i18n/utils'
 import type { Workspace } from '../types'
 
 const logger = createLogger('WorkspaceInviteModal')
@@ -444,6 +446,7 @@ export function WorkspaceInviteModal({
   workspaceName,
   workspaceId,
 }: WorkspaceInviteModalProps) {
+  const locale = useLocale() as LocaleCode
   const formRef = useRef<HTMLFormElement>(null)
   const [inputValue, setInputValue] = useState('')
   const [emails, setEmails] = useState<string[]>([])
@@ -942,6 +945,7 @@ export function WorkspaceInviteModal({
                   email: email,
                   role: 'member',
                   permission: permissionType,
+                  locale,
                 }),
               })
 

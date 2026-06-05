@@ -1,7 +1,8 @@
 'use client'
 
 import { LibraryBig } from 'lucide-react'
-import Link from 'next/link'
+import { useTranslations } from 'next-intl'
+import { Link } from '@/i18n/navigation'
 import { GlobalNavbarHeader } from '@/global-navbar'
 
 interface BreadcrumbItem {
@@ -24,6 +25,7 @@ interface KnowledgeHeaderProps {
 }
 
 export function KnowledgeHeader({ breadcrumbs, centerContent }: KnowledgeHeaderProps) {
+  const t = useTranslations('workspace.knowledge')
   const breadcrumbContent = (
     <div className='flex w-full flex-1 items-center gap-3'>
       <div className={HEADER_STYLES.breadcrumbsWrapper}>
@@ -51,9 +53,7 @@ export function KnowledgeHeader({ breadcrumbs, centerContent }: KnowledgeHeaderP
       {/* Show compact breadcrumb text on small screens */}
       <div className='flex flex-1 items-center gap-1 text-muted-foreground text-sm sm:hidden'>
         <LibraryBig className='h-[16px] w-[16px]' />
-        <span className='truncate'>
-          {breadcrumbs[breadcrumbs.length - 1]?.label ?? 'Knowledge'}
-        </span>
+        <span className='truncate'>{breadcrumbs[breadcrumbs.length - 1]?.label ?? t('title')}</span>
       </div>
     </div>
   )

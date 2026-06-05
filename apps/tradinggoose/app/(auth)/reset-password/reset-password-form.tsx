@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
+import { useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -30,6 +31,8 @@ export function RequestResetForm({
   statusMessage,
   className,
 }: RequestResetFormProps) {
+  const copy = useMessages().auth.resetPassword
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     onSubmit(email)
@@ -40,24 +43,21 @@ export function RequestResetForm({
       <div className='space-y-6'>
         <div className='space-y-2'>
           <div className='flex items-center justify-between'>
-            <Label htmlFor='reset-email'>Email</Label>
+            <Label htmlFor='reset-email'>{copy.request.emailLabel}</Label>
           </div>
           <Input
             id='reset-email'
             value={email}
             onChange={(e) => onEmailChange(e.target.value)}
-            placeholder='Enter your email'
+            placeholder={copy.request.emailPlaceholder}
             type='email'
             disabled={isSubmitting}
             required
             className='rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100'
           />
-          <p className='text-muted-foreground text-sm'>
-            We'll send a password reset link to this email address.
-          </p>
+          <p className='text-muted-foreground text-sm'>{copy.request.helperText}</p>
         </div>
 
-        {/* Status message display */}
         {statusType && statusMessage && (
           <div
             className={cn('text-xs', statusType === 'success' ? 'text-[#4CAF50]' : 'text-red-400')}
@@ -68,7 +68,7 @@ export function RequestResetForm({
       </div>
 
       <Button type='submit' disabled={isSubmitting} className={primaryButtonClasses}>
-        {isSubmitting ? 'Sending...' : 'Send Reset Link'}
+        {isSubmitting ? copy.request.submitting : copy.request.submit}
       </Button>
     </form>
   )
@@ -91,6 +91,7 @@ export function SetNewPasswordForm({
   statusMessage,
   className,
 }: SetNewPasswordFormProps) {
+  const copy = useMessages().auth.resetPassword
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [validationMessage, setValidationMessage] = useState('')
@@ -101,12 +102,12 @@ export function SetNewPasswordForm({
     e.preventDefault()
 
     if (password.length < 8) {
-      setValidationMessage('Password must be at least 8 characters long')
+      setValidationMessage(copy.setNew.validation.passwordTooShort)
       return
     }
 
     if (password !== confirmPassword) {
-      setValidationMessage('Passwords do not match')
+      setValidationMessage(copy.setNew.validation.passwordMismatch)
       return
     }
 
@@ -119,7 +120,7 @@ export function SetNewPasswordForm({
       <div className='space-y-6'>
         <div className='space-y-2'>
           <div className='flex items-center justify-between'>
-            <Label htmlFor='password'>New Password</Label>
+            <Label htmlFor='password'>{copy.setNew.passwordLabel}</Label>
           </div>
           <div className='relative'>
             <Input
@@ -132,7 +133,7 @@ export function SetNewPasswordForm({
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              placeholder='Enter new password'
+              placeholder={copy.setNew.passwordPlaceholder}
               className={cn(
                 'rounded-md pr-10 shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                 validationMessage &&
@@ -143,7 +144,7 @@ export function SetNewPasswordForm({
               type='button'
               onClick={() => setShowPassword(!showPassword)}
               className='-translate-y-1/2 absolute top-1/2 right-3 text-gray-500 transition hover:text-gray-700'
-              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              aria-label={showPassword ? copy.setNew.hidePassword : copy.setNew.showPassword}
             >
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
@@ -151,7 +152,7 @@ export function SetNewPasswordForm({
         </div>
         <div className='space-y-2'>
           <div className='flex items-center justify-between'>
-            <Label htmlFor='confirmPassword'>Confirm Password</Label>
+            <Label htmlFor='confirmPassword'>{copy.setNew.confirmPasswordLabel}</Label>
           </div>
           <div className='relative'>
             <Input
@@ -164,7 +165,7 @@ export function SetNewPasswordForm({
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
-              placeholder='Confirm new password'
+              placeholder={copy.setNew.confirmPasswordPlaceholder}
               className={cn(
                 'rounded-md pr-10 shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                 validationMessage &&
@@ -175,7 +176,7 @@ export function SetNewPasswordForm({
               type='button'
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
               className='-translate-y-1/2 absolute top-1/2 right-3 text-gray-500 transition hover:text-gray-700'
-              aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+              aria-label={showConfirmPassword ? copy.setNew.hidePassword : copy.setNew.showPassword}
             >
               {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
@@ -201,7 +202,7 @@ export function SetNewPasswordForm({
       </div>
 
       <Button disabled={isSubmitting || !token} type='submit' className={primaryButtonClasses}>
-        {isSubmitting ? 'Resetting...' : 'Reset Password'}
+        {isSubmitting ? copy.setNew.submitting : copy.setNew.submit}
       </Button>
     </form>
   )

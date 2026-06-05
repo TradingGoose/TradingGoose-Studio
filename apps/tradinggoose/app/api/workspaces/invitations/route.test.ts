@@ -80,12 +80,13 @@ describe('Workspace Invitations API Route', () => {
       sendEmail: mockSendEmail,
     }))
 
-    vi.doMock('@react-email/render', () => ({
-      render: vi.fn().mockResolvedValue('<html>email content</html>'),
+    vi.doMock('@/lib/email/locale', () => ({
+      resolveEmailLocale: vi.fn().mockResolvedValue('en'),
     }))
 
-    vi.doMock('@/components/emails/workspace-invitation', () => ({
-      WorkspaceInvitationEmail: vi.fn(),
+    vi.doMock('@/components/emails/render-email', () => ({
+      getEmailSubject: vi.fn().mockReturnValue('Workspace invitation'),
+      renderWorkspaceInvitationEmail: vi.fn().mockResolvedValue('<html>email content</html>'),
     }))
 
     vi.doMock('@/lib/urls/utils', () => ({

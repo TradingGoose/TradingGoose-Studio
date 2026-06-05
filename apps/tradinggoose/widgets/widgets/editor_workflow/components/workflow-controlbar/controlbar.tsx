@@ -5,11 +5,12 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { widgetHeaderControlClassName } from '@/components/widget-header-control'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
 import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkflowEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WidgetInstance } from '@/widgets/layout'
 import { isPairColor, type PairColor } from '@/widgets/pair-colors'
 import { ControlBar } from '@/widgets/widgets/editor_workflow/components/control-bar/control-bar'
-import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const FALLBACK_TEXT_CLASS = widgetHeaderControlClassName('text-muted-foreground/80')
 
@@ -35,8 +36,9 @@ export function WorkflowWidgetControlBar({
   widget,
   panelId,
 }: WorkflowWidgetControlBarProps) {
+  const copy = useWorkflowEditorCopy()
   if (!workspaceId) {
-    return <span className={FALLBACK_TEXT_CLASS}>Controls unavailable</span>
+    return <span className={FALLBACK_TEXT_CLASS}>{copy.controlsUnavailable}</span>
   }
 
   const resolvedPairColor = isPairColor(widget?.pairColor) ? widget?.pairColor : 'gray'
@@ -49,7 +51,7 @@ export function WorkflowWidgetControlBar({
   const activeWorkflowId = useWorkflowRegistry((state) => state.getActiveWorkflowId(channelId))
 
   if (!activeWorkflowId) {
-    return <span className={FALLBACK_TEXT_CLASS}>Controls unavailable</span>
+    return <span className={FALLBACK_TEXT_CLASS}>{copy.controlsUnavailable}</span>
   }
 
   return (

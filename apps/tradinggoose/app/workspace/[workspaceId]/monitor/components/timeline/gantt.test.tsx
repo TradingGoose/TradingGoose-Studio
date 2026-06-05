@@ -5,6 +5,7 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { formatDurationMs, formatUsd } from '@/i18n/formatters'
 import type { ExecutionMonitorTimelineZoom } from '../view/view-config'
 import { Gantt } from './gantt'
 
@@ -261,8 +262,10 @@ describe('Gantt', () => {
     })
 
     expect(container.textContent).toContain('Count: 1')
-    expect(container.textContent).toContain('Duration: 300000ms')
-    expect(container.textContent).toContain('Cost: $0.1200')
+    expect(container.textContent).toContain(`Duration: ${formatDurationMs('en', 300000)}`)
+    expect(container.textContent).toContain(
+      `Cost: ${formatUsd('en', 0.12, { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
+    )
   })
 
   it('shows a primary-colored today marker even when the current view has no executions', async () => {

@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react'
+import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import { type ListingInputValue, toListingValueObject } from '@/lib/listing/identity'
 import { createSearchClause, serializeQuery } from '@/lib/logs/query-parser'
 import { MONITOR_QUERY_POLICY } from '@/lib/logs/query-policy'
@@ -69,15 +70,15 @@ type MonitorWorkflowLog = WorkflowLog & {
   }
 }
 
-const getListingLabel = (listing: unknown) => {
+const getListingLabel = (listing: unknown, unknownListingLabel: string) => {
   const normalized = toListingValueObject(listing as ListingInputValue)
-  if (!normalized) return 'Unknown listing'
+  if (!normalized) return unknownListingLabel
 
   if (normalized.listing_type === 'default') {
-    return normalized.listing_id || 'Unknown listing'
+    return normalized.listing_id || unknownListingLabel
   }
 
-  return [normalized.base_id, normalized.quote_id].filter(Boolean).join('/') || 'Unknown listing'
+  return [normalized.base_id, normalized.quote_id].filter(Boolean).join('/') || unknownListingLabel
 }
 
 const parseDurationMs = (duration: string | null | undefined) => {
@@ -183,7 +184,11 @@ export const buildMonitorExecutionLogFilters = (viewConfig: ExecutionMonitorView
 
 const toExecutionItem = (
   log: MonitorWorkflowLog,
-  liveMonitorIds: Set<string>
+  liveMonitorIds: Set<string>,
+  labels: {
+    unknownListing: string
+    unknownWorkflow: string
+  }
 ): MonitorExecutionItem => {
   const snapshot = log.executionData?.trigger?.data?.monitor ?? null
   const startedAt = log.startedAt ?? log.createdAt
@@ -213,7 +218,9 @@ const toExecutionItem = (
       listingWithAssetClass.listing_type.trim()) ||
     (source === PORTFOLIO_MONITOR_TRIGGER_ID ? 'portfolio' : '') ||
     'unknown'
-  const listingLabel = listing ? getListingLabel(listing) : accountId || 'Portfolio account'
+  const listingLabel = listing
+    ? getListingLabel(listing, labels.unknownListing)
+    : accountId || 'Portfolio account'
   const isPartial =
     !monitorId ||
     !providerId ||
@@ -232,7 +239,7 @@ const toExecutionItem = (
     durationMs,
     outcome: normalizeOutcome(log),
     trigger: log.trigger,
-    workflowName: log.workflow?.name || 'Unknown workflow',
+    workflowName: log.workflow?.name || labels.unknownWorkflow,
     workflowColor: log.workflow?.color || '#3972F6',
     monitorId,
     source,
@@ -260,6 +267,7 @@ export function useMonitorWorkspaceLogs({
   viewConfig: ExecutionMonitorViewConfig
   monitors: MonitorRecord[]
 }) {
+  const { copy } = useMonitorCopy()
   const filters = useMemo(() => buildMonitorExecutionLogFilters(viewConfig), [viewConfig])
 
   const logsQuery = useLogsList(workspaceId, filters, {
@@ -295,10 +303,22 @@ export function useMonitorWorkspaceLogs({
 
   const executionItems = useMemo(() => {
     const logs = logsQuery.data?.pages.flatMap((page) => page.logs) ?? []
-    const items = logs.map((log) => toExecutionItem(log, liveMonitorIds))
+    const items = logs.map((log) =>
+      toExecutionItem(log, liveMonitorIds, {
+        unknownListing: copy.execution.unknownListing,
+        unknownWorkflow: copy.execution.unknownWorkflow,
+      })
+    )
 
     return sortExecutionItems(items, viewConfig.sortBy)
-  }, [liveMonitorIds, logsQuery.data?.pages, viewConfig.sortBy])
+  }, [
+    copy.errors.loadExecutions,
+    copy.execution.unknownListing,
+    copy.execution.unknownWorkflow,
+    liveMonitorIds,
+    logsQuery.data?.pages,
+    viewConfig.sortBy,
+  ])
 
   const orderedVisibleLogIds = useMemo(
     () =>
@@ -332,7 +352,7 @@ export function useMonitorWorkspaceLogs({
       logsQuery.error instanceof Error
         ? logsQuery.error.message
         : logsQuery.error
-          ? 'Failed to load monitor executions'
+          ? copy.errors.loadExecutions
           : null,
     refresh: logsQuery.refetch,
   }

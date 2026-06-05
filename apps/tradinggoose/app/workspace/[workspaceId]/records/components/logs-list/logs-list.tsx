@@ -2,6 +2,7 @@
 
 import type { RefObject } from 'react'
 import { AlertCircle, Info, Loader2 } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
 import {
   Table,
   TableBody,
@@ -12,28 +13,15 @@ import {
 } from '@/components/ui/table'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import {
+  getLogLevelOption,
+  getLogTriggerColor,
+  getLogTriggerOption,
+} from '@/app/workspace/[workspaceId]/records/components/logs-toolbar/components/filters/components/shared'
 import Timeline from '@/app/workspace/[workspaceId]/records/components/logs-toolbar/components/filters/components/timeline'
 import { formatDate } from '@/app/workspace/[workspaceId]/records/utils'
+import { formatDurationMs } from '@/i18n/formatters'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
-
-const getTriggerColor = (trigger: string | null | undefined): string => {
-  if (!trigger) return '#9ca3af'
-
-  switch (trigger.toLowerCase()) {
-    case 'manual':
-      return '#9ca3af'
-    case 'schedule':
-      return '#10b981'
-    case 'webhook':
-      return '#f97316'
-    case 'chat':
-      return '#8b5cf6'
-    case 'api':
-      return '#3b82f6'
-    default:
-      return '#9ca3af'
-  }
-}
 
 export interface LogsListProps {
   logs: WorkflowLog[]
@@ -60,6 +48,9 @@ export function LogsList({
   scrollContainerRef,
   selectedRowRef,
 }: LogsListProps) {
+  const locale = useLocale()
+  const t = useTranslations('workspace.logs.list')
+  const tFilters = useTranslations('workspace.logs.dashboard.filters')
   return (
     <div className='flex h-full max-h-full min-h-0 min-w-0 flex-1 overflow-hidden'>
       <div className='flex h-full max-h-full min-h-0 flex-1 flex-col overflow-hidden'>
@@ -86,27 +77,33 @@ export function LogsList({
                     <TableHeader>
                       <TableRow>
                         <TableHead className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
-                          <span className='text-muted-foreground text-xs leading-none'>Time</span>
-                        </TableHead>
-                        <TableHead className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
-                          <span className='text-muted-foreground text-xs leading-none'>Status</span>
-                        </TableHead>
-                        <TableHead className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
                           <span className='text-muted-foreground text-xs leading-none'>
-                            Workflow
+                            {t('headers.time')}
                           </span>
                         </TableHead>
                         <TableHead className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
-                          <span className='text-muted-foreground text-xs leading-none'>Cost</span>
-                        </TableHead>
-                        <TableHead className='hidden px-4 pt-2 pb-3 text-center align-middle font-medium xl:table-cell'>
                           <span className='text-muted-foreground text-xs leading-none'>
-                            Trigger
+                            {t('headers.status')}
+                          </span>
+                        </TableHead>
+                        <TableHead className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
+                          <span className='text-muted-foreground text-xs leading-none'>
+                            {t('headers.workflow')}
+                          </span>
+                        </TableHead>
+                        <TableHead className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
+                          <span className='text-muted-foreground text-xs leading-none'>
+                            {t('headers.cost')}
                           </span>
                         </TableHead>
                         <TableHead className='hidden px-4 pt-2 pb-3 text-center align-middle font-medium xl:table-cell'>
                           <span className='text-muted-foreground text-xs leading-none'>
-                            Duration
+                            {t('headers.trigger')}
+                          </span>
+                        </TableHead>
+                        <TableHead className='hidden px-4 pt-2 pb-3 text-center align-middle font-medium xl:table-cell'>
+                          <span className='text-muted-foreground text-xs leading-none'>
+                            {t('headers.duration')}
                           </span>
                         </TableHead>
                       </TableRow>
@@ -123,21 +120,24 @@ export function LogsList({
                     <div className='flex h-full items-center justify-center p-5'>
                       <div className='flex items-center gap-2 text-muted-foreground'>
                         <Loader2 className='h-5 w-5 animate-spin' />
-                        <span className='text-sm'>Loading logs...</span>
+                        <span className='text-sm'>{t('loading')}</span>
                       </div>
                     </div>
                   ) : error ? (
                     <div className='flex h-full items-center justify-center'>
                       <div className='flex items-center gap-2 text-destructive'>
                         <AlertCircle className='h-5 w-5' />
-                        <span className='text-sm'>Error: {error}</span>
+                        <span className='text-sm'>
+                          {t('errorPrefix')}
+                          {error}
+                        </span>
                       </div>
                     </div>
                   ) : logs.length === 0 ? (
                     <div className='flex h-full items-center justify-center'>
                       <div className='flex items-center gap-2 text-muted-foreground'>
                         <Info className='h-5 w-5' />
-                        <span className='text-sm'>No logs found</span>
+                        <span className='text-sm'>{t('noLogs')}</span>
                       </div>
                     </div>
                   ) : (
@@ -152,8 +152,10 @@ export function LogsList({
                       </colgroup>
                       <TableBody>
                         {logs.map((log) => {
-                          const formattedDate = formatDate(log.startedAt ?? log.createdAt)
+                          const formattedDate = formatDate(log.startedAt ?? log.createdAt, locale)
                           const isSelected = selectedLogId === log.id
+                          const levelOption = getLogLevelOption(log.level)
+                          const triggerOption = getLogTriggerOption(log.trigger)
 
                           return (
                             <TableRow
@@ -187,12 +189,12 @@ export function LogsList({
                                       : 'bg-secondary text-card-foreground'
                                   )}
                                 >
-                                  {log.level}
+                                  {levelOption ? tFilters(levelOption.labelKey) : log.level}
                                 </div>
                               </TableCell>
                               <TableCell className='px-4 py-3 text-center align-middle'>
                                 <div className='truncate font-medium text-[13px]'>
-                                  {log.workflow?.name || 'Unknown Workflow'}
+                                  {log.workflow?.name || t('unknownWorkflow')}
                                 </div>
                               </TableCell>
                               <TableCell className='px-4 py-3 text-center align-middle'>
@@ -214,17 +216,19 @@ export function LogsList({
                                     style={
                                       log.trigger.toLowerCase() === 'manual'
                                         ? undefined
-                                        : { backgroundColor: getTriggerColor(log.trigger) }
+                                        : { backgroundColor: getLogTriggerColor(log.trigger) }
                                     }
                                   >
-                                    {log.trigger}
+                                    {triggerOption ? tFilters(triggerOption.labelKey) : log.trigger}
                                   </div>
                                 ) : (
                                   <div className='text-muted-foreground text-xs'>—</div>
                                 )}
                               </TableCell>
                               <TableCell className='hidden px-4 py-3 text-center align-middle text-muted-foreground text-xs xl:table-cell'>
-                                {typeof log.durationMs === 'number' ? `${log.durationMs}ms` : '—'}
+                                {typeof log.durationMs === 'number'
+                                  ? formatDurationMs(locale, log.durationMs)
+                                  : '—'}
                               </TableCell>
                             </TableRow>
                           )
@@ -240,10 +244,10 @@ export function LogsList({
                                 {isFetchingMore ? (
                                   <>
                                     <Loader2 className='h-4 w-4 animate-spin' />
-                                    <span className='text-sm'>Loading more...</span>
+                                    <span className='text-sm'>{t('loadingMore')}</span>
                                   </>
                                 ) : (
-                                  <span className='text-sm'>Scroll to load more</span>
+                                  <span className='text-sm'>{t('scrollToLoadMore')}</span>
                                 )}
                               </div>
                             </TableCell>

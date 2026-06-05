@@ -169,7 +169,7 @@ describe('OrderDetails', () => {
     })
 
     const providerButton = Array.from(container.querySelectorAll('button')).find(
-      (node) => node.textContent === 'Refresh provider order detail'
+      (node) => node.textContent === 'Refresh provider detail'
     )
     if (!(providerButton instanceof HTMLButtonElement)) {
       throw new Error('Expected provider refresh button to render')

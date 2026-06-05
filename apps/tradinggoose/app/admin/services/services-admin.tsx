@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useLocale, useMessages, type Messages } from 'next-intl'
 import { Check, ChevronDown, ChevronRight, KeyRound, Pencil, Trash2, X } from 'lucide-react'
 import {
   Alert,
@@ -22,6 +23,8 @@ import { ADMIN_META_BADGE_CLASSNAME, ADMIN_STATUS_BADGE_CLASSNAME } from '@/app/
 import { AdminPageShell } from '@/app/admin/page-shell'
 import { SearchInput } from '@/app/workspace/[workspaceId]/knowledge/components'
 import { useAdminServicesSnapshot, useSaveAdminService } from '@/hooks/queries/admin-services'
+import { formatTemplate } from '@/i18n/utils'
+import type { LocaleCode } from '@/i18n/utils'
 
 const EMPTY_SNAPSHOT: AdminSystemServicesSnapshot = {
   services: [],
@@ -32,6 +35,8 @@ type ServiceSectionSummary = {
   missing: string | null
   status: 'ready' | 'review'
 }
+
+type AdminServicesCopy = Messages['admin']['services']
 
 const SERVICE_SECTION_STATUS_BADGE_CLASSNAME = {
   ready: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/20',
@@ -45,6 +50,8 @@ type EditingSetting = {
 }
 
 export function AdminServices() {
+  const locale = useLocale() as LocaleCode
+  const copy = useMessages().admin.services
   const servicesQuery = useAdminServicesSnapshot()
   const saveServiceMutation = useSaveAdminService()
   const [searchTerm, setSearchTerm] = useState('')
@@ -70,7 +77,7 @@ export function AdminServices() {
 
       return {
         service,
-        summary: getServiceSectionSummary(service),
+        summary: getServiceSectionSummary(service, copy),
         isConfigured: isServiceConfigured(service),
       }
     })
@@ -79,22 +86,22 @@ export function AdminServices() {
   const configuredCount = snapshot.services.filter((service) => isServiceConfigured(service)).length
   const reviewCount = Math.max(snapshot.services.length - configuredCount, 0)
   const headerStats = [
-    { label: 'Services', value: String(snapshot.services.length) },
-    { label: 'Configured', value: String(configuredCount) },
-    { label: 'Review', value: String(reviewCount) },
+    { label: copy.headerStats.services, value: String(snapshot.services.length) },
+    { label: copy.headerStats.configured, value: String(configuredCount) },
+    { label: copy.headerStats.review, value: String(reviewCount) },
   ]
 
   const headerLeft = (
     <div className='flex w-full flex-1 items-center gap-3'>
       <div className='hidden items-center gap-2 sm:flex'>
         <KeyRound className='h-[18px] w-[18px] text-muted-foreground' />
-        <span className='font-medium text-sm'>Admin services</span>
+        <span className='font-medium text-sm'>{copy.title}</span>
       </div>
       <div className='flex w-full max-w-xl flex-1'>
         <SearchInput
           value={searchTerm}
           onChange={setSearchTerm}
-          placeholder='Search services, credentials, and settings...'
+          placeholder={copy.searchPlaceholder}
           className='w-full'
         />
       </div>
@@ -117,19 +124,19 @@ export function AdminServices() {
       <div className='mx-auto flex w-full max-w-6xl flex-col gap-4'>
         {servicesQuery.isError ? (
           <Alert variant='destructive'>
-            <AlertDescription>{getErrorMessage(servicesQuery.error)}</AlertDescription>
+            <AlertDescription>{getErrorMessage(servicesQuery.error, copy.error)}</AlertDescription>
           </Alert>
         ) : null}
 
         {saveServiceMutation.isError ? (
           <Alert variant='destructive'>
-            <AlertDescription>{getErrorMessage(saveServiceMutation.error)}</AlertDescription>
+            <AlertDescription>{getErrorMessage(saveServiceMutation.error, copy.error)}</AlertDescription>
           </Alert>
         ) : null}
 
         {!draft && servicesQuery.isPending ? (
           <div className='flex min-h-[280px] items-center justify-center rounded-lg border bg-background'>
-            <p className='text-muted-foreground text-sm'>Loading service catalog...</p>
+            <p className='text-muted-foreground text-sm'>{copy.loading}</p>
           </div>
         ) : null}
 
@@ -137,7 +144,7 @@ export function AdminServices() {
           <div>
             {filteredServiceViews.length === 0 ? (
               <div className='flex min-h-[240px] items-center justify-center rounded-lg border border-dashed bg-muted/20 px-6 py-10 text-center text-muted-foreground text-sm'>
-                No services match the current search.
+                {copy.emptyState}
               </div>
             ) : (
               <div className='overflow-hidden rounded-lg border border-border bg-background'>
@@ -172,7 +179,7 @@ export function AdminServices() {
                                   variant='outline'
                                   className={`${ADMIN_STATUS_BADGE_CLASSNAME} ${SERVICE_SECTION_STATUS_BADGE_CLASSNAME[summary.status]}`}
                                 >
-                                  {summary.status === 'ready' ? 'Ready' : 'Review'}
+                                  {summary.status === 'ready' ? copy.status.ready : copy.status.review}
                                 </Badge>
                               </div>
                               <p className='max-w-3xl text-muted-foreground text-xs leading-relaxed'>
@@ -198,15 +205,15 @@ export function AdminServices() {
                           <div className='space-y-4'>
                             <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>
                               <div className='space-y-1'>
-                                <p className='font-medium text-sm'>Credentials</p>
+                                <p className='font-medium text-sm'>{copy.credentials.title}</p>
                                 <p className='text-muted-foreground text-xs leading-relaxed'>
-                                  Store the runtime secrets required by this system service.
+                                  {copy.credentials.description}
                                 </p>
                               </div>
 
                               {service.credentials.length === 0 ? (
                                 <p className='text-muted-foreground text-sm'>
-                                  This service does not require stored credentials.
+                                  {copy.credentials.none}
                                 </p>
                               ) : (
                                 <div className='grid gap-3 md:grid-cols-2'>
@@ -221,7 +228,7 @@ export function AdminServices() {
                                         description={
                                           credential.required
                                             ? credential.description
-                                            : `${credential.description} Optional.`
+                                            : `${credential.description} ${copy.badges.optional}.`
                                         }
                                         hasValue={isFilled}
                                         required={credential.required}
@@ -229,8 +236,12 @@ export function AdminServices() {
                                         disabled={isSaving}
                                         placeholder={
                                           credential.hasValue
-                                            ? `Enter a new ${credential.label.toLowerCase()} to replace the stored value`
-                                            : `Enter ${credential.label.toLowerCase()}`
+                                            ? formatTemplate(copy.placeholders.replaceValue, {
+                                                label: credential.label.toLowerCase(),
+                                              })
+                                            : formatTemplate(copy.placeholders.enterValue, {
+                                                label: credential.label.toLowerCase(),
+                                              })
                                         }
                                         onSave={(value) =>
                                           persistCredentialPatch(service.id, credential.key, {
@@ -253,15 +264,15 @@ export function AdminServices() {
 
                             <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>
                               <div className='space-y-1'>
-                                <p className='font-medium text-sm'>Settings</p>
+                                <p className='font-medium text-sm'>{copy.settings.title}</p>
                                 <p className='text-muted-foreground text-xs leading-relaxed'>
-                                  Configure runtime behavior and endpoint defaults for this service.
+                                  {copy.settings.description}
                                 </p>
                               </div>
 
                               {service.settings.length === 0 ? (
                                 <p className='text-muted-foreground text-sm'>
-                                  This service does not expose stored settings.
+                                  {copy.settings.none}
                                 </p>
                               ) : (
                                 <div className='grid gap-3 md:grid-cols-2'>
@@ -269,10 +280,10 @@ export function AdminServices() {
                                     const hasEffectiveValue =
                                       setting.hasValue || setting.defaultValue.trim().length > 0
                                     const badgeLabel = setting.hasValue
-                                      ? 'Stored'
+                                      ? copy.badges.stored
                                       : setting.defaultValue.trim().length > 0
-                                        ? 'Default'
-                                        : 'Optional'
+                                        ? copy.badges.default
+                                        : copy.badges.optional
 
                                     return (
                                       <div
@@ -304,10 +315,20 @@ export function AdminServices() {
                                           <div className='flex items-center justify-between gap-3 rounded-md border border-border/60 bg-background px-3 py-2'>
                                             <div className='text-muted-foreground text-xs'>
                                               {setting.hasValue
-                                                ? `Stored value: ${setting.value === 'true' ? 'Enabled' : 'Disabled'}`
+                                                ? formatTemplate(copy.settings.storedValue, {
+                                                    value:
+                                                      setting.value === 'true'
+                                                        ? copy.settings.enabled
+                                                        : copy.settings.disabled,
+                                                  })
                                                 : setting.defaultValue
-                                                  ? `Default: ${setting.defaultValue === 'true' ? 'Enabled' : 'Disabled'}`
-                                                  : 'Not configured'}
+                                                  ? formatTemplate(copy.settings.defaultValue, {
+                                                      value:
+                                                        setting.defaultValue === 'true'
+                                                          ? copy.settings.enabled
+                                                          : copy.settings.disabled,
+                                                    })
+                                                  : copy.settings.notConfigured}
                                             </div>
                                             <div className='flex items-center gap-2'>
                                               <Switch
@@ -336,7 +357,9 @@ export function AdminServices() {
                                               >
                                                 <Trash2 className='h-4 w-4' />
                                                 <span className='sr-only'>
-                                                  Clear {setting.label}
+                                                  {formatTemplate(copy.actions.clearField, {
+                                                    label: setting.label,
+                                                  })}
                                                 </span>
                                               </Button>
                                             </div>
@@ -384,6 +407,7 @@ export function AdminServices() {
                                                 hasValue: false,
                                               })
                                             }
+                                            copy={copy}
                                           />
                                         )}
                                       </div>
@@ -396,10 +420,10 @@ export function AdminServices() {
                             <div className='flex items-center justify-between gap-3 border-border/60 border-t pt-2'>
                               <p className='text-muted-foreground text-xs'>
                                 {isSaving
-                                  ? 'Saving changes...'
+                                  ? copy.footer.saving
                                   : isConfigured
-                                    ? 'This service has everything required for runtime use. Changes save immediately.'
-                                    : 'Review missing credentials or settings. Changes save immediately.'}
+                                    ? copy.footer.ready
+                                    : copy.footer.review}
                               </p>
                             </div>
                           </div>
@@ -511,6 +535,7 @@ export function AdminServices() {
 }
 
 type TextSettingFieldProps = {
+  copy: AdminServicesCopy
   isEditing: boolean
   isSaving: boolean
   setting: AdminSystemService['settings'][number]
@@ -523,6 +548,7 @@ type TextSettingFieldProps = {
 }
 
 function TextSettingField({
+  copy,
   isEditing,
   isSaving,
   setting,
@@ -545,7 +571,9 @@ function TextSettingField({
           onClick={onSave}
         >
           <Check className='h-4 w-4' />
-          <span className='sr-only'>Save {setting.label}</span>
+          <span className='sr-only'>
+            {formatTemplate(copy.actions.saveField, { label: setting.label })}
+          </span>
         </Button>
         <div className='flex min-w-0 flex-1 items-center gap-2 rounded-md bg-background px-2 py-2'>
           <Input
@@ -554,10 +582,14 @@ function TextSettingField({
             value={editingValue}
             placeholder={
               setting.hasValue
-                ? `Enter a new ${setting.label.toLowerCase()}`
+                ? formatTemplate(copy.placeholders.replaceValue, {
+                    label: setting.label.toLowerCase(),
+                  })
                 : setting.defaultValue
-                  ? `Default: ${setting.defaultValue}`
-                  : `Enter ${setting.label.toLowerCase()}`
+                  ? formatTemplate(copy.settings.defaultValue, { value: setting.defaultValue })
+                  : formatTemplate(copy.placeholders.enterValue, {
+                      label: setting.label.toLowerCase(),
+                    })
             }
             onChange={(event) => onChange(event.target.value)}
             onKeyDown={(event) => {
@@ -583,7 +615,9 @@ function TextSettingField({
           onClick={onCancel}
         >
           <X className='h-4 w-4' />
-          <span className='sr-only'>Cancel editing {setting.label}</span>
+          <span className='sr-only'>
+            {formatTemplate(copy.actions.cancelEditingField, { label: setting.label })}
+          </span>
         </Button>
       </div>
     )
@@ -592,7 +626,9 @@ function TextSettingField({
   return (
     <div className='flex items-center gap-2'>
       <div className='min-w-0 flex-1 rounded-md bg-background px-3 py-2'>
-        <code className='block truncate font-mono text-xs'>{getSettingDisplayValue(setting)}</code>
+        <code className='block truncate font-mono text-xs'>
+          {getSettingDisplayValue(setting, copy.settings.notSet)}
+        </code>
       </div>
       <Button
         type='button'
@@ -603,7 +639,9 @@ function TextSettingField({
         onClick={onStartEditing}
       >
         <Pencil className='h-4 w-4' />
-        <span className='sr-only'>Edit {setting.label}</span>
+        <span className='sr-only'>
+          {formatTemplate(copy.actions.editField, { label: setting.label })}
+        </span>
       </Button>
       <Button
         type='button'
@@ -613,7 +651,9 @@ function TextSettingField({
         onClick={onClear}
       >
         <Trash2 className='h-4 w-4' />
-        <span className='sr-only'>Clear {setting.label}</span>
+        <span className='sr-only'>
+          {formatTemplate(copy.actions.clearField, { label: setting.label })}
+        </span>
       </Button>
     </div>
   )
@@ -688,7 +728,10 @@ function isServiceConfigured(service: AdminSystemService) {
   return credentialsReady && settingsReady
 }
 
-function getServiceSectionSummary(service: AdminSystemService): ServiceSectionSummary {
+function getServiceSectionSummary(
+  service: AdminSystemService,
+  copy: AdminServicesCopy
+): ServiceSectionSummary {
   const requiredCredentials = service.credentials.filter((credential) => credential.required)
   const requiredSettings = service.settings.filter((setting) => setting.required)
   const configuredCredentialCount = requiredCredentials.filter((credential) => credential.hasValue).length
@@ -708,13 +751,22 @@ function getServiceSectionSummary(service: AdminSystemService): ServiceSectionSu
     preview: joinSummaryParts([
       service.description,
       requiredCredentials.length > 0
-        ? `${configuredCredentialCount}/${requiredCredentials.length} required credentials set`
-        : 'No required credentials',
+        ? formatTemplate(copy.summary.requiredCredentialsSet, {
+            configured: configuredCredentialCount,
+            total: requiredCredentials.length,
+          })
+        : copy.summary.noRequiredCredentials,
       requiredSettings.length > 0
-        ? `${configuredSettingCount}/${requiredSettings.length} required settings resolved`
-        : 'No required settings',
+        ? formatTemplate(copy.summary.requiredSettingsResolved, {
+            configured: configuredSettingCount,
+            total: requiredSettings.length,
+          })
+        : copy.summary.noRequiredSettings,
     ]),
-    missing: missingLabels.length > 0 ? `Missing ${missingLabels.join(', ')}.` : null,
+    missing:
+      missingLabels.length > 0
+        ? formatTemplate(copy.summary.missing, { labels: missingLabels.join(', ') })
+        : null,
     status: missingLabels.length === 0 ? 'ready' : 'review',
   }
 }
@@ -723,7 +775,10 @@ function joinSummaryParts(parts: Array<string | null>) {
   return parts.filter((part): part is string => Boolean(part)).join(' • ')
 }
 
-function getSettingDisplayValue(setting: AdminSystemService['settings'][number]) {
+function getSettingDisplayValue(
+  setting: AdminSystemService['settings'][number],
+  notSetLabel: string
+) {
   if (setting.hasValue && setting.value.trim()) {
     return setting.value
   }
@@ -732,7 +787,7 @@ function getSettingDisplayValue(setting: AdminSystemService['settings'][number])
     return setting.defaultValue
   }
 
-  return 'Not set'
+  return notSetLabel
 }
 
 function resolveBooleanSettingValue(setting: AdminSystemService['settings'][number]) {
@@ -766,6 +821,6 @@ function matchesServiceSearch(service: AdminSystemService, searchTerm: string) {
     .includes(searchTerm)
 }
 
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Something went wrong'
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback
 }

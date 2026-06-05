@@ -7,6 +7,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 
 export enum TriggerWarningType {
   DUPLICATE_TRIGGER = 'duplicate_trigger',
@@ -25,17 +26,19 @@ export function TriggerWarningDialog({
   triggerName,
   type,
 }: TriggerWarningDialogProps) {
+  const { getTriggerWarningCopy } = useWorkflowI18n()
+  const copy = getTriggerWarningCopy(triggerName)
   const getTitle = () => {
     switch (type) {
       case TriggerWarningType.DUPLICATE_TRIGGER:
-        return `Only one ${triggerName} trigger allowed`
+        return copy.title
     }
   }
 
   const getDescription = () => {
     switch (type) {
       case TriggerWarningType.DUPLICATE_TRIGGER:
-        return `A workflow can only have one ${triggerName} trigger block. Please remove the existing one before adding a new one.`
+        return copy.description
     }
   }
 
@@ -47,7 +50,7 @@ export function TriggerWarningDialog({
           <AlertDialogDescription>{getDescription()}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogAction onClick={() => onOpenChange(false)}>Got it</AlertDialogAction>
+          <AlertDialogAction onClick={() => onOpenChange(false)}>{copy.dismiss}</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

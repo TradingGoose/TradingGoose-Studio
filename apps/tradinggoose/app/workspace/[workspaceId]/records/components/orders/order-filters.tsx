@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { useTranslations } from 'next-intl'
 import {
   DEFAULT_ORDERS_FILTER_STATE,
   ORDER_ENVIRONMENT_FILTER_VALUES,
@@ -136,6 +137,7 @@ function FilterSelect({
 }
 
 export function OrderFilters({ searchValue, onSearchChange }: OrderFiltersProps) {
+  const t = useTranslations('workspace.records.orders')
   return (
     <div className='flex min-w-0 flex-1'>
       <div className='relative min-w-[160px] flex-1'>
@@ -143,7 +145,7 @@ export function OrderFilters({ searchValue, onSearchChange }: OrderFiltersProps)
         <Input
           value={searchValue}
           onChange={(event) => onSearchChange(event.target.value)}
-          placeholder='Search orders'
+          placeholder={t('searchPlaceholder')}
           className='h-9 rounded-md bg-background pl-9'
         />
       </div>
@@ -159,6 +161,7 @@ export function OrderFilterMenu({
   onChange,
   onReset,
 }: OrderFilterMenuProps) {
+  const t = useTranslations('workspace.records.orders')
   const hasFilters = !isDefault(state) || searchValue.trim() !== state.orderSearch
   const advancedFilterCount = activeFilterCount(state)
   const startDateId = useId()
@@ -172,10 +175,10 @@ export function OrderFilterMenu({
           variant={advancedFilterCount ? 'secondary' : 'outline'}
           size='sm'
           className='h-9 shrink-0 rounded-md px-3'
-          aria-label='Order filters'
+          aria-label={t('filters')}
         >
           <SlidersHorizontal className='h-4 w-4' />
-          <span className='hidden lg:inline'>Filters</span>
+          <span className='hidden lg:inline'>{t('filters')}</span>
           {advancedFilterCount ? (
             <Badge
               variant='outline'
@@ -189,15 +192,15 @@ export function OrderFilterMenu({
       <PopoverContent className='w-[360px] p-0' align='end'>
         <div className='flex items-center justify-between gap-3 border-b px-4 py-3'>
           <div>
-            <div className='font-medium text-sm'>Order filters</div>
+            <div className='font-medium text-sm'>{t('orderFilters')}</div>
             <div className='text-muted-foreground text-xs'>
-              Showing {loadedCount} of {totalCount}
+              {t('showingOf', { loadedCount, totalCount })}
             </div>
           </div>
           {hasFilters ? (
             <Button variant='ghost' size='sm' className='h-8 gap-2' onClick={onReset}>
               <X className='h-4 w-4' />
-              Clear
+              {t('clear')}
             </Button>
           ) : null}
         </div>
@@ -208,8 +211,8 @@ export function OrderFilterMenu({
             onValueChange={(provider) =>
               onChange({ provider: provider as OrdersFilterState['provider'] })
             }
-            label='Provider'
-            placeholder='All providers'
+            label={t('provider')}
+            placeholder={t('allProviders')}
             options={ORDER_PROVIDER_FILTER_VALUES}
             labelFor={titleCase}
           />
@@ -218,8 +221,8 @@ export function OrderFilterMenu({
             onValueChange={(environment) =>
               onChange({ environment: environment as OrdersFilterState['environment'] })
             }
-            label='Environment'
-            placeholder='All environments'
+            label={t('environment')}
+            placeholder={t('allEnvironments')}
             options={ORDER_ENVIRONMENT_FILTER_VALUES}
             labelFor={titleCase}
           />
@@ -230,24 +233,24 @@ export function OrderFilterMenu({
                 submissionSource: submissionSource as OrdersFilterState['submissionSource'],
               })
             }
-            label='Source'
-            placeholder='All sources'
+            label={t('submissionSource')}
+            placeholder={t('allSources')}
             options={ORDER_SUBMISSION_SOURCE_FILTER_VALUES}
             labelFor={titleCase}
           />
           <FilterSelect
             value={state.status}
             onValueChange={(status) => onChange({ status: status as OrdersFilterState['status'] })}
-            label='Status'
-            placeholder='All statuses'
+            label={t('status')}
+            placeholder={t('allStatuses')}
             options={ORDER_STATUS_FILTER_VALUES}
             labelFor={titleCase}
           />
           <FilterSelect
             value={state.side}
             onValueChange={(side) => onChange({ side: side as OrdersFilterState['side'] })}
-            label='Side'
-            placeholder='All sides'
+            label={t('side')}
+            placeholder={t('allSides')}
             options={ORDER_SIDE_FILTER_VALUES}
             labelFor={titleCase}
           />
@@ -256,8 +259,8 @@ export function OrderFilterMenu({
             onValueChange={(orderType) =>
               onChange({ orderType: orderType as OrdersFilterState['orderType'] })
             }
-            label='Order type'
-            placeholder='All order types'
+            label={t('orderType')}
+            placeholder={t('allOrderTypes')}
             options={ORDER_TYPE_FILTER_VALUES}
             labelFor={titleCase}
           />
@@ -266,8 +269,8 @@ export function OrderFilterMenu({
             onValueChange={(timeInForce) =>
               onChange({ timeInForce: timeInForce as OrdersFilterState['timeInForce'] })
             }
-            label='Time in force'
-            placeholder='All TIF'
+            label={t('timeInForce')}
+            placeholder={t('allTimeInForce')}
             options={ORDER_TIME_IN_FORCE_FILTER_VALUES}
             labelFor={timeInForceLabel}
           />
@@ -276,18 +279,18 @@ export function OrderFilterMenu({
             onValueChange={(linkedLog) =>
               onChange({ linkedLog: linkedLog as OrdersFilterState['linkedLog'] })
             }
-            label='Log link'
-            placeholder='Any log link'
+            label={t('logLink')}
+            placeholder={t('anyLogLink')}
             options={ORDER_LINKED_LOG_FILTER_VALUES}
-            labelFor={(value) => (value === 'true' ? 'Linked' : 'Unlinked')}
+            labelFor={(value) => (value === 'true' ? t('linked') : t('unlinked'))}
           />
           <FilterSelect
             value={state.orderSortBy}
             onValueChange={(orderSortBy) =>
               onChange({ orderSortBy: orderSortBy as OrdersFilterState['orderSortBy'] })
             }
-            label='Sort field'
-            placeholder='Sort field'
+            label={t('sortField')}
+            placeholder={t('sortField')}
             options={ORDER_SORT_BY_VALUES}
             labelFor={titleCase}
           />
@@ -298,14 +301,14 @@ export function OrderFilterMenu({
                 orderSortOrder: orderSortOrder as OrdersFilterState['orderSortOrder'],
               })
             }
-            label='Sort order'
-            placeholder='Sort'
+            label={t('sortOrder')}
+            placeholder={t('sortOrder')}
             options={ORDER_SORT_ORDER_VALUES}
             labelFor={uppercase}
           />
 
           <label htmlFor={startDateId} className='min-w-0 space-y-1.5'>
-            <span className='block font-medium text-muted-foreground text-xs'>From</span>
+            <span className='block font-medium text-muted-foreground text-xs'>{t('from')}</span>
             <Input
               id={startDateId}
               type='datetime-local'
@@ -315,7 +318,7 @@ export function OrderFilterMenu({
             />
           </label>
           <label htmlFor={endDateId} className='min-w-0 space-y-1.5'>
-            <span className='block font-medium text-muted-foreground text-xs'>To</span>
+            <span className='block font-medium text-muted-foreground text-xs'>{t('to')}</span>
             <Input
               id={endDateId}
               type='datetime-local'

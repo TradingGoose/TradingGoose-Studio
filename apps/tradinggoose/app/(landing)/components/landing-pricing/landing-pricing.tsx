@@ -1,7 +1,6 @@
 'use client'
 
 import { CircleIcon } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { MotionPreset } from '@/components/ui/motion-preset'
@@ -9,13 +8,14 @@ import { formatBillingPriceLabel, formatBillingPricePeriod } from '@/lib/billing
 import {
   DEFAULT_REGISTRATION_MODE,
   getRegistrationPrimaryHref,
-  getRegistrationPrimaryLabel,
 } from '@/lib/registration/shared'
 import { cn } from '@/lib/utils'
 import { useCardGlow } from '@/app/(landing)/components/use-card-glow'
 import { toPlanFeatures } from '@/global-navbar/settings-modal/components/subscription/plan-configs'
 import { usePublicBillingCatalog } from '@/hooks/queries/public-billing-catalog'
 import { useRegistrationState } from '@/hooks/queries/registration'
+import { useMessages } from 'next-intl'
+import { useRouter } from '@/i18n/navigation'
 
 interface PricingTierCard {
   id: string
@@ -31,10 +31,12 @@ interface PricingTierCard {
 
 export default function LandingPricing() {
   const router = useRouter()
+  const copy = useMessages()
+  const pricingCopy = copy.landing.pricing
   const registrationQuery = useRegistrationState()
   const registrationMode = registrationQuery.data?.registrationMode ?? DEFAULT_REGISTRATION_MODE
   const registrationPrimaryHref = getRegistrationPrimaryHref(registrationMode)
-  const registrationPrimaryLabel = getRegistrationPrimaryLabel(registrationMode)
+  const registrationPrimaryLabel = copy.registration[registrationMode].primary
   const { data: publicBillingCatalog } = usePublicBillingCatalog()
   const featuredTierId =
     publicBillingCatalog?.publicTiers.find((tier) => !tier.isDefault)?.id ?? null
@@ -60,7 +62,7 @@ export default function LandingPricing() {
           {
             id: 'enterprise-placeholder',
             name: publicBillingCatalog.enterprisePlaceholder.displayName,
-            price: 'Custom',
+            price: pricingCopy.customPrice,
             description: publicBillingCatalog.enterprisePlaceholder.description,
             features: toPlanFeatures(publicBillingCatalog.enterprisePlaceholder.pricingFeatures),
             ctaKind: 'contact' as const,
@@ -92,7 +94,11 @@ export default function LandingPricing() {
   }
 
   return (
-    <section id='pricing' className='relative isolate w-full py-20 sm:py-28' aria-label='Pricing'>
+    <section
+      id='pricing'
+      className='relative isolate w-full py-20 sm:py-28'
+      aria-label={pricingCopy.ariaLabel}
+    >
       <div className='mx-auto w-full px-4 sm:px-6 lg:px-16 xl:px-20'>
         <div className='mx-auto max-w-3xl text-center'>
           <MotionPreset
@@ -101,7 +107,7 @@ export default function LandingPricing() {
             component='p'
             className='font-medium text-[11px] text-muted-foreground uppercase tracking-[0.24em]'
           >
-            Pricing
+            {pricingCopy.eyebrow}
           </MotionPreset>
           <MotionPreset
             fade
@@ -110,7 +116,7 @@ export default function LandingPricing() {
             delay={0.12}
             className='mt-5 font-semibold text-3xl text-foreground tracking-tight sm:text-5xl'
           >
-            Pick a plan, start building.
+            {pricingCopy.title}
           </MotionPreset>
           <MotionPreset
             fade
@@ -119,8 +125,7 @@ export default function LandingPricing() {
             delay={0.24}
             className='mx-auto mt-4 max-w-2xl text-lg text-muted-foreground leading-8'
           >
-            Every plan includes the full platform — workspace, charting, workflows, AI agents, and
-            integrations.
+            {pricingCopy.description}
           </MotionPreset>
         </div>
 
@@ -128,9 +133,8 @@ export default function LandingPricing() {
           {pricingTiers.map((tier, index) => {
             const buttonVariant = tier.featured ? 'default' : 'outline'
             const ctaText =
-              tier.ctaKind === 'contact'
-                ? 'Contact Sales'
-                : registrationPrimaryLabel
+              tier.ctaKind === 'contact' ? pricingCopy.contactSales : registrationPrimaryLabel
+            const isCustomPrice = tier.ctaKind === 'contact'
             const isSignupDisabled = tier.ctaKind === 'signup' && !registrationPrimaryHref
 
             return (
@@ -174,11 +178,11 @@ export default function LandingPricing() {
                       <div className='flex flex-col gap-6'>
                         <h3 className='font-semibold text-3xl'>{tier.name}</h3>
                         <div className='flex gap-0.5'>
-                          {tier.price !== 'Custom' && (
+                          {!isCustomPrice && (
                             <span className='font-medium text-lg text-muted-foreground'>$</span>
                           )}
                           <span className='font-bold text-6xl'>
-                            {tier.price === 'Custom' ? tier.price : tier.price.replace('$', '')}
+                            {isCustomPrice ? tier.price : tier.price.replace('$', '')}
                           </span>
                           {tier.period && (
                             <span className='self-end font-normal text-lg text-muted-foreground'>

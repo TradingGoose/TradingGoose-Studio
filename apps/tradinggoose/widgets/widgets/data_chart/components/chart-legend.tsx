@@ -3,6 +3,7 @@
 import type { Ref } from 'react'
 import type { ListingOption } from '@/lib/listing/identity'
 import { ListingOverlay } from '@/widgets/widgets/data_chart/components/listing-overlay'
+import { useDataChartCopy } from '@/widgets/widgets/data_chart/copy'
 import type { LegendData } from '@/widgets/widgets/data_chart/hooks/use-chart-legend'
 
 const resolveDirectionClass = (direction?: LegendData['direction']) => {
@@ -28,6 +29,7 @@ export const ChartLegend = ({
   containerRef?: Ref<HTMLDivElement>
   leftInsetPx?: number
 }) => {
+  const copy = useDataChartCopy()
   const showListingOverlay = Boolean(listing || isResolving)
   if (!legend && !showListingOverlay) return null
 
@@ -68,21 +70,21 @@ export const ChartLegend = ({
           <span className='text-muted-foreground'>{legend.time}</span>
           {isValueOnly ? (
             <span>
-              Value: <span className={colorClass}>{valueLabel}</span>
+              {copy.legend.value} <span className={colorClass}>{valueLabel}</span>
             </span>
           ) : (
             <>
               <span>
-                O: <span className={colorClass}>{openValue}</span>
+                {copy.legend.open} <span className={colorClass}>{openValue}</span>
               </span>
               <span>
-                H: <span className={colorClass}>{highValue}</span>
+                {copy.legend.high} <span className={colorClass}>{highValue}</span>
               </span>
               <span>
-                L: <span className={colorClass}>{lowValue}</span>
+                {copy.legend.low} <span className={colorClass}>{lowValue}</span>
               </span>
               <span>
-                C: <span className={colorClass}>{closeValue}</span>
+                {copy.legend.close} <span className={colorClass}>{closeValue}</span>
               </span>
             </>
           )}

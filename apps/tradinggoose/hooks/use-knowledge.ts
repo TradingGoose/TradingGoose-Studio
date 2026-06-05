@@ -3,6 +3,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   fetchKnowledgeChunks,
+  getKnowledgeQueryErrorCode,
+  getKnowledgeQueryErrorMessage,
   knowledgeKeys,
   serializeChunkParams,
   serializeDocumentParams,
@@ -48,7 +50,8 @@ export function useKnowledgeBase(id: string) {
   return {
     knowledgeBase: query.data ?? null,
     isLoading: query.isLoading,
-    error: query.error instanceof Error ? query.error.message : null,
+    error: getKnowledgeQueryErrorMessage(query.error),
+    errorCode: getKnowledgeQueryErrorCode(query.error),
     refresh: refreshKnowledgeBase,
   }
 }
@@ -173,7 +176,8 @@ export function useKnowledgeBaseDocuments(
     documents,
     pagination,
     isLoading: query.isLoading,
-    error: query.error instanceof Error ? query.error.message : null,
+    error: getKnowledgeQueryErrorMessage(query.error),
+    errorCode: getKnowledgeQueryErrorCode(query.error),
     refreshDocuments: refreshDocumentsData,
     updateDocument: updateDocumentLocal,
   }
@@ -246,7 +250,8 @@ export function useKnowledgeBasesList(
   return {
     knowledgeBases: query.data ?? [],
     isLoading: query.isLoading,
-    error: query.error instanceof Error ? query.error.message : null,
+    error: getKnowledgeQueryErrorMessage(query.error),
+    errorCode: getKnowledgeQueryErrorCode(query.error),
     refreshList,
     forceRefresh,
     addKnowledgeBase,
@@ -372,7 +377,8 @@ export function useDocumentChunks(
     searchQuery: urlSearch,
     setSearchQuery: () => {},
     isLoading: query.isLoading,
-    error: query.error instanceof Error ? query.error.message : null,
+    error: getKnowledgeQueryErrorMessage(query.error),
+    errorCode: getKnowledgeQueryErrorCode(query.error),
     pagination,
     currentPage: serverCurrentPage,
     totalPages,

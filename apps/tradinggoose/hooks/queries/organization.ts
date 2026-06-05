@@ -1,7 +1,9 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useLocale } from 'next-intl'
 import { client } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { workspaceKeys } from '@/hooks/queries/workspace'
+import { type LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('OrganizationQueries')
 
@@ -254,12 +256,13 @@ export function useUpdateOrganizationUsageLimit() {
  */
 interface InviteMemberParams {
   email: string
-  workspaceInvitations?: Array<{ id: string; name: string }>
+  workspaceInvitations?: Array<{ workspaceId: string; permission: 'admin' | 'write' | 'read' }>
   orgId: string
 }
 
 export function useInviteMember() {
   const queryClient = useQueryClient()
+  const locale = useLocale() as LocaleCode
 
   return useMutation({
     mutationFn: async ({ email, workspaceInvitations, orgId }: InviteMemberParams) => {
@@ -269,6 +272,7 @@ export function useInviteMember() {
         body: JSON.stringify({
           emails: [email],
           workspaceInvitations,
+          locale,
         }),
       })
 

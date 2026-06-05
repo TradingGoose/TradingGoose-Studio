@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { Settings2 } from 'lucide-react'
 import {
   Alert,
@@ -27,6 +28,9 @@ import {
   useAdminSystemSettingsSnapshot,
   useUpdateAdminSystemSettings,
 } from '@/hooks/queries/admin-system-settings'
+import { useMessages } from 'next-intl'
+import type { LocaleCode } from '@/i18n/utils'
+import { getAdminSystemSettingsErrorMessage } from './errors'
 import { ADMIN_META_BADGE_CLASSNAME } from './badge-styles'
 
 const EMPTY_SNAPSHOT: AdminSystemSettingsSnapshot = {
@@ -42,6 +46,10 @@ const EMPTY_SNAPSHOT: AdminSystemSettingsSnapshot = {
 }
 
 export function AdminSystemSettingsSection() {
+  const locale = useLocale() as LocaleCode
+  const publicCopy = useMessages()
+  const copy = publicCopy.admin.systemSettings
+  const registrationCopy = publicCopy.registration
   const snapshotQuery = useAdminSystemSettingsSnapshot()
   const updateMutation = useUpdateAdminSystemSettings()
   const [draft, setDraft] = useState<AdminSystemSettingsSnapshot | null>(null)
@@ -91,9 +99,9 @@ export function AdminSystemSettingsSection() {
       const nextSnapshot = await updateMutation.mutateAsync(dirtyInput)
       setDraft(nextSnapshot)
       setSavedSnapshot(nextSnapshot)
-      setMessage('System settings updated')
+      setMessage(copy.savedMessage)
     } catch (submitError) {
-      setError(getErrorMessage(submitError))
+      setError(getAdminSystemSettingsErrorMessage(copy, getErrorMessage(submitError)))
     }
   }
 
@@ -101,7 +109,7 @@ export function AdminSystemSettingsSection() {
     return (
       <Card className='border border-border bg-muted/10'>
         <CardContent className='flex min-h-[220px] items-center justify-center px-4 py-6 sm:px-5'>
-          <p className='text-muted-foreground text-sm'>Loading system settings...</p>
+          <p className='text-muted-foreground text-sm'>{copy.loading}</p>
         </CardContent>
       </Card>
     )
@@ -115,43 +123,40 @@ export function AdminSystemSettingsSection() {
             <div className='flex items-center gap-2'>
               <Badge variant='outline' className={ADMIN_META_BADGE_CLASSNAME}>
                 <Settings2 className='mr-1 h-3.5 w-3.5' />
-                System settings
+                {copy.badge}
               </Badge>
             </div>
-            <CardTitle className='text-sm'>Platform controls</CardTitle>
-            <CardDescription>
-              Manage the global app-owned settings that control registration, supported platform
-              behavior, and sender identity.
-            </CardDescription>
+            <CardTitle className='text-sm'>{copy.title}</CardTitle>
+            <CardDescription>{copy.description}</CardDescription>
           </div>
           <div className='hidden items-center gap-3 rounded-md border bg-background px-3 py-1.5 xl:flex'>
             <div className='flex items-baseline gap-1 whitespace-nowrap'>
-              <span className='text-[11px] text-muted-foreground'>Registration</span>
-              <span className='font-medium text-[11px] text-foreground capitalize'>
-                {settings.registrationMode}
+              <span className='text-[11px] text-muted-foreground'>{copy.status.registration}</span>
+              <span className='font-medium text-[11px] text-foreground'>
+                {registrationCopy[settings.registrationMode].primary}
               </span>
             </div>
             {settings.stripeConfigured ? (
               <>
                 <div className='flex items-baseline gap-1 whitespace-nowrap'>
-                  <span className='text-[11px] text-muted-foreground'>Billing</span>
+                  <span className='text-[11px] text-muted-foreground'>{copy.status.billing}</span>
                   <span className='font-medium text-[11px] text-foreground'>
-                    {settings.billingEnabled ? 'Enabled' : 'Disabled'}
+                    {settings.billingEnabled ? copy.status.enabled : copy.status.disabled}
                   </span>
                 </div>
                 <div className='flex items-baseline gap-1 whitespace-nowrap'>
-                  <span className='text-[11px] text-muted-foreground'>Promo Codes</span>
+                  <span className='text-[11px] text-muted-foreground'>{copy.status.promoCodes}</span>
                   <span className='font-medium text-[11px] text-foreground'>
-                    {settings.allowPromotionCodes ? 'Allowed' : 'Blocked'}
+                    {settings.allowPromotionCodes ? copy.status.allowed : copy.status.blocked}
                   </span>
                 </div>
               </>
             ) : null}
             {settings.triggerReady ? (
               <div className='flex items-baseline gap-1 whitespace-nowrap'>
-                <span className='text-[11px] text-muted-foreground'>Trigger.dev</span>
+                <span className='text-[11px] text-muted-foreground'>{copy.status.triggerDev}</span>
                 <span className='font-medium text-[11px] text-foreground'>
-                  {settings.triggerDevEnabled ? 'Enabled' : 'Disabled'}
+                  {settings.triggerDevEnabled ? copy.status.enabled : copy.status.disabled}
                 </span>
               </div>
             ) : null}
@@ -162,7 +167,9 @@ export function AdminSystemSettingsSection() {
       <CardContent className='space-y-4 bg-muted/10 px-4 py-4 sm:px-5'>
         {snapshotQuery.isError ? (
           <Alert variant='destructive'>
-            <AlertDescription>{getErrorMessage(snapshotQuery.error)}</AlertDescription>
+            <AlertDescription>
+              {getAdminSystemSettingsErrorMessage(copy, getErrorMessage(snapshotQuery.error))}
+            </AlertDescription>
           </Alert>
         ) : null}
 
@@ -173,7 +180,7 @@ export function AdminSystemSettingsSection() {
         ) : null}
 
         {message ? (
-          <Notice variant='success' title='Saved'>
+          <Notice variant='success' title={copy.saved}>
             {message}
           </Notice>
         ) : null}
@@ -182,15 +189,14 @@ export function AdminSystemSettingsSection() {
           <div className='grid gap-4 xl:grid-cols-[1.15fr_1fr]'>
             <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>
               <div className='space-y-1'>
-                <p className='font-medium text-sm'>Access controls</p>
+                <p className='font-medium text-sm'>{copy.accessControls.title}</p>
                 <p className='text-muted-foreground text-xs leading-relaxed'>
-                  Registration mode drives public signups. Billing and background execution
-                  controls appear here only when their deployment-owned configuration is present.
+                  {copy.accessControls.description}
                 </p>
               </div>
 
               <div className='space-y-2'>
-                <Label className='font-medium text-sm'>Registration mode</Label>
+                <Label className='font-medium text-sm'>{copy.accessControls.registrationMode}</Label>
                 <div className='flex flex-wrap gap-2'>
                   {REGISTRATION_MODE_VALUES.map((mode) => {
                     const isActive = settings.registrationMode === mode
@@ -200,10 +206,9 @@ export function AdminSystemSettingsSection() {
                         key={mode}
                         type='button'
                         variant={isActive ? 'default' : 'outline'}
-                        className='capitalize'
                         onClick={() => updateField('registrationMode', mode)}
                       >
-                        {mode}
+                        {registrationCopy[mode].primary}
                       </Button>
                     )
                   })}
@@ -216,20 +221,16 @@ export function AdminSystemSettingsSection() {
                     <>
                       {!settings.billingReady ? (
                         <Alert>
-                          <AlertDescription>
-                            Billing stays disabled until an active public default user tier exists.
-                            You can keep the default tier in draft while editing, then activate it
-                            and turn billing back on here.
-                          </AlertDescription>
+                          <AlertDescription>{copy.alerts.billingDisabledUntilTier}</AlertDescription>
                         </Alert>
                       ) : null}
                       <SettingSwitch
                         id='billing-enabled'
-                        label='Billing enabled'
+                        label={copy.accessControls.billingEnabled}
                         hint={
                           settings.billingReady
-                            ? 'Turns paid billing flows on across the platform.'
-                            : 'Requires an active public default user tier before billing can be enabled.'
+                            ? copy.accessControls.billingEnabledHint
+                            : copy.accessControls.billingEnabledLocked
                         }
                         checked={settings.billingEnabled}
                         disabled={!settings.billingReady}
@@ -237,8 +238,8 @@ export function AdminSystemSettingsSection() {
                       />
                       <SettingSwitch
                         id='allow-promotion-codes'
-                        label='Allow promotion codes'
-                        hint='Controls whether promo codes are allowed during checkout.'
+                        label={copy.accessControls.allowPromotionCodes}
+                        hint={copy.accessControls.allowPromotionCodesHint}
                         checked={settings.allowPromotionCodes}
                         onCheckedChange={(checked) => updateField('allowPromotionCodes', checked)}
                       />
@@ -247,8 +248,8 @@ export function AdminSystemSettingsSection() {
                   {settings.triggerReady ? (
                     <SettingSwitch
                       id='trigger-dev-enabled'
-                      label='Trigger.dev enabled'
-                      hint='Routes supported async jobs through Trigger.dev instead of direct in-process execution.'
+                      label={copy.accessControls.triggerDevEnabled}
+                      hint={copy.accessControls.triggerDevEnabledHint}
                       checked={settings.triggerDevEnabled}
                       onCheckedChange={(checked) => updateField('triggerDevEnabled', checked)}
                     />
@@ -259,36 +260,36 @@ export function AdminSystemSettingsSection() {
 
             <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>
               <div className='space-y-1'>
-                <p className='font-medium text-sm'>Email identity</p>
+                <p className='font-medium text-sm'>{copy.emailIdentity.title}</p>
                 <p className='text-muted-foreground text-xs leading-relaxed'>
-                  These values control the platform sender identity and support inbox.
+                  {copy.emailIdentity.description}
                 </p>
               </div>
 
               <div className='space-y-2'>
                 <Label htmlFor='email-domain' className='font-medium text-sm'>
-                  Email domain
+                  {copy.emailIdentity.emailDomain}
                 </Label>
                 <Input
                   id='email-domain'
                   value={settings.emailDomain}
                   onChange={(event) => updateField('emailDomain', event.target.value)}
-                  placeholder='tradinggoose.ai'
+                  placeholder={copy.emailIdentity.emailDomainPlaceholder}
                 />
               </div>
 
               <div className='space-y-2'>
                 <Label htmlFor='from-email-address' className='font-medium text-sm'>
-                  From email address
+                  {copy.emailIdentity.fromEmailAddress}
                 </Label>
                 <Input
                   id='from-email-address'
                   value={settings.fromEmailAddress}
                   onChange={(event) => updateField('fromEmailAddress', event.target.value)}
-                  placeholder='TradingGoose <noreply@tradinggoose.ai>'
+                  placeholder={copy.emailIdentity.fromEmailAddressPlaceholder}
                 />
                 <p className='text-muted-foreground text-xs leading-relaxed'>
-                  Leave blank to use the default sender built from the email domain.
+                  {copy.emailIdentity.helper}
                 </p>
               </div>
             </div>
@@ -300,7 +301,7 @@ export function AdminSystemSettingsSection() {
               onClick={handleSave}
               disabled={updateMutation.isPending || !hasDirtyChanges}
             >
-              {updateMutation.isPending ? 'Saving…' : 'Save system settings'}
+              {updateMutation.isPending ? copy.saving : copy.save}
             </Button>
           </div>
         </fieldset>

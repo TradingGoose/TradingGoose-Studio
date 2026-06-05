@@ -20,7 +20,7 @@ import {
   Search,
   Shapes,
 } from 'lucide-react'
-import { usePathname, useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Input } from '@/components/ui/input'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { useBrandConfig } from '@/lib/branding/branding'
@@ -34,6 +34,7 @@ import { normalizeOptionalString } from '@/lib/utils'
 import { type LayoutTab, LayoutTabs } from '@/app/workspace/[workspaceId]/dashboard/layout-tabs'
 import { GlobalNavbarHeader } from '@/global-navbar'
 import { useKnowledgeBasesList } from '@/hooks/use-knowledge'
+import { usePathname, useRouter } from '@/i18n/navigation'
 import {
   normalizePairColorContext,
   type PairColorContext,
@@ -223,6 +224,7 @@ export function DashboardClient({
   const docsLoadingRef = useRef(false)
   const brand = useBrandConfig()
   const { knowledgeBases } = useKnowledgeBasesList(workspaceId)
+  const t = useTranslations('workspace.dashboard')
 
   const applyLayoutData = useCallback(
     (data: LayoutResponse) => {
@@ -476,36 +478,36 @@ export function DashboardClient({
     () => [
       {
         id: 'records',
-        name: 'Records',
+        name: t('pages.records'),
         icon: ScrollText,
         href: `/workspace/${workspaceId}/records`,
       },
       {
         id: 'monitor',
-        name: 'Monitor',
+        name: t('pages.monitor'),
         icon: Activity,
         href: `/workspace/${workspaceId}/monitor`,
       },
       {
         id: 'knowledge',
-        name: 'Knowledge',
+        name: t('pages.knowledge'),
         icon: LibraryBig,
         href: `/workspace/${workspaceId}/knowledge`,
       },
       {
         id: 'templates',
-        name: 'Templates',
+        name: t('pages.templates'),
         icon: Shapes,
         href: `/workspace/${workspaceId}/templates`,
       },
       {
         id: 'docs',
-        name: 'Docs',
+        name: t('pages.docs'),
         icon: BookOpen,
         href: brand.documentationUrl,
       },
     ],
-    [brand.documentationUrl, workspaceId]
+    [brand.documentationUrl, t, workspaceId]
   )
 
   const loadDocs = useCallback(async () => {
@@ -756,12 +758,12 @@ export function DashboardClient({
     <div className='flex w-full flex-1 items-center gap-3'>
       <div className='hidden items-center gap-2 sm:flex'>
         <LayoutTemplate className='h-[18px] w-[18px] text-muted-foreground' />
-        <span className='font-medium text-sm'>Dashboard</span>
+        <span className='font-medium text-sm'>{t('title')}</span>
       </div>
       <div ref={searchContainerRef} className='relative flex flex-1'>
         <Search className='-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground' />
         <Input
-          placeholder='Search workspace content...'
+          placeholder={t('searchPlaceholder')}
           value={searchQuery}
           onChange={(event) => {
             setSearchQuery(event.target.value)
@@ -780,7 +782,7 @@ export function DashboardClient({
             <div className='max-h-80 overflow-y-auto'>
               <div className='space-y-2 p-2'>
                 <DropdownSection
-                  title='Workspaces'
+                  title={t('sections.workspaces')}
                   icon={Building2}
                   items={filteredWorkspaces}
                   onSelect={(href) => {
@@ -790,7 +792,7 @@ export function DashboardClient({
                   }}
                 />
                 <DropdownSection
-                  title='Knowledge Bases'
+                  title={t('sections.knowledgeBases')}
                   icon={LibraryBig}
                   items={filteredKnowledgeBases}
                   onSelect={(href) => {
@@ -800,7 +802,7 @@ export function DashboardClient({
                   }}
                 />
                 <DropdownSection
-                  title='Pages'
+                  title={t('sections.pages')}
                   icon={ScrollText}
                   items={filteredPages}
                   onSelect={(href) => {
@@ -812,7 +814,7 @@ export function DashboardClient({
                 {filteredDocs.length > 0 && (
                   <section>
                     <div className='mb-2 text-muted-foreground/70 text-xs uppercase tracking-wide'>
-                      Docs
+                      {t('sections.docs')}
                     </div>
                     <div className='space-y-1'>
                       {filteredDocs.map((doc) => (
@@ -847,7 +849,7 @@ export function DashboardClient({
                   </section>
                 )}
                 {!hasResults && (
-                  <div className='text-muted-foreground text-sm'>No matching content</div>
+                  <div className='text-muted-foreground text-sm'>{t('emptySearch')}</div>
                 )}
               </div>
             </div>

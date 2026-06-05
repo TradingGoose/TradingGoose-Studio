@@ -2,7 +2,7 @@
 
 import { type FormEvent, useMemo, useState } from 'react'
 import { Receipt } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import { Alert, AlertDescription, Button } from '@/components/ui'
 import type { AdminBillingTierSnapshot } from '@/lib/admin/billing/types'
 import { AdminPageShell } from '@/app/admin/page-shell'
@@ -12,6 +12,9 @@ import {
   useDeleteAdminBillingTier,
   useUpdateAdminBillingTier,
 } from '@/hooks/queries/admin-billing'
+import { useMessages } from 'next-intl'
+import { useRouter } from '@/i18n/navigation'
+import { type LocaleCode } from '@/i18n/utils'
 import {
   BillingBreadcrumbs,
   buildTierMutationInput,
@@ -28,6 +31,8 @@ import {
 } from './tier-editor'
 
 function AdminBillingTierDetailEditorPage({ tier }: { tier: AdminBillingTierSnapshot }) {
+  const locale = useLocale() as LocaleCode
+  const copy = useMessages().admin.billing
   const router = useRouter()
   const updateTier = useUpdateAdminBillingTier()
   const deleteTier = useDeleteAdminBillingTier()
@@ -44,8 +49,8 @@ function AdminBillingTierDetailEditorPage({ tier }: { tier: AdminBillingTierSnap
     <div className='flex w-full flex-1 items-center gap-3'>
       <BillingBreadcrumbs
         items={[
-          { label: 'Admin', href: '/admin' },
-          { label: 'Billing', href: '/admin/billing' },
+          { label: copy.breadcrumbs.admin, href: '/admin' },
+          { label: copy.breadcrumbs.billing, href: '/admin/billing' },
           { label: tier.displayName },
         ]}
       />
@@ -54,16 +59,18 @@ function AdminBillingTierDetailEditorPage({ tier }: { tier: AdminBillingTierSnap
 
   const headerCenter = (
     <TierEditorHeaderCenter
+      copy={copy}
+      locale={locale}
       previewValues={previewValues}
       extraStats={[
-        { label: 'Subscribers', value: String(tier.subscriptionCount) },
+        { label: copy.tierDetail.subscribers, value: String(tier.subscriptionCount) },
         {
-          label: 'Workflow Exec',
+          label: copy.tierDetail.workflowExec,
           value: previewValues.workflowExecutionMultiplier
             ? `${previewValues.workflowExecutionMultiplier}x`
-            : '1x',
+            : copy.tierDetail.workflowExecFallback,
         },
-        { label: 'Tier ID', value: tier.id },
+        { label: copy.tierDetail.tierId, value: tier.id },
       ]}
     />
   )
@@ -74,7 +81,7 @@ function AdminBillingTierDetailEditorPage({ tier }: { tier: AdminBillingTierSnap
       type='submit'
       disabled={updateTier.isPending || deleteTier.isPending}
     >
-      {updateTier.isPending ? 'Saving…' : 'Save Tier'}
+      {updateTier.isPending ? copy.tierDetail.saving : copy.tierDetail.save}
     </PrimaryButton>
   )
 
@@ -103,9 +110,9 @@ function AdminBillingTierDetailEditorPage({ tier }: { tier: AdminBillingTierSnap
     try {
       const input = buildTierMutationInput(new FormData(event.currentTarget))
       await updateTier.mutateAsync({ id: tier.id, input })
-      setMessage('Tier updated')
+      setMessage(copy.tierDetail.updated)
     } catch (submitError) {
-      setError(getErrorMessage(submitError))
+      setError(getErrorMessage(submitError, copy.errors.unknown))
     }
   }
 
@@ -117,7 +124,7 @@ function AdminBillingTierDetailEditorPage({ tier }: { tier: AdminBillingTierSnap
       await deleteTier.mutateAsync(tier.id)
       router.push('/admin/billing')
     } catch (deleteError) {
-      setError(getErrorMessage(deleteError))
+      setError(getErrorMessage(deleteError, copy.errors.unknown))
     }
   }
 
@@ -126,9 +133,7 @@ function AdminBillingTierDetailEditorPage({ tier }: { tier: AdminBillingTierSnap
       <div className='mx-auto flex w-full max-w-6xl flex-col gap-4'>
         {tier.subscriptionCount > 0 ? (
           <Alert>
-            <AlertDescription>
-              This tier has active subscriptions. Delete is disabled until they are moved off.
-            </AlertDescription>
+            <AlertDescription>{copy.tierDetail.activeSubscriptionsWarning}</AlertDescription>
           </Alert>
         ) : null}
 
@@ -145,6 +150,8 @@ function AdminBillingTierDetailEditorPage({ tier }: { tier: AdminBillingTierSnap
         ) : null}
 
         <TierEditorFormSurface
+          copy={copy}
+          locale={locale}
           formId={formId}
           initialValues={initialValues}
           previewValues={previewValues}
@@ -165,7 +172,7 @@ function AdminBillingTierDetailEditorPage({ tier }: { tier: AdminBillingTierSnap
                 onClick={handleDelete}
                 disabled={deleteTier.isPending || tier.subscriptionCount > 0 || tier.isDefault}
               >
-                Delete Tier
+                {copy.tierDetail.delete}
               </Button>
             </div>
           }
@@ -176,6 +183,8 @@ function AdminBillingTierDetailEditorPage({ tier }: { tier: AdminBillingTierSnap
 }
 
 export function AdminBillingTierDetail({ tierId }: { tierId: string }) {
+  const locale = useLocale() as LocaleCode
+  const copy = useMessages().admin.billing
   const router = useRouter()
   const snapshotQuery = useAdminBillingSnapshot()
   const snapshot = snapshotQuery.data
@@ -189,9 +198,9 @@ export function AdminBillingTierDetail({ tierId }: { tierId: string }) {
     <div className='flex w-full flex-1 items-center gap-3'>
       <BillingBreadcrumbs
         items={[
-          { label: 'Admin', href: '/admin' },
-          { label: 'Billing', href: '/admin/billing' },
-          { label: 'Billing tier' },
+          { label: copy.breadcrumbs.admin, href: '/admin' },
+          { label: copy.breadcrumbs.billing, href: '/admin/billing' },
+          { label: copy.breadcrumbs.billingTier },
         ]}
       />
     </div>
@@ -202,21 +211,21 @@ export function AdminBillingTierDetail({ tierId }: { tierId: string }) {
       <div className='flex flex-col gap-4'>
         {snapshotQuery.isError ? (
           <Alert variant='destructive'>
-            <AlertDescription>{getErrorMessage(snapshotQuery.error)}</AlertDescription>
+            <AlertDescription>{getErrorMessage(snapshotQuery.error, copy.errors.unknown)}</AlertDescription>
           </Alert>
         ) : null}
 
         {snapshotQuery.isPending ? (
           <div className='flex min-h-[280px] items-center justify-center rounded-lg border bg-background'>
-            <p className='text-muted-foreground text-sm'>Loading billing tier...</p>
+            <p className='text-muted-foreground text-sm'>{copy.tierDetail.loading}</p>
           </div>
         ) : null}
 
         {!snapshotQuery.isPending && !tier ? (
           <EmptyStateCard
-            title='Tier not found'
-            description='Go back to billing and choose a different tier.'
-            buttonText='Back to Billing'
+            title={copy.tierDetail.notFoundTitle}
+            description={copy.tierDetail.notFoundDescription}
+            buttonText={copy.tierDetail.notFoundButton}
             onClick={() => router.push('/admin/billing')}
             icon={<Receipt className='h-4 w-4 text-muted-foreground' />}
           />

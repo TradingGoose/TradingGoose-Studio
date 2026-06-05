@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { Copy, Pencil, Trash2, Workflow } from 'lucide-react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { shallow } from 'zustand/shallow'
 import {
   AlertDialog,
@@ -22,6 +20,7 @@ import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/provide
 import { useFolderStore, useIsWorkflowSelected } from '@/stores/folders/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
+import { Link, useRouter } from '@/i18n/navigation'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('WorkflowItem')

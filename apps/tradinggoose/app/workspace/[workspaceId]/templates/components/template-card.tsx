@@ -41,8 +41,10 @@ import {
   Wrench,
   Zap,
 } from 'lucide-react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { createLogger } from '@/lib/logs/console/logger'
+import { useRouter } from '@/i18n/navigation'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { getBlock } from '@/blocks/registry'
@@ -225,12 +227,6 @@ const getIconComponent = (icon: React.ReactNode | string | undefined): React.Rea
   return <FileText />
 }
 
-// Utility function to get block display name
-const getBlockDisplayName = (blockType: string): string => {
-  const block = getBlock(blockType)
-  return block?.name || blockType
-}
-
 // Utility function to get the full block config for colored icon display
 const getBlockConfig = (blockType: string) => {
   const block = getBlock(blockType)
@@ -254,6 +250,7 @@ export function TemplateCard({
   onTemplateUsed,
   onStarChange,
 }: TemplateCardProps) {
+  const t = useTranslations('workspace.templates')
   const router = useRouter()
   const params = useParams()
 
@@ -360,8 +357,7 @@ export function TemplateCard({
           onTemplateUsed()
         }
 
-        // Use window.location.href for more reliable navigation
-        window.location.href = workflowUrl
+        router.push(workflowUrl)
       } else {
         const errorText = await response.text()
         logger.error('Failed to use template:', response.statusText, errorText)
@@ -425,7 +421,7 @@ export function TemplateCard({
                   'shadow-[0_0_0_0_var(--primary)] '
                 )}
               >
-                Use
+                {t('detail.use')}
               </button>
             </div>
           </div>
@@ -438,7 +434,7 @@ export function TemplateCard({
 
         {/* Bottom section */}
         <div className='flex min-w-0 items-center gap-1.5 pt-1.5 font-sans text-muted-foreground text-xs'>
-          <span className='flex-shrink-0'>by</span>
+          <span className='flex-shrink-0'>{t('detail.by')}</span>
           <span className='min-w-0 truncate'>{author}</span>
           <span className='flex-shrink-0'>•</span>
           <User className='h-3 w-3 flex-shrink-0' />

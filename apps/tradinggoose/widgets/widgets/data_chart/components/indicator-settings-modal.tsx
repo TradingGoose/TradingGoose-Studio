@@ -3,6 +3,11 @@
 import { X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import type { InputMetaMap } from '@/lib/indicators/types'
+import {
+  getDataChartIndicatorMetadataLabel,
+  useDataChartCopy,
+  type DataChartCopy,
+} from '@/widgets/widgets/data_chart/copy'
 
 type IndicatorSettingsMeta = {
   name: string
@@ -18,10 +23,10 @@ type IndicatorSettingsModalProps = {
   onSave: () => void
 }
 
-const resolveDraftValue = (value: unknown) => {
+const resolveDraftValue = (copy: DataChartCopy, value: unknown) => {
   if (typeof value === 'number' && Number.isFinite(value)) return String(value)
   if (typeof value === 'string') return value
-  if (typeof value === 'boolean') return value ? 'true' : 'false'
+  if (typeof value === 'boolean') return value ? copy.indicator.trueValue : copy.indicator.falseValue
   return ''
 }
 
@@ -33,6 +38,7 @@ export const IndicatorSettingsModal = ({
   onClose,
   onSave,
 }: IndicatorSettingsModalProps) => {
+  const copy = useDataChartCopy()
   if (!meta) return null
 
   const inputEntries = meta.inputMeta
@@ -52,7 +58,7 @@ export const IndicatorSettingsModal = ({
         <div className='flex items-start justify-between gap-2'>
           <div>
             <p className='font-semibold text-base text-foreground'>{meta.name}</p>
-            <p className='text-muted-foreground text-xs'>Indicator settings</p>
+            <p className='text-muted-foreground text-xs'>{copy.indicator.settingsSubtitle}</p>
           </div>
           <button
             type='button'
@@ -60,24 +66,25 @@ export const IndicatorSettingsModal = ({
             onClick={onClose}
           >
             <X aria-hidden='true' />
-            <span className='sr-only'>Close</span>
+            <span className='sr-only'>{copy.indicator.close}</span>
           </button>
         </div>
         <div className='mt-4 space-y-3'>
           {inputEntries.length === 0 ? (
-            <p className='text-muted-foreground text-sm'>No configurable inputs.</p>
+            <p className='text-muted-foreground text-sm'>{copy.indicator.noConfigurableInputs}</p>
           ) : (
             inputEntries.map(({ title, meta: inputMeta }) => {
               const draftValue = draft[title]
               const resolvedValue =
                 typeof draftValue !== 'undefined' ? draftValue : (inputMeta.defval ?? '')
+              const displayTitle = getDataChartIndicatorMetadataLabel(copy, title)
               if (inputMeta.type === 'bool') {
                 return (
                   <label
                     key={`${indicatorId ?? 'indicator'}-${title}`}
                     className='flex items-center justify-between gap-3 text-sm'
                   >
-                    <span className='font-medium text-foreground'>{title}</span>
+                    <span className='font-medium text-foreground'>{displayTitle}</span>
                     <input
                       type='checkbox'
                       className='h-4 w-4 accent-primary'
@@ -94,10 +101,10 @@ export const IndicatorSettingsModal = ({
                     key={`${indicatorId ?? 'indicator'}-${title}`}
                     className='flex flex-col gap-1 text-sm'
                   >
-                    <span className='font-medium text-foreground'>{title}</span>
+                    <span className='font-medium text-foreground'>{displayTitle}</span>
                     <select
                       className='h-9 w-full rounded-md border border-input bg-background px-2 text-sm'
-                      value={resolveDraftValue(resolvedValue)}
+                      value={resolveDraftValue(copy, resolvedValue)}
                       onChange={(event) => onDraftChange(title, event.target.value)}
                     >
                       {inputMeta.options.map((option) => (
@@ -105,7 +112,7 @@ export const IndicatorSettingsModal = ({
                           key={`${indicatorId ?? 'indicator'}-${title}-${String(option)}`}
                           value={String(option)}
                         >
-                          {String(option)}
+                          {getDataChartIndicatorMetadataLabel(copy, String(option))}
                         </option>
                       ))}
                     </select>
@@ -121,11 +128,11 @@ export const IndicatorSettingsModal = ({
                   className='flex flex-col gap-1 text-sm'
                   htmlFor={inputId}
                 >
-                  <span className='font-medium text-foreground'>{title}</span>
+                  <span className='font-medium text-foreground'>{displayTitle}</span>
                   <Input
                     id={inputId}
                     type={isNumber ? 'number' : 'text'}
-                    value={resolveDraftValue(resolvedValue)}
+                    value={resolveDraftValue(copy, resolvedValue)}
                     onChange={(event) => onDraftChange(title, event.target.value)}
                     min={typeof inputMeta.minval === 'number' ? inputMeta.minval : undefined}
                     max={typeof inputMeta.maxval === 'number' ? inputMeta.maxval : undefined}
@@ -142,14 +149,14 @@ export const IndicatorSettingsModal = ({
             className='inline-flex h-9 items-center justify-center rounded-sm border border-input px-3 text-foreground text-sm hover:bg-muted'
             onClick={onClose}
           >
-            Cancel
+            {copy.indicator.cancel}
           </button>
           <button
             type='button'
             className='inline-flex h-9 items-center justify-center rounded-sm bg-primary px-3 text-primary-foreground text-sm hover:bg-primary-hover'
             onClick={onSave}
           >
-            Save
+            {copy.indicator.save}
           </button>
         </div>
       </div>

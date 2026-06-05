@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { Check, LinkIcon } from 'lucide-react'
 import {
   xIcon as XIcon,
@@ -11,6 +10,8 @@ import {
 } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 
 interface SocialShareProps {
   path: string
@@ -20,6 +21,8 @@ interface SocialShareProps {
 export default function SocialShare({ path, text }: SocialShareProps) {
   const [copied, setCopied] = useState(false)
   const [url, setUrl] = useState(path)
+  const copy = useMessages()
+  const blogCopy = copy.blog
 
   useEffect(() => {
     setUrl(`${window.location.origin}${path}`)
@@ -59,21 +62,21 @@ export default function SocialShare({ path, text }: SocialShareProps) {
 
   return (
     <div>
-      <h3 className="mb-4 font-medium text-primary">Share This Article</h3>
+      <h3 className="mb-4 font-medium text-primary">{blogCopy.shareTitle}</h3>
       <TooltipProvider delayDuration={200}>
         <div className="flex flex-wrap gap-3">
           {links.map((link) => (
             <Tooltip key={link.label}>
               <TooltipTrigger asChild>
                 <Button variant="outline" size="icon" asChild>
-                  <Link
+                  <a
                     href={link.href}
                     target="_blank"
                     rel="nofollow noopener noreferrer"
-                    aria-label={`Share on ${link.label}`}
+                    aria-label={formatTemplate(blogCopy.shareOn, { platform: link.label })}
                   >
                     {link.icon}
-                  </Link>
+                  </a>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>{link.label}</TooltipContent>
@@ -81,7 +84,12 @@ export default function SocialShare({ path, text }: SocialShareProps) {
           ))}
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="outline" size="icon" onClick={handleCopyLink} aria-label="Copy link">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleCopyLink}
+                aria-label={blogCopy.copyLink}
+              >
                 {copied ? (
                   <Check className="h-5 w-5 text-green-500" aria-hidden="true" />
                 ) : (
@@ -89,7 +97,7 @@ export default function SocialShare({ path, text }: SocialShareProps) {
                 )}
               </Button>
             </TooltipTrigger>
-            <TooltipContent>{copied ? 'Copied!' : 'Copy link'}</TooltipContent>
+            <TooltipContent>{copied ? blogCopy.copied : blogCopy.copyLink}</TooltipContent>
           </Tooltip>
         </div>
       </TooltipProvider>

@@ -1,8 +1,12 @@
 'use client'
 
 import { Fragment, memo, useCallback, useEffect, useRef, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { Card } from '@/components/ui/card'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
+import type { LocaleCode } from '@/i18n/utils'
 import {
   createDefaultLayoutState,
   createLayoutNodeId,
@@ -40,6 +44,9 @@ function LayoutPreviewPanelSurface({
   const headerScrollRef = useRef<HTMLDivElement>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
   const [panelSize, setPanelSize] = useState({ width: 0, height: 0 })
+  const locale = useLocale() as LocaleCode
+  const copy = useMessages()
+  const layoutCopy = copy.landing.preview.layout
 
   const handleHorizontalWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
     if (!headerScrollRef.current) return
@@ -76,7 +83,7 @@ function LayoutPreviewPanelSurface({
             ref={headerScrollRef}
             onWheel={handleHorizontalWheel}
             className='flex w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-            aria-label='Widget header'
+            aria-label={layoutCopy.headerAriaLabel}
           >
             <div className='flex w-full flex-nowrap items-center gap-4 py-0.5 font-medium text-accent-foreground text-sm'>
               <div className='flex h-8 flex-grow basis-0 items-center justify-start gap-1 whitespace-nowrap pl-1 text-left' />
@@ -97,14 +104,19 @@ function LayoutPreviewPanelSurface({
         >
           <div className='space-y-1'>
             <p className='font-semibold text-[11px] text-muted-foreground uppercase tracking-[0.24em]'>
-              Widget Size
+              {layoutCopy.sizeLabel}
             </p>
             <p className='font-medium text-2xl text-foreground tabular-nums'>
               {formatPanelDimension(panelSize.width)} × {formatPanelDimension(panelSize.height)}
             </p>
           </div>
           <p className='text-muted-foreground text-xs tabular-nums'>
-            {Math.round(availableWidth)}% width · {Math.round(availableHeight)}% height
+            {formatTemplate('{width}% {widthLabel} · {height}% {heightLabel}', {
+              width: Math.round(availableWidth),
+              height: Math.round(availableHeight),
+              widthLabel: layoutCopy.widthLabel,
+              heightLabel: layoutCopy.heightLabel,
+            })}
           </p>
         </div>
       </Card>

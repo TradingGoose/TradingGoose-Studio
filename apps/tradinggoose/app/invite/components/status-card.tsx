@@ -1,9 +1,10 @@
 'use client'
 
 import { AlertCircle, CheckCircle2, Mail, RotateCcw, ShieldX, UserPlus, Users2 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
+import { useMessages } from 'next-intl'
+import { useRouter } from '@/i18n/navigation'
 import { useBrandConfig } from '@/lib/branding/branding'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
@@ -59,6 +60,7 @@ export function InviteStatusCard({
   isExpiredError = false,
 }: InviteStatusCardProps) {
   const router = useRouter()
+  const copy = useMessages()
   const brandConfig = useBrandConfig()
   const primaryButtonClasses =
     'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
@@ -67,9 +69,11 @@ export function InviteStatusCard({
     return (
       <div className={`${soehne.className} space-y-6`}>
         <div className='space-y-1 text-center'>
-          <h1 className='font-medium text-[32px] text-black tracking-tight'>Loading</h1>
+          <h1 className='font-medium text-[32px] text-black tracking-tight'>
+            {title || copy.invite.loadingTitle}
+          </h1>
           <p className={`${inter.className} font-[380] text-[16px] text-muted-foreground`}>
-            {description}
+            {description || copy.invite.loadingDescription}
           </p>
         </div>
         <div className='flex w-full items-center justify-center py-8'>
@@ -79,12 +83,12 @@ export function InviteStatusCard({
         <div
           className={`${inter.className} text-muted-foreground fixed right-0 bottom-0 left-0 z-50 pb-8 text-center font-[340] text-[13px] leading-relaxed`}
         >
-          Need help?{' '}
+          {copy.invite.needHelp}{' '}
           <a
             href='mailto:support@tradinggoose.ai'
             className='hover:text-primary underline underline-offset-4'
           >
-            Contact support
+            {copy.invite.contactSupport}
           </a>
         </div>
       </div>
@@ -107,13 +111,13 @@ export function InviteStatusCard({
       <div className={`${inter.className} mt-8 space-y-8`}>
         <div className='flex w-full flex-col gap-3'>
           {isExpiredError && (
-            <Button
-              variant='outline'
-              className='w-full rounded-md border-primary font-medium text-[15px] text-primary transition-colors duration-200 hover:bg-primary hover:text-black'
-              onClick={() => router.push('/')}
-            >
+          <Button
+            variant='outline'
+            className='w-full rounded-md border-primary font-medium text-[15px] text-primary transition-colors duration-200 hover:bg-primary hover:text-black'
+            onClick={() => router.push('/')}
+          >
               <RotateCcw className='mr-2 h-4 w-4' />
-              Request New Invitation
+              {copy.invite.requestNewInvitation}
             </Button>
           )}
 
@@ -147,12 +151,12 @@ export function InviteStatusCard({
       <div
         className={`${inter.className} text-muted-foreground fixed right-0 bottom-0 left-0 z-50 pb-8 text-center font-[340] text-[13px] leading-relaxed`}
       >
-        Need help?{' '}
+        {copy.invite.needHelp}{' '}
         <a
           href={`mailto:${brandConfig.supportEmail}`}
           className='hover:text-primary underline underline-offset-4'
         >
-          Contact support
+          {copy.invite.contactSupport}
         </a>
       </div>
     </div>

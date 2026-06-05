@@ -413,6 +413,7 @@ export const waitlist = pgTable(
     }),
     signedUpAt: timestamp('signed_up_at'),
     userId: text('user_id').references(() => user.id, { onDelete: 'set null' }),
+    preferredLocale: text('preferred_locale').notNull().default('en'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },

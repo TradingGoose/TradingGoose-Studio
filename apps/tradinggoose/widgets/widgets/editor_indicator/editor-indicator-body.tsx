@@ -1,7 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
+import { useLocale } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
+import { useMessages } from 'next-intl'
 import { useIndicators } from '@/hooks/queries/indicators'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
@@ -22,6 +24,8 @@ export function EditorIndicatorWidgetBody({
   widget,
   onWidgetParamsChange,
 }: EditorIndicatorWidgetBodyProps) {
+  const locale = useLocale()
+  const copy = useMessages().workspace.widgets.indicatorEditor.body
   const workspaceId = context?.workspaceId ?? null
   const { data: indicators = [], isLoading, error } = useIndicators(workspaceId ?? '')
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
@@ -112,13 +116,13 @@ export function EditorIndicatorWidgetBody({
   })
 
   if (!workspaceId) {
-    return <WidgetStateMessage message='Select a workspace to edit indicators.' />
+    return <WidgetStateMessage message={copy.selectWorkspace} />
   }
 
   if (error) {
     return (
       <WidgetStateMessage
-        message={error instanceof Error ? error.message : 'Failed to load indicators.'}
+        message={error instanceof Error ? error.message : copy.failedToLoadIndicators}
       />
     )
   }
@@ -137,16 +141,16 @@ export function EditorIndicatorWidgetBody({
         message={
           isLinkedToColorPair
             ? normalizedRequestedIndicatorId.length > 0
-              ? 'Indicator not found.'
-              : 'This color has no shared indicator selected yet.'
-            : 'Select an indicator to edit.'
+              ? copy.indicatorNotFound
+              : copy.noSharedIndicatorSelected
+            : copy.selectIndicatorToEdit
         }
       />
     )
   }
 
   if (!indicator) {
-    return <WidgetStateMessage message='Indicator not found.' />
+    return <WidgetStateMessage message={copy.indicatorNotFound} />
   }
 
   return (

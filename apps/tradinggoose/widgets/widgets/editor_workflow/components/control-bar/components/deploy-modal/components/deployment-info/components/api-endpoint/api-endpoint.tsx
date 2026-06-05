@@ -2,6 +2,7 @@
 
 import { CopyButton } from '@/components/ui/copy-button'
 import { Label } from '@/components/ui/label'
+import { useDeploymentCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 interface ApiEndpointProps {
   endpoint: string
@@ -9,11 +10,12 @@ interface ApiEndpointProps {
 }
 
 export function ApiEndpoint({ endpoint, showLabel = true }: ApiEndpointProps) {
+  const copy = useDeploymentCopy()
   return (
     <div className='space-y-1.5'>
       {showLabel && (
         <div className='flex items-center gap-1.5'>
-          <Label className='font-medium text-sm'>API Endpoint</Label>
+          <Label className='font-medium text-sm'>{copy.apiEndpoint}</Label>
         </div>
       )}
       <div className='group relative rounded-md border bg-background transition-colors hover:bg-card/50'>

@@ -1,4 +1,5 @@
 import { memo, useMemo } from 'react'
+import { useTranslations } from 'next-intl'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import StatusBar, {
   type StatusBarSegment,
@@ -37,15 +38,16 @@ export function WorkflowsList({
   segmentDurationMs: number
 }) {
   const { workflows } = useWorkflowRegistry()
+  const t = useTranslations('workspace.logs.dashboard.workflows')
   const segmentsCount = filteredExecutions[0]?.segments?.length || 120
   const durationLabel = useMemo(() => {
     const segMs = Math.max(1, Math.floor(segmentDurationMs || 0))
     const days = Math.round(segMs / (24 * 60 * 60 * 1000))
-    if (days >= 1) return `${days} day${days !== 1 ? 's' : ''}`
+    if (days >= 1) return t('durationDay', { count: days, plural: days !== 1 ? 's' : '' })
     const hours = Math.round(segMs / (60 * 60 * 1000))
-    if (hours >= 1) return `${hours} hour${hours !== 1 ? 's' : ''}`
+    if (hours >= 1) return t('durationHour', { count: hours, plural: hours !== 1 ? 's' : '' })
     const mins = Math.max(1, Math.round(segMs / (60 * 1000)))
-    return `${mins} minute${mins !== 1 ? 's' : ''}`
+    return t('durationMinute', { count: mins, plural: mins !== 1 ? 's' : '' })
   }, [segmentDurationMs])
 
   // Date axis above the status bars intentionally removed for a cleaner, denser layout
@@ -53,7 +55,7 @@ export function WorkflowsList({
   function DynamicLegend() {
     return (
       <p className='mt-0.5 text-[11px] text-muted-foreground'>
-        Each cell ≈ {durationLabel} of the selected range. Click a cell to filter details.
+        {t('legend', { duration: durationLabel })}
       </p>
     )
   }
@@ -65,13 +67,14 @@ export function WorkflowsList({
       <div className='flex-shrink-0 border-b bg-muted/30 px-4 py-2'>
         <div className='flex items-center justify-between'>
           <div>
-            <h3 className='font-[480] text-sm'>Workflows</h3>
+            <h3 className='font-[480] text-sm'>{t('title')}</h3>
             <DynamicLegend />
           </div>
           <span className='text-muted-foreground text-xs'>
-            {filteredExecutions.length} workflow
-            {filteredExecutions.length !== 1 ? 's' : ''}
-            {searchQuery && ` (filtered from ${executions.length})`}
+            {filteredExecutions.length === 1
+              ? t('count', { count: filteredExecutions.length })
+              : t('countPlural', { count: filteredExecutions.length })}
+            {searchQuery && ` ${t('filteredFrom', { count: executions.length })}`}
           </span>
         </div>
       </div>
@@ -80,7 +83,7 @@ export function WorkflowsList({
         <div className='space-y-1 p-3'>
           {filteredExecutions.length === 0 ? (
             <div className='py-8 text-center text-muted-foreground text-sm'>
-              No workflows found matching "{searchQuery}"
+              {t('noMatches', { query: searchQuery })}
             </div>
           ) : (
             filteredExecutions.map((workflow, idx) => {

@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 
+interface IdentifierValidationCopy {
+  identifierInvalidFormat: string
+  identifierCheckFailed: string
+  identifierInUse: string
+}
+
 export function useIdentifierValidation(
   identifier: string,
+  copy: IdentifierValidationCopy,
   originalIdentifier?: string,
   isEditingExisting?: boolean
 ) {
@@ -41,7 +48,7 @@ export function useIdentifierValidation(
 
     // Validate format first - client-side validation
     if (!/^[a-z0-9-]+$/.test(identifier)) {
-      setError('Identifier can only contain lowercase letters, numbers, and hyphens')
+      setError(copy.identifierInvalidFormat)
       return
     }
 
@@ -55,17 +62,17 @@ export function useIdentifierValidation(
         const data = await response.json()
 
         if (!response.ok) {
-          setError('Error checking identifier availability')
+          setError(copy.identifierCheckFailed)
           setIsValid(false)
         } else if (!data.available) {
-          setError(data.error || 'This identifier is already in use')
+          setError(copy.identifierInUse)
           setIsValid(false)
         } else {
           setError(null)
           setIsValid(true)
         }
       } catch {
-        setError('Error checking identifier availability')
+        setError(copy.identifierCheckFailed)
         setIsValid(false)
       } finally {
         setIsChecking(false)
@@ -77,7 +84,7 @@ export function useIdentifierValidation(
         clearTimeout(timeoutRef.current)
       }
     }
-  }, [identifier, originalIdentifier, isEditingExisting])
+  }, [copy.identifierCheckFailed, copy.identifierInUse, copy.identifierInvalidFormat, identifier, originalIdentifier, isEditingExisting])
 
   return { isChecking, error, isValid }
 }

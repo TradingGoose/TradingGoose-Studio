@@ -2,6 +2,7 @@
 
 import { Plus } from 'lucide-react'
 import { useParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import {
   DocumentTableSkeleton,
   KnowledgeHeader,
@@ -16,11 +17,12 @@ interface KnowledgeBaseLoadingProps {
 export function KnowledgeBaseLoading({ knowledgeBaseName }: KnowledgeBaseLoadingProps) {
   const params = useParams()
   const workspaceId = params?.workspaceId as string
+  const t = useTranslations('workspace.knowledge')
 
   const breadcrumbs = [
     {
       id: 'knowledge-root',
-      label: 'Knowledge',
+      label: t('title'),
       href: `/workspace/${workspaceId}/knowledge`,
     },
     {
@@ -34,14 +36,14 @@ export function KnowledgeBaseLoading({ knowledgeBaseName }: KnowledgeBaseLoading
       <SearchInput
         value=''
         onChange={() => {}}
-        placeholder='Search documents...'
+        placeholder={t('loading.searchDocumentsPlaceholder')}
         disabled
         className='flex-1'
       />
       <div className='flex items-center gap-2'>
         <PrimaryButton disabled>
           <Plus className='h-3.5 w-3.5' />
-          Add Documents
+          {t('loading.addDocuments')}
         </PrimaryButton>
       </div>
     </div>

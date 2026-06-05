@@ -28,13 +28,16 @@ const resolveWindowSpanMs = (window: MarketSeriesWindow, intervalMs?: number | n
   return spanMs > 0 ? spanMs : null
 }
 
-export const assertMarketSeries = (payload: unknown): MarketSeries => {
+export const assertMarketSeries = (
+  payload: unknown,
+  invalidPayloadMessage: string
+): MarketSeries => {
   if (!payload || typeof payload !== 'object') {
-    throw new Error('Invalid series payload')
+    throw new Error(invalidPayloadMessage)
   }
   const series = payload as MarketSeries
   if (!Array.isArray(series.bars)) {
-    throw new Error('Invalid series payload')
+    throw new Error(invalidPayloadMessage)
   }
   return series
 }

@@ -5,18 +5,19 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { Form, FormField, FormItem, FormMessage } from '@/components/ui/form'
+import { useWorkflowApiKeyCopy } from '@/widgets/widgets/editor_workflow/copy'
 import {
   type ApiKey,
   ApiKeySelector,
 } from '@/widgets/widgets/editor_workflow/components/control-bar/components/api-key-selector/api-key-selector'
 
-// Form schema for API key selection or creation
-const deployFormSchema = z.object({
-  apiKey: z.string().min(1, 'Please select an API key'),
-  newKeyName: z.string().optional(),
-})
+const createDeployFormSchema = (selectApiKeyValidation: string) =>
+  z.object({
+    apiKey: z.string().min(1, selectApiKeyValidation),
+    newKeyName: z.string().optional(),
+  })
 
-type DeployFormValues = z.infer<typeof deployFormSchema>
+type DeployFormValues = z.infer<ReturnType<typeof createDeployFormSchema>>
 
 interface DeployFormProps {
   apiKeys: ApiKey[]
@@ -39,8 +40,9 @@ export function DeployForm({
   isDeployed = false,
   deployedApiKeyDisplay,
 }: DeployFormProps) {
+  const copy = useWorkflowApiKeyCopy()
   const form = useForm<DeployFormValues>({
-    resolver: zodResolver(deployFormSchema),
+    resolver: zodResolver(createDeployFormSchema(copy.selectApiKeyValidation)),
     defaultValues: {
       apiKey: selectedApiKeyId || (apiKeys.length > 0 ? apiKeys[0].id : ''),
       newKeyName: '',
@@ -77,7 +79,7 @@ export function DeployForm({
                 apiKeys={apiKeys}
                 onApiKeyCreated={onApiKeyCreated}
                 showLabel={true}
-                label='Select API Key'
+                label={copy.selectApiKey}
                 isDeployed={isDeployed}
                 deployedApiKeyDisplay={deployedApiKeyDisplay}
               />

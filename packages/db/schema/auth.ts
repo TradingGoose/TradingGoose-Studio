@@ -172,6 +172,7 @@ export const settings = pgTable('settings', {
     .unique(), // One settings record per user
 
   theme: text('theme').notNull().default('system'),
+  preferredLocale: text('preferred_locale').notNull().default('en'),
   telemetryEnabled: boolean('telemetry_enabled').notNull().default(true),
   emailPreferences: json('email_preferences').notNull().default('{}'),
   billingUsageNotificationsEnabled: boolean('billing_usage_notifications_enabled')

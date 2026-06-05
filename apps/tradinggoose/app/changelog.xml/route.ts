@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { SITE_BASE_URL } from '@/i18n/utils'
 
 export const dynamic = 'force-static'
 export const revalidate = 3600
@@ -24,10 +25,13 @@ function escapeXml(str: string) {
 
 export async function GET() {
   try {
-    const res = await fetch('https://api.github.com/repos/TradingGoose/TradingGoose-Studio/releases', {
-      headers: { Accept: 'application/vnd.github+json' },
-      next: { revalidate },
-    })
+    const res = await fetch(
+      'https://api.github.com/repos/TradingGoose/TradingGoose-Studio/releases',
+      {
+        headers: { Accept: 'application/vnd.github+json' },
+        next: { revalidate },
+      }
+    )
     const releases: Release[] = await res.json()
     const items = (releases || [])
       .filter((r) => !r.prerelease)
@@ -48,7 +52,7 @@ export async function GET() {
       <rss version="2.0">
         <channel>
           <title>TradingGoose Changelog</title>
-          <link>https://tradinggoose.ai/changelog</link>
+          <link>${SITE_BASE_URL}/changelog</link>
           <description>Latest changes, fixes and updates in TradingGoose.</description>
           <language>en-us</language>
           ${items}

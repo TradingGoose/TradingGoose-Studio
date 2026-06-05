@@ -1,5 +1,4 @@
 import { randomUUID } from 'crypto'
-import { render } from '@react-email/render'
 import { db } from '@tradinggoose/db'
 import {
   permissions,
@@ -11,11 +10,13 @@ import {
 } from '@tradinggoose/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
-import { WorkspaceInvitationEmail } from '@/components/emails/workspace-invitation'
+import { getEmailSubject, renderWorkspaceInvitationEmail } from '@/components/emails/render-email'
 import { getSession } from '@/lib/auth'
+import { resolveEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
+import { localizeUrl } from '@/i18n/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -74,7 +75,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { workspaceId, email, role = 'member', permission = 'read' } = await req.json()
+    const { workspaceId, email, role = 'member', permission = 'read', locale } = await req.json()
 
     if (!workspaceId || !email) {
       return NextResponse.json({ error: 'Workspace ID and email are required' }, { status: 400 })
@@ -207,6 +208,7 @@ export async function POST(req: NextRequest) {
       workspaceName: workspaceDetails.name,
       invitationId: invitationData.id,
       token: token,
+      fallbackLocale: locale,
     })
 
     return NextResponse.json({ success: true, invitation: invitationData })
@@ -223,31 +225,33 @@ async function sendInvitationEmail({
   workspaceName,
   invitationId,
   token,
+  fallbackLocale,
 }: {
   to: string
   inviterName: string
   workspaceName: string
   invitationId: string
   token: string
+  fallbackLocale?: string | null
 }) {
   try {
+    const locale = await resolveEmailLocale({ email: to, fallbackLocale })
     const baseUrl = getBaseUrl()
     // Use invitation ID in path, token in query parameter for security
-    const invitationLink = `${baseUrl}/invite/${invitationId}?token=${token}`
+    const invitationLink = `${localizeUrl(baseUrl, locale, `/invite/${invitationId}`)}?token=${token}`
 
-    const emailHtml = await render(
-      WorkspaceInvitationEmail({
-        workspaceName,
-        inviterName,
-        invitationLink,
-      })
-    )
+    const emailHtml = await renderWorkspaceInvitationEmail({
+      workspaceName,
+      inviterName,
+      invitationLink,
+      locale,
+    })
 
     logger.info(`Attempting to send invitation email to ${to}`)
 
     const result = await sendEmail({
       to,
-      subject: `You've been invited to join "${workspaceName}" on TradingGoose`,
+      subject: getEmailSubject('workspace-invitation', locale, { workspaceName }),
       html: emailHtml,
       emailType: 'transactional',
     })

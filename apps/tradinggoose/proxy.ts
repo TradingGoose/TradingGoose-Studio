@@ -1,5 +1,6 @@
 import { getSessionCookie } from 'better-auth/cookies'
 import { type NextRequest, NextResponse } from 'next/server'
+import createMiddleware from 'next-intl/middleware'
 import { appendHomepageDiscoveryLinks } from '@/lib/discovery/link-headers'
 import {
   appendVaryHeader,
@@ -8,10 +9,22 @@ import {
   MARKDOWN_RENDER_ROUTE,
   requestAcceptsMarkdown,
 } from '@/lib/markdown/negotiation'
+import { routing } from '@/i18n/routing'
+import {
+  CANONICAL_CALLBACK_PATH_HEADER,
+  defaultLocale,
+  isLocaleCode,
+  type LocaleCode,
+  localizeUrl,
+  stripLocaleFromPathname,
+} from '@/i18n/utils'
 import { createLogger } from './lib/logs/console/logger'
 import { generateRuntimeCSP } from './lib/security/csp'
 
 const logger = createLogger('Proxy')
+const handleI18nRouting = createMiddleware(routing)
+const LOCALE_COOKIE = 'NEXT_LOCALE'
+const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
 const AUTH_ROUTES = new Set(['/login', '/signup'])
 const AUTH_COOKIE_KEYS = [
@@ -35,28 +48,98 @@ function clearAuthCookies(response: NextResponse) {
 }
 
 const SUSPICIOUS_UA_PATTERNS = [
-  /^\s*$/, // Empty user agents
-  /\.\./, // Path traversal attempt
-  /<\s*script/i, // Potential XSS payloads
-  /^\(\)\s*{/, // Command execution attempt
-  /\b(sqlmap|nikto|gobuster|dirb|nmap)\b/i, // Known scanning tools
+  /^\s*$/,
+  /\.\./,
+  /<\s*script/i,
+  /^\(\)\s*{/,
+  /\b(sqlmap|nikto|gobuster|dirb|nmap)\b/i,
 ] as const
 
+interface LocaleRoute {
+  locale: LocaleCode
+  pathname: string
+  hasLocalePrefix: boolean
+}
+
+function resolveLocaleRoute(pathname: string): LocaleRoute {
+  const firstSegment = pathname.split('/').filter(Boolean)[0]
+  const { locale, pathname: normalizedPathname } = stripLocaleFromPathname(pathname)
+  return {
+    locale,
+    pathname: normalizedPathname,
+    hasLocalePrefix: Boolean(firstSegment && isLocaleCode(firstSegment)),
+  }
+}
+
+function buildNormalizedUrl(request: NextRequest, pathname: string) {
+  const normalizedUrl = new URL(pathname, request.url)
+  normalizedUrl.search = request.nextUrl.search
+  return normalizedUrl
+}
+
+function resolveRequestLocale(
+  request: NextRequest,
+  route = resolveLocaleRoute(request.nextUrl.pathname)
+) {
+  const preferredLocale = request.cookies.get(LOCALE_COOKIE)?.value
+  return route.hasLocalePrefix || !preferredLocale || !isLocaleCode(preferredLocale)
+    ? route.locale
+    : preferredLocale
+}
+
+function isCanonicalRouteHandlerPath(pathname: string) {
+  return (
+    pathname === '/api' ||
+    pathname.startsWith('/api/') ||
+    pathname === '/ingest' ||
+    pathname.startsWith('/ingest/') ||
+    pathname.startsWith('/.well-known/') ||
+    pathname.startsWith('/blog-images/') ||
+    pathname.startsWith('/monaco-editor/') ||
+    pathname === '/changelog.xml' ||
+    pathname === '/llms.txt' ||
+    pathname === '/llms-full.txt' ||
+    pathname === '/manifest.webmanifest' ||
+    pathname === '/robots.txt' ||
+    pathname === '/sitemap.xml'
+  )
+}
+
 function buildLoginRedirect(request: NextRequest, callback?: string) {
-  const loginUrl = new URL('/login', request.url)
+  const locale = resolveRequestLocale(request)
+  const loginUrl = new URL(localizeUrl(request.nextUrl.origin, locale, '/login'))
+
   if (callback) {
     loginUrl.searchParams.set('callbackUrl', callback)
   }
-  return NextResponse.redirect(loginUrl)
+
+  return withLocaleCookie(NextResponse.redirect(loginUrl), locale)
 }
 
 function isProtectedAppPath(pathname: string): boolean {
+  const { pathname: normalizedPathname } = resolveLocaleRoute(pathname)
+
   return (
-    pathname.startsWith('/workspace') ||
-    pathname === '/admin' ||
-    pathname.startsWith('/admin/') ||
-    pathname === '/workspace/'
+    normalizedPathname.startsWith('/workspace') ||
+    normalizedPathname === '/admin' ||
+    normalizedPathname.startsWith('/admin/') ||
+    normalizedPathname === '/workspace/'
   )
+}
+
+function isAuthRoute(pathname: string): boolean {
+  const { pathname: normalizedPathname } = resolveLocaleRoute(pathname)
+  return AUTH_ROUTES.has(normalizedPathname)
+}
+
+function getCanonicalCallbackPath(pathname: string, search: string) {
+  const { pathname: normalizedPathname } = resolveLocaleRoute(pathname)
+  return `${normalizedPathname}${search}`
+}
+
+function isMarkdownRequestPath(pathname: string) {
+  const { pathname: normalizedPathname } = resolveLocaleRoute(pathname)
+  return isMarkdownRenderablePath(normalizedPathname)
 }
 
 function rewriteMarkdownRequest(request: NextRequest): NextResponse | null {
@@ -76,12 +159,20 @@ function rewriteMarkdownRequest(request: NextRequest): NextResponse | null {
     return null
   }
 
-  if (!isMarkdownRenderablePath(request.nextUrl.pathname)) {
+  if (!isMarkdownRequestPath(request.nextUrl.pathname)) {
     return null
   }
 
+  const route = resolveLocaleRoute(request.nextUrl.pathname)
+  const { locale, pathname: normalizedPathname } = route
+
+  if (route.hasLocalePrefix && locale === defaultLocale) {
+    return NextResponse.redirect(buildNormalizedUrl(request, normalizedPathname))
+  }
+
   const rewriteUrl = new URL(MARKDOWN_RENDER_ROUTE, request.url)
-  rewriteUrl.searchParams.set('path', request.nextUrl.pathname)
+  rewriteUrl.searchParams.set('path', normalizedPathname)
+  rewriteUrl.searchParams.set('locale', locale)
 
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set(MARKDOWN_BYPASS_HEADER, '1')
@@ -93,35 +184,39 @@ function rewriteMarkdownRequest(request: NextRequest): NextResponse | null {
   })
 }
 
-/**
- * Handles workspace invitation API endpoint access
- */
-function handleWorkspaceInvitationAPI(
-  request: NextRequest,
-  hasActiveSession: boolean
-): NextResponse | null {
-  if (!request.nextUrl.pathname.startsWith('/api/workspaces/invitations')) {
+function withLocaleCookie(response: NextResponse, locale: LocaleCode) {
+  response.cookies.set(LOCALE_COOKIE, locale, {
+    path: '/',
+    maxAge: LOCALE_COOKIE_MAX_AGE,
+    sameSite: 'lax',
+  })
+  return response
+}
+
+function redirectToCookieLocale(request: NextRequest, route: LocaleRoute): NextResponse | null {
+  const preferredLocale = request.cookies.get(LOCALE_COOKIE)?.value
+
+  if (
+    route.hasLocalePrefix ||
+    isCanonicalRouteHandlerPath(request.nextUrl.pathname) ||
+    (request.method !== 'GET' && request.method !== 'HEAD') ||
+    !preferredLocale ||
+    !isLocaleCode(preferredLocale) ||
+    preferredLocale === defaultLocale
+  ) {
     return null
   }
 
-  if (request.nextUrl.pathname.includes('/accept') && !hasActiveSession) {
-    const token = request.nextUrl.searchParams.get('token')
-    if (token) {
-      return NextResponse.redirect(new URL(`/invite/${token}?token=${token}`, request.url))
-    }
-  }
-  return NextResponse.next()
+  const redirectUrl = new URL(localizeUrl(request.nextUrl.origin, preferredLocale, route.pathname))
+  redirectUrl.search = request.nextUrl.search
+  return NextResponse.redirect(redirectUrl)
 }
 
-/**
- * Handles security filtering for suspicious user agents
- */
 function handleSecurityFiltering(request: NextRequest): NextResponse | null {
   const userAgent = request.headers.get('user-agent') || ''
   const isWebhookEndpoint = request.nextUrl.pathname.startsWith('/api/webhooks/trigger/')
   const isSuspicious = SUSPICIOUS_UA_PATTERNS.some((pattern) => pattern.test(userAgent))
 
-  // Block suspicious requests, but exempt webhook endpoints from User-Agent validation
   if (isSuspicious && !isWebhookEndpoint) {
     logger.warn('Blocked suspicious request', {
       userAgent,
@@ -151,77 +246,82 @@ function handleSecurityFiltering(request: NextRequest): NextResponse | null {
 
 export async function proxy(request: NextRequest) {
   const url = request.nextUrl
+  const route = resolveLocaleRoute(url.pathname)
+  const { locale, pathname: normalizedPathname } = route
 
   const hasActiveSession = Boolean(getSessionCookie(request))
   const isProtectedPath = isProtectedAppPath(url.pathname)
-
-  if (isProtectedPath) {
-    if (!hasActiveSession) {
-      const callbackTarget = `${url.pathname}${url.search}`
-      return buildLoginRedirect(request, callbackTarget)
-    }
-  }
-
   const reauth = url.searchParams.get('reauth') === '1'
 
-  if (AUTH_ROUTES.has(url.pathname)) {
+  if (isProtectedPath && !hasActiveSession) {
+    const callbackTarget = getCanonicalCallbackPath(url.pathname, url.search)
+    return buildLoginRedirect(request, callbackTarget)
+  }
+
+  if (isAuthRoute(url.pathname)) {
     if (reauth) {
-      const response = NextResponse.next()
+      const response = handleI18nRouting(request)
       clearAuthCookies(response)
-      return response
+      return route.hasLocalePrefix ? withLocaleCookie(response, locale) : response
     }
 
     if (hasActiveSession) {
-      return NextResponse.redirect(new URL('/workspace', request.url))
+      const requestLocale = resolveRequestLocale(request, route)
+      return withLocaleCookie(
+        NextResponse.redirect(new URL(localizeUrl(url.origin, requestLocale, '/workspace'))),
+        requestLocale
+      )
     }
   }
-
-  const workspaceInvitationRedirect = handleWorkspaceInvitationAPI(request, hasActiveSession)
-  if (workspaceInvitationRedirect) return workspaceInvitationRedirect
 
   const securityBlock = handleSecurityFiltering(request)
   if (securityBlock) return securityBlock
 
+  const localeRedirect = redirectToCookieLocale(request, route)
+  if (localeRedirect) return localeRedirect
+
   const markdownRewrite = rewriteMarkdownRequest(request)
   if (markdownRewrite) return markdownRewrite
 
-  const requestHeaders = new Headers(request.headers)
-  if (isProtectedPath) {
-    requestHeaders.set('x-auth-callback-url', `${url.pathname}${url.search}`)
+  const response = isCanonicalRouteHandlerPath(url.pathname)
+    ? NextResponse.next()
+    : handleI18nRouting(request)
+
+  if (response.headers.has('location')) {
+    return response
   }
 
-  const response = NextResponse.next({
-    request: {
-      headers: requestHeaders,
-    },
-  })
+  if (isProtectedPath) {
+    const requestHeaders = new Headers(request.headers)
+    requestHeaders.set(
+      CANONICAL_CALLBACK_PATH_HEADER,
+      getCanonicalCallbackPath(url.pathname, url.search)
+    )
+    NextResponse.next({ request: { headers: requestHeaders } }).headers.forEach((value, key) => {
+      response.headers.set(key, value)
+    })
+  }
+
   response.headers.set('Vary', appendVaryHeader(appendVaryHeader(null, 'User-Agent'), 'Accept'))
 
   if (
-    url.pathname.startsWith('/workspace') ||
-    url.pathname.startsWith('/chat') ||
-    url.pathname === '/'
+    normalizedPathname.startsWith('/workspace') ||
+    normalizedPathname.startsWith('/chat') ||
+    normalizedPathname === '/'
   ) {
     response.headers.set('Content-Security-Policy', await generateRuntimeCSP())
   }
 
-  if (url.pathname === '/') {
-    appendHomepageDiscoveryLinks(response.headers)
+  if (normalizedPathname === '/') {
+    appendHomepageDiscoveryLinks(response.headers, locale)
   }
 
-  return response
+  return route.hasLocalePrefix ? withLocaleCookie(response, locale) : response
 }
 
 export const config = {
   matcher: [
-    '/', // Root path for self-hosted redirect logic
-    '/terms', // Whitelabel terms redirect
-    '/privacy', // Whitelabel privacy redirect
-    '/workspace/:path*', // New workspace routes
-    '/login',
-    '/signup',
-    '/invite/:path*', // Match invitation routes
-    // Catch-all for other pages, excluding static assets and public directories
-    '/((?!_next/static|_next/image|blog-images/|favicon.ico|logo/|static/|footer/|social/|enterprise/|favicon/|twitter/|robots.txt|sitemap.xml).*)',
+    '/api/:path*',
+    '/((?!api|_next|_vercel|ingest|blog-images|monaco-editor|favicon|logo|static|footer|social|enterprise|twitter|.*\\..*).*)',
   ],
 }

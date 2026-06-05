@@ -11,12 +11,16 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   DRAW_ACTION_ICONS,
-  DRAW_ACTION_LABELS,
   DRAW_TOOL_FAMILY_GROUPS,
   DRAW_TOOL_ICONS,
-  DRAW_TOOL_LABELS,
   type DrawToolActionType,
 } from '@/widgets/widgets/data_chart/components/draw-tool-icon-registry'
+import {
+  formatDataChartDrawUnavailable,
+  getDataChartDrawActionLabel,
+  getDataChartDrawToolLabel,
+  useDataChartCopy,
+} from '@/widgets/widgets/data_chart/copy'
 import type { ManualToolType } from '@/widgets/widgets/data_chart/drawings/tool-types'
 import type {
   OwnerVisibilityMode,
@@ -52,21 +56,24 @@ export const DrawToolsSidebar = ({
   onToggleAllVisibility,
   onClearAll,
 }: DrawToolsSidebarProps) => {
+  const copy = useDataChartCopy()
   const [openGroup, setOpenGroup] = useState<'lines' | 'notes' | 'freehand' | 'shapes' | null>(null)
   const canInteract = Boolean(activeOwnerId)
   const canToggleAllVisibility = canInteract && hasOwnerTools
   const allVisibilityAction: DrawToolActionType =
     allVisibilityMode === 'show' ? 'showAll' : 'hideAll'
   const ToggleAllVisibilityIcon = DRAW_ACTION_ICONS[allVisibilityAction]
-  const toggleAllVisibilityLabel = DRAW_ACTION_LABELS[allVisibilityAction]
+  const toggleAllVisibilityLabel = getDataChartDrawActionLabel(copy, allVisibilityAction)
   const ClearAllIcon = DRAW_ACTION_ICONS.clearAll
+  const clearAllLabel = getDataChartDrawActionLabel(copy, 'clearAll')
 
   const resolveTooltip = (toolType: ManualToolType) => {
+    const toolLabel = getDataChartDrawToolLabel(copy, toolType)
     const capability = getToolCapability(toolType)
     if (capability === 'unsupported') {
-      return `${DRAW_TOOL_LABELS[toolType]} is unavailable in this session`
+      return formatDataChartDrawUnavailable(copy, toolLabel)
     }
-    return DRAW_TOOL_LABELS[toolType]
+    return toolLabel
   }
 
   return (
@@ -90,7 +97,7 @@ export const DrawToolsSidebar = ({
                   const LinesIcon = DRAW_TOOL_ICONS.TrendLine
                   return <LinesIcon className='h-4 w-4' />
                 })()}
-                <span className='sr-only'>Lines tools</span>
+                <span className='sr-only'>{copy.drawTools.groups.lines}</span>
               </button>
             </DropdownMenuTrigger>
 
@@ -108,7 +115,7 @@ export const DrawToolsSidebar = ({
                     onClick={() => onSelectTool(toolType)}
                   >
                     <ToolIcon className='h-4 w-4' />
-                    <span>{DRAW_TOOL_LABELS[toolType]}</span>
+                    <span>{getDataChartDrawToolLabel(copy, toolType)}</span>
                   </DropdownMenuItem>
                 )
               })}
@@ -128,7 +135,7 @@ export const DrawToolsSidebar = ({
             <DropdownMenuTrigger asChild>
               <button type='button' className={groupButtonClass} disabled={!canInteract}>
                 <TextCursorInput className='h-4 w-4' />
-                <span className='sr-only'>Notes tools</span>
+                <span className='sr-only'>{copy.drawTools.groups.notes}</span>
               </button>
             </DropdownMenuTrigger>
 
@@ -146,7 +153,7 @@ export const DrawToolsSidebar = ({
                     onClick={() => onSelectTool(toolType)}
                   >
                     <ToolIcon className='h-4 w-4' />
-                    <span>{DRAW_TOOL_LABELS[toolType]}</span>
+                    <span>{getDataChartDrawToolLabel(copy, toolType)}</span>
                   </DropdownMenuItem>
                 )
               })}
@@ -166,7 +173,7 @@ export const DrawToolsSidebar = ({
             <DropdownMenuTrigger asChild>
               <button type='button' className={groupButtonClass} disabled={!canInteract}>
                 <PenTool className='h-4 w-4' />
-                <span className='sr-only'>Freehand tools</span>
+                <span className='sr-only'>{copy.drawTools.groups.freehand}</span>
               </button>
             </DropdownMenuTrigger>
 
@@ -184,7 +191,7 @@ export const DrawToolsSidebar = ({
                     onClick={() => onSelectTool(toolType)}
                   >
                     <ToolIcon className='h-4 w-4' />
-                    <span>{DRAW_TOOL_LABELS[toolType]}</span>
+                    <span>{getDataChartDrawToolLabel(copy, toolType)}</span>
                   </DropdownMenuItem>
                 )
               })}
@@ -204,7 +211,7 @@ export const DrawToolsSidebar = ({
             <DropdownMenuTrigger asChild>
               <button type='button' className={groupButtonClass} disabled={!canInteract}>
                 <Shapes className='h-4 w-4' />
-                <span className='sr-only'>Shapes tools</span>
+                <span className='sr-only'>{copy.drawTools.groups.shapes}</span>
               </button>
             </DropdownMenuTrigger>
 
@@ -222,7 +229,7 @@ export const DrawToolsSidebar = ({
                     onClick={() => onSelectTool(toolType)}
                   >
                     <ToolIcon className='h-4 w-4' />
-                    <span>{DRAW_TOOL_LABELS[toolType]}</span>
+                    <span>{getDataChartDrawToolLabel(copy, toolType)}</span>
                   </DropdownMenuItem>
                 )
               })}
@@ -246,7 +253,7 @@ export const DrawToolsSidebar = ({
                   onClick={() => onSelectTool(toolType)}
                 >
                   <ToolIcon className='h-4 w-4' />
-                  <span className='sr-only'>{DRAW_TOOL_LABELS[toolType]}</span>
+                  <span className='sr-only'>{getDataChartDrawToolLabel(copy, toolType)}</span>
                 </button>
               </TooltipTrigger>
               <TooltipContent side='right'>{resolveTooltip(toolType)}</TooltipContent>
@@ -279,10 +286,10 @@ export const DrawToolsSidebar = ({
                 onClick={onClearAll}
               >
                 <ClearAllIcon className='h-4 w-4' />
-                <span className='sr-only'>{DRAW_ACTION_LABELS.clearAll}</span>
+                <span className='sr-only'>{clearAllLabel}</span>
               </button>
             </TooltipTrigger>
-            <TooltipContent side='right'>{DRAW_ACTION_LABELS.clearAll}</TooltipContent>
+            <TooltipContent side='right'>{clearAllLabel}</TooltipContent>
           </Tooltip>
         </div>
       </div>

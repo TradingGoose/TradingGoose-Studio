@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { Check, ChevronDown, RefreshCw, X } from 'lucide-react'
 import { WealthboxIcon } from '@/components/icons/icons'
 import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
@@ -20,6 +21,9 @@ import {
   getServiceIdFromScopes,
   type OAuthProvider,
 } from '@/lib/oauth'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
+import type { LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('WealthboxFileSelector')
 
@@ -53,7 +57,7 @@ export function WealthboxFileSelector({
   onChange,
   provider,
   requiredScopes = [],
-  label = 'Select item',
+  label,
   disabled = false,
   serviceId,
   showPreview = true,
@@ -63,6 +67,8 @@ export function WealthboxFileSelector({
   workflowId,
   workspaceId,
 }: WealthboxFileSelectorProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = useMessages().workspace.widgets.workflowLabels
   const [open, setOpen] = useState(false)
   const [credentials, setCredentials] = useState<Credential[]>([])
   const [selectedCredentialId, setSelectedCredentialId] = useState<string>(credentialId || '')
@@ -75,6 +81,7 @@ export function WealthboxFileSelector({
   const [showOAuthModal, setShowOAuthModal] = useState(false)
   const [credentialsLoaded, setCredentialsLoaded] = useState(false)
   const initialFetchRef = useRef(false)
+  const labelText = label ?? copy.selectItem
 
   // Determine the appropriate service ID based on provider and scopes
   const getServiceId = (): string => {
@@ -297,9 +304,9 @@ export function WealthboxFileSelector({
   const getItemTypeLabel = () => {
     switch (itemType) {
       case 'contact':
-        return 'Contacts'
+        return copy.contacts
       default:
-        return 'Contacts'
+        return copy.contacts
     }
   }
 
@@ -335,12 +342,12 @@ export function WealthboxFileSelector({
               ) : selectedItemId && isLoadingSelectedItem && selectedCredentialId ? (
                 <div className='flex items-center gap-1'>
                   <RefreshCw className='h-4 w-4 animate-spin' />
-                  <span className='text-muted-foreground'>Loading...</span>
+                  <span className='text-muted-foreground'>{copy.loading}</span>
                 </div>
               ) : (
                 <div className='flex items-center gap-1'>
                   <WealthboxIcon className='h-4 w-4' />
-                  <span className='text-muted-foreground'>{label}</span>
+                  <span className='text-muted-foreground'>{labelText}</span>
                 </div>
               )}
               <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
@@ -350,7 +357,9 @@ export function WealthboxFileSelector({
             <Command shouldFilter={false}>
               <div className='flex items-center border-b px-3' cmdk-input-wrapper=''>
                 <input
-                  placeholder={`Search ${itemType}s...`}
+                  placeholder={formatTemplate(copy.searchItems, {
+                    itemName: getItemTypeLabel().toLowerCase(),
+                  })}
                   value={searchQuery}
                   onChange={(e) => handleSearchChange(e.target.value)}
                   className='flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50'
@@ -358,13 +367,19 @@ export function WealthboxFileSelector({
               </div>
               <CommandList>
                 <CommandEmpty>
-                  {isLoadingItems ? `Loading ${itemType}s...` : `No ${itemType}s found.`}
+                  {isLoadingItems
+                    ? formatTemplate(copy.loadingItems, {
+                        itemName: getItemTypeLabel().toLowerCase(),
+                      })
+                    : formatTemplate(copy.noItemsFound, {
+                        itemName: getItemTypeLabel().toLowerCase(),
+                      })}
                 </CommandEmpty>
 
                 {credentials.length > 1 && (
                   <CommandGroup>
                     <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>
-                      Switch Account
+                      {copy.switchAccount}
                     </div>
                     {credentials.map((cred) => (
                       <CommandItem
@@ -415,7 +430,11 @@ export function WealthboxFileSelector({
                     <CommandItem onSelect={handleAddCredential}>
                       <div className='flex items-center gap-1 text-foreground'>
                         <WealthboxIcon className='h-4 w-4' />
-                        <span>Connect Wealthbox account</span>
+                        <span>
+                          {formatTemplate(copy.connectProviderAccount, {
+                            providerName: 'Wealthbox',
+                          })}
+                        </span>
                       </div>
                     </CommandItem>
                   </CommandGroup>

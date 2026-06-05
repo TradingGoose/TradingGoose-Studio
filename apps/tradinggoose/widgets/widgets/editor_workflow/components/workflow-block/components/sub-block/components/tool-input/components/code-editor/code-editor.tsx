@@ -1,16 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
 import type { MutableRefObject } from 'react'
-import type * as Y from 'yjs'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Wand2 } from 'lucide-react'
-import { MonacoEditor } from '@/components/monaco-editor'
+import type * as Y from 'yjs'
 import type {
   MonacoDecoration,
   MonacoDiagnosticSourceBuilder,
   MonacoEditorHandle,
   MonacoEditorProps,
 } from '@/components/monaco-editor'
+import { MonacoEditor } from '@/components/monaco-editor'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 interface CodeEditorProps {
   value: string
@@ -83,6 +84,7 @@ export function CodeEditor({
   yText,
   awareness,
 }: CodeEditorProps) {
+  const copy = useWorkflowBlockEditorCopy().codeEditor
   const [code, setCode] = useState(value)
   const [isCollapsed, setIsCollapsed] = useState(false)
 
@@ -93,14 +95,10 @@ export function CodeEditor({
   }, [value])
 
   const resolvedAutoHeight = autoHeight ?? false
-  const resolvedHeight = resolvedAutoHeight ? undefined : height ?? '100%'
+  const resolvedHeight = resolvedAutoHeight ? undefined : (height ?? '100%')
 
   const { decorations, atomicTokenRanges } = useMemo(() => {
-    if (
-      !code ||
-      !highlightVariables ||
-      (language !== 'javascript' && language !== 'typescript')
-    ) {
+    if (!code || !highlightVariables || (language !== 'javascript' && language !== 'typescript')) {
       return {
         decorations: [] as MonacoDecoration[],
         atomicTokenRanges: [] as Array<{ start: number; end: number }>,
@@ -305,7 +303,7 @@ export function CodeEditor({
   return (
     <div
       className={cn(
-        'group relative min-h-0 h-full rounded-md border bg-background font-mono text-sm',
+        'group relative h-full min-h-0 rounded-md border bg-background font-mono text-sm',
         className
       )}
     >
@@ -315,7 +313,7 @@ export function CodeEditor({
           size='icon'
           onClick={onWandClick}
           disabled={wandButtonDisabled}
-          aria-label='Generate with AI'
+          aria-label={copy.generateWithAi}
           className='absolute top-2 right-3 z-10 h-8 w-8 rounded-sm border border-transparent bg-muted/80 text-muted-foreground opacity-0 shadow-sm transition-all duration-200 hover:bg-muted hover:text-foreground hover:shadow group-hover:opacity-100'
         >
           <Wand2 className='h-4 w-4' />
@@ -325,6 +323,7 @@ export function CodeEditor({
       {showCollapseToggle && (
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
+          aria-label={isCollapsed ? copy.expand : copy.collapse}
           className={cn(
             'absolute top-2 right-2 z-10 rounded-md p-1.5',
             'bg-accent text-muted-foreground hover:bg-card hover:text-foreground',
@@ -332,11 +331,11 @@ export function CodeEditor({
             'font-medium text-xs'
           )}
         >
-          {isCollapsed ? 'Expand' : 'Collapse'}
+          {isCollapsed ? copy.expand : copy.collapse}
         </button>
       )}
 
-      <div className={cn('relative mt-0 pt-0 h-full min-h-0', isCollapsed && 'overflow-hidden')}>
+      <div className={cn('relative mt-0 h-full min-h-0 pt-0', isCollapsed && 'overflow-hidden')}>
         <MonacoEditor
           ref={(instance) => {
             editorRef.current = instance
@@ -358,7 +357,10 @@ export function CodeEditor({
           autoHeight={resolvedAutoHeight}
           minHeight={minHeight}
           height={resolvedHeight}
-          className={cn('h-full focus:outline-none', isCollapsed && 'pointer-events-none select-none')}
+          className={cn(
+            'h-full focus:outline-none',
+            isCollapsed && 'pointer-events-none select-none'
+          )}
           readOnly={disabled || isCollapsed}
           extraLibs={extraLibs}
           diagnosticSourceBuilder={diagnosticSourceBuilder}

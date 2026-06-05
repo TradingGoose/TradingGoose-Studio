@@ -1,8 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo } from 'react'
+import { useLocale } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { areListingIdentitiesEqual, type ListingIdentity } from '@/lib/listing/identity'
+import { useMessages } from 'next-intl'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import {
   useRemoveWatchlistItem,
@@ -48,6 +50,8 @@ export const WatchlistWidgetBody = ({
   params,
   onWidgetParamsChange,
 }: WidgetComponentProps) => {
+  const locale = useLocale()
+  const copy = useMessages().workspace.widgets.watchlist.body
   const workspaceId = context?.workspaceId ?? null
   const widgetKey = widget?.key ?? 'watchlist'
   const resolvedPairColor = ((widget?.pairColor ?? pairColor ?? 'gray') as PairColor) ?? 'gray'
@@ -213,7 +217,7 @@ export const WatchlistWidgetBody = ({
   )
 
   if (!workspaceId) {
-    return <WatchlistMessage message='Select a workspace to use watchlists.' />
+    return <WatchlistMessage message={copy.selectWorkspace} />
   }
 
   if (isLoading) {
@@ -227,13 +231,13 @@ export const WatchlistWidgetBody = ({
   if (error) {
     return (
       <WatchlistMessage
-        message={error instanceof Error ? error.message : 'Failed to load watchlists.'}
+        message={error instanceof Error ? error.message : copy.failedToLoadWatchlists}
       />
     )
   }
 
   if (!selectedWatchlist) {
-    return <WatchlistMessage message='Create a watchlist to get started.' />
+    return <WatchlistMessage message={copy.createWatchlistToGetStarted} />
   }
 
   return (

@@ -51,16 +51,16 @@ const VALID_OUTCOMES = new Set<MonitorExecutionOutcome>([
 
 const readWorkflowTargetKey = (workflowId: string, blockId: string) => `${workflowId}:${blockId}`
 
-const formatListingLabel = (listing: unknown) => {
+const formatListingLabel = (listing: unknown, unknownListingLabel = 'Unknown listing') => {
   const record = listing as Partial<ListingIdentity> | null | undefined
-  if (!record) return 'Unknown listing'
+  if (!record) return unknownListingLabel
 
   if (record.listing_type === 'default') {
-    return record.listing_id || 'Unknown listing'
+    return record.listing_id || unknownListingLabel
   }
 
   const pair = [record.base_id, record.quote_id].filter(Boolean).join('/')
-  return pair || record.listing_id || 'Unknown listing'
+  return pair || record.listing_id || unknownListingLabel
 }
 
 const normalizeSummaryOutcome = (value: unknown): MonitorExecutionOutcome | null =>
@@ -80,7 +80,10 @@ const getSummaryFields = (summary: MonitorExecutionSummary | undefined) => ({
 export const buildConfigMonitorCards = (
   monitors: MonitorRecord[],
   referenceData: MonitorReferenceData,
-  summariesByMonitorId: Record<string, MonitorExecutionSummary>
+  summariesByMonitorId: Record<string, MonitorExecutionSummary>,
+  options?: {
+    unknownListingLabel?: string
+  }
 ): ConfigMonitorCard[] =>
   monitors.map((monitor) => {
     const monitorConfig = monitor.providerConfig.monitor
@@ -117,7 +120,7 @@ export const buildConfigMonitorCards = (
       listingValue,
       listingLabel: isPortfolio
         ? (monitorConfig.accountId ?? 'Portfolio account')
-        : formatListingLabel(monitorConfig.listing),
+        : formatListingLabel(monitorConfig.listing, options?.unknownListingLabel),
       isActive: monitor.isActive,
       status: monitor.isActive ? 'active' : 'paused',
       createdAt: monitor.createdAt,

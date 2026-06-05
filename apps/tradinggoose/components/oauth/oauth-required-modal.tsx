@@ -19,6 +19,8 @@ import {
   parseProvider,
 } from '@/lib/oauth'
 import { startOAuthConnectFlow } from '@/lib/oauth/connect'
+import { formatTemplate } from '@/i18n/utils'
+import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 const logger = createLogger('OAuthRequiredModal')
 
@@ -138,6 +140,7 @@ export function OAuthRequiredModal({
   serviceId,
   serviceIds,
 }: OAuthRequiredModalProps) {
+  const copy = useWorkflowBlockEditorCopy().oauthRequiredModal
   const { baseProvider } = parseProvider(provider)
   const baseProviderConfig = OAUTH_PROVIDERS[baseProvider]
   const resolveExplicitServiceId = (candidate?: string) => {
@@ -224,10 +227,9 @@ export function OAuthRequiredModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className='sm:max-w-md'>
         <DialogHeader>
-          <DialogTitle>Additional Access Required</DialogTitle>
+          <DialogTitle>{copy.additionalAccessRequired}</DialogTitle>
           <DialogDescription>
-            The "{toolName}" tool requires access to your {providerName} account to function
-            properly.
+            {formatTemplate(copy.toolRequiresAccess, { toolName, providerName })}
           </DialogDescription>
         </DialogHeader>
         <div className='flex flex-col gap-4 py-4'>
@@ -236,9 +238,11 @@ export function OAuthRequiredModal({
               <ProviderIcon className='h-5 w-5' />
             </div>
             <div className='flex-1'>
-              <p className='font-medium text-sm'>Connect {providerName}</p>
+              <p className='font-medium text-sm'>
+                {formatTemplate(copy.connectProvider, { providerName })}
+              </p>
               <p className='text-muted-foreground text-sm'>
-                You need to connect your {providerName} account to continue
+                {formatTemplate(copy.connectProviderDescription, { providerName })}
               </p>
             </div>
           </div>
@@ -246,7 +250,7 @@ export function OAuthRequiredModal({
           {displayScopes.length > 0 && (
             <div className='rounded-md border bg-muted/50'>
               <div className='border-b px-4 py-3'>
-                <h4 className='font-medium text-sm'>Permissions requested</h4>
+                <h4 className='font-medium text-sm'>{copy.permissionsRequested}</h4>
               </div>
               <ul className='space-y-3 px-4 py-3'>
                 {displayScopes.map((scope) => (
@@ -263,7 +267,7 @@ export function OAuthRequiredModal({
         </div>
         <DialogFooter className='flex flex-col gap-2 sm:flex-row'>
           <Button variant='outline' onClick={onClose} className='sm:order-1'>
-            Cancel
+            {copy.cancel}
           </Button>
           {effectiveServiceIds.length > 1 ? (
             effectiveServiceIds.map((connectServiceId) => (
@@ -273,7 +277,9 @@ export function OAuthRequiredModal({
                 onClick={() => handleConnectDirectly(connectServiceId)}
                 className='sm:order-3'
               >
-                Connect {getServiceName(connectServiceId)}
+                {formatTemplate(copy.connectService, {
+                  serviceName: getServiceName(connectServiceId),
+                })}
               </Button>
             ))
           ) : (
@@ -282,7 +288,7 @@ export function OAuthRequiredModal({
               onClick={() => handleConnectDirectly(effectiveServiceId)}
               className='sm:order-3'
             >
-              Connect Now
+              {copy.connectNow}
             </Button>
           )}
         </DialogFooter>

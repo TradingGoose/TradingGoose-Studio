@@ -13,76 +13,123 @@ import {
 } from 'lucide-react'
 import type { NavItemLink, NavSection } from './types'
 
-export function getWorkspaceIdFromPath(path: string) {
-  const match = /^\/workspace\/([^/]+)/.exec(path)
-  return match?.[1]
+const WORKSPACE_NAV_KEYS = [
+  'dashboard',
+  'knowledge',
+  'files',
+  'records',
+  'monitor',
+  'environment',
+  'api-keys',
+  'integrations',
+] as const
+const ADMIN_NAV_KEYS = ['overview', 'billing', 'services', 'integrations', 'registration'] as const
+
+export type WorkspaceNavKey = (typeof WORKSPACE_NAV_KEYS)[number]
+type AdminNavKey = (typeof ADMIN_NAV_KEYS)[number]
+
+type WorkspaceNavLabels = {
+  workspace: {
+    dashboard: string
+    knowledge: string
+    files: string
+    records: string
+    monitor: string
+  }
+  more: {
+    environment: string
+    apiKeys: string
+    integrations: string
+  }
+}
+
+type AdminNavLabels = {
+  overview: string
+  billing: string
+  services: string
+  integrations: string
+  registration: string
+}
+
+function isWorkspaceNavKey(value: string | undefined): value is WorkspaceNavKey {
+  return WORKSPACE_NAV_KEYS.includes(value as WorkspaceNavKey)
+}
+
+function isAdminNavKey(value: string | undefined): value is AdminNavKey {
+  return ADMIN_NAV_KEYS.includes(value as AdminNavKey)
+}
+
+export function getWorkspaceNavState(segments: string[]) {
+  const [workspaceId, section] = segments
+
+  return {
+    workspaceId,
+    activeKey: isWorkspaceNavKey(section) ? section : 'dashboard',
+  }
+}
+
+export function getAdminNavState(segments: string[]) {
+  const [section] = segments
+
+  return {
+    activeKey: isAdminNavKey(section) ? section : 'overview',
+  }
 }
 
 export function getWorkspaceSwitchPath(
-  path: string,
   targetWorkspaceId: string,
+  section?: WorkspaceNavKey | null,
   searchParams?: string
 ) {
-  const match = /^\/workspace\/[^/]+(?:\/([^/]+))?/.exec(path)
-  const section = match?.[1] ?? null
-
-  // Only allow safe top-level sections to carry over between workspaces.
-  // Workflow routes (/w) and deep paths are reset to the dashboard to avoid stale data.
-  const allowedSections = new Set([
-    'dashboard',
-    'knowledge',
-    'files',
-    'records',
-    'monitor',
-    'environment',
-    'api-keys',
-    'integrations',
-  ])
-  const sectionPath = section && allowedSections.has(section) ? `/${section}` : '/dashboard'
-
+  const sectionPath = section ? `/${section}` : '/dashboard'
   const basePath = `/workspace/${targetWorkspaceId}${sectionPath}`
 
   const normalizedSearch = searchParams?.replace(/^\?/, '')
   return normalizedSearch ? `${basePath}?${normalizedSearch}` : basePath
 }
 
-export function createWorkspaceNav(workspaceId?: string): NavItemLink[] {
+export function createWorkspaceNav(copy: WorkspaceNavLabels, workspaceId?: string): NavItemLink[] {
   if (!workspaceId) {
-    return [
-      { title: 'Dashboard', url: '/dashboard', icon: LayoutTemplate, section: 'workspace' },
-      { title: 'Knowledge', url: '/knowledge', icon: LibraryBig, section: 'workspace' },
-      { title: 'Files', url: '/files', icon: Files, section: 'workspace' },
-      { title: 'Monitor', url: '/monitor', icon: Activity, section: 'workspace' },
-    ]
+    return []
   }
 
   const base = `/workspace/${workspaceId}`
-  return [
-    { title: 'Dashboard', url: `${base}/dashboard`, icon: LayoutTemplate, section: 'workspace' },
-    { title: 'Knowledge', url: `${base}/knowledge`, icon: LibraryBig, section: 'workspace' },
-    { title: 'Files', url: `${base}/files`, icon: Files, section: 'workspace' },
-    { title: 'Records', url: `${base}/records`, icon: ScrollText, section: 'workspace' },
-    { title: 'Monitor', url: `${base}/monitor`, icon: Activity, section: 'workspace' },
-    { title: 'Environment Variable', url: `${base}/environment`, icon: Braces, section: 'more' },
-    { title: 'API Keys', url: `${base}/api-keys`, icon: KeyRound, section: 'more' },
-    { title: 'Integrations', url: `${base}/integrations`, icon: Waypoints, section: 'more' },
-  ]
+  const items = [
+    ['dashboard', copy.workspace.dashboard, LayoutTemplate, 'workspace'],
+    ['knowledge', copy.workspace.knowledge, LibraryBig, 'workspace'],
+    ['files', copy.workspace.files, Files, 'workspace'],
+    ['records', copy.workspace.records, ScrollText, 'workspace'],
+    ['monitor', copy.workspace.monitor, Activity, 'workspace'],
+    ['environment', copy.more.environment, Braces, 'more'],
+    ['api-keys', copy.more.apiKeys, KeyRound, 'more'],
+    ['integrations', copy.more.integrations, Waypoints, 'more'],
+  ] as const
+
+  return items.map(([key, title, icon, section]) => ({
+    key,
+    title,
+    url: `${base}/${key}`,
+    icon,
+    section,
+  }))
 }
 
-export function createAdminNav(): NavItemLink[] {
-  return [
-    { title: 'Overview', url: '/admin', icon: ShieldCheck, section: 'admin', match: 'exact' },
-    { title: 'Billing', url: '/admin/billing', icon: Receipt, section: 'admin' },
-    { title: 'Services', url: '/admin/services', icon: KeyRound, section: 'admin' },
-    { title: 'Integrations', url: '/admin/integrations', icon: Waypoints, section: 'admin' },
-    { title: 'Registration', url: '/admin/registration', icon: UserRoundPlus, section: 'admin' },
-  ]
+export function createAdminNav(copy: AdminNavLabels): NavItemLink[] {
+  const items = [
+    ['overview', copy.overview, '/admin', ShieldCheck],
+    ['billing', copy.billing, '/admin/billing', Receipt],
+    ['services', copy.services, '/admin/services', KeyRound],
+    ['integrations', copy.integrations, '/admin/integrations', Waypoints],
+    ['registration', copy.registration, '/admin/registration', UserRoundPlus],
+  ] as const
+
+  return items.map(([key, title, url, icon]) => ({ key, title, url, icon, section: 'admin' }))
 }
 
-export function createNavSections(pathname: string, workspaceItems: NavItemLink[]): NavSection[] {
+export function createNavSections(workspaceItems: NavItemLink[], activeKey: string): NavSection[] {
   return workspaceItems.map((item) => ({
     ...item,
-    isActive: isPathActive(pathname, item.url, item.match),
+    isActive: item.key === activeKey,
   }))
 }
 
@@ -93,16 +140,4 @@ export function getInitials(name: string) {
     .join('')
     .slice(0, 2)
     .toUpperCase()
-}
-
-function isPathActive(pathname: string, url: string, match: 'exact' | 'prefix' = 'prefix') {
-  if (!url.startsWith('/')) {
-    return false
-  }
-
-  if (url === '/' || match === 'exact') {
-    return pathname === url
-  }
-
-  return pathname === url || pathname.startsWith(`${url}/`)
 }

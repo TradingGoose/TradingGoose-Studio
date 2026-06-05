@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import {
   Select,
   SelectContent,
@@ -107,6 +108,7 @@ export function IndicatorInputFields({
   onChange,
   disabled = false,
 }: IndicatorInputFieldsProps) {
+  const { copy } = useMonitorCopy()
   if (!inputMeta) return null
 
   const entries = Object.entries(inputMeta)
@@ -116,7 +118,7 @@ export function IndicatorInputFields({
 
   return (
     <div className='space-y-2'>
-      <Label className='text-muted-foreground text-xs'>Indicator Inputs</Label>
+      <Label className='text-muted-foreground text-xs'>{copy.editor.form.indicatorInputs}</Label>
       <div className='grid gap-3 sm:grid-cols-2'>
         {entries.map(([title, meta]) => {
           const resolvedValue = resolvedInputs[title]

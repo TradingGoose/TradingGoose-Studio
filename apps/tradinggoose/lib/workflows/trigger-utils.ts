@@ -4,8 +4,6 @@ import type { BlockConfig } from '@/blocks/types'
 
 export interface TriggerInfo {
   id: string
-  name: string
-  description: string
   icon: React.ComponentType<{ className?: string }>
   color: string
   category: 'core' | 'integration'
@@ -29,8 +27,6 @@ export function getAllTriggerBlocks(): TriggerInfo[] {
       const color = sanitizeSolidIconColor(block.bgColor) ?? '#6B7280'
       triggers.push({
         id: block.type,
-        name: block.name,
-        description: block.description,
         icon: block.icon,
         color,
         category: 'core',
@@ -42,8 +38,6 @@ export function getAllTriggerBlocks(): TriggerInfo[] {
       const color = sanitizeSolidIconColor(block.bgColor) ?? '#6B7280'
       triggers.push({
         id: block.type,
-        name: block.name,
-        description: block.description.replace(' or trigger workflows from ', ', trigger from '),
         icon: block.icon,
         color,
         category: 'integration',
@@ -52,13 +46,7 @@ export function getAllTriggerBlocks(): TriggerInfo[] {
     }
   }
 
-  // Sort: core triggers first, then integration triggers, alphabetically within each category
-  return triggers.sort((a, b) => {
-    if (a.category !== b.category) {
-      return a.category === 'core' ? -1 : 1
-    }
-    return a.name.localeCompare(b.name)
-  })
+  return triggers
 }
 
 /**

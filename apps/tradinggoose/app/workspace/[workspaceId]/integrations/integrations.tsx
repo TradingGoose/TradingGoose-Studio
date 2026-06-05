@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, ExternalLink, Search, Waypoints } from 'lucide-react'
-import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,10 +18,12 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { OAUTH_PROVIDERS } from '@/lib/oauth/oauth'
 import { cn } from '@/lib/utils'
 import { GlobalNavbarHeader } from '@/global-navbar'
+import { useRouter } from '@/i18n/navigation'
 
 const logger = createLogger('Integrations')
 
 export function Integrations() {
+  const t = useTranslations('workspace.integrations')
   const router = useRouter()
   const searchParams = useSearchParams()
   const params = useParams()
@@ -124,12 +127,12 @@ export function Integrations() {
       // Clear the URL parameters
       router.replace(`/workspace/${workspaceId}/integrations`)
     } else if (error) {
-      const message = errorDescription || 'Account connection failed. Please try again.'
+      const message = errorDescription || t('errors.oauth')
       logger.error('OAuth error:', { error, errorDescription })
       setAuthError(message)
       router.replace(`/workspace/${workspaceId}/integrations`)
     }
-  }, [searchParams, router, workspaceId, refetch])
+  }, [refetch, router, searchParams, t, workspaceId])
 
   // Handle connect button click
   const handleConnect = async (service: ServiceInfo) => {
@@ -229,13 +232,13 @@ export function Integrations() {
     <div className='flex w-full flex-1 items-center gap-3'>
       <div className='hidden items-center gap-2 sm:flex'>
         <Waypoints className='h-[18px] w-[18px] text-muted-foreground' />
-        <span className='font-medium text-sm'>Integrations</span>
+        <span className='font-medium text-sm'>{t('title')}</span>
       </div>
       <div className='flex w-full max-w-xl flex-1'>
         <div className='flex h-9 w-full items-center gap-2 rounded-lg border bg-background pr-2 pl-3'>
           <Search className='h-4 w-4 flex-shrink-0 text-muted-foreground' strokeWidth={2} />
           <Input
-            placeholder='Search integrations...'
+            placeholder={t('searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className='flex-1 border-0 bg-transparent px-0 font-[380] font-sans text-base text-foreground leading-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
@@ -263,7 +266,7 @@ export function Integrations() {
                         </div>
                         <div className='ml-3'>
                           <p className='font-medium text-green-800 text-sm'>
-                            Account connected successfully!
+                            {t('successMessage')}
                           </p>
                         </div>
                       </div>
@@ -284,9 +287,10 @@ export function Integrations() {
                       </div>
                       <div className='flex flex-1 flex-col'>
                         <p className='text-muted-foreground'>
-                          <span className='font-medium text-foreground'>Action Required:</span>{' '}
-                          Please connect your account to enable the requested features. The required
-                          service is highlighted below.
+                          <span className='font-medium text-foreground'>
+                            {t('actionRequired.title')}
+                          </span>{' '}
+                          {t('actionRequired.description')}
                         </p>
                         <Button
                           variant='outline'
@@ -294,7 +298,7 @@ export function Integrations() {
                           onClick={scrollToHighlightedService}
                           className='mt-3 flex h-8 items-center gap-1.5 self-start border-primary/20 px-3 font-medium text-muted-foreground text-sm transition-colors hover:border-primary hover:bg-[var(--primary)]/10 hover:text-muted-foreground'
                         >
-                          <span>Go to service</span>
+                          <span>{t('actionRequired.button')}</span>
                           <ChevronDown className='h-3.5 w-3.5' />
                         </Button>
                       </div>
@@ -331,7 +335,7 @@ export function Integrations() {
                         ([providerKey, providerServices]) => (
                           <div key={providerKey} className='flex flex-col gap-2'>
                             <Label className='font-normal text-muted-foreground text-xs uppercase'>
-                              {OAUTH_PROVIDERS[providerKey]?.name || 'Other Services'}
+                              {OAUTH_PROVIDERS[providerKey]?.name || t('otherServices')}
                             </Label>
                             {providerServices.map((service) => (
                               <div
@@ -381,7 +385,7 @@ export function Integrations() {
                                               isConnecting === disconnectKey && 'cursor-not-allowed'
                                             )}
                                           >
-                                            Disconnect
+                                            {t('disconnect')}
                                           </Button>
                                         </div>
                                       )
@@ -398,10 +402,10 @@ export function Integrations() {
                                       isConnecting === service.id && 'cursor-not-allowed'
                                     )}
                                   >
-                                    Connect
+                                    {t('connect')}
                                   </Button>
-                                )}
-                              </div>
+                              )}
+                            </div>
                             ))}
                           </div>
                         )
@@ -410,15 +414,15 @@ export function Integrations() {
                       {!isLoading &&
                         !searchTerm.trim() &&
                         Object.keys(filteredGroupedServices).length === 0 && (
-                          <div className='py-8 text-center text-muted-foreground text-sm'>
-                            No connectible integrations are configured.
-                          </div>
-                        )}
+                        <div className='py-8 text-center text-muted-foreground text-sm'>
+                            {t('emptyState.noConnectible')}
+                        </div>
+                      )}
 
                       {/* Show message when search has no results */}
                       {searchTerm.trim() && Object.keys(filteredGroupedServices).length === 0 && (
                         <div className='py-8 text-center text-muted-foreground text-sm'>
-                          No services found matching "{searchTerm}"
+                          {t('emptyState.noSearchMatches', { query: searchTerm })}
                         </div>
                       )}
                     </div>

@@ -18,6 +18,7 @@ import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-depends-on-gate'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 type DropdownOptionObject = SubBlockOption
 
@@ -59,16 +60,17 @@ export function Dropdown({
   subBlockId,
   value: propValue,
   disabled,
-  placeholder = 'Select an option...',
+  placeholder,
   config,
   useStore = true,
   valueOverride,
   onChange,
   className,
   enableSearch = false,
-  searchPlaceholder = 'Search...',
+  searchPlaceholder,
   contextValues,
 }: DropdownProps & { className?: string }) {
+  const copy = useWorkflowBlockEditorCopy().dropdown
   const [storeValue, setStoreValue] = useSubBlockValue<any>(blockId, subBlockId)
   const [storeInitialized, setStoreInitialized] = useState(false)
   const previousModeRef = useRef<string | null>(null)
@@ -128,6 +130,8 @@ export function Dropdown({
   const [hasFetchedOptions, setHasFetchedOptions] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const resolvedPlaceholder = placeholder ?? copy.placeholder
+  const resolvedSearchPlaceholder = searchPlaceholder ?? copy.searchPlaceholder
 
   const fetchOptionsIfNeeded = useCallback(async () => {
     if (!fetchOptions || finalDisabled) return
@@ -481,7 +485,7 @@ export function Dropdown({
 
   const hasOptions = filteredOptions.length > 0
   const emptyMessage =
-    fetchError || (shouldFilter ? 'No matching options.' : 'No options available.')
+    fetchError || (shouldFilter ? copy.noMatchingOptions : copy.noOptionsAvailable)
   const triggerLabel = selectedOption?.label ?? ''
   const triggerRightLabel = selectedOption?.rightLabel
 
@@ -502,7 +506,7 @@ export function Dropdown({
           <span
             className={cn('flex-1 truncate text-left', !triggerLabel && 'text-muted-foreground')}
           >
-            {triggerLabel || placeholder}
+            {triggerLabel || resolvedPlaceholder}
           </span>
           {triggerRightLabel ? (
             <span className='ml-2 flex-shrink-0 text-muted-foreground text-xs tabular-nums'>
@@ -526,7 +530,7 @@ export function Dropdown({
           <div className='border-border border-b p-2'>
             <Input
               ref={searchInputRef}
-              placeholder={searchPlaceholder || 'Search...'}
+              placeholder={resolvedSearchPlaceholder}
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               className='h-8'
@@ -539,7 +543,7 @@ export function Dropdown({
         >
           {isLoadingOptions ? (
             <DropdownMenuItem disabled className='justify-center text-muted-foreground'>
-              Loading...
+              {copy.loading}
             </DropdownMenuItem>
           ) : !hasOptions ? (
             <DropdownMenuItem disabled className='justify-center text-muted-foreground'>

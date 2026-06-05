@@ -1,6 +1,7 @@
 'use client'
 
 import { LibraryBig } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 interface EmptyStateCardProps {
   title: string
@@ -17,6 +18,7 @@ export function EmptyStateCard({
   onClick,
   icon,
 }: EmptyStateCardProps) {
+  const t = useTranslations('workspace.knowledge')
   return (
     <div
       onClick={onClick}
@@ -29,7 +31,7 @@ export function EmptyStateCard({
 
       <div className='flex flex-col gap-2'>
         <div className='flex items-center gap-2 text-muted-foreground text-xs'>
-          <span>Get started</span>
+          <span>{t('emptyStateCard.getStarted')}</span>
         </div>
 
         <p className='line-clamp-2 overflow-hidden text-muted-foreground text-xs'>{description}</p>

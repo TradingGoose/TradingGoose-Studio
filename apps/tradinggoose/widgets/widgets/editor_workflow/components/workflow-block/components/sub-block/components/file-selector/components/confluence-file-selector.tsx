@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { Check, ChevronDown, ExternalLink, RefreshCw, X } from 'lucide-react'
 import { ConfluenceIcon } from '@/components/icons/icons'
 import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
@@ -21,6 +22,9 @@ import {
   getServiceIdFromScopes,
   type OAuthProvider,
 } from '@/lib/oauth'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
+import type { LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('ConfluenceFileSelector')
 
@@ -56,7 +60,7 @@ export function ConfluenceFileSelector({
   onChange,
   provider,
   requiredScopes = [],
-  label = 'Select Confluence page',
+  label,
   disabled = false,
   serviceId,
   domain,
@@ -67,6 +71,9 @@ export function ConfluenceFileSelector({
   workspaceId,
   isForeignCredential = false,
 }: ConfluenceFileSelectorProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = useMessages().workspace.widgets.workflowLabels
+  const selectorCopy = useMessages().workspace.widgets.blockEditor.confluenceFileSelector
   const [open, setOpen] = useState(false)
   const [credentials, setCredentials] = useState<Credential[]>([])
   const [files, setFiles] = useState<ConfluenceFileInfo[]>([])
@@ -76,7 +83,9 @@ export function ConfluenceFileSelector({
   const [isLoading, setIsLoading] = useState(false)
   const [showOAuthModal, setShowOAuthModal] = useState(false)
   const initialFetchRef = useRef(false)
-  const [error, setError] = useState<string | null>(null)
+  const [errorKey, setErrorKey] = useState<keyof typeof selectorCopy.errors | null>(null)
+  const labelText = label ?? copy.selectConfluencePage
+  const errorMessage = errorKey ? selectorCopy.errors[errorKey] : null
   // Keep internal credential in sync with prop (handles late arrival and BFCache restores)
   useEffect(() => {
     if (credentialId && credentialId !== selectedCredentialId) {
@@ -153,14 +162,12 @@ export function ConfluenceFileSelector({
       // Validate domain format
       const trimmedDomain = domain.trim().toLowerCase()
       if (!trimmedDomain.includes('.')) {
-        setError(
-          'Invalid domain format. Please provide the full domain (e.g., your-site.atlassian.net)'
-        )
+        setErrorKey('invalidDomainFormat')
         return
       }
 
       setIsLoading(true)
-      setError(null)
+      setErrorKey(null)
 
       try {
         const response = await fetch('/api/tools/confluence/page', {
@@ -178,7 +185,8 @@ export function ConfluenceFileSelector({
 
         if (!response.ok) {
           const errorData = await response.json()
-          throw new Error(errorData.error || 'Failed to fetch page info')
+          logger.error('Confluence page info API error:', errorData)
+          throw new Error('failedToFetchPageInfo')
         }
 
         const data = await response.json()
@@ -200,7 +208,7 @@ export function ConfluenceFileSelector({
         }
       } catch (error) {
         logger.error('Error fetching page info:', error)
-        setError((error as Error).message)
+        setErrorKey('failedToFetchPageInfo')
       } finally {
         setIsLoading(false)
       }
@@ -217,16 +225,14 @@ export function ConfluenceFileSelector({
       // Validate domain format
       const trimmedDomain = domain.trim().toLowerCase()
       if (!trimmedDomain.includes('.')) {
-        setError(
-          'Invalid domain format. Please provide the full domain (e.g., your-site.atlassian.net)'
-        )
+        setErrorKey('invalidDomainFormat')
         setFiles([])
         setIsLoading(false)
         return
       }
 
       setIsLoading(true)
-      setError(null)
+      setErrorKey(null)
 
       try {
         const response = await fetch('/api/tools/confluence/pages', {
@@ -252,7 +258,7 @@ export function ConfluenceFileSelector({
             return
           }
           logger.error('Confluence API error:', errorData)
-          throw new Error(errorData.error || 'Failed to fetch pages')
+          throw new Error('failedToFetchPages')
         }
 
         const data = await response.json()
@@ -272,7 +278,7 @@ export function ConfluenceFileSelector({
         }
       } catch (error) {
         logger.error('Error fetching pages:', error)
-        setError((error as Error).message)
+        setErrorKey('failedToFetchPages')
         setFiles([])
       } finally {
         setIsLoading(false)
@@ -358,6 +364,7 @@ export function ConfluenceFileSelector({
   const handleClearSelection = () => {
     setSelectedFileId('')
     setSelectedFile(null)
+    setErrorKey(null)
     onChange('', undefined)
     onFileInfoChange?.(null)
   }
@@ -383,7 +390,7 @@ export function ConfluenceFileSelector({
                 ) : (
                   <>
                     <ConfluenceIcon className='h-4 w-4' />
-                    <span className='truncate text-muted-foreground'>{label}</span>
+                    <span className='truncate text-muted-foreground'>{labelText}</span>
                   </>
                 )}
               </div>
@@ -399,7 +406,7 @@ export function ConfluenceFileSelector({
                     <ConfluenceIcon className='h-4 w-4' />
                     <span className='text-muted-foreground text-xs'>
                       {credentials.find((cred) => cred.id === selectedCredentialId)?.name ||
-                        'Unknown'}
+                        copy.unknown}
                     </span>
                   </div>
                   {credentials.length > 1 && (
@@ -409,37 +416,48 @@ export function ConfluenceFileSelector({
                       className='h-6 px-2 text-xs'
                       onClick={() => setOpen(true)}
                     >
-                      Switch
+                      {copy.switch}
                     </Button>
                   )}
                 </div>
               )}
 
               <Command>
-                <CommandInput placeholder='Search pages...' onValueChange={handleSearch} />
+                <CommandInput
+                  placeholder={formatTemplate(copy.searchItems, {
+                    itemName: copy.pages.toLowerCase(),
+                  })}
+                  onValueChange={handleSearch}
+                />
                 <CommandList>
                   <CommandEmpty>
                     {isLoading ? (
                       <div className='flex items-center justify-center p-4'>
                         <RefreshCw className='h-4 w-4 animate-spin' />
-                        <span className='ml-2'>Loading pages...</span>
+                        <span className='ml-2'>
+                          {formatTemplate(copy.loadingItems, { itemName: copy.pages.toLowerCase() })}
+                        </span>
                       </div>
-                    ) : error ? (
+                    ) : errorMessage ? (
                       <div className='p-4 text-center'>
-                        <p className='text-destructive text-sm'>{error}</p>
+                        <p className='text-destructive text-sm'>{errorMessage}</p>
                       </div>
                     ) : credentials.length === 0 ? (
                       <div className='p-4 text-center'>
-                        <p className='font-medium text-sm'>No accounts connected.</p>
+                        <p className='font-medium text-sm'>{copy.noAccountsConnected}</p>
                         <p className='text-muted-foreground text-xs'>
-                          Connect a Confluence account to continue.
+                          {formatTemplate(copy.connectProviderAccountToContinue, {
+                            providerName: 'Confluence',
+                          })}
                         </p>
                       </div>
                     ) : (
                       <div className='p-4 text-center'>
-                        <p className='font-medium text-sm'>No pages found.</p>
+                        <p className='font-medium text-sm'>
+                          {formatTemplate(copy.noItemsFound, { itemName: copy.pages.toLowerCase() })}
+                        </p>
                         <p className='text-muted-foreground text-xs'>
-                          Try a different search or account.
+                          {copy.tryDifferentSearchOrAccount}
                         </p>
                       </div>
                     )}
@@ -449,7 +467,7 @@ export function ConfluenceFileSelector({
                   {credentials.length > 1 && (
                     <CommandGroup>
                       <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>
-                        Switch Account
+                        {copy.switchAccount}
                       </div>
                       {credentials.map((cred) => (
                         <CommandItem
@@ -473,7 +491,7 @@ export function ConfluenceFileSelector({
                   {files.length > 0 && (
                     <CommandGroup>
                       <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>
-                        Pages
+                        {copy.pages}
                       </div>
                       {files.map((file) => (
                         <CommandItem
@@ -497,7 +515,11 @@ export function ConfluenceFileSelector({
                       <CommandItem onSelect={handleAddCredential}>
                         <div className='flex items-center gap-1 text-foreground'>
                           <ConfluenceIcon className='h-4 w-4' />
-                          <span>Connect Confluence account</span>
+                          <span>
+                            {formatTemplate(copy.connectProviderAccount, {
+                              providerName: 'Confluence',
+                            })}
+                          </span>
                         </div>
                       </CommandItem>
                     </CommandGroup>
@@ -542,7 +564,7 @@ export function ConfluenceFileSelector({
                     className='flex items-center gap-1 text-foreground text-xs hover:underline'
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <span>Open in Confluence</span>
+                    <span>{copy.openInConfluence}</span>
                     <ExternalLink className='h-3 w-3' />
                   </a>
                 ) : (

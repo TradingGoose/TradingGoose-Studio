@@ -11,19 +11,19 @@ import {
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
+import { getStableVibrantColor } from '@/lib/colors'
+import { DEFAULT_INDICATORS_META } from '@/lib/indicators/default'
+import { cn } from '@/lib/utils'
+import { useIndicators } from '@/hooks/queries/indicators'
+import { useIndicatorsStore } from '@/stores/indicators/store'
 import {
   widgetHeaderControlClassName,
   widgetHeaderMenuContentClassName,
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
-import { getStableVibrantColor } from '@/lib/colors'
-import { DEFAULT_INDICATORS_META } from '@/lib/indicators/default'
-import { cn } from '@/lib/utils'
-import { useIndicators } from '@/hooks/queries/indicators'
-import { useIndicatorsStore } from '@/stores/indicators/store'
 
-const DEFAULT_PLACEHOLDER = 'Select indicators'
 const FALLBACK_COLOR = '#3972F6'
 const DROPDOWN_MAX_HEIGHT = '20rem'
 const DROPDOWN_VIEWPORT_HEIGHT = '14rem'
@@ -61,12 +61,14 @@ export function IndicatorDropdown({
   value,
   onChange,
   disabled = false,
-  placeholder = DEFAULT_PLACEHOLDER,
+  placeholder,
   triggerClassName,
   menuClassName,
   selectionMode = 'multiple',
   includeDefaults = false,
 }: IndicatorDropdownProps) {
+  const widgetsCopy = useWorkspaceWidgetsMessages()
+  const copy = widgetsCopy.indicatorDropdown
   const [internalValue, setInternalValue] = useState<string[]>([])
   const [loadError, setLoadError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -103,7 +105,7 @@ export function IndicatorDropdown({
             color: getStableVibrantColor(indicator.id),
           }))
         : [],
-    [includeDefaults]
+    [includeDefaults, widgetsCopy]
   )
 
   const customIndicatorOptions = useMemo<IndicatorOption[]>(
@@ -144,12 +146,12 @@ export function IndicatorDropdown({
   const isDropdownDisabled = disabled || !workspaceId
 
   const tooltipText = !workspaceId
-    ? 'Select a workspace to choose indicators'
+    ? copy.selectWorkspaceFirst
     : loadError
-      ? 'Unable to load indicators'
+      ? copy.unableToLoadIndicators
       : disabled
-        ? 'Indicator selection unavailable'
-        : 'Select indicators'
+        ? copy.selectionUnavailable
+        : copy.tooltip
 
   useEffect(() => {
     setLoadError(null)
@@ -161,9 +163,9 @@ export function IndicatorDropdown({
 
   useEffect(() => {
     if (queryError) {
-      setLoadError('Failed to load indicators')
+      setLoadError(copy.failedToLoadIndicators)
     }
-  }, [queryError])
+  }, [copy.failedToLoadIndicators, queryError])
 
   useEffect(() => {
     if (indicatorOptions.length > 0 && loadError) {
@@ -203,7 +205,7 @@ export function IndicatorDropdown({
     setLoadError(null)
     refetch().catch((error) => {
       console.error('Failed to load indicators for indicator dropdown', error)
-      setLoadError('Failed to load indicators')
+      setLoadError(copy.failedToLoadIndicators)
     })
   }
 
@@ -219,12 +221,13 @@ export function IndicatorDropdown({
   }
 
   const selectionLabel = useMemo(() => {
-    if (selectedIndicatorIds.length === 0) return placeholder
+    const resolvedPlaceholder = placeholder ?? copy.placeholder
+    if (selectedIndicatorIds.length === 0) return resolvedPlaceholder
     const first = indicatorOptions.find((option) => option.id === selectedIndicatorIds[0])
-    if (!first) return placeholder
+    if (!first) return resolvedPlaceholder
     if (selectedIndicatorIds.length === 1) return first.name
     return `${first.name} +${selectedIndicatorIds.length - 1}`
-  }, [indicatorOptions, placeholder, selectedIndicatorIds])
+  }, [copy.placeholder, indicatorOptions, placeholder, selectedIndicatorIds])
 
   const colorBadge = (
     <div
@@ -300,11 +303,11 @@ export function IndicatorDropdown({
           <div className='border-border/70 border-b p-2'>
             <div className='flex items-center gap-1 rounded-md border bg-background px-2 py-1.5 text-muted-foreground text-sm'>
               <Search className='h-3.5 w-3.5 shrink-0' />
-              <Input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder='Search indicators...'
-                className='h-6 border-0 bg-transparent px-0 text-foreground text-xs placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
+                <Input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder={copy.searchPlaceholder}
+                  className='h-6 border-0 bg-transparent px-0 text-foreground text-xs placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
                 onKeyDown={handleSearchInputKeyDown}
                 autoComplete='off'
                 autoCorrect='off'
@@ -330,7 +333,7 @@ export function IndicatorDropdown({
                 if (!workspaceId) {
                   return (
                     <p className='px-2 py-4 text-center text-muted-foreground text-xs'>
-                      Select a workspace first.
+                      {copy.selectWorkspaceFirst}
                     </p>
                   )
                 }
@@ -341,13 +344,13 @@ export function IndicatorDropdown({
                 if (loadError && !hasIndicators) {
                   return (
                     <div className='space-y-2 px-3 py-2 text-xs'>
-                      <p className='text-destructive'>{loadError}. Try reloading the widget.</p>
+                      <p className='text-destructive'>{loadError}</p>
                       <button
                         type='button'
                         className='font-semibold text-primary text-xs hover:underline'
                         onClick={handleRetry}
                       >
-                        Retry
+                        {copy.retry}
                       </button>
                     </div>
                   )
@@ -358,7 +361,7 @@ export function IndicatorDropdown({
                   return (
                     <div className='flex items-center gap-1 px-3 py-2 text-muted-foreground text-xs'>
                       <Loader2 className='h-3.5 w-3.5 animate-spin' />
-                      Loading indicators...
+                      {copy.loadingIndicators}
                     </div>
                   )
                 }
@@ -366,7 +369,7 @@ export function IndicatorDropdown({
                 if (!hasIndicators) {
                   return (
                     <p className='px-2 py-4 text-center text-muted-foreground text-xs'>
-                      No indicators available yet.
+                      {copy.noIndicatorsAvailableYet}
                     </p>
                   )
                 }
@@ -374,7 +377,7 @@ export function IndicatorDropdown({
                 if (!hasFilteredIndicators) {
                   return (
                     <p className='px-2 py-4 text-center text-muted-foreground text-xs'>
-                      {searchQuery.trim() ? 'No indicators found.' : 'No indicators available yet.'}
+                      {searchQuery.trim() ? copy.noIndicatorsFound : copy.noIndicatorsAvailableYet}
                     </p>
                   )
                 }
@@ -382,12 +385,12 @@ export function IndicatorDropdown({
                 const sections = [
                   {
                     key: 'default',
-                    label: filteredDefaultIndicators.length > 0 ? 'Default indicators' : null,
+                    label: filteredDefaultIndicators.length > 0 ? copy.defaultIndicators : null,
                     items: filteredDefaultIndicators,
                   },
                   {
                     key: 'custom',
-                    label: filteredDefaultIndicators.length > 0 ? 'Custom indicators' : null,
+                    label: filteredDefaultIndicators.length > 0 ? copy.customIndicators : null,
                     items: filteredCustomIndicators,
                   },
                 ].filter((section) => section.items.length > 0)
@@ -402,7 +405,7 @@ export function IndicatorDropdown({
                           className='font-semibold text-[10px] text-primary hover:underline'
                           onClick={handleRetry}
                         >
-                          Retry
+                          {copy.retry}
                         </button>
                       </div>
                     ) : null}

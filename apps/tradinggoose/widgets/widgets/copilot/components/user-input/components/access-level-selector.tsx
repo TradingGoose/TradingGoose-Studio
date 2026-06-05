@@ -1,6 +1,7 @@
 'use client'
 
 import { Check, ShieldAlert, ShieldCheck } from 'lucide-react'
+import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import {
   Button,
   DropdownMenu,
@@ -29,19 +30,14 @@ const getAccessLevelIcon = (accessLevel: CopilotAccessLevel) => {
   return <ShieldCheck className='h-3 w-3 text-muted-foreground' />
 }
 
-const getAccessLevelText = (accessLevel: CopilotAccessLevel) => {
-  if (accessLevel === 'full') {
-    return 'Full'
-  }
-
-  return 'Limited'
-}
-
 export function AccessLevelSelector({
   accessLevel,
   isNearTop,
   onAccessLevelChange,
 }: AccessLevelSelectorProps) {
+  const accessLevelCopy = useCopilotMessages().accessLevel
+  const buttonLabel = accessLevelCopy[accessLevel].label
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -52,7 +48,7 @@ export function AccessLevelSelector({
           className='flex h-6 items-center gap-1.5 rounded-sm border bg-background px-2 py-1 font-medium text-xs hover:bg-muted/30 focus-visible:ring-0 focus-visible:ring-offset-0'
         >
           {getAccessLevelIcon(accessLevel)}
-          <span>{getAccessLevelText(accessLevel)}</span>
+          <span>{buttonLabel}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align='start' side={isNearTop ? 'bottom' : 'top'} className='p-0'>
@@ -69,7 +65,7 @@ export function AccessLevelSelector({
                 >
                   <span className='flex items-center gap-1.5'>
                     <ShieldAlert className='h-3 w-3 text-muted-foreground' />
-                    Limited
+                    {accessLevelCopy.limited.label}
                   </span>
                   {accessLevel === 'limited' && <Check className='h-3 w-3 text-muted-foreground' />}
                 </DropdownMenuItem>
@@ -80,7 +76,7 @@ export function AccessLevelSelector({
                 align='center'
                 className='max-w-[220px] border bg-popover p-2 text-[11px] text-popover-foreground leading-snug shadow-md'
               >
-                Reviews each tool before it runs.
+                {accessLevelCopy.limited.description}
               </TooltipContent>
             </Tooltip>
             <Tooltip>
@@ -94,7 +90,7 @@ export function AccessLevelSelector({
                 >
                   <span className='flex items-center gap-1.5'>
                     <ShieldAlert className='h-3 w-3 text-muted-foreground' />
-                    Full
+                    {accessLevelCopy.full.label}
                   </span>
                   {accessLevel === 'full' && <Check className='h-3 w-3 text-muted-foreground' />}
                 </DropdownMenuItem>
@@ -105,7 +101,7 @@ export function AccessLevelSelector({
                 align='center'
                 className='max-w-[220px] border bg-popover p-2 text-[11px] text-popover-foreground leading-snug shadow-md'
               >
-                Allows tools to run without extra approval.
+                {accessLevelCopy.full.description}
               </TooltipContent>
             </Tooltip>
           </div>

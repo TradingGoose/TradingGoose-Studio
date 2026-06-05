@@ -1,16 +1,75 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
+import { useRouter } from '@/i18n/navigation'
+import { normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
 import { client, useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
+import { normalizeCallbackUrl } from '@/i18n/utils'
+import type { Messages } from 'next-intl'
 
 const logger = createLogger('useVerification')
+type VerifyCopy = Messages['auth']['verify']
+
+const VERIFICATION_ERROR_CODE_GROUPS = {
+  expired: new Set([
+    'TOKEN_EXPIRED',
+    'EXPIRED_TOKEN',
+    'VERIFICATION_CODE_EXPIRED',
+    'EXPIRED_VERIFICATION_CODE',
+    'OTP_EXPIRED',
+    'CODE_EXPIRED',
+  ]),
+  invalid: new Set([
+    'INVALID_TOKEN',
+    'INVALID_VERIFICATION_CODE',
+    'INVALID_OTP',
+    'OTP_INVALID',
+    'INVALID_CODE',
+  ]),
+  attempts: new Set([
+    'TOO_MANY_ATTEMPTS',
+    'TOO_MANY_FAILED_ATTEMPTS',
+    'MAX_ATTEMPTS_EXCEEDED',
+    'OTP_TOO_MANY_ATTEMPTS',
+    'RATE_LIMIT',
+  ]),
+} as const
+
+export function getVerificationErrorMessage(copy: VerifyCopy, error: unknown) {
+  const code =
+    error && typeof error === 'object' && 'code' in error
+      ? String((error as { code?: unknown }).code ?? '')
+      : ''
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : error && typeof error === 'object' && 'message' in error
+          ? String((error as { message?: unknown }).message ?? '')
+          : ''
+
+  const normalizedErrorCode = normalizeAuthErrorCode(code) ?? normalizeAuthErrorCode(message)
+  if (normalizedErrorCode && VERIFICATION_ERROR_CODE_GROUPS.expired.has(normalizedErrorCode)) {
+    return copy.errors.expired
+  }
+  if (normalizedErrorCode && VERIFICATION_ERROR_CODE_GROUPS.invalid.has(normalizedErrorCode)) {
+    return copy.errors.invalid
+  }
+  if (normalizedErrorCode && VERIFICATION_ERROR_CODE_GROUPS.attempts.has(normalizedErrorCode)) {
+    return copy.errors.attempts
+  }
+
+  return copy.errors.generic
+}
 
 interface UseVerificationParams {
   hasEmailService: boolean
   isProduction: boolean
   isEmailVerificationEnabled: boolean
+  copy: VerifyCopy
 }
 
 interface UseVerificationReturn {
@@ -33,6 +92,7 @@ export function useVerification({
   hasEmailService,
   isProduction,
   isEmailVerificationEnabled,
+  copy,
 }: UseVerificationParams): UseVerificationReturn {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -56,7 +116,16 @@ export function useVerification({
 
       const storedRedirectUrl = sessionStorage.getItem('inviteRedirectUrl')
       if (storedRedirectUrl) {
-        setRedirectUrl(storedRedirectUrl)
+        const normalizedRedirectUrl = normalizeCallbackUrl(
+          storedRedirectUrl,
+          window.location.origin
+        )
+
+        if (normalizedRedirectUrl) {
+          setRedirectUrl(normalizedRedirectUrl)
+        } else {
+          logger.warn('Invalid stored verification redirect blocked', { url: storedRedirectUrl })
+        }
       }
 
       const storedIsInviteFlow = sessionStorage.getItem('isInviteFlow')
@@ -67,7 +136,16 @@ export function useVerification({
 
     const redirectParam = searchParams.get('redirectAfter')
     if (redirectParam) {
-      setRedirectUrl(redirectParam)
+      const normalizedRedirectUrl = normalizeCallbackUrl(
+        redirectParam,
+        typeof window !== 'undefined' ? window.location.origin : undefined
+      )
+
+      if (normalizedRedirectUrl) {
+        setRedirectUrl(normalizedRedirectUrl)
+      } else {
+        logger.warn('Invalid verification redirect blocked', { url: redirectParam })
+      }
     }
 
     const inviteFlowParam = searchParams.get('invite_flow')
@@ -118,14 +196,14 @@ export function useVerification({
 
         setTimeout(() => {
           if (isInviteFlow && redirectUrl) {
-            window.location.href = redirectUrl
+            router.push(redirectUrl)
           } else {
-            window.location.href = '/workspace'
+            router.push('/workspace')
           }
         }, 1000)
       } else {
         logger.info('Setting invalid OTP state - API error response')
-        const message = 'Invalid verification code. Please check and try again.'
+        const message = copy.errors.invalid
         setIsInvalidOtp(true)
         setErrorMessage(message)
         logger.info('Error state after API error:', {
@@ -134,17 +212,8 @@ export function useVerification({
         })
         setOtp('')
       }
-    } catch (error: any) {
-      let message = 'Verification failed. Please check your code and try again.'
-
-      if (error.message?.includes('expired')) {
-        message = 'The verification code has expired. Please request a new one.'
-      } else if (error.message?.includes('invalid')) {
-        logger.info('Setting invalid OTP state - caught error')
-        message = 'Invalid verification code. Please check and try again.'
-      } else if (error.message?.includes('attempts')) {
-        message = 'Too many failed attempts. Please request a new code.'
-      }
+    } catch (error: unknown) {
+      const message = getVerificationErrorMessage(copy, error)
 
       setIsInvalidOtp(true)
       setErrorMessage(message)
@@ -171,9 +240,8 @@ export function useVerification({
         email: normalizedEmail,
         type: 'sign-in',
       })
-      .then(() => {})
       .catch(() => {
-        setErrorMessage('Failed to resend verification code. Please try again later.')
+        setErrorMessage(copy.errors.resendFailed)
       })
       .finally(() => {
         setIsLoading(false)
@@ -211,7 +279,7 @@ export function useVerification({
           }
 
           if (isInviteFlow && redirectUrl) {
-            window.location.href = redirectUrl
+            router.push(redirectUrl)
           } else {
             router.push('/workspace')
           }
@@ -220,7 +288,7 @@ export function useVerification({
         handleRedirect()
       }
     }
-  }, [isEmailVerificationEnabled, router, isInviteFlow, redirectUrl])
+  }, [isEmailVerificationEnabled, redirectUrl, router, isInviteFlow])
 
   return {
     otp,

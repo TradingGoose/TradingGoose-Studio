@@ -2,6 +2,7 @@
 
 import { memo, useEffect, useState } from 'react'
 import { Check, ChevronDown, ChevronRight, ListTodo, Loader2 } from 'lucide-react'
+import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import { cn } from '@/lib/utils'
 
 export interface TodoItem {
@@ -22,6 +23,7 @@ export const TodoList = memo(function TodoList({
   collapsed = false,
   className,
 }: TodoListProps) {
+  const copilotCopy = useCopilotMessages()
   const [isCollapsed, setIsCollapsed] = useState(collapsed)
 
   // Sync collapsed prop with internal state
@@ -49,7 +51,7 @@ export const TodoList = memo(function TodoList({
         <div className='flex items-center gap-1'>
           <ListTodo className='h-4 w-4 text-neutral-500' />
           <span className='font-medium text-neutral-700 text-xs dark:text-neutral-300'>
-            Todo List
+            {copilotCopy.todo.title}
           </span>
           <span className='text-neutral-500 text-xs dark:text-neutral-400'>
             {completedCount}/{totalCount}
@@ -67,7 +69,7 @@ export const TodoList = memo(function TodoList({
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
             className='rounded p-0.5 transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800'
-            aria-label={isCollapsed ? 'Expand todo list' : 'Collapse todo list'}
+            aria-label={isCollapsed ? copilotCopy.todo.expand : copilotCopy.todo.collapse}
           >
             {isCollapsed ? (
               <ChevronRight className='h-4 w-4 text-neutral-500' />

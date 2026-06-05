@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname } from '@/i18n/navigation'
 import { bootstrapProviderModels } from '@/stores/providers/store'
 
 const PUBLIC_LANDING_ROUTE_PREFIXES = [

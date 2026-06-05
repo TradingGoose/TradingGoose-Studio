@@ -3,6 +3,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getPublicCopy } from '@/i18n/public-copy'
 import {
   DEFAULT_CONFIG_MONITOR_VIEW_CONFIG,
   DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG,
@@ -31,6 +32,15 @@ const buildMonitorViewResponse = (overrides: Record<string, unknown> = {}) => ({
   updatedAt: '2026-04-23T00:00:00.000Z',
   ...overrides,
 })
+
+const workflowTargetFallbackCopy = {
+  workflowName: getPublicCopy('en').workspace.monitor.fields.workflow,
+  triggerBlockNames: {
+    indicator_trigger: getPublicCopy('en').workspace.widgets.blockEditor.blockNames.indicator_trigger,
+    portfolio_state_trigger:
+      getPublicCopy('en').workspace.widgets.blockEditor.blockNames.portfolio_state_trigger,
+  },
+} as const
 
 describe('monitor data api', () => {
   beforeEach(() => {
@@ -136,7 +146,7 @@ describe('monitor data api', () => {
       }),
     } as unknown as Response)
 
-    await expect(loadWorkflowTargetOptions('workspace 1')).resolves.toEqual([
+    await expect(loadWorkflowTargetOptions('workspace 1', workflowTargetFallbackCopy)).resolves.toEqual([
       {
         source: 'indicator',
         triggerId: 'indicator_trigger',
@@ -173,6 +183,67 @@ describe('monitor data api', () => {
     ])
     expect(fetch).toHaveBeenCalledOnce()
     expect(fetch).toHaveBeenCalledWith('/api/workflows?workspaceId=workspace%201')
+  })
+
+  it('uses localized fallback names for unnamed monitor trigger blocks and workflows', async () => {
+    const zhFallbackCopy = {
+      workflowName: getPublicCopy('zh').workspace.monitor.fields.workflow,
+      triggerBlockNames: {
+        indicator_trigger:
+          getPublicCopy('zh').workspace.widgets.blockEditor.blockNames.indicator_trigger,
+        portfolio_state_trigger:
+          getPublicCopy('zh').workspace.widgets.blockEditor.blockNames.portfolio_state_trigger,
+      },
+    } as const
+
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        data: [
+          {
+            id: 'workflow-1',
+            color: '#111111',
+            deployedState: {
+              blocks: {
+                'trigger-1': {
+                  id: 'trigger-1',
+                  type: 'indicator_trigger',
+                },
+                'trigger-2': {
+                  id: 'trigger-2',
+                  type: 'portfolio_state_trigger',
+                },
+              },
+            },
+          },
+        ],
+      }),
+    } as unknown as Response)
+
+    await expect(loadWorkflowTargetOptions('workspace 1', zhFallbackCopy)).resolves.toEqual([
+      {
+        source: 'portfolio',
+        triggerId: 'portfolio_state_trigger',
+        workflowId: 'workflow-1',
+        blockId: 'trigger-2',
+        workflowName: zhFallbackCopy.workflowName,
+        workflowColor: '#111111',
+        isDeployed: true,
+        blockName: zhFallbackCopy.triggerBlockNames.portfolio_state_trigger,
+        label: `${zhFallbackCopy.workflowName} - ${zhFallbackCopy.triggerBlockNames.portfolio_state_trigger}`,
+      },
+      {
+        source: 'indicator',
+        triggerId: 'indicator_trigger',
+        workflowId: 'workflow-1',
+        blockId: 'trigger-1',
+        workflowName: zhFallbackCopy.workflowName,
+        workflowColor: '#111111',
+        isDeployed: true,
+        blockName: zhFallbackCopy.triggerBlockNames.indicator_trigger,
+        label: `${zhFallbackCopy.workflowName} - ${zhFallbackCopy.triggerBlockNames.indicator_trigger}`,
+      },
+    ])
   })
 
   it('returns the strict monitor-view row from update responses', async () => {

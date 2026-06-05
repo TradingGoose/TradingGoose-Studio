@@ -474,9 +474,7 @@ describe('MonitorPage', () => {
     })
 
     await click('Create view')
-    expect(document.body.textContent).toContain(
-      'Create a new saved view from the current execution workspace settings.'
-    )
+    expect(document.body.textContent).toContain('Create a saved execution view for this workspace.')
 
     const submitButton = Array.from(document.body.querySelectorAll('button'))
       .reverse()
@@ -512,11 +510,9 @@ describe('MonitorPage', () => {
       root.render(<MonitorPage workspaceId='workspace-1' userId='user-1' />)
     })
 
-    await click('config')
+    await click('Config')
     await click('Create view')
-    expect(document.body.textContent).toContain(
-      'Create a new saved view from the current monitor configuration workspace settings.'
-    )
+    expect(document.body.textContent).toContain('Create a saved config view for this workspace.')
 
     const submitButton = Array.from(document.body.querySelectorAll('button'))
       .reverse()
@@ -553,7 +549,7 @@ describe('MonitorPage', () => {
     })
 
     await click('Rename Current View')
-    expect(document.body.textContent).toContain('Rename View')
+    expect(document.body.textContent).toContain('Rename view')
 
     const input = document.body.querySelector('input')
     if (!(input instanceof HTMLInputElement)) {
@@ -571,9 +567,9 @@ describe('MonitorPage', () => {
 
     const submitButton = Array.from(document.body.querySelectorAll('button'))
       .reverse()
-      .find((node) => node.textContent?.includes('Rename view'))
+      .find((node) => node.textContent?.includes('Save name'))
     if (!(submitButton instanceof HTMLButtonElement)) {
-      throw new Error('Expected dialog "Rename view" button to render')
+      throw new Error('Expected dialog "Save name" button to render')
     }
 
     await act(async () => {
@@ -612,9 +608,9 @@ describe('MonitorPage', () => {
     })
 
     await click('Change view')
-    await click('config')
+    await click('Config')
     await click('Change config view')
-    await click('executions')
+    await click('Executions')
 
     expect(mockedUpdateMonitorView).toHaveBeenCalledWith(
       'workspace-1',
@@ -749,7 +745,7 @@ describe('MonitorPage', () => {
       root.render(<MonitorPage workspaceId='workspace-1' userId='user-1' />)
     })
 
-    await click('config')
+    await click('Config')
 
     expect(container.querySelector('input[placeholder="Search config monitors..."]')).not.toBeNull()
   })
@@ -761,7 +757,7 @@ describe('MonitorPage', () => {
 
     expect(container.textContent).not.toContain('New monitor')
 
-    await click('config')
+    await click('Config')
 
     expect(container.textContent).not.toContain('New monitor')
   })
@@ -799,7 +795,11 @@ describe('MonitorPage', () => {
 
     await waitForText('Loading monitor requirements...')
 
-    expect(findButton('config').disabled).toBe(true)
+    const configModeButton = Array.from(container.querySelectorAll('button[role="tab"]')).find(
+      (node) => node.textContent?.includes('Config')
+    )
+    expect(configModeButton).toBeInstanceOf(HTMLButtonElement)
+    expect((configModeButton as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('keeps quick filters in monitor state instead of the header query text', async () => {
@@ -906,10 +906,10 @@ describe('MonitorPage', () => {
     await click('Select execution')
     expect(selectedExecution()).toBe('log-1')
 
-    await click('config')
+    await click('Config')
     expect(container.querySelector('[data-testid="selected-execution"]')).toBeNull()
 
-    await click('executions')
+    await click('Executions')
     expect(selectedExecution()).toBe('none')
   })
 
@@ -922,7 +922,7 @@ describe('MonitorPage', () => {
 
     await click('Select execution')
     await click('Change view')
-    await click('config')
+    await click('Config')
 
     expect(selectedExecution()).toBe('log-1')
     expect(container.querySelector('[data-testid="views-error"]')?.textContent).toBe(
@@ -992,13 +992,13 @@ describe('MonitorPage', () => {
     })
 
     await click('Rename Current View')
-    await click('config')
+    await click('Config')
 
     const submitButton = Array.from(document.body.querySelectorAll('button'))
       .reverse()
-      .find((node) => node.textContent?.includes('Rename view'))
+      .find((node) => node.textContent?.includes('Save name'))
     if (!(submitButton instanceof HTMLButtonElement)) {
-      throw new Error('Expected dialog "Rename view" button to render')
+      throw new Error('Expected dialog "Save name" button to render')
     }
 
     await act(async () => {
@@ -1007,9 +1007,9 @@ describe('MonitorPage', () => {
 
     expect(mockedUpdateMonitorView).not.toHaveBeenCalled()
     expect(container.querySelector('[data-testid="config-views-error"]')?.textContent).toBe(
-      'Saved view dialog is stale. Close it and try again.'
+      'The selected view is no longer available.'
     )
-    expect(document.body.textContent).toContain('Rename View')
+    expect(document.body.textContent).toContain('Rename view')
   })
 
   it('locks shell header actions while a view mutation is in flight', async () => {
@@ -1072,8 +1072,8 @@ describe('MonitorPage', () => {
     await click('Delete Config')
 
     expect(findButton('Create view').disabled).toBe(true)
-    expect(findButton('executions').disabled).toBe(true)
-    expect(findButton('config').disabled).toBe(true)
+    expect(findButton('Executions').disabled).toBe(true)
+    expect(findButton('Config').disabled).toBe(true)
     expect(findButton('Refresh monitor workspace').disabled).toBe(true)
 
     await act(async () => {
@@ -1120,7 +1120,7 @@ describe('MonitorPage', () => {
       root.render(<MonitorPage workspaceId='workspace-1' userId='user-1' />)
     })
 
-    await click('config')
+    await click('Config')
     await click('Create monitor')
     expect(mockedCreateMonitorRecord).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1174,7 +1174,7 @@ describe('MonitorPage', () => {
     await click('Refresh monitor workspace')
 
     expect(findButton('Create view').disabled).toBe(true)
-    expect(findButton('config').disabled).toBe(true)
+    expect(findButton('Config').disabled).toBe(true)
     expect(findButton('Refresh monitor workspace').disabled).toBe(true)
     expect(container.textContent).not.toContain('New monitor')
 

@@ -13,6 +13,7 @@ import {
 } from '@/lib/billing/tiers'
 import { resolveBillingTierForPersistence } from '@/lib/billing/tiers/persistence'
 import { sendEmail } from '@/lib/email/mailer'
+import { resolveEmailLocale } from '@/lib/email/locale'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { EnterpriseSubscriptionMetadata } from '../types'
 
@@ -227,12 +228,13 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
     if (userDetails.length > 0 && orgDetails.length > 0) {
       const user = userDetails[0]
       const org = orgDetails[0]
+      const locale = await resolveEmailLocale({ userId: user.id, email: user.email })
 
-      const html = await renderEnterpriseSubscriptionEmail(user.name || user.email, user.email)
+      const html = await renderEnterpriseSubscriptionEmail(user.name || user.email, user.email, locale)
 
       const emailResult = await sendEmail({
         to: user.email,
-        subject: getEmailSubject('enterprise-subscription'),
+        subject: getEmailSubject('enterprise-subscription', locale),
         html,
         emailType: 'transactional',
       })

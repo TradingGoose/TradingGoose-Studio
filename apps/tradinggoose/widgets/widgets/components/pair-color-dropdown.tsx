@@ -14,6 +14,7 @@ import {
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
+import { useMessages } from 'next-intl'
 import { PAIR_COLOR_META, PAIR_COLOR_OPTIONS, type PairColor } from '@/widgets/pair-colors'
 
 interface PairColorDropdownProps {
@@ -22,10 +23,11 @@ interface PairColorDropdownProps {
 }
 
 export function PairColorDropdown({ color, onChange }: PairColorDropdownProps) {
+  const copy = useMessages().workspace.widgets.pairColor
   const meta = PAIR_COLOR_META[color]
   const disabled = !onChange
 
-  const tooltipText = disabled ? 'Color selection unavailable' : 'Select widget color'
+  const tooltipText = disabled ? copy.selectionUnavailable : copy.selectWidgetColor
 
   return (
     <DropdownMenu modal={false}>
@@ -74,7 +76,14 @@ export function PairColorDropdown({ color, onChange }: PairColorDropdownProps) {
                 }}
                 aria-hidden
               />
-              <span className={widgetHeaderMenuTextClassName}>{option.label}</span>
+              {(() => {
+                const labelKey = option.value === 'gray' ? 'unlinked' : option.value
+                return (
+                  <span className={widgetHeaderMenuTextClassName}>
+                    {copy[labelKey as keyof typeof copy] ?? option.label}
+                  </span>
+                )
+              })()}
             </span>
           </DropdownMenuItem>
         ))}

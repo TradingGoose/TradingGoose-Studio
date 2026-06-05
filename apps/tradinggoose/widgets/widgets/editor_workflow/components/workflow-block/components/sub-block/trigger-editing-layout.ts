@@ -1,5 +1,10 @@
 import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
 import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
+import {
+  localizeWorkflowSubBlockConfigWithCopy,
+  type WorkflowInspectorCopy,
+} from '@/i18n/workflow-inspector-core'
+import { resolveTriggerIdFromSubBlocks } from '@/triggers/resolution'
 
 export function removeTriggerModeSelectorFromRows(rows: SubBlockConfig[][]): SubBlockConfig[][] {
   return rows
@@ -14,6 +19,8 @@ interface TriggerEditableBlockState {
 }
 
 interface BuildTriggerEditingLayoutParams {
+  inspectorCopy: WorkflowInspectorCopy
+  blockType: string
   blockId?: string
   blockConfig?: Pick<BlockConfig, 'category' | 'subBlocks' | 'triggers'>
   blockState?: TriggerEditableBlockState | null
@@ -21,6 +28,8 @@ interface BuildTriggerEditingLayoutParams {
 }
 
 export function buildTriggerEditingLayout({
+  inspectorCopy,
+  blockType,
   blockId,
   blockConfig,
   blockState,
@@ -53,9 +62,20 @@ export function buildTriggerEditingLayout({
   const advancedVisibility = shouldDisableWrite
     ? effectiveAdvanced || advancedValuesPresent
     : effectiveAdvanced
+  const triggerId = effectiveTrigger
+    ? resolveTriggerIdFromSubBlocks(blockStateForConditions, blockConfig.triggers?.available)
+    : null
+  const localizedSubBlocks = blockConfig.subBlocks.map((subBlock) =>
+    localizeWorkflowSubBlockConfigWithCopy(
+      inspectorCopy,
+      subBlock,
+      blockType,
+      triggerId ?? undefined
+    )
+  )
   const regularRows = buildSubBlockRows({
     blockId,
-    subBlocks: blockConfig.subBlocks,
+    subBlocks: localizedSubBlocks,
     stateToUse: blockStateForConditions,
     isAdvancedMode: false,
     isTriggerMode: effectiveTrigger,
@@ -66,7 +86,7 @@ export function buildTriggerEditingLayout({
   })
   const advancedRows = buildSubBlockRows({
     blockId,
-    subBlocks: blockConfig.subBlocks,
+    subBlocks: localizedSubBlocks,
     stateToUse: blockStateForConditions,
     isAdvancedMode: true,
     isTriggerMode: false,

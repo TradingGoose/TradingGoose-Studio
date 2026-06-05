@@ -1,11 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { client, useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getErrorMessage } from '@/app/invite/[id]/utils'
+import { getInviteErrorCode, type InviteErrorCode } from '@/app/invite/[id]/utils'
 import { InviteLayout, InviteStatusCard } from '@/app/invite/components'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
+import { useRouter } from '@/i18n/navigation'
 
 const logger = createLogger('InviteById')
 
@@ -15,21 +18,28 @@ export default function Invite() {
   const inviteId = params.id as string
   const searchParams = useSearchParams()
   const { data: session, isPending } = useSession()
+  const copy = useMessages()
+  const inviteCopy = copy.invite
+  const inviteErrors = inviteCopy.errors as Record<InviteErrorCode, string>
   const [invitationDetails, setInvitationDetails] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<InviteErrorCode | null>(null)
   const [isAccepting, setIsAccepting] = useState(false)
   const [accepted, setAccepted] = useState(false)
   const [isNewUser, setIsNewUser] = useState(false)
   const [token, setToken] = useState<string | null>(null)
   const [invitationType, setInvitationType] = useState<'organization' | 'workspace'>('workspace')
   const [currentOrgName, setCurrentOrgName] = useState<string | null>(null)
+  const fallbackInvitationName =
+    invitationType === 'organization'
+      ? inviteCopy.defaultOrganizationName
+      : inviteCopy.defaultWorkspaceName
 
   useEffect(() => {
     const errorReason = searchParams.get('error')
 
     if (errorReason) {
-      setError(getErrorMessage(errorReason))
+      setError(getInviteErrorCode(errorReason))
       setIsLoading(false)
       return
     }
@@ -63,7 +73,7 @@ export default function Invite() {
           setInvitationDetails({
             type: 'workspace',
             data,
-            name: data.workspaceName || 'a workspace',
+            name: data.workspaceName || inviteCopy.defaultWorkspaceName,
           })
           setIsLoading(false)
           return
@@ -93,7 +103,7 @@ export default function Invite() {
             setInvitationDetails({
               type: 'organization',
               data,
-              name: data.organizationName || 'an organization',
+              name: data.organizationName || inviteCopy.defaultOrganizationName,
             })
 
             if (data.organizationId) {
@@ -104,19 +114,19 @@ export default function Invite() {
               if (orgResponse.data) {
                 setInvitationDetails((prev: any) => ({
                   ...prev,
-                  name: orgResponse.data.name || 'an organization',
+                  name: orgResponse.data.name || inviteCopy.defaultOrganizationName,
                 }))
               }
             }
           } else {
-            throw new Error('Invitation not found or has expired')
+            throw new Error('invalid-invitation')
           }
         } catch (_err) {
-          throw new Error('Invitation not found or has expired')
+          throw new Error('invalid-invitation')
         }
       } catch (err: any) {
         logger.error('Error fetching invitation:', err)
-        setError(err.message || 'Failed to load invitation details')
+        setError(getInviteErrorCode(err.message || 'server-error'))
       } finally {
         setIsLoading(false)
       }
@@ -131,14 +141,20 @@ export default function Invite() {
     setIsAccepting(true)
 
     if (invitationType === 'workspace') {
-      window.location.href = `/api/workspaces/invitations/${encodeURIComponent(inviteId)}?token=${encodeURIComponent(token || '')}`
+      const acceptParams = new URLSearchParams({
+        token: token || '',
+      })
+
+      window.location.assign(
+        `/api/workspaces/invitations/${encodeURIComponent(inviteId)}?${acceptParams.toString()}`
+      )
     } else {
       try {
         // Get the organizationId from invitation details
         const orgId = invitationDetails?.data?.organizationId
 
         if (!orgId) {
-          throw new Error('Organization ID not found')
+          throw new Error('missing-invitation-id')
         }
 
         // Use our custom API endpoint that handles Pro usage snapshot
@@ -152,8 +168,8 @@ export default function Invite() {
         })
 
         if (!response.ok) {
-          const data = await response.json().catch(() => ({ error: 'Failed to accept invitation' }))
-          throw new Error(data.error || 'Failed to accept invitation')
+          const data = await response.json().catch(() => ({ error: 'server-error' }))
+          throw new Error(getInviteErrorCode(data.error || 'server-error'))
         }
 
         // Set the organization as active
@@ -173,10 +189,10 @@ export default function Invite() {
         setAccepted(false)
 
         // Check if it's a 409 conflict (already in an organization)
-        if (err.status === 409 || err.message?.includes('already a member of an organization')) {
+        if (err.status === 409) {
           setError('already-in-organization')
         } else {
-          setError(err.message || 'Failed to accept invitation')
+          setError(getInviteErrorCode(err.message || 'server-error'))
         }
 
         setIsAccepting(false)
@@ -195,23 +211,23 @@ export default function Invite() {
       <InviteLayout>
         <InviteStatusCard
           type='login'
-          title="You've been invited!"
+          title={inviteCopy.login.title}
           description={
             isNewUser
-              ? 'Create an account to join this workspace on TradingGoose'
-              : 'Sign in to your account to accept this invitation'
+              ? inviteCopy.login.newUserDescription
+              : inviteCopy.login.existingUserDescription
           }
           icon='userPlus'
           actions={[
             ...(isNewUser
               ? [
                   {
-                    label: 'Create an account',
+                    label: inviteCopy.login.createAccount,
                     onClick: () =>
                       router.push(`/signup?callbackUrl=${callbackUrl}&invite_flow=true`),
                   },
                   {
-                    label: 'I already have an account',
+                    label: inviteCopy.login.iAlreadyHaveAccount,
                     onClick: () =>
                       router.push(`/login?callbackUrl=${callbackUrl}&invite_flow=true`),
                     variant: 'outline' as const,
@@ -219,19 +235,19 @@ export default function Invite() {
                 ]
               : [
                   {
-                    label: 'Sign in',
+                    label: inviteCopy.login.signIn,
                     onClick: () =>
                       router.push(`/login?callbackUrl=${callbackUrl}&invite_flow=true`),
                   },
                   {
-                    label: 'Create an account',
+                    label: inviteCopy.login.createAccount,
                     onClick: () =>
                       router.push(`/signup?callbackUrl=${callbackUrl}&invite_flow=true&new=true`),
                     variant: 'outline' as const,
                   },
                 ]),
             {
-              label: 'Return to Home',
+              label: copy.auth.common.returnHome,
               onClick: () => router.push('/'),
             },
           ]}
@@ -243,7 +259,11 @@ export default function Invite() {
   if (isLoading || isPending) {
     return (
       <InviteLayout>
-        <InviteStatusCard type='loading' title='' description='Loading invitation...' />
+        <InviteStatusCard
+          type='loading'
+          title={inviteCopy.loadingTitle}
+          description={inviteCopy.loadingDescription}
+        />
       </InviteLayout>
     )
   }
@@ -259,21 +279,23 @@ export default function Invite() {
         <InviteLayout>
           <InviteStatusCard
             type='warning'
-            title='Already Part of a Team'
+            title={inviteCopy.warning.title}
             description={
               currentOrgName
-                ? `You are currently a member of "${currentOrgName}". You must leave your current organization before accepting a new invitation.`
-                : 'You are already a member of an organization. Leave your current organization before accepting a new invitation.'
+                ? formatTemplate(inviteCopy.warning.currentOrgWithName, {
+                    name: currentOrgName,
+                  })
+                : inviteCopy.warning.currentOrg
             }
             icon='users'
             actions={[
               {
-                label: 'Manage Team Settings',
+                label: inviteCopy.warning.manageTeamSettings,
                 onClick: () => router.push('/workspace'),
                 variant: 'default' as const,
               },
               {
-                label: 'Return to Home',
+                label: copy.auth.common.returnHome,
                 onClick: () => router.push('/'),
                 variant: 'ghost' as const,
               },
@@ -283,20 +305,19 @@ export default function Invite() {
       )
     }
 
-    // Use getErrorMessage for consistent error messages
-    const errorMessage = error.startsWith('You are already') ? error : getErrorMessage(error)
+    const errorMessage = inviteErrors[error] ?? inviteErrors.unknown
 
     return (
       <InviteLayout>
         <InviteStatusCard
           type='error'
-          title='Invitation Error'
+          title={inviteCopy.error.title}
           description={errorMessage}
           icon='error'
           isExpiredError={isExpiredError}
           actions={[
             {
-              label: 'Return to Home',
+              label: copy.auth.common.returnHome,
               onClick: () => router.push('/'),
               variant: 'default' as const,
             },
@@ -308,16 +329,17 @@ export default function Invite() {
 
   // Show success only if accepted AND no error
   if (accepted && !error) {
+    const invitationName = invitationDetails?.name || fallbackInvitationName
     return (
       <InviteLayout>
         <InviteStatusCard
           type='success'
-          title='Welcome!'
-          description={`You have successfully joined ${invitationDetails?.name || 'the workspace'}. Redirecting to your workspace...`}
+          title={inviteCopy.success.title}
+          description={formatTemplate(inviteCopy.success.description, { name: invitationName })}
           icon='success'
           actions={[
             {
-              label: 'Return to Home',
+              label: copy.auth.common.returnHome,
               onClick: () => router.push('/'),
             },
           ]}
@@ -331,19 +353,23 @@ export default function Invite() {
       <InviteStatusCard
         type='invitation'
         title={
-          invitationType === 'organization' ? 'Organization Invitation' : 'Workspace Invitation'
+          invitationType === 'organization'
+            ? inviteCopy.invitation.organizationTitle
+            : inviteCopy.invitation.workspaceTitle
         }
-        description={`You've been invited to join ${invitationDetails?.name || `a ${invitationType}`}. Click accept below to join.`}
+        description={formatTemplate(inviteCopy.invitation.description, {
+          name: invitationDetails?.name || fallbackInvitationName,
+        })}
         icon={invitationType === 'organization' ? 'users' : 'mail'}
         actions={[
           {
-            label: 'Accept Invitation',
+            label: inviteCopy.invitation.accept,
             onClick: handleAcceptInvitation,
             disabled: isAccepting,
             loading: isAccepting,
           },
           {
-            label: 'Return to Home',
+            label: copy.auth.common.returnHome,
             onClick: () => router.push('/'),
             variant: 'ghost',
           },

@@ -3,7 +3,9 @@ import { Check, Copy, Eye, EyeOff, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { Button, Card, CardContent, Input, Label } from '@/components/ui'
 import type { ChatAuthType } from '@/lib/chat/deployment-config'
 import { getEnv, isTruthy } from '@/lib/env'
+import { formatTemplate } from '@/i18n/utils'
 import { cn, generatePassword } from '@/lib/utils'
+import { useDeploymentCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 interface AuthSelectorProps {
   authType: ChatAuthType
@@ -28,6 +30,7 @@ export function AuthSelector({
   isExistingChat = false,
   error,
 }: AuthSelectorProps) {
+  const copy = useDeploymentCopy().chat.auth
   const [showPassword, setShowPassword] = useState(false)
   const [newEmail, setNewEmail] = useState('')
   const [emailError, setEmailError] = useState('')
@@ -46,12 +49,12 @@ export function AuthSelector({
 
   const handleAddEmail = () => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail) && !newEmail.startsWith('@')) {
-      setEmailError('Please enter a valid email or domain (e.g., user@example.com or @example.com)')
+      setEmailError(copy.invalidEmailOrDomain)
       return
     }
 
     if (emails.includes(newEmail)) {
-      setEmailError('This email or domain is already in the list')
+      setEmailError(copy.duplicateEmailOrDomain)
       return
     }
 
@@ -68,10 +71,16 @@ export function AuthSelector({
   const authOptions = ssoEnabled
     ? (['public', 'password', 'email', 'sso'] as const)
     : (['public', 'password', 'email'] as const)
+  const getAccessTypeLabel = (type: ChatAuthType) => {
+    if (type === 'public') return copy.publicAccess
+    if (type === 'password') return copy.passwordProtected
+    if (type === 'email') return copy.emailAccess
+    return copy.ssoAccess
+  }
 
   return (
     <div className='space-y-2'>
-      <Label className='font-medium text-sm'>Access Control</Label>
+      <Label className='font-medium text-sm'>{copy.accessControl}</Label>
 
       {/* Auth Type Selection */}
       <div
@@ -92,21 +101,20 @@ export function AuthSelector({
                 type='button'
                 className='absolute inset-0 z-10 h-full w-full cursor-pointer'
                 onClick={() => !disabled && onAuthTypeChange(type)}
-                aria-label={`Select ${type} access`}
+                aria-label={formatTemplate(copy.selectAccessAriaLabel, {
+                  type: getAccessTypeLabel(type),
+                })}
                 disabled={disabled}
               />
               <div className='justify-center text-center align-middle'>
                 <h3 className='font-medium text-sm'>
-                  {type === 'public' && 'Public Access'}
-                  {type === 'password' && 'Password Protected'}
-                  {type === 'email' && 'Email Access'}
-                  {type === 'sso' && 'SSO Access'}
+                  {getAccessTypeLabel(type)}
                 </h3>
                 <p className='text-muted-foreground text-xs'>
-                  {type === 'public' && 'Anyone can access your chat'}
-                  {type === 'password' && 'Secure with a single password'}
-                  {type === 'email' && 'Restrict to specific emails'}
-                  {type === 'sso' && 'Authenticate via SSO provider'}
+                  {type === 'public' && copy.publicAccessDescription}
+                  {type === 'password' && copy.passwordProtectedDescription}
+                  {type === 'email' && copy.emailAccessDescription}
+                  {type === 'sso' && copy.ssoAccessDescription}
                 </p>
               </div>
             </CardContent>
@@ -118,14 +126,14 @@ export function AuthSelector({
       {authType === 'password' && (
         <Card className='rounded-sm shadow-none'>
           <CardContent className='p-4'>
-            <h3 className='mb-2 font-medium text-sm'>Password Settings</h3>
+            <h3 className='mb-2 font-medium text-sm'>{copy.passwordSettings}</h3>
 
             {isExistingChat && !password && (
               <div className='mb-2 flex items-center text-muted-foreground text-xs'>
                 <div className='mr-2 rounded-full bg-[var(--primary)]/10 px-2 py-0.5 font-medium text-muted-foreground'>
-                  Password set
+                  {copy.passwordSet}
                 </div>
-                <span>Current password is securely stored</span>
+                <span>{copy.currentPasswordStored}</span>
               </div>
             )}
 
@@ -134,8 +142,8 @@ export function AuthSelector({
                 type={showPassword ? 'text' : 'password'}
                 placeholder={
                   isExistingChat
-                    ? 'Enter new password (leave empty to keep current)'
-                    : 'Enter password'
+                    ? copy.enterNewPasswordKeepCurrent
+                    : copy.enterPassword
                 }
                 value={password}
                 onChange={(e) => onPasswordChange(e.target.value)}
@@ -160,7 +168,7 @@ export function AuthSelector({
                   )}
                 >
                   <RefreshCw className='h-3.5 w-3.5 transition-transform duration-200 group-hover:rotate-90' />
-                  <span className='sr-only'>Generate password</span>
+                  <span className='sr-only'>{copy.generatePassword}</span>
                 </Button>
                 <Button
                   type='button'
@@ -181,7 +189,7 @@ export function AuthSelector({
                   ) : (
                     <Copy className='h-3.5 w-3.5 ' />
                   )}
-                  <span className='sr-only'>Copy password</span>
+                  <span className='sr-only'>{copy.copyPassword}</span>
                 </Button>
                 <Button
                   type='button'
@@ -202,7 +210,7 @@ export function AuthSelector({
                     <Eye className='h-3.5 w-3.5 ' />
                   )}
                   <span className='sr-only'>
-                    {showPassword ? 'Hide password' : 'Show password'}
+                    {showPassword ? copy.hidePassword : copy.showPassword}
                   </span>
                 </Button>
               </div>
@@ -210,8 +218,8 @@ export function AuthSelector({
 
             <p className='mt-2 text-muted-foreground text-xs'>
               {isExistingChat
-                ? 'Leaving this empty will keep the current password. Enter a new password to change it.'
-                : 'This password will be required to access your chat.'}
+                ? copy.keepCurrentPasswordDescription
+                : copy.passwordAccessDescription}
             </p>
           </CardContent>
         </Card>
@@ -221,12 +229,12 @@ export function AuthSelector({
         <Card className='rounded-sm shadow-none'>
           <CardContent className='p-4'>
             <h3 className='mb-2 font-medium text-sm'>
-              {authType === 'email' ? 'Email Access Settings' : 'SSO Access Settings'}
+              {authType === 'email' ? copy.emailAccessSettings : copy.ssoAccessSettings}
             </h3>
 
             <div className='flex gap-2'>
               <Input
-                placeholder='user@example.com or @domain.com'
+                placeholder={copy.emailOrDomainPlaceholder}
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
                 disabled={disabled}
@@ -245,7 +253,7 @@ export function AuthSelector({
                 className='h-10 shrink-0 rounded-sm'
               >
                 <Plus className='h-4 w-4' />
-                Add
+                {copy.add}
               </Button>
             </div>
 
@@ -277,8 +285,8 @@ export function AuthSelector({
 
             <p className='mt-2 text-muted-foreground text-xs'>
               {authType === 'email'
-                ? 'Add specific emails or entire domains (@example.com)'
-                : 'Add specific emails or entire domains (@example.com) that can access via SSO'}
+                ? copy.emailAccessHelp
+                : copy.ssoAccessHelp}
             </p>
           </CardContent>
         </Card>
@@ -287,9 +295,9 @@ export function AuthSelector({
       {authType === 'public' && (
         <Card className='rounded-sm shadow-none'>
           <CardContent className='p-4'>
-            <h3 className='mb-2 font-medium text-sm'>Public Access Settings</h3>
+            <h3 className='mb-2 font-medium text-sm'>{copy.publicAccessSettings}</h3>
             <p className='text-muted-foreground text-xs'>
-              This chat will be publicly accessible to anyone with the link.
+              {copy.publicAccessHelp}
             </p>
           </CardContent>
         </Card>

@@ -1,4 +1,6 @@
 import { memo, useMemo, useState } from 'react'
+import { useLocale, useTranslations } from 'next-intl'
+import { formatDate } from '@/app/workspace/[workspaceId]/records/utils'
 
 export interface StatusBarSegment {
   successRate: number
@@ -28,22 +30,29 @@ export function StatusBar({
   segmentDurationMs: number
   preferBelow?: boolean
 }) {
+  const locale = useLocale()
+  const t = useTranslations('workspace.logs.dashboard.workflows')
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
 
   const labels = useMemo(() => {
     return segments.map((segment) => {
       const start = new Date(segment.timestamp)
       const end = new Date(start.getTime() + (segmentDurationMs || 0))
-      const rangeLabel = Number.isNaN(start.getTime())
-        ? ''
-        : `${start.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric' })} – ${end.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+      const rangeLabel =
+        Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())
+          ? ''
+          : `${formatDate(start.toISOString(), locale).compactDate} ${formatDate(start.toISOString(), locale).compactTime} - ${formatDate(end.toISOString(), locale).compactTime}`
       return {
         rangeLabel,
         successLabel: `${segment.successRate.toFixed(1)}%`,
-        countsLabel: `${segment.successfulExecutions ?? 0}/${segment.totalExecutions ?? 0} succeeded`,
+        countsLabel: t('succeeded', {
+          success: segment.successfulExecutions ?? 0,
+          total: segment.totalExecutions ?? 0,
+          plural: segment.totalExecutions !== 1 ? 's' : '',
+        }),
       }
     })
-  }, [segments, segmentDurationMs])
+  }, [locale, segmentDurationMs, segments, t])
 
   return (
     <div className='relative'>
@@ -73,7 +82,7 @@ export function StatusBar({
               className={`h-6 flex-1 rounded-xs ${color} cursor-pointer transition-[opacity,transform] hover:opacity-90 ${
                 isSelected ? 'relative z-10 ring-2 ring-primary ring-offset-1' : 'relative z-0'
               }`}
-              aria-label={`Segment ${i + 1}`}
+              aria-label={t('segment', { index: i + 1 })}
               onMouseEnter={() => setHoverIndex(i)}
               onMouseDown={(e) => {
                 e.preventDefault()

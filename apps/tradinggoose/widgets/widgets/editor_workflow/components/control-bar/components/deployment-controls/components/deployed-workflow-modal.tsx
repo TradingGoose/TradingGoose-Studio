@@ -18,6 +18,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { DeployedWorkflowCard } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deployment-controls/components/deployed-workflow-card'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import { useWorkflowBlocks, useWorkflowEdges, useWorkflowLoops, useWorkflowParallels } from '@/lib/yjs/use-workflow-doc'
+import { useDeploymentCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 const logger = createLogger('DeployedWorkflowModal')
 
@@ -48,6 +49,7 @@ export function DeployedWorkflowModal({
   workflowId,
   isSelectedVersionActive,
 }: DeployedWorkflowModalProps) {
+  const copy = useDeploymentCopy()
   const [showRevertDialog, setShowRevertDialog] = useState(false)
   const resolvedWorkflowId = workflowId
 
@@ -93,7 +95,7 @@ export function DeployedWorkflowModal({
       >
         <div className='sr-only'>
           <DialogHeader>
-            <DialogTitle>Deployed Workflow</DialogTitle>
+            <DialogTitle>{copy.deployedWorkflow}</DialogTitle>
           </DialogHeader>
         </div>
         <DeployedWorkflowCard
@@ -113,7 +115,7 @@ export function DeployedWorkflowModal({
                     <span className='absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75' />
                     <span className='relative inline-flex h-2 w-2 rounded-full bg-emerald-500' />
                   </span>
-                  Active
+                  {copy.active}
                 </div>
               ) : (
                 <div className='flex items-center gap-0'>
@@ -122,7 +124,7 @@ export function DeployedWorkflowModal({
                     disabled={!!isActivating}
                     onClick={() => onActivateVersion?.()}
                   >
-                    {isActivating ? 'Activating…' : 'Activate'}
+                    {isActivating ? copy.activating : copy.activate}
                   </Button>
                 </div>
               ))}
@@ -132,30 +134,27 @@ export function DeployedWorkflowModal({
             {(needsRedeployment || selectedVersion !== undefined) && (
               <AlertDialog open={showRevertDialog} onOpenChange={setShowRevertDialog}>
                 <AlertDialogTrigger asChild>
-                  <Button variant='outline'>Load Deployment</Button>
+                  <Button variant='outline'>{copy.loadDeployment}</Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent style={{ zIndex: 1001 }} className='sm:max-w-[425px]'>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Load this Deployment?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will replace your current workflow with the deployed version. Your
-                      current changes will be lost.
-                    </AlertDialogDescription>
+                    <AlertDialogTitle>{copy.loadThisDeployment}</AlertDialogTitle>
+                    <AlertDialogDescription>{copy.loadDeploymentDescription}</AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel>{copy.cancel}</AlertDialogCancel>
                     <AlertDialogAction
                       onClick={handleRevert}
                       className='bg-primary text-primary-foreground hover:bg-[var(--primary)]/90'
                     >
-                      Load Deployment
+                      {copy.loadDeployment}
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
             )}
             <Button variant='outline' onClick={onClose}>
-              Close
+              {copy.close}
             </Button>
           </div>
         </div>

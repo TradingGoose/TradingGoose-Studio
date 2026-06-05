@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { Check, ChevronDown, FileText, RefreshCw } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -12,9 +13,13 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import type { SubBlockConfig } from '@/blocks/types'
+import { translateWorkflowLabel } from '@/i18n/block-editor'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
+import type { LocaleCode } from '@/i18n/utils'
 import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-depends-on-gate'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
-import type { SubBlockConfig } from '@/blocks/types'
 
 interface DocumentData {
   id: string
@@ -47,8 +52,11 @@ export function DocumentSelector({
   disabled = false,
   onDocumentSelect,
 }: DocumentSelectorProps) {
+  const locale = useLocale() as LocaleCode
+  const selectorCopy = useMessages().workspace.widgets.blockEditor.documentSelector
+  type DocumentSelectorErrorCode = keyof typeof selectorCopy.errors | 'noKnowledgeBaseSelected'
   const [documents, setDocuments] = useState<DocumentData[]>([])
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<DocumentSelectorErrorCode | null>(null)
   const [open, setOpen] = useState(false)
   const [selectedDocument, setSelectedDocument] = useState<DocumentData | null>(null)
   const [loading, setLoading] = useState(false)
@@ -66,7 +74,7 @@ export function DocumentSelector({
   const fetchDocuments = useCallback(async () => {
     if (!knowledgeBaseId) {
       setDocuments([])
-      setError('No knowledge base selected')
+      setError('noKnowledgeBaseSelected')
       return
     }
 
@@ -77,20 +85,27 @@ export function DocumentSelector({
       const response = await fetch(`/api/knowledge/${knowledgeBaseId}/documents`)
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch documents: ${response.statusText}`)
+        console.error('Failed to fetch knowledge base documents', {
+          knowledgeBaseId,
+          status: response.status,
+          statusText: response.statusText,
+        })
+        throw new Error('failedToFetchDocuments')
       }
 
       const result = await response.json()
 
       if (!result.success) {
-        throw new Error(result.error || 'Failed to fetch documents')
+        console.error('Documents API returned an error', { knowledgeBaseId, result })
+        throw new Error('failedToFetchDocuments')
       }
 
       const fetchedDocuments = result.data.documents || result.data || []
       setDocuments(fetchedDocuments)
     } catch (err) {
       if ((err as Error).name === 'AbortError') return
-      setError((err as Error).message)
+      console.error('Failed to fetch knowledge base documents', err)
+      setError('failedToFetchDocuments')
       setDocuments([])
     } finally {
       setLoading(false)
@@ -148,19 +163,21 @@ export function DocumentSelector({
 
   const getDocumentDescription = (document: DocumentData) => {
     const statusMap: Record<string, string> = {
-      pending: 'Processing pending',
-      processing: 'Processing...',
-      completed: 'Ready',
-      failed: 'Processing failed',
+      pending: translateWorkflowLabel(locale, 'processingPending'),
+      processing: translateWorkflowLabel(locale, 'processing'),
+      completed: translateWorkflowLabel(locale, 'ready'),
+      failed: translateWorkflowLabel(locale, 'processingFailed'),
     }
 
     const status = statusMap[document.processingStatus] || document.processingStatus
-    const chunkText = `${document.chunkCount} chunk${document.chunkCount !== 1 ? 's' : ''}`
+    const chunkTemplate =
+      document.chunkCount === 1 ? selectorCopy.chunkCountSingular : selectorCopy.chunkCountPlural
+    const chunkText = formatTemplate(chunkTemplate, { count: document.chunkCount })
 
     return `${status} • ${chunkText}`
   }
 
-  const label = subBlock.placeholder || 'Select document'
+  const label = subBlock.placeholder || translateWorkflowLabel(locale, 'selectDocument')
 
   return (
     <div className='w-full'>
@@ -186,30 +203,39 @@ export function DocumentSelector({
         </PopoverTrigger>
         <PopoverContent className='w-[300px] p-0' align='start'>
           <Command>
-            <CommandInput placeholder='Search documents...' />
+            <CommandInput placeholder={translateWorkflowLabel(locale, 'searchDocuments')} />
             <CommandList>
               <CommandEmpty>
                 {loading ? (
                   <div className='flex items-center justify-center p-4'>
                     <RefreshCw className='h-4 w-4 animate-spin' />
-                    <span className='ml-2'>Loading documents...</span>
+                    <span className='ml-2'>
+                      {translateWorkflowLabel(locale, 'loadingDocuments')}
+                    </span>
                   </div>
-                ) : error ? (
+                ) : error && error !== 'noKnowledgeBaseSelected' ? (
                   <div className='p-4 text-center'>
-                    <p className='text-destructive text-sm'>{error}</p>
+                    <p className='text-destructive text-sm'>{selectorCopy.errors[error]}</p>
                   </div>
-                ) : !knowledgeBaseId ? (
+                ) : !knowledgeBaseId || error === 'noKnowledgeBaseSelected' ? (
                   <div className='p-4 text-center'>
-                    <p className='font-medium text-sm'>No knowledge base selected</p>
+                    <p className='font-medium text-sm'>
+                      {translateWorkflowLabel(locale, 'noKnowledgeBaseSelected')}
+                    </p>
                     <p className='text-muted-foreground text-xs'>
-                      Please select a knowledge base first.
+                      {translateWorkflowLabel(locale, 'pleaseSelectAKnowledgeBaseFirst')}
                     </p>
                   </div>
                 ) : (
                   <div className='p-4 text-center'>
-                    <p className='font-medium text-sm'>No documents found</p>
+                    <p className='font-medium text-sm'>
+                      {translateWorkflowLabel(locale, 'noDocumentsFound')}
+                    </p>
                     <p className='text-muted-foreground text-xs'>
-                      Upload documents to this knowledge base to get started.
+                      {translateWorkflowLabel(
+                        locale,
+                        'uploadDocumentsToThisKnowledgeBaseToGetStarted'
+                      )}
                     </p>
                   </div>
                 )}
@@ -218,7 +244,7 @@ export function DocumentSelector({
               {documents.length > 0 && (
                 <CommandGroup>
                   <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>
-                    Documents
+                    {translateWorkflowLabel(locale, 'documents')}
                   </div>
                   {documents.map((document) => (
                     <CommandItem

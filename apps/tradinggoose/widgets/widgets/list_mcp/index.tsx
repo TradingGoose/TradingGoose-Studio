@@ -35,6 +35,7 @@ import {
   WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
+import { useMessages } from 'next-intl'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useMcpServersStore } from '@/stores/mcp-servers/store'
 import type { McpServerWithStatus } from '@/stores/mcp-servers/types'
@@ -44,11 +45,11 @@ import { MCP_SERVER_DEFAULTS } from '@/widgets/utils/mcp-defaults'
 import { emitMcpSelectionChange, useMcpSelectionPersistence } from '@/widgets/utils/mcp-selection'
 import { resolveMcpServerId } from '@/widgets/widgets/_shared/mcp/utils'
 
-const DEFAULT_MCP_SERVER = {
+const buildDefaultMcpServer = (name: string) => ({
   ...MCP_SERVER_DEFAULTS,
-  name: 'New MCP Server',
+  name,
   transport: 'streamable-http' as const,
-}
+})
 
 const WidgetMessage = ({ message }: { message: string }) => (
   <div className='flex h-full w-full items-center justify-center px-4 text-center text-muted-foreground text-xs'>
@@ -56,7 +57,7 @@ const WidgetMessage = ({ message }: { message: string }) => (
   </div>
 )
 
-const getServerName = (server: McpServerWithStatus) => server.name || 'Unnamed server'
+const getServerName = (server: McpServerWithStatus, fallback: string) => server.name || fallback
 
 const getServerIconColor = (status?: McpServerWithStatus['connectionStatus']) => {
   if (status === 'connected') {
@@ -72,9 +73,15 @@ const getServerIconColor = (status?: McpServerWithStatus['connectionStatus']) =>
 
 const McpCreateMenu = ({
   disabled = false,
+  copy,
   onCreateServer,
 }: {
   disabled?: boolean
+  copy: {
+    createMcpServer: string
+    create: string
+    newMcpServer: string
+  }
   onCreateServer?: () => void
 }) => (
   <DropdownMenu>
@@ -84,17 +91,17 @@ const McpCreateMenu = ({
           <DropdownMenuTrigger asChild>
             <button type='button' disabled={disabled} className={widgetHeaderIconButtonClassName()}>
               <Plus className='h-4 w-4' />
-              <span className='sr-only'>Create MCP server</span>
+              <span className='sr-only'>{copy.createMcpServer}</span>
             </button>
           </DropdownMenuTrigger>
         </span>
       </TooltipTrigger>
-      <TooltipContent side='top'>Create</TooltipContent>
+      <TooltipContent side='top'>{copy.create}</TooltipContent>
     </Tooltip>
     <DropdownMenuContent sideOffset={6} className={cn(widgetHeaderMenuContentClassName, 'w-44')}>
       <DropdownMenuItem className={widgetHeaderMenuItemClassName} onSelect={onCreateServer}>
         <Plus className={widgetHeaderMenuIconClassName} />
-        <span className={widgetHeaderMenuTextClassName}>New MCP server</span>
+        <span className={widgetHeaderMenuTextClassName}>{copy.newMcpServer}</span>
       </DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>
@@ -109,6 +116,7 @@ const ListMcpHeaderRightContent = ({
   panelId?: string
   pairColor?: PairColor
 }) => {
+  const copy = useMessages().workspace.widgets.mcpList
   const permissions = useUserPermissionsContext()
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
@@ -119,7 +127,7 @@ const ListMcpHeaderRightContent = ({
   const handleCreateServer = useCallback(() => {
     if (!workspaceId || !permissions.canEdit) return
 
-    void createServer(workspaceId, DEFAULT_MCP_SERVER)
+    void createServer(workspaceId, buildDefaultMcpServer(copy.defaults.newMcpServerName))
       .then((createdServer) => {
         const createdServerId =
           createdServer && typeof createdServer.id === 'string' ? createdServer.id : null
@@ -149,6 +157,7 @@ const ListMcpHeaderRightContent = ({
       })
   }, [
     createServer,
+    copy.defaults.newMcpServerName,
     isLinkedToColorPair,
     panelId,
     permissions.canEdit,
@@ -160,6 +169,7 @@ const ListMcpHeaderRightContent = ({
   return (
     <McpCreateMenu
       disabled={!workspaceId || !permissions.canEdit}
+      copy={copy.createMenu}
       onCreateServer={handleCreateServer}
     />
   )
@@ -174,8 +184,9 @@ const ListMcpHeaderRight = ({
   panelId?: string
   pairColor?: PairColor
 }) => {
+  const copy = useMessages().workspace.widgets.mcpList
   if (!workspaceId) {
-    return <span className='text-muted-foreground text-xs'>Explorer</span>
+    return <span className='text-muted-foreground text-xs'>{copy.header.explorer}</span>
   }
 
   return (
@@ -199,6 +210,7 @@ const ListMcpWidgetContent = ({
   panelId,
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId ?? null
+  const copy = useMessages().workspace.widgets.mcpList
   const permissions = useUserPermissionsContext()
   const [hasRequestedLoad, setHasRequestedLoad] = useState(false)
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
@@ -387,11 +399,11 @@ const ListMcpWidgetContent = ({
   }, [workspaceId])
 
   if (!workspaceId) {
-    return <WidgetMessage message='Select a workspace to browse MCP servers.' />
+    return <WidgetMessage message={copy.body.selectWorkspace} />
   }
 
   if (error && workspaceServers.length === 0) {
-    return <WidgetMessage message={error || 'Failed to load MCP servers.'} />
+    return <WidgetMessage message={error} />
   }
 
   if ((isLoading || !hasRequestedLoad) && workspaceServers.length === 0) {
@@ -405,7 +417,7 @@ const ListMcpWidgetContent = ({
   return (
     <div className='h-full w-full overflow-hidden p-2'>
       {workspaceServers.length === 0 ? (
-        <WidgetMessage message='No MCP servers yet.' />
+        <WidgetMessage message={copy.body.noMcpServersYet} />
       ) : (
         <div className='h-full space-y-1 overflow-auto'>
           {workspaceServers.map((server) => (
@@ -443,13 +455,14 @@ const McpServerListItem = ({
   canEdit: boolean
   isDeleting: boolean
 }) => {
+  const copy = useMessages().workspace.widgets.mcpList.listItem
   const [isHovered, setIsHovered] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(server.name ?? '')
   const [isRenaming, setIsRenaming] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const displayName = getServerName(server)
+  const displayName = getServerName(server, copy.unnamedMcpServer)
   const iconColor = getServerIconColor(server.connectionStatus)
 
   useEffect(() => {
@@ -604,7 +617,7 @@ const McpServerListItem = ({
               }}
             >
               <Pencil className='!h-3.5 !w-3.5' />
-              <span className='sr-only'>Rename MCP server</span>
+              <span className='sr-only'>{copy.renameMcpServer}</span>
             </Button>
             <Button
               variant='ghost'
@@ -614,7 +627,7 @@ const McpServerListItem = ({
               className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground disabled:opacity-50'
             >
               <Trash2 className='!h-3.5 !w-3.5' />
-              <span className='sr-only'>Delete MCP server</span>
+              <span className='sr-only'>{copy.deleteMcpServer}</span>
             </Button>
           </div>
         )}
@@ -630,15 +643,17 @@ const McpServerListItem = ({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete MCP server?</AlertDialogTitle>
+            <AlertDialogTitle>{copy.deleteDialogTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              Deleting this MCP server will permanently remove its configuration.{' '}
-              <span className='text-red-500 dark:text-red-500'>This action cannot be undone.</span>
+              {copy.deleteDialogDescription}{' '}
+              <span className='text-red-500 dark:text-red-500'>
+                {copy.deleteDialogDescriptionHighlight}
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className='h-9 w-full rounded-sm' disabled={isDeleting}>
-              Cancel
+              {copy.cancel}
             </AlertDialogCancel>
             <Button
               onClick={(event) => {
@@ -649,7 +664,7 @@ const McpServerListItem = ({
               variant='destructive'
               className='h-9 w-full rounded-sm'
             >
-              Delete
+              {copy.delete}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -665,10 +680,11 @@ export const listMcpWidget: DashboardWidgetDefinition = {
   category: 'list',
   description: 'Browse and manage MCP servers for the workspace.',
   component: (props: WidgetComponentProps) => {
+    const copy = useMessages().workspace.widgets.mcpList
     const workspaceId = props.context?.workspaceId ?? null
 
     if (!workspaceId) {
-      return <WidgetMessage message='Select a workspace to browse MCP servers.' />
+      return <WidgetMessage message={copy.body.selectWorkspace} />
     }
 
     return (

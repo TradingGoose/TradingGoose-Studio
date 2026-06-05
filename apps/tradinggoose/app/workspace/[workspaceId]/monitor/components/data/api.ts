@@ -1,7 +1,7 @@
 import {
   getMonitorProviderForTriggerId,
-  getMonitorSourceByTriggerId,
   isMonitorTriggerId,
+  type MonitorTriggerId,
 } from '@/lib/monitors/sources'
 import type {
   IndicatorOption,
@@ -23,6 +23,11 @@ import type {
 import { parseMonitorSavedViewConfig } from '../view/view-config'
 
 const FALLBACK_INDICATOR_COLOR = '#3972F6'
+
+type WorkflowTargetFallbackCopy = {
+  workflowName: string
+  triggerBlockNames: Record<MonitorTriggerId, string>
+}
 
 export class MonitorViewRequestError extends Error {
   status: number
@@ -122,7 +127,8 @@ const parseMonitorResponse = async (response: Response): Promise<MonitorRecord |
 }
 
 export async function loadWorkflowTargetOptions(
-  workspaceId: string
+  workspaceId: string,
+  fallbackCopy: WorkflowTargetFallbackCopy
 ): Promise<WorkflowTargetOption[]> {
   const workflowsResponse = await fetch(
     `/api/workflows?workspaceId=${encodeURIComponent(workspaceId)}`
@@ -147,19 +153,20 @@ export async function loadWorkflowTargetOptions(
           if (!isMonitorTriggerId(data?.type)) return null
 
           const resolvedBlockId = toTrimmed(data?.id) || blockId
+          const workflowName = toTrimmed(workflowRow?.name) || fallbackCopy.workflowName
           const blockName =
-            toTrimmed(data?.name) || getMonitorSourceByTriggerId(data.type).triggerLabel
+            toTrimmed(data?.name) || fallbackCopy.triggerBlockNames[data.type]
           const source = getMonitorProviderForTriggerId(data.type)
           return {
             source,
             triggerId: data.type,
             workflowId: id,
             blockId: resolvedBlockId,
-            workflowName: toTrimmed(workflowRow?.name) || 'Workflow',
+            workflowName,
             workflowColor: toTrimmed(workflowRow?.color) || '#3972F6',
             isDeployed: true,
             blockName,
-            label: `${toTrimmed(workflowRow?.name) || 'Workflow'} - ${blockName}`,
+            label: `${workflowName} - ${blockName}`,
           } satisfies WorkflowTargetOption
         })
         .filter(Boolean) as WorkflowTargetOption[]

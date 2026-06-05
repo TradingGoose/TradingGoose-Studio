@@ -8,6 +8,10 @@ import {
 import { MONITOR_DOCUMENT_FORMAT } from '@/lib/copilot/monitor/monitor-documents'
 import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 import {
+  WORKFLOW_VARIABLE_TYPES,
+  type WorkflowVariableType,
+} from '@/lib/workflows/value-types'
+import {
   GetAgentAccessoryCatalogInput,
   GetAgentAccessoryCatalogResult,
   GetAvailableBlocksInput,
@@ -25,6 +29,10 @@ import {
   ReadBlockUpstreamReferencesInput,
   ReadBlockUpstreamReferencesResult,
 } from './tools/shared/schemas'
+
+const WorkflowVariableTypeSchema = z.enum(
+  WORKFLOW_VARIABLE_TYPES as [WorkflowVariableType, ...WorkflowVariableType[]]
+)
 
 // Tool IDs supported by the Copilot runtime
 export const COPILOT_TOOL_IDS = [
@@ -269,7 +277,7 @@ export const ToolArgSchemas = {
       z.object({
         operation: z.enum(['add', 'delete', 'edit']),
         name: z.string(),
-        type: z.enum(['plain', 'number', 'boolean', 'array', 'object']).optional(),
+        type: WorkflowVariableTypeSchema.optional(),
         value: z.string().optional(),
       })
     ),

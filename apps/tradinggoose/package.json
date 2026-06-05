@@ -13,6 +13,8 @@
     "dev:full": "concurrently -n \"App,Realtime\" -c \"cyan,magenta\" \"bun run dev\" \"bun run dev:sockets\"",
     "build": "NODE_OPTIONS='--max-old-space-size=8192' next build",
     "start": "next start",
+    "i18n": "bunx lingo.dev@latest run",
+    "i18n:frozen": "bunx lingo.dev@latest run --frozen",
     "prepare": "cd ../.. && bun husky",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -112,6 +114,7 @@
     "mysql2": "3.14.3",
     "nanoid": "3.3.11",
     "next": "16.2.6",
+    "next-intl": "4.9.1",
     "next-runtime-env": "3.3.0",
     "next-themes": "^0.4.6",
     "node-fetch": "3.3.2",
@@ -165,7 +168,7 @@
     "@types/react-dom": "^19",
     "@types/ws": "^8.5.10",
     "@vitejs/plugin-react": "^4.3.4",
-    "@vitest/coverage-v8": "^3.0.8",
+    "@vitest/coverage-v8": "4.1.8",
     "autoprefixer": "10.4.21",
     "concurrently": "^9.1.0",
     "critters": "0.0.25",
@@ -174,8 +177,9 @@
     "postcss": "^8",
     "react-email": "^5.1.0",
     "tailwindcss": "^3.4.1",
+    "vite": "6.4.3",
     "vite-tsconfig-paths": "^5.1.4",
-    "vitest": "^3.0.8"
+    "vitest": "4.1.8"
   },
   "trustedDependencies": [
     "canvas",

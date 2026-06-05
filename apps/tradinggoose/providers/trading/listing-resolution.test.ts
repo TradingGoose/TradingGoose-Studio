@@ -119,7 +119,7 @@ describe('trading listing resolution', () => {
       listing_type: 'crypto',
     })
 
-    const requestUrl = String(fetchMock.mock.calls[0]?.[0])
+    const requestUrl = String(fetchMock.mock.calls.at(-1)?.[0])
     expect(decodeURIComponent(requestUrl)).toContain('search_query=ETH')
     expect(decodeURIComponent(requestUrl)).toContain('crypto_quote_code=USD')
     expect(decodeURIComponent(requestUrl)).toContain('"asset_class":["crypto"]')

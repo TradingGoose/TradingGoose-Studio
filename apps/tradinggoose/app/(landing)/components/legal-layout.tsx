@@ -1,6 +1,9 @@
+import { getLocale } from 'next-intl/server'
 import Footer from '@/app/(landing)/components/footer/footer'
 import PublicNav from '@/app/(landing)/components/nav/public-nav'
 import { soehne } from '@/app/fonts/soehne/soehne'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { localizeSiteUrl, type LocaleCode } from '@/i18n/utils'
 
 interface LegalLayoutProps {
   title: string
@@ -13,23 +16,25 @@ interface LegalLayoutProps {
   path?: string
 }
 
-export default function LegalLayout({ title, children, path }: LegalLayoutProps) {
+export default async function LegalLayout({ title, children, path }: LegalLayoutProps) {
+  const locale = (await getLocale()) as LocaleCode
+  const copy = getPublicCopy(locale)
   const breadcrumbStructuredData = path
     ? {
-      '@context': 'https://schema.org',
-      '@type': 'BreadcrumbList',
-      itemListElement: [
-        {
-          '@type': 'ListItem',
-          position: 1,
-          name: 'Home',
-          item: 'https://tradinggoose.ai',
-        },
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          {
+            '@type': 'ListItem',
+            position: 1,
+            name: copy.nav.homeLabel,
+            item: localizeSiteUrl(locale, '/'),
+          },
         {
           '@type': 'ListItem',
           position: 2,
           name: title,
-          item: `https://tradinggoose.ai${path}`,
+          item: localizeSiteUrl(locale, path),
         },
       ],
     }
@@ -40,7 +45,9 @@ export default function LegalLayout({ title, children, path }: LegalLayoutProps)
       {breadcrumbStructuredData && (
         <script
           type='application/ld+json'
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbStructuredData) }}
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(breadcrumbStructuredData).replace(/</g, '\\u003c'),
+          }}
         />
       )}
       <PublicNav />

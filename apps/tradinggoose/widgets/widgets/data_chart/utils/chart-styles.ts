@@ -249,9 +249,10 @@ export const resolveTimezone = (view?: DataChartViewParams, seriesTimezone?: str
   return explicitTimezone || exchangeTimezone || 'UTC'
 }
 
-export const resolveLocale = (view?: DataChartViewParams) => {
+export const resolveLocale = (view?: DataChartViewParams, fallbackLocale?: string) => {
   const locale = typeof view?.locale === 'string' ? view.locale.trim() : ''
-  return locale || undefined
+  const fallback = typeof fallbackLocale === 'string' ? fallbackLocale.trim() : ''
+  return locale || fallback || undefined
 }
 
 const ALLOWED_STYLE_OVERRIDE_KEYS = new Set([
@@ -316,9 +317,10 @@ export const sanitizeStyleOverrides = (
 
 export const buildTimeFormatterConfig = (
   view: DataChartViewParams | undefined,
-  seriesTimezone: string | null
+  seriesTimezone: string | null,
+  fallbackLocale?: string
 ): TimeFormatterConfig => {
   const timezone = resolveTimezone(view, seriesTimezone)
-  const locale = resolveLocale(view)
+  const locale = resolveLocale(view, fallbackLocale)
   return { timezone, locale }
 }
