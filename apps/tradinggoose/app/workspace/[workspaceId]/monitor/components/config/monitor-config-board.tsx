@@ -206,10 +206,7 @@ export function MonitorConfigBoard({
                           canDrop={canDrop}
                           onDropOverColumn={() => handleDropAtBucket(bucket)}
                           itemIds={bucket.cards.map((card) => card.monitorId)}
-                          summary={formatTemplate(copy.shared.monitorsCount, {
-                            count: bucket.cards.length,
-                          })}
-                          metaAction={
+                          headerAction={
                             <Button
                               type='button'
                               variant='ghost'

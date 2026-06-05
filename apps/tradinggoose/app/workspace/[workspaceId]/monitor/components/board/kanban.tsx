@@ -557,10 +557,12 @@ export function KanbanBoard({ className, ...props }: ComponentProps<'div'>) {
 }
 
 function KanbanHeader({
+  action,
   columnId,
   count,
   title,
 }: {
+  action?: ReactNode
   columnId: string
   count: number
   title: string
@@ -575,6 +577,7 @@ function KanbanHeader({
           {count}
         </Badge>
       </div>
+      {action ? <div className='ml-3 flex shrink-0 items-center'>{action}</div> : null}
     </header>
   )
 }
@@ -586,6 +589,7 @@ export function KanbanCards({
   className,
   columnId,
   count,
+  headerAction,
   itemIds = [],
   listClassName,
   onDropOverColumn,
@@ -597,6 +601,7 @@ export function KanbanCards({
   beforeCards?: ReactNode
   columnId: string
   count: number
+  headerAction?: ReactNode
   itemIds?: string[]
   listClassName?: string
   onDropOverColumn?: (activeId: string) => void
@@ -638,7 +643,7 @@ export function KanbanCards({
       )}
       ref={setNodeRef}
     >
-      <KanbanHeader columnId={columnId} title={title} count={count} />
+      <KanbanHeader columnId={columnId} title={title} count={count} action={headerAction} />
       {beforeCards}
       <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
         <ul className={cn('min-h-0 flex-1 overflow-y-auto p-3', listClassName)}>{children}</ul>
