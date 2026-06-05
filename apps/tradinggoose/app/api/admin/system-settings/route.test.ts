@@ -2,6 +2,7 @@
  * @vitest-environment node
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ADMIN_ERROR_CODES } from '@/app/admin/constants'
 
 const {
   mockBackfillDefaultUserSubscriptions,
@@ -133,7 +134,7 @@ describe('/api/admin/system-settings route', () => {
     const payload = await response.json()
 
     expect(response.status).toBe(403)
-    expect(payload).toEqual({ error: 'Forbidden' })
+    expect(payload).toMatchObject({ error: 'Forbidden', code: ADMIN_ERROR_CODES.FORBIDDEN })
     expect(mockGetResolvedSystemSettings).not.toHaveBeenCalled()
     expect(mockGetBillingGateState).not.toHaveBeenCalled()
     expect(mockIsBillingConfigurationReady).not.toHaveBeenCalled()
@@ -249,8 +250,9 @@ describe('/api/admin/system-settings route', () => {
     const payload = await response.json()
 
     expect(response.status).toBe(409)
-    expect(payload).toEqual({
+    expect(payload).toMatchObject({
       error: 'Billing cannot be enabled until an active public default user tier is configured.',
+      code: ADMIN_ERROR_CODES.BILLING_NOT_READY,
     })
     expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
     expect(mockBackfillDefaultUserSubscriptions).not.toHaveBeenCalled()
@@ -304,8 +306,9 @@ describe('/api/admin/system-settings route', () => {
     const payload = await response.json()
 
     expect(response.status).toBe(409)
-    expect(payload).toEqual({
+    expect(payload).toMatchObject({
       error: 'Billing cannot be enabled until STRIPE_SECRET_KEY is configured.',
+      code: ADMIN_ERROR_CODES.BILLING_NOT_CONFIGURED,
     })
     expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
     expect(mockBackfillDefaultUserSubscriptions).not.toHaveBeenCalled()
@@ -338,9 +341,10 @@ describe('/api/admin/system-settings route', () => {
     const payload = await response.json()
 
     expect(response.status).toBe(409)
-    expect(payload).toEqual({
+    expect(payload).toMatchObject({
       error:
         'Trigger.dev cannot be enabled until TRIGGER_PROJECT_ID and TRIGGER_SECRET_KEY are configured.',
+      code: ADMIN_ERROR_CODES.TRIGGER_NOT_READY,
     })
     expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
   })
@@ -409,7 +413,10 @@ describe('/api/admin/system-settings route', () => {
     const payload = await response.json()
 
     expect(response.status).toBe(400)
-    expect(payload).toMatchObject({ error: 'Invalid request data' })
+    expect(payload).toMatchObject({
+      error: 'Invalid request data',
+      code: ADMIN_ERROR_CODES.INVALID_REQUEST_DATA,
+    })
     expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
   })
 
@@ -424,7 +431,10 @@ describe('/api/admin/system-settings route', () => {
     const payload = await response.json()
 
     expect(response.status).toBe(400)
-    expect(payload).toMatchObject({ error: 'Invalid request data' })
+    expect(payload).toMatchObject({
+      error: 'Invalid request data',
+      code: ADMIN_ERROR_CODES.INVALID_REQUEST_DATA,
+    })
     expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
   })
 })

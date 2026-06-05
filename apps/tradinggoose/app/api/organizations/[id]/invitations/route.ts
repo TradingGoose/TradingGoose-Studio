@@ -21,11 +21,13 @@ import {
   validateBulkInvitations,
   validateSeatAvailability,
 } from '@/lib/billing/validation/seat-management'
+import { resolveEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
 import { hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
+import { localizeUrl } from '@/i18n/utils'
 
 const logger = createLogger('OrganizationInvitations')
 
@@ -122,7 +124,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const isBatch = url.searchParams.get('batch') === 'true'
 
     const body = await request.json()
-    const { email, emails, role = 'member', workspaceInvitations } = body
+    const { email, emails, role = 'member', workspaceInvitations, locale: requestLocale } = body
 
     const invitationEmails = email ? [email] : emails
 
@@ -313,6 +315,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (!orgInvitation) continue
 
       let emailResult
+      const emailLocale = await resolveEmailLocale({
+        email,
+        fallbackLocale: requestLocale,
+      })
+
       if (isBatch && validWorkspaceInvitations.length > 0) {
         const workspaceDetails = await db
           .select({
@@ -339,12 +346,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           organizationEntry[0]?.name || 'organization',
           role,
           workspaceInvitationsWithNames,
-          `${getBaseUrl()}/invite/${orgInvitation.id}`
+          localizeUrl(getBaseUrl(), emailLocale, `/invite/${orgInvitation.id}`),
+          emailLocale
         )
 
         emailResult = await sendEmail({
           to: email,
-          subject: getEmailSubject('batch-invitation'),
+          subject: getEmailSubject('batch-invitation', emailLocale, {
+            organizationName: organizationEntry[0]?.name || 'organization',
+          }),
           html: emailHtml,
           emailType: 'transactional',
         })
@@ -352,13 +362,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         const emailHtml = await renderInvitationEmail(
           inviter[0]?.name || 'Someone',
           organizationEntry[0]?.name || 'organization',
-          `${getBaseUrl()}/invite/${orgInvitation.id}`,
-          email
+          localizeUrl(getBaseUrl(), emailLocale, `/invite/${orgInvitation.id}`),
+          email,
+          emailLocale
         )
 
         emailResult = await sendEmail({
           to: email,
-          subject: getEmailSubject('invitation'),
+          subject: getEmailSubject('invitation', emailLocale, {
+            organizationName: organizationEntry[0]?.name || 'organization',
+          }),
           html: emailHtml,
           emailType: 'transactional',
         })

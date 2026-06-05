@@ -289,7 +289,7 @@ describe('Records', () => {
 
     const statsView = container.querySelector('[data-testid="stats-view"]')
     const searchInput = container.querySelector(
-      'input[placeholder="Search workflows"]'
+      'input[placeholder="Search workflows..."]'
     ) as HTMLInputElement | null
 
     expect(statsView).toBeTruthy()
@@ -326,7 +326,7 @@ describe('Records', () => {
     )
 
     const refreshButton = Array.from(container.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('Refresh stats')
+      button.textContent?.includes('Refresh')
     )
     expect(refreshButton).toBeTruthy()
 

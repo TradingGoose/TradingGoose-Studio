@@ -6,6 +6,7 @@ import { TradingProviderControls } from '@/components/trading-selector/provider-
 import { Button } from '@/components/ui/button'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
+import { useMessages } from 'next-intl'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { emitHeatmapParamsChange } from '@/widgets/utils/heatmap-params'
 import { WidgetHeaderRefreshButton } from '@/widgets/widgets/components/widget-header-refresh-button'
@@ -133,6 +134,7 @@ function HeatmapWatchlistSizeControls({ panelId, widgetKey, params }: HeaderCont
 }
 
 function HeatmapPortfolioControls({ workspaceId, panelId, widgetKey, params }: HeaderControlProps) {
+  const copy = useMessages().workspace.widgets.heatmap.header
   const providerAvailabilityQuery = useOAuthProviderAvailability(
     getHeatmapTradingProviderAvailabilityIds()
   )
@@ -148,7 +150,7 @@ function HeatmapPortfolioControls({ workspaceId, panelId, widgetKey, params }: H
       providerOptions={providerOptions}
       serviceId={params?.serviceId}
       portfolioIdentity={params?.portfolioIdentity}
-      toolName='Heatmap'
+      toolName={copy.title}
       onProviderChange={(nextProvider) => {
         if (!nextProvider || nextProvider === providerId) return
         emitHeatmapParamsChange({

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Check, ChevronDown, RefreshCw } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { LinearIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import {
@@ -11,6 +12,9 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { translateWorkflowLabel } from '@/i18n/block-editor'
+import type { LocaleCode } from '@/i18n/utils'
+import { useWorkspaceBlockEditorMessages } from '@/i18n/workspace-widget-hooks'
 
 export interface LinearTeamInfo {
   id: string
@@ -31,21 +35,35 @@ export function LinearTeamSelector({
   value,
   onChange,
   credential,
-  label = 'Select Linear team',
+  label,
   disabled = false,
   workflowId,
 }: LinearTeamSelectorProps) {
+  const locale = useLocale() as LocaleCode
+  const selectorCopy = useWorkspaceBlockEditorMessages().linearTeamSelector
+  const copy = {
+    selectLinearTeam: translateWorkflowLabel(locale, 'selectLinearTeam'),
+    searchTeams: translateWorkflowLabel(locale, 'searchTeams'),
+    loading: translateWorkflowLabel(locale, 'loading'),
+    missingCredentials: translateWorkflowLabel(locale, 'missingCredentials'),
+    configureLinearCredentials: translateWorkflowLabel(locale, 'configureLinearCredentials'),
+    noTeamsFound: translateWorkflowLabel(locale, 'noTeamsFound'),
+    noTeamsAvailable: translateWorkflowLabel(locale, 'noTeamsAvailable'),
+    teams: translateWorkflowLabel(locale, 'teams'),
+  }
+  const labelText = label ?? copy.selectLinearTeam
   const [teams, setTeams] = useState<LinearTeamInfo[]>([])
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [errorKey, setErrorKey] = useState<keyof typeof selectorCopy.errors | null>(null)
   const [open, setOpen] = useState(false)
   const [selectedTeam, setSelectedTeam] = useState<LinearTeamInfo | null>(null)
+  const errorMessage = errorKey ? selectorCopy.errors[errorKey] : null
 
   useEffect(() => {
     if (!credential) return
     const controller = new AbortController()
     setLoading(true)
-    setError(null)
+    setErrorKey(null)
 
     fetch('/api/tools/linear/teams', {
       method: 'POST',
@@ -54,12 +72,12 @@ export function LinearTeamSelector({
       signal: controller.signal,
     })
       .then((res) => {
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
+        if (!res.ok) throw new Error('failedToFetchTeams')
         return res.json()
       })
       .then((data) => {
         if (data.error) {
-          setError(data.error)
+          setErrorKey('failedToFetchTeams')
           setTeams([])
         } else {
           setTeams(data.teams)
@@ -73,7 +91,7 @@ export function LinearTeamSelector({
       })
       .catch((err) => {
         if (err.name === 'AbortError') return
-        setError(err.message)
+        setErrorKey('failedToFetchTeams')
         setTeams([])
       })
       .finally(() => setLoading(false))
@@ -118,7 +136,7 @@ export function LinearTeamSelector({
           ) : (
             <div className='flex items-center gap-1'>
               <LinearIcon className='h-4 w-4' />
-              <span className='text-muted-foreground'>{label}</span>
+              <span className='text-muted-foreground'>{labelText}</span>
             </div>
           )}
           <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
@@ -126,38 +144,36 @@ export function LinearTeamSelector({
       </PopoverTrigger>
       <PopoverContent className='w-[300px] p-0' align='start'>
         <Command>
-          <CommandInput placeholder='Search teams...' />
+          <CommandInput placeholder={copy.searchTeams} />
           <CommandList>
             <CommandEmpty>
               {loading ? (
                 <div className='flex items-center justify-center p-4'>
                   <RefreshCw className='h-4 w-4 animate-spin' />
-                  <span className='ml-2'>Loading teams...</span>
+                  <span className='ml-2'>{copy.loading}</span>
                 </div>
-              ) : error ? (
+              ) : errorMessage ? (
                 <div className='p-4 text-center'>
-                  <p className='text-destructive text-sm'>{error}</p>
+                  <p className='text-destructive text-sm'>{errorMessage}</p>
                 </div>
               ) : !credential ? (
                 <div className='p-4 text-center'>
-                  <p className='font-medium text-sm'>Missing credentials</p>
-                  <p className='text-muted-foreground text-xs'>
-                    Please configure Linear credentials.
-                  </p>
+                  <p className='font-medium text-sm'>{copy.missingCredentials}</p>
+                  <p className='text-muted-foreground text-xs'>{copy.configureLinearCredentials}</p>
                 </div>
               ) : (
                 <div className='p-4 text-center'>
-                  <p className='font-medium text-sm'>No teams found</p>
-                  <p className='text-muted-foreground text-xs'>
-                    No teams available for this Linear account.
-                  </p>
+                  <p className='font-medium text-sm'>{copy.noTeamsFound}</p>
+                  <p className='text-muted-foreground text-xs'>{copy.noTeamsAvailable}</p>
                 </div>
               )}
             </CommandEmpty>
 
             {teams.length > 0 && (
               <CommandGroup>
-                <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>Teams</div>
+                <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>
+                  {copy.teams}
+                </div>
                 {teams.map((team) => (
                   <CommandItem
                     key={team.id}

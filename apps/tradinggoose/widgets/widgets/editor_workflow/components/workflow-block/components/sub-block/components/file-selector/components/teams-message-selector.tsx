@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { Check, ChevronDown, ExternalLink, RefreshCw, X } from 'lucide-react'
 import { MicrosoftTeamsIcon } from '@/components/icons/icons'
 import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
@@ -21,6 +22,9 @@ import {
   getServiceIdFromScopes,
   type OAuthProvider,
 } from '@/lib/oauth'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
+import type { LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('TeamsMessageSelector')
 
@@ -57,7 +61,7 @@ export function TeamsMessageSelector({
   onChange,
   provider,
   requiredScopes = [],
-  label = 'Select Teams message location',
+  label,
   disabled = false,
   serviceId,
   showPreview = true,
@@ -69,6 +73,9 @@ export function TeamsMessageSelector({
   workspaceId,
   isForeignCredential = false,
 }: TeamsMessageSelectorProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = useMessages().workspace.widgets.workflowLabels
+  const selectorCopy = useMessages().workspace.widgets.blockEditor.teamsMessageSelector
   const [open, setOpen] = useState(false)
   const [credentials, setCredentials] = useState<Credential[]>([])
   const [teams, setTeams] = useState<TeamsMessageInfo[]>([])
@@ -83,8 +90,19 @@ export function TeamsMessageSelector({
   const [isLoading, setIsLoading] = useState(false)
   const [showOAuthModal, setShowOAuthModal] = useState(false)
   const initialFetchRef = useRef(false)
-  const [error, setError] = useState<string | null>(null)
+  const [errorKey, setErrorKey] = useState<keyof typeof selectorCopy.errors | null>(null)
   const [selectionStage, setSelectionStage] = useState<'team' | 'channel' | 'chat'>(selectionType)
+  const labelText = label ?? copy.selectTeamsMessageLocation
+  const errorMessage = errorKey ? selectorCopy.errors[errorKey] : null
+
+  const getStageLabel = (stage: 'team' | 'channel' | 'chat') => {
+    if (stage === 'team') return copy.teams
+    if (stage === 'channel') return copy.channels
+    return copy.chats
+  }
+
+  const getStageLabelLower = (stage: 'team' | 'channel' | 'chat') =>
+    getStageLabel(stage).toLowerCase()
 
   // Determine the appropriate service ID based on provider and scopes
   const getServiceId = (): string => {
@@ -123,7 +141,7 @@ export function TeamsMessageSelector({
     if (!selectedCredentialId) return
 
     setIsLoading(true)
-    setError(null)
+    setErrorKey(null)
 
     try {
       const response = await fetch('/api/tools/microsoft-teams/teams', {
@@ -144,10 +162,12 @@ export function TeamsMessageSelector({
         if (response.status === 401 && errorData.authRequired) {
           logger.warn('Authentication required for Microsoft Teams')
           setShowOAuthModal(true)
-          throw new Error('Microsoft Teams authentication required')
+          setErrorKey('authRequired')
+          setTeams([])
+          return
         }
 
-        throw new Error(errorData.error || 'Failed to fetch teams')
+        throw new Error('failedToFetchTeams')
       }
 
       const data = await response.json()
@@ -171,7 +191,7 @@ export function TeamsMessageSelector({
       }
     } catch (error) {
       logger.error('Error fetching teams:', error)
-      setError((error as Error).message)
+      setErrorKey('failedToFetchTeams')
       setTeams([])
     } finally {
       setIsLoading(false)
@@ -184,7 +204,7 @@ export function TeamsMessageSelector({
       if (!selectedCredentialId || !teamId) return
 
       setIsLoading(true)
-      setError(null)
+      setErrorKey(null)
 
       try {
         const response = await fetch('/api/tools/microsoft-teams/channels', {
@@ -206,10 +226,12 @@ export function TeamsMessageSelector({
           if (response.status === 401 && errorData.authRequired) {
             logger.warn('Authentication required for Microsoft Teams')
             setShowOAuthModal(true)
-            throw new Error('Microsoft Teams authentication required')
+            setErrorKey('authRequired')
+            setChannels([])
+            return
           }
 
-          throw new Error(errorData.error || 'Failed to fetch channels')
+          throw new Error('failedToFetchChannels')
         }
 
         const data = await response.json()
@@ -236,7 +258,7 @@ export function TeamsMessageSelector({
         }
       } catch (error) {
         logger.error('Error fetching channels:', error)
-        setError((error as Error).message)
+        setErrorKey('failedToFetchChannels')
         setChannels([])
       } finally {
         setIsLoading(false)
@@ -250,7 +272,7 @@ export function TeamsMessageSelector({
     if (!selectedCredentialId) return
 
     setIsLoading(true)
-    setError(null)
+    setErrorKey(null)
 
     try {
       const response = await fetch('/api/tools/microsoft-teams/chats', {
@@ -271,10 +293,12 @@ export function TeamsMessageSelector({
         if (response.status === 401 && errorData.authRequired) {
           logger.warn('Authentication required for Microsoft Teams')
           setShowOAuthModal(true)
-          throw new Error('Microsoft Teams authentication required')
+          setErrorKey('authRequired')
+          setChats([])
+          return
         }
 
-        throw new Error(errorData.error || 'Failed to fetch chats')
+        throw new Error('failedToFetchChats')
       }
 
       const data = await response.json()
@@ -298,7 +322,7 @@ export function TeamsMessageSelector({
       }
     } catch (error) {
       logger.error('Error fetching chats:', error)
-      setError((error as Error).message)
+      setErrorKey('failedToFetchChats')
       setChats([])
     } finally {
       setIsLoading(false)
@@ -404,7 +428,7 @@ export function TeamsMessageSelector({
     setSelectedChannelId('')
     setSelectedChatId('')
     setSelectedMessage(null)
-    setError(null)
+    setErrorKey(null)
     onChange('', undefined)
     onMessageInfoChange?.(null)
     setSelectionStage(selectionType) // Reset to the initial selection type
@@ -415,7 +439,7 @@ export function TeamsMessageSelector({
     if (selectionStage === 'team' && teams.length > 0) {
       return (
         <CommandGroup>
-          <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>Teams</div>
+          <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>{copy.teams}</div>
           {teams.map((team) => (
             <CommandItem
               key={team.id}
@@ -436,7 +460,9 @@ export function TeamsMessageSelector({
     if (selectionStage === 'channel' && channels.length > 0) {
       return (
         <CommandGroup>
-          <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>Channels</div>
+          <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>
+            {copy.channels}
+          </div>
           {channels.map((channel) => (
             <CommandItem
               key={channel.id}
@@ -457,7 +483,7 @@ export function TeamsMessageSelector({
     if (selectionStage === 'chat' && chats.length > 0) {
       return (
         <CommandGroup>
-          <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>Chats</div>
+          <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>{copy.chats}</div>
           {chats.map((chat) => (
             <CommandItem
               key={chat.id}
@@ -726,8 +752,8 @@ export function TeamsMessageSelector({
                     <MicrosoftTeamsIcon className='h-4 w-4' />
                     <span className='truncate text-muted-foreground'>
                       {selectionType === 'channel' && selectionStage === 'team'
-                        ? 'Select a team first'
-                        : label}
+                        ? copy.selectATeamFirst
+                        : labelText}
                     </span>
                   </>
                 )}
@@ -744,7 +770,7 @@ export function TeamsMessageSelector({
                     <MicrosoftTeamsIcon className='h-4 w-4' />
                     <span className='text-muted-foreground text-xs'>
                       {credentials.find((cred) => cred.id === selectedCredentialId)?.name ||
-                        'Unknown'}
+                        copy.unknown}
                     </span>
                   </div>
                   {credentials.length > 1 && (
@@ -754,55 +780,60 @@ export function TeamsMessageSelector({
                       className='h-6 px-2 text-xs'
                       onClick={() => setOpen(true)}
                     >
-                      Switch
+                      {copy.switch}
                     </Button>
                   )}
                 </div>
               )}
 
               <Command>
-                <CommandInput placeholder={`Search ${selectionStage}s...`} />
+                <CommandInput
+                  placeholder={formatTemplate(copy.searchItems, {
+                    itemName: getStageLabelLower(selectionStage),
+                  })}
+                />
                 <CommandList>
                   <CommandEmpty>
                     {isLoading ? (
                       <div className='flex items-center justify-center p-4'>
                         <RefreshCw className='h-4 w-4 animate-spin' />
-                        <span className='ml-2'>Loading {selectionStage}s...</span>
+                        <span className='ml-2'>
+                          {formatTemplate(copy.loadingItems, {
+                            itemName: getStageLabelLower(selectionStage),
+                          })}
+                        </span>
                       </div>
-                    ) : error ? (
+                    ) : errorMessage ? (
                       <div className='p-4 text-center'>
-                        <p className='text-destructive text-sm'>{error}</p>
-                        {selectionStage === 'chat' && error.includes('teams') && (
+                        <p className='text-destructive text-sm'>{errorMessage}</p>
+                        {selectionStage === 'chat' && errorKey === 'failedToFetchChats' && (
                           <p className='mt-1 text-muted-foreground text-xs'>
-                            There was an issue fetching chats. Please try again or connect a
-                            different account.
+                            {copy.issueFetchingChatsTryAgainOrConnectDifferentAccount}
                           </p>
                         )}
                       </div>
                     ) : credentials.length === 0 ? (
                       <div className='p-4 text-center'>
-                        <p className='font-medium text-sm'>No accounts connected.</p>
+                        <p className='font-medium text-sm'>{copy.noAccountsConnected}</p>
                         <p className='text-muted-foreground text-xs'>
-                          Connect a Microsoft Teams account to{' '}
-                          {selectionStage === 'chat'
-                            ? 'access your chats'
-                            : selectionStage === 'channel'
-                              ? 'see your channels'
-                              : 'continue'}
-                          .
+                          {copy.connectMicrosoftTeamsAccountToContinue}
                         </p>
                       </div>
                     ) : (
                       <div className='p-4 text-center'>
-                        <p className='font-medium text-sm'>No {selectionStage}s found.</p>
+                        <p className='font-medium text-sm'>
+                          {formatTemplate(copy.noItemsFound, {
+                            itemName: getStageLabelLower(selectionStage),
+                          })}
+                        </p>
                         <p className='text-muted-foreground text-xs'>
                           {selectionStage === 'team'
-                            ? 'Try a different account.'
+                            ? copy.tryDifferentAccount
                             : selectionStage === 'channel'
                               ? selectedTeamId
-                                ? 'This team has no channels or you may not have access.'
-                                : 'Please select a team first to see its channels.'
-                              : 'Try a different account or check if you have any active chats.'}
+                                ? copy.thisTeamHasNoChannelsOrYouMayNotHaveAccess
+                                : copy.pleaseSelectATeamFirstToSeeItsChannels
+                              : copy.tryDifferentAccountOrCheckIfYouHaveAnyActiveChats}
                         </p>
                       </div>
                     )}
@@ -812,7 +843,7 @@ export function TeamsMessageSelector({
                   {credentials.length > 1 && (
                     <CommandGroup>
                       <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>
-                        Switch Account
+                        {copy.switchAccount}
                       </div>
                       {credentials.map((cred) => (
                         <CommandItem
@@ -844,7 +875,7 @@ export function TeamsMessageSelector({
                       <CommandItem onSelect={handleAddCredential}>
                         <div className='flex items-center gap-1 text-foreground'>
                           <MicrosoftTeamsIcon className='h-4 w-4' />
-                          <span>Connect Microsoft Teams account</span>
+                          <span>{copy.connectMicrosoftTeamsAccount}</span>
                         </div>
                       </CommandItem>
                     </CommandGroup>
@@ -887,7 +918,7 @@ export function TeamsMessageSelector({
                     className='flex items-center gap-1 text-foreground text-xs hover:underline'
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <span>Open in Microsoft Teams</span>
+                    <span>{copy.openInMicrosoftTeams}</span>
                     <ExternalLink className='h-3 w-3' />
                   </a>
                 ) : (

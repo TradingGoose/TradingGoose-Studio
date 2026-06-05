@@ -1,8 +1,14 @@
+import { getLocale } from 'next-intl/server'
+
 import { MotionPreset } from '@/components/ui/motion-preset'
 import { fetchMonitorStocks } from '@/app/(landing)/components/monitor-preview/fetch-listings'
 import MonitorPreview from '@/app/(landing)/components/monitor-preview/monitor-preview'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 
 export default async function MonitorSection() {
+  const locale = (await getLocale()) as LocaleCode
+  const copy = getPublicCopy(locale)
   const stocks = await fetchMonitorStocks()
   return (
     <section className='py-8 sm:py-16 lg:py-24'>
@@ -28,7 +34,7 @@ export default async function MonitorSection() {
               component='p'
               className='font-medium text-[11px] text-muted-foreground uppercase tracking-[0.24em]'
             >
-              Live monitors
+              {copy.landing.monitorSection.eyebrow}
             </MotionPreset>
             <MotionPreset
               component='h2'
@@ -39,7 +45,7 @@ export default async function MonitorSection() {
               delay={0.15}
               transition={{ duration: 0.5 }}
             >
-              Indicators that trigger workflows
+              {copy.landing.monitorSection.title}
             </MotionPreset>
             <MotionPreset
               component='p'
@@ -50,17 +56,11 @@ export default async function MonitorSection() {
               delay={0.3}
               transition={{ duration: 0.5 }}
             >
-              Set up monitors that watch your indicators on live market data. When a signal fires, a
-              workflow runs automatically — place orders, send alerts, log results, or anything
-              else.
+              {copy.landing.monitorSection.description}
             </MotionPreset>
 
             <div className='space-y-2'>
-              {[
-                'Connect any streaming data provider with your own credentials',
-                'Choose an indicator and interval to monitor per listing',
-                'Route triggers to any deployed workflow',
-              ].map((text, i) => (
+              {copy.landing.monitorSection.bullets.map((text, i) => (
                 <MotionPreset
                   key={text}
                   fade

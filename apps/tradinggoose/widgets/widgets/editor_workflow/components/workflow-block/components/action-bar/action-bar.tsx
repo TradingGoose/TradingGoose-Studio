@@ -20,6 +20,7 @@ import { getBlock } from '@/blocks'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import { emitRemoveFromSubflow } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/workflow-editor-event-bus'
+import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 
 interface ActionBarProps {
   blockId: string
@@ -67,6 +68,8 @@ export const ActionBar = memo(
     isScheduleDisabled = false,
     onScheduleToggle,
   }: ActionBarProps) {
+    const { actionBarCopy: copy, getLocalizedBlockLongDescription, getToolbarDisabledReason } =
+      useWorkflowI18n()
     const {
       collaborativeRemoveBlock,
       collaborativeToggleBlockEnabled,
@@ -96,11 +99,16 @@ export const ActionBar = memo(
     const userPermissions = useUserPermissionsContext()
 
     const blockConfig = getBlock(blockType)
+    const blockLongDescription = blockConfig
+      ? getLocalizedBlockLongDescription(blockConfig)
+      : undefined
     const isTriggerBlock = blockConfig?.category === 'triggers'
 
     const getTooltipMessage = (defaultMessage: string) => {
       if (disabled) {
-        return userPermissions.isOfflineMode ? 'Connection lost - please refresh' : 'Read-only mode'
+        return userPermissions.isOfflineMode
+          ? getToolbarDisabledReason(true)
+          : copy.readOnlyMode
       }
       return defaultMessage
     }
@@ -112,7 +120,7 @@ export const ActionBar = memo(
     const disableEnableToggle = disableMutatingActions || (!isEnabled && isParentDisabled)
     const disableSubflowRemoval = disableMutatingActions || !userPermissions.canEdit
     const getLockedTooltip = (defaultMessage: string) =>
-      isActionLocked ? 'Block is locked' : getTooltipMessage(defaultMessage)
+      isActionLocked ? copy.blockLocked : getTooltipMessage(defaultMessage)
 
     const tooltipSide = horizontalHandles ? 'top' : 'right'
     const actionButtonClass = cn(
@@ -126,16 +134,16 @@ export const ActionBar = memo(
         ? 'yellow'
         : 'green'
     const scheduleTooltip = isActionLocked
-      ? 'Block is locked.'
+      ? copy.blockLockedPeriod
       : !hasScheduleInfo
-        ? 'This workflow is triggered by a schedule. Configure frequency and timezone in this block.'
+        ? copy.scheduleNeedsConfiguration
         : isScheduleDisabled
           ? onScheduleToggle
-            ? 'This schedule is currently disabled. Click to reactivate it.'
-            : 'This schedule is currently disabled.'
+            ? copy.scheduleDisabledReactivate
+            : copy.scheduleDisabled
           : onScheduleToggle
-            ? 'Click to disable this schedule.'
-            : 'This schedule is active.'
+            ? copy.scheduleDisable
+            : copy.scheduleActive
     const renderStatusDot = (tone: StatusTone) => (
       <div className='relative flex h-2 w-2 items-center justify-center'>
         <div className={cn('absolute h-3 w-3 rounded-full', statusToneClasses[tone].halo)} />
@@ -182,10 +190,10 @@ export const ActionBar = memo(
           </TooltipTrigger>
           <TooltipContent side={tooltipSide}>
             {isActionLocked
-              ? 'Block is locked'
+              ? copy.blockLocked
               : !isEnabled && isParentDisabled
-                ? 'Parent container is disabled'
-                : getTooltipMessage(isEnabled ? 'Disable Block' : 'Enable Block')}
+                ? copy.parentContainerDisabled
+                : getTooltipMessage(isEnabled ? copy.disableBlock : copy.enableBlock)}
           </TooltipContent>
         </Tooltip>
 
@@ -208,10 +216,10 @@ export const ActionBar = memo(
             </TooltipTrigger>
             <TooltipContent side={tooltipSide}>
               {isUnlockBlockedByParent
-                ? 'Parent container is locked'
+                ? copy.parentContainerLocked
                 : isLocked
-                  ? 'Unlock Block'
-                  : 'Lock Block'}
+                  ? copy.unlockBlock
+                  : copy.lockBlock}
             </TooltipContent>
           </Tooltip>
         )}
@@ -232,7 +240,7 @@ export const ActionBar = memo(
               <Copy className='h-2 w-2' />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side={tooltipSide}>{getLockedTooltip('Duplicate Block')}</TooltipContent>
+          <TooltipContent side={tooltipSide}>{getLockedTooltip(copy.duplicateBlock)}</TooltipContent>
         </Tooltip>
 
         {showScheduleBadge && (
@@ -266,9 +274,7 @@ export const ActionBar = memo(
               </Button>
             </TooltipTrigger>
             <TooltipContent side={tooltipSide} className='max-w-[300px] p-4'>
-              <p className='text-muted-foreground text-sm'>
-                This workflow is triggered by a webhook.
-              </p>
+              <p className='text-muted-foreground text-sm'>{copy.webhookTrigger}</p>
             </TooltipContent>
           </Tooltip>
         )}
@@ -289,10 +295,10 @@ export const ActionBar = memo(
                 <BookOpen className='h-2 w-2' />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side={tooltipSide}>See Docs</TooltipContent>
+            <TooltipContent side={tooltipSide}>{copy.seeDocs}</TooltipContent>
           </Tooltip>
         ) : (
-          blockConfig?.longDescription && (
+          blockLongDescription && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant='ghost' size='sm' className={actionButtonClass} disabled={disabled}>
@@ -302,14 +308,14 @@ export const ActionBar = memo(
               <TooltipContent side={tooltipSide} className='max-w-[300px] p-4'>
                 <div className='space-y-3'>
                   <div>
-                    <p className='mb-1 font-medium text-sm'>Description</p>
+                    <p className='mb-1 font-medium text-sm'>{copy.description}</p>
                     <p className='wrap max-w-[300px] whitespace-pre-wrap text-muted-foreground text-sm'>
-                      {blockConfig.longDescription}
+                      {blockLongDescription}
                     </p>
                   </div>
-                  {blockConfig.outputs && Object.keys(blockConfig.outputs).length > 0 && (
+                  {blockConfig?.outputs && Object.keys(blockConfig.outputs).length > 0 && (
                     <div>
-                      <p className='mb-1 font-medium text-sm'>Output</p>
+                      <p className='mb-1 font-medium text-sm'>{copy.output}</p>
                       <div className='text-sm'>
                         {Object.entries(blockConfig.outputs).map(([key, value]) => (
                           <div key={key} className='mb-1'>
@@ -355,7 +361,7 @@ export const ActionBar = memo(
                 <LogOut className='h-2 w-2' />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side={tooltipSide}>{getLockedTooltip('Remove From Subflow')}</TooltipContent>
+            <TooltipContent side={tooltipSide}>{getLockedTooltip(copy.removeFromSubflow)}</TooltipContent>
           </Tooltip>
         )}
 
@@ -380,7 +386,7 @@ export const ActionBar = memo(
             </Button>
           </TooltipTrigger>
           <TooltipContent side={tooltipSide}>
-            {getLockedTooltip(horizontalHandles ? 'Vertical Ports' : 'Horizontal Ports')}
+            {getLockedTooltip(horizontalHandles ? copy.verticalPorts : copy.horizontalPorts)}
           </TooltipContent>
         </Tooltip>
 
@@ -400,7 +406,7 @@ export const ActionBar = memo(
               <Trash2 className='h-2 w-2' />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side={tooltipSide}>{getLockedTooltip('Delete Block')}</TooltipContent>
+          <TooltipContent side={tooltipSide}>{getLockedTooltip(copy.deleteBlock)}</TooltipContent>
         </Tooltip>
       </div>
     )

@@ -3,6 +3,8 @@ import { AlertTriangle } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { formatTemplate } from '@/i18n/utils'
+import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import { createLogger } from '@/lib/logs/console/logger'
 import { SKILL_NAME_MAX_LENGTH } from '@/lib/skills/import-export'
 import { isValidSkillName, useUpdateSkill } from '@/hooks/queries/skills'
@@ -30,6 +32,7 @@ export function SkillEditor({
   saveRef,
   onDirtyChange,
 }: SkillEditorProps) {
+  const copy = useWorkspaceWidgetsMessages().skillEditor
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [content, setContent] = useState('')
@@ -79,22 +82,22 @@ export function SkillEditor({
     const trimmedContent = content.trim()
 
     if (!trimmedName) {
-      setError('Skill name is required.')
+      setError(copy.validation.nameRequired)
       return
     }
 
     if (!isValidSkillName(trimmedName)) {
-      setError(`Skill name must be ${SKILL_NAME_MAX_LENGTH} characters or fewer.`)
+      setError(formatTemplate(copy.validation.nameTooLong, { max: SKILL_NAME_MAX_LENGTH }))
       return
     }
 
     if (!trimmedDescription) {
-      setError('Skill description is required.')
+      setError(copy.validation.descriptionRequired)
       return
     }
 
     if (!trimmedContent) {
-      setError('Skill content is required.')
+      setError(copy.validation.contentRequired)
       return
     }
 
@@ -108,7 +111,7 @@ export function SkillEditor({
     })
 
     if (isDuplicate) {
-      setError(`A skill named "${trimmedName}" already exists.`)
+      setError(formatTemplate(copy.validation.duplicateName, { name: trimmedName }))
       return
     }
 
@@ -135,7 +138,7 @@ export function SkillEditor({
         content: trimmedContent,
       })
     } catch (saveError) {
-      const message = saveError instanceof Error ? saveError.message : 'Failed to save skill.'
+      const message = saveError instanceof Error ? saveError.message : copy.validation.saveFailed
       logger.error('Failed to save skill', { error: saveError, skillId: initialValues.id })
       setError(message)
     } finally {
@@ -153,39 +156,39 @@ export function SkillEditor({
     <div className='flex h-full flex-col overflow-hidden'>
       <div className='flex-1 space-y-5 overflow-auto p-5'>
         <div className='space-y-2'>
-          <Label htmlFor='skill-editor-name'>Name</Label>
+          <Label htmlFor='skill-editor-name'>{copy.form.nameLabel}</Label>
           <Input
             id='skill-editor-name'
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder='Market Research'
+            placeholder={copy.form.namePlaceholder}
             disabled={isSaving}
             maxLength={SKILL_NAME_MAX_LENGTH}
           />
           <p className='text-muted-foreground text-xs'>
-            Use a clear workspace-unique name. Imported duplicates are renamed automatically.
+            {copy.form.helperText}
           </p>
         </div>
 
         <div className='space-y-2'>
-          <Label htmlFor='skill-editor-description'>Description</Label>
+          <Label htmlFor='skill-editor-description'>{copy.form.descriptionLabel}</Label>
           <Input
             id='skill-editor-description'
             value={description}
             onChange={(event) => setDescription(event.target.value)}
-            placeholder='What this skill helps the agent do'
+            placeholder={copy.form.descriptionPlaceholder}
             disabled={isSaving}
             maxLength={1024}
           />
         </div>
 
         <div className='flex min-h-0 flex-1 flex-col space-y-2'>
-          <Label htmlFor='skill-editor-content'>Instructions</Label>
+          <Label htmlFor='skill-editor-content'>{copy.form.instructionsLabel}</Label>
           <Textarea
             id='skill-editor-content'
             value={content}
             onChange={(event) => setContent(event.target.value)}
-            placeholder='Write the skill instructions the agent should load.'
+            placeholder={copy.form.instructionsPlaceholder}
             disabled={isSaving}
             className='min-h-[320px] resize-y font-mono text-sm'
             maxLength={50000}

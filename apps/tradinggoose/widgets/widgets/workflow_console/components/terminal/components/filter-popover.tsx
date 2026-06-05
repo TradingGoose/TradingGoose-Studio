@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
+import { useWorkflowConsoleMessages } from '@/i18n/workspace-widget-hooks'
 import type { BlockInfo, TerminalFilters } from '../types'
 import { getBlockIcon } from '../utils'
 
@@ -34,6 +35,7 @@ export function FilterPopover({
   triggerClassName,
   disabled = false,
 }: FilterPopoverProps) {
+  const copy = useWorkflowConsoleMessages()
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -42,7 +44,7 @@ export function FilterPopover({
           size='icon'
           className={cn('h-6 w-6', triggerClassName)}
           onClick={(event) => event.stopPropagation()}
-          aria-label='Filters'
+          aria-label={copy.filters}
           disabled={disabled}
         >
           <Filter className={cn('h-4 w-4', hasActiveFilters && 'text-primary')} />
@@ -56,7 +58,7 @@ export function FilterPopover({
         <div className='flex max-h-[inherit] flex-col'>
           <div className='px-1 pt-1'>
             <DropdownMenuLabel className='px-2 py-1 text-xs text-muted-foreground'>
-              Status
+              {copy.status}
             </DropdownMenuLabel>
             <DropdownMenuItem
               onSelect={(event) => {
@@ -66,7 +68,7 @@ export function FilterPopover({
               className='gap-2'
             >
               <div className='h-2 w-2 rounded-sm bg-destructive' />
-              <span className='flex-1 text-left'>Error</span>
+              <span className='flex-1 text-left'>{copy.error}</span>
               {filters.statuses.has('error') && <Check className='h-3 w-3 text-muted-foreground' />}
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -77,7 +79,7 @@ export function FilterPopover({
               className='gap-2'
             >
               <div className='h-2 w-2 rounded-sm bg-emerald-500' />
-              <span className='flex-1 text-left'>Info</span>
+              <span className='flex-1 text-left'>{copy.info}</span>
               {filters.statuses.has('info') && <Check className='h-3 w-3 text-muted-foreground' />}
             </DropdownMenuItem>
           </div>
@@ -86,7 +88,7 @@ export function FilterPopover({
             <>
               <DropdownMenuSeparator className='my-1' />
               <DropdownMenuLabel className='px-3 py-1 text-xs text-muted-foreground'>
-                Blocks
+                {copy.blocks}
               </DropdownMenuLabel>
               <div className='px-1 pb-1'>
                 <ScrollArea

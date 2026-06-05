@@ -30,6 +30,10 @@ import type {
 } from '@/lib/indicators/types'
 import type { ListingIdentity } from '@/lib/listing/identity'
 import type { IndicatorDefinition } from '@/stores/indicators/types'
+import {
+  formatDataChartIndicatorPlotFallback,
+  type DataChartCopy,
+} from '@/widgets/widgets/data_chart/copy'
 import type {
   DataChartDataContext,
   IndicatorRef,
@@ -705,6 +709,7 @@ export const useIndicatorSync = ({
   chartReady,
   indicatorRuntimeRef,
   onIndicatorRuntimeChange,
+  indicatorCopy,
 }: {
   chartRef: MutableRefObject<IChartApi | null>
   mainSeriesRef: MutableRefObject<MainSeries | null>
@@ -717,6 +722,7 @@ export const useIndicatorSync = ({
   chartReady?: number
   indicatorRuntimeRef?: MutableRefObject<Map<string, IndicatorRuntimeEntry>>
   onIndicatorRuntimeChange?: () => void
+  indicatorCopy: DataChartCopy['indicator']
 }) => {
   const indicatorSeriesMapRef = useRef(new Map<string, Map<string, ISeriesApi<any>>>())
   const indicatorPaneMapRef = useRef(new Map<string, IPaneApi<any> | null>())
@@ -988,7 +994,7 @@ export const useIndicatorSync = ({
               }
             } catch (error) {
               const errorMessage =
-                error instanceof Error ? error.message : 'Failed to execute indicators'
+                error instanceof Error ? error.message : indicatorCopy.executionErrorFallback
               return {
                 indicatorId: item.id,
                 output: null,
@@ -1230,7 +1236,9 @@ export const useIndicatorSync = ({
           nextSeriesKeys.add(seriesKey)
           runtimePlots.push({
             key: plotKey || `${indicatorId}-${plotIndex}`,
-            title: seriesEntry.plot.title?.trim() || `Plot ${plotIndex + 1}`,
+            title:
+              seriesEntry.plot.title?.trim() ||
+              formatDataChartIndicatorPlotFallback(indicatorCopy, plotIndex + 1),
             color: legendColor,
             series,
           })
@@ -1441,5 +1449,6 @@ export const useIndicatorSync = ({
     chartReady,
     indicatorRuntimeRef,
     onIndicatorRuntimeChange,
+    indicatorCopy,
   ])
 }

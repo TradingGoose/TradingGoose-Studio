@@ -14,6 +14,7 @@ import {
   useWorkflowSelectionPersistence,
 } from '@/widgets/utils/workflow-selection'
 import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
+import { useWorkflowVariablesMessages } from '@/i18n/workspace-widget-hooks'
 import WorkflowVariablesApp from './components/workflow-variables-app'
 
 const WidgetStateMessage = ({ message }: { message: string }) => (
@@ -30,6 +31,7 @@ const WorkflowVariablesWidgetBody = ({
   widget,
   onWidgetParamsChange,
 }: WidgetComponentProps) => {
+  const copy = useWorkflowVariablesMessages()
   const workspaceId = context?.workspaceId
   const {
     channelId,
@@ -59,11 +61,11 @@ const WorkflowVariablesWidgetBody = ({
   })
 
   if (!workspaceId) {
-    return <WidgetStateMessage message='Select a workspace to load workflows.' />
+    return <WidgetStateMessage message={copy.selectWorkspace} />
   }
 
   if (loadError) {
-    return <WidgetStateMessage message={loadError} />
+    return <WidgetStateMessage message={copy[loadError]} />
   }
 
   if (!hasLoadedWorkflows || isLoading) {
@@ -75,7 +77,7 @@ const WorkflowVariablesWidgetBody = ({
   }
 
   if (workflowIds.length === 0) {
-    return <WidgetStateMessage message='No workflows available in this workspace.' />
+    return <WidgetStateMessage message={copy.noWorkflows} />
   }
 
   if (!resolvedWorkflowId) {
@@ -109,6 +111,7 @@ const WorkflowVariablesHeaderActions = ({
   widget,
   panelId,
 }: WorkflowVariablesHeaderActionsProps) => {
+  const copy = useWorkflowVariablesMessages()
   const { channelId, resolvedPairColor, widgetKey } = resolveWidgetChannel({
     pairColor: widget?.pairColor,
     widget,
@@ -149,11 +152,11 @@ const WorkflowVariablesHeaderActions = ({
           onClick={handleAddVariable}
         >
           <Plus className='h-3.5 w-3.5' />
-          <span className='sr-only'>Add variable</span>
+          <span className='sr-only'>{copy.addVariable}</span>
         </button>
       </TooltipTrigger>
       <TooltipContent side='top'>
-        {isDisabled ? 'Select a workflow to add variables' : 'Add workflow variable'}
+        {isDisabled ? copy.selectWorkflowToAddVariables : copy.addWorkflowVariable}
       </TooltipContent>
     </Tooltip>
   )

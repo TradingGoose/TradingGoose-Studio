@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { Notebook } from 'lucide-react'
-import Link from 'next/link'
+import { useLocale, useTranslations } from 'next-intl'
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -18,46 +18,56 @@ import { getBillingStatus, getSubscriptionStatus, getUsage } from '@/lib/subscri
 import { UsageHeader } from '@/global-navbar/settings-modal/components/shared/usage-header'
 import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
 import { useSubscriptionData } from '@/hooks/queries/subscription'
+import { Link } from '@/i18n/navigation'
+import { type LocaleCode, localizeDocsUrl } from '@/i18n/utils'
 import type { NavSection } from '../types'
 
 interface SidebarNavProps {
   navItems: NavSection[]
 }
 
-const DOCUMENTATION_NAV_ITEM: NavSection = {
-  title: 'Documentation',
-  url: 'https://docs.tradinggoose.ai',
-  icon: Notebook,
-  section: 'more',
-}
-
 export function SidebarNav({ navItems }: SidebarNavProps) {
+  const locale = useLocale() as LocaleCode
+  const tNavGroups = useTranslations('workspace.nav.groups')
+  const tNav = useTranslations('nav')
   const workspaceItems = navItems.filter((item) => (item.section ?? 'workspace') === 'workspace')
   const adminItems = navItems.filter((item) => item.section === 'admin')
-  const moreItems = withDocumentationItem(navItems.filter((item) => item.section === 'more'))
+  const moreItems = withDocumentationItem(
+    locale,
+    tNav('docs'),
+    navItems.filter((item) => item.section === 'more')
+  )
 
   return (
     <>
-      {renderNavGroup('Workspace', workspaceItems)}
-      {renderNavGroup('System', adminItems)}
-      {renderNavGroup('More', moreItems)}
+      {renderNavGroup(tNavGroups('workspace'), workspaceItems)}
+      {renderNavGroup(tNavGroups('system'), adminItems)}
+      {renderNavGroup(tNavGroups('more'), moreItems)}
     </>
   )
 }
 
-function withDocumentationItem(items: NavSection[]) {
-  if (!items.length || items.some((item) => item.title === DOCUMENTATION_NAV_ITEM.title)) {
+function withDocumentationItem(locale: LocaleCode, docsLabel: string, items: NavSection[]) {
+  const documentationNavItem: NavSection = {
+    key: 'docs',
+    title: docsLabel,
+    url: localizeDocsUrl(locale),
+    icon: Notebook,
+    section: 'more',
+  }
+
+  if (!items.length || items.some((item) => item.url === documentationNavItem.url)) {
     return items
   }
 
-  const integrationsIndex = items.findIndex((item) => item.title === 'Integrations')
+  const integrationsIndex = items.findIndex((item) => item.key === 'integrations')
   if (integrationsIndex === -1) {
-    return [...items, DOCUMENTATION_NAV_ITEM]
+    return [...items, documentationNavItem]
   }
 
   return [
     ...items.slice(0, integrationsIndex + 1),
-    DOCUMENTATION_NAV_ITEM,
+    documentationNavItem,
     ...items.slice(integrationsIndex + 1),
   ]
 }

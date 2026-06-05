@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { createLogger } from '@/lib/logs/console/logger'
+import { stripLocaleFromPathname } from '@/i18n/utils'
 import { useConsoleStore } from '@/stores/console/store'
 import { getCopilotStore, useCopilotStore } from '@/stores/copilot/store'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
@@ -13,6 +14,7 @@ import { useSubscriptionStore } from '@/stores/subscription/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 const logger = createLogger('Stores')
+const BEFORE_UNLOAD_AUTH_PATHS = new Set(['/login', '/signup', '/reset-password', '/verify'])
 
 // Track initialization state
 let isInitializing = false
@@ -100,14 +102,9 @@ export function isDataInitialized(): boolean {
 function handleBeforeUnload(event: BeforeUnloadEvent): void {
   // Check if we're on an authentication page and skip confirmation if we are
   if (typeof window !== 'undefined') {
-    const path = window.location.pathname
+    const path = stripLocaleFromPathname(window.location.pathname).pathname
     // Skip confirmation for auth-related pages
-    if (
-      path === '/login' ||
-      path === '/signup' ||
-      path === '/reset-password' ||
-      path === '/verify'
-    ) {
+    if (BEFORE_UNLOAD_AUTH_PATHS.has(path)) {
       return
     }
   }

@@ -2,9 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { ChevronRight, Search } from 'lucide-react'
-import { useParams, useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Input } from '@/components/ui/input'
-import { createLogger } from '@/lib/logs/console/logger'
 import { NavigationTabs } from '@/app/workspace/[workspaceId]/templates/components/navigation-tabs'
 import {
   TemplateCard,
@@ -12,16 +11,14 @@ import {
 } from '@/app/workspace/[workspaceId]/templates/components/template-card'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
-const logger = createLogger('TemplatesPage')
-
 // Shared categories definition
 export const categories = [
-  { value: 'marketing', label: 'Marketing' },
-  { value: 'sales', label: 'Sales' },
-  { value: 'finance', label: 'Finance' },
-  { value: 'support', label: 'Support' },
-  { value: 'artificial-intelligence', label: 'Artificial Intelligence' },
-  { value: 'other', label: 'Other' },
+  { value: 'marketing' },
+  { value: 'sales' },
+  { value: 'finance' },
+  { value: 'support' },
+  { value: 'artificial-intelligence' },
+  { value: 'other' },
 ] as const
 
 export type CategoryValue = (typeof categories)[number]['value']
@@ -51,8 +48,7 @@ interface TemplatesProps {
 }
 
 export default function Templates({ initialTemplates, currentUserId }: TemplatesProps) {
-  const router = useRouter()
-  const params = useParams()
+  const t = useTranslations('workspace.templates')
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState('your')
   const [templates, setTemplates] = useState<Template[]>(initialTemplates)
@@ -91,11 +87,6 @@ export default function Templates({ initialTemplates, currentUserId }: Templates
         block: 'start',
       })
     }
-  }
-
-  const handleCreateNew = () => {
-    // TODO: Open create template modal or navigate to create page
-    logger.info('Create new template')
   }
 
   // Handle star change callback from template card
@@ -152,6 +143,8 @@ export default function Templates({ initialTemplates, currentUserId }: Templates
     />
   )
 
+  const getCategoryLabel = (category: CategoryValue) => t(`categories.${category}`)
+
   // Group templates by category for display
   const getTemplatesByCategory = (category: CategoryValue | 'your' | 'recent') => {
     return filteredTemplates(category)
@@ -171,38 +164,46 @@ export default function Templates({ initialTemplates, currentUserId }: Templates
       ? [
           {
             id: 'your',
-            label: 'Your templates',
+            label: t('sections.your'),
             count: loading ? 8 : getTemplatesByCategory('your').length,
           },
         ]
       : []),
     {
       id: 'recent',
-      label: 'Recent',
+      label: t('sections.recent'),
       count: loading ? 8 : getTemplatesByCategory('recent').length,
     },
     {
       id: 'marketing',
-      label: 'Marketing',
+      label: getCategoryLabel('marketing'),
       count: loading ? 8 : getTemplatesByCategory('marketing').length,
     },
-    { id: 'sales', label: 'Sales', count: loading ? 8 : getTemplatesByCategory('sales').length },
+    {
+      id: 'sales',
+      label: getCategoryLabel('sales'),
+      count: loading ? 8 : getTemplatesByCategory('sales').length,
+    },
     {
       id: 'finance',
-      label: 'Finance',
+      label: getCategoryLabel('finance'),
       count: loading ? 8 : getTemplatesByCategory('finance').length,
     },
     {
       id: 'support',
-      label: 'Support',
+      label: getCategoryLabel('support'),
       count: loading ? 8 : getTemplatesByCategory('support').length,
     },
     {
       id: 'artificial-intelligence',
-      label: 'Artificial Intelligence',
+      label: getCategoryLabel('artificial-intelligence'),
       count: loading ? 8 : getTemplatesByCategory('artificial-intelligence').length,
     },
-    { id: 'other', label: 'Other', count: loading ? 8 : getTemplatesByCategory('other').length },
+    {
+      id: 'other',
+      label: getCategoryLabel('other'),
+      count: loading ? 8 : getTemplatesByCategory('other').length,
+    },
   ]
 
   return (
@@ -212,12 +213,10 @@ export default function Templates({ initialTemplates, currentUserId }: Templates
           {/* Header */}
           <div className='mb-6'>
             <h1 className='mb-2 font-sans font-semibold text-3xl text-foreground tracking-[0.01em]'>
-              Templates
+              {t('title')}
             </h1>
-            <p className='font-[350] font-sans text-muted-foreground text-sm leading-[1.5] tracking-[0.01em]'>
-              Grab a template and start building, or make
-              <br />
-              one from scratch.
+            <p className='whitespace-pre-line font-[350] font-sans text-muted-foreground text-sm leading-[1.5] tracking-[0.01em]'>
+              {t('description')}
             </p>
           </div>
 
@@ -226,7 +225,7 @@ export default function Templates({ initialTemplates, currentUserId }: Templates
             <div className='flex h-9 w-[460px] items-center gap-2 rounded-lg border bg-transparent pr-2 pl-3'>
               <Search className='h-4 w-4 text-muted-foreground' strokeWidth={2} />
               <Input
-                placeholder='Search templates...'
+                placeholder={t('searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className='flex-1 border-0 bg-transparent px-0 font-normal font-sans text-base text-foreground leading-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
@@ -254,7 +253,9 @@ export default function Templates({ initialTemplates, currentUserId }: Templates
           {yourTemplatesCount > 0 || loading ? (
             <div ref={sectionRefs.your} className='mb-8'>
               <div className='mb-4 flex items-center gap-2'>
-                <h2 className='font-medium font-sans text-foreground text-lg'>Your templates</h2>
+                <h2 className='font-medium font-sans text-foreground text-lg'>
+                  {t('sections.your')}
+                </h2>
                 <ChevronRight className='h-4 w-4 text-muted-foreground' />
               </div>
 
@@ -269,7 +270,9 @@ export default function Templates({ initialTemplates, currentUserId }: Templates
           {/* Recent Templates Section */}
           <div ref={sectionRefs.recent} className='mb-8'>
             <div className='mb-4 flex items-center gap-2'>
-              <h2 className='font-medium font-sans text-foreground text-lg'>Recent</h2>
+              <h2 className='font-medium font-sans text-foreground text-lg'>
+                {t('sections.recent')}
+              </h2>
               <ChevronRight className='h-4 w-4 text-muted-foreground' />
             </div>
 
@@ -283,7 +286,9 @@ export default function Templates({ initialTemplates, currentUserId }: Templates
           {/* Marketing Section */}
           <div ref={sectionRefs.marketing} className='mb-8'>
             <div className='mb-4 flex items-center gap-2'>
-              <h2 className='font-medium font-sans text-foreground text-lg'>Marketing</h2>
+              <h2 className='font-medium font-sans text-foreground text-lg'>
+                {getCategoryLabel('marketing')}
+              </h2>
               <ChevronRight className='h-4 w-4 text-muted-foreground' />
             </div>
 
@@ -299,7 +304,9 @@ export default function Templates({ initialTemplates, currentUserId }: Templates
           {/* Sales Section */}
           <div ref={sectionRefs.sales} className='mb-8'>
             <div className='mb-4 flex items-center gap-2'>
-              <h2 className='font-medium font-sans text-foreground text-lg'>Sales</h2>
+              <h2 className='font-medium font-sans text-foreground text-lg'>
+                {getCategoryLabel('sales')}
+              </h2>
               <ChevronRight className='h-4 w-4 text-muted-foreground' />
             </div>
 
@@ -313,7 +320,9 @@ export default function Templates({ initialTemplates, currentUserId }: Templates
           {/* Finance Section */}
           <div ref={sectionRefs.finance} className='mb-8'>
             <div className='mb-4 flex items-center gap-2'>
-              <h2 className='font-medium font-sans text-foreground text-lg'>Finance</h2>
+              <h2 className='font-medium font-sans text-foreground text-lg'>
+                {getCategoryLabel('finance')}
+              </h2>
               <ChevronRight className='h-4 w-4 text-muted-foreground' />
             </div>
 
@@ -327,7 +336,9 @@ export default function Templates({ initialTemplates, currentUserId }: Templates
           {/* Support Section */}
           <div ref={sectionRefs.support} className='mb-8'>
             <div className='mb-4 flex items-center gap-2'>
-              <h2 className='font-medium font-sans text-foreground text-lg'>Support</h2>
+              <h2 className='font-medium font-sans text-foreground text-lg'>
+                {getCategoryLabel('support')}
+              </h2>
               <ChevronRight className='h-4 w-4 text-muted-foreground' />
             </div>
 
@@ -342,7 +353,7 @@ export default function Templates({ initialTemplates, currentUserId }: Templates
           <div ref={sectionRefs['artificial-intelligence']} className='mb-8'>
             <div className='mb-4 flex items-center gap-2'>
               <h2 className='font-medium font-sans text-foreground text-lg'>
-                Artificial Intelligence
+                {getCategoryLabel('artificial-intelligence')}
               </h2>
               <ChevronRight className='h-4 w-4 text-muted-foreground' />
             </div>
@@ -359,7 +370,9 @@ export default function Templates({ initialTemplates, currentUserId }: Templates
           {/* Other Section */}
           <div ref={sectionRefs.other} className='mb-8'>
             <div className='mb-4 flex items-center gap-2'>
-              <h2 className='font-medium font-sans text-foreground text-lg'>Other</h2>
+              <h2 className='font-medium font-sans text-foreground text-lg'>
+                {getCategoryLabel('other')}
+              </h2>
               <ChevronRight className='h-4 w-4 text-muted-foreground' />
             </div>
 

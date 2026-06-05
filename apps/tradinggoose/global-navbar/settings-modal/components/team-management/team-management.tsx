@@ -286,8 +286,8 @@ export function TeamManagement() {
       const workspaceInvitations =
         selectedWorkspaces.length > 0
           ? selectedWorkspaces.map((w) => ({
-              id: w.workspaceId,
-              name: adminWorkspaces.find((uw) => uw.id === w.workspaceId)?.name || '',
+              workspaceId: w.workspaceId,
+              permission: w.permission as 'admin' | 'write' | 'read',
             }))
           : undefined
 

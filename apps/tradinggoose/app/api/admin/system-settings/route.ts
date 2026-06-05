@@ -15,6 +15,7 @@ import {
 } from '@/lib/system-settings/service'
 import { isTriggerConfigurationReady } from '@/lib/trigger/settings'
 import { generateRequestId } from '@/lib/utils'
+import { ADMIN_ERROR_CODES } from '@/app/admin/constants'
 
 const logger = createLogger('AdminSystemSettingsAPI')
 
@@ -32,7 +33,7 @@ export async function GET() {
     if (!access.isAuthenticated) {
       logger.warn(`[${requestId}] Unauthorized admin system settings access attempt`)
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized', code: ADMIN_ERROR_CODES.UNAUTHORIZED },
         { status: 401, headers: NO_STORE_HEADERS }
       )
     }
@@ -40,21 +41,27 @@ export async function GET() {
     const userId = access.userId
     if (!userId) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized', code: ADMIN_ERROR_CODES.UNAUTHORIZED },
         { status: 401, headers: NO_STORE_HEADERS }
       )
     }
 
     if (!access.isSystemAdmin && !access.canBootstrapSystemAdmin) {
       logger.warn(`[${requestId}] Forbidden admin system settings access attempt`, { userId })
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers: NO_STORE_HEADERS })
+      return NextResponse.json(
+        { error: 'Forbidden', code: ADMIN_ERROR_CODES.FORBIDDEN },
+        { status: 403, headers: NO_STORE_HEADERS }
+      )
     }
 
     if (!access.isSystemAdmin && access.canBootstrapSystemAdmin) {
       const claimed = await claimFirstSystemAdmin(userId)
       if (!claimed) {
         logger.warn(`[${requestId}] Bootstrap admin claim lost`, { userId })
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers: NO_STORE_HEADERS })
+        return NextResponse.json(
+          { error: 'Forbidden', code: ADMIN_ERROR_CODES.FORBIDDEN },
+          { status: 403, headers: NO_STORE_HEADERS }
+        )
       }
     }
 
@@ -74,7 +81,10 @@ export async function GET() {
   } catch (error) {
     logger.error(`[${requestId}] Failed to load admin system settings`, error)
     return NextResponse.json(
-      { error: 'Failed to load system settings' },
+      {
+        error: 'Failed to load system settings',
+        code: ADMIN_ERROR_CODES.FAILED_TO_LOAD_SYSTEM_SETTINGS,
+      },
       { status: 500, headers: NO_STORE_HEADERS }
     )
   }
@@ -88,7 +98,7 @@ export async function PATCH(request: NextRequest) {
     if (!access.isAuthenticated) {
       logger.warn(`[${requestId}] Unauthorized admin system settings update attempt`)
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized', code: ADMIN_ERROR_CODES.UNAUTHORIZED },
         { status: 401, headers: NO_STORE_HEADERS }
       )
     }
@@ -96,21 +106,27 @@ export async function PATCH(request: NextRequest) {
     const userId = access.userId
     if (!userId) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized', code: ADMIN_ERROR_CODES.UNAUTHORIZED },
         { status: 401, headers: NO_STORE_HEADERS }
       )
     }
 
     if (!access.isSystemAdmin && !access.canBootstrapSystemAdmin) {
       logger.warn(`[${requestId}] Forbidden admin system settings update attempt`, { userId })
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers: NO_STORE_HEADERS })
+      return NextResponse.json(
+        { error: 'Forbidden', code: ADMIN_ERROR_CODES.FORBIDDEN },
+        { status: 403, headers: NO_STORE_HEADERS }
+      )
     }
 
     if (!access.isSystemAdmin && access.canBootstrapSystemAdmin) {
       const claimed = await claimFirstSystemAdmin(userId)
       if (!claimed) {
         logger.warn(`[${requestId}] Bootstrap admin claim lost`, { userId })
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers: NO_STORE_HEADERS })
+        return NextResponse.json(
+          { error: 'Forbidden', code: ADMIN_ERROR_CODES.FORBIDDEN },
+          { status: 403, headers: NO_STORE_HEADERS }
+        )
       }
     }
 
@@ -131,6 +147,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Billing cannot be enabled until STRIPE_SECRET_KEY is configured.',
+          code: ADMIN_ERROR_CODES.BILLING_NOT_CONFIGURED,
         },
         { status: 409, headers: NO_STORE_HEADERS }
       )
@@ -140,6 +157,7 @@ export async function PATCH(request: NextRequest) {
         {
           error:
             'Billing cannot be enabled until an active public default user tier is configured.',
+          code: ADMIN_ERROR_CODES.BILLING_NOT_READY,
         },
         { status: 409, headers: NO_STORE_HEADERS }
       )
@@ -155,6 +173,7 @@ export async function PATCH(request: NextRequest) {
         {
           error:
             'Trigger.dev cannot be enabled until TRIGGER_PROJECT_ID and TRIGGER_SECRET_KEY are configured.',
+          code: ADMIN_ERROR_CODES.TRIGGER_NOT_READY,
         },
         { status: 409, headers: NO_STORE_HEADERS }
       )
@@ -179,14 +198,21 @@ export async function PATCH(request: NextRequest) {
         errors: error.errors,
       })
       return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
+        {
+          error: 'Invalid request data',
+          code: ADMIN_ERROR_CODES.INVALID_REQUEST_DATA,
+          details: error.errors,
+        },
         { status: 400, headers: NO_STORE_HEADERS }
       )
     }
 
     logger.error(`[${requestId}] Failed to update admin system settings`, error)
     return NextResponse.json(
-      { error: 'Failed to update system settings' },
+      {
+        error: 'Failed to update system settings',
+        code: ADMIN_ERROR_CODES.FAILED_TO_UPDATE_SYSTEM_SETTINGS,
+      },
       { status: 500, headers: NO_STORE_HEADERS }
     )
   }

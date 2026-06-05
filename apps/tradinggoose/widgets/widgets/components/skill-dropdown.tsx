@@ -19,9 +19,9 @@ import {
 } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
 import { useSkills } from '@/hooks/queries/skills'
+import { useMessages } from 'next-intl'
 import type { SkillDefinition } from '@/stores/skills/types'
 
-const DEFAULT_PLACEHOLDER = 'Select skill'
 const DROPDOWN_MAX_HEIGHT = '20rem'
 const DROPDOWN_VIEWPORT_HEIGHT = '14rem'
 const SKILL_ICON_COLOR = '#059669'
@@ -37,18 +37,19 @@ interface SkillDropdownProps {
   menuClassName?: string
 }
 
-const getSkillTitle = (skill?: SkillDefinition | null) => skill?.name || 'Skill'
+const getSkillTitle = (skill?: SkillDefinition | null, fallback = '') => skill?.name || fallback
 
 export function SkillDropdown({
   workspaceId,
   value,
   onChange,
   disabled = false,
-  placeholder = DEFAULT_PLACEHOLDER,
+  placeholder,
   align = 'start',
   triggerClassName,
   menuClassName,
 }: SkillDropdownProps) {
+  const copy = useMessages().workspace.widgets.skillDropdown
   const [searchQuery, setSearchQuery] = useState('')
   const {
     data: skills = [],
@@ -64,14 +65,14 @@ export function SkillDropdown({
   const isLoading = (queryLoading || isFetching) && !hasSkills
   const isDropdownDisabled = disabled || !workspaceId
   const errorMessage =
-    queryError instanceof Error ? queryError.message : queryError ? 'Unable to load skills' : null
+    queryError instanceof Error ? queryError.message : queryError ? copy.unableToLoadSkills : null
   const tooltipText = !workspaceId
-    ? 'Select a workspace to choose skills'
+    ? copy.selectWorkspaceToChooseSkills
     : errorMessage
-      ? 'Unable to load skills'
+      ? copy.unableToLoadSkills
       : disabled
-        ? 'Skill selection unavailable'
-        : 'Select skill'
+        ? copy.selectionUnavailable
+        : copy.tooltip
 
   useEffect(() => {
     setSearchQuery('')
@@ -113,7 +114,7 @@ export function SkillDropdown({
     if (!workspaceId) {
       return (
         <p className='px-2 py-4 text-center text-muted-foreground text-xs'>
-          Select a workspace first.
+          {copy.selectWorkspaceFirst}
         </p>
       )
     }
@@ -121,13 +122,13 @@ export function SkillDropdown({
     if (errorMessage && !hasSkills) {
       return (
         <div className='space-y-2 px-3 py-2 text-xs'>
-          <p className='text-destructive'>{errorMessage}. Try reloading the widget.</p>
+          <p className='text-destructive'>{errorMessage}</p>
           <button
             type='button'
             className='font-semibold text-primary text-xs hover:underline'
             onClick={handleRetry}
           >
-            Retry
+            {copy.retry}
           </button>
         </div>
       )
@@ -137,7 +138,7 @@ export function SkillDropdown({
       return (
         <div className='flex items-center gap-1 px-3 py-2 text-muted-foreground text-xs'>
           <Loader2 className='h-3.5 w-3.5 animate-spin' />
-          Loading skills...
+          {copy.loadingSkills}
         </div>
       )
     }
@@ -145,7 +146,7 @@ export function SkillDropdown({
     if (!hasSkills) {
       return (
         <p className='px-2 py-4 text-center text-muted-foreground text-xs'>
-          No skills available yet.
+          {copy.noSkillsAvailableYet}
         </p>
       )
     }
@@ -153,7 +154,7 @@ export function SkillDropdown({
     if (filteredSkills.length === 0) {
       return (
         <p className='px-2 py-4 text-center text-muted-foreground text-xs'>
-          {searchQuery.trim() ? 'No skills found.' : 'No skills available yet.'}
+          {searchQuery.trim() ? copy.noSkillsFound : copy.noSkillsAvailableYet}
         </p>
       )
     }
@@ -186,7 +187,7 @@ export function SkillDropdown({
                   />
                 </span>
                 <span className={cn(widgetHeaderMenuTextClassName, 'truncate')}>
-                  {getSkillTitle(skill)}
+                  {getSkillTitle(skill, copy.untitledSkill)}
                 </span>
               </div>
               {isSelected ? <Check className='h-3.5 w-3.5 text-primary' /> : null}
@@ -210,11 +211,11 @@ export function SkillDropdown({
   )
   const labelContent = selectedSkill ? (
     <span className='min-w-0 flex-1 truncate text-left font-medium text-foreground text-sm'>
-      {getSkillTitle(selectedSkill)}
+      {getSkillTitle(selectedSkill, copy.untitledSkill)}
     </span>
   ) : (
     <span className='min-w-0 flex-1 truncate text-left font-medium text-muted-foreground text-sm'>
-      {placeholder}
+      {placeholder ?? copy.placeholder}
     </span>
   )
 
@@ -267,7 +268,7 @@ export function SkillDropdown({
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 onKeyDown={handleSearchInputKeyDown}
-                placeholder='Search skills...'
+                placeholder={copy.searchPlaceholder}
                 className='h-6 border-0 bg-transparent px-0 text-foreground text-xs placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
                 autoComplete='off'
                 autoCorrect='off'

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useParams } from 'next/navigation'
+import { useLocale, useTranslations } from 'next-intl'
 import type { WorkflowLog } from '@/lib/logs/types'
 import { soehne } from '@/app/fonts/soehne/soehne'
 import FolderFilter from '@/app/workspace/[workspaceId]/records/components/logs-toolbar/components/filters/components/folder'
@@ -57,6 +58,9 @@ type StatsProps = {
 export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }: StatsProps) {
   const params = useParams()
   const workspaceId = params.workspaceId as string
+  const locale = useLocale()
+  const t = useTranslations('workspace.logs.dashboard')
+  const tWorkflows = useTranslations('workspace.logs.dashboard.workflows')
 
   const getTimeFilterFromRange = (range: string): TimeFilter => {
     switch (range) {
@@ -215,7 +219,7 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
         )
 
         if (!response.ok) {
-          throw new Error('Failed to fetch execution history')
+          throw new Error(t('failedToFetchExecutionHistory'))
         }
 
         const data = await response.json()
@@ -319,13 +323,23 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
         setGlobalLogsMeta({ offset: mappedLogs.length, hasMore: mappedLogs.length === 50 })
       } catch (err) {
         console.error('Error fetching executions:', err)
-        setError(err instanceof Error ? err.message : 'An error occurred')
+        setError(err instanceof Error ? err.message : t('failedToFetchExecutionHistory'))
       } finally {
         setLoading(false)
         setIsRefetching(false)
       }
     },
-    [workspaceId, timeFilter, endTime, getStartTime, workflowIds, folderIds, triggers, segmentCount]
+    [
+      workspaceId,
+      timeFilter,
+      endTime,
+      getStartTime,
+      workflowIds,
+      folderIds,
+      triggers,
+      segmentCount,
+      t,
+    ]
   )
 
   const fetchWorkflowDetails = useCallback(
@@ -356,7 +370,7 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
         )
 
         if (!response.ok) {
-          throw new Error('Failed to fetch workflow details')
+          throw new Error(t('failedToFetchExecutionHistory'))
         }
 
         const data = (await response.json()) as { data?: WorkflowLog[] }
@@ -377,7 +391,7 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
         console.error('Error fetching workflow details:', err)
       }
     },
-    [workspaceId, endTime, getStartTime, triggers]
+    [workspaceId, endTime, getStartTime, triggers, t]
   )
 
   // Infinite scroll for details logs
@@ -639,61 +653,9 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
     }
   }, [])
 
-  const getShiftLabel = () => {
-    switch (sidebarTimeRange) {
-      case 'Past 30 minutes':
-        return '30 minutes'
-      case 'Past hour':
-        return 'hour'
-      case 'Past 12 hours':
-        return '12 hours'
-      case 'Past 24 hours':
-        return '24 hours'
-      default:
-        return 'period'
-    }
-  }
-
   const getDateRange = () => {
     const start = getStartTime()
-    return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} - ${endTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', year: 'numeric' })}`
-  }
-
-  const shiftTimeWindow = (direction: 'back' | 'forward') => {
-    let shift: number
-    switch (timeFilter) {
-      case '30m':
-        shift = 30 * 60 * 1000
-        break
-      case '1h':
-        shift = 60 * 60 * 1000
-        break
-      case '6h':
-        shift = 6 * 60 * 60 * 1000
-        break
-      case '12h':
-        shift = 12 * 60 * 60 * 1000
-        break
-      case '24h':
-        shift = 24 * 60 * 60 * 1000
-        break
-      case '3d':
-        shift = 3 * 24 * 60 * 60 * 1000
-        break
-      case '7d':
-        shift = 7 * 24 * 60 * 60 * 1000
-        break
-      case '14d':
-        shift = 14 * 24 * 60 * 60 * 1000
-        break
-      case '30d':
-        shift = 30 * 24 * 60 * 60 * 1000
-        break
-      default:
-        shift = 24 * 60 * 60 * 1000
-    }
-
-    setEndTime((prev) => new Date(prev.getTime() + (direction === 'forward' ? shift : -shift)))
+    return `${start.toLocaleDateString(locale, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} - ${endTime.toLocaleDateString(locale, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', year: 'numeric' })}`
   }
 
   const resetToNow = () => {
@@ -743,21 +705,21 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
             <div className='flex flex-1 items-center justify-center'>
               <div className='flex items-center gap-2 text-muted-foreground'>
                 <Loader2 className='h-5 w-5 animate-spin' />
-                <span>Loading execution history...</span>
+                <span>{t('loadingExecutionHistory')}</span>
               </div>
             </div>
           ) : error ? (
             <div className='flex flex-1 items-center justify-center'>
               <div className='text-destructive'>
-                <p className='font-medium'>Error loading data</p>
+                <p className='font-medium'>{t('errorLoadingData')}</p>
                 <p className='text-sm'>{error}</p>
               </div>
             </div>
           ) : executions.length === 0 ? (
             <div className='flex flex-1 items-center justify-center'>
               <div className='text-center text-muted-foreground'>
-                <p className='font-medium'>No execution history</p>
-                <p className='mt-1 text-sm'>Execute some workflows to see their history here</p>
+                <p className='font-medium'>{t('noExecutionHistory')}</p>
+                <p className='mt-1 text-sm'>{t('noExecutionHistoryDescription')}</p>
               </div>
             </div>
           ) : (
@@ -939,7 +901,9 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
                       <WorkflowDetails
                         workspaceId={workspaceId}
                         expandedWorkflowId={'__multi__'}
-                        workflowName={`${selectedWorkflowIds.length} workflows selected`}
+                        workflowName={tWorkflows('multipleSelected', {
+                          count: selectedWorkflowIds.length,
+                        })}
                         overview={{
                           total: totalExecutions,
                           success: totalSuccess,
@@ -1134,7 +1098,7 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
                     <WorkflowDetails
                       workspaceId={workspaceId}
                       expandedWorkflowId={'all'}
-                      workflowName={'All workflows'}
+                      workflowName={tWorkflows('allWorkflows')}
                       overview={{ total: totals.total, success: totals.success, failures, rate }}
                       details={globalDetails as any}
                       selectedSegmentIndex={[]}

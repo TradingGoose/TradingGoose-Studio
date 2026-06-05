@@ -9,6 +9,7 @@ import {
   getFlagData,
   getListingFallback,
 } from '@/widgets/widgets/data_chart/utils/listing-utils'
+import { formatDataChartFlagAlt, useDataChartCopy } from '@/widgets/widgets/data_chart/copy'
 
 export const ListingOverlay = ({
   listing,
@@ -19,6 +20,7 @@ export const ListingOverlay = ({
   intervalLabel?: string | null
   isResolving?: boolean
 }) => {
+  const copy = useDataChartCopy()
   const { listingSymbol, listingSymbolParts, listingSymbolText, listingName } = useMemo(
     () => buildListingDisplay(listing),
     [listing]
@@ -77,7 +79,10 @@ export const ListingOverlay = ({
         {listingType === 'default' && flagImageUrl ? (
           <img
             src={flagImageUrl}
-            alt={`${listing?.countryCode ?? ''} flag`}
+            alt={formatDataChartFlagAlt(
+              copy.listingOverlay.flagAlt,
+              listing?.countryCode ?? ''
+            )}
             className='h-3.5 w-3.5'
             loading='lazy'
           />

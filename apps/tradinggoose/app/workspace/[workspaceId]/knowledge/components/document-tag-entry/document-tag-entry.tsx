@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { ChevronDown, Info, Plus, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import {
   Badge,
   Button,
@@ -61,6 +62,7 @@ export function DocumentTagEntry({
   const documentTagHook = useTagDefinitions(knowledgeBaseId, documentId)
   const kbTagHook = useKnowledgeBaseTagDefinitions(knowledgeBaseId)
   const { getNextAvailableSlot: getServerNextSlot } = useNextAvailableSlot(knowledgeBaseId)
+  const t = useTranslations('workspace.knowledge.tags')
 
   // Use the document-level hook since we have documentId
   const { saveTagDefinitions } = documentTagHook
@@ -270,7 +272,7 @@ export function DocumentTagEntry({
   return (
     <div className='space-y-4'>
       <div className='flex items-center justify-between'>
-        <h3 className='font-medium text-sm'>Document Tags</h3>
+        <h3 className='font-medium text-sm'>{t('documentTagsTitle')}</h3>
       </div>
 
       {/* Tags as Badges */}
@@ -282,7 +284,7 @@ export function DocumentTagEntry({
             className='cursor-pointer gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-card'
             onClick={() => openTagModal(index)}
           >
-            <span className='font-medium'>{tag.displayName || 'Unnamed Tag'}</span>
+            <span className='font-medium'>{tag.displayName || t('unnamedTag')}</span>
             {tag.value && (
               <>
                 <span className='text-muted-foreground'>:</span>
@@ -313,34 +315,34 @@ export function DocumentTagEntry({
           className='gap-1 border-dashed text-muted-foreground hover:text-foreground'
         >
           <Plus className='h-4 w-4' />
-          Add Tag
+          {t('addTag')}
         </Button>
       </div>
 
       {tags.length === 0 && (
         <div className='rounded-md border border-dashed p-4 text-center'>
           <p className='text-muted-foreground text-sm'>
-            No tags added yet. Click "Add Tag" to get started.
+            {t('emptyState')}
           </p>
         </div>
       )}
 
       <div className='text-muted-foreground text-xs'>
-        {kbTagDefinitions.length} of {MAX_TAG_SLOTS} tag slots used
+        {t('slotsUsed', { used: kbTagDefinitions.length, total: MAX_TAG_SLOTS })}
       </div>
 
       {/* Tag Edit Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className='sm:max-w-md'>
           <DialogHeader>
-            <DialogTitle>{editingTagIndex !== null ? 'Edit Tag' : 'Add New Tag'}</DialogTitle>
+            <DialogTitle>{editingTagIndex !== null ? t('editTag') : t('addNewTag')}</DialogTitle>
           </DialogHeader>
 
           <div className='space-y-4'>
             {/* Tag Name */}
             <div className='space-y-2'>
               <div className='flex items-center gap-2'>
-                <Label htmlFor='tag-name'>Tag Name</Label>
+                <Label htmlFor='tag-name'>{t('tagName')}</Label>
                 {editingTagIndex !== null && (
                   <TooltipProvider>
                     <Tooltip>
@@ -348,10 +350,7 @@ export function DocumentTagEntry({
                         <Info className='h-4 w-4 cursor-help text-muted-foreground' />
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p className='text-sm'>
-                          Changing this tag name will update it for all documents in this knowledge
-                          base
-                        </p>
+                          <p className='text-sm'>{t('tagNameChangeWarning')}</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -362,7 +361,7 @@ export function DocumentTagEntry({
                   id='tag-name'
                   value={editForm.displayName}
                   onChange={(e) => setEditForm({ ...editForm, displayName: e.target.value })}
-                  placeholder='Enter tag name'
+                  placeholder={t('enterTagName')}
                   className='flex-1'
                 />
                 {editingTagIndex === null && availableDefinitions.length > 0 && (
@@ -395,7 +394,7 @@ export function DocumentTagEntry({
 
             {/* Tag Type */}
             <div className='space-y-2'>
-              <Label htmlFor='tag-type'>Type</Label>
+              <Label htmlFor='tag-type'>{t('type')}</Label>
               <Select
                 value={editForm.fieldType}
                 onValueChange={(value) => setEditForm({ ...editForm, fieldType: value })}
@@ -405,19 +404,19 @@ export function DocumentTagEntry({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value='text'>Text</SelectItem>
+                  <SelectItem value='text'>{t('text')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Tag Value */}
             <div className='space-y-2'>
-              <Label htmlFor='tag-value'>Value</Label>
+              <Label htmlFor='tag-value'>{t('value')}</Label>
               <Input
                 id='tag-value'
                 value={editForm.value}
                 onChange={(e) => setEditForm({ ...editForm, value: e.target.value })}
-                placeholder='Enter tag value'
+                placeholder={t('enterTagValue')}
               />
             </div>
           </div>
@@ -426,18 +425,17 @@ export function DocumentTagEntry({
           {editingTagIndex === null && kbTagDefinitions.length >= MAX_TAG_SLOTS && (
             <div className='rounded-md border border-yellow-200 bg-yellow-50 p-3'>
               <div className='flex items-center gap-2 text-yellow-800 text-sm'>
-                <span className='font-medium'>Maximum tag definitions reached</span>
+                <span className='font-medium'>{t('maximumTagDefinitionsReached')}</span>
               </div>
               <p className='mt-1 text-yellow-700 text-xs'>
-                You can still use existing tag definitions from the dropdown, but cannot create new
-                ones.
+                {t('maximumTagDefinitionsHelp')}
               </p>
             </div>
           )}
 
           <div className='flex justify-end gap-2 pt-4'>
             <Button variant='outline' onClick={() => setModalOpen(false)}>
-              Cancel
+              {t('cancel')}
             </Button>
             <Button
               onClick={saveTagFromModal}
@@ -461,7 +459,7 @@ export function DocumentTagEntry({
             >
               {(() => {
                 if (editingTagIndex !== null) {
-                  return 'Save Changes'
+                  return t('saveChanges')
                 }
 
                 const existingDefinition = kbTagDefinitions.find(
@@ -469,12 +467,12 @@ export function DocumentTagEntry({
                 )
 
                 if (existingDefinition) {
-                  return 'Use Existing Tag'
+                  return t('useExistingTag')
                 }
                 if (kbTagDefinitions.length >= MAX_TAG_SLOTS) {
-                  return 'Max Tags Reached'
+                  return t('maxTagsReached')
                 }
-                return 'Create New Tag'
+                return t('createNewTag')
               })()}
             </Button>
           </div>

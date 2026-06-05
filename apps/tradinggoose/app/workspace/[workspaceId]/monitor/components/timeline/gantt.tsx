@@ -15,6 +15,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Slider } from '@/components/ui/slider'
+import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
+import { formatDurationMs, formatLocalizedNumber, formatUsd } from '@/i18n/formatters'
+import { formatTemplate } from '@/i18n/utils'
 import { cn } from '@/lib/utils'
 import {
   formatMonitorTimelineHeaderGroup,
@@ -84,17 +87,6 @@ const MAX_TIMELINE_COLUMNS = 360
 const TIMELINE_ITEM_HEIGHT = 32
 const TIMELINE_ITEM_GAP = 8
 const TIMELINE_ROW_PADDING = 10
-const FIELD_SUM_LABELS: Record<ExecutionMonitorFieldSum, string> = {
-  count: 'Count',
-  durationMs: 'Duration',
-  cost: 'Cost',
-}
-
-const TIMELINE_ZOOM_LABELS: Record<ExecutionMonitorTimelineZoom, string> = {
-  day: 'Day',
-  week: 'Week',
-  month: 'Month',
-}
 
 const getTimelinePaddingUnits = (zoom: ExecutionMonitorTimelineZoom) => {
   switch (zoom) {
@@ -382,22 +374,25 @@ const getItemMetrics = (
   }
 }
 
-const formatAggregateValue = (field: string, value: unknown) => {
+const formatAggregateValue = (field: string, value: unknown, locale: string) => {
   if (typeof value !== 'number') {
     return String(value)
   }
 
   if (field === 'count') {
-    return value.toFixed(0)
+    return formatLocalizedNumber(locale, value, { maximumFractionDigits: 0 })
   }
   if (field === 'cost') {
-    return `$${value.toFixed(4)}`
+    return formatUsd(locale, value, {
+      minimumFractionDigits: 4,
+      maximumFractionDigits: 4,
+    })
   }
   if (field === 'durationMs') {
-    return `${value.toFixed(0)}ms`
+    return formatDurationMs(locale, value)
   }
 
-  return value.toFixed(2)
+  return formatLocalizedNumber(locale, value, { maximumFractionDigits: 2 })
 }
 
 const differenceInColumnUnits = (right: Date, left: Date, density: TimelineDensity) =>
@@ -416,12 +411,23 @@ export function Gantt({
   onZoomChange,
   onScaleChange,
 }: GanttProps) {
+  const { copy, locale } = useMonitorCopy()
+  const fieldSumLabels: Record<ExecutionMonitorFieldSum, string> = {
+    count: copy.fields.count,
+    durationMs: copy.fields.duration,
+    cost: copy.fields.cost,
+  }
+  const timelineZoomLabels: Record<ExecutionMonitorTimelineZoom, string> = {
+    day: copy.timeline.zoom.day,
+    week: copy.timeline.zoom.week,
+    month: copy.timeline.zoom.month,
+  }
   const scrollRef = useRef<HTMLDivElement>(null)
   const pendingScrollAdjustmentRef = useRef(0)
   const centeredSeedRef = useRef<string | null>(null)
   const renderedGroups = groups.length
     ? groups
-    : [{ id: 'current-view', label: 'Current view', aggregates: {}, items: [] }]
+    : [{ id: 'current-view', label: copy.timeline.currentView, aggregates: {}, items: [] }]
   const timelineSeed = useMemo(() => getTimelineSeed(groups), [groups])
   const initialWindow = useMemo(() => getTimelineBounds(groups, zoom), [timelineSeed, zoom])
   const initialWindowKey = `${zoom}:${initialWindow.start.toISOString()}:${initialWindow.end.toISOString()}`
@@ -540,16 +546,16 @@ export function Gantt({
   return (
     <Card className='flex h-full min-h-0 flex-col overflow-hidden rounded-xl border bg-card/40'>
       <div className='flex h-11 shrink-0 items-center gap-3 border-b px-2'>
-        <div className='shrink-0 px-2 font-medium text-sm'>Timeline</div>
+        <div className='shrink-0 px-2 font-medium text-sm'>{copy.timeline.title}</div>
         <div
           role='menubar'
-          aria-label='Timeline range controls'
+          aria-label={copy.timeline.controlsLabel}
           className='flex min-w-0 flex-1 items-center justify-end gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
         >
           <div className='flex h-8 shrink-0 items-center gap-2 rounded-md px-2 text-muted-foreground text-xs'>
-            <span className='shrink-0'>Scale</span>
+            <span className='shrink-0'>{copy.timeline.scaleLabel}</span>
             <Slider
-              aria-label='Timeline scale'
+              aria-label={copy.timeline.scaleAriaLabel}
               className='w-28'
               disabled={controlsDisabled}
               min={MONITOR_TIMELINE_SCALE_MIN}
@@ -570,18 +576,23 @@ export function Gantt({
             value={zoom}
             disabled={controlsDisabled}
             triggerClassName='h-8 w-auto shrink-0 px-2'
-            searchPlaceholder='Search zoom levels...'
+            searchPlaceholder={copy.timeline.searchZoomLevels}
             options={EXECUTION_MONITOR_TIMELINE_ZOOM.map((timelineZoom) => ({
               value: timelineZoom,
-              label: `Zoom: ${TIMELINE_ZOOM_LABELS[timelineZoom]}`,
-              searchValue: `${timelineZoom} ${TIMELINE_ZOOM_LABELS[timelineZoom]}`,
+              label: formatTemplate(copy.timeline.zoomLabel, {
+                zoom: timelineZoomLabels[timelineZoom],
+              }),
+              searchValue: `${timelineZoom} ${timelineZoomLabels[timelineZoom]}`,
             }))}
             onValueChange={(value) => onZoomChange?.(value as ExecutionMonitorTimelineZoom)}
             renderTriggerValue={(selected) => (
               <>
                 <ZoomIn className='mr-2 h-4 w-4' />
                 <span className='shrink-0 text-foreground'>
-                  {selected?.label ?? `Zoom: ${TIMELINE_ZOOM_LABELS[zoom]}`}
+                  {selected?.label ??
+                    formatTemplate(copy.timeline.zoomLabel, {
+                      zoom: timelineZoomLabels[zoom],
+                    })}
                 </span>
               </>
             )}
@@ -595,7 +606,7 @@ export function Gantt({
             disabled={controlsDisabled}
             onClick={scrollToToday}
           >
-            Today
+            {copy.shared.today}
           </Button>
 
           <Button
@@ -604,7 +615,7 @@ export function Gantt({
             size='icon'
             className='h-8 w-8 shrink-0 rounded-md'
             disabled={controlsDisabled}
-            aria-label='Scroll to previous date range'
+            aria-label={copy.timeline.scrollPrevious}
             onClick={() => scrollDateRange('previous')}
           >
             <ChevronLeft className='h-4 w-4' />
@@ -615,7 +626,7 @@ export function Gantt({
             size='icon'
             className='h-8 w-8 shrink-0 rounded-md'
             disabled={controlsDisabled}
-            aria-label='Scroll to next date range'
+            aria-label={copy.timeline.scrollNext}
             onClick={() => scrollDateRange('next')}
           >
             <ChevronRight className='h-4 w-4' />
@@ -626,7 +637,7 @@ export function Gantt({
       <div className='flex min-h-0 flex-1 overflow-hidden'>
         <div className='w-[240px] shrink-0 border-r bg-background/70'>
           <div className='flex h-16 items-center border-b px-4 text-muted-foreground text-sm'>
-            Groups
+            {copy.timeline.groupsTitle}
           </div>
           <div className='divide-y'>
             {renderedGroups.map((group) => {
@@ -644,7 +655,9 @@ export function Gantt({
                 >
                   <div className='truncate font-medium text-sm'>{group.label}</div>
                   <div className='text-muted-foreground text-xs'>
-                    {group.items.length} executions
+                    {formatTemplate(copy.shared.executionsCount, {
+                      count: group.items.length,
+                    })}
                   </div>
                   {aggregateEntries.length > 0 ? (
                     <div className='mt-2 flex flex-wrap gap-1.5 text-[11px] text-muted-foreground'>
@@ -654,8 +667,8 @@ export function Gantt({
                           variant='outline'
                           className='rounded-sm font-normal text-[11px]'
                         >
-                          {FIELD_SUM_LABELS[field as ExecutionMonitorFieldSum] ?? field}:{' '}
-                          {formatAggregateValue(field, value)}
+                          {fieldSumLabels[field as ExecutionMonitorFieldSum] ?? field}:{' '}
+                          {formatAggregateValue(field, value, locale)}
                         </Badge>
                       ))}
                     </div>
@@ -763,7 +776,7 @@ export function Gantt({
                   <div className='relative z-[1]' style={{ height: rowHeight }}>
                     {group.items.length === 0 ? (
                       <div className='flex h-full items-center px-4 text-muted-foreground text-sm'>
-                        No executions in this group
+                        {copy.timeline.noExecutionsInGroup}
                       </div>
                     ) : (
                       group.items.map((item, index) => {
@@ -792,7 +805,7 @@ export function Gantt({
                                 variant='secondary'
                                 className='ml-2 border-0 bg-black/20 text-[10px] text-white hover:bg-black/20'
                               >
-                                Orphaned
+                                {copy.execution.orphaned}
                               </Badge>
                             ) : null}
                             {item.isPartial ? (
@@ -800,7 +813,7 @@ export function Gantt({
                                 variant='secondary'
                                 className='ml-2 border-0 bg-black/20 text-[10px] text-white hover:bg-black/20'
                               >
-                                Partial
+                                {copy.execution.partial}
                               </Badge>
                             ) : null}
                           </button>

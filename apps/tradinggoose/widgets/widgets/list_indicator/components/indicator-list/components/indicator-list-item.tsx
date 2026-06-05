@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Copy, Activity, Pencil, Trash2 } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -13,6 +14,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useMessages } from 'next-intl'
 import { cn } from '@/lib/utils'
 import type { IndicatorDefinition } from '@/stores/indicators/types'
 
@@ -39,13 +41,15 @@ export function IndicatorListItem({
   isCopying,
   isDeleting,
 }: IndicatorListItemProps) {
+  const locale = useLocale()
+  const copy = useMessages().workspace.widgets.indicatorList.listItem
   const [isHovered, setIsHovered] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(indicator.name ?? '')
   const [isRenaming, setIsRenaming] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const nameLabel = indicator.name || 'Untitled indicator'
+  const nameLabel = indicator.name || copy.untitledIndicator
 
   useEffect(() => {
     setEditValue(indicator.name ?? '')
@@ -217,7 +221,7 @@ export function IndicatorListItem({
               }}
             >
               <Copy className='!h-3.5 !w-3.5' />
-              <span className='sr-only'>Duplicate indicator</span>
+              <span className='sr-only'>{copy.duplicateIndicator}</span>
             </Button>
             <Button
               variant='ghost'
@@ -229,7 +233,7 @@ export function IndicatorListItem({
               }}
             >
               <Pencil className='!h-3.5 !w-3.5' />
-              <span className='sr-only'>Rename indicator</span>
+              <span className='sr-only'>{copy.renameIndicator}</span>
             </Button>
             <Button
               variant='ghost'
@@ -239,7 +243,7 @@ export function IndicatorListItem({
               className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground disabled:opacity-50'
             >
               <Trash2 className='!h-3.5 !w-3.5' />
-              <span className='sr-only'>Delete indicator</span>
+              <span className='sr-only'>{copy.deleteIndicator}</span>
             </Button>
           </div>
         )}
@@ -255,15 +259,17 @@ export function IndicatorListItem({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete indicator?</AlertDialogTitle>
+            <AlertDialogTitle>{copy.deleteDialogTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              Deleting this indicator will permanently remove its code and configuration.{' '}
-              <span className='text-red-500 dark:text-red-500'>This action cannot be undone.</span>
+              {copy.deleteDialogDescription}{' '}
+              <span className='text-red-500 dark:text-red-500'>
+                {copy.deleteDialogDescriptionHighlight}
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className='flex'>
             <AlertDialogCancel className='h-9 w-full rounded-sm' disabled={isDeleting}>
-              Cancel
+              {copy.cancel}
             </AlertDialogCancel>
             <Button
               onClick={(event) => {
@@ -274,7 +280,7 @@ export function IndicatorListItem({
               variant='destructive'
               className='h-9 w-full rounded-sm'
             >
-              Delete
+              {copy.delete}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

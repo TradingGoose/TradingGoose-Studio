@@ -6,6 +6,7 @@ import type { NextResponse } from 'next/server'
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { env } from '@/lib/env'
+import { CHAT_ERROR_CODES } from '@/app/chat/constants'
 
 vi.mock('@tradinggoose/db', () => ({
   db: {
@@ -234,7 +235,7 @@ describe('Chat API Utils', () => {
       const result = await validateChatAuth('request-id', deployment, mockRequest)
 
       expect(result.authorized).toBe(false)
-      expect(result.error).toBe('auth_required_password')
+      expect(result.code).toBe(CHAT_ERROR_CODES.AUTH_REQUIRED_PASSWORD)
     })
 
     it('should validate password for POST requests', async () => {
@@ -287,7 +288,7 @@ describe('Chat API Utils', () => {
       const result = await validateChatAuth('request-id', deployment, mockRequest, parsedBody)
 
       expect(result.authorized).toBe(false)
-      expect(result.error).toBe('Invalid password')
+      expect(result.code).toBe(CHAT_ERROR_CODES.INVALID_PASSWORD)
     })
 
     it('should request email auth for email-protected chats', async () => {
@@ -309,7 +310,7 @@ describe('Chat API Utils', () => {
       const result = await validateChatAuth('request-id', deployment, mockRequest)
 
       expect(result.authorized).toBe(false)
-      expect(result.error).toBe('auth_required_email')
+      expect(result.code).toBe(CHAT_ERROR_CODES.AUTH_REQUIRED_EMAIL)
     })
 
     it('should check allowed emails for email auth', async () => {
@@ -332,19 +333,19 @@ describe('Chat API Utils', () => {
         email: 'user@example.com',
       })
       expect(result1.authorized).toBe(false)
-      expect(result1.error).toBe('otp_required')
+      expect(result1.code).toBe(CHAT_ERROR_CODES.OTP_REQUIRED)
 
       const result2 = await validateChatAuth('request-id', deployment, mockRequest, {
         email: 'other@company.com',
       })
       expect(result2.authorized).toBe(false)
-      expect(result2.error).toBe('otp_required')
+      expect(result2.code).toBe(CHAT_ERROR_CODES.OTP_REQUIRED)
 
       const result3 = await validateChatAuth('request-id', deployment, mockRequest, {
         email: 'user@unknown.com',
       })
       expect(result3.authorized).toBe(false)
-      expect(result3.error).toBe('Email not authorized')
+      expect(result3.code).toBe(CHAT_ERROR_CODES.EMAIL_NOT_AUTHORIZED)
     })
   })
 

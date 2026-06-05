@@ -10,6 +10,47 @@ import type {
 
 const logger = createLogger('KnowledgeQueries')
 
+export type KnowledgeQueryErrorCode =
+  | 'failedToFetchKnowledgeBases'
+  | 'failedToFetchKnowledgeBase'
+  | 'failedToFetchDocuments'
+  | 'failedToFetchChunks'
+
+export class KnowledgeQueryError extends Error {
+  code: KnowledgeQueryErrorCode
+
+  constructor(code: KnowledgeQueryErrorCode) {
+    super(code)
+    this.name = 'KnowledgeQueryError'
+    this.code = code
+  }
+}
+
+export function getKnowledgeQueryErrorCode(error: unknown): KnowledgeQueryErrorCode | null {
+  if (error instanceof KnowledgeQueryError) {
+    return error.code
+  }
+
+  return null
+}
+
+export function getKnowledgeQueryErrorMessage(error: unknown): string | null {
+  const code = getKnowledgeQueryErrorCode(error)
+
+  switch (code) {
+    case 'failedToFetchKnowledgeBases':
+      return 'Failed to fetch knowledge bases'
+    case 'failedToFetchKnowledgeBase':
+      return 'Failed to fetch knowledge base'
+    case 'failedToFetchDocuments':
+      return 'Failed to fetch documents'
+    case 'failedToFetchChunks':
+      return 'Failed to fetch chunks'
+    default:
+      return error instanceof Error ? error.message : null
+  }
+}
+
 export const knowledgeKeys = {
   all: ['knowledge'] as const,
   list: (workspaceId: string) => [...knowledgeKeys.all, 'list', workspaceId] as const,
@@ -32,12 +73,12 @@ export async function fetchKnowledgeBases(workspaceId: string): Promise<Knowledg
   const response = await fetch(url)
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch knowledge bases: ${response.status} ${response.statusText}`)
+    throw new KnowledgeQueryError('failedToFetchKnowledgeBases')
   }
 
   const result = await response.json()
   if (result?.success === false) {
-    throw new Error(result.error || 'Failed to fetch knowledge bases')
+    throw new KnowledgeQueryError('failedToFetchKnowledgeBases')
   }
 
   return Array.isArray(result?.data) ? result.data : []
@@ -47,12 +88,12 @@ export async function fetchKnowledgeBase(knowledgeBaseId: string): Promise<Knowl
   const response = await fetch(`/api/knowledge/${knowledgeBaseId}`)
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch knowledge base: ${response.status} ${response.statusText}`)
+    throw new KnowledgeQueryError('failedToFetchKnowledgeBase')
   }
 
   const result = await response.json()
   if (!result?.success || !result?.data) {
-    throw new Error(result?.error || 'Failed to fetch knowledge base')
+    throw new KnowledgeQueryError('failedToFetchKnowledgeBase')
   }
 
   return result.data
@@ -94,12 +135,12 @@ export async function fetchKnowledgeDocuments({
   const response = await fetch(url)
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch documents: ${response.status} ${response.statusText}`)
+    throw new KnowledgeQueryError('failedToFetchDocuments')
   }
 
   const result = await response.json()
   if (!result?.success) {
-    throw new Error(result?.error || 'Failed to fetch documents')
+    throw new KnowledgeQueryError('failedToFetchDocuments')
   }
 
   const documents: DocumentData[] = result.data?.documents ?? result.data ?? []
@@ -152,12 +193,12 @@ export async function fetchKnowledgeChunks({
   )
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch chunks: ${response.status} ${response.statusText}`)
+    throw new KnowledgeQueryError('failedToFetchChunks')
   }
 
   const result = await response.json()
   if (!result?.success) {
-    throw new Error(result?.error || 'Failed to fetch chunks')
+    throw new KnowledgeQueryError('failedToFetchChunks')
   }
 
   const chunks: ChunkData[] = result.data ?? []

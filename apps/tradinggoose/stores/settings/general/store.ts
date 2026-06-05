@@ -1,5 +1,5 @@
-import { createWithEqualityFn as create } from 'zustand/traditional'
 import { devtools, persist } from 'zustand/middleware'
+import { createWithEqualityFn as create } from 'zustand/traditional'
 import { createLogger } from '@/lib/logs/console/logger'
 import { syncThemeToNextThemes } from '@/lib/theme-sync'
 import type { General, GeneralStore, UserSettings } from '@/stores/settings/general/types'
@@ -12,6 +12,7 @@ export const useGeneralStore = create<GeneralStore>()(
       (set, get) => {
         const store: General = {
           theme: 'system',
+          preferredLocale: 'en',
           telemetryEnabled: true,
           isLoading: false,
           error: null,
@@ -76,11 +77,6 @@ export const useGeneralStore = create<GeneralStore>()(
             )
           },
           updateSetting: async (key, value) => {
-            if (typeof window !== 'undefined' && window.location.pathname.startsWith('/chat/')) {
-              logger.debug(`Skipping setting update for ${key} on chat page`)
-              return
-            }
-
             try {
               const apiKey =
                 key === 'isBillingUsageNotificationsEnabled'
@@ -97,7 +93,7 @@ export const useGeneralStore = create<GeneralStore>()(
                 throw new Error(`Failed to update setting: ${key}`)
               }
 
-              set({ error: null })
+              set({ [key]: value, error: null } as Partial<General>)
             } catch (error) {
               logger.error(`Error updating setting ${key}:`, error)
               set({ error: error instanceof Error ? error.message : 'Unknown error' })

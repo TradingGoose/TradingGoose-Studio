@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Check, ChevronDown, Workflow } from 'lucide-react'
 import {
   DropdownMenu,
@@ -16,13 +16,15 @@ import {
 } from '@/components/widget-header-control'
 import { LandingWidgetShell } from '../market-preview/landing-widget-shell'
 import { WorkflowPreviewCanvas } from './workflow-preview-canvas'
-import { TRADING_AGENT_WORKFLOW_DEMOS, type WorkflowPreviewDemo } from './workflow-preview-demos'
+import type { WorkflowPreviewDemo } from './workflow-preview-demos'
 
 function WorkflowSelector({
   selectedDemo,
+  demos,
   onSelect,
 }: {
   selectedDemo: WorkflowPreviewDemo
+  demos: WorkflowPreviewDemo[]
   onSelect: (demo: WorkflowPreviewDemo) => void
 }) {
   return (
@@ -62,7 +64,7 @@ function WorkflowSelector({
         sideOffset={6}
         className={`${widgetHeaderMenuContentClassName} w-[260px]`}
       >
-        {TRADING_AGENT_WORKFLOW_DEMOS.map((demo) => {
+        {demos.map((demo) => {
           const isSelected = demo.id === selectedDemo.id
 
           return (
@@ -94,8 +96,26 @@ function WorkflowSelector({
   )
 }
 
-export function WorkflowPreview() {
-  const [selectedDemo, setSelectedDemo] = useState(TRADING_AGENT_WORKFLOW_DEMOS[0])
+export interface WorkflowPreviewProps {
+  demos: WorkflowPreviewDemo[]
+}
+
+export function WorkflowPreview({ demos }: WorkflowPreviewProps) {
+  const [selectedDemo, setSelectedDemo] = useState<WorkflowPreviewDemo | null>(demos[0] ?? null)
+
+  useEffect(() => {
+    setSelectedDemo((current) => {
+      if (demos.length === 0) {
+        return null
+      }
+
+      return demos.find((demo) => demo.id === current?.id) ?? demos[0]!
+    })
+  }, [demos])
+
+  if (demos.length === 0 || !selectedDemo) {
+    return null
+  }
 
   return (
     <div className='flex h-full min-h-[560px] flex-col gap-4'>
@@ -105,13 +125,14 @@ export function WorkflowPreview() {
         headerCenter={
           <WorkflowSelector
             selectedDemo={selectedDemo}
+            demos={demos}
             onSelect={(demo) => setSelectedDemo(demo)}
           />
         }
       >
         <WorkflowPreviewCanvas
           workflowKey={selectedDemo.id}
-          workflowState={selectedDemo.workflowState}
+          previewPayload={selectedDemo.previewPayload}
           className='h-full w-full flex-1'
         />
       </LandingWidgetShell>

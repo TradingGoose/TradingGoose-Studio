@@ -2,6 +2,7 @@
 
 import { type FC, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { X } from 'lucide-react'
+import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import { isHiddenCopilotContext } from '@/lib/copilot/chat-contexts'
 import {
   EDIT_REPLAY_BLOCKED_MESSAGE,
@@ -119,6 +120,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     sendDisabled = false,
     onEditModeChange,
   }) => {
+    const copilotCopy = useCopilotMessages()
     const isUser = message.role === 'user'
     const isAssistant = message.role === 'assistant'
     const [isEditMode, setIsEditMode] = useState(false)
@@ -585,7 +587,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 disabled={sendDisabled}
                 value={editedContent}
                 onChange={setEditedContent}
-                placeholder='Edit your message...'
+                placeholder={copilotCopy.message.editPlaceholder}
                 accessLevel={accessLevel}
                 onAccessLevelChange={setAccessLevel}
                 panelWidth={panelWidth}
@@ -641,7 +643,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                         abortMessage()
                       }}
                       className='flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white transition-all duration-200 hover:bg-red-600'
-                      title='Stop generation'
+                      title={copilotCopy.message.stopGeneration}
                     >
                       <X className='h-4 w-4' />
                     </button>
@@ -668,7 +670,9 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
             {/* Citations if available */}
             {message.citations && message.citations.length > 0 && (
               <div className='pt-1'>
-                <div className='font-medium text-muted-foreground text-xs'>Sources:</div>
+                <div className='font-medium text-muted-foreground text-xs'>
+                  {copilotCopy.message.sources}
+                </div>
                 <div className='flex flex-wrap gap-2'>
                   {message.citations.map((citation) => (
                     <a

@@ -2,6 +2,7 @@
 
 import { Plus, Search } from 'lucide-react'
 import { useParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import {
   ChunkTableSkeleton,
   KnowledgeHeader,
@@ -21,11 +22,12 @@ export function DocumentLoading({
 }: DocumentLoadingProps) {
   const params = useParams()
   const workspaceId = params?.workspaceId as string
+  const t = useTranslations('workspace.knowledge')
 
   const breadcrumbs = [
     {
       id: 'knowledge-root',
-      label: 'Knowledge',
+      label: t('title'),
       href: `/workspace/${workspaceId}/knowledge`,
     },
     {
@@ -45,7 +47,7 @@ export function DocumentLoading({
         <Search className='-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 z-10 h-4 w-4 text-muted-foreground' />
         <input
           type='text'
-          placeholder='Search chunks...'
+          placeholder={t('chunkModal.searchChunksPlaceholder')}
           value=''
           disabled
           className='flex h-9 w-full rounded-md border border-input bg-background pr-9 pl-10 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm'
@@ -57,7 +59,7 @@ export function DocumentLoading({
       </div>
       <PrimaryButton disabled className='h-9 rounded-sm px-3'>
         <Plus className='h-3.5 w-3.5' />
-        <span>Create Chunk</span>
+        <span>{t('chunkModal.createButton')}</span>
       </PrimaryButton>
     </div>
   )

@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { defaultLocale } from '@/i18n/utils'
 import { getWidgetCategories, getWidgetDefinition } from '@/widgets/registry'
 
 describe('widget registry categories', () => {
   it('orders selector categories with trading first', () => {
-    const categories = getWidgetCategories()
+    const categories = getWidgetCategories(getPublicCopy(defaultLocale).workspace.widgets)
 
     expect(categories.map((category) => category.key)).toEqual([
       'trading',
@@ -15,12 +17,12 @@ describe('widget registry categories', () => {
       'Trading',
       'Lists',
       'Editor',
-      'Utils',
+      'Utility',
     ])
   })
 
   it('groups trading widgets under Trading and leaves Utils for non-trading widgets', () => {
-    const categories = getWidgetCategories()
+    const categories = getWidgetCategories(getPublicCopy(defaultLocale).workspace.widgets)
     const tradingCategory = categories.find((category) => category.key === 'trading')
     const utilityCategory = categories.find((category) => category.key === 'utility')
 

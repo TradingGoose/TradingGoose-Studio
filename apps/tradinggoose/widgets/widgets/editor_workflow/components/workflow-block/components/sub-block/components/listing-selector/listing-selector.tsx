@@ -376,6 +376,7 @@ export function ListingSelectorInput({
       }}
       onListingTagSelect={(value) => {
         if (finalDisabled) return
+        if (onChange) return
         emitTagSelection(value)
       }}
     />

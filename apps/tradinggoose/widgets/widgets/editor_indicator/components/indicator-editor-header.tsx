@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, Download, Save } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useMessages } from 'next-intl'
 import { exportIndicatorsAsJson } from '@/lib/indicators/import-export'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useIndicatorsStore } from '@/stores/indicators/store'
@@ -30,6 +32,8 @@ export function IndicatorEditorSelector({
   pairColor = 'gray',
   widgetKey,
 }: IndicatorEditorSelectorProps) {
+  const locale = useLocale()
+  const copy = useMessages().workspace.widgets.indicatorEditor.header
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -60,7 +64,7 @@ export function IndicatorEditorSelector({
       workspaceId={workspaceId}
       value={resolvedIndicatorId ? [resolvedIndicatorId] : []}
       onChange={handleIndicatorChange}
-      placeholder='Select indicator'
+      placeholder={copy.selectIndicator}
       selectionMode='single'
       triggerClassName='min-w-[220px]'
     />
@@ -101,6 +105,8 @@ export function IndicatorEditorExportButton({
   widgetKey,
   pairColor = 'gray',
 }: IndicatorEditorActionButtonProps) {
+  const locale = useLocale()
+  const copy = useMessages().workspace.widgets.indicatorEditor.header
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -138,7 +144,7 @@ export function IndicatorEditorExportButton({
 
   const exportDisabled = !workspaceId || !resolvedIndicatorId || !indicator || isDirty
   const tooltipText =
-    exportDisabled && indicator && isDirty ? 'Save indicator before exporting' : 'Export indicator'
+    exportDisabled && indicator && isDirty ? copy.saveBeforeExporting : copy.exportIndicator
 
   const handleExport = useCallback(() => {
     if (!indicator) return
@@ -164,7 +170,7 @@ export function IndicatorEditorExportButton({
             disabled={exportDisabled}
           >
             <Download className='h-4 w-4' />
-            <span className='sr-only'>Export indicator</span>
+            <span className='sr-only'>{copy.exportIndicator}</span>
           </Button>
         </span>
       </TooltipTrigger>
@@ -180,6 +186,8 @@ export function IndicatorEditorSaveButton({
   widgetKey,
   pairColor = 'gray',
 }: IndicatorEditorActionButtonProps) {
+  const locale = useLocale()
+  const copy = useMessages().workspace.widgets.indicatorEditor.header
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -210,11 +218,11 @@ export function IndicatorEditorSaveButton({
             disabled={saveDisabled}
           >
             <Save className='h-4 w-4' />
-            <span className='sr-only'>Save indicator</span>
+            <span className='sr-only'>{copy.saveIndicator}</span>
           </Button>
         </span>
       </TooltipTrigger>
-      <TooltipContent side='top'>Save indicator</TooltipContent>
+      <TooltipContent side='top'>{copy.saveIndicator}</TooltipContent>
     </Tooltip>
   )
 }
@@ -226,6 +234,8 @@ export function IndicatorEditorVerifyButton({
   widgetKey,
   pairColor = 'gray',
 }: IndicatorEditorActionButtonProps) {
+  const locale = useLocale()
+  const copy = useMessages().workspace.widgets.indicatorEditor.header
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -256,7 +266,7 @@ export function IndicatorEditorVerifyButton({
             disabled={verifyDisabled}
           >
             <Check className='h-4 w-4' />
-            <span className='sr-only'>Verify indicator</span>
+            <span className='sr-only'>{copy.verifyIndicator}</span>
           </Button>
         </span>
       </TooltipTrigger>

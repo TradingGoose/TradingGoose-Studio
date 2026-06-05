@@ -12,11 +12,11 @@ export const titleCase = (value: string | null | undefined) =>
 
 export const uppercase = (value: string | null | undefined) => (value ? value.toUpperCase() : '—')
 
-export function formatDateTime(value: string | null | undefined) {
+export function formatDateTime(value: string | null | undefined, locale?: string) {
   if (!value) return '—'
   const date = new Date(value)
   if (!Number.isFinite(date.getTime())) return '—'
-  return date.toLocaleString([], {
+  return date.toLocaleString(locale, {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -24,11 +24,11 @@ export function formatDateTime(value: string | null | undefined) {
   })
 }
 
-export function formatCompactDateTime(value: string | null | undefined) {
+export function formatCompactDateTime(value: string | null | undefined, locale?: string) {
   if (!value) return '—'
   const date = new Date(value)
   if (!Number.isFinite(date.getTime())) return '—'
-  return date.toLocaleString([], {
+  return date.toLocaleString(locale, {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -56,11 +56,21 @@ export function formatMoney(value: number | string | null | undefined) {
   }).format(numeric)
 }
 
-export function getExecutionPrice(order: RecordsOrder) {
+export function getExecutionPrice(
+  order: RecordsOrder,
+  labels?: {
+    executionPrice: string
+    submittedLimit: string
+  }
+) {
+  const resolvedLabels = labels ?? {
+    executionPrice: 'Execution price',
+    submittedLimit: 'Submitted limit',
+  }
   const executionPrice = order.fillPrice ?? order.averageFillPrice
   if (executionPrice !== null && executionPrice !== undefined && executionPrice !== '') {
     return {
-      label: 'Execution price',
+      label: resolvedLabels.executionPrice,
       value: formatMoney(executionPrice),
     }
   }
@@ -70,12 +80,12 @@ export function getExecutionPrice(order: RecordsOrder) {
     order.submittedPrice !== ''
   ) {
     return {
-      label: 'Submitted limit',
+      label: resolvedLabels.submittedLimit,
       value: formatMoney(order.submittedPrice),
     }
   }
   return {
-    label: 'Execution price',
+    label: resolvedLabels.executionPrice,
     value: '—',
   }
 }

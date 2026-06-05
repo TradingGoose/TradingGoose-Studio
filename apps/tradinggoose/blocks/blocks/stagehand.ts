@@ -50,7 +50,7 @@ export const StagehandBlock: BlockConfig<StagehandExtractResponse> = {
       title: 'Schema',
       type: 'code',
       layout: 'full',
-      placeholder: 'Enter JSON Schema...',
+      placeholder: 'Enter JSON schema...',
       language: 'json',
       generationType: 'json-schema',
       required: true,

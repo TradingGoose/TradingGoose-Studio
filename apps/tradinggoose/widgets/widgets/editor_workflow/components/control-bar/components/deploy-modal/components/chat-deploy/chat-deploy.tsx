@@ -23,6 +23,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { AuthSelector } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/chat-deploy/components/auth-selector'
 import { IdentifierInput } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/chat-deploy/components/identifier-input'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
+import { useDeploymentCopy } from '@/widgets/widgets/editor_workflow/copy'
 import { OutputSelect } from '@/widgets/widgets/workflow_chat/components/output-select/output-select'
 
 const logger = createLogger('ChatDeploy')
@@ -90,6 +91,8 @@ const buildDraftConfig = (params: {
 }
 
 export function ChatDeploy({ workflowId, blockId, publishedChat, onBusyChange }: ChatDeployProps) {
+  const deploymentCopy = useDeploymentCopy()
+  const copy = deploymentCopy.chat
   const [identifierValue, setIdentifierValue] = useSubBlockValue<string>(
     blockId,
     CHAT_TRIGGER_SUBBLOCK_IDS.identifier
@@ -129,6 +132,7 @@ export function ChatDeploy({ workflowId, blockId, publishedChat, onBusyChange }:
 
   const [passwordInput, setPasswordInput] = useState('')
   const [generalError, setGeneralError] = useState<string | null>(null)
+  const [passwordSaveError, setPasswordSaveError] = useState(false)
   const [isSavingPassword, setIsSavingPassword] = useState(false)
   const [isImageUploading, setIsImageUploading] = useState(false)
   const initialEncryptedPasswordRef = useRef<string | null | undefined>(undefined)
@@ -229,6 +233,7 @@ export function ChatDeploy({ workflowId, blockId, publishedChat, onBusyChange }:
 
     setIsSavingPassword(true)
     setGeneralError(null)
+    setPasswordSaveError(false)
 
     const timeoutId = window.setTimeout(async () => {
       try {
@@ -242,13 +247,13 @@ export function ChatDeploy({ workflowId, blockId, publishedChat, onBusyChange }:
 
         const data = await response.json()
         if (!response.ok) {
-          throw new Error(data.error || 'Failed to save chat password')
+          throw new Error(data.error || copy.failedToSavePassword)
         }
 
         setEncryptedPasswordValue(data.encryptedPassword)
       } catch (error: any) {
         logger.error('Failed to encrypt chat password:', error)
-        setGeneralError(error.message || 'Failed to save chat password')
+        setPasswordSaveError(true)
       } finally {
         setIsSavingPassword(false)
       }
@@ -262,6 +267,7 @@ export function ChatDeploy({ workflowId, blockId, publishedChat, onBusyChange }:
   const handlePasswordChange = (nextPassword: string) => {
     setPasswordInput(nextPassword)
     setGeneralError(null)
+    setPasswordSaveError(false)
 
     if (nextPassword.trim()) {
       return
@@ -274,6 +280,7 @@ export function ChatDeploy({ workflowId, blockId, publishedChat, onBusyChange }:
   const handleAuthTypeChange = (nextAuthType: ChatAuthType) => {
     setAuthTypeValue(nextAuthType)
     setGeneralError(null)
+    setPasswordSaveError(false)
 
     if (nextAuthType !== 'password') {
       setPasswordInput('')
@@ -288,12 +295,13 @@ export function ChatDeploy({ workflowId, blockId, publishedChat, onBusyChange }:
   const publishedUrl = publishedChat?.chatUrl
   const hasSavedPassword = Boolean(draftConfig.encryptedPassword || publishedChat?.hasPassword)
   const isPasswordConfigured = draftConfig.authType !== 'password' || hasSavedPassword
+  const alertMessage = generalError ?? (passwordSaveError ? copy.failedToSavePassword : null)
 
   return (
     <div className='space-y-4'>
       {publishedUrl ? (
         <div className='rounded-md border bg-muted/20 p-3 text-sm'>
-          <div className='font-medium'>Published Chat</div>
+          <div className='font-medium'>{copy.publishedChatTitle}</div>
           <a
             href={publishedUrl}
             target='_blank'
@@ -302,20 +310,18 @@ export function ChatDeploy({ workflowId, blockId, publishedChat, onBusyChange }:
           >
             {publishedUrl}
           </a>
-          <div className='mt-1 text-muted-foreground'>
-            Changes here stay in draft until you deploy the workflow again.
-          </div>
+          <div className='mt-1 text-muted-foreground'>{copy.draftUntilRedeployNotice}</div>
         </div>
       ) : (
         <div className='rounded-md border bg-muted/20 p-3 text-muted-foreground text-sm'>
-          Configure the chat draft here. Deploying the workflow will publish this chat trigger.
+          {deploymentCopy.chatDeploymentDescription}
         </div>
       )}
 
-      {generalError && (
+      {alertMessage && (
         <Alert variant='destructive'>
           <AlertTriangle className='h-4 w-4' />
-          <AlertDescription>{generalError}</AlertDescription>
+          <AlertDescription>{alertMessage}</AlertDescription>
         </Alert>
       )}
 
@@ -329,11 +335,11 @@ export function ChatDeploy({ workflowId, blockId, publishedChat, onBusyChange }:
 
         <div className='space-y-2'>
           <Label htmlFor='chat-title' className='font-medium text-sm'>
-            Chat Title
+            {copy.chatTitle}
           </Label>
           <Input
             id='chat-title'
-            placeholder='Customer Support Assistant'
+            placeholder={copy.chatTitlePlaceholder}
             value={draftConfig.title}
             onChange={(event) => setTitleValue(event.target.value)}
             className='h-10 rounded-sm'
@@ -342,11 +348,11 @@ export function ChatDeploy({ workflowId, blockId, publishedChat, onBusyChange }:
 
         <div className='space-y-2'>
           <Label htmlFor='chat-description' className='font-medium text-sm'>
-            Description
+            {copy.description}
           </Label>
           <Textarea
             id='chat-description'
-            placeholder='A brief description of what this chat does'
+            placeholder={copy.descriptionPlaceholder}
             value={draftConfig.description}
             onChange={(event) => setDescriptionValue(event.target.value)}
             rows={3}
@@ -355,20 +361,18 @@ export function ChatDeploy({ workflowId, blockId, publishedChat, onBusyChange }:
         </div>
 
         <div className='space-y-2'>
-          <Label className='font-medium text-sm'>Chat Output</Label>
+          <Label className='font-medium text-sm'>{copy.chatOutput}</Label>
           <Card className='rounded-sm border-input shadow-none'>
             <CardContent className='p-1'>
               <OutputSelect
                 workflowId={workflowId}
                 selectedOutputs={draftConfig.selectedOutputBlocks}
                 onOutputSelect={setSelectedOutputBlocksValue}
-                placeholder='Select which block outputs to use'
+                placeholder={copy.outputPlaceholder}
               />
             </CardContent>
           </Card>
-          <p className='text-muted-foreground text-xs'>
-            Select which block outputs should be returned to the user in the chat interface.
-          </p>
+          <p className='text-muted-foreground text-xs'>{copy.outputDescription}</p>
         </div>
 
         <AuthSelector
@@ -379,11 +383,7 @@ export function ChatDeploy({ workflowId, blockId, publishedChat, onBusyChange }:
           onPasswordChange={handlePasswordChange}
           onEmailsChange={setAllowedEmailsValue}
           isExistingChat={hasSavedPassword}
-          error={
-            !isPasswordConfigured
-              ? 'Password is required when using password protection'
-              : undefined
-          }
+          error={!isPasswordConfigured ? copy.passwordRequired : undefined}
         />
 
         {draftConfig.authType === 'password' && (
@@ -392,10 +392,10 @@ export function ChatDeploy({ workflowId, blockId, publishedChat, onBusyChange }:
               {isSavingPassword && <Loader2 className='h-3.5 w-3.5 animate-spin' />}
               <span>
                 {isSavingPassword
-                  ? 'Saving password securely...'
+                  ? copy.savingPassword
                   : hasSavedPassword
-                    ? 'A password is already configured. Leave the field blank to keep the saved password.'
-                    : 'Set a password to publish this chat.'}
+                    ? copy.savedPasswordExists
+                    : copy.setPasswordToPublish}
               </span>
             </div>
           </div>
@@ -403,28 +403,27 @@ export function ChatDeploy({ workflowId, blockId, publishedChat, onBusyChange }:
 
         <div className='space-y-2'>
           <Label htmlFor='chat-welcome-message' className='font-medium text-sm'>
-            Welcome Message
+            {copy.welcomeMessage}
           </Label>
           <Textarea
             id='chat-welcome-message'
-            placeholder='Enter a welcome message for your chat'
+            placeholder={copy.welcomeMessagePlaceholder}
             value={draftConfig.welcomeMessage}
             onChange={(event) => setWelcomeMessageValue(event.target.value)}
             rows={3}
             className='min-h-[80px] resize-none rounded-sm'
           />
-          <p className='text-muted-foreground text-xs'>
-            This message is shown when users open the published chat for the first time.
-          </p>
+          <p className='text-muted-foreground text-xs'>{copy.welcomeMessageDescription}</p>
         </div>
 
         <div className='space-y-2'>
-          <Label className='font-medium text-sm'>Chat Logo</Label>
+          <Label className='font-medium text-sm'>{copy.chatLogo}</Label>
           <ImageUpload
             value={draftConfig.imageUrl}
             onUpload={(url) => {
               setImageUrlValue(url || '')
               setGeneralError(null)
+              setPasswordSaveError(false)
             }}
             onError={setGeneralError}
             onUploadStart={setIsImageUploading}
@@ -433,9 +432,7 @@ export function ChatDeploy({ workflowId, blockId, publishedChat, onBusyChange }:
             hideHeader={true}
           />
           {!draftConfig.imageUrl && !isImageUploading && (
-            <p className='text-muted-foreground text-xs'>
-              Upload a logo for your chat (PNG or JPEG, up to 5MB).
-            </p>
+            <p className='text-muted-foreground text-xs'>{copy.chatLogoHint}</p>
           )}
         </div>
       </div>

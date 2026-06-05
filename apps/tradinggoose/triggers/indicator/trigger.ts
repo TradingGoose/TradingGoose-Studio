@@ -10,7 +10,7 @@ export const indicatorTrigger: TriggerConfig = {
   subBlocks: [
     {
       id: 'triggerInstructions',
-      title: 'Setup',
+      title: 'Setup Instructions',
       type: 'text',
       mode: 'trigger',
       defaultValue:

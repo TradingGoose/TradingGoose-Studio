@@ -52,7 +52,7 @@ describe('WidgetSelectorComponent', () => {
 
     expect(content.indexOf('Trading')).toBeLessThan(content.indexOf('Lists'))
     expect(content.indexOf('Lists')).toBeLessThan(content.indexOf('Editor'))
-    expect(content.indexOf('Editor')).toBeLessThan(content.indexOf('Utils'))
+    expect(content.indexOf('Editor')).toBeLessThan(content.indexOf('Utility'))
 
     const tradingStart = content.indexOf('Trading')
     const listsStart = content.indexOf('Lists')
@@ -62,6 +62,6 @@ describe('WidgetSelectorComponent', () => {
     expect(tradingSection).toContain('Heatmap')
     expect(tradingSection).toContain('Portfolio Snapshot')
     expect(tradingSection).toContain('Quick Order')
-    expect(tradingSection).toContain('Data Chart')
+    expect(tradingSection).toContain('Market Data')
   })
 })

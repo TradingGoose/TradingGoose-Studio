@@ -1,8 +1,10 @@
 'use client'
 
 import { useCallback, useMemo, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { useMessages } from 'next-intl'
 import {
   useCreateIndicator,
   useDeleteIndicator,
@@ -34,6 +36,8 @@ export function IndicatorList({
   panelId,
   pairColor = 'gray',
 }: WidgetComponentProps) {
+  const locale = useLocale()
+  const copy = useMessages().workspace.widgets.indicatorList
   const workspaceId = context?.workspaceId ?? null
   const permissions = useUserPermissionsContext()
   const [copyingIds, setCopyingIds] = useState<Set<string>>(new Set())
@@ -150,7 +154,7 @@ export function IndicatorList({
       setCopyingIds((prev) => new Set(prev).add(indicator.id))
 
       try {
-        const copiedName = `${indicator.name || 'Untitled indicator'} (Copy)`
+        const copiedName = `${indicator.name || copy.listItem.untitledIndicator} (Copy)`
         const createdIndicators = await createMutation.mutateAsync({
           workspaceId,
           indicator: {
@@ -198,7 +202,7 @@ export function IndicatorList({
   }
 
   const errorMessage =
-    error instanceof Error ? error.message : error ? 'Failed to load indicators.' : null
+    error instanceof Error ? error.message : error ? copy.body.failedToLoadIndicators : null
 
   if (errorMessage) {
     return <IndicatorListMessage message={errorMessage} />
@@ -207,7 +211,7 @@ export function IndicatorList({
   return (
     <div className='h-full w-full overflow-hidden p-2'>
       {listIndicators.length === 0 ? (
-        <IndicatorListMessage message='No indicators yet.' />
+        <IndicatorListMessage message={copy.body.noIndicatorsYet} />
       ) : (
         <div className='h-full space-y-1 overflow-auto'>
           {listIndicators.map((indicator: IndicatorDefinition) => (

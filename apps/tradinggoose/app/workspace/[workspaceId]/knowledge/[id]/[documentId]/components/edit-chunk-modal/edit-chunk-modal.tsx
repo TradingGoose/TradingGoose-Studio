@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useTranslations } from 'next-intl'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import type { ChunkData, DocumentData } from '@/stores/knowledge/store'
@@ -52,6 +53,7 @@ export function EditChunkModal({
   onNavigateToPage,
 }: EditChunkModalProps) {
   const userPermissions = useUserPermissionsContext()
+  const t = useTranslations('workspace.knowledge.chunkModal')
   const [editedContent, setEditedContent] = useState(chunk?.content || '')
   const [isSaving, setIsSaving] = useState(false)
   const [isNavigating, setIsNavigating] = useState(false)
@@ -98,7 +100,7 @@ export function EditChunkModal({
 
       if (!response.ok) {
         const result = await response.json()
-        throw new Error(result.error || 'Failed to update chunk')
+        throw new Error(result.error || t('errors.failedToUpdateChunk'))
       }
 
       const result = await response.json()
@@ -108,7 +110,7 @@ export function EditChunkModal({
       }
     } catch (err) {
       logger.error('Error updating chunk:', err)
-      setError(err instanceof Error ? err.message : 'An error occurred')
+      setError(err instanceof Error ? err.message : t('errors.generic'))
     } finally {
       setIsSaving(false)
     }
@@ -141,7 +143,9 @@ export function EditChunkModal({
       }
     } catch (err) {
       logger.error(`Error navigating ${direction}:`, err)
-      setError(`Failed to navigate to ${direction === 'prev' ? 'previous' : 'next'} chunk`)
+      setError(
+        direction === 'prev' ? t('errors.failedToNavigatePrev') : t('errors.failedToNavigateNext')
+      )
     } finally {
       setIsNavigating(false)
     }
@@ -189,7 +193,7 @@ export function EditChunkModal({
           <DialogHeader className='flex-shrink-0 border-b px-6 py-4'>
             <div className='flex items-center justify-between'>
               <div className='flex items-center gap-3'>
-                <DialogTitle className='font-medium text-lg'>Edit Chunk</DialogTitle>
+                <DialogTitle className='font-medium text-lg'>{t('editTitle')}</DialogTitle>
 
                 {/* Navigation Controls */}
                 <div className='flex items-center gap-1'>
@@ -210,8 +214,8 @@ export function EditChunkModal({
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side='bottom'>
-                      Previous chunk{' '}
-                      {currentPage > 1 && currentChunkIndex === 0 ? '(previous page)' : ''}
+                      {t('previousChunk')}{' '}
+                      {currentPage > 1 && currentChunkIndex === 0 ? `(${t('previousPage')})` : ''}
                     </TooltipContent>
                   </Tooltip>
 
@@ -232,9 +236,9 @@ export function EditChunkModal({
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side='bottom'>
-                      Next chunk{' '}
+                      {t('nextChunk')}{' '}
                       {currentPage < totalPages && currentChunkIndex === allChunks.length - 1
-                        ? '(next page)'
+                        ? `(${t('nextPage')})`
                         : ''}
                     </TooltipContent>
                   </Tooltip>
@@ -248,7 +252,7 @@ export function EditChunkModal({
                 onClick={handleCloseAttempt}
               >
                 <X className='h-4 w-4' />
-                <span className='sr-only'>Close</span>
+                <span className='sr-only'>{t('close')}</span>
               </Button>
             </div>
           </DialogHeader>
@@ -261,10 +265,10 @@ export function EditChunkModal({
                   <div className='flex items-center gap-3 rounded-lg border bg-muted/30 p-4'>
                     <div className='min-w-0 flex-1'>
                       <p className='font-medium text-sm'>
-                        {document?.filename || 'Unknown Document'}
+                        {document?.filename || t('unknownDocument')}
                       </p>
                       <p className='text-muted-foreground text-xs'>
-                        Editing chunk #{chunk.chunkIndex} • Page {currentPage} of {totalPages}
+                        {t('editingChunk', { index: chunk.chunkIndex, currentPage, totalPages })}
                       </p>
                     </div>
                   </div>
@@ -281,14 +285,14 @@ export function EditChunkModal({
                 {/* Content Input Section - Expands to fill remaining space */}
                 <div className='mt-4 flex flex-1 flex-col'>
                   <Label htmlFor='content' className='mb-2 font-medium text-sm'>
-                    Chunk Content
+                    {t('chunkContent')}
                   </Label>
                   <Textarea
                     id='content'
                     value={editedContent}
                     onChange={(e) => setEditedContent(e.target.value)}
                     placeholder={
-                      userPermissions.canEdit ? 'Enter chunk content...' : 'Read-only view'
+                      userPermissions.canEdit ? t('chunkContentPlaceholder') : t('readOnlyView')
                     }
                     className='flex-1 resize-none'
                     disabled={isSaving || isNavigating || !userPermissions.canEdit}
@@ -306,7 +310,7 @@ export function EditChunkModal({
                   onClick={handleCloseAttempt}
                   disabled={isSaving || isNavigating}
                 >
-                  Cancel
+                  {t('cancel')}
                 </Button>
                 {userPermissions.canEdit && (
                   <Button
@@ -317,12 +321,12 @@ export function EditChunkModal({
                     {isSaving ? (
                       <>
                         <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                        Saving...
+                        {t('saving')}
                       </>
                     ) : (
-                      'Save Changes'
+                      t('saveChanges')
                     )}
-                  </Button>
+                </Button>
                 )}
               </div>
             </div>
@@ -334,12 +338,9 @@ export function EditChunkModal({
       <AlertDialog open={showUnsavedChangesAlert} onOpenChange={setShowUnsavedChangesAlert}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+            <AlertDialogTitle>{t('unsavedChangesTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              You have unsaved changes to this chunk content.
-              {pendingNavigation
-                ? ' Do you want to discard your changes and navigate to the next chunk?'
-                : ' Are you sure you want to discard your changes and close the editor?'}
+              {pendingNavigation ? t('unsavedChangesDescriptionNavigate') : t('unsavedChangesDescriptionClose')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -349,13 +350,13 @@ export function EditChunkModal({
                 setPendingNavigation(null)
               }}
             >
-              Keep Editing
+              {t('keepEditing')}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDiscard}
               className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
             >
-              Discard Changes
+              {t('discardChanges')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

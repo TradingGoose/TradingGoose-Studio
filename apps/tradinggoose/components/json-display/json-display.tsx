@@ -32,6 +32,7 @@ export interface RawJsonViewProps {
   wrapText?: boolean
   redact?: boolean
   className?: string
+  copyLabel?: string
 }
 
 export interface StructuredJsonViewProps {
@@ -45,6 +46,7 @@ export interface StructuredJsonViewProps {
 
 export interface JsonDisplayProps extends StructuredJsonViewProps {
   mode?: JsonDisplayMode
+  copyLabel?: string
 }
 
 export interface JsonDisplayControlsProps {
@@ -56,6 +58,14 @@ export interface JsonDisplayControlsProps {
   disabled?: boolean
   className?: string
   buttonClassName?: string | ((active: boolean) => string)
+  copy?: {
+    showRawTitle?: string
+    showBeautyTitle?: string
+    disableWrapTitle?: string
+    enableWrapTitle?: string
+    toggleModeAriaLabel?: string
+    toggleWrapAriaLabel?: string
+  }
 }
 
 const BADGE_STYLES: Record<ValueType, string> = {
@@ -103,6 +113,7 @@ export const RawJsonView = ({
   wrapText = true,
   redact = true,
   className,
+  copyLabel = 'Copy value',
 }: RawJsonViewProps) => {
   const [contextMenuPosition, setContextMenuPosition] = useState<{
     x: number
@@ -134,7 +145,7 @@ export const RawJsonView = ({
     >
       <pre
         className={cn(
-          'm-0 px-2 font-sm text-sm text-foreground leading-[inherit]',
+          'm-0 px-2 font-sm text-foreground text-sm leading-[inherit]',
           wrapText
             ? 'whitespace-pre-wrap break-words'
             : 'inline-block min-w-full whitespace-pre break-normal'
@@ -151,7 +162,7 @@ export const RawJsonView = ({
             className='w-full px-3 py-1.5 text-left font-[380] text-sm hover:bg-card'
             onClick={() => copyToClipboard(data, redact)}
           >
-            Copy value
+            {copyLabel}
           </button>
         </div>
       )}
@@ -483,6 +494,7 @@ export function JsonDisplayControls({
   disabled = false,
   className,
   buttonClassName,
+  copy,
 }: JsonDisplayControlsProps) {
   const resolveButtonClassName = (active: boolean) =>
     cn(
@@ -490,6 +502,13 @@ export function JsonDisplayControls({
       active && 'text-foreground',
       typeof buttonClassName === 'function' ? buttonClassName(active) : buttonClassName
     )
+  const modeTitle =
+    mode === 'beauty'
+      ? (copy?.showRawTitle ?? 'Show raw JSON')
+      : (copy?.showBeautyTitle ?? 'Show beauty view')
+  const wrapTitle = wrapText
+    ? (copy?.disableWrapTitle ?? 'Disable wrapping')
+    : (copy?.enableWrapTitle ?? 'Enable wrapping')
 
   return (
     <div className={cn('flex items-center gap-1', className)}>
@@ -497,8 +516,8 @@ export function JsonDisplayControls({
         type='button'
         className={resolveButtonClassName(mode === 'beauty')}
         onClick={() => onModeChange(mode === 'beauty' ? 'raw' : 'beauty')}
-        title={mode === 'beauty' ? 'Show raw JSON' : 'Show beauty view'}
-        aria-label='Toggle JSON display mode'
+        title={modeTitle}
+        aria-label={copy?.toggleModeAriaLabel ?? 'Toggle JSON display mode'}
         aria-pressed={mode === 'beauty'}
         disabled={disabled}
       >
@@ -509,8 +528,8 @@ export function JsonDisplayControls({
         type='button'
         className={resolveButtonClassName(wrapText)}
         onClick={() => onWrapTextChange(!wrapText)}
-        title={wrapText ? 'Disable wrapping' : 'Enable wrapping'}
-        aria-label='Toggle JSON text wrapping'
+        title={wrapTitle}
+        aria-label={copy?.toggleWrapAriaLabel ?? 'Toggle JSON text wrapping'}
         aria-pressed={wrapText}
         disabled={disabled}
       >

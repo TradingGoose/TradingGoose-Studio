@@ -1,6 +1,7 @@
 'use client'
 
 import { Label } from '@/components/ui/label'
+import { useWorkflowApiKeyCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 interface ApiKeyProps {
   apiKey: string
@@ -8,6 +9,7 @@ interface ApiKeyProps {
 }
 
 export function ApiKey({ apiKey, showLabel = true }: ApiKeyProps) {
+  const copy = useWorkflowApiKeyCopy()
   // Extract key name and type from the API response format "Name (type)"
   const getKeyInfo = (keyInfo: string) => {
     if (!keyInfo || keyInfo.includes('No API key found')) {
@@ -23,12 +25,18 @@ export function ApiKey({ apiKey, showLabel = true }: ApiKeyProps) {
   }
 
   const { name, type } = getKeyInfo(apiKey)
+  const typeLabel =
+    type === 'workspace'
+      ? copy.workspaceLabel
+      : type === 'personal'
+        ? copy.personalLabel
+        : type
 
   return (
     <div className='space-y-1.5'>
       {showLabel && (
         <div className='flex items-center gap-1.5'>
-          <Label className='font-medium text-sm'>API Key</Label>
+          <Label className='font-medium text-sm'>{copy.apiKey}</Label>
         </div>
       )}
       <div className='rounded-md border bg-background'>
@@ -37,7 +45,7 @@ export function ApiKey({ apiKey, showLabel = true }: ApiKeyProps) {
           {type && (
             <div className='ml-2 flex-shrink-0'>
               <span className='inline-flex items-center rounded-md bg-muted px-2 py-1 font-medium text-muted-foreground text-xs capitalize'>
-                {type}
+                {typeLabel}
               </span>
             </div>
           )}

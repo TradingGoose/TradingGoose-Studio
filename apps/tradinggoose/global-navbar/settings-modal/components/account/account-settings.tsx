@@ -4,13 +4,13 @@ import Image from 'next/image'
 import {
   type ChangeEvent,
   type DragEvent,
-  useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from 'react'
 import { AlertCircle, Check, Info, Loader2, Pencil, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -18,9 +18,9 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { AgentIcon } from '@/components/icons/icons'
+import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useSession } from '@/lib/auth-client'
-import { getBaseUrl } from '@/lib/urls/utils'
 import { useProfilePictureUpload } from '@/global-navbar/settings-modal/components/hooks/use-profile-picture-upload'
 import { useGeneralSettings } from '@/hooks/queries/general-settings'
 import { useGeneralStore } from '@/stores/settings/general/store'
@@ -36,6 +36,8 @@ const toEpochMillis = (value: string | Date | null | undefined): number | null =
 
 export function AccountSettings() {
   const { data: session } = useSession()
+  const authRedirectUrls = useAuthRedirectUrls()
+  const tAccount = useTranslations('workspace.settingsModal.account')
   const userId = session?.user?.id ?? null
 
   // Telemetry state from general store
@@ -70,8 +72,6 @@ export function AccountSettings() {
 
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
-  const [isSaving, setIsSaving] = useState(false)
-  const [message, setMessage] = useState<string | null>(null)
   const [profilePictureError, setProfilePictureError] = useState<string | null>(null)
   const [isDragActive, setIsDragActive] = useState(false)
   const [isSendingReset, setIsSendingReset] = useState(false)
@@ -95,17 +95,13 @@ export function AccountSettings() {
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        const message =
-          typeof errorData?.error === 'string'
-            ? errorData.error
-            : imageUrl
-              ? 'Failed to update profile picture'
-              : 'Failed to remove profile picture'
-        throw new Error(message)
+        throw new Error(
+          imageUrl
+            ? tAccount('status.profilePictureUpdateError')
+            : tAccount('status.profilePictureRemoveError')
+        )
       }
 
-      setMessage('Profile saved.')
       setUserImage(imageUrl)
       const version = Date.now()
       setAvatarVersion(version)
@@ -120,10 +116,10 @@ export function AccountSettings() {
       }
     } catch (error) {
       logger.error('Failed to update profile picture', error)
-      setProfilePictureError(
-        error instanceof Error ? error.message : 'Unable to update profile picture.'
-      )
-      throw error
+      const errorMessage =
+        error instanceof Error ? error.message : tAccount('status.unableToUpdateProfilePicture')
+      setProfilePictureError(errorMessage)
+      throw new Error(errorMessage)
     }
   }
 
@@ -134,16 +130,17 @@ export function AccountSettings() {
     handleFileChange,
     isUploading,
   } = useProfilePictureUpload({
+    messages: {
+      fileTooLarge: (fileName) =>
+        tAccount('status.profilePictureFileTooLarge', { name: fileName }),
+      unsupportedFormat: (fileName) =>
+        tAccount('status.profilePictureUnsupportedFormat', { name: fileName }),
+      uploadFailed: tAccount('status.unableToUpdateProfilePicture'),
+    },
     currentImage: userImage,
     onUpload: async (url) => {
-      try {
-        await updateUserImage(url)
-        setProfilePictureError(null)
-      } catch (error) {
-        setProfilePictureError(
-          error instanceof Error ? error.message : 'Unable to update profile picture.'
-        )
-      }
+      await updateUserImage(url)
+      setProfilePictureError(null)
     },
     onError: (error) => {
       setProfilePictureError(error)
@@ -193,28 +190,6 @@ export function AccountSettings() {
     void fetchProfile()
   }, [session?.user, userId])
 
-  const handleSave = async () => {
-    if (!name.trim()) {
-      setMessage('Please provide a name.')
-      return
-    }
-    setIsSaving(true)
-    setMessage(null)
-    try {
-      await fetch('/api/users/me/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email }),
-      })
-      setMessage('Profile saved.')
-    } catch (error) {
-      logger.error('Failed to save profile', error)
-      setMessage('Unable to save profile settings.')
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
   const startEditingName = () => {
     setEditingNameValue(name)
     setIsEditingName(true)
@@ -234,7 +209,7 @@ export function AccountSettings() {
   const commitEditingName = async () => {
     const trimmedName = editingNameValue.trim()
     if (!trimmedName) {
-      setNameError('Name is required')
+      setNameError(tAccount('status.nameRequiredValidation'))
       editNameInputRef.current?.focus()
       return
     }
@@ -254,17 +229,13 @@ export function AccountSettings() {
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        const message =
-          typeof errorData?.error === 'string' ? errorData.error : 'Failed to update name'
-        setNameError(message)
+        setNameError(tAccount('status.failedUpdateName'))
         editNameInputRef.current?.focus()
         return
       }
 
       setName(trimmedName)
       setIsEditingName(false)
-      setMessage('Profile saved.')
       if (typeof window !== 'undefined') {
         if (userId) {
           window.localStorage.setItem(`user-name-${userId}`, trimmedName)
@@ -273,7 +244,7 @@ export function AccountSettings() {
       }
     } catch (error) {
       logger.error('Error updating name:', error)
-      setNameError('Unable to update name. Please try again.')
+      setNameError(tAccount('status.unableToUpdateName'))
       editNameInputRef.current?.focus()
     } finally {
       setIsUpdatingName(false)
@@ -285,7 +256,7 @@ export function AccountSettings() {
     if (!targetEmail) {
       setPasswordResetStatus({
         type: 'error',
-        message: 'No email address found for this account.',
+        message: tAccount('status.noEmail'),
       })
       return
     }
@@ -295,29 +266,39 @@ export function AccountSettings() {
     try {
       const response = await fetch('/api/auth/forget-password', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: targetEmail,
-          redirectTo: `${getBaseUrl()}/reset-password`,
+          redirectTo: authRedirectUrls.passwordResetUrl(),
         }),
       })
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.message || 'Failed to send password reset email.')
+        const rawMessage =
+          errorData?.message ??
+          errorData?.error?.message ??
+          errorData?.error
+        const normalizedError =
+          typeof rawMessage === 'string' ? rawMessage.trim().toLowerCase() : ''
+
+        if (normalizedError.includes('email is required')) {
+          throw new Error(tAccount('status.noEmail'))
+        }
+
+        throw new Error(tAccount('status.passwordResetFailed'))
       }
 
       setPasswordResetStatus({
         type: 'success',
-        message: 'Password reset link sent to your inbox.',
+        message: tAccount('status.passwordResetSent'),
       })
     } catch (error) {
       logger.error('Error requesting password reset:', error)
       setPasswordResetStatus({
         type: 'error',
-        message: error instanceof Error ? error.message : 'Unable to send password reset email.',
+        message:
+          error instanceof Error ? error.message : tAccount('status.passwordResetFailed'),
       })
     } finally {
       setIsSendingReset(false)
@@ -373,7 +354,7 @@ export function AccountSettings() {
       <div className='grid gap-6 p-6 sm:grid-cols-[280px,1fr] '>
         <Card className='border-none  shadow-none'>
           <CardHeader className='pb-4'>
-            <CardTitle className='text-base font-semibold'>Profile Picture</CardTitle>
+            <CardTitle className='text-base font-semibold'>{tAccount('profilePicture')}</CardTitle>
           </CardHeader>
           <CardContent className='space-y-4'>
             <div
@@ -398,7 +379,7 @@ export function AccountSettings() {
                 {avatarSrc ? (
                   <Image
                     src={avatarSrc}
-                    alt={name || session?.user?.name || 'User'}
+                    alt={name || session?.user?.name || tAccount('profilePictureAlt')}
                     width={96}
                     height={96}
                     className='h-full w-full object-cover'
@@ -413,8 +394,8 @@ export function AccountSettings() {
                 )}
               </div>
               <div className='space-y-1'>
-                <p className='font-medium text-sm'>Drop an image or click to upload</p>
-                <p className='text-muted-foreground text-xs'>PNG or JPG, max 5MB</p>
+                <p className='font-medium text-sm'>{tAccount('dropImage')}</p>
+                <p className='text-muted-foreground text-xs'>{tAccount('imageHint')}</p>
               </div>
             </div>
 
@@ -428,13 +409,15 @@ export function AccountSettings() {
         </Card>
         <Card className='border-none shadow-none'>
           <CardHeader className='space-y-1 pb-5'>
-            <CardTitle className='text-lg font-semibold'>Profile Details</CardTitle>
-            <p className='text-muted-foreground text-sm'>Update your name and manage access.</p>
+            <CardTitle className='text-lg font-semibold'>{tAccount('profileDetails')}</CardTitle>
+            <p className='text-muted-foreground text-sm'>
+              {tAccount('profileDetailsDescription')}
+            </p>
           </CardHeader>
           <CardContent className='space-y-5'>
             <div className='space-y-3'>
               <div className='space-y-1'>
-                <Label htmlFor='accountName'>Full name</Label>
+                <Label htmlFor='accountName'>{tAccount('fullName')}</Label>
                 {isEditingName ? (
                   <div className='py-1.5'>
                     <div className='flex items-center gap-2 max-w-md'>
@@ -476,7 +459,7 @@ export function AccountSettings() {
                         disabled={isUpdatingName}
                       >
                         <Check className='h-3.5 w-3.5' />
-                        <span className='sr-only'>Save name</span>
+                        <span className='sr-only'>{tAccount('saveName')}</span>
                       </button>
                       <button
                         type='button'
@@ -488,7 +471,7 @@ export function AccountSettings() {
                         disabled={isUpdatingName}
                       >
                         <X className='h-3.5 w-3.5' />
-                        <span className='sr-only'>Cancel editing name</span>
+                        <span className='sr-only'>{tAccount('cancelEditingName')}</span>
                       </button>
                     </div>
                     {nameError && <p className='text-destructive text-xs'>{nameError}</p>}
@@ -503,25 +486,27 @@ export function AccountSettings() {
                       disabled={isUpdatingName}
                     >
                       <Pencil className='h-3.5 w-3.5' />
-                      <span className='sr-only'>Edit name</span>
+                      <span className='sr-only'>{tAccount('editName')}</span>
                     </button>
                   </div>
                 )}
               </div>
               <div className='space-y-1'>
-                <Label>Email address</Label>
+                <Label>{tAccount('emailAddress')}</Label>
                 <div className='rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground'>
                   {email || '—'}
                 </div>
-                <p className='text-muted-foreground text-xs'>Email changes are handled by support.</p>
+                <p className='text-muted-foreground text-xs'>{tAccount('emailHint')}</p>
               </div>
             </div>
 
             <div className='rounded-sm border bg-muted/30 px-4 py-4'>
               <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
                 <div>
-                  <Label className='text-sm font-semibold'>Password reset</Label>
-                  <p className='text-muted-foreground text-sm'>We’ll email you a secure link.</p>
+                  <Label className='text-sm font-semibold'>{tAccount('passwordReset')}</Label>
+                  <p className='text-muted-foreground text-sm'>
+                    {tAccount('passwordResetDescription')}
+                  </p>
                 </div>
                 <Button
                   type='button'
@@ -532,10 +517,10 @@ export function AccountSettings() {
                   {isSendingReset ? (
                     <>
                       <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                      Sending…
+                      {tAccount('sending')}
                     </>
                   ) : (
-                    'Send link'
+                    tAccount('sendLink')
                   )}
                 </Button>
               </div>
@@ -555,8 +540,8 @@ export function AccountSettings() {
       <div className='px-6 pb-6'>
         <Card className='border-none shadow-none'>
           <CardHeader className='space-y-1 pb-5'>
-            <CardTitle className='text-lg font-semibold'>Privacy</CardTitle>
-            <p className='text-muted-foreground text-sm'>Manage how your data is collected.</p>
+            <CardTitle className='text-lg font-semibold'>{tAccount('privacy')}</CardTitle>
+            <p className='text-muted-foreground text-sm'>{tAccount('privacyDescription')}</p>
           </CardHeader>
           <CardContent>
             <TooltipProvider>
@@ -564,7 +549,7 @@ export function AccountSettings() {
                 <div className='flex items-center justify-between'>
                   <div className='flex items-center gap-2'>
                     <Label htmlFor='telemetry' className='font-normal'>
-                      Allow anonymous telemetry
+                      {tAccount('telemetry.label')}
                     </Label>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -572,16 +557,14 @@ export function AccountSettings() {
                           variant='ghost'
                           size='sm'
                           className='h-7 p-1 text-gray-500'
-                          aria-label='Learn more about telemetry data collection'
+                          aria-label={tAccount('telemetry.tooltipLabel')}
                           disabled={isTelemetrySettingsLoading || isTelemetryLoading}
                         >
                           <Info className='h-5 w-5' />
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent side='top' className='max-w-[300px] p-3'>
-                        <p className='text-sm'>
-                          We collect anonymous data about feature usage, performance, and errors to improve the application.
-                        </p>
+                        <p className='text-sm'>{tAccount('telemetry.tooltipBody')}</p>
                       </TooltipContent>
                     </Tooltip>
                   </div>
@@ -593,9 +576,7 @@ export function AccountSettings() {
                   />
                 </div>
                 <p className='text-muted-foreground text-xs'>
-                  We use OpenTelemetry to collect anonymous usage data to improve TradingGoose. All data is
-                  collected in accordance with our privacy policy, and you can opt-out at any time.
-                  This setting applies to your account on all devices.
+                  {tAccount('telemetry.body')}
                 </p>
               </div>
             </TooltipProvider>

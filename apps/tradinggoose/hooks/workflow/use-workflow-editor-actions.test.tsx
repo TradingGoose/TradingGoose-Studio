@@ -149,6 +149,52 @@ describe('useWorkflowEditorActions', () => {
     })
   })
 
+  it('duplicates generated default names using canonical stored names and next available suffix', async () => {
+    const doc = new Y.Doc()
+    const workflowMap = doc.getMap('workflow')
+
+    workflowMap.set('blocks', {
+      'block-1': {
+        id: 'block-1',
+        type: 'human_in_the_loop',
+        name: 'Human in the Loop 1',
+        enabled: true,
+        position: { x: 10, y: 20 },
+        data: {},
+        subBlocks: {},
+        outputs: {},
+      },
+    })
+    workflowMap.set('edges', [])
+    workflowMap.set('loops', {})
+    workflowMap.set('parallels', {})
+
+    mockSession.readWorkflowSnapshot.mockReturnValue(readWorkflowSnapshot(doc))
+
+    const { useWorkflowEditorActions } = await import('./use-workflow-editor-actions')
+
+    let actions: ReturnType<typeof useWorkflowEditorActions> | null = null
+    function Harness() {
+      actions = useWorkflowEditorActions()
+      return null
+    }
+
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(React.createElement(Harness))
+    })
+
+    await act(async () => {
+      actions?.collaborativeDuplicateBlock('block-1')
+    })
+
+    expect(mockAddBlock).toHaveBeenCalledTimes(1)
+    expect(mockAddBlock.mock.calls[0]?.[2]).toBe('Human in the Loop 2')
+  })
+
   it('writes block position updates with the requested transaction origin', async () => {
     const doc = new Y.Doc()
     const workflowMap = doc.getMap('workflow')

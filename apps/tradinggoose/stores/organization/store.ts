@@ -2,6 +2,7 @@ import { createWithEqualityFn as create } from 'zustand/traditional'
 import { devtools } from 'zustand/middleware'
 import { client } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
+import { useGeneralStore } from '@/stores/settings/general/store'
 import type { OrganizationStore, WorkspaceInvitation } from '@/stores/organization/types'
 import {
   calculateSeatUsage,
@@ -518,38 +519,28 @@ export const useOrganizationStore = create<OrganizationStore>()(
             workspaceInvitations,
           })
 
-          // Use direct API call with workspace invitations if selected
-          if (workspaceInvitations && workspaceInvitations.length > 0) {
-            const response = await fetch(
-              `/api/organizations/${activeOrganization.id}/invitations?batch=true`,
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  email,
-                  role: 'member',
-                  workspaceInvitations,
-                }),
-              }
-            )
+          const locale = useGeneralStore.getState().preferredLocale
+          const inviteUrl =
+            workspaceInvitations && workspaceInvitations.length > 0
+              ? `/api/organizations/${activeOrganization.id}/invitations?batch=true`
+              : `/api/organizations/${activeOrganization.id}/invitations`
 
-            if (!response.ok) {
-              const errorData = await response.json()
-              throw new Error(errorData.error || 'Failed to send invitation')
-            }
-          } else {
-            // Use existing client method for organization-only invitations
-            const inviteResult = await client.organization.inviteMember({
+          const response = await fetch(inviteUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
               email,
               role: 'member',
-              organizationId: activeOrganization.id,
-            })
+              workspaceInvitations,
+              locale,
+            }),
+          })
 
-            if (inviteResult.error) {
-              throw new Error(inviteResult.error.message || 'Failed to send invitation')
-            }
+          if (!response.ok) {
+            const errorData = await response.json()
+            throw new Error(errorData.error || 'Failed to send invitation')
           }
 
           set({ inviteSuccess: true })

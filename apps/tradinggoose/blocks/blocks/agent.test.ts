@@ -10,8 +10,13 @@ vi.mock('@/providers/ai/utils', () => ({
   getAllModelProviders: vi.fn(() => ({ 'gpt-4o': 'openai_chat' })),
   getHostedModels: vi.fn(() => []),
   getMaxTemperature: vi.fn(() => 1),
+  getProviderFromModel: vi.fn(() => 'openai'),
   getProviderIcon: vi.fn(() => undefined),
   providers: {
+    openai: {
+      name: 'OpenAI',
+      models: ['gpt-4o'],
+    },
     'azure-openai': {
       models: [],
     },

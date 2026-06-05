@@ -1,9 +1,15 @@
-import * as React from 'react'
 import { Container, Img, Link, Section, Text } from '@react-email/components'
 import { baseStyles } from '@/components/emails/base-styles'
+import {
+  type EmailLocale,
+  emailText,
+  getEmailCopy,
+  normalizeEmailTemplateLocale,
+} from '@/components/emails/email-copy'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { isHosted } from '@/lib/environment'
 import { getBaseUrl } from '@/lib/urls/utils'
+import { localizeUrl } from '@/i18n/utils'
 
 interface UnsubscribeOptions {
   unsubscribeToken?: string
@@ -13,10 +19,20 @@ interface UnsubscribeOptions {
 interface EmailFooterProps {
   baseUrl?: string
   unsubscribe?: UnsubscribeOptions
+  locale?: EmailLocale
 }
 
-export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe }: EmailFooterProps) => {
+export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe, locale }: EmailFooterProps) => {
+  const resolvedLocale = normalizeEmailTemplateLocale(locale)
+  const copy = getEmailCopy(resolvedLocale)
   const brand = getBrandConfig()
+  const year = new Date().getFullYear()
+  const privacyUrl = localizeUrl(baseUrl, resolvedLocale, '/privacy')
+  const termsUrl = localizeUrl(baseUrl, resolvedLocale, '/terms')
+  const unsubscribeUrl =
+    unsubscribe?.unsubscribeToken && unsubscribe?.email
+      ? `${localizeUrl(baseUrl, resolvedLocale, '/unsubscribe')}?token=${unsubscribe.unsubscribeToken}&email=${encodeURIComponent(unsubscribe.email)}`
+      : '{{{RESEND_UNSUBSCRIBE_URL}}}'
 
   return (
     <Container style={baseStyles.footer}>
@@ -40,7 +56,10 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe }: EmailFooter
                         </Link>
                       </td>
                       <td align='center' style={{ padding: '0 8px' }}>
-                        <Link href='https://github.com/TradingGoose/TradingGoose-Studio' rel='noopener noreferrer'>
+                        <Link
+                          href='https://github.com/TradingGoose/TradingGoose-Studio'
+                          rel='noopener noreferrer'
+                        >
                           <Img
                             src='https://avatars.githubusercontent.com/u/9919'
                             width='24'
@@ -50,7 +69,6 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe }: EmailFooter
                           />
                         </Link>
                       </td>
-
                     </tr>
                   </tbody>
                 </table>
@@ -65,9 +83,12 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe }: EmailFooter
                     color: '#7c8299',
                   }}
                 >
-                  (c) {new Date().getFullYear()} {brand.name}, All Rights Reserved
+                  {emailText(resolvedLocale, copy.footer.copyright, {
+                    year,
+                    brandName: brand.name,
+                  })}
                   <br />
-                  Questions? Email{' '}
+                  {copy.footer.questions}{' '}
                   <a
                     href={`mailto:${brand.supportEmail}`}
                     style={{
@@ -86,11 +107,7 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe }: EmailFooter
                     </>
                   )}
                 </Text>
-                <table
-                  cellPadding={0}
-                  cellSpacing={0}
-                  style={{ width: '100%', marginTop: '6px' }}
-                >
+                <table cellPadding={0} cellSpacing={0} style={{ width: '100%', marginTop: '6px' }}>
                   <tbody>
                     <tr>
                       <td align='center'>
@@ -101,7 +118,7 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe }: EmailFooter
                           }}
                         >
                           <a
-                            href={`${baseUrl}/privacy`}
+                            href={privacyUrl}
                             style={{
                               color: baseStyles.link.color,
                               textDecoration: 'underline',
@@ -110,11 +127,11 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe }: EmailFooter
                             }}
                             rel='noopener noreferrer'
                           >
-                            Privacy Policy
+                            {copy.footer.privacy}
                           </a>{' '}
                           |{' '}
                           <a
-                            href={`${baseUrl}/terms`}
+                            href={termsUrl}
                             style={{
                               color: baseStyles.link.color,
                               textDecoration: 'underline',
@@ -123,15 +140,11 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe }: EmailFooter
                             }}
                             rel='noopener noreferrer'
                           >
-                            Terms of Service
+                            {copy.footer.terms}
                           </a>{' '}
                           |{' '}
                           <a
-                            href={
-                              unsubscribe?.unsubscribeToken && unsubscribe?.email
-                                ? `${baseUrl}/unsubscribe?token=${unsubscribe.unsubscribeToken}&email=${encodeURIComponent(unsubscribe.email)}`
-                                : '{{{RESEND_UNSUBSCRIBE_URL}}}'
-                            }
+                            href={unsubscribeUrl}
                             style={{
                               color: baseStyles.link.color,
                               textDecoration: 'underline',
@@ -140,7 +153,7 @@ export const EmailFooter = ({ baseUrl = getBaseUrl(), unsubscribe }: EmailFooter
                             }}
                             rel='noopener noreferrer'
                           >
-                            Unsubscribe
+                            {copy.footer.unsubscribe}
                           </a>
                         </p>
                       </td>

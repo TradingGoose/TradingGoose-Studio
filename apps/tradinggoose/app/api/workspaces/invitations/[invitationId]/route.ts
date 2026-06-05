@@ -9,9 +9,25 @@ import {
 } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
+import { getEmailSubject, renderWorkspaceInvitationEmail } from '@/components/emails/render-email'
 import { getSession } from '@/lib/auth'
+import { resolveEmailLocale } from '@/lib/email/locale'
 import { hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
+import { defaultLocale, localizeUrl, stripLocaleFromPathname } from '@/i18n/utils'
+
+function getRedirectLocale(req: NextRequest) {
+  const referer = req.headers.get('referer')
+  if (!referer) {
+    return defaultLocale
+  }
+
+  try {
+    return stripLocaleFromPathname(new URL(referer).pathname).locale
+  } catch {
+    return defaultLocale
+  }
+}
 
 // GET /api/workspaces/invitations/[invitationId] - Get invitation details OR accept via token
 export async function GET(
@@ -22,11 +38,13 @@ export async function GET(
   const session = await getSession()
   const token = req.nextUrl.searchParams.get('token')
   const isAcceptFlow = !!token // If token is provided, this is an acceptance flow
+  const redirectUrl = (href: string) =>
+    new URL(localizeUrl(getBaseUrl(), getRedirectLocale(req), href))
 
   if (!session?.user?.id) {
     // For token-based acceptance flows, redirect to login
     if (isAcceptFlow) {
-      return NextResponse.redirect(new URL(`/invite/${invitationId}?token=${token}`, getBaseUrl()))
+      return NextResponse.redirect(redirectUrl(`/invite/${invitationId}?token=${token}`))
     }
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -44,18 +62,14 @@ export async function GET(
 
     if (!invitation) {
       if (isAcceptFlow) {
-        return NextResponse.redirect(
-          new URL(`/invite/${invitationId}?error=invalid-token`, getBaseUrl())
-        )
+        return NextResponse.redirect(redirectUrl(`/invite/${invitationId}?error=invalid-token`))
       }
       return NextResponse.json({ error: 'Invitation not found or has expired' }, { status: 404 })
     }
 
     if (new Date() > new Date(invitation.expiresAt)) {
       if (isAcceptFlow) {
-        return NextResponse.redirect(
-          new URL(`/invite/${invitation.id}?error=expired`, getBaseUrl())
-        )
+        return NextResponse.redirect(redirectUrl(`/invite/${invitation.id}?error=expired`))
       }
       return NextResponse.json({ error: 'Invitation has expired' }, { status: 400 })
     }
@@ -69,7 +83,7 @@ export async function GET(
     if (!workspaceDetails) {
       if (isAcceptFlow) {
         return NextResponse.redirect(
-          new URL(`/invite/${invitation.id}?error=workspace-not-found`, getBaseUrl())
+          redirectUrl(`/invite/${invitation.id}?error=workspace-not-found`)
         )
       }
       return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
@@ -78,7 +92,7 @@ export async function GET(
     if (isAcceptFlow) {
       if (invitation.status !== ('pending' as WorkspaceInvitationStatus)) {
         return NextResponse.redirect(
-          new URL(`/invite/${invitation.id}?error=already-processed`, getBaseUrl())
+          redirectUrl(`/invite/${invitation.id}?error=already-processed`)
         )
       }
 
@@ -92,17 +106,13 @@ export async function GET(
         .then((rows) => rows[0])
 
       if (!userData) {
-        return NextResponse.redirect(
-          new URL(`/invite/${invitation.id}?error=user-not-found`, getBaseUrl())
-        )
+        return NextResponse.redirect(redirectUrl(`/invite/${invitation.id}?error=user-not-found`))
       }
 
       const isValidMatch = userEmail === invitationEmail
 
       if (!isValidMatch) {
-        return NextResponse.redirect(
-          new URL(`/invite/${invitation.id}?error=email-mismatch`, getBaseUrl())
-        )
+        return NextResponse.redirect(redirectUrl(`/invite/${invitation.id}?error=email-mismatch`))
       }
 
       const existingPermission = await db
@@ -126,9 +136,7 @@ export async function GET(
           })
           .where(eq(workspaceInvitation.id, invitation.id))
 
-        return NextResponse.redirect(
-          new URL(`/workspace/${invitation.workspaceId}/dashboard`, getBaseUrl())
-        )
+        return NextResponse.redirect(redirectUrl(`/workspace/${invitation.workspaceId}/dashboard`))
       }
 
       await db.transaction(async (tx) => {
@@ -151,9 +159,7 @@ export async function GET(
           .where(eq(workspaceInvitation.id, invitation.id))
       })
 
-      return NextResponse.redirect(
-        new URL(`/workspace/${invitation.workspaceId}/dashboard`, getBaseUrl())
-      )
+      return NextResponse.redirect(redirectUrl(`/workspace/${invitation.workspaceId}/dashboard`))
     }
 
     return NextResponse.json({
@@ -265,26 +271,21 @@ export async function POST(
       .set({ token: newToken, expiresAt: newExpiresAt, updatedAt: new Date() })
       .where(eq(workspaceInvitation.id, invitationId))
 
+    const [{ sendEmail }] = await Promise.all([import('@/lib/email/mailer')])
+    const locale = await resolveEmailLocale({ email: invitation.email })
     const baseUrl = getBaseUrl()
-    const invitationLink = `${baseUrl}/invite/${invitationId}?token=${newToken}`
+    const invitationLink = `${localizeUrl(baseUrl, locale, `/invite/${invitationId}`)}?token=${newToken}`
 
-    const [{ render }, { WorkspaceInvitationEmail }, { sendEmail }] = await Promise.all([
-      import('@react-email/render'),
-      import('@/components/emails/workspace-invitation'),
-      import('@/lib/email/mailer'),
-    ])
-
-    const emailHtml = await render(
-      WorkspaceInvitationEmail({
-        workspaceName: ws.name,
-        inviterName: session.user.name || session.user.email || 'A user',
-        invitationLink,
-      })
-    )
+    const emailHtml = await renderWorkspaceInvitationEmail({
+      workspaceName: ws.name,
+      inviterName: session.user.name || session.user.email || 'A user',
+      invitationLink,
+      locale,
+    })
 
     const result = await sendEmail({
       to: invitation.email,
-      subject: `You've been invited to join "${ws.name}" on TradingGoose`,
+      subject: getEmailSubject('workspace-invitation', locale, { workspaceName: ws.name }),
       html: emailHtml,
       emailType: 'transactional',
     })

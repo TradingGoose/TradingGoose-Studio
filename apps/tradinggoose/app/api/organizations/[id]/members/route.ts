@@ -8,10 +8,12 @@ import { getSession } from '@/lib/auth'
 import { getOrganizationBillingData } from '@/lib/billing/core/organization'
 import { getUserUsageData } from '@/lib/billing/core/usage'
 import { validateSeatAvailability } from '@/lib/billing/validation/seat-management'
+import { resolveEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
+import { localizeUrl } from '@/i18n/utils'
 
 const logger = createLogger('OrganizationMembersAPI')
 
@@ -169,9 +171,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     const { id: organizationId } = await params
-    const { email, role = 'member' } = await request.json()
+    const { email, role = 'member', locale: requestLocale } = await request.json()
 
-    // Validate input
     if (!email) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 })
     }
@@ -180,7 +181,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
     }
 
-    // Validate and normalize email
     const normalizedEmail = email.trim().toLowerCase()
     const validation = quickValidateEmail(normalizedEmail)
     if (!validation.isValid) {
@@ -190,7 +190,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       )
     }
 
-    // Verify user has admin access
     const memberEntry = await db
       .select()
       .from(member)
@@ -208,7 +207,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
     }
 
-    // Check if user is already a member
     const existingUser = await db
       .select({ id: user.id })
       .from(user)
@@ -232,7 +230,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
     }
 
-    // Check for existing pending invitation
     const existingInvitation = await db
       .select()
       .from(invitation)
@@ -252,7 +249,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       )
     }
 
-    // Check seat availability after filtering existing members and pending invitations.
     const seatValidation = await validateSeatAvailability(organizationId, 1)
     if (!seatValidation.canInvite) {
       return NextResponse.json(
@@ -264,10 +260,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       )
     }
 
-    // Create invitation
     const invitationId = randomUUID()
     const expiresAt = new Date()
-    expiresAt.setDate(expiresAt.getDate() + 7) // 7 days expiry
+    expiresAt.setDate(expiresAt.getDate() + 7)
 
     await db.insert(invitation).values({
       id: invitationId,
@@ -291,17 +286,25 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .from(user)
       .where(eq(user.id, session.user.id))
       .limit(1)
+    const locale = await resolveEmailLocale({
+      email: normalizedEmail,
+      fallbackLocale: requestLocale,
+    })
+    const invitationLink = localizeUrl(getBaseUrl(), locale, `/invite/${invitationId}`)
 
     const emailHtml = await renderInvitationEmail(
       inviter[0]?.name || 'Someone',
       organizationEntry[0]?.name || 'organization',
-      `${getBaseUrl()}/invite/organization?id=${invitationId}`,
-      normalizedEmail
+      invitationLink,
+      normalizedEmail,
+      locale
     )
 
     const emailResult = await sendEmail({
       to: normalizedEmail,
-      subject: getEmailSubject('invitation'),
+      subject: getEmailSubject('invitation', locale, {
+        organizationName: organizationEntry[0]?.name || 'organization',
+      }),
       html: emailHtml,
       emailType: 'transactional',
     })
@@ -318,7 +321,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         email: normalizedEmail,
         error: emailResult.message,
       })
-      // Don't fail the request if email fails
     }
 
     return NextResponse.json({

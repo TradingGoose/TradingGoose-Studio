@@ -50,6 +50,7 @@ import {
 } from '@/lib/chat/deployment-config'
 import { getEnv } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
+import { isMonitorTriggerId } from '@/lib/monitors/sources'
 import { getIconTileStyle, sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import type { WorkflowDeploymentVersionResponse } from '@/lib/workflows/db-helpers'
@@ -58,6 +59,7 @@ import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/provide
 import { getBlock } from '@/blocks'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
+import { formatTemplate } from '@/i18n/utils'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { mergeSubblockState } from '@/stores/workflows/utils'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
@@ -75,6 +77,11 @@ import {
 } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/trigger-editing-layout'
 import { SubBlockEditRows } from '@/widgets/widgets/editor_workflow/components/workflow-render/sub-block-edit-rows'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import {
+  useDeploymentCopy,
+  useWorkflowEditorCopy,
+  useWorkflowI18n,
+} from '@/widgets/widgets/editor_workflow/copy'
 
 const logger = createLogger('DeployModal')
 
@@ -238,6 +245,9 @@ export function DeployModal({
   isLoadingDeployedState,
   refetchDeployedState,
 }: DeployModalProps) {
+  const copy = useDeploymentCopy()
+  const workflowEditorCopy = useWorkflowEditorCopy()
+  const { getLocalizedDefaultBlockName, workflowInspectorCopy } = useWorkflowI18n()
   const workspaceId = useWorkspaceId()
   const userPermissions = useUserPermissionsContext()
   const deploymentStatus = useWorkflowRegistry((state) =>
@@ -307,6 +317,8 @@ export function DeployModal({
       }
 
       const triggerEditingLayout = buildTriggerEditingLayout({
+        inspectorCopy: workflowInspectorCopy,
+        blockType: block.type,
         blockId: block.id,
         blockConfig,
         blockState: block,
@@ -320,7 +332,7 @@ export function DeployModal({
       return {
         key: `trigger-${block.id}`,
         blockId: block.id,
-        label: block.name || blockConfig?.name || triggerDef?.name || triggerId,
+        label: getLocalizedDefaultBlockName(block.type, block.name),
         triggerId,
         icon:
           triggerDef?.icon ??
@@ -412,8 +424,8 @@ export function DeployModal({
   )
   const isChatTriggerReady = chatTriggerBlock
     ? isChatDeploymentDraftConfigured(getChatDeploymentDraftFromBlock(chatTriggerBlock), {
-      hasPasswordFallback: Boolean(publishedChat?.hasPassword),
-    })
+        hasPasswordFallback: Boolean(publishedChat?.hasPassword),
+      })
     : false
   const isApiTriggerReady = hasApiTriggerTab
     ? Boolean(selectedApiKeyId || deploymentInfo?.apiKey || isWorkflowDeployed)
@@ -462,18 +474,18 @@ export function DeployModal({
   const infoTabItems: TriggerTabItem[] = [
     ...(showBillingTab
       ? [
-        {
-          key: BILLING_TAB_KEY,
-          label: 'Billing',
-          icon: CreditCard,
-          iconAccentColor: undefined,
-          isReady: undefined,
-        },
-      ]
+          {
+            key: BILLING_TAB_KEY,
+            label: copy.billing,
+            icon: CreditCard,
+            iconAccentColor: undefined,
+            isReady: undefined,
+          },
+        ]
       : []),
     {
       key: 'versions',
-      label: 'Versions',
+      label: copy.versions,
       icon: History,
       iconAccentColor: undefined,
       isReady: undefined,
@@ -482,25 +494,25 @@ export function DeployModal({
   const nativeTriggerTabItems: TriggerTabItem[] = [
     ...(hasChatTrigger
       ? [
-        {
-          key: 'chat',
-          label: 'Chat',
-          icon: getTrigger('chat')?.icon,
-          iconAccentColor: sanitizeSolidIconColor(getBlock('chat_trigger')?.bgColor),
-          isReady: isChatTriggerReady,
-        },
-      ]
+          {
+            key: 'chat',
+            label: copy.chatTrigger,
+            icon: getTrigger('chat')?.icon,
+            iconAccentColor: sanitizeSolidIconColor(getBlock('chat_trigger')?.bgColor),
+            isReady: isChatTriggerReady,
+          },
+        ]
       : []),
     ...(hasApiTriggerTab
       ? [
-        {
-          key: API_TRIGGER_TAB_KEY,
-          label: 'API Trigger',
-          icon: getTrigger('api')?.icon,
-          iconAccentColor: sanitizeSolidIconColor(getBlock('api_trigger')?.bgColor),
-          isReady: isApiTriggerReady,
-        },
-      ]
+          {
+            key: API_TRIGGER_TAB_KEY,
+            label: copy.apiTrigger,
+            icon: getTrigger('api')?.icon,
+            iconAccentColor: sanitizeSolidIconColor(getBlock('api_trigger')?.bgColor),
+            isReady: isApiTriggerReady,
+          },
+        ]
       : []),
     ...triggerDeployTabs
       .filter((tab) => isNativeTrigger(tab.triggerId))
@@ -537,38 +549,33 @@ export function DeployModal({
   const activeTabMeta =
     activeTab === BILLING_TAB_KEY
       ? {
-        title: 'Billing',
-        description:
-          'Choose the shared API key used for workflow deployment, billing attribution, and API trigger authentication.',
-      }
+          title: copy.billing,
+          description: copy.billingDescription,
+        }
       : activeTab === API_TRIGGER_TAB_KEY
         ? {
-          title: 'API Trigger Deployment',
-          description:
-            'Review the API trigger endpoint and payload contract. This trigger uses the same shared API key selected in Billing.',
-        }
+            title: copy.apiTriggerDeploymentTitle,
+            description: copy.apiTriggerDeploymentDescription,
+          }
         : activeTab === 'versions'
           ? {
-            title: 'Deployment Versions',
-            description:
-              'Inspect previous deployments, rename versions, or activate an older snapshot.',
-          }
+              title: copy.deploymentVersionsTitle,
+              description: copy.deploymentVersionsDescription,
+            }
           : activeTab === 'chat'
             ? {
-              title: 'Chat Deployment',
-              description:
-                'Configure chat publishing details here. Deploying the workflow publishes the chat trigger with these settings.',
-            }
+                title: copy.chatDeploymentTitle,
+                description: copy.chatDeploymentDescription,
+              }
             : activeTriggerDeployTab
               ? {
-                title: activeTriggerDeployTab.label,
-                description:
-                  activeTriggerDeployTab.triggerId === 'indicator_trigger'
-                    ? 'Indicator monitors are managed from Logs -> Monitors. This trigger deploys with the workflow and does not need extra deployment fields here.'
+                  title: activeTriggerDeployTab.label,
+                  description: isMonitorTriggerId(activeTriggerDeployTab.triggerId)
+                    ? copy.indicatorMonitorsDescription
                     : activeTriggerDeployTab.hasConfigurableFields
-                      ? "Trigger mode is managed in the workflow editor. Edit the active mode's settings here, and save webhook-backed triggers after changes."
-                      : 'Review this trigger before deployment. No additional configuration is required.',
-              }
+                      ? copy.triggerModeManagedDescription
+                      : copy.reviewTriggerBeforeDeployment,
+                }
               : null
   const sharedApiKeyDisplay =
     deploymentInfo?.apiKey && deploymentInfo.apiKey !== 'No API key found'
@@ -576,15 +583,20 @@ export function DeployModal({
       : null
   const apiTriggerSharedKeyMessage = isWorkflowDeployed
     ? sharedApiKeyDisplay
-      ? `This API trigger uses the shared deployment API key ${sharedApiKeyDisplay}.`
-      : 'This API trigger uses the shared deployment API key selected in Billing.'
+      ? formatTemplate(copy.thisApiTriggerUsesTheSharedDeploymentApiKey, {
+          displayKey: sharedApiKeyDisplay,
+        })
+      : copy.thisApiTriggerUsesTheSharedDeploymentApiKeySelectedInBilling
     : hasSelectedSharedApiKey
-      ? 'This API trigger will use the shared deployment API key currently selected in Billing.'
-      : 'Select a shared deployment API key in Billing before deploying this API trigger.'
+      ? copy.thisApiTriggerWillUseTheSharedDeploymentApiKeyCurrentlySelectedInBilling
+      : copy.selectSharedDeploymentApiKeyInBillingBeforeDeployingThisApiTrigger
   const deployButtonLabel =
     versionToActivate !== null
-      ? `Deploy ${versions.find((v) => v.version === versionToActivate)?.name || `v${versionToActivate}`}`
-      : 'Deploy Workflow'
+      ? formatTemplate(copy.deployVersion, {
+          versionName:
+            versions.find((v) => v.version === versionToActivate)?.name || `v${versionToActivate}`,
+        })
+      : copy.deployWorkflow
   const isVersionActivationAction = versionToActivate !== null
   const isInitialWorkflowDeployAction = !isVersionActivationAction && !isWorkflowDeployed
   const isWorkflowRedeployAction =
@@ -865,7 +877,7 @@ export function DeployModal({
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to deploy workflow')
+        throw new Error(errorData.error || copy.failedToDeployWorkflow)
       }
 
       const responseData = await response.json()
@@ -915,8 +927,7 @@ export function DeployModal({
       setApiDeployError(null)
     } catch (error: unknown) {
       logger.error('Error deploying workflow:', { error })
-      const errorMessage = error instanceof Error ? error.message : 'Failed to deploy workflow'
-      setApiDeployError(errorMessage)
+      setApiDeployError(copy.failedToDeployWorkflow)
     } finally {
       setIsSubmitting(false)
     }
@@ -1077,11 +1088,11 @@ export function DeployModal({
       setDeploymentInfo((prev) =>
         prev
           ? {
-            ...prev,
-            needsRedeployment: false,
-            pinnedApiKeyId: apiKeyToUse ?? prev.pinnedApiKeyId ?? null,
-            hasReusableApiKey: prev.hasReusableApiKey || Boolean(apiKeyToUse),
-          }
+              ...prev,
+              needsRedeployment: false,
+              pinnedApiKeyId: apiKeyToUse ?? prev.pinnedApiKeyId ?? null,
+              hasReusableApiKey: prev.hasReusableApiKey || Boolean(apiKeyToUse),
+            }
           : prev
       )
     } catch (error: unknown) {
@@ -1145,7 +1156,7 @@ export function DeployModal({
     if (!tab.blockId) {
       return (
         <div className='rounded-md border p-4 text-muted-foreground text-sm'>
-          Trigger configuration is unavailable.
+          {copy.triggerConfigurationUnavailable}
         </div>
       )
     }
@@ -1153,7 +1164,7 @@ export function DeployModal({
     if (visibleSubBlocks.length === 0) {
       return (
         <div className='rounded-md border p-4 text-muted-foreground text-sm'>
-          This trigger deploys with the workflow. No additional configuration is required.
+          {copy.noAdditionalTriggerConfigurationRequired}
         </div>
       )
     }
@@ -1164,32 +1175,32 @@ export function DeployModal({
           <div className='rounded-md border bg-muted/20 p-3 text-sm'>
             {validationState.missingRequiredFieldLabels.length > 0 ? (
               <div className='text-amber-600 dark:text-amber-400'>
-                Complete required fields before deploying:{' '}
-                {validationState.missingRequiredFieldLabels.join(', ')}.
+                {formatTemplate(copy.completeRequiredFieldsBeforeDeploying, {
+                  fields: validationState.missingRequiredFieldLabels.join(', '),
+                })}
               </div>
             ) : validationState.requiresSavedConfig &&
               isMissingConfigValue(validationState.webhookIdValue) ? (
               <div className='text-amber-600 dark:text-amber-400'>
-                Save this trigger configuration to provision its webhook before deploying.
+                {copy.saveTriggerConfigurationBeforeDeploying}
               </div>
             ) : validationState.hasUnsavedDeployConfig ? (
               <div className='text-amber-600 dark:text-amber-400'>
-                Trigger settings changed since the last save. Save the trigger before deploying.
+                {copy.triggerSettingsChangedSinceLastSave}
               </div>
             ) : (
               <div className='text-emerald-600 dark:text-emerald-400'>
-                Trigger configuration looks ready. Review the values below before deploying.
+                {copy.triggerConfigurationReady}
               </div>
             )}
           </div>
         )}
         <div className='text-muted-foreground text-sm'>
-          Trigger mode is controlled in the workflow editor. Edit the current mode's settings here
-          before deployment.
+          {copy.triggerModeControlledInWorkflowEditor}
         </div>
         {visibleSubBlocks.some(isConfigurableTriggerDeploySubBlock) && (
           <div className='text-muted-foreground text-sm'>
-            These settings stay editable here and in the workflow editor.
+            {copy.triggerSettingsEditableHereAndWorkflowEditor}
           </div>
         )}
         <SubBlockEditRows
@@ -1208,7 +1219,9 @@ export function DeployModal({
               onClick={() => collaborativeToggleBlockAdvancedMode(tab.blockId)}
               className='flex items-center gap-[6px] whitespace-nowrap font-medium text-[13px] text-muted-foreground hover:text-foreground'
             >
-              {tab.displayAdvancedOptions ? 'Hide additional fields' : 'Show additional fields'}
+              {tab.displayAdvancedOptions
+                ? workflowEditorCopy.hideAdditionalFields
+                : workflowEditorCopy.showAdditionalFields}
               <ChevronDown
                 className={`h-[14px] w-[14px] transition-transform duration-200 ${tab.displayAdvancedOptions ? 'rotate-180' : ''}`}
               />
@@ -1315,17 +1328,17 @@ export function DeployModal({
                     >
                       <PanelLeft className='h-4 w-4' />
                       <span className='sr-only'>
-                        {isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                        {isSidebarCollapsed ? copy.expandSidebar : copy.collapseSidebar}
                       </span>
                     </Button>
                     <h2 id='deploy-workflow-title' className='font-medium text-lg'>
-                      Deploy Workflow
+                      {copy.deployWorkflowTitle}
                     </h2>
                     {needsRedeployment && versions.length > 0 && versionToActivate === null && (
                       <span className='inline-flex items-center rounded-md bg-amber-500/10 px-2 py-1 font-medium text-amber-600 text-xs dark:text-amber-400'>
                         {versions.find((v) => v.isActive)?.name ||
                           `v${versions.find((v) => v.isActive)?.version}`}{' '}
-                        active
+                        {copy.active}
                       </span>
                     )}
                   </div>
@@ -1336,12 +1349,12 @@ export function DeployModal({
                     onClick={handleCloseModal}
                   >
                     <X className='h-4 w-4' />
-                    <span className='sr-only'>Close</span>
+                    <span className='sr-only'>{copy.close}</span>
                   </Button>
                 </div>
                 {apiDeployError && (
                   <div className='rounded-md border border-destructive/20 bg-destructive/10 p-3 text-destructive text-sm'>
-                    <div className='font-semibold'>Deployment Error</div>
+                    <div className='font-semibold'>{copy.deploymentError}</div>
                     <div>{apiDeployError}</div>
                   </div>
                 )}
@@ -1361,9 +1374,9 @@ export function DeployModal({
                     )}
                   >
                     <div className='space-y-3'>
-                      {renderDesktopSidebarSection('Info', infoTabItems)}
-                      {renderDesktopSidebarSection('Native', nativeTriggerTabItems)}
-                      {renderDesktopSidebarSection('Integration', integrationTriggerTabItems)}
+                      {renderDesktopSidebarSection(copy.info, infoTabItems)}
+                      {renderDesktopSidebarSection(copy.native, nativeTriggerTabItems)}
+                      {renderDesktopSidebarSection(copy.integration, integrationTriggerTabItems)}
                     </div>
                   </div>
                 </div>
@@ -1371,14 +1384,16 @@ export function DeployModal({
                 <div className='flex min-w-0 flex-1 flex-col overflow-hidden'>
                   <div className='flex flex-none flex-col gap-3 border-b px-6 py-4 sm:hidden'>
                     <div className='flex flex-wrap items-center gap-2'>
-                      <span className={cn(deployNavGroupLabelClass, 'mr-1 h-auto px-0')}>Info</span>
+                      <span className={cn(deployNavGroupLabelClass, 'mr-1 h-auto px-0')}>
+                        {copy.info}
+                      </span>
                       {showBillingTab && (
                         <button
                           onClick={() => setActiveTab(BILLING_TAB_KEY)}
                           data-active={activeTab === BILLING_TAB_KEY}
                           className={deployInlineNavButtonClass}
                         >
-                          Billing
+                          {copy.billing}
                         </button>
                       )}
                       <button
@@ -1386,13 +1401,15 @@ export function DeployModal({
                         data-active={activeTab === 'versions'}
                         className={deployInlineNavButtonClass}
                       >
-                        Versions
+                        {copy.versions}
                       </button>
                     </div>
 
                     {nativeTriggerTabItems.length > 0 && (
                       <div className='rounded-lg border border-border bg-background p-2'>
-                        <div className={cn(deployNavGroupLabelClass, 'mb-2 h-auto')}>Native</div>
+                        <div className={cn(deployNavGroupLabelClass, 'mb-2 h-auto')}>
+                          {copy.native}
+                        </div>
                         <Tabs value={activeNativeTriggerTabValue} onValueChange={setActiveTab}>
                           <div
                             onWheel={handleTriggerTabsWheel}
@@ -1417,7 +1434,7 @@ export function DeployModal({
                     {integrationTriggerTabItems.length > 0 && (
                       <div className='rounded-lg border border-border bg-background p-2'>
                         <div className={cn(deployNavGroupLabelClass, 'mb-2 h-auto')}>
-                          Integration
+                          {copy.integration}
                         </div>
                         <Tabs value={activeIntegrationTriggerTabValue} onValueChange={setActiveTab}>
                           <div
@@ -1468,8 +1485,7 @@ export function DeployModal({
 
                           <div className='-mx-1 px-1'>
                             <div className='mb-3 rounded-md border p-3 text-muted-foreground text-sm'>
-                              Select the shared API key used for workflow deployment, billing
-                              attribution, and API trigger authentication.
+                              {copy.chooseSharedApiKeyDescription}
                             </div>
                             <DeployForm
                               apiKeys={apiKeys}
@@ -1488,7 +1504,7 @@ export function DeployModal({
                       {hasApiTriggerTab && activeTab === API_TRIGGER_TAB_KEY && (
                         <>
                           <div className='mb-4 rounded-md border bg-muted/20 p-4 text-sm'>
-                            <div className='font-medium'>Shared API Key</div>
+                            <div className='font-medium'>{copy.sharedApiKey}</div>
                             <div className='mt-1 text-muted-foreground'>
                               {apiTriggerSharedKeyMessage}
                             </div>
@@ -1499,7 +1515,7 @@ export function DeployModal({
                                 size='sm'
                                 onClick={() => setActiveTab(BILLING_TAB_KEY)}
                               >
-                                Manage in Billing
+                                {copy.manageInBilling}
                               </Button>
                             </div>
                           </div>
@@ -1516,8 +1532,8 @@ export function DeployModal({
                             <>
                               <div className='rounded-md border p-4 text-muted-foreground text-sm'>
                                 {versionToActivate !== null
-                                  ? 'Activate the selected deployment version to update the API trigger endpoint.'
-                                  : 'Deploy the workflow to create the API trigger endpoint.'}
+                                  ? copy.activateSelectedVersionToUpdateApiTriggerEndpoint
+                                  : copy.deployWorkflowToCreateApiTriggerEndpoint}
                               </div>
                             </>
                           )}
@@ -1571,11 +1587,12 @@ export function DeployModal({
                                         >
                                           <td className='px-4 py-2.5'>
                                             <div
-                                              className={`h-2 w-2 rounded-full ${v.isActive
+                                              className={`h-2 w-2 rounded-full ${
+                                                v.isActive
                                                   ? 'bg-green-500'
                                                   : 'bg-muted-foreground/40'
-                                                }`}
-                                              title={v.isActive ? 'Active' : 'Inactive'}
+                                              }`}
+                                              title={v.isActive ? copy.active : copy.inactive}
                                             />
                                           </td>
                                           <td className='w-[220px] max-w-[220px] px-4 py-2.5'>
@@ -1734,7 +1751,7 @@ export function DeployModal({
                         disabled={!canViewActiveDeployment}
                         onClick={() => setIsViewingActiveDeployment(true)}
                       >
-                        View Deployment
+                        {copy.viewDeployment}
                       </Button>
                     )}
                     {showUndeployButton && (
@@ -1744,7 +1761,7 @@ export function DeployModal({
                         onClick={() => setShowUndeployConfirm(true)}
                         disabled={isUndeploying}
                       >
-                        {isUndeploying ? 'Undeploying...' : 'Undeploy'}
+                        {isUndeploying ? copy.undeploying : copy.undeploy}
                       </Button>
                     )}
 
@@ -1764,7 +1781,7 @@ export function DeployModal({
                         {isSubmitting ? (
                           <>
                             <Loader2 className='mr-1.5 h-3.5 w-3.5 animate-spin' />
-                            Deploying...
+                            {copy.deploying}
                           </>
                         ) : (
                           footerPrimaryLabel
@@ -1783,22 +1800,20 @@ export function DeployModal({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {hasApiTriggerTab ? 'Undeploy API' : 'Undeploy Workflow'}
+              {hasApiTriggerTab ? copy.undeployApi : copy.undeployWorkflow}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {hasApiTriggerTab
-                ? 'Are you sure you want to undeploy this workflow? This will remove the API endpoint and make it unavailable to external users.'
-                : 'Are you sure you want to undeploy this workflow? This will stop deployed trigger processing for this workflow.'}
+              {hasApiTriggerTab ? copy.undeployApiConfirmation : copy.undeployWorkflowConfirmation}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isUndeploying}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isUndeploying}>{copy.cancel}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleFooterUndeploy}
               className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
               disabled={isUndeploying}
             >
-              {isUndeploying ? 'Undeploying...' : 'Undeploy'}
+              {isUndeploying ? copy.undeploying : copy.undeploy}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

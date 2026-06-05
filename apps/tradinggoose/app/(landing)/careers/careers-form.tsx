@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { Loader2, X } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -16,75 +17,80 @@ import { Textarea } from '@/components/ui/textarea'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { cn } from '@/lib/utils'
 import { soehne } from '@/app/fonts/soehne/soehne'
+import { useMessages } from 'next-intl'
+import { type LocaleCode } from '@/i18n/utils'
 
-const validateName = (name: string): string[] => {
+const validateName = (name: string, message: string): string[] => {
   const errors: string[] = []
   if (!name || name.trim().length < 2) {
-    errors.push('Name must be at least 2 characters')
+    errors.push(message)
   }
   return errors
 }
 
-const validateEmail = (email: string): string[] => {
+const validateEmail = (email: string, requiredMessage: string, invalidMessage: string): string[] => {
   const errors: string[] = []
   if (!email || !email.trim()) {
-    errors.push('Email is required')
+    errors.push(requiredMessage)
     return errors
   }
   const validation = quickValidateEmail(email.trim().toLowerCase())
   if (!validation.isValid) {
-    errors.push(validation.reason || 'Please enter a valid email address')
+    errors.push(validation.reason || invalidMessage)
   }
   return errors
 }
 
-const validatePosition = (position: string): string[] => {
+const validatePosition = (position: string, message: string): string[] => {
   const errors: string[] = []
   if (!position || position.trim().length < 2) {
-    errors.push('Please specify the position you are interested in')
+    errors.push(message)
   }
   return errors
 }
 
-const validateLinkedIn = (url: string): string[] => {
+const validateLinkedIn = (url: string, message: string): string[] => {
   if (!url || url.trim() === '') return []
   const errors: string[] = []
   try {
     new URL(url)
   } catch {
-    errors.push('Please enter a valid LinkedIn URL')
+    errors.push(message)
   }
   return errors
 }
 
-const validatePortfolio = (url: string): string[] => {
+const validatePortfolio = (url: string, message: string): string[] => {
   if (!url || url.trim() === '') return []
   const errors: string[] = []
   try {
     new URL(url)
   } catch {
-    errors.push('Please enter a valid portfolio URL')
+    errors.push(message)
   }
   return errors
 }
 
-const validateLocation = (location: string): string[] => {
+const validateLocation = (location: string, message: string): string[] => {
   const errors: string[] = []
   if (!location || location.trim().length < 2) {
-    errors.push('Please enter your location')
+    errors.push(message)
   }
   return errors
 }
 
-const validateMessage = (message: string): string[] => {
+const validateMessage = (message: string, validationMessage: string): string[] => {
   const errors: string[] = []
   if (!message || message.trim().length < 50) {
-    errors.push('Please tell us more about yourself (at least 50 characters)')
+    errors.push(validationMessage)
   }
   return errors
 }
 
 export function CareersForm() {
+  const locale = useLocale() as LocaleCode
+  const copy = useMessages().careers.form
+  const contactEmail = copy.helpers.contactEmail
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const [showErrors, setShowErrors] = useState(false)
@@ -123,15 +129,19 @@ export function CareersForm() {
     e.preventDefault()
     setShowErrors(true)
 
-    const nameErrs = validateName(name)
-    const emailErrs = validateEmail(email)
-    const positionErrs = validatePosition(position)
-    const linkedinErrs = validateLinkedIn(linkedin)
-    const portfolioErrs = validatePortfolio(portfolio)
-    const experienceErrs = experience ? [] : ['Please select your years of experience']
-    const locationErrs = validateLocation(location)
-    const messageErrs = validateMessage(message)
-    const resumeErrs = resume ? [] : ['Resume is required']
+    const nameErrs = validateName(name, copy.validation.nameTooShort)
+    const emailErrs = validateEmail(
+      email,
+      copy.validation.emailRequired,
+      copy.validation.emailInvalid
+    )
+    const positionErrs = validatePosition(position, copy.validation.positionRequired)
+    const linkedinErrs = validateLinkedIn(linkedin, copy.validation.linkedinInvalid)
+    const portfolioErrs = validatePortfolio(portfolio, copy.validation.portfolioInvalid)
+    const experienceErrs = experience ? [] : [copy.validation.experienceRequired]
+    const locationErrs = validateLocation(location, copy.validation.locationRequired)
+    const messageErrs = validateMessage(message, copy.validation.messageRequired)
+    const resumeErrs = resume ? [] : [copy.validation.resumeRequired]
 
     setNameErrors(nameErrs)
     setEmailErrors(emailErrs)
@@ -171,6 +181,7 @@ export function CareersForm() {
       formData.append('experience', experience)
       formData.append('location', location)
       formData.append('message', message)
+      formData.append('locale', locale)
       if (resume) formData.append('resume', resume)
 
       const response = await fetch('/api/careers/submit', {
@@ -179,7 +190,7 @@ export function CareersForm() {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to submit application')
+        throw new Error(copy.errors.submitFailed)
       }
 
       setSubmitStatus('success')
@@ -194,20 +205,18 @@ export function CareersForm() {
   return (
     <div className={`${soehne.className} mx-auto max-w-2xl`}>
       <section className='rounded-2xl border border-border bg-muted/50 p-6 shadow-sm sm:p-10'>
-        <h2 className='mb-2 font-medium text-2xl sm:text-3xl'>Apply Now</h2>
-        <p className='mb-8 text-gray-600 text-sm sm:text-base'>
-          Help us build the future of AI workflows
-        </p>
+        <h2 className='mb-2 font-medium text-2xl sm:text-3xl'>{copy.title}</h2>
+        <p className='mb-8 text-gray-600 text-sm sm:text-base'>{copy.description}</p>
 
         <form onSubmit={onSubmit} className='space-y-5'>
           <div className='grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2'>
             <div className='space-y-2'>
               <Label htmlFor='name' className='font-medium text-sm'>
-                Full Name *
+                {copy.fields.name.label}
               </Label>
               <Input
                 id='name'
-                placeholder='John Doe'
+                placeholder={copy.fields.name.placeholder}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className={cn(
@@ -227,12 +236,12 @@ export function CareersForm() {
 
             <div className='space-y-2'>
               <Label htmlFor='email' className='font-medium text-sm'>
-                Email *
+                {copy.fields.email.label}
               </Label>
               <Input
                 id='email'
                 type='email'
-                placeholder='john@example.com'
+                placeholder={copy.fields.email.placeholder}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className={cn(
@@ -254,12 +263,12 @@ export function CareersForm() {
           <div className='grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2'>
             <div className='space-y-2'>
               <Label htmlFor='phone' className='font-medium text-sm'>
-                Phone Number
+                {copy.fields.phone.label}
               </Label>
               <Input
                 id='phone'
                 type='tel'
-                placeholder='+1 (555) 123-4567'
+                placeholder={copy.fields.phone.placeholder}
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
               />
@@ -267,11 +276,11 @@ export function CareersForm() {
 
             <div className='space-y-2'>
               <Label htmlFor='position' className='font-medium text-sm'>
-                Position of Interest *
+                {copy.fields.position.label}
               </Label>
               <Input
                 id='position'
-                placeholder='e.g. Full Stack Engineer, Product Designer'
+                placeholder={copy.fields.position.placeholder}
                 value={position}
                 onChange={(e) => setPosition(e.target.value)}
                 className={cn(
@@ -293,11 +302,11 @@ export function CareersForm() {
           <div className='grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2'>
             <div className='space-y-2'>
               <Label htmlFor='linkedin' className='font-medium text-sm'>
-                LinkedIn Profile
+                {copy.fields.linkedin.label}
               </Label>
               <Input
                 id='linkedin'
-                placeholder='https://linkedin.com/in/yourprofile'
+                placeholder={copy.fields.linkedin.placeholder}
                 value={linkedin}
                 onChange={(e) => setLinkedin(e.target.value)}
                 className={cn(
@@ -317,11 +326,11 @@ export function CareersForm() {
 
             <div className='space-y-2'>
               <Label htmlFor='portfolio' className='font-medium text-sm'>
-                Portfolio / Website
+                {copy.fields.portfolio.label}
               </Label>
               <Input
                 id='portfolio'
-                placeholder='https://yourportfolio.com'
+                placeholder={copy.fields.portfolio.placeholder}
                 value={portfolio}
                 onChange={(e) => setPortfolio(e.target.value)}
                 className={cn(
@@ -343,7 +352,7 @@ export function CareersForm() {
           <div className='grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2'>
             <div className='space-y-2'>
               <Label htmlFor='experience' className='font-medium text-sm'>
-                Years of Experience *
+                {copy.fields.experience.label}
               </Label>
               <Select value={experience} onValueChange={setExperience}>
                 <SelectTrigger
@@ -353,14 +362,14 @@ export function CareersForm() {
                       'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                   )}
                 >
-                  <SelectValue placeholder='Select experience level' />
+                  <SelectValue placeholder={copy.fields.experience.placeholder} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value='0-1'>0-1 years</SelectItem>
-                  <SelectItem value='1-3'>1-3 years</SelectItem>
-                  <SelectItem value='3-5'>3-5 years</SelectItem>
-                  <SelectItem value='5-10'>5-10 years</SelectItem>
-                  <SelectItem value='10+'>10+ years</SelectItem>
+                  <SelectItem value='0-1'>{copy.fields.experience.options[0]}</SelectItem>
+                  <SelectItem value='1-3'>{copy.fields.experience.options[1]}</SelectItem>
+                  <SelectItem value='3-5'>{copy.fields.experience.options[2]}</SelectItem>
+                  <SelectItem value='5-10'>{copy.fields.experience.options[3]}</SelectItem>
+                  <SelectItem value='10+'>{copy.fields.experience.options[4]}</SelectItem>
                 </SelectContent>
               </Select>
               {showErrors && experienceErrors.length > 0 && (
@@ -374,11 +383,11 @@ export function CareersForm() {
 
             <div className='space-y-2'>
               <Label htmlFor='location' className='font-medium text-sm'>
-                Location *
+                {copy.fields.location.label}
               </Label>
               <Input
                 id='location'
-                placeholder='e.g. San Francisco, CA'
+                placeholder={copy.fields.location.placeholder}
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 className={cn(
@@ -399,11 +408,11 @@ export function CareersForm() {
 
           <div className='space-y-2'>
             <Label htmlFor='message' className='font-medium text-sm'>
-              Tell us about yourself *
+              {copy.fields.message.label}
             </Label>
             <Textarea
               id='message'
-              placeholder='Tell us about your experience, what excites you about TradingGoose, and why you would be a great fit for this role...'
+              placeholder={copy.fields.message.placeholder}
               className={cn(
                 'min-h-[140px]',
                 showErrors &&
@@ -413,7 +422,7 @@ export function CareersForm() {
               value={message}
               onChange={(e) => setMessage(e.target.value)}
             />
-            <p className='mt-1.5 text-gray-500 text-xs'>Minimum 50 characters</p>
+            <p className='mt-1.5 text-gray-500 text-xs'>{copy.helpers.messageMinimum}</p>
             {showErrors && messageErrors.length > 0 && (
               <div className='mt-1 space-y-1 text-red-400 text-xs'>
                 {messageErrors.map((error, index) => (
@@ -425,7 +434,7 @@ export function CareersForm() {
 
           <div className='space-y-2'>
             <Label htmlFor='resume' className='font-medium text-sm'>
-              Resume *
+              {copy.fields.resume.label}
             </Label>
             <div className='relative'>
               {resume ? (
@@ -441,7 +450,7 @@ export function CareersForm() {
                       }
                     }}
                     className='flex-shrink-0 text-muted-foreground transition-colors hover:text-foreground'
-                    aria-label='Remove file'
+                    aria-label={copy.actions.removeFile}
                   >
                     <X className='h-4 w-4' />
                   </button>
@@ -461,7 +470,7 @@ export function CareersForm() {
                 />
               )}
             </div>
-            <p className='mt-1.5 text-gray-500 text-xs'>PDF or Word document, max 10MB</p>
+            <p className='mt-1.5 text-gray-500 text-xs'>{copy.fields.resume.helper}</p>
             {showErrors && resumeErrors.length > 0 && (
               <div className='mt-1 space-y-1 text-red-400 text-xs'>
                 {resumeErrors.map((error, index) => (
@@ -481,12 +490,12 @@ export function CareersForm() {
               {isSubmitting ? (
                 <>
                   <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                  Submitting...
+                  {copy.actions.submitting}
                 </>
               ) : submitStatus === 'success' ? (
-                'Submitted'
+                copy.actions.submitted
               ) : (
-                'Submit Application'
+                copy.actions.submit
               )}
             </Button>
           </div>
@@ -495,12 +504,12 @@ export function CareersForm() {
 
       <section className='mt-6 text-center text-gray-600 text-sm'>
         <p>
-          Questions? Email us at{' '}
+          {copy.helpers.contactPrefix}{' '}
           <a
-            href='mailto:careers@tradinggoose.ai'
+            href={`mailto:${contactEmail}`}
             className='font-medium underline transition-colors'
           >
-            careers@tradinggoose.ai
+            {contactEmail}
           </a>
         </p>
       </section>

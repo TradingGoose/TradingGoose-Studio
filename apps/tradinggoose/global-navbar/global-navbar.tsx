@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import { usePathname } from 'next/navigation'
+import { useSelectedLayoutSegments } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import {
   Sidebar,
   SidebarContent,
@@ -24,6 +25,7 @@ import { UserMenu } from './components/user-menu'
 import { WorkspaceDialogs } from './components/workspace-dialogs'
 import { WorkspaceSwitcher } from './components/workspace-switcher'
 import { GlobalNavbarHeaderProvider } from './header-context'
+import { SettingsLoader } from './settings-loader'
 import { SettingsDialog } from './settings-modal/settings-dialog'
 import type { SettingsSection } from './settings-modal/types'
 import type { NavSection } from './types'
@@ -32,11 +34,9 @@ import {
   createAdminNav,
   createNavSections,
   createWorkspaceNav,
-  getWorkspaceIdFromPath,
+  getAdminNavState,
+  getWorkspaceNavState,
 } from './utils'
-
-const AUTH_ROUTE_PREFIXES = ['/login', '/signup', '/reset-password', '/verify', '/sso'] as const
-const LANDING_ROUTE_PREFIXES = ['/privacy', '/terms', '/careers', '/blog'] as const
 
 export function GlobalNavbar({
   children,
@@ -47,33 +47,62 @@ export function GlobalNavbar({
   isSystemAdmin?: boolean
   navigationMode?: 'workspace' | 'admin'
 }) {
-  const pathname = usePathname() ?? '/'
+  const selectedSegments = useSelectedLayoutSegments()
+  const tWorkspaceNav = useTranslations('workspace.nav')
   const brand = React.useMemo(() => getBrandConfig(), [])
   const { data: sessionData, isPending: isSessionLoading } = useSession()
-  const workspaceId = React.useMemo(() => getWorkspaceIdFromPath(pathname), [pathname])
+  const workspaceNavState = React.useMemo(
+    () => getWorkspaceNavState(selectedSegments),
+    [selectedSegments]
+  )
+  const adminNavState = React.useMemo(() => getAdminNavState(selectedSegments), [selectedSegments])
+  const workspaceId = navigationMode === 'workspace' ? workspaceNavState.workspaceId : undefined
+  const activeKey =
+    navigationMode === 'admin' ? adminNavState.activeKey : workspaceNavState.activeKey
+  const workspaceSection = navigationMode === 'workspace' ? workspaceNavState.activeKey : null
+  const workspaceNavCopy = React.useMemo(
+    () => ({
+      workspace: {
+        dashboard: tWorkspaceNav('workspace.dashboard'),
+        knowledge: tWorkspaceNav('workspace.knowledge'),
+        files: tWorkspaceNav('workspace.files'),
+        records: tWorkspaceNav('workspace.records'),
+        monitor: tWorkspaceNav('workspace.monitor'),
+      },
+      more: {
+        environment: tWorkspaceNav('more.environment'),
+        apiKeys: tWorkspaceNav('more.apiKeys'),
+        integrations: tWorkspaceNav('more.integrations'),
+      },
+    }),
+    [tWorkspaceNav]
+  )
+  const adminNavCopy = React.useMemo(
+    () => ({
+      overview: tWorkspaceNav('admin.overview'),
+      billing: tWorkspaceNav('admin.billing'),
+      services: tWorkspaceNav('admin.services'),
+      integrations: tWorkspaceNav('admin.integrations'),
+      registration: tWorkspaceNav('admin.registration'),
+    }),
+    [tWorkspaceNav]
+  )
   const navItems = React.useMemo(
-    () => (navigationMode === 'admin' ? createAdminNav() : createWorkspaceNav(workspaceId)),
-    [navigationMode, workspaceId]
+    () =>
+      navigationMode === 'admin'
+        ? createAdminNav(adminNavCopy)
+        : createWorkspaceNav(workspaceNavCopy, workspaceId),
+    [adminNavCopy, navigationMode, workspaceId, workspaceNavCopy]
   )
   const navMain = React.useMemo<NavSection[]>(
-    () => createNavSections(pathname, navItems),
-    [pathname, navItems]
+    () => createNavSections(navItems, activeKey),
+    [activeKey, navItems]
   )
   const activeNavItem = React.useMemo(() => navMain.find((item) => item.isActive), [navMain])
   const isAuthenticated = Boolean(sessionData?.user?.id)
-  const isAuthRoute = React.useMemo(
-    () => AUTH_ROUTE_PREFIXES.some((route) => pathname.startsWith(route)),
-    [pathname]
-  )
-  const isLandingRoute = React.useMemo(
-    () => pathname === '/' || LANDING_ROUTE_PREFIXES.some((route) => pathname.startsWith(route)),
-    [pathname]
-  )
-  const isSidebarRoute = React.useMemo(() => navMain.some((item) => item.isActive), [navMain])
-  const shouldRenderNavbar = isSidebarRoute && !isLandingRoute && !isAuthRoute
-  const shouldShowSkeleton = shouldRenderNavbar && isSessionLoading
+  const shouldShowSkeleton = isSessionLoading
   const { data: organizationsData } = useOrganizations({
-    enabled: shouldRenderNavbar && isAuthenticated && !isSessionLoading,
+    enabled: isAuthenticated && !isSessionLoading,
   })
   const billingEnabled = organizationsData?.billingData?.data?.billingEnabled ?? true
   const activeOrganization = organizationsData?.activeOrganization
@@ -103,7 +132,9 @@ export function GlobalNavbar({
     userAvatarOverride.version ??
     (sessionData?.user?.updatedAt ? new Date(sessionData.user.updatedAt).getTime() : null)
   const workspaceSwitcher = useWorkspaceSwitcher({
-    enabled: shouldRenderNavbar && isAuthenticated && !isSessionLoading,
+    enabled: isAuthenticated && !isSessionLoading,
+    workspaceId,
+    section: workspaceSection,
   })
   const canManageWorkspaces = workspaceSwitcher.canManageWorkspaces
   const systemNavigation = React.useMemo(() => {
@@ -113,9 +144,9 @@ export function GlobalNavbar({
 
     return {
       href: '/admin',
-      label: 'System Admin',
+      label: tWorkspaceNav('systemAdmin'),
     }
-  }, [isSystemAdmin, navigationMode])
+  }, [isSystemAdmin, navigationMode, tWorkspaceNav])
 
   const resolveSettingsSection = React.useCallback(
     (section: SettingsSection): SettingsSection => {
@@ -252,10 +283,6 @@ export function GlobalNavbar({
     }
   }, [userId])
 
-  if (!shouldRenderNavbar) {
-    return <GlobalNavbarHeaderProvider>{children}</GlobalNavbarHeaderProvider>
-  }
-
   if (shouldShowSkeleton) {
     return (
       <GlobalNavbarHeaderProvider>
@@ -310,6 +337,7 @@ export function GlobalNavbar({
 
   return (
     <GlobalNavbarHeaderProvider>
+      <SettingsLoader userId={userId} />
       <div className='flex h-screen w-screen max-w-[100vw] overflow-hidden bg-background'>
         <SidebarProvider defaultOpen className='flex h-full min-h-0 w-full overflow-hidden'>
           <Sidebar collapsible='icon'>

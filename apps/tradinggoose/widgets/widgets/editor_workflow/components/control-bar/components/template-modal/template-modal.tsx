@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
   Award,
@@ -86,25 +86,19 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { buildWorkflowStateForTemplate } from '@/lib/workflows/state-builder'
 import { categories } from '@/app/workspace/[workspaceId]/templates/templates'
+import type { Messages } from 'next-intl'
+import { useWorkspaceBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 const logger = createLogger('TemplateModal')
 
-const templateSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(100, 'Name must be less than 100 characters'),
-  description: z
-    .string()
-    .min(1, 'Description is required')
-    .max(500, 'Description must be less than 500 characters'),
-  author: z
-    .string()
-    .min(1, 'Author is required')
-    .max(100, 'Author must be less than 100 characters'),
-  category: z.string().min(1, 'Category is required'),
-  icon: z.string().min(1, 'Icon is required'),
-  color: z.string().regex(/^#[0-9A-F]{6}$/i, 'Color must be a valid hex color (e.g., #3972F6)'),
-})
-
-type TemplateFormData = z.infer<typeof templateSchema>
+type TemplateFormData = {
+  name: string
+  description: string
+  author: string
+  category: string
+  icon: string
+  color: string
+}
 
 interface TemplateModalProps {
   open: boolean
@@ -114,65 +108,174 @@ interface TemplateModalProps {
 
 const icons = [
   // Content & Documentation
-  { value: 'FileText', label: 'File Text', component: FileText },
-  { value: 'NotebookPen', label: 'Notebook', component: NotebookPen },
-  { value: 'BookOpen', label: 'Book', component: BookOpen },
-  { value: 'Edit', label: 'Edit', component: Edit },
+  { value: 'FileText', component: FileText },
+  { value: 'NotebookPen', component: NotebookPen },
+  { value: 'BookOpen', component: BookOpen },
+  { value: 'Edit', component: Edit },
 
   // Analytics & Charts
-  { value: 'BarChart3', label: 'Bar Chart', component: BarChart3 },
-  { value: 'LineChart', label: 'Line Chart', component: LineChart },
-  { value: 'TrendingUp', label: 'Trending Up', component: TrendingUp },
-  { value: 'Target', label: 'Target', component: Target },
+  { value: 'BarChart3', component: BarChart3 },
+  { value: 'LineChart', component: LineChart },
+  { value: 'TrendingUp', component: TrendingUp },
+  { value: 'Target', component: Target },
 
   // Database & Storage
-  { value: 'Database', label: 'Database', component: Database },
-  { value: 'Server', label: 'Server', component: Server },
-  { value: 'Cloud', label: 'Cloud', component: Cloud },
-  { value: 'Folder', label: 'Folder', component: Folder },
+  { value: 'Database', component: Database },
+  { value: 'Server', component: Server },
+  { value: 'Cloud', component: Cloud },
+  { value: 'Folder', component: Folder },
 
   // Marketing & Communication
-  { value: 'Megaphone', label: 'Megaphone', component: Megaphone },
-  { value: 'Mail', label: 'Mail', component: Mail },
-  { value: 'MessageSquare', label: 'Message', component: MessageSquare },
-  { value: 'Phone', label: 'Phone', component: Phone },
-  { value: 'Bell', label: 'Bell', component: Bell },
+  { value: 'Megaphone', component: Megaphone },
+  { value: 'Mail', component: Mail },
+  { value: 'MessageSquare', component: MessageSquare },
+  { value: 'Phone', component: Phone },
+  { value: 'Bell', component: Bell },
 
   // Sales & Finance
-  { value: 'DollarSign', label: 'Dollar Sign', component: DollarSign },
-  { value: 'CreditCard', label: 'Credit Card', component: CreditCard },
-  { value: 'Calculator', label: 'Calculator', component: Calculator },
-  { value: 'ShoppingCart', label: 'Shopping Cart', component: ShoppingCart },
-  { value: 'Briefcase', label: 'Briefcase', component: Briefcase },
+  { value: 'DollarSign', component: DollarSign },
+  { value: 'CreditCard', component: CreditCard },
+  { value: 'Calculator', component: Calculator },
+  { value: 'ShoppingCart', component: ShoppingCart },
+  { value: 'Briefcase', component: Briefcase },
 
   // Support & Service
-  { value: 'HeadphonesIcon', label: 'Headphones', component: HeadphonesIcon },
-  { value: 'User', label: 'User', component: User },
-  { value: 'Users', label: 'Users', component: Users },
-  { value: 'Settings', label: 'Settings', component: Settings },
-  { value: 'Wrench', label: 'Wrench', component: Wrench },
+  { value: 'HeadphonesIcon', component: HeadphonesIcon },
+  { value: 'User', component: User },
+  { value: 'Users', component: Users },
+  { value: 'Settings', component: Settings },
+  { value: 'Wrench', component: Wrench },
 
   // AI & Technology
-  { value: 'Bot', label: 'Bot', component: Bot },
-  { value: 'Brain', label: 'Brain', component: Brain },
-  { value: 'Cpu', label: 'CPU', component: Cpu },
-  { value: 'Code', label: 'Code', component: Code },
-  { value: 'Zap', label: 'Zap', component: Zap },
+  { value: 'Bot', component: Bot },
+  { value: 'Brain', component: Brain },
+  { value: 'Cpu', component: Cpu },
+  { value: 'Code', component: Code },
+  { value: 'Zap', component: Zap },
 
   // Workflow & Process
-  { value: 'Workflow', label: 'Workflow', component: Workflow },
-  { value: 'Search', label: 'Search', component: Search },
-  { value: 'Play', label: 'Play', component: Play },
-  { value: 'Layers', label: 'Layers', component: Layers },
+  { value: 'Workflow', component: Workflow },
+  { value: 'Search', component: Search },
+  { value: 'Play', component: Play },
+  { value: 'Layers', component: Layers },
 
   // General
-  { value: 'Lightbulb', label: 'Lightbulb', component: Lightbulb },
-  { value: 'Star', label: 'Star', component: Star },
-  { value: 'Globe', label: 'Globe', component: Globe },
-  { value: 'Award', label: 'Award', component: Award },
+  { value: 'Lightbulb', component: Lightbulb },
+  { value: 'Star', component: Star },
+  { value: 'Globe', component: Globe },
+  { value: 'Award', component: Award },
 ]
 
+function getTemplateCategoryLabel(
+  category: (typeof categories)[number]['value'],
+  copy: Messages['workspace']['widgets']['blockEditor']['templateModal']
+) {
+  switch (category) {
+    case 'marketing':
+      return copy.categories.marketing
+    case 'sales':
+      return copy.categories.sales
+    case 'finance':
+      return copy.categories.finance
+    case 'support':
+      return copy.categories.support
+    case 'artificial-intelligence':
+      return copy.categories.artificialIntelligence
+    case 'other':
+      return copy.categories.other
+  }
+}
+
+function getTemplateIconLabel(
+  icon: (typeof icons)[number]['value'],
+  copy: Messages['workspace']['widgets']['blockEditor']['templateModal']
+) {
+  switch (icon) {
+    case 'FileText':
+      return copy.icons.fileText
+    case 'NotebookPen':
+      return copy.icons.notebook
+    case 'BookOpen':
+      return copy.icons.book
+    case 'Edit':
+      return copy.icons.edit
+    case 'BarChart3':
+      return copy.icons.barChart
+    case 'LineChart':
+      return copy.icons.lineChart
+    case 'TrendingUp':
+      return copy.icons.trendingUp
+    case 'Target':
+      return copy.icons.target
+    case 'Database':
+      return copy.icons.database
+    case 'Server':
+      return copy.icons.server
+    case 'Cloud':
+      return copy.icons.cloud
+    case 'Folder':
+      return copy.icons.folder
+    case 'Megaphone':
+      return copy.icons.megaphone
+    case 'Mail':
+      return copy.icons.mail
+    case 'MessageSquare':
+      return copy.icons.message
+    case 'Phone':
+      return copy.icons.phone
+    case 'Bell':
+      return copy.icons.bell
+    case 'DollarSign':
+      return copy.icons.dollarSign
+    case 'CreditCard':
+      return copy.icons.creditCard
+    case 'Calculator':
+      return copy.icons.calculator
+    case 'ShoppingCart':
+      return copy.icons.shoppingCart
+    case 'Briefcase':
+      return copy.icons.briefcase
+    case 'HeadphonesIcon':
+      return copy.icons.headphones
+    case 'User':
+      return copy.icons.user
+    case 'Users':
+      return copy.icons.users
+    case 'Settings':
+      return copy.icons.settings
+    case 'Wrench':
+      return copy.icons.wrench
+    case 'Bot':
+      return copy.icons.bot
+    case 'Brain':
+      return copy.icons.brain
+    case 'Cpu':
+      return copy.icons.cpu
+    case 'Code':
+      return copy.icons.code
+    case 'Zap':
+      return copy.icons.zap
+    case 'Workflow':
+      return copy.icons.workflow
+    case 'Search':
+      return copy.icons.search
+    case 'Play':
+      return copy.icons.play
+    case 'Layers':
+      return copy.icons.layers
+    case 'Lightbulb':
+      return copy.icons.lightbulb
+    case 'Star':
+      return copy.icons.star
+    case 'Globe':
+      return copy.icons.globe
+    case 'Award':
+      return copy.icons.award
+  }
+}
+
 export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalProps) {
+  const copy = useWorkspaceBlockEditorCopy().templateModal
   const { data: session } = useSession()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [iconPopoverOpen, setIconPopoverOpen] = useState(false)
@@ -180,6 +283,27 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
   const [isLoadingTemplate, setIsLoadingTemplate] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const templateSchema = useMemo(
+    () =>
+      z.object({
+        name: z
+          .string()
+          .min(1, copy.validation.nameRequired)
+          .max(100, copy.validation.nameTooLong),
+        description: z
+          .string()
+          .min(1, copy.validation.descriptionRequired)
+          .max(500, copy.validation.descriptionTooLong),
+        author: z
+          .string()
+          .min(1, copy.validation.authorRequired)
+          .max(100, copy.validation.authorTooLong),
+        category: z.string().min(1, copy.validation.categoryRequired),
+        icon: z.string().min(1, copy.validation.iconRequired),
+        color: z.string().regex(/^#[0-9A-F]{6}$/i, copy.validation.colorInvalid),
+      }),
+    [copy.validation]
+  )
 
   const form = useForm<TemplateFormData>({
     resolver: zodResolver(templateSchema),
@@ -265,7 +389,7 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
       if (!templateState) {
         form.setError('root', {
           type: 'manual',
-          message: 'Workflow session is not ready yet. Wait for the editor to finish loading.',
+          message: copy.errors.workflowNotReady,
         })
         return
       }
@@ -304,9 +428,7 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(
-          errorData.error || `Failed to ${existingTemplate ? 'update' : 'create'} template`
-        )
+        throw new Error(errorData.error || (existingTemplate ? copy.errors.update : copy.errors.create))
       }
 
       const result = await response.json()
@@ -327,6 +449,7 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
 
   const SelectedIconComponent =
     icons.find((icon) => icon.value === form.watch('icon'))?.component || FileText
+  const selectedIconLabel = getTemplateIconLabel(form.watch('icon'), copy)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -339,10 +462,10 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
             <div className='flex items-center gap-3'>
               <DialogTitle className='font-medium text-lg'>
                 {isLoadingTemplate
-                  ? 'Loading...'
+                  ? copy.title.loading
                   : existingTemplate
-                    ? 'Update Template'
-                    : 'Publish Template'}
+                    ? copy.title.update
+                    : copy.title.publish}
               </DialogTitle>
               {existingTemplate && (
                 <div className='flex items-center gap-1'>
@@ -377,7 +500,7 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
               onClick={() => onOpenChange(false)}
             >
               <X className='h-4 w-4' />
-              <span className='sr-only'>Close</span>
+              <span className='sr-only'>{copy.actions.close}</span>
             </Button>
           </div>
         </DialogHeader>
@@ -435,13 +558,15 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
                       render={({ field }) => (
                         <FormItem className='w-20'>
                           <FormLabel className='!text-foreground font-medium text-sm'>
-                            Icon
+                            {copy.fields.icon}
                           </FormLabel>
                           <Popover open={iconPopoverOpen} onOpenChange={setIconPopoverOpen}>
                             <PopoverTrigger asChild>
                               <Button
                                 variant='outline'
                                 role='combobox'
+                                aria-label={selectedIconLabel}
+                                title={selectedIconLabel}
                                 className='h-10 w-20 rounded-sm border-border/50 p-0 transition-all duration-200 hover:border-border hover:bg-card/50'
                               >
                                 <SelectedIconComponent className='h-4 w-4' />
@@ -456,6 +581,8 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
                                       <button
                                         key={icon.value}
                                         type='button'
+                                        aria-label={getTemplateIconLabel(icon.value, copy)}
+                                        title={getTemplateIconLabel(icon.value, copy)}
                                         onClick={() => {
                                           field.onChange(icon.value)
                                           setIconPopoverOpen(false)
@@ -486,7 +613,7 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
                       render={({ field }) => (
                         <FormItem className='w-20'>
                           <FormLabel className='!text-foreground font-medium text-sm'>
-                            Color
+                            {copy.fields.color}
                           </FormLabel>
                           <FormControl>
                             <ColorPicker
@@ -507,10 +634,12 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
                     name='name'
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className='!text-foreground font-medium text-sm'>Name</FormLabel>
+                        <FormLabel className='!text-foreground font-medium text-sm'>
+                          {copy.fields.name}
+                        </FormLabel>
                         <FormControl>
                           <Input
-                            placeholder='Enter template name'
+                            placeholder={copy.placeholders.name}
                             className='h-10 rounded-sm'
                             {...field}
                           />
@@ -527,11 +656,11 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className='!text-foreground font-medium text-sm'>
-                            Author
+                            {copy.fields.author}
                           </FormLabel>
                           <FormControl>
                             <Input
-                              placeholder='Enter author name'
+                              placeholder={copy.placeholders.author}
                               className='h-10 rounded-sm'
                               {...field}
                             />
@@ -547,18 +676,18 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className='!text-foreground font-medium text-sm'>
-                            Category
+                            {copy.fields.category}
                           </FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
                               <SelectTrigger className='h-10 rounded-sm'>
-                                <SelectValue placeholder='Select a category' />
+                                <SelectValue placeholder={copy.placeholders.category} />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
                               {categories.map((category) => (
                                 <SelectItem key={category.value} value={category.value}>
-                                  {category.label}
+                                  {getTemplateCategoryLabel(category.value, copy)}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -575,11 +704,11 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className='!text-foreground font-medium text-sm'>
-                          Description
+                          {copy.fields.description}
                         </FormLabel>
                         <FormControl>
                           <Textarea
-                            placeholder='Describe what this template does...'
+                            placeholder={copy.placeholders.description}
                             className='min-h-[80px] resize-none rounded-sm'
                             rows={3}
                             {...field}
@@ -607,7 +736,7 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
                     disabled={isSubmitting || isLoadingTemplate}
                     className='h-9 rounded-sm px-4'
                   >
-                    Delete
+                    {copy.actions.delete}
                   </Button>
                 )}
                 <Button
@@ -624,12 +753,12 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
                   {isSubmitting ? (
                     <>
                       <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                      {existingTemplate ? 'Updating...' : 'Publishing...'}
+                      {existingTemplate ? copy.submit.updating : copy.submit.publishing}
                     </>
                   ) : existingTemplate ? (
-                    'Update Template'
+                    copy.submit.update
                   ) : (
-                    'Publish Template'
+                    copy.submit.publish
                   )}
                 </Button>
               </div>
@@ -640,15 +769,12 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
           <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Delete Template?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Deleting this template will remove it from the gallery. This action cannot be
-                  undone.
-                </AlertDialogDescription>
+                <AlertDialogTitle>{copy.delete.title}</AlertDialogTitle>
+                <AlertDialogDescription>{copy.delete.description}</AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter className='flex'>
                 <AlertDialogCancel className='h-9 w-full rounded-sm' disabled={isDeleting}>
-                  Cancel
+                  {copy.delete.cancel}
                 </AlertDialogCancel>
                 <AlertDialogAction
                   className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
@@ -662,7 +788,7 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
                       })
                       if (!resp.ok) {
                         const err = await resp.json().catch(() => ({}))
-                        throw new Error(err.error || 'Failed to delete template')
+                        throw new Error(err.error || copy.errors.delete)
                       }
                       setShowDeleteDialog(false)
                       onOpenChange(false)
@@ -673,7 +799,7 @@ export function TemplateModal({ open, onOpenChange, workflowId }: TemplateModalP
                     }
                   }}
                 >
-                  {isDeleting ? 'Deleting...' : 'Delete'}
+                  {isDeleting ? copy.delete.deleting : copy.delete.confirm}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

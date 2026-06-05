@@ -1,0 +1,100 @@
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { workflowVariablesWidget } from './index'
+
+vi.mock('next-intl', () => ({
+  useLocale: () => 'es',
+  useMessages: () => getPublicCopy('es'),
+}))
+
+vi.mock('lucide-react', () => ({
+  Braces: () => <svg />,
+  Plus: () => <svg />,
+}))
+
+vi.mock('@/components/ui/loading-agent', () => ({
+  LoadingAgent: () => <div>loading</div>,
+}))
+
+let mockWorkflowWidgetState: any = {
+  channelId: 'workflow-variables-panel-1',
+  resolvedPairColor: 'gray',
+  resolvedWorkflowId: 'wf-1',
+  hasLoadedWorkflows: true,
+  loadError: null,
+  isLoading: false,
+  workflowIds: ['wf-1'],
+}
+
+vi.mock('@/widgets/hooks/use-workflow-widget-state', () => ({
+  useWorkflowWidgetState: () => mockWorkflowWidgetState,
+}))
+
+vi.mock('@/widgets/utils/workflow-selection', () => ({
+  emitWorkflowSelectionChange: vi.fn(),
+  useWorkflowSelectionPersistence: vi.fn(),
+}))
+
+vi.mock('@/widgets/widgets/components/workflow-dropdown', () => ({
+  WorkflowDropdown: () => <div>workflow-dropdown</div>,
+}))
+
+vi.mock('./components/workflow-variables-app', () => ({
+  __esModule: true,
+  default: () => <div>variables-app</div>,
+}))
+
+vi.mock('@/components/ui/tooltip', () => ({
+  Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  TooltipTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  TooltipContent: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}))
+
+vi.mock('@/stores/workflows/registry/store', () => ({
+  useWorkflowRegistry: (
+    selector: (state: { getActiveWorkflowId: (channelId: string) => string | null }) => unknown
+  ) =>
+    selector({
+      getActiveWorkflowId: () => 'wf-1',
+    }),
+}))
+
+describe('workflowVariablesWidget', () => {
+  beforeEach(() => {
+    mockWorkflowWidgetState = {
+      channelId: 'workflow-variables-panel-1',
+      resolvedPairColor: 'gray',
+      resolvedWorkflowId: 'wf-1',
+      hasLoadedWorkflows: true,
+      loadError: null,
+      isLoading: false,
+      workflowIds: ['wf-1'],
+    }
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('maps workflow load errors through localized widget copy', () => {
+    mockWorkflowWidgetState.loadError = 'unableToLoadWorkflows'
+
+    const markup = renderToStaticMarkup(
+      createElement(
+        workflowVariablesWidget.component,
+        {
+          context: { workspaceId: 'ws-1' },
+          widget: { key: 'workflow_variables' },
+          panelId: 'panel-1',
+        } as any
+      )
+    )
+
+    expect(markup).toContain(
+      getPublicCopy('es').workspace.widgets.workflowVariables.unableToLoadWorkflows
+    )
+    expect(markup).not.toContain('unableToLoadWorkflows')
+  })
+})

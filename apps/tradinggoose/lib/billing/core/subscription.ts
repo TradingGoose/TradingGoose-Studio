@@ -355,11 +355,12 @@ export async function sendBillingTierWelcomeEmail(subscriptionRecord: {
       '@/components/emails/render-email'
     )
     const { sendEmail } = await import('@/lib/email/mailer')
+    const { resolveEmailLocale } = await import('@/lib/email/locale')
     const baseUrl = getBaseUrl()
 
     if (hydratedSubscription.referenceType === 'user') {
       const users = await db
-        .select({ email: user.email, name: user.name })
+        .select({ id: user.id, email: user.email, name: user.name })
         .from(user)
         .where(eq(user.id, hydratedSubscription.referenceId))
         .limit(1)
@@ -368,15 +369,17 @@ export async function sendBillingTierWelcomeEmail(subscriptionRecord: {
         return
       }
 
+      const locale = await resolveEmailLocale({ userId: users[0].id, email: users[0].email })
       const html = await renderPlanWelcomeEmail({
         planName: getTierDisplayName(tier),
         userName: users[0].name || undefined,
         loginLink: `${baseUrl}/login`,
+        locale,
       })
 
       await sendEmail({
         to: users[0].email,
-        subject: getPlanWelcomeSubject(getTierDisplayName(tier)),
+        subject: getPlanWelcomeSubject(getTierDisplayName(tier), locale),
         html,
         emailType: 'updates',
       })
@@ -390,7 +393,7 @@ export async function sendBillingTierWelcomeEmail(subscriptionRecord: {
     }
 
     const recipients = await db
-      .select({ email: user.email, name: user.name })
+      .select({ id: user.id, email: user.email, name: user.name })
       .from(member)
       .innerJoin(user, eq(member.userId, user.id))
       .where(eq(member.organizationId, hydratedSubscription.referenceId))
@@ -400,15 +403,17 @@ export async function sendBillingTierWelcomeEmail(subscriptionRecord: {
         continue
       }
 
+      const locale = await resolveEmailLocale({ userId: recipient.id, email: recipient.email })
       const html = await renderPlanWelcomeEmail({
         planName: getTierDisplayName(tier),
         userName: recipient.name || undefined,
         loginLink: `${baseUrl}/login`,
+        locale,
       })
 
       await sendEmail({
         to: recipient.email,
-        subject: getPlanWelcomeSubject(getTierDisplayName(tier)),
+        subject: getPlanWelcomeSubject(getTierDisplayName(tier), locale),
         html,
         emailType: 'updates',
       })

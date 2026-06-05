@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { AlertCircle, Check, Loader2, X } from 'lucide-react'
 import { useParams } from 'next/navigation'
@@ -22,6 +22,7 @@ import {
 import { getDocumentIcon } from '@/app/workspace/[workspaceId]/knowledge/components'
 import { useKnowledgeUpload } from '@/app/workspace/[workspaceId]/knowledge/hooks/use-knowledge-upload'
 import type { KnowledgeBaseData } from '@/stores/knowledge/store'
+import { useTranslations } from 'next-intl'
 
 const logger = createLogger('CreateModal')
 
@@ -35,33 +36,13 @@ interface CreateModalProps {
   onKnowledgeBaseCreated?: (knowledgeBase: KnowledgeBaseData) => void
 }
 
-const FormSchema = z
-  .object({
-    name: z
-      .string()
-      .min(1, 'Name is required')
-      .max(100, 'Name must be less than 100 characters')
-      .refine((value) => value.trim().length > 0, 'Name cannot be empty'),
-    description: z.string().max(500, 'Description must be less than 500 characters').optional(),
-    minChunkSize: z
-      .number()
-      .min(1, 'Min chunk size must be at least 1')
-      .max(2000, 'Min chunk size must be less than 2000'),
-    maxChunkSize: z
-      .number()
-      .min(100, 'Max chunk size must be at least 100')
-      .max(4000, 'Max chunk size must be less than 4000'),
-    overlapSize: z
-      .number()
-      .min(0, 'Overlap size must be non-negative')
-      .max(500, 'Overlap size must be less than 500'),
-  })
-  .refine((data) => data.minChunkSize < data.maxChunkSize, {
-    message: 'Min chunk size must be less than max chunk size',
-    path: ['minChunkSize'],
-  })
-
-type FormValues = z.infer<typeof FormSchema>
+type FormValues = {
+  name: string
+  description?: string
+  minChunkSize: number
+  maxChunkSize: number
+  overlapSize: number
+}
 
 interface SubmitStatus {
   type: 'success' | 'error'
@@ -71,6 +52,37 @@ interface SubmitStatus {
 export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: CreateModalProps) {
   const params = useParams()
   const workspaceId = params.workspaceId as string
+  const t = useTranslations('workspace.knowledge.createModal')
+
+  const formSchema = useMemo(
+    () =>
+      z
+        .object({
+          name: z
+            .string()
+            .min(1, t('validation.nameRequired'))
+            .max(100, t('validation.nameTooLong'))
+            .refine((value) => value.trim().length > 0, t('validation.nameCannotBeEmpty')),
+          description: z.string().max(500, t('validation.descriptionTooLong')).optional(),
+          minChunkSize: z
+            .number()
+            .min(1, t('validation.minChunkSizeAtLeast'))
+            .max(2000, t('validation.minChunkSizeTooLarge')),
+          maxChunkSize: z
+            .number()
+            .min(100, t('validation.maxChunkSizeAtLeast'))
+            .max(4000, t('validation.maxChunkSizeTooLarge')),
+          overlapSize: z
+            .number()
+            .min(0, t('validation.overlapSizeNonNegative'))
+            .max(500, t('validation.overlapSizeTooLarge')),
+        })
+        .refine((data) => data.minChunkSize < data.maxChunkSize, {
+          message: t('validation.minChunkSizeLessThanMaxChunkSize'),
+          path: ['minChunkSize'],
+        }),
+    [t]
+  )
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -116,7 +128,7 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
     watch,
     formState: { errors },
   } = useForm<FormValues>({
-    resolver: zodResolver(FormSchema),
+    resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
       description: '',
@@ -162,16 +174,14 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
       for (const file of Array.from(fileList)) {
         // Check file size
         if (file.size > MAX_FILE_SIZE) {
-          setFileError(`File ${file.name} is too large. Maximum size is 100MB per file.`)
+          setFileError(t('fileTooLarge', { name: file.name }))
           hasError = true
           continue
         }
 
         // Check file type
         if (!ACCEPTED_FILE_TYPES.includes(file.type)) {
-          setFileError(
-            `File ${file.name} has an unsupported format. Please use PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, MD, PPT, PPTX, HTML, JSON, YAML, or YML.`
-          )
+          setFileError(t('unsupportedFileType', { name: file.name }))
           hasError = true
           continue
         }
@@ -189,7 +199,7 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
       }
     } catch (error) {
       logger.error('Error processing files:', error)
-      setFileError('An error occurred while processing files. Please try again.')
+      setFileError(t('processingError'))
     } finally {
       // Reset the input
       if (fileInputRef.current) {
@@ -295,13 +305,13 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to create knowledge base')
+        throw new Error(errorData.error || t('failedToCreateKnowledgeBase'))
       }
 
       const result = await response.json()
 
       if (!result.success) {
-        throw new Error(result.error || 'Failed to create knowledge base')
+        throw new Error(result.error || t('failedToCreateKnowledgeBase'))
       }
 
       const newKnowledgeBase = result.data
@@ -335,7 +345,7 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
       logger.error('Error creating knowledge base:', error)
       setSubmitStatus({
         type: 'error',
-        message: error instanceof Error ? error.message : 'An unknown error occurred',
+        message: error instanceof Error ? error.message : t('unknownError'),
       })
     } finally {
       setIsSubmitting(false)
@@ -350,7 +360,7 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
       >
         <DialogHeader className='flex-shrink-0 border-b px-6 py-4'>
           <div className='flex items-center justify-between'>
-            <DialogTitle className='font-medium text-lg'>Create Knowledge Base</DialogTitle>
+            <DialogTitle className='font-medium text-lg'>{t('title')}</DialogTitle>
             <Button
               variant='ghost'
               size='icon'
@@ -358,7 +368,7 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
               onClick={() => handleClose(false)}
             >
               <X className='h-4 w-4' />
-              <span className='sr-only'>Close</span>
+              <span className='sr-only'>{t('close')}</span>
             </Button>
           </div>
         </DialogHeader>
@@ -374,7 +384,7 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
                 {submitStatus && submitStatus.type === 'error' && (
                   <Alert variant='destructive' className='mb-6'>
                     <AlertCircle className='h-4 w-4' />
-                    <AlertTitle>Error</AlertTitle>
+                    <AlertTitle>{t('errorTitle')}</AlertTitle>
                     <AlertDescription>{submitStatus.message}</AlertDescription>
                   </Alert>
                 )}
@@ -382,7 +392,7 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
                 {uploadError && (
                   <Alert variant='destructive' className='mb-6'>
                     <AlertCircle className='h-4 w-4' />
-                    <AlertTitle>Upload Error</AlertTitle>
+                    <AlertTitle>{t('uploadErrorTitle')}</AlertTitle>
                     <AlertDescription>{uploadError.message}</AlertDescription>
                   </Alert>
                 )}
@@ -390,10 +400,10 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
                 {/* Form Fields Section - Fixed at top */}
                 <div className='flex-shrink-0 space-y-4'>
                   <div className='space-y-2'>
-                    <Label htmlFor='name'>Name *</Label>
+                    <Label htmlFor='name'>{t('nameLabel')}</Label>
                     <Input
                       id='name'
-                      placeholder='Enter knowledge base name'
+                      placeholder={t('namePlaceholder')}
                       {...register('name')}
                       className={errors.name ? 'border-red-500' : ''}
                     />
@@ -403,10 +413,10 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
                   </div>
 
                   <div className='space-y-2'>
-                    <Label htmlFor='description'>Description</Label>
+                    <Label htmlFor='description'>{t('descriptionLabel')}</Label>
                     <Textarea
                       id='description'
-                      placeholder='Describe what this knowledge base contains (optional)'
+                      placeholder={t('descriptionPlaceholder')}
                       rows={3}
                       {...register('description')}
                       className={errors.description ? 'border-red-500' : ''}
@@ -418,12 +428,14 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
 
                   {/* Chunk Configuration Section */}
                   <div className='space-y-4 rounded-lg border p-4'>
-                    <h3 className='font-medium text-foreground text-sm'>Chunking Configuration</h3>
+                    <h3 className='font-medium text-foreground text-sm'>
+                      {t('chunkingConfiguration')}
+                    </h3>
 
                     {/* Min and Max Chunk Size Row */}
                     <div className='grid grid-cols-2 gap-4'>
                       <div className='space-y-2'>
-                        <Label htmlFor='minChunkSize'>Min Chunk Size</Label>
+                        <Label htmlFor='minChunkSize'>{t('minChunkSizeLabel')}</Label>
                         <Input
                           id='minChunkSize'
                           type='number'
@@ -440,7 +452,7 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
                       </div>
 
                       <div className='space-y-2'>
-                        <Label htmlFor='maxChunkSize'>Max Chunk Size</Label>
+                        <Label htmlFor='maxChunkSize'>{t('maxChunkSizeLabel')}</Label>
                         <Input
                           id='maxChunkSize'
                           type='number'
@@ -459,7 +471,7 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
 
                     {/* Overlap Size */}
                     <div className='space-y-2'>
-                      <Label htmlFor='overlapSize'>Overlap Size</Label>
+                      <Label htmlFor='overlapSize'>{t('overlapSizeLabel')}</Label>
                       <Input
                         id='overlapSize'
                         type='number'
@@ -475,16 +487,13 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
                       )}
                     </div>
 
-                    <p className='text-muted-foreground text-xs'>
-                      Configure how documents are split into chunks for processing. Smaller chunks
-                      provide more precise retrieval but may lose context.
-                    </p>
+                    <p className='text-muted-foreground text-xs'>{t('chunkingDescription')}</p>
                   </div>
                 </div>
 
                 {/* File Upload Section - Expands to fill remaining space */}
                 <div className='mt-6 flex flex-1 flex-col'>
-                  <Label className='mb-2'>Upload Documents</Label>
+                  <Label className='mb-2'>{t('uploadDocuments')}</Label>
                   <div className='flex flex-1 flex-col'>
                     {files.length === 0 ? (
                       <div
@@ -516,12 +525,11 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
                               }`}
                             >
                               {isDragging
-                                ? 'Drop files here!'
-                                : 'Drop files here or click to browse'}
+                                ? t('dropFilesHere')
+                                : t('dropFilesHereOrClickToBrowse')}
                             </p>
                             <p className='text-muted-foreground text-xs'>
-                              Supports PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, MD, PPT, PPTX, HTML,
-                              JSON, YAML, YML (max 100MB each)
+                              {t('supportedFormats')}
                             </p>
                           </div>
                         </div>
@@ -558,12 +566,11 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
                                 }`}
                               >
                                 {isDragging
-                                  ? 'Drop more files here!'
-                                  : 'Drop more files or click to browse'}
+                                  ? t('dropMoreFilesHere')
+                                  : t('dropMoreFilesOrClickToBrowse')}
                               </p>
                               <p className='text-muted-foreground text-xs'>
-                                PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, MD, PPT, PPTX, HTML (max 100MB
-                                each)
+                                {t('supportedFormatsCompact')}
                               </p>
                             </div>
                           </div>
@@ -628,7 +635,7 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
                     {fileError && (
                       <Alert variant='destructive' className='mt-2'>
                         <AlertCircle className='h-4 w-4' />
-                        <AlertTitle>Error</AlertTitle>
+                        <AlertTitle>{t('errorTitle')}</AlertTitle>
                         <AlertDescription>{fileError}</AlertDescription>
                       </Alert>
                     )}
@@ -641,7 +648,7 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
             <div className='mt-auto border-t px-6 pt-4 pb-6'>
               <div className='flex justify-between'>
                 <Button variant='outline' onClick={() => handleClose(false)} type='button'>
-                  Cancel
+                  {t('cancel')}
                 </Button>
                 <Button
                   type='submit'
@@ -651,12 +658,12 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
                   {isSubmitting
                     ? isUploading
                       ? uploadProgress.stage === 'uploading'
-                        ? `Uploading ${uploadProgress.filesCompleted}/${uploadProgress.totalFiles}...`
+                        ? t('uploading')
                         : uploadProgress.stage === 'processing'
-                          ? 'Processing...'
-                          : 'Creating...'
-                      : 'Creating...'
-                    : 'Create Knowledge Base'}
+                          ? t('processing')
+                          : t('creating')
+                      : t('creating')
+                    : t('createKnowledgeBase')}
                 </Button>
               </div>
             </div>

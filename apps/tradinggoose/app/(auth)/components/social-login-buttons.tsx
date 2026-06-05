@@ -2,9 +2,16 @@
 
 import { type ReactNode, useEffect, useState } from 'react'
 import { GithubIcon, GoogleIcon } from '@/components/icons/icons'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { client } from '@/lib/auth-client'
+import { createLogger } from '@/lib/logs/console/logger'
 import { inter } from '@/app/fonts/inter'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
+
+const logger = createLogger('SocialLoginButtons')
 
 interface SocialLoginButtonsProps {
   githubAvailable: boolean
@@ -17,40 +24,76 @@ interface SocialLoginButtonsProps {
 export function SocialLoginButtons({
   githubAvailable,
   googleAvailable,
-  callbackURL = '/workspace',
-  isProduction,
+  callbackURL,
+  isProduction: _isProduction,
   children,
 }: SocialLoginButtonsProps) {
   const [isGithubLoading, setIsGithubLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
   const [mounted, setMounted] = useState(false)
+  const authRedirectUrls = useAuthRedirectUrls()
+  const copy = useMessages()
+  const socialCopy = copy.auth.social
+  const resolvedCallbackURL = authRedirectUrls.providerCallbackPath(callbackURL)
 
-  // Set mounted state to true on client-side
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  // Only render on the client side to avoid hydration errors
   if (!mounted) return null
+
+  function resolveSocialErrorMessage(providerLabel: string, err: any) {
+    const errorText = [
+      err?.code,
+      err?.message,
+      err?.error,
+      err?.response?.statusText,
+      err?.response?.data?.error,
+      err?.response?.data?.message,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+
+    if (
+      errorText.includes('account exists') ||
+      errorText.includes('already exists') ||
+      errorText.includes('user already exists')
+    ) {
+      return copy.auth.signup.errors.accountExists
+    }
+    if (errorText.includes('cancelled') || errorText.includes('canceled')) {
+      return formatTemplate(socialCopy.cancelled, { provider: providerLabel })
+    }
+    if (errorText.includes('network')) {
+      return copy.auth.login.errors.network
+    }
+    if (errorText.includes('rate limit') || errorText.includes('too many')) {
+      return copy.auth.login.errors.rateLimit
+    }
+
+    return copy.auth.error.default.description
+  }
 
   async function signInWithGithub() {
     if (!githubAvailable) return
 
     setIsGithubLoading(true)
+    setErrorMessage('')
     try {
-      await client.signIn.social({ provider: 'github', callbackURL })
-    } catch (err: any) {
-      let errorMessage = 'Failed to sign in with GitHub'
+      const result = await client.signIn.social({
+        provider: 'github',
+        callbackURL: resolvedCallbackURL,
+      })
 
-      if (err.message?.includes('account exists')) {
-        errorMessage = 'An account with this email already exists. Please sign in instead.'
-      } else if (err.message?.includes('cancelled')) {
-        errorMessage = 'GitHub sign in was cancelled. Please try again.'
-      } else if (err.message?.includes('network')) {
-        errorMessage = 'Network error. Please check your connection and try again.'
-      } else if (err.message?.includes('rate limit')) {
-        errorMessage = 'Too many attempts. Please try again later.'
+      if (result?.error) {
+        logger.error('GitHub social sign-in failed', { error: result.error })
+        setErrorMessage(resolveSocialErrorMessage(socialCopy.github, result.error))
       }
+    } catch (err: any) {
+      logger.error('GitHub social sign-in failed', { error: err })
+      setErrorMessage(resolveSocialErrorMessage(socialCopy.github, err))
     } finally {
       setIsGithubLoading(false)
     }
@@ -60,20 +103,20 @@ export function SocialLoginButtons({
     if (!googleAvailable) return
 
     setIsGoogleLoading(true)
+    setErrorMessage('')
     try {
-      await client.signIn.social({ provider: 'google', callbackURL })
-    } catch (err: any) {
-      let errorMessage = 'Failed to sign in with Google'
+      const result = await client.signIn.social({
+        provider: 'google',
+        callbackURL: resolvedCallbackURL,
+      })
 
-      if (err.message?.includes('account exists')) {
-        errorMessage = 'An account with this email already exists. Please sign in instead.'
-      } else if (err.message?.includes('cancelled')) {
-        errorMessage = 'Google sign in was cancelled. Please try again.'
-      } else if (err.message?.includes('network')) {
-        errorMessage = 'Network error. Please check your connection and try again.'
-      } else if (err.message?.includes('rate limit')) {
-        errorMessage = 'Too many attempts. Please try again later.'
+      if (result?.error) {
+        logger.error('Google social sign-in failed', { error: result.error })
+        setErrorMessage(resolveSocialErrorMessage(socialCopy.google, result.error))
       }
+    } catch (err: any) {
+      logger.error('Google social sign-in failed', { error: err })
+      setErrorMessage(resolveSocialErrorMessage(socialCopy.google, err))
     } finally {
       setIsGoogleLoading(false)
     }
@@ -87,7 +130,7 @@ export function SocialLoginButtons({
       onClick={signInWithGithub}
     >
       <GithubIcon className='!h-[18px] !w-[18px] mr-1' />
-      {isGithubLoading ? 'Connecting...' : 'GitHub'}
+      {isGithubLoading ? socialCopy.connecting : socialCopy.github}
     </Button>
   )
 
@@ -99,7 +142,7 @@ export function SocialLoginButtons({
       onClick={signInWithGoogle}
     >
       <GoogleIcon className='!h-[18px] !w-[18px] mr-1' />
-      {isGoogleLoading ? 'Connecting...' : 'Google'}
+      {isGoogleLoading ? socialCopy.connecting : socialCopy.google}
     </Button>
   )
 
@@ -113,6 +156,11 @@ export function SocialLoginButtons({
     <div className={`${inter.className} grid gap-3 font-light`}>
       {googleAvailable && googleButton}
       {githubAvailable && githubButton}
+      {errorMessage ? (
+        <Alert variant='destructive' className='border-destructive/30 bg-destructive/10'>
+          <AlertDescription>{errorMessage}</AlertDescription>
+        </Alert>
+      ) : null}
       {children}
     </div>
   )

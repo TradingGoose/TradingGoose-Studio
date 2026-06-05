@@ -5,6 +5,18 @@ export type ParsedMarketQuery = {
   region?: string
 }
 
+export const SUPPORTED_MARKET_ASSET_CLASSES = [
+  'stock',
+  'etf',
+  'indice',
+  'mutualfund',
+  'future',
+  'crypto',
+  'currency',
+] as const
+
+const SUPPORTED_MARKET_ASSET_CLASS_SET = new Set<string>(SUPPORTED_MARKET_ASSET_CLASSES)
+
 export function serializeArrayParam(values: string[]): string {
   return `[${values.join(',')}]`
 }
@@ -20,8 +32,7 @@ export function uniqueStrings(values: ReadonlyArray<string | undefined | null>):
 
 function normalizeAssetPrefix(value: string): string | undefined {
   const normalized = value.trim().toLowerCase()
-  const allowed = new Set(['stock', 'etf', 'indice', 'mutualfund', 'future', 'crypto', 'currency'])
-  return allowed.has(normalized) ? normalized : undefined
+  return SUPPORTED_MARKET_ASSET_CLASS_SET.has(normalized) ? normalized : undefined
 }
 
 export function parseCategorizedSearchQuery(raw: string): ParsedMarketQuery {

@@ -2,16 +2,20 @@ import { db } from '@tradinggoose/db'
 import { settings } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
+import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
+import { defaultLocale, isLocaleCode, locales } from '@/i18n/utils'
 
 const logger = createLogger('UserSettingsAPI')
+const LOCALE_COOKIE = 'NEXT_LOCALE'
 
 const SettingsSchema = z.object({
   theme: z.enum(['system', 'light', 'dark']).optional(),
+  preferredLocale: z.enum(locales).optional(),
   telemetryEnabled: z.boolean().optional(),
   emailPreferences: z
     .object({
@@ -24,12 +28,29 @@ const SettingsSchema = z.object({
   billingUsageNotificationsEnabled: z.boolean().optional(),
 })
 
-// Default settings values
 const defaultSettings = {
   theme: 'system',
+  preferredLocale: defaultLocale,
   telemetryEnabled: true,
   emailPreferences: {},
   billingUsageNotificationsEnabled: true,
+}
+
+function withPreferredLocaleCookie(response: NextResponse, locale: string | null | undefined) {
+  if (locale && isLocaleCode(locale)) {
+    response.cookies.set(LOCALE_COOKIE, locale, {
+      path: '/',
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: 'lax',
+    })
+  }
+
+  return response
+}
+
+async function getRuntimeLocale() {
+  const locale = (await cookies()).get(LOCALE_COOKIE)?.value
+  return locale && isLocaleCode(locale) ? locale : defaultLocale
 }
 
 export async function GET() {
@@ -38,7 +59,6 @@ export async function GET() {
   try {
     const session = await getSession()
 
-    // Return default settings for unauthenticated users instead of 401 error
     if (!session?.user?.id) {
       logger.info(`[${requestId}] Returning default settings for unauthenticated user`)
       return NextResponse.json({ data: defaultSettings }, { status: 200 })
@@ -48,26 +68,32 @@ export async function GET() {
     const result = await db.select().from(settings).where(eq(settings.userId, userId)).limit(1)
 
     if (!result.length) {
-      return NextResponse.json({ data: defaultSettings }, { status: 200 })
+      const preferredLocale = await getRuntimeLocale()
+      return NextResponse.json({ data: { ...defaultSettings, preferredLocale } }, { status: 200 })
     }
 
     const userSettings = result[0]
 
-    return NextResponse.json(
-      {
-        data: {
-          theme: userSettings.theme,
-          telemetryEnabled: userSettings.telemetryEnabled,
-          emailPreferences: userSettings.emailPreferences ?? {},
-          billingUsageNotificationsEnabled: userSettings.billingUsageNotificationsEnabled ?? true,
+    const preferredLocale = userSettings.preferredLocale ?? defaultLocale
+
+    return withPreferredLocaleCookie(
+      NextResponse.json(
+        {
+          data: {
+            theme: userSettings.theme,
+            preferredLocale,
+            telemetryEnabled: userSettings.telemetryEnabled,
+            emailPreferences: userSettings.emailPreferences ?? {},
+            billingUsageNotificationsEnabled: userSettings.billingUsageNotificationsEnabled ?? true,
+          },
         },
-      },
-      { status: 200 }
+        { status: 200 }
+      ),
+      preferredLocale
     )
   } catch (error: any) {
     logger.error(`[${requestId}] Settings fetch error`, error)
-    // Return default settings on error instead of error response
-    return NextResponse.json({ data: defaultSettings }, { status: 200 })
+    return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 })
   }
 }
 
@@ -77,12 +103,8 @@ export async function PATCH(request: Request) {
   try {
     const session = await getSession()
 
-    // Return success for unauthenticated users instead of error
     if (!session?.user?.id) {
-      logger.info(
-        `[${requestId}] Settings update attempted by unauthenticated user - acknowledged without saving`
-      )
-      return NextResponse.json({ success: true }, { status: 200 })
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
     const userId = session.user.id
@@ -91,7 +113,6 @@ export async function PATCH(request: Request) {
     try {
       const validatedData = SettingsSchema.parse(body)
 
-      // Store the settings
       await db
         .insert(settings)
         .values({
@@ -108,7 +129,10 @@ export async function PATCH(request: Request) {
           },
         })
 
-      return NextResponse.json({ success: true }, { status: 200 })
+      return withPreferredLocaleCookie(
+        NextResponse.json({ success: true }, { status: 200 }),
+        validatedData.preferredLocale
+      )
     } catch (validationError) {
       if (validationError instanceof z.ZodError) {
         logger.warn(`[${requestId}] Invalid settings data`, {
@@ -123,7 +147,6 @@ export async function PATCH(request: Request) {
     }
   } catch (error: any) {
     logger.error(`[${requestId}] Settings update error`, error)
-    // Return success on error instead of error response
-    return NextResponse.json({ success: true }, { status: 200 })
+    return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 })
   }
 }

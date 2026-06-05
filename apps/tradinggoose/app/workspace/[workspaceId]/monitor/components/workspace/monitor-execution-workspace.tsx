@@ -7,8 +7,14 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Notice } from '@/components/ui/notice'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
+import {
+  getMonitorBoardLabels,
+  getMonitorExecutionGroupLabels,
+  useMonitorCopy,
+} from '@/app/workspace/[workspaceId]/monitor/copy'
 import { LogDetails } from '@/app/workspace/[workspaceId]/records/components/log-details/log-details'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { formatTemplate } from '@/i18n/utils'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
 import { buildMonitorBoardSections } from '../board/board-state'
 import { MonitorBoard } from '../board/monitor-board'
@@ -69,50 +75,9 @@ type MonitorExecutionWorkspaceProps = {
   onReloadViews: () => void
 }
 
-const GROUP_FIELD_LABELS: Record<ExecutionMonitorGroupField, string> = {
-  outcome: 'Outcome',
-  workflow: 'Workflow',
-  trigger: 'Trigger',
-  listing: 'Listing',
-  assetType: 'Asset type',
-  provider: 'Provider',
-  interval: 'Interval',
-  monitor: 'Monitor',
-}
-
-const SORT_FIELD_LABELS: Record<ExecutionMonitorSortField, string> = {
-  startedAt: 'Started at',
-  endedAt: 'Ended at',
-  durationMs: 'Duration',
-  cost: 'Cost',
-  workflowName: 'Workflow',
-  providerId: 'Provider',
-  interval: 'Interval',
-  listingLabel: 'Listing',
-}
-
-const FIELD_SUM_LABELS: Record<ExecutionMonitorFieldSum, string> = {
-  count: 'Count',
-  durationMs: 'Duration',
-  cost: 'Cost',
-}
-
 const SORT_DIRECTION_SYMBOLS = {
   asc: '↑',
   desc: '↓',
-} as const
-
-const VISIBLE_FIELD_LABELS = {
-  workflow: 'Workflow',
-  provider: 'Provider',
-  interval: 'Interval',
-  assetType: 'Asset type',
-  trigger: 'Trigger',
-  startedAt: 'Started at',
-  endedAt: 'Ended at',
-  durationMs: 'Duration',
-  cost: 'Cost',
-  monitor: 'Monitor',
 } as const
 
 const DEFAULT_COLUMN_LIMITS = [0, 5, 10, 20] as const
@@ -143,35 +108,8 @@ const decodeColumnLimitOptionValue = (value: string) => {
   return { columnId, limit }
 }
 
-const formatColumnLimitLabel = (limit: number) => (limit === 0 ? 'No limit' : `${limit} items`)
-
 const encodeExecutionSortValue = (field: ExecutionMonitorSortField, direction: 'asc' | 'desc') =>
   `${field}:${direction}`
-
-const formatExecutionSortValue = (field: ExecutionMonitorSortField, direction: 'asc' | 'desc') =>
-  `${SORT_FIELD_LABELS[field]} ${SORT_DIRECTION_SYMBOLS[direction]}`
-
-const summarizeExecutionFieldSums = (fieldSums: ExecutionMonitorFieldSum[]) => {
-  if (fieldSums.length === 0) return 'None'
-  if (fieldSums.length === 1) return FIELD_SUM_LABELS[fieldSums[0]!]
-  return `${FIELD_SUM_LABELS[fieldSums[0]!]} +${fieldSums.length - 1}`
-}
-
-const summarizeExecutionVisibleFields = (
-  visibleFieldIds: ExecutionMonitorViewConfig['kanban']['visibleFieldIds']
-) => `${visibleFieldIds.length} shown`
-
-const summarizeExecutionColumns = (
-  hiddenColumnIds: string[],
-  columnOptions: Array<{ value: string; label: string }>
-) => `${columnOptions.length - hiddenColumnIds.length}/${columnOptions.length}`
-
-const summarizeTimelineMarkers = (markers: ExecutionMonitorViewConfig['timeline']['markers']) => {
-  if (markers.today && markers.intervalBoundaries) return 'Today + boundaries'
-  if (markers.today) return 'Today'
-  if (markers.intervalBoundaries) return 'Boundaries'
-  return 'None'
-}
 
 const getDefaultSortDirection = (field: ExecutionMonitorSortField) => {
   switch (field) {
@@ -186,6 +124,7 @@ const getDefaultSortDirection = (field: ExecutionMonitorSortField) => {
 }
 
 function ExecutionContextStrip({ execution }: { execution: MonitorExecutionItem }) {
+  const { copy } = useMonitorCopy()
   return (
     <div className='border-b bg-muted/30 px-3 py-3'>
       <div className='flex flex-wrap items-center gap-2 text-xs'>
@@ -195,11 +134,11 @@ function ExecutionContextStrip({ execution }: { execution: MonitorExecutionItem 
         {execution.providerId ? <Badge variant='outline'>{execution.providerId}</Badge> : null}
         {execution.interval ? <Badge variant='outline'>{execution.interval}</Badge> : null}
         {execution.isOrphaned ? (
-          <Badge variant='destructive'>Source monitor unavailable</Badge>
+          <Badge variant='destructive'>{copy.execution.sourceMonitorUnavailable}</Badge>
         ) : null}
         {execution.isPartial ? (
           <Badge variant='outline' className='border-amber-500/30 bg-amber-500/10 text-amber-700'>
-            Snapshot incomplete
+            {copy.execution.snapshotIncomplete}
           </Badge>
         ) : null}
       </div>
@@ -233,7 +172,71 @@ export function MonitorExecutionWorkspace({
   hasNext,
   onReloadViews,
 }: MonitorExecutionWorkspaceProps) {
+  const { copy } = useMonitorCopy()
   const isMobile = useIsMobile()
+  const GROUP_FIELD_LABELS: Record<ExecutionMonitorGroupField, string> = {
+    outcome: copy.fields.outcome,
+    workflow: copy.fields.workflow,
+    trigger: copy.fields.trigger,
+    listing: copy.fields.listing,
+    assetType: copy.fields.assetType,
+    provider: copy.fields.provider,
+    interval: copy.fields.interval,
+    monitor: copy.fields.monitor,
+  }
+  const SORT_FIELD_LABELS: Record<ExecutionMonitorSortField, string> = {
+    startedAt: copy.fields.startedAt,
+    endedAt: copy.fields.endedAt,
+    durationMs: copy.fields.duration,
+    cost: copy.fields.cost,
+    workflowName: copy.fields.workflow,
+    providerId: copy.fields.provider,
+    interval: copy.fields.interval,
+    listingLabel: copy.fields.listing,
+  }
+  const FIELD_SUM_LABELS: Record<ExecutionMonitorFieldSum, string> = {
+    count: copy.fields.count,
+    durationMs: copy.fields.duration,
+    cost: copy.fields.cost,
+  }
+  const VISIBLE_FIELD_LABELS = {
+    workflow: copy.fields.workflow,
+    provider: copy.fields.provider,
+    interval: copy.fields.interval,
+    assetType: copy.fields.assetType,
+    trigger: copy.fields.trigger,
+    startedAt: copy.fields.startedAt,
+    endedAt: copy.fields.endedAt,
+    durationMs: copy.fields.duration,
+    cost: copy.fields.cost,
+    monitor: copy.fields.monitor,
+  } as const
+  const formatColumnLimitLabel = (limit: number) =>
+    limit === 0
+      ? copy.shared.noLimit
+      : formatTemplate(copy.shared.itemsCount, { count: limit })
+  const formatExecutionSortValue = (
+    field: ExecutionMonitorSortField,
+    direction: 'asc' | 'desc'
+  ) => `${SORT_FIELD_LABELS[field]} ${SORT_DIRECTION_SYMBOLS[direction]}`
+  const summarizeExecutionFieldSums = (fieldSums: ExecutionMonitorFieldSum[]) => {
+    if (fieldSums.length === 0) return copy.shared.none
+    if (fieldSums.length === 1) return FIELD_SUM_LABELS[fieldSums[0]!]
+    return `${FIELD_SUM_LABELS[fieldSums[0]!]} +${fieldSums.length - 1}`
+  }
+  const summarizeExecutionVisibleFields = (
+    visibleFieldIds: ExecutionMonitorViewConfig['kanban']['visibleFieldIds']
+  ) => formatTemplate(copy.shared.shownCount, { count: visibleFieldIds.length })
+  const summarizeExecutionColumns = (
+    hiddenColumnIds: string[],
+    columnOptions: Array<{ value: string; label: string }>
+  ) => `${columnOptions.length - hiddenColumnIds.length}/${columnOptions.length}`
+  const summarizeTimelineMarkers = (markers: ExecutionMonitorViewConfig['timeline']['markers']) => {
+    if (markers.today && markers.intervalBoundaries) return copy.shared.todayAndBoundaries
+    if (markers.today) return copy.shared.today
+    if (markers.intervalBoundaries) return copy.shared.boundaries
+    return copy.shared.none
+  }
   const controlsDisabled = viewStateMode !== 'server' || viewStateReloading
   const activeSort = effectiveConfig.sortBy[0] ?? null
   const secondarySort = effectiveConfig.sortBy[1] ?? null
@@ -244,18 +247,27 @@ export function MonitorExecutionWorkspace({
     ? encodeExecutionSortValue(secondarySort.field, secondarySort.direction)
     : 'none'
   const boardSections = useMemo(
-    () => buildMonitorBoardSections(executionItems, effectiveConfig),
-    [effectiveConfig, executionItems]
+    () => buildMonitorBoardSections(executionItems, effectiveConfig, getMonitorBoardLabels(copy)),
+    [copy, effectiveConfig, executionItems]
   )
   const timelineGroups = useMemo(
-    () => buildMonitorTimelineGroups(executionItems, effectiveConfig),
-    [effectiveConfig, executionItems]
+    () =>
+      buildMonitorTimelineGroups(
+        executionItems,
+        effectiveConfig,
+        getMonitorExecutionGroupLabels(copy)
+      ),
+    [copy, effectiveConfig, executionItems]
   )
   const columnOptions = useMemo(() => {
     const options = new Map<string, string>()
 
     executionItems.forEach((item) => {
-      const value = getExecutionGroupValue(item, effectiveConfig.kanban.columnField)
+      const value = getExecutionGroupValue(
+        item,
+        effectiveConfig.kanban.columnField,
+        getMonitorExecutionGroupLabels(copy)
+      )
       options.set(value.id, value.label)
     })
 
@@ -263,7 +275,7 @@ export function MonitorExecutionWorkspace({
       value,
       label,
     }))
-  }, [effectiveConfig.kanban.columnField, executionItems])
+  }, [copy, effectiveConfig.kanban.columnField, executionItems])
   const columnLimitOptions = useMemo<ColumnLimitOption[]>(
     () =>
       columnOptions.flatMap((option) =>
@@ -505,19 +517,19 @@ export function MonitorExecutionWorkspace({
 
   const inspectorContent = selectedExecution ? (
     inspectorLoading && !resolvedInspectorLog ? (
-      <MonitorStateCard loadingLabel='Loading execution details…' className='h-full bg-card/50' />
+      <MonitorStateCard loadingLabel={copy.execution.loadingDetails} className='h-full bg-card/50' />
     ) : inspectorError ? (
       <MonitorStateCard
-        title='Execution details unavailable'
+        title={copy.execution.detailsUnavailableTitle}
         description={inspectorError}
-        actionLabel='Close inspector'
+        actionLabel={copy.execution.closeInspector}
         onAction={() => onSelectExecution(null)}
       />
     ) : !resolvedInspectorLog ? (
       <MonitorStateCard
-        title='Execution details unavailable'
-        description='The selected execution could not be loaded from the detail route.'
-        actionLabel='Close inspector'
+        title={copy.execution.detailsUnavailableTitle}
+        description={copy.execution.detailsUnavailableDescription}
+        actionLabel={copy.execution.closeInspector}
         onAction={() => onSelectExecution(null)}
       />
     ) : (
@@ -540,14 +552,16 @@ export function MonitorExecutionWorkspace({
 
   return (
     <div className='flex h-full w-full min-w-0 max-w-full flex-col overflow-hidden p-1.5'>
-      <MonitorControlBar toolbarLabel='Monitor view controls'>
+      <MonitorControlBar toolbarLabel={copy.execution.toolbarLabel}>
         <MonitorControlSelect
           value={effectiveConfig.layout}
-          label='Layout'
+          label={copy.controls.layout}
           disabled={controlsDisabled}
+          emptyText={copy.shared.noOptions}
+          searchPlaceholder={copy.controls.searchOptions}
           options={[
-            { value: 'kanban', label: 'Kanban' },
-            { value: 'timeline', label: 'Timeline' },
+            { value: 'kanban', label: copy.execution.kanban },
+            { value: 'timeline', label: copy.execution.timeline },
           ]}
           onValueChange={(value) =>
             onUpdateViewConfig((current) => ({
@@ -565,10 +579,12 @@ export function MonitorExecutionWorkspace({
 
         <MonitorControlSelect
           value={primarySortValue}
-          label='Sort'
+          label={copy.controls.sort}
           disabled={controlsDisabled}
+          emptyText={copy.shared.noOptions}
+          searchPlaceholder={copy.controls.searchOptions}
           options={[
-            { value: 'manual', label: 'Manual order' },
+            { value: 'manual', label: copy.controls.manualOrder },
             ...EXECUTION_MONITOR_SORT_FIELDS.flatMap((field) => [
               {
                 value: encodeExecutionSortValue(field, 'desc'),
@@ -585,10 +601,12 @@ export function MonitorExecutionWorkspace({
 
         <MonitorControlSelect
           value={secondarySortValue}
-          label='Then'
+          label={copy.controls.then}
           disabled={controlsDisabled}
+          emptyText={copy.shared.noOptions}
+          searchPlaceholder={copy.controls.searchOptions}
           options={[
-            { value: 'none', label: 'No secondary sort' },
+            { value: 'none', label: copy.controls.noSecondarySort },
             ...EXECUTION_MONITOR_SORT_FIELDS.flatMap((field) => [
               {
                 value: encodeExecutionSortValue(field, 'desc'),
@@ -607,8 +625,10 @@ export function MonitorExecutionWorkspace({
 
         <MonitorControlSelect
           value={effectiveConfig.groupBy}
-          label='Group'
+          label={copy.controls.group}
           disabled={controlsDisabled}
+          emptyText={copy.shared.noOptions}
+          searchPlaceholder={copy.controls.searchOptions}
           options={EXECUTION_MONITOR_GROUP_FIELDS.map((field) => ({
             value: field,
             label: GROUP_FIELD_LABELS[field],
@@ -623,10 +643,12 @@ export function MonitorExecutionWorkspace({
 
         <MonitorControlSelect
           value={effectiveConfig.sliceBy ?? 'none'}
-          label='Slice'
+          label={copy.controls.slice}
           disabled={controlsDisabled}
+          emptyText={copy.shared.noOptions}
+          searchPlaceholder={copy.controls.searchOptions}
           options={[
-            { value: 'none', label: 'None' },
+            { value: 'none', label: copy.shared.none },
             ...EXECUTION_MONITOR_GROUP_FIELDS.filter(
               (field) => field !== effectiveConfig.groupBy
             ).map((field) => ({
@@ -644,20 +666,21 @@ export function MonitorExecutionWorkspace({
 
         {effectiveConfig.layout === 'timeline' ? (
           <MonitorControlMenu
-            label='Markers'
+            label={copy.controls.markers}
             value={summarizeTimelineMarkers(effectiveConfig.timeline.markers)}
             disabled={controlsDisabled}
+            searchPlaceholder={copy.controls.searchOptions}
             options={[
               {
                 value: 'today',
-                label: 'Today',
+                label: copy.shared.today,
                 selected: effectiveConfig.timeline.markers.today,
               },
               {
                 value: 'intervalBoundaries',
-                label: 'Boundaries',
+                label: copy.shared.boundaries,
                 selected: effectiveConfig.timeline.markers.intervalBoundaries,
-                searchValue: 'Boundaries interval boundaries',
+                searchValue: `${copy.shared.boundaries} interval boundaries`,
               },
             ]}
             onValueChange={(value) =>
@@ -671,10 +694,12 @@ export function MonitorExecutionWorkspace({
         {effectiveConfig.layout === 'kanban' ? (
           <MonitorControlSelect
             value={effectiveConfig.verticalGroupBy ?? 'none'}
-            label='Swimlane'
+            label={copy.controls.swimlane}
             disabled={controlsDisabled}
+            emptyText={copy.shared.noOptions}
+            searchPlaceholder={copy.controls.searchOptions}
             options={[
-              { value: 'none', label: 'None' },
+              { value: 'none', label: copy.shared.none },
               ...EXECUTION_MONITOR_GROUP_FIELDS.filter(
                 (field) => field !== effectiveConfig.groupBy && field !== effectiveConfig.sliceBy
               ).map((field) => ({
@@ -692,9 +717,10 @@ export function MonitorExecutionWorkspace({
         ) : null}
 
         <MonitorControlMenu
-          label='Sums'
+          label={copy.controls.sums}
           value={summarizeExecutionFieldSums(effectiveConfig.fieldSums)}
           disabled={controlsDisabled}
+          searchPlaceholder={copy.controls.searchOptions}
           options={EXECUTION_MONITOR_FIELD_SUMS.map((fieldSum) => ({
             value: fieldSum,
             label: FIELD_SUM_LABELS[fieldSum],
@@ -706,8 +732,10 @@ export function MonitorExecutionWorkspace({
         {effectiveConfig.layout === 'kanban' ? (
           <MonitorControlSelect
             value={effectiveConfig.kanban.columnField}
-            label='Columns'
+            label={copy.controls.columns}
             disabled={controlsDisabled}
+            emptyText={copy.shared.noOptions}
+            searchPlaceholder={copy.controls.searchOptions}
             options={EXECUTION_MONITOR_GROUP_FIELDS.map((field) => ({
               value: field,
               label: GROUP_FIELD_LABELS[field],
@@ -728,9 +756,10 @@ export function MonitorExecutionWorkspace({
 
         {effectiveConfig.layout === 'kanban' ? (
           <MonitorControlMenu
-            label='Fields'
+            label={copy.controls.fields}
             value={summarizeExecutionVisibleFields(effectiveConfig.kanban.visibleFieldIds)}
             disabled={controlsDisabled}
+            searchPlaceholder={copy.controls.searchOptions}
             options={EXECUTION_MONITOR_VISIBLE_FIELDS.map((fieldId) => ({
               value: fieldId,
               label: VISIBLE_FIELD_LABELS[fieldId],
@@ -746,12 +775,13 @@ export function MonitorExecutionWorkspace({
           columnOptions.length > 0 ? (
             <>
               <MonitorControlMenu
-                label='Visible'
+                label={copy.controls.visible}
                 value={summarizeExecutionColumns(
                   effectiveConfig.kanban.hiddenColumnIds,
                   columnOptions
                 )}
                 disabled={controlsDisabled}
+                searchPlaceholder={copy.controls.searchOptions}
                 options={columnOptions.map((option) => ({
                   value: option.value,
                   label: option.label,
@@ -760,16 +790,18 @@ export function MonitorExecutionWorkspace({
                 onValueChange={handleColumnVisibilityToggle}
               />
               <MonitorControlMenu
-                label='Limits'
+                label={copy.controls.limits}
                 value={
                   Object.keys(effectiveConfig.kanban.columnLimits).length === 0
-                    ? 'Off'
-                    : `${Object.keys(effectiveConfig.kanban.columnLimits).length} set`
+                    ? copy.shared.off
+                    : formatTemplate(copy.shared.setCount, {
+                        count: Object.keys(effectiveConfig.kanban.columnLimits).length,
+                      })
                 }
                 disabled={controlsDisabled}
                 closeOnSelect
                 options={columnLimitOptions}
-                searchPlaceholder='Search column limits...'
+                searchPlaceholder={copy.execution.searchColumnLimits}
                 onValueChange={handleColumnLimitOptionChange}
                 renderOption={(option) => (
                   <>
@@ -788,21 +820,21 @@ export function MonitorExecutionWorkspace({
       <div className='flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden pt-1.5'>
         {viewStateMode === 'loading' ? (
           <MonitorStateCard
-            loadingLabel='Loading monitor views…'
+            loadingLabel={copy.execution.loadingViews}
             className='min-h-[320px] flex-1'
           />
         ) : viewStateMode === 'error' ? (
           <MonitorStateCard
-            title='Views unavailable'
-            description={viewsError ?? 'Monitor views could not be loaded right now.'}
+            title={copy.viewsUnavailable}
+            description={viewsError ?? copy.execution.viewsUnavailableDescription}
             actionLabel={
               viewStateReloading ? (
                 <>
                   <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                  Reload views
+                  {copy.reloadViews}
                 </>
               ) : (
-                'Reload views'
+                copy.reloadViews
               )
             }
             actionDisabled={viewStateReloading}
@@ -823,7 +855,7 @@ export function MonitorExecutionWorkspace({
             ) : null}
             {executionsLoading ? (
               <MonitorStateCard
-                loadingLabel='Loading executions…'
+                loadingLabel={copy.execution.loadingExecutions}
                 className='min-h-[320px] flex-1'
               />
             ) : showDesktopInspector && inspectorContent ? (

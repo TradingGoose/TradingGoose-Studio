@@ -3,6 +3,7 @@
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check } from 'lucide-react'
 import { MarketProviderControls } from '@/components/market-selector/provider-controls'
+import { useLocale } from 'next-intl'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,6 +19,8 @@ import {
   widgetHeaderButtonGroupClassName,
   widgetHeaderIconButtonClassName,
 } from '@/components/widget-header-control'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 import { type ListingOption, toListingValue } from '@/lib/listing/identity'
 import { parseImportedWatchlistFile } from '@/lib/watchlists/import-export'
 import type { WatchlistRecord } from '@/lib/watchlists/types'
@@ -74,11 +77,16 @@ const resolveWatchlistParams = (widget?: WidgetInstance | null): WatchlistWidget
 const buildWatchlistHeaderListingSelectorId = (panelId: string | undefined, widgetKey: string) =>
   `watchlist-header-listing-${panelId ?? 'panel'}-${widgetKey}`
 
-export const resolveNextWatchlistName = (watchlists: Array<{ name: string }>) => {
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+export const resolveNextWatchlistName = (
+  watchlists: Array<{ name: string }>,
+  baseName = 'Watchlist'
+) => {
   const usedNumbers = new Set<number>()
 
   for (const watchlist of watchlists) {
-    const match = watchlist.name.trim().match(/^Watchlist\s+(\d+)$/i)
+    const match = watchlist.name.trim().match(new RegExp(`^${escapeRegExp(baseName)}\\s+(\\d+)$`, 'i'))
     if (!match) continue
 
     const value = Number.parseInt(match[1] ?? '', 10)
@@ -92,18 +100,19 @@ export const resolveNextWatchlistName = (watchlists: Array<{ name: string }>) =>
     nextNumber += 1
   }
 
-  return `Watchlist ${nextNumber}`
+  return `${baseName} ${nextNumber}`
 }
 
 export const resolveNextSectionName = (
-  watchlist: Pick<WatchlistRecord, 'items'> | null | undefined
+  watchlist: Pick<WatchlistRecord, 'items'> | null | undefined,
+  baseName = 'Section'
 ) => {
   const usedNumbers = new Set<number>()
 
   for (const item of watchlist?.items ?? []) {
     if (item.type !== 'section') continue
 
-    const match = item.label.trim().match(/^Section\s+(\d+)$/i)
+    const match = item.label.trim().match(new RegExp(`^${escapeRegExp(baseName)}\\s+(\\d+)$`, 'i'))
     if (!match) continue
 
     const value = Number.parseInt(match[1] ?? '', 10)
@@ -117,7 +126,7 @@ export const resolveNextSectionName = (
     nextNumber += 1
   }
 
-  return `Section ${nextNumber}`
+  return `${baseName} ${nextNumber}`
 }
 
 const useWatchlistSelection = (workspaceId?: string, selectedWatchlistId?: string | null) => {
@@ -193,6 +202,8 @@ export const WatchlistHeaderCenterControls = ({
   panelId,
   widget,
 }: WatchlistHeaderControlsSlotProps) => {
+  const locale = useLocale()
+  const copy = useMessages().workspace.widgets.watchlist.header
   const widgetKey = widget?.key ?? 'watchlist'
   const params = resolveWatchlistParams(widget)
   const providerId = resolveProviderId(params)
@@ -299,11 +310,11 @@ export const WatchlistHeaderCenterControls = ({
               disabled={addListingDisabled}
             >
               <Check className='h-3.5 w-3.5' />
-              <span className='sr-only'>Add listing to watchlist</span>
+              <span className='sr-only'>{copy.addListingAriaLabel}</span>
             </button>
           </span>
         </TooltipTrigger>
-        <TooltipContent side='top'>Add listing to watchlist</TooltipContent>
+        <TooltipContent side='top'>{copy.addListingTooltip}</TooltipContent>
       </Tooltip>
     </div>
   )
@@ -314,6 +325,8 @@ export const WatchlistHeaderRightControls = ({
   panelId,
   widget,
 }: WatchlistHeaderControlsSlotProps) => {
+  const locale = useLocale()
+  const copy = useMessages().workspace.widgets.watchlist
   const [listActionsOpen, setListActionsOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -454,7 +467,7 @@ export const WatchlistHeaderRightControls = ({
     try {
       const watchlist = await createMutation.mutateAsync({
         workspaceId,
-        name: resolveNextWatchlistName(watchlists),
+        name: resolveNextWatchlistName(watchlists, copy.header.defaultWatchlistPrefix),
       })
       emitWatchlistParamsChange({
         params: {
@@ -477,7 +490,7 @@ export const WatchlistHeaderRightControls = ({
       await addSectionMutation.mutateAsync({
         workspaceId,
         watchlistId: selectedWatchlist.id,
-        label: resolveNextSectionName(selectedWatchlist),
+        label: resolveNextSectionName(selectedWatchlist, copy.header.defaultSectionPrefix),
       })
     } catch {
       // Request errors are surfaced through mutation state and existing data refresh behavior.
@@ -544,6 +557,7 @@ export const WatchlistHeaderRightControls = ({
       />
 
       <WidgetHeaderRefreshButton
+        label={copy.header.refresh}
         onClick={handleRefreshData}
         disabled={!workspaceId || !providerId}
       />
@@ -551,15 +565,17 @@ export const WatchlistHeaderRightControls = ({
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete watchlist?</AlertDialogTitle>
+            <AlertDialogTitle>{copy.listSelector.deleteDialogTitle}</AlertDialogTitle>
             <AlertDialogDescription>
               {selectedWatchlist
-                ? `This action will permanently delete "${selectedWatchlist.name}".`
-                : 'This action will permanently delete this watchlist.'}
+                ? formatTemplate(copy.listSelector.deleteDialogDescription, {
+                    name: selectedWatchlist.name,
+                  })
+                : copy.listSelector.deleteDialogDescriptionFallback}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isMutating}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isMutating}>{copy.listSelector.cancel}</AlertDialogCancel>
             <AlertDialogAction
               disabled={isMutating}
               onClick={(event) => {
@@ -567,7 +583,7 @@ export const WatchlistHeaderRightControls = ({
                 void handleDeleteWatchlist()
               }}
             >
-              Delete
+              {copy.listSelector.delete}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

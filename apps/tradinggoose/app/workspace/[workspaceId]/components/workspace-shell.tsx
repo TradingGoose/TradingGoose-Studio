@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname } from '@/i18n/navigation'
 
 interface WorkspaceShellProps {
   children: React.ReactNode

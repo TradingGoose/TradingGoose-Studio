@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { formatWorkflowTemplate } from '@/i18n/workflow-inspector-core'
+import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 
 interface EvalMetric {
@@ -35,6 +37,7 @@ export function EvalInput({
   subBlockId,
   disabled = false,
 }: EvalInputProps) {
+  const copy = useWorkflowBlockEditorCopy().evalInput
   const [storeValue, setStoreValue] = useSubBlockValue<EvalMetric[]>(blockId, subBlockId)
 
   // State hooks - memoize default metric to prevent key changes
@@ -103,7 +106,9 @@ export function EvalInput({
   // Metric header
   const renderMetricHeader = (metric: EvalMetric, index: number) => (
     <div className='flex h-10 items-center justify-between rounded-t-lg border-b bg-card px-3'>
-      <span className='font-medium text-sm'>Metric {index + 1}</span>
+      <span className='font-medium text-sm'>
+        {formatWorkflowTemplate(copy.metricLabel, { index: index + 1 })}
+      </span>
       <div className='flex items-center gap-1'>
         <Tooltip key={`add-${metric.id}`}>
           <TooltipTrigger asChild>
@@ -115,10 +120,10 @@ export function EvalInput({
               className='h-8 w-8'
             >
               <Plus className='h-4 w-4' />
-              <span className='sr-only'>Add Metric</span>
+              <span className='sr-only'>{copy.addMetric}</span>
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Add Metric</TooltipContent>
+          <TooltipContent>{copy.addMetric}</TooltipContent>
         </Tooltip>
 
         <Tooltip key={`remove-${metric.id}`}>
@@ -131,10 +136,10 @@ export function EvalInput({
               className='h-8 w-8 text-destructive hover:text-destructive'
             >
               <Trash className='h-4 w-4' />
-              <span className='sr-only'>Delete Metric</span>
+              <span className='sr-only'>{copy.deleteMetric}</span>
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Delete Metric</TooltipContent>
+          <TooltipContent>{copy.deleteMetric}</TooltipContent>
         </Tooltip>
       </div>
     </div>
@@ -153,23 +158,23 @@ export function EvalInput({
 
           <div className='space-y-2 px-3 pt-2 pb-3'>
             <div key={`name-${metric.id}`} className='space-y-1'>
-              <Label>Name</Label>
+              <Label>{copy.name}</Label>
               <Input
                 name='name'
                 value={metric.name}
                 onChange={(e) => updateMetric(metric.id, 'name', e.target.value)}
-                placeholder='Accuracy'
+                placeholder={copy.accuracyPlaceholder}
                 disabled={disabled}
                 className='placeholder:text-muted-foreground/50'
               />
             </div>
 
             <div key={`description-${metric.id}`} className='space-y-1'>
-              <Label>Description</Label>
+              <Label>{copy.description}</Label>
               <Input
                 value={metric.description}
                 onChange={(e) => updateMetric(metric.id, 'description', e.target.value)}
-                placeholder='How accurate is the response?'
+                placeholder={copy.descriptionPlaceholder}
                 disabled={disabled}
                 className='placeholder:text-muted-foreground/50'
               />
@@ -177,7 +182,7 @@ export function EvalInput({
 
             <div key={`range-${metric.id}`} className='grid grid-cols-2 gap-4'>
               <div className='space-y-1'>
-                <Label>Min Value</Label>
+                <Label>{copy.minValue}</Label>
                 <Input
                   type='text'
                   value={metric.range.min}
@@ -191,7 +196,7 @@ export function EvalInput({
                 />
               </div>
               <div className='space-y-1'>
-                <Label>Max Value</Label>
+                <Label>{copy.maxValue}</Label>
                 <Input
                   type='text'
                   value={metric.range.max}

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronDown, ExternalLink, RefreshCw } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
 import { Button } from '@/components/ui/button'
 import {
@@ -26,6 +27,10 @@ import {
   parseProvider,
 } from '@/lib/oauth'
 import type { SubBlockConfig } from '@/blocks/types'
+import { translateWorkflowLabel } from '@/i18n/block-editor'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
+import type { LocaleCode } from '@/i18n/utils'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
@@ -42,6 +47,14 @@ export function CredentialSelector({
   subBlock,
   disabled = false,
 }: CredentialSelectorProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = useMessages().workspace.widgets.blockEditor.toolInput
+  const labelCopy = {
+    searchCredentials: translateWorkflowLabel(locale, 'searchCredentials'),
+    loadingCredentials: translateWorkflowLabel(locale, 'loadingCredentials'),
+    noCredentialsFound: translateWorkflowLabel(locale, 'noCredentialsFound'),
+    connectNewAccountToContinue: translateWorkflowLabel(locale, 'connectNewAccountToContinue'),
+  }
   const [open, setOpen] = useState(false)
   const [credentials, setCredentials] = useState<Credential[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -55,7 +68,7 @@ export function CredentialSelector({
   // Extract values from subBlock config
   const provider = subBlock.provider as OAuthProvider
   const requiredScopes = subBlock.requiredScopes || []
-  const label = subBlock.placeholder || 'Select credential'
+  const label = subBlock.placeholder || translateWorkflowLabel(locale, 'selectCredential')
   const serviceId = subBlock.serviceId
   const serviceIds = subBlock.serviceIds
 
@@ -156,7 +169,7 @@ export function CredentialSelector({
   const isForeign = !!(selectedId && selectedCredential?.isOwner === false)
 
   const displayName = isForeign
-    ? 'Saved by collaborator'
+    ? translateWorkflowLabel(locale, 'savedByCollaborator')
     : selectedCredential
       ? selectedCredential.name
       : undefined
@@ -239,7 +252,7 @@ export function CredentialSelector({
         <PopoverContent className='w-[250px] p-0' align='start'>
           <Command>
             <CommandInput
-              placeholder='Search credentials...'
+              placeholder={labelCopy.searchCredentials}
               className='text-foreground placeholder:text-muted-foreground'
             />
             <CommandList>
@@ -247,13 +260,13 @@ export function CredentialSelector({
                 {isLoading ? (
                   <div className='flex items-center justify-center p-4'>
                     <RefreshCw className='h-4 w-4 animate-spin' />
-                    <span className='ml-2'>Loading credentials...</span>
+                    <span className='ml-2'>{labelCopy.loadingCredentials}</span>
                   </div>
                 ) : (
                   <div className='p-4 text-center'>
-                    <p className='font-medium text-sm'>No credentials found.</p>
+                    <p className='font-medium text-sm'>{labelCopy.noCredentialsFound}</p>
                     <p className='text-muted-foreground text-xs'>
-                      Connect a new account to continue.
+                      {labelCopy.connectNewAccountToContinue}
                     </p>
                   </div>
                 )}
@@ -269,7 +282,9 @@ export function CredentialSelector({
                       <div className='flex min-w-0 items-center gap-1'>
                         {getProviderIcon(cred.provider)}
                         <span className='min-w-0 truncate font-normal'>
-                          {cred.isOwner === false ? 'Saved by collaborator' : cred.name}
+                          {cred.isOwner === false
+                            ? translateWorkflowLabel(locale, 'savedByCollaborator')
+                            : cred.name}
                         </span>
                         {showServiceNames ? (
                           <span className='shrink-0 text-muted-foreground text-xs'>
@@ -291,7 +306,11 @@ export function CredentialSelector({
                     >
                       <div className='flex items-center gap-1 text-foreground'>
                         {getProviderIcon(connectServiceId)}
-                        <span>Connect {getServiceName(connectServiceId)} account</span>
+                        <span>
+                          {formatTemplate(copy.selectProviderAccount, {
+                            provider: getServiceName(connectServiceId),
+                          })}
+                        </span>
                       </div>
                     </CommandItem>
                   ))}
@@ -306,7 +325,11 @@ export function CredentialSelector({
                     >
                       <div className='flex items-center gap-1 text-foreground'>
                         {getProviderIcon(connectServiceId)}
-                        <span>Connect {getServiceName(connectServiceId)} account</span>
+                        <span>
+                          {formatTemplate(copy.selectProviderAccount, {
+                            provider: getServiceName(connectServiceId),
+                          })}
+                        </span>
                       </div>
                     </CommandItem>
                   ))}

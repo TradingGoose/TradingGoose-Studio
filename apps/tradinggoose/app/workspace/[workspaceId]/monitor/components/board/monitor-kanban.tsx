@@ -54,8 +54,6 @@ type MonitorKanbanColumnProps = Omit<ComponentProps<typeof KanbanCards>, 'before
   aggregateVariant?: BadgeProps['variant']
   aggregates?: Record<string, number | string | undefined>
   formatAggregateValue?: (field: string, value: number | string | undefined) => ReactNode
-  metaAction?: ReactNode
-  summary: ReactNode
 }
 
 export function MonitorKanbanColumn({
@@ -65,28 +63,22 @@ export function MonitorKanbanColumn({
   aggregates = {},
   children,
   formatAggregateValue,
+  headerAction,
   listClassName,
-  metaAction,
-  summary,
   ...props
 }: MonitorKanbanColumnProps) {
   return (
     <KanbanCards
+      headerAction={headerAction}
       listClassName={cn('space-y-2', listClassName)}
       beforeCards={
-        <>
-          <div className='flex items-center justify-between border-b px-3 py-2'>
-            <div className='text-muted-foreground text-xs'>{summary}</div>
-            {metaAction}
-          </div>
-          <MonitorAggregateBadges
-            entries={aggregates}
-            className={cn('border-b px-3 py-2', aggregateClassName)}
-            variant={aggregateVariant}
-            badgeClassName={aggregateBadgeClassName}
-            formatValue={formatAggregateValue}
-          />
-        </>
+        <MonitorAggregateBadges
+          entries={aggregates}
+          className={cn('border-b px-3 py-2', aggregateClassName)}
+          variant={aggregateVariant}
+          badgeClassName={aggregateBadgeClassName}
+          formatValue={formatAggregateValue}
+        />
       }
       {...props}
     >

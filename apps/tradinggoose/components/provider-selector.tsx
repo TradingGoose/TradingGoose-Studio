@@ -64,10 +64,11 @@ type ProviderSelectorProps<TOption extends ProviderSelectorOption> = {
   placeholder: string
   ariaLabel: string
   tooltipText: string
+  selectionUnavailableText: string
+  emptyText: string
   triggerClassName?: string
   menuClassName?: string
   variant?: ProviderSelectorVariant
-  emptyText?: string
   formatSelectedLabel?: (option: TOption, variant: ProviderSelectorVariant) => string
 }
 
@@ -79,10 +80,11 @@ export function ProviderSelector<TOption extends ProviderSelectorOption>({
   placeholder,
   ariaLabel,
   tooltipText,
+  selectionUnavailableText,
+  emptyText,
   triggerClassName,
   menuClassName,
   variant = 'widget',
-  emptyText = 'No providers',
   formatSelectedLabel,
 }: ProviderSelectorProps<TOption>) {
   const selected = options.find((option) => option.id === value)
@@ -128,7 +130,7 @@ export function ProviderSelector<TOption extends ProviderSelectorOption>({
           </span>
         </TooltipTrigger>
         <TooltipContent side='top'>
-          {isDropdownDisabled ? 'Provider selection unavailable' : tooltipText}
+          {isDropdownDisabled ? selectionUnavailableText : tooltipText}
         </TooltipContent>
       </Tooltip>
       <DropdownMenuContent

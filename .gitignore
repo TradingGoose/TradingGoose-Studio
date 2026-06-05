@@ -73,4 +73,5 @@ start-collector.sh
 ## Helm Chart Tests
 helm/tradinggoose/test
 i18n.cache
+i18n.lock
 *.react-email

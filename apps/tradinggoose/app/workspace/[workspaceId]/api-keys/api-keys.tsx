@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import { KeyRound, Plus, Search } from 'lucide-react'
 import { useParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { GlobalNavbarHeader } from '@/global-navbar'
 import { Input } from '@/components/ui'
 import { Button } from '@/components/ui/button'
@@ -15,6 +16,7 @@ import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/provide
 import { cn } from '@/lib/utils'
 
 export function WorkspaceApiKeysPage() {
+  const t = useTranslations('workspace.apiKeys')
   const params = useParams<{ workspaceId: string }>()
   const workspaceId = params.workspaceId
   const [searchTerm, setSearchTerm] = useState('')
@@ -32,15 +34,13 @@ export function WorkspaceApiKeysPage() {
     <div className='flex w-full flex-1 items-center gap-3'>
       <div className='hidden items-center gap-2 sm:flex'>
         <KeyRound className='h-[18px] w-[18px] text-muted-foreground' />
-        <span className='font-medium text-sm'>
-          API Keys
-        </span>
+        <span className='font-medium text-sm'>{t('title')}</span>
       </div>
       <div className='flex w-full max-w-xl flex-1'>
         <div className='flex h-9 w-full items-center gap-2 rounded-lg border bg-background pr-2 pl-3'>
           <Search className='h-4 w-4 flex-shrink-0 text-muted-foreground' strokeWidth={2} />
           <Input
-            placeholder='Search keys...'
+            placeholder={t('searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className='flex-1 border-0 bg-transparent px-0 font-[380] font-sans text-base text-foreground leading-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
@@ -64,7 +64,7 @@ export function WorkspaceApiKeysPage() {
         )}
         aria-pressed={keyScope === 'workspace'}
       >
-        Workspace
+        {t('scope.workspace')}
       </Button>
       <Button
         variant='ghost'
@@ -78,19 +78,21 @@ export function WorkspaceApiKeysPage() {
         )}
         aria-pressed={keyScope === 'personal'}
       >
-        Personal
+        {t('scope.personal')}
       </Button>
     </div>
   )
 
   const headerRight = (
-    <PrimaryButton
-      onClick={handleStartCreate}
-      disabled={(keyScope === 'workspace' && !canManageWorkspaceKeys) || isCardLoading}
-    >
-      <Plus className='h-3.5 w-3.5' />
-      <span>Create {keyScope === 'workspace' ? 'Workspace' : 'Personal'} Key</span>
-    </PrimaryButton>
+      <PrimaryButton
+        onClick={handleStartCreate}
+        disabled={(keyScope === 'workspace' && !canManageWorkspaceKeys) || isCardLoading}
+      >
+        <Plus className='h-3.5 w-3.5' />
+      <span>
+        {keyScope === 'workspace' ? t('create.workspace') : t('create.personal')}
+      </span>
+      </PrimaryButton>
   )
 
   return (

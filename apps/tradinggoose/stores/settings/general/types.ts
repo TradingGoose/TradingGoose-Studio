@@ -1,5 +1,6 @@
 export interface General {
   theme: 'system' | 'light' | 'dark'
+  preferredLocale: 'en' | 'es' | 'zh'
   telemetryEnabled: boolean
   isLoading: boolean
   error: string | null
@@ -19,6 +20,7 @@ export type GeneralStore = General & GeneralActions
 
 export type UserSettings = {
   theme: 'system' | 'light' | 'dark'
+  preferredLocale: 'en' | 'es' | 'zh'
   telemetryEnabled: boolean
   isBillingUsageNotificationsEnabled: boolean
 }

@@ -1,18 +1,19 @@
 'use client'
 
-import {
-  type CSSProperties,
-  type ReactNode,
-  type TouchEvent,
-  useEffect,
-  useRef,
-  type WheelEvent,
-} from 'react'
+import { type ReactNode, type TouchEvent, useEffect, useRef, type WheelEvent } from 'react'
 import { MarketListingRow } from '@/components/listing-selector/listing/row'
+import {
+  type SidebarDropdownGroup,
+  type SidebarDropdownItem,
+  SidebarDropdownMenuContent,
+} from '@/components/ui/sidebar-dropdown-menu'
 import type { ListingOption } from '@/lib/listing/identity'
-import { cn } from '@/lib/utils'
+import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 
 type ListingSelectorDropdownContentProps = {
+  groups: SidebarDropdownGroup[]
+  activeGroupId: string
+  onActiveGroupChange: (groupId: string) => void
   results: ListingOption[]
   isLoading: boolean
   error?: string
@@ -20,12 +21,14 @@ type ListingSelectorDropdownContentProps = {
   onHighlightChange: (index: number) => void
   onSelect: (listing: ListingOption) => void
   renderListing?: (listing: ListingOption) => ReactNode
-  scrollStyle?: CSSProperties
   onWheelCapture?: (event: WheelEvent<HTMLDivElement>) => void
   onTouchMove?: (event: TouchEvent<HTMLDivElement>) => void
 }
 
 export function ListingSelectorDropdownContent({
+  groups,
+  activeGroupId,
+  onActiveGroupChange,
   results,
   isLoading,
   error,
@@ -33,11 +36,21 @@ export function ListingSelectorDropdownContent({
   onHighlightChange,
   onSelect,
   renderListing,
-  scrollStyle,
   onWheelCapture,
   onTouchMove,
 }: ListingSelectorDropdownContentProps) {
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const copy = useWorkspaceWidgetsMessages().listingSelector
+  const items: SidebarDropdownItem[] = results.map((listing, index) => ({
+    id: String(index),
+    groupId: activeGroupId,
+    label: listing.name?.trim() || listing.base?.trim() || 'Listing',
+    content: renderListing ? (
+      renderListing(listing)
+    ) : (
+      <MarketListingRow listing={listing} showAssetClass className='w-full' />
+    ),
+  }))
 
   useEffect(() => {
     if (highlightedIndex < 0 || !dropdownRef.current) return
@@ -48,48 +61,27 @@ export function ListingSelectorDropdownContent({
   }, [highlightedIndex])
 
   return (
-    <div className='allow-scroll fade-in-0 zoom-in-95 animate-in rounded-md border bg-popover text-popover-foreground shadow-md'>
-      <div
-        ref={dropdownRef}
-        className='allow-scroll max-h-64 overflow-y-auto p-1'
-        style={scrollStyle ?? { scrollbarWidth: 'thin' }}
-        onMouseLeave={() => onHighlightChange(-1)}
-        onWheelCapture={onWheelCapture}
-        onTouchMove={onTouchMove}
-      >
-        {isLoading ? (
-          <div className='py-6 text-center text-muted-foreground text-sm'>Searching...</div>
-        ) : results.length === 0 ? (
-          <div className='py-6 text-center text-muted-foreground text-sm'>
-            {error || 'No listings found.'}
-          </div>
-        ) : (
-          results.map((listing, index) => {
-            const isHighlighted = index === highlightedIndex
-            return (
-              <div
-                key={`${listing.listing_type}|${listing.listing_id}|${listing.base_id}|${listing.quote_id}`}
-                data-option-index={index}
-                onMouseEnter={() => onHighlightChange(index)}
-                onMouseDown={(event) => {
-                  event.preventDefault()
-                  onSelect(listing)
-                }}
-                className={cn(
-                  'flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground',
-                  isHighlighted && 'bg-accent text-accent-foreground'
-                )}
-              >
-                {renderListing ? (
-                  renderListing(listing)
-                ) : (
-                  <MarketListingRow listing={listing} showAssetClass className='w-full' />
-                )}
-              </div>
-            )
-          })
-        )}
-      </div>
+    <div
+      ref={dropdownRef}
+      className='allow-scroll fade-in-0 zoom-in-95 animate-in rounded-md border bg-popover text-popover-foreground shadow-md'
+      onMouseLeave={() => onHighlightChange(-1)}
+      onWheelCapture={onWheelCapture}
+      onTouchMove={onTouchMove}
+    >
+      <SidebarDropdownMenuContent
+        groups={groups}
+        items={items}
+        activeGroupId={activeGroupId}
+        highlightedItemId={highlightedIndex >= 0 ? String(highlightedIndex) : null}
+        onActiveGroupChange={onActiveGroupChange}
+        onHighlightItem={(_item, index) => onHighlightChange(index)}
+        onSelectItem={(item) => {
+          const listing = results[Number(item.id)]
+          if (listing) onSelect(listing)
+        }}
+        loadingContent={isLoading ? copy.searching : null}
+        emptyContent={error || copy.noListingsFound}
+      />
     </div>
   )
 }

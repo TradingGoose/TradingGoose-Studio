@@ -2,6 +2,7 @@
 
 import { type ChangeEvent, useCallback, useRef } from 'react'
 import { Plus, Upload } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,6 +10,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useMessages } from 'next-intl'
+import { cn } from '@/lib/utils'
 import {
   widgetHeaderIconButtonClassName,
   widgetHeaderMenuContentClassName,
@@ -16,7 +19,6 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
-import { cn } from '@/lib/utils'
 
 interface SkillCreateMenuProps {
   disabled?: boolean
@@ -35,6 +37,8 @@ export function SkillCreateMenu({
   onCreateSkill,
   onImportSkills,
 }: SkillCreateMenuProps) {
+  const locale = useLocale()
+  const copy = useMessages().workspace.widgets.skillList.createMenu
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleCreateSkill = useCallback(() => {
@@ -76,12 +80,12 @@ export function SkillCreateMenu({
                   className={widgetHeaderIconButtonClassName()}
                 >
                   <Plus className='h-4 w-4' />
-                  <span className='sr-only'>Manage skills</span>
+                  <span className='sr-only'>{copy.manageSkills}</span>
                 </button>
               </DropdownMenuTrigger>
             </span>
           </TooltipTrigger>
-          <TooltipContent side='top'>Manage skills</TooltipContent>
+          <TooltipContent side='top'>{copy.manageSkills}</TooltipContent>
         </Tooltip>
         <DropdownMenuContent
           sideOffset={6}
@@ -97,7 +101,7 @@ export function SkillCreateMenu({
           >
             <Upload className={widgetHeaderMenuIconClassName} />
             <span className={widgetHeaderMenuTextClassName}>
-              {isImporting ? 'Importing skills' : 'Import skills'}
+              {isImporting ? copy.importingSkills : copy.importSkills}
             </span>
           </DropdownMenuItem>
           <DropdownMenuItem
@@ -109,7 +113,7 @@ export function SkillCreateMenu({
             }}
           >
             <Plus className={widgetHeaderMenuIconClassName} />
-            <span className={widgetHeaderMenuTextClassName}>New skill</span>
+            <span className={widgetHeaderMenuTextClassName}>{copy.newSkill}</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { OpenAIIcon, AnthropicIcon, GeminiIcon, xAIIcon as XAIIcon } from '@/components/icons/provider-icons'
 import { PerplexityIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
 
 interface AiSummarizeProps {
   path: string
@@ -14,6 +15,8 @@ interface AiSummarizeProps {
 
 export default function AiSummarize({ path, title }: AiSummarizeProps) {
   const [url, setUrl] = useState(path)
+  const copy = useMessages()
+  const blogCopy = copy.blog
 
   useEffect(() => {
     setUrl(`${window.location.origin}${path}`)
@@ -51,21 +54,23 @@ export default function AiSummarize({ path, title }: AiSummarizeProps) {
 
   return (
     <div>
-      <h3 className="mb-4 font-medium text-primary">Summarize with AI</h3>
+      <h3 className="mb-4 font-medium text-primary">{blogCopy.summarizeTitle}</h3>
       <TooltipProvider delayDuration={200}>
         <div className="flex flex-wrap gap-3">
           {platforms.map((platform) => (
             <Tooltip key={platform.label}>
               <TooltipTrigger asChild>
                 <Button variant="outline" size="icon" asChild>
-                  <Link
+                  <a
                     href={platform.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    aria-label={`Summarize with ${platform.label}`}
+                    aria-label={formatTemplate(blogCopy.summarizeWithPlatform, {
+                      platform: platform.label,
+                    })}
                   >
                     {platform.icon}
-                  </Link>
+                  </a>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>{platform.label}</TooltipContent>

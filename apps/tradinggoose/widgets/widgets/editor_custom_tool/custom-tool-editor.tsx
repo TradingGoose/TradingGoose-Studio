@@ -1,5 +1,6 @@
 import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, Code, FileJson } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import {
   createMonacoFunctionBodyDiagnosticSourceBuilder,
   type MonacoEditorHandle,
@@ -11,6 +12,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { exportCustomToolsAsJson } from '@/lib/custom-tools/import-export'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
+import { formatTemplate } from '@/i18n/utils'
+import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import { useUpdateCustomTool } from '@/hooks/queries/custom-tools'
 import { useWand } from '@/hooks/workflow/use-wand'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
@@ -48,6 +51,7 @@ export function CustomToolEditor({
   exportRef,
   saveRef,
 }: CustomToolEditorProps) {
+  const copy = useWorkspaceWidgetsMessages().customToolEditor
   const workspaceId = useWorkspaceId()
   const [jsonSchema, setJsonSchema] = useState('')
   const [functionCode, setFunctionCode] = useState('')
@@ -79,7 +83,7 @@ export function CustomToolEditor({
       setCodeError(null)
     } catch (error) {
       logger.error('Error initializing custom tool editor:', { error })
-      setSchemaError('Failed to load tool data. Please try again.')
+      setSchemaError(copy.validation.failedToLoadToolData)
     }
   }, [initialValues.code, initialValues.id, initialValues.schema])
 
@@ -110,27 +114,27 @@ export function CustomToolEditor({
       const parsed = JSON.parse(value)
 
       if (!parsed.type || parsed.type !== 'function') {
-        setSchemaError('Missing "type": "function"')
+        setSchemaError(copy.validation.missingTypeFunction)
         return
       }
 
       if (!parsed.function || !parsed.function.name) {
-        setSchemaError('Missing function.name field')
+        setSchemaError(copy.validation.missingFunctionName)
         return
       }
 
       if (!parsed.function.parameters) {
-        setSchemaError('Missing function.parameters object')
+        setSchemaError(copy.validation.missingFunctionParameters)
         return
       }
 
       if (!parsed.function.parameters.type) {
-        setSchemaError('Missing parameters.type field')
+        setSchemaError(copy.validation.missingParametersType)
         return
       }
 
       if (parsed.function.parameters.properties === undefined) {
-        setSchemaError('Missing parameters.properties field')
+        setSchemaError(copy.validation.missingParametersProperties)
         return
       }
 
@@ -138,13 +142,13 @@ export function CustomToolEditor({
         typeof parsed.function.parameters.properties !== 'object' ||
         parsed.function.parameters.properties === null
       ) {
-        setSchemaError('parameters.properties must be an object')
+        setSchemaError(copy.validation.parametersPropertiesMustBeObject)
         return
       }
 
       setSchemaError(null)
     } catch {
-      setSchemaError('Invalid JSON format')
+      setSchemaError(copy.validation.invalidJsonFormat)
     }
   }
 
@@ -175,7 +179,7 @@ The JSON schema MUST follow this specific format:
 Current schema: {context}
 
 Do not include any explanations, markdown formatting, or other text outside the JSON object.`,
-      placeholder: 'Describe the function parameters and structure...',
+      placeholder: copy.form.schemaPlaceholder,
       generationType: 'custom-tool-schema',
     },
     currentValue: jsonSchema,
@@ -295,7 +299,7 @@ IMPORTANT FORMATTING RULES:
     setSchemaError(null)
 
     if (!jsonSchema) {
-      setSchemaError('Schema cannot be empty')
+      setSchemaError(copy.validation.schemaCannotBeEmpty)
       onSectionChange('schema')
       return null
     }
@@ -304,31 +308,31 @@ IMPORTANT FORMATTING RULES:
       const schema = JSON.parse(jsonSchema)
 
       if (!schema.type || schema.type !== 'function') {
-        setSchemaError('Schema must have a "type" field set to "function"')
+        setSchemaError(copy.validation.schemaMustBeFunctionType)
         onSectionChange('schema')
         return null
       }
 
       if (!schema.function || !schema.function.name) {
-        setSchemaError('Schema must have a "function" object with a "name" field')
+        setSchemaError(copy.validation.schemaMustHaveFunctionName)
         onSectionChange('schema')
         return null
       }
 
       if (!schema.function.parameters) {
-        setSchemaError('Missing function.parameters object')
+        setSchemaError(copy.validation.missingFunctionParameters)
         onSectionChange('schema')
         return null
       }
 
       if (!schema.function.parameters.type) {
-        setSchemaError('Missing parameters.type field')
+        setSchemaError(copy.validation.missingParametersType)
         onSectionChange('schema')
         return null
       }
 
       if (schema.function.parameters.properties === undefined) {
-        setSchemaError('Missing parameters.properties field')
+        setSchemaError(copy.validation.missingParametersProperties)
         onSectionChange('schema')
         return null
       }
@@ -337,7 +341,7 @@ IMPORTANT FORMATTING RULES:
         typeof schema.function.parameters.properties !== 'object' ||
         schema.function.parameters.properties === null
       ) {
-        setSchemaError('parameters.properties must be an object')
+        setSchemaError(copy.validation.parametersPropertiesMustBeObject)
         onSectionChange('schema')
         return null
       }
@@ -345,11 +349,7 @@ IMPORTANT FORMATTING RULES:
       return schema
     } catch (error) {
       logger.error('Error validating custom tool schema:', { error })
-      setSchemaError(
-        error instanceof Error
-          ? error.message
-          : 'Failed to validate custom tool schema. Please check your inputs and try again.'
-      )
+      setSchemaError(copy.validation.failedToValidateSchema)
       onSectionChange('schema')
       return null
     }
@@ -375,7 +375,7 @@ IMPORTANT FORMATTING RULES:
       })
 
       if (isDuplicate) {
-        setSchemaError(`A tool with the name "${nextToolName}" already exists`)
+        setSchemaError(formatTemplate(copy.validation.duplicateName, { name: nextToolName }))
         onSectionChange('schema')
         return
       }
@@ -393,11 +393,7 @@ IMPORTANT FORMATTING RULES:
       onSave()
     } catch (error) {
       logger.error('Error saving custom tool:', { error })
-      setSchemaError(
-        error instanceof Error
-          ? error.message
-          : 'Failed to save custom tool. Please check your inputs and try again.'
-      )
+      setSchemaError(copy.validation.failedToSave)
       onSectionChange('schema')
     }
   }, [
@@ -607,7 +603,7 @@ IMPORTANT FORMATTING RULES:
               : schemaGeneration.hidePromptInline
           }
           onChange={schemaGeneration.updatePromptValue}
-          placeholder='Describe the JSON schema to generate...'
+          placeholder={copy.form.schemaPlaceholder}
           className='!top-0 relative mb-2'
         />
 
@@ -615,7 +611,7 @@ IMPORTANT FORMATTING RULES:
           <div className='mb-2 flex min-h-6 items-center gap-1'>
             <FileJson className='h-4 w-4' />
             <Label htmlFor='json-schema' className='font-medium'>
-              Tool Config
+              {copy.form.schemaLabel}
             </Label>
             {!isSchemaValid && schemaError && !schemaGeneration.isStreaming ? (
               <Tooltip>
@@ -649,16 +645,11 @@ IMPORTANT FORMATTING RULES:
   "type": "function",
   "function": {
     "name": "addItemToOrder",
-    "description": "Add one quantity of a food item to the order.",
+    "description": "",
     "parameters": {
       "type": "object",
-      "properties": {
-        "itemName": {
-          "type": "string",
-          "description": "The name of the food item to add to order"
-        }
-      },
-      "required": ["itemName"]
+      "properties": {},
+      "required": []
     }
   }
 }`}
@@ -689,7 +680,7 @@ IMPORTANT FORMATTING RULES:
             : codeGeneration.hidePromptInline
         }
         onChange={codeGeneration.updatePromptValue}
-        placeholder='Describe the JavaScript code to generate...'
+        placeholder={copy.form.codePlaceholder}
         className='!top-0 relative mb-2'
       />
 
@@ -698,7 +689,7 @@ IMPORTANT FORMATTING RULES:
           <div className='flex items-center gap-1'>
             <Code className='h-4 w-4' />
             <Label htmlFor='function-code' className='font-medium'>
-              Tool Code
+              {copy.form.codeLabel}
             </Label>
           </div>
           {codeError && !codeGeneration.isStreaming ? (
@@ -709,7 +700,7 @@ IMPORTANT FORMATTING RULES:
         {schemaParameters.length > 0 ? (
           <div className='mb-2 rounded-md bg-muted/50 p-2'>
             <p className='text-muted-foreground text-xs'>
-              <span className='font-medium'>Available parameters:</span>{' '}
+              <span className='font-medium'>{copy.form.availableParameters}</span>{' '}
               {schemaParameters.map((param, index) => (
                 <span key={param.name}>
                   <code className='rounded bg-background px-1 py-0.5 text-foreground'>
@@ -718,7 +709,8 @@ IMPORTANT FORMATTING RULES:
                   {index < schemaParameters.length - 1 ? ', ' : ''}
                 </span>
               ))}
-              {'. '}Start typing a parameter name for autocomplete.
+              {'. '}
+              {copy.form.autocompleteHint}
             </p>
           </div>
         ) : null}
@@ -739,7 +731,7 @@ IMPORTANT FORMATTING RULES:
               }
             }}
             wandButtonDisabled={codeGeneration.isLoading || codeGeneration.isStreaming}
-            placeholder='// This code will be executed when the tool is called.'
+            placeholder={copy.form.codeComment}
             height='100%'
             minHeight='0'
             className={cn(
@@ -813,8 +805,8 @@ IMPORTANT FORMATTING RULES:
               }}
             >
               <div className='py-1'>
-                <div className='px-2 pt-2.5 pb-0.5 font-medium text-muted-foreground text-xs'>
-                  Available Parameters
+              <div className='px-2 pt-2.5 pb-0.5 font-medium text-muted-foreground text-xs'>
+                  {copy.form.availableParametersPanel}
                 </div>
                 <div>
                   {schemaParameters.map((param, index) => (

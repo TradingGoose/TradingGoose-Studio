@@ -4,6 +4,8 @@ import { useCallback, useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
+import { formatTemplate } from '@/i18n/utils'
 import { type KanbanDragEvent, type KanbanDropDirection, KanbanProvider } from '../board/kanban'
 import {
   MonitorKanbanBoard,
@@ -45,7 +47,8 @@ type DragState = {
 const formatVisibleField = (
   card: ConfigMonitorCard,
   field: ConfigMonitorVisibleField,
-  timezone: string
+  timezone: string,
+  copy: ReturnType<typeof useMonitorCopy>['copy']
 ) => {
   switch (field) {
     case 'workflowTarget':
@@ -67,9 +70,9 @@ const formatVisibleField = (
     case 'lastExecutionAt':
       return card.lastExecutionAt
         ? formatMonitorDateTime(new Date(card.lastExecutionAt), timezone)
-        : 'No executions'
+        : copy.config.noExecutions
     case 'lastOutcome':
-      return card.lastOutcome ?? 'No outcome'
+      return card.lastOutcome ?? copy.config.noOutcome
   }
 }
 
@@ -100,7 +103,20 @@ export function MonitorConfigBoard({
   onMoveCard,
   onReorderBucketCards,
 }: MonitorConfigBoardProps) {
+  const { copy } = useMonitorCopy()
   const [dragState, setDragState] = useState<DragState>(null)
+  const fieldLabels: Record<ConfigMonitorVisibleField, string> = {
+    workflowTarget: copy.fields.workflowTarget,
+    indicator: copy.fields.indicator,
+    listing: copy.fields.listing,
+    provider: copy.fields.provider,
+    interval: copy.fields.interval,
+    status: copy.fields.status,
+    createdAt: copy.fields.createdAt,
+    updatedAt: copy.fields.updatedAt,
+    lastExecutionAt: copy.fields.lastExecution,
+    lastOutcome: copy.fields.lastOutcome,
+  }
   const bucketByCardId = useMemo(() => {
     const entries = sections.flatMap((section) =>
       section.groups.flatMap((group) =>
@@ -190,14 +206,13 @@ export function MonitorConfigBoard({
                           canDrop={canDrop}
                           onDropOverColumn={() => handleDropAtBucket(bucket)}
                           itemIds={bucket.cards.map((card) => card.monitorId)}
-                          summary={`${bucket.cards.length} monitors`}
-                          metaAction={
+                          headerAction={
                             <Button
                               type='button'
                               variant='ghost'
                               size='icon'
                               className='h-7 w-7'
-                              aria-label={`Add monitor in ${title}`}
+                              aria-label={formatTemplate(copy.config.addMonitorIn, { title })}
                               onClick={() => onCreateInContext(bucket.context)}
                             >
                               <Plus className='h-4 w-4' />
@@ -230,8 +245,8 @@ export function MonitorConfigBoard({
                                   {visibleFieldIds.map((fieldId) => (
                                     <MonitorKanbanFieldChip
                                       key={`${card.monitorId}:${fieldId}`}
-                                      label={fieldId}
-                                      value={formatVisibleField(card, fieldId, timezone)}
+                                      label={fieldLabels[fieldId]}
+                                      value={formatVisibleField(card, fieldId, timezone, copy)}
                                     />
                                   ))}
                                 </div>
@@ -240,7 +255,7 @@ export function MonitorConfigBoard({
                                   variant={card.isActive ? 'secondary' : 'outline'}
                                   className='text-[10px]'
                                 >
-                                  {card.isActive ? 'Active' : 'Paused'}
+                                  {card.isActive ? copy.fields.active : copy.fields.paused}
                                 </Badge>
                               </MonitorKanbanCard>
                             ))

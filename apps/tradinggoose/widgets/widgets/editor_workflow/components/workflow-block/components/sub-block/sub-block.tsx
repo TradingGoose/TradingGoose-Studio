@@ -19,6 +19,7 @@ import {
 import { cn } from '@/lib/utils'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
+import { formatTemplate } from '@/i18n/utils'
 import {
   getMarketProviderOptions,
   getMarketProviderOptionsByKind,
@@ -65,6 +66,7 @@ import {
   TriggerSave,
   VariablesInput,
 } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components'
+import { useWorkflowInspectorCopy } from '@/widgets/widgets/editor_workflow/copy'
 import { DocumentTagEntry } from './components/document-tag-entry/document-tag-entry'
 import { KnowledgeTagFilters } from './components/knowledge-tag-filters/knowledge-tag-filters'
 import { useDependsOnGate } from './hooks/use-depends-on-gate'
@@ -436,6 +438,7 @@ export const SubBlock = memo(
     contextValues,
   }: SubBlockProps) {
     const [isValidJson, setIsValidJson] = useState(true)
+    const editorCopy = useWorkflowInspectorCopy().workflowEditor
 
     const handleMouseDown = (e: React.MouseEvent) => {
       e.stopPropagation()
@@ -818,7 +821,9 @@ export const SubBlock = memo(
         case 'trigger-save':
           return <TriggerSave blockId={blockId} subBlockId={config.id} disabled={isDisabled} />
         default:
-          return <div>Unknown input type: {config.type}</div>
+          return (
+            <div>{formatTemplate(editorCopy.unknownInputType, { type: String(config.type) })}</div>
+          )
       }
     }
 
@@ -843,7 +848,7 @@ export const SubBlock = memo(
                   <span className='cursor-help text-red-500'>*</span>
                 </TooltipTrigger>
                 <TooltipContent side='top'>
-                  <p>This field is required</p>
+                  <p>{editorCopy.requiredField}</p>
                 </TooltipContent>
               </Tooltip>
             )}
@@ -858,7 +863,7 @@ export const SubBlock = memo(
                   />
                 </TooltipTrigger>
                 <TooltipContent side='top'>
-                  <p>Invalid JSON</p>
+                  <p>{editorCopy.invalidJson}</p>
                 </TooltipContent>
               </Tooltip>
             )}

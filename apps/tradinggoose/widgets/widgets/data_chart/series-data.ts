@@ -10,21 +10,20 @@ export const DEFAULT_BAR_COUNT = 500
 
 export type RangePreset = {
   id: string
-  label: string
   range: { value: number; unit: MarketRangeUnit }
   interval?: MarketInterval
 }
 
 export const DEFAULT_RANGE_PRESETS: RangePreset[] = [
-  { id: '1d', label: '1D', range: { value: 1, unit: 'day' }, interval: '1m' },
-  { id: '5d', label: '5D', range: { value: 5, unit: 'day' }, interval: '5m' },
-  { id: '1w', label: '1W', range: { value: 1, unit: 'week' }, interval: '10m' },
-  { id: '1m', label: '1M', range: { value: 1, unit: 'month' }, interval: '30m' },
-  { id: '3m', label: '3M', range: { value: 3, unit: 'month' }, interval: '1h' },
-  { id: '6m', label: '6M', range: { value: 6, unit: 'month' }, interval: '4h' },
-  { id: '1y', label: '1Y', range: { value: 1, unit: 'year' }, interval: '1d' },
-  { id: '5y', label: '5Y', range: { value: 5, unit: 'year' }, interval: '1w' },
-  { id: 'all', label: 'ALL', range: { value: 50, unit: 'year' }, interval: '1mo' },
+  { id: '1d', range: { value: 1, unit: 'day' }, interval: '1m' },
+  { id: '5d', range: { value: 5, unit: 'day' }, interval: '5m' },
+  { id: '1w', range: { value: 1, unit: 'week' }, interval: '10m' },
+  { id: '1m', range: { value: 1, unit: 'month' }, interval: '30m' },
+  { id: '3m', range: { value: 3, unit: 'month' }, interval: '1h' },
+  { id: '6m', range: { value: 6, unit: 'month' }, interval: '4h' },
+  { id: '1y', range: { value: 1, unit: 'year' }, interval: '1d' },
+  { id: '5y', range: { value: 5, unit: 'year' }, interval: '1w' },
+  { id: 'all', range: { value: 50, unit: 'year' }, interval: '1mo' },
 ]
 
 const INTERVAL_MS: Record<MarketInterval, number> = {

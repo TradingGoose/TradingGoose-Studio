@@ -1,6 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useLocale } from 'next-intl'
+import type { SubBlockConfig } from '@/blocks/types'
+import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
+import { translateWorkflowLabel } from '@/i18n/block-editor'
+import type { LocaleCode } from '@/i18n/utils'
 import {
   type FolderInfo,
   FolderSelector,
@@ -9,8 +14,6 @@ import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/w
 import { useForeignCredential } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-foreign-credential'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import type { SubBlockConfig } from '@/blocks/types'
-import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 
 interface FolderSelectorInputProps {
   blockId: string
@@ -23,6 +26,7 @@ export function FolderSelectorInput({
   subBlock,
   disabled = false,
 }: FolderSelectorInputProps) {
+  const locale = useLocale() as LocaleCode
   const [storeValue, _setStoreValue] = useSubBlockValue(blockId, subBlock.id)
   const [connectedCredential] = useSubBlockValue(blockId, 'credential')
   const { collaborativeSetSubblockValue } = useWorkflowEditorActions()
@@ -64,7 +68,7 @@ export function FolderSelectorInput({
       onChange={handleFolderChange}
       provider={subBlock.provider || 'google-email'}
       requiredScopes={subBlock.requiredScopes || []}
-      label={subBlock.placeholder || 'Select folder'}
+      label={subBlock.placeholder || translateWorkflowLabel(locale, 'selectFolder')}
       disabled={finalDisabled}
       serviceId={subBlock.serviceId}
       onFolderInfoChange={setFolderInfo}

@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Input, Label } from '@/components/ui'
 import { getEmailDomain } from '@/lib/urls/utils'
 import { cn } from '@/lib/utils'
+import { useDeploymentCopy } from '@/widgets/widgets/editor_workflow/copy'
 import { useIdentifierValidation } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/chat-deploy/hooks/use-identifier-validation'
 
 interface IdentifierInputProps {
@@ -26,8 +27,10 @@ export function IdentifierInput({
   onValidationChange,
   isEditingExisting = false,
 }: IdentifierInputProps) {
+  const copy = useDeploymentCopy().chat
   const { isChecking, error, isValid } = useIdentifierValidation(
     value,
+    copy,
     originalIdentifier,
     isEditingExisting
   )
@@ -45,7 +48,7 @@ export function IdentifierInput({
   return (
     <div className='space-y-2'>
       <Label htmlFor='identifier' className='font-medium text-sm'>
-        Identifier
+        {copy.identifier}
       </Label>
       <div className='relative flex items-center rounded-md ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2'>
         <div className='flex h-10 items-center whitespace-nowrap rounded-l-md border border-r-0 bg-muted px-3 font-medium text-muted-foreground text-sm'>
@@ -54,7 +57,7 @@ export function IdentifierInput({
         <div className='relative flex-1'>
           <Input
             id='identifier'
-            placeholder='company-name'
+            placeholder={copy.identifierPlaceholder}
             value={value}
             onChange={(e) => handleChange(e.target.value)}
             required

@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { AlertCircle, Download, FileText, Search, Trash2 } from 'lucide-react'
 import { useParams } from 'next/navigation'
+import { useLocale, useTranslations } from 'next-intl'
 import {
   Alert,
   AlertDescription,
@@ -34,10 +35,13 @@ import {
 import { getDocumentIcon } from '@/app/workspace/[workspaceId]/knowledge/components'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { GlobalNavbarHeader } from '@/global-navbar'
+import { type LocaleCode } from '@/i18n/utils'
 
 export function WorkspaceFiles() {
   const params = useParams<{ workspaceId: string }>()
   const workspaceId = params.workspaceId
+  const locale = useLocale() as LocaleCode
+  const t = useTranslations('workspace.files')
   const userPermissions = useUserPermissionsContext()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [search, setSearch] = useState('')
@@ -67,10 +71,13 @@ export function WorkspaceFiles() {
 
   const uploadButtonLabel =
     uploading && uploadProgress.total > 0
-      ? `Uploading ${uploadProgress.completed}/${uploadProgress.total}...`
+      ? t('upload.uploadingWithCount', {
+          completed: uploadProgress.completed,
+          total: uploadProgress.total,
+        })
       : uploading
-        ? 'Uploading...'
-        : 'Upload File'
+        ? t('upload.uploading')
+        : t('upload.button')
 
   const handleUploadClick = () => {
     fileInputRef.current?.click()
@@ -89,13 +96,13 @@ export function WorkspaceFiles() {
     <div className='flex w-full flex-1 items-center gap-3'>
       <div className='hidden items-center gap-2 sm:flex'>
         <FileText className='h-[18px] w-[18px] text-muted-foreground' />
-        <span className='font-medium text-sm'>Files</span>
+        <span className='font-medium text-sm'>{t('title')}</span>
       </div>
       <div className='flex w-full max-w-xl flex-1'>
         <div className='flex h-9 w-full items-center gap-2 rounded-lg border bg-background pr-2 pl-3'>
           <Search className='h-4 w-4 flex-shrink-0 text-muted-foreground' strokeWidth={2} />
           <Input
-            placeholder='Search files...'
+            placeholder={t('searchPlaceholder')}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             className='flex-1 border-0 bg-transparent px-0 font-[380] font-sans text-base text-foreground leading-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
@@ -182,22 +189,22 @@ export function WorkspaceFiles() {
                           <tr>
                             <th className='px-4 pt-2 pb-3 text-left font-medium'>
                               <span className='text-muted-foreground text-xs uppercase tracking-wide'>
-                                Name
+                                {t('headers.name')}
                               </span>
                             </th>
                             <th className='px-4 pt-2 pb-3 text-left font-medium'>
                               <span className='text-muted-foreground text-xs uppercase tracking-wide'>
-                                Size
+                                {t('headers.size')}
                               </span>
                             </th>
                             <th className='px-4 pt-2 pb-3 text-left font-medium'>
                               <span className='text-muted-foreground text-xs uppercase tracking-wide'>
-                                Uploaded
+                                {t('headers.uploaded')}
                               </span>
                             </th>
                             <th className='px-4 pt-2 pb-3 text-left font-medium'>
                               <span className='text-muted-foreground text-xs uppercase tracking-wide'>
-                                Actions
+                                {t('headers.actions')}
                               </span>
                             </th>
                           </tr>
@@ -246,14 +253,13 @@ export function WorkspaceFiles() {
                           ) : files.length === 0 ? (
                             <tr>
                               <td colSpan={4} className='px-4 py-12 text-center'>
-                                <p className='font-medium text-lg'>No files uploaded yet</p>
+                                <p className='font-medium text-lg'>{t('emptyState.title')}</p>
                                 <p className='mt-2 text-muted-foreground'>
-                                  Upload PDFs, docs, spreadsheets, or slides to power your
-                                  workspace.
+                                  {t('emptyState.description')}
                                 </p>
                                 {userPermissions.canEdit && (
                                   <Button className='mt-6' onClick={handleUploadClick}>
-                                    Upload File
+                                    {t('emptyState.button')}
                                   </Button>
                                 )}
                               </td>
@@ -261,9 +267,9 @@ export function WorkspaceFiles() {
                           ) : filteredFiles.length === 0 ? (
                             <tr>
                               <td colSpan={4} className='px-4 py-12 text-center'>
-                                <p className='font-medium text-lg'>No files match your search</p>
+                                <p className='font-medium text-lg'>{t('searchEmpty.title')}</p>
                                 <p className='mt-2 text-muted-foreground'>
-                                  Try a different keyword or clear the search input.
+                                  {t('searchEmpty.description')}
                                 </p>
                               </td>
                             </tr>
@@ -292,7 +298,7 @@ export function WorkspaceFiles() {
                                     {formatFileSize(file.size)}
                                   </td>
                                   <td className='px-4 py-3 text-muted-foreground text-sm'>
-                                    {formatDisplayDate(file.uploadedAt)}
+                                    {formatDisplayDate(file.uploadedAt, locale)}
                                   </td>
                                   <td className='px-4 py-3'>
                                     <div className='flex items-center justify-center gap-1.5'>
@@ -301,8 +307,8 @@ export function WorkspaceFiles() {
                                         size='icon'
                                         onClick={() => downloadFile(file)}
                                         className='h-8 w-8'
-                                        title='Download'
-                                        aria-label={`Download ${file.name}`}
+                                        title={t('actions.download')}
+                                        aria-label={`${t('actions.download')} ${file.name}`}
                                       >
                                         <Download className='h-4 w-4 text-muted-foreground' />
                                       </Button>
@@ -312,8 +318,8 @@ export function WorkspaceFiles() {
                                           size='icon'
                                           onClick={() => setFilePendingDelete(file)}
                                           className='h-8 w-8 text-destructive hover:text-destructive'
-                                          title='Delete'
-                                          aria-label={`Delete ${file.name}`}
+                                          title={t('actions.delete')}
+                                          aria-label={`${t('actions.delete')} ${file.name}`}
                                         >
                                           <Trash2 className='h-4 w-4' />
                                         </Button>
@@ -347,12 +353,12 @@ export function WorkspaceFiles() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete file?</AlertDialogTitle>
+            <AlertDialogTitle>{t('deleteDialog.title')}</AlertDialogTitle>
             <AlertDialogDescription>
               {filePendingDelete
-                ? `Deleting "${filePendingDelete.name}" will permanently remove it from this workspace.`
-                : 'Deleting this file will permanently remove it from this workspace.'}{' '}
-              <span className='text-red-500 dark:text-red-500'>This action cannot be undone.</span>
+                ? t('deleteDialog.descriptionWithName', { name: filePendingDelete.name })
+                : t('deleteDialog.description')}{' '}
+              <span className='text-red-500 dark:text-red-500'>{t('deleteDialog.warning')}</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className='flex'>
@@ -360,7 +366,7 @@ export function WorkspaceFiles() {
               className='h-9 w-full rounded-sm'
               disabled={Boolean(filePendingDelete) && deletingFileId === filePendingDelete?.id}
             >
-              Cancel
+              {t('deleteDialog.cancel')}
             </AlertDialogCancel>
             <Button
               onClick={async () => {
@@ -372,8 +378,8 @@ export function WorkspaceFiles() {
               className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
             >
               {filePendingDelete && deletingFileId === filePendingDelete.id
-                ? 'Deleting...'
-                : 'Delete'}
+                ? t('deleteDialog.deleting')
+                : t('deleteDialog.confirm')}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

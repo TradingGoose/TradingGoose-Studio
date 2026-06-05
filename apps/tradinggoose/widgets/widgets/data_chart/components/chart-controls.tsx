@@ -19,7 +19,11 @@ import type { MarketInterval } from '@/providers/market/types'
 import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
 import { IndicatorDropdown } from '@/widgets/widgets/components/pine-indicator-dropdown'
 import { CANDLE_TYPE_OPTIONS } from '@/widgets/widgets/data_chart/options'
-import { formatIntervalLabel } from '@/widgets/widgets/data_chart/series-data'
+import {
+  formatDataChartIntervalLabel,
+  getDataChartCandleTypeLabel,
+  useDataChartCopy,
+} from '@/widgets/widgets/data_chart/copy'
 import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/types'
 import { buildIndicatorRefs } from '@/widgets/widgets/data_chart/utils/indicator-refs'
 
@@ -40,6 +44,8 @@ export const DataChartIntervalDropdown = ({
   panelId,
   widgetKey,
 }: DataChartIntervalDropdownProps) => {
+  const copy = useDataChartCopy()
+
   const handleIntervalSelect = (nextInterval: string) => {
     const {
       window: _window,
@@ -79,16 +85,16 @@ export const DataChartIntervalDropdown = ({
                 disabled={!supportsInterval || allowedIntervals.length === 0}
               >
                 <Clock className='h-3.5 w-3.5' />
-                <span className='sr-only'>Select interval</span>
+                <span className='sr-only'>{copy.controls.intervalAriaLabel}</span>
               </button>
             </DropdownMenuTrigger>
           </span>
         </TooltipTrigger>
-        <TooltipContent side='top'>Interval</TooltipContent>
+        <TooltipContent side='top'>{copy.controls.intervalTooltip}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent className={cn(widgetHeaderMenuContentClassName, 'w-44')}>
         {allowedIntervals.length === 0 ? (
-          <div className='px-2 py-2 text-muted-foreground text-xs'>No intervals</div>
+          <div className='px-2 py-2 text-muted-foreground text-xs'>{copy.controls.noIntervals}</div>
         ) : (
           allowedIntervals.map((option) => (
             <DropdownMenuItem
@@ -102,7 +108,7 @@ export const DataChartIntervalDropdown = ({
                 interval === option && 'bg-muted text-foreground'
               )}
             >
-              {formatIntervalLabel(option)}
+              {formatDataChartIntervalLabel(copy, option)}
             </DropdownMenuItem>
           ))
         )}
@@ -124,6 +130,7 @@ export const DataChartCandleTypeDropdown = ({
   panelId,
   widgetKey,
 }: DataChartCandleTypeDropdownProps) => {
+  const copy = useDataChartCopy()
   const selectedOption =
     CANDLE_TYPE_OPTIONS.find((option) => option.id === candleType) ?? CANDLE_TYPE_OPTIONS[0]
   const SelectedIcon = selectedOption?.icon
@@ -152,11 +159,11 @@ export const DataChartCandleTypeDropdown = ({
               ) : (
                 <CandlestickChart className='h-3.5 w-3.5' />
               )}
-              <span className='sr-only'>Candle style</span>
+              <span className='sr-only'>{copy.controls.candleStyleAriaLabel}</span>
             </button>
           </DropdownMenuTrigger>
         </TooltipTrigger>
-        <TooltipContent side='top'>Candle style</TooltipContent>
+        <TooltipContent side='top'>{copy.controls.candleStyleTooltip}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent className={cn(widgetHeaderMenuContentClassName, 'w-48')}>
         {CANDLE_TYPE_OPTIONS.map((option) => (
@@ -173,7 +180,7 @@ export const DataChartCandleTypeDropdown = ({
             )}
           >
             <option.icon className='h-3.5 w-3.5' />
-            <span className='flex-1'>{option.label}</span>
+            <span className='flex-1'>{getDataChartCandleTypeLabel(copy, option.id)}</span>
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

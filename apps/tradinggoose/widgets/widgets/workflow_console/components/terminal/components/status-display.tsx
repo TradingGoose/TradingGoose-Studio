@@ -1,6 +1,7 @@
 'use client'
 
 import { Badge } from '@/components/ui/badge'
+import { useWorkflowConsoleMessages } from '@/i18n/workspace-widget-hooks'
 
 interface StatusDisplayProps {
   isRunning: boolean
@@ -13,16 +14,17 @@ export function StatusDisplay({
   isCanceled,
   formattedDuration,
 }: StatusDisplayProps) {
+  const copy = useWorkflowConsoleMessages()
   if (isRunning) {
     return (
       <Badge className='bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'>
-        Running
+        {copy.running}
       </Badge>
     )
   }
 
   if (isCanceled) {
-    return <span className='text-xs text-muted-foreground'>canceled</span>
+    return <span className='text-xs text-muted-foreground'>{copy.canceled}</span>
   }
 
   return <span className='text-xs text-muted-foreground'>{formattedDuration}</span>

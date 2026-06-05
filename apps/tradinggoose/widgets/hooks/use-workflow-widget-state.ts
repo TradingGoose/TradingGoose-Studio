@@ -23,19 +23,22 @@ type UseWorkflowWidgetStateOptions = Pick<
   usePairWorkflowContext?: boolean
 }
 
+export type WorkflowWidgetLoadError =
+  | 'unableToLoadWorkflows'
+  | 'authenticationRequiredToLoadWorkflows'
+
 type UseWorkflowWidgetStateResult = {
   resolvedPairColor: PairColor
   channelId: string
   requestedWorkflowId: string | null
   resolvedWorkflowId: string | null
   hasLoadedWorkflows: boolean
-  loadError: string | null
+  loadError: WorkflowWidgetLoadError | null
   isLoading: boolean
   workflowIds: string[]
   activeWorkflowIdForChannel: string | null
 }
 
-const DEFAULT_LOAD_ERROR_MESSAGE = 'Unable to load workflows'
 const MAX_METADATA_LOAD_ATTEMPTS = 2
 const EMPTY_PAIR_CONTEXT: Readonly<PairColorContext> = Object.freeze({})
 
@@ -75,7 +78,7 @@ export const useWorkflowWidgetState = ({
 
   const workflowMap = workflows ?? {}
   const [hasRequestedLoad, setHasRequestedLoad] = useState(false)
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<WorkflowWidgetLoadError | null>(null)
   const [loadAttempts, setLoadAttempts] = useState(0)
 
   const requestedWorkflowId = useMemo(() => {
@@ -159,8 +162,8 @@ export const useWorkflowWidgetState = ({
       setLoadError(
         error instanceof Error &&
           (error.message === 'Unauthorized' || error.message === 'Forbidden')
-          ? 'Authentication required to load workflows'
-          : DEFAULT_LOAD_ERROR_MESSAGE
+          ? 'authenticationRequiredToLoadWorkflows'
+          : 'unableToLoadWorkflows'
       )
     })
 

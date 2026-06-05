@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import {
+  Check,
+  ChevronDown,
   ChevronsUpDown,
   CreditCard,
   KeyRound,
@@ -17,9 +19,15 @@ import {
   User,
   Users,
 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
+import { useLocale, useMessages, useTranslations } from 'next-intl'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar'
+import {
+  widgetHeaderControlClassName,
+  widgetHeaderMenuContentClassName,
+  widgetHeaderMenuItemClassName,
+} from '@/components/widget-header-control'
 import { signOut } from '@/lib/auth-client'
 import { openBillingPortal } from '@/lib/billing/billing-portal'
 import { isHosted } from '@/lib/environment'
@@ -27,10 +35,14 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getOrganizationAccessState } from '@/lib/organization/access'
 import { getUserRole } from '@/lib/organization/helpers'
 import { getSubscriptionStatus } from '@/lib/subscription/helpers'
+import { cn } from '@/lib/utils'
 import { HelpModal } from '@/global-navbar/settings-modal/components/help/help-modal'
 import type { SettingsSection } from '@/global-navbar/settings-modal/types'
 import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
 import { useSubscriptionData } from '@/hooks/queries/subscription'
+import { formatTemplate } from '@/i18n/utils'
+import { replaceLocaleDocument, usePathname, useRouter } from '@/i18n/navigation'
+import { getLocaleDisplayName, isLocaleCode, type LocaleCode, locales } from '@/i18n/utils'
 import { clearUserData } from '@/stores'
 import { useGeneralStore } from '@/stores/settings/general/store'
 import { getInitials } from '../utils'
@@ -45,21 +57,14 @@ import {
 
 type ThemeOption = {
   value: 'light' | 'system' | 'dark'
-  label: string
   Icon: LucideIcon
 }
 
 const THEME_OPTIONS: ThemeOption[] = [
-  { value: 'light', label: 'Light', Icon: Sun },
-  { value: 'system', label: 'System', Icon: Monitor },
-  { value: 'dark', label: 'Dark', Icon: Moon },
+  { value: 'light', Icon: Sun },
+  { value: 'system', Icon: Monitor },
+  { value: 'dark', Icon: Moon },
 ]
-
-const THEME_ITEM_BASE_CLASSES =
-  'relative flex h-9 flex-1 items-center justify-center gap-0 rounded-md border px-0 py-0 text-sm transition-colors focus:bg-accent focus:text-accent-foreground'
-const THEME_ITEM_ACTIVE_CLASSES = 'border-border bg-accent text-accent-foreground shadow-sm'
-const THEME_ITEM_INACTIVE_CLASSES =
-  'border-transparent text-muted-foreground hover:bg-card hover:text-foreground'
 
 const DEFAULT_AVATAR_SRC = '/profile/avatar.png'
 
@@ -76,6 +81,14 @@ interface UserMenuProps {
   } | null
 }
 
+type UserMenuMessages = {
+  workspace?: {
+    userMenu?: {
+      themeLabel?: string
+    }
+  }
+}
+
 export function UserMenu({
   userName,
   userEmail,
@@ -86,6 +99,12 @@ export function UserMenu({
   systemNavigation,
 }: UserMenuProps) {
   const router = useRouter()
+  const locale = useLocale() as LocaleCode
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const search = searchParams.toString()
+  const tUserMenu = useTranslations('workspace.userMenu')
+  const messages = useMessages() as UserMenuMessages
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [isOpeningBillingPortal, setIsOpeningBillingPortal] = useState(false)
   const [avatarOverride, setAvatarOverride] = useState<{
@@ -95,10 +114,40 @@ export function UserMenu({
   const logger = createLogger('UserMenu')
   const theme = useGeneralStore((state) => state.theme)
   const setTheme = useGeneralStore((state) => state.setTheme)
+  const updateSetting = useGeneralStore((state) => state.updateSetting)
   const isGeneralLoading = useGeneralStore((state) => state.isLoading)
   const isThemeLoading = useGeneralStore((state) => state.isThemeLoading)
   const { data: organizationsData } = useOrganizations()
-  const currentThemeLabel = THEME_OPTIONS.find((option) => option.value === theme)?.label ?? 'Theme'
+  const userMenuCopy = useMemo(
+    () => ({
+      accountDetail: tUserMenu('accountDetail'),
+      helpSupport: tUserMenu('helpSupport'),
+      serviceApiKeys: tUserMenu('serviceApiKeys'),
+      subscription: tUserMenu('subscription'),
+      manageBilling: tUserMenu('manageBilling'),
+      openingBilling: tUserMenu('openingBilling'),
+      teamManagement: tUserMenu('teamManagement'),
+      singleSignOn: tUserMenu('singleSignOn'),
+      logOut: tUserMenu('logOut'),
+      loggingOut: tUserMenu('loggingOut'),
+      billingPortalSelectOrganization: tUserMenu('billingPortalSelectOrganization'),
+      billingPortalFailed: tUserMenu('billingPortalFailed'),
+      languageLabel: tUserMenu('languageLabel'),
+      themeOptions: {
+        light: tUserMenu('themeOptions.light'),
+        system: tUserMenu('themeOptions.system'),
+        dark: tUserMenu('themeOptions.dark'),
+      },
+      defaultAvatarAlt: tUserMenu('defaultAvatarAlt'),
+    }),
+    [tUserMenu]
+  )
+  const themeOptionLabels = userMenuCopy.themeOptions
+  const currentThemeOption =
+    THEME_OPTIONS.find((option) => option.value === theme) ?? THEME_OPTIONS[0]
+  const currentThemeLabel = themeOptionLabels[currentThemeOption.value]
+  const themeLabelTemplate = messages.workspace?.userMenu?.themeLabel ?? 'Theme: {theme}'
+  const currentThemeAriaLabel = formatTemplate(themeLabelTemplate, { theme: currentThemeLabel })
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
   const activeOrganization = organizationsData?.activeOrganization
   const activeOrganizationId = activeOrganization?.id
@@ -218,6 +267,20 @@ export function UserMenu({
     }
   }
 
+  const handleLocaleChange = async (nextLocale: string) => {
+    if (!isLocaleCode(nextLocale) || nextLocale === locale) {
+      return
+    }
+
+    const href = search ? `${pathname}?${search}` : pathname
+    try {
+      await updateSetting('preferredLocale', nextLocale)
+    } catch (error) {
+      logger.error('Failed to persist preferred locale:', { error, locale: nextLocale })
+    }
+    replaceLocaleDocument(nextLocale, href)
+  }
+
   const handleOpenBillingPortal = async () => {
     if (!billingEnabled) return
     if (isOpeningBillingPortal || isSubscriptionLoading) return
@@ -227,7 +290,7 @@ export function UserMenu({
       logger.error('Cannot open billing portal without an active organization', {
         tier: subscription.tier.displayName,
       })
-      alert('Select an organization to manage billing.')
+      alert(userMenuCopy.billingPortalSelectOrganization)
       return
     }
 
@@ -239,7 +302,7 @@ export function UserMenu({
       })
     } catch (error) {
       logger.error('Failed to open billing portal from user menu', { error })
-      alert(error instanceof Error ? error.message : 'Failed to open billing portal')
+      alert(error instanceof Error ? error.message : userMenuCopy.billingPortalFailed)
     } finally {
       setIsOpeningBillingPortal(false)
     }
@@ -260,7 +323,7 @@ export function UserMenu({
                   {avatarSrc ? (
                     <AvatarImage key={avatarSrc} src={avatarSrc} alt={userName} />
                   ) : (
-                    <AvatarImage src={DEFAULT_AVATAR_SRC} alt='Default avatar' />
+                    <AvatarImage src={DEFAULT_AVATAR_SRC} alt={userMenuCopy.defaultAvatarAlt} />
                   )}
                   <AvatarFallback className='rounded-lg'>{getInitials(userName)}</AvatarFallback>
                 </Avatar>
@@ -278,33 +341,116 @@ export function UserMenu({
             >
               <DropdownMenuGroup>
                 <div className='flex items-center gap-1.5 px-2 pt-0.5 pb-1.5'>
-                  <DropdownMenuItem className='flex items-center gap-2 font-medium text-muted-foreground text-sm'>
-                    {currentThemeLabel}
-                  </DropdownMenuItem>
-                  {THEME_OPTIONS.map(({ value, label, Icon }) => {
-                    const isActive = theme === value
-                    const themeClasses = `${THEME_ITEM_BASE_CLASSES} ${
-                      isActive ? THEME_ITEM_ACTIVE_CLASSES : THEME_ITEM_INACTIVE_CLASSES
-                    }`
-                    return (
-                      <DropdownMenuItem
-                        key={value}
-                        aria-label={`${label} theme`}
-                        className={themeClasses}
+                  <DropdownMenu modal={false}>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type='button'
+                        aria-haspopup='menu'
+                        aria-label={currentThemeAriaLabel}
+                        className={widgetHeaderControlClassName(
+                          'group flex h-7 min-w-0 flex-1 justify-between gap-1.5 rounded-sm'
+                        )}
                         disabled={isThemeLoading || isGeneralLoading}
-                        onSelect={(event) => {
-                          if (isActive) {
-                            event.preventDefault()
-                            return
-                          }
-                          void handleThemeChange(value)
-                        }}
-                        title={label}
+                        title={currentThemeLabel}
                       >
-                        <Icon className='size-4' />
-                      </DropdownMenuItem>
-                    )
-                  })}
+                        <span className='flex min-w-0 items-center gap-1.5'>
+                          <currentThemeOption.Icon
+                            className='h-4 w-4 shrink-0 text-muted-foreground'
+                            aria-hidden='true'
+                          />
+                          <span className='min-w-0 truncate text-left'>{currentThemeLabel}</span>
+                        </span>
+                        <ChevronDown
+                          className='h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
+                          aria-hidden='true'
+                        />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      sideOffset={6}
+                      className={cn(widgetHeaderMenuContentClassName, 'w-[220px]')}
+                    >
+                      {THEME_OPTIONS.map(({ value, Icon }) => {
+                        const label = themeOptionLabels[value]
+                        const isActive = theme === value
+
+                        return (
+                          <DropdownMenuItem
+                            key={value}
+                            className={cn(widgetHeaderMenuItemClassName, 'items-center')}
+                            disabled={isThemeLoading || isGeneralLoading}
+                            onSelect={(event) => {
+                              if (isActive) {
+                                event.preventDefault()
+                                return
+                              }
+                              void handleThemeChange(value)
+                            }}
+                          >
+                            <Icon
+                              className={cn(
+                                'h-4 w-4 text-muted-foreground',
+                                isActive && 'text-foreground'
+                              )}
+                              aria-hidden='true'
+                            />
+                            <span className='min-w-0 truncate'>{label}</span>
+                            {isActive ? (
+                              <Check className='ml-auto h-3.5 w-3.5 text-primary' />
+                            ) : null}
+                          </DropdownMenuItem>
+                        )
+                      })}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <DropdownMenu modal={false}>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type='button'
+                        aria-haspopup='menu'
+                        aria-label={`${userMenuCopy.languageLabel}: ${getLocaleDisplayName(locale)}`}
+                        className={widgetHeaderControlClassName(
+                          'group flex h-7 min-w-0 flex-1 justify-between gap-1.5 rounded-sm'
+                        )}
+                        title={getLocaleDisplayName(locale)}
+                      >
+                        <span className='min-w-0 truncate text-left'>
+                          {getLocaleDisplayName(locale)}
+                        </span>
+                        <ChevronDown
+                          className='h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
+                          aria-hidden='true'
+                        />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      sideOffset={6}
+                      className={cn(widgetHeaderMenuContentClassName, 'w-[220px]')}
+                    >
+                      {locales.map((code) => {
+                        const isActive = code === locale
+
+                        return (
+                          <DropdownMenuItem
+                            key={code}
+                            className={cn(widgetHeaderMenuItemClassName, 'items-center')}
+                            onSelect={(event) => {
+                              if (isActive) {
+                                event.preventDefault()
+                                return
+                              }
+                              handleLocaleChange(code)
+                            }}
+                          >
+                            <span className='min-w-0 truncate'>{getLocaleDisplayName(code)}</span>
+                            {isActive ? (
+                              <Check className='ml-auto h-3.5 w-3.5 text-primary' />
+                            ) : null}
+                          </DropdownMenuItem>
+                        )
+                      })}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
@@ -322,7 +468,7 @@ export function UserMenu({
                   }}
                 >
                   <User />
-                  Account Detail
+                  {userMenuCopy.accountDetail}
                 </DropdownMenuItem>
                 {isHosted ? (
                   <DropdownMenuItem
@@ -338,7 +484,7 @@ export function UserMenu({
                     }}
                   >
                     <KeyRound />
-                    Service API Keys
+                    {userMenuCopy.serviceApiKeys}
                   </DropdownMenuItem>
                 ) : null}
               </DropdownMenuGroup>
@@ -359,7 +505,7 @@ export function UserMenu({
                       }}
                     >
                       <Star />
-                      Subscription
+                      {userMenuCopy.subscription}
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       disabled={isOpeningBillingPortal || isSubscriptionLoading}
@@ -369,7 +515,9 @@ export function UserMenu({
                       }}
                     >
                       <CreditCard />
-                      {isOpeningBillingPortal ? 'Opening Billing…' : 'Manage Billing'}
+                      {isOpeningBillingPortal
+                        ? userMenuCopy.openingBilling
+                        : userMenuCopy.manageBilling}
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
                 </>
@@ -392,7 +540,7 @@ export function UserMenu({
                         }}
                       >
                         <Users />
-                        Team Management
+                        {userMenuCopy.teamManagement}
                       </DropdownMenuItem>
                     ) : null}
                     {canManageSSOSettings ? (
@@ -409,7 +557,7 @@ export function UserMenu({
                         }}
                       >
                         <LogIn />
-                        Single Sign-On
+                        {userMenuCopy.singleSignOn}
                       </DropdownMenuItem>
                     ) : null}
                   </DropdownMenuGroup>
@@ -440,7 +588,7 @@ export function UserMenu({
                   }}
                 >
                   <LifeBuoy />
-                  Help & Support
+                  {userMenuCopy.helpSupport}
                 </DropdownMenuItem>
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
@@ -453,7 +601,7 @@ export function UserMenu({
                 className='text-destructive focus:text-destructive'
               >
                 <LogOut className='text-destructive ' />
-                {isSigningOut ? 'Logging out…' : 'Log out'}
+                {isSigningOut ? userMenuCopy.loggingOut : userMenuCopy.logOut}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

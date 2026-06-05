@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { widgetHeaderIconButtonClassName } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
+import { DeployModal } from '@/widgets/widgets/editor_workflow/components/control-bar/components'
+import { useDeploymentCopy } from '@/widgets/widgets/editor_workflow/copy'
 import type { WorkspaceUserPermissions } from '@/hooks/use-user-permissions'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
-import { DeployModal } from '@/widgets/widgets/editor_workflow/components/control-bar/components'
 
 type ControlVariant = 'workspace' | 'widget'
 
@@ -34,6 +35,7 @@ export function DeploymentControls({
   userPermissions,
   variant = 'workspace',
 }: DeploymentControlsProps) {
+  const copy = useDeploymentCopy()
   const deploymentStatus = useWorkflowRegistry((state) =>
     state.readWorkflowDeploymentStatus(activeWorkflowId)
   )
@@ -72,18 +74,18 @@ export function DeploymentControls({
 
   const getTooltipText = () => {
     if (!canDeploy) {
-      return 'Admin permissions required to deploy workflows'
+      return copy.adminPermissionsRequiredToDeployWorkflows
     }
     if (isDeploying) {
-      return 'Deploying...'
+      return copy.deploying
     }
     if (isDeployed && workflowNeedsRedeployment) {
-      return 'Workflow changes detected'
+      return copy.workflowChangesDetected
     }
     if (isDeployed) {
-      return 'Deployment Settings'
+      return copy.deploymentSettings
     }
-    return 'Deploy Workflow'
+    return copy.deployWorkflow
   }
 
   const buttonBaseClass =
@@ -115,16 +117,16 @@ export function DeploymentControls({
               ) : (
                 <Rocket className='h-5 w-5' />
               )}
-              <span className='sr-only'>Deploy API</span>
+              <span className='sr-only'>{copy.deployApi}</span>
             </Button>
 
             {isDeployed && workflowNeedsRedeployment && (
               <div className='pointer-events-none absolute right-1 bottom-1 flex items-center justify-center'>
                 <div className='relative'>
-                  <div className='absolute inset-0 h-[6px] w-[6px] animate-ping rounded-full bg-yellow-500/50' />
-                  <div className='zoom-in fade-in relative h-[6px] w-[6px] animate-in rounded-full bg-yellow-500/80 duration-300' />
-                </div>
-                <span className='sr-only'>Needs Redeployment</span>
+                <div className='absolute inset-0 h-[6px] w-[6px] animate-ping rounded-full bg-yellow-500/50' />
+                <div className='zoom-in fade-in relative h-[6px] w-[6px] animate-in rounded-full bg-yellow-500/80 duration-300' />
+              </div>
+                <span className='sr-only'>{copy.needsRedeployment}</span>
               </div>
             )}
           </div>

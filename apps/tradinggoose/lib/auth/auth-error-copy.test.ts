@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { getAuthErrorContent, normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
 import {
-  REGISTRATION_DISABLED_MESSAGE,
-  REGISTRATION_WAITLIST_MESSAGE,
+  REGISTRATION_DISABLED_REASON,
+  REGISTRATION_WAITLIST_REASON,
 } from '@/lib/registration/shared'
+import { getPublicCopy } from '@/i18n/public-copy'
 
 describe('normalizeAuthErrorCode', () => {
   it('normalizes lowercase query values into uppercase snake case', () => {
@@ -16,8 +17,10 @@ describe('normalizeAuthErrorCode', () => {
 })
 
 describe('getAuthErrorContent', () => {
+  const copy = getPublicCopy('en')
+
   it('returns the signup recovery copy for account creation failures', () => {
-    const { code, content } = getAuthErrorContent('unable_to_create_user')
+    const { code, content } = getAuthErrorContent(copy, 'unable_to_create_user')
 
     expect(code).toBe('UNABLE_TO_CREATE_USER')
     expect(content.title).toBe("We couldn't create your account")
@@ -26,30 +29,28 @@ describe('getAuthErrorContent', () => {
   })
 
   it('falls back to the default auth error copy for unknown codes', () => {
-    const { code, content } = getAuthErrorContent('totally_unknown_error')
+    const { code, content } = getAuthErrorContent(copy, 'totally_unknown_error')
 
     expect(code).toBe('TOTALLY_UNKNOWN_ERROR')
-    expect(content.title).toBe('Something went wrong')
+    expect(content.title).toBe(copy.auth.error.default.title)
     expect(content.primaryAction.href).toBe('/login?reauth=1')
   })
 
-  it('maps the normalized waitlist registration code to waitlist recovery copy', () => {
-    const { code, content } = getAuthErrorContent(
-      'registration_is_limited_to_approved_waitlist_emails'
-    )
+  it('maps the waitlist registration reason to waitlist recovery copy', () => {
+    const { code, content } = getAuthErrorContent(copy, REGISTRATION_WAITLIST_REASON)
 
-    expect(code).toBe('REGISTRATION_IS_LIMITED_TO_APPROVED_WAITLIST_EMAILS')
-    expect(content.title).toBe('Registration is limited')
-    expect(content.description).toBe(REGISTRATION_WAITLIST_MESSAGE)
+    expect(code).toBe('REGISTRATION_WAITLIST')
+    expect(content.title).toBe(copy.auth.error.groups.waitlistLimited.title)
+    expect(content.description).toBe(copy.auth.error.groups.waitlistLimited.description)
     expect(content.primaryAction.href).toBe('/waitlist')
   })
 
-  it('maps the normalized disabled registration code to the disabled recovery copy', () => {
-    const { code, content } = getAuthErrorContent('registration_is_currently_disabled')
+  it('maps the disabled registration reason to the disabled recovery copy', () => {
+    const { code, content } = getAuthErrorContent(copy, REGISTRATION_DISABLED_REASON)
 
-    expect(code).toBe('REGISTRATION_IS_CURRENTLY_DISABLED')
-    expect(content.title).toBe('Registration is currently disabled')
-    expect(content.description).toBe(REGISTRATION_DISABLED_MESSAGE)
+    expect(code).toBe('REGISTRATION_DISABLED')
+    expect(content.title).toBe(copy.auth.error.groups.registrationDisabled.title)
+    expect(content.description).toBe(copy.auth.error.groups.registrationDisabled.description)
     expect(content.primaryAction.href).toBe('/login?reauth=1')
   })
 })

@@ -2,6 +2,7 @@ import {
   sortExecutionGroups,
   getExecutionAggregate,
   getExecutionGroupValue,
+  type MonitorExecutionGroupLabels,
   type MonitorExecutionItem,
 } from '../data/execution-ordering'
 import type { ExecutionMonitorFieldSum, ExecutionMonitorGroupField, ExecutionMonitorViewConfig } from '../view/view-config'
@@ -20,6 +21,15 @@ export type MonitorBoardSection = {
   id: string
   label: string
   columns: MonitorBoardColumn[]
+}
+
+type MonitorBoardLabels = {
+  allExecutionsLabel: string
+  emptyColumnValues: Partial<
+    Record<ExecutionMonitorGroupField, Array<{ id: string; label: string; sortValue: string }>>
+  >
+  groupFieldLabels: Record<ExecutionMonitorGroupField, string>
+  groupValueLabels: MonitorExecutionGroupLabels
 }
 
 const reorderColumnItems = (items: MonitorExecutionItem[], orderedIds: string[]) => {
@@ -79,14 +89,48 @@ const EMPTY_COLUMN_VALUES: Partial<
   ],
 }
 
+const DEFAULT_BOARD_LABELS: MonitorBoardLabels = {
+  allExecutionsLabel: 'All executions',
+  emptyColumnValues: EMPTY_COLUMN_VALUES,
+  groupFieldLabels: GROUP_FIELD_LABELS,
+  groupValueLabels: {
+    assetTypeLabels: {
+      stock: 'Stock',
+      crypto: 'Crypto',
+      currency: 'Currency',
+      default: 'Default',
+      unknown: 'Unknown',
+    },
+    outcomeLabels: {
+      running: 'Running',
+      success: 'Success',
+      error: 'Error',
+      skipped: 'Skipped',
+      unknown: 'Unknown',
+    },
+    removedMonitorLabel: 'Removed monitor',
+    triggerLabels: {
+      api: 'API',
+      manual: 'Manual',
+      webhook: 'Webhook',
+      chat: 'Chat',
+      schedule: 'Schedule',
+      unknown: 'Unknown',
+    },
+    unknownLabel: 'Unknown',
+    unknownListingLabel: 'Unknown listing',
+  },
+}
+
 const buildEmptyColumns = (
   columnField: ExecutionMonitorGroupField,
-  config: ExecutionMonitorViewConfig
+  config: ExecutionMonitorViewConfig,
+  labels: MonitorBoardLabels
 ): MonitorBoardColumn[] => {
-  const values = EMPTY_COLUMN_VALUES[columnField] ?? [
+  const values = labels.emptyColumnValues[columnField] ?? [
     {
       id: columnField,
-      label: GROUP_FIELD_LABELS[columnField],
+      label: labels.groupFieldLabels[columnField],
       sortValue: columnField,
     },
   ]
@@ -108,7 +152,8 @@ const buildEmptyColumns = (
 
 export const buildMonitorBoardSections = (
   items: MonitorExecutionItem[],
-  config: ExecutionMonitorViewConfig
+  config: ExecutionMonitorViewConfig,
+  labels: MonitorBoardLabels = DEFAULT_BOARD_LABELS
 ): MonitorBoardSection[] => {
   const columnField = config.kanban.columnField
   const sectionField =
@@ -120,8 +165,8 @@ export const buildMonitorBoardSections = (
     return [
       {
         id: 'all',
-        label: 'All executions',
-        columns: buildEmptyColumns(columnField, config),
+        label: labels.allExecutionsLabel,
+        columns: buildEmptyColumns(columnField, config, labels),
       },
     ]
   }
@@ -132,9 +177,9 @@ export const buildMonitorBoardSections = (
 
   items.forEach((item) => {
     const sectionValue = sectionField
-      ? getExecutionGroupValue(item, sectionField)
-      : { id: 'all', label: 'All executions', sortValue: 'all' }
-    const columnValue = getExecutionGroupValue(item, columnField)
+      ? getExecutionGroupValue(item, sectionField, labels.groupValueLabels)
+      : { id: 'all', label: labels.allExecutionsLabel, sortValue: 'all' }
+    const columnValue = getExecutionGroupValue(item, columnField, labels.groupValueLabels)
 
     const section = sections.get(sectionValue.id) ?? {
       id: sectionValue.id,

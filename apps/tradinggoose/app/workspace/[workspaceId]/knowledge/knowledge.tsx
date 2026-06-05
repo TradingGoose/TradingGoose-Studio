@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { Check, ChevronDown, LibraryBig, Plus } from 'lucide-react'
 import { useParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -24,7 +25,7 @@ import {
   commandListClass,
   dropdownContentClass,
   filterButtonClass,
-  SORT_OPTIONS,
+  SORT_OPTION_DEFINITIONS,
   type SortOption,
   type SortOrder,
 } from '@/app/workspace/[workspaceId]/knowledge/components/shared'
@@ -44,6 +45,7 @@ interface KnowledgeBaseWithDocCount extends KnowledgeBaseData {
 export function Knowledge() {
   const params = useParams()
   const workspaceId = params.workspaceId as string
+  const t = useTranslations('workspace.knowledge')
 
   const { knowledgeBases, isLoading, error, addKnowledgeBase, refreshList } =
     useKnowledgeBasesList(workspaceId)
@@ -56,8 +58,16 @@ export function Knowledge() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
 
   const currentSortValue = `${sortBy}-${sortOrder}`
+  const sortOptions = useMemo(
+    () =>
+      SORT_OPTION_DEFINITIONS.map((option) => ({
+        ...option,
+        label: t(option.labelKey),
+      })),
+    [t]
+  )
   const currentSortLabel =
-    SORT_OPTIONS.find((opt) => opt.value === currentSortValue)?.label || 'Last Updated'
+    sortOptions.find((opt) => opt.value === currentSortValue)?.label || t('sort.lastUpdated')
 
   const handleSortChange = (value: string) => {
     const [field, order] = value.split('-') as [SortOption, SortOrder]
@@ -82,7 +92,7 @@ export function Knowledge() {
     id: kb.id,
     title: kb.name,
     docCount: kb.docCount || 0,
-    description: kb.description || 'No description provided',
+    description: kb.description || t('defaults.noDescriptionProvided'),
     createdAt: kb.createdAt,
     updatedAt: kb.updatedAt,
   })
@@ -91,13 +101,13 @@ export function Knowledge() {
     <div className='flex w-full flex-1 items-center gap-3'>
       <div className='hidden items-center gap-2 sm:flex'>
         <LibraryBig className='h-[18px] w-[18px] text-muted-foreground' />
-        <span className='font-medium text-sm'>Knowledge</span>
+        <span className='font-medium text-sm'>{t('title')}</span>
       </div>
       <div className='flex w-full max-w-xl flex-1'>
         <SearchInput
           value={searchQuery}
           onChange={setSearchQuery}
-          placeholder='Search knowledge bases...'
+          placeholder={t('searchPlaceholder')}
           className='w-full'
         />
       </div>
@@ -121,8 +131,8 @@ export function Knowledge() {
           className={dropdownContentClass}
         >
           <div className={`${commandListClass} py-1`}>
-            {SORT_OPTIONS.map((option, index) => (
-              <div key={option.value}>
+            {sortOptions.map((option, index) => (
+                <div key={option.value}>
                 <DropdownMenuItem
                   onSelect={() => handleSortChange(option.value)}
                   className='flex cursor-pointer items-center justify-between rounded-md px-3 py-2 font-[380] text-card-foreground text-sm hover:bg-secondary/50 focus:bg-secondary/50'
@@ -146,11 +156,11 @@ export function Knowledge() {
             disabled={!canManageKnowledgeBases}
           >
             <Plus className='h-3.5 w-3.5' />
-            <span>Create</span>
+            <span>{t('actions.create')}</span>
           </PrimaryButton>
         </TooltipTrigger>
         {userPermissions.canEdit !== true && (
-          <TooltipContent>Write permission required to create knowledge bases</TooltipContent>
+          <TooltipContent>{t('actions.createTooltip')}</TooltipContent>
         )}
       </Tooltip>
     </div>
@@ -167,12 +177,14 @@ export function Knowledge() {
                 {/* Error State */}
                 {error && (
                   <div className='mb-4 rounded-md border border-red-200 bg-red-50 p-4'>
-                    <p className='text-red-800 text-sm'>Error loading knowledge bases: {error}</p>
+                    <p className='text-red-800 text-sm'>
+                      {t('errors.load', { error })}
+                    </p>
                     <button
                       onClick={handleRetry}
                       className='mt-2 text-red-600 text-sm underline hover:text-red-800'
                     >
-                      Try again
+                      {t('errors.retry')}
                     </button>
                   </div>
                 )}
@@ -185,16 +197,16 @@ export function Knowledge() {
                     {filteredAndSortedKnowledgeBases.length === 0 ? (
                       knowledgeBases.length === 0 ? (
                         <EmptyStateCard
-                          title='Create your first knowledge base'
+                          title={t('emptyState.createFirst')}
                           description={
                             userPermissions.canEdit === true
-                              ? 'Upload your documents to create a knowledge base for your agents.'
-                              : 'Knowledge bases will appear here. Contact an admin to create knowledge bases.'
+                              ? t('emptyState.withEditPermission')
+                              : t('emptyState.withoutEditPermission')
                           }
                           buttonText={
                             userPermissions.canEdit === true
-                              ? 'Create Knowledge Base'
-                              : 'Contact Admin'
+                              ? t('emptyState.buttonCreate')
+                              : t('emptyState.buttonContactAdmin')
                           }
                           onClick={
                             userPermissions.canEdit === true
@@ -205,9 +217,7 @@ export function Knowledge() {
                         />
                       ) : (
                         <div className='col-span-full py-12 text-center'>
-                          <p className='text-muted-foreground'>
-                            No knowledge bases match your search.
-                          </p>
+                          <p className='text-muted-foreground'>{t('emptyState.noMatches')}</p>
                         </div>
                       )
                     ) : (

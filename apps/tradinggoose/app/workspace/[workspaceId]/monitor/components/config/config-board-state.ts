@@ -51,6 +51,12 @@ export type ConfigBoardSection = {
   groups: ConfigBoardGroup[]
 }
 
+type ConfigBoardLabels = {
+  allLabel: string
+  emptyDimensionLabels: Record<ConfigMonitorDimensionField, string>
+  statusLabels: Record<ConfigMonitorStatus, string>
+}
+
 const STATUS_VALUES: Array<{ id: ConfigMonitorStatus; label: string }> = [
   { id: 'active', label: 'Active' },
   { id: 'paused', label: 'Paused' },
@@ -68,6 +74,15 @@ const ALL_AXIS_VALUE: ConfigAxisValue = {
   id: 'all',
   label: 'All',
   sortValue: 'All',
+}
+
+const DEFAULT_CONFIG_BOARD_LABELS: ConfigBoardLabels = {
+  allLabel: ALL_AXIS_VALUE.label,
+  emptyDimensionLabels: DIMENSION_EMPTY_LABELS,
+  statusLabels: {
+    active: 'Active',
+    paused: 'Paused',
+  },
 }
 
 const aggregateCards = (
@@ -96,7 +111,8 @@ const addAxisValue = (values: Map<string, ConfigAxisValue>, value: ConfigAxisVal
 const buildAxisValues = (
   field: ConfigMonitorDimensionField,
   cards: ConfigMonitorCard[],
-  referenceData: MonitorReferenceData
+  referenceData: MonitorReferenceData,
+  labels: ConfigBoardLabels
 ): ConfigAxisValue[] => {
   const values = new Map<string, ConfigAxisValue>()
 
@@ -146,8 +162,8 @@ const buildAxisValues = (
   return [
     {
       id: 'all',
-      label: DIMENSION_EMPTY_LABELS[field],
-      sortValue: DIMENSION_EMPTY_LABELS[field],
+      label: labels.emptyDimensionLabels[field],
+      sortValue: labels.emptyDimensionLabels[field],
     },
   ]
 }
@@ -164,15 +180,16 @@ const filterCardsByAxis = (
 export const buildConfigBoardSections = (
   cards: ConfigMonitorCard[],
   config: ConfigMonitorViewConfig,
-  referenceData: MonitorReferenceData
+  referenceData: MonitorReferenceData,
+  labels: ConfigBoardLabels = DEFAULT_CONFIG_BOARD_LABELS
 ): ConfigBoardSection[] => {
   const sectionValues = config.sliceBy
-    ? buildAxisValues(config.sliceBy, cards, referenceData)
+    ? buildAxisValues(config.sliceBy, cards, referenceData, labels)
     : [ALL_AXIS_VALUE]
-  const groupValues = buildAxisValues(config.groupBy, cards, referenceData)
+  const groupValues = buildAxisValues(config.groupBy, cards, referenceData, labels)
   const verticalValues = config.verticalGroupBy
-    ? buildAxisValues(config.verticalGroupBy, cards, referenceData)
-    : [ALL_AXIS_VALUE]
+    ? buildAxisValues(config.verticalGroupBy, cards, referenceData, labels)
+    : [{ ...ALL_AXIS_VALUE, label: labels.allLabel, sortValue: labels.allLabel }]
 
   return sectionValues.map((sectionValue) => {
     const sectionCards = filterCardsByAxis(cards, config.sliceBy, sectionValue.id)
@@ -209,7 +226,7 @@ export const buildConfigBoardSections = (
 
         return {
           id: status.id,
-          label: status.label,
+          label: labels.statusLabels[status.id],
           buckets,
           cards: laneCards,
           aggregates: aggregateCards(laneCards, config.fieldSums),

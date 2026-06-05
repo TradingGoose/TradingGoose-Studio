@@ -3,9 +3,12 @@
 import { useMemo } from 'react'
 import { MarketProviderControls } from '@/components/market-selector/provider-controls'
 import { TradingProviderControls } from '@/components/trading-selector/provider-controls'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
+import { useMessages } from 'next-intl'
+import type { LocaleCode } from '@/i18n/utils'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { emitQuickOrderParamsChange } from '@/widgets/utils/quick-order-params'
 import {
@@ -30,6 +33,8 @@ export function QuickOrderHeaderControls({
   widgetKey,
   params,
 }: HeaderControlProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = useMessages().workspace.widgets.quickOrder.header
   const providerAvailabilityQuery = useOAuthProviderAvailability(
     getQuickOrderProviderAvailabilityIds()
   )
@@ -83,7 +88,7 @@ export function QuickOrderHeaderControls({
           providerOptions={providerOptions}
           serviceId={params?.serviceId}
           portfolioIdentity={params?.portfolioIdentity}
-          toolName='Quick Order'
+          toolName={copy.title}
           onProviderChange={(nextProvider) => {
             if (!nextProvider || nextProvider === providerId) return
 
@@ -114,10 +119,12 @@ export function QuickOrderHeaderControls({
 }
 
 function QuickOrderSideTabs({ panelId, widgetKey, params }: HeaderControlProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = useMessages().workspace.widgets.quickOrder.header
   const side = params?.side === 'sell' ? 'sell' : 'buy'
   const sides: Array<{ id: QuickOrderSide; label: string }> = [
-    { id: 'buy', label: 'BUY' },
-    { id: 'sell', label: 'SELL' },
+    { id: 'buy', label: copy.buy },
+    { id: 'sell', label: copy.sell },
   ]
 
   return (

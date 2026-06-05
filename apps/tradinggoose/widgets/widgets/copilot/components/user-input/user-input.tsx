@@ -10,6 +10,7 @@ import {
 } from 'react'
 import { AtSign, Loader2, Paperclip, Send, X } from 'lucide-react'
 import { Button, Textarea } from '@/components/ui'
+import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
@@ -67,6 +68,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     const mentionPortalRef = useRef<HTMLDivElement>(null)
     const menuListRef = useRef<HTMLDivElement>(null)
     const { data: session } = useSession()
+    const copilotCopy = useCopilotMessages()
     const { contextUsage, createNewChat } = useCopilotStore()
     const message = controlledValue !== undefined ? controlledValue : internalMessage
     const setMessage =
@@ -128,8 +130,8 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     const effectivePlaceholder =
       placeholder ||
       (accessLevel === 'limited'
-        ? 'Ask questions or review tools before they run'
-        : 'Ask questions or let tools run without extra approval')
+        ? copilotCopy.input.placeholderLimited
+        : copilotCopy.input.placeholderFull)
 
     useImperativeHandle(
       ref,
@@ -457,7 +459,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
           <div className='relative'>
             {!message && (
               <div className='pointer-events-none absolute inset-x-[2px] top-1 z-[1] truncate pr-14 font-sans text-muted-foreground text-sm leading-[1.25rem]'>
-                {isDragging ? 'Drop files here...' : effectivePlaceholder}
+                {isDragging ? copilotCopy.input.dropFilesHere : effectivePlaceholder}
               </div>
             )}
 
@@ -563,7 +565,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                 onClick={handleOpenMentionMenuWithAt}
                 disabled={disabled || isLoading}
                 className='h-6 w-6 text-muted-foreground hover:text-foreground'
-                title='Insert @'
+                title={copilotCopy.input.insertMention}
               >
                 <AtSign className='h-3 w-3' />
               </Button>
@@ -576,7 +578,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                 onClick={handleFileSelect}
                 disabled={disabled || isLoading}
                 className='h-6 w-6 text-muted-foreground hover:text-foreground'
-                title='Attach file'
+                title={copilotCopy.input.attachFile}
               >
                 <Paperclip className='h-3 w-3' />
               </Button>
@@ -587,7 +589,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                   disabled={isAborting}
                   size='icon'
                   className='h-6 w-6 rounded-full bg-red-500 text-white transition-all duration-200 hover:bg-red-600'
-                  title='Stop generation'
+                  title={copilotCopy.input.stopGeneration}
                 >
                   {isAborting ? (
                     <Loader2 className='h-3 w-3 animate-spin' />

@@ -1,7 +1,10 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useLocale } from 'next-intl'
 import type { SubBlockConfig } from '@/blocks/types'
+import { translateWorkflowLabel } from '@/i18n/block-editor'
+import type { LocaleCode } from '@/i18n/utils'
 import {
   type SlackChannelInfo,
   SlackChannelSelector,
@@ -26,6 +29,7 @@ export function ChannelSelectorInput({
   onChannelSelect,
   contextValues,
 }: ChannelSelectorInputProps) {
+  const locale = useLocale() as LocaleCode
   const workflowIdFromUrl = useWorkflowId()
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlock.id)
   const [connectedCredential] = useSubBlockValue(blockId, 'credential')
@@ -82,7 +86,7 @@ export function ChannelSelectorInput({
           handleChannelChange(channelId, channelInfo)
         }}
         credential={credential}
-        label={subBlock.placeholder || 'Select Slack channel'}
+        label={subBlock.placeholder || translateWorkflowLabel(locale, 'selectSlackChannel')}
         disabled={finalDisabled}
         workflowId={workflowIdFromUrl}
         isForeignCredential={isForeignCredential}

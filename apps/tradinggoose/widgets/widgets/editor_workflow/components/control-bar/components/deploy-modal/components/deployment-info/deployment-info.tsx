@@ -4,6 +4,7 @@ import { Skeleton } from '@/components/ui'
 import { ApiEndpoint } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/deployment-info/components/api-endpoint/api-endpoint'
 import { ApiKey } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/deployment-info/components/api-key/api-key'
 import { ExampleCommand } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/deployment-info/components/example-command/example-command'
+import { useDeploymentCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 interface WorkflowDeploymentInfo {
   apiKey: string
@@ -26,6 +27,7 @@ export function DeploymentInfo({
   showApiKeyInfo = true,
   showApiAccessInfo = true,
 }: DeploymentInfoProps) {
+  const copy = useDeploymentCopy()
   if (isLoading || !deploymentInfo) {
     return (
       <div className='space-y-4 overflow-y-auto px-1'>
@@ -69,8 +71,7 @@ export function DeploymentInfo({
           </>
         ) : (
           <div className='rounded-md border p-3 text-muted-foreground text-sm'>
-            The shared deployment API key is used for workflow deployment, billing attribution, and
-            API trigger authentication.
+            {copy.apiKeyUsageDescription}
           </div>
         )}
       </div>

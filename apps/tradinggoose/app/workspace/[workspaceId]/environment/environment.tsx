@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import { Braces, Plus, Search } from 'lucide-react'
 import { useParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Button, Input } from '@/components/ui'
 import {
   EnvironmentVariables,
@@ -12,6 +13,7 @@ import { PrimaryButton } from '@/app/workspace/[workspaceId]/knowledge/component
 import { GlobalNavbarHeader } from '@/global-navbar'
 
 export function WorkspaceEnvironmentPage() {
+  const t = useTranslations('workspace.environment')
   const params = useParams<{ workspaceId: string }>()
   const workspaceId = params.workspaceId
   const [searchTerm, setSearchTerm] = useState('')
@@ -23,13 +25,13 @@ export function WorkspaceEnvironmentPage() {
     <div className='flex w-full flex-1 items-center gap-3'>
       <div className='hidden items-center gap-2 sm:flex'>
         <Braces className='h-[18px] w-[18px] text-muted-foreground' />
-        <span className='font-medium text-sm'>Environment</span>
+        <span className='font-medium text-sm'>{t('title')}</span>
       </div>
       <div className='flex w-full max-w-xl flex-1'>
         <div className='flex h-9 w-full items-center gap-2 rounded-lg border bg-background pr-2 pl-3'>
           <Search className='h-4 w-4 flex-shrink-0 text-muted-foreground' strokeWidth={2} />
           <Input
-            placeholder='Search variables...'
+            placeholder={t('searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className='flex-1 border-0 bg-transparent px-0 font-[380] font-sans text-base text-foreground leading-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
@@ -52,7 +54,7 @@ export function WorkspaceEnvironmentPage() {
         }`}
         aria-pressed={keyScope === 'workspace'}
       >
-        Workspace
+        {t('scope.workspace')}
       </Button>
       <Button
         variant='ghost'
@@ -65,19 +67,19 @@ export function WorkspaceEnvironmentPage() {
         }`}
         aria-pressed={keyScope === 'personal'}
       >
-        Personal
+        {t('scope.personal')}
       </Button>
     </div>
   )
 
   const headerRight = (
-    <PrimaryButton
-      onClick={() => envVarRef.current?.addVariable(keyScope)}
-      disabled={isCardLoading || (keyScope === 'workspace' && !workspaceId)}
-    >
-      <Plus className='h-3.5 w-3.5' />
-      <span>Create {keyScope === 'workspace' ? 'Workspace' : 'Personal'} Environment Variable</span>
-    </PrimaryButton>
+      <PrimaryButton
+        onClick={() => envVarRef.current?.addVariable(keyScope)}
+        disabled={isCardLoading || (keyScope === 'workspace' && !workspaceId)}
+      >
+        <Plus className='h-3.5 w-3.5' />
+      <span>{keyScope === 'workspace' ? t('create.workspace') : t('create.personal')}</span>
+      </PrimaryButton>
   )
 
   return (

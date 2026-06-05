@@ -1,3 +1,4 @@
+import { isMonitorTriggerId } from '@/lib/monitors/sources'
 import { generateMockPayloadFromOutputsDefinition } from '@/lib/workflows/triggers/trigger-utils'
 import type { SubBlockConfig } from '@/blocks/types'
 import { TRIGGER_REGISTRY } from '@/triggers/registry'
@@ -7,9 +8,16 @@ const NATIVE_TRIGGER_PROVIDER_KEYS = new Set([
   'core',
   'schedule',
   'indicator',
+  'portfolio',
   'generic',
   'imap',
   'rss',
+])
+
+const TRIGGER_SYSTEM_SUBBLOCK_IDS = new Set([
+  'selectedTriggerId',
+  'webhookUrlDisplay',
+  'triggerSave',
 ])
 
 export function getTrigger(triggerId: string): TriggerConfig | undefined {
@@ -21,6 +29,50 @@ export function getTrigger(triggerId: string): TriggerConfig | undefined {
   const clonedTrigger: TriggerConfig = {
     ...trigger,
     subBlocks: [...trigger.subBlocks],
+  }
+
+  const originalSelectedTrigger = trigger.subBlocks.find(
+    (subBlock) => subBlock.id === 'selectedTriggerId'
+  )
+  const originalWebhookUrlDisplay = trigger.subBlocks.find(
+    (subBlock) => subBlock.id === 'webhookUrlDisplay'
+  )
+  const originalTriggerInstructions = trigger.subBlocks.find(
+    (subBlock) => subBlock.id === 'triggerInstructions'
+  )
+  const hasSystemShell = trigger.subBlocks.some((subBlock) =>
+    TRIGGER_SYSTEM_SUBBLOCK_IDS.has(subBlock.id)
+  )
+  const triggerOptions = originalSelectedTrigger?.options
+    ? (typeof originalSelectedTrigger.options === 'function'
+        ? originalSelectedTrigger.options()
+        : originalSelectedTrigger.options
+      ).map((option) => ({
+        id: option.id,
+        label: option.label,
+      }))
+    : []
+
+  if (hasSystemShell) {
+    const extraFields = clonedTrigger.subBlocks.filter(
+      (subBlock) =>
+        !TRIGGER_SYSTEM_SUBBLOCK_IDS.has(subBlock.id) &&
+        subBlock.id !== 'triggerInstructions' &&
+        subBlock.id !== 'samplePayload'
+    )
+
+    clonedTrigger.subBlocks = buildTriggerSubBlocks({
+      triggerId: trigger.id,
+      triggerOptions,
+      includeDropdown: Boolean(originalSelectedTrigger && !originalSelectedTrigger.hidden),
+      includeWebhookUrl: Boolean(originalWebhookUrlDisplay?.useWebhookUrl),
+      extraFields,
+      webhookPlaceholder:
+        typeof originalWebhookUrlDisplay?.placeholder === 'string'
+          ? originalWebhookUrlDisplay.placeholder
+          : undefined,
+      instructionsDefaultValue: originalTriggerInstructions?.defaultValue,
+    })
   }
 
   if (!clonedTrigger.subBlocks.some((subBlock) => subBlock.id === 'selectedTriggerId')) {
@@ -38,7 +90,7 @@ export function getTrigger(triggerId: string): TriggerConfig | undefined {
     (trigger.webhook ||
       trigger.id.includes('webhook') ||
       trigger.id.includes('poller') ||
-      trigger.id === 'indicator_trigger')
+      isMonitorTriggerId(trigger.id))
   ) {
     const samplePayloadExists = clonedTrigger.subBlocks.some((sb) => sb.id === 'samplePayload')
 
@@ -109,9 +161,10 @@ export interface BuildTriggerSubBlocksOptions {
   triggerId: string
   triggerOptions: Array<{ label: string; id: string }>
   includeDropdown?: boolean
-  setupInstructions: string
+  includeWebhookUrl?: boolean
   extraFields?: SubBlockConfig[]
   webhookPlaceholder?: string
+  instructionsDefaultValue?: SubBlockConfig['defaultValue']
 }
 
 export function buildTriggerSubBlocks(options: BuildTriggerSubBlocksOptions): SubBlockConfig[] {
@@ -119,12 +172,16 @@ export function buildTriggerSubBlocks(options: BuildTriggerSubBlocksOptions): Su
     triggerId,
     triggerOptions,
     includeDropdown = false,
-    setupInstructions,
+    includeWebhookUrl = true,
     extraFields = [],
     webhookPlaceholder = 'Webhook URL will be generated',
+    instructionsDefaultValue = '',
   } = options
 
   const blocks: SubBlockConfig[] = []
+  const triggerCondition = includeDropdown
+    ? { field: 'selectedTriggerId', value: triggerId }
+    : undefined
 
   if (includeDropdown) {
     blocks.push({
@@ -138,17 +195,19 @@ export function buildTriggerSubBlocks(options: BuildTriggerSubBlocksOptions): Su
     })
   }
 
-  blocks.push({
-    id: 'webhookUrlDisplay',
-    title: 'Webhook URL',
-    type: 'short-input',
-    readOnly: true,
-    showCopyButton: true,
-    useWebhookUrl: true,
-    placeholder: webhookPlaceholder,
-    mode: 'trigger',
-    condition: { field: 'selectedTriggerId', value: triggerId },
-  })
+  if (includeWebhookUrl) {
+    blocks.push({
+      id: 'webhookUrlDisplay',
+      title: 'Webhook URL',
+      type: 'short-input',
+      readOnly: true,
+      showCopyButton: true,
+      useWebhookUrl: true,
+      placeholder: webhookPlaceholder,
+      mode: 'trigger',
+      condition: triggerCondition,
+    })
+  }
 
   if (extraFields.length > 0) {
     blocks.push(...extraFields)
@@ -160,7 +219,7 @@ export function buildTriggerSubBlocks(options: BuildTriggerSubBlocksOptions): Su
     type: 'trigger-save',
     hideFromPreview: true,
     mode: 'trigger',
-    condition: { field: 'selectedTriggerId', value: triggerId },
+    condition: triggerCondition,
   })
 
   blocks.push({
@@ -168,9 +227,9 @@ export function buildTriggerSubBlocks(options: BuildTriggerSubBlocksOptions): Su
     title: 'Setup Instructions',
     hideFromPreview: true,
     type: 'text',
-    defaultValue: setupInstructions,
+    defaultValue: instructionsDefaultValue,
     mode: 'trigger',
-    condition: { field: 'selectedTriggerId', value: triggerId },
+    condition: triggerCondition,
   })
 
   return blocks

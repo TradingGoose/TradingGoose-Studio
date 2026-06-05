@@ -2,9 +2,12 @@
 
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertCircle, File, FileText, Image, Paperclip, Send, X } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { formatFileSize } from '@/i18n/formatters'
+import { formatTemplate } from '@/i18n/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { createChatOutputEventReader } from '@/lib/workflows/chat-output'
@@ -12,6 +15,7 @@ import { useWorkflowExecution } from '@/hooks/workflow/use-workflow-execution'
 import { useChatStore } from '@/stores/chat/store'
 import type { ChatMessage as StoredChatMessage } from '@/stores/chat/types'
 import { useExecutionStore } from '@/stores/execution/store'
+import { useWorkflowChatMessages } from '@/i18n/workspace-widget-hooks'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { ChatMessage } from '..'
 
@@ -32,6 +36,8 @@ interface ChatProps {
 }
 
 export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: ChatProps) {
+  const copy = useWorkflowChatMessages()
+  const locale = useLocale()
   const { workflowId: currentWorkflowId } = useWorkflowRoute()
 
   const { messages, addMessage, selectedWorkflowOutputs, getConversationId } = useChatStore()
@@ -225,7 +231,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
       if (streamState.errorShown) return
       streamState.errorShown = true
       const prefix = streamState.content ? '\n\n' : ''
-      appendStreamContent(`${prefix}Error: ${message}`, blockId)
+      appendStreamContent(`${prefix}${copy.errorPrefix}${message}`, blockId)
     }
     const appendOutputEvents = (events: ReturnType<typeof outputReader.readEvent>) => {
       for (const event of events) {
@@ -265,7 +271,13 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
       // Add user message with attachments (include all files, even non-images without dataUrl)
       addMessage({
         content:
-          sentMessage || (chatFiles.length > 0 ? `Uploaded ${chatFiles.length} file(s)` : ''),
+          sentMessage ||
+          (chatFiles.length > 0
+            ? formatTemplate(copy.uploadedFiles, {
+                count: chatFiles.length,
+                plural: chatFiles.length === 1 ? '' : 's',
+              })
+            : ''),
         workflowId: currentWorkflowId,
         type: 'user',
         attachments: attachmentsWithData,
@@ -311,7 +323,9 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
 
     if (outputReader.hasEmittedContent()) {
       if (result && 'success' in result && !result.success && !streamState.errorShown) {
-        appendStreamError('error' in result ? result.error : 'Workflow execution failed.')
+        appendStreamError(
+          'error' in result ? result.error : copy.workflowExecutionFailed
+        )
       }
       addMessage({
         content: streamState.content,
@@ -321,7 +335,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
       setStreamingMessage(null)
     } else if (result && 'success' in result && !result.success) {
       addMessage({
-        content: `Error: ${'error' in result ? result.error : 'Workflow execution failed.'}`,
+        content: `${copy.errorPrefix}${'error' in result ? result.error : copy.workflowExecutionFailed}`,
         workflowId: currentWorkflowId,
         type: 'workflow',
       })
@@ -332,6 +346,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
   }, [
     chatMessage,
     chatFiles,
+    copy,
     currentWorkflowId,
     isExecuting,
     promptHistory,
@@ -384,7 +399,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
         <div className='relative flex-1 overflow-hidden'>
           {visibleMessages.length === 0 ? (
             <div className='flex h-full items-center justify-center text-muted-foreground text-sm'>
-              No messages yet
+              {copy.noMessagesYet}
             </div>
           ) : (
             <div ref={scrollAreaRef} className='h-full'>
@@ -439,7 +454,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
 
                 for (const file of candidateFiles) {
                   if (file.size > 10 * 1024 * 1024) {
-                    errors.push(`${file.name} is too large (max 10MB)`)
+                    errors.push(formatTemplate(copy.fileTooLarge, { name: file.name }))
                     continue
                   }
 
@@ -448,7 +463,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
                       existingFile.name === file.name && existingFile.size === file.size
                   )
                   if (isDuplicate) {
-                    errors.push(`${file.name} already added`)
+                    errors.push(formatTemplate(copy.fileAlreadyAdded, { name: file.name }))
                     continue
                   }
 
@@ -481,7 +496,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
                   <AlertCircle className='mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400' />
                   <div className='flex-1'>
                     <div className='mb-1 font-medium text-red-800 text-sm dark:text-red-300'>
-                      File upload error
+                      {copy.fileUploadError}
                     </div>
                     <div className='space-y-1'>
                       {uploadErrors.map((err, idx) => (
@@ -525,14 +540,6 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
                       return <FileText className='h-5 w-5 text-muted-foreground' />
                     return <File className='h-5 w-5 text-muted-foreground' />
                   }
-                  const formatFileSize = (bytes: number) => {
-                    if (bytes === 0) return '0 B'
-                    const k = 1024
-                    const sizes = ['B', 'KB', 'MB', 'GB']
-                    const i = Math.floor(Math.log(bytes) / Math.log(k))
-                    return `${Math.round((bytes / k ** i) * 10) / 10} ${sizes[i]}`
-                  }
-
                   return (
                     <div
                       key={file.id}
@@ -558,7 +565,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
                               {file.name}
                             </div>
                             <div className='text-[10px] text-muted-foreground'>
-                              {formatFileSize(file.size)}
+                              {formatFileSize(locale, file.size)}
                             </div>
                           </div>
                         </>
@@ -592,7 +599,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
                 onClick={() => document.getElementById('chat-file-input')?.click()}
                 disabled={!currentWorkflowId || isExecuting || chatFiles.length >= 5}
                 className='h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground'
-                title='Attach files'
+                title={copy.attachFiles}
               >
                 <Paperclip className='h-3 w-3' />
               </Button>
@@ -611,12 +618,12 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
                   const errors: string[] = []
                   for (let i = 0; i < files.length; i++) {
                     if (chatFiles.length + newFiles.length >= 5) {
-                      errors.push('Maximum 5 files allowed')
+                      errors.push(copy.maximumFilesAllowed)
                       break
                     }
                     const file = files[i]
                     if (file.size > 10 * 1024 * 1024) {
-                      errors.push(`${file.name} is too large (max 10MB)`)
+                      errors.push(formatTemplate(copy.fileTooLarge, { name: file.name }))
                       continue
                     }
 
@@ -626,7 +633,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
                         existingFile.name === file.name && existingFile.size === file.size
                     )
                     if (isDuplicate) {
-                      errors.push(`${file.name} already added`)
+                      errors.push(formatTemplate(copy.fileAlreadyAdded, { name: file.name }))
                       continue
                     }
 
@@ -658,7 +665,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
                   setHistoryIndex(-1)
                 }}
                 onKeyDown={handleKeyPress}
-                placeholder={isDragOver ? 'Drop files here...' : 'Type a message...'}
+                placeholder={isDragOver ? copy.dropFilesHere : copy.typeMessage}
                 className='h-7 flex-1 border-0 bg-transparent font-sans text-foreground text-sm shadow-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
                 disabled={!currentWorkflowId || isExecuting}
               />

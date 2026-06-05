@@ -1,9 +1,12 @@
 'use client'
 
+import { useLocale } from 'next-intl'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { getProviderIdFromServiceId } from '@/lib/oauth'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
+import { translateWorkflowLabel } from '@/i18n/block-editor'
+import type { LocaleCode } from '@/i18n/utils'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import {
@@ -33,6 +36,7 @@ export function FileSelectorInput({
   disabled,
   contextValues,
 }: FileSelectorInputProps) {
+  const locale = useLocale() as LocaleCode
   const { collaborativeSetSubblockValue } = useWorkflowEditorActions()
   const routeContext = useOptionalWorkflowRoute()
   const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
@@ -99,6 +103,7 @@ export function FileSelectorInput({
   const isWealthbox = provider === 'wealthbox'
   const isMicrosoftSharePoint = provider === 'microsoft' && subBlock.serviceId === 'sharepoint'
   const isMicrosoftPlanner = provider === 'microsoft-planner'
+  const t = (key: string) => translateWorkflowLabel(locale, key)
 
   // For Confluence and Jira, we need the domain and credentials
   const domain =
@@ -123,7 +128,7 @@ export function FileSelectorInput({
                 onChange={(val) => {
                   collaborativeSetSubblockValue(blockId, subBlock.id, val)
                 }}
-                label={subBlock.placeholder || 'Select Google Calendar'}
+                label={subBlock.placeholder || t('selectGoogleCalendar')}
                 disabled={finalDisabled}
                 showPreview={true}
                 credentialId={credentialId}
@@ -154,7 +159,7 @@ export function FileSelectorInput({
                 provider='confluence'
                 requiredScopes={subBlock.requiredScopes || []}
                 serviceId={subBlock.serviceId}
-                label={subBlock.placeholder || 'Select Confluence page'}
+                label={subBlock.placeholder || t('selectConfluencePage')}
                 disabled={finalDisabled}
                 showPreview={true}
                 credentialId={credentialId}
@@ -185,7 +190,7 @@ export function FileSelectorInput({
                 provider='jira'
                 requiredScopes={subBlock.requiredScopes || []}
                 serviceId={subBlock.serviceId}
-                label={subBlock.placeholder || 'Select Jira issue'}
+                label={subBlock.placeholder || t('selectJiraIssue')}
                 disabled={finalDisabled}
                 showPreview={true}
                 credentialId={credentialId}
@@ -214,7 +219,7 @@ export function FileSelectorInput({
                 provider='microsoft-excel'
                 requiredScopes={subBlock.requiredScopes || []}
                 serviceId={subBlock.serviceId}
-                label={subBlock.placeholder || 'Select Microsoft Excel file'}
+                label={subBlock.placeholder || t('selectMicrosoftExcelFile')}
                 disabled={finalDisabled}
                 showPreview={true}
                 workflowId={workflowIdFromUrl}
@@ -242,7 +247,7 @@ export function FileSelectorInput({
                 provider='microsoft-word'
                 requiredScopes={subBlock.requiredScopes || []}
                 serviceId={subBlock.serviceId}
-                label={subBlock.placeholder || 'Select Microsoft Word document'}
+                label={subBlock.placeholder || t('selectMicrosoftWordDocument')}
                 disabled={finalDisabled}
                 showPreview={true}
                 workflowId={workflowIdFromUrl}
@@ -269,7 +274,7 @@ export function FileSelectorInput({
                 provider='microsoft'
                 requiredScopes={subBlock.requiredScopes || []}
                 serviceId={subBlock.serviceId}
-                label={subBlock.placeholder || 'Select OneDrive folder'}
+                label={subBlock.placeholder || t('selectOneDriveFolder')}
                 disabled={finalDisabled}
                 showPreview={true}
                 workflowId={workflowIdFromUrl}
@@ -298,7 +303,7 @@ export function FileSelectorInput({
                 provider='microsoft'
                 requiredScopes={subBlock.requiredScopes || []}
                 serviceId={subBlock.serviceId}
-                label={subBlock.placeholder || 'Select SharePoint site'}
+                label={subBlock.placeholder || t('selectSharePointSite')}
                 disabled={finalDisabled}
                 showPreview={true}
                 workflowId={workflowIdFromUrl}
@@ -310,7 +315,7 @@ export function FileSelectorInput({
           </TooltipTrigger>
           {!credentialId && (
             <TooltipContent side='top'>
-              <p>Please select SharePoint credentials first</p>
+              <p>{t('pleaseSelectSharePointCredentialsFirst')}</p>
             </TooltipContent>
           )}
         </Tooltip>
@@ -333,7 +338,7 @@ export function FileSelectorInput({
                 provider='microsoft-planner'
                 requiredScopes={subBlock.requiredScopes || []}
                 serviceId='microsoft-planner'
-                label={subBlock.placeholder || 'Select task'}
+                label={subBlock.placeholder || t('selectTask')}
                 disabled={finalDisabled}
                 showPreview={true}
                 planId={planId}
@@ -346,11 +351,11 @@ export function FileSelectorInput({
           </TooltipTrigger>
           {!credentialId ? (
             <TooltipContent side='top'>
-              <p>Please select Microsoft Planner credentials first</p>
+              <p>{t('pleaseSelectMicrosoftPlannerCredentialsFirst')}</p>
             </TooltipContent>
           ) : !planId ? (
             <TooltipContent side='top'>
-              <p>Please enter a Plan ID first</p>
+              <p>{t('pleaseEnterAPlanIdFirst')}</p>
             </TooltipContent>
           ) : null}
         </Tooltip>
@@ -388,7 +393,7 @@ export function FileSelectorInput({
                 provider='microsoft-teams'
                 requiredScopes={subBlock.requiredScopes || []}
                 serviceId={subBlock.serviceId}
-                label={subBlock.placeholder || 'Select Teams message location'}
+                label={subBlock.placeholder || t('selectTeamsMessageLocation')}
                 disabled={finalDisabled}
                 showPreview={true}
                 credentialId={credentialId}
@@ -402,7 +407,7 @@ export function FileSelectorInput({
           </TooltipTrigger>
           {!credentialId && (
             <TooltipContent side='top'>
-              <p>Please select Microsoft Teams credentials first</p>
+              <p>{t('pleaseSelectMicrosoftTeamsCredentialsFirst')}</p>
             </TooltipContent>
           )}
         </Tooltip>
@@ -428,7 +433,7 @@ export function FileSelectorInput({
                   provider='wealthbox'
                   requiredScopes={subBlock.requiredScopes || []}
                   serviceId={subBlock.serviceId}
-                  label={subBlock.placeholder || `Select ${itemType}`}
+                  label={subBlock.placeholder || t('selectContact')}
                   disabled={finalDisabled}
                   showPreview={true}
                   credentialId={credential}
@@ -440,7 +445,7 @@ export function FileSelectorInput({
             </TooltipTrigger>
             {!credential && (
               <TooltipContent side='top'>
-                <p>Please select Wealthbox credentials first</p>
+                <p>{t('pleaseSelectWealthboxCredentialsFirst')}</p>
               </TooltipContent>
             )}
           </Tooltip>
@@ -469,7 +474,7 @@ export function FileSelectorInput({
                 }}
                 provider={provider}
                 requiredScopes={subBlock.requiredScopes || []}
-                label={subBlock.placeholder || 'Select file'}
+                label={subBlock.placeholder || t('selectFile')}
                 disabled={finalDisabled}
                 serviceId={subBlock.serviceId}
                 mimeTypeFilter={subBlock.mimeType}
@@ -482,7 +487,7 @@ export function FileSelectorInput({
           </TooltipTrigger>
           {!credential && (
             <TooltipContent side='top'>
-              <p>Please select Google Drive credentials first</p>
+              <p>{t('pleaseSelectGoogleDriveCredentialsFirst')}</p>
             </TooltipContent>
           )}
         </Tooltip>

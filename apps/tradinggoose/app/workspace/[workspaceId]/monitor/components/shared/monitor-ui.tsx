@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react'
 import { Badge, type BadgeProps } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import { cn } from '@/lib/utils'
 import { SearchableDropdown, type SearchableDropdownOption } from './searchable-dropdown'
 
@@ -20,9 +21,10 @@ export function MonitorControlBar({
   children,
   className,
   contentClassName,
-  toolbarLabel = 'Monitor controls',
+  toolbarLabel,
   ...props
 }: MonitorControlBarProps) {
+  const { copy } = useMonitorCopy()
   const scrollRef = useRef<HTMLDivElement>(null)
   const handleWheel = useCallback((event: WheelEvent<HTMLDivElement>) => {
     if (!scrollRef.current) return
@@ -40,7 +42,7 @@ export function MonitorControlBar({
       >
         <div
           role='toolbar'
-          aria-label={toolbarLabel}
+          aria-label={toolbarLabel ?? copy.shared.monitorControls}
           className={cn('flex w-max min-w-full items-center gap-1', contentClassName)}
         >
           {children}
@@ -70,29 +72,27 @@ type MonitorControlSelectProps<TOption extends MonitorControlSelectOption> = {
   value?: string | null
 }
 
-const getSearchPlaceholder = (label: ReactNode) =>
-  typeof label === 'string' ? `Search ${label.toLowerCase()}...` : 'Search options...'
-
 export function MonitorControlSelect<TOption extends MonitorControlSelectOption>({
   disabled,
-  emptyText = 'No options found.',
+  emptyText,
   label,
   options,
   onValueChange,
   placeholder,
   renderOption,
   renderTriggerValue,
-  searchPlaceholder = getSearchPlaceholder(label),
+  searchPlaceholder,
   triggerClassName,
   value,
 }: MonitorControlSelectProps<TOption>) {
+  const { copy } = useMonitorCopy()
   return (
     <SearchableDropdown
       value={value}
       options={options}
       placeholder={placeholder ?? ''}
-      searchPlaceholder={searchPlaceholder}
-      emptyText={emptyText}
+      searchPlaceholder={searchPlaceholder ?? copy.controls.searchOptions}
+      emptyText={emptyText ?? copy.shared.noOptions}
       disabled={disabled}
       triggerClassName={cn(monitorControlSurfaceClass, triggerClassName)}
       triggerLabel={typeof label === 'string' ? label : undefined}
@@ -134,18 +134,19 @@ export function MonitorControlMenu<TOption extends MonitorControlMenuOption>({
   onValueChange,
   options,
   renderOption,
-  searchPlaceholder = getSearchPlaceholder(label),
+  searchPlaceholder,
   triggerClassName,
   value,
 }: MonitorControlMenuProps<TOption>) {
+  const { copy } = useMonitorCopy()
   return (
     <SearchableDropdown
       closeOnSelect={closeOnSelect}
       value={null}
       options={options}
       placeholder=''
-      searchPlaceholder={searchPlaceholder}
-      emptyText='No options found.'
+      searchPlaceholder={searchPlaceholder ?? copy.controls.searchOptions}
+      emptyText={copy.shared.noOptions}
       disabled={disabled}
       triggerClassName={cn(monitorControlSurfaceClass, triggerClassName)}
       triggerLabel={typeof label === 'string' ? label : undefined}

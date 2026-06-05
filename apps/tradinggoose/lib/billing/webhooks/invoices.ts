@@ -1,4 +1,3 @@
-import { render } from '@react-email/components'
 import { db } from '@tradinggoose/db'
 import {
   member,
@@ -10,7 +9,7 @@ import {
 } from '@tradinggoose/db/schema'
 import { eq, inArray, sql } from 'drizzle-orm'
 import type Stripe from 'stripe'
-import PaymentFailedEmail from '@/components/emails/billing/payment-failed-email'
+import { getEmailSubject, renderPaymentFailedEmail } from '@/components/emails/render-email'
 import { calculateSubscriptionOverage } from '@/lib/billing/core/billing'
 import { getOrganizationBillingLedger } from '@/lib/billing/core/organization'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
@@ -21,6 +20,7 @@ import {
   usesIndividualBillingLedger,
 } from '@/lib/billing/tiers'
 import { sendEmail } from '@/lib/email/mailer'
+import { resolveEmailLocale } from '@/lib/email/locale'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
@@ -173,7 +173,7 @@ async function sendPaymentFailureEmails(
     const { lastFourDigits, failureReason } = await getPaymentMethodDetails(invoice)
 
     // Get users to notify
-    let usersToNotify: Array<{ email: string; name: string | null }> = []
+    let usersToNotify: Array<{ id: string; email: string; name: string | null }> = []
 
     if (isOrganizationSubscription(sub)) {
       // For organization-scoped tiers, notify all owners and admins
@@ -192,7 +192,7 @@ async function sendPaymentFailureEmails(
 
       if (ownerAdminIds.length > 0) {
         const users = await db
-          .select({ email: user.email, name: user.name })
+          .select({ id: user.id, email: user.email, name: user.name })
           .from(user)
           .where(inArray(user.id, ownerAdminIds))
 
@@ -201,7 +201,7 @@ async function sendPaymentFailureEmails(
     } else {
       // For individual plans, notify the user
       const users = await db
-        .select({ email: user.email, name: user.name })
+        .select({ id: user.id, email: user.email, name: user.name })
         .from(user)
         .where(eq(user.id, sub.referenceId))
         .limit(1)
@@ -214,20 +214,22 @@ async function sendPaymentFailureEmails(
     // Send emails to all affected users
     for (const userToNotify of usersToNotify) {
       try {
-        const emailHtml = await render(
-          PaymentFailedEmail({
-            userName: userToNotify.name || undefined,
-            amountDue,
-            lastFourDigits,
-            billingPortalUrl,
-            failureReason,
-            sentDate: new Date(),
-          })
-        )
+        const locale = await resolveEmailLocale({
+          userId: userToNotify.id,
+          email: userToNotify.email,
+        })
+        const emailHtml = await renderPaymentFailedEmail({
+          userName: userToNotify.name || undefined,
+          amountDue,
+          lastFourDigits,
+          billingPortalUrl,
+          failureReason,
+          locale,
+        })
 
         await sendEmail({
           to: userToNotify.email,
-          subject: 'Payment Failed - Action Required',
+          subject: getEmailSubject('payment-failed', locale),
           html: emailHtml,
           emailType: 'transactional',
         })

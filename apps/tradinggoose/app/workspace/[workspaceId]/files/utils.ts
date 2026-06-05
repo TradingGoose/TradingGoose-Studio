@@ -7,12 +7,13 @@ export const formatFileSize = (bytes: number): string => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-export const formatDisplayDate = (date: Date | string): string => {
+export const formatDisplayDate = (date: Date | string, locale: string): string => {
   const d = new Date(date)
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  const yy = String(d.getFullYear()).slice(2)
-  return `${mm}/${dd}/${yy}`
+  return new Intl.DateTimeFormat(locale, {
+    month: '2-digit',
+    day: '2-digit',
+    year: '2-digit',
+  }).format(d)
 }
 
 export const truncateMiddle = (text: string, start = 24, end = 12) => {

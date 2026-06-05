@@ -1,4 +1,3 @@
-import { format } from 'date-fns'
 import {
   DEFAULT_ORDERS_FILTER_STATE,
   normalizeOrdersFilterState,
@@ -329,10 +328,10 @@ export function scaleLogCostBreakdown<
   }
 }
 
-export const formatDate = (dateString: string) => {
+export const formatDate = (dateString: string, locale?: string) => {
   const date = new Date(dateString)
   return {
-    full: date.toLocaleDateString('en-US', {
+    full: date.toLocaleDateString(locale, {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -341,32 +340,56 @@ export const formatDate = (dateString: string) => {
       second: '2-digit',
       hour12: false,
     }),
-    time: date.toLocaleTimeString([], {
+    time: date.toLocaleTimeString(locale, {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
       hour12: false,
     }),
-    formatted: format(date, 'HH:mm:ss'),
-    compact: format(date, 'MMM d HH:mm:ss'),
-    compactDate: format(date, 'MMM d').toUpperCase(),
-    compactTime: format(date, 'HH:mm:ss'),
+    formatted: new Intl.DateTimeFormat(locale, {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).format(date),
+    compact: new Intl.DateTimeFormat(locale, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).format(date),
+    compactDate: new Intl.DateTimeFormat(locale, {
+      month: 'short',
+      day: 'numeric',
+    }).format(date),
+    compactTime: new Intl.DateTimeFormat(locale, {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).format(date),
     relative: (() => {
       const now = new Date()
       const diffMs = now.getTime() - date.getTime()
       const diffMins = Math.floor(diffMs / 60000)
+      const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
 
-      if (diffMins < 1) return 'just now'
-      if (diffMins < 60) return `${diffMins}m ago`
+      if (diffMins < 1) return rtf.format(0, 'minute')
+      if (diffMins < 60) return rtf.format(-diffMins, 'minute')
 
       const diffHours = Math.floor(diffMins / 60)
-      if (diffHours < 24) return `${diffHours}h ago`
+      if (diffHours < 24) return rtf.format(-diffHours, 'hour')
 
       const diffDays = Math.floor(diffHours / 24)
-      if (diffDays === 1) return 'yesterday'
-      if (diffDays < 7) return `${diffDays}d ago`
+      if (diffDays === 1) return rtf.format(-1, 'day')
+      if (diffDays < 7) return rtf.format(-diffDays, 'day')
 
-      return format(date, 'MMM d')
+      return new Intl.DateTimeFormat(locale, {
+        month: 'short',
+        day: 'numeric',
+      }).format(date)
     })(),
   }
 }

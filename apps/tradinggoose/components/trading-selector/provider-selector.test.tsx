@@ -2,9 +2,11 @@
  * @vitest-environment jsdom
  */
 
-import { act } from 'react'
+import { act, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
+import { NextIntlClientProvider } from 'next-intl'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { getPublicCopy } from '@/i18n/public-copy'
 import { TradingProviderSelector } from '@/components/trading-selector/provider-selector'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
@@ -28,56 +30,56 @@ describe('TradingProviderSelector', () => {
     container.remove()
   })
 
-  it('renders the selected broker name instead of an icon-only trigger', () => {
+  const renderWithLocale = (locale: 'en' | 'es' | 'zh', node: ReactNode) => {
     act(() => {
       root.render(
-        <TooltipProvider>
-          <TradingProviderSelector
-            value='alpaca'
-            options={[
-              { id: 'alpaca', name: 'Alpaca' },
-              { id: 'tradier', name: 'Tradier' },
-            ]}
-          />
-        </TooltipProvider>
+        <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
+          <TooltipProvider>{node}</TooltipProvider>
+        </NextIntlClientProvider>
       )
     })
+  }
 
-    const button = container.querySelector('button[aria-label="Select trading provider"]')
+  it('renders the selected broker name instead of an icon-only trigger', () => {
+    const copy = getPublicCopy('en').workspace.widgets.providerControls.tradingSelector
+    renderWithLocale(
+      'en',
+      <TradingProviderSelector
+        value='alpaca'
+        options={[
+          { id: 'alpaca', name: 'Alpaca' },
+          { id: 'tradier', name: 'Tradier' },
+        ]}
+      />
+    )
+
+    const button = container.querySelector(`button[aria-label="${copy.ariaLabel}"]`)
     expect(button?.textContent).toContain('Broker: Alpaca')
   })
 
-  it('renders a clear placeholder before a broker is selected', () => {
-    act(() => {
-      root.render(
-        <TooltipProvider>
-          <TradingProviderSelector
-            value=''
-            options={[{ id: 'alpaca', name: 'Alpaca' }]}
-            placeholder='Select broker'
-          />
-        </TooltipProvider>
-      )
-    })
+  it('renders localized placeholder and aria copy before a broker is selected', () => {
+    const copy = getPublicCopy('es').workspace.widgets.providerControls.tradingSelector
+    renderWithLocale(
+      'es',
+      <TradingProviderSelector value='' options={[{ id: 'alpaca', name: 'Alpaca' }]} />
+    )
 
-    const button = container.querySelector('button[aria-label="Select trading provider"]')
-    expect(button?.textContent).toContain('Select broker')
+    const button = container.querySelector(`button[aria-label="${copy.ariaLabel}"]`)
+    expect(button?.textContent).toContain(copy.placeholder)
   })
 
   it('uses form input styling without the widget broker prefix when requested', () => {
-    act(() => {
-      root.render(
-        <TooltipProvider>
-          <TradingProviderSelector
-            value='alpaca'
-            options={[{ id: 'alpaca', name: 'Alpaca' }]}
-            variant='form'
-          />
-        </TooltipProvider>
-      )
-    })
+    const copy = getPublicCopy('zh').workspace.widgets.providerControls.tradingSelector
+    renderWithLocale(
+      'zh',
+      <TradingProviderSelector
+        value='alpaca'
+        options={[{ id: 'alpaca', name: 'Alpaca' }]}
+        variant='form'
+      />
+    )
 
-    const button = container.querySelector('button[aria-label="Select trading provider"]')
+    const button = container.querySelector(`button[aria-label="${copy.ariaLabel}"]`)
     expect(button?.textContent).toContain('Alpaca')
     expect(button?.textContent).not.toContain('Broker:')
     expect(button?.className).toContain('h-10')

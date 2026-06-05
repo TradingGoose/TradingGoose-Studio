@@ -1,7 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { renderHelpConfirmationEmail } from '@/components/emails'
+import { getEmailSubject, renderHelpConfirmationEmail } from '@/components/emails'
 import { getSession } from '@/lib/auth'
+import { resolveEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
 import { getHelpEmailAddress } from '@/lib/email/utils'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -115,15 +116,17 @@ ${message}
 
     // Send confirmation email to the user
     try {
+      const locale = await resolveEmailLocale({ userId: session.user.id, email })
       const confirmationHtml = await renderHelpConfirmationEmail(
         email,
         type as 'bug' | 'feedback' | 'feature_request' | 'other',
-        images.length
+        images.length,
+        locale
       )
 
       await sendEmail({
         to: [email],
-        subject: `Your ${type} request has been received: ${subject}`,
+        subject: getEmailSubject('help-confirmation', locale),
         html: confirmationHtml,
         replyTo: helpEmailAddress,
         emailType: 'transactional',

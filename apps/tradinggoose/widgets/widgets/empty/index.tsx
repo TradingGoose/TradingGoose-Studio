@@ -9,6 +9,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty'
+import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { WidgetSelector } from '@/widgets/widgets/components/widget-selector'
 
@@ -16,39 +17,47 @@ type EmptyWidgetProps = WidgetComponentProps & {
   onWidgetChange?: (widgetKey: string) => void
 }
 
-const EmptyBody = ({ widget, onWidgetChange }: EmptyWidgetProps) => (
-  <Empty className='p-6'>
-    <EmptyHeader>
-      <EmptyMedia variant='default'>
-        <Avatar className='size-12 border border-border/60 '>
-          <AvatarFallback className='bg-transparent'>
-            <MinusCircle className='size-5 text-muted-foreground' aria-hidden='true' />
-          </AvatarFallback>
-        </Avatar>
-      </EmptyMedia>
-      <EmptyTitle>
-        {widget?.key && widget?.key !== 'empty' ? 'Empty Widget' : 'No widget selected'}
-      </EmptyTitle>
-      <EmptyDescription>
-        {widget?.key && widget?.key !== 'empty'
-          ? 'This widget is currently empty, choose another widget to continue.'
-          : 'Pick a widget from the gallery to start using this panel.'}
-      </EmptyDescription>
-    </EmptyHeader>
-    <EmptyContent>
-      <WidgetSelector
-        currentKey={widget?.key}
-        onSelect={(key) => onWidgetChange?.(key)}
-        disabled={!onWidgetChange}
-        renderTrigger={({ disabled }) => (
-          <Button size='sm' variant='outline' disabled={disabled} type='button'>
-            Choose Widget
-          </Button>
-        )}
-      />
-    </EmptyContent>
-  </Empty>
-)
+const EmptyHeaderLabel = () => {
+  const copy = useWorkspaceWidgetsMessages().empty
+
+  return <span className='text-muted-foreground text-xs'>{copy.noWidgetSelected}</span>
+}
+
+const EmptyBody = ({ widget, onWidgetChange }: EmptyWidgetProps) => {
+  const copy = useWorkspaceWidgetsMessages().empty
+
+  const isEmptyWidget = widget?.key && widget.key !== 'empty'
+
+  return (
+    <Empty className='p-6'>
+      <EmptyHeader>
+        <EmptyMedia variant='default'>
+          <Avatar className='size-12 border border-border/60 '>
+            <AvatarFallback className='bg-transparent'>
+              <MinusCircle className='size-5 text-muted-foreground' aria-hidden='true' />
+            </AvatarFallback>
+          </Avatar>
+        </EmptyMedia>
+        <EmptyTitle>{isEmptyWidget ? copy.emptyWidget : copy.noWidgetSelected}</EmptyTitle>
+        <EmptyDescription>
+          {isEmptyWidget ? copy.emptyWidgetDescription : copy.noWidgetDescription}
+        </EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <WidgetSelector
+          currentKey={widget?.key}
+          onSelect={(key) => onWidgetChange?.(key)}
+          disabled={!onWidgetChange}
+          renderTrigger={({ disabled }) => (
+            <Button size='sm' variant='outline' disabled={disabled} type='button'>
+              {copy.chooseWidget}
+            </Button>
+          )}
+        />
+      </EmptyContent>
+    </Empty>
+  )
+}
 
 export const emptyWidget: DashboardWidgetDefinition = {
   key: 'empty',
@@ -58,6 +67,6 @@ export const emptyWidget: DashboardWidgetDefinition = {
   description: 'Placeholder state shown when the panel does not have a widget assigned.',
   component: EmptyBody,
   renderHeader: () => ({
-    center: <span className='text-muted-foreground text-xs'>No widget selected</span>,
+    center: <EmptyHeaderLabel />,
   }),
 }

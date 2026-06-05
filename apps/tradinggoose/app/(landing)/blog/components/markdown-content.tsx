@@ -3,8 +3,8 @@
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import Image from 'next/image'
-import Link from 'next/link'
 import { CodeBlock } from '@/components/ui/code-block'
+import { Link } from '@/i18n/navigation'
 import { flattenNodeText, textToSlug } from '../lib/heading-slugs'
 
 interface MarkdownContentProps {
@@ -65,7 +65,8 @@ export default function MarkdownContent({ content }: MarkdownContentProps) {
           ),
           a: ({ href, children, ...props }) => {
             const isNonRoute = href ? /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(href) || href.startsWith('//') : false
-            if (isNonRoute) {
+            const isAnchor = href?.startsWith('#') ?? false
+            if (isNonRoute || isAnchor) {
               return (
                 <a
                   href={href}

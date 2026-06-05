@@ -21,6 +21,7 @@ import {
 } from '@/lib/billing/tiers'
 import type { BillingData, UsageData, UsageLimitInfo } from '@/lib/billing/types'
 import { sendEmail } from '@/lib/email/mailer'
+import { resolveEmailLocale } from '@/lib/email/locale'
 import { getEmailPreferences } from '@/lib/email/unsubscribe'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
@@ -589,9 +590,10 @@ export async function maybeSendUsageThresholdEmail(params: {
 
     if (crossesWarningThreshold) {
       const ctaLink = `${baseUrl}/workspace?billing=usage`
-      const sendTo = async (email: string, name?: string) => {
+      const sendTo = async (email: string, name?: string, userId?: string) => {
         const prefs = await getEmailPreferences(email)
         if (prefs?.unsubscribeAll || prefs?.unsubscribeNotifications) return
+        const locale = await resolveEmailLocale({ userId, email })
 
         const html = await renderUsageThresholdEmail({
           userName: name,
@@ -600,11 +602,12 @@ export async function maybeSendUsageThresholdEmail(params: {
           currentUsage: params.currentUsageAfter,
           limit: params.limit,
           ctaLink,
+          locale,
         })
 
         await sendEmail({
           to: email,
-          subject: getEmailSubject('usage-threshold'),
+          subject: getEmailSubject('usage-threshold', locale),
           html,
           emailType: 'notifications',
         })
@@ -617,10 +620,11 @@ export async function maybeSendUsageThresholdEmail(params: {
           .where(eq(settings.userId, params.userId))
           .limit(1)
         if (rows.length > 0 && rows[0].enabled === false) return
-        await sendTo(params.userEmail, params.userName)
+        await sendTo(params.userEmail, params.userName, params.userId)
       } else if (params.scope === 'organization' && params.organizationId) {
         const admins = await db
           .select({
+            id: user.id,
             email: user.email,
             name: user.name,
             enabled: settings.billingUsageNotificationsEnabled,
@@ -636,7 +640,7 @@ export async function maybeSendUsageThresholdEmail(params: {
           if (!isAdmin) continue
           if (a.enabled === false) continue
           if (!a.email) continue
-          await sendTo(a.email, a.name || undefined)
+          await sendTo(a.email, a.name || undefined, a.id)
         }
       }
     }
@@ -644,9 +648,10 @@ export async function maybeSendUsageThresholdEmail(params: {
     if (crossesFreeTierUpgradeThreshold && params.isFreeTier) {
       const upgradeLink = `${baseUrl}/workspace?billing=upgrade`
       const recommendedTier = await getPrimaryPublicUserUpgradeTier()
-      const sendFreeTierEmail = async (email: string, name?: string) => {
+      const sendFreeTierEmail = async (email: string, name?: string, userId?: string) => {
         const prefs = await getEmailPreferences(email)
         if (prefs?.unsubscribeAll || prefs?.unsubscribeNotifications) return
+        const locale = await resolveEmailLocale({ userId, email })
 
         const html = await renderFreeTierUpgradeEmail({
           userName: name,
@@ -661,11 +666,12 @@ export async function maybeSendUsageThresholdEmail(params: {
             ? getTierUsageAllowanceUsd(recommendedTier)
             : null,
           recommendedTierFeatures: recommendedTier?.pricingFeatures ?? [],
+          locale,
         })
 
         await sendEmail({
           to: email,
-          subject: getEmailSubject('free-tier-upgrade'),
+          subject: getEmailSubject('free-tier-upgrade', locale),
           html,
           emailType: 'notifications',
         })
@@ -686,7 +692,7 @@ export async function maybeSendUsageThresholdEmail(params: {
           .where(eq(settings.userId, params.userId))
           .limit(1)
         if (rows.length > 0 && rows[0].enabled === false) return
-        await sendFreeTierEmail(params.userEmail, params.userName)
+        await sendFreeTierEmail(params.userEmail, params.userName, params.userId)
       }
     }
   } catch (error) {

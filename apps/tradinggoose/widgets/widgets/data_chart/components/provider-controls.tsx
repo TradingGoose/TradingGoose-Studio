@@ -3,6 +3,7 @@
 import { MarketProviderControls } from '@/components/market-selector/provider-controls'
 import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
 import { WidgetHeaderRefreshButton } from '@/widgets/widgets/components/widget-header-refresh-button'
+import { useDataChartCopy } from '@/widgets/widgets/data_chart/copy'
 import { providerOptions } from '@/widgets/widgets/data_chart/options'
 import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/types'
 
@@ -20,8 +21,10 @@ type RefreshButtonProps = {
 }
 
 export const DataChartRefreshControl = ({ providerId, panelId, widgetKey }: RefreshButtonProps) => {
+  const copy = useDataChartCopy().header
   return (
     <WidgetHeaderRefreshButton
+      label={copy.refresh}
       disabled={!providerId}
       onClick={() => {
         if (!providerId) return

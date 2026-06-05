@@ -2,9 +2,11 @@
  * @vitest-environment jsdom
  */
 
-import { act } from 'react'
+import { act, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
+import { NextIntlClientProvider } from 'next-intl'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { getPublicCopy } from '@/i18n/public-copy'
 import { MarketProviderSelector } from '@/components/market-selector/provider-selector'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
@@ -28,56 +30,56 @@ describe('MarketProviderSelector', () => {
     container.remove()
   })
 
-  it('renders the selected market provider name instead of an icon-only trigger', () => {
+  const renderWithLocale = (locale: 'en' | 'es' | 'zh', node: ReactNode) => {
     act(() => {
       root.render(
-        <TooltipProvider>
-          <MarketProviderSelector
-            value='alpaca'
-            options={[
-              { id: 'alpaca', name: 'Alpaca' },
-              { id: 'yahoo-finance', name: 'Yahoo Finance' },
-            ]}
-          />
-        </TooltipProvider>
+        <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
+          <TooltipProvider>{node}</TooltipProvider>
+        </NextIntlClientProvider>
       )
     })
+  }
 
-    const button = container.querySelector('button[aria-label="Select market provider"]')
+  it('renders the selected market provider name instead of an icon-only trigger', () => {
+    const copy = getPublicCopy('en').workspace.widgets.providerControls.marketSelector
+    renderWithLocale(
+      'en',
+      <MarketProviderSelector
+        value='alpaca'
+        options={[
+          { id: 'alpaca', name: 'Alpaca' },
+          { id: 'yahoo-finance', name: 'Yahoo Finance' },
+        ]}
+      />
+    )
+
+    const button = container.querySelector(`button[aria-label="${copy.ariaLabel}"]`)
     expect(button?.textContent).toContain('Market: Alpaca')
   })
 
-  it('renders a clear placeholder before a market provider is selected', () => {
-    act(() => {
-      root.render(
-        <TooltipProvider>
-          <MarketProviderSelector
-            value=''
-            options={[{ id: 'alpaca', name: 'Alpaca' }]}
-            placeholder='Select market data'
-          />
-        </TooltipProvider>
-      )
-    })
+  it('renders localized placeholder and aria copy before a market provider is selected', () => {
+    const copy = getPublicCopy('es').workspace.widgets.providerControls.marketSelector
+    renderWithLocale(
+      'es',
+      <MarketProviderSelector value='' options={[{ id: 'alpaca', name: 'Alpaca' }]} />
+    )
 
-    const button = container.querySelector('button[aria-label="Select market provider"]')
-    expect(button?.textContent).toContain('Select market data')
+    const button = container.querySelector(`button[aria-label="${copy.ariaLabel}"]`)
+    expect(button?.textContent).toContain(copy.placeholder)
   })
 
   it('uses form input styling without the widget market prefix when requested', () => {
-    act(() => {
-      root.render(
-        <TooltipProvider>
-          <MarketProviderSelector
-            value='yahoo-finance'
-            options={[{ id: 'yahoo-finance', name: 'Yahoo Finance' }]}
-            variant='form'
-          />
-        </TooltipProvider>
-      )
-    })
+    const copy = getPublicCopy('zh').workspace.widgets.providerControls.marketSelector
+    renderWithLocale(
+      'zh',
+      <MarketProviderSelector
+        value='yahoo-finance'
+        options={[{ id: 'yahoo-finance', name: 'Yahoo Finance' }]}
+        variant='form'
+      />
+    )
 
-    const button = container.querySelector('button[aria-label="Select market provider"]')
+    const button = container.querySelector(`button[aria-label="${copy.ariaLabel}"]`)
     expect(button?.textContent).toContain('Yahoo Finance')
     expect(button?.textContent).not.toContain('Market:')
     expect(button?.className).toContain('h-10')

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { Check, ChevronDown, ExternalLink, RefreshCw, X } from 'lucide-react'
 import { MicrosoftExcelIcon } from '@/components/icons/icons'
 import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
@@ -24,6 +25,9 @@ import {
   type OAuthProvider,
   parseProvider,
 } from '@/lib/oauth'
+import { useMessages } from 'next-intl'
+import { formatTemplate } from '@/i18n/utils'
+import type { LocaleCode } from '@/i18n/utils'
 import type { PlannerTask } from '@/tools/microsoft_planner/types'
 
 const logger = createLogger('MicrosoftFileSelector')
@@ -66,7 +70,7 @@ export function MicrosoftFileSelector({
   onChange,
   provider,
   requiredScopes = [],
-  label = 'Select file',
+  label,
   disabled = false,
   serviceId,
   showPreview = true,
@@ -77,6 +81,8 @@ export function MicrosoftFileSelector({
   credentialId,
   isForeignCredential = false,
 }: MicrosoftFileSelectorProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = useMessages().workspace.widgets.workflowLabels
   const [open, setOpen] = useState(false)
   const [credentials, setCredentials] = useState<Credential[]>([])
   const [selectedCredentialId, setSelectedCredentialId] = useState<string>(credentialId || '')
@@ -97,6 +103,7 @@ export function MicrosoftFileSelector({
   const [plannerTasks, setPlannerTasks] = useState<PlannerTask[]>([])
   const [isLoadingTasks, setIsLoadingTasks] = useState(false)
   const [selectedTask, setSelectedTask] = useState<PlannerTask | null>(null)
+  const labelText = label ?? copy.selectFile
 
   // Determine the appropriate service ID based on provider and scopes
   const getServiceId = (): string => {
@@ -633,41 +640,49 @@ export function MicrosoftFileSelector({
   }
 
   const getFileTypeTitleCase = () => {
-    if (serviceId === 'onedrive') return 'Folders'
-    if (serviceId === 'sharepoint') return 'Sites'
-    if (serviceId === 'microsoft-planner') return 'Tasks'
-    return 'Excel Files'
+    if (serviceId === 'onedrive') return copy.folders
+    if (serviceId === 'sharepoint') return copy.sites
+    if (serviceId === 'microsoft-planner') return copy.tasks
+    return copy.excelFiles
   }
 
   const getSearchPlaceholder = () => {
-    if (serviceId === 'onedrive') return 'Search OneDrive folders...'
-    if (serviceId === 'sharepoint') return 'Search SharePoint sites...'
-    if (serviceId === 'microsoft-planner') return 'Search tasks...'
-    return 'Search Excel files...'
+    const itemName = getFileTypeTitleCase().toLowerCase()
+    return formatTemplate(copy.searchItems, { itemName })
   }
 
   const getEmptyStateText = () => {
+    const itemName = getFileTypeTitleCase().toLowerCase()
+    const serviceName =
+      serviceId === 'onedrive'
+        ? 'OneDrive'
+        : serviceId === 'sharepoint'
+          ? 'SharePoint'
+          : serviceId === 'microsoft-planner'
+            ? 'Planner'
+            : 'OneDrive'
+
     if (serviceId === 'onedrive') {
       return {
-        title: 'No folders found.',
-        description: 'No folders were found in your OneDrive.',
+        title: formatTemplate(copy.noItemsFound, { itemName }),
+        description: formatTemplate(copy.noItemsFoundInService, { itemName, serviceName }),
       }
     }
     if (serviceId === 'sharepoint') {
       return {
-        title: 'No sites found.',
-        description: 'No SharePoint sites were found.',
+        title: formatTemplate(copy.noItemsFound, { itemName }),
+        description: formatTemplate(copy.noItemsFoundInService, { itemName, serviceName }),
       }
     }
     if (serviceId === 'microsoft-planner') {
       return {
-        title: 'No tasks found.',
-        description: 'No tasks were found in this plan.',
+        title: formatTemplate(copy.noItemsFound, { itemName }),
+        description: formatTemplate(copy.noItemsFoundInService, { itemName, serviceName }),
       }
     }
     return {
-      title: 'No Excel files found.',
-      description: 'No .xlsx files were found in your OneDrive.',
+      title: formatTemplate(copy.noItemsFound, { itemName }),
+      description: formatTemplate(copy.noItemsFoundInService, { itemName, serviceName }),
     }
   }
 
@@ -719,12 +734,12 @@ export function MicrosoftFileSelector({
                 ) : selectedFileId && isLoadingSelectedFile && selectedCredentialId ? (
                   <>
                     <RefreshCw className='h-4 w-4 animate-spin' />
-                    <span className='truncate text-muted-foreground'>Loading document...</span>
+                    <span className='truncate text-muted-foreground'>{copy.loadingDocument}</span>
                   </>
                 ) : (
                   <>
                     {getProviderIcon(provider)}
-                    <span className='truncate text-muted-foreground'>{label}</span>
+                    <span className='truncate text-muted-foreground'>{labelText}</span>
                   </>
                 )}
               </div>
@@ -740,7 +755,7 @@ export function MicrosoftFileSelector({
                     {getProviderIcon(provider)}
                     <span className='text-muted-foreground text-xs'>
                       {credentials.find((cred) => cred.id === selectedCredentialId)?.name ||
-                        'Unknown'}
+                        copy.unknown}
                     </span>
                   </div>
                   {credentials.length > 1 && (
@@ -750,7 +765,7 @@ export function MicrosoftFileSelector({
                       className='h-6 px-2 text-xs'
                       onClick={() => setOpen(true)}
                     >
-                      Switch
+                      {copy.switch}
                     </Button>
                   )}
                 </div>
@@ -763,20 +778,22 @@ export function MicrosoftFileSelector({
                     {isLoading || isLoadingFiles || isLoadingTasks ? (
                       <div className='flex items-center justify-center p-4'>
                         <RefreshCw className='h-4 w-4 animate-spin' />
-                        <span className='ml-2'>Loading...</span>
+                        <span className='ml-2'>{copy.loading}</span>
                       </div>
                     ) : credentials.length === 0 ? (
                       <div className='p-4 text-center'>
-                        <p className='font-medium text-sm'>No accounts connected.</p>
+                        <p className='font-medium text-sm'>{copy.noAccountsConnected}</p>
                         <p className='text-muted-foreground text-xs'>
-                          Connect a {getProviderName(provider)} account to continue.
+                          {formatTemplate(copy.connectProviderAccountToContinue, {
+                            providerName: getProviderName(provider),
+                          })}
                         </p>
                       </div>
                     ) : serviceId === 'microsoft-planner' && !planId ? (
                       <div className='p-4 text-center'>
-                        <p className='font-medium text-sm'>Plan ID required.</p>
+                        <p className='font-medium text-sm'>{copy.planIdRequired}</p>
                         <p className='text-muted-foreground text-xs'>
-                          Please enter a Plan ID first to see tasks.
+                          {copy.pleaseEnterAPlanIdFirstToSeeTasks}
                         </p>
                       </div>
                     ) : filteredTasks.length === 0 ? (
@@ -793,7 +810,7 @@ export function MicrosoftFileSelector({
                   {credentials.length > 1 && (
                     <CommandGroup>
                       <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>
-                        Switch Account
+                        {copy.switchAccount}
                       </div>
                       {credentials.map((cred) => (
                         <CommandItem
@@ -874,7 +891,11 @@ export function MicrosoftFileSelector({
                       <CommandItem onSelect={handleAddCredential}>
                         <div className='flex items-center gap-1 text-foreground'>
                           {getProviderIcon(provider)}
-                          <span>Connect {getProviderName(provider)} account</span>
+                        <span>
+                          {formatTemplate(copy.connectProviderAccount, {
+                            providerName: getProviderName(provider),
+                          })}
+                        </span>
                         </div>
                       </CommandItem>
                     </CommandGroup>
@@ -921,10 +942,10 @@ export function MicrosoftFileSelector({
                   >
                     <span>
                       {serviceId === 'microsoft-planner'
-                        ? 'Open in Planner'
+                        ? copy.openInPlanner
                         : serviceId === 'sharepoint'
-                          ? 'Open in SharePoint'
-                          : 'Open in OneDrive'}
+                          ? copy.openInSharePoint
+                          : copy.openInOneDrive}
                     </span>
                     <ExternalLink className='h-3 w-3' />
                   </a>
@@ -937,7 +958,7 @@ export function MicrosoftFileSelector({
                     onClick={(e) => e.stopPropagation()}
                   >
                     <span>
-                      {serviceId === 'sharepoint' ? 'Open in SharePoint' : 'Open in OneDrive'}
+                      {serviceId === 'sharepoint' ? copy.openInSharePoint : copy.openInOneDrive}
                     </span>
                     <ExternalLink className='h-3 w-3' />
                   </a>

@@ -1,6 +1,7 @@
 'use client'
 import { ChevronsUpDown, Loader2, Pencil, Plus, Settings, Trash2 } from 'lucide-react'
 import Image from 'next/image'
+import { useMessages, useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -34,7 +35,6 @@ interface WorkspaceSwitcherProps {
   isCreatingWorkspace: boolean
   onDeleteWorkspace: (workspace: Workspace) => void
   brandName: string
-  fallbackSubtitle?: string
   fallbackImageUrl: string
 }
 
@@ -61,9 +61,18 @@ export function WorkspaceSwitcher({
   isCreatingWorkspace,
   onDeleteWorkspace,
   brandName,
-  fallbackSubtitle = 'Workspace',
   fallbackImageUrl,
 }: WorkspaceSwitcherProps) {
+  const tSwitcher = useTranslations('workspace.switcher')
+  const messages = useMessages() as {
+    workspace?: {
+      switcher?: {
+        roles?: Record<string, string>
+      }
+    }
+  }
+  const roleLabels = messages.workspace?.switcher?.roles ?? {}
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -90,7 +99,9 @@ export function WorkspaceSwitcher({
               <div className='grid flex-1 text-left text-sm leading-tight'>
                 <span className='truncate font-semibold'>{activeWorkspace?.name ?? brandName}</span>
                 <span className='truncate text-xs'>
-                  {activeWorkspace?.role ?? fallbackSubtitle}
+                  {activeWorkspace?.role
+                    ? roleLabels[activeWorkspace.role] ?? activeWorkspace.role
+                    : tSwitcher('workspaceLabel')}
                 </span>
               </div>
               <ChevronsUpDown className='ml-auto' />
@@ -114,8 +125,8 @@ export function WorkspaceSwitcher({
                   ) : workspaces.length === 0 ? (
                     <div className='rounded-md border border-dashed p-4 text-center text-muted-foreground text-sm'>
                       {canManageWorkspaces
-                        ? 'No workspaces yet. Create one to get started.'
-                        : 'No workspaces available.'}
+                        ? tSwitcher('noWorkspacesYet')
+                        : tSwitcher('noWorkspacesAvailable')}
                     </div>
                   ) : (
                     <div className='space-y-1'>
@@ -229,7 +240,7 @@ export function WorkspaceSwitcher({
                     disabled={!activeWorkspace || activeWorkspace.permissions !== 'admin'}
                   >
                     <Settings className='h-3.5 w-3.5' />
-                    Manage
+                    {tSwitcher('manage')}
                   </Button>
                   <Button
                     variant='secondary'
@@ -240,12 +251,12 @@ export function WorkspaceSwitcher({
                     {isCreatingWorkspace ? (
                       <>
                         <Loader2 className='h-3.5 w-3.5 animate-spin' />
-                        Creating…
+                        {tSwitcher('creating')}
                       </>
                     ) : (
                       <>
                         <Plus className='h-3.5 w-3.5' />
-                        Create
+                        {tSwitcher('create')}
                       </>
                     )}
                   </Button>

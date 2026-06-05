@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Pencil, ToolCase, Trash2 } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -13,6 +14,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useMessages } from 'next-intl'
 import { cn } from '@/lib/utils'
 import type { SkillDefinition } from '@/stores/skills/types'
 
@@ -35,13 +37,15 @@ export function SkillListItem({
   canEdit,
   isDeleting = false,
 }: SkillListItemProps) {
+  const locale = useLocale()
+  const copy = useMessages().workspace.widgets.skillList.listItem
   const [isHovered, setIsHovered] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(skill.name)
   const [isRenaming, setIsRenaming] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const nameLabel = skill.name || 'Skill'
+  const nameLabel = skill.name || copy.untitledSkill
 
   useEffect(() => {
     setEditValue(skill.name)
@@ -196,7 +200,7 @@ export function SkillListItem({
               }}
             >
               <Pencil className='!h-3.5 !w-3.5' />
-              <span className='sr-only'>Rename skill</span>
+              <span className='sr-only'>{copy.renameSkill}</span>
             </Button>
             <Button
               variant='ghost'
@@ -206,7 +210,7 @@ export function SkillListItem({
               className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground disabled:opacity-50'
             >
               <Trash2 className='!h-3.5 !w-3.5' />
-              <span className='sr-only'>Delete skill</span>
+              <span className='sr-only'>{copy.deleteSkill}</span>
             </Button>
           </div>
         )}
@@ -222,15 +226,18 @@ export function SkillListItem({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete skill?</AlertDialogTitle>
+            <AlertDialogTitle>{copy.deleteDialogTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              Deleting this skill will permanently remove its instructions from the workspace.
-              <span className='text-red-500 dark:text-red-500'> This action cannot be undone.</span>
+              {copy.deleteDialogDescription}
+              <span className='text-red-500 dark:text-red-500'>
+                {' '}
+                {copy.deleteDialogDescriptionHighlight}
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className='flex'>
             <AlertDialogCancel className='h-9 w-full rounded-sm' disabled={isDeleting}>
-              Cancel
+              {copy.cancel}
             </AlertDialogCancel>
             <Button
               onClick={(event) => {
@@ -241,7 +248,7 @@ export function SkillListItem({
               variant='destructive'
               className='h-9 w-full rounded-sm'
             >
-              Delete
+              {copy.delete}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

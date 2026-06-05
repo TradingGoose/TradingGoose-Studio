@@ -1,6 +1,7 @@
 import {
   getExecutionAggregate,
   getExecutionGroupValue,
+  type MonitorExecutionGroupLabels,
   type MonitorExecutionItem,
   sortExecutionGroups,
 } from '../data/execution-ordering'
@@ -23,14 +24,15 @@ export type MonitorTimelineGroup = {
 
 export const buildMonitorTimelineGroups = (
   items: MonitorExecutionItem[],
-  config: ExecutionMonitorViewConfig
+  config: ExecutionMonitorViewConfig,
+  labels?: MonitorExecutionGroupLabels
 ): MonitorTimelineGroup[] => {
   const groups = new Map<string, MonitorTimelineGroup>()
   const groupField = config.sliceBy ?? config.groupBy
   const groupValues = new Map<string, ReturnType<typeof getExecutionGroupValue>>()
 
   items.forEach((item) => {
-    const value = getExecutionGroupValue(item, groupField)
+    const value = getExecutionGroupValue(item, groupField, labels)
     groupValues.set(value.id, value)
     const group = groups.get(value.id) ?? {
       id: value.id,

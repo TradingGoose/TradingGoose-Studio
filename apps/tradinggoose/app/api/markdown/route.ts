@@ -8,11 +8,13 @@ import {
 } from '@/lib/markdown/negotiation'
 import { renderPublicPageMarkdown } from '@/lib/markdown/public-page-markdown'
 import { getAccurateTokenCount } from '@/lib/tokenization/estimators'
+import { isLocaleCode } from '@/i18n/routing'
 
 async function createMarkdownResponse(request: NextRequest, includeBody: boolean) {
   const pathname = normalizeMarkdownPath(request.nextUrl.searchParams.get('path'))
+  const locale = request.nextUrl.searchParams.get('locale')
 
-  if (!pathname || !isMarkdownRenderablePath(pathname)) {
+  if (!pathname || !locale || !isLocaleCode(locale) || !isMarkdownRenderablePath(pathname)) {
     return new Response('Not found', {
       status: 404,
       headers: {
@@ -21,7 +23,7 @@ async function createMarkdownResponse(request: NextRequest, includeBody: boolean
     })
   }
 
-  const markdown = await renderPublicPageMarkdown(request.nextUrl.origin, pathname)
+  const markdown = await renderPublicPageMarkdown(request.nextUrl.origin, locale, pathname)
 
   if (!markdown) {
     return new Response('Not found', {
@@ -41,9 +43,7 @@ async function createMarkdownResponse(request: NextRequest, includeBody: boolean
     'x-markdown-tokens': String(tokenCount),
   })
 
-  if (pathname === '/') {
-    appendHomepageDiscoveryLinks(headers)
-  }
+  if (pathname === '/') appendHomepageDiscoveryLinks(headers, locale)
 
   return new Response(includeBody ? markdown : null, { headers })
 }

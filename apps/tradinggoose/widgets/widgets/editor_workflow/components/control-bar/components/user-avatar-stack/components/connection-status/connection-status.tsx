@@ -4,12 +4,14 @@ import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { useWorkflowEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 interface ConnectionStatusProps {
   isConnected: boolean
 }
 
 export function ConnectionStatus({ isConnected }: ConnectionStatusProps) {
+  const copy = useWorkflowEditorCopy().connectionStatus
   const userPermissions = useUserPermissionsContext()
 
   const handleRefresh = () => {
@@ -34,10 +36,10 @@ export function ConnectionStatus({ isConnected }: ConnectionStatusProps) {
         </div>
         <div className='flex flex-col'>
           <span className='font-medium text-xs leading-tight'>
-            {isConnected ? 'Reconnected' : 'Connection lost - please refresh'}
+            {isConnected ? copy.reconnected : copy.connectionLost}
           </span>
           <span className='text-red-600 text-xs leading-tight'>
-            Please refresh to continue editing
+            {copy.pleaseRefreshToContinueEditing}
           </span>
         </div>
       </div>
@@ -52,7 +54,9 @@ export function ConnectionStatus({ isConnected }: ConnectionStatusProps) {
             <RefreshCw className='h-4 w-4' />
           </Button>
         </TooltipTrigger>
-        <TooltipContent className='z-[9999]'>Refresh page to continue editing</TooltipContent>
+        <TooltipContent className='z-[9999]'>
+          {copy.refreshPageToContinueEditing}
+        </TooltipContent>
       </Tooltip>
     </div>
   )

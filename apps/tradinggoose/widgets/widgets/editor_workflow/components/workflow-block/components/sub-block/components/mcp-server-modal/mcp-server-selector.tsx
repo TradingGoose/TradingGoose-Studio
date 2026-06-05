@@ -12,10 +12,11 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import type { SubBlockConfig } from '@/blocks/types'
+import { useMessages } from 'next-intl'
+import { useEnabledServers, useMcpServersStore } from '@/stores/mcp-servers/store'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import type { SubBlockConfig } from '@/blocks/types'
-import { useEnabledServers, useMcpServersStore } from '@/stores/mcp-servers/store'
 
 interface McpServerSelectorProps {
   blockId: string
@@ -23,11 +24,8 @@ interface McpServerSelectorProps {
   disabled?: boolean
 }
 
-export function McpServerSelector({
-  blockId,
-  subBlock,
-  disabled = false,
-}: McpServerSelectorProps) {
+export function McpServerSelector({ blockId, subBlock, disabled = false }: McpServerSelectorProps) {
+  const copy = useMessages().workspace.widgets.mcpDropdown
   const workspaceId = useWorkspaceId()
   const [open, setOpen] = useState(false)
 
@@ -36,7 +34,7 @@ export function McpServerSelector({
 
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlock.id)
 
-  const label = subBlock.placeholder || 'Select MCP server'
+  const label = subBlock.placeholder || copy.selectMcpServer
 
   const selectedServerId = storeValue || ''
 
@@ -83,24 +81,24 @@ export function McpServerSelector({
       </PopoverTrigger>
       <PopoverContent className='w-[250px] p-0' align='start'>
         <Command>
-          <CommandInput placeholder='Search servers...' />
+          <CommandInput placeholder={copy.searchPlaceholder} />
           <CommandList>
             <CommandEmpty>
               {isLoading ? (
                 <div className='flex items-center justify-center p-4'>
                   <RefreshCw className='h-4 w-4 animate-spin' />
-                  <span className='ml-2'>Loading servers...</span>
+                  <span className='ml-2'>{copy.loading}</span>
                 </div>
               ) : error ? (
                 <div className='p-4 text-center'>
-                  <p className='font-medium text-destructive text-sm'>Error loading servers</p>
+                  <p className='font-medium text-destructive text-sm'>{copy.failedToLoad}</p>
                   <p className='text-muted-foreground text-xs'>{error}</p>
                 </div>
               ) : (
                 <div className='p-4 text-center'>
-                  <p className='font-medium text-sm'>No MCP servers found</p>
+                  <p className='font-medium text-sm'>{copy.noServersAvailable}</p>
                   <p className='text-muted-foreground text-xs'>
-                    Add a server in the MCP dashboard widgets
+                    {copy.addServerInDashboardWidgets}
                   </p>
                 </div>
               )}

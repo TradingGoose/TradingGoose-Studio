@@ -2,7 +2,6 @@
 
 import type { ChangeEvent, FocusEvent, KeyboardEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import {
   triggerCryptoRankUpdate,
@@ -15,10 +14,10 @@ import {
   ListingDisplayRow,
   MarketListingRow,
 } from '@/components/listing-selector/listing/row'
+import { SUPPORTED_MARKET_ASSET_CLASSES } from '@/components/listing-selector/search-utils'
 import { ListingSelectorDropdownContent } from '@/components/listing-selector/selector/dropdown'
 import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
 import { useMarketListingSearch } from '@/components/listing-selector/selector/use-listing-search'
-import { Button } from '@/components/ui/button'
 import { formatDisplayText } from '@/components/ui/formatted-text'
 import { Input } from '@/components/ui/input'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
@@ -56,6 +55,21 @@ export interface ListingSearchInputProps {
   onListingTagSelect?: (value: string) => void
 }
 
+const ALL_ASSET_CLASS_FILTER_ID = 'all'
+const LISTING_DROPDOWN_MIN_WIDTH = 420
+const LISTING_DROPDOWN_VIEWPORT_PADDING = 8
+
+const LISTING_ASSET_CLASS_GROUPS = [
+  { id: ALL_ASSET_CLASS_FILTER_ID, label: 'All' },
+  ...SUPPORTED_MARKET_ASSET_CLASSES.map((assetClass) => ({
+    id: assetClass,
+    label:
+      assetClass === 'mutualfund'
+        ? 'Mutual Fund'
+        : assetClass.charAt(0).toUpperCase() + assetClass.slice(1),
+  })),
+]
+
 export function ListingSearchInput({
   instanceId,
   blockId,
@@ -84,6 +98,8 @@ export function ListingSearchInput({
   const hasActivatedOnMountRef = useRef(false)
   const [open, setOpen] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
+  const [activeAssetClassFilterId, setActiveAssetClassFilterId] =
+    useState(ALL_ASSET_CLASS_FILTER_ID)
   const [showTags, setShowTags] = useState(false)
   const [cursorPosition, setCursorPosition] = useState(0)
   const [variableCommitted, setVariableCommitted] = useState(false)
@@ -113,6 +129,8 @@ export function ListingSearchInput({
   const showPlaceholderOverlay =
     isHeader && !open && !selectedListing && !query?.trim() && !hasUnresolvedSelection
   const hideInputText = showRichOverlay || showTagOverlay || showPlaceholderOverlay
+  const assetClassFilter =
+    activeAssetClassFilterId === ALL_ASSET_CLASS_FILTER_ID ? null : activeAssetClassFilterId
 
   const isVariableListingInput = (value: string) => value.trim().startsWith('<')
 
@@ -172,6 +190,13 @@ export function ListingSearchInput({
     }
 
     onListingChange?.(listing)
+  }
+
+  const handleAssetClassFilterChange = (groupId: string) => {
+    setActiveAssetClassFilterId(groupId)
+    setHighlightedIndex(-1)
+    setOpen(true)
+    inputRef.current?.focus()
   }
 
   const handleTagSelect = (value: string) => {
@@ -307,6 +332,7 @@ export function ListingSearchInput({
     providerType,
     marketProviderId,
     tradingProviderId,
+    assetClassFilter,
     instanceId,
     updateInstance,
     candidateListings,
@@ -408,10 +434,17 @@ export function ListingSearchInput({
       const container = containerRef.current
       if (!container) return
       const rect = container.getBoundingClientRect()
+      const availableWidth = Math.max(0, window.innerWidth - LISTING_DROPDOWN_VIEWPORT_PADDING * 2)
+      const width = Math.min(Math.max(rect.width, LISTING_DROPDOWN_MIN_WIDTH), availableWidth)
+      const viewportLeft = window.scrollX + LISTING_DROPDOWN_VIEWPORT_PADDING
+      const maxLeft = window.scrollX + window.innerWidth - width - LISTING_DROPDOWN_VIEWPORT_PADDING
+      const centeredLeft = rect.left + window.scrollX + (rect.width - width) / 2
+      const left = Math.max(viewportLeft, Math.min(centeredLeft, maxLeft))
+
       setDropdownPosition({
         top: rect.bottom + window.scrollY + 4,
-        left: rect.left + window.scrollX,
-        width: rect.width,
+        left,
+        width,
       })
     }
 
@@ -443,16 +476,16 @@ export function ListingSearchInput({
       onWheel={(event) => event.stopPropagation()}
     >
       <ListingSelectorDropdownContent
+        groups={LISTING_ASSET_CLASS_GROUPS}
+        activeGroupId={activeAssetClassFilterId}
+        onActiveGroupChange={handleAssetClassFilterChange}
         results={results}
         isLoading={isLoading}
         error={error}
         highlightedIndex={highlightedIndex}
         onHighlightChange={setHighlightedIndex}
         onSelect={handleSelect}
-        renderListing={(listing) => (
-          <ListingDisplayRow listing={listing} showSecondary={isHeader} />
-        )}
-        scrollStyle={{ scrollbarWidth: 'thin', overscrollBehavior: 'contain' }}
+        renderListing={(listing) => <ListingDisplayRow listing={listing} showSecondary />}
         onWheelCapture={(event) => event.stopPropagation()}
         onTouchMove={(event) => event.stopPropagation()}
       />
@@ -472,8 +505,8 @@ export function ListingSearchInput({
           name={`listing-search-${instanceId}`}
           className={cn(
             isHeader
-              ? widgetHeaderControlClassName('w-full justify-center pr-9 font-medium text-sm')
-              : ['w-full pr-10', compact ? 'h-8 text-sm' : 'h-10'],
+              ? widgetHeaderControlClassName('w-full justify-center font-medium text-sm')
+              : ['w-full', compact ? 'h-8 text-sm' : 'h-10'],
             hideInputText && 'text-transparent caret-transparent placeholder:text-transparent'
           )}
           placeholder={isHeader ? 'Search listings...' : 'Select listing'}
@@ -523,34 +556,6 @@ export function ListingSearchInput({
             </div>
           </div>
         ) : null}
-        <Button
-          type='button'
-          variant='ghost'
-          size='sm'
-          className='-translate-y-1/2 absolute top-1/2 right-1 z-10 h-6 w-6 bg-transparent p-0'
-          disabled={disabled}
-          onMouseDown={(event) => {
-            event.preventDefault()
-            if (disabled) return
-            setOpen((prev) => {
-              const next = !prev
-              if (!next) {
-                setShowTags(false)
-              }
-              return next
-            })
-            if (!open) {
-              inputRef.current?.focus()
-            }
-          }}
-        >
-          <ChevronDown
-            className={cn(
-              'h-4 w-4 opacity-0 transition-transform',
-              open && 'rotate-180 opacity-50'
-            )}
-          />
-        </Button>
       </div>
 
       {listingDropdown && portalTarget && dropdownPosition

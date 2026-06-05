@@ -55,7 +55,7 @@ describe('waitlist route', () => {
       email: 'goose@example.com',
       status: 'pending',
     })
-    expect(mockAddToWaitlist).toHaveBeenCalledWith('goose@example.com')
+    expect(mockAddToWaitlist).toHaveBeenCalledWith('goose@example.com', undefined)
   })
 
   it('rejects submissions when registration is open', async () => {
@@ -91,7 +91,8 @@ describe('waitlist route', () => {
 
     expect(response.status).toBe(403)
     expect(await response.json()).toEqual({
-      error: 'Registration is currently disabled.',
+      error: 'registration_disabled',
+      code: 'REGISTRATION_DISABLED',
     })
     expect(mockAddToWaitlist).not.toHaveBeenCalled()
   })

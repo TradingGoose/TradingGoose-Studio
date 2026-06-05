@@ -20,6 +20,7 @@ import {
   useWorkflowSelectionPersistence,
 } from '@/widgets/utils/workflow-selection'
 import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
+import { useWorkflowChatMessages } from '@/i18n/workspace-widget-hooks'
 import { OutputSelect } from './components'
 import WorkflowChatApp, { WorkflowChatSessionProviders } from './components/workflow-chat-app'
 
@@ -31,6 +32,7 @@ const ChatWidgetBody = ({
   widget,
   onWidgetParamsChange,
 }: WidgetComponentProps) => {
+  const copy = useWorkflowChatMessages()
   const workspaceId = context?.workspaceId
   const {
     channelId,
@@ -59,11 +61,11 @@ const ChatWidgetBody = ({
     params,
   })
   if (!workspaceId) {
-    return <WidgetStateMessage message='Select a workspace to load workflows.' />
+    return <WidgetStateMessage message={copy.selectWorkspace} />
   }
 
   if (loadError) {
-    return <WidgetStateMessage message={loadError} />
+    return <WidgetStateMessage message={copy[loadError]} />
   }
 
   if (!hasLoadedWorkflows || isLoading) {
@@ -75,7 +77,7 @@ const ChatWidgetBody = ({
   }
 
   if (workflowIds.length === 0) {
-    return <WidgetStateMessage message='No workflows available in this workspace.' />
+    return <WidgetStateMessage message={copy.noWorkflows} />
   }
 
   if (!resolvedWorkflowId) {
@@ -129,6 +131,7 @@ function ChatOutputsHeader({
   fallbackWorkflowId?: string | null
   triggerClassName?: string
 }) {
+  const copy = useWorkflowChatMessages()
   const { selectedWorkflowOutputs, setSelectedWorkflowOutput } = useChatStore()
   const workflowId = useChannelWorkflowId(channelId, fallbackWorkflowId)
 
@@ -154,7 +157,7 @@ function ChatOutputsHeader({
       selectedOutputs={selectedOutputs}
       onOutputSelect={handleSelect}
       disabled={!workflowId}
-      placeholder='Select outputs'
+      placeholder={copy.selectOutputs}
       triggerClassName={triggerClassName}
     />
   )
@@ -177,7 +180,7 @@ function ChatOutputsHeader({
             )}
           </div>
         </TooltipTrigger>
-        <TooltipContent side='top'>Select workflow outputs</TooltipContent>
+        <TooltipContent side='top'>{copy.selectWorkflowOutputs}</TooltipContent>
       </Tooltip>
     </div>
   )
@@ -238,6 +241,7 @@ function ClearChatButton({
   channelId: string
   fallbackWorkflowId?: string | null
 }) {
+  const copy = useWorkflowChatMessages()
   const workflowId = useChannelWorkflowId(channelId, fallbackWorkflowId)
   const clearChat = useChatStore((state) => state.clearChat)
   const hasMessages = useChatStore(
@@ -263,14 +267,14 @@ function ClearChatButton({
             type='button'
             className={widgetHeaderIconButtonClassName()}
             onClick={handleClearChat}
-            aria-label='Clear chat'
+            aria-label={copy.clearChat}
             disabled={isDisabled}
           >
             <Ban className='h-3.5 w-3.5' />
           </button>
         </div>
       </TooltipTrigger>
-      <TooltipContent side='top'>Clear Chat</TooltipContent>
+      <TooltipContent side='top'>{copy.clearChat}</TooltipContent>
     </Tooltip>
   )
 }

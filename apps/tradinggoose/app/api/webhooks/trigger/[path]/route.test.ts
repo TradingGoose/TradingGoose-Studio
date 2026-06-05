@@ -66,9 +66,12 @@ vi.mock('@/app/api/webhooks/utils', () => ({
 }))
 
 vi.mock('@/executor', () => ({
-  Executor: vi.fn().mockImplementation(() => ({
-    execute: executeMock,
-  })),
+  Executor: vi.fn().mockImplementation(function () {
+    void new.target
+    return {
+      execute: executeMock,
+    }
+  }),
 }))
 
 // Set up environment before any imports
