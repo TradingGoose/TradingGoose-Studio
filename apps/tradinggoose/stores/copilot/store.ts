@@ -31,6 +31,7 @@ import {
 } from '@/stores/copilot/store-access'
 import {
   buildPinnedToolCallsById,
+  buildPlanTodosFromMessages,
   createErrorMessage,
   createStreamingMessage,
   createUserMessage,
@@ -338,6 +339,11 @@ const initialState = {
   contextUsage: null,
 }
 
+function buildPlanTodoStateFromMessages(messages: CopilotMessage[]) {
+  const planTodos = buildPlanTodosFromMessages(messages)
+  return { planTodos, showPlanTodos: planTodos.length > 0 }
+}
+
 const sharedSessionSyncGuards = new WeakSet<StoreApi<CopilotStore>>()
 
 function buildSharedSessionState(state: CopilotStore) {
@@ -505,8 +511,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           currentChat: chat,
           messages: normalizedMessages,
           toolCallsById: optimisticToolCallsById,
-          planTodos: [],
-          showPlanTodos: false,
+          ...buildPlanTodoStateFromMessages(normalizedMessages),
           contextUsage: null,
           isSendingMessage: isChatTurnInProgress(chat),
           isAwaitingContinuation: isChatTurnInProgress(chat),
@@ -561,6 +566,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                 ),
                 contextUsage: null,
                 toolCallsById,
+                ...buildPlanTodoStateFromMessages(normalizedMessages),
                 isSendingMessage: isChatTurnInProgress(latestChat),
                 isAwaitingContinuation: isChatTurnInProgress(latestChat),
                 abortController: null,
@@ -705,6 +711,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                     currentChat: updatedCurrentChat,
                     messages: normalizedMessages,
                     toolCallsById,
+                    ...buildPlanTodoStateFromMessages(normalizedMessages),
                     isSendingMessage: isChatTurnInProgress(updatedCurrentChat),
                     isAwaitingContinuation: isChatTurnInProgress(updatedCurrentChat),
                     abortController: null,
@@ -739,6 +746,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                     currentChat: availableChat,
                     messages: normalizedMessages,
                     toolCallsById,
+                    ...buildPlanTodoStateFromMessages(normalizedMessages),
                     isSendingMessage: isChatTurnInProgress(availableChat),
                     isAwaitingContinuation: isChatTurnInProgress(availableChat),
                     abortController: null,
@@ -748,6 +756,8 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                     currentChat: null,
                     messages: [],
                     toolCallsById: {},
+                    planTodos: [],
+                    showPlanTodos: false,
                     isSendingMessage: false,
                     isAwaitingContinuation: false,
                     abortController: null,
@@ -759,6 +769,8 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                 currentChat: null,
                 messages: [],
                 toolCallsById: {},
+                planTodos: [],
+                showPlanTodos: false,
                 isSendingMessage: false,
                 isAwaitingContinuation: false,
                 abortController: null,
@@ -1234,15 +1246,19 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
       setInputValue: (value: string) => set({ inputValue: value }),
 
       // Todo list (UI only)
-      setPlanTodos: (todos) => set({ planTodos: todos, showPlanTodos: true }),
+      setPlanTodos: (todos) => set({ planTodos: todos, showPlanTodos: todos.length > 0 }),
       updatePlanTodoStatus: (id, status) => {
         set((state) => {
-          const updated = state.planTodos.map((t) =>
+          const planTodos =
+            state.planTodos.length > 0
+              ? state.planTodos
+              : buildPlanTodosFromMessages(state.messages)
+          const updated = planTodos.map((t) =>
             t.id === id
               ? { ...t, completed: status === 'completed', executing: status === 'executing' }
               : t
           )
-          return { planTodos: updated }
+          return { planTodos: updated, showPlanTodos: updated.length > 0 || state.showPlanTodos }
         })
       },
       closePlanTodos: () => set({ showPlanTodos: false }),

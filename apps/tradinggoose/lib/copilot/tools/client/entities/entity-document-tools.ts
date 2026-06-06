@@ -28,11 +28,12 @@ import {
   BaseClientTool,
   type BaseClientToolMetadata,
   ClientToolCallState,
+  StagedReviewClientTool,
 } from '@/lib/copilot/tools/client/base-tool'
 import {
   applyEntityFieldsToSession,
-  type EntityReadTarget,
   createCanonicalEntityFromFields,
+  type EntityReadTarget,
   listCanonicalEntityEntries,
   listCopilotIndicators,
   readEntityFieldsFromContext,
@@ -156,7 +157,6 @@ function createMutationMetadata(
     action === 'create'
       ? {
           gerund: 'Creating',
-          prompt: 'Create',
           past: 'Created',
           error: 'create',
           aborted: 'creating',
@@ -164,14 +164,12 @@ function createMutationMetadata(
       : action === 'rename'
         ? {
             gerund: 'Renaming',
-            prompt: 'Rename',
             past: 'Renamed',
             error: 'rename',
             aborted: 'renaming',
           }
         : {
             gerund: 'Editing',
-            prompt: 'Edit',
             past: 'Edited',
             error: 'edit',
             aborted: 'editing',
@@ -184,8 +182,8 @@ function createMutationMetadata(
         icon: Loader2,
       },
       [ClientToolCallState.pending]: {
-        text: `${actionLabels.prompt} ${config.singularLabel} document?`,
-        icon: config.icon,
+        text: `${actionLabels.gerund} ${config.singularLabel} document`,
+        icon: Loader2,
       },
       [ClientToolCallState.executing]: {
         text: `${actionLabels.gerund} ${config.singularLabel} document`,
@@ -292,18 +290,13 @@ function createEntityDocumentMutationTool(
   config: EntityToolConfig,
   action: EntityMutationAction
 ) {
-  return class EditEntityDocumentClientTool extends BaseClientTool {
+  return class EditEntityDocumentClientTool extends StagedReviewClientTool<Record<string, any>> {
     static readonly id = toolId
     static readonly metadata = createMutationMetadata(config, action)
     private currentArgs?: EditEntityDocumentArgs
-    private lastResult?: Record<string, any>
 
     constructor(toolCallId: string) {
       super(toolCallId, toolId, EditEntityDocumentClientTool.metadata)
-    }
-
-    getInterruptDisplays(): BaseClientToolMetadata['interrupt'] | undefined {
-      return this.getState() === ClientToolCallState.review ? this.metadata.interrupt : undefined
     }
 
     async execute(args?: EditEntityDocumentArgs): Promise<void> {
@@ -348,7 +341,7 @@ function createEntityDocumentMutationTool(
           }
         }
 
-        this.lastResult = {
+        const stagedResult = {
           success: false,
           entityKind: config.kind,
           ...(resolvedEntityId ? { entityId: resolvedEntityId } : {}),
@@ -359,7 +352,7 @@ function createEntityDocumentMutationTool(
             documentDiff: buildEntityDocumentDiff(config.kind, currentFields, nextFields),
           },
         }
-        this.setState(ClientToolCallState.review, { result: this.lastResult })
+        this.stageReviewResult(stagedResult)
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         await this.markToolComplete(500, message)
@@ -367,24 +360,18 @@ function createEntityDocumentMutationTool(
       }
     }
 
-    protected async prepareReviewAccept(args?: Record<string, any>): Promise<boolean> {
-      const stagedResult = this.lastResult ?? this.resolvePersistedResult()
-      if (stagedResult?.entityDocument) {
-        return true
-      }
-
-      await this.execute(args as EditEntityDocumentArgs | undefined)
-      return this.resolveUserActionState() === ClientToolCallState.review
+    protected hasStagedReviewResult(result: Record<string, any> | undefined): boolean {
+      return !!result?.entityDocument
     }
 
     async handleAccept(args?: EditEntityDocumentArgs): Promise<void> {
       try {
         this.setState(ClientToolCallState.executing)
 
-        let stagedResult = this.lastResult ?? this.resolvePersistedResult<Record<string, any>>()
+        let stagedResult = this.getStagedReviewResult()
         if (!stagedResult?.entityDocument) {
           await this.execute(args)
-          stagedResult = this.lastResult ?? this.resolvePersistedResult<Record<string, any>>()
+          stagedResult = this.getStagedReviewResult()
         }
 
         if (!stagedResult?.entityDocument?.trim()) {

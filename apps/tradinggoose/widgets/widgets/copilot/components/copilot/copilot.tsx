@@ -17,7 +17,7 @@ import type { ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types
 import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
 import { createLogger } from '@/lib/logs/console/logger'
 import { normalizeOptionalString } from '@/lib/utils'
-import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
+import { useCopilotStore } from '@/stores/copilot/store'
 import { hasUiActiveToolCalls } from '@/stores/copilot/store-state'
 import type { ChatContext, CopilotSendRuntimeContext } from '@/stores/copilot/types'
 import { usePairColorContext } from '@/stores/dashboard/pair-store'
@@ -123,7 +123,6 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       toolCallsById,
       fetchContextUsage,
     } = useCopilotStore()
-    const copilotStoreApi = useCopilotStoreApi()
     const hasActiveToolCalls = useMemo(() => hasUiActiveToolCalls(toolCallsById), [toolCallsById])
     const isTurnInProgress =
       isSendingMessage ||
@@ -366,22 +365,13 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
     // Track previous sending state to detect when stream completes
     const wasTurnInProgressRef = useRef(false)
 
-    // Auto-collapse todos and remove uncompleted ones when stream completes
+    // Auto-collapse todos when stream completes.
     useEffect(() => {
       if (wasTurnInProgressRef.current && !isTurnInProgress && showPlanTodos) {
-        // Stream just completed, collapse the todos and filter out uncompleted ones
         setTodosCollapsed(true)
-
-        // Remove any uncompleted todos
-        const completedTodos = planTodos.filter((todo) => todo.completed === true)
-        if (completedTodos.length !== planTodos.length) {
-          // Only update if there are uncompleted todos to remove
-          const store = copilotStoreApi.getState()
-          store.setPlanTodos(completedTodos)
-        }
       }
       wasTurnInProgressRef.current = isTurnInProgress
-    }, [isTurnInProgress, showPlanTodos, planTodos])
+    }, [isTurnInProgress, showPlanTodos])
 
     // Reset collapsed state when todos first appear
     useEffect(() => {
@@ -455,12 +445,6 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       ) => {
         if (!query || inputDisabled || isTurnInProgress) return
 
-        // Clear todos when sending a new message
-        if (showPlanTodos) {
-          const store = copilotStoreApi.getState()
-          store.setPlanTodos([])
-        }
-
         try {
           await sendMessage(query, {
             fileAttachments,
@@ -476,14 +460,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
           logger.error('Failed to send message:', error)
         }
       },
-      [
-        inputDisabled,
-        isTurnInProgress,
-        sendMessage,
-        showPlanTodos,
-        copilotStoreApi,
-        sendRuntimeContext,
-      ]
+      [inputDisabled, isTurnInProgress, sendMessage, sendRuntimeContext]
     )
 
     const handleEditModeChange = useCallback((messageId: string, isEditing: boolean) => {

@@ -699,7 +699,81 @@ describe('copilot streaming regressions', () => {
     expect(blocks[1]?.content).toContain('checking the current workflow')
     expect(blocks[2]?.toolCall?.id).toBe('tool-1')
     expect(blocks[2]?.toolCall?.state).toBe(ClientToolCallState.success)
+    expect(blocks[2]?.toolCall?.result).toEqual({ entityDocument: 'flowchart TD' })
     expect(blocks[3]?.content).toContain('preparing the edit now')
+  })
+
+  it('hydrates plan todos from persisted plan and todo tool calls', async () => {
+    const channelId = 'copilot-plan-todo-hydration'
+    const store = getCopilotStore(channelId)
+    const toolBlock = (name: string, id: string, params: Record<string, unknown>) => ({
+      type: 'tool_call',
+      toolCall: { id, name, state: ClientToolCallState.success, params },
+    })
+    const persistedMessages = [
+      {
+        id: 'assistant-plan-message',
+        role: 'assistant',
+        content: '',
+        timestamp: '2026-04-13T00:00:00.000Z',
+        contentBlocks: [
+          toolBlock('plan', 'plan-tool-1', {
+            todoList: [
+              { id: 'todo-1', content: 'Inspect the current workflow' },
+              { id: 'todo-2', content: 'Apply the workflow edit' },
+            ],
+          }),
+          toolBlock('checkoff_todo', 'todo-tool-1', { id: 'todo-1' }),
+          toolBlock('mark_todo_in_progress', 'todo-tool-2', { id: 'todo-2' }),
+        ],
+      },
+    ] as any
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          chats: [
+            {
+              reviewSessionId: 'review-todos',
+              workspaceId: 'ws-1',
+              latestTurnStatus: 'completed',
+              messages: persistedMessages,
+            },
+          ],
+        }),
+      }))
+    )
+
+    await store.getState().loadChats({ workspaceId: 'ws-1' })
+
+    expect(store.getState().showPlanTodos).toBe(true)
+    expect(store.getState().planTodos).toEqual([
+      {
+        id: 'todo-1',
+        content: 'Inspect the current workflow',
+        completed: true,
+        executing: false,
+      },
+      {
+        id: 'todo-2',
+        content: 'Apply the workflow edit',
+        completed: false,
+        executing: true,
+      },
+    ])
+
+    store.setState({ planTodos: [], showPlanTodos: false })
+    store.getState().updatePlanTodoStatus('todo-2', 'completed')
+    expect(store.getState().showPlanTodos).toBe(true)
+    expect(store.getState().planTodos[1]).toMatchObject({
+      id: 'todo-2',
+      completed: true,
+      executing: false,
+    })
   })
 
   it('uses the final output item text when it differs from streamed deltas', async () => {

@@ -1,8 +1,8 @@
 import { Grid2x2, Grid2x2Check, Grid2x2X, Loader2, MinusCircle, XCircle } from 'lucide-react'
 import {
-  BaseClientTool,
   type BaseClientToolMetadata,
   ClientToolCallState,
+  StagedReviewClientTool,
 } from '@/lib/copilot/tools/client/base-tool'
 import {
   executeCopilotServerTool,
@@ -35,9 +35,8 @@ function readStoredToolArgs<TArgs>(toolCallId: string): TArgs | undefined {
   }
 }
 
-export class EditWorkflowClientTool extends BaseClientTool {
+export class EditWorkflowClientTool extends StagedReviewClientTool<Record<string, any>> {
   static readonly id: string = 'edit_workflow'
-  private lastResult: any | undefined
   private hasExecuted = false
   private hasAppliedState = false
 
@@ -66,22 +65,15 @@ export class EditWorkflowClientTool extends BaseClientTool {
     },
   }
 
-  getInterruptDisplays(): BaseClientToolMetadata['interrupt'] | undefined {
-    return this.getState() === ClientToolCallState.review ? this.metadata.interrupt : undefined
-  }
-
   async handleAccept(args?: EditWorkflowArgs): Promise<void> {
     const logger = createLogger('EditWorkflowClientTool')
     try {
+      const stagedResult = this.getStagedReviewResult()
       logger.info('handleAccept called', {
         toolCallId: this.toolCallId,
         state: this.getState(),
-        hasResult: this.lastResult !== undefined,
+        hasResult: stagedResult !== undefined,
       })
-      const stagedResult = this.lastResult ?? this.resolvePersistedResult()
-      if (stagedResult && !this.lastResult) {
-        this.lastResult = stagedResult
-      }
 
       if (!stagedResult?.workflowState) {
         throw new Error('No staged workflow edits found to accept')
@@ -160,15 +152,8 @@ export class EditWorkflowClientTool extends BaseClientTool {
     }
   }
 
-  protected async prepareReviewAccept(args?: EditWorkflowArgs): Promise<boolean> {
-    const stagedResult = this.lastResult ?? this.resolvePersistedResult()
-
-    if (!stagedResult?.workflowState) {
-      await this.execute(args)
-      return this.resolveUserActionState() === ClientToolCallState.review
-    }
-
-    return true
+  protected hasStagedReviewResult(result: Record<string, any> | undefined): boolean {
+    return !!result?.workflowState
   }
 
   async execute(args?: EditWorkflowArgs): Promise<void> {
@@ -206,7 +191,7 @@ export class EditWorkflowClientTool extends BaseClientTool {
         throw new Error('No workflow document returned from server')
       }
 
-      this.lastResult = {
+      const stagedResult = {
         ...result,
         ...buildWorkflowDocumentToolResult({
           workflowId,
@@ -223,7 +208,7 @@ export class EditWorkflowClientTool extends BaseClientTool {
           : 0,
       })
 
-      this.setState(ClientToolCallState.review, { result: this.lastResult })
+      this.stageReviewResult(stagedResult)
     } catch (error: any) {
       const message = error instanceof Error ? error.message : String(error)
       logger.error('execute error', { message })

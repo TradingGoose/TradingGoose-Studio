@@ -331,7 +331,8 @@ export async function flushPendingAutoExecutionToolCalls(
 function buildStreamedToolDisplayState(
   toolCallId: string,
   targetState: ClientToolCallState,
-  context: StreamingContext
+  context: StreamingContext,
+  result?: unknown
 ) {
   for (let i = 0; i < context.contentBlocks.length; i++) {
     const block = context.contentBlocks[i] as any
@@ -354,6 +355,7 @@ function buildStreamedToolDisplayState(
           toolCallId,
           block.toolCall?.params
         ),
+        ...(result !== undefined ? { result } : {}),
       },
     }
     break
@@ -424,6 +426,7 @@ export function createSSEHandlers(params: {
 
         const { toolCallsById } = get()
         const current = toolCallsById[toolCallId]
+        const result = current?.result ?? data?.result ?? data?.data?.result
         if (current) {
           if (isToolCallCompletionProtected(current.state)) {
             return
@@ -441,6 +444,7 @@ export function createSSEHandlers(params: {
                   current.id,
                   (current as any).params
                 ),
+                ...(result !== undefined ? { result } : {}),
               },
             },
           })
@@ -459,7 +463,7 @@ export function createSSEHandlers(params: {
           }
         }
 
-        buildStreamedToolDisplayState(toolCallId, targetState, context)
+        buildStreamedToolDisplayState(toolCallId, targetState, context, result)
         updateStreamingMessage(set, context)
 
         const currentChat = get().currentChat

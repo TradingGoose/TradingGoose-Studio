@@ -209,29 +209,29 @@ function shouldShowToolActionButtons(
   )
 }
 
-function isEntityMutationTool(toolName: string): boolean {
+function isStagedPreviewState(state: ClientToolCallState): boolean {
+  return state === ClientToolCallState.review || state === ClientToolCallState.success
+}
+
+function isEntityReviewKind(entityKind: unknown): entityKind is string {
   return (
-    toolName === 'create_skill' ||
-    toolName === 'edit_skill' ||
-    toolName === 'rename_skill' ||
-    toolName === 'create_custom_tool' ||
-    toolName === 'edit_custom_tool' ||
-    toolName === 'rename_custom_tool' ||
-    toolName === 'create_indicator' ||
-    toolName === 'edit_indicator' ||
-    toolName === 'rename_indicator' ||
-    toolName === 'create_mcp_server' ||
-    toolName === 'edit_mcp_server' ||
-    toolName === 'rename_mcp_server'
+    entityKind === 'skill' ||
+    entityKind === 'custom_tool' ||
+    entityKind === 'indicator' ||
+    entityKind === 'mcp_server'
   )
 }
 
 function readEntityReviewPayload(toolCall: CopilotToolCall): EntityReviewPayload | null {
-  if (!isEntityMutationTool(toolCall.name) || toolCall.state !== ClientToolCallState.review) {
+  if (!isCopilotTool(toolCall.name) || !isStagedPreviewState(toolCall.state)) {
     return null
   }
 
   const result = toolCall.result && typeof toolCall.result === 'object' ? toolCall.result : null
+  if (!isEntityReviewKind(result?.entityKind)) {
+    return null
+  }
+
   const documentDiff = result?.preview?.documentDiff
   if (
     !documentDiff ||
@@ -253,7 +253,10 @@ function readEntityReviewPayload(toolCall: CopilotToolCall): EntityReviewPayload
             ? 'Skill'
             : 'Entity'
   return {
-    title: `Proposed ${entityLabel} Changes`,
+    title:
+      toolCall.state === ClientToolCallState.success
+        ? `Applied ${entityLabel} Changes`
+        : `Proposed ${entityLabel} Changes`,
     documentDiff,
   }
 }
@@ -422,7 +425,7 @@ export function InlineToolCall({
   const params = (toolCall as any).parameters || (toolCall as any).input || toolCall.params || {}
   const entityReviewPayload = readEntityReviewPayload(toolCall)
   const workflowReviewPayload = readWorkflowReviewPayload(toolCall)
-  const showWorkflowReview = workflowReviewPayload && toolCall.state === ClientToolCallState.review
+  const showWorkflowReview = workflowReviewPayload && isStagedPreviewState(toolCall.state)
 
   const renderPendingDetails = () => {
     if (toolCall.name === 'make_api_request') {

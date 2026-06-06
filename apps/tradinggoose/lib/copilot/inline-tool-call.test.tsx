@@ -132,14 +132,14 @@ describe('InlineToolCall', () => {
     )
   })
 
-  it('does not render a workflow preview card for non-review workflow tool states', async () => {
+  it('does not render a workflow preview card for active workflow tool states', async () => {
     await act(async () => {
       root.render(
         <InlineToolCall
           toolCall={{
             id: 'tool-applied-edit',
             name: 'edit_workflow',
-            state: ClientToolCallState.success,
+            state: ClientToolCallState.executing,
             result: {
               workflowState: {
                 blocks: {
@@ -176,7 +176,7 @@ describe('InlineToolCall', () => {
     expect(container.querySelector('[data-testid="workflow-preview"]')).toBeNull()
   })
 
-  it('does not render a workflow preview card after edit_workflow is accepted', async () => {
+  it('renders the workflow preview card after edit_workflow is accepted', async () => {
     await act(async () => {
       root.render(
         <InlineToolCall
@@ -203,9 +203,9 @@ describe('InlineToolCall', () => {
       )
     })
 
-    expect(container.textContent).not.toContain('Blocks +')
-    expect(container.textContent).not.toContain('Blocks -')
-    expect(container.querySelector('[data-testid="workflow-preview"]')).toBeNull()
+    expect(container.querySelector('[data-testid="workflow-preview"]')?.textContent).toContain(
+      'trigger-1'
+    )
   })
 
   it('renders only the workflow review for staged edit_workflow_block results', async () => {
@@ -349,5 +349,4 @@ describe('InlineToolCall', () => {
     expect(container.textContent).toContain('Accept changes')
     expect(container.textContent).toContain('Reject changes')
   })
-
 })
