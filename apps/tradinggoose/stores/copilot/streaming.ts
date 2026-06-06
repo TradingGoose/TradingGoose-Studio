@@ -448,18 +448,6 @@ export function createSSEHandlers(params: {
               },
             },
           })
-
-          if (targetState === ClientToolCallState.success) {
-            try {
-              const input = current.params ?? {}
-              const todoItemId = typeof input.id === 'string' && input.id.trim() ? input.id : null
-              if (todoItemId && current.name === 'checkoff_todo') {
-                get().updatePlanTodoStatus(todoItemId, 'completed')
-              } else if (todoItemId && current.name === 'mark_todo_in_progress') {
-                get().updatePlanTodoStatus(todoItemId, 'executing')
-              }
-            } catch {}
-          }
         }
 
         buildStreamedToolDisplayState(toolCallId, targetState, context, result)
