@@ -517,6 +517,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           isAwaitingContinuation: isChatTurnInProgress(chat),
           abortController: null,
         })
+        autoExecuteEligibleToolsForAccessLevel(get().accessLevel, get)
 
         // Background-save the previous chat's latest messages before switching (optimistic)
         try {
@@ -571,6 +572,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                 isAwaitingContinuation: isChatTurnInProgress(latestChat),
                 abortController: null,
               })
+              autoExecuteEligibleToolsForAccessLevel(get().accessLevel, get)
               logger.info('[Context Usage] Chat selected, fetching usage')
               await get().fetchContextUsage()
             }
@@ -716,6 +718,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                     isAwaitingContinuation: isChatTurnInProgress(updatedCurrentChat),
                     abortController: null,
                   })
+                  autoExecuteEligibleToolsForAccessLevel(get().accessLevel, get)
                 }
               } else if (!isSendingMessage) {
                 const preferredChat =
@@ -751,6 +754,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                     isAwaitingContinuation: isChatTurnInProgress(availableChat),
                     abortController: null,
                   })
+                  autoExecuteEligibleToolsForAccessLevel(get().accessLevel, get)
                 } else {
                   set({
                     currentChat: null,
@@ -1306,6 +1310,8 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             model: selectedModel,
             provider: selectedProvider,
           }
+          // Generic Copilot context usage is conversation/user scoped. Workflow contexts are
+          // prompt context for the chat, not billing scope selectors for this widget.
           if (bill && assistantMessageId) {
             requestPayload.bill = true
             requestPayload.assistantMessageId = assistantMessageId

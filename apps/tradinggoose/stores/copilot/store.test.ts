@@ -1343,6 +1343,94 @@ describe('copilot streaming regressions', () => {
     }
   })
 
+  it('auto-accepts persisted review tools for full-access selected chats', async () => {
+    vi.useFakeTimers()
+    const toolCallId = 'edit-workflow-persisted-full-tool'
+    const reviewResult = {
+      workflowState: {
+        blocks: {},
+        edges: [],
+        loops: {},
+        parallels: {},
+      },
+    }
+    let toolState = ClientToolCallState.review
+    const fakeTool: any = {
+      persistedToolCall: { result: reviewResult },
+      hydratePersistedToolCall: vi.fn((toolCall) => {
+        fakeTool.persistedToolCall = { result: toolCall.result }
+      }),
+      handleUserAction: vi.fn(async () => {
+        toolState = ClientToolCallState.success
+        fakeTool.persistedToolCall = { result: reviewResult }
+      }),
+      getState: vi.fn(() => toolState),
+    }
+    const chat: any = {
+      reviewSessionId: 'review-persisted-full-access',
+      workspaceId: 'workspace-1',
+      latestTurnStatus: 'completed' as const,
+      messages: [
+        {
+          id: 'assistant-persisted-review',
+          role: 'assistant',
+          content: '',
+          timestamp: '2026-04-17T00:00:00.000Z',
+          contentBlocks: [
+            {
+              type: 'tool_call',
+              toolCall: {
+                id: toolCallId,
+                name: 'edit_workflow',
+                state: ClientToolCallState.review,
+                params: { entityId: 'wf-persisted-full-access' },
+                result: reviewResult,
+              },
+            },
+          ],
+        },
+      ],
+    }
+
+    registerClientTool(toolCallId, fakeTool)
+
+    try {
+      const store = getCopilotStore('copilot-persisted-full-access-review')
+      store.setState({ accessLevel: 'full', chats: [chat] })
+
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (input: RequestInfo | URL) => {
+          const url = typeof input === 'string' ? input : input.toString()
+          if (
+            url === `/api/copilot/chat?reviewSessionId=${encodeURIComponent(chat.reviewSessionId)}`
+          ) {
+            return {
+              ok: true,
+              status: 200,
+              json: async () => ({ success: true, chats: [chat] }),
+            }
+          }
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ success: true }),
+          }
+        })
+      )
+
+      await store.getState().selectChat(chat)
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(fakeTool.handleUserAction).toHaveBeenCalledTimes(1)
+      expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.success)
+      expect(store.getState().toolCallsById[toolCallId]?.result).toEqual(reviewResult)
+    } finally {
+      unregisterClientTool(toolCallId)
+      vi.useRealTimers()
+    }
+  })
+
   it('starts a new generic copilot chat without deleting prior workspace history', async () => {
     const channelId = 'copilot-new-chat-scope'
     const store = getCopilotStore(channelId)

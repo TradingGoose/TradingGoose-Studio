@@ -151,6 +151,7 @@ describe('copilot runtime tool manifest', () => {
             expect.objectContaining({
               path: 'entityDocument',
               kind: 'string_requires_real_newlines',
+              description: expect.stringContaining('Cheap format guard only'),
             }),
             expect.objectContaining({
               path: 'entityDocument',

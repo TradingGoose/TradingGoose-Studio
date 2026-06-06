@@ -106,7 +106,8 @@ function buildWorkflowDocumentSemanticValidators(
     {
       path: documentField,
       kind: 'string_requires_real_newlines',
-      description: 'Use raw Mermaid text with real newlines.',
+      description:
+        'Cheap format guard only. Use raw Mermaid text with real newlines; Studio validates TG_WORKFLOW, TG_BLOCK, and edge consistency.',
       message:
         'Expected raw Mermaid text with real newline characters, not JSON-escaped `\\n` sequences.',
     },
@@ -114,7 +115,8 @@ function buildWorkflowDocumentSemanticValidators(
       path: documentField,
       kind: 'string_starts_with',
       args: { prefix: 'flowchart ' },
-      description: 'Start with a Mermaid `flowchart` declaration.',
+      description:
+        'Cheap format guard only. Start with a Mermaid `flowchart` declaration; Studio validates canonical workflow structure.',
       message: 'Expected raw Mermaid text that starts with a `flowchart` declaration.',
     },
   ]
