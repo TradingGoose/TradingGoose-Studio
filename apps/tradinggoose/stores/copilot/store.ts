@@ -274,7 +274,8 @@ function abortAllInProgressTools(
 
 function autoExecuteEligibleToolsForAccessLevel(
   accessLevel: CopilotStore['accessLevel'],
-  get: () => CopilotStore
+  get: () => CopilotStore,
+  mode: 'access_change' | 'hydration' = 'access_change'
 ) {
   if (!shouldAutoExecuteTool(accessLevel)) {
     return
@@ -282,13 +283,13 @@ function autoExecuteEligibleToolsForAccessLevel(
 
   const { toolCallsById } = get()
   const copilotToolIds: string[] = []
+  const includePendingTools = mode === 'access_change'
+  const isEligibleState = (state: ClientToolCallState) =>
+    state === ClientToolCallState.review ||
+    (includePendingTools && state === ClientToolCallState.pending)
 
   for (const [id, toolCall] of Object.entries(toolCallsById)) {
-    const state = toolCall.state
-    const isAwaitingApproval =
-      state === ClientToolCallState.pending || state === ClientToolCallState.review
-
-    if (!isAwaitingApproval) {
+    if (!isEligibleState(toolCall.state)) {
       continue
     }
 
@@ -301,17 +302,17 @@ function autoExecuteEligibleToolsForAccessLevel(
     return
   }
 
-  logger.info('[copilot access] auto-executing queued tools after access change', {
+  logger.info('[copilot access] auto-executing queued tools', {
     accessLevel,
     copilotToolIds,
+    mode,
   })
 
   for (const toolCallId of copilotToolIds) {
     setTimeout(() => {
       const latest = get().toolCallsById[toolCallId]
       if (!latest) return
-      const state = latest.state
-      if (state !== ClientToolCallState.pending && state !== ClientToolCallState.review) {
+      if (!isEligibleState(latest.state)) {
         return
       }
       void get().executeCopilotToolCall(toolCallId)
@@ -517,7 +518,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           isAwaitingContinuation: isChatTurnInProgress(chat),
           abortController: null,
         })
-        autoExecuteEligibleToolsForAccessLevel(get().accessLevel, get)
 
         // Background-save the previous chat's latest messages before switching (optimistic)
         try {
@@ -572,7 +572,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                 isAwaitingContinuation: isChatTurnInProgress(latestChat),
                 abortController: null,
               })
-              autoExecuteEligibleToolsForAccessLevel(get().accessLevel, get)
+              autoExecuteEligibleToolsForAccessLevel(get().accessLevel, get, 'hydration')
               logger.info('[Context Usage] Chat selected, fetching usage')
               await get().fetchContextUsage()
             }
@@ -718,7 +718,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                     isAwaitingContinuation: isChatTurnInProgress(updatedCurrentChat),
                     abortController: null,
                   })
-                  autoExecuteEligibleToolsForAccessLevel(get().accessLevel, get)
+                  autoExecuteEligibleToolsForAccessLevel(get().accessLevel, get, 'hydration')
                 }
               } else if (!isSendingMessage) {
                 const preferredChat =
@@ -754,7 +754,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                     isAwaitingContinuation: isChatTurnInProgress(availableChat),
                     abortController: null,
                   })
-                  autoExecuteEligibleToolsForAccessLevel(get().accessLevel, get)
+                  autoExecuteEligibleToolsForAccessLevel(get().accessLevel, get, 'hydration')
                 } else {
                   set({
                     currentChat: null,
@@ -1653,9 +1653,7 @@ export function useCopilotStore<T = CopilotStore>(
 ) {
   const store = useContext(CopilotStoreContext) ?? defaultCopilotStore
   const resolvedSelector = selector ?? (identitySelector as unknown as (state: CopilotStore) => T)
-  return equalityFn
-    ? useStoreWithEqualityFn(store, resolvedSelector, equalityFn)
-    : useStoreWithEqualityFn(store, resolvedSelector)
+  return useStoreWithEqualityFn(store, resolvedSelector, equalityFn)
 }
 
 export function useCopilotStoreApi(channelId?: string) {

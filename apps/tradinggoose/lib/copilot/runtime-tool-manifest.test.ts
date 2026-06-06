@@ -161,9 +161,11 @@ describe('copilot runtime tool manifest', () => {
           ]),
           parameters: expect.objectContaining({
             type: 'object',
+            required: expect.arrayContaining(['entityId', 'entityDocument']),
             properties: expect.objectContaining({
+              entityId: expect.any(Object),
               entityDocument: expect.objectContaining({
-                description: expect.stringContaining('not a partial patch'),
+                description: expect.stringContaining('%% TG_WORKFLOW'),
               }),
             }),
           }),
@@ -284,6 +286,14 @@ describe('copilot runtime tool manifest', () => {
         .find((tool) => tool.name === 'edit_workflow')
         ?.semanticValidators?.map((validator) => validator.kind) ?? []
     expect(workflowValidatorKinds).toEqual(['string_requires_real_newlines', 'string_starts_with'])
+    const editWorkflowProperties =
+      (manifest.tools.find((tool) => tool.name === 'edit_workflow')?.parameters?.properties as
+        | Record<string, unknown>
+        | undefined) ?? {}
+    expect(editWorkflowProperties).toHaveProperty('entityId')
+    expect(editWorkflowProperties).toHaveProperty('entityDocument')
+    expect(editWorkflowProperties).not.toHaveProperty('workflowId')
+    expect(editWorkflowProperties).not.toHaveProperty('workflowDocument')
     expect(
       manifest.tools.find((tool) => tool.name === 'edit_workflow_block')?.description
     ).toContain('without changing workflow connections')

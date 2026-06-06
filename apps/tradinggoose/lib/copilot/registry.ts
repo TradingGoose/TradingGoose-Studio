@@ -167,7 +167,7 @@ const EditWorkflowArgs = z
       .string()
       .min(1)
       .describe(
-        'Complete raw `tg-mermaid-v1` Mermaid document for the entire workflow, not a partial patch. Preserve unchanged canonical `%% TG_BLOCK` and `%% TG_EDGE` entries. Use this only for graph or topology changes such as adding, removing, reconnecting, or replacing blocks, loops, parallels, or condition branches.'
+        'Complete raw `tg-mermaid-v1` Mermaid document for the entire workflow, not a partial patch. Preserve the canonical `%% TG_WORKFLOW`, `%% TG_BLOCK`, and `%% TG_EDGE` metadata returned by `read_workflow`; Studio validates that structure. Use this only for graph or topology changes such as adding, removing, reconnecting, or replacing blocks, loops, parallels, or condition branches.'
       ),
     documentFormat: z.literal(TG_MERMAID_DOCUMENT_FORMAT).optional(),
     entityId: RequiredId,
