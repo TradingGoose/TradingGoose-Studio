@@ -298,11 +298,11 @@ describe('copilot runtime tool manifest', () => {
       expect.arrayContaining([
         expect.objectContaining({
           kind: 'string_requires_line_prefix',
-          args: { prefix: '%% TG_WORKFLOW ' },
+          args: { prefix: '%% TG_WORKFLOW ', minMatches: 1 },
         }),
         expect.objectContaining({
           kind: 'string_requires_line_prefix',
-          args: { prefix: '%% TG_BLOCK ' },
+          args: { prefix: '%% TG_BLOCK ', minMatches: 1 },
         }),
         expect.objectContaining({
           kind: 'string_line_prefix_json_schema',

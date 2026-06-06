@@ -752,12 +752,14 @@ describe('copilot streaming regressions', () => {
         toolCalls: [
           {
             id: 'todo-tool-collision',
-            name: 'mark_todo_in_progress',
+            name: 'checkoff_todo',
             state: ClientToolCallState.success,
             params: { id: 'todo-1' },
           },
         ],
-        contentBlocks: [toolBlock('checkoff_todo', 'todo-tool-collision', { id: 'todo-2' })],
+        contentBlocks: [
+          toolBlock('mark_todo_in_progress', 'todo-tool-collision', { id: 'todo-1' }),
+        ],
       },
     ] as any
 
@@ -787,22 +789,22 @@ describe('copilot streaming regressions', () => {
       {
         id: 'todo-1',
         content: 'Inspect the current workflow',
-        completed: false,
-        executing: true,
+        completed: true,
+        executing: false,
       },
       {
         id: 'todo-2',
         content: 'Apply the workflow edit',
-        completed: true,
-        executing: false,
+        completed: false,
+        executing: true,
       },
     ])
 
     store.getState().closePlanTodos()
-    store.getState().updatePlanTodoStatus('todo-1', 'completed')
+    store.getState().updatePlanTodoStatus('todo-2', 'completed')
     expect(store.getState().showPlanTodos).toBe(false)
-    expect(store.getState().planTodos[0]).toMatchObject({
-      id: 'todo-1',
+    expect(store.getState().planTodos[1]).toMatchObject({
+      id: 'todo-2',
       completed: true,
       executing: false,
     })

@@ -304,13 +304,24 @@ export function buildPinnedToolCallsById(
 }
 
 function readToolCallsInMessageOrder(message: CopilotMessage): CopilotToolCall[] {
-  const toolCalls = Array.isArray((message as any).toolCalls)
-    ? ([...(message as any).toolCalls] as CopilotToolCall[])
-    : []
+  const toolCalls: CopilotToolCall[] = []
+  const seenToolCallIds = new Set<string>()
+  const appendToolCall = (toolCall: CopilotToolCall | undefined) => {
+    if (!toolCall?.id || seenToolCallIds.has(toolCall.id)) {
+      return
+    }
+
+    seenToolCallIds.add(toolCall.id)
+    toolCalls.push(toolCall)
+  }
+
+  for (const toolCall of message.toolCalls ?? []) {
+    appendToolCall(toolCall)
+  }
 
   for (const block of message.contentBlocks ?? []) {
     if (block.type === 'tool_call' && block.toolCall) {
-      toolCalls.push(block.toolCall)
+      appendToolCall(block.toolCall)
     }
   }
 

@@ -174,14 +174,14 @@ function buildWorkflowDocumentSemanticValidators(
     {
       path: documentField,
       kind: 'string_requires_line_prefix',
-      args: { prefix: TG_WORKFLOW_LINE_PREFIX },
+      args: { prefix: TG_WORKFLOW_LINE_PREFIX, minMatches: 1 },
       description: 'Include a standalone canonical `%% TG_WORKFLOW {...}` metadata line.',
       message: 'Workflow documents must include a standalone `%% TG_WORKFLOW {...}` metadata line.',
     },
     {
       path: documentField,
       kind: 'string_requires_line_prefix',
-      args: { prefix: TG_BLOCK_LINE_PREFIX },
+      args: { prefix: TG_BLOCK_LINE_PREFIX, minMatches: 1 },
       description: 'Include standalone canonical `%% TG_BLOCK {...}` metadata lines.',
       message: 'Workflow documents must include standalone `%% TG_BLOCK {...}` metadata lines.',
     },
