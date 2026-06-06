@@ -72,6 +72,7 @@ export async function executeCopilotServerTool<TResult = unknown>(input: {
   context?: {
     contextEntityKind?: ReviewEntityKind
     contextEntityId?: string
+    workspaceId?: string
   }
   signal?: AbortSignal
 }): Promise<TResult> {

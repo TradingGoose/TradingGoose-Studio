@@ -68,6 +68,7 @@ import {
   bindClientToolExecutionContext,
   createExecutionContext,
   ensureClientToolInstance,
+  handleCopilotServerToolSuccess,
   isCopilotTool,
   isServerManagedCopilotTool,
   prepareCopilotToolArgs,
@@ -86,7 +87,6 @@ import {
   getCopilotWorkspaceSelection,
   rememberCopilotWorkspaceSelection,
 } from '@/stores/copilot/workspace-selection'
-import { useEnvironmentStore } from '@/stores/settings/environment/store'
 
 const logger = createLogger('CopilotStore')
 
@@ -1368,11 +1368,30 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           toolName: name,
           provenance: provenance ?? {},
         })
-        const preparedArgs = {
-          ...prepareCopilotToolArgs(name, params, executionContext),
-          ...(actionArgs || {}),
-        }
         const targetStore = getCopilotStore(storeChannelId)
+        let preparedArgs: Record<string, any>
+
+        try {
+          preparedArgs = prepareCopilotToolArgs(
+            name,
+            {
+              ...(params || {}),
+              ...(actionArgs || {}),
+            },
+            executionContext
+          )
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          applyToolStateUpdate(targetStore, id, ClientToolCallState.error)
+          await postCopilotMarkComplete({
+            toolCallId: id,
+            toolName: name || 'unknown_tool',
+            status: 400,
+            message,
+          }).catch(() => {})
+          logger.error('Copilot tool argument validation failed', { id, name, error })
+          return
+        }
 
         applyToolStateUpdate(targetStore, id, ClientToolCallState.executing)
         logger.info('[toolCallsById] pending → executing (copilot tool)', { id, name })
@@ -1386,6 +1405,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                     contextEntityId: provenance.contextEntityId,
                   }
                 : {}),
+              ...(provenance?.workspaceId ? { workspaceId: provenance.workspaceId } : {}),
             }
             const result = await executeCopilotServerTool({
               toolName: name,
@@ -1410,14 +1430,8 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
               logicalSuccess ? ClientToolCallState.success : ClientToolCallState.error
             )
 
-            if (logicalSuccess && name === 'set_environment_variables') {
-              try {
-                await useEnvironmentStore.getState().loadEnvironmentVariables()
-              } catch (error) {
-                logger.warn('Failed to refresh environment store after setting variables', {
-                  error,
-                })
-              }
+            if (logicalSuccess) {
+              await handleCopilotServerToolSuccess(name)
             }
 
             const completionMessage =

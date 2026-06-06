@@ -19,6 +19,7 @@ const ExecuteSchema = z.object({
     .object({
       contextEntityKind: z.enum(REVIEW_ENTITY_KINDS).optional(),
       contextEntityId: z.string().optional(),
+      workspaceId: z.string().optional(),
     })
     .optional(),
 })

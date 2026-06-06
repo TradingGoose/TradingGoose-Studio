@@ -14,6 +14,13 @@ export function createWorkflowPermissionError(operation: string): string {
   return `Access denied: You do not have permission to ${operation} this workflow`
 }
 
+export function resolveServerWorkspaceId(
+  context: ServerToolExecutionContext | undefined,
+  workflowScope?: { workspaceId?: string } | null
+): string | undefined {
+  return workflowScope?.workspaceId ?? normalizeOptionalString(context?.workspaceId)
+}
+
 export async function resolveServerWorkflowScope(
   params: CopilotEntityTargetArgs | undefined,
   context?: ServerToolExecutionContext

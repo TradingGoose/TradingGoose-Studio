@@ -1026,7 +1026,7 @@ describe('copilot streaming regressions', () => {
             type: 'function_call',
             call_id: 'pending-approval-tool',
             name: 'get_blocks_metadata',
-            arguments: {},
+            arguments: { blockTypes: ['agent'] },
           },
         },
         { type: 'awaiting_tools', data: { pendingToolCallIds: ['pending-approval-tool'] } },
@@ -1093,7 +1093,7 @@ describe('copilot streaming regressions', () => {
           id: toolCallId,
           name: 'get_blocks_metadata',
           state: ClientToolCallState.pending,
-          params: { blockIds: ['agent'] },
+          params: { blockTypes: ['agent'] },
         } as any,
       },
     })
@@ -3057,6 +3057,7 @@ describe('copilot tool user action delegation', () => {
         context: {
           contextEntityKind: 'workflow',
           contextEntityId: 'wf-api-request-access-switch',
+          workspaceId: 'workspace-1',
         },
       })
       expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.success)
