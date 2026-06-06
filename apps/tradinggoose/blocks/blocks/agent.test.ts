@@ -7,8 +7,13 @@ vi.mock('@/components/icons/icons', () => ({
 vi.mock('@/providers/ai/utils', () => ({
   MODELS_WITH_REASONING_EFFORT: [],
   MODELS_WITH_VERBOSITY: [],
-  getAllModelProviders: vi.fn(() => ({ 'gpt-4o': 'openai_chat' })),
-  getHostedModels: vi.fn(() => []),
+  getAllModelProviders: vi.fn(() => ({
+    'gpt-4o': 'openai',
+    'hosted/openai/gpt-5.4': 'hosted',
+    'azure/gpt-4o': 'azure-openai',
+    'openrouter/anthropic/claude-3.5-sonnet': 'openrouter',
+  })),
+  getHostedModels: vi.fn(() => ['hosted/openai/gpt-5.4']),
   getMaxTemperature: vi.fn(() => 1),
   getProviderFromModel: vi.fn(() => 'openai'),
   getProviderIcon: vi.fn(() => undefined),
@@ -17,8 +22,21 @@ vi.mock('@/providers/ai/utils', () => ({
       name: 'OpenAI',
       models: ['gpt-4o'],
     },
+    hosted: {
+      name: 'Hosted',
+      models: ['hosted/openai/gpt-5.4'],
+    },
+    openrouter: {
+      name: 'OpenRouter',
+      models: ['openrouter/anthropic/claude-3.5-sonnet'],
+    },
     'azure-openai': {
-      models: [],
+      name: 'Azure OpenAI',
+      models: ['azure/gpt-4o'],
+    },
+    ollama: {
+      name: 'Ollama',
+      models: ['llama3.2'],
     },
   },
   supportsTemperature: vi.fn(() => true),
@@ -28,9 +46,9 @@ vi.mock('@/stores/providers/store', () => ({
   useProvidersStore: {
     getState: vi.fn(() => ({
       providers: {
-        base: { models: ['gpt-4o'] },
-        ollama: { models: [] },
-        openrouter: { models: [] },
+        base: { models: ['gpt-4o', 'hosted/openai/gpt-5.4', 'azure/gpt-4o'] },
+        ollama: { models: ['llama3.2'] },
+        openrouter: { models: ['openrouter/anthropic/claude-3.5-sonnet'] },
       },
     })),
   },
@@ -78,6 +96,46 @@ describe('AgentBlock', () => {
     expect(skillsSubBlock).toBeDefined()
     expect(skillsSubBlock?.type).toBe('skill-input')
     expect(skillsSubBlock?.defaultValue).toEqual([])
+  })
+
+  it('shows provider-scoped model labels while preserving full model IDs', () => {
+    const modelSubBlock = AgentBlock.subBlocks.find((subBlock) => subBlock.id === 'model')
+    if (!modelSubBlock || typeof modelSubBlock.options !== 'function') {
+      throw new Error('AgentBlock model options function is missing')
+    }
+    if (typeof modelSubBlock.optionGroups !== 'function') {
+      throw new Error('AgentBlock model optionGroups function is missing')
+    }
+
+    const options = modelSubBlock.options()
+    const groups = modelSubBlock.optionGroups()
+
+    expect(modelSubBlock.dropdownMode).toBe('sidebar')
+    expect(options).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'hosted/openai/gpt-5.4',
+          label: 'openai/gpt-5.4',
+          group: 'hosted',
+        }),
+        expect.objectContaining({
+          id: 'openrouter/anthropic/claude-3.5-sonnet',
+          label: 'anthropic/claude-3.5-sonnet',
+          group: 'openrouter',
+        }),
+        expect.objectContaining({
+          id: 'azure/gpt-4o',
+          label: 'gpt-4o',
+          group: 'azure-openai',
+        }),
+      ])
+    )
+    expect(groups).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'hosted', label: 'Hosted' }),
+        expect.objectContaining({ id: 'openrouter', label: 'OpenRouter' }),
+      ])
+    )
   })
 
   describe('tools.config.params function', () => {

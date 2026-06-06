@@ -1,11 +1,11 @@
 'use client'
 
-import { Minus, Plus, Redo2, Undo2 } from 'lucide-react'
 import { useReactFlow, useStore } from '@xyflow/react'
+import { Minus, Plus, Redo2, Undo2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { cn } from '@/lib/utils'
+import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { useWorkflowEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 interface FloatingControlsProps {
@@ -35,8 +35,8 @@ export function FloatingControls({ constrainToContainer = false }: FloatingContr
     : '-translate-x-1/2 fixed bottom-6 left-1/2'
 
   return (
-    <div className={cn(positionClass, 'z-10')}>
-      <div className='flex items-center gap-1 rounded-md border bg-card  p-1 shadow-xs'>
+    <div className={cn(positionClass, 'z-2')}>
+      <div className='flex items-center gap-1 rounded-md border bg-card p-1 shadow-xs'>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button

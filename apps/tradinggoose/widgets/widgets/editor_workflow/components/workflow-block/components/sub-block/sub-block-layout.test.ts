@@ -146,4 +146,23 @@ describe('buildSubBlockRows', () => {
 
     expect(rows.flat().map((subBlock) => subBlock.id)).toEqual(['files'])
   })
+
+  it('can include regular fields with advanced fields for summary rendering', () => {
+    const rows = buildSubBlockRows({
+      subBlocks: [
+        { id: 'model', title: 'Model', type: 'combobox', layout: 'half' },
+        { id: 'memories', title: 'Memories', type: 'short-input', mode: 'advanced' },
+      ],
+      stateToUse: {
+        model: { value: 'gpt-4o' },
+        memories: { value: '<memory.content>' },
+      },
+      isAdvancedMode: true,
+      isTriggerMode: false,
+      isPureTriggerBlock: false,
+      includeBasicSubBlocksInAdvancedMode: true,
+    })
+
+    expect(rows.flat().map((subBlock) => subBlock.id)).toEqual(['model', 'memories'])
+  })
 })

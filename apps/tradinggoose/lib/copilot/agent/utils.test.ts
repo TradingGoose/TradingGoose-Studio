@@ -81,7 +81,7 @@ describe('requestCopilotTitle', () => {
     ])
   })
 
-  it('derives the provider from the runtime model when provider is omitted', async () => {
+  it('uses the configured provider for the runtime model when provider is omitted', async () => {
     ;(global.fetch as any).mockResolvedValue({
       ok: true,
       json: () =>

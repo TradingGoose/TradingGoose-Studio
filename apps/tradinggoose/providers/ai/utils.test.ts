@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import * as environmentModule from '@/lib/environment'
 import {
   calculateCost,
   extractAndParseJSON,
@@ -31,44 +30,27 @@ import {
 } from '@/providers/ai/utils'
 import { getApiKey } from '@/providers/ai/utils-server'
 
-const isHostedSpy = vi.spyOn(environmentModule, 'isHosted', 'get')
-const mockGetRotatingApiKey = vi.fn().mockReturnValue('rotating-server-key')
-const originalRequire = module.require
-
 describe('getApiKey', () => {
   // Save original env and reset between tests
   const originalEnv = { ...process.env }
 
   beforeEach(() => {
     vi.clearAllMocks()
-
-    isHostedSpy.mockReturnValue(false)
-
-    module.require = vi.fn(() => ({
-      getRotatingApiKey: mockGetRotatingApiKey,
-    }))
   })
 
   afterEach(() => {
     process.env = { ...originalEnv }
-    module.require = originalRequire
   })
 
-  it('should return user-provided key when not in hosted environment', async () => {
-    isHostedSpy.mockReturnValue(false)
-
-    // For OpenAI
+  it('should return user-provided keys for BYOK providers', async () => {
     const key1 = await getApiKey('openai', 'gpt-4', 'user-key-openai')
     expect(key1).toBe('user-key-openai')
 
-    // For Anthropic
     const key2 = await getApiKey('anthropic', 'claude-3', 'user-key-anthropic')
     expect(key2).toBe('user-key-anthropic')
   })
 
-  it('should throw error if no key provided in non-hosted environment', async () => {
-    isHostedSpy.mockReturnValue(false)
-
+  it('should throw error if no key is provided for BYOK providers', async () => {
     await expect(getApiKey('openai', 'gpt-4')).rejects.toThrow(
       'API key is required for openai gpt-4'
     )
@@ -77,32 +59,14 @@ describe('getApiKey', () => {
     )
   })
 
-  it('should fall back to user key in hosted environment if rotation fails', async () => {
-    isHostedSpy.mockReturnValue(true)
-
-    module.require = vi.fn(() => {
-      throw new Error('Rotation failed')
-    })
-
-    const key = await getApiKey('openai', 'gpt-4', 'user-fallback-key')
-    expect(key).toBe('user-fallback-key')
+  it('should not require user keys for hosted provider models', async () => {
+    await expect(getApiKey('hosted', 'hosted/openai/gpt-5.4')).resolves.toBe('empty')
+    await expect(
+      getApiKey('hosted', 'hosted/anthropic/claude-sonnet-4.6', 'ignored')
+    ).resolves.toBe('empty')
   })
 
-  it('should throw error in hosted environment if rotation fails and no user key', async () => {
-    isHostedSpy.mockReturnValue(true)
-
-    module.require = vi.fn(() => {
-      throw new Error('Rotation failed')
-    })
-
-    await expect(getApiKey('openai', 'gpt-4')).rejects.toThrow(
-      'No API key available for openai gpt-4'
-    )
-  })
-
-  it('should require user key for non-OpenAI/Anthropic providers even in hosted environment', async () => {
-    isHostedSpy.mockReturnValue(true)
-
+  it('should require user key for other providers', async () => {
     const key = await getApiKey('other-provider', 'some-model', 'user-key')
     expect(key).toBe('user-key')
 
@@ -389,6 +353,14 @@ describe('Cost Calculation', () => {
       expect(dotted).toEqual(hyphenated)
     })
 
+    it.concurrent('should price hosted model ids from their source models', () => {
+      const hosted = calculateCost('hosted/openai/gpt-5.4', 1000, 500, false)
+      const source = calculateCost('gpt-5.4', 1000, 500, false)
+
+      expect(hosted.total).toBeGreaterThan(0)
+      expect(hosted).toEqual(source)
+    })
+
     it.concurrent('should handle zero tokens', () => {
       const result = calculateCost('gpt-4.1', 0, 0, false)
 
@@ -430,10 +402,14 @@ describe('Cost Calculation', () => {
 })
 
 describe('getHostedModels', () => {
-  it.concurrent('should allow no platform-hosted models', () => {
+  it.concurrent('should expose hosted platform model IDs', () => {
     const hostedModels = getHostedModels()
 
-    expect(hostedModels).toEqual([])
+    expect(hostedModels).toContain('hosted/openai/gpt-5.4')
+    expect(hostedModels).toContain('hosted/anthropic/claude-sonnet-4.6')
+    hostedModels.forEach((model) => {
+      expect(model.startsWith('hosted/')).toBe(true)
+    })
   })
 
   it.concurrent('should return an array of strings', () => {
@@ -450,6 +426,7 @@ describe('Provider Management', () => {
   describe('getProviderFromModel', () => {
     it.concurrent('should return correct provider for known models', () => {
       expect(getProviderFromModel('gpt-4.1')).toBe('openai')
+      expect(getProviderFromModel('hosted/openai/gpt-5.4')).toBe('hosted')
       expect(getProviderFromModel('claude-sonnet-4-0')).toBe('anthropic')
       expect(getProviderFromModel('gemini-2.5-pro')).toBe('google')
       expect(getProviderFromModel('azure/gpt-4o')).toBe('azure-openai')
@@ -480,6 +457,10 @@ describe('Provider Management', () => {
       const anthropicProvider = getProvider('anthropic')
       expect(anthropicProvider).toBeDefined()
       expect(anthropicProvider?.id).toBe('anthropic')
+
+      const hostedProvider = getProvider('hosted')
+      expect(hostedProvider).toBeDefined()
+      expect(hostedProvider?.id).toBe('hosted')
     })
 
     it.concurrent('should handle provider/service format', () => {
@@ -499,6 +480,10 @@ describe('Provider Management', () => {
       expect(config).toBeDefined()
       expect(config?.id).toBe('openai')
 
+      const hostedConfig = getProviderConfigFromModel('hosted/openai/gpt-5.4')
+      expect(hostedConfig).toBeDefined()
+      expect(hostedConfig?.id).toBe('hosted')
+
       const anthropicConfig = getProviderConfigFromModel('claude-sonnet-4-0')
       expect(anthropicConfig).toBeDefined()
       expect(anthropicConfig?.id).toBe('anthropic')
@@ -513,6 +498,7 @@ describe('Provider Management', () => {
 
       // Should contain models from different providers
       expect(allModels).toContain('gpt-4.1')
+      expect(allModels).toContain('hosted/openai/gpt-5.4')
       expect(allModels).toContain('claude-sonnet-4-0')
       expect(allModels).toContain('gemini-2.5-pro')
     })
@@ -523,6 +509,7 @@ describe('Provider Management', () => {
       const providerIds = getAllProviderIds()
       expect(Array.isArray(providerIds)).toBe(true)
       expect(providerIds).toContain('openai')
+      expect(providerIds).toContain('hosted')
       expect(providerIds).toContain('anthropic')
       expect(providerIds).toContain('google')
       expect(providerIds).toContain('azure-openai')
@@ -539,6 +526,10 @@ describe('Provider Management', () => {
       const anthropicModels = getProviderModels('anthropic')
       expect(anthropicModels).toContain('claude-sonnet-4-0')
       expect(anthropicModels).toContain('claude-opus-4-0')
+
+      const hostedModels = getProviderModels('hosted')
+      expect(hostedModels).toContain('hosted/openai/gpt-5.4')
+      expect(hostedModels).toContain('hosted/anthropic/claude-sonnet-4.6')
     })
 
     it.concurrent('should return empty array for unknown providers', () => {
@@ -552,6 +543,7 @@ describe('Provider Management', () => {
       const allProviders = getAllModelProviders()
       expect(typeof allProviders).toBe('object')
       expect(allProviders['gpt-4.1']).toBe('openai')
+      expect(allProviders['hosted/openai/gpt-5.4']).toBe('hosted')
       expect(allProviders['claude-sonnet-4-0']).toBe('anthropic')
 
       const baseProviders = getBaseModelProviders()

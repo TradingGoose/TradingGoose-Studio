@@ -427,6 +427,7 @@ function buildLocalizedPreviewPayload(
         availableTriggerIds: blockConfig.triggers?.available,
         hideFromPreview: true,
         triggerSubBlockOwner: 'all',
+        includeBasicSubBlocksInAdvancedMode: true,
       }).flat()
 
       return {

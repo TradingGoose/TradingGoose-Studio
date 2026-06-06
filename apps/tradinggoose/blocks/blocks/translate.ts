@@ -1,17 +1,11 @@
 import { TranslateIcon } from '@/components/icons/icons'
-import { isHosted } from '@/lib/environment'
-import { AuthMode, type BlockConfig } from '@/blocks/types'
 import {
-  getAllModelProviders,
-  getHostedModels,
-  getProviderIcon,
-  providers,
-} from '@/providers/ai/utils'
-import { useProvidersStore } from '@/stores/providers/store'
-
-const getCurrentOllamaModels = () => {
-  return useProvidersStore.getState().providers.ollama.models
-}
+  getAiModelsWithoutApiKey,
+  getAvailableAiModelGroups,
+  getAvailableAiModelOptions,
+} from '@/blocks/ai-model-options'
+import { AuthMode, type BlockConfig } from '@/blocks/types'
+import { getAllModelProviders, providers } from '@/providers/ai/utils'
 
 const getTranslationPrompt = (
   targetLanguage: string
@@ -58,18 +52,9 @@ export const TranslateBlock: BlockConfig = {
       layout: 'half',
       placeholder: 'Type or select a model...',
       required: true,
-      options: () => {
-        const providersState = useProvidersStore.getState()
-        const baseModels = providersState.providers.base.models
-        const ollamaModels = providersState.providers.ollama.models
-        const openrouterModels = providersState.providers.openrouter.models
-        const allModels = Array.from(new Set([...baseModels, ...ollamaModels, ...openrouterModels]))
-
-        return allModels.map((model) => {
-          const icon = getProviderIcon(model)
-          return { label: model, id: model, ...(icon && { icon }) }
-        })
-      },
+      dropdownMode: 'sidebar',
+      optionGroups: getAvailableAiModelGroups,
+      options: getAvailableAiModelOptions,
     },
     {
       id: 'apiKey',
@@ -80,18 +65,11 @@ export const TranslateBlock: BlockConfig = {
       password: true,
       connectionDroppable: false,
       required: true,
-      // Hide API key for hosted models and Ollama models
-      condition: isHosted
-        ? {
-          field: 'model',
-          value: getHostedModels(),
-          not: true, // Show for all models EXCEPT those listed
-        }
-        : () => ({
-          field: 'model',
-          value: getCurrentOllamaModels(),
-          not: true, // Show for all models EXCEPT Ollama models
-        }),
+      condition: () => ({
+        field: 'model',
+        value: getAiModelsWithoutApiKey(),
+        not: true,
+      }),
     },
     {
       id: 'azureEndpoint',

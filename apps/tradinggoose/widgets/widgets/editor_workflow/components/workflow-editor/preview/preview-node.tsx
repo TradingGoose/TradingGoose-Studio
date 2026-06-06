@@ -136,6 +136,7 @@ function LocalizedPreviewNode({ id, data }: NodeProps<PreviewCanvasNode>) {
             availableTriggerIds: blockConfig.triggers?.available,
             hideFromPreview: true,
             triggerSubBlockOwner: 'all',
+            includeBasicSubBlocksInAdvancedMode: true,
           }).flat()
         : [],
     [

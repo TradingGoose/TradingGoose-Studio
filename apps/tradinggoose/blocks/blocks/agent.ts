@@ -1,72 +1,24 @@
 import { AgentIcon } from '@/components/icons/icons'
-import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
-import type { BlockConfig, SubBlockOption, SubBlockOptionGroup } from '@/blocks/types'
+import {
+  getAiModelsWithoutApiKey,
+  getAvailableAiModelGroups,
+  getAvailableAiModelOptions,
+  getAvailableAiModels,
+} from '@/blocks/ai-model-options'
+import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import {
   getAllModelProviders,
-  getHostedModels,
   getMaxTemperature,
-  getProviderFromModel,
-  getProviderIcon,
   MODELS_WITH_REASONING_EFFORT,
   MODELS_WITH_VERBOSITY,
   providers,
   supportsTemperature,
 } from '@/providers/ai/utils'
-
-const getCurrentOllamaModels = () => {
-  return useProvidersStore.getState().providers.ollama.models
-}
-
-import { useProvidersStore } from '@/stores/providers/store'
 import type { ToolResponse } from '@/tools/types'
 
 const logger = createLogger('AgentBlock')
-
-const getAvailableModels = () => {
-  const providersState = useProvidersStore.getState()
-  const baseModels = providersState.providers.base.models
-  const ollamaModels = providersState.providers.ollama.models
-  const openrouterModels = providersState.providers.openrouter.models
-  return Array.from(new Set([...baseModels, ...ollamaModels, ...openrouterModels]))
-}
-
-const getAvailableModelOptions = (): SubBlockOption[] => {
-  return getAvailableModels().map((model) => {
-    const providerId = getProviderFromModel(model)
-    const provider = providers[providerId]
-    const icon = provider?.icon ?? getProviderIcon(model)
-
-    return {
-      label: model,
-      id: model,
-      group: providerId,
-      searchLabel: `${model} ${provider?.name ?? providerId}`,
-      ...(icon && { icon }),
-    }
-  })
-}
-
-const getAvailableModelGroups = (): SubBlockOptionGroup[] => {
-  const seenProviderIds = new Set<string>()
-  const groups: SubBlockOptionGroup[] = []
-
-  for (const model of getAvailableModels()) {
-    const providerId = getProviderFromModel(model)
-    if (seenProviderIds.has(providerId)) continue
-
-    const provider = providers[providerId]
-    seenProviderIds.add(providerId)
-    groups.push({
-      id: providerId,
-      label: provider?.name ?? providerId,
-      ...(provider?.icon && { icon: provider.icon }),
-    })
-  }
-
-  return groups
-}
 
 interface AgentResponse extends ToolResponse {
   output: {
@@ -208,13 +160,13 @@ Create a system prompt appropriately detailed for the request, using clear langu
       placeholder: 'Type or select a model...',
       required: true,
       dropdownMode: 'sidebar',
-      optionGroups: getAvailableModelGroups,
+      optionGroups: getAvailableAiModelGroups,
       value: () => {
-        const allModels = getAvailableModels()
+        const allModels = getAvailableAiModels()
         if (allModels.includes('gpt-4o')) return 'gpt-4o'
         return allModels[0]
       },
-      options: getAvailableModelOptions,
+      options: getAvailableAiModelOptions,
     },
     {
       id: 'temperature',
@@ -296,18 +248,12 @@ Create a system prompt appropriately detailed for the request, using clear langu
       password: true,
       connectionDroppable: false,
       required: true,
-      // Hide API key for hosted models and Ollama models
-      condition: isHosted
-        ? {
-            field: 'model',
-            value: getHostedModels(),
-            not: true, // Show for all models EXCEPT those listed
-          }
-        : () => ({
-            field: 'model',
-            value: getCurrentOllamaModels(),
-            not: true, // Show for all models EXCEPT Ollama models
-          }),
+      // Hide API key only for model namespaces that do not consume user provider keys.
+      condition: () => ({
+        field: 'model',
+        value: getAiModelsWithoutApiKey(),
+        not: true,
+      }),
     },
     {
       id: 'azureEndpoint',

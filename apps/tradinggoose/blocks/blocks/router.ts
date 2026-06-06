@@ -1,19 +1,13 @@
 import { ConnectIcon } from '@/components/icons/icons'
-import { isHosted } from '@/lib/environment'
+import {
+  getAiModelsWithoutApiKey,
+  getAvailableAiModelGroups,
+  getAvailableAiModelOptions,
+} from '@/blocks/ai-model-options'
 import { AuthMode, type BlockConfig } from '@/blocks/types'
 import type { ProviderId } from '@/providers/ai/types'
-import {
-  getAllModelProviders,
-  getHostedModels,
-  getProviderIcon,
-  providers,
-} from '@/providers/ai/utils'
-import { useProvidersStore } from '@/stores/providers/store'
+import { getAllModelProviders, providers } from '@/providers/ai/utils'
 import type { ToolResponse } from '@/tools/types'
-
-const getCurrentOllamaModels = () => {
-  return useProvidersStore.getState().providers.ollama.models
-}
 
 interface RouterResponse extends ToolResponse {
   output: {
@@ -64,8 +58,8 @@ Key Instructions:
 
 Available Target Blocks:
 ${targetBlocks
-      .map(
-        (block) => `
+  .map(
+    (block) => `
 ID: ${block.id}
 Type: ${block.type}
 Title: ${block.title}
@@ -74,8 +68,8 @@ System Prompt: ${JSON.stringify(block.subBlocks?.systemPrompt || '')}
 Configuration: ${JSON.stringify(block.subBlocks, null, 2)}
 ${block.currentState ? `Current State: ${JSON.stringify(block.currentState, null, 2)}` : ''}
 ---`
-      )
-      .join('\n')}
+  )
+  .join('\n')}
 
 Routing Instructions:
 1. Analyze the input request carefully against each block's:
@@ -133,18 +127,9 @@ export const RouterBlock: BlockConfig<RouterResponse> = {
       layout: 'half',
       placeholder: 'Type or select a model...',
       required: true,
-      options: () => {
-        const providersState = useProvidersStore.getState()
-        const baseModels = providersState.providers.base.models
-        const ollamaModels = providersState.providers.ollama.models
-        const openrouterModels = providersState.providers.openrouter.models
-        const allModels = Array.from(new Set([...baseModels, ...ollamaModels, ...openrouterModels]))
-
-        return allModels.map((model) => {
-          const icon = getProviderIcon(model)
-          return { label: model, id: model, ...(icon && { icon }) }
-        })
-      },
+      dropdownMode: 'sidebar',
+      optionGroups: getAvailableAiModelGroups,
+      options: getAvailableAiModelOptions,
     },
     {
       id: 'apiKey',
@@ -155,18 +140,11 @@ export const RouterBlock: BlockConfig<RouterResponse> = {
       password: true,
       connectionDroppable: false,
       required: true,
-      // Hide API key for hosted models and Ollama models
-      condition: isHosted
-        ? () => ({
-          field: 'model',
-          value: getHostedModels(),
-          not: true, // Show for all models EXCEPT those listed
-        })
-        : () => ({
-          field: 'model',
-          value: getCurrentOllamaModels(),
-          not: true, // Show for all models EXCEPT Ollama models
-        }),
+      condition: () => ({
+        field: 'model',
+        value: getAiModelsWithoutApiKey(),
+        not: true,
+      }),
     },
     {
       id: 'azureEndpoint',

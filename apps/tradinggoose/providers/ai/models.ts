@@ -21,10 +21,15 @@ import {
   OllamaIcon,
   OpenAIIcon,
   OpenRouterIcon,
+  ServerIcon,
   VertexIcon,
   VllmIcon,
   xAIIcon,
 } from '@/components/icons'
+import {
+  COPILOT_RUNTIME_MODEL_CONFIGS,
+  DEFAULT_COPILOT_RUNTIME_MODEL,
+} from '@/lib/copilot/runtime-models'
 import type { ModelPricing, ProviderId } from '@/providers/ai/types'
 
 export interface ModelCapabilities {
@@ -81,6 +86,18 @@ export interface ProviderDefinition {
 }
 
 export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
+  hosted: {
+    id: 'hosted',
+    name: 'Hosted',
+    description: 'Platform-managed models billed through TradingGoose',
+    defaultModel: '',
+    modelPatterns: [/^hosted\//],
+    icon: ServerIcon,
+    color: '#1F8A70',
+    isReseller: true,
+    contextInformationAvailable: false,
+    models: [],
+  },
   fireworks: {
     id: 'fireworks',
     name: 'Fireworks',
@@ -2715,6 +2732,38 @@ function normalizeCatalogLookupModelId(modelId: string): string {
   return baseModelId
 }
 
+function getSourceModelDefinition(modelId: string): ModelDefinition {
+  const catalogModelId = normalizeCatalogLookupModelId(modelId)
+
+  for (const [providerId, provider] of Object.entries(PROVIDER_DEFINITIONS)) {
+    if (providerId === 'hosted') continue
+
+    const model = provider.models.find((candidate) => candidate.id.toLowerCase() === catalogModelId)
+    if (model) return model
+  }
+
+  throw new Error(`Missing source model definition for hosted model: ${modelId}`)
+}
+
+function buildHostedModelDefinitions(): ModelDefinition[] {
+  return COPILOT_RUNTIME_MODEL_CONFIGS.map(({ provider, model: modelId }) => {
+    const sourceModel = getSourceModelDefinition(modelId)
+
+    return {
+      ...sourceModel,
+      id: `hosted/${provider}/${modelId}`,
+      pricing: { ...sourceModel.pricing },
+      capabilities: { ...sourceModel.capabilities },
+    }
+  })
+}
+
+PROVIDER_DEFINITIONS.hosted.models = buildHostedModelDefinitions()
+PROVIDER_DEFINITIONS.hosted.defaultModel = `hosted/${
+  COPILOT_RUNTIME_MODEL_CONFIGS.find(({ model }) => model === DEFAULT_COPILOT_RUNTIME_MODEL)!
+    .provider
+}/${DEFAULT_COPILOT_RUNTIME_MODEL}`
+
 function getAllStaticModelIds(): string[] {
   const ids: string[] = []
   for (const [providerId, provider] of Object.entries(PROVIDER_DEFINITIONS)) {
@@ -2890,11 +2939,7 @@ export function getProvidersWithToolUsageControl(): string[] {
 }
 
 export function getHostedModels(): string[] {
-  return [
-    // ...getProviderModels('openai'),
-    // ...getProviderModels('anthropic'),
-    // ...getProviderModels('google'),
-  ]
+  return getProviderModels('hosted')
 }
 
 export function getComputerUseModels(): string[] {

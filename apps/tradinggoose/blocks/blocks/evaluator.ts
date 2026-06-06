@@ -1,22 +1,16 @@
 import { ChartBarIcon } from '@/components/icons/icons'
-import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
+import {
+  getAiModelsWithoutApiKey,
+  getAvailableAiModelGroups,
+  getAvailableAiModelOptions,
+} from '@/blocks/ai-model-options'
 import type { BlockConfig, ParamType } from '@/blocks/types'
 import type { ProviderId } from '@/providers/ai/types'
-import {
-  getAllModelProviders,
-  getHostedModels,
-  getProviderIcon,
-  providers,
-} from '@/providers/ai/utils'
-import { useProvidersStore } from '@/stores/providers/store'
+import { getAllModelProviders, providers } from '@/providers/ai/utils'
 import type { ToolResponse } from '@/tools/types'
 
 const logger = createLogger('EvaluatorBlock')
-
-const getCurrentOllamaModels = () => {
-  return useProvidersStore.getState().providers.ollama.models
-}
 
 interface Metric {
   name: string
@@ -186,18 +180,9 @@ export const EvaluatorBlock: BlockConfig<EvaluatorResponse> = {
       layout: 'half',
       placeholder: 'Type or select a model...',
       required: true,
-      options: () => {
-        const providersState = useProvidersStore.getState()
-        const baseModels = providersState.providers.base.models
-        const ollamaModels = providersState.providers.ollama.models
-        const openrouterModels = providersState.providers.openrouter.models
-        const allModels = Array.from(new Set([...baseModels, ...ollamaModels, ...openrouterModels]))
-
-        return allModels.map((model) => {
-          const icon = getProviderIcon(model)
-          return { label: model, id: model, ...(icon && { icon }) }
-        })
-      },
+      dropdownMode: 'sidebar',
+      optionGroups: getAvailableAiModelGroups,
+      options: getAvailableAiModelOptions,
     },
     {
       id: 'apiKey',
@@ -208,17 +193,11 @@ export const EvaluatorBlock: BlockConfig<EvaluatorResponse> = {
       password: true,
       connectionDroppable: false,
       required: true,
-      condition: isHosted
-        ? {
-          field: 'model',
-          value: getHostedModels(),
-          not: true, // Show for all models EXCEPT those listed
-        }
-        : () => ({
-          field: 'model',
-          value: getCurrentOllamaModels(),
-          not: true, // Show for all models EXCEPT Ollama models
-        }),
+      condition: () => ({
+        field: 'model',
+        value: getAiModelsWithoutApiKey(),
+        not: true,
+      }),
     },
     {
       id: 'azureEndpoint',

@@ -16,6 +16,7 @@ interface BuildSubBlockRowsParams {
   availableTriggerIds?: string[]
   hideFromPreview?: boolean
   triggerSubBlockOwner?: 'editor' | 'deploy' | 'all'
+  includeBasicSubBlocksInAdvancedMode?: boolean
 }
 
 type BuildSubBlockPreviewRowsParams = Omit<
@@ -45,6 +46,7 @@ export function buildSubBlockRows({
   availableTriggerIds,
   hideFromPreview = false,
   triggerSubBlockOwner = 'editor',
+  includeBasicSubBlocksInAdvancedMode = false,
 }: BuildSubBlockRowsParams): SubBlockConfig[][] {
   const conditionParams = buildConfiguredSubBlockParams({
     blockId,
@@ -98,7 +100,9 @@ export function buildSubBlockRows({
       }
     }
 
-    if (isAdvancedMode && subBlock.mode !== 'advanced') return false
+    if (isAdvancedMode && !includeBasicSubBlocksInAdvancedMode && subBlock.mode !== 'advanced') {
+      return false
+    }
     if (!isAdvancedMode && subBlock.mode === 'advanced') return false
 
     if (!subBlock.condition) return true

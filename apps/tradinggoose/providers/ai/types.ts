@@ -12,6 +12,7 @@ export type ProviderId =
   | 'cerebras'
   | 'groq'
   | 'mistral'
+  | 'hosted'
   | 'ollama'
   | 'openrouter'
   | 'fireworks'

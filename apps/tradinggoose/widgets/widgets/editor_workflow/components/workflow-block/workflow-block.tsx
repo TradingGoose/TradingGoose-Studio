@@ -522,6 +522,7 @@ export const WorkflowBlock = memo(
         availableTriggerIds: config.triggers?.available,
         hideFromPreview: true,
         triggerSubBlockOwner: 'all',
+        includeBasicSubBlocksInAdvancedMode: true,
       })
 
       // Return both rows and state for stable key generation
@@ -761,12 +762,12 @@ export const WorkflowBlock = memo(
                   '--block-active-pulse-color': activePulseColor,
                   ...(selected ? { borderColor: blockAccentColor, borderWidth: '1px' } : {}),
                 } as CSSProperties &
-                Record<
-                  | '--block-active-pulse-color'
-                  | '--block-active-ring-color'
-                  | '--block-hover-color',
-                  string
-                >
+                  Record<
+                    | '--block-active-pulse-color'
+                    | '--block-active-ring-color'
+                    | '--block-hover-color',
+                    string
+                  >
               }
             >
               {/* Show debug indicator for pending blocks */}

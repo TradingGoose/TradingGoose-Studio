@@ -100,6 +100,18 @@ vi.mock('@/providers/ai/mistral', () => ({
   },
 }))
 
+vi.mock('@/providers/ai/hosted', () => ({
+  hostedProvider: {
+    id: 'hosted',
+    name: 'Hosted',
+    description: 'test',
+    version: 'test',
+    models: [],
+    defaultModel: '',
+    executeRequest: vi.fn(),
+  },
+}))
+
 vi.mock('@/providers/ai/ollama', () => ({
   ollamaProvider: {
     id: 'ollama',

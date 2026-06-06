@@ -249,6 +249,60 @@ describe('WorkflowBlock localization', () => {
     expect(markup).toContain('sino')
   })
 
+  it('renders regular and advanced summaries when an agent-like block has advanced mode enabled', () => {
+    mockBlockCatalog.agent = { name: 'Agent' }
+    mockBlockState.agent_block = {
+      id: 'agent_block',
+      enabled: true,
+      horizontalHandles: true,
+      advancedMode: true,
+      triggerMode: false,
+      subBlocks: {
+        model: { value: 'hosted/openai/gpt-5.4' },
+        memories: { value: '<memory.content>' },
+      },
+    }
+    mockSubBlockHookValues.clear()
+
+    const markup = renderWithLocale(
+      createElement(WorkflowBlock as any, {
+        id: 'agent_block',
+        selected: false,
+        data: {
+          type: 'agent',
+          name: 'Agent',
+          isPreview: false,
+          config: {
+            type: 'agent',
+            category: 'blocks',
+            bgColor: '#2873f6',
+            icon: (props: any) => createElement('svg', props),
+            subBlocks: [
+              {
+                id: 'model',
+                title: 'Model',
+                type: 'combobox',
+                options: [{ id: 'hosted/openai/gpt-5.4', label: 'openai/gpt-5.4' }],
+              },
+              {
+                id: 'memories',
+                title: 'Memories',
+                type: 'short-input',
+                mode: 'advanced',
+              },
+            ],
+          },
+        },
+      }),
+      'en'
+    )
+
+    expect(markup).toContain('Model')
+    expect(markup).toContain('openai/gpt-5.4')
+    expect(markup).toContain('Memories')
+    expect(markup).toContain('memory.content')
+  })
+
   it('localizes workflow deployment status fallback text in the editable canvas block', () => {
     mockBlockCatalog.workflow = { name: 'Workflow' }
     mockBlockState.workflow_block = {

@@ -9,6 +9,7 @@ import { deepseekProvider } from '@/providers/ai/deepseek'
 import { fireworksProvider } from '@/providers/ai/fireworks'
 import { googleProvider } from '@/providers/ai/google'
 import { groqProvider } from '@/providers/ai/groq'
+import { hostedProvider } from '@/providers/ai/hosted'
 import { mistralProvider } from '@/providers/ai/mistral'
 import { ollamaProvider } from '@/providers/ai/ollama'
 import { openaiProvider } from '@/providers/ai/openai'
@@ -36,6 +37,7 @@ const providers: Record<string, ProviderConfig> = {
   cerebras: cerebrasProvider,
   groq: groqProvider,
   mistral: mistralProvider,
+  hosted: hostedProvider,
   'azure-openai': azureOpenAIProvider,
   bedrock: bedrockProvider,
   fireworks: fireworksProvider,

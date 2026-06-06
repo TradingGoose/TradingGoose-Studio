@@ -485,6 +485,8 @@ export function ComboBox({
     selectedOption && typeof selectedOption === 'object' && 'icon' in selectedOption
       ? (selectedOption.icon as React.ComponentType<{ className?: string }>)
       : null
+  const selectedDisplayValue =
+    selectedOption && !hasTyped ? getOptionLabel(selectedOption) : displayValue
 
   // Render component
   return (
@@ -528,7 +530,7 @@ export function ComboBox({
           style={{ right: '42px' }}
         >
           <div className='w-full truncate text-foreground' style={{ scrollbarWidth: 'none' }}>
-            {formatDisplayText(displayValue, {
+            {formatDisplayText(selectedDisplayValue, {
               accessiblePrefixes,
               highlightAll: !accessiblePrefixes,
             })}

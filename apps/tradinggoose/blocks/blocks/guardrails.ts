@@ -1,14 +1,11 @@
 import { ShieldCheckIcon } from '@/components/icons/icons'
-import { isHosted } from '@/lib/environment'
+import {
+  getAiModelsWithoutApiKey,
+  getAvailableAiModelGroups,
+  getAvailableAiModelOptions,
+} from '@/blocks/ai-model-options'
 import type { BlockConfig } from '@/blocks/types'
-import { getHostedModels, getProviderIcon } from '@/providers/ai/utils'
-import { useProvidersStore } from '@/stores/providers/store'
 import type { ToolResponse } from '@/tools/types'
-
-const getCurrentOllamaModels = () => {
-  const providersState = useProvidersStore.getState()
-  return providersState.providers.ollama.models
-}
 
 export interface GuardrailsResponse extends ToolResponse {
   output: {
@@ -97,18 +94,9 @@ export const GuardrailsBlock: BlockConfig<GuardrailsResponse> = {
       layout: 'half',
       placeholder: 'Type or select a model...',
       required: true,
-      options: () => {
-        const providersState = useProvidersStore.getState()
-        const baseModels = providersState.providers.base.models
-        const ollamaModels = providersState.providers.ollama.models
-        const openrouterModels = providersState.providers.openrouter.models
-        const allModels = Array.from(new Set([...baseModels, ...ollamaModels, ...openrouterModels]))
-
-        return allModels.map((model) => {
-          const icon = getProviderIcon(model)
-          return { label: model, id: model, ...(icon && { icon }) }
-        })
-      },
+      dropdownMode: 'sidebar',
+      optionGroups: getAvailableAiModelGroups,
+      options: getAvailableAiModelOptions,
       condition: {
         field: 'validationType',
         value: ['hallucination'],
@@ -152,32 +140,14 @@ export const GuardrailsBlock: BlockConfig<GuardrailsResponse> = {
       password: true,
       connectionDroppable: false,
       required: true,
-      // Show API key field only for hallucination validation
-      // Hide for hosted models and Ollama models
       condition: () => {
-        const baseCondition = {
-          field: 'validationType' as const,
-          value: ['hallucination'],
-        }
-
-        if (isHosted) {
-          // In hosted mode, hide for hosted models
-          return {
-            ...baseCondition,
-            and: {
-              field: 'model' as const,
-              value: getHostedModels(),
-              not: true, // Show for all models EXCEPT hosted ones
-            },
-          }
-        }
-        // In self-hosted mode, hide for Ollama models
         return {
-          ...baseCondition,
+          field: 'validationType',
+          value: ['hallucination'],
           and: {
-            field: 'model' as const,
-            value: getCurrentOllamaModels(),
-            not: true, // Show for all models EXCEPT Ollama ones
+            field: 'model',
+            value: getAiModelsWithoutApiKey(),
+            not: true,
           },
         }
       },
