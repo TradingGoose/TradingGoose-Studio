@@ -56,8 +56,8 @@
       "auth": "Sign up"
     },
     "waitlist": {
-      "primary": "Join Waitlist",
-      "auth": "Join waitlist"
+      "primary": "Get Early Access",
+      "auth": "Get Early Access"
     },
     "disabled": {
       "primary": "Coming soon",
@@ -370,8 +370,16 @@
         "waitlist": "Honk! Introducing TradingGoose-Studio",
         "open": "Honk! TradingGoose-Studio is here!"
       },
-      "leadWords": ["Build", "Test", "Run"],
-      "highlightWords": ["Trading Analysis", "Signal Detection", "Risk Assessment"],
+      "leadWords": [
+        "Build",
+        "Test",
+        "Run"
+      ],
+      "highlightWords": [
+        "Trading Analysis",
+        "Signal Detection",
+        "Risk Assessment"
+      ],
       "titleConnector": "your",
       "suffix": "with TradingGoose",
       "description": "Connect your own data providers, write custom indicators to monitor market prices, and wire them into workflows that trigger trade, sell, buy, or any action you define.",
@@ -705,7 +713,13 @@
         "experience": {
           "label": "Years of Experience *",
           "placeholder": "Select experience level",
-          "options": ["0-1 years", "1-3 years", "3-5 years", "5-10 years", "10+ years"]
+          "options": [
+            "0-1 years",
+            "1-3 years",
+            "3-5 years",
+            "5-10 years",
+            "10+ years"
+          ]
         },
         "location": {
           "label": "Location *",
@@ -3668,7 +3682,10 @@
             },
             "headers": {
               "title": "Response Headers",
-              "columns": ["Key", "Value"],
+              "columns": [
+                "Key",
+                "Value"
+              ],
               "description": "Additional HTTP headers to include in the response"
             }
           },
@@ -17914,7 +17931,10 @@
             },
             "variables": {
               "title": "Variables",
-              "columns": ["Key", "Value"]
+              "columns": [
+                "Key",
+                "Value"
+              ]
             },
             "apiKey": {
               "title": "Anthropic API Key",
