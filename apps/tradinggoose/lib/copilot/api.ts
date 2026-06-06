@@ -24,7 +24,6 @@ export interface CopilotMessage {
   content: string
   timestamp: string
   citations?: Citation[]
-  toolCalls?: any[]
   contentBlocks?: any[]
   fileAttachments?: any[]
   contexts?: any[]

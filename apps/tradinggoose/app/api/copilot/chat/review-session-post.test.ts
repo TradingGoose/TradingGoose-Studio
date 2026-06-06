@@ -410,13 +410,16 @@ describe('Copilot Chat POST Generic Sessions', () => {
         reviewSessionId: 'review-session-1',
         assistantMessage: expect.objectContaining({
           content: '',
-          toolCalls: [
-            {
-              id: 'tool-call-1',
-              name: 'lookup_context',
-              success: true,
-              result: { ok: true },
-            },
+          contentBlocks: [
+            expect.objectContaining({
+              type: 'tool_call',
+              toolCall: {
+                id: 'tool-call-1',
+                name: 'lookup_context',
+                success: true,
+                result: { ok: true },
+              },
+            }),
           ],
         }),
       })
@@ -550,13 +553,16 @@ describe('Copilot Chat POST Generic Sessions', () => {
         reviewSessionId: 'review-session-1',
         assistantMessage: expect.objectContaining({
           content: 'Saved response',
-          toolCalls: [
-            {
-              id: 'tool-call-1',
-              name: 'lookup_context',
-              success: true,
-              result: { ok: true },
-            },
+          contentBlocks: [
+            expect.objectContaining({
+              type: 'tool_call',
+              toolCall: {
+                id: 'tool-call-1',
+                name: 'lookup_context',
+                success: true,
+                result: { ok: true },
+              },
+            }),
           ],
         }),
       })
@@ -661,7 +667,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
           role: 'assistant',
           content: 'Saved response',
           timestamp: expect.any(String),
-          toolCalls: undefined,
         },
       ],
       'completed'
@@ -1117,11 +1122,14 @@ describe('Copilot Chat POST Generic Sessions', () => {
       expect.objectContaining({
         reviewSessionId: 'review-session-stringified-tool-args',
         assistantMessage: expect.objectContaining({
-          toolCalls: [
+          contentBlocks: [
             expect.objectContaining({
-              id: 'tool-call-stringified',
-              name: 'read_workflow',
-              arguments: { entityId: 'wf-stringified' },
+              type: 'tool_call',
+              toolCall: expect.objectContaining({
+                id: 'tool-call-stringified',
+                name: 'read_workflow',
+                arguments: { entityId: 'wf-stringified' },
+              }),
             }),
           ],
         }),

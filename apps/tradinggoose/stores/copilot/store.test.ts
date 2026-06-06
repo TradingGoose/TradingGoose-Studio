@@ -749,16 +749,8 @@ describe('copilot streaming regressions', () => {
         role: 'assistant',
         content: '',
         timestamp: '2026-04-13T00:00:01.000Z',
-        toolCalls: [
-          {
-            id: 'todo-tool-collision',
-            name: 'checkoff_todo',
-            state: ClientToolCallState.success,
-            params: { id: 'todo-1' },
-          },
-        ],
         contentBlocks: [
-          toolBlock('mark_todo_in_progress', 'todo-tool-collision', { id: 'todo-1' }),
+          toolBlock('checkoff_todo', 'todo-tool-collision', { id: 'todo-1' }),
         ],
       },
     ] as any
@@ -1627,14 +1619,6 @@ describe('copilot streaming regressions', () => {
           role: 'assistant',
           content: '',
           timestamp: '2026-03-30T00:00:00.000Z',
-          toolCalls: [
-            {
-              id: 'tool-active-chat',
-              name: 'edit_indicator',
-              state: ClientToolCallState.executing,
-              params: { entityDocument: '{}' },
-            },
-          ],
           contentBlocks: [
             {
               type: 'tool_call',
@@ -1671,9 +1655,6 @@ describe('copilot streaming regressions', () => {
       reviewSessionId: 'review-active-chat',
       latestTurnStatus: 'completed',
     })
-    expect((requestBody.messages as any[])?.[0]?.toolCalls?.[0]?.state).toBe(
-      ClientToolCallState.aborted
-    )
     expect((requestBody.messages as any[])?.[0]?.contentBlocks?.[0]?.toolCall?.state).toBe(
       ClientToolCallState.aborted
     )
@@ -1758,17 +1739,6 @@ describe('copilot streaming regressions', () => {
           role: 'assistant',
           content: '',
           timestamp: '2026-03-30T00:00:00.000Z',
-          toolCalls: [
-            {
-              id: 'tool-review-chat',
-              name: 'edit_workflow',
-              state: ClientToolCallState.review,
-              params: {
-                entityDocument: 'workflow: {}',
-                entityId: 'wf-active-chat-review-tools',
-              },
-            },
-          ],
           contentBlocks: [
             {
               type: 'tool_call',
@@ -1811,9 +1781,6 @@ describe('copilot streaming regressions', () => {
       reviewSessionId: 'review-active-chat-review-tools',
       latestTurnStatus: 'completed',
     })
-    expect((requestBody.messages as any[])?.[0]?.toolCalls?.[0]?.state).toBe(
-      ClientToolCallState.review
-    )
     expect((requestBody.messages as any[])?.[0]?.contentBlocks?.[0]?.toolCall?.state).toBe(
       ClientToolCallState.review
     )
@@ -1867,14 +1834,6 @@ describe('copilot streaming regressions', () => {
           role: 'assistant',
           content: '',
           timestamp: '2026-03-30T00:00:00.000Z',
-          toolCalls: [
-            {
-              id: 'tool-new-chat-abort',
-              name: 'edit_indicator',
-              state: ClientToolCallState.pending,
-              params: { entityDocument: '{}' },
-            },
-          ],
           contentBlocks: [
             {
               type: 'tool_call',
@@ -1911,9 +1870,6 @@ describe('copilot streaming regressions', () => {
       reviewSessionId: 'review-new-chat-abort',
       latestTurnStatus: 'completed',
     })
-    expect((requestBody.messages as any[])?.[0]?.toolCalls?.[0]?.state).toBe(
-      ClientToolCallState.aborted
-    )
     expect((requestBody.messages as any[])?.[0]?.contentBlocks?.[0]?.toolCall?.state).toBe(
       ClientToolCallState.aborted
     )

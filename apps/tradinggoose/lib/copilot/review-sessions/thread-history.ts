@@ -25,7 +25,6 @@ export interface ReviewMessageApi {
   role: string
   content: string | null
   timestamp: string | null
-  toolCalls?: unknown
   contentBlocks?: unknown
   contexts?: unknown
   fileAttachments?: unknown
@@ -37,7 +36,6 @@ export interface ReviewMessageInput {
   role: MessageRole | string
   content: string
   timestamp: string
-  toolCalls?: unknown
   contentBlocks?: unknown
   contexts?: unknown
   fileAttachments?: unknown
@@ -80,7 +78,6 @@ export function mapReviewItemToApi(item: {
   messageRole: string
   content: string | null
   timestamp: string | null
-  toolCalls?: unknown
   contentBlocks?: unknown
   contexts?: unknown
   fileAttachments?: unknown
@@ -91,7 +88,6 @@ export function mapReviewItemToApi(item: {
     role: item.messageRole,
     content: item.content,
     timestamp: item.timestamp,
-    ...spreadIfArray('toolCalls', item.toolCalls),
     ...spreadIfArray('contentBlocks', item.contentBlocks),
     ...spreadIfArray('contexts', item.contexts),
     ...spreadIfArray('fileAttachments', item.fileAttachments),
@@ -131,9 +127,6 @@ export function buildReviewItemInsert(params: {
     messageRole: normalizeMessageRole(params.message.role),
     content: params.message.content,
     timestamp: params.message.timestamp,
-    ...(normalizeArrayLike(params.message.toolCalls)
-      ? { toolCalls: params.message.toolCalls as unknown[] }
-      : {}),
     ...(normalizeArrayLike(params.message.contentBlocks)
       ? { contentBlocks: params.message.contentBlocks as unknown[] }
       : contextsContentBlock

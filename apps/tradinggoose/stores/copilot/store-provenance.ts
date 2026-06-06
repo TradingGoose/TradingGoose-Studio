@@ -119,13 +119,6 @@ export function findAssistantMessageIdForToolCall(
     if (message.role !== 'assistant') continue
 
     if (
-      Array.isArray(message.toolCalls) &&
-      message.toolCalls.some((toolCall) => toolCall.id === toolCallId)
-    ) {
-      return message.id
-    }
-
-    if (
       Array.isArray(message.contentBlocks) &&
       message.contentBlocks.some(
         (block) => block.type === 'tool_call' && block.toolCall?.id === toolCallId

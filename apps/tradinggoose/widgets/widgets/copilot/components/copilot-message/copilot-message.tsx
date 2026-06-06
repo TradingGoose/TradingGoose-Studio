@@ -790,20 +790,6 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
         return false
       }
 
-      // Check if tool calls changed
-      const prevToolCalls = prevMessage.toolCalls || []
-      const nextToolCalls = nextMessage.toolCalls || []
-
-      if (prevToolCalls.length !== nextToolCalls.length) {
-        return false // Tool calls count changed
-      }
-
-      for (let i = 0; i < nextToolCalls.length; i++) {
-        if (prevToolCalls[i]?.state !== nextToolCalls[i]?.state) {
-          return false // Tool call state changed
-        }
-      }
-
       return true
     }
 
@@ -811,19 +797,9 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     if (
       prevMessage.content !== nextMessage.content ||
       prevMessage.role !== nextMessage.role ||
-      (prevMessage.toolCalls?.length || 0) !== (nextMessage.toolCalls?.length || 0) ||
       (prevMessage.contentBlocks?.length || 0) !== (nextMessage.contentBlocks?.length || 0)
     ) {
       return false
-    }
-
-    // Check tool call states for non-streaming messages too
-    const prevToolCalls = prevMessage.toolCalls || []
-    const nextToolCalls = nextMessage.toolCalls || []
-    for (let i = 0; i < nextToolCalls.length; i++) {
-      if (prevToolCalls[i]?.state !== nextToolCalls[i]?.state) {
-        return false // Tool call state changed
-      }
     }
 
     // Check contentBlocks tool call states

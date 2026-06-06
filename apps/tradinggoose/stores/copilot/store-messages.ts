@@ -214,38 +214,9 @@ export function normalizeMessagesForUI(
         ...(textBlock ? [textBlock] : []),
       ]
 
-      const updatedToolCalls = Array.isArray((message as any).toolCalls)
-        ? (message as any).toolCalls.map((tc: any) => {
-            const normalizedToolCall = {
-              ...tc,
-              state: normalizeReloadedToolState(tc?.state, latestTurnStatus),
-            }
-
-            const instance = ensureClientToolInstance(
-              normalizedToolCall?.name,
-              normalizedToolCall?.id
-            )
-            instance?.hydratePersistedToolCall?.(normalizedToolCall)
-
-            return {
-              ...normalizedToolCall,
-              display: resolveToolDisplay(
-                normalizedToolCall?.name,
-                normalizedToolCall.state,
-                normalizedToolCall?.id,
-                normalizedToolCall?.params
-              ),
-              ...(normalizedToolCall?.result !== undefined
-                ? { result: normalizedToolCall.result }
-                : {}),
-            }
-          })
-        : (message as any).toolCalls
-
       return {
         ...message,
         content: normalizedContent.content,
-        ...(updatedToolCalls && { toolCalls: updatedToolCalls }),
         ...(finalBlocks.length > 0 ? { contentBlocks: finalBlocks } : {}),
       }
     })
@@ -286,12 +257,6 @@ export function buildPinnedToolCallsById(
       continue
     }
 
-    if (Array.isArray((message as any).toolCalls)) {
-      for (const toolCall of (message as any).toolCalls as CopilotToolCall[]) {
-        pinToolCall(toolCall)
-      }
-    }
-
     if (!message.contentBlocks) continue
 
     for (const block of message.contentBlocks as any[]) {
@@ -313,10 +278,6 @@ function readToolCallsInMessageOrder(message: CopilotMessage): CopilotToolCall[]
 
     seenToolCallIds.add(toolCall.id)
     toolCalls.push(toolCall)
-  }
-
-  for (const toolCall of message.toolCalls ?? []) {
-    appendToolCall(toolCall)
   }
 
   for (const block of message.contentBlocks ?? []) {
@@ -443,22 +404,6 @@ export function updateMessagesForToolCallState(
         })
       : message.contentBlocks
 
-    const toolCalls = Array.isArray((message as any).toolCalls)
-      ? (message as any).toolCalls.map((toolCall: any) => {
-          if (toolCall?.id !== toolCallId) {
-            return toolCall
-          }
-
-          blocksChanged = true
-          return {
-            ...toolCall,
-            state: nextState,
-            display: resolveToolDisplay(toolCall?.name, nextState, toolCallId, toolCall?.params),
-            ...(options?.result !== undefined ? { result: options.result } : {}),
-          }
-        })
-      : (message as any).toolCalls
-
     if (!blocksChanged) {
       result[i] = message
       continue
@@ -468,7 +413,6 @@ export function updateMessagesForToolCallState(
     result[i] = {
       ...message,
       ...(contentBlocks ? { contentBlocks } : {}),
-      ...(toolCalls ? { toolCalls } : {}),
     }
   }
   return result
@@ -542,10 +486,6 @@ export function validateMessagesForLLM(messages: CopilotMessage[]): any[] {
         role: msg.role,
         content,
         timestamp: msg.timestamp,
-        ...(Array.isArray((msg as any).toolCalls) &&
-          (msg as any).toolCalls.length > 0 && {
-            toolCalls: (msg as any).toolCalls,
-          }),
         ...(Array.isArray(msg.citations) &&
           msg.citations.length > 0 && {
             citations: msg.citations,
@@ -567,10 +507,9 @@ export function validateMessagesForLLM(messages: CopilotMessage[]): any[] {
     .filter((m) => {
       if (m.role === 'assistant') {
         const hasText = typeof m.content === 'string' && m.content.trim().length > 0
-        const hasTools = Array.isArray((m as any).toolCalls) && (m as any).toolCalls.length > 0
         const hasBlocks =
           Array.isArray((m as any).contentBlocks) && (m as any).contentBlocks.length > 0
-        return hasText || hasTools || hasBlocks
+        return hasText || hasBlocks
       }
       return true
     })
