@@ -289,7 +289,9 @@ export function resolveWorkspaceIdFromExecutionContext(
     return executionContext.workspaceId
   }
 
-  throw new Error('No active workspace found')
+  throw new Error(
+    'No active workspace found in execution context. Ensure workspaceId is included in tool provenance.'
+  )
 }
 
 function createBootstrappedEntitySessionLease(

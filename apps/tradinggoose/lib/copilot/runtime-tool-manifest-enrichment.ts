@@ -126,6 +126,49 @@ const TG_EDGE_SCHEMA: Record<string, unknown> = {
   },
 }
 
+const WORKFLOW_DOCUMENT_CONTRACT = {
+  type: 'annotated_graph',
+  nodePrefix: TG_BLOCK_LINE_PREFIX,
+  edgePrefix: TG_EDGE_LINE_PREFIX,
+  spec: {
+    canonicalBlock: {
+      idPath: 'id',
+      typePath: 'type',
+      parentIdPath: 'data.parentId',
+    },
+    visibleOverlay: {
+      idLabel: 'id',
+      typeLabel: 'type',
+    },
+    inferParentsFromContainerSubgraphs: true,
+    containers: [
+      {
+        blockType: 'loop',
+        startNodeSuffix: '__loop_start',
+        endNodeSuffix: '__loop_end',
+        startSourceHandle: 'loop-start-source',
+        endSourceHandle: 'loop-end-source',
+        endTargetHandle: 'loop-end-target',
+      },
+      {
+        blockType: 'parallel',
+        startNodeSuffix: '__parallel_start',
+        endNodeSuffix: '__parallel_end',
+        startSourceHandle: 'parallel-start-source',
+        endSourceHandle: 'parallel-end-source',
+        endTargetHandle: 'parallel-end-target',
+      },
+    ],
+    conditionalBranches: [
+      {
+        blockType: 'condition',
+        handlePrefix: 'condition-',
+        branchNodeSeparator: '__condition_',
+      },
+    ],
+  },
+}
+
 function getObjectPropertySchema(
   parameters: Record<string, unknown>,
   propertyName: string
@@ -233,10 +276,7 @@ function buildWorkflowDocumentSemanticValidators(
       path: documentField,
       kind: 'string_document_contract',
       args: {
-        format: TG_MERMAID_DOCUMENT_FORMAT,
-        workflowPrefix: TG_WORKFLOW_LINE_PREFIX,
-        blockPrefix: TG_BLOCK_LINE_PREFIX,
-        edgePrefix: TG_EDGE_LINE_PREFIX,
+        contract: WORKFLOW_DOCUMENT_CONTRACT,
       },
       description:
         'Keep visible Mermaid connection lines aligned with canonical `TG_EDGE` metadata.',

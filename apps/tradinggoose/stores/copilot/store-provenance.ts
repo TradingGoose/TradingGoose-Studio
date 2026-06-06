@@ -78,10 +78,14 @@ export function buildTurnProvenanceFromContexts(
     }
   }
 
-  if (reviewTarget && reviewTarget.entityKind !== 'workflow') {
+  if (reviewTarget && reviewTarget.entityKind !== ENTITY_KIND_WORKFLOW) {
     const reviewWorkspaceId = normalizeOptionalString(reviewTarget.workspaceId)
-    if (reviewWorkspaceId) provenance.workspaceId = reviewWorkspaceId
-    hasContext = Boolean(reviewWorkspaceId) || hasContext
+    if (!reviewWorkspaceId) {
+      return hasContext ? provenance : undefined
+    }
+
+    provenance.workspaceId = reviewWorkspaceId
+    hasContext = true
   }
 
   return hasContext ? provenance : undefined

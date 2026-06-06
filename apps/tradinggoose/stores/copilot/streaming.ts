@@ -451,13 +451,12 @@ export function createSSEHandlers(params: {
 
           if (targetState === ClientToolCallState.success) {
             try {
-              const result = data?.result || data?.data?.result || {}
-              const input = (current as any).params || (current as any).input || {}
-              const todoId = input.id || input.todoId || result.id || result.todoId
-              if (todoId && current.name === 'checkoff_todo') {
-                get().updatePlanTodoStatus(todoId, 'completed')
-              } else if (todoId && current.name === 'mark_todo_in_progress') {
-                get().updatePlanTodoStatus(todoId, 'executing')
+              const input = current.params ?? {}
+              const todoItemId = typeof input.id === 'string' && input.id.trim() ? input.id : null
+              if (todoItemId && current.name === 'checkoff_todo') {
+                get().updatePlanTodoStatus(todoItemId, 'completed')
+              } else if (todoItemId && current.name === 'mark_todo_in_progress') {
+                get().updatePlanTodoStatus(todoItemId, 'executing')
               }
             } catch {}
           }

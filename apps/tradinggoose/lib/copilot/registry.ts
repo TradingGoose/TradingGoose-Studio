@@ -254,7 +254,6 @@ export const ToolArgSchemas = {
           z.string(),
           z.object({
             id: z.string().optional(),
-            todoId: z.string().optional(),
             content: z.string(),
           }),
         ])
@@ -262,12 +261,10 @@ export const ToolArgSchemas = {
       .optional(),
   }),
   checkoff_todo: z.object({
-    id: z.string().optional(),
-    todoId: z.string().optional(),
+    id: z.string(),
   }),
   mark_todo_in_progress: z.object({
-    id: z.string().optional(),
-    todoId: z.string().optional(),
+    id: z.string(),
   }),
   [CopilotTool.read_workflow]: z
     .object({
@@ -823,12 +820,10 @@ export const ToolResultSchemas = {
     todoList: z.array(z.any()).optional(),
   }),
   checkoff_todo: z.object({
-    todoId: z.string().optional(),
-    id: z.string().optional(),
+    id: z.string(),
   }),
   mark_todo_in_progress: z.object({
-    todoId: z.string().optional(),
-    id: z.string().optional(),
+    id: z.string(),
   }),
   [CopilotTool.read_workflow]: WorkflowReadDocumentEnvelope,
   create_workflow: WorkflowMutationResult,

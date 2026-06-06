@@ -75,4 +75,17 @@ describe('buildTurnProvenanceFromContexts', () => {
       contextEntityId: 'workflow-explicit',
     })
   })
+
+  it('does not synthesize workspace provenance for incomplete non-workflow review targets', () => {
+    expect(
+      buildTurnProvenanceFromContexts(undefined, null, null, {
+        workspaceId: null,
+        entityKind: 'skill',
+        entityId: 'skill-review',
+        draftSessionId: null,
+        reviewSessionId: 'review-1',
+        yjsSessionId: 'review-1',
+      })
+    ).toBeUndefined()
+  })
 })

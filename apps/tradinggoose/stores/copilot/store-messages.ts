@@ -328,6 +328,14 @@ function readToolCallsInMessageOrder(message: CopilotMessage): CopilotToolCall[]
   return toolCalls
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value))
+}
+
+function readCanonicalStringId(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value : null
+}
+
 export function buildPlanTodosFromMessages(messages: CopilotMessage[]): PlanTodo[] {
   let todos: PlanTodo[] = []
 
@@ -337,13 +345,8 @@ export function buildPlanTodosFromMessages(messages: CopilotMessage[]): PlanTodo
         continue
       }
 
-      const args = ((toolCall as any).params || (toolCall as any).input || {}) as Record<
-        string,
-        any
-      >
-      const result = (
-        toolCall.result && typeof toolCall.result === 'object' ? toolCall.result : {}
-      ) as Record<string, any>
+      const args = toolCall.params ?? {}
+      const result = isRecord(toolCall.result) ? toolCall.result : {}
 
       if (toolCall.name === 'plan') {
         const todoList = Array.isArray(result.todoList)
@@ -353,19 +356,20 @@ export function buildPlanTodosFromMessages(messages: CopilotMessage[]): PlanTodo
             : null
         if (todoList) {
           todos = todoList
-            .map<PlanTodo | null>((item: any, index: number) => {
+            .map<PlanTodo | null>((item: unknown, index: number) => {
+              const itemRecord = isRecord(item) ? item : null
               const content =
                 typeof item === 'string'
                   ? item.trim()
-                  : typeof item?.content === 'string'
-                    ? item.content.trim()
+                  : typeof itemRecord?.content === 'string'
+                    ? itemRecord.content.trim()
                     : ''
               return content
                 ? {
-                    id: String(item?.id || item?.todoId || `todo-${index}`),
+                    id: readCanonicalStringId(itemRecord?.id) ?? `todo-${index}`,
                     content,
-                    completed: item?.completed === true,
-                    executing: item?.executing === true,
+                    completed: itemRecord?.completed === true,
+                    executing: itemRecord?.executing === true,
                   }
                 : null
             })
@@ -374,18 +378,18 @@ export function buildPlanTodosFromMessages(messages: CopilotMessage[]): PlanTodo
         continue
       }
 
-      const todoId = args.id || args.todoId || result.id || result.todoId
-      if (!todoId) {
+      const todoItemId = readCanonicalStringId(args.id)
+      if (!todoItemId) {
         continue
       }
 
       if (toolCall.name === 'mark_todo_in_progress') {
         todos = todos.map((todo) =>
-          todo.id === todoId ? { ...todo, completed: false, executing: true } : todo
+          todo.id === todoItemId ? { ...todo, completed: false, executing: true } : todo
         )
       } else if (toolCall.name === 'checkoff_todo') {
         todos = todos.map((todo) =>
-          todo.id === todoId ? { ...todo, completed: true, executing: false } : todo
+          todo.id === todoItemId ? { ...todo, completed: true, executing: false } : todo
         )
       }
     }

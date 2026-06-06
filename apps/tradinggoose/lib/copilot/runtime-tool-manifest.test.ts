@@ -311,9 +311,17 @@ describe('copilot runtime tool manifest', () => {
         expect.objectContaining({
           kind: 'string_document_contract',
           args: expect.objectContaining({
-            workflowPrefix: '%% TG_WORKFLOW ',
-            blockPrefix: '%% TG_BLOCK ',
-            edgePrefix: '%% TG_EDGE ',
+            contract: expect.objectContaining({
+              type: 'annotated_graph',
+              nodePrefix: '%% TG_BLOCK ',
+              edgePrefix: '%% TG_EDGE ',
+              spec: expect.objectContaining({
+                canonicalBlock: expect.objectContaining({
+                  idPath: 'id',
+                  typePath: 'type',
+                }),
+              }),
+            }),
           }),
         }),
       ])
