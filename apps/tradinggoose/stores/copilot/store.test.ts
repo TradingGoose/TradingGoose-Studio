@@ -792,7 +792,6 @@ describe('copilot streaming regressions', () => {
       },
     ])
 
-    store.getState().closePlanTodos()
     store.getState().updatePlanTodoStatus('todo-2', 'completed')
     expect(store.getState().showPlanTodos).toBe(false)
     expect(store.getState().planTodos[1]).toMatchObject({
@@ -1039,16 +1038,9 @@ describe('copilot streaming regressions', () => {
       return url === '/api/copilot/chat/update-messages'
     })
     const updateMessagesBody = parseJsonRequestBody(updateMessageCalls.at(-1))
-    expect(updateMessagesBody.latestTurnStatus).toBe('in_progress')
-    expect(store.getState().currentChat?.latestTurnStatus).toBe('in_progress')
-    expect(store.getState().toolCallsById['pending-approval-tool']?.state).toBe(
-      ClientToolCallState.pending
-    )
-    expect(store.getState().isSendingMessage).toBe(true)
-    expect(store.getState().isAwaitingContinuation).toBe(true)
-
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    await Promise.resolve()
+    const [persistedMessage] = updateMessagesBody.messages as any[]
+    expect(updateMessagesBody.latestTurnStatus).toBe('completed')
+    expect(persistedMessage.contentBlocks[0].toolCall.state).toBe(ClientToolCallState.success)
 
     expect(
       fetchMock.mock.calls.some(([input]) => {
@@ -1056,9 +1048,12 @@ describe('copilot streaming regressions', () => {
         return url === '/api/copilot/execute-copilot-server-tool'
       })
     ).toBe(true)
+    expect(store.getState().currentChat?.latestTurnStatus).toBe('completed')
     expect(store.getState().toolCallsById['pending-approval-tool']?.state).toBe(
       ClientToolCallState.success
     )
+    expect(store.getState().isSendingMessage).toBe(false)
+    expect(store.getState().isAwaitingContinuation).toBe(false)
   })
 
   it('keeps aborted server tools terminal after late completion', async () => {

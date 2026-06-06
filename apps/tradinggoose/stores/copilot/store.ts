@@ -133,9 +133,8 @@ function resolveFinalStreamTurnState(
       }
     }
 
-    const toolDrivenStatus = resolveTurnStatusFromToolCalls(toolCallsById)
-    if (toolDrivenStatus !== ACTIVE_TURN_STATUS) {
-      latestTurnStatus = toolDrivenStatus
+    if (!hasUiActiveToolCalls(toolCallsById)) {
+      latestTurnStatus = COMPLETED_TURN_STATUS
       isAwaitingContinuation = false
     }
   }
@@ -336,7 +335,7 @@ const initialState = {
 
 function buildPlanTodoStateFromMessages(messages: CopilotMessage[]) {
   const planTodos = buildPlanTodosFromMessages(messages)
-  return { planTodos, showPlanTodos: planTodos.length > 0 }
+  return { planTodos, showPlanTodos: planTodos.some((todo) => todo.executing === true) }
 }
 
 const sharedSessionSyncGuards = new WeakSet<StoreApi<CopilotStore>>()
@@ -1125,10 +1124,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
 
           resetStreamingQueue()
           const finalContent = getStreamingAssistantContent(context)
-          const { latestTurnStatus, isAwaitingContinuation } = resolveFinalStreamTurnState(
-            context,
-            get().toolCallsById
-          )
           set((state) => ({
             messages: state.messages.map((msg) =>
               msg.id === assistantMessageId
@@ -1139,7 +1134,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                   }
                 : msg
             ),
-            abortController: latestTurnStatus === ACTIVE_TURN_STATUS ? state.abortController : null,
           }))
 
           if (context.newReviewSessionId && !get().currentChat) {
@@ -1151,10 +1145,15 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
 
           await flushPendingAutoExecutionToolCalls(context, get, logger)
 
+          const { latestTurnStatus, isAwaitingContinuation } = resolveFinalStreamTurnState(
+            context,
+            get().toolCallsById
+          )
           set((state) => ({
             ...buildChatTurnStatusState(state, latestTurnStatus),
             isSendingMessage: latestTurnStatus === ACTIVE_TURN_STATUS,
             isAwaitingContinuation,
+            abortController: latestTurnStatus === ACTIVE_TURN_STATUS ? state.abortController : null,
           }))
 
           // Persist full message state (including contentBlocks) to database
@@ -1241,7 +1240,8 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
       setInputValue: (value: string) => set({ inputValue: value }),
 
       // Todo list (UI only)
-      setPlanTodos: (todos) => set({ planTodos: todos, showPlanTodos: todos.length > 0 }),
+      setPlanTodos: (todos) =>
+        set({ planTodos: todos, showPlanTodos: todos.some((todo) => !todo.completed) }),
       updatePlanTodoStatus: (id, status) => {
         set((state) => {
           const planTodos =
@@ -1253,7 +1253,10 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
               ? { ...t, completed: status === 'completed', executing: status === 'executing' }
               : t
           )
-          return { planTodos: updated }
+          return {
+            planTodos: updated,
+            showPlanTodos: updated.some((todo) => !todo.completed) && state.showPlanTodos,
+          }
         })
       },
       closePlanTodos: () => set({ showPlanTodos: false }),
