@@ -7,8 +7,7 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 
 interface MarkTodoInProgressArgs {
-  id?: string
-  todoId?: string
+  id: string
 }
 
 export class MarkTodoInProgressClientTool extends BaseClientTool {
@@ -35,8 +34,8 @@ export class MarkTodoInProgressClientTool extends BaseClientTool {
     try {
       this.setState(ClientToolCallState.executing)
 
-      const todoId = args?.id || args?.todoId
-      if (!todoId) {
+      const todoItemId = args?.id
+      if (!todoItemId) {
         this.setState(ClientToolCallState.error)
         await this.markToolComplete(400, 'Missing todo id')
         return
@@ -46,14 +45,14 @@ export class MarkTodoInProgressClientTool extends BaseClientTool {
         const { getCopilotStoreForToolCall } = await import('@/stores/copilot/store-access')
         const store = getCopilotStoreForToolCall(this.toolCallId).getState()
         if (store.updatePlanTodoStatus) {
-          store.updatePlanTodoStatus(todoId, 'executing')
+          store.updatePlanTodoStatus(todoItemId, 'executing')
         }
       } catch (e) {
         logger.warn('Failed to update todo status in store', { message: (e as any)?.message })
       }
 
       this.setState(ClientToolCallState.success)
-      await this.markToolComplete(200, 'Todo marked in progress', { todoId })
+      await this.markToolComplete(200, 'Todo marked in progress', { id: todoItemId })
       this.setState(ClientToolCallState.success)
     } catch (e: any) {
       logger.error('execute failed', { message: e?.message })

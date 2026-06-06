@@ -729,7 +729,6 @@ describe('copilot streaming regressions', () => {
             ],
           }),
           toolBlock('checkoff_todo', 'todo-tool-1', { id: 'todo-1' }),
-          toolBlock('mark_todo_in_progress', 'todo-tool-2', { id: 'todo-2' }),
           toolBlock(
             'mark_todo_in_progress',
             'todo-tool-pending-1',
@@ -749,16 +748,8 @@ describe('copilot streaming regressions', () => {
         role: 'assistant',
         content: '',
         timestamp: '2026-04-13T00:00:01.000Z',
-        toolCalls: [
-          {
-            id: 'todo-tool-collision',
-            name: 'checkoff_todo',
-            state: ClientToolCallState.success,
-            params: { id: 'todo-1' },
-          },
-        ],
         contentBlocks: [
-          toolBlock('mark_todo_in_progress', 'todo-tool-collision', { id: 'todo-1' }),
+          toolBlock('checkoff_todo', 'todo-tool-collision', { id: 'todo-1' }),
         ],
       },
     ] as any
@@ -796,11 +787,10 @@ describe('copilot streaming regressions', () => {
         id: 'todo-2',
         content: 'Apply the workflow edit',
         completed: false,
-        executing: true,
+        executing: false,
       },
     ])
 
-    store.getState().closePlanTodos()
     store.getState().updatePlanTodoStatus('todo-2', 'completed')
     expect(store.getState().showPlanTodos).toBe(false)
     expect(store.getState().planTodos[1]).toMatchObject({
@@ -808,6 +798,9 @@ describe('copilot streaming regressions', () => {
       completed: true,
       executing: false,
     })
+
+    store.getState().updatePlanTodoStatus('todo-2', 'executing')
+    expect(store.getState().showPlanTodos).toBe(true)
   })
 
   it('uses the final output item text when it differs from streamed deltas', async () => {
@@ -1034,7 +1027,7 @@ describe('copilot streaming regressions', () => {
             type: 'function_call',
             call_id: 'pending-approval-tool',
             name: 'get_blocks_metadata',
-            arguments: {},
+            arguments: { blockTypes: ['agent'] },
           },
         },
         { type: 'awaiting_tools', data: { pendingToolCallIds: ['pending-approval-tool'] } },
@@ -1047,16 +1040,9 @@ describe('copilot streaming regressions', () => {
       return url === '/api/copilot/chat/update-messages'
     })
     const updateMessagesBody = parseJsonRequestBody(updateMessageCalls.at(-1))
-    expect(updateMessagesBody.latestTurnStatus).toBe('in_progress')
-    expect(store.getState().currentChat?.latestTurnStatus).toBe('in_progress')
-    expect(store.getState().toolCallsById['pending-approval-tool']?.state).toBe(
-      ClientToolCallState.pending
-    )
-    expect(store.getState().isSendingMessage).toBe(true)
-    expect(store.getState().isAwaitingContinuation).toBe(true)
-
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    await Promise.resolve()
+    const [persistedMessage] = updateMessagesBody.messages as any[]
+    expect(updateMessagesBody.latestTurnStatus).toBe('completed')
+    expect(persistedMessage.contentBlocks[0].toolCall.state).toBe(ClientToolCallState.success)
 
     expect(
       fetchMock.mock.calls.some(([input]) => {
@@ -1064,9 +1050,12 @@ describe('copilot streaming regressions', () => {
         return url === '/api/copilot/execute-copilot-server-tool'
       })
     ).toBe(true)
+    expect(store.getState().currentChat?.latestTurnStatus).toBe('completed')
     expect(store.getState().toolCallsById['pending-approval-tool']?.state).toBe(
       ClientToolCallState.success
     )
+    expect(store.getState().isSendingMessage).toBe(false)
+    expect(store.getState().isAwaitingContinuation).toBe(false)
   })
 
   it('keeps aborted server tools terminal after late completion', async () => {
@@ -1101,7 +1090,7 @@ describe('copilot streaming regressions', () => {
           id: toolCallId,
           name: 'get_blocks_metadata',
           state: ClientToolCallState.pending,
-          params: { blockIds: ['agent'] },
+          params: { blockTypes: ['agent'] },
         } as any,
       },
     })
@@ -1627,14 +1616,6 @@ describe('copilot streaming regressions', () => {
           role: 'assistant',
           content: '',
           timestamp: '2026-03-30T00:00:00.000Z',
-          toolCalls: [
-            {
-              id: 'tool-active-chat',
-              name: 'edit_indicator',
-              state: ClientToolCallState.executing,
-              params: { entityDocument: '{}' },
-            },
-          ],
           contentBlocks: [
             {
               type: 'tool_call',
@@ -1671,9 +1652,6 @@ describe('copilot streaming regressions', () => {
       reviewSessionId: 'review-active-chat',
       latestTurnStatus: 'completed',
     })
-    expect((requestBody.messages as any[])?.[0]?.toolCalls?.[0]?.state).toBe(
-      ClientToolCallState.aborted
-    )
     expect((requestBody.messages as any[])?.[0]?.contentBlocks?.[0]?.toolCall?.state).toBe(
       ClientToolCallState.aborted
     )
@@ -1758,17 +1736,6 @@ describe('copilot streaming regressions', () => {
           role: 'assistant',
           content: '',
           timestamp: '2026-03-30T00:00:00.000Z',
-          toolCalls: [
-            {
-              id: 'tool-review-chat',
-              name: 'edit_workflow',
-              state: ClientToolCallState.review,
-              params: {
-                entityDocument: 'workflow: {}',
-                entityId: 'wf-active-chat-review-tools',
-              },
-            },
-          ],
           contentBlocks: [
             {
               type: 'tool_call',
@@ -1811,9 +1778,6 @@ describe('copilot streaming regressions', () => {
       reviewSessionId: 'review-active-chat-review-tools',
       latestTurnStatus: 'completed',
     })
-    expect((requestBody.messages as any[])?.[0]?.toolCalls?.[0]?.state).toBe(
-      ClientToolCallState.review
-    )
     expect((requestBody.messages as any[])?.[0]?.contentBlocks?.[0]?.toolCall?.state).toBe(
       ClientToolCallState.review
     )
@@ -1867,14 +1831,6 @@ describe('copilot streaming regressions', () => {
           role: 'assistant',
           content: '',
           timestamp: '2026-03-30T00:00:00.000Z',
-          toolCalls: [
-            {
-              id: 'tool-new-chat-abort',
-              name: 'edit_indicator',
-              state: ClientToolCallState.pending,
-              params: { entityDocument: '{}' },
-            },
-          ],
           contentBlocks: [
             {
               type: 'tool_call',
@@ -1911,9 +1867,6 @@ describe('copilot streaming regressions', () => {
       reviewSessionId: 'review-new-chat-abort',
       latestTurnStatus: 'completed',
     })
-    expect((requestBody.messages as any[])?.[0]?.toolCalls?.[0]?.state).toBe(
-      ClientToolCallState.aborted
-    )
     expect((requestBody.messages as any[])?.[0]?.contentBlocks?.[0]?.toolCall?.state).toBe(
       ClientToolCallState.aborted
     )
@@ -3101,6 +3054,7 @@ describe('copilot tool user action delegation', () => {
         context: {
           contextEntityKind: 'workflow',
           contextEntityId: 'wf-api-request-access-switch',
+          workspaceId: 'workspace-1',
         },
       })
       expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.success)

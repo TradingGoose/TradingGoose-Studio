@@ -9,6 +9,7 @@ import {
 import { REVIEW_ENTITY_KINDS } from '@/lib/copilot/review-sessions/types'
 import { buildCopilotServerToolErrorResponse } from '@/lib/copilot/server-tool-errors'
 import { createLogger } from '@/lib/logs/console/logger'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 
 const logger = createLogger('ExecuteCopilotServerToolAPI')
 
@@ -19,6 +20,7 @@ const ExecuteSchema = z.object({
     .object({
       contextEntityKind: z.enum(REVIEW_ENTITY_KINDS).optional(),
       contextEntityId: z.string().optional(),
+      workspaceId: z.string().optional(),
     })
     .optional(),
 })
@@ -63,6 +65,16 @@ export async function POST(req: NextRequest) {
     }
 
     logger.info(`[${tracker.requestId}] Executing server tool`, { toolName })
+    if (context?.workspaceId) {
+      const workspaceAccess = await checkWorkspaceAccess(context.workspaceId, userId)
+      if (!workspaceAccess.exists || !workspaceAccess.hasAccess) {
+        return NextResponse.json(
+          { error: 'Access denied to this workspace', code: 'WORKSPACE_ACCESS_DENIED' },
+          { status: 403 }
+        )
+      }
+    }
+
     const result = await routeExecution(toolName, payload, {
       userId,
       ...context,

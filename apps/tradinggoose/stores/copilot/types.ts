@@ -30,7 +30,6 @@ export interface CopilotMessage {
   content: string
   timestamp: string
   citations?: { id: number; title: string; url: string; similarity?: number }[]
-  toolCalls?: CopilotToolCall[]
   contentBlocks?: Array<
     | { type: 'text'; content: string; timestamp: number; itemId?: string }
     | {

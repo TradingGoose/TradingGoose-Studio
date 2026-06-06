@@ -271,12 +271,12 @@ function applyStreamedFunctionCallItem(
   context.pendingAutoExecutionToolCallIds.add(id)
 }
 
-function scheduleAutomaticToolExecution(
+async function executeAutomaticToolCall(
   toolCallId: string,
   toolName: string,
   get: () => CopilotStore,
   logger: StreamingLogger
-) {
+): Promise<void> {
   try {
     const { accessLevel } = get()
     if (shouldRequireToolApproval(accessLevel, isGatedTool(toolName))) {
@@ -293,11 +293,9 @@ function scheduleAutomaticToolExecution(
       id: toolCallId,
       name: toolName,
     })
-    setTimeout(() => {
-      void get().executeCopilotToolCall(toolCallId)
-    }, 0)
+    await get().executeCopilotToolCall(toolCallId)
   } catch (error) {
-    logger.warn('Tool auto-exec check failed', {
+    logger.warn('Tool auto-exec failed', {
       id: toolCallId,
       name: toolName,
       error,
@@ -324,7 +322,7 @@ export async function flushPendingAutoExecutionToolCalls(
       continue
     }
 
-    scheduleAutomaticToolExecution(toolCallId, toolCall.name, get, logger)
+    await executeAutomaticToolCall(toolCallId, toolCall.name, get, logger)
   }
 }
 
@@ -448,19 +446,6 @@ export function createSSEHandlers(params: {
               },
             },
           })
-
-          if (targetState === ClientToolCallState.success) {
-            try {
-              const result = data?.result || data?.data?.result || {}
-              const input = (current as any).params || (current as any).input || {}
-              const todoId = input.id || input.todoId || result.id || result.todoId
-              if (todoId && current.name === 'checkoff_todo') {
-                get().updatePlanTodoStatus(todoId, 'completed')
-              } else if (todoId && current.name === 'mark_todo_in_progress') {
-                get().updatePlanTodoStatus(todoId, 'executing')
-              }
-            } catch {}
-          }
         }
 
         buildStreamedToolDisplayState(toolCallId, targetState, context, result)
@@ -609,6 +594,8 @@ export function createSSEHandlers(params: {
       context.streamComplete = true
     },
     awaiting_tools: (_data, context) => {
+      context.latestTurnStatus = ACTIVE_TURN_STATUS
+      context.awaitingTools = true
       context.streamComplete = true
     },
     stream_end: (_data, context, _get, set) => {

@@ -5,6 +5,7 @@ import {
 } from '@/lib/copilot/tools/server/base-tool'
 import {
   createWorkflowPermissionError,
+  resolveServerWorkspaceId,
   resolveServerWorkflowScope,
 } from '@/lib/copilot/tools/server/workflow/workflow-scope'
 import { getOAuthAccessTokenForUserCredential } from '@/lib/credentials/oauth'
@@ -33,6 +34,7 @@ export const listGDriveFilesServerTool: BaseServerTool<ListGDriveFilesParams, an
       throw new Error(createWorkflowPermissionError('access Google Drive files in'))
     }
     throwIfServerToolAborted(context)
+    const workspaceId = resolveServerWorkspaceId(context, workflowScope)
 
     const query = search_query
     const pageSize = num_results
@@ -41,7 +43,7 @@ export const listGDriveFilesServerTool: BaseServerTool<ListGDriveFilesParams, an
       credentialId,
       userId: uid,
       requestId: `copilot-gdrive-list-${credentialId}`,
-      workspaceId: workflowScope?.workspaceId,
+      workspaceId,
     })
     if (!accessToken) {
       throw new Error(

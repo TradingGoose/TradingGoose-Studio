@@ -1,4 +1,4 @@
-import { CopilotTool, isToolId, type ToolId } from '@/lib/copilot/registry'
+import { CopilotTool, isToolId, ToolArgSchemas, type ToolId } from '@/lib/copilot/registry'
 import type {
   BaseClientTool,
   BaseClientToolMetadata,
@@ -54,6 +54,7 @@ import { RenameWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/re
 import { RunWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/run-workflow'
 import { SetWorkflowVariablesClientTool } from '@/lib/copilot/tools/client/workflow/set-workflow-variables'
 import { createLogger } from '@/lib/logs/console/logger'
+import { useEnvironmentStore } from '@/stores/settings/environment/store'
 import type { CopilotToolExecutionProvenance } from '@/stores/copilot/types'
 
 const logger = createLogger('CopilotToolRegistry')
@@ -260,11 +261,28 @@ export function bindClientToolExecutionContext(
 }
 
 export function prepareCopilotToolArgs(
-  _toolName: string | undefined,
+  toolName: string | undefined,
   args: Record<string, any> | undefined,
   _context: ClientToolExecutionContext
 ): Record<string, any> {
-  return cloneArgs(args)
+  const clonedArgs = cloneArgs(args)
+  if (!toolName || !isToolId(toolName)) {
+    return clonedArgs
+  }
+
+  return ToolArgSchemas[toolName].parse(clonedArgs) as Record<string, any>
+}
+
+export async function handleCopilotServerToolSuccess(toolName: string | undefined): Promise<void> {
+  if (toolName !== CopilotTool.set_environment_variables) {
+    return
+  }
+
+  try {
+    await useEnvironmentStore.getState().loadEnvironmentVariables()
+  } catch (error) {
+    logger.warn('Failed to refresh environment store after setting variables', { error })
+  }
 }
 
 export function getToolInterruptDisplays(

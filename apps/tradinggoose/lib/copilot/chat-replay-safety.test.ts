@@ -129,11 +129,14 @@ describe('chat replay safety', () => {
     expect(
       messageHasAcceptedLiveMutation({
         id: 'assistant-2',
-        toolCalls: [
+        contentBlocks: [
           {
-            id: 'tool-2',
-            name: 'list_custom_tools',
-            state: 'success',
+            type: 'tool_call',
+            toolCall: {
+              id: 'tool-2',
+              name: 'list_custom_tools',
+              state: 'success',
+            },
           },
         ],
       })
@@ -144,7 +147,6 @@ describe('chat replay safety', () => {
     const messages = [
       {
         id: 'message-1',
-        toolCalls: [],
       },
       {
         id: 'message-2',
@@ -161,7 +163,6 @@ describe('chat replay safety', () => {
       },
       {
         id: 'message-3',
-        toolCalls: [],
       },
     ]
 

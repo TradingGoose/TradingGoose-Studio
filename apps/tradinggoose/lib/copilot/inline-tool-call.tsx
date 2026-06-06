@@ -418,7 +418,7 @@ export function InlineToolCall({
   }
 
   const displayName = getDisplayName(toolCall)
-  const params = (toolCall as any).parameters || (toolCall as any).input || toolCall.params || {}
+  const params = toolCall.params ?? {}
   const entityReviewPayload = readEntityReviewPayload(toolCall)
   const workflowReviewPayload = readWorkflowReviewPayload(toolCall)
   const showWorkflowReview = workflowReviewPayload && isStagedPreviewState(toolCall.state)

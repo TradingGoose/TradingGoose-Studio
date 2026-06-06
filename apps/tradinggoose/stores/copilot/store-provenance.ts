@@ -78,10 +78,14 @@ export function buildTurnProvenanceFromContexts(
     }
   }
 
-  if (reviewTarget && reviewTarget.entityKind !== 'workflow') {
+  if (reviewTarget && reviewTarget.entityKind !== ENTITY_KIND_WORKFLOW) {
     const reviewWorkspaceId = normalizeOptionalString(reviewTarget.workspaceId)
-    if (reviewWorkspaceId) provenance.workspaceId = reviewWorkspaceId
-    hasContext = Boolean(reviewWorkspaceId) || hasContext
+    if (!reviewWorkspaceId) {
+      return hasContext ? provenance : undefined
+    }
+
+    provenance.workspaceId = reviewWorkspaceId
+    hasContext = true
   }
 
   return hasContext ? provenance : undefined
@@ -113,13 +117,6 @@ export function findAssistantMessageIdForToolCall(
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index]
     if (message.role !== 'assistant') continue
-
-    if (
-      Array.isArray(message.toolCalls) &&
-      message.toolCalls.some((toolCall) => toolCall.id === toolCallId)
-    ) {
-      return message.id
-    }
 
     if (
       Array.isArray(message.contentBlocks) &&

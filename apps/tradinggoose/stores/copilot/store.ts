@@ -68,6 +68,7 @@ import {
   bindClientToolExecutionContext,
   createExecutionContext,
   ensureClientToolInstance,
+  handleCopilotServerToolSuccess,
   isCopilotTool,
   isServerManagedCopilotTool,
   prepareCopilotToolArgs,
@@ -86,7 +87,6 @@ import {
   getCopilotWorkspaceSelection,
   rememberCopilotWorkspaceSelection,
 } from '@/stores/copilot/workspace-selection'
-import { useEnvironmentStore } from '@/stores/settings/environment/store'
 
 const logger = createLogger('CopilotStore')
 
@@ -133,9 +133,8 @@ function resolveFinalStreamTurnState(
       }
     }
 
-    const toolDrivenStatus = resolveTurnStatusFromToolCalls(toolCallsById)
-    if (toolDrivenStatus !== ACTIVE_TURN_STATUS) {
-      latestTurnStatus = toolDrivenStatus
+    if (!hasUiActiveToolCalls(toolCallsById)) {
+      latestTurnStatus = COMPLETED_TURN_STATUS
       isAwaitingContinuation = false
     }
   }
@@ -336,7 +335,7 @@ const initialState = {
 
 function buildPlanTodoStateFromMessages(messages: CopilotMessage[]) {
   const planTodos = buildPlanTodosFromMessages(messages)
-  return { planTodos, showPlanTodos: planTodos.length > 0 }
+  return { planTodos, showPlanTodos: planTodos.some((todo) => !todo.completed) }
 }
 
 const sharedSessionSyncGuards = new WeakSet<StoreApi<CopilotStore>>()
@@ -1125,10 +1124,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
 
           resetStreamingQueue()
           const finalContent = getStreamingAssistantContent(context)
-          const { latestTurnStatus, isAwaitingContinuation } = resolveFinalStreamTurnState(
-            context,
-            get().toolCallsById
-          )
           set((state) => ({
             messages: state.messages.map((msg) =>
               msg.id === assistantMessageId
@@ -1139,7 +1134,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                   }
                 : msg
             ),
-            abortController: latestTurnStatus === ACTIVE_TURN_STATUS ? state.abortController : null,
           }))
 
           if (context.newReviewSessionId && !get().currentChat) {
@@ -1151,10 +1145,15 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
 
           await flushPendingAutoExecutionToolCalls(context, get, logger)
 
+          const { latestTurnStatus, isAwaitingContinuation } = resolveFinalStreamTurnState(
+            context,
+            get().toolCallsById
+          )
           set((state) => ({
             ...buildChatTurnStatusState(state, latestTurnStatus),
             isSendingMessage: latestTurnStatus === ACTIVE_TURN_STATUS,
             isAwaitingContinuation,
+            abortController: latestTurnStatus === ACTIVE_TURN_STATUS ? state.abortController : null,
           }))
 
           // Persist full message state (including contentBlocks) to database
@@ -1241,7 +1240,8 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
       setInputValue: (value: string) => set({ inputValue: value }),
 
       // Todo list (UI only)
-      setPlanTodos: (todos) => set({ planTodos: todos, showPlanTodos: todos.length > 0 }),
+      setPlanTodos: (todos) =>
+        set({ planTodos: todos, showPlanTodos: todos.some((todo) => !todo.completed) }),
       updatePlanTodoStatus: (id, status) => {
         set((state) => {
           const planTodos =
@@ -1253,7 +1253,10 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
               ? { ...t, completed: status === 'completed', executing: status === 'executing' }
               : t
           )
-          return { planTodos: updated }
+          return {
+            planTodos: updated,
+            showPlanTodos: updated.some((todo) => !todo.completed),
+          }
         })
       },
       closePlanTodos: () => set({ showPlanTodos: false }),
@@ -1368,11 +1371,30 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           toolName: name,
           provenance: provenance ?? {},
         })
-        const preparedArgs = {
-          ...prepareCopilotToolArgs(name, params, executionContext),
-          ...(actionArgs || {}),
-        }
         const targetStore = getCopilotStore(storeChannelId)
+        let preparedArgs: Record<string, any>
+
+        try {
+          preparedArgs = prepareCopilotToolArgs(
+            name,
+            {
+              ...(params || {}),
+              ...(actionArgs || {}),
+            },
+            executionContext
+          )
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          applyToolStateUpdate(targetStore, id, ClientToolCallState.error)
+          await postCopilotMarkComplete({
+            toolCallId: id,
+            toolName: name || 'unknown_tool',
+            status: 400,
+            message,
+          }).catch(() => {})
+          logger.error('Copilot tool argument validation failed', { id, name, error })
+          return
+        }
 
         applyToolStateUpdate(targetStore, id, ClientToolCallState.executing)
         logger.info('[toolCallsById] pending → executing (copilot tool)', { id, name })
@@ -1386,6 +1408,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                     contextEntityId: provenance.contextEntityId,
                   }
                 : {}),
+              ...(provenance?.workspaceId ? { workspaceId: provenance.workspaceId } : {}),
             }
             const result = await executeCopilotServerTool({
               toolName: name,
@@ -1410,14 +1433,8 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
               logicalSuccess ? ClientToolCallState.success : ClientToolCallState.error
             )
 
-            if (logicalSuccess && name === 'set_environment_variables') {
-              try {
-                await useEnvironmentStore.getState().loadEnvironmentVariables()
-              } catch (error) {
-                logger.warn('Failed to refresh environment store after setting variables', {
-                  error,
-                })
-              }
+            if (logicalSuccess) {
+              await handleCopilotServerToolSuccess(name)
             }
 
             const completionMessage =

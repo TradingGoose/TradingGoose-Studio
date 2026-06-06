@@ -151,7 +151,7 @@ describe('copilot runtime tool manifest', () => {
             expect.objectContaining({
               path: 'entityDocument',
               kind: 'string_requires_real_newlines',
-              description: expect.stringContaining('Cheap format guard only'),
+              description: expect.stringContaining('Studio validates workflow graph semantics'),
             }),
             expect.objectContaining({
               path: 'entityDocument',
@@ -291,9 +291,9 @@ describe('copilot runtime tool manifest', () => {
         'string_requires_line_prefix',
         'string_line_prefix_json_schema',
         'string_forbids_substring',
-        'string_document_contract',
       ])
     )
+    expect(workflowValidatorKinds).not.toContain('string_document_contract')
     expect(editWorkflowValidators).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -307,14 +307,6 @@ describe('copilot runtime tool manifest', () => {
         expect.objectContaining({
           kind: 'string_line_prefix_json_schema',
           args: expect.objectContaining({ prefix: '%% TG_EDGE ', schema: expect.any(Object) }),
-        }),
-        expect.objectContaining({
-          kind: 'string_document_contract',
-          args: expect.objectContaining({
-            workflowPrefix: '%% TG_WORKFLOW ',
-            blockPrefix: '%% TG_BLOCK ',
-            edgePrefix: '%% TG_EDGE ',
-          }),
         }),
       ])
     )

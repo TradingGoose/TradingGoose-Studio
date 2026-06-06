@@ -5,6 +5,7 @@ import type {
 } from '@/lib/copilot/tools/server/base-tool'
 import {
   createWorkflowPermissionError,
+  resolveServerWorkspaceId,
   resolveServerWorkflowScope,
 } from '@/lib/copilot/tools/server/workflow/workflow-scope'
 import { listOAuthCredentialsForUser } from '@/lib/credentials/oauth'
@@ -37,7 +38,7 @@ export const readCredentialsServerTool: BaseServerTool<ReadCredentialsParams, an
       })
       throw new Error(errorMessage)
     }
-    const workspaceId = workflowScope?.workspaceId
+    const workspaceId = resolveServerWorkspaceId(context, workflowScope)
 
     const userId = authenticatedUserId
 

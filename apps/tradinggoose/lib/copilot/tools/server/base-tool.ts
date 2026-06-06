@@ -5,6 +5,7 @@ export interface ServerToolExecutionContext {
   userId: string
   contextEntityKind?: ReviewEntityKind
   contextEntityId?: string
+  workspaceId?: string
   signal?: AbortSignal
 }
 
