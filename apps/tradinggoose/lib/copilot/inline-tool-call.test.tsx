@@ -13,7 +13,7 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 }
 
 const mockUseCopilotStoreState = {
-  accessLevel: 'limited' as const,
+  accessLevel: 'limited' as 'limited' | 'full',
   executeCopilotToolCall: vi.fn(),
   skipCopilotToolCall: vi.fn(),
   toolCallsById: {},
@@ -59,6 +59,7 @@ describe('InlineToolCall', () => {
     mockGetToolInterruptDisplays.mockReset()
     mockUseCopilotStoreState.executeCopilotToolCall.mockReset()
     mockUseCopilotStoreState.skipCopilotToolCall.mockReset()
+    mockUseCopilotStoreState.accessLevel = 'limited'
     mockUseCopilotStoreState.toolCallsById = {}
     container = document.createElement('div')
     document.body.appendChild(container)
@@ -132,14 +133,14 @@ describe('InlineToolCall', () => {
     )
   })
 
-  it('does not render a workflow preview card for non-review workflow tool states', async () => {
+  it('does not render a workflow preview card for active workflow tool states', async () => {
     await act(async () => {
       root.render(
         <InlineToolCall
           toolCall={{
             id: 'tool-applied-edit',
             name: 'edit_workflow',
-            state: ClientToolCallState.success,
+            state: ClientToolCallState.executing,
             result: {
               workflowState: {
                 blocks: {
@@ -176,7 +177,7 @@ describe('InlineToolCall', () => {
     expect(container.querySelector('[data-testid="workflow-preview"]')).toBeNull()
   })
 
-  it('does not render a workflow preview card after edit_workflow is accepted', async () => {
+  it('renders the workflow preview card after edit_workflow is accepted', async () => {
     await act(async () => {
       root.render(
         <InlineToolCall
@@ -203,9 +204,9 @@ describe('InlineToolCall', () => {
       )
     })
 
-    expect(container.textContent).not.toContain('Blocks +')
-    expect(container.textContent).not.toContain('Blocks -')
-    expect(container.querySelector('[data-testid="workflow-preview"]')).toBeNull()
+    expect(container.querySelector('[data-testid="workflow-preview"]')?.textContent).toContain(
+      'trigger-1'
+    )
   })
 
   it('renders only the workflow review for staged edit_workflow_block results', async () => {
@@ -252,8 +253,9 @@ describe('InlineToolCall', () => {
     )
   })
 
-  it('shows review controls for staged workflow edits without generic Allow', async () => {
+  it('shows review controls for staged workflow edits in full access without generic Allow', async () => {
     const toolCallId = 'tool-workflow-review'
+    mockUseCopilotStoreState.accessLevel = 'full'
     mockGetToolInterruptDisplays.mockReturnValue({
       accept: { text: 'Accept' },
       reject: { text: 'Reject' },
@@ -297,7 +299,8 @@ describe('InlineToolCall', () => {
     expect(container.textContent).not.toContain('Allow')
   })
 
-  it('renders entity review diffs from staged tool results', async () => {
+  it('renders entity review diffs and controls from staged tool results in full access', async () => {
+    mockUseCopilotStoreState.accessLevel = 'full'
     mockGetToolInterruptDisplays.mockReturnValue({
       accept: { text: 'Accept changes' },
       reject: { text: 'Reject changes' },
@@ -349,5 +352,4 @@ describe('InlineToolCall', () => {
     expect(container.textContent).toContain('Accept changes')
     expect(container.textContent).toContain('Reject changes')
   })
-
 })

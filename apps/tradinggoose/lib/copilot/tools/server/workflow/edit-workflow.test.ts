@@ -62,8 +62,8 @@ describe('editWorkflowServerTool', () => {
 
       const result = await editWorkflowServerTool.execute(
         {
-          workflowId: 'wf-1',
-          workflowDocument: [
+          entityId: 'wf-1',
+          entityDocument: [
             'flowchart TD',
             '%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
             '%% TG_BLOCK {"id":"block-1","type":"input_trigger","name":"Edited Trigger","position":{"x":0,"y":0},"subBlocks":{},"outputs":{},"enabled":true}',
@@ -104,8 +104,8 @@ describe('editWorkflowServerTool', () => {
     await expect(
       editWorkflowServerTool.execute(
         {
-          workflowId: 'wf-1',
-          workflowDocument: [
+          entityId: 'wf-1',
+          entityDocument: [
             'flowchart TD',
             '%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
             '%% TG_BLOCK {"id":"block-1","blockType":"input_trigger","blockName":"Edited Trigger","blockDescription":"ignored","position":{"x":0,"y":0},"subBlocks":{},"outputs":{},"enabled":true}',
@@ -142,8 +142,8 @@ describe('editWorkflowServerTool', () => {
     await expect(
       editWorkflowServerTool.execute(
         {
-          workflowId: 'wf-1',
-          workflowDocument: [
+          entityId: 'wf-1',
+          entityDocument: [
             'flowchart TD',
             '%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
             'inputTrigger["Input Form<br/>id: inputTrigger<br/>type: input_trigger<br/>enabled: true"]',
@@ -205,8 +205,8 @@ describe('editWorkflowServerTool', () => {
 
     const result = await editWorkflowServerTool.execute(
       {
-        workflowId: 'wf-1',
-        workflowDocument: [
+        entityId: 'wf-1',
+        entityDocument: [
           'flowchart LR',
           '%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"LR"}',
           'inputTrigger(["Input Trigger"])',
@@ -270,8 +270,8 @@ describe('editWorkflowServerTool', () => {
     await expect(
       editWorkflowServerTool.execute(
         {
-          workflowId: 'wf-1',
-          workflowDocument: buildInputTriggerWorkflowDocument({
+          entityId: 'wf-1',
+          entityDocument: buildInputTriggerWorkflowDocument({
             inputSchema: {
               id: 'inputSchema',
               type: 'short_text',
@@ -311,8 +311,8 @@ describe('editWorkflowServerTool', () => {
     await expect(
       editWorkflowServerTool.execute(
         {
-          workflowId: 'wf-1',
-          workflowDocument: buildInputTriggerWorkflowDocument({
+          entityId: 'wf-1',
+          entityDocument: buildInputTriggerWorkflowDocument({
             ticker: {
               id: 'ticker',
               type: 'short_text',

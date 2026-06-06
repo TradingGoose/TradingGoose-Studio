@@ -36,7 +36,7 @@ describe('SetWorkflowVariablesClientTool', () => {
     mockCopilotState.toolCallsById = {}
   })
 
-  it('uses explicit workflowId and writes variables only through the live Yjs session', async () => {
+  it('uses explicit entityId and writes variables only through the live Yjs session', async () => {
     const doc = { kind: 'workflow-doc' }
     mockGetRegisteredWorkflowSession.mockReturnValue({ doc })
     mockGetVariablesForWorkflow.mockReturnValue({
@@ -75,12 +75,13 @@ describe('SetWorkflowVariablesClientTool', () => {
       toolCallId,
       toolName: 'set_workflow_variables',
       channelId: 'pair-purple',
-      workflowId: 'wf-context',
+      contextEntityKind: 'workflow',
+      contextEntityId: 'wf-context',
       log: vi.fn(),
     })
 
     await tool.handleAccept({
-      workflowId: 'wf-target',
+      entityId: 'wf-target',
       operations: [
         { operation: 'edit', name: 'existing', type: 'number', value: '42' },
         { operation: 'add', name: 'newVar', type: 'boolean', value: 'true' },

@@ -50,7 +50,11 @@ describe('readGDriveFileServerTool', () => {
     await expect(
       readGDriveFileServerTool.execute(
         { credentialId: 'credential-1', fileId: 'file-1', type: 'doc' },
-        { userId: 'auth-user', contextWorkflowId: 'workflow-1' }
+        {
+          userId: 'auth-user',
+          contextEntityKind: 'workflow',
+          contextEntityId: 'workflow-1',
+        }
       )
     ).resolves.toEqual({
       type: 'doc',

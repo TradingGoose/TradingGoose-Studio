@@ -171,8 +171,8 @@ describe('copilot contract registry', () => {
     const contract = getToolContract('get_agent_accessory_catalog')
 
     expect(contract?.args.parse({})).toEqual({})
-    expect(contract?.args.parse({ workflowId: 'workflow-123' })).toEqual({
-      workflowId: 'workflow-123',
+    expect(contract?.args.parse({ entityId: 'workflow-123' })).toEqual({
+      entityId: 'workflow-123',
     })
     expect(contract?.result.parse(agentAccessoryCatalogResult)).toEqual(agentAccessoryCatalogResult)
     expect(() => contract?.args.parse({ workspaceId: 'workspace-123' })).toThrow()
@@ -206,8 +206,7 @@ describe('copilot contract registry', () => {
       getToolContract('read_workflow')?.result.parse({
         entityKind: 'workflow',
         entityId: 'workflow-123',
-        entityDocument:
-          'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
+        entityDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
         documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
         workflowSummary: {
           blocks: [
@@ -235,19 +234,19 @@ describe('copilot contract registry', () => {
     })
   })
 
-  it('accepts explicit workflow ids on workflow execution tools', () => {
+  it('accepts explicit entity ids on workflow execution tools', () => {
     expect(() => getToolContract('run_workflow')?.args.parse({})).toThrow()
     expect(() => getToolContract('read_workflow')?.args.parse({})).toThrow()
-    expect(getToolContract('run_workflow')?.args.parse({ workflowId: 'workflow-123' })).toEqual({
-      workflowId: 'workflow-123',
+    expect(getToolContract('run_workflow')?.args.parse({ entityId: 'workflow-123' })).toEqual({
+      entityId: 'workflow-123',
     })
     expect(
       getToolContract('set_workflow_variables')?.args.parse({
-        workflowId: 'workflow-123',
+        entityId: 'workflow-123',
         operations: [],
       })
     ).toEqual({
-      workflowId: 'workflow-123',
+      entityId: 'workflow-123',
       operations: [],
     })
   })
@@ -259,10 +258,14 @@ describe('routeExecution', () => {
     controller.abort()
 
     await expect(
-      routeExecution('read_environment_variables', {}, {
-        userId: 'user-1',
-        signal: controller.signal,
-      })
+      routeExecution(
+        'read_environment_variables',
+        {},
+        {
+          userId: 'user-1',
+          signal: controller.signal,
+        }
+      )
     ).rejects.toMatchObject({ name: 'AbortError' })
 
     expect(readEnvironmentVariablesExecute).not.toHaveBeenCalled()
@@ -296,7 +299,8 @@ describe('routeExecution', () => {
   it('routes agent accessory catalog requests through the central contract', async () => {
     const context = {
       userId: 'user-1',
-      contextWorkflowId: 'workflow-current',
+      contextEntityKind: 'workflow' as const,
+      contextEntityId: 'workflow-current',
     }
 
     await expect(routeExecution('get_agent_accessory_catalog', {}, context)).resolves.toMatchObject(
@@ -323,11 +327,11 @@ describe('routeExecution', () => {
     )
   })
 
-  it('preserves workflow edit context fields when routing workflow tools', async () => {
+  it('preserves workflow edit entity fields when routing workflow tools', async () => {
     const payload = {
-      workflowDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
+      entityDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
       documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
-      workflowId: 'workflow-123',
+      entityId: 'workflow-123',
       currentWorkflowState: '{"blocks":{}}',
     }
 
@@ -341,9 +345,9 @@ describe('routeExecution', () => {
     expect(editWorkflowExecute).toHaveBeenCalledWith(payload, undefined)
   })
 
-  it('preserves workflowId when routing workflow logs requests', async () => {
+  it('preserves entityId when routing workflow logs requests', async () => {
     const payload = {
-      workflowId: 'workflow-123',
+      entityId: 'workflow-123',
       limit: 5,
       includeDetails: false,
     }
@@ -358,7 +362,8 @@ describe('routeExecution', () => {
   it('forwards ambient workflow context separately from raw tool args', async () => {
     const context = {
       userId: 'user-1',
-      contextWorkflowId: 'workflow-current',
+      contextEntityKind: 'workflow' as const,
+      contextEntityId: 'workflow-current',
     }
 
     await expect(routeExecution('read_environment_variables', {}, context)).resolves.toMatchObject({
@@ -372,30 +377,30 @@ describe('routeExecution', () => {
   it.each([
     {
       toolName: 'read_environment_variables',
-      payload: { workflowId: 'workflow-123' },
+      payload: { entityId: 'workflow-123' },
       execute: readEnvironmentVariablesExecute,
     },
     {
       toolName: 'set_environment_variables',
-      payload: { workflowId: 'workflow-123', variables: { API_KEY: 'secret' } },
+      payload: { entityId: 'workflow-123', variables: { API_KEY: 'secret' } },
       execute: setEnvironmentVariablesExecute,
     },
     {
       toolName: 'read_credentials',
-      payload: { workflowId: 'workflow-123' },
+      payload: { entityId: 'workflow-123' },
       execute: readCredentialsExecute,
     },
     {
       toolName: 'list_gdrive_files',
       payload: {
-        workflowId: 'workflow-123',
+        entityId: 'workflow-123',
         credentialId: 'credential-1',
         userId: 'spoofed-user',
         search_query: 'report',
         num_results: 3,
       },
       expectedArgs: {
-        workflowId: 'workflow-123',
+        entityId: 'workflow-123',
         credentialId: 'credential-1',
         search_query: 'report',
         num_results: 3,
@@ -405,7 +410,7 @@ describe('routeExecution', () => {
     {
       toolName: 'read_gdrive_file',
       payload: {
-        workflowId: 'workflow-123',
+        entityId: 'workflow-123',
         credentialId: 'credential-1',
         fileId: 'file-1',
         type: 'doc',
@@ -414,11 +419,11 @@ describe('routeExecution', () => {
     },
     {
       toolName: 'read_oauth_credentials',
-      payload: { workflowId: 'workflow-123' },
+      payload: { entityId: 'workflow-123' },
       execute: readOAuthCredentialsExecute,
     },
   ])(
-    'preserves workflowId when routing $toolName',
+    'preserves entityId when routing $toolName',
     async ({ toolName, payload, expectedArgs, execute }) => {
       await expect(routeExecution(toolName, payload)).resolves.toBeDefined()
 

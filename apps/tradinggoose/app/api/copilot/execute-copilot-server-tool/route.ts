@@ -6,6 +6,7 @@ import {
   createRequestTracker,
   createUnauthorizedResponse,
 } from '@/lib/copilot/auth'
+import { REVIEW_ENTITY_KINDS } from '@/lib/copilot/review-sessions/types'
 import { buildCopilotServerToolErrorResponse } from '@/lib/copilot/server-tool-errors'
 import { createLogger } from '@/lib/logs/console/logger'
 
@@ -16,7 +17,8 @@ const ExecuteSchema = z.object({
   payload: z.unknown().optional(),
   context: z
     .object({
-      contextWorkflowId: z.string().optional(),
+      contextEntityKind: z.enum(REVIEW_ENTITY_KINDS).optional(),
+      contextEntityId: z.string().optional(),
     })
     .optional(),
 })

@@ -50,7 +50,6 @@ export class PlanClientTool extends BaseClientTool {
           const store = storeApi.getState()
           if (store.setPlanTodos) {
             store.setPlanTodos(todos)
-            storeApi.setState({ showPlanTodos: true })
           }
         }
       } catch (e) {

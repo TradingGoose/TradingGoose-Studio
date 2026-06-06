@@ -31,6 +31,7 @@ import {
 } from '@/stores/copilot/store-access'
 import {
   buildPinnedToolCallsById,
+  buildPlanTodosFromMessages,
   createErrorMessage,
   createStreamingMessage,
   createUserMessage,
@@ -271,7 +272,7 @@ function abortAllInProgressTools(
   }
 }
 
-function autoExecuteEligibleToolsForAccessLevel(
+function autoExecutePendingToolsForAccessLevel(
   accessLevel: CopilotStore['accessLevel'],
   get: () => CopilotStore
 ) {
@@ -283,11 +284,7 @@ function autoExecuteEligibleToolsForAccessLevel(
   const copilotToolIds: string[] = []
 
   for (const [id, toolCall] of Object.entries(toolCallsById)) {
-    const state = toolCall.state
-    const isAwaitingApproval =
-      state === ClientToolCallState.pending || state === ClientToolCallState.review
-
-    if (!isAwaitingApproval) {
+    if (toolCall.state !== ClientToolCallState.pending) {
       continue
     }
 
@@ -300,7 +297,7 @@ function autoExecuteEligibleToolsForAccessLevel(
     return
   }
 
-  logger.info('[copilot access] auto-executing queued tools after access change', {
+  logger.info('[copilot access] auto-executing queued pending tools', {
     accessLevel,
     copilotToolIds,
   })
@@ -309,8 +306,7 @@ function autoExecuteEligibleToolsForAccessLevel(
     setTimeout(() => {
       const latest = get().toolCallsById[toolCallId]
       if (!latest) return
-      const state = latest.state
-      if (state !== ClientToolCallState.pending && state !== ClientToolCallState.review) {
+      if (latest.state !== ClientToolCallState.pending) {
         return
       }
       void get().executeCopilotToolCall(toolCallId)
@@ -336,6 +332,11 @@ const initialState = {
   showPlanTodos: false,
   toolCallsById: {} as Record<string, CopilotToolCall>,
   contextUsage: null,
+}
+
+function buildPlanTodoStateFromMessages(messages: CopilotMessage[]) {
+  const planTodos = buildPlanTodosFromMessages(messages)
+  return { planTodos, showPlanTodos: planTodos.length > 0 }
 }
 
 const sharedSessionSyncGuards = new WeakSet<StoreApi<CopilotStore>>()
@@ -470,7 +471,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         const previousAccessLevel = get().accessLevel
         set({ accessLevel })
         if (previousAccessLevel !== accessLevel) {
-          autoExecuteEligibleToolsForAccessLevel(accessLevel, get)
+          autoExecutePendingToolsForAccessLevel(accessLevel, get)
         }
       },
 
@@ -505,8 +506,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           currentChat: chat,
           messages: normalizedMessages,
           toolCallsById: optimisticToolCallsById,
-          planTodos: [],
-          showPlanTodos: false,
+          ...buildPlanTodoStateFromMessages(normalizedMessages),
           contextUsage: null,
           isSendingMessage: isChatTurnInProgress(chat),
           isAwaitingContinuation: isChatTurnInProgress(chat),
@@ -561,6 +561,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                 ),
                 contextUsage: null,
                 toolCallsById,
+                ...buildPlanTodoStateFromMessages(normalizedMessages),
                 isSendingMessage: isChatTurnInProgress(latestChat),
                 isAwaitingContinuation: isChatTurnInProgress(latestChat),
                 abortController: null,
@@ -705,6 +706,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                     currentChat: updatedCurrentChat,
                     messages: normalizedMessages,
                     toolCallsById,
+                    ...buildPlanTodoStateFromMessages(normalizedMessages),
                     isSendingMessage: isChatTurnInProgress(updatedCurrentChat),
                     isAwaitingContinuation: isChatTurnInProgress(updatedCurrentChat),
                     abortController: null,
@@ -739,6 +741,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                     currentChat: availableChat,
                     messages: normalizedMessages,
                     toolCallsById,
+                    ...buildPlanTodoStateFromMessages(normalizedMessages),
                     isSendingMessage: isChatTurnInProgress(availableChat),
                     isAwaitingContinuation: isChatTurnInProgress(availableChat),
                     abortController: null,
@@ -748,6 +751,8 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                     currentChat: null,
                     messages: [],
                     toolCallsById: {},
+                    planTodos: [],
+                    showPlanTodos: false,
                     isSendingMessage: false,
                     isAwaitingContinuation: false,
                     abortController: null,
@@ -759,6 +764,8 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                 currentChat: null,
                 messages: [],
                 toolCallsById: {},
+                planTodos: [],
+                showPlanTodos: false,
                 isSendingMessage: false,
                 isAwaitingContinuation: false,
                 abortController: null,
@@ -1005,8 +1012,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           if (
             (current.state === ClientToolCallState.rejected &&
               norm === ClientToolCallState.success) ||
-            (current.state === ClientToolCallState.aborted &&
-              norm !== ClientToolCallState.aborted)
+            (current.state === ClientToolCallState.aborted && norm !== ClientToolCallState.aborted)
           ) {
             return
           }
@@ -1171,7 +1177,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
               ? {
                   bill: true,
                   assistantMessageId,
-                  workflowId: context.provenance?.workflowId,
                 }
               : undefined
             await get().fetchContextUsage(billingOptions)
@@ -1236,10 +1241,14 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
       setInputValue: (value: string) => set({ inputValue: value }),
 
       // Todo list (UI only)
-      setPlanTodos: (todos) => set({ planTodos: todos, showPlanTodos: true }),
+      setPlanTodos: (todos) => set({ planTodos: todos, showPlanTodos: todos.length > 0 }),
       updatePlanTodoStatus: (id, status) => {
         set((state) => {
-          const updated = state.planTodos.map((t) =>
+          const planTodos =
+            state.planTodos.length > 0
+              ? state.planTodos
+              : buildPlanTodosFromMessages(state.messages)
+          const updated = planTodos.map((t) =>
             t.id === id
               ? { ...t, completed: status === 'completed', executing: status === 'executing' }
               : t
@@ -1258,21 +1267,14 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
       setAgentPrefetch: (prefetch) => set({ agentPrefetch: prefetch }),
 
       // Fetch context usage from copilot API
-      fetchContextUsage: async (options?: {
-        bill?: boolean
-        assistantMessageId?: string
-        workflowId?: string
-      }) => {
+      fetchContextUsage: async (options?: { bill?: boolean; assistantMessageId?: string }) => {
         try {
-          const { bill = false, assistantMessageId, workflowId } = options ?? {}
+          const { bill = false, assistantMessageId } = options ?? {}
           const { currentChat, selectedModel } = get()
-          const activeWorkflowId = workflowId
           const selectedProvider = resolveCopilotRuntimeProvider(selectedModel)
           logger.info('[Context Usage] Starting fetch', {
             hasConversationId: !!currentChat?.conversationId,
-            hasWorkflowId: !!activeWorkflowId,
             conversationId: currentChat?.conversationId,
-            workflowId: activeWorkflowId,
             model: selectedModel,
             provider: selectedProvider,
             bill,
@@ -1298,10 +1300,9 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             conversationId: currentChat.conversationId,
             model: selectedModel,
             provider: selectedProvider,
-            // Context usage is conversation-scoped. Forward the current workflow
-            // only as supplemental runtime context when one exists.
-            ...(activeWorkflowId ? { workflowId: activeWorkflowId } : {}),
           }
+          // Generic Copilot context usage is conversation/user scoped. Workflow contexts are
+          // prompt context for the chat, not billing scope selectors for this widget.
           if (bill && assistantMessageId) {
             requestPayload.bill = true
             requestPayload.assistantMessageId = assistantMessageId
@@ -1379,8 +1380,11 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         if (isServerManagedCopilotTool(name)) {
           try {
             const serverContext = {
-              ...(provenance?.contextWorkflowId
-                ? { contextWorkflowId: provenance.contextWorkflowId }
+              ...(provenance?.contextEntityKind && provenance?.contextEntityId
+                ? {
+                    contextEntityKind: provenance.contextEntityKind,
+                    contextEntityId: provenance.contextEntityId,
+                  }
                 : {}),
             }
             const result = await executeCopilotServerTool({
@@ -1640,9 +1644,7 @@ export function useCopilotStore<T = CopilotStore>(
 ) {
   const store = useContext(CopilotStoreContext) ?? defaultCopilotStore
   const resolvedSelector = selector ?? (identitySelector as unknown as (state: CopilotStore) => T)
-  return equalityFn
-    ? useStoreWithEqualityFn(store, resolvedSelector, equalityFn)
-    : useStoreWithEqualityFn(store, resolvedSelector)
+  return useStoreWithEqualityFn(store, resolvedSelector, equalityFn)
 }
 
 export function useCopilotStoreApi(channelId?: string) {

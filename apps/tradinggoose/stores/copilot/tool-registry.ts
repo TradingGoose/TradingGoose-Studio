@@ -1,10 +1,10 @@
 import { CopilotTool, isToolId, type ToolId } from '@/lib/copilot/registry'
-import {
-  type BaseClientTool,
-  type BaseClientToolMetadata,
+import type {
+  BaseClientTool,
+  BaseClientToolMetadata,
   ClientToolCallState,
-  type ClientToolDisplay,
-  type ClientToolExecutionContext,
+  ClientToolDisplay,
+  ClientToolExecutionContext,
 } from '@/lib/copilot/tools/client/base-tool'
 import {
   CreateCustomToolClientTool,
@@ -167,38 +167,22 @@ export function createExecutionContext(params: {
   provenance: Partial<CopilotToolExecutionProvenance>
 }): ClientToolExecutionContext {
   const { toolCallId, toolName, provenance } = params
-  const {
-    workflowId,
-    contextWorkflowId,
-    workspaceId,
-    reviewSessionId,
-    entityKind,
-    entityId,
-    draftSessionId,
-  } = provenance
+  const { contextEntityKind, contextEntityId, workspaceId } = provenance
 
   return {
     toolCallId,
     toolName,
-    ...(workflowId ? { workflowId } : {}),
-    ...(contextWorkflowId ? { contextWorkflowId } : {}),
+    ...(contextEntityKind ? { contextEntityKind } : {}),
+    ...(contextEntityId ? { contextEntityId } : {}),
     ...(workspaceId ? { workspaceId } : {}),
-    ...(reviewSessionId ? { reviewSessionId } : {}),
-    ...(entityKind ? { entityKind } : {}),
-    ...(entityId ? { entityId } : {}),
-    ...(draftSessionId ? { draftSessionId } : {}),
     log: (level, message, extra) => {
       try {
         logger[level](message, {
           toolCallId,
           toolName,
-          workflowId,
-          contextWorkflowId,
+          contextEntityKind,
+          contextEntityId,
           workspaceId,
-          reviewSessionId,
-          entityKind,
-          entityId,
-          draftSessionId,
           ...(extra || {}),
         })
       } catch {}

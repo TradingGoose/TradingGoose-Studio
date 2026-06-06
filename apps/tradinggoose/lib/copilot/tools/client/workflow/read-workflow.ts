@@ -10,11 +10,12 @@ import {
   buildWorkflowSummary,
   getReadableWorkflowState,
 } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
+import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
 import { createLogger } from '@/lib/logs/console/logger'
 import { serializeWorkflowToTgMermaid } from '@/lib/workflows/studio-workflow-mermaid'
 
 interface ReadWorkflowArgs {
-  workflowId: string
+  entityId: string
 }
 
 const logger = createLogger('ReadWorkflowClientTool')
@@ -42,21 +43,22 @@ export class ReadWorkflowClientTool extends BaseClientTool {
     try {
       this.setState(ClientToolCallState.executing)
       const executionContext = this.requireExecutionContext()
-      const requestedWorkflowId = args?.workflowId?.trim()
-
-      if (!requestedWorkflowId) {
-        await this.markToolComplete(400, 'workflowId is required')
+      let requestedEntityId: string
+      try {
+        requestedEntityId = requireCopilotEntityId(args)
+      } catch {
+        await this.markToolComplete(400, 'entityId is required')
         this.setState(ClientToolCallState.error)
         return
       }
 
       logger.info('Reading workflow from readable workflow snapshot', {
-        workflowId: requestedWorkflowId,
+        entityId: requestedEntityId,
       })
 
       const { workflowId, entityName, workflowState, workspaceId } = await getReadableWorkflowState(
         executionContext,
-        requestedWorkflowId
+        requestedEntityId
       )
 
       let workflowDocument = ''

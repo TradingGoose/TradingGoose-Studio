@@ -153,13 +153,14 @@ describe('EditWorkflowClientTool approval gating', () => {
       toolCallId: 'tool-review',
       toolName: 'edit_workflow',
       channelId: 'pair-1',
-      workflowId: 'wf-1',
+      contextEntityKind: 'workflow',
+      contextEntityId: 'wf-1',
       log: vi.fn(),
     })
 
     await tool.handleUserAction({
-      workflowId: 'wf-1',
-      workflowDocument,
+      entityId: 'wf-1',
+      entityDocument: workflowDocument,
     })
 
     expect(tool.getState()).toBe(ClientToolCallState.review)
@@ -244,13 +245,14 @@ describe('EditWorkflowClientTool approval gating', () => {
       toolCallId: 'tool-readable-state',
       toolName: 'edit_workflow',
       channelId: 'pair-1',
-      workflowId: 'wf-1',
+      contextEntityKind: 'workflow',
+      contextEntityId: 'wf-1',
       log: vi.fn(),
     })
 
     await tool.handleUserAction({
-      workflowId: 'wf-1',
-      workflowDocument,
+      entityId: 'wf-1',
+      entityDocument: workflowDocument,
     })
 
     expect(tool.getState()).toBe(ClientToolCallState.review)
@@ -310,13 +312,14 @@ describe('EditWorkflowClientTool approval gating', () => {
       toolCallId: 'tool-accept',
       toolName: 'edit_workflow',
       channelId: 'pair-1',
-      workflowId: 'wf-1',
+      contextEntityKind: 'workflow',
+      contextEntityId: 'wf-1',
       log: vi.fn(),
     })
 
     await tool.execute({
-      workflowId: 'wf-1',
-      workflowDocument,
+      entityId: 'wf-1',
+      entityDocument: workflowDocument,
     })
     await tool.handleAccept()
 
@@ -344,7 +347,7 @@ describe('EditWorkflowClientTool approval gating', () => {
     })
   })
 
-  it('rejects edit execution without explicit workflowId even when current workflow context exists', async () => {
+  it('rejects edit execution without explicit entityId even when current workflow context exists', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString()
 
@@ -365,12 +368,13 @@ describe('EditWorkflowClientTool approval gating', () => {
       toolCallId: 'tool-missing-workflow-id',
       toolName: 'edit_workflow',
       channelId: 'pair-1',
-      workflowId: 'wf-current',
+      contextEntityKind: 'workflow',
+      contextEntityId: 'wf-current',
       log: vi.fn(),
     })
 
     await tool.execute({
-      workflowDocument,
+      entityDocument: workflowDocument,
     })
 
     expect(tool.getState()).toBe(ClientToolCallState.error)
@@ -383,7 +387,7 @@ describe('EditWorkflowClientTool approval gating', () => {
     })
     const markCompleteBody = JSON.parse(String(markCompleteRequest?.[1]?.body))
     expect(markCompleteBody.status).toBe(500)
-    expect(markCompleteBody.message).toContain('workflowId is required')
+    expect(markCompleteBody.message).toContain('entityId is required')
   })
 
   it('accepts persisted staged workflow edits after reload using the persisted workflow target', async () => {
@@ -410,8 +414,8 @@ describe('EditWorkflowClientTool approval gating', () => {
         name: 'edit_workflow',
         state: ClientToolCallState.review,
         params: {
-          workflowId: 'wf-target',
-          workflowDocument,
+          entityId: 'wf-target',
+          entityDocument: workflowDocument,
         },
         result: {
           entityId: 'wf-target',
@@ -421,7 +425,7 @@ describe('EditWorkflowClientTool approval gating', () => {
     }
 
     mockResolveWorkflowTarget.mockImplementation(async (_executionContext, options) => ({
-      workflowId: options?.workflowId ?? 'wf-current',
+      workflowId: options?.entityId ?? 'wf-current',
     }))
     mockAcquireWritableWorkflowSessionLease.mockImplementation(async ({ workflowId }) => ({
       session: {
@@ -451,7 +455,8 @@ describe('EditWorkflowClientTool approval gating', () => {
       toolCallId: 'tool-persisted-review',
       toolName: 'edit_workflow',
       channelId: 'pair-1',
-      workflowId: 'wf-current',
+      contextEntityKind: 'workflow',
+      contextEntityId: 'wf-current',
       log: vi.fn(),
     })
     tool.hydratePersistedToolCall(persistedToolCalls['tool-persisted-review'])

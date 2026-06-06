@@ -7,10 +7,7 @@ import {
 } from '@/lib/copilot/entity-documents'
 import { MONITOR_DOCUMENT_FORMAT } from '@/lib/copilot/monitor/monitor-documents'
 import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
-import {
-  WORKFLOW_VARIABLE_TYPES,
-  type WorkflowVariableType,
-} from '@/lib/workflows/value-types'
+import { WORKFLOW_VARIABLE_TYPES, type WorkflowVariableType } from '@/lib/workflows/value-types'
 import {
   GetAgentAccessoryCatalogInput,
   GetAgentAccessoryCatalogResult,
@@ -116,8 +113,10 @@ const ToolCallSSEBase = z.object({
 const BooleanOptional = z.boolean().optional()
 const NumberOptional = z.number().optional()
 const RequiredId = z.string().trim().min(1)
-const WorkflowContextArgs = z.object({
-  workflowId: z.string().optional(),
+const CUSTOM_TOOL_DOCUMENT_ARGUMENT_DESCRIPTION =
+  'Full `tg-custom-tool-document-v1` JSON document with exactly `title`, `schemaText`, and `codeText`. `schemaText` is a JSON-encoded string, not an object, for an OpenAI function tool schema: {"type":"function","function":{"name":"camelCaseName","description":"What the tool does","parameters":{"type":"object","properties":{},"required":[]}}}. `codeText` is raw async JavaScript function body only; use <paramName> for inputs and {{ENV_VAR_NAME}} for environment variables.'
+const OptionalEntityTargetArgs = z.object({
+  entityId: z.string().optional(),
 })
 const EntityTargetArgs = z.object({
   entityId: RequiredId,
@@ -157,21 +156,21 @@ const CreateWorkflowArgs = z
 
 const RenameWorkflowArgs = z
   .object({
-    workflowId: RequiredId,
+    entityId: RequiredId,
     name: z.string().trim().min(1),
   })
   .strict()
 
 const EditWorkflowArgs = z
   .object({
-    workflowDocument: z
+    entityDocument: z
       .string()
       .min(1)
       .describe(
-        'Complete raw `tg-mermaid-v1` Mermaid document for the entire workflow, not a partial patch. Preserve unchanged canonical `%% TG_BLOCK` and `%% TG_EDGE` entries. Use this only for graph or topology changes such as adding, removing, reconnecting, or replacing blocks, loops, parallels, or condition branches.'
+        'Complete raw `tg-mermaid-v1` Mermaid document for the entire workflow, not a partial patch. Preserve the canonical `%% TG_WORKFLOW`, `%% TG_BLOCK`, and `%% TG_EDGE` metadata returned by `read_workflow`; Studio validates that structure. Use this only for graph or topology changes such as adding, removing, reconnecting, or replacing blocks, loops, parallels, or condition branches.'
       ),
     documentFormat: z.literal(TG_MERMAID_DOCUMENT_FORMAT).optional(),
-    workflowId: RequiredId,
+    entityId: RequiredId,
   })
   .strict()
   .describe(
@@ -180,7 +179,7 @@ const EditWorkflowArgs = z
 
 const EditWorkflowBlockArgs = z
   .object({
-    workflowId: RequiredId,
+    entityId: RequiredId,
     blockId: z
       .string()
       .trim()
@@ -208,8 +207,17 @@ const EditWorkflowBlockArgs = z
     'Single-block patch tool. Default to this when only one existing block needs a `name`, `enabled`, or `subBlocks` change and the workflow graph stays the same.'
   )
 
-const EditCustomToolArgs = buildEntityDocumentMutationArgs(CUSTOM_TOOL_DOCUMENT_FORMAT)
-const CreateCustomToolArgs = buildEntityDocumentCreateArgs(CUSTOM_TOOL_DOCUMENT_FORMAT)
+const CustomToolDocumentMutationShape = {
+  entityDocument: z.string().min(1).describe(CUSTOM_TOOL_DOCUMENT_ARGUMENT_DESCRIPTION),
+  documentFormat: z.literal(CUSTOM_TOOL_DOCUMENT_FORMAT).optional(),
+}
+const EditCustomToolArgs = EntityTargetArgs.extend(CustomToolDocumentMutationShape)
+  .strict()
+  .describe('Update a saved custom tool by replacing the full custom-tool document.')
+const CreateCustomToolArgs = z
+  .object(CustomToolDocumentMutationShape)
+  .strict()
+  .describe('Create a custom tool from the full custom-tool document.')
 const GetIndicatorArgs = z
   .object({
     entityId: RequiredId.optional(),
@@ -263,16 +271,16 @@ export const ToolArgSchemas = {
   }),
   [CopilotTool.read_workflow]: z
     .object({
-      workflowId: RequiredId,
+      entityId: RequiredId,
     })
     .strict(),
   create_workflow: CreateWorkflowArgs,
   [CopilotTool.list_workflows]: z.object({}),
   [CopilotTool.read_workflow_variables]: z.object({
-    workflowId: RequiredId,
+    entityId: RequiredId,
   }),
   [CopilotTool.set_workflow_variables]: z.object({
-    workflowId: RequiredId,
+    entityId: RequiredId,
     operations: z.array(
       z.object({
         operation: z.enum(['add', 'delete', 'edit']),
@@ -288,10 +296,10 @@ export const ToolArgSchemas = {
   deploy_workflow: z.object({
     action: z.enum(['deploy', 'undeploy']).optional().default('deploy'),
     deployType: z.enum(['api', 'chat']).optional().default('api'),
-    workflowId: RequiredId,
+    entityId: RequiredId,
   }),
   check_deployment_status: z.object({
-    workflowId: RequiredId,
+    entityId: RequiredId,
   }),
 
   edit_workflow: EditWorkflowArgs,
@@ -299,12 +307,12 @@ export const ToolArgSchemas = {
   rename_workflow: RenameWorkflowArgs,
 
   run_workflow: z.object({
-    workflowId: RequiredId,
+    entityId: RequiredId,
     workflow_input: z.union([z.string(), z.record(z.any())]).optional(),
   }),
 
   [CopilotTool.read_workflow_logs]: z.object({
-    workflowId: RequiredId,
+    entityId: RequiredId,
     limit: NumberOptional,
     includeDetails: BooleanOptional,
   }),
@@ -340,19 +348,19 @@ export const ToolArgSchemas = {
     body: z.union([z.record(z.any()), z.string()]).optional(),
   }),
 
-  [CopilotTool.read_environment_variables]: WorkflowContextArgs,
+  [CopilotTool.read_environment_variables]: OptionalEntityTargetArgs,
 
-  set_environment_variables: WorkflowContextArgs.extend({
+  set_environment_variables: OptionalEntityTargetArgs.extend({
     variables: z.record(z.string()),
   }),
 
-  [CopilotTool.read_oauth_credentials]: WorkflowContextArgs,
+  [CopilotTool.read_oauth_credentials]: OptionalEntityTargetArgs,
 
-  [CopilotTool.read_credentials]: WorkflowContextArgs,
+  [CopilotTool.read_credentials]: OptionalEntityTargetArgs,
 
   gdrive_request_access: z.object({}),
 
-  list_gdrive_files: WorkflowContextArgs.extend({
+  list_gdrive_files: OptionalEntityTargetArgs.extend({
     credentialId: z.string(),
     search_query: z.string().optional(),
     num_results: z.number().optional().default(50),
@@ -363,7 +371,7 @@ export const ToolArgSchemas = {
     fileId: z.string(),
     type: z.enum(['doc', 'sheet']),
     range: z.string().optional(),
-    workflowId: z.string().optional(),
+    entityId: z.string().optional(),
   }),
 
   knowledge_base: KnowledgeBaseArgsSchema,
@@ -375,7 +383,7 @@ export const ToolArgSchemas = {
   rename_custom_tool: EditCustomToolArgs,
 
   list_monitors: z.object({
-    workflowId: z.string().optional(),
+    entityId: z.string().optional(),
     blockId: z.string().optional(),
   }),
   [CopilotTool.read_monitor]: z.object({
@@ -414,11 +422,11 @@ export const ToolArgSchemas = {
   }),
 
   [CopilotTool.read_block_outputs]: ReadBlockOutputsInput.extend({
-    workflowId: RequiredId,
+    entityId: RequiredId,
   }),
 
   [CopilotTool.read_block_upstream_references]: ReadBlockUpstreamReferencesInput.extend({
-    workflowId: RequiredId,
+    entityId: RequiredId,
   }),
 } as const
 

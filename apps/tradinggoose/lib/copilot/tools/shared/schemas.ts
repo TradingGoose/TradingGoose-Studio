@@ -146,7 +146,7 @@ export type GetBlocksMetadataResultType = z.infer<typeof GetBlocksMetadataResult
 // get_agent_accessory_catalog
 export const GetAgentAccessoryCatalogInput = z
   .object({
-    workflowId: z.string().trim().min(1).optional(),
+    entityId: z.string().trim().min(1).optional(),
   })
   .strict()
 

@@ -5,37 +5,13 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
 import { listCustomTools, upsertCustomTools } from '@/lib/custom-tools/operations'
+import { CustomToolUpsertRequestSchema } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('CustomToolsAPI')
-
-const CustomToolSchema = z.object({
-  workspaceId: z
-    .string({ required_error: 'workspaceId is required' })
-    .min(1, 'workspaceId is required'),
-  tools: z.array(
-    z.object({
-      id: z.string().optional(),
-      title: z.string().min(1, 'Tool title is required'),
-      schema: z.object({
-        type: z.literal('function'),
-        function: z.object({
-          name: z.string().min(1, 'Function name is required'),
-          description: z.string().optional(),
-          parameters: z.object({
-            type: z.string(),
-            properties: z.record(z.any()),
-            required: z.array(z.string()).optional(),
-          }),
-        }),
-      }),
-      code: z.string(),
-    })
-  ),
-})
 
 // GET - Fetch all custom tools for a workspace
 export async function GET(request: NextRequest) {
@@ -109,7 +85,7 @@ export async function POST(req: NextRequest) {
 
     try {
       // Validate the request body
-      const { tools, workspaceId } = CustomToolSchema.parse(body)
+      const { tools, workspaceId } = CustomToolUpsertRequestSchema.parse(body)
 
       const permission = await getUserEntityPermissions(authResult.userId, 'workspace', workspaceId)
       if (!permission) {

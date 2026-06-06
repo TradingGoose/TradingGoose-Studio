@@ -144,20 +144,20 @@ describe('copilot tool execution provenance', () => {
     resetCopilotWorkspaceSelectionState()
   })
 
-  it('createExecutionContext uses explicit pinned provenance', () => {
+  it('createExecutionContext uses generic ambient entity provenance', () => {
     const toolCallId = 'copilot-provenance-tool-a'
 
     const context = createExecutionContext({
       toolCallId,
       toolName: 'edit_workflow',
       provenance: {
-        workflowId: 'wf-origin-a',
-        contextWorkflowId: 'wf-current-a',
+        contextEntityKind: 'workflow',
+        contextEntityId: 'wf-current-a',
       },
     })
 
-    expect(context.workflowId).toBe('wf-origin-a')
-    expect(context.contextWorkflowId).toBe('wf-current-a')
+    expect(context.contextEntityKind).toBe('workflow')
+    expect(context.contextEntityId).toBe('wf-current-a')
   })
 
   it('returns the first matching store when duplicate toolCallId exists', () => {
@@ -185,7 +185,8 @@ describe('copilot tool execution provenance', () => {
           name: 'edit_workflow',
           state: ClientToolCallState.pending,
           provenance: {
-            workflowId: 'wf-origin-c',
+            contextEntityKind: 'workflow',
+            contextEntityId: 'wf-origin-c',
           },
         },
       },
@@ -224,7 +225,6 @@ describe('copilot tool execution provenance', () => {
             call_id: toolCallId,
             name: 'read_workflow',
             arguments: JSON.stringify({
-              workflowId: 'wf-stringified-explicit',
               entityId: 'entity-stringified-explicit',
             }),
           },
@@ -239,14 +239,10 @@ describe('copilot tool execution provenance', () => {
 
     expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
       params: {
-        workflowId: 'wf-stringified-explicit',
-        entityId: 'entity-stringified-explicit',
-      },
-      provenance: {
-        workflowId: 'wf-stringified-explicit',
         entityId: 'entity-stringified-explicit',
       },
     })
+    expect(store.getState().toolCallsById[toolCallId].provenance).toBeUndefined()
   })
 
   it('marks streamed tool calls outside the curated Copilot registry as protocol errors', async () => {
@@ -365,7 +361,8 @@ describe('copilot tool execution provenance', () => {
 
     expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
       provenance: {
-        contextWorkflowId: 'wf-live-at-send',
+        contextEntityKind: 'workflow',
+        contextEntityId: 'wf-live-at-send',
         workspaceId: 'workspace-1',
       },
     })
@@ -461,7 +458,8 @@ describe('copilot tool execution provenance', () => {
 
     expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
       provenance: {
-        contextWorkflowId: 'wf-current',
+        contextEntityKind: 'workflow',
+        contextEntityId: 'wf-current',
         workspaceId: 'workspace-1',
       },
     })
@@ -545,7 +543,8 @@ describe('copilot tool execution provenance', () => {
 
     expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
       provenance: {
-        contextWorkflowId: 'wf-current',
+        contextEntityKind: 'workflow',
+        contextEntityId: 'wf-current',
         workspaceId: 'workspace-1',
       },
     })
@@ -650,7 +649,7 @@ describe('copilot streaming regressions', () => {
             type: 'function_call',
             call_id: 'tool-1',
             name: 'read_workflow',
-            arguments: { workflowId: 'wf-stream-order' },
+            arguments: { entityId: 'wf-stream-order' },
           },
         },
         {
@@ -700,7 +699,115 @@ describe('copilot streaming regressions', () => {
     expect(blocks[1]?.content).toContain('checking the current workflow')
     expect(blocks[2]?.toolCall?.id).toBe('tool-1')
     expect(blocks[2]?.toolCall?.state).toBe(ClientToolCallState.success)
+    expect(blocks[2]?.toolCall?.result).toEqual({ entityDocument: 'flowchart TD' })
     expect(blocks[3]?.content).toContain('preparing the edit now')
+  })
+
+  it('hydrates plan todos from persisted successful plan and todo tool calls', async () => {
+    const channelId = 'copilot-plan-todo-hydration'
+    const store = getCopilotStore(channelId)
+    const toolBlock = (
+      name: string,
+      id: string,
+      params: Record<string, unknown>,
+      state = ClientToolCallState.success
+    ) => ({
+      type: 'tool_call',
+      toolCall: { id, name, state, params },
+    })
+    const persistedMessages = [
+      {
+        id: 'assistant-plan-message',
+        role: 'assistant',
+        content: '',
+        timestamp: '2026-04-13T00:00:00.000Z',
+        contentBlocks: [
+          toolBlock('plan', 'plan-tool-1', {
+            todoList: [
+              { id: 'todo-1', content: 'Inspect the current workflow' },
+              { id: 'todo-2', content: 'Apply the workflow edit' },
+            ],
+          }),
+          toolBlock('checkoff_todo', 'todo-tool-1', { id: 'todo-1' }),
+          toolBlock('mark_todo_in_progress', 'todo-tool-2', { id: 'todo-2' }),
+          toolBlock(
+            'mark_todo_in_progress',
+            'todo-tool-pending-1',
+            { id: 'todo-1' },
+            ClientToolCallState.pending
+          ),
+          toolBlock(
+            'checkoff_todo',
+            'todo-tool-pending-2',
+            { id: 'todo-2' },
+            ClientToolCallState.pending
+          ),
+        ],
+      },
+      {
+        id: 'assistant-todo-collision-message',
+        role: 'assistant',
+        content: '',
+        timestamp: '2026-04-13T00:00:01.000Z',
+        toolCalls: [
+          {
+            id: 'todo-tool-collision',
+            name: 'checkoff_todo',
+            state: ClientToolCallState.success,
+            params: { id: 'todo-1' },
+          },
+        ],
+        contentBlocks: [
+          toolBlock('mark_todo_in_progress', 'todo-tool-collision', { id: 'todo-1' }),
+        ],
+      },
+    ] as any
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          chats: [
+            {
+              reviewSessionId: 'review-todos',
+              workspaceId: 'ws-1',
+              latestTurnStatus: 'completed',
+              messages: persistedMessages,
+            },
+          ],
+        }),
+      }))
+    )
+
+    await store.getState().loadChats({ workspaceId: 'ws-1' })
+
+    expect(store.getState().showPlanTodos).toBe(true)
+    expect(store.getState().planTodos).toEqual([
+      {
+        id: 'todo-1',
+        content: 'Inspect the current workflow',
+        completed: true,
+        executing: false,
+      },
+      {
+        id: 'todo-2',
+        content: 'Apply the workflow edit',
+        completed: false,
+        executing: true,
+      },
+    ])
+
+    store.getState().closePlanTodos()
+    store.getState().updatePlanTodoStatus('todo-2', 'completed')
+    expect(store.getState().showPlanTodos).toBe(false)
+    expect(store.getState().planTodos[1]).toMatchObject({
+      id: 'todo-2',
+      completed: true,
+      executing: false,
+    })
   })
 
   it('uses the final output item text when it differs from streamed deltas', async () => {
@@ -1248,8 +1355,8 @@ describe('copilot streaming regressions', () => {
               call_id: toolCallId,
               name: 'edit_workflow',
               arguments: {
-                workflowId: 'wf-limited-edit',
-                workflowDocument: 'workflow: {}',
+                entityId: 'wf-limited-edit',
+                entityDocument: 'workflow: {}',
                 documentFormat: 'tg-mermaid-v1',
               },
             },
@@ -1264,6 +1371,107 @@ describe('copilot streaming regressions', () => {
       expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.review)
       expect(store.getState().toolCallsById[toolCallId]?.result).toEqual(reviewResult)
       expect(store.getState().isSendingMessage).toBe(true)
+    } finally {
+      unregisterClientTool(toolCallId)
+      vi.useRealTimers()
+    }
+  })
+
+  it('leaves persisted review tools staged for full-access selected chats', async () => {
+    vi.useFakeTimers()
+    const toolCallId = 'edit-workflow-persisted-full-tool'
+    const pendingToolCallId = 'make-api-request-persisted-pending-tool'
+    const reviewResult = {
+      workflowState: {
+        blocks: {},
+        edges: [],
+        loops: {},
+        parallels: {},
+      },
+    }
+    let toolState = ClientToolCallState.review
+    const fakeTool: any = {
+      persistedToolCall: { result: reviewResult },
+      hydratePersistedToolCall: vi.fn((toolCall) => {
+        fakeTool.persistedToolCall = { result: toolCall.result }
+      }),
+      handleUserAction: vi.fn(async () => {
+        toolState = ClientToolCallState.success
+        fakeTool.persistedToolCall = { result: reviewResult }
+      }),
+      getState: vi.fn(() => toolState),
+    }
+    const chat: any = {
+      reviewSessionId: 'review-persisted-full-access',
+      workspaceId: 'workspace-1',
+      latestTurnStatus: 'completed' as const,
+      messages: [
+        {
+          id: 'assistant-persisted-review',
+          role: 'assistant',
+          content: '',
+          timestamp: '2026-04-17T00:00:00.000Z',
+          contentBlocks: [
+            {
+              type: 'tool_call',
+              toolCall: {
+                id: pendingToolCallId,
+                name: 'make_api_request',
+                state: ClientToolCallState.pending,
+              },
+            },
+            {
+              type: 'tool_call',
+              toolCall: {
+                id: toolCallId,
+                name: 'edit_workflow',
+                state: ClientToolCallState.review,
+                params: { entityId: 'wf-persisted-full-access' },
+                result: reviewResult,
+              },
+            },
+          ],
+        },
+      ],
+    }
+
+    registerClientTool(toolCallId, fakeTool)
+
+    try {
+      const store = getCopilotStore('copilot-persisted-full-access-review')
+      store.setState({ accessLevel: 'full', chats: [chat] })
+
+      const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString()
+        if (
+          url === `/api/copilot/chat?reviewSessionId=${encodeURIComponent(chat.reviewSessionId)}`
+        ) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ success: true, chats: [chat] }),
+          }
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      await store.getState().selectChat(chat)
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(fakeTool.handleUserAction).not.toHaveBeenCalled()
+      expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.review)
+      expect(store.getState().toolCallsById[toolCallId]?.result).toEqual(reviewResult)
+      expect(
+        fetchMock.mock.calls.some(([input]) => {
+          const url = typeof input === 'string' ? input : input.toString()
+          return url === '/api/copilot/execute-copilot-server-tool'
+        })
+      ).toBe(false)
     } finally {
       unregisterClientTool(toolCallId)
       vi.useRealTimers()
@@ -1556,8 +1764,8 @@ describe('copilot streaming regressions', () => {
               name: 'edit_workflow',
               state: ClientToolCallState.review,
               params: {
-                workflowDocument: 'workflow: {}',
-                workflowId: 'wf-active-chat-review-tools',
+                entityDocument: 'workflow: {}',
+                entityId: 'wf-active-chat-review-tools',
               },
             },
           ],
@@ -1570,8 +1778,8 @@ describe('copilot streaming regressions', () => {
                 name: 'edit_workflow',
                 state: ClientToolCallState.review,
                 params: {
-                  workflowDocument: 'workflow: {}',
-                  workflowId: 'wf-active-chat-review-tools',
+                  entityDocument: 'workflow: {}',
+                  entityId: 'wf-active-chat-review-tools',
                 },
               },
             },
@@ -1584,8 +1792,8 @@ describe('copilot streaming regressions', () => {
           name: 'edit_workflow',
           state: ClientToolCallState.review,
           params: {
-            workflowDocument: 'workflow: {}',
-            workflowId: 'wf-active-chat-review-tools',
+            entityDocument: 'workflow: {}',
+            entityId: 'wf-active-chat-review-tools',
           },
         },
       },
@@ -2276,7 +2484,7 @@ describe('copilot streaming regressions', () => {
                 id: toolCallId,
                 name: 'edit_workflow',
                 state: ClientToolCallState.review,
-                params: { workflowDocument: 'flowchart TD' },
+                params: { entityDocument: 'flowchart TD' },
               },
             },
           ],
@@ -2287,10 +2495,7 @@ describe('copilot streaming regressions', () => {
           id: toolCallId,
           name: 'edit_workflow',
           state: ClientToolCallState.review,
-          params: { workflowDocument: 'flowchart TD' },
-          provenance: {
-            workflowId: 'wf-review-abort',
-          },
+          params: { entityDocument: 'flowchart TD' },
         } as any,
       },
       isSendingMessage: false,
@@ -2537,7 +2742,8 @@ describe('copilot streaming regressions', () => {
     expect(secondaryStore.getState().messages.at(-1)?.content).toBe('Shared reply')
     expect(secondaryStore.getState().toolCallsById[toolCallId]?.provenance).toMatchObject({
       workspaceId: 'workspace-1',
-      contextWorkflowId: 'wf-blue',
+      contextEntityKind: 'workflow',
+      contextEntityId: 'wf-blue',
     })
     expect(secondaryStore.getState().isSendingMessage).toBe(
       primaryStore.getState().isSendingMessage
@@ -2741,16 +2947,9 @@ describe('copilot tool user action delegation', () => {
           name: 'edit_workflow',
           state: ClientToolCallState.pending,
           params: {
-            workflowDocument:
+            entityDocument:
               'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
-            workflowId: 'wf-edit-workflow-order',
-          },
-          provenance: {
-            workflowId: 'wf-edit-workflow-order',
-            reviewSessionId: 'review-edit-workflow-order',
-            entityKind: 'workflow',
             entityId: 'wf-edit-workflow-order',
-            workspaceId: 'workspace-1',
           },
         } as any,
       },
@@ -2807,9 +3006,9 @@ describe('copilot tool user action delegation', () => {
           name: 'edit_workflow',
           state: ClientToolCallState.review,
           params: {
-            workflowDocument:
+            entityDocument:
               'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
-            workflowId: 'wf-edit-workflow-review',
+            entityId: 'wf-edit-workflow-review',
           },
           result: {
             workflowState: {
@@ -2818,13 +3017,6 @@ describe('copilot tool user action delegation', () => {
               loops: {},
               parallels: {},
             },
-          },
-          provenance: {
-            workflowId: 'wf-edit-workflow-review',
-            reviewSessionId: 'review-edit-workflow-review',
-            entityKind: 'workflow',
-            entityId: 'wf-edit-workflow-review',
-            workspaceId: 'workspace-1',
           },
         } as any,
       },
@@ -2885,7 +3077,8 @@ describe('copilot tool user action delegation', () => {
               method: 'GET',
             },
             provenance: {
-              contextWorkflowId: 'wf-api-request-access-switch',
+              contextEntityKind: 'workflow',
+              contextEntityId: 'wf-api-request-access-switch',
               workspaceId: 'workspace-1',
             },
           } as any,
@@ -2906,7 +3099,8 @@ describe('copilot tool user action delegation', () => {
           method: 'GET',
         },
         context: {
-          contextWorkflowId: 'wf-api-request-access-switch',
+          contextEntityKind: 'workflow',
+          contextEntityId: 'wf-api-request-access-switch',
         },
       })
       expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.success)
@@ -2957,10 +3151,6 @@ describe('copilot tool user action delegation', () => {
             name: 'set_environment_variables',
             state: ClientToolCallState.pending,
             params: { variables: { API_KEY: 'secret' } },
-            provenance: {
-              workflowId: 'workflow-1',
-              workspaceId: 'workspace-1',
-            },
           } as any,
         },
       })
@@ -3062,7 +3252,8 @@ describe('copilot tool user action delegation', () => {
             method: 'GET',
           },
           provenance: {
-            contextWorkflowId: 'wf-server-managed-state-persist',
+            contextEntityKind: 'workflow',
+            contextEntityId: 'wf-server-managed-state-persist',
             workspaceId: 'workspace-1',
           },
         } as any,
@@ -3090,7 +3281,7 @@ describe('copilot tool user action delegation', () => {
     )
   })
 
-  it('auto-executes review-state client tools when access switches to full', async () => {
+  it('leaves review-state client tools staged when access switches to full', async () => {
     vi.useFakeTimers()
     try {
       const channelId = 'copilot-review-access-switch'
@@ -3133,16 +3324,9 @@ describe('copilot tool user action delegation', () => {
             name: 'edit_workflow',
             state: ClientToolCallState.review,
             params: {
-              workflowDocument:
+              entityDocument:
                 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
-              workflowId: 'wf-review-access-switch',
-            },
-            provenance: {
-              workflowId: 'wf-review-access-switch',
-              reviewSessionId: 'review-access-switch',
-              entityKind: 'workflow',
               entityId: 'wf-review-access-switch',
-              workspaceId: 'workspace-1',
             },
           } as any,
         },
@@ -3151,7 +3335,8 @@ describe('copilot tool user action delegation', () => {
       store.getState().setAccessLevel('full')
       await vi.runAllTimersAsync()
 
-      expect(calls).toEqual(['userAction'])
+      expect(calls).toEqual([])
+      expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.review)
 
       unregisterClientTool(toolCallId)
     } finally {

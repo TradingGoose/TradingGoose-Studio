@@ -7,6 +7,9 @@ export interface ToolPromptMetadata {
   surfaceKind?: string
 }
 
+const CUSTOM_TOOL_DOCUMENT_GUIDANCE =
+  'Use full `tg-custom-tool-document-v1` JSON with exactly `title`, `schemaText`, and `codeText`. `schemaText` is a JSON-encoded string, not an object, containing {"type":"function","function":{"name":"camelCaseName","description":"What the tool does","parameters":{"type":"object","properties":{},"required":[]}}}. `codeText` is raw async JavaScript function body only; use <paramName> for inputs and {{ENV_VAR_NAME}} for environment variables.'
+
 export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   plan: {
     description: 'Draft a plan or todo list for multi-step work.',
@@ -25,31 +28,31 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   [CopilotTool.read_workflow]: {
     description:
-      'Read a workflow by exact `workflowId` and return Mermaid in `entityDocument`, plus `workflowSummary.blocks[].connections` counts and exact raw `workflowSummary.edges` with external/internal scope. For topology, use only these edges/counts; do not infer graph connections from subBlock text references like `<...>`. `connectionIssues` only reports malformed existing edges.',
+      'Read a workflow by exact `entityId` and return Mermaid in `entityDocument`, plus `workflowSummary.blocks[].connections` counts and exact raw `workflowSummary.edges` with external/internal scope. For topology, use only these edges/counts; do not infer graph connections from subBlock text references like `<...>`. `connectionIssues` only reports malformed existing edges.',
     kind: 'read',
     entityKind: 'workflow',
   },
   create_workflow: {
     description:
-      'Create a new workflow in the current workspace or provided `workspaceId`, then return its workflow `entityId` and metadata. Use that `entityId` as `workflowId` with `edit_workflow` next to author the workflow document.',
+      'Create a new workflow in the current workspace or provided `workspaceId`, then return its workflow `entityId` and metadata. Use that `entityId` with `edit_workflow` next to author the workflow document.',
     kind: 'create',
     entityKind: 'workflow',
   },
   edit_workflow: {
     description:
-      'Replace the full workflow document using exact argument keys `workflowId`, full `workflowDocument`, and `documentFormat: tg-mermaid-v1`, then return the resulting workflow state. Use this only for graph or topology edits such as adding, removing, reconnecting, or replacing blocks, or changing loop, parallel, or condition structure. Do not use this for a single existing block `name`, `enabled`, or `subBlocks` change; use `edit_workflow_block` instead. If a full-document edit fails and the request only changes one existing block config, stop retrying `edit_workflow` and switch tools.',
+      'Replace the full workflow document using exact argument keys `entityId`, full `entityDocument`, and `documentFormat: tg-mermaid-v1`, then return the resulting workflow state. Use this only for graph or topology edits such as adding, removing, reconnecting, or replacing blocks, or changing loop, parallel, or condition structure. Do not use this for a single existing block `name`, `enabled`, or `subBlocks` change; use `edit_workflow_block` instead. If a full-document edit fails and the request only changes one existing block config, stop retrying `edit_workflow` and switch tools.',
     kind: 'edit',
     entityKind: 'workflow',
   },
   edit_workflow_block: {
     description:
-      'Default tool for one existing block config change. Patch one existing workflow block without changing workflow connections, graph structure, loops, parallels, condition branches, or adding or removing blocks. Use exact argument keys `workflowId`, `blockId`, optional `blockType`, optional `name`, optional `enabled`, and optional `subBlocks` mapping canonical sub-block ids to new values. Use `read_workflow` first for the exact `blockId`, and use `get_blocks_metadata` before editing `subBlocks`. If a previous `edit_workflow` attempt only needed one block config change, switch to this tool instead of retrying `edit_workflow`.',
+      'Default tool for one existing block config change. Patch one existing workflow block without changing workflow connections, graph structure, loops, parallels, condition branches, or adding or removing blocks. Use exact argument keys `entityId`, `blockId`, optional `blockType`, optional `name`, optional `enabled`, and optional `subBlocks` mapping canonical sub-block ids to new values. Use `read_workflow` first for the exact `blockId`, and use `get_blocks_metadata` before editing `subBlocks`. If a previous `edit_workflow` attempt only needed one block config change, switch to this tool instead of retrying `edit_workflow`.',
     kind: 'edit',
     entityKind: 'workflow',
   },
   rename_workflow: {
     description:
-      'Rename workflow metadata by exact `workflowId` and new `name`, then return the updated workflow identity payload.',
+      'Rename workflow metadata by exact `entityId` and new `name`, then return the updated workflow identity payload.',
     kind: 'rename',
     entityKind: 'workflow',
   },
@@ -131,7 +134,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   [CopilotTool.list_workflows]: {
     description:
-      'List workflows in the current workspace. If the user identifies a workflow by name, use this list to select the exact `workflowId`, then read it with `read_workflow`.',
+      'List workflows in the current workspace. If the user identifies a workflow by name, use this list to select the exact `entityId`, then read it with `read_workflow`.',
     kind: 'list',
     entityKind: 'workflow',
   },
@@ -172,26 +175,22 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
     entityKind: 'custom_tool',
   },
   [CopilotTool.read_custom_tool]: {
-    description:
-      'Return one custom tool by `entityId` as an editable document payload with `entityDocument` and `documentFormat`.',
+    description: `Return one custom tool by \`entityId\` as an editable document payload with \`entityDocument\` and \`documentFormat\`. ${CUSTOM_TOOL_DOCUMENT_GUIDANCE}`,
     kind: 'read',
     entityKind: 'custom_tool',
   },
   create_custom_tool: {
-    description:
-      'Create a new custom tool in the current workspace from a full custom tool document and return the created document.',
+    description: `Create a new custom tool in the current workspace from a full custom tool document and return the created document. ${CUSTOM_TOOL_DOCUMENT_GUIDANCE}`,
     kind: 'create',
     entityKind: 'custom_tool',
   },
   edit_custom_tool: {
-    description:
-      'Update the target custom tool from a full custom tool document and return the resulting document.',
+    description: `Update the target custom tool from a full custom tool document and return the resulting document. ${CUSTOM_TOOL_DOCUMENT_GUIDANCE}`,
     kind: 'edit',
     entityKind: 'custom_tool',
   },
   rename_custom_tool: {
-    description:
-      'Rename the target custom tool by sending a full custom tool document with the updated title or function name, then return the resulting document.',
+    description: `Rename the target custom tool by sending a full custom tool document with the updated title or function name, then return the resulting document. ${CUSTOM_TOOL_DOCUMENT_GUIDANCE}`,
     kind: 'rename',
     entityKind: 'custom_tool',
   },

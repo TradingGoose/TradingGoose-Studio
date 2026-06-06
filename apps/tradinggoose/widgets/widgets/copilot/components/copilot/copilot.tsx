@@ -13,11 +13,11 @@ import { ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
 import type { ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
+import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
 import { createLogger } from '@/lib/logs/console/logger'
 import { normalizeOptionalString } from '@/lib/utils'
-import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
+import { useCopilotStore } from '@/stores/copilot/store'
 import { hasUiActiveToolCalls } from '@/stores/copilot/store-state'
 import type { ChatContext, CopilotSendRuntimeContext } from '@/stores/copilot/types'
 import { usePairColorContext } from '@/stores/dashboard/pair-store'
@@ -123,7 +123,6 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       toolCallsById,
       fetchContextUsage,
     } = useCopilotStore()
-    const copilotStoreApi = useCopilotStoreApi()
     const hasActiveToolCalls = useMemo(() => hasUiActiveToolCalls(toolCallsById), [toolCallsById])
     const isTurnInProgress =
       isSendingMessage ||
@@ -172,11 +171,11 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
     useEffect(() => {
       if (isInitialized && currentChat?.reviewSessionId) {
         logger.info('[Copilot] Component initialized, fetching context usage')
-        fetchContextUsage({ workflowId: liveContext.workflowId ?? undefined }).catch((err) => {
+        fetchContextUsage().catch((err) => {
           logger.warn('[Copilot] Failed to fetch context usage on mount', err)
         })
       }
-    }, [currentChat?.reviewSessionId, fetchContextUsage, isInitialized, liveContext.workflowId])
+    }, [currentChat?.reviewSessionId, fetchContextUsage, isInitialized])
 
     const clearProgrammaticScrollLock = useCallback(() => {
       if (programmaticScrollResetTimerRef.current !== null) {
@@ -366,22 +365,13 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
     // Track previous sending state to detect when stream completes
     const wasTurnInProgressRef = useRef(false)
 
-    // Auto-collapse todos and remove uncompleted ones when stream completes
+    // Auto-collapse todos when stream completes.
     useEffect(() => {
       if (wasTurnInProgressRef.current && !isTurnInProgress && showPlanTodos) {
-        // Stream just completed, collapse the todos and filter out uncompleted ones
         setTodosCollapsed(true)
-
-        // Remove any uncompleted todos
-        const completedTodos = planTodos.filter((todo) => todo.completed === true)
-        if (completedTodos.length !== planTodos.length) {
-          // Only update if there are uncompleted todos to remove
-          const store = copilotStoreApi.getState()
-          store.setPlanTodos(completedTodos)
-        }
       }
       wasTurnInProgressRef.current = isTurnInProgress
-    }, [isTurnInProgress, showPlanTodos, planTodos])
+    }, [isTurnInProgress, showPlanTodos])
 
     // Reset collapsed state when todos first appear
     useEffect(() => {
@@ -455,12 +445,6 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       ) => {
         if (!query || inputDisabled || isTurnInProgress) return
 
-        // Clear todos when sending a new message
-        if (showPlanTodos) {
-          const store = copilotStoreApi.getState()
-          store.setPlanTodos([])
-        }
-
         try {
           await sendMessage(query, {
             fileAttachments,
@@ -476,14 +460,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
           logger.error('Failed to send message:', error)
         }
       },
-      [
-        inputDisabled,
-        isTurnInProgress,
-        sendMessage,
-        showPlanTodos,
-        copilotStoreApi,
-        sendRuntimeContext,
-      ]
+      [inputDisabled, isTurnInProgress, sendMessage, sendRuntimeContext]
     )
 
     const handleEditModeChange = useCallback((messageId: string, isEditing: boolean) => {
@@ -561,9 +538,9 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
                       onClick={() => scrollToBottom()}
                       size='sm'
                       variant='default'
-                      className='flex items-center bg-background hover:bg-muted gap-1 rounded-lg border border-border h-7 w-7 shadow-lg transition-all'
+                      className='flex h-7 w-7 items-center gap-1 rounded-lg border border-border bg-background shadow-lg transition-all hover:bg-muted'
                     >
-                      <ArrowDown className='h-3.5 w-3.5  font-bold text-gray-700 dark:text-gray-300' />
+                      <ArrowDown className='h-3.5 w-3.5 font-bold text-gray-700 dark:text-gray-300' />
                       <span className='sr-only'>Scroll to bottom</span>
                     </Button>
                   </div>

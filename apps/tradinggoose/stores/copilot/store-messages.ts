@@ -9,10 +9,13 @@ import { ensureClientToolInstance, resolveToolDisplay } from '@/stores/copilot/t
 import type {
   ChatContext,
   CopilotMessage,
+  CopilotStore,
   CopilotToolCall,
   CopilotToolExecutionProvenance,
   MessageFileAttachment,
 } from '@/stores/copilot/types'
+
+type PlanTodo = CopilotStore['planTodos'][number]
 
 function parseJsonObjectPrefix(
   value: string
@@ -298,6 +301,97 @@ export function buildPinnedToolCallsById(
   }
 
   return toolCallsById
+}
+
+function readToolCallsInMessageOrder(message: CopilotMessage): CopilotToolCall[] {
+  const toolCalls: CopilotToolCall[] = []
+  const seenToolCallIds = new Set<string>()
+  const appendToolCall = (toolCall: CopilotToolCall | undefined) => {
+    if (!toolCall?.id || seenToolCallIds.has(toolCall.id)) {
+      return
+    }
+
+    seenToolCallIds.add(toolCall.id)
+    toolCalls.push(toolCall)
+  }
+
+  for (const toolCall of message.toolCalls ?? []) {
+    appendToolCall(toolCall)
+  }
+
+  for (const block of message.contentBlocks ?? []) {
+    if (block.type === 'tool_call' && block.toolCall) {
+      appendToolCall(block.toolCall)
+    }
+  }
+
+  return toolCalls
+}
+
+export function buildPlanTodosFromMessages(messages: CopilotMessage[]): PlanTodo[] {
+  let todos: PlanTodo[] = []
+
+  for (const message of messages) {
+    for (const toolCall of readToolCallsInMessageOrder(message)) {
+      if (toolCall.state !== 'success') {
+        continue
+      }
+
+      const args = ((toolCall as any).params || (toolCall as any).input || {}) as Record<
+        string,
+        any
+      >
+      const result = (
+        toolCall.result && typeof toolCall.result === 'object' ? toolCall.result : {}
+      ) as Record<string, any>
+
+      if (toolCall.name === 'plan') {
+        const todoList = Array.isArray(result.todoList)
+          ? result.todoList
+          : Array.isArray(args.todoList)
+            ? args.todoList
+            : null
+        if (todoList) {
+          todos = todoList
+            .map<PlanTodo | null>((item: any, index: number) => {
+              const content =
+                typeof item === 'string'
+                  ? item.trim()
+                  : typeof item?.content === 'string'
+                    ? item.content.trim()
+                    : ''
+              return content
+                ? {
+                    id: String(item?.id || item?.todoId || `todo-${index}`),
+                    content,
+                    completed: item?.completed === true,
+                    executing: item?.executing === true,
+                  }
+                : null
+            })
+            .filter((todo): todo is PlanTodo => !!todo)
+        }
+        continue
+      }
+
+      const todoId = args.id || args.todoId || result.id || result.todoId
+      if (!todoId) {
+        continue
+      }
+
+      if (toolCall.name === 'mark_todo_in_progress') {
+        todos = todos.map((todo) =>
+          todo.id === todoId ? { ...todo, completed: false, executing: true } : todo
+        )
+      } else if (toolCall.name === 'checkoff_todo') {
+        todos = todos.map((todo) =>
+          todo.id === todoId ? { ...todo, completed: true, executing: false } : todo
+        )
+      }
+    }
+  }
+
+  return todos
 }
 
 export function updateMessagesForToolCallState(

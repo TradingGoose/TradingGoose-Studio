@@ -96,11 +96,12 @@ describe('workflow output tools', () => {
     tool.setExecutionContext({
       toolCallId,
       toolName: 'read_block_outputs',
-      workflowId: 'wf-1',
+      contextEntityKind: 'workflow',
+      contextEntityId: 'wf-1',
       log: vi.fn(),
     })
 
-    await tool.execute({ workflowId: 'wf-1', blockIds: ['agent-1', 'loop-1'] })
+    await tool.execute({ entityId: 'wf-1', blockIds: ['agent-1', 'loop-1'] })
 
     expect(tool.getState()).toBe(ClientToolCallState.success)
 
@@ -179,11 +180,12 @@ describe('workflow output tools', () => {
     tool.setExecutionContext({
       toolCallId,
       toolName: 'read_block_upstream_references',
-      workflowId: 'wf-1',
+      contextEntityKind: 'workflow',
+      contextEntityId: 'wf-1',
       log: vi.fn(),
     })
 
-    await tool.execute({ workflowId: 'wf-1', blockIds: ['fn-1'] })
+    await tool.execute({ entityId: 'wf-1', blockIds: ['fn-1'] })
 
     expect(tool.getState()).toBe(ClientToolCallState.success)
 

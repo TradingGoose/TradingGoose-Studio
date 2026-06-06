@@ -50,7 +50,11 @@ describe('listGDriveFilesServerTool', () => {
     await expect(
       listGDriveFilesServerTool.execute(
         { credentialId: 'credential-1', search_query: 'report' },
-        { userId: 'auth-user', contextWorkflowId: 'workflow-1' }
+        {
+          userId: 'auth-user',
+          contextEntityKind: 'workflow',
+          contextEntityId: 'workflow-1',
+        }
       )
     ).resolves.toEqual({
       files: [{ id: 'file-1', name: 'Report' }],

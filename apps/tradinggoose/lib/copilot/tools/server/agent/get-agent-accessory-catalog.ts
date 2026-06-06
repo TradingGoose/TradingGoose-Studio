@@ -1,9 +1,7 @@
 import { CopilotTool } from '@/lib/copilot/registry'
-import {
-  type BaseServerTool,
-  resolveServerWorkflowScope,
-} from '@/lib/copilot/tools/server/base-tool'
+import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { listWorkflowBlockCatalogItems } from '@/lib/copilot/tools/server/blocks/block-mermaid-catalog'
+import { resolveServerWorkflowScope } from '@/lib/copilot/tools/server/workflow/workflow-scope'
 import type {
   GetAgentAccessoryCatalogInputType,
   GetAgentAccessoryCatalogResultType,

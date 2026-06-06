@@ -1,9 +1,11 @@
 import { CheckCircle, FolderOpen, Loader2, MinusCircle, X, XCircle } from 'lucide-react'
+import { ENTITY_KIND_WORKFLOW } from '@/lib/copilot/review-sessions/types'
 import {
   BaseClientTool,
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
+import { resolveCopilotContextEntityId } from '@/lib/copilot/tools/entity-target'
 import { createLogger } from '@/lib/logs/console/logger'
 
 export class GDriveRequestAccessClientTool extends BaseClientTool {
@@ -37,8 +39,7 @@ export class GDriveRequestAccessClientTool extends BaseClientTool {
       this.setState(ClientToolCallState.executing)
       const executionContext = this.requireExecutionContext()
       const params = new URLSearchParams({ provider: 'google-drive' })
-      const workflowId =
-        executionContext.contextWorkflowId?.trim() || executionContext.workflowId?.trim()
+      const workflowId = resolveCopilotContextEntityId(executionContext, ENTITY_KIND_WORKFLOW)
       if (workflowId) {
         params.set('workflowId', workflowId)
       } else if (executionContext.workspaceId?.trim()) {

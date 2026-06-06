@@ -2,6 +2,7 @@ import { db } from '@tradinggoose/db'
 import { permissions, workflowExecutionLogs, workspace } from '@tradinggoose/db/schema'
 import { and, desc, eq, or, sql } from 'drizzle-orm'
 import { CopilotTool } from '@/lib/copilot/registry'
+import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
 import type {
   BaseServerTool,
   ServerToolExecutionContext,
@@ -10,7 +11,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 
 interface ReadWorkflowLogsArgs {
-  workflowId: string
+  entityId: string
   limit?: number
   includeDetails?: boolean
 }
@@ -223,11 +224,9 @@ export const readWorkflowLogsServerTool: BaseServerTool<ReadWorkflowLogsArgs, an
   name: CopilotTool.read_workflow_logs,
   async execute(rawArgs: ReadWorkflowLogsArgs, context?: ServerToolExecutionContext): Promise<any> {
     const logger = createLogger('ReadWorkflowLogsServerTool')
-    const { workflowId, limit = 3, includeDetails = true } = rawArgs || ({} as ReadWorkflowLogsArgs)
+    const { limit = 3, includeDetails = true } = rawArgs || ({} as ReadWorkflowLogsArgs)
+    const workflowId = requireCopilotEntityId(rawArgs, { toolName: CopilotTool.read_workflow_logs })
 
-    if (!workflowId || typeof workflowId !== 'string') {
-      throw new Error('workflowId is required')
-    }
     if (!context?.userId) {
       throw new Error('Authenticated user context is required')
     }

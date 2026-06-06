@@ -1,3 +1,4 @@
+import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -5,14 +6,11 @@ import {
   TG_MERMAID_DOCUMENT_FORMAT,
 } from '@/lib/workflows/studio-workflow-mermaid'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
-import {
-  buildWorkflowMutationResult,
-  loadBaseWorkflowState,
-} from './workflow-mutation-utils'
+import { buildWorkflowMutationResult, loadBaseWorkflowState } from './workflow-mutation-utils'
 
 interface EditWorkflowParams {
-  workflowId: string
-  workflowDocument: string
+  entityId: string
+  entityDocument: string
   documentFormat?: string
   currentWorkflowState: string
 }
@@ -21,13 +19,11 @@ export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
   name: 'edit_workflow',
   async execute(params: EditWorkflowParams): Promise<any> {
     const logger = createLogger('EditWorkflowServerTool')
-    const { workflowId, workflowDocument, documentFormat, currentWorkflowState } = params
+    const { entityDocument, documentFormat, currentWorkflowState } = params
+    const workflowId = requireCopilotEntityId(params, { toolName: 'edit_workflow' })
 
-    if (!workflowId) {
-      throw new Error('workflowId is required')
-    }
-    if (!workflowDocument || workflowDocument.trim().length === 0) {
-      throw new Error('workflowDocument is required')
+    if (!entityDocument || entityDocument.trim().length === 0) {
+      throw new Error('entityDocument is required')
     }
 
     logger.info('Executing edit_workflow', {
@@ -36,7 +32,7 @@ export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
     })
 
     const baseWorkflowState = await loadBaseWorkflowState(workflowId, currentWorkflowState)
-    const parsedWorkflowDocument = parseTgMermaidToWorkflow(workflowDocument)
+    const parsedWorkflowDocument = parseTgMermaidToWorkflow(entityDocument)
     const result = buildWorkflowMutationResult({
       workflowId,
       baseWorkflowState,

@@ -43,7 +43,7 @@ describe('RunWorkflowClientTool channel-safe workflow scoping', () => {
     })
   })
 
-  it('handleAccept rejects missing workflowId even when execution context has a workflow', async () => {
+  it('handleAccept rejects missing entityId even when execution context has a workflow', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString()
       if (url === '/api/copilot/tools/mark-complete' && (init?.method || 'GET') === 'POST') {
@@ -63,7 +63,8 @@ describe('RunWorkflowClientTool channel-safe workflow scoping', () => {
     tool.setExecutionContext({
       toolCallId,
       toolName: 'run_workflow',
-      workflowId: 'wf-context',
+      contextEntityKind: 'workflow',
+      contextEntityId: 'wf-context',
       log: vi.fn(),
     })
 
@@ -79,7 +80,7 @@ describe('RunWorkflowClientTool channel-safe workflow scoping', () => {
     })
     const markCompleteBody = JSON.parse(String(markCompleteCall?.[1]?.body))
     expect(markCompleteBody.status).toBe(400)
-    expect(markCompleteBody.message).toContain('workflowId is required')
+    expect(markCompleteBody.message).toContain('entityId is required')
   })
 
   it('handleAccept preserves an explicit workflow target instead of reusing the live channel workflow', async () => {
@@ -102,12 +103,13 @@ describe('RunWorkflowClientTool channel-safe workflow scoping', () => {
     tool.setExecutionContext({
       toolCallId,
       toolName: 'run_workflow',
-      workflowId: 'wf-live-context',
+      contextEntityKind: 'workflow',
+      contextEntityId: 'wf-live-context',
       log: vi.fn(),
     })
 
     await tool.handleAccept({
-      workflowId: 'wf-explicit-target',
+      entityId: 'wf-explicit-target',
       workflow_input: { symbol: 'AAPL' },
     })
 

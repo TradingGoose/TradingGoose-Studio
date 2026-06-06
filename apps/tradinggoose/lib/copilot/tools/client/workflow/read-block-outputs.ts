@@ -13,6 +13,7 @@ import {
   readWorkflowVariableOutputs,
 } from '@/lib/copilot/tools/client/workflow/block-output-utils'
 import { getReadableWorkflowState } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
+import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
 import {
   ReadBlockOutputsResult,
   type ReadBlockOutputsResultType,
@@ -23,7 +24,7 @@ const logger = createLogger('ReadBlockOutputsClientTool')
 
 interface ReadBlockOutputsArgs {
   blockIds?: string[]
-  workflowId: string
+  entityId: string
 }
 
 export class ReadBlockOutputsClientTool extends BaseClientTool {
@@ -66,12 +67,13 @@ export class ReadBlockOutputsClientTool extends BaseClientTool {
     try {
       this.setState(ClientToolCallState.executing)
       const executionContext = this.requireExecutionContext()
+      const entityId = requireCopilotEntityId(args)
 
       const {
         workflowId: activeWorkflowId,
         workflowState: snapshot,
         variables,
-      } = await getReadableWorkflowState(executionContext, args?.workflowId)
+      } = await getReadableWorkflowState(executionContext, entityId)
       const blocks = snapshot.blocks || {}
       const loops = snapshot.loops || {}
       const parallels = snapshot.parallels || {}
