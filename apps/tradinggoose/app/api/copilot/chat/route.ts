@@ -1292,11 +1292,17 @@ export async function POST(req: NextRequest) {
     }
 
     const contentBlocks = Array.isArray(responseData.toolCalls)
-      ? responseData.toolCalls.map((toolCall: unknown) => ({
-          type: 'tool_call',
-          timestamp: Date.now(),
-          toolCall,
-        }))
+      ? responseData.toolCalls.map((toolCall: any) => {
+          const args = normalizeFunctionCallArguments(toolCall.arguments)
+          return {
+            type: 'tool_call',
+            timestamp: Date.now(),
+            toolCall: {
+              ...toolCall,
+              ...(args ? { arguments: args, params: args } : {}),
+            },
+          }
+        })
       : undefined
 
     if (currentSession && (responseData.content || contentBlocks?.length)) {

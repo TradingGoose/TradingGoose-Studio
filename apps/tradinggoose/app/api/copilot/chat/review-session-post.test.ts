@@ -382,6 +382,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
           {
             id: 'tool-call-1',
             name: 'lookup_context',
+            arguments: JSON.stringify({ query: 'price' }),
             success: true,
             result: { ok: true },
           },
@@ -416,6 +417,8 @@ describe('Copilot Chat POST Generic Sessions', () => {
               toolCall: {
                 id: 'tool-call-1',
                 name: 'lookup_context',
+                arguments: { query: 'price' },
+                params: { query: 'price' },
                 success: true,
                 result: { ok: true },
               },
