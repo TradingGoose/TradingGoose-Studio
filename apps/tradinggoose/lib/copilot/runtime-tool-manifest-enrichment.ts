@@ -126,49 +126,6 @@ const TG_EDGE_SCHEMA: Record<string, unknown> = {
   },
 }
 
-const WORKFLOW_DOCUMENT_CONTRACT = {
-  type: 'annotated_graph',
-  nodePrefix: TG_BLOCK_LINE_PREFIX,
-  edgePrefix: TG_EDGE_LINE_PREFIX,
-  spec: {
-    canonicalBlock: {
-      idPath: 'id',
-      typePath: 'type',
-      parentIdPath: 'data.parentId',
-    },
-    visibleOverlay: {
-      idLabel: 'id',
-      typeLabel: 'type',
-    },
-    inferParentsFromContainerSubgraphs: true,
-    containers: [
-      {
-        blockType: 'loop',
-        startNodeSuffix: '__loop_start',
-        endNodeSuffix: '__loop_end',
-        startSourceHandle: 'loop-start-source',
-        endSourceHandle: 'loop-end-source',
-        endTargetHandle: 'loop-end-target',
-      },
-      {
-        blockType: 'parallel',
-        startNodeSuffix: '__parallel_start',
-        endNodeSuffix: '__parallel_end',
-        startSourceHandle: 'parallel-start-source',
-        endSourceHandle: 'parallel-end-source',
-        endTargetHandle: 'parallel-end-target',
-      },
-    ],
-    conditionalBranches: [
-      {
-        blockType: 'condition',
-        handlePrefix: 'condition-',
-        branchNodeSeparator: '__condition_',
-      },
-    ],
-  },
-}
-
 function getObjectPropertySchema(
   parameters: Record<string, unknown>,
   propertyName: string
@@ -202,7 +159,7 @@ function buildWorkflowDocumentSemanticValidators(
       path: documentField,
       kind: 'string_requires_real_newlines',
       description:
-        'Cheap format guard only. Use raw Mermaid text with real newlines; Studio validates TG_WORKFLOW, TG_BLOCK, and edge consistency.',
+        'Use raw Mermaid text with real newlines; Studio validates workflow graph semantics.',
       message:
         'Expected raw Mermaid text with real newline characters, not JSON-escaped `\\n` sequences.',
     },
@@ -211,7 +168,7 @@ function buildWorkflowDocumentSemanticValidators(
       kind: 'string_starts_with',
       args: { prefix: 'flowchart ' },
       description:
-        'Cheap format guard only. Start with a Mermaid `flowchart` declaration; Studio validates canonical workflow structure.',
+        'Start with a Mermaid `flowchart` declaration; Studio validates canonical workflow structure.',
       message: 'Expected raw Mermaid text that starts with a `flowchart` declaration.',
     },
     {
@@ -271,17 +228,6 @@ function buildWorkflowDocumentSemanticValidators(
       args: { substring: '"blockDescription"' },
       description: 'Use canonical `TG_BLOCK` state, not simplified block metadata aliases.',
       message: '`TG_BLOCK` metadata must not include `blockDescription`.',
-    },
-    {
-      path: documentField,
-      kind: 'string_document_contract',
-      args: {
-        contract: WORKFLOW_DOCUMENT_CONTRACT,
-      },
-      description:
-        'Keep visible Mermaid connection lines aligned with canonical `TG_EDGE` metadata.',
-      message:
-        'Visible Mermaid connections and `TG_EDGE` metadata must describe the same logical workflow edges.',
     },
   ]
 }
