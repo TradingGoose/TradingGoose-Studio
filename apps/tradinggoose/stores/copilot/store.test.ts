@@ -729,7 +729,6 @@ describe('copilot streaming regressions', () => {
             ],
           }),
           toolBlock('checkoff_todo', 'todo-tool-1', { id: 'todo-1' }),
-          toolBlock('mark_todo_in_progress', 'todo-tool-2', { id: 'todo-2' }),
           toolBlock(
             'mark_todo_in_progress',
             'todo-tool-pending-1',
@@ -788,7 +787,7 @@ describe('copilot streaming regressions', () => {
         id: 'todo-2',
         content: 'Apply the workflow edit',
         completed: false,
-        executing: true,
+        executing: false,
       },
     ])
 

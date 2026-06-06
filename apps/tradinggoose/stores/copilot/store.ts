@@ -335,7 +335,7 @@ const initialState = {
 
 function buildPlanTodoStateFromMessages(messages: CopilotMessage[]) {
   const planTodos = buildPlanTodosFromMessages(messages)
-  return { planTodos, showPlanTodos: planTodos.some((todo) => todo.executing === true) }
+  return { planTodos, showPlanTodos: planTodos.some((todo) => !todo.completed) }
 }
 
 const sharedSessionSyncGuards = new WeakSet<StoreApi<CopilotStore>>()
