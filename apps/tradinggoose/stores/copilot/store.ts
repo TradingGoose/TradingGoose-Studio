@@ -272,10 +272,9 @@ function abortAllInProgressTools(
   }
 }
 
-function autoExecuteEligibleToolsForAccessLevel(
+function autoExecutePendingToolsForAccessLevel(
   accessLevel: CopilotStore['accessLevel'],
-  get: () => CopilotStore,
-  mode: 'access_change' | 'hydration' = 'access_change'
+  get: () => CopilotStore
 ) {
   if (!shouldAutoExecuteTool(accessLevel)) {
     return
@@ -283,13 +282,9 @@ function autoExecuteEligibleToolsForAccessLevel(
 
   const { toolCallsById } = get()
   const copilotToolIds: string[] = []
-  const includePendingTools = mode === 'access_change'
-  const isEligibleState = (state: ClientToolCallState) =>
-    state === ClientToolCallState.review ||
-    (includePendingTools && state === ClientToolCallState.pending)
 
   for (const [id, toolCall] of Object.entries(toolCallsById)) {
-    if (!isEligibleState(toolCall.state)) {
+    if (toolCall.state !== ClientToolCallState.pending) {
       continue
     }
 
@@ -302,17 +297,16 @@ function autoExecuteEligibleToolsForAccessLevel(
     return
   }
 
-  logger.info('[copilot access] auto-executing queued tools', {
+  logger.info('[copilot access] auto-executing queued pending tools', {
     accessLevel,
     copilotToolIds,
-    mode,
   })
 
   for (const toolCallId of copilotToolIds) {
     setTimeout(() => {
       const latest = get().toolCallsById[toolCallId]
       if (!latest) return
-      if (!isEligibleState(latest.state)) {
+      if (latest.state !== ClientToolCallState.pending) {
         return
       }
       void get().executeCopilotToolCall(toolCallId)
@@ -477,7 +471,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         const previousAccessLevel = get().accessLevel
         set({ accessLevel })
         if (previousAccessLevel !== accessLevel) {
-          autoExecuteEligibleToolsForAccessLevel(accessLevel, get)
+          autoExecutePendingToolsForAccessLevel(accessLevel, get)
         }
       },
 
@@ -572,7 +566,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                 isAwaitingContinuation: isChatTurnInProgress(latestChat),
                 abortController: null,
               })
-              autoExecuteEligibleToolsForAccessLevel(get().accessLevel, get, 'hydration')
               logger.info('[Context Usage] Chat selected, fetching usage')
               await get().fetchContextUsage()
             }
@@ -718,7 +711,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                     isAwaitingContinuation: isChatTurnInProgress(updatedCurrentChat),
                     abortController: null,
                   })
-                  autoExecuteEligibleToolsForAccessLevel(get().accessLevel, get, 'hydration')
                 }
               } else if (!isSendingMessage) {
                 const preferredChat =
@@ -754,7 +746,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                     isAwaitingContinuation: isChatTurnInProgress(availableChat),
                     abortController: null,
                   })
-                  autoExecuteEligibleToolsForAccessLevel(get().accessLevel, get, 'hydration')
                 } else {
                   set({
                     currentChat: null,

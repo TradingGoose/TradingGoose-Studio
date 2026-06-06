@@ -281,11 +281,43 @@ describe('copilot runtime tool manifest', () => {
         }),
       ])
     )
-    const workflowValidatorKinds =
-      manifest.tools
-        .find((tool) => tool.name === 'edit_workflow')
-        ?.semanticValidators?.map((validator) => validator.kind) ?? []
-    expect(workflowValidatorKinds).toEqual(['string_requires_real_newlines', 'string_starts_with'])
+    const editWorkflowValidators =
+      manifest.tools.find((tool) => tool.name === 'edit_workflow')?.semanticValidators ?? []
+    const workflowValidatorKinds = editWorkflowValidators.map((validator) => validator.kind)
+    expect(workflowValidatorKinds).toEqual(
+      expect.arrayContaining([
+        'string_requires_real_newlines',
+        'string_starts_with',
+        'string_requires_line_prefix',
+        'string_line_prefix_json_schema',
+        'string_forbids_substring',
+        'string_document_contract',
+      ])
+    )
+    expect(editWorkflowValidators).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'string_requires_line_prefix',
+          args: { prefix: '%% TG_WORKFLOW ' },
+        }),
+        expect.objectContaining({
+          kind: 'string_requires_line_prefix',
+          args: { prefix: '%% TG_BLOCK ' },
+        }),
+        expect.objectContaining({
+          kind: 'string_line_prefix_json_schema',
+          args: expect.objectContaining({ prefix: '%% TG_EDGE ', schema: expect.any(Object) }),
+        }),
+        expect.objectContaining({
+          kind: 'string_document_contract',
+          args: expect.objectContaining({
+            workflowPrefix: '%% TG_WORKFLOW ',
+            blockPrefix: '%% TG_BLOCK ',
+            edgePrefix: '%% TG_EDGE ',
+          }),
+        }),
+      ])
+    )
     const editWorkflowProperties =
       (manifest.tools.find((tool) => tool.name === 'edit_workflow')?.parameters?.properties as
         | Record<string, unknown>

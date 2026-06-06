@@ -10,7 +10,3 @@ export function shouldRequireToolApproval(
 ): boolean {
   return gated && !shouldAutoExecuteTool(accessLevel)
 }
-
-export function shouldRequireStagedReviewApproval(accessLevel: CopilotAccessLevel): boolean {
-  return !shouldAutoExecuteTool(accessLevel)
-}

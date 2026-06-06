@@ -4,11 +4,7 @@ import { useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DiffViewer } from '@/components/ui/diff-viewer'
-import {
-  type CopilotAccessLevel,
-  shouldRequireStagedReviewApproval,
-  shouldRequireToolApproval,
-} from '@/lib/copilot/access-policy'
+import { type CopilotAccessLevel, shouldRequireToolApproval } from '@/lib/copilot/access-policy'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { getClientTool } from '@/lib/copilot/tools/client/manager'
 import { useCopilotStore } from '@/stores/copilot/store'
@@ -200,7 +196,7 @@ function shouldShowToolActionButtons(
   const hasInterrupt = !!getToolInterruptDisplays(toolCall.name, toolCall.id)
 
   if (hasInterrupt && toolCall.state === ClientToolCallState.review) {
-    return shouldRequireStagedReviewApproval(accessLevel)
+    return true
   }
 
   return (

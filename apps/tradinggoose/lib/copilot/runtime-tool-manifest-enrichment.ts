@@ -74,6 +74,58 @@ const JSON_DOCUMENT_SPECS: JsonDocumentSemanticSpec[] = [
   },
 ]
 
+const TG_WORKFLOW_LINE_PREFIX = '%% TG_WORKFLOW '
+const TG_BLOCK_LINE_PREFIX = '%% TG_BLOCK '
+const TG_EDGE_LINE_PREFIX = '%% TG_EDGE '
+
+const TG_WORKFLOW_METADATA_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  required: ['version', 'direction'],
+  additionalProperties: true,
+  properties: {
+    version: { const: TG_MERMAID_DOCUMENT_FORMAT },
+    direction: { enum: ['TD', 'LR'] },
+  },
+}
+
+const TG_POSITION_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  required: ['x', 'y'],
+  additionalProperties: true,
+  properties: {
+    x: { type: 'number' },
+    y: { type: 'number' },
+  },
+}
+
+const TG_BLOCK_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  required: ['id', 'type', 'name', 'position', 'subBlocks', 'outputs', 'enabled'],
+  additionalProperties: true,
+  properties: {
+    id: { type: 'string' },
+    type: { type: 'string' },
+    name: { type: 'string' },
+    position: TG_POSITION_SCHEMA,
+    subBlocks: { type: 'object' },
+    outputs: { type: 'object' },
+    enabled: { type: 'boolean' },
+  },
+}
+
+const TG_EDGE_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  required: ['source', 'target'],
+  additionalProperties: true,
+  properties: {
+    id: { type: 'string' },
+    source: { type: 'string' },
+    target: { type: 'string' },
+    sourceHandle: { type: 'string' },
+    targetHandle: { type: 'string' },
+  },
+}
+
 function getObjectPropertySchema(
   parameters: Record<string, unknown>,
   propertyName: string
@@ -118,6 +170,78 @@ function buildWorkflowDocumentSemanticValidators(
       description:
         'Cheap format guard only. Start with a Mermaid `flowchart` declaration; Studio validates canonical workflow structure.',
       message: 'Expected raw Mermaid text that starts with a `flowchart` declaration.',
+    },
+    {
+      path: documentField,
+      kind: 'string_requires_line_prefix',
+      args: { prefix: TG_WORKFLOW_LINE_PREFIX },
+      description: 'Include a standalone canonical `%% TG_WORKFLOW {...}` metadata line.',
+      message: 'Workflow documents must include a standalone `%% TG_WORKFLOW {...}` metadata line.',
+    },
+    {
+      path: documentField,
+      kind: 'string_requires_line_prefix',
+      args: { prefix: TG_BLOCK_LINE_PREFIX },
+      description: 'Include standalone canonical `%% TG_BLOCK {...}` metadata lines.',
+      message: 'Workflow documents must include standalone `%% TG_BLOCK {...}` metadata lines.',
+    },
+    {
+      path: documentField,
+      kind: 'string_line_prefix_json_schema',
+      args: { prefix: TG_WORKFLOW_LINE_PREFIX, schema: TG_WORKFLOW_METADATA_SCHEMA },
+      description: 'Validate each `TG_WORKFLOW` metadata JSON payload.',
+      message:
+        '`TG_WORKFLOW` metadata must be canonical JSON with `version: "tg-mermaid-v1"` and `direction` of `TD` or `LR`.',
+    },
+    {
+      path: documentField,
+      kind: 'string_line_prefix_json_schema',
+      args: { prefix: TG_BLOCK_LINE_PREFIX, schema: TG_BLOCK_SCHEMA },
+      description: 'Validate each `TG_BLOCK` metadata JSON payload.',
+      message:
+        '`TG_BLOCK` metadata must be canonical block state with `id`, `type`, `name`, `position`, `subBlocks`, `outputs`, and `enabled`.',
+    },
+    {
+      path: documentField,
+      kind: 'string_line_prefix_json_schema',
+      args: { prefix: TG_EDGE_LINE_PREFIX, schema: TG_EDGE_SCHEMA },
+      description: 'Validate each `TG_EDGE` metadata JSON payload when edge lines are present.',
+      message: '`TG_EDGE` metadata must be canonical edge state with string `source` and `target`.',
+    },
+    {
+      path: documentField,
+      kind: 'string_forbids_substring',
+      args: { substring: '"blockType"' },
+      description: 'Use canonical `TG_BLOCK.type`, not simplified block metadata aliases.',
+      message: 'Use `type` in `TG_BLOCK` metadata, not `blockType`.',
+    },
+    {
+      path: documentField,
+      kind: 'string_forbids_substring',
+      args: { substring: '"blockName"' },
+      description: 'Use canonical `TG_BLOCK.name`, not simplified block metadata aliases.',
+      message: 'Use `name` in `TG_BLOCK` metadata, not `blockName`.',
+    },
+    {
+      path: documentField,
+      kind: 'string_forbids_substring',
+      args: { substring: '"blockDescription"' },
+      description: 'Use canonical `TG_BLOCK` state, not simplified block metadata aliases.',
+      message: '`TG_BLOCK` metadata must not include `blockDescription`.',
+    },
+    {
+      path: documentField,
+      kind: 'string_document_contract',
+      args: {
+        format: TG_MERMAID_DOCUMENT_FORMAT,
+        workflowPrefix: TG_WORKFLOW_LINE_PREFIX,
+        blockPrefix: TG_BLOCK_LINE_PREFIX,
+        edgePrefix: TG_EDGE_LINE_PREFIX,
+      },
+      description:
+        'Keep visible Mermaid connection lines aligned with canonical `TG_EDGE` metadata.',
+      message:
+        'Visible Mermaid connections and `TG_EDGE` metadata must describe the same logical workflow edges.',
     },
   ]
 }

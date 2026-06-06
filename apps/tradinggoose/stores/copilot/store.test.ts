@@ -744,6 +744,21 @@ describe('copilot streaming regressions', () => {
           ),
         ],
       },
+      {
+        id: 'assistant-todo-collision-message',
+        role: 'assistant',
+        content: '',
+        timestamp: '2026-04-13T00:00:01.000Z',
+        toolCalls: [
+          {
+            id: 'todo-tool-collision',
+            name: 'mark_todo_in_progress',
+            state: ClientToolCallState.success,
+            params: { id: 'todo-1' },
+          },
+        ],
+        contentBlocks: [toolBlock('checkoff_todo', 'todo-tool-collision', { id: 'todo-2' })],
+      },
     ] as any
 
     vi.stubGlobal(
@@ -772,22 +787,22 @@ describe('copilot streaming regressions', () => {
       {
         id: 'todo-1',
         content: 'Inspect the current workflow',
-        completed: true,
-        executing: false,
+        completed: false,
+        executing: true,
       },
       {
         id: 'todo-2',
         content: 'Apply the workflow edit',
-        completed: false,
-        executing: true,
+        completed: true,
+        executing: false,
       },
     ])
 
     store.getState().closePlanTodos()
-    store.getState().updatePlanTodoStatus('todo-2', 'completed')
+    store.getState().updatePlanTodoStatus('todo-1', 'completed')
     expect(store.getState().showPlanTodos).toBe(false)
-    expect(store.getState().planTodos[1]).toMatchObject({
-      id: 'todo-2',
+    expect(store.getState().planTodos[0]).toMatchObject({
+      id: 'todo-1',
       completed: true,
       executing: false,
     })
@@ -1360,7 +1375,7 @@ describe('copilot streaming regressions', () => {
     }
   })
 
-  it('auto-accepts persisted review tools for full-access selected chats', async () => {
+  it('leaves persisted review tools staged for full-access selected chats', async () => {
     vi.useFakeTimers()
     const toolCallId = 'edit-workflow-persisted-full-tool'
     const pendingToolCallId = 'make-api-request-persisted-pending-tool'
@@ -1446,8 +1461,8 @@ describe('copilot streaming regressions', () => {
       await store.getState().selectChat(chat)
       await vi.advanceTimersByTimeAsync(0)
 
-      expect(fakeTool.handleUserAction).toHaveBeenCalledTimes(1)
-      expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.success)
+      expect(fakeTool.handleUserAction).not.toHaveBeenCalled()
+      expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.review)
       expect(store.getState().toolCallsById[toolCallId]?.result).toEqual(reviewResult)
       expect(
         fetchMock.mock.calls.some(([input]) => {
@@ -3264,7 +3279,7 @@ describe('copilot tool user action delegation', () => {
     )
   })
 
-  it('auto-executes review-state client tools when access switches to full', async () => {
+  it('leaves review-state client tools staged when access switches to full', async () => {
     vi.useFakeTimers()
     try {
       const channelId = 'copilot-review-access-switch'
@@ -3318,7 +3333,8 @@ describe('copilot tool user action delegation', () => {
       store.getState().setAccessLevel('full')
       await vi.runAllTimersAsync()
 
-      expect(calls).toEqual(['userAction'])
+      expect(calls).toEqual([])
+      expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.review)
 
       unregisterClientTool(toolCallId)
     } finally {
