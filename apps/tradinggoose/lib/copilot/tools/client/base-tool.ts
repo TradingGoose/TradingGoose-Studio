@@ -64,13 +64,9 @@ export interface ClientToolExecutionContext {
   toolCallId: string
   toolName: string
   channelId?: string
-  workflowId?: string
-  contextWorkflowId?: string
+  contextEntityKind?: ReviewEntityKind
+  contextEntityId?: string
   workspaceId?: string
-  reviewSessionId?: string
-  entityKind?: ReviewEntityKind
-  entityId?: string
-  draftSessionId?: string
   log?: (
     level: 'debug' | 'info' | 'warn' | 'error',
     message: string,

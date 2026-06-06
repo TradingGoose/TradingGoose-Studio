@@ -1,5 +1,7 @@
 import { type EntityDocumentKind, getEntityDocumentName } from '@/lib/copilot/entity-documents'
 import type { ClientToolExecutionContext } from '@/lib/copilot/tools/client/base-tool'
+import { resolveOptionalCopilotEntityId } from '@/lib/copilot/tools/entity-target'
+import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { getDefaultIndicator } from '@/lib/indicators/default'
 import { getEntityFields, replaceEntityTextField, setEntityField } from '@/lib/yjs/entity-session'
 import { buildSavedEntityYjsDescriptor } from '@/lib/yjs/entity-state'
@@ -9,7 +11,6 @@ import {
   type YjsProviderBootstrapResult,
 } from '@/lib/yjs/provider'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 type EntityListEntry = {
   entityId: string
@@ -153,19 +154,6 @@ const ENTITY_API_CONFIG: Record<EntityDocumentKind, EntityApiConfig> = {
   },
 }
 
-function parseCustomToolSchema(schemaText: unknown): Record<string, unknown> {
-  if (typeof schemaText !== 'string') {
-    throw new Error('custom tool schemaText is required')
-  }
-
-  const schema = JSON.parse(schemaText)
-  if (!schema || typeof schema !== 'object' || Array.isArray(schema)) {
-    throw new Error('custom tool schemaText must be a JSON object')
-  }
-
-  return schema as Record<string, unknown>
-}
-
 function buildEntityCreateRequest(
   kind: EntityDocumentKind,
   workspaceId: string,
@@ -194,7 +182,7 @@ function buildEntityCreateRequest(
           tools: [
             {
               title: fields.title,
-              schema: parseCustomToolSchema(fields.schemaText),
+              schema: parseCustomToolSchemaText(fields.schemaText),
               code: fields.codeText,
             },
           ],
@@ -301,13 +289,6 @@ export function resolveWorkspaceIdFromExecutionContext(
     return executionContext.workspaceId
   }
 
-  if (executionContext.workflowId) {
-    const workflow = useWorkflowRegistry.getState().workflows[executionContext.workflowId]
-    if (workflow?.workspaceId) {
-      return workflow.workspaceId
-    }
-  }
-
   throw new Error('No active workspace found')
 }
 
@@ -341,7 +322,7 @@ export async function resolveCopilotEntityYjsSessionLease(
   kind: EntityDocumentKind,
   entityId?: string
 ): Promise<CopilotEntityYjsSessionLease> {
-  const requestedEntityId = entityId?.trim() || undefined
+  const requestedEntityId = resolveOptionalCopilotEntityId({ entityId })
 
   if (!requestedEntityId) {
     throw new Error(`entityId is required to update a saved ${kind}`)
@@ -429,7 +410,7 @@ export async function readEntityFieldsFromContext(
   entityName: string
   fields: Record<string, unknown>
 }> {
-  const resolvedEntityId = target?.entityId?.trim() || undefined
+  const resolvedEntityId = resolveOptionalCopilotEntityId(target)
   const resolvedRuntimeId =
     kind === 'indicator' ? target?.runtimeId?.trim() || undefined : undefined
 

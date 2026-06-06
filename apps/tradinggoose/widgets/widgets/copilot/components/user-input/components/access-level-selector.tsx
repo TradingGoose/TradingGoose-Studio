@@ -1,7 +1,6 @@
 'use client'
 
 import { Check, ShieldAlert, ShieldCheck } from 'lucide-react'
-import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import {
   Button,
   DropdownMenu,
@@ -15,6 +14,7 @@ import {
 } from '@/components/ui'
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
 import { cn } from '@/lib/utils'
+import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 
 interface AccessLevelSelectorProps {
   accessLevel: CopilotAccessLevel
@@ -64,7 +64,7 @@ export function AccessLevelSelector({
                   )}
                 >
                   <span className='flex items-center gap-1.5'>
-                    <ShieldAlert className='h-3 w-3 text-muted-foreground' />
+                    {getAccessLevelIcon('limited')}
                     {accessLevelCopy.limited.label}
                   </span>
                   {accessLevel === 'limited' && <Check className='h-3 w-3 text-muted-foreground' />}
@@ -89,7 +89,7 @@ export function AccessLevelSelector({
                   )}
                 >
                   <span className='flex items-center gap-1.5'>
-                    <ShieldAlert className='h-3 w-3 text-muted-foreground' />
+                    {getAccessLevelIcon('full')}
                     {accessLevelCopy.full.label}
                   </span>
                   {accessLevel === 'full' && <Check className='h-3 w-3 text-muted-foreground' />}

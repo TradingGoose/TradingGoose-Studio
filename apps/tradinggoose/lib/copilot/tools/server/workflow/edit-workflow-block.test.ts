@@ -41,7 +41,7 @@ describe('editWorkflowBlockServerTool', () => {
 
     const result = await editWorkflowBlockServerTool.execute(
       {
-        workflowId: 'wf-1',
+        entityId: 'wf-1',
         blockId: 'fn1',
         blockType: 'function',
         name: 'Compute Market Indicators',
@@ -67,7 +67,7 @@ describe('editWorkflowBlockServerTool', () => {
     await expect(
       editWorkflowBlockServerTool.execute(
         {
-          workflowId: 'wf-1',
+          entityId: 'wf-1',
           blockId: 'fn1',
           blockType: 'function',
           subBlocks: {

@@ -1,13 +1,14 @@
-import { createLogger } from '@/lib/logs/console/logger'
 import { Loader2, Rocket, X, XCircle } from 'lucide-react'
 import {
   BaseClientTool,
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
+import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
+import { createLogger } from '@/lib/logs/console/logger'
 
 interface CheckDeploymentStatusArgs {
-  workflowId: string
+  entityId: string
 }
 
 export class CheckDeploymentStatusClientTool extends BaseClientTool {
@@ -43,11 +44,7 @@ export class CheckDeploymentStatusClientTool extends BaseClientTool {
     const logger = createLogger('CheckDeploymentStatusClientTool')
     try {
       this.setState(ClientToolCallState.executing)
-      const workflowId = args?.workflowId?.trim()
-
-      if (!workflowId) {
-        throw new Error('workflowId is required')
-      }
+      const workflowId = requireCopilotEntityId(args)
 
       // Fetch deployment status from API
       const [apiDeployRes, chatDeployRes] = await Promise.all([

@@ -57,7 +57,7 @@ describe('copilot server tool errors', () => {
         retryable: true,
         issues: [
           {
-            path: 'workflowDocument.edges',
+            path: 'entityDocument.edges',
             message:
               'Invalid container edge: parallel1 container input requires targetHandle "target" for incoming outer edges.',
           },
@@ -82,7 +82,7 @@ describe('copilot server tool errors', () => {
         retryable: true,
         issues: [
           {
-            path: 'workflowDocument.functionBlock.subBlocks.code.value',
+            path: 'entityDocument.functionBlock.subBlocks.code.value',
             message: 'Expected valid raw TypeScript function-body code.',
           },
         ],

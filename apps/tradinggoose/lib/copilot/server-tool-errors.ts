@@ -160,7 +160,7 @@ function buildEditWorkflowError(message: string): CopilotServerToolErrorResponse
         error: message,
         hint: 'For loop and parallel containers, incoming outer workflow edges must target the container block alias itself with targetHandle "target". Use Start nodes only as sources to child blocks, and End nodes only for child-to-container completion before leaving the container.',
         retryable: true,
-        issues: [{ path: 'workflowDocument.edges', message }],
+        issues: [{ path: 'entityDocument.edges', message }],
       },
     }
   }
@@ -177,7 +177,7 @@ function buildEditWorkflowError(message: string): CopilotServerToolErrorResponse
         )
 
         return {
-          path: embeddedPathMatch ? `workflowDocument.${embeddedPathMatch[1]}` : 'workflowDocument',
+          path: embeddedPathMatch ? `entityDocument.${embeddedPathMatch[1]}` : 'entityDocument',
           message: embeddedPathMatch ? embeddedPathMatch[2] : trimmedIssue,
         }
       })

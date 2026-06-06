@@ -1,4 +1,5 @@
 import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
+import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getAllowedSubBlockIds } from '@/lib/workflows/block-config-canonicalization'
@@ -7,7 +8,7 @@ import { getBlock } from '@/blocks'
 import { buildWorkflowMutationResult, loadBaseWorkflowState } from './workflow-mutation-utils'
 
 interface EditWorkflowBlockParams {
-  workflowId: string
+  entityId: string
   blockId: string
   blockType?: string
   name?: string
@@ -42,12 +43,9 @@ export const editWorkflowBlockServerTool: BaseServerTool<EditWorkflowBlockParams
   name: 'edit_workflow_block',
   async execute(params: EditWorkflowBlockParams): Promise<any> {
     const logger = createLogger('EditWorkflowBlockServerTool')
-    const { workflowId, blockId, blockType, name, enabled, subBlocks, currentWorkflowState } =
-      params
+    const { blockId, blockType, name, enabled, subBlocks, currentWorkflowState } = params
+    const workflowId = requireCopilotEntityId(params, { toolName: 'edit_workflow_block' })
 
-    if (!workflowId) {
-      throw new Error('workflowId is required')
-    }
     if (!blockId?.trim()) {
       throw new Error('blockId is required')
     }

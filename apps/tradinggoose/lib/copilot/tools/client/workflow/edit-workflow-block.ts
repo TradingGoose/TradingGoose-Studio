@@ -49,7 +49,7 @@ export class EditWorkflowBlockClientTool extends EditWorkflowClientTool {
     }
 
     return {
-      workflowId,
+      entityId: workflowId,
       blockId,
       ...(args?.blockType?.trim() ? { blockType: args.blockType.trim() } : {}),
       ...(args?.name?.trim() ? { name: args.name.trim() } : {}),

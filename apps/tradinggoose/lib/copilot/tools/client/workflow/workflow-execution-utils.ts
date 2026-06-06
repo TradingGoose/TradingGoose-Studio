@@ -36,7 +36,6 @@ export async function executeWorkflowWithFullLogging(
     {
       toolCallId: 'workflow-execution-context',
       toolName: 'run_workflow',
-      workflowId: options.workflowId,
     },
     options.workflowId
   )

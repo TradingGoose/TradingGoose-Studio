@@ -1,16 +1,18 @@
 import {
   type BaseServerTool,
-  createPermissionError,
-  resolveServerWorkflowScope,
   type ServerToolExecutionContext,
   throwIfServerToolAborted,
 } from '@/lib/copilot/tools/server/base-tool'
+import {
+  createWorkflowPermissionError,
+  resolveServerWorkflowScope,
+} from '@/lib/copilot/tools/server/workflow/workflow-scope'
 import { getOAuthAccessTokenForUserCredential } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { executeTool } from '@/tools'
 
 interface ListGDriveFilesParams {
-  workflowId?: string
+  entityId?: string
   credentialId?: string
   search_query?: string
   num_results?: number
@@ -28,7 +30,7 @@ export const listGDriveFilesServerTool: BaseServerTool<ListGDriveFilesParams, an
 
     const workflowScope = await resolveServerWorkflowScope(params, context)
     if (workflowScope && !workflowScope.hasAccess) {
-      throw new Error(createPermissionError('access Google Drive files in'))
+      throw new Error(createWorkflowPermissionError('access Google Drive files in'))
     }
     throwIfServerToolAborted(context)
 

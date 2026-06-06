@@ -4,17 +4,19 @@ import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import {
   type BaseServerTool,
-  createPermissionError,
-  resolveServerWorkflowScope,
   type ServerToolExecutionContext,
   throwIfServerToolAborted,
 } from '@/lib/copilot/tools/server/base-tool'
+import {
+  createWorkflowPermissionError,
+  resolveServerWorkflowScope,
+} from '@/lib/copilot/tools/server/workflow/workflow-scope'
 import { createLogger } from '@/lib/logs/console/logger'
 import { encryptSecret } from '@/lib/utils-server'
 
 interface SetEnvironmentVariablesParams {
   variables: Record<string, any> | Array<{ name: string; value: string }>
-  workflowId?: string
+  entityId?: string
 }
 
 const EnvVarSchema = z.object({ variables: z.record(z.string()) })
@@ -59,7 +61,7 @@ export const setEnvironmentVariablesServerTool: BaseServerTool<SetEnvironmentVar
 
       const workflowScope = await resolveServerWorkflowScope(params, context)
       if (workflowScope && !workflowScope.hasAccess) {
-        const errorMessage = createPermissionError('modify environment variables in')
+        const errorMessage = createWorkflowPermissionError('modify environment variables in')
         logger.error('Unauthorized attempt to set environment variables', {
           workflowId: workflowScope.workflowId,
           authenticatedUserId,

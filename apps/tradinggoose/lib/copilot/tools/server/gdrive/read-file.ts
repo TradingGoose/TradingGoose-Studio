@@ -1,16 +1,18 @@
 import {
   type BaseServerTool,
-  createPermissionError,
-  resolveServerWorkflowScope,
   type ServerToolExecutionContext,
   throwIfServerToolAborted,
 } from '@/lib/copilot/tools/server/base-tool'
+import {
+  createWorkflowPermissionError,
+  resolveServerWorkflowScope,
+} from '@/lib/copilot/tools/server/workflow/workflow-scope'
 import { getOAuthAccessTokenForUserCredential } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { executeTool } from '@/tools'
 
 interface ReadGDriveFileParams {
-  workflowId?: string
+  entityId?: string
   credentialId?: string
   fileId?: string
   type?: 'doc' | 'sheet'
@@ -41,7 +43,7 @@ export const readGDriveFileServerTool: BaseServerTool<ReadGDriveFileParams, any>
       throw new Error('Authentication, credentialId, fileId and type are required')
     }
     if (workflowScope && !workflowScope.hasAccess) {
-      throw new Error(createPermissionError('access Google Drive files in'))
+      throw new Error(createWorkflowPermissionError('access Google Drive files in'))
     }
     throwIfServerToolAborted(context)
 

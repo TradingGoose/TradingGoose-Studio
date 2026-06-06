@@ -158,7 +158,7 @@ describe('workflow metadata tools', () => {
     })
 
     await tool.execute({
-      workflowId: 'wf-1',
+      entityId: 'wf-1',
       name: 'Renamed Workflow',
     })
     await tool.handleAccept()

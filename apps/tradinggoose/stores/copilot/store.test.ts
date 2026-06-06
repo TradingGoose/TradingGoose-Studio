@@ -144,20 +144,20 @@ describe('copilot tool execution provenance', () => {
     resetCopilotWorkspaceSelectionState()
   })
 
-  it('createExecutionContext uses explicit pinned provenance', () => {
+  it('createExecutionContext uses generic ambient entity provenance', () => {
     const toolCallId = 'copilot-provenance-tool-a'
 
     const context = createExecutionContext({
       toolCallId,
       toolName: 'edit_workflow',
       provenance: {
-        workflowId: 'wf-origin-a',
-        contextWorkflowId: 'wf-current-a',
+        contextEntityKind: 'workflow',
+        contextEntityId: 'wf-current-a',
       },
     })
 
-    expect(context.workflowId).toBe('wf-origin-a')
-    expect(context.contextWorkflowId).toBe('wf-current-a')
+    expect(context.contextEntityKind).toBe('workflow')
+    expect(context.contextEntityId).toBe('wf-current-a')
   })
 
   it('returns the first matching store when duplicate toolCallId exists', () => {
@@ -185,7 +185,8 @@ describe('copilot tool execution provenance', () => {
           name: 'edit_workflow',
           state: ClientToolCallState.pending,
           provenance: {
-            workflowId: 'wf-origin-c',
+            contextEntityKind: 'workflow',
+            contextEntityId: 'wf-origin-c',
           },
         },
       },
@@ -224,7 +225,6 @@ describe('copilot tool execution provenance', () => {
             call_id: toolCallId,
             name: 'read_workflow',
             arguments: JSON.stringify({
-              workflowId: 'wf-stringified-explicit',
               entityId: 'entity-stringified-explicit',
             }),
           },
@@ -239,14 +239,10 @@ describe('copilot tool execution provenance', () => {
 
     expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
       params: {
-        workflowId: 'wf-stringified-explicit',
-        entityId: 'entity-stringified-explicit',
-      },
-      provenance: {
-        workflowId: 'wf-stringified-explicit',
         entityId: 'entity-stringified-explicit',
       },
     })
+    expect(store.getState().toolCallsById[toolCallId].provenance).toBeUndefined()
   })
 
   it('marks streamed tool calls outside the curated Copilot registry as protocol errors', async () => {
@@ -365,7 +361,8 @@ describe('copilot tool execution provenance', () => {
 
     expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
       provenance: {
-        contextWorkflowId: 'wf-live-at-send',
+        contextEntityKind: 'workflow',
+        contextEntityId: 'wf-live-at-send',
         workspaceId: 'workspace-1',
       },
     })
@@ -461,7 +458,8 @@ describe('copilot tool execution provenance', () => {
 
     expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
       provenance: {
-        contextWorkflowId: 'wf-current',
+        contextEntityKind: 'workflow',
+        contextEntityId: 'wf-current',
         workspaceId: 'workspace-1',
       },
     })
@@ -545,7 +543,8 @@ describe('copilot tool execution provenance', () => {
 
     expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
       provenance: {
-        contextWorkflowId: 'wf-current',
+        contextEntityKind: 'workflow',
+        contextEntityId: 'wf-current',
         workspaceId: 'workspace-1',
       },
     })
@@ -650,7 +649,7 @@ describe('copilot streaming regressions', () => {
             type: 'function_call',
             call_id: 'tool-1',
             name: 'read_workflow',
-            arguments: { workflowId: 'wf-stream-order' },
+            arguments: { entityId: 'wf-stream-order' },
           },
         },
         {
@@ -1248,8 +1247,8 @@ describe('copilot streaming regressions', () => {
               call_id: toolCallId,
               name: 'edit_workflow',
               arguments: {
-                workflowId: 'wf-limited-edit',
-                workflowDocument: 'workflow: {}',
+                entityId: 'wf-limited-edit',
+                entityDocument: 'workflow: {}',
                 documentFormat: 'tg-mermaid-v1',
               },
             },
@@ -1556,8 +1555,8 @@ describe('copilot streaming regressions', () => {
               name: 'edit_workflow',
               state: ClientToolCallState.review,
               params: {
-                workflowDocument: 'workflow: {}',
-                workflowId: 'wf-active-chat-review-tools',
+                entityDocument: 'workflow: {}',
+                entityId: 'wf-active-chat-review-tools',
               },
             },
           ],
@@ -1570,8 +1569,8 @@ describe('copilot streaming regressions', () => {
                 name: 'edit_workflow',
                 state: ClientToolCallState.review,
                 params: {
-                  workflowDocument: 'workflow: {}',
-                  workflowId: 'wf-active-chat-review-tools',
+                  entityDocument: 'workflow: {}',
+                  entityId: 'wf-active-chat-review-tools',
                 },
               },
             },
@@ -1584,8 +1583,8 @@ describe('copilot streaming regressions', () => {
           name: 'edit_workflow',
           state: ClientToolCallState.review,
           params: {
-            workflowDocument: 'workflow: {}',
-            workflowId: 'wf-active-chat-review-tools',
+            entityDocument: 'workflow: {}',
+            entityId: 'wf-active-chat-review-tools',
           },
         },
       },
@@ -2276,7 +2275,7 @@ describe('copilot streaming regressions', () => {
                 id: toolCallId,
                 name: 'edit_workflow',
                 state: ClientToolCallState.review,
-                params: { workflowDocument: 'flowchart TD' },
+                params: { entityDocument: 'flowchart TD' },
               },
             },
           ],
@@ -2287,7 +2286,7 @@ describe('copilot streaming regressions', () => {
           id: toolCallId,
           name: 'edit_workflow',
           state: ClientToolCallState.review,
-          params: { workflowDocument: 'flowchart TD' },
+          params: { entityDocument: 'flowchart TD' },
           provenance: {
             workflowId: 'wf-review-abort',
           },
@@ -2537,7 +2536,8 @@ describe('copilot streaming regressions', () => {
     expect(secondaryStore.getState().messages.at(-1)?.content).toBe('Shared reply')
     expect(secondaryStore.getState().toolCallsById[toolCallId]?.provenance).toMatchObject({
       workspaceId: 'workspace-1',
-      contextWorkflowId: 'wf-blue',
+      contextEntityKind: 'workflow',
+      contextEntityId: 'wf-blue',
     })
     expect(secondaryStore.getState().isSendingMessage).toBe(
       primaryStore.getState().isSendingMessage
@@ -2741,9 +2741,9 @@ describe('copilot tool user action delegation', () => {
           name: 'edit_workflow',
           state: ClientToolCallState.pending,
           params: {
-            workflowDocument:
+            entityDocument:
               'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
-            workflowId: 'wf-edit-workflow-order',
+            entityId: 'wf-edit-workflow-order',
           },
           provenance: {
             workflowId: 'wf-edit-workflow-order',
@@ -2807,9 +2807,9 @@ describe('copilot tool user action delegation', () => {
           name: 'edit_workflow',
           state: ClientToolCallState.review,
           params: {
-            workflowDocument:
+            entityDocument:
               'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
-            workflowId: 'wf-edit-workflow-review',
+            entityId: 'wf-edit-workflow-review',
           },
           result: {
             workflowState: {
@@ -2885,7 +2885,8 @@ describe('copilot tool user action delegation', () => {
               method: 'GET',
             },
             provenance: {
-              contextWorkflowId: 'wf-api-request-access-switch',
+              contextEntityKind: 'workflow',
+              contextEntityId: 'wf-api-request-access-switch',
               workspaceId: 'workspace-1',
             },
           } as any,
@@ -2906,7 +2907,8 @@ describe('copilot tool user action delegation', () => {
           method: 'GET',
         },
         context: {
-          contextWorkflowId: 'wf-api-request-access-switch',
+          contextEntityKind: 'workflow',
+          contextEntityId: 'wf-api-request-access-switch',
         },
       })
       expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.success)
@@ -3062,7 +3064,8 @@ describe('copilot tool user action delegation', () => {
             method: 'GET',
           },
           provenance: {
-            contextWorkflowId: 'wf-server-managed-state-persist',
+            contextEntityKind: 'workflow',
+            contextEntityId: 'wf-server-managed-state-persist',
             workspaceId: 'workspace-1',
           },
         } as any,
@@ -3133,9 +3136,9 @@ describe('copilot tool user action delegation', () => {
             name: 'edit_workflow',
             state: ClientToolCallState.review,
             params: {
-              workflowDocument:
+              entityDocument:
                 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
-              workflowId: 'wf-review-access-switch',
+              entityId: 'wf-review-access-switch',
             },
             provenance: {
               workflowId: 'wf-review-access-switch',

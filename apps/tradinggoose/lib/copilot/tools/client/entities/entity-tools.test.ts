@@ -137,7 +137,7 @@ describe('entity document tools', () => {
       toolCallId,
       toolName: 'list_skills',
       channelId: 'pair-yellow',
-      workflowId: 'wf-context',
+      workspaceId: 'ws-1',
       log: vi.fn(),
     })
 
@@ -204,7 +204,7 @@ describe('entity document tools', () => {
       toolCallId,
       toolName: 'read_custom_tool',
       channelId: 'pair-orange',
-      workflowId: 'wf-context',
+      workspaceId: 'ws-1',
       log: vi.fn(),
     })
 
@@ -282,7 +282,7 @@ describe('entity document tools', () => {
       toolCallId,
       toolName: 'create_skill',
       channelId: 'pair-yellow',
-      workflowId: 'wf-context',
+      workspaceId: 'ws-1',
       log: vi.fn(),
     })
 
@@ -373,7 +373,7 @@ describe('entity document tools', () => {
       toolCallId,
       toolName: 'list_indicators',
       channelId: 'pair-cyan',
-      workflowId: 'wf-context',
+      workspaceId: 'ws-1',
       log: vi.fn(),
     })
 
@@ -435,7 +435,7 @@ describe('entity document tools', () => {
       toolCallId,
       toolName: 'read_indicator',
       channelId: 'pair-yellow',
-      workflowId: 'wf-context',
+      workspaceId: 'ws-1',
       log: vi.fn(),
     })
 
@@ -585,7 +585,7 @@ describe('entity document tools', () => {
       toolCallId,
       toolName: 'edit_skill',
       channelId: 'pair-purple',
-      workflowId: 'wf-context',
+      workspaceId: 'ws-1',
       log: vi.fn(),
     })
 

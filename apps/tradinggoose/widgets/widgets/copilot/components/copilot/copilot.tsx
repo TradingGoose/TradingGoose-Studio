@@ -13,8 +13,8 @@ import { ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
 import type { ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
+import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
 import { createLogger } from '@/lib/logs/console/logger'
 import { normalizeOptionalString } from '@/lib/utils'
 import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
@@ -172,11 +172,11 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
     useEffect(() => {
       if (isInitialized && currentChat?.reviewSessionId) {
         logger.info('[Copilot] Component initialized, fetching context usage')
-        fetchContextUsage({ workflowId: liveContext.workflowId ?? undefined }).catch((err) => {
+        fetchContextUsage().catch((err) => {
           logger.warn('[Copilot] Failed to fetch context usage on mount', err)
         })
       }
-    }, [currentChat?.reviewSessionId, fetchContextUsage, isInitialized, liveContext.workflowId])
+    }, [currentChat?.reviewSessionId, fetchContextUsage, isInitialized])
 
     const clearProgrammaticScrollLock = useCallback(() => {
       if (programmaticScrollResetTimerRef.current !== null) {
@@ -561,9 +561,9 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
                       onClick={() => scrollToBottom()}
                       size='sm'
                       variant='default'
-                      className='flex items-center bg-background hover:bg-muted gap-1 rounded-lg border border-border h-7 w-7 shadow-lg transition-all'
+                      className='flex h-7 w-7 items-center gap-1 rounded-lg border border-border bg-background shadow-lg transition-all hover:bg-muted'
                     >
-                      <ArrowDown className='h-3.5 w-3.5  font-bold text-gray-700 dark:text-gray-300' />
+                      <ArrowDown className='h-3.5 w-3.5 font-bold text-gray-700 dark:text-gray-300' />
                       <span className='sr-only'>Scroll to bottom</span>
                     </Button>
                   </div>

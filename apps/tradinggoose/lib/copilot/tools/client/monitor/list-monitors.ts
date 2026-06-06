@@ -10,6 +10,7 @@ import {
   type ListMonitorArgs,
   type MonitorRecord,
 } from '@/lib/copilot/tools/client/monitor/monitor-tool-utils'
+import { resolveOptionalCopilotEntityId } from '@/lib/copilot/tools/entity-target'
 
 export class ListMonitorsClientTool extends BaseClientTool {
   static readonly id = 'list_monitors'
@@ -37,8 +38,9 @@ export class ListMonitorsClientTool extends BaseClientTool {
       const workspaceId = resolveWorkspaceIdFromExecutionContext(executionContext)
       const searchParams = new URLSearchParams({ workspaceId })
 
-      if (args?.workflowId) {
-        searchParams.set('workflowId', args.workflowId)
+      const entityId = resolveOptionalCopilotEntityId(args)
+      if (entityId) {
+        searchParams.set('workflowId', entityId)
       }
       if (args?.blockId) {
         searchParams.set('blockId', args.blockId)

@@ -1,5 +1,4 @@
 import { z } from 'zod'
-
 export const SKILL_DOCUMENT_FORMAT = 'tg-skill-document-v1' as const
 export const CUSTOM_TOOL_DOCUMENT_FORMAT = 'tg-custom-tool-document-v1' as const
 export const INDICATOR_DOCUMENT_FORMAT = 'tg-indicator-document-v1' as const
@@ -21,9 +20,17 @@ const SkillDocumentSchema = z.object({
 })
 
 const CustomToolDocumentSchema = z.object({
-  title: z.string(),
-  schemaText: z.string(),
-  codeText: z.string(),
+  title: z.string().describe('Human-readable custom tool title.'),
+  schemaText: z
+    .string()
+    .describe(
+      'JSON text for an OpenAI function tool schema: {"type":"function","function":{"name":"camelCaseName","description":"What the tool does","parameters":{"type":"object","properties":{},"required":[]}}}. This field is a string containing JSON, not an object.'
+    ),
+  codeText: z
+    .string()
+    .describe(
+      'Raw JavaScript async function body only. Do not include a function wrapper, export, markdown, or imports. Use <paramName> for parameters and {{ENV_VAR_NAME}} for environment variables.'
+    ),
 })
 
 const IndicatorDocumentSchema = z.object({
@@ -83,7 +90,9 @@ function normalizeEntityFields(
         color: typeof source.color === 'string' ? source.color : '',
         pineCode: typeof source.pineCode === 'string' ? source.pineCode : '',
         inputMeta:
-          source.inputMeta && typeof source.inputMeta === 'object' && !Array.isArray(source.inputMeta)
+          source.inputMeta &&
+          typeof source.inputMeta === 'object' &&
+          !Array.isArray(source.inputMeta)
             ? (source.inputMeta as Record<string, unknown>)
             : null,
       }
@@ -92,7 +101,9 @@ function normalizeEntityFields(
         name: typeof source.name === 'string' ? source.name : '',
         description: typeof source.description === 'string' ? source.description : '',
         transport:
-          source.transport === 'http' || source.transport === 'sse' || source.transport === 'streamable-http'
+          source.transport === 'http' ||
+          source.transport === 'sse' ||
+          source.transport === 'streamable-http'
             ? source.transport
             : 'http',
         url: typeof source.url === 'string' ? source.url : '',

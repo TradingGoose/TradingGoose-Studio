@@ -98,7 +98,7 @@ describe('readWorkflowLogsServerTool', () => {
     const { readWorkflowLogsServerTool } = await import('./read-workflow-logs')
     const result = await readWorkflowLogsServerTool.execute(
       {
-        workflowId: 'deleted-workflow-1',
+        entityId: 'deleted-workflow-1',
         includeDetails: false,
       },
       { userId: 'user-1' }
@@ -143,7 +143,7 @@ describe('readWorkflowLogsServerTool', () => {
 
     await expect(
       readWorkflowLogsServerTool.execute({
-        workflowId: 'deleted-workflow-1',
+        entityId: 'deleted-workflow-1',
         includeDetails: false,
       })
     ).rejects.toThrow('Authenticated user context is required')

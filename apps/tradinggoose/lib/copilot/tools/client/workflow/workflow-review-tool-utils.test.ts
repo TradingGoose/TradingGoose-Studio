@@ -60,7 +60,8 @@ describe('workflow-review-tool-utils', () => {
       {
         toolCallId: 'tool-1',
         toolName: 'read_workflow',
-        workflowId: 'workflow-current',
+        contextEntityKind: 'workflow',
+        contextEntityId: 'workflow-current',
       },
       'workflow-live'
     )
@@ -99,7 +100,8 @@ describe('workflow-review-tool-utils', () => {
       {
         toolCallId: 'tool-1',
         toolName: 'read_workflow',
-        workflowId: 'workflow-current',
+        contextEntityKind: 'workflow',
+        contextEntityId: 'workflow-current',
       },
       'workflow-db'
     )
@@ -133,7 +135,8 @@ describe('workflow-review-tool-utils', () => {
       getReadableWorkflowState({
         toolCallId: 'tool-1',
         toolName: 'read_workflow',
-        workflowId: 'workflow-current',
+        contextEntityKind: 'workflow',
+        contextEntityId: 'workflow-current',
       })
     ).rejects.toThrow('Workflow target is required')
   })

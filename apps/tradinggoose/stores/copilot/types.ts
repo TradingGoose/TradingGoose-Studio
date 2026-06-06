@@ -120,13 +120,9 @@ export interface CopilotSendRuntimeContext {
 }
 
 export interface CopilotToolExecutionProvenance {
-  workflowId?: string
-  contextWorkflowId?: string
+  contextEntityKind?: ReviewEntityKind
+  contextEntityId?: string
   workspaceId?: string
-  reviewSessionId?: string
-  entityKind?: ReviewEntityKind
-  entityId?: string
-  draftSessionId?: string
 }
 
 export interface CopilotState {
@@ -167,11 +163,7 @@ export interface CopilotActions {
   setAccessLevel: (accessLevel: CopilotAccessLevel) => void
   setSelectedModel: (model: CopilotStore['selectedModel']) => Promise<void>
   setAgentPrefetch: (prefetch: boolean) => void
-  fetchContextUsage: (options?: {
-    bill?: boolean
-    assistantMessageId?: string
-    workflowId?: string
-  }) => Promise<void>
+  fetchContextUsage: (options?: { bill?: boolean; assistantMessageId?: string }) => Promise<void>
 
   loadChats: (options?: { workspaceId?: string | null }) => Promise<void>
   selectChat: (chat: CopilotChat) => Promise<void>

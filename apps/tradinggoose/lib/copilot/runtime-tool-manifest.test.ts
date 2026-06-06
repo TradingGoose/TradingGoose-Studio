@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { getCopilotRuntimeToolManifest } from '@/lib/copilot/runtime-tool-manifest'
-import { WORKFLOW_DOCUMENT_CONTRACT } from '@/lib/copilot/runtime-tool-manifest-enrichment'
 
 describe('copilot runtime tool manifest', () => {
   it('exposes the Studio tool surface and workflow document validators', async () => {
@@ -15,7 +14,7 @@ describe('copilot runtime tool manifest', () => {
           name: 'read_workflow',
           description: expect.stringContaining('connections` counts'),
           parameters: expect.objectContaining({
-            required: expect.arrayContaining(['workflowId']),
+            required: expect.arrayContaining(['entityId']),
           }),
         }),
         expect.objectContaining({
@@ -150,23 +149,19 @@ describe('copilot runtime tool manifest', () => {
           entityKind: 'workflow',
           semanticValidators: expect.arrayContaining([
             expect.objectContaining({
-              path: 'workflowDocument',
+              path: 'entityDocument',
               kind: 'string_requires_real_newlines',
             }),
             expect.objectContaining({
-              path: 'workflowDocument',
-              kind: 'string_document_contract',
-            }),
-            expect.objectContaining({
-              path: 'workflowDocument',
-              kind: 'string_line_prefix_json_schema',
-              args: expect.any(Object),
+              path: 'entityDocument',
+              kind: 'string_starts_with',
+              args: { prefix: 'flowchart ' },
             }),
           ]),
           parameters: expect.objectContaining({
             type: 'object',
             properties: expect.objectContaining({
-              workflowDocument: expect.objectContaining({
+              entityDocument: expect.objectContaining({
                 description: expect.stringContaining('not a partial patch'),
               }),
             }),
@@ -178,7 +173,7 @@ describe('copilot runtime tool manifest', () => {
           kind: 'edit',
           entityKind: 'workflow',
           parameters: expect.objectContaining({
-            required: expect.arrayContaining(['workflowId', 'blockId']),
+            required: expect.arrayContaining(['entityId', 'blockId']),
             properties: expect.objectContaining({
               subBlocks: expect.objectContaining({
                 description: expect.stringContaining('Partial patch for the selected block only'),
@@ -198,7 +193,7 @@ describe('copilot runtime tool manifest', () => {
           kind: 'rename',
           entityKind: 'workflow',
           parameters: expect.objectContaining({
-            required: expect.arrayContaining(['workflowId', 'name']),
+            required: expect.arrayContaining(['entityId', 'name']),
           }),
         }),
         expect.objectContaining({
@@ -233,9 +228,36 @@ describe('copilot runtime tool manifest', () => {
           ]),
         }),
         expect.objectContaining({
+          name: 'create_custom_tool',
+          description: expect.stringContaining('schemaText'),
+          kind: 'create',
+          entityKind: 'custom_tool',
+          parameters: expect.objectContaining({
+            properties: expect.objectContaining({
+              entityDocument: expect.objectContaining({
+                description: expect.stringContaining('JSON-encoded string'),
+              }),
+            }),
+          }),
+          semanticValidators: expect.arrayContaining([
+            expect.objectContaining({
+              path: 'entityDocument',
+              kind: 'string_json_schema',
+              args: expect.any(Object),
+            }),
+          ]),
+        }),
+        expect.objectContaining({
           name: 'edit_custom_tool',
+          description: expect.stringContaining('schemaText'),
           kind: 'edit',
           entityKind: 'custom_tool',
+          semanticValidators: expect.arrayContaining([
+            expect.objectContaining({
+              path: 'entityDocument',
+              kind: 'string_json_schema',
+            }),
+          ]),
         }),
         expect.objectContaining({
           name: 'rename_mcp_server',
@@ -256,49 +278,11 @@ describe('copilot runtime tool manifest', () => {
         }),
       ])
     )
-    const edgeValidator = manifest.tools
-      .find((tool) => tool.name === 'edit_workflow')
-      ?.semanticValidators?.find((validator) => validator.kind === 'string_document_contract')
-    expect(edgeValidator).toBeDefined()
-    expect(edgeValidator?.description).toBe(
-      'Keep visible edges and canonical `TG_EDGE` state aligned.'
-    )
-    expect(edgeValidator?.args).toEqual(
-      expect.objectContaining({
-        contract: expect.objectContaining(WORKFLOW_DOCUMENT_CONTRACT),
-      })
-    )
-    expect(
-      (
-        edgeValidator?.args as
-          | {
-              contract?: { embeddedValidators?: Array<{ whenBlockType: string; path: string }> }
-            }
-          | undefined
-      )?.contract?.embeddedValidators
-    ).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          whenBlockType: 'agent',
-          path: 'subBlocks.responseFormat.value',
-        }),
-        expect.objectContaining({
-          whenBlockType: 'function',
-          path: 'subBlocks.code.value',
-        }),
-        expect.objectContaining({
-          whenBlockType: 'condition',
-          path: 'subBlocks.conditions.value',
-        }),
-      ])
-    )
-    expect(
+    const workflowValidatorKinds =
       manifest.tools
         .find((tool) => tool.name === 'edit_workflow')
-        ?.semanticValidators?.some(
-          (validator) => validator.kind === 'string_requires_line_prefix_if_substring_present'
-        )
-    ).toBe(false)
+        ?.semanticValidators?.map((validator) => validator.kind) ?? []
+    expect(workflowValidatorKinds).toEqual(['string_requires_real_newlines', 'string_starts_with'])
     expect(
       manifest.tools.find((tool) => tool.name === 'edit_workflow_block')?.description
     ).toContain('without changing workflow connections')

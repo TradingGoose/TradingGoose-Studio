@@ -6,7 +6,7 @@ import {
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 
 export type ListMonitorArgs = {
-  workflowId?: string
+  entityId?: string
   blockId?: string
 }
 

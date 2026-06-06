@@ -1093,7 +1093,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
             type: 'function_call',
             call_id: 'tool-call-stringified',
             name: 'read_workflow',
-            arguments: JSON.stringify({ workflowId: 'wf-stringified' }),
+            arguments: JSON.stringify({ entityId: 'wf-stringified' }),
           },
         },
         { type: 'response.completed', response: { id: 'response-stringified-tool-args' } },
@@ -1121,7 +1121,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
             expect.objectContaining({
               id: 'tool-call-stringified',
               name: 'read_workflow',
-              arguments: { workflowId: 'wf-stringified' },
+              arguments: { entityId: 'wf-stringified' },
             }),
           ],
         }),

@@ -1005,8 +1005,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           if (
             (current.state === ClientToolCallState.rejected &&
               norm === ClientToolCallState.success) ||
-            (current.state === ClientToolCallState.aborted &&
-              norm !== ClientToolCallState.aborted)
+            (current.state === ClientToolCallState.aborted && norm !== ClientToolCallState.aborted)
           ) {
             return
           }
@@ -1171,7 +1170,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
               ? {
                   bill: true,
                   assistantMessageId,
-                  workflowId: context.provenance?.workflowId,
                 }
               : undefined
             await get().fetchContextUsage(billingOptions)
@@ -1258,21 +1256,14 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
       setAgentPrefetch: (prefetch) => set({ agentPrefetch: prefetch }),
 
       // Fetch context usage from copilot API
-      fetchContextUsage: async (options?: {
-        bill?: boolean
-        assistantMessageId?: string
-        workflowId?: string
-      }) => {
+      fetchContextUsage: async (options?: { bill?: boolean; assistantMessageId?: string }) => {
         try {
-          const { bill = false, assistantMessageId, workflowId } = options ?? {}
+          const { bill = false, assistantMessageId } = options ?? {}
           const { currentChat, selectedModel } = get()
-          const activeWorkflowId = workflowId
           const selectedProvider = resolveCopilotRuntimeProvider(selectedModel)
           logger.info('[Context Usage] Starting fetch', {
             hasConversationId: !!currentChat?.conversationId,
-            hasWorkflowId: !!activeWorkflowId,
             conversationId: currentChat?.conversationId,
-            workflowId: activeWorkflowId,
             model: selectedModel,
             provider: selectedProvider,
             bill,
@@ -1298,9 +1289,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             conversationId: currentChat.conversationId,
             model: selectedModel,
             provider: selectedProvider,
-            // Context usage is conversation-scoped. Forward the current workflow
-            // only as supplemental runtime context when one exists.
-            ...(activeWorkflowId ? { workflowId: activeWorkflowId } : {}),
           }
           if (bill && assistantMessageId) {
             requestPayload.bill = true
@@ -1379,8 +1367,11 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         if (isServerManagedCopilotTool(name)) {
           try {
             const serverContext = {
-              ...(provenance?.contextWorkflowId
-                ? { contextWorkflowId: provenance.contextWorkflowId }
+              ...(provenance?.contextEntityKind && provenance?.contextEntityId
+                ? {
+                    contextEntityKind: provenance.contextEntityKind,
+                    contextEntityId: provenance.contextEntityId,
+                  }
                 : {}),
             }
             const result = await executeCopilotServerTool({
