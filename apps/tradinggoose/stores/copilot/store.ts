@@ -1255,7 +1255,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           )
           return {
             planTodos: updated,
-            showPlanTodos: updated.some((todo) => !todo.completed) && state.showPlanTodos,
+            showPlanTodos: updated.some((todo) => !todo.completed),
           }
         })
       },

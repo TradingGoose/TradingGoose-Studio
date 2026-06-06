@@ -798,6 +798,9 @@ describe('copilot streaming regressions', () => {
       completed: true,
       executing: false,
     })
+
+    store.getState().updatePlanTodoStatus('todo-2', 'executing')
+    expect(store.getState().showPlanTodos).toBe(true)
   })
 
   it('uses the final output item text when it differs from streamed deltas', async () => {
