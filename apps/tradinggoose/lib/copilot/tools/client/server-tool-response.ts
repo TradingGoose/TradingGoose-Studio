@@ -1,3 +1,4 @@
+import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { ExecuteResponseSuccessSchema } from '@/lib/copilot/tools/shared/schemas'
 
 export interface CopilotServerToolErrorLike {
@@ -48,8 +49,7 @@ export async function buildCopilotServerToolError(response: Response): Promise<E
       payload.error,
       payload.hint ? `Hint: ${payload.hint}` : undefined,
       issueSummary,
-    ]
-      .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+    ].filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
 
     return createCopilotServerToolError(
       response.status,
@@ -70,7 +70,9 @@ export async function executeCopilotServerTool<TResult = unknown>(input: {
   toolName: string
   payload?: unknown
   context?: {
-    contextWorkflowId?: string
+    contextEntityKind?: ReviewEntityKind
+    contextEntityId?: string
+    workspaceId?: string
   }
   signal?: AbortSignal
 }): Promise<TResult> {

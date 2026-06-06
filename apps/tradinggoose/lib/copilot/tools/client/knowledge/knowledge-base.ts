@@ -98,10 +98,21 @@ export class KnowledgeBaseClientTool extends BaseClientTool {
     const logger = createLogger('KnowledgeBaseClientTool')
     try {
       this.setState(ClientToolCallState.executing)
+      const executionContext = this.getExecutionContext()
       const payload: KnowledgeBaseArgs = { ...(args || { operation: 'list' }) }
+      if (
+        executionContext?.workspaceId &&
+        (payload.operation === 'create' || payload.operation === 'list') &&
+        !payload.args?.workspaceId
+      ) {
+        payload.args = { ...(payload.args ?? {}), workspaceId: executionContext.workspaceId }
+      }
       const result = await executeCopilotServerTool({
         toolName: 'knowledge_base',
         payload,
+        context: executionContext?.workspaceId
+          ? { workspaceId: executionContext.workspaceId }
+          : undefined,
         signal: this.getAbortSignal(),
       })
       await this.markToolComplete(200, 'Knowledge base operation completed', result)

@@ -145,12 +145,13 @@ describe('EditWorkflowBlockClientTool', () => {
     tool.setExecutionContext({
       toolCallId: 'tool-review',
       toolName: 'edit_workflow_block',
-      workflowId: 'wf-1',
+      contextEntityKind: 'workflow',
+      contextEntityId: 'wf-1',
       log: vi.fn(),
     })
 
     await tool.handleUserAction({
-      workflowId: 'wf-1',
+      entityId: 'wf-1',
       blockId: 'fn1',
       blockType: 'function',
       subBlocks: {

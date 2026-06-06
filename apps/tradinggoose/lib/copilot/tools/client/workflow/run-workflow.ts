@@ -6,11 +6,12 @@ import {
   WORKFLOW_EXECUTION_TIMEOUT_MS,
 } from '@/lib/copilot/tools/client/base-tool'
 import { executeWorkflowWithFullLogging } from '@/lib/copilot/tools/client/workflow/workflow-execution-utils'
+import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useExecutionStore } from '@/stores/execution/store'
 
 interface RunWorkflowArgs {
-  workflowId: string
+  entityId: string
   description?: string
   workflow_input?: Record<string, any> | string
 }
@@ -67,11 +68,13 @@ export class RunWorkflowClientTool extends BaseClientTool {
         return
       }
 
-      const activeWorkflowId = params.workflowId?.trim()
-      if (!activeWorkflowId) {
+      let activeWorkflowId: string
+      try {
+        activeWorkflowId = requireCopilotEntityId(params)
+      } catch {
         logger.debug('Execution prevented: no target workflow')
         this.setState(ClientToolCallState.error)
-        await this.markToolComplete(400, 'workflowId is required')
+        await this.markToolComplete(400, 'entityId is required')
         return
       }
       logger.debug('Using target workflow', { workflowId: activeWorkflowId })

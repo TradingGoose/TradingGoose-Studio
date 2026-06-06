@@ -46,7 +46,8 @@ describe('readEnvironmentVariablesServerTool', () => {
         {},
         {
           userId: 'auth-user',
-          contextWorkflowId: 'workflow-1',
+          contextEntityKind: 'workflow',
+          contextEntityId: 'workflow-1',
         }
       )
     ).resolves.toEqual({

@@ -1,41 +1,18 @@
 import { z } from 'zod'
 import {
+  type CustomToolTransferRecord as CustomToolTransferRecordType,
+  CustomToolTransferSchema,
+} from '@/lib/custom-tools/schema'
+import {
   createTradingGooseExportFile,
   TradingGooseExportEnvelopeSchema,
 } from '@/lib/import-export/trading-goose'
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
 
+export type { CustomToolTransferRecord } from '@/lib/custom-tools/schema'
+
 const normalizeInlineWhitespace = (value: string) => value.trim().replace(/\s+/g, ' ')
 const normalizeFunctionName = (value: string) => value.trim()
-
-const CustomToolFunctionParametersSchema = z.object({
-  type: z.string(),
-  properties: z.record(z.any()),
-  required: z.array(z.string()).optional(),
-})
-
-const CustomToolFunctionSchema = z.object({
-  name: z
-    .string()
-    .transform(normalizeFunctionName)
-    .pipe(z.string().min(1, 'Function name is required')),
-  description: z.string().optional(),
-  parameters: CustomToolFunctionParametersSchema,
-})
-
-export const CustomToolTransferSchema = z
-  .object({
-    title: z
-      .string()
-      .transform(normalizeInlineWhitespace)
-      .pipe(z.string().min(1, 'Tool title is required')),
-    schema: z.object({
-      type: z.literal('function'),
-      function: CustomToolFunctionSchema,
-    }),
-    code: z.string(),
-  })
-  .strict()
 
 export const CustomToolsTransferListSchema = z
   .array(CustomToolTransferSchema)
@@ -52,13 +29,11 @@ export const CustomToolsImportFileSchema = TradingGooseExportEnvelopeSchema.exte
     })
   }
 })
-
-export type CustomToolTransferRecord = z.infer<typeof CustomToolTransferSchema>
 export type CustomToolsImportFile = z.infer<typeof CustomToolsImportFileSchema>
 
 function normalizeToolForTransfer(
   tool: Pick<CustomToolDefinition, 'title' | 'schema' | 'code'>
-): CustomToolTransferRecord {
+): CustomToolTransferRecordType {
   return {
     title: normalizeInlineWhitespace(tool.title),
     schema: {
@@ -67,7 +42,7 @@ function normalizeToolForTransfer(
         name: normalizeFunctionName(tool.schema.function.name),
         description: tool.schema.function.description,
         parameters: {
-          type: tool.schema.function.parameters.type,
+          type: 'object',
           properties: tool.schema.function.parameters.properties,
           required: tool.schema.function.parameters.required,
         },
@@ -156,7 +131,7 @@ export function resolveImportedCustomTools({
   usedTitles,
   usedFunctionNames,
 }: {
-  customTools: CustomToolTransferRecord[]
+  customTools: CustomToolTransferRecordType[]
   usedTitles: Iterable<string>
   usedFunctionNames: Iterable<string>
 }) {

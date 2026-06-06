@@ -73,36 +73,26 @@ describe('tool-registry', () => {
     expect(getToolInterruptDisplays('edit_workflow_block', toolCallId)).toBeDefined()
   })
 
-  it('does not inject workflow ids into server tool args from execution provenance', () => {
+  it('requires explicit target args instead of injecting ambient entity context', () => {
     const context = createExecutionContext({
       toolCallId,
       toolName: 'read_workflow_logs',
-      provenance: { contextWorkflowId: 'wf-current' },
+      provenance: { contextEntityKind: 'workflow', contextEntityId: 'wf-current' },
     })
 
-    expect(context.contextWorkflowId).toBe('wf-current')
-    expect(prepareCopilotToolArgs('read_workflow_logs', {}, context)).toEqual({})
+    expect(context.contextEntityKind).toBe('workflow')
+    expect(context.contextEntityId).toBe('wf-current')
+    expect(() => prepareCopilotToolArgs('read_workflow_logs', {}, context)).toThrow()
     expect(
-      prepareCopilotToolArgs(
-        'read_workflow_logs',
-        {},
-        createExecutionContext({
-          toolCallId,
-          toolName: 'read_workflow_logs',
-          provenance: {
-            workflowId: 'wf-1',
-            contextWorkflowId: 'wf-current',
-          },
-        })
-      )
-    ).toEqual({})
+      prepareCopilotToolArgs('read_workflow_logs', { entityId: 'wf-explicit' }, context)
+    ).toEqual({ entityId: 'wf-explicit' })
   })
 
   it('preserves only explicit server-routed GDrive args', () => {
     const context = createExecutionContext({
       toolCallId,
       toolName: 'read_gdrive_file',
-      provenance: { workflowId: 'wf-1' },
+      provenance: {},
     })
 
     expect(

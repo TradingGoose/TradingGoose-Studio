@@ -7,8 +7,7 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 
 interface CheckoffTodoArgs {
-  id?: string
-  todoId?: string
+  id: string
 }
 
 export class CheckoffTodoClientTool extends BaseClientTool {
@@ -32,8 +31,8 @@ export class CheckoffTodoClientTool extends BaseClientTool {
     try {
       this.setState(ClientToolCallState.executing)
 
-      const todoId = args?.id || args?.todoId
-      if (!todoId) {
+      const todoItemId = args?.id
+      if (!todoItemId) {
         this.setState(ClientToolCallState.error)
         await this.markToolComplete(400, 'Missing todo id')
         return
@@ -43,14 +42,14 @@ export class CheckoffTodoClientTool extends BaseClientTool {
         const { getCopilotStoreForToolCall } = await import('@/stores/copilot/store-access')
         const store = getCopilotStoreForToolCall(this.toolCallId).getState()
         if (store.updatePlanTodoStatus) {
-          store.updatePlanTodoStatus(todoId, 'completed')
+          store.updatePlanTodoStatus(todoItemId, 'completed')
         }
       } catch (e) {
         logger.warn('Failed to update todo status in store', { message: (e as any)?.message })
       }
 
       this.setState(ClientToolCallState.success)
-      await this.markToolComplete(200, 'Todo checked off', { todoId })
+      await this.markToolComplete(200, 'Todo checked off', { id: todoItemId })
       this.setState(ClientToolCallState.success)
     } catch (e: any) {
       logger.error('execute failed', { message: e?.message })

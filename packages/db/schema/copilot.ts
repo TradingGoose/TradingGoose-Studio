@@ -107,7 +107,6 @@ export const copilotReviewItems = pgTable(
     messageRole: text('message_role').notNull(),
     content: text('content').notNull().default(''),
     timestamp: text('timestamp').notNull(),
-    toolCalls: jsonb('tool_calls').notNull().default(sql`'[]'::jsonb`),
     contentBlocks: jsonb('content_blocks').notNull().default(sql`'[]'::jsonb`),
     contexts: jsonb('contexts').notNull().default(sql`'[]'::jsonb`),
     fileAttachments: jsonb('file_attachments').notNull().default(sql`'[]'::jsonb`),

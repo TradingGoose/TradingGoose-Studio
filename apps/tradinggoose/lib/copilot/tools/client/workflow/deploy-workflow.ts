@@ -5,6 +5,7 @@ import {
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 import { resolveWorkflowTarget } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
+import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getInputFormatExample } from '@/lib/workflows/operations/deployment-utils'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
@@ -13,7 +14,7 @@ import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 interface DeployWorkflowArgs {
   action: 'deploy' | 'undeploy'
   deployType?: 'api' | 'chat'
-  workflowId: string
+  entityId: string
 }
 
 export class DeployWorkflowClientTool extends BaseClientTool {
@@ -35,7 +36,7 @@ export class DeployWorkflowClientTool extends BaseClientTool {
     const action = params?.action || 'deploy'
     const deployType = params?.deployType || 'api'
     // Check if workflow is already deployed
-    const workflowId = params?.workflowId?.trim()
+    const workflowId = params?.entityId?.trim()
     const isAlreadyDeployed = workflowId
       ? useWorkflowRegistry.getState().readWorkflowDeploymentStatus(workflowId)?.isDeployed
       : false
@@ -83,7 +84,7 @@ export class DeployWorkflowClientTool extends BaseClientTool {
       const deployType = params?.deployType || 'api'
 
       // Check if workflow is already deployed
-      const workflowId = params?.workflowId
+      const workflowId = params?.entityId
       const isAlreadyDeployed = workflowId
         ? useWorkflowRegistry.getState().readWorkflowDeploymentStatus(workflowId)?.isDeployed
         : false
@@ -186,8 +187,9 @@ export class DeployWorkflowClientTool extends BaseClientTool {
       const executionContext = this.requireExecutionContext()
       const action = args?.action || 'deploy'
       const deployType = args?.deployType || 'api'
+      const entityId = requireCopilotEntityId(args)
       const { workflowId, workspaceId } = await resolveWorkflowTarget(executionContext, {
-        workflowId: args?.workflowId,
+        entityId,
       })
 
       // For chat deployment, just open the deploy modal

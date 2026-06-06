@@ -64,13 +64,9 @@ export interface ClientToolExecutionContext {
   toolCallId: string
   toolName: string
   channelId?: string
-  workflowId?: string
-  contextWorkflowId?: string
+  contextEntityKind?: ReviewEntityKind
+  contextEntityId?: string
   workspaceId?: string
-  reviewSessionId?: string
-  entityKind?: ReviewEntityKind
-  entityId?: string
-  draftSessionId?: string
   log?: (
     level: 'debug' | 'info' | 'warn' | 'error',
     message: string,
@@ -378,5 +374,35 @@ export class BaseClientTool {
   // Expose current state
   getState(): ClientToolCallState {
     return this.state
+  }
+}
+
+export abstract class StagedReviewClientTool<
+  TReviewResult = Record<string, any>,
+> extends BaseClientTool {
+  private stagedReviewResult?: TReviewResult
+
+  protected getStagedReviewResult(): TReviewResult | undefined {
+    return this.stagedReviewResult ?? this.resolvePersistedResult<TReviewResult>()
+  }
+
+  protected stageReviewResult(result: TReviewResult): void {
+    this.stagedReviewResult = result
+    this.setState(ClientToolCallState.review, { result })
+  }
+
+  protected abstract hasStagedReviewResult(result: TReviewResult | undefined): boolean
+
+  getInterruptDisplays(): BaseClientToolMetadata['interrupt'] | undefined {
+    return this.getState() === ClientToolCallState.review ? this.metadata.interrupt : undefined
+  }
+
+  protected async prepareReviewAccept(args?: Record<string, any>): Promise<boolean> {
+    if (this.hasStagedReviewResult(this.getStagedReviewResult())) {
+      return true
+    }
+
+    await this.execute(args)
+    return this.resolveUserActionState() === ClientToolCallState.review
   }
 }

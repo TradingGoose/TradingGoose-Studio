@@ -1,9 +1,10 @@
 import { CopilotTool } from '@/lib/copilot/registry'
-import {
-  type BaseServerTool,
-  resolveServerWorkflowScope,
-} from '@/lib/copilot/tools/server/base-tool'
+import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { listWorkflowBlockCatalogItems } from '@/lib/copilot/tools/server/blocks/block-mermaid-catalog'
+import {
+  resolveServerWorkspaceId,
+  resolveServerWorkflowScope,
+} from '@/lib/copilot/tools/server/workflow/workflow-scope'
 import type {
   GetAgentAccessoryCatalogInputType,
   GetAgentAccessoryCatalogResultType,
@@ -77,15 +78,19 @@ export const getAgentAccessoryCatalogServerTool: BaseServerTool<
     if (!context?.userId) throw new Error('User context is required')
 
     const scope = await resolveServerWorkflowScope(args, context)
-    if (!scope?.hasAccess || !scope.workspaceId) {
+    if (scope && !scope.hasAccess) {
       throw new Error('Workflow not found or access denied')
+    }
+    const workspaceId = resolveServerWorkspaceId(context, scope)
+    if (!workspaceId) {
+      throw new Error('Workspace context is required')
     }
 
     const [blockToolOptions, customToolRows, mcpToolRows, skillRows] = await Promise.all([
       getBlockToolOptions(),
-      listCustomTools({ workspaceId: scope.workspaceId }),
-      mcpService.discoverTools(context.userId, scope.workspaceId),
-      listSkills({ workspaceId: scope.workspaceId }),
+      listCustomTools({ workspaceId }),
+      mcpService.discoverTools(context.userId, workspaceId),
+      listSkills({ workspaceId }),
     ])
 
     return {

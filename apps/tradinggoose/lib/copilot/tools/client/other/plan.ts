@@ -40,7 +40,7 @@ export class PlanClientTool extends BaseClientTool {
         const todoList = args?.todoList
         if (Array.isArray(todoList)) {
           const todos = todoList.map((item: any, index: number) => ({
-            id: (item && (item.id || item.todoId)) || `todo-${index}`,
+            id: item?.id || `todo-${index}`,
             content: typeof item === 'string' ? item : item.content,
             completed: false,
             executing: false,
@@ -50,7 +50,6 @@ export class PlanClientTool extends BaseClientTool {
           const store = storeApi.getState()
           if (store.setPlanTodos) {
             store.setPlanTodos(todos)
-            storeApi.setState({ showPlanTodos: true })
           }
         }
       } catch (e) {

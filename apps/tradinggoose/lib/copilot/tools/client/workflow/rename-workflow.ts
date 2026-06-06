@@ -4,12 +4,13 @@ import {
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
+import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
+import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 type RenameWorkflowArgs = {
-  workflowId: string
+  entityId: string
   name: string
 }
 
@@ -58,12 +59,8 @@ export class RenameWorkflowClientTool extends BaseClientTool {
 
       const resolvedArgs =
         args || this.currentArgs || readStoredToolArgs<RenameWorkflowArgs>(this.toolCallId)
-      const workflowId = resolvedArgs?.workflowId?.trim()
+      const workflowId = requireCopilotEntityId(resolvedArgs)
       const nextName = resolvedArgs?.name?.trim()
-
-      if (!workflowId) {
-        throw new Error('workflowId is required')
-      }
 
       if (!nextName) {
         throw new Error('name is required')

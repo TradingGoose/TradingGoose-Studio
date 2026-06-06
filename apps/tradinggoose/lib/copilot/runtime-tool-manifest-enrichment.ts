@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import type { z } from 'zod'
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import {
   CUSTOM_TOOL_DOCUMENT_FORMAT,
@@ -8,59 +8,18 @@ import {
   SKILL_DOCUMENT_FORMAT,
 } from '@/lib/copilot/entity-documents'
 import {
-  type EmbeddedDocumentValidator,
-  type RuntimeToolManifestSemanticValidator,
-} from '@/lib/copilot/workflow-subblock-semantic-contracts'
-import { MONITOR_DOCUMENT_FORMAT, MonitorDocumentSchema } from '@/lib/copilot/monitor/monitor-documents'
+  MONITOR_DOCUMENT_FORMAT,
+  MonitorDocumentSchema,
+} from '@/lib/copilot/monitor/monitor-documents'
+import type { RuntimeToolManifestSemanticValidator } from '@/lib/copilot/workflow-subblock-semantic-contracts'
 import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 
 export type { RuntimeToolManifestSemanticValidator } from '@/lib/copilot/workflow-subblock-semantic-contracts'
 
-type WorkflowGraphContractSpec = {
-  canonicalBlock: {
-    idPath: string
-    typePath: string
-    parentIdPath: string
-  }
-  visibleOverlay: {
-    idLabel: string
-    typeLabel: string
-  }
-  inferParentsFromContainerSubgraphs: boolean
-  containers: Array<{
-    blockType: string
-    startNodeSuffix: string
-    endNodeSuffix: string
-    startSourceHandle: string
-    endSourceHandle: string
-    endTargetHandle: string
-  }>
-  conditionalBranches: Array<{
-    blockType: string
-    handlePrefix: string
-    branchNodeSeparator: string
-  }>
-}
-
-type AnnotatedGraphDocumentContract = {
-  type: 'annotated_graph'
-  nodePrefix: string
-  edgePrefix: string
-  spec: WorkflowGraphContractSpec
-  embeddedValidators?: EmbeddedDocumentValidator[]
-}
-
 type DocumentSemanticSpecDefinition = {
   documentFormat: string
   preferredDocumentField: string
-  buildSemanticValidators: (
-    documentField: string,
-    options?: AutomaticSemanticValidatorOptions
-  ) => RuntimeToolManifestSemanticValidator[]
-}
-
-type AutomaticSemanticValidatorOptions = {
-  workflowEmbeddedValidators?: EmbeddedDocumentValidator[]
+  buildSemanticValidators: (documentField: string) => RuntimeToolManifestSemanticValidator[]
 }
 
 function toJsonSchemaRecord(schema: z.ZodTypeAny): Record<string, unknown> {
@@ -115,58 +74,57 @@ const JSON_DOCUMENT_SPECS: JsonDocumentSemanticSpec[] = [
   },
 ]
 
-export const WORKFLOW_GRAPH_CONTRACT_SPEC: WorkflowGraphContractSpec = {
-  canonicalBlock: {
-    idPath: 'id',
-    typePath: 'type',
-    parentIdPath: 'data.parentId',
+const TG_WORKFLOW_LINE_PREFIX = '%% TG_WORKFLOW '
+const TG_BLOCK_LINE_PREFIX = '%% TG_BLOCK '
+const TG_EDGE_LINE_PREFIX = '%% TG_EDGE '
+
+const TG_WORKFLOW_METADATA_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  required: ['version', 'direction'],
+  additionalProperties: true,
+  properties: {
+    version: { const: TG_MERMAID_DOCUMENT_FORMAT },
+    direction: { enum: ['TD', 'LR'] },
   },
-  visibleOverlay: {
-    idLabel: 'id',
-    typeLabel: 'type',
-  },
-  inferParentsFromContainerSubgraphs: true,
-  containers: [
-    {
-      blockType: 'loop',
-      startNodeSuffix: '__loop_start',
-      endNodeSuffix: '__loop_end',
-      startSourceHandle: 'loop-start-source',
-      endSourceHandle: 'loop-end-source',
-      endTargetHandle: 'loop-end-target',
-    },
-    {
-      blockType: 'parallel',
-      startNodeSuffix: '__parallel_start',
-      endNodeSuffix: '__parallel_end',
-      startSourceHandle: 'parallel-start-source',
-      endSourceHandle: 'parallel-end-source',
-      endTargetHandle: 'parallel-end-target',
-    },
-  ],
-  conditionalBranches: [
-    {
-      blockType: 'condition',
-      handlePrefix: 'condition-',
-      branchNodeSeparator: '__condition_',
-    },
-  ],
 }
 
-export function buildWorkflowDocumentContract(
-  embeddedValidators?: EmbeddedDocumentValidator[]
-): AnnotatedGraphDocumentContract {
-  return {
-    type: 'annotated_graph',
-    nodePrefix: '%% TG_BLOCK ',
-    edgePrefix: '%% TG_EDGE ',
-    spec: WORKFLOW_GRAPH_CONTRACT_SPEC,
-    ...(embeddedValidators && embeddedValidators.length > 0 ? { embeddedValidators } : {}),
-  }
+const TG_POSITION_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  required: ['x', 'y'],
+  additionalProperties: true,
+  properties: {
+    x: { type: 'number' },
+    y: { type: 'number' },
+  },
 }
 
-export const WORKFLOW_DOCUMENT_CONTRACT: AnnotatedGraphDocumentContract =
-  buildWorkflowDocumentContract()
+const TG_BLOCK_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  required: ['id', 'type', 'name', 'position', 'subBlocks', 'outputs', 'enabled'],
+  additionalProperties: true,
+  properties: {
+    id: { type: 'string' },
+    type: { type: 'string' },
+    name: { type: 'string' },
+    position: TG_POSITION_SCHEMA,
+    subBlocks: { type: 'object' },
+    outputs: { type: 'object' },
+    enabled: { type: 'boolean' },
+  },
+}
+
+const TG_EDGE_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  required: ['source', 'target'],
+  additionalProperties: true,
+  properties: {
+    id: { type: 'string' },
+    source: { type: 'string' },
+    target: { type: 'string' },
+    sourceHandle: { type: 'string' },
+    targetHandle: { type: 'string' },
+  },
+}
 
 function getObjectPropertySchema(
   parameters: Record<string, unknown>,
@@ -194,14 +152,14 @@ function getConstStringValue(propertySchema: Record<string, unknown> | null): st
 }
 
 function buildWorkflowDocumentSemanticValidators(
-  documentField: string,
-  workflowEmbeddedValidators?: EmbeddedDocumentValidator[]
+  documentField: string
 ): RuntimeToolManifestSemanticValidator[] {
   return [
     {
       path: documentField,
       kind: 'string_requires_real_newlines',
-      description: 'Use raw Mermaid text with real newlines.',
+      description:
+        'Use raw Mermaid text with real newlines; Studio validates workflow graph semantics.',
       message:
         'Expected raw Mermaid text with real newline characters, not JSON-escaped `\\n` sequences.',
     },
@@ -209,122 +167,67 @@ function buildWorkflowDocumentSemanticValidators(
       path: documentField,
       kind: 'string_starts_with',
       args: { prefix: 'flowchart ' },
-      description: 'Start with a Mermaid `flowchart` declaration.',
+      description:
+        'Start with a Mermaid `flowchart` declaration; Studio validates canonical workflow structure.',
       message: 'Expected raw Mermaid text that starts with a `flowchart` declaration.',
     },
     {
       path: documentField,
       kind: 'string_requires_line_prefix',
-      args: { prefix: '%% TG_WORKFLOW ', minMatches: 1 },
-      description: 'Include a standalone `%% TG_WORKFLOW {...}` line.',
-      message:
-        'Missing a standalone `%% TG_WORKFLOW {...}` metadata line. Keep it on its own line near the top of the document.',
-    },
-    {
-      path: documentField,
-      kind: 'string_line_prefix_json_schema',
-      args: {
-        prefix: '%% TG_WORKFLOW ',
-        minMatches: 0,
-        schema: {
-          type: 'object',
-          required: ['version', 'direction'],
-          additionalProperties: true,
-          properties: {
-            version: { const: 'tg-mermaid-v1' },
-            direction: { enum: ['TD', 'LR'] },
-          },
-        },
-      },
-      description: 'Use canonical `TG_WORKFLOW` JSON metadata.',
+      args: { prefix: TG_WORKFLOW_LINE_PREFIX, minMatches: 1 },
+      description: 'Include a standalone canonical `%% TG_WORKFLOW {...}` metadata line.',
+      message: 'Workflow documents must include a standalone `%% TG_WORKFLOW {...}` metadata line.',
     },
     {
       path: documentField,
       kind: 'string_requires_line_prefix',
-      args: { prefix: '%% TG_BLOCK ', minMatches: 1 },
-      description: 'Include standalone canonical `%% TG_BLOCK {...}` lines.',
-      message:
-        'Workflow document did not contain any standalone `%% TG_BLOCK {...}` block entries. Do not embed `TG_BLOCK` JSON inside node labels.',
+      args: { prefix: TG_BLOCK_LINE_PREFIX, minMatches: 1 },
+      description: 'Include standalone canonical `%% TG_BLOCK {...}` metadata lines.',
+      message: 'Workflow documents must include standalone `%% TG_BLOCK {...}` metadata lines.',
     },
     {
       path: documentField,
       kind: 'string_line_prefix_json_schema',
-      args: {
-        prefix: '%% TG_BLOCK ',
-        minMatches: 0,
-        schema: {
-          type: 'object',
-          required: ['id', 'type', 'name', 'position', 'subBlocks', 'outputs', 'enabled'],
-          additionalProperties: true,
-          properties: {
-            id: { type: 'string' },
-            type: { type: 'string' },
-            name: { type: 'string' },
-            position: {
-              type: 'object',
-              required: ['x', 'y'],
-              additionalProperties: true,
-              properties: {
-                x: { type: 'number' },
-                y: { type: 'number' },
-              },
-            },
-            subBlocks: { type: 'object', additionalProperties: true },
-            outputs: { type: 'object', additionalProperties: true },
-            enabled: { type: 'boolean' },
-          },
-        },
-      },
-      description: 'Use canonical `TG_BLOCK` JSON state.',
-    },
-    {
-      path: documentField,
-      kind: 'string_forbids_substring',
-      args: { substring: '$$TG_BLOCK' },
-      description: 'Do not embed `TG_BLOCK` JSON inside labels.',
-      message: 'Do not embed `TG_BLOCK` JSON inside node labels. Emit `%% TG_BLOCK {...}` on its own line.',
-    },
-    {
-      path: documentField,
-      kind: 'string_forbids_substring',
-      args: { substring: '"blockType":' },
-      description: 'Use canonical `TG_BLOCK.type`.',
+      args: { prefix: TG_WORKFLOW_LINE_PREFIX, schema: TG_WORKFLOW_METADATA_SCHEMA },
+      description: 'Validate each `TG_WORKFLOW` metadata JSON payload.',
       message:
-        'Workflow documents use canonical `TG_BLOCK.type`, not metadata aliases like `blockType`.',
-    },
-    {
-      path: documentField,
-      kind: 'string_forbids_substring',
-      args: { substring: '"blockName":' },
-      description: 'Use canonical `TG_BLOCK.name`.',
-      message:
-        'Workflow documents use canonical `TG_BLOCK.name`, not metadata aliases like `blockName`.',
-    },
-    {
-      path: documentField,
-      kind: 'string_document_contract',
-      args: {
-        contract: buildWorkflowDocumentContract(workflowEmbeddedValidators),
-      },
-      description: 'Keep visible edges and canonical `TG_EDGE` state aligned.',
+        '`TG_WORKFLOW` metadata must be canonical JSON with `version: "tg-mermaid-v1"` and `direction` of `TD` or `LR`.',
     },
     {
       path: documentField,
       kind: 'string_line_prefix_json_schema',
-      args: {
-        prefix: '%% TG_EDGE ',
-        minMatches: 0,
-        schema: {
-          type: 'object',
-          required: ['source', 'target'],
-          additionalProperties: true,
-          properties: {
-            source: { type: 'string' },
-            target: { type: 'string' },
-          },
-        },
-      },
-      description: 'Use canonical `TG_EDGE` JSON state.',
+      args: { prefix: TG_BLOCK_LINE_PREFIX, schema: TG_BLOCK_SCHEMA },
+      description: 'Validate each `TG_BLOCK` metadata JSON payload.',
+      message:
+        '`TG_BLOCK` metadata must be canonical block state with `id`, `type`, `name`, `position`, `subBlocks`, `outputs`, and `enabled`.',
+    },
+    {
+      path: documentField,
+      kind: 'string_line_prefix_json_schema',
+      args: { prefix: TG_EDGE_LINE_PREFIX, schema: TG_EDGE_SCHEMA },
+      description: 'Validate each `TG_EDGE` metadata JSON payload when edge lines are present.',
+      message: '`TG_EDGE` metadata must be canonical edge state with string `source` and `target`.',
+    },
+    {
+      path: documentField,
+      kind: 'string_forbids_substring',
+      args: { substring: '"blockType"' },
+      description: 'Use canonical `TG_BLOCK.type`, not simplified block metadata aliases.',
+      message: 'Use `type` in `TG_BLOCK` metadata, not `blockType`.',
+    },
+    {
+      path: documentField,
+      kind: 'string_forbids_substring',
+      args: { substring: '"blockName"' },
+      description: 'Use canonical `TG_BLOCK.name`, not simplified block metadata aliases.',
+      message: 'Use `name` in `TG_BLOCK` metadata, not `blockName`.',
+    },
+    {
+      path: documentField,
+      kind: 'string_forbids_substring',
+      args: { substring: '"blockDescription"' },
+      description: 'Use canonical `TG_BLOCK` state, not simplified block metadata aliases.',
+      message: '`TG_BLOCK` metadata must not include `blockDescription`.',
     },
   ]
 }
@@ -354,12 +257,8 @@ function buildJsonDocumentSemanticValidators(
 const DOCUMENT_SEMANTIC_SPECS = [
   {
     documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
-    preferredDocumentField: 'workflowDocument',
-    buildSemanticValidators: (documentField, options) =>
-      buildWorkflowDocumentSemanticValidators(
-        documentField,
-        options?.workflowEmbeddedValidators
-      ),
+    preferredDocumentField: 'entityDocument',
+    buildSemanticValidators: buildWorkflowDocumentSemanticValidators,
   },
   ...JSON_DOCUMENT_SPECS.map((spec) => ({
     documentFormat: spec.documentFormat,
@@ -395,11 +294,13 @@ function detectDocumentField(
   const matchingFields = Object.entries(properties as Record<string, unknown>)
     .filter(([fieldName, propertySchema]) => {
       if (!fieldName.endsWith('Document')) return false
-      return getSchemaType(
-        propertySchema && typeof propertySchema === 'object' && !Array.isArray(propertySchema)
-          ? (propertySchema as Record<string, unknown>)
-          : null
-      ) === 'string'
+      return (
+        getSchemaType(
+          propertySchema && typeof propertySchema === 'object' && !Array.isArray(propertySchema)
+            ? (propertySchema as Record<string, unknown>)
+            : null
+        ) === 'string'
+      )
     })
     .map(([fieldName]) => fieldName)
 
@@ -407,8 +308,7 @@ function detectDocumentField(
 }
 
 export function buildAutomaticSemanticValidators(
-  parameters: Record<string, unknown>,
-  options?: AutomaticSemanticValidatorOptions
+  parameters: Record<string, unknown>
 ): RuntimeToolManifestSemanticValidator[] {
   const documentFormat = getConstStringValue(getObjectPropertySchema(parameters, 'documentFormat'))
   const semanticSpec = documentFormat ? DOCUMENT_SEMANTIC_SPEC_BY_FORMAT.get(documentFormat) : null
@@ -421,5 +321,5 @@ export function buildAutomaticSemanticValidators(
     return []
   }
 
-  return semanticSpec.buildSemanticValidators(documentField, options)
+  return semanticSpec.buildSemanticValidators(documentField)
 }

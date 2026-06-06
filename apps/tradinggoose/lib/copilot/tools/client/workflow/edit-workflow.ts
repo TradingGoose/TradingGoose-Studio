@@ -1,8 +1,8 @@
 import { Grid2x2, Grid2x2Check, Grid2x2X, Loader2, MinusCircle, XCircle } from 'lucide-react'
 import {
-  BaseClientTool,
   type BaseClientToolMetadata,
   ClientToolCallState,
+  StagedReviewClientTool,
 } from '@/lib/copilot/tools/client/base-tool'
 import {
   executeCopilotServerTool,
@@ -13,6 +13,7 @@ import {
   getReadableWorkflowState,
   resolveWorkflowTarget,
 } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
+import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
 import { createLogger } from '@/lib/logs/console/logger'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { setWorkflowState } from '@/lib/yjs/workflow-session'
@@ -20,9 +21,9 @@ import { acquireWritableWorkflowSessionLease } from '@/lib/yjs/workflow-shared-s
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 
 interface EditWorkflowArgs {
-  workflowDocument: string
+  entityDocument: string
   documentFormat?: string
-  workflowId?: string
+  entityId?: string
 }
 
 function readStoredToolArgs<TArgs>(toolCallId: string): TArgs | undefined {
@@ -34,12 +35,10 @@ function readStoredToolArgs<TArgs>(toolCallId: string): TArgs | undefined {
   }
 }
 
-export class EditWorkflowClientTool extends BaseClientTool {
+export class EditWorkflowClientTool extends StagedReviewClientTool<Record<string, any>> {
   static readonly id: string = 'edit_workflow'
-  private lastResult: any | undefined
   private hasExecuted = false
   private hasAppliedState = false
-  private lastWorkflowId: string | null = null
 
   constructor(
     toolCallId: string,
@@ -66,22 +65,15 @@ export class EditWorkflowClientTool extends BaseClientTool {
     },
   }
 
-  getInterruptDisplays(): BaseClientToolMetadata['interrupt'] | undefined {
-    return this.getState() === ClientToolCallState.review ? this.metadata.interrupt : undefined
-  }
-
   async handleAccept(args?: EditWorkflowArgs): Promise<void> {
     const logger = createLogger('EditWorkflowClientTool')
     try {
+      const stagedResult = this.getStagedReviewResult()
       logger.info('handleAccept called', {
         toolCallId: this.toolCallId,
         state: this.getState(),
-        hasResult: this.lastResult !== undefined,
+        hasResult: stagedResult !== undefined,
       })
-      const stagedResult = this.lastResult ?? this.resolvePersistedResult()
-      if (stagedResult && !this.lastResult) {
-        this.lastResult = stagedResult
-      }
 
       if (!stagedResult?.workflowState) {
         throw new Error('No staged workflow edits found to accept')
@@ -89,20 +81,15 @@ export class EditWorkflowClientTool extends BaseClientTool {
 
       const executionContext = this.requireExecutionContext()
       const resolvedArgs = args || readStoredToolArgs<EditWorkflowArgs>(this.toolCallId)
-      const requestedWorkflowId =
-        resolvedArgs?.workflowId?.trim() ??
-        (typeof stagedResult?.entityId === 'string'
-          ? stagedResult.entityId.trim()
-          : undefined) ??
-        this.lastWorkflowId ??
-        undefined
-      if (!requestedWorkflowId) {
-        throw new Error('workflowId is required for edit_workflow')
+      const requestedEntityId =
+        resolvedArgs?.entityId?.trim() ??
+        (typeof stagedResult?.entityId === 'string' ? stagedResult.entityId.trim() : undefined)
+      if (!requestedEntityId) {
+        throw new Error('entityId is required for edit_workflow')
       }
       const { workflowId } = await resolveWorkflowTarget(executionContext, {
-        workflowId: requestedWorkflowId,
+        entityId: requestedEntityId,
       })
-      this.lastWorkflowId = workflowId
       const lease = await acquireWritableWorkflowSessionLease({
         workflowId,
         workspaceId:
@@ -152,28 +139,21 @@ export class EditWorkflowClientTool extends BaseClientTool {
     args: Record<string, any> | undefined,
     currentWorkflowState: string
   ): Record<string, any> {
-    const workflowDocument = args?.workflowDocument?.trim()
-    if (!workflowDocument) {
-      throw new Error(`No workflowDocument provided for ${this.getServerToolName()}`)
+    const entityDocument = args?.entityDocument?.trim()
+    if (!entityDocument) {
+      throw new Error(`No entityDocument provided for ${this.getServerToolName()}`)
     }
 
     return {
-      workflowId,
-      workflowDocument,
+      entityId: workflowId,
+      entityDocument,
       ...(args?.documentFormat ? { documentFormat: args.documentFormat } : {}),
       currentWorkflowState,
     }
   }
 
-  protected async prepareReviewAccept(args?: EditWorkflowArgs): Promise<boolean> {
-    const stagedResult = this.lastResult ?? this.resolvePersistedResult()
-
-    if (!stagedResult?.workflowState) {
-      await this.execute(args)
-      return this.resolveUserActionState() === ClientToolCallState.review
-    }
-
-    return true
+  protected hasStagedReviewResult(result: Record<string, any> | undefined): boolean {
+    return !!result?.workflowState
   }
 
   async execute(args?: EditWorkflowArgs): Promise<void> {
@@ -187,16 +167,11 @@ export class EditWorkflowClientTool extends BaseClientTool {
       logger.info('execute called', { toolCallId: this.toolCallId, argsProvided: !!args })
       this.setState(ClientToolCallState.executing)
       const executionContext = this.requireExecutionContext()
-      const requestedWorkflowId = args?.workflowId?.trim()
-      if (!requestedWorkflowId) {
-        throw new Error('workflowId is required for edit_workflow')
-      }
+      const requestedEntityId = requireCopilotEntityId(args, { toolName: 'edit_workflow' })
 
-      // Resolve workflowId
       const { workflowId, workspaceId } = await resolveWorkflowTarget(executionContext, {
-        workflowId: requestedWorkflowId,
+        entityId: requestedEntityId,
       })
-      this.lastWorkflowId = workflowId
 
       const readableWorkflow = await getReadableWorkflowState(executionContext, workflowId)
 
@@ -216,7 +191,7 @@ export class EditWorkflowClientTool extends BaseClientTool {
         throw new Error('No workflow document returned from server')
       }
 
-      this.lastResult = {
+      const stagedResult = {
         ...result,
         ...buildWorkflowDocumentToolResult({
           workflowId,
@@ -233,7 +208,7 @@ export class EditWorkflowClientTool extends BaseClientTool {
           : 0,
       })
 
-      this.setState(ClientToolCallState.review, { result: this.lastResult })
+      this.stageReviewResult(stagedResult)
     } catch (error: any) {
       const message = error instanceof Error ? error.message : String(error)
       logger.error('execute error', { message })

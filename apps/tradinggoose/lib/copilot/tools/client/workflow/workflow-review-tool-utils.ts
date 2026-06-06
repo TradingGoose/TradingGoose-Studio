@@ -1,6 +1,7 @@
 'use client'
 
 import type { ClientToolExecutionContext } from '@/lib/copilot/tools/client/base-tool'
+import { resolveOptionalCopilotEntityId } from '@/lib/copilot/tools/entity-target'
 import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 import {
   readWorkflowContainerBoundaryEdgeViolation,
@@ -170,9 +171,9 @@ export async function listWorkflowsForExecutionContext(
 
 export async function resolveWorkflowTarget(
   executionContext: ClientToolExecutionContext,
-  options: { workflowId?: string } = {}
+  options: { entityId?: string } = {}
 ): Promise<WorkflowTarget> {
-  const requestedWorkflowId = normalizeWorkflowTargetValue(options.workflowId)
+  const requestedWorkflowId = resolveOptionalCopilotEntityId(options)
   if (requestedWorkflowId) {
     return {
       workflowId: requestedWorkflowId,
@@ -185,7 +186,7 @@ export async function resolveWorkflowTarget(
 
 export async function getReadableWorkflowState(
   executionContext: ClientToolExecutionContext,
-  workflowId?: string
+  entityId?: string
 ): Promise<{
   workflowId: string
   entityName?: string
@@ -193,7 +194,7 @@ export async function getReadableWorkflowState(
   workspaceId: string | null
   variables: Record<string, any>
 }> {
-  const resolvedWorkflowId = normalizeWorkflowTargetValue(workflowId)
+  const resolvedWorkflowId = normalizeWorkflowTargetValue(entityId)
   if (!resolvedWorkflowId) {
     throw new Error('Workflow target is required')
   }

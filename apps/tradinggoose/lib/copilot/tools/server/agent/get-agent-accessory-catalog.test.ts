@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockResolveServerWorkflowScope = vi.hoisted(() => vi.fn())
+const mockResolveServerWorkspaceId = vi.hoisted(() => vi.fn())
 const mockListCustomTools = vi.hoisted(() => vi.fn())
 
-vi.mock('@/lib/copilot/tools/server/base-tool', () => ({
+vi.mock('@/lib/copilot/tools/server/workflow/workflow-scope', () => ({
   resolveServerWorkflowScope: mockResolveServerWorkflowScope,
+  resolveServerWorkspaceId: mockResolveServerWorkspaceId,
 }))
 
 vi.mock('@/lib/copilot/tools/server/blocks/block-mermaid-catalog', () => ({
@@ -42,6 +44,7 @@ describe('getAgentAccessoryCatalogServerTool', () => {
       workspaceId: 'workspace-1',
       workflowId: 'workflow-1',
     })
+    mockResolveServerWorkspaceId.mockReturnValue('workspace-1')
     mockListCustomTools.mockResolvedValue([
       {
         id: 'custom-tool-1',
@@ -59,7 +62,7 @@ describe('getAgentAccessoryCatalogServerTool', () => {
 
   it('emits executable custom tool IDs from canonical custom tool database IDs', async () => {
     const result = await getAgentAccessoryCatalogServerTool.execute(
-      { workflowId: 'workflow-1' },
+      { entityId: 'workflow-1' },
       { userId: 'user-1' }
     )
 

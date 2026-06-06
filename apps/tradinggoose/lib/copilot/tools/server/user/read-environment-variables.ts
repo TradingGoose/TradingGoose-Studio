@@ -1,15 +1,18 @@
 import { CopilotTool } from '@/lib/copilot/registry'
-import {
-  type BaseServerTool,
-  createPermissionError,
-  resolveServerWorkflowScope,
-  type ServerToolExecutionContext,
+import type {
+  BaseServerTool,
+  ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
+import {
+  createWorkflowPermissionError,
+  resolveServerWorkspaceId,
+  resolveServerWorkflowScope,
+} from '@/lib/copilot/tools/server/workflow/workflow-scope'
 import { getEnvironmentVariableKeys, getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 
 interface ReadEnvironmentVariablesParams {
-  workflowId?: string
+  entityId?: string
 }
 
 export const readEnvironmentVariablesServerTool: BaseServerTool<
@@ -34,7 +37,7 @@ export const readEnvironmentVariablesServerTool: BaseServerTool<
 
     const workflowScope = await resolveServerWorkflowScope(params, context)
     if (workflowScope && !workflowScope.hasAccess) {
-      const errorMessage = createPermissionError('access environment variables in')
+      const errorMessage = createWorkflowPermissionError('access environment variables in')
       logger.error('Unauthorized attempt to access environment variables', {
         workflowId: workflowScope.workflowId,
         authenticatedUserId,
@@ -43,15 +46,16 @@ export const readEnvironmentVariablesServerTool: BaseServerTool<
     }
 
     const userId = authenticatedUserId
+    const workspaceId = resolveServerWorkspaceId(context, workflowScope)
 
     logger.info('Reading environment variables for authenticated user', {
       userId,
       workflowId: workflowScope?.workflowId,
-      workspaceId: workflowScope?.workspaceId,
+      workspaceId,
     })
 
-    if (workflowScope?.workspaceId) {
-      const envResult = await getPersonalAndWorkspaceEnv(userId, workflowScope.workspaceId)
+    if (workspaceId) {
+      const envResult = await getPersonalAndWorkspaceEnv(userId, workspaceId)
       const variableNames = [
         ...new Set([
           ...Object.keys(envResult.personalEncrypted),
@@ -60,7 +64,7 @@ export const readEnvironmentVariablesServerTool: BaseServerTool<
       ]
       logger.info('Environment variable keys retrieved', {
         userId,
-        workflowId: workflowScope.workflowId,
+        workflowId: workflowScope?.workflowId,
         variableCount: variableNames.length,
       })
       return {

@@ -30,6 +30,7 @@ export const knowledgeBaseServerTool: BaseServerTool<KnowledgeBaseArgs, Knowledg
     }
 
     const { operation, args = {} } = params
+    const workspaceId = args.workspaceId ?? context.workspaceId
     throwIfServerToolAborted(context)
 
     try {
@@ -41,7 +42,7 @@ export const knowledgeBaseServerTool: BaseServerTool<KnowledgeBaseArgs, Knowledg
               message: 'Name is required for creating a knowledge base',
             }
           }
-          if (!args.workspaceId) {
+          if (!workspaceId) {
             return {
               success: false,
               message: 'Workspace ID is required for creating a knowledge base',
@@ -54,7 +55,7 @@ export const knowledgeBaseServerTool: BaseServerTool<KnowledgeBaseArgs, Knowledg
             {
               name: args.name,
               description: args.description,
-              workspaceId: args.workspaceId,
+              workspaceId,
               userId: context.userId,
               embeddingModel: 'text-embedding-3-small',
               embeddingDimension: 1536,
@@ -88,19 +89,19 @@ export const knowledgeBaseServerTool: BaseServerTool<KnowledgeBaseArgs, Knowledg
         }
 
         case 'list': {
-          if (!args.workspaceId) {
+          if (!workspaceId) {
             return {
               success: false,
               message: 'Workspace ID is required for listing knowledge bases',
             }
           }
 
-          const knowledgeBases = await getKnowledgeBases(context.userId, args.workspaceId)
+          const knowledgeBases = await getKnowledgeBases(context.userId, workspaceId)
 
           logger.info('Knowledge bases listed via copilot', {
             count: knowledgeBases.length,
             userId: context.userId,
-            workspaceId: args.workspaceId,
+            workspaceId,
           })
 
           return {

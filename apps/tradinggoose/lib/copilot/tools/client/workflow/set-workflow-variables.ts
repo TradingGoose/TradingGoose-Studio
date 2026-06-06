@@ -5,15 +5,16 @@ import {
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
+import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
 import { createLogger } from '@/lib/logs/console/logger'
+import { VariableManager } from '@/lib/variables/variable-manager'
+import { isWorkflowVariableType, type WorkflowVariableType } from '@/lib/workflows/value-types'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { setVariables } from '@/lib/yjs/workflow-session'
 import {
   getRegisteredWorkflowSession,
   getVariablesForWorkflow,
 } from '@/lib/yjs/workflow-session-registry'
-import { VariableManager } from '@/lib/variables/variable-manager'
-import { isWorkflowVariableType, type WorkflowVariableType } from '@/lib/workflows/value-types'
 
 interface OperationItem {
   operation: 'add' | 'edit' | 'delete'
@@ -24,7 +25,7 @@ interface OperationItem {
 
 interface SetWorkflowVariablesArgs {
   operations: OperationItem[]
-  workflowId: string
+  entityId: string
 }
 
 export class SetWorkflowVariablesClientTool extends BaseClientTool {
@@ -58,12 +59,9 @@ export class SetWorkflowVariablesClientTool extends BaseClientTool {
     try {
       this.setState(ClientToolCallState.executing)
       const payload = { ...(args || { operations: [] }) } as Partial<SetWorkflowVariablesArgs>
-      payload.workflowId = payload.workflowId?.trim()
-      if (!payload.workflowId) {
-        throw new Error('workflowId is required')
-      }
+      const workflowId = requireCopilotEntityId(payload)
 
-      const currentVarsRecord = getVariablesForWorkflow(payload.workflowId)
+      const currentVarsRecord = getVariablesForWorkflow(workflowId)
       if (!currentVarsRecord) {
         throw new Error('No live Yjs session for this workflow')
       }
@@ -92,7 +90,7 @@ export class SetWorkflowVariablesClientTool extends BaseClientTool {
         if (op.operation === 'add') {
           byName[key] = {
             id: crypto.randomUUID(),
-            workflowId: payload.workflowId,
+            workflowId,
             name: key,
             type: nextType,
             value: typedValue,
@@ -103,7 +101,7 @@ export class SetWorkflowVariablesClientTool extends BaseClientTool {
           if (!byName[key]) {
             byName[key] = {
               id: crypto.randomUUID(),
-              workflowId: payload.workflowId,
+              workflowId,
               name: key,
               type: nextType,
               value: typedValue,
@@ -123,14 +121,14 @@ export class SetWorkflowVariablesClientTool extends BaseClientTool {
         updatedRecord[variable.id] = variable
       }
 
-      const session = getRegisteredWorkflowSession(payload.workflowId)
+      const session = getRegisteredWorkflowSession(workflowId)
       if (!session) {
         throw new Error('No live Yjs session for this workflow')
       }
       setVariables(session.doc, updatedRecord, YJS_ORIGINS.COPILOT_TOOL)
 
       logger.info('Applied variable operations to Yjs doc', {
-        workflowId: payload.workflowId,
+        workflowId,
         operationCount: payload.operations?.length ?? 0,
       })
 

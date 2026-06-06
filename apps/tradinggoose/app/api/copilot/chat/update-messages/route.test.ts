@@ -150,7 +150,6 @@ describe('Copilot Chat Update Messages', () => {
             messageRole: message.role,
             content: message.content,
             timestamp: message.timestamp,
-            ...(Array.isArray(message.toolCalls) ? { toolCalls: message.toolCalls } : {}),
             ...(Array.isArray(message.contentBlocks)
               ? { contentBlocks: message.contentBlocks }
               : {}),
@@ -169,7 +168,6 @@ describe('Copilot Chat Update Messages', () => {
         role: row.messageRole,
         content: row.content,
         timestamp: row.timestamp,
-        ...(Array.isArray(row.toolCalls) ? { toolCalls: row.toolCalls } : {}),
         ...(Array.isArray(row.contentBlocks) ? { contentBlocks: row.contentBlocks } : {}),
         ...(Array.isArray(row.contexts) ? { contexts: row.contexts } : {}),
         ...(Array.isArray(row.citations) ? { citations: row.citations } : {}),
@@ -398,13 +396,6 @@ describe('Copilot Chat Update Messages', () => {
         messageRole: 'assistant',
         content: '',
         timestamp: '2026-03-30T12:00:01.000Z',
-        toolCalls: [
-          {
-            id: 'tool-1',
-            name: 'edit_workflow',
-            state: 'success',
-          },
-        ],
         contentBlocks: [
           {
             type: 'tool_call',
@@ -473,16 +464,6 @@ describe('Copilot Chat Update Messages', () => {
         messageRole: 'assistant',
         content: '',
         timestamp: '2026-03-30T12:00:01.000Z',
-        toolCalls: [
-          {
-            id: 'tool-entity-1',
-            name: 'edit_skill',
-            state: 'success',
-            params: {
-              entityDocument: '{}',
-            },
-          },
-        ],
         contentBlocks: [
           {
             type: 'tool_call',
@@ -545,13 +526,6 @@ describe('Copilot Chat Update Messages', () => {
         messageRole: 'assistant',
         content: '',
         timestamp: '2026-03-30T12:00:01.000Z',
-        toolCalls: [
-          {
-            id: 'tool-1',
-            name: 'edit_workflow',
-            state: 'pending',
-          },
-        ],
         contentBlocks: [
           {
             type: 'tool_call',
@@ -574,13 +548,6 @@ describe('Copilot Chat Update Messages', () => {
           role: 'assistant',
           content: '',
           timestamp: '2026-03-30T12:00:01.000Z',
-          toolCalls: [
-            {
-              id: 'tool-1',
-              name: 'edit_workflow',
-              state: 'rejected',
-            },
-          ],
           contentBlocks: [
             {
               type: 'tool_call',
@@ -610,12 +577,6 @@ describe('Copilot Chat Update Messages', () => {
     expect(insertValues.mock.calls[1]?.[0]).toEqual([
       expect.objectContaining({
         itemId: 'message-1',
-        toolCalls: [
-          expect.objectContaining({
-            id: 'tool-1',
-            state: 'rejected',
-          }),
-        ],
         contentBlocks: [
           expect.objectContaining({
             type: 'tool_call',

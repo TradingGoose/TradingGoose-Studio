@@ -55,7 +55,6 @@ type ReviewSessionRow = Parameters<typeof mapSessionToApiResponse>[0]
 interface PersistMessageAttachments {
   fileAttachments?: ReviewMessageInput['fileAttachments']
   contexts?: ReviewMessageInput['contexts']
-  toolCalls?: ReviewMessageInput['toolCalls']
   contentBlocks?: ReviewMessageInput['contentBlocks']
 }
 
@@ -135,7 +134,6 @@ async function persistChatMessages(
 ): Promise<PersistChatMessagesResult> {
   const hasAssistantMessage =
     (typeof params.assistantContent === 'string' && params.assistantContent.trim().length > 0) ||
-    (Array.isArray(params.toolCalls) && params.toolCalls.length > 0) ||
     (Array.isArray(params.contentBlocks) && params.contentBlocks.length > 0)
 
   await db.transaction(async (tx) => {
@@ -165,7 +163,6 @@ async function persistChatMessages(
           role: MESSAGE_ROLES.ASSISTANT,
           content: params.assistantContent ?? '',
           timestamp: params.timestamp,
-          toolCalls: params.toolCalls,
           contentBlocks: params.contentBlocks,
         }
       : null
@@ -1205,7 +1202,6 @@ export async function POST(req: NextRequest) {
                 fileAttachments:
                   fileAttachments && fileAttachments.length > 0 ? fileAttachments : undefined,
                 contexts: Array.isArray(contexts) && contexts.length > 0 ? contexts : undefined,
-                toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
                 contentBlocks: contentBlocks.length > 0 ? contentBlocks : undefined,
                 latestTurnStatus,
               })
@@ -1295,9 +1291,21 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    const toolCalls = Array.isArray(responseData.toolCalls) ? responseData.toolCalls : undefined
+    const contentBlocks = Array.isArray(responseData.toolCalls)
+      ? responseData.toolCalls.map((toolCall: any) => {
+          const args = normalizeFunctionCallArguments(toolCall.arguments)
+          return {
+            type: 'tool_call',
+            timestamp: Date.now(),
+            toolCall: {
+              ...toolCall,
+              ...(args ? { arguments: args, params: args } : {}),
+            },
+          }
+        })
+      : undefined
 
-    if (currentSession && (responseData.content || toolCalls?.length)) {
+    if (currentSession && (responseData.content || contentBlocks?.length)) {
       await persistChatMessages({
         reviewSessionId: actualReviewSessionId!,
         userMessageId: userMessageIdToUse,
@@ -1307,7 +1315,7 @@ export async function POST(req: NextRequest) {
         fileAttachments:
           fileAttachments && fileAttachments.length > 0 ? fileAttachments : undefined,
         contexts: Array.isArray(contexts) && contexts.length > 0 ? contexts : undefined,
-        toolCalls,
+        contentBlocks,
         latestTurnStatus: 'completed',
       })
 

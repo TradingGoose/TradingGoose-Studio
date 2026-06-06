@@ -330,9 +330,9 @@ describe('monitor tools', () => {
   it('exposes monitor tool schemas', () => {
     expect(
       ToolArgSchemas.list_monitors.parse({
-        workflowId: 'wf-1',
+        entityId: 'wf-1',
       })
-    ).toMatchObject({ workflowId: 'wf-1' })
+    ).toMatchObject({ entityId: 'wf-1' })
 
     expect(
       ToolArgSchemas.edit_monitor.parse({

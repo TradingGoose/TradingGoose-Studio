@@ -6,12 +6,13 @@ import {
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 import { getReadableWorkflowState } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
+import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('ReadWorkflowVariablesClientTool')
 
 interface ReadWorkflowVariablesArgs {
-  workflowId: string
+  entityId: string
 }
 
 export class ReadWorkflowVariablesClientTool extends BaseClientTool {
@@ -37,9 +38,10 @@ export class ReadWorkflowVariablesClientTool extends BaseClientTool {
     try {
       this.setState(ClientToolCallState.executing)
       const executionContext = this.requireExecutionContext()
+      const entityId = requireCopilotEntityId(args)
       const { workflowId, variables: varsRecord } = await getReadableWorkflowState(
         executionContext,
-        args?.workflowId
+        entityId
       )
       const variables = Object.values(varsRecord).map((v: any) => ({
         name: String(v?.name || ''),

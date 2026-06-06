@@ -14,7 +14,6 @@ interface ReplaySafetyBlockLike {
 
 export interface ReplaySafetyMessageLike {
   id: string
-  toolCalls?: unknown
   contentBlocks?: unknown
 }
 
@@ -66,14 +65,6 @@ export function isAcceptedLiveMutationToolCall(toolCall: unknown): boolean {
 }
 
 export function messageHasAcceptedLiveMutation(message: ReplaySafetyMessageLike): boolean {
-  if (Array.isArray(message.toolCalls)) {
-    for (const toolCall of message.toolCalls) {
-      if (isAcceptedLiveMutationToolCall(toolCall)) {
-        return true
-      }
-    }
-  }
-
   if (Array.isArray(message.contentBlocks)) {
     for (const block of message.contentBlocks) {
       const candidate = asToolCallBlock(block)

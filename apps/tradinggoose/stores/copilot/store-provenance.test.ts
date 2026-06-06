@@ -19,7 +19,8 @@ describe('buildTurnProvenanceFromContexts', () => {
         null
       )
     ).toEqual({
-      contextWorkflowId: 'workflow-explicit',
+      contextEntityKind: 'workflow',
+      contextEntityId: 'workflow-explicit',
       workspaceId: 'workspace-1',
     })
   })
@@ -40,12 +41,13 @@ describe('buildTurnProvenanceFromContexts', () => {
         null
       )
     ).toEqual({
-      contextWorkflowId: 'workflow-live',
+      contextEntityKind: 'workflow',
+      contextEntityId: 'workflow-live',
       workspaceId: 'workspace-1',
     })
   })
 
-  it('pins resolved entity review targets for client-side edit tools', () => {
+  it('keeps review target identity out of execution provenance', () => {
     expect(
       buildTurnProvenanceFromContexts(
         [
@@ -69,10 +71,21 @@ describe('buildTurnProvenanceFromContexts', () => {
       )
     ).toEqual({
       workspaceId: 'workspace-review',
-      contextWorkflowId: 'workflow-explicit',
-      entityKind: 'skill',
-      entityId: 'skill-review',
-      reviewSessionId: 'review-1',
+      contextEntityKind: 'workflow',
+      contextEntityId: 'workflow-explicit',
     })
+  })
+
+  it('does not synthesize workspace provenance for incomplete non-workflow review targets', () => {
+    expect(
+      buildTurnProvenanceFromContexts(undefined, null, null, {
+        workspaceId: null,
+        entityKind: 'skill',
+        entityId: 'skill-review',
+        draftSessionId: null,
+        reviewSessionId: 'review-1',
+        yjsSessionId: 'review-1',
+      })
+    ).toBeUndefined()
   })
 })

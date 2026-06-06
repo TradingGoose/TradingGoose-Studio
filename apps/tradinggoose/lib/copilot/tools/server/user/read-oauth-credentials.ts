@@ -1,15 +1,18 @@
 import { CopilotTool } from '@/lib/copilot/registry'
-import {
-  type BaseServerTool,
-  createPermissionError,
-  resolveServerWorkflowScope,
-  type ServerToolExecutionContext,
+import type {
+  BaseServerTool,
+  ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
+import {
+  createWorkflowPermissionError,
+  resolveServerWorkspaceId,
+  resolveServerWorkflowScope,
+} from '@/lib/copilot/tools/server/workflow/workflow-scope'
 import { listOAuthCredentialsForUser } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
 
 interface ReadOAuthCredentialsParams {
-  workflowId?: string
+  entityId?: string
 }
 
 export const readOAuthCredentialsServerTool: BaseServerTool<ReadOAuthCredentialsParams, any> = {
@@ -31,7 +34,7 @@ export const readOAuthCredentialsServerTool: BaseServerTool<ReadOAuthCredentials
 
     const workflowScope = await resolveServerWorkflowScope(params, context)
     if (workflowScope && !workflowScope.hasAccess) {
-      const errorMessage = createPermissionError('access credentials in')
+      const errorMessage = createWorkflowPermissionError('access credentials in')
       logger.error('Unauthorized attempt to access OAuth credentials', {
         workflowId: workflowScope.workflowId,
         authenticatedUserId,
@@ -40,14 +43,16 @@ export const readOAuthCredentialsServerTool: BaseServerTool<ReadOAuthCredentials
     }
 
     const userId = authenticatedUserId
+    const workspaceId = resolveServerWorkspaceId(context, workflowScope)
 
     logger.info('Reading OAuth credentials for authenticated user', {
       userId,
       workflowId: workflowScope?.workflowId,
+      workspaceId,
     })
     const credentials = await listOAuthCredentialsForUser({
       userId,
-      workspaceId: workflowScope?.workspaceId,
+      workspaceId,
     })
     logger.info('Fetched OAuth credentials', { userId, count: credentials.length })
     return { credentials, total: credentials.length }

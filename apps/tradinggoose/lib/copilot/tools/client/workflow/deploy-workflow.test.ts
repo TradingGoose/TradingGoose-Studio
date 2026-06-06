@@ -49,7 +49,7 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
     mockCopilotState.toolCallsById[toolCallId] = {
       params: {
         action: 'deploy',
-        workflowId: 'wf-explicit',
+        entityId: 'wf-explicit',
       },
     }
 
@@ -58,7 +58,8 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
       toolCallId,
       toolName: 'deploy_workflow',
       channelId: 'pair-red',
-      workflowId: 'wf-context',
+      contextEntityKind: 'workflow',
+      contextEntityId: 'wf-context',
       log: vi.fn(),
     })
 
@@ -69,7 +70,7 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
     expect(mockRegistryState.readWorkflowDeploymentStatus).toHaveBeenCalledWith('wf-explicit')
   })
 
-  it('dynamic text does not consult the default active workflow when workflowId param is absent', () => {
+  it('dynamic text does not consult the default active workflow when entityId param is absent', () => {
     mockRegistryState.getActiveWorkflowId.mockImplementation(() => {
       throw new Error('default active workflow must not be used')
     })
@@ -80,7 +81,7 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
       ClientToolCallState.pending
     )
     const textWithWorkflowId = DeployWorkflowClientTool.metadata.getDynamicText?.(
-      { action: 'deploy', workflowId: 'wf-explicit' },
+      { action: 'deploy', entityId: 'wf-explicit' },
       ClientToolCallState.pending
     )
 
@@ -90,7 +91,7 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
     expect(mockRegistryState.readWorkflowDeploymentStatus).toHaveBeenCalledWith('wf-explicit')
   })
 
-  it('handleAccept deploys using explicit workflowId without default active workflow', async () => {
+  it('handleAccept deploys using explicit entityId without default active workflow', async () => {
     mockRegistryState.getActiveWorkflowId.mockImplementation(() => {
       throw new Error('default active workflow must not be used')
     })
@@ -141,12 +142,13 @@ describe('DeployWorkflowClientTool channel-safe workflow scoping', () => {
       toolCallId,
       toolName: 'deploy_workflow',
       channelId: 'pair-blue',
-      workflowId: 'wf-context',
+      contextEntityKind: 'workflow',
+      contextEntityId: 'wf-context',
       workspaceId: 'ws-1',
       log: vi.fn(),
     })
 
-    await tool.handleAccept({ action: 'deploy', deployType: 'api', workflowId: 'wf-target' })
+    await tool.handleAccept({ action: 'deploy', deployType: 'api', entityId: 'wf-target' })
 
     const deployRequest = fetchMock.mock.calls.find(([input]) => {
       const url = typeof input === 'string' ? input : input.toString()
