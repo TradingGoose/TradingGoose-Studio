@@ -1262,7 +1262,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
               ? { ...t, completed: status === 'completed', executing: status === 'executing' }
               : t
           )
-          return { planTodos: updated, showPlanTodos: updated.length > 0 || state.showPlanTodos }
+          return { planTodos: updated }
         })
       },
       closePlanTodos: () => set({ showPlanTodos: false }),

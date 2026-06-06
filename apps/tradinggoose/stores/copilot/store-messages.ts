@@ -307,11 +307,7 @@ export function buildPlanTodosFromMessages(messages: CopilotMessage[]): PlanTodo
   let todos: PlanTodo[] = []
 
   for (const toolCall of Object.values(buildPinnedToolCallsById(messages, {}))) {
-    if (
-      toolCall.state === 'error' ||
-      toolCall.state === 'rejected' ||
-      toolCall.state === 'aborted'
-    ) {
+    if (toolCall.state !== 'success') {
       continue
     }
 

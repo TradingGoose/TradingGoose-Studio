@@ -703,12 +703,17 @@ describe('copilot streaming regressions', () => {
     expect(blocks[3]?.content).toContain('preparing the edit now')
   })
 
-  it('hydrates plan todos from persisted plan and todo tool calls', async () => {
+  it('hydrates plan todos from persisted successful plan and todo tool calls', async () => {
     const channelId = 'copilot-plan-todo-hydration'
     const store = getCopilotStore(channelId)
-    const toolBlock = (name: string, id: string, params: Record<string, unknown>) => ({
+    const toolBlock = (
+      name: string,
+      id: string,
+      params: Record<string, unknown>,
+      state = ClientToolCallState.success
+    ) => ({
       type: 'tool_call',
-      toolCall: { id, name, state: ClientToolCallState.success, params },
+      toolCall: { id, name, state, params },
     })
     const persistedMessages = [
       {
@@ -725,6 +730,18 @@ describe('copilot streaming regressions', () => {
           }),
           toolBlock('checkoff_todo', 'todo-tool-1', { id: 'todo-1' }),
           toolBlock('mark_todo_in_progress', 'todo-tool-2', { id: 'todo-2' }),
+          toolBlock(
+            'mark_todo_in_progress',
+            'todo-tool-pending-1',
+            { id: 'todo-1' },
+            ClientToolCallState.pending
+          ),
+          toolBlock(
+            'checkoff_todo',
+            'todo-tool-pending-2',
+            { id: 'todo-2' },
+            ClientToolCallState.pending
+          ),
         ],
       },
     ] as any
@@ -766,9 +783,9 @@ describe('copilot streaming regressions', () => {
       },
     ])
 
-    store.setState({ planTodos: [], showPlanTodos: false })
+    store.getState().closePlanTodos()
     store.getState().updatePlanTodoStatus('todo-2', 'completed')
-    expect(store.getState().showPlanTodos).toBe(true)
+    expect(store.getState().showPlanTodos).toBe(false)
     expect(store.getState().planTodos[1]).toMatchObject({
       id: 'todo-2',
       completed: true,
