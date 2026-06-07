@@ -167,14 +167,19 @@ const EditWorkflowArgs = z
       .string()
       .min(1)
       .describe(
-        'Complete raw `tg-mermaid-v1` Mermaid document for the entire workflow, not a partial patch. Preserve the canonical `%% TG_WORKFLOW`, `%% TG_BLOCK`, and `%% TG_EDGE` metadata returned by `read_workflow`; Studio validates that structure. Use this only for graph or topology changes such as adding, removing, reconnecting, or replacing blocks, loops, parallels, or condition branches.'
+        'Minimal Mermaid flowchart for the entire workflow graph, not a partial patch. Include flowchart direction, existing block ids, new block `id:` and `type:` labels, subgraph nesting, and edge arrows. Do not include `%% TG_*` metadata, subBlocks, outputs, enabled, positions, or full block metadata. Existing block details are preserved by id; use edit_workflow_block for block internals.'
       ),
-    documentFormat: z.literal(TG_MERMAID_DOCUMENT_FORMAT).optional(),
+    removedBlockIds: z
+      .array(z.string().trim().min(1))
+      .optional()
+      .describe(
+        'Exact existing block ids intentionally removed from the workflow graph. Required for every existing block id omitted from entityDocument.'
+      ),
     entityId: RequiredId,
   })
   .strict()
   .describe(
-    "Full workflow document replacement tool. Do not use this to rename one existing block or patch one block's `enabled` or `subBlocks`; use `edit_workflow_block` instead."
+    "Full workflow graph replacement tool using minimal Mermaid. Do not use this to rename one existing block or patch one block's `enabled` or `subBlocks`; use `edit_workflow_block` instead."
   )
 
 const EditWorkflowBlockArgs = z

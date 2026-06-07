@@ -16,6 +16,10 @@ const workflowDocument = [
   '%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
   '%% TG_BLOCK {"id":"block-1","type":"trigger","name":"Trigger","position":{"x":0,"y":0},"subBlocks":{},"outputs":{},"enabled":true}',
 ].join('\n')
+const editWorkflowDocument = [
+  'flowchart TD',
+  '  n1["Trigger<br/>id: block-1<br/>type: trigger"]',
+].join('\n')
 
 let persistedToolCalls: Record<string, any> = {}
 
@@ -104,10 +108,17 @@ describe('EditWorkflowClientTool approval gating', () => {
   })
 
   it('stages workflow edits for review through the unified user-action handler', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString()
 
       if (url === '/api/copilot/execute-copilot-server-tool') {
+        const body = JSON.parse(String(init?.body))
+        expect(body.payload).toMatchObject({
+          entityId: 'wf-1',
+          entityDocument: editWorkflowDocument,
+          removedBlockIds: ['removed-1'],
+        })
+        expect(body.payload).not.toHaveProperty('documentFormat')
         return {
           ok: true,
           status: 200,
@@ -160,7 +171,8 @@ describe('EditWorkflowClientTool approval gating', () => {
 
     await tool.handleUserAction({
       entityId: 'wf-1',
-      entityDocument: workflowDocument,
+      entityDocument: editWorkflowDocument,
+      removedBlockIds: ['removed-1'],
     })
 
     expect(tool.getState()).toBe(ClientToolCallState.review)
@@ -252,7 +264,7 @@ describe('EditWorkflowClientTool approval gating', () => {
 
     await tool.handleUserAction({
       entityId: 'wf-1',
-      entityDocument: workflowDocument,
+      entityDocument: editWorkflowDocument,
     })
 
     expect(tool.getState()).toBe(ClientToolCallState.review)
@@ -319,7 +331,7 @@ describe('EditWorkflowClientTool approval gating', () => {
 
     await tool.execute({
       entityId: 'wf-1',
-      entityDocument: workflowDocument,
+      entityDocument: editWorkflowDocument,
     })
     await tool.handleAccept()
 
@@ -374,7 +386,7 @@ describe('EditWorkflowClientTool approval gating', () => {
     })
 
     await tool.execute({
-      entityDocument: workflowDocument,
+      entityDocument: editWorkflowDocument,
     })
 
     expect(tool.getState()).toBe(ClientToolCallState.error)
@@ -415,7 +427,7 @@ describe('EditWorkflowClientTool approval gating', () => {
         state: ClientToolCallState.review,
         params: {
           entityId: 'wf-target',
-          entityDocument: workflowDocument,
+          entityDocument: editWorkflowDocument,
         },
         result: {
           entityId: 'wf-target',

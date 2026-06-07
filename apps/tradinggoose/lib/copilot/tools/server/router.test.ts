@@ -329,8 +329,7 @@ describe('routeExecution', () => {
 
   it('preserves workflow edit entity fields when routing workflow tools', async () => {
     const payload = {
-      entityDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
-      documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
+      entityDocument: 'flowchart TD\n  n1["Input<br/>id: input1<br/>type: input_trigger"]',
       entityId: 'workflow-123',
       currentWorkflowState: '{"blocks":{}}',
     }

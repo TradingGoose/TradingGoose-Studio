@@ -6,42 +6,6 @@ import {
 } from '@/lib/copilot/server-tool-errors'
 
 describe('copilot server tool errors', () => {
-  it('maps malformed workflow document errors to repairable 422 responses', () => {
-    const response = buildCopilotServerToolErrorResponse(
-      'edit_workflow',
-      new Error('Workflow document did not contain any TG_BLOCK entries')
-    )
-
-    expect(response).toEqual({
-      status: 422,
-      body: expect.objectContaining({
-        code: 'invalid_workflow_document_missing_blocks',
-        retryable: true,
-      }),
-    })
-    expect(response.body.error).toContain('standalone `%% TG_BLOCK')
-    expect(response.body.hint).toContain('Do not embed `TG_BLOCK` JSON inside node labels')
-  })
-
-  it('returns container and condition repair guidance for workflow edge mismatches', () => {
-    const response = buildCopilotServerToolErrorResponse(
-      'edit_workflow',
-      new Error(
-        'Workflow document edge metadata is inconsistent. Visible Mermaid connections and TG_EDGE payloads must resolve to the same logical workflow edges.'
-      )
-    )
-
-    expect(response).toEqual({
-      status: 422,
-      body: expect.objectContaining({
-        code: 'invalid_workflow_document_edge_mismatch',
-        retryable: true,
-      }),
-    })
-    expect(response.body.hint).toContain('container subgraphs')
-    expect(response.body.hint).toContain('condition blocks')
-  })
-
   it('returns container repair guidance for invalid canonical container edge handles', () => {
     const response = buildCopilotServerToolErrorResponse(
       'edit_workflow',
@@ -64,7 +28,7 @@ describe('copilot server tool errors', () => {
         ],
       }),
     })
-    expect(response.body.hint).toContain('targetHandle "target"')
+    expect(response.body.hint).toContain('connect outer edges')
   })
 
   it('preserves embedded workflow sub-block paths in structured edit errors', () => {
@@ -88,6 +52,24 @@ describe('copilot server tool errors', () => {
         ],
       }),
     })
+  })
+
+  it('returns explicit removal guidance for omitted workflow blocks', () => {
+    const response = buildCopilotServerToolErrorResponse(
+      'edit_workflow',
+      new Error(
+        'Invalid edited workflow: Existing block ids omitted from edit_workflow entityDocument without removedBlockIds: fn1.'
+      )
+    )
+
+    expect(response).toEqual({
+      status: 422,
+      body: expect.objectContaining({
+        code: 'invalid_workflow_state',
+        retryable: true,
+      }),
+    })
+    expect(response.body.hint).toContain('removedBlockIds')
   })
 
   it('falls back to a generic 500 payload for unknown tool failures', () => {

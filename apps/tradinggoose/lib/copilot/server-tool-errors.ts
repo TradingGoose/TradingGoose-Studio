@@ -76,89 +76,13 @@ function buildInvalidToolPayloadError(
 }
 
 function buildEditWorkflowError(message: string): CopilotServerToolErrorResponse | null {
-  if (message === 'Missing TG_WORKFLOW metadata') {
-    return {
-      status: 422,
-      body: {
-        code: 'invalid_workflow_document_missing_metadata',
-        error: 'Workflow document is missing a standalone `%% TG_WORKFLOW {...}` metadata line.',
-        hint: 'Send raw `tg-mermaid-v1` Mermaid text with real newlines, and keep `%% TG_WORKFLOW {...}` on its own line near the top of the document.',
-        retryable: true,
-      },
-    }
-  }
-
-  if (message === 'Workflow document did not contain any TG_BLOCK entries') {
-    return {
-      status: 422,
-      body: {
-        code: 'invalid_workflow_document_missing_blocks',
-        error:
-          'Workflow document did not contain any standalone `%% TG_BLOCK {...}` block entries.',
-        hint: 'Emit canonical `%% TG_BLOCK {...}` comment lines for each block. Do not embed `TG_BLOCK` JSON inside node labels or send simplified block metadata.',
-        retryable: true,
-      },
-    }
-  }
-
-  if (message.startsWith('Invalid TG_BLOCK payload:')) {
-    return {
-      status: 422,
-      body: {
-        code: 'invalid_workflow_document_block_payload',
-        error: message,
-        hint: 'Each `TG_BLOCK` payload must be canonical workflow state with `id`, `type`, `name`, `position`, `subBlocks`, `outputs`, and `enabled`.',
-        retryable: true,
-      },
-    }
-  }
-
-  if (message.startsWith('Invalid TG_EDGE payload')) {
-    return {
-      status: 422,
-      body: {
-        code: 'invalid_workflow_document_edge_payload',
-        error: message,
-        hint: 'Each `TG_EDGE` payload must be a standalone JSON object with string `source` and `target` fields that matches the visible Mermaid connection.',
-        retryable: true,
-      },
-    }
-  }
-
-  if (
-    message ===
-    'Workflow document contains Mermaid connection lines but no TG_EDGE entries. Every visible workflow connection must have a matching TG_EDGE payload.'
-  ) {
-    return {
-      status: 422,
-      body: {
-        code: 'invalid_workflow_document_missing_edge_metadata',
-        error: message,
-        hint: 'When the diagram shows visible Mermaid connections, include matching standalone `%% TG_EDGE {...}` lines for each connection.',
-        retryable: true,
-      },
-    }
-  }
-
-  if (message.startsWith('Workflow document edge metadata is inconsistent.')) {
-    return {
-      status: 422,
-      body: {
-        code: 'invalid_workflow_document_edge_mismatch',
-        error: message,
-        hint: 'Keep the visible Mermaid connection lines and the canonical `%% TG_EDGE {...}` payloads in logical sync. Loop and parallel child blocks must stay inside their container subgraphs and cross container boundaries through the container handles, while condition blocks keep their diamond-and-branch structure.',
-        retryable: true,
-      },
-    }
-  }
-
   if (message.startsWith('Invalid container edge:')) {
     return {
       status: 422,
       body: {
         code: 'invalid_workflow_document_container_edge',
         error: message,
-        hint: 'For loop and parallel containers, incoming outer workflow edges must target the container block alias itself with targetHandle "target". Use Start nodes only as sources to child blocks, and End nodes only for child-to-container completion before leaving the container.',
+        hint: 'For loop and parallel containers, connect outer edges to the container node and internal edges to the generated start/end nodes.',
         retryable: true,
         issues: [{ path: 'entityDocument.edges', message }],
       },
@@ -184,11 +108,13 @@ function buildEditWorkflowError(message: string): CopilotServerToolErrorResponse
 
     const hint = details.includes('non-canonical sub-block')
       ? 'Use only the canonical sub-block ids from `get_blocks_metadata` for that block type. Keep the existing canonical ids and remove invented keys.'
+      : details.includes('removedBlockIds')
+        ? 'Keep every existing block id in the Mermaid graph unless the user explicitly asked to remove or replace it; list intentional removals in `removedBlockIds`.'
       : details.includes('unknown block type')
-        ? 'Use block types exactly as returned by `get_available_blocks` or `get_blocks_metadata`. Keep `TG_BLOCK.type` unchanged unless you are intentionally replacing the block with another valid type.'
+        ? 'Use block types exactly as returned by `get_available_blocks` or `get_blocks_metadata`.'
         : details.includes('Edge references non-existent')
-          ? 'Every `TG_EDGE` source and target must match an existing `TG_BLOCK`, `TG_LOOP`, or `TG_PARALLEL` id in the same document.'
-          : 'Return a complete canonical workflow document that validates as workflow state. Preserve required block fields, canonical ids, and valid edge references.'
+          ? 'Every edge source and target must match a block id in the same document.'
+          : 'Return a complete workflow graph that validates as workflow state. Preserve block ids and valid edge references.'
 
     return {
       status: 422,

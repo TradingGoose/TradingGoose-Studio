@@ -61,6 +61,12 @@ type ParsedVisibleWorkflowEdges = {
   inferredParentIds: Map<string, string>
 }
 
+export type GraphOnlyWorkflowMermaid = {
+  direction: WorkflowDirection
+  blocks: Array<{ blockId: string; blockType?: string; parentId?: string }>
+  edges: Array<Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>>
+}
+
 const COMMENT_PREFIX = '%% '
 export const TG_WORKFLOW_PREFIX = `${COMMENT_PREFIX}TG_WORKFLOW `
 export const TG_BLOCK_PREFIX = `${COMMENT_PREFIX}TG_BLOCK `
@@ -1381,6 +1387,80 @@ function applyVisibleParenting(
   }
 
   return nextBlocks
+}
+
+export function parseGraphOnlyWorkflowMermaid(
+  document: string,
+  existingBlocks: Record<string, BlockState>
+): GraphOnlyWorkflowMermaid {
+  const directionMatch = document.trimStart().match(/^flowchart\s+(TD|LR)\b/)
+  if (!directionMatch?.[1]) {
+    throw new Error('Workflow graph Mermaid must start with `flowchart TD` or `flowchart LR`.')
+  }
+
+  for (const line of document.split(/\r?\n/)) {
+    const trimmed = line.trim()
+    if (
+      trimmed.startsWith(TG_WORKFLOW_PREFIX) ||
+      trimmed.startsWith(TG_BLOCK_PREFIX) ||
+      trimmed.startsWith(TG_EDGE_PREFIX) ||
+      trimmed.startsWith(TG_LOOP_PREFIX) ||
+      trimmed.startsWith(TG_PARALLEL_PREFIX)
+    ) {
+      throw new Error(
+        'Workflow graph Mermaid must not include TG_* metadata comments. Send only visible Mermaid nodes, subgraphs, and edges.'
+      )
+    }
+  }
+
+  const overlays = parseMermaidLabelOverlays(document, Object.keys(existingBlocks))
+  const graphBlocks: Record<string, BlockState> = { ...existingBlocks }
+
+  for (const [blockId, overlay] of overlays.blocks) {
+    if (!graphBlocks[blockId]) {
+      graphBlocks[blockId] = {
+        id: blockId,
+        type: overlay.type ?? 'unknown',
+        name: blockId,
+        position: { x: 0, y: 0 },
+        subBlocks: {},
+        outputs: {},
+        enabled: true,
+      }
+    }
+  }
+
+  const visibleGraph = parseVisibleWorkflowEdges(document, graphBlocks)
+  const blocksWithVisibleParenting = applyVisibleParenting(
+    graphBlocks,
+    visibleGraph.visibleBlockIds,
+    visibleGraph.inferredParentIds
+  )
+  const edges = normalizeLogicalWorkflowEdges(visibleGraph.edges, blocksWithVisibleParenting).map(
+    ({ source, target, sourceHandle, targetHandle }) => ({
+      source,
+      target,
+      ...(sourceHandle ? { sourceHandle } : {}),
+      ...(targetHandle ? { targetHandle } : {}),
+    })
+  )
+
+  if (visibleGraph.visibleBlockIds.size === 0) {
+    throw new Error('Workflow graph Mermaid did not contain any workflow block nodes.')
+  }
+
+  return {
+    direction: directionMatch[1] as WorkflowDirection,
+    blocks: [...visibleGraph.visibleBlockIds].map((blockId) => {
+      const block = blocksWithVisibleParenting[blockId]
+      return {
+        blockId,
+        ...(block?.type && block.type !== 'unknown' ? { blockType: block.type } : {}),
+        ...(block?.data?.parentId ? { parentId: block.data.parentId } : {}),
+      }
+    }),
+    edges,
+  }
 }
 
 function syncContainerNodeMembership(
