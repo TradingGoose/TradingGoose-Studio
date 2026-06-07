@@ -4,6 +4,7 @@ import { devtools } from 'zustand/middleware'
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import { createLogger } from '@/lib/logs/console/logger'
 import { resolveBlockRuntimeState } from '@/lib/workflows/block-outputs'
+import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
 import { getBlock } from '@/blocks'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
@@ -118,15 +119,10 @@ const createWorkflowStoreState =
         ...(parentId && { parentId, extent: extent || 'parent' }),
       }
 
-      let subBlocks: Record<string, SubBlockState> = {}
-      blockConfig.subBlocks.forEach((subBlock) => {
-        const subBlockId = subBlock.id
-        subBlocks[subBlockId] = {
-          id: subBlockId,
-          type: subBlock.type,
-          value: null,
-        }
-      })
+      let subBlocks = buildInitialSubBlockStates(blockConfig.subBlocks) as Record<
+        string,
+        SubBlockState
+      >
 
       const triggerMode = blockProperties?.triggerMode ?? false
       const runtimeState = resolveBlockRuntimeState({

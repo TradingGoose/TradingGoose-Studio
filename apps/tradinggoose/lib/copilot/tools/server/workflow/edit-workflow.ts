@@ -2,9 +2,8 @@ import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 import { resolveBlockRuntimeState } from '@/lib/workflows/block-outputs'
-import {
-  parseGraphOnlyWorkflowMermaid,
-} from '@/lib/workflows/studio-workflow-mermaid'
+import { parseGraphOnlyWorkflowMermaid } from '@/lib/workflows/studio-workflow-mermaid'
+import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
 import { createWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { getBlock } from '@/blocks'
 import { generateLoopBlocks, generateParallelBlocks } from '@/stores/workflows/workflow/utils'
@@ -47,7 +46,8 @@ function buildDefaultBlock(
   blockId: string,
   blockType: string,
   blocks: Record<string, BlockState>,
-  parentId?: string
+  parentId?: string,
+  name?: string
 ): BlockState {
   const blockConfig = getBlock(blockType)
   const data = parentId ? { parentId, extent: 'parent' as const } : undefined
@@ -60,7 +60,7 @@ function buildDefaultBlock(
     return {
       id: blockId,
       type: blockType,
-      name: blockType === 'loop' ? 'Loop' : 'Parallel',
+      name: name?.trim() || (blockType === 'loop' ? 'Loop' : 'Parallel'),
       position: buildDefaultPosition(blocks, parentId),
       subBlocks: {},
       outputs: {},
@@ -69,12 +69,9 @@ function buildDefaultBlock(
     }
   }
 
-  const initialSubBlocks = Object.fromEntries(
-    blockConfig.subBlocks.map((subBlock) => [
-      subBlock.id,
-      { id: subBlock.id, type: subBlock.type, value: null },
-    ])
-  )
+  const initialSubBlocks = buildInitialSubBlockStates(
+    blockConfig.subBlocks
+  ) as BlockState['subBlocks']
   const runtimeState = resolveBlockRuntimeState({
     blockType,
     blockConfig,
@@ -85,7 +82,7 @@ function buildDefaultBlock(
   return {
     id: blockId,
     type: blockType,
-    name: blockConfig.name,
+    name: name?.trim() || blockConfig.name,
     position: buildDefaultPosition(blocks, parentId),
     subBlocks: runtimeState.subBlocks as BlockState['subBlocks'],
     outputs: runtimeState.outputs,
@@ -153,7 +150,8 @@ function applyGraphMermaidToWorkflow(
       graphBlock.blockId,
       graphBlock.blockType,
       blocks,
-      graphBlock.parentId
+      graphBlock.parentId,
+      graphBlock.name
     )
   }
 

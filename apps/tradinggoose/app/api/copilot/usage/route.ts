@@ -88,11 +88,6 @@ const CompletionCommitRequestSchema = z.object({
   reservationId: z.string().min(1).optional(),
 })
 
-const CommitEnvelopeSchema = z.object({
-  action: z.literal('commit'),
-  reservationId: z.string().min(1).optional(),
-})
-
 const ReleaseUsageRequestSchema = z.object({
   action: z.literal('release'),
   reservationId: z.string().min(1, 'reservationId is required'),
@@ -742,41 +737,19 @@ export async function POST(req: NextRequest) {
         return new NextResponse(null, { status: 401 })
       }
 
-      const envelope = CommitEnvelopeSchema.safeParse(body)
-      if (!envelope.success) {
-        logger.warn('Invalid copilot usage commit envelope', { errors: envelope.error.errors })
+      const parsed = CompletionCommitRequestSchema.safeParse(body)
+      if (!parsed.success) {
+        logger.warn('Invalid copilot usage commit request', { errors: parsed.error.errors })
         return NextResponse.json(
           {
             error: 'Invalid request body',
-            details: envelope.error.errors,
+            details: parsed.error.errors,
           },
           { status: 400 }
         )
       }
 
-      const kind = body && typeof body === 'object' ? (body as Record<string, unknown>).kind : null
-      const parsed = kind === 'completion' ? CompletionCommitRequestSchema.safeParse(body) : null
-
-      return await withCommittedReservationRelease(envelope.data.reservationId, async () => {
-        if (!parsed || !parsed.success) {
-          logger.warn('Invalid copilot usage commit request', {
-            errors:
-              parsed && !parsed.success
-                ? parsed.error.errors
-                : [{ message: 'Invalid commit kind' }],
-          })
-          return NextResponse.json(
-            {
-              error: 'Invalid request body',
-              details:
-                parsed && !parsed.success
-                  ? parsed.error.errors
-                  : [{ message: 'Invalid commit kind' }],
-            },
-            { status: 400 }
-          )
-        }
-
+      return await withCommittedReservationRelease(parsed.data.reservationId, async () => {
         return await handleCompletionCommit(parsed.data)
       })
     }

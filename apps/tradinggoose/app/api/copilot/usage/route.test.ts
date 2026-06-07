@@ -393,9 +393,7 @@ describe('Copilot Usage API - Context', () => {
     expect(response.status).toBe(400)
     expect(mockProxyCopilotRequest).not.toHaveBeenCalled()
     expect(mockAccrueUserUsageCost).not.toHaveBeenCalled()
-    expect(mockReleaseCopilotUsageReservation).toHaveBeenCalledWith({
-      reservationId: 'reservation-1',
-    })
+    expect(mockReleaseCopilotUsageReservation).not.toHaveBeenCalled()
   })
 
   it('reserves shared usage budget through the internal reserve action', async () => {
@@ -957,6 +955,31 @@ describe('Copilot Usage API - Completion', () => {
     expect(mockReleaseCopilotUsageReservation).toHaveBeenCalledWith({
       reservationId: 'reservation-1',
     })
+  })
+
+  it('does not release reservations for malformed completion commits', async () => {
+    const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'commit',
+        kind: 'completion',
+        userId: 'user-1',
+        reservationId: 'reservation-1',
+        usage: {
+          prompt_tokens: 100,
+          completion_tokens: 25,
+          total_tokens: 125,
+        },
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const { POST } = await import('@/app/api/copilot/usage/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(400)
+    expect(mockAccrueUserUsageCost).not.toHaveBeenCalled()
+    expect(mockReleaseCopilotUsageReservation).not.toHaveBeenCalled()
   })
 
   it('releases the reservation when completion billing is disabled', async () => {

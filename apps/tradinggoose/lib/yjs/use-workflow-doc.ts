@@ -15,7 +15,7 @@ import type { Edge } from '@xyflow/react'
 import type * as Y from 'yjs'
 import { escapeRegExp } from '@/lib/utils'
 import { readBlockOutputs, resolveBlockRuntimeState } from '@/lib/workflows/block-outputs'
-import { resolveInitialSubBlockValue } from '@/lib/workflows/subblock-values'
+import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
 import { YJS_ORIGINS, type YjsOrigin } from '@/lib/yjs/transaction-origins'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
 import { rewriteWorkflowContentReferences } from '@/lib/yjs/workflow-reference-rewrite'
@@ -839,25 +839,13 @@ export function useWorkflowMutations() {
         const blockConfig = getBlock(type)
         let subBlocks: Record<string, SubBlockState> = {}
         const outputs: Record<string, any> = {}
-        const resolvedSubBlockParams: Record<string, any> = {}
 
         if (blockConfig) {
           const initValues = blockProperties?.initialSubBlockValues
-          blockConfig.subBlocks.forEach((subBlock) => {
-            const resolvedInitialValue = resolveInitialSubBlockValue(
-              subBlock,
-              resolvedSubBlockParams,
-              initValues?.[subBlock.id]
-            )
-
-            subBlocks[subBlock.id] = {
-              id: subBlock.id,
-              type: subBlock.type,
-              value: resolvedInitialValue as any,
-            }
-
-            resolvedSubBlockParams[subBlock.id] = resolvedInitialValue
-          })
+          subBlocks = buildInitialSubBlockStates(
+            blockConfig.subBlocks,
+            initValues
+          ) as Record<string, SubBlockState>
 
           const runtimeState = resolveBlockRuntimeState({
             blockType: type,

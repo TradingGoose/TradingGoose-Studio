@@ -83,7 +83,7 @@ describe('editWorkflowServerTool', () => {
     ])
   })
 
-  it('adds new blocks from block type defaults', async () => {
+  it('adds new blocks with canonical defaults and graph labels', async () => {
     const { editWorkflowServerTool } = await import(
       '@/lib/copilot/tools/server/workflow/edit-workflow'
     )
@@ -108,13 +108,13 @@ describe('editWorkflowServerTool', () => {
     expect(result.workflowState.blocks.fn2).toMatchObject({
       id: 'fn2',
       type: 'function',
-      name: expect.any(String),
+      name: 'Transform',
       enabled: true,
     })
     expect(result.workflowState.blocks.fn2.subBlocks.code).toMatchObject({
       id: 'code',
       type: 'code',
-      value: null,
+      value: '',
     })
     expect(result.preview.blockDiff.added).toEqual(['fn2'])
   })

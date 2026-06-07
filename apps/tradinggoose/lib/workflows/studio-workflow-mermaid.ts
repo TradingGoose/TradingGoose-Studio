@@ -63,7 +63,7 @@ type ParsedVisibleWorkflowEdges = {
 
 export type GraphOnlyWorkflowMermaid = {
   direction: WorkflowDirection
-  blocks: Array<{ blockId: string; blockType?: string; parentId?: string }>
+  blocks: Array<{ blockId: string; blockType?: string; name?: string; parentId?: string }>
   edges: Array<Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>>
 }
 
@@ -1421,7 +1421,7 @@ export function parseGraphOnlyWorkflowMermaid(
       graphBlocks[blockId] = {
         id: blockId,
         type: overlay.type ?? 'unknown',
-        name: blockId,
+        name: overlay.name,
         position: { x: 0, y: 0 },
         subBlocks: {},
         outputs: {},
@@ -1456,6 +1456,7 @@ export function parseGraphOnlyWorkflowMermaid(
       return {
         blockId,
         ...(block?.type && block.type !== 'unknown' ? { blockType: block.type } : {}),
+        ...(block?.name ? { name: block.name } : {}),
         ...(block?.data?.parentId ? { parentId: block.data.parentId } : {}),
       }
     }),
