@@ -4,7 +4,7 @@ import { createContext, createElement, type ReactNode, useContext, useMemo } fro
 import type { StoreApi } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import { createWithEqualityFn as create, useStoreWithEqualityFn } from 'zustand/traditional'
-import { shouldAutoExecuteTool } from '@/lib/copilot/access-policy'
+import { shouldRequireToolApproval } from '@/lib/copilot/access-policy'
 import { type CopilotChat, sendStreamingMessage } from '@/lib/copilot/api'
 import { mergeCopilotContexts } from '@/lib/copilot/chat-contexts'
 import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
@@ -70,6 +70,7 @@ import {
   ensureClientToolInstance,
   handleCopilotServerToolSuccess,
   isCopilotTool,
+  isGatedTool,
   isServerManagedCopilotTool,
   prepareCopilotToolArgs,
   resolveToolDisplay,
@@ -275,10 +276,6 @@ function autoExecutePendingToolsForAccessLevel(
   accessLevel: CopilotStore['accessLevel'],
   get: () => CopilotStore
 ) {
-  if (!shouldAutoExecuteTool(accessLevel)) {
-    return
-  }
-
   const { toolCallsById } = get()
   const copilotToolIds: string[] = []
 
@@ -287,7 +284,10 @@ function autoExecutePendingToolsForAccessLevel(
       continue
     }
 
-    if (isCopilotTool(toolCall.name)) {
+    if (
+      isCopilotTool(toolCall.name) &&
+      !shouldRequireToolApproval(accessLevel, isGatedTool(toolCall.name))
+    ) {
       copilotToolIds.push(id)
     }
   }
@@ -1493,7 +1493,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           syncClientToolInstanceState(id, instance)
           if (
             stateBeforeUserAction !== ClientToolCallState.review &&
-            shouldAutoExecuteTool(get().accessLevel) &&
+            !shouldRequireToolApproval(get().accessLevel, true) &&
             get().toolCallsById[id]?.state === ClientToolCallState.review &&
             typeof instance.handleUserAction === 'function'
           ) {

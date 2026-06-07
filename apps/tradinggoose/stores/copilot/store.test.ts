@@ -1345,8 +1345,7 @@ describe('copilot streaming regressions', () => {
               name: 'edit_workflow',
               arguments: {
                 entityId: 'wf-limited-edit',
-                entityDocument: 'workflow: {}',
-                documentFormat: 'tg-mermaid-v1',
+                entityDocument: 'flowchart TD',
               },
             },
           },

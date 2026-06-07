@@ -196,7 +196,7 @@ function shouldShowToolActionButtons(
   const hasInterrupt = !!getToolInterruptDisplays(toolCall.name, toolCall.id)
 
   if (hasInterrupt && toolCall.state === ClientToolCallState.review) {
-    return true
+    return shouldRequireToolApproval(accessLevel, true)
   }
 
   return (
