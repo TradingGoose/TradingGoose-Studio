@@ -7,7 +7,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('Copilot Usage API - Context', () => {
   const mockCheckInternalApiKey = vi.fn()
-  const mockIsHosted = vi.fn()
   const mockProxyCopilotRequest = vi.fn()
   const mockIsBillingEnabledForRuntime = vi.fn()
   const mockGetPersonalEffectiveSubscription = vi.fn()
@@ -57,7 +56,6 @@ describe('Copilot Usage API - Context', () => {
     vi.resetModules()
     mockProxyCopilotRequest.mockReset()
     mockCheckInternalApiKey.mockReset()
-    mockIsHosted.mockReset()
     mockIsBillingEnabledForRuntime.mockReset()
     mockGetPersonalEffectiveSubscription.mockReset()
     mockGetTierCopilotCostMultiplier.mockReset()
@@ -119,7 +117,6 @@ describe('Copilot Usage API - Context', () => {
     })
 
     mockCheckInternalApiKey.mockReturnValue({ success: false })
-    mockIsHosted.mockReturnValue(true)
 
     vi.doMock('@tradinggoose/db', () => ({
       db: {},
@@ -142,10 +139,6 @@ describe('Copilot Usage API - Context', () => {
 
     vi.doMock('@/lib/copilot/utils', () => ({
       checkInternalApiKey: (...args: any[]) => mockCheckInternalApiKey(...args),
-    }))
-
-    vi.doMock('@/lib/environment', () => ({
-      isHosted: mockIsHosted(),
     }))
 
     vi.doMock('@/app/api/copilot/proxy', () => ({
@@ -270,124 +263,31 @@ describe('Copilot Usage API - Context', () => {
     expect(mockAccrueUserUsageCost).not.toHaveBeenCalled()
   })
 
-  it('does not bill context usage for hosted browser-session requests even when bill is requested', async () => {
-    mockIsBillingEnabledForRuntime.mockResolvedValue(true)
-    mockIsHosted.mockReturnValue(true)
-    mockProxyCopilotRequest.mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          tokensUsed: 100,
-          model: 'gpt-5.4',
-        }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }
-      )
-    )
-
-    const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
-      method: 'POST',
-      body: JSON.stringify({
-        kind: 'context',
-        conversationId: 'conversation-browser-bill',
-        model: 'gpt-5.4',
-        bill: true,
-        assistantMessageId: 'assistant-message-browser',
-      }),
-    })
-
-    const { POST } = await import('@/app/api/copilot/usage/route')
-    const response = await POST(request)
-
-    expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({
-      tokensUsed: 100,
-      model: 'gpt-5.4',
-    })
-    expect(mockAccrueUserUsageCost).not.toHaveBeenCalled()
-    expect(mockMarkMessageAsProcessed).not.toHaveBeenCalled()
-  })
-
-  it('records local context billing for self-hosted browser-session requests', async () => {
-    mockIsBillingEnabledForRuntime.mockResolvedValue(true)
-    mockIsHosted.mockReturnValue(false)
-    mockGetPersonalEffectiveSubscription.mockResolvedValue({
-      id: 'subscription-personal',
-      tier: createTier(2),
-    })
-    mockProxyCopilotRequest.mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          tokensUsed: 100,
-          model: 'gpt-5.4',
-        }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }
-      )
-    )
-
-    const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
-      method: 'POST',
-      body: JSON.stringify({
-        kind: 'context',
-        conversationId: 'conversation-self-host-bill',
-        model: 'gpt-5.4',
-        bill: true,
-        assistantMessageId: 'assistant-message-self-host',
-      }),
-    })
-
-    const { POST } = await import('@/app/api/copilot/usage/route')
-    const response = await POST(request)
-
-    expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({
-      tokensUsed: 100,
-      model: 'gpt-5.4',
-      billing: {
-        billed: true,
-        duplicate: false,
-        tokens: 100,
-        model: 'gpt-5.4',
-        cost: 3,
-      },
-    })
-    expect(mockAccrueUserUsageCost).toHaveBeenCalledWith({
-      userId: 'user-1',
-      workflowId: undefined,
-      cost: 3,
-      extraUpdates: expect.any(Object),
-      reason: 'copilot_context_usage',
-    })
-    expect(mockMarkMessageAsProcessed).toHaveBeenCalledWith(
-      'copilot-billing:assistant-message-self-host',
-      60 * 60 * 24 * 30
-    )
-  })
-
-  it('returns exact personal billing metadata for committed context usage', async () => {
-    mockIsBillingEnabledForRuntime.mockResolvedValue(true)
+  it('rejects context usage inspection without a browser session even with internal auth', async () => {
     mockCheckInternalApiKey.mockReturnValue({ success: true })
-    mockGetPersonalEffectiveSubscription.mockResolvedValue({
-      id: 'subscription-personal',
-      tier: createTier(2),
+    vi.doMock('@/lib/auth', () => ({
+      getSession: vi.fn().mockResolvedValue(null),
+    }))
+
+    const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
+      method: 'POST',
+      body: JSON.stringify({
+        kind: 'context',
+        conversationId: 'conversation-1',
+        model: 'gpt-5.4',
+        userId: 'user-1',
+      }),
     })
 
-    mockProxyCopilotRequest.mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          tokensUsed: 100,
-          model: 'gpt-5.4',
-        }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }
-      )
-    )
+    const { POST } = await import('@/app/api/copilot/usage/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(401)
+    expect(mockProxyCopilotRequest).not.toHaveBeenCalled()
+  })
+
+  it('rejects context usage commit requests because context usage is inspection-only', async () => {
+    mockCheckInternalApiKey.mockReturnValue({ success: true })
 
     const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
       method: 'POST',
@@ -405,158 +305,9 @@ describe('Copilot Usage API - Context', () => {
     const { POST } = await import('@/app/api/copilot/usage/route')
     const response = await POST(request)
 
-    expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({
-      tokensUsed: 100,
-      model: 'gpt-5.4',
-      billing: {
-        billed: true,
-        duplicate: false,
-        tokens: 100,
-        model: 'gpt-5.4',
-        cost: 3,
-      },
-    })
-    expect(mockGetPersonalEffectiveSubscription).toHaveBeenCalledWith('user-1')
-    expect(mockResolveWorkflowBillingContext).not.toHaveBeenCalled()
-    expect(mockAccrueUserUsageCost).toHaveBeenCalledWith({
-      userId: 'user-1',
-      workflowId: undefined,
-      cost: 3,
-      extraUpdates: expect.any(Object),
-      reason: 'copilot_context_usage',
-    })
-    expect(mockMarkMessageAsProcessed).toHaveBeenCalledWith(
-      'copilot-billing:assistant-message-1',
-      60 * 60 * 24 * 30
-    )
-    expect(mockReleaseCopilotUsageReservation).toHaveBeenCalledWith({
-      reservationId: 'reservation-1',
-    })
-  })
-
-  it('commits workflow context usage with the workflow subscription tier', async () => {
-    mockIsBillingEnabledForRuntime.mockResolvedValue(true)
-    mockCheckInternalApiKey.mockReturnValue({ success: true })
-    mockProxyCopilotRequest.mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          tokensUsed: 100,
-          model: 'gpt-5.4',
-        }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }
-      )
-    )
-
-    const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
-      method: 'POST',
-      body: JSON.stringify({
-        action: 'commit',
-        kind: 'context',
-        conversationId: 'conversation-3',
-        model: 'gpt-5.4',
-        userId: 'user-1',
-        workflowId: 'workflow-1',
-        assistantMessageId: 'assistant-message-2',
-        reservationId: 'reservation-1',
-      }),
-    })
-
-    const { POST } = await import('@/app/api/copilot/usage/route')
-    const response = await POST(request)
-
-    expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toMatchObject({
-      billing: {
-        billed: true,
-        cost: 4.5,
-      },
-    })
-    expect(mockResolveWorkflowBillingContext).toHaveBeenCalledWith({
-      workflowId: 'workflow-1',
-      actorUserId: 'user-1',
-    })
-    expect(mockGetPersonalEffectiveSubscription).not.toHaveBeenCalled()
-    expect(mockAccrueUserUsageCost).toHaveBeenCalledWith({
-      userId: 'user-1',
-      workflowId: 'workflow-1',
-      cost: 4.5,
-      extraUpdates: expect.any(Object),
-      reason: 'copilot_context_usage',
-    })
-    expect(mockReleaseCopilotUsageReservation).toHaveBeenCalledWith({
-      reservationId: 'reservation-1',
-    })
-  })
-
-  it('returns 500 for committed context billing when Studio cannot resolve a tier', async () => {
-    mockIsBillingEnabledForRuntime.mockResolvedValue(true)
-    mockCheckInternalApiKey.mockReturnValue({ success: true })
-    mockGetPersonalEffectiveSubscription.mockResolvedValue(null)
-    mockProxyCopilotRequest.mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          tokensUsed: 100,
-          model: 'gpt-5.4',
-        }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }
-      )
-    )
-
-    const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
-      method: 'POST',
-      body: JSON.stringify({
-        action: 'commit',
-        kind: 'context',
-        conversationId: 'conversation-4',
-        model: 'gpt-5.4',
-        userId: 'user-1',
-        assistantMessageId: 'assistant-message-3',
-        reservationId: 'reservation-1',
-      }),
-    })
-
-    const { POST } = await import('@/app/api/copilot/usage/route')
-    const response = await POST(request)
-
-    expect(response.status).toBe(500)
+    expect(response.status).toBe(400)
+    expect(mockProxyCopilotRequest).not.toHaveBeenCalled()
     expect(mockAccrueUserUsageCost).not.toHaveBeenCalled()
-    expect(mockMarkMessageAsProcessed).not.toHaveBeenCalled()
-    expect(mockReleaseCopilotUsageReservation).toHaveBeenCalledWith({
-      reservationId: 'reservation-1',
-    })
-  })
-
-  it('releases the reservation when committed context usage throws before billing completes', async () => {
-    mockCheckInternalApiKey.mockReturnValue({ success: true })
-    mockIsBillingEnabledForRuntime.mockResolvedValue(true)
-    mockProxyCopilotRequest.mockRejectedValue(new Error('copilot unavailable'))
-
-    const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
-      method: 'POST',
-      body: JSON.stringify({
-        action: 'commit',
-        kind: 'context',
-        conversationId: 'conversation-5',
-        model: 'gpt-5.4',
-        userId: 'user-1',
-        assistantMessageId: 'assistant-message-4',
-        reservationId: 'reservation-1',
-      }),
-    })
-
-    const { POST } = await import('@/app/api/copilot/usage/route')
-    const response = await POST(request)
-
-    expect(response.status).toBe(500)
-    expect(mockAccrueUserUsageCost).not.toHaveBeenCalled()
-    expect(mockMarkMessageAsProcessed).not.toHaveBeenCalled()
     expect(mockReleaseCopilotUsageReservation).toHaveBeenCalledWith({
       reservationId: 'reservation-1',
     })

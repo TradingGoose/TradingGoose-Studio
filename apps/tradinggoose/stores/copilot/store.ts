@@ -1172,13 +1172,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           // Fetch context usage after response completes
           if (!context.awaitingTools) {
             logger.info('[Context Usage] Stream completed, fetching usage')
-            const billingOptions = assistantMessageId
-              ? {
-                  bill: true,
-                  assistantMessageId,
-                }
-              : undefined
-            await get().fetchContextUsage(billingOptions)
+            await get().fetchContextUsage()
           }
         } finally {
           abortSignal?.removeEventListener('abort', cancelReader)
@@ -1270,9 +1264,8 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
       setAgentPrefetch: (prefetch) => set({ agentPrefetch: prefetch }),
 
       // Fetch context usage from copilot API
-      fetchContextUsage: async (options?: { bill?: boolean; assistantMessageId?: string }) => {
+      fetchContextUsage: async () => {
         try {
-          const { bill = false, assistantMessageId } = options ?? {}
           const { currentChat, selectedModel } = get()
           const selectedProvider = resolveCopilotRuntimeProvider(selectedModel)
           logger.info('[Context Usage] Starting fetch', {
@@ -1280,8 +1273,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             conversationId: currentChat?.conversationId,
             model: selectedModel,
             provider: selectedProvider,
-            bill,
-            assistantMessageId,
           })
 
           if (!currentChat) {
@@ -1304,14 +1295,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             model: selectedModel,
             provider: selectedProvider,
           }
-          // Generic Copilot context usage is conversation/user scoped. Workflow contexts are
-          // prompt context for the chat, not billing scope selectors for this widget.
-          if (bill && assistantMessageId) {
-            requestPayload.bill = true
-            requestPayload.assistantMessageId = assistantMessageId
-            requestPayload.billingModel = selectedModel
-          }
-
           logger.info('[Context Usage] Calling API', requestPayload)
 
           // Call the backend API route which proxies to copilot

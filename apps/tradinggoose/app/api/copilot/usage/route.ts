@@ -16,7 +16,6 @@ import { COPILOT_RUNTIME_MODELS } from '@/lib/copilot/runtime-models'
 import { COPILOT_RUNTIME_PROVIDER_IDS } from '@/lib/copilot/runtime-provider'
 import { buildCopilotRuntimeProviderConfig } from '@/lib/copilot/runtime-provider.server'
 import { checkInternalApiKey } from '@/lib/copilot/utils'
-import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import { hasProcessedMessage, markMessageAsProcessed } from '@/lib/redis'
 import { getCopilotApiUrl, proxyCopilotRequest } from '@/app/api/copilot/proxy'
@@ -33,10 +32,6 @@ const ContextUsageRequestSchema = z.object({
   model: z.enum(COPILOT_RUNTIME_MODELS),
   workflowId: z.string().optional(),
   provider: z.enum(COPILOT_RUNTIME_PROVIDER_IDS).optional(),
-  bill: z.boolean().optional(),
-  assistantMessageId: z.string().optional(),
-  billingModel: z.string().optional(),
-  userId: z.string().optional(),
 })
 
 const UsageEstimateSchema = z.object({
@@ -73,19 +68,6 @@ const AdjustUsageRequestSchema = z.object({
   reason: z.string().min(1).optional(),
 }).merge(UsageEstimateSchema)
 
-const ContextCommitRequestSchema = z.object({
-  action: z.literal('commit'),
-  kind: z.literal('context'),
-  conversationId: z.string(),
-  model: z.enum(COPILOT_RUNTIME_MODELS),
-  workflowId: z.string().optional(),
-  provider: z.enum(COPILOT_RUNTIME_PROVIDER_IDS).optional(),
-  assistantMessageId: z.string().min(1, 'assistantMessageId is required'),
-  billingModel: z.string().optional(),
-  userId: z.string().min(1, 'userId is required'),
-  reservationId: z.string().min(1).optional(),
-})
-
 const CompletionCommitRequestSchema = z.object({
   action: z.literal('commit'),
   kind: z.literal('completion'),
@@ -95,6 +77,11 @@ const CompletionCommitRequestSchema = z.object({
   remoteModel: z.string().optional(),
   completionId: z.string().min(1).optional(),
   workflowId: z.string().min(1).optional(),
+  reservationId: z.string().min(1).optional(),
+})
+
+const CommitEnvelopeSchema = z.object({
+  action: z.literal('commit'),
   reservationId: z.string().min(1).optional(),
 })
 
@@ -231,24 +218,21 @@ async function recordBilledUsage(params: {
   usage: any
   billingModel: string
   remoteModel?: string | null
-  billingKeyPrefix: 'copilot-billing' | 'copilot-completion-billing'
-  billingKeyId?: string | null
-  reason: 'copilot_context_usage' | 'copilot_completion_usage'
+  completionId?: string | null
 }): Promise<UsageBillingResult> {
-  const { userId, workflowId, usage, billingModel, remoteModel, billingKeyPrefix, billingKeyId, reason } =
-    params
+  const { userId, workflowId, usage, billingModel, remoteModel, completionId } = params
+  const reason = 'copilot_completion_usage'
 
   const metrics = extractTokenMetrics(usage)
   if (!metrics) {
     logger.info('Skipping copilot billing - no token metrics available', {
-      billingKeyPrefix,
-      billingKeyId,
+      completionId,
       reason,
     })
     return { billed: false, reason: 'no_token_metrics' }
   }
 
-  const billingKey = billingKeyId ? `${billingKeyPrefix}:${billingKeyId}` : null
+  const billingKey = completionId ? `copilot-completion-billing:${completionId}` : null
   if (billingKey && (await hasProcessedMessage(billingKey))) {
     logger.info('Copilot billing already processed', { billingKey, reason })
     return { billed: false, duplicate: true }
@@ -266,7 +250,7 @@ async function recordBilledUsage(params: {
     logger.info('Skipping copilot billing - calculated cost is zero', {
       userId,
       workflowId,
-      billingKeyId,
+      completionId,
       model: normalizedModel,
       reason,
     })
@@ -295,7 +279,7 @@ async function recordBilledUsage(params: {
     logger.warn('Copilot billing skipped - ledger record not found', {
       userId,
       workflowId,
-      billingKeyId,
+      completionId,
       reason,
     })
     return { billed: false, reason: 'ledger_not_found' }
@@ -309,7 +293,7 @@ async function recordBilledUsage(params: {
     userId,
     billingUserId: billingContext?.billingUserId ?? userId,
     workflowId,
-    billingKeyId,
+    completionId,
     cost: costToAdd,
     tokens: metrics.totalTokens,
     model: normalizedModel,
@@ -445,14 +429,11 @@ async function fetchContextUsageFromCopilot(params: {
 }
 
 async function handleContextUsage(
-  req: NextRequest,
   payload: z.infer<typeof ContextUsageRequestSchema>
 ): Promise<NextResponse> {
-  const { conversationId, model, workflowId, provider, bill, assistantMessageId, billingModel } =
-    payload
-  const internalAuth = checkInternalApiKey(req)
-  const session = !internalAuth.success ? await getSession() : null
-  const userId = internalAuth.success ? payload.userId : session?.user?.id
+  const { conversationId, model, workflowId, provider } = payload
+  const session = await getSession()
+  const userId = session?.user?.id
 
   if (!userId) {
     logger.warn('[Usage API] No session/user ID for context usage')
@@ -480,45 +461,7 @@ async function handleContextUsage(
   }
 
   const data = await simAgentResponse.json()
-
-  const shouldBill = Boolean(bill && assistantMessageId && !internalAuth.success && !isHosted)
-  if (!shouldBill) {
-    return NextResponse.json(data)
-  }
-
-  if (!(await isBillingEnabledForRuntime())) {
-    return NextResponse.json({
-      ...data,
-      billing: { billed: false, reason: 'billing_disabled' },
-    })
-  }
-
-  try {
-    const billing = await recordBilledUsage({
-      userId,
-      workflowId,
-      usage: data,
-      billingModel: billingModel || model,
-      remoteModel: data?.model,
-      billingKeyPrefix: 'copilot-billing',
-      billingKeyId: assistantMessageId,
-      reason: 'copilot_context_usage',
-    })
-    return NextResponse.json({
-      ...data,
-      billing,
-    })
-  } catch (billingError) {
-    logger.error('Failed to bill copilot context usage', {
-      error: billingError,
-      conversationId,
-      assistantMessageId,
-    })
-    return NextResponse.json({
-      ...data,
-      billing: { billed: false, reason: 'ledger_not_found' },
-    })
-  }
+  return NextResponse.json(data)
 }
 
 async function releaseCommittedReservation(reservationId?: string): Promise<void> {
@@ -635,96 +578,28 @@ async function handleAdjustUsage(
   return NextResponse.json(result, { status: result.status })
 }
 
-async function handleContextCommit(
-  req: NextRequest,
-  payload: z.infer<typeof ContextCommitRequestSchema>
-): Promise<NextResponse> {
-  const auth = checkInternalApiKey(req)
-  if (!auth.success) {
-    return new NextResponse(null, { status: 401 })
-  }
-
-  return withCommittedReservationRelease(payload.reservationId, async () => {
-    const simAgentResponse = await fetchContextUsageFromCopilot({
-      conversationId: payload.conversationId,
-      model: payload.model,
-      workflowId: payload.workflowId,
-      provider: payload.provider,
-      userId: payload.userId,
-    })
-
-    if (!simAgentResponse.ok) {
-      const errorText = await simAgentResponse.text().catch(() => '')
-      logger.warn('[Usage API] TradingGoose agent request failed during commit', {
-        status: simAgentResponse.status,
-        error: errorText,
-        reservationId: payload.reservationId,
-      })
-      return NextResponse.json(
-        { error: 'Failed to fetch context usage from copilot' },
-        { status: simAgentResponse.status }
-      )
-    }
-
-    const data = await simAgentResponse.json()
-
-    if (!(await isBillingEnabledForRuntime())) {
-      return NextResponse.json({
-        ...data,
-        billing: { billed: false, reason: 'billing_disabled' },
-      })
-    }
-
-    const billing = await recordBilledUsage({
-      userId: payload.userId,
-      workflowId: payload.workflowId,
-      usage: data,
-      billingModel: payload.billingModel || payload.model,
-      remoteModel: data?.model,
-      billingKeyPrefix: 'copilot-billing',
-      billingKeyId: payload.assistantMessageId,
-      reason: 'copilot_context_usage',
-    })
-
-    return NextResponse.json({
-      ...data,
-      billing,
-    })
-  })
-}
-
 async function handleCompletionCommit(
-  req: NextRequest,
   payload: z.infer<typeof CompletionCommitRequestSchema>
 ): Promise<NextResponse> {
-  const auth = checkInternalApiKey(req)
-  if (!auth.success) {
-    return new NextResponse(null, { status: 401 })
-  }
-
-  return withCommittedReservationRelease(payload.reservationId, async () => {
-    if (!(await isBillingEnabledForRuntime())) {
-      return NextResponse.json({
-        success: true,
-        billing: { billed: false, reason: 'billing_disabled' },
-      })
-    }
-
-    const billing = await recordBilledUsage({
-      userId: payload.userId,
-      workflowId: payload.workflowId,
-      usage: payload.usage,
-      billingModel: payload.model,
-      remoteModel: payload.remoteModel,
-      billingKeyPrefix: 'copilot-completion-billing',
-      billingKeyId: payload.completionId,
-      reason: 'copilot_completion_usage',
-    })
-
+  if (!(await isBillingEnabledForRuntime())) {
     return NextResponse.json({
       success: true,
-      billing,
+      billing: { billed: false, reason: 'billing_disabled' },
     })
+  }
+
+  const billing = await recordBilledUsage({
+    userId: payload.userId,
+    workflowId: payload.workflowId,
+    usage: payload.usage,
+    billingModel: payload.model,
+    remoteModel: payload.remoteModel,
+    completionId: payload.completionId,
+  })
+
+  return NextResponse.json({
+    success: true,
+    billing,
   })
 }
 
@@ -753,7 +628,7 @@ async function handleReleaseUsage(
 
 /**
  * POST /api/copilot/usage
- * Unified copilot usage endpoint for context inspection/billing and raw completion billing.
+ * Unified copilot usage endpoint for context inspection, reservation control, and completion billing.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -801,32 +676,42 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'commit') {
-      const kind = body && typeof body === 'object' ? (body as Record<string, unknown>).kind : null
-      const parsed =
-        kind === 'context'
-          ? ContextCommitRequestSchema.safeParse(body)
-          : kind === 'completion'
-            ? CompletionCommitRequestSchema.safeParse(body)
-            : null
+      const auth = checkInternalApiKey(req)
+      if (!auth.success) {
+        return new NextResponse(null, { status: 401 })
+      }
 
-      if (!parsed || !parsed.success) {
-        logger.warn('Invalid copilot usage commit request', {
-          errors: parsed && !parsed.success ? parsed.error.errors : [{ message: 'Invalid commit kind' }],
-        })
+      const envelope = CommitEnvelopeSchema.safeParse(body)
+      if (!envelope.success) {
+        logger.warn('Invalid copilot usage commit envelope', { errors: envelope.error.errors })
         return NextResponse.json(
           {
             error: 'Invalid request body',
-            details: parsed && !parsed.success ? parsed.error.errors : [{ message: 'Invalid commit kind' }],
+            details: envelope.error.errors,
           },
           { status: 400 }
         )
       }
 
-      if (parsed.data.kind === 'context') {
-        return await handleContextCommit(req, parsed.data)
-      }
+      const kind = body && typeof body === 'object' ? (body as Record<string, unknown>).kind : null
+      const parsed = kind === 'completion' ? CompletionCommitRequestSchema.safeParse(body) : null
 
-      return await handleCompletionCommit(req, parsed.data)
+      return await withCommittedReservationRelease(envelope.data.reservationId, async () => {
+        if (!parsed || !parsed.success) {
+          logger.warn('Invalid copilot usage commit request', {
+            errors: parsed && !parsed.success ? parsed.error.errors : [{ message: 'Invalid commit kind' }],
+          })
+          return NextResponse.json(
+            {
+              error: 'Invalid request body',
+              details: parsed && !parsed.success ? parsed.error.errors : [{ message: 'Invalid commit kind' }],
+            },
+            { status: 400 }
+          )
+        }
+
+        return await handleCompletionCommit(parsed.data)
+      })
     }
 
     if (action === 'release') {
@@ -857,7 +742,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    return await handleContextUsage(req, parsed.data)
+    return await handleContextUsage(parsed.data)
   } catch (error) {
     logger.error('Failed to process copilot usage request', { error })
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

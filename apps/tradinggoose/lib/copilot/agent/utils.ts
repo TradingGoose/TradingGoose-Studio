@@ -14,10 +14,12 @@ const logger = createLogger('CopilotTitle')
  */
 export async function requestCopilotTitle({
   message,
+  userId,
   model,
   provider,
 }: {
   message: string
+  userId: string
   model?: string
   provider?: ProviderId
 }): Promise<string | null> {
@@ -42,6 +44,9 @@ export async function requestCopilotTitle({
             content: TITLE_GENERATION_USER_PROMPT(message),
           },
         ],
+      },
+      headers: {
+        'x-copilot-user-id': userId,
       },
     })
     if (!response.ok) {

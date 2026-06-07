@@ -264,6 +264,7 @@ async function persistChatMessages(
 function generateAndPersistTitle(params: {
   reviewSessionId: string
   message: string
+  userId: string
   model: string
   provider?: ProviderId
   requestId: string
@@ -271,6 +272,7 @@ function generateAndPersistTitle(params: {
 }): void {
   requestCopilotTitle({
     message: params.message,
+    userId: params.userId,
     model: params.model,
     provider: params.provider,
   })
@@ -1023,6 +1025,7 @@ export async function POST(req: NextRequest) {
                           generateAndPersistTitle({
                             reviewSessionId: actualReviewSessionId!,
                             message,
+                            userId: authenticatedUserId,
                             model,
                             provider: runtimeProvider,
                             requestId: tracker.requestId,
@@ -1324,6 +1327,7 @@ export async function POST(req: NextRequest) {
         generateAndPersistTitle({
           reviewSessionId: actualReviewSessionId,
           message,
+          userId: authenticatedUserId,
           model: providerConfig?.model ?? model,
           provider: providerConfig?.provider,
           requestId: tracker.requestId,

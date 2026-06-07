@@ -859,7 +859,7 @@ describe('copilot streaming regressions', () => {
     expect(store.getState().isAwaitingContinuation).toBe(false)
   })
 
-  it('treats awaiting_tools as a pause and skips terminal billing fetch', async () => {
+  it('treats awaiting_tools as a pause and skips terminal context usage refresh', async () => {
     const channelId = 'copilot-awaiting-tools-pause'
     const store = getCopilotStore(channelId)
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
