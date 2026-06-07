@@ -1172,7 +1172,13 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           // Fetch context usage after response completes
           if (!context.awaitingTools) {
             logger.info('[Context Usage] Stream completed, fetching usage')
-            await get().fetchContextUsage()
+            const billingOptions = assistantMessageId
+              ? {
+                  bill: true,
+                  assistantMessageId,
+                }
+              : undefined
+            await get().fetchContextUsage(billingOptions)
           }
         } finally {
           abortSignal?.removeEventListener('abort', cancelReader)
@@ -1264,8 +1270,9 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
       setAgentPrefetch: (prefetch) => set({ agentPrefetch: prefetch }),
 
       // Fetch context usage from copilot API
-      fetchContextUsage: async () => {
+      fetchContextUsage: async (options?: { bill?: boolean; assistantMessageId?: string }) => {
         try {
+          const { bill = false, assistantMessageId } = options ?? {}
           const { currentChat, selectedModel } = get()
           const selectedProvider = resolveCopilotRuntimeProvider(selectedModel)
           logger.info('[Context Usage] Starting fetch', {
@@ -1273,6 +1280,8 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             conversationId: currentChat?.conversationId,
             model: selectedModel,
             provider: selectedProvider,
+            bill,
+            assistantMessageId,
           })
 
           if (!currentChat) {
@@ -1294,6 +1303,11 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             conversationId: currentChat.conversationId,
             model: selectedModel,
             provider: selectedProvider,
+          }
+          if (bill && assistantMessageId) {
+            requestPayload.bill = true
+            requestPayload.assistantMessageId = assistantMessageId
+            requestPayload.billingModel = selectedModel
           }
           logger.info('[Context Usage] Calling API', requestPayload)
 

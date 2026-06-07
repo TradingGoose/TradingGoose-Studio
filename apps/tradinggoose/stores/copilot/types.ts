@@ -162,7 +162,7 @@ export interface CopilotActions {
   setAccessLevel: (accessLevel: CopilotAccessLevel) => void
   setSelectedModel: (model: CopilotStore['selectedModel']) => Promise<void>
   setAgentPrefetch: (prefetch: boolean) => void
-  fetchContextUsage: () => Promise<void>
+  fetchContextUsage: (options?: { bill?: boolean; assistantMessageId?: string }) => Promise<void>
 
   loadChats: (options?: { workspaceId?: string | null }) => Promise<void>
   selectChat: (chat: CopilotChat) => Promise<void>

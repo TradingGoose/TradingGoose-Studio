@@ -44,7 +44,6 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { CopilotFiles } from '@/lib/uploads'
 import { createFileContent } from '@/lib/uploads/utils/file-utils'
 import { encodeSSE, SSE_HEADERS } from '@/lib/utils'
-import { commitLocalCompletionUsageReports } from '@/app/api/copilot/local-completion-billing'
 import { proxyCopilotRequest } from '@/app/api/copilot/proxy'
 import type { ProviderId } from '@/providers/ai/types'
 
@@ -908,7 +907,6 @@ export async function POST(req: NextRequest) {
         async start(controller) {
           let assistantContentOverride: string | null = null
           const streamCapture = createCopilotStreamCapture()
-          const completionUsageReports: unknown[] = []
           let buffer = ''
           let conversationIdFromStart: string | undefined
           let latestTurnStatus: ReviewTurnStatus = 'completed'
@@ -947,7 +945,6 @@ export async function POST(req: NextRequest) {
 
           const forwardClientEvent = (event: Record<string, unknown>) => {
             if (event.type === 'billing.completion_usage') {
-              if (event.report) completionUsageReports.push(event.report)
               return
             }
 
@@ -1163,9 +1160,7 @@ export async function POST(req: NextRequest) {
                   if (event.type === 'response.output_item.done' && event.item) {
                     streamCapture.captureDoneItem(event.item as Record<string, unknown>)
                   }
-                  if (event.type === 'billing.completion_usage' && event.report) {
-                    completionUsageReports.push(event.report)
-                  } else if (event?.type === 'error') {
+                  if (event?.type === 'error') {
                     latestTurnStatus = 'error'
                     assistantContentOverride = enqueueErrorRewrite(
                       event,
@@ -1173,7 +1168,7 @@ export async function POST(req: NextRequest) {
                       reader,
                       enqueueTurnState
                     )
-                  } else {
+                  } else if (event.type !== 'billing.completion_usage') {
                     try {
                       forwardClientEvent(event)
                     } catch (enqueueErr) {
@@ -1226,15 +1221,6 @@ export async function POST(req: NextRequest) {
                   updatedConversationId: conversationIdToPersist || null,
                 }
               )
-            }
-
-            if (persistedMessages.savedAssistantMessage) {
-              await commitLocalCompletionUsageReports({
-                userId: authenticatedUserId,
-                reports: completionUsageReports,
-                requestId: tracker.requestId,
-                logger,
-              })
             }
 
             if (sessionCreatedThisRequest && !persistedMessages.savedUserMessage) {
@@ -1323,15 +1309,12 @@ export async function POST(req: NextRequest) {
               ...(args ? { arguments: args, params: args } : {}),
             },
           }
-      })
+        })
       : undefined
-    const completionUsageReports = Array.isArray(responseData.completionUsageReports)
-      ? responseData.completionUsageReports
-      : []
-    delete responseData.completionUsageReports
+    responseData.completionUsageReports = undefined
 
     if (currentSession && (responseData.content || contentBlocks?.length)) {
-      const persistedMessages = await persistChatMessages({
+      await persistChatMessages({
         reviewSessionId: actualReviewSessionId!,
         userMessageId: userMessageIdToUse,
         userContent: message,
@@ -1343,14 +1326,6 @@ export async function POST(req: NextRequest) {
         contentBlocks,
         latestTurnStatus: 'completed',
       })
-      if (persistedMessages.savedAssistantMessage) {
-        await commitLocalCompletionUsageReports({
-          userId: authenticatedUserId,
-          reports: completionUsageReports,
-          requestId: tracker.requestId,
-          logger,
-        })
-      }
 
       if (actualReviewSessionId && !currentSession.title && conversationHistory.length === 0) {
         logger.info(`[${tracker.requestId}] Starting title generation for non-streaming response`)
