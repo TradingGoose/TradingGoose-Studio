@@ -9,6 +9,7 @@ import {
 } from '@/lib/copilot/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { encodeSSE, SSE_HEADERS } from '@/lib/utils'
+import { commitLocalCompletionUsageReports } from '@/app/api/copilot/local-completion-billing'
 import { getCopilotApiUrl, proxyCopilotRequest } from '@/app/api/copilot/proxy'
 
 const logger = createLogger('CopilotMarkToolCompleteAPI')
@@ -22,7 +23,11 @@ const MarkCompleteSchema = z.object({
   data: z.any().optional(),
 })
 
-function createTurnStateStream(body: ReadableStream<Uint8Array>, abortUpstream: () => void) {
+function createTurnStateStream(
+  body: ReadableStream<Uint8Array>,
+  abortUpstream: () => void,
+  params: { userId: string; requestId: string }
+) {
   let reader: ReadableStreamDefaultReader<Uint8Array> | null = null
 
   return new ReadableStream<Uint8Array>({
@@ -30,6 +35,7 @@ function createTurnStateStream(body: ReadableStream<Uint8Array>, abortUpstream: 
       reader = body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
+      const completionUsageReports: unknown[] = []
 
       const enqueueTurnState = (
         status: 'in_progress' | 'completed' | 'error',
@@ -45,6 +51,11 @@ function createTurnStateStream(body: ReadableStream<Uint8Array>, abortUpstream: 
       }
 
       const forwardEvent = (event: Record<string, unknown>) => {
+        if (event.type === 'billing.completion_usage') {
+          if (event.report) completionUsageReports.push(event.report)
+          return
+        }
+
         if (event.type === 'awaiting_tools') {
           enqueueTurnState('in_progress', 'waiting_for_tools')
         } else if (event.type === 'response.completed') {
@@ -87,6 +98,12 @@ function createTurnStateStream(body: ReadableStream<Uint8Array>, abortUpstream: 
         if (buffer.startsWith(DATA_PREFIX) && buffer.length > DATA_PREFIX.length) {
           const payload = buffer.slice(DATA_PREFIX.length)
           if (payload === '[DONE]') {
+            await commitLocalCompletionUsageReports({
+              userId: params.userId,
+              reports: completionUsageReports,
+              requestId: params.requestId,
+              logger,
+            })
             controller.close()
             return
           }
@@ -94,6 +111,13 @@ function createTurnStateStream(body: ReadableStream<Uint8Array>, abortUpstream: 
           const event = JSON.parse(payload) as Record<string, unknown>
           forwardEvent(event)
         }
+
+        await commitLocalCompletionUsageReports({
+          userId: params.userId,
+          reports: completionUsageReports,
+          requestId: params.requestId,
+          logger,
+        })
       } catch (error) {
         controller.error(error)
         return
@@ -182,14 +206,20 @@ export async function POST(req: NextRequest) {
         toolCallId: parsed.id,
         toolName: parsed.name,
       })
-      return new NextResponse(createTurnStateStream(agentRes.body, abortUpstream), {
-        status: agentRes.status,
-        headers: {
-          ...SSE_HEADERS,
-          'Content-Type': contentType,
-          'Cache-Control': 'no-cache, no-transform',
-        },
-      })
+      return new NextResponse(
+        createTurnStateStream(agentRes.body, abortUpstream, {
+          userId,
+          requestId: tracker.requestId,
+        }),
+        {
+          status: agentRes.status,
+          headers: {
+            ...SSE_HEADERS,
+            'Content-Type': contentType,
+            'Cache-Control': 'no-cache, no-transform',
+          },
+        }
+      )
     }
 
     // Attempt to parse agent response JSON

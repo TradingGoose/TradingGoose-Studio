@@ -62,6 +62,8 @@ export type CopilotUsageReleaseResult = {
 const RESERVATION_KEY_PREFIX = 'copilot:usage-reservation'
 const DEFAULT_RESERVATION_TTL_SECONDS = 15 * 60
 const DEFAULT_LOCK_TTL_SECONDS = 10
+const LOCK_ACQUIRE_ATTEMPTS = 10
+const LOCK_ACQUIRE_RETRY_DELAY_MS = 50
 
 function parsePositiveInt(value: string | undefined, fallback: number): number {
   if (!value) return fallback
@@ -215,10 +217,22 @@ function sumReservedUsd(reservations: CopilotUsageReservation[]): number {
   return reservations.reduce((total, reservation) => total + reservation.reservedUsd, 0)
 }
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 async function withScopeLock<T>(scope: ReservationScope, action: () => Promise<T>): Promise<T> {
   const lockKey = getScopeLockKey(scope)
   const token = crypto.randomUUID()
-  const acquired = await acquireLock(lockKey, token, LOCK_TTL_SECONDS)
+  let acquired = false
+
+  for (let attempt = 0; attempt < LOCK_ACQUIRE_ATTEMPTS; attempt++) {
+    acquired = await acquireLock(lockKey, token, LOCK_TTL_SECONDS)
+    if (acquired) break
+    if (attempt < LOCK_ACQUIRE_ATTEMPTS - 1) {
+      await delay(LOCK_ACQUIRE_RETRY_DELAY_MS)
+    }
+  }
 
   if (!acquired) {
     throw new Error(`Could not acquire copilot usage reservation lock for ${scope.scopeType}:${scope.scopeId}`)
