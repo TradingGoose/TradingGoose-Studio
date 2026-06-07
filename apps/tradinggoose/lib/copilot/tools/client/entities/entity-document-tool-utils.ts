@@ -196,9 +196,6 @@ function buildEntityCreateRequest(
           indicators: [
             {
               name: fields.name,
-              ...(typeof fields.color === 'string' && fields.color.trim()
-                ? { color: fields.color.trim() }
-                : {}),
               pineCode: fields.pineCode,
               inputMeta: fields.inputMeta ?? undefined,
             },
@@ -430,7 +427,6 @@ export async function readEntityFieldsFromContext(
       entityName: indicator.name,
       fields: {
         name: indicator.name,
-        color: '#3972F6',
         pineCode: indicator.pineCode,
         inputMeta: indicator.inputMeta ?? null,
       },
@@ -473,7 +469,6 @@ export function applyEntityFieldsToSession(
         break
       case 'indicator':
         setEntityField(session.doc, 'name', fields.name ?? '')
-        setEntityField(session.doc, 'color', fields.color ?? '')
         replaceEntityTextField(session.doc, 'pineCode', String(fields.pineCode ?? ''))
         setEntityField(session.doc, 'inputMeta', fields.inputMeta ?? null)
         break

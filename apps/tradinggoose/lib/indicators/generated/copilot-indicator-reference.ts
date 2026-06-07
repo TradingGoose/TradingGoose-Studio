@@ -127,13 +127,7 @@ export const INDICATOR_REFERENCE_SECTION_RECORDS = [
     detail:
       'TradingGoose saves indicators as JSON documents using `tg-indicator-document-v1`. The canonical field set is derived from the live indicator document schema.',
     support: 'curated',
-    relatedIds: [
-      'document.format',
-      'document.name',
-      'document.color',
-      'document.pineCode',
-      'document.inputMeta',
-    ],
+    relatedIds: ['document.format', 'document.name', 'document.pineCode', 'document.inputMeta'],
     sourceReferences: [
       {
         label: 'Indicator document schema',
@@ -141,7 +135,7 @@ export const INDICATOR_REFERENCE_SECTION_RECORDS = [
       },
     ],
     queryText:
-      'section:document indicator document saved indicator document format and field-level requirements. tradinggoose saves indicators as json documents using `tg-indicator-document-v1`. the canonical field set is derived from the live indicator document schema. document.format document.name document.color document.pinecode document.inputmeta',
+      'section:document indicator document saved indicator document format and field-level requirements. tradinggoose saves indicators as json documents using `tg-indicator-document-v1`. the canonical field set is derived from the live indicator document schema. document.format document.name document.pinecode document.inputmeta',
   },
   {
     id: 'section:runtime',
@@ -305,10 +299,10 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
     title: 'Document Format',
     summary: 'Canonical indicator document format id and top-level field set.',
     detail:
-      'TradingGoose indicator editing tools expect `tg-indicator-document-v1` JSON with the live field set `name, color, pineCode, inputMeta`.',
+      'TradingGoose indicator editing tools expect `tg-indicator-document-v1` JSON with the live field set `name, pineCode, inputMeta`.',
     support: 'curated',
-    signature: 'tg-indicator-document-v1 = { name, color, pineCode, inputMeta }',
-    relatedIds: ['document.name', 'document.color', 'document.pineCode', 'document.inputMeta'],
+    signature: 'tg-indicator-document-v1 = { name, pineCode, inputMeta }',
+    relatedIds: ['document.name', 'document.pineCode', 'document.inputMeta'],
     sourceReferences: [
       {
         label: 'Indicator document schema',
@@ -316,7 +310,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       },
     ],
     queryText:
-      'document.format section:document document format canonical indicator document format id and top-level field set. tradinggoose indicator editing tools expect `tg-indicator-document-v1` json with the live field set `name, color, pinecode, inputmeta`. tg-indicator-document-v1 = { name, color, pinecode, inputmeta } document.name document.color document.pinecode document.inputmeta',
+      'document.format section:document document format canonical indicator document format id and top-level field set. tradinggoose indicator editing tools expect `tg-indicator-document-v1` json with the live field set `name, pinecode, inputmeta`. tg-indicator-document-v1 = { name, pinecode, inputmeta } document.name document.pinecode document.inputmeta',
   },
   {
     id: 'document.name',
@@ -335,24 +329,6 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
     ],
     queryText:
       'document.name section:document document field: name human-readable indicator name in the canonical document. the `name` field is part of the live indicator document schema and is what tradinggoose renames when copilot updates an indicator title.',
-  },
-  {
-    id: 'document.color',
-    sectionId: 'section:document',
-    type: 'document_field',
-    title: 'Document Field: color',
-    summary: 'Default display color in the canonical document.',
-    detail:
-      'The `color` field is part of the live indicator document schema and stores the default indicator display color.',
-    support: 'curated',
-    sourceReferences: [
-      {
-        label: 'Indicator document schema',
-        path: 'apps/tradinggoose/lib/copilot/entity-documents.ts',
-      },
-    ],
-    queryText:
-      'document.color section:document document field: color default display color in the canonical document. the `color` field is part of the live indicator document schema and stores the default indicator display color.',
   },
   {
     id: 'document.pineCode',

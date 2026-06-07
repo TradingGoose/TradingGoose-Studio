@@ -35,7 +35,6 @@ const CustomToolDocumentSchema = z.object({
 
 const IndicatorDocumentSchema = z.object({
   name: z.string(),
-  color: z.string(),
   pineCode: z.string(),
   inputMeta: z.record(z.unknown()).nullable(),
 })
@@ -87,7 +86,6 @@ function normalizeEntityFields(
     case 'indicator':
       return {
         name: typeof source.name === 'string' ? source.name : '',
-        color: typeof source.color === 'string' ? source.color : '',
         pineCode: typeof source.pineCode === 'string' ? source.pineCode : '',
         inputMeta:
           source.inputMeta &&

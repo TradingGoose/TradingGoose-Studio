@@ -277,6 +277,17 @@ describe('copilot runtime tool manifest', () => {
       (manifest.tools.find((tool) => tool.name === 'edit_workflow')?.parameters?.properties as
         | Record<string, unknown>
         | undefined) ?? {}
+    const createWorkflowProperties =
+      (manifest.tools.find((tool) => tool.name === 'create_workflow')?.parameters?.properties as
+        | Record<string, unknown>
+        | undefined) ?? {}
+    const createIndicatorSchema = manifest.tools
+      .find((tool) => tool.name === 'create_indicator')
+      ?.semanticValidators?.find((validator) => validator.kind === 'string_json_schema')?.args
+      ?.schema as { properties?: Record<string, unknown>; required?: string[] } | undefined
+    expect(createWorkflowProperties).not.toHaveProperty('color')
+    expect(createIndicatorSchema?.properties ?? {}).not.toHaveProperty('color')
+    expect(createIndicatorSchema?.required ?? []).not.toContain('color')
     expect(editWorkflowProperties).toHaveProperty('entityId')
     expect(editWorkflowProperties).toHaveProperty('entityDocument')
     expect(editWorkflowProperties).toHaveProperty('removedBlockIds')

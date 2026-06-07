@@ -148,7 +148,6 @@ const CreateWorkflowArgs = z
   .object({
     name: z.string().trim().min(1).optional(),
     description: z.string().optional(),
-    color: z.string().optional(),
     folderId: z.string().nullable().optional(),
     workspaceId: RequiredId.optional(),
   })
