@@ -18,7 +18,6 @@ type EntityListEntry = {
   entityDescription?: string
   entityTitle?: string
   entityFunctionName?: string
-  entityColor?: string
   entityTransport?: string
   entityUrl?: string
   entityEnabled?: boolean
@@ -28,7 +27,6 @@ type EntityListEntry = {
 export type CopilotIndicatorListEntry = {
   name: string
   source: 'default' | 'custom'
-  color?: string
   editable: boolean
   callableInFunctionBlock: boolean
   inputTitles?: string[]
@@ -110,7 +108,6 @@ const ENTITY_API_CONFIG: Record<EntityDocumentKind, EntityApiConfig> = {
     extractList: (data) => (Array.isArray(data?.data) ? data.data : []),
     toFields: (item) => ({
       name: item?.name ?? '',
-      color: item?.color ?? '',
       pineCode: item?.pineCode ?? '',
       inputMeta:
         item?.inputMeta && typeof item.inputMeta === 'object' && !Array.isArray(item.inputMeta)
@@ -120,7 +117,6 @@ const ENTITY_API_CONFIG: Record<EntityDocumentKind, EntityApiConfig> = {
     toListEntry: (item) => ({
       entityId: String(item?.id ?? ''),
       entityName: String(item?.name ?? ''),
-      entityColor: typeof item?.color === 'string' ? item.color : '',
     }),
   },
   mcp_server: {
@@ -382,7 +378,6 @@ export async function listCopilotIndicators(
       source,
       editable: item?.editable === true,
       callableInFunctionBlock: item?.callableInFunctionBlock === true,
-      ...(typeof item?.color === 'string' && item.color ? { color: item.color } : {}),
       ...(Array.isArray(item?.inputTitles)
         ? {
             inputTitles: item.inputTitles.filter(

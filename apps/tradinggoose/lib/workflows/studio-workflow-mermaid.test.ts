@@ -400,9 +400,11 @@ n3 --> n4
     const parsed = parseGraphOnlyWorkflowMermaid(
       [
         'flowchart TD',
-        'subgraph loop-1["Loop<br/>id: loop_parent<br/>type: loop"]',
+        'source["Send Alert<br/>id: sink<br/>type: telegram"]',
+        'subgraph sg_loop1["Loop<br/>id: loop_parent<br/>type: loop"]',
         '  node-1["Agent<br/>id: loop_child<br/>type: agent"]',
         'end',
+        'source --> sg_loop1',
       ].join('\n'),
       workflowState.blocks
     )
@@ -410,6 +412,11 @@ n3 --> n4
     expect(parsed.blocks.find((block) => block.blockId === 'loop_child')?.parentId).toBe(
       'loop_parent'
     )
+    expect(parsed.edges).toContainEqual({
+      source: 'sink',
+      target: 'loop_parent',
+      targetHandle: 'target',
+    })
   })
 
   it('rejects shorthand graph-only condition edge handles', () => {

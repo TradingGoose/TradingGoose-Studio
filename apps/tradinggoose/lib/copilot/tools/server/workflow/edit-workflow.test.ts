@@ -217,17 +217,14 @@ describe('editWorkflowServerTool', () => {
     const result = await editWorkflowServerTool.execute(
       {
         entityId: 'wf-1',
-        entityDocument: graph([
-          'flowchart TD',
-          '  n1["Input Form<br/>id: input1<br/>type: input_trigger"]',
-        ]),
-        removedBlockIds: ['fn1'],
+        entityDocument: graph(['flowchart TD']),
+        removedBlockIds: ['input1', 'fn1'],
         currentWorkflowState: JSON.stringify(BASE_WORKFLOW_STATE),
       },
       { userId: 'user-1' }
     )
 
-    expect(result.workflowState.blocks).toHaveProperty('input1')
+    expect(result.workflowState.blocks).not.toHaveProperty('input1')
     expect(result.workflowState.blocks).not.toHaveProperty('fn1')
     expect(result.workflowState.edges).toEqual([])
   })

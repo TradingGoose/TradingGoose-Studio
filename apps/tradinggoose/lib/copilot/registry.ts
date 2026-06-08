@@ -652,7 +652,6 @@ const GenericEntityListEntry = z.object({
   entityDescription: z.string().optional(),
   entityTitle: z.string().optional(),
   entityFunctionName: z.string().optional(),
-  entityColor: z.string().optional(),
   entityTransport: z.string().optional(),
   entityUrl: z.string().optional(),
   entityEnabled: z.boolean().optional(),
@@ -668,7 +667,6 @@ const GenericEntityListResult = z.object({
 const IndicatorListEntry = z.object({
   name: z.string(),
   source: z.enum(['default', 'custom']),
-  color: z.string().optional(),
   editable: z.boolean(),
   callableInFunctionBlock: z.boolean(),
   inputTitles: z.array(z.string()).optional(),

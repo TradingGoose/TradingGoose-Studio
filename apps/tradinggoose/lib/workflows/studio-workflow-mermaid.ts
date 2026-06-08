@@ -938,10 +938,11 @@ function parseVisibleWorkflowEdges(
       const overlay = parseOverlayFromLabel(subgraphMatch[2])
       if (overlay) {
         const nodeId = subgraphMatch[1]
-        const edgeNodeId =
-          nodeId.startsWith('sg_') && overlay.id !== nodeId ? nodeId.slice('sg_'.length) : nodeId
-        aliasToBlockId.set(edgeNodeId, overlay.id)
-        nodeRefs.set(edgeNodeId, { kind: 'block', blockId: overlay.id, blockType: overlay.type })
+        const edgeNodeId = nodeId.startsWith('sg_') ? nodeId.slice('sg_'.length) : nodeId
+        for (const visibleNodeId of [edgeNodeId, nodeId]) {
+          aliasToBlockId.set(visibleNodeId, overlay.id)
+          nodeRefs.set(visibleNodeId, { kind: 'block', blockId: overlay.id, blockType: overlay.type })
+        }
         visibleBlockIds.add(overlay.id)
         if (currentContainerId && currentContainerId !== overlay.id) {
           inferredParentIds.set(overlay.id, currentContainerId)
@@ -1504,10 +1505,6 @@ export function parseGraphOnlyWorkflowMermaid(
         `Workflow graph Mermaid references unknown condition branch "${conditionKey}" on block "${edge.source}". Use edit_workflow_block to define condition branches before wiring them.`
       )
     }
-  }
-
-  if (visibleGraph.visibleBlockIds.size === 0) {
-    throw new Error('Workflow graph Mermaid did not contain any workflow block nodes.')
   }
 
   return {
