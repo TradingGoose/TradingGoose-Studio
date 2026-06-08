@@ -35,6 +35,7 @@ type MermaidLabelOverlay = {
   outputs?: Record<string, unknown>
   dataEntries: Record<string, unknown>
   subBlockEntries: Record<string, unknown>
+  internalFields: string[]
 }
 
 type ConditionBranchOverlay = {
@@ -632,7 +633,12 @@ function parseOverlayFromLabel(label: string): MermaidLabelOverlay | null {
     return null
   }
 
-  const overlay: MermaidLabelOverlay = { id: '', dataEntries: {}, subBlockEntries: {} }
+  const overlay: MermaidLabelOverlay = {
+    id: '',
+    dataEntries: {},
+    subBlockEntries: {},
+    internalFields: [],
+  }
 
   const conditionEntries: ConditionEntry[] = []
 
@@ -655,18 +661,22 @@ function parseOverlayFromLabel(label: string): MermaidLabelOverlay | null {
       continue
     }
     if (rawKey === 'enabled') {
+      overlay.internalFields.push(rawKey)
       overlay.enabled = Boolean(parseLabelValue(rawValue))
       continue
     }
     if (rawKey === 'advancedMode') {
+      overlay.internalFields.push(rawKey)
       overlay.advancedMode = Boolean(parseLabelValue(rawValue))
       continue
     }
     if (rawKey === 'triggerMode') {
+      overlay.internalFields.push(rawKey)
       overlay.triggerMode = Boolean(parseLabelValue(rawValue))
       continue
     }
     if (rawKey === 'outputs') {
+      overlay.internalFields.push(rawKey)
       const parsed = parseLabelValue(rawValue)
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
         overlay.outputs = parsed as Record<string, unknown>
@@ -674,10 +684,12 @@ function parseOverlayFromLabel(label: string): MermaidLabelOverlay | null {
       continue
     }
     if (rawKey.startsWith('data.')) {
+      overlay.internalFields.push(rawKey)
       overlay.dataEntries[rawKey.slice('data.'.length)] = parseLabelValue(rawValue)
       continue
     }
     if (rawKey.startsWith('subBlocks.')) {
+      overlay.internalFields.push(rawKey)
       overlay.subBlockEntries[rawKey.slice('subBlocks.'.length)] = parseLabelValue(rawValue)
       continue
     }
@@ -687,6 +699,7 @@ function parseOverlayFromLabel(label: string): MermaidLabelOverlay | null {
       rawKey === 'else-if' ||
       rawKey.startsWith('else-if-')
     ) {
+      overlay.internalFields.push(`subBlocks.${CONDITION_INPUT_KEY}`)
       conditionEntries.push({ key: rawKey, value: rawValue })
       continue
     }
@@ -813,6 +826,10 @@ function parseMermaidLabelOverlays(
   }
 
   return { blocks, conditionBranches }
+}
+
+function readGraphOnlyInternalFields(overlay: MermaidLabelOverlay): string[] {
+  return [...new Set(overlay.internalFields)]
 }
 
 function parseVisibleEdgeLabel(
@@ -1416,6 +1433,13 @@ export function parseGraphOnlyWorkflowMermaid(
   const graphBlocks: Record<string, BlockState> = { ...existingBlocks }
 
   for (const [blockId, overlay] of blockOverlays.blocks) {
+    const internalFields = readGraphOnlyInternalFields(overlay)
+    if (internalFields.length > 0) {
+      throw new Error(
+        `Workflow graph Mermaid block "${blockId}" includes block-internal fields (${internalFields.join(', ')}). Use edit_workflow_block to change block configuration; edit_workflow only accepts visible graph labels: name, id, and type.`
+      )
+    }
+
     if (!graphBlocks[blockId]) {
       graphBlocks[blockId] = {
         id: blockId,

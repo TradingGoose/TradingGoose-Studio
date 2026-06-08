@@ -5,6 +5,7 @@ import { resolveBlockRuntimeState } from '@/lib/workflows/block-outputs'
 import { WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 import { parseGraphOnlyWorkflowMermaid } from '@/lib/workflows/studio-workflow-mermaid'
 import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
+import { getAbsoluteBlockPosition } from '@/lib/workflows/workflow-direction'
 import { createWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { getBlock } from '@/blocks'
 import type { BlockState, Position } from '@/stores/workflows/workflow/types'
@@ -92,21 +93,37 @@ function buildDefaultBlock(
   }
 }
 
-function setParent(block: BlockState, parentId?: string): BlockState {
-  const nextData = { ...(block.data ?? {}) }
-  if (parentId) {
-    nextData.parentId = parentId
-    nextData.extent = 'parent'
-  } else {
-    delete nextData.parentId
-    delete nextData.extent
-  }
+function setParent(
+  block: BlockState,
+  parentId: string | undefined,
+  blocks: Record<string, BlockState>,
+  baseBlocks: Record<string, BlockState>
+): BlockState {
+  const nextPosition =
+    block.data?.parentId === parentId
+      ? block.position
+      : (() => {
+          const absolutePosition = getAbsoluteBlockPosition(block.id, baseBlocks)
+          if (!parentId) return absolutePosition
+          const parentPosition = getAbsoluteBlockPosition(parentId, blocks)
+          return {
+            x: absolutePosition.x - parentPosition.x,
+            y: absolutePosition.y - parentPosition.y,
+          }
+        })()
+
+  const nextData = parentId
+    ? { ...(block.data ?? {}), parentId, extent: 'parent' as const }
+    : (() => {
+        const { parentId: _parentId, extent: _extent, ...data } = block.data ?? {}
+        return data
+      })()
 
   if (Object.keys(nextData).length === 0) {
     const { data: _data, ...blockWithoutData } = block
-    return blockWithoutData
+    return { ...blockWithoutData, position: nextPosition }
   }
-  return { ...block, data: nextData }
+  return { ...block, position: nextPosition, data: nextData }
 }
 
 function applyGraphMermaidToWorkflow(
@@ -148,7 +165,12 @@ function applyGraphMermaidToWorkflow(
           `Invalid edited workflow: Existing block "${graphBlock.blockId}" has type "${existingBlock.type}" but entityDocument declares type "${graphBlock.blockType}". Keep the existing type or remove the old block id and add a new block id with removedBlockIds.`
         )
       }
-      blocks[graphBlock.blockId] = setParent(existingBlock, graphBlock.parentId)
+      blocks[graphBlock.blockId] = setParent(
+        existingBlock,
+        graphBlock.parentId,
+        blocks,
+        baseWorkflowState.blocks ?? {}
+      )
       continue
     }
     if (!graphBlock.blockType) {

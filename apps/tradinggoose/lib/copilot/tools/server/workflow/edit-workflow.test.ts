@@ -122,6 +122,71 @@ describe('editWorkflowServerTool', () => {
     expect(result.preview.blockDiff.added).toEqual(['fn2'])
   })
 
+  it('preserves existing block absolute position when moving into a container', async () => {
+    const { editWorkflowServerTool } = await import(
+      '@/lib/copilot/tools/server/workflow/edit-workflow'
+    )
+
+    const result = await editWorkflowServerTool.execute(
+      {
+        entityId: 'wf-1',
+        entityDocument: graph([
+          'flowchart LR',
+          '  subgraph sg_loop1["Loop<br/>id: loop1<br/>type: loop"]',
+          '    n1["Compute<br/>id: fn1<br/>type: function"]',
+          '  end',
+        ]),
+        currentWorkflowState: JSON.stringify({
+          ...BASE_WORKFLOW_STATE,
+          blocks: {
+            fn1: {
+              ...BASE_WORKFLOW_STATE.blocks.fn1,
+              position: { x: 420, y: 260 },
+            },
+            loop1: {
+              id: 'loop1',
+              type: 'loop',
+              name: 'Loop',
+              position: { x: 100, y: 100 },
+              enabled: true,
+              subBlocks: {},
+              outputs: {},
+            },
+          },
+        }),
+      },
+      { userId: 'user-1' }
+    )
+
+    expect(result.workflowState.blocks.fn1.data).toMatchObject({
+      parentId: 'loop1',
+      extent: 'parent',
+    })
+    expect(result.workflowState.blocks.fn1.position).toEqual({ x: 320, y: 160 })
+  })
+
+  it('rejects block-internal fields in graph-only workflow edits', async () => {
+    const { editWorkflowServerTool } = await import(
+      '@/lib/copilot/tools/server/workflow/edit-workflow'
+    )
+
+    await expect(
+      editWorkflowServerTool.execute(
+        {
+          entityId: 'wf-1',
+          entityDocument: graph([
+            'flowchart TD',
+            '  n1["Input Form<br/>id: input1<br/>type: input_trigger<br/>enabled: false<br/>outputs: {}<br/>data.foo: bar<br/>subBlocks.code: return 1"]',
+          ]),
+          currentWorkflowState: JSON.stringify(BASE_WORKFLOW_STATE),
+        },
+        { userId: 'user-1' }
+      )
+    ).rejects.toThrow(
+      'Workflow graph Mermaid block "input1" includes block-internal fields (enabled, outputs, data.foo, subBlocks.code).'
+    )
+  })
+
   it('rejects omitted existing blocks without explicit removedBlockIds', async () => {
     const { editWorkflowServerTool } = await import(
       '@/lib/copilot/tools/server/workflow/edit-workflow'
