@@ -134,7 +134,7 @@ describe('Skill List header controls', () => {
     const file = new File(
       [
         JSON.stringify({
-          version: '1',
+          version: '2',
           fileType: 'tradingGooseExport',
           exportedAt: '2026-04-06T12:00:00.000Z',
           exportedFrom: 'skillList',
@@ -156,7 +156,7 @@ describe('Skill List header controls', () => {
       value: () =>
         Promise.resolve(
           JSON.stringify({
-            version: '1',
+            version: '2',
             fileType: 'tradingGooseExport',
             exportedAt: '2026-04-06T12:00:00.000Z',
             exportedFrom: 'skillList',
@@ -185,7 +185,7 @@ describe('Skill List header controls', () => {
     expect(mutateAsync).toHaveBeenCalledWith({
       workspaceId: 'workspace-1',
       file: {
-        version: '1',
+        version: '2',
         fileType: 'tradingGooseExport',
         exportedAt: '2026-04-06T12:00:00.000Z',
         exportedFrom: 'skillList',
@@ -221,7 +221,7 @@ describe('Skill List header controls', () => {
     const file = new File(
       [
         JSON.stringify({
-          version: '1',
+          version: '2',
           exportedAt: '2026-04-06T12:00:00.000Z',
           exportedFrom: 'skillList',
           resourceTypes: ['skills'],
@@ -242,7 +242,7 @@ describe('Skill List header controls', () => {
       value: () =>
         Promise.resolve(
           JSON.stringify({
-            version: '1',
+            version: '2',
             exportedAt: '2026-04-06T12:00:00.000Z',
             exportedFrom: 'skillList',
             resourceTypes: ['skills'],

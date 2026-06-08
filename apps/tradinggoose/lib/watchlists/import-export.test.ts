@@ -39,7 +39,7 @@ describe('watchlist import/export', () => {
     })
 
     expect(payload).toMatchObject({
-      version: '1',
+      version: '2',
       fileType: 'tradingGooseExport',
       exportedFrom: 'watchlistWidget',
       resourceTypes: ['watchlists'],
@@ -99,7 +99,7 @@ describe('watchlist import/export', () => {
     })
 
     expect(JSON.parse(payload)).toEqual({
-      version: '1',
+      version: '2',
       fileType: 'tradingGooseExport',
       exportedAt: expect.any(String),
       exportedFrom: 'watchlistWidget',
@@ -129,7 +129,7 @@ describe('watchlist import/export', () => {
 
   it('parses mixed unified import files and trims the watchlist name', () => {
     const parsed = parseImportedWatchlistFile({
-      version: '1',
+      version: '2',
       fileType: 'tradingGooseExport',
       exportedAt: '2026-04-06T12:00:00.000Z',
       exportedFrom: 'skillList',
@@ -186,7 +186,7 @@ describe('watchlist import/export', () => {
   it('rejects invalid fileType values', () => {
     expect(() =>
       parseImportedWatchlistFile({
-        version: '1',
+        version: '2',
         fileType: 'wrongFileType',
         exportedAt: '2026-04-06T12:00:00.000Z',
         exportedFrom: 'watchlistWidget',
@@ -204,7 +204,7 @@ describe('watchlist import/export', () => {
   it('rejects invalid version values', () => {
     expect(() =>
       parseImportedWatchlistFile({
-        version: '2',
+        version: '1',
         fileType: 'tradingGooseExport',
         exportedAt: '2026-04-06T12:00:00.000Z',
         exportedFrom: 'watchlistWidget',
@@ -222,7 +222,7 @@ describe('watchlist import/export', () => {
   it('rejects files that do not list watchlists in resourceTypes', () => {
     expect(() =>
       parseImportedWatchlistFile({
-        version: '1',
+        version: '2',
         fileType: 'tradingGooseExport',
         exportedAt: '2026-04-06T12:00:00.000Z',
         exportedFrom: 'watchlistWidget',
@@ -240,7 +240,7 @@ describe('watchlist import/export', () => {
   it('rejects files without exactly one watchlist', () => {
     expect(() =>
       parseImportedWatchlistFile({
-        version: '1',
+        version: '2',
         fileType: 'tradingGooseExport',
         exportedAt: '2026-04-06T12:00:00.000Z',
         exportedFrom: 'watchlistWidget',
@@ -251,7 +251,7 @@ describe('watchlist import/export', () => {
 
     expect(() =>
       parseImportedWatchlistFile({
-        version: '1',
+        version: '2',
         fileType: 'tradingGooseExport',
         exportedAt: '2026-04-06T12:00:00.000Z',
         exportedFrom: 'watchlistWidget',
@@ -273,7 +273,7 @@ describe('watchlist import/export', () => {
   it('rejects nested import entries with ids', () => {
     expect(() =>
       parseImportedWatchlistFile({
-        version: '1',
+        version: '2',
         fileType: 'tradingGooseExport',
         exportedAt: '2026-04-06T12:00:00.000Z',
         exportedFrom: 'watchlistWidget',

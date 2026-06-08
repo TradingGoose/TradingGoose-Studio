@@ -214,7 +214,7 @@ describe('Skill Editor header controls', () => {
     const payload = JSON.parse(await readBlobText(blob))
 
     expect(payload).toMatchObject({
-      version: '1',
+      version: '2',
       fileType: 'tradingGooseExport',
       exportedFrom: 'skillEditor',
       resourceTypes: ['skills'],

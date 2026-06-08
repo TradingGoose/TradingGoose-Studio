@@ -27,7 +27,7 @@ describe('indicator import/export helpers', () => {
     })
 
     expect(payload).toEqual({
-      version: '1',
+      version: '2',
       fileType: 'tradingGooseExport',
       exportedAt: expect.any(String),
       exportedFrom: 'indicatorEditor',
@@ -66,7 +66,7 @@ describe('indicator import/export helpers', () => {
     })
 
     expect(JSON.parse(payload)).toMatchObject({
-      version: '1',
+      version: '2',
       fileType: 'tradingGooseExport',
       exportedFrom: 'indicatorEditor',
       resourceTypes: ['indicators'],
@@ -85,7 +85,7 @@ describe('indicator import/export helpers', () => {
 
   it('parses mixed unified import files and returns the indicators section', () => {
     const parsed = parseImportedIndicatorsFile({
-      version: '1',
+      version: '2',
       fileType: 'tradingGooseExport',
       exportedAt: '2026-04-08T15:30:00.000Z',
       exportedFrom: 'indicatorEditor',
@@ -115,7 +115,7 @@ describe('indicator import/export helpers', () => {
   it('rejects files that do not list indicators in resourceTypes', () => {
     expect(() =>
       parseImportedIndicatorsFile({
-        version: '1',
+        version: '2',
         fileType: 'tradingGooseExport',
         exportedAt: '2026-04-08T15:30:00.000Z',
         exportedFrom: 'indicatorEditor',
@@ -133,7 +133,7 @@ describe('indicator import/export helpers', () => {
   it('rejects invalid fileType values', () => {
     expect(() =>
       parseImportedIndicatorsFile({
-        version: '1',
+        version: '2',
         fileType: 'wrongFileType',
         exportedAt: '2026-04-08T15:30:00.000Z',
         exportedFrom: 'indicatorEditor',
@@ -151,7 +151,7 @@ describe('indicator import/export helpers', () => {
   it('rejects invalid version values', () => {
     expect(() =>
       parseImportedIndicatorsFile({
-        version: '2',
+        version: '1',
         fileType: 'tradingGooseExport',
         exportedAt: '2026-04-08T15:30:00.000Z',
         exportedFrom: 'indicatorEditor',
@@ -169,7 +169,7 @@ describe('indicator import/export helpers', () => {
   it('rejects import entries with extra keys', () => {
     expect(() =>
       parseImportedIndicatorsFile({
-        version: '1',
+        version: '2',
         fileType: 'tradingGooseExport',
         exportedAt: '2026-04-08T15:30:00.000Z',
         exportedFrom: 'indicatorEditor',

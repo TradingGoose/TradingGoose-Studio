@@ -211,7 +211,7 @@ describe('Indicator Editor header controls', () => {
     const payload = JSON.parse(await readBlobText(blob))
 
     expect(payload).toMatchObject({
-      version: '1',
+      version: '2',
       fileType: 'tradingGooseExport',
       exportedFrom: 'indicatorEditor',
       resourceTypes: ['indicators'],

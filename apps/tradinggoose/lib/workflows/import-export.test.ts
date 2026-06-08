@@ -78,7 +78,7 @@ describe('workflow import/export helpers', () => {
     })
 
     expect(payload).toMatchObject({
-      version: '1',
+      version: '2',
       fileType: 'tradingGooseExport',
       exportedAt: expect.any(String),
       exportedFrom: 'workflowEditor',
@@ -166,7 +166,7 @@ describe('workflow import/export helpers', () => {
 
   it('parses unified workflow import files and keeps the workflow payload', () => {
     const parsed = parseImportedWorkflowFile({
-      version: '1',
+      version: '2',
       fileType: 'tradingGooseExport',
       exportedAt: '2026-04-08T15:30:00.000Z',
       exportedFrom: 'workflowEditor',
@@ -217,7 +217,7 @@ describe('workflow import/export helpers', () => {
 
   it('rejects invalid workflow envelopes', () => {
     const parsed = parseImportedWorkflowFile({
-      version: '1',
+      version: '2',
       fileType: 'wrongFileType',
       exportedAt: '2026-04-08T15:30:00.000Z',
       exportedFrom: 'workflowEditor',

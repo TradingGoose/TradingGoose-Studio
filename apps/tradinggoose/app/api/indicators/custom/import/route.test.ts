@@ -60,7 +60,7 @@ describe('Indicators import route', () => {
       body: JSON.stringify({
         workspaceId: 'ws-1',
         file: {
-          version: '1',
+          version: '2',
           fileType: 'tradingGooseExport',
           exportedAt: '2026-04-08T15:30:00.000Z',
           exportedFrom: 'indicatorEditor',
@@ -106,7 +106,7 @@ describe('Indicators import route', () => {
       method: 'POST',
       body: JSON.stringify({
         file: {
-          version: '1',
+          version: '2',
           fileType: 'tradingGooseExport',
           exportedAt: '2026-04-08T15:30:00.000Z',
           exportedFrom: 'indicatorEditor',
@@ -144,7 +144,7 @@ describe('Indicators import route', () => {
       body: JSON.stringify({
         workspaceId: 'ws-1',
         file: {
-          version: '1',
+          version: '2',
           fileType: 'tradingGooseExport',
           exportedAt: '2026-04-08T15:30:00.000Z',
           exportedFrom: 'indicatorEditor',
@@ -180,7 +180,7 @@ describe('Indicators import route', () => {
       body: JSON.stringify({
         workspaceId: 'ws-1',
         file: {
-          version: '1',
+          version: '2',
           fileType: 'tradingGooseExport',
           exportedAt: '2026-04-08T15:30:00.000Z',
           exportedFrom: 'indicatorEditor',
@@ -210,7 +210,7 @@ describe('Indicators import route', () => {
       body: JSON.stringify({
         workspaceId: 'ws-1',
         file: {
-          version: '1',
+          version: '2',
           fileType: 'tradingGooseExport',
           exportedAt: '2026-04-08T15:30:00.000Z',
           exportedFrom: 'indicatorEditor',
@@ -255,7 +255,7 @@ describe('Indicators import route', () => {
       body: JSON.stringify({
         workspaceId: 'ws-1',
         file: {
-          version: '1',
+          version: '2',
           exportedAt: '2026-04-08T15:30:00.000Z',
           exportedFrom: 'indicatorEditor',
           resourceTypes: ['indicators'],

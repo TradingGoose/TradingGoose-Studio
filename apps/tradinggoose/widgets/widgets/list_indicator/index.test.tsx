@@ -128,7 +128,7 @@ describe('Indicator List header controls', () => {
     expect(input).toBeTruthy()
 
     const filePayload = {
-      version: '1',
+      version: '2',
       fileType: 'tradingGooseExport',
       exportedAt: '2026-04-08T15:30:00.000Z',
       exportedFrom: 'indicatorEditor',
@@ -189,7 +189,7 @@ describe('Indicator List header controls', () => {
     expect(input).toBeTruthy()
 
     const invalidPayload = {
-      version: '1',
+      version: '2',
       exportedAt: '2026-04-08T15:30:00.000Z',
       exportedFrom: 'indicatorEditor',
       resourceTypes: ['indicators'],

@@ -67,7 +67,7 @@ describe('Skills import route', () => {
       body: JSON.stringify({
         workspaceId: 'ws-1',
         file: {
-          version: '1',
+          version: '2',
           fileType: 'tradingGooseExport',
           exportedAt: '2026-04-06T12:00:00.000Z',
           exportedFrom: 'skillList',
@@ -116,7 +116,7 @@ describe('Skills import route', () => {
       method: 'POST',
       body: JSON.stringify({
         file: {
-          version: '1',
+          version: '2',
           fileType: 'tradingGooseExport',
           exportedAt: '2026-04-06T12:00:00.000Z',
           exportedFrom: 'skillList',
@@ -148,7 +148,7 @@ describe('Skills import route', () => {
       body: JSON.stringify({
         workspaceId: 'ws-1',
         file: {
-          version: '1',
+          version: '2',
           fileType: 'tradingGooseExport',
           exportedAt: '2026-04-06T12:00:00.000Z',
           exportedFrom: 'skillList',
@@ -178,7 +178,7 @@ describe('Skills import route', () => {
       body: JSON.stringify({
         workspaceId: 'ws-1',
         file: {
-          version: '1',
+          version: '2',
           fileType: 'tradingGooseExport',
           exportedAt: '2026-04-06T12:00:00.000Z',
           exportedFrom: 'skillList',
@@ -224,7 +224,7 @@ describe('Skills import route', () => {
       body: JSON.stringify({
         workspaceId: 'ws-1',
         file: {
-          version: '1',
+          version: '2',
           fileType: 'tradingGooseExport',
           exportedAt: '2026-04-06T12:00:00.000Z',
           exportedFrom: 'skillList',
