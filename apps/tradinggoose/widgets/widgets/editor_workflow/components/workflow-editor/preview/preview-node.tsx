@@ -120,7 +120,7 @@ function LocalizedPreviewNode({ id, data }: NodeProps<PreviewCanvasNode>) {
   )
   const isEnabled = data.blockState?.enabled ?? true
   const isAdvancedMode = data.blockState?.advancedMode ?? false
-  const useHorizontalHandles = data.blockState?.horizontalHandles ?? false
+  const useHorizontalHandles = data.blockState?.horizontalHandles ?? true
   const isPureTriggerBlock = blockConfig?.category === 'triggers'
   const isTriggerMode = Boolean(data.blockState?.triggerMode) || isPureTriggerBlock
   const previewSubBlocks = useMemo(
