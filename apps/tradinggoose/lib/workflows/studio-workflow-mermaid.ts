@@ -1511,10 +1511,13 @@ export function parseGraphOnlyWorkflowMermaid(
     direction: directionMatch[1] as WorkflowDirection,
     blocks: [...visibleGraph.visibleBlockIds].map((blockId) => {
       const block = blocksWithVisibleParenting[blockId]
+      const overlay = blockOverlays.blocks.get(blockId)
       return {
         blockId,
-        ...(block?.type && block.type !== 'unknown' ? { blockType: block.type } : {}),
-        ...(block?.name ? { name: block.name } : {}),
+        ...((overlay?.type ?? block?.type) && (overlay?.type ?? block?.type) !== 'unknown'
+          ? { blockType: overlay?.type ?? block?.type }
+          : {}),
+        ...((overlay?.name ?? block?.name) ? { name: overlay?.name ?? block?.name } : {}),
         ...(block?.data?.parentId ? { parentId: block.data.parentId } : {}),
       }
     }),

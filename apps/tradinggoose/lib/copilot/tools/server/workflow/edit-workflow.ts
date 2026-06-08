@@ -162,7 +162,7 @@ function applyGraphMermaidToWorkflow(
     if (existingBlock) {
       if (graphBlock.blockType && graphBlock.blockType !== existingBlock.type) {
         throw new Error(
-          `Invalid edited workflow: Existing block "${graphBlock.blockId}" has type "${existingBlock.type}" but entityDocument declares type "${graphBlock.blockType}". Existing block types are immutable in edit_workflow.`
+          `Invalid edited workflow: Existing block "${graphBlock.blockId}" has type "${existingBlock.type}" but entityDocument declares type "${graphBlock.blockType}". Existing block ids are immutable identities in edit_workflow; this tool cannot replace an existing block or change its type.`
         )
       }
       blocks[graphBlock.blockId] = setParent(

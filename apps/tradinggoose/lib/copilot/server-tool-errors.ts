@@ -128,7 +128,9 @@ function buildEditWorkflowError(message: string): CopilotServerToolErrorResponse
     const hint = details.includes('non-canonical sub-block')
       ? 'Use only the canonical sub-block ids from `get_blocks_metadata` for that block type. Keep the existing canonical ids and remove invented keys.'
       : details.includes('removedBlockIds')
-        ? 'Keep every existing block id in the Mermaid graph unless the user explicitly asked to remove or replace it; list intentional removals in `removedBlockIds`.'
+        ? 'Keep every existing block id in the Mermaid graph unless the user explicitly asked to remove it; list intentional removals in `removedBlockIds`.'
+      : details.includes('immutable identities')
+        ? 'Keep the existing block id/type pair unchanged. `edit_workflow` rewrites topology only; it cannot replace an existing block or change its type.'
       : details.includes('unknown block type')
         ? 'Use block types exactly as returned by `get_available_blocks` or `get_blocks_metadata`.'
         : details.includes('Edge references non-existent')

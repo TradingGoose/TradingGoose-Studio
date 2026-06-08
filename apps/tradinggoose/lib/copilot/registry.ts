@@ -169,7 +169,7 @@ const EditWorkflowArgs = z
       .string()
       .min(1)
       .describe(
-        'Minimal Mermaid flowchart for the entire workflow graph, not a partial patch. Include flowchart direction, existing block ids, new block `id:` and `type:` labels, subgraph nesting, and edge arrows. Do not include `%% TG_*` metadata, subBlocks, outputs, enabled, positions, or full block metadata. Existing block type, details, and layout are preserved by id; new block position is not part of this topology contract. Use edit_workflow_block for block internals.'
+        'Minimal Mermaid flowchart for the entire workflow graph, not a partial patch. Include flowchart direction, existing block ids, new block `id:` and `type:` labels, subgraph nesting, and edge arrows. Do not include `%% TG_*` metadata, subBlocks, outputs, enabled, positions, or full block metadata. Existing block ids are stable identities: their type, details, and layout are preserved by id. This tool cannot replace an existing block or change its type; new ids create new blocks with generated positions. Use edit_workflow_block for block internals.'
       ),
     removedBlockIds: z
       .array(z.string().trim().min(1))
@@ -181,7 +181,7 @@ const EditWorkflowArgs = z
   })
   .strict()
   .describe(
-    "Full workflow graph replacement tool using minimal Mermaid. Do not use this to rename one existing block or patch one block's `enabled` or `subBlocks`; use `edit_workflow_block` instead."
+    "Full workflow topology rewrite tool using minimal Mermaid. Do not use this to replace an existing block, rename one existing block, or patch one block's `enabled` or `subBlocks`; use `edit_workflow_block` instead."
   )
 
 const EditWorkflowBlockArgs = z

@@ -86,6 +86,30 @@ describe('editWorkflowServerTool', () => {
     expect(result.entityDocument).not.toContain('TG_')
   })
 
+  it('rejects existing block type changes instead of treating them as replacements', async () => {
+    const { editWorkflowServerTool } = await import(
+      '@/lib/copilot/tools/server/workflow/edit-workflow'
+    )
+
+    await expect(
+      editWorkflowServerTool.execute(
+        {
+          entityId: 'wf-1',
+          entityDocument: graph([
+            'flowchart TD',
+            '  n1["Input Form<br/>id: input1<br/>type: input_trigger"]',
+            '  n2["Compute<br/>id: fn1<br/>type: agent"]',
+            '  n1 --> n2',
+          ]),
+          currentWorkflowState: JSON.stringify(BASE_WORKFLOW_STATE),
+        },
+        { userId: 'user-1' }
+      )
+    ).rejects.toThrow(
+      'Existing block ids are immutable identities in edit_workflow; this tool cannot replace an existing block or change its type.'
+    )
+  })
+
   it('adds new blocks with canonical block defaults from metadata-only labels', async () => {
     const { editWorkflowServerTool } = await import(
       '@/lib/copilot/tools/server/workflow/edit-workflow'
