@@ -35,7 +35,7 @@ describe('custom tools import/export helpers', () => {
     })
 
     expect(payload).toEqual({
-      version: '2',
+      version: '1',
       fileType: 'tradingGooseExport',
       exportedAt: expect.any(String),
       exportedFrom: 'customToolEditor',
@@ -92,7 +92,7 @@ describe('custom tools import/export helpers', () => {
     })
 
     expect(JSON.parse(payload)).toMatchObject({
-      version: '2',
+      version: '1',
       fileType: 'tradingGooseExport',
       exportedFrom: 'customToolEditor',
       resourceTypes: ['customTools'],
@@ -117,7 +117,7 @@ describe('custom tools import/export helpers', () => {
 
   it('parses mixed unified import files and returns the custom tools section', () => {
     const parsed = parseImportedCustomToolsFile({
-      version: '2',
+      version: '1',
       fileType: 'tradingGooseExport',
       exportedAt: '2026-04-08T15:30:00.000Z',
       exportedFrom: 'customToolEditor',
@@ -171,7 +171,7 @@ describe('custom tools import/export helpers', () => {
   it('rejects files that do not list customTools in resourceTypes', () => {
     expect(() =>
       parseImportedCustomToolsFile({
-        version: '2',
+        version: '1',
         fileType: 'tradingGooseExport',
         exportedAt: '2026-04-08T15:30:00.000Z',
         exportedFrom: 'customToolEditor',

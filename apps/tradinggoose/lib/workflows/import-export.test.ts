@@ -78,7 +78,7 @@ describe('workflow import/export helpers', () => {
     })
 
     expect(payload).toMatchObject({
-      version: '2',
+      version: '1',
       fileType: 'tradingGooseExport',
       exportedAt: expect.any(String),
       exportedFrom: 'workflowEditor',
@@ -166,7 +166,7 @@ describe('workflow import/export helpers', () => {
 
   it('parses unified workflow import files and keeps the workflow payload', () => {
     const parsed = parseImportedWorkflowFile({
-      version: '2',
+      version: '1',
       fileType: 'tradingGooseExport',
       exportedAt: '2026-04-08T15:30:00.000Z',
       exportedFrom: 'workflowEditor',
@@ -215,9 +215,9 @@ describe('workflow import/export helpers', () => {
     })
   })
 
-  it('rejects generated workflow presentation color in transfer records', () => {
+  it('projects generated workflow presentation color out of transfer records', () => {
     const parsed = parseImportedWorkflowFile({
-      version: '2',
+      version: '1',
       fileType: 'tradingGooseExport',
       exportedAt: '2026-04-08T15:30:00.000Z',
       exportedFrom: 'workflowEditor',
@@ -231,8 +231,12 @@ describe('workflow import/export helpers', () => {
       ],
     })
 
-    expect(parsed.data).toBeNull()
-    expect(parsed.errors[0]).toContain('color')
+    expect(parsed.errors).toEqual([])
+    expect(parsed.data).toMatchObject({
+      name: 'Primary Workflow',
+      state: createWorkflowState(),
+    })
+    expect(parsed.data).not.toHaveProperty('color')
   })
 
   it('renames duplicate imported workflows with the imported marker', () => {

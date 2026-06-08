@@ -105,7 +105,7 @@ describe('Watchlist export API route', () => {
     expect(response.headers.get('Content-Type')).toBe('application/json; charset=utf-8')
     expect(response.headers.get('Content-Disposition')).toContain('my_watchlist.json')
     expect(JSON.parse(body)).toEqual({
-      version: '2',
+      version: '1',
       fileType: 'tradingGooseExport',
       exportedAt: expect.any(String),
       exportedFrom: 'watchlistWidget',

@@ -60,7 +60,7 @@ describe('Watchlist import API route', () => {
     const request = createMockRequest('POST', {
       workspaceId: 'workspace-1',
       file: {
-        version: '2',
+        version: '1',
         fileType: 'tradingGooseExport',
         exportedAt: '2026-04-06T12:00:00.000Z',
         exportedFrom: 'watchlistWidget',
@@ -129,7 +129,7 @@ describe('Watchlist import API route', () => {
     const request = createMockRequest('POST', {
       workspaceId: 'workspace-1',
       file: {
-        version: '2',
+        version: '1',
         fileType: 'tradingGooseExport',
         exportedAt: '2026-04-06T12:00:00.000Z',
         exportedFrom: 'watchlistWidget',

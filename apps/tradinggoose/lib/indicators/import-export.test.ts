@@ -27,7 +27,7 @@ describe('indicator import/export helpers', () => {
     })
 
     expect(payload).toEqual({
-      version: '2',
+      version: '1',
       fileType: 'tradingGooseExport',
       exportedAt: expect.any(String),
       exportedFrom: 'indicatorEditor',
@@ -66,7 +66,7 @@ describe('indicator import/export helpers', () => {
     })
 
     expect(JSON.parse(payload)).toMatchObject({
-      version: '2',
+      version: '1',
       fileType: 'tradingGooseExport',
       exportedFrom: 'indicatorEditor',
       resourceTypes: ['indicators'],
@@ -85,7 +85,7 @@ describe('indicator import/export helpers', () => {
 
   it('parses mixed unified import files and returns the indicators section', () => {
     const parsed = parseImportedIndicatorsFile({
-      version: '2',
+      version: '1',
       fileType: 'tradingGooseExport',
       exportedAt: '2026-04-08T15:30:00.000Z',
       exportedFrom: 'indicatorEditor',
@@ -115,7 +115,7 @@ describe('indicator import/export helpers', () => {
   it('rejects files that do not list indicators in resourceTypes', () => {
     expect(() =>
       parseImportedIndicatorsFile({
-        version: '2',
+        version: '1',
         fileType: 'tradingGooseExport',
         exportedAt: '2026-04-08T15:30:00.000Z',
         exportedFrom: 'indicatorEditor',
@@ -133,7 +133,7 @@ describe('indicator import/export helpers', () => {
   it('rejects invalid fileType values', () => {
     expect(() =>
       parseImportedIndicatorsFile({
-        version: '2',
+        version: '1',
         fileType: 'wrongFileType',
         exportedAt: '2026-04-08T15:30:00.000Z',
         exportedFrom: 'indicatorEditor',
@@ -151,7 +151,7 @@ describe('indicator import/export helpers', () => {
   it('rejects invalid version values', () => {
     expect(() =>
       parseImportedIndicatorsFile({
-        version: '1',
+        version: '2',
         fileType: 'tradingGooseExport',
         exportedAt: '2026-04-08T15:30:00.000Z',
         exportedFrom: 'indicatorEditor',
@@ -166,24 +166,29 @@ describe('indicator import/export helpers', () => {
     ).toThrow()
   })
 
-  it('rejects generated indicator storage fields in transfer records', () => {
-    expect(() =>
-      parseImportedIndicatorsFile({
-        version: '2',
-        fileType: 'tradingGooseExport',
-        exportedAt: '2026-04-08T15:30:00.000Z',
-        exportedFrom: 'indicatorEditor',
-        resourceTypes: ['indicators'],
-        indicators: [
-          {
-            id: 'indicator-1',
-            color: '#3972F6',
-            name: 'RSI Export Example',
-            pineCode: "indicator('RSI Export Example')",
-          },
-        ],
-      })
-    ).toThrow()
+  it('projects generated indicator storage fields out of transfer records', () => {
+    const parsed = parseImportedIndicatorsFile({
+      version: '1',
+      fileType: 'tradingGooseExport',
+      exportedAt: '2026-04-08T15:30:00.000Z',
+      exportedFrom: 'indicatorEditor',
+      resourceTypes: ['indicators'],
+      indicators: [
+        {
+          id: 'indicator-1',
+          color: '#3972F6',
+          name: 'RSI Export Example',
+          pineCode: "indicator('RSI Export Example')",
+        },
+      ],
+    })
+
+    expect(parsed.indicators).toEqual([
+      {
+        name: 'RSI Export Example',
+        pineCode: "indicator('RSI Export Example')",
+      },
+    ])
   })
 
   it('renames duplicate imported indicators with the imported marker', () => {

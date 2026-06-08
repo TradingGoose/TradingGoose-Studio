@@ -68,7 +68,7 @@ describe('Custom tools import route', () => {
       body: JSON.stringify({
         workspaceId: 'ws-1',
         file: {
-          version: '2',
+          version: '1',
           fileType: 'tradingGooseExport',
           exportedAt: '2026-04-08T15:30:00.000Z',
           exportedFrom: 'customToolEditor',
@@ -132,7 +132,7 @@ describe('Custom tools import route', () => {
       method: 'POST',
       body: JSON.stringify({
         file: {
-          version: '2',
+          version: '1',
           fileType: 'tradingGooseExport',
           exportedAt: '2026-04-08T15:30:00.000Z',
           exportedFrom: 'customToolEditor',
@@ -173,7 +173,7 @@ describe('Custom tools import route', () => {
       body: JSON.stringify({
         workspaceId: 'ws-1',
         file: {
-          version: '2',
+          version: '1',
           fileType: 'tradingGooseExport',
           exportedAt: '2026-04-08T15:30:00.000Z',
           exportedFrom: 'customToolEditor',
@@ -212,7 +212,7 @@ describe('Custom tools import route', () => {
       body: JSON.stringify({
         workspaceId: 'ws-1',
         file: {
-          version: '2',
+          version: '1',
           fileType: 'tradingGooseExport',
           exportedAt: '2026-04-08T15:30:00.000Z',
           exportedFrom: 'customToolEditor',
@@ -269,7 +269,7 @@ describe('Custom tools import route', () => {
       body: JSON.stringify({
         workspaceId: 'ws-1',
         file: {
-          version: '2',
+          version: '1',
           fileType: 'tradingGooseExport',
           exportedAt: '2026-04-08T15:30:00.000Z',
           exportedFrom: 'customToolEditor',

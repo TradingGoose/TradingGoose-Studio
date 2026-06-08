@@ -54,7 +54,7 @@ const WorkflowTransferSchema = z
     description: z.string().transform(normalizeString).optional().default(''),
     state: z.unknown(),
   })
-  .strict()
+  .strip()
 
 const WorkflowImportEnvelopeSchema = TradingGooseExportEnvelopeSchema.extend({
   workflows: z.array(WorkflowTransferSchema).length(1, 'Exactly one workflow is required'),

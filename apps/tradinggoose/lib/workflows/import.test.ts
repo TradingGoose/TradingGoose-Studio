@@ -4,7 +4,7 @@ import { importWorkflowFromJsonContent } from '@/lib/workflows/import'
 describe('workflow import orchestration', () => {
   it('creates the workflow row before persisting the imported state', async () => {
     const payload = {
-      version: '2',
+      version: '1',
       fileType: 'tradingGooseExport',
       exportedAt: '2026-04-08T15:30:00.000Z',
       exportedFrom: 'workflowEditor',
@@ -91,7 +91,7 @@ describe('workflow import orchestration', () => {
 
   it('relinks imported skills into workflow blocks before persisting', async () => {
     const payload = {
-      version: '2',
+      version: '1',
       fileType: 'tradingGooseExport',
       exportedAt: '2026-04-08T15:30:00.000Z',
       exportedFrom: 'workflowEditor',

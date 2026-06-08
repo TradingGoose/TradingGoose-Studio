@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const TRADING_GOOSE_EXPORT_VERSION = '2'
+export const TRADING_GOOSE_EXPORT_VERSION = '1'
 export const TRADING_GOOSE_EXPORT_FILE_TYPE = 'tradingGooseExport'
 
 const normalizeString = (value: string) => value.trim()

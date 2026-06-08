@@ -19,7 +19,7 @@ describe('skills import/export helpers', () => {
       ],
     })
 
-    expect(payload.version).toBe('2')
+    expect(payload.version).toBe('1')
     expect(payload.fileType).toBe('tradingGooseExport')
     expect(payload.exportedFrom).toBe('skillEditor')
     expect(payload.resourceTypes).toEqual(['skills'])
@@ -49,7 +49,7 @@ describe('skills import/export helpers', () => {
     })
 
     expect(JSON.parse(payload)).toMatchObject({
-      version: '2',
+      version: '1',
       fileType: 'tradingGooseExport',
       exportedFrom: 'skillEditor',
       resourceTypes: ['skills'],
@@ -69,7 +69,7 @@ describe('skills import/export helpers', () => {
 
   it('parses mixed unified import files and trims skill fields', () => {
     const parsed = parseImportedSkillsFile({
-      version: '2',
+      version: '1',
       fileType: 'tradingGooseExport',
       exportedAt: '2026-04-06T12:00:00.000Z',
       exportedFrom: 'skillList',
@@ -100,7 +100,7 @@ describe('skills import/export helpers', () => {
   it('rejects invalid fileType values', () => {
     expect(() =>
       parseImportedSkillsFile({
-        version: '2',
+        version: '1',
         fileType: 'wrongFileType',
         exportedAt: '2026-04-06T12:00:00.000Z',
         exportedFrom: 'skillList',
@@ -119,7 +119,7 @@ describe('skills import/export helpers', () => {
   it('rejects invalid version values', () => {
     expect(() =>
       parseImportedSkillsFile({
-        version: '1',
+        version: '2',
         fileType: 'tradingGooseExport',
         exportedAt: '2026-04-06T12:00:00.000Z',
         exportedFrom: 'skillList',
@@ -138,7 +138,7 @@ describe('skills import/export helpers', () => {
   it('rejects files that do not list skills in resourceTypes', () => {
     expect(() =>
       parseImportedSkillsFile({
-        version: '2',
+        version: '1',
         fileType: 'tradingGooseExport',
         exportedAt: '2026-04-06T12:00:00.000Z',
         exportedFrom: 'skillList',
@@ -157,7 +157,7 @@ describe('skills import/export helpers', () => {
   it('rejects files missing the skills section', () => {
     expect(() =>
       parseImportedSkillsFile({
-        version: '2',
+        version: '1',
         fileType: 'tradingGooseExport',
         exportedAt: '2026-04-06T12:00:00.000Z',
         exportedFrom: 'skillList',
@@ -169,7 +169,7 @@ describe('skills import/export helpers', () => {
   it('rejects import entries with extra keys', () => {
     expect(() =>
       parseImportedSkillsFile({
-        version: '2',
+        version: '1',
         fileType: 'tradingGooseExport',
         exportedAt: '2026-04-06T12:00:00.000Z',
         exportedFrom: 'skillList',
