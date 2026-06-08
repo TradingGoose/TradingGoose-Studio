@@ -166,29 +166,24 @@ describe('indicator import/export helpers', () => {
     ).toThrow()
   })
 
-  it('projects generated indicator storage fields out of transfer records', () => {
-    const parsed = parseImportedIndicatorsFile({
-      version: '1',
-      fileType: 'tradingGooseExport',
-      exportedAt: '2026-04-08T15:30:00.000Z',
-      exportedFrom: 'indicatorEditor',
-      resourceTypes: ['indicators'],
-      indicators: [
-        {
-          id: 'indicator-1',
-          color: '#3972F6',
-          name: 'RSI Export Example',
-          pineCode: "indicator('RSI Export Example')",
-        },
-      ],
-    })
-
-    expect(parsed.indicators).toEqual([
-      {
-        name: 'RSI Export Example',
-        pineCode: "indicator('RSI Export Example')",
-      },
-    ])
+  it('rejects generated indicator storage fields in transfer records', () => {
+    expect(() =>
+      parseImportedIndicatorsFile({
+        version: '1',
+        fileType: 'tradingGooseExport',
+        exportedAt: '2026-04-08T15:30:00.000Z',
+        exportedFrom: 'indicatorEditor',
+        resourceTypes: ['indicators'],
+        indicators: [
+          {
+            id: 'indicator-1',
+            color: '#3972F6',
+            name: 'RSI Export Example',
+            pineCode: "indicator('RSI Export Example')",
+          },
+        ],
+      })
+    ).toThrow()
   })
 
   it('renames duplicate imported indicators with the imported marker', () => {

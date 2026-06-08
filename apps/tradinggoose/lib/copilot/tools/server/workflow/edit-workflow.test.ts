@@ -65,7 +65,7 @@ describe('editWorkflowServerTool', () => {
         entityDocument: graph([
           'flowchart TD',
           '  n1["Input Form<br/>id: input1<br/>type: input_trigger"]',
-          '  n2["Compute<br/>id: fn1<br/>type: function"]',
+          '  n2["Compute Indicators<br/>id: fn1<br/>type: function"]',
           '  n1 --> n2',
         ]),
         currentWorkflowState: JSON.stringify(BASE_WORKFLOW_STATE),
@@ -85,7 +85,44 @@ describe('editWorkflowServerTool', () => {
     expect(result.documentFormat).toBe(WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT)
     expect(result.entityDocument).not.toContain('%% TG_')
     expect(result.entityDocument).toContain('Compute Indicators')
-    expect(result.entityDocument).not.toContain('Compute<br/>id: fn1')
+  })
+
+  it('rejects existing block label renames instead of ignoring them', async () => {
+    const { editWorkflowServerTool } = await import(
+      '@/lib/copilot/tools/server/workflow/edit-workflow'
+    )
+
+    await expect(
+      editWorkflowServerTool.execute(
+        {
+          entityId: 'wf-1',
+          entityDocument: graph([
+            'flowchart TD',
+            '  n1["Input Form<br/>id: input1<br/>type: input_trigger"]',
+            '  n2["Compute<br/>id: fn1<br/>type: function"]',
+            '  n1 --> n2',
+          ]),
+          currentWorkflowState: JSON.stringify(BASE_WORKFLOW_STATE),
+        },
+        { userId: 'user-1' }
+      )
+    ).rejects.toThrow('Use edit_workflow_block to rename existing blocks.')
+
+    await expect(
+      editWorkflowServerTool.execute(
+        {
+          entityId: 'wf-1',
+          entityDocument: graph([
+            'flowchart TD',
+            '  input1["Input Form"]',
+            '  fn1["Compute"]',
+            '  input1 --> fn1',
+          ]),
+          currentWorkflowState: JSON.stringify(BASE_WORKFLOW_STATE),
+        },
+        { userId: 'user-1' }
+      )
+    ).rejects.toThrow('Use edit_workflow_block to rename existing blocks.')
   })
 
   it('rejects existing block type changes instead of treating them as replacements', async () => {
@@ -162,7 +199,7 @@ describe('editWorkflowServerTool', () => {
         entityDocument: graph([
           'flowchart LR',
           '  subgraph sg_loop1["Loop<br/>id: loop1<br/>type: loop"]',
-          '    n1["Compute<br/>id: fn1<br/>type: function"]',
+          '    n1["Compute Indicators<br/>id: fn1<br/>type: function"]',
           '  end',
         ]),
         currentWorkflowState: JSON.stringify({

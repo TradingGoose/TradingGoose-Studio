@@ -215,7 +215,7 @@ describe('workflow import/export helpers', () => {
     })
   })
 
-  it('projects generated workflow presentation color out of transfer records', () => {
+  it('rejects generated workflow presentation color in transfer records', () => {
     const parsed = parseImportedWorkflowFile({
       version: '1',
       fileType: 'tradingGooseExport',
@@ -231,12 +231,8 @@ describe('workflow import/export helpers', () => {
       ],
     })
 
-    expect(parsed.errors).toEqual([])
-    expect(parsed.data).toMatchObject({
-      name: 'Primary Workflow',
-      state: createWorkflowState(),
-    })
-    expect(parsed.data).not.toHaveProperty('color')
+    expect(parsed.data).toBeNull()
+    expect(parsed.errors.some((error) => error.includes('color'))).toBe(true)
   })
 
   it('renames duplicate imported workflows with the imported marker', () => {

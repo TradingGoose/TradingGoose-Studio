@@ -18,7 +18,7 @@ export const IndicatorTransferSchema = z
     pineCode: z.string(),
     inputMeta: z.record(z.any()).optional(),
   })
-  .strip()
+  .strict()
 
 export const IndicatorsTransferListSchema = z
   .array(IndicatorTransferSchema)

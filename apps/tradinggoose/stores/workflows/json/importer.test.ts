@@ -22,7 +22,7 @@ const createWorkflowState = () => ({
 describe('workflow json importer', () => {
   it('parses the unified workflow export format', () => {
     const payload = {
-      version: '2',
+      version: '1',
       fileType: 'tradingGooseExport',
       exportedAt: '2026-04-08T15:30:00.000Z',
       exportedFrom: 'workflowEditor',
@@ -59,7 +59,7 @@ describe('workflow json importer', () => {
 
   it('parses the mixed workflow export format and keeps embedded skills', () => {
     const payload = {
-      version: '2',
+      version: '1',
       fileType: 'tradingGooseExport',
       exportedAt: '2026-04-08T15:30:00.000Z',
       exportedFrom: 'workflowEditor',
@@ -109,7 +109,7 @@ describe('workflow json importer', () => {
 
   it('rejects mixed workflow export files without embedded skills', () => {
     const payload = {
-      version: '2',
+      version: '1',
       fileType: 'tradingGooseExport',
       exportedAt: '2026-04-08T15:30:00.000Z',
       exportedFrom: 'workflowEditor',
@@ -134,7 +134,7 @@ describe('workflow json importer', () => {
 
   it('rejects mixed workflow export files with duplicate normalized skill names', () => {
     const payload = {
-      version: '2',
+      version: '1',
       fileType: 'tradingGooseExport',
       exportedAt: '2026-04-08T15:30:00.000Z',
       exportedFrom: 'workflowEditor',
@@ -171,7 +171,7 @@ describe('workflow json importer', () => {
 
   it('rejects invalid workflow envelopes', () => {
     const payload = {
-      version: '2',
+      version: '1',
       fileType: 'wrongFileType',
       exportedAt: '2026-04-08T15:30:00.000Z',
       exportedFrom: 'workflowEditor',

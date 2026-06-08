@@ -910,6 +910,40 @@ function readGraphOnlyInternalFields(overlay: MermaidLabelOverlay): string[] {
   return [...new Set(overlay.internalFields)]
 }
 
+function readGraphOnlyDirectExistingBlockNames(
+  document: string,
+  existingBlockIds: Set<string>
+): Map<string, string> {
+  const names = new Map<string, string>()
+
+  for (const rawLine of document.split(/\r?\n/)) {
+    const trimmed = rawLine.trim()
+    const node =
+      parseRectNodeLine(trimmed) ??
+      (() => {
+        const diamondMatch = trimmed.match(/^([A-Za-z0-9_-]+)\{"(.*)"\}$/)
+        return diamondMatch?.[1] && diamondMatch[2]
+          ? { nodeId: diamondMatch[1], label: diamondMatch[2] }
+          : null
+      })()
+
+    if (!node || !existingBlockIds.has(node.nodeId) || parseOverlayFromLabel(node.label)) {
+      continue
+    }
+
+    const name = unescapeMermaidLabel(node.label)
+      .split('\n')
+      .map((line) => line.trim())
+      .find((line) => line.length > 0)
+
+    if (name) {
+      names.set(node.nodeId, name)
+    }
+  }
+
+  return names
+}
+
 function parseVisibleEdgeLabel(
   rawLabel: string
 ): { sourceHandle: string; targetHandle: string } | null {
@@ -1524,7 +1558,19 @@ export function parseGraphOnlyWorkflowMermaid(
     }
   }
 
+  const existingBlockIds = new Set(Object.keys(existingBlocks))
   const blockOverlays = parseMermaidLabelOverlays(document, Object.keys(existingBlocks))
+  for (const [blockId, name] of readGraphOnlyDirectExistingBlockNames(document, existingBlockIds)) {
+    if (!blockOverlays.blocks.has(blockId)) {
+      blockOverlays.blocks.set(blockId, {
+        id: blockId,
+        name,
+        dataEntries: {},
+        subBlockEntries: {},
+        internalFields: [],
+      })
+    }
+  }
   const graphBlocks: Record<string, BlockState> = { ...existingBlocks }
 
   for (const [blockId, overlay] of blockOverlays.blocks) {
@@ -1595,7 +1641,7 @@ export function parseGraphOnlyWorkflowMermaid(
         ...((overlay?.type ?? block?.type) && (overlay?.type ?? block?.type) !== 'unknown'
           ? { blockType: overlay?.type ?? block?.type }
           : {}),
-        ...((overlay?.name ?? block?.name) ? { name: overlay?.name ?? block?.name } : {}),
+        ...(overlay?.name ? { name: overlay.name } : {}),
         ...(block?.data?.parentId ? { parentId: block.data.parentId } : {}),
       }
     }),
