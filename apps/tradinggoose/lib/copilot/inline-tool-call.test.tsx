@@ -253,7 +253,7 @@ describe('InlineToolCall', () => {
     )
   })
 
-  it('does not show review controls for staged workflow edits in full access', async () => {
+  it('shows review controls for already-staged workflow edits in full access', async () => {
     const toolCallId = 'tool-workflow-review'
     mockUseCopilotStoreState.accessLevel = 'full'
     mockGetToolInterruptDisplays.mockReturnValue({
@@ -273,8 +273,8 @@ describe('InlineToolCall', () => {
     })
 
     expect(container.textContent).not.toContain('Allow')
-    expect(container.textContent).not.toContain('Accept')
-    expect(container.textContent).not.toContain('Reject')
+    expect(container.textContent).toContain('Accept')
+    expect(container.textContent).toContain('Reject')
   })
 
   it('uses interrupt labels for generic gated pending tools', async () => {
@@ -299,7 +299,7 @@ describe('InlineToolCall', () => {
     expect(container.textContent).not.toContain('Allow')
   })
 
-  it('renders entity review diffs without controls in full access', async () => {
+  it('renders entity review diffs with controls for already-staged reviews in full access', async () => {
     mockUseCopilotStoreState.accessLevel = 'full'
     mockGetToolInterruptDisplays.mockReturnValue({
       accept: { text: 'Accept changes' },
@@ -349,7 +349,7 @@ describe('InlineToolCall', () => {
     expect(container.textContent).toContain('Updated skill')
     expect(container.textContent).toContain('Original instructions')
     expect(container.textContent).toContain('Updated instructions')
-    expect(container.textContent).not.toContain('Accept changes')
-    expect(container.textContent).not.toContain('Reject changes')
+    expect(container.textContent).toContain('Accept changes')
+    expect(container.textContent).toContain('Reject changes')
   })
 })

@@ -169,7 +169,7 @@ const EditWorkflowArgs = z
       .string()
       .min(1)
       .describe(
-        'Minimal Mermaid flowchart for the entire workflow graph, not a partial patch. Include flowchart direction, existing block ids, new block `id:` and `type:` labels, subgraph nesting, and edge arrows. Do not include `%% TG_*` metadata, subBlocks, outputs, enabled, positions, or full block metadata. Existing block details are preserved by id; use edit_workflow_block for block internals.'
+        'Minimal Mermaid flowchart for the entire workflow graph, not a partial patch. Include flowchart direction, existing block ids, new block `id:` and `type:` labels, subgraph nesting, and edge arrows. Do not include `%% TG_*` metadata, subBlocks, outputs, enabled, positions, or full block metadata. Existing condition edges must use exact `condition-<blockId>-<branch>` source handles. Existing block details are preserved by id; use edit_workflow_block for block internals.'
       ),
     removedBlockIds: z
       .array(z.string().trim().min(1))

@@ -108,7 +108,7 @@ function resolveBlockIdFromVisibleNodeId(
 }
 
 function parseRectNodeLine(line: string): { nodeId: string; label: string } | null {
-  const rectMatch = line.match(/^([A-Za-z0-9_]+)(?:\(\["(.*)"\]\)|\["(.*)"\])$/)
+  const rectMatch = line.match(/^([A-Za-z0-9_-]+)(?:\(\["(.*)"\]\)|\["(.*)"\])$/)
   const label = rectMatch?.[2] ?? rectMatch?.[3]
 
   if (!rectMatch?.[1] || !label) {
@@ -816,7 +816,7 @@ function parseMermaidLabelOverlays(
       continue
     }
 
-    const diamondMatch = trimmed.match(/^[A-Za-z0-9_]+\{"(.*)"\}$/)
+    const diamondMatch = trimmed.match(/^[A-Za-z0-9_-]+\{"(.*)"\}$/)
     if (diamondMatch?.[1]) {
       const overlay = parseOverlayFromLabel(diamondMatch[1])
       if (overlay) {
@@ -932,12 +932,12 @@ function parseVisibleWorkflowEdges(
       continue
     }
 
-    const subgraphMatch = trimmed.match(/^subgraph\s+(sg_[A-Za-z0-9_]+)\["(.*)"\]$/)
+    const subgraphMatch = trimmed.match(/^subgraph\s+(?:sg_)?([A-Za-z0-9_-]+)\["(.*)"\]$/)
     if (subgraphMatch?.[1] && subgraphMatch[2]) {
       const currentContainerId = getActiveContainerId()
       const overlay = parseOverlayFromLabel(subgraphMatch[2])
       if (overlay) {
-        const nodeId = subgraphMatch[1].slice(3)
+        const nodeId = subgraphMatch[1]
         aliasToBlockId.set(nodeId, overlay.id)
         nodeRefs.set(nodeId, { kind: 'block', blockId: overlay.id, blockType: overlay.type })
         visibleBlockIds.add(overlay.id)
@@ -1007,7 +1007,7 @@ function parseVisibleWorkflowEdges(
         continue
       }
 
-      const containerMatch = nodeId.match(/^([A-Za-z0-9_]+)__(loop|parallel)_(start|end)$/)
+      const containerMatch = nodeId.match(/^([A-Za-z0-9_-]+)__(loop|parallel)_(start|end)$/)
       if (containerMatch?.[1] && containerMatch[2] && containerMatch[3]) {
         const blockId = resolveBlockIdFromVisibleNodeId(
           containerMatch[1],
@@ -1026,7 +1026,7 @@ function parseVisibleWorkflowEdges(
       continue
     }
 
-    const diamondMatch = trimmed.match(/^([A-Za-z0-9_]+)\{"(.*)"\}$/)
+    const diamondMatch = trimmed.match(/^([A-Za-z0-9_-]+)\{"(.*)"\}$/)
     if (diamondMatch?.[1] && diamondMatch[2]) {
       const currentContainerId = getActiveContainerId()
       const overlay = parseOverlayFromLabel(diamondMatch[2])
@@ -1053,7 +1053,7 @@ function parseVisibleWorkflowEdges(
   for (const rawLine of document.split(/\r?\n/)) {
     const trimmed = rawLine.trim()
     const edgeMatch = trimmed.match(
-      /^([A-Za-z0-9_]+)\s*(?:--\s*"((?:\\"|[^"])*)"\s*)?-->\s*([A-Za-z0-9_]+)$/
+      /^([A-Za-z0-9_-]+)\s*(?:--\s*"((?:\\"|[^"])*)"\s*)?-->\s*([A-Za-z0-9_-]+)$/
     )
     if (!edgeMatch?.[1] || !edgeMatch[3]) {
       continue
@@ -1103,6 +1103,18 @@ function parseVisibleWorkflowEdges(
         : targetRef.kind === 'container-end'
           ? `${targetRef.blockType}-end-target`
           : 'target')
+
+    const sourceBlock = blocks[sourceRef.blockId]
+    const conditionHandlePrefix = `condition-${sourceRef.blockId}-`
+    if (
+      sourceBlock?.type === 'condition' &&
+      sourceHandle !== 'source' &&
+      !sourceHandle.startsWith(conditionHandlePrefix)
+    ) {
+      throw new Error(
+        `Workflow graph Mermaid condition edge from "${sourceRef.blockId}" must use canonical sourceHandle "${conditionHandlePrefix}<branch>". Use edit_workflow_block to define condition branches before wiring them.`
+      )
+    }
 
     visibleEdges.push({
       source: sourceRef.blockId,

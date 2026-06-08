@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { applyAutoLayout } from '@/lib/workflows/autolayout'
 import {
   buildWorkflowDocumentPreviewDiff,
+  parseGraphOnlyWorkflowMermaid,
   parseTgMermaidToWorkflow,
   serializeWorkflowToTgMermaid,
   TG_MERMAID_DOCUMENT_FORMAT,
@@ -393,6 +394,36 @@ n3 --> n4
         target: 'sink',
       },
     ])
+  })
+
+  it('parses ordinary graph-only Mermaid aliases without flattening containers', () => {
+    const parsed = parseGraphOnlyWorkflowMermaid(
+      [
+        'flowchart TD',
+        'subgraph loop-1["Loop<br/>id: loop_parent<br/>type: loop"]',
+        '  node-1["Agent<br/>id: loop_child<br/>type: agent"]',
+        'end',
+      ].join('\n'),
+      workflowState.blocks
+    )
+
+    expect(parsed.blocks.find((block) => block.blockId === 'loop_child')?.parentId).toBe(
+      'loop_parent'
+    )
+  })
+
+  it('rejects shorthand graph-only condition edge handles', () => {
+    expect(() =>
+      parseGraphOnlyWorkflowMermaid(
+        [
+          'flowchart TD',
+          'gate["Market Hours?<br/>id: gate<br/>type: condition"]',
+          'sink["Send Alert<br/>id: sink<br/>type: telegram"]',
+          'gate -- "if -> target" --> sink',
+        ].join('\n'),
+        workflowState.blocks
+      )
+    ).toThrow('must use canonical sourceHandle "condition-gate-<branch>"')
   })
 
   it('rejects visible external edges into container internal endpoint nodes', () => {
