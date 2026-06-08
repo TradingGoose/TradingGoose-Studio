@@ -14,7 +14,6 @@ describe('workflow import orchestration', () => {
         {
           name: 'Primary Workflow',
           description: 'Workflow imported from the unified schema',
-          color: '#3972F6',
           state: {
             blocks: {
               block_1: {
@@ -113,7 +112,6 @@ describe('workflow import orchestration', () => {
         {
           name: 'Primary Workflow',
           description: 'Workflow imported from the unified schema',
-          color: '#3972F6',
           state: {
             blocks: {
               block_1: {

@@ -37,7 +37,7 @@ function buildStableEdgeId(edge: {
   return `${edge.source}-${sourceHandle}-${edge.target}-${targetHandle}`
 }
 
-function buildDefaultPosition(blocks: Record<string, BlockState>, parentId?: string): Position {
+function buildInitialPosition(blocks: Record<string, BlockState>, parentId?: string): Position {
   const siblingCount = Object.values(blocks).filter(
     (block) => block.data?.parentId === parentId
   ).length
@@ -63,7 +63,7 @@ function buildDefaultBlock(
       id: blockId,
       type: blockType,
       name: name?.trim() || (blockType === 'loop' ? 'Loop' : 'Parallel'),
-      position: buildDefaultPosition(blocks, parentId),
+      position: buildInitialPosition(blocks, parentId),
       subBlocks: {},
       outputs: {},
       enabled: true,
@@ -85,7 +85,7 @@ function buildDefaultBlock(
     id: blockId,
     type: blockType,
     name: name?.trim() || blockConfig.name,
-    position: buildDefaultPosition(blocks, parentId),
+    position: buildInitialPosition(blocks, parentId),
     subBlocks: runtimeState.subBlocks as BlockState['subBlocks'],
     outputs: runtimeState.outputs,
     enabled: true,

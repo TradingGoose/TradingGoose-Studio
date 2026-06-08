@@ -32,7 +32,6 @@ describe('workflow json importer', () => {
         {
           name: '  Primary Workflow  ',
           description: '  Workflow used for trading  ',
-          color: '  #3972F6  ',
           state: createWorkflowState(),
         },
       ],
@@ -48,7 +47,6 @@ describe('workflow json importer', () => {
     expect(data).toMatchObject({
       name: 'Primary Workflow',
       description: 'Workflow used for trading',
-      color: '#3972F6',
       state: {
         blocks: {
           block_1: {
@@ -77,7 +75,6 @@ describe('workflow json importer', () => {
         {
           name: '  Primary Workflow  ',
           description: '  Workflow used for trading  ',
-          color: '  #3972F6  ',
           state: createWorkflowState(),
         },
       ],
@@ -93,7 +90,6 @@ describe('workflow json importer', () => {
     expect(data).toMatchObject({
       name: 'Primary Workflow',
       description: 'Workflow used for trading',
-      color: '#3972F6',
       skills: [
         {
           name: 'Market Research',
@@ -122,7 +118,6 @@ describe('workflow json importer', () => {
         {
           name: 'Primary Workflow',
           description: 'Workflow used for trading',
-          color: '#3972F6',
           state: createWorkflowState(),
         },
       ],
@@ -160,7 +155,6 @@ describe('workflow json importer', () => {
         {
           name: 'Primary Workflow',
           description: 'Workflow used for trading',
-          color: '#3972F6',
           state: createWorkflowState(),
         },
       ],

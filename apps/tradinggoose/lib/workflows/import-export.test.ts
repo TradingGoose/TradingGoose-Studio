@@ -73,7 +73,6 @@ describe('workflow import/export helpers', () => {
       workflow: {
         name: '  Primary Workflow  ',
         description: '  Workflow used for trading  ',
-        color: '  #3972F6  ',
         state: createWorkflowState(),
       },
     })
@@ -89,7 +88,6 @@ describe('workflow import/export helpers', () => {
         {
           name: 'Primary Workflow',
           description: 'Workflow used for trading',
-          color: '#3972F6',
           state: {
             blocks: {
               block_1: {
@@ -115,7 +113,6 @@ describe('workflow import/export helpers', () => {
       workflow: {
         name: 'Primary Workflow',
         description: 'Workflow used for trading',
-        color: '#3972F6',
         state: createWorkflowStateWithSkills(),
       },
       skills: [
@@ -185,7 +182,6 @@ describe('workflow import/export helpers', () => {
         {
           name: '  Primary Workflow  ',
           description: '  Workflow used for trading  ',
-          color: '  #3972F6  ',
           state: createWorkflowState(),
         },
       ],
@@ -198,7 +194,6 @@ describe('workflow import/export helpers', () => {
     expect(parsed.data).toMatchObject({
       name: 'Primary Workflow',
       description: 'Workflow used for trading',
-      color: '#3972F6',
       skills: [
         {
           name: 'Ignore me',

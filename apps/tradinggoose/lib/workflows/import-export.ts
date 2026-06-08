@@ -27,7 +27,6 @@ const formatZodIssue = (issue: z.ZodIssue) => {
 export interface WorkflowTransferRecord {
   name: string
   description: string
-  color: string
   state: ExportWorkflowState['state']
   skills: SkillTransferRecord[]
 }
@@ -37,7 +36,6 @@ type WorkflowSkillSource = Pick<SkillDefinition, 'id' | 'name' | 'description' |
 type WorkflowTransferInput = {
   name: string
   description?: string | null
-  color?: string | null
   state?: unknown
 }
 
@@ -54,7 +52,6 @@ const WorkflowTransferSchema = z
       .transform(normalizeInlineWhitespace)
       .pipe(z.string().min(1, 'Workflow name is required')),
     description: z.string().transform(normalizeString).optional().default(''),
-    color: z.string().transform(normalizeString).optional().default(''),
     state: z.unknown(),
   })
   .strict()
@@ -211,7 +208,6 @@ function normalizeWorkflowTransferRecord(
     data: {
       name: workflowName,
       description: normalizeString(workflow.description ?? ''),
-      color: normalizeString(workflow.color ?? ''),
       state: stateResult.data,
       skills: [],
     },
@@ -412,7 +408,6 @@ export function createWorkflowExportFile({
   workflow: {
     name: string
     description?: string | null
-    color?: string | null
     state: WorkflowState
   }
   skills?: WorkflowSkillSource[]
@@ -432,7 +427,6 @@ export function createWorkflowExportFile({
         {
           name: normalizeInlineWhitespace(workflow.name),
           description: normalizeString(workflow.description ?? ''),
-          color: normalizeString(workflow.color ?? ''),
           state: exportData.state,
         },
       ],
@@ -448,7 +442,6 @@ export function exportWorkflowAsJson({
   workflow: {
     name: string
     description?: string | null
-    color?: string | null
     state: WorkflowState
   }
   skills?: WorkflowSkillSource[]

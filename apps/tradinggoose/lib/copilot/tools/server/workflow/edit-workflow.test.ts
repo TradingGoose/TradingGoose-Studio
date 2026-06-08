@@ -86,7 +86,7 @@ describe('editWorkflowServerTool', () => {
     expect(result.entityDocument).not.toContain('TG_')
   })
 
-  it('adds new blocks with canonical defaults from metadata-only labels', async () => {
+  it('adds new blocks with canonical block defaults from metadata-only labels', async () => {
     const { editWorkflowServerTool } = await import(
       '@/lib/copilot/tools/server/workflow/edit-workflow'
     )
