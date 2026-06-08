@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
+import { WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 
 vi.mock('@/lib/workflows/validation', () => ({
   validateWorkflowState: (state: any) => ({
@@ -82,9 +82,10 @@ describe('editWorkflowServerTool', () => {
         target: 'fn1',
       }),
     ])
-    expect(result.documentFormat).toBe(TG_MERMAID_DOCUMENT_FORMAT)
-    expect(result.entityDocument).toContain('%% TG_WORKFLOW')
+    expect(result.documentFormat).toBe(WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT)
+    expect(result.entityDocument).not.toContain('%% TG_')
     expect(result.entityDocument).toContain('Compute Indicators')
+    expect(result.entityDocument).not.toContain('Compute<br/>id: fn1')
   })
 
   it('rejects existing block type changes instead of treating them as replacements', async () => {
@@ -144,6 +145,9 @@ describe('editWorkflowServerTool', () => {
       type: 'code',
       value: '',
     })
+    expect(result.documentFormat).toBe(WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT)
+    expect(result.entityDocument).toContain('Mock Function')
+    expect(result.entityDocument).not.toContain('["id: fn2')
     expect(result.preview.blockDiff.added).toEqual(['fn2'])
   })
 

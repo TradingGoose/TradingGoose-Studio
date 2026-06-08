@@ -75,6 +75,18 @@ export const TG_EDGE_PREFIX = `${COMMENT_PREFIX}TG_EDGE `
 const TG_LOOP_PREFIX = `${COMMENT_PREFIX}TG_LOOP `
 const TG_PARALLEL_PREFIX = `${COMMENT_PREFIX}TG_PARALLEL `
 const CONDITION_INPUT_KEY = 'conditions'
+const HIDDEN_VISIBLE_EDGE_HANDLES = new Set([
+  'source',
+  'target',
+  'input',
+  'output',
+  'loop-start-source',
+  'loop-end-source',
+  'parallel-start-source',
+  'parallel-end-source',
+  'loop-end-target',
+  'parallel-end-target',
+])
 
 function toDocumentJson(value: unknown): string {
   return stableStringifyJsonValue(value)
@@ -332,6 +344,10 @@ function buildBlockLabelLines(blockId: string, block: BlockState): string[] {
   return lines
 }
 
+function buildGraphOnlyBlockLabelLines(blockId: string, block: BlockState): string[] {
+  return [block.name || block.type, `id: ${blockId}`, `type: ${block.type}`]
+}
+
 function renderRectNode(nodeId: string, labelLines: string[], indent: string): string {
   return `${indent}${nodeId}["${escapeMermaidLabel(labelLines.join('\n'))}"]`
 }
@@ -385,9 +401,20 @@ function emitBlockGraphLines(params: {
   aliases: Map<string, string>
   childrenByParent: Map<string, string[]>
   lines: string[]
+  labelLinesForBlock?: (blockId: string, block: BlockState) => string[]
+  includeConditionBranches?: boolean
   indent?: string
 }): void {
-  const { blockId, blocks, aliases, childrenByParent, lines, indent = '  ' } = params
+  const {
+    blockId,
+    blocks,
+    aliases,
+    childrenByParent,
+    lines,
+    labelLinesForBlock = buildBlockLabelLines,
+    includeConditionBranches = true,
+    indent = '  ',
+  } = params
   const block = blocks[blockId]
   const alias = aliases.get(blockId)
 
@@ -395,10 +422,10 @@ function emitBlockGraphLines(params: {
     return
   }
 
-  const labelLines = buildBlockLabelLines(blockId, block)
+  const labelLines = labelLinesForBlock(blockId, block)
   const children = childrenByParent.get(blockId) ?? []
 
-  if (block.type === 'condition') {
+  if (block.type === 'condition' && includeConditionBranches) {
     const conditionEntries = parseConditionEntries(block.subBlocks?.[CONDITION_INPUT_KEY]?.value)
 
     lines.push(`${indent}subgraph sg_${alias}["${escapeMermaidLabel(labelLines.join('\n'))}"]`)
@@ -413,6 +440,11 @@ function emitBlockGraphLines(params: {
     }
 
     lines.push(`${indent}end`)
+    return
+  }
+
+  if (block.type === 'condition') {
+    lines.push(renderDiamondNode(alias, labelLines, indent))
     return
   }
 
@@ -436,6 +468,8 @@ function emitBlockGraphLines(params: {
       aliases,
       childrenByParent,
       lines,
+      labelLinesForBlock,
+      includeConditionBranches,
       indent: `${indent}  `,
     })
   }
@@ -559,20 +593,10 @@ function resolveVisibleEdgeLabel(edge: Edge, blocks: Record<string, BlockState>)
     }
   }
 
-  const hiddenHandles = new Set([
-    'source',
-    'target',
-    'input',
-    'output',
-    'loop-start-source',
-    'loop-end-source',
-    'parallel-start-source',
-    'parallel-end-source',
-    'loop-end-target',
-    'parallel-end-target',
-  ])
-
-  if (hiddenHandles.has(sourceHandle) && hiddenHandles.has(targetHandle)) {
+  if (
+    HIDDEN_VISIBLE_EDGE_HANDLES.has(sourceHandle) &&
+    HIDDEN_VISIBLE_EDGE_HANDLES.has(targetHandle)
+  ) {
     return null
   }
 
@@ -598,6 +622,60 @@ function emitEdgeGraphLine(
   }
 
   return `  ${sourceNodeId} -- "${escapeMermaidLabel(label)}" --> ${targetNodeId}`
+}
+
+function resolveGraphOnlySourceNodeId(
+  edge: Edge,
+  blocks: Record<string, BlockState>,
+  aliases: Map<string, string>
+): string | null {
+  const sourceAlias = aliases.get(edge.source)
+  const sourceBlock = blocks[edge.source]
+
+  if (!sourceAlias || !sourceBlock) return sourceAlias ?? null
+  if (sourceBlock.type === 'loop') {
+    if (edge.sourceHandle === 'loop-start-source') {
+      return createContainerNodeId(sourceAlias, 'loop', 'start')
+    }
+    if (edge.sourceHandle === 'loop-end-source') {
+      return createContainerNodeId(sourceAlias, 'loop', 'end')
+    }
+  }
+  if (sourceBlock.type === 'parallel') {
+    if (edge.sourceHandle === 'parallel-start-source') {
+      return createContainerNodeId(sourceAlias, 'parallel', 'start')
+    }
+    if (edge.sourceHandle === 'parallel-end-source') {
+      return createContainerNodeId(sourceAlias, 'parallel', 'end')
+    }
+  }
+  return sourceAlias
+}
+
+function resolveGraphOnlyEdgeLabel(edge: Edge): string | null {
+  const sourceHandle = edge.sourceHandle || 'source'
+  const targetHandle = edge.targetHandle || 'target'
+
+  return HIDDEN_VISIBLE_EDGE_HANDLES.has(sourceHandle) &&
+    HIDDEN_VISIBLE_EDGE_HANDLES.has(targetHandle)
+    ? null
+    : `${sourceHandle} -> ${targetHandle}`
+}
+
+function emitGraphOnlyEdgeGraphLine(
+  edge: Edge,
+  blocks: Record<string, BlockState>,
+  aliases: Map<string, string>
+): string | null {
+  const sourceNodeId = resolveGraphOnlySourceNodeId(edge, blocks, aliases)
+  const targetNodeId = resolveVisibleTargetNodeId(edge, blocks, aliases, aliases)
+
+  if (!sourceNodeId || !targetNodeId) return null
+
+  const label = resolveGraphOnlyEdgeLabel(edge)
+  return label
+    ? `  ${sourceNodeId} -- "${escapeMermaidLabel(label)}" --> ${targetNodeId}`
+    : `  ${sourceNodeId} --> ${targetNodeId}`
 }
 
 function parseCommentPayload<T>(line: string, prefix: string): T | null {
@@ -1842,6 +1920,44 @@ export function serializeWorkflowToTgMermaid(
   )
   for (const parallelId of parallelIds) {
     lines.push(toCommentLine(TG_PARALLEL_PREFIX, workflowState.parallels[parallelId]))
+  }
+
+  return lines.join('\n')
+}
+
+export function serializeWorkflowToGraphMermaid(
+  workflowState: WorkflowSnapshot,
+  options: { direction?: WorkflowDirection } = {}
+): string {
+  const direction =
+    options.direction ??
+    workflowState.direction ??
+    inferMermaidDirectionFromWorkflowState(workflowState)
+  const blocks = workflowState.blocks ?? {}
+  const blockIds = Object.keys(blocks).sort((left, right) => left.localeCompare(right))
+  const aliases = buildAliasMap(blockIds)
+  const childrenByParent = getChildrenByParent(blocks)
+  const rootBlockIds = blockIds.filter((blockId) => {
+    const parentId = blocks[blockId]?.data?.parentId
+    return !parentId || !blocks[parentId]
+  })
+  const lines = [`flowchart ${direction}`]
+
+  for (const blockId of rootBlockIds) {
+    emitBlockGraphLines({
+      blockId,
+      blocks,
+      aliases,
+      childrenByParent,
+      lines,
+      labelLinesForBlock: buildGraphOnlyBlockLabelLines,
+      includeConditionBranches: false,
+    })
+  }
+
+  for (const edge of workflowState.edges ?? []) {
+    const line = emitGraphOnlyEdgeGraphLine(edge, blocks, aliases)
+    if (line) lines.push(line)
   }
 
   return lines.join('\n')

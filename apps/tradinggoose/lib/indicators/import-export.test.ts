@@ -166,7 +166,7 @@ describe('indicator import/export helpers', () => {
     ).toThrow()
   })
 
-  it('rejects import entries with extra keys', () => {
+  it('rejects generated indicator storage fields in transfer records', () => {
     expect(() =>
       parseImportedIndicatorsFile({
         version: '2',

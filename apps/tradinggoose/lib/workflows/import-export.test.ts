@@ -215,7 +215,7 @@ describe('workflow import/export helpers', () => {
     })
   })
 
-  it('rejects invalid workflow envelopes', () => {
+  it('rejects generated workflow presentation color in transfer records', () => {
     const parsed = parseImportedWorkflowFile({
       version: '2',
       fileType: 'tradingGooseExport',

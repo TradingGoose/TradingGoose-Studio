@@ -45,6 +45,11 @@ const TOOL_NAMES = ToolIds.options
 const WORKFLOW_GRAPH_VALIDATORS: RuntimeToolManifestSemanticValidator[] = [
   {
     path: 'entityDocument',
+    kind: 'string_requires_real_newlines',
+    message: 'Workflow graph Mermaid must be raw multi-line Mermaid text with real newlines.',
+  },
+  {
+    path: 'entityDocument',
     kind: 'string_starts_with',
     args: { prefix: 'flowchart ' },
     message: 'Workflow graph Mermaid must start with `flowchart TD` or `flowchart LR`.',
