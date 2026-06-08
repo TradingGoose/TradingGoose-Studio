@@ -27,7 +27,7 @@ type ConditionEntry = {
 
 type MermaidLabelOverlay = {
   id: string
-  name: string
+  name?: string
   type?: string
   enabled?: boolean
   advancedMode?: boolean
@@ -632,18 +632,14 @@ function parseOverlayFromLabel(label: string): MermaidLabelOverlay | null {
     return null
   }
 
-  const overlay: MermaidLabelOverlay = {
-    id: '',
-    name: lines[0],
-    dataEntries: {},
-    subBlockEntries: {},
-  }
+  const overlay: MermaidLabelOverlay = { id: '', dataEntries: {}, subBlockEntries: {} }
 
   const conditionEntries: ConditionEntry[] = []
 
-  for (const line of lines.slice(1)) {
+  for (const line of lines) {
     const separatorIndex = line.indexOf(':')
     if (separatorIndex === -1) {
+      overlay.name ??= line
       continue
     }
 
@@ -692,7 +688,10 @@ function parseOverlayFromLabel(label: string): MermaidLabelOverlay | null {
       rawKey.startsWith('else-if-')
     ) {
       conditionEntries.push({ key: rawKey, value: rawValue })
+      continue
     }
+
+    overlay.name ??= line
   }
 
   if (overlay.id.length === 0) {
@@ -1061,11 +1060,11 @@ function parseVisibleWorkflowEdges(
     const sourceAncestors = getVisibleAncestorChain(sourceRef.blockId)
     const visibleEndpointViolation =
       targetRef.kind === 'container-start'
-        ? `Invalid visible container edge: ${targetRef.blockId} start node is source-only. Use the ${targetRef.blockId} container block alias in the visible line and targetHandle "target" in TG_EDGE metadata for incoming edges.`
+        ? `Invalid container edge: ${targetRef.blockId} start node is source-only. Use the ${targetRef.blockId} container block alias in the visible line and targetHandle "target" in TG_EDGE metadata for incoming edges.`
         : targetRef.kind === 'container-end' && !sourceAncestors.includes(targetRef.blockId)
-          ? `Invalid visible container edge: ${targetRef.blockId} end node only accepts edges from blocks inside that container. Use the ${targetRef.blockId} container block alias in the visible line and targetHandle "target" in TG_EDGE metadata for incoming outer edges.`
+          ? `Invalid container edge: ${targetRef.blockId} end node only accepts edges from blocks inside that container. Use the ${targetRef.blockId} container block alias in the visible line and targetHandle "target" in TG_EDGE metadata for incoming outer edges.`
           : sourceRef.kind === 'container-start' && !targetAncestors.includes(sourceRef.blockId)
-            ? `Invalid visible container edge: ${sourceRef.blockId} start node only connects to blocks inside that container. Use the ${sourceRef.blockId} container block alias for outer workflow edges.`
+            ? `Invalid container edge: ${sourceRef.blockId} start node only connects to blocks inside that container. Use the ${sourceRef.blockId} container block alias for outer workflow edges.`
             : null
 
     if (visibleEndpointViolation) throw new Error(visibleEndpointViolation)
@@ -1421,7 +1420,7 @@ export function parseGraphOnlyWorkflowMermaid(
       graphBlocks[blockId] = {
         id: blockId,
         type: overlay.type ?? 'unknown',
-        name: overlay.name,
+        name: overlay.name ?? '',
         position: { x: 0, y: 0 },
         subBlocks: {},
         outputs: {},

@@ -86,7 +86,7 @@ describe('editWorkflowServerTool', () => {
     expect(result.entityDocument).not.toContain('TG_')
   })
 
-  it('adds new blocks with canonical defaults and graph labels', async () => {
+  it('adds new blocks with canonical defaults from metadata-only labels', async () => {
     const { editWorkflowServerTool } = await import(
       '@/lib/copilot/tools/server/workflow/edit-workflow'
     )
@@ -97,7 +97,7 @@ describe('editWorkflowServerTool', () => {
         entityDocument: graph([
           'flowchart TD',
           '  n1["Input Form<br/>id: input1<br/>type: input_trigger"]',
-          '  n2["Transform<br/>id: fn2<br/>type: function"]',
+          '  n2["id: fn2<br/>type: function"]',
           '  n1 --> n2',
         ]),
         currentWorkflowState: JSON.stringify({
@@ -111,7 +111,7 @@ describe('editWorkflowServerTool', () => {
     expect(result.workflowState.blocks.fn2).toMatchObject({
       id: 'fn2',
       type: 'function',
-      name: 'Transform',
+      name: 'Mock Function',
       enabled: true,
     })
     expect(result.workflowState.blocks.fn2.subBlocks.code).toMatchObject({
@@ -152,14 +152,14 @@ describe('editWorkflowServerTool', () => {
     const result = await editWorkflowServerTool.execute(
       {
         entityId: 'wf-1',
-          entityDocument: graph([
-            'flowchart TD',
-            '  n1["Input Form<br/>id: input1<br/>type: input_trigger"]',
-          ]),
-          removedBlockIds: ['fn1'],
-          currentWorkflowState: JSON.stringify(BASE_WORKFLOW_STATE),
-        },
-        { userId: 'user-1' }
+        entityDocument: graph([
+          'flowchart TD',
+          '  n1["Input Form<br/>id: input1<br/>type: input_trigger"]',
+        ]),
+        removedBlockIds: ['fn1'],
+        currentWorkflowState: JSON.stringify(BASE_WORKFLOW_STATE),
+      },
+      { userId: 'user-1' }
     )
 
     expect(result.workflowState.blocks).toHaveProperty('input1')
