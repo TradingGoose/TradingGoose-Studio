@@ -6,7 +6,10 @@ import {
   SKILL_DOCUMENT_FORMAT,
 } from '@/lib/copilot/entity-documents'
 import { MONITOR_DOCUMENT_FORMAT } from '@/lib/copilot/monitor/monitor-documents'
-import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
+import {
+  TG_MERMAID_DOCUMENT_FORMAT,
+  WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
+} from '@/lib/workflows/document-format'
 import { WORKFLOW_VARIABLE_TYPES, type WorkflowVariableType } from '@/lib/workflows/value-types'
 import {
   GetAgentAccessoryCatalogInput,
@@ -595,6 +598,11 @@ const WorkflowDocumentEnvelope = WorkflowTargetEnvelope.extend({
   entityDocument: z.string(),
 })
 
+const WorkflowGraphDocumentEnvelope = WorkflowTargetEnvelope.extend({
+  documentFormat: z.literal(WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT),
+  entityDocument: z.string(),
+})
+
 const WorkflowSummaryResult = z.object({
   blocks: z.array(
     z.object({
@@ -772,7 +780,7 @@ const WorkflowPreviewEdge = z.object({
   targetHandle: z.string().optional(),
 })
 
-const BuildOrEditWorkflowResult = WorkflowDocumentEnvelope.extend({
+const WorkflowMutationResultShape = {
   workflowState: z.unknown().optional(),
   preview: z
     .object({
@@ -794,7 +802,10 @@ const BuildOrEditWorkflowResult = WorkflowDocumentEnvelope.extend({
       edgesCount: z.number(),
     })
     .optional(),
-})
+}
+
+const EditWorkflowResult = WorkflowGraphDocumentEnvelope.extend(WorkflowMutationResultShape)
+const EditWorkflowBlockResult = WorkflowDocumentEnvelope.extend(WorkflowMutationResultShape)
 
 const ExecutionEntry = z.object({
   id: z.string(),
@@ -845,8 +856,8 @@ export const ToolResultSchemas = {
     message: z.string().optional(),
   }),
 
-  edit_workflow: BuildOrEditWorkflowResult,
-  edit_workflow_block: BuildOrEditWorkflowResult,
+  edit_workflow: EditWorkflowResult,
+  edit_workflow_block: EditWorkflowBlockResult,
   rename_workflow: WorkflowMutationResult,
   run_workflow: z.object({
     executionId: z.string().optional(),

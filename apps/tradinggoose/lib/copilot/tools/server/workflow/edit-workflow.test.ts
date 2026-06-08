@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 
 vi.mock('@/lib/workflows/validation', () => ({
   validateWorkflowState: (state: any) => ({
@@ -81,6 +82,8 @@ describe('editWorkflowServerTool', () => {
         target: 'fn1',
       }),
     ])
+    expect(result.documentFormat).toBe(WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT)
+    expect(result.entityDocument).not.toContain('TG_')
   })
 
   it('adds new blocks with canonical defaults and graph labels', async () => {

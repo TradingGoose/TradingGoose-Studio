@@ -28,7 +28,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   [CopilotTool.read_workflow]: {
     description:
-      'Read a workflow by exact `entityId` and return Mermaid in `entityDocument`, plus `workflowSummary.blocks[].connections` counts and exact raw `workflowSummary.edges` with external/internal scope. For topology, use only these edges/counts; do not infer graph connections from subBlock text references like `<...>`. `connectionIssues` only reports malformed existing edges.',
+      'Read a workflow by exact `entityId` and return full `tg-mermaid-v1` inspection Mermaid in `entityDocument`, plus `workflowSummary.blocks[].connections` counts and exact raw `workflowSummary.edges` with external/internal scope. Do not submit this full document to `edit_workflow`; that tool accepts minimal graph-only Mermaid. For topology, use only these edges/counts; do not infer graph connections from subBlock text references like `<...>`. `connectionIssues` only reports malformed existing edges.',
     kind: 'read',
     entityKind: 'workflow',
   },
@@ -40,7 +40,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   edit_workflow: {
     description:
-      'Replace the full workflow graph using exact argument keys `entityId` and minimal Mermaid `entityDocument`, then return the resulting workflow state. Use this only for graph or topology edits such as adding, removing, reconnecting, replacing blocks, or changing loop/parallel nesting. Do not send `documentFormat`, `TG_BLOCK`, `TG_EDGE`, `subBlocks`, `outputs`, `enabled`, positions, or full block metadata. Existing block details are preserved by exact block id. New blocks need `id:` and canonical `type:` labels. If any existing block id is intentionally removed or replaced, include it in `removedBlockIds`; otherwise every existing block id must remain in the Mermaid graph. Use `edit_workflow_block` for one existing block `name`, `enabled`, or `subBlocks` change.',
+      'Replace the full workflow graph using exact argument keys `entityId` and minimal Mermaid `entityDocument`, then return the resulting workflow state and graph-only Mermaid document. Use this only for graph or topology edits such as adding, removing, reconnecting, replacing blocks, or changing loop/parallel nesting. Do not send `documentFormat`, `TG_BLOCK`, `TG_EDGE`, `subBlocks`, `outputs`, `enabled`, positions, or full block metadata. Existing block details are preserved by exact block id. New blocks need `id:` and canonical `type:` labels. If any existing block id is intentionally removed or replaced, include it in `removedBlockIds`; otherwise every existing block id must remain in the Mermaid graph. Use `edit_workflow_block` for one existing block `name`, `enabled`, or `subBlocks` change.',
     kind: 'edit',
     entityKind: 'workflow',
   },

@@ -198,6 +198,7 @@ export class EditWorkflowClientTool extends StagedReviewClientTool<Record<string
           entityName: readableWorkflow.entityName,
           workspaceId: readableWorkflow.workspaceId ?? workspaceId,
           entityDocument: result.entityDocument,
+          documentFormat: result.documentFormat,
         }),
       }
       this.hasAppliedState = false

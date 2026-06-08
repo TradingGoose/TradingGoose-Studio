@@ -4,6 +4,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { resolveBlockRuntimeState } from '@/lib/workflows/block-outputs'
 import { parseGraphOnlyWorkflowMermaid } from '@/lib/workflows/studio-workflow-mermaid'
 import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
+import { WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 import { createWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { getBlock } from '@/blocks'
 import { generateLoopBlocks, generateParallelBlocks } from '@/stores/workflows/workflow/utils'
@@ -199,6 +200,8 @@ export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
       baseWorkflowState,
       nextWorkflowState,
       requestedDirection: nextWorkflowState.direction,
+      entityDocument: entityDocument.trim(),
+      documentFormat: WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
     })
 
     logger.info('edit_workflow successfully applied workflow graph', {

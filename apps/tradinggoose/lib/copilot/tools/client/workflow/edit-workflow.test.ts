@@ -20,6 +20,7 @@ const editWorkflowDocument = [
   'flowchart TD',
   '  n1["Trigger<br/>id: block-1<br/>type: trigger"]',
 ].join('\n')
+const workflowGraphDocumentFormat = 'tg-workflow-graph-mermaid-v1'
 
 let persistedToolCalls: Record<string, any> = {}
 
@@ -30,16 +31,18 @@ vi.mock('@/lib/copilot/tools/client/workflow/workflow-review-tool-utils', () => 
     workflowId,
     entityName,
     entityDocument,
+    documentFormat,
   }: {
     workflowId: string
     entityName?: string
     entityDocument: string
+    documentFormat?: string
   }) => ({
     entityKind: 'workflow',
     entityId: workflowId,
     ...(entityName ? { entityName } : {}),
     entityDocument,
-    documentFormat: 'tg-mermaid-v1',
+    documentFormat: documentFormat ?? 'tg-mermaid-v1',
   }),
 }))
 
@@ -141,7 +144,8 @@ describe('EditWorkflowClientTool approval gating', () => {
                 loops: {},
                 parallels: {},
               },
-              entityDocument: workflowDocument,
+              entityDocument: editWorkflowDocument,
+              documentFormat: workflowGraphDocumentFormat,
             },
           }),
         }
@@ -242,7 +246,8 @@ describe('EditWorkflowClientTool approval gating', () => {
                 loops: {},
                 parallels: {},
               },
-              entityDocument: workflowDocument,
+              entityDocument: editWorkflowDocument,
+              documentFormat: workflowGraphDocumentFormat,
             },
           }),
         }
@@ -301,7 +306,8 @@ describe('EditWorkflowClientTool approval gating', () => {
             success: true,
             result: {
               workflowState: nextWorkflowState,
-              entityDocument: workflowDocument,
+              entityDocument: editWorkflowDocument,
+              documentFormat: workflowGraphDocumentFormat,
             },
           }),
         }
@@ -354,8 +360,8 @@ describe('EditWorkflowClientTool approval gating', () => {
     expect(markCompleteBody.data).toMatchObject({
       entityKind: 'workflow',
       entityId: 'wf-1',
-      entityDocument: workflowDocument,
-      documentFormat: 'tg-mermaid-v1',
+      entityDocument: editWorkflowDocument,
+      documentFormat: workflowGraphDocumentFormat,
     })
   })
 

@@ -72,6 +72,28 @@ describe('copilot server tool errors', () => {
     expect(response.body.hint).toContain('removedBlockIds')
   })
 
+  it('returns retryable graph-document guidance for malformed edit workflow Mermaid', () => {
+    const response = buildCopilotServerToolErrorResponse(
+      'edit_workflow',
+      new Error('Workflow graph Mermaid must start with `flowchart TD` or `flowchart LR`.')
+    )
+
+    expect(response).toEqual({
+      status: 422,
+      body: expect.objectContaining({
+        code: 'invalid_workflow_graph_document',
+        retryable: true,
+        issues: [
+          {
+            path: 'entityDocument',
+            message: 'Workflow graph Mermaid must start with `flowchart TD` or `flowchart LR`.',
+          },
+        ],
+      }),
+    })
+    expect(response.body.hint).toContain('minimal Mermaid graph')
+  })
+
   it('falls back to a generic 500 payload for unknown tool failures', () => {
     const response = buildCopilotServerToolErrorResponse(
       'make_api_request',

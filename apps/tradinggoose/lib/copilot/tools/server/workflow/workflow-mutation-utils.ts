@@ -32,8 +32,11 @@ export function buildWorkflowMutationResult(params: {
   baseWorkflowState: WorkflowSnapshot
   nextWorkflowState: WorkflowSnapshot
   requestedDirection?: WorkflowDirection
+  entityDocument?: string
+  documentFormat?: string
 }) {
   const { workflowId, baseWorkflowState, nextWorkflowState, requestedDirection } = params
+  const documentFormat = params.documentFormat ?? TG_MERMAID_DOCUMENT_FORMAT
   const nonCanonicalSubBlockErrors = findIntroducedNonCanonicalSubBlocks(
     nextWorkflowState,
     baseWorkflowState
@@ -63,14 +66,15 @@ export function buildWorkflowMutationResult(params: {
   finalWorkflowState = createWorkflowSnapshot(normalizedWorkflow.workflowState)
   const preview = buildWorkflowDocumentPreviewDiff(baseWorkflowState, finalWorkflowState)
   const warnings = Array.from(new Set([...orientationWarnings, ...preview.warnings, ...validation.warnings]))
-  const entityDocument = serializeWorkflowToTgMermaid(finalWorkflowState, { direction })
+  const entityDocument =
+    params.entityDocument ?? serializeWorkflowToTgMermaid(finalWorkflowState, { direction })
 
   return {
     success: true,
     entityKind: 'workflow' as const,
     entityId: workflowId,
     entityDocument,
-    documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
+    documentFormat,
     workflowState: finalWorkflowState,
     preview: {
       ...preview,

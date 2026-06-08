@@ -76,6 +76,25 @@ function buildInvalidToolPayloadError(
 }
 
 function buildEditWorkflowError(message: string): CopilotServerToolErrorResponse | null {
+  const isGraphDocumentError =
+    message.startsWith('Workflow graph Mermaid ') ||
+    /^New workflow block ".+" is missing a type label\.$/.test(message) ||
+    /^Unknown workflow block type ".+" for new block ".+"\.$/.test(message) ||
+    message === 'entityDocument is required'
+
+  if (isGraphDocumentError) {
+    return {
+      status: 422,
+      body: {
+        code: 'invalid_workflow_graph_document',
+        error: message,
+        hint: 'Send a complete minimal Mermaid graph starting with `flowchart TD` or `flowchart LR`. Do not include TG_* metadata or block internals. Every new block needs `id:` and canonical `type:` labels from `get_available_blocks` or `get_blocks_metadata`.',
+        retryable: true,
+        issues: [{ path: 'entityDocument', message }],
+      },
+    }
+  }
+
   if (message.startsWith('Invalid container edge:')) {
     return {
       status: 422,
