@@ -932,20 +932,22 @@ function parseVisibleWorkflowEdges(
       continue
     }
 
-    const subgraphMatch = trimmed.match(/^subgraph\s+(?:sg_)?([A-Za-z0-9_-]+)\["(.*)"\]$/)
+    const subgraphMatch = trimmed.match(/^subgraph\s+([A-Za-z0-9_-]+)\["(.*)"\]$/)
     if (subgraphMatch?.[1] && subgraphMatch[2]) {
       const currentContainerId = getActiveContainerId()
       const overlay = parseOverlayFromLabel(subgraphMatch[2])
       if (overlay) {
         const nodeId = subgraphMatch[1]
-        aliasToBlockId.set(nodeId, overlay.id)
-        nodeRefs.set(nodeId, { kind: 'block', blockId: overlay.id, blockType: overlay.type })
+        const edgeNodeId =
+          nodeId.startsWith('sg_') && overlay.id !== nodeId ? nodeId.slice('sg_'.length) : nodeId
+        aliasToBlockId.set(edgeNodeId, overlay.id)
+        nodeRefs.set(edgeNodeId, { kind: 'block', blockId: overlay.id, blockType: overlay.type })
         visibleBlockIds.add(overlay.id)
         if (currentContainerId && currentContainerId !== overlay.id) {
           inferredParentIds.set(overlay.id, currentContainerId)
         }
         if (!preferredBlockNodeIds.has(overlay.id)) {
-          preferredBlockNodeIds.set(overlay.id, nodeId)
+          preferredBlockNodeIds.set(overlay.id, edgeNodeId)
         }
         subgraphStack.push({
           blockId: overlay.id,
@@ -1062,7 +1064,9 @@ function parseVisibleWorkflowEdges(
     const sourceRef = nodeRefs.get(edgeMatch[1])
     const targetRef = nodeRefs.get(edgeMatch[3])
     if (!sourceRef || !targetRef) {
-      continue
+      throw new Error(
+        `Workflow graph Mermaid edge "${edgeMatch[1]} --> ${edgeMatch[3]}" references unknown node id.`
+      )
     }
 
     if (
