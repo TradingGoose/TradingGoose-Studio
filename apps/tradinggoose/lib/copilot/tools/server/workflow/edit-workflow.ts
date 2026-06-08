@@ -2,7 +2,6 @@ import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 import { resolveBlockRuntimeState } from '@/lib/workflows/block-outputs'
-import { WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 import { parseGraphOnlyWorkflowMermaid } from '@/lib/workflows/studio-workflow-mermaid'
 import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
 import { getAbsoluteBlockPosition } from '@/lib/workflows/workflow-direction'
@@ -229,8 +228,6 @@ export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
       baseWorkflowState,
       nextWorkflowState,
       requestedDirection: nextWorkflowState.direction,
-      entityDocument: entityDocument.trim(),
-      documentFormat: WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
     })
 
     logger.info('edit_workflow successfully applied workflow graph', {

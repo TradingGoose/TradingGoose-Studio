@@ -218,20 +218,21 @@ describe('workflow import/export helpers', () => {
   it('rejects invalid workflow envelopes', () => {
     const parsed = parseImportedWorkflowFile({
       version: '2',
-      fileType: 'wrongFileType',
+      fileType: 'tradingGooseExport',
       exportedAt: '2026-04-08T15:30:00.000Z',
       exportedFrom: 'workflowEditor',
-      resourceTypes: ['skills'],
+      resourceTypes: ['workflows'],
       workflows: [
         {
           name: 'Primary Workflow',
+          color: '#3972F6',
           state: createWorkflowState(),
         },
       ],
     })
 
     expect(parsed.data).toBeNull()
-    expect(parsed.errors[0]).toContain('Unsupported JSON format')
+    expect(parsed.errors[0]).toContain('color')
   })
 
   it('renames duplicate imported workflows with the imported marker', () => {

@@ -8,7 +8,6 @@ import {
 import { MONITOR_DOCUMENT_FORMAT } from '@/lib/copilot/monitor/monitor-documents'
 import {
   TG_MERMAID_DOCUMENT_FORMAT,
-  WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
 } from '@/lib/workflows/document-format'
 import { WORKFLOW_VARIABLE_TYPES, type WorkflowVariableType } from '@/lib/workflows/value-types'
 import {
@@ -169,7 +168,7 @@ const EditWorkflowArgs = z
       .string()
       .min(1)
       .describe(
-        'Minimal Mermaid flowchart for the entire workflow graph, not a partial patch. Include flowchart direction, existing block ids, new block `id:` and `type:` labels, subgraph nesting, and edge arrows. Do not include `%% TG_*` metadata, subBlocks, outputs, enabled, positions, or full block metadata. Existing block ids are stable identities: their type, details, and layout are preserved by id. This tool cannot replace an existing block or change its type; new ids create new blocks with generated positions. Use edit_workflow_block for block internals.'
+        'Minimal Mermaid flowchart for the entire workflow graph, not a partial patch. Include flowchart direction, existing block ids, new block `id:` and `type:` labels, subgraph nesting, and edge arrows. Do not include `%% TG_*` metadata, subBlocks, outputs, enabled, positions, or full block metadata. Existing block ids are stable identities: their type and details are preserved by id. This tool cannot replace an existing block or change its type; new ids create new blocks with generated positions. Use edit_workflow_block for block internals.'
       ),
     removedBlockIds: z
       .array(z.string().trim().min(1))
@@ -598,11 +597,6 @@ const WorkflowDocumentEnvelope = WorkflowTargetEnvelope.extend({
   entityDocument: z.string(),
 })
 
-const WorkflowGraphDocumentEnvelope = WorkflowTargetEnvelope.extend({
-  documentFormat: z.literal(WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT),
-  entityDocument: z.string(),
-})
-
 const WorkflowSummaryResult = z.object({
   blocks: z.array(
     z.object({
@@ -802,7 +796,7 @@ const WorkflowMutationResultShape = {
     .optional(),
 }
 
-const EditWorkflowResult = WorkflowGraphDocumentEnvelope.extend(WorkflowMutationResultShape)
+const EditWorkflowResult = WorkflowDocumentEnvelope.extend(WorkflowMutationResultShape)
 const EditWorkflowBlockResult = WorkflowDocumentEnvelope.extend(WorkflowMutationResultShape)
 
 const ExecutionEntry = z.object({

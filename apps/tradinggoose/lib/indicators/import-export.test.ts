@@ -177,6 +177,7 @@ describe('indicator import/export helpers', () => {
         indicators: [
           {
             id: 'indicator-1',
+            color: '#3972F6',
             name: 'RSI Export Example',
             pineCode: "indicator('RSI Export Example')",
           },
