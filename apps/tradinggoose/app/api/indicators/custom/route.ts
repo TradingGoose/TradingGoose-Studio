@@ -36,7 +36,6 @@ const IndicatorSchema = z.object({
     z.object({
       id: z.string().optional(),
       name: z.string().min(1, 'Indicator name is required'),
-      color: z.string().optional(),
       pineCode: z.string().default(''),
       inputMeta: z.record(z.any()).optional(),
     })

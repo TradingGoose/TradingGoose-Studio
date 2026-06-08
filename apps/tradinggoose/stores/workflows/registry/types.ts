@@ -70,7 +70,6 @@ export interface WorkflowRegistryActions {
     marketplaceState?: any
     name?: string
     description?: string
-    color?: string
     workspaceId?: string
     folderId?: string | null
   }) => Promise<string>

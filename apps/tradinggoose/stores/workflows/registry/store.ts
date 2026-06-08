@@ -887,12 +887,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
             workspaceId,
             folderId: options.folderId || null,
           }
-          if (typeof options.color === 'string') {
-            requestBody.color = options.color
-          }
-          if (options.marketplaceId) {
-            requestBody.color = '#808080'
-          }
 
           const response = await fetch('/api/workflows', {
             method: 'POST',

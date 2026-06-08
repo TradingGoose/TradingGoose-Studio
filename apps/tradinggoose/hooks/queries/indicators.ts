@@ -142,7 +142,7 @@ export function useIndicators(workspaceId: string) {
 
 interface CreateIndicatorParams {
   workspaceId: string
-  indicator: Omit<IndicatorDefinition, 'id' | 'workspaceId' | 'userId' | 'createdAt' | 'updatedAt'>
+  indicator: Pick<IndicatorDefinition, 'name' | 'pineCode' | 'inputMeta'>
 }
 
 export function useCreateIndicator() {
@@ -152,19 +152,11 @@ export function useCreateIndicator() {
     mutationFn: async ({ workspaceId, indicator }: CreateIndicatorParams) => {
       logger.info(`Creating indicator: ${indicator.name} in workspace ${workspaceId}`)
 
-      const resolvedIndicator = {
-        ...indicator,
-        color:
-          typeof indicator.color === 'string' && indicator.color.trim().length > 0
-            ? indicator.color.trim()
-            : undefined,
-      }
-
       const response = await fetch(API_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          indicators: [resolvedIndicator],
+          indicators: [indicator],
           workspaceId,
         }),
       })
@@ -192,7 +184,7 @@ interface UpdateIndicatorParams {
   workspaceId: string
   indicatorId: string
   updates: Partial<
-    Omit<IndicatorDefinition, 'id' | 'workspaceId' | 'userId' | 'createdAt' | 'updatedAt'>
+    Omit<IndicatorDefinition, 'id' | 'workspaceId' | 'userId' | 'color' | 'createdAt' | 'updatedAt'>
   >
 }
 
@@ -229,7 +221,6 @@ export function useUpdateIndicator() {
             {
               id: indicatorId,
               name: updates.name ?? currentIndicator.name,
-              color: updates.color ?? currentIndicator.color,
               pineCode: updates.pineCode ?? currentIndicator.pineCode,
               inputMeta: resolvedInputMeta,
             },
