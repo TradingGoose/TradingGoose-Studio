@@ -2,13 +2,13 @@ import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 import { resolveBlockRuntimeState } from '@/lib/workflows/block-outputs'
+import { WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 import { parseGraphOnlyWorkflowMermaid } from '@/lib/workflows/studio-workflow-mermaid'
 import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
-import { WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 import { createWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { getBlock } from '@/blocks'
-import { generateLoopBlocks, generateParallelBlocks } from '@/stores/workflows/workflow/utils'
 import type { BlockState, Position } from '@/stores/workflows/workflow/types'
+import { generateLoopBlocks, generateParallelBlocks } from '@/stores/workflows/workflow/utils'
 import { buildWorkflowMutationResult, loadBaseWorkflowState } from './workflow-mutation-utils'
 
 interface EditWorkflowParams {
@@ -131,7 +131,9 @@ function applyGraphMermaidToWorkflow(
     )
   }
 
-  const stillPresentRemovedBlockIds = removedBlockIds.filter((blockId) => graphBlockIds.has(blockId))
+  const stillPresentRemovedBlockIds = removedBlockIds.filter((blockId) =>
+    graphBlockIds.has(blockId)
+  )
   if (stillPresentRemovedBlockIds.length > 0) {
     throw new Error(
       `Invalid edited workflow: removedBlockIds still appear in edit_workflow entityDocument: ${stillPresentRemovedBlockIds.join(', ')}.`
@@ -141,6 +143,11 @@ function applyGraphMermaidToWorkflow(
   for (const graphBlock of graph.blocks) {
     const existingBlock = baseWorkflowState.blocks?.[graphBlock.blockId]
     if (existingBlock) {
+      if (graphBlock.blockType && graphBlock.blockType !== existingBlock.type) {
+        throw new Error(
+          `Invalid edited workflow: Existing block "${graphBlock.blockId}" has type "${existingBlock.type}" but entityDocument declares type "${graphBlock.blockType}". Keep the existing type or remove the old block id and add a new block id with removedBlockIds.`
+        )
+      }
       blocks[graphBlock.blockId] = setParent(existingBlock, graphBlock.parentId)
       continue
     }

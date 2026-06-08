@@ -1413,10 +1413,10 @@ export function parseGraphOnlyWorkflowMermaid(
     }
   }
 
-  const overlays = parseMermaidLabelOverlays(document, Object.keys(existingBlocks))
+  const blockOverlays = parseMermaidLabelOverlays(document, Object.keys(existingBlocks))
   const graphBlocks: Record<string, BlockState> = { ...existingBlocks }
 
-  for (const [blockId, overlay] of overlays.blocks) {
+  for (const [blockId, overlay] of blockOverlays.blocks) {
     if (!graphBlocks[blockId]) {
       graphBlocks[blockId] = {
         id: blockId,
@@ -1428,6 +1428,12 @@ export function parseGraphOnlyWorkflowMermaid(
         enabled: true,
       }
     }
+  }
+
+  if (parseMermaidLabelOverlays(document, Object.keys(graphBlocks)).conditionBranches.size > 0) {
+    throw new Error(
+      'Workflow graph Mermaid must not include condition branch labels. Use edit_workflow_block to change condition branch definitions.'
+    )
   }
 
   const visibleGraph = parseVisibleWorkflowEdges(document, graphBlocks)
@@ -1444,6 +1450,22 @@ export function parseGraphOnlyWorkflowMermaid(
       ...(targetHandle ? { targetHandle } : {}),
     })
   )
+  for (const edge of edges) {
+    const conditionKey = extractConditionDisplayKey(edge.source, edge.sourceHandle)
+    if (!conditionKey) continue
+
+    const sourceBlock = blocksWithVisibleParenting[edge.source]
+    const existingConditionKeys = new Set(
+      parseConditionEntries(sourceBlock?.subBlocks?.[CONDITION_INPUT_KEY]?.value).map(
+        (entry) => entry.key
+      )
+    )
+    if (sourceBlock?.type !== 'condition' || !existingConditionKeys.has(conditionKey)) {
+      throw new Error(
+        `Workflow graph Mermaid references unknown condition branch "${conditionKey}" on block "${edge.source}". Use edit_workflow_block to define condition branches before wiring them.`
+      )
+    }
+  }
 
   if (visibleGraph.visibleBlockIds.size === 0) {
     throw new Error('Workflow graph Mermaid did not contain any workflow block nodes.')

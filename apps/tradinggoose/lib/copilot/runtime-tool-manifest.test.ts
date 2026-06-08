@@ -272,7 +272,10 @@ describe('copilot runtime tool manifest', () => {
     )
     const editWorkflowValidators =
       manifest.tools.find((tool) => tool.name === 'edit_workflow')?.semanticValidators ?? []
-    expect(editWorkflowValidators).toEqual([])
+    expect(editWorkflowValidators.map((validator) => validator.kind)).toEqual([
+      'string_starts_with',
+      'string_forbids_substring',
+    ])
     const editWorkflowProperties =
       (manifest.tools.find((tool) => tool.name === 'edit_workflow')?.parameters?.properties as
         | Record<string, unknown>
