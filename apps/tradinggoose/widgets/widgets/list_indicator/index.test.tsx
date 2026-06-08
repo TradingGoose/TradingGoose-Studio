@@ -128,7 +128,7 @@ describe('Indicator List header controls', () => {
     expect(input).toBeTruthy()
 
     const filePayload = {
-      version: '2',
+      version: '1',
       fileType: 'tradingGooseExport',
       exportedAt: '2026-04-08T15:30:00.000Z',
       exportedFrom: 'indicatorEditor',
@@ -140,7 +140,6 @@ describe('Indicator List header controls', () => {
       indicators: [
         {
           name: 'RSI Export Example',
-          color: '#3972F6',
           pineCode: "indicator('RSI Export Example')",
           inputMeta: {},
         },
@@ -189,7 +188,7 @@ describe('Indicator List header controls', () => {
     expect(input).toBeTruthy()
 
     const invalidPayload = {
-      version: '2',
+      version: '1',
       exportedAt: '2026-04-08T15:30:00.000Z',
       exportedFrom: 'indicatorEditor',
       resourceTypes: ['indicators'],

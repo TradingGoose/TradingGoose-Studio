@@ -8,6 +8,7 @@ import {
 import { MONITOR_DOCUMENT_FORMAT } from '@/lib/copilot/monitor/monitor-documents'
 import {
   TG_MERMAID_DOCUMENT_FORMAT,
+  WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
 } from '@/lib/workflows/document-format'
 import { WORKFLOW_VARIABLE_TYPES, type WorkflowVariableType } from '@/lib/workflows/value-types'
 import {
@@ -597,6 +598,11 @@ const WorkflowDocumentEnvelope = WorkflowTargetEnvelope.extend({
   entityDocument: z.string(),
 })
 
+const WorkflowGraphDocumentEnvelope = WorkflowTargetEnvelope.extend({
+  documentFormat: z.literal(WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT),
+  entityDocument: z.string(),
+})
+
 const WorkflowSummaryResult = z.object({
   blocks: z.array(
     z.object({
@@ -796,7 +802,7 @@ const WorkflowMutationResultShape = {
     .optional(),
 }
 
-const EditWorkflowResult = WorkflowDocumentEnvelope.extend(WorkflowMutationResultShape)
+const EditWorkflowResult = WorkflowGraphDocumentEnvelope.extend(WorkflowMutationResultShape)
 const EditWorkflowBlockResult = WorkflowDocumentEnvelope.extend(WorkflowMutationResultShape)
 
 const ExecutionEntry = z.object({

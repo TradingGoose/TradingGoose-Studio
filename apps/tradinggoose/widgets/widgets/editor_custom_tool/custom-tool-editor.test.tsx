@@ -260,7 +260,7 @@ describe('CustomToolEditor export', () => {
     const payload = JSON.parse(await readBlobText(blob))
 
     expect(payload).toEqual({
-      version: '2',
+      version: '1',
       fileType: 'tradingGooseExport',
       exportedAt: expect.any(String),
       exportedFrom: 'customToolEditor',

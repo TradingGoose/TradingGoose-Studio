@@ -211,7 +211,7 @@ describe('Indicator Editor header controls', () => {
     const payload = JSON.parse(await readBlobText(blob))
 
     expect(payload).toMatchObject({
-      version: '2',
+      version: '1',
       fileType: 'tradingGooseExport',
       exportedFrom: 'indicatorEditor',
       resourceTypes: ['indicators'],
@@ -222,7 +222,6 @@ describe('Indicator Editor header controls', () => {
       indicators: [
         {
           name: 'RSI Export Example',
-          color: '#3972F6',
           pineCode: "indicator('RSI Export Example')",
           inputMeta: {
             Length: {

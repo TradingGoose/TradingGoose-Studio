@@ -322,7 +322,7 @@ describe('watchlist header controls', () => {
     const file = {
       text: vi.fn().mockResolvedValue(
         JSON.stringify({
-          version: '2',
+          version: '1',
           fileType: 'tradingGooseExport',
           exportedAt: '2026-04-06T12:00:00.000Z',
           exportedFrom: 'watchlistWidget',
@@ -367,7 +367,7 @@ describe('watchlist header controls', () => {
       workspaceId: 'workspace-1',
       watchlistId: 'default-watchlist',
       file: {
-        version: '2',
+        version: '1',
         fileType: 'tradingGooseExport',
         exportedAt: '2026-04-06T12:00:00.000Z',
         exportedFrom: 'watchlistWidget',
