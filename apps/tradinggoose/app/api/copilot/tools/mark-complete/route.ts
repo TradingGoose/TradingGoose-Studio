@@ -10,7 +10,7 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 import { encodeSSE, SSE_HEADERS } from '@/lib/utils'
 import { getCopilotApiUrl, proxyCopilotRequest } from '@/app/api/copilot/proxy'
-import { commitLocalCopilotCompletionUsageReports } from '@/app/api/copilot/usage/route'
+import { mirrorLocalCopilotCompletionUsageReports } from '@/app/api/copilot/usage/route'
 
 const logger = createLogger('CopilotMarkToolCompleteAPI')
 const DATA_PREFIX = 'data: '
@@ -51,7 +51,7 @@ function createTurnStateStream(
 
       const forwardEvent = async (event: Record<string, unknown>) => {
         if (event.type === 'billing.completion_usage') {
-          await commitLocalCopilotCompletionUsageReports({
+          await mirrorLocalCopilotCompletionUsageReports({
             userId,
             reports: [event.report],
           })
@@ -224,7 +224,7 @@ export async function POST(req: NextRequest) {
     })
 
     if (agentRes.ok) {
-      await commitLocalCopilotCompletionUsageReports({
+      await mirrorLocalCopilotCompletionUsageReports({
         userId,
         reports: Array.isArray(agentJson?.completionUsageReports)
           ? agentJson.completionUsageReports

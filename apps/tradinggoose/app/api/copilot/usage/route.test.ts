@@ -868,10 +868,10 @@ describe('Copilot Usage API - Completion', () => {
       tier: createTier(2),
     })
 
-    const { commitLocalCopilotCompletionUsageReports } = await import(
+    const { mirrorLocalCopilotCompletionUsageReports } = await import(
       '@/app/api/copilot/usage/route'
     )
-    await commitLocalCopilotCompletionUsageReports({
+    await mirrorLocalCopilotCompletionUsageReports({
       userId: 'user-1',
       reports: [
         {
@@ -901,35 +901,33 @@ describe('Copilot Usage API - Completion', () => {
     )
   })
 
-  it('rejects invalid self-hosted Copilot completion reports', async () => {
+  it('ignores invalid self-hosted Copilot completion mirror reports', async () => {
     mockIsHosted.mockReturnValue(false)
     mockIsBillingEnabledForRuntime.mockResolvedValue(true)
 
-    const { commitLocalCopilotCompletionUsageReports } = await import(
+    const { mirrorLocalCopilotCompletionUsageReports } = await import(
       '@/app/api/copilot/usage/route'
     )
-    await expect(
-      commitLocalCopilotCompletionUsageReports({
-        userId: 'user-1',
-        reports: [
-          {
-            kind: 'completion',
-            model: 'gpt-5.4',
-            usage: {
-              prompt_tokens: 100,
-              completion_tokens: 25,
-              total_tokens: 125,
-            },
+    await mirrorLocalCopilotCompletionUsageReports({
+      userId: 'user-1',
+      reports: [
+        {
+          kind: 'completion',
+          model: 'gpt-5.4',
+          usage: {
+            prompt_tokens: 100,
+            completion_tokens: 25,
+            total_tokens: 125,
           },
-        ],
-      })
-    ).rejects.toThrow()
+        },
+      ],
+    })
 
     expect(mockAccrueUserUsageCost).not.toHaveBeenCalled()
     expect(mockHasProcessedMessage).not.toHaveBeenCalled()
   })
 
-  it('rejects self-hosted Copilot completion mirror billing failures', async () => {
+  it('isolates self-hosted Copilot completion mirror billing failures', async () => {
     mockIsHosted.mockReturnValue(false)
     mockIsBillingEnabledForRuntime.mockResolvedValue(true)
     mockGetPersonalEffectiveSubscription.mockResolvedValue({
@@ -940,26 +938,24 @@ describe('Copilot Usage API - Completion', () => {
       throw new Error('pricing unavailable')
     })
 
-    const { commitLocalCopilotCompletionUsageReports } = await import(
+    const { mirrorLocalCopilotCompletionUsageReports } = await import(
       '@/app/api/copilot/usage/route'
     )
-    await expect(
-      commitLocalCopilotCompletionUsageReports({
-        userId: 'user-1',
-        reports: [
-          {
-            kind: 'completion',
-            model: 'gpt-5.4',
-            completionId: 'local-completion-2',
-            usage: {
-              prompt_tokens: 100,
-              completion_tokens: 25,
-              total_tokens: 125,
-            },
+    await mirrorLocalCopilotCompletionUsageReports({
+      userId: 'user-1',
+      reports: [
+        {
+          kind: 'completion',
+          model: 'gpt-5.4',
+          completionId: 'local-completion-2',
+          usage: {
+            prompt_tokens: 100,
+            completion_tokens: 25,
+            total_tokens: 125,
           },
-        ],
-      })
-    ).rejects.toThrow('pricing unavailable')
+        },
+      ],
+    })
 
     expect(mockAccrueUserUsageCost).not.toHaveBeenCalled()
     expect(mockMarkMessageAsProcessed).not.toHaveBeenCalled()
@@ -968,10 +964,10 @@ describe('Copilot Usage API - Completion', () => {
   it('does not mirror hosted Copilot completion reports on hosted Studio', async () => {
     mockIsHosted.mockReturnValue(true)
 
-    const { commitLocalCopilotCompletionUsageReports } = await import(
+    const { mirrorLocalCopilotCompletionUsageReports } = await import(
       '@/app/api/copilot/usage/route'
     )
-    await commitLocalCopilotCompletionUsageReports({
+    await mirrorLocalCopilotCompletionUsageReports({
       userId: 'user-1',
       reports: [
         {

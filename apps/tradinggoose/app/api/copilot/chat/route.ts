@@ -45,7 +45,7 @@ import { CopilotFiles } from '@/lib/uploads'
 import { createFileContent } from '@/lib/uploads/utils/file-utils'
 import { encodeSSE, SSE_HEADERS } from '@/lib/utils'
 import { proxyCopilotRequest } from '@/app/api/copilot/proxy'
-import { commitLocalCopilotCompletionUsageReports } from '@/app/api/copilot/usage/route'
+import { mirrorLocalCopilotCompletionUsageReports } from '@/app/api/copilot/usage/route'
 import type { ProviderId } from '@/providers/ai/types'
 
 const logger = createLogger('CopilotChatAPI')
@@ -998,7 +998,7 @@ export async function POST(req: NextRequest) {
 
                     const event = JSON.parse(jsonStr)
                     if (event.type === 'billing.completion_usage') {
-                      await commitLocalCopilotCompletionUsageReports({
+                      await mirrorLocalCopilotCompletionUsageReports({
                         userId: authenticatedUserId,
                         reports: [event.report],
                       })
@@ -1142,7 +1142,7 @@ export async function POST(req: NextRequest) {
                   const jsonStr = buffer.slice(6)
                   const event = JSON.parse(jsonStr)
                   if (event.type === 'billing.completion_usage') {
-                    await commitLocalCopilotCompletionUsageReports({
+                    await mirrorLocalCopilotCompletionUsageReports({
                       userId: authenticatedUserId,
                       reports: [event.report],
                     })
@@ -1324,7 +1324,7 @@ export async function POST(req: NextRequest) {
           }
         })
       : undefined
-    await commitLocalCopilotCompletionUsageReports({
+    await mirrorLocalCopilotCompletionUsageReports({
       userId: authenticatedUserId,
       reports: Array.isArray(responseData.completionUsageReports)
         ? responseData.completionUsageReports

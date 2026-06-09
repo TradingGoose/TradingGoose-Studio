@@ -626,7 +626,7 @@ async function handleCompletionCommit(
   })
 }
 
-export async function commitLocalCopilotCompletionUsageReports(params: {
+export async function mirrorLocalCopilotCompletionUsageReports(params: {
   userId: string
   reports: unknown[]
 }): Promise<void> {
@@ -639,20 +639,24 @@ export async function commitLocalCopilotCompletionUsageReports(params: {
   }
 
   for (const report of params.reports) {
-    const payload = CompletionUsageReportSchema.parse(report)
-    const billing = await recordBilledUsage({
-      userId: params.userId,
-      workflowId: payload.workflowId ?? undefined,
-      usage: payload.usage,
-      billingModel: payload.model,
-      remoteModel: payload.remoteModel,
-      billingKeyPrefix: 'copilot-completion-billing',
-      billingKeyId: payload.completionId,
-      reason: 'copilot_completion_usage',
-    })
+    try {
+      const payload = CompletionUsageReportSchema.parse(report)
+      const billing = await recordBilledUsage({
+        userId: params.userId,
+        workflowId: payload.workflowId ?? undefined,
+        usage: payload.usage,
+        billingModel: payload.model,
+        remoteModel: payload.remoteModel,
+        billingKeyPrefix: 'copilot-completion-billing',
+        billingKeyId: payload.completionId,
+        reason: 'copilot_completion_usage',
+      })
 
-    if (!billing.billed && !billing.duplicate && billing.reason !== 'zero_cost') {
-      throw new Error(`Local Copilot completion billing failed: ${billing.reason}`)
+      if (!billing.billed && !billing.duplicate && billing.reason !== 'zero_cost') {
+        logger.warn('Local Copilot completion usage mirror skipped', { reason: billing.reason })
+      }
+    } catch (error) {
+      logger.warn('Failed to mirror local Copilot completion usage report', { error })
     }
   }
 }

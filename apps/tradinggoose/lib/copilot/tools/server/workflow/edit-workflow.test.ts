@@ -188,6 +188,28 @@ describe('editWorkflowServerTool', () => {
     expect(result.preview.blockDiff.added).toEqual(['fn2'])
   })
 
+  it('places new blocks after existing siblings regardless of Mermaid order', async () => {
+    const { editWorkflowServerTool } = await import(
+      '@/lib/copilot/tools/server/workflow/edit-workflow'
+    )
+
+    const result = await editWorkflowServerTool.execute(
+      {
+        entityId: 'wf-1',
+        entityDocument: graph([
+          'flowchart TD',
+          '  n2["id: fn2<br/>type: function"]',
+          '  n1["Input Form<br/>id: input1<br/>type: input_trigger"]',
+          '  n3["Compute Indicators<br/>id: fn1<br/>type: function"]',
+        ]),
+        currentWorkflowState: JSON.stringify(BASE_WORKFLOW_STATE),
+      },
+      { userId: 'user-1' }
+    )
+
+    expect(result.workflowState.blocks.fn2.position).toEqual({ x: 0, y: 360 })
+  })
+
   it('preserves existing block absolute position when moving into a container', async () => {
     const { editWorkflowServerTool } = await import(
       '@/lib/copilot/tools/server/workflow/edit-workflow'

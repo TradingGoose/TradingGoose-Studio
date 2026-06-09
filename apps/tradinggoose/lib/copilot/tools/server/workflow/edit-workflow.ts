@@ -37,17 +37,27 @@ function buildStableEdgeId(edge: {
   return `${edge.source}-${sourceHandle}-${edge.target}-${targetHandle}`
 }
 
-function buildInitialPosition(blocks: Record<string, BlockState>, parentId?: string): Position {
-  const siblingCount = Object.values(blocks).filter(
-    (block) => block.data?.parentId === parentId
-  ).length
-  return parentId ? { x: 120, y: siblingCount * 180 } : { x: 0, y: siblingCount * 180 }
+function createInitialPositionAllocator(
+  graphBlocks: Array<{ blockId: string; parentId?: string }>,
+  baseBlocks: Record<string, BlockState>
+): (parentId?: string) => Position {
+  const siblingCounts = new Map<string | undefined, number>()
+  for (const graphBlock of graphBlocks) {
+    if (!baseBlocks[graphBlock.blockId]) continue
+    siblingCounts.set(graphBlock.parentId, (siblingCounts.get(graphBlock.parentId) ?? 0) + 1)
+  }
+
+  return (parentId?: string) => {
+    const siblingCount = siblingCounts.get(parentId) ?? 0
+    siblingCounts.set(parentId, siblingCount + 1)
+    return parentId ? { x: 120, y: siblingCount * 180 } : { x: 0, y: siblingCount * 180 }
+  }
 }
 
 function buildDefaultBlock(
   blockId: string,
   blockType: string,
-  blocks: Record<string, BlockState>,
+  getInitialPosition: (parentId?: string) => Position,
   parentId?: string,
   name?: string
 ): BlockState {
@@ -63,7 +73,7 @@ function buildDefaultBlock(
       id: blockId,
       type: blockType,
       name: name?.trim() || (blockType === 'loop' ? 'Loop' : 'Parallel'),
-      position: buildInitialPosition(blocks, parentId),
+      position: getInitialPosition(parentId),
       subBlocks: {},
       outputs: {},
       enabled: true,
@@ -85,7 +95,7 @@ function buildDefaultBlock(
     id: blockId,
     type: blockType,
     name: name?.trim() || blockConfig.name,
-    position: buildInitialPosition(blocks, parentId),
+    position: getInitialPosition(parentId),
     subBlocks: runtimeState.subBlocks as BlockState['subBlocks'],
     outputs: runtimeState.outputs,
     enabled: true,
@@ -171,6 +181,11 @@ function applyGraphMermaidToWorkflow(
     )
   }
 
+  const getInitialPosition = createInitialPositionAllocator(
+    graph.blocks,
+    baseWorkflowState.blocks ?? {}
+  )
+
   for (const graphBlock of graph.blocks) {
     const existingBlock = baseWorkflowState.blocks?.[graphBlock.blockId]
     if (existingBlock) {
@@ -198,7 +213,7 @@ function applyGraphMermaidToWorkflow(
     blocks[graphBlock.blockId] = buildDefaultBlock(
       graphBlock.blockId,
       graphBlock.blockType,
-      blocks,
+      getInitialPosition,
       graphBlock.parentId,
       graphBlock.name
     )
