@@ -45,6 +45,7 @@ import { CopilotFiles } from '@/lib/uploads'
 import { createFileContent } from '@/lib/uploads/utils/file-utils'
 import { encodeSSE, SSE_HEADERS } from '@/lib/utils'
 import { proxyCopilotRequest } from '@/app/api/copilot/proxy'
+import { commitLocalCopilotCompletionUsageReports } from '@/app/api/copilot/usage/route'
 import type { ProviderId } from '@/providers/ai/types'
 
 const logger = createLogger('CopilotChatAPI')
@@ -996,6 +997,12 @@ export async function POST(req: NextRequest) {
                     }
 
                     const event = JSON.parse(jsonStr)
+                    if (event.type === 'billing.completion_usage') {
+                      await commitLocalCopilotCompletionUsageReports({
+                        userId: authenticatedUserId,
+                        reports: [event.report],
+                      })
+                    }
 
                     switch (event.type) {
                       case 'tool_result':
@@ -1134,6 +1141,12 @@ export async function POST(req: NextRequest) {
                 try {
                   const jsonStr = buffer.slice(6)
                   const event = JSON.parse(jsonStr)
+                  if (event.type === 'billing.completion_usage') {
+                    await commitLocalCopilotCompletionUsageReports({
+                      userId: authenticatedUserId,
+                      reports: [event.report],
+                    })
+                  }
                   if (event.type === 'tool_result') {
                     streamCapture.captureToolResult(event as Record<string, unknown>)
                   }
@@ -1168,7 +1181,7 @@ export async function POST(req: NextRequest) {
                       reader,
                       enqueueTurnState
                     )
-                  } else if (event.type !== 'billing.completion_usage') {
+                  } else {
                     try {
                       forwardClientEvent(event)
                     } catch (enqueueErr) {
@@ -1311,6 +1324,12 @@ export async function POST(req: NextRequest) {
           }
         })
       : undefined
+    await commitLocalCopilotCompletionUsageReports({
+      userId: authenticatedUserId,
+      reports: Array.isArray(responseData.completionUsageReports)
+        ? responseData.completionUsageReports
+        : [],
+    })
     responseData.completionUsageReports = undefined
 
     if (currentSession && (responseData.content || contentBlocks?.length)) {

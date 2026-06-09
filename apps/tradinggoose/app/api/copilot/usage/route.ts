@@ -33,9 +33,6 @@ const ContextUsageRequestSchema = z.object({
   model: z.enum(COPILOT_RUNTIME_MODELS),
   workflowId: z.string().optional(),
   provider: z.enum(COPILOT_RUNTIME_PROVIDER_IDS).optional(),
-  bill: z.boolean().optional(),
-  assistantMessageId: z.string().optional(),
-  billingModel: z.string().optional(),
 })
 
 const UsageEstimateSchema = z.object({
@@ -86,6 +83,15 @@ const CompletionCommitRequestSchema = z.object({
   completionId: z.string().min(1).optional(),
   workflowId: z.string().min(1).optional(),
   reservationId: z.string().min(1).optional(),
+})
+
+const CompletionUsageReportSchema = z.object({
+  kind: z.literal('completion'),
+  model: z.string().min(1, 'model is required'),
+  usage: z.unknown(),
+  remoteModel: z.string().nullable().optional(),
+  completionId: z.string().nullable().optional(),
+  workflowId: z.string().nullable().optional(),
 })
 
 const ReleaseUsageRequestSchema = z.object({
@@ -221,9 +227,9 @@ async function recordBilledUsage(params: {
   usage: any
   billingModel: string
   remoteModel?: string | null
-  billingKeyPrefix: 'copilot-billing' | 'copilot-completion-billing'
+  billingKeyPrefix: 'copilot-completion-billing'
   billingKeyId?: string | null
-  reason: 'copilot_context_usage' | 'copilot_completion_usage'
+  reason: 'copilot_completion_usage'
 }): Promise<UsageBillingResult> {
   const {
     userId,
@@ -449,8 +455,7 @@ async function fetchContextUsageFromCopilot(params: {
 async function handleContextUsage(
   payload: z.infer<typeof ContextUsageRequestSchema>
 ): Promise<NextResponse> {
-  const { conversationId, model, workflowId, provider, bill, assistantMessageId, billingModel } =
-    payload
+  const { conversationId, model, workflowId, provider } = payload
   const session = await getSession()
   const userId = session?.user?.id
 
@@ -480,44 +485,7 @@ async function handleContextUsage(
   }
 
   const data = await simAgentResponse.json()
-  const shouldBill = Boolean(bill && assistantMessageId && !isHosted)
-  if (!shouldBill) {
-    return NextResponse.json(data)
-  }
-
-  if (!(await isBillingEnabledForRuntime())) {
-    return NextResponse.json({
-      ...data,
-      billing: { billed: false, reason: 'billing_disabled' },
-    })
-  }
-
-  try {
-    const billing = await recordBilledUsage({
-      userId,
-      workflowId,
-      usage: data,
-      billingModel: billingModel || model,
-      remoteModel: data?.model,
-      billingKeyPrefix: 'copilot-billing',
-      billingKeyId: assistantMessageId,
-      reason: 'copilot_context_usage',
-    })
-    return NextResponse.json({
-      ...data,
-      billing,
-    })
-  } catch (billingError) {
-    logger.error('Failed to bill copilot context usage', {
-      error: billingError,
-      conversationId,
-      assistantMessageId,
-    })
-    return NextResponse.json({
-      ...data,
-      billing: { billed: false, reason: 'ledger_not_found' },
-    })
-  }
+  return NextResponse.json(data)
 }
 
 async function releaseCommittedReservation(reservationId?: string): Promise<void> {
@@ -656,6 +624,41 @@ async function handleCompletionCommit(
     success: true,
     billing,
   })
+}
+
+export async function commitLocalCopilotCompletionUsageReports(params: {
+  userId: string
+  reports: unknown[]
+}): Promise<UsageBillingResult[]> {
+  if (isHosted || params.reports.length === 0) {
+    return []
+  }
+
+  if (!(await isBillingEnabledForRuntime())) {
+    return params.reports.map(() => ({
+      billed: false,
+      reason: 'billing_disabled' as const,
+    }))
+  }
+
+  const results: UsageBillingResult[] = []
+  for (const report of params.reports) {
+    const payload = CompletionUsageReportSchema.parse(report)
+    results.push(
+      await recordBilledUsage({
+        userId: params.userId,
+        workflowId: payload.workflowId ?? undefined,
+        usage: payload.usage,
+        billingModel: payload.model,
+        remoteModel: payload.remoteModel,
+        billingKeyPrefix: 'copilot-completion-billing',
+        billingKeyId: payload.completionId,
+        reason: 'copilot_completion_usage',
+      })
+    )
+  }
+
+  return results
 }
 
 async function handleReleaseUsage(

@@ -1175,7 +1175,10 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
       },
 
       // Update workflow metadata
-      updateWorkflow: async (id: string, metadata: Partial<WorkflowMetadata>) => {
+      updateWorkflow: async (
+        id: string,
+        metadata: Partial<Pick<WorkflowMetadata, 'name' | 'description' | 'folderId'>>
+      ) => {
         const { workflows } = get()
         const workflow = workflows[id]
         if (!workflow) {

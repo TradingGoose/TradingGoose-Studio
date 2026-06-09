@@ -10,6 +10,7 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 import { encodeSSE, SSE_HEADERS } from '@/lib/utils'
 import { getCopilotApiUrl, proxyCopilotRequest } from '@/app/api/copilot/proxy'
+import { commitLocalCopilotCompletionUsageReports } from '@/app/api/copilot/usage/route'
 
 const logger = createLogger('CopilotMarkToolCompleteAPI')
 const DATA_PREFIX = 'data: '
@@ -22,7 +23,11 @@ const MarkCompleteSchema = z.object({
   data: z.any().optional(),
 })
 
-function createTurnStateStream(body: ReadableStream<Uint8Array>, abortUpstream: () => void) {
+function createTurnStateStream(
+  body: ReadableStream<Uint8Array>,
+  abortUpstream: () => void,
+  userId: string
+) {
   let reader: ReadableStreamDefaultReader<Uint8Array> | null = null
 
   return new ReadableStream<Uint8Array>({
@@ -44,8 +49,12 @@ function createTurnStateStream(body: ReadableStream<Uint8Array>, abortUpstream: 
         )
       }
 
-      const forwardEvent = (event: Record<string, unknown>) => {
+      const forwardEvent = async (event: Record<string, unknown>) => {
         if (event.type === 'billing.completion_usage') {
+          await commitLocalCopilotCompletionUsageReports({
+            userId,
+            reports: [event.report],
+          })
           return
         }
 
@@ -84,7 +93,7 @@ function createTurnStateStream(body: ReadableStream<Uint8Array>, abortUpstream: 
             }
 
             const event = JSON.parse(payload) as Record<string, unknown>
-            forwardEvent(event)
+            await forwardEvent(event)
           }
         }
 
@@ -96,7 +105,7 @@ function createTurnStateStream(body: ReadableStream<Uint8Array>, abortUpstream: 
           }
 
           const event = JSON.parse(payload) as Record<string, unknown>
-          forwardEvent(event)
+          await forwardEvent(event)
         }
       } catch (error) {
         controller.error(error)
@@ -186,7 +195,7 @@ export async function POST(req: NextRequest) {
         toolCallId: parsed.id,
         toolName: parsed.name,
       })
-      return new NextResponse(createTurnStateStream(agentRes.body, abortUpstream), {
+      return new NextResponse(createTurnStateStream(agentRes.body, abortUpstream, userId), {
         status: agentRes.status,
         headers: {
           ...SSE_HEADERS,
@@ -215,6 +224,12 @@ export async function POST(req: NextRequest) {
     })
 
     if (agentRes.ok) {
+      await commitLocalCopilotCompletionUsageReports({
+        userId,
+        reports: Array.isArray(agentJson?.completionUsageReports)
+          ? agentJson.completionUsageReports
+          : [],
+      })
       return NextResponse.json({ success: true })
     }
 

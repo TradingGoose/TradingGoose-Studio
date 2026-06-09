@@ -775,6 +775,28 @@ describe('Workflow By ID API Route', () => {
       const data = await response.json()
       expect(data.error).toBe('Invalid request data')
     })
+
+    it('should reject generated workflow color updates', async () => {
+      vi.doMock('@/lib/auth', () => ({
+        getSession: vi.fn().mockResolvedValue({
+          user: { id: 'user-123' },
+        }),
+      }))
+
+      const req = new NextRequest('http://localhost:3000/api/workflows/workflow-123', {
+        method: 'PUT',
+        body: JSON.stringify({ color: '#3972F6' }),
+      })
+      const params = Promise.resolve({ id: 'workflow-123' })
+
+      const { PUT } = await import('@/app/api/workflows/[id]/route')
+      const response = await PUT(req, { params })
+
+      expect(response.status).toBe(400)
+      const data = await response.json()
+      expect(data.error).toBe('Invalid request data')
+      expect(JSON.stringify(data.details)).toContain('color')
+    })
   })
 
   describe('Error handling', () => {
