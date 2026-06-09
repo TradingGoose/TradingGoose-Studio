@@ -400,11 +400,11 @@ n3 --> n4
     const parsed = parseGraphOnlyWorkflowMermaid(
       [
         'flowchart TD',
-        'source["Send Alert<br/>id: sink<br/>type: telegram"]',
-        'subgraph sg_loop1["Loop<br/>id: loop_parent<br/>type: loop"]',
-        '  node-1["Agent<br/>id: loop_child<br/>type: agent"]',
+        'sink["Send Alert"]',
+        'subgraph loop_parent["For Each Symbol"]',
+        '  loop_child["Generate Signal"]',
         'end',
-        'source --> sg_loop1',
+        'sink --> loop_parent',
       ].join('\n'),
       workflowState.blocks
     )

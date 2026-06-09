@@ -169,13 +169,13 @@ const EditWorkflowArgs = z
       .string()
       .min(1)
       .describe(
-        'Minimal Mermaid flowchart for the entire workflow graph, not a partial patch. Include flowchart direction, existing block ids, new block `id:` and `type:` labels, subgraph nesting, and edge arrows. Do not include `%% TG_*` metadata, subBlocks, outputs, enabled, positions, or full block metadata. Existing block ids are stable identities: their type and details are preserved by id, and supplied labels must match current block names. This tool cannot replace an existing block or change its type; new ids create new blocks with generated positions. Use edit_workflow_block for block internals.'
+        'Minimal Mermaid flowchart for the entire workflow graph, not a partial patch. Include flowchart direction, existing block ids as node/subgraph ids, new block `id:` and `type:` labels, subgraph nesting, and edge arrows. Do not include `%% TG_*` metadata, subBlocks, outputs, enabled, positions, or full block metadata. Existing block ids are stable identities: their type and details are preserved by id, and supplied labels must match current block names. This tool cannot replace an existing block or change its type; new ids create new blocks with generated positions. Use edit_workflow_block for block internals.'
       ),
     removedBlockIds: z
       .array(z.string().trim().min(1))
       .optional()
       .describe(
-        'Exact existing block ids intentionally removed from the workflow graph. Required for every existing block id omitted from entityDocument.'
+        'Existing block root ids intentionally removed from the workflow graph. Removing a loop or parallel root removes its descendants.'
       ),
     entityId: RequiredId,
   })

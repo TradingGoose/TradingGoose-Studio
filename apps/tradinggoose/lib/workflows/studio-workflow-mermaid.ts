@@ -925,6 +925,12 @@ function readGraphOnlyDirectExistingBlockNames(
         return diamondMatch?.[1] && diamondMatch[2]
           ? { nodeId: diamondMatch[1], label: diamondMatch[2] }
           : null
+      })() ??
+      (() => {
+        const subgraphMatch = trimmed.match(/^subgraph\s+([A-Za-z0-9_-]+)\["(.*)"\]$/)
+        return subgraphMatch?.[1] && subgraphMatch[2]
+          ? { nodeId: subgraphMatch[1], label: subgraphMatch[2] }
+          : null
       })()
 
     if (!node || !existingBlockIds.has(node.nodeId) || parseOverlayFromLabel(node.label)) {
@@ -1036,6 +1042,22 @@ function parseVisibleWorkflowEdges(
     return chain
   }
 
+  const registerBlockRef = (
+    nodeId: string,
+    blockId: string,
+    blockType: string | undefined,
+    parentId: string | null
+  ) => {
+    nodeRefs.set(nodeId, { kind: 'block', blockId, blockType })
+    visibleBlockIds.add(blockId)
+    if (parentId && parentId !== blockId) {
+      inferredParentIds.set(blockId, parentId)
+    }
+    if (!preferredBlockNodeIds.has(blockId)) {
+      preferredBlockNodeIds.set(blockId, nodeId)
+    }
+  }
+
   for (const rawLine of document.split(/\r?\n/)) {
     const trimmed = rawLine.trim()
 
@@ -1053,21 +1075,25 @@ function parseVisibleWorkflowEdges(
         const edgeNodeId = nodeId.startsWith('sg_') ? nodeId.slice('sg_'.length) : nodeId
         for (const visibleNodeId of [edgeNodeId, nodeId]) {
           aliasToBlockId.set(visibleNodeId, overlay.id)
-          nodeRefs.set(visibleNodeId, { kind: 'block', blockId: overlay.id, blockType: overlay.type })
-        }
-        visibleBlockIds.add(overlay.id)
-        if (currentContainerId && currentContainerId !== overlay.id) {
-          inferredParentIds.set(overlay.id, currentContainerId)
-        }
-        if (!preferredBlockNodeIds.has(overlay.id)) {
-          preferredBlockNodeIds.set(overlay.id, edgeNodeId)
+          registerBlockRef(visibleNodeId, overlay.id, overlay.type, currentContainerId)
         }
         subgraphStack.push({
           blockId: overlay.id,
           isContainer: overlay.type === 'loop' || overlay.type === 'parallel',
         })
       } else {
-        subgraphStack.push({ blockId: null, isContainer: false })
+        const directBlockId = resolveBlockIdFromVisibleNodeId(
+          subgraphMatch[1],
+          knownBlockIdSet,
+          aliasToBlockId
+        )
+        const directBlockType = directBlockId ? blocks[directBlockId]?.type : undefined
+        if (directBlockId && isContainerBlockType(directBlockType)) {
+          registerBlockRef(subgraphMatch[1], directBlockId, directBlockType, currentContainerId)
+          subgraphStack.push({ blockId: directBlockId, isContainer: true })
+        } else {
+          subgraphStack.push({ blockId: null, isContainer: false })
+        }
       }
       continue
     }
@@ -1093,32 +1119,14 @@ function parseVisibleWorkflowEdges(
 
       const directBlockId = resolveBlockIdFromVisibleNodeId(nodeId, knownBlockIdSet, aliasToBlockId)
       if (directBlockId) {
-        nodeRefs.set(nodeId, {
-          kind: 'block',
-          blockId: directBlockId,
-          blockType: blocks[directBlockId]?.type,
-        })
-        visibleBlockIds.add(directBlockId)
-        if (currentContainerId && currentContainerId !== directBlockId) {
-          inferredParentIds.set(directBlockId, currentContainerId)
-        }
-        if (!preferredBlockNodeIds.has(directBlockId)) {
-          preferredBlockNodeIds.set(directBlockId, nodeId)
-        }
+        registerBlockRef(nodeId, directBlockId, blocks[directBlockId]?.type, currentContainerId)
         continue
       }
 
       const overlay = parseOverlayFromLabel(rectNode.label)
       if (overlay) {
         aliasToBlockId.set(nodeId, overlay.id)
-        nodeRefs.set(nodeId, { kind: 'block', blockId: overlay.id, blockType: overlay.type })
-        visibleBlockIds.add(overlay.id)
-        if (currentContainerId && currentContainerId !== overlay.id) {
-          inferredParentIds.set(overlay.id, currentContainerId)
-        }
-        if (!preferredBlockNodeIds.has(overlay.id)) {
-          preferredBlockNodeIds.set(overlay.id, nodeId)
-        }
+        registerBlockRef(nodeId, overlay.id, overlay.type, currentContainerId)
         continue
       }
 
@@ -1147,18 +1155,7 @@ function parseVisibleWorkflowEdges(
       const overlay = parseOverlayFromLabel(diamondMatch[2])
       if (overlay) {
         aliasToBlockId.set(diamondMatch[1], overlay.id)
-        nodeRefs.set(diamondMatch[1], {
-          kind: 'block',
-          blockId: overlay.id,
-          blockType: overlay.type,
-        })
-        visibleBlockIds.add(overlay.id)
-        if (currentContainerId && currentContainerId !== overlay.id) {
-          inferredParentIds.set(overlay.id, currentContainerId)
-        }
-        if (!preferredBlockNodeIds.has(overlay.id)) {
-          preferredBlockNodeIds.set(overlay.id, diamondMatch[1])
-        }
+        registerBlockRef(diamondMatch[1], overlay.id, overlay.type, currentContainerId)
       }
     }
   }

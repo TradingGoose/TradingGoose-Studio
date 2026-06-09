@@ -134,6 +134,20 @@ function applyGraphMermaidToWorkflow(
   const graph = parseGraphOnlyWorkflowMermaid(entityDocument, baseWorkflowState.blocks ?? {})
   const blocks: Record<string, BlockState> = {}
   const explicitRemovedBlockIds = new Set(removedBlockIds)
+  for (let expanded = true; expanded; ) {
+    expanded = false
+    for (const [blockId, block] of Object.entries(baseWorkflowState.blocks ?? {})) {
+      const parentId = block.data?.parentId
+      if (
+        !explicitRemovedBlockIds.has(blockId) &&
+        parentId &&
+        explicitRemovedBlockIds.has(parentId)
+      ) {
+        explicitRemovedBlockIds.add(blockId)
+        expanded = true
+      }
+    }
+  }
   const graphBlockIds = new Set(graph.blocks.map((block) => block.blockId))
   const omittedExistingBlockIds = Object.keys(baseWorkflowState.blocks ?? {}).filter(
     (blockId) => !graphBlockIds.has(blockId)
@@ -148,7 +162,7 @@ function applyGraphMermaidToWorkflow(
     )
   }
 
-  const stillPresentRemovedBlockIds = removedBlockIds.filter((blockId) =>
+  const stillPresentRemovedBlockIds = [...explicitRemovedBlockIds].filter((blockId) =>
     graphBlockIds.has(blockId)
   )
   if (stillPresentRemovedBlockIds.length > 0) {

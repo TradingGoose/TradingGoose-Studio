@@ -283,14 +283,33 @@ describe('editWorkflowServerTool', () => {
     const result = await editWorkflowServerTool.execute(
       {
         entityId: 'wf-1',
-        entityDocument: graph(['flowchart TD']),
-        removedBlockIds: ['input1', 'fn1'],
-        currentWorkflowState: JSON.stringify(BASE_WORKFLOW_STATE),
+        entityDocument: graph(['flowchart TD', 'input1["Input Form"]']),
+        removedBlockIds: ['loop1'],
+        currentWorkflowState: JSON.stringify({
+          ...BASE_WORKFLOW_STATE,
+          blocks: {
+            input1: BASE_WORKFLOW_STATE.blocks.input1,
+            loop1: {
+              id: 'loop1',
+              type: 'loop',
+              name: 'Loop',
+              position: { x: 100, y: 100 },
+              enabled: true,
+              subBlocks: {},
+              outputs: {},
+            },
+            fn1: {
+              ...BASE_WORKFLOW_STATE.blocks.fn1,
+              data: { parentId: 'loop1', extent: 'parent' },
+            },
+          },
+        }),
       },
       { userId: 'user-1' }
     )
 
-    expect(result.workflowState.blocks).not.toHaveProperty('input1')
+    expect(result.workflowState.blocks).toHaveProperty('input1')
+    expect(result.workflowState.blocks).not.toHaveProperty('loop1')
     expect(result.workflowState.blocks).not.toHaveProperty('fn1')
     expect(result.workflowState.edges).toEqual([])
   })
