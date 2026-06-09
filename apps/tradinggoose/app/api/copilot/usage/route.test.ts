@@ -871,7 +871,7 @@ describe('Copilot Usage API - Completion', () => {
     const { commitLocalCopilotCompletionUsageReports } = await import(
       '@/app/api/copilot/usage/route'
     )
-    const result = await commitLocalCopilotCompletionUsageReports({
+    await commitLocalCopilotCompletionUsageReports({
       userId: 'user-1',
       reports: [
         {
@@ -888,15 +888,6 @@ describe('Copilot Usage API - Completion', () => {
       ],
     })
 
-    expect(result).toEqual([
-      {
-        billed: true,
-        duplicate: false,
-        tokens: 125,
-        model: 'gpt-5.4',
-        cost: 3,
-      },
-    ])
     expect(mockAccrueUserUsageCost).toHaveBeenCalledWith({
       userId: 'user-1',
       workflowId: undefined,
@@ -910,34 +901,35 @@ describe('Copilot Usage API - Completion', () => {
     )
   })
 
-  it('skips invalid self-hosted Copilot completion reports without throwing', async () => {
+  it('rejects invalid self-hosted Copilot completion reports', async () => {
     mockIsHosted.mockReturnValue(false)
     mockIsBillingEnabledForRuntime.mockResolvedValue(true)
 
     const { commitLocalCopilotCompletionUsageReports } = await import(
       '@/app/api/copilot/usage/route'
     )
-    const result = await commitLocalCopilotCompletionUsageReports({
-      userId: 'user-1',
-      reports: [
-        {
-          kind: 'completion',
-          model: 'gpt-5.4',
-          usage: {
-            prompt_tokens: 100,
-            completion_tokens: 25,
-            total_tokens: 125,
+    await expect(
+      commitLocalCopilotCompletionUsageReports({
+        userId: 'user-1',
+        reports: [
+          {
+            kind: 'completion',
+            model: 'gpt-5.4',
+            usage: {
+              prompt_tokens: 100,
+              completion_tokens: 25,
+              total_tokens: 125,
+            },
           },
-        },
-      ],
-    })
+        ],
+      })
+    ).rejects.toThrow()
 
-    expect(result).toEqual([{ billed: false, reason: 'invalid_report' }])
     expect(mockAccrueUserUsageCost).not.toHaveBeenCalled()
     expect(mockHasProcessedMessage).not.toHaveBeenCalled()
   })
 
-  it('contains self-hosted Copilot completion mirror billing failures', async () => {
+  it('rejects self-hosted Copilot completion mirror billing failures', async () => {
     mockIsHosted.mockReturnValue(false)
     mockIsBillingEnabledForRuntime.mockResolvedValue(true)
     mockGetPersonalEffectiveSubscription.mockResolvedValue({
@@ -951,23 +943,24 @@ describe('Copilot Usage API - Completion', () => {
     const { commitLocalCopilotCompletionUsageReports } = await import(
       '@/app/api/copilot/usage/route'
     )
-    const result = await commitLocalCopilotCompletionUsageReports({
-      userId: 'user-1',
-      reports: [
-        {
-          kind: 'completion',
-          model: 'gpt-5.4',
-          completionId: 'local-completion-2',
-          usage: {
-            prompt_tokens: 100,
-            completion_tokens: 25,
-            total_tokens: 125,
+    await expect(
+      commitLocalCopilotCompletionUsageReports({
+        userId: 'user-1',
+        reports: [
+          {
+            kind: 'completion',
+            model: 'gpt-5.4',
+            completionId: 'local-completion-2',
+            usage: {
+              prompt_tokens: 100,
+              completion_tokens: 25,
+              total_tokens: 125,
+            },
           },
-        },
-      ],
-    })
+        ],
+      })
+    ).rejects.toThrow('pricing unavailable')
 
-    expect(result).toEqual([{ billed: false, reason: 'billing_failed' }])
     expect(mockAccrueUserUsageCost).not.toHaveBeenCalled()
     expect(mockMarkMessageAsProcessed).not.toHaveBeenCalled()
   })
@@ -978,7 +971,7 @@ describe('Copilot Usage API - Completion', () => {
     const { commitLocalCopilotCompletionUsageReports } = await import(
       '@/app/api/copilot/usage/route'
     )
-    const result = await commitLocalCopilotCompletionUsageReports({
+    await commitLocalCopilotCompletionUsageReports({
       userId: 'user-1',
       reports: [
         {
@@ -990,7 +983,6 @@ describe('Copilot Usage API - Completion', () => {
       ],
     })
 
-    expect(result).toEqual([])
     expect(mockAccrueUserUsageCost).not.toHaveBeenCalled()
   })
 

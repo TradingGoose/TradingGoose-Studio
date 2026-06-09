@@ -448,7 +448,7 @@ function emitBlockGraphLines(params: {
     return
   }
 
-  if (children.length === 0 || (block.type !== 'loop' && block.type !== 'parallel')) {
+  if (block.type !== 'loop' && block.type !== 'parallel') {
     lines.push(renderRectNode(alias, labelLines, indent))
     return
   }

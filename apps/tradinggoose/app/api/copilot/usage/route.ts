@@ -120,13 +120,7 @@ type UsageBillingResult =
   | {
       billed: false
       duplicate?: false
-      reason:
-        | 'billing_disabled'
-        | 'no_token_metrics'
-        | 'zero_cost'
-        | 'ledger_not_found'
-        | 'invalid_report'
-        | 'billing_failed'
+      reason: 'billing_disabled' | 'no_token_metrics' | 'zero_cost' | 'ledger_not_found'
     }
 
 function readNumber(value: unknown): number | undefined {
@@ -635,54 +629,32 @@ async function handleCompletionCommit(
 export async function commitLocalCopilotCompletionUsageReports(params: {
   userId: string
   reports: unknown[]
-}): Promise<UsageBillingResult[]> {
+}): Promise<void> {
   if (isHosted || params.reports.length === 0) {
-    return []
+    return
   }
 
   if (!(await isBillingEnabledForRuntime())) {
-    return params.reports.map(() => ({
-      billed: false,
-      reason: 'billing_disabled' as const,
-    }))
+    return
   }
 
-  const results: UsageBillingResult[] = []
   for (const report of params.reports) {
-    const parsed = CompletionUsageReportSchema.safeParse(report)
-    if (!parsed.success) {
-      logger.warn('Skipping local Copilot completion billing mirror - invalid report', {
-        issues: parsed.error.issues,
-      })
-      results.push({ billed: false, reason: 'invalid_report' })
-      continue
-    }
+    const payload = CompletionUsageReportSchema.parse(report)
+    const billing = await recordBilledUsage({
+      userId: params.userId,
+      workflowId: payload.workflowId ?? undefined,
+      usage: payload.usage,
+      billingModel: payload.model,
+      remoteModel: payload.remoteModel,
+      billingKeyPrefix: 'copilot-completion-billing',
+      billingKeyId: payload.completionId,
+      reason: 'copilot_completion_usage',
+    })
 
-    const payload = parsed.data
-    try {
-      results.push(
-        await recordBilledUsage({
-          userId: params.userId,
-          workflowId: payload.workflowId ?? undefined,
-          usage: payload.usage,
-          billingModel: payload.model,
-          remoteModel: payload.remoteModel,
-          billingKeyPrefix: 'copilot-completion-billing',
-          billingKeyId: payload.completionId,
-          reason: 'copilot_completion_usage',
-        })
-      )
-    } catch (error) {
-      logger.warn('Skipping local Copilot completion billing mirror - billing failed', {
-        userId: params.userId,
-        completionId: payload.completionId,
-        error: error instanceof Error ? error.message : String(error),
-      })
-      results.push({ billed: false, reason: 'billing_failed' })
+    if (!billing.billed && !billing.duplicate && billing.reason !== 'zero_cost') {
+      throw new Error(`Local Copilot completion billing failed: ${billing.reason}`)
     }
   }
-
-  return results
 }
 
 async function handleReleaseUsage(
