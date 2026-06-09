@@ -910,6 +910,68 @@ describe('Copilot Usage API - Completion', () => {
     )
   })
 
+  it('skips invalid self-hosted Copilot completion reports without throwing', async () => {
+    mockIsHosted.mockReturnValue(false)
+    mockIsBillingEnabledForRuntime.mockResolvedValue(true)
+
+    const { commitLocalCopilotCompletionUsageReports } = await import(
+      '@/app/api/copilot/usage/route'
+    )
+    const result = await commitLocalCopilotCompletionUsageReports({
+      userId: 'user-1',
+      reports: [
+        {
+          kind: 'completion',
+          model: 'gpt-5.4',
+          usage: {
+            prompt_tokens: 100,
+            completion_tokens: 25,
+            total_tokens: 125,
+          },
+        },
+      ],
+    })
+
+    expect(result).toEqual([{ billed: false, reason: 'invalid_report' }])
+    expect(mockAccrueUserUsageCost).not.toHaveBeenCalled()
+    expect(mockHasProcessedMessage).not.toHaveBeenCalled()
+  })
+
+  it('contains self-hosted Copilot completion mirror billing failures', async () => {
+    mockIsHosted.mockReturnValue(false)
+    mockIsBillingEnabledForRuntime.mockResolvedValue(true)
+    mockGetPersonalEffectiveSubscription.mockResolvedValue({
+      id: 'subscription-personal',
+      tier: createTier(2),
+    })
+    mockCalculateCost.mockImplementation(() => {
+      throw new Error('pricing unavailable')
+    })
+
+    const { commitLocalCopilotCompletionUsageReports } = await import(
+      '@/app/api/copilot/usage/route'
+    )
+    const result = await commitLocalCopilotCompletionUsageReports({
+      userId: 'user-1',
+      reports: [
+        {
+          kind: 'completion',
+          model: 'gpt-5.4',
+          completionId: 'local-completion-2',
+          usage: {
+            prompt_tokens: 100,
+            completion_tokens: 25,
+            total_tokens: 125,
+          },
+        },
+      ],
+    })
+
+    expect(result).toEqual([{ billed: false, reason: 'billing_failed' }])
+    expect(mockAccrueUserUsageCost).not.toHaveBeenCalled()
+    expect(mockMarkMessageAsProcessed).not.toHaveBeenCalled()
+  })
+
   it('does not mirror hosted Copilot completion reports on hosted Studio', async () => {
     mockIsHosted.mockReturnValue(true)
 
