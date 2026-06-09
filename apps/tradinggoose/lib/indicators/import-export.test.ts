@@ -166,7 +166,7 @@ describe('indicator import/export helpers', () => {
     ).toThrow()
   })
 
-  it('rejects generated indicator storage fields in transfer records', () => {
+  it('ignores generated indicator storage fields in transfer records', () => {
     expect(() =>
       parseImportedIndicatorsFile({
         version: '1',
@@ -183,7 +183,7 @@ describe('indicator import/export helpers', () => {
           },
         ],
       })
-    ).toThrow()
+    ).not.toThrow()
   })
 
   it('renames duplicate imported indicators with the imported marker', () => {

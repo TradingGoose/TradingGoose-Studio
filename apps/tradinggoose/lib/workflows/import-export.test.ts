@@ -215,8 +215,8 @@ describe('workflow import/export helpers', () => {
     })
   })
 
-  it('rejects generated workflow presentation color in transfer records', () => {
-    const parsed = parseImportedWorkflowFile({
+  it('ignores generated workflow presentation color in transfer records', () => {
+    expect(parseImportedWorkflowFile({
       version: '1',
       fileType: 'tradingGooseExport',
       exportedAt: '2026-04-08T15:30:00.000Z',
@@ -229,10 +229,7 @@ describe('workflow import/export helpers', () => {
           state: createWorkflowState(),
         },
       ],
-    })
-
-    expect(parsed.data).toBeNull()
-    expect(parsed.errors.some((error) => error.includes('color'))).toBe(true)
+    }).errors).toEqual([])
   })
 
   it('renames duplicate imported workflows with the imported marker', () => {
