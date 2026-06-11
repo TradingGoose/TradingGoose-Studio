@@ -334,7 +334,6 @@ describe('entity document tools', () => {
                 id: 'RSI',
                 name: 'Relative Strength Index',
                 source: 'default',
-                color: '#3972F6',
                 editable: false,
                 callableInFunctionBlock: true,
                 inputTitles: ['Length'],
@@ -344,7 +343,6 @@ describe('entity document tools', () => {
                 id: 'indicator-1',
                 name: 'My Custom Indicator',
                 source: 'custom',
-                color: '#ff0000',
                 editable: true,
                 callableInFunctionBlock: false,
                 inputTitles: ['Fast Length'],
@@ -394,7 +392,6 @@ describe('entity document tools', () => {
       {
         name: 'Relative Strength Index',
         source: 'default',
-        color: '#3972F6',
         editable: false,
         callableInFunctionBlock: true,
         inputTitles: ['Length'],
@@ -403,7 +400,6 @@ describe('entity document tools', () => {
       {
         name: 'My Custom Indicator',
         source: 'custom',
-        color: '#ff0000',
         editable: true,
         callableInFunctionBlock: false,
         inputTitles: ['Fast Length'],

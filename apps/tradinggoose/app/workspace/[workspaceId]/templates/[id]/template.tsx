@@ -216,7 +216,6 @@ export default function TemplateDetails({ template, workspaceId }: TemplateDetai
         body: JSON.stringify({
           name: `${template.name} (Copy)`,
           description: `Created from template: ${template.name}`,
-          color: template.color,
           workspaceId,
           folderId: null,
         }),

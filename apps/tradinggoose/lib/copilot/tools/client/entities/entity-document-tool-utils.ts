@@ -18,7 +18,6 @@ type EntityListEntry = {
   entityDescription?: string
   entityTitle?: string
   entityFunctionName?: string
-  entityColor?: string
   entityTransport?: string
   entityUrl?: string
   entityEnabled?: boolean
@@ -28,7 +27,6 @@ type EntityListEntry = {
 export type CopilotIndicatorListEntry = {
   name: string
   source: 'default' | 'custom'
-  color?: string
   editable: boolean
   callableInFunctionBlock: boolean
   inputTitles?: string[]
@@ -110,7 +108,6 @@ const ENTITY_API_CONFIG: Record<EntityDocumentKind, EntityApiConfig> = {
     extractList: (data) => (Array.isArray(data?.data) ? data.data : []),
     toFields: (item) => ({
       name: item?.name ?? '',
-      color: item?.color ?? '',
       pineCode: item?.pineCode ?? '',
       inputMeta:
         item?.inputMeta && typeof item.inputMeta === 'object' && !Array.isArray(item.inputMeta)
@@ -120,7 +117,6 @@ const ENTITY_API_CONFIG: Record<EntityDocumentKind, EntityApiConfig> = {
     toListEntry: (item) => ({
       entityId: String(item?.id ?? ''),
       entityName: String(item?.name ?? ''),
-      entityColor: typeof item?.color === 'string' ? item.color : '',
     }),
   },
   mcp_server: {
@@ -196,9 +192,6 @@ function buildEntityCreateRequest(
           indicators: [
             {
               name: fields.name,
-              ...(typeof fields.color === 'string' && fields.color.trim()
-                ? { color: fields.color.trim() }
-                : {}),
               pineCode: fields.pineCode,
               inputMeta: fields.inputMeta ?? undefined,
             },
@@ -385,7 +378,6 @@ export async function listCopilotIndicators(
       source,
       editable: item?.editable === true,
       callableInFunctionBlock: item?.callableInFunctionBlock === true,
-      ...(typeof item?.color === 'string' && item.color ? { color: item.color } : {}),
       ...(Array.isArray(item?.inputTitles)
         ? {
             inputTitles: item.inputTitles.filter(
@@ -430,7 +422,6 @@ export async function readEntityFieldsFromContext(
       entityName: indicator.name,
       fields: {
         name: indicator.name,
-        color: '#3972F6',
         pineCode: indicator.pineCode,
         inputMeta: indicator.inputMeta ?? null,
       },
@@ -473,7 +464,6 @@ export function applyEntityFieldsToSession(
         break
       case 'indicator':
         setEntityField(session.doc, 'name', fields.name ?? '')
-        setEntityField(session.doc, 'color', fields.color ?? '')
         replaceEntityTextField(session.doc, 'pineCode', String(fields.pineCode ?? ''))
         setEntityField(session.doc, 'inputMeta', fields.inputMeta ?? null)
         break

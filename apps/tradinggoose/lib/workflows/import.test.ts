@@ -14,7 +14,6 @@ describe('workflow import orchestration', () => {
         {
           name: 'Primary Workflow',
           description: 'Workflow imported from the unified schema',
-          color: '#3972F6',
           state: {
             blocks: {
               block_1: {
@@ -45,13 +44,11 @@ describe('workflow import orchestration', () => {
         name: string
         description: string
         workspaceId: string
-        color?: string
       }) => {
         callOrder.push('createWorkflow')
         expect(params).toMatchObject({
           name: 'Primary Workflow (imported) 1',
           description: 'Workflow imported from the unified schema',
-          color: '#3972F6',
           workspaceId: 'workspace-1',
         })
         return 'workflow-1'
@@ -115,7 +112,6 @@ describe('workflow import orchestration', () => {
         {
           name: 'Primary Workflow',
           description: 'Workflow imported from the unified schema',
-          color: '#3972F6',
           state: {
             blocks: {
               block_1: {
@@ -176,12 +172,10 @@ describe('workflow import orchestration', () => {
         name: string
         description: string
         workspaceId: string
-        color?: string
       }) => {
         expect(params).toMatchObject({
           name: 'Primary Workflow (imported) 1',
           description: 'Workflow imported from the unified schema',
-          color: '#3972F6',
           workspaceId: 'workspace-1',
         })
         return 'workflow-1'

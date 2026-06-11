@@ -63,14 +63,16 @@ export interface WorkflowRegistryActions {
     id: string,
     options?: { skipApi?: boolean; templateAction?: 'keep' | 'delete' }
   ) => Promise<void>
-  updateWorkflow: (id: string, metadata: Partial<WorkflowMetadata>) => Promise<void>
+  updateWorkflow: (
+    id: string,
+    metadata: Partial<Pick<WorkflowMetadata, 'name' | 'description' | 'folderId'>>
+  ) => Promise<void>
   createWorkflow: (options?: {
     isInitial?: boolean
     marketplaceId?: string
     marketplaceState?: any
     name?: string
     description?: string
-    color?: string
     workspaceId?: string
     folderId?: string | null
   }) => Promise<string>

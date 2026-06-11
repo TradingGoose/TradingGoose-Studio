@@ -4,7 +4,7 @@ import type { BlockState, WorkflowDirection } from '@/stores/workflows/workflow/
 
 type WorkflowGraphState = Pick<WorkflowSnapshot, 'blocks' | 'edges'>
 
-function getAbsoluteBlockPosition(
+export function getAbsoluteBlockPosition(
   blockId: string,
   blocks: Record<string, BlockState>,
   visiting = new Set<string>()
@@ -70,7 +70,9 @@ export function inferMermaidDirectionFromWorkflowState(
     return horizontalDistance > verticalDistance ? 'LR' : 'TD'
   }
 
-  const positions = Object.keys(blocks).map((blockId) => getPosition(blockId)).filter(Boolean) as Array<{
+  const positions = Object.keys(blocks)
+    .map((blockId) => getPosition(blockId))
+    .filter(Boolean) as Array<{
     x: number
     y: number
   }>

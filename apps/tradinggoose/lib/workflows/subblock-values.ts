@@ -89,6 +89,32 @@ export function resolveInitialSubBlockValue(
   return ''
 }
 
+export function buildInitialSubBlockStates(
+  subBlockConfigs: SubBlockConfig[],
+  initialValues?: Record<string, unknown>
+): Record<string, { id: string; type: SubBlockConfig['type']; value: unknown }> {
+  const subBlocks: Record<string, { id: string; type: SubBlockConfig['type']; value: unknown }> = {}
+  const resolvedSubBlockParams: Record<string, any> = {}
+
+  for (const subBlock of subBlockConfigs) {
+    const resolvedInitialValue = resolveInitialSubBlockValue(
+      subBlock,
+      resolvedSubBlockParams,
+      initialValues?.[subBlock.id]
+    )
+
+    subBlocks[subBlock.id] = {
+      id: subBlock.id,
+      type: subBlock.type,
+      value: resolvedInitialValue,
+    }
+
+    resolvedSubBlockParams[subBlock.id] = resolvedInitialValue
+  }
+
+  return subBlocks
+}
+
 export function resolveDisplayedSubBlockValue(
   subBlock: Pick<SubBlockConfig, 'defaultValue' | 'readOnly'>,
   value: unknown

@@ -156,7 +156,6 @@ export function parseWorkflowJson(
     logger.info('Successfully parsed workflow JSON', {
       name: workflowData.name,
       description: workflowData.description,
-      color: workflowData.color,
       blocksCount: Object.keys(workflowData.state.blocks).length,
       edgesCount: workflowData.state.edges.length,
       loopsCount: Object.keys(workflowData.state.loops).length,

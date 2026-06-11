@@ -859,7 +859,7 @@ describe('copilot streaming regressions', () => {
     expect(store.getState().isAwaitingContinuation).toBe(false)
   })
 
-  it('treats awaiting_tools as a pause and skips terminal billing fetch', async () => {
+  it('treats awaiting_tools as a pause and skips terminal context usage refresh', async () => {
     const channelId = 'copilot-awaiting-tools-pause'
     const store = getCopilotStore(channelId)
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
@@ -1345,8 +1345,7 @@ describe('copilot streaming regressions', () => {
               name: 'edit_workflow',
               arguments: {
                 entityId: 'wf-limited-edit',
-                entityDocument: 'workflow: {}',
-                documentFormat: 'tg-mermaid-v1',
+                entityDocument: 'flowchart TD',
               },
             },
           },
@@ -2807,7 +2806,7 @@ describe('copilot context usage', () => {
     store.setState({
       currentChat: {
         reviewSessionId: 'review-context-usage-generic',
-        workspaceId: null,
+        workspaceId: 'workspace-context-usage',
         entityKind: 'copilot',
         entityId: null,
         draftSessionId: null,
@@ -2839,6 +2838,7 @@ describe('copilot context usage', () => {
       conversationId: 'conversation-context-usage-generic',
       model: 'claude-sonnet-4.6',
       provider: 'anthropic',
+      workspaceId: 'workspace-context-usage',
     })
     expect(store.getState().contextUsage).toEqual({
       usage: 1234,

@@ -5,13 +5,12 @@ import {
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
+import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 type CreateWorkflowArgs = {
   name?: string
   description?: string
-  color?: string
   folderId?: string | null
   workspaceId?: string
 }
@@ -75,7 +74,6 @@ export class CreateWorkflowClientTool extends BaseClientTool {
         ...(typeof resolvedArgs?.description === 'string'
           ? { description: resolvedArgs.description }
           : {}),
-        ...(typeof resolvedArgs?.color === 'string' ? { color: resolvedArgs.color } : {}),
         ...(resolvedArgs?.folderId !== undefined ? { folderId: resolvedArgs.folderId } : {}),
       })
 

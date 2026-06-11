@@ -253,7 +253,7 @@ describe('InlineToolCall', () => {
     )
   })
 
-  it('shows review controls for staged workflow edits in full access without generic Allow', async () => {
+  it('shows review controls for already-staged workflow edits in full access', async () => {
     const toolCallId = 'tool-workflow-review'
     mockUseCopilotStoreState.accessLevel = 'full'
     mockGetToolInterruptDisplays.mockReturnValue({
@@ -299,7 +299,7 @@ describe('InlineToolCall', () => {
     expect(container.textContent).not.toContain('Allow')
   })
 
-  it('renders entity review diffs and controls from staged tool results in full access', async () => {
+  it('renders entity review diffs with controls for already-staged reviews in full access', async () => {
     mockUseCopilotStoreState.accessLevel = 'full'
     mockGetToolInterruptDisplays.mockReturnValue({
       accept: { text: 'Accept changes' },

@@ -22,7 +22,7 @@ import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 
 interface EditWorkflowArgs {
   entityDocument: string
-  documentFormat?: string
+  removedBlockIds?: string[]
   entityId?: string
 }
 
@@ -147,7 +147,7 @@ export class EditWorkflowClientTool extends StagedReviewClientTool<Record<string
     return {
       entityId: workflowId,
       entityDocument,
-      ...(args?.documentFormat ? { documentFormat: args.documentFormat } : {}),
+      ...(Array.isArray(args?.removedBlockIds) ? { removedBlockIds: args.removedBlockIds } : {}),
       currentWorkflowState,
     }
   }
@@ -198,6 +198,7 @@ export class EditWorkflowClientTool extends StagedReviewClientTool<Record<string
           entityName: readableWorkflow.entityName,
           workspaceId: readableWorkflow.workspaceId ?? workspaceId,
           entityDocument: result.entityDocument,
+          documentFormat: result.documentFormat,
         }),
       }
       this.hasAppliedState = false

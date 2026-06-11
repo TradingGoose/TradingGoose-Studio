@@ -13,7 +13,6 @@ describe('indicator import/export helpers', () => {
       indicators: [
         {
           name: 'RSI Export Example',
-          color: '#3972F6',
           pineCode: "indicator('RSI Export Example')",
           inputMeta: {
             Length: {
@@ -40,7 +39,6 @@ describe('indicator import/export helpers', () => {
       indicators: [
         {
           name: 'RSI Export Example',
-          color: '#3972F6',
           pineCode: "indicator('RSI Export Example')",
           inputMeta: {
             Length: {
@@ -61,7 +59,6 @@ describe('indicator import/export helpers', () => {
       indicators: [
         {
           name: 'RSI Export Example',
-          color: '#3972F6',
           pineCode: "indicator('RSI Export Example')",
           inputMeta: undefined,
         },
@@ -80,7 +77,6 @@ describe('indicator import/export helpers', () => {
       indicators: [
         {
           name: 'RSI Export Example',
-          color: '#3972F6',
           pineCode: "indicator('RSI Export Example')",
         },
       ],
@@ -101,7 +97,6 @@ describe('indicator import/export helpers', () => {
       indicators: [
         {
           name: '  RSI   Export Example  ',
-          color: '  #3972F6  ',
           pineCode: "indicator('RSI Export Example')",
           inputMeta: {},
         },
@@ -111,7 +106,6 @@ describe('indicator import/export helpers', () => {
     expect(parsed.indicators).toEqual([
       {
         name: 'RSI Export Example',
-        color: '#3972F6',
         pineCode: "indicator('RSI Export Example')",
         inputMeta: {},
       },
@@ -172,7 +166,7 @@ describe('indicator import/export helpers', () => {
     ).toThrow()
   })
 
-  it('rejects import entries with extra keys', () => {
+  it('ignores generated indicator storage fields in transfer records', () => {
     expect(() =>
       parseImportedIndicatorsFile({
         version: '1',
@@ -183,12 +177,13 @@ describe('indicator import/export helpers', () => {
         indicators: [
           {
             id: 'indicator-1',
+            color: '#3972F6',
             name: 'RSI Export Example',
             pineCode: "indicator('RSI Export Example')",
           },
         ],
       })
-    ).toThrow()
+    ).not.toThrow()
   })
 
   it('renames duplicate imported indicators with the imported marker', () => {

@@ -25,7 +25,6 @@ const logger = createLogger('WorkflowDuplicateAPI')
 const DuplicateRequestSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.string().optional(),
-  color: z.string().optional(),
   workspaceId: z.string().min(1, 'Workspace ID is required'),
   folderId: z.string().nullable().optional(),
 })
@@ -79,7 +78,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   try {
     const body = await req.json()
-    const { name, description, color, workspaceId, folderId } = DuplicateRequestSchema.parse(body)
+    const { name, description, workspaceId, folderId } = DuplicateRequestSchema.parse(body)
 
     logger.info(
       `[${requestId}] Duplicating workflow ${sourceWorkflowId} for user ${session.user.id}`
@@ -122,10 +121,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const newWorkflowId = crypto.randomUUID()
     const now = new Date()
-    const resolvedColor =
-      typeof color === 'string' && color.trim().length > 0
-        ? color.trim()
-        : getStableVibrantColor(newWorkflowId)
+    const resolvedColor = getStableVibrantColor(newWorkflowId)
 
     const duplicatedWorkflowState = regenerateWorkflowStateIds(sourceArtifacts.workflowState)
     const duplicatedVariables = remapVariableIds(sourceArtifacts.variables, newWorkflowId)

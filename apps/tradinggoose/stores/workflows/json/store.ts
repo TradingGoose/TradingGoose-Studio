@@ -86,7 +86,6 @@ export const useWorkflowJsonStore = create<WorkflowJsonStore>()(
             workflow: {
               name: currentWorkflow.name,
               description: currentWorkflow.description ?? '',
-              color: currentWorkflow.color ?? '',
               state: workflowSnapshot,
             },
             skills: workspaceSkills,

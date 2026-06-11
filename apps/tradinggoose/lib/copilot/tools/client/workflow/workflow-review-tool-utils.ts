@@ -63,6 +63,7 @@ export function buildWorkflowDocumentToolResult(options: {
   entityName?: string
   workspaceId?: string | null
   entityDocument: string
+  documentFormat?: string
 }) {
   const entityName = normalizeWorkflowTargetValue(options.entityName)
 
@@ -72,7 +73,7 @@ export function buildWorkflowDocumentToolResult(options: {
     ...(entityName ? { entityName } : {}),
     ...(options.workspaceId ? { workspaceId: options.workspaceId } : {}),
     entityDocument: options.entityDocument,
-    documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
+    documentFormat: options.documentFormat ?? TG_MERMAID_DOCUMENT_FORMAT,
   }
 }
 

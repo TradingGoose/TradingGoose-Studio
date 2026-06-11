@@ -349,11 +349,6 @@ export const generateCopilotIndicatorReference = async () => {
       detail:
         'The `name` field is part of the live indicator document schema and is what TradingGoose renames when Copilot updates an indicator title.',
     },
-    color: {
-      summary: 'Default display color in the canonical document.',
-      detail:
-        'The `color` field is part of the live indicator document schema and stores the default indicator display color.',
-    },
     pineCode: {
       summary: 'PineTS authoring source in the canonical document.',
       detail:

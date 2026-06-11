@@ -1,3 +1,4 @@
+import type { TradingGooseExportEnvelope } from '@/lib/import-export/trading-goose'
 import type { ListingIdentity } from '@/lib/listing/identity'
 
 export type WatchlistSettings = {
@@ -38,17 +39,8 @@ export type WatchlistTransferRecord = {
   items: WatchlistImportFileItem[]
 }
 
-export type WatchlistImportFile = {
-  version: '1'
-  fileType: 'tradingGooseExport'
-  exportedAt: string
-  exportedFrom: string
-  resourceTypes: string[]
+export type WatchlistImportFile = TradingGooseExportEnvelope & {
   watchlists: [WatchlistTransferRecord]
-  skills?: unknown[]
-  workflows?: unknown[]
-  customTools?: unknown[]
-  indicators?: unknown[]
 }
 
 export type WatchlistRecord = {

@@ -6,7 +6,10 @@ import {
   SKILL_DOCUMENT_FORMAT,
 } from '@/lib/copilot/entity-documents'
 import { MONITOR_DOCUMENT_FORMAT } from '@/lib/copilot/monitor/monitor-documents'
-import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
+import {
+  TG_MERMAID_DOCUMENT_FORMAT,
+  WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
+} from '@/lib/workflows/document-format'
 import { WORKFLOW_VARIABLE_TYPES, type WorkflowVariableType } from '@/lib/workflows/value-types'
 import {
   GetAgentAccessoryCatalogInput,
@@ -148,7 +151,6 @@ const CreateWorkflowArgs = z
   .object({
     name: z.string().trim().min(1).optional(),
     description: z.string().optional(),
-    color: z.string().optional(),
     folderId: z.string().nullable().optional(),
     workspaceId: RequiredId.optional(),
   })
@@ -167,14 +169,19 @@ const EditWorkflowArgs = z
       .string()
       .min(1)
       .describe(
-        'Complete raw `tg-mermaid-v1` Mermaid document for the entire workflow, not a partial patch. Preserve the canonical `%% TG_WORKFLOW`, `%% TG_BLOCK`, and `%% TG_EDGE` metadata returned by `read_workflow`; Studio validates that structure. Use this only for graph or topology changes such as adding, removing, reconnecting, or replacing blocks, loops, parallels, or condition branches.'
+        'Minimal Mermaid flowchart for the entire workflow graph, not a partial patch. Include flowchart direction, existing block ids as node/subgraph ids, new block `id:` and `type:` labels, subgraph nesting, and edge arrows. Do not include `%% TG_*` metadata, subBlocks, outputs, enabled, positions, or full block metadata. Existing block ids are stable identities: their type and details are preserved by id, and supplied labels must match current block names. This tool cannot replace an existing block or change its type; new ids create new blocks with generated positions. Use edit_workflow_block for block internals.'
       ),
-    documentFormat: z.literal(TG_MERMAID_DOCUMENT_FORMAT).optional(),
+    removedBlockIds: z
+      .array(z.string().trim().min(1))
+      .optional()
+      .describe(
+        'Existing block root ids intentionally removed from the workflow graph. Removing a loop or parallel root removes its descendants.'
+      ),
     entityId: RequiredId,
   })
   .strict()
   .describe(
-    "Full workflow document replacement tool. Do not use this to rename one existing block or patch one block's `enabled` or `subBlocks`; use `edit_workflow_block` instead."
+    "Full workflow topology rewrite tool using minimal Mermaid. Do not use this to replace an existing block, rename one existing block, or patch one block's `enabled` or `subBlocks`; use `edit_workflow_block` instead."
   )
 
 const EditWorkflowBlockArgs = z
@@ -591,6 +598,11 @@ const WorkflowDocumentEnvelope = WorkflowTargetEnvelope.extend({
   entityDocument: z.string(),
 })
 
+const WorkflowGraphDocumentEnvelope = WorkflowTargetEnvelope.extend({
+  documentFormat: z.literal(WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT),
+  entityDocument: z.string(),
+})
+
 const WorkflowSummaryResult = z.object({
   blocks: z.array(
     z.object({
@@ -640,7 +652,6 @@ const GenericEntityListEntry = z.object({
   entityDescription: z.string().optional(),
   entityTitle: z.string().optional(),
   entityFunctionName: z.string().optional(),
-  entityColor: z.string().optional(),
   entityTransport: z.string().optional(),
   entityUrl: z.string().optional(),
   entityEnabled: z.boolean().optional(),
@@ -656,7 +667,6 @@ const GenericEntityListResult = z.object({
 const IndicatorListEntry = z.object({
   name: z.string(),
   source: z.enum(['default', 'custom']),
-  color: z.string().optional(),
   editable: z.boolean(),
   callableInFunctionBlock: z.boolean(),
   inputTitles: z.array(z.string()).optional(),
@@ -768,7 +778,7 @@ const WorkflowPreviewEdge = z.object({
   targetHandle: z.string().optional(),
 })
 
-const BuildOrEditWorkflowResult = WorkflowDocumentEnvelope.extend({
+const WorkflowMutationResultShape = {
   workflowState: z.unknown().optional(),
   preview: z
     .object({
@@ -790,7 +800,10 @@ const BuildOrEditWorkflowResult = WorkflowDocumentEnvelope.extend({
       edgesCount: z.number(),
     })
     .optional(),
-})
+}
+
+const EditWorkflowResult = WorkflowGraphDocumentEnvelope.extend(WorkflowMutationResultShape)
+const EditWorkflowBlockResult = WorkflowDocumentEnvelope.extend(WorkflowMutationResultShape)
 
 const ExecutionEntry = z.object({
   id: z.string(),
@@ -841,8 +854,8 @@ export const ToolResultSchemas = {
     message: z.string().optional(),
   }),
 
-  edit_workflow: BuildOrEditWorkflowResult,
-  edit_workflow_block: BuildOrEditWorkflowResult,
+  edit_workflow: EditWorkflowResult,
+  edit_workflow_block: EditWorkflowBlockResult,
   rename_workflow: WorkflowMutationResult,
   run_workflow: z.object({
     executionId: z.string().optional(),

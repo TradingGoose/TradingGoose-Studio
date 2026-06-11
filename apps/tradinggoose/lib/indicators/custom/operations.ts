@@ -20,7 +20,6 @@ interface UpsertIndicatorsParams {
   indicators: Array<{
     id?: string
     name: string
-    color?: string
     pineCode: string
     inputMeta?: Record<string, unknown>
   }>
@@ -34,20 +33,6 @@ interface ImportIndicatorsParams {
   workspaceId: string
   userId: string
   requestId?: string
-}
-
-const resolveIndicatorColor = (
-  input: string | null | undefined,
-  indicatorId: string,
-  fallback?: string | null
-): string => {
-  if (typeof input === 'string' && input.trim().length > 0) {
-    return input.trim()
-  }
-  if (typeof fallback === 'string' && fallback.trim().length > 0) {
-    return fallback.trim()
-  }
-  return getStableVibrantColor(indicatorId)
 }
 
 export async function upsertIndicators({
@@ -72,13 +57,12 @@ export async function upsertIndicators({
 
         if (existing.length > 0) {
           const existingColor = existing[0]?.color
-          const nextColor = resolveIndicatorColor(indicator.color, indicator.id, existingColor)
 
           await tx
             .update(pineIndicators)
             .set({
               name: indicator.name,
-              color: nextColor,
+              color: existingColor ?? getStableVibrantColor(indicator.id),
               pineCode: indicator.pineCode,
               inputMeta: indicator.inputMeta ?? null,
               updatedAt: nowTime,
@@ -92,14 +76,12 @@ export async function upsertIndicators({
       }
 
       const indicatorId = indicator.id ?? crypto.randomUUID()
-      const nextColor = resolveIndicatorColor(indicator.color, indicatorId)
-
       await tx.insert(pineIndicators).values({
         id: indicatorId,
         workspaceId,
         userId,
         name: indicator.name,
-        color: nextColor,
+        color: getStableVibrantColor(indicatorId),
         pineCode: indicator.pineCode,
         inputMeta: indicator.inputMeta ?? null,
         createdAt: nowTime,
@@ -159,7 +141,7 @@ export async function importIndicators({
         workspaceId,
         userId,
         name: nextName,
-        color: resolveIndicatorColor(indicator.color, indicatorId),
+        color: getStableVibrantColor(indicatorId),
         pineCode: indicator.pineCode,
         inputMeta: indicator.inputMeta ?? null,
         createdAt: nowTime,

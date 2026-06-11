@@ -16,12 +16,13 @@ import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 const logger = createLogger('WorkflowByIdAPI')
 
-const UpdateWorkflowSchema = z.object({
-  name: z.string().min(1, 'Name is required').optional(),
-  description: z.string().optional(),
-  color: z.string().optional(),
-  folderId: z.string().nullable().optional(),
-})
+const UpdateWorkflowSchema = z
+  .object({
+    name: z.string().min(1, 'Name is required').optional(),
+    description: z.string().optional(),
+    folderId: z.string().nullable().optional(),
+  })
+  .strict()
 
 /**
  * GET /api/workflows/[id]
@@ -310,7 +311,7 @@ export async function DELETE(
 
 /**
  * PUT /api/workflows/[id]
- * Update workflow metadata (name, description, color, folderId)
+ * Update workflow metadata (name, description, folderId)
  */
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const requestId = generateRequestId()
@@ -371,7 +372,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const updateData: any = { updatedAt: new Date() }
     if (updates.name !== undefined) updateData.name = updates.name
     if (updates.description !== undefined) updateData.description = updates.description
-    if (updates.color !== undefined) updateData.color = updates.color
     if (updates.folderId !== undefined) updateData.folderId = updates.folderId
 
     // Update the workflow

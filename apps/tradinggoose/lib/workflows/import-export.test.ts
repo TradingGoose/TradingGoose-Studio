@@ -73,7 +73,6 @@ describe('workflow import/export helpers', () => {
       workflow: {
         name: '  Primary Workflow  ',
         description: '  Workflow used for trading  ',
-        color: '  #3972F6  ',
         state: createWorkflowState(),
       },
     })
@@ -89,7 +88,6 @@ describe('workflow import/export helpers', () => {
         {
           name: 'Primary Workflow',
           description: 'Workflow used for trading',
-          color: '#3972F6',
           state: {
             blocks: {
               block_1: {
@@ -115,7 +113,6 @@ describe('workflow import/export helpers', () => {
       workflow: {
         name: 'Primary Workflow',
         description: 'Workflow used for trading',
-        color: '#3972F6',
         state: createWorkflowStateWithSkills(),
       },
       skills: [
@@ -185,7 +182,6 @@ describe('workflow import/export helpers', () => {
         {
           name: '  Primary Workflow  ',
           description: '  Workflow used for trading  ',
-          color: '  #3972F6  ',
           state: createWorkflowState(),
         },
       ],
@@ -198,7 +194,6 @@ describe('workflow import/export helpers', () => {
     expect(parsed.data).toMatchObject({
       name: 'Primary Workflow',
       description: 'Workflow used for trading',
-      color: '#3972F6',
       skills: [
         {
           name: 'Ignore me',
@@ -220,23 +215,21 @@ describe('workflow import/export helpers', () => {
     })
   })
 
-  it('rejects invalid workflow envelopes', () => {
-    const parsed = parseImportedWorkflowFile({
+  it('ignores generated workflow presentation color in transfer records', () => {
+    expect(parseImportedWorkflowFile({
       version: '1',
-      fileType: 'wrongFileType',
+      fileType: 'tradingGooseExport',
       exportedAt: '2026-04-08T15:30:00.000Z',
       exportedFrom: 'workflowEditor',
-      resourceTypes: ['skills'],
+      resourceTypes: ['workflows'],
       workflows: [
         {
           name: 'Primary Workflow',
+          color: '#3972F6',
           state: createWorkflowState(),
         },
       ],
-    })
-
-    expect(parsed.data).toBeNull()
-    expect(parsed.errors[0]).toContain('Unsupported JSON format')
+    }).errors).toEqual([])
   })
 
   it('renames duplicate imported workflows with the imported marker', () => {

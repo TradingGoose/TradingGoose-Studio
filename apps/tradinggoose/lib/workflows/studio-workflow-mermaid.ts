@@ -27,7 +27,7 @@ type ConditionEntry = {
 
 type MermaidLabelOverlay = {
   id: string
-  name: string
+  name?: string
   type?: string
   enabled?: boolean
   advancedMode?: boolean
@@ -35,6 +35,7 @@ type MermaidLabelOverlay = {
   outputs?: Record<string, unknown>
   dataEntries: Record<string, unknown>
   subBlockEntries: Record<string, unknown>
+  internalFields: string[]
 }
 
 type ConditionBranchOverlay = {
@@ -61,6 +62,12 @@ type ParsedVisibleWorkflowEdges = {
   inferredParentIds: Map<string, string>
 }
 
+export type GraphOnlyWorkflowMermaid = {
+  direction: WorkflowDirection
+  blocks: Array<{ blockId: string; blockType?: string; name?: string; parentId?: string }>
+  edges: Array<Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>>
+}
+
 const COMMENT_PREFIX = '%% '
 export const TG_WORKFLOW_PREFIX = `${COMMENT_PREFIX}TG_WORKFLOW `
 export const TG_BLOCK_PREFIX = `${COMMENT_PREFIX}TG_BLOCK `
@@ -68,6 +75,18 @@ export const TG_EDGE_PREFIX = `${COMMENT_PREFIX}TG_EDGE `
 const TG_LOOP_PREFIX = `${COMMENT_PREFIX}TG_LOOP `
 const TG_PARALLEL_PREFIX = `${COMMENT_PREFIX}TG_PARALLEL `
 const CONDITION_INPUT_KEY = 'conditions'
+const HIDDEN_VISIBLE_EDGE_HANDLES = new Set([
+  'source',
+  'target',
+  'input',
+  'output',
+  'loop-start-source',
+  'loop-end-source',
+  'parallel-start-source',
+  'parallel-end-source',
+  'loop-end-target',
+  'parallel-end-target',
+])
 
 function toDocumentJson(value: unknown): string {
   return stableStringifyJsonValue(value)
@@ -101,7 +120,7 @@ function resolveBlockIdFromVisibleNodeId(
 }
 
 function parseRectNodeLine(line: string): { nodeId: string; label: string } | null {
-  const rectMatch = line.match(/^([A-Za-z0-9_]+)(?:\(\["(.*)"\]\)|\["(.*)"\])$/)
+  const rectMatch = line.match(/^([A-Za-z0-9_-]+)(?:\(\["(.*)"\]\)|\["(.*)"\])$/)
   const label = rectMatch?.[2] ?? rectMatch?.[3]
 
   if (!rectMatch?.[1] || !label) {
@@ -325,6 +344,10 @@ function buildBlockLabelLines(blockId: string, block: BlockState): string[] {
   return lines
 }
 
+function buildGraphOnlyBlockLabelLines(blockId: string, block: BlockState): string[] {
+  return [block.name || block.type, `id: ${blockId}`, `type: ${block.type}`]
+}
+
 function renderRectNode(nodeId: string, labelLines: string[], indent: string): string {
   return `${indent}${nodeId}["${escapeMermaidLabel(labelLines.join('\n'))}"]`
 }
@@ -378,9 +401,20 @@ function emitBlockGraphLines(params: {
   aliases: Map<string, string>
   childrenByParent: Map<string, string[]>
   lines: string[]
+  labelLinesForBlock?: (blockId: string, block: BlockState) => string[]
+  includeConditionBranches?: boolean
   indent?: string
 }): void {
-  const { blockId, blocks, aliases, childrenByParent, lines, indent = '  ' } = params
+  const {
+    blockId,
+    blocks,
+    aliases,
+    childrenByParent,
+    lines,
+    labelLinesForBlock = buildBlockLabelLines,
+    includeConditionBranches = true,
+    indent = '  ',
+  } = params
   const block = blocks[blockId]
   const alias = aliases.get(blockId)
 
@@ -388,10 +422,10 @@ function emitBlockGraphLines(params: {
     return
   }
 
-  const labelLines = buildBlockLabelLines(blockId, block)
+  const labelLines = labelLinesForBlock(blockId, block)
   const children = childrenByParent.get(blockId) ?? []
 
-  if (block.type === 'condition') {
+  if (block.type === 'condition' && includeConditionBranches) {
     const conditionEntries = parseConditionEntries(block.subBlocks?.[CONDITION_INPUT_KEY]?.value)
 
     lines.push(`${indent}subgraph sg_${alias}["${escapeMermaidLabel(labelLines.join('\n'))}"]`)
@@ -409,7 +443,12 @@ function emitBlockGraphLines(params: {
     return
   }
 
-  if (children.length === 0 || (block.type !== 'loop' && block.type !== 'parallel')) {
+  if (block.type === 'condition') {
+    lines.push(renderDiamondNode(alias, labelLines, indent))
+    return
+  }
+
+  if (block.type !== 'loop' && block.type !== 'parallel') {
     lines.push(renderRectNode(alias, labelLines, indent))
     return
   }
@@ -429,6 +468,8 @@ function emitBlockGraphLines(params: {
       aliases,
       childrenByParent,
       lines,
+      labelLinesForBlock,
+      includeConditionBranches,
       indent: `${indent}  `,
     })
   }
@@ -552,20 +593,10 @@ function resolveVisibleEdgeLabel(edge: Edge, blocks: Record<string, BlockState>)
     }
   }
 
-  const hiddenHandles = new Set([
-    'source',
-    'target',
-    'input',
-    'output',
-    'loop-start-source',
-    'loop-end-source',
-    'parallel-start-source',
-    'parallel-end-source',
-    'loop-end-target',
-    'parallel-end-target',
-  ])
-
-  if (hiddenHandles.has(sourceHandle) && hiddenHandles.has(targetHandle)) {
+  if (
+    HIDDEN_VISIBLE_EDGE_HANDLES.has(sourceHandle) &&
+    HIDDEN_VISIBLE_EDGE_HANDLES.has(targetHandle)
+  ) {
     return null
   }
 
@@ -591,6 +622,60 @@ function emitEdgeGraphLine(
   }
 
   return `  ${sourceNodeId} -- "${escapeMermaidLabel(label)}" --> ${targetNodeId}`
+}
+
+function resolveGraphOnlySourceNodeId(
+  edge: Edge,
+  blocks: Record<string, BlockState>,
+  aliases: Map<string, string>
+): string | null {
+  const sourceAlias = aliases.get(edge.source)
+  const sourceBlock = blocks[edge.source]
+
+  if (!sourceAlias || !sourceBlock) return sourceAlias ?? null
+  if (sourceBlock.type === 'loop') {
+    if (edge.sourceHandle === 'loop-start-source') {
+      return createContainerNodeId(sourceAlias, 'loop', 'start')
+    }
+    if (edge.sourceHandle === 'loop-end-source') {
+      return createContainerNodeId(sourceAlias, 'loop', 'end')
+    }
+  }
+  if (sourceBlock.type === 'parallel') {
+    if (edge.sourceHandle === 'parallel-start-source') {
+      return createContainerNodeId(sourceAlias, 'parallel', 'start')
+    }
+    if (edge.sourceHandle === 'parallel-end-source') {
+      return createContainerNodeId(sourceAlias, 'parallel', 'end')
+    }
+  }
+  return sourceAlias
+}
+
+function resolveGraphOnlyEdgeLabel(edge: Edge): string | null {
+  const sourceHandle = edge.sourceHandle || 'source'
+  const targetHandle = edge.targetHandle || 'target'
+
+  return HIDDEN_VISIBLE_EDGE_HANDLES.has(sourceHandle) &&
+    HIDDEN_VISIBLE_EDGE_HANDLES.has(targetHandle)
+    ? null
+    : `${sourceHandle} -> ${targetHandle}`
+}
+
+function emitGraphOnlyEdgeGraphLine(
+  edge: Edge,
+  blocks: Record<string, BlockState>,
+  aliases: Map<string, string>
+): string | null {
+  const sourceNodeId = resolveGraphOnlySourceNodeId(edge, blocks, aliases)
+  const targetNodeId = resolveVisibleTargetNodeId(edge, blocks, aliases, aliases)
+
+  if (!sourceNodeId || !targetNodeId) return null
+
+  const label = resolveGraphOnlyEdgeLabel(edge)
+  return label
+    ? `  ${sourceNodeId} -- "${escapeMermaidLabel(label)}" --> ${targetNodeId}`
+    : `  ${sourceNodeId} --> ${targetNodeId}`
 }
 
 function parseCommentPayload<T>(line: string, prefix: string): T | null {
@@ -628,16 +713,17 @@ function parseOverlayFromLabel(label: string): MermaidLabelOverlay | null {
 
   const overlay: MermaidLabelOverlay = {
     id: '',
-    name: lines[0],
     dataEntries: {},
     subBlockEntries: {},
+    internalFields: [],
   }
 
   const conditionEntries: ConditionEntry[] = []
 
-  for (const line of lines.slice(1)) {
+  for (const line of lines) {
     const separatorIndex = line.indexOf(':')
     if (separatorIndex === -1) {
+      overlay.name ??= line
       continue
     }
 
@@ -653,18 +739,22 @@ function parseOverlayFromLabel(label: string): MermaidLabelOverlay | null {
       continue
     }
     if (rawKey === 'enabled') {
+      overlay.internalFields.push(rawKey)
       overlay.enabled = Boolean(parseLabelValue(rawValue))
       continue
     }
     if (rawKey === 'advancedMode') {
+      overlay.internalFields.push(rawKey)
       overlay.advancedMode = Boolean(parseLabelValue(rawValue))
       continue
     }
     if (rawKey === 'triggerMode') {
+      overlay.internalFields.push(rawKey)
       overlay.triggerMode = Boolean(parseLabelValue(rawValue))
       continue
     }
     if (rawKey === 'outputs') {
+      overlay.internalFields.push(rawKey)
       const parsed = parseLabelValue(rawValue)
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
         overlay.outputs = parsed as Record<string, unknown>
@@ -672,10 +762,12 @@ function parseOverlayFromLabel(label: string): MermaidLabelOverlay | null {
       continue
     }
     if (rawKey.startsWith('data.')) {
+      overlay.internalFields.push(rawKey)
       overlay.dataEntries[rawKey.slice('data.'.length)] = parseLabelValue(rawValue)
       continue
     }
     if (rawKey.startsWith('subBlocks.')) {
+      overlay.internalFields.push(rawKey)
       overlay.subBlockEntries[rawKey.slice('subBlocks.'.length)] = parseLabelValue(rawValue)
       continue
     }
@@ -685,8 +777,12 @@ function parseOverlayFromLabel(label: string): MermaidLabelOverlay | null {
       rawKey === 'else-if' ||
       rawKey.startsWith('else-if-')
     ) {
+      overlay.internalFields.push(`subBlocks.${CONDITION_INPUT_KEY}`)
       conditionEntries.push({ key: rawKey, value: rawValue })
+      continue
     }
+
+    overlay.name ??= line
   }
 
   if (overlay.id.length === 0) {
@@ -798,7 +894,7 @@ function parseMermaidLabelOverlays(
       continue
     }
 
-    const diamondMatch = trimmed.match(/^[A-Za-z0-9_]+\{"(.*)"\}$/)
+    const diamondMatch = trimmed.match(/^[A-Za-z0-9_-]+\{"(.*)"\}$/)
     if (diamondMatch?.[1]) {
       const overlay = parseOverlayFromLabel(diamondMatch[1])
       if (overlay) {
@@ -808,6 +904,50 @@ function parseMermaidLabelOverlays(
   }
 
   return { blocks, conditionBranches }
+}
+
+function readGraphOnlyInternalFields(overlay: MermaidLabelOverlay): string[] {
+  return [...new Set(overlay.internalFields)]
+}
+
+function readGraphOnlyDirectExistingBlockNames(
+  document: string,
+  existingBlockIds: Set<string>
+): Map<string, string> {
+  const names = new Map<string, string>()
+
+  for (const rawLine of document.split(/\r?\n/)) {
+    const trimmed = rawLine.trim()
+    const node =
+      parseRectNodeLine(trimmed) ??
+      (() => {
+        const diamondMatch = trimmed.match(/^([A-Za-z0-9_-]+)\{"(.*)"\}$/)
+        return diamondMatch?.[1] && diamondMatch[2]
+          ? { nodeId: diamondMatch[1], label: diamondMatch[2] }
+          : null
+      })() ??
+      (() => {
+        const subgraphMatch = trimmed.match(/^subgraph\s+([A-Za-z0-9_-]+)\["(.*)"\]$/)
+        return subgraphMatch?.[1] && subgraphMatch[2]
+          ? { nodeId: subgraphMatch[1], label: subgraphMatch[2] }
+          : null
+      })()
+
+    if (!node || !existingBlockIds.has(node.nodeId) || parseOverlayFromLabel(node.label)) {
+      continue
+    }
+
+    const name = unescapeMermaidLabel(node.label)
+      .split('\n')
+      .map((line) => line.trim())
+      .find((line) => line.length > 0)
+
+    if (name) {
+      names.set(node.nodeId, name)
+    }
+  }
+
+  return names
 }
 
 function parseVisibleEdgeLabel(
@@ -902,6 +1042,22 @@ function parseVisibleWorkflowEdges(
     return chain
   }
 
+  const registerBlockRef = (
+    nodeId: string,
+    blockId: string,
+    blockType: string | undefined,
+    parentId: string | null
+  ) => {
+    nodeRefs.set(nodeId, { kind: 'block', blockId, blockType })
+    visibleBlockIds.add(blockId)
+    if (parentId && parentId !== blockId) {
+      inferredParentIds.set(blockId, parentId)
+    }
+    if (!preferredBlockNodeIds.has(blockId)) {
+      preferredBlockNodeIds.set(blockId, nodeId)
+    }
+  }
+
   for (const rawLine of document.split(/\r?\n/)) {
     const trimmed = rawLine.trim()
 
@@ -910,27 +1066,34 @@ function parseVisibleWorkflowEdges(
       continue
     }
 
-    const subgraphMatch = trimmed.match(/^subgraph\s+(sg_[A-Za-z0-9_]+)\["(.*)"\]$/)
+    const subgraphMatch = trimmed.match(/^subgraph\s+([A-Za-z0-9_-]+)\["(.*)"\]$/)
     if (subgraphMatch?.[1] && subgraphMatch[2]) {
       const currentContainerId = getActiveContainerId()
       const overlay = parseOverlayFromLabel(subgraphMatch[2])
       if (overlay) {
-        const nodeId = subgraphMatch[1].slice(3)
-        aliasToBlockId.set(nodeId, overlay.id)
-        nodeRefs.set(nodeId, { kind: 'block', blockId: overlay.id, blockType: overlay.type })
-        visibleBlockIds.add(overlay.id)
-        if (currentContainerId && currentContainerId !== overlay.id) {
-          inferredParentIds.set(overlay.id, currentContainerId)
-        }
-        if (!preferredBlockNodeIds.has(overlay.id)) {
-          preferredBlockNodeIds.set(overlay.id, nodeId)
+        const nodeId = subgraphMatch[1]
+        const edgeNodeId = nodeId.startsWith('sg_') ? nodeId.slice('sg_'.length) : nodeId
+        for (const visibleNodeId of [edgeNodeId, nodeId]) {
+          aliasToBlockId.set(visibleNodeId, overlay.id)
+          registerBlockRef(visibleNodeId, overlay.id, overlay.type, currentContainerId)
         }
         subgraphStack.push({
           blockId: overlay.id,
           isContainer: overlay.type === 'loop' || overlay.type === 'parallel',
         })
       } else {
-        subgraphStack.push({ blockId: null, isContainer: false })
+        const directBlockId = resolveBlockIdFromVisibleNodeId(
+          subgraphMatch[1],
+          knownBlockIdSet,
+          aliasToBlockId
+        )
+        const directBlockType = directBlockId ? blocks[directBlockId]?.type : undefined
+        if (directBlockId && isContainerBlockType(directBlockType)) {
+          registerBlockRef(subgraphMatch[1], directBlockId, directBlockType, currentContainerId)
+          subgraphStack.push({ blockId: directBlockId, isContainer: true })
+        } else {
+          subgraphStack.push({ blockId: null, isContainer: false })
+        }
       }
       continue
     }
@@ -956,36 +1119,18 @@ function parseVisibleWorkflowEdges(
 
       const directBlockId = resolveBlockIdFromVisibleNodeId(nodeId, knownBlockIdSet, aliasToBlockId)
       if (directBlockId) {
-        nodeRefs.set(nodeId, {
-          kind: 'block',
-          blockId: directBlockId,
-          blockType: blocks[directBlockId]?.type,
-        })
-        visibleBlockIds.add(directBlockId)
-        if (currentContainerId && currentContainerId !== directBlockId) {
-          inferredParentIds.set(directBlockId, currentContainerId)
-        }
-        if (!preferredBlockNodeIds.has(directBlockId)) {
-          preferredBlockNodeIds.set(directBlockId, nodeId)
-        }
+        registerBlockRef(nodeId, directBlockId, blocks[directBlockId]?.type, currentContainerId)
         continue
       }
 
       const overlay = parseOverlayFromLabel(rectNode.label)
       if (overlay) {
         aliasToBlockId.set(nodeId, overlay.id)
-        nodeRefs.set(nodeId, { kind: 'block', blockId: overlay.id, blockType: overlay.type })
-        visibleBlockIds.add(overlay.id)
-        if (currentContainerId && currentContainerId !== overlay.id) {
-          inferredParentIds.set(overlay.id, currentContainerId)
-        }
-        if (!preferredBlockNodeIds.has(overlay.id)) {
-          preferredBlockNodeIds.set(overlay.id, nodeId)
-        }
+        registerBlockRef(nodeId, overlay.id, overlay.type, currentContainerId)
         continue
       }
 
-      const containerMatch = nodeId.match(/^([A-Za-z0-9_]+)__(loop|parallel)_(start|end)$/)
+      const containerMatch = nodeId.match(/^([A-Za-z0-9_-]+)__(loop|parallel)_(start|end)$/)
       if (containerMatch?.[1] && containerMatch[2] && containerMatch[3]) {
         const blockId = resolveBlockIdFromVisibleNodeId(
           containerMatch[1],
@@ -1004,24 +1149,13 @@ function parseVisibleWorkflowEdges(
       continue
     }
 
-    const diamondMatch = trimmed.match(/^([A-Za-z0-9_]+)\{"(.*)"\}$/)
+    const diamondMatch = trimmed.match(/^([A-Za-z0-9_-]+)\{"(.*)"\}$/)
     if (diamondMatch?.[1] && diamondMatch[2]) {
       const currentContainerId = getActiveContainerId()
       const overlay = parseOverlayFromLabel(diamondMatch[2])
       if (overlay) {
         aliasToBlockId.set(diamondMatch[1], overlay.id)
-        nodeRefs.set(diamondMatch[1], {
-          kind: 'block',
-          blockId: overlay.id,
-          blockType: overlay.type,
-        })
-        visibleBlockIds.add(overlay.id)
-        if (currentContainerId && currentContainerId !== overlay.id) {
-          inferredParentIds.set(overlay.id, currentContainerId)
-        }
-        if (!preferredBlockNodeIds.has(overlay.id)) {
-          preferredBlockNodeIds.set(overlay.id, diamondMatch[1])
-        }
+        registerBlockRef(diamondMatch[1], overlay.id, overlay.type, currentContainerId)
       }
     }
   }
@@ -1031,7 +1165,7 @@ function parseVisibleWorkflowEdges(
   for (const rawLine of document.split(/\r?\n/)) {
     const trimmed = rawLine.trim()
     const edgeMatch = trimmed.match(
-      /^([A-Za-z0-9_]+)\s*(?:--\s*"((?:\\"|[^"])*)"\s*)?-->\s*([A-Za-z0-9_]+)$/
+      /^([A-Za-z0-9_-]+)\s*(?:--\s*"((?:\\"|[^"])*)"\s*)?-->\s*([A-Za-z0-9_-]+)$/
     )
     if (!edgeMatch?.[1] || !edgeMatch[3]) {
       continue
@@ -1040,7 +1174,9 @@ function parseVisibleWorkflowEdges(
     const sourceRef = nodeRefs.get(edgeMatch[1])
     const targetRef = nodeRefs.get(edgeMatch[3])
     if (!sourceRef || !targetRef) {
-      continue
+      throw new Error(
+        `Workflow graph Mermaid edge "${edgeMatch[1]} --> ${edgeMatch[3]}" references unknown node id.`
+      )
     }
 
     if (
@@ -1055,11 +1191,11 @@ function parseVisibleWorkflowEdges(
     const sourceAncestors = getVisibleAncestorChain(sourceRef.blockId)
     const visibleEndpointViolation =
       targetRef.kind === 'container-start'
-        ? `Invalid visible container edge: ${targetRef.blockId} start node is source-only. Use the ${targetRef.blockId} container block alias in the visible line and targetHandle "target" in TG_EDGE metadata for incoming edges.`
+        ? `Invalid container edge: ${targetRef.blockId} start node is source-only. Use the ${targetRef.blockId} container block alias in the visible line and targetHandle "target" in TG_EDGE metadata for incoming edges.`
         : targetRef.kind === 'container-end' && !sourceAncestors.includes(targetRef.blockId)
-          ? `Invalid visible container edge: ${targetRef.blockId} end node only accepts edges from blocks inside that container. Use the ${targetRef.blockId} container block alias in the visible line and targetHandle "target" in TG_EDGE metadata for incoming outer edges.`
+          ? `Invalid container edge: ${targetRef.blockId} end node only accepts edges from blocks inside that container. Use the ${targetRef.blockId} container block alias in the visible line and targetHandle "target" in TG_EDGE metadata for incoming outer edges.`
           : sourceRef.kind === 'container-start' && !targetAncestors.includes(sourceRef.blockId)
-            ? `Invalid visible container edge: ${sourceRef.blockId} start node only connects to blocks inside that container. Use the ${sourceRef.blockId} container block alias for outer workflow edges.`
+            ? `Invalid container edge: ${sourceRef.blockId} start node only connects to blocks inside that container. Use the ${sourceRef.blockId} container block alias for outer workflow edges.`
             : null
 
     if (visibleEndpointViolation) throw new Error(visibleEndpointViolation)
@@ -1081,6 +1217,17 @@ function parseVisibleWorkflowEdges(
         : targetRef.kind === 'container-end'
           ? `${targetRef.blockType}-end-target`
           : 'target')
+
+    const sourceBlock = blocks[sourceRef.blockId]
+    const conditionHandlePrefix = `condition-${sourceRef.blockId}-`
+    if (
+      sourceBlock?.type === 'condition' &&
+      !sourceHandle.startsWith(conditionHandlePrefix)
+    ) {
+      throw new Error(
+        `Workflow graph Mermaid condition edge from "${sourceRef.blockId}" must use canonical sourceHandle "${conditionHandlePrefix}<branch>". Use edit_workflow_block to define condition branches before wiring them.`
+      )
+    }
 
     visibleEdges.push({
       source: sourceRef.blockId,
@@ -1381,6 +1528,121 @@ function applyVisibleParenting(
   }
 
   return nextBlocks
+}
+
+export function parseGraphOnlyWorkflowMermaid(
+  document: string,
+  existingBlocks: Record<string, BlockState>
+): GraphOnlyWorkflowMermaid {
+  const directionMatch = document.trimStart().match(/^flowchart\s+(TD|LR)\b/)
+  if (!directionMatch?.[1]) {
+    throw new Error('Workflow graph Mermaid must start with `flowchart TD` or `flowchart LR`.')
+  }
+
+  for (const line of document.split(/\r?\n/)) {
+    const trimmed = line.trim()
+    if (
+      trimmed.startsWith(TG_WORKFLOW_PREFIX) ||
+      trimmed.startsWith(TG_BLOCK_PREFIX) ||
+      trimmed.startsWith(TG_EDGE_PREFIX) ||
+      trimmed.startsWith(TG_LOOP_PREFIX) ||
+      trimmed.startsWith(TG_PARALLEL_PREFIX)
+    ) {
+      throw new Error(
+        'Workflow graph Mermaid must not include TG_* metadata comments. Send only visible Mermaid nodes, subgraphs, and edges.'
+      )
+    }
+  }
+
+  const existingBlockIds = new Set(Object.keys(existingBlocks))
+  const blockOverlays = parseMermaidLabelOverlays(document, Object.keys(existingBlocks))
+  for (const [blockId, name] of readGraphOnlyDirectExistingBlockNames(document, existingBlockIds)) {
+    if (!blockOverlays.blocks.has(blockId)) {
+      blockOverlays.blocks.set(blockId, {
+        id: blockId,
+        name,
+        dataEntries: {},
+        subBlockEntries: {},
+        internalFields: [],
+      })
+    }
+  }
+  const graphBlocks: Record<string, BlockState> = { ...existingBlocks }
+
+  for (const [blockId, overlay] of blockOverlays.blocks) {
+    const internalFields = readGraphOnlyInternalFields(overlay)
+    if (internalFields.length > 0) {
+      throw new Error(
+        `Workflow graph Mermaid block "${blockId}" includes block-internal fields (${internalFields.join(', ')}). Use edit_workflow_block to change block configuration; edit_workflow only accepts visible graph labels: name, id, and type.`
+      )
+    }
+
+    if (!graphBlocks[blockId]) {
+      graphBlocks[blockId] = {
+        id: blockId,
+        type: overlay.type ?? 'unknown',
+        name: overlay.name ?? '',
+        position: { x: 0, y: 0 },
+        subBlocks: {},
+        outputs: {},
+        enabled: true,
+      }
+    }
+  }
+
+  if (parseMermaidLabelOverlays(document, Object.keys(graphBlocks)).conditionBranches.size > 0) {
+    throw new Error(
+      'Workflow graph Mermaid must not include condition branch labels. Use edit_workflow_block to change condition branch definitions.'
+    )
+  }
+
+  const visibleGraph = parseVisibleWorkflowEdges(document, graphBlocks)
+  const blocksWithVisibleParenting = applyVisibleParenting(
+    graphBlocks,
+    visibleGraph.visibleBlockIds,
+    visibleGraph.inferredParentIds
+  )
+  const edges = normalizeLogicalWorkflowEdges(visibleGraph.edges, blocksWithVisibleParenting).map(
+    ({ source, target, sourceHandle, targetHandle }) => ({
+      source,
+      target,
+      ...(sourceHandle ? { sourceHandle } : {}),
+      ...(targetHandle ? { targetHandle } : {}),
+    })
+  )
+  for (const edge of edges) {
+    const conditionKey = extractConditionDisplayKey(edge.source, edge.sourceHandle)
+    if (!conditionKey) continue
+
+    const sourceBlock = blocksWithVisibleParenting[edge.source]
+    const existingConditionKeys = new Set(
+      parseConditionEntries(sourceBlock?.subBlocks?.[CONDITION_INPUT_KEY]?.value).map(
+        (entry) => entry.key
+      )
+    )
+    if (sourceBlock?.type !== 'condition' || !existingConditionKeys.has(conditionKey)) {
+      throw new Error(
+        `Workflow graph Mermaid references unknown condition branch "${conditionKey}" on block "${edge.source}". Use edit_workflow_block to define condition branches before wiring them.`
+      )
+    }
+  }
+
+  return {
+    direction: directionMatch[1] as WorkflowDirection,
+    blocks: [...visibleGraph.visibleBlockIds].map((blockId) => {
+      const block = blocksWithVisibleParenting[blockId]
+      const overlay = blockOverlays.blocks.get(blockId)
+      return {
+        blockId,
+        ...((overlay?.type ?? block?.type) && (overlay?.type ?? block?.type) !== 'unknown'
+          ? { blockType: overlay?.type ?? block?.type }
+          : {}),
+        ...(overlay?.name ? { name: overlay.name } : {}),
+        ...(block?.data?.parentId ? { parentId: block.data.parentId } : {}),
+      }
+    }),
+    edges,
+  }
 }
 
 function syncContainerNodeMembership(
@@ -1700,6 +1962,44 @@ export function serializeWorkflowToTgMermaid(
   )
   for (const parallelId of parallelIds) {
     lines.push(toCommentLine(TG_PARALLEL_PREFIX, workflowState.parallels[parallelId]))
+  }
+
+  return lines.join('\n')
+}
+
+export function serializeWorkflowToGraphMermaid(
+  workflowState: WorkflowSnapshot,
+  options: { direction?: WorkflowDirection } = {}
+): string {
+  const direction =
+    options.direction ??
+    workflowState.direction ??
+    inferMermaidDirectionFromWorkflowState(workflowState)
+  const blocks = workflowState.blocks ?? {}
+  const blockIds = Object.keys(blocks).sort((left, right) => left.localeCompare(right))
+  const aliases = buildAliasMap(blockIds)
+  const childrenByParent = getChildrenByParent(blocks)
+  const rootBlockIds = blockIds.filter((blockId) => {
+    const parentId = blocks[blockId]?.data?.parentId
+    return !parentId || !blocks[parentId]
+  })
+  const lines = [`flowchart ${direction}`]
+
+  for (const blockId of rootBlockIds) {
+    emitBlockGraphLines({
+      blockId,
+      blocks,
+      aliases,
+      childrenByParent,
+      lines,
+      labelLinesForBlock: buildGraphOnlyBlockLabelLines,
+      includeConditionBranches: false,
+    })
+  }
+
+  for (const edge of workflowState.edges ?? []) {
+    const line = emitGraphOnlyEdgeGraphLine(edge, blocks, aliases)
+    if (line) lines.push(line)
   }
 
   return lines.join('\n')

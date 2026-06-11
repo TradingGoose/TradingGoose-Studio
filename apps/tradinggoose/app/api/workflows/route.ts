@@ -19,7 +19,6 @@ const logger = createLogger('WorkflowAPI')
 const CreateWorkflowSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.string().optional().default(''),
-  color: z.string().optional(),
   workspaceId: z.string().min(1, 'Workspace ID is required'),
   folderId: z.string().nullable().optional(),
   initialWorkflowState: z.any().optional(),
@@ -129,7 +128,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { name, description, color, workspaceId, folderId, initialWorkflowState } =
+    const { name, description, workspaceId, folderId, initialWorkflowState } =
       CreateWorkflowSchema.parse(body)
 
     const workspaceAccess = await checkWorkspaceAccess(workspaceId, session.user.id)
@@ -161,10 +160,7 @@ export async function POST(req: NextRequest) {
       normalizeVariables(initialState?.variables),
       workflowId
     )
-    const resolvedColor =
-      typeof color === 'string' && color.trim().length > 0
-        ? color.trim()
-        : getStableVibrantColor(workflowId)
+    const resolvedColor = getStableVibrantColor(workflowId)
 
     logger.info(`[${requestId}] Creating workflow ${workflowId} for user ${session.user.id}`)
 

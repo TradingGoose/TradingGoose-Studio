@@ -48,6 +48,7 @@ describe('requestCopilotTitle', () => {
 
     const title = await requestCopilotTitle({
       message: 'Build a momentum screener with RSI filters',
+      userId: 'user-1',
       model: 'gpt-5.4',
       provider: 'openai',
     })
@@ -60,6 +61,7 @@ describe('requestCopilotTitle', () => {
     expect(init.headers).toEqual({
       'Content-Type': 'application/json',
       'x-api-key': 'test-copilot-key',
+      'x-copilot-user-id': 'user-1',
     })
 
     const payload = JSON.parse(init.body)
@@ -98,6 +100,7 @@ describe('requestCopilotTitle', () => {
 
     const title = await requestCopilotTitle({
       message: 'Review the current skill implementation',
+      userId: 'user-1',
       model: 'claude-opus-4.6',
     })
 

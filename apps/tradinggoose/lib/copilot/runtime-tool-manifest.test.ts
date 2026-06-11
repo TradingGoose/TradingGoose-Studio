@@ -142,30 +142,19 @@ describe('copilot runtime tool manifest', () => {
         }),
         expect.objectContaining({
           name: 'edit_workflow',
-          description: expect.stringContaining(
-            'Do not use this for a single existing block `name`, `enabled`, or `subBlocks` change'
-          ),
+          description: expect.stringContaining('minimal Mermaid `entityDocument`'),
           kind: 'edit',
           entityKind: 'workflow',
-          semanticValidators: expect.arrayContaining([
-            expect.objectContaining({
-              path: 'entityDocument',
-              kind: 'string_requires_real_newlines',
-              description: expect.stringContaining('Studio validates workflow graph semantics'),
-            }),
-            expect.objectContaining({
-              path: 'entityDocument',
-              kind: 'string_starts_with',
-              args: { prefix: 'flowchart ' },
-            }),
-          ]),
           parameters: expect.objectContaining({
             type: 'object',
             required: expect.arrayContaining(['entityId', 'entityDocument']),
             properties: expect.objectContaining({
               entityId: expect.any(Object),
               entityDocument: expect.objectContaining({
-                description: expect.stringContaining('%% TG_WORKFLOW'),
+                description: expect.stringContaining('Minimal Mermaid flowchart'),
+              }),
+              removedBlockIds: expect.objectContaining({
+                description: expect.stringContaining('intentionally removed'),
               }),
             }),
           }),
@@ -283,39 +272,30 @@ describe('copilot runtime tool manifest', () => {
     )
     const editWorkflowValidators =
       manifest.tools.find((tool) => tool.name === 'edit_workflow')?.semanticValidators ?? []
-    const workflowValidatorKinds = editWorkflowValidators.map((validator) => validator.kind)
-    expect(workflowValidatorKinds).toEqual(
-      expect.arrayContaining([
-        'string_requires_real_newlines',
-        'string_starts_with',
-        'string_requires_line_prefix',
-        'string_line_prefix_json_schema',
-        'string_forbids_substring',
-      ])
-    )
-    expect(workflowValidatorKinds).not.toContain('string_document_contract')
-    expect(editWorkflowValidators).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          kind: 'string_requires_line_prefix',
-          args: { prefix: '%% TG_WORKFLOW ', minMatches: 1 },
-        }),
-        expect.objectContaining({
-          kind: 'string_requires_line_prefix',
-          args: { prefix: '%% TG_BLOCK ', minMatches: 1 },
-        }),
-        expect.objectContaining({
-          kind: 'string_line_prefix_json_schema',
-          args: expect.objectContaining({ prefix: '%% TG_EDGE ', schema: expect.any(Object) }),
-        }),
-      ])
-    )
+    expect(editWorkflowValidators.map((validator) => validator.kind)).toEqual([
+      'string_requires_real_newlines',
+      'string_starts_with',
+      'string_forbids_substring',
+    ])
     const editWorkflowProperties =
       (manifest.tools.find((tool) => tool.name === 'edit_workflow')?.parameters?.properties as
         | Record<string, unknown>
         | undefined) ?? {}
+    const createWorkflowProperties =
+      (manifest.tools.find((tool) => tool.name === 'create_workflow')?.parameters?.properties as
+        | Record<string, unknown>
+        | undefined) ?? {}
+    const createIndicatorSchema = manifest.tools
+      .find((tool) => tool.name === 'create_indicator')
+      ?.semanticValidators?.find((validator) => validator.kind === 'string_json_schema')?.args
+      ?.schema as { properties?: Record<string, unknown>; required?: string[] } | undefined
+    expect(createWorkflowProperties).not.toHaveProperty('color')
+    expect(createIndicatorSchema?.properties ?? {}).not.toHaveProperty('color')
+    expect(createIndicatorSchema?.required ?? []).not.toContain('color')
     expect(editWorkflowProperties).toHaveProperty('entityId')
     expect(editWorkflowProperties).toHaveProperty('entityDocument')
+    expect(editWorkflowProperties).toHaveProperty('removedBlockIds')
+    expect(editWorkflowProperties).not.toHaveProperty('documentFormat')
     expect(editWorkflowProperties).not.toHaveProperty('workflowId')
     expect(editWorkflowProperties).not.toHaveProperty('workflowDocument')
     expect(

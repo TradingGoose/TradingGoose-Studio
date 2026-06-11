@@ -159,7 +159,6 @@ export function IndicatorList({
           workspaceId,
           indicator: {
             name: copiedName,
-            color: indicator.color ?? '',
             pineCode: indicator.pineCode ?? '',
             inputMeta:
               indicator.inputMeta && typeof indicator.inputMeta === 'object'

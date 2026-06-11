@@ -16,7 +16,6 @@ interface CreateWorkflowVariables {
   workspaceId: string
   name?: string
   description?: string
-  color?: string
   folderId?: string | null
 }
 
@@ -25,7 +24,7 @@ export function useCreateWorkflow() {
 
   return useMutation({
     mutationFn: async (variables: CreateWorkflowVariables) => {
-      const { workspaceId, name, description, color, folderId } = variables
+      const { workspaceId, name, description, folderId } = variables
 
       logger.info(`Creating new workflow in workspace: ${workspaceId}`)
       const requestBody: Record<string, unknown> = {
@@ -33,9 +32,6 @@ export function useCreateWorkflow() {
         description: description || 'New workflow',
         workspaceId,
         folderId: folderId || null,
-      }
-      if (typeof color === 'string' && color.trim().length > 0) {
-        requestBody.color = color.trim()
       }
 
       const createResponse = await fetch('/api/workflows', {

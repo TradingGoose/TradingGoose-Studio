@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { applyAutoLayout } from '@/lib/workflows/autolayout'
 import {
   buildWorkflowDocumentPreviewDiff,
+  parseGraphOnlyWorkflowMermaid,
   parseTgMermaidToWorkflow,
+  serializeWorkflowToGraphMermaid,
   serializeWorkflowToTgMermaid,
   TG_MERMAID_DOCUMENT_FORMAT,
 } from '@/lib/workflows/studio-workflow-mermaid'
@@ -393,6 +395,77 @@ n3 --> n4
         target: 'sink',
       },
     ])
+  })
+
+  it('parses ordinary graph-only Mermaid aliases without flattening containers', () => {
+    const parsed = parseGraphOnlyWorkflowMermaid(
+      [
+        'flowchart TD',
+        'sink["Send Alert"]',
+        'subgraph loop_parent["For Each Symbol"]',
+        '  loop_child["Generate Signal"]',
+        'end',
+        'sink --> loop_parent',
+      ].join('\n'),
+      workflowState.blocks
+    )
+
+    expect(parsed.blocks.find((block) => block.blockId === 'loop_child')?.parentId).toBe(
+      'loop_parent'
+    )
+    expect(parsed.edges).toContainEqual({
+      source: 'sink',
+      target: 'loop_parent',
+      targetHandle: 'target',
+    })
+  })
+
+  it('serializes empty graph-only containers with boundary nodes', () => {
+    const document = serializeWorkflowToGraphMermaid({
+      direction: 'TD',
+      blocks: {
+        loop1: {
+          id: 'loop1',
+          type: 'loop',
+          name: 'Loop',
+          position: { x: 0, y: 0 },
+          enabled: true,
+          subBlocks: {},
+          outputs: {},
+        },
+        sink: {
+          id: 'sink',
+          type: 'telegram',
+          name: 'Sink',
+          position: { x: 320, y: 0 },
+          enabled: true,
+          subBlocks: {},
+          outputs: {},
+        },
+      },
+      edges: [{ id: 'e1', source: 'loop1', target: 'sink', sourceHandle: 'loop-end-source' }],
+      loops: {},
+      parallels: {},
+    })
+
+    expect(document).toContain('n1__loop_start["Loop Start"]')
+    expect(document).toContain('n1__loop_end["Loop End"]')
+    expect(document).toContain('n1__loop_end --> n2')
+    expect(() => parseGraphOnlyWorkflowMermaid(document, {})).not.toThrow()
+  })
+
+  it('rejects shorthand graph-only condition edge handles', () => {
+    expect(() =>
+      parseGraphOnlyWorkflowMermaid(
+        [
+          'flowchart TD',
+          'gate["Market Hours?<br/>id: gate<br/>type: condition"]',
+          'sink["Send Alert<br/>id: sink<br/>type: telegram"]',
+          'gate -- "if -> target" --> sink',
+        ].join('\n'),
+        workflowState.blocks
+      )
+    ).toThrow('must use canonical sourceHandle "condition-gate-<branch>"')
   })
 
   it('rejects visible external edges into container internal endpoint nodes', () => {

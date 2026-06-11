@@ -1,11 +1,14 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/studio-workflow-mermaid'
+import {
+  TG_MERMAID_DOCUMENT_FORMAT,
+  WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
+} from '@/lib/workflows/document-format'
 
 const editWorkflowExecute = vi.fn(async () => ({
   entityKind: 'workflow',
   entityId: 'workflow-123',
-  entityDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
-  documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
+  entityDocument: 'flowchart TD\n  n1["Input<br/>id: input1<br/>type: input_trigger"]',
+  documentFormat: WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
   workflowState: { blocks: {} },
 }))
 const readWorkflowLogsExecute = vi.fn(async () => ({ entries: [] }))
@@ -329,8 +332,7 @@ describe('routeExecution', () => {
 
   it('preserves workflow edit entity fields when routing workflow tools', async () => {
     const payload = {
-      entityDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
-      documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
+      entityDocument: 'flowchart TD\n  n1["Input<br/>id: input1<br/>type: input_trigger"]',
       entityId: 'workflow-123',
       currentWorkflowState: '{"blocks":{}}',
     }
@@ -339,7 +341,7 @@ describe('routeExecution', () => {
       entityKind: 'workflow',
       entityId: 'workflow-123',
       entityDocument: expect.any(String),
-      documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
+      documentFormat: WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
     })
 
     expect(editWorkflowExecute).toHaveBeenCalledWith(payload, undefined)

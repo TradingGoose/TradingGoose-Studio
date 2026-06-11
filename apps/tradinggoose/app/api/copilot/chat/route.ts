@@ -17,6 +17,7 @@ import {
   createRequestTracker,
   createUnauthorizedResponse,
 } from '@/lib/copilot/auth'
+import { mirrorLocalCopilotCompletionUsageReports } from '@/lib/copilot/completion-usage-billing'
 import { normalizeFunctionCallArguments } from '@/lib/copilot/function-call-args'
 import {
   mapSessionToApiResponse,
@@ -264,6 +265,7 @@ async function persistChatMessages(
 function generateAndPersistTitle(params: {
   reviewSessionId: string
   message: string
+  userId: string
   model: string
   provider?: ProviderId
   requestId: string
@@ -271,6 +273,7 @@ function generateAndPersistTitle(params: {
 }): void {
   requestCopilotTitle({
     message: params.message,
+    userId: params.userId,
     model: params.model,
     provider: params.provider,
   })
@@ -942,6 +945,10 @@ export async function POST(req: NextRequest) {
           enqueueTurnState('in_progress', 'streaming')
 
           const forwardClientEvent = (event: Record<string, unknown>) => {
+            if (event.type === 'billing.completion_usage') {
+              return
+            }
+
             if (event.type === 'awaiting_tools') {
               latestTurnStatus = 'in_progress'
               enqueueTurnState('in_progress', 'waiting_for_tools')
@@ -990,6 +997,12 @@ export async function POST(req: NextRequest) {
                     }
 
                     const event = JSON.parse(jsonStr)
+                    if (event.type === 'billing.completion_usage') {
+                      await mirrorLocalCopilotCompletionUsageReports({
+                        userId: authenticatedUserId,
+                        reports: [event.report],
+                      })
+                    }
 
                     switch (event.type) {
                       case 'tool_result':
@@ -1023,6 +1036,7 @@ export async function POST(req: NextRequest) {
                           generateAndPersistTitle({
                             reviewSessionId: actualReviewSessionId!,
                             message,
+                            userId: authenticatedUserId,
                             model,
                             provider: runtimeProvider,
                             requestId: tracker.requestId,
@@ -1127,6 +1141,12 @@ export async function POST(req: NextRequest) {
                 try {
                   const jsonStr = buffer.slice(6)
                   const event = JSON.parse(jsonStr)
+                  if (event.type === 'billing.completion_usage') {
+                    await mirrorLocalCopilotCompletionUsageReports({
+                      userId: authenticatedUserId,
+                      reports: [event.report],
+                    })
+                  }
                   if (event.type === 'tool_result') {
                     streamCapture.captureToolResult(event as Record<string, unknown>)
                   }
@@ -1304,6 +1324,13 @@ export async function POST(req: NextRequest) {
           }
         })
       : undefined
+    await mirrorLocalCopilotCompletionUsageReports({
+      userId: authenticatedUserId,
+      reports: Array.isArray(responseData.completionUsageReports)
+        ? responseData.completionUsageReports
+        : [],
+    })
+    responseData.completionUsageReports = undefined
 
     if (currentSession && (responseData.content || contentBlocks?.length)) {
       await persistChatMessages({
@@ -1324,6 +1351,7 @@ export async function POST(req: NextRequest) {
         generateAndPersistTitle({
           reviewSessionId: actualReviewSessionId,
           message,
+          userId: authenticatedUserId,
           model: providerConfig?.model ?? model,
           provider: providerConfig?.provider,
           requestId: tracker.requestId,

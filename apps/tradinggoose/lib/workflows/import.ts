@@ -15,7 +15,6 @@ type CreateWorkflowParams = {
   name: string
   description: string
   workspaceId: string
-  color?: string
 }
 
 type ImportWorkflowFromJsonContentParams = {
@@ -121,7 +120,6 @@ export async function importWorkflowFromJsonContent({
   const workflowId = await createWorkflow({
     name: resolvedName,
     description: workflowData.description,
-    color: workflowData.color.length > 0 ? workflowData.color : undefined,
     workspaceId,
   })
 

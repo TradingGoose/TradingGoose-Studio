@@ -887,12 +887,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
             workspaceId,
             folderId: options.folderId || null,
           }
-          if (typeof options.color === 'string') {
-            requestBody.color = options.color
-          }
-          if (options.marketplaceId) {
-            requestBody.color = '#808080'
-          }
 
           const response = await fetch('/api/workflows', {
             method: 'POST',
@@ -1181,7 +1175,10 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
       },
 
       // Update workflow metadata
-      updateWorkflow: async (id: string, metadata: Partial<WorkflowMetadata>) => {
+      updateWorkflow: async (
+        id: string,
+        metadata: Partial<Pick<WorkflowMetadata, 'name' | 'description' | 'folderId'>>
+      ) => {
         const { workflows } = get()
         const workflow = workflows[id]
         if (!workflow) {
