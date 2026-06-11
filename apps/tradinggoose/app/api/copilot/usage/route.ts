@@ -26,6 +26,7 @@ const ContextUsageRequestSchema = z.object({
   conversationId: z.string(),
   model: z.enum(COPILOT_RUNTIME_MODELS),
   workflowId: z.string().optional(),
+  workspaceId: z.string().optional(),
   provider: z.enum(COPILOT_RUNTIME_PROVIDER_IDS).optional(),
 })
 
@@ -93,6 +94,7 @@ async function fetchContextUsageFromCopilot(params: {
     model,
     userId,
     ...(workflowId ? { workflowId } : {}),
+    ...(workspaceId ? { workspaceId } : {}),
     provider: providerConfig,
   }
 
@@ -110,7 +112,7 @@ async function fetchContextUsageFromCopilot(params: {
 async function handleContextUsage(
   payload: z.infer<typeof ContextUsageRequestSchema>
 ): Promise<NextResponse> {
-  const { conversationId, model, workflowId, provider } = payload
+  const { conversationId, model, workflowId, workspaceId, provider } = payload
   const session = await getSession()
   const userId = session?.user?.id
 
@@ -123,6 +125,7 @@ async function handleContextUsage(
     conversationId,
     model,
     workflowId,
+    workspaceId,
     provider,
     userId,
   })

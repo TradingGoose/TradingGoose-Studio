@@ -226,6 +226,7 @@ describe('Copilot Usage API - Context', () => {
         kind: 'context',
         conversationId: 'conversation-1',
         model: 'gpt-5.4',
+        workspaceId: 'workspace-1',
       }),
     })
 
@@ -252,6 +253,7 @@ describe('Copilot Usage API - Context', () => {
           apiKey: 'test-copilot-key',
         },
         userId: 'user-1',
+        workspaceId: 'workspace-1',
       },
     })
     expect(mockGetPersonalEffectiveSubscription).not.toHaveBeenCalled()
