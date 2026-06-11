@@ -17,7 +17,7 @@ describe('Copilot Usage API - Context', () => {
   const mockMarkMessageAsProcessed = vi.fn()
   const mockCalculateCost = vi.fn()
   const mockReserveCopilotUsage = vi.fn()
-  const mockAdjustCopilotUsageReservation = vi.fn()
+  const mockCommitCopilotUsageReservation = vi.fn()
   const mockReleaseCopilotUsageReservation = vi.fn()
   const mockIsHosted = vi.fn()
 
@@ -66,7 +66,7 @@ describe('Copilot Usage API - Context', () => {
     mockMarkMessageAsProcessed.mockReset()
     mockCalculateCost.mockReset()
     mockReserveCopilotUsage.mockReset()
-    mockAdjustCopilotUsageReservation.mockReset()
+    mockCommitCopilotUsageReservation.mockReset()
     mockReleaseCopilotUsageReservation.mockReset()
     mockIsHosted.mockReset()
 
@@ -100,18 +100,7 @@ describe('Copilot Usage API - Context', () => {
       scopeType: 'user',
       scopeId: 'user-1',
     })
-    mockAdjustCopilotUsageReservation.mockResolvedValue({
-      allowed: true,
-      status: 200,
-      reservationId: 'reservation-1',
-      reservedUsd: 3,
-      currentUsage: 8,
-      limit: 10,
-      remaining: 0,
-      activeReservedUsd: 3,
-      scopeType: 'user',
-      scopeId: 'user-1',
-    })
+    mockCommitCopilotUsageReservation.mockImplementation(async ({ operation }) => operation())
     mockReleaseCopilotUsageReservation.mockResolvedValue({
       released: true,
       reservationId: 'reservation-1',
@@ -209,7 +198,8 @@ describe('Copilot Usage API - Context', () => {
 
     vi.doMock('@/lib/copilot/usage-reservations', () => ({
       reserveCopilotUsage: (...args: any[]) => mockReserveCopilotUsage(...args),
-      adjustCopilotUsageReservation: (...args: any[]) => mockAdjustCopilotUsageReservation(...args),
+      commitCopilotUsageReservation: (...args: any[]) =>
+        mockCommitCopilotUsageReservation(...args),
       releaseCopilotUsageReservation: (...args: any[]) =>
         mockReleaseCopilotUsageReservation(...args),
     }))
@@ -493,89 +483,6 @@ describe('Copilot Usage API - Context', () => {
     expect(mockGetPersonalEffectiveSubscription).not.toHaveBeenCalled()
   })
 
-  it('adjusts shared usage budget through the internal adjust action using Studio pricing', async () => {
-    mockCheckInternalApiKey.mockReturnValue({ success: true })
-    mockIsBillingEnabledForRuntime.mockResolvedValue(true)
-    mockGetPersonalEffectiveSubscription.mockResolvedValue({
-      id: 'subscription-personal',
-      tier: createTier(2),
-    })
-
-    const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
-      method: 'POST',
-      body: JSON.stringify({
-        action: 'adjust',
-        reservationId: 'reservation-1',
-        userId: 'user-1',
-        model: 'openai/gpt-5.4',
-        estimatedPromptTokens: 100,
-        reservedCompletionTokens: 25,
-        reason: 'copilot_turn_model_call',
-      }),
-    })
-
-    const { POST } = await import('@/app/api/copilot/usage/route')
-    const response = await POST(request)
-
-    expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({
-      allowed: true,
-      status: 200,
-      reservationId: 'reservation-1',
-      reservedUsd: 3,
-      currentUsage: 8,
-      limit: 10,
-      remaining: 0,
-      activeReservedUsd: 3,
-      scopeType: 'user',
-      scopeId: 'user-1',
-    })
-    expect(mockAdjustCopilotUsageReservation).toHaveBeenCalledWith({
-      reservationId: 'reservation-1',
-      userId: 'user-1',
-      workflowId: undefined,
-      requestedUsd: 3,
-      reason: 'copilot_turn_model_call',
-    })
-  })
-
-  it('no-ops adjust requests when billing is disabled', async () => {
-    mockCheckInternalApiKey.mockReturnValue({ success: true })
-    mockIsBillingEnabledForRuntime.mockResolvedValue(false)
-
-    const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
-      method: 'POST',
-      body: JSON.stringify({
-        action: 'adjust',
-        reservationId: 'reservation-1',
-        userId: 'user-1',
-        model: 'openai/gpt-5.4',
-        estimatedPromptTokens: 100,
-        reservedCompletionTokens: 25,
-        reason: 'copilot_turn_model_call',
-      }),
-    })
-
-    const { POST } = await import('@/app/api/copilot/usage/route')
-    const response = await POST(request)
-
-    expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({
-      allowed: true,
-      status: 200,
-      reservationId: 'reservation-1',
-      reservedUsd: 0,
-      currentUsage: 0,
-      limit: Number.MAX_SAFE_INTEGER,
-      remaining: Number.MAX_SAFE_INTEGER,
-      activeReservedUsd: 0,
-      scopeType: 'user',
-      scopeId: 'user-1',
-    })
-    expect(mockAdjustCopilotUsageReservation).not.toHaveBeenCalled()
-    expect(mockGetPersonalEffectiveSubscription).not.toHaveBeenCalled()
-  })
-
   it('releases reservations through the internal release action', async () => {
     mockCheckInternalApiKey.mockReturnValue({ success: true })
     mockIsBillingEnabledForRuntime.mockResolvedValue(true)
@@ -666,7 +573,7 @@ describe('Copilot Usage API - Completion', () => {
   const mockHasProcessedMessage = vi.fn()
   const mockMarkMessageAsProcessed = vi.fn()
   const mockCalculateCost = vi.fn()
-  const mockAdjustCopilotUsageReservation = vi.fn()
+  const mockCommitCopilotUsageReservation = vi.fn()
   const mockReleaseCopilotUsageReservation = vi.fn()
   const mockIsHosted = vi.fn()
 
@@ -713,7 +620,7 @@ describe('Copilot Usage API - Completion', () => {
     mockHasProcessedMessage.mockReset()
     mockMarkMessageAsProcessed.mockReset()
     mockCalculateCost.mockReset()
-    mockAdjustCopilotUsageReservation.mockReset()
+    mockCommitCopilotUsageReservation.mockReset()
     mockReleaseCopilotUsageReservation.mockReset()
     mockIsHosted.mockReset()
 
@@ -739,6 +646,17 @@ describe('Copilot Usage API - Completion', () => {
     mockHasProcessedMessage.mockResolvedValue(false)
     mockMarkMessageAsProcessed.mockResolvedValue(undefined)
     mockCalculateCost.mockReturnValue({ total: 1.5 })
+    mockCommitCopilotUsageReservation.mockImplementation(
+      async ({ reservationId, operation }) => {
+        try {
+          return await operation()
+        } finally {
+          if (reservationId) {
+            await mockReleaseCopilotUsageReservation({ reservationId })
+          }
+        }
+      }
+    )
     mockReleaseCopilotUsageReservation.mockResolvedValue({
       released: true,
       reservationId: 'reservation-1',
@@ -785,7 +703,8 @@ describe('Copilot Usage API - Completion', () => {
 
     vi.doMock('@/lib/copilot/usage-reservations', () => ({
       reserveCopilotUsage: vi.fn(),
-      adjustCopilotUsageReservation: (...args: any[]) => mockAdjustCopilotUsageReservation(...args),
+      commitCopilotUsageReservation: (...args: any[]) =>
+        mockCommitCopilotUsageReservation(...args),
       releaseCopilotUsageReservation: (...args: any[]) =>
         mockReleaseCopilotUsageReservation(...args),
     }))
@@ -808,15 +727,15 @@ describe('Copilot Usage API - Completion', () => {
     }))
   })
 
-  it('records internal completion billing with canonical dotted Claude model ids', async () => {
+  it('records internal completion billing with canonical provider model ids', async () => {
     const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
       method: 'POST',
       body: JSON.stringify({
         action: 'commit',
         kind: 'completion',
         userId: 'user-1',
-        model: 'claude-sonnet-4.6',
-        remoteModel: 'anthropic/claude-sonnet-4.6',
+        model: 'anthropic/claude-sonnet-4.6',
+        remoteModel: 'claude-4.6-sonnet-20260217',
         completionId: 'completion-1',
         reservationId: 'reservation-1',
         usage: {
@@ -838,7 +757,7 @@ describe('Copilot Usage API - Completion', () => {
         billed: true,
         duplicate: false,
         tokens: 125,
-        model: 'claude-sonnet-4.6',
+        model: 'anthropic/claude-sonnet-4.6',
         cost: 3,
       },
     })
@@ -854,7 +773,13 @@ describe('Copilot Usage API - Completion', () => {
       'copilot-completion-billing:completion-1',
       60 * 60 * 24 * 30
     )
-    expect(mockCalculateCost).toHaveBeenCalledWith('claude-sonnet-4.6', 100, 25, false)
+    expect(mockCalculateCost).toHaveBeenCalledWith('anthropic/claude-sonnet-4.6', 100, 25, false)
+    expect(mockCommitCopilotUsageReservation).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workflowId: undefined,
+      reservationId: 'reservation-1',
+      operation: expect.any(Function),
+    })
     expect(mockReleaseCopilotUsageReservation).toHaveBeenCalledWith({
       reservationId: 'reservation-1',
     })
@@ -899,6 +824,11 @@ describe('Copilot Usage API - Completion', () => {
       'copilot-completion-billing:local-completion-1',
       60 * 60 * 24 * 30
     )
+    expect(mockCommitCopilotUsageReservation).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workflowId: undefined,
+      operation: expect.any(Function),
+    })
   })
 
   it('ignores invalid self-hosted Copilot completion mirror reports', async () => {
@@ -925,6 +855,7 @@ describe('Copilot Usage API - Completion', () => {
 
     expect(mockAccrueUserUsageCost).not.toHaveBeenCalled()
     expect(mockHasProcessedMessage).not.toHaveBeenCalled()
+    expect(mockCommitCopilotUsageReservation).not.toHaveBeenCalled()
   })
 
   it('isolates self-hosted Copilot completion mirror billing failures', async () => {
@@ -958,6 +889,11 @@ describe('Copilot Usage API - Completion', () => {
     })
 
     expect(mockAccrueUserUsageCost).not.toHaveBeenCalled()
+    expect(mockCommitCopilotUsageReservation).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workflowId: undefined,
+      operation: expect.any(Function),
+    })
     expect(mockMarkMessageAsProcessed).not.toHaveBeenCalled()
   })
 
@@ -980,6 +916,7 @@ describe('Copilot Usage API - Completion', () => {
     })
 
     expect(mockAccrueUserUsageCost).not.toHaveBeenCalled()
+    expect(mockCommitCopilotUsageReservation).not.toHaveBeenCalled()
   })
 
   it('does not double-bill duplicate completion ids', async () => {
@@ -1016,6 +953,12 @@ describe('Copilot Usage API - Completion', () => {
     })
     expect(mockAccrueUserUsageCost).not.toHaveBeenCalled()
     expect(mockMarkMessageAsProcessed).not.toHaveBeenCalled()
+    expect(mockCommitCopilotUsageReservation).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workflowId: undefined,
+      reservationId: 'reservation-1',
+      operation: expect.any(Function),
+    })
     expect(mockReleaseCopilotUsageReservation).toHaveBeenCalledWith({
       reservationId: 'reservation-1',
     })

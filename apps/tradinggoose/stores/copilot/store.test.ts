@@ -2806,7 +2806,7 @@ describe('copilot context usage', () => {
     store.setState({
       currentChat: {
         reviewSessionId: 'review-context-usage-generic',
-        workspaceId: null,
+        workspaceId: 'workspace-context-usage',
         entityKind: 'copilot',
         entityId: null,
         draftSessionId: null,
@@ -2838,6 +2838,7 @@ describe('copilot context usage', () => {
       conversationId: 'conversation-context-usage-generic',
       model: 'claude-sonnet-4.6',
       provider: 'anthropic',
+      workspaceId: 'workspace-context-usage',
     })
     expect(store.getState().contextUsage).toEqual({
       usage: 1234,

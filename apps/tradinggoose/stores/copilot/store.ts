@@ -1294,6 +1294,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             conversationId: currentChat.conversationId,
             model: selectedModel,
             provider: selectedProvider,
+            ...(currentChat.workspaceId ? { workspaceId: currentChat.workspaceId } : {}),
           }
           logger.info('[Context Usage] Calling API', requestPayload)
 

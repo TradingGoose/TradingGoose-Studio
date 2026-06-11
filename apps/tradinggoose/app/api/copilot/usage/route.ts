@@ -11,7 +11,7 @@ import { COPILOT_RUNTIME_MODELS } from '@/lib/copilot/runtime-models'
 import { COPILOT_RUNTIME_PROVIDER_IDS } from '@/lib/copilot/runtime-provider'
 import { buildCopilotRuntimeProviderConfig } from '@/lib/copilot/runtime-provider.server'
 import {
-  adjustCopilotUsageReservation,
+  commitCopilotUsageReservation,
   releaseCopilotUsageReservation,
   reserveCopilotUsage,
 } from '@/lib/copilot/usage-reservations'
@@ -62,16 +62,6 @@ const ReserveUsageRequestSchema = z.union([
   ReserveUsageUsdRequestSchema,
   ReserveUsageEstimatedRequestSchema,
 ])
-
-const AdjustUsageRequestSchema = z
-  .object({
-    action: z.literal('adjust'),
-    reservationId: z.string().min(1, 'reservationId is required'),
-    userId: z.string().min(1, 'userId is required'),
-    workflowId: z.string().min(1).optional(),
-    reason: z.string().min(1).optional(),
-  })
-  .merge(UsageEstimateSchema)
 
 const CompletionCommitRequestSchema = z.object({
   action: z.literal('commit'),
@@ -216,17 +206,11 @@ function extractTokenMetrics(usage: any): TokenMetrics | null {
   }
 }
 
-function normalizeModelForBilling(model: string): string {
-  const base = model.includes('/') ? model.split('/').pop() || model : model
-  return base.toLowerCase()
-}
-
 async function recordBilledUsage(params: {
   userId: string
   workflowId?: string
   usage: any
   billingModel: string
-  remoteModel?: string | null
   billingKeyPrefix: 'copilot-completion-billing'
   billingKeyId?: string | null
   reason: 'copilot_completion_usage'
@@ -236,7 +220,6 @@ async function recordBilledUsage(params: {
     workflowId,
     usage,
     billingModel,
-    remoteModel,
     billingKeyPrefix,
     billingKeyId,
     reason,
@@ -266,7 +249,6 @@ async function recordBilledUsage(params: {
     userId,
     workflowId,
     billingModel,
-    remoteModel,
     promptTokens: metrics.promptTokens,
     completionTokens: metrics.completionTokens,
   })
@@ -368,7 +350,6 @@ async function calculateCopilotCostUsd(params: {
   userId: string
   workflowId?: string
   billingModel: string
-  remoteModel?: string | null
   promptTokens: number
   completionTokens: number
   fallbackUsd?: number
@@ -377,11 +358,7 @@ async function calculateCopilotCostUsd(params: {
   normalizedModel: string
   billingContext: Awaited<ReturnType<typeof resolveWorkflowBillingContext>> | null
 }> {
-  const modelToUse =
-    typeof params.remoteModel === 'string' && params.remoteModel.length > 0
-      ? params.remoteModel
-      : params.billingModel
-  const normalizedModel = normalizeModelForBilling(modelToUse)
+  const normalizedModel = params.billingModel.trim().toLowerCase()
   const costResult = calculateCost(
     normalizedModel,
     params.promptTokens,
@@ -488,31 +465,6 @@ async function handleContextUsage(
   return NextResponse.json(data)
 }
 
-async function releaseCommittedReservation(reservationId?: string): Promise<void> {
-  if (!reservationId) return
-  if (reservationId === BILLING_DISABLED_RESERVATION_ID) {
-    return
-  }
-
-  await releaseCopilotUsageReservation({ reservationId }).catch((error) => {
-    logger.warn('Failed to release copilot usage reservation after commit', {
-      reservationId,
-      error: error instanceof Error ? error.message : String(error),
-    })
-  })
-}
-
-async function withCommittedReservationRelease<T>(
-  reservationId: string | undefined,
-  operation: () => Promise<T>
-): Promise<T> {
-  try {
-    return await operation()
-  } finally {
-    await releaseCommittedReservation(reservationId)
-  }
-}
-
 function buildBillingDisabledReservation(params: { userId: string; reservationId?: string }) {
   return {
     allowed: true,
@@ -562,67 +514,39 @@ async function handleReserveUsage(
   return NextResponse.json(result, { status: result.status })
 }
 
-async function handleAdjustUsage(
-  req: NextRequest,
-  payload: z.infer<typeof AdjustUsageRequestSchema>
-): Promise<NextResponse> {
-  const auth = checkInternalApiKey(req)
-  if (!auth.success) {
-    return new NextResponse(null, { status: 401 })
-  }
-
-  if (!(await isBillingEnabledForRuntime())) {
-    return NextResponse.json(
-      buildBillingDisabledReservation({
-        userId: payload.userId,
-        reservationId: payload.reservationId,
-      })
-    )
-  }
-
-  const requestedUsd = await calculateReservationUsdFromEstimate({
-    userId: payload.userId,
-    workflowId: payload.workflowId,
-    model: payload.model,
-    estimatedPromptTokens: payload.estimatedPromptTokens,
-    reservedCompletionTokens: payload.reservedCompletionTokens,
-  })
-
-  const result = await adjustCopilotUsageReservation({
-    reservationId: payload.reservationId,
-    userId: payload.userId,
-    workflowId: payload.workflowId,
-    requestedUsd,
-    reason: payload.reason,
-  })
-
-  return NextResponse.json(result, { status: result.status })
-}
-
 async function handleCompletionCommit(
   payload: z.infer<typeof CompletionCommitRequestSchema>
 ): Promise<NextResponse> {
-  if (!(await isBillingEnabledForRuntime())) {
-    return NextResponse.json({
-      success: true,
-      billing: { billed: false, reason: 'billing_disabled' },
-    })
-  }
-
-  const billing = await recordBilledUsage({
+  return await commitCopilotUsageReservation({
     userId: payload.userId,
     workflowId: payload.workflowId,
-    usage: payload.usage,
-    billingModel: payload.model,
-    remoteModel: payload.remoteModel,
-    billingKeyPrefix: 'copilot-completion-billing',
-    billingKeyId: payload.completionId,
-    reason: 'copilot_completion_usage',
-  })
+    reservationId:
+      payload.reservationId === BILLING_DISABLED_RESERVATION_ID
+        ? undefined
+        : payload.reservationId,
+    operation: async () => {
+      if (!(await isBillingEnabledForRuntime())) {
+        return NextResponse.json({
+          success: true,
+          billing: { billed: false, reason: 'billing_disabled' },
+        })
+      }
 
-  return NextResponse.json({
-    success: true,
-    billing,
+      const billing = await recordBilledUsage({
+        userId: payload.userId,
+        workflowId: payload.workflowId,
+        usage: payload.usage,
+        billingModel: payload.model,
+        billingKeyPrefix: 'copilot-completion-billing',
+        billingKeyId: payload.completionId,
+        reason: 'copilot_completion_usage',
+      })
+
+      return NextResponse.json({
+        success: true,
+        billing,
+      })
+    },
   })
 }
 
@@ -641,15 +565,19 @@ export async function mirrorLocalCopilotCompletionUsageReports(params: {
   for (const report of params.reports) {
     try {
       const payload = CompletionUsageReportSchema.parse(report)
-      const billing = await recordBilledUsage({
+      const billing = await commitCopilotUsageReservation({
         userId: params.userId,
         workflowId: payload.workflowId ?? undefined,
-        usage: payload.usage,
-        billingModel: payload.model,
-        remoteModel: payload.remoteModel,
-        billingKeyPrefix: 'copilot-completion-billing',
-        billingKeyId: payload.completionId,
-        reason: 'copilot_completion_usage',
+        operation: () =>
+          recordBilledUsage({
+            userId: params.userId,
+            workflowId: payload.workflowId ?? undefined,
+            usage: payload.usage,
+            billingModel: payload.model,
+            billingKeyPrefix: 'copilot-completion-billing',
+            billingKeyId: payload.completionId,
+            reason: 'copilot_completion_usage',
+          }),
       })
 
       if (!billing.billed && !billing.duplicate && billing.reason !== 'zero_cost') {
@@ -719,21 +647,6 @@ export async function POST(req: NextRequest) {
       return await handleReserveUsage(req, parsed.data)
     }
 
-    if (action === 'adjust') {
-      const parsed = AdjustUsageRequestSchema.safeParse(body)
-      if (!parsed.success) {
-        logger.warn('Invalid copilot usage adjust request', { errors: parsed.error.errors })
-        return NextResponse.json(
-          {
-            error: 'Invalid request body',
-            details: parsed.error.errors,
-          },
-          { status: 400 }
-        )
-      }
-      return await handleAdjustUsage(req, parsed.data)
-    }
-
     if (action === 'commit') {
       const auth = checkInternalApiKey(req)
       if (!auth.success) {
@@ -752,9 +665,7 @@ export async function POST(req: NextRequest) {
         )
       }
 
-      return await withCommittedReservationRelease(parsed.data.reservationId, async () => {
-        return await handleCompletionCommit(parsed.data)
-      })
+      return await handleCompletionCommit(parsed.data)
     }
 
     if (action === 'release') {
