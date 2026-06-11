@@ -17,6 +17,7 @@ import {
   createRequestTracker,
   createUnauthorizedResponse,
 } from '@/lib/copilot/auth'
+import { mirrorLocalCopilotCompletionUsageReports } from '@/lib/copilot/completion-usage-billing'
 import { normalizeFunctionCallArguments } from '@/lib/copilot/function-call-args'
 import {
   mapSessionToApiResponse,
@@ -45,7 +46,6 @@ import { CopilotFiles } from '@/lib/uploads'
 import { createFileContent } from '@/lib/uploads/utils/file-utils'
 import { encodeSSE, SSE_HEADERS } from '@/lib/utils'
 import { proxyCopilotRequest } from '@/app/api/copilot/proxy'
-import { mirrorLocalCopilotCompletionUsageReports } from '@/app/api/copilot/usage/route'
 import type { ProviderId } from '@/providers/ai/types'
 
 const logger = createLogger('CopilotChatAPI')

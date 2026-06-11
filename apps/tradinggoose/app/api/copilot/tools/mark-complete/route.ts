@@ -7,10 +7,10 @@ import {
   createRequestTracker,
   createUnauthorizedResponse,
 } from '@/lib/copilot/auth'
+import { mirrorLocalCopilotCompletionUsageReports } from '@/lib/copilot/completion-usage-billing'
 import { createLogger } from '@/lib/logs/console/logger'
 import { encodeSSE, SSE_HEADERS } from '@/lib/utils'
 import { getCopilotApiUrl, proxyCopilotRequest } from '@/app/api/copilot/proxy'
-import { mirrorLocalCopilotCompletionUsageReports } from '@/app/api/copilot/usage/route'
 
 const logger = createLogger('CopilotMarkToolCompleteAPI')
 const DATA_PREFIX = 'data: '

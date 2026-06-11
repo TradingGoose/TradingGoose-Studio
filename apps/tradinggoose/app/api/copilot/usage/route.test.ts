@@ -198,8 +198,7 @@ describe('Copilot Usage API - Context', () => {
 
     vi.doMock('@/lib/copilot/usage-reservations', () => ({
       reserveCopilotUsage: (...args: any[]) => mockReserveCopilotUsage(...args),
-      commitCopilotUsageReservation: (...args: any[]) =>
-        mockCommitCopilotUsageReservation(...args),
+      commitCopilotUsageReservation: (...args: any[]) => mockCommitCopilotUsageReservation(...args),
       releaseCopilotUsageReservation: (...args: any[]) =>
         mockReleaseCopilotUsageReservation(...args),
     }))
@@ -646,17 +645,15 @@ describe('Copilot Usage API - Completion', () => {
     mockHasProcessedMessage.mockResolvedValue(false)
     mockMarkMessageAsProcessed.mockResolvedValue(undefined)
     mockCalculateCost.mockReturnValue({ total: 1.5 })
-    mockCommitCopilotUsageReservation.mockImplementation(
-      async ({ reservationId, operation }) => {
-        try {
-          return await operation()
-        } finally {
-          if (reservationId) {
-            await mockReleaseCopilotUsageReservation({ reservationId })
-          }
+    mockCommitCopilotUsageReservation.mockImplementation(async ({ reservationId, operation }) => {
+      try {
+        return await operation()
+      } finally {
+        if (reservationId) {
+          await mockReleaseCopilotUsageReservation({ reservationId })
         }
       }
-    )
+    })
     mockReleaseCopilotUsageReservation.mockResolvedValue({
       released: true,
       reservationId: 'reservation-1',
@@ -703,8 +700,7 @@ describe('Copilot Usage API - Completion', () => {
 
     vi.doMock('@/lib/copilot/usage-reservations', () => ({
       reserveCopilotUsage: vi.fn(),
-      commitCopilotUsageReservation: (...args: any[]) =>
-        mockCommitCopilotUsageReservation(...args),
+      commitCopilotUsageReservation: (...args: any[]) => mockCommitCopilotUsageReservation(...args),
       releaseCopilotUsageReservation: (...args: any[]) =>
         mockReleaseCopilotUsageReservation(...args),
     }))
@@ -794,7 +790,7 @@ describe('Copilot Usage API - Completion', () => {
     })
 
     const { mirrorLocalCopilotCompletionUsageReports } = await import(
-      '@/app/api/copilot/usage/route'
+      '@/lib/copilot/completion-usage-billing'
     )
     await mirrorLocalCopilotCompletionUsageReports({
       userId: 'user-1',
@@ -836,7 +832,7 @@ describe('Copilot Usage API - Completion', () => {
     mockIsBillingEnabledForRuntime.mockResolvedValue(true)
 
     const { mirrorLocalCopilotCompletionUsageReports } = await import(
-      '@/app/api/copilot/usage/route'
+      '@/lib/copilot/completion-usage-billing'
     )
     await mirrorLocalCopilotCompletionUsageReports({
       userId: 'user-1',
@@ -870,7 +866,7 @@ describe('Copilot Usage API - Completion', () => {
     })
 
     const { mirrorLocalCopilotCompletionUsageReports } = await import(
-      '@/app/api/copilot/usage/route'
+      '@/lib/copilot/completion-usage-billing'
     )
     await mirrorLocalCopilotCompletionUsageReports({
       userId: 'user-1',
@@ -901,7 +897,7 @@ describe('Copilot Usage API - Completion', () => {
     mockIsHosted.mockReturnValue(true)
 
     const { mirrorLocalCopilotCompletionUsageReports } = await import(
-      '@/app/api/copilot/usage/route'
+      '@/lib/copilot/completion-usage-billing'
     )
     await mirrorLocalCopilotCompletionUsageReports({
       userId: 'user-1',
