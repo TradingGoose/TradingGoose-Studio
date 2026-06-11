@@ -1222,7 +1222,6 @@ function parseVisibleWorkflowEdges(
     const conditionHandlePrefix = `condition-${sourceRef.blockId}-`
     if (
       sourceBlock?.type === 'condition' &&
-      sourceHandle !== 'source' &&
       !sourceHandle.startsWith(conditionHandlePrefix)
     ) {
       throw new Error(
