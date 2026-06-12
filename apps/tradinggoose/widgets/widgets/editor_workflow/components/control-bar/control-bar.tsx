@@ -17,15 +17,15 @@ import {
 } from '@/app/workspace/[workspaceId]/components/use-keyboard-shortcuts'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useWorkflowExecution } from '@/hooks/workflow/use-workflow-execution'
+import { formatTemplate } from '@/i18n/utils'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
-import { formatTemplate } from '@/i18n/utils'
 import {
   DeploymentControls,
   ExportControls,
 } from '@/widgets/widgets/editor_workflow/components/control-bar/components'
-import { useWorkflowEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkflowEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 const logger = createLogger('ControlBar')
 
@@ -87,7 +87,8 @@ export function ControlBar({
   const { workflowId, channelId } = useWorkflowRoute()
   const isRegistryLoading = useWorkflowRegistry((state) => state.isLoading)
   const activeWorkflowId = workflowId
-  const { isExecuting, handleRunWorkflow, handleCancelExecution } = useWorkflowExecution()
+  const { isExecuting, isWorkflowSessionReady, handleRunWorkflow, handleCancelExecution } =
+    useWorkflowExecution()
 
   // User permissions - use stable activeWorkspaceId from registry instead of deriving from currentWorkflow
   const userPermissions = useUserPermissionsContext()
@@ -114,7 +115,7 @@ export function ControlBar({
   } | null>(null)
 
   // Shared condition for keyboard shortcut and button disabled state
-  const isWorkflowBlocked = isExecuting || hasValidationErrors
+  const isWorkflowBlocked = isExecuting || hasValidationErrors || !isWorkflowSessionReady
 
   // Register keyboard shortcut for running workflow
   useKeyboardShortcuts(() => {
@@ -422,6 +423,10 @@ export function ControlBar({
             <p className='text-xs'>{copy.controlBar.nestedSubflowsUnsupported}</p>
           </div>
         )
+      }
+
+      if (!isWorkflowSessionReady) {
+        return copy.controlBar.checkingWorkflowPermissions
       }
 
       if (userPermissions.isLoading) {

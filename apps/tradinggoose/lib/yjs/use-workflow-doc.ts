@@ -842,10 +842,10 @@ export function useWorkflowMutations() {
 
         if (blockConfig) {
           const initValues = blockProperties?.initialSubBlockValues
-          subBlocks = buildInitialSubBlockStates(
-            blockConfig.subBlocks,
-            initValues
-          ) as Record<string, SubBlockState>
+          subBlocks = buildInitialSubBlockStates(blockConfig.subBlocks, initValues) as Record<
+            string,
+            SubBlockState
+          >
 
           const runtimeState = resolveBlockRuntimeState({
             blockType: type,
@@ -1174,7 +1174,7 @@ export function useWorkflowMutations() {
   )
 
   const setSubBlockValue = useCallback(
-    (blockId: string, subBlockId: string, value: any) =>
+    (blockId: string, subBlockId: string, value: any, options?: { origin?: YjsOrigin }) =>
       transactWorkflow((d) => {
         const textFields = readWorkflowTextFieldsMap(d)
         const sharedText = readWorkflowTextFieldFromMap(textFields, blockId, subBlockId)
@@ -1225,7 +1225,7 @@ export function useWorkflowMutations() {
           textFields,
         })
         wMap.set(YJS_KEYS.BLOCKS, blocks)
-      }, YJS_ORIGINS.USER),
+      }, options?.origin ?? YJS_ORIGINS.USER),
     [transactWorkflow]
   )
 

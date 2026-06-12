@@ -1,6 +1,7 @@
 export const YJS_ORIGINS = {
   SYSTEM: 'system',
   USER: 'user',
+  TEST_INPUT: 'test-input',
   COPILOT_TOOL: 'copilot-tool',
   COPILOT_REVIEW_ACCEPT: 'copilot-review-accept',
   SAVE: 'save',

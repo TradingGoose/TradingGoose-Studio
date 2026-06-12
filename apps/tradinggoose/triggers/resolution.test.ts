@@ -19,9 +19,21 @@ vi.mock('@/blocks', () => ({
           name: 'HubSpot',
           triggers: { available: ['hubspot_contact_created', 'hubspot_contact_deleted'] },
         },
+        indicator_trigger: {
+          category: 'triggers',
+          name: 'Indicator Monitor',
+          triggers: { enabled: true, available: ['indicator_trigger'] },
+        },
+        portfolio_state_trigger: {
+          category: 'triggers',
+          name: 'Portfolio Monitor',
+          triggers: { enabled: true, available: ['portfolio_state_trigger'] },
+        },
       }) as Record<string, any>
     )[type],
 }))
+
+const triggerBlock = (type: string, name: string) => ({ type, name, subBlocks: {} })
 
 describe('trigger resolution', () => {
   it('uses selectedTriggerId as the canonical trigger selection', () => {
@@ -66,16 +78,42 @@ describe('trigger resolution', () => {
     )
     expect(resolveTriggerIdForBlock({ type: 'slack', subBlocks: {} })).toBeNull()
     expect(
+      resolveEditorTestTrigger({ schedule: triggerBlock('schedule', 'Schedule') }, [
+        { source: 'schedule' },
+      ])
+    ).toMatchObject({ blockId: 'schedule', input: {} })
+    expect(
       resolveEditorTestTrigger(
-        { schedule: { type: 'schedule', name: 'Schedule', subBlocks: {} } },
+        { indicator: triggerBlock('indicator_trigger', 'Indicator Monitor') },
+        [{ source: 'indicator' }]
+      )
+    ).toMatchObject({ blockId: 'indicator', input: { event: 'mock_event', time: 42 } })
+    expect(
+      resolveEditorTestTrigger(
+        { portfolio: triggerBlock('portfolio_state_trigger', 'Portfolio Monitor') },
+        [{ source: 'portfolio' }]
+      )
+    ).toMatchObject({ blockId: 'portfolio', input: { event: 'mock_event' } })
+    expect(
+      resolveEditorTestTrigger(
+        {
+          schedule: triggerBlock('schedule', 'Schedule'),
+          indicator: triggerBlock('indicator_trigger', 'Indicator Monitor'),
+        },
         [{ source: 'schedule' }]
       )
-    ).toMatchObject({ blockId: 'schedule', input: {} })
+    ).toMatchObject({ blockId: 'schedule' })
     expect(() =>
       resolveEditorTestTrigger(
-        { schedule: { type: 'schedule', name: 'Schedule', subBlocks: {} } },
-        []
+        {
+          first: triggerBlock('schedule', 'First Schedule'),
+          second: triggerBlock('indicator_trigger', 'Indicator Monitor'),
+        },
+        [{ source: 'first' }, { source: 'second' }]
       )
+    ).toThrow('Multiple runnable trigger blocks found. Keep one trigger connected for Run.')
+    expect(() =>
+      resolveEditorTestTrigger({ schedule: triggerBlock('schedule', 'Schedule') }, [])
     ).toThrow('Schedule must be connected to other blocks to execute')
   })
 

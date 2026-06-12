@@ -302,13 +302,23 @@ export function resolveEditorTestTrigger<T extends EditorTestTriggerBlock>(
   }
 
   const candidates = entries.filter(([, block]) => TriggerUtils.isTriggerBlock(block))
-  const candidate =
-    candidates.find(([, block]) => block.type === TRIGGER_TYPES.API) ??
-    candidates.find(([, block]) => block.type === TRIGGER_TYPES.MANUAL) ??
-    candidates.find(([, block]) => block.type === TRIGGER_TYPES.INPUT) ??
-    candidates.find(([, block]) => block.type === TRIGGER_TYPES.SCHEDULE) ??
-    candidates.find(([, block]) => block.type !== TRIGGER_TYPES.CHAT) ??
-    candidates[0]
+  const connectedCandidates = candidates.filter(([blockId]) =>
+    edges.some((edge) => edge.source === blockId)
+  )
+  const selectionCandidates = connectedCandidates.length > 0 ? connectedCandidates : candidates
+  const singletonCandidate =
+    selectionCandidates.find(([, block]) => block.type === TRIGGER_TYPES.API) ??
+    selectionCandidates.find(([, block]) => block.type === TRIGGER_TYPES.MANUAL) ??
+    selectionCandidates.find(([, block]) => block.type === TRIGGER_TYPES.INPUT)
+
+  const externalCandidates = selectionCandidates.filter(
+    ([, block]) => block.type !== TRIGGER_TYPES.CHAT
+  )
+  if (connectedCandidates.length > 0 && !singletonCandidate && externalCandidates.length > 1) {
+    throw new Error('Multiple runnable trigger blocks found. Keep one trigger connected for Run.')
+  }
+
+  const candidate = singletonCandidate ?? externalCandidates[0] ?? selectionCandidates[0]
 
   if (!candidate) {
     throw new Error('Workflow requires at least one trigger block to execute')

@@ -224,7 +224,7 @@ describe('useWorkflowMutations', () => {
     }
   )
 
-  it('supports custom origins when updating block positions', async () => {
+  it('supports custom origins for workflow mutations', async () => {
     const doc = new Y.Doc()
     const workflowMap = doc.getMap('workflow')
     workflowMap.set('blocks', {
@@ -288,6 +288,18 @@ describe('useWorkflowMutations', () => {
       x: 50,
       y: 60,
     })
+
+    await act(async () => {
+      mutations?.setSubBlockValue('block-1', 'inputFormat', [{ name: 'prompt', value: 'fresh' }], {
+        origin: YJS_ORIGINS.TEST_INPUT,
+      })
+    })
+
+    expect(transactWorkflow).toHaveBeenLastCalledWith(expect.any(Function), YJS_ORIGINS.TEST_INPUT)
+    expect(
+      (workflowMap.get('blocks') as Record<string, any>)['block-1']?.subBlocks.inputFormat.value
+    ).toEqual([{ name: 'prompt', value: 'fresh' }])
+    expect(createYjsUndoTrackedOrigins().has(YJS_ORIGINS.TEST_INPUT)).toBe(false)
   })
 
   it('allows typed block names unless another block already uses the normalized name', async () => {

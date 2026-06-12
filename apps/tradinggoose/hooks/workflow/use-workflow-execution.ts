@@ -64,12 +64,13 @@ function createExecutionId() {
 
 export function useWorkflowExecution() {
   const { workflowId: activeWorkflowId, workspaceId } = useWorkflowRoute()
-  const { doc, readWorkflowSnapshot } = useWorkflowSession()
+  const { doc, error, isLoading, readWorkflowSnapshot } = useWorkflowSession()
   const { cancelRunningEntries } = useConsoleStore()
   const abortControllerRef = useRef<AbortController | null>(null)
   const { isExecuting, setIsExecuting, setIsDebugging, setPendingBlocks, setActiveBlocks } =
     useExecutionStore()
   const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null)
+  const isWorkflowSessionReady = Boolean(doc) && !isLoading && !error
 
   const applyExecutionEvent = useCallback(
     (event: WorkflowExecutionEvent) => {
@@ -358,6 +359,7 @@ export function useWorkflowExecution() {
 
   return {
     isExecuting,
+    isWorkflowSessionReady,
     executionResult,
     handleRunWorkflow,
     handleCancelExecution,

@@ -23,7 +23,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { LISTING_IDENTITY_VALUE_TYPE, type ListingInputValue } from '@/lib/listing/identity'
 import { cn } from '@/lib/utils'
 import type { WorkflowFieldType } from '@/lib/workflows/value-types'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
+import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import { formatTemplate } from '@/i18n/utils'
 import { ListingSelectorInput } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/listing-selector/listing-selector'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
@@ -99,6 +101,7 @@ export function FieldFormat({
     valuePlaceholder ??
     (variant === 'response' ? copy.returnValuePlaceholder : copy.testValuePlaceholder)
   const [storeValue, setStoreValue] = useSubBlockValue<Field[]>(blockId, subBlockId)
+  const { collaborativeSetSubblockValue } = useWorkflowEditorActions()
   const [dragHighlight, setDragHighlight] = useState<Record<string, boolean>>({})
   const valueInputRefs = useRef<Record<string, HTMLInputElement | HTMLTextAreaElement>>({})
   const overlayRefs = useRef<Record<string, HTMLDivElement>>({})
@@ -161,7 +164,17 @@ export function FieldFormat({
       value = validateFieldName(value)
     }
 
-    setStoreValue((fields || []).map((f: Field) => (f.id === id ? { ...f, [field]: value } : f)))
+    const nextFields = (fields || []).map((f: Field) =>
+      f.id === id ? { ...f, [field]: value } : f
+    )
+    if (field === 'value' && variant === 'input') {
+      collaborativeSetSubblockValue(blockId, subBlockId, nextFields, {
+        origin: YJS_ORIGINS.TEST_INPUT,
+      })
+      return
+    }
+
+    setStoreValue(nextFields)
   }
 
   const handleValueInputChange = (fieldId: string, newValue: string, caretPosition?: number) => {
