@@ -245,6 +245,7 @@ function buildEditorTestTriggerInput(
   }
 
   if (Array.isArray(block.subBlocks?.inputFormat?.value)) {
+    // Executor reads persisted input-format test values from serialized workflow params.
     return workflowInput ?? {}
   }
 

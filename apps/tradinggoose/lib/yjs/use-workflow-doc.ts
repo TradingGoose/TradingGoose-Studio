@@ -1174,7 +1174,7 @@ export function useWorkflowMutations() {
   )
 
   const setSubBlockValue = useCallback(
-    (blockId: string, subBlockId: string, value: any, options?: { origin?: YjsOrigin }) =>
+    (blockId: string, subBlockId: string, value: any) =>
       transactWorkflow((d) => {
         const textFields = readWorkflowTextFieldsMap(d)
         const sharedText = readWorkflowTextFieldFromMap(textFields, blockId, subBlockId)
@@ -1225,7 +1225,7 @@ export function useWorkflowMutations() {
           textFields,
         })
         wMap.set(YJS_KEYS.BLOCKS, blocks)
-      }, options?.origin ?? YJS_ORIGINS.USER),
+      }, YJS_ORIGINS.USER),
     [transactWorkflow]
   )
 

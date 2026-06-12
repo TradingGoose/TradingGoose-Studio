@@ -216,14 +216,9 @@ export function useWorkflowEditorActions() {
   )
 
   const collaborativeSetSubblockValue = useCallback(
-    (
-      blockId: string,
-      subblockId: string,
-      value: any,
-      options?: { origin?: YjsOrigin; _visited?: Set<string> }
-    ) => {
+    (blockId: string, subblockId: string, value: any, options?: { _visited?: Set<string> }) => {
       // Write directly to Yjs doc
-      mutations.setSubBlockValue(blockId, subblockId, value, options)
+      mutations.setSubBlockValue(blockId, subblockId, value)
 
       // Declarative clearing: clear sub-blocks that depend on this subblockId
       try {
@@ -240,10 +235,7 @@ export function useWorkflowEditorActions() {
             // Skip clearing if the dependent is the same field
             if (!dep?.id || dep.id === subblockId) continue
             // Cascade using the same collaborative path so it further cascades
-            collaborativeSetSubblockValue(blockId, dep.id, '', {
-              origin: options?.origin,
-              _visited: visited,
-            })
+            collaborativeSetSubblockValue(blockId, dep.id, '', { _visited: visited })
           }
         }
       } catch {
