@@ -2,16 +2,14 @@ import { useCallback, useRef, useState } from 'react'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { WorkflowExecutionEvent } from '@/lib/workflows/execution-events'
 import { runQueuedWorkflowExecution } from '@/lib/workflows/queued-execution-client'
-import { TriggerUtils } from '@/lib/workflows/triggers'
-import { useWorkflowVariables } from '@/lib/yjs/use-workflow-doc'
+import { resolveEditorTestTrigger, TriggerUtils } from '@/lib/workflows/triggers'
+import { getVariablesSnapshot } from '@/lib/yjs/workflow-session'
+import { useWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import type { ExecutionResult } from '@/executor/types'
-import { useLatestRef } from '@/hooks/use-latest-ref'
 import { useConsoleStore } from '@/stores/console/store'
 import { useExecutionStore } from '@/stores/execution/store'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { generateLoopBlocks, generateParallelBlocks } from '@/stores/workflows/workflow/utils'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { useCurrentWorkflow } from './use-current-workflow'
 
 const logger = createLogger('useWorkflowExecution')
 const WORKFLOW_EXECUTION_FAILURE_MESSAGE = 'Workflow execution failed'
@@ -64,31 +62,10 @@ function createExecutionId() {
   return globalThis.crypto.randomUUID()
 }
 
-function getInputFormatTestValues(inputFormatValue: unknown): Record<string, unknown> {
-  const testInput: Record<string, unknown> = {}
-  if (!Array.isArray(inputFormatValue)) return testInput
-
-  for (const field of inputFormatValue) {
-    if (field && typeof field === 'object' && 'name' in field && 'value' in field) {
-      const name = (field as { name?: unknown }).name
-      if (typeof name === 'string' && name.length > 0) {
-        testInput[name] = (field as { value?: unknown }).value
-      }
-    }
-  }
-
-  return testInput
-}
-
 export function useWorkflowExecution() {
-  const currentWorkflow = useCurrentWorkflow()
-  const { workflowId: routeWorkflowId, channelId } = useWorkflowRoute()
-  const workflows = useWorkflowRegistry((state) => state.workflows)
-  const registryWorkflowId = useWorkflowRegistry((state) => state.getActiveWorkflowId(channelId))
-  const activeWorkflowId = routeWorkflowId ?? registryWorkflowId
+  const { workflowId: activeWorkflowId, workspaceId } = useWorkflowRoute()
+  const { doc, readWorkflowSnapshot } = useWorkflowSession()
   const { cancelRunningEntries } = useConsoleStore()
-  const yjsVariables = useWorkflowVariables()
-  const yjsVariablesRef = useLatestRef(yjsVariables)
   const abortControllerRef = useRef<AbortController | null>(null)
   const { isExecuting, setIsExecuting, setIsDebugging, setPendingBlocks, setActiveBlocks } =
     useExecutionStore()
@@ -170,21 +147,22 @@ export function useWorkflowExecution() {
 
   const buildExecutionRequest = useCallback(
     async (workflowInput: unknown, triggerType: WorkflowExecutionTriggerType) => {
-      if (!activeWorkflowId) throw new Error('Workflow target is required')
-
-      const workspaceId = workflows[activeWorkflowId]?.workspaceId
+      const workflowSnapshot = readWorkflowSnapshot()
+      if (!workflowSnapshot || !doc) {
+        throw new Error('Workflow session is not ready')
+      }
       if (!workspaceId) {
         throw new Error('Cannot execute workflow without workspaceId')
       }
 
-      const validBlocks = Object.entries(currentWorkflow.blocks).reduce(
+      const validBlocks = Object.entries(workflowSnapshot.blocks).reduce(
         (acc, [blockId, block]) => {
           if (block?.type && block.enabled !== false) {
             acc[blockId] = block
           }
           return acc
         },
-        {} as typeof currentWorkflow.blocks
+        {} as typeof workflowSnapshot.blocks
       )
 
       const isChatExecution = triggerType === 'chat'
@@ -198,60 +176,16 @@ export function useWorkflowExecution() {
         }
         startBlockId = startBlock.blockId
       } else {
-        const entries = Object.entries(validBlocks)
-        const apiTriggers = TriggerUtils.findTriggersByType(validBlocks, 'api')
-        const manualTriggers = TriggerUtils.findTriggersByType(validBlocks, 'manual')
-
-        if (apiTriggers.length > 1) {
-          throw new Error('Multiple API Trigger blocks found. Keep only one.')
-        }
-
-        let selectedTrigger: any = null
-        let selectedBlockId: string | null = null
-
-        if (apiTriggers.length === 1) {
-          selectedTrigger = apiTriggers[0]
-          selectedBlockId = entries.find(([, block]) => block === selectedTrigger)?.[0] ?? null
-
-          const testInput = getInputFormatTestValues(selectedTrigger.subBlocks?.inputFormat?.value)
-          if (Object.keys(testInput).length > 0) {
-            finalWorkflowInput = testInput
-          }
-        } else if (manualTriggers.length > 0) {
-          selectedTrigger =
-            manualTriggers.find((trigger) => trigger.type === 'manual_trigger') ??
-            manualTriggers.find((trigger) => trigger.type === 'input_trigger') ??
-            manualTriggers[0]
-          selectedBlockId = entries.find(([, block]) => block === selectedTrigger)?.[0] ?? null
-
-          if (selectedTrigger.type === 'input_trigger') {
-            const testInput = getInputFormatTestValues(
-              selectedTrigger.subBlocks?.inputFormat?.value
-            )
-            if (Object.keys(testInput).length > 0) {
-              finalWorkflowInput = testInput
-            }
-          }
-        } else {
-          throw new Error('Manual run requires a Manual, Input Form, or API Trigger block')
-        }
-
-        if (!selectedBlockId || !selectedTrigger) {
-          throw new Error('No valid trigger block found to start execution')
-        }
-
-        const outgoingConnections = currentWorkflow.edges.filter(
-          (edge) => edge.source === selectedBlockId
+        const editorTestTrigger = resolveEditorTestTrigger(
+          validBlocks,
+          workflowSnapshot.edges,
+          workflowInput
         )
-        if (outgoingConnections.length === 0) {
-          const triggerName = selectedTrigger.name || selectedTrigger.type
-          throw new Error(`${triggerName} must be connected to other blocks to execute`)
-        }
-
-        startBlockId = selectedBlockId
+        startBlockId = editorTestTrigger.blockId
+        finalWorkflowInput = editorTestTrigger.input
       }
 
-      const workflowVariables = Object.values(yjsVariablesRef.current ?? {}).reduce(
+      const workflowVariables = Object.values(getVariablesSnapshot(doc)).reduce(
         (acc, variable: any) => {
           if (variable?.id) acc[variable.id] = variable
           return acc
@@ -267,13 +201,13 @@ export function useWorkflowExecution() {
         workflowVariables,
         workflowData: {
           blocks: validBlocks,
-          edges: currentWorkflow.edges,
+          edges: workflowSnapshot.edges,
           loops: generateLoopBlocks(validBlocks),
           parallels: generateParallelBlocks(validBlocks),
         },
       }
     },
-    [activeWorkflowId, currentWorkflow.blocks, currentWorkflow.edges, workflows]
+    [doc, readWorkflowSnapshot, workspaceId]
   )
 
   const uploadChatFiles = useCallback(

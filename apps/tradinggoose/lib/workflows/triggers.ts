@@ -1,4 +1,7 @@
+import { readBlockOutputs } from '@/lib/workflows/block-outputs'
 import { getBlock } from '@/blocks'
+import { resolveTriggerIdForBlock } from '@/triggers/resolution'
+import { generateMockPayloadFromOutputsDefinition } from './triggers/trigger-utils'
 
 /**
  * Unified trigger type definitions
@@ -248,5 +251,85 @@ export class TriggerUtils {
     }
 
     return `Multiple ${triggerName} Trigger blocks found. Keep only one.`
+  }
+}
+
+type EditorTestTriggerBlock = {
+  type: string
+  name?: string
+  triggerMode?: boolean
+  subBlocks?: Record<string, { value?: unknown }>
+}
+
+function buildEditorTestTriggerInput(
+  block: EditorTestTriggerBlock,
+  workflowInput: unknown
+): unknown {
+  const inputFormatValue = block.subBlocks?.inputFormat?.value
+  const inputFormatInput = Array.isArray(inputFormatValue)
+    ? inputFormatValue.reduce<Record<string, unknown>>((input, field) => {
+        const { name, value } = (field ?? {}) as { name?: unknown; value?: unknown }
+        if (typeof name === 'string' && name.length > 0) input[name] = value
+        return input
+      }, {})
+    : {}
+  if (Object.keys(inputFormatInput).length > 0) {
+    return inputFormatInput
+  }
+
+  if (block.type === TRIGGER_TYPES.CHAT) {
+    if (workflowInput && typeof workflowInput === 'object') return workflowInput
+    return { input: typeof workflowInput === 'string' ? workflowInput : 'Test message' }
+  }
+
+  if (block.triggerMode === true && !resolveTriggerIdForBlock(block)) {
+    const blockConfig = getBlock(block.type)
+    throw new Error(
+      `${block.name || blockConfig?.name || block.type} requires a selected trigger type`
+    )
+  }
+
+  const outputs = readBlockOutputs(block.type, block.subBlocks, true)
+  return Object.keys(outputs).length > 0
+    ? generateMockPayloadFromOutputsDefinition(outputs)
+    : (workflowInput ?? {})
+}
+
+export function resolveEditorTestTrigger<T extends EditorTestTriggerBlock>(
+  blocks: Record<string, T>,
+  edges: Array<{ source: string }>,
+  workflowInput?: unknown
+): {
+  blockId: string
+  input: unknown
+} {
+  const entries = Object.entries(blocks)
+
+  if (entries.filter(([, block]) => block.type === TRIGGER_TYPES.API).length > 1) {
+    throw new Error('Multiple API Trigger blocks found. Keep only one.')
+  }
+
+  const candidates = entries.filter(([, block]) => TriggerUtils.isTriggerBlock(block))
+  const candidate =
+    candidates.find(([, block]) => block.type === TRIGGER_TYPES.API) ??
+    candidates.find(([, block]) => block.type === TRIGGER_TYPES.MANUAL) ??
+    candidates.find(([, block]) => block.type === TRIGGER_TYPES.INPUT) ??
+    candidates.find(([, block]) => block.type === TRIGGER_TYPES.SCHEDULE) ??
+    candidates.find(([, block]) => block.type !== TRIGGER_TYPES.CHAT) ??
+    candidates[0]
+
+  if (!candidate) {
+    throw new Error('Workflow requires at least one trigger block to execute')
+  }
+
+  const [blockId, block] = candidate
+  if (!edges.some((edge) => edge.source === blockId)) {
+    const triggerName = block.name || TriggerUtils.getDefaultTriggerName(block.type) || block.type
+    throw new Error(`${triggerName} must be connected to other blocks to execute`)
+  }
+
+  return {
+    blockId,
+    input: buildEditorTestTriggerInput(block, workflowInput),
   }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { ChevronDown, Paperclip, Plus, Trash } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -57,8 +57,7 @@ interface FieldFormatProps {
 }
 
 // Default values
-const DEFAULT_FIELD: Field = {
-  id: crypto.randomUUID(),
+const DEFAULT_FIELD: Omit<Field, 'id'> = {
   name: '',
   type: 'string',
   value: '',
@@ -103,7 +102,6 @@ export function FieldFormat({
   const [dragHighlight, setDragHighlight] = useState<Record<string, boolean>>({})
   const valueInputRefs = useRef<Record<string, HTMLInputElement | HTMLTextAreaElement>>({})
   const overlayRefs = useRef<Record<string, HTMLDivElement>>({})
-  const [localValues, setLocalValues] = useState<Record<string, string>>({})
   const [showTags, setShowTags] = useState(false)
   const [cursorPosition, setCursorPosition] = useState(0)
   const [activeFieldId, setActiveFieldId] = useState<string | null>(null)
@@ -134,25 +132,13 @@ export function FieldFormat({
     }
   }
 
-  useEffect(() => {
-    const initial: Record<string, string> = {}
-    ;(fields || []).forEach((f) => {
-      if (localValues[f.id] === undefined) {
-        initial[f.id] = stringifyFieldValue(f.value)
-      }
-    })
-    if (Object.keys(initial).length > 0) {
-      setLocalValues((prev) => ({ ...prev, ...initial }))
-    }
-  }, [fields])
-
   // Field operations
   const addField = () => {
     if (isPreview || disabled) return
 
     const newField: Field = {
-      ...DEFAULT_FIELD,
       id: crypto.randomUUID(),
+      ...DEFAULT_FIELD,
     }
     setStoreValue([...(fields || []), newField])
   }
@@ -166,24 +152,26 @@ export function FieldFormat({
     return name.replace(/[\x00-\x1F"\\]/g, '').trim()
   }
 
+  // Update handlers
+  const updateField = (id: string, field: keyof Field, value: any) => {
+    if (isPreview || disabled) return
+
+    // Validate field name if it's being updated
+    if (field === 'name' && typeof value === 'string') {
+      value = validateFieldName(value)
+    }
+
+    setStoreValue((fields || []).map((f: Field) => (f.id === id ? { ...f, [field]: value } : f)))
+  }
+
   const handleValueInputChange = (fieldId: string, newValue: string, caretPosition?: number) => {
-    setLocalValues((prev) => ({ ...prev, [fieldId]: newValue }))
+    updateField(fieldId, 'value', newValue)
 
     const position = typeof caretPosition === 'number' ? caretPosition : newValue.length
     setCursorPosition(position)
     setActiveFieldId(fieldId)
     const trigger = checkTagTrigger(newValue, position)
     setShowTags(trigger.show)
-  }
-
-  const handleValueInputBlur = (field: Field) => {
-    if (isPreview || disabled) return
-
-    const inputEl = valueInputRefs.current[field.id]
-    if (!inputEl) return
-
-    const current = localValues[field.id] ?? inputEl.value ?? ''
-    updateField(field.id, 'value', current)
   }
 
   // Drag and drop handlers for connection blocks
@@ -205,11 +193,10 @@ export function FieldFormat({
     input?.focus()
 
     if (input) {
-      const currentValue =
-        localValues[fieldId] ?? stringifyFieldValue(fields.find((f) => f.id === fieldId)?.value)
+      const currentValue = stringifyFieldValue(fields.find((f) => f.id === fieldId)?.value)
       const dropPosition = (input as any).selectionStart ?? currentValue.length
       const newValue = `${currentValue.slice(0, dropPosition)}<${currentValue.slice(dropPosition)}`
-      setLocalValues((prev) => ({ ...prev, [fieldId]: newValue }))
+      updateField(fieldId, 'value', newValue)
       setActiveFieldId(fieldId)
       setCursorPosition(dropPosition + 1)
       setShowTags(true)
@@ -244,18 +231,6 @@ export function FieldFormat({
       const overlay = overlayRefs.current[fieldId]
       if (input && overlay) overlay.scrollLeft = input.scrollLeft
     }, 0)
-  }
-
-  // Update handlers
-  const updateField = (id: string, field: keyof Field, value: any) => {
-    if (isPreview || disabled) return
-
-    // Validate field name if it's being updated
-    if (field === 'name' && typeof value === 'string') {
-      value = validateFieldName(value)
-    }
-
-    setStoreValue((fields || []).map((f: Field) => (f.id === id ? { ...f, [field]: value } : f)))
   }
 
   const toggleCollapse = (id: string) => {
@@ -444,11 +419,8 @@ export function FieldFormat({
                       <div className='relative'>
                         {field.type === 'boolean' ? (
                           <Select
-                            value={localValues[field.id] ?? stringifyFieldValue(field.value)}
-                            onValueChange={(v) => {
-                              setLocalValues((prev) => ({ ...prev, [field.id]: v }))
-                              if (!isPreview && !disabled) updateField(field.id, 'value', v)
-                            }}
+                            value={stringifyFieldValue(field.value)}
+                            onValueChange={(v) => updateField(field.id, 'value', v)}
                           >
                             <SelectTrigger className='h-9 w-full justify-between font-normal'>
                               <SelectValue placeholder={copy.selectValue} className='truncate' />
@@ -472,7 +444,7 @@ export function FieldFormat({
                               if (el) valueInputRefs.current[field.id] = el
                             }}
                             name='value'
-                            value={localValues[field.id] ?? stringifyFieldValue(field.value)}
+                            value={stringifyFieldValue(field.value)}
                             onChange={(e) =>
                               handleValueInputChange(
                                 field.id,
@@ -480,7 +452,6 @@ export function FieldFormat({
                                 e.target.selectionStart ?? undefined
                               )
                             }
-                            onBlur={() => handleValueInputBlur(field)}
                             placeholder={
                               field.type === 'object'
                                 ? copy.objectValuePlaceholder
@@ -509,7 +480,7 @@ export function FieldFormat({
                                 if (el) valueInputRefs.current[field.id] = el
                               }}
                               name='value'
-                              value={localValues[field.id] ?? stringifyFieldValue(field.value)}
+                              value={stringifyFieldValue(field.value)}
                               onChange={(e) =>
                                 handleValueInputChange(
                                   field.id,
@@ -517,7 +488,6 @@ export function FieldFormat({
                                   e.target.selectionStart ?? undefined
                                 )
                               }
-                              onBlur={() => handleValueInputBlur(field)}
                               onDragOver={(e) => handleDragOver(e, field.id)}
                               onDragLeave={(e) => handleDragLeave(e, field.id)}
                               onDrop={(e) => handleDrop(e, field.id)}
@@ -546,7 +516,7 @@ export function FieldFormat({
                                 style={{ scrollbarWidth: 'none', minWidth: 'fit-content' }}
                               >
                                 {formatDisplayText(
-                                  localValues[field.id] ?? stringifyFieldValue(field.value),
+                                  stringifyFieldValue(field.value),
                                   accessiblePrefixes
                                     ? { accessiblePrefixes }
                                     : { highlightAll: true }
@@ -559,14 +529,13 @@ export function FieldFormat({
                         <TagDropdown
                           visible={showTags && activeFieldId === field.id}
                           onSelect={(newValue) => {
-                            setLocalValues((prev) => ({ ...prev, [field.id]: newValue }))
-                            if (!isPreview && !disabled) updateField(field.id, 'value', newValue)
+                            updateField(field.id, 'value', newValue)
                             setShowTags(false)
                             setActiveSourceBlockId(null)
                           }}
                           blockId={blockId}
                           activeSourceBlockId={activeSourceBlockId}
-                          inputValue={localValues[field.id] ?? stringifyFieldValue(field.value)}
+                          inputValue={stringifyFieldValue(field.value)}
                           cursorPosition={cursorPosition}
                           onClose={() => setShowTags(false)}
                         />
