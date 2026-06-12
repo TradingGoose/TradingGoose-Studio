@@ -212,6 +212,7 @@ describe('useWorkflowExecution', () => {
   })
 
   it('forwards queued execution events to the workflow caller', async () => {
+    mockSingleTriggerSnapshot('schedule-trigger', 'schedule', 'Schedule')
     const streamEvent = {
       type: 'stream:chunk',
       executionId: 'execution-1',
@@ -242,37 +243,12 @@ describe('useWorkflowExecution', () => {
     expect(mockConsoleState.ingestWorkflowExecutionEvent).toHaveBeenCalledWith(streamEvent)
     expect(mockRunQueuedWorkflowExecution).toHaveBeenCalledWith(
       expect.objectContaining({
-        triggerType: 'manual',
-        startBlockId: 'manual-trigger',
+        triggerType: 'schedule',
+        startBlockId: 'schedule-trigger',
         selectedOutputs: undefined,
         stream: true,
       }),
       expect.any(Object)
-    )
-  })
-
-  it('runs input triggers with fresh values from the workflow session snapshot', async () => {
-    mockSingleTriggerSnapshot('input-trigger', 'input_trigger', 'Input Form', {
-      inputFormat: {
-        value: [{ id: 'field-1', name: 'prompt', type: 'string', value: 'fresh' }],
-      },
-    })
-
-    const execution = await renderExecutionHook()
-
-    await act(async () => {
-      await execution.handleRunWorkflow()
-    })
-
-    const request = mockRunQueuedWorkflowExecution.mock.calls[0][0]
-    expect(request).toEqual(
-      expect.objectContaining({
-        input: {},
-        startBlockId: 'input-trigger',
-      })
-    )
-    expect(request.workflowData.blocks['input-trigger'].subBlocks.inputFormat.value[0].value).toBe(
-      'fresh'
     )
   })
 

@@ -142,7 +142,7 @@ describe('POST /api/workflows/[id]/queue', () => {
   it.each([
     {
       name: 'unsupported trigger type',
-      body: JSON.stringify({ triggerType: 'webhook' }),
+      body: JSON.stringify({ triggerType: 'api-endpoint' }),
       error: 'Unsupported queued workflow trigger type',
     },
     {
@@ -287,7 +287,7 @@ describe('POST /api/workflows/[id]/queue', () => {
   it('queues editor live executions with the canonical workflow payload', async () => {
     const workflowData = {
       blocks: {
-        'trigger-1': { id: 'trigger-1', type: 'manual_trigger' },
+        'trigger-1': { id: 'trigger-1', type: 'schedule' },
       },
       edges: [],
       loops: {},
@@ -301,7 +301,7 @@ describe('POST /api/workflows/[id]/queue', () => {
           executionId: 'execution-1',
           input: { symbol: 'AAPL' },
           executionTarget: 'live',
-          triggerType: 'manual',
+          triggerType: 'schedule',
           workflowData,
           workflowVariables: { risk: { value: 1 } },
           startBlockId: 'trigger-1',
@@ -323,6 +323,7 @@ describe('POST /api/workflows/[id]/queue', () => {
         payload: expect.objectContaining({
           executionId: 'execution-1',
           input: { symbol: 'AAPL' },
+          triggerType: 'schedule',
           executionTarget: 'live',
           workflowData,
           workflowVariables: { risk: { value: 1 } },

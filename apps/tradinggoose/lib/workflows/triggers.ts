@@ -1,5 +1,6 @@
 import { readBlockOutputs } from '@/lib/workflows/block-outputs'
 import { getBlock } from '@/blocks'
+import type { QueuedWorkflowTriggerType } from '@/services/queue'
 import { resolveTriggerIdForBlock } from '@/triggers/resolution'
 import { generateMockPayloadFromOutputsDefinition } from './triggers/trigger-utils'
 
@@ -16,6 +17,14 @@ export const TRIGGER_TYPES = {
 } as const
 
 export type TriggerType = (typeof TRIGGER_TYPES)[keyof typeof TRIGGER_TYPES]
+
+const EDITOR_TEST_TRIGGER_TYPES: Partial<Record<string, QueuedWorkflowTriggerType>> = {
+  [TRIGGER_TYPES.API]: 'api',
+  [TRIGGER_TYPES.CHAT]: 'chat',
+  [TRIGGER_TYPES.SCHEDULE]: 'schedule',
+  [TRIGGER_TYPES.INPUT]: 'manual',
+  [TRIGGER_TYPES.MANUAL]: 'manual',
+}
 
 /**
  * Mapping from reference alias (used in inline refs like <api.*>, <chat.*>, etc.)
@@ -46,20 +55,6 @@ export class TriggerUtils {
       // Blocks with trigger mode enabled
       block.triggerMode === true
     )
-  }
-
-  /**
-   * Check if a block is a specific trigger type
-   */
-  static isTriggerType(block: { type: string }, triggerType: TriggerType): boolean {
-    return block.type === triggerType
-  }
-
-  /**
-   * Check if a type string is any trigger type
-   */
-  static isAnyTriggerType(type: string): boolean {
-    return Object.values(TRIGGER_TYPES).includes(type as TriggerType)
   }
 
   /**
@@ -155,18 +150,6 @@ export class TriggerUtils {
   }
 
   /**
-   * Check if multiple triggers of a restricted type exist
-   */
-  static hasMultipleTriggers<T extends { type: string }>(
-    blocks: T[] | Record<string, T>,
-    triggerType: TriggerType
-  ): boolean {
-    const blockArray = Array.isArray(blocks) ? blocks : Object.values(blocks)
-    const count = blockArray.filter((block) => block.type === triggerType).length
-    return count > 1
-  }
-
-  /**
    * Check if a trigger type requires single instance constraint
    */
   static requiresSingleInstance(triggerType: string): boolean {
@@ -236,22 +219,6 @@ export class TriggerUtils {
     const triggerName = TriggerUtils.getDefaultTriggerName(triggerType) || 'trigger'
     return { issue: 'duplicate', triggerName }
   }
-
-  /**
-   * Get trigger validation message
-   */
-  static getTriggerValidationMessage(
-    triggerType: 'chat' | 'manual' | 'api',
-    issue: 'missing' | 'multiple'
-  ): string {
-    const triggerName = triggerType.charAt(0).toUpperCase() + triggerType.slice(1)
-
-    if (issue === 'missing') {
-      return `${triggerName} execution requires a ${triggerName} Trigger block`
-    }
-
-    return `Multiple ${triggerName} Trigger blocks found. Keep only one.`
-  }
 }
 
 type EditorTestTriggerBlock = {
@@ -294,6 +261,7 @@ export function resolveEditorTestTrigger<T extends EditorTestTriggerBlock>(
 ): {
   blockId: string
   input: unknown
+  triggerType: QueuedWorkflowTriggerType
 } {
   const entries = Object.entries(blocks)
 
@@ -306,19 +274,26 @@ export function resolveEditorTestTrigger<T extends EditorTestTriggerBlock>(
     edges.some((edge) => edge.source === blockId)
   )
   const selectionCandidates = connectedCandidates.length > 0 ? connectedCandidates : candidates
-  const singletonCandidate =
-    selectionCandidates.find(([, block]) => block.type === TRIGGER_TYPES.API) ??
-    selectionCandidates.find(([, block]) => block.type === TRIGGER_TYPES.MANUAL) ??
-    selectionCandidates.find(([, block]) => block.type === TRIGGER_TYPES.INPUT)
-
-  const externalCandidates = selectionCandidates.filter(
-    ([, block]) => block.type !== TRIGGER_TYPES.CHAT
+  const runnableCandidates = selectionCandidates.filter(
+    ([, block]) => block.triggerMode !== true || resolveTriggerIdForBlock(block) !== null
   )
-  if (connectedCandidates.length > 0 && !singletonCandidate && externalCandidates.length > 1) {
+  const runCandidates = runnableCandidates.length > 0 ? runnableCandidates : selectionCandidates
+  const singletonCandidate =
+    runCandidates.find(([, block]) => block.type === TRIGGER_TYPES.API) ??
+    runCandidates.find(([, block]) => block.type === TRIGGER_TYPES.MANUAL) ??
+    runCandidates.find(([, block]) => block.type === TRIGGER_TYPES.INPUT)
+
+  const externalCandidates = runCandidates.filter(([, block]) => block.type !== TRIGGER_TYPES.CHAT)
+  if (
+    connectedCandidates.length > 0 &&
+    runnableCandidates.length > 0 &&
+    !singletonCandidate &&
+    externalCandidates.length > 1
+  ) {
     throw new Error('Multiple runnable trigger blocks found. Keep one trigger connected for Run.')
   }
 
-  const candidate = singletonCandidate ?? externalCandidates[0] ?? selectionCandidates[0]
+  const candidate = singletonCandidate ?? externalCandidates[0] ?? runCandidates[0]
 
   if (!candidate) {
     throw new Error('Workflow requires at least one trigger block to execute')
@@ -333,5 +308,6 @@ export function resolveEditorTestTrigger<T extends EditorTestTriggerBlock>(
   return {
     blockId,
     input: buildEditorTestTriggerInput(block, workflowInput),
+    triggerType: EDITOR_TEST_TRIGGER_TYPES[block.type] ?? 'webhook',
   }
 }

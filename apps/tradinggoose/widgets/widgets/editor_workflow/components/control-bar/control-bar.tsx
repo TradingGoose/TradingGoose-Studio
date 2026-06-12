@@ -425,10 +425,6 @@ export function ControlBar({
         )
       }
 
-      if (!isWorkflowSessionReady) {
-        return copy.controlBar.checkingWorkflowPermissions
-      }
-
       if (userPermissions.isLoading) {
         return copy.controlBar.checkingWorkflowPermissions
       }

@@ -2,12 +2,13 @@ import type { WorkflowExecutionEvent } from '@/lib/workflows/execution-events'
 import { isExecutionResult } from '@/lib/workflows/execution-result'
 import type { WorkflowExecutionBlueprint } from '@/lib/workflows/execution-runner'
 import type { ExecutionResult } from '@/executor/types'
+import type { QueuedWorkflowTriggerType } from '@/services/queue'
 
 type QueuedWorkflowExecutionRequest = {
   workflowId: string
   executionId?: string
   input?: unknown
-  triggerType: 'api' | 'manual' | 'chat'
+  triggerType: QueuedWorkflowTriggerType
   executionTarget: 'deployed' | 'live'
   workflowData?: WorkflowExecutionBlueprint['workflowData']
   workflowVariables?: Record<string, unknown>

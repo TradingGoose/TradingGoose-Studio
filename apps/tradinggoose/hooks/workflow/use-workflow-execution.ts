@@ -6,6 +6,7 @@ import { resolveEditorTestTrigger, TriggerUtils } from '@/lib/workflows/triggers
 import { getVariablesSnapshot } from '@/lib/yjs/workflow-session'
 import { useWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import type { ExecutionResult } from '@/executor/types'
+import type { QueuedWorkflowTriggerType } from '@/services/queue'
 import { useConsoleStore } from '@/stores/console/store'
 import { useExecutionStore } from '@/stores/execution/store'
 import { generateLoopBlocks, generateParallelBlocks } from '@/stores/workflows/workflow/utils'
@@ -169,11 +170,12 @@ export function useWorkflowExecution() {
       const isChatExecution = triggerType === 'chat'
       let startBlockId: string | undefined
       let finalWorkflowInput = workflowInput
+      let finalTriggerType: QueuedWorkflowTriggerType = triggerType
 
       if (isChatExecution) {
         const startBlock = TriggerUtils.findStartBlock(validBlocks, 'chat')
         if (!startBlock) {
-          throw new Error(TriggerUtils.getTriggerValidationMessage('chat', 'missing'))
+          throw new Error('Chat execution requires a Chat Trigger block')
         }
         startBlockId = startBlock.blockId
       } else {
@@ -184,6 +186,7 @@ export function useWorkflowExecution() {
         )
         startBlockId = editorTestTrigger.blockId
         finalWorkflowInput = editorTestTrigger.input
+        finalTriggerType = editorTestTrigger.triggerType
       }
 
       const workflowVariables = Object.values(getVariablesSnapshot(doc)).reduce(
@@ -198,7 +201,7 @@ export function useWorkflowExecution() {
         workspaceId,
         input: finalWorkflowInput,
         startBlockId,
-        triggerType,
+        triggerType: finalTriggerType,
         workflowVariables,
         workflowData: {
           blocks: validBlocks,
@@ -285,10 +288,10 @@ export function useWorkflowExecution() {
       abortControllerRef.current = abortController
 
       try {
-        const triggerType = request.triggerType ?? 'manual'
-        const executionRequest = await buildExecutionRequest(request.input, triggerType)
+        const requestedTriggerType = request.triggerType ?? 'manual'
+        const executionRequest = await buildExecutionRequest(request.input, requestedTriggerType)
         const input =
-          triggerType === 'chat'
+          executionRequest.triggerType === 'chat'
             ? await uploadChatFiles(
                 executionRequest.input,
                 executionId,
@@ -301,7 +304,7 @@ export function useWorkflowExecution() {
             workflowId: activeWorkflowId,
             executionId,
             input,
-            triggerType,
+            triggerType: executionRequest.triggerType,
             executionTarget: 'live',
             workflowData: executionRequest.workflowData,
             workflowVariables: executionRequest.workflowVariables,

@@ -11,10 +11,10 @@ import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { generateRequestId, SSE_HEADERS } from '@/lib/utils'
 import type { WorkflowExecutionBlueprint } from '@/lib/workflows/execution-runner'
 import { readWorkflowAccessContext } from '@/lib/workflows/utils'
+import type { QueuedWorkflowTriggerType } from '@/services/queue'
 
 const logger = createLogger('WorkflowQueueAPI')
 
-type QueuedWorkflowTriggerType = 'api' | 'manual' | 'chat'
 type QueuedWorkflowExecutionTarget = 'deployed' | 'live'
 
 type QueueRequestBody = {
@@ -32,7 +32,9 @@ type QueueRequestBody = {
 
 function readQueuedWorkflowTriggerType(value: unknown): QueuedWorkflowTriggerType | null {
   if (value === undefined) return 'manual'
-  if (value === 'api' || value === 'manual' || value === 'chat') return value
+  if (['api', 'manual', 'chat', 'webhook', 'schedule'].includes(value as string)) {
+    return value as QueuedWorkflowTriggerType
+  }
   return null
 }
 
@@ -118,7 +120,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         { status: 400 }
       )
     }
-
     if (
       !accessContext.isOwner &&
       !accessContext.isWorkspaceOwner &&
