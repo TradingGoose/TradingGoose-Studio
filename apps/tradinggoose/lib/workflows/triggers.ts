@@ -265,18 +265,6 @@ function buildEditorTestTriggerInput(
   block: EditorTestTriggerBlock,
   workflowInput: unknown
 ): unknown {
-  const inputFormatValue = block.subBlocks?.inputFormat?.value
-  const inputFormatInput = Array.isArray(inputFormatValue)
-    ? inputFormatValue.reduce<Record<string, unknown>>((input, field) => {
-        const { name, value } = (field ?? {}) as { name?: unknown; value?: unknown }
-        if (typeof name === 'string' && name.length > 0) input[name] = value
-        return input
-      }, {})
-    : {}
-  if (Object.keys(inputFormatInput).length > 0) {
-    return inputFormatInput
-  }
-
   if (block.type === TRIGGER_TYPES.CHAT) {
     if (workflowInput && typeof workflowInput === 'object') return workflowInput
     return { input: typeof workflowInput === 'string' ? workflowInput : 'Test message' }
@@ -287,6 +275,10 @@ function buildEditorTestTriggerInput(
     throw new Error(
       `${block.name || blockConfig?.name || block.type} requires a selected trigger type`
     )
+  }
+
+  if (Array.isArray(block.subBlocks?.inputFormat?.value)) {
+    return workflowInput ?? {}
   }
 
   const outputs = readBlockOutputs(block.type, block.subBlocks, true)

@@ -264,15 +264,15 @@ describe('useWorkflowExecution', () => {
       await execution.handleRunWorkflow()
     })
 
-    expect(mockRunQueuedWorkflowExecution).toHaveBeenCalledWith(
+    const request = mockRunQueuedWorkflowExecution.mock.calls[0][0]
+    expect(request).toEqual(
       expect.objectContaining({
-        workflowId: 'workflow-1',
-        triggerType: 'manual',
-        executionTarget: 'live',
-        input: { prompt: 'fresh' },
+        input: {},
         startBlockId: 'input-trigger',
-      }),
-      expect.any(Object)
+      })
+    )
+    expect(request.workflowData.blocks['input-trigger'].subBlocks.inputFormat.value[0].value).toBe(
+      'fresh'
     )
   })
 

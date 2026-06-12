@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { resolveEditorTestTrigger } from '@/lib/workflows/triggers'
 import { resolveTriggerIdForBlock, resolveTriggerIdFromSubBlocks } from '@/triggers/resolution'
 
 vi.mock('@/blocks', () => ({
@@ -12,6 +13,11 @@ vi.mock('@/blocks', () => ({
         slack: {
           category: 'tools',
           triggers: { available: ['slack_webhook'] },
+        },
+        hubspot: {
+          category: 'tools',
+          name: 'HubSpot',
+          triggers: { available: ['hubspot_contact_created', 'hubspot_contact_deleted'] },
         },
       }) as Record<string, any>
     )[type],
@@ -43,6 +49,14 @@ describe('trigger resolution', () => {
     ])
 
     expect(triggerId).toBeNull()
+    expect(() =>
+      resolveEditorTestTrigger(
+        {
+          hubspot: { type: 'hubspot', name: 'HubSpot', triggerMode: true, subBlocks: {} },
+        },
+        [{ source: 'hubspot' }]
+      )
+    ).toThrow('HubSpot requires a selected trigger type')
   })
 
   it('resolves singleton trigger blocks without persisted selection', () => {
@@ -51,6 +65,18 @@ describe('trigger resolution', () => {
       'slack_webhook'
     )
     expect(resolveTriggerIdForBlock({ type: 'slack', subBlocks: {} })).toBeNull()
+    expect(
+      resolveEditorTestTrigger(
+        { schedule: { type: 'schedule', name: 'Schedule', subBlocks: {} } },
+        [{ source: 'schedule' }]
+      )
+    ).toMatchObject({ blockId: 'schedule', input: {} })
+    expect(() =>
+      resolveEditorTestTrigger(
+        { schedule: { type: 'schedule', name: 'Schedule', subBlocks: {} } },
+        []
+      )
+    ).toThrow('Schedule must be connected to other blocks to execute')
   })
 
   it('does not use triggerId as a trigger selection alias', () => {
