@@ -121,6 +121,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       )
     }
     if (
+      (triggerType === 'webhook' || triggerType === 'schedule') &&
+      (executionTarget !== 'live' ||
+        typeof body.startBlockId !== 'string' ||
+        body.startBlockId.length === 0)
+    ) {
+      return NextResponse.json(
+        { error: 'Webhook and schedule queued workflow executions require a live start block' },
+        { status: 400 }
+      )
+    }
+    if (
       !accessContext.isOwner &&
       !accessContext.isWorkspaceOwner &&
       accessContext.workspacePermission !== 'write' &&

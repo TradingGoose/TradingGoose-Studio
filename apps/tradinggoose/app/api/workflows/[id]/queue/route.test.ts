@@ -151,6 +151,11 @@ describe('POST /api/workflows/[id]/queue', () => {
       error: 'Unsupported queued workflow execution target',
     },
     {
+      name: 'webhook without live start block',
+      body: JSON.stringify({ executionTarget: 'live', triggerType: 'webhook' }),
+      error: 'Webhook and schedule queued workflow executions require a live start block',
+    },
+    {
       name: 'malformed JSON',
       body: '{',
       error: 'Invalid JSON in request body',
