@@ -18,6 +18,7 @@ type WorkflowExecutionTriggerType = 'chat' | 'manual'
 type WorkflowExecutionRequest = {
   input?: unknown
   triggerType?: WorkflowExecutionTriggerType
+  selectedStartBlockId?: string | null
   selectedOutputs?: string[]
   onEvent?: (event: WorkflowExecutionEvent) => void | Promise<void>
 }
@@ -148,7 +149,11 @@ export function useWorkflowExecution() {
   )
 
   const buildExecutionRequest = useCallback(
-    async (workflowInput: unknown, triggerType: WorkflowExecutionTriggerType) => {
+    async (
+      workflowInput: unknown,
+      triggerType: WorkflowExecutionTriggerType,
+      selectedStartBlockId?: string | null
+    ) => {
       const workflowSnapshot = readWorkflowSnapshot()
       if (!workflowSnapshot || !doc) {
         throw new Error('Workflow session is not ready')
@@ -182,7 +187,8 @@ export function useWorkflowExecution() {
         const editorTestTrigger = resolveEditorTestTrigger(
           validBlocks,
           workflowSnapshot.edges,
-          workflowInput
+          workflowInput,
+          selectedStartBlockId
         )
         startBlockId = editorTestTrigger.blockId
         finalWorkflowInput = editorTestTrigger.input
@@ -289,7 +295,11 @@ export function useWorkflowExecution() {
 
       try {
         const requestedTriggerType = request.triggerType ?? 'manual'
-        const executionRequest = await buildExecutionRequest(request.input, requestedTriggerType)
+        const executionRequest = await buildExecutionRequest(
+          request.input,
+          requestedTriggerType,
+          request.selectedStartBlockId
+        )
         const input =
           executionRequest.triggerType === 'chat'
             ? await uploadChatFiles(

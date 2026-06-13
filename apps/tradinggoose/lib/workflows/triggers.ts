@@ -4,9 +4,6 @@ import type { QueuedWorkflowTriggerType } from '@/services/queue'
 import { resolveTriggerIdForBlock } from '@/triggers/resolution'
 import { generateMockPayloadFromOutputsDefinition } from './triggers/trigger-utils'
 
-/**
- * Unified trigger type definitions
- */
 export const TRIGGER_TYPES = {
   INPUT: 'input_trigger',
   MANUAL: 'manual_trigger',
@@ -38,55 +35,28 @@ export const TRIGGER_REFERENCE_ALIAS_MAP = {
 
 export type TriggerReferenceAlias = keyof typeof TRIGGER_REFERENCE_ALIAS_MAP
 
-/**
- * Trigger classification and utilities
- */
 export class TriggerUtils {
-  /**
-   * Check if a block is any kind of trigger
-   */
   static isTriggerBlock(block: { type: string; triggerMode?: boolean }): boolean {
     const blockConfig = getBlock(block.type)
 
-    return (
-      // New trigger blocks (explicit category)
-      blockConfig?.category === 'triggers' ||
-      // Blocks with trigger mode enabled
-      block.triggerMode === true
-    )
+    return blockConfig?.category === 'triggers' || block.triggerMode === true
   }
 
-  /**
-   * Check if a block is a chat trigger
-   */
   static isChatTrigger(block: { type: string; subBlocks?: any }): boolean {
     return block.type === TRIGGER_TYPES.CHAT
   }
 
-  /**
-   * Check if a block is a manual trigger
-   */
   static isManualTrigger(block: { type: string; subBlocks?: any }): boolean {
     return block.type === TRIGGER_TYPES.INPUT || block.type === TRIGGER_TYPES.MANUAL
   }
 
-  /**
-   * Check if a block is an API trigger
-   * @param block - Block to check
-   * @param isChildWorkflow - Whether this is being called from a child workflow context
-   */
   static isApiTrigger(block: { type: string; subBlocks?: any }, isChildWorkflow = false): boolean {
     if (isChildWorkflow) {
-      // Child workflows (workflow-in-workflow) only work with input_trigger
       return block.type === TRIGGER_TYPES.INPUT
     }
-    // Direct API calls only work with api_trigger
     return block.type === TRIGGER_TYPES.API
   }
 
-  /**
-   * Get the default name for a trigger type
-   */
   static getDefaultTriggerName(triggerType: string): string | null {
     const block = getBlock(triggerType)
     if (
@@ -104,9 +74,6 @@ export class TriggerUtils {
     return null
   }
 
-  /**
-   * Find trigger blocks of a specific type in a workflow
-   */
   static findTriggersByType<T extends { type: string; subBlocks?: any }>(
     blocks: T[] | Record<string, T>,
     triggerType: 'chat' | 'manual' | 'api',
@@ -126,9 +93,6 @@ export class TriggerUtils {
     }
   }
 
-  /**
-   * Find the appropriate start block for a given execution context
-   */
   static findStartBlock<T extends { type: string; subBlocks?: any }>(
     blocks: Record<string, T>,
     executionType: 'chat' | 'manual' | 'api',
@@ -136,7 +100,6 @@ export class TriggerUtils {
   ): { blockId: string; block: T } | null {
     const entries = Object.entries(blocks)
 
-    // Look for new trigger blocks first
     const triggers = TriggerUtils.findTriggersByType(blocks, executionType, isChildWorkflow)
     if (triggers.length > 0) {
       const blockId = entries.find(([, b]) => b === triggers[0])?.[0]
@@ -148,9 +111,6 @@ export class TriggerUtils {
     return null
   }
 
-  /**
-   * Check if a trigger type requires single instance constraint
-   */
   static requiresSingleInstance(triggerType: string): boolean {
     // Each trigger type can only have one instance of itself
     // Manual and Input Form can coexist
@@ -164,36 +124,28 @@ export class TriggerUtils {
     )
   }
 
-  /**
-   * Check if adding a trigger would violate single instance constraint
-   */
   static wouldViolateSingleInstance<T extends { type: string }>(
     blocks: T[] | Record<string, T>,
     triggerType: string
   ): boolean {
     const blockArray = Array.isArray(blocks) ? blocks : Object.values(blocks)
 
-    // Only one Input trigger allowed
     if (triggerType === TRIGGER_TYPES.INPUT) {
       return blockArray.some((block) => block.type === TRIGGER_TYPES.INPUT)
     }
 
-    // Only one Manual trigger allowed
     if (triggerType === TRIGGER_TYPES.MANUAL) {
       return blockArray.some((block) => block.type === TRIGGER_TYPES.MANUAL)
     }
 
-    // Only one API trigger allowed
     if (triggerType === TRIGGER_TYPES.API) {
       return blockArray.some((block) => block.type === TRIGGER_TYPES.API)
     }
 
-    // Chat trigger must be unique
     if (triggerType === TRIGGER_TYPES.CHAT) {
       return blockArray.some((block) => block.type === TRIGGER_TYPES.CHAT)
     }
 
-    // Centralized rule: only API, Input, Chat are single-instance
     if (!TriggerUtils.requiresSingleInstance(triggerType)) {
       return false
     }
@@ -201,11 +153,6 @@ export class TriggerUtils {
     return blockArray.some((block) => block.type === triggerType)
   }
 
-  /**
-   * Evaluate whether adding a trigger of the given type is allowed and, if not, why.
-   * Returns null if allowed; otherwise returns an object describing the violation.
-   * This avoids duplicating UI logic across toolbar/drop handlers.
-   */
   static getTriggerAdditionIssue<T extends { type: string }>(
     blocks: T[] | Record<string, T>,
     triggerType: string
@@ -214,7 +161,6 @@ export class TriggerUtils {
       return null
     }
 
-    // Otherwise treat as duplicate of a single-instance trigger
     const triggerName = TriggerUtils.getDefaultTriggerName(triggerType) || 'trigger'
     return { issue: 'duplicate', triggerName }
   }
@@ -239,7 +185,19 @@ function buildEditorTestTriggerInput(
   }
 
   if (Array.isArray(block.subBlocks?.inputFormat?.value)) {
-    return workflowInput ?? {}
+    const testInput = block.subBlocks.inputFormat.value.reduce<Record<string, unknown>>(
+      (input, field) => {
+        if (field && typeof field === 'object' && 'name' in field && 'value' in field) {
+          const name = (field as { name?: unknown }).name
+          if (typeof name === 'string' && name.length > 0) {
+            input[name] = (field as { value?: unknown }).value
+          }
+        }
+        return input
+      },
+      {}
+    )
+    return Object.keys(testInput).length > 0 ? testInput : (workflowInput ?? {})
   }
 
   const outputs = readBlockOutputs(block.type, block.subBlocks, true)
@@ -251,21 +209,18 @@ function buildEditorTestTriggerInput(
 export function resolveEditorTestTrigger<T extends EditorTestTriggerBlock>(
   blocks: Record<string, T>,
   edges: Array<{ source: string }>,
-  workflowInput?: unknown
+  workflowInput?: unknown,
+  selectedBlockId?: string | null
 ): {
   blockId: string
   input: unknown
   triggerType: QueuedWorkflowTriggerType
 } {
   const entries = Object.entries(blocks)
-
-  if (entries.filter(([, block]) => block.type === TRIGGER_TYPES.API).length > 1) {
-    throw new Error('Multiple API Trigger blocks found. Keep only one.')
-  }
-
   const candidates = entries.filter(
     ([, block]) => TriggerUtils.isTriggerBlock(block) && block.type !== TRIGGER_TYPES.CHAT
   )
+  const selectedCandidate = candidates.find(([blockId]) => blockId === selectedBlockId)
   const connectedCandidates = candidates.filter(([blockId]) =>
     edges.some((edge) => edge.source === blockId)
   )
@@ -273,22 +228,15 @@ export function resolveEditorTestTrigger<T extends EditorTestTriggerBlock>(
   const runnableCandidates = selectionCandidates.filter(
     ([, block]) => block.triggerMode !== true || resolveTriggerIdForBlock(block) !== null
   )
-  const runCandidates = runnableCandidates.length > 0 ? runnableCandidates : selectionCandidates
-  const singletonCandidate =
-    runCandidates.find(([, block]) => block.type === TRIGGER_TYPES.API) ??
-    runCandidates.find(([, block]) => block.type === TRIGGER_TYPES.MANUAL) ??
-    runCandidates.find(([, block]) => block.type === TRIGGER_TYPES.INPUT)
 
-  if (
-    connectedCandidates.length > 0 &&
-    runnableCandidates.length > 0 &&
-    !singletonCandidate &&
-    runCandidates.length > 1
-  ) {
+  if (!selectedCandidate && runnableCandidates.length > 1) {
     throw new Error('Multiple runnable trigger blocks found. Keep one trigger connected for Run.')
   }
 
-  const candidate = singletonCandidate ?? runCandidates[0]
+  const candidate =
+    selectedCandidate ??
+    runnableCandidates[0] ??
+    (selectionCandidates.length === 1 ? selectionCandidates[0] : undefined)
 
   if (!candidate) {
     throw new Error('Run requires a connected non-chat trigger block')

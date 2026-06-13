@@ -1684,6 +1684,7 @@ const WorkflowCanvas = React.memo(
             <ControlBar
               hasValidationErrors={nestedSubflowErrors.size > 0}
               hasLockedBlocks={hasLockedBlocks}
+              selectedNodeId={resolvedSelectedNodeId}
             />
           )}
 

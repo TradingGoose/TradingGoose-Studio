@@ -44,6 +44,7 @@ let usageDataCache: {
 interface ControlBarProps {
   hasValidationErrors?: boolean
   hasLockedBlocks?: boolean
+  selectedNodeId?: string | null
   className?: string
   variant?: 'widget'
 }
@@ -79,6 +80,7 @@ const getDangerButtonClass = (extra?: string) => cn(WIDGET_DANGER_BUTTON_CLASS, 
 export function ControlBar({
   hasValidationErrors = false,
   hasLockedBlocks = false,
+  selectedNodeId,
   className,
   variant = 'widget',
 }: ControlBarProps) {
@@ -120,7 +122,7 @@ export function ControlBar({
   // Register keyboard shortcut for running workflow
   useKeyboardShortcuts(() => {
     if (!isWorkflowBlocked && userPermissions.canEdit) {
-      handleRunWorkflow()
+      handleRunWorkflow({ selectedStartBlockId: selectedNodeId })
     }
   }, isWorkflowBlocked || !userPermissions.canEdit)
 
@@ -454,7 +456,7 @@ export function ControlBar({
       if (usageExceeded) {
         openSubscriptionSettings()
       } else {
-        handleRunWorkflow()
+        handleRunWorkflow({ selectedStartBlockId: selectedNodeId })
       }
     }
 
