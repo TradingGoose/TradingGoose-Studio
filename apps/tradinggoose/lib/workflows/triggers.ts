@@ -1,3 +1,4 @@
+import { BlockPathCalculator } from '@/lib/block-path-calculator'
 import { readBlockOutputs } from '@/lib/workflows/block-outputs'
 import { getBlock } from '@/blocks'
 import type { QueuedWorkflowTriggerType } from '@/services/queue'
@@ -208,7 +209,7 @@ function buildEditorTestTriggerInput(
 
 export function resolveEditorTestTrigger<T extends EditorTestTriggerBlock>(
   blocks: Record<string, T>,
-  edges: Array<{ source: string }>,
+  edges: Array<{ source: string; target: string }>,
   workflowInput?: unknown,
   selectedBlockId?: string | null
 ): {
@@ -228,13 +229,28 @@ export function resolveEditorTestTrigger<T extends EditorTestTriggerBlock>(
   const runnableCandidates = selectionCandidates.filter(
     ([, block]) => block.triggerMode !== true || resolveTriggerIdForBlock(block) !== null
   )
+  const selectedPathNodes =
+    selectedBlockId && !selectedCandidate
+      ? new Set(BlockPathCalculator.findAllPathNodes(edges, selectedBlockId))
+      : null
+  const selectedPathCandidates =
+    selectedPathNodes === null
+      ? []
+      : selectionCandidates.filter(([blockId]) => selectedPathNodes.has(blockId))
 
-  if (!selectedCandidate && runnableCandidates.length > 1) {
-    throw new Error('Multiple runnable trigger blocks found. Keep one trigger connected for Run.')
+  if (
+    !selectedCandidate &&
+    (selectedPathCandidates.length > 1 ||
+      (selectedPathCandidates.length === 0 && runnableCandidates.length > 1))
+  ) {
+    throw new Error(
+      'Multiple trigger blocks found. Select one trigger block or a block on one trigger branch for Run.'
+    )
   }
 
   const candidate =
     selectedCandidate ??
+    selectedPathCandidates[0] ??
     runnableCandidates[0] ??
     (selectionCandidates.length === 1 ? selectionCandidates[0] : undefined)
 
