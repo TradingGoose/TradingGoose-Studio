@@ -175,6 +175,7 @@ export function useWorkflowExecution() {
       const isChatExecution = triggerType === 'chat'
       let startBlockId: string | undefined
       let finalWorkflowInput = workflowInput
+      let triggerSource: string | undefined
       let finalTriggerType: QueuedWorkflowTriggerType = triggerType
 
       if (isChatExecution) {
@@ -192,6 +193,7 @@ export function useWorkflowExecution() {
         )
         startBlockId = editorTestTrigger.blockId
         finalWorkflowInput = editorTestTrigger.input
+        triggerSource = editorTestTrigger.triggerSource
         finalTriggerType = editorTestTrigger.triggerType
       }
 
@@ -207,6 +209,7 @@ export function useWorkflowExecution() {
         workspaceId,
         input: finalWorkflowInput,
         startBlockId,
+        triggerSource,
         triggerType: finalTriggerType,
         workflowVariables,
         workflowData: {
@@ -315,6 +318,7 @@ export function useWorkflowExecution() {
             workflowData: executionRequest.workflowData,
             workflowVariables: executionRequest.workflowVariables,
             startBlockId: executionRequest.startBlockId,
+            triggerSource: executionRequest.triggerSource,
             selectedOutputs: request.selectedOutputs,
             stream: true,
             signal: abortController.signal,

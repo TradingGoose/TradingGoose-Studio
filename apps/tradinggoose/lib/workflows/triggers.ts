@@ -2,6 +2,7 @@ import { BlockPathCalculator } from '@/lib/block-path-calculator'
 import { readBlockOutputs } from '@/lib/workflows/block-outputs'
 import { getBlock } from '@/blocks'
 import type { QueuedWorkflowTriggerType } from '@/services/queue'
+import { TRIGGER_REGISTRY } from '@/triggers/registry'
 import { resolveTriggerIdForBlock } from '@/triggers/resolution'
 import { generateMockPayloadFromOutputsDefinition } from './triggers/trigger-utils'
 
@@ -15,13 +16,6 @@ export const TRIGGER_TYPES = {
 } as const
 
 export type TriggerType = (typeof TRIGGER_TYPES)[keyof typeof TRIGGER_TYPES]
-
-const EDITOR_TEST_TRIGGER_TYPES: Partial<Record<string, QueuedWorkflowTriggerType>> = {
-  [TRIGGER_TYPES.API]: 'api',
-  [TRIGGER_TYPES.SCHEDULE]: 'schedule',
-  [TRIGGER_TYPES.INPUT]: 'manual',
-  [TRIGGER_TYPES.MANUAL]: 'manual',
-}
 
 /**
  * Mapping from reference alias (used in inline refs like <api.*>, <chat.*>, etc.)
@@ -178,13 +172,6 @@ function buildEditorTestTriggerInput(
   block: EditorTestTriggerBlock,
   workflowInput: unknown
 ): unknown {
-  if (block.triggerMode === true && !resolveTriggerIdForBlock(block)) {
-    const blockConfig = getBlock(block.type)
-    throw new Error(
-      `${block.name || blockConfig?.name || block.type} requires a selected trigger type`
-    )
-  }
-
   if (Array.isArray(block.subBlocks?.inputFormat?.value)) {
     const testInput = block.subBlocks.inputFormat.value.reduce<Record<string, unknown>>(
       (input, field) => {
@@ -207,6 +194,31 @@ function buildEditorTestTriggerInput(
     : (workflowInput ?? {})
 }
 
+function resolveEditorTestTriggerIdentity(block: EditorTestTriggerBlock): {
+  triggerSource: string
+  triggerType: QueuedWorkflowTriggerType
+} {
+  const triggerId = resolveTriggerIdForBlock(block)
+  if (!triggerId) {
+    const blockConfig = getBlock(block.type)
+    throw new Error(
+      `${block.name || blockConfig?.name || block.type} requires a selected trigger type`
+    )
+  }
+
+  if (block.type === TRIGGER_TYPES.API) return { triggerSource: triggerId, triggerType: 'api' }
+  if (block.type === TRIGGER_TYPES.SCHEDULE) {
+    return { triggerSource: triggerId, triggerType: 'schedule' }
+  }
+  if (TriggerUtils.isManualTrigger(block)) {
+    return { triggerSource: triggerId, triggerType: 'manual' }
+  }
+  if (TRIGGER_REGISTRY[triggerId]?.webhookProvider) {
+    return { triggerSource: triggerId, triggerType: 'webhook' }
+  }
+  throw new Error(`${block.name || block.type} is not supported by editor Run`)
+}
+
 export function resolveEditorTestTrigger<T extends EditorTestTriggerBlock>(
   blocks: Record<string, T>,
   edges: Array<{ source: string; target: string }>,
@@ -215,6 +227,7 @@ export function resolveEditorTestTrigger<T extends EditorTestTriggerBlock>(
 ): {
   blockId: string
   input: unknown
+  triggerSource: string
   triggerType: QueuedWorkflowTriggerType
 } {
   const entries = Object.entries(blocks)
@@ -259,6 +272,7 @@ export function resolveEditorTestTrigger<T extends EditorTestTriggerBlock>(
   }
 
   const [blockId, block] = candidate
+  const triggerIdentity = resolveEditorTestTriggerIdentity(block)
   if (!edges.some((edge) => edge.source === blockId)) {
     const triggerName = block.name || TriggerUtils.getDefaultTriggerName(block.type) || block.type
     throw new Error(`${triggerName} must be connected to other blocks to execute`)
@@ -267,6 +281,6 @@ export function resolveEditorTestTrigger<T extends EditorTestTriggerBlock>(
   return {
     blockId,
     input: buildEditorTestTriggerInput(block, workflowInput),
-    triggerType: EDITOR_TEST_TRIGGER_TYPES[block.type] ?? 'webhook',
+    ...triggerIdentity,
   }
 }

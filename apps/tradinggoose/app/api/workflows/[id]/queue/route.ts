@@ -12,6 +12,7 @@ import { generateRequestId, SSE_HEADERS } from '@/lib/utils'
 import type { WorkflowExecutionBlueprint } from '@/lib/workflows/execution-runner'
 import { readWorkflowAccessContext } from '@/lib/workflows/utils'
 import type { QueuedWorkflowTriggerType } from '@/services/queue'
+import { TRIGGER_REGISTRY } from '@/triggers/registry'
 
 const logger = createLogger('WorkflowQueueAPI')
 
@@ -25,6 +26,7 @@ type QueueRequestBody = {
   workflowData?: WorkflowExecutionBlueprint['workflowData']
   workflowVariables?: Record<string, unknown>
   startBlockId?: string
+  triggerSource?: unknown
   selectedOutputs?: string[]
   stream?: boolean
   workflowDepth?: number
@@ -62,6 +64,10 @@ function hasLiveWorkflowState(body: QueueRequestBody) {
     body.workflowVariables !== undefined ||
     (typeof body.startBlockId === 'string' && body.startBlockId.length > 0)
   )
+}
+
+function readQueuedTriggerData(source: unknown) {
+  return typeof source === 'string' && source in TRIGGER_REGISTRY ? { source } : undefined
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -145,6 +151,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       typeof body.executionId === 'string' && body.executionId.length > 0
         ? body.executionId
         : `workflow_execution_${randomUUID()}`
+    const triggerData = readQueuedTriggerData(body.triggerSource)
     const handle = await enqueuePendingExecution({
       executionType: 'workflow',
       pendingExecutionId,
@@ -171,6 +178,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           body.startBlockId.length > 0
             ? body.startBlockId
             : undefined,
+        ...(triggerData ? { triggerData } : {}),
         workflowDepth: typeof body.workflowDepth === 'number' ? body.workflowDepth : 0,
         metadata: {
           source,

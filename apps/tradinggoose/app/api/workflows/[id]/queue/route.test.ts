@@ -310,6 +310,7 @@ describe('POST /api/workflows/[id]/queue', () => {
           workflowData,
           workflowVariables: { risk: { value: 1 } },
           startBlockId: 'trigger-1',
+          triggerSource: 'schedule',
         }),
         headers: {
           'Content-Type': 'application/json',
@@ -333,6 +334,7 @@ describe('POST /api/workflows/[id]/queue', () => {
           workflowData,
           workflowVariables: { risk: { value: 1 } },
           startBlockId: 'trigger-1',
+          triggerData: { source: 'schedule' },
         }),
       })
     )
