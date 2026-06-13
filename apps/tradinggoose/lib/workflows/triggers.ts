@@ -13,8 +13,6 @@ export const TRIGGER_TYPES = {
   SCHEDULE: 'schedule',
 } as const
 
-export type TriggerType = (typeof TRIGGER_TYPES)[keyof typeof TRIGGER_TYPES]
-
 /**
  * Mapping from reference alias (used in inline refs like <api.*>, <chat.*>, etc.)
  * to concrete trigger block type identifiers used across the system.
@@ -26,28 +24,11 @@ export const TRIGGER_REFERENCE_ALIAS_MAP = {
   manual: TRIGGER_TYPES.INPUT,
 } as const
 
-export type TriggerReferenceAlias = keyof typeof TRIGGER_REFERENCE_ALIAS_MAP
-
 export class TriggerUtils {
   static isTriggerBlock(block: { type: string; triggerMode?: boolean }): boolean {
     const blockConfig = getBlock(block.type)
 
     return blockConfig?.category === 'triggers' || block.triggerMode === true
-  }
-
-  static isChatTrigger(block: { type: string; subBlocks?: any }): boolean {
-    return block.type === TRIGGER_TYPES.CHAT
-  }
-
-  static isManualTrigger(block: { type: string; subBlocks?: any }): boolean {
-    return block.type === TRIGGER_TYPES.INPUT || block.type === TRIGGER_TYPES.MANUAL
-  }
-
-  static isApiTrigger(block: { type: string; subBlocks?: any }, isChildWorkflow = false): boolean {
-    if (isChildWorkflow) {
-      return block.type === TRIGGER_TYPES.INPUT
-    }
-    return block.type === TRIGGER_TYPES.API
   }
 
   static getDefaultTriggerName(triggerType: string): string | null {
