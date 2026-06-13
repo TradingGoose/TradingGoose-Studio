@@ -18,7 +18,6 @@ type WorkflowExecutionTriggerType = 'chat' | 'manual'
 type WorkflowExecutionRequest = {
   input?: unknown
   triggerType?: WorkflowExecutionTriggerType
-  selectedStartBlockId?: string | null
   selectedOutputs?: string[]
   onEvent?: (event: WorkflowExecutionEvent) => void | Promise<void>
 }
@@ -64,9 +63,14 @@ function createExecutionId() {
   return globalThis.crypto.randomUUID()
 }
 
+function readSelectedAwarenessBlockId(awareness: any | null): string | null {
+  const selection = awareness?.getLocalState?.()?.selection
+  return selection?.type === 'block' && typeof selection.id === 'string' ? selection.id : null
+}
+
 export function useWorkflowExecution() {
   const { workflowId: activeWorkflowId, workspaceId } = useWorkflowRoute()
-  const { doc, error, isLoading, readWorkflowSnapshot } = useWorkflowSession()
+  const { awareness, doc, error, isLoading, readWorkflowSnapshot } = useWorkflowSession()
   const { cancelRunningEntries } = useConsoleStore()
   const abortControllerRef = useRef<AbortController | null>(null)
   const { isExecuting, setIsExecuting, setIsDebugging, setPendingBlocks, setActiveBlocks } =
@@ -149,11 +153,7 @@ export function useWorkflowExecution() {
   )
 
   const buildExecutionRequest = useCallback(
-    async (
-      workflowInput: unknown,
-      triggerType: WorkflowExecutionTriggerType,
-      selectedStartBlockId?: string | null
-    ) => {
+    async (workflowInput: unknown, triggerType: WorkflowExecutionTriggerType) => {
       const workflowSnapshot = readWorkflowSnapshot()
       if (!workflowSnapshot || !doc) {
         throw new Error('Workflow session is not ready')
@@ -188,7 +188,7 @@ export function useWorkflowExecution() {
           validBlocks,
           workflowSnapshot.edges,
           workflowInput,
-          selectedStartBlockId
+          readSelectedAwarenessBlockId(awareness)
         )
         startBlockId = editorTestTrigger.blockId
         finalWorkflowInput = editorTestTrigger.input
@@ -217,7 +217,7 @@ export function useWorkflowExecution() {
         },
       }
     },
-    [doc, readWorkflowSnapshot, workspaceId]
+    [awareness, doc, readWorkflowSnapshot, workspaceId]
   )
 
   const uploadChatFiles = useCallback(
@@ -295,11 +295,7 @@ export function useWorkflowExecution() {
 
       try {
         const requestedTriggerType = request.triggerType ?? 'manual'
-        const executionRequest = await buildExecutionRequest(
-          request.input,
-          requestedTriggerType,
-          request.selectedStartBlockId
-        )
+        const executionRequest = await buildExecutionRequest(request.input, requestedTriggerType)
         const input =
           executionRequest.triggerType === 'chat'
             ? await uploadChatFiles(
