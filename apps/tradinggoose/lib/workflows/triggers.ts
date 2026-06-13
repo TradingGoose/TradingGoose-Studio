@@ -48,82 +48,36 @@ export class TriggerUtils {
     return null
   }
 
-  static findTriggersByType<T extends { type: string; subBlocks?: any }>(
-    blocks: T[] | Record<string, T>,
-    triggerType: 'chat' | 'manual' | 'api',
-    isChildWorkflow = false
-  ): T[] {
-    const blockArray = Array.isArray(blocks) ? blocks : Object.values(blocks)
-
-    switch (triggerType) {
-      case 'chat':
-        return blockArray.filter((block) => TriggerUtils.isChatTrigger(block))
-      case 'manual':
-        return blockArray.filter((block) => TriggerUtils.isManualTrigger(block))
-      case 'api':
-        return blockArray.filter((block) => TriggerUtils.isApiTrigger(block, isChildWorkflow))
-      default:
-        return []
-    }
-  }
-
   static findStartBlock<T extends { type: string; subBlocks?: any }>(
     blocks: Record<string, T>,
     executionType: 'chat' | 'manual' | 'api',
     isChildWorkflow = false
   ): { blockId: string; block: T } | null {
-    const entries = Object.entries(blocks)
-
-    const triggers = TriggerUtils.findTriggersByType(blocks, executionType, isChildWorkflow)
-    if (triggers.length > 0) {
-      const blockId = entries.find(([, b]) => b === triggers[0])?.[0]
-      if (blockId) {
-        return { blockId, block: triggers[0] }
+    const entry = Object.entries(blocks).find(([, block]) => {
+      if (executionType === 'chat') return block.type === TRIGGER_TYPES.CHAT
+      if (executionType === 'manual') {
+        return block.type === TRIGGER_TYPES.INPUT || block.type === TRIGGER_TYPES.MANUAL
       }
-    }
+      return isChildWorkflow ? block.type === TRIGGER_TYPES.INPUT : block.type === TRIGGER_TYPES.API
+    })
 
-    return null
-  }
-
-  static requiresSingleInstance(triggerType: string): boolean {
-    // Each trigger type can only have one instance of itself
-    // Manual and Input Form can coexist
-    // API, Chat triggers must be unique
-    // Schedules and webhooks can have multiple instances
-    return (
-      triggerType === TRIGGER_TYPES.API ||
-      triggerType === TRIGGER_TYPES.INPUT ||
-      triggerType === TRIGGER_TYPES.MANUAL ||
-      triggerType === TRIGGER_TYPES.CHAT
-    )
+    return entry ? { blockId: entry[0], block: entry[1] } : null
   }
 
   static wouldViolateSingleInstance<T extends { type: string }>(
     blocks: T[] | Record<string, T>,
     triggerType: string
   ): boolean {
-    const blockArray = Array.isArray(blocks) ? blocks : Object.values(blocks)
-
-    if (triggerType === TRIGGER_TYPES.INPUT) {
-      return blockArray.some((block) => block.type === TRIGGER_TYPES.INPUT)
-    }
-
-    if (triggerType === TRIGGER_TYPES.MANUAL) {
-      return blockArray.some((block) => block.type === TRIGGER_TYPES.MANUAL)
-    }
-
-    if (triggerType === TRIGGER_TYPES.API) {
-      return blockArray.some((block) => block.type === TRIGGER_TYPES.API)
-    }
-
-    if (triggerType === TRIGGER_TYPES.CHAT) {
-      return blockArray.some((block) => block.type === TRIGGER_TYPES.CHAT)
-    }
-
-    if (!TriggerUtils.requiresSingleInstance(triggerType)) {
+    if (
+      triggerType !== TRIGGER_TYPES.API &&
+      triggerType !== TRIGGER_TYPES.INPUT &&
+      triggerType !== TRIGGER_TYPES.MANUAL &&
+      triggerType !== TRIGGER_TYPES.CHAT
+    ) {
       return false
     }
 
+    const blockArray = Array.isArray(blocks) ? blocks : Object.values(blocks)
     return blockArray.some((block) => block.type === triggerType)
   }
 
@@ -179,9 +133,15 @@ export function resolveEditorTestTrigger<T extends EditorTestTriggerBlock>(
   input: unknown
 } {
   const entries = Object.entries(blocks)
-  const candidates = entries.filter(
-    ([, block]) => TriggerUtils.isTriggerBlock(block) && block.type !== TRIGGER_TYPES.CHAT
-  )
+  const triggerCandidates = entries.filter(([, block]) => TriggerUtils.isTriggerBlock(block))
+  const selectedTriggerCandidate = selectedBlockId
+    ? triggerCandidates.find(([blockId]) => blockId === selectedBlockId)
+    : undefined
+  if (selectedTriggerCandidate?.[1].type === TRIGGER_TYPES.CHAT) {
+    throw new Error('Chat Trigger blocks run from the chat widget, not editor Run')
+  }
+
+  const candidates = triggerCandidates.filter(([, block]) => block.type !== TRIGGER_TYPES.CHAT)
   const selectedCandidate = candidates.find(([blockId]) => blockId === selectedBlockId)
   const connectedCandidates = candidates.filter(([blockId]) =>
     edges.some((edge) => edge.source === blockId)
@@ -197,12 +157,27 @@ export function resolveEditorTestTrigger<T extends EditorTestTriggerBlock>(
   const selectedPathCandidates =
     selectedPathNodes === null
       ? []
-      : selectionCandidates.filter(([blockId]) => selectedPathNodes.has(blockId))
+      : runnableCandidates.filter(([blockId]) => selectedPathNodes.has(blockId))
+  const selectedPathFallbackCandidate =
+    selectedPathNodes === null
+      ? undefined
+      : selectionCandidates.find(([blockId]) => selectedPathNodes.has(blockId))
+  const selectedPathHasChatTrigger =
+    selectedPathNodes !== null &&
+    triggerCandidates.some(
+      ([blockId, block]) => block.type === TRIGGER_TYPES.CHAT && selectedPathNodes.has(blockId)
+    )
+
+  if (!selectedCandidate && selectedPathHasChatTrigger && !selectedPathFallbackCandidate) {
+    throw new Error('Chat Trigger blocks run from the chat widget, not editor Run')
+  }
 
   if (
     !selectedCandidate &&
     (selectedPathCandidates.length > 1 ||
-      (selectedPathCandidates.length === 0 && runnableCandidates.length > 1))
+      (!selectedPathFallbackCandidate &&
+        selectedPathCandidates.length === 0 &&
+        runnableCandidates.length > 1))
   ) {
     throw new Error(
       'Multiple trigger blocks found. Select one trigger block or a block on one trigger branch for Run.'
@@ -212,6 +187,7 @@ export function resolveEditorTestTrigger<T extends EditorTestTriggerBlock>(
   const candidate =
     selectedCandidate ??
     selectedPathCandidates[0] ??
+    selectedPathFallbackCandidate ??
     runnableCandidates[0] ??
     (selectionCandidates.length === 1 ? selectionCandidates[0] : undefined)
 
