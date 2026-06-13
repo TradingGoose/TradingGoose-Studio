@@ -842,10 +842,10 @@ export function useWorkflowMutations() {
 
         if (blockConfig) {
           const initValues = blockProperties?.initialSubBlockValues
-          subBlocks = buildInitialSubBlockStates(blockConfig.subBlocks, initValues) as Record<
-            string,
-            SubBlockState
-          >
+          subBlocks = buildInitialSubBlockStates(
+            blockConfig.subBlocks,
+            initValues
+          ) as Record<string, SubBlockState>
 
           const runtimeState = resolveBlockRuntimeState({
             blockType: type,

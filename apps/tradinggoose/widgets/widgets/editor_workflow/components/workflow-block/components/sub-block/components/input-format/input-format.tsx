@@ -56,7 +56,6 @@ interface FieldFormatProps {
   config?: any
 }
 
-// Default values
 const DEFAULT_FIELD: Omit<Field, 'id'> = {
   name: '',
   type: 'string',
@@ -152,11 +151,9 @@ export function FieldFormat({
     return name.replace(/[\x00-\x1F"\\]/g, '').trim()
   }
 
-  // Update handlers
   const updateField = (id: string, field: keyof Field, value: any) => {
     if (isPreview || disabled) return
 
-    // Validate field name if it's being updated
     if (field === 'name' && typeof value === 'string') {
       value = validateFieldName(value)
     }

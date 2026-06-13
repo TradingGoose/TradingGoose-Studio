@@ -12,7 +12,7 @@ import { generateRequestId, SSE_HEADERS } from '@/lib/utils'
 import type { WorkflowExecutionBlueprint } from '@/lib/workflows/execution-runner'
 import { readWorkflowAccessContext } from '@/lib/workflows/utils'
 import type { QueuedWorkflowTriggerType } from '@/services/queue'
-import { TRIGGER_REGISTRY } from '@/triggers/registry'
+import { resolveTriggerExecutionIdentity } from '@/triggers/resolution'
 
 const logger = createLogger('WorkflowQueueAPI')
 
@@ -26,7 +26,6 @@ type QueueRequestBody = {
   workflowData?: WorkflowExecutionBlueprint['workflowData']
   workflowVariables?: Record<string, unknown>
   startBlockId?: string
-  triggerSource?: unknown
   selectedOutputs?: string[]
   stream?: boolean
   workflowDepth?: number
@@ -66,8 +65,29 @@ function hasLiveWorkflowState(body: QueueRequestBody) {
   )
 }
 
-function readQueuedTriggerData(source: unknown) {
-  return typeof source === 'string' && source in TRIGGER_REGISTRY ? { source } : undefined
+function resolveQueuedTriggerData(
+  body: QueueRequestBody,
+  executionTarget: QueuedWorkflowExecutionTarget,
+  triggerType: QueuedWorkflowTriggerType
+) {
+  if (executionTarget !== 'live' || typeof body.startBlockId !== 'string') {
+    return undefined
+  }
+
+  const block = body.workflowData?.blocks?.[body.startBlockId]
+  if (!block) {
+    throw new Error('Queued workflow start block was not found in live workflow state')
+  }
+
+  const identity = resolveTriggerExecutionIdentity(block)
+  if (
+    (triggerType === 'manual' && identity.triggerType === 'chat') ||
+    (triggerType !== 'manual' && identity.triggerType !== triggerType)
+  ) {
+    throw new Error('Queued workflow trigger type does not match the start block')
+  }
+
+  return { source: identity.triggerSource }
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -151,7 +171,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       typeof body.executionId === 'string' && body.executionId.length > 0
         ? body.executionId
         : `workflow_execution_${randomUUID()}`
-    const triggerData = readQueuedTriggerData(body.triggerSource)
+    let triggerData: { source: string } | undefined
+    try {
+      triggerData = resolveQueuedTriggerData(body, executionTarget, triggerType)
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Queued workflow start block is not runnable'
+      return NextResponse.json({ error: errorMessage }, { status: 400 })
+    }
     const handle = await enqueuePendingExecution({
       executionType: 'workflow',
       pendingExecutionId,

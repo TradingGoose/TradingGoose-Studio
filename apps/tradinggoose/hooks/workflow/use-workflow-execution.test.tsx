@@ -91,13 +91,13 @@ describe('useWorkflowExecution', () => {
     name: string,
     subBlocks: Record<string, unknown> = {}
   ) {
-    const triggerBlock = { id: triggerId, type, name, enabled: true, subBlocks, outputs: {} }
-    const blocks = {
-      [triggerId]: triggerBlock,
-      'agent-1': agentBlock,
-    }
-    const edges = [{ id: 'edge-1', source: triggerId, target: 'agent-1' }]
-    mockReadWorkflowSnapshot.mockReturnValue({ blocks, edges })
+    mockReadWorkflowSnapshot.mockReturnValue({
+      blocks: {
+        [triggerId]: { id: triggerId, type, name, enabled: true, subBlocks, outputs: {} },
+        'agent-1': agentBlock,
+      },
+      edges: [{ id: 'edge-1', source: triggerId, target: 'agent-1' }],
+    })
   }
 
   async function renderExecutionHook() {
@@ -209,7 +209,7 @@ describe('useWorkflowExecution', () => {
       }),
       expect.any(Object)
     )
-  }, 10_000)
+  })
 
   it('does not run chat-only workflows through editor Run', async () => {
     mockSingleTriggerSnapshot('chat-trigger', 'chat_trigger', 'Chat Trigger')
@@ -255,7 +255,7 @@ describe('useWorkflowExecution', () => {
     expect(mockConsoleState.ingestWorkflowExecutionEvent).toHaveBeenCalledWith(streamEvent)
     expect(mockRunQueuedWorkflowExecution).toHaveBeenCalledWith(
       expect.objectContaining({
-        triggerType: 'schedule',
+        triggerType: 'manual',
         startBlockId: 'schedule-trigger',
         selectedOutputs: undefined,
         stream: true,

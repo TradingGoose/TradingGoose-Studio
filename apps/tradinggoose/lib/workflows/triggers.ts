@@ -1,9 +1,7 @@
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
 import { readBlockOutputs } from '@/lib/workflows/block-outputs'
 import { getBlock } from '@/blocks'
-import type { QueuedWorkflowTriggerType } from '@/services/queue'
-import { TRIGGER_REGISTRY } from '@/triggers/registry'
-import { resolveTriggerIdForBlock } from '@/triggers/resolution'
+import { resolveTriggerExecutionIdentity, resolveTriggerIdForBlock } from '@/triggers/resolution'
 import { generateMockPayloadFromOutputsDefinition } from './triggers/trigger-utils'
 
 export const TRIGGER_TYPES = {
@@ -161,7 +159,7 @@ export class TriggerUtils {
   }
 }
 
-type EditorTestTriggerBlock = {
+export type EditorTestTriggerBlock = {
   type: string
   name?: string
   triggerMode?: boolean
@@ -172,19 +170,15 @@ function buildEditorTestTriggerInput(
   block: EditorTestTriggerBlock,
   workflowInput: unknown
 ): unknown {
-  if (Array.isArray(block.subBlocks?.inputFormat?.value)) {
-    const testInput = block.subBlocks.inputFormat.value.reduce<Record<string, unknown>>(
-      (input, field) => {
-        if (field && typeof field === 'object' && 'name' in field && 'value' in field) {
-          const name = (field as { name?: unknown }).name
-          if (typeof name === 'string' && name.length > 0) {
-            input[name] = (field as { value?: unknown }).value
-          }
-        }
-        return input
-      },
-      {}
-    )
+  const inputFormat = block.subBlocks?.inputFormat?.value
+  if (Array.isArray(inputFormat)) {
+    const testInput: Record<string, unknown> = {}
+    for (const field of inputFormat) {
+      const name = field && typeof field === 'object' ? (field as { name?: unknown }).name : null
+      if (typeof name === 'string' && name.length > 0) {
+        testInput[name] = (field as { value?: unknown }).value
+      }
+    }
     return Object.keys(testInput).length > 0 ? testInput : (workflowInput ?? {})
   }
 
@@ -192,31 +186,6 @@ function buildEditorTestTriggerInput(
   return Object.keys(outputs).length > 0
     ? generateMockPayloadFromOutputsDefinition(outputs)
     : (workflowInput ?? {})
-}
-
-function resolveEditorTestTriggerIdentity(block: EditorTestTriggerBlock): {
-  triggerSource: string
-  triggerType: QueuedWorkflowTriggerType
-} {
-  const triggerId = resolveTriggerIdForBlock(block)
-  if (!triggerId) {
-    const blockConfig = getBlock(block.type)
-    throw new Error(
-      `${block.name || blockConfig?.name || block.type} requires a selected trigger type`
-    )
-  }
-
-  if (block.type === TRIGGER_TYPES.API) return { triggerSource: triggerId, triggerType: 'api' }
-  if (block.type === TRIGGER_TYPES.SCHEDULE) {
-    return { triggerSource: triggerId, triggerType: 'schedule' }
-  }
-  if (TriggerUtils.isManualTrigger(block)) {
-    return { triggerSource: triggerId, triggerType: 'manual' }
-  }
-  if (TRIGGER_REGISTRY[triggerId]?.webhookProvider) {
-    return { triggerSource: triggerId, triggerType: 'webhook' }
-  }
-  throw new Error(`${block.name || block.type} is not supported by editor Run`)
 }
 
 export function resolveEditorTestTrigger<T extends EditorTestTriggerBlock>(
@@ -227,8 +196,6 @@ export function resolveEditorTestTrigger<T extends EditorTestTriggerBlock>(
 ): {
   blockId: string
   input: unknown
-  triggerSource: string
-  triggerType: QueuedWorkflowTriggerType
 } {
   const entries = Object.entries(blocks)
   const candidates = entries.filter(
@@ -272,7 +239,7 @@ export function resolveEditorTestTrigger<T extends EditorTestTriggerBlock>(
   }
 
   const [blockId, block] = candidate
-  const triggerIdentity = resolveEditorTestTriggerIdentity(block)
+  resolveTriggerExecutionIdentity(block)
   if (!edges.some((edge) => edge.source === blockId)) {
     const triggerName = block.name || TriggerUtils.getDefaultTriggerName(block.type) || block.type
     throw new Error(`${triggerName} must be connected to other blocks to execute`)
@@ -281,6 +248,5 @@ export function resolveEditorTestTrigger<T extends EditorTestTriggerBlock>(
   return {
     blockId,
     input: buildEditorTestTriggerInput(block, workflowInput),
-    ...triggerIdentity,
   }
 }

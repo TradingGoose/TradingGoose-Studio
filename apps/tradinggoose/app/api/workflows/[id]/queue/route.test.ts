@@ -51,6 +51,8 @@ vi.mock('@/lib/utils', () => ({
   SSE_HEADERS: { 'Content-Type': 'text/event-stream' },
 }))
 
+vi.unmock('@/blocks/registry')
+
 import { POST } from './route'
 
 describe('POST /api/workflows/[id]/queue', () => {
@@ -306,11 +308,10 @@ describe('POST /api/workflows/[id]/queue', () => {
           executionId: 'execution-1',
           input: { symbol: 'AAPL' },
           executionTarget: 'live',
-          triggerType: 'schedule',
+          triggerType: 'manual',
           workflowData,
           workflowVariables: { risk: { value: 1 } },
           startBlockId: 'trigger-1',
-          triggerSource: 'schedule',
         }),
         headers: {
           'Content-Type': 'application/json',
@@ -329,7 +330,6 @@ describe('POST /api/workflows/[id]/queue', () => {
         payload: expect.objectContaining({
           executionId: 'execution-1',
           input: { symbol: 'AAPL' },
-          triggerType: 'schedule',
           executionTarget: 'live',
           workflowData,
           workflowVariables: { risk: { value: 1 } },

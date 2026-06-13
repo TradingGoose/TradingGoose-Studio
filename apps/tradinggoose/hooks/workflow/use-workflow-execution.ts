@@ -6,7 +6,6 @@ import { resolveEditorTestTrigger, TriggerUtils } from '@/lib/workflows/triggers
 import { getVariablesSnapshot } from '@/lib/yjs/workflow-session'
 import { useWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import type { ExecutionResult } from '@/executor/types'
-import type { QueuedWorkflowTriggerType } from '@/services/queue'
 import { useConsoleStore } from '@/stores/console/store'
 import { useExecutionStore } from '@/stores/execution/store'
 import { generateLoopBlocks, generateParallelBlocks } from '@/stores/workflows/workflow/utils'
@@ -175,8 +174,6 @@ export function useWorkflowExecution() {
       const isChatExecution = triggerType === 'chat'
       let startBlockId: string | undefined
       let finalWorkflowInput = workflowInput
-      let triggerSource: string | undefined
-      let finalTriggerType: QueuedWorkflowTriggerType = triggerType
 
       if (isChatExecution) {
         const startBlock = TriggerUtils.findStartBlock(validBlocks, 'chat')
@@ -193,8 +190,6 @@ export function useWorkflowExecution() {
         )
         startBlockId = editorTestTrigger.blockId
         finalWorkflowInput = editorTestTrigger.input
-        triggerSource = editorTestTrigger.triggerSource
-        finalTriggerType = editorTestTrigger.triggerType
       }
 
       const workflowVariables = Object.values(getVariablesSnapshot(doc)).reduce(
@@ -209,8 +204,7 @@ export function useWorkflowExecution() {
         workspaceId,
         input: finalWorkflowInput,
         startBlockId,
-        triggerSource,
-        triggerType: finalTriggerType,
+        triggerType,
         workflowVariables,
         workflowData: {
           blocks: validBlocks,
@@ -318,7 +312,6 @@ export function useWorkflowExecution() {
             workflowData: executionRequest.workflowData,
             workflowVariables: executionRequest.workflowVariables,
             startBlockId: executionRequest.startBlockId,
-            triggerSource: executionRequest.triggerSource,
             selectedOutputs: request.selectedOutputs,
             stream: true,
             signal: abortController.signal,
