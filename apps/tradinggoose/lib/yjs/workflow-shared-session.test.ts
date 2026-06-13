@@ -1,5 +1,5 @@
-import * as Y from 'yjs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as Y from 'yjs'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 
 const mockBootstrapYjsProvider = vi.fn()
@@ -39,6 +39,26 @@ function createMockProvider() {
   }
 }
 
+function createBootstrapResult(doc: Y.Doc, provider: ReturnType<typeof createMockProvider>) {
+  return {
+    doc,
+    provider,
+    descriptor: {
+      workspaceId: 'workspace-1',
+      entityKind: 'workflow',
+      entityId: 'workflow-1',
+      draftSessionId: null,
+      reviewSessionId: null,
+      yjsSessionId: 'workflow-1',
+    },
+    runtime: {
+      docState: 'active',
+      replaySafe: true,
+      reseededFromCanonical: false,
+    },
+  }
+}
+
 async function waitForCondition(assertion: () => void, timeoutMs = 1000) {
   const start = Date.now()
 
@@ -68,12 +88,52 @@ describe('workflow shared session lifecycle', () => {
     mockWaitForYjsWriteSync.mockResolvedValue(undefined)
     mockRegisterWorkflowSession.mockReset()
     mockUnregisterWorkflowSession.mockReset()
-    delete globalThis.__workflowYjsSessionEntries
+    globalThis.__workflowYjsSessionEntries = undefined
   })
 
   afterEach(() => {
     vi.useRealTimers()
-    delete globalThis.__workflowYjsSessionEntries
+    globalThis.__workflowYjsSessionEntries = undefined
+  })
+
+  it('does not publish a readable doc before bootstrap completes', async () => {
+    const doc = new Y.Doc()
+    const provider = createMockProvider()
+    let finishBootstrap!: () => void
+    const bootstrapReady = new Promise<void>((resolve) => {
+      finishBootstrap = resolve
+    })
+
+    mockBootstrapYjsProvider.mockImplementation(async () => {
+      await bootstrapReady
+      return createBootstrapResult(doc, provider)
+    })
+
+    const { acquireSharedWorkflowSession, getSharedWorkflowSessionState } = await import(
+      './workflow-shared-session'
+    )
+
+    const release = acquireSharedWorkflowSession({
+      workflowId: 'workflow-1',
+      workspaceId: 'workspace-1',
+    })
+
+    await waitForCondition(() => {
+      expect(mockBootstrapYjsProvider).toHaveBeenCalledTimes(1)
+    })
+    expect(getSharedWorkflowSessionState('workflow-1')).toMatchObject({
+      doc: null,
+      isLoading: true,
+    })
+
+    finishBootstrap()
+
+    await waitForCondition(() => {
+      expect(getSharedWorkflowSessionState('workflow-1').doc).toBe(doc)
+      expect(getSharedWorkflowSessionState('workflow-1').isLoading).toBe(false)
+    })
+
+    release()
   })
 
   it('reuses one bootstrapped workflow session across multiple acquisitions', async () => {
@@ -82,23 +142,7 @@ describe('workflow shared session lifecycle', () => {
     const destroyDoc = vi.spyOn(doc, 'destroy')
     const provider = createMockProvider()
 
-    mockBootstrapYjsProvider.mockResolvedValue({
-      doc,
-      provider,
-      descriptor: {
-        workspaceId: 'workspace-1',
-        entityKind: 'workflow',
-        entityId: 'workflow-1',
-        draftSessionId: null,
-        reviewSessionId: null,
-        yjsSessionId: 'workflow-1',
-      },
-      runtime: {
-        docState: 'active',
-        replaySafe: true,
-        reseededFromCanonical: false,
-      },
-    })
+    mockBootstrapYjsProvider.mockResolvedValue(createBootstrapResult(doc, provider))
 
     const {
       acquireSharedWorkflowSession,
@@ -168,23 +212,7 @@ describe('workflow shared session lifecycle', () => {
     const destroyDoc = vi.spyOn(doc, 'destroy')
     const provider = createMockProvider()
 
-    mockBootstrapYjsProvider.mockResolvedValue({
-      doc,
-      provider,
-      descriptor: {
-        workspaceId: 'workspace-1',
-        entityKind: 'workflow',
-        entityId: 'workflow-1',
-        draftSessionId: null,
-        reviewSessionId: null,
-        yjsSessionId: 'workflow-1',
-      },
-      runtime: {
-        docState: 'active',
-        replaySafe: true,
-        reseededFromCanonical: false,
-      },
-    })
+    mockBootstrapYjsProvider.mockResolvedValue(createBootstrapResult(doc, provider))
 
     const { acquireSharedWorkflowSession, getSharedWorkflowSessionState } = await import(
       './workflow-shared-session'
@@ -228,23 +256,7 @@ describe('workflow shared session lifecycle', () => {
     const doc = new Y.Doc()
     const provider = createMockProvider()
 
-    mockBootstrapYjsProvider.mockResolvedValue({
-      doc,
-      provider,
-      descriptor: {
-        workspaceId: 'workspace-1',
-        entityKind: 'workflow',
-        entityId: 'workflow-1',
-        draftSessionId: null,
-        reviewSessionId: null,
-        yjsSessionId: 'workflow-1',
-      },
-      runtime: {
-        docState: 'active',
-        replaySafe: true,
-        reseededFromCanonical: false,
-      },
-    })
+    mockBootstrapYjsProvider.mockResolvedValue(createBootstrapResult(doc, provider))
 
     const {
       acquireSharedWorkflowSession,
