@@ -80,10 +80,11 @@ function resolveQueuedTriggerData(
   }
 
   const identity = resolveTriggerExecutionIdentity(block)
-  if (
-    (triggerType === 'manual' && identity.triggerType === 'chat') ||
-    (triggerType !== 'manual' && identity.triggerType !== triggerType)
-  ) {
+  const isManualStartBlockRun = triggerType === 'manual'
+  const triggerTypeMatchesStartBlock = isManualStartBlockRun
+    ? identity.triggerType !== 'chat'
+    : identity.triggerType === triggerType
+  if (!triggerTypeMatchesStartBlock) {
     throw new Error('Queued workflow trigger type does not match the start block')
   }
 

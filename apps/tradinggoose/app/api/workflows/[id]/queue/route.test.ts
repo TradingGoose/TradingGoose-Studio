@@ -291,7 +291,7 @@ describe('POST /api/workflows/[id]/queue', () => {
     expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
   })
 
-  it('queues editor live executions with the canonical workflow payload', async () => {
+  it('queues editor live executions as manual runs with trigger source metadata', async () => {
     const workflowData = {
       blocks: {
         'trigger-1': { id: 'trigger-1', type: 'schedule' },
@@ -330,6 +330,7 @@ describe('POST /api/workflows/[id]/queue', () => {
         payload: expect.objectContaining({
           executionId: 'execution-1',
           input: { symbol: 'AAPL' },
+          triggerType: 'manual',
           executionTarget: 'live',
           workflowData,
           workflowVariables: { risk: { value: 1 } },
