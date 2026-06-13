@@ -209,6 +209,18 @@ describe('useWorkflowExecution', () => {
       }),
       expect.any(Object)
     )
+  }, 10_000)
+
+  it('does not run chat-only workflows through editor Run', async () => {
+    mockSingleTriggerSnapshot('chat-trigger', 'chat_trigger', 'Chat Trigger')
+
+    const execution = await renderExecutionHook()
+
+    await act(async () => {
+      await execution.handleRunWorkflow()
+    })
+
+    expect(mockRunQueuedWorkflowExecution).not.toHaveBeenCalled()
   })
 
   it('forwards queued execution events to the workflow caller', async () => {

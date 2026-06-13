@@ -6,16 +6,16 @@ import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { formatFileSize } from '@/i18n/formatters'
-import { formatTemplate } from '@/i18n/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { createChatOutputEventReader } from '@/lib/workflows/chat-output'
 import { useWorkflowExecution } from '@/hooks/workflow/use-workflow-execution'
+import { formatFileSize } from '@/i18n/formatters'
+import { formatTemplate } from '@/i18n/utils'
+import { useWorkflowChatMessages } from '@/i18n/workspace-widget-hooks'
 import { useChatStore } from '@/stores/chat/store'
 import type { ChatMessage as StoredChatMessage } from '@/stores/chat/types'
 import { useExecutionStore } from '@/stores/execution/store'
-import { useWorkflowChatMessages } from '@/i18n/workspace-widget-hooks'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { ChatMessage } from '..'
 
@@ -63,7 +63,8 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
   const { isExecuting } = useExecutionStore()
 
   // Get workflow execution functionality
-  const { handleRunWorkflow } = useWorkflowExecution()
+  const { isWorkflowSessionReady, handleRunWorkflow } = useWorkflowExecution()
+  const isChatUnavailable = !currentWorkflowId || isExecuting || !isWorkflowSessionReady
 
   // Get filtered messages for current workflow
   const workflowMessages = useMemo(() => {
@@ -188,7 +189,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
 
   // Handle send message
   const handleSendMessage = useCallback(async () => {
-    if ((!chatMessage.trim() && chatFiles.length === 0) || !currentWorkflowId || isExecuting) return
+    if ((!chatMessage.trim() && chatFiles.length === 0) || isChatUnavailable) return
 
     // Store the message being sent for reference
     const sentMessage = chatMessage.trim()
@@ -323,9 +324,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
 
     if (outputReader.hasEmittedContent()) {
       if (result && 'success' in result && !result.success && !streamState.errorShown) {
-        appendStreamError(
-          'error' in result ? result.error : copy.workflowExecutionFailed
-        )
+        appendStreamError('error' in result ? result.error : copy.workflowExecutionFailed)
       }
       addMessage({
         content: streamState.content,
@@ -348,7 +347,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
     chatFiles,
     copy,
     currentWorkflowId,
-    isExecuting,
+    isChatUnavailable,
     promptHistory,
     getConversationId,
     addMessage,
@@ -424,14 +423,14 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
           onDragEnter={(e) => {
             e.preventDefault()
             e.stopPropagation()
-            if (!(!currentWorkflowId || isExecuting)) {
+            if (!isChatUnavailable) {
               setDragCounter((prev) => prev + 1)
             }
           }}
           onDragOver={(e) => {
             e.preventDefault()
             e.stopPropagation()
-            if (!(!currentWorkflowId || isExecuting)) {
+            if (!isChatUnavailable) {
               e.dataTransfer.dropEffect = 'copy'
             }
           }}
@@ -444,7 +443,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
             e.preventDefault()
             e.stopPropagation()
             setDragCounter(0)
-            if (!(!currentWorkflowId || isExecuting)) {
+            if (!isChatUnavailable) {
               const droppedFiles = Array.from(e.dataTransfer.files)
               if (droppedFiles.length > 0) {
                 const remainingSlots = Math.max(0, 5 - chatFiles.length)
@@ -597,7 +596,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
                 variant='ghost'
                 size='icon'
                 onClick={() => document.getElementById('chat-file-input')?.click()}
-                disabled={!currentWorkflowId || isExecuting || chatFiles.length >= 5}
+                disabled={isChatUnavailable || chatFiles.length >= 5}
                 className='h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground'
                 title={copy.attachFiles}
               >
@@ -653,7 +652,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
                   e.target.value = ''
                 }}
                 className='hidden'
-                disabled={!currentWorkflowId || isExecuting}
+                disabled={isChatUnavailable}
               />
 
               {/* Text input */}
@@ -667,18 +666,14 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
                 onKeyDown={handleKeyPress}
                 placeholder={isDragOver ? copy.dropFilesHere : copy.typeMessage}
                 className='h-7 flex-1 border-0 bg-transparent font-sans text-foreground text-sm shadow-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
-                disabled={!currentWorkflowId || isExecuting}
+                disabled={isChatUnavailable}
               />
 
               {/* Send button */}
               <Button
                 onClick={handleSendMessage}
                 size='icon'
-                disabled={
-                  (!chatMessage.trim() && chatFiles.length === 0) ||
-                  !currentWorkflowId ||
-                  isExecuting
-                }
+                disabled={(!chatMessage.trim() && chatFiles.length === 0) || isChatUnavailable}
                 className='h-6 w-6 shrink-0 rounded-sm bg-primary-hover text-black shadow-[0_0_0_0_var(--primary-hover)] transition-all duration-200 hover:bg-primary-hover '
               >
                 <Send className='h-3 w-3' />

@@ -11,6 +11,7 @@ const mockHandleRunWorkflow = vi.hoisted(() => vi.fn())
 
 vi.mock('@/hooks/workflow/use-workflow-execution', () => ({
   useWorkflowExecution: () => ({
+    isWorkflowSessionReady: true,
     handleRunWorkflow: mockHandleRunWorkflow,
   }),
 }))

@@ -20,7 +20,6 @@ export type TriggerType = (typeof TRIGGER_TYPES)[keyof typeof TRIGGER_TYPES]
 
 const EDITOR_TEST_TRIGGER_TYPES: Partial<Record<string, QueuedWorkflowTriggerType>> = {
   [TRIGGER_TYPES.API]: 'api',
-  [TRIGGER_TYPES.CHAT]: 'chat',
   [TRIGGER_TYPES.SCHEDULE]: 'schedule',
   [TRIGGER_TYPES.INPUT]: 'manual',
   [TRIGGER_TYPES.MANUAL]: 'manual',
@@ -232,11 +231,6 @@ function buildEditorTestTriggerInput(
   block: EditorTestTriggerBlock,
   workflowInput: unknown
 ): unknown {
-  if (block.type === TRIGGER_TYPES.CHAT) {
-    if (workflowInput && typeof workflowInput === 'object') return workflowInput
-    return { input: typeof workflowInput === 'string' ? workflowInput : 'Test message' }
-  }
-
   if (block.triggerMode === true && !resolveTriggerIdForBlock(block)) {
     const blockConfig = getBlock(block.type)
     throw new Error(
@@ -245,7 +239,6 @@ function buildEditorTestTriggerInput(
   }
 
   if (Array.isArray(block.subBlocks?.inputFormat?.value)) {
-    // Executor reads persisted input-format test values from serialized workflow params.
     return workflowInput ?? {}
   }
 
@@ -270,7 +263,9 @@ export function resolveEditorTestTrigger<T extends EditorTestTriggerBlock>(
     throw new Error('Multiple API Trigger blocks found. Keep only one.')
   }
 
-  const candidates = entries.filter(([, block]) => TriggerUtils.isTriggerBlock(block))
+  const candidates = entries.filter(
+    ([, block]) => TriggerUtils.isTriggerBlock(block) && block.type !== TRIGGER_TYPES.CHAT
+  )
   const connectedCandidates = candidates.filter(([blockId]) =>
     edges.some((edge) => edge.source === blockId)
   )
@@ -284,20 +279,19 @@ export function resolveEditorTestTrigger<T extends EditorTestTriggerBlock>(
     runCandidates.find(([, block]) => block.type === TRIGGER_TYPES.MANUAL) ??
     runCandidates.find(([, block]) => block.type === TRIGGER_TYPES.INPUT)
 
-  const externalCandidates = runCandidates.filter(([, block]) => block.type !== TRIGGER_TYPES.CHAT)
   if (
     connectedCandidates.length > 0 &&
     runnableCandidates.length > 0 &&
     !singletonCandidate &&
-    externalCandidates.length > 1
+    runCandidates.length > 1
   ) {
     throw new Error('Multiple runnable trigger blocks found. Keep one trigger connected for Run.')
   }
 
-  const candidate = singletonCandidate ?? externalCandidates[0] ?? runCandidates[0]
+  const candidate = singletonCandidate ?? runCandidates[0]
 
   if (!candidate) {
-    throw new Error('Workflow requires at least one trigger block to execute')
+    throw new Error('Run requires a connected non-chat trigger block')
   }
 
   const [blockId, block] = candidate
