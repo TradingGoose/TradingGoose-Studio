@@ -1,7 +1,7 @@
 import { getReadableWorkflowState } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { runQueuedWorkflowExecution } from '@/lib/workflows/queued-execution-client'
-import { TriggerUtils } from '@/lib/workflows/triggers'
+import { resolveEditorTestTrigger } from '@/lib/workflows/triggers'
 import type { ExecutionResult } from '@/executor/types'
 
 const logger = createLogger('WorkflowExecutionUtils')
@@ -14,15 +14,6 @@ type WorkflowExecutionOptions = {
 
 function createExecutionId() {
   return globalThis.crypto.randomUUID()
-}
-
-function resolveWorkflowStart(blocks: Record<string, any>) {
-  for (const triggerType of ['chat', 'manual', 'api'] as const) {
-    const start = TriggerUtils.findStartBlock(blocks, triggerType)
-    if (start) return { triggerType, startBlockId: start.blockId }
-  }
-
-  return null
 }
 
 export async function executeWorkflowWithFullLogging(
@@ -53,14 +44,12 @@ export async function executeWorkflowWithFullLogging(
     },
     {} as typeof workflowState.blocks
   )
-  const start = resolveWorkflowStart(blocks)
-  if (!start) {
-    throw new Error('Workflow requires a chat, API, or manual trigger block to execute')
-  }
+  const start = resolveEditorTestTrigger(blocks, workflowState.edges, options.workflowInput)
 
   logger.info('Executing workflow through server route', {
     workflowId: options.workflowId,
-    triggerType: start.triggerType,
+    triggerType: 'manual',
+    startBlockId: start.blockId,
     blockCount: Object.keys(blocks).length,
     edgeCount: workflowState.edges.length,
   })
@@ -68,8 +57,8 @@ export async function executeWorkflowWithFullLogging(
   return runQueuedWorkflowExecution({
     workflowId: options.workflowId,
     executionId: options.executionId ?? createExecutionId(),
-    input: options.workflowInput,
-    triggerType: start.triggerType,
+    input: start.input,
+    triggerType: 'manual',
     executionTarget: 'live',
     workflowData: {
       blocks,
@@ -78,6 +67,6 @@ export async function executeWorkflowWithFullLogging(
       parallels: workflowState.parallels,
     },
     workflowVariables,
-    startBlockId: start.startBlockId,
+    startBlockId: start.blockId,
   })
 }
