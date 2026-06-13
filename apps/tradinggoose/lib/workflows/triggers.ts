@@ -94,7 +94,7 @@ export class TriggerUtils {
   }
 }
 
-export type EditorTestTriggerBlock = {
+export type WorkflowRunTriggerBlock = {
   type: string
   name?: string
   triggerMode?: boolean
@@ -102,7 +102,7 @@ export type EditorTestTriggerBlock = {
 }
 
 function buildEditorTestTriggerInput(
-  block: EditorTestTriggerBlock,
+  block: WorkflowRunTriggerBlock,
   workflowInput: unknown
 ): unknown {
   const inputFormat = block.subBlocks?.inputFormat?.value
@@ -123,25 +123,34 @@ function buildEditorTestTriggerInput(
     : (workflowInput ?? {})
 }
 
-export function resolveEditorTestTrigger<T extends EditorTestTriggerBlock>(
+export function resolveWorkflowRunTrigger<T extends WorkflowRunTriggerBlock>(
   blocks: Record<string, T>,
   edges: Array<{ source: string; target: string }>,
-  workflowInput?: unknown,
-  selectedBlockId?: string | null
+  options: {
+    surface: 'editor' | 'copilot'
+    workflowInput?: unknown
+    selectedBlockId?: string | null
+  }
 ): {
   blockId: string
   input: unknown
+  triggerType: 'chat' | 'manual'
 } {
-  const entries = Object.entries(blocks)
-  const triggerCandidates = entries.filter(([, block]) => TriggerUtils.isTriggerBlock(block))
+  const isEditorRun = options.surface === 'editor'
+  const selectedBlockId = options.selectedBlockId
+  const triggerCandidates = Object.entries(blocks).filter(([, block]) =>
+    TriggerUtils.isTriggerBlock(block)
+  )
   const selectedTriggerCandidate = selectedBlockId
     ? triggerCandidates.find(([blockId]) => blockId === selectedBlockId)
     : undefined
-  if (selectedTriggerCandidate?.[1].type === TRIGGER_TYPES.CHAT) {
+  if (isEditorRun && selectedTriggerCandidate?.[1].type === TRIGGER_TYPES.CHAT) {
     throw new Error('Chat Trigger blocks run from the chat widget, not editor Run')
   }
 
-  const candidates = triggerCandidates.filter(([, block]) => block.type !== TRIGGER_TYPES.CHAT)
+  const candidates = isEditorRun
+    ? triggerCandidates.filter(([, block]) => block.type !== TRIGGER_TYPES.CHAT)
+    : triggerCandidates
   const selectedCandidate = candidates.find(([blockId]) => blockId === selectedBlockId)
   const connectedCandidates = candidates.filter(([blockId]) =>
     edges.some((edge) => edge.source === blockId)
@@ -151,7 +160,7 @@ export function resolveEditorTestTrigger<T extends EditorTestTriggerBlock>(
     ([, block]) => block.triggerMode !== true || resolveTriggerIdForBlock(block) !== null
   )
   const selectedPathNodes =
-    selectedBlockId && !selectedCandidate
+    isEditorRun && selectedBlockId && !selectedCandidate
       ? new Set(BlockPathCalculator.findAllPathNodes(edges, selectedBlockId))
       : null
   const selectedPathCandidates =
@@ -167,12 +176,25 @@ export function resolveEditorTestTrigger<T extends EditorTestTriggerBlock>(
     triggerCandidates.some(
       ([blockId, block]) => block.type === TRIGGER_TYPES.CHAT && selectedPathNodes.has(blockId)
     )
+  const priorityCandidate = isEditorRun
+    ? undefined
+    : (runnableCandidates.find(([, block]) => block.type === TRIGGER_TYPES.CHAT) ??
+      runnableCandidates.find(
+        ([, block]) => block.type === TRIGGER_TYPES.INPUT || block.type === TRIGGER_TYPES.MANUAL
+      ) ??
+      runnableCandidates.find(([, block]) => block.type === TRIGGER_TYPES.API))
 
-  if (!selectedCandidate && selectedPathHasChatTrigger && !selectedPathFallbackCandidate) {
+  if (
+    isEditorRun &&
+    !selectedCandidate &&
+    selectedPathHasChatTrigger &&
+    !selectedPathFallbackCandidate
+  ) {
     throw new Error('Chat Trigger blocks run from the chat widget, not editor Run')
   }
 
   if (
+    isEditorRun &&
     !selectedCandidate &&
     (selectedPathCandidates.length > 1 ||
       (!selectedPathFallbackCandidate &&
@@ -188,15 +210,24 @@ export function resolveEditorTestTrigger<T extends EditorTestTriggerBlock>(
     selectedCandidate ??
     selectedPathCandidates[0] ??
     selectedPathFallbackCandidate ??
-    runnableCandidates[0] ??
+    priorityCandidate ??
+    (isEditorRun
+      ? runnableCandidates[0]
+      : runnableCandidates.length === 1
+        ? runnableCandidates[0]
+        : undefined) ??
     (selectionCandidates.length === 1 ? selectionCandidates[0] : undefined)
 
   if (!candidate) {
-    throw new Error('Run requires a connected non-chat trigger block')
+    throw new Error(
+      isEditorRun
+        ? 'Run requires a connected non-chat trigger block'
+        : 'Copilot run_workflow requires a single connected runnable trigger block.'
+    )
   }
 
   const [blockId, block] = candidate
-  resolveTriggerExecutionIdentity(block)
+  const identity = resolveTriggerExecutionIdentity(block)
   if (!edges.some((edge) => edge.source === blockId)) {
     const triggerName = block.name || TriggerUtils.getDefaultTriggerName(block.type) || block.type
     throw new Error(`${triggerName} must be connected to other blocks to execute`)
@@ -204,6 +235,9 @@ export function resolveEditorTestTrigger<T extends EditorTestTriggerBlock>(
 
   return {
     blockId,
-    input: buildEditorTestTriggerInput(block, workflowInput),
+    input: isEditorRun
+      ? buildEditorTestTriggerInput(block, options.workflowInput)
+      : options.workflowInput,
+    triggerType: identity.triggerType === 'chat' ? 'chat' : 'manual',
   }
 }

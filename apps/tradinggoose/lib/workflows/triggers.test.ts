@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { resolveEditorTestTrigger } from './triggers'
+import { resolveWorkflowRunTrigger } from './triggers'
 
 vi.mock('@/blocks', () => {
   const trigger = (id: string) => ({
@@ -26,9 +26,9 @@ const block = (type: string, name = type) => ({
   subBlocks: {},
 })
 
-describe('resolveEditorTestTrigger', () => {
+describe('resolveWorkflowRunTrigger', () => {
   it('selects the non-chat trigger when the selected block has mixed chat and non-chat ancestry', () => {
-    const result = resolveEditorTestTrigger(
+    const result = resolveWorkflowRunTrigger(
       {
         chat: block('chat_trigger', 'Chat'),
         schedule: block('schedule', 'Schedule'),
@@ -38,8 +38,7 @@ describe('resolveEditorTestTrigger', () => {
         { source: 'chat', target: 'shared' },
         { source: 'schedule', target: 'shared' },
       ],
-      undefined,
-      'shared'
+      { surface: 'editor', selectedBlockId: 'shared' }
     )
 
     expect(result.blockId).toBe('schedule')
@@ -47,7 +46,7 @@ describe('resolveEditorTestTrigger', () => {
 
   it('requires a trigger selection when the selected block has multiple non-chat ancestors', () => {
     expect(() =>
-      resolveEditorTestTrigger(
+      resolveWorkflowRunTrigger(
         {
           manual: block('manual_trigger', 'Manual'),
           schedule: block('schedule', 'Schedule'),
@@ -57,8 +56,7 @@ describe('resolveEditorTestTrigger', () => {
           { source: 'manual', target: 'shared' },
           { source: 'schedule', target: 'shared' },
         ],
-        undefined,
-        'shared'
+        { surface: 'editor', selectedBlockId: 'shared' }
       )
     ).toThrow(
       'Multiple trigger blocks found. Select one trigger block or a block on one trigger branch for Run.'

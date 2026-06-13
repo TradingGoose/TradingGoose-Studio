@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { WorkflowExecutionEvent } from '@/lib/workflows/execution-events'
 import { runQueuedWorkflowExecution } from '@/lib/workflows/queued-execution-client'
-import { resolveEditorTestTrigger, TriggerUtils } from '@/lib/workflows/triggers'
+import { resolveWorkflowRunTrigger, TriggerUtils } from '@/lib/workflows/triggers'
 import { getVariablesSnapshot } from '@/lib/yjs/workflow-session'
 import { useWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import type { ExecutionResult } from '@/executor/types'
@@ -182,12 +182,11 @@ export function useWorkflowExecution() {
         }
         startBlockId = startBlock.blockId
       } else {
-        const editorTestTrigger = resolveEditorTestTrigger(
-          validBlocks,
-          workflowSnapshot.edges,
+        const editorTestTrigger = resolveWorkflowRunTrigger(validBlocks, workflowSnapshot.edges, {
+          surface: 'editor',
           workflowInput,
-          readSelectedAwarenessBlockId(awareness)
-        )
+          selectedBlockId: readSelectedAwarenessBlockId(awareness),
+        })
         startBlockId = editorTestTrigger.blockId
         finalWorkflowInput = editorTestTrigger.input
       }

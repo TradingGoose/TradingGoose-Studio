@@ -1,7 +1,7 @@
 import { getReadableWorkflowState } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { runQueuedWorkflowExecution } from '@/lib/workflows/queued-execution-client'
-import { resolveEditorTestTrigger } from '@/lib/workflows/triggers'
+import { resolveWorkflowRunTrigger } from '@/lib/workflows/triggers'
 import type { ExecutionResult } from '@/executor/types'
 
 const logger = createLogger('WorkflowExecutionUtils')
@@ -44,11 +44,14 @@ export async function executeWorkflowWithFullLogging(
     },
     {} as typeof workflowState.blocks
   )
-  const start = resolveEditorTestTrigger(blocks, workflowState.edges, options.workflowInput)
+  const start = resolveWorkflowRunTrigger(blocks, workflowState.edges, {
+    surface: 'copilot',
+    workflowInput: options.workflowInput,
+  })
 
   logger.info('Executing workflow through server route', {
     workflowId: options.workflowId,
-    triggerType: 'manual',
+    triggerType: start.triggerType,
     startBlockId: start.blockId,
     blockCount: Object.keys(blocks).length,
     edgeCount: workflowState.edges.length,
@@ -58,7 +61,7 @@ export async function executeWorkflowWithFullLogging(
     workflowId: options.workflowId,
     executionId: options.executionId ?? createExecutionId(),
     input: start.input,
-    triggerType: 'manual',
+    triggerType: start.triggerType,
     executionTarget: 'live',
     workflowData: {
       blocks,
