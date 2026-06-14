@@ -19,7 +19,6 @@ export const TRIGGER_TYPES = {
  * to concrete trigger block type identifiers used across the system.
  */
 export const TRIGGER_REFERENCE_ALIAS_MAP = {
-  start: TRIGGER_TYPES.INPUT,
   api: TRIGGER_TYPES.API,
   chat: TRIGGER_TYPES.CHAT,
   manual: TRIGGER_TYPES.INPUT,
@@ -49,7 +48,7 @@ export class TriggerUtils {
     return null
   }
 
-  static findStartBlock<T extends { type: string; subBlocks?: any }>(
+  static findTriggerBlock<T extends { type: string; subBlocks?: any }>(
     blocks: Record<string, T>,
     executionType: 'chat' | 'manual' | 'api',
     isChildWorkflow = false

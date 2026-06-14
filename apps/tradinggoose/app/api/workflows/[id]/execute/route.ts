@@ -37,7 +37,6 @@ const UNSUPPORTED_API_EXECUTE_FIELDS = [
   'workflowData',
   'workflowStateOverride',
   'workflowVariables',
-  'startBlockId',
   'executionId',
 ] as const
 

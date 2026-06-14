@@ -52,7 +52,7 @@ export async function executeWorkflowWithFullLogging(
   logger.info('Executing workflow through server route', {
     workflowId: options.workflowId,
     triggerType: start.triggerType,
-    startBlockId: start.blockId,
+    triggerBlockId: start.blockId,
     blockCount: Object.keys(blocks).length,
     edgeCount: workflowState.edges.length,
   })
@@ -70,6 +70,6 @@ export async function executeWorkflowWithFullLogging(
       parallels: workflowState.parallels,
     },
     workflowVariables,
-    startBlockId: start.blockId,
+    triggerBlockId: start.blockId,
   })
 }

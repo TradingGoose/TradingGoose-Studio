@@ -1,7 +1,7 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { VariableManager } from '@/lib/variables/variable-manager'
-import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { extractReferencePrefixes, SYSTEM_REFERENCE_PREFIXES } from '@/lib/workflows/references'
+import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { TRIGGER_REFERENCE_ALIAS_MAP } from '@/lib/workflows/triggers'
 import { getBlock } from '@/blocks/index'
 import type { LoopManager } from '@/executor/loops/loops'
@@ -40,11 +40,6 @@ export class InputResolver {
       ])
     )
 
-    const startAliasBlock = this.findStartAliasBlock()
-    if (startAliasBlock) {
-      this.blockByNormalizedName.set('start', startAliasBlock)
-    }
-
     // Create efficient loop lookup map
     this.loopsByBlockId = new Map()
     for (const [loopId, loop] of Object.entries(workflow.loops || {})) {
@@ -60,18 +55,6 @@ export class InputResolver {
         this.parallelsByBlockId.set(blockId, parallelId)
       }
     }
-  }
-
-  private findStartAliasBlock(): SerializedBlock | undefined {
-    const preferredTypes = ['input_trigger', 'api_trigger', 'manual_trigger']
-    for (const type of preferredTypes) {
-      const candidate = this.workflow.blocks.find((block) => block.metadata?.id === type)
-      if (candidate) {
-        return candidate
-      }
-    }
-
-    return this.workflow.blocks.find((block) => block.metadata?.category === 'triggers')
   }
 
   /**
@@ -411,12 +394,19 @@ export class InputResolver {
 
       // Special case for trigger block references (start, api, chat, manual)
       const blockRefLower = blockRef.toLowerCase()
-      const triggerType =
-        TRIGGER_REFERENCE_ALIAS_MAP[blockRefLower as keyof typeof TRIGGER_REFERENCE_ALIAS_MAP]
-      if (triggerType) {
-        const triggerBlock = this.workflow.blocks.find(
-          (block) => block.metadata?.id === triggerType
-        )
+      const isStartReference = blockRefLower === 'start'
+      const triggerType = isStartReference
+        ? null
+        : TRIGGER_REFERENCE_ALIAS_MAP[blockRefLower as keyof typeof TRIGGER_REFERENCE_ALIAS_MAP]
+      if (isStartReference || triggerType) {
+        const triggerBlock = isStartReference
+          ? context.triggerBlockId
+            ? this.blockById.get(context.triggerBlockId)
+            : undefined
+          : this.workflow.blocks.find((block) => block.metadata?.id === triggerType)
+        if (isStartReference && !triggerBlock) {
+          throw new Error('Runtime trigger block is not available for <start> reference.')
+        }
         if (triggerBlock) {
           const blockState = context.blockStates.get(triggerBlock.id)
           if (blockState) {

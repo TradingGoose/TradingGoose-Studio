@@ -181,22 +181,22 @@ export function useWorkflowExecution() {
       )
 
       const isChatExecution = triggerType === 'chat'
-      let startBlockId: string | undefined
+      let triggerBlockId: string | undefined
       let finalWorkflowInput = workflowInput
 
       if (isChatExecution) {
-        const startBlock = TriggerUtils.findStartBlock(validBlocks, 'chat')
-        if (!startBlock) {
+        const chatTrigger = TriggerUtils.findTriggerBlock(validBlocks, 'chat')
+        if (!chatTrigger) {
           throw new Error('Chat execution requires a Chat Trigger block')
         }
-        startBlockId = startBlock.blockId
+        triggerBlockId = chatTrigger.blockId
       } else {
         const editorTestTrigger = resolveWorkflowRunTrigger(validBlocks, workflowSnapshot.edges, {
           surface: 'editor',
           workflowInput,
           selectedBlockId: readSelectedAwarenessBlockId(awareness),
         })
-        startBlockId = editorTestTrigger.blockId
+        triggerBlockId = editorTestTrigger.blockId
         finalWorkflowInput = editorTestTrigger.input
       }
 
@@ -211,7 +211,7 @@ export function useWorkflowExecution() {
       return {
         workspaceId,
         input: finalWorkflowInput,
-        startBlockId,
+        triggerBlockId,
         triggerType,
         workflowVariables,
         workflowData: {
@@ -319,7 +319,7 @@ export function useWorkflowExecution() {
             executionTarget: 'live',
             workflowData: executionRequest.workflowData,
             workflowVariables: executionRequest.workflowVariables,
-            startBlockId: executionRequest.startBlockId,
+            triggerBlockId: executionRequest.triggerBlockId,
             selectedOutputs: request.selectedOutputs,
             stream: true,
             signal: abortController.signal,

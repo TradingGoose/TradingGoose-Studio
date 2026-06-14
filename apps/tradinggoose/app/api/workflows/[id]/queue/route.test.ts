@@ -153,9 +153,9 @@ describe('POST /api/workflows/[id]/queue', () => {
       error: 'Unsupported queued workflow execution target',
     },
     {
-      name: 'webhook without live start block',
+      name: 'webhook without live trigger block',
       body: JSON.stringify({ executionTarget: 'live', triggerType: 'webhook' }),
-      error: 'Webhook and schedule queued workflow executions require a live start block',
+      error: 'Webhook and schedule queued workflow executions require a live trigger block',
     },
     {
       name: 'malformed JSON',
@@ -311,7 +311,7 @@ describe('POST /api/workflows/[id]/queue', () => {
           triggerType: 'manual',
           workflowData,
           workflowVariables: { risk: { value: 1 } },
-          startBlockId: 'trigger-1',
+          triggerBlockId: 'trigger-1',
         }),
         headers: {
           'Content-Type': 'application/json',
@@ -334,7 +334,7 @@ describe('POST /api/workflows/[id]/queue', () => {
           executionTarget: 'live',
           workflowData,
           workflowVariables: { risk: { value: 1 } },
-          startBlockId: 'trigger-1',
+          triggerBlockId: 'trigger-1',
           triggerData: { source: 'schedule' },
         }),
       })

@@ -202,7 +202,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
           workflowId: payload.workflowId,
         },
       },
-      start: {
+      triggerTarget: {
         kind: 'block',
         blockId: payload.blockId || undefined,
       },

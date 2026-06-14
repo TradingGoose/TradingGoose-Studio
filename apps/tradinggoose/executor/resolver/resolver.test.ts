@@ -87,6 +87,7 @@ describe('InputResolver', () => {
     mockContext = {
       workflowId: 'test-workflow',
       workflow: sampleWorkflow,
+      triggerBlockId: 'trigger-block',
       blockStates: new Map([
         [
           'trigger-block',
@@ -1338,6 +1339,7 @@ describe('InputResolver', () => {
       contextWithConnections = {
         workflowId: 'test-workflow',
         workspaceId: 'test-workspace-id',
+        triggerBlockId: 'trigger-1',
         blockStates: new Map([
           ['trigger-1', { output: { input: 'Hello World' }, executed: true, executionTime: 0 }],
           ['agent-1', { output: { content: 'Agent response' }, executed: true, executionTime: 0 }],
@@ -1444,6 +1446,43 @@ describe('InputResolver', () => {
 
       const result = connectionResolver.resolveInputs(testBlock, contextWithConnections)
       expect(result.code).toBe('return "Hello World"') // Should be quoted for function blocks
+    })
+
+    it('resolves start references from the runtime trigger block', () => {
+      const workflow: SerializedWorkflow = {
+        ...workflowWithConnections,
+        blocks: [
+          ...workflowWithConnections.blocks,
+          {
+            id: 'schedule-trigger',
+            metadata: { id: 'schedule', name: 'Schedule', category: 'triggers' },
+            position: { x: 0, y: 0 },
+            config: { tool: 'schedule', params: {} },
+            inputs: {},
+            outputs: {},
+            enabled: true,
+          },
+        ],
+      }
+      const resolver = createInputResolver(workflow)
+      const context = {
+        ...contextWithConnections,
+        workflow,
+        triggerBlockId: 'schedule-trigger',
+        blockStates: new Map([
+          ...contextWithConnections.blockStates,
+          ['trigger-1', { output: { symbol: 'WRONG' }, executed: true, executionTime: 0 }],
+          ['schedule-trigger', { output: { symbol: 'AAPL' }, executed: true, executionTime: 0 }],
+        ]),
+      }
+
+      const result = resolver.resolveBlockReferences(
+        'return <start.symbol>',
+        context,
+        workflow.blocks.find((block) => block.id === 'function-1')!
+      )
+
+      expect(result).toBe('return AAPL')
     })
 
     it('should format start.input properly for different block types', () => {
@@ -2611,7 +2650,7 @@ describe('InputResolver', () => {
       expect(result.deep4).toBe('12')
     })
 
-    it.concurrent('should handle start block with 2D array access', () => {
+    it.concurrent('should handle trigger input with 2D array access', () => {
       arrayContext.blockStates.set('trigger-block', {
         output: {
           input: 'Hello World',
@@ -3135,6 +3174,7 @@ describe('InputResolver', () => {
         workflowId: 'test-parallel-workflow',
         workspaceId: 'test-workspace-id',
         workflow: parallelWorkflow,
+        triggerBlockId: 'start-block',
         blockStates: new Map([
           [
             'function1-block',

@@ -12,7 +12,7 @@ type QueuedWorkflowExecutionRequest = {
   executionTarget: 'deployed' | 'live'
   workflowData?: WorkflowExecutionBlueprint['workflowData']
   workflowVariables?: Record<string, unknown>
-  startBlockId?: string
+  triggerBlockId?: string
   selectedOutputs?: string[]
   stream?: boolean
   signal?: AbortSignal
@@ -92,7 +92,7 @@ export async function queueWorkflowExecution(
       executionTarget: request.executionTarget,
       workflowData: request.workflowData,
       workflowVariables: request.workflowVariables,
-      startBlockId: request.startBlockId,
+      triggerBlockId: request.triggerBlockId,
       selectedOutputs: request.selectedOutputs,
       stream: request.stream === true,
     }),

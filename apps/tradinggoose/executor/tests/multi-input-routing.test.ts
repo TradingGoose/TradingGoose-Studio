@@ -103,7 +103,7 @@ describe('Multi-Input Routing Scenarios', () => {
 
     const context = (executor as any).createExecutionContext('test-workflow', new Date())
 
-    // Step 1: Execute start block
+    // Step 1: Execute trigger block
     context.executedBlocks.add('start')
     context.activeExecutionPath.add('start')
     context.activeExecutionPath.add('router-1')

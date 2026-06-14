@@ -79,7 +79,7 @@ export async function executePortfolioMonitorJob(payload: PortfolioMonitorExecut
     workflowInput,
     executionTarget: 'deployed',
     workflowContext: { workspaceId: payload.monitor.workspaceId },
-    start: {
+    triggerTarget: {
       kind: 'block',
       blockId: payload.monitor.blockId,
     },

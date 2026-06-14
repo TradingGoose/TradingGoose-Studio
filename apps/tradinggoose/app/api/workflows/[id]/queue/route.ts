@@ -25,7 +25,7 @@ type QueueRequestBody = {
   triggerType?: unknown
   workflowData?: WorkflowExecutionBlueprint['workflowData']
   workflowVariables?: Record<string, unknown>
-  startBlockId?: string
+  triggerBlockId?: string
   selectedOutputs?: string[]
   stream?: boolean
   workflowDepth?: number
@@ -61,7 +61,7 @@ function hasLiveWorkflowState(body: QueueRequestBody) {
   return (
     body.workflowData !== undefined ||
     body.workflowVariables !== undefined ||
-    (typeof body.startBlockId === 'string' && body.startBlockId.length > 0)
+    (typeof body.triggerBlockId === 'string' && body.triggerBlockId.length > 0)
   )
 }
 
@@ -70,13 +70,13 @@ function resolveQueuedTriggerData(
   executionTarget: QueuedWorkflowExecutionTarget,
   triggerType: QueuedWorkflowTriggerType
 ) {
-  if (executionTarget !== 'live' || typeof body.startBlockId !== 'string') {
+  if (executionTarget !== 'live' || typeof body.triggerBlockId !== 'string') {
     return undefined
   }
 
-  const block = body.workflowData?.blocks?.[body.startBlockId]
+  const block = body.workflowData?.blocks?.[body.triggerBlockId]
   if (!block) {
-    throw new Error('Queued workflow start block was not found in live workflow state')
+    throw new Error('Queued workflow trigger block was not found in live workflow state')
   }
 
   const identity = resolveTriggerExecutionIdentity(block)
@@ -85,7 +85,7 @@ function resolveQueuedTriggerData(
     ? identity.triggerType !== 'chat'
     : identity.triggerType === triggerType
   if (!triggerTypeMatchesStartBlock) {
-    throw new Error('Queued workflow trigger type does not match the start block')
+    throw new Error('Queued workflow trigger type does not match the trigger block')
   }
 
   return { source: identity.triggerSource }
@@ -150,11 +150,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (
       (triggerType === 'webhook' || triggerType === 'schedule') &&
       (executionTarget !== 'live' ||
-        typeof body.startBlockId !== 'string' ||
-        body.startBlockId.length === 0)
+        typeof body.triggerBlockId !== 'string' ||
+        body.triggerBlockId.length === 0)
     ) {
       return NextResponse.json(
-        { error: 'Webhook and schedule queued workflow executions require a live start block' },
+        { error: 'Webhook and schedule queued workflow executions require a live trigger block' },
         { status: 400 }
       )
     }
@@ -177,7 +177,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       triggerData = resolveQueuedTriggerData(body, executionTarget, triggerType)
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : 'Queued workflow start block is not runnable'
+        error instanceof Error ? error.message : 'Queued workflow trigger block is not runnable'
       return NextResponse.json({ error: errorMessage }, { status: 400 })
     }
     const handle = await enqueuePendingExecution({
@@ -200,11 +200,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         workflowVariables: executionTarget === 'live' ? body.workflowVariables : undefined,
         selectedOutputs: body.selectedOutputs,
         stream: body.stream === true,
-        startBlockId:
+        triggerBlockId:
           executionTarget === 'live' &&
-          typeof body.startBlockId === 'string' &&
-          body.startBlockId.length > 0
-            ? body.startBlockId
+          typeof body.triggerBlockId === 'string' &&
+          body.triggerBlockId.length > 0
+            ? body.triggerBlockId
             : undefined,
         ...(triggerData ? { triggerData } : {}),
         workflowDepth: typeof body.workflowDepth === 'number' ? body.workflowDepth : 0,

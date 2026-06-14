@@ -8,14 +8,14 @@ import { createWorkflowExecutionTerminalEventInput } from '@/lib/workflows/execu
 import {
   runWorkflowExecution,
   type WorkflowExecutionBlueprint,
-  type WorkflowStart,
+  type WorkflowTriggerTarget,
 } from '@/lib/workflows/execution-runner'
 import type { TriggerType } from '@/services/queue'
 import { disableMonitor } from './monitor-disable'
 
 const logger = createLogger('TriggerWorkflowExecution')
 
-type WorkflowStartTriggerType = Extract<WorkflowStart, { kind: 'trigger' }>['triggerType']
+type WorkflowTriggerTargetType = Extract<WorkflowTriggerTarget, { kind: 'trigger' }>['triggerType']
 
 export type WorkflowExecutionPayload = {
   workflowId: string
@@ -24,7 +24,7 @@ export type WorkflowExecutionPayload = {
   executionId?: string
   input?: any
   triggerType?: TriggerType
-  startBlockId?: string
+  triggerBlockId?: string
   executionTarget?: 'deployed' | 'live'
   workflowData?: WorkflowExecutionBlueprint['workflowData']
   workflowVariables?: Record<string, unknown>
@@ -35,11 +35,11 @@ export type WorkflowExecutionPayload = {
   metadata?: Record<string, any>
 }
 
-function resolveWorkflowStartTriggerType(triggerType: TriggerType): WorkflowStartTriggerType {
+function resolveWorkflowTriggerTargetType(triggerType: TriggerType): WorkflowTriggerTargetType {
   if (triggerType === 'chat') return 'chat'
   if (triggerType === 'api' || triggerType === 'api-endpoint') return 'api'
   if (triggerType === 'manual') return 'manual'
-  throw new Error(`Queued ${triggerType} workflow execution requires an explicit start block`)
+  throw new Error(`Queued ${triggerType} workflow execution requires an explicit trigger block`)
 }
 
 export function isWorkflowExecutionPayload(
@@ -68,14 +68,14 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
   const isLiveExecution = executionTarget === 'live'
   const isChildExecution = payload.metadata?.source === 'workflow_block'
   const triggerType = payload.triggerType ?? 'manual'
-  const start: WorkflowStart = payload.startBlockId
+  const triggerTarget: WorkflowTriggerTarget = payload.triggerBlockId
     ? {
         kind: 'block',
-        blockId: payload.startBlockId,
+        blockId: payload.triggerBlockId,
       }
     : {
         kind: 'trigger',
-        triggerType: resolveWorkflowStartTriggerType(triggerType),
+        triggerType: resolveWorkflowTriggerTargetType(triggerType),
       }
 
   logger.info(`[${requestId}] Starting workflow execution: ${workflowId}`, {
@@ -112,7 +112,7 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
             }
           : undefined,
       workflowData: isLiveExecution ? payload.workflowData : undefined,
-      start,
+      triggerTarget,
       triggerData,
       contextExtensions: {
         workflowDepth: payload.workflowDepth ?? 0,

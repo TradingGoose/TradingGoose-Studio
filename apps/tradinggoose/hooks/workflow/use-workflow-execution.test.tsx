@@ -256,7 +256,7 @@ describe('useWorkflowExecution', () => {
     expect(mockRunQueuedWorkflowExecution).toHaveBeenCalledWith(
       expect.objectContaining({
         triggerType: 'manual',
-        startBlockId: 'schedule-trigger',
+        triggerBlockId: 'schedule-trigger',
         selectedOutputs: undefined,
         stream: true,
       }),

@@ -257,7 +257,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
         executionId,
         triggerType: 'webhook',
         workflowInput: airtableInput,
-        start: {
+        triggerTarget: {
           kind: 'block',
           blockId: payload.blockId,
         },
@@ -348,7 +348,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
       executionId,
       triggerType: 'webhook',
       workflowInput: input || {},
-      start: {
+      triggerTarget: {
         kind: 'block',
         blockId: payload.blockId,
       },
