@@ -151,7 +151,7 @@ describe('Scheduled Workflow Execution API Route', () => {
     expect(data.error).toContain('Trigger.dev is required for scheduled executions')
   })
 
-  it('should queue schedules through pending execution when enabled', async () => {
+  it('should queue configured schedules and remove orphan schedule rows', async () => {
     vi.doMock('@/lib/auth/internal', () => ({
       verifyCronAuth: vi.fn().mockReturnValue(null),
     }))
@@ -189,7 +189,7 @@ describe('Scheduled Workflow Execution API Route', () => {
       isPendingExecutionLimitError: vi.fn(() => false),
     }))
 
-    let disabledScheduleSet: Record<string, unknown> | undefined
+    let deletedScheduleWhere: Record<string, unknown> | undefined
     vi.doMock('@tradinggoose/db', () => {
       const scheduleRows = [
         {
@@ -242,10 +242,10 @@ describe('Scheduled Workflow Execution API Route', () => {
             }),
           }
         }),
-        update: vi.fn().mockImplementation(() => ({
-          set: vi.fn().mockImplementation((values) => {
-            disabledScheduleSet = values
-            return { where: vi.fn().mockResolvedValue([]) }
+        delete: vi.fn().mockImplementation(() => ({
+          where: vi.fn().mockImplementation((condition) => {
+            deletedScheduleWhere = condition
+            return Promise.resolve([])
           }),
         })),
       }
@@ -264,10 +264,10 @@ describe('Scheduled Workflow Execution API Route', () => {
     expect(response.status).toBe(200)
     const data = await response.json()
     expect(data).toHaveProperty('executedCount', 1)
-    expect(disabledScheduleSet).toEqual(
+    expect(deletedScheduleWhere).toEqual(
       expect.objectContaining({
-        status: 'disabled',
-        failedCount: 2,
+        type: 'eq',
+        value: 'schedule-missing-trigger',
       })
     )
     expect(enqueuePendingExecutionMock).toHaveBeenCalledWith(

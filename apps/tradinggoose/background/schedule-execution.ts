@@ -74,10 +74,10 @@ async function calculateNextRunTime(
   return calculateNextTime(scheduleType, scheduleValues, lastRanAt, utcOffsetMinutes)
 }
 
-async function updateScheduleState(params: {
+async function updateScheduleNextRun(params: {
   scheduleId: string
   now: Date
-  nextRunAt?: Date
+  nextRunAt: Date
   failedCount?: number
   status?: 'active' | 'disabled'
   lastRanAt?: Date
@@ -87,7 +87,7 @@ async function updateScheduleState(params: {
     .update(workflowSchedule)
     .set({
       updatedAt: params.now,
-      ...(params.nextRunAt ? { nextRunAt: params.nextRunAt } : {}),
+      nextRunAt: params.nextRunAt,
       ...(params.lastRanAt ? { lastRanAt: params.lastRanAt } : {}),
       ...(typeof params.failedCount === 'number' ? { failedCount: params.failedCount } : {}),
       ...(params.lastFailedAt ? { lastFailedAt: params.lastFailedAt } : {}),
@@ -139,7 +139,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
         blocks,
         now,
       })
-      await updateScheduleState({
+      await updateScheduleNextRun({
         scheduleId: payload.scheduleId,
         now,
         nextRunAt,
@@ -187,15 +187,9 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
 
     if (!scheduleBlocks[payload.blockId]) {
       logger.warn(
-        `[${requestId}] Schedule trigger block ${payload.blockId} not found in deployed workflow ${payload.workflowId}. Skipping execution.`
+        `[${requestId}] Schedule trigger block ${payload.blockId} not found in deployed workflow ${payload.workflowId}. Removing schedule.`
       )
-      await updateScheduleState({
-        scheduleId: payload.scheduleId,
-        now,
-        status: 'disabled',
-        failedCount: MAX_CONSECUTIVE_FAILURES,
-        lastFailedAt: now,
-      })
+      await db.delete(workflowSchedule).where(eq(workflowSchedule.id, payload.scheduleId))
       return
     }
 
@@ -221,7 +215,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
 
       const nextRunAt = await calculateNextRunTime(payload, scheduleBlocks, payload.timezone)
 
-      await updateScheduleState({
+      await updateScheduleNextRun({
         scheduleId: payload.scheduleId,
         now,
         nextRunAt,
@@ -244,7 +238,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       )
     }
 
-    await updateScheduleState({
+    await updateScheduleNextRun({
       scheduleId: payload.scheduleId,
       now,
       nextRunAt,
@@ -288,7 +282,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       )
     }
 
-    await updateScheduleState({
+    await updateScheduleNextRun({
       scheduleId: payload.scheduleId,
       now,
       nextRunAt,
