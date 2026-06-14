@@ -157,10 +157,15 @@ export function listWorkflowRunTriggers<T extends WorkflowRunTriggerBlock>(
   )
 }
 
-function buildEditorTestTriggerInput(
+function buildManualRunTriggerInput(
   block: WorkflowRunTriggerBlock,
-  workflowInput: unknown
+  workflowInput: unknown,
+  options: { preserveProvidedInput: boolean }
 ): unknown {
+  if (options.preserveProvidedInput && workflowInput !== undefined) {
+    return workflowInput
+  }
+
   const inputFormat = block.subBlocks?.inputFormat?.value
   if (Array.isArray(inputFormat)) {
     const testInput: Record<string, unknown> = {}
@@ -192,11 +197,10 @@ export function resolveWorkflowRunTrigger<T extends WorkflowRunTriggerBlock>(
   input: unknown
   triggerType: QueuedWorkflowTriggerType
 } {
-  const isEditorRun = options.surface === 'editor'
   const triggerBlockId = options.triggerBlockId
   const triggerCandidates = getTriggerCandidates(blocks, edges, options.surface)
 
-  if (isEditorRun && blocks[triggerBlockId]?.type === TRIGGER_TYPES.CHAT) {
+  if (options.surface === 'editor' && blocks[triggerBlockId]?.type === TRIGGER_TYPES.CHAT) {
     throw new Error('Chat Trigger blocks run from the chat widget, not editor Run')
   }
 
@@ -207,12 +211,15 @@ export function resolveWorkflowRunTrigger<T extends WorkflowRunTriggerBlock>(
 
   const [blockId, block] = candidate
   const identity = resolveTriggerExecutionIdentity(block)
+  const isChatRun = identity.triggerType === 'chat'
 
   return {
     blockId,
-    input: isEditorRun
-      ? buildEditorTestTriggerInput(block, options.workflowInput)
-      : options.workflowInput,
-    triggerType: isEditorRun && identity.triggerType !== 'chat' ? 'manual' : identity.triggerType,
+    input: isChatRun
+      ? options.workflowInput
+      : buildManualRunTriggerInput(block, options.workflowInput, {
+          preserveProvidedInput: options.surface === 'copilot',
+        }),
+    triggerType: isChatRun ? 'chat' : 'manual',
   }
 }

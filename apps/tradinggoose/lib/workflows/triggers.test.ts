@@ -82,19 +82,24 @@ describe('resolveWorkflowRunTrigger', () => {
       signal: 'mock_signal',
     })
 
+    const copilotRun = resolveWorkflowRunTrigger(
+      { trigger: block('indicator_trigger'), agent: block('agent') },
+      [{ source: 'trigger', target: 'agent' }],
+      { surface: 'copilot', triggerBlockId: 'trigger' }
+    )
+    expect(copilotRun.triggerType).toBe('manual')
+    expect(copilotRun.input).toEqual({
+      listing: { listing_id: 'AAPL', base_id: '', quote_id: '', listing_type: 'default' },
+      signal: 'mock_signal',
+    })
+
+    const explicitInput = { listing: { listing_id: 'MSFT' }, signal: 'buy' }
     expect(
       resolveWorkflowRunTrigger(
-        {
-          api: block('api_trigger'),
-          trigger: block('schedule'),
-          agent: block('agent'),
-        },
-        [
-          { source: 'api', target: 'agent' },
-          { source: 'trigger', target: 'agent' },
-        ],
-        { surface: 'copilot', triggerBlockId: 'trigger' }
-      ).triggerType
-    ).toBe('schedule')
+        { trigger: block('indicator_trigger'), agent: block('agent') },
+        [{ source: 'trigger', target: 'agent' }],
+        { surface: 'copilot', triggerBlockId: 'trigger', workflowInput: explicitInput }
+      ).input
+    ).toBe(explicitInput)
   })
 })
