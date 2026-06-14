@@ -1,34 +1,24 @@
 'use client'
 
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from 'react'
-import * as Y from 'yjs'
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react'
+import type * as Y from 'yjs'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import { readWorkflowSnapshotCloned, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import {
-  EMPTY_SHARED_WORKFLOW_SESSION_STATE,
   acquireSharedWorkflowSession,
+  EMPTY_SHARED_WORKFLOW_SESSION_STATE,
   getSharedWorkflowSessionState,
   redoSharedWorkflowSession,
+  type SharedWorkflowSessionState,
   setSharedWorkflowSessionUser,
   subscribeToSharedWorkflowSession,
   undoSharedWorkflowSession,
-  type SharedWorkflowSessionState,
 } from '@/lib/yjs/workflow-shared-session'
-import {
-  readWorkflowSnapshotCloned,
-  type WorkflowSnapshot,
-} from '@/lib/yjs/workflow-session'
-import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 
 export interface WorkflowSessionContextValue {
   workflowId: string
   doc: Y.Doc | null
-  awareness: any | null
+  awareness: SharedWorkflowSessionState['awareness']
   isSynced: boolean
   isLoading: boolean
   error: string | null
@@ -74,7 +64,9 @@ export function WorkflowSessionProvider({
   children,
 }: WorkflowSessionProviderProps) {
   const [state, setState] = useState<SharedWorkflowSessionState>(() =>
-    workflowId ? getSharedWorkflowSessionState(workflowId) : { ...EMPTY_SHARED_WORKFLOW_SESSION_STATE }
+    workflowId
+      ? getSharedWorkflowSessionState(workflowId)
+      : { ...EMPTY_SHARED_WORKFLOW_SESSION_STATE }
   )
   const { doc, awareness, isSynced, isLoading, error, canUndo, canRedo } = state
 
@@ -143,9 +135,5 @@ export function WorkflowSessionProvider({
     redo,
   }
 
-  return (
-    <WorkflowSessionContext.Provider value={value}>
-      {children}
-    </WorkflowSessionContext.Provider>
-  )
+  return <WorkflowSessionContext.Provider value={value}>{children}</WorkflowSessionContext.Provider>
 }

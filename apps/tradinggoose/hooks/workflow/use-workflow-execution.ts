@@ -4,7 +4,10 @@ import type { WorkflowExecutionEvent } from '@/lib/workflows/execution-events'
 import { runQueuedWorkflowExecution } from '@/lib/workflows/queued-execution-client'
 import { resolveWorkflowRunTrigger, TriggerUtils } from '@/lib/workflows/triggers'
 import { getVariablesSnapshot } from '@/lib/yjs/workflow-session'
-import { useWorkflowSession } from '@/lib/yjs/workflow-session-host'
+import {
+  useWorkflowSession,
+  type WorkflowSessionContextValue,
+} from '@/lib/yjs/workflow-session-host'
 import type { ExecutionResult } from '@/executor/types'
 import { useConsoleStore } from '@/stores/console/store'
 import { useExecutionStore } from '@/stores/execution/store'
@@ -62,8 +65,14 @@ function createExecutionId() {
   return globalThis.crypto.randomUUID()
 }
 
-function readSelectedAwarenessBlockId(awareness: any | null): string | null {
-  const selection = awareness?.getLocalState?.()?.selection
+type WorkflowAwarenessSelection = { type: 'block' | 'edge' | 'none'; id?: string }
+type WorkflowAwarenessState = { selection?: WorkflowAwarenessSelection | null }
+
+function readSelectedAwarenessBlockId(
+  awareness: WorkflowSessionContextValue['awareness']
+): string | null {
+  const state = awareness?.getLocalState() as WorkflowAwarenessState | null
+  const selection = state?.selection
   return selection?.type === 'block' && typeof selection.id === 'string' ? selection.id : null
 }
 

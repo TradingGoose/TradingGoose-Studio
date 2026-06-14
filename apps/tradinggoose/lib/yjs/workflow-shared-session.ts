@@ -1,7 +1,7 @@
 'use client'
 
-import * as Y from 'yjs'
 import type { WebsocketProvider } from 'y-websocket'
+import * as Y from 'yjs'
 import type { ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
 import { deriveUserColor } from '@/lib/utils'
 import {
@@ -9,23 +9,23 @@ import {
   waitForYjsWriteSync,
   type YjsProviderBootstrapResult,
 } from '@/lib/yjs/provider'
+import { createYjsUndoTrackedOrigins } from '@/lib/yjs/transaction-origins'
 import {
   getMetadataMap,
   getVariablesMap,
   readWorkflowMap,
   readWorkflowTextFieldsMap,
 } from '@/lib/yjs/workflow-session'
-import { createYjsUndoTrackedOrigins } from '@/lib/yjs/transaction-origins'
 import {
+  type RegisteredWorkflowSession,
   registerWorkflowSession,
   unregisterWorkflowSession,
-  type RegisteredWorkflowSession,
 } from '@/lib/yjs/workflow-session-registry'
 
 export interface SharedWorkflowSessionState {
   doc: Y.Doc | null
   provider: WebsocketProvider | null
-  awareness: any | null
+  awareness: WebsocketProvider['awareness'] | null
   canUndo: boolean
   canRedo: boolean
   isSynced: boolean
@@ -177,7 +177,11 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
     }
 
     const undoManager = new Y.UndoManager(
-      [readWorkflowMap(result.doc), readWorkflowTextFieldsMap(result.doc), getVariablesMap(result.doc)],
+      [
+        readWorkflowMap(result.doc),
+        readWorkflowTextFieldsMap(result.doc),
+        getVariablesMap(result.doc),
+      ],
       {
         trackedOrigins: createYjsUndoTrackedOrigins(),
       }

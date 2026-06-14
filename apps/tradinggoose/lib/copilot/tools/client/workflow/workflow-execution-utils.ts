@@ -60,7 +60,7 @@ export async function executeWorkflowWithFullLogging(
   return runQueuedWorkflowExecution({
     workflowId: options.workflowId,
     executionId: options.executionId ?? createExecutionId(),
-    input: start.input,
+    input: options.workflowInput,
     triggerType: start.triggerType,
     executionTarget: 'live',
     workflowData: {

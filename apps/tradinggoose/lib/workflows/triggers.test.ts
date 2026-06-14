@@ -10,6 +10,7 @@ vi.mock('@/blocks', () => {
   })
   const registry = {
     agent: { category: 'blocks', subBlocks: [], outputs: {} },
+    api_trigger: trigger('api'),
     chat_trigger: trigger('chat'),
     manual_trigger: trigger('manual'),
     schedule: trigger('schedule'),
@@ -61,5 +62,21 @@ describe('resolveWorkflowRunTrigger', () => {
     ).toThrow(
       'Multiple trigger blocks found. Select one trigger block or a block on one trigger branch for Run.'
     )
+  })
+
+  it.each([
+    ['api_trigger', 'api'],
+    ['schedule', 'schedule'],
+  ] as const)('preserves %s trigger identity for Copilot runs', (blockType, triggerType) => {
+    const result = resolveWorkflowRunTrigger(
+      {
+        trigger: block(blockType),
+        agent: block('agent'),
+      },
+      [{ source: 'trigger', target: 'agent' }],
+      { surface: 'copilot' }
+    )
+
+    expect(result.triggerType).toBe(triggerType)
   })
 })

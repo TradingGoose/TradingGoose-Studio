@@ -1,6 +1,7 @@
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
 import { readBlockOutputs } from '@/lib/workflows/block-outputs'
 import { getBlock } from '@/blocks'
+import type { QueuedWorkflowTriggerType } from '@/services/queue'
 import { resolveTriggerExecutionIdentity, resolveTriggerIdForBlock } from '@/triggers/resolution'
 import { generateMockPayloadFromOutputsDefinition } from './triggers/trigger-utils'
 
@@ -134,7 +135,7 @@ export function resolveWorkflowRunTrigger<T extends WorkflowRunTriggerBlock>(
 ): {
   blockId: string
   input: unknown
-  triggerType: 'chat' | 'manual'
+  triggerType: QueuedWorkflowTriggerType
 } {
   const isEditorRun = options.surface === 'editor'
   const selectedBlockId = options.selectedBlockId
@@ -238,6 +239,6 @@ export function resolveWorkflowRunTrigger<T extends WorkflowRunTriggerBlock>(
     input: isEditorRun
       ? buildEditorTestTriggerInput(block, options.workflowInput)
       : options.workflowInput,
-    triggerType: identity.triggerType === 'chat' ? 'chat' : 'manual',
+    triggerType: isEditorRun && identity.triggerType !== 'chat' ? 'manual' : identity.triggerType,
   }
 }

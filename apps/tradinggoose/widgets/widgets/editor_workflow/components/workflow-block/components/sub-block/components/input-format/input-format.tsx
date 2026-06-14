@@ -165,6 +165,7 @@ export function FieldFormat({
   }
 
   const handleValueInputChange = (fieldId: string, newValue: string, caretPosition?: number) => {
+    // Test-run input must be committed immediately so Run reads the live Yjs snapshot.
     updateField(fieldId, 'value', newValue)
 
     const position = typeof caretPosition === 'number' ? caretPosition : newValue.length
