@@ -44,6 +44,15 @@ export async function GET(request: NextRequest) {
             logger.warn(
               `[${requestId}] Skipping schedule ${schedule.id}: missing schedule trigger block.`
             )
+            await db
+              .update(workflowSchedule)
+              .set({
+                status: 'disabled',
+                failedCount: (schedule.failedCount ?? 0) + 1,
+                lastFailedAt: now,
+                updatedAt: now,
+              })
+              .where(eq(workflowSchedule.id, schedule.id))
             return null
           }
 

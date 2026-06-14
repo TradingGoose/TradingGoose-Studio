@@ -474,7 +474,7 @@ export function ControlBar({
       return copy.controlBar.run
     }
 
-    const handleRunClick = (triggerBlockId?: string) => {
+    const handleRunClick = (triggerBlockId: string) => {
       if (usageExceeded) {
         openSubscriptionSettings()
       } else {
@@ -527,7 +527,7 @@ export function ControlBar({
         <TooltipTrigger asChild>
           <Button
             className={getPrimaryButtonClass()}
-            onClick={() => handleRunClick(runTriggers[0]?.blockId)}
+            onClick={() => handleRunClick(runTriggers[0].blockId)}
             disabled={isButtonDisabled}
           >
             <Play className={cn('h-3.5 w-3.5', 'fill-current stroke-current')} />

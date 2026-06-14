@@ -95,6 +95,6 @@ describe('resolveWorkflowRunTrigger', () => {
         ],
         { surface: 'copilot', triggerBlockId: 'trigger' }
       ).triggerType
-    ).toBe('manual')
+    ).toBe('schedule')
   })
 })

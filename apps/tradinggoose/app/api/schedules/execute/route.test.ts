@@ -189,6 +189,7 @@ describe('Scheduled Workflow Execution API Route', () => {
       isPendingExecutionLimitError: vi.fn(() => false),
     }))
 
+    let disabledScheduleSet: Record<string, unknown> | undefined
     vi.doMock('@tradinggoose/db', () => {
       const scheduleRows = [
         {
@@ -198,6 +199,16 @@ describe('Scheduled Workflow Execution API Route', () => {
           cronExpression: null,
           lastRanAt: null,
           failedCount: 0,
+          timezone: 'UTC',
+          nextRunAt: new Date('2024-01-01T00:00:00.000Z'),
+        },
+        {
+          id: 'schedule-missing-trigger',
+          workflowId: 'workflow-2',
+          blockId: null,
+          cronExpression: null,
+          lastRanAt: null,
+          failedCount: 1,
           timezone: 'UTC',
           nextRunAt: new Date('2024-01-01T00:00:00.000Z'),
         },
@@ -231,6 +242,12 @@ describe('Scheduled Workflow Execution API Route', () => {
             }),
           }
         }),
+        update: vi.fn().mockImplementation(() => ({
+          set: vi.fn().mockImplementation((values) => {
+            disabledScheduleSet = values
+            return { where: vi.fn().mockResolvedValue([]) }
+          }),
+        })),
       }
 
       return {
@@ -247,6 +264,12 @@ describe('Scheduled Workflow Execution API Route', () => {
     expect(response.status).toBe(200)
     const data = await response.json()
     expect(data).toHaveProperty('executedCount', 1)
+    expect(disabledScheduleSet).toEqual(
+      expect.objectContaining({
+        status: 'disabled',
+        failedCount: 2,
+      })
+    )
     expect(enqueuePendingExecutionMock).toHaveBeenCalledWith(
       expect.objectContaining({
         executionType: 'schedule',
