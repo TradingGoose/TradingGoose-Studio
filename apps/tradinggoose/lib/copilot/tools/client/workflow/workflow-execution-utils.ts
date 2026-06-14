@@ -3,6 +3,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { runQueuedWorkflowExecution } from '@/lib/workflows/queued-execution-client'
 import { resolveWorkflowRunTrigger } from '@/lib/workflows/triggers'
 import type { ExecutionResult } from '@/executor/types'
+import { buildExecutableWorkflowData } from '@/stores/workflows/workflow/utils'
 
 const logger = createLogger('WorkflowExecutionUtils')
 
@@ -36,16 +37,8 @@ export async function executeWorkflowWithFullLogging(
     throw new Error('Workflow execution context requires workspaceId')
   }
 
-  const blocks = Object.entries(workflowState.blocks).reduce(
-    (acc, [blockId, block]) => {
-      if (block?.type && block.enabled !== false) {
-        acc[blockId] = block
-      }
-      return acc
-    },
-    {} as typeof workflowState.blocks
-  )
-  const start = resolveWorkflowRunTrigger(blocks, workflowState.edges, {
+  const workflowData = buildExecutableWorkflowData(workflowState.blocks, workflowState.edges)
+  const start = resolveWorkflowRunTrigger(workflowData.blocks, workflowData.edges, {
     surface: 'copilot',
     workflowInput: options.workflowInput,
     triggerBlockId: options.triggerBlockId,
@@ -55,8 +48,8 @@ export async function executeWorkflowWithFullLogging(
     workflowId: options.workflowId,
     triggerType: start.triggerType,
     triggerBlockId: start.blockId,
-    blockCount: Object.keys(blocks).length,
-    edgeCount: workflowState.edges.length,
+    blockCount: Object.keys(workflowData.blocks).length,
+    edgeCount: workflowData.edges.length,
   })
 
   return runQueuedWorkflowExecution({
@@ -65,12 +58,7 @@ export async function executeWorkflowWithFullLogging(
     input: options.workflowInput,
     triggerType: start.triggerType,
     executionTarget: 'live',
-    workflowData: {
-      blocks,
-      edges: workflowState.edges,
-      loops: workflowState.loops,
-      parallels: workflowState.parallels,
-    },
+    workflowData,
     workflowVariables,
     triggerBlockId: start.blockId,
   })

@@ -59,11 +59,6 @@ vi.mock('@/stores/execution/store', () => {
   }
 })
 
-vi.mock('@/stores/workflows/workflow/utils', () => ({
-  generateLoopBlocks: vi.fn(() => ({})),
-  generateParallelBlocks: vi.fn(() => ({})),
-}))
-
 vi.mock('@/widgets/widgets/editor_workflow/context/workflow-route-context', () => ({
   useWorkflowRoute: vi.fn(() => ({
     workflowId: 'workflow-1',

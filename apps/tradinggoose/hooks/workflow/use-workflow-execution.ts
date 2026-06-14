@@ -8,7 +8,7 @@ import { useWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import type { ExecutionResult } from '@/executor/types'
 import { useConsoleStore } from '@/stores/console/store'
 import { useExecutionStore } from '@/stores/execution/store'
-import { generateLoopBlocks, generateParallelBlocks } from '@/stores/workflows/workflow/utils'
+import { buildExecutableWorkflowData } from '@/stores/workflows/workflow/utils'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('useWorkflowExecution')
@@ -161,14 +161,9 @@ export function useWorkflowExecution() {
         throw new Error('Cannot execute workflow without workspaceId')
       }
 
-      const validBlocks = Object.entries(workflowSnapshot.blocks).reduce(
-        (acc, [blockId, block]) => {
-          if (block?.type && block.enabled !== false) {
-            acc[blockId] = block
-          }
-          return acc
-        },
-        {} as typeof workflowSnapshot.blocks
+      const workflowData = buildExecutableWorkflowData(
+        workflowSnapshot.blocks,
+        workflowSnapshot.edges
       )
 
       const isChatExecution = triggerType === 'chat'
@@ -176,7 +171,7 @@ export function useWorkflowExecution() {
       let finalWorkflowInput = workflowInput
 
       if (isChatExecution) {
-        const chatTrigger = TriggerUtils.findTriggerBlock(validBlocks, 'chat')
+        const chatTrigger = TriggerUtils.findTriggerBlock(workflowData.blocks, 'chat')
         if (!chatTrigger) {
           throw new Error('Chat execution requires a Chat Trigger block')
         }
@@ -185,11 +180,15 @@ export function useWorkflowExecution() {
         if (!requestedTriggerBlockId) {
           throw new Error('Run requires choosing a connected configured non-chat trigger block')
         }
-        const editorTestTrigger = resolveWorkflowRunTrigger(validBlocks, workflowSnapshot.edges, {
-          surface: 'editor',
-          workflowInput,
-          triggerBlockId: requestedTriggerBlockId,
-        })
+        const editorTestTrigger = resolveWorkflowRunTrigger(
+          workflowData.blocks,
+          workflowData.edges,
+          {
+            surface: 'editor',
+            workflowInput,
+            triggerBlockId: requestedTriggerBlockId,
+          }
+        )
         triggerBlockId = editorTestTrigger.blockId
         finalWorkflowInput = editorTestTrigger.input
       }
@@ -208,12 +207,7 @@ export function useWorkflowExecution() {
         triggerBlockId,
         triggerType,
         workflowVariables,
-        workflowData: {
-          blocks: validBlocks,
-          edges: workflowSnapshot.edges,
-          loops: generateLoopBlocks(validBlocks),
-          parallels: generateParallelBlocks(validBlocks),
-        },
+        workflowData,
       }
     },
     [doc, readWorkflowSnapshot, workspaceId]
