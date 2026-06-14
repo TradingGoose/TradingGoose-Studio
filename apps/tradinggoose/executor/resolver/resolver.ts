@@ -2,7 +2,6 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { VariableManager } from '@/lib/variables/variable-manager'
 import { extractReferencePrefixes, SYSTEM_REFERENCE_PREFIXES } from '@/lib/workflows/references'
 import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
-import { TRIGGER_REFERENCE_ALIAS_MAP } from '@/lib/workflows/triggers'
 import { getBlock } from '@/blocks/index'
 import type { LoopManager } from '@/executor/loops/loops'
 import type { ExecutionContext } from '@/executor/types'
@@ -392,156 +391,140 @@ export class InputResolver {
       // System references (start, loop, parallel, variable) and regular block references are both processed
       // Accessibility validation happens later in validateBlockReference
 
-      // Special case for trigger block references (start, api, chat, manual)
+      // Special case for the runtime trigger reference.
       const blockRefLower = blockRef.toLowerCase()
-      const isStartReference = blockRefLower === 'start'
-      const triggerType = isStartReference
-        ? null
-        : TRIGGER_REFERENCE_ALIAS_MAP[blockRefLower as keyof typeof TRIGGER_REFERENCE_ALIAS_MAP]
-      if (isStartReference || triggerType) {
-        const triggerBlock = isStartReference
-          ? context.triggerBlockId
-            ? this.blockById.get(context.triggerBlockId)
-            : undefined
-          : this.workflow.blocks.find((block) => block.metadata?.id === triggerType)
-        if (isStartReference && !triggerBlock) {
+      if (blockRefLower === 'start') {
+        const triggerBlock = context.triggerBlockId
+          ? this.blockById.get(context.triggerBlockId)
+          : undefined
+        if (!triggerBlock) {
           throw new Error('Runtime trigger block is not available for <start> reference.')
         }
-        if (triggerBlock) {
-          const blockState = context.blockStates.get(triggerBlock.id)
-          if (blockState) {
-            // For trigger blocks, start directly with the flattened output
-            // This enables direct access to <start.input>, <api.fieldName>, <chat.input> etc
-            let replacementValue: any = blockState.output
+        const blockState = context.blockStates.get(triggerBlock.id)
+        if (blockState) {
+          // Runtime trigger outputs are exposed through <start.*>.
+          let replacementValue: any = blockState.output
 
-            for (const part of pathParts) {
-              if (!replacementValue || typeof replacementValue !== 'object') {
-                logger.warn(
-                  `[resolveBlockReferences] Invalid path "${part}" - replacementValue is not an object:`,
-                  replacementValue
-                )
-                throw new Error(`Invalid path "${part}" in "${path}" for trigger block.`)
-              }
-
-              // Handle array indexing syntax like "files[0]" or "items[1]"
-              const arrayMatch = part.match(/^([^[]+)\[(\d+)\]$/)
-              if (arrayMatch) {
-                const [, arrayName, indexStr] = arrayMatch
-                const index = Number.parseInt(indexStr, 10)
-
-                // First access the array property
-                const arrayValue = replacementValue[arrayName]
-                if (!Array.isArray(arrayValue)) {
-                  throw new Error(
-                    `Property "${arrayName}" is not an array in path "${path}" for trigger block.`
-                  )
-                }
-
-                // Then access the array element
-                if (index < 0 || index >= arrayValue.length) {
-                  throw new Error(
-                    `Array index ${index} is out of bounds for "${arrayName}" (length: ${arrayValue.length}) in path "${path}" for trigger block.`
-                  )
-                }
-
-                replacementValue = arrayValue[index]
-              } else if (/^(?:[^[]+(?:\[\d+\])+|(?:\[\d+\])+)$/.test(part)) {
-                // Enhanced: support multiple indices like "values[0][0]"
-                replacementValue = this.resolvePartWithIndices(
-                  replacementValue,
-                  part,
-                  path,
-                  'trigger block'
-                )
-              } else {
-                if (Array.isArray(replacementValue)) {
-                  throw new Error(
-                    `Array path "${path}" in trigger block must use an explicit index.`
-                  )
-                }
-                replacementValue = resolvePropertyAccess(replacementValue, part)
-              }
-
-              if (replacementValue === undefined) {
-                logger.warn(
-                  `[resolveBlockReferences] No value found at path "${part}" in trigger block.`
-                )
-                throw new Error(`No value found at path "${path}" in trigger block.`)
-              }
+          for (const part of pathParts) {
+            if (!replacementValue || typeof replacementValue !== 'object') {
+              logger.warn(
+                `[resolveBlockReferences] Invalid path "${part}" - replacementValue is not an object:`,
+                replacementValue
+              )
+              throw new Error(`Invalid path "${part}" in "${path}" for trigger block.`)
             }
 
-            // Format the value based on block type and path
-            let formattedValue: string
+            // Handle array indexing syntax like "files[0]" or "items[1]"
+            const arrayMatch = part.match(/^([^[]+)\[(\d+)\]$/)
+            if (arrayMatch) {
+              const [, arrayName, indexStr] = arrayMatch
+              const index = Number.parseInt(indexStr, 10)
 
-            // Special handling for all blocks referencing trigger input
-            // For start and chat triggers, check for 'input' field. For API trigger, any field access counts
-            const isTriggerInputRef =
-              (blockRefLower === 'start' && pathParts.join('.').includes('input')) ||
-              (blockRefLower === 'chat' && pathParts.join('.').includes('input')) ||
-              (blockRefLower === 'api' && pathParts.length > 0)
-            if (isTriggerInputRef) {
-              const blockType = currentBlock.metadata?.id
+              // First access the array property
+              const arrayValue = replacementValue[arrayName]
+              if (!Array.isArray(arrayValue)) {
+                throw new Error(
+                  `Property "${arrayName}" is not an array in path "${path}" for trigger block.`
+                )
+              }
 
-              // Format based on which block is consuming this value
-              if (typeof replacementValue === 'object' && replacementValue !== null) {
-                // For function blocks, preserve the object structure for code usage
-                if (blockType === 'function') {
-                  formattedValue = JSON.stringify(replacementValue)
-                }
-                // For API blocks, handle body special case
-                else if (blockType === 'api') {
-                  formattedValue = JSON.stringify(replacementValue)
-                }
-                // For condition blocks, ensure proper formatting
-                else if (blockType === 'condition') {
-                  formattedValue = this.stringifyForCondition(replacementValue)
-                }
-                // For response blocks, preserve object structure as-is for proper JSON response
-                else if (blockType === 'response') {
-                  formattedValue = replacementValue
-                }
-                // For all other blocks, stringify objects
-                else {
-                  // Preserve full JSON structure for objects
-                  formattedValue = JSON.stringify(replacementValue)
-                }
-              } else {
-                // For primitive values, format based on target block type
-                if (blockType === 'function') {
-                  formattedValue = this.formatValueForCodeContext(
-                    replacementValue,
-                    currentBlock,
-                    isInTemplateLiteral
-                  )
-                } else if (blockType === 'condition') {
-                  formattedValue = this.stringifyForCondition(replacementValue)
-                } else {
-                  formattedValue = String(replacementValue)
-                }
+              // Then access the array element
+              if (index < 0 || index >= arrayValue.length) {
+                throw new Error(
+                  `Array index ${index} is out of bounds for "${arrayName}" (length: ${arrayValue.length}) in path "${path}" for trigger block.`
+                )
+              }
+
+              replacementValue = arrayValue[index]
+            } else if (/^(?:[^[]+(?:\[\d+\])+|(?:\[\d+\])+)$/.test(part)) {
+              // Enhanced: support multiple indices like "values[0][0]"
+              replacementValue = this.resolvePartWithIndices(
+                replacementValue,
+                part,
+                path,
+                'trigger block'
+              )
+            } else {
+              if (Array.isArray(replacementValue)) {
+                throw new Error(`Array path "${path}" in trigger block must use an explicit index.`)
+              }
+              replacementValue = resolvePropertyAccess(replacementValue, part)
+            }
+
+            if (replacementValue === undefined) {
+              logger.warn(
+                `[resolveBlockReferences] No value found at path "${part}" in trigger block.`
+              )
+              throw new Error(`No value found at path "${path}" in trigger block.`)
+            }
+          }
+
+          // Format the value based on block type and path
+          let formattedValue: string
+
+          const isTriggerInputRef = pathParts.join('.').includes('input')
+          if (isTriggerInputRef) {
+            const blockType = currentBlock.metadata?.id
+
+            // Format based on which block is consuming this value
+            if (typeof replacementValue === 'object' && replacementValue !== null) {
+              // For function blocks, preserve the object structure for code usage
+              if (blockType === 'function') {
+                formattedValue = JSON.stringify(replacementValue)
+              }
+              // For API blocks, handle body special case
+              else if (blockType === 'api') {
+                formattedValue = JSON.stringify(replacementValue)
+              }
+              // For condition blocks, ensure proper formatting
+              else if (blockType === 'condition') {
+                formattedValue = this.stringifyForCondition(replacementValue)
+              }
+              // For response blocks, preserve object structure as-is for proper JSON response
+              else if (blockType === 'response') {
+                formattedValue = replacementValue
+              }
+              // For all other blocks, stringify objects
+              else {
+                // Preserve full JSON structure for objects
+                formattedValue = JSON.stringify(replacementValue)
               }
             } else {
-              // Standard handling for non-input references
-              const blockType = currentBlock.metadata?.id
-
-              if (blockType === 'response') {
-                // For response blocks, properly quote string values for JSON context
-                if (typeof replacementValue === 'string') {
-                  // Properly escape and quote the string for JSON
-                  formattedValue = JSON.stringify(replacementValue)
-                } else {
-                  formattedValue = replacementValue
-                }
+              // For primitive values, format based on target block type
+              if (blockType === 'function') {
+                formattedValue = this.formatValueForCodeContext(
+                  replacementValue,
+                  currentBlock,
+                  isInTemplateLiteral
+                )
+              } else if (blockType === 'condition') {
+                formattedValue = this.stringifyForCondition(replacementValue)
               } else {
-                formattedValue =
-                  typeof replacementValue === 'object'
-                    ? JSON.stringify(replacementValue)
-                    : String(replacementValue)
+                formattedValue = String(replacementValue)
               }
             }
+          } else {
+            // Standard handling for non-input references
+            const blockType = currentBlock.metadata?.id
 
-            resolvedValue = resolvedValue.replace(raw, formattedValue)
-            continue
+            if (blockType === 'response') {
+              // For response blocks, properly quote string values for JSON context
+              if (typeof replacementValue === 'string') {
+                // Properly escape and quote the string for JSON
+                formattedValue = JSON.stringify(replacementValue)
+              } else {
+                formattedValue = replacementValue
+              }
+            } else {
+              formattedValue =
+                typeof replacementValue === 'object'
+                  ? JSON.stringify(replacementValue)
+                  : String(replacementValue)
+            }
           }
+
+          resolvedValue = resolvedValue.replace(raw, formattedValue)
+          continue
         }
       }
 
@@ -1003,10 +986,7 @@ export class InputResolver {
     const accessibleBlocks = this.getAccessibleBlocks(currentBlockId)
     const isAlwaysAccessibleTrigger =
       sourceBlock.metadata?.category === 'triggers' ||
-      sourceBlock.metadata?.id === 'input_trigger' ||
-      sourceBlock.metadata?.id === 'api_trigger' ||
-      sourceBlock.metadata?.id === 'manual_trigger' ||
-      sourceBlock.metadata?.id === 'chat_trigger'
+      sourceBlock.config.params.triggerMode === true
 
     if (
       sourceBlock.id !== currentBlockId &&

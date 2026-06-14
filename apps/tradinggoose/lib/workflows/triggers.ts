@@ -14,16 +14,6 @@ export const TRIGGER_TYPES = {
   SCHEDULE: 'schedule',
 } as const
 
-/**
- * Mapping from reference alias (used in inline refs like <api.*>, <chat.*>, etc.)
- * to concrete trigger block type identifiers used across the system.
- */
-export const TRIGGER_REFERENCE_ALIAS_MAP = {
-  api: TRIGGER_TYPES.API,
-  chat: TRIGGER_TYPES.CHAT,
-  manual: TRIGGER_TYPES.INPUT,
-} as const
-
 export class TriggerUtils {
   static isTriggerBlock(block: { type: string; triggerMode?: boolean }): boolean {
     const blockConfig = getBlock(block.type)
@@ -141,9 +131,12 @@ export function resolveWorkflowRunTrigger<T extends WorkflowRunTriggerBlock>(
   const triggerCandidates = Object.entries(blocks).filter(([, block]) =>
     TriggerUtils.isTriggerBlock(block)
   )
-  const selectedTriggerCandidate = selectedBlockId
-    ? triggerCandidates.find(([blockId]) => blockId === selectedBlockId)
-    : undefined
+  const isConnected = ([blockId]: [string, T]) => edges.some((edge) => edge.source === blockId)
+  const isRunnable = ([, block]: [string, T]) => resolveTriggerIdForBlock(block) !== null
+
+  const selectedTriggerCandidate = triggerCandidates.find(
+    ([blockId]) => blockId === selectedBlockId
+  )
   if (isEditorRun && selectedTriggerCandidate?.[1].type === TRIGGER_TYPES.CHAT) {
     throw new Error('Chat Trigger blocks run from the chat widget, not editor Run')
   }
@@ -152,71 +145,53 @@ export function resolveWorkflowRunTrigger<T extends WorkflowRunTriggerBlock>(
     ? triggerCandidates.filter(([, block]) => block.type !== TRIGGER_TYPES.CHAT)
     : triggerCandidates
   const selectedCandidate = candidates.find(([blockId]) => blockId === selectedBlockId)
-  const connectedCandidates = candidates.filter(([blockId]) =>
-    edges.some((edge) => edge.source === blockId)
-  )
+  const connectedCandidates = candidates.filter(isConnected)
   const selectionCandidates = connectedCandidates.length > 0 ? connectedCandidates : candidates
-  const runnableCandidates = selectionCandidates.filter(
-    ([, block]) => block.triggerMode !== true || resolveTriggerIdForBlock(block) !== null
-  )
-  const selectedPathNodes =
-    isEditorRun && selectedBlockId && !selectedCandidate
-      ? new Set(BlockPathCalculator.findAllPathNodes(edges, selectedBlockId))
-      : null
-  const selectedPathCandidates =
-    selectedPathNodes === null
-      ? []
-      : runnableCandidates.filter(([blockId]) => selectedPathNodes.has(blockId))
-  const selectedPathFallbackCandidate =
-    selectedPathNodes === null
-      ? undefined
-      : selectionCandidates.find(([blockId]) => selectedPathNodes.has(blockId))
-  const selectedPathHasChatTrigger =
-    selectedPathNodes !== null &&
-    triggerCandidates.some(
+  const runnableCandidates = selectionCandidates.filter(isRunnable)
+  let candidate: [string, T] | undefined = selectedCandidate
+
+  if (isEditorRun && selectedBlockId && !candidate) {
+    const selectedPathNodes = new Set(BlockPathCalculator.findAllPathNodes(edges, selectedBlockId))
+    const pathCandidates = runnableCandidates.filter(([blockId]) => selectedPathNodes.has(blockId))
+    const unconfiguredPathCandidate = selectionCandidates.find(([blockId]) =>
+      selectedPathNodes.has(blockId)
+    )
+    const pathHasChatTrigger = triggerCandidates.some(
       ([blockId, block]) => block.type === TRIGGER_TYPES.CHAT && selectedPathNodes.has(blockId)
     )
-  const priorityCandidate = isEditorRun
-    ? undefined
-    : (runnableCandidates.find(([, block]) => block.type === TRIGGER_TYPES.CHAT) ??
+
+    if (pathHasChatTrigger && !unconfiguredPathCandidate) {
+      throw new Error('Chat Trigger blocks run from the chat widget, not editor Run')
+    }
+    if (pathCandidates.length > 1) {
+      throw new Error(
+        'Multiple trigger blocks found. Select one trigger block or a block on one trigger branch for Run.'
+      )
+    }
+
+    candidate = pathCandidates[0] ?? unconfiguredPathCandidate
+    if (!candidate) {
+      throw new Error('Selected block is not on a non-chat trigger branch for Run')
+    }
+  } else if (isEditorRun) {
+    if (runnableCandidates.length > 1) {
+      throw new Error(
+        'Multiple trigger blocks found. Select one trigger block or a block on one trigger branch for Run.'
+      )
+    }
+    candidate =
+      runnableCandidates[0] ??
+      (selectionCandidates.length === 1 ? selectionCandidates[0] : undefined)
+  } else if (!candidate) {
+    candidate =
+      runnableCandidates.find(([, block]) => block.type === TRIGGER_TYPES.CHAT) ??
       runnableCandidates.find(
         ([, block]) => block.type === TRIGGER_TYPES.INPUT || block.type === TRIGGER_TYPES.MANUAL
       ) ??
-      runnableCandidates.find(([, block]) => block.type === TRIGGER_TYPES.API))
-
-  if (
-    isEditorRun &&
-    !selectedCandidate &&
-    selectedPathHasChatTrigger &&
-    !selectedPathFallbackCandidate
-  ) {
-    throw new Error('Chat Trigger blocks run from the chat widget, not editor Run')
+      runnableCandidates.find(([, block]) => block.type === TRIGGER_TYPES.API) ??
+      (runnableCandidates.length === 1 ? runnableCandidates[0] : undefined) ??
+      (selectionCandidates.length === 1 ? selectionCandidates[0] : undefined)
   }
-
-  if (
-    isEditorRun &&
-    !selectedCandidate &&
-    (selectedPathCandidates.length > 1 ||
-      (!selectedPathFallbackCandidate &&
-        selectedPathCandidates.length === 0 &&
-        runnableCandidates.length > 1))
-  ) {
-    throw new Error(
-      'Multiple trigger blocks found. Select one trigger block or a block on one trigger branch for Run.'
-    )
-  }
-
-  const candidate =
-    selectedCandidate ??
-    selectedPathCandidates[0] ??
-    selectedPathFallbackCandidate ??
-    priorityCandidate ??
-    (isEditorRun
-      ? runnableCandidates[0]
-      : runnableCandidates.length === 1
-        ? runnableCandidates[0]
-        : undefined) ??
-    (selectionCandidates.length === 1 ? selectionCandidates[0] : undefined)
 
   if (!candidate) {
     throw new Error(
