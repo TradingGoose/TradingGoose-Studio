@@ -58,7 +58,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   run_workflow: {
     description:
-      'Run the target workflow with optional input and the `triggerBlockId` to activate.',
+      'Run the target workflow with optional input and an exact `triggerBlockId` from `read_workflow.workflowSummary.blocks`.',
     kind: 'run',
     entityKind: 'workflow',
   },

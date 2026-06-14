@@ -49,10 +49,6 @@ export function useAccessibleReferencePrefixes(blockId?: string | null): Set<str
       if (block?.name) {
         prefixes.add(normalizeBlockName(block.name))
       }
-
-      if (block?.type === 'input_trigger') {
-        prefixes.add('start')
-      }
     })
 
     SYSTEM_REFERENCE_PREFIXES.forEach((prefix) => prefixes.add(prefix))

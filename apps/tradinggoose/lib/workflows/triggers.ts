@@ -213,6 +213,6 @@ export function resolveWorkflowRunTrigger<T extends WorkflowRunTriggerBlock>(
     input: isEditorRun
       ? buildEditorTestTriggerInput(block, options.workflowInput)
       : options.workflowInput,
-    triggerType: isEditorRun && identity.triggerType !== 'chat' ? 'manual' : identity.triggerType,
+    triggerType: identity.triggerType === 'chat' ? 'chat' : 'manual',
   }
 }
