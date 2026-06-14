@@ -4,10 +4,7 @@ import type { WorkflowExecutionEvent } from '@/lib/workflows/execution-events'
 import { runQueuedWorkflowExecution } from '@/lib/workflows/queued-execution-client'
 import { resolveWorkflowRunTrigger, TriggerUtils } from '@/lib/workflows/triggers'
 import { getVariablesSnapshot } from '@/lib/yjs/workflow-session'
-import {
-  useWorkflowSession,
-  type WorkflowSessionContextValue,
-} from '@/lib/yjs/workflow-session-host'
+import { useWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import type { ExecutionResult } from '@/executor/types'
 import { useConsoleStore } from '@/stores/console/store'
 import { useExecutionStore } from '@/stores/execution/store'
@@ -20,6 +17,7 @@ type WorkflowExecutionTriggerType = 'chat' | 'manual'
 type WorkflowExecutionRequest = {
   input?: unknown
   triggerType?: WorkflowExecutionTriggerType
+  triggerBlockId?: string
   selectedOutputs?: string[]
   onEvent?: (event: WorkflowExecutionEvent) => void | Promise<void>
 }
@@ -65,20 +63,9 @@ function createExecutionId() {
   return globalThis.crypto.randomUUID()
 }
 
-type WorkflowAwarenessSelection = { type: 'block' | 'edge' | 'none'; id?: string }
-type WorkflowAwarenessState = { selection?: WorkflowAwarenessSelection | null }
-
-function readSelectedAwarenessBlockId(
-  awareness: WorkflowSessionContextValue['awareness']
-): string | null {
-  const state = awareness?.getLocalState() as WorkflowAwarenessState | null
-  const selection = state?.selection
-  return selection?.type === 'block' && typeof selection.id === 'string' ? selection.id : null
-}
-
 export function useWorkflowExecution() {
   const { workflowId: activeWorkflowId, workspaceId } = useWorkflowRoute()
-  const { awareness, doc, error, isLoading, readWorkflowSnapshot } = useWorkflowSession()
+  const { doc, error, isLoading, readWorkflowSnapshot } = useWorkflowSession()
   const { cancelRunningEntries } = useConsoleStore()
   const abortControllerRef = useRef<AbortController | null>(null)
   const { isExecuting, setIsExecuting, setIsDebugging, setPendingBlocks, setActiveBlocks } =
@@ -161,7 +148,11 @@ export function useWorkflowExecution() {
   )
 
   const buildExecutionRequest = useCallback(
-    async (workflowInput: unknown, triggerType: WorkflowExecutionTriggerType) => {
+    async (
+      workflowInput: unknown,
+      triggerType: WorkflowExecutionTriggerType,
+      requestedTriggerBlockId?: string
+    ) => {
       const workflowSnapshot = readWorkflowSnapshot()
       if (!workflowSnapshot || !doc) {
         throw new Error('Workflow session is not ready')
@@ -191,10 +182,13 @@ export function useWorkflowExecution() {
         }
         triggerBlockId = chatTrigger.blockId
       } else {
+        if (!requestedTriggerBlockId) {
+          throw new Error('Run requires choosing a connected configured non-chat trigger block')
+        }
         const editorTestTrigger = resolveWorkflowRunTrigger(validBlocks, workflowSnapshot.edges, {
           surface: 'editor',
           workflowInput,
-          selectedBlockId: readSelectedAwarenessBlockId(awareness),
+          triggerBlockId: requestedTriggerBlockId,
         })
         triggerBlockId = editorTestTrigger.blockId
         finalWorkflowInput = editorTestTrigger.input
@@ -222,7 +216,7 @@ export function useWorkflowExecution() {
         },
       }
     },
-    [awareness, doc, readWorkflowSnapshot, workspaceId]
+    [doc, readWorkflowSnapshot, workspaceId]
   )
 
   const uploadChatFiles = useCallback(
@@ -300,7 +294,11 @@ export function useWorkflowExecution() {
 
       try {
         const requestedTriggerType = request.triggerType ?? 'manual'
-        const executionRequest = await buildExecutionRequest(request.input, requestedTriggerType)
+        const executionRequest = await buildExecutionRequest(
+          request.input,
+          requestedTriggerType,
+          request.triggerBlockId
+        )
         const input =
           executionRequest.triggerType === 'chat'
             ? await uploadChatFiles(

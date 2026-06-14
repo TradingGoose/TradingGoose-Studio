@@ -260,10 +260,10 @@ export class Executor {
    * Executes the workflow and returns the result.
    *
    * @param workflowId - Unique identifier for the workflow execution
-   * @param triggerBlockId - Optional trigger block ID to execute from
+   * @param triggerBlockId - Trigger block ID to execute from
    * @returns Execution result containing output, logs, and metadata
    */
-  async execute(workflowId: string, triggerBlockId?: string): Promise<ExecutionResult> {
+  async execute(workflowId: string, triggerBlockId: string): Promise<ExecutionResult> {
     const startTime = new Date()
     let finalOutput: NormalizedBlockOutput = {}
 
@@ -517,16 +517,15 @@ export class Executor {
    * Validates that the workflow meets requirements for execution.
    * Ensures trigger blocks exist along with valid connections and loop configurations.
    *
-   * @param triggerBlockId - Optional trigger block to execute from
+   * @param triggerBlockId - Trigger block to execute from
    * @throws Error if workflow validation fails
    */
   private validateWorkflow(triggerBlockId?: string): void {
-    if (triggerBlockId) {
+    if (triggerBlockId !== undefined) {
       const triggerBlock = this.actualWorkflow.blocks.find((block) => block.id === triggerBlockId)
       if (!triggerBlock || !triggerBlock.enabled) {
         throw new Error(`Trigger block ${triggerBlockId} not found or disabled`)
       }
-      return
     }
 
     // Check for any type of trigger block (dedicated triggers or trigger-mode blocks)
@@ -584,13 +583,13 @@ export class Executor {
    *
    * @param workflowId - Unique identifier for the workflow execution
    * @param startTime - Execution start time
-   * @param triggerBlockId - Optional trigger block to execute from
+   * @param triggerBlockId - Trigger block to execute from
    * @returns Initialized execution context
    */
   private createExecutionContext(
     workflowId: string,
     startTime: Date,
-    triggerBlockId?: string
+    triggerBlockId: string
   ): ExecutionContext {
     const workspaceId = this.requireExecutionWorkspaceId()
     const context: ExecutionContext = {
@@ -646,30 +645,9 @@ export class Executor {
       }
     }
 
-    // Determine which block to initialize as the starting point
-    let initBlock: SerializedBlock | undefined
-    if (triggerBlockId) {
-      initBlock = this.actualWorkflow.blocks.find((block) => block.id === triggerBlockId)
-    } else if (this.isChildExecution) {
-      const inputTriggerBlocks = this.actualWorkflow.blocks.filter(
-        (block) => block.metadata?.id === 'input_trigger'
-      )
-      if (inputTriggerBlocks.length === 1) {
-        initBlock = inputTriggerBlocks[0]
-      } else if (inputTriggerBlocks.length > 1) {
-        throw new Error('Child workflow has multiple Input Trigger blocks. Keep only one.')
-      }
-    } else {
-      const triggerBlocks = this.actualWorkflow.blocks.filter((block) =>
-        isSerializedTriggerBlock(block)
-      )
-      if (triggerBlocks.length > 0) {
-        initBlock = triggerBlocks[0]
-      }
-    }
-
+    const initBlock = this.actualWorkflow.blocks.find((block) => block.id === triggerBlockId)
     if (!initBlock) {
-      throw new Error('Unable to determine a trigger block to initialize')
+      throw new Error(`Trigger block ${triggerBlockId} not found or disabled`)
     }
     context.triggerBlockId = initBlock.id
 

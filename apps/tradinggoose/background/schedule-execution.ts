@@ -26,7 +26,7 @@ export type ScheduleExecutionPayload = {
   scheduleId: string
   workflowId: string
   executionId?: string
-  blockId?: string
+  blockId: string
   cronExpression?: string
   lastRanAt?: string
   failedCount?: number
@@ -43,18 +43,19 @@ export function isScheduleExecutionPayload(value: unknown): value is ScheduleExe
   return (
     typeof candidate.scheduleId === 'string' &&
     typeof candidate.workflowId === 'string' &&
+    typeof candidate.blockId === 'string' &&
     typeof candidate.timezone === 'string' &&
     typeof candidate.now === 'string'
   )
 }
 
 async function calculateNextRunTime(
-  schedule: { cronExpression?: string; lastRanAt?: string },
+  schedule: { blockId: string; cronExpression?: string; lastRanAt?: string },
   blocks: Record<string, BlockState>,
   timezone: string
 ): Promise<Date> {
-  const scheduleBlock = Object.values(blocks).find((block) => block.type === 'schedule')
-  if (!scheduleBlock) throw new Error('No schedule trigger block found')
+  const scheduleBlock = blocks[schedule.blockId]
+  if (!scheduleBlock) throw new Error(`Schedule trigger block ${schedule.blockId} not found`)
 
   const scheduleType = getSubBlockValue(scheduleBlock, 'scheduleType')
   const scheduleValues = getScheduleTimeValues(scheduleBlock)
@@ -184,7 +185,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
     })
     const scheduleBlocks = blueprint.workflowData.blocks as Record<string, BlockState>
 
-    if (payload.blockId && !scheduleBlocks[payload.blockId]) {
+    if (!scheduleBlocks[payload.blockId]) {
       logger.warn(
         `[${requestId}] Schedule trigger block ${payload.blockId} not found in deployed workflow ${payload.workflowId}. Skipping execution.`
       )
@@ -204,7 +205,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       },
       triggerTarget: {
         kind: 'block',
-        blockId: payload.blockId || undefined,
+        blockId: payload.blockId,
       },
     })
 

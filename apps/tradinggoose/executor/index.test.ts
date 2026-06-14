@@ -141,7 +141,7 @@ describe('Executor', () => {
       const validateSpy = vi.spyOn(executor as any, 'validateWorkflow')
       validateSpy.mockClear()
 
-      await executor.execute('test-workflow-id')
+      await executor.execute('test-workflow-id', 'trigger')
 
       expect(validateSpy).toHaveBeenCalledTimes(1)
     })
@@ -283,7 +283,7 @@ describe('Executor', () => {
       const workflow = createMinimalWorkflow()
       const executor = createTestExecutor(workflow)
 
-      const result = await executor.execute('test-workflow-id')
+      const result = await executor.execute('test-workflow-id', 'trigger')
 
       expect(result).toHaveProperty('success')
       expect(result).toHaveProperty('output')
@@ -302,7 +302,7 @@ describe('Executor', () => {
         },
       })
 
-      const result = await executor.execute('test-workflow-id')
+      const result = await executor.execute('test-workflow-id', 'trigger')
 
       expect(result).toHaveProperty('success')
       expect(result).toHaveProperty('output')
@@ -326,7 +326,7 @@ describe('Executor', () => {
       // Spy on createExecutionContext to verify context extensions are passed
       const createContextSpy = vi.spyOn(executor as any, 'createExecutionContext')
 
-      await executor.execute('test-workflow-id')
+      await executor.execute('test-workflow-id', 'trigger')
 
       expect(createContextSpy).toHaveBeenCalled()
       const contextArg = createContextSpy.mock.calls[0][2] // third argument is startTime, context is created internally
@@ -341,7 +341,7 @@ describe('Executor', () => {
       const workflow = createWorkflowWithCondition()
       const executor = createTestExecutor(workflow)
 
-      const result = await executor.execute('test-workflow-id')
+      const result = await executor.execute('test-workflow-id', 'trigger')
 
       // Verify execution completes and returns expected structure
       if ('success' in result) {
@@ -357,7 +357,7 @@ describe('Executor', () => {
       const workflow = createWorkflowWithLoop()
       const executor = createTestExecutor(workflow)
 
-      const result = await executor.execute('test-workflow-id')
+      const result = await executor.execute('test-workflow-id', 'trigger')
 
       expect(result).toHaveProperty('success')
       expect(result).toHaveProperty('output')
@@ -555,7 +555,7 @@ describe('Executor', () => {
         },
       })
 
-      const result = await executor.execute('test-workflow-id')
+      const result = await executor.execute('test-workflow-id', 'trigger')
 
       expect(result).toHaveProperty('success')
       expect(result).toHaveProperty('output')
@@ -573,7 +573,7 @@ describe('Executor', () => {
 
       const createContextSpy = vi.spyOn(executor as any, 'createExecutionContext')
 
-      await executor.execute('test-workflow-id')
+      await executor.execute('test-workflow-id', 'trigger')
 
       expect(createContextSpy).toHaveBeenCalled()
     })
@@ -610,7 +610,7 @@ describe('Executor', () => {
         },
       ]
 
-      const result = await executor.execute('test-workflow-id')
+      const result = await executor.execute('test-workflow-id', 'trigger')
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('Provider stream failed')
@@ -913,7 +913,7 @@ describe('Executor', () => {
       executor.cancel()
 
       // Try to execute
-      const result = await executor.execute('test-workflow-id')
+      const result = await executor.execute('test-workflow-id', 'trigger')
 
       // Should immediately return cancelled result
       if ('success' in result) {
@@ -931,7 +931,7 @@ describe('Executor', () => {
 
       ;(executor as any).isCancelled = true
 
-      const result = await executor.execute('test-workflow-id')
+      const result = await executor.execute('test-workflow-id', 'trigger')
 
       // Should return cancelled result
       if ('success' in result) {
@@ -1019,7 +1019,7 @@ describe('Executor', () => {
           updateExecutionPaths: vi.fn(),
         }
 
-        const result = await executor.execute('test-workflow')
+        const result = await executor.execute('test-workflow', 'trigger')
 
         // Should succeed with partial results - not throw an error
         expect(result).toBeDefined()
@@ -1143,7 +1143,7 @@ describe('Executor', () => {
           workflowInput: {},
         })
 
-        const result = await executor.execute('test-workflow-id')
+        const result = await executor.execute('test-workflow-id', 'trigger')
 
         // Verify execution completed (may succeed or fail depending on child workflow availability)
         expect(result).toBeDefined()
@@ -1192,7 +1192,7 @@ describe('Executor', () => {
       })
 
       // Verify that child executor is created with isChildExecution flag
-      const result = await executor.execute('test-workflow-id')
+      const result = await executor.execute('test-workflow-id', 'trigger')
 
       expect(result).toBeDefined()
       if ('success' in result) {
@@ -1274,7 +1274,7 @@ describe('Executor', () => {
           workflowInput: {},
         })
 
-        const result = await executor.execute('test-workflow-id')
+        const result = await executor.execute('test-workflow-id', 'trigger')
 
         // Verify execution completed (may succeed or fail depending on child workflow availability)
         expect(result).toBeDefined()
@@ -1342,7 +1342,7 @@ describe('Executor', () => {
           workflowInput: {},
         })
 
-        const result = await executor.execute('test-workflow-id')
+        const result = await executor.execute('test-workflow-id', 'trigger')
 
         // Verify execution completed (may succeed or fail depending on child workflow availability)
         expect(result).toBeDefined()
@@ -1396,7 +1396,7 @@ describe('Executor', () => {
         workflowInput: {},
       })
 
-      const result = await executor.execute('test-workflow-id')
+      const result = await executor.execute('test-workflow-id', 'trigger')
 
       // Verify that child workflow errors propagate to parent
       expect(result).toBeDefined()

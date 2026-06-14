@@ -10,6 +10,7 @@ type WorkflowExecutionOptions = {
   workflowInput?: any
   executionId?: string
   workflowId: string
+  triggerBlockId: string
 }
 
 function createExecutionId() {
@@ -47,6 +48,7 @@ export async function executeWorkflowWithFullLogging(
   const start = resolveWorkflowRunTrigger(blocks, workflowState.edges, {
     surface: 'copilot',
     workflowInput: options.workflowInput,
+    triggerBlockId: options.triggerBlockId,
   })
 
   logger.info('Executing workflow through server route', {

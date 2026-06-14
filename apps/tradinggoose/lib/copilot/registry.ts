@@ -312,6 +312,7 @@ export const ToolArgSchemas = {
 
   run_workflow: z.object({
     entityId: RequiredId,
+    triggerBlockId: z.string(),
     workflow_input: z.union([z.string(), z.record(z.any())]).optional(),
   }),
 

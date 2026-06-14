@@ -42,7 +42,7 @@ export type WorkflowTriggerTarget =
     }
   | {
       kind: 'block'
-      blockId?: string
+      blockId: string
     }
 
 export type WorkflowExecutionBlueprint = {
@@ -231,17 +231,13 @@ function resolveTriggerBlockId(params: {
     return triggerBlock.blockId
   }
 
-  if (
-    params.target.kind === 'block' &&
-    params.target.blockId &&
-    !params.mergedStates[params.target.blockId]
-  ) {
+  if (params.target.kind === 'block' && !params.mergedStates[params.target.blockId]) {
     throw new WorkflowTriggerBlockError(
       `Workflow does not contain trigger block ${params.target.blockId}`
     )
   }
 
-  if (params.target.kind === 'block' && params.target.blockId) {
+  if (params.target.kind === 'block') {
     const blockId = params.target.blockId
     const outgoingConnections = params.serializedWorkflow.connections.filter(
       (connection) => connection.source === blockId

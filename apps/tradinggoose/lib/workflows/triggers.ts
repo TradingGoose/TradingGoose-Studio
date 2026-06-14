@@ -1,8 +1,7 @@
-import { BlockPathCalculator } from '@/lib/block-path-calculator'
 import { readBlockOutputs } from '@/lib/workflows/block-outputs'
 import { getBlock } from '@/blocks'
 import type { QueuedWorkflowTriggerType } from '@/services/queue'
-import { resolveTriggerExecutionIdentity, resolveTriggerIdForBlock } from '@/triggers/resolution'
+import { resolveTriggerExecutionIdentity } from '@/triggers/resolution'
 import { generateMockPayloadFromOutputsDefinition } from './triggers/trigger-utils'
 
 export const TRIGGER_TYPES = {
@@ -87,8 +86,75 @@ export class TriggerUtils {
 export type WorkflowRunTriggerBlock = {
   type: string
   name?: string
+  enabled?: boolean
   triggerMode?: boolean
   subBlocks?: Record<string, { value?: unknown }>
+}
+
+type WorkflowRunSurface = 'editor' | 'copilot'
+
+type WorkflowRunTriggerCandidate<T extends WorkflowRunTriggerBlock> = {
+  blockId: string
+  block: T
+  triggerSource: string
+  triggerType: QueuedWorkflowTriggerType
+}
+
+export type WorkflowRunTriggerOption = {
+  blockId: string
+  name: string
+  triggerSource: string
+  triggerType: QueuedWorkflowTriggerType
+}
+
+function getTriggerName(blockId: string, block: WorkflowRunTriggerBlock) {
+  return block.name || TriggerUtils.getDefaultTriggerName(block.type) || block.type || blockId
+}
+
+function getTriggerCandidates<T extends WorkflowRunTriggerBlock>(
+  blocks: Record<string, T>,
+  edges: Array<{ source: string; target: string }>,
+  surface: WorkflowRunSurface
+) {
+  return Object.entries(blocks).filter(([blockId, block]) => {
+    if (!block?.type || block.enabled === false || !TriggerUtils.isTriggerBlock(block)) {
+      return false
+    }
+    if (surface === 'editor' && block.type === TRIGGER_TYPES.CHAT) {
+      return false
+    }
+    return edges.some((edge) => edge.source === blockId)
+  })
+}
+
+function getRunnableTriggerCandidates<T extends WorkflowRunTriggerBlock>(
+  blocks: Record<string, T>,
+  edges: Array<{ source: string; target: string }>,
+  surface: WorkflowRunSurface
+): Array<WorkflowRunTriggerCandidate<T>> {
+  return getTriggerCandidates(blocks, edges, surface).flatMap(([blockId, block]) => {
+    try {
+      const identity = resolveTriggerExecutionIdentity(block)
+      return [{ blockId, block, ...identity }]
+    } catch {
+      return []
+    }
+  })
+}
+
+export function listWorkflowRunTriggers<T extends WorkflowRunTriggerBlock>(
+  blocks: Record<string, T>,
+  edges: Array<{ source: string; target: string }>,
+  options: { surface: WorkflowRunSurface }
+): WorkflowRunTriggerOption[] {
+  return getRunnableTriggerCandidates(blocks, edges, options.surface).map(
+    ({ blockId, block, triggerSource, triggerType }) => ({
+      blockId,
+      name: getTriggerName(blockId, block),
+      triggerSource,
+      triggerType,
+    })
+  )
 }
 
 function buildEditorTestTriggerInput(
@@ -117,9 +183,9 @@ export function resolveWorkflowRunTrigger<T extends WorkflowRunTriggerBlock>(
   blocks: Record<string, T>,
   edges: Array<{ source: string; target: string }>,
   options: {
-    surface: 'editor' | 'copilot'
+    surface: WorkflowRunSurface
     workflowInput?: unknown
-    selectedBlockId?: string | null
+    triggerBlockId: string
   }
 ): {
   blockId: string
@@ -127,86 +193,20 @@ export function resolveWorkflowRunTrigger<T extends WorkflowRunTriggerBlock>(
   triggerType: QueuedWorkflowTriggerType
 } {
   const isEditorRun = options.surface === 'editor'
-  const selectedBlockId = options.selectedBlockId
-  const triggerCandidates = Object.entries(blocks).filter(([, block]) =>
-    TriggerUtils.isTriggerBlock(block)
-  )
-  const isConnected = ([blockId]: [string, T]) => edges.some((edge) => edge.source === blockId)
-  const isRunnable = ([, block]: [string, T]) => resolveTriggerIdForBlock(block) !== null
+  const triggerBlockId = options.triggerBlockId
+  const triggerCandidates = getTriggerCandidates(blocks, edges, options.surface)
 
-  const selectedTriggerCandidate = triggerCandidates.find(
-    ([blockId]) => blockId === selectedBlockId
-  )
-  if (isEditorRun && selectedTriggerCandidate?.[1].type === TRIGGER_TYPES.CHAT) {
+  if (isEditorRun && blocks[triggerBlockId]?.type === TRIGGER_TYPES.CHAT) {
     throw new Error('Chat Trigger blocks run from the chat widget, not editor Run')
   }
 
-  const candidates = isEditorRun
-    ? triggerCandidates.filter(([, block]) => block.type !== TRIGGER_TYPES.CHAT)
-    : triggerCandidates
-  const selectedCandidate = candidates.find(([blockId]) => blockId === selectedBlockId)
-  const connectedCandidates = candidates.filter(isConnected)
-  const selectionCandidates = connectedCandidates.length > 0 ? connectedCandidates : candidates
-  const runnableCandidates = selectionCandidates.filter(isRunnable)
-  let candidate: [string, T] | undefined = selectedCandidate
-
-  if (isEditorRun && selectedBlockId && !candidate) {
-    const selectedPathNodes = new Set(BlockPathCalculator.findAllPathNodes(edges, selectedBlockId))
-    const pathCandidates = runnableCandidates.filter(([blockId]) => selectedPathNodes.has(blockId))
-    const unconfiguredPathCandidate = selectionCandidates.find(([blockId]) =>
-      selectedPathNodes.has(blockId)
-    )
-    const pathHasChatTrigger = triggerCandidates.some(
-      ([blockId, block]) => block.type === TRIGGER_TYPES.CHAT && selectedPathNodes.has(blockId)
-    )
-
-    if (pathHasChatTrigger && !unconfiguredPathCandidate) {
-      throw new Error('Chat Trigger blocks run from the chat widget, not editor Run')
-    }
-    if (pathCandidates.length > 1) {
-      throw new Error(
-        'Multiple trigger blocks found. Select one trigger block or a block on one trigger branch for Run.'
-      )
-    }
-
-    candidate = pathCandidates[0] ?? unconfiguredPathCandidate
-    if (!candidate) {
-      throw new Error('Selected block is not on a non-chat trigger branch for Run')
-    }
-  } else if (isEditorRun) {
-    if (runnableCandidates.length > 1) {
-      throw new Error(
-        'Multiple trigger blocks found. Select one trigger block or a block on one trigger branch for Run.'
-      )
-    }
-    candidate =
-      runnableCandidates[0] ??
-      (selectionCandidates.length === 1 ? selectionCandidates[0] : undefined)
-  } else if (!candidate) {
-    candidate =
-      runnableCandidates.find(([, block]) => block.type === TRIGGER_TYPES.CHAT) ??
-      runnableCandidates.find(
-        ([, block]) => block.type === TRIGGER_TYPES.INPUT || block.type === TRIGGER_TYPES.MANUAL
-      ) ??
-      runnableCandidates.find(([, block]) => block.type === TRIGGER_TYPES.API) ??
-      (runnableCandidates.length === 1 ? runnableCandidates[0] : undefined) ??
-      (selectionCandidates.length === 1 ? selectionCandidates[0] : undefined)
-  }
-
+  const candidate = triggerCandidates.find(([blockId]) => blockId === triggerBlockId)
   if (!candidate) {
-    throw new Error(
-      isEditorRun
-        ? 'Run requires a connected non-chat trigger block'
-        : 'Copilot run_workflow requires a single connected runnable trigger block.'
-    )
+    throw new Error(`Trigger block ${triggerBlockId} is not available for Run`)
   }
 
   const [blockId, block] = candidate
   const identity = resolveTriggerExecutionIdentity(block)
-  if (!edges.some((edge) => edge.source === blockId)) {
-    const triggerName = block.name || TriggerUtils.getDefaultTriggerName(block.type) || block.type
-    throw new Error(`${triggerName} must be connected to other blocks to execute`)
-  }
 
   return {
     blockId,

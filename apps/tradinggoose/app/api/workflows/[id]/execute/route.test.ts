@@ -470,7 +470,13 @@ describe('/api/workflows/[id]/execute', () => {
     expect(createHttpResponseFromBlockMock).toHaveBeenCalledWith(responseResult)
   })
 
-  it('rejects non-API execution control fields on the deployed execute adapter', async () => {
+  it.each([
+    'workflowTriggerType',
+    'triggerType',
+    'executionTarget',
+    'startBlockId',
+    'triggerBlockId',
+  ])('rejects %s on the deployed execute adapter', async (field) => {
     const { POST } = await import('./route')
     const response = await POST(
       new NextRequest('https://example.com/api/workflows/workflow-1/execute', {
@@ -479,16 +485,14 @@ describe('/api/workflows/[id]/execute', () => {
           'Content-Type': 'application/json',
           'X-API-Key': 'key-1',
         },
-        body: JSON.stringify({
-          workflowTriggerType: 'chat',
-        }),
+        body: JSON.stringify({ [field]: 'chat' }),
       }),
       { params: Promise.resolve({ id: 'workflow-1' }) }
     )
 
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toMatchObject({
-      error: 'Field "workflowTriggerType" is not supported by the deployed API execute endpoint',
+      error: `Field "${field}" is not supported by the deployed API execute endpoint`,
     })
     expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
   })

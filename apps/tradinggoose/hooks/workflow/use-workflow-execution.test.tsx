@@ -248,7 +248,7 @@ describe('useWorkflowExecution', () => {
     const execution = await renderExecutionHook()
 
     await act(async () => {
-      await execution.handleRunWorkflow({ onEvent })
+      await execution.handleRunWorkflow({ triggerBlockId: 'schedule-trigger', onEvent })
     })
 
     expect(onEvent).toHaveBeenCalledWith(streamEvent)

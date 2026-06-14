@@ -1,15 +1,27 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { LayoutDashboard, Play, RefreshCw, X } from 'lucide-react'
-import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui'
+import { useEffect, useMemo, useState } from 'react'
+import { ChevronDown, LayoutDashboard, Play, RefreshCw, X } from 'lucide-react'
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui'
 import {
   widgetHeaderButtonGroupClassName,
   widgetHeaderIconButtonClassName,
+  widgetHeaderMenuContentClassName,
+  widgetHeaderMenuItemClassName,
 } from '@/components/widget-header-control'
 import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
+import { listWorkflowRunTriggers } from '@/lib/workflows/triggers'
 import { useWorkflowBlocks, useWorkflowEdges } from '@/lib/yjs/use-workflow-doc'
 import {
   getKeyboardShortcutText,
@@ -114,15 +126,27 @@ export function ControlBar({
     limit: number
   } | null>(null)
 
+  const currentBlocks = useWorkflowBlocks()
+  const currentEdges = useWorkflowEdges()
+  const runTriggers = useMemo(
+    () => listWorkflowRunTriggers(currentBlocks, currentEdges, { surface: 'editor' }),
+    [currentBlocks, currentEdges]
+  )
+
   // Shared condition for keyboard shortcut and button disabled state
-  const isWorkflowBlocked = isExecuting || hasValidationErrors || !isWorkflowSessionReady
+  const isWorkflowBlocked =
+    isExecuting || hasValidationErrors || !isWorkflowSessionReady || runTriggers.length === 0
+  const canRunWithShortcut = runTriggers.length === 1
 
   // Register keyboard shortcut for running workflow
-  useKeyboardShortcuts(() => {
-    if (!isWorkflowBlocked && userPermissions.canEdit) {
-      handleRunWorkflow()
-    }
-  }, isWorkflowBlocked || !userPermissions.canEdit)
+  useKeyboardShortcuts(
+    () => {
+      if (!isWorkflowBlocked && userPermissions.canEdit && canRunWithShortcut) {
+        handleRunWorkflow({ triggerBlockId: runTriggers[0].blockId })
+      }
+    },
+    isWorkflowBlocked || !userPermissions.canEdit || !canRunWithShortcut
+  )
 
   // Get deployment status from registry
   const deploymentStatus = useWorkflowRegistry((state) =>
@@ -211,10 +235,6 @@ export function ControlBar({
       setIsLoadingDeployedState(false)
     }
   }, [activeWorkflowId, isDeployed, isRegistryLoading])
-
-  // Get current state for change detection (from Yjs doc)
-  const currentBlocks = useWorkflowBlocks()
-  const currentEdges = useWorkflowEdges()
 
   useEffect(() => {
     if (!activeWorkflowId || !deployedState) {
@@ -433,6 +453,10 @@ export function ControlBar({
         return copy.controlBar.writePermissionRequiredToRunWorkflows
       }
 
+      if (runTriggers.length === 0) {
+        return 'Run requires a connected configured trigger block'
+      }
+
       if (usageExceeded) {
         return (
           <div className='text-center'>
@@ -450,12 +474,52 @@ export function ControlBar({
       return copy.controlBar.run
     }
 
-    const handleRunClick = () => {
+    const handleRunClick = (triggerBlockId?: string) => {
       if (usageExceeded) {
         openSubscriptionSettings()
       } else {
-        handleRunWorkflow()
+        handleRunWorkflow({ triggerBlockId })
       }
+    }
+
+    if (runTriggers.length > 1) {
+      return (
+        <DropdownMenu modal={false}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className='inline-flex'>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    className={getPrimaryButtonClass('w-10 gap-0.5 px-1')}
+                    disabled={isButtonDisabled}
+                  >
+                    <Play className={cn('h-3.5 w-3.5', 'fill-current stroke-current')} />
+                    <ChevronDown className='h-3 w-3' />
+                  </Button>
+                </DropdownMenuTrigger>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent command={getKeyboardShortcutText('Enter', true)}>
+              {getTooltipContent()}
+            </TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent align='end' className={cn(widgetHeaderMenuContentClassName, 'w-56')}>
+            {runTriggers.map((trigger) => (
+              <DropdownMenuItem
+                key={trigger.blockId}
+                className={widgetHeaderMenuItemClassName}
+                onSelect={(event) => {
+                  event.preventDefault()
+                  handleRunClick(trigger.blockId)
+                }}
+              >
+                <Play className='h-3.5 w-3.5' />
+                <span className='min-w-0 flex-1 truncate'>{trigger.name}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )
     }
 
     return (
@@ -463,7 +527,7 @@ export function ControlBar({
         <TooltipTrigger asChild>
           <Button
             className={getPrimaryButtonClass()}
-            onClick={handleRunClick}
+            onClick={() => handleRunClick(runTriggers[0]?.blockId)}
             disabled={isButtonDisabled}
           >
             <Play className={cn('h-3.5 w-3.5', 'fill-current stroke-current')} />

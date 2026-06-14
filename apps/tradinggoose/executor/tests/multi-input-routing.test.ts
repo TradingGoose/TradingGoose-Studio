@@ -101,7 +101,7 @@ describe('Multi-Input Routing Scenarios', () => {
   it('should handle multi-input target when router selects function-1', async () => {
     // Test scenario: Router selects function-1, agent should still execute with function-1's output
 
-    const context = (executor as any).createExecutionContext('test-workflow', new Date())
+    const context = (executor as any).createExecutionContext('test-workflow', new Date(), 'start')
 
     // Step 1: Execute trigger block
     context.executedBlocks.add('start')
@@ -166,7 +166,7 @@ describe('Multi-Input Routing Scenarios', () => {
   it('should handle multi-input target when router selects function-2', async () => {
     // Test scenario: Router selects function-2, agent should still execute with function-2's output
 
-    const context = (executor as any).createExecutionContext('test-workflow', new Date())
+    const context = (executor as any).createExecutionContext('test-workflow', new Date(), 'start')
 
     // Step 1: Execute start and router-1 selecting function-2
     context.executedBlocks.add('start')
@@ -223,7 +223,7 @@ describe('Multi-Input Routing Scenarios', () => {
   it('should verify the dependency logic for inactive sources', async () => {
     // This test specifically validates the multi-input dependency logic
 
-    const context = (executor as any).createExecutionContext('test-workflow', new Date())
+    const context = (executor as any).createExecutionContext('test-workflow', new Date(), 'start')
 
     // Setup: Router executed and selected function-1, function-1 executed
     context.executedBlocks.add('start')

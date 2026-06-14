@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { resolveWorkflowRunTrigger } from './triggers'
+import { listWorkflowRunTriggers, resolveWorkflowRunTrigger } from './triggers'
 
 vi.mock('@/blocks', () => {
   const trigger = (id: string) => ({
@@ -29,36 +29,37 @@ const block = (type: string, extra: Record<string, unknown> = {}) => ({
 })
 
 describe('resolveWorkflowRunTrigger', () => {
-  it('makes editor selection authoritative', () => {
+  it('requires an explicit editor trigger when multiple triggers are runnable', () => {
+    const mixedTriggers = {
+      manual: block('manual_trigger'),
+      schedule: block('schedule'),
+      shared: block('agent'),
+    }
+    const mixedTriggerEdges = [
+      { source: 'manual', target: 'shared' },
+      { source: 'schedule', target: 'shared' },
+    ]
+
     expect(
-      resolveWorkflowRunTrigger(
-        { chat: block('chat_trigger'), schedule: block('schedule'), shared: block('agent') },
-        [
-          { source: 'chat', target: 'shared' },
-          { source: 'schedule', target: 'shared' },
-        ],
-        { surface: 'editor', selectedBlockId: 'shared' }
-      ).blockId
+      resolveWorkflowRunTrigger(mixedTriggers, mixedTriggerEdges, {
+        surface: 'editor',
+        triggerBlockId: 'schedule',
+      }).blockId
     ).toBe('schedule')
 
-    expect(() =>
-      resolveWorkflowRunTrigger(
-        { manual: block('manual_trigger'), schedule: block('schedule'), shared: block('agent') },
-        [
-          { source: 'manual', target: 'shared' },
-          { source: 'schedule', target: 'shared' },
-        ],
-        { surface: 'editor', selectedBlockId: 'shared' }
-      )
-    ).toThrow('Multiple trigger blocks found')
+    expect(
+      listWorkflowRunTriggers(mixedTriggers, mixedTriggerEdges, { surface: 'editor' })
+    ).toEqual([
+      { blockId: 'manual', name: 'manual_trigger', triggerSource: 'manual', triggerType: 'manual' },
+      { blockId: 'schedule', name: 'schedule', triggerSource: 'schedule', triggerType: 'schedule' },
+    ])
 
     expect(() =>
-      resolveWorkflowRunTrigger(
-        { schedule: block('schedule'), agent: block('agent'), isolated: block('agent') },
-        [{ source: 'schedule', target: 'agent' }],
-        { surface: 'editor', selectedBlockId: 'isolated' }
-      )
-    ).toThrow('Selected block is not on a non-chat trigger branch for Run')
+      resolveWorkflowRunTrigger(mixedTriggers, [{ source: 'manual', target: 'shared' }], {
+        surface: 'editor',
+        triggerBlockId: 'schedule',
+      })
+    ).toThrow('Trigger block schedule is not available for Run')
   })
 
   it('resolves runnable trigger identity and editor payloads', () => {
@@ -66,7 +67,7 @@ describe('resolveWorkflowRunTrigger', () => {
       resolveWorkflowRunTrigger(
         { slack: block('slack', { triggerMode: true }), agent: block('agent') },
         [{ source: 'slack', target: 'agent' }],
-        { surface: 'editor', selectedBlockId: 'agent' }
+        { surface: 'editor', triggerBlockId: 'slack' }
       )
     ).toThrow('slack requires a selected trigger type')
 
@@ -74,7 +75,7 @@ describe('resolveWorkflowRunTrigger', () => {
       resolveWorkflowRunTrigger(
         { indicator: block('indicator_trigger'), agent: block('agent') },
         [{ source: 'indicator', target: 'agent' }],
-        { surface: 'editor' }
+        { surface: 'editor', triggerBlockId: 'indicator' }
       ).input
     ).toEqual({
       listing: { listing_id: 'AAPL', base_id: '', quote_id: '', listing_type: 'default' },
@@ -83,9 +84,16 @@ describe('resolveWorkflowRunTrigger', () => {
 
     expect(
       resolveWorkflowRunTrigger(
-        { trigger: block('schedule'), agent: block('agent') },
-        [{ source: 'trigger', target: 'agent' }],
-        { surface: 'copilot' }
+        {
+          api: block('api_trigger'),
+          trigger: block('schedule'),
+          agent: block('agent'),
+        },
+        [
+          { source: 'api', target: 'agent' },
+          { source: 'trigger', target: 'agent' },
+        ],
+        { surface: 'copilot', triggerBlockId: 'trigger' }
       ).triggerType
     ).toBe('schedule')
   })

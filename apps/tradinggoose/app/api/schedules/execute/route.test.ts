@@ -89,7 +89,7 @@ describe('Scheduled Workflow Execution API Route', () => {
         {
           id: 'schedule-1',
           workflowId: 'workflow-1',
-          blockId: null,
+          blockId: 'schedule-trigger-1',
           cronExpression: null,
           lastRanAt: null,
           failedCount: 0,
@@ -194,7 +194,7 @@ describe('Scheduled Workflow Execution API Route', () => {
         {
           id: 'schedule-1',
           workflowId: 'workflow-1',
-          blockId: null,
+          blockId: 'schedule-trigger-1',
           cronExpression: null,
           lastRanAt: null,
           failedCount: 0,
@@ -349,7 +349,7 @@ describe('Scheduled Workflow Execution API Route', () => {
         {
           id: 'schedule-1',
           workflowId: 'workflow-1',
-          blockId: null,
+          blockId: 'schedule-trigger-1',
           cronExpression: null,
           lastRanAt: null,
           failedCount: 0,
@@ -359,7 +359,7 @@ describe('Scheduled Workflow Execution API Route', () => {
         {
           id: 'schedule-2',
           workflowId: 'workflow-2',
-          blockId: null,
+          blockId: 'schedule-trigger-2',
           cronExpression: null,
           lastRanAt: null,
           failedCount: 0,
