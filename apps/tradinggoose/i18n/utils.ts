@@ -9,6 +9,8 @@ export { defaultLocale, isLocaleCode, locales }
 
 export const SITE_BASE_URL = getBaseUrl()
 export const CANONICAL_CALLBACK_PATH_HEADER = 'x-tradinggoose-callback-path'
+export const LOCALE_COOKIE = 'NEXT_LOCALE'
+export const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 const LOCALE_DISPLAY_NAMES: Record<LocaleCode, string> = {
   en: 'English',
   es: 'Español',
@@ -51,10 +53,10 @@ export function stripLocaleFromPathname(pathname: string): {
   }
 }
 
-function prefixLocalePathname(locale: LocaleCode, pathname: string) {
+function prefixLocalePathname(locale: LocaleCode, pathname: string, includeDefaultLocale = true) {
   const normalized = pathname === '/' ? '/' : pathname.replace(/\/+$/, '')
 
-  if (locale === defaultLocale) {
+  if (!includeDefaultLocale && locale === defaultLocale) {
     return normalized
   }
 
@@ -118,7 +120,8 @@ export function localizeSiteUrl(locale: LocaleCode, pathname: string) {
 }
 
 export function localizeDocsUrl(locale: LocaleCode, pathname = '/') {
-  return localizeUrl(DOCS_BASE_URL, locale, pathname)
+  assertCanonicalInternalPathname(pathname)
+  return `${DOCS_BASE_URL}${prefixLocalePathname(locale, pathname, false)}`
 }
 
 export function getOpenGraphLocale(locale: LocaleCode) {

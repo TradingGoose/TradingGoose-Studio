@@ -11,10 +11,10 @@ const MONACO_TRACE_FILES = MONACO_TRACE_ROOTS.flatMap((root) => [
   `${root}/.bun/monaco-editor@*/node_modules/monaco-editor/esm/**/*.js`,
   `${root}/.bun/monaco-editor@*/node_modules/monaco-editor/esm/**/*.js.map`,
 ])
-const PUBLIC_LOCALE_ROUTE_PREFIX = '(?:es|zh)'
+const PUBLIC_LOCALE_ROUTE_PREFIX = '(?:en|es|zh)'
 const API_ROUTE_LOOKAHEAD = 'api(?:/.*)?$'
 const INGEST_ROUTE_LOOKAHEAD = 'ingest(?:/.*)?$'
-const LOCALIZED_APP_ROUTE_SOURCE = `(?:${PUBLIC_LOCALE_ROUTE_PREFIX}/)?(?:w|workspace|chat)(?:/.*)?`
+const LOCALIZED_APP_ROUTE_SOURCE = `${PUBLIC_LOCALE_ROUTE_PREFIX}/(?:workspace|chat)(?:/.*)?`
 const LOCALIZED_APP_ROUTE_LOOKAHEAD = `${LOCALIZED_APP_ROUTE_SOURCE}$`
 const API_ROUTE_PARAM_EXCLUDING_WORKFLOW_EXECUTION = ':path((?!workflows/[^/]+/execute$).*)'
 
@@ -82,6 +82,7 @@ const nextConfig: NextConfig = {
     '/monaco-editor/esm/**/*': MONACO_TRACE_FILES,
   },
   turbopack: {
+    root: new URL('../..', import.meta.url).pathname,
     resolveExtensions: ['.tsx', '.ts', '.jsx', '.js', '.mjs', '.json'],
   },
   serverExternalPackages: [
@@ -210,13 +211,8 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // For main app routes - use permissive policies
-        source: '/:app(w|workspace|chat)/:path*',
-        headers: permissiveRouteHeaders,
-      },
-      {
         // Localized public app routes use the same permissive policies
-        source: '/:locale(es|zh)/:app(w|workspace|chat)/:path*',
+        source: '/:locale(en|es|zh)/:app(workspace|chat)/:path*',
         headers: permissiveRouteHeaders,
       },
       {

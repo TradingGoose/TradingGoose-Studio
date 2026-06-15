@@ -12,19 +12,19 @@ import {
 import { routing } from '@/i18n/routing'
 import {
   CANONICAL_CALLBACK_PATH_HEADER,
-  defaultLocale,
   isLocaleCode,
+  LOCALE_COOKIE,
+  LOCALE_COOKIE_MAX_AGE,
   type LocaleCode,
   localizeUrl,
   stripLocaleFromPathname,
 } from '@/i18n/utils'
+import { resolveRequestLocale } from '@/i18n/locale-resolution'
 import { createLogger } from './lib/logs/console/logger'
 import { generateRuntimeCSP } from './lib/security/csp'
 
 const logger = createLogger('Proxy')
 const handleI18nRouting = createMiddleware(routing)
-const LOCALE_COOKIE = 'NEXT_LOCALE'
-const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
 const AUTH_ROUTES = new Set(['/login', '/signup'])
 const AUTH_COOKIE_KEYS = [
@@ -61,30 +61,15 @@ interface LocaleRoute {
   hasLocalePrefix: boolean
 }
 
-function resolveLocaleRoute(pathname: string): LocaleRoute {
+function resolveLocaleRoute(pathname: string, localeOverride?: LocaleCode): LocaleRoute {
   const firstSegment = pathname.split('/').filter(Boolean)[0]
   const { locale, pathname: normalizedPathname } = stripLocaleFromPathname(pathname)
+  const hasLocalePrefix = Boolean(firstSegment && isLocaleCode(firstSegment))
   return {
-    locale,
+    locale: hasLocalePrefix ? locale : (localeOverride ?? locale),
     pathname: normalizedPathname,
-    hasLocalePrefix: Boolean(firstSegment && isLocaleCode(firstSegment)),
+    hasLocalePrefix,
   }
-}
-
-function buildNormalizedUrl(request: NextRequest, pathname: string) {
-  const normalizedUrl = new URL(pathname, request.url)
-  normalizedUrl.search = request.nextUrl.search
-  return normalizedUrl
-}
-
-function resolveRequestLocale(
-  request: NextRequest,
-  route = resolveLocaleRoute(request.nextUrl.pathname)
-) {
-  const preferredLocale = request.cookies.get(LOCALE_COOKIE)?.value
-  return route.hasLocalePrefix || !preferredLocale || !isLocaleCode(preferredLocale)
-    ? route.locale
-    : preferredLocale
 }
 
 function isCanonicalRouteHandlerPath(pathname: string) {
@@ -105,8 +90,8 @@ function isCanonicalRouteHandlerPath(pathname: string) {
   )
 }
 
-function buildLoginRedirect(request: NextRequest, callback?: string) {
-  const locale = resolveRequestLocale(request)
+function buildLoginRedirect(request: NextRequest, route: LocaleRoute, callback?: string) {
+  const { locale } = route
   const loginUrl = new URL(localizeUrl(request.nextUrl.origin, locale, '/login'))
 
   if (callback) {
@@ -166,10 +151,6 @@ function rewriteMarkdownRequest(request: NextRequest): NextResponse | null {
   const route = resolveLocaleRoute(request.nextUrl.pathname)
   const { locale, pathname: normalizedPathname } = route
 
-  if (route.hasLocalePrefix && locale === defaultLocale) {
-    return NextResponse.redirect(buildNormalizedUrl(request, normalizedPathname))
-  }
-
   const rewriteUrl = new URL(MARKDOWN_RENDER_ROUTE, request.url)
   rewriteUrl.searchParams.set('path', normalizedPathname)
   rewriteUrl.searchParams.set('locale', locale)
@@ -193,23 +174,30 @@ function withLocaleCookie(response: NextResponse, locale: LocaleCode) {
   return response
 }
 
-function redirectToCookieLocale(request: NextRequest, route: LocaleRoute): NextResponse | null {
-  const preferredLocale = request.cookies.get(LOCALE_COOKIE)?.value
+async function resolveCanonicalLocaleRoute(
+  request: NextRequest,
+  route: LocaleRoute,
+  hasActiveSession: boolean
+): Promise<LocaleRoute> {
+  if (route.hasLocalePrefix || isCanonicalRouteHandlerPath(request.nextUrl.pathname)) {
+    return route
+  }
 
-  if (
-    route.hasLocalePrefix ||
-    isCanonicalRouteHandlerPath(request.nextUrl.pathname) ||
-    (request.method !== 'GET' && request.method !== 'HEAD') ||
-    !preferredLocale ||
-    !isLocaleCode(preferredLocale) ||
-    preferredLocale === defaultLocale
-  ) {
+  const locale = await resolveRequestLocale(request, { hasActiveSession })
+  return resolveLocaleRoute(request.nextUrl.pathname, locale)
+}
+
+function redirectToRequiredLocalePrefix(
+  request: NextRequest,
+  route: LocaleRoute
+): NextResponse | null {
+  if (route.hasLocalePrefix || isCanonicalRouteHandlerPath(request.nextUrl.pathname)) {
     return null
   }
 
-  const redirectUrl = new URL(localizeUrl(request.nextUrl.origin, preferredLocale, route.pathname))
+  const redirectUrl = new URL(localizeUrl(request.nextUrl.origin, route.locale, route.pathname))
   redirectUrl.search = request.nextUrl.search
-  return NextResponse.redirect(redirectUrl)
+  return withLocaleCookie(NextResponse.redirect(redirectUrl), route.locale)
 }
 
 function handleSecurityFiltering(request: NextRequest): NextResponse | null {
@@ -246,30 +234,36 @@ function handleSecurityFiltering(request: NextRequest): NextResponse | null {
 
 export async function proxy(request: NextRequest) {
   const url = request.nextUrl
-  const route = resolveLocaleRoute(url.pathname)
+  const initialRoute = resolveLocaleRoute(url.pathname)
+  const hasActiveSession = Boolean(getSessionCookie(request))
+  const route = await resolveCanonicalLocaleRoute(request, initialRoute, hasActiveSession)
   const { locale, pathname: normalizedPathname } = route
 
-  const hasActiveSession = Boolean(getSessionCookie(request))
   const isProtectedPath = isProtectedAppPath(url.pathname)
   const reauth = url.searchParams.get('reauth') === '1'
 
   if (isProtectedPath && !hasActiveSession) {
     const callbackTarget = getCanonicalCallbackPath(url.pathname, url.search)
-    return buildLoginRedirect(request, callbackTarget)
+    return buildLoginRedirect(request, route, callbackTarget)
   }
 
   if (isAuthRoute(url.pathname)) {
     if (reauth) {
+      const localeRedirect = redirectToRequiredLocalePrefix(request, route)
+      if (localeRedirect) {
+        clearAuthCookies(localeRedirect)
+        return localeRedirect
+      }
+
       const response = handleI18nRouting(request)
       clearAuthCookies(response)
-      return route.hasLocalePrefix ? withLocaleCookie(response, locale) : response
+      return withLocaleCookie(response, locale)
     }
 
     if (hasActiveSession) {
-      const requestLocale = resolveRequestLocale(request, route)
       return withLocaleCookie(
-        NextResponse.redirect(new URL(localizeUrl(url.origin, requestLocale, '/workspace'))),
-        requestLocale
+        NextResponse.redirect(new URL(localizeUrl(url.origin, locale, '/workspace'))),
+        locale
       )
     }
   }
@@ -277,7 +271,7 @@ export async function proxy(request: NextRequest) {
   const securityBlock = handleSecurityFiltering(request)
   if (securityBlock) return securityBlock
 
-  const localeRedirect = redirectToCookieLocale(request, route)
+  const localeRedirect = redirectToRequiredLocalePrefix(request, route)
   if (localeRedirect) return localeRedirect
 
   const markdownRewrite = rewriteMarkdownRequest(request)
@@ -316,7 +310,7 @@ export async function proxy(request: NextRequest) {
     appendHomepageDiscoveryLinks(response.headers, locale)
   }
 
-  return route.hasLocalePrefix ? withLocaleCookie(response, locale) : response
+  return withLocaleCookie(response, locale)
 }
 
 export const config = {

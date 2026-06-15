@@ -12,7 +12,6 @@ export const useGeneralStore = create<GeneralStore>()(
       (set, get) => {
         const store: General = {
           theme: 'system',
-          preferredLocale: 'en',
           telemetryEnabled: true,
           isLoading: false,
           error: null,
@@ -93,7 +92,11 @@ export const useGeneralStore = create<GeneralStore>()(
                 throw new Error(`Failed to update setting: ${key}`)
               }
 
-              set({ [key]: value, error: null } as Partial<General>)
+              if (key === 'preferredLocale') {
+                set({ error: null })
+              } else {
+                set({ [key]: value, error: null } as Partial<General>)
+              }
             } catch (error) {
               logger.error(`Error updating setting ${key}:`, error)
               set({ error: error instanceof Error ? error.message : 'Unknown error' })

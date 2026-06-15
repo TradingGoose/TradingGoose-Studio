@@ -1,6 +1,5 @@
 export interface General {
   theme: 'system' | 'light' | 'dark'
-  preferredLocale: 'en' | 'es' | 'zh'
   telemetryEnabled: boolean
   isLoading: boolean
   error: string | null

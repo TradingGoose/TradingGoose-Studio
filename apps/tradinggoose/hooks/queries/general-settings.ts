@@ -12,7 +12,6 @@ export const generalSettingsKeys = {
 
 export interface GeneralSettings {
   theme: 'light' | 'dark' | 'system'
-  preferredLocale: 'en' | 'es' | 'zh'
   telemetryEnabled: boolean
   billingUsageNotificationsEnabled: boolean
 }
@@ -28,7 +27,6 @@ async function fetchGeneralSettings(): Promise<GeneralSettings> {
 
   return {
     theme: data.theme || 'system',
-    preferredLocale: data.preferredLocale || 'en',
     telemetryEnabled: data.telemetryEnabled ?? true,
     billingUsageNotificationsEnabled: data.billingUsageNotificationsEnabled ?? true,
   }
@@ -39,7 +37,6 @@ function syncSettingsToZustand(settings: GeneralSettings) {
 
   setSettings({
     theme: settings.theme,
-    preferredLocale: settings.preferredLocale,
     telemetryEnabled: settings.telemetryEnabled,
     isBillingUsageNotificationsEnabled: settings.billingUsageNotificationsEnabled,
   })

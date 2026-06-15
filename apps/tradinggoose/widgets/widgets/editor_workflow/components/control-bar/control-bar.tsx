@@ -16,7 +16,9 @@ import {
   widgetHeaderButtonGroupClassName,
   widgetHeaderIconButtonClassName,
   widgetHeaderMenuContentClassName,
+  widgetHeaderMenuIconClassName,
   widgetHeaderMenuItemClassName,
+  widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
 import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -503,7 +505,11 @@ export function ControlBar({
               {getTooltipContent()}
             </TooltipContent>
           </Tooltip>
-          <DropdownMenuContent align='end' className={cn(widgetHeaderMenuContentClassName, 'w-56')}>
+          <DropdownMenuContent
+            align='end'
+            sideOffset={6}
+            className={cn(widgetHeaderMenuContentClassName, 'w-56 p-1')}
+          >
             {runTriggers.map((trigger) => (
               <DropdownMenuItem
                 key={trigger.blockId}
@@ -513,8 +519,10 @@ export function ControlBar({
                   handleRunClick(trigger.blockId)
                 }}
               >
-                <Play className='h-3.5 w-3.5' />
-                <span className='min-w-0 flex-1 truncate'>{trigger.name}</span>
+                <Play className={widgetHeaderMenuIconClassName} aria-hidden='true' />
+                <span className={cn(widgetHeaderMenuTextClassName, 'min-w-0 flex-1 truncate')}>
+                  {trigger.name}
+                </span>
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>

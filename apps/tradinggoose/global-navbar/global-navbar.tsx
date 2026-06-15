@@ -25,7 +25,6 @@ import { UserMenu } from './components/user-menu'
 import { WorkspaceDialogs } from './components/workspace-dialogs'
 import { WorkspaceSwitcher } from './components/workspace-switcher'
 import { GlobalNavbarHeaderProvider } from './header-context'
-import { SettingsLoader } from './settings-loader'
 import { SettingsDialog } from './settings-modal/settings-dialog'
 import type { SettingsSection } from './settings-modal/types'
 import type { NavSection } from './types'
@@ -337,7 +336,6 @@ export function GlobalNavbar({
 
   return (
     <GlobalNavbarHeaderProvider>
-      <SettingsLoader userId={userId} />
       <div className='flex h-screen w-screen max-w-[100vw] overflow-hidden bg-background'>
         <SidebarProvider defaultOpen className='flex h-full min-h-0 w-full overflow-hidden'>
           <Sidebar collapsible='icon'>
