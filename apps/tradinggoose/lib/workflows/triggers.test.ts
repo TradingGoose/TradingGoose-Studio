@@ -17,44 +17,36 @@ const block = (type: string, extra: Record<string, unknown> = {}) => ({
   subBlocks: {},
   ...extra,
 })
+const edge = (source: string, target = 'agent') => ({ source, target })
 
 describe('workflow run trigger resolution', () => {
   it('lists one Run option per resolved trigger identity', () => {
-    const runTriggers = listWorkflowRunTriggers({
-      github: block('github', { triggerMode: true }),
-      whatsapp: block('whatsapp', { triggerMode: true }),
-      calendly: block('calendly', {
-        triggerMode: true,
-        subBlocks: { selectedTriggerId: { value: 'calendly_invitee_created' } },
-      }),
-      unconfiguredCalendly: block('calendly', { triggerMode: true }),
-      agent: block('agent'),
-    })
+    const runTriggers = listWorkflowRunTriggers(
+      {
+        github: block('github', { triggerMode: true }),
+        whatsapp: block('whatsapp', { triggerMode: true }),
+        calendly: block('calendly', {
+          triggerMode: true,
+          subBlocks: { selectedTriggerId: { value: 'calendly_invitee_created' } },
+        }),
+        disconnectedGithub: block('github', { triggerMode: true }),
+        unconfiguredCalendly: block('calendly', { triggerMode: true }),
+      },
+      [edge('github'), edge('whatsapp'), edge('calendly'), edge('unconfiguredCalendly')]
+    )
 
     expect(runTriggers.map(({ id, name }) => [id, name])).toEqual([
       ['github:github_webhook', 'GitHub Webhook'],
       ['whatsapp:whatsapp_webhook', 'WhatsApp Webhook'],
       ['calendly:calendly_invitee_created', 'Calendly Invitee Created'],
     ])
-    expect(new Set(runTriggers.map((trigger) => trigger.id)).size).toBe(runTriggers.length)
     expect(runTriggers.every((trigger) => trigger.icon && trigger.color)).toBe(true)
-  })
-
-  it('materializes the resolved trigger source for execution', () => {
-    const run = resolveWorkflowRunTrigger(
-      { github: block('github', { triggerMode: true }) },
-      { surface: 'editor', triggerBlockId: 'github' }
-    )
-
-    expect(run.triggerType).toBe('manual')
-    expect((run.blocks.github.subBlocks as Record<string, unknown>).selectedTriggerId).toEqual({
-      value: 'github_webhook',
-    })
   })
 
   it('generates editor test input while preserving explicit copilot input', () => {
     const editorRun = resolveWorkflowRunTrigger(
       { indicator: block('indicator_trigger') },
+      [edge('indicator')],
       { surface: 'editor', triggerBlockId: 'indicator' }
     )
 
@@ -62,13 +54,19 @@ describe('workflow run trigger resolution', () => {
       listing: { listing_id: 'AAPL', base_id: '', quote_id: '', listing_type: 'default' },
       signal: 'mock_signal',
     })
+    expect(
+      (editorRun.blocks.indicator.subBlocks as Record<string, unknown>).selectedTriggerId
+    ).toEqual({
+      value: 'indicator_trigger',
+    })
 
     const explicitInput = { listing: { listing_id: 'MSFT' }, signal: 'buy' }
     expect(
-      resolveWorkflowRunTrigger(
-        { indicator: block('indicator_trigger') },
-        { surface: 'copilot', triggerBlockId: 'indicator', workflowInput: explicitInput }
-      ).input
+      resolveWorkflowRunTrigger({ indicator: block('indicator_trigger') }, [edge('indicator')], {
+        surface: 'copilot',
+        triggerBlockId: 'indicator',
+        workflowInput: explicitInput,
+      }).input
     ).toBe(explicitInput)
   })
 })

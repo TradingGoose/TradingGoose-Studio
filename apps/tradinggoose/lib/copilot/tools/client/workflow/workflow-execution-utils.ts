@@ -38,7 +38,7 @@ export async function executeWorkflowWithFullLogging(
   }
 
   const workflowData = buildExecutableWorkflowData(workflowState.blocks, workflowState.edges)
-  const start = resolveWorkflowRunTrigger(workflowData.blocks, {
+  const start = resolveWorkflowRunTrigger(workflowData.blocks, workflowData.edges, {
     surface: 'copilot',
     workflowInput: options.workflowInput,
     triggerBlockId: options.triggerBlockId,

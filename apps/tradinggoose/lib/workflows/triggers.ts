@@ -111,18 +111,12 @@ type WorkflowRunTriggerCandidate<T extends WorkflowRunTriggerBlock> = WorkflowRu
   triggerType: QueuedWorkflowTriggerType
 }
 
-const DEFAULT_TRIGGER_COLOR = '#6B7280'
-
 function getTriggerCandidates<T extends WorkflowRunTriggerBlock>(
-  blocks: Record<string, T>
+  blocks: Record<string, T>,
+  edges: Array<{ source: string; target: string }>
 ): Array<WorkflowRunTriggerCandidate<T>> {
   return Object.entries(blocks).flatMap(([blockId, block]) => {
-    if (!block?.type || block.enabled === false) {
-      return []
-    }
-
-    const blockConfig = getBlock(block.type)
-    if (!blockConfig?.triggers?.available?.length) {
+    if (!block?.type || block.enabled === false || !edges.some((edge) => edge.source === blockId)) {
       return []
     }
 
@@ -130,6 +124,7 @@ function getTriggerCandidates<T extends WorkflowRunTriggerBlock>(
       const identity = resolveTriggerExecutionIdentity(block)
       const trigger = getTrigger(identity.triggerSource)
       if (!trigger) return []
+      const blockConfig = getBlock(block.type)
 
       return [
         {
@@ -139,7 +134,7 @@ function getTriggerCandidates<T extends WorkflowRunTriggerBlock>(
           name: trigger.name,
           ...identity,
           icon: trigger.icon,
-          color: sanitizeSolidIconColor(blockConfig.bgColor) ?? DEFAULT_TRIGGER_COLOR,
+          color: sanitizeSolidIconColor(blockConfig?.bgColor) ?? '#6B7280',
         },
       ]
     } catch {
@@ -149,9 +144,10 @@ function getTriggerCandidates<T extends WorkflowRunTriggerBlock>(
 }
 
 export function listWorkflowRunTriggers<T extends WorkflowRunTriggerBlock>(
-  blocks: Record<string, T>
+  blocks: Record<string, T>,
+  edges: Array<{ source: string; target: string }>
 ): WorkflowRunTriggerOption[] {
-  return getTriggerCandidates(blocks).map(({ block, triggerType, ...trigger }) => trigger)
+  return getTriggerCandidates(blocks, edges).map(({ block, triggerType, ...trigger }) => trigger)
 }
 
 function materializeTriggerSource<T extends WorkflowRunTriggerBlock>(
@@ -203,6 +199,7 @@ function buildWorkflowRunTriggerInput(
 
 export function resolveWorkflowRunTrigger<T extends WorkflowRunTriggerBlock>(
   blocks: Record<string, T>,
+  edges: Array<{ source: string; target: string }>,
   options: {
     surface: WorkflowRunSurface
     workflowInput?: unknown
@@ -214,7 +211,7 @@ export function resolveWorkflowRunTrigger<T extends WorkflowRunTriggerBlock>(
   input: unknown
   triggerType: WorkflowRunExecutionTriggerType
 } {
-  const candidate = getTriggerCandidates(blocks).find(
+  const candidate = getTriggerCandidates(blocks, edges).find(
     (item) => item.blockId === options.triggerBlockId
   )
   if (!candidate) {

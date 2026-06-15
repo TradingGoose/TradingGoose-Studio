@@ -180,11 +180,15 @@ export function useWorkflowExecution() {
         if (!requestedTriggerBlockId) {
           throw new Error('Run requires choosing a configured trigger block')
         }
-        const editorTestTrigger = resolveWorkflowRunTrigger(workflowData.blocks, {
-          surface: 'editor',
-          workflowInput,
-          triggerBlockId: requestedTriggerBlockId,
-        })
+        const editorTestTrigger = resolveWorkflowRunTrigger(
+          workflowData.blocks,
+          workflowData.edges,
+          {
+            surface: 'editor',
+            workflowInput,
+            triggerBlockId: requestedTriggerBlockId,
+          }
+        )
         triggerBlockId = editorTestTrigger.blockId
         workflowData.blocks = editorTestTrigger.blocks
         finalWorkflowInput = editorTestTrigger.input
