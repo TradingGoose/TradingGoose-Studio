@@ -16,12 +16,12 @@ import {
   widgetHeaderButtonGroupClassName,
   widgetHeaderIconButtonClassName,
   widgetHeaderMenuContentClassName,
-  widgetHeaderMenuIconClassName,
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
 import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getIconTileStyle } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { listWorkflowRunTriggers } from '@/lib/workflows/triggers'
 import { useWorkflowBlocks, useWorkflowEdges } from '@/lib/yjs/use-workflow-doc'
@@ -130,10 +130,7 @@ export function ControlBar({
 
   const currentBlocks = useWorkflowBlocks()
   const currentEdges = useWorkflowEdges()
-  const runTriggers = useMemo(
-    () => listWorkflowRunTriggers(currentBlocks, currentEdges, { surface: 'editor' }),
-    [currentBlocks, currentEdges]
-  )
+  const runTriggers = useMemo(() => listWorkflowRunTriggers(currentBlocks), [currentBlocks])
 
   // Shared condition for keyboard shortcut and button disabled state
   const isWorkflowBlocked =
@@ -456,7 +453,7 @@ export function ControlBar({
       }
 
       if (runTriggers.length === 0) {
-        return 'Run requires a connected configured trigger block'
+        return 'Run requires a configured trigger block'
       }
 
       if (usageExceeded) {
@@ -478,10 +475,9 @@ export function ControlBar({
 
     const handleRunClick = (triggerBlockId: string) => {
       if (usageExceeded) {
-        openSubscriptionSettings()
-      } else {
-        handleRunWorkflow({ triggerBlockId })
+        return openSubscriptionSettings()
       }
+      handleRunWorkflow({ triggerBlockId })
     }
 
     if (runTriggers.length > 1) {
@@ -510,21 +506,30 @@ export function ControlBar({
             sideOffset={6}
             className={cn(widgetHeaderMenuContentClassName, 'w-56 p-1')}
           >
-            {runTriggers.map((trigger) => (
-              <DropdownMenuItem
-                key={trigger.blockId}
-                className={widgetHeaderMenuItemClassName}
-                onSelect={(event) => {
-                  event.preventDefault()
-                  handleRunClick(trigger.blockId)
-                }}
-              >
-                <Play className={widgetHeaderMenuIconClassName} aria-hidden='true' />
-                <span className={cn(widgetHeaderMenuTextClassName, 'min-w-0 flex-1 truncate')}>
-                  {trigger.name}
-                </span>
-              </DropdownMenuItem>
-            ))}
+            {runTriggers.map((trigger) => {
+              const TriggerIcon = trigger.icon ?? Play
+              return (
+                <DropdownMenuItem
+                  key={trigger.id}
+                  className={widgetHeaderMenuItemClassName}
+                  onSelect={(event) => {
+                    event.preventDefault()
+                    handleRunClick(trigger.blockId)
+                  }}
+                >
+                  <span
+                    className='relative flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-sm'
+                    style={getIconTileStyle(trigger.color, '30')}
+                    aria-hidden='true'
+                  >
+                    <TriggerIcon className='!h-3.5 !w-3.5' />
+                  </span>
+                  <span className={cn(widgetHeaderMenuTextClassName, 'min-w-0 flex-1 truncate')}>
+                    {trigger.name}
+                  </span>
+                </DropdownMenuItem>
+              )
+            })}
           </DropdownMenuContent>
         </DropdownMenu>
       )

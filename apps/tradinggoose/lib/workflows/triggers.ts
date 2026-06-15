@@ -1,7 +1,10 @@
+import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { readBlockOutputs } from '@/lib/workflows/block-outputs'
 import { getBlock } from '@/blocks'
 import type { QueuedWorkflowTriggerType } from '@/services/queue'
+import { getTrigger } from '@/triggers'
 import { resolveTriggerExecutionIdentity } from '@/triggers/resolution'
+import type { TriggerConfig } from '@/triggers/types'
 import { generateMockPayloadFromOutputsDefinition } from './triggers/trigger-utils'
 
 export const TRIGGER_TYPES = {
@@ -92,50 +95,53 @@ export type WorkflowRunTriggerBlock = {
 }
 
 type WorkflowRunSurface = 'editor' | 'copilot'
-
-type WorkflowRunTriggerCandidate<T extends WorkflowRunTriggerBlock> = {
-  blockId: string
-  block: T
-  triggerSource: string
-  triggerType: QueuedWorkflowTriggerType
-}
+type WorkflowRunExecutionTriggerType = Extract<QueuedWorkflowTriggerType, 'chat' | 'manual'>
 
 export type WorkflowRunTriggerOption = {
+  id: string
   blockId: string
   name: string
   triggerSource: string
+  icon?: TriggerConfig['icon']
+  color: string
+}
+
+type WorkflowRunTriggerCandidate<T extends WorkflowRunTriggerBlock> = WorkflowRunTriggerOption & {
+  block: T
   triggerType: QueuedWorkflowTriggerType
 }
 
-function getTriggerName(blockId: string, block: WorkflowRunTriggerBlock) {
-  return block.name || TriggerUtils.getDefaultTriggerName(block.type) || block.type || blockId
-}
+const DEFAULT_TRIGGER_COLOR = '#6B7280'
 
 function getTriggerCandidates<T extends WorkflowRunTriggerBlock>(
-  blocks: Record<string, T>,
-  edges: Array<{ source: string; target: string }>,
-  surface: WorkflowRunSurface
-) {
-  return Object.entries(blocks).filter(([blockId, block]) => {
-    if (!block?.type || block.enabled === false || !TriggerUtils.isTriggerBlock(block)) {
-      return false
-    }
-    if (surface === 'editor' && block.type === TRIGGER_TYPES.CHAT) {
-      return false
-    }
-    return edges.some((edge) => edge.source === blockId)
-  })
-}
-
-function getRunnableTriggerCandidates<T extends WorkflowRunTriggerBlock>(
-  blocks: Record<string, T>,
-  edges: Array<{ source: string; target: string }>,
-  surface: WorkflowRunSurface
+  blocks: Record<string, T>
 ): Array<WorkflowRunTriggerCandidate<T>> {
-  return getTriggerCandidates(blocks, edges, surface).flatMap(([blockId, block]) => {
+  return Object.entries(blocks).flatMap(([blockId, block]) => {
+    if (!block?.type || block.enabled === false) {
+      return []
+    }
+
+    const blockConfig = getBlock(block.type)
+    if (!blockConfig?.triggers?.available?.length) {
+      return []
+    }
+
     try {
       const identity = resolveTriggerExecutionIdentity(block)
-      return [{ blockId, block, ...identity }]
+      const trigger = getTrigger(identity.triggerSource)
+      if (!trigger) return []
+
+      return [
+        {
+          id: `${blockId}:${identity.triggerSource}`,
+          blockId,
+          block,
+          name: trigger.name,
+          ...identity,
+          icon: trigger.icon,
+          color: sanitizeSolidIconColor(blockConfig.bgColor) ?? DEFAULT_TRIGGER_COLOR,
+        },
+      ]
     } catch {
       return []
     }
@@ -143,21 +149,32 @@ function getRunnableTriggerCandidates<T extends WorkflowRunTriggerBlock>(
 }
 
 export function listWorkflowRunTriggers<T extends WorkflowRunTriggerBlock>(
-  blocks: Record<string, T>,
-  edges: Array<{ source: string; target: string }>,
-  options: { surface: WorkflowRunSurface }
+  blocks: Record<string, T>
 ): WorkflowRunTriggerOption[] {
-  return getRunnableTriggerCandidates(blocks, edges, options.surface).map(
-    ({ blockId, block, triggerSource, triggerType }) => ({
-      blockId,
-      name: getTriggerName(blockId, block),
-      triggerSource,
-      triggerType,
-    })
-  )
+  return getTriggerCandidates(blocks).map(({ block, triggerType, ...trigger }) => trigger)
 }
 
-function buildManualRunTriggerInput(
+function materializeTriggerSource<T extends WorkflowRunTriggerBlock>(
+  block: T,
+  triggerSource: string
+): T {
+  const selectedTriggerId = block.subBlocks?.selectedTriggerId
+  const nextSelectedTriggerId =
+    selectedTriggerId && typeof selectedTriggerId === 'object' && !Array.isArray(selectedTriggerId)
+      ? { ...selectedTriggerId, value: triggerSource }
+      : { value: triggerSource }
+
+  return {
+    ...block,
+    triggerMode: true,
+    subBlocks: {
+      ...(block.subBlocks ?? {}),
+      selectedTriggerId: nextSelectedTriggerId,
+    },
+  }
+}
+
+function buildWorkflowRunTriggerInput(
   block: WorkflowRunTriggerBlock,
   workflowInput: unknown,
   options: { preserveProvidedInput: boolean }
@@ -186,7 +203,6 @@ function buildManualRunTriggerInput(
 
 export function resolveWorkflowRunTrigger<T extends WorkflowRunTriggerBlock>(
   blocks: Record<string, T>,
-  edges: Array<{ source: string; target: string }>,
   options: {
     surface: WorkflowRunSurface
     workflowInput?: unknown
@@ -194,32 +210,26 @@ export function resolveWorkflowRunTrigger<T extends WorkflowRunTriggerBlock>(
   }
 ): {
   blockId: string
+  blocks: Record<string, T>
   input: unknown
-  triggerType: QueuedWorkflowTriggerType
+  triggerType: WorkflowRunExecutionTriggerType
 } {
-  const triggerBlockId = options.triggerBlockId
-  const triggerCandidates = getTriggerCandidates(blocks, edges, options.surface)
-
-  if (options.surface === 'editor' && blocks[triggerBlockId]?.type === TRIGGER_TYPES.CHAT) {
-    throw new Error('Chat Trigger blocks run from the chat widget, not editor Run')
-  }
-
-  const candidate = triggerCandidates.find(([blockId]) => blockId === triggerBlockId)
+  const candidate = getTriggerCandidates(blocks).find(
+    (item) => item.blockId === options.triggerBlockId
+  )
   if (!candidate) {
-    throw new Error(`Trigger block ${triggerBlockId} is not available for Run`)
+    throw new Error(`Trigger block ${options.triggerBlockId} is not available for Run`)
   }
 
-  const [blockId, block] = candidate
-  const identity = resolveTriggerExecutionIdentity(block)
-  const isChatRun = identity.triggerType === 'chat'
+  const block = materializeTriggerSource(candidate.block, candidate.triggerSource)
+  const isChatRun = candidate.triggerType === 'chat'
 
   return {
-    blockId,
-    input: isChatRun
-      ? options.workflowInput
-      : buildManualRunTriggerInput(block, options.workflowInput, {
-          preserveProvidedInput: options.surface === 'copilot',
-        }),
+    blockId: candidate.blockId,
+    blocks: { ...blocks, [candidate.blockId]: block },
+    input: buildWorkflowRunTriggerInput(block, options.workflowInput, {
+      preserveProvidedInput: options.surface === 'copilot' || isChatRun,
+    }),
     triggerType: isChatRun ? 'chat' : 'manual',
   }
 }
