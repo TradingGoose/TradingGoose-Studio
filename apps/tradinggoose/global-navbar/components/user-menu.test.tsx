@@ -4,7 +4,6 @@ import { act } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { SidebarProvider } from '@/components/ui/sidebar'
 import { getPublicCopy } from '@/i18n/public-copy'
 import type { LocaleCode } from '@/i18n/utils'
 import { UserMenu } from './user-menu'
@@ -15,6 +14,7 @@ const mockRefresh = vi.fn()
 const mockReplaceLocaleDocument = vi.fn()
 const mockSetTheme = vi.fn()
 const mockUpdateSetting = vi.fn()
+const mockOpenSettings = vi.fn()
 let mockPathname = '/workspace/ws-1/dashboard'
 let mockSearchParams = ''
 
@@ -91,12 +91,20 @@ vi.mock('@/global-navbar/settings-modal/components/help/help-modal', () => ({
   HelpModal: () => null,
 }))
 
-function renderUserMenu(root: Root, locale: LocaleCode) {
+function renderUserMenu(
+  root: Root,
+  locale: LocaleCode,
+  options: { canAccessSystemAdmin?: boolean } = {}
+) {
   root.render(
     <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
-      <SidebarProvider>
-        <UserMenu userName='Ada Lovelace' userEmail='ada@example.com' userId='user-1' />
-      </SidebarProvider>
+      <UserMenu
+        userName='Ada Lovelace'
+        userEmail='ada@example.com'
+        userId='user-1'
+        onOpenSettings={mockOpenSettings}
+        canAccessSystemAdmin={options.canAccessSystemAdmin}
+      />
     </NextIntlClientProvider>
   )
 }
@@ -109,7 +117,9 @@ async function openMenu(button: HTMLButtonElement) {
 }
 
 function getUserMenuButton(container: HTMLElement) {
-  const button = container.querySelector('button[data-sidebar="menu-button"]')
+  const button = Array.from(container.querySelectorAll('button')).find((candidate) =>
+    candidate.getAttribute('aria-label')?.startsWith('Ada Lovelace ')
+  )
   if (!(button instanceof HTMLButtonElement)) {
     throw new Error('Expected user menu trigger to render')
   }
@@ -179,6 +189,7 @@ describe('UserMenu language selector', () => {
     mockReplaceLocaleDocument.mockReset()
     mockSetTheme.mockReset()
     mockUpdateSetting.mockReset()
+    mockOpenSettings.mockReset()
     mockUpdateSetting.mockResolvedValue(undefined)
     mockPathname = '/workspace/ws-1/dashboard'
     mockSearchParams = ''
@@ -210,6 +221,42 @@ describe('UserMenu language selector', () => {
     })
 
     expect(getThemeButton('主题：系统')).toBeInTheDocument()
+  })
+
+  it('renders the avatar trigger without a sidebar provider', async () => {
+    await act(async () => {
+      renderUserMenu(root, 'en')
+      await flush()
+    })
+
+    const button = getUserMenuButton(container)
+    expect(button.textContent).toBe('AL')
+    expect(container.querySelector('button[data-sidebar="menu-button"]')).toBeNull()
+  })
+
+  it('owns the system admin menu item for authorized users', async () => {
+    await act(async () => {
+      renderUserMenu(root, 'en', { canAccessSystemAdmin: true })
+      await flush()
+    })
+
+    await act(async () => {
+      await openMenu(getUserMenuButton(container))
+    })
+
+    const systemAdminItem = Array.from(document.body.querySelectorAll('[role="menuitem"]')).find(
+      (item) => item.textContent?.includes(getPublicCopy('en').workspace.nav.systemAdmin)
+    )
+    if (!(systemAdminItem instanceof HTMLElement)) {
+      throw new Error('Expected system admin menu item to render')
+    }
+
+    await act(async () => {
+      systemAdminItem.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      await flush()
+    })
+
+    expect(mockPush).toHaveBeenCalledWith('/admin')
   })
 
   it('switches to zh without dropping the workspace path or query string', async () => {

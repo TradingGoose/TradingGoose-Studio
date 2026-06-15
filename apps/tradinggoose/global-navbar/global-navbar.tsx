@@ -117,35 +117,20 @@ export function GlobalNavbar({
   const [activeSettingsSection, setActiveSettingsSection] =
     React.useState<SettingsSection>('account')
   const [isSettingsModalOpen, setIsSettingsModalOpen] = React.useState(false)
-  const [userNameOverride, setUserNameOverride] = React.useState<string | null>(null)
-  const [userAvatarOverride, setUserAvatarOverride] = React.useState<{
-    url: string | null
-    version: number | string | null
-  }>({ url: null, version: null })
 
   const userId = sessionData?.user?.id ?? null
-  const userName = userNameOverride ?? sessionData?.user?.name ?? brand.name
+  const userName = sessionData?.user?.name ?? brand.name
   const userEmail = sessionData?.user?.email ?? brand.supportEmail ?? 'support@tradinggoose.ai'
-  const userAvatar = userAvatarOverride.url ?? sessionData?.user?.image
-  const userAvatarVersion =
-    userAvatarOverride.version ??
-    (sessionData?.user?.updatedAt ? new Date(sessionData.user.updatedAt).getTime() : null)
+  const userAvatar = sessionData?.user?.image
+  const userAvatarVersion = sessionData?.user?.updatedAt
+    ? new Date(sessionData.user.updatedAt).getTime()
+    : null
   const workspaceSwitcher = useWorkspaceSwitcher({
     enabled: isAuthenticated && !isSessionLoading,
     workspaceId,
     section: workspaceSection,
   })
   const canManageWorkspaces = workspaceSwitcher.canManageWorkspaces
-  const systemNavigation = React.useMemo(() => {
-    if (!isSystemAdmin || navigationMode === 'admin') {
-      return null
-    }
-
-    return {
-      href: '/admin',
-      label: tWorkspaceNav('systemAdmin'),
-    }
-  }, [isSystemAdmin, navigationMode, tWorkspaceNav])
 
   const resolveSettingsSection = React.useCallback(
     (section: SettingsSection): SettingsSection => {
@@ -203,84 +188,6 @@ export function GlobalNavbar({
       window.removeEventListener('open-settings', handleOpenSettings as EventListener)
     }
   }, [openSettings])
-
-  React.useEffect(() => {
-    if (!userId || typeof window === 'undefined') {
-      setUserNameOverride(null)
-      return
-    }
-
-    const key = `user-name-${userId}`
-
-    const readStoredName = () => {
-      const storedName = window.localStorage.getItem(key)
-      setUserNameOverride(storedName !== null ? storedName || null : null)
-    }
-
-    const handleStorage = (event: StorageEvent) => {
-      if (!event.key || event.key !== key) return
-      readStoredName()
-    }
-
-    const handleNameEvent = (event: Event) => {
-      const customEvent = event as CustomEvent<{ name?: string | null }>
-      const detail = customEvent.detail
-      setUserNameOverride(detail && 'name' in detail ? (detail?.name ?? null) : null)
-    }
-
-    readStoredName()
-    window.addEventListener('storage', handleStorage)
-    window.addEventListener('user-name-updated', handleNameEvent)
-    return () => {
-      window.removeEventListener('storage', handleStorage)
-      window.removeEventListener('user-name-updated', handleNameEvent)
-    }
-  }, [userId])
-
-  React.useEffect(() => {
-    if (!userId || typeof window === 'undefined') return
-
-    const readStoredAvatar = () => {
-      const storedVersion = window.localStorage.getItem(`user-avatar-version-${userId}`)
-      const storedUrl = window.localStorage.getItem(`user-avatar-url-${userId}`)
-      if (storedVersion || storedUrl !== null) {
-        setUserAvatarOverride((prev) => ({
-          url: storedUrl !== null ? storedUrl || null : prev.url,
-          version: storedVersion ?? prev.version,
-        }))
-      }
-    }
-
-    const handleStorage = (event: StorageEvent) => {
-      if (!event.key) return
-      if (
-        event.key === `user-avatar-version-${userId}` ||
-        event.key === `user-avatar-url-${userId}`
-      ) {
-        readStoredAvatar()
-      }
-    }
-
-    const handleAvatarEvent = (event: Event) => {
-      const customEvent = event as CustomEvent<{ url?: string | null; version?: number }>
-      const detail = customEvent.detail
-      setUserAvatarOverride((prev) => ({
-        url: detail && 'url' in detail ? (detail?.url ?? null) : prev.url,
-        version:
-          detail && 'version' in detail
-            ? (detail?.version ?? prev.version ?? Date.now())
-            : (prev.version ?? Date.now()),
-      }))
-    }
-
-    readStoredAvatar()
-    window.addEventListener('storage', handleStorage)
-    window.addEventListener('user-avatar-updated', handleAvatarEvent)
-    return () => {
-      window.removeEventListener('storage', handleStorage)
-      window.removeEventListener('user-avatar-updated', handleAvatarEvent)
-    }
-  }, [userId])
 
   if (shouldShowSkeleton) {
     return (
@@ -383,7 +290,7 @@ export function GlobalNavbar({
                 userAvatar={userAvatar}
                 userAvatarVersion={userAvatarVersion}
                 onOpenSettings={openSettings}
-                systemNavigation={systemNavigation}
+                canAccessSystemAdmin={isSystemAdmin && navigationMode !== 'admin'}
               />
             </SidebarFooter>
             <SidebarRail />

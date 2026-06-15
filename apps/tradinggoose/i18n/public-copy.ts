@@ -25,5 +25,12 @@ export function getClientMessages(
   if (scope === 'workspace') return { nav: messages.nav, workspace }
   if (scope === 'admin')
     return { admin, nav: messages.nav, registration: messages.registration, workspace }
-  return messages
+  return {
+    ...messages,
+    workspace: {
+      nav: workspace.nav,
+      userMenu: workspace.userMenu,
+      settingsModal: workspace.settingsModal,
+    },
+  }
 }

@@ -43,6 +43,7 @@
     "docs": "Docs",
     "blog": "Blog",
     "login": "Login",
+    "goToDashboard": "Go to dashboard",
     "menu": "Menu",
     "homeLabel": "Home",
     "languageLabel": "Language",
