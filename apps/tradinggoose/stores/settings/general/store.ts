@@ -43,6 +43,10 @@ export const useGeneralStore = create<GeneralStore>()(
         return {
           ...store,
           setSettings: (settings) => {
+            if (settings.theme) {
+              syncThemeToNextThemes(settings.theme)
+            }
+
             set((state) => ({
               ...state,
               ...settings,

@@ -11,7 +11,6 @@ import type { LocaleCode } from '@/i18n/utils'
 import { AccountSettings } from './account-settings'
 
 const mockUseSession = vi.fn()
-const mockUseGeneralSettings = vi.fn()
 const mockSetTelemetryEnabled = vi.fn()
 
 const generalState = {
@@ -55,10 +54,6 @@ vi.mock('@/components/ui/tooltip', () => ({
 
 vi.mock('@/lib/auth-client', () => ({
   useSession: () => mockUseSession(),
-}))
-
-vi.mock('@/hooks/queries/general-settings', () => ({
-  useGeneralSettings: () => mockUseGeneralSettings(),
 }))
 
 vi.mock('@/stores/settings/general/store', () => ({
@@ -116,7 +111,6 @@ describe('AccountSettings localization', () => {
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     mockSetTelemetryEnabled.mockReset()
-    mockUseGeneralSettings.mockReturnValue({ isPending: false })
     mockUseSession.mockReturnValue({
       data: {
         user: {

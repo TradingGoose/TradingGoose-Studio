@@ -42,19 +42,20 @@ function syncSettingsToZustand(settings: GeneralSettings) {
   })
 }
 
-export function useGeneralSettings() {
+export function useGeneralSettings({ enabled = true }: { enabled?: boolean } = {}) {
   const query = useQuery({
     queryKey: generalSettingsKeys.settings(),
     queryFn: fetchGeneralSettings,
+    enabled,
     staleTime: 60 * 60 * 1000,
     placeholderData: keepPreviousData,
   })
 
   useEffect(() => {
-    if (query.data) {
+    if (enabled && query.data) {
       syncSettingsToZustand(query.data)
     }
-  }, [query.data])
+  }, [enabled, query.data])
 
   return query
 }

@@ -1,8 +1,5 @@
 import type { NextRequest } from 'next/server'
-import { createLogger } from '@/lib/logs/console/logger'
 import { defaultLocale, isLocaleCode, LOCALE_COOKIE, type LocaleCode } from './utils'
-
-const logger = createLogger('LocaleResolution')
 
 type AuthenticatedLocaleResolver = (request: NextRequest) => Promise<LocaleCode | null>
 
@@ -68,31 +65,27 @@ export function resolveAnonymousLocale(request: NextRequest): LocaleCode {
 export async function resolveAuthenticatedUserLocale(
   request: NextRequest
 ): Promise<LocaleCode | null> {
-  try {
-    const { getSession } = await import('@/lib/auth')
-    const session = await getSession(request.headers, { disableCookieCache: true })
-    const userId = session?.user?.id
+  const { getSession } = await import('@/lib/auth')
+  const session = await getSession(request.headers, { disableCookieCache: true })
+  const userId = session?.user?.id
 
-    if (!userId) {
-      return null
-    }
-
-    const [{ db, settings }, { eq }] = await Promise.all([
-      import('@tradinggoose/db'),
-      import('drizzle-orm'),
-    ])
-    const rows = await db
-      .select({ preferredLocale: settings.preferredLocale })
-      .from(settings)
-      .where(eq(settings.userId, userId))
-      .limit(1)
-
-    const preferredLocale = rows[0]?.preferredLocale
-    return preferredLocale && isLocaleCode(preferredLocale) ? preferredLocale : null
-  } catch (error) {
-    logger.warn('Failed to resolve authenticated locale', { error })
+  if (!userId) {
     return null
   }
+
+  // Next.js 16 proxy.ts runs in the Node.js runtime, so this resolver can read the canonical settings table directly.
+  const [{ db, settings }, { eq }] = await Promise.all([
+    import('@tradinggoose/db'),
+    import('drizzle-orm'),
+  ])
+  const rows = await db
+    .select({ preferredLocale: settings.preferredLocale })
+    .from(settings)
+    .where(eq(settings.userId, userId))
+    .limit(1)
+
+  const preferredLocale = rows[0]?.preferredLocale
+  return preferredLocale && isLocaleCode(preferredLocale) ? preferredLocale : null
 }
 
 export async function resolveRequestLocale(

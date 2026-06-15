@@ -82,4 +82,20 @@ describe('locale resolution', () => {
 
     expect(locale).toBe('es')
   })
+
+  it('does not fall back to anonymous locale when authenticated locale resolution fails', async () => {
+    await expect(
+      resolveRequestLocale(
+        new NextRequest('http://localhost:3000/', {
+          headers: { cookie: 'NEXT_LOCALE=es' },
+        }),
+        {
+          hasActiveSession: true,
+          resolveAuthenticatedLocale: vi.fn(async () => {
+            throw new Error('settings unavailable')
+          }),
+        }
+      )
+    ).rejects.toThrow('settings unavailable')
+  })
 })

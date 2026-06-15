@@ -22,7 +22,6 @@ import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useSession } from '@/lib/auth-client'
 import { useProfilePictureUpload } from '@/global-navbar/settings-modal/components/hooks/use-profile-picture-upload'
-import { useGeneralSettings } from '@/hooks/queries/general-settings'
 import { useGeneralStore } from '@/stores/settings/general/store'
 const logger = createLogger('AccountSettings')
 const DEFAULT_AVATAR_SRC = '/profile/avatar.png'
@@ -41,12 +40,11 @@ export function AccountSettings() {
   const userId = session?.user?.id ?? null
 
   // Telemetry state from general store
-  const { isPending: isSettingsPending } = useGeneralSettings()
   const storeIsLoading = useGeneralStore((state) => state.isLoading)
   const telemetryEnabled = useGeneralStore((state) => state.telemetryEnabled)
   const isTelemetryLoading = useGeneralStore((state) => state.isTelemetryLoading)
   const setTelemetryEnabled = useGeneralStore((state) => state.setTelemetryEnabled)
-  const isTelemetrySettingsLoading = isSettingsPending || storeIsLoading
+  const isTelemetrySettingsLoading = storeIsLoading
 
   const handleTelemetryToggle = (checked: boolean) => {
     if (checked === telemetryEnabled || isTelemetryLoading) {
