@@ -31,13 +31,16 @@ const API_EXECUTION_POLL_INTERVAL_MS = 1_000
 const API_EXECUTION_WAIT_TIMEOUT_MS = 25_000
 const UNSUPPORTED_API_EXECUTE_FIELDS = [
   'workflowTriggerType',
+  'triggerType',
+  'executionTarget',
+  'startBlockId',
+  'triggerBlockId',
   'isSecureMode',
   'useDraftState',
   'isClientSession',
   'workflowData',
   'workflowStateOverride',
   'workflowVariables',
-  'startBlockId',
   'executionId',
 ] as const
 

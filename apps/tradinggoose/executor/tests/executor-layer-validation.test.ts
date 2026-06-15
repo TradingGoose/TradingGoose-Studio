@@ -167,7 +167,7 @@ describe('Full Executor Test', () => {
 
     try {
       // Execute the workflow
-      const result = await executor.execute('test-workflow-id')
+      const result = await executor.execute('test-workflow-id', 'trigger')
 
       // Check if it's an ExecutionResult (not StreamingExecution)
       if ('success' in result) {
@@ -186,7 +186,11 @@ describe('Full Executor Test', () => {
 
   it('should test the executor getNextExecutionLayer method directly', async () => {
     // Create a mock context in the exact state after the condition executes
-    const context = (executor as any).createExecutionContext('test-workflow', new Date())
+    const context = (executor as any).createExecutionContext(
+      'test-workflow',
+      new Date(),
+      'bd9f4f7d-8aed-4860-a3be-8bebd1931b19'
+    )
 
     // Set up the state as it would be after the condition executes
     context.executedBlocks.add('bd9f4f7d-8aed-4860-a3be-8bebd1931b19') // Start

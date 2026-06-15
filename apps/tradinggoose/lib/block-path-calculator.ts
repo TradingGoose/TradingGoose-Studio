@@ -120,7 +120,7 @@ export class BlockPathCalculator {
         }
         names.push(accessibleBlockId)
 
-        if (block.metadata?.id === 'input_trigger') {
+        if (block.metadata?.category === 'triggers' || block.config.params.triggerMode === true) {
           names.push('start')
         }
       }

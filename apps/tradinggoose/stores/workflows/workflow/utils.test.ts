@@ -1,6 +1,43 @@
 import { describe, expect, it } from 'vitest'
 import type { BlockState } from '@/stores/workflows/workflow/types'
-import { convertLoopBlockToLoop } from '@/stores/workflows/workflow/utils'
+import {
+  buildExecutableWorkflowData,
+  convertLoopBlockToLoop,
+} from '@/stores/workflows/workflow/utils'
+
+const block = (id: string, type = 'agent', extra: Partial<BlockState> = {}): BlockState => ({
+  id,
+  type,
+  name: id,
+  position: { x: 0, y: 0 },
+  subBlocks: {},
+  outputs: {},
+  enabled: true,
+  ...extra,
+})
+
+describe('buildExecutableWorkflowData', () => {
+  it.concurrent('keeps blocks, edges, loops, and parallels consistent with enabled blocks', () => {
+    const blocks: Record<string, BlockState> = {
+      trigger: block('trigger', 'manual_trigger'),
+      loop: block('loop', 'loop'),
+      parallel: block('parallel', 'parallel'),
+      active: block('active', 'agent', { data: { parentId: 'loop' } }),
+      disabled: block('disabled', 'agent', { enabled: false, data: { parentId: 'parallel' } }),
+    }
+
+    const result = buildExecutableWorkflowData(blocks, [
+      { id: 'edge-1', source: 'trigger', target: 'active' },
+      { id: 'edge-2', source: 'active', target: 'disabled' },
+      { id: 'edge-3', source: 'disabled', target: 'parallel' },
+    ])
+
+    expect(Object.keys(result.blocks).sort()).toEqual(['active', 'loop', 'parallel', 'trigger'])
+    expect(result.edges).toEqual([{ id: 'edge-1', source: 'trigger', target: 'active' }])
+    expect(result.loops.loop.nodes).toEqual(['active'])
+    expect(result.parallels.parallel.nodes).toEqual([])
+  })
+})
 
 describe('convertLoopBlockToLoop', () => {
   it.concurrent('should parse JSON array string for forEach loops', () => {

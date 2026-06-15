@@ -240,8 +240,17 @@ describe('copilot contract registry', () => {
   it('accepts explicit entity ids on workflow execution tools', () => {
     expect(() => getToolContract('run_workflow')?.args.parse({})).toThrow()
     expect(() => getToolContract('read_workflow')?.args.parse({})).toThrow()
-    expect(getToolContract('run_workflow')?.args.parse({ entityId: 'workflow-123' })).toEqual({
+    expect(() =>
+      getToolContract('run_workflow')?.args.parse({ entityId: 'workflow-123' })
+    ).toThrow()
+    expect(
+      getToolContract('run_workflow')?.args.parse({
+        entityId: 'workflow-123',
+        triggerBlockId: 'trigger-1',
+      })
+    ).toEqual({
       entityId: 'workflow-123',
+      triggerBlockId: 'trigger-1',
     })
     expect(
       getToolContract('set_workflow_variables')?.args.parse({

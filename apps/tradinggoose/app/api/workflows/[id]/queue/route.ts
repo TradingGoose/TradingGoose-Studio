@@ -11,10 +11,11 @@ import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { generateRequestId, SSE_HEADERS } from '@/lib/utils'
 import type { WorkflowExecutionBlueprint } from '@/lib/workflows/execution-runner'
 import { readWorkflowAccessContext } from '@/lib/workflows/utils'
+import type { QueuedWorkflowTriggerType } from '@/services/queue'
+import { resolveTriggerExecutionIdentity } from '@/triggers/resolution'
 
 const logger = createLogger('WorkflowQueueAPI')
 
-type QueuedWorkflowTriggerType = 'api' | 'manual' | 'chat'
 type QueuedWorkflowExecutionTarget = 'deployed' | 'live'
 
 type QueueRequestBody = {
@@ -24,7 +25,7 @@ type QueueRequestBody = {
   triggerType?: unknown
   workflowData?: WorkflowExecutionBlueprint['workflowData']
   workflowVariables?: Record<string, unknown>
-  startBlockId?: string
+  triggerBlockId?: string
   selectedOutputs?: string[]
   stream?: boolean
   workflowDepth?: number
@@ -32,7 +33,9 @@ type QueueRequestBody = {
 
 function readQueuedWorkflowTriggerType(value: unknown): QueuedWorkflowTriggerType | null {
   if (value === undefined) return 'manual'
-  if (value === 'api' || value === 'manual' || value === 'chat') return value
+  if (['api', 'manual', 'chat', 'webhook', 'schedule'].includes(value as string)) {
+    return value as QueuedWorkflowTriggerType
+  }
   return null
 }
 
@@ -58,8 +61,34 @@ function hasLiveWorkflowState(body: QueueRequestBody) {
   return (
     body.workflowData !== undefined ||
     body.workflowVariables !== undefined ||
-    (typeof body.startBlockId === 'string' && body.startBlockId.length > 0)
+    (typeof body.triggerBlockId === 'string' && body.triggerBlockId.length > 0)
   )
+}
+
+function resolveQueuedTriggerData(
+  body: QueueRequestBody,
+  executionTarget: QueuedWorkflowExecutionTarget,
+  triggerType: QueuedWorkflowTriggerType
+) {
+  if (executionTarget !== 'live' || typeof body.triggerBlockId !== 'string') {
+    return undefined
+  }
+
+  const block = body.workflowData?.blocks?.[body.triggerBlockId]
+  if (!block) {
+    throw new Error('Queued workflow trigger block was not found in live workflow state')
+  }
+
+  const identity = resolveTriggerExecutionIdentity(block)
+  const isManualEditorRun = triggerType === 'manual'
+  const triggerTypeMatchesBlock = isManualEditorRun
+    ? identity.triggerType !== 'chat'
+    : identity.triggerType === triggerType
+  if (!triggerTypeMatchesBlock) {
+    throw new Error('Queued workflow trigger type does not match the trigger block')
+  }
+
+  return { source: identity.triggerSource }
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -118,7 +147,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         { status: 400 }
       )
     }
-
+    if (
+      (triggerType === 'webhook' || triggerType === 'schedule') &&
+      (executionTarget !== 'live' ||
+        typeof body.triggerBlockId !== 'string' ||
+        body.triggerBlockId.length === 0)
+    ) {
+      return NextResponse.json(
+        { error: 'Webhook and schedule queued workflow executions require a live trigger block' },
+        { status: 400 }
+      )
+    }
     if (
       !accessContext.isOwner &&
       !accessContext.isWorkspaceOwner &&
@@ -133,6 +172,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       typeof body.executionId === 'string' && body.executionId.length > 0
         ? body.executionId
         : `workflow_execution_${randomUUID()}`
+    let triggerData: { source: string } | undefined
+    try {
+      triggerData = resolveQueuedTriggerData(body, executionTarget, triggerType)
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Queued workflow trigger block is not runnable'
+      return NextResponse.json({ error: errorMessage }, { status: 400 })
+    }
     const handle = await enqueuePendingExecution({
       executionType: 'workflow',
       pendingExecutionId,
@@ -153,12 +200,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         workflowVariables: executionTarget === 'live' ? body.workflowVariables : undefined,
         selectedOutputs: body.selectedOutputs,
         stream: body.stream === true,
-        startBlockId:
+        triggerBlockId:
           executionTarget === 'live' &&
-          typeof body.startBlockId === 'string' &&
-          body.startBlockId.length > 0
-            ? body.startBlockId
+          typeof body.triggerBlockId === 'string' &&
+          body.triggerBlockId.length > 0
+            ? body.triggerBlockId
             : undefined,
+        ...(triggerData ? { triggerData } : {}),
         workflowDepth: typeof body.workflowDepth === 'number' ? body.workflowDepth : 0,
         metadata: {
           source,

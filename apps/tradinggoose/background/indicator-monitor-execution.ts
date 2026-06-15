@@ -272,7 +272,7 @@ export async function executeIndicatorMonitorJob(payload: IndicatorMonitorExecut
       input: budgetResult.payload,
       triggerType: 'webhook',
       executionTarget: 'deployed',
-      startBlockId: payload.monitor.blockId,
+      triggerBlockId: payload.monitor.blockId,
       triggerData: {
         source: INDICATOR_MONITOR_TRIGGER_ID,
         executionTarget: 'deployed',

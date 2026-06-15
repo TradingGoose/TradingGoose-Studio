@@ -1,13 +1,13 @@
 import { useMemo } from 'react'
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
 import { SYSTEM_REFERENCE_PREFIXES } from '@/lib/workflows/references'
-import { normalizeBlockName } from '@/stores/workflows/utils'
 import {
   useWorkflowBlocks,
   useWorkflowEdges,
   useWorkflowLoops,
   useWorkflowParallels,
 } from '@/lib/yjs/use-workflow-doc'
+import { normalizeBlockName } from '@/stores/workflows/utils'
 import type { Loop, Parallel } from '@/stores/workflows/workflow/types'
 
 export function useAccessibleReferencePrefixes(blockId?: string | null): Set<string> | undefined {
@@ -48,10 +48,6 @@ export function useAccessibleReferencePrefixes(blockId?: string | null): Set<str
       const block = blocks[id]
       if (block?.name) {
         prefixes.add(normalizeBlockName(block.name))
-      }
-
-      if (block?.type === 'input_trigger') {
-        prefixes.add('start')
       }
     })
 

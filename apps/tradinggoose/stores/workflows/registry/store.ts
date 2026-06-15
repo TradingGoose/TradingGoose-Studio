@@ -1,5 +1,5 @@
-import { createWithEqualityFn as create } from 'zustand/traditional'
 import { devtools } from 'zustand/middleware'
+import { createWithEqualityFn as create } from 'zustand/traditional'
 import { getStableVibrantColor } from '@/lib/colors'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateCreativeWorkflowName } from '@/lib/naming'
@@ -799,7 +799,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           }
 
           logger.warn(
-            `Workflow ${workflowId} has no state in DB - this should not happen with server-side start block creation`
+            `Workflow ${workflowId} has no state in DB - this should not happen with server-side trigger block creation`
           )
         }
 
@@ -1063,9 +1063,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           },
           error: null,
         }))
-        logger.info(
-          `Duplicated workflow ${sourceId} to ${id} in workspace ${workspaceId}`
-        )
+        logger.info(`Duplicated workflow ${sourceId} to ${id} in workspace ${workspaceId}`)
 
         return id
       },

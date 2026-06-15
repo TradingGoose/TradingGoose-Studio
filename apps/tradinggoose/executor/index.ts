@@ -260,10 +260,10 @@ export class Executor {
    * Executes the workflow and returns the result.
    *
    * @param workflowId - Unique identifier for the workflow execution
-   * @param startBlockId - Optional block ID to start execution from (for webhook or schedule triggers)
+   * @param triggerBlockId - Trigger block ID to execute from
    * @returns Execution result containing output, logs, and metadata
    */
-  async execute(workflowId: string, startBlockId?: string): Promise<ExecutionResult> {
+  async execute(workflowId: string, triggerBlockId: string): Promise<ExecutionResult> {
     const startTime = new Date()
     let finalOutput: NormalizedBlockOutput = {}
 
@@ -275,9 +275,9 @@ export class Executor {
       startTime: startTime.toISOString(),
     })
 
-    this.validateWorkflow(startBlockId)
+    this.validateWorkflow(triggerBlockId)
 
-    const context = this.createExecutionContext(workflowId, startTime, startBlockId)
+    const context = this.createExecutionContext(workflowId, startTime, triggerBlockId)
 
     try {
       let hasMoreLayers = true
@@ -517,16 +517,15 @@ export class Executor {
    * Validates that the workflow meets requirements for execution.
    * Ensures trigger blocks exist along with valid connections and loop configurations.
    *
-   * @param startBlockId - Optional specific block to start from
+   * @param triggerBlockId - Trigger block to execute from
    * @throws Error if workflow validation fails
    */
-  private validateWorkflow(startBlockId?: string): void {
-    if (startBlockId) {
-      const startBlock = this.actualWorkflow.blocks.find((block) => block.id === startBlockId)
-      if (!startBlock || !startBlock.enabled) {
-        throw new Error(`Start block ${startBlockId} not found or disabled`)
+  private validateWorkflow(triggerBlockId?: string): void {
+    if (triggerBlockId !== undefined) {
+      const triggerBlock = this.actualWorkflow.blocks.find((block) => block.id === triggerBlockId)
+      if (!triggerBlock || !triggerBlock.enabled) {
+        throw new Error(`Trigger block ${triggerBlockId} not found or disabled`)
       }
-      return
     }
 
     // Check for any type of trigger block (dedicated triggers or trigger-mode blocks)
@@ -584,13 +583,13 @@ export class Executor {
    *
    * @param workflowId - Unique identifier for the workflow execution
    * @param startTime - Execution start time
-   * @param startBlockId - Optional specific block to start from
+   * @param triggerBlockId - Trigger block to execute from
    * @returns Initialized execution context
    */
   private createExecutionContext(
     workflowId: string,
     startTime: Date,
-    startBlockId?: string
+    triggerBlockId: string
   ): ExecutionContext {
     const workspaceId = this.requireExecutionWorkspaceId()
     const context: ExecutionContext = {
@@ -601,6 +600,7 @@ export class Executor {
       workflowLogId: this.contextExtensions.workflowLogId,
       submissionSource: this.contextExtensions.submissionSource,
       triggerType: this.contextExtensions.triggerType,
+      triggerBlockId: undefined,
       workflowDepth: this.contextExtensions.workflowDepth ?? 0,
       isDeployedContext: this.contextExtensions.isDeployedContext || false,
       blockStates: new Map(),
@@ -645,31 +645,11 @@ export class Executor {
       }
     }
 
-    // Determine which block to initialize as the starting point
-    let initBlock: SerializedBlock | undefined
-    if (startBlockId) {
-      initBlock = this.actualWorkflow.blocks.find((block) => block.id === startBlockId)
-    } else if (this.isChildExecution) {
-      const inputTriggerBlocks = this.actualWorkflow.blocks.filter(
-        (block) => block.metadata?.id === 'input_trigger'
-      )
-      if (inputTriggerBlocks.length === 1) {
-        initBlock = inputTriggerBlocks[0]
-      } else if (inputTriggerBlocks.length > 1) {
-        throw new Error('Child workflow has multiple Input Trigger blocks. Keep only one.')
-      }
-    } else {
-      const triggerBlocks = this.actualWorkflow.blocks.filter((block) =>
-        isSerializedTriggerBlock(block)
-      )
-      if (triggerBlocks.length > 0) {
-        initBlock = triggerBlocks[0]
-      }
-    }
-
+    const initBlock = this.actualWorkflow.blocks.find((block) => block.id === triggerBlockId)
     if (!initBlock) {
-      throw new Error('Unable to determine a trigger block to initialize')
+      throw new Error(`Trigger block ${triggerBlockId} not found or disabled`)
     }
+    context.triggerBlockId = initBlock.id
 
     // Remove any pre-populated state for the init block so we can inject runtime trigger input.
     if (context.blockStates.has(initBlock.id)) {

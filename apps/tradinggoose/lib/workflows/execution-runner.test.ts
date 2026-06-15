@@ -71,7 +71,7 @@ vi.mock('@/lib/workflows/db-helpers', () => ({
 
 vi.mock('@/lib/workflows/triggers', () => ({
   TriggerUtils: {
-    findStartBlock: vi.fn(),
+    findTriggerBlock: vi.fn(),
   },
 }))
 
@@ -157,7 +157,7 @@ describe('runPreparedWorkflowExecution', () => {
       triggerType: 'webhook',
       workflowInput: { symbol: 'AAPL' },
       executionId: 'execution-1',
-      start: {
+      triggerTarget: {
         kind: 'block',
         blockId: 'trigger',
       },
@@ -219,7 +219,7 @@ describe('runPreparedWorkflowExecution', () => {
       triggerType: 'manual',
       workflowInput: {},
       executionId: 'execution-1',
-      start: {
+      triggerTarget: {
         kind: 'block',
         blockId: 'trigger',
       },
@@ -247,7 +247,7 @@ describe('runPreparedWorkflowExecution', () => {
       triggerType: 'manual',
       workflowInput: {},
       executionId: 'execution-1',
-      start: {
+      triggerTarget: {
         kind: 'block',
         blockId: 'trigger',
       },
@@ -271,14 +271,14 @@ describe('runPreparedWorkflowExecution', () => {
     expect(result.dispatchFailureReason).toBe('usage_limit_exceeded')
   })
 
-  it('reports missing start blocks as dispatch failures', async () => {
+  it('reports missing trigger blocks as dispatch failures', async () => {
     const result = await runPreparedWorkflowExecution({
       blueprint,
       actorUserId: 'user-1',
       triggerType: 'webhook',
       workflowInput: {},
       executionId: 'execution-1',
-      start: {
+      triggerTarget: {
         kind: 'block',
         blockId: 'missing',
       },
@@ -286,7 +286,7 @@ describe('runPreparedWorkflowExecution', () => {
 
     expect(mocks.execute).not.toHaveBeenCalled()
     expect(result.result.success).toBe(false)
-    expect(result.dispatchFailureReason).toBe('missing_start_block')
+    expect(result.dispatchFailureReason).toBe('missing_trigger_block')
   })
 
   it('does not rewrite successful executions as failed when terminal success logging fails', async () => {
@@ -299,7 +299,7 @@ describe('runPreparedWorkflowExecution', () => {
         triggerType: 'manual',
         workflowInput: {},
         executionId: 'execution-1',
-        start: {
+        triggerTarget: {
           kind: 'block',
           blockId: 'trigger',
         },
@@ -310,8 +310,8 @@ describe('runPreparedWorkflowExecution', () => {
     expect(mocks.completeWithError).not.toHaveBeenCalled()
   })
 
-  it('resolves queued child API starts through the child input-trigger path', async () => {
-    vi.mocked(TriggerUtils.findStartBlock).mockReturnValue({
+  it('resolves queued child API triggers through the child input-trigger path', async () => {
+    vi.mocked(TriggerUtils.findTriggerBlock).mockReturnValue({
       blockId: 'trigger',
       block: { type: 'input_trigger' },
     })
@@ -322,7 +322,7 @@ describe('runPreparedWorkflowExecution', () => {
       triggerType: 'manual',
       workflowInput: { symbol: 'AAPL' },
       executionId: 'execution-1',
-      start: {
+      triggerTarget: {
         kind: 'trigger',
         triggerType: 'api',
       },
@@ -331,7 +331,7 @@ describe('runPreparedWorkflowExecution', () => {
       },
     })
 
-    expect(TriggerUtils.findStartBlock).toHaveBeenCalledWith(
+    expect(TriggerUtils.findTriggerBlock).toHaveBeenCalledWith(
       blueprint.workflowData.blocks,
       'api',
       true
@@ -349,7 +349,7 @@ describe('runPreparedWorkflowExecution', () => {
         triggerType: 'manual',
         workflowInput: {},
         executionId: 'execution-1',
-        start: {
+        triggerTarget: {
           kind: 'trigger',
           triggerType: 'manual',
         },
@@ -372,7 +372,7 @@ describe('runPreparedWorkflowExecution', () => {
       triggerType: 'manual',
       workflowInput: {},
       executionId: 'execution-1',
-      start: {
+      triggerTarget: {
         kind: 'trigger',
         triggerType: 'manual',
       },

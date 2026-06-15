@@ -153,7 +153,7 @@ describe('executeWorkflowJob', () => {
       executionTarget: 'live',
       workflowData,
       workflowVariables: { risk: { value: 1 } },
-      startBlockId: 'trigger-1',
+      triggerBlockId: 'trigger-1',
       metadata: {
         source: 'workflow_queue',
       },
@@ -170,7 +170,7 @@ describe('executeWorkflowJob', () => {
           workspaceId: 'workspace-1',
           variables: { risk: { value: 1 } },
         },
-        start: {
+        triggerTarget: {
           kind: 'block',
           blockId: 'trigger-1',
         },
@@ -178,7 +178,7 @@ describe('executeWorkflowJob', () => {
     )
   })
 
-  it('preserves manual queued starts when no explicit start block is supplied', async () => {
+  it('preserves manual queued starts when no explicit trigger block is supplied', async () => {
     await executeWorkflowJob({
       workflowId: 'workflow-1',
       userId: 'user-1',
@@ -191,7 +191,7 @@ describe('executeWorkflowJob', () => {
     expect(runWorkflowExecutionMock).toHaveBeenCalledWith(
       expect.objectContaining({
         triggerType: 'manual',
-        start: {
+        triggerTarget: {
           kind: 'trigger',
           triggerType: 'manual',
         },
@@ -227,7 +227,7 @@ describe('executeWorkflowJob', () => {
       workflowId: 'workflow-1',
       userId: 'user-1',
       triggerType: 'webhook',
-      startBlockId: 'trigger-1',
+      triggerBlockId: 'trigger-1',
       triggerData: {
         source: 'indicator_trigger',
         monitor: { id: 'monitor-1' },
