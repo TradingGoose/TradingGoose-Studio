@@ -342,7 +342,7 @@ describe('InputResolver', () => {
       expect(result.nameRef).toBe('Hello World') // Should resolve using block name
     })
 
-    it('should handle the special "start" alias for trigger block', () => {
+    it('should resolve the runtime trigger block through <start.*>', () => {
       const block: SerializedBlock = {
         id: 'test-block',
         metadata: { id: 'generic', name: 'Test Block' },
