@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   Check,
   ChevronDown,
+  ChevronsUpDown,
   CreditCard,
   KeyRound,
   LifeBuoy,
@@ -29,15 +30,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar'
 import {
   widgetHeaderControlClassName,
   widgetHeaderMenuContentClassName,
   widgetHeaderMenuItemClassName,
 } from '@/components/widget-header-control'
-import { HelpModal } from '@/global-navbar/settings-modal/components/help/help-modal'
-import type { SettingsSection } from '@/global-navbar/settings-modal/types'
-import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
-import { useSubscriptionData } from '@/hooks/queries/subscription'
 import { signOut } from '@/lib/auth-client'
 import { openBillingPortal } from '@/lib/billing/billing-portal'
 import { isHosted } from '@/lib/environment'
@@ -46,6 +44,10 @@ import { getOrganizationAccessState } from '@/lib/organization/access'
 import { getUserRole } from '@/lib/organization/helpers'
 import { getSubscriptionStatus } from '@/lib/subscription/helpers'
 import { cn } from '@/lib/utils'
+import { HelpModal } from '@/global-navbar/settings-modal/components/help/help-modal'
+import type { SettingsSection } from '@/global-navbar/settings-modal/types'
+import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
+import { useSubscriptionData } from '@/hooks/queries/subscription'
 import { replaceLocaleDocument, usePathname, useRouter } from '@/i18n/navigation'
 import { getLocaleDisplayName, isLocaleCode, type LocaleCode, locales } from '@/i18n/utils'
 import { clearUserData } from '@/stores'
@@ -73,6 +75,7 @@ interface UserMenuProps {
   userId?: string | null
   onOpenSettings: (section: SettingsSection) => void
   canAccessSystemAdmin?: boolean
+  sidebarTrigger?: boolean
 }
 
 export function UserMenu({
@@ -83,6 +86,7 @@ export function UserMenu({
   userId,
   onOpenSettings,
   canAccessSystemAdmin = false,
+  sidebarTrigger = false,
 }: UserMenuProps) {
   const router = useRouter()
   const locale = useLocale() as LocaleCode
@@ -338,10 +342,16 @@ export function UserMenu({
       <AvatarFallback className='rounded-lg'>{getInitials(displayUserName)}</AvatarFallback>
     </Avatar>
   )
+  const triggerLabel = `${displayUserName} ${userMenuCopy.accountDetail}`
 
   const menuContent = (
     <DropdownMenuContent
-      className='max-h-(--radix-dropdown-menu-content-available-height) w-64 overflow-y-auto overflow-x-hidden rounded-lg'
+      className={cn(
+        'max-h-(--radix-dropdown-menu-content-available-height) overflow-y-auto overflow-x-hidden',
+        sidebarTrigger
+          ? 'w-[var(--radix-dropdown-menu-trigger-width)] min-w-56 max-w-[calc(100vw-2rem)] rounded-md'
+          : 'w-64 rounded-lg'
+      )}
       sideOffset={6}
     >
       <DropdownMenuGroup>
@@ -573,15 +583,37 @@ export function UserMenu({
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type='button'
-            aria-label={`${displayUserName} ${userMenuCopy.accountDetail}`}
-            className='inline-flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
-          >
-            {avatar}
-          </button>
-        </DropdownMenuTrigger>
+        {sidebarTrigger ? (
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton
+                  variant='default'
+                  size='lg'
+                  aria-label={triggerLabel}
+                  className='data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
+                >
+                  {avatar}
+                  <div className='grid flex-1 text-left text-sm leading-tight'>
+                    <span className='truncate font-semibold'>{displayUserName}</span>
+                    <span className='truncate text-xs'>{userEmail}</span>
+                  </div>
+                  <ChevronsUpDown className='ml-auto size-4' />
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        ) : (
+          <DropdownMenuTrigger asChild>
+            <button
+              type='button'
+              aria-label={triggerLabel}
+              className='inline-flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+            >
+              {avatar}
+            </button>
+          </DropdownMenuTrigger>
+        )}
         {menuContent}
       </DropdownMenu>
       <HelpModal open={isHelpModalOpen} onOpenChange={setIsHelpModalOpen} />
