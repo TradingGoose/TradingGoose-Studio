@@ -217,6 +217,25 @@ describe('subscription billing helpers', () => {
     expect(mockHydrateSubscriptionsWithTiers).toHaveBeenCalledWith([row])
   })
 
+  it('rejects duplicate local rows for one Stripe subscription id', async () => {
+    mockDb.select.mockImplementationOnce(() =>
+      createSelectQueryMock(
+        [
+          { id: 'sub_1', stripeSubscriptionId: 'stripe_sub_123' },
+          { id: 'sub_2', stripeSubscriptionId: 'stripe_sub_123' },
+        ],
+        'limit'
+      )
+    )
+
+    const { getUniqueSubscriptionByStripeSubscriptionId } = await import('./subscription')
+
+    await expect(getUniqueSubscriptionByStripeSubscriptionId('stripe_sub_123')).rejects.toThrow(
+      'Multiple local subscriptions found for Stripe subscription stripe_sub_123'
+    )
+    expect(mockHydrateSubscriptionsWithTiers).not.toHaveBeenCalled()
+  })
+
   it('returns null for an untracked Stripe subscription id', async () => {
     mockDb.select.mockImplementationOnce(() => createSelectQueryMock([], 'limit'))
 

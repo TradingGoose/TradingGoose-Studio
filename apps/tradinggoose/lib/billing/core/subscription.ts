@@ -126,7 +126,13 @@ export async function getUniqueSubscriptionByStripeSubscriptionId(
     .select()
     .from(subscription)
     .where(eq(subscription.stripeSubscriptionId, stripeSubscriptionId))
-    .limit(1)
+    .limit(2)
+
+  if (rows.length > 1) {
+    throw new Error(
+      `Multiple local subscriptions found for Stripe subscription ${stripeSubscriptionId}`
+    )
+  }
 
   const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(rows)
   return hydratedSubscriptions[0] ?? null

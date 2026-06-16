@@ -139,11 +139,16 @@ function createUpdateQueryMock() {
   return query
 }
 
-function createDeletedStripeSubscription() {
+function createDeletedStripeSubscription(
+  overrides: Partial<{
+    id: string
+    metadata: Record<string, string>
+  }> = {}
+) {
   return {
-    id: 'sub_stripe_123',
+    id: overrides.id ?? 'sub_stripe_123',
     cancel_at_period_end: true,
-    metadata: {
+    metadata: overrides.metadata ?? {
       referenceId: 'user-1',
       subscriptionId: 'metadata_is_not_identity',
       userId: 'user-1',
@@ -159,11 +164,11 @@ function createDeletedStripeSubscription() {
   }
 }
 
-function createDeletedSubscriptionEvent() {
+function createDeletedSubscriptionEvent(stripeSubscription = createDeletedStripeSubscription()) {
   return {
     id: 'evt_deleted',
     data: {
-      object: createDeletedStripeSubscription(),
+      object: stripeSubscription,
     },
   }
 }
@@ -341,9 +346,11 @@ describe('handleStripeSubscriptionDeleted', () => {
     )
   })
 
-  it('ignores deleted Stripe subscription events without a local subscription row', async () => {
+  it('rejects deleted Stripe subscription events without a local subscription row', async () => {
     const { handleStripeSubscriptionDeleted } = await import('./subscription')
-    await handleStripeSubscriptionDeleted(createDeletedSubscriptionEvent() as any)
+    await expect(
+      handleStripeSubscriptionDeleted(createDeletedSubscriptionEvent() as any)
+    ).rejects.toThrow('No local subscription found for deleted Stripe subscription sub_stripe_123')
 
     expect(mockSyncSubscriptionBillingTierFromStripeSubscription).not.toHaveBeenCalled()
     expect(mockCalculateSubscriptionOverage).not.toHaveBeenCalled()
@@ -425,9 +432,19 @@ describe('handleStripeSubscriptionDeleted', () => {
       .mockResolvedValueOnce(organizationSubscription)
 
     const { handleStripeSubscriptionDeleted } = await import('./subscription')
-    await handleStripeSubscriptionDeleted(createDeletedSubscriptionEvent() as any)
+    await handleStripeSubscriptionDeleted(
+      createDeletedSubscriptionEvent(
+        createDeletedStripeSubscription({
+          metadata: {
+            referenceType: 'organization',
+            referenceId: 'org-1',
+          },
+        })
+      ) as any
+    )
 
     expect(mockEnsureDefaultUserSubscription).not.toHaveBeenCalled()
+    expect(mockGetUniqueSubscriptionByStripeSubscriptionId).toHaveBeenCalledWith('sub_stripe_123')
     expect(mockResetUserDefaultUsageToOnboardingAllowanceBalance).not.toHaveBeenCalled()
     expect(mockSyncSubscriptionUsageLimits).toHaveBeenCalledWith(
       expect.objectContaining({
