@@ -139,6 +139,8 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
   const [socket, setSocket] = useState<Socket | null>(null)
   const [isConnected, setIsConnected] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false)
+  const callbackPathnameRef = useRef(pathname)
+  callbackPathnameRef.current = pathname
 
   // Track socket in a ref so the cleanup closure always sees the latest value,
   // avoiding the race where `socket` state is still null during fast unmount.
@@ -216,7 +218,7 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
             message: error instanceof Error ? error.message : String(error),
             type: error?.type,
           },
-          pathname
+          callbackPathnameRef.current
         )
       }
 
@@ -259,7 +261,7 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
               {
                 message: err instanceof Error ? err.message : String(err),
               },
-              pathname
+              callbackPathnameRef.current
             )
             if (!disposed) setIsConnecting(false)
             registry.delete(user.id) // Allow retry
@@ -300,7 +302,7 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
                 {
                   message: error instanceof Error ? error.message : String(error),
                 },
-                pathname
+                callbackPathnameRef.current
               )
               cb({ token: null })
             }
@@ -335,7 +337,7 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
             {
               message: err instanceof Error ? err.message : String(err),
             },
-            pathname
+            callbackPathnameRef.current
           )
           if (!disposed) setIsConnecting(false)
           registry.delete(user.id)
