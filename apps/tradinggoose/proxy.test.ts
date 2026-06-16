@@ -277,6 +277,25 @@ describe('proxy auth routing', () => {
     }
   )
 
+  it('keeps page routing available when authenticated locale resolution fails', async () => {
+    mockGetSessionCookie.mockReturnValue('session-cookie')
+    mockGetSession.mockRejectedValueOnce(new Error('session unavailable'))
+
+    const { proxy } = await import('./proxy')
+    const response = await proxy(
+      new NextRequest('http://localhost:3000/workspace', {
+        headers: {
+          cookie: 'NEXT_LOCALE=es',
+          'user-agent': 'vitest',
+        },
+      })
+    )
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get('location')).toBe('http://localhost:3000/es/workspace')
+    expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('es')
+  })
+
   it('does not rewrite localized API-shaped paths to canonical API routes', async () => {
     mockGetSessionCookie.mockReturnValue('session-cookie')
 
@@ -312,6 +331,7 @@ describe('proxy auth routing', () => {
 
     expect(response.status).toBe(200)
     expect(response.headers.get('x-middleware-rewrite')).toBeNull()
+    expect(response.cookies.get('NEXT_LOCALE')).toBeUndefined()
   })
 
   it('does not exempt localized API-shaped webhook paths from suspicious user-agent filtering', async () => {
