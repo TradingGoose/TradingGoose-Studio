@@ -119,23 +119,16 @@ export async function requireActiveSubscriptionForReference(
   return activeSubscription
 }
 
-export async function getUniqueSubscriptionByStripeSubscriptionId(
+export async function getSubscriptionByStripeSubscriptionId(
   stripeSubscriptionId: string
 ): Promise<SubscriptionWithTier | null> {
   const rows = await db
     .select()
     .from(subscription)
     .where(eq(subscription.stripeSubscriptionId, stripeSubscriptionId))
-    .limit(2)
-
-  if (rows.length > 1) {
-    throw new Error(
-      `Multiple local subscriptions found for Stripe subscription ${stripeSubscriptionId}`
-    )
-  }
 
   const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(rows)
-  return hydratedSubscriptions[0] ?? null
+  return selectEffectiveSubscription(hydratedSubscriptions)
 }
 
 export async function getEffectiveSubscription(

@@ -1814,8 +1814,8 @@
           "method": "btree",
           "with": {}
         },
-        "subscription_stripe_subscription_id_unique": {
-          "name": "subscription_stripe_subscription_id_unique",
+        "subscription_stripe_subscription_id_idx": {
+          "name": "subscription_stripe_subscription_id_idx",
           "columns": [
             {
               "expression": "stripe_subscription_id",
@@ -1824,7 +1824,7 @@
               "nulls": "last"
             }
           ],
-          "isUnique": true,
+          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}

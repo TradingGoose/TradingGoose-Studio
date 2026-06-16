@@ -6,7 +6,7 @@ import {
   getEmailSubject,
   renderEnterpriseSubscriptionEmail,
 } from '@/components/emails/render-email'
-import { getUniqueSubscriptionByStripeSubscriptionId } from '@/lib/billing/core/subscription'
+import { getSubscriptionByStripeSubscriptionId } from '@/lib/billing/core/subscription'
 import {
   getTierIncludedUsageLimit,
   isOrganizationBillingTier,
@@ -138,7 +138,7 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
     metadata: metadataJson,
   }
 
-  const existing = await getUniqueSubscriptionByStripeSubscriptionId(stripeSubscription.id)
+  const existing = await getSubscriptionByStripeSubscriptionId(stripeSubscription.id)
 
   if (existing) {
     await db

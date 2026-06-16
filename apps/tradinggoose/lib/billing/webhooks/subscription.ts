@@ -5,7 +5,7 @@ import type Stripe from 'stripe'
 import { calculateSubscriptionOverage } from '@/lib/billing/core/billing'
 import {
   ensureDefaultUserSubscription,
-  getUniqueSubscriptionByStripeSubscriptionId,
+  getSubscriptionByStripeSubscriptionId,
 } from '@/lib/billing/core/subscription'
 import {
   decrementGrantedOnboardingAllowanceByCurrentPeriodUsage,
@@ -263,8 +263,7 @@ export async function handleStripeSubscriptionDeleted(event: Stripe.Event) {
   const stripeSubscription = event.data.object as Stripe.Subscription
   const stripeSubscriptionId = stripeSubscription.id
 
-  const resolvedSubscription =
-    await getUniqueSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
+  const resolvedSubscription = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
 
   if (!resolvedSubscription) {
     logger.info('Deleted Stripe subscription has no local subscription row; skipping settlement', {
@@ -279,8 +278,7 @@ export async function handleStripeSubscriptionDeleted(event: Stripe.Event) {
     stripeSubscription
   )
 
-  const hydratedSubscription =
-    await getUniqueSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
+  const hydratedSubscription = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
   if (!hydratedSubscription) {
     throw new Error(
       `Local subscription disappeared while settling deleted Stripe subscription ${stripeSubscriptionId}`

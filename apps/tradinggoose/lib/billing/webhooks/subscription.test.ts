@@ -13,7 +13,7 @@ const {
   mockEq,
   mockGetBilledOverageForSubscription,
   mockGetResolvedBillingSettings,
-  mockGetUniqueSubscriptionByStripeSubscriptionId,
+  mockGetSubscriptionByStripeSubscriptionId,
   mockIsPaidBillingTier,
   mockNe,
   mockRequireStripeClient,
@@ -34,7 +34,7 @@ const {
   mockEq: vi.fn((field: unknown, value: unknown) => ({ field, value })),
   mockGetBilledOverageForSubscription: vi.fn(),
   mockGetResolvedBillingSettings: vi.fn(),
-  mockGetUniqueSubscriptionByStripeSubscriptionId: vi.fn(),
+  mockGetSubscriptionByStripeSubscriptionId: vi.fn(),
   mockIsPaidBillingTier: vi.fn(),
   mockNe: vi.fn((field: unknown, value: unknown) => ({ field, value })),
   mockRequireStripeClient: vi.fn(),
@@ -76,7 +76,7 @@ vi.mock('@/lib/billing/core/usage', () => ({
 
 vi.mock('@/lib/billing/core/subscription', () => ({
   ensureDefaultUserSubscription: mockEnsureDefaultUserSubscription,
-  getUniqueSubscriptionByStripeSubscriptionId: mockGetUniqueSubscriptionByStripeSubscriptionId,
+  getSubscriptionByStripeSubscriptionId: mockGetSubscriptionByStripeSubscriptionId,
 }))
 
 vi.mock('@/lib/billing/settings', () => ({
@@ -290,7 +290,7 @@ describe('handleStripeSubscriptionDeleted', () => {
     mockCalculateSubscriptionOverage.mockResolvedValue(0)
     mockGetBilledOverageForSubscription.mockResolvedValue(0)
     mockGetResolvedBillingSettings.mockResolvedValue({ billingEnabled: true })
-    mockGetUniqueSubscriptionByStripeSubscriptionId.mockResolvedValue(null)
+    mockGetSubscriptionByStripeSubscriptionId.mockResolvedValue(null)
     mockRequireStripeClient.mockReturnValue({})
     mockSyncSubscriptionBillingTierFromStripeSubscription.mockResolvedValue(undefined)
     mockSyncSubscriptionUsageLimits.mockResolvedValue(undefined)
@@ -304,7 +304,7 @@ describe('handleStripeSubscriptionDeleted', () => {
       stripeSubscriptionId: 'sub_stripe_123',
     })
     const defaultSubscription = createDefaultSubscription()
-    mockGetUniqueSubscriptionByStripeSubscriptionId
+    mockGetSubscriptionByStripeSubscriptionId
       .mockResolvedValueOnce(stripeBackedSubscription)
       .mockResolvedValueOnce(stripeBackedSubscription)
     mockEnsureDefaultUserSubscription.mockResolvedValue(defaultSubscription)
@@ -312,7 +312,7 @@ describe('handleStripeSubscriptionDeleted', () => {
     const { handleStripeSubscriptionDeleted } = await import('./subscription')
     await handleStripeSubscriptionDeleted(createDeletedSubscriptionEvent() as any)
 
-    expect(mockGetUniqueSubscriptionByStripeSubscriptionId).toHaveBeenCalledWith('sub_stripe_123')
+    expect(mockGetSubscriptionByStripeSubscriptionId).toHaveBeenCalledWith('sub_stripe_123')
     expect(mockEq).not.toHaveBeenCalledWith('subscription.id', 'metadata_is_not_identity')
     expect(mockSyncSubscriptionBillingTierFromStripeSubscription).toHaveBeenCalledWith(
       'sub_default_user-1',
@@ -364,7 +364,7 @@ describe('handleStripeSubscriptionDeleted', () => {
       status: 'canceled',
       stripeSubscriptionId: 'sub_stripe_123',
     })
-    mockGetUniqueSubscriptionByStripeSubscriptionId
+    mockGetSubscriptionByStripeSubscriptionId
       .mockResolvedValueOnce(stripeBackedSubscription)
       .mockResolvedValueOnce(null)
 
@@ -395,7 +395,7 @@ describe('handleStripeSubscriptionDeleted', () => {
         displayName: 'Pro',
       },
     })
-    mockGetUniqueSubscriptionByStripeSubscriptionId
+    mockGetSubscriptionByStripeSubscriptionId
       .mockResolvedValueOnce(canceledSubscription)
       .mockResolvedValueOnce(canceledSubscription)
     mockEnsureDefaultUserSubscription.mockResolvedValue(replacementSubscription)
@@ -425,7 +425,7 @@ describe('handleStripeSubscriptionDeleted', () => {
         displayName: 'Team',
       },
     })
-    mockGetUniqueSubscriptionByStripeSubscriptionId
+    mockGetSubscriptionByStripeSubscriptionId
       .mockResolvedValueOnce(organizationSubscription)
       .mockResolvedValueOnce(organizationSubscription)
 
@@ -442,7 +442,7 @@ describe('handleStripeSubscriptionDeleted', () => {
     )
 
     expect(mockEnsureDefaultUserSubscription).not.toHaveBeenCalled()
-    expect(mockGetUniqueSubscriptionByStripeSubscriptionId).toHaveBeenCalledWith('sub_stripe_123')
+    expect(mockGetSubscriptionByStripeSubscriptionId).toHaveBeenCalledWith('sub_stripe_123')
     expect(mockResetUserDefaultUsageToOnboardingAllowanceBalance).not.toHaveBeenCalled()
     expect(mockSyncSubscriptionUsageLimits).toHaveBeenCalledWith(
       expect.objectContaining({

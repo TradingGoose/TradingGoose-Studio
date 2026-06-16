@@ -208,42 +208,45 @@ describe('subscription billing helpers', () => {
       stripeSubscriptionId: 'stripe_sub_123',
       tier: { id: 'tier_default' },
     }
-    mockDb.select.mockImplementationOnce(() => createSelectQueryMock([row], 'limit'))
+    mockDb.select.mockImplementationOnce(() => createSelectQueryMock([row], 'where'))
 
-    const { getUniqueSubscriptionByStripeSubscriptionId } = await import('./subscription')
+    const { getSubscriptionByStripeSubscriptionId } = await import('./subscription')
 
-    await expect(getUniqueSubscriptionByStripeSubscriptionId('stripe_sub_123')).resolves.toBe(row)
+    await expect(getSubscriptionByStripeSubscriptionId('stripe_sub_123')).resolves.toBe(row)
     expect(mockEq).toHaveBeenCalledWith('subscription.stripeSubscriptionId', 'stripe_sub_123')
     expect(mockHydrateSubscriptionsWithTiers).toHaveBeenCalledWith([row])
+    expect(mockSelectEffectiveSubscription).toHaveBeenCalledWith([row])
   })
 
-  it('rejects duplicate local rows for one Stripe subscription id', async () => {
+  it('returns the effective subscription when duplicate local rows share one Stripe subscription id', async () => {
+    const olderSubscription = { id: 'sub_1', stripeSubscriptionId: 'stripe_sub_123' }
+    const effectiveSubscription = { id: 'sub_2', stripeSubscriptionId: 'stripe_sub_123' }
     mockDb.select.mockImplementationOnce(() =>
-      createSelectQueryMock(
-        [
-          { id: 'sub_1', stripeSubscriptionId: 'stripe_sub_123' },
-          { id: 'sub_2', stripeSubscriptionId: 'stripe_sub_123' },
-        ],
-        'limit'
-      )
+      createSelectQueryMock([olderSubscription, effectiveSubscription], 'where')
     )
+    mockSelectEffectiveSubscription.mockReturnValueOnce(effectiveSubscription)
 
-    const { getUniqueSubscriptionByStripeSubscriptionId } = await import('./subscription')
+    const { getSubscriptionByStripeSubscriptionId } = await import('./subscription')
 
-    await expect(getUniqueSubscriptionByStripeSubscriptionId('stripe_sub_123')).rejects.toThrow(
-      'Multiple local subscriptions found for Stripe subscription stripe_sub_123'
+    await expect(getSubscriptionByStripeSubscriptionId('stripe_sub_123')).resolves.toBe(
+      effectiveSubscription
     )
-    expect(mockHydrateSubscriptionsWithTiers).not.toHaveBeenCalled()
+    expect(mockHydrateSubscriptionsWithTiers).toHaveBeenCalledWith([
+      olderSubscription,
+      effectiveSubscription,
+    ])
+    expect(mockSelectEffectiveSubscription).toHaveBeenCalledWith([
+      olderSubscription,
+      effectiveSubscription,
+    ])
   })
 
   it('returns null for an untracked Stripe subscription id', async () => {
-    mockDb.select.mockImplementationOnce(() => createSelectQueryMock([], 'limit'))
+    mockDb.select.mockImplementationOnce(() => createSelectQueryMock([], 'where'))
 
-    const { getUniqueSubscriptionByStripeSubscriptionId } = await import('./subscription')
+    const { getSubscriptionByStripeSubscriptionId } = await import('./subscription')
 
-    await expect(getUniqueSubscriptionByStripeSubscriptionId('stripe_sub_missing')).resolves.toBe(
-      null
-    )
+    await expect(getSubscriptionByStripeSubscriptionId('stripe_sub_missing')).resolves.toBe(null)
     expect(mockHydrateSubscriptionsWithTiers).toHaveBeenCalledWith([])
   })
 

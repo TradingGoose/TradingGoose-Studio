@@ -11,7 +11,7 @@ import type Stripe from 'stripe'
 import { getEmailSubject, renderPaymentFailedEmail } from '@/components/emails/render-email'
 import { calculateSubscriptionOverage } from '@/lib/billing/core/billing'
 import { getOrganizationBillingLedger } from '@/lib/billing/core/organization'
-import { getUniqueSubscriptionByStripeSubscriptionId } from '@/lib/billing/core/subscription'
+import { getSubscriptionByStripeSubscriptionId } from '@/lib/billing/core/subscription'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import {
   type BillingTierRecord,
@@ -342,7 +342,7 @@ export async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
       })
       return
     }
-    const sub = await getUniqueSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
+    const sub = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
     if (!sub) return
 
     // Only reset usage here if the tenant was previously blocked; otherwise invoice.created already reset it
@@ -445,7 +445,7 @@ export async function handleInvoicePaymentFailed(event: Stripe.Event) {
         stripeSubscriptionId,
       })
 
-      const sub = await getUniqueSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
+      const sub = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
 
       if (sub) {
         if (isOrganizationSubscription(sub)) {
@@ -518,7 +518,7 @@ export async function handleInvoiceFinalized(event: Stripe.Event) {
     }
     if (invoice.billing_reason && invoice.billing_reason !== 'subscription_cycle') return
 
-    const sub = await getUniqueSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
+    const sub = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
     if (!sub) return
 
     const stripe = requireStripeClient()
