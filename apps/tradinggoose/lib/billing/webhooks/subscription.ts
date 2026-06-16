@@ -312,8 +312,16 @@ export async function handleStripeSubscriptionDeleted(event: Stripe.Event) {
   const { billingEnabled } = await getResolvedBillingSettings()
   if (billingEnabled && subscriptionToSettle.referenceType === 'user') {
     await db.transaction(async (tx) => {
-      await ensureDefaultUserSubscription(subscriptionToSettle.referenceId, tx)
-      await resetUserDefaultUsageToOnboardingAllowanceBalance(subscriptionToSettle.referenceId, tx)
+      const nextSubscription = await ensureDefaultUserSubscription(
+        subscriptionToSettle.referenceId,
+        tx
+      )
+      if (nextSubscription.tier?.isDefault && !nextSubscription.stripeSubscriptionId) {
+        await resetUserDefaultUsageToOnboardingAllowanceBalance(
+          subscriptionToSettle.referenceId,
+          tx
+        )
+      }
     })
   }
 

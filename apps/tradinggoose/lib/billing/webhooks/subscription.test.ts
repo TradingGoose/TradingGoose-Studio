@@ -164,19 +164,21 @@ function createDeletedSubscriptionEvent() {
 
 function createDefaultSubscription(
   overrides: Partial<{
+    id: string
     metadata: Record<string, unknown>
     status: string
     stripeSubscriptionId: string | null
+    tier: Record<string, unknown>
   }> = {}
 ) {
   return {
-    id: 'sub_default_user-1',
+    id: overrides.id ?? 'sub_default_user-1',
     referenceType: 'user',
     referenceId: 'user-1',
     status: overrides.status ?? 'active',
     stripeSubscriptionId: overrides.stripeSubscriptionId ?? null,
     metadata: overrides.metadata ?? { source: 'default-tier' },
-    tier: {
+    tier: overrides.tier ?? {
       id: 'tier_default',
       isDefault: true,
       displayName: 'Pay As You Go',
@@ -323,6 +325,35 @@ describe('handleStripeSubscriptionDeleted', () => {
         status: 'canceled',
         stripeSubscriptionId: 'sub_stripe_123',
       })
+    )
+  })
+
+  it('does not reset onboarding usage when another personal subscription remains entitled', async () => {
+    const canceledSubscription = createDefaultSubscription({
+      status: 'canceled',
+      stripeSubscriptionId: 'sub_stripe_123',
+    })
+    const replacementSubscription = createDefaultSubscription({
+      id: 'sub_replacement',
+      stripeSubscriptionId: 'sub_stripe_replacement',
+      tier: {
+        id: 'tier_pro',
+        isDefault: false,
+        displayName: 'Pro',
+      },
+    })
+    mockDb.select
+      .mockImplementationOnce(() => createSelectQueryMock([canceledSubscription], 'limit'))
+      .mockImplementationOnce(() => createSelectQueryMock([canceledSubscription], 'limit'))
+    mockEnsureDefaultUserSubscription.mockResolvedValue(replacementSubscription)
+
+    const { handleStripeSubscriptionDeleted } = await import('./subscription')
+    await handleStripeSubscriptionDeleted(createDeletedSubscriptionEvent() as any)
+
+    expect(mockEnsureDefaultUserSubscription).toHaveBeenCalledWith('user-1', mockDb)
+    expect(mockResetUserDefaultUsageToOnboardingAllowanceBalance).not.toHaveBeenCalled()
+    expect(mockCalculateSubscriptionOverage.mock.invocationCallOrder[0]).toBeLessThan(
+      mockEnsureDefaultUserSubscription.mock.invocationCallOrder[0]
     )
   })
 })
