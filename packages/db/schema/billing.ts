@@ -9,7 +9,6 @@ import {
   primaryKey,
   text,
   timestamp,
-  uniqueIndex,
 } from 'drizzle-orm/pg-core'
 import { organization, user } from './core'
 import { systemBillingTier } from './system'
@@ -147,9 +146,6 @@ export const subscription = pgTable(
   },
   (table) => ({
     billingTierIdIdx: index('subscription_billing_tier_id_idx').on(table.billingTierId),
-    stripeSubscriptionIdUnique: uniqueIndex('subscription_stripe_subscription_id_unique').on(
-      table.stripeSubscriptionId
-    ),
     referenceStatusIdx: index('subscription_reference_status_idx').on(
       table.referenceType,
       table.referenceId,

@@ -3,7 +3,6 @@ import {
   member,
   organizationBillingLedger,
   organizationMemberBillingLedger,
-  subscription as subscriptionTable,
   user,
   userStats,
 } from '@tradinggoose/db/schema'
@@ -12,15 +11,15 @@ import type Stripe from 'stripe'
 import { getEmailSubject, renderPaymentFailedEmail } from '@/components/emails/render-email'
 import { calculateSubscriptionOverage } from '@/lib/billing/core/billing'
 import { getOrganizationBillingLedger } from '@/lib/billing/core/organization'
+import { getUniqueSubscriptionByStripeSubscriptionId } from '@/lib/billing/core/subscription'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import {
   type BillingTierRecord,
-  hydrateSubscriptionsWithTiers,
   isOrganizationSubscription,
   usesIndividualBillingLedger,
 } from '@/lib/billing/tiers'
-import { sendEmail } from '@/lib/email/mailer'
 import { resolveEmailLocale } from '@/lib/email/locale'
+import { sendEmail } from '@/lib/email/mailer'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
@@ -42,17 +41,6 @@ function parseDecimal(value: string | number | null | undefined): number {
 type SubscriptionUsageScope = {
   referenceId: string
   tier?: BillingTierRecord | null
-}
-
-async function getHydratedSubscriptionByStripeSubscriptionId(stripeSubscriptionId: string) {
-  const records = await db
-    .select()
-    .from(subscriptionTable)
-    .where(eq(subscriptionTable.stripeSubscriptionId, stripeSubscriptionId))
-    .limit(1)
-
-  const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(records)
-  return hydratedSubscriptions[0] ?? null
 }
 
 /**
@@ -354,7 +342,7 @@ export async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
       })
       return
     }
-    const sub = await getHydratedSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
+    const sub = await getUniqueSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
     if (!sub) return
 
     // Only reset usage here if the tenant was previously blocked; otherwise invoice.created already reset it
@@ -457,7 +445,7 @@ export async function handleInvoicePaymentFailed(event: Stripe.Event) {
         stripeSubscriptionId,
       })
 
-      const sub = await getHydratedSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
+      const sub = await getUniqueSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
 
       if (sub) {
         if (isOrganizationSubscription(sub)) {
@@ -530,7 +518,7 @@ export async function handleInvoiceFinalized(event: Stripe.Event) {
     }
     if (invoice.billing_reason && invoice.billing_reason !== 'subscription_cycle') return
 
-    const sub = await getHydratedSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
+    const sub = await getUniqueSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
     if (!sub) return
 
     const stripe = requireStripeClient()

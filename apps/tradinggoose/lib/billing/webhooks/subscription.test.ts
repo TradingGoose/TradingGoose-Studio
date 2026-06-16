@@ -13,7 +13,7 @@ const {
   mockEq,
   mockGetBilledOverageForSubscription,
   mockGetResolvedBillingSettings,
-  mockHydrateSubscriptionsWithTiers,
+  mockGetUniqueSubscriptionByStripeSubscriptionId,
   mockIsPaidBillingTier,
   mockNe,
   mockRequireStripeClient,
@@ -33,7 +33,7 @@ const {
   mockEq: vi.fn((field: unknown, value: unknown) => ({ field, value })),
   mockGetBilledOverageForSubscription: vi.fn(),
   mockGetResolvedBillingSettings: vi.fn(),
-  mockHydrateSubscriptionsWithTiers: vi.fn(async (rows) => rows),
+  mockGetUniqueSubscriptionByStripeSubscriptionId: vi.fn(),
   mockIsPaidBillingTier: vi.fn(),
   mockNe: vi.fn((field: unknown, value: unknown) => ({ field, value })),
   mockRequireStripeClient: vi.fn(),
@@ -74,6 +74,7 @@ vi.mock('@/lib/billing/core/usage', () => ({
 
 vi.mock('@/lib/billing/core/subscription', () => ({
   ensureDefaultUserSubscription: mockEnsureDefaultUserSubscription,
+  getUniqueSubscriptionByStripeSubscriptionId: mockGetUniqueSubscriptionByStripeSubscriptionId,
 }))
 
 vi.mock('@/lib/billing/settings', () => ({
@@ -81,7 +82,6 @@ vi.mock('@/lib/billing/settings', () => ({
 }))
 
 vi.mock('@/lib/billing/tiers', () => ({
-  hydrateSubscriptionsWithTiers: mockHydrateSubscriptionsWithTiers,
   isPaidBillingTier: mockIsPaidBillingTier,
 }))
 
@@ -277,7 +277,7 @@ describe('handleStripeSubscriptionDeleted', () => {
     mockCalculateSubscriptionOverage.mockResolvedValue(0)
     mockGetBilledOverageForSubscription.mockResolvedValue(0)
     mockGetResolvedBillingSettings.mockResolvedValue({ billingEnabled: true })
-    mockHydrateSubscriptionsWithTiers.mockImplementation(async (rows) => rows)
+    mockGetUniqueSubscriptionByStripeSubscriptionId.mockResolvedValue(null)
     mockRequireStripeClient.mockReturnValue({})
     mockSyncSubscriptionBillingTierFromStripeSubscription.mockResolvedValue(undefined)
     mockResetUserDefaultUsageToOnboardingAllowanceBalance.mockResolvedValue(undefined)
@@ -290,15 +290,15 @@ describe('handleStripeSubscriptionDeleted', () => {
       stripeSubscriptionId: 'sub_stripe_123',
     })
     const defaultSubscription = createDefaultSubscription()
-    mockDb.select
-      .mockImplementationOnce(() => createSelectQueryMock([stripeBackedSubscription], 'limit'))
-      .mockImplementationOnce(() => createSelectQueryMock([stripeBackedSubscription], 'limit'))
+    mockGetUniqueSubscriptionByStripeSubscriptionId
+      .mockResolvedValueOnce(stripeBackedSubscription)
+      .mockResolvedValueOnce(stripeBackedSubscription)
     mockEnsureDefaultUserSubscription.mockResolvedValue(defaultSubscription)
 
     const { handleStripeSubscriptionDeleted } = await import('./subscription')
     await handleStripeSubscriptionDeleted(createDeletedSubscriptionEvent() as any)
 
-    expect(mockEq).toHaveBeenCalledWith('subscription.stripeSubscriptionId', 'sub_stripe_123')
+    expect(mockGetUniqueSubscriptionByStripeSubscriptionId).toHaveBeenCalledWith('sub_stripe_123')
     expect(mockEq).not.toHaveBeenCalledWith('subscription.id', 'metadata_is_not_identity')
     expect(mockSyncSubscriptionBillingTierFromStripeSubscription).toHaveBeenCalledWith(
       'sub_default_user-1',
@@ -345,9 +345,9 @@ describe('handleStripeSubscriptionDeleted', () => {
       status: 'canceled',
       stripeSubscriptionId: 'sub_stripe_123',
     })
-    mockDb.select
-      .mockImplementationOnce(() => createSelectQueryMock([stripeBackedSubscription], 'limit'))
-      .mockImplementationOnce(() => createSelectQueryMock([], 'limit'))
+    mockGetUniqueSubscriptionByStripeSubscriptionId
+      .mockResolvedValueOnce(stripeBackedSubscription)
+      .mockResolvedValueOnce(null)
 
     const { handleStripeSubscriptionDeleted } = await import('./subscription')
     await expect(
@@ -375,9 +375,9 @@ describe('handleStripeSubscriptionDeleted', () => {
         displayName: 'Pro',
       },
     })
-    mockDb.select
-      .mockImplementationOnce(() => createSelectQueryMock([canceledSubscription], 'limit'))
-      .mockImplementationOnce(() => createSelectQueryMock([canceledSubscription], 'limit'))
+    mockGetUniqueSubscriptionByStripeSubscriptionId
+      .mockResolvedValueOnce(canceledSubscription)
+      .mockResolvedValueOnce(canceledSubscription)
     mockEnsureDefaultUserSubscription.mockResolvedValue(replacementSubscription)
 
     const { handleStripeSubscriptionDeleted } = await import('./subscription')

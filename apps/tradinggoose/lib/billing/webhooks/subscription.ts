@@ -3,18 +3,17 @@ import { subscription } from '@tradinggoose/db/schema'
 import { and, eq, ne } from 'drizzle-orm'
 import type Stripe from 'stripe'
 import { calculateSubscriptionOverage } from '@/lib/billing/core/billing'
-import { ensureDefaultUserSubscription } from '@/lib/billing/core/subscription'
+import {
+  ensureDefaultUserSubscription,
+  getUniqueSubscriptionByStripeSubscriptionId,
+} from '@/lib/billing/core/subscription'
 import {
   decrementGrantedOnboardingAllowanceByCurrentPeriodUsage,
   resetUserDefaultUsageToOnboardingAllowanceBalance,
 } from '@/lib/billing/core/usage'
 import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
-import {
-  type BillingTierRecord,
-  hydrateSubscriptionsWithTiers,
-  isPaidBillingTier,
-} from '@/lib/billing/tiers'
+import { type BillingTierRecord, isPaidBillingTier } from '@/lib/billing/tiers'
 import { syncSubscriptionBillingTierFromStripeSubscription } from '@/lib/billing/tiers/persistence'
 import {
   getBilledOverageForSubscription,
@@ -44,18 +43,6 @@ function getStripeSubscriptionPeriod(stripeSubscription: Stripe.Subscription) {
     periodStart: new Date(item.current_period_start * 1000),
     periodEnd: new Date(item.current_period_end * 1000),
   }
-}
-
-async function getSubscriptionForDeletedStripeSubscription(
-  stripeSubscription: Stripe.Subscription
-) {
-  const records = await db
-    .select()
-    .from(subscription)
-    .where(eq(subscription.stripeSubscriptionId, stripeSubscription.id))
-    .limit(1)
-  const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(records)
-  return hydratedSubscriptions[0] ?? null
 }
 
 /**
@@ -275,7 +262,8 @@ export async function handleStripeSubscriptionDeleted(event: Stripe.Event) {
   const stripeSubscription = event.data.object as Stripe.Subscription
   const stripeSubscriptionId = stripeSubscription.id
 
-  const resolvedSubscription = await getSubscriptionForDeletedStripeSubscription(stripeSubscription)
+  const resolvedSubscription =
+    await getUniqueSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
 
   if (!resolvedSubscription) {
     logger.warn('Deleted Stripe subscription has no local subscription row', {
@@ -290,7 +278,8 @@ export async function handleStripeSubscriptionDeleted(event: Stripe.Event) {
     stripeSubscription
   )
 
-  const hydratedSubscription = await getSubscriptionForDeletedStripeSubscription(stripeSubscription)
+  const hydratedSubscription =
+    await getUniqueSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
   if (!hydratedSubscription) {
     throw new Error(
       `Local subscription disappeared while settling deleted Stripe subscription ${stripeSubscriptionId}`

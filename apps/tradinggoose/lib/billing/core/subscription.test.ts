@@ -47,6 +47,7 @@ vi.mock('@tradinggoose/db/schema', () => ({
     id: 'subscription.id',
     referenceType: 'subscription.referenceType',
     referenceId: 'subscription.referenceId',
+    stripeSubscriptionId: 'subscription.stripeSubscriptionId',
     status: 'subscription.status',
   },
   user: {
@@ -199,6 +200,45 @@ describe('subscription billing helpers', () => {
         referenceId: 'user_123',
       })
     ).rejects.toBeInstanceOf(MissingBillingSubscriptionError)
+  })
+
+  it('returns the exact local subscription for a Stripe subscription id', async () => {
+    const row = {
+      id: 'sub_123',
+      stripeSubscriptionId: 'stripe_sub_123',
+      tier: { id: 'tier_default' },
+    }
+    mockDb.select.mockImplementationOnce(() => createSelectQueryMock([row], 'limit'))
+
+    const { getUniqueSubscriptionByStripeSubscriptionId } = await import('./subscription')
+
+    await expect(getUniqueSubscriptionByStripeSubscriptionId('stripe_sub_123')).resolves.toBe(row)
+    expect(mockEq).toHaveBeenCalledWith('subscription.stripeSubscriptionId', 'stripe_sub_123')
+    expect(mockHydrateSubscriptionsWithTiers).toHaveBeenCalledWith([row])
+  })
+
+  it('returns null for an untracked Stripe subscription id', async () => {
+    mockDb.select.mockImplementationOnce(() => createSelectQueryMock([], 'limit'))
+
+    const { getUniqueSubscriptionByStripeSubscriptionId } = await import('./subscription')
+
+    await expect(getUniqueSubscriptionByStripeSubscriptionId('stripe_sub_missing')).resolves.toBe(
+      null
+    )
+    expect(mockHydrateSubscriptionsWithTiers).toHaveBeenCalledWith([])
+  })
+
+  it('rejects duplicate local rows for one Stripe subscription id', async () => {
+    mockDb.select.mockImplementationOnce(() =>
+      createSelectQueryMock([{ id: 'sub_1' }, { id: 'sub_2' }], 'limit')
+    )
+
+    const { getUniqueSubscriptionByStripeSubscriptionId } = await import('./subscription')
+
+    await expect(getUniqueSubscriptionByStripeSubscriptionId('stripe_sub_123')).rejects.toThrow(
+      'Multiple local subscriptions found for Stripe subscription stripe_sub_123'
+    )
+    expect(mockHydrateSubscriptionsWithTiers).not.toHaveBeenCalled()
   })
 
   it('seeds onboarding allowance into user stats on billing-enable backfill', async () => {
