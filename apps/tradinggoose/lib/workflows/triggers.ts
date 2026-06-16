@@ -106,50 +106,47 @@ export type WorkflowRunTriggerOption = {
   color: string
 }
 
-type WorkflowRunTriggerCandidate<T extends WorkflowRunTriggerBlock> = WorkflowRunTriggerOption & {
-  block: T
-  triggerType: QueuedWorkflowTriggerType
-}
-
-function getTriggerCandidates<T extends WorkflowRunTriggerBlock>(
-  blocks: Record<string, T>,
+function isWorkflowRunTriggerEntry<T extends WorkflowRunTriggerBlock>(
+  blockId: string,
+  block: T | undefined,
   edges: Array<{ source: string; target: string }>
-): Array<WorkflowRunTriggerCandidate<T>> {
-  return Object.entries(blocks).flatMap(([blockId, block]) => {
-    if (!block?.type || block.enabled === false || !edges.some((edge) => edge.source === blockId)) {
-      return []
-    }
-
-    try {
-      const identity = resolveTriggerExecutionIdentity(block)
-      const trigger = getTrigger(identity.triggerSource)
-      if (!trigger) return []
-      const blockConfig = getBlock(block.type)
-
-      return [
-        {
-          id: `${blockId}:${identity.triggerSource}`,
-          blockId,
-          block,
-          name: block.name || trigger.name,
-          ...identity,
-          icon: trigger.icon,
-          color: sanitizeSolidIconColor(blockConfig?.bgColor) ?? '#6B7280',
-        },
-      ]
-    } catch {
-      return []
-    }
-  })
+): block is T {
+  return Boolean(
+    block?.type &&
+      block.enabled !== false &&
+      TriggerUtils.isTriggerBlock(block) &&
+      edges.some((edge) => edge.source === blockId)
+  )
 }
 
 export function listWorkflowRunTriggers<T extends WorkflowRunTriggerBlock>(
   blocks: Record<string, T>,
   edges: Array<{ source: string; target: string }>
 ): WorkflowRunTriggerOption[] {
-  return getTriggerCandidates(blocks, edges)
-    .filter(({ triggerType }) => triggerType !== 'chat')
-    .map(({ block, triggerType, ...trigger }) => trigger)
+  return Object.entries(blocks).flatMap(([blockId, block]) => {
+    if (!isWorkflowRunTriggerEntry(blockId, block, edges)) {
+      return []
+    }
+
+    try {
+      const identity = resolveTriggerExecutionIdentity(block)
+      if (identity.triggerType === 'chat') return []
+      const trigger = getTrigger(identity.triggerSource)!
+
+      return [
+        {
+          id: `${blockId}:${identity.triggerSource}`,
+          blockId,
+          name: block.name || trigger.name,
+          triggerSource: identity.triggerSource,
+          icon: trigger.icon,
+          color: sanitizeSolidIconColor(getBlock(block.type)?.bgColor) ?? '#6B7280',
+        },
+      ]
+    } catch {
+      return []
+    }
+  })
 }
 
 function materializeTriggerSource<T extends WorkflowRunTriggerBlock>(
@@ -213,21 +210,21 @@ export function resolveWorkflowRunTrigger<T extends WorkflowRunTriggerBlock>(
   input: unknown
   triggerType: WorkflowRunExecutionTriggerType
 } {
-  const candidate = getTriggerCandidates(blocks, edges).find(
-    (item) =>
-      item.blockId === options.triggerBlockId &&
-      (options.surface !== 'editor' || item.triggerType !== 'chat')
-  )
-  if (!candidate) {
+  const selectedBlock = blocks[options.triggerBlockId]
+  if (!isWorkflowRunTriggerEntry(options.triggerBlockId, selectedBlock, edges)) {
+    throw new Error(`Trigger block ${options.triggerBlockId} is not available for Run`)
+  }
+  if (options.surface === 'editor' && selectedBlock.type === TRIGGER_TYPES.CHAT) {
     throw new Error(`Trigger block ${options.triggerBlockId} is not available for Run`)
   }
 
-  const block = materializeTriggerSource(candidate.block, candidate.triggerSource)
-  const isChatRun = candidate.triggerType === 'chat'
+  const identity = resolveTriggerExecutionIdentity(selectedBlock)
+  const block = materializeTriggerSource(selectedBlock, identity.triggerSource)
+  const isChatRun = identity.triggerType === 'chat'
 
   return {
-    blockId: candidate.blockId,
-    blocks: { ...blocks, [candidate.blockId]: block },
+    blockId: options.triggerBlockId,
+    blocks: { ...blocks, [options.triggerBlockId]: block },
     input: buildWorkflowRunTriggerInput(block, options.workflowInput, {
       preserveProvidedInput: options.surface === 'copilot' || isChatRun,
     }),

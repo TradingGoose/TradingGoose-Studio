@@ -70,4 +70,14 @@ describe('workflow run trigger resolution', () => {
       }).input
     ).toBe(explicitInput)
   })
+
+  it('surfaces selected trigger configuration errors', () => {
+    expect(() =>
+      resolveWorkflowRunTrigger(
+        { calendly: block('calendly', { name: 'Calendly Lead Capture', triggerMode: true }) },
+        [edge('calendly')],
+        { surface: 'editor', triggerBlockId: 'calendly' }
+      )
+    ).toThrow('Calendly Lead Capture requires a selected trigger type')
+  })
 })
