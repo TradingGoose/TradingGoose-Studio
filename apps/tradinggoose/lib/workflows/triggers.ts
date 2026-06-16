@@ -147,7 +147,9 @@ export function listWorkflowRunTriggers<T extends WorkflowRunTriggerBlock>(
   blocks: Record<string, T>,
   edges: Array<{ source: string; target: string }>
 ): WorkflowRunTriggerOption[] {
-  return getTriggerCandidates(blocks, edges).map(({ block, triggerType, ...trigger }) => trigger)
+  return getTriggerCandidates(blocks, edges)
+    .filter(({ triggerType }) => triggerType !== 'chat')
+    .map(({ block, triggerType, ...trigger }) => trigger)
 }
 
 function materializeTriggerSource<T extends WorkflowRunTriggerBlock>(
@@ -212,7 +214,9 @@ export function resolveWorkflowRunTrigger<T extends WorkflowRunTriggerBlock>(
   triggerType: WorkflowRunExecutionTriggerType
 } {
   const candidate = getTriggerCandidates(blocks, edges).find(
-    (item) => item.blockId === options.triggerBlockId
+    (item) =>
+      item.blockId === options.triggerBlockId &&
+      (options.surface !== 'editor' || item.triggerType !== 'chat')
   )
   if (!candidate) {
     throw new Error(`Trigger block ${options.triggerBlockId} is not available for Run`)

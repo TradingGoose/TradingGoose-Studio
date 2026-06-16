@@ -21,6 +21,7 @@ const edge = (source: string, target = 'agent') => ({ source, target })
 
 describe('workflow run trigger resolution', () => {
   it('lists one Run option per resolved trigger identity', () => {
+    const edges = ['github', 'whatsapp', 'calendly', 'chat'].map((source) => edge(source))
     const runTriggers = listWorkflowRunTriggers(
       {
         github: block('github', { triggerMode: true }),
@@ -30,9 +31,9 @@ describe('workflow run trigger resolution', () => {
           subBlocks: { selectedTriggerId: { value: 'calendly_invitee_created' } },
         }),
         disconnectedGithub: block('github', { triggerMode: true }),
-        unconfiguredCalendly: block('calendly', { triggerMode: true }),
+        chat: block('chat_trigger'),
       },
-      [edge('github'), edge('whatsapp'), edge('calendly'), edge('unconfiguredCalendly')]
+      edges
     )
 
     expect(runTriggers.map(({ id, name }) => [id, name])).toEqual([
