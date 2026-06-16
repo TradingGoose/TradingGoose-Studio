@@ -1,10 +1,21 @@
 import { db } from '@tradinggoose/db'
 import { subscription } from '@tradinggoose/db/schema'
 import { and, eq, ne } from 'drizzle-orm'
+import type Stripe from 'stripe'
 import { calculateSubscriptionOverage } from '@/lib/billing/core/billing'
-import { decrementGrantedOnboardingAllowanceByCurrentPeriodUsage } from '@/lib/billing/core/usage'
+import { ensureDefaultUserSubscription } from '@/lib/billing/core/subscription'
+import {
+  decrementGrantedOnboardingAllowanceByCurrentPeriodUsage,
+  resetUserDefaultUsageToOnboardingAllowanceBalance,
+} from '@/lib/billing/core/usage'
+import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
-import { type BillingTierRecord, isPaidBillingTier } from '@/lib/billing/tiers'
+import {
+  type BillingTierRecord,
+  hydrateSubscriptionsWithTiers,
+  isPaidBillingTier,
+} from '@/lib/billing/tiers'
+import { syncSubscriptionBillingTierFromStripeSubscription } from '@/lib/billing/tiers/persistence'
 import {
   getBilledOverageForSubscription,
   resetUsageForSubscription,
@@ -21,6 +32,30 @@ type TieredSubscriptionLifecycleRecord = {
   stripeSubscriptionId?: string | null
   seats?: number | null
   tier?: BillingTierRecord | null
+}
+
+function getStripeSubscriptionPeriod(stripeSubscription: Stripe.Subscription) {
+  const item = stripeSubscription.items.data[0]
+  if (!item) {
+    return {}
+  }
+
+  return {
+    periodStart: new Date(item.current_period_start * 1000),
+    periodEnd: new Date(item.current_period_end * 1000),
+  }
+}
+
+async function getSubscriptionForDeletedStripeSubscription(
+  stripeSubscription: Stripe.Subscription
+) {
+  const records = await db
+    .select()
+    .from(subscription)
+    .where(eq(subscription.stripeSubscriptionId, stripeSubscription.id))
+    .limit(1)
+  const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(records)
+  return hydratedSubscriptions[0] ?? null
 }
 
 /**
@@ -182,8 +217,8 @@ export async function handleSubscriptionDeleted(subscription: TieredSubscription
           { idempotencyKey: itemIdemKey }
         )
 
-        // Finalize the invoice (this will trigger payment collection)
-        if (overageInvoice.id) {
+        // Finalize only draft invoices; duplicate webhook deliveries can return the prior invoice.
+        if (overageInvoice.id && overageInvoice.status === 'draft') {
           await stripe.invoices.finalizeInvoice(overageInvoice.id)
         }
 
@@ -234,4 +269,59 @@ export async function handleSubscriptionDeleted(subscription: TieredSubscription
     })
     throw error
   }
+}
+
+export async function handleStripeSubscriptionDeleted(event: Stripe.Event) {
+  const stripeSubscription = event.data.object as Stripe.Subscription
+  const stripeSubscriptionId = stripeSubscription.id
+
+  const resolvedSubscription = await getSubscriptionForDeletedStripeSubscription(stripeSubscription)
+
+  if (!resolvedSubscription) {
+    throw new Error(
+      `No local subscription found for deleted Stripe subscription ${stripeSubscriptionId}`
+    )
+  }
+
+  await syncSubscriptionBillingTierFromStripeSubscription(
+    resolvedSubscription.id,
+    stripeSubscription
+  )
+
+  const hydratedSubscription =
+    (await getSubscriptionForDeletedStripeSubscription(stripeSubscription)) ?? resolvedSubscription
+
+  const subscriptionToSettle = {
+    ...hydratedSubscription,
+    stripeSubscriptionId,
+    status: 'canceled',
+  }
+
+  await handleSubscriptionDeleted(subscriptionToSettle)
+
+  await db
+    .update(subscription)
+    .set({
+      ...getStripeSubscriptionPeriod(stripeSubscription),
+      stripeSubscriptionId,
+      status: 'canceled',
+      cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
+    })
+    .where(eq(subscription.id, hydratedSubscription.id))
+
+  const { billingEnabled } = await getResolvedBillingSettings()
+  if (billingEnabled && subscriptionToSettle.referenceType === 'user') {
+    await db.transaction(async (tx) => {
+      await ensureDefaultUserSubscription(subscriptionToSettle.referenceId, tx)
+      await resetUserDefaultUsageToOnboardingAllowanceBalance(subscriptionToSettle.referenceId, tx)
+    })
+  }
+
+  logger.info('Settled deleted Stripe subscription', {
+    eventId: event.id,
+    subscriptionId: subscriptionToSettle.id,
+    referenceType: subscriptionToSettle.referenceType,
+    referenceId: subscriptionToSettle.referenceId,
+    stripeSubscriptionId,
+  })
 }
