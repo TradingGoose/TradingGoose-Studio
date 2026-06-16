@@ -41,14 +41,6 @@ interface NavProps {
   hideAuthButtons?: boolean
   variant?: 'landing' | 'auth'
   registrationMode?: RegistrationMode | null
-  authenticatedUser?: {
-    id: string
-    email: string
-    name?: string | null
-    image?: string | null
-    updatedAt?: Date | string | null
-  } | null
-  canAccessSystemAdmin?: boolean
 }
 
 function LanguageSwitcher() {
@@ -111,15 +103,13 @@ export default function Nav({
   hideAuthButtons = false,
   variant = 'landing',
   registrationMode = null,
-  authenticatedUser = null,
-  canAccessSystemAdmin = false,
 }: NavProps = {}) {
   const [githubStars, setGithubStars] = useState('0')
   const router = useRouter()
   const brand = useBrandConfig()
   const locale = useLocale() as LocaleCode
   const copy = useMessages()
-  const { data: session, isPending: isSessionPending } = useSession()
+  const { data: session } = useSession()
   const [activeSettingsSection, setActiveSettingsSection] = useState<SettingsSection>('account')
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false)
   const hasResolvedRegistrationMode = registrationMode !== null
@@ -130,7 +120,7 @@ export default function Nav({
     ? copy.registration[registrationMode].primary
     : null
   const showStandaloneLogin = hasResolvedRegistrationMode && registrationPrimaryHref !== null
-  const user = isSessionPending ? authenticatedUser : session?.user
+  const user = session?.user
   const isAuthenticated = Boolean(user?.id)
   const userId = user?.id ?? null
   const userName = user?.name ?? brand.name
@@ -186,7 +176,6 @@ export default function Nav({
         userAvatar={userAvatar}
         userAvatarVersion={userAvatarVersion}
         onOpenSettings={openSettings}
-        canAccessSystemAdmin={canAccessSystemAdmin}
       />
     ) : null
 

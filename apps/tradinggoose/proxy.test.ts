@@ -2,34 +2,9 @@ import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockGetSessionCookie = vi.fn()
-const mockGetSession = vi.fn()
-const mockSettingsLimit = vi.fn()
-const mockDbSelect = vi.fn()
 
 vi.mock('better-auth/cookies', () => ({
   getSessionCookie: (...args: unknown[]) => mockGetSessionCookie(...args),
-}))
-
-vi.mock('@/lib/auth', () => ({
-  auth: {
-    api: {
-      getSession: (...args: unknown[]) => mockGetSession(...args),
-    },
-  },
-}))
-
-vi.mock('@tradinggoose/db', () => ({
-  db: {
-    select: (...args: unknown[]) => mockDbSelect(...args),
-  },
-  settings: {
-    preferredLocale: 'settings.preferredLocale',
-    userId: 'settings.userId',
-  },
-}))
-
-vi.mock('drizzle-orm', () => ({
-  eq: vi.fn((left, right) => ({ left, right })),
 }))
 
 vi.mock('./lib/logs/console/logger', () => ({
@@ -66,15 +41,6 @@ describe('proxy auth routing', () => {
     vi.clearAllMocks()
     vi.resetModules()
     mockGetSessionCookie.mockReturnValue(undefined)
-    mockGetSession.mockResolvedValue(null)
-    mockSettingsLimit.mockResolvedValue([])
-    mockDbSelect.mockReturnValue({
-      from: () => ({
-        where: () => ({
-          limit: mockSettingsLimit,
-        }),
-      }),
-    })
     process.env.NEXT_PUBLIC_APP_URL = 'https://www.tradinggoose.ai'
   })
 
@@ -251,17 +217,10 @@ describe('proxy auth routing', () => {
   })
 
   it.each([
-    ['root', 'http://localhost:3000/?source=nav', 'http://localhost:3000/zh?source=nav'],
-    ['workspace', 'http://localhost:3000/workspace', 'http://localhost:3000/zh/workspace'],
-    [
-      'prefixed workspace',
-      'http://localhost:3000/en/workspace',
-      'http://localhost:3000/zh/workspace',
-    ],
-  ])('redirects authenticated %s requests to the stored user locale', async (_, url, location) => {
+    ['root', 'http://localhost:3000/?source=nav', 'http://localhost:3000/es?source=nav'],
+    ['workspace', 'http://localhost:3000/workspace', 'http://localhost:3000/es/workspace'],
+  ])('redirects session-cookie %s requests to the request locale', async (_, url, location) => {
     mockGetSessionCookie.mockReturnValue('session-cookie')
-    mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
-    mockSettingsLimit.mockResolvedValue([{ preferredLocale: 'zh' }])
 
     const { proxy } = await import('./proxy')
     const response = await proxy(
@@ -275,20 +234,33 @@ describe('proxy auth routing', () => {
 
     expect(response.status).toBe(307)
     expect(response.headers.get('location')).toBe(location)
-    expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('zh')
+    expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('es')
   })
 
-  it.each([
-    ['unprefixed workspace', 'http://localhost:3000/workspace'],
-    ['prefixed workspace mismatch', 'http://localhost:3000/en/workspace'],
-  ])('rewrites authenticated POST %s requests to the stored user locale', async (_, url) => {
+  it('keeps session-cookie prefixed requests canonical to the URL locale', async () => {
     mockGetSessionCookie.mockReturnValue('session-cookie')
-    mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
-    mockSettingsLimit.mockResolvedValue([{ preferredLocale: 'zh' }])
 
     const { proxy } = await import('./proxy')
     const response = await proxy(
-      new NextRequest(url, {
+      new NextRequest('http://localhost:3000/en/workspace', {
+        headers: {
+          cookie: 'NEXT_LOCALE=zh',
+          'user-agent': 'vitest',
+        },
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('location')).toBeNull()
+    expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('en')
+  })
+
+  it('rewrites session-cookie POST requests to the request locale', async () => {
+    mockGetSessionCookie.mockReturnValue('session-cookie')
+
+    const { proxy } = await import('./proxy')
+    const response = await proxy(
+      new NextRequest('http://localhost:3000/workspace', {
         method: 'POST',
         headers: {
           cookie: 'NEXT_LOCALE=es',
@@ -299,60 +271,8 @@ describe('proxy auth routing', () => {
 
     expect(response.status).toBe(200)
     expect(response.headers.get('location')).toBeNull()
-    expect(response.headers.get('x-middleware-rewrite')).toBe('http://localhost:3000/zh/workspace')
+    expect(response.headers.get('x-middleware-rewrite')).toBe('http://localhost:3000/es/workspace')
     expect(response.cookies.get('NEXT_LOCALE')).toBeUndefined()
-  })
-
-  it.each([
-    [
-      'session',
-      () => {
-        mockGetSession.mockRejectedValueOnce(new Error('session unavailable'))
-      },
-      'session unavailable',
-    ],
-    [
-      'settings',
-      () => {
-        mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
-        mockSettingsLimit.mockRejectedValueOnce(new Error('settings unavailable'))
-      },
-      'settings unavailable',
-    ],
-  ])('stops authenticated routing when %s resolution fails', async (_, arrange, message) => {
-    mockGetSessionCookie.mockReturnValue('session-cookie')
-    arrange()
-
-    const { proxy } = await import('./proxy')
-    await expect(
-      proxy(
-        new NextRequest('http://localhost:3000/workspace', {
-          headers: {
-            cookie: 'NEXT_LOCALE=es',
-            'user-agent': 'vitest',
-          },
-        })
-      )
-    ).rejects.toThrow(message)
-  })
-
-  it('uses request locale when a session cookie is stale', async () => {
-    mockGetSessionCookie.mockReturnValue('session-cookie')
-    mockGetSession.mockResolvedValue(null)
-
-    const { proxy } = await import('./proxy')
-    const response = await proxy(
-      new NextRequest('http://localhost:3000/workspace', {
-        headers: {
-          cookie: 'NEXT_LOCALE=es',
-          'user-agent': 'vitest',
-        },
-      })
-    )
-
-    expect(response.status).toBe(307)
-    expect(response.headers.get('location')).toBe('http://localhost:3000/es/workspace')
-    expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('es')
   })
 
   it('does not rewrite localized API-shaped paths to canonical API routes', async () => {

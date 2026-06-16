@@ -1,4 +1,3 @@
-import { getSystemAdminAccess } from '@/lib/admin/access'
 import { getRegistrationModeForRender } from '@/lib/registration/service'
 import type { RegistrationMode } from '@/lib/registration/shared'
 import Nav from './nav'
@@ -8,16 +7,7 @@ interface PublicNavProps {
 }
 
 export default async function PublicNav({ registrationMode }: PublicNavProps = {}) {
-  const [access, resolvedRegistrationMode] = await Promise.all([
-    getSystemAdminAccess(),
-    registrationMode ? Promise.resolve(registrationMode) : getRegistrationModeForRender(),
-  ])
+  const resolvedRegistrationMode = registrationMode ?? (await getRegistrationModeForRender())
 
-  return (
-    <Nav
-      registrationMode={resolvedRegistrationMode}
-      authenticatedUser={access.user}
-      canAccessSystemAdmin={access.isSystemAdmin}
-    />
-  )
+  return <Nav registrationMode={resolvedRegistrationMode} />
 }

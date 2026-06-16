@@ -7,7 +7,6 @@ import { act } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getSystemAdminAccess } from '@/lib/admin/access'
 import { getRegistrationModeForRender } from '@/lib/registration/service'
 import { getPublicCopy } from '@/i18n/public-copy'
 import Nav from './nav'
@@ -26,17 +25,12 @@ let mockSessionUser: {
   image?: string | null
   updatedAt?: Date
 } | null = null
-let mockSessionPending = false
 let mockPathname = '/'
 let mockSearchParams = ''
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 vi.mock('@/lib/registration/service', () => ({
   getRegistrationModeForRender: vi.fn(),
-}))
-
-vi.mock('@/lib/admin/access', () => ({
-  getSystemAdminAccess: vi.fn(),
 }))
 
 vi.mock('next/navigation', () => ({
@@ -97,7 +91,7 @@ vi.mock('@/lib/branding/branding', () => ({
 vi.mock('@/lib/auth-client', () => ({
   useSession: () => ({
     data: mockSessionUser ? { user: mockSessionUser } : null,
-    isPending: mockSessionPending,
+    isPending: false,
     error: null,
     refetch: vi.fn(),
   }),
@@ -179,18 +173,9 @@ describe('landing nav registration mode', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     vi.clearAllMocks()
     vi.mocked(getRegistrationModeForRender).mockReset()
-    vi.mocked(getSystemAdminAccess).mockResolvedValue({
-      session: null,
-      user: null,
-      userId: null,
-      isAuthenticated: false,
-      isSystemAdmin: false,
-      canBootstrapSystemAdmin: false,
-    })
     mockUpdateSetting.mockResolvedValue(undefined)
     mockSetTheme.mockResolvedValue(undefined)
     mockSessionUser = null
-    mockSessionPending = false
     mockPathname = '/'
     mockSearchParams = ''
     container = document.createElement('div')
@@ -291,92 +276,6 @@ describe('landing nav registration mode', () => {
       (link) => link.textContent === getPublicCopy('en').nav.goToDashboard
     )
     expect(dashboardLinks.some((link) => link.getAttribute('href') === '/workspace')).toBe(true)
-  })
-
-  it('shows the same system admin menu item on PublicNav for authenticated system admins', async () => {
-    mockSessionPending = true
-    vi.mocked(getSystemAdminAccess).mockResolvedValue({
-      session: {},
-      user: {
-        id: 'admin-1',
-        email: 'admin@example.com',
-        name: 'Admin User',
-      },
-      userId: 'admin-1',
-      isAuthenticated: true,
-      isSystemAdmin: true,
-      canBootstrapSystemAdmin: false,
-    } as Awaited<ReturnType<typeof getSystemAdminAccess>>)
-
-    await act(async () => {
-      root.render(
-        <NextIntlClientProvider locale='en' messages={getPublicCopy('en')}>
-          {await PublicNav({ registrationMode: 'open' })}
-        </NextIntlClientProvider>
-      )
-      await flush()
-    })
-
-    const profileButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.getAttribute('aria-label') === 'Admin User Account Detail'
-    )
-    if (!(profileButton instanceof HTMLButtonElement)) {
-      throw new Error('Expected authenticated profile menu trigger')
-    }
-
-    await act(async () => {
-      profileButton.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0 }))
-      profileButton.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
-      profileButton.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-      await flush()
-    })
-
-    const systemAdminItem = Array.from(document.body.querySelectorAll('[role="menuitem"]')).find(
-      (item) => item.textContent?.includes(getPublicCopy('en').workspace.nav.systemAdmin)
-    )
-
-    expect(systemAdminItem).toBeInstanceOf(HTMLElement)
-
-    await act(async () => {
-      systemAdminItem?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-      await flush()
-    })
-
-    expect(mockPush).toHaveBeenCalledWith('/admin')
-  })
-
-  it('clears server authenticated nav state after the client session resolves signed out', async () => {
-    const authenticatedUser = {
-      id: 'user-1',
-      email: 'ada@example.com',
-      name: 'Ada Lovelace',
-    }
-
-    mockSessionPending = true
-    await act(async () => {
-      root.render(
-        <NextIntlClientProvider locale='en' messages={getPublicCopy('en')}>
-          <Nav registrationMode='open' authenticatedUser={authenticatedUser} />
-        </NextIntlClientProvider>
-      )
-      await flush()
-    })
-
-    expect(container.textContent).toContain(getPublicCopy('en').nav.goToDashboard)
-
-    mockSessionPending = false
-    await act(async () => {
-      root.render(
-        <NextIntlClientProvider locale='en' messages={getPublicCopy('en')}>
-          <Nav registrationMode='open' authenticatedUser={authenticatedUser} />
-        </NextIntlClientProvider>
-      )
-      await flush()
-    })
-
-    expect(container.textContent).not.toContain(getPublicCopy('en').nav.goToDashboard)
-    expect(container.textContent).toContain(getPublicCopy('en').nav.login)
-    expect(container.textContent).toContain(getPublicCopy('en').registration.open.primary)
   })
 
   it('opens account settings from the authenticated landing profile menu', async () => {

@@ -1,9 +1,6 @@
-import { db, settings } from '@tradinggoose/db'
 import { getSessionCookie } from 'better-auth/cookies'
-import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import createMiddleware from 'next-intl/middleware'
-import { auth } from '@/lib/auth'
 import { appendHomepageDiscoveryLinks } from '@/lib/discovery/link-headers'
 import {
   appendVaryHeader,
@@ -147,26 +144,6 @@ function resolveRequestLocale(request: NextRequest): LocaleCode {
   )
 }
 
-async function resolveAuthenticatedLocale(request: NextRequest): Promise<LocaleCode | null> {
-  const session = await auth.api.getSession({
-    headers: request.headers,
-    query: { disableCookieCache: true },
-  })
-  const userId = session?.user?.id
-
-  if (!userId) {
-    return null
-  }
-
-  const rows = await db
-    .select({ preferredLocale: settings.preferredLocale })
-    .from(settings)
-    .where(eq(settings.userId, userId))
-    .limit(1)
-  const preferredLocale = rows[0]?.preferredLocale ?? defaultLocale
-  return isLocaleCode(preferredLocale) ? preferredLocale : defaultLocale
-}
-
 function buildLoginRedirect(request: NextRequest, route: LocaleRoute, callback?: string) {
   const { locale } = route
   const loginUrl = new URL(localizeUrl(request.nextUrl.origin, locale, '/login'))
@@ -251,20 +228,9 @@ function withLocaleCookie(response: NextResponse, locale: LocaleCode) {
   return response
 }
 
-async function resolveCanonicalLocaleRoute(
-  request: NextRequest,
-  route: LocaleRoute,
-  hasActiveSession: boolean
-): Promise<LocaleRoute> {
+function resolveCanonicalLocaleRoute(request: NextRequest, route: LocaleRoute): LocaleRoute {
   if (isCanonicalRouteHandlerPath(request.nextUrl.pathname)) {
     return route
-  }
-
-  if (hasActiveSession) {
-    const authenticatedLocale = await resolveAuthenticatedLocale(request)
-    if (authenticatedLocale) {
-      return { ...route, locale: authenticatedLocale }
-    }
   }
 
   if (route.hasLocalePrefix) {
@@ -330,7 +296,7 @@ export async function proxy(request: NextRequest) {
   const url = request.nextUrl
   const initialRoute = resolveLocaleRoute(url.pathname)
   const hasActiveSession = Boolean(getSessionCookie(request))
-  const route = await resolveCanonicalLocaleRoute(request, initialRoute, hasActiveSession)
+  const route = resolveCanonicalLocaleRoute(request, initialRoute)
   const { locale, pathname: normalizedPathname } = route
 
   const isProtectedPath = isProtectedAppPath(url.pathname)

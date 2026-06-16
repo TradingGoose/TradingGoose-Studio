@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createLogger } from '@/lib/logs/console/logger'
 import { useSession } from '@/lib/auth-client'
+import { createLogger } from '@/lib/logs/console/logger'
+import { defaultLocale, isLocaleCode, type LocaleCode } from '@/i18n/utils'
 import { useGeneralStore } from '@/stores/settings/general/store'
 
 const logger = createLogger('GeneralSettingsQuery')
@@ -13,6 +14,7 @@ export const generalSettingsKeys = {
 
 export interface GeneralSettings {
   theme: 'light' | 'dark' | 'system'
+  preferredLocale: LocaleCode
   telemetryEnabled: boolean
   billingUsageNotificationsEnabled: boolean
 }
@@ -28,6 +30,7 @@ async function fetchGeneralSettings(): Promise<GeneralSettings> {
 
   return {
     theme: data.theme || 'system',
+    preferredLocale: isLocaleCode(data.preferredLocale) ? data.preferredLocale : defaultLocale,
     telemetryEnabled: data.telemetryEnabled ?? true,
     billingUsageNotificationsEnabled: data.billingUsageNotificationsEnabled ?? true,
   }
