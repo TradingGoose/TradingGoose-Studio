@@ -249,7 +249,11 @@ describe('proxy auth routing', () => {
   it.each([
     ['root', 'http://localhost:3000/?source=nav', 'http://localhost:3000/zh?source=nav'],
     ['workspace', 'http://localhost:3000/workspace', 'http://localhost:3000/zh/workspace'],
-    ['prefixed workspace', 'http://localhost:3000/en/workspace', 'http://localhost:3000/zh/workspace'],
+    [
+      'prefixed workspace',
+      'http://localhost:3000/en/workspace',
+      'http://localhost:3000/zh/workspace',
+    ],
   ])(
     'redirects authenticated %s requests to the stored user locale',
     async (_, url, location) => {
