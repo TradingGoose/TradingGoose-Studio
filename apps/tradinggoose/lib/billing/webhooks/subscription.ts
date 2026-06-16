@@ -238,11 +238,7 @@ export async function handleSubscriptionDeleted(subscription: TieredSubscription
       })
     }
 
-    // Reset usage after billing
     await resetUsageForSubscription(subscription)
-
-    // Note: better-auth's Stripe plugin already updates status to 'canceled' before calling this handler
-    // We only need to handle overage billing and usage reset
 
     logger.info('Successfully processed subscription cancellation', {
       subscriptionId: subscription.id,
@@ -273,6 +269,16 @@ export async function handleStripeSubscriptionDeleted(event: Stripe.Event) {
     return
   }
 
+  await db
+    .update(subscription)
+    .set({
+      ...getStripeSubscriptionPeriod(stripeSubscription),
+      stripeSubscriptionId,
+      status: 'canceled',
+      cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
+    })
+    .where(eq(subscription.stripeSubscriptionId, stripeSubscriptionId))
+
   await syncSubscriptionBillingTierFromStripeSubscription(
     resolvedSubscription.id,
     stripeSubscription
@@ -293,16 +299,6 @@ export async function handleStripeSubscriptionDeleted(event: Stripe.Event) {
   let subscriptionForUsageLimits: TieredSubscriptionLifecycleRecord = subscriptionToSettle
 
   await handleSubscriptionDeleted(subscriptionToSettle)
-
-  await db
-    .update(subscription)
-    .set({
-      ...getStripeSubscriptionPeriod(stripeSubscription),
-      stripeSubscriptionId,
-      status: 'canceled',
-      cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
-    })
-    .where(eq(subscription.id, hydratedSubscription.id))
 
   if (subscriptionToSettle.referenceType === 'user') {
     const { billingEnabled } = await getResolvedBillingSettings()

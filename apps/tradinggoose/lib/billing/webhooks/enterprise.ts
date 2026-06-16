@@ -6,7 +6,6 @@ import {
   getEmailSubject,
   renderEnterpriseSubscriptionEmail,
 } from '@/components/emails/render-email'
-import { getSubscriptionByStripeSubscriptionId } from '@/lib/billing/core/subscription'
 import {
   getTierIncludedUsageLimit,
   isOrganizationBillingTier,
@@ -138,9 +137,13 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
     metadata: metadataJson,
   }
 
-  const existing = await getSubscriptionByStripeSubscriptionId(stripeSubscription.id)
+  const existingRows = await db
+    .select({ id: subscription.id })
+    .from(subscription)
+    .where(eq(subscription.stripeSubscriptionId, stripeSubscription.id))
+  const subscriptionId = existingRows[0]?.id || subscriptionRow.id
 
-  if (existing) {
+  if (existingRows.length > 0) {
     await db
       .update(subscription)
       .set({
@@ -158,7 +161,7 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
         trialEnd: subscriptionRow.trialEnd,
         metadata: subscriptionRow.metadata,
       })
-      .where(eq(subscription.id, existing.id))
+      .where(eq(subscription.stripeSubscriptionId, stripeSubscription.id))
   } else {
     await db.insert(subscription).values(subscriptionRow)
   }
@@ -190,7 +193,7 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
   }
 
   logger.info('[subscription.created] Upserted enterprise subscription', {
-    subscriptionId: existing?.id || subscriptionRow.id,
+    subscriptionId,
     referenceType: subscriptionRow.referenceType,
     referenceId: subscriptionRow.referenceId,
     subscriptionKey: subscriptionRow.plan,

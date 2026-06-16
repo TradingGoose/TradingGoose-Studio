@@ -332,6 +332,9 @@ describe('handleStripeSubscriptionDeleted', () => {
       mockDb
     )
     expect(mockSyncSubscriptionUsageLimits).toHaveBeenCalledWith(defaultSubscription)
+    expect(mockDb.update.mock.invocationCallOrder[0]).toBeLessThan(
+      mockCalculateSubscriptionOverage.mock.invocationCallOrder[0]
+    )
     expect(mockCalculateSubscriptionOverage.mock.invocationCallOrder[0]).toBeLessThan(
       mockEnsureDefaultUserSubscription.mock.invocationCallOrder[0]
     )
@@ -376,6 +379,12 @@ describe('handleStripeSubscriptionDeleted', () => {
     )
 
     expect(mockSyncSubscriptionBillingTierFromStripeSubscription).toHaveBeenCalled()
+    expect(updateCalls).toContainEqual(
+      expect.objectContaining({
+        status: 'canceled',
+        stripeSubscriptionId: 'sub_stripe_123',
+      })
+    )
     expect(mockCalculateSubscriptionOverage).not.toHaveBeenCalled()
     expect(mockEnsureDefaultUserSubscription).not.toHaveBeenCalled()
     expect(mockSyncSubscriptionUsageLimits).not.toHaveBeenCalled()
