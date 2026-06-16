@@ -1,7 +1,7 @@
 'use client'
 
 import { createLogger } from '@/lib/logs/console/logger'
-import { localizeUrl, stripLocaleFromPathname } from '@/i18n/utils'
+import { isLocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('AuthErrorHandler')
 let isHandlingAuthError = false
@@ -34,7 +34,7 @@ function shouldRateLimitRecovery(reason?: string) {
   if (typeof window === 'undefined') return false
 
   // Avoid infinite reload loops on the login page by rate limiting recovery attempts
-  const isOnLoginPage = stripLocaleFromPathname(window.location.pathname).pathname === '/login'
+  const isOnLoginPage = isLoginPathname(window.location.pathname)
   if (!isOnLoginPage) return false
 
   const now = Date.now()
@@ -46,6 +46,11 @@ function shouldRateLimitRecovery(reason?: string) {
 
   window.sessionStorage.setItem(LAST_RECOVERY_KEY, String(now))
   return false
+}
+
+function isLoginPathname(pathname: string) {
+  const segments = pathname.split('/').filter(Boolean)
+  return segments[0] === 'login' || (segments[1] === 'login' && isLocaleCode(segments[0]))
 }
 
 async function safeServerSignOut() {
@@ -74,22 +79,14 @@ export async function handleAuthError(reason?: string) {
   deleteBrowserAuthCookies()
   await safeServerSignOut()
 
-  if (stripLocaleFromPathname(window.location.pathname).pathname === '/login') {
+  if (isLoginPathname(window.location.pathname)) {
     logger.warn('Cleared stale auth state on login page', { reason })
     isHandlingAuthError = false
     return
   }
 
-  const { locale, pathname } = stripLocaleFromPathname(window.location.pathname)
-  const callbackUrl = `${pathname}${window.location.search}`
-  logger.warn('Handling authentication error', { reason, callbackUrl })
-  window.location.replace(
-    localizeUrl(
-      window.location.origin,
-      locale,
-      `/login?reauth=1&callbackUrl=${encodeURIComponent(callbackUrl)}`
-    )
-  )
+  logger.warn('Handling authentication error', { reason })
+  window.location.replace('/login?reauth=1')
 }
 
 export function isAuthErrorStatus(status?: number | null): boolean {

@@ -255,12 +255,12 @@ describe('proxy auth routing', () => {
     expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('en')
   })
 
-  it('rewrites session-cookie POST requests to the request locale', async () => {
+  it('rewrites session-cookie POST protected requests with the canonical callback header', async () => {
     mockGetSessionCookie.mockReturnValue('session-cookie')
 
     const { proxy } = await import('./proxy')
     const response = await proxy(
-      new NextRequest('http://localhost:3000/workspace', {
+      new NextRequest('http://localhost:3000/workspace/ws-1/dashboard?layoutId=layout-1', {
         method: 'POST',
         headers: {
           cookie: 'NEXT_LOCALE=es',
@@ -271,7 +271,15 @@ describe('proxy auth routing', () => {
 
     expect(response.status).toBe(200)
     expect(response.headers.get('location')).toBeNull()
-    expect(response.headers.get('x-middleware-rewrite')).toBe('http://localhost:3000/es/workspace')
+    expect(response.headers.get('x-middleware-rewrite')).toBe(
+      'http://localhost:3000/es/workspace/ws-1/dashboard?layoutId=layout-1'
+    )
+    expect(response.headers.get('x-middleware-request-x-tradinggoose-callback-path')).toBe(
+      '/workspace/ws-1/dashboard?layoutId=layout-1'
+    )
+    expect(response.headers.get('x-middleware-override-headers')?.split(',')).toContain(
+      'x-tradinggoose-callback-path'
+    )
     expect(response.cookies.get('NEXT_LOCALE')).toBeUndefined()
   })
 

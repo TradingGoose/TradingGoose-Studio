@@ -63,13 +63,17 @@ function prefixLocalePathname(locale: LocaleCode, pathname: string, includeDefau
   return normalized === '/' ? `/${locale}` : `/${locale}${normalized}`
 }
 
+function isLocalizedInternalPathname(pathname: string) {
+  const firstSegment = pathname.split(/[?#]/, 1)[0].split('/').filter(Boolean)[0]
+  return Boolean(firstSegment && isLocaleCode(firstSegment))
+}
+
 function assertCanonicalInternalPathname(pathname: string) {
   if (!pathname.startsWith('/') || pathname.startsWith('//')) {
     throw new Error(`Expected a canonical internal pathname, received "${pathname}"`)
   }
 
-  const firstSegment = pathname.split(/[?#]/, 1)[0].split('/').filter(Boolean)[0]
-  if (firstSegment && isLocaleCode(firstSegment)) {
+  if (isLocalizedInternalPathname(pathname)) {
     throw new Error(`Expected an unlocalized internal pathname, received "${pathname}"`)
   }
 }
@@ -90,6 +94,9 @@ export function normalizeCallbackUrl(
 
   if (trimmedHref.startsWith('/')) {
     const parsedUrl = new URL(trimmedHref, 'http://tradinggoose.local')
+    if (isLocalizedInternalPathname(parsedUrl.pathname)) {
+      return null
+    }
     return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`
   }
 
@@ -104,6 +111,9 @@ export function normalizeCallbackUrl(
       return null
     }
 
+    if (isLocalizedInternalPathname(parsedUrl.pathname)) {
+      return null
+    }
     return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`
   } catch {
     return null

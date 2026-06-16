@@ -24,7 +24,7 @@ describe('workflow run trigger resolution', () => {
     const edges = ['github', 'whatsapp', 'calendly', 'chat'].map((source) => edge(source))
     const runTriggers = listWorkflowRunTriggers(
       {
-        github: block('github', { triggerMode: true }),
+        github: block('github', { name: 'Production GitHub', triggerMode: true }),
         whatsapp: block('whatsapp', { triggerMode: true }),
         calendly: block('calendly', {
           triggerMode: true,
@@ -37,7 +37,7 @@ describe('workflow run trigger resolution', () => {
     )
 
     expect(runTriggers.map(({ id, name }) => [id, name])).toEqual([
-      ['github:github_webhook', 'GitHub Webhook'],
+      ['github:github_webhook', 'Production GitHub'],
       ['whatsapp:whatsapp_webhook', 'WhatsApp Webhook'],
       ['calendly:calendly_invitee_created', 'Calendly Invitee Created'],
     ])

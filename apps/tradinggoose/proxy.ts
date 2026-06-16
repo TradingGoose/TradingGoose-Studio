@@ -171,9 +171,10 @@ function isAuthRoute(pathname: string): boolean {
   return AUTH_ROUTES.has(normalizedPathname)
 }
 
-function getCanonicalCallbackPath(pathname: string, search: string) {
-  const { pathname: normalizedPathname } = resolveLocaleRoute(pathname)
-  return `${normalizedPathname}${search}`
+function buildProtectedRequestHeaders(request: NextRequest, route: LocaleRoute) {
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set(CANONICAL_CALLBACK_PATH_HEADER, `${route.pathname}${request.nextUrl.search}`)
+  return requestHeaders
 }
 
 function isMarkdownRequestPath(pathname: string) {
@@ -240,7 +241,11 @@ function resolveCanonicalLocaleRoute(request: NextRequest, route: LocaleRoute): 
   return { ...route, locale: resolveRequestLocale(request) }
 }
 
-function routeToCanonicalLocale(request: NextRequest, route: LocaleRoute): NextResponse | null {
+function routeToCanonicalLocale(
+  request: NextRequest,
+  route: LocaleRoute,
+  requestHeaders?: Headers
+): NextResponse | null {
   if (isCanonicalRouteHandlerPath(request.nextUrl.pathname)) {
     return null
   }
@@ -257,7 +262,9 @@ function routeToCanonicalLocale(request: NextRequest, route: LocaleRoute): NextR
     return withLocaleCookie(NextResponse.redirect(targetUrl), route.locale)
   }
 
-  return NextResponse.rewrite(targetUrl)
+  return requestHeaders
+    ? NextResponse.rewrite(targetUrl, { request: { headers: requestHeaders } })
+    : NextResponse.rewrite(targetUrl)
 }
 
 function handleSecurityFiltering(request: NextRequest): NextResponse | null {
@@ -303,9 +310,12 @@ export async function proxy(request: NextRequest) {
   const reauth = url.searchParams.get('reauth') === '1'
 
   if (isProtectedPath && !hasActiveSession) {
-    const callbackTarget = getCanonicalCallbackPath(url.pathname, url.search)
-    return buildLoginRedirect(request, route, callbackTarget)
+    return buildLoginRedirect(request, route, `${route.pathname}${url.search}`)
   }
+
+  const protectedRequestHeaders = isProtectedPath
+    ? buildProtectedRequestHeaders(request, route)
+    : undefined
 
   if (isAuthRoute(url.pathname)) {
     if (reauth) {
@@ -331,7 +341,7 @@ export async function proxy(request: NextRequest) {
   const securityBlock = handleSecurityFiltering(request)
   if (securityBlock) return securityBlock
 
-  const localeResponse = routeToCanonicalLocale(request, route)
+  const localeResponse = routeToCanonicalLocale(request, route, protectedRequestHeaders)
   if (localeResponse) return localeResponse
 
   const markdownRewrite = rewriteMarkdownRequest(request)
@@ -345,15 +355,12 @@ export async function proxy(request: NextRequest) {
     return response
   }
 
-  if (isProtectedPath) {
-    const requestHeaders = new Headers(request.headers)
-    requestHeaders.set(
-      CANONICAL_CALLBACK_PATH_HEADER,
-      getCanonicalCallbackPath(url.pathname, url.search)
+  if (protectedRequestHeaders) {
+    NextResponse.next({ request: { headers: protectedRequestHeaders } }).headers.forEach(
+      (value, key) => {
+        response.headers.set(key, value)
+      }
     )
-    NextResponse.next({ request: { headers: requestHeaders } }).headers.forEach((value, key) => {
-      response.headers.set(key, value)
-    })
   }
 
   response.headers.set('Vary', appendVaryHeader(appendVaryHeader(null, 'User-Agent'), 'Accept'))

@@ -14,17 +14,14 @@ import {
   useDisconnectOAuthService,
   useOAuthConnections,
 } from '@/hooks/queries/oauth-connections'
-import { createLogger } from '@/lib/logs/console/logger'
-import { OAUTH_PROVIDERS } from '@/lib/oauth/oauth'
-import { cn } from '@/lib/utils'
-import { GlobalNavbarHeader } from '@/global-navbar'
-import { useRouter } from '@/i18n/navigation'
+import { usePathname, useRouter } from '@/i18n/navigation'
 
 const logger = createLogger('Integrations')
 
 export function Integrations() {
   const t = useTranslations('workspace.integrations')
   const router = useRouter()
+  const pathname = usePathname()
   const searchParams = useSearchParams()
   const params = useParams()
   const workspaceId = params.workspaceId as string
@@ -154,7 +151,7 @@ export function Integrations() {
 
       await connectService.mutateAsync({
         providerId: service.providerId,
-        callbackURL: window.location.href,
+        callbackURL: `${pathname}${window.location.search}${window.location.hash}`,
       })
     } catch (error) {
       logger.error('OAuth connection error:', { error })

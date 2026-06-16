@@ -45,6 +45,17 @@ describe('i18n utils', () => {
     expect(normalizeCallbackUrl('workspace/ws-1/dashboard')).toBeNull()
   })
 
+  it('rejects localized callback URLs', () => {
+    expect(normalizeCallbackUrl('/en?source=nav')).toBeNull()
+    expect(normalizeCallbackUrl('/es/workspace/ws-1/dashboard?layoutId=layout-1')).toBeNull()
+    expect(
+      normalizeCallbackUrl(
+        'https://tradinggoose.ai/zh/invite/invitation-1?token=abc',
+        'https://tradinggoose.ai'
+      )
+    ).toBeNull()
+  })
+
   it('builds localized site URLs and alternate hreflang mappings', () => {
     const previousAppUrl = process.env.NEXT_PUBLIC_APP_URL
     process.env.NEXT_PUBLIC_APP_URL = 'https://preview.example.com'

@@ -131,7 +131,7 @@ function getTriggerCandidates<T extends WorkflowRunTriggerBlock>(
           id: `${blockId}:${identity.triggerSource}`,
           blockId,
           block,
-          name: trigger.name,
+          name: block.name || trigger.name,
           ...identity,
           icon: trigger.icon,
           color: sanitizeSolidIconColor(blockConfig?.bgColor) ?? '#6B7280',
