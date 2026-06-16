@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, LayoutDashboard, Play, RefreshCw, X } from 'lucide-react'
 import {
   Button,
@@ -130,7 +130,10 @@ export function ControlBar({
 
   const currentBlocks = useWorkflowBlocks()
   const currentEdges = useWorkflowEdges()
-  const runTriggers = listWorkflowRunTriggers(currentBlocks, currentEdges)
+  const runTriggers = useMemo(
+    () => listWorkflowRunTriggers(currentBlocks, currentEdges),
+    [currentBlocks, currentEdges]
+  )
 
   // Shared condition for keyboard shortcut and button disabled state
   const isWorkflowBlocked =
