@@ -346,11 +346,9 @@ describe('handleStripeSubscriptionDeleted', () => {
     )
   })
 
-  it('rejects deleted Stripe subscription events without a local subscription row', async () => {
+  it('skips deleted Stripe subscription events without a local subscription row', async () => {
     const { handleStripeSubscriptionDeleted } = await import('./subscription')
-    await expect(
-      handleStripeSubscriptionDeleted(createDeletedSubscriptionEvent() as any)
-    ).rejects.toThrow('No local subscription found for deleted Stripe subscription sub_stripe_123')
+    await handleStripeSubscriptionDeleted(createDeletedSubscriptionEvent() as any)
 
     expect(mockSyncSubscriptionBillingTierFromStripeSubscription).not.toHaveBeenCalled()
     expect(mockCalculateSubscriptionOverage).not.toHaveBeenCalled()

@@ -267,9 +267,11 @@ export async function handleStripeSubscriptionDeleted(event: Stripe.Event) {
     await getUniqueSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
 
   if (!resolvedSubscription) {
-    throw new Error(
-      `No local subscription found for deleted Stripe subscription ${stripeSubscriptionId}`
-    )
+    logger.info('Deleted Stripe subscription has no local subscription row; skipping settlement', {
+      eventId: event.id,
+      stripeSubscriptionId,
+    })
+    return
   }
 
   await syncSubscriptionBillingTierFromStripeSubscription(
