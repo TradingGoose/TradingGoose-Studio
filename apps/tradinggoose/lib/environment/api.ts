@@ -17,12 +17,14 @@ export interface WorkspaceEnvironmentData {
   personalRows: WorkspaceEnvironmentRow[]
 }
 
-export async function fetchPersonalEnvironment(): Promise<Record<string, EnvironmentVariable>> {
+export async function fetchPersonalEnvironment(
+  callbackPathname: string
+): Promise<Record<string, EnvironmentVariable>> {
   const response = await fetch(API_ENDPOINTS.ENVIRONMENT, { cache: 'no-store' })
 
   if (!response.ok) {
     if (response.status === 401) {
-      await handleAuthError('environment-api:personal')
+      await handleAuthError('environment-api:personal', callbackPathname)
     }
     throw new Error(`Failed to load environment variables: ${response.statusText}`)
   }
@@ -37,7 +39,8 @@ export async function fetchPersonalEnvironment(): Promise<Record<string, Environ
 }
 
 export async function fetchWorkspaceEnvironment(
-  workspaceId: string
+  workspaceId: string,
+  callbackPathname: string
 ): Promise<WorkspaceEnvironmentData> {
   const response = await fetch(API_ENDPOINTS.WORKSPACE_ENVIRONMENT(workspaceId), {
     cache: 'no-store',
@@ -45,7 +48,7 @@ export async function fetchWorkspaceEnvironment(
 
   if (!response.ok) {
     if (response.status === 401) {
-      await handleAuthError('environment-api:workspace')
+      await handleAuthError('environment-api:workspace', callbackPathname)
     }
     throw new Error(`Failed to load workspace environment: ${response.statusText}`)
   }

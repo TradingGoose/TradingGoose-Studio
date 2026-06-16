@@ -1,7 +1,7 @@
 'use client'
 
 import { createLogger } from '@/lib/logs/console/logger'
-import { isLocaleCode } from '@/i18n/utils'
+import { isLocaleCode, normalizeCallbackUrl } from '@/i18n/utils'
 
 const logger = createLogger('AuthErrorHandler')
 let isHandlingAuthError = false
@@ -70,10 +70,15 @@ async function safeServerSignOut() {
  * This removes any stale tokens/cookies and forces a navigation to login so
  * the user can authenticate again.
  */
-export async function handleAuthError(reason?: string) {
+export async function handleAuthError(reason: string, callbackPathname: string) {
   if (typeof window === 'undefined') return
   if (isHandlingAuthError) return
   if (shouldRateLimitRecovery(reason)) return
+
+  const canonicalCallbackPathname = normalizeCallbackUrl(callbackPathname)
+  if (!canonicalCallbackPathname) {
+    throw new Error('Expected a canonical auth recovery callback pathname')
+  }
 
   isHandlingAuthError = true
   deleteBrowserAuthCookies()
@@ -85,8 +90,11 @@ export async function handleAuthError(reason?: string) {
     return
   }
 
-  logger.warn('Handling authentication error', { reason })
-  window.location.replace('/login?reauth=1')
+  const callbackUrl = `${canonicalCallbackPathname}${window.location.search}${window.location.hash}`
+  const loginPath = `/login?reauth=1&callbackUrl=${encodeURIComponent(callbackUrl)}`
+
+  logger.warn('Handling authentication error', { reason, callbackUrl })
+  window.location.replace(loginPath)
 }
 
 export function isAuthErrorStatus(status?: number | null): boolean {
