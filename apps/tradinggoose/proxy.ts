@@ -19,7 +19,7 @@ import {
   localizeUrl,
   stripLocaleFromPathname,
 } from '@/i18n/utils'
-import { resolveRequestLocale } from '@/i18n/locale-resolution'
+import { resolveAuthenticatedUserLocale, resolveRequestLocale } from '@/i18n/locale-resolution'
 import { createLogger } from './lib/logs/console/logger'
 import { generateRuntimeCSP } from './lib/security/csp'
 
@@ -179,19 +179,30 @@ async function resolveCanonicalLocaleRoute(
   route: LocaleRoute,
   hasActiveSession: boolean
 ): Promise<LocaleRoute> {
-  if (route.hasLocalePrefix || isCanonicalRouteHandlerPath(request.nextUrl.pathname)) {
+  if (isCanonicalRouteHandlerPath(request.nextUrl.pathname)) {
     return route
+  }
+
+  if (route.hasLocalePrefix) {
+    if (!hasActiveSession) {
+      return route
+    }
+
+    const authenticatedLocale = await resolveAuthenticatedUserLocale(request)
+    return authenticatedLocale ? { ...route, locale: authenticatedLocale } : route
   }
 
   const locale = await resolveRequestLocale(request, { hasActiveSession })
   return resolveLocaleRoute(request.nextUrl.pathname, locale)
 }
 
-function redirectToRequiredLocalePrefix(
-  request: NextRequest,
-  route: LocaleRoute
-): NextResponse | null {
-  if (route.hasLocalePrefix || isCanonicalRouteHandlerPath(request.nextUrl.pathname)) {
+function redirectToCanonicalLocale(request: NextRequest, route: LocaleRoute): NextResponse | null {
+  if (isCanonicalRouteHandlerPath(request.nextUrl.pathname)) {
+    return null
+  }
+
+  const requestRoute = resolveLocaleRoute(request.nextUrl.pathname)
+  if (route.hasLocalePrefix && requestRoute.locale === route.locale) {
     return null
   }
 
@@ -249,7 +260,7 @@ export async function proxy(request: NextRequest) {
 
   if (isAuthRoute(url.pathname)) {
     if (reauth) {
-      const localeRedirect = redirectToRequiredLocalePrefix(request, route)
+      const localeRedirect = redirectToCanonicalLocale(request, route)
       if (localeRedirect) {
         clearAuthCookies(localeRedirect)
         return localeRedirect
@@ -271,7 +282,7 @@ export async function proxy(request: NextRequest) {
   const securityBlock = handleSecurityFiltering(request)
   if (securityBlock) return securityBlock
 
-  const localeRedirect = redirectToRequiredLocalePrefix(request, route)
+  const localeRedirect = redirectToCanonicalLocale(request, route)
   if (localeRedirect) return localeRedirect
 
   const markdownRewrite = rewriteMarkdownRequest(request)
