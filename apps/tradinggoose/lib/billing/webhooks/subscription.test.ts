@@ -271,7 +271,7 @@ describe('handleStripeSubscriptionDeleted', () => {
     vi.clearAllMocks()
 
     updateCalls = []
-    mockDb.select.mockImplementation(() => createSelectQueryMock([]))
+    mockDb.select.mockImplementation(() => createSelectQueryMock([], 'limit'))
     mockDb.transaction.mockImplementation(async (callback) => callback(mockDb))
     mockDb.update.mockImplementation(() => createUpdateQueryMock())
     mockCalculateSubscriptionOverage.mockResolvedValue(0)
@@ -326,6 +326,39 @@ describe('handleStripeSubscriptionDeleted', () => {
         stripeSubscriptionId: 'sub_stripe_123',
       })
     )
+  })
+
+  it('ignores deleted Stripe subscription events without a local subscription row', async () => {
+    const { handleStripeSubscriptionDeleted } = await import('./subscription')
+    await handleStripeSubscriptionDeleted(createDeletedSubscriptionEvent() as any)
+
+    expect(mockSyncSubscriptionBillingTierFromStripeSubscription).not.toHaveBeenCalled()
+    expect(mockCalculateSubscriptionOverage).not.toHaveBeenCalled()
+    expect(mockResetUsageForSubscription).not.toHaveBeenCalled()
+    expect(mockEnsureDefaultUserSubscription).not.toHaveBeenCalled()
+    expect(mockResetUserDefaultUsageToOnboardingAllowanceBalance).not.toHaveBeenCalled()
+    expect(updateCalls).toEqual([])
+  })
+
+  it('rejects when a matched subscription disappears during deletion settlement', async () => {
+    const stripeBackedSubscription = createDefaultSubscription({
+      status: 'canceled',
+      stripeSubscriptionId: 'sub_stripe_123',
+    })
+    mockDb.select
+      .mockImplementationOnce(() => createSelectQueryMock([stripeBackedSubscription], 'limit'))
+      .mockImplementationOnce(() => createSelectQueryMock([], 'limit'))
+
+    const { handleStripeSubscriptionDeleted } = await import('./subscription')
+    await expect(
+      handleStripeSubscriptionDeleted(createDeletedSubscriptionEvent() as any)
+    ).rejects.toThrow(
+      'Local subscription disappeared while settling deleted Stripe subscription sub_stripe_123'
+    )
+
+    expect(mockSyncSubscriptionBillingTierFromStripeSubscription).toHaveBeenCalled()
+    expect(mockCalculateSubscriptionOverage).not.toHaveBeenCalled()
+    expect(mockEnsureDefaultUserSubscription).not.toHaveBeenCalled()
   })
 
   it('does not reset onboarding usage when another personal subscription remains entitled', async () => {
