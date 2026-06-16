@@ -19,7 +19,11 @@ import {
   localizeUrl,
   stripLocaleFromPathname,
 } from '@/i18n/utils'
-import { resolveAuthenticatedUserLocale, resolveRequestLocale } from '@/i18n/locale-resolution'
+import {
+  resolveAnonymousLocale,
+  resolveAuthenticatedUserLocale,
+  resolveRequestLocale,
+} from '@/i18n/locale-resolution'
 import { createLogger } from './lib/logs/console/logger'
 import { generateRuntimeCSP } from './lib/security/csp'
 
@@ -183,17 +187,22 @@ async function resolveCanonicalLocaleRoute(
     return route
   }
 
-  if (route.hasLocalePrefix) {
-    if (!hasActiveSession) {
-      return route
-    }
-
-    const authenticatedLocale = await resolveAuthenticatedUserLocale(request)
-    return authenticatedLocale ? { ...route, locale: authenticatedLocale } : route
+  if (route.hasLocalePrefix && !hasActiveSession) {
+    return route
   }
 
-  const locale = await resolveRequestLocale(request, { hasActiveSession })
-  return resolveLocaleRoute(request.nextUrl.pathname, locale)
+  try {
+    const locale = route.hasLocalePrefix
+      ? await resolveAuthenticatedUserLocale(request)
+      : await resolveRequestLocale(request, { hasActiveSession })
+    return locale ? { ...route, locale } : route
+  } catch (error) {
+    logger.warn('Failed to resolve authenticated request locale', { error })
+    return {
+      ...route,
+      locale: route.hasLocalePrefix ? route.locale : resolveAnonymousLocale(request),
+    }
+  }
 }
 
 function redirectToCanonicalLocale(request: NextRequest, route: LocaleRoute): NextResponse | null {
@@ -321,7 +330,7 @@ export async function proxy(request: NextRequest) {
     appendHomepageDiscoveryLinks(response.headers, locale)
   }
 
-  return withLocaleCookie(response, locale)
+  return isCanonicalRouteHandlerPath(url.pathname) ? response : withLocaleCookie(response, locale)
 }
 
 export const config = {

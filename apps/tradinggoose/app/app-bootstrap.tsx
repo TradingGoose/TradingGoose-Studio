@@ -22,14 +22,14 @@ const isPublicLandingRoute = (pathname: string) =>
 export function AppBootstrap() {
   const pathname = usePathname() ?? '/'
   const { data: session, isPending } = useSession()
-  const shouldLoadSettings = !isPending && Boolean(session?.user?.id)
-  const settingsQuery = useGeneralSettings({ enabled: shouldLoadSettings })
+  const userId = session?.user?.id ?? null
+  const settingsQuery = useGeneralSettings({ enabled: !isPending, userId })
 
   useEffect(() => {
     useGeneralStore.setState({
-      isLoading: isPending || (shouldLoadSettings && settingsQuery.isPending),
+      isLoading: isPending || (Boolean(userId) && settingsQuery.isPending),
     })
-  }, [isPending, shouldLoadSettings, settingsQuery.isPending])
+  }, [isPending, settingsQuery.isPending, userId])
 
   useEffect(() => {
     if (isPublicLandingRoute(pathname)) {
