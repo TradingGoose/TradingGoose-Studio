@@ -228,19 +228,6 @@ describe('subscription billing helpers', () => {
     expect(mockHydrateSubscriptionsWithTiers).toHaveBeenCalledWith([])
   })
 
-  it('rejects duplicate local rows for one Stripe subscription id', async () => {
-    mockDb.select.mockImplementationOnce(() =>
-      createSelectQueryMock([{ id: 'sub_1' }, { id: 'sub_2' }], 'limit')
-    )
-
-    const { getUniqueSubscriptionByStripeSubscriptionId } = await import('./subscription')
-
-    await expect(getUniqueSubscriptionByStripeSubscriptionId('stripe_sub_123')).rejects.toThrow(
-      'Multiple local subscriptions found for Stripe subscription stripe_sub_123'
-    )
-    expect(mockHydrateSubscriptionsWithTiers).not.toHaveBeenCalled()
-  })
-
   it('seeds onboarding allowance into user stats on billing-enable backfill', async () => {
     const insertCalls: Array<{
       values: Record<string, unknown>
