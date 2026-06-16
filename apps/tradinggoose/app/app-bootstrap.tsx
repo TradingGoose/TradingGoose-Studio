@@ -5,6 +5,7 @@ import { usePathname } from '@/i18n/navigation'
 import { useGeneralSettings } from '@/hooks/queries/general-settings'
 import { useSession } from '@/lib/auth-client'
 import { bootstrapProviderModels } from '@/stores/providers/store'
+import { useGeneralStore } from '@/stores/settings/general/store'
 
 const PUBLIC_LANDING_ROUTE_PREFIXES = [
   '/privacy',
@@ -21,8 +22,14 @@ const isPublicLandingRoute = (pathname: string) =>
 export function AppBootstrap() {
   const pathname = usePathname() ?? '/'
   const { data: session, isPending } = useSession()
+  const shouldLoadSettings = !isPending && Boolean(session?.user?.id)
+  const settingsQuery = useGeneralSettings({ enabled: shouldLoadSettings })
 
-  useGeneralSettings({ enabled: !isPending && Boolean(session?.user?.id) })
+  useEffect(() => {
+    useGeneralStore.setState({
+      isLoading: isPending || (shouldLoadSettings && settingsQuery.isPending),
+    })
+  }, [isPending, shouldLoadSettings, settingsQuery.isPending])
 
   useEffect(() => {
     if (isPublicLandingRoute(pathname)) {
