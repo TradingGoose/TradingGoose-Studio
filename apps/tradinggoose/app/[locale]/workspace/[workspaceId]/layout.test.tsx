@@ -23,9 +23,7 @@ vi.mock('@/i18n/navigation', () => ({
         ? href
         : `${href.pathname}${href.query ? `?${new URLSearchParams(href.query).toString()}` : ''}`
     const localizedPath =
-      locale && locale !== 'en' && canonicalPath.startsWith('/')
-        ? `/${locale}${canonicalPath}`
-        : canonicalPath
+      locale && canonicalPath.startsWith('/') ? `/${locale}${canonicalPath}` : canonicalPath
 
     return mockRedirect(localizedPath)
   },
@@ -84,7 +82,7 @@ describe('Workspace layout access guard', () => {
     expect(mockCheckWorkspaceAccess).not.toHaveBeenCalled()
   })
 
-  it('redirects to /workspace when the user cannot access the workspace', async () => {
+  it('redirects to the localized workspace root when the user cannot access the workspace', async () => {
     mockGetSession.mockResolvedValue({
       user: {
         id: 'user-1',
@@ -104,10 +102,10 @@ describe('Workspace layout access guard', () => {
         children: <div>workspace</div>,
         params: Promise.resolve({ locale: 'en', workspaceId: 'ws-1' }),
       })
-    ).rejects.toThrow('redirect:/workspace')
+    ).rejects.toThrow('redirect:/en/workspace')
 
     expect(mockCheckWorkspaceAccess).toHaveBeenCalledWith('ws-1', 'user-1')
-    expect(mockRedirect).toHaveBeenCalledWith('/workspace')
+    expect(mockRedirect).toHaveBeenCalledWith('/en/workspace')
   })
 
   it('renders the workspace route when access is valid', async () => {

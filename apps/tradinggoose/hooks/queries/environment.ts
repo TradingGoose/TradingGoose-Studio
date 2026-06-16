@@ -1,8 +1,10 @@
 import { useEffect } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { handleAuthError } from '@/lib/auth/auth-error-handler'
 import type { WorkspaceEnvironmentData } from '@/lib/environment/api'
 import { fetchPersonalEnvironment, fetchWorkspaceEnvironment } from '@/lib/environment/api'
 import { createLogger } from '@/lib/logs/console/logger'
+import { usePathname } from '@/i18n/navigation'
 import { API_ENDPOINTS } from '@/stores/constants'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
 
@@ -16,12 +18,26 @@ export const environmentKeys = {
 
 export type { WorkspaceEnvironmentData } from '@/lib/environment/api'
 
+async function throwEnvironmentResponseError(
+  response: Response,
+  reason: string,
+  callbackPathname: string,
+  message: string
+): Promise<never> {
+  if (response.status === 401) {
+    await handleAuthError(reason, callbackPathname)
+  }
+
+  throw new Error(`${message}: ${response.statusText}`)
+}
+
 export function usePersonalEnvironment() {
+  const pathname = usePathname()
   const setVariables = useEnvironmentStore((state) => state.setVariables)
 
   const query = useQuery({
     queryKey: environmentKeys.personal(),
-    queryFn: fetchPersonalEnvironment,
+    queryFn: () => fetchPersonalEnvironment(pathname),
     staleTime: 60 * 1000,
     placeholderData: keepPreviousData,
   })
@@ -39,9 +55,11 @@ export function useWorkspaceEnvironment<TData = WorkspaceEnvironmentData>(
   workspaceId: string,
   options?: { select?: (data: WorkspaceEnvironmentData) => TData }
 ) {
+  const pathname = usePathname()
+
   return useQuery({
     queryKey: environmentKeys.workspace(workspaceId),
-    queryFn: () => fetchWorkspaceEnvironment(workspaceId),
+    queryFn: () => fetchWorkspaceEnvironment(workspaceId, pathname),
     enabled: Boolean(workspaceId),
     staleTime: 60 * 1000,
     placeholderData: keepPreviousData,
@@ -56,6 +74,7 @@ interface UpsertPersonalEnvironmentParams {
 
 export function useUpsertPersonalEnvironment() {
   const queryClient = useQueryClient()
+  const pathname = usePathname()
 
   return useMutation({
     mutationFn: async ({ key, value }: UpsertPersonalEnvironmentParams) => {
@@ -66,7 +85,12 @@ export function useUpsertPersonalEnvironment() {
       })
 
       if (!response.ok) {
-        throw new Error(`Failed to update personal environment variable: ${response.statusText}`)
+        await throwEnvironmentResponseError(
+          response,
+          'environment-query:upsert-personal',
+          pathname,
+          'Failed to update personal environment variable'
+        )
       }
 
       logger.info(`Upserted personal environment variable: ${key}`)
@@ -85,6 +109,7 @@ interface RemovePersonalEnvironmentParams {
 
 export function useRemovePersonalEnvironment() {
   const queryClient = useQueryClient()
+  const pathname = usePathname()
 
   return useMutation({
     mutationFn: async ({ key }: RemovePersonalEnvironmentParams) => {
@@ -95,7 +120,12 @@ export function useRemovePersonalEnvironment() {
       })
 
       if (!response.ok) {
-        throw new Error(`Failed to remove personal environment variable: ${response.statusText}`)
+        await throwEnvironmentResponseError(
+          response,
+          'environment-query:remove-personal',
+          pathname,
+          'Failed to remove personal environment variable'
+        )
       }
 
       logger.info(`Removed personal environment variable: ${key}`)
@@ -115,6 +145,7 @@ interface UpsertWorkspaceEnvironmentParams {
 
 export function useUpsertWorkspaceEnvironment() {
   const queryClient = useQueryClient()
+  const pathname = usePathname()
 
   return useMutation({
     mutationFn: async ({ workspaceId, variables }: UpsertWorkspaceEnvironmentParams) => {
@@ -125,7 +156,12 @@ export function useUpsertWorkspaceEnvironment() {
       })
 
       if (!response.ok) {
-        throw new Error(`Failed to update workspace environment: ${response.statusText}`)
+        await throwEnvironmentResponseError(
+          response,
+          'environment-query:upsert-workspace',
+          pathname,
+          'Failed to update workspace environment'
+        )
       }
 
       logger.info(`Upserted workspace environment variables for workspace: ${workspaceId}`)
@@ -147,6 +183,7 @@ interface RemoveWorkspaceEnvironmentParams {
 
 export function useRemoveWorkspaceEnvironment() {
   const queryClient = useQueryClient()
+  const pathname = usePathname()
 
   return useMutation({
     mutationFn: async ({ workspaceId, keys }: RemoveWorkspaceEnvironmentParams) => {
@@ -157,7 +194,12 @@ export function useRemoveWorkspaceEnvironment() {
       })
 
       if (!response.ok) {
-        throw new Error(`Failed to remove workspace environment keys: ${response.statusText}`)
+        await throwEnvironmentResponseError(
+          response,
+          'environment-query:remove-workspace',
+          pathname,
+          'Failed to remove workspace environment keys'
+        )
       }
 
       logger.info(`Removed ${keys.length} workspace environment keys for workspace: ${workspaceId}`)

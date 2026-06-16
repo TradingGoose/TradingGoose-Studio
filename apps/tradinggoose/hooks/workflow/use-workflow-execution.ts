@@ -166,11 +166,11 @@ export function useWorkflowExecution() {
         workflowSnapshot.edges
       )
 
-      const isChatExecution = triggerType === 'chat'
       let triggerBlockId: string | undefined
       let finalWorkflowInput = workflowInput
+      let finalTriggerType = triggerType
 
-      if (isChatExecution) {
+      if (triggerType === 'chat') {
         const chatTrigger = TriggerUtils.findTriggerBlock(workflowData.blocks, 'chat')
         if (!chatTrigger) {
           throw new Error('Chat execution requires a Chat Trigger block')
@@ -178,7 +178,7 @@ export function useWorkflowExecution() {
         triggerBlockId = chatTrigger.blockId
       } else {
         if (!requestedTriggerBlockId) {
-          throw new Error('Run requires choosing a connected configured non-chat trigger block')
+          throw new Error('Run requires choosing a configured trigger block')
         }
         const editorTestTrigger = resolveWorkflowRunTrigger(
           workflowData.blocks,
@@ -190,7 +190,9 @@ export function useWorkflowExecution() {
           }
         )
         triggerBlockId = editorTestTrigger.blockId
+        workflowData.blocks = editorTestTrigger.blocks
         finalWorkflowInput = editorTestTrigger.input
+        finalTriggerType = editorTestTrigger.triggerType
       }
 
       const workflowVariables = Object.values(getVariablesSnapshot(doc)).reduce(
@@ -205,7 +207,7 @@ export function useWorkflowExecution() {
         workspaceId,
         input: finalWorkflowInput,
         triggerBlockId,
-        triggerType,
+        triggerType: finalTriggerType,
         workflowVariables,
         workflowData,
       }

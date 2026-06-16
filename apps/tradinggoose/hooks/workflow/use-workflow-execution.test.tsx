@@ -212,7 +212,7 @@ describe('useWorkflowExecution', () => {
     const execution = await renderExecutionHook()
 
     await act(async () => {
-      await execution.handleRunWorkflow()
+      await execution.handleRunWorkflow({ triggerBlockId: 'chat-trigger' })
     })
 
     expect(mockRunQueuedWorkflowExecution).not.toHaveBeenCalled()

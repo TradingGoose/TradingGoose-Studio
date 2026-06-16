@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { getBaseUrl } from '@/lib/urls/utils'
+import { normalizeCallbackUrl } from '@/i18n/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,20 +14,11 @@ const INLINE_SCRIPT_ESCAPES: Record<string, string> = {
   '\u2029': '\\u2029',
 }
 
-function getSafeCallbackURL(request: NextRequest) {
-  const fallback = new URL('/', getBaseUrl())
+function getCallbackURL(request: NextRequest) {
+  const appUrl = new URL(getBaseUrl())
   const rawCallbackURL = request.nextUrl.searchParams.get('callbackURL')
-
-  if (!rawCallbackURL) {
-    return fallback
-  }
-
-  try {
-    const callbackURL = new URL(rawCallbackURL, fallback.origin)
-    return callbackURL.origin === fallback.origin ? callbackURL : fallback
-  } catch {
-    return fallback
-  }
+  const callbackPath = normalizeCallbackUrl(rawCallbackURL, appUrl.origin)
+  return callbackPath ? new URL(callbackPath, appUrl.origin) : null
 }
 
 function serializeForInlineScript(value: string) {
@@ -116,7 +108,11 @@ function renderTrelloCallbackPage({ callbackURL, state }: { callbackURL: URL; st
 }
 
 export async function GET(request: NextRequest) {
-  const callbackURL = getSafeCallbackURL(request)
+  const callbackURL = getCallbackURL(request)
+  if (!callbackURL) {
+    return NextResponse.json({ error: 'invalid_callback_url' }, { status: 400 })
+  }
+
   const state = request.nextUrl.searchParams.get('state')?.trim() || ''
 
   return new NextResponse(renderTrelloCallbackPage({ callbackURL, state }), {

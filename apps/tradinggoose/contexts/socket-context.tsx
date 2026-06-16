@@ -5,6 +5,7 @@ import { io, type Socket } from 'socket.io-client'
 import { handleAuthError } from '@/lib/auth/auth-error-handler'
 import { getEnv } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
+import { usePathname } from '@/i18n/navigation'
 
 const logger = createLogger('SocketContext')
 const isSocketAuthError = (message: string) =>
@@ -17,11 +18,12 @@ const logSocketIssue = (
   details: {
     message: string
     type?: string
-  }
+  },
+  callbackPathname: string
 ) => {
   if (isSocketAuthError(details.message)) {
     logger.warn(event, details)
-    void handleAuthError('socket-auth')
+    void handleAuthError('socket-auth', callbackPathname)
   } else {
     logger.error(event, details)
   }
@@ -133,9 +135,12 @@ const getGlobalSocketRegistry = (): Map<string, SocketRegistryEntry> => {
 }
 
 export function SocketProvider({ children, user }: SocketProviderProps) {
+  const pathname = usePathname()
   const [socket, setSocket] = useState<Socket | null>(null)
   const [isConnected, setIsConnected] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false)
+  const callbackPathnameRef = useRef(pathname)
+  callbackPathnameRef.current = pathname
 
   // Track socket in a ref so the cleanup closure always sees the latest value,
   // avoiding the race where `socket` state is still null during fast unmount.
@@ -207,10 +212,14 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
       const onConnectError = (error: any) => {
         setIsConnected(false)
         setIsConnecting(false)
-        logSocketIssue('Socket connection error:', {
-          message: error instanceof Error ? error.message : String(error),
-          type: error?.type,
-        })
+        logSocketIssue(
+          'Socket connection error:',
+          {
+            message: error instanceof Error ? error.message : String(error),
+            type: error?.type,
+          },
+          callbackPathnameRef.current
+        )
       }
 
       socketInstance.on('connect', onConnect)
@@ -247,9 +256,13 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
             setupSocketCleanup = setupSocket(socket)
           })
           .catch((err) => {
-            logSocketIssue('Shared socket initialization failed', {
-              message: err instanceof Error ? err.message : String(err),
-            })
+            logSocketIssue(
+              'Shared socket initialization failed',
+              {
+                message: err instanceof Error ? err.message : String(err),
+              },
+              callbackPathnameRef.current
+            )
             if (!disposed) setIsConnecting(false)
             registry.delete(user.id) // Allow retry
           })
@@ -284,9 +297,13 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
               const freshToken = await generateSocketToken()
               cb({ token: freshToken })
             } catch (error) {
-              logSocketIssue('Failed to generate fresh token for connection:', {
-                message: error instanceof Error ? error.message : String(error),
-              })
+              logSocketIssue(
+                'Failed to generate fresh token for connection:',
+                {
+                  message: error instanceof Error ? error.message : String(error),
+                },
+                callbackPathnameRef.current
+              )
               cb({ token: null })
             }
           },
@@ -315,9 +332,13 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
           setupSocketCleanup = setupSocket(socket)
         })
         .catch((err) => {
-          logSocketIssue('Failed to initialize socket:', {
-            message: err instanceof Error ? err.message : String(err),
-          })
+          logSocketIssue(
+            'Failed to initialize socket:',
+            {
+              message: err instanceof Error ? err.message : String(err),
+            },
+            callbackPathnameRef.current
+          )
           if (!disposed) setIsConnecting(false)
           registry.delete(user.id)
         })

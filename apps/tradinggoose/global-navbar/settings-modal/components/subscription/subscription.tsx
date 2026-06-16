@@ -13,7 +13,7 @@ import { getBillingStatus, getSubscriptionStatus, getUsage } from '@/lib/subscri
 import type { BillingUpgradeTarget } from '@/lib/subscription/upgrade'
 import { useSubscriptionUpgrade } from '@/lib/subscription/upgrade'
 import { cn } from '@/lib/utils'
-import { useGeneralSettings, useUpdateGeneralSetting } from '@/hooks/queries/general-settings'
+import { useUpdateGeneralSetting } from '@/hooks/queries/general-settings'
 import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
 import { usePublicBillingCatalog } from '@/hooks/queries/public-billing-catalog'
 import { useSubscriptionData, useUsageLimitData } from '@/hooks/queries/subscription'
@@ -180,8 +180,6 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
   const [upgradeError, setUpgradeError] = useState<string | null>(null)
   const [isPrimaryActionPending, setIsPrimaryActionPending] = useState(false)
   const usageLimitRef = useRef<UsageLimitRef | null>(null)
-
-  useGeneralSettings()
 
   const billingPayload = (subscriptionData as any)?.data ?? subscriptionData
   const organizationBillingPayload =

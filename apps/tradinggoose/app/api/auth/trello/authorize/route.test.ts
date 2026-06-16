@@ -72,9 +72,7 @@ describe('Trello authorize route', () => {
 
     const returnURL = new URL(authorizeURL.searchParams.get('return_url')!)
     expect(returnURL.pathname).toBe('/api/auth/trello/callback')
-    expect(returnURL.searchParams.get('callbackURL')).toBe(
-      'http://localhost:3000/workspace/ws-1/integrations'
-    )
+    expect(returnURL.searchParams.get('callbackURL')).toBe('/workspace/ws-1/integrations')
     expect(returnURL.searchParams.get('state')).toBe('trello-state')
 
     const setCookie = response.headers.get('set-cookie')

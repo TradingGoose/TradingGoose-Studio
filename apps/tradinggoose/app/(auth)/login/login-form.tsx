@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
+import { useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -27,8 +28,7 @@ import { AuthWaitlistNote } from '@/app/(auth)/components/auth-waitlist-note'
 import { SocialLoginButtons } from '@/app/(auth)/components/social-login-buttons'
 import { SSOLoginButton } from '@/app/(auth)/components/sso-login-button'
 import { inter } from '@/app/fonts/inter'
-import { useMessages } from 'next-intl'
-import { Link, useRouter } from '@/i18n/navigation'
+import { Link, usePathname, useRouter } from '@/i18n/navigation'
 import { normalizeCallbackUrl } from '@/i18n/utils'
 
 const logger = createLogger('LoginForm')
@@ -93,6 +93,7 @@ export default function LoginPage({
   registrationMode: RegistrationMode
 }) {
   const router = useRouter()
+  const pathname = usePathname()
   const authRedirectUrls = useAuthRedirectUrls()
   const copy = useMessages()
   const loginCopy = copy.auth.login
@@ -301,7 +302,7 @@ export default function LoginPage({
 
             // If the backend rejected the request due to an invalid/expired auth state, hard reset auth.
             if (status === 401) {
-              handleAuthError('login-unauthorized').catch(() => {})
+              handleAuthError('login-unauthorized', pathname).catch(() => {})
               errorMessage.push(loginCopy.errors.sessionExpired)
             }
 

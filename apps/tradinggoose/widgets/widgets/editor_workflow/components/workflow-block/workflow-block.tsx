@@ -231,12 +231,12 @@ export const WorkflowBlock = memo(
 
     const tooltipPortalContainer = tooltipContainer ?? undefined
     const popoverPortalContainer = popoverContainer ?? undefined
+    // Tooltips portal into the transformed React Flow viewport, so viewport zoom already scales them.
     const tooltipEnvironmentValue = useMemo(
       () => ({
         container: tooltipPortalContainer,
-        scale: normalizedViewportScale,
       }),
-      [tooltipPortalContainer, normalizedViewportScale]
+      [tooltipPortalContainer]
     )
     const popoverEnvironmentValue = useMemo(
       () => ({
@@ -761,12 +761,12 @@ export const WorkflowBlock = memo(
                   '--block-active-pulse-color': activePulseColor,
                   ...(selected ? { borderColor: blockAccentColor, borderWidth: '1px' } : {}),
                 } as CSSProperties &
-                Record<
-                  | '--block-active-pulse-color'
-                  | '--block-active-ring-color'
-                  | '--block-hover-color',
-                  string
-                >
+                  Record<
+                    | '--block-active-pulse-color'
+                    | '--block-active-ring-color'
+                    | '--block-hover-color',
+                    string
+                  >
               }
             >
               {/* Show debug indicator for pending blocks */}

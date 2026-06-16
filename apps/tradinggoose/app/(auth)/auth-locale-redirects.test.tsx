@@ -45,6 +45,7 @@ vi.mock('@/i18n/navigation', () => ({
   useRouter: () => ({
     push: mockPush,
   }),
+  usePathname: () => '/login',
 }))
 
 vi.mock('@/lib/auth-client', () => ({

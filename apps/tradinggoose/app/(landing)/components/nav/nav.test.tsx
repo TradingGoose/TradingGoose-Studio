@@ -17,7 +17,14 @@ const mockReplace = vi.fn()
 const mockRefresh = vi.fn()
 const mockReplaceLocaleDocument = vi.fn()
 const mockUpdateSetting = vi.fn()
-let mockSessionUserId: string | null = null
+const mockSetTheme = vi.fn()
+let mockSessionUser: {
+  id: string
+  email: string
+  name?: string | null
+  image?: string | null
+  updatedAt?: Date
+} | null = null
 let mockPathname = '/'
 let mockSearchParams = ''
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
@@ -83,16 +90,75 @@ vi.mock('@/lib/branding/branding', () => ({
 
 vi.mock('@/lib/auth-client', () => ({
   useSession: () => ({
-    data: mockSessionUserId ? { user: { id: mockSessionUserId } } : null,
+    data: mockSessionUser ? { user: mockSessionUser } : null,
     isPending: false,
     error: null,
     refetch: vi.fn(),
   }),
+  signOut: vi.fn(),
 }))
 
 vi.mock('@/stores/settings/general/store', () => ({
-  useGeneralStore: (selector: (state: { updateSetting: typeof mockUpdateSetting }) => unknown) =>
-    selector({ updateSetting: mockUpdateSetting }),
+  useGeneralStore: (
+    selector: (state: {
+      theme: 'system'
+      setTheme: typeof mockSetTheme
+      updateSetting: typeof mockUpdateSetting
+      isLoading: boolean
+      isThemeLoading: boolean
+    }) => unknown
+  ) =>
+    selector({
+      theme: 'system',
+      setTheme: mockSetTheme,
+      updateSetting: mockUpdateSetting,
+      isLoading: false,
+      isThemeLoading: false,
+    }),
+}))
+
+vi.mock('@/hooks/queries/organization', () => ({
+  useOrganizations: () => ({
+    data: {
+      activeOrganization: null,
+      billingData: { data: { billingEnabled: false } },
+    },
+  }),
+  useOrganizationBilling: () => ({ data: null }),
+}))
+
+vi.mock('@/hooks/queries/subscription', () => ({
+  useSubscriptionData: () => ({
+    data: { billingEnabled: false },
+    isLoading: false,
+  }),
+}))
+
+vi.mock('@/lib/billing/billing-portal', () => ({
+  openBillingPortal: vi.fn(),
+}))
+
+vi.mock('@/lib/environment', () => ({
+  isHosted: false,
+}))
+
+vi.mock('@/stores', () => ({
+  clearUserData: vi.fn(),
+}))
+
+vi.mock('@/global-navbar/settings-modal/components/help/help-modal', () => ({
+  HelpModal: () => null,
+}))
+
+vi.mock('@/global-navbar/settings-modal/settings-dialog', () => ({
+  SettingsDialog: ({
+    open,
+    section,
+  }: {
+    open: boolean
+    section: string
+    onOpenChange: (open: boolean) => void
+  }) => (open ? <div data-testid='settings-dialog'>{section}</div> : null),
 }))
 
 describe('landing nav registration mode', () => {
@@ -108,7 +174,8 @@ describe('landing nav registration mode', () => {
     vi.clearAllMocks()
     vi.mocked(getRegistrationModeForRender).mockReset()
     mockUpdateSetting.mockResolvedValue(undefined)
-    mockSessionUserId = null
+    mockSetTheme.mockResolvedValue(undefined)
+    mockSessionUser = null
     mockPathname = '/'
     mockSearchParams = ''
     container = document.createElement('div')
@@ -129,7 +196,11 @@ describe('landing nav registration mode', () => {
     vi.mocked(getRegistrationModeForRender).mockResolvedValue('waitlist')
 
     await act(async () => {
-      root.render(await PublicNav())
+      root.render(
+        <NextIntlClientProvider locale='en' messages={getPublicCopy('en')}>
+          {await PublicNav()}
+        </NextIntlClientProvider>
+      )
     })
 
     expect(getRegistrationModeForRender).toHaveBeenCalledTimes(1)
@@ -141,7 +212,11 @@ describe('landing nav registration mode', () => {
 
   it('reuses an already resolved registration mode when provided', async () => {
     await act(async () => {
-      root.render(await PublicNav({ registrationMode: 'disabled' }))
+      root.render(
+        <NextIntlClientProvider locale='en' messages={getPublicCopy('en')}>
+          {await PublicNav({ registrationMode: 'disabled' })}
+        </NextIntlClientProvider>
+      )
     })
 
     expect(getRegistrationModeForRender).not.toHaveBeenCalled()
@@ -163,6 +238,89 @@ describe('landing nav registration mode', () => {
     expect(container.textContent).toContain(getPublicCopy('en').nav.docs)
     expect(container.textContent).toContain(getPublicCopy('en').nav.blog)
     expect(container.textContent).toContain(getPublicCopy('en').registration.open.primary)
+  })
+
+  it('replaces login and registration controls with profile and dashboard actions for authenticated users', async () => {
+    mockSessionUser = {
+      id: 'user-1',
+      email: 'ada@example.com',
+      name: 'Ada Lovelace',
+      image: '/avatar.png',
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    }
+
+    await act(async () => {
+      root.render(
+        <NextIntlClientProvider locale='en' messages={getPublicCopy('en')}>
+          <Nav registrationMode='open' />
+        </NextIntlClientProvider>
+      )
+      await flush()
+    })
+
+    expect(container.textContent).not.toContain(getPublicCopy('en').nav.login)
+    expect(container.textContent).not.toContain(getPublicCopy('en').registration.open.primary)
+    expect(container.textContent).toContain(getPublicCopy('en').nav.goToDashboard)
+    expect(
+      Array.from(container.querySelectorAll('button')).some((button) =>
+        button.textContent?.includes('English')
+      )
+    ).toBe(false)
+
+    const profileButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.getAttribute('aria-label') === 'Ada Lovelace Account Detail'
+    )
+    expect(profileButton).toBeInstanceOf(HTMLButtonElement)
+
+    const dashboardLinks = Array.from(container.querySelectorAll('a')).filter(
+      (link) => link.textContent === getPublicCopy('en').nav.goToDashboard
+    )
+    expect(dashboardLinks.some((link) => link.getAttribute('href') === '/workspace')).toBe(true)
+  })
+
+  it('opens account settings from the authenticated landing profile menu', async () => {
+    mockSessionUser = {
+      id: 'user-1',
+      email: 'ada@example.com',
+      name: 'Ada Lovelace',
+    }
+
+    await act(async () => {
+      root.render(
+        <NextIntlClientProvider locale='en' messages={getPublicCopy('en')}>
+          <Nav registrationMode='open' />
+        </NextIntlClientProvider>
+      )
+      await flush()
+    })
+
+    const profileButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.getAttribute('aria-label') === 'Ada Lovelace Account Detail'
+    )
+    if (!(profileButton instanceof HTMLButtonElement)) {
+      throw new Error('Expected authenticated profile menu trigger')
+    }
+
+    await act(async () => {
+      profileButton.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0 }))
+      profileButton.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
+      profileButton.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      await flush()
+    })
+
+    const accountItem = Array.from(document.body.querySelectorAll('[role="menuitem"]')).find(
+      (item) => item.textContent?.includes('Account Detail')
+    )
+    if (!(accountItem instanceof HTMLElement)) {
+      throw new Error('Expected account menu item')
+    }
+
+    await act(async () => {
+      accountItem.click()
+      await flush()
+    })
+
+    expect(container.querySelector('[data-testid="settings-dialog"]')?.textContent).toBe('account')
   })
 
   it('does not render auth controls when auth buttons are hidden', async () => {

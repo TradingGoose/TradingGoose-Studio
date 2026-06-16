@@ -1,18 +1,20 @@
 import { useEffect } from 'react'
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
+import { defaultLocale, isLocaleCode, type LocaleCode } from '@/i18n/utils'
 import { useGeneralStore } from '@/stores/settings/general/store'
 
 const logger = createLogger('GeneralSettingsQuery')
 
 export const generalSettingsKeys = {
   all: ['generalSettings'] as const,
-  settings: () => [...generalSettingsKeys.all, 'settings'] as const,
+  settings: (userId: string | null) => [...generalSettingsKeys.all, 'settings', userId] as const,
 }
 
 export interface GeneralSettings {
   theme: 'light' | 'dark' | 'system'
-  preferredLocale: 'en' | 'es' | 'zh'
+  preferredLocale: LocaleCode
   telemetryEnabled: boolean
   billingUsageNotificationsEnabled: boolean
 }
@@ -28,7 +30,7 @@ async function fetchGeneralSettings(): Promise<GeneralSettings> {
 
   return {
     theme: data.theme || 'system',
-    preferredLocale: data.preferredLocale || 'en',
+    preferredLocale: isLocaleCode(data.preferredLocale) ? data.preferredLocale : defaultLocale,
     telemetryEnabled: data.telemetryEnabled ?? true,
     billingUsageNotificationsEnabled: data.billingUsageNotificationsEnabled ?? true,
   }
@@ -39,25 +41,30 @@ function syncSettingsToZustand(settings: GeneralSettings) {
 
   setSettings({
     theme: settings.theme,
-    preferredLocale: settings.preferredLocale,
     telemetryEnabled: settings.telemetryEnabled,
     isBillingUsageNotificationsEnabled: settings.billingUsageNotificationsEnabled,
   })
 }
 
-export function useGeneralSettings() {
+export function useGeneralSettings({
+  enabled = true,
+  userId,
+}: {
+  enabled?: boolean
+  userId: string | null
+}) {
   const query = useQuery({
-    queryKey: generalSettingsKeys.settings(),
+    queryKey: generalSettingsKeys.settings(userId),
     queryFn: fetchGeneralSettings,
+    enabled: enabled && Boolean(userId),
     staleTime: 60 * 60 * 1000,
-    placeholderData: keepPreviousData,
   })
 
   useEffect(() => {
-    if (query.data) {
+    if (userId && query.data) {
       syncSettingsToZustand(query.data)
     }
-  }, [query.data])
+  }, [query.data, userId])
 
   return query
 }
@@ -69,6 +76,9 @@ interface UpdateSettingParams {
 
 export function useUpdateGeneralSetting() {
   const queryClient = useQueryClient()
+  const { data: session } = useSession()
+  const userId = session?.user?.id ?? null
+  const settingsKey = generalSettingsKeys.settings(userId)
 
   return useMutation({
     mutationFn: async ({ key, value }: UpdateSettingParams) => {
@@ -85,18 +95,20 @@ export function useUpdateGeneralSetting() {
       return response.json()
     },
     onMutate: async ({ key, value }) => {
-      await queryClient.cancelQueries({ queryKey: generalSettingsKeys.settings() })
+      if (!userId) {
+        return { previousSettings: undefined }
+      }
 
-      const previousSettings = queryClient.getQueryData<GeneralSettings>(
-        generalSettingsKeys.settings()
-      )
+      await queryClient.cancelQueries({ queryKey: settingsKey })
+
+      const previousSettings = queryClient.getQueryData<GeneralSettings>(settingsKey)
 
       if (previousSettings) {
         const newSettings = {
           ...previousSettings,
           [key]: value,
         }
-        queryClient.setQueryData<GeneralSettings>(generalSettingsKeys.settings(), newSettings)
+        queryClient.setQueryData<GeneralSettings>(settingsKey, newSettings)
         syncSettingsToZustand(newSettings)
       }
 
@@ -104,13 +116,13 @@ export function useUpdateGeneralSetting() {
     },
     onError: (err, _variables, context) => {
       if (context?.previousSettings) {
-        queryClient.setQueryData(generalSettingsKeys.settings(), context.previousSettings)
+        queryClient.setQueryData(settingsKey, context.previousSettings)
         syncSettingsToZustand(context.previousSettings)
       }
       logger.error('Failed to update setting:', err)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: generalSettingsKeys.settings() })
+      queryClient.invalidateQueries({ queryKey: settingsKey })
     },
   })
 }

@@ -9,6 +9,8 @@ export { defaultLocale, isLocaleCode, locales }
 
 export const SITE_BASE_URL = getBaseUrl()
 export const CANONICAL_CALLBACK_PATH_HEADER = 'x-tradinggoose-callback-path'
+export const LOCALE_COOKIE = 'NEXT_LOCALE'
+export const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 const LOCALE_DISPLAY_NAMES: Record<LocaleCode, string> = {
   en: 'English',
   es: 'Español',
@@ -51,14 +53,19 @@ export function stripLocaleFromPathname(pathname: string): {
   }
 }
 
-function prefixLocalePathname(locale: LocaleCode, pathname: string) {
+function prefixLocalePathname(locale: LocaleCode, pathname: string, includeDefaultLocale = true) {
   const normalized = pathname === '/' ? '/' : pathname.replace(/\/+$/, '')
 
-  if (locale === defaultLocale) {
+  if (!includeDefaultLocale && locale === defaultLocale) {
     return normalized
   }
 
   return normalized === '/' ? `/${locale}` : `/${locale}${normalized}`
+}
+
+function isLocalizedInternalPathname(pathname: string) {
+  const firstSegment = pathname.split(/[?#]/, 1)[0].split('/').filter(Boolean)[0]
+  return Boolean(firstSegment && isLocaleCode(firstSegment))
 }
 
 function assertCanonicalInternalPathname(pathname: string) {
@@ -66,8 +73,7 @@ function assertCanonicalInternalPathname(pathname: string) {
     throw new Error(`Expected a canonical internal pathname, received "${pathname}"`)
   }
 
-  const firstSegment = pathname.split(/[?#]/, 1)[0].split('/').filter(Boolean)[0]
-  if (firstSegment && isLocaleCode(firstSegment)) {
+  if (isLocalizedInternalPathname(pathname)) {
     throw new Error(`Expected an unlocalized internal pathname, received "${pathname}"`)
   }
 }
@@ -88,6 +94,9 @@ export function normalizeCallbackUrl(
 
   if (trimmedHref.startsWith('/')) {
     const parsedUrl = new URL(trimmedHref, 'http://tradinggoose.local')
+    if (isLocalizedInternalPathname(parsedUrl.pathname)) {
+      return null
+    }
     return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`
   }
 
@@ -102,6 +111,9 @@ export function normalizeCallbackUrl(
       return null
     }
 
+    if (isLocalizedInternalPathname(parsedUrl.pathname)) {
+      return null
+    }
     return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`
   } catch {
     return null
@@ -118,7 +130,8 @@ export function localizeSiteUrl(locale: LocaleCode, pathname: string) {
 }
 
 export function localizeDocsUrl(locale: LocaleCode, pathname = '/') {
-  return localizeUrl(DOCS_BASE_URL, locale, pathname)
+  assertCanonicalInternalPathname(pathname)
+  return `${DOCS_BASE_URL}${prefixLocalePathname(locale, pathname, false)}`
 }
 
 export function getOpenGraphLocale(locale: LocaleCode) {

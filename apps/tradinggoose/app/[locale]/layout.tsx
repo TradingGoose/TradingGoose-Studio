@@ -10,9 +10,9 @@ import { type AppLocale, routing } from '@/i18n/routing'
 import 'monaco-editor/min/vs/editor/editor.main.css'
 import '@/app/globals.css'
 
+import { AppBootstrap } from '@/app/app-bootstrap'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { SessionProvider } from '@/lib/session/session-context'
-import { ProviderModelsBootstrap } from '@/app/provider-models-bootstrap'
 import { QueryProvider } from '@/app/query-provider'
 import { ThemeProvider } from '@/app/theme-provider'
 import { ZoomPrevention } from '@/app/zoom-prevention'
@@ -74,7 +74,7 @@ export default async function RootLayout({
                   locale={locale}
                   messages={getClientMessages(locale)}
                 >
-                  <ProviderModelsBootstrap />
+                  <AppBootstrap />
                   <TooltipProvider delayDuration={100} skipDelayDuration={0}>
                     <ZoomPrevention />
                     {children}

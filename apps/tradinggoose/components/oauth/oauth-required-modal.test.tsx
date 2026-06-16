@@ -13,6 +13,10 @@ vi.mock('@/lib/oauth/connect', () => ({
   startOAuthConnectFlow: (...args: unknown[]) => mockStartOAuthConnectFlow(...args),
 }))
 
+vi.mock('@/i18n/navigation', () => ({
+  usePathname: () => '/workspace/ws-1/integrations',
+}))
+
 describe('OAuthRequiredModal', () => {
   let container: HTMLDivElement
   let root: Root
@@ -66,7 +70,7 @@ describe('OAuthRequiredModal', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
     expect(mockStartOAuthConnectFlow).toHaveBeenCalledWith({
       providerId: 'alpaca-paper',
-      callbackURL: window.location.href,
+      callbackURL: '/workspace/ws-1/integrations',
     })
   })
 })

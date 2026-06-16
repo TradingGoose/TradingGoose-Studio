@@ -43,6 +43,7 @@ export async function executeWorkflowWithFullLogging(
     workflowInput: options.workflowInput,
     triggerBlockId: options.triggerBlockId,
   })
+  workflowData.blocks = start.blocks
 
   logger.info('Executing workflow through server route', {
     workflowId: options.workflowId,

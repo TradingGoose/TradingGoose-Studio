@@ -1,11 +1,12 @@
 'use client'
 
-import { type ReactNode, useEffect, useMemo, useState } from 'react'
+import { type ReactElement, type ReactNode, useEffect, useMemo, useState } from 'react'
 import {
   getListingDisplaySymbol,
   ListingDisplayRow,
 } from '@/components/listing-selector/listing/row'
 import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   buildListingDisplayOption,
   getListingIdentityKey,
@@ -37,6 +38,25 @@ interface SubBlockSummaryRowsProps {
   valueClassName?: string
 }
 
+function SummaryTooltip({ content, children }: { content?: string; children: ReactElement }) {
+  const tooltipContent = content?.trim()
+
+  if (!tooltipContent) {
+    return children
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side='top'>
+        <span className='block max-w-[320px] whitespace-normal break-words text-left'>
+          {tooltipContent}
+        </span>
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
 function SummaryRow({
   title,
   value,
@@ -54,18 +74,16 @@ function SummaryRow({
 
   return (
     <div className='flex items-center gap-8'>
-      <p
-        className={cn('min-w-0 truncate text-muted-foreground capitalize', labelClassName)}
-        title={title}
-      >
-        {title}
-      </p>
-      <div
-        className={cn('min-w-0 flex-1', isTextValue && 'truncate text-right', valueClassName)}
-        title={valueTitle ?? (isTextValue ? value : undefined)}
-      >
-        {value}
-      </div>
+      <SummaryTooltip content={title}>
+        <p className={cn('min-w-0 truncate text-muted-foreground capitalize', labelClassName)}>
+          {title}
+        </p>
+      </SummaryTooltip>
+      <SummaryTooltip content={valueTitle ?? (isTextValue ? value : undefined)}>
+        <div className={cn('min-w-0 flex-1', isTextValue && 'truncate text-right', valueClassName)}>
+          {value}
+        </div>
+      </SummaryTooltip>
     </div>
   )
 }
@@ -81,12 +99,11 @@ function SummaryJsonRow({
 }) {
   return (
     <div className='flex flex-col gap-1'>
-      <p
-        className={cn('min-w-0 truncate text-muted-foreground capitalize', labelClassName)}
-        title={row.title}
-      >
-        {row.title}
-      </p>
+      <SummaryTooltip content={row.title}>
+        <p className={cn('min-w-0 truncate text-muted-foreground capitalize', labelClassName)}>
+          {row.title}
+        </p>
+      </SummaryTooltip>
       <div className='ml-3 overflow-hidden rounded-md border border-border bg-background'>
         {row.rows.map((jsonRow, index) => (
           <div
@@ -96,18 +113,16 @@ function SummaryJsonRow({
               index > 0 && 'border-border border-t'
             )}
           >
-            <p
-              className={cn('min-w-0 truncate text-muted-foreground', labelClassName)}
-              title={jsonRow.title}
-            >
-              {jsonRow.title}
-            </p>
-            <p
-              className={cn('min-w-0 flex-1 truncate text-right', valueClassName)}
-              title={jsonRow.value}
-            >
-              {jsonRow.value}
-            </p>
+            <SummaryTooltip content={jsonRow.title}>
+              <p className={cn('min-w-0 truncate text-muted-foreground', labelClassName)}>
+                {jsonRow.title}
+              </p>
+            </SummaryTooltip>
+            <SummaryTooltip content={jsonRow.value}>
+              <p className={cn('min-w-0 flex-1 truncate text-right', valueClassName)}>
+                {jsonRow.value}
+              </p>
+            </SummaryTooltip>
           </div>
         ))}
       </div>

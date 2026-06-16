@@ -1,7 +1,7 @@
 'use client'
 
 import { createLogger } from '@/lib/logs/console/logger'
-import { localizeUrl, stripLocaleFromPathname } from '@/i18n/utils'
+import { isLocaleCode, normalizeCallbackUrl } from '@/i18n/utils'
 
 const logger = createLogger('AuthErrorHandler')
 let isHandlingAuthError = false
@@ -34,7 +34,7 @@ function shouldRateLimitRecovery(reason?: string) {
   if (typeof window === 'undefined') return false
 
   // Avoid infinite reload loops on the login page by rate limiting recovery attempts
-  const isOnLoginPage = stripLocaleFromPathname(window.location.pathname).pathname === '/login'
+  const isOnLoginPage = isLoginPathname(window.location.pathname)
   if (!isOnLoginPage) return false
 
   const now = Date.now()
@@ -46,6 +46,11 @@ function shouldRateLimitRecovery(reason?: string) {
 
   window.sessionStorage.setItem(LAST_RECOVERY_KEY, String(now))
   return false
+}
+
+function isLoginPathname(pathname: string) {
+  const segments = pathname.split('/').filter(Boolean)
+  return segments[0] === 'login' || (segments[1] === 'login' && isLocaleCode(segments[0]))
 }
 
 async function safeServerSignOut() {
@@ -65,31 +70,31 @@ async function safeServerSignOut() {
  * This removes any stale tokens/cookies and forces a navigation to login so
  * the user can authenticate again.
  */
-export async function handleAuthError(reason?: string) {
+export async function handleAuthError(reason: string, callbackPathname: string) {
   if (typeof window === 'undefined') return
   if (isHandlingAuthError) return
   if (shouldRateLimitRecovery(reason)) return
+
+  const canonicalCallbackPathname = normalizeCallbackUrl(callbackPathname)
+  if (!canonicalCallbackPathname) {
+    throw new Error('Expected a canonical auth recovery callback pathname')
+  }
 
   isHandlingAuthError = true
   deleteBrowserAuthCookies()
   await safeServerSignOut()
 
-  if (stripLocaleFromPathname(window.location.pathname).pathname === '/login') {
+  if (isLoginPathname(window.location.pathname)) {
     logger.warn('Cleared stale auth state on login page', { reason })
     isHandlingAuthError = false
     return
   }
 
-  const { locale, pathname } = stripLocaleFromPathname(window.location.pathname)
-  const callbackUrl = `${pathname}${window.location.search}`
+  const callbackUrl = `${canonicalCallbackPathname}${window.location.search}${window.location.hash}`
+  const loginPath = `/login?reauth=1&callbackUrl=${encodeURIComponent(callbackUrl)}`
+
   logger.warn('Handling authentication error', { reason, callbackUrl })
-  window.location.replace(
-    localizeUrl(
-      window.location.origin,
-      locale,
-      `/login?reauth=1&callbackUrl=${encodeURIComponent(callbackUrl)}`
-    )
-  )
+  window.location.replace(loginPath)
 }
 
 export function isAuthErrorStatus(status?: number | null): boolean {
