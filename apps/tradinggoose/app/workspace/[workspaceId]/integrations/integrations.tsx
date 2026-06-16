@@ -8,6 +8,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
+import { createLogger } from '@/lib/logs/console/logger'
+import { OAUTH_PROVIDERS } from '@/lib/oauth/oauth'
+import { cn } from '@/lib/utils'
+import { GlobalNavbarHeader } from '@/global-navbar'
 import {
   type ServiceInfo,
   useConnectOAuthService,
@@ -401,8 +405,8 @@ export function Integrations() {
                                   >
                                     {t('connect')}
                                   </Button>
-                              )}
-                            </div>
+                                )}
+                              </div>
                             ))}
                           </div>
                         )
@@ -411,10 +415,10 @@ export function Integrations() {
                       {!isLoading &&
                         !searchTerm.trim() &&
                         Object.keys(filteredGroupedServices).length === 0 && (
-                        <div className='py-8 text-center text-muted-foreground text-sm'>
+                          <div className='py-8 text-center text-muted-foreground text-sm'>
                             {t('emptyState.noConnectible')}
-                        </div>
-                      )}
+                          </div>
+                        )}
 
                       {/* Show message when search has no results */}
                       {searchTerm.trim() && Object.keys(filteredGroupedServices).length === 0 && (

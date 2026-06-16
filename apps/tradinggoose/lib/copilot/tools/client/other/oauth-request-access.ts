@@ -136,7 +136,7 @@ export class OAuthRequestAccessClientTool extends BaseClientTool {
             'pending_oauth_state',
             JSON.stringify({ serviceId, scopes: service.scopes })
           )
-        } catch { }
+        } catch {}
 
         this.setState(ClientToolCallState.success)
         await this.markToolComplete(200, `Opened ${this.providerName} connection dialog`)
