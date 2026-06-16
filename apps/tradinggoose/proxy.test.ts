@@ -11,7 +11,11 @@ vi.mock('better-auth/cookies', () => ({
 }))
 
 vi.mock('@/lib/auth', () => ({
-  getSession: (...args: unknown[]) => mockGetSession(...args),
+  auth: {
+    api: {
+      getSession: (...args: unknown[]) => mockGetSession(...args),
+    },
+  },
 }))
 
 vi.mock('@tradinggoose/db', () => ({
@@ -254,32 +258,87 @@ describe('proxy auth routing', () => {
       'http://localhost:3000/en/workspace',
       'http://localhost:3000/zh/workspace',
     ],
-  ])(
-    'redirects authenticated %s requests to the stored user locale',
-    async (_, url, location) => {
-      mockGetSessionCookie.mockReturnValue('session-cookie')
-      mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
-      mockSettingsLimit.mockResolvedValue([{ preferredLocale: 'zh' }])
+  ])('redirects authenticated %s requests to the stored user locale', async (_, url, location) => {
+    mockGetSessionCookie.mockReturnValue('session-cookie')
+    mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
+    mockSettingsLimit.mockResolvedValue([{ preferredLocale: 'zh' }])
 
-      const { proxy } = await import('./proxy')
-      const response = await proxy(
-        new NextRequest(url, {
+    const { proxy } = await import('./proxy')
+    const response = await proxy(
+      new NextRequest(url, {
+        headers: {
+          cookie: 'NEXT_LOCALE=es',
+          'user-agent': 'vitest',
+        },
+      })
+    )
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get('location')).toBe(location)
+    expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('zh')
+  })
+
+  it.each([
+    ['unprefixed workspace', 'http://localhost:3000/workspace'],
+    ['prefixed workspace mismatch', 'http://localhost:3000/en/workspace'],
+  ])('rewrites authenticated POST %s requests to the stored user locale', async (_, url) => {
+    mockGetSessionCookie.mockReturnValue('session-cookie')
+    mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
+    mockSettingsLimit.mockResolvedValue([{ preferredLocale: 'zh' }])
+
+    const { proxy } = await import('./proxy')
+    const response = await proxy(
+      new NextRequest(url, {
+        method: 'POST',
+        headers: {
+          cookie: 'NEXT_LOCALE=es',
+          'user-agent': 'vitest',
+        },
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('location')).toBeNull()
+    expect(response.headers.get('x-middleware-rewrite')).toBe('http://localhost:3000/zh/workspace')
+    expect(response.cookies.get('NEXT_LOCALE')).toBeUndefined()
+  })
+
+  it.each([
+    [
+      'session',
+      () => {
+        mockGetSession.mockRejectedValueOnce(new Error('session unavailable'))
+      },
+      'session unavailable',
+    ],
+    [
+      'settings',
+      () => {
+        mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
+        mockSettingsLimit.mockRejectedValueOnce(new Error('settings unavailable'))
+      },
+      'settings unavailable',
+    ],
+  ])('stops authenticated routing when %s resolution fails', async (_, arrange, message) => {
+    mockGetSessionCookie.mockReturnValue('session-cookie')
+    arrange()
+
+    const { proxy } = await import('./proxy')
+    await expect(
+      proxy(
+        new NextRequest('http://localhost:3000/workspace', {
           headers: {
             cookie: 'NEXT_LOCALE=es',
             'user-agent': 'vitest',
           },
         })
       )
+    ).rejects.toThrow(message)
+  })
 
-      expect(response.status).toBe(307)
-      expect(response.headers.get('location')).toBe(location)
-      expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('zh')
-    }
-  )
-
-  it('keeps page routing available when authenticated locale resolution fails', async () => {
+  it('uses request locale when a session cookie is stale', async () => {
     mockGetSessionCookie.mockReturnValue('session-cookie')
-    mockGetSession.mockRejectedValueOnce(new Error('session unavailable'))
+    mockGetSession.mockResolvedValue(null)
 
     const { proxy } = await import('./proxy')
     const response = await proxy(

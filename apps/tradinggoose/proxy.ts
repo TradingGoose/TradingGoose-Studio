@@ -1,6 +1,9 @@
+import { db, settings } from '@tradinggoose/db'
 import { getSessionCookie } from 'better-auth/cookies'
+import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import createMiddleware from 'next-intl/middleware'
+import { auth } from '@/lib/auth'
 import { appendHomepageDiscoveryLinks } from '@/lib/discovery/link-headers'
 import {
   appendVaryHeader,
@@ -12,6 +15,7 @@ import {
 import { routing } from '@/i18n/routing'
 import {
   CANONICAL_CALLBACK_PATH_HEADER,
+  defaultLocale,
   isLocaleCode,
   LOCALE_COOKIE,
   LOCALE_COOKIE_MAX_AGE,
@@ -19,11 +23,6 @@ import {
   localizeUrl,
   stripLocaleFromPathname,
 } from '@/i18n/utils'
-import {
-  resolveAnonymousLocale,
-  resolveAuthenticatedUserLocale,
-  resolveRequestLocale,
-} from '@/i18n/locale-resolution'
 import { createLogger } from './lib/logs/console/logger'
 import { generateRuntimeCSP } from './lib/security/csp'
 
@@ -65,6 +64,12 @@ interface LocaleRoute {
   hasLocalePrefix: boolean
 }
 
+type AcceptLanguageCandidate = {
+  locale: LocaleCode
+  quality: number
+  index: number
+}
+
 function resolveLocaleRoute(pathname: string, localeOverride?: LocaleCode): LocaleRoute {
   const firstSegment = pathname.split('/').filter(Boolean)[0]
   const { locale, pathname: normalizedPathname } = stripLocaleFromPathname(pathname)
@@ -92,6 +97,74 @@ function isCanonicalRouteHandlerPath(pathname: string) {
     pathname === '/robots.txt' ||
     pathname === '/sitemap.xml'
   )
+}
+
+function getLocaleCookie(request: NextRequest): LocaleCode | null {
+  const locale = request.cookies.get(LOCALE_COOKIE)?.value
+  return locale && isLocaleCode(locale) ? locale : null
+}
+
+function getAcceptLanguageLocale(header: string | null): LocaleCode | null {
+  if (!header) {
+    return null
+  }
+
+  const candidates: AcceptLanguageCandidate[] = []
+
+  header.split(',').forEach((entry, index) => {
+    const [rawLanguageRange, ...rawParams] = entry
+      .split(';')
+      .map((part) => part.trim())
+      .filter(Boolean)
+
+    if (!rawLanguageRange || rawLanguageRange === '*') {
+      return
+    }
+
+    const locale = rawLanguageRange.toLowerCase().split('-', 1)[0]
+    if (!isLocaleCode(locale)) {
+      return
+    }
+
+    const qualityParam = rawParams.find((param) => param.toLowerCase().startsWith('q='))
+    const quality = qualityParam ? Number.parseFloat(qualityParam.slice(2)) : 1
+    if (!Number.isFinite(quality) || quality <= 0) {
+      return
+    }
+
+    candidates.push({ locale, quality, index })
+  })
+
+  candidates.sort((a, b) => b.quality - a.quality || a.index - b.index)
+  return candidates[0]?.locale ?? null
+}
+
+function resolveRequestLocale(request: NextRequest): LocaleCode {
+  return (
+    getLocaleCookie(request) ??
+    getAcceptLanguageLocale(request.headers.get('accept-language')) ??
+    defaultLocale
+  )
+}
+
+async function resolveAuthenticatedLocale(request: NextRequest): Promise<LocaleCode | null> {
+  const session = await auth.api.getSession({
+    headers: request.headers,
+    query: { disableCookieCache: true },
+  })
+  const userId = session?.user?.id
+
+  if (!userId) {
+    return null
+  }
+
+  const rows = await db
+    .select({ preferredLocale: settings.preferredLocale })
+    .from(settings)
+    .where(eq(settings.userId, userId))
+    .limit(1)
+  const preferredLocale = rows[0]?.preferredLocale ?? defaultLocale
+  return isLocaleCode(preferredLocale) ? preferredLocale : defaultLocale
 }
 
 function buildLoginRedirect(request: NextRequest, route: LocaleRoute, callback?: string) {
@@ -187,25 +260,21 @@ async function resolveCanonicalLocaleRoute(
     return route
   }
 
-  if (route.hasLocalePrefix && !hasActiveSession) {
+  if (hasActiveSession) {
+    const authenticatedLocale = await resolveAuthenticatedLocale(request)
+    if (authenticatedLocale) {
+      return { ...route, locale: authenticatedLocale }
+    }
+  }
+
+  if (route.hasLocalePrefix) {
     return route
   }
 
-  try {
-    const locale = route.hasLocalePrefix
-      ? await resolveAuthenticatedUserLocale(request)
-      : await resolveRequestLocale(request, { hasActiveSession })
-    return locale ? { ...route, locale } : route
-  } catch (error) {
-    logger.warn('Failed to resolve authenticated request locale', { error })
-    return {
-      ...route,
-      locale: route.hasLocalePrefix ? route.locale : resolveAnonymousLocale(request),
-    }
-  }
+  return { ...route, locale: resolveRequestLocale(request) }
 }
 
-function redirectToCanonicalLocale(request: NextRequest, route: LocaleRoute): NextResponse | null {
+function routeToCanonicalLocale(request: NextRequest, route: LocaleRoute): NextResponse | null {
   if (isCanonicalRouteHandlerPath(request.nextUrl.pathname)) {
     return null
   }
@@ -215,9 +284,14 @@ function redirectToCanonicalLocale(request: NextRequest, route: LocaleRoute): Ne
     return null
   }
 
-  const redirectUrl = new URL(localizeUrl(request.nextUrl.origin, route.locale, route.pathname))
-  redirectUrl.search = request.nextUrl.search
-  return withLocaleCookie(NextResponse.redirect(redirectUrl), route.locale)
+  const targetUrl = new URL(localizeUrl(request.nextUrl.origin, route.locale, route.pathname))
+  targetUrl.search = request.nextUrl.search
+
+  if (request.method === 'GET' || request.method === 'HEAD') {
+    return withLocaleCookie(NextResponse.redirect(targetUrl), route.locale)
+  }
+
+  return NextResponse.rewrite(targetUrl)
 }
 
 function handleSecurityFiltering(request: NextRequest): NextResponse | null {
@@ -269,10 +343,10 @@ export async function proxy(request: NextRequest) {
 
   if (isAuthRoute(url.pathname)) {
     if (reauth) {
-      const localeRedirect = redirectToCanonicalLocale(request, route)
-      if (localeRedirect) {
-        clearAuthCookies(localeRedirect)
-        return localeRedirect
+      const localeResponse = routeToCanonicalLocale(request, route)
+      if (localeResponse) {
+        clearAuthCookies(localeResponse)
+        return localeResponse
       }
 
       const response = handleI18nRouting(request)
@@ -291,8 +365,8 @@ export async function proxy(request: NextRequest) {
   const securityBlock = handleSecurityFiltering(request)
   if (securityBlock) return securityBlock
 
-  const localeRedirect = redirectToCanonicalLocale(request, route)
-  if (localeRedirect) return localeRedirect
+  const localeResponse = routeToCanonicalLocale(request, route)
+  if (localeResponse) return localeResponse
 
   const markdownRewrite = rewriteMarkdownRequest(request)
   if (markdownRewrite) return markdownRewrite

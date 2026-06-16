@@ -26,6 +26,7 @@ let mockSessionUser: {
   image?: string | null
   updatedAt?: Date
 } | null = null
+let mockSessionPending = false
 let mockPathname = '/'
 let mockSearchParams = ''
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
@@ -96,7 +97,7 @@ vi.mock('@/lib/branding/branding', () => ({
 vi.mock('@/lib/auth-client', () => ({
   useSession: () => ({
     data: mockSessionUser ? { user: mockSessionUser } : null,
-    isPending: false,
+    isPending: mockSessionPending,
     error: null,
     refetch: vi.fn(),
   }),
@@ -189,6 +190,7 @@ describe('landing nav registration mode', () => {
     mockUpdateSetting.mockResolvedValue(undefined)
     mockSetTheme.mockResolvedValue(undefined)
     mockSessionUser = null
+    mockSessionPending = false
     mockPathname = '/'
     mockSearchParams = ''
     container = document.createElement('div')
@@ -292,6 +294,7 @@ describe('landing nav registration mode', () => {
   })
 
   it('shows the same system admin menu item on PublicNav for authenticated system admins', async () => {
+    mockSessionPending = true
     vi.mocked(getSystemAdminAccess).mockResolvedValue({
       session: {},
       user: {
@@ -340,6 +343,40 @@ describe('landing nav registration mode', () => {
     })
 
     expect(mockPush).toHaveBeenCalledWith('/admin')
+  })
+
+  it('clears server authenticated nav state after the client session resolves signed out', async () => {
+    const authenticatedUser = {
+      id: 'user-1',
+      email: 'ada@example.com',
+      name: 'Ada Lovelace',
+    }
+
+    mockSessionPending = true
+    await act(async () => {
+      root.render(
+        <NextIntlClientProvider locale='en' messages={getPublicCopy('en')}>
+          <Nav registrationMode='open' authenticatedUser={authenticatedUser} />
+        </NextIntlClientProvider>
+      )
+      await flush()
+    })
+
+    expect(container.textContent).toContain(getPublicCopy('en').nav.goToDashboard)
+
+    mockSessionPending = false
+    await act(async () => {
+      root.render(
+        <NextIntlClientProvider locale='en' messages={getPublicCopy('en')}>
+          <Nav registrationMode='open' authenticatedUser={authenticatedUser} />
+        </NextIntlClientProvider>
+      )
+      await flush()
+    })
+
+    expect(container.textContent).not.toContain(getPublicCopy('en').nav.goToDashboard)
+    expect(container.textContent).toContain(getPublicCopy('en').nav.login)
+    expect(container.textContent).toContain(getPublicCopy('en').registration.open.primary)
   })
 
   it('opens account settings from the authenticated landing profile menu', async () => {

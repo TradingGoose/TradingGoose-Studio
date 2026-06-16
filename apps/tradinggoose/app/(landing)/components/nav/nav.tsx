@@ -16,15 +16,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Separator } from '@/components/ui/separator'
-import { UserMenu } from '@/global-navbar/components/user-menu'
-import { SettingsDialog } from '@/global-navbar/settings-modal/settings-dialog'
-import type { SettingsSection } from '@/global-navbar/settings-modal/types'
 import { useSession } from '@/lib/auth-client'
 import { useBrandConfig } from '@/lib/branding/branding'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getRegistrationPrimaryHref, type RegistrationMode } from '@/lib/registration/shared'
 import { getFormattedGitHubStars } from '@/app/(landing)/actions/github'
 import { soehne } from '@/app/fonts/soehne/soehne'
+import { UserMenu } from '@/global-navbar/components/user-menu'
+import { SettingsDialog } from '@/global-navbar/settings-modal/settings-dialog'
+import type { SettingsSection } from '@/global-navbar/settings-modal/types'
 import { Link, replaceLocaleDocument, usePathname, useRouter } from '@/i18n/navigation'
 import {
   formatTemplate,
@@ -119,7 +119,7 @@ export default function Nav({
   const brand = useBrandConfig()
   const locale = useLocale() as LocaleCode
   const copy = useMessages()
-  const { data: session } = useSession()
+  const { data: session, isPending: isSessionPending } = useSession()
   const [activeSettingsSection, setActiveSettingsSection] = useState<SettingsSection>('account')
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false)
   const hasResolvedRegistrationMode = registrationMode !== null
@@ -130,7 +130,7 @@ export default function Nav({
     ? copy.registration[registrationMode].primary
     : null
   const showStandaloneLogin = hasResolvedRegistrationMode && registrationPrimaryHref !== null
-  const user = session?.user ?? authenticatedUser
+  const user = isSessionPending ? authenticatedUser : session?.user
   const isAuthenticated = Boolean(user?.id)
   const userId = user?.id ?? null
   const userName = user?.name ?? brand.name
