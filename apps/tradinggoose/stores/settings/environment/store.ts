@@ -1,6 +1,4 @@
 import { createWithEqualityFn as create } from 'zustand/traditional'
-import { handleAuthError } from '@/lib/auth/auth-error-handler'
-import { fetchPersonalEnvironment, fetchWorkspaceEnvironment } from '@/lib/environment/api'
 import { createLogger } from '@/lib/logs/console/logger'
 import { API_ENDPOINTS } from '@/stores/constants'
 import type { EnvironmentStore, EnvironmentVariable } from '@/stores/settings/environment/types'
@@ -16,10 +14,15 @@ export const useEnvironmentStore = create<EnvironmentStore>()((set, get) => ({
     try {
       set({ isLoading: true, error: null })
 
-      const data = await fetchPersonalEnvironment()
+      const response = await fetch(API_ENDPOINTS.ENVIRONMENT, { cache: 'no-store' })
+      if (!response.ok) {
+        throw new Error(`Failed to load environment variables: ${response.statusText}`)
+      }
+
+      const { data } = await response.json()
 
       set({
-        variables: data,
+        variables: data && typeof data === 'object' ? data : {},
         isLoading: false,
       })
     } catch (error) {
@@ -33,115 +36,6 @@ export const useEnvironmentStore = create<EnvironmentStore>()((set, get) => ({
 
   setVariables: (variables: Record<string, EnvironmentVariable>) => {
     set({ variables })
-  },
-
-  saveEnvironmentVariables: async (variables: Record<string, string>) => {
-    try {
-      set({ isLoading: true, error: null })
-
-      const transformedVariables = Object.fromEntries(
-        Object.entries(variables).map(([key, value]) => [key, { key, value }])
-      )
-
-      set({ variables: transformedVariables })
-
-      const response = await fetch(API_ENDPOINTS.ENVIRONMENT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ variables }),
-      })
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          await handleAuthError('environment-store:save')
-        }
-        throw new Error(`Failed to save environment variables: ${response.statusText}`)
-      }
-
-      set({ isLoading: false })
-    } catch (error) {
-      logger.error('Error saving environment variables:', { error })
-      set({
-        error: error instanceof Error ? error.message : 'Unknown error',
-        isLoading: false,
-      })
-
-      get().loadEnvironmentVariables()
-    }
-  },
-
-  loadWorkspaceEnvironment: async (workspaceId: string) => {
-    try {
-      set({ isLoading: true, error: null })
-
-      const data = await fetchWorkspaceEnvironment(workspaceId)
-      set({ isLoading: false })
-      return data as {
-        workspace: Record<string, string>
-        personal: Record<string, string>
-        conflicts: string[]
-        workspaceRows?: Array<{
-          key: string
-          value: string
-          createdAt?: string | null
-          updatedAt?: string | null
-        }>
-        personalRows?: Array<{
-          key: string
-          value: string
-          createdAt?: string | null
-          updatedAt?: string | null
-        }>
-      }
-    } catch (error) {
-      logger.error('Error loading workspace environment:', { error })
-      set({ error: error instanceof Error ? error.message : 'Unknown error', isLoading: false })
-      return { workspace: {}, personal: {}, conflicts: [] }
-    }
-  },
-
-  upsertWorkspaceEnvironment: async (workspaceId: string, variables: Record<string, string>) => {
-    try {
-      set({ isLoading: true, error: null })
-      const response = await fetch(API_ENDPOINTS.WORKSPACE_ENVIRONMENT(workspaceId), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ variables }),
-      })
-      if (!response.ok) {
-        if (response.status === 401) {
-          await handleAuthError('environment-store:upsert-workspace')
-        }
-        throw new Error(`Failed to update workspace environment: ${response.statusText}`)
-      }
-      set({ isLoading: false })
-    } catch (error) {
-      logger.error('Error updating workspace environment:', { error })
-      set({ error: error instanceof Error ? error.message : 'Unknown error', isLoading: false })
-    }
-  },
-
-  removeWorkspaceEnvironmentKeys: async (workspaceId: string, keys: string[]) => {
-    try {
-      set({ isLoading: true, error: null })
-      const response = await fetch(API_ENDPOINTS.WORKSPACE_ENVIRONMENT(workspaceId), {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keys }),
-      })
-      if (!response.ok) {
-        if (response.status === 401) {
-          await handleAuthError('environment-store:remove-keys')
-        }
-        throw new Error(`Failed to remove workspace environment keys: ${response.statusText}`)
-      }
-      set({ isLoading: false })
-    } catch (error) {
-      logger.error('Error removing workspace environment keys:', { error })
-      set({ error: error instanceof Error ? error.message : 'Unknown error', isLoading: false })
-    }
   },
 
   getAllVariables: (): Record<string, EnvironmentVariable> => {
