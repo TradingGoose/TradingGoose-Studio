@@ -11,6 +11,7 @@ import {
   decrementGrantedOnboardingAllowanceByCurrentPeriodUsage,
   resetUserDefaultUsageToOnboardingAllowanceBalance,
 } from '@/lib/billing/core/usage'
+import { syncSubscriptionUsageLimits } from '@/lib/billing/organization'
 import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import { type BillingTierRecord, isPaidBillingTier } from '@/lib/billing/tiers'
@@ -291,6 +292,7 @@ export async function handleStripeSubscriptionDeleted(event: Stripe.Event) {
     stripeSubscriptionId,
     status: 'canceled',
   }
+  let subscriptionForUsageLimits: TieredSubscriptionLifecycleRecord = subscriptionToSettle
 
   await handleSubscriptionDeleted(subscriptionToSettle)
 
@@ -304,21 +306,28 @@ export async function handleStripeSubscriptionDeleted(event: Stripe.Event) {
     })
     .where(eq(subscription.id, hydratedSubscription.id))
 
-  const { billingEnabled } = await getResolvedBillingSettings()
-  if (billingEnabled && subscriptionToSettle.referenceType === 'user') {
-    await db.transaction(async (tx) => {
-      const nextSubscription = await ensureDefaultUserSubscription(
-        subscriptionToSettle.referenceId,
-        tx
-      )
-      if (nextSubscription.tier?.isDefault && !nextSubscription.stripeSubscriptionId) {
-        await resetUserDefaultUsageToOnboardingAllowanceBalance(
+  if (subscriptionToSettle.referenceType === 'user') {
+    const { billingEnabled } = await getResolvedBillingSettings()
+
+    if (billingEnabled) {
+      await db.transaction(async (tx) => {
+        const nextSubscription = await ensureDefaultUserSubscription(
           subscriptionToSettle.referenceId,
           tx
         )
-      }
-    })
+        subscriptionForUsageLimits = nextSubscription
+
+        if (nextSubscription.tier?.isDefault && !nextSubscription.stripeSubscriptionId) {
+          await resetUserDefaultUsageToOnboardingAllowanceBalance(
+            subscriptionToSettle.referenceId,
+            tx
+          )
+        }
+      })
+    }
   }
+
+  await syncSubscriptionUsageLimits(subscriptionForUsageLimits)
 
   logger.info('Settled deleted Stripe subscription', {
     eventId: event.id,

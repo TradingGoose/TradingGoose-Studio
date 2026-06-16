@@ -20,6 +20,7 @@ const {
   mockResetUsageForSubscription,
   mockResetUserDefaultUsageToOnboardingAllowanceBalance,
   mockSyncSubscriptionBillingTierFromStripeSubscription,
+  mockSyncSubscriptionUsageLimits,
 } = vi.hoisted(() => ({
   mockAnd: vi.fn(),
   mockCalculateSubscriptionOverage: vi.fn(),
@@ -40,6 +41,7 @@ const {
   mockResetUsageForSubscription: vi.fn(),
   mockResetUserDefaultUsageToOnboardingAllowanceBalance: vi.fn(),
   mockSyncSubscriptionBillingTierFromStripeSubscription: vi.fn(),
+  mockSyncSubscriptionUsageLimits: vi.fn(),
 }))
 
 let otherActiveSubscriptions: Array<Record<string, unknown>> = []
@@ -88,6 +90,10 @@ vi.mock('@/lib/billing/tiers', () => ({
 vi.mock('@/lib/billing/tiers/persistence', () => ({
   syncSubscriptionBillingTierFromStripeSubscription:
     mockSyncSubscriptionBillingTierFromStripeSubscription,
+}))
+
+vi.mock('@/lib/billing/organization', () => ({
+  syncSubscriptionUsageLimits: mockSyncSubscriptionUsageLimits,
 }))
 
 vi.mock('@/lib/billing/webhooks/invoices', () => ({
@@ -166,6 +172,8 @@ function createDefaultSubscription(
   overrides: Partial<{
     id: string
     metadata: Record<string, unknown>
+    referenceId: string
+    referenceType: 'user' | 'organization'
     status: string
     stripeSubscriptionId: string | null
     tier: Record<string, unknown>
@@ -173,8 +181,8 @@ function createDefaultSubscription(
 ) {
   return {
     id: overrides.id ?? 'sub_default_user-1',
-    referenceType: 'user',
-    referenceId: 'user-1',
+    referenceType: overrides.referenceType ?? 'user',
+    referenceId: overrides.referenceId ?? 'user-1',
     status: overrides.status ?? 'active',
     stripeSubscriptionId: overrides.stripeSubscriptionId ?? null,
     metadata: overrides.metadata ?? { source: 'default-tier' },
@@ -280,6 +288,7 @@ describe('handleStripeSubscriptionDeleted', () => {
     mockGetUniqueSubscriptionByStripeSubscriptionId.mockResolvedValue(null)
     mockRequireStripeClient.mockReturnValue({})
     mockSyncSubscriptionBillingTierFromStripeSubscription.mockResolvedValue(undefined)
+    mockSyncSubscriptionUsageLimits.mockResolvedValue(undefined)
     mockResetUserDefaultUsageToOnboardingAllowanceBalance.mockResolvedValue(undefined)
     mockResetUsageForSubscription.mockResolvedValue(undefined)
   })
@@ -317,8 +326,12 @@ describe('handleStripeSubscriptionDeleted', () => {
       'user-1',
       mockDb
     )
+    expect(mockSyncSubscriptionUsageLimits).toHaveBeenCalledWith(defaultSubscription)
     expect(mockCalculateSubscriptionOverage.mock.invocationCallOrder[0]).toBeLessThan(
       mockEnsureDefaultUserSubscription.mock.invocationCallOrder[0]
+    )
+    expect(mockEnsureDefaultUserSubscription.mock.invocationCallOrder[0]).toBeLessThan(
+      mockSyncSubscriptionUsageLimits.mock.invocationCallOrder[0]
     )
     expect(updateCalls).toContainEqual(
       expect.objectContaining({
@@ -337,6 +350,7 @@ describe('handleStripeSubscriptionDeleted', () => {
     expect(mockResetUsageForSubscription).not.toHaveBeenCalled()
     expect(mockEnsureDefaultUserSubscription).not.toHaveBeenCalled()
     expect(mockResetUserDefaultUsageToOnboardingAllowanceBalance).not.toHaveBeenCalled()
+    expect(mockSyncSubscriptionUsageLimits).not.toHaveBeenCalled()
     expect(updateCalls).toEqual([])
   })
 
@@ -359,6 +373,7 @@ describe('handleStripeSubscriptionDeleted', () => {
     expect(mockSyncSubscriptionBillingTierFromStripeSubscription).toHaveBeenCalled()
     expect(mockCalculateSubscriptionOverage).not.toHaveBeenCalled()
     expect(mockEnsureDefaultUserSubscription).not.toHaveBeenCalled()
+    expect(mockSyncSubscriptionUsageLimits).not.toHaveBeenCalled()
   })
 
   it('does not reset onboarding usage when another personal subscription remains entitled', async () => {
@@ -385,8 +400,42 @@ describe('handleStripeSubscriptionDeleted', () => {
 
     expect(mockEnsureDefaultUserSubscription).toHaveBeenCalledWith('user-1', mockDb)
     expect(mockResetUserDefaultUsageToOnboardingAllowanceBalance).not.toHaveBeenCalled()
+    expect(mockSyncSubscriptionUsageLimits).toHaveBeenCalledWith(replacementSubscription)
     expect(mockCalculateSubscriptionOverage.mock.invocationCallOrder[0]).toBeLessThan(
       mockEnsureDefaultUserSubscription.mock.invocationCallOrder[0]
+    )
+  })
+
+  it('syncs usage limits for organization members after deleting an organization subscription', async () => {
+    const organizationSubscription = createDefaultSubscription({
+      id: 'sub_org',
+      referenceType: 'organization',
+      referenceId: 'org-1',
+      status: 'canceled',
+      stripeSubscriptionId: 'sub_stripe_123',
+      tier: {
+        id: 'tier_team',
+        isDefault: false,
+        ownerType: 'organization',
+        displayName: 'Team',
+      },
+    })
+    mockGetUniqueSubscriptionByStripeSubscriptionId
+      .mockResolvedValueOnce(organizationSubscription)
+      .mockResolvedValueOnce(organizationSubscription)
+
+    const { handleStripeSubscriptionDeleted } = await import('./subscription')
+    await handleStripeSubscriptionDeleted(createDeletedSubscriptionEvent() as any)
+
+    expect(mockEnsureDefaultUserSubscription).not.toHaveBeenCalled()
+    expect(mockResetUserDefaultUsageToOnboardingAllowanceBalance).not.toHaveBeenCalled()
+    expect(mockSyncSubscriptionUsageLimits).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'sub_org',
+        referenceType: 'organization',
+        referenceId: 'org-1',
+        status: 'canceled',
+      })
     )
   })
 })
