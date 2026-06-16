@@ -1,29 +1,28 @@
 'use client'
 
 import { useEffect } from 'react'
+import { useLocale } from 'next-intl'
 import { useSession } from '@/lib/auth-client'
 import { useGeneralSettings } from '@/hooks/queries/general-settings'
-import { usePathname } from '@/i18n/navigation'
+import { replaceLocaleDocument, usePathname } from '@/i18n/navigation'
 import { bootstrapProviderModels } from '@/stores/providers/store'
 import { useGeneralStore } from '@/stores/settings/general/store'
 
-const PUBLIC_LANDING_ROUTE_PREFIXES = [
-  '/privacy',
-  '/terms',
-  '/careers',
-  '/licenses',
-  '/blog',
-] as const
+const USER_LOCALE_OWNED_ROUTE_PREFIXES = ['/workspace', '/admin', '/chat'] as const
 const PROVIDER_BOOTSTRAP_DELAY_MS = 1000
 
-const isPublicLandingRoute = (pathname: string) =>
-  pathname === '/' || PUBLIC_LANDING_ROUTE_PREFIXES.some((route) => pathname.startsWith(route))
+const isUserLocaleOwnedRoute = (pathname: string) =>
+  USER_LOCALE_OWNED_ROUTE_PREFIXES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
+  )
 
 export function AppBootstrap() {
   const pathname = usePathname() ?? '/'
+  const locale = useLocale()
   const { data: session, isPending } = useSession()
   const userId = session?.user?.id ?? null
   const settingsQuery = useGeneralSettings({ enabled: !isPending, userId })
+  const preferredLocale = settingsQuery.data?.preferredLocale
 
   useEffect(() => {
     useGeneralStore.setState({
@@ -32,7 +31,18 @@ export function AppBootstrap() {
   }, [isPending, settingsQuery.isPending, userId])
 
   useEffect(() => {
-    if (isPublicLandingRoute(pathname)) {
+    if (
+      userId &&
+      preferredLocale &&
+      preferredLocale !== locale &&
+      isUserLocaleOwnedRoute(pathname)
+    ) {
+      replaceLocaleDocument(preferredLocale, `${pathname}${window.location.search}`)
+    }
+  }, [locale, pathname, preferredLocale, userId])
+
+  useEffect(() => {
+    if (!isUserLocaleOwnedRoute(pathname)) {
       return
     }
 
