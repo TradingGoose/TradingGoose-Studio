@@ -208,41 +208,17 @@ describe('subscription billing helpers', () => {
       stripeSubscriptionId: 'stripe_sub_123',
       tier: { id: 'tier_default' },
     }
-    mockDb.select.mockImplementationOnce(() => createSelectQueryMock([row], 'where'))
+    mockDb.select.mockImplementationOnce(() => createSelectQueryMock([row], 'limit'))
 
     const { getSubscriptionByStripeSubscriptionId } = await import('./subscription')
 
     await expect(getSubscriptionByStripeSubscriptionId('stripe_sub_123')).resolves.toBe(row)
     expect(mockEq).toHaveBeenCalledWith('subscription.stripeSubscriptionId', 'stripe_sub_123')
     expect(mockHydrateSubscriptionsWithTiers).toHaveBeenCalledWith([row])
-    expect(mockSelectEffectiveSubscription).toHaveBeenCalledWith([row])
-  })
-
-  it('returns the effective subscription when duplicate local rows share one Stripe subscription id', async () => {
-    const olderSubscription = { id: 'sub_1', stripeSubscriptionId: 'stripe_sub_123' }
-    const effectiveSubscription = { id: 'sub_2', stripeSubscriptionId: 'stripe_sub_123' }
-    mockDb.select.mockImplementationOnce(() =>
-      createSelectQueryMock([olderSubscription, effectiveSubscription], 'where')
-    )
-    mockSelectEffectiveSubscription.mockReturnValueOnce(effectiveSubscription)
-
-    const { getSubscriptionByStripeSubscriptionId } = await import('./subscription')
-
-    await expect(getSubscriptionByStripeSubscriptionId('stripe_sub_123')).resolves.toBe(
-      effectiveSubscription
-    )
-    expect(mockHydrateSubscriptionsWithTiers).toHaveBeenCalledWith([
-      olderSubscription,
-      effectiveSubscription,
-    ])
-    expect(mockSelectEffectiveSubscription).toHaveBeenCalledWith([
-      olderSubscription,
-      effectiveSubscription,
-    ])
   })
 
   it('returns null for an untracked Stripe subscription id', async () => {
-    mockDb.select.mockImplementationOnce(() => createSelectQueryMock([], 'where'))
+    mockDb.select.mockImplementationOnce(() => createSelectQueryMock([], 'limit'))
 
     const { getSubscriptionByStripeSubscriptionId } = await import('./subscription')
 

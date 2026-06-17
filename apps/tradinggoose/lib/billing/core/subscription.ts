@@ -126,9 +126,10 @@ export async function getSubscriptionByStripeSubscriptionId(
     .select()
     .from(subscription)
     .where(eq(subscription.stripeSubscriptionId, stripeSubscriptionId))
+    .limit(1)
 
   const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(rows)
-  return selectEffectiveSubscription(hydratedSubscriptions)
+  return hydratedSubscriptions[0] ?? null
 }
 
 export async function getEffectiveSubscription(
