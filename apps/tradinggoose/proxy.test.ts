@@ -153,6 +153,14 @@ describe('proxy auth routing', () => {
     expect(response.headers.get('location')).toBeNull()
     expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('en')
     expect(response.cookies.get('better-auth.session_token')?.maxAge).toBe(0)
+    expect(response.cookies.get('__Secure-better-auth.session_token')).toMatchObject({
+      maxAge: 0,
+      secure: true,
+    })
+    expect(response.cookies.get('__Secure-better-auth.session_data')).toMatchObject({
+      maxAge: 0,
+      secure: true,
+    })
   })
 
   it('preserves locale on the login route while keeping callback targets canonical', async () => {

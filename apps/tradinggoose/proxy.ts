@@ -22,27 +22,19 @@ import {
 } from '@/i18n/utils'
 import { createLogger } from './lib/logs/console/logger'
 import { generateRuntimeCSP } from './lib/security/csp'
+import { AUTH_COOKIE_NAMES, getAuthCookieDeletionOptions } from './lib/auth/cookies'
 
 const logger = createLogger('Proxy')
 const handleI18nRouting = createMiddleware(routing)
 
 const AUTH_ROUTES = new Set(['/login', '/signup'])
-const AUTH_COOKIE_KEYS = [
-  'better-auth.session_token',
-  'better-auth.session_data',
-  'better-auth.dont_remember',
-  '__Secure-better-auth.session_token',
-  '__Secure-better-auth.session_data',
-  '__Secure-better-auth.dont_remember',
-]
 
 function clearAuthCookies(response: NextResponse) {
-  AUTH_COOKIE_KEYS.forEach((name) => {
+  AUTH_COOKIE_NAMES.forEach((name) => {
     response.cookies.set({
       name,
       value: '',
-      maxAge: 0,
-      path: '/',
+      ...getAuthCookieDeletionOptions(name),
     })
   })
 }
