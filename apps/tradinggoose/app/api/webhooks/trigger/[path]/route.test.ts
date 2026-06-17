@@ -248,6 +248,7 @@ describe('Webhook Trigger API Route', () => {
         isActive: true,
         providerConfig: { requireAuth: false },
         workflowId: 'test-workflow-id',
+        blockId: 'generic-trigger-id',
         rateLimitCount: 100,
         rateLimitPeriod: 60,
       })
@@ -282,6 +283,7 @@ describe('Webhook Trigger API Route', () => {
         isActive: true,
         providerConfig: { requireAuth: true, token: 'test-token-123' },
         workflowId: 'test-workflow-id',
+        blockId: 'generic-trigger-id',
       })
       globalMockData.workflows.push({
         id: 'test-workflow-id',
@@ -317,6 +319,7 @@ describe('Webhook Trigger API Route', () => {
           secretHeaderName: 'X-Custom-Auth',
         },
         workflowId: 'test-workflow-id',
+        blockId: 'generic-trigger-id',
       })
       globalMockData.workflows.push({
         id: 'test-workflow-id',
@@ -348,6 +351,7 @@ describe('Webhook Trigger API Route', () => {
         isActive: true,
         providerConfig: { requireAuth: true, token: 'case-test-token' },
         workflowId: 'test-workflow-id',
+        blockId: 'generic-trigger-id',
       })
       globalMockData.workflows.push({
         id: 'test-workflow-id',
@@ -392,6 +396,7 @@ describe('Webhook Trigger API Route', () => {
           secretHeaderName: 'X-Secret-Key',
         },
         workflowId: 'test-workflow-id',
+        blockId: 'generic-trigger-id',
       })
       globalMockData.workflows.push({
         id: 'test-workflow-id',

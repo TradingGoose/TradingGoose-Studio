@@ -67,6 +67,8 @@ vi.mock('@/widgets/widgets/editor_workflow/context/workflow-route-context', () =
   })),
 }))
 
+import { useWorkflowExecution } from './use-workflow-execution'
+
 describe('useWorkflowExecution', () => {
   let container: HTMLDivElement | null = null
   let root: Root | null = null
@@ -96,7 +98,6 @@ describe('useWorkflowExecution', () => {
   }
 
   async function renderExecutionHook() {
-    const { useWorkflowExecution } = await import('./use-workflow-execution')
     const state: { execution: ReturnType<typeof useWorkflowExecution> | null } = {
       execution: null,
     }
