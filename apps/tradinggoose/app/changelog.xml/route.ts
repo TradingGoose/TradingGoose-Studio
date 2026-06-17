@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { SITE_BASE_URL } from '@/i18n/utils'
+import { getBaseUrl } from '@/lib/urls/utils'
 
 export const dynamic = 'force-static'
 export const revalidate = 3600
@@ -25,6 +25,7 @@ function escapeXml(str: string) {
 
 export async function GET() {
   try {
+    const siteBaseUrl = getBaseUrl()
     const res = await fetch(
       'https://api.github.com/repos/TradingGoose/TradingGoose-Studio/releases',
       {
@@ -52,7 +53,7 @@ export async function GET() {
       <rss version="2.0">
         <channel>
           <title>TradingGoose Changelog</title>
-          <link>${SITE_BASE_URL}/changelog</link>
+          <link>${siteBaseUrl}/changelog</link>
           <description>Latest changes, fixes and updates in TradingGoose.</description>
           <language>en-us</language>
           ${items}

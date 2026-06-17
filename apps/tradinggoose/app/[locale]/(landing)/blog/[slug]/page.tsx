@@ -12,9 +12,9 @@ import {
   buildLocalizedAlternates,
   getOpenGraphLocale,
   localizeSiteUrl,
-  SITE_BASE_URL,
   type LocaleCode,
 } from '@/i18n/utils'
+import { getBaseUrl } from '@/lib/urls/utils'
 import { getPostBySlug } from '@/app/(landing)/blog/lib/posts'
 import { formatBlogDate } from '@/app/(landing)/blog/lib/heading-slugs'
 import BreadcrumbNav from '@/app/(landing)/blog/components/breadcrumb-nav'
@@ -74,6 +74,7 @@ export default async function PostPage({ params }: PostPageProps) {
   if (!post) notFound()
   const locale = (await getLocale()) as LocaleCode
   const copy = getPublicCopy(locale)
+  const siteBaseUrl = getBaseUrl()
 
   const { title, date, image, authors, tags, toc, content, readingTime } = post
   const postPath = `/blog/${slug}`
@@ -102,7 +103,7 @@ export default async function PostPage({ params }: PostPageProps) {
         ],
       })),
     }),
-    publisher: { '@id': `${SITE_BASE_URL}/#organization` },
+    publisher: { '@id': `${siteBaseUrl}/#organization` },
     mainEntityOfPage: { '@type': 'WebPage', '@id': localizeSiteUrl(locale, postPath) },
     ...(tags?.length && { keywords: tags.join(', '), articleSection: tags[0] }),
     inLanguage: locale,

@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { getPublicCopy } from '@/i18n/public-copy'
-import { defaultLocale, getOpenGraphLocale, type LocaleCode, SITE_BASE_URL } from '@/i18n/utils'
+import { defaultLocale, getOpenGraphLocale, type LocaleCode } from '@/i18n/utils'
+import { getBaseUrl } from '@/lib/urls/utils'
 
 export const DEFAULT_META_DESCRIPTION =
   'Open-source LLM trading platform. Connect data providers, write custom indicators in PineTS, and trigger AI agent workflows on live signals.'
@@ -16,6 +17,7 @@ export function generateBrandedMetadata(
   const brand = getBrandConfig()
   const copy = getPublicCopy(locale)
   const landingMeta = copy.meta.landing
+  const siteBaseUrl = getBaseUrl()
 
   const defaultTitle = brand.name
 
@@ -32,7 +34,7 @@ export function generateBrandedMetadata(
     referrer: 'origin-when-cross-origin',
     creator: brand.name,
     publisher: brand.name,
-    metadataBase: new URL(SITE_BASE_URL),
+    metadataBase: new URL(siteBaseUrl),
     robots: {
       index: true,
       follow: true,
@@ -110,6 +112,8 @@ export function generateBrandedMetadata(
  * Generate static structured data for SEO
  */
 export function generateStructuredData() {
+  const siteBaseUrl = getBaseUrl()
+
   return {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
@@ -117,7 +121,7 @@ export function generateStructuredData() {
     alternateName: ['TradingGoose Studio', 'TradingGoose.ai'],
     description:
       'TradingGoose (also known as TradingGoose Studio) is an open-source visual workflow platform for technical LLM-driven trading, maintained at github.com/TradingGoose/TradingGoose-Studio. Connect your own market data providers, write custom indicators in PineTS, monitor live prices, and route signals into AI agent workflows that trigger trades, alerts, portfolio rebalancing, or any action you define. Not affiliated with the older TradingGoose multi-agent LLM research framework.',
-    url: SITE_BASE_URL,
+    url: siteBaseUrl,
     sameAs: [
       'https://github.com/TradingGoose/TradingGoose-Studio',
       'https://docs.tradinggoose.ai',
@@ -136,7 +140,7 @@ export function generateStructuredData() {
       '@type': 'Organization',
       name: 'TradingGoose Studio',
       alternateName: 'TradingGoose',
-      url: SITE_BASE_URL,
+      url: siteBaseUrl,
       sameAs: [
         'https://github.com/TradingGoose/TradingGoose-Studio',
         'https://discord.gg/wavf5JWhuT',
