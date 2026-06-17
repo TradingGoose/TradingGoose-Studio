@@ -291,6 +291,7 @@ export function GlobalNavbar({
                 userAvatarVersion={userAvatarVersion}
                 onOpenSettings={openSettings}
                 canAccessSystemAdmin={isSystemAdmin && navigationMode !== 'admin'}
+                sidebarTrigger
               />
             </SidebarFooter>
             <SidebarRail />

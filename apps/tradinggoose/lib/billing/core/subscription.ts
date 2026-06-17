@@ -119,6 +119,19 @@ export async function requireActiveSubscriptionForReference(
   return activeSubscription
 }
 
+export async function getSubscriptionByStripeSubscriptionId(
+  stripeSubscriptionId: string
+): Promise<SubscriptionWithTier | null> {
+  const rows = await db
+    .select()
+    .from(subscription)
+    .where(eq(subscription.stripeSubscriptionId, stripeSubscriptionId))
+    .limit(1)
+
+  const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(rows)
+  return hydratedSubscriptions[0] ?? null
+}
+
 export async function getEffectiveSubscription(
   userId: string
 ): Promise<SubscriptionWithTier | null> {

@@ -253,6 +253,13 @@
       "when": 1780432066925,
       "tag": "0035_marvelous_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1781647170895,
+      "tag": "0036_fast_skullbuster",
+      "breakpoints": true
     }
   ]
 }

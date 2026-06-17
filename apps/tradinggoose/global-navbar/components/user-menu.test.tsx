@@ -4,6 +4,7 @@ import { act } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { SidebarProvider } from '@/components/ui/sidebar'
 import { getPublicCopy } from '@/i18n/public-copy'
 import type { LocaleCode } from '@/i18n/utils'
 import { UserMenu } from './user-menu'
@@ -94,17 +95,22 @@ vi.mock('@/global-navbar/settings-modal/components/help/help-modal', () => ({
 function renderUserMenu(
   root: Root,
   locale: LocaleCode,
-  options: { canAccessSystemAdmin?: boolean } = {}
+  options: { canAccessSystemAdmin?: boolean; sidebarTrigger?: boolean } = {}
 ) {
+  const userMenu = (
+    <UserMenu
+      userName='Ada Lovelace'
+      userEmail='ada@example.com'
+      userId='user-1'
+      onOpenSettings={mockOpenSettings}
+      canAccessSystemAdmin={options.canAccessSystemAdmin}
+      sidebarTrigger={options.sidebarTrigger}
+    />
+  )
+
   root.render(
     <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
-      <UserMenu
-        userName='Ada Lovelace'
-        userEmail='ada@example.com'
-        userId='user-1'
-        onOpenSettings={mockOpenSettings}
-        canAccessSystemAdmin={options.canAccessSystemAdmin}
-      />
+      {options.sidebarTrigger ? <SidebarProvider>{userMenu}</SidebarProvider> : userMenu}
     </NextIntlClientProvider>
   )
 }
@@ -223,7 +229,7 @@ describe('UserMenu language selector', () => {
     expect(getThemeButton('主题：系统')).toBeInTheDocument()
   })
 
-  it('renders the avatar trigger without a sidebar provider', async () => {
+  it('renders the compact avatar trigger outside a sidebar context', async () => {
     await act(async () => {
       renderUserMenu(root, 'en')
       await flush()
@@ -231,7 +237,27 @@ describe('UserMenu language selector', () => {
 
     const button = getUserMenuButton(container)
     expect(button.textContent).toBe('AL')
+    expect(container.querySelector('[data-sidebar="menu"]')).toBeNull()
     expect(container.querySelector('button[data-sidebar="menu-button"]')).toBeNull()
+  })
+
+  it('renders the sidebar trigger with user details inside the global navbar sidebar', async () => {
+    await act(async () => {
+      renderUserMenu(root, 'en', { sidebarTrigger: true })
+      await flush()
+    })
+
+    const button = getUserMenuButton(container)
+    expect(button.getAttribute('data-sidebar')).toBe('menu-button')
+    expect(button.textContent).toContain('Ada Lovelace')
+    expect(button.textContent).toContain('ada@example.com')
+
+    await act(async () => {
+      await openMenu(button)
+    })
+
+    const menu = document.body.querySelector('[role="menu"]')
+    expect(menu?.className).toContain('w-[var(--radix-dropdown-menu-trigger-width)]')
   })
 
   it('owns the system admin menu item for authorized users', async () => {

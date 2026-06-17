@@ -28,16 +28,12 @@ import {
   renderPasswordResetEmail,
 } from '@/components/emails/render-email'
 import { sendBillingTierWelcomeEmail } from '@/lib/billing'
-import { localizeUrl } from '@/i18n/utils'
 import { authorizeSubscriptionReference } from '@/lib/billing/authorization'
 import {
   ensureDefaultUserSubscription,
   getEffectiveSubscription,
 } from '@/lib/billing/core/subscription'
-import {
-  handleNewUser,
-  resetUserDefaultUsageToOnboardingAllowanceBalance,
-} from '@/lib/billing/core/usage'
+import { handleNewUser } from '@/lib/billing/core/usage'
 import {
   ensureOrganizationForOrganizationSubscription,
   syncSubscriptionUsageLimits,
@@ -55,11 +51,11 @@ import {
   handleInvoicePaymentSucceeded,
 } from '@/lib/billing/webhooks/invoices'
 import {
+  handleStripeSubscriptionDeleted,
   handleSubscriptionCreated,
-  handleSubscriptionDeleted,
 } from '@/lib/billing/webhooks/subscription'
-import { addVerifiedUserEmailToAudience, sendEmail } from '@/lib/email/mailer'
 import { resolveEmailLocale } from '@/lib/email/locale'
+import { addVerifiedUserEmailToAudience, sendEmail } from '@/lib/email/mailer'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { env, getEnv } from '@/lib/env'
 import { isEmailVerificationEnabled } from '@/lib/environment'
@@ -86,6 +82,7 @@ import {
 } from '@/lib/system-services/stripe-runtime'
 import { getResolvedSystemSettings } from '@/lib/system-settings/service'
 import { getBaseUrl } from '@/lib/urls/utils'
+import { localizeUrl } from '@/i18n/utils'
 import { resolveAlpacaTradingBaseUrl } from '@/providers/trading/alpaca/config'
 import { resolveTradierBaseUrl } from '@/providers/trading/tradier/client'
 import { SSO_TRUSTED_PROVIDERS } from './sso/consts'
@@ -1688,65 +1685,6 @@ export const auth = betterAuth({
             })
           }
         },
-        onSubscriptionDeleted: async ({
-          event,
-          stripeSubscription,
-          subscription,
-        }: {
-          event: Stripe.Event
-          stripeSubscription: Stripe.Subscription
-          subscription: any
-        }) => {
-          logger.info('[onSubscriptionDeleted] Subscription deleted', {
-            subscriptionId: subscription.id,
-            referenceType: subscription.referenceType,
-            referenceId: subscription.referenceId,
-          })
-
-          try {
-            await syncSubscriptionBillingTierFromStripeSubscription(
-              subscription.id,
-              stripeSubscription || (event.data.object as Stripe.Subscription | undefined)
-            )
-
-            const hydratedSubscription = await getHydratedSubscriptionById(subscription.id)
-            const subscriptionRecord = hydratedSubscription ?? { ...subscription, tier: null }
-
-            await handleSubscriptionDeleted(subscriptionRecord)
-
-            const { billingEnabled } = await getBillingGateState()
-            const nextSubscriptionRecord =
-              billingEnabled && subscriptionRecord.referenceType === 'user'
-                ? await ensureDefaultUserSubscription(subscriptionRecord.referenceId)
-                : subscriptionRecord
-
-            if (
-              nextSubscriptionRecord.referenceType === 'user' &&
-              nextSubscriptionRecord.tier?.isDefault &&
-              !nextSubscriptionRecord.stripeSubscriptionId
-            ) {
-              await resetUserDefaultUsageToOnboardingAllowanceBalance(
-                nextSubscriptionRecord.referenceId
-              )
-            }
-
-            await syncSubscriptionUsageLimits(nextSubscriptionRecord)
-
-            logger.info('[onSubscriptionDeleted] Reconciled subscription usage limits', {
-              subscriptionId: subscription.id,
-              referenceType: subscription.referenceType,
-              referenceId: subscription.referenceId,
-            })
-          } catch (error) {
-            logger.error('[onSubscriptionDeleted] Failed to handle subscription deletion', {
-              subscriptionId: subscription.id,
-              referenceType: subscription.referenceType,
-              referenceId: subscription.referenceId,
-              error,
-            })
-            throw error
-          }
-        },
       },
       onEvent: async (event: Stripe.Event) => {
         logger.info('[onEvent] Received Stripe webhook', {
@@ -1772,7 +1710,10 @@ export const auth = betterAuth({
               await handleManualEnterpriseSubscription(event)
               break
             }
-            // Note: customer.subscription.deleted is handled by better-auth's onSubscriptionDeleted callback above
+            case 'customer.subscription.deleted': {
+              await handleStripeSubscriptionDeleted(event)
+              break
+            }
             default:
               logger.info('[onEvent] Ignoring unsupported webhook event', {
                 eventId: event.id,
