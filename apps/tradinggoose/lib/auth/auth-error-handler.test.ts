@@ -25,11 +25,11 @@ describe('handleAuthError', () => {
     vi.unstubAllGlobals()
   })
 
-  it('routes login-page sign-out failures through proxy reauth cleanup', async () => {
+  it('routes login-page auth recovery through proxy reauth cleanup', async () => {
     vi.resetModules()
     vi.clearAllMocks()
     stubWindow('https://app.tradinggoose.ai/login?callbackUrl=%2Fworkspace#credentials')
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network')))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })))
 
     const { handleAuthError } = await import('./auth-error-handler')
 

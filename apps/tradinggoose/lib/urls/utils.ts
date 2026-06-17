@@ -1,7 +1,13 @@
 import { getEnv } from '@/lib/env'
 
 export function getBaseUrl(): string {
-  const value = getEnv('NEXT_PUBLIC_APP_URL')?.trim()
+  const configuredAppUrl = getEnv('NEXT_PUBLIC_APP_URL')?.trim()
+  const value =
+    configuredAppUrl ||
+    (process.env.EMAILS_DIR_ABSOLUTE_PATH || process.env.PREVIEW_SERVER_LOCATION
+      ? getEnv('EMAILS_PREVIEW_BASE_URL')?.trim() || 'http://localhost:3000'
+      : undefined)
+
   if (!value) {
     throw new Error('NEXT_PUBLIC_APP_URL is required')
   }
@@ -10,11 +16,11 @@ export function getBaseUrl(): string {
   try {
     url = new URL(value)
   } catch {
-    throw new Error('NEXT_PUBLIC_APP_URL must be a valid URL')
+    throw new Error('Configured base URL must be a valid URL')
   }
 
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw new Error('NEXT_PUBLIC_APP_URL must use http or https')
+    throw new Error('Configured base URL must use http or https')
   }
 
   return url.origin

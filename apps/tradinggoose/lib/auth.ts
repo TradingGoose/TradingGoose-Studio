@@ -425,6 +425,9 @@ export const auth = betterAuth({
     getBaseUrl(),
     ...(env.NEXT_PUBLIC_SOCKET_URL ? [env.NEXT_PUBLIC_SOCKET_URL] : []),
   ],
+  advanced: {
+    crossSubDomainCookies: { enabled: false },
+  },
   database: drizzleAdapter(db, {
     provider: 'pg',
     schema,
