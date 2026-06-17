@@ -229,6 +229,18 @@ describe('UserMenu language selector', () => {
     expect(getThemeButton('主题：系统')).toBeInTheDocument()
   })
 
+  it('renders the compact avatar trigger outside a sidebar context', async () => {
+    await act(async () => {
+      renderUserMenu(root, 'en')
+      await flush()
+    })
+
+    const button = getUserMenuButton(container)
+    expect(button.textContent).toBe('AL')
+    expect(container.querySelector('[data-sidebar="menu"]')).toBeNull()
+    expect(container.querySelector('button[data-sidebar="menu-button"]')).toBeNull()
+  })
+
   it('renders the sidebar trigger with user details inside the global navbar sidebar', async () => {
     await act(async () => {
       renderUserMenu(root, 'en', { sidebarTrigger: true })
