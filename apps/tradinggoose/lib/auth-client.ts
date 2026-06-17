@@ -11,10 +11,9 @@ import { createAuthClient } from 'better-auth/react'
 import type { auth } from '@/lib/auth'
 import { env } from '@/lib/env'
 import { SessionContext, type SessionHookResult } from '@/lib/session/session-context'
-import { getBaseUrl } from '@/lib/urls/utils'
 
 export const client = createAuthClient({
-  baseURL: getBaseUrl(),
+  ...(typeof window === 'undefined' ? {} : { baseURL: window.location.origin }),
   plugins: [
     emailOTPClient(),
     genericOAuthClient(),
