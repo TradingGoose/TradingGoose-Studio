@@ -37,7 +37,8 @@ async function safeServerSignOut() {
       credentials: 'include',
       headers: { 'cache-control': 'no-store' },
     })
-  } catch {
+  } catch (error) {
+    logger.warn('Fallback sign-out failed', { error })
   }
 }
 
