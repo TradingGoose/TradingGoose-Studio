@@ -60,7 +60,6 @@ describe('File Serve API Route', () => {
       },
       getEnv: vi.fn((key: string) => {
         if (key === 'NEXT_PUBLIC_APP_URL') return 'https://app.tradinggoose.ai'
-        if (key === 'NEXT_PUBLIC_IS_PREVIEW_DEVELOPMENT') return 'false'
         return undefined
       }),
     }))

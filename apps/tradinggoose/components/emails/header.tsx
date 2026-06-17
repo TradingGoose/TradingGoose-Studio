@@ -6,13 +6,13 @@ import { getBaseUrl } from '@/lib/urls/utils'
 import { type EmailLocale, getEmailCopy } from '@/components/emails/email-copy'
 
 interface EmailHeaderProps {
+  baseUrl?: string
   tagline?: string
   locale?: EmailLocale
 }
 
-export const EmailHeader = ({ tagline, locale }: EmailHeaderProps) => {
+export const EmailHeader = ({ baseUrl = getBaseUrl(), tagline, locale }: EmailHeaderProps) => {
   const brand = getBrandConfig()
-  const baseUrl = getBaseUrl()
   const logoSrc = `${baseUrl}/favicon/goose.png`
   const copy = getEmailCopy(locale)
   const resolvedTagline = tagline ?? copy.shared.tagline

@@ -49,7 +49,7 @@ export function LocalizedEmail({
       <Body style={baseStyles.main}>
         <Preview>{preview}</Preview>
         <Container style={baseStyles.container}>
-          <EmailHeader locale={resolvedLocale} tagline={copy.shared.tagline} />
+          <EmailHeader baseUrl={baseUrl} locale={resolvedLocale} tagline={copy.shared.tagline} />
 
           <Section style={baseStyles.content}>
             <Text style={baseStyles.title}>{title}</Text>

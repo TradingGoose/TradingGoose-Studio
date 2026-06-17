@@ -2,6 +2,8 @@ import { getPublicBillingCatalog } from '@/lib/billing/catalog'
 import { buildHostedPricingSentence } from '@/lib/billing/public-catalog'
 import { getBaseUrl } from '@/lib/urls/utils'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   const siteBaseUrl = getBaseUrl()
   const billingCatalog = await getPublicBillingCatalog()

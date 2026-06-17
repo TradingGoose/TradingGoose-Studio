@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getBaseUrl } from '@/lib/urls/utils'
 
-export const dynamic = 'force-static'
+export const dynamic = 'force-dynamic'
 export const revalidate = 3600
 
 interface Release {

@@ -3,6 +3,8 @@ import { getAllPosts } from '@/app/(landing)/blog/lib/posts'
 import { locales } from '@/i18n/routing'
 import { localizeSiteUrl } from '@/i18n/utils'
 
+export const dynamic = 'force-dynamic'
+
 type SitemapEntry = Omit<MetadataRoute.Sitemap[number], 'url'>
 
 function localizedEntries(pathname: string, entry: SitemapEntry): MetadataRoute.Sitemap {

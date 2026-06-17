@@ -1,12 +1,7 @@
 import { getEnv } from '@/lib/env'
 
 export function getBaseUrl(): string {
-  const configuredAppUrl = getEnv('NEXT_PUBLIC_APP_URL')?.trim()
-  const value =
-    configuredAppUrl ||
-    (process.env.EMAILS_DIR_ABSOLUTE_PATH || process.env.PREVIEW_SERVER_LOCATION
-      ? getEnv('EMAILS_PREVIEW_BASE_URL')?.trim() || 'http://localhost:3000'
-      : undefined)
+  const value = getEnv('NEXT_PUBLIC_APP_URL')?.trim()
 
   if (!value) {
     throw new Error('NEXT_PUBLIC_APP_URL is required')
