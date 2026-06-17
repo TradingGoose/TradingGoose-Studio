@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import { useRouter } from '@/i18n/navigation'
 import { normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
 import { client, useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
-import { normalizeCallbackUrl } from '@/i18n/utils'
+import { normalizeCallbackUrl, type LocaleCode } from '@/i18n/utils'
 import type { Messages } from 'next-intl'
 
 const logger = createLogger('useVerification')
@@ -95,6 +96,7 @@ export function useVerification({
   copy,
 }: UseVerificationParams): UseVerificationReturn {
   const router = useRouter()
+  const locale = useLocale() as LocaleCode
   const searchParams = useSearchParams()
   const { refetch: refetchSession } = useSession()
   const [otp, setOtp] = useState('')
@@ -162,6 +164,23 @@ export function useVerification({
 
   const isOtpComplete = otp.length === 6
 
+  async function persistPreferredLocale() {
+    try {
+      const response = await fetch('/api/users/me/settings', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preferredLocale: locale }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to persist preferred locale after verification')
+      }
+    } catch (error) {
+      logger.warn('Failed to persist preferred locale after verification', { error, locale })
+    }
+  }
+
   async function verifyCode() {
     if (!isOtpComplete || !email) return
 
@@ -184,6 +203,8 @@ export function useVerification({
         } catch (e) {
           logger.warn('Failed to refetch session after verification', e)
         }
+
+        await persistPreferredLocale()
 
         if (typeof window !== 'undefined') {
           sessionStorage.removeItem('verificationEmail')
@@ -277,6 +298,8 @@ export function useVerification({
           } catch (error) {
             logger.warn('Failed to refetch session during verification skip:', error)
           }
+
+          await persistPreferredLocale()
 
           if (isInviteFlow && redirectUrl) {
             router.push(redirectUrl)

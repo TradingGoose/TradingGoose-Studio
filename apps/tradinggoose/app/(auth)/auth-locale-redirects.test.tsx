@@ -227,6 +227,8 @@ describe('auth locale redirects', () => {
       await setInputValue('#password', 'Password1!')
       await submitRenderedForm()
 
+      expect(mockRefetchSession).not.toHaveBeenCalled()
+      expect(mockFetch).not.toHaveBeenCalled()
       expect(mockPush).toHaveBeenCalledWith('/verify?fromSignup=true')
     }
   )

@@ -689,7 +689,7 @@ export const auth = betterAuth({
             emailType: 'transactional',
           })
 
-          if (!result.success && result.message.includes('no email service configured')) {
+          if (result.message.toLowerCase().includes('no email service configured')) {
             logger.info('🔑 VERIFICATION CODE FOR LOGIN/SIGNUP', {
               email: data.email,
               otp: data.otp,
