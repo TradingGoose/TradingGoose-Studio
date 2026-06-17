@@ -1,54 +1,17 @@
 import { getEnv } from '@/lib/env'
-import { isProd } from '@/lib/environment'
 
 /**
- * Returns the base URL of the application from NEXT_PUBLIC_APP_URL
- * This ensures webhooks, callbacks, and other integrations always use the correct public URL
- * @returns The base URL string (e.g., 'http://localhost:3000' or 'https://example.com')
- * @throws Error if NEXT_PUBLIC_APP_URL is not configured
+ * Returns the configured application URL.
  */
 export function getBaseUrl(): string {
-  const baseUrl = getEnv('NEXT_PUBLIC_APP_URL')
-  const isPreviewDev =
-    getEnv('NEXT_PUBLIC_IS_PREVIEW_DEVELOPMENT') === 'true' ||
-    getEnv('NEXT_PUBLIC_IS_PREVIEW_DEVELOPMENT') === '1'
-  const isReactEmailPreview =
-    !!process.env.EMAILS_DIR_ABSOLUTE_PATH || !!process.env.PREVIEW_SERVER_LOCATION
-
-  if (!baseUrl || !baseUrl.trim()) {
-    const fallback = process.env.EMAILS_PREVIEW_BASE_URL || 'http://localhost:3000'
-    if (isProd && !isPreviewDev && !isReactEmailPreview) {
-      // Avoid hard crash in production builds but surface a warning for misconfiguration.
-      // eslint-disable-next-line no-console
-      console.warn('NEXT_PUBLIC_APP_URL missing – falling back to', fallback)
-    }
-    return fallback
-  }
-
-  if (baseUrl.startsWith('http://') || baseUrl.startsWith('https://')) {
-    return baseUrl
-  }
-
-  const protocol = isProd ? 'https://' : 'http://'
-  return `${protocol}${baseUrl}`
+  return getConfiguredAppUrl()
 }
 
 /**
- * Returns just the domain and port part of the application URL
- * @returns The domain with port if applicable (e.g., 'localhost:3000' or 'tradinggoose.ai')
+ * Returns just the domain and port from NEXT_PUBLIC_APP_URL.
  */
 export function getBaseDomain(): string {
-  try {
-    const url = new URL(getBaseUrl())
-    return url.host // host includes port if specified
-  } catch (_e) {
-    const fallbackUrl = getEnv('NEXT_PUBLIC_APP_URL') || 'http://localhost:3000'
-    try {
-      return new URL(fallbackUrl).host
-    } catch {
-      return isProd ? 'tradinggoose.ai' : 'localhost:3000'
-    }
-  }
+  return new URL(getConfiguredAppUrl()).host
 }
 
 /**
@@ -56,10 +19,31 @@ export function getBaseDomain(): string {
  * @returns The email domain (e.g., 'tradinggoose.ai' instead of 'www.tradinggoose.ai')
  */
 export function getEmailDomain(): string {
-  try {
-    const baseDomain = getBaseDomain()
-    return baseDomain.startsWith('www.') ? baseDomain.substring(4) : baseDomain
-  } catch (_e) {
-    return isProd ? 'tradinggoose.ai' : 'localhost:3000'
+  const baseDomain = getBaseDomain()
+  return baseDomain.startsWith('www.') ? baseDomain.substring(4) : baseDomain
+}
+
+function getConfiguredAppUrl() {
+  return normalizeHttpOrigin(getEnv('NEXT_PUBLIC_APP_URL'), 'NEXT_PUBLIC_APP_URL')
+}
+
+function normalizeHttpOrigin(value: string | undefined, envName: string) {
+  const trimmed = value?.trim()
+  if (!trimmed) {
+    throw new Error(`${envName} is required`)
   }
+
+  let parsed: URL
+
+  try {
+    parsed = new URL(trimmed)
+  } catch {
+    throw new Error(`${envName} must be a valid URL`)
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error(`${envName} must use http or https`)
+  }
+
+  return parsed.origin
 }
