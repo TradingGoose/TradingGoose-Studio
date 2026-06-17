@@ -5,8 +5,17 @@ const mockBatchSend = vi.fn()
 const mockContactsCreate = vi.fn()
 const mockAzureBeginSend = vi.fn()
 const mockAzurePollUntilDone = vi.fn()
-const { mockResolveResendServiceConfig, mockResolveAzureCommunicationEmailServiceConfig } =
+const {
+  mockLoggerInfo,
+  mockLoggerWarn,
+  mockLoggerError,
+  mockResolveResendServiceConfig,
+  mockResolveAzureCommunicationEmailServiceConfig,
+} =
   vi.hoisted(() => ({
+    mockLoggerInfo: vi.fn(),
+    mockLoggerWarn: vi.fn(),
+    mockLoggerError: vi.fn(),
     mockResolveResendServiceConfig: vi.fn(),
     mockResolveAzureCommunicationEmailServiceConfig: vi.fn(),
   }))
@@ -57,6 +66,14 @@ vi.mock('@/lib/system-services/runtime', () => ({
 
 vi.mock('@/lib/urls/utils', () => ({
   getBaseUrl: vi.fn().mockReturnValue('https://test.tradinggoose.ai'),
+}))
+
+vi.mock('@/lib/logs/console/logger', () => ({
+  createLogger: () => ({
+    info: mockLoggerInfo,
+    warn: mockLoggerWarn,
+    error: mockLoggerError,
+  }),
 }))
 
 import {
@@ -163,7 +180,7 @@ describe('mailer', () => {
         html: '<p>Test content</p><a href="mock-token-123">Unsubscribe</a>',
         headers: {
           'List-Unsubscribe':
-            '<https://test.tradinggoose.ai/unsubscribe?token=mock-token-123&email=test%40example.com>',
+            '<https://test.tradinggoose.ai/en/unsubscribe?token=mock-token-123&email=test%40example.com>',
           'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         },
       })
@@ -183,6 +200,39 @@ describe('mailer', () => {
 
       // Should not call Resend
       expect(mockSend).not.toHaveBeenCalled()
+    })
+
+    it('should log unsent email text when no email service is configured', async () => {
+      mockResolveResendServiceConfig.mockResolvedValue({
+        apiKey: null,
+        audienceId: null,
+      })
+      mockResolveAzureCommunicationEmailServiceConfig.mockResolvedValue({
+        connectionString: null,
+      })
+
+      const result = await sendEmail({
+        ...testEmailOptions,
+        text: 'Verification code: 123456',
+        emailType: 'transactional',
+      })
+
+      expect(result).toEqual({
+        success: true,
+        message: 'Email logging successful (no email service configured)',
+        data: { id: 'mock-email-id' },
+      })
+      expect(mockSend).not.toHaveBeenCalled()
+      expect(mockAzureBeginSend).not.toHaveBeenCalled()
+      expect(mockLoggerInfo).toHaveBeenCalledWith(
+        'Email not sent (no email service configured):',
+        expect.objectContaining({
+          to: testEmailOptions.to,
+          subject: testEmailOptions.subject,
+          from: 'TradingGoose <noreply@tradinggoose.ai>',
+          text: 'Verification code: 123456',
+        })
+      )
     })
 
     it.concurrent('should handle Resend API errors and fallback to Azure', async () => {
