@@ -137,16 +137,12 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
     metadata: metadataJson,
   }
 
-  const existingRows = await db
-    .select({ id: subscription.id })
-    .from(subscription)
-    .where(eq(subscription.stripeSubscriptionId, stripeSubscription.id))
-  const subscriptionId = existingRows[0]?.id || subscriptionRow.id
-
-  if (existingRows.length > 0) {
-    await db
-      .update(subscription)
-      .set({
+  const [persistedSubscription] = await db
+    .insert(subscription)
+    .values(subscriptionRow)
+    .onConflictDoUpdate({
+      target: subscription.stripeSubscriptionId,
+      set: {
         plan: subscriptionRow.plan,
         billingTierId: subscriptionRow.billingTierId,
         referenceType: subscriptionRow.referenceType,
@@ -160,11 +156,10 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
         trialStart: subscriptionRow.trialStart,
         trialEnd: subscriptionRow.trialEnd,
         metadata: subscriptionRow.metadata,
-      })
-      .where(eq(subscription.stripeSubscriptionId, stripeSubscription.id))
-  } else {
-    await db.insert(subscription).values(subscriptionRow)
-  }
+      },
+    })
+    .returning({ id: subscription.id })
+  const subscriptionId = persistedSubscription?.id || subscriptionRow.id
 
   if (billingTierRecord.usageScope === 'pooled') {
     const organizationUsageLimit = getTierIncludedUsageLimit(billingTierRecord) || monthlyPrice
