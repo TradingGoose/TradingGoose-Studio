@@ -32,13 +32,15 @@ function isLoginPathname(pathname: string) {
 
 async function safeServerSignOut() {
   try {
-    await fetch('/api/auth/sign-out', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'cache-control': 'no-store' },
-    })
-  } catch (error) {
-    logger.warn('Fallback sign-out failed', { error })
+    return (
+      await fetch('/api/auth/sign-out', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'cache-control': 'no-store' },
+      })
+    ).ok
+  } catch {
+    return false
   }
 }
 
@@ -58,9 +60,17 @@ export async function handleAuthError(reason: string, callbackPathname: string) 
   }
 
   isHandlingAuthError = true
-  await safeServerSignOut()
+  const signOutSucceeded = await safeServerSignOut()
 
   if (isLoginPathname(window.location.pathname)) {
+    if (!signOutSucceeded) {
+      const loginUrl = new URL(window.location.href)
+      loginUrl.searchParams.set('reauth', '1')
+      logger.warn('Routing login page through reauth cleanup after sign-out failure', { reason })
+      window.location.replace(`${loginUrl.pathname}${loginUrl.search}${loginUrl.hash}`)
+      return
+    }
+
     logger.warn('Cleared stale auth state on login page', { reason })
     isHandlingAuthError = false
     return
