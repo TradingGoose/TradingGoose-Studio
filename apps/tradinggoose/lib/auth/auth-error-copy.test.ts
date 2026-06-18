@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   getAuthErrorCallbackPath,
   getAuthErrorContent,
+  isSessionRecoveryAuthError,
   normalizeAuthErrorCallbackSegments,
   normalizeAuthErrorCode,
+  resolveSsoAuthErrorMessage,
 } from '@/lib/auth/auth-error-copy'
 import {
   REGISTRATION_DISABLED_REASON,
@@ -52,6 +54,28 @@ describe('getAuthErrorContent', () => {
     expect(code).toBe(errorCode)
     expect(content.primaryAction.href).toBe('/login?reauth=1')
     expect(content.secondaryAction.href).toBe('/')
+  })
+
+  it.each([
+    'UNABLE_TO_CREATE_SESSION',
+    'FAILED_TO_CREATE_SESSION',
+    'FAILED_TO_GET_SESSION',
+    'SESSION_EXPIRED',
+  ])('classifies %s as a session recovery auth error', (errorCode) => {
+    expect(isSessionRecoveryAuthError(errorCode)).toBe(true)
+  })
+
+  it.each([
+    ['ACCOUNT_NOT_FOUND', 'accountNotFound'],
+    ['SSO_FAILED', 'ssoFailed'],
+    ['INVALID_PROVIDER', 'providerNotConfigured'],
+    ['NO_PROVIDER_FOUND', 'providerNotConfigured'],
+  ] as const)('uses SSO-specific guidance for %s callback failures', (errorCode, copyKey) => {
+    const { content } = getAuthErrorContent(copy, errorCode)
+
+    expect(resolveSsoAuthErrorMessage(copy, errorCode)).toBe(copy.auth.sso.errors[copyKey])
+    expect(content.description).toBe(copy.auth.sso.errors[copyKey])
+    expect(content.primaryAction.href).toBe('/login')
   })
 
   it('keeps the stored canonical destination on session recovery actions', () => {

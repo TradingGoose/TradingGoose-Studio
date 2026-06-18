@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
+import { isSessionRecoveryAuthError, normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
 import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { client } from '@/lib/auth-client'
 import { quickValidateEmail } from '@/lib/email/validation'
@@ -231,7 +231,7 @@ export default function LoginPage({
     setShowValidationError(false)
   }
 
-  const isSessionCreationError = (error: any) =>
+  const isSessionRecoveryError = (error: any) =>
     [
       error?.code,
       error?.error,
@@ -239,8 +239,7 @@ export default function LoginPage({
       error?.response?.data?.error,
       error?.response?.data?.message,
     ].some((value) => {
-      const code = normalizeAuthErrorCode(value)
-      return code === 'FAILED_TO_CREATE_SESSION' || code === 'UNABLE_TO_CREATE_SESSION'
+      return isSessionRecoveryAuthError(value)
     })
 
   const resolveLoginErrorMessage = (error: any) => {
@@ -349,7 +348,7 @@ export default function LoginPage({
         {
           onError: (ctx) => {
             console.error('Login error:', ctx.error)
-            if (isSessionCreationError(ctx.error)) {
+            if (isSessionRecoveryError(ctx.error)) {
               requiresReauthCleanup = true
               return
             }
@@ -376,7 +375,7 @@ export default function LoginPage({
       )
 
       if (!result || result.error) {
-        if (requiresReauthCleanup || isSessionCreationError(result?.error)) {
+        if (requiresReauthCleanup || isSessionRecoveryError(result?.error)) {
           shouldRunReauthCleanupRef.current = true
           void runReauthCleanup()
           setPasswordErrors([loginCopy.errors.unableToSignInNow])
@@ -401,7 +400,7 @@ export default function LoginPage({
         router.push('/verify')
         return
       }
-      if (isSessionCreationError(err)) {
+      if (isSessionRecoveryError(err)) {
         shouldRunReauthCleanupRef.current = true
         void runReauthCleanup()
         setPasswordErrors([loginCopy.errors.unableToSignInNow])

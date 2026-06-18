@@ -26,6 +26,7 @@ const HOME_HREF = '/'
 const VERIFY_HREF = '/verify'
 const WAITLIST_HREF = '/waitlist'
 const AUTH_ERROR_CALLBACK_SEGMENT = 'callback'
+type SsoErrorCopyKey = keyof PublicCopy['auth']['sso']['errors']
 
 const AUTH_ERROR_GROUP_BY_CODE: Partial<Record<string, AuthErrorGroupKey>> = {
   UNABLE_TO_CREATE_USER: 'accountCreation',
@@ -44,8 +45,12 @@ const AUTH_ERROR_GROUP_BY_CODE: Partial<Record<string, AuthErrorGroupKey>> = {
   FAILED_TO_CREATE_SESSION: 'sessionCreation',
   FAILED_TO_GET_SESSION: 'sessionRestore',
   SESSION_EXPIRED: 'sessionExpired',
+  ACCOUNT_NOT_FOUND: 'userInfo',
+  SSO_FAILED: 'userInfo',
   FAILED_TO_GET_USER_INFO: 'userInfo',
   USER_EMAIL_NOT_FOUND: 'userInfo',
+  INVALID_PROVIDER: 'providerUnavailable',
+  NO_PROVIDER_FOUND: 'providerUnavailable',
   PROVIDER_NOT_FOUND: 'providerUnavailable',
   SOCIAL_ACCOUNT_ALREADY_LINKED: 'linkedAccount',
   LINKED_ACCOUNT_ALREADY_EXISTS: 'linkedAccount',
@@ -54,6 +59,18 @@ const AUTH_ERROR_GROUP_BY_CODE: Partial<Record<string, AuthErrorGroupKey>> = {
   EMAIL_AND_PASSWORD_SIGN_IN_IS_NOT_ENABLED: 'providerUnavailable',
   EMAIL_AND_PASSWORD_SIGN_UP_IS_NOT_ENABLED: 'accountCreation',
   EMAIL_PASSWORD_DISABLED: 'providerUnavailable',
+}
+
+const SSO_ERROR_COPY_BY_CODE: Partial<Record<string, SsoErrorCopyKey>> = {
+  ACCOUNT_NOT_FOUND: 'accountNotFound',
+  SSO_FAILED: 'ssoFailed',
+  INVALID_PROVIDER: 'providerNotConfigured',
+  NO_PROVIDER_FOUND: 'providerNotConfigured',
+  INVALID_EMAIL_DOMAIN: 'invalidEmailDomain',
+  NETWORK_ERROR: 'network',
+  RATE_LIMIT: 'rateLimit',
+  TOO_MANY_REQUESTS: 'rateLimit',
+  SSO_DISABLED: 'ssoDisabled',
 }
 
 export function normalizeAuthErrorCode(error: string | null | undefined) {
@@ -150,6 +167,21 @@ function isSessionRecoveryGroup(groupKey: AuthErrorGroupKey) {
   )
 }
 
+export function isSessionRecoveryAuthError(
+  error: string | null | undefined,
+  errorDescription?: string | null
+) {
+  const groupKey = resolveAuthErrorGroup(error, errorDescription)
+  return Boolean(groupKey && isSessionRecoveryGroup(groupKey))
+}
+
+export function resolveSsoAuthErrorMessage(copy: PublicCopy, error: string | null | undefined) {
+  const code = normalizeAuthErrorCode(error)
+  const copyKey = code ? SSO_ERROR_COPY_BY_CODE[code] : null
+
+  return copyKey ? copy.auth.sso.errors[copyKey] : null
+}
+
 export function getAuthErrorContent(
   copy: PublicCopy,
   error: string | null | undefined,
@@ -161,6 +193,8 @@ export function getAuthErrorContent(
   const groupKey = resolveAuthErrorGroupKey(code) ?? resolveAuthErrorGroupKey(descriptionCode)
   const actionCopy = getAuthErrorActionCopy(copy, callbackUrl)
   const normalizedDescription = errorDescription?.trim() || null
+  const ssoErrorDescription =
+    resolveSsoAuthErrorMessage(copy, code) ?? resolveSsoAuthErrorMessage(copy, descriptionCode)
 
   if (groupKey) {
     const group = copy.auth.error.groups[groupKey]
@@ -185,9 +219,10 @@ export function getAuthErrorContent(
     const content: AuthErrorContent = {
       title: group.title,
       description:
-        normalizedDescription && descriptionCode && !resolveAuthErrorGroupKey(descriptionCode)
+        ssoErrorDescription ??
+        (normalizedDescription && descriptionCode && !resolveAuthErrorGroupKey(descriptionCode)
           ? normalizedDescription
-          : group.description,
+          : group.description),
       primaryAction,
       secondaryAction,
     }
@@ -202,7 +237,8 @@ export function getAuthErrorContent(
     code,
     content: {
       title: copy.auth.error.default.title,
-      description: normalizedDescription ?? copy.auth.error.default.description,
+      description:
+        ssoErrorDescription ?? normalizedDescription ?? copy.auth.error.default.description,
       primaryAction: actionCopy.login,
       secondaryAction: actionCopy.home,
     },

@@ -6,7 +6,7 @@ import { useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
+import { resolveSsoAuthErrorMessage } from '@/lib/auth/auth-error-copy'
 import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { client } from '@/lib/auth-client'
 import { quickValidateEmail } from '@/lib/email/validation'
@@ -124,26 +124,10 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
       })
     } catch (err) {
       logger.error('SSO sign-in failed', { error: err, email: emailValue })
-      const authErrorCode = err instanceof Error ? normalizeAuthErrorCode(err.message) : null
+      const errorMessage =
+        err instanceof Error ? resolveSsoAuthErrorMessage(copy, err.message) : null
 
-      let errorMessage = ssoCopy.errors.failed
-      if (err instanceof Error) {
-        if (authErrorCode === 'NO_PROVIDER_FOUND' || authErrorCode === 'INVALID_PROVIDER') {
-          errorMessage = ssoCopy.errors.providerNotConfigured
-        } else if (authErrorCode === 'INVALID_EMAIL_DOMAIN') {
-          errorMessage = ssoCopy.errors.invalidEmailDomain
-        } else if (authErrorCode === 'NETWORK_ERROR') {
-          errorMessage = ssoCopy.errors.network
-        } else if (authErrorCode === 'RATE_LIMIT' || authErrorCode === 'TOO_MANY_REQUESTS') {
-          errorMessage = ssoCopy.errors.rateLimit
-        } else if (authErrorCode === 'SSO_DISABLED') {
-          errorMessage = ssoCopy.errors.ssoDisabled
-        } else {
-          errorMessage = ssoCopy.errors.failed
-        }
-      }
-
-      setEmailErrors([errorMessage])
+      setEmailErrors([errorMessage ?? ssoCopy.errors.failed])
       setShowEmailValidationError(true)
       setIsLoading(false)
     }

@@ -299,8 +299,13 @@ describe('auth locale redirects', () => {
     expect(mockSignInEmail).toHaveBeenCalledTimes(1)
   })
 
-  it('runs reauth cleanup when direct login cannot create a session', async () => {
-    mockSignInEmail.mockResolvedValue({ error: { code: 'FAILED_TO_CREATE_SESSION' } })
+  it.each([
+    'FAILED_TO_CREATE_SESSION',
+    'UNABLE_TO_CREATE_SESSION',
+    'FAILED_TO_GET_SESSION',
+    'SESSION_EXPIRED',
+  ])('runs reauth cleanup when direct login returns %s', async (errorCode) => {
+    mockSignInEmail.mockResolvedValue({ error: { code: errorCode } })
     mockSignOut.mockReturnValue(new Promise(() => {}))
 
     await renderLogin()
