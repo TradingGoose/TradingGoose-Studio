@@ -6,7 +6,7 @@ import { getSystemAdminAccess } from '@/lib/admin/access'
 import { GlobalNavbar } from '@/global-navbar'
 import { redirect } from '@/i18n/navigation'
 import { getClientMessages } from '@/i18n/public-copy'
-import { CANONICAL_CALLBACK_PATH_HEADER, type LocaleCode } from '@/i18n/utils'
+import { type LocaleCode, requireCanonicalCallbackPath } from '@/i18n/utils'
 
 export default async function AdminLayout({
   children,
@@ -20,17 +20,12 @@ export default async function AdminLayout({
   const access = await getSystemAdminAccess(requestHeaders)
 
   if (!access.isAuthenticated) {
-    const callbackUrl = requestHeaders.get(CANONICAL_CALLBACK_PATH_HEADER)
-    if (!callbackUrl) {
-      throw new Error('Missing canonical callback path for admin reauth redirect')
-    }
-
     return redirect({
       href: {
         pathname: '/login',
         query: {
           reauth: '1',
-          callbackUrl,
+          callbackUrl: requireCanonicalCallbackPath(requestHeaders, 'admin'),
         },
       },
       locale,

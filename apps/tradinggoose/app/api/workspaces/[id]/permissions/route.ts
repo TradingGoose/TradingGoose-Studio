@@ -7,6 +7,7 @@ import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   assertActiveWorkspaceAccess,
+  getUserEntityPermissions,
   getUsersWithPermissions,
   hasWorkspaceAdminAccess,
 } from '@/lib/permissions/utils'
@@ -31,13 +32,6 @@ interface UpdatePermissionsRequest {
     userId: string
     permissions: PermissionType
   }>
-}
-
-function getCurrentUserPermission(
-  users: Array<{ userId: string; permissionType: PermissionType }>,
-  userId: string
-) {
-  return users.find((user) => user.userId === userId)?.permissionType ?? null
 }
 
 /**
@@ -69,10 +63,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const result = await getUsersWithPermissions(workspaceId)
-    const currentUserPermission = getCurrentUserPermission(result, session.user.id)
+    const currentUserPermission = await getUserEntityPermissions(
+      session.user.id,
+      'workspace',
+      workspaceId
+    )
 
     if (!currentUserPermission) {
-      throw new Error('Authenticated workspace user missing permission state')
+      return NextResponse.json({ error: 'Workspace permission state unavailable' }, { status: 403 })
     }
 
     return NextResponse.json({
@@ -180,10 +178,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     })
 
     const updatedUsers = await getUsersWithPermissions(workspaceId)
-    const currentUserPermission = getCurrentUserPermission(updatedUsers, session.user.id)
+    const currentUserPermission = await getUserEntityPermissions(
+      session.user.id,
+      'workspace',
+      workspaceId
+    )
 
     if (!currentUserPermission) {
-      throw new Error('Authenticated workspace user missing permission state')
+      return NextResponse.json({ error: 'Workspace permission state unavailable' }, { status: 403 })
     }
 
     return NextResponse.json({

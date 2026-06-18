@@ -27,6 +27,15 @@ export function normalizeLocaleCode(locale: LocaleInput): LocaleCode {
   return locale && isLocaleCode(locale) ? locale : defaultLocale
 }
 
+export function requireCanonicalCallbackPath(headers: Headers, routeName: string) {
+  const callbackUrl = headers.get(CANONICAL_CALLBACK_PATH_HEADER)
+  if (!callbackUrl) {
+    throw new Error(`Missing canonical callback path for ${routeName} reauth redirect`)
+  }
+
+  return callbackUrl
+}
+
 export function getLocaleDisplayName(locale: LocaleCode) {
   return LOCALE_DISPLAY_NAMES[locale]
 }

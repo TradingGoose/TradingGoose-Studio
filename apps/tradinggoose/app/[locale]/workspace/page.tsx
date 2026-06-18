@@ -3,7 +3,7 @@ import { getSession } from '@/lib/auth'
 import { readWorkflowAccessContext } from '@/lib/workflows/utils'
 import { getUserWorkspaces } from '@/lib/workspaces/service'
 import { redirect } from '@/i18n/navigation'
-import { CANONICAL_CALLBACK_PATH_HEADER, type LocaleCode, normalizeCallbackUrl } from '@/i18n/utils'
+import { type LocaleCode, normalizeCallbackUrl, requireCanonicalCallbackPath } from '@/i18n/utils'
 
 type WorkspaceSearchParams = Promise<{
   callbackUrl?: string | string[]
@@ -42,17 +42,12 @@ export default async function WorkspacePage({
   const userId = session?.user?.id
 
   if (!userId) {
-    const callbackUrl = requestHeaders.get(CANONICAL_CALLBACK_PATH_HEADER)
-    if (!callbackUrl) {
-      throw new Error('Missing canonical callback path for workspace reauth redirect')
-    }
-
     return redirect({
       href: {
         pathname: '/login',
         query: {
           reauth: '1',
-          callbackUrl,
+          callbackUrl: requireCanonicalCallbackPath(requestHeaders, 'workspace'),
         },
       },
       locale,
