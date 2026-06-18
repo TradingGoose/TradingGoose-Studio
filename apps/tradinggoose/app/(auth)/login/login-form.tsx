@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import { useMessages } from 'next-intl'
@@ -126,7 +126,7 @@ export default function LoginPage({
   const shouldRunReauthCleanupRef = useRef(isReauth)
   const reauthCleanupPromiseRef = useRef<Promise<void> | null>(null)
 
-  function runReauthCleanup() {
+  const runReauthCleanup = useCallback(() => {
     if (reauthCleanupPromiseRef.current) {
       return reauthCleanupPromiseRef.current
     }
@@ -158,13 +158,13 @@ export default function LoginPage({
 
     reauthCleanupPromiseRef.current = cleanupPromise
     return cleanupPromise
-  }
+  }, [])
 
-  async function prepareAuthStart() {
+  const prepareAuthStart = useCallback(async () => {
     if (shouldRunReauthCleanupRef.current || reauthCleanupPromiseRef.current) {
       await runReauthCleanup()
     }
-  }
+  }, [runReauthCleanup])
 
   useEffect(() => {
     if (searchParams) {
@@ -192,7 +192,7 @@ export default function LoginPage({
     if (isReauth) {
       void runReauthCleanup()
     }
-  }, [isReauth])
+  }, [isReauth, runReauthCleanup])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
