@@ -13,7 +13,8 @@ export default async function LoginPage({
 }: {
   searchParams?: Promise<{ reauth?: string }>
 } = {}) {
-  const isReauth = (await searchParams)?.reauth === '1'
+  const query = await searchParams
+  const isReauth = query?.reauth === '1'
   const [locale, session] = await Promise.all([
     getLocale(),
     isReauth ? Promise.resolve(null) : getSession(),

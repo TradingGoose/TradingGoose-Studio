@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import { useMessages } from 'next-intl'
@@ -122,6 +122,20 @@ export default function LoginPage({
   const [emailErrors, setEmailErrors] = useState<string[]>([])
   const [showEmailValidationError, setShowEmailValidationError] = useState(false)
   const isReauth = searchParams.get('reauth') === '1'
+  const [isReauthCleaned, setIsReauthCleaned] = useState(!isReauth)
+  const [reauthCleanupFailed, setReauthCleanupFailed] = useState(false)
+
+  const runReauthCleanup = useCallback(async () => {
+    setReauthCleanupFailed(false)
+
+    try {
+      await client.signOut()
+      setIsReauthCleaned(true)
+    } catch (error) {
+      logger.warn('Reauth sign-out failed', { error })
+      setReauthCleanupFailed(true)
+    }
+  }, [])
 
   useEffect(() => {
     if (searchParams) {
@@ -145,14 +159,10 @@ export default function LoginPage({
   }, [searchParams])
 
   useEffect(() => {
-    if (!isReauth) {
-      return
+    if (isReauth && !isReauthCleaned && !reauthCleanupFailed) {
+      void runReauthCleanup()
     }
-
-    client.signOut().catch((error) => {
-      logger.warn('Reauth sign-out failed', { error })
-    })
-  }, [isReauth])
+  }, [isReauth, isReauthCleaned, reauthCleanupFailed, runReauthCleanup])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -431,6 +441,34 @@ export default function LoginPage({
     ? `/signup?invite_flow=true&callbackUrl=${encodeURIComponent(callbackUrl)}`
     : getAuthRegistrationHref(registrationMode)
   const registrationLabel = isInviteFlow ? commonCopy.signUp : authRegistrationLabel
+
+  if (!isReauthCleaned) {
+    return (
+      <>
+        <AuthPageHeader
+          eyebrow={loginCopy.eyebrow}
+          title={loginCopy.title}
+          description={loginCopy.description}
+        />
+
+        <div className={`${inter.className} mt-8 space-y-3`}>
+          <Button
+            type='button'
+            className={primaryButtonClasses}
+            disabled={!reauthCleanupFailed}
+            onClick={() => {
+              void runReauthCleanup()
+            }}
+          >
+            {reauthCleanupFailed ? commonCopy.signIn : commonCopy.loading}
+          </Button>
+          {reauthCleanupFailed ? (
+            <p className='text-center text-red-400 text-sm'>{loginCopy.errors.unableToSignInNow}</p>
+          ) : null}
+        </div>
+      </>
+    )
+  }
 
   return (
     <>

@@ -646,7 +646,6 @@ export const auth = betterAuth({
     }),
   },
   plugins: [
-    nextCookies(),
     oneTimeToken({
       expiresIn: 24 * 60 * 60, // 24 hours - Socket.IO handles connection persistence with heartbeats
     }),
@@ -1806,6 +1805,7 @@ export const auth = betterAuth({
         },
       },
     }),
+    nextCookies(),
   ],
   onAPIError: {
     errorURL: '/error',

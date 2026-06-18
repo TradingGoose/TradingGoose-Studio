@@ -259,9 +259,9 @@ describe('auth locale redirects', () => {
     }
   )
 
-  it('signs out through Better Auth when rendering a reauth login route', async () => {
+  it('blocks login controls while reauth cleanup is pending', async () => {
     testState.searchParams = new URLSearchParams('reauth=1&callbackUrl=%2Fworkspace')
-    mockSignOut.mockResolvedValue({ data: null })
+    mockSignOut.mockReturnValue(new Promise(() => {}))
 
     await renderWithLocale(
       'en',
@@ -274,6 +274,9 @@ describe('auth locale redirects', () => {
     )
 
     expect(mockSignOut).toHaveBeenCalledTimes(1)
+    expect(container.querySelector('#email')).toBeNull()
+    expect(container.querySelector('#password')).toBeNull()
+    expect(container.querySelector('form')).toBeNull()
   })
 
   it('pushes the canonical signup path from the verify screen back action', async () => {
