@@ -1,6 +1,5 @@
 import { headers } from 'next/headers'
 import { getSession } from '@/lib/auth'
-import { getBaseUrl } from '@/lib/urls/utils'
 import { readWorkflowAccessContext } from '@/lib/workflows/utils'
 import { getUserWorkspaces } from '@/lib/workspaces/service'
 import { redirect } from '@/i18n/navigation'
@@ -17,6 +16,13 @@ function getSearchParam(
 ) {
   const value = searchParams[key]
   return Array.isArray(value) ? value[0] : value
+}
+
+function getRequestOrigin(headers: Headers) {
+  const protocol = headers.get('x-forwarded-proto')?.split(',', 1)[0]?.trim()
+  const host = (headers.get('x-forwarded-host') ?? headers.get('host'))?.split(',', 1)[0]?.trim()
+
+  return protocol && host ? `${protocol}://${host}` : undefined
 }
 
 export default async function WorkspacePage({
@@ -53,7 +59,10 @@ export default async function WorkspacePage({
     })
   }
 
-  const callbackUrl = normalizeCallbackUrl(getSearchParam(query, 'callbackUrl'), getBaseUrl())
+  const callbackUrl = normalizeCallbackUrl(
+    getSearchParam(query, 'callbackUrl'),
+    getRequestOrigin(requestHeaders)
+  )
   if (callbackUrl && callbackUrl.split(/[?#]/, 1)[0] !== '/workspace') {
     return redirect({ href: callbackUrl, locale })
   }

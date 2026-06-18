@@ -37,10 +37,6 @@ vi.mock('@/lib/auth', () => ({
   getSession: (...args: unknown[]) => mockGetSession(...args),
 }))
 
-vi.mock('@/lib/urls/utils', () => ({
-  getBaseUrl: () => 'https://app.example.com',
-}))
-
 vi.mock('@/lib/workspaces/service', () => ({
   getUserWorkspaces: (...args: unknown[]) => mockGetUserWorkspaces(...args),
 }))
@@ -113,9 +109,16 @@ describe('Workspace root page access guard', () => {
   })
 
   it('redirects authenticated users to same-origin absolute callback URLs', async () => {
+    mockHeaders.mockResolvedValue(
+      new Headers([
+        ['x-forwarded-proto', 'http'],
+        ['x-forwarded-host', 'localhost:3000'],
+      ])
+    )
+
     await expect(
       renderWorkspacePage('en', {
-        callbackUrl: 'https://app.example.com/workspace/workspace-2/dashboard?layoutId=layout-1',
+        callbackUrl: 'http://localhost:3000/workspace/workspace-2/dashboard?layoutId=layout-1',
       })
     ).rejects.toThrow('redirect:/en/workspace/workspace-2/dashboard?layoutId=layout-1')
 
