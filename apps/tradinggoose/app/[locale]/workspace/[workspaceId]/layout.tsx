@@ -23,7 +23,6 @@ export default async function WorkspaceLayout({
       href: {
         pathname: '/login',
         query: {
-          reauth: '1',
           callbackUrl: requireCanonicalCallbackPath(requestHeaders, 'workspace'),
         },
       },

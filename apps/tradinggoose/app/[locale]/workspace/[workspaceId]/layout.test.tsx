@@ -72,11 +72,11 @@ describe('Workspace layout access guard', () => {
         params: Promise.resolve({ locale: 'es', workspaceId: 'ws-1' }),
       })
     ).rejects.toThrow(
-      'redirect:/es/login?reauth=1&callbackUrl=%2Fworkspace%2Fws-1%2Ffiles%3FlayoutId%3Dlayout-1'
+      'redirect:/es/login?callbackUrl=%2Fworkspace%2Fws-1%2Ffiles%3FlayoutId%3Dlayout-1'
     )
 
     expect(mockRedirect).toHaveBeenCalledWith(
-      '/es/login?reauth=1&callbackUrl=%2Fworkspace%2Fws-1%2Ffiles%3FlayoutId%3Dlayout-1'
+      '/es/login?callbackUrl=%2Fworkspace%2Fws-1%2Ffiles%3FlayoutId%3Dlayout-1'
     )
     expect(mockGetSession).toHaveBeenCalledWith(expect.any(Headers))
     expect(mockCheckWorkspaceAccess).not.toHaveBeenCalled()

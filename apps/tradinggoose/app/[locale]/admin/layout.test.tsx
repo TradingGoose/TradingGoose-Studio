@@ -115,10 +115,10 @@ describe('Admin layout', () => {
         children: <div>admin content</div>,
         params: Promise.resolve({ locale: 'es' }),
       })
-    ).rejects.toThrow('redirect:/es/login?reauth=1&callbackUrl=%2Fadmin%2Fbilling%3Ffrom%3Dnav')
+    ).rejects.toThrow('redirect:/es/login?callbackUrl=%2Fadmin%2Fbilling%3Ffrom%3Dnav')
 
     expect(mockRedirect).toHaveBeenCalledWith(
-      '/es/login?reauth=1&callbackUrl=%2Fadmin%2Fbilling%3Ffrom%3Dnav'
+      '/es/login?callbackUrl=%2Fadmin%2Fbilling%3Ffrom%3Dnav'
     )
     expect(mockNotFound).not.toHaveBeenCalled()
   })

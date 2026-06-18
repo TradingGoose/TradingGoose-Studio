@@ -82,11 +82,11 @@ describe('Workspace root page access guard', () => {
     mockGetSession.mockResolvedValue(null)
 
     await expect(renderWorkspacePage('zh')).rejects.toThrow(
-      'redirect:/zh/login?reauth=1&callbackUrl=%2Fworkspace%3Fredirect_workflow%3Dworkflow-1'
+      'redirect:/zh/login?callbackUrl=%2Fworkspace%3Fredirect_workflow%3Dworkflow-1'
     )
 
     expect(mockRedirect).toHaveBeenCalledWith(
-      '/zh/login?reauth=1&callbackUrl=%2Fworkspace%3Fredirect_workflow%3Dworkflow-1'
+      '/zh/login?callbackUrl=%2Fworkspace%3Fredirect_workflow%3Dworkflow-1'
     )
     expect(mockGetSession).toHaveBeenCalledWith(expect.any(Headers))
   })
@@ -109,9 +109,11 @@ describe('Workspace root page access guard', () => {
   })
 
   it('redirects authenticated users to same-origin absolute callback URLs', async () => {
+    mockHeaders.mockResolvedValue(new Headers([['host', 'preview.local:3000']]))
+
     await expect(
       renderWorkspacePage('en', {
-        callbackUrl: 'http://localhost:3000/workspace/workspace-2/dashboard?layoutId=layout-1',
+        callbackUrl: 'http://preview.local:3000/workspace/workspace-2/dashboard?layoutId=layout-1',
       })
     ).rejects.toThrow('redirect:/en/workspace/workspace-2/dashboard?layoutId=layout-1')
 

@@ -24,7 +24,6 @@ export default async function AdminLayout({
       href: {
         pathname: '/login',
         query: {
-          reauth: '1',
           callbackUrl: requireCanonicalCallbackPath(requestHeaders, 'admin'),
         },
       },
