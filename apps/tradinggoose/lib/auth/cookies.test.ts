@@ -1,20 +1,27 @@
-import { describe, expect, it } from 'vitest'
-import { AUTH_COOKIE_NAMES, getAuthCookieDeletionOptions } from './cookies'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+async function loadCookies(appUrl: string) {
+  vi.resetModules()
+  vi.stubEnv('NEXT_PUBLIC_APP_URL', appUrl)
+  return import('./cookies')
+}
 
 describe('auth cookie cleanup contract', () => {
-  it('declares the Better Auth cookies used by this app', () => {
-    expect(AUTH_COOKIE_NAMES).toEqual([
-      'better-auth.session_token',
-      '__Secure-better-auth.session_token',
-      'better-auth.session_data',
-      '__Secure-better-auth.session_data',
-      'better-auth.dont_remember',
-      '__Secure-better-auth.dont_remember',
-    ])
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
-  it('expires secure-prefixed cookies with the Secure attribute', () => {
-    expect(getAuthCookieDeletionOptions('__Secure-better-auth.session_token')).toMatchObject({
+  it('declares secure Better Auth cookies for HTTPS app origins', async () => {
+    const { AUTH_COOKIE_NAMES, AUTH_SESSION_COOKIE_NAME, getAuthCookieDeletionOptions } =
+      await loadCookies('https://www.tradinggoose.ai')
+
+    expect(AUTH_SESSION_COOKIE_NAME).toBe('__Secure-better-auth.session_token')
+    expect(AUTH_COOKIE_NAMES).toEqual([
+      '__Secure-better-auth.session_token',
+      '__Secure-better-auth.session_data',
+      '__Secure-better-auth.dont_remember',
+    ])
+    expect(getAuthCookieDeletionOptions()).toMatchObject({
       httpOnly: true,
       maxAge: 0,
       path: '/',
@@ -23,8 +30,17 @@ describe('auth cookie cleanup contract', () => {
     })
   })
 
-  it('does not mark plain localhost cookies as Secure', () => {
-    expect(getAuthCookieDeletionOptions('better-auth.session_token')).toEqual({
+  it('declares plain Better Auth cookies for HTTP app origins', async () => {
+    const { AUTH_COOKIE_NAMES, AUTH_SESSION_COOKIE_NAME, getAuthCookieDeletionOptions } =
+      await loadCookies('http://localhost:3000')
+
+    expect(AUTH_SESSION_COOKIE_NAME).toBe('better-auth.session_token')
+    expect(AUTH_COOKIE_NAMES).toEqual([
+      'better-auth.session_token',
+      'better-auth.session_data',
+      'better-auth.dont_remember',
+    ])
+    expect(getAuthCookieDeletionOptions()).toEqual({
       httpOnly: true,
       maxAge: 0,
       path: '/',
