@@ -1818,15 +1818,11 @@ export const auth = betterAuth({
   },
 })
 
-export async function getSession(
-  headersOverride?: Headers,
-  options?: { disableCookieCache?: boolean }
-) {
+export async function getSession(headersOverride?: Headers) {
   const hdrs = headersOverride ?? (await headers())
   try {
     return await auth.api.getSession({
       headers: hdrs,
-      ...(options ? { query: options } : {}),
     })
   } catch (error) {
     logger.warn('Failed to fetch session', { error })
