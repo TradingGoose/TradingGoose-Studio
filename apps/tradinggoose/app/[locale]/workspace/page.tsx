@@ -19,10 +19,17 @@ function getSearchParam(
 }
 
 function getRequestOrigin(headers: Headers) {
-  const protocol = headers.get('x-forwarded-proto')?.split(',', 1)[0]?.trim()
   const host = (headers.get('x-forwarded-host') ?? headers.get('host'))?.split(',', 1)[0]?.trim()
+  if (!host) {
+    return undefined
+  }
 
-  return protocol && host ? `${protocol}://${host}` : undefined
+  const forwardedProtocol = headers.get('x-forwarded-proto')?.split(',', 1)[0]?.trim()
+  const protocol =
+    forwardedProtocol ||
+    (host.startsWith('localhost') || host.startsWith('127.0.0.1') ? 'http' : 'https')
+
+  return `${protocol}://${host}`
 }
 
 export default async function WorkspacePage({
@@ -76,10 +83,11 @@ export default async function WorkspacePage({
   const [workspace] = await getUserWorkspaces({
     userId,
     userName: session.user.name,
+    autoCreate: false,
   })
 
   if (!workspace) {
-    throw new Error('Expected workspace bootstrap to return a workspace')
+    return null
   }
 
   return redirect({ href: `/workspace/${workspace.id}/dashboard`, locale })

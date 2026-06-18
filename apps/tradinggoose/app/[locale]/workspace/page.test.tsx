@@ -125,6 +125,18 @@ describe('Workspace root page access guard', () => {
     expect(mockGetUserWorkspaces).not.toHaveBeenCalled()
   })
 
+  it('redirects authenticated users to host-only local absolute callback URLs', async () => {
+    mockHeaders.mockResolvedValue(new Headers([['host', 'localhost:3000']]))
+
+    await expect(
+      renderWorkspacePage('en', {
+        callbackUrl: 'http://localhost:3000/workspace/workspace-2/dashboard?layoutId=layout-1',
+      })
+    ).rejects.toThrow('redirect:/en/workspace/workspace-2/dashboard?layoutId=layout-1')
+
+    expect(mockGetUserWorkspaces).not.toHaveBeenCalled()
+  })
+
   it('redirects authenticated users to their first workspace dashboard', async () => {
     await expect(renderWorkspacePage('es')).rejects.toThrow(
       'redirect:/es/workspace/workspace-1/dashboard'
@@ -133,6 +145,19 @@ describe('Workspace root page access guard', () => {
     expect(mockGetUserWorkspaces).toHaveBeenCalledWith({
       userId: 'user-1',
       userName: 'Ada Lovelace',
+      autoCreate: false,
+    })
+  })
+
+  it('renders without bootstrapping workspaces during server render', async () => {
+    mockGetUserWorkspaces.mockResolvedValue([])
+
+    await expect(renderWorkspacePage('en')).resolves.toBeNull()
+
+    expect(mockGetUserWorkspaces).toHaveBeenCalledWith({
+      userId: 'user-1',
+      userName: 'Ada Lovelace',
+      autoCreate: false,
     })
   })
 })

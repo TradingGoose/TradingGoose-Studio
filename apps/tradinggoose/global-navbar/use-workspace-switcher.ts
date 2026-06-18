@@ -18,7 +18,7 @@ export function useWorkspaceSwitcher({
   workspaceId,
   section,
 }: UseWorkspaceSwitcherOptions) {
-  const router = useRouter()
+  const { push, replace } = useRouter()
   const switchToWorkspace = useWorkflowRegistry((state) => state.switchToWorkspace)
   const canManageWorkspaces = true
   const [workspaces, setWorkspaces] = React.useState<Workspace[]>([])
@@ -64,11 +64,17 @@ export function useWorkspaceSwitcher({
 
       setWorkspaces(items)
 
+      const firstWorkspace = items[0] ?? null
+
       if (workspaceId) {
-        const match = items.find((workspace) => workspace.id === workspaceId)
-        setActiveWorkspace(match ?? items[0] ?? null)
+        setActiveWorkspace(
+          items.find((workspace) => workspace.id === workspaceId) ?? firstWorkspace
+        )
       } else {
-        setActiveWorkspace((current) => current ?? items[0] ?? null)
+        setActiveWorkspace((current) => current ?? firstWorkspace)
+        if (section && firstWorkspace) {
+          replace(getWorkspaceSwitchPath(firstWorkspace.id, section))
+        }
       }
     } catch (error) {
       console.error('Error fetching workspaces:', error)
@@ -77,7 +83,7 @@ export function useWorkspaceSwitcher({
     } finally {
       setIsWorkspacesLoading(false)
     }
-  }, [enabled, workspaceId])
+  }, [enabled, replace, section, workspaceId])
 
   React.useEffect(() => {
     void fetchWorkspaces()
@@ -100,9 +106,9 @@ export function useWorkspaceSwitcher({
         }
       }
 
-      router.push(getWorkspaceSwitchPath(workspace.id, section))
+      push(getWorkspaceSwitchPath(workspace.id, section))
     },
-    [router, section, switchToWorkspace, workspaceId]
+    [push, section, switchToWorkspace, workspaceId]
   )
 
   const handleCreateWorkspace = React.useCallback(async () => {
