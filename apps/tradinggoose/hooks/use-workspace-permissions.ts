@@ -3,9 +3,7 @@
 import { useCallback, useEffect } from 'react'
 import type { permissionTypeEnum } from '@tradinggoose/db/schema'
 import { createWithEqualityFn as create } from 'zustand/traditional'
-import { handleAuthError } from '@/lib/auth/auth-error-handler'
 import { createLogger } from '@/lib/logs/console/logger'
-import { usePathname } from '@/i18n/navigation'
 import { API_ENDPOINTS } from '@/stores/constants'
 
 const logger = createLogger('useWorkspacePermissions')
@@ -49,10 +47,7 @@ interface WorkspacePermissionsStoreState {
   records: Record<string, WorkspacePermissionsRecord>
   inFlight: Partial<Record<string, Promise<void>>>
   setRecord: (workspaceId: string, partial: Partial<WorkspacePermissionsRecord>) => void
-  fetchPermissions: (
-    workspaceId: string,
-    options: { callbackPathname: string; force?: boolean }
-  ) => Promise<void>
+  fetchPermissions: (workspaceId: string, options?: { force?: boolean }) => Promise<void>
 }
 
 const createDefaultRecord = (): WorkspacePermissionsRecord => ({
@@ -78,7 +73,7 @@ const useWorkspacePermissionsStore = create<WorkspacePermissionsStoreState>((set
       }
     }),
   fetchPermissions: async (workspaceId, options) => {
-    const { callbackPathname, force = false } = options
+    const { force = false } = options ?? {}
     const { records, inFlight, setRecord } = get()
 
     if (!force) {
@@ -103,7 +98,6 @@ const useWorkspacePermissionsStore = create<WorkspacePermissionsStoreState>((set
             throw new Error('Workspace not found or access denied')
           }
           if (response.status === 401) {
-            await handleAuthError('workspace-permissions', callbackPathname)
             throw new Error('Authentication required')
           }
           throw new Error(`Failed to fetch permissions: ${response.statusText}`)
@@ -153,7 +147,6 @@ const useWorkspacePermissionsStore = create<WorkspacePermissionsStoreState>((set
 }))
 
 export function useWorkspacePermissions(workspaceId: string | null): UseWorkspacePermissionsReturn {
-  const pathname = usePathname()
   const record = useWorkspacePermissionsStore((state) =>
     workspaceId ? state.records[workspaceId] : undefined
   )
@@ -164,15 +157,15 @@ export function useWorkspacePermissions(workspaceId: string | null): UseWorkspac
     if (!workspaceId) {
       return () => {}
     }
-    fetchPermissions(workspaceId, { callbackPathname: pathname }).catch((error) => {
+    fetchPermissions(workspaceId).catch((error) => {
       logger.error('Failed to load workspace permissions', { workspaceId, error })
     })
-  }, [workspaceId, fetchPermissions, pathname])
+  }, [workspaceId, fetchPermissions])
 
   const refetch = useCallback(async () => {
     if (!workspaceId) return
-    await fetchPermissions(workspaceId, { callbackPathname: pathname, force: true })
-  }, [workspaceId, fetchPermissions, pathname])
+    await fetchPermissions(workspaceId, { force: true })
+  }, [workspaceId, fetchPermissions])
 
   const updatePermissions = useCallback(
     (newPermissions: WorkspacePermissions) => {

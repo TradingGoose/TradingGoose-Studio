@@ -15,7 +15,6 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
-import { handleAuthError } from '@/lib/auth/auth-error-handler'
 import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { client } from '@/lib/auth-client'
 import { quickValidateEmail } from '@/lib/email/validation'
@@ -28,7 +27,7 @@ import { AuthWaitlistNote } from '@/app/(auth)/components/auth-waitlist-note'
 import { SocialLoginButtons } from '@/app/(auth)/components/social-login-buttons'
 import { SSOLoginButton } from '@/app/(auth)/components/sso-login-button'
 import { inter } from '@/app/fonts/inter'
-import { Link, usePathname, useRouter } from '@/i18n/navigation'
+import { Link, useRouter } from '@/i18n/navigation'
 import { normalizeCallbackUrl } from '@/i18n/utils'
 
 const logger = createLogger('LoginForm')
@@ -93,7 +92,6 @@ export default function LoginPage({
   registrationMode: RegistrationMode
 }) {
   const router = useRouter()
-  const pathname = usePathname()
   const authRedirectUrls = useAuthRedirectUrls()
   const copy = useMessages()
   const loginCopy = copy.auth.login
@@ -302,19 +300,8 @@ export default function LoginPage({
             const errorMessage: string[] = []
             const resolvedMessage = resolveLoginErrorMessage(ctx.error)
 
-            const status =
-              (ctx.error as any)?.status ??
-              (ctx.error as any)?.statusCode ??
-              (ctx.error as any)?.response?.status
-
             if (resolvedMessage === null) {
               return
-            }
-
-            // If the backend rejected the request due to an invalid/expired auth state, hard reset auth.
-            if (status === 401) {
-              handleAuthError('login-unauthorized', pathname).catch(() => {})
-              errorMessage.push(loginCopy.errors.sessionExpired)
             }
 
             if (resolvedMessage) {
