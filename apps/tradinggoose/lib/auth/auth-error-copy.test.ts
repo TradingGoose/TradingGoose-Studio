@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  getAuthErrorCallbackPath,
   getAuthErrorContent,
+  normalizeAuthErrorCallbackSegments,
   normalizeAuthErrorCode,
-  normalizeStoredAuthErrorCallback,
 } from '@/lib/auth/auth-error-copy'
 import {
   REGISTRATION_DISABLED_REASON,
@@ -54,14 +55,17 @@ describe('getAuthErrorContent', () => {
   })
 
   it('keeps the stored canonical destination on session recovery actions', () => {
-    const callback = normalizeStoredAuthErrorCallback(
-      encodeURIComponent('/invite/invitation-1?token=workspace-token')
+    const callbackPath = getAuthErrorCallbackPath('/invite/invitation-1?token=workspace-token')
+    const callback = normalizeAuthErrorCallbackSegments(
+      callbackPath?.split('/').filter(Boolean).slice(1)
     )
     const { content } = getAuthErrorContent(copy, 'UNABLE_TO_CREATE_SESSION', null, callback)
 
+    expect(callbackPath).toMatch(/^\/error\/callback\//)
     expect(callback).toBe('/invite/invitation-1?token=workspace-token')
-    expect(normalizeStoredAuthErrorCallback(encodeURIComponent('/en/workspace'))).toBeNull()
-    expect(normalizeStoredAuthErrorCallback('https://evil.example/workspace')).toBeNull()
+    expect(getAuthErrorCallbackPath('/en/workspace')).toBeNull()
+    expect(getAuthErrorCallbackPath('https://evil.example/workspace')).toBeNull()
+    expect(normalizeAuthErrorCallbackSegments(['callback', 'not-valid-base64*'])).toBeNull()
     expect(content.primaryAction.href).toBe(
       '/login?reauth=1&callbackUrl=%2Finvite%2Finvitation-1%3Ftoken%3Dworkspace-token'
     )

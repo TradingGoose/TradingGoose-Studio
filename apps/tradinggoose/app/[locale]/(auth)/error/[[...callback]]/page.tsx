@@ -1,12 +1,6 @@
-import { cookies } from 'next/headers'
 import { getLocale } from 'next-intl/server'
 import { Button } from '@/components/ui/button'
-import {
-  AUTH_ERROR_CALLBACK_COOKIE,
-  getAuthErrorContent,
-  getClearAuthErrorCallbackCookie,
-  normalizeStoredAuthErrorCallback,
-} from '@/lib/auth/auth-error-copy'
+import { getAuthErrorContent, normalizeAuthErrorCallbackSegments } from '@/lib/auth/auth-error-copy'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { inter } from '@/app/fonts/inter'
@@ -14,25 +8,24 @@ import { Link } from '@/i18n/navigation'
 import { getPublicCopy } from '@/i18n/public-copy'
 import type { LocaleCode } from '@/i18n/utils'
 
-export const dynamic = 'force-dynamic'
-
 function getSingleSearchParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value
 }
 
 export default async function AuthErrorPage({
+  params,
   searchParams,
 }: {
+  params?: Promise<{ callback?: string[] }>
   searchParams?: Promise<{
     error?: string | string[]
     error_description?: string | string[]
   }>
 }) {
-  const resolvedSearchParams = (await searchParams) ?? {}
-  const error = getSingleSearchParam(resolvedSearchParams.error)
-  const errorDescription = getSingleSearchParam(resolvedSearchParams.error_description)
-  const storedCallback = (await cookies()).get(AUTH_ERROR_CALLBACK_COOKIE)?.value
-  const callbackUrl = normalizeStoredAuthErrorCallback(storedCallback)
+  const [resolvedParams, resolvedSearchParams] = await Promise.all([params, searchParams])
+  const error = getSingleSearchParam(resolvedSearchParams?.error)
+  const errorDescription = getSingleSearchParam(resolvedSearchParams?.error_description)
+  const callbackUrl = normalizeAuthErrorCallbackSegments(resolvedParams?.callback)
   const locale = (await getLocale()) as LocaleCode
   const copy = getPublicCopy(locale)
   const { code, content } = getAuthErrorContent(copy, error, errorDescription, callbackUrl)
@@ -42,14 +35,6 @@ export default async function AuthErrorPage({
 
   return (
     <div className='space-y-8 text-center'>
-      {storedCallback ? (
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `document.cookie=${JSON.stringify(getClearAuthErrorCallbackCookie())}`,
-          }}
-        />
-      ) : null}
-
       <AuthPageHeader
         eyebrow={errorCopy.eyebrow}
         title={content.title}

@@ -6,7 +6,7 @@ import { useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { normalizeAuthErrorCode, rememberAuthErrorCallback } from '@/lib/auth/auth-error-copy'
+import { normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
 import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { client } from '@/lib/auth-client'
 import { quickValidateEmail } from '@/lib/email/validation'
@@ -117,11 +117,10 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
     }
 
     try {
-      rememberAuthErrorCallback(callbackUrl)
       await client.signIn.sso({
         email: emailValue,
         callbackURL: authRedirectUrls.providerCallbackPath(callbackUrl),
-        errorCallbackURL: authRedirectUrls.providerErrorPath('/error'),
+        errorCallbackURL: authRedirectUrls.providerErrorPath(callbackUrl),
       })
     } catch (err) {
       logger.error('SSO sign-in failed', { error: err, email: emailValue })

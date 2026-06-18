@@ -25,7 +25,7 @@ const SIGNUP_HREF = '/signup'
 const HOME_HREF = '/'
 const VERIFY_HREF = '/verify'
 const WAITLIST_HREF = '/waitlist'
-export const AUTH_ERROR_CALLBACK_COOKIE = 'tradinggoose_auth_error_callback'
+const AUTH_ERROR_CALLBACK_SEGMENT = 'callback'
 
 const AUTH_ERROR_GROUP_BY_CODE: Partial<Record<string, AuthErrorGroupKey>> = {
   UNABLE_TO_CREATE_USER: 'accountCreation',
@@ -70,33 +70,32 @@ export function normalizeAuthErrorCode(error: string | null | undefined) {
   return normalized || null
 }
 
-export function normalizeStoredAuthErrorCallback(value: string | null | undefined) {
-  if (!value) {
+export function getAuthErrorCallbackPath(value: string | null | undefined) {
+  const callback = normalizeCallbackUrl(value)
+  if (!callback) {
+    return null
+  }
+
+  const encoded = btoa(encodeURIComponent(callback))
+    .replaceAll('+', '-')
+    .replaceAll('/', '_')
+    .replace(/=+$/g, '')
+  return `/error/${AUTH_ERROR_CALLBACK_SEGMENT}/${encoded}`
+}
+
+export function normalizeAuthErrorCallbackSegments(value: string[] | undefined) {
+  if (!value || value.length !== 2 || value[0] !== AUTH_ERROR_CALLBACK_SEGMENT) {
     return null
   }
 
   try {
-    return normalizeCallbackUrl(decodeURIComponent(value))
+    const base64 = value[1].replaceAll('-', '+').replaceAll('_', '/')
+    const paddedBase64 = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')
+
+    return normalizeCallbackUrl(decodeURIComponent(atob(paddedBase64)))
   } catch {
     return null
   }
-}
-
-export function rememberAuthErrorCallback(value: string | null | undefined) {
-  if (typeof document === 'undefined') {
-    return
-  }
-
-  const callback = normalizeCallbackUrl(value)
-  if (!callback) {
-    return
-  }
-
-  document.cookie = `${AUTH_ERROR_CALLBACK_COOKIE}=${encodeURIComponent(callback)}; path=/; max-age=600; samesite=lax`
-}
-
-export function getClearAuthErrorCallbackCookie() {
-  return `${AUTH_ERROR_CALLBACK_COOKIE}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; samesite=lax`
 }
 
 function appendCallbackUrl(href: string, callbackUrl: string | null | undefined) {

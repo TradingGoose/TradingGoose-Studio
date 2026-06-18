@@ -1,30 +1,19 @@
 import type React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  AUTH_ERROR_CALLBACK_COOKIE,
-  getClearAuthErrorCallbackCookie,
-} from '@/lib/auth/auth-error-copy'
+import { getAuthErrorCallbackPath } from '@/lib/auth/auth-error-copy'
 
 const mockGetLocale = vi.fn()
 const mockGetSession = vi.fn()
 const mockRedirect = vi.fn((url: string) => {
   throw new Error(`redirect:${url}`)
 })
-const mockCookiesGet = vi.fn()
 const mockGetBrandConfig = vi.fn()
 const mockGetOAuthProviderStatus = vi.fn()
 const mockGetRegistrationModeForRender = vi.fn()
 
 vi.mock('next-intl/server', () => ({
   getLocale: () => mockGetLocale(),
-}))
-
-vi.mock('next/headers', () => ({
-  cookies: () =>
-    Promise.resolve({
-      get: mockCookiesGet,
-    }),
 }))
 
 vi.mock('@/lib/auth', () => ({
@@ -94,7 +83,6 @@ describe('localized auth entry pages', () => {
       isProduction: false,
     })
     mockGetRegistrationModeForRender.mockResolvedValue('open')
-    mockCookiesGet.mockReturnValue(undefined)
     mockGetBrandConfig.mockReturnValue({ supportEmail: 'support@tradinggoose.ai' })
   })
 
@@ -169,21 +157,21 @@ describe('localized auth entry pages', () => {
     expect(mockRedirect).not.toHaveBeenCalled()
   })
 
-  it('consumes auth error callback cookies once', async () => {
-    mockCookiesGet.mockReturnValue({
-      value: encodeURIComponent('/invite/invitation-1?token=workspace-token'),
-    })
-    const ErrorPage = (await import('./error/page')).default
+  it('keeps provider error callback state in the per-flow error URL', async () => {
+    const callbackPath = getAuthErrorCallbackPath('/invite/invitation-1?token=workspace-token')
+    const ErrorPage = (await import('./error/[[...callback]]/page')).default
 
     const result = await ErrorPage({
+      params: Promise.resolve({
+        callback: callbackPath?.split('/').filter(Boolean).slice(1),
+      }),
       searchParams: Promise.resolve({ error: 'UNABLE_TO_CREATE_SESSION' }),
     })
     const markup = renderToStaticMarkup(result)
 
-    expect(mockCookiesGet).toHaveBeenCalledWith(AUTH_ERROR_CALLBACK_COOKIE)
     expect(markup).toContain(
       '/login?reauth=1&amp;callbackUrl=%2Finvite%2Finvitation-1%3Ftoken%3Dworkspace-token'
     )
-    expect(markup).toContain(`document.cookie=${JSON.stringify(getClearAuthErrorCallbackCookie())}`)
+    expect(markup).not.toContain('document.cookie')
   })
 })

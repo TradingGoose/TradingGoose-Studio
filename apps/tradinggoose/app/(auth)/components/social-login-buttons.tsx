@@ -5,7 +5,6 @@ import { useMessages } from 'next-intl'
 import { GithubIcon, GoogleIcon } from '@/components/icons/icons'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { rememberAuthErrorCallback } from '@/lib/auth/auth-error-copy'
 import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { client } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -39,7 +38,7 @@ export function SocialLoginButtons({
   const copy = useMessages()
   const socialCopy = copy.auth.social
   const resolvedCallbackURL = authRedirectUrls.providerCallbackPath(callbackURL)
-  const errorCallbackURL = authRedirectUrls.providerErrorPath('/error')
+  const errorCallbackURL = authRedirectUrls.providerErrorPath(resolvedCallbackURL)
 
   useEffect(() => {
     setMounted(true)
@@ -87,7 +86,6 @@ export function SocialLoginButtons({
     setErrorMessage('')
     try {
       await beforeSignIn?.()
-      rememberAuthErrorCallback(resolvedCallbackURL)
       const result = await client.signIn.social({
         provider: 'github',
         callbackURL: resolvedCallbackURL,
@@ -113,7 +111,6 @@ export function SocialLoginButtons({
     setErrorMessage('')
     try {
       await beforeSignIn?.()
-      rememberAuthErrorCallback(resolvedCallbackURL)
       const result = await client.signIn.social({
         provider: 'google',
         callbackURL: resolvedCallbackURL,
