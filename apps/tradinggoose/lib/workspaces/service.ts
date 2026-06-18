@@ -1,0 +1,161 @@
+import { db } from '@tradinggoose/db'
+import { permissions, workflow, workspace } from '@tradinggoose/db/schema'
+import { and, desc, eq, isNull } from 'drizzle-orm'
+import { saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
+import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
+import { toWorkspaceApiRecord } from '@/lib/workspaces/billing-owner'
+import { tryApplyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
+import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
+
+export async function getUserWorkspaces({
+  userId,
+  userName,
+  autoCreate = true,
+}: {
+  userId: string
+  userName?: string | null
+  autoCreate?: boolean
+}) {
+  const userWorkspaces = await db
+    .select({
+      workspace: workspace,
+      permissionType: permissions.permissionType,
+    })
+    .from(permissions)
+    .innerJoin(workspace, eq(permissions.entityId, workspace.id))
+    .where(and(eq(permissions.userId, userId), eq(permissions.entityType, 'workspace')))
+    .orderBy(desc(workspace.createdAt))
+
+  if (userWorkspaces.length === 0) {
+    if (!autoCreate) {
+      return []
+    }
+
+    const defaultWorkspace = await createDefaultWorkspace(userId, userName)
+    await migrateExistingWorkflows(userId, defaultWorkspace.id)
+    return [defaultWorkspace]
+  }
+
+  if (autoCreate) {
+    await ensureWorkflowsHaveWorkspace(userId, userWorkspaces[0].workspace.id)
+  }
+
+  return userWorkspaces.map(({ workspace: workspaceDetails, permissionType }) => ({
+    ...toWorkspaceApiRecord(workspaceDetails),
+    role: permissionType === 'admin' ? 'owner' : 'member',
+    permissions: permissionType,
+  }))
+}
+
+export async function createWorkspace(userId: string, name: string) {
+  const workspaceId = crypto.randomUUID()
+  const workflowId = crypto.randomUUID()
+  const now = new Date()
+
+  await db.transaction(async (tx) => {
+    await tx.insert(workspace).values({
+      id: workspaceId,
+      name,
+      ownerId: userId,
+      billingOwnerType: 'user',
+      billingOwnerUserId: userId,
+      billingOwnerOrganizationId: null,
+      allowPersonalApiKeys: true,
+      createdAt: now,
+      updatedAt: now,
+    })
+
+    await tx.insert(permissions).values({
+      id: crypto.randomUUID(),
+      entityType: 'workspace' as const,
+      entityId: workspaceId,
+      userId,
+      permissionType: 'admin' as const,
+      createdAt: now,
+      updatedAt: now,
+    })
+
+    await tx.insert(workflow).values({
+      id: workflowId,
+      userId,
+      workspaceId,
+      folderId: null,
+      name: 'default-agent',
+      description: 'Your first workflow - start building here!',
+      color: '#3972F6',
+      lastSynced: now,
+      createdAt: now,
+      updatedAt: now,
+      isDeployed: false,
+      collaborators: [],
+      runCount: 0,
+      variables: {},
+      isPublished: false,
+      marketplaceData: null,
+    })
+  })
+
+  const { workflowState } = buildDefaultWorkflowArtifacts()
+  const lastSaved = now.toISOString()
+
+  const [, seedResult] = await Promise.all([
+    tryApplyWorkflowState(
+      workflowId,
+      createWorkflowSnapshot({
+        blocks: workflowState.blocks,
+        edges: workflowState.edges,
+        loops: workflowState.loops,
+        parallels: workflowState.parallels,
+        lastSaved,
+        isDeployed: false,
+      }),
+      undefined,
+      'default-agent'
+    ),
+    saveWorkflowToNormalizedTables(workflowId, workflowState),
+  ])
+
+  if (!seedResult.success) {
+    throw new Error(seedResult.error || 'Failed to seed default workflow state')
+  }
+
+  return {
+    ...toWorkspaceApiRecord({
+      id: workspaceId,
+      name,
+      ownerId: userId,
+      billingOwnerType: 'user',
+      billingOwnerUserId: userId,
+      billingOwnerOrganizationId: null,
+      allowPersonalApiKeys: true,
+      createdAt: now,
+      updatedAt: now,
+    }),
+    role: 'owner',
+  }
+}
+
+async function createDefaultWorkspace(userId: string, userName?: string | null) {
+  const firstName = userName?.split(' ')[0] || null
+  return createWorkspace(userId, firstName ? `${firstName}'s Workspace` : 'My Workspace')
+}
+
+async function migrateExistingWorkflows(userId: string, workspaceId: string) {
+  await db
+    .update(workflow)
+    .set({
+      workspaceId,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(workflow.userId, userId), isNull(workflow.workspaceId)))
+}
+
+async function ensureWorkflowsHaveWorkspace(userId: string, defaultWorkspaceId: string) {
+  await db
+    .update(workflow)
+    .set({
+      workspaceId: defaultWorkspaceId,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(workflow.userId, userId), isNull(workflow.workspaceId)))
+}
