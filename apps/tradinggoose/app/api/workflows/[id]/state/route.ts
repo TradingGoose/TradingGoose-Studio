@@ -3,7 +3,6 @@ import { workflow } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { extractAndPersistCustomTools } from '@/lib/workflows/custom-tools-persistence'
@@ -12,7 +11,7 @@ import {
   saveWorkflowToNormalizedTables,
   toISOStringOrUndefined,
 } from '@/lib/workflows/db-helpers'
-import { readWorkflowAccessContext } from '@/lib/workflows/utils'
+import { validateWorkflowPermissions } from '@/lib/workflows/utils'
 import { sanitizeAgentToolsInBlocks } from '@/lib/workflows/validation'
 import { tryApplyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
@@ -131,42 +130,22 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const { id: workflowId } = await params
 
   try {
-    // Get the session
-    const session = await getSession()
-    if (!session?.user?.id) {
-      logger.warn(`[${requestId}] Unauthorized state update attempt for workflow ${workflowId}`)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const {
+      error,
+      session,
+      workflow: workflowData,
+    } = await validateWorkflowPermissions(workflowId, requestId, 'write')
+    if (error || !session?.user?.id || !workflowData) {
+      return NextResponse.json(
+        { error: error?.message ?? 'Unauthorized' },
+        { status: error?.status ?? 401 }
+      )
     }
-
     const userId = session.user.id
 
     // Parse and validate request body
     const body = await request.json()
     const state = WorkflowStateSchema.parse(body)
-
-    // Fetch the workflow to check ownership/access
-    const accessContext = await readWorkflowAccessContext(workflowId, userId)
-    const workflowData = accessContext?.workflow
-
-    if (!workflowData) {
-      logger.warn(`[${requestId}] Workflow ${workflowId} not found for state update`)
-      return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
-    }
-
-    // Check if user has permission to update this workflow
-    const canUpdate =
-      accessContext?.isOwner ||
-      (workflowData.workspaceId
-        ? accessContext?.workspacePermission === 'write' ||
-          accessContext?.workspacePermission === 'admin'
-        : false)
-
-    if (!canUpdate) {
-      logger.warn(
-        `[${requestId}] User ${userId} denied permission to update workflow state ${workflowId}`
-      )
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
-    }
 
     // Sanitize custom tools in agent blocks before saving
     const { blocks: sanitizedBlocks, warnings } = sanitizeAgentToolsInBlocks(state.blocks as any)

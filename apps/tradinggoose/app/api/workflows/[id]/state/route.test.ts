@@ -85,8 +85,9 @@ describe('Workflow State API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/utils', () => ({
-      readWorkflowAccessContext: vi.fn().mockResolvedValue({
-        isOwner: true,
+      validateWorkflowPermissions: vi.fn().mockResolvedValue({
+        error: null,
+        session: { user: { id: 'user-id' } },
         workflow: {
           id: 'workflow-id',
           workspaceId: 'workspace-id',

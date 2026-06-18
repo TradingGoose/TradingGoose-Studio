@@ -1,11 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { applyAutoLayout } from '@/lib/workflows/autolayout'
 import { loadWorkflowFromNormalizedTables } from '@/lib/workflows/db-helpers'
-import { readWorkflowAccessContext } from '@/lib/workflows/utils'
+import { validateWorkflowPermissions } from '@/lib/workflows/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,10 +34,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { id: workflowId } = await params
 
   try {
-    const session = await getSession()
-    if (!session?.user?.id) {
-      logger.warn(`[${requestId}] Unauthorized autolayout attempt for workflow ${workflowId}`)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { error, session } = await validateWorkflowPermissions(workflowId, requestId, 'write')
+    if (error || !session?.user?.id) {
+      return NextResponse.json(
+        { error: error?.message ?? 'Unauthorized' },
+        { status: error?.status ?? 401 }
+      )
     }
 
     const userId = session.user.id
@@ -49,28 +50,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     logger.info(`[${requestId}] Processing autolayout request for workflow ${workflowId}`, {
       userId,
     })
-
-    const accessContext = await readWorkflowAccessContext(workflowId, userId)
-    const workflowData = accessContext?.workflow
-
-    if (!workflowData) {
-      logger.warn(`[${requestId}] Workflow ${workflowId} not found for autolayout`)
-      return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
-    }
-
-    const canUpdate =
-      accessContext?.isOwner ||
-      (workflowData.workspaceId
-        ? accessContext?.workspacePermission === 'write' ||
-          accessContext?.workspacePermission === 'admin'
-        : false)
-
-    if (!canUpdate) {
-      logger.warn(
-        `[${requestId}] User ${userId} denied permission to autolayout workflow ${workflowId}`
-      )
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
-    }
 
     let currentWorkflowData: { blocks: Record<string, any>; edges: any[] } | null
 
