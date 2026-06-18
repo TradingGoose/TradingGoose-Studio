@@ -15,6 +15,7 @@ import { VerifyContent } from './verify/verify-content'
 const mockPush = vi.hoisted(() => vi.fn())
 const mockSignUpEmail = vi.hoisted(() => vi.fn())
 const mockSignInEmail = vi.hoisted(() => vi.fn())
+const mockSignOut = vi.hoisted(() => vi.fn())
 const mockSendVerificationOtp = vi.hoisted(() => vi.fn())
 const mockRefetchSession = vi.hoisted(() => vi.fn())
 const mockUseVerification = vi.hoisted(() => vi.fn())
@@ -56,6 +57,7 @@ vi.mock('@/lib/auth-client', () => ({
     signIn: {
       email: mockSignInEmail,
     },
+    signOut: mockSignOut,
     emailOtp: {
       sendVerificationOtp: mockSendVerificationOtp,
     },
@@ -150,6 +152,7 @@ describe('auth locale redirects', () => {
     mockPush.mockReset()
     mockSignUpEmail.mockReset()
     mockSignInEmail.mockReset()
+    mockSignOut.mockReset()
     mockSendVerificationOtp.mockReset()
     mockRefetchSession.mockReset()
     mockUseVerification.mockReset()
@@ -255,6 +258,23 @@ describe('auth locale redirects', () => {
       expect(mockPush).toHaveBeenCalledWith('/verify')
     }
   )
+
+  it('signs out through Better Auth when rendering a reauth login route', async () => {
+    testState.searchParams = new URLSearchParams('reauth=1&callbackUrl=%2Fworkspace')
+    mockSignOut.mockResolvedValue({ data: null })
+
+    await renderWithLocale(
+      'en',
+      <LoginPage
+        githubAvailable={false}
+        googleAvailable={false}
+        isProduction={false}
+        registrationMode='open'
+      />
+    )
+
+    expect(mockSignOut).toHaveBeenCalledTimes(1)
+  })
 
   it('pushes the canonical signup path from the verify screen back action', async () => {
     mockUseVerification.mockReturnValue({

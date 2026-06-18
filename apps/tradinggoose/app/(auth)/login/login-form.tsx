@@ -123,6 +123,7 @@ export default function LoginPage({
   const [email, setEmail] = useState('')
   const [emailErrors, setEmailErrors] = useState<string[]>([])
   const [showEmailValidationError, setShowEmailValidationError] = useState(false)
+  const isReauth = searchParams.get('reauth') === '1'
 
   useEffect(() => {
     if (searchParams) {
@@ -144,6 +145,16 @@ export default function LoginPage({
       setIsInviteFlow(inviteFlow)
     }
   }, [searchParams])
+
+  useEffect(() => {
+    if (!isReauth) {
+      return
+    }
+
+    client.signOut().catch((error) => {
+      logger.warn('Reauth sign-out failed', { error })
+    })
+  }, [isReauth])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

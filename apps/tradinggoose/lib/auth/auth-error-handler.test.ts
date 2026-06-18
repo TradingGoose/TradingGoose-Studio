@@ -25,7 +25,7 @@ describe('handleAuthError', () => {
     vi.unstubAllGlobals()
   })
 
-  it('routes login-page auth recovery through proxy reauth cleanup', async () => {
+  it('routes login-page auth recovery through login reauth cleanup', async () => {
     vi.resetModules()
     vi.clearAllMocks()
     stubWindow('https://app.tradinggoose.ai/login?callbackUrl=%2Fworkspace#credentials')

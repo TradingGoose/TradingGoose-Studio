@@ -1,3 +1,4 @@
+import { getSessionCookie } from 'better-auth/cookies'
 import { type NextRequest, NextResponse } from 'next/server'
 import createMiddleware from 'next-intl/middleware'
 import { appendHomepageDiscoveryLinks } from '@/lib/discovery/link-headers'
@@ -21,27 +22,9 @@ import {
 } from '@/i18n/utils'
 import { createLogger } from './lib/logs/console/logger'
 import { generateRuntimeCSP } from './lib/security/csp'
-import {
-  AUTH_COOKIE_NAMES,
-  AUTH_SESSION_COOKIE_NAME,
-  getAuthCookieDeletionOptions,
-} from './lib/auth/cookies'
 
 const logger = createLogger('Proxy')
 const handleI18nRouting = createMiddleware(routing)
-
-const REAUTH_CLEANUP_ROUTE = '/login'
-
-function clearAuthCookies(response: NextResponse) {
-  const deletionOptions = getAuthCookieDeletionOptions()
-  AUTH_COOKIE_NAMES.forEach((name) => {
-    response.cookies.set({
-      name,
-      value: '',
-      ...deletionOptions,
-    })
-  })
-}
 
 const SUSPICIOUS_UA_PATTERNS = [
   /^\s*$/,
@@ -162,14 +145,12 @@ function isProtectedAppPath(pathname: string): boolean {
   )
 }
 
-function isReauthCleanupRoute(pathname: string): boolean {
-  const { pathname: normalizedPathname } = resolveLocaleRoute(pathname)
-  return normalizedPathname === REAUTH_CLEANUP_ROUTE
-}
-
 function buildProtectedRequestHeaders(request: NextRequest, route: LocaleRoute) {
   const requestHeaders = new Headers(request.headers)
-  requestHeaders.set(CANONICAL_CALLBACK_PATH_HEADER, `${route.pathname}${request.nextUrl.search}`)
+  requestHeaders.set(
+    CANONICAL_CALLBACK_PATH_HEADER,
+    `${route.pathname}${request.nextUrl.search}`
+  )
   return requestHeaders
 }
 
@@ -298,12 +279,11 @@ function handleSecurityFiltering(request: NextRequest): NextResponse | null {
 export async function proxy(request: NextRequest) {
   const url = request.nextUrl
   const initialRoute = resolveLocaleRoute(url.pathname)
-  const hasSessionCookie = Boolean(request.cookies.get(AUTH_SESSION_COOKIE_NAME)?.value)
+  const hasSessionCookie = Boolean(getSessionCookie(request))
   const route = resolveCanonicalLocaleRoute(request, initialRoute)
   const { locale, pathname: normalizedPathname } = route
 
   const isProtectedPath = isProtectedAppPath(url.pathname)
-  const reauth = url.searchParams.get('reauth') === '1'
 
   if (isProtectedPath && !hasSessionCookie) {
     return buildLoginRedirect(request, route, `${route.pathname}${url.search}`)
@@ -312,18 +292,6 @@ export async function proxy(request: NextRequest) {
   const protectedRequestHeaders = isProtectedPath
     ? buildProtectedRequestHeaders(request, route)
     : undefined
-
-  if (reauth && isReauthCleanupRoute(url.pathname)) {
-    const localeResponse = routeToCanonicalLocale(request, route)
-    if (localeResponse) {
-      clearAuthCookies(localeResponse)
-      return localeResponse
-    }
-
-    const response = handleI18nRouting(request)
-    clearAuthCookies(response)
-    return withLocaleCookie(response, locale)
-  }
 
   const securityBlock = handleSecurityFiltering(request)
   if (securityBlock) return securityBlock
