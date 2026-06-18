@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { getBlocksMetadataServerTool } from '@/lib/copilot/tools/server/blocks/get-blocks-metadata'
 
 const mockGetOAuthProviderAvailability = vi.hoisted(() => vi.fn())
 
@@ -131,17 +132,13 @@ vi.mock('@/tools/registry', () => ({
 
 describe('getBlocksMetadataServerTool', () => {
   beforeEach(() => {
-    vi.resetModules()
+    mockGetOAuthProviderAvailability.mockReset()
     mockGetOAuthProviderAvailability.mockImplementation(async (providerIds: string[]) =>
       Object.fromEntries(providerIds.map((providerId) => [providerId, false]))
     )
   })
 
   it('returns Mermaid profiles and operation variants instead of schema-shaped metadata', async () => {
-    const { getBlocksMetadataServerTool } = await import(
-      '@/lib/copilot/tools/server/blocks/get-blocks-metadata'
-    )
-
     const result = await getBlocksMetadataServerTool.execute({
       blockTypes: [
         'github',
