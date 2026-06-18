@@ -29,14 +29,11 @@ describe('handleAuthError', () => {
     vi.resetModules()
     vi.clearAllMocks()
     stubWindow('https://app.tradinggoose.ai/login?callbackUrl=%2Fworkspace#credentials')
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })))
 
     const { handleAuthError } = await import('./auth-error-handler')
 
     await handleAuthError('socket-auth', '/login')
 
-    expect(replaceMock).toHaveBeenCalledWith(
-      '/login?callbackUrl=%2Fworkspace&reauth=1#credentials'
-    )
+    expect(replaceMock).toHaveBeenCalledWith('/login?callbackUrl=%2Fworkspace&reauth=1#credentials')
   })
 })

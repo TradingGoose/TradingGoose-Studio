@@ -110,7 +110,11 @@ vi.mock('@/components/ui/label', () => ({
     ...props
   }: React.LabelHTMLAttributes<HTMLLabelElement> & {
     children?: React.ReactNode
-  }) => <label {...props}>{children}</label>,
+  }) => (
+    <label {...props} htmlFor={props.htmlFor ?? 'test-field'}>
+      {children}
+    </label>
+  ),
 }))
 
 vi.mock('@/components/ui/dialog', () => ({
@@ -208,12 +212,6 @@ describe('auth locale redirects', () => {
     })
   }
 
-  async function flushEffects() {
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0))
-    })
-  }
-
   async function renderLogin(locale: 'en' | 'es' | 'zh' = 'en') {
     await renderWithLocale(
       locale,
@@ -269,39 +267,33 @@ describe('auth locale redirects', () => {
     }
   )
 
-  it('blocks login controls while reauth cleanup is pending', async () => {
+  it('keeps login controls available while reauth cleanup is pending', async () => {
     testState.searchParams = new URLSearchParams('reauth=1&callbackUrl=%2Fworkspace')
     mockSignOut.mockReturnValue(new Promise(() => {}))
 
     await renderLogin()
 
     expect(mockSignOut).toHaveBeenCalledTimes(1)
-    expect(container.querySelector('#email')).toBeNull()
-    expect(container.querySelector('#password')).toBeNull()
-    expect(container.querySelector('form')).toBeNull()
+    expect(container.querySelector('#email')).toBeInstanceOf(HTMLInputElement)
+    expect(container.querySelector('#password')).toBeInstanceOf(HTMLInputElement)
+    expect(container.querySelector('form')).toBeInstanceOf(HTMLFormElement)
   })
 
-  it('does not start duplicate sign-out requests when retrying reauth cleanup', async () => {
+  it('does not start duplicate sign-out requests while reauth cleanup is pending', async () => {
     testState.searchParams = new URLSearchParams('reauth=1&callbackUrl=%2Fworkspace')
-    mockSignOut.mockRejectedValueOnce(new Error('sign-out failed'))
+    mockSignInEmail.mockResolvedValue({ error: { code: 'FAILED_TO_CREATE_SESSION' } })
     mockSignOut.mockReturnValue(new Promise(() => {}))
 
     await renderLogin()
-    await flushEffects()
 
     expect(mockSignOut).toHaveBeenCalledTimes(1)
 
-    const retryButton = container.querySelector('button')
-    if (!(retryButton instanceof HTMLButtonElement)) {
-      throw new Error('Expected reauth retry button to render')
-    }
+    await setInputValue('#email', 'ada@example.com')
+    await setInputValue('#password', 'Password1!')
+    await submitRenderedForm()
 
-    await act(async () => {
-      retryButton.click()
-      await new Promise((resolve) => setTimeout(resolve, 0))
-    })
-
-    expect(mockSignOut).toHaveBeenCalledTimes(2)
+    expect(mockSignInEmail).toHaveBeenCalledTimes(1)
+    expect(mockSignOut).toHaveBeenCalledTimes(1)
   })
 
   it('runs reauth cleanup when direct login cannot create a session', async () => {
@@ -316,9 +308,10 @@ describe('auth locale redirects', () => {
 
     expect(mockSignInEmail).toHaveBeenCalledTimes(1)
     expect(mockSignOut).toHaveBeenCalledTimes(1)
-    expect(container.querySelector('#email')).toBeNull()
-    expect(container.querySelector('#password')).toBeNull()
-    expect(container.querySelector('form')).toBeNull()
+    expect(container.querySelector('#email')).toBeInstanceOf(HTMLInputElement)
+    expect(container.querySelector('#password')).toBeInstanceOf(HTMLInputElement)
+    expect(container.querySelector('form')).toBeInstanceOf(HTMLFormElement)
+    expect(container.textContent).toContain(getPublicCopy('en').auth.login.errors.unableToSignInNow)
   })
 
   it('keeps invalid credential failures on the login form', async () => {
@@ -334,7 +327,9 @@ describe('auth locale redirects', () => {
 
     expect(mockSignOut).not.toHaveBeenCalled()
     expect(container.querySelector('form')).toBeInstanceOf(HTMLFormElement)
-    expect(container.textContent).toContain(getPublicCopy('en').auth.login.errors.invalidCredentials)
+    expect(container.textContent).toContain(
+      getPublicCopy('en').auth.login.errors.invalidCredentials
+    )
   })
 
   it('pushes the canonical signup path from the verify screen back action', async () => {
@@ -356,11 +351,7 @@ describe('auth locale redirects', () => {
 
     await renderWithLocale(
       'en',
-      <VerifyContent
-        hasEmailService
-        isProduction={false}
-        isEmailVerificationEnabled
-      />
+      <VerifyContent hasEmailService isProduction={false} isEmailVerificationEnabled />
     )
 
     const backButton = Array.from(container.querySelectorAll('button')).find(

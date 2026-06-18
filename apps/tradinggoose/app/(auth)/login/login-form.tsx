@@ -122,8 +122,6 @@ export default function LoginPage({
   const [emailErrors, setEmailErrors] = useState<string[]>([])
   const [showEmailValidationError, setShowEmailValidationError] = useState(false)
   const isReauth = searchParams.get('reauth') === '1'
-  const [isReauthCleaned, setIsReauthCleaned] = useState(!isReauth)
-  const [reauthCleanupFailed, setReauthCleanupFailed] = useState(false)
   const isReauthCleanupRunningRef = useRef(false)
 
   const runReauthCleanup = useCallback(async () => {
@@ -132,23 +130,15 @@ export default function LoginPage({
     }
 
     isReauthCleanupRunningRef.current = true
-    setReauthCleanupFailed(false)
 
     try {
       await client.signOut()
-      setIsReauthCleaned(true)
     } catch (error) {
       logger.warn('Reauth sign-out failed', { error })
-      setReauthCleanupFailed(true)
     } finally {
       isReauthCleanupRunningRef.current = false
     }
   }, [])
-
-  const startReauthCleanup = useCallback(() => {
-    setIsReauthCleaned(false)
-    void runReauthCleanup()
-  }, [runReauthCleanup])
 
   useEffect(() => {
     if (searchParams) {
@@ -172,10 +162,10 @@ export default function LoginPage({
   }, [searchParams])
 
   useEffect(() => {
-    if (isReauth && !isReauthCleaned && !reauthCleanupFailed) {
+    if (isReauth) {
       void runReauthCleanup()
     }
-  }, [isReauth, isReauthCleaned, reauthCleanupFailed, runReauthCleanup])
+  }, [isReauth, runReauthCleanup])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -221,7 +211,10 @@ export default function LoginPage({
       error?.message,
       error?.response?.data?.error,
       error?.response?.data?.message,
-    ].some((value) => normalizeAuthErrorCode(value) === 'FAILED_TO_CREATE_SESSION')
+    ].some((value) => {
+      const code = normalizeAuthErrorCode(value)
+      return code === 'FAILED_TO_CREATE_SESSION' || code === 'UNABLE_TO_CREATE_SESSION'
+    })
 
   const resolveLoginErrorMessage = (error: any) => {
     const rawMessage =
@@ -355,7 +348,9 @@ export default function LoginPage({
 
       if (!result || result.error) {
         if (requiresReauthCleanup || isSessionCreationError(result?.error)) {
-          startReauthCleanup()
+          void runReauthCleanup()
+          setPasswordErrors([loginCopy.errors.unableToSignInNow])
+          setShowValidationError(true)
           setIsLoading(false)
           return
         }
@@ -377,7 +372,9 @@ export default function LoginPage({
         return
       }
       if (isSessionCreationError(err)) {
-        startReauthCleanup()
+        void runReauthCleanup()
+        setPasswordErrors([loginCopy.errors.unableToSignInNow])
+        setShowValidationError(true)
         return
       }
 
@@ -476,34 +473,6 @@ export default function LoginPage({
     ? `/signup?invite_flow=true&callbackUrl=${encodeURIComponent(callbackUrl)}`
     : getAuthRegistrationHref(registrationMode)
   const registrationLabel = isInviteFlow ? commonCopy.signUp : authRegistrationLabel
-
-  if (!isReauthCleaned) {
-    return (
-      <>
-        <AuthPageHeader
-          eyebrow={loginCopy.eyebrow}
-          title={loginCopy.title}
-          description={loginCopy.description}
-        />
-
-        <div className={`${inter.className} mt-8 space-y-3`}>
-          <Button
-            type='button'
-            className={primaryButtonClasses}
-            disabled={!reauthCleanupFailed}
-            onClick={() => {
-              void runReauthCleanup()
-            }}
-          >
-            {reauthCleanupFailed ? commonCopy.signIn : commonCopy.loading}
-          </Button>
-          {reauthCleanupFailed ? (
-            <p className='text-center text-red-400 text-sm'>{loginCopy.errors.unableToSignInNow}</p>
-          ) : null}
-        </div>
-      </>
-    )
-  }
 
   return (
     <>

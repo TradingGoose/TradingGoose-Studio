@@ -1,6 +1,7 @@
 'use client'
 
 import { type ReactNode, useEffect, useState } from 'react'
+import { useMessages } from 'next-intl'
 import { GithubIcon, GoogleIcon } from '@/components/icons/icons'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -8,7 +9,6 @@ import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { client } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { inter } from '@/app/fonts/inter'
-import { useMessages } from 'next-intl'
 import { formatTemplate } from '@/i18n/utils'
 
 const logger = createLogger('SocialLoginButtons')
@@ -36,6 +36,7 @@ export function SocialLoginButtons({
   const copy = useMessages()
   const socialCopy = copy.auth.social
   const resolvedCallbackURL = authRedirectUrls.providerCallbackPath(callbackURL)
+  const errorCallbackURL = authRedirectUrls.providerErrorPath('/error')
 
   useEffect(() => {
     setMounted(true)
@@ -85,6 +86,7 @@ export function SocialLoginButtons({
       const result = await client.signIn.social({
         provider: 'github',
         callbackURL: resolvedCallbackURL,
+        errorCallbackURL,
       })
 
       if (result?.error) {
@@ -108,6 +110,7 @@ export function SocialLoginButtons({
       const result = await client.signIn.social({
         provider: 'google',
         callbackURL: resolvedCallbackURL,
+        errorCallbackURL,
       })
 
       if (result?.error) {

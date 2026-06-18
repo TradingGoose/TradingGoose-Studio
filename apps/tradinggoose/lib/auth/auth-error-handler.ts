@@ -30,22 +30,8 @@ function isLoginPathname(pathname: string) {
   return segments[0] === 'login' || (segments[1] === 'login' && isLocaleCode(segments[0]))
 }
 
-async function safeServerSignOut() {
-  try {
-    await fetch('/api/auth/sign-out', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'cache-control': 'no-store' },
-    })
-  } catch (error) {
-    logger.warn('Fallback sign-out failed', { error })
-  }
-}
-
 /**
- * Clears the current auth session when we detect an unauthorized response.
- * This removes any stale tokens/cookies and forces a navigation to login so
- * the user can authenticate again.
+ * Routes stale auth state to the login reauth flow.
  */
 export async function handleAuthError(reason: string, callbackPathname: string) {
   if (typeof window === 'undefined') return
@@ -58,7 +44,6 @@ export async function handleAuthError(reason: string, callbackPathname: string) 
   }
 
   isHandlingAuthError = true
-  await safeServerSignOut()
 
   if (isLoginPathname(window.location.pathname)) {
     const loginUrl = new URL(window.location.href)

@@ -38,6 +38,7 @@ const AUTH_ERROR_GROUP_BY_CODE: Partial<Record<string, AuthErrorGroupKey>> = {
   CALLBACK_URL_REQUIRED: 'invalidCallback',
   INVALID_TOKEN: 'invalidToken',
   TOKEN_EXPIRED: 'expiredToken',
+  UNABLE_TO_CREATE_SESSION: 'sessionCreation',
   FAILED_TO_CREATE_SESSION: 'sessionCreation',
   FAILED_TO_GET_SESSION: 'sessionRestore',
   SESSION_EXPIRED: 'sessionExpired',
@@ -106,9 +107,7 @@ function resolveAuthErrorGroupKey(errorCode: string | null): AuthErrorGroupKey |
 
 function isSessionRecoveryGroup(groupKey: AuthErrorGroupKey) {
   return (
-    groupKey === 'sessionCreation' ||
-    groupKey === 'sessionRestore' ||
-    groupKey === 'sessionExpired'
+    groupKey === 'sessionCreation' || groupKey === 'sessionRestore' || groupKey === 'sessionExpired'
   )
 }
 

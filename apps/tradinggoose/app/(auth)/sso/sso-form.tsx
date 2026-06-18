@@ -2,22 +2,22 @@
 
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
 import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { client } from '@/lib/auth-client'
 import { quickValidateEmail } from '@/lib/email/validation'
-import { normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getAuthRegistrationHref, type RegistrationMode } from '@/lib/registration/shared'
 import { cn } from '@/lib/utils'
-import { Link } from '@/i18n/navigation'
-import { useMessages } from 'next-intl'
-import { normalizeCallbackUrl } from '@/i18n/utils'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { AuthWaitlistNote } from '@/app/(auth)/components/auth-waitlist-note'
 import { inter } from '@/app/fonts/inter'
+import { Link } from '@/i18n/navigation'
+import { normalizeCallbackUrl } from '@/i18n/utils'
 
 const logger = createLogger('SSOForm')
 
@@ -81,24 +81,8 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
       if (emailParam) {
         setEmail(emailParam)
       }
-
-      const error = searchParams.get('error')
-      if (error) {
-        const errorMessages: Record<string, string> = {
-          account_not_found: ssoCopy.errors.accountNotFound,
-          sso_failed: ssoCopy.errors.ssoFailed,
-          invalid_provider: ssoCopy.errors.providerNotConfigured,
-        }
-        setEmailErrors([errorMessages[error] || ssoCopy.errors.ssoFailed])
-        setShowEmailValidationError(true)
-      }
     }
-  }, [
-    searchParams,
-    ssoCopy.errors.accountNotFound,
-    ssoCopy.errors.providerNotConfigured,
-    ssoCopy.errors.ssoFailed,
-  ])
+  }, [searchParams])
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newEmail = e.target.value
@@ -136,9 +120,7 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
       await client.signIn.sso({
         email: emailValue,
         callbackURL: authRedirectUrls.providerCallbackPath(callbackUrl),
-        errorCallbackURL: authRedirectUrls.providerErrorPath(
-          `/sso?error=sso_failed&callbackUrl=${callbackUrlParam}`
-        ),
+        errorCallbackURL: authRedirectUrls.providerErrorPath('/error'),
       })
     } catch (err) {
       logger.error('SSO sign-in failed', { error: err, email: emailValue })
@@ -252,14 +234,14 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
       )}
 
       <div
-        className={`${inter.className} text-muted-foreground absolute right-0 bottom-0 left-0 px-8 pb-8 text-center font-[340] text-[13px] leading-relaxed sm:px-8 md:px-[44px]`}
+        className={`${inter.className} absolute right-0 bottom-0 left-0 px-8 pb-8 text-center font-[340] text-[13px] text-muted-foreground leading-relaxed sm:px-8 md:px-[44px]`}
       >
         {commonCopy.termsLeadSigningIn}{' '}
         <Link
           href='/terms'
           target='_blank'
           rel='noopener noreferrer'
-          className='hover:text-primary underline underline-offset-4'
+          className='underline underline-offset-4 hover:text-primary'
         >
           {commonCopy.termsOfService}
         </Link>{' '}
@@ -268,7 +250,7 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
           href='/privacy'
           target='_blank'
           rel='noopener noreferrer'
-          className='hover:text-primary underline underline-offset-4'
+          className='underline underline-offset-4 hover:text-primary'
         >
           {commonCopy.privacyPolicy}
         </Link>
