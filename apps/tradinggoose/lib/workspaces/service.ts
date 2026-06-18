@@ -106,7 +106,7 @@ export async function createWorkspace(userId: string, name: string) {
       throw new Error(saveResult.error || 'Failed to persist default workflow state')
     }
 
-    await tryApplyWorkflowState(
+    const seedResult = await tryApplyWorkflowState(
       workflowId,
       createWorkflowSnapshot({
         blocks: saveResult.normalizedState?.blocks ?? workflowState.blocks,
@@ -119,6 +119,11 @@ export async function createWorkspace(userId: string, name: string) {
       undefined,
       'default-agent'
     )
+    if (!seedResult.success) {
+      throw seedResult.error instanceof Error
+        ? seedResult.error
+        : new Error('Failed to seed default workflow state')
+    }
   } catch (error) {
     await db.transaction(async (tx) => {
       await tx.delete(workflow).where(eq(workflow.id, workflowId))

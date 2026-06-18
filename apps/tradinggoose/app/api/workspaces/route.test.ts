@@ -265,8 +265,12 @@ describe('Workspaces API Route', () => {
       () => mockSaveWorkflowToNormalizedTables.mockRejectedValue(new Error('database unavailable')),
     ],
     [
-      'Yjs seeding throws',
-      () => mockTryApplyWorkflowState.mockRejectedValue(new Error('socket unavailable')),
+      'Yjs seeding fails',
+      () =>
+        mockTryApplyWorkflowState.mockResolvedValue({
+          success: false,
+          error: new Error('socket unavailable'),
+        }),
     ],
   ])('removes a newly created workspace when default workflow %s', async (_case, fail) => {
     fail()
