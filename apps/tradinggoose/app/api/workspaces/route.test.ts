@@ -11,7 +11,7 @@ describe('Workspaces API Route', () => {
     values: txInsertValuesMock,
   }))
   const deleteWhereMock = vi.fn()
-  const deleteMock = vi.fn(() => ({
+  const deleteMock = vi.fn((_table: unknown) => ({
     where: deleteWhereMock,
   }))
   const updateWhereMock = vi.fn()
@@ -30,7 +30,9 @@ describe('Workspaces API Route', () => {
     userWorkspaces = []
 
     txInsertValuesMock.mockResolvedValue(undefined)
-    transactionMock.mockImplementation(async (callback) => callback({ insert: txInsertMock }))
+    transactionMock.mockImplementation(async (callback) =>
+      callback({ insert: txInsertMock, delete: deleteMock })
+    )
     deleteWhereMock.mockResolvedValue(undefined)
     updateWhereMock.mockResolvedValue([])
     updateSetMock.mockReturnValue({ where: updateWhereMock })
@@ -272,7 +274,10 @@ describe('Workspaces API Route', () => {
 
     expect(response.status).toBe(500)
     expect(await response.json()).toEqual({ error: 'Failed to create workspace' })
-    expect(deleteMock).toHaveBeenCalled()
-    expect(deleteWhereMock).toHaveBeenCalled()
+    expect(deleteMock.mock.calls.map(([table]) => table)).toEqual([
+      expect.objectContaining({ workspaceId: 'workflow.workspaceId' }),
+      expect.objectContaining({ ownerId: 'workspace.ownerId' }),
+    ])
+    expect(deleteWhereMock).toHaveBeenCalledTimes(2)
   })
 })

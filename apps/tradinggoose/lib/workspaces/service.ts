@@ -120,7 +120,10 @@ export async function createWorkspace(userId: string, name: string) {
       'default-agent'
     )
   } catch (error) {
-    await db.delete(workspace).where(eq(workspace.id, workspaceId))
+    await db.transaction(async (tx) => {
+      await tx.delete(workflow).where(eq(workflow.id, workflowId))
+      await tx.delete(workspace).where(eq(workspace.id, workspaceId))
+    })
     throw error
   }
 
