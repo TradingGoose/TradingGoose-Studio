@@ -91,6 +91,25 @@ describe('Workspace root page access guard', () => {
     expect(mockGetSession).toHaveBeenCalledWith(expect.any(Headers))
   })
 
+  it('routes invalid session cookies through reauth cleanup', async () => {
+    mockHeaders.mockResolvedValue(
+      new Headers([
+        [CANONICAL_CALLBACK_PATH_HEADER, '/workspace?redirect_workflow=workflow-1'],
+        ['cookie', 'better-auth.session_token=stale'],
+      ])
+    )
+    mockGetSession.mockResolvedValue(null)
+
+    await expect(renderWorkspacePage('zh')).rejects.toThrow(
+      'redirect:/zh/login?reauth=1&callbackUrl=%2Fworkspace%3Fredirect_workflow%3Dworkflow-1'
+    )
+
+    expect(mockRedirect).toHaveBeenCalledWith(
+      '/zh/login?reauth=1&callbackUrl=%2Fworkspace%3Fredirect_workflow%3Dworkflow-1'
+    )
+    expect(mockGetSession).toHaveBeenCalledWith(expect.any(Headers))
+  })
+
   it('redirects authenticated users to the requested workflow workspace', async () => {
     mockReadWorkflowAccessContext.mockResolvedValue({
       workflow: {

@@ -123,6 +123,34 @@ describe('Admin layout', () => {
     expect(mockNotFound).not.toHaveBeenCalled()
   })
 
+  it('routes invalid admin session cookies through reauth cleanup', async () => {
+    mockHeaders.mockResolvedValue(
+      new Headers([
+        [CANONICAL_CALLBACK_PATH_HEADER, '/admin/billing?from=nav'],
+        ['cookie', 'better-auth.session_token=stale'],
+      ])
+    )
+    mockGetSystemAdminAccess.mockResolvedValue({
+      isAuthenticated: false,
+      isSystemAdmin: false,
+      canBootstrapSystemAdmin: false,
+    })
+
+    const AdminLayout = (await import('./layout')).default
+
+    await expect(
+      AdminLayout({
+        children: <div>admin content</div>,
+        params: Promise.resolve({ locale: 'es' }),
+      })
+    ).rejects.toThrow('redirect:/es/login?reauth=1&callbackUrl=%2Fadmin%2Fbilling%3Ffrom%3Dnav')
+
+    expect(mockRedirect).toHaveBeenCalledWith(
+      '/es/login?reauth=1&callbackUrl=%2Fadmin%2Fbilling%3Ffrom%3Dnav'
+    )
+    expect(mockNotFound).not.toHaveBeenCalled()
+  })
+
   it('calls notFound when the user cannot access admin routes', async () => {
     mockGetSystemAdminAccess.mockResolvedValue({
       isAuthenticated: true,

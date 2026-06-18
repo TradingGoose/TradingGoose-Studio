@@ -1,4 +1,5 @@
 import type React from 'react'
+import { getSessionCookie } from 'better-auth/cookies'
 import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { NextIntlClientProvider } from 'next-intl'
@@ -24,6 +25,7 @@ export default async function AdminLayout({
       href: {
         pathname: '/login',
         query: {
+          ...(getSessionCookie(requestHeaders) ? { reauth: '1' } : {}),
           callbackUrl: requireCanonicalCallbackPath(requestHeaders, 'admin'),
         },
       },

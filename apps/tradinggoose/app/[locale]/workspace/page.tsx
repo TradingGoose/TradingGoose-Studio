@@ -1,3 +1,4 @@
+import { getSessionCookie } from 'better-auth/cookies'
 import { headers } from 'next/headers'
 import { getSession } from '@/lib/auth'
 import { readWorkflowAccessContext } from '@/lib/workflows/utils'
@@ -59,6 +60,7 @@ export default async function WorkspacePage({
       href: {
         pathname: '/login',
         query: {
+          ...(getSessionCookie(requestHeaders) ? { reauth: '1' } : {}),
           callbackUrl: requireCanonicalCallbackPath(requestHeaders, 'workspace'),
         },
       },
