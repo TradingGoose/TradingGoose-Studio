@@ -1,9 +1,9 @@
 import { db } from '@tradinggoose/db'
 import { permissions, type permissionTypeEnum, user } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
-import { hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
+import { checkWorkspaceAccess, hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
 
 type PermissionType = (typeof permissionTypeEnum.enumValues)[number]
 
@@ -52,21 +52,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Check if user already has permissions for this workspace
-    const existingPermissions = await db
-      .select()
-      .from(permissions)
-      .where(
-        and(
-          eq(permissions.userId, targetUser.id),
-          eq(permissions.entityType, 'workspace'),
-          eq(permissions.entityId, workspaceId)
-        )
-      )
-
-    if (existingPermissions.length > 0) {
+    const existingAccess = await checkWorkspaceAccess(workspaceId, targetUser.id)
+    if (existingAccess.hasAccess) {
       return NextResponse.json(
-        { error: 'User already has permissions for this workspace' },
+        { error: 'User already has access to this workspace' },
         { status: 400 }
       )
     }

@@ -7,12 +7,12 @@ import {
   workspace,
   workspaceInvitation,
 } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getEmailSubject, renderWorkspaceInvitationEmail } from '@/components/emails/render-email'
 import { getSession } from '@/lib/auth'
 import { resolveEmailLocale } from '@/lib/email/locale'
-import { hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
+import { checkWorkspaceAccess, hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { defaultLocale, localizeUrl, stripLocaleFromPathname } from '@/i18n/utils'
 
@@ -115,19 +115,8 @@ export async function GET(
         return NextResponse.redirect(redirectUrl(`/invite/${invitation.id}?error=email-mismatch`))
       }
 
-      const existingPermission = await db
-        .select()
-        .from(permissions)
-        .where(
-          and(
-            eq(permissions.entityId, invitation.workspaceId),
-            eq(permissions.entityType, 'workspace'),
-            eq(permissions.userId, session.user.id)
-          )
-        )
-        .then((rows) => rows[0])
-
-      if (existingPermission) {
+      const existingAccess = await checkWorkspaceAccess(invitation.workspaceId, session.user.id)
+      if (existingAccess.hasAccess) {
         await db
           .update(workspaceInvitation)
           .set({

@@ -11,6 +11,7 @@ describe('Workspace Invitations API Route', () => {
   let mockInsertValues: any
   let mockSendEmail: any
   let mockHasWorkspaceAdminAccess: any
+  let mockCheckWorkspaceAccess: any
 
   beforeEach(() => {
     vi.resetModules()
@@ -31,6 +32,7 @@ describe('Workspace Invitations API Route', () => {
 
     mockInsertValues = vi.fn().mockResolvedValue(undefined)
     mockHasWorkspaceAdminAccess = vi.fn().mockResolvedValue(true)
+    mockCheckWorkspaceAccess = vi.fn().mockResolvedValue({ hasAccess: false })
     const mockDbChain = {
       select: vi.fn().mockReturnThis(),
       from: vi.fn().mockReturnThis(),
@@ -101,6 +103,7 @@ describe('Workspace Invitations API Route', () => {
         permissionJoin: 'permission-join',
         accessFilter: 'access-filter',
       })),
+      checkWorkspaceAccess: mockCheckWorkspaceAccess,
       hasWorkspaceAdminAccess: mockHasWorkspaceAdminAccess,
     }))
 
@@ -250,10 +253,10 @@ describe('Workspace Invitations API Route', () => {
 
     it('should return 400 when user already has workspace access', async () => {
       mockGetSession.mockResolvedValue({ user: { id: 'user-123' } })
+      mockCheckWorkspaceAccess.mockResolvedValue({ hasAccess: true })
       mockDbResults = [
         [mockWorkspace], // Workspace exists
         [mockUser], // User exists
-        [{ permissionType: 'read' }], // User already has access
       ]
 
       const { POST } = await import('@/app/api/workspaces/invitations/route')

@@ -5,9 +5,8 @@ import {
   embedding,
   knowledgeBase,
   knowledgeBaseTagDefinitions,
-  permissions,
 } from '@tradinggoose/db/schema'
-import { and, count, eq, inArray, isNotNull, isNull } from 'drizzle-orm'
+import { and, count, eq, inArray, isNull } from 'drizzle-orm'
 import { checkStorageQuota, incrementStorageUsage } from '@/lib/billing/storage'
 import { enqueueDocumentProcessingJobs } from '@/lib/knowledge/documents/service'
 import {
@@ -20,7 +19,7 @@ import type {
   KnowledgeBaseWithCounts,
 } from '@/lib/knowledge/types'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getUserEntityPermissions } from '@/lib/permissions/utils'
+import { checkWorkspaceAccess, getUserEntityPermissions } from '@/lib/permissions/utils'
 
 const logger = createLogger('KnowledgeBaseService')
 
@@ -31,6 +30,11 @@ export async function getKnowledgeBases(
   userId: string,
   workspaceId: string
 ): Promise<KnowledgeBaseWithCounts[]> {
+  const workspaceAccess = await checkWorkspaceAccess(workspaceId, userId)
+  if (!workspaceAccess.hasAccess) {
+    return []
+  }
+
   const knowledgeBasesWithCounts = await db
     .select({
       id: knowledgeBase.id,
@@ -50,21 +54,7 @@ export async function getKnowledgeBases(
       document,
       and(eq(document.knowledgeBaseId, knowledgeBase.id), isNull(document.deletedAt))
     )
-    .leftJoin(
-      permissions,
-      and(
-        eq(permissions.entityType, 'workspace'),
-        eq(permissions.entityId, knowledgeBase.workspaceId),
-        eq(permissions.userId, userId)
-      )
-    )
-    .where(
-      and(
-        isNull(knowledgeBase.deletedAt),
-        eq(knowledgeBase.workspaceId, workspaceId),
-        isNotNull(permissions.userId)
-      )
-    )
+    .where(and(isNull(knowledgeBase.deletedAt), eq(knowledgeBase.workspaceId, workspaceId)))
     .groupBy(knowledgeBase.id)
     .orderBy(knowledgeBase.createdAt)
 

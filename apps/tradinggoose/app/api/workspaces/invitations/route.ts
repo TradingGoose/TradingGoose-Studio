@@ -15,7 +15,11 @@ import { getSession } from '@/lib/auth'
 import { resolveEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
 import { createLogger } from '@/lib/logs/console/logger'
-import { buildWorkspaceAccessScope, hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
+import {
+  buildWorkspaceAccessScope,
+  checkWorkspaceAccess,
+  hasWorkspaceAdminAccess,
+} from '@/lib/permissions/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { localizeUrl } from '@/i18n/utils'
 
@@ -113,20 +117,8 @@ export async function POST(req: NextRequest) {
       .then((rows) => rows[0])
 
     if (existingUser) {
-      // Check if the user already has permissions for this workspace
-      const existingPermission = await db
-        .select()
-        .from(permissions)
-        .where(
-          and(
-            eq(permissions.entityId, workspaceId),
-            eq(permissions.entityType, 'workspace'),
-            eq(permissions.userId, existingUser.id)
-          )
-        )
-        .then((rows) => rows[0])
-
-      if (existingPermission) {
+      const existingAccess = await checkWorkspaceAccess(workspaceId, existingUser.id)
+      if (existingAccess.hasAccess) {
         return NextResponse.json(
           {
             error: `${email} already has access to this workspace`,

@@ -37,6 +37,7 @@ describe('Workspace Invitation [invitationId] API Route', () => {
   let mockDbResults: any[] = []
   let mockGetSession: any
   let mockHasWorkspaceAdminAccess: any
+  let mockCheckWorkspaceAccess: any
   let mockTransaction: any
 
   beforeEach(async () => {
@@ -57,7 +58,9 @@ describe('Workspace Invitation [invitationId] API Route', () => {
     }))
 
     mockHasWorkspaceAdminAccess = vi.fn()
+    mockCheckWorkspaceAccess = vi.fn().mockResolvedValue({ hasAccess: false })
     vi.doMock('@/lib/permissions/utils', () => ({
+      checkWorkspaceAccess: mockCheckWorkspaceAccess,
       hasWorkspaceAdminAccess: mockHasWorkspaceAdminAccess,
     }))
 
@@ -185,7 +188,6 @@ describe('Workspace Invitation [invitationId] API Route', () => {
       mockDbResults.push([mockInvitation])
       mockDbResults.push([mockWorkspace])
       mockDbResults.push([{ ...mockUser, email: 'invited@example.com' }])
-      mockDbResults.push([])
 
       mockTransaction.mockImplementation(async (callback: any) => {
         await callback({
@@ -392,6 +394,7 @@ describe('Workspace Invitation [invitationId] API Route', () => {
         getSession: vi.fn().mockResolvedValue({ user: mockUser }),
       }))
       vi.doMock('@/lib/permissions/utils', () => ({
+        checkWorkspaceAccess: vi.fn(),
         hasWorkspaceAdminAccess: vi.fn(),
       }))
       vi.doMock('@/lib/env', () => {
