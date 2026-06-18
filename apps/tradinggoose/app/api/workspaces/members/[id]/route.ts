@@ -43,6 +43,13 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
     }
 
+    const hasAdminAccess = await hasWorkspaceAdminAccess(session.user.id, workspaceId)
+    const isSelf = userId === session.user.id
+
+    if (!hasAdminAccess && !isSelf) {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
+    }
+
     if (workspaceRow[0].ownerId === userId) {
       return NextResponse.json({ error: 'Cannot remove the workspace owner' }, { status: 400 })
     }
@@ -75,14 +82,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     if (!userPermission) {
       return NextResponse.json({ error: 'User not found in workspace' }, { status: 404 })
-    }
-
-    // Check if current user has admin access to this workspace
-    const hasAdminAccess = await hasWorkspaceAdminAccess(session.user.id, workspaceId)
-    const isSelf = userId === session.user.id
-
-    if (!hasAdminAccess && !isSelf) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
     // Prevent removing yourself if you're the last admin

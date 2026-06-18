@@ -4,6 +4,17 @@
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+async function deleteMember(userId: string) {
+  const { DELETE } = await import('./route')
+  return DELETE(
+    new NextRequest(`http://localhost/api/workspaces/members/${userId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ workspaceId: 'workspace-1' }),
+    }),
+    { params: Promise.resolve({ id: userId }) }
+  )
+}
+
 describe('Workspace member DELETE route', () => {
   const selectResults: any[][] = []
   const deleteMock = vi.fn()
@@ -71,6 +82,8 @@ describe('Workspace member DELETE route', () => {
         }
       ),
     }))
+
+    mockHasWorkspaceAdminAccess.mockResolvedValue(true)
   })
 
   afterEach(() => {
@@ -85,22 +98,14 @@ describe('Workspace member DELETE route', () => {
         billingOwnerUserId: 'user-2',
       },
     ])
-
-    const { DELETE } = await import('./route')
-    const response = await DELETE(
-      new NextRequest('http://localhost/api/workspaces/members/user-2', {
-        method: 'DELETE',
-        body: JSON.stringify({ workspaceId: 'workspace-1' }),
-      }),
-      { params: Promise.resolve({ id: 'user-2' }) }
-    )
+    const response = await deleteMember('user-2')
 
     expect(response.status).toBe(400)
     expect(await response.json()).toEqual({
       error: 'Cannot remove the workspace billing owner. Please reassign billing first.',
     })
     expect(deleteMock).not.toHaveBeenCalled()
-    expect(mockHasWorkspaceAdminAccess).not.toHaveBeenCalled()
+    expect(mockHasWorkspaceAdminAccess).toHaveBeenCalledWith('user-1', 'workspace-1')
   })
 
   it('blocks removing the canonical workspace owner', async () => {
@@ -112,18 +117,29 @@ describe('Workspace member DELETE route', () => {
       },
     ])
 
-    const { DELETE } = await import('./route')
-    const response = await DELETE(
-      new NextRequest('http://localhost/api/workspaces/members/user-2', {
-        method: 'DELETE',
-        body: JSON.stringify({ workspaceId: 'workspace-1' }),
-      }),
-      { params: Promise.resolve({ id: 'user-2' }) }
-    )
+    const response = await deleteMember('user-2')
 
     expect(response.status).toBe(400)
     expect(await response.json()).toEqual({ error: 'Cannot remove the workspace owner' })
     expect(deleteMock).not.toHaveBeenCalled()
-    expect(mockHasWorkspaceAdminAccess).not.toHaveBeenCalled()
+    expect(mockHasWorkspaceAdminAccess).toHaveBeenCalledWith('user-1', 'workspace-1')
+  })
+
+  it('does not disclose canonical owner state to callers without admin access', async () => {
+    mockHasWorkspaceAdminAccess.mockResolvedValue(false)
+    selectResults.push([
+      {
+        ownerId: 'user-2',
+        billingOwnerType: 'user',
+        billingOwnerUserId: 'user-1',
+      },
+    ])
+
+    const response = await deleteMember('user-2')
+
+    expect(response.status).toBe(403)
+    expect(await response.json()).toEqual({ error: 'Insufficient permissions' })
+    expect(deleteMock).not.toHaveBeenCalled()
+    expect(mockHasWorkspaceAdminAccess).toHaveBeenCalledWith('user-1', 'workspace-1')
   })
 })
