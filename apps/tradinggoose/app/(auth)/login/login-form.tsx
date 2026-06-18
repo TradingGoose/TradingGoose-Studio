@@ -29,6 +29,7 @@ import { SSOLoginButton } from '@/app/(auth)/components/sso-login-button'
 import { inter } from '@/app/fonts/inter'
 import { Link, useRouter } from '@/i18n/navigation'
 import { normalizeCallbackUrl } from '@/i18n/utils'
+import { clearUserData } from '@/stores'
 
 const logger = createLogger('LoginForm')
 const REAUTH_CLEANUP_TIMEOUT_MS = 4000
@@ -148,10 +149,11 @@ export default function LoginPage({
       }, REAUTH_CLEANUP_TIMEOUT_MS)
     })
 
-    const cleanupPromise = Promise.race([signOutPromise, timeoutPromise]).finally(() => {
+    const cleanupPromise = Promise.race([signOutPromise, timeoutPromise]).finally(async () => {
       if (timeoutId) {
         clearTimeout(timeoutId)
       }
+      await clearUserData()
       shouldRunReauthCleanupRef.current = false
       reauthCleanupPromiseRef.current = null
     })
