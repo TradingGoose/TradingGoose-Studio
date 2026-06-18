@@ -47,7 +47,9 @@ vi.mock('@/lib/env', () => ({
   env: {
     SSO_ENABLED: true,
   },
-  getEnv: vi.fn(() => undefined),
+  getEnv: vi.fn((key: string) =>
+    key === 'NEXT_PUBLIC_APP_URL' ? 'http://localhost:3000' : undefined
+  ),
   isTruthy: (value: string | boolean | number | undefined) =>
     typeof value === 'string' ? value.toLowerCase() === 'true' || value === '1' : Boolean(value),
 }))

@@ -6,6 +6,7 @@ import { act } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { getPublicCopy } from '@/i18n/public-copy'
 
 vi.mock('@xyflow/react', () => ({
@@ -73,9 +74,11 @@ vi.mock('@/components/ui/dropdown-menu', () => ({
 vi.mock('@/components/listing-selector/listing/row', () => ({
   getListingDisplaySymbol: (listing: { base?: string | null; name?: string | null }) =>
     listing?.base || listing?.name || 'Listing',
-  ListingDisplayRow: ({ listing }: { listing?: { base?: string | null; name?: string | null } }) => (
-    <span>{listing?.base || listing?.name || 'Listing'}</span>
-  ),
+  ListingDisplayRow: ({
+    listing,
+  }: {
+    listing?: { base?: string | null; name?: string | null }
+  }) => <span>{listing?.base || listing?.name || 'Listing'}</span>,
 }))
 vi.mock('@/components/listing-selector/selector/resolve-request', () => ({
   requestListingResolution: vi.fn().mockResolvedValue(null),
@@ -107,11 +110,8 @@ vi.mock('@/widgets/widgets/components/widget-header-control', () => ({
   widgetHeaderMenuTextClassName: '',
 }))
 
-import {
-  buildTradingAgentWorkflowDemos,
-  type WorkflowPreviewDemo,
-} from './workflow-preview-demos'
 import { WorkflowPreview } from './workflow-preview'
+import { buildTradingAgentWorkflowDemos, type WorkflowPreviewDemo } from './workflow-preview-demos'
 
 describe('WorkflowPreview', () => {
   let container: HTMLDivElement
@@ -145,12 +145,11 @@ describe('WorkflowPreview', () => {
 
     await act(async () => {
       root.render(
-        <NextIntlClientProvider
-          locale='en'
-          messages={getPublicCopy('en')}
-        >
-          <WorkflowPreview demos={[investmentDebateDemo!]} />
-        </NextIntlClientProvider>
+        <TooltipProvider>
+          <NextIntlClientProvider locale='en' messages={getPublicCopy('en')}>
+            <WorkflowPreview demos={[investmentDebateDemo!]} />
+          </NextIntlClientProvider>
+        </TooltipProvider>
       )
     })
 
@@ -247,15 +246,16 @@ describe('WorkflowPreview', () => {
 
     await act(async () => {
       root.render(
-        <NextIntlClientProvider
-          locale='es'
-          messages={getPublicCopy('es')}
-        >
-          <WorkflowPreview demos={[demo]} />
-        </NextIntlClientProvider>
+        <TooltipProvider>
+          <NextIntlClientProvider locale='es' messages={getPublicCopy('es')}>
+            <WorkflowPreview demos={[demo]} />
+          </NextIntlClientProvider>
+        </TooltipProvider>
       )
     })
 
-    expect(container.textContent).toContain(copy.workspace.widgets.workflowEditor.summary.objectItem)
+    expect(container.textContent).toContain(
+      copy.workspace.widgets.workflowEditor.summary.objectItem
+    )
   })
 })

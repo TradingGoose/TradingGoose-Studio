@@ -1,15 +1,8 @@
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 vi.unmock('@/blocks/registry')
 
-let listWorkflowRunTriggers: typeof import('./triggers').listWorkflowRunTriggers
-let resolveWorkflowRunTrigger: typeof import('./triggers').resolveWorkflowRunTrigger
-
-beforeAll(async () => {
-  const triggers = await import('./triggers')
-  listWorkflowRunTriggers = triggers.listWorkflowRunTriggers
-  resolveWorkflowRunTrigger = triggers.resolveWorkflowRunTrigger
-})
+import { listWorkflowRunTriggers, resolveWorkflowRunTrigger } from './triggers'
 
 const block = (type: string, extra: Record<string, unknown> = {}) => ({
   type,

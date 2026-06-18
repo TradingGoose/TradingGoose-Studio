@@ -26,6 +26,8 @@ export const viewport: Viewport = {
   ],
 }
 
+export const dynamic = 'force-dynamic'
+
 export async function generateMetadata({
   params,
 }: {
@@ -35,10 +37,6 @@ export async function generateMetadata({
   return generateBrandedMetadata(
     hasLocale(routing.locales, locale) ? (locale as AppLocale) : routing.defaultLocale
   )
-}
-
-export function generateStaticParams() {
-  return routing.locales.map((locale) => ({ locale }))
 }
 
 export default async function RootLayout({

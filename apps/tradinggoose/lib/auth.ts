@@ -425,6 +425,9 @@ export const auth = betterAuth({
     getBaseUrl(),
     ...(env.NEXT_PUBLIC_SOCKET_URL ? [env.NEXT_PUBLIC_SOCKET_URL] : []),
   ],
+  advanced: {
+    crossSubDomainCookies: { enabled: false },
+  },
   database: drizzleAdapter(db, {
     provider: 'pg',
     schema,
@@ -686,18 +689,9 @@ export const auth = betterAuth({
             to: data.email,
             subject: getEmailSubject(data.type, locale),
             html,
+            text: `${getEmailSubject(data.type, locale)}\n\n${data.otp}`,
             emailType: 'transactional',
           })
-
-          if (!result.success && result.message.includes('no email service configured')) {
-            logger.info('🔑 VERIFICATION CODE FOR LOGIN/SIGNUP', {
-              email: data.email,
-              otp: data.otp,
-              type: data.type,
-              validation: validation.checks,
-            })
-            return
-          }
 
           if (!result.success) {
             throw new Error(`Failed to send verification code: ${result.message}`)

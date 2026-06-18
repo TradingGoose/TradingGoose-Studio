@@ -1,65 +1,30 @@
 import { getEnv } from '@/lib/env'
-import { isProd } from '@/lib/environment'
 
-/**
- * Returns the base URL of the application from NEXT_PUBLIC_APP_URL
- * This ensures webhooks, callbacks, and other integrations always use the correct public URL
- * @returns The base URL string (e.g., 'http://localhost:3000' or 'https://example.com')
- * @throws Error if NEXT_PUBLIC_APP_URL is not configured
- */
 export function getBaseUrl(): string {
-  const baseUrl = getEnv('NEXT_PUBLIC_APP_URL')
-  const isPreviewDev =
-    getEnv('NEXT_PUBLIC_IS_PREVIEW_DEVELOPMENT') === 'true' ||
-    getEnv('NEXT_PUBLIC_IS_PREVIEW_DEVELOPMENT') === '1'
-  const isReactEmailPreview =
-    !!process.env.EMAILS_DIR_ABSOLUTE_PATH || !!process.env.PREVIEW_SERVER_LOCATION
+  const value = getEnv('NEXT_PUBLIC_APP_URL')?.trim()
 
-  if (!baseUrl || !baseUrl.trim()) {
-    const fallback = process.env.EMAILS_PREVIEW_BASE_URL || 'http://localhost:3000'
-    if (isProd && !isPreviewDev && !isReactEmailPreview) {
-      // Avoid hard crash in production builds but surface a warning for misconfiguration.
-      // eslint-disable-next-line no-console
-      console.warn('NEXT_PUBLIC_APP_URL missing – falling back to', fallback)
-    }
-    return fallback
+  if (!value) {
+    throw new Error('NEXT_PUBLIC_APP_URL is required')
   }
 
-  if (baseUrl.startsWith('http://') || baseUrl.startsWith('https://')) {
-    return baseUrl
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    throw new Error('Configured base URL must be a valid URL')
   }
 
-  const protocol = isProd ? 'https://' : 'http://'
-  return `${protocol}${baseUrl}`
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error('Configured base URL must use http or https')
+  }
+
+  return url.origin
 }
 
-/**
- * Returns just the domain and port part of the application URL
- * @returns The domain with port if applicable (e.g., 'localhost:3000' or 'tradinggoose.ai')
- */
 export function getBaseDomain(): string {
-  try {
-    const url = new URL(getBaseUrl())
-    return url.host // host includes port if specified
-  } catch (_e) {
-    const fallbackUrl = getEnv('NEXT_PUBLIC_APP_URL') || 'http://localhost:3000'
-    try {
-      return new URL(fallbackUrl).host
-    } catch {
-      return isProd ? 'tradinggoose.ai' : 'localhost:3000'
-    }
-  }
+  return new URL(getBaseUrl()).host
 }
 
-/**
- * Returns the domain for email addresses, stripping www subdomain for Resend compatibility
- * @returns The email domain (e.g., 'tradinggoose.ai' instead of 'www.tradinggoose.ai')
- */
 export function getEmailDomain(): string {
-  try {
-    const baseDomain = getBaseDomain()
-    return baseDomain.startsWith('www.') ? baseDomain.substring(4) : baseDomain
-  } catch (_e) {
-    return isProd ? 'tradinggoose.ai' : 'localhost:3000'
-  }
+  return getBaseDomain().replace(/^www\./, '')
 }

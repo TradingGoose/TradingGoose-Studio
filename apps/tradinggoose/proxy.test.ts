@@ -153,6 +153,14 @@ describe('proxy auth routing', () => {
     expect(response.headers.get('location')).toBeNull()
     expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('en')
     expect(response.cookies.get('better-auth.session_token')?.maxAge).toBe(0)
+    expect(response.cookies.get('__Secure-better-auth.session_token')).toMatchObject({
+      maxAge: 0,
+      secure: true,
+    })
+    expect(response.cookies.get('__Secure-better-auth.session_data')).toMatchObject({
+      maxAge: 0,
+      secure: true,
+    })
   })
 
   it('preserves locale on the login route while keeping callback targets canonical', async () => {
@@ -170,14 +178,29 @@ describe('proxy auth routing', () => {
     expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('es')
   })
 
-  it('redirects authenticated localized auth routes to the localized workspace root', async () => {
+  it.each([
+    '/es/login',
+    '/es/signup',
+    '/es/waitlist',
+    '/es/reset-password',
+    '/es/verify',
+    '/es/sso',
+    '/es/error',
+  ])('lets session-cookie auth route %s reach its page boundary', async (pathname) => {
     mockGetSessionCookie.mockReturnValue('session-cookie')
 
     const { proxy } = await import('./proxy')
-    const response = await proxy(new NextRequest('http://localhost:3000/es/login'))
+    const response = await proxy(
+      new NextRequest(`http://localhost:3000${pathname}`, {
+        headers: {
+          'user-agent': 'vitest',
+        },
+      })
+    )
 
-    expect(response.status).toBe(307)
-    expect(response.headers.get('location')).toBe('http://localhost:3000/es/workspace')
+    expect(response.status).toBe(200)
+    expect(response.headers.get('location')).toBeNull()
+    expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('es')
   })
 
   it('keeps default-locale prefixed routes canonical', async () => {

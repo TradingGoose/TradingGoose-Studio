@@ -1,6 +1,7 @@
-import { createElement } from 'react'
+import { createElement, type ReactElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
+import { TooltipProvider } from '@/components/ui/tooltip'
 
 vi.mock('@xyflow/react', () => ({
   Handle: ({ id, type, position }: { id: string; type: string; position: string }) =>
@@ -60,9 +61,12 @@ vi.mock('@/widgets/widgets/editor_workflow/copy', () => ({
 
 import { PreviewNode } from './preview-node'
 
+const renderPreviewMarkup = (node: ReactElement) =>
+  renderToStaticMarkup(createElement(TooltipProvider, null, node))
+
 describe('PreviewNode', () => {
   it('renders canonical read-only node chrome and handles for regular blocks', () => {
-    const markup = renderToStaticMarkup(
+    const markup = renderPreviewMarkup(
       createElement(PreviewNode as any, {
         id: 'agent-1',
         data: {
@@ -91,7 +95,7 @@ describe('PreviewNode', () => {
   })
 
   it('omits input/error handles for trigger blocks', () => {
-    const markup = renderToStaticMarkup(
+    const markup = renderPreviewMarkup(
       createElement(PreviewNode as any, {
         id: 'trigger-1',
         data: {
@@ -114,7 +118,7 @@ describe('PreviewNode', () => {
   })
 
   it('omits output handles for condition/response blocks', () => {
-    const markup = renderToStaticMarkup(
+    const markup = renderPreviewMarkup(
       createElement(PreviewNode as any, {
         id: 'condition-1',
         data: {
@@ -137,7 +141,7 @@ describe('PreviewNode', () => {
   })
 
   it('uses horizontal handle ports when block requests horizontal handles', () => {
-    const markup = renderToStaticMarkup(
+    const markup = renderPreviewMarkup(
       createElement(PreviewNode as any, {
         id: 'agent-horizontal',
         data: {
@@ -165,7 +169,7 @@ describe('PreviewNode', () => {
   })
 
   it('renders precomputed preview summaries when localized summary metadata is provided', () => {
-    const markup = renderToStaticMarkup(
+    const markup = renderPreviewMarkup(
       createElement(PreviewNode as any, {
         id: 'agent-precomputed',
         data: {
@@ -201,7 +205,7 @@ describe('PreviewNode', () => {
 
   it('throws when precomputed preview summaries are missing localized object item metadata', () => {
     expect(() =>
-      renderToStaticMarkup(
+      renderPreviewMarkup(
         createElement(PreviewNode as any, {
           id: 'agent-precomputed-error',
           data: {
@@ -230,7 +234,7 @@ describe('PreviewNode', () => {
   })
 
   it('filters conditional preview rows before rendering duplicate subblock ids', () => {
-    const markup = renderToStaticMarkup(
+    const markup = renderPreviewMarkup(
       createElement(PreviewNode as any, {
         id: 'custom-conditional',
         data: {
@@ -284,7 +288,7 @@ describe('PreviewNode', () => {
   })
 
   it('renders both deploy-managed and editor-managed trigger fields in preview mode', () => {
-    const markup = renderToStaticMarkup(
+    const markup = renderPreviewMarkup(
       createElement(PreviewNode as any, {
         id: 'trigger-preview-1',
         data: {
@@ -345,7 +349,7 @@ describe('PreviewNode', () => {
   })
 
   it('renders centralized trigger metadata labels instead of inline trigger option labels', () => {
-    const markup = renderToStaticMarkup(
+    const markup = renderPreviewMarkup(
       createElement(PreviewNode as any, {
         id: 'trigger-preview-2',
         data: {

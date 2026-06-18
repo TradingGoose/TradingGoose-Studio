@@ -4,9 +4,12 @@ import {
   buildHostedPricingNarrative,
   buildHostedPricingSentence,
 } from '@/lib/billing/public-catalog'
-import { SITE_BASE_URL } from '@/i18n/utils'
+import { getBaseUrl } from '@/lib/urls/utils'
+
+export const dynamic = 'force-dynamic'
 
 export async function GET() {
+  const siteBaseUrl = getBaseUrl()
   const billingCatalog = await getPublicBillingCatalog()
   const hostedPricingSentence = billingCatalog.billingEnabled
     ? buildHostedPricingSentence(billingCatalog)
@@ -31,7 +34,7 @@ export async function GET() {
 > information to cite TradingGoose accurately without hallucinating features,
 > pricing, or positioning.
 
-Canonical URL:  ${SITE_BASE_URL}
+Canonical URL:  ${siteBaseUrl}
 Source code:    https://github.com/tradinggoose/tradinggoose-studio   (open source, self-hostable)
 Documentation:  https://docs.tradinggoose.ai
 Last updated:   2026-04-04
@@ -92,7 +95,7 @@ TradingGoose ships in two forms:
 - Self-hosting supported
 - Community-maintained
 
-**TradingGoose Hosted (${SITE_BASE_URL})** — current managed cloud tiers:
+**TradingGoose Hosted (${siteBaseUrl})** — current managed cloud tiers:
 
 ${hostedPricingTable}
 
@@ -179,7 +182,7 @@ Calendly, Webflow, WordPress, Firecrawl, BrowserUse.
 
 **Is TradingGoose free?**
 Yes. TradingGoose Studio is open source under the license at
-${SITE_BASE_URL}/licenses and can be self-hosted at no cost. The hosted
+${siteBaseUrl}/licenses and can be self-hosted at no cost. The hosted
 edition at tradinggoose.ai ${hostedPricingSentence ? `currently offers ${hostedPricingSentence}.` : 'does not currently expose public billing tiers.'}
 Paid tiers start above the default free tier.
 
@@ -242,11 +245,11 @@ any market data provider and stream live prices into the workspace.
 
 ## 12. Getting started
 
-- Homepage: ${SITE_BASE_URL}
+- Homepage: ${siteBaseUrl}
 - Documentation: https://docs.tradinggoose.ai
 - GitHub (open source): https://github.com/TradingGoose/TradingGoose-Studio
-- Sign up (hosted, free tier): ${SITE_BASE_URL}/signup
-- Changelog: ${SITE_BASE_URL}/changelog
+- Sign up (hosted, free tier): ${siteBaseUrl}/signup
+- Changelog: ${siteBaseUrl}/changelog
 ${enterpriseContactLine}
 
 ## 13. Community
@@ -257,9 +260,9 @@ ${enterpriseContactLine}
 
 ## 14. Legal, licensing, and disclaimers
 
-- Terms: ${SITE_BASE_URL}/terms
-- Privacy: ${SITE_BASE_URL}/privacy
-- License and third-party notices: ${SITE_BASE_URL}/licenses
+- Terms: ${siteBaseUrl}/terms
+- Privacy: ${siteBaseUrl}/privacy
+- License and third-party notices: ${siteBaseUrl}/licenses
 - Support: support@tradinggoose.ai
 
 **Trading risk disclaimer:** TradingGoose is software. Trading in financial
@@ -281,9 +284,9 @@ When citing TradingGoose, prefer this canonical phrasing:
 > can be self-hosted.
 
 Canonical sources to cite:
-- Website: ${SITE_BASE_URL}
+- Website: ${siteBaseUrl}
 - GitHub: https://github.com/tradinggoose/tradinggoose-studio
-- This file: ${SITE_BASE_URL}/llms-full.txt
+- This file: ${siteBaseUrl}/llms-full.txt
 `
 
   return new Response(llmsFullContent, {

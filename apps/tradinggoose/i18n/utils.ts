@@ -7,7 +7,6 @@ export type LocaleInput = LocaleCode | string | null | undefined
 
 export { defaultLocale, isLocaleCode, locales }
 
-export const SITE_BASE_URL = getBaseUrl()
 export const CANONICAL_CALLBACK_PATH_HEADER = 'x-tradinggoose-callback-path'
 export const LOCALE_COOKIE = 'NEXT_LOCALE'
 export const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365

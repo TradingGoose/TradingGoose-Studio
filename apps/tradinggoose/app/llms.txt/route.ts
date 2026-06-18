@@ -1,8 +1,11 @@
 import { getPublicBillingCatalog } from '@/lib/billing/catalog'
 import { buildHostedPricingSentence } from '@/lib/billing/public-catalog'
-import { SITE_BASE_URL } from '@/i18n/utils'
+import { getBaseUrl } from '@/lib/urls/utils'
+
+export const dynamic = 'force-dynamic'
 
 export async function GET() {
+  const siteBaseUrl = getBaseUrl()
   const billingCatalog = await getPublicBillingCatalog()
   const hostedPricingSentence = billingCatalog.billingEnabled
     ? buildHostedPricingSentence(billingCatalog)
@@ -53,11 +56,11 @@ ${
 - Widget: a composable workspace panel (chart, indicator view, workflow status, etc.)
 
 ## Getting started
-- Homepage: ${SITE_BASE_URL}
+- Homepage: ${siteBaseUrl}
 - Documentation: https://docs.tradinggoose.ai
 - GitHub (open source): https://github.com/TradingGoose/TradingGoose-Studio
-- Sign up (hosted): ${SITE_BASE_URL}/signup
-- Changelog: ${SITE_BASE_URL}/changelog
+- Sign up (hosted): ${siteBaseUrl}/signup
+- Changelog: ${siteBaseUrl}/changelog
 
 ## Community
 - GitHub: https://github.com/TradingGoose/TradingGoose-Studio
@@ -65,11 +68,11 @@ ${
 - X / Twitter: https://x.com/tradinggoose
 
 ## License
-See ${SITE_BASE_URL}/licenses for license and third-party notices.
+See ${siteBaseUrl}/licenses for license and third-party notices.
 
 ## Full reference
 For a deeper, AI-readable reference (features, pricing tiers, FAQ, example
-workflow, integrations, glossary), see ${SITE_BASE_URL}/llms-full.txt
+workflow, integrations, glossary), see ${siteBaseUrl}/llms-full.txt
 `
 
   return new Response(llmsContent, {

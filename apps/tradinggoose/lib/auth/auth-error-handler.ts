@@ -6,29 +6,6 @@ import { isLocaleCode, normalizeCallbackUrl } from '@/i18n/utils'
 const logger = createLogger('AuthErrorHandler')
 let isHandlingAuthError = false
 const LAST_RECOVERY_KEY = 'tradinggoose-auth-recovery-ts'
-const AUTH_COOKIE_NAMES = [
-  'better-auth.session_token',
-  'better-auth.session_data',
-  'better-auth.dont_remember',
-  '__Secure-better-auth.session_token',
-  '__Secure-better-auth.session_data',
-  '__Secure-better-auth.dont_remember',
-]
-
-function deleteBrowserAuthCookies() {
-  if (typeof document === 'undefined' || typeof window === 'undefined') return
-
-  const baseDomain = window.location.hostname
-  const domains = [undefined, baseDomain, `.${baseDomain}`].filter(Boolean)
-
-  AUTH_COOKIE_NAMES.forEach((name) => {
-    domains.forEach((domain) => {
-      document.cookie = `${name}=; Max-Age=0; Path=/; SameSite=Lax${
-        domain ? `; Domain=${domain}` : ''
-      }`
-    })
-  })
-}
 
 function shouldRateLimitRecovery(reason?: string) {
   if (typeof window === 'undefined') return false
@@ -81,12 +58,13 @@ export async function handleAuthError(reason: string, callbackPathname: string) 
   }
 
   isHandlingAuthError = true
-  deleteBrowserAuthCookies()
   await safeServerSignOut()
 
   if (isLoginPathname(window.location.pathname)) {
-    logger.warn('Cleared stale auth state on login page', { reason })
-    isHandlingAuthError = false
+    const loginUrl = new URL(window.location.href)
+    loginUrl.searchParams.set('reauth', '1')
+    logger.warn('Routing login page through reauth cleanup', { reason })
+    window.location.replace(`${loginUrl.pathname}${loginUrl.search}${loginUrl.hash}`)
     return
   }
 

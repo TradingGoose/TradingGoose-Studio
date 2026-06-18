@@ -1,6 +1,7 @@
-import { createElement } from 'react'
+import { createElement, type ReactElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import { ReadOnlyNodeEditorPanel } from './read-only-node-editor-panel'
 
@@ -108,9 +109,12 @@ function createWorkflowState(): WorkflowState {
   }
 }
 
+const renderPreviewMarkup = (node: ReactElement) =>
+  renderToStaticMarkup(createElement(TooltipProvider, null, node))
+
 describe('ReadOnlyNodeEditorPanel', () => {
   it('renders empty selection state when no node is selected', () => {
-    const markup = renderToStaticMarkup(
+    const markup = renderPreviewMarkup(
       createElement(ReadOnlyNodeEditorPanel, {
         selectedNodeId: null,
         workflowState: createWorkflowState(),
@@ -121,7 +125,7 @@ describe('ReadOnlyNodeEditorPanel', () => {
   })
 
   it('renders missing-node state when selected id is not present', () => {
-    const markup = renderToStaticMarkup(
+    const markup = renderPreviewMarkup(
       createElement(ReadOnlyNodeEditorPanel, {
         selectedNodeId: 'missing',
         workflowState: createWorkflowState(),
@@ -133,7 +137,7 @@ describe('ReadOnlyNodeEditorPanel', () => {
   })
 
   it('renders inspector header and canonical summary rows for selected node', () => {
-    const markup = renderToStaticMarkup(
+    const markup = renderPreviewMarkup(
       createElement(ReadOnlyNodeEditorPanel, {
         selectedNodeId: 'agent_1',
         workflowState: createWorkflowState(),
@@ -149,7 +153,7 @@ describe('ReadOnlyNodeEditorPanel', () => {
   })
 
   it('evaluates preview conditions for canonical loop nodes', () => {
-    const markup = renderToStaticMarkup(
+    const markup = renderPreviewMarkup(
       createElement(ReadOnlyNodeEditorPanel, {
         selectedNodeId: 'loop_1',
         workflowState: createWorkflowState(),
