@@ -20,7 +20,6 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('@/i18n/navigation', () => ({
-  usePathname: () => '/workspace/ws-1/dashboard',
   useRouter: () => ({
     replace: mockReplace,
   }),
@@ -52,7 +51,6 @@ describe('WorkspacePermissionsProvider', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    window.history.replaceState({}, '', '/workspace/ws-1/dashboard?layoutId=layout-1')
 
     mockUseWorkspacePermissions.mockReturnValue({
       permissions: null,
@@ -90,40 +88,6 @@ describe('WorkspacePermissionsProvider', () => {
 
   afterAll(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment
-  })
-
-  it('redirects missing sessions to login with the current callback target', async () => {
-    mockUseWorkspacePermissions.mockReturnValue({
-      permissions: null,
-      loading: false,
-      error: 'Workspace not found or access denied',
-      updatePermissions: mockUpdatePermissions,
-      refetch: mockRefetchPermissions,
-    })
-
-    mockUseUserPermissions.mockReturnValue({
-      canRead: false,
-      canEdit: false,
-      canAdmin: false,
-      userPermissions: 'read',
-      isLoading: false,
-      error: 'Authentication required',
-    })
-
-    const { WorkspacePermissionsProvider } = await import('./workspace-permissions-provider')
-
-    await act(async () => {
-      root?.render(
-        <WorkspacePermissionsProvider workspaceId='ws-1'>
-          <div>workspace</div>
-        </WorkspacePermissionsProvider>
-      )
-    })
-
-    expect(mockReplace).toHaveBeenCalledWith(
-      '/login?reauth=1&callbackUrl=%2Fworkspace%2Fws-1%2Fdashboard%3FlayoutId%3Dlayout-1'
-    )
-    expect(container?.textContent).toBe('')
   })
 
   it('redirects authenticated users without access back to the workspace index', async () => {

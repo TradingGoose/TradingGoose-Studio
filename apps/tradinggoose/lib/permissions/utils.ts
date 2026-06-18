@@ -13,12 +13,6 @@ export interface WorkspaceAccess {
   workspace: WorkspaceRecord | null
 }
 
-export interface WorkspaceMemberProfile {
-  userId: string
-  name: string
-  image: string | null
-}
-
 async function selectWorkspaceById(workspaceId: string): Promise<WorkspaceRecord | null> {
   const [row] = await db.select().from(workspace).where(eq(workspace.id, workspaceId)).limit(1)
   return row ?? null
@@ -180,6 +174,17 @@ export async function getUsersWithPermissions(workspaceId: string): Promise<
     permissionType: PermissionType
   }>
 > {
+  const [owner] = await db
+    .select({
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+    })
+    .from(workspace)
+    .innerJoin(user, eq(workspace.ownerId, user.id))
+    .where(eq(workspace.id, workspaceId))
+    .limit(1)
+
   const usersWithPermissions = await db
     .select({
       userId: user.id,
@@ -193,12 +198,35 @@ export async function getUsersWithPermissions(workspaceId: string): Promise<
     .where(and(eq(permissions.entityType, 'workspace'), eq(permissions.entityId, workspaceId)))
     .orderBy(user.email)
 
-  return usersWithPermissions.map((row) => ({
-    userId: row.userId,
-    email: row.email,
-    name: row.name,
-    permissionType: row.permissionType,
-  }))
+  const usersById = new Map<
+    string,
+    {
+      userId: string
+      email: string
+      name: string
+      permissionType: PermissionType
+    }
+  >()
+
+  if (owner) {
+    usersById.set(owner.userId, {
+      ...owner,
+      permissionType: 'admin',
+    })
+  }
+
+  for (const row of usersWithPermissions) {
+    if (!usersById.has(row.userId)) {
+      usersById.set(row.userId, {
+        userId: row.userId,
+        email: row.email,
+        name: row.name,
+        permissionType: row.permissionType,
+      })
+    }
+  }
+
+  return [...usersById.values()].sort((a, b) => a.email.localeCompare(b.email))
 }
 
 /**
@@ -278,21 +306,4 @@ export async function getManageableWorkspaces(userId: string): Promise<
   ]
 
   return combined
-}
-
-export async function getWorkspaceMemberProfiles(
-  workspaceId: string
-): Promise<WorkspaceMemberProfile[]> {
-  const rows = await db
-    .select({
-      userId: user.id,
-      name: user.name,
-      image: user.image,
-    })
-    .from(permissions)
-    .innerJoin(user, eq(permissions.userId, user.id))
-    .innerJoin(workspace, eq(permissions.entityId, workspace.id))
-    .where(and(eq(permissions.entityType, 'workspace'), eq(permissions.entityId, workspaceId)))
-
-  return rows
 }

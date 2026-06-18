@@ -1,10 +1,9 @@
 /** @vitest-environment jsdom */
 
-import React, { act } from 'react'
+import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
-const mockUseSession = vi.fn()
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
@@ -13,18 +12,6 @@ const previousActEnvironment = reactActEnvironment.IS_REACT_ACT_ENVIRONMENT
 let container: HTMLDivElement | null = null
 let root: Root | null = null
 let latestValue: unknown = null
-
-vi.mock('@/lib/auth-client', () => ({
-  useSession: () => mockUseSession(),
-}))
-
-vi.mock('@/lib/logs/console/logger', () => ({
-  createLogger: () => ({
-    error: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-  }),
-}))
 
 beforeAll(() => {
   reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
@@ -37,12 +24,6 @@ afterAll(() => {
 describe('useUserPermissions', () => {
   beforeEach(() => {
     latestValue = null
-    mockUseSession.mockReset()
-    mockUseSession.mockReturnValue({
-      data: null,
-      isPending: true,
-      error: null,
-    })
 
     container = document.createElement('div')
     document.body.appendChild(container)
@@ -61,26 +42,11 @@ describe('useUserPermissions', () => {
     container = null
   })
 
-  it('keeps permissions loading while the auth session is still pending', async () => {
+  it('keeps permissions loading while workspace permissions are still pending', async () => {
     const { useUserPermissions } = await import('@/hooks/use-user-permissions')
 
     function Harness() {
-      latestValue = useUserPermissions(
-        {
-          users: [
-            {
-              userId: 'user-1',
-              email: 'member@example.com',
-              name: 'Member',
-              image: null,
-              permissionType: 'admin',
-            },
-          ],
-          total: 1,
-        },
-        false,
-        null
-      )
+      latestValue = useUserPermissions(null, true, null)
       return null
     }
 
@@ -97,18 +63,7 @@ describe('useUserPermissions', () => {
     })
   })
 
-  it('returns resolved permissions once the auth session is available', async () => {
-    mockUseSession.mockReturnValue({
-      data: {
-        user: {
-          id: 'user-1',
-          email: 'member@example.com',
-        },
-      },
-      isPending: false,
-      error: null,
-    })
-
+  it('returns server-derived current user permissions', async () => {
     const { useUserPermissions } = await import('@/hooks/use-user-permissions')
 
     function Harness() {
@@ -124,6 +79,7 @@ describe('useUserPermissions', () => {
             },
           ],
           total: 1,
+          currentUserPermission: 'write',
         },
         false,
         null

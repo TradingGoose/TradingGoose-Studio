@@ -27,7 +27,6 @@ vi.mock('@tradinggoose/db/schema', () => ({
     id: 'user_id',
     email: 'user_email',
     name: 'user_name',
-    image: 'user_image',
   },
   workspace: {
     id: 'workspace_id',
@@ -54,7 +53,6 @@ import {
   getUserEntityPermissions,
   getUsersWithPermissions,
   getWorkspaceById,
-  getWorkspaceMemberProfiles,
   hasAdminPermission,
   hasWorkspaceAdminAccess,
   workspaceExists,
@@ -334,20 +332,6 @@ describe('Permission Utils', () => {
     })
   })
 
-  describe('getWorkspaceMemberProfiles', () => {
-    it('should return minimal member profiles for a workspace', async () => {
-      const members = [
-        { userId: 'user-1', name: 'Alice', image: 'alice.png' },
-        { userId: 'user-2', name: 'Bob', image: null },
-      ]
-      mockDb.select.mockReturnValue(createMockChain(members))
-
-      const result = await getWorkspaceMemberProfiles('workspace123')
-
-      expect(result).toEqual(members)
-    })
-  })
-
   describe('hasAdminPermission', () => {
     it('should return true when user has admin permission for workspace', async () => {
       const chain = createMockChain([{ id: 'perm1' }])
@@ -405,13 +389,37 @@ describe('Permission Utils', () => {
   })
 
   describe('getUsersWithPermissions', () => {
-    it('should return empty array when no users have permissions for workspace', async () => {
+    it('should return empty array when the workspace owner is unavailable', async () => {
+      const ownerChain = createMockChain([])
       const usersChain = createMockChain([])
-      mockDb.select.mockReturnValue(usersChain)
+      mockDb.select.mockReturnValueOnce(ownerChain).mockReturnValueOnce(usersChain)
 
       const result = await getUsersWithPermissions('workspace123')
 
       expect(result).toEqual([])
+    })
+
+    it('should include the workspace owner as admin without a permission row', async () => {
+      const ownerChain = createMockChain([
+        {
+          userId: 'owner-1',
+          email: 'owner@example.com',
+          name: 'Owner User',
+        },
+      ])
+      const usersChain = createMockChain([])
+      mockDb.select.mockReturnValueOnce(ownerChain).mockReturnValueOnce(usersChain)
+
+      const result = await getUsersWithPermissions('workspace123')
+
+      expect(result).toEqual([
+        {
+          userId: 'owner-1',
+          email: 'owner@example.com',
+          name: 'Owner User',
+          permissionType: 'admin',
+        },
+      ])
     })
 
     it('should return users with their permissions for workspace', async () => {
@@ -424,8 +432,9 @@ describe('Permission Utils', () => {
         },
       ]
 
+      const ownerChain = createMockChain([])
       const usersChain = createMockChain(mockUsersResults)
-      mockDb.select.mockReturnValue(usersChain)
+      mockDb.select.mockReturnValueOnce(ownerChain).mockReturnValueOnce(usersChain)
 
       const result = await getUsersWithPermissions('workspace456')
 
@@ -461,15 +470,16 @@ describe('Permission Utils', () => {
         },
       ]
 
+      const ownerChain = createMockChain([])
       const usersChain = createMockChain(mockUsersResults)
-      mockDb.select.mockReturnValue(usersChain)
+      mockDb.select.mockReturnValueOnce(ownerChain).mockReturnValueOnce(usersChain)
 
       const result = await getUsersWithPermissions('workspace456')
 
       expect(result).toHaveLength(3)
-      expect(result[0].permissionType).toBe('admin')
-      expect(result[1].permissionType).toBe('write')
-      expect(result[2].permissionType).toBe('read')
+      expect(result.find((row) => row.userId === 'user1')?.permissionType).toBe('admin')
+      expect(result.find((row) => row.userId === 'user2')?.permissionType).toBe('write')
+      expect(result.find((row) => row.userId === 'user3')?.permissionType).toBe('read')
     })
 
     it('should handle users with empty names', async () => {
@@ -482,8 +492,9 @@ describe('Permission Utils', () => {
         },
       ]
 
+      const ownerChain = createMockChain([])
       const usersChain = createMockChain(mockUsersResults)
-      mockDb.select.mockReturnValue(usersChain)
+      mockDb.select.mockReturnValueOnce(ownerChain).mockReturnValueOnce(usersChain)
 
       const result = await getUsersWithPermissions('workspace123')
 

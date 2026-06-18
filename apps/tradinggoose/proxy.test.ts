@@ -1,9 +1,6 @@
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const PLAIN_SESSION_COOKIE = 'better-auth.session_token=session-cookie'
-const SECURE_SESSION_COOKIE = '__Secure-better-auth.session_token=session-cookie'
-
 vi.mock('./lib/logs/console/logger', () => ({
   createLogger: () => ({
     warn: vi.fn(),
@@ -40,15 +37,19 @@ describe('proxy auth routing', () => {
     process.env.NEXT_PUBLIC_APP_URL = 'https://www.tradinggoose.ai'
   })
 
-  it('uses the request host for localhost auth redirects instead of hosted-mode rewrites', async () => {
+  it('uses the request host for protected route locale redirects', async () => {
     const { proxy } = await import('./proxy')
     const response = await proxy(
-      new NextRequest('http://localhost:3000/workspace/ws-1/dashboard?layoutId=layout-1')
+      new NextRequest('http://localhost:3000/workspace/ws-1/dashboard?layoutId=layout-1', {
+        headers: {
+          'user-agent': 'vitest',
+        },
+      })
     )
 
     expect(response.status).toBe(307)
     expect(response.headers.get('location')).toBe(
-      'http://localhost:3000/en/login?callbackUrl=%2Fworkspace%2Fws-1%2Fdashboard%3FlayoutId%3Dlayout-1'
+      'http://localhost:3000/en/workspace/ws-1/dashboard?layoutId=layout-1'
     )
     expect(response.headers.get('x-middleware-rewrite')).toBeNull()
     expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('en')
@@ -98,7 +99,7 @@ describe('proxy auth routing', () => {
     expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('zh')
   })
 
-  it('redirects anonymous unprefixed protected routes using Accept-Language', async () => {
+  it('localizes unprefixed protected routes using Accept-Language', async () => {
     const { proxy } = await import('./proxy')
     const response = await proxy(
       new NextRequest('http://localhost:3000/workspace/ws-1/dashboard', {
@@ -111,30 +112,16 @@ describe('proxy auth routing', () => {
 
     expect(response.status).toBe(307)
     expect(response.headers.get('location')).toBe(
-      'http://localhost:3000/es/login?callbackUrl=%2Fworkspace%2Fws-1%2Fdashboard'
+      'http://localhost:3000/es/workspace/ws-1/dashboard'
     )
     expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('es')
   })
 
-  it('redirects hosted protected routes to login when no session is present', async () => {
-    const { proxy } = await import('./proxy')
-    const response = await proxy(
-      new NextRequest('https://www.tradinggoose.ai/workspace/ws-1/dashboard')
-    )
-
-    expect(response.status).toBe(307)
-    expect(response.headers.get('location')).toBe(
-      'https://www.tradinggoose.ai/en/login?callbackUrl=%2Fworkspace%2Fws-1%2Fdashboard'
-    )
-    expect(response.headers.get('x-middleware-rewrite')).toBeNull()
-  })
-
-  it('accepts Better Auth plain session cookies on HTTPS protected routes', async () => {
+  it('localizes hosted protected routes before the app auth boundary handles access', async () => {
     const { proxy } = await import('./proxy')
     const response = await proxy(
       new NextRequest('https://www.tradinggoose.ai/workspace/ws-1/dashboard', {
         headers: {
-          cookie: PLAIN_SESSION_COOKIE,
           'user-agent': 'vitest',
         },
       })
@@ -147,12 +134,13 @@ describe('proxy auth routing', () => {
     expect(response.headers.get('x-middleware-rewrite')).toBeNull()
   })
 
-  it('accepts Better Auth secure session cookies on HTTPS protected routes', async () => {
+  it('lets the default-locale reauth login route reach its page boundary', async () => {
+    process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
+
     const { proxy } = await import('./proxy')
     const response = await proxy(
-      new NextRequest('https://www.tradinggoose.ai/en/workspace', {
+      new NextRequest('http://localhost:3000/en/login?reauth=1&callbackUrl=%2Fworkspace%2Fws-1', {
         headers: {
-          cookie: SECURE_SESSION_COOKIE,
           'user-agent': 'vitest',
         },
       })
@@ -163,38 +151,20 @@ describe('proxy auth routing', () => {
     expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('en')
   })
 
-  it('allows the default-locale reauth login route through without proxy-owned cookie cleanup', async () => {
-    process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
-
+  it('keeps localized protected routes at the app auth boundary with a canonical callback header', async () => {
     const { proxy } = await import('./proxy')
     const response = await proxy(
-      new NextRequest(
-        'http://localhost:3000/en/login?reauth=1&callbackUrl=%2Fworkspace%2Fws-1',
-        {
-          headers: {
-            cookie: PLAIN_SESSION_COOKIE,
-            'user-agent': 'vitest',
-          },
-        }
-      )
+      new NextRequest('http://localhost:3000/es/workspace/ws-1/dashboard?layoutId=layout-1', {
+        headers: {
+          'user-agent': 'vitest',
+        },
+      })
     )
 
     expect(response.status).toBe(200)
     expect(response.headers.get('location')).toBeNull()
-    expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('en')
-    expect(response.cookies.get('better-auth.session_token')).toBeUndefined()
-    expect(response.cookies.get('__Secure-better-auth.session_token')).toBeUndefined()
-  })
-
-  it('preserves locale on the login route while keeping callback targets canonical', async () => {
-    const { proxy } = await import('./proxy')
-    const response = await proxy(
-      new NextRequest('http://localhost:3000/es/workspace/ws-1/dashboard?layoutId=layout-1')
-    )
-
-    expect(response.status).toBe(307)
-    expect(response.headers.get('location')).toBe(
-      'http://localhost:3000/es/login?callbackUrl=%2Fworkspace%2Fws-1%2Fdashboard%3FlayoutId%3Dlayout-1'
+    expect(response.headers.get('x-middleware-request-x-tradinggoose-callback-path')).toBe(
+      '/workspace/ws-1/dashboard?layoutId=layout-1'
     )
     expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('es')
   })
@@ -207,14 +177,13 @@ describe('proxy auth routing', () => {
     '/es/verify',
     '/es/sso',
     '/es/error',
-  ])('lets session-cookie auth route %s reach its page boundary', async (pathname) => {
+  ])('lets auth route %s reach its page boundary', async (pathname) => {
     process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
 
     const { proxy } = await import('./proxy')
     const response = await proxy(
       new NextRequest(`http://localhost:3000${pathname}`, {
         headers: {
-          cookie: PLAIN_SESSION_COOKIE,
           'user-agent': 'vitest',
         },
       })
@@ -260,14 +229,14 @@ describe('proxy auth routing', () => {
   it.each([
     ['root', 'http://localhost:3000/?source=nav', 'http://localhost:3000/es?source=nav'],
     ['workspace', 'http://localhost:3000/workspace', 'http://localhost:3000/es/workspace'],
-  ])('redirects session-cookie %s requests to the request locale', async (_, url, location) => {
+  ])('redirects locale-cookie %s requests to the request locale', async (_, url, location) => {
     process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
 
     const { proxy } = await import('./proxy')
     const response = await proxy(
       new NextRequest(url, {
         headers: {
-          cookie: `NEXT_LOCALE=es; ${PLAIN_SESSION_COOKIE}`,
+          cookie: 'NEXT_LOCALE=es',
           'user-agent': 'vitest',
         },
       })
@@ -278,14 +247,14 @@ describe('proxy auth routing', () => {
     expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('es')
   })
 
-  it('keeps session-cookie prefixed requests canonical to the URL locale', async () => {
+  it('keeps locale-cookie prefixed requests canonical to the URL locale', async () => {
     process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
 
     const { proxy } = await import('./proxy')
     const response = await proxy(
       new NextRequest('http://localhost:3000/en/workspace', {
         headers: {
-          cookie: `NEXT_LOCALE=zh; ${PLAIN_SESSION_COOKIE}`,
+          cookie: 'NEXT_LOCALE=zh',
           'user-agent': 'vitest',
         },
       })
@@ -296,7 +265,7 @@ describe('proxy auth routing', () => {
     expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('en')
   })
 
-  it('rewrites session-cookie POST protected requests with the canonical callback header', async () => {
+  it('rewrites POST protected requests with the canonical callback header', async () => {
     process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
 
     const { proxy } = await import('./proxy')
@@ -304,7 +273,7 @@ describe('proxy auth routing', () => {
       new NextRequest('http://localhost:3000/workspace/ws-1/dashboard?layoutId=layout-1', {
         method: 'POST',
         headers: {
-          cookie: `NEXT_LOCALE=es; ${PLAIN_SESSION_COOKIE}`,
+          cookie: 'NEXT_LOCALE=es',
           'user-agent': 'vitest',
         },
       })
@@ -333,7 +302,6 @@ describe('proxy auth routing', () => {
         'http://localhost:3000/es/api/workspaces/invitations/invitation-1?token=abc',
         {
           headers: {
-            cookie: PLAIN_SESSION_COOKIE,
             'user-agent': 'vitest',
           },
         }

@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useWorkspacePermissions } from './use-workspace-permissions'
 
 const mockHandleAuthError = vi.hoisted(() => vi.fn())
+let latestValue: ReturnType<typeof useWorkspacePermissions> | null = null
 
 vi.mock('@/lib/auth/auth-error-handler', () => ({
   handleAuthError: mockHandleAuthError,
@@ -19,7 +20,7 @@ vi.mock('@/i18n/navigation', () => ({
 }))
 
 function WorkspacePermissionsProbe() {
-  useWorkspacePermissions('workspace-401')
+  latestValue = useWorkspacePermissions('workspace-401')
   return null
 }
 
@@ -32,6 +33,7 @@ describe('useWorkspacePermissions', () => {
 
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
+    latestValue = null
     mockHandleAuthError.mockResolvedValue(undefined)
     vi.stubGlobal(
       'fetch',
@@ -62,5 +64,10 @@ describe('useWorkspacePermissions', () => {
       'workspace-permissions',
       '/workspace/workspace-1/dashboard'
     )
+    expect(latestValue).toMatchObject({
+      loading: true,
+      error: null,
+      permissions: null,
+    })
   })
 })

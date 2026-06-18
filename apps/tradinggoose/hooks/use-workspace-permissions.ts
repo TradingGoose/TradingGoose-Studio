@@ -23,6 +23,7 @@ export interface WorkspaceUser {
 export interface WorkspacePermissions {
   users: WorkspaceUser[]
   total: number
+  currentUserPermission: PermissionType
 }
 
 interface UseWorkspacePermissionsReturn {
@@ -49,6 +50,7 @@ interface WorkspacePermissionsStoreState {
   records: Record<string, WorkspacePermissionsRecord>
   inFlight: Partial<Record<string, Promise<void>>>
   setRecord: (workspaceId: string, partial: Partial<WorkspacePermissionsRecord>) => void
+  clearRecord: (workspaceId: string) => void
   fetchPermissions: (
     workspaceId: string,
     options: { callbackPathname: string; force?: boolean }
@@ -77,9 +79,15 @@ const useWorkspacePermissionsStore = create<WorkspacePermissionsStoreState>((set
         },
       }
     }),
+  clearRecord: (workspaceId) =>
+    set((state) => {
+      const records = { ...state.records }
+      delete records[workspaceId]
+      return { records }
+    }),
   fetchPermissions: async (workspaceId, options) => {
     const { callbackPathname, force = false } = options
-    const { records, inFlight, setRecord } = get()
+    const { records, inFlight, setRecord, clearRecord } = get()
 
     if (!force) {
       if (inFlight[workspaceId]) {
@@ -104,7 +112,8 @@ const useWorkspacePermissionsStore = create<WorkspacePermissionsStoreState>((set
           }
           if (isAuthErrorStatus(response.status)) {
             await handleAuthError('workspace-permissions', callbackPathname)
-            throw new Error('Authentication required')
+            clearRecord(workspaceId)
+            return
           }
           throw new Error(`Failed to fetch permissions: ${response.statusText}`)
         }

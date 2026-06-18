@@ -2,8 +2,8 @@
 
 import React, { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Loader2, RotateCw, X } from 'lucide-react'
-import { useLocale } from 'next-intl'
 import { useParams } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,14 +24,14 @@ import { createLogger } from '@/lib/logs/console/logger'
 import type { PermissionType } from '@/lib/permissions/utils'
 import { cn } from '@/lib/utils'
 import {
-  WorkspacePermissionsProvider,
   useUserPermissionsContext,
   useWorkspacePermissionsContext,
+  WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import type { WorkspacePermissions } from '@/hooks/use-workspace-permissions'
+import type { LocaleCode } from '@/i18n/utils'
 import { API_ENDPOINTS } from '@/stores/constants'
-import { type LocaleCode } from '@/i18n/utils'
+import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import type { Workspace } from '../types'
 
 const logger = createLogger('WorkspaceInviteModal')
@@ -134,9 +134,7 @@ const PermissionSelector = React.memo<{
   )
 
   return (
-    <div
-      className={cn('inline-flex rounded-lg border border-input bg-background', className)}
-    >
+    <div className={cn('inline-flex rounded-lg border border-input bg-background', className)}>
       {permissionOptions.map((option, index) => (
         <button
           key={option.value}
@@ -222,10 +220,10 @@ const PermissionsTable = ({
     () =>
       session?.user?.email
         ? existingUsers.find((user) => user.isCurrentUser) || {
-          email: session.user.email,
-          permissionType: 'admin',
-          isCurrentUser: true,
-        }
+            email: session.user.email,
+            permissionType: 'admin',
+            isCurrentUser: true,
+          }
         : null,
     [session?.user?.email, existingUsers]
   )
@@ -320,8 +318,8 @@ const PermissionsTable = ({
                     {isPendingInvitation && (
                       <span className='inline-flex items-center gap-1 rounded-sm bg-gray-100 px-2 py-1 font-medium text-gray-700 text-xs dark:bg-gray-800 dark:text-gray-300'>
                         {resendingInvitationIds &&
-                          user.invitationId &&
-                          resendingInvitationIds[user.invitationId] ? (
+                        user.invitationId &&
+                        resendingInvitationIds[user.invitationId] ? (
                           <>
                             <Loader2 className='h-3.5 w-3.5 animate-spin' />
                             <span>Sending...</span>
@@ -399,36 +397,36 @@ const PermissionsTable = ({
                         currentUserIsAdmin &&
                         user.invitationId &&
                         onRemoveInvitation)) && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant='ghost'
-                              size='icon'
-                              onClick={() => {
-                                if (canShowRemoveButton && onRemoveMember) {
-                                  onRemoveMember(user.userId!, user.email)
-                                } else if (
-                                  isPendingInvitation &&
-                                  user.invitationId &&
-                                  onRemoveInvitation
-                                ) {
-                                  onRemoveInvitation(user.invitationId, user.email)
-                                }
-                              }}
-                              disabled={disabled || isSaving}
-                              className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
-                            >
-                              <X className='h-3.5 w-3.5' />
-                              <span className='sr-only'>
-                                {isPendingInvitation ? 'Revoke invite' : 'Remove member'}
-                              </span>
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{isPendingInvitation ? 'Revoke invite' : 'Remove member'}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant='ghost'
+                            size='icon'
+                            onClick={() => {
+                              if (canShowRemoveButton && onRemoveMember) {
+                                onRemoveMember(user.userId!, user.email)
+                              } else if (
+                                isPendingInvitation &&
+                                user.invitationId &&
+                                onRemoveInvitation
+                              ) {
+                                onRemoveInvitation(user.invitationId, user.email)
+                              }
+                            }}
+                            disabled={disabled || isSaving}
+                            className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
+                          >
+                            <X className='h-3.5 w-3.5' />
+                            <span className='sr-only'>
+                              {isPendingInvitation ? 'Revoke invite' : 'Remove member'}
+                            </span>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{isPendingInvitation ? 'Revoke invite' : 'Remove member'}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
                   </div>
                 </div>
               </div>
@@ -655,8 +653,12 @@ export function WorkspaceInviteModal({
         throw new Error(data.error || 'Failed to update permissions')
       }
 
-      if (data.users && data.total !== undefined) {
-        updatePermissions({ users: data.users, total: data.total })
+      if (data.users && data.total !== undefined && data.currentUserPermission) {
+        updatePermissions({
+          users: data.users,
+          total: data.total,
+          currentUserPermission: data.currentUserPermission,
+        })
       }
 
       setExistingUserPermissionChanges({})
@@ -732,6 +734,7 @@ export function WorkspaceInviteModal({
           (user) => user.userId !== memberToRemove.userId
         )
         updatePermissions({
+          ...workspacePermissions,
           users: updatedUsers,
           total: workspacePermissions.total - 1,
         })
@@ -1047,9 +1050,7 @@ export function WorkspaceInviteModal({
       <AlertDialogContent className='flex max-h-[80vh] flex-col gap-0 sm:max-w-[560px]'>
         <TooltipProvider>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              Invite members to {workspaceName || 'Workspace'}
-            </AlertDialogTitle>
+            <AlertDialogTitle>Invite members to {workspaceName || 'Workspace'}</AlertDialogTitle>
           </AlertDialogHeader>
 
           <form ref={formRef} onSubmit={handleSubmit} className='mt-5'>
@@ -1156,7 +1157,11 @@ export function WorkspaceInviteModal({
               type='button'
               onClick={() => formRef.current?.requestSubmit()}
               disabled={
-                !userPerms.canAdmin || isSubmitting || isSaving || !resolvedWorkspaceId || !hasNewInvites
+                !userPerms.canAdmin ||
+                isSubmitting ||
+                isSaving ||
+                !resolvedWorkspaceId ||
+                !hasNewInvites
               }
               className={cn(
                 'ml-auto flex h-9 items-center justify-center gap-2 rounded-sm px-4 py-2 font-medium transition-all duration-200',

@@ -33,6 +33,13 @@ interface UpdatePermissionsRequest {
   }>
 }
 
+function getCurrentUserPermission(
+  users: Array<{ userId: string; permissionType: PermissionType }>,
+  userId: string
+) {
+  return users.find((user) => user.userId === userId)?.permissionType ?? null
+}
+
 /**
  * GET /api/workspaces/[id]/permissions
  *
@@ -62,10 +69,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const result = await getUsersWithPermissions(workspaceId)
+    const currentUserPermission = getCurrentUserPermission(result, session.user.id)
+
+    if (!currentUserPermission) {
+      throw new Error('Authenticated workspace user missing permission state')
+    }
 
     return NextResponse.json({
       users: result,
       total: result.length,
+      currentUserPermission,
     })
   } catch (error) {
     logger.error('Error fetching workspace permissions:', error)
@@ -167,11 +180,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     })
 
     const updatedUsers = await getUsersWithPermissions(workspaceId)
+    const currentUserPermission = getCurrentUserPermission(updatedUsers, session.user.id)
+
+    if (!currentUserPermission) {
+      throw new Error('Authenticated workspace user missing permission state')
+    }
 
     return NextResponse.json({
       message: 'Permissions updated successfully',
       users: updatedUsers,
       total: updatedUsers.length,
+      currentUserPermission,
     })
   } catch (error) {
     logger.error('Error updating workspace permissions:', error)
