@@ -1,12 +1,17 @@
+import { cookies } from 'next/headers'
 import { getLocale } from 'next-intl/server'
 import { Button } from '@/components/ui/button'
-import { getAuthErrorContent } from '@/lib/auth/auth-error-copy'
+import {
+  AUTH_ERROR_CALLBACK_COOKIE,
+  getAuthErrorContent,
+  normalizeStoredAuthErrorCallback,
+} from '@/lib/auth/auth-error-copy'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { inter } from '@/app/fonts/inter'
 import { Link } from '@/i18n/navigation'
 import { getPublicCopy } from '@/i18n/public-copy'
-import { type LocaleCode } from '@/i18n/utils'
+import type { LocaleCode } from '@/i18n/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,9 +30,12 @@ export default async function AuthErrorPage({
   const resolvedSearchParams = (await searchParams) ?? {}
   const error = getSingleSearchParam(resolvedSearchParams.error)
   const errorDescription = getSingleSearchParam(resolvedSearchParams.error_description)
+  const callbackUrl = normalizeStoredAuthErrorCallback(
+    (await cookies()).get(AUTH_ERROR_CALLBACK_COOKIE)?.value
+  )
   const locale = (await getLocale()) as LocaleCode
   const copy = getPublicCopy(locale)
-  const { code, content } = getAuthErrorContent(copy, error, errorDescription)
+  const { code, content } = getAuthErrorContent(copy, error, errorDescription, callbackUrl)
   const brand = getBrandConfig()
   const supportEmail = brand.supportEmail
   const errorCopy = copy.auth.error
@@ -47,9 +55,7 @@ export default async function AuthErrorPage({
           >
             {errorCopy.codeLabel}
           </p>
-          <code className='mt-2 block break-all font-mono text-[13px] text-foreground'>
-            {code}
-          </code>
+          <code className='mt-2 block break-all font-mono text-[13px] text-foreground'>{code}</code>
         </div>
       ) : null}
 

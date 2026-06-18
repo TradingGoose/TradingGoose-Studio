@@ -3,6 +3,7 @@ import {
   REGISTRATION_WAITLIST_REASON,
 } from '@/lib/registration/shared'
 import type { PublicCopy } from '@/i18n/public-copy'
+import { normalizeCallbackUrl } from '@/i18n/utils'
 
 export interface AuthErrorAction {
   href: string
@@ -24,6 +25,7 @@ const SIGNUP_HREF = '/signup'
 const HOME_HREF = '/'
 const VERIFY_HREF = '/verify'
 const WAITLIST_HREF = '/waitlist'
+export const AUTH_ERROR_CALLBACK_COOKIE = 'tradinggoose_auth_error_callback'
 
 const AUTH_ERROR_GROUP_BY_CODE: Partial<Record<string, AuthErrorGroupKey>> = {
   UNABLE_TO_CREATE_USER: 'accountCreation',
@@ -68,18 +70,52 @@ export function normalizeAuthErrorCode(error: string | null | undefined) {
   return normalized || null
 }
 
-function getAuthErrorActionCopy(localeCopy: PublicCopy) {
+export function normalizeStoredAuthErrorCallback(value: string | null | undefined) {
+  if (!value) {
+    return null
+  }
+
+  try {
+    return normalizeCallbackUrl(decodeURIComponent(value))
+  } catch {
+    return null
+  }
+}
+
+export function rememberAuthErrorCallback(value: string | null | undefined) {
+  if (typeof document === 'undefined') {
+    return
+  }
+
+  const callback = normalizeCallbackUrl(value)
+  if (!callback) {
+    return
+  }
+
+  document.cookie = `${AUTH_ERROR_CALLBACK_COOKIE}=${encodeURIComponent(callback)}; path=/; max-age=600; samesite=lax`
+}
+
+function appendCallbackUrl(href: string, callbackUrl: string | null | undefined) {
+  if (!callbackUrl) {
+    return href
+  }
+
+  const separator = href.includes('?') ? '&' : '?'
+  return `${href}${separator}callbackUrl=${encodeURIComponent(callbackUrl)}`
+}
+
+function getAuthErrorActionCopy(localeCopy: PublicCopy, callbackUrl?: string | null) {
   return {
     login: {
-      href: LOGIN_HREF,
+      href: appendCallbackUrl(LOGIN_HREF, callbackUrl),
       label: localeCopy.auth.common.backToLogin,
     },
     reauthLogin: {
-      href: REAUTH_LOGIN_HREF,
+      href: appendCallbackUrl(REAUTH_LOGIN_HREF, callbackUrl),
       label: localeCopy.auth.common.backToLogin,
     },
     signup: {
-      href: SIGNUP_HREF,
+      href: appendCallbackUrl(SIGNUP_HREF, callbackUrl),
       label: localeCopy.auth.common.backToSignup,
     },
     home: {
@@ -114,12 +150,13 @@ function isSessionRecoveryGroup(groupKey: AuthErrorGroupKey) {
 export function getAuthErrorContent(
   copy: PublicCopy,
   error: string | null | undefined,
-  errorDescription?: string | null
+  errorDescription?: string | null,
+  callbackUrl?: string | null
 ) {
   const code = normalizeAuthErrorCode(error)
   const descriptionCode = normalizeAuthErrorCode(errorDescription)
   const groupKey = resolveAuthErrorGroupKey(code) ?? resolveAuthErrorGroupKey(descriptionCode)
-  const actionCopy = getAuthErrorActionCopy(copy)
+  const actionCopy = getAuthErrorActionCopy(copy, callbackUrl)
   const normalizedDescription = errorDescription?.trim() || null
 
   if (groupKey) {

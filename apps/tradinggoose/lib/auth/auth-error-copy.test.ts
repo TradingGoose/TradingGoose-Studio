@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { getAuthErrorContent, normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
+import {
+  getAuthErrorContent,
+  normalizeAuthErrorCode,
+  normalizeStoredAuthErrorCallback,
+} from '@/lib/auth/auth-error-copy'
 import {
   REGISTRATION_DISABLED_REASON,
   REGISTRATION_WAITLIST_REASON,
@@ -47,6 +51,20 @@ describe('getAuthErrorContent', () => {
     expect(code).toBe(errorCode)
     expect(content.primaryAction.href).toBe('/login?reauth=1')
     expect(content.secondaryAction.href).toBe('/')
+  })
+
+  it('keeps the stored canonical destination on session recovery actions', () => {
+    const callback = normalizeStoredAuthErrorCallback(
+      encodeURIComponent('/invite/invitation-1?token=workspace-token')
+    )
+    const { content } = getAuthErrorContent(copy, 'UNABLE_TO_CREATE_SESSION', null, callback)
+
+    expect(callback).toBe('/invite/invitation-1?token=workspace-token')
+    expect(normalizeStoredAuthErrorCallback(encodeURIComponent('/en/workspace'))).toBeNull()
+    expect(normalizeStoredAuthErrorCallback('https://evil.example/workspace')).toBeNull()
+    expect(content.primaryAction.href).toBe(
+      '/login?reauth=1&callbackUrl=%2Finvite%2Finvitation-1%3Ftoken%3Dworkspace-token'
+    )
   })
 
   it('maps the waitlist registration reason to waitlist recovery copy', () => {

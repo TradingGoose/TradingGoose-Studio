@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import { useMessages } from 'next-intl'
@@ -31,6 +31,7 @@ import { Link, useRouter } from '@/i18n/navigation'
 import { normalizeCallbackUrl } from '@/i18n/utils'
 
 const logger = createLogger('LoginForm')
+const REAUTH_CLEANUP_TIMEOUT_MS = 4000
 
 const validateEmailField = (
   emailValue: string,
@@ -122,23 +123,48 @@ export default function LoginPage({
   const [emailErrors, setEmailErrors] = useState<string[]>([])
   const [showEmailValidationError, setShowEmailValidationError] = useState(false)
   const isReauth = searchParams.get('reauth') === '1'
-  const isReauthCleanupRunningRef = useRef(false)
+  const shouldRunReauthCleanupRef = useRef(isReauth)
+  const reauthCleanupPromiseRef = useRef<Promise<void> | null>(null)
 
-  const runReauthCleanup = useCallback(async () => {
-    if (isReauthCleanupRunningRef.current) {
-      return
+  function runReauthCleanup() {
+    if (reauthCleanupPromiseRef.current) {
+      return reauthCleanupPromiseRef.current
     }
 
-    isReauthCleanupRunningRef.current = true
+    const abortController = new AbortController()
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
+    const signOutPromise = client
+      .signOut({ fetchOptions: { signal: abortController.signal } })
+      .then(() => undefined)
+      .catch((error) => {
+        if (!abortController.signal.aborted) {
+          logger.warn('Reauth sign-out failed', { error })
+        }
+      })
+    const timeoutPromise = new Promise<void>((resolve) => {
+      timeoutId = setTimeout(() => {
+        abortController.abort()
+        resolve()
+      }, REAUTH_CLEANUP_TIMEOUT_MS)
+    })
 
-    try {
-      await client.signOut()
-    } catch (error) {
-      logger.warn('Reauth sign-out failed', { error })
-    } finally {
-      isReauthCleanupRunningRef.current = false
+    const cleanupPromise = Promise.race([signOutPromise, timeoutPromise]).finally(() => {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+      shouldRunReauthCleanupRef.current = false
+      reauthCleanupPromiseRef.current = null
+    })
+
+    reauthCleanupPromiseRef.current = cleanupPromise
+    return cleanupPromise
+  }
+
+  async function prepareAuthStart() {
+    if (shouldRunReauthCleanupRef.current || reauthCleanupPromiseRef.current) {
+      await runReauthCleanup()
     }
-  }, [])
+  }
 
   useEffect(() => {
     if (searchParams) {
@@ -162,10 +188,8 @@ export default function LoginPage({
   }, [searchParams])
 
   useEffect(() => {
-    if (isReauth) {
-      void runReauthCleanup()
-    }
-  }, [isReauth, runReauthCleanup])
+    shouldRunReauthCleanupRef.current = isReauth
+  }, [isReauth])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -310,6 +334,8 @@ export default function LoginPage({
     }
 
     try {
+      await prepareAuthStart()
+
       let requiresReauthCleanup = false
       const result = await client.signIn.email(
         {
@@ -348,6 +374,7 @@ export default function LoginPage({
 
       if (!result || result.error) {
         if (requiresReauthCleanup || isSessionCreationError(result?.error)) {
+          shouldRunReauthCleanupRef.current = true
           void runReauthCleanup()
           setPasswordErrors([loginCopy.errors.unableToSignInNow])
           setShowValidationError(true)
@@ -372,6 +399,7 @@ export default function LoginPage({
         return
       }
       if (isSessionCreationError(err)) {
+        shouldRunReauthCleanupRef.current = true
         void runReauthCleanup()
         setPasswordErrors([loginCopy.errors.unableToSignInNow])
         setShowValidationError(true)
@@ -592,8 +620,15 @@ export default function LoginPage({
             githubAvailable={githubAvailable}
             isProduction={isProduction}
             callbackURL={callbackUrl}
+            beforeSignIn={prepareAuthStart}
           >
-            {ssoEnabled && <SSOLoginButton callbackURL={callbackUrl} variant='outline' />}
+            {ssoEnabled && (
+              <SSOLoginButton
+                callbackURL={callbackUrl}
+                variant='outline'
+                beforeSignIn={prepareAuthStart}
+              />
+            )}
           </SocialLoginButtons>
         </div>
       )}

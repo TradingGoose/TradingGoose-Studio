@@ -170,6 +170,7 @@ describe('auth locale redirects', () => {
       root.unmount()
     })
     container.remove()
+    vi.useRealTimers()
     vi.restoreAllMocks()
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
@@ -267,33 +268,36 @@ describe('auth locale redirects', () => {
     }
   )
 
-  it('keeps login controls available while reauth cleanup is pending', async () => {
+  it('aborts a hanging reauth cleanup before direct login starts', async () => {
+    vi.useFakeTimers()
     testState.searchParams = new URLSearchParams('reauth=1&callbackUrl=%2Fworkspace')
-    mockSignOut.mockReturnValue(new Promise(() => {}))
+    const cleanupSignalRef: { current: AbortSignal | null } = { current: null }
+    mockSignOut.mockImplementation((options) => {
+      cleanupSignalRef.current = options?.fetchOptions?.signal ?? null
+      return new Promise(() => {})
+    })
+    mockSignInEmail.mockResolvedValue({})
 
     await renderLogin()
 
-    expect(mockSignOut).toHaveBeenCalledTimes(1)
-    expect(container.querySelector('#email')).toBeInstanceOf(HTMLInputElement)
-    expect(container.querySelector('#password')).toBeInstanceOf(HTMLInputElement)
+    expect(mockSignOut).not.toHaveBeenCalled()
     expect(container.querySelector('form')).toBeInstanceOf(HTMLFormElement)
-  })
-
-  it('does not start duplicate sign-out requests while reauth cleanup is pending', async () => {
-    testState.searchParams = new URLSearchParams('reauth=1&callbackUrl=%2Fworkspace')
-    mockSignInEmail.mockResolvedValue({ error: { code: 'FAILED_TO_CREATE_SESSION' } })
-    mockSignOut.mockReturnValue(new Promise(() => {}))
-
-    await renderLogin()
-
-    expect(mockSignOut).toHaveBeenCalledTimes(1)
 
     await setInputValue('#email', 'ada@example.com')
     await setInputValue('#password', 'Password1!')
+
     await submitRenderedForm()
 
-    expect(mockSignInEmail).toHaveBeenCalledTimes(1)
     expect(mockSignOut).toHaveBeenCalledTimes(1)
+    expect(mockSignInEmail).not.toHaveBeenCalled()
+
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync()
+      await Promise.resolve()
+    })
+
+    expect(cleanupSignalRef.current?.aborted).toBe(true)
+    expect(mockSignInEmail).toHaveBeenCalledTimes(1)
   })
 
   it('runs reauth cleanup when direct login cannot create a session', async () => {
@@ -308,9 +312,6 @@ describe('auth locale redirects', () => {
 
     expect(mockSignInEmail).toHaveBeenCalledTimes(1)
     expect(mockSignOut).toHaveBeenCalledTimes(1)
-    expect(container.querySelector('#email')).toBeInstanceOf(HTMLInputElement)
-    expect(container.querySelector('#password')).toBeInstanceOf(HTMLInputElement)
-    expect(container.querySelector('form')).toBeInstanceOf(HTMLFormElement)
     expect(container.textContent).toContain(getPublicCopy('en').auth.login.errors.unableToSignInNow)
   })
 

@@ -7,6 +7,7 @@ import { act } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { AUTH_ERROR_CALLBACK_COOKIE } from '@/lib/auth/auth-error-copy'
 import { getPublicCopy } from '@/i18n/public-copy'
 import { SocialLoginButtons } from './components/social-login-buttons'
 import SSOForm from './sso/sso-form'
@@ -107,6 +108,7 @@ describe('auth provider callback routing', () => {
     testState.searchParams = new URLSearchParams()
     mockSocialSignIn.mockResolvedValue({})
     mockSsoSignIn.mockResolvedValue({})
+    document.cookie = `${AUTH_ERROR_CALLBACK_COOKIE}=; path=/; max-age=0`
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -154,6 +156,7 @@ describe('auth provider callback routing', () => {
       callbackURL: '/workspace',
       errorCallbackURL: '/error',
     })
+    expect(document.cookie).toContain(`${AUTH_ERROR_CALLBACK_COOKIE}=%2Fworkspace`)
   })
 
   it('routes SSO callback failures to the auth error page', async () => {
@@ -193,5 +196,6 @@ describe('auth provider callback routing', () => {
       callbackURL: '/workspace',
       errorCallbackURL: '/error',
     })
+    expect(document.cookie).toContain(`${AUTH_ERROR_CALLBACK_COOKIE}=%2Fworkspace`)
   })
 })
