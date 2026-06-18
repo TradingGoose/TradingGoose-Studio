@@ -1,3 +1,5 @@
+import { getBaseUrl } from '@/lib/urls/utils'
+
 const AUTH_COOKIE_BASE_NAMES = [
   'better-auth.session_token',
   'better-auth.session_data',
@@ -5,17 +7,14 @@ const AUTH_COOKIE_BASE_NAMES = [
 ] as const
 
 const SECURE_COOKIE_PREFIX = '__Secure-'
+const AUTH_COOKIE_PREFIX = getBaseUrl().startsWith('https://') ? SECURE_COOKIE_PREFIX : ''
+const AUTH_COOKIE_SECURE = AUTH_COOKIE_PREFIX === SECURE_COOKIE_PREFIX
 
-export const AUTH_COOKIE_NAMES = AUTH_COOKIE_BASE_NAMES.flatMap((name) => [
-  name,
-  `${SECURE_COOKIE_PREFIX}${name}`,
-])
+export const AUTH_SESSION_COOKIE_NAME = `${AUTH_COOKIE_PREFIX}better-auth.session_token`
 
-function isSecureAuthCookieName(name: string) {
-  return name.startsWith(SECURE_COOKIE_PREFIX)
-}
+export const AUTH_COOKIE_NAMES = AUTH_COOKIE_BASE_NAMES.map((name) => `${AUTH_COOKIE_PREFIX}${name}`)
 
-export function getAuthCookieDeletionOptions(name: string) {
+export function getAuthCookieDeletionOptions() {
   const options = {
     httpOnly: true,
     maxAge: 0,
@@ -23,5 +22,5 @@ export function getAuthCookieDeletionOptions(name: string) {
     sameSite: 'lax' as const,
   }
 
-  return isSecureAuthCookieName(name) ? { ...options, secure: true } : options
+  return AUTH_COOKIE_SECURE ? { ...options, secure: true } : options
 }

@@ -1,11 +1,8 @@
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mockGetSessionCookie = vi.fn()
-
-vi.mock('better-auth/cookies', () => ({
-  getSessionCookie: (...args: unknown[]) => mockGetSessionCookie(...args),
-}))
+const PLAIN_SESSION_COOKIE = 'better-auth.session_token=session-cookie'
+const SECURE_SESSION_COOKIE = '__Secure-better-auth.session_token=session-cookie'
 
 vi.mock('./lib/logs/console/logger', () => ({
   createLogger: () => ({
@@ -40,13 +37,10 @@ describe('proxy auth routing', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.resetModules()
-    mockGetSessionCookie.mockReturnValue(undefined)
     process.env.NEXT_PUBLIC_APP_URL = 'https://www.tradinggoose.ai'
   })
 
   it('uses the request host for localhost auth redirects instead of hosted-mode rewrites', async () => {
-    mockGetSessionCookie.mockReturnValue(undefined)
-
     const { proxy } = await import('./proxy')
     const response = await proxy(
       new NextRequest('http://localhost:3000/workspace/ws-1/dashboard?layoutId=layout-1')
@@ -67,8 +61,6 @@ describe('proxy auth routing', () => {
   ])(
     'redirects unprefixed %s routes to the default locale when no preference is present',
     async (_, url, location) => {
-      mockGetSessionCookie.mockReturnValue(undefined)
-
       const { proxy } = await import('./proxy')
       const response = await proxy(
         new NextRequest(url, {
@@ -91,8 +83,6 @@ describe('proxy auth routing', () => {
     ['privacy', 'http://localhost:3000/privacy', 'http://localhost:3000/zh/privacy'],
     ['login', 'http://localhost:3000/login', 'http://localhost:3000/zh/login'],
   ])('redirects anonymous unprefixed %s routes to the locale cookie', async (_, url, location) => {
-    mockGetSessionCookie.mockReturnValue(undefined)
-
     const { proxy } = await import('./proxy')
     const response = await proxy(
       new NextRequest(url, {
@@ -109,8 +99,6 @@ describe('proxy auth routing', () => {
   })
 
   it('redirects anonymous unprefixed protected routes using Accept-Language', async () => {
-    mockGetSessionCookie.mockReturnValue(undefined)
-
     const { proxy } = await import('./proxy')
     const response = await proxy(
       new NextRequest('http://localhost:3000/workspace/ws-1/dashboard', {
@@ -141,31 +129,59 @@ describe('proxy auth routing', () => {
     expect(response.headers.get('x-middleware-rewrite')).toBeNull()
   })
 
+  it('does not treat plain auth cookies as authenticated on HTTPS deployments', async () => {
+    const { proxy } = await import('./proxy')
+    const response = await proxy(
+      new NextRequest('https://www.tradinggoose.ai/workspace/ws-1/dashboard', {
+        headers: {
+          cookie: PLAIN_SESSION_COOKIE,
+        },
+      })
+    )
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get('location')).toBe(
+      'https://www.tradinggoose.ai/en/login?callbackUrl=%2Fworkspace%2Fws-1%2Fdashboard'
+    )
+    expect(response.headers.get('x-middleware-rewrite')).toBeNull()
+  })
+
+  it('accepts the secure auth cookie on HTTPS protected routes', async () => {
+    const { proxy } = await import('./proxy')
+    const response = await proxy(
+      new NextRequest('https://www.tradinggoose.ai/en/workspace', {
+        headers: {
+          cookie: SECURE_SESSION_COOKIE,
+          'user-agent': 'vitest',
+        },
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('location')).toBeNull()
+    expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('en')
+  })
+
   it('allows the default-locale reauth login route through while clearing cookies', async () => {
-    mockGetSessionCookie.mockReturnValue('stale-cookie')
+    process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
 
     const { proxy } = await import('./proxy')
     const response = await proxy(
-      new NextRequest('http://localhost:3000/en/login?reauth=1&callbackUrl=%2Fworkspace%2Fws-1')
+      new NextRequest('http://localhost:3000/en/login?reauth=1&callbackUrl=%2Fworkspace%2Fws-1', {
+        headers: {
+          cookie: PLAIN_SESSION_COOKIE,
+        },
+      })
     )
 
     expect(response.status).toBe(200)
     expect(response.headers.get('location')).toBeNull()
     expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('en')
     expect(response.cookies.get('better-auth.session_token')?.maxAge).toBe(0)
-    expect(response.cookies.get('__Secure-better-auth.session_token')).toMatchObject({
-      maxAge: 0,
-      secure: true,
-    })
-    expect(response.cookies.get('__Secure-better-auth.session_data')).toMatchObject({
-      maxAge: 0,
-      secure: true,
-    })
+    expect(response.cookies.get('__Secure-better-auth.session_token')).toBeUndefined()
   })
 
   it('preserves locale on the login route while keeping callback targets canonical', async () => {
-    mockGetSessionCookie.mockReturnValue(undefined)
-
     const { proxy } = await import('./proxy')
     const response = await proxy(
       new NextRequest('http://localhost:3000/es/workspace/ws-1/dashboard?layoutId=layout-1')
@@ -187,12 +203,13 @@ describe('proxy auth routing', () => {
     '/es/sso',
     '/es/error',
   ])('lets session-cookie auth route %s reach its page boundary', async (pathname) => {
-    mockGetSessionCookie.mockReturnValue('session-cookie')
+    process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
 
     const { proxy } = await import('./proxy')
     const response = await proxy(
       new NextRequest(`http://localhost:3000${pathname}`, {
         headers: {
+          cookie: PLAIN_SESSION_COOKIE,
           'user-agent': 'vitest',
         },
       })
@@ -204,8 +221,6 @@ describe('proxy auth routing', () => {
   })
 
   it('keeps default-locale prefixed routes canonical', async () => {
-    mockGetSessionCookie.mockReturnValue(undefined)
-
     const { proxy } = await import('./proxy')
     const response = await proxy(
       new NextRequest('http://localhost:3000/en/login', {
@@ -222,8 +237,6 @@ describe('proxy auth routing', () => {
   })
 
   it('lets next-intl handle localized landing routes canonically', async () => {
-    mockGetSessionCookie.mockReturnValue(undefined)
-
     const { proxy } = await import('./proxy')
     const response = await proxy(
       new NextRequest('http://localhost:3000/es', {
@@ -243,13 +256,13 @@ describe('proxy auth routing', () => {
     ['root', 'http://localhost:3000/?source=nav', 'http://localhost:3000/es?source=nav'],
     ['workspace', 'http://localhost:3000/workspace', 'http://localhost:3000/es/workspace'],
   ])('redirects session-cookie %s requests to the request locale', async (_, url, location) => {
-    mockGetSessionCookie.mockReturnValue('session-cookie')
+    process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
 
     const { proxy } = await import('./proxy')
     const response = await proxy(
       new NextRequest(url, {
         headers: {
-          cookie: 'NEXT_LOCALE=es',
+          cookie: `NEXT_LOCALE=es; ${PLAIN_SESSION_COOKIE}`,
           'user-agent': 'vitest',
         },
       })
@@ -261,13 +274,13 @@ describe('proxy auth routing', () => {
   })
 
   it('keeps session-cookie prefixed requests canonical to the URL locale', async () => {
-    mockGetSessionCookie.mockReturnValue('session-cookie')
+    process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
 
     const { proxy } = await import('./proxy')
     const response = await proxy(
       new NextRequest('http://localhost:3000/en/workspace', {
         headers: {
-          cookie: 'NEXT_LOCALE=zh',
+          cookie: `NEXT_LOCALE=zh; ${PLAIN_SESSION_COOKIE}`,
           'user-agent': 'vitest',
         },
       })
@@ -279,14 +292,14 @@ describe('proxy auth routing', () => {
   })
 
   it('rewrites session-cookie POST protected requests with the canonical callback header', async () => {
-    mockGetSessionCookie.mockReturnValue('session-cookie')
+    process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
 
     const { proxy } = await import('./proxy')
     const response = await proxy(
       new NextRequest('http://localhost:3000/workspace/ws-1/dashboard?layoutId=layout-1', {
         method: 'POST',
         headers: {
-          cookie: 'NEXT_LOCALE=es',
+          cookie: `NEXT_LOCALE=es; ${PLAIN_SESSION_COOKIE}`,
           'user-agent': 'vitest',
         },
       })
@@ -307,7 +320,7 @@ describe('proxy auth routing', () => {
   })
 
   it('does not rewrite localized API-shaped paths to canonical API routes', async () => {
-    mockGetSessionCookie.mockReturnValue('session-cookie')
+    process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
 
     const { proxy } = await import('./proxy')
     const response = await proxy(
@@ -315,6 +328,7 @@ describe('proxy auth routing', () => {
         'http://localhost:3000/es/api/workspaces/invitations/invitation-1?token=abc',
         {
           headers: {
+            cookie: PLAIN_SESSION_COOKIE,
             'user-agent': 'vitest',
           },
         }
@@ -328,8 +342,6 @@ describe('proxy auth routing', () => {
   })
 
   it('exempts canonical webhook trigger API requests from suspicious user-agent filtering', async () => {
-    mockGetSessionCookie.mockReturnValue(undefined)
-
     const { proxy } = await import('./proxy')
     const response = await proxy(
       new NextRequest('http://localhost:3000/api/webhooks/trigger/webhook-1', {
@@ -345,8 +357,6 @@ describe('proxy auth routing', () => {
   })
 
   it('does not exempt localized API-shaped webhook paths from suspicious user-agent filtering', async () => {
-    mockGetSessionCookie.mockReturnValue(undefined)
-
     const { proxy } = await import('./proxy')
     const response = await proxy(
       new NextRequest('http://localhost:3000/es/api/webhooks/trigger/webhook-1', {
@@ -361,8 +371,6 @@ describe('proxy auth routing', () => {
   })
 
   it('rewrites default-locale markdown requests with the normalized content path', async () => {
-    mockGetSessionCookie.mockReturnValue(undefined)
-
     const { proxy } = await import('./proxy')
     const response = await proxy(
       new NextRequest('http://localhost:3000/en/terms', {

@@ -1,4 +1,3 @@
-import { getSessionCookie } from 'better-auth/cookies'
 import { type NextRequest, NextResponse } from 'next/server'
 import createMiddleware from 'next-intl/middleware'
 import { appendHomepageDiscoveryLinks } from '@/lib/discovery/link-headers'
@@ -22,7 +21,11 @@ import {
 } from '@/i18n/utils'
 import { createLogger } from './lib/logs/console/logger'
 import { generateRuntimeCSP } from './lib/security/csp'
-import { AUTH_COOKIE_NAMES, getAuthCookieDeletionOptions } from './lib/auth/cookies'
+import {
+  AUTH_COOKIE_NAMES,
+  AUTH_SESSION_COOKIE_NAME,
+  getAuthCookieDeletionOptions,
+} from './lib/auth/cookies'
 
 const logger = createLogger('Proxy')
 const handleI18nRouting = createMiddleware(routing)
@@ -30,11 +33,12 @@ const handleI18nRouting = createMiddleware(routing)
 const REAUTH_CLEANUP_ROUTE = '/login'
 
 function clearAuthCookies(response: NextResponse) {
+  const deletionOptions = getAuthCookieDeletionOptions()
   AUTH_COOKIE_NAMES.forEach((name) => {
     response.cookies.set({
       name,
       value: '',
-      ...getAuthCookieDeletionOptions(name),
+      ...deletionOptions,
     })
   })
 }
@@ -294,7 +298,7 @@ function handleSecurityFiltering(request: NextRequest): NextResponse | null {
 export async function proxy(request: NextRequest) {
   const url = request.nextUrl
   const initialRoute = resolveLocaleRoute(url.pathname)
-  const hasSessionCookie = Boolean(getSessionCookie(request))
+  const hasSessionCookie = Boolean(request.cookies.get(AUTH_SESSION_COOKIE_NAME)?.value)
   const route = resolveCanonicalLocaleRoute(request, initialRoute)
   const { locale, pathname: normalizedPathname } = route
 
