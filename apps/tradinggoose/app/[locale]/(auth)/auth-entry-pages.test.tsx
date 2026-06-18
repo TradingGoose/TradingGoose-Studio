@@ -1,12 +1,14 @@
 import type React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { getAuthErrorCallbackPath } from '@/lib/auth/auth-error-copy'
 
 const mockGetLocale = vi.fn()
 const mockGetSession = vi.fn()
 const mockRedirect = vi.fn((url: string) => {
   throw new Error(`redirect:${url}`)
 })
+const mockGetBrandConfig = vi.fn()
 const mockGetOAuthProviderStatus = vi.fn()
 const mockGetRegistrationModeForRender = vi.fn()
 
@@ -16,6 +18,10 @@ vi.mock('next-intl/server', () => ({
 
 vi.mock('@/lib/auth', () => ({
   getSession: (...args: unknown[]) => mockGetSession(...args),
+}))
+
+vi.mock('@/lib/branding/branding', () => ({
+  getBrandConfig: () => mockGetBrandConfig(),
 }))
 
 vi.mock('@/i18n/navigation', () => ({
@@ -77,6 +83,7 @@ describe('localized auth entry pages', () => {
       isProduction: false,
     })
     mockGetRegistrationModeForRender.mockResolvedValue('open')
+    mockGetBrandConfig.mockReturnValue({ supportEmail: 'support@tradinggoose.ai' })
   })
 
   it('redirects login to the localized workspace when a session is present', async () => {
@@ -148,5 +155,23 @@ describe('localized auth entry pages', () => {
     expect(markup).toContain('data-testid="signup-form"')
     expect(markup).toContain('data-registration-mode="open"')
     expect(mockRedirect).not.toHaveBeenCalled()
+  })
+
+  it('keeps provider error callback state in the per-flow error URL', async () => {
+    const callbackPath = getAuthErrorCallbackPath('/invite/invitation-1?token=workspace-token')
+    const ErrorPage = (await import('./error/[[...callback]]/page')).default
+
+    const result = await ErrorPage({
+      params: Promise.resolve({
+        callback: callbackPath?.split('/').filter(Boolean).slice(1),
+      }),
+      searchParams: Promise.resolve({ error: 'UNABLE_TO_CREATE_SESSION' }),
+    })
+    const markup = renderToStaticMarkup(result)
+
+    expect(markup).toContain(
+      '/login?reauth=1&amp;callbackUrl=%2Finvite%2Finvitation-1%3Ftoken%3Dworkspace-token'
+    )
+    expect(markup).not.toContain('document.cookie')
   })
 })

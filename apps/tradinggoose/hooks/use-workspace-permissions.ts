@@ -3,7 +3,7 @@
 import { useCallback, useEffect } from 'react'
 import type { permissionTypeEnum } from '@tradinggoose/db/schema'
 import { createWithEqualityFn as create } from 'zustand/traditional'
-import { handleAuthError } from '@/lib/auth/auth-error-handler'
+import { handleAuthError, isAuthErrorStatus } from '@/lib/auth/auth-error-handler'
 import { createLogger } from '@/lib/logs/console/logger'
 import { usePathname } from '@/i18n/navigation'
 import { API_ENDPOINTS } from '@/stores/constants'
@@ -102,7 +102,7 @@ const useWorkspacePermissionsStore = create<WorkspacePermissionsStoreState>((set
           if (response.status === 404) {
             throw new Error('Workspace not found or access denied')
           }
-          if (response.status === 401) {
+          if (isAuthErrorStatus(response.status)) {
             await handleAuthError('workspace-permissions', callbackPathname)
             throw new Error('Authentication required')
           }
@@ -153,7 +153,7 @@ const useWorkspacePermissionsStore = create<WorkspacePermissionsStoreState>((set
 }))
 
 export function useWorkspacePermissions(workspaceId: string | null): UseWorkspacePermissionsReturn {
-  const pathname = usePathname()
+  const callbackPathname = usePathname()
   const record = useWorkspacePermissionsStore((state) =>
     workspaceId ? state.records[workspaceId] : undefined
   )
@@ -164,15 +164,15 @@ export function useWorkspacePermissions(workspaceId: string | null): UseWorkspac
     if (!workspaceId) {
       return () => {}
     }
-    fetchPermissions(workspaceId, { callbackPathname: pathname }).catch((error) => {
+    fetchPermissions(workspaceId, { callbackPathname }).catch((error) => {
       logger.error('Failed to load workspace permissions', { workspaceId, error })
     })
-  }, [workspaceId, fetchPermissions, pathname])
+  }, [workspaceId, callbackPathname, fetchPermissions])
 
   const refetch = useCallback(async () => {
     if (!workspaceId) return
-    await fetchPermissions(workspaceId, { callbackPathname: pathname, force: true })
-  }, [workspaceId, fetchPermissions, pathname])
+    await fetchPermissions(workspaceId, { callbackPathname, force: true })
+  }, [workspaceId, callbackPathname, fetchPermissions])
 
   const updatePermissions = useCallback(
     (newPermissions: WorkspacePermissions) => {

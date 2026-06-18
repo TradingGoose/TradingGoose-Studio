@@ -1,15 +1,16 @@
 'use client'
 
+import { useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { getEnv, isTruthy } from '@/lib/env'
 import { cn } from '@/lib/utils'
-import { useMessages } from 'next-intl'
 import { useRouter } from '@/i18n/navigation'
 import { normalizeCallbackUrl } from '@/i18n/utils'
 
 interface SSOLoginButtonProps {
   callbackURL?: string
   className?: string
+  beforeSignIn?: () => Promise<void>
   // Visual variant for button styling and placement contexts
   // - 'primary' matches the main auth action button style
   // - 'outline' matches social provider buttons
@@ -19,6 +20,7 @@ interface SSOLoginButtonProps {
 export function SSOLoginButton({
   callbackURL,
   className,
+  beforeSignIn,
   variant = 'outline',
 }: SSOLoginButtonProps) {
   const router = useRouter()
@@ -31,7 +33,8 @@ export function SSOLoginButton({
 
   const resolvedCallbackURL = callbackURL ? normalizeCallbackUrl(callbackURL) : undefined
 
-  const handleSSOClick = () => {
+  const handleSSOClick = async () => {
+    await beforeSignIn?.()
     const ssoUrl = `/sso${
       resolvedCallbackURL ? `?callbackUrl=${encodeURIComponent(resolvedCallbackURL)}` : ''
     }`

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { editWorkflowBlockServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow-block'
 
 vi.mock('@/lib/workflows/validation', () => ({
   validateWorkflowState: (state: any) => ({
@@ -7,6 +8,17 @@ vi.mock('@/lib/workflows/validation', () => ({
     warnings: [],
     sanitizedState: state,
   }),
+}))
+
+vi.mock('@/blocks', () => ({
+  getBlock: (blockType: string) =>
+    blockType === 'function'
+      ? {
+          type: 'function',
+          name: 'Function',
+          subBlocks: [{ id: 'code', type: 'code' }],
+        }
+      : undefined,
 }))
 
 const CURRENT_WORKFLOW_STATE = JSON.stringify({
@@ -35,10 +47,6 @@ const CURRENT_WORKFLOW_STATE = JSON.stringify({
 
 describe('editWorkflowBlockServerTool', () => {
   it('patches only the selected block config and preserves the workflow document envelope', async () => {
-    const { editWorkflowBlockServerTool } = await import(
-      '@/lib/copilot/tools/server/workflow/edit-workflow-block'
-    )
-
     const result = await editWorkflowBlockServerTool.execute(
       {
         entityId: 'wf-1',
@@ -60,10 +68,6 @@ describe('editWorkflowBlockServerTool', () => {
   })
 
   it('rejects non-canonical sub-block ids with structured issues', async () => {
-    const { editWorkflowBlockServerTool } = await import(
-      '@/lib/copilot/tools/server/workflow/edit-workflow-block'
-    )
-
     await expect(
       editWorkflowBlockServerTool.execute(
         {

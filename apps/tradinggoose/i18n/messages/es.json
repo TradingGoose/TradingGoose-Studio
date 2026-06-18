@@ -238,7 +238,6 @@
         "noAccount": "No se encontró ninguna cuenta con este correo electrónico. Regístrese primero.",
         "missingCredentials": "Por favor, ingrese tanto el correo electrónico como la contraseña.",
         "emailPasswordDisabled": "El inicio de sesión con correo electrónico y contraseña está deshabilitado.",
-        "failedToCreateSession": "Error al crear la sesión. Intente nuevamente más tarde.",
         "tooManyAttempts": "Demasiados intentos de inicio de sesión. Intente nuevamente más tarde o restablezca su contraseña.",
         "accountLocked": "Su cuenta ha sido bloqueada por seguridad. Restablezca su contraseña.",
         "network": "Error de red. Verifique su conexión e intente nuevamente.",

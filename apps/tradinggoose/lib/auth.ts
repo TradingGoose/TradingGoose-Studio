@@ -433,10 +433,6 @@ export const auth = betterAuth({
     schema,
   }),
   session: {
-    cookieCache: {
-      enabled: true,
-      maxAge: 24 * 60 * 60, // 24 hours in seconds
-    },
     expiresIn: 30 * 24 * 60 * 60, // 30 days (how long a session can last overall)
     updateAge: 24 * 60 * 60, // 24 hours (how often to refresh the expiry)
     freshAge: 60 * 60, // 1 hour (or set to 0 to disable completely)
@@ -646,7 +642,6 @@ export const auth = betterAuth({
     }),
   },
   plugins: [
-    nextCookies(),
     oneTimeToken({
       expiresIn: 24 * 60 * 60, // 24 hours - Socket.IO handles connection persistence with heartbeats
     }),
@@ -1806,6 +1801,7 @@ export const auth = betterAuth({
         },
       },
     }),
+    nextCookies(),
   ],
   onAPIError: {
     errorURL: '/error',
@@ -1818,15 +1814,11 @@ export const auth = betterAuth({
   },
 })
 
-export async function getSession(
-  headersOverride?: Headers,
-  options?: { disableCookieCache?: boolean }
-) {
+export async function getSession(headersOverride?: Headers) {
   const hdrs = headersOverride ?? (await headers())
   try {
     return await auth.api.getSession({
       headers: hdrs,
-      ...(options ? { query: options } : {}),
     })
   } catch (error) {
     logger.warn('Failed to fetch session', { error })

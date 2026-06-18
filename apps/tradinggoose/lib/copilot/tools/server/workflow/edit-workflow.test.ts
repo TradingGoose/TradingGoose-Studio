@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { editWorkflowServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow'
 import { WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 
 vi.mock('@/lib/workflows/validation', () => ({
@@ -55,10 +56,6 @@ function graph(lines: string[]): string {
 
 describe('editWorkflowServerTool', () => {
   it('connects existing blocks without rewriting block internals', async () => {
-    const { editWorkflowServerTool } = await import(
-      '@/lib/copilot/tools/server/workflow/edit-workflow'
-    )
-
     const result = await editWorkflowServerTool.execute(
       {
         entityId: 'wf-1',
@@ -88,10 +85,6 @@ describe('editWorkflowServerTool', () => {
   })
 
   it('rejects existing block label renames instead of ignoring them', async () => {
-    const { editWorkflowServerTool } = await import(
-      '@/lib/copilot/tools/server/workflow/edit-workflow'
-    )
-
     await expect(
       editWorkflowServerTool.execute(
         {
@@ -126,10 +119,6 @@ describe('editWorkflowServerTool', () => {
   })
 
   it('rejects existing block type changes instead of treating them as replacements', async () => {
-    const { editWorkflowServerTool } = await import(
-      '@/lib/copilot/tools/server/workflow/edit-workflow'
-    )
-
     await expect(
       editWorkflowServerTool.execute(
         {
@@ -150,10 +139,6 @@ describe('editWorkflowServerTool', () => {
   })
 
   it('adds new blocks with canonical block defaults from metadata-only labels', async () => {
-    const { editWorkflowServerTool } = await import(
-      '@/lib/copilot/tools/server/workflow/edit-workflow'
-    )
-
     const result = await editWorkflowServerTool.execute(
       {
         entityId: 'wf-1',
@@ -189,10 +174,6 @@ describe('editWorkflowServerTool', () => {
   })
 
   it('places new blocks after existing siblings regardless of Mermaid order', async () => {
-    const { editWorkflowServerTool } = await import(
-      '@/lib/copilot/tools/server/workflow/edit-workflow'
-    )
-
     const result = await editWorkflowServerTool.execute(
       {
         entityId: 'wf-1',
@@ -211,10 +192,6 @@ describe('editWorkflowServerTool', () => {
   })
 
   it('preserves existing block absolute position when moving into a container', async () => {
-    const { editWorkflowServerTool } = await import(
-      '@/lib/copilot/tools/server/workflow/edit-workflow'
-    )
-
     const result = await editWorkflowServerTool.execute(
       {
         entityId: 'wf-1',
@@ -254,10 +231,6 @@ describe('editWorkflowServerTool', () => {
   })
 
   it('rejects block-internal fields in graph-only workflow edits', async () => {
-    const { editWorkflowServerTool } = await import(
-      '@/lib/copilot/tools/server/workflow/edit-workflow'
-    )
-
     await expect(
       editWorkflowServerTool.execute(
         {
@@ -276,10 +249,6 @@ describe('editWorkflowServerTool', () => {
   })
 
   it('rejects omitted existing blocks without explicit removedBlockIds', async () => {
-    const { editWorkflowServerTool } = await import(
-      '@/lib/copilot/tools/server/workflow/edit-workflow'
-    )
-
     await expect(
       editWorkflowServerTool.execute(
         {
@@ -298,10 +267,6 @@ describe('editWorkflowServerTool', () => {
   })
 
   it('removes omitted blocks only when removedBlockIds declares intent', async () => {
-    const { editWorkflowServerTool } = await import(
-      '@/lib/copilot/tools/server/workflow/edit-workflow'
-    )
-
     const result = await editWorkflowServerTool.execute(
       {
         entityId: 'wf-1',
@@ -337,10 +302,6 @@ describe('editWorkflowServerTool', () => {
   })
 
   it('rejects removedBlockIds that still appear in the graph', async () => {
-    const { editWorkflowServerTool } = await import(
-      '@/lib/copilot/tools/server/workflow/edit-workflow'
-    )
-
     await expect(
       editWorkflowServerTool.execute(
         {
@@ -359,10 +320,6 @@ describe('editWorkflowServerTool', () => {
   })
 
   it('rejects old TG metadata comments in mutation input', async () => {
-    const { editWorkflowServerTool } = await import(
-      '@/lib/copilot/tools/server/workflow/edit-workflow'
-    )
-
     await expect(
       editWorkflowServerTool.execute(
         {

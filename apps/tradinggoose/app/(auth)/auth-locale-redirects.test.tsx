@@ -110,7 +110,11 @@ vi.mock('@/components/ui/label', () => ({
     ...props
   }: React.LabelHTMLAttributes<HTMLLabelElement> & {
     children?: React.ReactNode
-  }) => <label {...props}>{children}</label>,
+  }) => (
+    <label {...props} htmlFor={props.htmlFor ?? 'test-field'}>
+      {children}
+    </label>
+  ),
 }))
 
 vi.mock('@/components/ui/dialog', () => ({
@@ -166,6 +170,7 @@ describe('auth locale redirects', () => {
       root.unmount()
     })
     container.remove()
+    vi.useRealTimers()
     vi.restoreAllMocks()
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
@@ -208,6 +213,18 @@ describe('auth locale redirects', () => {
     })
   }
 
+  async function renderLogin(locale: 'en' | 'es' | 'zh' = 'en') {
+    await renderWithLocale(
+      locale,
+      <LoginPage
+        githubAvailable={false}
+        googleAvailable={false}
+        isProduction={false}
+        registrationMode='open'
+      />
+    )
+  }
+
   it.each(['es', 'zh'] as const)(
     'pushes the canonical verify path after signup for %s',
     async (locale) => {
@@ -241,15 +258,7 @@ describe('auth locale redirects', () => {
     async (locale) => {
       mockSignInEmail.mockRejectedValue({ code: 'EMAIL_NOT_VERIFIED' })
 
-      await renderWithLocale(
-        locale,
-        <LoginPage
-          githubAvailable={false}
-          googleAvailable={false}
-          isProduction={false}
-          registrationMode='open'
-        />
-      )
+      await renderLogin(locale)
 
       await setInputValue('#email', 'ada@example.com')
       await setInputValue('#password', 'Password1!')
@@ -259,21 +268,73 @@ describe('auth locale redirects', () => {
     }
   )
 
-  it('signs out through Better Auth when rendering a reauth login route', async () => {
+  it('runs reauth cleanup on arrival and waits before direct login starts', async () => {
+    vi.useFakeTimers()
     testState.searchParams = new URLSearchParams('reauth=1&callbackUrl=%2Fworkspace')
-    mockSignOut.mockResolvedValue({ data: null })
+    const cleanupSignalRef: { current: AbortSignal | null } = { current: null }
+    mockSignOut.mockImplementation((options) => {
+      cleanupSignalRef.current = options?.fetchOptions?.signal ?? null
+      return new Promise(() => {})
+    })
+    mockSignInEmail.mockResolvedValue({})
 
-    await renderWithLocale(
-      'en',
-      <LoginPage
-        githubAvailable={false}
-        googleAvailable={false}
-        isProduction={false}
-        registrationMode='open'
-      />
-    )
+    await renderLogin()
 
     expect(mockSignOut).toHaveBeenCalledTimes(1)
+    expect(container.querySelector('form')).toBeInstanceOf(HTMLFormElement)
+
+    await setInputValue('#email', 'ada@example.com')
+    await setInputValue('#password', 'Password1!')
+
+    await submitRenderedForm()
+
+    expect(mockSignInEmail).not.toHaveBeenCalled()
+
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync()
+      await Promise.resolve()
+    })
+
+    expect(cleanupSignalRef.current?.aborted).toBe(true)
+    expect(mockSignInEmail).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    'FAILED_TO_CREATE_SESSION',
+    'UNABLE_TO_CREATE_SESSION',
+    'FAILED_TO_GET_SESSION',
+    'SESSION_EXPIRED',
+  ])('runs reauth cleanup when direct login returns %s', async (errorCode) => {
+    mockSignInEmail.mockResolvedValue({ error: { code: errorCode } })
+    mockSignOut.mockReturnValue(new Promise(() => {}))
+
+    await renderLogin()
+
+    await setInputValue('#email', 'ada@example.com')
+    await setInputValue('#password', 'Password1!')
+    await submitRenderedForm()
+
+    expect(mockSignInEmail).toHaveBeenCalledTimes(1)
+    expect(mockSignOut).toHaveBeenCalledTimes(1)
+    expect(container.textContent).toContain(getPublicCopy('en').auth.login.errors.unableToSignInNow)
+  })
+
+  it('keeps invalid credential failures on the login form', async () => {
+    mockSignInEmail.mockResolvedValue({
+      error: { code: 'INVALID_CREDENTIALS', status: 401 },
+    })
+
+    await renderLogin()
+
+    await setInputValue('#email', 'ada@example.com')
+    await setInputValue('#password', 'wrong-password')
+    await submitRenderedForm()
+
+    expect(mockSignOut).not.toHaveBeenCalled()
+    expect(container.querySelector('form')).toBeInstanceOf(HTMLFormElement)
+    expect(container.textContent).toContain(
+      getPublicCopy('en').auth.login.errors.invalidCredentials
+    )
   })
 
   it('pushes the canonical signup path from the verify screen back action', async () => {
@@ -295,11 +356,7 @@ describe('auth locale redirects', () => {
 
     await renderWithLocale(
       'en',
-      <VerifyContent
-        hasEmailService
-        isProduction={false}
-        isEmailVerificationEnabled
-      />
+      <VerifyContent hasEmailService isProduction={false} isEmailVerificationEnabled />
     )
 
     const backButton = Array.from(container.querySelectorAll('button')).find(

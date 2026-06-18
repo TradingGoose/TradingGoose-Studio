@@ -1,33 +1,34 @@
 import { getLocale } from 'next-intl/server'
 import { Button } from '@/components/ui/button'
-import { getAuthErrorContent } from '@/lib/auth/auth-error-copy'
+import { getAuthErrorContent, normalizeAuthErrorCallbackSegments } from '@/lib/auth/auth-error-copy'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { inter } from '@/app/fonts/inter'
 import { Link } from '@/i18n/navigation'
 import { getPublicCopy } from '@/i18n/public-copy'
-import { type LocaleCode } from '@/i18n/utils'
-
-export const dynamic = 'force-dynamic'
+import type { LocaleCode } from '@/i18n/utils'
 
 function getSingleSearchParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value
 }
 
 export default async function AuthErrorPage({
+  params,
   searchParams,
 }: {
+  params?: Promise<{ callback?: string[] }>
   searchParams?: Promise<{
     error?: string | string[]
     error_description?: string | string[]
   }>
 }) {
-  const resolvedSearchParams = (await searchParams) ?? {}
-  const error = getSingleSearchParam(resolvedSearchParams.error)
-  const errorDescription = getSingleSearchParam(resolvedSearchParams.error_description)
+  const [resolvedParams, resolvedSearchParams] = await Promise.all([params, searchParams])
+  const error = getSingleSearchParam(resolvedSearchParams?.error)
+  const errorDescription = getSingleSearchParam(resolvedSearchParams?.error_description)
+  const callbackUrl = normalizeAuthErrorCallbackSegments(resolvedParams?.callback)
   const locale = (await getLocale()) as LocaleCode
   const copy = getPublicCopy(locale)
-  const { code, content } = getAuthErrorContent(copy, error, errorDescription)
+  const { code, content } = getAuthErrorContent(copy, error, errorDescription, callbackUrl)
   const brand = getBrandConfig()
   const supportEmail = brand.supportEmail
   const errorCopy = copy.auth.error
@@ -47,9 +48,7 @@ export default async function AuthErrorPage({
           >
             {errorCopy.codeLabel}
           </p>
-          <code className='mt-2 block break-all font-mono text-[13px] text-foreground'>
-            {code}
-          </code>
+          <code className='mt-2 block break-all font-mono text-[13px] text-foreground'>{code}</code>
         </div>
       ) : null}
 
