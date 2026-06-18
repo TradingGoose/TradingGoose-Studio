@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic'
 export default async function LoginPage() {
   const [locale, session] = await Promise.all([
     getLocale(),
-    getSession(undefined, { disableCookieCache: true }),
+    getSession(),
   ])
 
   if (session?.user?.id) {

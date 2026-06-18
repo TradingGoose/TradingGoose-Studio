@@ -15,7 +15,7 @@ export default async function WorkspaceLayout({
   const { locale: routeLocale, workspaceId } = await params
   const locale = routeLocale as LocaleCode
   const requestHeaders = await headers()
-  const session = await getSession(requestHeaders, { disableCookieCache: true })
+  const session = await getSession(requestHeaders)
   const userId = session?.user?.id
 
   if (!userId) {
