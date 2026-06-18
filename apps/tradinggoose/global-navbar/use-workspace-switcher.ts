@@ -55,12 +55,8 @@ export function useWorkspaceSwitcher({
         return
       }
 
-      const data = await response.json()
-      const items = ((data.workspaces ?? []) as Workspace[]).map((workspace) => ({
-        ...workspace,
-        permissions: workspace.permissions ?? 'admin',
-        role: workspace.role ?? (workspace.permissions === 'admin' ? 'owner' : 'member'),
-      }))
+      const data = (await response.json()) as { workspaces?: Workspace[] }
+      const items = data.workspaces ?? []
 
       setWorkspaces(items)
 
@@ -131,15 +127,11 @@ export function useWorkspaceSwitcher({
         throw new Error(error?.error ?? 'Failed to create workspace')
       }
 
-      const data = await response.json()
+      const data = (await response.json()) as { workspace?: Workspace }
       await fetchWorkspaces()
 
       if (data.workspace) {
-        await handleSwitchWorkspace({
-          ...data.workspace,
-          permissions: data.workspace.permissions ?? 'admin',
-          role: data.workspace.role ?? 'owner',
-        } satisfies Workspace)
+        await handleSwitchWorkspace(data.workspace)
       }
     } catch (error) {
       console.error('Error creating workspace:', error)

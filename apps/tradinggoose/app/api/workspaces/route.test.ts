@@ -135,6 +135,16 @@ describe('Workspaces API Route', () => {
     vi.clearAllMocks()
   })
 
+  async function postWorkspace() {
+    const { POST } = await import('@/app/api/workspaces/route')
+    return POST(
+      new Request('http://localhost/api/workspaces', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'New Workspace' }),
+      })
+    )
+  }
+
   it('returns an empty list without creating a default workspace when autoCreate=false', async () => {
     const { GET } = await import('@/app/api/workspaces/route')
 
@@ -217,24 +227,52 @@ describe('Workspaces API Route', () => {
     expect(transactionMock).not.toHaveBeenCalled()
   })
 
-  it('removes a newly created workspace when default workflow persistence fails', async () => {
-    mockSaveWorkflowToNormalizedTables.mockResolvedValue({
-      success: false,
-      error: 'Failed to persist normalized workflow state',
-    })
+  it('auto-creates a default workspace with the canonical workspace shape', async () => {
+    const { GET } = await import('@/app/api/workspaces/route')
 
-    const { POST } = await import('@/app/api/workspaces/route')
-    const response = await POST(
-      new Request('http://localhost/api/workspaces', {
-        method: 'POST',
-        body: JSON.stringify({ name: 'New Workspace' }),
-      })
-    )
+    const response = await GET(new NextRequest('http://localhost/api/workspaces'))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.workspaces).toEqual([
+      expect.objectContaining({
+        name: "Bruz's Workspace",
+        role: 'owner',
+        permissions: 'admin',
+        billingOwner: {
+          type: 'user',
+          userId: 'user-1',
+        },
+      }),
+    ])
+    expect(transactionMock).toHaveBeenCalled()
+    expect(updateMock).toHaveBeenCalled()
+  })
+
+  it.each([
+    [
+      'persistence fails',
+      () =>
+        mockSaveWorkflowToNormalizedTables.mockResolvedValue({
+          success: false,
+          error: 'Failed to persist normalized workflow state',
+        }),
+    ],
+    [
+      'persistence throws',
+      () => mockSaveWorkflowToNormalizedTables.mockRejectedValue(new Error('database unavailable')),
+    ],
+    [
+      'Yjs seeding throws',
+      () => mockTryApplyWorkflowState.mockRejectedValue(new Error('socket unavailable')),
+    ],
+  ])('removes a newly created workspace when default workflow %s', async (_case, fail) => {
+    fail()
+    const response = await postWorkspace()
 
     expect(response.status).toBe(500)
     expect(await response.json()).toEqual({ error: 'Failed to create workspace' })
     expect(deleteMock).toHaveBeenCalled()
     expect(deleteWhereMock).toHaveBeenCalled()
-    expect(mockTryApplyWorkflowState).not.toHaveBeenCalled()
   })
 })

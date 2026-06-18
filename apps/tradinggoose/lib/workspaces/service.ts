@@ -8,6 +8,8 @@ import { toWorkspaceApiRecord } from '@/lib/workspaces/billing-owner'
 import { tryApplyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
+type WorkspaceRecord = typeof workspace.$inferSelect
+
 export async function getUserWorkspaces({
   userId,
   userName,
@@ -60,19 +62,20 @@ export async function createWorkspace(userId: string, name: string) {
   const workspaceId = crypto.randomUUID()
   const workflowId = crypto.randomUUID()
   const now = new Date()
+  const workspaceDetails = {
+    id: workspaceId,
+    name,
+    ownerId: userId,
+    billingOwnerType: 'user',
+    billingOwnerUserId: userId,
+    billingOwnerOrganizationId: null,
+    allowPersonalApiKeys: true,
+    createdAt: now,
+    updatedAt: now,
+  } satisfies WorkspaceRecord
 
   await db.transaction(async (tx) => {
-    await tx.insert(workspace).values({
-      id: workspaceId,
-      name,
-      ownerId: userId,
-      billingOwnerType: 'user',
-      billingOwnerUserId: userId,
-      billingOwnerOrganizationId: null,
-      allowPersonalApiKeys: true,
-      createdAt: now,
-      updatedAt: now,
-    })
+    await tx.insert(workspace).values(workspaceDetails)
 
     await tx.insert(workflow).values({
       id: workflowId,
@@ -97,39 +100,34 @@ export async function createWorkspace(userId: string, name: string) {
   const { workflowState } = buildDefaultWorkflowArtifacts()
   const lastSaved = now.toISOString()
 
-  const saveResult = await saveWorkflowToNormalizedTables(workflowId, workflowState)
-  if (!saveResult.success) {
+  try {
+    const saveResult = await saveWorkflowToNormalizedTables(workflowId, workflowState)
+    if (!saveResult.success) {
+      throw new Error(saveResult.error || 'Failed to persist default workflow state')
+    }
+
+    await tryApplyWorkflowState(
+      workflowId,
+      createWorkflowSnapshot({
+        blocks: saveResult.normalizedState?.blocks ?? workflowState.blocks,
+        edges: saveResult.normalizedState?.edges ?? workflowState.edges,
+        loops: saveResult.normalizedState?.loops ?? workflowState.loops,
+        parallels: saveResult.normalizedState?.parallels ?? workflowState.parallels,
+        lastSaved,
+        isDeployed: false,
+      }),
+      undefined,
+      'default-agent'
+    )
+  } catch (error) {
     await db.delete(workspace).where(eq(workspace.id, workspaceId))
-    throw new Error(saveResult.error || 'Failed to persist default workflow state')
+    throw error
   }
 
-  await tryApplyWorkflowState(
-    workflowId,
-    createWorkflowSnapshot({
-      blocks: saveResult.normalizedState?.blocks ?? workflowState.blocks,
-      edges: saveResult.normalizedState?.edges ?? workflowState.edges,
-      loops: saveResult.normalizedState?.loops ?? workflowState.loops,
-      parallels: saveResult.normalizedState?.parallels ?? workflowState.parallels,
-      lastSaved,
-      isDeployed: false,
-    }),
-    undefined,
-    'default-agent'
-  )
-
   return {
-    ...toWorkspaceApiRecord({
-      id: workspaceId,
-      name,
-      ownerId: userId,
-      billingOwnerType: 'user',
-      billingOwnerUserId: userId,
-      billingOwnerOrganizationId: null,
-      allowPersonalApiKeys: true,
-      createdAt: now,
-      updatedAt: now,
-    }),
+    ...toWorkspaceApiRecord(workspaceDetails),
     role: 'owner',
+    permissions: 'admin',
   }
 }
 
