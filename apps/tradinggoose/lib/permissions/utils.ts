@@ -18,16 +18,6 @@ async function selectWorkspaceById(workspaceId: string): Promise<WorkspaceRecord
   return row ?? null
 }
 
-export async function workspaceExists(workspaceId: string): Promise<boolean> {
-  const [row] = await db
-    .select({ id: workspace.id })
-    .from(workspace)
-    .where(eq(workspace.id, workspaceId))
-    .limit(1)
-
-  return !!row
-}
-
 export async function getWorkspaceById(workspaceId: string): Promise<WorkspaceRecord | null> {
   return await selectWorkspaceById(workspaceId)
 }
@@ -105,9 +95,13 @@ export async function getUserEntityPermissions(
   entityId: string
 ): Promise<PermissionType | null> {
   if (entityType === 'workspace') {
-    const activeWorkspace = await workspaceExists(entityId)
+    const activeWorkspace = await selectWorkspaceById(entityId)
     if (!activeWorkspace) {
       return null
+    }
+
+    if (activeWorkspace.ownerId === userId) {
+      return 'admin'
     }
   }
 

@@ -55,7 +55,6 @@ import {
   getWorkspaceById,
   hasAdminPermission,
   hasWorkspaceAdminAccess,
-  workspaceExists,
 } from '@/lib/permissions/utils'
 
 const mockDb = db as any
@@ -195,16 +194,18 @@ describe('Permission Utils', () => {
 
       expect(result).toBeNull()
     })
+
+    it('should return admin for workspace owners without permission rows', async () => {
+      mockDb.select.mockReturnValueOnce(createMockChain([{ ownerId: 'owner-1' }]))
+
+      const result = await getUserEntityPermissions('owner-1', 'workspace', 'workspace456')
+
+      expect(result).toBe('admin')
+      expect(mockDb.select).toHaveBeenCalledTimes(1)
+    })
   })
 
   describe('workspace helpers', () => {
-    it('should report when a workspace exists', async () => {
-      const chain = createMockChain([{ id: 'workspace123' }])
-      mockDb.select.mockReturnValue(chain)
-
-      await expect(workspaceExists('workspace123')).resolves.toBe(true)
-    })
-
     it('should return the workspace row by id', async () => {
       const workspaceRow = {
         id: 'workspace123',

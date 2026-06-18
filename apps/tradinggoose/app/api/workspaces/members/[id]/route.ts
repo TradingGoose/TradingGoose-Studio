@@ -84,28 +84,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ error: 'User not found in workspace' }, { status: 404 })
     }
 
-    // Prevent removing yourself if you're the last admin
-    if (isSelf && userPermission.permissionType === 'admin') {
-      const otherAdmins = await db
-        .select()
-        .from(permissions)
-        .where(
-          and(
-            eq(permissions.entityType, 'workspace'),
-            eq(permissions.entityId, workspaceId),
-            eq(permissions.permissionType, 'admin')
-          )
-        )
-        .then((rows) => rows.filter((row) => row.userId !== session.user.id))
-
-      if (otherAdmins.length === 0) {
-        return NextResponse.json(
-          { error: 'Cannot remove the last admin from a workspace' },
-          { status: 400 }
-        )
-      }
-    }
-
     // Delete the user's permissions for this workspace
     await db
       .delete(permissions)

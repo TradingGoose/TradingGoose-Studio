@@ -17,12 +17,23 @@ async function deleteMember(userId: string) {
 
 describe('Workspace member DELETE route', () => {
   const selectResults: any[][] = []
-  const deleteMock = vi.fn()
+  const deleteWhereMock = vi.fn()
+  const deleteMock = vi.fn(() => ({
+    where: deleteWhereMock,
+  }))
   const selectMock = vi.fn(() => ({
     from: vi.fn(() => ({
-      where: vi.fn(() => ({
-        limit: vi.fn(() => selectResults.shift() ?? []),
-      })),
+      where: vi.fn(() => {
+        const rows = selectResults.shift() ?? []
+
+        return {
+          limit: vi.fn(() => rows),
+          then: (
+            onFulfilled: (value: any[]) => unknown,
+            onRejected?: (reason: unknown) => unknown
+          ) => Promise.resolve(rows).then(onFulfilled, onRejected),
+        }
+      }),
     })),
   }))
   const mockHasWorkspaceAdminAccess = vi.fn()
@@ -141,5 +152,23 @@ describe('Workspace member DELETE route', () => {
     expect(await response.json()).toEqual({ error: 'Insufficient permissions' })
     expect(deleteMock).not.toHaveBeenCalled()
     expect(mockHasWorkspaceAdminAccess).toHaveBeenCalledWith('user-1', 'workspace-1')
+  })
+
+  it('allows a non-owner admin to leave when the canonical owner remains admin', async () => {
+    selectResults.push([
+      {
+        ownerId: 'owner-1',
+        billingOwnerType: 'user',
+        billingOwnerUserId: 'owner-1',
+      },
+    ])
+    selectResults.push([{ userId: 'user-1', permissionType: 'admin' }])
+
+    const response = await deleteMember('user-1')
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ success: true })
+    expect(deleteMock).toHaveBeenCalledWith(expect.anything())
+    expect(deleteWhereMock).toHaveBeenCalled()
   })
 })
