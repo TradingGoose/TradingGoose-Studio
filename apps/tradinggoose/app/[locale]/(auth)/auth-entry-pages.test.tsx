@@ -94,6 +94,23 @@ describe('localized auth entry pages', () => {
     expect(mockGetRegistrationModeForRender).not.toHaveBeenCalled()
   })
 
+  it('renders login reauth routes without redirecting an existing session first', async () => {
+    mockGetSession.mockResolvedValue({
+      user: {
+        id: 'user-1',
+      },
+    })
+
+    const LoginPage = (await import('./login/page')).default
+
+    const result = await LoginPage({ searchParams: Promise.resolve({ reauth: '1' }) })
+    const markup = renderToStaticMarkup(result)
+
+    expect(markup).toContain('data-testid="login-form"')
+    expect(mockGetSession).not.toHaveBeenCalled()
+    expect(mockRedirect).not.toHaveBeenCalled()
+  })
+
   it('renders login when the session check is empty', async () => {
     const LoginPage = (await import('./login/page')).default
 

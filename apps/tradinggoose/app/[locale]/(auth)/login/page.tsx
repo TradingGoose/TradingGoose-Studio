@@ -8,10 +8,15 @@ import { redirect } from '@/i18n/navigation'
 // Force dynamic rendering to avoid prerender errors with search params
 export const dynamic = 'force-dynamic'
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ reauth?: string }>
+} = {}) {
+  const isReauth = (await searchParams)?.reauth === '1'
   const [locale, session] = await Promise.all([
     getLocale(),
-    getSession(),
+    isReauth ? Promise.resolve(null) : getSession(),
   ])
 
   if (session?.user?.id) {
