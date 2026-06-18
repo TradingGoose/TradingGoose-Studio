@@ -36,6 +36,17 @@ describe('getAuthErrorContent', () => {
     expect(content.primaryAction.href).toBe('/login')
   })
 
+  it.each(['FAILED_TO_CREATE_SESSION', 'FAILED_TO_GET_SESSION', 'SESSION_EXPIRED'])(
+    'routes %s through reauth cleanup',
+    (errorCode) => {
+      const { code, content } = getAuthErrorContent(copy, errorCode)
+
+      expect(code).toBe(errorCode)
+      expect(content.primaryAction.href).toBe('/login?reauth=1')
+      expect(content.secondaryAction.href).toBe('/')
+    }
+  )
+
   it('maps the waitlist registration reason to waitlist recovery copy', () => {
     const { code, content } = getAuthErrorContent(copy, REGISTRATION_WAITLIST_REASON)
 

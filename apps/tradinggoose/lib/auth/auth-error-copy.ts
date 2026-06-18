@@ -19,6 +19,7 @@ export interface AuthErrorContent {
 type AuthErrorGroupKey = keyof PublicCopy['auth']['error']['groups']
 
 const LOGIN_HREF = '/login'
+const REAUTH_LOGIN_HREF = '/login?reauth=1'
 const SIGNUP_HREF = '/signup'
 const HOME_HREF = '/'
 const VERIFY_HREF = '/verify'
@@ -72,6 +73,10 @@ function getAuthErrorActionCopy(localeCopy: PublicCopy) {
       href: LOGIN_HREF,
       label: localeCopy.auth.common.backToLogin,
     },
+    reauthLogin: {
+      href: REAUTH_LOGIN_HREF,
+      label: localeCopy.auth.common.backToLogin,
+    },
     signup: {
       href: SIGNUP_HREF,
       label: localeCopy.auth.common.backToSignup,
@@ -99,6 +104,14 @@ function resolveAuthErrorGroupKey(errorCode: string | null): AuthErrorGroupKey |
   return AUTH_ERROR_GROUP_BY_CODE[errorCode] ?? null
 }
 
+function isSessionRecoveryGroup(groupKey: AuthErrorGroupKey) {
+  return (
+    groupKey === 'sessionCreation' ||
+    groupKey === 'sessionRestore' ||
+    groupKey === 'sessionExpired'
+  )
+}
+
 export function getAuthErrorContent(
   copy: PublicCopy,
   error: string | null | undefined,
@@ -119,7 +132,9 @@ export function getAuthErrorContent(
           ? actionCopy.verify
           : groupKey === 'waitlistLimited'
             ? actionCopy.waitlist
-            : actionCopy.login
+            : isSessionRecoveryGroup(groupKey)
+              ? actionCopy.reauthLogin
+              : actionCopy.login
     const secondaryAction =
       groupKey === 'accountCreation' ||
       groupKey === 'emailVerification' ||
