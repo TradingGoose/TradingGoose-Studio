@@ -5,7 +5,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { hasAdminPermission } from '@/lib/permissions/utils'
+import { hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('TemplateByIdAPI')
@@ -121,7 +121,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
       const workspaceId = wfRows[0]?.workspaceId as string | null | undefined
       if (workspaceId) {
-        const hasAdmin = await hasAdminPermission(session.user.id, workspaceId)
+        const hasAdmin = await hasWorkspaceAdminAccess(session.user.id, workspaceId)
         if (hasAdmin) canUpdate = true
       }
     }
@@ -196,7 +196,7 @@ export async function DELETE(
 
       const workspaceId = wfRows[0]?.workspaceId as string | null | undefined
       if (workspaceId) {
-        const hasAdmin = await hasAdminPermission(session.user.id, workspaceId)
+        const hasAdmin = await hasWorkspaceAdminAccess(session.user.id, workspaceId)
         if (hasAdmin) canDelete = true
       }
     }

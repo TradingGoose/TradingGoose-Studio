@@ -41,6 +41,7 @@ interface WorkspaceInviteModalProps {
   onOpenChange: (open: boolean) => void
   workspaceName?: string
   workspaceId?: string
+  workspaceOwnerId?: string
 }
 
 interface EmailTagProps {
@@ -73,6 +74,7 @@ interface PermissionsTableProps {
   permissionsLoading: boolean
   pendingInvitations: UserPermissions[]
   isPendingInvitationsLoading: boolean
+  workspaceOwnerId?: string
   resendingInvitationIds?: Record<string, boolean>
   resentInvitationIds?: Record<string, boolean>
   resendCooldowns?: Record<string, number>
@@ -191,6 +193,7 @@ const PermissionsTable = ({
   permissionsLoading,
   pendingInvitations,
   isPendingInvitationsLoading,
+  workspaceOwnerId,
   onResendInvitation,
   resendingInvitationIds,
   resentInvitationIds,
@@ -285,6 +288,7 @@ const PermissionsTable = ({
         <div>
           {allUsers.map((user) => {
             const isCurrentUser = user.isCurrentUser === true
+            const isWorkspaceOwner = user.userId === workspaceOwnerId
             const isExistingUser = filteredExistingUsers.some((eu) => eu.email === user.email)
             const isPendingInvitation = user.isPendingInvitation === true
             const userIdentifier = user.userId || user.email
@@ -300,6 +304,7 @@ const PermissionsTable = ({
             const canShowRemoveButton =
               isWorkspaceMember &&
               !isCurrentUser &&
+              !isWorkspaceOwner &&
               !isPendingInvitation &&
               currentUserIsAdmin &&
               user.userId
@@ -348,6 +353,7 @@ const PermissionsTable = ({
                     disabled={
                       disabled ||
                       !currentUserIsAdmin ||
+                      isWorkspaceOwner ||
                       isPendingInvitation ||
                       (isCurrentUser && user.permissionType === 'admin')
                     }
@@ -443,6 +449,7 @@ export function WorkspaceInviteModal({
   onOpenChange,
   workspaceName,
   workspaceId,
+  workspaceOwnerId,
 }: WorkspaceInviteModalProps) {
   const locale = useLocale() as LocaleCode
   const formRef = useRef<HTMLFormElement>(null)
@@ -1117,6 +1124,7 @@ export function WorkspaceInviteModal({
               permissionsLoading={permissionsLoading}
               pendingInvitations={pendingInvitations}
               isPendingInvitationsLoading={isPendingInvitationsLoading}
+              workspaceOwnerId={workspaceOwnerId}
               resendingInvitationIds={resendingInvitationIds}
               resentInvitationIds={resentInvitationIds}
               resendCooldowns={resendCooldowns}
@@ -1285,6 +1293,7 @@ export function WorkspaceDialogs({
             onOpenChange={onInviteDialogChange}
             workspaceName={inviteWorkspace?.name}
             workspaceId={inviteWorkspace?.id}
+            workspaceOwnerId={inviteWorkspace.ownerId}
           />
         </WorkspacePermissionsProvider>
       ) : null}

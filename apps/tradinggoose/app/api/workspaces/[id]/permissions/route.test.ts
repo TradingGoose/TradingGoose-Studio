@@ -42,6 +42,7 @@ describe('Workspace permissions PATCH route', () => {
       },
       workspace: {
         id: 'workspace.id',
+        ownerId: 'workspace.ownerId',
         billingOwnerType: 'workspace.billingOwnerType',
         billingOwnerUserId: 'workspace.billingOwnerUserId',
       },
@@ -96,6 +97,7 @@ describe('Workspace permissions PATCH route', () => {
       [{ id: 'permission-1' }],
       [
         {
+          ownerId: 'owner-1',
           billingOwnerType: 'user',
           billingOwnerUserId: 'user-2',
         },
@@ -126,7 +128,7 @@ describe('Workspace permissions PATCH route', () => {
     mockGetUsersWithPermissions.mockResolvedValue([])
     selectResults.push(
       [{ id: 'permission-1' }],
-      [{ billingOwnerType: 'user', billingOwnerUserId: 'user-2' }]
+      [{ ownerId: 'owner-1', billingOwnerType: 'user', billingOwnerUserId: 'user-2' }]
     )
 
     const { PATCH } = await import('./route')
@@ -141,6 +143,35 @@ describe('Workspace permissions PATCH route', () => {
     expect(response.status).toBe(400)
     expect(await response.json()).toEqual({
       error: 'Invalid permissions update payload',
+    })
+    expect(transactionMock).not.toHaveBeenCalled()
+    expect(mockAssertWorkspaceBillingOwnerRetainsAdminAccess).not.toHaveBeenCalled()
+  })
+
+  it('rejects updates to the canonical workspace owner permission', async () => {
+    mockHasWorkspaceAdminAccess.mockResolvedValue(true)
+    selectResults.push([
+      {
+        ownerId: 'owner-1',
+        billingOwnerType: 'organization',
+        billingOwnerUserId: null,
+      },
+    ])
+
+    const { PATCH } = await import('./route')
+    const response = await PATCH(
+      new NextRequest('http://localhost/api/workspaces/workspace-1/permissions', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          updates: [{ userId: 'owner-1', permissions: 'write' }],
+        }),
+      }),
+      { params: Promise.resolve({ id: 'workspace-1' }) }
+    )
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      error: 'Workspace owner permissions are managed by workspace ownership',
     })
     expect(transactionMock).not.toHaveBeenCalled()
     expect(mockAssertWorkspaceBillingOwnerRetainsAdminAccess).not.toHaveBeenCalled()

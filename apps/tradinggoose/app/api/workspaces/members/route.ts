@@ -3,7 +3,7 @@ import { permissions, type permissionTypeEnum, user } from '@tradinggoose/db/sch
 import { and, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
-import { hasAdminPermission } from '@/lib/permissions/utils'
+import { hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
 
 type PermissionType = (typeof permissionTypeEnum.enumValues)[number]
 
@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     }
 
     // Check if current user has admin permission for the workspace
-    const hasAdmin = await hasAdminPermission(session.user.id, workspaceId)
+    const hasAdmin = await hasWorkspaceAdminAccess(session.user.id, workspaceId)
 
     if (!hasAdmin) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })

@@ -129,6 +129,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     const workspaceRow = await db
       .select({
+        ownerId: workspace.ownerId,
         billingOwnerType: workspace.billingOwnerType,
         billingOwnerUserId: workspace.billingOwnerUserId,
       })
@@ -138,6 +139,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     if (workspaceRow.length === 0) {
       return NextResponse.json({ error: 'Workspace not found or access denied' }, { status: 404 })
+    }
+
+    if (body.updates.some((update) => update.userId === workspaceRow[0].ownerId)) {
+      return NextResponse.json(
+        { error: 'Workspace owner permissions are managed by workspace ownership' },
+        { status: 400 }
+      )
     }
 
     try {

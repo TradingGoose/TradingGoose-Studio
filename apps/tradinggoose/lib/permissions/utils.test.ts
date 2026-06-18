@@ -53,7 +53,6 @@ import {
   getUserEntityPermissions,
   getUsersWithPermissions,
   getWorkspaceById,
-  hasAdminPermission,
   hasWorkspaceAdminAccess,
 } from '@/lib/permissions/utils'
 
@@ -333,62 +332,6 @@ describe('Permission Utils', () => {
     })
   })
 
-  describe('hasAdminPermission', () => {
-    it('should return true when user has admin permission for workspace', async () => {
-      const chain = createMockChain([{ id: 'perm1' }])
-      mockDb.select.mockReturnValue(chain)
-
-      const result = await hasAdminPermission('admin-user', 'workspace123')
-
-      expect(result).toBe(true)
-    })
-
-    it('should return false when user has no admin permission for workspace', async () => {
-      const chain = createMockChain([])
-      mockDb.select.mockReturnValue(chain)
-
-      const result = await hasAdminPermission('regular-user', 'workspace123')
-
-      expect(result).toBe(false)
-    })
-
-    it('should return false when user has write permission but not admin', async () => {
-      const chain = createMockChain([])
-      mockDb.select.mockReturnValue(chain)
-
-      const result = await hasAdminPermission('write-user', 'workspace123')
-
-      expect(result).toBe(false)
-    })
-
-    it('should return false when user has read permission but not admin', async () => {
-      const chain = createMockChain([])
-      mockDb.select.mockReturnValue(chain)
-
-      const result = await hasAdminPermission('read-user', 'workspace123')
-
-      expect(result).toBe(false)
-    })
-
-    it('should handle non-existent workspace', async () => {
-      const chain = createMockChain([])
-      mockDb.select.mockReturnValue(chain)
-
-      const result = await hasAdminPermission('user123', 'non-existent-workspace')
-
-      expect(result).toBe(false)
-    })
-
-    it('should handle empty user ID', async () => {
-      const chain = createMockChain([])
-      mockDb.select.mockReturnValue(chain)
-
-      const result = await hasAdminPermission('', 'workspace123')
-
-      expect(result).toBe(false)
-    })
-  })
-
   describe('getUsersWithPermissions', () => {
     it('should return empty array when the workspace owner is unavailable', async () => {
       const ownerChain = createMockChain([])
@@ -520,7 +463,7 @@ describe('Permission Utils', () => {
         if (callCount === 1) {
           return createMockChain([{ ownerId: 'other-user' }])
         }
-        return createMockChain([{ id: 'perm1' }])
+        return createMockChain([{ permissionType: 'admin' }])
       })
 
       const result = await hasWorkspaceAdminAccess('user123', 'workspace456')
@@ -544,7 +487,7 @@ describe('Permission Utils', () => {
         if (callCount === 1) {
           return createMockChain([{ ownerId: 'other-user' }])
         }
-        return createMockChain([])
+        return createMockChain([{ permissionType: 'write' }])
       })
 
       const result = await hasWorkspaceAdminAccess('user123', 'workspace456')
@@ -559,7 +502,7 @@ describe('Permission Utils', () => {
         if (callCount === 1) {
           return createMockChain([{ ownerId: 'other-user' }])
         }
-        return createMockChain([])
+        return createMockChain([{ permissionType: 'read' }])
       })
 
       const result = await hasWorkspaceAdminAccess('user123', 'workspace456')

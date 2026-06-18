@@ -131,30 +131,6 @@ export async function getUserEntityPermissions(
 }
 
 /**
- * Check if a user has admin permission for a specific workspace
- *
- * @param userId - The ID of the user to check
- * @param workspaceId - The ID of the workspace to check
- * @returns Promise<boolean> - True if the user has admin permission for the workspace, false otherwise
- */
-export async function hasAdminPermission(userId: string, workspaceId: string): Promise<boolean> {
-  const result = await db
-    .select({ id: permissions.id })
-    .from(permissions)
-    .where(
-      and(
-        eq(permissions.userId, userId),
-        eq(permissions.entityType, 'workspace'),
-        eq(permissions.entityId, workspaceId),
-        eq(permissions.permissionType, 'admin')
-      )
-    )
-    .limit(1)
-
-  return result.length > 0
-}
-
-/**
  * Retrieves a list of users with their associated permissions for a given workspace.
  *
  * @param workspaceId - The ID of the workspace to retrieve user permissions for.
@@ -234,17 +210,7 @@ export async function hasWorkspaceAdminAccess(
   userId: string,
   workspaceId: string
 ): Promise<boolean> {
-  const ws = await selectWorkspaceById(workspaceId)
-
-  if (!ws) {
-    return false
-  }
-
-  if (ws.ownerId === userId) {
-    return true
-  }
-
-  return await hasAdminPermission(userId, workspaceId)
+  return (await getUserEntityPermissions(userId, 'workspace', workspaceId)) === 'admin'
 }
 
 /**

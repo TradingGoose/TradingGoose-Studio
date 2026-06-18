@@ -74,16 +74,6 @@ export async function createWorkspace(userId: string, name: string) {
       updatedAt: now,
     })
 
-    await tx.insert(permissions).values({
-      id: crypto.randomUUID(),
-      entityType: 'workspace' as const,
-      entityId: workspaceId,
-      userId,
-      permissionType: 'admin' as const,
-      createdAt: now,
-      updatedAt: now,
-    })
-
     await tx.insert(workflow).values({
       id: workflowId,
       userId,

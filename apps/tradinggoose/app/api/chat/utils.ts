@@ -4,7 +4,7 @@ import { and, eq, gte, isNull, or } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { isDev } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
-import { hasAdminPermission } from '@/lib/permissions/utils'
+import { hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
 import { decryptSecret } from '@/lib/utils-server'
 import { CHAT_ERROR_CODES } from '@/app/chat/constants'
 
@@ -31,7 +31,7 @@ export async function checkWorkflowAccessForChatCreation(
   }
 
   if (workflowRecord.workspaceId) {
-    const hasAdmin = await hasAdminPermission(userId, workflowRecord.workspaceId)
+    const hasAdmin = await hasWorkspaceAdminAccess(userId, workflowRecord.workspaceId)
     if (hasAdmin) {
       return { hasAccess: true, workflow: workflowRecord }
     }
@@ -69,7 +69,7 @@ export async function checkChatAccess(
   }
 
   if (workflowWorkspaceId) {
-    const hasAdmin = await hasAdminPermission(userId, workflowWorkspaceId)
+    const hasAdmin = await hasWorkspaceAdminAccess(userId, workflowWorkspaceId)
     if (hasAdmin) {
       return { hasAccess: true, chat: chatRecord, workspaceId: workflowWorkspaceId }
     }
