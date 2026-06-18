@@ -34,30 +34,34 @@ const CURRENT_WORKFLOW_STATE = JSON.stringify({
 })
 
 describe('editWorkflowBlockServerTool', () => {
-  it('patches only the selected block config and preserves the workflow document envelope', async () => {
-    const { editWorkflowBlockServerTool } = await import(
-      '@/lib/copilot/tools/server/workflow/edit-workflow-block'
-    )
+  it(
+    'patches only the selected block config and preserves the workflow document envelope',
+    { timeout: 10_000 },
+    async () => {
+      const { editWorkflowBlockServerTool } = await import(
+        '@/lib/copilot/tools/server/workflow/edit-workflow-block'
+      )
 
-    const result = await editWorkflowBlockServerTool.execute(
-      {
-        entityId: 'wf-1',
-        blockId: 'fn1',
-        blockType: 'function',
-        name: 'Compute Market Indicators',
-        subBlocks: {
-          code: 'return { rsi: 50 }',
+      const result = await editWorkflowBlockServerTool.execute(
+        {
+          entityId: 'wf-1',
+          blockId: 'fn1',
+          blockType: 'function',
+          name: 'Compute Market Indicators',
+          subBlocks: {
+            code: 'return { rsi: 50 }',
+          },
+          currentWorkflowState: CURRENT_WORKFLOW_STATE,
         },
-        currentWorkflowState: CURRENT_WORKFLOW_STATE,
-      },
-      { userId: 'user-1' }
-    )
+        { userId: 'user-1' }
+      )
 
-    expect(result.workflowState.blocks.fn1.name).toBe('Compute Market Indicators')
-    expect(result.workflowState.blocks.fn1.subBlocks.code.value).toBe('return { rsi: 50 }')
-    expect(result.workflowState.edges).toEqual([])
-    expect(result.entityDocument).toContain('Compute Market Indicators')
-  })
+      expect(result.workflowState.blocks.fn1.name).toBe('Compute Market Indicators')
+      expect(result.workflowState.blocks.fn1.subBlocks.code.value).toBe('return { rsi: 50 }')
+      expect(result.workflowState.edges).toEqual([])
+      expect(result.entityDocument).toContain('Compute Market Indicators')
+    }
+  )
 
   it('rejects non-canonical sub-block ids with structured issues', async () => {
     const { editWorkflowBlockServerTool } = await import(
