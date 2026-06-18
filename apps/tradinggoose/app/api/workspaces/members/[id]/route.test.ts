@@ -34,6 +34,7 @@ describe('Workspace member DELETE route', () => {
       },
       workspace: {
         id: 'workspace.id',
+        ownerId: 'workspace.ownerId',
         billingOwnerType: 'workspace.billingOwnerType',
         billingOwnerUserId: 'workspace.billingOwnerUserId',
       },
@@ -79,6 +80,7 @@ describe('Workspace member DELETE route', () => {
   it('blocks removing the workspace billing owner until billing is reassigned', async () => {
     selectResults.push([
       {
+        ownerId: 'user-1',
         billingOwnerType: 'user',
         billingOwnerUserId: 'user-2',
       },
@@ -97,6 +99,30 @@ describe('Workspace member DELETE route', () => {
     expect(await response.json()).toEqual({
       error: 'Cannot remove the workspace billing owner. Please reassign billing first.',
     })
+    expect(deleteMock).not.toHaveBeenCalled()
+    expect(mockHasWorkspaceAdminAccess).not.toHaveBeenCalled()
+  })
+
+  it('blocks removing the canonical workspace owner', async () => {
+    selectResults.push([
+      {
+        ownerId: 'user-2',
+        billingOwnerType: 'user',
+        billingOwnerUserId: 'user-1',
+      },
+    ])
+
+    const { DELETE } = await import('./route')
+    const response = await DELETE(
+      new NextRequest('http://localhost/api/workspaces/members/user-2', {
+        method: 'DELETE',
+        body: JSON.stringify({ workspaceId: 'workspace-1' }),
+      }),
+      { params: Promise.resolve({ id: 'user-2' }) }
+    )
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: 'Cannot remove the workspace owner' })
     expect(deleteMock).not.toHaveBeenCalled()
     expect(mockHasWorkspaceAdminAccess).not.toHaveBeenCalled()
   })

@@ -1,6 +1,7 @@
 import { db } from '@tradinggoose/db'
 import { permissions, workflow, workspace } from '@tradinggoose/db/schema'
 import { and, desc, eq, isNull } from 'drizzle-orm'
+import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
 import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { toWorkspaceApiRecord } from '@/lib/workspaces/billing-owner'
@@ -16,14 +17,15 @@ export async function getUserWorkspaces({
   userName?: string | null
   autoCreate?: boolean
 }) {
+  const workspaceAccess = buildWorkspaceAccessScope(userId, workspace.id)
   const userWorkspaces = await db
     .select({
       workspace: workspace,
       permissionType: permissions.permissionType,
     })
-    .from(permissions)
-    .innerJoin(workspace, eq(permissions.entityId, workspace.id))
-    .where(and(eq(permissions.userId, userId), eq(permissions.entityType, 'workspace')))
+    .from(workspace)
+    .leftJoin(permissions, workspaceAccess.permissionJoin)
+    .where(workspaceAccess.accessFilter)
     .orderBy(desc(workspace.createdAt))
 
   if (userWorkspaces.length === 0) {
@@ -40,11 +42,18 @@ export async function getUserWorkspaces({
     await ensureWorkflowsHaveWorkspace(userId, userWorkspaces[0].workspace.id)
   }
 
-  return userWorkspaces.map(({ workspace: workspaceDetails, permissionType }) => ({
-    ...toWorkspaceApiRecord(workspaceDetails),
-    role: permissionType === 'admin' ? 'owner' : 'member',
-    permissions: permissionType,
-  }))
+  return userWorkspaces.map(({ workspace: workspaceDetails, permissionType }) => {
+    const resolvedPermissionType = workspaceDetails.ownerId === userId ? 'admin' : permissionType
+    if (!resolvedPermissionType) {
+      throw new Error(`Expected workspace permission for ${workspaceDetails.id}`)
+    }
+
+    return {
+      ...toWorkspaceApiRecord(workspaceDetails),
+      role: resolvedPermissionType === 'admin' ? 'owner' : 'member',
+      permissions: resolvedPermissionType,
+    }
+  })
 }
 
 export async function createWorkspace(userId: string, name: string) {

@@ -11,7 +11,7 @@ describe('Workspaces API Route', () => {
   const updateMock = vi.fn()
   let userWorkspaces: Array<{
     workspace: Record<string, unknown>
-    permissionType: 'admin' | 'write' | 'read'
+    permissionType: 'admin' | 'write' | 'read' | null
   }> = []
 
   beforeEach(() => {
@@ -27,6 +27,11 @@ describe('Workspaces API Route', () => {
       db: {
         select: vi.fn(() => ({
           from: vi.fn(() => ({
+            leftJoin: vi.fn(() => ({
+              where: vi.fn(() => ({
+                orderBy: vi.fn(() => userWorkspaces),
+              })),
+            })),
             innerJoin: vi.fn(() => ({
               where: vi.fn(() => ({
                 orderBy: vi.fn(() => userWorkspaces),
@@ -53,6 +58,7 @@ describe('Workspaces API Route', () => {
       },
       workspace: {
         id: 'workspace.id',
+        ownerId: 'workspace.ownerId',
         createdAt: 'workspace.createdAt',
       },
     }))
@@ -159,6 +165,39 @@ describe('Workspaces API Route', () => {
       permissions: 'admin',
     })
     expect(updateMock).not.toHaveBeenCalled()
+    expect(transactionMock).not.toHaveBeenCalled()
+  })
+
+  it('lists owned workspaces without requiring an owner permission row', async () => {
+    userWorkspaces = [
+      {
+        workspace: {
+          id: 'workspace-owned',
+          name: 'Owned Workspace',
+          ownerId: 'user-1',
+          billingOwnerType: 'user',
+          billingOwnerUserId: 'user-1',
+          billingOwnerOrganizationId: null,
+          createdAt: new Date('2026-04-10T00:00:00.000Z'),
+          updatedAt: new Date('2026-04-10T00:00:00.000Z'),
+        },
+        permissionType: null,
+      },
+    ]
+
+    const { GET } = await import('@/app/api/workspaces/route')
+
+    const response = await GET(new NextRequest('http://localhost/api/workspaces?autoCreate=false'))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.workspaces).toEqual([
+      expect.objectContaining({
+        id: 'workspace-owned',
+        role: 'owner',
+        permissions: 'admin',
+      }),
+    ])
     expect(transactionMock).not.toHaveBeenCalled()
   })
 })

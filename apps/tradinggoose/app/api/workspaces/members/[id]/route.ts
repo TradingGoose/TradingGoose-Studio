@@ -31,6 +31,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     const workspaceRow = await db
       .select({
+        ownerId: workspace.ownerId,
         billingOwnerType: workspace.billingOwnerType,
         billingOwnerUserId: workspace.billingOwnerUserId,
       })
@@ -40,6 +41,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     if (workspaceRow.length === 0) {
       return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
+    }
+
+    if (workspaceRow[0].ownerId === userId) {
+      return NextResponse.json({ error: 'Cannot remove the workspace owner' }, { status: 400 })
     }
 
     try {
