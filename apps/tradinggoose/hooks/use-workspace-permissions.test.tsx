@@ -92,6 +92,33 @@ describe('useWorkspacePermissions', () => {
     })
   })
 
+  it('routes resolved missing sessions through auth recovery without completing permission load', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    mockUseSession.mockReturnValue({
+      data: null,
+      isPending: false,
+      error: null,
+      refetch: vi.fn(),
+    })
+
+    await act(async () => {
+      root.render(<WorkspacePermissionsProbe />)
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(mockHandleAuthError).toHaveBeenCalledWith(
+      'workspace-permissions',
+      '/workspace/workspace-1/dashboard'
+    )
+    expect(latestValue).toMatchObject({
+      loading: true,
+      error: null,
+      permissions: null,
+    })
+  })
+
   it('does not reuse a cached workspace permission record after the active user changes', async () => {
     workspaceId = 'workspace-1'
     const fetchMock = vi

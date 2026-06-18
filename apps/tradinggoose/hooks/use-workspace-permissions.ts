@@ -183,13 +183,26 @@ export function useWorkspacePermissions(workspaceId: string | null): UseWorkspac
   const setRecord = useWorkspacePermissionsStore((state) => state.setRecord)
 
   useEffect(() => {
-    if (!workspaceId || !recordKey) {
+    if (!workspaceId || session.isPending) {
       return () => {}
     }
-    fetchPermissions(recordKey, workspaceId, { callbackPathname }).catch((error) => {
-      logger.error('Failed to load workspace permissions', { workspaceId, error })
-    })
-  }, [workspaceId, recordKey, callbackPathname, fetchPermissions])
+
+    if (!userId) {
+      handleAuthError('workspace-permissions', callbackPathname).catch((error) =>
+        logger.error('Failed to route missing workspace session through auth recovery', {
+          workspaceId,
+          error,
+        })
+      )
+      return () => {}
+    }
+
+    fetchPermissions(getRecordKey(workspaceId, userId), workspaceId, { callbackPathname }).catch(
+      (error) => {
+        logger.error('Failed to load workspace permissions', { workspaceId, error })
+      }
+    )
+  }, [workspaceId, session.isPending, userId, callbackPathname, fetchPermissions])
 
   const refetch = useCallback(async () => {
     if (!workspaceId || !recordKey) return
@@ -208,7 +221,8 @@ export function useWorkspacePermissions(workspaceId: string | null): UseWorkspac
     [recordKey, setRecord]
   )
 
-  const isInitialLoad = Boolean(workspaceId) && (session.isPending || Boolean(recordKey && !record))
+  const isInitialLoad =
+    Boolean(workspaceId) && (session.isPending || !userId || Boolean(recordKey && !record))
 
   return {
     permissions: record?.permissions ?? null,
