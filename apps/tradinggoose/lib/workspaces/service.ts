@@ -107,26 +107,25 @@ export async function createWorkspace(userId: string, name: string) {
   const { workflowState } = buildDefaultWorkflowArtifacts()
   const lastSaved = now.toISOString()
 
-  const [, seedResult] = await Promise.all([
-    tryApplyWorkflowState(
-      workflowId,
-      createWorkflowSnapshot({
-        blocks: workflowState.blocks,
-        edges: workflowState.edges,
-        loops: workflowState.loops,
-        parallels: workflowState.parallels,
-        lastSaved,
-        isDeployed: false,
-      }),
-      undefined,
-      'default-agent'
-    ),
-    saveWorkflowToNormalizedTables(workflowId, workflowState),
-  ])
-
-  if (!seedResult.success) {
-    throw new Error(seedResult.error || 'Failed to seed default workflow state')
+  const saveResult = await saveWorkflowToNormalizedTables(workflowId, workflowState)
+  if (!saveResult.success) {
+    await db.delete(workspace).where(eq(workspace.id, workspaceId))
+    throw new Error(saveResult.error || 'Failed to persist default workflow state')
   }
+
+  await tryApplyWorkflowState(
+    workflowId,
+    createWorkflowSnapshot({
+      blocks: saveResult.normalizedState?.blocks ?? workflowState.blocks,
+      edges: saveResult.normalizedState?.edges ?? workflowState.edges,
+      loops: saveResult.normalizedState?.loops ?? workflowState.loops,
+      parallels: saveResult.normalizedState?.parallels ?? workflowState.parallels,
+      lastSaved,
+      isDeployed: false,
+    }),
+    undefined,
+    'default-agent'
+  )
 
   return {
     ...toWorkspaceApiRecord({
