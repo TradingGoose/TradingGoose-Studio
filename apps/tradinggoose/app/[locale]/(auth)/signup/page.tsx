@@ -17,7 +17,7 @@ export default async function SignupPage({
 }) {
   const [locale, session] = await Promise.all([
     getLocale(),
-    getSession(undefined, { disableCookieCache: true }),
+    getSession(),
   ])
 
   if (session?.user?.id) {

@@ -79,7 +79,7 @@ describe('localized auth entry pages', () => {
     mockGetRegistrationModeForRender.mockResolvedValue('open')
   })
 
-  it('redirects login to the localized workspace only after a real session check', async () => {
+  it('redirects login to the localized workspace when a session is present', async () => {
     mockGetSession.mockResolvedValue({
       user: {
         id: 'user-1',
@@ -89,12 +89,12 @@ describe('localized auth entry pages', () => {
     const LoginPage = (await import('./login/page')).default
 
     await expect(LoginPage()).rejects.toThrow('redirect:/es/workspace')
-    expect(mockGetSession).toHaveBeenCalledWith(undefined, { disableCookieCache: true })
+    expect(mockGetSession).toHaveBeenCalledWith()
     expect(mockGetOAuthProviderStatus).not.toHaveBeenCalled()
     expect(mockGetRegistrationModeForRender).not.toHaveBeenCalled()
   })
 
-  it('renders login when the real session check is empty', async () => {
+  it('renders login when the session check is empty', async () => {
     const LoginPage = (await import('./login/page')).default
 
     const result = await LoginPage()
@@ -105,7 +105,7 @@ describe('localized auth entry pages', () => {
     expect(mockRedirect).not.toHaveBeenCalled()
   })
 
-  it('redirects signup to the localized workspace only after a real session check', async () => {
+  it('redirects signup to the localized workspace when a session is present', async () => {
     mockGetSession.mockResolvedValue({
       user: {
         id: 'user-1',
@@ -117,12 +117,12 @@ describe('localized auth entry pages', () => {
     await expect(SignupPage({ searchParams: Promise.resolve({}) })).rejects.toThrow(
       'redirect:/es/workspace'
     )
-    expect(mockGetSession).toHaveBeenCalledWith(undefined, { disableCookieCache: true })
+    expect(mockGetSession).toHaveBeenCalledWith()
     expect(mockGetOAuthProviderStatus).not.toHaveBeenCalled()
     expect(mockGetRegistrationModeForRender).not.toHaveBeenCalled()
   })
 
-  it('renders signup when the real session check is empty', async () => {
+  it('renders signup when the session check is empty', async () => {
     const SignupPage = (await import('./signup/page')).default
 
     const result = await SignupPage({ searchParams: Promise.resolve({}) })

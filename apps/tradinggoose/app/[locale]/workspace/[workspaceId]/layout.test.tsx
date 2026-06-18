@@ -78,7 +78,7 @@ describe('Workspace layout access guard', () => {
     expect(mockRedirect).toHaveBeenCalledWith(
       '/es/login?reauth=1&callbackUrl=%2Fworkspace%2Fws-1%2Ffiles%3FlayoutId%3Dlayout-1'
     )
-    expect(mockGetSession).toHaveBeenCalledWith(expect.any(Headers), { disableCookieCache: true })
+    expect(mockGetSession).toHaveBeenCalledWith(expect.any(Headers))
     expect(mockCheckWorkspaceAccess).not.toHaveBeenCalled()
   })
 
