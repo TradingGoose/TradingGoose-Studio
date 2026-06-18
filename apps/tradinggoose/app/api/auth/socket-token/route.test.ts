@@ -53,4 +53,22 @@ describe('socket token route', () => {
     expect(await response.json()).toEqual({ error: 'Authentication required' })
     expect(mockGenerateOneTimeToken).not.toHaveBeenCalled()
   })
+
+  it('does not issue a token when canonical session lookup rejects stale cookie data', async () => {
+    const staleCookieHeaders = new Headers([
+      [
+        'cookie',
+        'better-auth.session_token=revoked; better-auth.session_data=stale-session-payload',
+      ],
+    ])
+    mockHeaders.mockResolvedValue(staleCookieHeaders)
+    mockGetSession.mockResolvedValue(null)
+
+    const { POST } = await import('./route')
+    const response = await POST()
+
+    expect(response.status).toBe(401)
+    expect(mockGetSession).toHaveBeenCalledWith(staleCookieHeaders)
+    expect(mockGenerateOneTimeToken).not.toHaveBeenCalled()
+  })
 })

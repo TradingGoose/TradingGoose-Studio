@@ -238,7 +238,6 @@
         "noAccount": "No account found with this email. Please sign up first.",
         "missingCredentials": "Please enter both email and password.",
         "emailPasswordDisabled": "Email and password login is disabled.",
-        "failedToCreateSession": "Failed to create session. Please try again later.",
         "tooManyAttempts": "Too many login attempts. Please try again later or reset your password.",
         "accountLocked": "Your account has been locked for security. Please reset your password.",
         "network": "Network error. Please check your connection and try again.",

@@ -208,6 +208,18 @@ describe('auth locale redirects', () => {
     })
   }
 
+  async function renderLogin(locale: 'en' | 'es' | 'zh' = 'en') {
+    await renderWithLocale(
+      locale,
+      <LoginPage
+        githubAvailable={false}
+        googleAvailable={false}
+        isProduction={false}
+        registrationMode='open'
+      />
+    )
+  }
+
   it.each(['es', 'zh'] as const)(
     'pushes the canonical verify path after signup for %s',
     async (locale) => {
@@ -241,15 +253,7 @@ describe('auth locale redirects', () => {
     async (locale) => {
       mockSignInEmail.mockRejectedValue({ code: 'EMAIL_NOT_VERIFIED' })
 
-      await renderWithLocale(
-        locale,
-        <LoginPage
-          githubAvailable={false}
-          googleAvailable={false}
-          isProduction={false}
-          registrationMode='open'
-        />
-      )
+      await renderLogin(locale)
 
       await setInputValue('#email', 'ada@example.com')
       await setInputValue('#password', 'Password1!')
@@ -263,20 +267,45 @@ describe('auth locale redirects', () => {
     testState.searchParams = new URLSearchParams('reauth=1&callbackUrl=%2Fworkspace')
     mockSignOut.mockReturnValue(new Promise(() => {}))
 
-    await renderWithLocale(
-      'en',
-      <LoginPage
-        githubAvailable={false}
-        googleAvailable={false}
-        isProduction={false}
-        registrationMode='open'
-      />
-    )
+    await renderLogin()
 
     expect(mockSignOut).toHaveBeenCalledTimes(1)
     expect(container.querySelector('#email')).toBeNull()
     expect(container.querySelector('#password')).toBeNull()
     expect(container.querySelector('form')).toBeNull()
+  })
+
+  it('runs reauth cleanup when direct login cannot create a session', async () => {
+    mockSignInEmail.mockResolvedValue({ error: { code: 'FAILED_TO_CREATE_SESSION' } })
+    mockSignOut.mockReturnValue(new Promise(() => {}))
+
+    await renderLogin()
+
+    await setInputValue('#email', 'ada@example.com')
+    await setInputValue('#password', 'Password1!')
+    await submitRenderedForm()
+
+    expect(mockSignInEmail).toHaveBeenCalledTimes(1)
+    expect(mockSignOut).toHaveBeenCalledTimes(1)
+    expect(container.querySelector('#email')).toBeNull()
+    expect(container.querySelector('#password')).toBeNull()
+    expect(container.querySelector('form')).toBeNull()
+  })
+
+  it('keeps invalid credential failures on the login form', async () => {
+    mockSignInEmail.mockResolvedValue({
+      error: { code: 'INVALID_CREDENTIALS', status: 401 },
+    })
+
+    await renderLogin()
+
+    await setInputValue('#email', 'ada@example.com')
+    await setInputValue('#password', 'wrong-password')
+    await submitRenderedForm()
+
+    expect(mockSignOut).not.toHaveBeenCalled()
+    expect(container.querySelector('form')).toBeInstanceOf(HTMLFormElement)
+    expect(container.textContent).toContain(getPublicCopy('en').auth.login.errors.invalidCredentials)
   })
 
   it('pushes the canonical signup path from the verify screen back action', async () => {

@@ -137,6 +137,11 @@ export default function LoginPage({
     }
   }, [])
 
+  const startReauthCleanup = useCallback(() => {
+    setIsReauthCleaned(false)
+    void runReauthCleanup()
+  }, [runReauthCleanup])
+
   useEffect(() => {
     if (searchParams) {
       const callback = searchParams.get('callbackUrl')
@@ -201,6 +206,15 @@ export default function LoginPage({
     setShowValidationError(false)
   }
 
+  const isSessionCreationError = (error: any) =>
+    [
+      error?.code,
+      error?.error,
+      error?.message,
+      error?.response?.data?.error,
+      error?.response?.data?.message,
+    ].some((value) => normalizeAuthErrorCode(value) === 'FAILED_TO_CREATE_SESSION')
+
   const resolveLoginErrorMessage = (error: any) => {
     const rawMessage =
       error?.message ??
@@ -246,9 +260,6 @@ export default function LoginPage({
     }
     if (authErrorCode === 'EMAIL_PASSWORD_DISABLED') {
       return loginCopy.errors.emailPasswordDisabled
-    }
-    if (authErrorCode === 'FAILED_TO_CREATE_SESSION') {
-      return loginCopy.errors.failedToCreateSession
     }
     if (authErrorCode === 'TOO_MANY_ATTEMPTS' || searchable.includes('too many attempts')) {
       return loginCopy.errors.tooManyAttempts
@@ -298,6 +309,7 @@ export default function LoginPage({
     }
 
     try {
+      let requiresReauthCleanup = false
       const result = await client.signIn.email(
         {
           email,
@@ -307,6 +319,11 @@ export default function LoginPage({
         {
           onError: (ctx) => {
             console.error('Login error:', ctx.error)
+            if (isSessionCreationError(ctx.error)) {
+              requiresReauthCleanup = true
+              return
+            }
+
             const errorMessage: string[] = []
             const resolvedMessage = resolveLoginErrorMessage(ctx.error)
 
@@ -329,6 +346,12 @@ export default function LoginPage({
       )
 
       if (!result || result.error) {
+        if (requiresReauthCleanup || isSessionCreationError(result?.error)) {
+          startReauthCleanup()
+          setIsLoading(false)
+          return
+        }
+
         const message =
           resolveLoginErrorMessage(result?.error) ?? loginCopy.errors.unableToSignInNow
 
@@ -343,6 +366,10 @@ export default function LoginPage({
           sessionStorage.setItem('verificationEmail', email)
         }
         router.push('/verify')
+        return
+      }
+      if (isSessionCreationError(err)) {
+        startReauthCleanup()
         return
       }
 

@@ -238,7 +238,6 @@
         "noAccount": "此邮箱未找到账户，请先注册。",
         "missingCredentials": "请输入邮箱和密码。",
         "emailPasswordDisabled": "邮箱和密码登录已禁用。",
-        "failedToCreateSession": "创建会话失败，请稍后重试。",
         "tooManyAttempts": "登录尝试次数过多，请稍后重试或重置密码。",
         "accountLocked": "出于安全原因，您的账户已被锁定，请重置密码。",
         "network": "网络错误，请检查连接后重试。",
