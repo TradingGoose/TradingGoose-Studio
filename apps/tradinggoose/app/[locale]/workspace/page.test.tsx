@@ -37,6 +37,10 @@ vi.mock('@/lib/auth', () => ({
   getSession: (...args: unknown[]) => mockGetSession(...args),
 }))
 
+vi.mock('@/lib/urls/utils', () => ({
+  getBaseUrl: () => 'https://app.example.com',
+}))
+
 vi.mock('@/lib/workspaces/service', () => ({
   getUserWorkspaces: (...args: unknown[]) => mockGetUserWorkspaces(...args),
 }))
@@ -105,6 +109,16 @@ describe('Workspace root page access guard', () => {
     )
 
     expect(mockReadWorkflowAccessContext).toHaveBeenCalledWith('workflow-1', 'user-1')
+    expect(mockGetUserWorkspaces).not.toHaveBeenCalled()
+  })
+
+  it('redirects authenticated users to same-origin absolute callback URLs', async () => {
+    await expect(
+      renderWorkspacePage('en', {
+        callbackUrl: 'https://app.example.com/workspace/workspace-2/dashboard?layoutId=layout-1',
+      })
+    ).rejects.toThrow('redirect:/en/workspace/workspace-2/dashboard?layoutId=layout-1')
+
     expect(mockGetUserWorkspaces).not.toHaveBeenCalled()
   })
 

@@ -1,5 +1,6 @@
 import { headers } from 'next/headers'
 import { getSession } from '@/lib/auth'
+import { getBaseUrl } from '@/lib/urls/utils'
 import { readWorkflowAccessContext } from '@/lib/workflows/utils'
 import { getUserWorkspaces } from '@/lib/workspaces/service'
 import { redirect } from '@/i18n/navigation'
@@ -52,7 +53,7 @@ export default async function WorkspacePage({
     })
   }
 
-  const callbackUrl = normalizeCallbackUrl(getSearchParam(query, 'callbackUrl'))
+  const callbackUrl = normalizeCallbackUrl(getSearchParam(query, 'callbackUrl'), getBaseUrl())
   if (callbackUrl && callbackUrl.split(/[?#]/, 1)[0] !== '/workspace') {
     return redirect({ href: callbackUrl, locale })
   }
