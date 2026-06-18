@@ -268,7 +268,7 @@ describe('auth locale redirects', () => {
     }
   )
 
-  it('aborts a hanging reauth cleanup before direct login starts', async () => {
+  it('runs reauth cleanup on arrival and waits before direct login starts', async () => {
     vi.useFakeTimers()
     testState.searchParams = new URLSearchParams('reauth=1&callbackUrl=%2Fworkspace')
     const cleanupSignalRef: { current: AbortSignal | null } = { current: null }
@@ -280,7 +280,7 @@ describe('auth locale redirects', () => {
 
     await renderLogin()
 
-    expect(mockSignOut).not.toHaveBeenCalled()
+    expect(mockSignOut).toHaveBeenCalledTimes(1)
     expect(container.querySelector('form')).toBeInstanceOf(HTMLFormElement)
 
     await setInputValue('#email', 'ada@example.com')
@@ -288,7 +288,6 @@ describe('auth locale redirects', () => {
 
     await submitRenderedForm()
 
-    expect(mockSignOut).toHaveBeenCalledTimes(1)
     expect(mockSignInEmail).not.toHaveBeenCalled()
 
     await act(async () => {

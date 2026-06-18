@@ -1,12 +1,18 @@
 import type React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  AUTH_ERROR_CALLBACK_COOKIE,
+  getClearAuthErrorCallbackCookie,
+} from '@/lib/auth/auth-error-copy'
 
 const mockGetLocale = vi.fn()
 const mockGetSession = vi.fn()
 const mockRedirect = vi.fn((url: string) => {
   throw new Error(`redirect:${url}`)
 })
+const mockCookiesGet = vi.fn()
+const mockGetBrandConfig = vi.fn()
 const mockGetOAuthProviderStatus = vi.fn()
 const mockGetRegistrationModeForRender = vi.fn()
 
@@ -14,8 +20,19 @@ vi.mock('next-intl/server', () => ({
   getLocale: () => mockGetLocale(),
 }))
 
+vi.mock('next/headers', () => ({
+  cookies: () =>
+    Promise.resolve({
+      get: mockCookiesGet,
+    }),
+}))
+
 vi.mock('@/lib/auth', () => ({
   getSession: (...args: unknown[]) => mockGetSession(...args),
+}))
+
+vi.mock('@/lib/branding/branding', () => ({
+  getBrandConfig: () => mockGetBrandConfig(),
 }))
 
 vi.mock('@/i18n/navigation', () => ({
@@ -77,6 +94,8 @@ describe('localized auth entry pages', () => {
       isProduction: false,
     })
     mockGetRegistrationModeForRender.mockResolvedValue('open')
+    mockCookiesGet.mockReturnValue(undefined)
+    mockGetBrandConfig.mockReturnValue({ supportEmail: 'support@tradinggoose.ai' })
   })
 
   it('redirects login to the localized workspace when a session is present', async () => {
@@ -148,5 +167,23 @@ describe('localized auth entry pages', () => {
     expect(markup).toContain('data-testid="signup-form"')
     expect(markup).toContain('data-registration-mode="open"')
     expect(mockRedirect).not.toHaveBeenCalled()
+  })
+
+  it('consumes auth error callback cookies once', async () => {
+    mockCookiesGet.mockReturnValue({
+      value: encodeURIComponent('/invite/invitation-1?token=workspace-token'),
+    })
+    const ErrorPage = (await import('./error/page')).default
+
+    const result = await ErrorPage({
+      searchParams: Promise.resolve({ error: 'UNABLE_TO_CREATE_SESSION' }),
+    })
+    const markup = renderToStaticMarkup(result)
+
+    expect(mockCookiesGet).toHaveBeenCalledWith(AUTH_ERROR_CALLBACK_COOKIE)
+    expect(markup).toContain(
+      '/login?reauth=1&amp;callbackUrl=%2Finvite%2Finvitation-1%3Ftoken%3Dworkspace-token'
+    )
+    expect(markup).toContain(`document.cookie=${JSON.stringify(getClearAuthErrorCallbackCookie())}`)
   })
 })

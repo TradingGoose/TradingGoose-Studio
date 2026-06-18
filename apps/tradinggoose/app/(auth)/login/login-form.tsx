@@ -189,6 +189,9 @@ export default function LoginPage({
 
   useEffect(() => {
     shouldRunReauthCleanupRef.current = isReauth
+    if (isReauth) {
+      void runReauthCleanup()
+    }
   }, [isReauth])
 
   useEffect(() => {

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import {
   AUTH_ERROR_CALLBACK_COOKIE,
   getAuthErrorContent,
+  getClearAuthErrorCallbackCookie,
   normalizeStoredAuthErrorCallback,
 } from '@/lib/auth/auth-error-copy'
 import { getBrandConfig } from '@/lib/branding/branding'
@@ -30,9 +31,8 @@ export default async function AuthErrorPage({
   const resolvedSearchParams = (await searchParams) ?? {}
   const error = getSingleSearchParam(resolvedSearchParams.error)
   const errorDescription = getSingleSearchParam(resolvedSearchParams.error_description)
-  const callbackUrl = normalizeStoredAuthErrorCallback(
-    (await cookies()).get(AUTH_ERROR_CALLBACK_COOKIE)?.value
-  )
+  const storedCallback = (await cookies()).get(AUTH_ERROR_CALLBACK_COOKIE)?.value
+  const callbackUrl = normalizeStoredAuthErrorCallback(storedCallback)
   const locale = (await getLocale()) as LocaleCode
   const copy = getPublicCopy(locale)
   const { code, content } = getAuthErrorContent(copy, error, errorDescription, callbackUrl)
@@ -42,6 +42,14 @@ export default async function AuthErrorPage({
 
   return (
     <div className='space-y-8 text-center'>
+      {storedCallback ? (
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `document.cookie=${JSON.stringify(getClearAuthErrorCallbackCookie())}`,
+          }}
+        />
+      ) : null}
+
       <AuthPageHeader
         eyebrow={errorCopy.eyebrow}
         title={content.title}

@@ -95,6 +95,10 @@ export function rememberAuthErrorCallback(value: string | null | undefined) {
   document.cookie = `${AUTH_ERROR_CALLBACK_COOKIE}=${encodeURIComponent(callback)}; path=/; max-age=600; samesite=lax`
 }
 
+export function getClearAuthErrorCallbackCookie() {
+  return `${AUTH_ERROR_CALLBACK_COOKIE}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; samesite=lax`
+}
+
 function appendCallbackUrl(href: string, callbackUrl: string | null | undefined) {
   if (!callbackUrl) {
     return href
