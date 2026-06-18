@@ -109,25 +109,6 @@ describe('Workspace root page access guard', () => {
   })
 
   it('redirects authenticated users to same-origin absolute callback URLs', async () => {
-    mockHeaders.mockResolvedValue(
-      new Headers([
-        ['x-forwarded-proto', 'http'],
-        ['x-forwarded-host', 'localhost:3000'],
-      ])
-    )
-
-    await expect(
-      renderWorkspacePage('en', {
-        callbackUrl: 'http://localhost:3000/workspace/workspace-2/dashboard?layoutId=layout-1',
-      })
-    ).rejects.toThrow('redirect:/en/workspace/workspace-2/dashboard?layoutId=layout-1')
-
-    expect(mockGetUserWorkspaces).not.toHaveBeenCalled()
-  })
-
-  it('redirects authenticated users to host-only local absolute callback URLs', async () => {
-    mockHeaders.mockResolvedValue(new Headers([['host', 'localhost:3000']]))
-
     await expect(
       renderWorkspacePage('en', {
         callbackUrl: 'http://localhost:3000/workspace/workspace-2/dashboard?layoutId=layout-1',
@@ -145,19 +126,19 @@ describe('Workspace root page access guard', () => {
     expect(mockGetUserWorkspaces).toHaveBeenCalledWith({
       userId: 'user-1',
       userName: 'Ada Lovelace',
-      autoCreate: false,
     })
   })
 
-  it('renders without bootstrapping workspaces during server render', async () => {
-    mockGetUserWorkspaces.mockResolvedValue([])
+  it('bootstraps a workspace on the server when the user has none and redirects to it', async () => {
+    mockGetUserWorkspaces.mockResolvedValue([{ id: 'workspace-bootstrapped' }])
 
-    await expect(renderWorkspacePage('en')).resolves.toBeNull()
+    await expect(renderWorkspacePage('en')).rejects.toThrow(
+      'redirect:/en/workspace/workspace-bootstrapped/dashboard'
+    )
 
     expect(mockGetUserWorkspaces).toHaveBeenCalledWith({
       userId: 'user-1',
       userName: 'Ada Lovelace',
-      autoCreate: false,
     })
   })
 })

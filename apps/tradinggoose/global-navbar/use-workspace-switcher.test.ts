@@ -120,7 +120,7 @@ describe('useWorkspaceSwitcher', () => {
     expect(latestValue.deleteDialogOpen).toBe(true)
   })
 
-  it('redirects the workspace root to the first workspace after mounted bootstrap', async () => {
+  it('does not redirect during the workspace bootstrap fetch (server owns the root redirect)', async () => {
     const { useWorkspaceSwitcher } = await import('@/global-navbar/use-workspace-switcher')
 
     function Harness() {
@@ -137,6 +137,8 @@ describe('useWorkspaceSwitcher', () => {
     })
 
     expect(fetchMock.mock.calls.map(([url]) => String(url))).toContain('/api/workspaces')
-    expect(mockReplace).toHaveBeenCalledWith('/workspace/ws-1/dashboard')
+    expect(latestValue.activeWorkspace?.id).toBe('ws-1')
+    expect(mockReplace).not.toHaveBeenCalled()
+    expect(mockPush).not.toHaveBeenCalled()
   })
 })
