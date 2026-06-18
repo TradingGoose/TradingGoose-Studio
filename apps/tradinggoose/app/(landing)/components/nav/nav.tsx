@@ -156,7 +156,7 @@ export default function Nav({
   }, [variant])
 
   const navigateToLogin = useCallback(() => {
-    router.push('/login?reauth=1')
+    router.push('/login')
   }, [router])
 
   const navigateToPrimaryCta = useCallback(() => {

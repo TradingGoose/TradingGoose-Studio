@@ -25,7 +25,7 @@ describe('getAuthErrorContent', () => {
     expect(code).toBe('UNABLE_TO_CREATE_USER')
     expect(content.title).toBe("We couldn't create your account")
     expect(content.primaryAction.href).toBe('/signup')
-    expect(content.secondaryAction.href).toBe('/login?reauth=1')
+    expect(content.secondaryAction.href).toBe('/login')
   })
 
   it('falls back to the default auth error copy for unknown codes', () => {
@@ -33,7 +33,7 @@ describe('getAuthErrorContent', () => {
 
     expect(code).toBe('TOTALLY_UNKNOWN_ERROR')
     expect(content.title).toBe(copy.auth.error.default.title)
-    expect(content.primaryAction.href).toBe('/login?reauth=1')
+    expect(content.primaryAction.href).toBe('/login')
   })
 
   it('maps the waitlist registration reason to waitlist recovery copy', () => {
@@ -51,6 +51,6 @@ describe('getAuthErrorContent', () => {
     expect(code).toBe('REGISTRATION_DISABLED')
     expect(content.title).toBe(copy.auth.error.groups.registrationDisabled.title)
     expect(content.description).toBe(copy.auth.error.groups.registrationDisabled.description)
-    expect(content.primaryAction.href).toBe('/login?reauth=1')
+    expect(content.primaryAction.href).toBe('/login')
   })
 })

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import { useMessages } from 'next-intl'
@@ -124,8 +124,14 @@ export default function LoginPage({
   const isReauth = searchParams.get('reauth') === '1'
   const [isReauthCleaned, setIsReauthCleaned] = useState(!isReauth)
   const [reauthCleanupFailed, setReauthCleanupFailed] = useState(false)
+  const isReauthCleanupRunningRef = useRef(false)
 
   const runReauthCleanup = useCallback(async () => {
+    if (isReauthCleanupRunningRef.current) {
+      return
+    }
+
+    isReauthCleanupRunningRef.current = true
     setReauthCleanupFailed(false)
 
     try {
@@ -134,6 +140,8 @@ export default function LoginPage({
     } catch (error) {
       logger.warn('Reauth sign-out failed', { error })
       setReauthCleanupFailed(true)
+    } finally {
+      isReauthCleanupRunningRef.current = false
     }
   }, [])
 

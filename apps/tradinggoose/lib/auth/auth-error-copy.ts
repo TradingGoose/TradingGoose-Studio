@@ -18,7 +18,7 @@ export interface AuthErrorContent {
 
 type AuthErrorGroupKey = keyof PublicCopy['auth']['error']['groups']
 
-const LOGIN_HREF = '/login?reauth=1'
+const LOGIN_HREF = '/login'
 const SIGNUP_HREF = '/signup'
 const HOME_HREF = '/'
 const VERIFY_HREF = '/verify'

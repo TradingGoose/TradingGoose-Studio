@@ -208,6 +208,12 @@ describe('auth locale redirects', () => {
     })
   }
 
+  async function flushEffects() {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+  }
+
   async function renderLogin(locale: 'en' | 'es' | 'zh' = 'en') {
     await renderWithLocale(
       locale,
@@ -273,6 +279,29 @@ describe('auth locale redirects', () => {
     expect(container.querySelector('#email')).toBeNull()
     expect(container.querySelector('#password')).toBeNull()
     expect(container.querySelector('form')).toBeNull()
+  })
+
+  it('does not start duplicate sign-out requests when retrying reauth cleanup', async () => {
+    testState.searchParams = new URLSearchParams('reauth=1&callbackUrl=%2Fworkspace')
+    mockSignOut.mockRejectedValueOnce(new Error('sign-out failed'))
+    mockSignOut.mockReturnValue(new Promise(() => {}))
+
+    await renderLogin()
+    await flushEffects()
+
+    expect(mockSignOut).toHaveBeenCalledTimes(1)
+
+    const retryButton = container.querySelector('button')
+    if (!(retryButton instanceof HTMLButtonElement)) {
+      throw new Error('Expected reauth retry button to render')
+    }
+
+    await act(async () => {
+      retryButton.click()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+    expect(mockSignOut).toHaveBeenCalledTimes(2)
   })
 
   it('runs reauth cleanup when direct login cannot create a session', async () => {

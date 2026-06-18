@@ -240,6 +240,29 @@ describe('landing nav registration mode', () => {
     expect(container.textContent).toContain(getPublicCopy('en').registration.open.primary)
   })
 
+  it('routes ordinary login navigation without reauth cleanup', async () => {
+    await act(async () => {
+      root.render(
+        <NextIntlClientProvider locale='en' messages={getPublicCopy('en')}>
+          <Nav registrationMode='open' />
+        </NextIntlClientProvider>
+      )
+    })
+
+    const loginButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === getPublicCopy('en').nav.login
+    )
+    if (!(loginButton instanceof HTMLButtonElement)) {
+      throw new Error('Expected login button to render')
+    }
+
+    await act(async () => {
+      loginButton.click()
+    })
+
+    expect(mockPush).toHaveBeenCalledWith('/login')
+  })
+
   it('replaces login and registration controls with profile and dashboard actions for authenticated users', async () => {
     mockSessionUser = {
       id: 'user-1',
