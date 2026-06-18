@@ -129,24 +129,25 @@ describe('proxy auth routing', () => {
     expect(response.headers.get('x-middleware-rewrite')).toBeNull()
   })
 
-  it('does not treat plain auth cookies as authenticated on HTTPS deployments', async () => {
+  it('accepts Better Auth plain session cookies on HTTPS protected routes', async () => {
     const { proxy } = await import('./proxy')
     const response = await proxy(
       new NextRequest('https://www.tradinggoose.ai/workspace/ws-1/dashboard', {
         headers: {
           cookie: PLAIN_SESSION_COOKIE,
+          'user-agent': 'vitest',
         },
       })
     )
 
     expect(response.status).toBe(307)
     expect(response.headers.get('location')).toBe(
-      'https://www.tradinggoose.ai/en/login?callbackUrl=%2Fworkspace%2Fws-1%2Fdashboard'
+      'https://www.tradinggoose.ai/en/workspace/ws-1/dashboard'
     )
     expect(response.headers.get('x-middleware-rewrite')).toBeNull()
   })
 
-  it('accepts the secure auth cookie on HTTPS protected routes', async () => {
+  it('accepts Better Auth secure session cookies on HTTPS protected routes', async () => {
     const { proxy } = await import('./proxy')
     const response = await proxy(
       new NextRequest('https://www.tradinggoose.ai/en/workspace', {
@@ -162,22 +163,26 @@ describe('proxy auth routing', () => {
     expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('en')
   })
 
-  it('allows the default-locale reauth login route through while clearing cookies', async () => {
+  it('allows the default-locale reauth login route through without proxy-owned cookie cleanup', async () => {
     process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
 
     const { proxy } = await import('./proxy')
     const response = await proxy(
-      new NextRequest('http://localhost:3000/en/login?reauth=1&callbackUrl=%2Fworkspace%2Fws-1', {
-        headers: {
-          cookie: PLAIN_SESSION_COOKIE,
-        },
-      })
+      new NextRequest(
+        'http://localhost:3000/en/login?reauth=1&callbackUrl=%2Fworkspace%2Fws-1',
+        {
+          headers: {
+            cookie: PLAIN_SESSION_COOKIE,
+            'user-agent': 'vitest',
+          },
+        }
+      )
     )
 
     expect(response.status).toBe(200)
     expect(response.headers.get('location')).toBeNull()
     expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('en')
-    expect(response.cookies.get('better-auth.session_token')?.maxAge).toBe(0)
+    expect(response.cookies.get('better-auth.session_token')).toBeUndefined()
     expect(response.cookies.get('__Secure-better-auth.session_token')).toBeUndefined()
   })
 
