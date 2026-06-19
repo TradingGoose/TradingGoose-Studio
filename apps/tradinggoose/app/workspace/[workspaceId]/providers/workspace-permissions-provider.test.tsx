@@ -185,6 +185,23 @@ describe('WorkspacePermissionsProvider', () => {
     })
 
     mockUseSession.mockReturnValue({
+      data: { user: { id: 'user-2' } },
+      isPending: false,
+    })
+
+    await act(async () => {
+      root?.render(
+        <WorkspacePermissionsProvider workspaceId='ws-1' userId='user-1'>
+          <div>workspace</div>
+        </WorkspacePermissionsProvider>
+      )
+    })
+
+    expect(mockUseWorkspacePermissions).toHaveBeenLastCalledWith('ws-1', 'user-1', {
+      authReady: false,
+    })
+
+    mockUseSession.mockReturnValue({
       data: { user: { id: 'user-1' } },
       isPending: true,
     })

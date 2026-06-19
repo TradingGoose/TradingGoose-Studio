@@ -268,7 +268,7 @@ const PermissionsTable = ({
     return <PermissionsTableSkeleton />
   }
 
-  if (userPermissions.length === 0 && !workspacePermissions?.users?.length) return null
+  if (allUsers.length === 0) return null
 
   if (isSaving) {
     return (

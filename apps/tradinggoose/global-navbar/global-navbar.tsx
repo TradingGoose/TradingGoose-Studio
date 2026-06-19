@@ -105,7 +105,7 @@ export function GlobalNavbar({
   const userId = authenticatedUserId ?? sessionData?.user?.id ?? null
   const userEmail = authenticatedUserEmail ?? sessionData?.user?.email ?? null
   const isAuthenticated = Boolean(userId)
-  const isClientAuthReady = !isSessionLoading || sessionData?.user?.id === userId
+  const isClientAuthReady = Boolean(userId && sessionData?.user?.id === userId)
   const shouldShowSkeleton = isSessionLoading && !userId
   const { data: organizationsData } = useOrganizations({
     enabled: isAuthenticated && isClientAuthReady,

@@ -39,13 +39,13 @@ export function WorkspacePermissionsProvider({
   userId,
 }: WorkspacePermissionsProviderProps) {
   const router = useRouter()
-  const { data: sessionData, isPending: isSessionLoading } = useSession()
+  const { data: sessionData } = useSession()
 
   const [isOfflineMode, setIsOfflineMode] = useState(false)
   const [redirectedAccessKey, setRedirectedAccessKey] = useState<string | null>(null)
   const accessKey = `${userId}:${workspaceId}`
   const hasRedirected = redirectedAccessKey === accessKey
-  const isClientAuthReady = !isSessionLoading || sessionData?.user?.id === userId
+  const isClientAuthReady = sessionData?.user?.id === userId
 
   const {
     permissions: workspacePermissions,
