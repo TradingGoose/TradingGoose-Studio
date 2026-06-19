@@ -40,11 +40,9 @@ export function WorkspacePermissionsProvider({
   const router = useRouter()
 
   const [isOfflineMode, setIsOfflineMode] = useState(false)
-  const [hasRedirected, setHasRedirected] = useState(false)
-
-  useEffect(() => {
-    setHasRedirected(false)
-  }, [workspaceId])
+  const [redirectedAccessKey, setRedirectedAccessKey] = useState<string | null>(null)
+  const accessKey = `${userId}:${workspaceId}`
+  const hasRedirected = redirectedAccessKey === accessKey
 
   const {
     permissions: workspacePermissions,
@@ -116,13 +114,13 @@ export function WorkspacePermissionsProvider({
       return
     }
 
-    setHasRedirected(true)
+    setRedirectedAccessKey(accessKey)
     logger.warn('Redirecting user without workspace access', {
       workspaceId,
       error: combinedError ?? 'missing read permissions',
     })
     router.replace('/workspace')
-  }, [combinedError, hasRedirected, router, shouldTriggerRedirect, workspaceId])
+  }, [accessKey, combinedError, hasRedirected, router, shouldTriggerRedirect, workspaceId])
 
   const shouldBlockRender = isAuthRecoveryError || hasRedirected || shouldTriggerRedirect
 

@@ -153,4 +153,64 @@ describe('WorkspacePermissionsProvider', () => {
     expect(mockReplace).not.toHaveBeenCalled()
     expect(container?.textContent).toBe('')
   })
+
+  it('unblocks children when the authenticated user changes on the same workspace', async () => {
+    mockUseWorkspacePermissions.mockReturnValue({
+      permissions: null,
+      loading: false,
+      error: 'Workspace not found or access denied',
+      updatePermissions: mockUpdatePermissions,
+      refetch: mockRefetchPermissions,
+    })
+    mockUseUserPermissions.mockReturnValue({
+      canRead: false,
+      canEdit: false,
+      canAdmin: false,
+      userPermissions: 'read',
+      isLoading: false,
+      error: 'Workspace not found or access denied',
+    })
+
+    const { WorkspacePermissionsProvider } = await import('./workspace-permissions-provider')
+
+    await act(async () => {
+      root?.render(
+        <WorkspacePermissionsProvider workspaceId='ws-1' userId='user-1'>
+          <div>workspace</div>
+        </WorkspacePermissionsProvider>
+      )
+    })
+
+    expect(container?.textContent).toBe('')
+
+    mockUseWorkspacePermissions.mockReturnValue({
+      permissions: {
+        users: [],
+        total: 0,
+        currentUserPermission: 'admin',
+      },
+      loading: false,
+      error: null,
+      updatePermissions: mockUpdatePermissions,
+      refetch: mockRefetchPermissions,
+    })
+    mockUseUserPermissions.mockReturnValue({
+      canRead: true,
+      canEdit: true,
+      canAdmin: true,
+      userPermissions: 'admin',
+      isLoading: false,
+      error: null,
+    })
+
+    await act(async () => {
+      root?.render(
+        <WorkspacePermissionsProvider workspaceId='ws-1' userId='user-2'>
+          <div>workspace</div>
+        </WorkspacePermissionsProvider>
+      )
+    })
+
+    expect(container?.textContent).toBe('workspace')
+  })
 })
