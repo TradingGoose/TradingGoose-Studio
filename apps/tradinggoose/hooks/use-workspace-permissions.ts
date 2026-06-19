@@ -4,6 +4,7 @@ import { useCallback, useEffect } from 'react'
 import type { permissionTypeEnum } from '@tradinggoose/db/schema'
 import { createWithEqualityFn as create } from 'zustand/traditional'
 import { handleAuthError, isAuthErrorStatus } from '@/lib/auth/auth-error-handler'
+import { isSessionRecoveryAuthError } from '@/lib/auth/auth-error-copy'
 import { createLogger } from '@/lib/logs/console/logger'
 import { usePathname } from '@/i18n/navigation'
 import { API_ENDPOINTS } from '@/stores/constants'
@@ -89,6 +90,9 @@ const useWorkspacePermissionsStore = create<WorkspacePermissionsStoreState>((set
       }
 
       const existing = records[recordKey]
+      if (isSessionRecoveryAuthError(existing?.error)) {
+        return
+      }
       if (existing?.permissions && !existing?.error) {
         return
       }

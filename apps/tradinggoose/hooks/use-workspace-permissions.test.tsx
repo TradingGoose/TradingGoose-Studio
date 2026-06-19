@@ -79,6 +79,40 @@ describe('useWorkspacePermissions', () => {
     })
   })
 
+  it('does not refetch a session recovery record after remounting the same user workspace key', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>
+
+    await act(async () => {
+      root.render(<WorkspacePermissionsProbe />)
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(latestValue).toMatchObject({
+      loading: false,
+      error: 'SESSION_EXPIRED',
+      permissions: null,
+    })
+
+    await act(async () => {
+      root.unmount()
+    })
+    root = createRoot(container)
+
+    await act(async () => {
+      root.render(<WorkspacePermissionsProbe />)
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(mockHandleAuthError).toHaveBeenCalledTimes(1)
+    expect(latestValue).toMatchObject({
+      loading: false,
+      error: 'SESSION_EXPIRED',
+      permissions: null,
+    })
+  })
+
   it('uses the server-authenticated user id instead of client session state', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       Response.json({
