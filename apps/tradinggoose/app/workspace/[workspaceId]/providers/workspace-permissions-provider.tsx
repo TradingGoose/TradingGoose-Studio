@@ -23,22 +23,7 @@ interface WorkspacePermissionsContextType {
   setOfflineMode: (isOffline: boolean) => void
 }
 
-const WorkspacePermissionsContext = createContext<WorkspacePermissionsContextType>({
-  workspacePermissions: null,
-  permissionsLoading: false,
-  permissionsError: null,
-  updatePermissions: () => {},
-  refetchPermissions: async () => {},
-  userPermissions: {
-    canRead: false,
-    canEdit: false,
-    canAdmin: false,
-    userPermissions: 'read',
-    isLoading: false,
-    error: null,
-  },
-  setOfflineMode: () => {},
-})
+const WorkspacePermissionsContext = createContext<WorkspacePermissionsContextType | null>(null)
 
 interface WorkspacePermissionsProviderProps {
   children: React.ReactNode
