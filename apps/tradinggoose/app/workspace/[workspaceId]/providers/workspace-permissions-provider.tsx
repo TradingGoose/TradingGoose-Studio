@@ -3,6 +3,7 @@
 import type React from 'react'
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { createLogger } from '@/lib/logs/console/logger'
+import { isSessionRecoveryAuthError } from '@/lib/auth/auth-error-copy'
 import { useUserPermissions, type WorkspaceUserPermissions } from '@/hooks/use-user-permissions'
 import {
   useWorkspacePermissions,
@@ -97,12 +98,14 @@ export function WorkspacePermissionsProvider({
   )
 
   const combinedError = userPermissions.error || permissionsError
+  const isAuthRecoveryError = isSessionRecoveryAuthError(permissionsError)
   const normalizedError = combinedError?.toLowerCase() ?? ''
   const isAccessDeniedError = normalizedError
     ? ACCESS_DENIED_PATTERNS.some((pattern) => normalizedError.includes(pattern))
     : false
   const shouldTriggerRedirect = Boolean(
     workspaceId &&
+      !isAuthRecoveryError &&
       !permissionsLoading &&
       !userPermissions.isLoading &&
       (isAccessDeniedError || !userPermissions.canRead)
@@ -121,7 +124,7 @@ export function WorkspacePermissionsProvider({
     router.replace('/workspace')
   }, [combinedError, hasRedirected, router, shouldTriggerRedirect, workspaceId])
 
-  const shouldBlockRender = hasRedirected || shouldTriggerRedirect
+  const shouldBlockRender = isAuthRecoveryError || hasRedirected || shouldTriggerRedirect
 
   return (
     <WorkspacePermissionsContext.Provider value={contextValue}>

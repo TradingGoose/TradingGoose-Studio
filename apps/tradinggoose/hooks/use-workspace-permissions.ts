@@ -50,7 +50,6 @@ interface WorkspacePermissionsStoreState {
   records: Record<string, WorkspacePermissionsRecord>
   inFlight: Partial<Record<string, Promise<void>>>
   setRecord: (recordKey: string, partial: Partial<WorkspacePermissionsRecord>) => void
-  clearRecord: (recordKey: string) => void
   fetchPermissions: (
     recordKey: string,
     workspaceId: string,
@@ -80,15 +79,9 @@ const useWorkspacePermissionsStore = create<WorkspacePermissionsStoreState>((set
         },
       }
     }),
-  clearRecord: (recordKey) =>
-    set((state) => {
-      const records = { ...state.records }
-      delete records[recordKey]
-      return { records }
-    }),
   fetchPermissions: async (recordKey, workspaceId, options) => {
     const { callbackPathname, force = false } = options
-    const { records, inFlight, setRecord, clearRecord } = get()
+    const { records, inFlight, setRecord } = get()
 
     if (!force) {
       if (inFlight[recordKey]) {
@@ -113,7 +106,11 @@ const useWorkspacePermissionsStore = create<WorkspacePermissionsStoreState>((set
           }
           if (isAuthErrorStatus(response.status)) {
             await handleAuthError('workspace-permissions', callbackPathname)
-            clearRecord(recordKey)
+            setRecord(recordKey, {
+              permissions: null,
+              loading: false,
+              error: 'SESSION_EXPIRED',
+            })
             return
           }
           throw new Error(`Failed to fetch permissions: ${response.statusText}`)

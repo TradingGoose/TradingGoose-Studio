@@ -73,8 +73,8 @@ describe('useWorkspacePermissions', () => {
       '/workspace/workspace-1/dashboard'
     )
     expect(latestValue).toMatchObject({
-      loading: true,
-      error: null,
+      loading: false,
+      error: 'SESSION_EXPIRED',
       permissions: null,
     })
   })

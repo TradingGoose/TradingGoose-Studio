@@ -121,4 +121,36 @@ describe('WorkspacePermissionsProvider', () => {
     expect(mockReplace).toHaveBeenCalledWith('/workspace')
     expect(container?.textContent).toBe('')
   })
+
+  it('blocks rendering during auth recovery without replacing the auth redirect', async () => {
+    mockUseWorkspacePermissions.mockReturnValue({
+      permissions: null,
+      loading: false,
+      error: 'SESSION_EXPIRED',
+      updatePermissions: mockUpdatePermissions,
+      refetch: mockRefetchPermissions,
+    })
+
+    mockUseUserPermissions.mockReturnValue({
+      canRead: false,
+      canEdit: false,
+      canAdmin: false,
+      userPermissions: 'read',
+      isLoading: false,
+      error: 'SESSION_EXPIRED',
+    })
+
+    const { WorkspacePermissionsProvider } = await import('./workspace-permissions-provider')
+
+    await act(async () => {
+      root?.render(
+        <WorkspacePermissionsProvider workspaceId='ws-1' userId='user-1'>
+          <div>workspace</div>
+        </WorkspacePermissionsProvider>
+      )
+    })
+
+    expect(mockReplace).not.toHaveBeenCalled()
+    expect(container?.textContent).toBe('')
+  })
 })
