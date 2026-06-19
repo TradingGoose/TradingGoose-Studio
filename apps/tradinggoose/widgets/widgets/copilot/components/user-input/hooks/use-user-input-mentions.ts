@@ -1,7 +1,9 @@
 'use client'
 
 import { type KeyboardEvent, type RefObject, useEffect, useRef, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
+import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import type { ChatContext } from '@/stores/copilot/types'
 import {
   buildCopilotWorkspaceEntityContext,
@@ -9,6 +11,13 @@ import {
   matchesCopilotWorkspaceEntityContext,
 } from '../../../workspace-entities'
 import { MENTION_SUBMENUS } from '../constants'
+import {
+  getKnowledgeBaseMentionLabel,
+  getMentionOptionLabel,
+  getPastChatMentionLabel,
+  getWorkspaceEntityMentionLabel,
+  useCopilotMentionCopy,
+} from '../mention-copy'
 import {
   buildAggregatedMentionItems,
   filterBlocks,
@@ -54,6 +63,9 @@ export function useUserInputMentions({
   workspaceId,
   loaders,
 }: UseUserInputMentionsOptions) {
+  const locale = useLocale()
+  const mentionCopy = useCopilotMentionCopy()
+  const { copy: monitorCopy } = useMonitorCopy()
   const [showMentionMenu, setShowMentionMenu] = useState(false)
   const [mentionActiveIndex, setMentionActiveIndex] = useState(0)
   const [openSubmenuFor, setOpenSubmenuFor] = useState<MentionSubmenu | null>(null)
@@ -64,6 +76,7 @@ export function useUserInputMentions({
   const workflowSession = useOptionalWorkflowSession()
   const currentWorkflowId = workflowSession?.workflowId ?? null
   const lastSelectionRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 })
+  const previousLocaleRef = useRef(locale)
   const getEditorTextLength = () => textareaRef.current?.value.length ?? message.length
 
   const normalizeSelection = (selection: { start: number; end: number }) => {
@@ -228,7 +241,7 @@ export function useUserInputMentions({
     showMentionMenu &&
     !openSubmenuFor &&
     mentionQuery.length > 0 &&
-    filterMentionOptions(mentionQuery).length === 0
+    filterMentionOptions(mentionQuery, mentionCopy).length === 0
 
   const closeMentionMenu = () => {
     setShowMentionMenu(false)
@@ -244,27 +257,27 @@ export function useUserInputMentions({
   }
 
   const getFilteredSubmenuItems = (submenu: MentionSubmenu, query: string): MentionItem[] => {
-    if (submenu === 'Chats') {
-      return filterPastChats(mentionSources.pastChats, query)
+    if (submenu === 'chats') {
+      return filterPastChats(mentionSources.pastChats, query, mentionCopy)
     }
 
     if (isCopilotWorkspaceEntityMentionOption(submenu)) {
-      return filterWorkspaceEntitiesForOption(submenu, mentionSources, query)
+      return filterWorkspaceEntitiesForOption(submenu, mentionSources, query, mentionCopy)
     }
 
-    if (submenu === 'Knowledge') {
-      return filterKnowledgeBases(mentionSources.knowledgeBases, query)
+    if (submenu === 'knowledge') {
+      return filterKnowledgeBases(mentionSources.knowledgeBases, query, mentionCopy)
     }
 
-    if (submenu === 'Blocks') {
+    if (submenu === 'blocks') {
       return filterBlocks(mentionSources.blocksList, query)
     }
 
-    if (submenu === 'Workflow Blocks') {
+    if (submenu === 'workflow_blocks') {
       return filterWorkflowBlocks(mentionSources.workflowBlocks, query)
     }
 
-    return filterLogs(mentionSources.logsList, query)
+    return filterLogs(mentionSources.logsList, query, monitorCopy)
   }
 
   const insertAtCursor = (text: string) => {
@@ -329,7 +342,7 @@ export function useUserInputMentions({
   }
 
   const insertPastChatMention = (chat: { reviewSessionId: string; title: string | null }) => {
-    const label = chat.title || 'Untitled Chat'
+    const label = getPastChatMentionLabel(mentionCopy, chat)
     replaceActiveMentionWith(label)
     setSelectedContexts((prev) => {
       if (
@@ -351,7 +364,7 @@ export function useUserInputMentions({
   }
 
   const insertWorkspaceEntityMention = (item: WorkspaceEntityItem) => {
-    const label = item.name || 'Untitled'
+    const label = getWorkspaceEntityMentionLabel(mentionCopy, item)
     const token = `@${label}`
 
     if (!replaceActiveMentionWith(label)) {
@@ -381,7 +394,7 @@ export function useUserInputMentions({
   }
 
   const insertKnowledgeMention = (knowledgeBase: { id: string; name: string }) => {
-    const label = knowledgeBase.name || 'Untitled'
+    const label = getKnowledgeBaseMentionLabel(mentionCopy, knowledgeBase)
     replaceActiveMentionWith(label)
     setSelectedContexts((prev) => {
       if (
@@ -454,7 +467,7 @@ export function useUserInputMentions({
   }
 
   const insertDocsMention = () => {
-    const label = 'Docs'
+    const label = getMentionOptionLabel(mentionCopy, 'docs')
     if (!replaceActiveMentionWith(label)) {
       insertAtCursor(`@${label} `)
     }
@@ -490,17 +503,17 @@ export function useUserInputMentions({
   }
 
   const handleSubmenuItemSelect = (submenu: MentionSubmenu, item: MentionItem) => {
-    if (submenu === 'Chats') {
+    if (submenu === 'chats') {
       insertPastChatMention(item as any)
     } else if (isCopilotWorkspaceEntityMentionOption(submenu)) {
       insertWorkspaceEntityMention(item as WorkspaceEntityItem)
-    } else if (submenu === 'Knowledge') {
+    } else if (submenu === 'knowledge') {
       insertKnowledgeMention(item as any)
-    } else if (submenu === 'Blocks') {
+    } else if (submenu === 'blocks') {
       insertBlockMention(item as any)
-    } else if (submenu === 'Workflow Blocks') {
+    } else if (submenu === 'workflow_blocks') {
       insertWorkflowBlockMention(item as any)
-    } else if (submenu === 'Logs') {
+    } else if (submenu === 'logs') {
       insertLogMention(item as any)
     }
 
@@ -508,17 +521,17 @@ export function useUserInputMentions({
   }
 
   const handleAggregatedItemSelect = (item: AggregatedMentionItem) => {
-    if (item.type === 'Chats') {
+    if (item.type === 'chats') {
       insertPastChatMention(item.value as any)
     } else if (isCopilotWorkspaceEntityMentionOption(item.type)) {
       insertWorkspaceEntityMention(item.value as WorkspaceEntityItem)
-    } else if (item.type === 'Knowledge') {
+    } else if (item.type === 'knowledge') {
       insertKnowledgeMention(item.value as any)
-    } else if (item.type === 'Blocks') {
+    } else if (item.type === 'blocks') {
       insertBlockMention(item.value as any)
-    } else if (item.type === 'Workflow Blocks') {
+    } else if (item.type === 'workflow_blocks') {
       insertWorkflowBlockMention(item.value as any)
-    } else if (item.type === 'Logs') {
+    } else if (item.type === 'logs') {
       insertLogMention(item.value as any)
     }
   }
@@ -532,7 +545,7 @@ export function useUserInputMentions({
   }
 
   const handleMainMentionOptionSelect = (option: MentionOption) => {
-    if (option === 'Docs') {
+    if (option === 'docs') {
       resetActiveMentionQuery()
       insertDocsMention()
       return
@@ -568,7 +581,7 @@ export function useUserInputMentions({
     const active = getActiveMentionQueryAtPosition(normalizedSelection.start, newValue)
 
     if (active) {
-      void loaders.ensureSubmenuLoaded('Workflow Blocks')
+      void loaders.ensureSubmenuLoaded('workflow_blocks')
       setShowMentionMenu(true)
       setInAggregated(false)
 
@@ -618,7 +631,7 @@ export function useUserInputMentions({
     const pos = getSelection()?.start ?? message.length
     const needsSpaceBefore = pos > 0 && !/\s/.test(message.charAt(pos - 1))
     insertAtCursor(needsSpaceBefore ? ' @' : '@')
-    void loaders.ensureSubmenuLoaded('Workflow Blocks')
+    void loaders.ensureSubmenuLoaded('workflow_blocks')
     setShowMentionMenu(true)
     setOpenSubmenuFor(null)
     setMentionActiveIndex(0)
@@ -665,10 +678,10 @@ export function useUserInputMentions({
         return currentIndex <= 0 ? itemCount - 1 : currentIndex - 1
       }
 
-      const filteredMain = openSubmenuFor ? [] : filterMentionOptions(mentionQuery)
+      const filteredMain = openSubmenuFor ? [] : filterMentionOptions(mentionQuery, mentionCopy)
       const aggregatedItems =
         !openSubmenuFor && mentionQuery.length > 0
-          ? buildAggregatedMentionItems(mentionQuery, mentionSources)
+          ? buildAggregatedMentionItems(mentionQuery, mentionSources, mentionCopy, monitorCopy)
           : []
 
       if (openSubmenuFor) {
@@ -774,7 +787,7 @@ export function useUserInputMentions({
         return true
       }
 
-      const selected = filterMentionOptions(mentionQuery)[mentionActiveIndex]
+      const selected = filterMentionOptions(mentionQuery, mentionCopy)[mentionActiveIndex]
       if (selected) {
         handleMainMentionOptionSelect(selected)
       }
@@ -877,7 +890,12 @@ export function useUserInputMentions({
       event.preventDefault()
 
       if (inAggregated || aggregatedActive) {
-        const aggregatedItems = buildAggregatedMentionItems(mentionQuery, mentionSources)
+        const aggregatedItems = buildAggregatedMentionItems(
+          mentionQuery,
+          mentionSources,
+          mentionCopy,
+          monitorCopy
+        )
         const chosen =
           aggregatedItems[Math.max(0, Math.min(submenuActiveIndex, aggregatedItems.length - 1))]
 
@@ -897,7 +915,7 @@ export function useUserInputMentions({
         return true
       }
 
-      const selected = filterMentionOptions(mentionQuery)[mentionActiveIndex]
+      const selected = filterMentionOptions(mentionQuery, mentionCopy)[mentionActiveIndex]
       if (selected) {
         handleMainMentionOptionSelect(selected)
       }
@@ -940,7 +958,18 @@ export function useUserInputMentions({
       setSubmenuActiveIndex(0)
       requestAnimationFrame(() => scrollActiveItemIntoView(0))
     }
-  }, [showMentionMenu, openSubmenuFor, message])
+  }, [showMentionMenu, openSubmenuFor, message, locale])
+
+  useEffect(() => {
+    const previousLocale = previousLocaleRef.current
+    previousLocaleRef.current = locale
+
+    if (previousLocale === locale || !showMentionMenu || !openSubmenuFor) {
+      return
+    }
+
+    void loaders.ensureSubmenuLoaded(openSubmenuFor)
+  }, [showMentionMenu, openSubmenuFor, locale, loaders])
 
   useEffect(() => {
     if (openSubmenuFor) {

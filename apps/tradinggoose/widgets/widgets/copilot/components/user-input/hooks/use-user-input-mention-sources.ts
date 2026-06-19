@@ -1,11 +1,17 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { createLogger } from '@/lib/logs/console/logger'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { fetchKnowledgeBases as fetchWorkspaceKnowledgeBases } from '@/hooks/queries/knowledge'
+import {
+  getLocalizedBlockNameWithCopy,
+  getLocalizedDefaultBlockNameWithCopy,
+} from '@/i18n/workflow-inspector-core'
+import { useWorkflowInspectorMessages } from '@/i18n/workspace-widget-hooks'
 import { getSubflowBlockConfig } from '@/widgets/widgets/editor_workflow/components/subflows/config'
 import {
   type CopilotWorkspaceEntityKind,
@@ -50,6 +56,7 @@ const createEmptyWorkspaceEntityLoading = (): Record<CopilotWorkspaceEntityKind,
 })
 
 export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionSourcesOptions) {
+  const locale = useLocale()
   const [pastChats, setPastChats] = useState<PastChatItem[]>([])
   const [isLoadingPastChats, setIsLoadingPastChats] = useState(false)
   const [workspaceEntities, setWorkspaceEntities] = useState(createEmptyWorkspaceEntities)
@@ -67,6 +74,18 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
   const workflowSession = useOptionalWorkflowSession()
   const workflowId = workflowSession?.workflowId ?? null
   const workflowStoreBlocks = useWorkflowBlocks()
+  const workflowInspectorCopy = useWorkflowInspectorMessages()
+  const latestBlocksLocaleRef = useRef(locale)
+  const latestWorkflowBlocksKeyRef = useRef(`${locale}:${workflowId ?? ''}`)
+  const workflowBlocksLoadingRef = useRef(false)
+
+  useEffect(() => {
+    latestBlocksLocaleRef.current = locale
+  }, [locale])
+
+  useEffect(() => {
+    latestWorkflowBlocksKeyRef.current = `${locale}:${workflowId ?? ''}`
+  }, [locale, workflowId])
 
   const ensurePastChatsLoaded = useCallback(async () => {
     if (isLoadingPastChats || pastChats.length > 0) {
@@ -141,7 +160,7 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
       setKnowledgeBases(
         sorted.map((item: any) => ({
           id: item.id,
-          name: item.name || 'Untitled',
+          name: item.name || '',
         }))
       )
     } catch {
@@ -155,6 +174,8 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
       return
     }
 
+    const loadLocale = locale
+
     try {
       setIsLoadingBlocks(true)
       const { getAllBlocks } = await import('@/blocks')
@@ -163,7 +184,7 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
         .filter((block: any) => !block.hideFromToolbar && block.category === 'blocks')
         .map((block: any) => ({
           id: block.type,
-          name: block.name || block.type,
+          name: getLocalizedBlockNameWithCopy(workflowInspectorCopy, block),
           iconComponent: block.icon,
           bgColor: sanitizeSolidIconColor(block.bgColor),
         }))
@@ -173,18 +194,24 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
         .filter((block: any) => !block.hideFromToolbar && block.category === 'tools')
         .map((block: any) => ({
           id: block.type,
-          name: block.name || block.type,
+          name: getLocalizedBlockNameWithCopy(workflowInspectorCopy, block),
           iconComponent: block.icon,
           bgColor: sanitizeSolidIconColor(block.bgColor),
         }))
         .sort((a: any, b: any) => a.name.localeCompare(b.name))
 
+      if (latestBlocksLocaleRef.current !== loadLocale) {
+        return
+      }
+
       setBlocksList([...regularBlocks, ...toolBlocks])
     } catch {
     } finally {
-      setIsLoadingBlocks(false)
+      if (latestBlocksLocaleRef.current === loadLocale) {
+        setIsLoadingBlocks(false)
+      }
     }
-  }, [blocksList.length, isLoadingBlocks])
+  }, [blocksList.length, isLoadingBlocks, locale, workflowInspectorCopy])
 
   const ensureLogsLoaded = useCallback(async () => {
     if (isLoadingLogs || logsList.length > 0) {
@@ -226,7 +253,7 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
   }, [isLoadingLogs, logsList.length, workspaceId])
 
   const ensureWorkflowBlocksLoaded = useCallback(async () => {
-    if (isLoadingWorkflowBlocks) {
+    if (workflowBlocksLoadingRef.current) {
       return
     }
 
@@ -235,7 +262,10 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
       return
     }
 
+    const loadKey = `${locale}:${workflowId ?? ''}`
+
     try {
+      workflowBlocksLoadingRef.current = true
       setIsLoadingWorkflowBlocks(true)
       const { registry: blockRegistry } = await import('@/blocks/registry')
       const mapped = Object.values(workflowStoreBlocks).map((block: any) => {
@@ -245,24 +275,35 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
 
         return {
           id: block.id,
-          name: block.name || presentation?.name || block.id,
+          name: getLocalizedDefaultBlockNameWithCopy(
+            workflowInspectorCopy,
+            block.type,
+            block.name || presentation?.name
+          ),
           type: block.type,
           iconComponent: presentation?.icon,
           bgColor: sanitizeSolidIconColor(presentation?.bgColor) || '#6B7280',
         }
       })
 
+      if (latestWorkflowBlocksKeyRef.current !== loadKey) {
+        return
+      }
+
       setWorkflowBlocks(mapped)
     } catch (error) {
       logger.error('Failed to sync workflow blocks:', error)
     } finally {
-      setIsLoadingWorkflowBlocks(false)
+      workflowBlocksLoadingRef.current = false
+      if (latestWorkflowBlocksKeyRef.current === loadKey) {
+        setIsLoadingWorkflowBlocks(false)
+      }
     }
-  }, [isLoadingWorkflowBlocks, workflowId, workflowStoreBlocks])
+  }, [locale, workflowId, workflowInspectorCopy, workflowStoreBlocks])
 
   const ensureSubmenuLoaded = useCallback(
     async (submenu: MentionSubmenu) => {
-      if (submenu === 'Chats') {
+      if (submenu === 'chats') {
         await ensurePastChatsLoaded()
         return
       }
@@ -272,17 +313,17 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
         return
       }
 
-      if (submenu === 'Knowledge') {
+      if (submenu === 'knowledge') {
         await ensureKnowledgeLoaded()
         return
       }
 
-      if (submenu === 'Blocks') {
+      if (submenu === 'blocks') {
         await ensureBlocksLoaded()
         return
       }
 
-      if (submenu === 'Workflow Blocks') {
+      if (submenu === 'workflow_blocks') {
         await ensureWorkflowBlocksLoaded()
         return
       }
@@ -301,12 +342,18 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
 
   useEffect(() => {
     setWorkflowBlocks([])
+    workflowBlocksLoadingRef.current = false
     setIsLoadingWorkflowBlocks(false)
   }, [workflowId])
 
   useEffect(() => {
+    setBlocksList([])
+    setIsLoadingBlocks(false)
+  }, [locale])
+
+  useEffect(() => {
     void ensureWorkflowBlocksLoaded()
-  }, [ensureWorkflowBlocksLoaded])
+  }, [locale, workflowId, workflowStoreBlocks])
 
   useEffect(() => {
     if (workflowId && workspaceEntities.workflow.length === 0) {
@@ -335,16 +382,16 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
   }
 
   const mentionLoading: Record<MentionSubmenu, boolean> = {
-    Chats: isLoadingPastChats,
-    Workflows: workspaceEntityLoading.workflow,
-    Skills: workspaceEntityLoading.skill,
-    Indicators: workspaceEntityLoading.indicator,
-    'Custom Tools': workspaceEntityLoading.custom_tool,
-    'MCP Servers': workspaceEntityLoading.mcp_server,
-    'Workflow Blocks': isLoadingWorkflowBlocks,
-    Blocks: isLoadingBlocks,
-    Knowledge: isLoadingKnowledge,
-    Logs: isLoadingLogs,
+    chats: isLoadingPastChats,
+    workflow: workspaceEntityLoading.workflow,
+    skill: workspaceEntityLoading.skill,
+    indicator: workspaceEntityLoading.indicator,
+    custom_tool: workspaceEntityLoading.custom_tool,
+    mcp_server: workspaceEntityLoading.mcp_server,
+    workflow_blocks: isLoadingWorkflowBlocks,
+    blocks: isLoadingBlocks,
+    knowledge: isLoadingKnowledge,
+    logs: isLoadingLogs,
   }
 
   return {

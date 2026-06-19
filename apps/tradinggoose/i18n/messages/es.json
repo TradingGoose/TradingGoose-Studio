@@ -20873,7 +20873,7 @@
         "noSkillsAvailableYet": "Aún no hay skills disponibles.",
         "noSkillsFound": "No se encontraron skills.",
         "retry": "Reintentar",
-        "untitledSkill": "Skill sin título"
+        "untitledSkill": "Habilidad sin título"
       },
       "customToolDropdown": {
         "placeholder": "Seleccionar herramientas personalizadas",
@@ -21422,6 +21422,23 @@
             "lastWeek": "La semana pasada",
             "older": "Anteriores"
           }
+        },
+        "mentions": {
+          "workflowBlocks": "Bloques del flujo de trabajo",
+          "untitledChat": "Chat sin título",
+          "untitled": "Sin título",
+          "matches": "Coincidencias",
+          "noMatches": "No hay coincidencias",
+          "noPastChats": "No hay chats anteriores",
+          "noWorkflows": "No se encontraron flujos de trabajo",
+          "noSkills": "No se encontraron habilidades",
+          "noIndicators": "No se encontraron indicadores",
+          "noCustomTools": "No se encontraron herramientas personalizadas",
+          "noMcpServers": "No se encontraron servidores MCP",
+          "noKnowledgeBases": "No se encontraron bases de conocimiento",
+          "noBlocksFound": "No se encontraron bloques",
+          "noBlocksInWorkflow": "No hay bloques en este flujo de trabajo",
+          "noExecutionsFound": "No se encontraron ejecuciones"
         },
         "accessLevel": {
           "limited": {

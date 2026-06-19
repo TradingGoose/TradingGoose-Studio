@@ -370,16 +370,8 @@
         "waitlist": "Honk! Introducing TradingGoose-Studio",
         "open": "Honk! TradingGoose-Studio is here!"
       },
-      "leadWords": [
-        "Build",
-        "Test",
-        "Run"
-      ],
-      "highlightWords": [
-        "Trading Analysis",
-        "Signal Detection",
-        "Risk Assessment"
-      ],
+      "leadWords": ["Build", "Test", "Run"],
+      "highlightWords": ["Trading Analysis", "Signal Detection", "Risk Assessment"],
       "titleConnector": "your",
       "suffix": "with TradingGoose",
       "description": "Connect your own data providers, write custom indicators to monitor market prices, and wire them into workflows that trigger trade, sell, buy, or any action you define.",
@@ -713,13 +705,7 @@
         "experience": {
           "label": "Years of Experience *",
           "placeholder": "Select experience level",
-          "options": [
-            "0-1 years",
-            "1-3 years",
-            "3-5 years",
-            "5-10 years",
-            "10+ years"
-          ]
+          "options": ["0-1 years", "1-3 years", "3-5 years", "5-10 years", "10+ years"]
         },
         "location": {
           "label": "Location *",
@@ -3682,10 +3668,7 @@
             },
             "headers": {
               "title": "Response Headers",
-              "columns": [
-                "Key",
-                "Value"
-              ],
+              "columns": ["Key", "Value"],
               "description": "Additional HTTP headers to include in the response"
             }
           },
@@ -17931,10 +17914,7 @@
             },
             "variables": {
               "title": "Variables",
-              "columns": [
-                "Key",
-                "Value"
-              ]
+              "columns": ["Key", "Value"]
             },
             "apiKey": {
               "title": "Anthropic API Key",
@@ -21442,6 +21422,23 @@
             "lastWeek": "Last Week",
             "older": "Older"
           }
+        },
+        "mentions": {
+          "workflowBlocks": "Workflow Blocks",
+          "untitledChat": "Untitled chat",
+          "untitled": "Untitled",
+          "matches": "Matches",
+          "noMatches": "No matches",
+          "noPastChats": "No past chats",
+          "noWorkflows": "No workflows found",
+          "noSkills": "No skills found",
+          "noIndicators": "No indicators found",
+          "noCustomTools": "No custom tools found",
+          "noMcpServers": "No MCP servers found",
+          "noKnowledgeBases": "No knowledge bases found",
+          "noBlocksFound": "No blocks found",
+          "noBlocksInWorkflow": "No blocks in this workflow",
+          "noExecutionsFound": "No executions found"
         },
         "accessLevel": {
           "limited": {

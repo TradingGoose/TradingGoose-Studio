@@ -21410,6 +21410,23 @@
             "older": "更早"
           }
         },
+        "mentions": {
+          "workflowBlocks": "工作流模块",
+          "untitledChat": "未命名聊天",
+          "untitled": "未命名",
+          "matches": "匹配项",
+          "noMatches": "未找到匹配项",
+          "noPastChats": "没有历史聊天",
+          "noWorkflows": "未找到工作流",
+          "noSkills": "未找到技能",
+          "noIndicators": "未找到指标",
+          "noCustomTools": "未找到自定义工具",
+          "noMcpServers": "未找到 MCP 服务器",
+          "noKnowledgeBases": "未找到知识库",
+          "noBlocksFound": "未找到模块",
+          "noBlocksInWorkflow": "此工作流中没有模块",
+          "noExecutionsFound": "未找到执行记录"
+        },
         "accessLevel": {
           "limited": {
             "label": "受限",

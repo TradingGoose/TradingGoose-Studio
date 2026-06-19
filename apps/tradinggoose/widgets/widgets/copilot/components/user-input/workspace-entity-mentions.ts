@@ -8,23 +8,6 @@ const sortByRecent = <T extends { createdAt?: string; updatedAt?: string }>(item
     return rightTime - leftTime
   })
 
-export function getWorkspaceEntityMentionEmptyState(
-  entityKind: CopilotWorkspaceEntityKind
-): string {
-  switch (entityKind) {
-    case 'workflow':
-      return 'No workflows'
-    case 'skill':
-      return 'No skills'
-    case 'indicator':
-      return 'No indicators'
-    case 'custom_tool':
-      return 'No custom tools'
-    case 'mcp_server':
-      return 'No MCP servers'
-  }
-}
-
 export async function loadWorkspaceEntityMentionItems(
   entityKind: CopilotWorkspaceEntityKind,
   workspaceId: string
@@ -58,12 +41,12 @@ export async function loadWorkspaceEntityMentionItems(
   switch (entityKind) {
     case 'workflow':
       return sortByRecent(Array.isArray(data?.data) ? data.data : []).flatMap((item: any) =>
-        item.id && item.name
+        item.id
           ? [
               {
                 entityKind,
                 id: item.id,
-                name: item.name,
+                name: item.name || '',
                 color: item.color,
               },
             ]
@@ -73,21 +56,21 @@ export async function loadWorkspaceEntityMentionItems(
       return sortByRecent(Array.isArray(data?.data) ? data.data : []).map((item: any) => ({
         entityKind,
         id: item.id,
-        name: item.name || 'Untitled Skill',
+        name: item.name || '',
         description: item.description || '',
       }))
     case 'indicator':
       return sortByRecent(Array.isArray(data?.data) ? data.data : []).map((item: any) => ({
         entityKind,
         id: item.id,
-        name: item.name || 'Untitled Indicator',
+        name: item.name || '',
         color: item.color,
       }))
     case 'custom_tool':
       return sortByRecent(Array.isArray(data?.data) ? data.data : []).map((item: any) => ({
         entityKind,
         id: item.id,
-        name: item.title || item.schema?.function?.name || 'Untitled Tool',
+        name: item.title || item.schema?.function?.name || '',
         description: item.schema?.function?.description || '',
         functionName: item.schema?.function?.name || '',
       }))
@@ -96,7 +79,7 @@ export async function loadWorkspaceEntityMentionItems(
         (item: any) => ({
           entityKind,
           id: item.id,
-          name: item.name || 'Untitled MCP Server',
+          name: item.name || '',
           description: item.description || '',
           transport: item.transport || 'http',
           enabled: item.enabled,

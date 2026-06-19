@@ -54,15 +54,15 @@ export interface UserInputRef {
 }
 
 export type MentionOption =
-  | 'Chats'
+  | 'chats'
   | CopilotWorkspaceEntityMentionOption
-  | 'Workflow Blocks'
-  | 'Blocks'
-  | 'Knowledge'
-  | 'Docs'
-  | 'Logs'
+  | 'workflow_blocks'
+  | 'blocks'
+  | 'knowledge'
+  | 'docs'
+  | 'logs'
 
-export type MentionSubmenu = Exclude<MentionOption, 'Docs'>
+export type MentionSubmenu = Exclude<MentionOption, 'docs'>
 
 export interface MentionPortalStyle {
   top: number
