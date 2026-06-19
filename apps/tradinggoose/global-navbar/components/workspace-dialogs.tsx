@@ -39,6 +39,7 @@ interface WorkspaceInviteModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   currentUserId: string
+  currentUserEmail: string | null
   workspaceName?: string
   workspaceId?: string
   workspaceOwnerId?: string
@@ -441,6 +442,7 @@ export function WorkspaceInviteModal({
   open,
   onOpenChange,
   currentUserId,
+  currentUserEmail,
   workspaceName,
   workspaceId,
   workspaceOwnerId,
@@ -484,13 +486,7 @@ export function WorkspaceInviteModal({
     refetchPermissions,
     userPermissions: userPerms,
   } = useWorkspacePermissionsContext()
-  const currentUserEmail = useMemo(
-    () =>
-      workspacePermissions?.users
-        .find((user) => user.userId === currentUserId)
-        ?.email.toLowerCase() ?? null,
-    [workspacePermissions?.users, currentUserId]
-  )
+  const normalizedCurrentUserEmail = currentUserEmail?.trim().toLowerCase() ?? null
 
   const hasPendingChanges = Object.keys(existingUserPermissionChanges).length > 0
   const hasNewInvites = emails.length > 0 || inputValue.trim()
@@ -558,7 +554,7 @@ export function WorkspaceInviteModal({
         return false
       }
 
-      if (currentUserEmail === normalized) {
+      if (normalizedCurrentUserEmail === normalized) {
         setErrorMessage('You cannot invite yourself')
         setInputValue('')
         return false
@@ -593,7 +589,13 @@ export function WorkspaceInviteModal({
       setInputValue('')
       return true
     },
-    [emails, invalidEmails, pendingInvitations, workspacePermissions?.users, currentUserEmail]
+    [
+      emails,
+      invalidEmails,
+      pendingInvitations,
+      workspacePermissions?.users,
+      normalizedCurrentUserEmail,
+    ]
   )
 
   const removeEmail = useCallback(
@@ -1264,6 +1266,7 @@ export function WorkspaceInviteModal({
 
 interface WorkspaceDialogsProps {
   userId: string | null
+  userEmail: string | null
   inviteDialogOpen: boolean
   onInviteDialogChange: (open: boolean) => void
   inviteWorkspace: Workspace | null
@@ -1277,6 +1280,7 @@ interface WorkspaceDialogsProps {
 
 export function WorkspaceDialogs({
   userId,
+  userEmail,
   inviteDialogOpen,
   onInviteDialogChange,
   inviteWorkspace,
@@ -1295,6 +1299,7 @@ export function WorkspaceDialogs({
             open={inviteDialogOpen}
             onOpenChange={onInviteDialogChange}
             currentUserId={userId}
+            currentUserEmail={userEmail}
             workspaceName={inviteWorkspace?.name}
             workspaceId={inviteWorkspace?.id}
             workspaceOwnerId={inviteWorkspace.ownerId}

@@ -7,6 +7,7 @@ let capturedGlobalNavbarProps:
   | {
       isSystemAdmin?: boolean
       authenticatedUserId?: string | null
+      authenticatedUserEmail?: string | null
       navigationMode?: 'workspace' | 'admin'
     }
   | undefined
@@ -56,14 +57,21 @@ vi.mock('@/global-navbar', () => ({
     children,
     isSystemAdmin,
     authenticatedUserId,
+    authenticatedUserEmail,
     navigationMode,
   }: {
     children: React.ReactNode
     isSystemAdmin?: boolean
     authenticatedUserId?: string | null
+    authenticatedUserEmail?: string | null
     navigationMode?: 'workspace' | 'admin'
   }) => {
-    capturedGlobalNavbarProps = { isSystemAdmin, authenticatedUserId, navigationMode }
+    capturedGlobalNavbarProps = {
+      isSystemAdmin,
+      authenticatedUserId,
+      authenticatedUserEmail,
+      navigationMode,
+    }
     return <div data-testid='global-navbar'>{children}</div>
   },
 }))
@@ -85,6 +93,7 @@ describe('Admin layout', () => {
       isAuthenticated: true,
       isSystemAdmin: false,
       userId: 'admin-user-1',
+      user: { email: 'admin@example.com' },
       canBootstrapSystemAdmin: true,
     })
 
@@ -98,6 +107,7 @@ describe('Admin layout', () => {
     expect(capturedGlobalNavbarProps).toEqual({
       isSystemAdmin: false,
       authenticatedUserId: 'admin-user-1',
+      authenticatedUserEmail: 'admin@example.com',
       navigationMode: 'admin',
     })
     expect(mockGetSystemAdminAccess).toHaveBeenCalledWith(expect.any(Headers))

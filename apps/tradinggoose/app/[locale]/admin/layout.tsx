@@ -42,6 +42,7 @@ export default async function AdminLayout({
       <GlobalNavbar
         isSystemAdmin={access.isSystemAdmin}
         authenticatedUserId={access.userId}
+        authenticatedUserEmail={access.user?.email ?? null}
         navigationMode='admin'
       >
         {children}

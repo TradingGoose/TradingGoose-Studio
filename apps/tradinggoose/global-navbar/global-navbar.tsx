@@ -41,11 +41,13 @@ export function GlobalNavbar({
   children,
   isSystemAdmin = false,
   authenticatedUserId = null,
+  authenticatedUserEmail = null,
   navigationMode = 'workspace',
 }: {
   children: React.ReactNode
   isSystemAdmin?: boolean
   authenticatedUserId?: string | null
+  authenticatedUserEmail?: string | null
   navigationMode?: 'workspace' | 'admin'
 }) {
   const selectedSegments = useSelectedLayoutSegments()
@@ -101,6 +103,7 @@ export function GlobalNavbar({
   )
   const activeNavItem = React.useMemo(() => navMain.find((item) => item.isActive), [navMain])
   const userId = authenticatedUserId ?? sessionData?.user?.id ?? null
+  const userEmail = authenticatedUserEmail ?? sessionData?.user?.email ?? null
   const isAuthenticated = Boolean(userId)
   const shouldShowSkeleton = isSessionLoading && !userId
   const { data: organizationsData } = useOrganizations({
@@ -109,7 +112,7 @@ export function GlobalNavbar({
   const billingEnabled = organizationsData?.billingData?.data?.billingEnabled ?? true
   const activeOrganization = organizationsData?.activeOrganization
   const hasOrganization = Boolean(activeOrganization?.id)
-  const userRole = getUserRole(activeOrganization, sessionData?.user?.email)
+  const userRole = getUserRole(activeOrganization, userEmail ?? undefined)
   const organizationAccess = getOrganizationAccessState({
     billingEnabled,
     hasOrganization,
@@ -122,7 +125,7 @@ export function GlobalNavbar({
   const [isSettingsModalOpen, setIsSettingsModalOpen] = React.useState(false)
 
   const userName = sessionData?.user?.name ?? brand.name
-  const userEmail = sessionData?.user?.email ?? brand.supportEmail ?? 'support@tradinggoose.ai'
+  const userMenuEmail = userEmail ?? brand.supportEmail ?? 'support@tradinggoose.ai'
   const userAvatar = sessionData?.user?.image
   const userAvatarVersion = sessionData?.user?.updatedAt
     ? new Date(sessionData.user.updatedAt).getTime()
@@ -288,7 +291,7 @@ export function GlobalNavbar({
               <UserMenu
                 userId={userId}
                 userName={userName}
-                userEmail={userEmail}
+                userEmail={userMenuEmail}
                 userAvatar={userAvatar}
                 userAvatarVersion={userAvatarVersion}
                 onOpenSettings={openSettings}
@@ -316,6 +319,7 @@ export function GlobalNavbar({
         {canManageWorkspaces ? (
           <WorkspaceDialogs
             userId={userId}
+            userEmail={userEmail}
             inviteDialogOpen={workspaceSwitcher.inviteDialogOpen}
             onInviteDialogChange={workspaceSwitcher.handleInviteDialogChange}
             inviteWorkspace={workspaceSwitcher.inviteWorkspace}
