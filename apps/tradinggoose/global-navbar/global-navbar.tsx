@@ -100,10 +100,11 @@ export function GlobalNavbar({
     [activeKey, navItems]
   )
   const activeNavItem = React.useMemo(() => navMain.find((item) => item.isActive), [navMain])
-  const isAuthenticated = Boolean(sessionData?.user?.id)
-  const shouldShowSkeleton = isSessionLoading
+  const userId = authenticatedUserId ?? sessionData?.user?.id ?? null
+  const isAuthenticated = Boolean(userId)
+  const shouldShowSkeleton = isSessionLoading && !userId
   const { data: organizationsData } = useOrganizations({
-    enabled: isAuthenticated && !isSessionLoading,
+    enabled: isAuthenticated,
   })
   const billingEnabled = organizationsData?.billingData?.data?.billingEnabled ?? true
   const activeOrganization = organizationsData?.activeOrganization
@@ -120,7 +121,6 @@ export function GlobalNavbar({
     React.useState<SettingsSection>('account')
   const [isSettingsModalOpen, setIsSettingsModalOpen] = React.useState(false)
 
-  const userId = sessionData?.user?.id ?? null
   const userName = sessionData?.user?.name ?? brand.name
   const userEmail = sessionData?.user?.email ?? brand.supportEmail ?? 'support@tradinggoose.ai'
   const userAvatar = sessionData?.user?.image
@@ -128,7 +128,7 @@ export function GlobalNavbar({
     ? new Date(sessionData.user.updatedAt).getTime()
     : null
   const workspaceSwitcher = useWorkspaceSwitcher({
-    enabled: isAuthenticated && !isSessionLoading,
+    enabled: isAuthenticated,
     workspaceId,
     section: workspaceSection,
   })
@@ -315,7 +315,7 @@ export function GlobalNavbar({
 
         {canManageWorkspaces ? (
           <WorkspaceDialogs
-            userId={authenticatedUserId ?? userId}
+            userId={userId}
             inviteDialogOpen={workspaceSwitcher.inviteDialogOpen}
             onInviteDialogChange={workspaceSwitcher.handleInviteDialogChange}
             inviteWorkspace={workspaceSwitcher.inviteWorkspace}
