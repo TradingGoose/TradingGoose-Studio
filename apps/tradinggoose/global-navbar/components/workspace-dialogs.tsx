@@ -64,6 +64,7 @@ interface UserPermissions {
 
 interface PermissionsTableProps {
   currentUserId: string
+  currentUserEmail: string | null
   userPermissions: UserPermissions[]
   onPermissionChange: (userId: string, permissionType: PermissionType) => void
   onRemoveMember?: (userId: string, email: string) => void
@@ -185,6 +186,7 @@ PermissionsTableSkeleton.displayName = 'PermissionsTableSkeleton'
 
 const PermissionsTable = ({
   currentUserId,
+  currentUserEmail,
   userPermissions,
   onPermissionChange,
   onRemoveMember,
@@ -221,10 +223,23 @@ const PermissionsTable = ({
     [workspacePermissions?.users, existingUserPermissionChanges, currentUserId]
   )
 
-  const currentUser: UserPermissions | null = useMemo(
-    () => existingUsers.find((user) => user.isCurrentUser) ?? null,
-    [existingUsers]
-  )
+  const currentUser: UserPermissions | null = useMemo(() => {
+    const existingCurrentUser = existingUsers.find((user) => user.isCurrentUser)
+    if (existingCurrentUser) {
+      return existingCurrentUser
+    }
+
+    if (!currentUserEmail || !workspacePermissions?.currentUserPermission) {
+      return null
+    }
+
+    return {
+      userId: currentUserId,
+      email: currentUserEmail,
+      permissionType: workspacePermissions.currentUserPermission,
+      isCurrentUser: true,
+    }
+  }, [currentUserEmail, currentUserId, existingUsers, workspacePermissions?.currentUserPermission])
 
   const filteredExistingUsers = useMemo(
     () => existingUsers.filter((user) => !user.isCurrentUser),
@@ -1115,6 +1130,7 @@ export function WorkspaceInviteModal({
 
             <PermissionsTable
               currentUserId={currentUserId}
+              currentUserEmail={currentUserEmail}
               userPermissions={userPermissions}
               onPermissionChange={handlePermissionChange}
               onRemoveMember={handleRemoveMemberClick}
