@@ -495,6 +495,7 @@ export function WorkspaceInviteModal({
     workspaceId ?? optionalRoute?.workspaceId ?? (params?.workspaceId as string | undefined) ?? null
 
   const {
+    authReady,
     workspacePermissions,
     permissionsLoading,
     updatePermissions,
@@ -507,7 +508,7 @@ export function WorkspaceInviteModal({
   const hasNewInvites = emails.length > 0 || inputValue.trim()
 
   const fetchPendingInvitations = useCallback(async () => {
-    if (!resolvedWorkspaceId) return
+    if (!authReady || !resolvedWorkspaceId) return
 
     setIsPendingInvitationsLoading(true)
     try {
@@ -534,14 +535,14 @@ export function WorkspaceInviteModal({
     } finally {
       setIsPendingInvitationsLoading(false)
     }
-  }, [resolvedWorkspaceId])
+  }, [authReady, resolvedWorkspaceId])
 
   useEffect(() => {
-    if (open && resolvedWorkspaceId) {
+    if (open && authReady && resolvedWorkspaceId) {
       fetchPendingInvitations()
       refetchPermissions()
     }
-  }, [open, resolvedWorkspaceId, fetchPendingInvitations, refetchPermissions])
+  }, [open, authReady, resolvedWorkspaceId, fetchPendingInvitations, refetchPermissions])
 
   useEffect(() => {
     if (open) {

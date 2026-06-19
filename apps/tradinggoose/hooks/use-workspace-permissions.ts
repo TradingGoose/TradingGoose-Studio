@@ -200,8 +200,12 @@ export function useWorkspacePermissions(
   }, [authReady, workspaceId, recordKey, callbackPathname, fetchPermissions])
 
   const refetch = useCallback(async () => {
+    if (!authReady) {
+      return
+    }
+
     await fetchPermissions(recordKey, workspaceId, { callbackPathname, force: true })
-  }, [workspaceId, recordKey, callbackPathname, fetchPermissions])
+  }, [authReady, workspaceId, recordKey, callbackPathname, fetchPermissions])
 
   const updatePermissions = useCallback(
     (newPermissions: WorkspacePermissions) => {
@@ -215,9 +219,9 @@ export function useWorkspacePermissions(
   )
 
   return {
-    permissions: record?.permissions ?? null,
-    loading: record?.loading ?? true,
-    error: record?.error ?? null,
+    permissions: authReady ? (record?.permissions ?? null) : null,
+    loading: authReady ? (record?.loading ?? true) : true,
+    error: authReady ? (record?.error ?? null) : null,
     updatePermissions,
     refetch,
   }

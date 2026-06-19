@@ -133,6 +133,7 @@ export function GlobalNavbar({
     : null
   const workspaceSwitcher = useWorkspaceSwitcher({
     enabled: isAuthenticated,
+    userId,
     authReady: isClientAuthReady,
     workspaceId,
     section: workspaceSection,

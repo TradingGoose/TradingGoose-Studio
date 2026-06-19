@@ -90,7 +90,7 @@ describe('useWorkspaceSwitcher', () => {
     const { useWorkspaceSwitcher } = await import('@/global-navbar/use-workspace-switcher')
 
     function Harness() {
-      latestValue = useWorkspaceSwitcher({ enabled: true })
+      latestValue = useWorkspaceSwitcher({ enabled: true, userId: 'user-1' })
       return null
     }
 
@@ -126,6 +126,7 @@ describe('useWorkspaceSwitcher', () => {
     function Harness() {
       latestValue = useWorkspaceSwitcher({
         enabled: true,
+        userId: 'user-1',
         section: 'dashboard',
       })
       return null
@@ -149,6 +150,7 @@ describe('useWorkspaceSwitcher', () => {
     function Harness() {
       latestValue = useWorkspaceSwitcher({
         enabled: true,
+        userId: 'user-1',
         authReady,
       })
       return null
@@ -171,5 +173,55 @@ describe('useWorkspaceSwitcher', () => {
 
     expect(fetchMock).toHaveBeenCalledWith('/api/workspaces')
     expect(latestValue.activeWorkspace?.id).toBe('ws-1')
+  })
+
+  it('clears workspace data and disables workspace actions when client auth is not ready', async () => {
+    const { useWorkspaceSwitcher } = await import('@/global-navbar/use-workspace-switcher')
+    let authReady = true
+
+    function Harness() {
+      latestValue = useWorkspaceSwitcher({
+        enabled: true,
+        userId: 'user-1',
+        authReady,
+      })
+      return null
+    }
+
+    await act(async () => {
+      root?.render(React.createElement(Harness))
+      await flush()
+    })
+
+    expect(latestValue.activeWorkspace?.id).toBe('ws-1')
+    expect(latestValue.canManageWorkspaces).toBe(true)
+
+    await act(async () => {
+      latestValue.setWorkspaceMenuOpen(true)
+      latestValue.handleStartEditing(latestValue.activeWorkspace)
+      latestValue.handleOpenInviteDialog(latestValue.activeWorkspace)
+      latestValue.setWorkspaceToDelete(latestValue.activeWorkspace)
+      latestValue.handleDeleteDialogChange(true)
+      await flush()
+    })
+
+    authReady = false
+
+    await act(async () => {
+      root?.render(React.createElement(Harness))
+      await flush()
+    })
+
+    expect(latestValue.canManageWorkspaces).toBe(false)
+    expect(latestValue.activeWorkspace).toBeNull()
+    expect(latestValue.workspaces).toEqual([])
+    expect(latestValue.isWorkspacesLoading).toBe(true)
+    expect(latestValue.workspaceMenuOpen).toBe(false)
+    expect(latestValue.editingWorkspaceId).toBeNull()
+    expect(latestValue.inviteDialogOpen).toBe(false)
+    expect(latestValue.inviteWorkspace).toBeNull()
+    expect(latestValue.deleteDialogOpen).toBe(false)
+    expect(latestValue.workspaceToDelete).toBeNull()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })

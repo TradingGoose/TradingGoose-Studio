@@ -131,6 +131,13 @@ describe('useWorkspacePermissions', () => {
       permissions: null,
     })
 
+    await act(async () => {
+      await latestValue?.refetch()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+    expect(fetchMock).not.toHaveBeenCalled()
+
     authReady = true
 
     await act(async () => {

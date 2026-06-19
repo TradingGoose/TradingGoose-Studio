@@ -16,6 +16,7 @@ const logger = createLogger('WorkspacePermissionsProvider')
 const ACCESS_DENIED_PATTERNS = ['access denied', 'workspace not found', 'user not found']
 
 interface WorkspacePermissionsContextType {
+  authReady: boolean
   workspacePermissions: WorkspacePermissions | null
   permissionsLoading: boolean
   permissionsError: string | null
@@ -80,6 +81,7 @@ export function WorkspacePermissionsProvider({
 
   const contextValue = useMemo(
     () => ({
+      authReady: isClientAuthReady,
       workspacePermissions,
       permissionsLoading,
       permissionsError,
@@ -89,6 +91,7 @@ export function WorkspacePermissionsProvider({
       setOfflineMode: setIsOfflineMode,
     }),
     [
+      isClientAuthReady,
       workspacePermissions,
       permissionsLoading,
       permissionsError,
