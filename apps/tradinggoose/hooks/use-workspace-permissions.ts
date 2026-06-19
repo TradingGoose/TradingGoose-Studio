@@ -200,11 +200,9 @@ export function useWorkspacePermissions(
     [recordKey, setRecord]
   )
 
-  const isInitialLoad = !record
-
   return {
     permissions: record?.permissions ?? null,
-    loading: record?.loading ?? isInitialLoad,
+    loading: record?.loading ?? true,
     error: record?.error ?? null,
     updatePermissions,
     refetch,
