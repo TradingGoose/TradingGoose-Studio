@@ -19,7 +19,19 @@ export default async function WorkspaceRootLayout({
   return (
     <NextIntlClientProvider locale={locale} messages={getClientMessages(locale, 'workspace')}>
       <WorkspaceLayoutClient>
-        <GlobalNavbar isSystemAdmin={access.isSystemAdmin}>{children}</GlobalNavbar>
+        <GlobalNavbar
+          isSystemAdmin={access.isSystemAdmin}
+          workspaceUser={
+            access.userId
+              ? {
+                  id: access.userId,
+                  email: access.user?.email ?? null,
+                }
+              : null
+          }
+        >
+          {children}
+        </GlobalNavbar>
       </WorkspaceLayoutClient>
     </NextIntlClientProvider>
   )
