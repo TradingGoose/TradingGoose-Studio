@@ -40,10 +40,12 @@ import {
 export function GlobalNavbar({
   children,
   isSystemAdmin = false,
+  authenticatedUserId = null,
   navigationMode = 'workspace',
 }: {
   children: React.ReactNode
   isSystemAdmin?: boolean
+  authenticatedUserId?: string | null
   navigationMode?: 'workspace' | 'admin'
 }) {
   const selectedSegments = useSelectedLayoutSegments()
@@ -313,6 +315,7 @@ export function GlobalNavbar({
 
         {canManageWorkspaces ? (
           <WorkspaceDialogs
+            userId={authenticatedUserId ?? userId}
             inviteDialogOpen={workspaceSwitcher.inviteDialogOpen}
             onInviteDialogChange={workspaceSwitcher.handleInviteDialogChange}
             inviteWorkspace={workspaceSwitcher.inviteWorkspace}

@@ -6,6 +6,7 @@ import { CANONICAL_CALLBACK_PATH_HEADER } from '@/i18n/utils'
 let capturedGlobalNavbarProps:
   | {
       isSystemAdmin?: boolean
+      authenticatedUserId?: string | null
       navigationMode?: 'workspace' | 'admin'
     }
   | undefined
@@ -54,13 +55,15 @@ vi.mock('@/global-navbar', () => ({
   GlobalNavbar: ({
     children,
     isSystemAdmin,
+    authenticatedUserId,
     navigationMode,
   }: {
     children: React.ReactNode
     isSystemAdmin?: boolean
+    authenticatedUserId?: string | null
     navigationMode?: 'workspace' | 'admin'
   }) => {
-    capturedGlobalNavbarProps = { isSystemAdmin, navigationMode }
+    capturedGlobalNavbarProps = { isSystemAdmin, authenticatedUserId, navigationMode }
     return <div data-testid='global-navbar'>{children}</div>
   },
 }))
@@ -81,6 +84,7 @@ describe('Admin layout', () => {
     mockGetSystemAdminAccess.mockResolvedValue({
       isAuthenticated: true,
       isSystemAdmin: false,
+      userId: 'admin-user-1',
       canBootstrapSystemAdmin: true,
     })
 
@@ -93,6 +97,7 @@ describe('Admin layout', () => {
     expect(renderToStaticMarkup(result)).toContain('admin content')
     expect(capturedGlobalNavbarProps).toEqual({
       isSystemAdmin: false,
+      authenticatedUserId: 'admin-user-1',
       navigationMode: 'admin',
     })
     expect(mockGetSystemAdminAccess).toHaveBeenCalledWith(expect.any(Headers))

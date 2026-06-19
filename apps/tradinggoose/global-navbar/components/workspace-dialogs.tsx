@@ -1262,6 +1262,7 @@ export function WorkspaceInviteModal({
 }
 
 interface WorkspaceDialogsProps {
+  userId: string | null
   inviteDialogOpen: boolean
   onInviteDialogChange: (open: boolean) => void
   inviteWorkspace: Workspace | null
@@ -1274,6 +1275,7 @@ interface WorkspaceDialogsProps {
 }
 
 export function WorkspaceDialogs({
+  userId,
   inviteDialogOpen,
   onInviteDialogChange,
   inviteWorkspace,
@@ -1284,9 +1286,6 @@ export function WorkspaceDialogs({
   isDeletingWorkspace,
   onConfirmDelete,
 }: WorkspaceDialogsProps) {
-  const { data: session } = useSession()
-  const userId = session?.user?.id
-
   return (
     <>
       {inviteWorkspace && userId ? (
