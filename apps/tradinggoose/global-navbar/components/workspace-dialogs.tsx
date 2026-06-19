@@ -484,6 +484,13 @@ export function WorkspaceInviteModal({
     refetchPermissions,
     userPermissions: userPerms,
   } = useWorkspacePermissionsContext()
+  const currentUserEmail = useMemo(
+    () =>
+      workspacePermissions?.users
+        .find((user) => user.userId === currentUserId)
+        ?.email.toLowerCase() ?? null,
+    [workspacePermissions?.users, currentUserId]
+  )
 
   const hasPendingChanges = Object.keys(existingUserPermissionChanges).length > 0
   const hasNewInvites = emails.length > 0 || inputValue.trim()
@@ -551,6 +558,12 @@ export function WorkspaceInviteModal({
         return false
       }
 
+      if (currentUserEmail === normalized) {
+        setErrorMessage('You cannot invite yourself')
+        setInputValue('')
+        return false
+      }
+
       const isExistingMember = workspacePermissions?.users?.some(
         (user) => user.email === normalized
       )
@@ -580,7 +593,7 @@ export function WorkspaceInviteModal({
       setInputValue('')
       return true
     },
-    [emails, invalidEmails, pendingInvitations, workspacePermissions?.users]
+    [emails, invalidEmails, pendingInvitations, workspacePermissions?.users, currentUserEmail]
   )
 
   const removeEmail = useCallback(
