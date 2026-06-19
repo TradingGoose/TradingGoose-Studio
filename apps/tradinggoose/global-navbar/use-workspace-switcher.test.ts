@@ -141,4 +141,35 @@ describe('useWorkspaceSwitcher', () => {
     expect(mockReplace).not.toHaveBeenCalled()
     expect(mockPush).not.toHaveBeenCalled()
   })
+
+  it('waits for client auth readiness before the initial workspace load', async () => {
+    const { useWorkspaceSwitcher } = await import('@/global-navbar/use-workspace-switcher')
+    let authReady = false
+
+    function Harness() {
+      latestValue = useWorkspaceSwitcher({
+        enabled: true,
+        authReady,
+      })
+      return null
+    }
+
+    await act(async () => {
+      root?.render(React.createElement(Harness))
+      await flush()
+    })
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(latestValue.isWorkspacesLoading).toBe(true)
+
+    authReady = true
+
+    await act(async () => {
+      root?.render(React.createElement(Harness))
+      await flush()
+    })
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/workspaces')
+    expect(latestValue.activeWorkspace?.id).toBe('ws-1')
+  })
 })

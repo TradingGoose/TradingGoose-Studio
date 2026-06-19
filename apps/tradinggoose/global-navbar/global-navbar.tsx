@@ -105,6 +105,7 @@ export function GlobalNavbar({
   const userId = authenticatedUserId ?? sessionData?.user?.id ?? null
   const userEmail = authenticatedUserEmail ?? sessionData?.user?.email ?? null
   const isAuthenticated = Boolean(userId)
+  const isClientAuthReady = !isSessionLoading || Boolean(sessionData?.user?.id)
   const shouldShowSkeleton = isSessionLoading && !userId
   const { data: organizationsData } = useOrganizations({
     enabled: isAuthenticated,
@@ -132,6 +133,7 @@ export function GlobalNavbar({
     : null
   const workspaceSwitcher = useWorkspaceSwitcher({
     enabled: isAuthenticated,
+    authReady: isClientAuthReady,
     workspaceId,
     section: workspaceSection,
   })

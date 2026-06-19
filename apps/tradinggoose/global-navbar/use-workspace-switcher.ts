@@ -9,12 +9,14 @@ import { getWorkspaceSwitchPath, type WorkspaceNavKey } from './utils'
 
 interface UseWorkspaceSwitcherOptions {
   enabled: boolean
+  authReady?: boolean
   workspaceId?: string
   section?: WorkspaceNavKey | null
 }
 
 export function useWorkspaceSwitcher({
   enabled,
+  authReady = true,
   workspaceId,
   section,
 }: UseWorkspaceSwitcherOptions) {
@@ -43,6 +45,11 @@ export function useWorkspaceSwitcher({
       setWorkspaces([])
       setActiveWorkspace(null)
       setIsWorkspacesLoading(false)
+      return
+    }
+
+    if (!authReady) {
+      setIsWorkspacesLoading(true)
       return
     }
 
@@ -76,7 +83,7 @@ export function useWorkspaceSwitcher({
     } finally {
       setIsWorkspacesLoading(false)
     }
-  }, [enabled, workspaceId])
+  }, [authReady, enabled, workspaceId])
 
   React.useEffect(() => {
     void fetchWorkspaces()
