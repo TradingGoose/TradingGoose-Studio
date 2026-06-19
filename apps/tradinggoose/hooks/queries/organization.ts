@@ -106,11 +106,11 @@ async function fetchOrganizationBilling(orgId: string) {
 /**
  * Hook to fetch organization billing data
  */
-export function useOrganizationBilling(orgId: string) {
+export function useOrganizationBilling(orgId: string, enabled = true) {
   return useQuery({
     queryKey: organizationKeys.billing(orgId),
     queryFn: () => fetchOrganizationBilling(orgId),
-    enabled: !!orgId,
+    enabled: Boolean(orgId) && enabled,
     retry: false,
     staleTime: 30 * 1000,
     placeholderData: keepPreviousData,

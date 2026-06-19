@@ -35,6 +35,10 @@ interface UseWorkspacePermissionsReturn {
   refetch: () => Promise<void>
 }
 
+interface UseWorkspacePermissionsOptions {
+  authReady?: boolean
+}
+
 /**
  * Custom hook to fetch and manage workspace permissions
  *
@@ -173,8 +177,10 @@ export function resetWorkspacePermissionsStore() {
 
 export function useWorkspacePermissions(
   workspaceId: string,
-  userId: string
+  userId: string,
+  options: UseWorkspacePermissionsOptions = {}
 ): UseWorkspacePermissionsReturn {
+  const { authReady = true } = options
   const callbackPathname = usePathname()
   const recordKey = getRecordKey(workspaceId, userId)
   const record = useWorkspacePermissionsStore((state) =>
@@ -184,10 +190,14 @@ export function useWorkspacePermissions(
   const setRecord = useWorkspacePermissionsStore((state) => state.setRecord)
 
   useEffect(() => {
+    if (!authReady) {
+      return
+    }
+
     fetchPermissions(recordKey, workspaceId, { callbackPathname }).catch((error) => {
       logger.error('Failed to load workspace permissions', { workspaceId, error })
     })
-  }, [workspaceId, recordKey, callbackPathname, fetchPermissions])
+  }, [authReady, workspaceId, recordKey, callbackPathname, fetchPermissions])
 
   const refetch = useCallback(async () => {
     await fetchPermissions(recordKey, workspaceId, { callbackPathname, force: true })

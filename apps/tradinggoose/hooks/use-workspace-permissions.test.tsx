@@ -14,6 +14,7 @@ const mockHandleAuthError = vi.hoisted(() => vi.fn())
 let latestValue: ReturnType<typeof useWorkspacePermissions> | null = null
 let workspaceId = 'workspace-401'
 let userId = 'user-1'
+let authReady = true
 
 vi.mock('@/lib/auth/auth-error-handler', () => ({
   handleAuthError: mockHandleAuthError,
@@ -25,7 +26,7 @@ vi.mock('@/i18n/navigation', () => ({
 }))
 
 function WorkspacePermissionsProbe() {
-  latestValue = useWorkspacePermissions(workspaceId, userId)
+  latestValue = useWorkspacePermissions(workspaceId, userId, { authReady })
   return null
 }
 
@@ -41,6 +42,7 @@ describe('useWorkspacePermissions', () => {
     latestValue = null
     workspaceId = 'workspace-401'
     userId = 'user-1'
+    authReady = true
     mockHandleAuthError.mockResolvedValue(undefined)
     vi.stubGlobal(
       'fetch',
@@ -111,6 +113,32 @@ describe('useWorkspacePermissions', () => {
       error: 'SESSION_EXPIRED',
       permissions: null,
     })
+  })
+
+  it('waits for client auth readiness before fetching workspace permissions', async () => {
+    authReady = false
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>
+
+    await act(async () => {
+      root.render(<WorkspacePermissionsProbe />)
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(latestValue).toMatchObject({
+      loading: true,
+      error: null,
+      permissions: null,
+    })
+
+    authReady = true
+
+    await act(async () => {
+      root.render(<WorkspacePermissionsProbe />)
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it('uses the server-authenticated user id instead of client session state', async () => {

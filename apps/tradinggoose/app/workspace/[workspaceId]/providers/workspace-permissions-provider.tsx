@@ -4,6 +4,7 @@ import type React from 'react'
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { createLogger } from '@/lib/logs/console/logger'
 import { isSessionRecoveryAuthError } from '@/lib/auth/auth-error-copy'
+import { useSession } from '@/lib/auth-client'
 import { useUserPermissions, type WorkspaceUserPermissions } from '@/hooks/use-user-permissions'
 import {
   useWorkspacePermissions,
@@ -38,11 +39,13 @@ export function WorkspacePermissionsProvider({
   userId,
 }: WorkspacePermissionsProviderProps) {
   const router = useRouter()
+  const { data: sessionData, isPending: isSessionLoading } = useSession()
 
   const [isOfflineMode, setIsOfflineMode] = useState(false)
   const [redirectedAccessKey, setRedirectedAccessKey] = useState<string | null>(null)
   const accessKey = `${userId}:${workspaceId}`
   const hasRedirected = redirectedAccessKey === accessKey
+  const isClientAuthReady = !isSessionLoading || sessionData?.user?.id === userId
 
   const {
     permissions: workspacePermissions,
@@ -50,7 +53,7 @@ export function WorkspacePermissionsProvider({
     error: permissionsError,
     updatePermissions,
     refetch: refetchPermissions,
-  } = useWorkspacePermissions(workspaceId, userId)
+  } = useWorkspacePermissions(workspaceId, userId, { authReady: isClientAuthReady })
 
   const baseUserPermissions = useUserPermissions(
     workspacePermissions,

@@ -23,10 +23,11 @@ async function fetchSubscriptionData() {
 /**
  * Hook to fetch user subscription data
  */
-export function useSubscriptionData() {
+export function useSubscriptionData(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: subscriptionKeys.user(),
     queryFn: fetchSubscriptionData,
+    enabled: options?.enabled ?? true,
     staleTime: 30 * 1000,
     placeholderData: keepPreviousData,
   })

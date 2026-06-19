@@ -105,10 +105,10 @@ export function GlobalNavbar({
   const userId = authenticatedUserId ?? sessionData?.user?.id ?? null
   const userEmail = authenticatedUserEmail ?? sessionData?.user?.email ?? null
   const isAuthenticated = Boolean(userId)
-  const isClientAuthReady = !isSessionLoading || Boolean(sessionData?.user?.id)
+  const isClientAuthReady = !isSessionLoading || sessionData?.user?.id === userId
   const shouldShowSkeleton = isSessionLoading && !userId
   const { data: organizationsData } = useOrganizations({
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && isClientAuthReady,
   })
   const billingEnabled = organizationsData?.billingData?.data?.billingEnabled ?? true
   const activeOrganization = organizationsData?.activeOrganization
@@ -157,10 +157,14 @@ export function GlobalNavbar({
 
   const openSettings = React.useCallback(
     (section: SettingsSection) => {
+      if (!isClientAuthReady) {
+        return
+      }
+
       setActiveSettingsSection(resolveSettingsSection(section))
       setIsSettingsModalOpen(true)
     },
-    [resolveSettingsSection]
+    [isClientAuthReady, resolveSettingsSection]
   )
 
   React.useEffect(() => {
@@ -288,6 +292,7 @@ export function GlobalNavbar({
             </SidebarContent>
             <SidebarFooter className='flex flex-col gap-2 px-2 py-3'>
               <SidebarUsageIndicator
+                authReady={isClientAuthReady}
                 onOpenSubscriptionSettings={() => openSettings('subscription')}
               />
               <UserMenu
@@ -299,6 +304,7 @@ export function GlobalNavbar({
                 onOpenSettings={openSettings}
                 canAccessSystemAdmin={isSystemAdmin && navigationMode !== 'admin'}
                 sidebarTrigger
+                authReady={isClientAuthReady}
               />
             </SidebarFooter>
             <SidebarRail />
