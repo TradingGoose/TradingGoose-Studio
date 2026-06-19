@@ -202,6 +202,42 @@ describe('WorkspacePermissionsProvider', () => {
     })
 
     mockUseSession.mockReturnValue({
+      data: null,
+      isPending: false,
+      error: null,
+    })
+
+    await act(async () => {
+      root?.render(
+        <WorkspacePermissionsProvider workspaceId='ws-1' userId='user-1'>
+          <div>workspace</div>
+        </WorkspacePermissionsProvider>
+      )
+    })
+
+    expect(mockUseWorkspacePermissions).toHaveBeenLastCalledWith('ws-1', 'user-1', {
+      authReady: true,
+    })
+
+    mockUseSession.mockReturnValue({
+      data: null,
+      isPending: false,
+      error: new Error('Failed to fetch session'),
+    })
+
+    await act(async () => {
+      root?.render(
+        <WorkspacePermissionsProvider workspaceId='ws-1' userId='user-1'>
+          <div>workspace</div>
+        </WorkspacePermissionsProvider>
+      )
+    })
+
+    expect(mockUseWorkspacePermissions).toHaveBeenLastCalledWith('ws-1', 'user-1', {
+      authReady: true,
+    })
+
+    mockUseSession.mockReturnValue({
       data: { user: { id: 'user-1' } },
       isPending: true,
     })

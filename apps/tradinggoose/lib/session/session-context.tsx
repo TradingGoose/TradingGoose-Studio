@@ -31,6 +31,22 @@ export type SessionHookResult = {
 
 export const SessionContext = createContext<SessionHookResult | null>(null)
 
+export function isSessionReadyForAuthenticatedUser(
+  session: Pick<SessionHookResult, 'data' | 'error' | 'isPending'>,
+  userId: string | null | undefined
+) {
+  if (!userId) {
+    return false
+  }
+
+  const clientUserId = session.data?.user?.id
+  if (clientUserId) {
+    return clientUserId === userId
+  }
+
+  return !session.isPending
+}
+
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<AppSession>(null)
   const [isPending, setIsPending] = useState(true)

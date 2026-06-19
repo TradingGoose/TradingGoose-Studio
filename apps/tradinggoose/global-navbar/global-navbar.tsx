@@ -18,6 +18,7 @@ import { getBrandConfig } from '@/lib/branding/branding'
 import { isHosted } from '@/lib/environment'
 import { getOrganizationAccessState } from '@/lib/organization/access'
 import { getUserRole } from '@/lib/organization/helpers'
+import { isSessionReadyForAuthenticatedUser } from '@/lib/session/session-context'
 import { useOrganizations } from '@/hooks/queries/organization'
 import { NavbarHeader } from './components/navbar-header'
 import { SidebarNav, SidebarUsageIndicator } from './components/sidebar-nav'
@@ -53,7 +54,8 @@ export function GlobalNavbar({
   const selectedSegments = useSelectedLayoutSegments()
   const tWorkspaceNav = useTranslations('workspace.nav')
   const brand = React.useMemo(() => getBrandConfig(), [])
-  const { data: sessionData, isPending: isSessionLoading } = useSession()
+  const session = useSession()
+  const { data: sessionData, isPending: isSessionLoading } = session
   const workspaceNavState = React.useMemo(
     () => getWorkspaceNavState(selectedSegments),
     [selectedSegments]
@@ -105,7 +107,7 @@ export function GlobalNavbar({
   const userId = authenticatedUserId ?? sessionData?.user?.id ?? null
   const userEmail = authenticatedUserEmail ?? sessionData?.user?.email ?? null
   const isAuthenticated = Boolean(userId)
-  const isClientAuthReady = Boolean(userId && sessionData?.user?.id === userId)
+  const isClientAuthReady = isSessionReadyForAuthenticatedUser(session, userId)
   const shouldShowSkeleton = isSessionLoading && !userId
   const { data: organizationsData } = useOrganizations({
     enabled: isAuthenticated && isClientAuthReady,

@@ -43,6 +43,7 @@ export function useWorkspaceSwitcher({
   const [workspaceToDelete, setWorkspaceToDelete] = React.useState<Workspace | null>(null)
   const [isDeletingWorkspace, setIsDeletingWorkspace] = React.useState(false)
   const [deleteError, setDeleteError] = React.useState<string | null>(null)
+  const activeRequestKeyRef = React.useRef<string | null>(null)
   const isWorkspaceDataReady =
     canUseWorkspaceData && loadedWorkspaceDataKey === workspaceDataKey
   const canManageWorkspaces = isWorkspaceDataReady
@@ -69,19 +70,27 @@ export function useWorkspaceSwitcher({
 
   const fetchWorkspaces = React.useCallback(async () => {
     if (!canUseWorkspaceData || !workspaceDataKey) {
+      activeRequestKeyRef.current = null
       clearWorkspaceState(enabled)
       return
     }
 
+    activeRequestKeyRef.current = workspaceDataKey
     setIsWorkspacesLoading(true)
     try {
       const response = await fetch('/api/workspaces')
       if (!response.ok) {
-        clearWorkspaceState(false)
+        if (activeRequestKeyRef.current === workspaceDataKey) {
+          clearWorkspaceState(false)
+        }
         return
       }
 
       const data = (await response.json()) as { workspaces?: Workspace[] }
+      if (activeRequestKeyRef.current !== workspaceDataKey) {
+        return
+      }
+
       const items = data.workspaces ?? []
 
       setWorkspaces(items)
@@ -98,9 +107,13 @@ export function useWorkspaceSwitcher({
       }
     } catch (error) {
       console.error('Error fetching workspaces:', error)
-      clearWorkspaceState(false)
+      if (activeRequestKeyRef.current === workspaceDataKey) {
+        clearWorkspaceState(false)
+      }
     } finally {
-      setIsWorkspacesLoading(false)
+      if (activeRequestKeyRef.current === workspaceDataKey) {
+        setIsWorkspacesLoading(false)
+      }
     }
   }, [canUseWorkspaceData, clearWorkspaceState, enabled, workspaceDataKey, workspaceId])
 

@@ -5,6 +5,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { createLogger } from '@/lib/logs/console/logger'
 import { isSessionRecoveryAuthError } from '@/lib/auth/auth-error-copy'
 import { useSession } from '@/lib/auth-client'
+import { isSessionReadyForAuthenticatedUser } from '@/lib/session/session-context'
 import { useUserPermissions, type WorkspaceUserPermissions } from '@/hooks/use-user-permissions'
 import {
   useWorkspacePermissions,
@@ -40,13 +41,13 @@ export function WorkspacePermissionsProvider({
   userId,
 }: WorkspacePermissionsProviderProps) {
   const router = useRouter()
-  const { data: sessionData } = useSession()
+  const session = useSession()
 
   const [isOfflineMode, setIsOfflineMode] = useState(false)
   const [redirectedAccessKey, setRedirectedAccessKey] = useState<string | null>(null)
   const accessKey = `${userId}:${workspaceId}`
   const hasRedirected = redirectedAccessKey === accessKey
-  const isClientAuthReady = sessionData?.user?.id === userId
+  const isClientAuthReady = isSessionReadyForAuthenticatedUser(session, userId)
 
   const {
     permissions: workspacePermissions,
