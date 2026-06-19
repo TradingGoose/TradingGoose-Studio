@@ -63,7 +63,9 @@ import {
   loadReviewSessionForUser,
   loadReviewSessionForUserByConversationId,
   verifyReviewTargetAccess,
+  verifyWorkflowAccess,
 } from '@/lib/copilot/review-sessions/permissions'
+import { readWorkflowAccessContext } from '@/lib/workflows/utils'
 import { resolveEntityWorkspaceId } from '@/lib/yjs/server/entity-loaders'
 
 type MockChain = {
@@ -77,6 +79,7 @@ type MockChain = {
 
 const mockDb = db as unknown as { select: ReturnType<typeof vi.fn> }
 const mockResolveEntityWorkspaceId = vi.mocked(resolveEntityWorkspaceId)
+const mockReadWorkflowAccessContext = vi.mocked(readWorkflowAccessContext)
 
 function createMockChain(finalResult: any): MockChain {
   const chain: any = {}
@@ -271,5 +274,28 @@ describe('review session permissions', () => {
     const result = await loadReviewSessionForUser('review-session-1', 'collaborator-1')
 
     expect(result).toBeNull()
+  })
+
+  it('treats canonical workspace owners as workflow admins without permission rows', async () => {
+    mockReadWorkflowAccessContext.mockResolvedValueOnce({
+      workflow: {
+        id: 'workflow-1',
+        userId: 'member-1',
+        workspaceId: 'workspace-1',
+      } as NonNullable<Awaited<ReturnType<typeof readWorkflowAccessContext>>>['workflow'],
+      workspaceOwnerId: 'owner-1',
+      workspacePermission: null,
+      isOwner: false,
+      isWorkspaceOwner: true,
+    })
+
+    const result = await verifyWorkflowAccess('owner-1', 'workflow-1', 'write')
+
+    expect(result).toEqual({
+      hasAccess: true,
+      userPermission: 'admin',
+      workspaceId: 'workspace-1',
+      isOwner: false,
+    })
   })
 })

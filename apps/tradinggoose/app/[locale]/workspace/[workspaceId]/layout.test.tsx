@@ -72,13 +72,39 @@ describe('Workspace layout access guard', () => {
         params: Promise.resolve({ locale: 'es', workspaceId: 'ws-1' }),
       })
     ).rejects.toThrow(
+      'redirect:/es/login?callbackUrl=%2Fworkspace%2Fws-1%2Ffiles%3FlayoutId%3Dlayout-1'
+    )
+
+    expect(mockRedirect).toHaveBeenCalledWith(
+      '/es/login?callbackUrl=%2Fworkspace%2Fws-1%2Ffiles%3FlayoutId%3Dlayout-1'
+    )
+    expect(mockGetSession).toHaveBeenCalledWith(expect.any(Headers))
+    expect(mockCheckWorkspaceAccess).not.toHaveBeenCalled()
+  })
+
+  it('routes invalid session cookies through reauth cleanup', async () => {
+    mockHeaders.mockResolvedValue(
+      new Headers([
+        [CANONICAL_CALLBACK_PATH_HEADER, '/workspace/ws-1/files?layoutId=layout-1'],
+        ['cookie', 'better-auth.session_token=stale'],
+      ])
+    )
+    mockGetSession.mockResolvedValue(null)
+
+    const WorkspaceLayout = (await import('./layout')).default
+
+    await expect(
+      WorkspaceLayout({
+        children: <div>workspace</div>,
+        params: Promise.resolve({ locale: 'es', workspaceId: 'ws-1' }),
+      })
+    ).rejects.toThrow(
       'redirect:/es/login?reauth=1&callbackUrl=%2Fworkspace%2Fws-1%2Ffiles%3FlayoutId%3Dlayout-1'
     )
 
     expect(mockRedirect).toHaveBeenCalledWith(
       '/es/login?reauth=1&callbackUrl=%2Fworkspace%2Fws-1%2Ffiles%3FlayoutId%3Dlayout-1'
     )
-    expect(mockGetSession).toHaveBeenCalledWith(expect.any(Headers))
     expect(mockCheckWorkspaceAccess).not.toHaveBeenCalled()
   })
 

@@ -18,7 +18,7 @@ export function useWorkspaceSwitcher({
   workspaceId,
   section,
 }: UseWorkspaceSwitcherOptions) {
-  const router = useRouter()
+  const { push } = useRouter()
   const switchToWorkspace = useWorkflowRegistry((state) => state.switchToWorkspace)
   const canManageWorkspaces = true
   const [workspaces, setWorkspaces] = React.useState<Workspace[]>([])
@@ -55,20 +55,19 @@ export function useWorkspaceSwitcher({
         return
       }
 
-      const data = await response.json()
-      const items = ((data.workspaces ?? []) as Workspace[]).map((workspace) => ({
-        ...workspace,
-        permissions: workspace.permissions ?? 'admin',
-        role: workspace.role ?? (workspace.permissions === 'admin' ? 'owner' : 'member'),
-      }))
+      const data = (await response.json()) as { workspaces?: Workspace[] }
+      const items = data.workspaces ?? []
 
       setWorkspaces(items)
 
+      const firstWorkspace = items[0] ?? null
+
       if (workspaceId) {
-        const match = items.find((workspace) => workspace.id === workspaceId)
-        setActiveWorkspace(match ?? items[0] ?? null)
+        setActiveWorkspace(
+          items.find((workspace) => workspace.id === workspaceId) ?? firstWorkspace
+        )
       } else {
-        setActiveWorkspace((current) => current ?? items[0] ?? null)
+        setActiveWorkspace((current) => current ?? firstWorkspace)
       }
     } catch (error) {
       console.error('Error fetching workspaces:', error)
@@ -100,9 +99,9 @@ export function useWorkspaceSwitcher({
         }
       }
 
-      router.push(getWorkspaceSwitchPath(workspace.id, section))
+      push(getWorkspaceSwitchPath(workspace.id, section))
     },
-    [router, section, switchToWorkspace, workspaceId]
+    [push, section, switchToWorkspace, workspaceId]
   )
 
   const handleCreateWorkspace = React.useCallback(async () => {
@@ -128,15 +127,11 @@ export function useWorkspaceSwitcher({
         throw new Error(error?.error ?? 'Failed to create workspace')
       }
 
-      const data = await response.json()
+      const data = (await response.json()) as { workspace?: Workspace }
       await fetchWorkspaces()
 
       if (data.workspace) {
-        await handleSwitchWorkspace({
-          ...data.workspace,
-          permissions: data.workspace.permissions ?? 'admin',
-          role: data.workspace.role ?? 'owner',
-        } satisfies Workspace)
+        await handleSwitchWorkspace(data.workspace)
       }
     } catch (error) {
       console.error('Error creating workspace:', error)

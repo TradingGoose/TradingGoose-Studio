@@ -6,12 +6,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('Workspaces API Route', () => {
   const transactionMock = vi.fn()
+  const txInsertValuesMock = vi.fn()
+  const txInsertMock = vi.fn(() => ({
+    values: txInsertValuesMock,
+  }))
+  const deleteWhereMock = vi.fn()
+  const deleteMock = vi.fn((_table: unknown) => ({
+    where: deleteWhereMock,
+  }))
   const updateWhereMock = vi.fn()
   const updateSetMock = vi.fn()
   const updateMock = vi.fn()
+  const mockSaveWorkflowToNormalizedTables = vi.fn()
+  const mockTryApplyWorkflowState = vi.fn()
   let userWorkspaces: Array<{
     workspace: Record<string, unknown>
-    permissionType: 'admin' | 'write' | 'read'
+    permissionType: 'admin' | 'write' | 'read' | null
   }> = []
 
   beforeEach(() => {
@@ -19,14 +29,27 @@ describe('Workspaces API Route', () => {
     vi.clearAllMocks()
     userWorkspaces = []
 
+    txInsertValuesMock.mockResolvedValue(undefined)
+    transactionMock.mockImplementation(async (callback) =>
+      callback({ insert: txInsertMock, delete: deleteMock })
+    )
+    deleteWhereMock.mockResolvedValue(undefined)
     updateWhereMock.mockResolvedValue([])
     updateSetMock.mockReturnValue({ where: updateWhereMock })
     updateMock.mockReturnValue({ set: updateSetMock })
+    mockSaveWorkflowToNormalizedTables.mockResolvedValue({ success: true })
+    mockTryApplyWorkflowState.mockResolvedValue({ success: true })
 
     vi.doMock('@tradinggoose/db', () => ({
       db: {
+        delete: deleteMock,
         select: vi.fn(() => ({
           from: vi.fn(() => ({
+            leftJoin: vi.fn(() => ({
+              where: vi.fn(() => ({
+                orderBy: vi.fn(() => userWorkspaces),
+              })),
+            })),
             innerJoin: vi.fn(() => ({
               where: vi.fn(() => ({
                 orderBy: vi.fn(() => userWorkspaces),
@@ -53,6 +76,7 @@ describe('Workspaces API Route', () => {
       },
       workspace: {
         id: 'workspace.id',
+        ownerId: 'workspace.ownerId',
         createdAt: 'workspace.createdAt',
       },
     }))
@@ -85,11 +109,11 @@ describe('Workspaces API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
-      saveWorkflowToNormalizedTables: vi.fn().mockResolvedValue({ success: true }),
+      saveWorkflowToNormalizedTables: mockSaveWorkflowToNormalizedTables,
     }))
 
     vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
-      tryApplyWorkflowState: vi.fn().mockResolvedValue(undefined),
+      tryApplyWorkflowState: mockTryApplyWorkflowState,
     }))
 
     vi.doMock('@/lib/yjs/workflow-session', () => ({
@@ -112,6 +136,16 @@ describe('Workspaces API Route', () => {
   afterEach(() => {
     vi.clearAllMocks()
   })
+
+  async function postWorkspace() {
+    const { POST } = await import('@/app/api/workspaces/route')
+    return POST(
+      new Request('http://localhost/api/workspaces', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'New Workspace' }),
+      })
+    )
+  }
 
   it('returns an empty list without creating a default workspace when autoCreate=false', async () => {
     const { GET } = await import('@/app/api/workspaces/route')
@@ -160,5 +194,94 @@ describe('Workspaces API Route', () => {
     })
     expect(updateMock).not.toHaveBeenCalled()
     expect(transactionMock).not.toHaveBeenCalled()
+  })
+
+  it('lists owned workspaces without requiring an owner permission row', async () => {
+    userWorkspaces = [
+      {
+        workspace: {
+          id: 'workspace-owned',
+          name: 'Owned Workspace',
+          ownerId: 'user-1',
+          billingOwnerType: 'user',
+          billingOwnerUserId: 'user-1',
+          billingOwnerOrganizationId: null,
+          createdAt: new Date('2026-04-10T00:00:00.000Z'),
+          updatedAt: new Date('2026-04-10T00:00:00.000Z'),
+        },
+        permissionType: null,
+      },
+    ]
+
+    const { GET } = await import('@/app/api/workspaces/route')
+
+    const response = await GET(new NextRequest('http://localhost/api/workspaces?autoCreate=false'))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.workspaces).toEqual([
+      expect.objectContaining({
+        id: 'workspace-owned',
+        role: 'owner',
+        permissions: 'admin',
+      }),
+    ])
+    expect(transactionMock).not.toHaveBeenCalled()
+  })
+
+  it('auto-creates a default workspace with the canonical workspace shape', async () => {
+    const { GET } = await import('@/app/api/workspaces/route')
+
+    const response = await GET(new NextRequest('http://localhost/api/workspaces'))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.workspaces).toEqual([
+      expect.objectContaining({
+        name: "Bruz's Workspace",
+        role: 'owner',
+        permissions: 'admin',
+        billingOwner: {
+          type: 'user',
+          userId: 'user-1',
+        },
+      }),
+    ])
+    expect(transactionMock).toHaveBeenCalled()
+    expect(updateMock).toHaveBeenCalled()
+  })
+
+  it.each([
+    [
+      'persistence fails',
+      () =>
+        mockSaveWorkflowToNormalizedTables.mockResolvedValue({
+          success: false,
+          error: 'Failed to persist normalized workflow state',
+        }),
+    ],
+    [
+      'persistence throws',
+      () => mockSaveWorkflowToNormalizedTables.mockRejectedValue(new Error('database unavailable')),
+    ],
+    [
+      'Yjs seeding fails',
+      () =>
+        mockTryApplyWorkflowState.mockResolvedValue({
+          success: false,
+          error: new Error('socket unavailable'),
+        }),
+    ],
+  ])('removes a newly created workspace when default workflow %s', async (_case, fail) => {
+    fail()
+    const response = await postWorkspace()
+
+    expect(response.status).toBe(500)
+    expect(await response.json()).toEqual({ error: 'Failed to create workspace' })
+    expect(deleteMock.mock.calls.map(([table]) => table)).toEqual([
+      expect.objectContaining({ workspaceId: 'workflow.workspaceId' }),
+      expect.objectContaining({ ownerId: 'workspace.ownerId' }),
+    ])
+    expect(deleteWhereMock).toHaveBeenCalledTimes(2)
   })
 })

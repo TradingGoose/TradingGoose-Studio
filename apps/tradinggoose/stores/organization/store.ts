@@ -1,5 +1,5 @@
-import { createWithEqualityFn as create } from 'zustand/traditional'
 import { devtools } from 'zustand/middleware'
+import { createWithEqualityFn as create } from 'zustand/traditional'
 import { client } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { stripLocaleFromPathname } from '@/i18n/utils'
@@ -297,18 +297,8 @@ export const useOrganizationStore = create<OrganizationStore>()(
               if (permissionResponse.ok) {
                 const permissionData = await permissionResponse.json()
 
-                // Check if current user has admin permission
-                // Use userId if provided, otherwise fall back to checking isOwner from workspace data
-                let hasAdminAccess = false
+                const hasAdminAccess = permissionData.currentUserPermission === 'admin'
 
-                if (userId && permissionData.users) {
-                  const currentUserPermission = permissionData.users.find(
-                    (user: any) => user.id === userId || user.userId === userId
-                  )
-                  hasAdminAccess = currentUserPermission?.permissionType === 'admin'
-                }
-
-                // Also check if user is the workspace owner
                 const isOwner = workspace.isOwner || workspace.ownerId === userId
 
                 if (hasAdminAccess || isOwner) {

@@ -1,10 +1,13 @@
 import type React from 'react'
+import { getSessionCookie } from 'better-auth/cookies'
+import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { NextIntlClientProvider } from 'next-intl'
 import { getSystemAdminAccess } from '@/lib/admin/access'
 import { GlobalNavbar } from '@/global-navbar'
+import { redirect } from '@/i18n/navigation'
 import { getClientMessages } from '@/i18n/public-copy'
-import type { LocaleCode } from '@/i18n/utils'
+import { type LocaleCode, requireCanonicalCallbackPath } from '@/i18n/utils'
 
 export default async function AdminLayout({
   children,
@@ -13,8 +16,22 @@ export default async function AdminLayout({
   children: React.ReactNode
   params: Promise<{ locale: string }>
 }) {
-  const [{ locale: routeLocale }, access] = await Promise.all([params, getSystemAdminAccess()])
+  const [{ locale: routeLocale }, requestHeaders] = await Promise.all([params, headers()])
   const locale = routeLocale as LocaleCode
+  const access = await getSystemAdminAccess(requestHeaders)
+
+  if (!access.isAuthenticated) {
+    return redirect({
+      href: {
+        pathname: '/login',
+        query: {
+          ...(getSessionCookie(requestHeaders) ? { reauth: '1' } : {}),
+          callbackUrl: requireCanonicalCallbackPath(requestHeaders, 'admin'),
+        },
+      },
+      locale,
+    })
+  }
 
   if (!access.isSystemAdmin && !access.canBootstrapSystemAdmin) {
     notFound()

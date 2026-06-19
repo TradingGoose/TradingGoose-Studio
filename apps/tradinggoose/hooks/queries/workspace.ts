@@ -81,6 +81,7 @@ export interface WorkspaceSettingsResponse {
   } | null
   permissions: {
     users: WorkspaceSettingsUser[]
+    currentUserPermission: 'admin' | 'write' | 'read'
   } | null
 }
 
@@ -176,15 +177,7 @@ async function fetchAdminWorkspaces(userId: string | undefined): Promise<AdminWo
     if (!result) continue
 
     const { workspace, permissionData } = result
-    let hasAdminAccess = false
-
-    if (permissionData.users) {
-      const currentUserPermission = permissionData.users.find(
-        (user: { id: string; userId?: string; permissionType: string }) =>
-          user.id === userId || user.userId === userId
-      )
-      hasAdminAccess = currentUserPermission?.permissionType === 'admin'
-    }
+    const hasAdminAccess = permissionData.currentUserPermission === 'admin'
 
     const isOwner = workspace.isOwner || workspace.ownerId === userId
 

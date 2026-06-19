@@ -17,7 +17,7 @@ export interface Workspace {
   name: string
   ownerId: string
   billingOwner?: { type: 'user'; userId: string } | { type: 'organization'; organizationId: string }
-  role?: string
+  role: 'owner' | 'member'
   membershipId?: string
-  permissions?: 'admin' | 'write' | 'read' | null
+  permissions: 'admin' | 'write' | 'read'
 }

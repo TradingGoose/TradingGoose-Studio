@@ -247,7 +247,9 @@ export async function verifyWorkflowAccess(
 
     return buildAccessResult({
       isOwner: accessContext.isOwner,
-      userPermission: accessContext.workspacePermission ?? null,
+      userPermission: accessContext.isWorkspaceOwner
+        ? 'admin'
+        : (accessContext.workspacePermission ?? null),
       workspaceId: accessContext.workflow.workspaceId ?? null,
       accessMode,
     })

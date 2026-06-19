@@ -1,6 +1,7 @@
 'use client'
 
 import { createLogger } from '@/lib/logs/console/logger'
+import { resetWorkspacePermissionsStore } from '@/hooks/use-workspace-permissions'
 import { useConsoleStore } from '@/stores/console/store'
 import { getCopilotStore, useCopilotStore } from '@/stores/copilot/store'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
@@ -72,6 +73,7 @@ export const resetAllStores = () => {
   useCustomToolsStore.getState().resetAll()
   useSkillsStore.getState().resetAll()
   useIndicatorsStore.getState().resetAll()
+  resetWorkspacePermissionsStore()
   // Variables store has no tracking to reset; registry hydrates
   useSubscriptionStore.getState().reset() // Reset subscription store
 }

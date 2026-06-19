@@ -569,9 +569,9 @@ export async function validateWorkflowPermissions(
     }
   }
 
-  const { workflow, workspacePermission, isOwner } = accessContext
+  const { workflow, workspacePermission, isOwner, isWorkspaceOwner } = accessContext
 
-  if (isOwner) {
+  if (isOwner || isWorkspaceOwner) {
     return {
       error: null,
       session,

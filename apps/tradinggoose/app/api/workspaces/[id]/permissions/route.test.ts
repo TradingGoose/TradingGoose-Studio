@@ -14,6 +14,8 @@ describe('Workspace permissions PATCH route', () => {
       })),
     })),
   }))
+  const mockAssertActiveWorkspaceAccess = vi.fn()
+  const mockGetUserEntityPermissions = vi.fn()
   const mockHasWorkspaceAdminAccess = vi.fn()
   const mockGetUsersWithPermissions = vi.fn()
   const mockAssertWorkspaceBillingOwnerRetainsAdminAccess = vi.fn()
@@ -40,6 +42,7 @@ describe('Workspace permissions PATCH route', () => {
       },
       workspace: {
         id: 'workspace.id',
+        ownerId: 'workspace.ownerId',
         billingOwnerType: 'workspace.billingOwnerType',
         billingOwnerUserId: 'workspace.billingOwnerUserId',
       },
@@ -65,6 +68,8 @@ describe('Workspace permissions PATCH route', () => {
     }))
 
     vi.doMock('@/lib/permissions/utils', () => ({
+      assertActiveWorkspaceAccess: mockAssertActiveWorkspaceAccess,
+      getUserEntityPermissions: mockGetUserEntityPermissions,
       getUsersWithPermissions: mockGetUsersWithPermissions,
       hasWorkspaceAdminAccess: mockHasWorkspaceAdminAccess,
     }))
@@ -73,6 +78,9 @@ describe('Workspace permissions PATCH route', () => {
       assertWorkspaceBillingOwnerRetainsAdminAccess:
         mockAssertWorkspaceBillingOwnerRetainsAdminAccess,
     }))
+
+    mockAssertActiveWorkspaceAccess.mockResolvedValue({})
+    mockGetUserEntityPermissions.mockResolvedValue('admin')
   })
 
   afterEach(() => {
@@ -89,6 +97,7 @@ describe('Workspace permissions PATCH route', () => {
       [{ id: 'permission-1' }],
       [
         {
+          ownerId: 'owner-1',
           billingOwnerType: 'user',
           billingOwnerUserId: 'user-2',
         },
@@ -119,7 +128,7 @@ describe('Workspace permissions PATCH route', () => {
     mockGetUsersWithPermissions.mockResolvedValue([])
     selectResults.push(
       [{ id: 'permission-1' }],
-      [{ billingOwnerType: 'user', billingOwnerUserId: 'user-2' }]
+      [{ ownerId: 'owner-1', billingOwnerType: 'user', billingOwnerUserId: 'user-2' }]
     )
 
     const { PATCH } = await import('./route')
@@ -137,5 +146,54 @@ describe('Workspace permissions PATCH route', () => {
     })
     expect(transactionMock).not.toHaveBeenCalled()
     expect(mockAssertWorkspaceBillingOwnerRetainsAdminAccess).not.toHaveBeenCalled()
+  })
+
+  it('rejects updates to the canonical workspace owner permission', async () => {
+    mockHasWorkspaceAdminAccess.mockResolvedValue(true)
+    selectResults.push([
+      {
+        ownerId: 'owner-1',
+        billingOwnerType: 'organization',
+        billingOwnerUserId: null,
+      },
+    ])
+
+    const { PATCH } = await import('./route')
+    const response = await PATCH(
+      new NextRequest('http://localhost/api/workspaces/workspace-1/permissions', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          updates: [{ userId: 'owner-1', permissions: 'write' }],
+        }),
+      }),
+      { params: Promise.resolve({ id: 'workspace-1' }) }
+    )
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      error: 'Workspace owner permissions are managed by workspace ownership',
+    })
+    expect(transactionMock).not.toHaveBeenCalled()
+    expect(mockAssertWorkspaceBillingOwnerRetainsAdminAccess).not.toHaveBeenCalled()
+  })
+
+  it('resolves the current user permission independently from the member list', async () => {
+    mockGetUsersWithPermissions.mockResolvedValue([])
+    mockGetUserEntityPermissions.mockResolvedValue('admin')
+
+    const { GET } = await import('./route')
+    const response = await GET(
+      new NextRequest('http://localhost/api/workspaces/workspace-1/permissions'),
+      { params: Promise.resolve({ id: 'workspace-1' }) }
+    )
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({
+      users: [],
+      total: 0,
+      currentUserPermission: 'admin',
+    })
+    expect(mockAssertActiveWorkspaceAccess).toHaveBeenCalledWith('workspace-1', 'user-1')
+    expect(mockGetUserEntityPermissions).toHaveBeenCalledWith('user-1', 'workspace', 'workspace-1')
   })
 })

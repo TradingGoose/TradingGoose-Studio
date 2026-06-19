@@ -1,151 +1,100 @@
-'use client'
+import { getSessionCookie } from 'better-auth/cookies'
+import { headers } from 'next/headers'
+import { getSession } from '@/lib/auth'
+import { readWorkflowAccessContext } from '@/lib/workflows/utils'
+import { getUserWorkspaces } from '@/lib/workspaces/service'
+import { redirect } from '@/i18n/navigation'
+import { type LocaleCode, normalizeCallbackUrl, requireCanonicalCallbackPath } from '@/i18n/utils'
 
-import { useEffect } from 'react'
-import { useTranslations } from 'next-intl'
-import { LoadingAgent } from '@/components/ui/loading-agent'
-import { useSession } from '@/lib/auth-client'
-import { createLogger } from '@/lib/logs/console/logger'
-import { usePathname, useRouter } from '@/i18n/navigation'
-import { normalizeCallbackUrl } from '@/i18n/utils'
+type WorkspaceSearchParams = Promise<{
+  callbackUrl?: string | string[]
+  redirect_workflow?: string | string[]
+}>
 
-const logger = createLogger('WorkspacePage')
+function getSearchParam(
+  searchParams: Awaited<WorkspaceSearchParams>,
+  key: keyof Awaited<WorkspaceSearchParams>
+) {
+  const value = searchParams[key]
+  return Array.isArray(value) ? value[0] : value
+}
 
-export default function WorkspacePage() {
-  const router = useRouter()
-  const pathname = usePathname()
-  const tWorkspace = useTranslations('workspace')
-  const { data: session, isPending, error: sessionError } = useSession()
+function normalizeRequestCallbackUrl(href: string | null | undefined, headers: Headers) {
+  const internalCallback = normalizeCallbackUrl(href)
+  if (internalCallback) {
+    return internalCallback
+  }
 
-  useEffect(() => {
-    const redirectToFirstWorkspace = async () => {
-      if (isPending) {
-        return
-      }
+  const host = (headers.get('x-forwarded-host') ?? headers.get('host'))?.split(',', 1)[0]?.trim()
+  const forwardedProtocol = headers.get('x-forwarded-proto')?.split(',', 1)[0]?.trim()
+  const protocols = forwardedProtocol ? [forwardedProtocol] : ['http', 'https']
 
-      if (sessionError || !session?.user) {
-        logger.info('User not authenticated, redirecting to home', {
-          hasSessionError: Boolean(sessionError),
-        })
-        router.replace('/')
-        return
-      }
-
-      try {
-        const urlParams = new URLSearchParams(window.location.search)
-        const callbackUrl = normalizeCallbackUrl(urlParams.get('callbackUrl'), window.location.origin)
-        const redirectWorkflowId = urlParams.get('redirect_workflow')
-
-        if (callbackUrl) {
-          const callbackPath = new URL(callbackUrl, window.location.origin).pathname
-
-          if (callbackPath !== pathname) {
-            logger.info('Redirecting to callback URL from workspace root', { callbackUrl })
-            router.replace(callbackUrl)
-            return
-          }
-        }
-
-        if (redirectWorkflowId) {
-          try {
-            const workflowResponse = await fetch(`/api/workflows/${redirectWorkflowId}`)
-            if (workflowResponse.ok) {
-              const workflowData = await workflowResponse.json()
-              const workspaceId = workflowData.data?.workspaceId
-
-              if (workspaceId) {
-                logger.info(
-                  `Redirecting workflow ${redirectWorkflowId} to workspace ${workspaceId} dashboard`
-                )
-                router.replace(`/workspace/${workspaceId}/dashboard`)
-                return
-              }
-            }
-          } catch (error) {
-            logger.error('Error fetching workflow for redirect:', error)
-          }
-        }
-
-        const response = await fetch('/api/workspaces', {
-          credentials: 'include',
-        })
-
-        if (response.status === 401 || response.status === 403) {
-          logger.info('Unauthorized to fetch workspaces, redirecting to home', {
-            status: response.status,
-          })
-          router.replace('/')
-          return
-        }
-
-        if (!response.ok) {
-          let errorBody = ''
-          try {
-            errorBody = await response.text()
-          } catch {}
-
-          logger.error('Failed to fetch workspaces for redirect', {
-            status: response.status,
-            body: errorBody,
-          })
-          router.replace('/')
-          return
-        }
-
-        const data = await response.json()
-        const workspaces = data.workspaces || []
-
-        if (workspaces.length === 0) {
-          logger.warn('No workspaces found for user, creating default workspace')
-
-          try {
-            const createResponse = await fetch('/api/workspaces', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ name: tWorkspace('defaults.newWorkspaceName') }),
-            })
-
-            if (createResponse.ok) {
-              const createData = await createResponse.json()
-              const newWorkspace = createData.workspace
-
-              if (newWorkspace?.id) {
-                logger.info(
-                  `Created default workspace ${newWorkspace.id}, redirecting to dashboard`
-                )
-                router.replace(`/workspace/${newWorkspace.id}/dashboard`)
-                return
-              }
-            }
-
-            logger.error('Failed to create default workspace')
-          } catch (createError) {
-            logger.error('Error creating default workspace:', createError)
-          }
-
-          router.replace('/')
-          return
-        }
-
-        const firstWorkspace = workspaces[0]
-        logger.info(`Redirecting to workspace ${firstWorkspace.id} dashboard`)
-        router.replace(`/workspace/${firstWorkspace.id}/dashboard`)
-      } catch (error) {
-        logger.error('Error fetching workspaces for redirect:', error)
-        router.replace('/')
-      }
+  for (const protocol of host ? protocols : []) {
+    const callback = normalizeCallbackUrl(href, `${protocol}://${host}`)
+    if (callback) {
+      return callback
     }
+  }
 
-    void redirectToFirstWorkspace()
-  }, [isPending, pathname, router, session, sessionError, tWorkspace])
+  return null
+}
 
-  return (
-    <div className='flex h-screen w-full items-center justify-center'>
-      <div className='flex flex-col items-center justify-center text-center align-middle'>
-        <LoadingAgent size='lg' />
-        <span className='sr-only'>{tWorkspace('entry.loading')}</span>
-      </div>
-    </div>
+export default async function WorkspacePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>
+  searchParams: WorkspaceSearchParams
+}) {
+  const [{ locale: routeLocale }, query, requestHeaders] = await Promise.all([
+    params,
+    searchParams,
+    headers(),
+  ])
+  const locale = routeLocale as LocaleCode
+  const session = await getSession(requestHeaders)
+  const userId = session?.user?.id
+
+  if (!userId) {
+    return redirect({
+      href: {
+        pathname: '/login',
+        query: {
+          ...(getSessionCookie(requestHeaders) ? { reauth: '1' } : {}),
+          callbackUrl: requireCanonicalCallbackPath(requestHeaders, 'workspace'),
+        },
+      },
+      locale,
+    })
+  }
+
+  const callbackUrl = normalizeRequestCallbackUrl(
+    getSearchParam(query, 'callbackUrl'),
+    requestHeaders
   )
+  if (callbackUrl && callbackUrl.split(/[?#]/, 1)[0] !== '/workspace') {
+    return redirect({ href: callbackUrl, locale })
+  }
+
+  const redirectWorkflowId = getSearchParam(query, 'redirect_workflow')
+  if (redirectWorkflowId) {
+    const access = await readWorkflowAccessContext(redirectWorkflowId, userId)
+    if (
+      access?.workflow.workspaceId &&
+      (access.isOwner || access.isWorkspaceOwner || access.workspacePermission)
+    ) {
+      return redirect({ href: `/workspace/${access.workflow.workspaceId}/dashboard`, locale })
+    }
+  }
+
+  const [workspace] = await getUserWorkspaces({
+    userId,
+    userName: session.user.name,
+  })
+
+  if (!workspace) {
+    throw new Error('Expected workspace bootstrap to return a workspace')
+  }
+
+  return redirect({ href: `/workspace/${workspace.id}/dashboard`, locale })
 }

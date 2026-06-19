@@ -15,6 +15,11 @@ import { getSession } from '@/lib/auth'
 import { resolveEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
 import { createLogger } from '@/lib/logs/console/logger'
+import {
+  buildWorkspaceAccessScope,
+  checkWorkspaceAccess,
+  hasWorkspaceAdminAccess,
+} from '@/lib/permissions/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { localizeUrl } from '@/i18n/utils'
 
@@ -33,18 +38,12 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Get all workspaces where the user has permissions
+    const workspaceAccess = buildWorkspaceAccessScope(session.user.id, workspace.id)
     const userWorkspaces = await db
       .select({ id: workspace.id })
       .from(workspace)
-      .innerJoin(
-        permissions,
-        and(
-          eq(permissions.entityId, workspace.id),
-          eq(permissions.entityType, 'workspace'),
-          eq(permissions.userId, session.user.id)
-        )
-      )
+      .leftJoin(permissions, workspaceAccess.permissionJoin)
+      .where(workspaceAccess.accessFilter)
 
     if (userWorkspaces.length === 0) {
       return NextResponse.json({ invitations: [] })
@@ -90,21 +89,8 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Check if user has admin permissions for this workspace
-    const userPermission = await db
-      .select()
-      .from(permissions)
-      .where(
-        and(
-          eq(permissions.entityId, workspaceId),
-          eq(permissions.entityType, 'workspace'),
-          eq(permissions.userId, session.user.id),
-          eq(permissions.permissionType, 'admin')
-        )
-      )
-      .then((rows) => rows[0])
-
-    if (!userPermission) {
+    const hasAdminAccess = await hasWorkspaceAdminAccess(session.user.id, workspaceId)
+    if (!hasAdminAccess) {
       return NextResponse.json(
         { error: 'You need admin permissions to invite users' },
         { status: 403 }
@@ -131,20 +117,8 @@ export async function POST(req: NextRequest) {
       .then((rows) => rows[0])
 
     if (existingUser) {
-      // Check if the user already has permissions for this workspace
-      const existingPermission = await db
-        .select()
-        .from(permissions)
-        .where(
-          and(
-            eq(permissions.entityId, workspaceId),
-            eq(permissions.entityType, 'workspace'),
-            eq(permissions.userId, existingUser.id)
-          )
-        )
-        .then((rows) => rows[0])
-
-      if (existingPermission) {
+      const existingAccess = await checkWorkspaceAccess(workspaceId, existingUser.id)
+      if (existingAccess.hasAccess) {
         return NextResponse.json(
           {
             error: `${email} already has access to this workspace`,

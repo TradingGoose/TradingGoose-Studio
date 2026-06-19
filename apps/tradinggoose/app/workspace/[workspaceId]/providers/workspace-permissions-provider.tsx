@@ -9,11 +9,10 @@ import {
   useWorkspacePermissions,
   type WorkspacePermissions,
 } from '@/hooks/use-workspace-permissions'
-import { usePathname, useRouter } from '@/i18n/navigation'
+import { useRouter } from '@/i18n/navigation'
 
 const logger = createLogger('WorkspacePermissionsProvider')
 const ACCESS_DENIED_PATTERNS = ['access denied', 'workspace not found', 'user not found']
-const AUTH_ERROR_PATTERNS = ['authentication required', 'failed to get session']
 
 interface WorkspacePermissionsContextType {
   workspacePermissions: WorkspacePermissions | null
@@ -53,7 +52,6 @@ export function WorkspacePermissionsProvider({
 }: WorkspacePermissionsProviderProps) {
   const params = useParams()
   const router = useRouter()
-  const pathname = usePathname()
   const workspaceId = workspaceIdProp ?? (params?.workspaceId as string | undefined) ?? null
 
   const [isOfflineMode, setIsOfflineMode] = useState(false)
@@ -119,33 +117,15 @@ export function WorkspacePermissionsProvider({
   const isAccessDeniedError = normalizedError
     ? ACCESS_DENIED_PATTERNS.some((pattern) => normalizedError.includes(pattern))
     : false
-  const isAuthError = normalizedError
-    ? AUTH_ERROR_PATTERNS.some((pattern) => normalizedError.includes(pattern))
-    : false
   const shouldTriggerRedirect = Boolean(
     workspaceId &&
       !permissionsLoading &&
       !userPermissions.isLoading &&
-      (isAuthError || isAccessDeniedError || !userPermissions.canRead)
+      (isAccessDeniedError || !userPermissions.canRead)
   )
 
   useEffect(() => {
     if (!shouldTriggerRedirect || hasRedirected) {
-      return
-    }
-
-    if (isAuthError) {
-      const callbackTarget =
-        typeof window === 'undefined'
-          ? `/workspace/${workspaceId}/dashboard`
-          : `${pathname ?? `/workspace/${workspaceId}/dashboard`}${window.location.search}`
-
-      setHasRedirected(true)
-      logger.warn('Redirecting unauthenticated user from protected workspace route', {
-        workspaceId,
-        error: combinedError ?? 'missing session',
-      })
-      router.replace(`/login?reauth=1&callbackUrl=${encodeURIComponent(callbackTarget)}`)
       return
     }
 
@@ -155,7 +135,7 @@ export function WorkspacePermissionsProvider({
       error: combinedError ?? 'missing read permissions',
     })
     router.replace('/workspace')
-  }, [combinedError, hasRedirected, isAuthError, pathname, router, shouldTriggerRedirect, workspaceId])
+  }, [combinedError, hasRedirected, router, shouldTriggerRedirect, workspaceId])
 
   const shouldBlockRender = hasRedirected || shouldTriggerRedirect
 

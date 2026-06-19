@@ -1,4 +1,3 @@
-import { getSessionCookie } from 'better-auth/cookies'
 import { type NextRequest, NextResponse } from 'next/server'
 import createMiddleware from 'next-intl/middleware'
 import { appendHomepageDiscoveryLinks } from '@/lib/discovery/link-headers'
@@ -123,17 +122,6 @@ function resolveRequestLocale(request: NextRequest): LocaleCode {
   )
 }
 
-function buildLoginRedirect(request: NextRequest, route: LocaleRoute, callback?: string) {
-  const { locale } = route
-  const loginUrl = new URL(localizeUrl(request.nextUrl.origin, locale, '/login'))
-
-  if (callback) {
-    loginUrl.searchParams.set('callbackUrl', callback)
-  }
-
-  return withLocaleCookie(NextResponse.redirect(loginUrl), locale)
-}
-
 function isProtectedAppPath(pathname: string): boolean {
   const { pathname: normalizedPathname } = resolveLocaleRoute(pathname)
 
@@ -147,10 +135,7 @@ function isProtectedAppPath(pathname: string): boolean {
 
 function buildProtectedRequestHeaders(request: NextRequest, route: LocaleRoute) {
   const requestHeaders = new Headers(request.headers)
-  requestHeaders.set(
-    CANONICAL_CALLBACK_PATH_HEADER,
-    `${route.pathname}${request.nextUrl.search}`
-  )
+  requestHeaders.set(CANONICAL_CALLBACK_PATH_HEADER, `${route.pathname}${request.nextUrl.search}`)
   return requestHeaders
 }
 
@@ -279,15 +264,10 @@ function handleSecurityFiltering(request: NextRequest): NextResponse | null {
 export async function proxy(request: NextRequest) {
   const url = request.nextUrl
   const initialRoute = resolveLocaleRoute(url.pathname)
-  const hasSessionCookie = Boolean(getSessionCookie(request))
   const route = resolveCanonicalLocaleRoute(request, initialRoute)
   const { locale, pathname: normalizedPathname } = route
 
   const isProtectedPath = isProtectedAppPath(url.pathname)
-
-  if (isProtectedPath && !hasSessionCookie) {
-    return buildLoginRedirect(request, route, `${route.pathname}${url.search}`)
-  }
 
   const protectedRequestHeaders = isProtectedPath
     ? buildProtectedRequestHeaders(request, route)

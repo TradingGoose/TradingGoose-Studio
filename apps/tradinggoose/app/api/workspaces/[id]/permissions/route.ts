@@ -7,6 +7,7 @@ import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   assertActiveWorkspaceAccess,
+  getUserEntityPermissions,
   getUsersWithPermissions,
   hasWorkspaceAdminAccess,
 } from '@/lib/permissions/utils'
@@ -62,10 +63,20 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const result = await getUsersWithPermissions(workspaceId)
+    const currentUserPermission = await getUserEntityPermissions(
+      session.user.id,
+      'workspace',
+      workspaceId
+    )
+
+    if (!currentUserPermission) {
+      return NextResponse.json({ error: 'Workspace permission state unavailable' }, { status: 403 })
+    }
 
     return NextResponse.json({
       users: result,
       total: result.length,
+      currentUserPermission,
     })
   } catch (error) {
     logger.error('Error fetching workspace permissions:', error)
@@ -118,6 +129,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     const workspaceRow = await db
       .select({
+        ownerId: workspace.ownerId,
         billingOwnerType: workspace.billingOwnerType,
         billingOwnerUserId: workspace.billingOwnerUserId,
       })
@@ -127,6 +139,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     if (workspaceRow.length === 0) {
       return NextResponse.json({ error: 'Workspace not found or access denied' }, { status: 404 })
+    }
+
+    if (body.updates.some((update) => update.userId === workspaceRow[0].ownerId)) {
+      return NextResponse.json(
+        { error: 'Workspace owner permissions are managed by workspace ownership' },
+        { status: 400 }
+      )
     }
 
     try {
@@ -167,11 +186,21 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     })
 
     const updatedUsers = await getUsersWithPermissions(workspaceId)
+    const currentUserPermission = await getUserEntityPermissions(
+      session.user.id,
+      'workspace',
+      workspaceId
+    )
+
+    if (!currentUserPermission) {
+      return NextResponse.json({ error: 'Workspace permission state unavailable' }, { status: 403 })
+    }
 
     return NextResponse.json({
       message: 'Permissions updated successfully',
       users: updatedUsers,
       total: updatedUsers.length,
+      currentUserPermission,
     })
   } catch (error) {
     logger.error('Error updating workspace permissions:', error)

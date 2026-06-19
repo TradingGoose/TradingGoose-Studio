@@ -31,6 +31,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     const workspaceRow = await db
       .select({
+        ownerId: workspace.ownerId,
         billingOwnerType: workspace.billingOwnerType,
         billingOwnerUserId: workspace.billingOwnerUserId,
       })
@@ -40,6 +41,17 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     if (workspaceRow.length === 0) {
       return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
+    }
+
+    const hasAdminAccess = await hasWorkspaceAdminAccess(session.user.id, workspaceId)
+    const isSelf = userId === session.user.id
+
+    if (!hasAdminAccess && !isSelf) {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
+    }
+
+    if (workspaceRow[0].ownerId === userId) {
+      return NextResponse.json({ error: 'Cannot remove the workspace owner' }, { status: 400 })
     }
 
     try {
@@ -70,36 +82,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     if (!userPermission) {
       return NextResponse.json({ error: 'User not found in workspace' }, { status: 404 })
-    }
-
-    // Check if current user has admin access to this workspace
-    const hasAdminAccess = await hasWorkspaceAdminAccess(session.user.id, workspaceId)
-    const isSelf = userId === session.user.id
-
-    if (!hasAdminAccess && !isSelf) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
-    }
-
-    // Prevent removing yourself if you're the last admin
-    if (isSelf && userPermission.permissionType === 'admin') {
-      const otherAdmins = await db
-        .select()
-        .from(permissions)
-        .where(
-          and(
-            eq(permissions.entityType, 'workspace'),
-            eq(permissions.entityId, workspaceId),
-            eq(permissions.permissionType, 'admin')
-          )
-        )
-        .then((rows) => rows.filter((row) => row.userId !== session.user.id))
-
-      if (otherAdmins.length === 0) {
-        return NextResponse.json(
-          { error: 'Cannot remove the last admin from a workspace' },
-          { status: 400 }
-        )
-      }
     }
 
     // Delete the user's permissions for this workspace
