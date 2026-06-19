@@ -176,7 +176,7 @@ export function WorkflowToolbar({ workspaceId, toolbarScopeId }: WorkflowToolbar
 
   return (
     <TooltipProvider>
-      <WorkspacePermissionsProvider workspaceId={workspaceId}>
+      <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
         <ToolbarAddBlockProvider
           onAddBlock={(request) => {
             dispatchToolbarAddBlock(request, toolbarScopeId)

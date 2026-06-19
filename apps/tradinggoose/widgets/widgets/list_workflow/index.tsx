@@ -282,7 +282,7 @@ const WorkflowListWidgetBody = ({
   }
 
   return (
-    <WorkspacePermissionsProvider workspaceId={workspaceId}>
+    <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
       <WorkflowRouteProvider
         workspaceId={workspaceId}
         workflowId={effectiveActiveWorkflowId ?? 'dashboard-workflow-list'}
@@ -339,7 +339,7 @@ const WorkflowListHeaderRight = ({ workspaceId }: { workspaceId?: string }) => {
   }
 
   return (
-    <WorkspacePermissionsProvider workspaceId={workspaceId}>
+    <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
       <div className={widgetHeaderButtonGroupClassName()}>
         <DashboardWorkflowCreateMenu
           workspaceId={workspaceId}

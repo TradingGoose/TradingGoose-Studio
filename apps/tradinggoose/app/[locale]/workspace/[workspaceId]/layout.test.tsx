@@ -42,8 +42,18 @@ vi.mock('@/lib/permissions/utils', () => ({
 }))
 
 vi.mock('@/app/workspace/[workspaceId]/providers/providers', () => ({
-  default: ({ children, workspaceId }: { children: React.ReactNode; workspaceId?: string }) => (
-    <div data-workspace-id={workspaceId}>{children}</div>
+  default: ({
+    children,
+    workspaceId,
+    userId,
+  }: {
+    children: React.ReactNode
+    workspaceId: string
+    userId: string
+  }) => (
+    <div data-user-id={userId} data-workspace-id={workspaceId}>
+      {children}
+    </div>
   ),
 }))
 
@@ -155,8 +165,11 @@ describe('Workspace layout access guard', () => {
       params: Promise.resolve({ locale: 'en', workspaceId: 'ws-1' }),
     })
 
-    expect(renderToStaticMarkup(result)).toContain('data-workspace-id="ws-1"')
-    expect(renderToStaticMarkup(result)).toContain('workspace')
+    const markup = renderToStaticMarkup(result)
+
+    expect(markup).toContain('workspace')
+    expect(markup).toContain('data-workspace-id="ws-1"')
+    expect(markup).toContain('data-user-id="user-1"')
     expect(mockRedirect).not.toHaveBeenCalled()
   })
 })

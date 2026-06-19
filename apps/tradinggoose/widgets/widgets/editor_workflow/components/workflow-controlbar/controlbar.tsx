@@ -56,7 +56,7 @@ export function WorkflowWidgetControlBar({
 
   return (
     <TooltipProvider delayDuration={100}>
-      <WorkspacePermissionsProvider workspaceId={workspaceId}>
+      <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
         <WorkflowSessionProvider workspaceId={workspaceId} workflowId={activeWorkflowId}>
           <WorkflowRouteProvider
             workspaceId={workspaceId}

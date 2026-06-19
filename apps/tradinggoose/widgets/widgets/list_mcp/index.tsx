@@ -190,7 +190,7 @@ const ListMcpHeaderRight = ({
   }
 
   return (
-    <WorkspacePermissionsProvider workspaceId={workspaceId}>
+    <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
       <div className={widgetHeaderButtonGroupClassName()}>
         <ListMcpHeaderRightContent
           workspaceId={workspaceId}
@@ -688,7 +688,7 @@ export const listMcpWidget: DashboardWidgetDefinition = {
     }
 
     return (
-      <WorkspacePermissionsProvider workspaceId={workspaceId}>
+      <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
         <ListMcpWidgetContent {...props} />
       </WorkspacePermissionsProvider>
     )
