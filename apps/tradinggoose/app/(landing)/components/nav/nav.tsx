@@ -357,6 +357,7 @@ export default function Nav({
       </nav>
       {isAuthenticated ? (
         <SettingsDialog
+          userId={userId}
           open={isSettingsModalOpen}
           section={activeSettingsSection}
           onOpenChange={setIsSettingsModalOpen}

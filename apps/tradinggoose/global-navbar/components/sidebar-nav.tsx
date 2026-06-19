@@ -107,6 +107,7 @@ function renderNavGroup(label: string, items: NavSection[]) {
 interface SidebarUsageIndicatorProps {
   onOpenSubscriptionSettings?: () => void
   authReady?: boolean
+  userId?: string | null
 }
 
 function UsageHeaderSkeleton() {
@@ -130,6 +131,7 @@ function UsageHeaderSkeleton() {
 export function SidebarUsageIndicator({
   onOpenSubscriptionSettings,
   authReady = true,
+  userId = null,
 }: SidebarUsageIndicatorProps) {
   const { state } = useSidebar()
   const logger = createLogger('SidebarUsageIndicator')
@@ -137,17 +139,17 @@ export function SidebarUsageIndicator({
     data: subscriptionData,
     isLoading: isSubscriptionLoading,
     isError: isSubscriptionError,
-  } = useSubscriptionData({ enabled: authReady })
+  } = useSubscriptionData({ enabled: authReady, userId })
   const billingPayload = (subscriptionData as any)?.data ?? subscriptionData
   const billingEnabled = useMemo(() => billingPayload?.billingEnabled ?? true, [billingPayload])
   const subscription = getSubscriptionStatus(billingPayload)
   const usage = getUsage(billingPayload)
   const billingStatus = getBillingStatus(billingPayload)
-  const { data: organizationsData } = useOrganizations({ enabled: authReady })
+  const { data: organizationsData } = useOrganizations({ enabled: authReady, userId })
   const activeOrganizationId = organizationsData?.activeOrganization?.id
   const { data: organizationBillingData, isLoading: isLoadingOrgBilling } = useOrganizationBilling(
     activeOrganizationId || '',
-    authReady
+    { enabled: authReady, userId }
   )
 
   const isOrganizationPlan = subscription.tier.ownerType === 'organization'

@@ -13,11 +13,13 @@ import type { SettingsSection } from './types'
 interface SettingsDialogProps {
   open: boolean
   section: SettingsSection
+  userId: string | null
   onOpenChange: (open: boolean) => void
 }
 
 interface SectionRenderProps {
   isActive: boolean
+  userId: string | null
   onOpenChange: (open: boolean) => void
 }
 
@@ -37,19 +39,23 @@ const SECTION_CONFIG: Record<SettingsSection, SectionConfig> = {
   },
   subscription: {
     titleKey: 'subscription',
-    render: ({ onOpenChange }) => <SubscriptionSettings onOpenChange={onOpenChange} />,
+    render: ({ onOpenChange, userId }) => (
+      <SubscriptionSettings userId={userId} onOpenChange={onOpenChange} />
+    ),
   },
   team: {
     titleKey: 'team',
-    render: ({ isActive }) => <TeamManagementSettings isActive={isActive} />,
+    render: ({ isActive, userId }) => (
+      <TeamManagementSettings isActive={isActive} userId={userId} />
+    ),
   },
   sso: {
     titleKey: 'sso',
-    render: ({ isActive }) => <SSOSettings isActive={isActive} />,
+    render: ({ isActive, userId }) => <SSOSettings isActive={isActive} userId={userId} />,
   },
 }
 
-export function SettingsDialog({ open, section, onOpenChange }: SettingsDialogProps) {
+export function SettingsDialog({ open, section, userId, onOpenChange }: SettingsDialogProps) {
   const titles = useTranslations('workspace.settingsModal.titles')
   const config = SECTION_CONFIG[section]
 
@@ -60,7 +66,7 @@ export function SettingsDialog({ open, section, onOpenChange }: SettingsDialogPr
       title={titles(config.titleKey)}
       contentClassName='p-0'
     >
-      {config.render({ isActive: open, onOpenChange })}
+      {config.render({ isActive: open, userId, onOpenChange })}
     </SettingsModal>
   )
 }

@@ -129,7 +129,8 @@ export function WorkspacePermissionsProvider({
     router.replace('/workspace')
   }, [accessKey, combinedError, hasRedirected, router, shouldTriggerRedirect, workspaceId])
 
-  const shouldBlockRender = isAuthRecoveryError || hasRedirected || shouldTriggerRedirect
+  const shouldBlockRender =
+    !isClientAuthReady || isAuthRecoveryError || hasRedirected || shouldTriggerRedirect
 
   return (
     <WorkspacePermissionsContext.Provider value={contextValue}>

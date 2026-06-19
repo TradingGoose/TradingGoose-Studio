@@ -72,12 +72,15 @@ const getSsoCallbackUrl = (providerId: string, providerType: 'oidc' | 'saml') =>
     providerType === 'saml' ? 'sso/saml2/sp/acs' : 'sso/callback'
   }/${providerId}`
 
-export function SSO() {
+export function SSO({ userId: shellUserId }: { userId?: string | null }) {
   const { data: session } = useSession()
-  const { data: organizationsData } = useOrganizations()
+  const userId = shellUserId ?? session?.user?.id
+  const { data: organizationsData } = useOrganizations({ userId })
   const activeOrganization = organizationsData?.activeOrganization
   const activeOrganizationId = activeOrganization?.id
-  const { data: organizationBillingData } = useOrganizationBilling(activeOrganizationId || '')
+  const { data: organizationBillingData } = useOrganizationBilling(activeOrganizationId || '', {
+    userId,
+  })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [providerLoadError, setProviderLoadError] = useState<string | null>(null)

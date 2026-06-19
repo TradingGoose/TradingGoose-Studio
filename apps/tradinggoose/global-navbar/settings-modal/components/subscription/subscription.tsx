@@ -36,6 +36,7 @@ const safeNumber = (value: number | null | undefined) =>
   typeof value === 'number' && Number.isFinite(value) ? value : 0
 
 interface SubscriptionProps {
+  userId?: string | null
   onOpenChange: (open: boolean) => void
 }
 
@@ -151,8 +152,9 @@ function openContactUrl(url: string | null) {
   window.open(url, '_blank')
 }
 
-export function Subscription({ onOpenChange }: SubscriptionProps) {
+export function Subscription({ userId: shellUserId, onOpenChange }: SubscriptionProps) {
   const { data: session } = useSession()
+  const userId = shellUserId ?? session?.user?.id
   const { handleUpgrade } = useSubscriptionUpgrade()
 
   const {
@@ -160,13 +162,13 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     isLoading: isSubscriptionLoading,
     isError: isSubscriptionError,
     refetch: refetchSubscription,
-  } = useSubscriptionData()
+  } = useSubscriptionData({ userId })
   const {
     data: usageLimitResponse,
     isLoading: isUsageLimitLoading,
     refetch: refetchUsageLimit,
-  } = useUsageLimitData()
-  const { data: organizationsData } = useOrganizations()
+  } = useUsageLimitData({ userId })
+  const { data: organizationsData } = useOrganizations({ userId })
   const { data: publicBillingCatalog, isLoading: isCatalogLoading } = usePublicBillingCatalog()
 
   const activeOrganization = organizationsData?.activeOrganization
@@ -175,7 +177,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     data: organizationBillingData,
     isLoading: isOrgBillingLoading,
     refetch: refetchOrgBilling,
-  } = useOrganizationBilling(activeOrgId || '')
+  } = useOrganizationBilling(activeOrgId || '', { userId })
 
   const [upgradeError, setUpgradeError] = useState<string | null>(null)
   const [isPrimaryActionPending, setIsPrimaryActionPending] = useState(false)
@@ -566,7 +568,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
           <BillingUsageNotificationsToggle />
         )}
 
-        <WorkspaceBillingOwnerEditor />
+        <WorkspaceBillingOwnerEditor userId={userId} />
 
         {surfaceState.isCustomOrganizationPlan && (
           <div className='text-center'>

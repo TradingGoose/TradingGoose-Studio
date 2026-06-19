@@ -76,11 +76,12 @@ type TeamSubscriptionData = {
   billingBlocked?: boolean
 }
 
-export function TeamManagement() {
+export function TeamManagement({ userId: shellUserId }: { userId?: string | null }) {
   const { data: session } = useSession()
+  const userId = shellUserId ?? session?.user?.id
   const { handleUpgrade } = useSubscriptionUpgrade()
 
-  const { data: organizationsData } = useOrganizations()
+  const { data: organizationsData } = useOrganizations({ userId })
   const activeOrganization = organizationsData?.activeOrganization
   const {
     data: organization,
@@ -96,12 +97,12 @@ export function TeamManagement() {
     data: userSubscriptionData,
     isLoading: isLoadingPersonalSubscription,
     error: subscriptionError,
-  } = useSubscriptionData()
+  } = useSubscriptionData({ userId })
   const {
     data: organizationBillingData,
     isLoading: isLoadingOrganizationBilling,
     error: organizationBillingError,
-  } = useOrganizationBilling(activeOrgId || '')
+  } = useOrganizationBilling(activeOrgId || '', { userId })
   const { data: publicBillingCatalog } = usePublicBillingCatalog()
 
   const inviteMutation = useInviteMember()
@@ -114,7 +115,7 @@ export function TeamManagement() {
   const {
     data: adminWorkspaces = [],
     refetch: refetchAdminWorkspaces,
-  } = useAdminWorkspaces(session?.user?.id)
+  } = useAdminWorkspaces(userId)
   const {
     data: organizationBillingWorkspaces = [],
     isLoading: isLoadingOrganizationBillingWorkspaces,
@@ -561,7 +562,7 @@ export function TeamManagement() {
     <div className='flex h-full flex-col px-6 pt-4 pb-4'>
       <div className='flex flex-1 flex-col gap-6 overflow-y-auto'>
         {/* Team Usage Overview */}
-        <TeamUsage hasAdminAccess={adminOrOwner} />
+        <TeamUsage hasAdminAccess={adminOrOwner} userId={userId} />
 
         {/* Organization billing information */}
         {currentTier?.ownerType === 'organization' && (

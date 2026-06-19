@@ -110,7 +110,7 @@ export function UserMenu({
   const updateSetting = useGeneralStore((state) => state.updateSetting)
   const isGeneralLoading = useGeneralStore((state) => state.isLoading)
   const isThemeLoading = useGeneralStore((state) => state.isThemeLoading)
-  const { data: organizationsData } = useOrganizations({ enabled: authReady })
+  const { data: organizationsData } = useOrganizations({ enabled: authReady, userId })
   const userMenuCopy = useMemo(
     () => ({
       accountDetail: tUserMenu('accountDetail'),
@@ -145,10 +145,11 @@ export function UserMenu({
   const activeOrganizationId = activeOrganization?.id
   const { data: organizationBillingData } = useOrganizationBilling(
     activeOrganizationId || '',
-    authReady
+    { enabled: authReady, userId }
   )
   const { data: subscriptionData, isLoading: isSubscriptionLoading } = useSubscriptionData({
     enabled: authReady,
+    userId,
   })
   const billingPayload = (subscriptionData as any)?.data ?? subscriptionData
   const organizationBillingPayload =

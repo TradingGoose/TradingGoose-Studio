@@ -183,6 +183,7 @@ describe('WorkspacePermissionsProvider', () => {
     expect(mockUseWorkspacePermissions).toHaveBeenCalledWith('ws-1', 'user-1', {
       authReady: false,
     })
+    expect(container?.textContent).toBe('')
 
     mockUseSession.mockReturnValue({
       data: { user: { id: 'user-2' } },
@@ -200,6 +201,7 @@ describe('WorkspacePermissionsProvider', () => {
     expect(mockUseWorkspacePermissions).toHaveBeenLastCalledWith('ws-1', 'user-1', {
       authReady: false,
     })
+    expect(container?.textContent).toBe('')
 
     mockUseSession.mockReturnValue({
       data: null,
@@ -302,6 +304,10 @@ describe('WorkspacePermissionsProvider', () => {
       userPermissions: 'admin',
       isLoading: false,
       error: null,
+    })
+    mockUseSession.mockReturnValue({
+      data: { user: { id: 'user-2' } },
+      isPending: false,
     })
 
     await act(async () => {

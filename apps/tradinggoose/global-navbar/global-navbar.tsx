@@ -111,6 +111,7 @@ export function GlobalNavbar({
   const shouldShowSkeleton = isSessionLoading && !userId
   const { data: organizationsData } = useOrganizations({
     enabled: isAuthenticated && isClientAuthReady,
+    userId,
   })
   const billingEnabled = organizationsData?.billingData?.data?.billingEnabled ?? true
   const activeOrganization = organizationsData?.activeOrganization
@@ -296,6 +297,7 @@ export function GlobalNavbar({
             <SidebarFooter className='flex flex-col gap-2 px-2 py-3'>
               <SidebarUsageIndicator
                 authReady={isClientAuthReady}
+                userId={userId}
                 onOpenSubscriptionSettings={() => openSettings('subscription')}
               />
               <UserMenu
@@ -345,6 +347,7 @@ export function GlobalNavbar({
         <SettingsDialog
           open={isSettingsModalOpen}
           section={activeSettingsSection}
+          userId={userId}
           onOpenChange={setIsSettingsModalOpen}
         />
       </div>

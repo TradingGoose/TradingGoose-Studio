@@ -1,12 +1,13 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 /**
  * Query key factories for subscription-related queries
  */
 export const subscriptionKeys = {
   all: ['subscription'] as const,
-  user: () => [...subscriptionKeys.all, 'user'] as const,
-  usage: () => [...subscriptionKeys.all, 'usage'] as const,
+  user: (userId?: string | null) => [...subscriptionKeys.all, 'user', userId ?? 'current'] as const,
+  usage: (userId?: string | null) =>
+    [...subscriptionKeys.all, 'usage', userId ?? 'current'] as const,
 }
 
 /**
@@ -23,13 +24,12 @@ async function fetchSubscriptionData() {
 /**
  * Hook to fetch user subscription data
  */
-export function useSubscriptionData(options?: { enabled?: boolean }) {
+export function useSubscriptionData(options?: { enabled?: boolean; userId?: string | null }) {
   return useQuery({
-    queryKey: subscriptionKeys.user(),
+    queryKey: subscriptionKeys.user(options?.userId),
     queryFn: fetchSubscriptionData,
     enabled: options?.enabled ?? true,
     staleTime: 30 * 1000,
-    placeholderData: keepPreviousData,
   })
 }
 
@@ -51,12 +51,12 @@ async function fetchUsageLimitData() {
  * Returns: currentLimit, minimumLimit, canEdit, tier, updatedAt
  * Use this for editing usage limits, not for displaying current usage
  */
-export function useUsageLimitData() {
+export function useUsageLimitData(options?: { enabled?: boolean; userId?: string | null }) {
   return useQuery({
-    queryKey: subscriptionKeys.usage(),
+    queryKey: subscriptionKeys.usage(options?.userId),
     queryFn: fetchUsageLimitData,
+    enabled: options?.enabled ?? true,
     staleTime: 30 * 1000,
-    placeholderData: keepPreviousData,
   })
 }
 

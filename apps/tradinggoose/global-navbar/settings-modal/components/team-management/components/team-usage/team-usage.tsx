@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useActiveOrganization } from '@/lib/auth-client'
+import { useActiveOrganization, useSession } from '@/lib/auth-client'
 import { openBillingPortal } from '@/lib/billing/billing-portal'
 import { canTierEditUsageLimit } from '@/lib/billing/tier-summary'
 import { UsageHeader } from '@/global-navbar/settings-modal/components/shared/usage-header'
@@ -12,15 +12,18 @@ import { useOrganizationBilling } from '@/hooks/queries/organization'
 
 interface TeamUsageProps {
   hasAdminAccess: boolean
+  userId?: string | null
 }
 
-export function TeamUsage({ hasAdminAccess }: TeamUsageProps) {
+export function TeamUsage({ hasAdminAccess, userId: shellUserId }: TeamUsageProps) {
+  const { data: session } = useSession()
+  const userId = shellUserId ?? session?.user?.id
   const { data: activeOrg } = useActiveOrganization()
   const {
     data: billingData,
     isLoading: isLoadingOrgBilling,
     error,
-  } = useOrganizationBilling(activeOrg?.id || '')
+  } = useOrganizationBilling(activeOrg?.id || '', { userId })
 
   const organizationBillingPayload = (billingData as any)?.data ?? billingData
 
