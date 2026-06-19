@@ -165,7 +165,7 @@ const ListSkillHeaderRight = ({
   }
 
   return (
-    <WorkspacePermissionsProvider workspaceId={workspaceId}>
+    <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
       <div className={widgetHeaderButtonGroupClassName()}>
         <SkillListHeaderRight workspaceId={workspaceId} panelId={panelId} pairColor={pairColor} />
       </div>
@@ -182,7 +182,7 @@ const ListSkillWidgetBody = (props: WidgetComponentProps) => {
   }
 
   return (
-    <WorkspacePermissionsProvider workspaceId={workspaceId}>
+    <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
       <SkillList {...props} />
     </WorkspacePermissionsProvider>
   )

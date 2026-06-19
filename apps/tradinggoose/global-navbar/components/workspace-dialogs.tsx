@@ -1311,6 +1311,8 @@ export function WorkspaceDialogs({
   isDeletingWorkspace,
   onConfirmDelete,
 }: WorkspaceDialogsProps) {
+  const inviteIdentityMissing = Boolean(inviteWorkspace && !workspaceUser)
+
   return (
     <>
       {inviteWorkspace && workspaceUser ? (
@@ -1325,6 +1327,24 @@ export function WorkspaceDialogs({
             workspaceOwnerId={inviteWorkspace.ownerId}
           />
         </WorkspacePermissionsProvider>
+      ) : null}
+
+      {inviteIdentityMissing ? (
+        <AlertDialog open={inviteDialogOpen} onOpenChange={onInviteDialogChange}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Workspace session unavailable</AlertDialogTitle>
+              <AlertDialogDescription>
+                Workspace management requires an authenticated workspace session.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction onClick={() => onInviteDialogChange(false)}>
+                Close
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       ) : null}
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={onDeleteDialogChange}>

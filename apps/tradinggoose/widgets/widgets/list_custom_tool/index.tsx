@@ -312,7 +312,7 @@ const ListCustomToolHeaderRight = ({
   }
 
   return (
-    <WorkspacePermissionsProvider workspaceId={workspaceId}>
+    <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
       <div className={widgetHeaderButtonGroupClassName()}>
         <CustomToolListHeaderRight
           workspaceId={workspaceId}
@@ -505,7 +505,7 @@ const ListCustomToolWidgetBody = (props: WidgetComponentProps) => {
   }
 
   return (
-    <WorkspacePermissionsProvider workspaceId={workspaceId}>
+    <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
       <ListCustomToolWidgetBodyInner {...props} />
     </WorkspacePermissionsProvider>
   )

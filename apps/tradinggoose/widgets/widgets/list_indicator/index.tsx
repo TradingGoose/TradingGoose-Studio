@@ -163,7 +163,7 @@ const ListIndicatorHeaderRight = ({
   }
 
   return (
-    <WorkspacePermissionsProvider workspaceId={workspaceId}>
+    <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
       <div className={widgetHeaderButtonGroupClassName()}>
         <IndicatorListHeaderRight
           workspaceId={workspaceId}
@@ -184,7 +184,7 @@ const ListIndicatorWidgetBody = (props: WidgetComponentProps) => {
   }
 
   return (
-    <WorkspacePermissionsProvider workspaceId={workspaceId}>
+    <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
       <IndicatorList {...props} />
     </WorkspacePermissionsProvider>
   )

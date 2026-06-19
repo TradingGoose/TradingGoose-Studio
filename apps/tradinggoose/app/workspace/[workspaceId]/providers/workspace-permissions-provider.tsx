@@ -27,22 +27,20 @@ interface WorkspacePermissionsContextType {
 const WorkspaceAuthenticatedUserContext = createContext<string | null>(null)
 const WorkspacePermissionsContext = createContext<WorkspacePermissionsContextType | null>(null)
 
-interface WorkspacePermissionsProviderProps {
+type WorkspacePermissionsProviderProps = {
   children: React.ReactNode
   workspaceId: string
-  userId?: string
-}
+} & ({ userId: string; inheritUser?: never } | { inheritUser: true; userId?: never })
 
-export function WorkspacePermissionsProvider({
-  children,
-  workspaceId,
-  userId,
-}: WorkspacePermissionsProviderProps) {
+export function WorkspacePermissionsProvider(props: WorkspacePermissionsProviderProps) {
+  const { children, workspaceId } = props
   const inheritedUserId = useContext(WorkspaceAuthenticatedUserContext)
-  const workspaceUserId = userId ?? inheritedUserId
+  const workspaceUserId = props.userId ?? inheritedUserId
 
   if (!workspaceUserId) {
-    throw new Error('WorkspacePermissionsProvider requires a server-authenticated workspace user')
+    throw new Error(
+      'WorkspacePermissionsProvider requires userId or inheritUser inside an existing WorkspacePermissionsProvider'
+    )
   }
 
   return (

@@ -160,7 +160,7 @@ describe('WorkspacePermissionsProvider', () => {
     await act(async () => {
       root?.render(
         <WorkspacePermissionsProvider workspaceId='ws-1' userId='user-1'>
-          <WorkspacePermissionsProvider workspaceId='ws-2'>
+          <WorkspacePermissionsProvider workspaceId='ws-2' inheritUser>
             <div>workspace</div>
           </WorkspacePermissionsProvider>
         </WorkspacePermissionsProvider>

@@ -39,7 +39,7 @@ const WorkflowEditorApp = ({
   const workflowRenderKey = `${channelId}:${workflowId}`
 
   return (
-    <Providers workspaceId={workspaceId}>
+    <Providers workspaceId={workspaceId} inheritUser>
       <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
         <WorkflowRouteProvider
           workspaceId={workspaceId}
