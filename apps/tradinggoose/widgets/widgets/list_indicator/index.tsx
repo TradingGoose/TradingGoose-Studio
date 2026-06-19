@@ -7,6 +7,7 @@ import { useLocale } from 'next-intl'
 import { parseImportedIndicatorsFile } from '@/lib/indicators/import-export'
 import {
   useUserPermissionsContext,
+  WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useCreateIndicator, useImportIndicators } from '@/hooks/queries/indicators'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
@@ -162,9 +163,15 @@ const ListIndicatorHeaderRight = ({
   }
 
   return (
-    <div className={widgetHeaderButtonGroupClassName()}>
-      <IndicatorListHeaderRight workspaceId={workspaceId} panelId={panelId} pairColor={pairColor} />
-    </div>
+    <WorkspacePermissionsProvider workspaceId={workspaceId}>
+      <div className={widgetHeaderButtonGroupClassName()}>
+        <IndicatorListHeaderRight
+          workspaceId={workspaceId}
+          panelId={panelId}
+          pairColor={pairColor}
+        />
+      </div>
+    </WorkspacePermissionsProvider>
   )
 }
 
@@ -176,7 +183,11 @@ const ListIndicatorWidgetBody = (props: WidgetComponentProps) => {
     return <IndicatorListMessage message={copy.body.selectWorkspace} />
   }
 
-  return <IndicatorList {...props} />
+  return (
+    <WorkspacePermissionsProvider workspaceId={workspaceId}>
+      <IndicatorList {...props} />
+    </WorkspacePermissionsProvider>
+  )
 }
 
 export const listIndicatorWidget: DashboardWidgetDefinition = {

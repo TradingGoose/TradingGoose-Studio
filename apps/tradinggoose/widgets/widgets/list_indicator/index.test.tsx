@@ -12,6 +12,7 @@ const mockCreateIndicatorMutation = vi.fn()
 const mockImportIndicatorsMutation = vi.fn()
 
 vi.mock('@/app/workspace/[workspaceId]/providers/workspace-permissions-provider', () => ({
+  WorkspacePermissionsProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
   useUserPermissionsContext: () => ({
     canRead: true,
     canEdit: true,

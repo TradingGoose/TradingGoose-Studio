@@ -30,10 +30,9 @@ function getBillingOwnerValue(billingOwner: WorkspaceBillingOwner): string {
   return billingOwner.type === 'organization' ? 'organization' : `user:${billingOwner.userId}`
 }
 
-export function WorkspaceBillingOwnerEditor({ userId: shellUserId }: { userId?: string | null }) {
+export function WorkspaceBillingOwnerEditor() {
   const { data: session } = useSession()
-  const userId = shellUserId ?? session?.user?.id
-  const { data: organizationsData } = useOrganizations({ userId })
+  const { data: organizationsData } = useOrganizations()
   const params = useParams<{ workspaceId?: string | string[] }>()
   const workspaceIdParam = params?.workspaceId
   const workspaceId = Array.isArray(workspaceIdParam)
@@ -48,9 +47,7 @@ export function WorkspaceBillingOwnerEditor({ userId: shellUserId }: { userId?: 
   const admins =
     workspaceSettings?.permissions?.users?.filter((user) => user.permissionType === 'admin') ?? []
   const activeOrganization = organizationsData?.activeOrganization ?? null
-  const { data: organizationBilling } = useOrganizationBilling(activeOrganization?.id || '', {
-    userId,
-  })
+  const { data: organizationBilling } = useOrganizationBilling(activeOrganization?.id || '')
   const currentOwnerUser = admins.find((admin) => `user:${admin.userId}` === currentValue) ?? null
   const assignWorkspaceToOrganization = useAssignWorkspaceToOrganization()
   const canAssignOrganizationBilling = Boolean(

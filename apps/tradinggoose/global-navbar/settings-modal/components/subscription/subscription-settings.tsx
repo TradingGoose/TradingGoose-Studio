@@ -3,10 +3,9 @@
 import { Subscription } from './subscription'
 
 interface SubscriptionSettingsProps {
-  userId: string | null
   onOpenChange: (open: boolean) => void
 }
 
-export function SubscriptionSettings({ userId, onOpenChange }: SubscriptionSettingsProps) {
-  return <Subscription userId={userId} onOpenChange={onOpenChange} />
+export function SubscriptionSettings({ onOpenChange }: SubscriptionSettingsProps) {
+  return <Subscription onOpenChange={onOpenChange} />
 }

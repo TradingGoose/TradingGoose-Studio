@@ -6,6 +6,7 @@ import { useLocale } from 'next-intl'
 import { shallow } from 'zustand/shallow'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
+import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useMessages } from 'next-intl'
 import type { LocaleCode } from '@/i18n/utils'
 import { useSetPairColorContext } from '@/stores/dashboard/pair-store'
@@ -281,24 +282,26 @@ const WorkflowListWidgetBody = ({
   }
 
   return (
-    <WorkflowRouteProvider
-      workspaceId={workspaceId}
-      workflowId={effectiveActiveWorkflowId ?? 'dashboard-workflow-list'}
-      channelId='dashboard-workflow-list'
-    >
-      <div className='h-full w-full overflow-hidden p-2'>
-        <FolderTree
-          regularWorkflows={regularWorkflows}
-          marketplaceWorkflows={marketplaceWorkflows}
-          isLoading={isLoading || !hasInitialized}
-          onCreateWorkflow={handleCreateWorkflow}
-          workspaceIdOverride={workspaceId}
-          workflowIdOverride={effectiveActiveWorkflowId}
-          onWorkflowSelect={handleWorkflowSelect}
-          disableNavigation
-        />
-      </div>
-    </WorkflowRouteProvider>
+    <WorkspacePermissionsProvider workspaceId={workspaceId}>
+      <WorkflowRouteProvider
+        workspaceId={workspaceId}
+        workflowId={effectiveActiveWorkflowId ?? 'dashboard-workflow-list'}
+        channelId='dashboard-workflow-list'
+      >
+        <div className='h-full w-full overflow-hidden p-2'>
+          <FolderTree
+            regularWorkflows={regularWorkflows}
+            marketplaceWorkflows={marketplaceWorkflows}
+            isLoading={isLoading || !hasInitialized}
+            onCreateWorkflow={handleCreateWorkflow}
+            workspaceIdOverride={workspaceId}
+            workflowIdOverride={effectiveActiveWorkflowId}
+            onWorkflowSelect={handleWorkflowSelect}
+            disableNavigation
+          />
+        </div>
+      </WorkflowRouteProvider>
+    </WorkspacePermissionsProvider>
   )
 }
 
@@ -336,8 +339,13 @@ const WorkflowListHeaderRight = ({ workspaceId }: { workspaceId?: string }) => {
   }
 
   return (
-    <div className={widgetHeaderButtonGroupClassName()}>
-      <DashboardWorkflowCreateMenu workspaceId={workspaceId} onWorkflowCreated={handleWorkflowCreated} />
-    </div>
+    <WorkspacePermissionsProvider workspaceId={workspaceId}>
+      <div className={widgetHeaderButtonGroupClassName()}>
+        <DashboardWorkflowCreateMenu
+          workspaceId={workspaceId}
+          onWorkflowCreated={handleWorkflowCreated}
+        />
+      </div>
+    </WorkspacePermissionsProvider>
   )
 }

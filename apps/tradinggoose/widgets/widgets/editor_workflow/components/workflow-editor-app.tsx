@@ -2,6 +2,7 @@
 
 import { useSession } from '@/lib/auth-client'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
+import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import Workflow from '@/widgets/widgets/editor_workflow/components/workflow'
 import type { WorkflowCanvasUIConfig } from '@/widgets/widgets/editor_workflow/components/workflow-editor/workflow-canvas'
@@ -38,18 +39,24 @@ const WorkflowEditorApp = ({
   const workflowRenderKey = `${channelId}:${workflowId}`
 
   return (
-    <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
-      <WorkflowRouteProvider workspaceId={workspaceId} workflowId={workflowId} channelId={channelId}>
-        <Workflow
-          key={workflowRenderKey}
+    <Providers workspaceId={workspaceId}>
+      <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
+        <WorkflowRouteProvider
+          workspaceId={workspaceId}
+          workflowId={workflowId}
           channelId={channelId}
-          toolbarScopeId={toolbarScopeId}
-          ui={ui}
-          disableNavigation={disableNavigation}
-          viewportBounds={viewportBounds}
-        />
-      </WorkflowRouteProvider>
-    </WorkflowSessionProvider>
+        >
+          <Workflow
+            key={workflowRenderKey}
+            channelId={channelId}
+            toolbarScopeId={toolbarScopeId}
+            ui={ui}
+            disableNavigation={disableNavigation}
+            viewportBounds={viewportBounds}
+          />
+        </WorkflowRouteProvider>
+      </WorkflowSessionProvider>
+    </Providers>
   )
 }
 

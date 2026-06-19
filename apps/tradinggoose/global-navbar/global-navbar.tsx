@@ -18,7 +18,6 @@ import { getBrandConfig } from '@/lib/branding/branding'
 import { isHosted } from '@/lib/environment'
 import { getOrganizationAccessState } from '@/lib/organization/access'
 import { getUserRole } from '@/lib/organization/helpers'
-import { isSessionReadyForAuthenticatedUser } from '@/lib/session/session-context'
 import { useOrganizations } from '@/hooks/queries/organization'
 import { NavbarHeader } from './components/navbar-header'
 import { SidebarNav, SidebarUsageIndicator } from './components/sidebar-nav'
@@ -41,21 +40,16 @@ import {
 export function GlobalNavbar({
   children,
   isSystemAdmin = false,
-  authenticatedUserId = null,
-  authenticatedUserEmail = null,
   navigationMode = 'workspace',
 }: {
   children: React.ReactNode
   isSystemAdmin?: boolean
-  authenticatedUserId?: string | null
-  authenticatedUserEmail?: string | null
   navigationMode?: 'workspace' | 'admin'
 }) {
   const selectedSegments = useSelectedLayoutSegments()
   const tWorkspaceNav = useTranslations('workspace.nav')
   const brand = React.useMemo(() => getBrandConfig(), [])
-  const session = useSession()
-  const { data: sessionData, isPending: isSessionLoading } = session
+  const { data: sessionData, isPending: isSessionLoading } = useSession()
   const workspaceNavState = React.useMemo(
     () => getWorkspaceNavState(selectedSegments),
     [selectedSegments]
@@ -104,19 +98,15 @@ export function GlobalNavbar({
     [activeKey, navItems]
   )
   const activeNavItem = React.useMemo(() => navMain.find((item) => item.isActive), [navMain])
-  const userId = authenticatedUserId ?? sessionData?.user?.id ?? null
-  const userEmail = authenticatedUserEmail ?? sessionData?.user?.email ?? null
-  const isAuthenticated = Boolean(userId)
-  const isClientAuthReady = isSessionReadyForAuthenticatedUser(session, userId)
-  const shouldShowSkeleton = isSessionLoading && !userId
+  const isAuthenticated = Boolean(sessionData?.user?.id)
+  const shouldShowSkeleton = isSessionLoading
   const { data: organizationsData } = useOrganizations({
-    enabled: isAuthenticated && isClientAuthReady,
-    userId,
+    enabled: isAuthenticated && !isSessionLoading,
   })
   const billingEnabled = organizationsData?.billingData?.data?.billingEnabled ?? true
   const activeOrganization = organizationsData?.activeOrganization
   const hasOrganization = Boolean(activeOrganization?.id)
-  const userRole = getUserRole(activeOrganization, userEmail ?? undefined)
+  const userRole = getUserRole(activeOrganization, sessionData?.user?.email)
   const organizationAccess = getOrganizationAccessState({
     billingEnabled,
     hasOrganization,
@@ -128,16 +118,15 @@ export function GlobalNavbar({
     React.useState<SettingsSection>('account')
   const [isSettingsModalOpen, setIsSettingsModalOpen] = React.useState(false)
 
+  const userId = sessionData?.user?.id ?? null
   const userName = sessionData?.user?.name ?? brand.name
-  const userMenuEmail = userEmail ?? brand.supportEmail ?? 'support@tradinggoose.ai'
+  const userEmail = sessionData?.user?.email ?? brand.supportEmail ?? 'support@tradinggoose.ai'
   const userAvatar = sessionData?.user?.image
   const userAvatarVersion = sessionData?.user?.updatedAt
     ? new Date(sessionData.user.updatedAt).getTime()
     : null
   const workspaceSwitcher = useWorkspaceSwitcher({
-    enabled: isAuthenticated,
-    userId,
-    authReady: isClientAuthReady,
+    enabled: isAuthenticated && !isSessionLoading,
     workspaceId,
     section: workspaceSection,
   })
@@ -161,14 +150,10 @@ export function GlobalNavbar({
 
   const openSettings = React.useCallback(
     (section: SettingsSection) => {
-      if (!isClientAuthReady) {
-        return
-      }
-
       setActiveSettingsSection(resolveSettingsSection(section))
       setIsSettingsModalOpen(true)
     },
-    [isClientAuthReady, resolveSettingsSection]
+    [resolveSettingsSection]
   )
 
   React.useEffect(() => {
@@ -296,20 +281,17 @@ export function GlobalNavbar({
             </SidebarContent>
             <SidebarFooter className='flex flex-col gap-2 px-2 py-3'>
               <SidebarUsageIndicator
-                authReady={isClientAuthReady}
-                userId={userId}
                 onOpenSubscriptionSettings={() => openSettings('subscription')}
               />
               <UserMenu
                 userId={userId}
                 userName={userName}
-                userEmail={userMenuEmail}
+                userEmail={userEmail}
                 userAvatar={userAvatar}
                 userAvatarVersion={userAvatarVersion}
                 onOpenSettings={openSettings}
                 canAccessSystemAdmin={isSystemAdmin && navigationMode !== 'admin'}
                 sidebarTrigger
-                authReady={isClientAuthReady}
               />
             </SidebarFooter>
             <SidebarRail />
@@ -332,7 +314,6 @@ export function GlobalNavbar({
         {canManageWorkspaces ? (
           <WorkspaceDialogs
             userId={userId}
-            userEmail={userEmail}
             inviteDialogOpen={workspaceSwitcher.inviteDialogOpen}
             onInviteDialogChange={workspaceSwitcher.handleInviteDialogChange}
             inviteWorkspace={workspaceSwitcher.inviteWorkspace}
@@ -347,7 +328,6 @@ export function GlobalNavbar({
         <SettingsDialog
           open={isSettingsModalOpen}
           section={activeSettingsSection}
-          userId={userId}
           onOpenChange={setIsSettingsModalOpen}
         />
       </div>

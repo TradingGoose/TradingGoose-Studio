@@ -13,11 +13,10 @@ const logger = createLogger('OrganizationQueries')
  */
 export const organizationKeys = {
   all: ['organizations'] as const,
-  lists: (userId?: string | null) => [...organizationKeys.all, 'list', userId ?? 'current'] as const,
+  lists: () => [...organizationKeys.all, 'list'] as const,
   details: () => [...organizationKeys.all, 'detail'] as const,
   detail: (id: string) => [...organizationKeys.details(), id] as const,
-  billing: (id: string, userId?: string | null) =>
-    [...organizationKeys.detail(id), 'billing', userId ?? 'current'] as const,
+  billing: (id: string) => [...organizationKeys.detail(id), 'billing'] as const,
   members: (id: string) => [...organizationKeys.detail(id), 'members'] as const,
   memberUsage: (id: string) => [...organizationKeys.detail(id), 'member-usage'] as const,
   workspaces: (id: string) => [...organizationKeys.detail(id), 'workspaces'] as const,
@@ -56,12 +55,13 @@ async function fetchOrganizations() {
 /**
  * Hook to fetch all organizations
  */
-export function useOrganizations(options?: { enabled?: boolean; userId?: string | null }) {
+export function useOrganizations(options?: { enabled?: boolean }) {
   return useQuery({
-    queryKey: organizationKeys.lists(options?.userId),
+    queryKey: organizationKeys.lists(),
     queryFn: fetchOrganizations,
     enabled: options?.enabled ?? true,
     staleTime: 30 * 1000,
+    placeholderData: keepPreviousData,
   })
 }
 
@@ -106,16 +106,14 @@ async function fetchOrganizationBilling(orgId: string) {
 /**
  * Hook to fetch organization billing data
  */
-export function useOrganizationBilling(
-  orgId: string,
-  options?: { enabled?: boolean; userId?: string | null }
-) {
+export function useOrganizationBilling(orgId: string) {
   return useQuery({
-    queryKey: organizationKeys.billing(orgId, options?.userId),
+    queryKey: organizationKeys.billing(orgId),
     queryFn: () => fetchOrganizationBilling(orgId),
-    enabled: Boolean(orgId) && (options?.enabled ?? true),
+    enabled: !!orgId,
     retry: false,
     staleTime: 30 * 1000,
+    placeholderData: keepPreviousData,
   })
 }
 

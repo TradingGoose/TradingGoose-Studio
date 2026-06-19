@@ -1,17 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import { createPortal } from 'react-dom'
 
 type HeaderSlotContent = React.ReactNode | React.ReactNode[]
-type HeaderSlotName = 'left' | 'center' | 'right'
-type HeaderSlotTargets = Record<HeaderSlotName, HTMLSpanElement | null>
-type HeaderSlotPresence = Record<HeaderSlotName, boolean>
-type HeaderSlotOwner = symbol
-type HeaderSlotRegistration = {
-  owner: HeaderSlotOwner
-  slots: HeaderSlotPresence
-}
 
 export type GlobalNavbarHeaderSlots = {
   left?: HeaderSlotContent
@@ -20,14 +11,9 @@ export type GlobalNavbarHeaderSlots = {
 }
 
 interface GlobalNavbarHeaderContextValue {
-  activeSlots: HeaderSlotPresence
-  activeOwner: HeaderSlotOwner | null
-  setActiveSlots: (owner: HeaderSlotOwner, slots: HeaderSlotPresence | null) => void
-  setTarget: (slot: HeaderSlotName, target: HTMLSpanElement | null) => void
-  targets: HeaderSlotTargets
+  slots: GlobalNavbarHeaderSlots | null
+  setSlots: (slots: GlobalNavbarHeaderSlots | null) => void
 }
-
-const inactiveSlots: HeaderSlotPresence = { left: false, center: false, right: false }
 
 const GlobalNavbarHeaderContext = React.createContext<GlobalNavbarHeaderContextValue | null>(null)
 
@@ -40,47 +26,14 @@ export function useGlobalNavbarHeaderContext() {
 }
 
 export function GlobalNavbarHeaderProvider({ children }: { children: React.ReactNode }) {
-  const [registrations, setRegistrations] = React.useState<HeaderSlotRegistration[]>([])
-  const [targets, setTargets] = React.useState<HeaderSlotTargets>({
-    left: null,
-    center: null,
-    right: null,
-  })
-  const activeRegistration = registrations[registrations.length - 1] ?? null
-  const activeSlots = activeRegistration?.slots ?? inactiveSlots
-  const activeOwner = activeRegistration?.owner ?? null
-
-  const setActiveSlots = React.useCallback(
-    (owner: HeaderSlotOwner, slots: HeaderSlotPresence | null) => {
-      setRegistrations((current) => {
-        const next = current.filter((registration) => registration.owner !== owner)
-        return slots ? [...next, { owner, slots }] : next
-      })
-    },
-    []
-  )
-
-  const setTarget = React.useCallback(
-    (slot: HeaderSlotName, target: HTMLSpanElement | null) => {
-      setTargets((current) => {
-        if (current[slot] === target) {
-          return current
-        }
-        return { ...current, [slot]: target }
-      })
-    },
-    []
-  )
+  const [slots, setSlots] = React.useState<GlobalNavbarHeaderSlots | null>(null)
 
   const contextValue = React.useMemo(
     () => ({
-      activeSlots,
-      activeOwner,
-      setActiveSlots,
-      setTarget,
-      targets,
+      slots,
+      setSlots,
     }),
-    [activeOwner, activeSlots, setActiveSlots, setTarget, targets]
+    [slots]
   )
 
   return (
@@ -90,69 +43,22 @@ export function GlobalNavbarHeaderProvider({ children }: { children: React.React
   )
 }
 
-export function useGlobalNavbarHeaderActiveSlots() {
-  return useGlobalNavbarHeaderContext().activeSlots
-}
-
-export function useGlobalNavbarHeaderSlotTarget(slot: HeaderSlotName) {
-  const { setTarget } = useGlobalNavbarHeaderContext()
-  return React.useCallback(
-    (target: HTMLSpanElement | null) => {
-      setTarget(slot, target)
-    },
-    [setTarget, slot]
-  )
-}
-
 export function GlobalNavbarHeader(props: GlobalNavbarHeaderSlots) {
-  const owner = React.useMemo(() => Symbol('GlobalNavbarHeader'), [])
-  const { activeOwner, setActiveSlots, targets } = useGlobalNavbarHeaderContext()
-  const isActiveOwner = activeOwner === owner
-  const hasLeft = props.left !== undefined
-  const hasCenter = props.center !== undefined
-  const hasRight = props.right !== undefined
+  const { setSlots } = useGlobalNavbarHeaderContext()
 
-  const activeSlots = React.useMemo(
+  const slots = React.useMemo(
     () => ({
-      left: hasLeft,
-      center: hasCenter,
-      right: hasRight,
+      left: props.left,
+      center: props.center,
+      right: props.right,
     }),
-    [hasLeft, hasCenter, hasRight]
+    [props.left, props.center, props.right]
   )
 
   React.useEffect(() => {
-    setActiveSlots(owner, activeSlots)
-    return () => setActiveSlots(owner, null)
-  }, [activeSlots, owner, setActiveSlots])
+    setSlots(slots)
+    return () => setSlots(null)
+  }, [slots, setSlots])
 
-  return (
-    <>
-      {isActiveOwner && targets.left && hasLeft
-        ? createPortal(renderHeaderSlot(props.left), targets.left)
-        : null}
-      {isActiveOwner && targets.center && hasCenter
-        ? createPortal(renderHeaderSlot(props.center), targets.center)
-        : null}
-      {isActiveOwner && targets.right && hasRight
-        ? createPortal(renderHeaderSlot(props.right), targets.right)
-        : null}
-    </>
-  )
-}
-
-function renderHeaderSlot(slot?: HeaderSlotContent) {
-  if (!slot) {
-    return null
-  }
-
-  if (Array.isArray(slot)) {
-    return slot.map((node, index) => (
-      <span key={index} className='inline-flex items-center gap-2 whitespace-nowrap'>
-        {node}
-      </span>
-    ))
-  }
-
-  return slot
+  return null
 }

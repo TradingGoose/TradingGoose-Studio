@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from 'react'
 import { useSession } from '@/lib/auth-client'
+import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { Chat } from './chat/chat'
 import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
@@ -36,11 +37,17 @@ const WorkflowChatSessionProviders = ({
     : undefined
 
   return (
-    <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
-      <WorkflowRouteProvider workspaceId={workspaceId} workflowId={workflowId} channelId={channelId}>
-        {children}
-      </WorkflowRouteProvider>
-    </WorkflowSessionProvider>
+    <Providers workspaceId={workspaceId}>
+      <WorkflowSessionProvider
+        workspaceId={workspaceId}
+        workflowId={workflowId}
+        user={user}
+      >
+        <WorkflowRouteProvider workspaceId={workspaceId} workflowId={workflowId} channelId={channelId}>
+          {children}
+        </WorkflowRouteProvider>
+      </WorkflowSessionProvider>
+    </Providers>
   )
 }
 

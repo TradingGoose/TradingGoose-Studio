@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { widgetHeaderControlClassName } from '@/components/widget-header-control'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
+import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useWorkflowEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
@@ -55,15 +56,20 @@ export function WorkflowWidgetControlBar({
 
   return (
     <TooltipProvider delayDuration={100}>
-      <WorkflowSessionProvider workspaceId={workspaceId} workflowId={activeWorkflowId}>
-        <WorkflowRouteProvider
-          workspaceId={workspaceId}
-          workflowId={activeWorkflowId}
-          channelId={channelId}
-        >
-          <ControlBar variant='widget' className='inline-flex items-center gap-1 whitespace-nowrap' />
-        </WorkflowRouteProvider>
-      </WorkflowSessionProvider>
+      <WorkspacePermissionsProvider workspaceId={workspaceId}>
+        <WorkflowSessionProvider workspaceId={workspaceId} workflowId={activeWorkflowId}>
+          <WorkflowRouteProvider
+            workspaceId={workspaceId}
+            workflowId={activeWorkflowId}
+            channelId={channelId}
+          >
+            <ControlBar
+              variant='widget'
+              className='inline-flex items-center gap-1 whitespace-nowrap'
+            />
+          </WorkflowRouteProvider>
+        </WorkflowSessionProvider>
+      </WorkspacePermissionsProvider>
     </TooltipProvider>
   )
 }

@@ -3,7 +3,6 @@
 import { TimerOff } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { isProd } from '@/lib/environment'
-import { useSession } from '@/lib/auth-client'
 import { getSubscriptionStatus } from '@/lib/subscription/helpers'
 import { useSubscriptionData } from '@/hooks/queries/subscription'
 import { useTranslations } from 'next-intl'
@@ -14,8 +13,7 @@ import { FilterSection, FolderFilter, Level, Timeline, Trigger, Workflow } from 
  */
 export function Filters() {
   const t = useTranslations('workspace.logs.dashboard.filters')
-  const { data: session } = useSession()
-  const { data: subscriptionData, isLoading } = useSubscriptionData({ userId: session?.user?.id })
+  const { data: subscriptionData, isLoading } = useSubscriptionData()
   const billingPayload = (subscriptionData as any)?.data ?? subscriptionData
   const subscription = getSubscriptionStatus(billingPayload)
   const isPaid = subscription.isPaid

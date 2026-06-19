@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { useSession } from '@/lib/auth-client'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { PermissionType } from '@/lib/permissions/utils'
@@ -38,8 +39,6 @@ const logger = createLogger('WorkspaceInviteModal')
 interface WorkspaceInviteModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  currentUserId: string
-  currentUserEmail: string | null
   workspaceName?: string
   workspaceId?: string
   workspaceOwnerId?: string
@@ -63,8 +62,6 @@ interface UserPermissions {
 }
 
 interface PermissionsTableProps {
-  currentUserId: string
-  currentUserEmail: string | null
   userPermissions: UserPermissions[]
   onPermissionChange: (userId: string, permissionType: PermissionType) => void
   onRemoveMember?: (userId: string, email: string) => void
@@ -185,8 +182,6 @@ const PermissionsTableSkeleton = React.memo(() => (
 PermissionsTableSkeleton.displayName = 'PermissionsTableSkeleton'
 
 const PermissionsTable = ({
-  currentUserId,
-  currentUserEmail,
   userPermissions,
   onPermissionChange,
   onRemoveMember,
@@ -204,6 +199,7 @@ const PermissionsTable = ({
   resentInvitationIds,
   resendCooldowns,
 }: PermissionsTableProps) => {
+  const { data: session } = useSession()
   const userPerms = useUserPermissionsContext()
 
   const existingUsers: UserPermissions[] = useMemo(
@@ -217,29 +213,23 @@ const PermissionsTable = ({
           email: user.email,
           permissionType:
             changes.permissionType !== undefined ? changes.permissionType : permissionType,
-          isCurrentUser: user.userId === currentUserId,
+          isCurrentUser: user.email === session?.user?.email,
         }
       }) || [],
-    [workspacePermissions?.users, existingUserPermissionChanges, currentUserId]
+    [workspacePermissions?.users, existingUserPermissionChanges, session?.user?.email]
   )
 
-  const currentUser: UserPermissions | null = useMemo(() => {
-    const existingCurrentUser = existingUsers.find((user) => user.isCurrentUser)
-    if (existingCurrentUser) {
-      return existingCurrentUser
-    }
-
-    if (!currentUserEmail || !workspacePermissions?.currentUserPermission) {
-      return null
-    }
-
-    return {
-      userId: currentUserId,
-      email: currentUserEmail,
-      permissionType: workspacePermissions.currentUserPermission,
-      isCurrentUser: true,
-    }
-  }, [currentUserEmail, currentUserId, existingUsers, workspacePermissions?.currentUserPermission])
+  const currentUser: UserPermissions | null = useMemo(
+    () =>
+      session?.user?.email
+        ? existingUsers.find((user) => user.isCurrentUser) || {
+            email: session.user.email,
+            permissionType: 'admin',
+            isCurrentUser: true,
+          }
+        : null,
+    [session?.user?.email, existingUsers]
+  )
 
   const filteredExistingUsers = useMemo(
     () => existingUsers.filter((user) => !user.isCurrentUser),
@@ -268,7 +258,8 @@ const PermissionsTable = ({
     return <PermissionsTableSkeleton />
   }
 
-  if (allUsers.length === 0) return null
+  if (userPermissions.length === 0 && !session?.user?.email && !workspacePermissions?.users?.length)
+    return null
 
   if (isSaving) {
     return (
@@ -456,8 +447,6 @@ const PermissionsTable = ({
 export function WorkspaceInviteModal({
   open,
   onOpenChange,
-  currentUserId,
-  currentUserEmail,
   workspaceName,
   workspaceId,
   workspaceOwnerId,
@@ -494,21 +483,20 @@ export function WorkspaceInviteModal({
   const resolvedWorkspaceId =
     workspaceId ?? optionalRoute?.workspaceId ?? (params?.workspaceId as string | undefined) ?? null
 
+  const { data: session } = useSession()
   const {
-    authReady,
     workspacePermissions,
     permissionsLoading,
     updatePermissions,
     refetchPermissions,
     userPermissions: userPerms,
   } = useWorkspacePermissionsContext()
-  const normalizedCurrentUserEmail = currentUserEmail?.trim().toLowerCase() ?? null
 
   const hasPendingChanges = Object.keys(existingUserPermissionChanges).length > 0
   const hasNewInvites = emails.length > 0 || inputValue.trim()
 
   const fetchPendingInvitations = useCallback(async () => {
-    if (!authReady || !resolvedWorkspaceId) return
+    if (!resolvedWorkspaceId) return
 
     setIsPendingInvitationsLoading(true)
     try {
@@ -535,14 +523,14 @@ export function WorkspaceInviteModal({
     } finally {
       setIsPendingInvitationsLoading(false)
     }
-  }, [authReady, resolvedWorkspaceId])
+  }, [resolvedWorkspaceId])
 
   useEffect(() => {
-    if (open && authReady && resolvedWorkspaceId) {
+    if (open && resolvedWorkspaceId) {
       fetchPendingInvitations()
       refetchPermissions()
     }
-  }, [open, authReady, resolvedWorkspaceId, fetchPendingInvitations, refetchPermissions])
+  }, [open, resolvedWorkspaceId, fetchPendingInvitations, refetchPermissions])
 
   useEffect(() => {
     if (open) {
@@ -570,17 +558,17 @@ export function WorkspaceInviteModal({
         return false
       }
 
-      if (normalizedCurrentUserEmail === normalized) {
-        setErrorMessage('You cannot invite yourself')
-        setInputValue('')
-        return false
-      }
-
       const isExistingMember = workspacePermissions?.users?.some(
         (user) => user.email === normalized
       )
       if (isExistingMember) {
         setErrorMessage(`${normalized} is already a member of this workspace`)
+        setInputValue('')
+        return false
+      }
+
+      if (session?.user?.email && session.user.email.toLowerCase() === normalized) {
+        setErrorMessage('You cannot invite yourself')
         setInputValue('')
         return false
       }
@@ -605,13 +593,7 @@ export function WorkspaceInviteModal({
       setInputValue('')
       return true
     },
-    [
-      emails,
-      invalidEmails,
-      pendingInvitations,
-      workspacePermissions?.users,
-      normalizedCurrentUserEmail,
-    ]
+    [emails, invalidEmails, pendingInvitations, workspacePermissions?.users, session?.user?.email]
   )
 
   const removeEmail = useCallback(
@@ -1130,8 +1112,6 @@ export function WorkspaceInviteModal({
             <div className='mt-6 mb-4 border-t' />
 
             <PermissionsTable
-              currentUserId={currentUserId}
-              currentUserEmail={currentUserEmail}
               userPermissions={userPermissions}
               onPermissionChange={handlePermissionChange}
               onRemoveMember={handleRemoveMemberClick}
@@ -1283,7 +1263,6 @@ export function WorkspaceInviteModal({
 
 interface WorkspaceDialogsProps {
   userId: string | null
-  userEmail: string | null
   inviteDialogOpen: boolean
   onInviteDialogChange: (open: boolean) => void
   inviteWorkspace: Workspace | null
@@ -1297,7 +1276,6 @@ interface WorkspaceDialogsProps {
 
 export function WorkspaceDialogs({
   userId,
-  userEmail,
   inviteDialogOpen,
   onInviteDialogChange,
   inviteWorkspace,
@@ -1315,8 +1293,6 @@ export function WorkspaceDialogs({
           <WorkspaceInviteModal
             open={inviteDialogOpen}
             onOpenChange={onInviteDialogChange}
-            currentUserId={userId}
-            currentUserEmail={userEmail}
             workspaceName={inviteWorkspace?.name}
             workspaceId={inviteWorkspace?.id}
             workspaceOwnerId={inviteWorkspace.ownerId}

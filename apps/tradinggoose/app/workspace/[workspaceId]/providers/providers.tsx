@@ -7,7 +7,7 @@ import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/prov
 interface ProvidersProps {
   children: React.ReactNode
   workspaceId: string
-  userId: string
+  userId?: string
 }
 
 const Providers = React.memo<ProvidersProps>(({ children, workspaceId, userId }) => {

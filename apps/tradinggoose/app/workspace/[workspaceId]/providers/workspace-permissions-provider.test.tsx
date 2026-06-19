@@ -7,7 +7,6 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 const mockReplace = vi.fn()
 const mockUseWorkspacePermissions = vi.fn()
 const mockUseUserPermissions = vi.fn()
-const mockUseSession = vi.fn()
 const mockUpdatePermissions = vi.fn()
 const mockRefetchPermissions = vi.fn()
 
@@ -34,10 +33,6 @@ vi.mock('@/hooks/use-user-permissions', () => ({
   useUserPermissions: (...args: unknown[]) => mockUseUserPermissions(...args),
 }))
 
-vi.mock('@/lib/auth-client', () => ({
-  useSession: () => mockUseSession(),
-}))
-
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({
     error: vi.fn(),
@@ -56,11 +51,6 @@ describe('WorkspacePermissionsProvider', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-
-    mockUseSession.mockReturnValue({
-      data: { user: { id: 'user-1' } },
-      isPending: false,
-    })
 
     mockUseWorkspacePermissions.mockReturnValue({
       permissions: null,
@@ -164,97 +154,22 @@ describe('WorkspacePermissionsProvider', () => {
     expect(container?.textContent).toBe('')
   })
 
-  it('waits for matching client auth readiness before loading workspace permissions', async () => {
-    mockUseSession.mockReturnValue({
-      data: null,
-      isPending: true,
-    })
-
+  it('inherits the server-authenticated user id for nested workspace providers', async () => {
     const { WorkspacePermissionsProvider } = await import('./workspace-permissions-provider')
 
     await act(async () => {
       root?.render(
         <WorkspacePermissionsProvider workspaceId='ws-1' userId='user-1'>
-          <div>workspace</div>
+          <WorkspacePermissionsProvider workspaceId='ws-2'>
+            <div>workspace</div>
+          </WorkspacePermissionsProvider>
         </WorkspacePermissionsProvider>
       )
     })
 
-    expect(mockUseWorkspacePermissions).toHaveBeenCalledWith('ws-1', 'user-1', {
-      authReady: false,
-    })
-    expect(container?.textContent).toBe('')
-
-    mockUseSession.mockReturnValue({
-      data: { user: { id: 'user-2' } },
-      isPending: false,
-    })
-
-    await act(async () => {
-      root?.render(
-        <WorkspacePermissionsProvider workspaceId='ws-1' userId='user-1'>
-          <div>workspace</div>
-        </WorkspacePermissionsProvider>
-      )
-    })
-
-    expect(mockUseWorkspacePermissions).toHaveBeenLastCalledWith('ws-1', 'user-1', {
-      authReady: false,
-    })
-    expect(container?.textContent).toBe('')
-
-    mockUseSession.mockReturnValue({
-      data: null,
-      isPending: false,
-      error: null,
-    })
-
-    await act(async () => {
-      root?.render(
-        <WorkspacePermissionsProvider workspaceId='ws-1' userId='user-1'>
-          <div>workspace</div>
-        </WorkspacePermissionsProvider>
-      )
-    })
-
-    expect(mockUseWorkspacePermissions).toHaveBeenLastCalledWith('ws-1', 'user-1', {
-      authReady: true,
-    })
-
-    mockUseSession.mockReturnValue({
-      data: null,
-      isPending: false,
-      error: new Error('Failed to fetch session'),
-    })
-
-    await act(async () => {
-      root?.render(
-        <WorkspacePermissionsProvider workspaceId='ws-1' userId='user-1'>
-          <div>workspace</div>
-        </WorkspacePermissionsProvider>
-      )
-    })
-
-    expect(mockUseWorkspacePermissions).toHaveBeenLastCalledWith('ws-1', 'user-1', {
-      authReady: true,
-    })
-
-    mockUseSession.mockReturnValue({
-      data: { user: { id: 'user-1' } },
-      isPending: true,
-    })
-
-    await act(async () => {
-      root?.render(
-        <WorkspacePermissionsProvider workspaceId='ws-1' userId='user-1'>
-          <div>workspace</div>
-        </WorkspacePermissionsProvider>
-      )
-    })
-
-    expect(mockUseWorkspacePermissions).toHaveBeenLastCalledWith('ws-1', 'user-1', {
-      authReady: true,
-    })
+    expect(mockUseWorkspacePermissions).toHaveBeenCalledWith('ws-1', 'user-1')
+    expect(mockUseWorkspacePermissions).toHaveBeenCalledWith('ws-2', 'user-1')
+    expect(container?.textContent).toBe('workspace')
   })
 
   it('unblocks children when the authenticated user changes on the same workspace', async () => {
@@ -305,11 +220,6 @@ describe('WorkspacePermissionsProvider', () => {
       isLoading: false,
       error: null,
     })
-    mockUseSession.mockReturnValue({
-      data: { user: { id: 'user-2' } },
-      isPending: false,
-    })
-
     await act(async () => {
       root?.render(
         <WorkspacePermissionsProvider workspaceId='ws-1' userId='user-2'>

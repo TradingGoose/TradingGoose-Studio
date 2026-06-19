@@ -39,12 +39,7 @@ export default async function AdminLayout({
 
   return (
     <NextIntlClientProvider locale={locale} messages={getClientMessages(locale, 'admin')}>
-      <GlobalNavbar
-        isSystemAdmin={access.isSystemAdmin}
-        authenticatedUserId={access.userId}
-        authenticatedUserEmail={access.user?.email ?? null}
-        navigationMode='admin'
-      >
+      <GlobalNavbar isSystemAdmin={access.isSystemAdmin} navigationMode='admin'>
         {children}
       </GlobalNavbar>
     </NextIntlClientProvider>

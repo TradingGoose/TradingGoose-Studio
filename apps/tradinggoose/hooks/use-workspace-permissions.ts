@@ -35,10 +35,6 @@ interface UseWorkspacePermissionsReturn {
   refetch: () => Promise<void>
 }
 
-interface UseWorkspacePermissionsOptions {
-  authReady?: boolean
-}
-
 /**
  * Custom hook to fetch and manage workspace permissions
  *
@@ -177,35 +173,23 @@ export function resetWorkspacePermissionsStore() {
 
 export function useWorkspacePermissions(
   workspaceId: string,
-  userId: string,
-  options: UseWorkspacePermissionsOptions = {}
+  userId: string
 ): UseWorkspacePermissionsReturn {
-  const { authReady = true } = options
   const callbackPathname = usePathname()
   const recordKey = getRecordKey(workspaceId, userId)
-  const record = useWorkspacePermissionsStore((state) =>
-    state.records[recordKey]
-  )
+  const record = useWorkspacePermissionsStore((state) => state.records[recordKey])
   const fetchPermissions = useWorkspacePermissionsStore((state) => state.fetchPermissions)
   const setRecord = useWorkspacePermissionsStore((state) => state.setRecord)
 
   useEffect(() => {
-    if (!authReady) {
-      return
-    }
-
     fetchPermissions(recordKey, workspaceId, { callbackPathname }).catch((error) => {
       logger.error('Failed to load workspace permissions', { workspaceId, error })
     })
-  }, [authReady, workspaceId, recordKey, callbackPathname, fetchPermissions])
+  }, [workspaceId, recordKey, callbackPathname, fetchPermissions])
 
   const refetch = useCallback(async () => {
-    if (!authReady) {
-      return
-    }
-
     await fetchPermissions(recordKey, workspaceId, { callbackPathname, force: true })
-  }, [authReady, workspaceId, recordKey, callbackPathname, fetchPermissions])
+  }, [workspaceId, recordKey, callbackPathname, fetchPermissions])
 
   const updatePermissions = useCallback(
     (newPermissions: WorkspacePermissions) => {
@@ -219,9 +203,9 @@ export function useWorkspacePermissions(
   )
 
   return {
-    permissions: authReady ? (record?.permissions ?? null) : null,
-    loading: authReady ? (record?.loading ?? true) : true,
-    error: authReady ? (record?.error ?? null) : null,
+    permissions: record?.permissions ?? null,
+    loading: record?.loading ?? true,
+    error: record?.error ?? null,
     updatePermissions,
     refetch,
   }

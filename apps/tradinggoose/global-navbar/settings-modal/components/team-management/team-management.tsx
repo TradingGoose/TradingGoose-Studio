@@ -76,12 +76,11 @@ type TeamSubscriptionData = {
   billingBlocked?: boolean
 }
 
-export function TeamManagement({ userId: shellUserId }: { userId?: string | null }) {
+export function TeamManagement() {
   const { data: session } = useSession()
-  const userId = shellUserId ?? session?.user?.id
   const { handleUpgrade } = useSubscriptionUpgrade()
 
-  const { data: organizationsData } = useOrganizations({ userId })
+  const { data: organizationsData } = useOrganizations()
   const activeOrganization = organizationsData?.activeOrganization
   const {
     data: organization,
@@ -97,12 +96,12 @@ export function TeamManagement({ userId: shellUserId }: { userId?: string | null
     data: userSubscriptionData,
     isLoading: isLoadingPersonalSubscription,
     error: subscriptionError,
-  } = useSubscriptionData({ userId })
+  } = useSubscriptionData()
   const {
     data: organizationBillingData,
     isLoading: isLoadingOrganizationBilling,
     error: organizationBillingError,
-  } = useOrganizationBilling(activeOrgId || '', { userId })
+  } = useOrganizationBilling(activeOrgId || '')
   const { data: publicBillingCatalog } = usePublicBillingCatalog()
 
   const inviteMutation = useInviteMember()
@@ -115,7 +114,7 @@ export function TeamManagement({ userId: shellUserId }: { userId?: string | null
   const {
     data: adminWorkspaces = [],
     refetch: refetchAdminWorkspaces,
-  } = useAdminWorkspaces(userId)
+  } = useAdminWorkspaces(session?.user?.id)
   const {
     data: organizationBillingWorkspaces = [],
     isLoading: isLoadingOrganizationBillingWorkspaces,
@@ -562,7 +561,7 @@ export function TeamManagement({ userId: shellUserId }: { userId?: string | null
     <div className='flex h-full flex-col px-6 pt-4 pb-4'>
       <div className='flex flex-1 flex-col gap-6 overflow-y-auto'>
         {/* Team Usage Overview */}
-        <TeamUsage hasAdminAccess={adminOrOwner} userId={userId} />
+        <TeamUsage hasAdminAccess={adminOrOwner} />
 
         {/* Organization billing information */}
         {currentTier?.ownerType === 'organization' && (

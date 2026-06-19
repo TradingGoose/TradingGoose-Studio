@@ -41,6 +41,7 @@ import {
   getTriggersForSidebar,
   hasTriggerCapability,
 } from '@/lib/workflows/trigger-utils'
+import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import type { BlockConfig } from '@/blocks/types'
 import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 import { ToolbarBlock } from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-block/toolbar-block'
@@ -175,13 +176,15 @@ export function WorkflowToolbar({ workspaceId, toolbarScopeId }: WorkflowToolbar
 
   return (
     <TooltipProvider>
-      <ToolbarAddBlockProvider
-        onAddBlock={(request) => {
-          dispatchToolbarAddBlock(request, toolbarScopeId)
-        }}
-      >
-        <ToolbarDropdownGroup providerAvailability={providerAvailability} copy={copy} />
-      </ToolbarAddBlockProvider>
+      <WorkspacePermissionsProvider workspaceId={workspaceId}>
+        <ToolbarAddBlockProvider
+          onAddBlock={(request) => {
+            dispatchToolbarAddBlock(request, toolbarScopeId)
+          }}
+        >
+          <ToolbarDropdownGroup providerAvailability={providerAvailability} copy={copy} />
+        </ToolbarAddBlockProvider>
+      </WorkspacePermissionsProvider>
     </TooltipProvider>
   )
 }

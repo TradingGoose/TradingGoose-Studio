@@ -25,6 +25,7 @@ import { parseImportedCustomToolsFile } from '@/lib/custom-tools/import-export'
 import { cn } from '@/lib/utils'
 import {
   useUserPermissionsContext,
+  WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import {
   useCreateCustomTool,
@@ -311,9 +312,15 @@ const ListCustomToolHeaderRight = ({
   }
 
   return (
-    <div className={widgetHeaderButtonGroupClassName()}>
-      <CustomToolListHeaderRight workspaceId={workspaceId} panelId={panelId} pairColor={pairColor} />
-    </div>
+    <WorkspacePermissionsProvider workspaceId={workspaceId}>
+      <div className={widgetHeaderButtonGroupClassName()}>
+        <CustomToolListHeaderRight
+          workspaceId={workspaceId}
+          panelId={panelId}
+          pairColor={pairColor}
+        />
+      </div>
+    </WorkspacePermissionsProvider>
   )
 }
 
@@ -497,7 +504,11 @@ const ListCustomToolWidgetBody = (props: WidgetComponentProps) => {
     return <WidgetStateMessage message={copy.selectWorkspace} />
   }
 
-  return <ListCustomToolWidgetBodyInner {...props} />
+  return (
+    <WorkspacePermissionsProvider workspaceId={workspaceId}>
+      <ListCustomToolWidgetBodyInner {...props} />
+    </WorkspacePermissionsProvider>
+  )
 }
 
 export const listCustomToolWidget: DashboardWidgetDefinition = {

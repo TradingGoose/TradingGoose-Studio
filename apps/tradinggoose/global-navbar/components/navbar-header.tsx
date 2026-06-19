@@ -1,12 +1,10 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger } from '@/components/ui/sidebar'
-import {
-  useGlobalNavbarHeaderActiveSlots,
-  useGlobalNavbarHeaderSlotTarget,
-} from '../header-context'
+import { useGlobalNavbarHeaderContext } from '../header-context'
 
 interface NavbarHeaderProps {
   workspaceName?: string | null
@@ -16,10 +14,13 @@ interface NavbarHeaderProps {
 }
 
 export function NavbarHeader({ workspaceName, brandName, pageTitle, pageIcon }: NavbarHeaderProps) {
-  const activeSlots = useGlobalNavbarHeaderActiveSlots()
-  const leftSlotTarget = useGlobalNavbarHeaderSlotTarget('left')
-  const centerSlotTarget = useGlobalNavbarHeaderSlotTarget('center')
-  const rightSlotTarget = useGlobalNavbarHeaderSlotTarget('right')
+  const { slots } = useGlobalNavbarHeaderContext()
+  const leftSlotContent =
+    slots?.left === undefined ? (
+      <DefaultPageTitle title={pageTitle ?? workspaceName ?? brandName} icon={pageIcon} />
+    ) : (
+      slots.left ?? null
+    )
 
   return (
     <header className='relative z-10 flex h-12 items-center gap-3 border-b px-4'>
@@ -27,17 +28,13 @@ export function NavbarHeader({ workspaceName, brandName, pageTitle, pageIcon }: 
         <div className='flex min-w-0 flex-grow basis-[30%] items-center justify-start gap-2'>
           <SidebarTrigger className='text-muted-foreground' />
           <Separator orientation='vertical' className='h-6' />
-          {activeSlots.left ? (
-            <span ref={leftSlotTarget} className='contents' />
-          ) : (
-            <DefaultPageTitle title={pageTitle ?? workspaceName ?? brandName} icon={pageIcon} />
-          )}
+          {renderHeaderSlot(leftSlotContent)}
         </div>
         <div className='flex min-w-0 flex-grow basis-[40%] items-center justify-center gap-2 overflow-visible'>
-          {activeSlots.center ? <span ref={centerSlotTarget} className='contents' /> : null}
+          {renderHeaderSlot(slots?.center ?? null)}
         </div>
         <div className='flex min-w-0 flex-grow basis-[30%] items-center justify-end gap-2 overflow-visible'>
-          {activeSlots.right ? <span ref={rightSlotTarget} className='contents' /> : null}
+          {renderHeaderSlot(slots?.right ?? null)}
         </div>
       </div>
     </header>
@@ -53,4 +50,20 @@ function DefaultPageTitle({ title, icon: Icon }: { title: string; icon?: LucideI
       <span className='font-medium text-sm'>{title}</span>
     </div>
   )
+}
+
+function renderHeaderSlot(slot?: ReactNode | ReactNode[]) {
+  if (!slot) {
+    return null
+  }
+
+  if (Array.isArray(slot)) {
+    return slot.map((node, index) => (
+      <span key={index} className='inline-flex items-center gap-2 whitespace-nowrap'>
+        {node}
+      </span>
+    ))
+  }
+
+  return slot
 }

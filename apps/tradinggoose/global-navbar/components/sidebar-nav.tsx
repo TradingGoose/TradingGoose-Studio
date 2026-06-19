@@ -106,8 +106,6 @@ function renderNavGroup(label: string, items: NavSection[]) {
 
 interface SidebarUsageIndicatorProps {
   onOpenSubscriptionSettings?: () => void
-  authReady?: boolean
-  userId?: string | null
 }
 
 function UsageHeaderSkeleton() {
@@ -128,28 +126,23 @@ function UsageHeaderSkeleton() {
   )
 }
 
-export function SidebarUsageIndicator({
-  onOpenSubscriptionSettings,
-  authReady = true,
-  userId = null,
-}: SidebarUsageIndicatorProps) {
+export function SidebarUsageIndicator({ onOpenSubscriptionSettings }: SidebarUsageIndicatorProps) {
   const { state } = useSidebar()
   const logger = createLogger('SidebarUsageIndicator')
   const {
     data: subscriptionData,
     isLoading: isSubscriptionLoading,
     isError: isSubscriptionError,
-  } = useSubscriptionData({ enabled: authReady, userId })
+  } = useSubscriptionData()
   const billingPayload = (subscriptionData as any)?.data ?? subscriptionData
   const billingEnabled = useMemo(() => billingPayload?.billingEnabled ?? true, [billingPayload])
   const subscription = getSubscriptionStatus(billingPayload)
   const usage = getUsage(billingPayload)
   const billingStatus = getBillingStatus(billingPayload)
-  const { data: organizationsData } = useOrganizations({ enabled: authReady, userId })
+  const { data: organizationsData } = useOrganizations()
   const activeOrganizationId = organizationsData?.activeOrganization?.id
   const { data: organizationBillingData, isLoading: isLoadingOrgBilling } = useOrganizationBilling(
-    activeOrganizationId || '',
-    { enabled: authReady, userId }
+    activeOrganizationId || ''
   )
 
   const isOrganizationPlan = subscription.tier.ownerType === 'organization'
@@ -203,7 +196,7 @@ export function SidebarUsageIndicator({
     (!subscriptionData || (isOrganizationPlan && !organizationBillingData && isLoadingOrgBilling))
 
   const handleOpenSubscriptionSettings = () => {
-    if (!authReady || !billingEnabled) return
+    if (!billingEnabled) return
 
     if (onOpenSubscriptionSettings) {
       onOpenSubscriptionSettings()
@@ -213,8 +206,6 @@ export function SidebarUsageIndicator({
   }
 
   const handleResolvePayment = async () => {
-    if (!authReady) return
-
     const context =
       subscription.tier.ownerType === 'organization' ? ('organization' as const) : ('user' as const)
 
@@ -237,7 +228,7 @@ export function SidebarUsageIndicator({
     }
   }
 
-  if (state === 'collapsed' || !authReady || !billingEnabled || !shouldShowUsageHeader) return null
+  if (state === 'collapsed' || !billingEnabled || !shouldShowUsageHeader) return null
 
   return (
     <div

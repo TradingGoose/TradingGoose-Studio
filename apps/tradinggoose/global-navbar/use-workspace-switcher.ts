@@ -9,26 +9,20 @@ import { getWorkspaceSwitchPath, type WorkspaceNavKey } from './utils'
 
 interface UseWorkspaceSwitcherOptions {
   enabled: boolean
-  userId: string | null
-  authReady?: boolean
   workspaceId?: string
   section?: WorkspaceNavKey | null
 }
 
 export function useWorkspaceSwitcher({
   enabled,
-  userId,
-  authReady = true,
   workspaceId,
   section,
 }: UseWorkspaceSwitcherOptions) {
   const { push } = useRouter()
   const switchToWorkspace = useWorkflowRegistry((state) => state.switchToWorkspace)
-  const workspaceDataKey = userId ? `${userId}:${workspaceId ?? ''}` : null
-  const canUseWorkspaceData = enabled && authReady && Boolean(workspaceDataKey)
+  const canManageWorkspaces = true
   const [workspaces, setWorkspaces] = React.useState<Workspace[]>([])
   const [activeWorkspace, setActiveWorkspace] = React.useState<Workspace | null>(null)
-  const [loadedWorkspaceDataKey, setLoadedWorkspaceDataKey] = React.useState<string | null>(null)
   const [isWorkspacesLoading, setIsWorkspacesLoading] = React.useState(enabled)
   const [isCreatingWorkspace, setIsCreatingWorkspace] = React.useState(false)
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = React.useState(false)
@@ -43,58 +37,28 @@ export function useWorkspaceSwitcher({
   const [workspaceToDelete, setWorkspaceToDelete] = React.useState<Workspace | null>(null)
   const [isDeletingWorkspace, setIsDeletingWorkspace] = React.useState(false)
   const [deleteError, setDeleteError] = React.useState<string | null>(null)
-  const activeRequestKeyRef = React.useRef<string | null>(null)
-  const isWorkspaceDataReady =
-    canUseWorkspaceData && loadedWorkspaceDataKey === workspaceDataKey
-  const canManageWorkspaces = isWorkspaceDataReady
-
-  const clearWorkspaceState = React.useCallback((loading: boolean) => {
-    setWorkspaces([])
-    setActiveWorkspace(null)
-    setLoadedWorkspaceDataKey(null)
-    setIsWorkspacesLoading(loading)
-    setIsCreatingWorkspace(false)
-    setWorkspaceMenuOpen(false)
-    setHoveredWorkspaceId(null)
-    setEditingWorkspaceId(null)
-    setEditingWorkspaceName('')
-    setIsRenamingWorkspace(false)
-    setRenameError(null)
-    setInviteDialogOpen(false)
-    setInviteWorkspace(null)
-    setDeleteDialogOpen(false)
-    setWorkspaceToDelete(null)
-    setDeleteError(null)
-    setIsDeletingWorkspace(false)
-  }, [])
 
   const fetchWorkspaces = React.useCallback(async () => {
-    if (!canUseWorkspaceData || !workspaceDataKey) {
-      activeRequestKeyRef.current = null
-      clearWorkspaceState(enabled)
+    if (!enabled) {
+      setWorkspaces([])
+      setActiveWorkspace(null)
+      setIsWorkspacesLoading(false)
       return
     }
 
-    activeRequestKeyRef.current = workspaceDataKey
     setIsWorkspacesLoading(true)
     try {
       const response = await fetch('/api/workspaces')
       if (!response.ok) {
-        if (activeRequestKeyRef.current === workspaceDataKey) {
-          clearWorkspaceState(false)
-        }
+        setWorkspaces([])
+        setActiveWorkspace(null)
         return
       }
 
       const data = (await response.json()) as { workspaces?: Workspace[] }
-      if (activeRequestKeyRef.current !== workspaceDataKey) {
-        return
-      }
-
       const items = data.workspaces ?? []
 
       setWorkspaces(items)
-      setLoadedWorkspaceDataKey(workspaceDataKey)
 
       const firstWorkspace = items[0] ?? null
 
@@ -107,15 +71,12 @@ export function useWorkspaceSwitcher({
       }
     } catch (error) {
       console.error('Error fetching workspaces:', error)
-      if (activeRequestKeyRef.current === workspaceDataKey) {
-        clearWorkspaceState(false)
-      }
+      setWorkspaces([])
+      setActiveWorkspace(null)
     } finally {
-      if (activeRequestKeyRef.current === workspaceDataKey) {
-        setIsWorkspacesLoading(false)
-      }
+      setIsWorkspacesLoading(false)
     }
-  }, [canUseWorkspaceData, clearWorkspaceState, enabled, workspaceDataKey, workspaceId])
+  }, [enabled, workspaceId])
 
   React.useEffect(() => {
     void fetchWorkspaces()
@@ -123,10 +84,6 @@ export function useWorkspaceSwitcher({
 
   const handleSwitchWorkspace = React.useCallback(
     async (workspace: Workspace) => {
-      if (!canUseWorkspaceData) {
-        return
-      }
-
       setActiveWorkspace(workspace)
       setWorkspaceMenuOpen(false)
 
@@ -144,7 +101,7 @@ export function useWorkspaceSwitcher({
 
       push(getWorkspaceSwitchPath(workspace.id, section))
     },
-    [canUseWorkspaceData, push, section, switchToWorkspace, workspaceId]
+    [push, section, switchToWorkspace, workspaceId]
   )
 
   const handleCreateWorkspace = React.useCallback(async () => {
@@ -339,36 +296,34 @@ export function useWorkspaceSwitcher({
 
   return {
     canManageWorkspaces,
-    activeWorkspace: isWorkspaceDataReady ? activeWorkspace : null,
-    workspaces: isWorkspaceDataReady ? workspaces : [],
-    isWorkspacesLoading: canUseWorkspaceData
-      ? !isWorkspaceDataReady || isWorkspacesLoading
-      : enabled,
-    isCreatingWorkspace: canManageWorkspaces ? isCreatingWorkspace : false,
-    workspaceMenuOpen: isWorkspaceDataReady ? workspaceMenuOpen : false,
+    activeWorkspace,
+    workspaces,
+    isWorkspacesLoading,
+    isCreatingWorkspace,
+    workspaceMenuOpen,
     setWorkspaceMenuOpen,
-    hoveredWorkspaceId: isWorkspaceDataReady ? hoveredWorkspaceId : null,
+    hoveredWorkspaceId,
     setHoveredWorkspaceId,
-    editingWorkspaceId: isWorkspaceDataReady ? editingWorkspaceId : null,
-    editingWorkspaceName: isWorkspaceDataReady ? editingWorkspaceName : '',
+    editingWorkspaceId,
+    editingWorkspaceName,
     setEditingWorkspaceName,
-    isRenamingWorkspace: isWorkspaceDataReady ? isRenamingWorkspace : false,
-    renameError: isWorkspaceDataReady ? renameError : null,
+    isRenamingWorkspace,
+    renameError,
     handleStartEditing,
     handleCancelEditing,
     handleSaveWorkspaceName,
     handleSwitchWorkspace,
     handleCreateWorkspace,
-    inviteDialogOpen: isWorkspaceDataReady ? inviteDialogOpen : false,
+    inviteDialogOpen,
     handleInviteDialogChange,
-    inviteWorkspace: isWorkspaceDataReady ? inviteWorkspace : null,
+    inviteWorkspace,
     handleOpenInviteDialog,
-    deleteDialogOpen: isWorkspaceDataReady ? deleteDialogOpen : false,
+    deleteDialogOpen,
     handleDeleteDialogChange,
-    workspaceToDelete: isWorkspaceDataReady ? workspaceToDelete : null,
+    workspaceToDelete,
     setWorkspaceToDelete,
-    deleteError: isWorkspaceDataReady ? deleteError : null,
-    isDeletingWorkspace: isWorkspaceDataReady ? isDeletingWorkspace : false,
+    deleteError,
+    isDeletingWorkspace,
     handleConfirmDelete,
   }
 }

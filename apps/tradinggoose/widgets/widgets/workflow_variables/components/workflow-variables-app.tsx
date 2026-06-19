@@ -3,6 +3,7 @@
 import { useCallback, useEffect } from 'react'
 import { useSession } from '@/lib/auth-client'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
+import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import { WORKFLOW_VARIABLES_ADD_EVENT } from '@/widgets/events'
@@ -33,11 +34,21 @@ const WorkflowVariablesApp = ({
     : undefined
 
   return (
-    <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
-      <WorkflowRouteProvider workspaceId={workspaceId} workflowId={workflowId} channelId={channelId}>
-        <WorkflowVariablesAppContent workflowId={workflowId} channelId={channelId} panelId={panelId} />
-      </WorkflowRouteProvider>
-    </WorkflowSessionProvider>
+    <Providers workspaceId={workspaceId}>
+      <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
+        <WorkflowRouteProvider
+          workspaceId={workspaceId}
+          workflowId={workflowId}
+          channelId={channelId}
+        >
+          <WorkflowVariablesAppContent
+            workflowId={workflowId}
+            channelId={channelId}
+            panelId={panelId}
+          />
+        </WorkflowRouteProvider>
+      </WorkflowSessionProvider>
+    </Providers>
   )
 }
 

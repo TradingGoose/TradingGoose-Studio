@@ -76,7 +76,6 @@ interface UserMenuProps {
   onOpenSettings: (section: SettingsSection) => void
   canAccessSystemAdmin?: boolean
   sidebarTrigger?: boolean
-  authReady?: boolean
 }
 
 export function UserMenu({
@@ -88,7 +87,6 @@ export function UserMenu({
   onOpenSettings,
   canAccessSystemAdmin = false,
   sidebarTrigger = false,
-  authReady = true,
 }: UserMenuProps) {
   const router = useRouter()
   const locale = useLocale() as LocaleCode
@@ -110,7 +108,7 @@ export function UserMenu({
   const updateSetting = useGeneralStore((state) => state.updateSetting)
   const isGeneralLoading = useGeneralStore((state) => state.isLoading)
   const isThemeLoading = useGeneralStore((state) => state.isThemeLoading)
-  const { data: organizationsData } = useOrganizations({ enabled: authReady, userId })
+  const { data: organizationsData } = useOrganizations()
   const userMenuCopy = useMemo(
     () => ({
       accountDetail: tUserMenu('accountDetail'),
@@ -143,14 +141,8 @@ export function UserMenu({
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
   const activeOrganization = organizationsData?.activeOrganization
   const activeOrganizationId = activeOrganization?.id
-  const { data: organizationBillingData } = useOrganizationBilling(
-    activeOrganizationId || '',
-    { enabled: authReady, userId }
-  )
-  const { data: subscriptionData, isLoading: isSubscriptionLoading } = useSubscriptionData({
-    enabled: authReady,
-    userId,
-  })
+  const { data: organizationBillingData } = useOrganizationBilling(activeOrganizationId || '')
+  const { data: subscriptionData, isLoading: isSubscriptionLoading } = useSubscriptionData()
   const billingPayload = (subscriptionData as any)?.data ?? subscriptionData
   const organizationBillingPayload =
     (organizationBillingData as any)?.data ?? organizationBillingData ?? null
@@ -314,7 +306,7 @@ export function UserMenu({
   }
 
   const handleOpenBillingPortal = async () => {
-    if (!authReady || !billingEnabled) return
+    if (!billingEnabled) return
     if (isOpeningBillingPortal || isSubscriptionLoading) return
 
     const context = isOrganizationPlan ? ('organization' as const) : ('user' as const)
@@ -504,7 +496,7 @@ export function UserMenu({
               {userMenuCopy.subscription}
             </DropdownMenuItem>
             <DropdownMenuItem
-              disabled={!authReady || isOpeningBillingPortal || isSubscriptionLoading}
+              disabled={isOpeningBillingPortal || isSubscriptionLoading}
               onSelect={(event) => {
                 event.preventDefault()
                 void handleOpenBillingPortal()
