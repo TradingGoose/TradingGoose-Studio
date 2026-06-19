@@ -2,7 +2,6 @@
 
 import { useSession } from '@/lib/auth-client'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
-import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { CopilotStoreProvider, DEFAULT_COPILOT_CHANNEL_ID } from '@/stores/copilot/store'
 import { normalizePairColorContext, usePairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
@@ -81,17 +80,15 @@ const CopilotApp = ({
     : undefined
 
   return (
-    <Providers workspaceId={workspaceId}>
-      <CopilotStoreProvider channelId={channelId}>
-        <CopilotAppContent
-          workspaceId={workspaceId}
-          panelWidth={panelWidth}
-          channelId={channelId}
-          pairColor={pairColor}
-          user={user}
-        />
-      </CopilotStoreProvider>
-    </Providers>
+    <CopilotStoreProvider channelId={channelId}>
+      <CopilotAppContent
+        workspaceId={workspaceId}
+        panelWidth={panelWidth}
+        channelId={channelId}
+        pairColor={pairColor}
+        user={user}
+      />
+    </CopilotStoreProvider>
   )
 }
 

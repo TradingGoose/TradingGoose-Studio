@@ -1284,10 +1284,13 @@ export function WorkspaceDialogs({
   isDeletingWorkspace,
   onConfirmDelete,
 }: WorkspaceDialogsProps) {
+  const { data: session } = useSession()
+  const userId = session?.user?.id
+
   return (
     <>
-      {inviteWorkspace ? (
-        <WorkspacePermissionsProvider workspaceId={inviteWorkspace.id}>
+      {inviteWorkspace && userId ? (
+        <WorkspacePermissionsProvider workspaceId={inviteWorkspace.id} userId={userId}>
           <WorkspaceInviteModal
             open={inviteDialogOpen}
             onOpenChange={onInviteDialogChange}

@@ -13,12 +13,14 @@ import {
 import '@xyflow/react/dist/style.css'
 import { createLogger } from '@/lib/logs/console/logger'
 import { TriggerUtils } from '@/lib/workflows/triggers'
-import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import {
+  useUserPermissionsContext,
+  useWorkspacePermissionsContext,
+} from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { getBlock } from '@/blocks'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { useStreamCleanup } from '@/hooks/use-stream-cleanup'
-import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions'
 import { useCurrentWorkflow } from '@/hooks/workflow'
 import { useCopilotStore } from '@/stores/copilot/store'
 import { useExecutionStore } from '@/stores/execution/store'
@@ -311,9 +313,7 @@ const WorkflowCanvas = React.memo(
     const effectivePermissions = userPermissions
 
     // Workspace permissions - get all users and their permissions for this workspace
-    const { permissions: workspacePermissions, error: permissionsError } = useWorkspacePermissions(
-      workspaceId || null
-    )
+    const { workspacePermissions, permissionsError } = useWorkspacePermissionsContext()
 
     // Store access
     const {

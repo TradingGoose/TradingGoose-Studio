@@ -32,7 +32,6 @@ import {
 import { cn } from '@/lib/utils'
 import {
   useUserPermissionsContext,
-  WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
 import { useMessages } from 'next-intl'
@@ -190,15 +189,9 @@ const ListMcpHeaderRight = ({
   }
 
   return (
-    <WorkspacePermissionsProvider workspaceId={workspaceId}>
-      <div className={widgetHeaderButtonGroupClassName()}>
-        <ListMcpHeaderRightContent
-          workspaceId={workspaceId}
-          panelId={panelId}
-          pairColor={pairColor}
-        />
-      </div>
-    </WorkspacePermissionsProvider>
+    <div className={widgetHeaderButtonGroupClassName()}>
+      <ListMcpHeaderRightContent workspaceId={workspaceId} panelId={panelId} pairColor={pairColor} />
+    </div>
   )
 }
 
@@ -687,11 +680,7 @@ export const listMcpWidget: DashboardWidgetDefinition = {
       return <WidgetMessage message={copy.body.selectWorkspace} />
     }
 
-    return (
-      <WorkspacePermissionsProvider workspaceId={workspaceId}>
-        <ListMcpWidgetContent {...props} />
-      </WorkspacePermissionsProvider>
-    )
+    return <ListMcpWidgetContent {...props} />
   },
   renderHeader: ({ widget, context, panelId }) => ({
     right: (

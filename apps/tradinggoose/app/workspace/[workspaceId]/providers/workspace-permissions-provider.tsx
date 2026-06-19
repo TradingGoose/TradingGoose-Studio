@@ -2,7 +2,6 @@
 
 import type React from 'react'
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { useParams } from 'next/navigation'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useUserPermissions, type WorkspaceUserPermissions } from '@/hooks/use-user-permissions'
 import {
@@ -43,16 +42,16 @@ const WorkspacePermissionsContext = createContext<WorkspacePermissionsContextTyp
 
 interface WorkspacePermissionsProviderProps {
   children: React.ReactNode
-  workspaceId?: string
+  workspaceId: string
+  userId: string
 }
 
 export function WorkspacePermissionsProvider({
   children,
-  workspaceId: workspaceIdProp,
+  workspaceId,
+  userId,
 }: WorkspacePermissionsProviderProps) {
-  const params = useParams()
   const router = useRouter()
-  const workspaceId = workspaceIdProp ?? (params?.workspaceId as string | undefined) ?? null
 
   const [isOfflineMode, setIsOfflineMode] = useState(false)
   const [hasRedirected, setHasRedirected] = useState(false)
@@ -67,7 +66,7 @@ export function WorkspacePermissionsProvider({
     error: permissionsError,
     updatePermissions,
     refetch: refetchPermissions,
-  } = useWorkspacePermissions(workspaceId)
+  } = useWorkspacePermissions(workspaceId, userId)
 
   const baseUserPermissions = useUserPermissions(
     workspacePermissions,

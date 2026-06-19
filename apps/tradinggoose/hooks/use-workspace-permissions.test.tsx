@@ -11,17 +11,13 @@ import {
 } from './use-workspace-permissions'
 
 const mockHandleAuthError = vi.hoisted(() => vi.fn())
-const mockUseSession = vi.hoisted(() => vi.fn())
 let latestValue: ReturnType<typeof useWorkspacePermissions> | null = null
 let workspaceId = 'workspace-401'
+let userId = 'user-1'
 
 vi.mock('@/lib/auth/auth-error-handler', () => ({
   handleAuthError: mockHandleAuthError,
   isAuthErrorStatus: (status?: number | null) => status === 401,
-}))
-
-vi.mock('@/lib/auth-client', () => ({
-  useSession: mockUseSession,
 }))
 
 vi.mock('@/i18n/navigation', () => ({
@@ -29,7 +25,7 @@ vi.mock('@/i18n/navigation', () => ({
 }))
 
 function WorkspacePermissionsProbe() {
-  latestValue = useWorkspacePermissions(workspaceId)
+  latestValue = useWorkspacePermissions(workspaceId, userId)
   return null
 }
 
@@ -44,17 +40,8 @@ describe('useWorkspacePermissions', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     latestValue = null
     workspaceId = 'workspace-401'
+    userId = 'user-1'
     mockHandleAuthError.mockResolvedValue(undefined)
-    mockUseSession.mockReturnValue({
-      data: {
-        user: {
-          id: 'user-1',
-        },
-      },
-      isPending: false,
-      error: null,
-      refetch: vi.fn(),
-    })
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(new Response(null, { status: 401, statusText: 'Unauthorized' }))
@@ -92,30 +79,29 @@ describe('useWorkspacePermissions', () => {
     })
   })
 
-  it('routes resolved missing sessions through auth recovery without completing permission load', async () => {
-    const fetchMock = vi.fn()
+  it('uses the server-authenticated user id instead of client session state', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      Response.json({
+        users: [],
+        total: 0,
+        currentUserPermission: 'admin',
+      })
+    )
     vi.stubGlobal('fetch', fetchMock)
-    mockUseSession.mockReturnValue({
-      data: null,
-      isPending: false,
-      error: null,
-      refetch: vi.fn(),
-    })
 
     await act(async () => {
       root.render(<WorkspacePermissionsProbe />)
       await new Promise((resolve) => setTimeout(resolve, 0))
     })
 
-    expect(fetchMock).not.toHaveBeenCalled()
-    expect(mockHandleAuthError).toHaveBeenCalledWith(
-      'workspace-permissions',
-      '/workspace/workspace-1/dashboard'
-    )
+    expect(fetchMock).toHaveBeenCalledWith('/api/workspaces/workspace-401/permissions')
+    expect(mockHandleAuthError).not.toHaveBeenCalled()
     expect(latestValue).toMatchObject({
-      loading: true,
+      loading: false,
       error: null,
-      permissions: null,
+      permissions: {
+        currentUserPermission: 'admin',
+      },
     })
   })
 
@@ -147,16 +133,7 @@ describe('useWorkspacePermissions', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(latestValue?.permissions?.currentUserPermission).toBe('admin')
 
-    mockUseSession.mockReturnValue({
-      data: {
-        user: {
-          id: 'user-2',
-        },
-      },
-      isPending: false,
-      error: null,
-      refetch: vi.fn(),
-    })
+    userId = 'user-2'
 
     await act(async () => {
       root.render(<WorkspacePermissionsProbe />)

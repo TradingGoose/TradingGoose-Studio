@@ -7,7 +7,6 @@ import { useLocale } from 'next-intl'
 import { parseImportedSkillsFile } from '@/lib/skills/import-export'
 import {
   useUserPermissionsContext,
-  WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useCreateSkill, useImportSkills } from '@/hooks/queries/skills'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
@@ -165,11 +164,9 @@ const ListSkillHeaderRight = ({
   }
 
   return (
-    <WorkspacePermissionsProvider workspaceId={workspaceId}>
-      <div className={widgetHeaderButtonGroupClassName()}>
-        <SkillListHeaderRight workspaceId={workspaceId} panelId={panelId} pairColor={pairColor} />
-      </div>
-    </WorkspacePermissionsProvider>
+    <div className={widgetHeaderButtonGroupClassName()}>
+      <SkillListHeaderRight workspaceId={workspaceId} panelId={panelId} pairColor={pairColor} />
+    </div>
   )
 }
 
@@ -181,11 +178,7 @@ const ListSkillWidgetBody = (props: WidgetComponentProps) => {
     return <SkillListMessage message={copy.body.selectWorkspace} />
   }
 
-  return (
-    <WorkspacePermissionsProvider workspaceId={workspaceId}>
-      <SkillList {...props} />
-    </WorkspacePermissionsProvider>
-  )
+  return <SkillList {...props} />
 }
 
 export const listSkillWidget: DashboardWidgetDefinition = {
