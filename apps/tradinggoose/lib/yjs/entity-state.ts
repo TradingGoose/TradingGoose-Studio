@@ -160,7 +160,7 @@ export async function readSavedEntityFieldsFromYjs(
   entityKind: SavedEntityKind,
   entityId: string,
   workspaceId: string
-): Promise<Record<string, unknown> | null> {
+): Promise<Record<string, unknown>> {
   try {
     const descriptor = buildSavedEntityYjsDescriptor(entityKind, entityId, workspaceId)
     const snapshot = await getYjsSnapshot(
@@ -169,7 +169,7 @@ export async function readSavedEntityFieldsFromYjs(
     )
 
     if (!snapshot.snapshotBase64) {
-      return null
+      throw new Error(`Saved ${entityKind} Yjs state is empty for ${entityId}`)
     }
 
     const doc = new Y.Doc()
@@ -181,7 +181,7 @@ export async function readSavedEntityFieldsFromYjs(
     }
   } catch (error) {
     if (error instanceof SocketServerBridgeError && error.status === 404) {
-      return null
+      throw new Error(`Saved ${entityKind} Yjs state is missing for ${entityId}`)
     }
     throw error
   }
@@ -196,7 +196,7 @@ export async function applySavedEntityYjsStateToRow<T extends SavedEntityRow>(
   }
 
   const fields = await readSavedEntityFieldsFromYjs(entityKind, row.id, row.workspaceId)
-  return fields ? applySavedEntityFieldsToRow(entityKind, row, fields) : row
+  return applySavedEntityFieldsToRow(entityKind, row, fields)
 }
 
 export async function applySavedEntityYjsStateToRows<T extends SavedEntityRow>(
