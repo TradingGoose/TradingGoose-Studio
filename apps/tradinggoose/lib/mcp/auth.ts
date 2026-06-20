@@ -203,7 +203,9 @@ export async function revokeMcpApiKeyByBearerToken(
 
   const deleted = await db
     .delete(apiKey)
-    .where(and(eq(apiKey.id, auth.keyId), eq(apiKey.userId, auth.userId), eq(apiKey.type, 'personal')))
+    .where(
+      and(eq(apiKey.id, auth.keyId), eq(apiKey.userId, auth.userId), eq(apiKey.type, 'personal'))
+    )
     .returning({ id: apiKey.id })
 
   return { revoked: deleted.length > 0 }
