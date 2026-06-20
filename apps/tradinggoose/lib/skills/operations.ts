@@ -11,9 +11,8 @@ import {
 import { generateRequestId } from '@/lib/utils'
 import {
   applySavedEntityYjsStateToRows,
-  savedEntityRowToFields,
+  seedSavedEntityYjsStateFromRows,
 } from '@/lib/yjs/entity-state'
-import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('SkillsOperations')
@@ -160,10 +159,9 @@ export async function upsertSkills({
       .orderBy(desc(skill.createdAt))
   })
 
-  await Promise.all(
-    result
-      .filter((row) => affectedIds.includes(row.id))
-      .map((row) => applySavedEntityState('skill', row.id, savedEntityRowToFields('skill', row)))
+  await seedSavedEntityYjsStateFromRows(
+    'skill',
+    result.filter((row) => affectedIds.includes(row.id))
   )
 
   return applySavedEntityYjsStateToRows('skill', result)

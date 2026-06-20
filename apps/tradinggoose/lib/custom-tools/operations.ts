@@ -8,8 +8,10 @@ import {
 } from '@/lib/custom-tools/import-export'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { applySavedEntityYjsStateToRows, savedEntityRowToFields } from '@/lib/yjs/entity-state'
-import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
+import {
+  applySavedEntityYjsStateToRows,
+  seedSavedEntityYjsStateFromRows,
+} from '@/lib/yjs/entity-state'
 
 const logger = createLogger('CustomToolsOperations')
 
@@ -112,12 +114,9 @@ export async function upsertCustomTools({
       .orderBy(desc(customTools.createdAt))
   })
 
-  await Promise.all(
-    result
-      .filter((row) => affectedIds.includes(row.id))
-      .map((row) =>
-        applySavedEntityState('custom_tool', row.id, savedEntityRowToFields('custom_tool', row))
-      )
+  await seedSavedEntityYjsStateFromRows(
+    'custom_tool',
+    result.filter((row) => affectedIds.includes(row.id))
   )
 
   return applySavedEntityYjsStateToRows('custom_tool', result)

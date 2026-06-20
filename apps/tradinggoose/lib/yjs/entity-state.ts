@@ -5,6 +5,7 @@ import {
 } from '@/lib/copilot/review-sessions/identity'
 import type { ReviewEntityKind, ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
 import { getEntityFields } from '@/lib/yjs/entity-session'
+import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
 
 export type SavedEntityKind = Exclude<ReviewEntityKind, 'workflow'>
@@ -204,4 +205,15 @@ export async function applySavedEntityYjsStateToRows<T extends SavedEntityRow>(
   rows: T[]
 ): Promise<T[]> {
   return Promise.all(rows.map((row) => applySavedEntityYjsStateToRow(entityKind, row)))
+}
+
+export async function seedSavedEntityYjsStateFromRows<T extends SavedEntityRow>(
+  entityKind: SavedEntityKind,
+  rows: T[]
+): Promise<void> {
+  await Promise.all(
+    rows.map((row) =>
+      applySavedEntityState(entityKind, row.id, savedEntityRowToFields(entityKind, row))
+    )
+  )
 }

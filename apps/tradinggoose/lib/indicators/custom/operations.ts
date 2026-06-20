@@ -9,8 +9,10 @@ import {
 import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { applySavedEntityYjsStateToRows, savedEntityRowToFields } from '@/lib/yjs/entity-state'
-import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
+import {
+  applySavedEntityYjsStateToRows,
+  seedSavedEntityYjsStateFromRows,
+} from '@/lib/yjs/entity-state'
 
 const logger = createLogger('IndicatorsOperations')
 
@@ -111,12 +113,9 @@ export async function upsertIndicators({
       .orderBy(desc(pineIndicators.createdAt))
   })
 
-  await Promise.all(
-    result
-      .filter((row) => affectedIds.includes(row.id))
-      .map((row) =>
-        applySavedEntityState('indicator', row.id, savedEntityRowToFields('indicator', row))
-      )
+  await seedSavedEntityYjsStateFromRows(
+    'indicator',
+    result.filter((row) => affectedIds.includes(row.id))
   )
 
   return applySavedEntityYjsStateToRows('indicator', result)
