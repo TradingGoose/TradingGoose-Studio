@@ -127,7 +127,7 @@ export async function importIndicators({
   userId,
   requestId = generateRequestId(),
 }: ImportIndicatorsParams) {
-  return await db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const existingIndicators = await tx
       .select({ name: pineIndicators.name })
       .from(pineIndicators)
@@ -173,4 +173,8 @@ export async function importIndicators({
       renamedCount,
     }
   })
+
+  await seedSavedEntityYjsStateFromRows('indicator', result.indicators)
+
+  return result
 }

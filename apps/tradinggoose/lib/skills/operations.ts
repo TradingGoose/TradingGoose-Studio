@@ -173,7 +173,7 @@ export async function importSkills({
   userId,
   requestId = generateRequestId(),
 }: ImportSkillsParams) {
-  return await db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const existingNames = await tx
       .select({ name: skill.name })
       .from(skill)
@@ -226,4 +226,8 @@ export async function importSkills({
       renamedCount,
     }
   })
+
+  await seedSavedEntityYjsStateFromRows('skill', result.skills)
+
+  return result
 }

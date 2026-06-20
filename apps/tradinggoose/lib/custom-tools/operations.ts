@@ -128,7 +128,7 @@ export async function importCustomTools({
   userId,
   requestId = generateRequestId(),
 }: ImportCustomToolsParams) {
-  return await db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const existingTools = await tx
       .select({
         title: customTools.title,
@@ -168,4 +168,8 @@ export async function importCustomTools({
       renamedCount,
     }
   })
+
+  await seedSavedEntityYjsStateFromRows('custom_tool', result.tools)
+
+  return result
 }
