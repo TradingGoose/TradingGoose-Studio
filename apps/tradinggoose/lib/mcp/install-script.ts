@@ -82,21 +82,30 @@ function runConfigWriter(args) {
   return result.stdout.trim()
 }
 
-async function revokeExistingTokens() {
-  const tokens = runConfigWriter(['read-tokens']).split(/\r?\n/).filter(Boolean)
+function readExistingTokens() {
+  return runConfigWriter(['read-tokens']).split(/\r?\n/).filter(Boolean)
+}
+
+async function revokeTokens(tokens, currentToken) {
   for (const token of tokens) {
-    await postJson(baseUrl + '/api/auth/mcp/revoke', null, token)
+    if (token !== currentToken) {
+      await postJson(baseUrl + '/api/auth/mcp/revoke', null, token)
+    }
   }
 }
 
 async function authenticate() {
   const startJson = await postJson(baseUrl + '/api/auth/mcp/start')
   const code = String(startJson?.code || '')
+  const verificationKey = String(startJson?.verificationKey || '')
   const authorizeUrl = String(startJson?.authorizeUrl || '')
   const intervalSeconds = Math.max(1, Number(startJson?.intervalSeconds) || 2)
 
   if (!code) {
     fail('Studio did not return a login code')
+  }
+  if (!verificationKey) {
+    fail('Studio did not return a login verification key')
   }
   if (!authorizeUrl) {
     fail('Studio did not return an authorization URL')
@@ -108,7 +117,7 @@ async function authenticate() {
 
   const deadline = Date.now() + 600000
   while (Date.now() < deadline) {
-    const pollJson = await postJson(baseUrl + '/api/auth/mcp/poll', { code })
+    const pollJson = await postJson(baseUrl + '/api/auth/mcp/poll', { code, verificationKey })
     const status = String(pollJson?.status || 'pending')
 
     if (status === 'approved') {
@@ -137,7 +146,7 @@ async function main() {
   requireFetch()
 
   if (command === 'login') {
-    await revokeExistingTokens()
+    const existingTokens = readExistingTokens()
     const token = await authenticate()
     console.log('MCP endpoint:')
     console.log(mcpUrl)
@@ -147,6 +156,7 @@ async function main() {
     console.log('')
     console.log('Use this MCP auth header:')
     console.log('Authorization: Bearer ' + token)
+    await revokeTokens(existingTokens, token)
     return
   }
 
@@ -155,13 +165,14 @@ async function main() {
       fail('setup requires a selected target')
     }
 
-    await revokeExistingTokens()
+    const existingTokens = readExistingTokens()
     const token = await authenticate()
     console.log('Using MCP endpoint: ' + mcpUrl)
     for (const target of targets) {
       const configPath = runConfigWriter([target, mcpUrl, token])
       console.log('Configured ' + target + ': ' + configPath)
     }
+    await revokeTokens(existingTokens, token)
     return
   }
 

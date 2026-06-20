@@ -40,13 +40,17 @@ describe('MCP install route', () => {
     expect(script).toContain('irm <studio-url>/mcp/login | iex')
     expect(script).toContain("baseUrl + '/api/auth/mcp/start'")
     expect(script).toContain("baseUrl + '/api/auth/mcp/poll'")
+    expect(script).toContain('const verificationKey = String(startJson?.verificationKey ||')
+    expect(script).toContain("postJson(baseUrl + '/api/auth/mcp/poll', { code, verificationKey })")
     expect(script).toContain("baseUrl + '/api/auth/mcp/revoke'")
     expect(script).toContain("baseUrl + '/api/copilot/mcp'")
     expect(script).toContain("Authorization: Bearer ' + token")
     expect(script).toContain('setup   Authenticate, rotate local MCP auth, and write config.')
     expect(script).toContain('read-tokens')
+    expect(script).toContain('await revokeTokens(existingTokens, token)')
+    expect(script).not.toContain('revokeExistingTokens')
     expect(script).toContain('node - "$BASE_URL" "$COMMAND" "$TARGETS"')
-    expect(script).toContain("runConfigWriter([target, mcpUrl, token])")
+    expect(script).toContain('runConfigWriter([target, mcpUrl, token])')
     expect(script).toContain("const mcpServerName = 'TradingGoose'")
     expect(script).toContain("const codexBearerTokenEnvVar = 'TRADINGGOOSE_BEARER_TOKEN'")
     expect(script).toContain("'bearer_token_env_var = ' + JSON.stringify(codexBearerTokenEnvVar)")
@@ -57,6 +61,18 @@ describe('MCP install route', () => {
     expect(script).toContain("path.join(os.homedir(), '.config', 'opencode', 'opencode.json')")
     expect(script).not.toContain('workspaceId')
     expect(script).not.toContain('entityId')
+
+    const printedTokenIndex = script.indexOf("console.log('Authorization: Bearer ' + token)")
+    const firstRevokeIndex = script.indexOf('await revokeTokens(existingTokens, token)')
+    const configWriteIndex = script.indexOf(
+      'const configPath = runConfigWriter([target, mcpUrl, token])'
+    )
+    const setupRevokeIndex = script.indexOf(
+      'await revokeTokens(existingTokens, token)',
+      configWriteIndex
+    )
+    expect(firstRevokeIndex).toBeGreaterThan(printedTokenIndex)
+    expect(setupRevokeIndex).toBeGreaterThan(configWriteIndex)
   })
 
   it('serves target-specific setup scripts from the URL path', async () => {

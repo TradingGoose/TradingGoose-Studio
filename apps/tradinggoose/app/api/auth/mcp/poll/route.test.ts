@@ -23,13 +23,13 @@ describe('MCP login poll route', () => {
     })
   })
 
-  it('polls the device login by code', async () => {
+  it('polls the device login by code and verification key', async () => {
     const { POST } = await import('./route')
 
     const response = await POST(
       new NextRequest('https://studio.example.test/api/auth/mcp/poll', {
         method: 'POST',
-        body: JSON.stringify({ code: 'login-code' }),
+        body: JSON.stringify({ code: 'login-code', verificationKey: 'verification-key' }),
       })
     )
 
@@ -39,7 +39,7 @@ describe('MCP login poll route', () => {
       apiKey: 'sk-tradinggoose-token',
       expiresAt: '2026-06-19T12:00:00.000Z',
     })
-    expect(mockPollMcpDeviceLogin).toHaveBeenCalledWith('login-code')
+    expect(mockPollMcpDeviceLogin).toHaveBeenCalledWith('login-code', 'verification-key')
   })
 
   it('rejects malformed poll requests', async () => {

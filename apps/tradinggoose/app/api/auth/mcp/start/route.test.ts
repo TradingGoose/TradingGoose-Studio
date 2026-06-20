@@ -18,6 +18,7 @@ describe('MCP login start route', () => {
     vi.clearAllMocks()
     mockStartMcpDeviceLogin.mockResolvedValue({
       code: 'login-code',
+      verificationKey: 'verification-key',
       expiresAt: '2026-06-19T12:00:00.000Z',
       intervalSeconds: 2,
     })
@@ -35,6 +36,7 @@ describe('MCP login start route', () => {
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({
       code: 'login-code',
+      verificationKey: 'verification-key',
       expiresAt: '2026-06-19T12:00:00.000Z',
       intervalSeconds: 2,
       authorizeUrl: 'https://studio.example.test/mcp/authorize?code=login-code',
