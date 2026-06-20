@@ -24,6 +24,82 @@ export interface ApiKeyAuthResult {
   error?: string
 }
 
+export interface CreatePersonalApiKeyInput {
+  userId: string
+  name: string
+  createdAt?: Date
+}
+
+export interface CreatedPersonalApiKey {
+  id: string
+  name: string
+  createdAt: Date
+  key: string
+}
+
+export async function createApiKeyMaterial(useStorage = true): Promise<{
+  key: string
+  encryptedKey?: string
+}> {
+  try {
+    const hasEncryptionKey = env.API_ENCRYPTION_KEY !== undefined
+    const plainKey = hasEncryptionKey ? generateEncryptedApiKey() : generateApiKey()
+
+    if (useStorage) {
+      const { encrypted } = await encryptApiKey(plainKey)
+      return { key: plainKey, encryptedKey: encrypted }
+    }
+
+    return { key: plainKey }
+  } catch (error) {
+    logger.error('API key creation error:', { error })
+    throw new Error('Failed to create API key')
+  }
+}
+
+export async function createPersonalApiKey({
+  userId,
+  name,
+  createdAt = new Date(),
+}: CreatePersonalApiKeyInput): Promise<CreatedPersonalApiKey> {
+  const trimmedName = name.trim()
+  if (!trimmedName) {
+    throw new Error('API key name is required')
+  }
+
+  const { key: plainKey, encryptedKey } = await createApiKeyMaterial(true)
+  if (!encryptedKey) {
+    throw new Error('Failed to encrypt API key for storage')
+  }
+
+  const [newKey] = await db
+    .insert(apiKeyTable)
+    .values({
+      id: nanoid(),
+      userId,
+      workspaceId: null,
+      name: trimmedName,
+      key: encryptedKey,
+      type: 'personal',
+      createdAt,
+      updatedAt: createdAt,
+    })
+    .returning({
+      id: apiKeyTable.id,
+      name: apiKeyTable.name,
+      createdAt: apiKeyTable.createdAt,
+    })
+
+  if (!newKey) {
+    throw new Error('Failed to create API key')
+  }
+
+  return {
+    ...newKey,
+    key: plainKey,
+  }
+}
+
 /**
  * Authenticate an API key from header with flexible filtering options
  */

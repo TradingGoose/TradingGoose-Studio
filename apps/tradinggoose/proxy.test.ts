@@ -329,6 +329,22 @@ describe('proxy auth routing', () => {
     expect(response.cookies.get('NEXT_LOCALE')).toBeUndefined()
   })
 
+  it('keeps the MCP script route canonical for curl clients', async () => {
+    const { proxy } = await import('./proxy')
+    const response = await proxy(
+      new NextRequest('http://localhost:3000/mcp', {
+        headers: {
+          'user-agent': 'curl/8.0',
+        },
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('location')).toBeNull()
+    expect(response.headers.get('x-middleware-rewrite')).toBeNull()
+    expect(response.cookies.get('NEXT_LOCALE')).toBeUndefined()
+  })
+
   it('does not exempt localized API-shaped webhook paths from suspicious user-agent filtering', async () => {
     const { proxy } = await import('./proxy')
     const response = await proxy(

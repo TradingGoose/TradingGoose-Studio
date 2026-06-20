@@ -69,6 +69,7 @@ function isCanonicalRouteHandlerPath(pathname: string) {
     pathname === '/llms.txt' ||
     pathname === '/llms-full.txt' ||
     pathname === '/manifest.webmanifest' ||
+    pathname === '/mcp' ||
     pathname === '/robots.txt' ||
     pathname === '/sitemap.xml'
   )

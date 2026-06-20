@@ -1,12 +1,9 @@
 import {
+  createApiKeyMaterial,
   decryptApiKey,
-  encryptApiKey,
-  generateApiKey,
-  generateEncryptedApiKey,
   isEncryptedApiKeyFormat,
   isLegacyApiKeyFormat,
 } from '@/lib/api-key/service'
-import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('ApiKeyAuth')
@@ -82,21 +79,6 @@ export async function authenticateApiKey(inputKey: string, storedKey: string): P
 }
 
 /**
- * Encrypts an API key for secure storage
- * @param apiKey - The plain text API key to encrypt
- * @returns Promise<string> - The encrypted key
- */
-export async function encryptApiKeyForStorage(apiKey: string): Promise<string> {
-  try {
-    const { encrypted } = await encryptApiKey(apiKey)
-    return encrypted
-  } catch (error) {
-    logger.error('API key encryption error:', { error })
-    throw new Error('Failed to encrypt API key')
-  }
-}
-
-/**
  * Creates a new API key
  * @param useStorage - Whether to encrypt the key before storage (default: true)
  * @returns Promise<{key: string, encryptedKey?: string}> - The plain key and optionally encrypted version
@@ -105,21 +87,7 @@ export async function createApiKey(useStorage = true): Promise<{
   key: string
   encryptedKey?: string
 }> {
-  try {
-    const hasEncryptionKey = env.API_ENCRYPTION_KEY !== undefined
-
-    const plainKey = hasEncryptionKey ? generateEncryptedApiKey() : generateApiKey()
-
-    if (useStorage) {
-      const encryptedKey = await encryptApiKeyForStorage(plainKey)
-      return { key: plainKey, encryptedKey }
-    }
-
-    return { key: plainKey }
-  } catch (error) {
-    logger.error('API key creation error:', { error })
-    throw new Error('Failed to create API key')
-  }
+  return createApiKeyMaterial(useStorage)
 }
 
 /**
