@@ -17,7 +17,6 @@ import {
 } from '@/lib/copilot/tools/server/base-tool'
 import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
 import { generateCreativeWorkflowName } from '@/lib/naming'
-import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { VariableManager } from '@/lib/variables/variable-manager'
 import {
   TG_MERMAID_DOCUMENT_FORMAT,
@@ -39,6 +38,7 @@ import {
 import { isWorkflowVariableType, type WorkflowVariableType } from '@/lib/workflows/value-types'
 import { editWorkflowServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow'
 import { editWorkflowBlockServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow-block'
+import { requireUserId, verifyWorkspaceContext } from './shared'
 
 type WorkflowSummary = {
   blocks: Array<{
@@ -89,24 +89,6 @@ const WorkflowVariableDocumentSchema = z
     ),
   })
   .strict()
-
-function requireUserId(context?: ServerToolExecutionContext): string {
-  const userId = context?.userId?.trim()
-  if (!userId) {
-    throw new Error('Authenticated user is required to execute copilot workflow tools')
-  }
-  return userId
-}
-
-function requireWorkspaceId(context?: ServerToolExecutionContext): string {
-  const workspaceId = context?.workspaceId?.trim()
-  if (!workspaceId) {
-    throw new Error(
-      'No active workspace found in execution context. Ensure workspaceId is included in tool provenance.'
-    )
-  }
-  return workspaceId
-}
 
 function normalizeWorkflowName(value?: string | null): string | undefined {
   const normalized = value?.trim()
@@ -180,21 +162,6 @@ function buildWorkflowSummary(workflowState: WorkflowSnapshot): WorkflowSummary 
       return message ? [{ edgeIndex, ...edgeWithoutScope, message }] : []
     }),
   }
-}
-
-async function verifyWorkspaceContext(
-  context: ServerToolExecutionContext | undefined,
-  accessMode: 'read' | 'write'
-): Promise<{ userId: string; workspaceId: string }> {
-  const userId = requireUserId(context)
-  const workspaceId = requireWorkspaceId(context)
-  const access = await checkWorkspaceAccess(workspaceId, userId)
-
-  if (!access.exists || !access.hasAccess || (accessMode === 'write' && !access.canWrite)) {
-    throw new Error('Access denied: You do not have permission to use this workspace')
-  }
-
-  return { userId, workspaceId }
 }
 
 async function verifyWorkflowContext(
