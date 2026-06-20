@@ -109,19 +109,21 @@ async function getExistingYjsState(sessionId: string): Promise<Uint8Array | null
   return getState(sessionId)
 }
 
-async function getBootstrapDoc(sessionId: string): Promise<Y.Doc> {
-  const [{ getDocument, setPersistence }, { getState, storeState }] = await Promise.all([
-    import('@/socket-server/yjs/upstream-utils'),
-    import('@/socket-server/yjs/persistence'),
-  ])
+async function getBootstrapDoc(sessionId: string, canonical = false): Promise<Y.Doc> {
+  const [{ getDocument, setPersistence }, { getState, storeCanonicalState, storeState }] =
+    await Promise.all([
+      import('@/socket-server/yjs/upstream-utils'),
+      import('@/socket-server/yjs/persistence'),
+    ])
 
-  setPersistence(sessionId, { getState, storeState })
+  setPersistence(sessionId, { getState, storeState: canonical ? storeCanonicalState : storeState })
   return getDocument(sessionId)
 }
 
-async function persistDoc(sessionId: string, doc: Y.Doc): Promise<void> {
-  const { storeState } = await import('@/socket-server/yjs/persistence')
-  await storeState(sessionId, Y.encodeStateAsUpdate(doc))
+async function persistDoc(sessionId: string, doc: Y.Doc, canonical = false): Promise<void> {
+  const { storeCanonicalState, storeState } = await import('@/socket-server/yjs/persistence')
+  const state = Y.encodeStateAsUpdate(doc)
+  await (canonical ? storeCanonicalState(sessionId, state) : storeState(sessionId, state))
 }
 
 async function resolveExistingReviewTarget(
@@ -245,7 +247,7 @@ async function bootstrapSavedEntityTarget(
   }
 
   const canonical = await loadCanonicalEntitySeed(descriptor)
-  const doc = await getBootstrapDoc(descriptor.entityId)
+  const doc = await getBootstrapDoc(descriptor.entityId, true)
 
   seedEntitySession(doc, {
     entityKind: descriptor.entityKind,
@@ -256,7 +258,7 @@ async function bootstrapSavedEntityTarget(
     doc.getMap('metadata').set('reseededFromCanonical', true)
   }, 'bootstrap')
 
-  await persistDoc(descriptor.entityId, doc)
+  await persistDoc(descriptor.entityId, doc, true)
 
   return {
     descriptor: {

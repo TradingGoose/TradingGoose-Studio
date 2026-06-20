@@ -3,6 +3,7 @@ import { getRedisClient, getRedisStorageMode } from '@/lib/redis'
 interface YjsSessionBlob {
   state: Buffer
   updatedAt: number
+  expiresAt: number | null
 }
 
 const TTL_MS = 7 * 24 * 60 * 60 * 1000
@@ -21,8 +22,8 @@ function updatedAtKey(sessionId: string): string {
   return `${REDIS_KEY_PREFIX}${sessionId}:updatedAt`
 }
 
-function isExpired(updatedAt: number | null): boolean {
-  return updatedAt == null || Date.now() - updatedAt > TTL_MS
+function isExpired(blob: YjsSessionBlob): boolean {
+  return blob.expiresAt !== null && blob.expiresAt <= Date.now()
 }
 
 async function readRedisUpdatedAt(sessionId: string): Promise<number | null> {
@@ -55,7 +56,7 @@ function readLocalBlob(sessionId: string): YjsSessionBlob | null {
     return null
   }
 
-  if (isExpired(blob.updatedAt)) {
+  if (isExpired(blob)) {
     localStore.delete(sessionId)
     return null
   }
@@ -105,7 +106,8 @@ export async function storeState(sessionId: string, state: Uint8Array): Promise<
     // after calling storeState, so sharing the underlying ArrayBuffer is safe.
     const buf = Buffer.from(state.buffer, state.byteOffset, state.byteLength)
 
-    await redis.multi()
+    await redis
+      .multi()
       .set(stateKey(sessionId), buf)
       .pexpire(stateKey(sessionId), TTL_MS)
       .set(updatedAtKey(sessionId), String(touchedAt))
@@ -121,12 +123,34 @@ export async function storeState(sessionId: string, state: Uint8Array): Promise<
   localStore.set(sessionId, {
     state: Buffer.from(state),
     updatedAt: touchedAt,
+    expiresAt: touchedAt + TTL_MS,
   })
 
   // Evict oldest entries if over the limit
   while (localStore.size > MAX_LOCAL_ENTRIES) {
-    const oldest = localStore.keys().next().value
+    const oldest = Array.from(localStore.entries()).find(([, blob]) => blob.expiresAt !== null)?.[0]
     if (oldest) localStore.delete(oldest)
+    else break
+  }
+}
+
+export async function storeCanonicalState(sessionId: string, state: Uint8Array): Promise<void> {
+  await storeState(sessionId, state)
+
+  const mode = getRedisStorageMode()
+  if (mode === 'redis') {
+    const redis = getRedisClient()
+    if (!redis) {
+      return
+    }
+
+    await redis.multi().persist(stateKey(sessionId)).persist(updatedAtKey(sessionId)).exec()
+    return
+  }
+
+  const blob = localStore.get(sessionId)
+  if (blob) {
+    blob.expiresAt = null
   }
 }
 
@@ -168,7 +192,13 @@ export async function getLastTouchedAt(sessionId: string): Promise<number | null
 
   if (mode === 'redis') {
     const updatedAt = await readRedisUpdatedAt(sessionId)
-    if (isExpired(updatedAt)) {
+    const redis = getRedisClient()
+    if (!redis) {
+      return null
+    }
+
+    const ttl = await redis.pttl(stateKey(sessionId))
+    if (ttl === -2 || (ttl !== -1 && (updatedAt == null || Date.now() - updatedAt > TTL_MS))) {
       await cleanupExpiredRedisSession(sessionId)
       return null
     }
@@ -196,7 +226,7 @@ if (getRedisStorageMode() !== 'redis') {
   ttlSweepInterval = setInterval(() => {
     const now = Date.now()
     for (const [key, blob] of localStore) {
-      if (now - blob.updatedAt > TTL_MS) {
+      if (blob.expiresAt !== null && blob.expiresAt <= now) {
         localStore.delete(key)
       }
     }

@@ -8,6 +8,7 @@ import { io as createClient } from 'socket.io-client'
 import * as Y from 'yjs'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getEntityFields } from '@/lib/yjs/entity-session'
 import {
   extractPersistedStateFromDoc,
   setVariables,
@@ -337,6 +338,47 @@ describe('Socket Server Index Integration', () => {
             value: 'secret',
           })
         )
+      } finally {
+        doc.destroy()
+      }
+    })
+
+    it('should apply saved entity state as canonical Yjs state', async () => {
+      const response = await sendHttpRequestWithOptions(
+        PORT,
+        '/internal/yjs/entities/skill-1/apply-state',
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-internal-secret': INTERNAL_SECRET,
+          },
+          body: JSON.stringify({
+            entityKind: 'skill',
+            fields: {
+              name: 'Risk Skill',
+              description: 'Position sizing rules',
+              content: 'Keep risk below one percent.',
+            },
+          }),
+        }
+      )
+
+      expect(response.statusCode).toBe(200)
+      expect(await getExistingDocument('skill-1')).toBeNull()
+
+      const persisted = await getState('skill-1')
+      expect(persisted).toBeTruthy()
+
+      const doc = new Y.Doc()
+      try {
+        Y.applyUpdate(doc, persisted!)
+        expect(getEntityFields(doc, 'skill')).toEqual({
+          name: 'Risk Skill',
+          description: 'Position sizing rules',
+          content: 'Keep risk below one percent.',
+        })
+        expect(doc.getMap('metadata').get('reseededFromCanonical')).toBeUndefined()
       } finally {
         doc.destroy()
       }

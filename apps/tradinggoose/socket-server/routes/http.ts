@@ -19,7 +19,12 @@ import {
   type WorkflowSnapshot,
 } from '@/lib/yjs/workflow-session'
 import { getMonitorRuntimeLockHealth } from '@/socket-server/monitor-runtime-lock'
-import { deleteSession, getState, storeState } from '@/socket-server/yjs/persistence'
+import {
+  deleteSession,
+  getState,
+  storeCanonicalState,
+  storeState,
+} from '@/socket-server/yjs/persistence'
 import { getExistingDocument, removeDocument } from '@/socket-server/yjs/upstream-utils'
 
 interface Logger {
@@ -231,7 +236,7 @@ function replaceWorkflowDocState(
 function clearSessionReseededFromCanonical(doc: Y.Doc): void {
   doc.transact(() => {
     doc.getMap('metadata').delete('reseededFromCanonical')
-  }, YJS_ORIGINS.SAVE)
+  }, YJS_ORIGINS.SYSTEM)
 }
 
 async function handleInternalYjsWorkflowApplyRequest(
@@ -282,7 +287,8 @@ async function handleInternalYjsEntityApplyRequest(
         entityKind: body.entityKind,
         payload: body.fields,
       })
-      await storeState(entityId, Y.encodeStateAsUpdate(doc))
+      clearSessionReseededFromCanonical(doc)
+      await storeCanonicalState(entityId, Y.encodeStateAsUpdate(doc))
     } finally {
       if (!liveDoc) doc.destroy()
     }

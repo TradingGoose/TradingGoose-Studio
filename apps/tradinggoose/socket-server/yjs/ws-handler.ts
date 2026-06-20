@@ -1,9 +1,7 @@
 import type { IncomingMessage } from 'http'
 import type { Duplex } from 'stream'
 import type { WebSocket, WebSocketServer } from 'ws'
-import {
-  buildReviewTargetDescriptorFromEnvelope,
-} from '@/lib/copilot/review-sessions/identity'
+import { buildReviewTargetDescriptorFromEnvelope } from '@/lib/copilot/review-sessions/identity'
 import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -11,7 +9,7 @@ import {
   getRuntimeStateFromUpdate,
 } from '@/lib/yjs/server/bootstrap-review-target'
 import { authenticateYjsConnection, YjsAuthError } from './auth'
-import { getState, storeState } from './persistence'
+import { getState, storeCanonicalState, storeState } from './persistence'
 import { getExistingDocument, setPersistence, setupWSConnection } from './upstream-utils'
 
 const logger = createLogger('YjsWsHandler')
@@ -39,8 +37,11 @@ export function handleYjsUpgrade(
   const yjsSessionId = decodeURIComponent(match[1])
 
   void authenticateAndPrepareUpgrade(yjsSessionId, url)
-    .then(({ userId, resolvedSessionId }) => {
-      setPersistence(resolvedSessionId, { getState, storeState })
+    .then(({ userId, resolvedSessionId, canonical }) => {
+      setPersistence(resolvedSessionId, {
+        getState,
+        storeState: canonical ? storeCanonicalState : storeState,
+      })
 
       const yjsReq = request as YjsIncomingMessage
       yjsReq.yjsSessionId = resolvedSessionId
@@ -65,7 +66,7 @@ export function handleYjsUpgrade(
 async function authenticateAndPrepareUpgrade(
   pathSessionId: string,
   url: URL
-): Promise<{ userId: string; resolvedSessionId: string }> {
+): Promise<{ userId: string; resolvedSessionId: string; canonical: boolean }> {
   const accessMode = parseAccessMode(url)
   const { userId, envelope } = await authenticateYjsConnection(url)
 
@@ -113,6 +114,7 @@ async function authenticateAndPrepareUpgrade(
   return {
     userId,
     resolvedSessionId: pathSessionId,
+    canonical: descriptor.entityKind !== 'workflow' && descriptor.entityId !== null,
   }
 }
 
