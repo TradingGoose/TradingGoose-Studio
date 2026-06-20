@@ -50,6 +50,55 @@ function writeCodexConfig(filePath) {
   )
 }
 
+function resolveCodexBearerTokenFilePath() {
+  return path.join(os.homedir(), '.codex', 'tradinggoose-mcp.env')
+}
+
+function shellSingleQuote(value) {
+  return "'" + value.replaceAll("'", "'\\''") + "'"
+}
+
+function writeCodexBearerTokenFile() {
+  const filePath = resolveCodexBearerTokenFilePath()
+  ensureParent(filePath)
+  fs.writeFileSync(
+    filePath,
+    'export ' + codexBearerTokenEnvVar + '=' + shellSingleQuote(token) + '\n',
+    'utf8'
+  )
+  fs.chmodSync(filePath, 0o600)
+  return filePath
+}
+
+function readCodexBearerTokenFile() {
+  const filePath = resolveCodexBearerTokenFilePath()
+  const match = (fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : '').match(
+    new RegExp("^export " + codexBearerTokenEnvVar + "='(.+)'$", 'm')
+  )
+  return match ? match[1].replaceAll("'\\''", "'") : null
+}
+
+function resolveShellProfilePath() {
+  const shellName = path.basename(process.env.SHELL || '')
+  const fileName = shellName === 'zsh' ? '.zshrc' : shellName === 'bash' ? '.bashrc' : '.profile'
+  return path.join(os.homedir(), fileName)
+}
+
+function sourceCodexBearerTokenFileFromShellProfile(filePath) {
+  const profilePath = resolveShellProfilePath()
+  const sourceLine = '[ -f ' + shellSingleQuote(filePath) + ' ] && . ' + shellSingleQuote(filePath)
+  const current = fs.existsSync(profilePath) ? fs.readFileSync(profilePath, 'utf8') : ''
+  if (current.split(/\r?\n/).includes(sourceLine)) {
+    return
+  }
+
+  fs.writeFileSync(
+    profilePath,
+    current.trim() ? current.replace(/\s*$/, '') + '\n' + sourceLine + '\n' : sourceLine + '\n',
+    'utf8'
+  )
+}
+
 function removeTomlMcpServerBlock(current) {
   const sectionHeader = '[mcp_servers.' + mcpServerName + ']'
   const subPrefix = '[mcp_servers.' + mcpServerName + '.'
@@ -135,15 +184,17 @@ function findTomlMcpServerSection(text) {
 }
 
 function persistCodexBearerToken() {
-  process.env[codexBearerTokenEnvVar] = token
-
   if (process.platform === 'win32') {
     const { spawnSync } = require('child_process')
     const result = spawnSync('setx', [codexBearerTokenEnvVar, token], { stdio: 'ignore' })
     if (result.status !== 0) {
       throw new Error('Failed to persist ' + codexBearerTokenEnvVar)
     }
+    return
   }
+
+  const tokenFilePath = writeCodexBearerTokenFile()
+  sourceCodexBearerTokenFileFromShellProfile(tokenFilePath)
 }
 
 function readEnvironmentVariable(name) {
@@ -151,7 +202,7 @@ function readEnvironmentVariable(name) {
     return process.env[name]
   }
   if (process.platform !== 'win32') {
-    return null
+    return name === codexBearerTokenEnvVar ? readCodexBearerTokenFile() : null
   }
 
   const { spawnSync } = require('child_process')
