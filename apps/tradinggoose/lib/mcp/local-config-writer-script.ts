@@ -5,10 +5,8 @@ const path = require('path')
 const target = process.argv[2]
 const mcpUrl = process.argv[3]
 const token = process.argv[4]
-const authHeaders = { Authorization: 'Bearer ' + token }
 const allTargets = ['codex', 'cursor', 'claude', 'opencode']
 const mcpServerName = 'TradingGoose'
-const codexBearerTokenEnvVar = 'TRADINGGOOSE_BEARER_TOKEN'
 
 function resolvePathFor(candidate) {
   switch (candidate) {
@@ -38,7 +36,9 @@ function writeCodexConfig(filePath) {
   const block = [
     '[mcp_servers.' + mcpServerName + ']',
     'url = ' + JSON.stringify(mcpUrl),
-    'bearer_token_env_var = ' + JSON.stringify(codexBearerTokenEnvVar),
+    '',
+    '[mcp_servers.' + mcpServerName + '.http_headers]',
+    'Authorization = ' + JSON.stringify('Bearer ' + token),
     '',
   ].join('\n')
   const current = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : ''
@@ -46,55 +46,6 @@ function writeCodexConfig(filePath) {
   fs.writeFileSync(
     filePath,
     withoutCurrent.trim() ? withoutCurrent.replace(/\s*$/, '') + '\n\n' + block : block,
-    'utf8'
-  )
-}
-
-function resolveCodexBearerTokenFilePath() {
-  return path.join(os.homedir(), '.codex', 'tradinggoose-mcp.env')
-}
-
-function shellSingleQuote(value) {
-  return "'" + value.replaceAll("'", "'\\''") + "'"
-}
-
-function writeCodexBearerTokenFile() {
-  const filePath = resolveCodexBearerTokenFilePath()
-  ensureParent(filePath)
-  fs.writeFileSync(
-    filePath,
-    'export ' + codexBearerTokenEnvVar + '=' + shellSingleQuote(token) + '\n',
-    'utf8'
-  )
-  fs.chmodSync(filePath, 0o600)
-  return filePath
-}
-
-function readCodexBearerTokenFile() {
-  const filePath = resolveCodexBearerTokenFilePath()
-  const match = (fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : '').match(
-    new RegExp("^export " + codexBearerTokenEnvVar + "='(.+)'$", 'm')
-  )
-  return match ? match[1].replaceAll("'\\''", "'") : null
-}
-
-function resolveShellProfilePath() {
-  const shellName = path.basename(process.env.SHELL || '')
-  const fileName = shellName === 'zsh' ? '.zshrc' : shellName === 'bash' ? '.bashrc' : '.profile'
-  return path.join(os.homedir(), fileName)
-}
-
-function sourceCodexBearerTokenFileFromShellProfile(filePath) {
-  const profilePath = resolveShellProfilePath()
-  const sourceLine = '[ -f ' + shellSingleQuote(filePath) + ' ] && . ' + shellSingleQuote(filePath)
-  const current = fs.existsSync(profilePath) ? fs.readFileSync(profilePath, 'utf8') : ''
-  if (current.split(/\r?\n/).includes(sourceLine)) {
-    return
-  }
-
-  fs.writeFileSync(
-    profilePath,
-    current.trim() ? current.replace(/\s*$/, '') + '\n' + sourceLine + '\n' : sourceLine + '\n',
     'utf8'
   )
 }
@@ -164,16 +115,12 @@ function readCodexToken(filePath) {
     return null
   }
   const text = fs.readFileSync(filePath, 'utf8')
-  const section = findTomlMcpServerSection(text)
-  if (!section) {
-    return null
-  }
-  const envVar = section.match(/\nbearer_token_env_var\s*=\s*["']([^"']+)["']/)
-  return envVar ? readEnvironmentVariable(envVar[1]) : null
+  const section = findTomlSection(text, '[mcp_servers.' + mcpServerName + '.http_headers]')
+  const authHeader = section?.match(/(?:^|\n)Authorization\s*=\s*["']([^"']+)["']/)
+  return authHeader ? bearerTokenFromHeader(authHeader[1]) : null
 }
 
-function findTomlMcpServerSection(text) {
-  const sectionHeader = '[mcp_servers.' + mcpServerName + ']'
+function findTomlSection(text, sectionHeader) {
   const startIndex = text.indexOf(sectionHeader)
   if (startIndex === -1) {
     return null
@@ -181,43 +128,6 @@ function findTomlMcpServerSection(text) {
   const rest = text.slice(startIndex + sectionHeader.length)
   const nextHeaderIndex = rest.search(/\n\[/)
   return nextHeaderIndex === -1 ? rest : rest.slice(0, nextHeaderIndex)
-}
-
-function persistCodexBearerToken() {
-  if (process.platform === 'win32') {
-    const { spawnSync } = require('child_process')
-    const result = spawnSync('setx', [codexBearerTokenEnvVar, token], { stdio: 'ignore' })
-    if (result.status !== 0) {
-      throw new Error('Failed to persist ' + codexBearerTokenEnvVar)
-    }
-    return
-  }
-
-  const tokenFilePath = writeCodexBearerTokenFile()
-  sourceCodexBearerTokenFileFromShellProfile(tokenFilePath)
-}
-
-function readEnvironmentVariable(name) {
-  if (process.env[name]) {
-    return process.env[name]
-  }
-  if (process.platform !== 'win32') {
-    return name === codexBearerTokenEnvVar ? readCodexBearerTokenFile() : null
-  }
-
-  const { spawnSync } = require('child_process')
-  const result = spawnSync(
-    'powershell.exe',
-    [
-      '-NoProfile',
-      '-NonInteractive',
-      '-Command',
-      '$Value = [Environment]::GetEnvironmentVariable($args[0], [EnvironmentVariableTarget]::User); if ($Value) { [Console]::Out.Write($Value) }',
-      name,
-    ],
-    { encoding: 'utf8' }
-  )
-  return result.status === 0 && result.stdout ? result.stdout : null
 }
 
 function readJsonToken(filePath, section) {
@@ -253,9 +163,9 @@ if (target === 'read-tokens') {
 }
 
 const filePath = resolvePath()
+const authHeaders = { Authorization: 'Bearer ' + token }
 switch (target) {
   case 'codex':
-    persistCodexBearerToken()
     writeCodexConfig(filePath)
     break
   case 'cursor':

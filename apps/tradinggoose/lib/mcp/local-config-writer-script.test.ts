@@ -9,9 +9,7 @@ import { join } from 'path'
 import { describe, expect, it } from 'vitest'
 import { MCP_LOCAL_CONFIG_WRITER_SCRIPT } from './local-config-writer-script'
 
-type TestEnv = Record<string, string | undefined>
-
-function runWriter(home: string, args: string[], env: TestEnv = {}) {
+function runWriter(home: string, args: string[]) {
   const scriptPath = join(home, 'writer.js')
   writeFileSync(scriptPath, MCP_LOCAL_CONFIG_WRITER_SCRIPT, 'utf8')
   const result = spawnSync('node', [scriptPath, ...args], {
@@ -21,7 +19,6 @@ function runWriter(home: string, args: string[], env: TestEnv = {}) {
       ...process.env,
       HOME: home,
       USERPROFILE: home,
-      ...env,
     },
     input: MCP_LOCAL_CONFIG_WRITER_SCRIPT,
     timeout: 5000,
@@ -36,7 +33,7 @@ function shellQuote(value: string) {
   return `'${value.replaceAll("'", "'\\''")}'`
 }
 
-function runWriterCapture(home: string, args: string[], env: TestEnv = {}) {
+function runWriterCapture(home: string, args: string[]) {
   const scriptPath = join(home, 'writer.js')
   const outputPath = join(home, 'writer.out')
   writeFileSync(scriptPath, MCP_LOCAL_CONFIG_WRITER_SCRIPT, 'utf8')
@@ -48,7 +45,6 @@ function runWriterCapture(home: string, args: string[], env: TestEnv = {}) {
       ...process.env,
       HOME: home,
       USERPROFILE: home,
-      ...env,
     },
     timeout: 5000,
   })
@@ -59,31 +55,21 @@ function runWriterCapture(home: string, args: string[], env: TestEnv = {}) {
 }
 
 describe('MCP local config writer script', () => {
-  it('writes Codex config with a TradingGoose bearer token environment variable', () => {
+  it('writes Codex config with TradingGoose HTTP headers', () => {
     const home = mkdtempSync(join(tmpdir(), 'tg-mcp-codex-'))
 
-    runWriter(home, ['codex', 'http://localhost:3000/api/copilot/mcp', 'mcp-token'], {
-      SHELL: '/bin/zsh',
-    })
+    runWriter(home, ['codex', 'http://localhost:3000/api/copilot/mcp', 'mcp-token'])
 
     const configPath = join(home, '.codex', 'config.toml')
     expect(readFileSync(configPath, 'utf8')).toBe(
       [
         '[mcp_servers.TradingGoose]',
         'url = "http://localhost:3000/api/copilot/mcp"',
-        'bearer_token_env_var = "TRADINGGOOSE_BEARER_TOKEN"',
+        '',
+        '[mcp_servers.TradingGoose.http_headers]',
+        'Authorization = "Bearer mcp-token"',
         '',
       ].join('\n')
-    )
-    expect(readFileSync(join(home, '.codex', 'tradinggoose-mcp.env'), 'utf8')).toBe(
-      "export TRADINGGOOSE_BEARER_TOKEN='mcp-token'\n"
-    )
-    expect(readFileSync(join(home, '.zshrc'), 'utf8')).toBe(
-      `[ -f '${join(home, '.codex', 'tradinggoose-mcp.env')}' ] && . '${join(
-        home,
-        '.codex',
-        'tradinggoose-mcp.env'
-      )}'\n`
     )
   })
 
@@ -108,18 +94,17 @@ describe('MCP local config writer script', () => {
 
     const config = readFileSync(configPath, 'utf8')
     expect(config.match(/\[mcp_servers\.TradingGoose\]/g)).toHaveLength(1)
-    expect(config).toContain('bearer_token_env_var = "TRADINGGOOSE_BEARER_TOKEN"')
+    expect(config).toContain('[mcp_servers.TradingGoose.http_headers]')
+    expect(config).toContain('Authorization = "Bearer new-token"')
     expect(config).toContain('[mcp_servers.other]')
-    expect(config).not.toContain('Authorization = "Bearer')
+    expect(config).not.toContain('bearer_token_env_var')
   })
 
-  it('reads Codex bearer token from durable local state after setup', () => {
+  it('reads Codex bearer token from the configured HTTP headers', () => {
     const home = mkdtempSync(join(tmpdir(), 'tg-mcp-codex-token-'))
     runWriter(home, ['codex', 'http://localhost:3000/api/copilot/mcp', 'existing-token'])
 
-    const stdout = runWriterCapture(home, ['read-tokens'], {
-      TRADINGGOOSE_BEARER_TOKEN: undefined,
-    })
+    const stdout = runWriterCapture(home, ['read-tokens'])
 
     expect(stdout.trim()).toBe('existing-token')
   })

@@ -161,6 +161,7 @@ async function main() {
   if (command === 'login') {
     const existingTokens = readExistingTokens()
     const login = await authenticate()
+    await confirmLogin(login)
     console.log('MCP endpoint:')
     console.log(mcpUrl)
     console.log('')
@@ -169,7 +170,6 @@ async function main() {
     console.log('')
     console.log('Use this MCP auth header:')
     console.log('Authorization: Bearer ' + login.token)
-    await confirmLogin(login)
     await revokeTokens(existingTokens, login.token)
     return
   }
@@ -181,12 +181,12 @@ async function main() {
 
     const existingTokens = readExistingTokens()
     const login = await authenticate()
+    await confirmLogin(login)
     console.log('Using MCP endpoint: ' + mcpUrl)
     for (const target of targets) {
       const configPath = runConfigWriter([target, mcpUrl, login.token])
       console.log('Configured ' + target + ': ' + configPath)
     }
-    await confirmLogin(login)
     await revokeTokens(existingTokens, login.token)
     return
   }
