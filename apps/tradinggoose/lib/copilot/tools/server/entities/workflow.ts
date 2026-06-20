@@ -6,10 +6,7 @@ import { z } from 'zod'
 import { getStableVibrantColor } from '@/lib/colors'
 import { WORKFLOW_VARIABLE_DOCUMENT_FORMAT } from '@/lib/copilot/entity-documents'
 import { verifyWorkflowAccess } from '@/lib/copilot/review-sessions/permissions'
-import {
-  ENTITY_KIND_WORKFLOW,
-  type ReviewAccessMode,
-} from '@/lib/copilot/review-sessions/types'
+import { ENTITY_KIND_WORKFLOW, type ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
 import type {
   BaseServerTool,
   ServerToolExecutionContext,
@@ -39,10 +36,7 @@ import {
   readWorkflowSnapshot,
   type WorkflowSnapshot,
 } from '@/lib/yjs/workflow-session'
-import {
-  isWorkflowVariableType,
-  type WorkflowVariableType,
-} from '@/lib/workflows/value-types'
+import { isWorkflowVariableType, type WorkflowVariableType } from '@/lib/workflows/value-types'
 import { editWorkflowServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow'
 import { editWorkflowBlockServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow-block'
 
@@ -171,7 +165,8 @@ function buildWorkflowSummary(workflowState: WorkflowSnapshot): WorkflowSummary 
       return {
         blockId,
         blockType: block.type,
-        blockName: normalizeWorkflowName(typeof block.name === 'string' ? block.name : undefined) ?? blockId,
+        blockName:
+          normalizeWorkflowName(typeof block.name === 'string' ? block.name : undefined) ?? blockId,
         ...(typeof block.enabled === 'boolean' ? { enabled: block.enabled } : {}),
         ...(typeof block.data?.parentId === 'string' ? { parentId: block.data.parentId } : {}),
         subBlockIds: Object.keys(block.subBlocks ?? {}).sort(),
@@ -397,11 +392,8 @@ export const readWorkflowServerTool: BaseServerTool<{ entityId: string }, any> =
   name: 'read_workflow',
   async execute(args, context) {
     const workflowId = requireCopilotEntityId(args, { toolName: 'read_workflow' })
-    const { entityName, workspaceId, workflowState, variables } = await loadWorkflowSnapshotForCopilot(
-      workflowId,
-      context,
-      'read'
-    )
+    const { entityName, workspaceId, workflowState, variables } =
+      await loadWorkflowSnapshotForCopilot(workflowId, context, 'read')
     const entityDocument = serializeWorkflowToTgMermaid(workflowState)
 
     return {
