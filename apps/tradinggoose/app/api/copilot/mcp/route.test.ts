@@ -108,6 +108,7 @@ describe('Copilot MCP route', () => {
     expect(mockUpdateApiKeyLastUsed).toHaveBeenCalledWith('key-1')
     expect(mockGetUserWorkspaces).toHaveBeenCalledWith({ userId: 'user-1', autoCreate: false })
     expect(body.result.capabilities).toEqual({ tools: {} })
+    expect(body.result.serverInfo).toEqual({ name: 'TradingGoose', version: '0.1.0' })
     expect(body.result.instructions).toContain('workspaceId=workspace-1, permissions=admin')
     expect(body.result.instructions).toContain('workspaceId=workspace-2, permissions=read')
     expect(body.result.instructions).toContain(

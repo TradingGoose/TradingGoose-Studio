@@ -24,6 +24,7 @@ import { generateRuntimeCSP } from './lib/security/csp'
 
 const logger = createLogger('Proxy')
 const handleI18nRouting = createMiddleware(routing)
+const MCP_INSTALL_TARGETS = new Set(['codex', 'cursor', 'claude', 'opencode', 'all'])
 
 const SUSPICIOUS_UA_PATTERNS = [
   /^\s*$/,
@@ -69,9 +70,34 @@ function isCanonicalRouteHandlerPath(pathname: string) {
     pathname === '/llms.txt' ||
     pathname === '/llms-full.txt' ||
     pathname === '/manifest.webmanifest' ||
-    pathname === '/mcp' ||
+    isMcpInstallScriptPath(pathname) ||
     pathname === '/robots.txt' ||
     pathname === '/sitemap.xml'
+  )
+}
+
+function isMcpInstallScriptPath(pathname: string) {
+  const segments = pathname.split('/').filter(Boolean)
+  if (segments[0] !== 'mcp') {
+    return false
+  }
+
+  if (segments.length === 1) {
+    return true
+  }
+
+  if (segments[1] === 'login') {
+    return segments.length === 2
+  }
+
+  if (segments[1] !== 'setup') {
+    return false
+  }
+
+  const target = segments[2]
+  return (
+    segments.length === 2 ||
+    (segments.length === 3 && !!target && MCP_INSTALL_TARGETS.has(target))
   )
 }
 
@@ -233,9 +259,11 @@ function routeToCanonicalLocale(
 function handleSecurityFiltering(request: NextRequest): NextResponse | null {
   const userAgent = request.headers.get('user-agent') || ''
   const isWebhookEndpoint = request.nextUrl.pathname.startsWith('/api/webhooks/trigger/')
+  const isCodexMcpClientRequest =
+    request.nextUrl.pathname === '/api/copilot/mcp' && /^\s*$/.test(userAgent)
   const isSuspicious = SUSPICIOUS_UA_PATTERNS.some((pattern) => pattern.test(userAgent))
 
-  if (isSuspicious && !isWebhookEndpoint) {
+  if (isSuspicious && !isWebhookEndpoint && !isCodexMcpClientRequest) {
     logger.warn('Blocked suspicious request', {
       userAgent,
       ip: request.headers.get('x-forwarded-for') || 'unknown',

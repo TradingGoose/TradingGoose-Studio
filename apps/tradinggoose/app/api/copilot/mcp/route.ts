@@ -7,7 +7,7 @@ import { getUserWorkspaces } from '@/lib/workspaces/service'
 export const dynamic = 'force-dynamic'
 
 const MCP_PROTOCOL_VERSION = '2025-03-26'
-const SERVER_NAME = 'tradinggoose-copilot'
+const SERVER_NAME = 'TradingGoose'
 const SERVER_VERSION = '0.1.0'
 
 type JsonRpcId = string | number | null

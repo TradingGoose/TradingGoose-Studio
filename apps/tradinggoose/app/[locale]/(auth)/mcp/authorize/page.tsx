@@ -80,7 +80,7 @@ export default async function McpAuthorizePage({
   return (
     <StatusPage
       title='MCP login approved'
-      description='Return to your terminal to finish configuring your local coding agent.'
+      description='Return to your terminal to finish configuring your local agent.'
     />
   )
 }

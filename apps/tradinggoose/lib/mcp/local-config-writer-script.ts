@@ -3,26 +3,14 @@ const os = require('os')
 const path = require('path')
 
 const target = process.argv[2]
-const scope = process.argv[3]
-const mcpUrl = process.argv[4]
-const token = process.argv[5]
+const mcpUrl = process.argv[3]
+const token = process.argv[4]
 const authHeaders = { Authorization: 'Bearer ' + token }
 const allTargets = ['codex', 'cursor', 'claude', 'opencode']
+const mcpServerName = 'TradingGoose'
+const codexBearerTokenEnvVar = 'TRADINGGOOSE_BEARER_TOKEN'
 
-function resolvePathFor(candidate, candidateScope) {
-  if (candidateScope === 'project') {
-    switch (candidate) {
-      case 'codex':
-        return path.join(process.cwd(), '.codex', 'config.toml')
-      case 'cursor':
-        return path.join(process.cwd(), '.cursor', 'mcp.json')
-      case 'claude':
-        return path.join(process.cwd(), '.mcp.json')
-      case 'opencode':
-        return path.join(process.cwd(), 'opencode.json')
-    }
-  }
-
+function resolvePathFor(candidate) {
   switch (candidate) {
     case 'codex':
       return path.join(os.homedir(), '.codex', 'config.toml')
@@ -38,7 +26,7 @@ function resolvePathFor(candidate, candidateScope) {
 }
 
 function resolvePath() {
-  return resolvePathFor(target, scope)
+  return resolvePathFor(target)
 }
 
 function ensureParent(filePath) {
@@ -48,43 +36,49 @@ function ensureParent(filePath) {
 function writeCodexConfig(filePath) {
   ensureParent(filePath)
   const block = [
-    '[mcp_servers.tradinggoose]',
-    'type = "http"',
+    '[mcp_servers.' + mcpServerName + ']',
     'url = ' + JSON.stringify(mcpUrl),
-    '',
-    '[mcp_servers.tradinggoose.http_headers]',
-    'Authorization = ' + JSON.stringify('Bearer ' + token),
+    'bearer_token_env_var = ' + JSON.stringify(codexBearerTokenEnvVar),
     '',
   ].join('\n')
   const current = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : ''
-  const sectionHeader = '[mcp_servers.tradinggoose]'
-  const startIndex = current.indexOf(sectionHeader)
+  const withoutCurrent = removeTomlMcpServerBlock(current)
+  fs.writeFileSync(
+    filePath,
+    withoutCurrent.trim() ? withoutCurrent.replace(/\s*$/, '') + '\n\n' + block : block,
+    'utf8'
+  )
+}
 
-  if (startIndex === -1) {
-    const next = current.trim() ? current.replace(/\s*$/, '') + '\n\n' + block : block
-    fs.writeFileSync(filePath, next, 'utf8')
-    return
-  }
+function removeTomlMcpServerBlock(current) {
+  const sectionHeader = '[mcp_servers.' + mcpServerName + ']'
+  const subPrefix = '[mcp_servers.' + mcpServerName + '.'
+  let next = current
 
-  const subPrefix = '[mcp_servers.tradinggoose.'
-  const rest = current.slice(startIndex + sectionHeader.length)
-  let endOffset = rest.length
-  const headerPattern = /^\[/gm
-  let match
-
-  while ((match = headerPattern.exec(rest)) !== null) {
-    const lineEnd = rest.indexOf('\n', match.index)
-    const line = rest.slice(match.index, lineEnd === -1 ? undefined : lineEnd)
-    if (!line.startsWith(subPrefix)) {
-      endOffset = match.index
-      break
+  while (true) {
+    const startIndex = next.indexOf(sectionHeader)
+    if (startIndex === -1) {
+      return next
     }
-  }
 
-  const before = current.slice(0, startIndex).replace(/\n+$/, '')
-  const after = current.slice(startIndex + sectionHeader.length + endOffset).replace(/^\n+/, '')
-  const next = (before ? before + '\n\n' : '') + block + (after ? '\n' + after : '')
-  fs.writeFileSync(filePath, next, 'utf8')
+    const rest = next.slice(startIndex + sectionHeader.length)
+    let endOffset = rest.length
+    const headerPattern = /^\[/gm
+    let match
+
+    while ((match = headerPattern.exec(rest)) !== null) {
+      const lineEnd = rest.indexOf('\n', match.index)
+      const line = rest.slice(match.index, lineEnd === -1 ? undefined : lineEnd)
+      if (!line.startsWith(subPrefix)) {
+        endOffset = match.index
+        break
+      }
+    }
+
+    const before = next.slice(0, startIndex).replace(/\n+$/, '')
+    const after = next.slice(startIndex + sectionHeader.length + endOffset).replace(/^\n+/, '')
+    next = before + (before && after ? '\n\n' : '') + after
+  }
 }
 
 function readJson(filePath) {
@@ -104,7 +98,7 @@ function writeJsonConfig(filePath, section, entry) {
   if (!config[section] || typeof config[section] !== 'object' || Array.isArray(config[section])) {
     config[section] = {}
   }
-  config[section].tradinggoose = entry
+  config[section][mcpServerName] = entry
   fs.writeFileSync(filePath, JSON.stringify(config, null, 2) + '\n', 'utf8')
 }
 
@@ -121,21 +115,67 @@ function readCodexToken(filePath) {
     return null
   }
   const text = fs.readFileSync(filePath, 'utf8')
-  const section = text.match(/\[mcp_servers\.tradinggoose\.http_headers\]([\s\S]*?)(?:\n\[|$)/)
+  const section = findTomlMcpServerSection(text)
   if (!section) {
     return null
   }
-  const authorization = section[1].match(/\nAuthorization\s*=\s*["']([^"']+)["']/)
-  return authorization ? bearerTokenFromHeader(authorization[1]) : null
+  const envVar = section.match(/\nbearer_token_env_var\s*=\s*["']([^"']+)["']/)
+  return envVar ? readEnvironmentVariable(envVar[1]) : null
+}
+
+function findTomlMcpServerSection(text) {
+  const sectionHeader = '[mcp_servers.' + mcpServerName + ']'
+  const startIndex = text.indexOf(sectionHeader)
+  if (startIndex === -1) {
+    return null
+  }
+  const rest = text.slice(startIndex + sectionHeader.length)
+  const nextHeaderIndex = rest.search(/\n\[/)
+  return nextHeaderIndex === -1 ? rest : rest.slice(0, nextHeaderIndex)
+}
+
+function persistCodexBearerToken() {
+  process.env[codexBearerTokenEnvVar] = token
+
+  if (process.platform === 'win32') {
+    const { spawnSync } = require('child_process')
+    const result = spawnSync('setx', [codexBearerTokenEnvVar, token], { stdio: 'ignore' })
+    if (result.status !== 0) {
+      throw new Error('Failed to persist ' + codexBearerTokenEnvVar)
+    }
+  }
+}
+
+function readEnvironmentVariable(name) {
+  if (process.env[name]) {
+    return process.env[name]
+  }
+  if (process.platform !== 'win32') {
+    return null
+  }
+
+  const { spawnSync } = require('child_process')
+  const result = spawnSync(
+    'powershell.exe',
+    [
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      '$Value = [Environment]::GetEnvironmentVariable($args[0], [EnvironmentVariableTarget]::User); if ($Value) { [Console]::Out.Write($Value) }',
+      name,
+    ],
+    { encoding: 'utf8' }
+  )
+  return result.status === 0 && result.stdout ? result.stdout : null
 }
 
 function readJsonToken(filePath, section) {
   const config = readJson(filePath)
-  return bearerTokenFromHeader(config?.[section]?.tradinggoose?.headers?.Authorization)
+  return bearerTokenFromHeader(config?.[section]?.[mcpServerName]?.headers?.Authorization)
 }
 
 function readTargetToken(candidate) {
-  const filePath = resolvePathFor(candidate, scope)
+  const filePath = resolvePathFor(candidate)
   switch (candidate) {
     case 'codex':
       return readCodexToken(filePath)
@@ -164,6 +204,7 @@ if (target === 'read-tokens') {
 const filePath = resolvePath()
 switch (target) {
   case 'codex':
+    persistCodexBearerToken()
     writeCodexConfig(filePath)
     break
   case 'cursor':

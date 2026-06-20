@@ -1,36 +1,211 @@
 import { MCP_LOCAL_CONFIG_WRITER_SCRIPT } from './local-config-writer-script'
 
-export function buildMcpInstallScript(baseUrl: string) {
+type McpInstallCommand = 'setup' | 'login'
+type McpInstallTarget = 'codex' | 'cursor' | 'claude' | 'opencode' | 'all'
+export type McpInstallScriptFormat = 'sh' | 'powershell'
+
+export interface McpInstallScriptOptions {
+  command: McpInstallCommand
+  target?: McpInstallTarget
+  format?: McpInstallScriptFormat
+}
+
+function getInitialTargets(target: McpInstallTarget | undefined) {
+  if (!target) {
+    return ''
+  }
+
+  return target === 'all' ? 'codex cursor claude opencode' : target
+}
+
+function getInitialPowerShellTargets(target: McpInstallTarget | undefined) {
+  if (!target) {
+    return '@()'
+  }
+
+  const targets = target === 'all' ? ['codex', 'cursor', 'claude', 'opencode'] : [target]
+  return `@(${targets.map((item) => `'${item}'`).join(', ')})`
+}
+
+const MCP_LOCAL_INSTALLER_SCRIPT = String.raw`const { spawnSync } = require('child_process')
+
+const baseUrl = process.argv[2].replace(/\/+$/, '')
+const command = process.argv[3]
+const targets = process.argv[4] ? process.argv[4].split(/\s+/).filter(Boolean) : []
+const mcpUrl = baseUrl + '/api/copilot/mcp'
+const configWriterScript = ${JSON.stringify(MCP_LOCAL_CONFIG_WRITER_SCRIPT)}
+
+function fail(message) {
+  console.error('tradinggoose-mcp: ' + message)
+  process.exit(1)
+}
+
+function requireFetch() {
+  if (typeof fetch !== 'function') {
+    fail('node 18 or newer is required to rotate MCP auth.')
+  }
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function postJson(url, body, token) {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      ...(body ? { 'content-type': 'application/json' } : {}),
+      ...(token ? { authorization: 'Bearer ' + token } : {}),
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  })
+
+  if (!response.ok) {
+    fail(url + ' failed with HTTP ' + response.status)
+  }
+
+  return response.headers.get('content-type')?.includes('application/json')
+    ? response.json()
+    : null
+}
+
+function runConfigWriter(args) {
+  const result = spawnSync(process.execPath, ['-', ...args], {
+    input: configWriterScript,
+    encoding: 'utf8',
+  })
+
+  if (result.status !== 0) {
+    fail((result.stderr || 'Failed to run the MCP config writer.').trim())
+  }
+
+  return result.stdout.trim()
+}
+
+async function revokeExistingTokens() {
+  const tokens = runConfigWriter(['read-tokens']).split(/\r?\n/).filter(Boolean)
+  for (const token of tokens) {
+    await postJson(baseUrl + '/api/auth/mcp/revoke', null, token)
+  }
+}
+
+async function authenticate() {
+  const startJson = await postJson(baseUrl + '/api/auth/mcp/start')
+  const code = String(startJson?.code || '')
+  const authorizeUrl = String(startJson?.authorizeUrl || '')
+  const intervalSeconds = Math.max(1, Number(startJson?.intervalSeconds) || 2)
+
+  if (!code) {
+    fail('Studio did not return a login code')
+  }
+  if (!authorizeUrl) {
+    fail('Studio did not return an authorization URL')
+  }
+
+  console.log('Open this URL in your browser to approve MCP access:')
+  console.log(authorizeUrl)
+  console.log('')
+
+  const deadline = Date.now() + 600000
+  while (Date.now() < deadline) {
+    const pollJson = await postJson(baseUrl + '/api/auth/mcp/poll', { code })
+    const status = String(pollJson?.status || 'pending')
+
+    if (status === 'approved') {
+      const token = String(pollJson?.apiKey || '')
+      if (!token) {
+        fail('Studio approved login without returning a token')
+      }
+      return token
+    }
+
+    if (status === 'expired') {
+      fail('Login expired. Run the command again.')
+    }
+
+    if (status !== 'pending') {
+      fail('Unexpected login status: ' + status)
+    }
+
+    await sleep(intervalSeconds * 1000)
+  }
+
+  fail('Timed out waiting for browser approval')
+}
+
+async function main() {
+  requireFetch()
+
+  if (command === 'login') {
+    await revokeExistingTokens()
+    const token = await authenticate()
+    console.log('MCP endpoint:')
+    console.log(mcpUrl)
+    console.log('')
+    console.log('Bearer token:')
+    console.log(token)
+    console.log('')
+    console.log('Use this MCP auth header:')
+    console.log('Authorization: Bearer ' + token)
+    return
+  }
+
+  if (command === 'setup') {
+    if (targets.length === 0) {
+      fail('setup requires a selected target')
+    }
+
+    await revokeExistingTokens()
+    const token = await authenticate()
+    console.log('Using MCP endpoint: ' + mcpUrl)
+    for (const target of targets) {
+      const configPath = runConfigWriter([target, mcpUrl, token])
+      console.log('Configured ' + target + ': ' + configPath)
+    }
+    return
+  }
+
+  fail('Unknown command: ' + command)
+}
+
+main().catch((error) => fail(error instanceof Error ? error.message : String(error)))
+`
+
+export function buildMcpInstallScript(baseUrl: string, options: McpInstallScriptOptions) {
+  return options.format === 'powershell'
+    ? buildPowerShellInstallScript(baseUrl, options)
+    : buildShellInstallScript(baseUrl, options)
+}
+
+function buildShellInstallScript(baseUrl: string, options: McpInstallScriptOptions) {
   const normalizedBaseUrl = baseUrl.replace(/\/+$/, '')
+  const initialTargets = getInitialTargets(options.target)
   const script = String.raw`#!/bin/sh
 set -eu
 
-BASE_URL="\${TRADINGGOOSE_BASE_URL:-${normalizedBaseUrl}}"
-SCOPE="global"
-TARGETS=""
+BASE_URL="${normalizedBaseUrl}"
+COMMAND="${options.command}"
+TARGETS="${initialTargets}"
 
 usage() {
   cat <<'USAGE'
 TradingGoose MCP setup
 
 Usage:
-  curl -fsSL <studio-url>/mcp | sh -s -- login
-  curl -fsSL <studio-url>/mcp | sh -s -- setup --codex
-  curl -fsSL <studio-url>/mcp | sh -s -- setup --all
+  curl -fsSL <studio-url>/mcp/setup | sh
+  curl -fsSL <studio-url>/mcp/setup/codex | sh
+  curl -fsSL <studio-url>/mcp/login | sh
+
+PowerShell:
+  irm <studio-url>/mcp/setup | iex
+  irm <studio-url>/mcp/setup/codex | iex
+  irm <studio-url>/mcp/login | iex
 
 Commands:
   login   Rotate local MCP auth and print a bearer token.
   setup   Authenticate, rotate local MCP auth, and write config.
 
 Options:
-  --base-url <url>  Override the Studio URL embedded in this script.
-  --codex           Configure Codex.
-  --cursor          Configure Cursor.
-  --claude          Configure Claude Code.
-  --opencode        Configure OpenCode.
-  --all             Configure Codex, Cursor, Claude Code, and OpenCode.
-  --project         Write project-local config from the current directory.
-  --global          Write user-global config. This is the default.
   -h, --help        Show this help.
 USAGE
 }
@@ -38,14 +213,6 @@ USAGE
 fail() {
   echo "tradinggoose-mcp: $*" >&2
   exit 1
-}
-
-json_string() {
-  sed -n "s/.*\"$1\":\"\([^\"]*\)\".*/\1/p"
-}
-
-json_number() {
-  sed -n "s/.*\"$1\":\([0-9][0-9]*\).*/\1/p"
 }
 
 add_target() {
@@ -61,7 +228,7 @@ choose_targets() {
   fi
 
   if [ ! -r /dev/tty ]; then
-    fail "setup requires a target. Pass --codex, --cursor, --claude, --opencode, or --all."
+    fail "setup requires an interactive terminal or a target URL such as /mcp/setup/codex."
   fi
 
   {
@@ -90,121 +257,15 @@ choose_targets() {
   esac
 }
 
-require_node() {
+run_installer() {
   command -v node >/dev/null 2>&1 || fail "node is required to rotate MCP auth and write config."
-}
-
-write_target_config() {
-  require_node
-  node - "$1" "$SCOPE" "$MCP_URL" "$TOKEN" <<'NODE'
-${MCP_LOCAL_CONFIG_WRITER_SCRIPT}
+  node - "$BASE_URL" "$COMMAND" "$TARGETS" <<'NODE'
+${MCP_LOCAL_INSTALLER_SCRIPT}
 NODE
 }
-
-read_existing_tokens() {
-  require_node
-  node - read-tokens "$SCOPE" <<'NODE'
-${MCP_LOCAL_CONFIG_WRITER_SCRIPT}
-NODE
-}
-
-revoke_existing_tokens() {
-  BASE_URL="\${BASE_URL%/}"
-  REVOKE_URL="$BASE_URL/api/auth/mcp/revoke"
-  TOKENS="$(read_existing_tokens)"
-
-  [ -n "$TOKENS" ] || return 0
-
-  printf '%s\n' "$TOKENS" | while IFS= read -r OLD_TOKEN; do
-    [ -n "$OLD_TOKEN" ] || continue
-    curl -fsS -X POST -H "Authorization: Bearer $OLD_TOKEN" "$REVOKE_URL" >/dev/null
-  done
-}
-
-authenticate() {
-  BASE_URL="\${BASE_URL%/}"
-  MCP_URL="$BASE_URL/api/copilot/mcp"
-  START_URL="$BASE_URL/api/auth/mcp/start"
-  POLL_URL="$BASE_URL/api/auth/mcp/poll"
-
-  START_JSON="$(curl -fsS -X POST -H 'Content-Type: application/json' "$START_URL")"
-  CODE="$(printf '%s' "$START_JSON" | json_string code)"
-  AUTHORIZE_URL="$(printf '%s' "$START_JSON" | json_string authorizeUrl)"
-  INTERVAL="$(printf '%s' "$START_JSON" | json_number intervalSeconds)"
-
-  [ -n "$CODE" ] || fail "Studio did not return a login code"
-  [ -n "$AUTHORIZE_URL" ] || fail "Studio did not return an authorization URL"
-  [ -n "$INTERVAL" ] || INTERVAL="2"
-
-  echo "Open this URL in your browser to approve MCP access:"
-  echo "$AUTHORIZE_URL"
-  echo
-
-  DEADLINE="$(($(date +%s) + 600))"
-  while [ "$(date +%s)" -lt "$DEADLINE" ]; do
-    POLL_JSON="$(curl -fsS -X POST -H 'Content-Type: application/json' -d "{\"code\":\"$CODE\"}" "$POLL_URL" || printf '{"status":"pending"}')"
-    STATUS="$(printf '%s' "$POLL_JSON" | json_string status)"
-
-    case "$STATUS" in
-      approved)
-        TOKEN="$(printf '%s' "$POLL_JSON" | json_string apiKey)"
-        [ -n "$TOKEN" ] || fail "Studio approved login without returning a token"
-        return 0
-        ;;
-      expired)
-        fail "Login expired. Run the command again."
-        ;;
-      pending|"")
-        sleep "$INTERVAL"
-        ;;
-      *)
-        fail "Unexpected login status: $STATUS"
-        ;;
-    esac
-  done
-
-  fail "Timed out waiting for browser approval"
-}
-
-COMMAND="\${1:-setup}"
-if [ "$#" -gt 0 ]; then
-  shift
-fi
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --base-url)
-      shift
-      [ "$#" -gt 0 ] || fail "--base-url requires a value"
-      BASE_URL="$1"
-      ;;
-    --base-url=*)
-      BASE_URL="\${1#--base-url=}"
-      ;;
-    --codex)
-      add_target codex
-      ;;
-    --cursor)
-      add_target cursor
-      ;;
-    --claude)
-      add_target claude
-      ;;
-    --opencode)
-      add_target opencode
-      ;;
-    --all)
-      add_target codex
-      add_target cursor
-      add_target claude
-      add_target opencode
-      ;;
-    --project)
-      SCOPE="project"
-      ;;
-    --global)
-      SCOPE="global"
-      ;;
     -h|--help)
       usage
       exit 0
@@ -217,27 +278,12 @@ while [ "$#" -gt 0 ]; do
 done
 
 case "$COMMAND" in
-  login)
-    revoke_existing_tokens
-    authenticate
-    echo "MCP endpoint:"
-    echo "$MCP_URL"
-    echo
-    echo "Bearer token:"
-    echo "$TOKEN"
-    echo
-    echo "Use this MCP auth header:"
-    echo "Authorization: Bearer $TOKEN"
-    ;;
   setup)
     choose_targets
-    revoke_existing_tokens
-    authenticate
-    echo "Using MCP endpoint: $MCP_URL"
-    for TARGET in $TARGETS; do
-      CONFIG_PATH="$(write_target_config "$TARGET")"
-      echo "Configured $TARGET: $CONFIG_PATH"
-    done
+    run_installer
+    ;;
+  login)
+    run_installer
     ;;
   help|-h|--help)
     usage
@@ -248,4 +294,121 @@ case "$COMMAND" in
 esac
 `
   return script.replaceAll('\\${', '${')
+}
+
+function buildPowerShellInstallScript(baseUrl: string, options: McpInstallScriptOptions) {
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, '')
+  const initialTargets = getInitialPowerShellTargets(options.target)
+
+  return String.raw`$ErrorActionPreference = 'Stop'
+
+$BaseUrl = '${normalizedBaseUrl}'
+$Command = '${options.command}'
+$Targets = ${initialTargets}
+
+function Show-Usage {
+  @'
+TradingGoose MCP setup
+
+Usage:
+  irm <studio-url>/mcp/setup | iex
+  irm <studio-url>/mcp/setup/codex | iex
+  irm <studio-url>/mcp/login | iex
+
+POSIX shell:
+  curl -fsSL <studio-url>/mcp/setup | sh
+  curl -fsSL <studio-url>/mcp/setup/codex | sh
+  curl -fsSL <studio-url>/mcp/login | sh
+
+Commands:
+  login   Rotate local MCP auth and print a bearer token.
+  setup   Authenticate, rotate local MCP auth, and write config.
+
+Options:
+  -h, --help        Show this help.
+'@ | Write-Output
+}
+
+function Fail([string] $Message) {
+  Write-Error "tradinggoose-mcp: $Message"
+  exit 1
+}
+
+function Add-Target([string] $Target) {
+  if ($script:Targets -notcontains $Target) {
+    $script:Targets += $Target
+  }
+}
+
+function Choose-Targets {
+  if ($script:Targets.Count -gt 0) {
+    return
+  }
+
+  Write-Host 'Choose local MCP target:'
+  Write-Host '  1) Codex'
+  Write-Host '  2) Cursor'
+  Write-Host '  3) Claude Code'
+  Write-Host '  4) OpenCode'
+  Write-Host '  5) All'
+  $Choice = Read-Host 'Target [1-5]'
+
+  switch ($Choice) {
+    '1' { Add-Target 'codex' }
+    '2' { Add-Target 'cursor' }
+    '3' { Add-Target 'claude' }
+    '4' { Add-Target 'opencode' }
+    '5' {
+      Add-Target 'codex'
+      Add-Target 'cursor'
+      Add-Target 'claude'
+      Add-Target 'opencode'
+    }
+    default { Fail "Invalid setup target: $Choice" }
+  }
+}
+
+function Run-Installer {
+  if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+    Fail 'node is required to rotate MCP auth and write config.'
+  }
+
+  $NodeScript = @'
+${MCP_LOCAL_INSTALLER_SCRIPT}
+'@
+  $NodeScript | & node - $BaseUrl $Command ($Targets -join ' ')
+  if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+  }
+}
+
+for ($Index = 0; $Index -lt $args.Count; $Index++) {
+  switch ($args[$Index]) {
+    '-h' {
+      Show-Usage
+      exit 0
+    }
+    '--help' {
+      Show-Usage
+      exit 0
+    }
+    default {
+      Fail "Unknown option: $($args[$Index])"
+    }
+  }
+}
+
+switch ($Command) {
+  'setup' {
+    Choose-Targets
+    Run-Installer
+  }
+  'login' {
+    Run-Installer
+  }
+  default {
+    Fail "Unknown command: $Command"
+  }
+}
+`
 }
