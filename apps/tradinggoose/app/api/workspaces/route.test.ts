@@ -18,7 +18,7 @@ describe('Workspaces API Route', () => {
   const updateSetMock = vi.fn()
   const updateMock = vi.fn()
   const mockSaveWorkflowToNormalizedTables = vi.fn()
-  const mockTryApplyWorkflowState = vi.fn()
+  const mockApplyWorkflowState = vi.fn()
   let userWorkspaces: Array<{
     workspace: Record<string, unknown>
     permissionType: 'admin' | 'write' | 'read' | null
@@ -38,7 +38,7 @@ describe('Workspaces API Route', () => {
     updateSetMock.mockReturnValue({ where: updateWhereMock })
     updateMock.mockReturnValue({ set: updateSetMock })
     mockSaveWorkflowToNormalizedTables.mockResolvedValue({ success: true })
-    mockTryApplyWorkflowState.mockResolvedValue({ success: true })
+    mockApplyWorkflowState.mockResolvedValue(undefined)
 
     vi.doMock('@tradinggoose/db', () => ({
       db: {
@@ -109,11 +109,13 @@ describe('Workspaces API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
+      ensureUniqueBlockIds: vi.fn(async (_workflowId: string, state: any) => state),
+      ensureUniqueEdgeIds: vi.fn(async (_workflowId: string, state: any) => state),
       saveWorkflowToNormalizedTables: mockSaveWorkflowToNormalizedTables,
     }))
 
     vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
-      tryApplyWorkflowState: mockTryApplyWorkflowState,
+      applyWorkflowState: mockApplyWorkflowState,
     }))
 
     vi.doMock('@/lib/yjs/workflow-session', () => ({
@@ -266,11 +268,7 @@ describe('Workspaces API Route', () => {
     ],
     [
       'Yjs seeding fails',
-      () =>
-        mockTryApplyWorkflowState.mockResolvedValue({
-          success: false,
-          error: new Error('socket unavailable'),
-        }),
+      () => mockApplyWorkflowState.mockRejectedValue(new Error('socket unavailable')),
     ],
   ])('removes a newly created workspace when default workflow %s', async (_case, fail) => {
     fail()

@@ -3,9 +3,13 @@ import { and, eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
+import {
+  ensureUniqueBlockIds,
+  ensureUniqueEdgeIds,
+  saveWorkflowToNormalizedTables,
+} from '@/lib/workflows/db-helpers'
 import { validateWorkflowPermissions } from '@/lib/workflows/utils'
-import { tryApplyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
+import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { notifyMonitorsReconcile } from '@/app/api/monitors/reconcile'
 import { pauseMonitorsMissingDeployedTrigger } from '@/app/api/monitors/shared'
@@ -73,21 +77,7 @@ export async function POST(
     const now = new Date()
     const revertVariables = deployedState.variables || undefined
 
-    const saveResult = await saveWorkflowToNormalizedTables(id, {
-      blocks: deployedState.blocks,
-      edges: deployedState.edges,
-      loops: deployedState.loops || {},
-      parallels: deployedState.parallels || {},
-      lastSaved: Date.now(),
-      isDeployed: true,
-      deployedAt: new Date(),
-    })
-
-    if (!saveResult.success) {
-      return createErrorResponse(saveResult.error || 'Failed to save deployed state', 500)
-    }
-
-    const persistedRevertedState = saveResult.normalizedState ?? {
+    const revertedState = {
       blocks: deployedState.blocks,
       edges: deployedState.edges,
       loops: deployedState.loops || {},
@@ -96,6 +86,9 @@ export async function POST(
       isDeployed: true,
       deployedAt: new Date(),
     }
+
+    const stateWithUniqueBlockIds = await ensureUniqueBlockIds(id, revertedState)
+    const persistedRevertedState = await ensureUniqueEdgeIds(id, stateWithUniqueBlockIds)
     const revertSnapshot = createWorkflowSnapshot({
       blocks: persistedRevertedState.blocks,
       edges: persistedRevertedState.edges,
@@ -106,6 +99,13 @@ export async function POST(
       deployedAt: now.toISOString(),
     })
 
+    await applyWorkflowState(id, revertSnapshot, revertVariables)
+
+    const saveResult = await saveWorkflowToNormalizedTables(id, persistedRevertedState)
+    if (!saveResult.success) {
+      return createErrorResponse(saveResult.error || 'Failed to materialize deployed state', 500)
+    }
+
     await db
       .update(workflow)
       .set({
@@ -114,9 +114,6 @@ export async function POST(
         ...(revertVariables ? { variables: revertVariables } : {}),
       })
       .where(eq(workflow.id, id))
-
-    // Publish the reverted state to Yjs only after the durable writes succeed.
-    await tryApplyWorkflowState(id, revertSnapshot, revertVariables)
 
     await pauseMonitorsMissingDeployedTrigger(id)
     await notifyMonitorsReconcile({ requestId, logger })

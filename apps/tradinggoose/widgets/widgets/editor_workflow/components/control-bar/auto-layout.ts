@@ -274,7 +274,7 @@ export async function applyAutoLayoutAndUpdateStore({
         throw new Error(errorMessage)
       }
 
-      logger.info('Auto layout successfully persisted to database', {
+      logger.info('Auto layout successfully persisted', {
         workflowId: resolvedWorkflowId,
         channelId,
       })
@@ -284,7 +284,7 @@ export async function applyAutoLayoutAndUpdateStore({
         saveError instanceof Error && saveError.message
           ? saveError.message
           : JSON.stringify(saveError)
-      logger.error('Failed to save auto layout to database, reverting Yjs doc:', {
+      logger.error('Failed to persist auto layout, reverting Yjs doc:', {
         workflowId: resolvedWorkflowId,
         error: message,
       })
@@ -296,7 +296,7 @@ export async function applyAutoLayoutAndUpdateStore({
 
       return {
         success: false,
-        error: `Failed to save positions to database: ${
+        error: `Failed to save positions: ${
           saveError instanceof Error ? saveError.message : 'Unknown error'
         }`,
       }

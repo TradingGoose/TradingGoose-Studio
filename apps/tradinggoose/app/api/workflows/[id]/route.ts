@@ -27,7 +27,7 @@ const UpdateWorkflowSchema = z
 /**
  * GET /api/workflows/[id]
  * Fetch a single workflow by ID
- * Uses the authoritative Yjs-first workflow state loader.
+ * Uses the authoritative Yjs workflow state loader.
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const requestId = generateRequestId()
@@ -124,31 +124,28 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     logger.debug(`[${requestId}] Attempting to load workflow ${workflowId} from authoritative state`)
-    const workflowState = await loadWorkflowState(workflowId, workflowData.lastSynced)
+    const workflowState = await loadWorkflowState(workflowId)
 
     if (!workflowState) {
-      logger.warn(
-        `[${requestId}] Workflow ${workflowId} has no stored state, returning empty state`
-      )
-    } else {
-      logger.debug(`[${requestId}] Found ${workflowState.source} workflow state for ${workflowId}:`, {
-        blocksCount: Object.keys(workflowState.blocks).length,
-        edgesCount: workflowState.edges.length,
-        loopsCount: Object.keys(workflowState.loops).length,
-        parallelsCount: Object.keys(workflowState.parallels).length,
-        loops: workflowState.loops,
-      })
+      logger.warn(`[${requestId}] Workflow ${workflowId} is missing canonical Yjs state`)
+      return NextResponse.json({ error: 'Workflow state is missing' }, { status: 409 })
     }
 
-    const resolvedState = workflowState
-      ? createWorkflowSnapshot({
-          direction: workflowState.direction,
-          blocks: workflowState.blocks,
-          edges: workflowState.edges,
-          loops: workflowState.loops,
-          parallels: workflowState.parallels,
-        })
-      : createWorkflowSnapshot()
+    logger.debug(`[${requestId}] Found ${workflowState.source} workflow state for ${workflowId}:`, {
+      blocksCount: Object.keys(workflowState.blocks).length,
+      edgesCount: workflowState.edges.length,
+      loopsCount: Object.keys(workflowState.loops).length,
+      parallelsCount: Object.keys(workflowState.parallels).length,
+      loops: workflowState.loops,
+    })
+
+    const resolvedState = createWorkflowSnapshot({
+      direction: workflowState.direction,
+      blocks: workflowState.blocks,
+      edges: workflowState.edges,
+      loops: workflowState.loops,
+      parallels: workflowState.parallels,
+    })
 
     let resolvedBlocks = resolvedState.blocks
     if (!isInternalCall && resolvedState.blocks) {
@@ -173,7 +170,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         lastSaved: Date.now(),
         isDeployed: workflowData.isDeployed || false,
         deployedAt: workflowData.deployedAt,
-        variables: workflowState?.variables ?? {},
+        variables: workflowState.variables,
       },
     }
 

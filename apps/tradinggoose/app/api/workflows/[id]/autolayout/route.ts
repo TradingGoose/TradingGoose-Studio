@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { applyAutoLayout } from '@/lib/workflows/autolayout'
-import { loadWorkflowFromNormalizedTables } from '@/lib/workflows/db-helpers'
+import { loadWorkflowState } from '@/lib/workflows/db-helpers'
 import { validateWorkflowPermissions } from '@/lib/workflows/utils'
 
 export const dynamic = 'force-dynamic'
@@ -60,8 +60,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         edges: layoutOptions.edges,
       }
     } else {
-      logger.info(`[${requestId}] Loading blocks from database`)
-      currentWorkflowData = await loadWorkflowFromNormalizedTables(workflowId)
+      logger.info(`[${requestId}] Loading blocks from Yjs`)
+      currentWorkflowData = await loadWorkflowState(workflowId)
     }
 
     if (!currentWorkflowData) {

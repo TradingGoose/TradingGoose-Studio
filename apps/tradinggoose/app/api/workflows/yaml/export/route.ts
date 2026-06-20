@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
 
     const userId = session.user.id
 
-    // Fetch the workflow from database
+    // Fetch workflow metadata for access checks.
     const workflowData = await db
       .select()
       .from(workflow)

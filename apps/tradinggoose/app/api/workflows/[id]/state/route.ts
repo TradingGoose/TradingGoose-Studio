@@ -7,13 +7,15 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { extractAndPersistCustomTools } from '@/lib/workflows/custom-tools-persistence'
 import {
+  ensureUniqueBlockIds,
+  ensureUniqueEdgeIds,
   loadWorkflowStateFromYjs,
   saveWorkflowToNormalizedTables,
   toISOStringOrUndefined,
 } from '@/lib/workflows/db-helpers'
 import { validateWorkflowPermissions } from '@/lib/workflows/utils'
 import { sanitizeAgentToolsInBlocks } from '@/lib/workflows/validation'
-import { tryApplyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
+import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 const logger = createLogger('WorkflowStateAPI')
@@ -122,7 +124,7 @@ type ResolvedVariables = {
 
 /**
  * PUT /api/workflows/[id]/state
- * Save complete workflow state to normalized database tables
+ * Save complete workflow state to Yjs and materialize derived database tables.
  */
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const requestId = generateRequestId()
@@ -212,31 +214,30 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       }
     }
 
-    const saveResult = await saveWorkflowToNormalizedTables(workflowId, workflowState as any)
-
-    if (!saveResult.success) {
-      logger.error(`[${requestId}] Failed to save workflow ${workflowId} state:`, saveResult.error)
+    if (resolvedVariables.source === 'unavailable') {
       return NextResponse.json(
-        { error: 'Failed to save workflow state', details: saveResult.error },
-        { status: 500 }
+        { error: 'Failed to save workflow state', details: 'Current workflow variables are unavailable' },
+        { status: 409 }
       )
     }
 
-    const persistedWorkflowState = saveResult.normalizedState ?? workflowState
+    const stateWithUniqueBlockIds = await ensureUniqueBlockIds(workflowId, workflowState as any)
+    const persistedWorkflowState = await ensureUniqueEdgeIds(workflowId, stateWithUniqueBlockIds)
 
-    // Apply the validated state to Yjs only when we can also preserve the
-    // current variables snapshot. Otherwise this process might publish a
-    // partial doc and wipe newer variables owned by the separate socket server.
-    if (resolvedVariables.source !== 'unavailable') {
-      await tryApplyWorkflowState(
-        workflowId,
-        persistedWorkflowState as WorkflowSnapshot,
-        resolvedVariables.value,
-        workflowData.name
-      )
-    } else {
-      logger.warn(
-        `[${requestId}] Skipping Yjs workflow apply because no authoritative Yjs variables were available for ${workflowId}`
+    await applyWorkflowState(
+      workflowId,
+      persistedWorkflowState as WorkflowSnapshot,
+      resolvedVariables.value,
+      workflowData.name
+    )
+
+    const saveResult = await saveWorkflowToNormalizedTables(workflowId, persistedWorkflowState as any)
+
+    if (!saveResult.success) {
+      logger.error(`[${requestId}] Failed to materialize workflow ${workflowId} state:`, saveResult.error)
+      return NextResponse.json(
+        { error: 'Failed to materialize workflow state', details: saveResult.error },
+        { status: 500 }
       )
     }
 
@@ -266,9 +267,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       .set({
         lastSynced: syncedAt,
         updatedAt: syncedAt,
-        ...(resolvedVariables.source !== 'unavailable'
-          ? { variables: resolvedVariables.value ?? {} }
-          : {}),
+        variables: resolvedVariables.value ?? {},
       })
       .where(eq(workflow.id, workflowId))
 

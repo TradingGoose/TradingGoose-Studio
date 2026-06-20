@@ -10,7 +10,7 @@ describe('Revert To Deployment Version API Route', () => {
 
   const mockValidateWorkflowPermissions = vi.fn()
   const mockSaveWorkflowToNormalizedTables = vi.fn()
-  const mockTryApplyWorkflowState = vi.fn()
+  const mockApplyWorkflowState = vi.fn()
   const mockDbSelectLimit = vi.fn()
   const mockDbUpdateWhere = vi.fn()
 
@@ -24,9 +24,8 @@ describe('Revert To Deployment Version API Route', () => {
       callOrder.push('save')
       return { success: true }
     })
-    mockTryApplyWorkflowState.mockImplementation(async () => {
+    mockApplyWorkflowState.mockImplementation(async () => {
       callOrder.push('apply')
-      return { success: true }
     })
     mockDbSelectLimit.mockResolvedValue([
       {
@@ -107,11 +106,13 @@ describe('Revert To Deployment Version API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
+      ensureUniqueBlockIds: vi.fn(async (_workflowId: string, state: any) => state),
+      ensureUniqueEdgeIds: vi.fn(async (_workflowId: string, state: any) => state),
       saveWorkflowToNormalizedTables: mockSaveWorkflowToNormalizedTables,
     }))
 
     vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
-      tryApplyWorkflowState: mockTryApplyWorkflowState,
+      applyWorkflowState: mockApplyWorkflowState,
     }))
 
     vi.doMock('@/lib/yjs/workflow-session', () => ({
@@ -144,7 +145,7 @@ describe('Revert To Deployment Version API Route', () => {
     vi.clearAllMocks()
   })
 
-  it('publishes the reverted Yjs state only after the durable writes complete', async () => {
+  it('publishes the reverted Yjs state before materializing derived tables', async () => {
     const { POST } = await import('@/app/api/workflows/[id]/deployments/[version]/revert/route')
     const request = new NextRequest(
       'http://localhost:3000/api/workflows/workflow-1/deployments/active/revert'
@@ -155,8 +156,8 @@ describe('Revert To Deployment Version API Route', () => {
     })
 
     expect(response.status).toBe(200)
-    expect(callOrder).toEqual(['save', 'db-update', 'apply'])
-    expect(mockTryApplyWorkflowState).toHaveBeenCalledWith(
+    expect(callOrder).toEqual(['apply', 'save', 'db-update'])
+    expect(mockApplyWorkflowState).toHaveBeenCalledWith(
       'workflow-1',
       expect.objectContaining({
         blocks: expect.any(Object),
@@ -173,8 +174,11 @@ describe('Revert To Deployment Version API Route', () => {
     )
   })
 
-  it('does not publish the reverted Yjs state when the workflow row update fails', async () => {
-    mockDbUpdateWhere.mockRejectedValueOnce(new Error('database unavailable'))
+  it('reports workflow-row update failures after Yjs and materialization complete', async () => {
+    mockDbUpdateWhere.mockImplementationOnce(async () => {
+      callOrder.push('db-update')
+      throw new Error('database unavailable')
+    })
 
     const { POST } = await import('@/app/api/workflows/[id]/deployments/[version]/revert/route')
     const request = new NextRequest(
@@ -186,7 +190,7 @@ describe('Revert To Deployment Version API Route', () => {
     })
 
     expect(response.status).toBe(500)
-    expect(callOrder).toEqual(['save'])
-    expect(mockTryApplyWorkflowState).not.toHaveBeenCalled()
+    expect(callOrder).toEqual(['apply', 'save', 'db-update'])
+    expect(mockApplyWorkflowState).toHaveBeenCalledOnce()
   })
 })

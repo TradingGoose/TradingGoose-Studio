@@ -26,8 +26,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     let needsRedeployment = false
 
     if (validation.workflow.isDeployed) {
-      // Load current state (Yjs-first, fall back to normalized tables) and
-      // the active deployment version in parallel.
+      // Load current editable state from Yjs and the active deployment version in parallel.
       const [currentState, [active]] = await Promise.all([
         loadWorkflowState(id),
         db

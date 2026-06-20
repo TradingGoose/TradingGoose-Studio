@@ -19,8 +19,6 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 import { resolveStoredDateValue } from '@/lib/time-format'
 import { sanitizeAgentToolsInBlocks } from '@/lib/workflows/validation'
-import { normalizeVariables } from '@/lib/workflows/variable-utils'
-import { inferMermaidDirectionFromWorkflowState } from '@/lib/workflows/workflow-direction'
 import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
 import { extractPersistedStateFromDoc } from '@/lib/yjs/workflow-session'
 import type { Variable } from '@/stores/variables/types'
@@ -95,9 +93,6 @@ export type PersistedWorkflowState = {
  * server Yjs session through the generic Yjs snapshot transport. The socket
  * server resolves a live workflow doc first and otherwise falls back to its
  * persisted Yjs blob.
- *
- * Returns `null` when neither source has data for the given workflow,
- * signalling the caller to fall back to the normalized DB tables.
  */
 export async function loadWorkflowStateFromYjs(
   workflowId: string
@@ -137,108 +132,25 @@ export async function loadWorkflowStateFromYjs(
 }
 
 export type WorkflowStateWithSource = PersistedWorkflowState & {
-  source: 'yjs' | 'normalized'
+  source: 'yjs'
 }
 
 /**
- * Loads the current workflow state from Yjs (live doc or persisted session),
- * then from the normalized DB tables + workflow row variables.
- *
- * Callers that already have the workflow row can pass `lastSynced` to avoid
- * an extra staleness-check query on the common fresh-Yjs path.
- *
- * Returns `null` when neither source has data for the given workflow.
- *
- * The Yjs lookup is intentionally awaited before the DB query.  Yjs is the
- * authoritative source when a live session or persisted session exists, and
- * running both in parallel would waste a DB round-trip in the common case
- * while risking returning stale normalized-table data if the concurrent
- * result were used by mistake.
+ * Loads the current editable workflow state from Yjs.
  */
 export async function loadWorkflowState(
-  workflowId: string,
-  lastSynced?: Date
+  workflowId: string
 ): Promise<WorkflowStateWithSource | null> {
-  const providedWorkflowLastSynced = resolveStoredDateValue(lastSynced)
-  let workflowRowPromise:
-    | Promise<
-        | {
-            variables: unknown
-            lastSynced: unknown
-          }
-        | undefined
-      >
-    | undefined
-
-  const loadWorkflowRow = () => {
-    if (!workflowRowPromise) {
-      workflowRowPromise = db
-        .select({ variables: workflow.variables, lastSynced: workflow.lastSynced })
-        .from(workflow)
-        .where(eq(workflow.id, workflowId))
-        .limit(1)
-        .then((rows) => rows[0])
-    }
-
-    return workflowRowPromise
-  }
-
   try {
     const yjsState = await loadWorkflowStateFromYjs(workflowId)
     if (yjsState) {
-      const workflowLastSynced =
-        providedWorkflowLastSynced ?? resolveStoredDateValue((await loadWorkflowRow())?.lastSynced)
-      const yjsLastSaved = resolveStoredDateValue(yjsState.lastSaved)
-
-      if (
-        !workflowLastSynced ||
-        (yjsLastSaved && yjsLastSaved.getTime() >= workflowLastSynced.getTime())
-      ) {
-        return { ...yjsState, source: 'yjs' }
-      }
-
-      logger.warn(
-        `Ignoring stale Yjs workflow state for ${workflowId} because normalized state is newer`,
-        {
-          workflowId,
-          workflowLastSynced: workflowLastSynced.toISOString(),
-          yjsLastSaved: yjsLastSaved?.toISOString(),
-        }
-      )
+      return { ...yjsState, source: 'yjs' }
     }
   } catch (error) {
-    logger.warn(
-      `Failed to load authoritative Yjs state for workflow ${workflowId}; loading normalized state`,
-      error
-    )
+    logger.warn(`Failed to load Yjs state for workflow ${workflowId}`, error)
   }
 
-  // Load normalized tables and workflow variables in parallel
-  const [normalizedData, resolvedWorkflowRow] = await Promise.all([
-    loadWorkflowFromNormalizedTables(workflowId),
-    loadWorkflowRow(),
-  ])
-
-  if (!normalizedData) {
-    return null
-  }
-
-  return {
-    direction:
-      normalizedData.blocks && Object.keys(normalizedData.blocks).length > 0
-        ? inferMermaidDirectionFromWorkflowState({
-            blocks: normalizedData.blocks,
-            edges: normalizedData.edges,
-          })
-        : undefined,
-    blocks: normalizedData.blocks,
-    edges: normalizedData.edges,
-    loops: normalizedData.loops,
-    parallels: normalizedData.parallels,
-    variables: normalizeVariables(resolvedWorkflowRow?.variables),
-    lastSaved: Date.now(),
-    source: 'normalized',
-  }
+  return null
 }
 
 /**
@@ -663,7 +575,7 @@ export async function loadDeployedWorkflowState(
 
 /**
  * Load workflow state from normalized tables
- * Returns null if no normalized data exists.
+ * Returns null if materialized workflow rows are absent.
  */
 export async function loadWorkflowFromNormalizedTables(
   workflowId: string

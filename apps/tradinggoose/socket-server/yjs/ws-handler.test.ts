@@ -23,6 +23,7 @@ const mockSetPersistence = vi.fn()
 const mockSetupWSConnection = vi.fn()
 const mockGetState = vi.fn()
 const mockStoreState = vi.fn()
+const mockStoreCanonicalState = vi.fn()
 
 class MockYjsAuthError extends Error {
   constructor(
@@ -74,6 +75,7 @@ beforeEach(() => {
   mockSetupWSConnection.mockReset()
   mockGetState.mockReset()
   mockStoreState.mockReset()
+  mockStoreCanonicalState.mockReset()
 
   vi.doMock('@/lib/logs/console/logger', () => ({
     createLogger: vi.fn(() => mockLogger),
@@ -114,6 +116,7 @@ beforeEach(() => {
   vi.doMock('./persistence', () => ({
     getState: mockGetState,
     storeState: mockStoreState,
+    storeCanonicalState: mockStoreCanonicalState,
   }))
 })
 
@@ -223,7 +226,7 @@ describe('handleYjsUpgrade', () => {
       sessionId,
       expect.objectContaining({
         getState: expect.any(Function),
-        storeState: expect.any(Function),
+        storeState: mockStoreCanonicalState,
       })
     )
     expect(wss.handleUpgrade).toHaveBeenCalledTimes(1)

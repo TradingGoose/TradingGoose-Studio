@@ -2,10 +2,14 @@ import { db } from '@tradinggoose/db'
 import { permissions, workflow, workspace } from '@tradinggoose/db/schema'
 import { and, desc, eq, isNull } from 'drizzle-orm'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
-import { saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
+import {
+  ensureUniqueBlockIds,
+  ensureUniqueEdgeIds,
+  saveWorkflowToNormalizedTables,
+} from '@/lib/workflows/db-helpers'
 import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { toWorkspaceApiRecord } from '@/lib/workspaces/billing-owner'
-import { tryApplyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
+import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 type WorkspaceRecord = typeof workspace.$inferSelect
@@ -101,28 +105,26 @@ export async function createWorkspace(userId: string, name: string) {
   const lastSaved = now.toISOString()
 
   try {
-    const saveResult = await saveWorkflowToNormalizedTables(workflowId, workflowState)
-    if (!saveResult.success) {
-      throw new Error(saveResult.error || 'Failed to persist default workflow state')
-    }
+    const stateWithUniqueBlockIds = await ensureUniqueBlockIds(workflowId, workflowState)
+    const persistedWorkflowState = await ensureUniqueEdgeIds(workflowId, stateWithUniqueBlockIds)
 
-    const seedResult = await tryApplyWorkflowState(
+    await applyWorkflowState(
       workflowId,
       createWorkflowSnapshot({
-        blocks: saveResult.normalizedState?.blocks ?? workflowState.blocks,
-        edges: saveResult.normalizedState?.edges ?? workflowState.edges,
-        loops: saveResult.normalizedState?.loops ?? workflowState.loops,
-        parallels: saveResult.normalizedState?.parallels ?? workflowState.parallels,
+        blocks: persistedWorkflowState.blocks,
+        edges: persistedWorkflowState.edges,
+        loops: persistedWorkflowState.loops,
+        parallels: persistedWorkflowState.parallels,
         lastSaved,
         isDeployed: false,
       }),
       undefined,
       'default-agent'
     )
-    if (!seedResult.success) {
-      throw seedResult.error instanceof Error
-        ? seedResult.error
-        : new Error('Failed to seed default workflow state')
+
+    const saveResult = await saveWorkflowToNormalizedTables(workflowId, persistedWorkflowState)
+    if (!saveResult.success) {
+      throw new Error(saveResult.error || 'Failed to materialize default workflow state')
     }
   } catch (error) {
     await db.transaction(async (tx) => {

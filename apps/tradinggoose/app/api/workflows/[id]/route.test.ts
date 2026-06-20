@@ -141,7 +141,7 @@ describe('Workflow By ID API Route', () => {
         edges: [],
         loops: {},
         parallels: {},
-        source: 'normalized',
+        source: 'yjs',
       }
 
       vi.doMock('@/lib/auth', () => ({
@@ -194,7 +194,7 @@ describe('Workflow By ID API Route', () => {
         edges: [],
         loops: {},
         parallels: {},
-        source: 'normalized',
+        source: 'yjs',
       }
 
       vi.doMock('@/lib/auth', () => ({
@@ -313,7 +313,7 @@ describe('Workflow By ID API Route', () => {
       expect(data.data.state.edges).toEqual(mockWorkflowState.edges)
     })
 
-    it('should return an empty state when no normalized data exists yet', async () => {
+    it('should return 409 when canonical Yjs state is missing', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',
@@ -342,12 +342,9 @@ describe('Workflow By ID API Route', () => {
       const { GET } = await import('@/app/api/workflows/[id]/route')
       const response = await GET(req, { params })
 
-      expect(response.status).toBe(200)
+      expect(response.status).toBe(409)
       const data = await response.json()
-      expect(data.data.state.blocks).toEqual({})
-      expect(data.data.state.edges).toEqual([])
-      expect(data.data.state.loops).toEqual({})
-      expect(data.data.state.parallels).toEqual({})
+      expect(data.error).toBe('Workflow state is missing')
     })
   })
 

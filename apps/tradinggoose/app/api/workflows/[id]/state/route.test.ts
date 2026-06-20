@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 describe('Workflow State API Route', () => {
   let loadWorkflowStateFromYjsMock: ReturnType<typeof vi.fn>
   let saveWorkflowToNormalizedTablesMock: ReturnType<typeof vi.fn>
-  let tryApplyWorkflowStateMock: ReturnType<typeof vi.fn>
+  let applyWorkflowStateMock: ReturnType<typeof vi.fn>
   let updateSetMock: ReturnType<typeof vi.fn>
 
   const createRequest = (body: Record<string, unknown>) =>
@@ -42,7 +42,7 @@ describe('Workflow State API Route', () => {
 
     loadWorkflowStateFromYjsMock = vi.fn().mockResolvedValue(null)
     saveWorkflowToNormalizedTablesMock = vi.fn().mockResolvedValue({ success: true })
-    tryApplyWorkflowStateMock = vi.fn().mockResolvedValue({ success: true })
+    applyWorkflowStateMock = vi.fn().mockResolvedValue(undefined)
     updateSetMock = vi.fn().mockReturnValue({
       where: vi.fn().mockResolvedValue(undefined),
     })
@@ -112,6 +112,8 @@ describe('Workflow State API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
+      ensureUniqueBlockIds: vi.fn(async (_workflowId: string, state: any) => state),
+      ensureUniqueEdgeIds: vi.fn(async (_workflowId: string, state: any) => state),
       loadWorkflowStateFromYjs: loadWorkflowStateFromYjsMock,
       saveWorkflowToNormalizedTables: saveWorkflowToNormalizedTablesMock,
       toISOStringOrUndefined: vi.fn((value: string | number | Date | null | undefined) =>
@@ -127,7 +129,7 @@ describe('Workflow State API Route', () => {
     }))
 
     vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
-      tryApplyWorkflowState: tryApplyWorkflowStateMock,
+      applyWorkflowState: applyWorkflowStateMock,
     }))
   })
 
@@ -159,7 +161,7 @@ describe('Workflow State API Route', () => {
     })
 
     expect(response.status).toBe(200)
-    expect(tryApplyWorkflowStateMock).toHaveBeenCalledWith(
+    expect(applyWorkflowStateMock).toHaveBeenCalledWith(
       'workflow-id',
       expect.any(Object),
       {
@@ -182,22 +184,19 @@ describe('Workflow State API Route', () => {
     )
   })
 
-  it('does not republish workflow-row variables when no Yjs state is available in-process', async () => {
+  it('rejects saves without request or Yjs variables', async () => {
     const { PUT } = await import('@/app/api/workflows/[id]/state/route')
     const response = await PUT(createRequest(validStateBody), {
       params: Promise.resolve({ id: 'workflow-id' }),
     })
 
-    expect(response.status).toBe(200)
-    expect(tryApplyWorkflowStateMock).not.toHaveBeenCalled()
-    expect(updateSetMock).toHaveBeenCalledWith(
-      expect.not.objectContaining({
-        variables: expect.anything(),
-      })
-    )
+    expect(response.status).toBe(409)
+    expect(applyWorkflowStateMock).not.toHaveBeenCalled()
+    expect(saveWorkflowToNormalizedTablesMock).not.toHaveBeenCalled()
+    expect(updateSetMock).not.toHaveBeenCalled()
   })
 
-  it('continues saving when authoritative Yjs variable lookup fails', async () => {
+  it('rejects saves when authoritative Yjs variable lookup fails', async () => {
     loadWorkflowStateFromYjsMock.mockRejectedValueOnce(new Error('socket bridge unavailable'))
 
     const { PUT } = await import('@/app/api/workflows/[id]/state/route')
@@ -205,31 +204,31 @@ describe('Workflow State API Route', () => {
       params: Promise.resolve({ id: 'workflow-id' }),
     })
 
-    expect(response.status).toBe(200)
-    expect(saveWorkflowToNormalizedTablesMock).toHaveBeenCalledWith(
-      'workflow-id',
-      expect.any(Object)
-    )
-    expect(tryApplyWorkflowStateMock).not.toHaveBeenCalled()
-    expect(updateSetMock).toHaveBeenCalledWith(
-      expect.not.objectContaining({
-        variables: expect.anything(),
-      })
-    )
+    expect(response.status).toBe(409)
+    expect(applyWorkflowStateMock).not.toHaveBeenCalled()
+    expect(saveWorkflowToNormalizedTablesMock).not.toHaveBeenCalled()
+    expect(updateSetMock).not.toHaveBeenCalled()
   })
 
-  it('does not apply Yjs state when the canonical save fails', async () => {
+  it('returns an error when derived table materialization fails after Yjs apply', async () => {
     saveWorkflowToNormalizedTablesMock.mockResolvedValueOnce({
       success: false,
       error: 'validation failed',
     })
 
     const { PUT } = await import('@/app/api/workflows/[id]/state/route')
-    const response = await PUT(createRequest(validStateBody), {
-      params: Promise.resolve({ id: 'workflow-id' }),
-    })
+    const response = await PUT(
+      createRequest({
+        ...validStateBody,
+        variables: {},
+      }),
+      {
+        params: Promise.resolve({ id: 'workflow-id' }),
+      }
+    )
 
     expect(response.status).toBe(500)
-    expect(tryApplyWorkflowStateMock).not.toHaveBeenCalled()
+    expect(applyWorkflowStateMock).toHaveBeenCalledOnce()
+    expect(saveWorkflowToNormalizedTablesMock).toHaveBeenCalledOnce()
   })
 })

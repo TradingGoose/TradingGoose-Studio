@@ -10,12 +10,14 @@ import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import {
+  ensureUniqueBlockIds,
+  ensureUniqueEdgeIds,
   loadWorkflowState,
   regenerateWorkflowStateIds,
   remapVariableIds,
   saveWorkflowToNormalizedTables,
 } from '@/lib/workflows/db-helpers'
-import { tryApplyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
+import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import type { Variable } from '@/stores/variables/types'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
@@ -30,25 +32,16 @@ const DuplicateRequestSchema = z.object({
 })
 
 async function loadSourceWorkflowArtifacts(
-  sourceWorkflowId: string,
-  sourceVariables: unknown
+  sourceWorkflowId: string
 ): Promise<{
   workflowState: WorkflowState
   variables: Record<string, Variable>
-  source: 'yjs' | 'normalized'
+  source: 'yjs'
 }> {
   const stateWithSource = await loadWorkflowState(sourceWorkflowId)
   if (!stateWithSource) {
     throw new Error('Failed to load source workflow state')
   }
-
-  // When the state came from Yjs the variables are already embedded in the
-  // snapshot.  For the normalized-table path, prefer the caller-supplied
-  // source variables (from the workflow row).
-  const variables =
-    stateWithSource.source === 'yjs'
-      ? normalizeVariables(stateWithSource.variables)
-      : normalizeVariables(sourceVariables)
 
   return {
     workflowState: {
@@ -59,7 +52,7 @@ async function loadSourceWorkflowArtifacts(
       lastSaved: stateWithSource.lastSaved ?? Date.now(),
       isDeployed: false,
     },
-    variables,
+    variables: normalizeVariables(stateWithSource.variables),
     source: stateWithSource.source,
   }
 }
@@ -117,7 +110,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       )
     }
 
-    const sourceArtifacts = await loadSourceWorkflowArtifacts(sourceWorkflowId, source.variables)
+    const sourceArtifacts = await loadSourceWorkflowArtifacts(sourceWorkflowId)
 
     const newWorkflowId = crypto.randomUUID()
     const now = new Date()
@@ -147,15 +140,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     try {
       const lastSaved = now.toISOString()
+      const stateWithUniqueBlockIds = await ensureUniqueBlockIds(
+        newWorkflowId,
+        duplicatedWorkflowState
+      )
+      const persistedDuplicatedState = await ensureUniqueEdgeIds(
+        newWorkflowId,
+        stateWithUniqueBlockIds
+      )
 
-      // Persist canonical workflow state before best-effort Yjs sync so the duplicate
-      // survives bridge outages and never depends on socket-server availability.
-      const saveResult = await saveWorkflowToNormalizedTables(newWorkflowId, duplicatedWorkflowState)
-      if (!saveResult.success) {
-        throw new Error(saveResult.error || 'Failed to save duplicated workflow state')
-      }
-
-      const persistedDuplicatedState = saveResult.normalizedState ?? duplicatedWorkflowState
       const duplicatedSnapshot = createWorkflowSnapshot({
         blocks: persistedDuplicatedState.blocks,
         edges: persistedDuplicatedState.edges,
@@ -165,17 +158,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         isDeployed: false,
       })
 
-      const yjsApplyResult = await tryApplyWorkflowState(
+      await applyWorkflowState(
         newWorkflowId,
         duplicatedSnapshot,
         duplicatedVariables,
         name
       )
-      if (!yjsApplyResult.success) {
-        logger.warn(
-          `[${requestId}] Duplicated workflow ${newWorkflowId} without Yjs sync; canonical state was persisted`,
-          { sourceWorkflowId, newWorkflowId, error: yjsApplyResult.error }
-        )
+
+      const saveResult = await saveWorkflowToNormalizedTables(newWorkflowId, persistedDuplicatedState)
+      if (!saveResult.success) {
+        throw new Error(saveResult.error || 'Failed to materialize duplicated workflow state')
       }
     } catch (duplicationError) {
       await db.delete(workflow).where(eq(workflow.id, newWorkflowId))

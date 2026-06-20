@@ -99,7 +99,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .limit(1)
 
     if (active?.state) {
-      const currentState = await loadWorkflowState(id, workflowData.lastSynced)
+      const currentState = await loadWorkflowState(id)
       if (currentState) {
         needsRedeployment = hasWorkflowChanged(currentState, active.state as any)
       }

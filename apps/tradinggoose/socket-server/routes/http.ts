@@ -252,7 +252,7 @@ async function handleInternalYjsWorkflowApplyRequest(
 
     try {
       replaceWorkflowDocState(doc, body.workflowState, body.variables, body.entityName)
-      await storeState(workflowId, Y.encodeStateAsUpdate(doc))
+      await storeCanonicalState(workflowId, Y.encodeStateAsUpdate(doc))
     } finally {
       if (!liveDoc) doc.destroy()
     }

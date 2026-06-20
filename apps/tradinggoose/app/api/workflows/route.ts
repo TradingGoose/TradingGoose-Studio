@@ -8,9 +8,15 @@ import { getStableVibrantColor } from '@/lib/colors'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
-import { remapVariableIds, saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
+import {
+  ensureUniqueBlockIds,
+  ensureUniqueEdgeIds,
+  remapVariableIds,
+  saveWorkflowToNormalizedTables,
+} from '@/lib/workflows/db-helpers'
+import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
-import { tryApplyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
+import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
@@ -34,20 +40,19 @@ function getInitialWorkflowState(
 ): {
   canonicalState: WorkflowState
   variables: Record<string, unknown>
-} | null {
-  if (!isPlainObject(initialWorkflowState)) {
-    return null
-  }
+} {
+  const source = isPlainObject(initialWorkflowState)
+    ? initialWorkflowState
+    : buildDefaultWorkflowArtifacts().workflowState
+  const sourceRecord = source as Record<string, unknown>
 
-  const blocks = isPlainObject(initialWorkflowState.blocks) ? initialWorkflowState.blocks : {}
-  const edges = Array.isArray(initialWorkflowState.edges) ? initialWorkflowState.edges : []
-  const loops = isPlainObject(initialWorkflowState.loops) ? initialWorkflowState.loops : {}
-  const parallels = isPlainObject(initialWorkflowState.parallels)
-    ? initialWorkflowState.parallels
+  const blocks = isPlainObject(sourceRecord.blocks) ? sourceRecord.blocks : {}
+  const edges = Array.isArray(sourceRecord.edges) ? sourceRecord.edges : []
+  const loops = isPlainObject(sourceRecord.loops) ? sourceRecord.loops : {}
+  const parallels = isPlainObject(sourceRecord.parallels)
+    ? sourceRecord.parallels
     : {}
-  const variables = isPlainObject(initialWorkflowState.variables)
-    ? initialWorkflowState.variables
-    : {}
+  const variables = isPlainObject(sourceRecord.variables) ? sourceRecord.variables : {}
 
   return {
     canonicalState: {
@@ -157,7 +162,7 @@ export async function POST(req: NextRequest) {
     const now = new Date()
     const initialState = getInitialWorkflowState(initialWorkflowState, now)
     const remappedVariables = remapVariableIds(
-      normalizeVariables(initialState?.variables),
+      normalizeVariables(initialState.variables),
       workflowId
     )
     const resolvedColor = getStableVibrantColor(workflowId)
@@ -195,34 +200,31 @@ export async function POST(req: NextRequest) {
       marketplaceData: null,
     })
 
-    let persistedInitialState = initialState?.canonicalState ?? null
-    if (initialState) {
-      const saveResult = await saveWorkflowToNormalizedTables(workflowId, initialState.canonicalState)
-      if (!saveResult.success) {
-        await db.delete(workflow).where(eq(workflow.id, workflowId))
-        throw new Error(saveResult.error || 'Failed to persist initial workflow state')
-      }
-      persistedInitialState = saveResult.normalizedState ?? initialState.canonicalState
-    }
+    try {
+      const initialStateWithUniqueIds = await ensureUniqueEdgeIds(
+        workflowId,
+        await ensureUniqueBlockIds(workflowId, initialState.canonicalState)
+      )
 
-    // Seed the Yjs doc for the new workflow
-    const defaultWorkflowSnapshot = createWorkflowSnapshot({
-      blocks: persistedInitialState?.blocks,
-      edges: persistedInitialState?.edges,
-      loops: persistedInitialState?.loops,
-      parallels: persistedInitialState?.parallels,
-      lastSaved: now.toISOString(),
-      isDeployed: false,
-    })
+      const defaultWorkflowSnapshot = createWorkflowSnapshot({
+        blocks: initialStateWithUniqueIds.blocks,
+        edges: initialStateWithUniqueIds.edges,
+        loops: initialStateWithUniqueIds.loops,
+        parallels: initialStateWithUniqueIds.parallels,
+        lastSaved: now.toISOString(),
+        isDeployed: false,
+      })
 
-    const yjsSeedResult = await tryApplyWorkflowState(
-      workflowId,
-      defaultWorkflowSnapshot,
-      remappedVariables,
-      name
-    )
-    if (yjsSeedResult.success) {
+      await applyWorkflowState(workflowId, defaultWorkflowSnapshot, remappedVariables, name)
       logger.info(`[${requestId}] Seeded Yjs doc for new workflow ${workflowId}`)
+
+      const saveResult = await saveWorkflowToNormalizedTables(workflowId, initialStateWithUniqueIds)
+      if (!saveResult.success) {
+        throw new Error(saveResult.error || 'Failed to materialize initial workflow state')
+      }
+    } catch (error) {
+      await db.delete(workflow).where(eq(workflow.id, workflowId))
+      throw error
     }
 
     logger.info(`[${requestId}] Successfully created workflow ${workflowId}`)

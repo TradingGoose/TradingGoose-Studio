@@ -114,7 +114,7 @@ async function authenticateAndPrepareUpgrade(
   return {
     userId,
     resolvedSessionId: pathSessionId,
-    canonical: descriptor.entityKind !== 'workflow' && descriptor.entityId !== null,
+    canonical: descriptor.reviewSessionId === null && descriptor.entityId !== null,
   }
 }
 

@@ -1009,19 +1009,6 @@ describe('Database Helpers', () => {
       }
 
       mockDb.transaction.mockImplementation(async (callback) => callback(tx))
-      mockDb.select.mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([
-              {
-                variables: yjsVariables,
-                lastSynced: workflowLastSaved,
-              },
-            ]),
-          }),
-        }),
-      })
-
       const result = await dbHelpers.deployWorkflow({
         workflowId: mockWorkflowId,
         deployedBy: 'deployer-1',
@@ -1039,7 +1026,7 @@ describe('Database Helpers', () => {
           entityId: mockWorkflowId,
         })
       )
-      expect(mockDb.select).toHaveBeenCalledTimes(1)
+      expect(mockDb.select).not.toHaveBeenCalled()
       expect(result.currentState).toMatchObject({
         blocks: yjsState.blocks,
         edges: yjsState.edges,
@@ -1130,7 +1117,7 @@ describe('Database Helpers', () => {
   })
 
   describe('loadWorkflowState', () => {
-    it('returns the Yjs state without a workflow-row query when lastSynced is provided', async () => {
+    it('returns the Yjs state without a workflow-row query', async () => {
       const doc = new Y.Doc()
       const yjsState = {
         blocks: {
@@ -1164,10 +1151,7 @@ describe('Database Helpers', () => {
         buildWorkflowSnapshotResponse(Y.encodeStateAsUpdate(doc))
       )
 
-      const result = await dbHelpers.loadWorkflowState(
-        mockWorkflowId,
-        new Date('2026-04-06T00:00:00.000Z')
-      )
+      const result = await dbHelpers.loadWorkflowState(mockWorkflowId)
 
       expect(result).toMatchObject({
         blocks: yjsState.blocks,
@@ -1180,7 +1164,7 @@ describe('Database Helpers', () => {
       expect(mockDb.select).not.toHaveBeenCalled()
     })
 
-    it('queries the workflow row for staleness when lastSynced is omitted and the Yjs snapshot is fresh', async () => {
+    it('does not compare Yjs snapshots against workflow row timestamps', async () => {
       const doc = new Y.Doc()
       const yjsState = {
         blocks: {
@@ -1213,26 +1197,6 @@ describe('Database Helpers', () => {
       mockGetYjsSnapshot.mockResolvedValue(
         buildWorkflowSnapshotResponse(Y.encodeStateAsUpdate(doc))
       )
-      mockDb.select.mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([
-              {
-                variables: {
-                  'var-db': {
-                    id: 'var-db',
-                    workflowId: mockWorkflowId,
-                    name: 'dbVar',
-                    type: 'plain',
-                    value: 'db value',
-                  },
-                },
-                lastSynced: new Date('2026-04-06T00:00:00.000Z'),
-              },
-            ]),
-          }),
-        }),
-      })
 
       const result = await dbHelpers.loadWorkflowState(mockWorkflowId)
 
@@ -1244,78 +1208,21 @@ describe('Database Helpers', () => {
         variables: yjsVariables,
         source: 'yjs',
       })
-      expect(mockDb.select).toHaveBeenCalledTimes(1)
+      expect(mockDb.select).not.toHaveBeenCalled()
     })
 
-    it('loads normalized tables when the Yjs bridge errors', async () => {
+    it('returns null when the Yjs bridge errors', async () => {
       mockGetYjsSnapshot.mockRejectedValueOnce(
         new Error('socket server unavailable')
       )
 
-      let callCount = 0
-      mockDb.select.mockImplementation(() => ({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockImplementation(() => {
-            callCount++
-            if (callCount === 1) {
-              return Promise.resolve(mockBlocksFromDb)
-            }
-            if (callCount === 2) {
-              return Promise.resolve(mockEdgesFromDb)
-            }
-            if (callCount === 3) {
-              return Promise.resolve(mockSubflowsFromDb)
-            }
-            if (callCount === 4) {
-              return {
-                limit: vi.fn().mockResolvedValue([
-                  {
-                    variables: {
-                      'var-db': {
-                        id: 'var-db',
-                        workflowId: mockWorkflowId,
-                        name: 'dbVar',
-                        type: 'plain',
-                        value: 'db value',
-                      },
-                    },
-                  },
-                ]),
-              }
-            }
-            return Promise.resolve([])
-          }),
-        }),
-      }))
-
       const result = await dbHelpers.loadWorkflowState(mockWorkflowId)
 
-      expect(result).toMatchObject({
-        blocks: expect.objectContaining({
-          'block-1': expect.objectContaining({
-            id: 'block-1',
-            type: 'input_trigger',
-          }),
-        }),
-        edges: mockEdgesFromDb.map((edge) =>
-          expect.objectContaining({
-            id: edge.id,
-            source: edge.sourceBlockId,
-            target: edge.targetBlockId,
-          })
-        ),
-        variables: {
-          'var-db': expect.objectContaining({
-            id: 'var-db',
-            name: 'dbVar',
-            value: 'db value',
-          }),
-        },
-        source: 'normalized',
-      })
+      expect(result).toBeNull()
+      expect(mockDb.select).not.toHaveBeenCalled()
     })
 
-    it('loads normalized tables when the stored Yjs snapshot is older than workflow lastSynced', async () => {
+    it('uses the stored Yjs snapshot without normalized-table fallback', async () => {
       const doc = new Y.Doc()
       setWorkflowState(
         doc,
@@ -1342,55 +1249,18 @@ describe('Database Helpers', () => {
         buildWorkflowSnapshotResponse(Y.encodeStateAsUpdate(doc))
       )
 
-      let callCount = 0
-      mockDb.select.mockImplementation(() => ({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockImplementation(() => {
-            callCount++
-            if (callCount === 1) {
-              return {
-                limit: vi.fn().mockResolvedValue([
-                  {
-                    variables: {
-                      'var-db': {
-                        id: 'var-db',
-                        workflowId: mockWorkflowId,
-                        name: 'dbVar',
-                        type: 'plain',
-                        value: 'db value',
-                      },
-                    },
-                    lastSynced: new Date('2026-04-06T00:05:00.000Z'),
-                  },
-                ]),
-              }
-            }
-            if (callCount === 2) {
-              return Promise.resolve(mockBlocksFromDb)
-            }
-            if (callCount === 3) {
-              return Promise.resolve(mockEdgesFromDb)
-            }
-            if (callCount === 4) {
-              return Promise.resolve(mockSubflowsFromDb)
-            }
-            return Promise.resolve([])
-          }),
-        }),
-      }))
-
       const result = await dbHelpers.loadWorkflowState(mockWorkflowId)
 
       expect(result).toMatchObject({
         blocks: expect.objectContaining({
-          'block-1': expect.objectContaining({
-            id: 'block-1',
-            type: 'input_trigger',
+          'block-yjs': expect.objectContaining({
+            id: 'block-yjs',
+            type: 'api',
           }),
         }),
-        source: 'normalized',
+        source: 'yjs',
       })
-      expect(result?.blocks).not.toHaveProperty('block-yjs')
+      expect(mockDb.select).not.toHaveBeenCalled()
     })
   })
 
