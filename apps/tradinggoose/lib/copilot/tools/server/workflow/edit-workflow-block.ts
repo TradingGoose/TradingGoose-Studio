@@ -8,7 +8,11 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getAllowedSubBlockIds } from '@/lib/workflows/block-config-canonicalization'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { getBlock } from '@/blocks'
-import { buildWorkflowMutationResult, loadBaseWorkflowState } from './workflow-mutation-utils'
+import {
+  buildWorkflowMutationResult,
+  loadBaseWorkflowState,
+  resolveWorkflowMutationResultForExecution,
+} from './workflow-mutation-utils'
 
 interface EditWorkflowBlockParams {
   entityId: string
@@ -176,12 +180,13 @@ export const editWorkflowBlockServerTool: BaseServerTool<EditWorkflowBlockParams
     })
 
     try {
-      return buildWorkflowMutationResult({
+      const result = buildWorkflowMutationResult({
         workflowId,
         baseWorkflowState,
         nextWorkflowState,
         requestedDirection: baseWorkflowState.direction,
       })
+      return resolveWorkflowMutationResultForExecution(result, context)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       if (!message.startsWith('Invalid edited workflow:')) {

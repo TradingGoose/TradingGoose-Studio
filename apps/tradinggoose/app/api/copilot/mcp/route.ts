@@ -176,6 +176,7 @@ async function handleJsonRpcRequest(request: JsonRpcRequest, auth: Authenticated
       try {
         const result = await routeExecution(toolCall.name, toolCall.args, {
           userId: auth.userId,
+          accessLevel: 'full',
         })
         return jsonRpcResult(id, {
           content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],

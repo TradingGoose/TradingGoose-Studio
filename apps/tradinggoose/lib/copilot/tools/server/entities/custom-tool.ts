@@ -6,9 +6,9 @@ import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
   acceptEntityDocumentReview,
-  buildCreateEntityReviewResult,
   buildDocumentEnvelope,
-  buildUpdateEntityReviewResult,
+  executeCreateEntityDocumentMutation,
+  executeUpdateEntityDocumentMutation,
   type EntityCreateResult,
   type EntityListEntry,
   type EntityServerTool,
@@ -120,21 +120,31 @@ export const readCustomToolServerTool: EntityServerTool = {
 export const createCustomToolServerTool: EntityServerTool = {
   name: 'create_custom_tool',
   execute(args, context) {
-    return buildCreateEntityReviewResult(ENTITY_KIND_CUSTOM_TOOL, args, context)
+    return executeCreateEntityDocumentMutation(
+      ENTITY_KIND_CUSTOM_TOOL,
+      args,
+      context,
+      createCustomToolEntity
+    )
   },
 }
 
 export const editCustomToolServerTool: EntityServerTool = {
   name: 'edit_custom_tool',
   execute(args, context) {
-    return buildUpdateEntityReviewResult(ENTITY_KIND_CUSTOM_TOOL, 'edit_custom_tool', args, context)
+    return executeUpdateEntityDocumentMutation(
+      ENTITY_KIND_CUSTOM_TOOL,
+      'edit_custom_tool',
+      args,
+      context
+    )
   },
 }
 
 export const renameCustomToolServerTool: EntityServerTool = {
   name: 'rename_custom_tool',
   execute(args, context) {
-    return buildUpdateEntityReviewResult(
+    return executeUpdateEntityDocumentMutation(
       ENTITY_KIND_CUSTOM_TOOL,
       'rename_custom_tool',
       args,

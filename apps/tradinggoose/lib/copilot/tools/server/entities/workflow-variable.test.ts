@@ -90,7 +90,7 @@ describe('workflow variable server tools', () => {
   it('returns workflow variables through read_workflow', async () => {
     const result = await readWorkflowServerTool.execute(
       { entityId: 'wf-1' },
-      { userId: 'user-1' }
+      { userId: 'user-1', accessLevel: 'limited' }
     )
 
     expect(result.workflowVariableDocumentFormat).toBe(WORKFLOW_VARIABLE_DOCUMENT_FORMAT)
@@ -111,7 +111,7 @@ describe('workflow variable server tools', () => {
           ],
         }),
       },
-      { userId: 'user-1' }
+      { userId: 'user-1', accessLevel: 'limited' }
     )
 
     expect(result).toMatchObject({
@@ -142,6 +142,40 @@ describe('workflow variable server tools', () => {
     expect(result.preview.documentDiff.after).toContain('enabled')
   })
 
+  it('applies full-access workflow variable edits through the workflow Yjs bridge', async () => {
+    const result = await editWorkflowVariableServerTool.execute(
+      {
+        entityId: 'wf-1',
+        documentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
+        entityDocument: JSON.stringify({
+          variables: [
+            { name: 'riskLimit', type: 'number', value: 25 },
+            { name: 'enabled', type: 'boolean', value: true },
+          ],
+        }),
+      },
+      { userId: 'user-1', accessLevel: 'full' }
+    )
+
+    expect(result.requiresReview).toBeUndefined()
+    expect(result.preview).toBeUndefined()
+    expect(result).toMatchObject({
+      success: true,
+      entityKind: 'workflow',
+      entityId: 'wf-1',
+      workspaceId: 'workspace-1',
+      documentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
+    })
+    expect(mockApplyWorkflowStateInSocketServer).toHaveBeenCalledWith(
+      'wf-1',
+      expect.objectContaining({
+        blocks: {},
+        edges: [],
+      }),
+      result.variables
+    )
+  })
+
   it('applies accepted workflow variable reviews through the workflow Yjs bridge', async () => {
     const result = await editWorkflowVariableServerTool.execute(
       {
@@ -151,10 +185,10 @@ describe('workflow variable server tools', () => {
           variables: [{ name: 'riskLimit', type: 'number', value: 25 }],
         }),
       },
-      { userId: 'user-1' }
+      { userId: 'user-1', accessLevel: 'limited' }
     )
 
-    await acceptWorkflowDocumentReview('edit_workflow_variable', result, { userId: 'user-1' })
+    await acceptWorkflowDocumentReview('edit_workflow_variable', result, { userId: 'user-1', accessLevel: 'limited' })
 
     expect(mockApplyWorkflowStateInSocketServer).toHaveBeenCalledWith(
       'wf-1',

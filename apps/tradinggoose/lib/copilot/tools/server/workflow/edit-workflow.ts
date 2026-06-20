@@ -13,7 +13,11 @@ import { createWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflo
 import { getBlock } from '@/blocks'
 import type { BlockState, Position } from '@/stores/workflows/workflow/types'
 import { generateLoopBlocks, generateParallelBlocks } from '@/stores/workflows/workflow/utils'
-import { buildWorkflowMutationResult, loadBaseWorkflowState } from './workflow-mutation-utils'
+import {
+  buildWorkflowMutationResult,
+  loadBaseWorkflowState,
+  resolveWorkflowMutationResultForExecution,
+} from './workflow-mutation-utils'
 
 interface EditWorkflowParams {
   entityId: string
@@ -275,6 +279,6 @@ export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
       warningCount: result.preview?.warnings.length ?? 0,
     })
 
-    return result
+    return resolveWorkflowMutationResultForExecution(result, context)
   },
 }

@@ -15,9 +15,9 @@ import {
 } from '@/lib/yjs/entity-state'
 import {
   acceptEntityDocumentReview,
-  buildCreateEntityReviewResult,
   buildDocumentEnvelope,
-  buildUpdateEntityReviewResult,
+  executeCreateEntityDocumentMutation,
+  executeUpdateEntityDocumentMutation,
   type CopilotIndicatorListEntry,
   type EntityCreateResult,
   type EntityServerTool,
@@ -152,21 +152,31 @@ export const readIndicatorServerTool: EntityServerTool = {
 export const createIndicatorServerTool: EntityServerTool = {
   name: 'create_indicator',
   execute(args, context) {
-    return buildCreateEntityReviewResult(ENTITY_KIND_INDICATOR, args, context)
+    return executeCreateEntityDocumentMutation(
+      ENTITY_KIND_INDICATOR,
+      args,
+      context,
+      createIndicatorEntity
+    )
   },
 }
 
 export const editIndicatorServerTool: EntityServerTool = {
   name: 'edit_indicator',
   execute(args, context) {
-    return buildUpdateEntityReviewResult(ENTITY_KIND_INDICATOR, 'edit_indicator', args, context)
+    return executeUpdateEntityDocumentMutation(ENTITY_KIND_INDICATOR, 'edit_indicator', args, context)
   },
 }
 
 export const renameIndicatorServerTool: EntityServerTool = {
   name: 'rename_indicator',
   execute(args, context) {
-    return buildUpdateEntityReviewResult(ENTITY_KIND_INDICATOR, 'rename_indicator', args, context)
+    return executeUpdateEntityDocumentMutation(
+      ENTITY_KIND_INDICATOR,
+      'rename_indicator',
+      args,
+      context
+    )
   },
 }
 

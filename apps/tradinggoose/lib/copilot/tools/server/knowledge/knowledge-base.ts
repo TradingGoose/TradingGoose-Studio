@@ -16,9 +16,9 @@ import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import { getQueryStrategy, handleVectorOnlySearch } from '@/app/api/knowledge/search/utils'
 import {
   acceptEntityDocumentReview,
-  buildCreateEntityReviewResult,
   buildDocumentEnvelope,
-  buildUpdateEntityReviewResult,
+  executeCreateEntityDocumentMutation,
+  executeUpdateEntityDocumentMutation,
   type EntityCreateResult,
   type EntityDocumentArgs,
   type EntityServerTool,
@@ -140,14 +140,19 @@ export const readKnowledgeBaseServerTool: EntityServerTool = {
 export const createKnowledgeBaseServerTool: EntityServerTool = {
   name: 'create_knowledge_base',
   execute(args, context) {
-    return buildCreateEntityReviewResult(ENTITY_KIND_KNOWLEDGE_BASE, args, context)
+    return executeCreateEntityDocumentMutation(
+      ENTITY_KIND_KNOWLEDGE_BASE,
+      args,
+      context,
+      createKnowledgeBaseEntity
+    )
   },
 }
 
 export const editKnowledgeBaseServerTool: EntityServerTool<EntityDocumentArgs> = {
   name: 'edit_knowledge_base',
   execute(args, context) {
-    return buildUpdateEntityReviewResult(
+    return executeUpdateEntityDocumentMutation(
       ENTITY_KIND_KNOWLEDGE_BASE,
       'edit_knowledge_base',
       args,
@@ -159,7 +164,7 @@ export const editKnowledgeBaseServerTool: EntityServerTool<EntityDocumentArgs> =
 export const renameKnowledgeBaseServerTool: EntityServerTool<EntityDocumentArgs> = {
   name: 'rename_knowledge_base',
   execute(args, context) {
-    return buildUpdateEntityReviewResult(
+    return executeUpdateEntityDocumentMutation(
       ENTITY_KIND_KNOWLEDGE_BASE,
       'rename_knowledge_base',
       args,

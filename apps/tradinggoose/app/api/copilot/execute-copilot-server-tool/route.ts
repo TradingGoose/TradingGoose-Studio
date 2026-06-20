@@ -16,6 +16,7 @@ const logger = createLogger('ExecuteCopilotServerToolAPI')
 const ExecuteSchema = z.object({
   toolName: z.string().min(1),
   payload: z.unknown().optional(),
+  accessLevel: z.enum(['limited', 'full']),
   reviewAction: z.enum(['accept']).optional(),
   reviewResult: z.unknown().optional(),
   context: z
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
       throw error
     }
     toolName = parsedBody.toolName
-    const { payload, context, reviewAction, reviewResult } = parsedBody
+    const { payload, accessLevel, context, reviewAction, reviewResult } = parsedBody
     const payloadWorkspaceId = readPayloadWorkspaceId(payload)
     const contextWorkspaceId = context?.workspaceId?.trim()
 
@@ -103,6 +104,7 @@ export async function POST(req: NextRequest) {
 
     const executionContext = {
       userId,
+      accessLevel,
       ...executionContextInput,
       signal: req.signal,
     }

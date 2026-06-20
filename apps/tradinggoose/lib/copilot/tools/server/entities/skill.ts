@@ -5,9 +5,9 @@ import { listSkills, upsertSkills } from '@/lib/skills/operations'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
   acceptEntityDocumentReview,
-  buildCreateEntityReviewResult,
   buildDocumentEnvelope,
-  buildUpdateEntityReviewResult,
+  executeCreateEntityDocumentMutation,
+  executeUpdateEntityDocumentMutation,
   type EntityCreateResult,
   type EntityDocumentArgs,
   type EntityListEntry,
@@ -92,21 +92,21 @@ export const readSkillServerTool: EntityServerTool = {
 export const createSkillServerTool: EntityServerTool = {
   name: 'create_skill',
   execute(args, context) {
-    return buildCreateEntityReviewResult(ENTITY_KIND_SKILL, args, context)
+    return executeCreateEntityDocumentMutation(ENTITY_KIND_SKILL, args, context, createSkillEntity)
   },
 }
 
 export const editSkillServerTool: EntityServerTool = {
   name: 'edit_skill',
   execute(args, context) {
-    return buildUpdateEntityReviewResult(ENTITY_KIND_SKILL, 'edit_skill', args, context)
+    return executeUpdateEntityDocumentMutation(ENTITY_KIND_SKILL, 'edit_skill', args, context)
   },
 }
 
 export const renameSkillServerTool: EntityServerTool = {
   name: 'rename_skill',
   execute(args, context) {
-    return buildUpdateEntityReviewResult(ENTITY_KIND_SKILL, 'rename_skill', args, context)
+    return executeUpdateEntityDocumentMutation(ENTITY_KIND_SKILL, 'rename_skill', args, context)
   },
 }
 

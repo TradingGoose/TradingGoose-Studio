@@ -13,12 +13,12 @@ import {
 import {
   acceptEntityDocumentReview,
   applySavedEntityDocument,
-  buildDocumentDiff,
   buildDocumentEnvelope,
+  executeCreateEntityDocumentMutation,
+  executeUpdateEntityDocumentMutation,
   type EntityCreateResult,
   type EntityListEntry,
   type EntityServerTool,
-  parseEntityMutationDocument,
   readSavedEntityYjsFields,
   requireEntityId,
   verifySavedEntityContext,
@@ -138,62 +138,6 @@ async function applyMcpServerDocument(input: {
   mcpService.clearCache(input.workspaceId)
 }
 
-async function buildCreateMcpServerReviewResult(args: any, context: any) {
-  if (args.entityId?.trim()) {
-    throw new Error('create_mcp_server does not accept entityId')
-  }
-
-  const { workspaceId } = await verifyWorkspaceContext(
-    withWorkspaceArgContext(context, args),
-    'write'
-  )
-  const fields = normalizeMcpServerFields(parseEntityMutationDocument(ENTITY_KIND_MCP_SERVER, args))
-
-  return {
-    requiresReview: true,
-    success: true,
-    workspaceId,
-    ...buildDocumentEnvelope(ENTITY_KIND_MCP_SERVER, undefined, fields),
-    preview: {
-      documentDiff: {
-        before: '',
-        after: buildDocumentEnvelope(ENTITY_KIND_MCP_SERVER, undefined, fields).entityDocument,
-      },
-    },
-  }
-}
-
-async function buildUpdateMcpServerReviewResult(
-  toolName: string,
-  args: any,
-  context: any
-) {
-  const fields = normalizeMcpServerFields(
-    parseEntityMutationDocument(ENTITY_KIND_MCP_SERVER, args)
-  )
-  const entityId = requireEntityId(args, toolName)
-  const { workspaceId } = await verifySavedEntityContext(
-    context,
-    ENTITY_KIND_MCP_SERVER,
-    entityId,
-    'write'
-  )
-  const currentFields = await readSavedEntityYjsFields(
-    ENTITY_KIND_MCP_SERVER,
-    entityId,
-    workspaceId
-  )
-
-  return {
-    requiresReview: true,
-    success: true,
-    ...buildDocumentEnvelope(ENTITY_KIND_MCP_SERVER, entityId, fields),
-    preview: {
-      documentDiff: buildDocumentDiff(ENTITY_KIND_MCP_SERVER, currentFields, fields),
-    },
-  }
-}
-
 export const listMcpServersServerTool: EntityServerTool<Record<string, never>> = {
   name: 'list_mcp_servers',
   async execute(args, context) {
@@ -234,21 +178,41 @@ export const readMcpServerServerTool: EntityServerTool = {
 export const createMcpServerServerTool: EntityServerTool = {
   name: 'create_mcp_server',
   execute(args, context) {
-    return buildCreateMcpServerReviewResult(args, context)
+    return executeCreateEntityDocumentMutation(
+      ENTITY_KIND_MCP_SERVER,
+      args,
+      context,
+      createMcpServerEntity,
+      normalizeMcpServerFields
+    )
   },
 }
 
 export const editMcpServerServerTool: EntityServerTool = {
   name: 'edit_mcp_server',
   execute(args, context) {
-    return buildUpdateMcpServerReviewResult('edit_mcp_server', args, context)
+    return executeUpdateEntityDocumentMutation(
+      ENTITY_KIND_MCP_SERVER,
+      'edit_mcp_server',
+      args,
+      context,
+      applyMcpServerDocument,
+      normalizeMcpServerFields
+    )
   },
 }
 
 export const renameMcpServerServerTool: EntityServerTool = {
   name: 'rename_mcp_server',
   execute(args, context) {
-    return buildUpdateMcpServerReviewResult('rename_mcp_server', args, context)
+    return executeUpdateEntityDocumentMutation(
+      ENTITY_KIND_MCP_SERVER,
+      'rename_mcp_server',
+      args,
+      context,
+      applyMcpServerDocument,
+      normalizeMcpServerFields
+    )
   },
 }
 

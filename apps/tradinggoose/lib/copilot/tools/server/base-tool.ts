@@ -1,8 +1,13 @@
+import {
+  type CopilotAccessLevel,
+  shouldRequireToolApproval,
+} from '@/lib/copilot/access-policy'
 import type { ToolId } from '@/lib/copilot/registry'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 
 export interface ServerToolExecutionContext {
   userId: string
+  accessLevel?: CopilotAccessLevel
   contextEntityKind?: ReviewEntityKind
   contextEntityId?: string
   workspaceId?: string
@@ -47,6 +52,16 @@ export function throwIfServerToolAborted(context?: ServerToolExecutionContext): 
   const error = new Error('Aborted')
   error.name = 'AbortError'
   throw error
+}
+
+export function shouldStageServerToolMutationForReview(
+  context?: ServerToolExecutionContext
+): boolean {
+  if (!context?.accessLevel) {
+    throw new Error('Copilot accessLevel is required to execute mutation tools')
+  }
+
+  return shouldRequireToolApproval(context.accessLevel, true)
 }
 
 export interface BaseServerTool<TArgs = any, TResult = any> {

@@ -72,7 +72,7 @@ describe('editWorkflowBlockServerTool', () => {
           code: 'return { rsi: 50 }',
         },
       },
-      { userId: 'user-1' }
+      { userId: 'user-1', accessLevel: 'limited' }
     )
 
     expect(result.workflowState.blocks.fn1.name).toBe('Compute Market Indicators')
@@ -92,7 +92,7 @@ describe('editWorkflowBlockServerTool', () => {
             madeUpField: 'bad',
           },
         },
-        { userId: 'user-1' }
+        { userId: 'user-1', accessLevel: 'limited' }
       )
     ).rejects.toMatchObject({
       code: 'invalid_workflow_block_edit',

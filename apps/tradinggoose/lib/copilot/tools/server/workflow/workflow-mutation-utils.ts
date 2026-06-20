@@ -1,5 +1,8 @@
 import * as Y from 'yjs'
-import type { ServerToolExecutionContext } from '@/lib/copilot/tools/server/base-tool'
+import {
+  shouldStageServerToolMutationForReview,
+  type ServerToolExecutionContext,
+} from '@/lib/copilot/tools/server/base-tool'
 import { findIntroducedNonCanonicalSubBlocks } from '@/lib/workflows/block-config-canonicalization'
 import { WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 import {
@@ -11,6 +14,7 @@ import {
 import { validateWorkflowState } from '@/lib/workflows/validation'
 import { normalizeWorkflowStateToMermaidDirection } from '@/lib/workflows/workflow-direction'
 import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
+import { applyWorkflowStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import {
   createWorkflowSnapshot,
   readWorkflowSnapshot,
@@ -119,4 +123,21 @@ export function buildWorkflowMutationResult(params: {
       edgesCount: Array.isArray(finalWorkflowState.edges) ? finalWorkflowState.edges.length : 0,
     },
   }
+}
+
+export async function resolveWorkflowMutationResultForExecution(
+  result: ReturnType<typeof buildWorkflowMutationResult>,
+  context?: ServerToolExecutionContext
+) {
+  if (shouldStageServerToolMutationForReview(context)) {
+    return result
+  }
+
+  await applyWorkflowStateInSocketServer(
+    result.entityId,
+    createWorkflowSnapshot(result.workflowState as Partial<WorkflowSnapshot>)
+  )
+
+  const { requiresReview: _requiresReview, preview: _preview, ...appliedResult } = result
+  return appliedResult
 }

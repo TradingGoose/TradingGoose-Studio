@@ -14,7 +14,10 @@ import type {
   BaseServerTool,
   ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
-import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
+import {
+  shouldStageServerToolMutationForReview,
+  withWorkspaceArgContext,
+} from '@/lib/copilot/tools/server/base-tool'
 import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
 import { generateCreativeWorkflowName } from '@/lib/naming'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
@@ -427,7 +430,7 @@ export const editWorkflowVariableServerTool: BaseServerTool<
       )
     }
     const workflowId = requireCopilotEntityId(args, { toolName: 'edit_workflow_variable' })
-    const { workspaceId, variables } = await loadWorkflowSnapshotForCopilot(
+    const { workspaceId, workflowState, variables } = await loadWorkflowSnapshotForCopilot(
       workflowId,
       context,
       'write'
@@ -437,11 +440,30 @@ export const editWorkflowVariableServerTool: BaseServerTool<
       currentVariables: variables,
       entityDocument: args.entityDocument,
     })
-    const currentDocument = serializeWorkflowVariableDocument(variables)
     const nextDocument = serializeWorkflowVariableDocument(nextVariables)
 
+    if (shouldStageServerToolMutationForReview(context)) {
+      const currentDocument = serializeWorkflowVariableDocument(variables)
+      return {
+        requiresReview: true,
+        success: true,
+        entityKind: ENTITY_KIND_WORKFLOW,
+        entityId: workflowId,
+        ...(workspaceId ? { workspaceId } : {}),
+        documentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
+        entityDocument: nextDocument,
+        variables: nextVariables,
+        preview: {
+          documentDiff: {
+            before: currentDocument,
+            after: nextDocument,
+          },
+        },
+      }
+    }
+
+    await applyWorkflowStateInSocketServer(workflowId, workflowState, nextVariables)
     return {
-      requiresReview: true,
       success: true,
       entityKind: ENTITY_KIND_WORKFLOW,
       entityId: workflowId,
@@ -449,12 +471,6 @@ export const editWorkflowVariableServerTool: BaseServerTool<
       documentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
       entityDocument: nextDocument,
       variables: nextVariables,
-      preview: {
-        documentDiff: {
-          before: currentDocument,
-          after: nextDocument,
-        },
-      },
     }
   },
 }

@@ -11,7 +11,10 @@ import type {
   BaseServerTool,
   ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
-import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
+import {
+  shouldStageServerToolMutationForReview,
+  withWorkspaceArgContext,
+} from '@/lib/copilot/tools/server/base-tool'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { getEntityFields } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
@@ -66,6 +69,10 @@ export type ApplyEntityDocument = (input: {
   fields: Record<string, unknown>
   workspaceId: string
 }) => Promise<void>
+
+export type PrepareEntityDocumentFields = (
+  fields: Record<string, unknown>
+) => Record<string, unknown>
 
 export const ENTITY_KIND_LABELS: Record<SavedEntityDocumentKind, string> = {
   skill: 'skill',
@@ -216,10 +223,12 @@ export async function applySavedEntityDocument(
   await applySavedEntityState(kind as SavedEntityKind, entityId, fields)
 }
 
-export async function buildCreateEntityReviewResult(
+export async function executeCreateEntityDocumentMutation(
   kind: SavedEntityDocumentKind,
   args: EntityDocumentArgs,
-  context: ServerToolExecutionContext | undefined
+  context: ServerToolExecutionContext | undefined,
+  create: CreateEntityFromDocument,
+  prepareFields?: PrepareEntityDocumentFields
 ) {
   if (args.entityId?.trim()) {
     throw new Error(`create_${kind} does not accept entityId`)
@@ -227,40 +236,66 @@ export async function buildCreateEntityReviewResult(
 
   const scopedContext = withWorkspaceArgContext(context, args)
   const { workspaceId } = await verifyWorkspaceContext(scopedContext, 'write')
-  const fields = parseEntityMutationDocument(kind, args)
+  const parsedFields = parseEntityMutationDocument(kind, args)
+  const fields = prepareFields ? prepareFields(parsedFields) : parsedFields
 
+  if (shouldStageServerToolMutationForReview(context)) {
+    return {
+      requiresReview: true,
+      success: true,
+      workspaceId,
+      ...buildDocumentEnvelope(kind, undefined, fields),
+      preview: {
+        documentDiff: {
+          before: '',
+          after: serializeEntityDocument(kind, fields),
+        },
+      },
+    }
+  }
+
+  const created = await create(fields, scopedContext)
   return {
-    requiresReview: true,
     success: true,
     workspaceId,
-    ...buildDocumentEnvelope(kind, undefined, fields),
-    preview: {
-      documentDiff: {
-        before: '',
-        after: serializeEntityDocument(kind, fields),
-      },
-    },
+    ...buildDocumentEnvelope(kind, created.entityId, created.fields),
   }
 }
 
-export async function buildUpdateEntityReviewResult(
+export async function executeUpdateEntityDocumentMutation(
   kind: SavedEntityDocumentKind,
   toolName: string,
   args: EntityDocumentArgs,
-  context: ServerToolExecutionContext | undefined
+  context: ServerToolExecutionContext | undefined,
+  apply?: ApplyEntityDocument,
+  prepareFields?: PrepareEntityDocumentFields
 ) {
-  const fields = parseEntityMutationDocument(kind, args)
+  const parsedFields = parseEntityMutationDocument(kind, args)
+  const fields = prepareFields ? prepareFields(parsedFields) : parsedFields
   const entityId = requireEntityId(args, toolName)
   const { workspaceId } = await verifySavedEntityContext(context, kind, entityId, 'write')
-  const currentFields = await readSavedEntityYjsFields(kind, entityId, workspaceId)
 
+  if (shouldStageServerToolMutationForReview(context)) {
+    const currentFields = await readSavedEntityYjsFields(kind, entityId, workspaceId)
+    return {
+      requiresReview: true,
+      success: true,
+      ...buildDocumentEnvelope(kind, entityId, fields),
+      preview: {
+        documentDiff: buildDocumentDiff(kind, currentFields, fields),
+      },
+    }
+  }
+
+  if (apply) {
+    await apply({ entityId, fields, workspaceId })
+  } else {
+    await applySavedEntityDocument(kind, entityId, fields)
+  }
   return {
-    requiresReview: true,
     success: true,
+    workspaceId,
     ...buildDocumentEnvelope(kind, entityId, fields),
-    preview: {
-      documentDiff: buildDocumentDiff(kind, currentFields, fields),
-    },
   }
 }
 

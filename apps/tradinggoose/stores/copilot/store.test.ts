@@ -2188,6 +2188,7 @@ describe('copilot streaming regressions', () => {
     })
     expect(parseJsonRequestBody(executeRequest)).toEqual({
       toolName: 'list_workflows',
+      accessLevel: 'limited',
       payload: {
         workspaceId: 'workspace-1',
       },
@@ -2949,6 +2950,7 @@ describe('copilot tool user action delegation', () => {
     })
     expect(parseJsonRequestBody(executeRequest)).toEqual({
       toolName: 'edit_workflow',
+      accessLevel: 'limited',
       payload: {
         entityDocument:
           'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
@@ -3033,6 +3035,7 @@ describe('copilot tool user action delegation', () => {
     })
     expect(parseJsonRequestBody(executeRequest)).toEqual({
       toolName: 'edit_workflow',
+      accessLevel: 'limited',
       reviewAction: 'accept',
       reviewResult,
     })
@@ -3104,6 +3107,7 @@ describe('copilot tool user action delegation', () => {
       })
       expect(parseJsonRequestBody(executeRequest)).toEqual({
         toolName: 'make_api_request',
+        accessLevel: 'full',
         payload: {
           url: 'https://example.com/data',
           method: 'GET',

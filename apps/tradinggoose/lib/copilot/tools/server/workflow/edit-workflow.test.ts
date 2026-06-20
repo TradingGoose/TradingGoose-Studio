@@ -81,7 +81,7 @@ describe('editWorkflowServerTool', () => {
           '  n1 --> n2',
         ]),
       },
-      { userId: 'user-1' }
+      { userId: 'user-1', accessLevel: 'limited' }
     )
 
     expect(result.workflowState.blocks.fn1.name).toBe('Compute Indicators')
@@ -110,7 +110,7 @@ describe('editWorkflowServerTool', () => {
             '  n1 --> n2',
           ]),
         },
-        { userId: 'user-1' }
+        { userId: 'user-1', accessLevel: 'limited' }
       )
     ).rejects.toThrow('Use edit_workflow_block to rename existing blocks.')
 
@@ -125,7 +125,7 @@ describe('editWorkflowServerTool', () => {
             '  input1 --> fn1',
           ]),
         },
-        { userId: 'user-1' }
+        { userId: 'user-1', accessLevel: 'limited' }
       )
     ).rejects.toThrow('Use edit_workflow_block to rename existing blocks.')
   })
@@ -142,7 +142,7 @@ describe('editWorkflowServerTool', () => {
             '  n1 --> n2',
           ]),
         },
-        { userId: 'user-1' }
+        { userId: 'user-1', accessLevel: 'limited' }
       )
     ).rejects.toThrow(
       'Existing block ids are immutable identities in edit_workflow; this tool cannot replace an existing block or change its type.'
@@ -165,7 +165,7 @@ describe('editWorkflowServerTool', () => {
           '  n1 --> n2',
         ]),
       },
-      { userId: 'user-1' }
+      { userId: 'user-1', accessLevel: 'limited' }
     )
 
     expect(result.workflowState.blocks.fn2).toMatchObject({
@@ -196,7 +196,7 @@ describe('editWorkflowServerTool', () => {
           '  n3["Compute Indicators<br/>id: fn1<br/>type: function"]',
         ]),
       },
-      { userId: 'user-1' }
+      { userId: 'user-1', accessLevel: 'limited' }
     )
 
     expect(result.workflowState.blocks.fn2.position).toEqual({ x: 0, y: 360 })
@@ -232,7 +232,7 @@ describe('editWorkflowServerTool', () => {
           '  end',
         ]),
       },
-      { userId: 'user-1' }
+      { userId: 'user-1', accessLevel: 'limited' }
     )
 
     expect(result.workflowState.blocks.fn1.data).toMatchObject({
@@ -252,7 +252,7 @@ describe('editWorkflowServerTool', () => {
             '  n1["Input Form<br/>id: input1<br/>type: input_trigger<br/>enabled: false<br/>outputs: {}<br/>data.foo: bar<br/>subBlocks.code: return 1"]',
           ]),
         },
-        { userId: 'user-1' }
+        { userId: 'user-1', accessLevel: 'limited' }
       )
     ).rejects.toThrow(
       'Workflow graph Mermaid block "input1" includes block-internal fields (enabled, outputs, data.foo, subBlocks.code).'
@@ -269,7 +269,7 @@ describe('editWorkflowServerTool', () => {
             '  n1["Input Form<br/>id: input1<br/>type: input_trigger"]',
           ]),
         },
-        { userId: 'user-1' }
+        { userId: 'user-1', accessLevel: 'limited' }
       )
     ).rejects.toThrow(
       'Existing block ids omitted from edit_workflow entityDocument without removedBlockIds: fn1'
@@ -303,7 +303,7 @@ describe('editWorkflowServerTool', () => {
         entityDocument: graph(['flowchart TD', 'input1["Input Form"]']),
         removedBlockIds: ['loop1'],
       },
-      { userId: 'user-1' }
+      { userId: 'user-1', accessLevel: 'limited' }
     )
 
     expect(result.workflowState.blocks).toHaveProperty('input1')
@@ -324,7 +324,7 @@ describe('editWorkflowServerTool', () => {
           ]),
           removedBlockIds: ['fn1'],
         },
-        { userId: 'user-1' }
+        { userId: 'user-1', accessLevel: 'limited' }
       )
     ).rejects.toThrow('removedBlockIds still appear in edit_workflow entityDocument: fn1')
   })
@@ -340,7 +340,7 @@ describe('editWorkflowServerTool', () => {
             '%% TG_BLOCK {"id":"input1","type":"input_trigger","name":"Input Form","position":{"x":0,"y":0},"subBlocks":{},"outputs":{},"enabled":true}',
           ]),
         },
-        { userId: 'user-1' }
+        { userId: 'user-1', accessLevel: 'limited' }
       )
     ).rejects.toThrow('Workflow graph Mermaid must not include TG_* metadata comments')
   })

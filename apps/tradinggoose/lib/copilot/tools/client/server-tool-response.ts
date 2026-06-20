@@ -1,3 +1,4 @@
+import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { ExecuteResponseSuccessSchema } from '@/lib/copilot/tools/shared/schemas'
 
@@ -69,6 +70,7 @@ export function getCopilotServerToolErrorStatus(error: unknown): number | undefi
 export async function executeCopilotServerTool<TResult = unknown>(input: {
   toolName: string
   payload?: unknown
+  accessLevel: CopilotAccessLevel
   context?: {
     contextEntityKind?: ReviewEntityKind
     contextEntityId?: string
@@ -85,6 +87,7 @@ export async function executeCopilotServerTool<TResult = unknown>(input: {
     body: JSON.stringify({
       toolName: input.toolName,
       payload: input.payload ?? {},
+      accessLevel: input.accessLevel,
       ...(context ? { context } : {}),
     }),
   })
@@ -111,6 +114,7 @@ export function isCopilotServerToolReviewResult(result: unknown): result is {
 export async function acceptCopilotServerToolReview<TResult = unknown>(input: {
   toolName: string
   reviewResult: unknown
+  accessLevel: CopilotAccessLevel
   context?: {
     contextEntityKind?: ReviewEntityKind
     contextEntityId?: string
@@ -126,6 +130,7 @@ export async function acceptCopilotServerToolReview<TResult = unknown>(input: {
     signal: input.signal,
     body: JSON.stringify({
       toolName: input.toolName,
+      accessLevel: input.accessLevel,
       reviewAction: 'accept',
       reviewResult: input.reviewResult,
       ...(context ? { context } : {}),

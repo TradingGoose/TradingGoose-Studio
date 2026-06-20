@@ -149,7 +149,7 @@ describe('Copilot MCP route', () => {
     expect(mockRouteExecution).toHaveBeenCalledWith(
       'list_workflows',
       { workspaceId: 'workspace-1' },
-      { userId: 'user-1' }
+      { userId: 'user-1', accessLevel: 'full' }
     )
     expect(body.result.structuredContent).toEqual({ workflows: [] })
     expect(body.result.content[0].text).toBe(JSON.stringify({ workflows: [] }, null, 2))

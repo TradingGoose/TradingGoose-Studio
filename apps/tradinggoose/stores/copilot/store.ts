@@ -1401,12 +1401,14 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                 ? await acceptCopilotServerToolReview({
                     toolName: name,
                     reviewResult: get().toolCallsById[id]?.result,
+                    accessLevel: get().accessLevel,
                     context: serverContext,
                     signal: get().abortController?.signal,
                   })
                 : await executeCopilotServerTool({
                     toolName: name,
                     payload: preparedArgs,
+                    accessLevel: get().accessLevel,
                     context: serverContext,
                     signal: get().abortController?.signal,
                   })
