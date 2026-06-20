@@ -116,6 +116,19 @@ describe('Copilot MCP route', () => {
     )
   })
 
+  it('accepts a case-insensitive bearer auth scheme', async () => {
+    const { POST } = await import('./route')
+
+    const response = await POST(
+      createMcpRequest({ jsonrpc: '2.0', id: 1, method: 'initialize' }, 'bearer sk-lowercase')
+    )
+
+    expect(response.status).toBe(200)
+    expect(mockAuthenticateApiKeyFromHeader).toHaveBeenCalledWith('sk-lowercase', {
+      keyTypes: ['personal'],
+    })
+  })
+
   it('lists only executable server copilot tools', async () => {
     const { POST } = await import('./route')
 

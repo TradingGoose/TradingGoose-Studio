@@ -36,6 +36,22 @@ describe('MCP auth revoke route', () => {
     expect(mockRevokeMcpApiKeyByBearerToken).toHaveBeenCalledWith('sk-tradinggoose-old')
   })
 
+  it('accepts a case-insensitive bearer auth scheme', async () => {
+    const { POST } = await import('./route')
+
+    const response = await POST(
+      new NextRequest('https://studio.example.test/api/auth/mcp/revoke', {
+        method: 'POST',
+        headers: {
+          authorization: 'bearer sk-tradinggoose-old',
+        },
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(mockRevokeMcpApiKeyByBearerToken).toHaveBeenCalledWith('sk-tradinggoose-old')
+  })
+
   it('rejects missing bearer auth', async () => {
     const { POST } = await import('./route')
 

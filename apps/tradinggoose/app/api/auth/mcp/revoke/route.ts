@@ -5,11 +5,12 @@ export const dynamic = 'force-dynamic'
 
 function getBearerToken(request: NextRequest) {
   const authorization = request.headers.get('authorization')
-  if (!authorization?.startsWith('Bearer ')) {
+  const match = authorization?.match(/^Bearer\s+(.+)$/i)
+  if (!match) {
     return null
   }
 
-  const token = authorization.slice('Bearer '.length).trim()
+  const token = match[1].trim()
   return token || null
 }
 
