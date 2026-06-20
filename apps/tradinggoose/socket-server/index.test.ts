@@ -600,16 +600,12 @@ describe('Socket Server Index Integration', () => {
       )
       await storeState('workflow-2', Y.encodeStateAsUpdate(liveDoc!))
 
-      const response = await sendHttpRequestWithOptions(
-        PORT,
-        '/internal/yjs/sessions/workflow-2',
-        {
-          method: 'DELETE',
-          headers: {
-            'x-internal-secret': INTERNAL_SECRET,
-          },
-        }
-      )
+      const response = await sendHttpRequestWithOptions(PORT, '/internal/yjs/sessions/workflow-2', {
+        method: 'DELETE',
+        headers: {
+          'x-internal-secret': INTERNAL_SECRET,
+        },
+      })
 
       expect(response.statusCode).toBe(200)
       expect(await getExistingDocument('workflow-2')).toBeNull()
