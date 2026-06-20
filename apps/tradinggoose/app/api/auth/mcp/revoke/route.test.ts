@@ -10,8 +10,7 @@ const { mockRevokeMcpApiKeyByBearerToken } = vi.hoisted(() => ({
 }))
 
 vi.mock('@/lib/mcp/auth', () => ({
-  revokeMcpApiKeyByBearerToken: (...args: unknown[]) =>
-    mockRevokeMcpApiKeyByBearerToken(...args),
+  revokeMcpApiKeyByBearerToken: (...args: unknown[]) => mockRevokeMcpApiKeyByBearerToken(...args),
 }))
 
 describe('MCP auth revoke route', () => {
