@@ -3,11 +3,7 @@ import { db } from '@tradinggoose/db'
 import { apiKey, verification } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
-import {
-  authenticateApiKeyFromHeader,
-  createApiKeyMaterial,
-  encryptApiKey,
-} from '@/lib/api-key/service'
+import { createApiKeyMaterial, encryptApiKey } from '@/lib/api-key/service'
 
 const DEVICE_LOGIN_TTL_MS = 10 * 60 * 1000
 const DEVICE_LOGIN_PREFIX = 'mcp:'
@@ -60,10 +56,6 @@ export type McpDeviceLoginStartResult = {
   verificationKey: string
   expiresAt: string
   intervalSeconds: number
-}
-
-export type McpApiKeyRevocationResult = {
-  revoked: boolean
 }
 
 function getDeviceLoginIdentifier(code: string) {
@@ -413,22 +405,4 @@ export async function cancelMcpDeviceLogin({
   }
 
   return { status: 'cancelled' }
-}
-
-export async function revokeMcpApiKeyByBearerToken(
-  token: string
-): Promise<McpApiKeyRevocationResult> {
-  const auth = await authenticateApiKeyFromHeader(token, { keyTypes: ['personal'] })
-  if (!auth.success || !auth.keyId || !auth.userId) {
-    return { revoked: false }
-  }
-
-  const deleted = await db
-    .delete(apiKey)
-    .where(
-      and(eq(apiKey.id, auth.keyId), eq(apiKey.userId, auth.userId), eq(apiKey.type, 'personal'))
-    )
-    .returning({ id: apiKey.id })
-
-  return { revoked: deleted.length > 0 }
 }

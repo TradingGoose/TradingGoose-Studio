@@ -42,7 +42,7 @@ function fail(message) {
 
 function requireFetch() {
   if (typeof fetch !== 'function') {
-    fail('node 18 or newer is required to rotate MCP auth.')
+    fail('node 18 or newer is required to configure MCP auth.')
   }
 }
 
@@ -86,12 +86,38 @@ function readExistingTokens() {
   return runConfigWriter(['read-tokens']).split(/\r?\n/).filter(Boolean)
 }
 
-async function revokeTokens(tokens, currentToken) {
+async function isTokenValid(token) {
+  const response = await fetch(mcpUrl, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: 'Bearer ' + token,
+    },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 'auth-check', method: 'ping' }),
+  })
+
+  return response.ok
+}
+
+async function readValidExistingToken() {
+  const tokens = readExistingTokens()
   for (const token of tokens) {
-    if (token !== currentToken) {
-      await postJson(baseUrl + '/api/auth/mcp/revoke', null, token)
+    if (await isTokenValid(token)) {
+      return token
     }
   }
+  return null
+}
+
+async function resolveAuthToken() {
+  const existingToken = await readValidExistingToken()
+  if (existingToken) {
+    return existingToken
+  }
+
+  const login = await authenticate()
+  await confirmLogin(login)
+  return login.token
 }
 
 async function authenticate() {
@@ -159,18 +185,15 @@ async function main() {
   requireFetch()
 
   if (command === 'login') {
-    const existingTokens = readExistingTokens()
-    const login = await authenticate()
-    await confirmLogin(login)
+    const token = await resolveAuthToken()
     console.log('MCP endpoint:')
     console.log(mcpUrl)
     console.log('')
     console.log('Bearer token:')
-    console.log(login.token)
+    console.log(token)
     console.log('')
     console.log('Use this MCP auth header:')
-    console.log('Authorization: Bearer ' + login.token)
-    await revokeTokens(existingTokens, login.token)
+    console.log('Authorization: Bearer ' + token)
     return
   }
 
@@ -179,15 +202,12 @@ async function main() {
       fail('setup requires a selected target')
     }
 
-    const existingTokens = readExistingTokens()
-    const login = await authenticate()
-    await confirmLogin(login)
+    const token = await resolveAuthToken()
     console.log('Using MCP endpoint: ' + mcpUrl)
     for (const target of targets) {
-      const configPath = runConfigWriter([target, mcpUrl, login.token])
+      const configPath = runConfigWriter([target, mcpUrl, token])
       console.log('Configured ' + target + ': ' + configPath)
     }
-    await revokeTokens(existingTokens, login.token)
     return
   }
 
@@ -228,8 +248,8 @@ PowerShell:
   irm <studio-url>/mcp/login | iex
 
 Commands:
-  login   Rotate local MCP auth and print a bearer token.
-  setup   Authenticate, rotate local MCP auth, and write config.
+  login   Print a valid local MCP bearer token, authenticating when needed.
+  setup   Write MCP config, authenticating when needed.
 
 Options:
   -h, --help        Show this help.
@@ -284,7 +304,7 @@ choose_targets() {
 }
 
 run_installer() {
-  command -v node >/dev/null 2>&1 || fail "node is required to rotate MCP auth and write config."
+  command -v node >/dev/null 2>&1 || fail "node is required to configure MCP auth and write config."
   node - "$BASE_URL" "$COMMAND" "$TARGETS" <<'NODE'
 ${MCP_LOCAL_INSTALLER_SCRIPT}
 NODE
@@ -347,8 +367,8 @@ POSIX shell:
   curl -fsSL <studio-url>/mcp/login | sh
 
 Commands:
-  login   Rotate local MCP auth and print a bearer token.
-  setup   Authenticate, rotate local MCP auth, and write config.
+  login   Print a valid local MCP bearer token, authenticating when needed.
+  setup   Write MCP config, authenticating when needed.
 
 Options:
   -h, --help        Show this help.
@@ -396,7 +416,7 @@ function Choose-Targets {
 
 function Run-Installer {
   if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
-    Fail 'node is required to rotate MCP auth and write config.'
+    Fail 'node is required to configure MCP auth and write config.'
   }
 
   $NodeScript = @'

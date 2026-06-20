@@ -44,15 +44,15 @@ describe('MCP install route', () => {
     expect(script).toContain('return { code, verificationKey, token }')
     expect(script).toContain('confirm: true')
     expect(script).toContain('apiKey: login.token')
-    expect(script).toContain("baseUrl + '/api/auth/mcp/revoke'")
     expect(script).toContain("baseUrl + '/api/copilot/mcp'")
-    expect(script).toContain("Authorization: Bearer ' + login.token")
-    expect(script).toContain('setup   Authenticate, rotate local MCP auth, and write config.')
+    expect(script).toContain("method: 'ping'")
+    expect(script).toContain('async function isTokenValid(token)')
+    expect(script).toContain('async function resolveAuthToken()')
+    expect(script).toContain("Authorization: Bearer ' + token")
+    expect(script).toContain('setup   Write MCP config, authenticating when needed.')
     expect(script).toContain('read-tokens')
-    expect(script).toContain('await revokeTokens(existingTokens, login.token)')
-    expect(script).not.toContain('revokeExistingTokens')
     expect(script).toContain('node - "$BASE_URL" "$COMMAND" "$TARGETS"')
-    expect(script).toContain('runConfigWriter([target, mcpUrl, login.token])')
+    expect(script).toContain('runConfigWriter([target, mcpUrl, token])')
     expect(script).toContain("const mcpServerName = 'TradingGoose'")
     expect(script).toContain("'[mcp_servers.' + mcpServerName + '.http_headers]'")
     expect(script).toContain("'Authorization = ' + JSON.stringify('Bearer ' + token)")
@@ -66,23 +66,16 @@ describe('MCP install route', () => {
     expect(script).not.toContain('workspaceId')
     expect(script).not.toContain('entityId')
 
-    const printedTokenIndex = script.indexOf("console.log('Authorization: Bearer ' + login.token)")
+    const printedTokenIndex = script.indexOf("console.log('Authorization: Bearer ' + token)")
     const firstConfirmIndex = script.indexOf('await confirmLogin(login)')
-    const firstRevokeIndex = script.indexOf('await revokeTokens(existingTokens, login.token)')
+    const firstReturnTokenIndex = script.indexOf('return login.token')
     const setupIndex = script.indexOf("if (command === 'setup')")
-    const setupConfirmIndex = script.indexOf('await confirmLogin(login)', setupIndex)
     const configWriteIndex = script.indexOf(
-      'const configPath = runConfigWriter([target, mcpUrl, login.token])'
-    )
-    const setupRevokeIndex = script.indexOf(
-      'await revokeTokens(existingTokens, login.token)',
-      configWriteIndex
+      'const configPath = runConfigWriter([target, mcpUrl, token])'
     )
     expect(printedTokenIndex).toBeGreaterThan(firstConfirmIndex)
-    expect(firstRevokeIndex).toBeGreaterThan(firstConfirmIndex)
-    expect(configWriteIndex).toBeGreaterThan(setupConfirmIndex)
-    expect(setupRevokeIndex).toBeGreaterThan(setupConfirmIndex)
-    expect(setupRevokeIndex).toBeGreaterThan(configWriteIndex)
+    expect(firstReturnTokenIndex).toBeGreaterThan(firstConfirmIndex)
+    expect(configWriteIndex).toBeGreaterThan(setupIndex)
   })
 
   it('serves target-specific setup scripts from the URL path', async () => {
@@ -108,6 +101,7 @@ describe('MCP install route', () => {
     expect(script).toContain("$NodeScript | & node - $BaseUrl $Command ($Targets -join ' ')")
     expect(script).toContain("baseUrl + '/api/auth/mcp/start'")
     expect(script).toContain("runConfigWriter(['read-tokens'])")
+    expect(script).toContain("method: 'ping'")
     expect(script).toContain("const mcpServerName = 'TradingGoose'")
     expect(script).toContain("'[mcp_servers.' + mcpServerName + '.http_headers]'")
     expect(script).toContain("'Authorization = ' + JSON.stringify('Bearer ' + token)")
