@@ -4,7 +4,8 @@ import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { getSession } from '@/lib/auth'
 import { approveMcpDeviceLogin } from '@/lib/mcp/auth'
 import { redirect } from '@/i18n/navigation'
-import type { LocaleCode } from '@/i18n/utils'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { normalizeLocaleCode } from '@/i18n/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,10 +18,18 @@ function getCode(searchParams: Awaited<SearchParams>) {
   return Array.isArray(code) ? code[0] : code
 }
 
-function StatusPage({ title, description }: { title: string; description: string }) {
+function StatusPage({
+  eyebrow,
+  title,
+  description,
+}: {
+  eyebrow: string
+  title: string
+  description: string
+}) {
   return (
     <div className='space-y-8 text-center'>
-      <AuthPageHeader eyebrow='MCP authorization' title={title} description={description} />
+      <AuthPageHeader eyebrow={eyebrow} title={title} description={description} />
     </div>
   )
 }
@@ -37,14 +46,16 @@ export default async function McpAuthorizePage({
     searchParams,
     headers(),
   ])
-  const locale = routeLocale as LocaleCode
+  const locale = normalizeLocaleCode(routeLocale)
+  const mcpCopy = getPublicCopy(locale).auth.mcp
   const code = getCode(query)
 
   if (!code) {
     return (
       <StatusPage
-        title='Invalid Copilot MCP login'
-        description='The local setup command did not provide a valid login code.'
+        eyebrow={mcpCopy.eyebrow}
+        title={mcpCopy.invalid.title}
+        description={mcpCopy.invalid.description}
       />
     )
   }
@@ -71,16 +82,18 @@ export default async function McpAuthorizePage({
   if (result.status === 'expired') {
     return (
       <StatusPage
-        title='MCP login expired'
-        description='Return to your terminal and run the TradingGoose Copilot MCP login command again.'
+        eyebrow={mcpCopy.eyebrow}
+        title={mcpCopy.expired.title}
+        description={mcpCopy.expired.description}
       />
     )
   }
 
   return (
     <StatusPage
-      title='MCP login approved'
-      description='Return to your terminal to finish configuring your local agent.'
+      eyebrow={mcpCopy.eyebrow}
+      title={mcpCopy.approved.title}
+      description={mcpCopy.approved.description}
     />
   )
 }

@@ -356,6 +356,21 @@
         "ssoDisabled": "SSO身份验证已禁用。请使用其他登录方式。",
         "failed": "SSO登录失败。请重试。"
       }
+    },
+    "mcp": {
+      "eyebrow": "MCP 授权",
+      "invalid": {
+        "title": "MCP 登录无效",
+        "description": "本地设置命令未提供有效的登录代码。"
+      },
+      "expired": {
+        "title": "MCP 登录已过期",
+        "description": "返回终端并重新运行 TradingGoose MCP 登录命令。"
+      },
+      "approved": {
+        "title": "MCP 登录已批准",
+        "description": "返回终端完成本地代理配置。"
+      }
     }
   },
   "localeNames": {

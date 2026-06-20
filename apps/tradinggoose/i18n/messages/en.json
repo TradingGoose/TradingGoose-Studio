@@ -356,6 +356,21 @@
         "ssoDisabled": "SSO authentication is disabled. Please use another sign-in method.",
         "failed": "SSO sign-in failed. Please try again."
       }
+    },
+    "mcp": {
+      "eyebrow": "MCP authorization",
+      "invalid": {
+        "title": "Invalid MCP login",
+        "description": "The local setup command did not provide a valid login code."
+      },
+      "expired": {
+        "title": "MCP login expired",
+        "description": "Return to your terminal and run the TradingGoose MCP login command again."
+      },
+      "approved": {
+        "title": "MCP login approved",
+        "description": "Return to your terminal to finish configuring your local agent."
+      }
     }
   },
   "localeNames": {

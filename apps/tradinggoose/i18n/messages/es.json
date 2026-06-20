@@ -356,6 +356,21 @@
         "ssoDisabled": "La autenticación SSO está deshabilitada. Usa otro método de inicio de sesión.",
         "failed": "El inicio de sesión SSO falló. Inténtalo de nuevo."
       }
+    },
+    "mcp": {
+      "eyebrow": "Autorización MCP",
+      "invalid": {
+        "title": "Inicio de sesión MCP no válido",
+        "description": "El comando de configuración local no proporcionó un código de inicio de sesión válido."
+      },
+      "expired": {
+        "title": "El inicio de sesión MCP expiró",
+        "description": "Vuelve a la terminal y ejecuta de nuevo el comando de inicio de sesión de TradingGoose MCP."
+      },
+      "approved": {
+        "title": "Inicio de sesión MCP aprobado",
+        "description": "Vuelve a la terminal para terminar de configurar tu agente local."
+      }
     }
   },
   "localeNames": {
