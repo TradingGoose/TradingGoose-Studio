@@ -62,7 +62,9 @@ describe('MCP local config writer script', () => {
   it('writes Codex config with a TradingGoose bearer token environment variable', () => {
     const home = mkdtempSync(join(tmpdir(), 'tg-mcp-codex-'))
 
-    runWriter(home, ['codex', 'http://localhost:3000/api/copilot/mcp', 'mcp-token'])
+    runWriter(home, ['codex', 'http://localhost:3000/api/copilot/mcp', 'mcp-token'], {
+      SHELL: '/bin/zsh',
+    })
 
     const configPath = join(home, '.codex', 'config.toml')
     expect(readFileSync(configPath, 'utf8')).toBe(
@@ -72,6 +74,16 @@ describe('MCP local config writer script', () => {
         'bearer_token_env_var = "TRADINGGOOSE_BEARER_TOKEN"',
         '',
       ].join('\n')
+    )
+    expect(readFileSync(join(home, '.codex', 'tradinggoose-mcp.env'), 'utf8')).toBe(
+      "export TRADINGGOOSE_BEARER_TOKEN='mcp-token'\n"
+    )
+    expect(readFileSync(join(home, '.zshrc'), 'utf8')).toBe(
+      `[ -f '${join(home, '.codex', 'tradinggoose-mcp.env')}' ] && . '${join(
+        home,
+        '.codex',
+        'tradinggoose-mcp.env'
+      )}'\n`
     )
   })
 
@@ -101,23 +113,12 @@ describe('MCP local config writer script', () => {
     expect(config).not.toContain('Authorization = "Bearer')
   })
 
-  it('reads Codex bearer token from the configured environment variable', () => {
+  it('reads Codex bearer token from durable local state after setup', () => {
     const home = mkdtempSync(join(tmpdir(), 'tg-mcp-codex-token-'))
-    const configPath = join(home, '.codex', 'config.toml')
-    mkdirSync(join(home, '.codex'), { recursive: true })
-    writeFileSync(
-      configPath,
-      [
-        '[mcp_servers.TradingGoose]',
-        'url = "http://localhost:3000/api/copilot/mcp"',
-        'bearer_token_env_var = "TRADINGGOOSE_BEARER_TOKEN"',
-        '',
-      ].join('\n'),
-      'utf8'
-    )
+    runWriter(home, ['codex', 'http://localhost:3000/api/copilot/mcp', 'existing-token'])
 
     const stdout = runWriterCapture(home, ['read-tokens'], {
-      TRADINGGOOSE_BEARER_TOKEN: 'existing-token',
+      TRADINGGOOSE_BEARER_TOKEN: undefined,
     })
 
     expect(stdout.trim()).toBe('existing-token')
