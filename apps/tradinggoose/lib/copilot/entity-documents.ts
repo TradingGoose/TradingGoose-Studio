@@ -3,12 +3,15 @@ export const SKILL_DOCUMENT_FORMAT = 'tg-skill-document-v1' as const
 export const CUSTOM_TOOL_DOCUMENT_FORMAT = 'tg-custom-tool-document-v1' as const
 export const INDICATOR_DOCUMENT_FORMAT = 'tg-indicator-document-v1' as const
 export const MCP_SERVER_DOCUMENT_FORMAT = 'tg-mcp-server-document-v1' as const
+export const KNOWLEDGE_BASE_DOCUMENT_FORMAT = 'tg-knowledge-base-document-v1' as const
+export const WORKFLOW_VARIABLE_DOCUMENT_FORMAT = 'tg-workflow-variable-document-v1' as const
 
 export const ENTITY_DOCUMENT_FORMATS = {
   skill: SKILL_DOCUMENT_FORMAT,
   custom_tool: CUSTOM_TOOL_DOCUMENT_FORMAT,
   indicator: INDICATOR_DOCUMENT_FORMAT,
   mcp_server: MCP_SERVER_DOCUMENT_FORMAT,
+  knowledge_base: KNOWLEDGE_BASE_DOCUMENT_FORMAT,
 } as const
 
 export type EntityDocumentKind = keyof typeof ENTITY_DOCUMENT_FORMATS
@@ -53,11 +56,26 @@ const McpServerDocumentSchema = z.object({
   enabled: z.boolean(),
 })
 
+const KnowledgeBaseDocumentSchema = z.object({
+  name: z.string().trim().min(1),
+  description: z.string(),
+  chunkingConfig: z
+    .object({
+      maxSize: z.number().min(100).max(4000),
+      minSize: z.number().min(1).max(2000),
+      overlap: z.number().min(0).max(500),
+    })
+    .refine((data) => data.minSize < data.maxSize, {
+      message: 'minSize must be less than maxSize',
+    }),
+})
+
 export const EntityDocumentSchemas = {
   skill: SkillDocumentSchema,
   custom_tool: CustomToolDocumentSchema,
   indicator: IndicatorDocumentSchema,
   mcp_server: McpServerDocumentSchema,
+  knowledge_base: KnowledgeBaseDocumentSchema,
 } as const
 
 export type EntityDocumentFields<K extends EntityDocumentKind> = z.infer<
@@ -131,6 +149,12 @@ function normalizeEntityFields(
         retries: typeof source.retries === 'number' ? source.retries : 3,
         enabled: typeof source.enabled === 'boolean' ? source.enabled : true,
       }
+    case 'knowledge_base':
+      return {
+        name: source.name,
+        description: source.description,
+        chunkingConfig: source.chunkingConfig,
+      }
   }
 }
 
@@ -174,6 +198,8 @@ export function getEntityDocumentName(
     case 'indicator':
       return String(normalized.name ?? '')
     case 'mcp_server':
+      return String(normalized.name ?? '')
+    case 'knowledge_base':
       return String(normalized.name ?? '')
   }
 }

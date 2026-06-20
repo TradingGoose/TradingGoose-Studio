@@ -1,5 +1,15 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { editWorkflowBlockServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow-block'
+
+const mockLoadBaseWorkflowState = vi.hoisted(() => vi.fn())
+
+vi.mock('@/lib/copilot/tools/server/workflow/workflow-mutation-utils', async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...(actual as object),
+    loadBaseWorkflowState: (...args: any[]) => mockLoadBaseWorkflowState(...args),
+  }
+})
 
 vi.mock('@/lib/workflows/validation', () => ({
   validateWorkflowState: (state: any) => ({
@@ -21,7 +31,7 @@ vi.mock('@/blocks', () => ({
       : undefined,
 }))
 
-const CURRENT_WORKFLOW_STATE = JSON.stringify({
+const CURRENT_WORKFLOW_STATE = {
   direction: 'TD',
   blocks: {
     fn1: {
@@ -43,9 +53,14 @@ const CURRENT_WORKFLOW_STATE = JSON.stringify({
   edges: [],
   loops: {},
   parallels: {},
-})
+}
 
 describe('editWorkflowBlockServerTool', () => {
+  beforeEach(() => {
+    mockLoadBaseWorkflowState.mockReset()
+    mockLoadBaseWorkflowState.mockResolvedValue(CURRENT_WORKFLOW_STATE)
+  })
+
   it('patches only the selected block config and preserves the workflow document envelope', async () => {
     const result = await editWorkflowBlockServerTool.execute(
       {
@@ -56,7 +71,6 @@ describe('editWorkflowBlockServerTool', () => {
         subBlocks: {
           code: 'return { rsi: 50 }',
         },
-        currentWorkflowState: CURRENT_WORKFLOW_STATE,
       },
       { userId: 'user-1' }
     )
@@ -77,7 +91,6 @@ describe('editWorkflowBlockServerTool', () => {
           subBlocks: {
             madeUpField: 'bad',
           },
-          currentWorkflowState: CURRENT_WORKFLOW_STATE,
         },
         { userId: 'user-1' }
       )

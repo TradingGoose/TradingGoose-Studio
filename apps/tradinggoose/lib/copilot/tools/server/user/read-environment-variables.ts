@@ -3,16 +3,13 @@ import type {
   BaseServerTool,
   ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
-import {
-  createWorkflowPermissionError,
-  resolveServerWorkspaceId,
-  resolveServerWorkflowScope,
-} from '@/lib/copilot/tools/server/workflow/workflow-scope'
-import { getEnvironmentVariableKeys, getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
+import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
+import { getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
 import { createLogger } from '@/lib/logs/console/logger'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 
 interface ReadEnvironmentVariablesParams {
-  entityId?: string
+  workspaceId?: string
 }
 
 export const readEnvironmentVariablesServerTool: BaseServerTool<
@@ -26,58 +23,45 @@ export const readEnvironmentVariablesServerTool: BaseServerTool<
   ): Promise<any> {
     const logger = createLogger('ReadEnvironmentVariablesServerTool')
 
-    if (!context?.userId) {
+    const scopedContext = withWorkspaceArgContext(context, params)
+
+    if (!scopedContext?.userId) {
       logger.error(
         'Unauthorized attempt to access environment variables - no authenticated user context'
       )
       throw new Error('Authentication required')
     }
 
-    const authenticatedUserId = context.userId
-
-    const workflowScope = await resolveServerWorkflowScope(params, context)
-    if (workflowScope && !workflowScope.hasAccess) {
-      const errorMessage = createWorkflowPermissionError('access environment variables in')
-      logger.error('Unauthorized attempt to access environment variables', {
-        workflowId: workflowScope.workflowId,
-        authenticatedUserId,
-      })
-      throw new Error(errorMessage)
+    const userId = scopedContext.userId
+    const workspaceId = scopedContext.workspaceId
+    if (!workspaceId) {
+      throw new Error('workspaceId is required')
     }
 
-    const userId = authenticatedUserId
-    const workspaceId = resolveServerWorkspaceId(context, workflowScope)
+    const workspaceAccess = await checkWorkspaceAccess(workspaceId, userId)
+    if (!workspaceAccess.exists || !workspaceAccess.hasAccess) {
+      throw new Error('Access denied: You do not have permission to use this workspace')
+    }
 
     logger.info('Reading environment variables for authenticated user', {
       userId,
-      workflowId: workflowScope?.workflowId,
       workspaceId,
     })
 
-    if (workspaceId) {
-      const envResult = await getPersonalAndWorkspaceEnv(userId, workspaceId)
-      const variableNames = [
-        ...new Set([
-          ...Object.keys(envResult.personalEncrypted),
-          ...Object.keys(envResult.workspaceEncrypted),
-        ]),
-      ]
-      logger.info('Environment variable keys retrieved', {
-        userId,
-        workflowId: workflowScope?.workflowId,
-        variableCount: variableNames.length,
-      })
-      return {
-        variableNames,
-        count: variableNames.length,
-      }
-    }
-
-    const result = await getEnvironmentVariableKeys(userId)
-    logger.info('Environment variable keys retrieved', { userId, variableCount: result.count })
+    const envResult = await getPersonalAndWorkspaceEnv(userId, workspaceId)
+    const variableNames = [
+      ...new Set([
+        ...Object.keys(envResult.personalEncrypted),
+        ...Object.keys(envResult.workspaceEncrypted),
+      ]),
+    ]
+    logger.info('Environment variable keys retrieved', {
+      userId,
+      variableCount: variableNames.length,
+    })
     return {
-      variableNames: result.variableNames,
-      count: result.count,
+      variableNames,
+      count: variableNames.length,
     }
   },
 }

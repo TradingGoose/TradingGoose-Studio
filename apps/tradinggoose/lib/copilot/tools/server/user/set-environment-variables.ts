@@ -7,16 +7,11 @@ import {
   type ServerToolExecutionContext,
   throwIfServerToolAborted,
 } from '@/lib/copilot/tools/server/base-tool'
-import {
-  createWorkflowPermissionError,
-  resolveServerWorkflowScope,
-} from '@/lib/copilot/tools/server/workflow/workflow-scope'
 import { createLogger } from '@/lib/logs/console/logger'
 import { encryptSecret } from '@/lib/utils-server'
 
 interface SetEnvironmentVariablesParams {
   variables: Record<string, any> | Array<{ name: string; value: string }>
-  entityId?: string
 }
 
 const EnvVarSchema = z.object({ variables: z.record(z.string()) })
@@ -56,20 +51,8 @@ export const setEnvironmentVariablesServerTool: BaseServerTool<SetEnvironmentVar
         throw new Error('Authentication required')
       }
 
-      const authenticatedUserId = context.userId
+      const userId = context.userId
       const { variables } = params || ({} as SetEnvironmentVariablesParams)
-
-      const workflowScope = await resolveServerWorkflowScope(params, context)
-      if (workflowScope && !workflowScope.hasAccess) {
-        const errorMessage = createWorkflowPermissionError('modify environment variables in')
-        logger.error('Unauthorized attempt to set environment variables', {
-          workflowId: workflowScope.workflowId,
-          authenticatedUserId,
-        })
-        throw new Error(errorMessage)
-      }
-
-      const userId = authenticatedUserId
 
       const normalized = normalizeEnvVarInput(variables || {})
       const { variables: validatedVariables } = EnvVarSchema.parse({ variables: normalized })

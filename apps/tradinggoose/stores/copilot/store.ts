@@ -16,8 +16,10 @@ import {
 } from '@/lib/copilot/tools/client/base-tool'
 import { registerToolStateSync } from '@/lib/copilot/tools/client/manager'
 import {
+  acceptCopilotServerToolReview,
   executeCopilotServerTool,
   getCopilotServerToolErrorStatus,
+  isCopilotServerToolReviewResult,
 } from '@/lib/copilot/tools/client/server-tool-response'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -1383,6 +1385,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         logger.info('[toolCallsById] pending → executing (copilot tool)', { id, name })
 
         if (isServerManagedCopilotTool(name)) {
+          const acceptingServerReview = toolCall.state === ClientToolCallState.review
           try {
             const serverContext = {
               ...(provenance?.contextEntityKind && provenance?.contextEntityId
@@ -1393,12 +1396,20 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                 : {}),
               ...(provenance?.workspaceId ? { workspaceId: provenance.workspaceId } : {}),
             }
-            const result = await executeCopilotServerTool({
-              toolName: name,
-              payload: preparedArgs,
-              context: serverContext,
-              signal: get().abortController?.signal,
-            })
+            const result =
+              acceptingServerReview
+                ? await acceptCopilotServerToolReview({
+                    toolName: name,
+                    reviewResult: get().toolCallsById[id]?.result,
+                    context: serverContext,
+                    signal: get().abortController?.signal,
+                  })
+                : await executeCopilotServerTool({
+                    toolName: name,
+                    payload: preparedArgs,
+                    context: serverContext,
+                    signal: get().abortController?.signal,
+                  })
             const logicalSuccess =
               !result ||
               typeof result !== 'object' ||
@@ -1406,7 +1417,23 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
               (result as any).success !== false
 
             const currentToolCall = get().toolCallsById[id]
-            if (isToolCallCompletionProtected(currentToolCall?.state)) {
+            if (
+              isToolCallCompletionProtected(currentToolCall?.state) &&
+              !acceptingServerReview
+            ) {
+              return
+            }
+
+            if (
+              !acceptingServerReview &&
+              logicalSuccess &&
+              isCopilotServerToolReviewResult(result)
+            ) {
+              applyToolStateUpdate(targetStore, id, ClientToolCallState.review, { result })
+
+              if (!shouldRequireToolApproval(get().accessLevel, true)) {
+                await get().executeCopilotToolCall(id)
+              }
               return
             }
 
@@ -1442,7 +1469,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             return
           } catch (error) {
             const errorMap = { ...get().toolCallsById }
-            if (isToolCallCompletionProtected(errorMap[id]?.state)) {
+            if (isToolCallCompletionProtected(errorMap[id]?.state) && !acceptingServerReview) {
               return
             }
 

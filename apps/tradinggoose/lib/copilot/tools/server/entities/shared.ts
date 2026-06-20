@@ -1,0 +1,319 @@
+import * as Y from 'yjs'
+import {
+  type EntityDocumentKind,
+  getEntityDocumentFormat,
+  getEntityDocumentName,
+  parseEntityDocument,
+  serializeEntityDocument,
+} from '@/lib/copilot/entity-documents'
+import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
+import type {
+  BaseServerTool,
+  ServerToolExecutionContext,
+} from '@/lib/copilot/tools/server/base-tool'
+import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
+import { getEntityFields } from '@/lib/yjs/entity-session'
+import type { SavedEntityKind } from '@/lib/yjs/entity-state'
+import { buildSavedEntityYjsDescriptor } from '@/lib/yjs/entity-state'
+import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
+import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
+
+export type SavedEntityDocumentKind = EntityDocumentKind
+export type EntityDocumentArgs = {
+  entityId?: string
+  runtimeId?: string
+  workspaceId?: string
+  entityDocument?: string
+  documentFormat?: string
+}
+
+export type EntityListEntry = {
+  entityId: string
+  entityName?: string
+  workspaceId?: string
+  entityDescription?: string
+  entityTitle?: string
+  entityFunctionName?: string
+  entityTransport?: string
+  entityUrl?: string
+  entityEnabled?: boolean
+  entityConnectionStatus?: string
+}
+
+export type CopilotIndicatorListEntry = {
+  name: string
+  source: 'default' | 'custom'
+  editable: boolean
+  callableInFunctionBlock: boolean
+  inputTitles?: string[]
+  entityId?: string
+  runtimeId?: string
+}
+
+export type EntityCreateResult = {
+  entityId: string
+  fields: Record<string, unknown>
+}
+
+export type CreateEntityFromDocument = (
+  fields: Record<string, unknown>,
+  context: ServerToolExecutionContext | undefined
+) => Promise<EntityCreateResult>
+
+export type ApplyEntityDocument = (input: {
+  entityId: string
+  fields: Record<string, unknown>
+  workspaceId: string
+}) => Promise<void>
+
+export const ENTITY_KIND_LABELS: Record<SavedEntityDocumentKind, string> = {
+  skill: 'skill',
+  custom_tool: 'custom tool',
+  indicator: 'indicator',
+  knowledge_base: 'knowledge base',
+  mcp_server: 'MCP server',
+}
+
+export function requireUserId(context?: ServerToolExecutionContext): string {
+  const userId = context?.userId?.trim()
+  if (!userId) {
+    throw new Error('Authenticated user is required to execute copilot entity tools')
+  }
+  return userId
+}
+
+export function requireWorkspaceId(context?: ServerToolExecutionContext): string {
+  const workspaceId = context?.workspaceId?.trim()
+  if (!workspaceId) {
+    throw new Error(
+      'No active workspace found in execution context. Ensure workspaceId is included in tool provenance.'
+    )
+  }
+  return workspaceId
+}
+
+export async function verifyWorkspaceContext(
+  context: ServerToolExecutionContext | undefined,
+  accessMode: 'read' | 'write'
+): Promise<{ userId: string; workspaceId: string }> {
+  const userId = requireUserId(context)
+  const workspaceId = requireWorkspaceId(context)
+  const access = await checkWorkspaceAccess(workspaceId, userId)
+
+  if (!access.exists || !access.hasAccess || (accessMode === 'write' && !access.canWrite)) {
+    throw new Error('Access denied: You do not have permission to use this workspace')
+  }
+
+  return { userId, workspaceId }
+}
+
+export async function verifySavedEntityContext(
+  context: ServerToolExecutionContext | undefined,
+  entityKind: SavedEntityDocumentKind,
+  entityId: string,
+  accessMode: 'read' | 'write'
+): Promise<{ userId: string; workspaceId: string }> {
+  const userId = requireUserId(context)
+  const access = await verifyReviewTargetAccess(
+    userId,
+    {
+      workspaceId: null,
+      entityKind,
+      entityId,
+      draftSessionId: null,
+      reviewSessionId: null,
+      yjsSessionId: entityId,
+    },
+    accessMode
+  )
+
+  if (!access.hasAccess || !access.workspaceId) {
+    throw new Error(
+      `Access denied: You do not have permission to ${accessMode === 'write' ? 'edit' : 'read'} this ${ENTITY_KIND_LABELS[entityKind]}`
+    )
+  }
+
+  return { userId, workspaceId: access.workspaceId }
+}
+
+export function requireEntityId(args: EntityDocumentArgs, toolName: string): string {
+  const entityId = args.entityId?.trim()
+  if (!entityId) {
+    throw new Error(`entityId is required for ${toolName}`)
+  }
+  return entityId
+}
+
+export function parseEntityMutationDocument(
+  kind: SavedEntityDocumentKind,
+  args: EntityDocumentArgs
+): Record<string, unknown> {
+  const entityDocument = args.entityDocument?.trim()
+  if (!entityDocument) {
+    throw new Error('entityDocument is required')
+  }
+
+  const expectedFormat = getEntityDocumentFormat(kind)
+  if (args.documentFormat && args.documentFormat !== expectedFormat) {
+    throw new Error(`Unsupported documentFormat "${args.documentFormat}". Expected ${expectedFormat}`)
+  }
+
+  return parseEntityDocument(kind, entityDocument)
+}
+
+export function buildDocumentEnvelope(
+  kind: SavedEntityDocumentKind,
+  entityId: string | undefined,
+  fields: Record<string, unknown>
+) {
+  return {
+    entityKind: kind,
+    ...(entityId ? { entityId } : {}),
+    entityName: getEntityDocumentName(kind, fields),
+    documentFormat: getEntityDocumentFormat(kind),
+    entityDocument: serializeEntityDocument(kind, fields),
+  }
+}
+
+export function buildDocumentDiff(
+  kind: SavedEntityDocumentKind,
+  before: Record<string, unknown>,
+  after: Record<string, unknown>
+) {
+  return {
+    before: serializeEntityDocument(kind, before),
+    after: serializeEntityDocument(kind, after),
+  }
+}
+
+export async function readSavedEntityYjsFields(
+  kind: SavedEntityDocumentKind,
+  entityId: string,
+  workspaceId: string
+): Promise<Record<string, unknown>> {
+  const descriptor = buildSavedEntityYjsDescriptor(kind as SavedEntityKind, entityId, workspaceId)
+  const snapshot = await readBootstrappedReviewTargetSnapshot(descriptor)
+
+  if (!snapshot.snapshotBase64) {
+    throw new Error(`Current Yjs ${ENTITY_KIND_LABELS[kind]} state is required for ${entityId}`)
+  }
+
+  const doc = new Y.Doc()
+  try {
+    Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
+    return getEntityFields(doc, kind as SavedEntityKind)
+  } finally {
+    doc.destroy()
+  }
+}
+
+export async function applySavedEntityDocument(
+  kind: SavedEntityDocumentKind,
+  entityId: string,
+  fields: Record<string, unknown>
+): Promise<void> {
+  await applySavedEntityState(kind as SavedEntityKind, entityId, fields)
+}
+
+export async function buildCreateEntityReviewResult(
+  kind: SavedEntityDocumentKind,
+  args: EntityDocumentArgs,
+  context: ServerToolExecutionContext | undefined
+) {
+  if (args.entityId?.trim()) {
+    throw new Error(`create_${kind} does not accept entityId`)
+  }
+
+  const scopedContext = withWorkspaceArgContext(context, args)
+  const { workspaceId } = await verifyWorkspaceContext(scopedContext, 'write')
+  const fields = parseEntityMutationDocument(kind, args)
+
+  return {
+    requiresReview: true,
+    success: true,
+    workspaceId,
+    ...buildDocumentEnvelope(kind, undefined, fields),
+    preview: {
+      documentDiff: {
+        before: '',
+        after: serializeEntityDocument(kind, fields),
+      },
+    },
+  }
+}
+
+export async function buildUpdateEntityReviewResult(
+  kind: SavedEntityDocumentKind,
+  toolName: string,
+  args: EntityDocumentArgs,
+  context: ServerToolExecutionContext | undefined
+) {
+  const fields = parseEntityMutationDocument(kind, args)
+  const entityId = requireEntityId(args, toolName)
+  const { workspaceId } = await verifySavedEntityContext(context, kind, entityId, 'write')
+  const currentFields = await readSavedEntityYjsFields(kind, entityId, workspaceId)
+
+  return {
+    requiresReview: true,
+    success: true,
+    ...buildDocumentEnvelope(kind, entityId, fields),
+    preview: {
+      documentDiff: buildDocumentDiff(kind, currentFields, fields),
+    },
+  }
+}
+
+export async function acceptEntityDocumentReview(input: {
+  kind: SavedEntityDocumentKind
+  toolName: string
+  result: unknown
+  context: ServerToolExecutionContext | undefined
+  create: CreateEntityFromDocument
+  apply?: ApplyEntityDocument
+}) {
+  const { kind, toolName, result, context, create, apply } = input
+  if (!result || typeof result !== 'object') {
+    throw new Error(`Missing review result for ${toolName}`)
+  }
+
+  const reviewResult = result as EntityDocumentArgs & {
+    entityKind?: string
+    entityName?: string
+    preview?: unknown
+    success?: boolean
+  }
+
+  if (reviewResult.entityKind !== kind) {
+    throw new Error(`Review result entityKind must be ${kind}`)
+  }
+
+  const fields = parseEntityMutationDocument(kind, reviewResult)
+
+  if (toolName.startsWith('create_')) {
+    const created = await create(fields, withWorkspaceArgContext(context, reviewResult))
+    return {
+      ...reviewResult,
+      requiresReview: true,
+      success: true,
+      ...buildDocumentEnvelope(kind, created.entityId, created.fields),
+    }
+  }
+
+  const entityId = requireEntityId(reviewResult, toolName)
+  const { workspaceId } = await verifySavedEntityContext(context, kind, entityId, 'write')
+  if (apply) {
+    await apply({ entityId, fields, workspaceId })
+  } else {
+    await applySavedEntityDocument(kind, entityId, fields)
+  }
+
+  return {
+    ...reviewResult,
+    requiresReview: true,
+    success: true,
+    ...buildDocumentEnvelope(kind, entityId, fields),
+  }
+}
+
+export type EntityServerTool<TArgs = EntityDocumentArgs> = BaseServerTool<TArgs, any>

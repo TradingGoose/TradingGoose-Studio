@@ -95,7 +95,7 @@ describe('Workflow YAML Export API Route', () => {
       loadWorkflowState: loadWorkflowStateMock,
     }))
 
-    vi.doMock('@/lib/copilot/tools/client/workflow/block-output-utils', () => ({
+    vi.doMock('@/lib/copilot/workflow/block-output-utils', () => ({
       extractSubBlockValuesFromBlocks: vi.fn((blocks: Record<string, any>) =>
         Object.fromEntries(
           Object.entries(blocks).map(([blockId, block]) => [

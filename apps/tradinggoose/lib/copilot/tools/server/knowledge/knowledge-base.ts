@@ -1,250 +1,225 @@
+import { ENTITY_KIND_KNOWLEDGE_BASE } from '@/lib/copilot/review-sessions/types'
 import {
   type BaseServerTool,
   type ServerToolExecutionContext,
-  throwIfServerToolAborted,
+  withWorkspaceArgContext,
 } from '@/lib/copilot/tools/server/base-tool'
-import type { KnowledgeBaseArgs, KnowledgeBaseResult } from '@/lib/copilot/tools/shared/schemas'
 import { generateSearchEmbedding } from '@/lib/embeddings/utils'
 import {
   createKnowledgeBase,
   getKnowledgeBaseById,
   getKnowledgeBases,
 } from '@/lib/knowledge/service'
+import type { ChunkingConfig, KnowledgeBaseWithCounts } from '@/lib/knowledge/types'
 import { createLogger } from '@/lib/logs/console/logger'
+import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import { getQueryStrategy, handleVectorOnlySearch } from '@/app/api/knowledge/search/utils'
+import {
+  acceptEntityDocumentReview,
+  buildCreateEntityReviewResult,
+  buildDocumentEnvelope,
+  buildUpdateEntityReviewResult,
+  type EntityCreateResult,
+  type EntityDocumentArgs,
+  type EntityServerTool,
+  readSavedEntityYjsFields,
+  requireEntityId,
+  verifySavedEntityContext,
+  verifyWorkspaceContext,
+} from '../entities/shared'
 
-const logger = createLogger('KnowledgeBaseServerTool')
+const logger = createLogger('KnowledgeBaseServerTools')
 
-/**
- * Knowledge base tool for copilot to create, list, and get knowledge bases
- */
-export const knowledgeBaseServerTool: BaseServerTool<KnowledgeBaseArgs, KnowledgeBaseResult> = {
-  name: 'knowledge_base',
-  async execute(
-    params: KnowledgeBaseArgs,
-    context?: ServerToolExecutionContext
-  ): Promise<KnowledgeBaseResult> {
-    if (!context?.userId) {
-      logger.error('Unauthorized attempt to access knowledge base - no authenticated user context')
-      throw new Error('Authentication required')
-    }
+function normalizeOptionalString(value: string | null | undefined): string | undefined {
+  const normalized = value?.trim()
+  return normalized ? normalized : undefined
+}
 
-    const { operation, args = {} } = params
-    const workspaceId = args.workspaceId ?? context.workspaceId
-    throwIfServerToolAborted(context)
+function toIsoString(value: Date | string | null | undefined): string | undefined {
+  if (!value) return undefined
+  if (typeof value === 'string') return value
+  return value.toISOString()
+}
 
-    try {
-      switch (operation) {
-        case 'create': {
-          if (!args.name) {
-            return {
-              success: false,
-              message: 'Name is required for creating a knowledge base',
-            }
-          }
-          if (!workspaceId) {
-            return {
-              success: false,
-              message: 'Workspace ID is required for creating a knowledge base',
-            }
-          }
+function buildKnowledgeBaseDocumentEnvelope(
+  kb: KnowledgeBaseWithCounts,
+  fields: Record<string, unknown> = savedEntityRowToFields(ENTITY_KIND_KNOWLEDGE_BASE, kb)
+) {
+  return {
+    ...buildDocumentEnvelope(ENTITY_KIND_KNOWLEDGE_BASE, kb.id, fields),
+    workspaceId: kb.workspaceId,
+    docCount: kb.docCount,
+    tokenCount: kb.tokenCount,
+    embeddingModel: kb.embeddingModel,
+    embeddingDimension: kb.embeddingDimension,
+    createdAt: toIsoString(kb.createdAt),
+    updatedAt: toIsoString(kb.updatedAt),
+  }
+}
 
-          const requestId = crypto.randomUUID().slice(0, 8)
-          throwIfServerToolAborted(context)
-          const newKnowledgeBase = await createKnowledgeBase(
-            {
-              name: args.name,
-              description: args.description,
-              workspaceId,
-              userId: context.userId,
-              embeddingModel: 'text-embedding-3-small',
-              embeddingDimension: 1536,
-              chunkingConfig: args.chunkingConfig || {
-                maxSize: 1024,
-                minSize: 1,
-                overlap: 200,
-              },
-            },
-            requestId
-          )
+async function createKnowledgeBaseEntity(
+  fields: Record<string, unknown>,
+  context: ServerToolExecutionContext | undefined
+): Promise<EntityCreateResult> {
+  const { userId, workspaceId } = await verifyWorkspaceContext(context, 'write')
+  const created = await createKnowledgeBase(
+    {
+      name: String(fields.name ?? ''),
+      description: String(fields.description ?? ''),
+      workspaceId,
+      userId,
+      embeddingModel: 'text-embedding-3-small',
+      embeddingDimension: 1536,
+      chunkingConfig: fields.chunkingConfig as ChunkingConfig,
+    },
+    crypto.randomUUID().slice(0, 8)
+  )
 
-          logger.info('Knowledge base created via copilot', {
-            knowledgeBaseId: newKnowledgeBase.id,
-            name: newKnowledgeBase.name,
-            userId: context.userId,
-          })
+  return {
+    entityId: created.id,
+    fields: savedEntityRowToFields(ENTITY_KIND_KNOWLEDGE_BASE, created),
+  }
+}
 
-          return {
-            success: true,
-            message: `Knowledge base "${newKnowledgeBase.name}" created successfully`,
-            data: {
-              id: newKnowledgeBase.id,
-              name: newKnowledgeBase.name,
-              description: newKnowledgeBase.description,
-              workspaceId: newKnowledgeBase.workspaceId,
-              docCount: newKnowledgeBase.docCount,
-              createdAt: newKnowledgeBase.createdAt,
-            },
-          }
-        }
+async function readAccessibleKnowledgeBase(entityId: string, context?: ServerToolExecutionContext) {
+  await verifySavedEntityContext(context, ENTITY_KIND_KNOWLEDGE_BASE, entityId, 'read')
+  const kb = await getKnowledgeBaseById(entityId)
+  if (!kb) {
+    throw new Error('Knowledge base not found')
+  }
+  return kb
+}
 
-        case 'list': {
-          if (!workspaceId) {
-            return {
-              success: false,
-              message: 'Workspace ID is required for listing knowledge bases',
-            }
-          }
+export const listKnowledgeBasesServerTool: BaseServerTool<{ workspaceId: string }> = {
+  name: 'list_knowledge_bases',
+  async execute(args, context) {
+    const scopedContext = withWorkspaceArgContext(context, args)
+    const { userId, workspaceId } = await verifyWorkspaceContext(scopedContext, 'read')
+    const knowledgeBases = await getKnowledgeBases(userId, workspaceId)
 
-          const knowledgeBases = await getKnowledgeBases(context.userId, workspaceId)
-
-          logger.info('Knowledge bases listed via copilot', {
-            count: knowledgeBases.length,
-            userId: context.userId,
-            workspaceId,
-          })
-
-          return {
-            success: true,
-            message: `Found ${knowledgeBases.length} knowledge base(s)`,
-            data: knowledgeBases.map((kb) => ({
-              id: kb.id,
-              name: kb.name,
-              description: kb.description,
-              workspaceId: kb.workspaceId,
-              docCount: kb.docCount,
-              tokenCount: kb.tokenCount,
-              createdAt: kb.createdAt,
-              updatedAt: kb.updatedAt,
-            })),
-          }
-        }
-
-        case 'get': {
-          if (!args.knowledgeBaseId) {
-            return {
-              success: false,
-              message: 'Knowledge base ID is required for get operation',
-            }
-          }
-
-          const knowledgeBase = await getKnowledgeBaseById(args.knowledgeBaseId)
-          if (!knowledgeBase) {
-            return {
-              success: false,
-              message: `Knowledge base with ID "${args.knowledgeBaseId}" not found`,
-            }
-          }
-
-          logger.info('Knowledge base metadata retrieved via copilot', {
-            knowledgeBaseId: knowledgeBase.id,
-            userId: context.userId,
-          })
-
-          return {
-            success: true,
-            message: `Retrieved knowledge base "${knowledgeBase.name}"`,
-            data: {
-              id: knowledgeBase.id,
-              name: knowledgeBase.name,
-              description: knowledgeBase.description,
-              workspaceId: knowledgeBase.workspaceId,
-              docCount: knowledgeBase.docCount,
-              tokenCount: knowledgeBase.tokenCount,
-              embeddingModel: knowledgeBase.embeddingModel,
-              chunkingConfig: knowledgeBase.chunkingConfig,
-              createdAt: knowledgeBase.createdAt,
-              updatedAt: knowledgeBase.updatedAt,
-            },
-          }
-        }
-
-        case 'query': {
-          if (!args.knowledgeBaseId) {
-            return {
-              success: false,
-              message: 'Knowledge base ID is required for query operation',
-            }
-          }
-
-          if (!args.query) {
-            return {
-              success: false,
-              message: 'Query text is required for query operation',
-            }
-          }
-
-          // Verify knowledge base exists
-          const kb = await getKnowledgeBaseById(args.knowledgeBaseId)
-          if (!kb) {
-            return {
-              success: false,
-              message: `Knowledge base with ID "${args.knowledgeBaseId}" not found`,
-            }
-          }
-
-          const topK = args.topK || 5
-
-          throwIfServerToolAborted(context)
-          const queryEmbedding = await generateSearchEmbedding(args.query)
-          throwIfServerToolAborted(context)
-          const queryVector = JSON.stringify(queryEmbedding)
-
-          // Get search strategy
-          const strategy = getQueryStrategy(1, topK)
-
-          // Perform vector search
-          const results = await handleVectorOnlySearch({
-            knowledgeBaseIds: [args.knowledgeBaseId],
-            topK,
-            queryVector,
-            distanceThreshold: strategy.distanceThreshold,
-          })
-
-          logger.info('Knowledge base queried via copilot', {
-            knowledgeBaseId: args.knowledgeBaseId,
-            query: args.query.substring(0, 100),
-            resultCount: results.length,
-            userId: context.userId,
-          })
-
-          return {
-            success: true,
-            message: `Found ${results.length} result(s) for query "${args.query.substring(0, 50)}${args.query.length > 50 ? '...' : ''}"`,
-            data: {
-              knowledgeBaseId: args.knowledgeBaseId,
-              knowledgeBaseName: kb.name,
-              query: args.query,
-              topK,
-              totalResults: results.length,
-              results: results.map((result) => ({
-                documentId: result.documentId,
-                content: result.content,
-                chunkIndex: result.chunkIndex,
-                similarity: 1 - result.distance,
-              })),
-            },
-          }
-        }
-
-        default:
-          return {
-            success: false,
-            message: `Unknown operation: ${operation}. Supported operations: create, list, get, query`,
-          }
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-      logger.error('Error in knowledge_base tool', {
-        operation,
-        error: errorMessage,
-        userId: context.userId,
-      })
-
-      return {
-        success: false,
-        message: `Failed to ${operation} knowledge base: ${errorMessage}`,
-      }
+    return {
+      entityKind: ENTITY_KIND_KNOWLEDGE_BASE,
+      entities: knowledgeBases.map((kb) => ({
+        entityId: kb.id,
+        entityName: kb.name,
+        workspaceId: kb.workspaceId,
+        ...(normalizeOptionalString(kb.description) ? { entityDescription: kb.description! } : {}),
+        docCount: kb.docCount,
+        tokenCount: kb.tokenCount,
+        embeddingModel: kb.embeddingModel,
+        createdAt: toIsoString(kb.createdAt),
+        updatedAt: toIsoString(kb.updatedAt),
+      })),
+      count: knowledgeBases.length,
     }
   },
+}
+
+export const readKnowledgeBaseServerTool: EntityServerTool = {
+  name: 'read_knowledge_base',
+  async execute(args, context) {
+    const entityId = requireEntityId(args, 'read_knowledge_base')
+    const { workspaceId } = await verifySavedEntityContext(
+      context,
+      ENTITY_KIND_KNOWLEDGE_BASE,
+      entityId,
+      'read'
+    )
+    const [kb, fields] = await Promise.all([
+      getKnowledgeBaseById(entityId),
+      readSavedEntityYjsFields(ENTITY_KIND_KNOWLEDGE_BASE, entityId, workspaceId),
+    ])
+    if (!kb) {
+      throw new Error('Knowledge base not found')
+    }
+
+    return buildKnowledgeBaseDocumentEnvelope(kb, fields)
+  },
+}
+
+export const createKnowledgeBaseServerTool: EntityServerTool = {
+  name: 'create_knowledge_base',
+  execute(args, context) {
+    return buildCreateEntityReviewResult(ENTITY_KIND_KNOWLEDGE_BASE, args, context)
+  },
+}
+
+export const editKnowledgeBaseServerTool: EntityServerTool<EntityDocumentArgs> = {
+  name: 'edit_knowledge_base',
+  execute(args, context) {
+    return buildUpdateEntityReviewResult(
+      ENTITY_KIND_KNOWLEDGE_BASE,
+      'edit_knowledge_base',
+      args,
+      context
+    )
+  },
+}
+
+export const renameKnowledgeBaseServerTool: EntityServerTool<EntityDocumentArgs> = {
+  name: 'rename_knowledge_base',
+  execute(args, context) {
+    return buildUpdateEntityReviewResult(
+      ENTITY_KIND_KNOWLEDGE_BASE,
+      'rename_knowledge_base',
+      args,
+      context
+    )
+  },
+}
+
+export const queryKnowledgeBaseServerTool: BaseServerTool<{
+  entityId: string
+  query: string
+  topK?: number
+}> = {
+  name: 'query_knowledge_base',
+  async execute(args, context) {
+    const kb = await readAccessibleKnowledgeBase(args.entityId, context)
+    const topK = args.topK || 5
+
+    const queryEmbedding = await generateSearchEmbedding(args.query, kb.embeddingModel)
+    const queryVector = JSON.stringify(queryEmbedding)
+    const strategy = getQueryStrategy(1, topK)
+    const results = await handleVectorOnlySearch({
+      knowledgeBaseIds: [args.entityId],
+      topK,
+      queryVector,
+      distanceThreshold: strategy.distanceThreshold,
+    })
+
+    logger.info('Knowledge base queried via copilot', {
+      knowledgeBaseId: args.entityId,
+      resultCount: results.length,
+    })
+
+    return {
+      entityKind: ENTITY_KIND_KNOWLEDGE_BASE,
+      entityId: args.entityId,
+      entityName: kb.name,
+      query: args.query,
+      topK,
+      totalResults: results.length,
+      results: results.map((result) => ({
+        documentId: result.documentId,
+        content: result.content,
+        chunkIndex: result.chunkIndex,
+        similarity: 1 - result.distance,
+      })),
+    }
+  },
+}
+
+export function acceptKnowledgeBaseDocumentReview(
+  toolName: string,
+  result: unknown,
+  context: Parameters<typeof acceptEntityDocumentReview>[0]['context']
+) {
+  return acceptEntityDocumentReview({
+    kind: ENTITY_KIND_KNOWLEDGE_BASE,
+    toolName,
+    result,
+    context,
+    create: createKnowledgeBaseEntity,
+  })
 }

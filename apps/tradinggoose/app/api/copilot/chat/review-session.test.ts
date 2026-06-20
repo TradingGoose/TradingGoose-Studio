@@ -208,24 +208,33 @@ describe('Copilot Chat Review Session GET', () => {
         createdAt: 'createdAt',
         updatedAt: 'updatedAt',
       },
-      mapSessionToApiResponse: vi.fn((session: any, opts: { messageCount: number; messages?: any[] }) => ({
-        reviewSessionId: session.id,
-        workspaceId: session.workspaceId,
-        entityKind: session.entityKind,
-        entityId: session.entityId,
-        draftSessionId: session.draftSessionId,
-        title: session.title,
-        messages: opts.messages ?? [],
-        messageCount: opts.messageCount,
-        conversationId: session.conversationId,
-        createdAt: session.createdAt,
-        updatedAt: session.updatedAt,
-      })),
+      mapSessionToApiResponse: vi.fn(
+        (session: any, opts: { messageCount: number; messages?: any[] }) => ({
+          reviewSessionId: session.id,
+          workspaceId: session.workspaceId,
+          entityKind: session.entityKind,
+          entityId: session.entityId,
+          draftSessionId: session.draftSessionId,
+          title: session.title,
+          messages: opts.messages ?? [],
+          messageCount: opts.messageCount,
+          conversationId: session.conversationId,
+          createdAt: session.createdAt,
+          updatedAt: session.updatedAt,
+        })
+      ),
     }))
 
     vi.doMock('@/lib/copilot/review-sessions/types', () => ({
       ENTITY_KIND_WORKFLOW: 'workflow',
-      REVIEW_ENTITY_KINDS: ['workflow', 'skill', 'custom_tool', 'mcp_server', 'indicator'],
+      REVIEW_ENTITY_KINDS: [
+        'workflow',
+        'skill',
+        'custom_tool',
+        'mcp_server',
+        'indicator',
+        'knowledge_base',
+      ],
     }))
 
     vi.doMock('@/lib/logs/console/logger', () => ({
@@ -250,7 +259,6 @@ describe('Copilot Chat Review Session GET', () => {
     vi.doMock('@/app/api/copilot/proxy', () => ({
       proxyCopilotRequest: vi.fn(),
     }))
-
   })
 
   afterEach(() => {
@@ -385,5 +393,4 @@ describe('Copilot Chat Review Session GET', () => {
 
     expect(mockSelect).toHaveBeenCalledTimes(3)
   })
-
 })

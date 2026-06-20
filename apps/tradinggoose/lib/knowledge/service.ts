@@ -8,6 +8,7 @@ import {
 } from '@tradinggoose/db/schema'
 import { and, count, eq, inArray, isNull } from 'drizzle-orm'
 import { checkStorageQuota, incrementStorageUsage } from '@/lib/billing/storage'
+import { ENTITY_KIND_KNOWLEDGE_BASE } from '@/lib/copilot/review-sessions/types'
 import { enqueueDocumentProcessingJobs } from '@/lib/knowledge/documents/service'
 import {
   copyKnowledgeDocumentFile,
@@ -20,6 +21,13 @@ import type {
 } from '@/lib/knowledge/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess, getUserEntityPermissions } from '@/lib/permissions/utils'
+import {
+  applySavedEntityYjsStateToRow,
+  applySavedEntityYjsStateToRows,
+  savedEntityRowToFields,
+} from '@/lib/yjs/entity-state'
+import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
+import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('KnowledgeBaseService')
 
@@ -58,11 +66,14 @@ export async function getKnowledgeBases(
     .groupBy(knowledgeBase.id)
     .orderBy(knowledgeBase.createdAt)
 
-  return knowledgeBasesWithCounts.map((kb) => ({
-    ...kb,
-    chunkingConfig: kb.chunkingConfig as ChunkingConfig,
-    docCount: Number(kb.docCount),
-  }))
+  return applySavedEntityYjsStateToRows(
+    ENTITY_KIND_KNOWLEDGE_BASE,
+    knowledgeBasesWithCounts.map((kb) => ({
+      ...kb,
+      chunkingConfig: kb.chunkingConfig as ChunkingConfig,
+      docCount: Number(kb.docCount),
+    }))
+  )
 }
 
 /**
@@ -99,7 +110,7 @@ export async function createKnowledgeBase(
 
   logger.info(`[${requestId}] Created knowledge base: ${data.name} (${kbId})`)
 
-  return {
+  const created = {
     id: kbId,
     name: data.name,
     description: data.description ?? null,
@@ -112,6 +123,14 @@ export async function createKnowledgeBase(
     workspaceId: data.workspaceId,
     docCount: 0,
   }
+
+  await applySavedEntityState(
+    ENTITY_KIND_KNOWLEDGE_BASE,
+    created.id,
+    savedEntityRowToFields(ENTITY_KIND_KNOWLEDGE_BASE, created)
+  )
+
+  return created
 }
 
 export async function copyKnowledgeBaseToWorkspace(
@@ -134,6 +153,10 @@ export async function copyKnowledgeBaseToWorkspace(
   if (!sourceKnowledgeBase) {
     throw new Error(`Knowledge base ${sourceKnowledgeBaseId} not found`)
   }
+  const sourceKnowledgeBaseFields = await applySavedEntityYjsStateToRow(
+    ENTITY_KIND_KNOWLEDGE_BASE,
+    sourceKnowledgeBase
+  )
 
   const sourceDocuments = await db
     .select()
@@ -181,12 +204,12 @@ export async function copyKnowledgeBaseToWorkspace(
       id: newKnowledgeBaseId,
       userId,
       workspaceId: targetWorkspaceId,
-      name: `${sourceKnowledgeBase.name} (Copy)`,
-      description: sourceKnowledgeBase.description,
+      name: `${sourceKnowledgeBaseFields.name} (Copy)`,
+      description: sourceKnowledgeBaseFields.description,
       tokenCount: sourceKnowledgeBase.tokenCount,
       embeddingModel: sourceKnowledgeBase.embeddingModel,
       embeddingDimension: sourceKnowledgeBase.embeddingDimension,
-      chunkingConfig: sourceKnowledgeBase.chunkingConfig,
+      chunkingConfig: sourceKnowledgeBaseFields.chunkingConfig,
       createdAt: now,
       updatedAt: now,
       deletedAt: null,
@@ -228,9 +251,10 @@ export async function copyKnowledgeBaseToWorkspace(
             mimeType: sourceDocument.mimeType,
           },
           processingOptions: {
-            chunkSize: (sourceKnowledgeBase.chunkingConfig as ChunkingConfig).maxSize,
-            minCharactersPerChunk: (sourceKnowledgeBase.chunkingConfig as ChunkingConfig).minSize,
-            chunkOverlap: (sourceKnowledgeBase.chunkingConfig as ChunkingConfig).overlap,
+            chunkSize: (sourceKnowledgeBaseFields.chunkingConfig as ChunkingConfig).maxSize,
+            minCharactersPerChunk: (sourceKnowledgeBaseFields.chunkingConfig as ChunkingConfig)
+              .minSize,
+            chunkOverlap: (sourceKnowledgeBaseFields.chunkingConfig as ChunkingConfig).overlap,
           },
           requestId,
         })
@@ -333,93 +357,48 @@ export async function copyKnowledgeBaseToWorkspace(
     `[${requestId}] Copied knowledge base ${sourceKnowledgeBaseId} to workspace ${targetWorkspaceId} as ${newKnowledgeBaseId}`
   )
 
-  return {
+  const copied = {
     id: newKnowledgeBaseId,
-    name: `${sourceKnowledgeBase.name} (Copy)`,
-    description: sourceKnowledgeBase.description,
+    name: `${sourceKnowledgeBaseFields.name} (Copy)`,
+    description: sourceKnowledgeBaseFields.description,
     tokenCount: sourceKnowledgeBase.tokenCount,
     embeddingModel: sourceKnowledgeBase.embeddingModel,
     embeddingDimension: sourceKnowledgeBase.embeddingDimension,
-    chunkingConfig: sourceKnowledgeBase.chunkingConfig as ChunkingConfig,
+    chunkingConfig: sourceKnowledgeBaseFields.chunkingConfig as ChunkingConfig,
     createdAt: now,
     updatedAt: now,
     workspaceId: targetWorkspaceId,
     docCount: sourceDocuments.length,
   }
+
+  await applySavedEntityState(
+    ENTITY_KIND_KNOWLEDGE_BASE,
+    copied.id,
+    savedEntityRowToFields(ENTITY_KIND_KNOWLEDGE_BASE, copied)
+  )
+
+  return copied
 }
 
-/**
- * Update a knowledge base
- */
-export async function updateKnowledgeBase(
+export async function applyKnowledgeBaseMetadata(
   knowledgeBaseId: string,
-  updates: {
-    name?: string
-    description?: string
-    chunkingConfig?: {
-      maxSize: number
-      minSize: number
-      overlap: number
-    }
+  fields: {
+    name: string
+    description: string
+    chunkingConfig: ChunkingConfig
   },
   requestId: string
 ): Promise<KnowledgeBaseWithCounts> {
-  const now = new Date()
-  const updateData: {
-    updatedAt: Date
-    name?: string
-    description?: string | null
-    chunkingConfig?: {
-      maxSize: number
-      minSize: number
-      overlap: number
-    }
-  } = {
-    updatedAt: now,
-  }
-
-  if (updates.name !== undefined) updateData.name = updates.name
-  if (updates.description !== undefined) updateData.description = updates.description
-  if (updates.chunkingConfig !== undefined) {
-    updateData.chunkingConfig = updates.chunkingConfig
-  }
-
-  await db.update(knowledgeBase).set(updateData).where(eq(knowledgeBase.id, knowledgeBaseId))
-
-  const updatedKb = await db
-    .select({
-      id: knowledgeBase.id,
-      name: knowledgeBase.name,
-      description: knowledgeBase.description,
-      tokenCount: knowledgeBase.tokenCount,
-      embeddingModel: knowledgeBase.embeddingModel,
-      embeddingDimension: knowledgeBase.embeddingDimension,
-      chunkingConfig: knowledgeBase.chunkingConfig,
-      createdAt: knowledgeBase.createdAt,
-      updatedAt: knowledgeBase.updatedAt,
-      workspaceId: knowledgeBase.workspaceId,
-      docCount: count(document.id),
-    })
-    .from(knowledgeBase)
-    .leftJoin(
-      document,
-      and(eq(document.knowledgeBaseId, knowledgeBase.id), isNull(document.deletedAt))
-    )
-    .where(eq(knowledgeBase.id, knowledgeBaseId))
-    .groupBy(knowledgeBase.id)
-    .limit(1)
-
-  if (updatedKb.length === 0) {
+  const existing = await getKnowledgeBaseById(knowledgeBaseId)
+  if (!existing) {
     throw new Error(`Knowledge base ${knowledgeBaseId} not found`)
   }
 
-  logger.info(`[${requestId}] Updated knowledge base: ${knowledgeBaseId}`)
+  await applySavedEntityState(ENTITY_KIND_KNOWLEDGE_BASE, knowledgeBaseId, fields)
 
-  return {
-    ...updatedKb[0],
-    chunkingConfig: updatedKb[0].chunkingConfig as ChunkingConfig,
-    docCount: Number(updatedKb[0].docCount),
-  }
+  logger.info(`[${requestId}] Applied knowledge base metadata through Yjs: ${knowledgeBaseId}`)
+
+  return (await getKnowledgeBaseById(knowledgeBaseId)) ?? existing
 }
 
 /**
@@ -455,11 +434,11 @@ export async function getKnowledgeBaseById(
     return null
   }
 
-  return {
+  return applySavedEntityYjsStateToRow(ENTITY_KIND_KNOWLEDGE_BASE, {
     ...result[0],
     chunkingConfig: result[0].chunkingConfig as ChunkingConfig,
     docCount: Number(result[0].docCount),
-  }
+  })
 }
 
 /**
@@ -471,6 +450,7 @@ export async function deleteKnowledgeBase(
 ): Promise<void> {
   const now = new Date()
 
+  await deleteYjsSessionInSocketServer(knowledgeBaseId)
   await db
     .update(knowledgeBase)
     .set({

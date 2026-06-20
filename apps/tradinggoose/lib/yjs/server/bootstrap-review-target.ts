@@ -6,27 +6,28 @@ import {
   buildYjsTransportEnvelope,
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
-import {
-  loadCustomTool,
-  loadIndicator,
-  loadMcpServer,
-  loadSkill,
-} from '@/lib/yjs/server/entity-loaders'
+import { getReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/runtime'
 import type {
   ResolvedReviewTarget,
   ReviewTargetDescriptor,
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
-import { getReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/runtime'
+import { loadWorkflowFromNormalizedTables } from '@/lib/workflows/db-helpers'
 import { seedEntitySession } from '@/lib/yjs/entity-session'
+import {
+  loadCustomTool,
+  loadIndicator,
+  loadKnowledgeBase,
+  loadMcpServer,
+  loadSkill,
+} from '@/lib/yjs/server/entity-loaders'
+import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
+import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import {
   getMetadataMap as readWorkflowMetadataMap,
   setVariables,
   setWorkflowState,
 } from '@/lib/yjs/workflow-session'
-import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
-import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
-import { loadWorkflowFromNormalizedTables } from '@/lib/workflows/db-helpers'
 import { getState as getPersistedYjsState } from '@/socket-server/yjs/persistence'
 
 export class ReviewTargetBootstrapError extends Error {
@@ -207,7 +208,11 @@ async function bootstrapWorkflowTarget(
 
   const doc = await getBootstrapDoc(workflowId)
   setWorkflowState(doc, workflowSnapshot, 'bootstrap')
-  setVariables(doc, ((workflowRow.variables as Record<string, any> | null) ?? {}) as Record<string, any>, 'bootstrap')
+  setVariables(
+    doc,
+    ((workflowRow.variables as Record<string, any> | null) ?? {}) as Record<string, any>,
+    'bootstrap'
+  )
 
   doc.transact(() => {
     const metadata = readWorkflowMetadataMap(doc)
@@ -317,6 +322,21 @@ async function loadCanonicalEntitySeed(descriptor: ReviewTargetDescriptor): Prom
         },
       }
     }
+    case 'knowledge_base': {
+      const row = await loadKnowledgeBase(descriptor.entityId!, descriptor.workspaceId!)
+      if (!row) {
+        throw new ReviewTargetBootstrapError(404, 'Knowledge base target no longer exists')
+      }
+
+      return {
+        workspaceId: row.workspaceId,
+        payload: {
+          name: row.name,
+          description: row.description ?? '',
+          chunkingConfig: row.chunkingConfig,
+        },
+      }
+    }
     case 'mcp_server': {
       const row = await loadMcpServer(descriptor.entityId!, descriptor.workspaceId!)
       if (!row) {
@@ -336,8 +356,7 @@ async function loadCanonicalEntitySeed(descriptor: ReviewTargetDescriptor): Prom
               : {},
           command: row.command ?? '',
           args: Array.isArray(row.args) ? row.args : [],
-          env:
-            row.env && typeof row.env === 'object' && !Array.isArray(row.env) ? row.env : {},
+          env: row.env && typeof row.env === 'object' && !Array.isArray(row.env) ? row.env : {},
           timeout: row.timeout ?? 30000,
           retries: row.retries ?? 3,
           enabled: row.enabled ?? true,

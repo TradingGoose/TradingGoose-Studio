@@ -1,3 +1,5 @@
+import * as Y from 'yjs'
+import type { ServerToolExecutionContext } from '@/lib/copilot/tools/server/base-tool'
 import { findIntroducedNonCanonicalSubBlocks } from '@/lib/workflows/block-config-canonicalization'
 import { WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 import {
@@ -8,25 +10,49 @@ import {
 } from '@/lib/workflows/studio-workflow-mermaid'
 import { validateWorkflowState } from '@/lib/workflows/validation'
 import { normalizeWorkflowStateToMermaidDirection } from '@/lib/workflows/workflow-direction'
-import { createWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
+import {
+  createWorkflowSnapshot,
+  readWorkflowSnapshot,
+  type WorkflowSnapshot,
+} from '@/lib/yjs/workflow-session'
 import type { WorkflowDirection } from '@/stores/workflows/workflow/types'
-
-function parseCurrentWorkflowState(currentWorkflowState: string): WorkflowSnapshot {
-  try {
-    return createWorkflowSnapshot(JSON.parse(currentWorkflowState))
-  } catch {
-    throw new Error('Invalid currentWorkflowState format')
-  }
-}
 
 export async function loadBaseWorkflowState(
   workflowId: string,
-  currentWorkflowState: string
+  context?: ServerToolExecutionContext
 ): Promise<WorkflowSnapshot> {
-  if (!currentWorkflowState) {
+  const userId = context?.userId?.trim()
+  if (!userId) {
+    throw new Error('Authenticated user is required to edit workflow state')
+  }
+
+  const { verifyWorkflowAccess } = await import('@/lib/copilot/review-sessions/permissions')
+  const access = await verifyWorkflowAccess(userId, workflowId, 'write')
+  if (!access.hasAccess) {
+    throw new Error('Access denied: You do not have permission to edit this workflow')
+  }
+
+  const snapshot = await readBootstrappedReviewTargetSnapshot({
+    workspaceId: access.workspaceId ?? context?.workspaceId ?? null,
+    entityKind: 'workflow',
+    entityId: workflowId,
+    draftSessionId: null,
+    reviewSessionId: null,
+    yjsSessionId: workflowId,
+  })
+
+  if (!snapshot.snapshotBase64) {
     throw new Error(`Current Yjs workflow state is required for ${workflowId}`)
   }
-  return parseCurrentWorkflowState(currentWorkflowState)
+
+  const doc = new Y.Doc()
+  try {
+    Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
+    return createWorkflowSnapshot(readWorkflowSnapshot(doc))
+  } finally {
+    doc.destroy()
+  }
 }
 
 export function buildWorkflowMutationResult(params: {
@@ -67,7 +93,9 @@ export function buildWorkflowMutationResult(params: {
 
   finalWorkflowState = createWorkflowSnapshot(normalizedWorkflow.workflowState)
   const preview = buildWorkflowDocumentPreviewDiff(baseWorkflowState, finalWorkflowState)
-  const warnings = Array.from(new Set([...orientationWarnings, ...preview.warnings, ...validation.warnings]))
+  const warnings = Array.from(
+    new Set([...orientationWarnings, ...preview.warnings, ...validation.warnings])
+  )
   const entityDocument =
     params.entityDocument ??
     (documentFormat === WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT
@@ -75,6 +103,7 @@ export function buildWorkflowMutationResult(params: {
       : serializeWorkflowToTgMermaid(finalWorkflowState, { direction }))
 
   return {
+    requiresReview: true,
     success: true,
     entityKind: 'workflow' as const,
     entityId: workflowId,

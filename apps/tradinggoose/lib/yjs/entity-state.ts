@@ -1,12 +1,9 @@
 import * as Y from 'yjs'
-import type {
-  ReviewEntityKind,
-  ReviewTargetDescriptor,
-} from '@/lib/copilot/review-sessions/types'
 import {
   buildYjsTransportEnvelope,
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
+import type { ReviewEntityKind, ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
 import { getEntityFields } from '@/lib/yjs/entity-session'
 import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
 
@@ -69,6 +66,12 @@ export function savedEntityRowToFields(
             ? row.inputMeta
             : null,
       }
+    case 'knowledge_base':
+      return {
+        name: row.name ?? '',
+        description: row.description ?? '',
+        chunkingConfig: row.chunkingConfig,
+      }
     case 'mcp_server':
       return {
         name: row.name ?? '',
@@ -121,6 +124,13 @@ export function applySavedEntityFieldsToRow<T extends SavedEntityRow>(
           !Array.isArray(fields.inputMeta)
             ? fields.inputMeta
             : null,
+      }
+    case 'knowledge_base':
+      return {
+        ...row,
+        name: String(fields.name ?? ''),
+        description: String(fields.description ?? ''),
+        chunkingConfig: fields.chunkingConfig,
       }
     case 'mcp_server':
       return {

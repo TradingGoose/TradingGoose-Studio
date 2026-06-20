@@ -1,5 +1,11 @@
 import { db } from '@tradinggoose/db'
-import { customTools, mcpServers, pineIndicators, skill } from '@tradinggoose/db/schema'
+import {
+  customTools,
+  knowledgeBase,
+  mcpServers,
+  pineIndicators,
+  skill,
+} from '@tradinggoose/db/schema'
 import { and, eq, isNull } from 'drizzle-orm'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 
@@ -29,6 +35,14 @@ export async function resolveEntityWorkspaceId(
         .select({ workspaceId: pineIndicators.workspaceId })
         .from(pineIndicators)
         .where(eq(pineIndicators.id, entityId))
+        .limit(1)
+      return row?.workspaceId ?? null
+    }
+    case 'knowledge_base': {
+      const [row] = await db
+        .select({ workspaceId: knowledgeBase.workspaceId })
+        .from(knowledgeBase)
+        .where(and(eq(knowledgeBase.id, entityId), isNull(knowledgeBase.deletedAt)))
         .limit(1)
       return row?.workspaceId ?? null
     }
@@ -68,6 +82,22 @@ export async function loadIndicator(entityId: string, workspaceId: string) {
     .select()
     .from(pineIndicators)
     .where(and(eq(pineIndicators.id, entityId), eq(pineIndicators.workspaceId, workspaceId)))
+    .limit(1)
+
+  return row ?? null
+}
+
+export async function loadKnowledgeBase(entityId: string, workspaceId: string) {
+  const [row] = await db
+    .select()
+    .from(knowledgeBase)
+    .where(
+      and(
+        eq(knowledgeBase.id, entityId),
+        eq(knowledgeBase.workspaceId, workspaceId),
+        isNull(knowledgeBase.deletedAt)
+      )
+    )
     .limit(1)
 
   return row ?? null

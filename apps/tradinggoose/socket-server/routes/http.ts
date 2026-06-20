@@ -189,6 +189,7 @@ function parseApplyEntityStateRequest(body: unknown): ApplyEntityStateRequest {
     candidate.entityKind !== 'skill' &&
     candidate.entityKind !== 'custom_tool' &&
     candidate.entityKind !== 'indicator' &&
+    candidate.entityKind !== 'knowledge_base' &&
     candidate.entityKind !== 'mcp_server'
   ) {
     throw new InvalidInternalYjsRequestError('Invalid entityKind')

@@ -3,7 +3,6 @@ import {
   copilotReviewItems,
   copilotReviewSessions,
   document,
-  knowledgeBase,
   permissions,
   templates,
   workflow,
@@ -17,13 +16,14 @@ import {
   verifyWorkflowAccess,
 } from '@/lib/copilot/review-sessions/permissions'
 import { REVIEW_ITEM_KINDS } from '@/lib/copilot/review-sessions/thread-history'
+import { ENTITY_KIND_KNOWLEDGE_BASE } from '@/lib/copilot/review-sessions/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { escapeRegExp } from '@/lib/utils'
 import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
-import { readWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
-import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
 import { getEntityFields } from '@/lib/yjs/entity-session'
+import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
+import { readWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import type { ChatContext } from '@/stores/copilot/types'
 import { readCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
 
@@ -98,6 +98,8 @@ export async function processContextsServer(
       if (ctx.kind === 'knowledge' && ctx.knowledgeId) {
         return await processKnowledgeContext(
           ctx.knowledgeId,
+          userId,
+          ctx.workspaceId ?? workspaceId ?? null,
           ctx.label ? `@${ctx.label}` : '@'
         )
       }
@@ -105,10 +107,7 @@ export async function processContextsServer(
         return await processBlocksMetadata(ctx.blockTypes ?? [], ctx.label ? `@${ctx.label}` : '@')
       }
       if (ctx.kind === 'templates' && ctx.templateId) {
-        return await processTemplateContext(
-          ctx.templateId,
-          ctx.label ? `@${ctx.label}` : '@'
-        )
+        return await processTemplateContext(ctx.templateId, ctx.label ? `@${ctx.label}` : '@')
       }
       if (ctx.kind === 'logs' && ctx.executionId) {
         return await processExecutionLogContext(
@@ -223,7 +222,7 @@ async function processEntityContext(params: {
 }
 
 async function readCopilotEntityFieldsFromYjs(
-  entityKind: 'skill' | 'indicator' | 'custom_tool' | 'mcp_server',
+  entityKind: 'skill' | 'indicator' | 'custom_tool' | 'knowledge_base' | 'mcp_server',
   entityId: string,
   workspaceId: string
 ): Promise<Record<string, unknown>> {
@@ -488,23 +487,38 @@ async function processWorkflowContext({
 
 async function processKnowledgeContext(
   knowledgeBaseId: string,
+  userId: string,
+  workspaceId: string | null,
   tag: string
 ): Promise<AgentContext | null> {
   try {
-    // Load KB metadata
-    const kbRows = await db
-      .select({
-        id: knowledgeBase.id,
-        name: knowledgeBase.name,
-        updatedAt: knowledgeBase.updatedAt,
+    const access = await verifyReviewTargetAccess(
+      userId,
+      {
+        entityKind: ENTITY_KIND_KNOWLEDGE_BASE,
+        entityId: knowledgeBaseId,
+        draftSessionId: null,
+        reviewSessionId: null,
+        workspaceId,
+        yjsSessionId: knowledgeBaseId,
+      },
+      'read'
+    )
+    if (!access.hasAccess || !access.workspaceId) {
+      logger.warn('Skipping unauthorized knowledge context', {
+        knowledgeBaseId,
+        workspaceId,
+        userId,
       })
-      .from(knowledgeBase)
-      .where(and(eq(knowledgeBase.id, knowledgeBaseId), isNull(knowledgeBase.deletedAt)))
-      .limit(1)
-    const kb = kbRows?.[0]
-    if (!kb) return null
+      return null
+    }
 
-    // Load up to 20 recent doc filenames
+    const fields = await readCopilotEntityFieldsFromYjs(
+      ENTITY_KIND_KNOWLEDGE_BASE,
+      knowledgeBaseId,
+      access.workspaceId
+    )
+
     const docRows = await db
       .select({ filename: document.filename })
       .from(document)
@@ -513,12 +527,15 @@ async function processKnowledgeContext(
 
     const sampleDocuments = docRows.map((d: any) => d.filename).filter(Boolean)
     const summary = {
-      id: kb.id,
-      name: kb.name,
+      id: knowledgeBaseId,
+      workspaceId: access.workspaceId,
+      name: fields.name ?? null,
+      description: fields.description ?? null,
+      chunkingConfig: fields.chunkingConfig ?? null,
       docCount: sampleDocuments.length,
       sampleDocuments,
     }
-    const content = JSON.stringify(summary)
+    const content = JSON.stringify(summary, null, 2)
     return { type: 'knowledge', tag, content }
   } catch (error) {
     logger.error('Error processing knowledge context', { knowledgeBaseId, error })

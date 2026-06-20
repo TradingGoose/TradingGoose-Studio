@@ -209,7 +209,7 @@ describe('getBlocksMetadataServerTool', () => {
         workflowVariables: expect.objectContaining({
           syntax: '<variable.name>',
           summary: expect.stringContaining('Copy the exact workflow variable tag'),
-          sourceTools: ['read_workflow_variables'],
+          sourceTools: ['read_workflow'],
         }),
         environmentVariables: expect.objectContaining({
           syntax: '{{ENV_VAR_NAME}}',

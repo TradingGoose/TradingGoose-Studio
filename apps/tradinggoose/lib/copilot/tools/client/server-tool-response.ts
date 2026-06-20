@@ -76,6 +76,8 @@ export async function executeCopilotServerTool<TResult = unknown>(input: {
   }
   signal?: AbortSignal
 }): Promise<TResult> {
+  const context =
+    input.context && Object.keys(input.context).length > 0 ? input.context : undefined
   const response = await fetch('/api/copilot/execute-copilot-server-tool', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -83,7 +85,50 @@ export async function executeCopilotServerTool<TResult = unknown>(input: {
     body: JSON.stringify({
       toolName: input.toolName,
       payload: input.payload ?? {},
-      ...(input.context ? { context: input.context } : {}),
+      ...(context ? { context } : {}),
+    }),
+  })
+
+  if (!response.ok) {
+    throw await buildCopilotServerToolError(response)
+  }
+
+  const json = await response.json()
+  const parsed = ExecuteResponseSuccessSchema.parse(json)
+  return parsed.result as TResult
+}
+
+export function isCopilotServerToolReviewResult(result: unknown): result is {
+  requiresReview: true
+} {
+  return (
+    !!result &&
+    typeof result === 'object' &&
+    (result as { requiresReview?: unknown }).requiresReview === true
+  )
+}
+
+export async function acceptCopilotServerToolReview<TResult = unknown>(input: {
+  toolName: string
+  reviewResult: unknown
+  context?: {
+    contextEntityKind?: ReviewEntityKind
+    contextEntityId?: string
+    workspaceId?: string
+  }
+  signal?: AbortSignal
+}): Promise<TResult> {
+  const context =
+    input.context && Object.keys(input.context).length > 0 ? input.context : undefined
+  const response = await fetch('/api/copilot/execute-copilot-server-tool', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    signal: input.signal,
+    body: JSON.stringify({
+      toolName: input.toolName,
+      reviewAction: 'accept',
+      reviewResult: input.reviewResult,
+      ...(context ? { context } : {}),
     }),
   })
 

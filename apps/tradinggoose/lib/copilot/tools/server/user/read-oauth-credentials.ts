@@ -3,16 +3,13 @@ import type {
   BaseServerTool,
   ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
-import {
-  createWorkflowPermissionError,
-  resolveServerWorkspaceId,
-  resolveServerWorkflowScope,
-} from '@/lib/copilot/tools/server/workflow/workflow-scope'
+import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
 import { listOAuthCredentialsForUser } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 
 interface ReadOAuthCredentialsParams {
-  entityId?: string
+  workspaceId?: string
 }
 
 export const readOAuthCredentialsServerTool: BaseServerTool<ReadOAuthCredentialsParams, any> = {
@@ -23,31 +20,27 @@ export const readOAuthCredentialsServerTool: BaseServerTool<ReadOAuthCredentials
   ): Promise<any> {
     const logger = createLogger('ReadOAuthCredentialsServerTool')
 
-    if (!context?.userId) {
+    const scopedContext = withWorkspaceArgContext(context, params)
+
+    if (!scopedContext?.userId) {
       logger.error(
         'Unauthorized attempt to access OAuth credentials - no authenticated user context'
       )
       throw new Error('Authentication required')
     }
 
-    const authenticatedUserId = context.userId
-
-    const workflowScope = await resolveServerWorkflowScope(params, context)
-    if (workflowScope && !workflowScope.hasAccess) {
-      const errorMessage = createWorkflowPermissionError('access credentials in')
-      logger.error('Unauthorized attempt to access OAuth credentials', {
-        workflowId: workflowScope.workflowId,
-        authenticatedUserId,
-      })
-      throw new Error(errorMessage)
+    const userId = scopedContext.userId
+    const workspaceId = scopedContext.workspaceId
+    if (!workspaceId) {
+      throw new Error('workspaceId is required')
     }
-
-    const userId = authenticatedUserId
-    const workspaceId = resolveServerWorkspaceId(context, workflowScope)
+    const workspaceAccess = await checkWorkspaceAccess(workspaceId, userId)
+    if (!workspaceAccess.exists || !workspaceAccess.hasAccess) {
+      throw new Error('Access denied: You do not have permission to use this workspace')
+    }
 
     logger.info('Reading OAuth credentials for authenticated user', {
       userId,
-      workflowId: workflowScope?.workflowId,
       workspaceId,
     })
     const credentials = await listOAuthCredentialsForUser({

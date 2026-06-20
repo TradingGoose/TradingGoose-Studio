@@ -271,7 +271,7 @@ function buildInputReferenceGrammar(
       summary:
         'Copy the exact workflow variable tag, such as `variable.riskLimit`, and wrap it once as `<variable.riskLimit>`.',
       examples: ['<variable.riskLimit>', '<variable.companyName>'],
-      sourceTools: ['read_workflow_variables'],
+      sourceTools: ['read_workflow'],
     },
     environmentVariables: {
       syntax: '{{ENV_VAR_NAME}}',

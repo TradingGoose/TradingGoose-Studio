@@ -12,6 +12,7 @@
  *   - skill:        name, description, content
  *   - custom_tool:  title, schemaText (Y.Text), codeText (Y.Text)
  *   - indicator:    name, color, pineCode (Y.Text), inputMeta
+ *   - knowledge_base: name, description, chunkingConfig
  *   - mcp_server:   name, description, transport, url, headers, command,
  *                    args, env, timeout, retries, enabled
  */
@@ -88,6 +89,12 @@ export function seedEntitySession(doc: Y.Doc, options: EntitySessionSeedOptions)
         break
       }
 
+      case 'knowledge_base':
+        fields.set('name', payload.name ?? '')
+        fields.set('description', payload.description ?? '')
+        fields.set('chunkingConfig', payload.chunkingConfig)
+        break
+
       case 'mcp_server':
         fields.set('name', payload.name ?? MCP_SERVER_DEFAULTS.name)
         fields.set('description', payload.description ?? MCP_SERVER_DEFAULTS.description)
@@ -134,6 +141,12 @@ export function getEntityFields(doc: Y.Doc, entityKind: ReviewEntityKind): Recor
       result.color = fields.get('color') ?? ''
       result.pineCode = fields.get('pineCode')?.toString() ?? ''
       result.inputMeta = fields.get('inputMeta')
+      break
+
+    case 'knowledge_base':
+      result.name = fields.get('name') ?? ''
+      result.description = fields.get('description') ?? ''
+      result.chunkingConfig = fields.get('chunkingConfig')
       break
 
     case 'mcp_server':

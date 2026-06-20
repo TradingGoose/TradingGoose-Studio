@@ -228,7 +228,14 @@ describe('Copilot Chat POST Generic Sessions', () => {
     }))
 
     vi.doMock('@/lib/copilot/review-sessions/types', () => ({
-      REVIEW_ENTITY_KINDS: ['workflow', 'skill', 'custom_tool', 'mcp_server', 'indicator'],
+      REVIEW_ENTITY_KINDS: [
+        'workflow',
+        'skill',
+        'custom_tool',
+        'mcp_server',
+        'indicator',
+        'knowledge_base',
+      ],
     }))
 
     vi.doMock('@/lib/copilot/runtime-provider.server', () => ({

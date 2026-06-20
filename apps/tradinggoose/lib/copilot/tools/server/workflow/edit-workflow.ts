@@ -1,5 +1,8 @@
 import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
-import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
+import type {
+  BaseServerTool,
+  ServerToolExecutionContext,
+} from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 import { resolveBlockRuntimeState } from '@/lib/workflows/block-outputs'
 import { WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
@@ -16,7 +19,6 @@ interface EditWorkflowParams {
   entityId: string
   entityDocument: string
   removedBlockIds?: string[]
-  currentWorkflowState: string
 }
 
 function buildStableEdgeId(edge: {
@@ -238,9 +240,9 @@ function applyGraphMermaidToWorkflow(
 
 export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
   name: 'edit_workflow',
-  async execute(params: EditWorkflowParams): Promise<any> {
+  async execute(params: EditWorkflowParams, context?: ServerToolExecutionContext): Promise<any> {
     const logger = createLogger('EditWorkflowServerTool')
-    const { entityDocument, removedBlockIds, currentWorkflowState } = params
+    const { entityDocument, removedBlockIds } = params
     const workflowId = requireCopilotEntityId(params, { toolName: 'edit_workflow' })
 
     if (!entityDocument || entityDocument.trim().length === 0) {
@@ -252,7 +254,7 @@ export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
       documentLength: entityDocument.length,
     })
 
-    const baseWorkflowState = await loadBaseWorkflowState(workflowId, currentWorkflowState)
+    const baseWorkflowState = await loadBaseWorkflowState(workflowId, context)
     const nextWorkflowState = applyGraphMermaidToWorkflow(
       baseWorkflowState,
       entityDocument,
@@ -266,7 +268,7 @@ export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
       documentFormat: WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
     })
 
-    logger.info('edit_workflow successfully applied workflow graph', {
+    logger.info('edit_workflow prepared workflow graph review', {
       workflowId,
       blocksCount: Object.keys(result.workflowState.blocks).length,
       edgesCount: result.workflowState.edges.length,

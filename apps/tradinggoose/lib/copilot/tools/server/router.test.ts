@@ -1,5 +1,9 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  KNOWLEDGE_BASE_DOCUMENT_FORMAT,
+  WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
+} from '@/lib/copilot/entity-documents'
+import {
   TG_MERMAID_DOCUMENT_FORMAT,
   WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
 } from '@/lib/workflows/document-format'
@@ -79,9 +83,29 @@ vi.mock('@/lib/copilot/tools/server/gdrive/read-file', () => ({
   readGDriveFileServerTool: { name: 'read_gdrive_file', execute: readGDriveFileExecute },
 }))
 vi.mock('@/lib/copilot/tools/server/knowledge/knowledge-base', () => ({
-  knowledgeBaseServerTool: {
-    name: 'knowledge_base',
-    execute: vi.fn(async () => ({ results: [] })),
+  listKnowledgeBasesServerTool: {
+    name: 'list_knowledge_bases',
+    execute: vi.fn(async () => ({ entityKind: 'knowledge_base', entities: [], count: 0 })),
+  },
+  readKnowledgeBaseServerTool: {
+    name: 'read_knowledge_base',
+    execute: vi.fn(),
+  },
+  createKnowledgeBaseServerTool: {
+    name: 'create_knowledge_base',
+    execute: vi.fn(),
+  },
+  editKnowledgeBaseServerTool: {
+    name: 'edit_knowledge_base',
+    execute: vi.fn(),
+  },
+  renameKnowledgeBaseServerTool: {
+    name: 'rename_knowledge_base',
+    execute: vi.fn(),
+  },
+  queryKnowledgeBaseServerTool: {
+    name: 'query_knowledge_base',
+    execute: vi.fn(),
   },
 }))
 vi.mock('@/lib/copilot/tools/server/other/make-api-request', () => ({
@@ -173,12 +197,12 @@ describe('copilot contract registry', () => {
   it('exposes the agent accessory catalog contract', () => {
     const contract = getToolContract('get_agent_accessory_catalog')
 
-    expect(contract?.args.parse({})).toEqual({})
-    expect(contract?.args.parse({ entityId: 'workflow-123' })).toEqual({
-      entityId: 'workflow-123',
+    expect(contract?.args.parse({ workspaceId: 'workspace-123' })).toEqual({
+      workspaceId: 'workspace-123',
     })
     expect(contract?.result.parse(agentAccessoryCatalogResult)).toEqual(agentAccessoryCatalogResult)
-    expect(() => contract?.args.parse({ workspaceId: 'workspace-123' })).toThrow()
+    expect(() => contract?.args.parse({})).toThrow()
+    expect(() => contract?.args.parse({ entityId: 'workflow-123' })).toThrow()
   })
 
   it('enforces workflow identity in workflow read/list results', () => {
@@ -187,6 +211,8 @@ describe('copilot contract registry', () => {
       entityId: 'workflow-123',
       entityDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
       documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
+      workflowVariableDocumentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
+      workflowVariableDocument: '{"variables":[]}',
       workflowSummary: {
         blocks: [],
         edges: [],
@@ -211,6 +237,8 @@ describe('copilot contract registry', () => {
         entityId: 'workflow-123',
         entityDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
         documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
+        workflowVariableDocumentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
+        workflowVariableDocument: '{"variables":[]}',
         workflowSummary: {
           blocks: [
             {
@@ -253,14 +281,87 @@ describe('copilot contract registry', () => {
       triggerBlockId: 'trigger-1',
     })
     expect(
-      getToolContract('set_workflow_variables')?.args.parse({
+      getToolContract('edit_workflow_variable')?.args.parse({
         entityId: 'workflow-123',
-        operations: [],
+        entityDocument: '{"variables":[]}',
+        documentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
       })
     ).toEqual({
       entityId: 'workflow-123',
-      operations: [],
+      entityDocument: '{"variables":[]}',
+      documentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
     })
+  })
+
+  it('exposes knowledge base document contracts without the legacy operation wrapper', () => {
+    const entityDocument =
+      '{"name":"Research","description":"","chunkingConfig":{"maxSize":1024,"minSize":1,"overlap":200}}'
+    const mutationArgs = {
+      entityId: 'kb-123',
+      entityDocument,
+      documentFormat: KNOWLEDGE_BASE_DOCUMENT_FORMAT,
+    }
+    const envelope = {
+      entityKind: 'knowledge_base',
+      entityId: 'kb-123',
+      entityName: 'Research',
+      workspaceId: 'workspace-123',
+      documentFormat: KNOWLEDGE_BASE_DOCUMENT_FORMAT,
+      entityDocument,
+      docCount: 0,
+      tokenCount: 0,
+      embeddingModel: 'text-embedding-3-small',
+      embeddingDimension: 1536,
+    }
+
+    expect(
+      getToolContract('list_knowledge_bases')?.args.parse({ workspaceId: 'workspace-123' })
+    ).toEqual({ workspaceId: 'workspace-123' })
+    expect(
+      getToolContract('create_knowledge_base')?.args.parse({
+        workspaceId: 'workspace-123',
+        entityDocument,
+        documentFormat: KNOWLEDGE_BASE_DOCUMENT_FORMAT,
+      })
+    ).toEqual({
+      workspaceId: 'workspace-123',
+      entityDocument,
+      documentFormat: KNOWLEDGE_BASE_DOCUMENT_FORMAT,
+    })
+    expect(getToolContract('rename_knowledge_base')?.args.parse(mutationArgs)).toEqual(mutationArgs)
+    expect(() =>
+      getToolContract('rename_knowledge_base')?.args.parse({ entityId: 'kb-123', name: 'Research' })
+    ).toThrow()
+    expect(getToolContract('read_knowledge_base')?.result.parse(envelope)).toEqual(envelope)
+    expect(
+      getToolContract('edit_knowledge_base')?.result.parse({
+        ...envelope,
+        requiresReview: true,
+        success: true,
+        preview: {
+          documentDiff: {
+            before: entityDocument,
+            after: entityDocument,
+          },
+        },
+      })
+    ).toMatchObject({
+      entityKind: 'knowledge_base',
+      entityId: 'kb-123',
+      requiresReview: true,
+      success: true,
+    })
+    expect(
+      getToolContract('query_knowledge_base')?.result.parse({
+        entityKind: 'knowledge_base',
+        entityId: 'kb-123',
+        entityName: 'Research',
+        query: 'risk',
+        topK: 5,
+        totalResults: 1,
+        results: [{ documentId: 'doc-1', content: 'risk note', chunkIndex: 0, similarity: 0.9 }],
+      })
+    ).toMatchObject({ entityId: 'kb-123', totalResults: 1 })
   })
 })
 
@@ -311,8 +412,7 @@ describe('routeExecution', () => {
   it('routes agent accessory catalog requests through the central contract', async () => {
     const context = {
       userId: 'user-1',
-      contextEntityKind: 'workflow' as const,
-      contextEntityId: 'workflow-current',
+      workspaceId: 'workspace-1',
     }
 
     await expect(routeExecution('get_agent_accessory_catalog', {}, context)).resolves.toMatchObject(
@@ -322,7 +422,10 @@ describe('routeExecution', () => {
       }
     )
 
-    expect(getAgentAccessoryCatalogExecute).toHaveBeenCalledWith({}, context)
+    expect(getAgentAccessoryCatalogExecute).toHaveBeenCalledWith(
+      { workspaceId: 'workspace-1' },
+      context
+    )
   })
 
   it('routes indicator metadata requests through the central contract', async () => {
@@ -343,7 +446,6 @@ describe('routeExecution', () => {
     const payload = {
       entityDocument: 'flowchart TD\n  n1["Input<br/>id: input1<br/>type: input_trigger"]',
       entityId: 'workflow-123',
-      currentWorkflowState: '{"blocks":{}}',
     }
 
     await expect(routeExecution('edit_workflow', payload)).resolves.toMatchObject({
@@ -370,11 +472,10 @@ describe('routeExecution', () => {
     expect(readWorkflowLogsExecute).toHaveBeenCalledWith(payload, undefined)
   })
 
-  it('forwards ambient workflow context separately from raw tool args', async () => {
+  it('injects hosted workspace context for workspace-targeted tools', async () => {
     const context = {
       userId: 'user-1',
-      contextEntityKind: 'workflow' as const,
-      contextEntityId: 'workflow-current',
+      workspaceId: 'workspace-1',
     }
 
     await expect(routeExecution('read_environment_variables', {}, context)).resolves.toMatchObject({
@@ -382,36 +483,38 @@ describe('routeExecution', () => {
       count: expect.any(Number),
     })
 
-    expect(readEnvironmentVariablesExecute).toHaveBeenCalledWith({}, context)
+    expect(readEnvironmentVariablesExecute).toHaveBeenCalledWith(
+      { workspaceId: 'workspace-1' },
+      context
+    )
   })
 
   it.each([
     {
       toolName: 'read_environment_variables',
-      payload: { entityId: 'workflow-123' },
+      payload: { workspaceId: 'workspace-123' },
       execute: readEnvironmentVariablesExecute,
     },
     {
       toolName: 'set_environment_variables',
-      payload: { entityId: 'workflow-123', variables: { API_KEY: 'secret' } },
+      payload: { variables: { API_KEY: 'secret' } },
       execute: setEnvironmentVariablesExecute,
     },
     {
       toolName: 'read_credentials',
-      payload: { entityId: 'workflow-123' },
+      payload: { workspaceId: 'workspace-123' },
       execute: readCredentialsExecute,
     },
     {
       toolName: 'list_gdrive_files',
       payload: {
-        entityId: 'workflow-123',
+        workspaceId: 'workspace-123',
         credentialId: 'credential-1',
-        userId: 'spoofed-user',
         search_query: 'report',
         num_results: 3,
       },
       expectedArgs: {
-        entityId: 'workflow-123',
+        workspaceId: 'workspace-123',
         credentialId: 'credential-1',
         search_query: 'report',
         num_results: 3,
@@ -421,7 +524,7 @@ describe('routeExecution', () => {
     {
       toolName: 'read_gdrive_file',
       payload: {
-        entityId: 'workflow-123',
+        workspaceId: 'workspace-123',
         credentialId: 'credential-1',
         fileId: 'file-1',
         type: 'doc',
@@ -430,15 +533,24 @@ describe('routeExecution', () => {
     },
     {
       toolName: 'read_oauth_credentials',
-      payload: { entityId: 'workflow-123' },
+      payload: { workspaceId: 'workspace-123' },
       execute: readOAuthCredentialsExecute,
     },
   ])(
-    'preserves entityId when routing $toolName',
+    'preserves explicit args when routing $toolName',
     async ({ toolName, payload, expectedArgs, execute }) => {
-      await expect(routeExecution(toolName, payload)).resolves.toBeDefined()
+      const workspaceId =
+        typeof (payload as { workspaceId?: unknown }).workspaceId === 'string'
+          ? (payload as { workspaceId: string }).workspaceId
+          : undefined
+      const context = workspaceId ? { userId: 'user-1' } : undefined
 
-      expect(execute).toHaveBeenCalledWith(expectedArgs ?? payload, undefined)
+      await expect(routeExecution(toolName, payload, context)).resolves.toBeDefined()
+
+      expect(execute).toHaveBeenCalledWith(
+        expectedArgs ?? payload,
+        workspaceId ? { userId: 'user-1', workspaceId } : undefined
+      )
     }
   )
 })

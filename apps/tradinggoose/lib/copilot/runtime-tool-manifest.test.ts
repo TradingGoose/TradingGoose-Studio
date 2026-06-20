@@ -60,9 +60,9 @@ describe('copilot runtime tool manifest', () => {
           entityKind: 'environment',
         }),
         expect.objectContaining({
-          name: 'read_workflow_variables',
-          description: expect.stringContaining('<variable.name>'),
-          kind: 'read',
+          name: 'edit_workflow_variable',
+          description: expect.stringContaining('workflow-variable document'),
+          kind: 'edit',
           entityKind: 'workflow',
         }),
         expect.objectContaining({

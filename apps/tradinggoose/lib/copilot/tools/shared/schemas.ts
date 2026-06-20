@@ -70,7 +70,7 @@ export const BlockInputReferencePatternSchema = z.object({
       z.enum([
         'read_block_outputs',
         'read_block_upstream_references',
-        'read_workflow_variables',
+        'read_workflow',
         'read_environment_variables',
       ])
     )
@@ -146,7 +146,7 @@ export type GetBlocksMetadataResultType = z.infer<typeof GetBlocksMetadataResult
 // get_agent_accessory_catalog
 export const GetAgentAccessoryCatalogInput = z
   .object({
-    entityId: z.string().trim().min(1).optional(),
+    workspaceId: z.string().trim().min(1),
   })
   .strict()
 
@@ -297,43 +297,6 @@ export const GetIndicatorMetadataResult = z.object({
   missingIds: z.array(z.string()),
 })
 export type GetIndicatorMetadataResultType = z.infer<typeof GetIndicatorMetadataResult>
-
-// knowledge_base - shared schema used by client tool, server tool, and registry
-export const KnowledgeBaseArgsSchema = z.object({
-  operation: z.enum(['create', 'list', 'get', 'query']),
-  args: z
-    .object({
-      /** Name of the knowledge base (required for create) */
-      name: z.string().optional(),
-      /** Description of the knowledge base (optional for create) */
-      description: z.string().optional(),
-      /** Workspace ID (required for create/list) */
-      workspaceId: z.string().optional(),
-      /** Knowledge base ID (required for get, query) */
-      knowledgeBaseId: z.string().optional(),
-      /** Search query text (required for query) */
-      query: z.string().optional(),
-      /** Number of results to return (optional for query, defaults to 5) */
-      topK: z.number().min(1).max(50).optional(),
-      /** Chunking configuration (optional for create) */
-      chunkingConfig: z
-        .object({
-          maxSize: z.number().min(100).max(4000).default(1024),
-          minSize: z.number().min(1).max(2000).default(1),
-          overlap: z.number().min(0).max(500).default(200),
-        })
-        .optional(),
-    })
-    .optional(),
-})
-export type KnowledgeBaseArgs = z.infer<typeof KnowledgeBaseArgsSchema>
-
-export const KnowledgeBaseResultSchema = z.object({
-  success: z.boolean(),
-  message: z.string(),
-  data: z.any().optional(),
-})
-export type KnowledgeBaseResult = z.infer<typeof KnowledgeBaseResultSchema>
 
 export const ReadBlockOutputsInput = z.object({
   blockIds: z

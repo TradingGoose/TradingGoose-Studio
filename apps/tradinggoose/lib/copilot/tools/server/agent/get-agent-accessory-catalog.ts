@@ -1,10 +1,9 @@
 import { CopilotTool } from '@/lib/copilot/registry'
-import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
-import { listWorkflowBlockCatalogItems } from '@/lib/copilot/tools/server/blocks/block-mermaid-catalog'
 import {
-  resolveServerWorkspaceId,
-  resolveServerWorkflowScope,
-} from '@/lib/copilot/tools/server/workflow/workflow-scope'
+  type BaseServerTool,
+  withWorkspaceArgContext,
+} from '@/lib/copilot/tools/server/base-tool'
+import { listWorkflowBlockCatalogItems } from '@/lib/copilot/tools/server/blocks/block-mermaid-catalog'
 import type {
   GetAgentAccessoryCatalogInputType,
   GetAgentAccessoryCatalogResultType,
@@ -13,6 +12,7 @@ import { listCustomTools } from '@/lib/custom-tools/operations'
 import { createCustomToolRuntimeId } from '@/lib/custom-tools/schema'
 import { mcpService } from '@/lib/mcp/service'
 import { createMcpToolId } from '@/lib/mcp/utils'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { listSkills } from '@/lib/skills/operations'
 import { registry as blockRegistry } from '@/blocks/registry'
 import type { BlockConfig } from '@/blocks/types'
@@ -76,21 +76,22 @@ export const getAgentAccessoryCatalogServerTool: BaseServerTool<
 > = {
   name: CopilotTool.get_agent_accessory_catalog,
   async execute(args, context) {
-    if (!context?.userId) throw new Error('User context is required')
+    const scopedContext = withWorkspaceArgContext(context, args)
+    if (!scopedContext?.userId) throw new Error('User context is required')
 
-    const scope = await resolveServerWorkflowScope(args, context)
-    if (scope && !scope.hasAccess) {
-      throw new Error('Workflow not found or access denied')
-    }
-    const workspaceId = resolveServerWorkspaceId(context, scope)
+    const workspaceId = scopedContext.workspaceId
     if (!workspaceId) {
       throw new Error('Workspace context is required')
+    }
+    const workspaceAccess = await checkWorkspaceAccess(workspaceId, scopedContext.userId)
+    if (!workspaceAccess.exists || !workspaceAccess.hasAccess) {
+      throw new Error('Access denied: You do not have permission to use this workspace')
     }
 
     const [blockToolOptions, customToolRows, mcpToolRows, skillRows] = await Promise.all([
       getBlockToolOptions(),
       listCustomTools({ workspaceId }),
-      mcpService.discoverTools(context.userId, workspaceId),
+      mcpService.discoverTools(scopedContext.userId, workspaceId),
       listSkills({ workspaceId }),
     ])
 

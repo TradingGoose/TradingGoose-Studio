@@ -16,6 +16,8 @@ const logger = createLogger('ExecuteCopilotServerToolAPI')
 const ExecuteSchema = z.object({
   toolName: z.string().min(1),
   payload: z.unknown().optional(),
+  reviewAction: z.enum(['accept']).optional(),
+  reviewResult: z.unknown().optional(),
   context: z
     .object({
       contextEntityKind: z.enum(REVIEW_ENTITY_KINDS).optional(),
@@ -24,6 +26,17 @@ const ExecuteSchema = z.object({
     })
     .optional(),
 })
+
+function readPayloadWorkspaceId(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return undefined
+  }
+
+  const workspaceId = (payload as { workspaceId?: unknown }).workspaceId
+  return typeof workspaceId === 'string' && workspaceId.trim().length > 0
+    ? workspaceId.trim()
+    : undefined
+}
 
 export async function POST(req: NextRequest) {
   const tracker = createRequestTracker()
@@ -53,20 +66,33 @@ export async function POST(req: NextRequest) {
       throw error
     }
     toolName = parsedBody.toolName
-    const { payload, context } = parsedBody
+    const { payload, context, reviewAction, reviewResult } = parsedBody
+    const payloadWorkspaceId = readPayloadWorkspaceId(payload)
+    const contextWorkspaceId = context?.workspaceId?.trim()
 
-    const [{ isToolId }, { routeExecution }] = await Promise.all([
-      import('@/lib/copilot/registry'),
-      import('@/lib/copilot/tools/server/router'),
-    ])
+    if (payloadWorkspaceId && contextWorkspaceId && payloadWorkspaceId !== contextWorkspaceId) {
+      return createBadRequestResponse('workspaceId does not match execution context')
+    }
+
+    const executionContextInput =
+      payloadWorkspaceId && !contextWorkspaceId
+        ? { ...(context ?? {}), workspaceId: payloadWorkspaceId }
+        : context
+
+    const [{ isToolId }, { routeExecution }, { acceptServerManagedToolReview }] =
+      await Promise.all([
+        import('@/lib/copilot/registry'),
+        import('@/lib/copilot/tools/server/router'),
+        import('@/lib/copilot/tools/server/review-acceptance'),
+      ])
 
     if (!isToolId(toolName)) {
       return createBadRequestResponse('Invalid request body for execute-copilot-server-tool')
     }
 
-    logger.info(`[${tracker.requestId}] Executing server tool`, { toolName })
-    if (context?.workspaceId) {
-      const workspaceAccess = await checkWorkspaceAccess(context.workspaceId, userId)
+    logger.info(`[${tracker.requestId}] Executing server tool`, { toolName, reviewAction })
+    if (executionContextInput?.workspaceId) {
+      const workspaceAccess = await checkWorkspaceAccess(executionContextInput.workspaceId, userId)
       if (!workspaceAccess.exists || !workspaceAccess.hasAccess) {
         return NextResponse.json(
           { error: 'Access denied to this workspace', code: 'WORKSPACE_ACCESS_DENIED' },
@@ -75,11 +101,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const result = await routeExecution(toolName, payload, {
+    const executionContext = {
       userId,
-      ...context,
+      ...executionContextInput,
       signal: req.signal,
-    })
+    }
+    const result =
+      reviewAction === 'accept'
+        ? await acceptServerManagedToolReview(toolName, reviewResult, executionContext)
+        : await routeExecution(toolName, payload, executionContext)
 
     try {
       const resultPreview = JSON.stringify(result).slice(0, 300)
