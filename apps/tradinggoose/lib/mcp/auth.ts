@@ -12,6 +12,7 @@ const POLL_INTERVAL_SECONDS = 2
 type PendingDeviceLogin = {
   status: 'pending'
   createdAt: string
+  userApprovalTokenHash?: string
 }
 
 type ApprovedDeviceLogin = {
@@ -33,6 +34,7 @@ export type McpDeviceLoginPollResult =
 export type McpDeviceLoginApprovalResult =
   | { status: 'approved'; expiresAt: string }
   | { status: 'expired' }
+  | { status: 'invalid' }
 
 export type McpDeviceLoginStartResult = {
   code: string
@@ -47,6 +49,10 @@ export type McpApiKeyRevocationResult = {
 function getDeviceLoginIdentifier(code: string) {
   const digest = createHash('sha256').update(code).digest('hex')
   return `${DEVICE_LOGIN_PREFIX}${digest}`
+}
+
+function getUserApprovalTokenHash(code: string, approvalToken: string, userId: string) {
+  return createHash('sha256').update(`${code}:${approvalToken}:${userId}`).digest('hex')
 }
 
 function parseDeviceLoginState(value: string): DeviceLoginState | null {
@@ -124,6 +130,39 @@ export async function startMcpDeviceLogin(): Promise<McpDeviceLoginStartResult> 
   }
 }
 
+export async function createMcpDeviceLoginApprovalChallenge(code: string, userId: string) {
+  const login = await readDeviceLogin(code)
+  if (!login) {
+    return { status: 'expired' }
+  }
+
+  if (login.state.status === 'approved') {
+    return {
+      status: 'approved',
+      expiresAt: login.expiresAt.toISOString(),
+    }
+  }
+
+  const now = new Date()
+  const approvalToken = randomBytes(32).toString('base64url')
+  await db
+    .update(verification)
+    .set({
+      value: JSON.stringify({
+        ...login.state,
+        userApprovalTokenHash: getUserApprovalTokenHash(code, approvalToken, userId),
+      } satisfies PendingDeviceLogin),
+      updatedAt: now,
+    })
+    .where(eq(verification.id, login.id))
+
+  return {
+    status: 'pending',
+    approvalToken,
+    expiresAt: login.expiresAt.toISOString(),
+  }
+}
+
 export async function pollMcpDeviceLogin(code: string): Promise<McpDeviceLoginPollResult> {
   const login = await readDeviceLogin(code)
   if (!login) {
@@ -148,9 +187,11 @@ export async function pollMcpDeviceLogin(code: string): Promise<McpDeviceLoginPo
 
 export async function approveMcpDeviceLogin({
   code,
+  approvalToken,
   userId,
 }: {
   code: string
+  approvalToken: string
   userId: string
 }): Promise<McpDeviceLoginApprovalResult> {
   const login = await readDeviceLogin(code)
@@ -163,6 +204,10 @@ export async function approveMcpDeviceLogin({
       status: 'approved',
       expiresAt: login.expiresAt.toISOString(),
     }
+  }
+
+  if (login.state.userApprovalTokenHash !== getUserApprovalTokenHash(code, approvalToken, userId)) {
+    return { status: 'invalid' }
   }
 
   const now = new Date()
@@ -191,6 +236,31 @@ export async function approveMcpDeviceLogin({
     status: 'approved',
     expiresAt: login.expiresAt.toISOString(),
   }
+}
+
+export async function cancelMcpDeviceLogin({
+  code,
+  approvalToken,
+  userId,
+}: {
+  code: string
+  approvalToken: string
+  userId: string
+}) {
+  const login = await readDeviceLogin(code)
+  if (!login) {
+    return { status: 'expired' }
+  }
+
+  if (
+    login.state.status !== 'pending' ||
+    login.state.userApprovalTokenHash !== getUserApprovalTokenHash(code, approvalToken, userId)
+  ) {
+    return { status: 'invalid' }
+  }
+
+  await db.delete(verification).where(eq(verification.id, login.id))
+  return { status: 'cancelled' }
 }
 
 export async function revokeMcpApiKeyByBearerToken(

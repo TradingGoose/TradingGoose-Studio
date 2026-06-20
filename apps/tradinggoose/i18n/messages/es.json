@@ -359,6 +359,13 @@
     },
     "mcp": {
       "eyebrow": "Autorización MCP",
+      "confirm": {
+        "title": "Aprobar acceso MCP",
+        "description": "Un comando local de configuración de TradingGoose MCP solicita una clave API para esta cuenta.",
+        "approve": "Aprobar acceso",
+        "cancel": "Cancelar",
+        "terminalHint": "Aprueba esto solo si iniciaste el comando de configuración o inicio de sesión en tu propia terminal."
+      },
       "invalid": {
         "title": "Inicio de sesión MCP no válido",
         "description": "El comando de configuración local no proporcionó un código de inicio de sesión válido."
@@ -370,6 +377,10 @@
       "approved": {
         "title": "Inicio de sesión MCP aprobado",
         "description": "Vuelve a la terminal para terminar de configurar tu agente local."
+      },
+      "cancelled": {
+        "title": "Inicio de sesión MCP cancelado",
+        "description": "No se creó ninguna clave API. Puedes cerrar esta página."
       }
     }
   },

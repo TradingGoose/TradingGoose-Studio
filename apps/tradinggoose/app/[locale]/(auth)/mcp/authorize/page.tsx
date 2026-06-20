@@ -1,8 +1,10 @@
 import { getSessionCookie } from 'better-auth/cookies'
 import { headers } from 'next/headers'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
+import { inter } from '@/app/fonts/inter'
+import { Button } from '@/components/ui/button'
 import { getSession } from '@/lib/auth'
-import { approveMcpDeviceLogin } from '@/lib/mcp/auth'
+import { createMcpDeviceLoginApprovalChallenge } from '@/lib/mcp/auth'
 import { redirect } from '@/i18n/navigation'
 import { getPublicCopy } from '@/i18n/public-copy'
 import { normalizeLocaleCode } from '@/i18n/utils'
@@ -11,28 +13,8 @@ export const dynamic = 'force-dynamic'
 
 type SearchParams = Promise<{
   code?: string | string[]
+  status?: string | string[]
 }>
-
-function getCode(searchParams: Awaited<SearchParams>) {
-  const code = searchParams.code
-  return Array.isArray(code) ? code[0] : code
-}
-
-function StatusPage({
-  eyebrow,
-  title,
-  description,
-}: {
-  eyebrow: string
-  title: string
-  description: string
-}) {
-  return (
-    <div className='space-y-8 text-center'>
-      <AuthPageHeader eyebrow={eyebrow} title={title} description={description} />
-    </div>
-  )
-}
 
 export default async function McpAuthorizePage({
   params,
@@ -48,16 +30,30 @@ export default async function McpAuthorizePage({
   ])
   const locale = normalizeLocaleCode(routeLocale)
   const mcpCopy = getPublicCopy(locale).auth.mcp
-  const code = getCode(query)
+  const code = Array.isArray(query.code) ? query.code[0] : query.code
+  const rawStatus = Array.isArray(query.status) ? query.status[0] : query.status
+  const statusCopy =
+    rawStatus === 'approved'
+      ? mcpCopy.approved
+      : rawStatus === 'cancelled'
+        ? mcpCopy.cancelled
+        : rawStatus === 'expired'
+          ? mcpCopy.expired
+          : rawStatus === 'invalid'
+            ? mcpCopy.invalid
+            : null
+  const renderStatus = (copy: { title: string; description: string }) => (
+    <div className='space-y-8 text-center'>
+      <AuthPageHeader eyebrow={mcpCopy.eyebrow} title={copy.title} description={copy.description} />
+    </div>
+  )
+
+  if (statusCopy) {
+    return renderStatus(statusCopy)
+  }
 
   if (!code) {
-    return (
-      <StatusPage
-        eyebrow={mcpCopy.eyebrow}
-        title={mcpCopy.invalid.title}
-        description={mcpCopy.invalid.description}
-      />
-    )
+    return renderStatus(mcpCopy.invalid)
   }
 
   const session = await getSession(requestHeaders)
@@ -74,26 +70,45 @@ export default async function McpAuthorizePage({
     })
   }
 
-  const result = await approveMcpDeviceLogin({
-    code,
-    userId: session.user.id,
-  })
+  const challenge = await createMcpDeviceLoginApprovalChallenge(code, session.user.id)
 
-  if (result.status === 'expired') {
-    return (
-      <StatusPage
-        eyebrow={mcpCopy.eyebrow}
-        title={mcpCopy.expired.title}
-        description={mcpCopy.expired.description}
-      />
-    )
+  if (challenge.status === 'expired') {
+    return renderStatus(mcpCopy.expired)
+  }
+
+  if (challenge.status === 'approved') {
+    return renderStatus(mcpCopy.approved)
   }
 
   return (
-    <StatusPage
-      eyebrow={mcpCopy.eyebrow}
-      title={mcpCopy.approved.title}
-      description={mcpCopy.approved.description}
-    />
+    <div className='space-y-8 text-center'>
+      <AuthPageHeader
+        eyebrow={mcpCopy.eyebrow}
+        title={mcpCopy.confirm.title}
+        description={mcpCopy.confirm.description}
+      />
+      <form method='post' action='/api/auth/mcp/authorize' className='space-y-3'>
+        <input type='hidden' name='code' value={code} />
+        <input type='hidden' name='approvalToken' value={challenge.approvalToken} />
+        <input type='hidden' name='locale' value={locale} />
+        <div className='flex flex-col gap-3 sm:flex-row sm:justify-center'>
+          <Button type='submit' name='action' value='approve' className='text-[15px]'>
+            {mcpCopy.confirm.approve}
+          </Button>
+          <Button
+            type='submit'
+            name='action'
+            value='cancel'
+            variant='outline'
+            className='text-[15px]'
+          >
+            {mcpCopy.confirm.cancel}
+          </Button>
+        </div>
+      </form>
+      <p className={`${inter.className} text-muted-foreground text-sm`}>
+        {mcpCopy.confirm.terminalHint}
+      </p>
+    </div>
   )
 }

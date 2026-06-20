@@ -359,6 +359,13 @@
     },
     "mcp": {
       "eyebrow": "MCP 授权",
+      "confirm": {
+        "title": "批准 MCP 访问",
+        "description": "本地 TradingGoose MCP 设置命令正在请求为此账户创建 API 密钥。",
+        "approve": "批准访问",
+        "cancel": "取消",
+        "terminalHint": "仅在你自己终端中启动了设置或登录命令时才批准。"
+      },
       "invalid": {
         "title": "MCP 登录无效",
         "description": "本地设置命令未提供有效的登录代码。"
@@ -370,6 +377,10 @@
       "approved": {
         "title": "MCP 登录已批准",
         "description": "返回终端完成本地代理配置。"
+      },
+      "cancelled": {
+        "title": "MCP 登录已取消",
+        "description": "未创建 API 密钥。你可以关闭此页面。"
       }
     }
   },
