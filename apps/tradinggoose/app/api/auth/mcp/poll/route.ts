@@ -7,6 +7,8 @@ export const dynamic = 'force-dynamic'
 const PollRequestSchema = z.object({
   code: z.string().min(1),
   verificationKey: z.string().min(1),
+  confirm: z.boolean().optional(),
+  apiKey: z.string().optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -15,6 +17,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid MCP login poll request' }, { status: 400 })
   }
 
-  const result = await pollMcpDeviceLogin(parsed.data.code, parsed.data.verificationKey)
+  const result = await pollMcpDeviceLogin(parsed.data.code, parsed.data.verificationKey, {
+    confirm: parsed.data.confirm === true,
+    apiKey: parsed.data.apiKey,
+  })
   return NextResponse.json(result)
 }

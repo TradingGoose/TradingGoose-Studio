@@ -125,7 +125,7 @@ async function authenticate() {
       if (!token) {
         fail('Studio approved login without returning a token')
       }
-      return token
+      return { code, verificationKey, token }
     }
 
     if (status === 'expired') {
@@ -142,21 +142,35 @@ async function authenticate() {
   fail('Timed out waiting for browser approval')
 }
 
+async function confirmLogin(login) {
+  const confirmJson = await postJson(baseUrl + '/api/auth/mcp/poll', {
+    code: login.code,
+    verificationKey: login.verificationKey,
+    confirm: true,
+    apiKey: login.token,
+  })
+  const status = String(confirmJson?.status || '')
+  if (status !== 'confirmed') {
+    fail('Studio could not confirm the delivered MCP token')
+  }
+}
+
 async function main() {
   requireFetch()
 
   if (command === 'login') {
     const existingTokens = readExistingTokens()
-    const token = await authenticate()
+    const login = await authenticate()
     console.log('MCP endpoint:')
     console.log(mcpUrl)
     console.log('')
     console.log('Bearer token:')
-    console.log(token)
+    console.log(login.token)
     console.log('')
     console.log('Use this MCP auth header:')
-    console.log('Authorization: Bearer ' + token)
-    await revokeTokens(existingTokens, token)
+    console.log('Authorization: Bearer ' + login.token)
+    await confirmLogin(login)
+    await revokeTokens(existingTokens, login.token)
     return
   }
 
@@ -166,13 +180,14 @@ async function main() {
     }
 
     const existingTokens = readExistingTokens()
-    const token = await authenticate()
+    const login = await authenticate()
     console.log('Using MCP endpoint: ' + mcpUrl)
     for (const target of targets) {
-      const configPath = runConfigWriter([target, mcpUrl, token])
+      const configPath = runConfigWriter([target, mcpUrl, login.token])
       console.log('Configured ' + target + ': ' + configPath)
     }
-    await revokeTokens(existingTokens, token)
+    await confirmLogin(login)
+    await revokeTokens(existingTokens, login.token)
     return
   }
 

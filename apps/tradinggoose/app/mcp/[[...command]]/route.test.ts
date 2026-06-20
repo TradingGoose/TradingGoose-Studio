@@ -41,16 +41,18 @@ describe('MCP install route', () => {
     expect(script).toContain("baseUrl + '/api/auth/mcp/start'")
     expect(script).toContain("baseUrl + '/api/auth/mcp/poll'")
     expect(script).toContain('const verificationKey = String(startJson?.verificationKey ||')
-    expect(script).toContain("postJson(baseUrl + '/api/auth/mcp/poll', { code, verificationKey })")
+    expect(script).toContain('return { code, verificationKey, token }')
+    expect(script).toContain('confirm: true')
+    expect(script).toContain('apiKey: login.token')
     expect(script).toContain("baseUrl + '/api/auth/mcp/revoke'")
     expect(script).toContain("baseUrl + '/api/copilot/mcp'")
-    expect(script).toContain("Authorization: Bearer ' + token")
+    expect(script).toContain("Authorization: Bearer ' + login.token")
     expect(script).toContain('setup   Authenticate, rotate local MCP auth, and write config.')
     expect(script).toContain('read-tokens')
-    expect(script).toContain('await revokeTokens(existingTokens, token)')
+    expect(script).toContain('await revokeTokens(existingTokens, login.token)')
     expect(script).not.toContain('revokeExistingTokens')
     expect(script).toContain('node - "$BASE_URL" "$COMMAND" "$TARGETS"')
-    expect(script).toContain('runConfigWriter([target, mcpUrl, token])')
+    expect(script).toContain('runConfigWriter([target, mcpUrl, login.token])')
     expect(script).toContain("const mcpServerName = 'TradingGoose'")
     expect(script).toContain("const codexBearerTokenEnvVar = 'TRADINGGOOSE_BEARER_TOKEN'")
     expect(script).toContain("'bearer_token_env_var = ' + JSON.stringify(codexBearerTokenEnvVar)")
@@ -62,16 +64,21 @@ describe('MCP install route', () => {
     expect(script).not.toContain('workspaceId')
     expect(script).not.toContain('entityId')
 
-    const printedTokenIndex = script.indexOf("console.log('Authorization: Bearer ' + token)")
-    const firstRevokeIndex = script.indexOf('await revokeTokens(existingTokens, token)')
+    const printedTokenIndex = script.indexOf("console.log('Authorization: Bearer ' + login.token)")
+    const firstConfirmIndex = script.indexOf('await confirmLogin(login)')
+    const firstRevokeIndex = script.indexOf('await revokeTokens(existingTokens, login.token)')
     const configWriteIndex = script.indexOf(
-      'const configPath = runConfigWriter([target, mcpUrl, token])'
+      'const configPath = runConfigWriter([target, mcpUrl, login.token])'
     )
+    const setupConfirmIndex = script.indexOf('await confirmLogin(login)', configWriteIndex)
     const setupRevokeIndex = script.indexOf(
-      'await revokeTokens(existingTokens, token)',
+      'await revokeTokens(existingTokens, login.token)',
       configWriteIndex
     )
-    expect(firstRevokeIndex).toBeGreaterThan(printedTokenIndex)
+    expect(firstConfirmIndex).toBeGreaterThan(printedTokenIndex)
+    expect(firstRevokeIndex).toBeGreaterThan(firstConfirmIndex)
+    expect(setupConfirmIndex).toBeGreaterThan(configWriteIndex)
+    expect(setupRevokeIndex).toBeGreaterThan(setupConfirmIndex)
     expect(setupRevokeIndex).toBeGreaterThan(configWriteIndex)
   })
 
