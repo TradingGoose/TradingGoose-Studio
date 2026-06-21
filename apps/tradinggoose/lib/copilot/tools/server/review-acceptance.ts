@@ -53,7 +53,7 @@ export async function stageServerManagedToolReview(
   }
 }
 
-async function consumeServerManagedToolReview(
+export async function acceptServerManagedToolReview(
   toolName: ToolId,
   reviewToken: string,
   context?: ServerToolExecutionContext
@@ -62,38 +62,44 @@ async function consumeServerManagedToolReview(
     throw new Error('Authenticated user is required to accept server tool review')
   }
 
-  const [row] = await db
-    .delete(verification)
-    .where(eq(verification.identifier, `${REVIEW_TOKEN_PREFIX}${reviewToken}`))
-    .returning({
-      value: verification.value,
-      expiresAt: verification.expiresAt,
-    })
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({
+        id: verification.id,
+        value: verification.value,
+        expiresAt: verification.expiresAt,
+      })
+      .from(verification)
+      .where(eq(verification.identifier, `${REVIEW_TOKEN_PREFIX}${reviewToken}`))
+      .for('update')
+      .limit(1)
 
-  if (!row || row.expiresAt <= new Date()) {
-    throw new Error('Server tool review token is invalid or expired')
-  }
+    if (!row || row.expiresAt <= new Date()) {
+      throw new Error('Server tool review token is invalid or expired')
+    }
 
-  let staged: { userId?: unknown; toolName?: unknown; result?: unknown }
-  try {
-    staged = JSON.parse(row.value) as { userId?: unknown; toolName?: unknown; result?: unknown }
-  } catch {
-    throw new Error('Server tool review token is invalid or expired')
-  }
-  if (!staged || staged.userId !== context.userId || staged.toolName !== toolName) {
-    throw new Error('Server tool review token does not match this request')
-  }
+    let staged: { userId?: unknown; toolName?: unknown; result?: unknown }
+    try {
+      staged = JSON.parse(row.value) as { userId?: unknown; toolName?: unknown; result?: unknown }
+    } catch {
+      throw new Error('Server tool review token is invalid or expired')
+    }
+    if (!staged || staged.userId !== context.userId || staged.toolName !== toolName) {
+      throw new Error('Server tool review token does not match this request')
+    }
 
-  return staged.result
+    const parsedResult = ToolResultSchemas[toolName].parse(staged.result)
+    const result = await applyServerManagedToolReview(toolName, parsedResult, context)
+    await tx.delete(verification).where(eq(verification.id, row.id))
+    return result
+  })
 }
 
-export async function acceptServerManagedToolReview(
+function applyServerManagedToolReview(
   toolName: ToolId,
-  reviewToken: string,
+  parsedResult: unknown,
   context?: ServerToolExecutionContext
 ) {
-  const reviewResult = await consumeServerManagedToolReview(toolName, reviewToken, context)
-  const parsedResult = ToolResultSchemas[toolName].parse(reviewResult)
   switch (toolName) {
     case 'edit_workflow':
     case 'edit_workflow_block':
