@@ -135,7 +135,7 @@ export async function authenticateApiKeyFromHeader(
 
     // Apply filters
     const conditions = []
-    const keyId = /^(?:sk-tradinggoose-|tradinggoose_)([^.]+)/.exec(apiKeyHeader)?.[1]
+    const keyId = /^(?:sk-tradinggoose-|tradinggoose_)([^.]+)\.[^.]+$/.exec(apiKeyHeader)?.[1]
     if (keyId) {
       conditions.push(eq(apiKeyTable.id, keyId))
     }
