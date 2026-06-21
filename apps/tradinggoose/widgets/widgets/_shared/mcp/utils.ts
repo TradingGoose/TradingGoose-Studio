@@ -1,6 +1,5 @@
 import type { McpTransport } from '@/lib/mcp/types'
 import { normalizeStringArray, sanitizeRecord } from '@/lib/utils'
-import type { McpServerWithStatus } from '@/stores/mcp-servers/types'
 import { readEntitySelectionState, resolveEntityId } from '@/widgets/utils/entity-selection'
 import { MCP_SERVER_DEFAULTS } from '@/widgets/utils/mcp-defaults'
 
@@ -26,28 +25,6 @@ export const createDefaultMcpServerFormData = (): McpServerFormData => ({
   headers: {},
   args: [],
   env: {},
-})
-
-export const createFormDataFromServer = (
-  server: Partial<McpServerWithStatus>
-): McpServerFormData => ({
-  name: server.name ?? MCP_SERVER_DEFAULTS.name,
-  description: server.description ?? MCP_SERVER_DEFAULTS.description,
-  transport: server.transport ?? 'streamable-http',
-  url: server.url ?? MCP_SERVER_DEFAULTS.url,
-  headers:
-    server.headers && typeof server.headers === 'object' && !Array.isArray(server.headers)
-      ? { ...server.headers }
-      : {},
-  command: server.command ?? MCP_SERVER_DEFAULTS.command,
-  args: Array.isArray(server.args) ? [...server.args] : [],
-  env:
-    server.env && typeof server.env === 'object' && !Array.isArray(server.env)
-      ? { ...server.env }
-      : {},
-  timeout: server.timeout ?? MCP_SERVER_DEFAULTS.timeout,
-  retries: server.retries ?? MCP_SERVER_DEFAULTS.retries,
-  enabled: server.enabled ?? MCP_SERVER_DEFAULTS.enabled,
 })
 
 export const createMcpSavePayload = (formData: McpServerFormData) => ({

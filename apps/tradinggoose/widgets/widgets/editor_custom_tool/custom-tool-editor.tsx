@@ -1,5 +1,6 @@
 import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, Code, FileJson } from 'lucide-react'
+import type * as Y from 'yjs'
 import {
   createMonacoFunctionBodyDiagnosticSourceBuilder,
   type MonacoEditorHandle,
@@ -12,9 +13,10 @@ import { exportCustomToolsAsJson } from '@/lib/custom-tools/import-export'
 import { CustomToolOpenAiSchema } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
+import { useYjsStringField } from '@/lib/yjs/use-entity-fields'
+import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import { useUpdateCustomTool } from '@/hooks/queries/custom-tools'
 import { useWand } from '@/hooks/workflow/use-wand'
-import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
 import { CodeEditor } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/code-editor/code-editor'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
@@ -23,17 +25,11 @@ const logger = createLogger('CustomToolEditor')
 
 export type CustomToolEditorSection = 'schema' | 'code'
 
-interface CustomToolInitialValues {
-  id: string
-  title: string
-  schema: any
-  code: string
-}
-
 interface CustomToolEditorProps {
   activeSection: CustomToolEditorSection
   blockId: string
-  initialValues: CustomToolInitialValues
+  toolId: string
+  doc: Y.Doc | null
   onSave: () => void
   onSectionChange: (section: CustomToolEditorSection) => void
   exportRef: MutableRefObject<() => void>
@@ -43,7 +39,8 @@ interface CustomToolEditorProps {
 export function CustomToolEditor({
   activeSection,
   blockId,
-  initialValues,
+  toolId,
+  doc,
   onSave,
   onSectionChange,
   exportRef,
@@ -51,8 +48,9 @@ export function CustomToolEditor({
 }: CustomToolEditorProps) {
   const copy = useWorkspaceWidgetsMessages().customToolEditor
   const workspaceId = useWorkspaceId()
-  const [jsonSchema, setJsonSchema] = useState('')
-  const [functionCode, setFunctionCode] = useState('')
+  const [toolTitle] = useYjsStringField(doc, 'title')
+  const [jsonSchema, setJsonSchema] = useYjsStringField(doc, 'schemaText')
+  const [functionCode, setFunctionCode] = useYjsStringField(doc, 'codeText')
   const [schemaError, setSchemaError] = useState<string | null>(null)
   const [codeError, setCodeError] = useState<string | null>(null)
   const codeEditorRef = useRef<HTMLDivElement>(null)
@@ -70,20 +68,9 @@ export function CustomToolEditor({
   const updateToolMutation = useUpdateCustomTool()
 
   useEffect(() => {
-    try {
-      setJsonSchema(
-        typeof initialValues.schema === 'string'
-          ? initialValues.schema
-          : JSON.stringify(initialValues.schema, null, 2)
-      )
-      setFunctionCode(initialValues.code || '')
-      setSchemaError(null)
-      setCodeError(null)
-    } catch (error) {
-      logger.error('Error initializing custom tool editor:', { error })
-      setSchemaError(copy.validation.failedToLoadToolData)
-    }
-  }, [initialValues.code, initialValues.id, initialValues.schema])
+    setSchemaError(null)
+    setCodeError(null)
+  }, [toolId])
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -230,7 +217,6 @@ IMPORTANT FORMATTING RULES:
     onStreamChunk: (chunk) => {
       setFunctionCode((prev) => {
         const nextCode = prev + chunk
-        handleFunctionCodeChange(nextCode)
         if (codeError) {
           setCodeError(null)
         }
@@ -346,6 +332,8 @@ IMPORTANT FORMATTING RULES:
   }, [jsonSchema, onSectionChange])
 
   const handleSave = useCallback(async () => {
+    if (!doc) return
+
     setCodeError(null)
 
     try {
@@ -354,11 +342,18 @@ IMPORTANT FORMATTING RULES:
         return
       }
 
+      const title = toolTitle.trim()
+      if (!title) {
+        setSchemaError(copy.validation.failedToSave)
+        onSectionChange('schema')
+        return
+      }
+
       await updateToolMutation.mutateAsync({
         workspaceId,
-        toolId: initialValues.id,
+        toolId,
         updates: {
-          title: initialValues.title,
+          title,
           schema,
           code: functionCode || '',
         },
@@ -372,11 +367,12 @@ IMPORTANT FORMATTING RULES:
     }
   }, [
     parseCurrentSchema,
+    doc,
     functionCode,
-    initialValues.id,
-    initialValues.title,
     onSave,
     onSectionChange,
+    toolTitle,
+    toolId,
     updateToolMutation,
     workspaceId,
   ])
@@ -387,7 +383,13 @@ IMPORTANT FORMATTING RULES:
       return
     }
 
-    const title = initialValues.title.trim()
+    const title = toolTitle.trim()
+    if (!title) {
+      setSchemaError(copy.validation.failedToSave)
+      onSectionChange('schema')
+      return
+    }
+
     const fileNameBase =
       title
         .trim()
@@ -413,7 +415,7 @@ IMPORTANT FORMATTING RULES:
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(blobUrl)
-  }, [functionCode, initialValues.title, parseCurrentSchema])
+  }, [copy.validation.failedToSave, functionCode, onSectionChange, parseCurrentSchema, toolTitle])
 
   useEffect(() => {
     saveRef.current = () => {

@@ -8,10 +8,81 @@
  * read/write through the collaborative Yjs document when available.
  */
 
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import * as Y from 'yjs'
 import { getFieldsMap, replaceEntityTextField, setEntityField } from '@/lib/yjs/entity-session'
+import type { SavedEntityKind } from '@/lib/yjs/entity-state'
+import { bootstrapYjsProvider, type YjsProviderBootstrapResult } from '@/lib/yjs/provider'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
+
+type SavedEntityYjsSessionState = {
+  key: string | null
+  result: YjsProviderBootstrapResult | null
+  error: string | null
+}
+
+export function useSavedEntityYjsSession(
+  entityKind: SavedEntityKind,
+  entityId: string | null | undefined,
+  workspaceId: string | null | undefined
+) {
+  const sessionKey = entityId && workspaceId ? `${entityKind}:${workspaceId}:${entityId}` : null
+  const [state, setState] = useState<SavedEntityYjsSessionState>({
+    key: null,
+    result: null,
+    error: null,
+  })
+
+  useEffect(() => {
+    setState({ key: sessionKey, result: null, error: null })
+    if (!entityId || !workspaceId || !sessionKey) return
+
+    let active = true
+    let current: YjsProviderBootstrapResult | null = null
+
+    bootstrapYjsProvider({
+      workspaceId,
+      entityKind,
+      entityId,
+      draftSessionId: null,
+      reviewSessionId: null,
+      yjsSessionId: entityId,
+    })
+      .then((next) => {
+        if (!active) {
+          next.provider.disconnect()
+          next.provider.destroy()
+          next.doc.destroy()
+          return
+        }
+        current = next
+        setState({ key: sessionKey, result: next, error: null })
+      })
+      .catch((nextError) => {
+        if (!active) return
+        setState({
+          key: sessionKey,
+          result: null,
+          error: nextError instanceof Error ? nextError.message : 'Failed to open entity session',
+        })
+      })
+
+    return () => {
+      active = false
+      current?.provider.disconnect()
+      current?.provider.destroy()
+      current?.doc.destroy()
+    }
+  }, [entityId, entityKind, sessionKey, workspaceId])
+
+  const activeState = state.key === sessionKey ? state : null
+
+  return {
+    doc: activeState?.result?.doc ?? null,
+    isLoading: Boolean(sessionKey && !activeState?.result && !activeState?.error),
+    error: activeState?.error ?? null,
+  }
+}
 
 /**
  * Subscribe to a single string field on the entity Yjs doc's `fields` Y.Map.
@@ -22,25 +93,21 @@ export function useYjsStringField(
   doc: Y.Doc | null | undefined,
   key: string,
   fallback: string = ''
-): [string, (v: string) => void] {
+): [string, (v: string | ((prev: string) => string)) => void] {
   const subscribe = useMemo(() => {
     if (!doc) return (cb: () => void) => () => {}
     const fields = getFieldsMap(doc)
     return (cb: () => void) => {
-      const handler = (event: Y.YMapEvent<any>) => {
-        if (!event.keysChanged.has(key)) return
-        cb()
-      }
-      fields.observe(handler)
-      return () => fields.unobserve(handler)
+      const handler = () => cb()
+      fields.observeDeep(handler)
+      return () => fields.unobserveDeep(handler)
     }
   }, [doc, key])
 
   const extract = useCallback(() => {
     if (!doc) return fallback
     const val = getFieldsMap(doc).get(key)
-    // Handle Y.Text instances (for Monaco-bound fields)
-    if (val && typeof val === 'object' && typeof val.toString === 'function' && val.constructor?.name === 'Text') {
+    if (val instanceof Y.Text) {
       return val.toString()
     }
     return typeof val === 'string' ? val : fallback
@@ -49,17 +116,25 @@ export function useYjsStringField(
   const value = useYjsSubscription(subscribe, extract, fallback)
 
   const setValue = useCallback(
-    (next: string) => {
+    (next: string | ((prev: string) => string)) => {
       if (!doc) return
       const currentValue = getFieldsMap(doc).get(key)
+      const current =
+        currentValue instanceof Y.Text
+          ? currentValue.toString()
+          : typeof currentValue === 'string'
+            ? currentValue
+            : fallback
+      const nextValue = typeof next === 'function' ? next(current) : next
+
       if (currentValue instanceof Y.Text) {
-        replaceEntityTextField(doc, key, next)
+        replaceEntityTextField(doc, key, nextValue)
         return
       }
 
-      setEntityField(doc, key, next)
+      setEntityField(doc, key, nextValue)
     },
-    [doc, key]
+    [doc, fallback, key]
   )
 
   return [value, setValue]

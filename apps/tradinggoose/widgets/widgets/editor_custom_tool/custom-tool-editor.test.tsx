@@ -6,6 +6,8 @@ import type { MutableRefObject, ReactNode, TextareaHTMLAttributes } from 'react'
 import { act, createRef } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as Y from 'yjs'
+import { replaceEntityTextField, seedEntitySession, setEntityField } from '@/lib/yjs/entity-session'
 import { CustomToolEditor } from '@/widgets/widgets/editor_custom_tool/custom-tool-editor'
 
 const mockUseUpdateCustomTool = vi.fn()
@@ -98,6 +100,26 @@ const readBlobText = async (blob: Blob) =>
     reader.readAsText(blob)
   })
 
+const createCustomToolDoc = (initialValues: {
+  title: string
+  schema: unknown
+  code: string
+}) => {
+  const doc = new Y.Doc()
+  seedEntitySession(doc, {
+    entityKind: 'custom_tool',
+    payload: {
+      title: initialValues.title,
+      schemaText:
+        typeof initialValues.schema === 'string'
+          ? initialValues.schema
+          : JSON.stringify(initialValues.schema, null, 2),
+      codeText: initialValues.code,
+    },
+  })
+  return doc
+}
+
 describe('CustomToolEditor export', () => {
   let container: HTMLDivElement
   let root: Root
@@ -166,33 +188,27 @@ describe('CustomToolEditor export', () => {
       },
       code: 'return { movers: [] }',
     }
+    const doc = createCustomToolDoc(initialValues)
 
     await act(async () => {
       root.render(
         <CustomToolEditor
           activeSection='schema'
           blockId='dashboard-custom-tool-editor'
-          initialValues={initialValues}
+          toolId='tool-1'
           onSave={vi.fn()}
           onSectionChange={onSectionChange}
           exportRef={exportRef as MutableRefObject<() => void>}
           saveRef={saveRef as MutableRefObject<() => void>}
+          doc={doc}
         />
       )
     })
 
-    const schemaEditor = container.querySelector(
-      '[data-testid="code-editor-json"]'
-    ) as HTMLTextAreaElement | null
-    expect(schemaEditor).toBeTruthy()
-
     await act(async () => {
-      const valueSetter = Object.getOwnPropertyDescriptor(
-        HTMLTextAreaElement.prototype,
-        'value'
-      )?.set
-      valueSetter?.call(
-        schemaEditor,
+      replaceEntityTextField(
+        doc,
+        'schemaText',
         JSON.stringify(
           {
             type: 'function',
@@ -213,8 +229,7 @@ describe('CustomToolEditor export', () => {
           2
         )
       )
-      schemaEditor!.dispatchEvent(new Event('input', { bubbles: true }))
-      schemaEditor!.dispatchEvent(new Event('change', { bubbles: true }))
+      setEntityField(doc, 'title', 'fetchTopMoversCurrent')
     })
 
     await act(async () => {
@@ -222,28 +237,18 @@ describe('CustomToolEditor export', () => {
         <CustomToolEditor
           activeSection='code'
           blockId='dashboard-custom-tool-editor'
-          initialValues={initialValues}
+          toolId='tool-1'
           onSave={vi.fn()}
           onSectionChange={onSectionChange}
           exportRef={exportRef as MutableRefObject<() => void>}
           saveRef={saveRef as MutableRefObject<() => void>}
+          doc={doc}
         />
       )
     })
 
-    const codeEditor = container.querySelector(
-      '[data-testid="code-editor-javascript"]'
-    ) as HTMLTextAreaElement | null
-    expect(codeEditor).toBeTruthy()
-
     await act(async () => {
-      const valueSetter = Object.getOwnPropertyDescriptor(
-        HTMLTextAreaElement.prototype,
-        'value'
-      )?.set
-      valueSetter?.call(codeEditor, 'return { exported: true }')
-      codeEditor!.dispatchEvent(new Event('input', { bubbles: true }))
-      codeEditor!.dispatchEvent(new Event('change', { bubbles: true }))
+      replaceEntityTextField(doc, 'codeText', 'return { exported: true }')
     })
 
     await act(async () => {
@@ -252,7 +257,7 @@ describe('CustomToolEditor export', () => {
 
     expect(createObjectUrlSpy).toHaveBeenCalledTimes(1)
     expect(revokeObjectUrlSpy).toHaveBeenCalledWith('blob:custom-tool-export')
-    expect(capturedDownloadName).toBe('Fetch-Top-Movers.json')
+    expect(capturedDownloadName).toBe('fetchTopMoversCurrent.json')
 
     const blob = createObjectUrlSpy.mock.calls[0]?.[0] as Blob
     const payload = JSON.parse(await readBlobText(blob))
@@ -267,7 +272,7 @@ describe('CustomToolEditor export', () => {
       workflows: [],
       customTools: [
         {
-          title: 'Fetch Top Movers',
+          title: 'fetchTopMoversCurrent',
           schema: {
             type: 'function',
             function: {
@@ -289,6 +294,7 @@ describe('CustomToolEditor export', () => {
       watchlists: [],
       indicators: [],
     })
+    doc.destroy()
   })
 
   it('blocks export when the current schema is invalid', async () => {
@@ -311,34 +317,25 @@ describe('CustomToolEditor export', () => {
       },
       code: 'return { movers: [] }',
     }
+    const doc = createCustomToolDoc(initialValues)
 
     await act(async () => {
       root.render(
         <CustomToolEditor
           activeSection='schema'
           blockId='dashboard-custom-tool-editor'
-          initialValues={initialValues}
+          toolId='tool-1'
           onSave={vi.fn()}
           onSectionChange={onSectionChange}
           exportRef={exportRef as MutableRefObject<() => void>}
           saveRef={saveRef as MutableRefObject<() => void>}
+          doc={doc}
         />
       )
     })
 
-    const schemaEditor = container.querySelector(
-      '[data-testid="code-editor-json"]'
-    ) as HTMLTextAreaElement | null
-    expect(schemaEditor).toBeTruthy()
-
     await act(async () => {
-      const valueSetter = Object.getOwnPropertyDescriptor(
-        HTMLTextAreaElement.prototype,
-        'value'
-      )?.set
-      valueSetter?.call(schemaEditor, '{')
-      schemaEditor!.dispatchEvent(new Event('input', { bubbles: true }))
-      schemaEditor!.dispatchEvent(new Event('change', { bubbles: true }))
+      replaceEntityTextField(doc, 'schemaText', '{')
     })
 
     await act(async () => {
@@ -347,5 +344,6 @@ describe('CustomToolEditor export', () => {
 
     expect(createObjectUrlSpy).not.toHaveBeenCalled()
     expect(onSectionChange).toHaveBeenCalledWith('schema')
+    doc.destroy()
   })
 })

@@ -1,14 +1,14 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { useLocale } from 'next-intl'
+import { useEffect, useRef } from 'react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useMessages } from 'next-intl'
 import { useSkills } from '@/hooks/queries/skills'
+import { useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
-import { emitSkillEditorState, useSkillEditorActions } from '@/widgets/utils/skill-editor-actions'
+import { useSkillEditorActions } from '@/widgets/utils/skill-editor-actions'
 import { useSkillSelectionPersistence } from '@/widgets/utils/skill-selection'
 import { getSkillIdFromParams } from '@/widgets/widgets/_shared/skill/utils'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
@@ -24,7 +24,6 @@ export function EditorSkillWidgetBody({
   widget,
   onWidgetParamsChange,
 }: EditorSkillWidgetBodyProps) {
-  const locale = useLocale()
   const copy = useMessages().workspace.widgets.skillEditor.body
   const workspaceId = context?.workspaceId ?? null
   const { data: skills = [], isLoading, error } = useSkills(workspaceId ?? '')
@@ -32,8 +31,8 @@ export function EditorSkillWidgetBody({
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
   const setPairContext = useSetPairColorContext()
+  const exportRef = useRef<() => void>(() => {})
   const saveRef = useRef<() => void>(() => {})
-  const [isDirty, setIsDirty] = useState(false)
 
   const paramsSkillId = getSkillIdFromParams(params)
   const requestedSkillId = isLinkedToColorPair ? (pairContext?.skillId ?? null) : paramsSkillId
@@ -45,6 +44,7 @@ export function EditorSkillWidgetBody({
     ? normalizedRequestedSkillId
     : (isLinkedToColorPair ? null : (skills[0]?.id ?? null))
   const skill = skillId ? (skills.find((candidate) => candidate.id === skillId) ?? null) : null
+  const skillSession = useSavedEntityYjsSession('skill', skillId, workspaceId)
 
   useEffect(() => {
     if (!skillId) {
@@ -94,30 +94,9 @@ export function EditorSkillWidgetBody({
   useSkillEditorActions({
     panelId,
     widget,
+    onExport: () => exportRef.current(),
     onSave: () => saveRef.current(),
   })
-
-  useEffect(() => {
-    emitSkillEditorState({
-      isDirty,
-      panelId,
-      widgetKey: widget?.key,
-    })
-
-    return () => {
-      emitSkillEditorState({
-        isDirty: false,
-        panelId,
-        widgetKey: widget?.key,
-      })
-    }
-  }, [isDirty, panelId, widget?.key])
-
-  useEffect(() => {
-    if (!skillId || !skill) {
-      setIsDirty(false)
-    }
-  }, [skill, skillId])
 
   if (!workspaceId) {
     return <WidgetStateMessage message={copy.selectWorkspace} />
@@ -157,18 +136,26 @@ export function EditorSkillWidgetBody({
     return <WidgetStateMessage message={copy.skillNotFound} />
   }
 
+  if (skillSession.error) {
+    return <WidgetStateMessage message={skillSession.error} />
+  }
+
+  if (skillSession.isLoading) {
+    return (
+      <div className='flex h-full w-full items-center justify-center'>
+        <LoadingAgent size='md' />
+      </div>
+    )
+  }
+
   return (
     <div className='flex h-full w-full flex-col overflow-hidden'>
       <SkillEditor
         workspaceId={workspaceId}
+        doc={skillSession.doc}
+        skillId={skillId}
+        exportRef={exportRef}
         saveRef={saveRef}
-        onDirtyChange={setIsDirty}
-        initialValues={{
-          id: skill.id,
-          name: skill.name,
-          description: skill.description,
-          content: skill.content,
-        }}
       />
     </div>
   )

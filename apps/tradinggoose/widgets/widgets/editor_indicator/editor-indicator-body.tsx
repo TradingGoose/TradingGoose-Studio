@@ -1,10 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
-import { useLocale } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useMessages } from 'next-intl'
 import { useIndicators } from '@/hooks/queries/indicators'
+import { useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
@@ -24,7 +24,6 @@ export function EditorIndicatorWidgetBody({
   widget,
   onWidgetParamsChange,
 }: EditorIndicatorWidgetBodyProps) {
-  const locale = useLocale()
   const copy = useMessages().workspace.widgets.indicatorEditor.body
   const workspaceId = context?.workspaceId ?? null
   const { data: indicators = [], isLoading, error } = useIndicators(workspaceId ?? '')
@@ -51,6 +50,7 @@ export function EditorIndicatorWidgetBody({
   const indicator = indicatorId
     ? (workspaceIndicators.find((candidate) => candidate.id === indicatorId) ?? null)
     : null
+  const indicatorSession = useSavedEntityYjsSession('indicator', indicatorId, workspaceId)
 
   useEffect(() => {
     if (!indicatorId) {
@@ -97,8 +97,13 @@ export function EditorIndicatorWidgetBody({
     },
   })
 
+  const codeExportRef = useRef<() => void>(() => {})
   const codeSaveRef = useRef<() => void>(() => {})
   const codeVerifyRef = useRef<() => void>(() => {})
+
+  const handleExport = useCallback(() => {
+    codeExportRef.current()
+  }, [])
 
   const handleSave = useCallback(() => {
     codeSaveRef.current()
@@ -111,6 +116,7 @@ export function EditorIndicatorWidgetBody({
   useIndicatorEditorActions({
     panelId,
     widget,
+    onExport: handleExport,
     onSave: handleSave,
     onVerify: handleVerify,
   })
@@ -153,16 +159,27 @@ export function EditorIndicatorWidgetBody({
     return <WidgetStateMessage message={copy.indicatorNotFound} />
   }
 
+  if (indicatorSession.error) {
+    return <WidgetStateMessage message={indicatorSession.error} />
+  }
+
+  if (indicatorSession.isLoading) {
+    return (
+      <div className='flex h-full w-full items-center justify-center'>
+        <LoadingAgent size='md' />
+      </div>
+    )
+  }
+
   return (
     <div className='flex h-full w-full flex-col overflow-hidden'>
       <IndicatorCodePanel
-        indicator={indicator}
         indicatorId={indicatorId}
         workspaceId={workspaceId}
+        doc={indicatorSession.doc}
+        exportRef={codeExportRef}
         saveRef={codeSaveRef}
         verifyRef={codeVerifyRef}
-        panelId={panelId}
-        widgetKey={widget?.key}
       />
     </div>
   )
