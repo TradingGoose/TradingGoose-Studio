@@ -121,14 +121,14 @@ export async function loadWorkflowStateFromYjs(
 }
 
 export type WorkflowStateWithSource = PersistedWorkflowState & {
-  source: 'yjs'
+  source: 'db'
 }
 
 export async function loadWorkflowState(
   workflowId: string
 ): Promise<WorkflowStateWithSource | null> {
-  const yjsState = await loadWorkflowStateFromYjs(workflowId)
-  return yjsState ? { ...yjsState, source: 'yjs' } : null
+  const savedState = await loadWorkflowStateFromSavedTables(workflowId)
+  return savedState ? { ...savedState, source: 'db' } : null
 }
 
 export async function loadWorkflowStateFromSavedTables(

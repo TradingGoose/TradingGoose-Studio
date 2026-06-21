@@ -140,7 +140,7 @@ describe('Workflow Duplicate API Route', () => {
     vi.clearAllMocks()
   })
 
-  it('prefers the live Yjs source graph and variables when duplicating a workflow', async () => {
+  it('uses the saved source graph and variables when duplicating a workflow', async () => {
     loadWorkflowStateMock.mockResolvedValue({
       blocks: {
         'live-block': {
@@ -166,7 +166,7 @@ describe('Workflow Duplicate API Route', () => {
         },
       },
       lastSaved: Date.now(),
-      source: 'yjs',
+      source: 'db',
     })
 
     const { POST } = await import('@/app/api/workflows/[id]/duplicate/route')
@@ -213,7 +213,7 @@ describe('Workflow Duplicate API Route', () => {
       parallels: {},
       variables: {},
       lastSaved: Date.now(),
-      source: 'yjs',
+      source: 'db',
     })
     applyWorkflowStateMock.mockRejectedValueOnce(new Error('socket bridge unavailable'))
 

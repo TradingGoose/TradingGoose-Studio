@@ -130,7 +130,7 @@ describe('Workflow YAML Export API Route', () => {
   })
 
   it(
-    'prefers the live Yjs workflow snapshot and includes variables in the export payload',
+    'uses the saved workflow state and includes variables in the export payload',
     { timeout: 10_000 },
     async () => {
     loadWorkflowStateMock.mockResolvedValue({
@@ -160,7 +160,7 @@ describe('Workflow YAML Export API Route', () => {
         },
       },
       lastSaved: Date.now(),
-      source: 'yjs',
+      source: 'db',
     })
 
     const { GET } = await import('@/app/api/workflows/yaml/export/route')
@@ -193,7 +193,7 @@ describe('Workflow YAML Export API Route', () => {
     }
   )
 
-  it('exports the canonical saved Yjs state when no live doc exists', async () => {
+  it('exports the saved workflow state', async () => {
     loadWorkflowStateMock.mockResolvedValue({
       blocks: {
         'db-block': {
@@ -221,7 +221,7 @@ describe('Workflow YAML Export API Route', () => {
         },
       },
       lastSaved: Date.now(),
-      source: 'yjs',
+      source: 'db',
     })
 
     const { GET } = await import('@/app/api/workflows/yaml/export/route')

@@ -141,7 +141,7 @@ describe('Workflow By ID API Route', () => {
         edges: [],
         loops: {},
         parallels: {},
-        source: 'yjs',
+        source: 'db',
       }
 
       vi.doMock('@/lib/auth', () => ({
@@ -194,7 +194,7 @@ describe('Workflow By ID API Route', () => {
         edges: [],
         loops: {},
         parallels: {},
-        source: 'yjs',
+        source: 'db',
       }
 
       vi.doMock('@/lib/auth', () => ({
@@ -268,7 +268,7 @@ describe('Workflow By ID API Route', () => {
       expect(data.error).toBe('Access denied')
     })
 
-    it('should return Yjs-backed workflow state when the authoritative loader has it', async () => {
+    it('should return saved workflow state when the authoritative loader has it', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',
@@ -281,7 +281,7 @@ describe('Workflow By ID API Route', () => {
         edges: [{ id: 'edge-1', source: 'block-1', target: 'block-2' }],
         loops: {},
         parallels: {},
-        source: 'yjs',
+        source: 'db',
       }
 
       vi.doMock('@/lib/auth', () => ({

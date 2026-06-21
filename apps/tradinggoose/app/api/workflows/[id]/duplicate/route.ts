@@ -33,7 +33,7 @@ const DuplicateRequestSchema = z.object({
 async function loadSourceWorkflowArtifacts(sourceWorkflowId: string): Promise<{
   workflowState: WorkflowState
   variables: Record<string, Variable>
-  source: 'yjs' | 'db'
+  source: 'db'
 }> {
   const stateWithSource = await loadWorkflowState(sourceWorkflowId)
   if (!stateWithSource) {

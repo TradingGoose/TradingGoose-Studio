@@ -67,6 +67,7 @@ vi.mock('@/lib/utils-server', () => ({
 vi.mock('@/lib/workflows/db-helpers', () => ({
   loadDeployedWorkflowState: vi.fn(),
   loadWorkflowState: vi.fn(),
+  loadWorkflowStateFromYjs: vi.fn(),
 }))
 
 vi.mock('@/lib/workflows/triggers', () => ({
@@ -403,17 +404,16 @@ describe('loadWorkflowExecutionBlueprint', () => {
   })
 
   it('loads Yjs workflow state for live execution when no snapshot is supplied', async () => {
-    const { loadDeployedWorkflowState, loadWorkflowState } = await import(
+    const { loadDeployedWorkflowState, loadWorkflowStateFromYjs } = await import(
       '@/lib/workflows/db-helpers'
     )
-    vi.mocked(loadWorkflowState).mockResolvedValueOnce({
+    vi.mocked(loadWorkflowStateFromYjs).mockResolvedValueOnce({
       blocks: { trigger: { subBlocks: {} } },
       edges: [{ source: 'trigger', target: 'worker' }],
       loops: {},
       parallels: {},
       variables: { risk: { value: 1 } },
       lastSaved: Date.now(),
-      source: 'yjs',
     })
 
     const result = await loadWorkflowExecutionBlueprint({
@@ -427,6 +427,7 @@ describe('loadWorkflowExecutionBlueprint', () => {
     expect(result.workflowData.blocks).toEqual({ trigger: { subBlocks: {} } })
     expect(result.workflowContext.variables).toEqual({ risk: { value: 1 } })
     expect(loadDeployedWorkflowState).not.toHaveBeenCalled()
+    expect(loadWorkflowStateFromYjs).toHaveBeenCalledWith('workflow-1')
     expect(mocks.dbSelect).not.toHaveBeenCalled()
   })
 

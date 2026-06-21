@@ -121,7 +121,7 @@ describe('Workflow Status API Route', () => {
           value: 'us-west-2',
         },
       },
-      source: 'yjs',
+      source: 'db',
     })
 
     mockLimit.mockResolvedValue([
@@ -177,7 +177,7 @@ describe('Workflow Status API Route', () => {
           value: 'us-west-2',
         },
       },
-      source: 'yjs',
+      source: 'db',
     })
 
     mockLimit.mockResolvedValue([

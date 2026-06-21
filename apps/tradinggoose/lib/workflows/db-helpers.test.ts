@@ -953,44 +953,42 @@ describe('Database Helpers', () => {
   })
 
   describe('deployWorkflow', () => {
-    it('should deploy the persisted Yjs workflow state when no live document is connected', async () => {
-      const doc = new Y.Doc()
-      const yjsState = {
-        blocks: {
-          'block-yjs': {
-            id: 'block-yjs',
-            type: 'api',
-            name: 'Persisted block',
-            position: { x: 10, y: 20 },
-            subBlocks: {},
-            outputs: {},
-            enabled: true,
-          },
-        },
-        edges: [],
-        loops: {},
-        parallels: {},
-        lastSaved: new Date().toISOString(),
-      }
-      const yjsVariables = {
-        'var-yjs': {
-          id: 'var-yjs',
+    it('should deploy the saved workflow state', async () => {
+      const savedVariables = {
+        'var-db': {
+          id: 'var-db',
           name: 'Persisted variable',
           type: 'plain',
           value: 'latest',
         },
       }
-
-      setWorkflowState(doc, yjsState, 'test')
-      setVariables(doc, yjsVariables, 'test')
-
-      mockReadBootstrappedReviewTargetSnapshot.mockResolvedValue(
-        buildWorkflowSnapshotResponse(Y.encodeStateAsUpdate(doc))
-      )
-
+      const updatedAt = new Date('2026-04-06T00:00:00.000Z')
+      let selectCallCount = 0
+      mockDb.select.mockImplementation(() => {
+        selectCallCount++
+        if (selectCallCount === 1) {
+          return {
+            from: vi.fn().mockReturnValue({
+              where: vi.fn().mockReturnValue({
+                limit: vi.fn().mockResolvedValue([{ variables: savedVariables, updatedAt }]),
+              }),
+            }),
+          }
+        }
+        const rows =
+          selectCallCount === 2
+            ? mockBlocksFromDb
+            : selectCallCount === 3
+              ? mockEdgesFromDb
+              : mockSubflowsFromDb
+        return {
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue(rows),
+          }),
+        }
+      })
       const updateCalls: Array<{ table: unknown; data: Record<string, unknown> }> = []
       const insertCalls: Array<{ table: unknown; data: Record<string, unknown> }> = []
-      const workflowLastSaved = new Date('2026-04-06T00:00:00.000Z')
       const tx = {
         select: vi.fn().mockReturnValue({
           from: vi.fn().mockReturnValue({
@@ -1021,41 +1019,38 @@ describe('Database Helpers', () => {
       })
 
       expect(result.success).toBe(true)
-      expect(mockReadBootstrappedReviewTargetSnapshot).toHaveBeenCalledWith(
-        expect.objectContaining({
-          entityKind: 'workflow',
-          entityId: mockWorkflowId,
-          yjsSessionId: mockWorkflowId,
-        })
-      )
-      expect(mockDb.select).not.toHaveBeenCalled()
+      expect(mockReadBootstrappedReviewTargetSnapshot).not.toHaveBeenCalled()
       expect(result.currentState).toMatchObject({
-        blocks: yjsState.blocks,
-        edges: yjsState.edges,
-        loops: yjsState.loops,
-        parallels: yjsState.parallels,
-        variables: yjsVariables,
+        blocks: expect.objectContaining({
+          'block-1': expect.objectContaining({ id: 'block-1' }),
+        }),
+        edges: expect.arrayContaining([expect.objectContaining({ id: 'edge-1' })]),
+        variables: savedVariables,
       })
 
       const deploymentInsert = insertCalls.find(
         (call) => call.table === mockWorkflowDeploymentVersion
       )
       expect(deploymentInsert?.data.state).toMatchObject({
-        blocks: yjsState.blocks,
-        variables: yjsVariables,
+        blocks: expect.objectContaining({
+          'block-1': expect.objectContaining({ id: 'block-1' }),
+        }),
+        variables: savedVariables,
       })
       expect(deploymentInsert?.data.state).not.toHaveProperty('source')
 
       const workflowUpdate = updateCalls.find((call) => call.table === mockWorkflowTable)
-      expect(workflowUpdate?.data.variables).toEqual(yjsVariables)
+      expect(workflowUpdate?.data.variables).toEqual(savedVariables)
 
       expect(mockReconcilePublishedChatsForDeploymentTx).toHaveBeenCalledWith(
         expect.objectContaining({
           workflowId: mockWorkflowId,
           workflowOwnerId: 'owner-1',
           state: expect.objectContaining({
-            blocks: yjsState.blocks,
-            variables: yjsVariables,
+            blocks: expect.objectContaining({
+              'block-1': expect.objectContaining({ id: 'block-1' }),
+            }),
+            variables: savedVariables,
           }),
         })
       )
@@ -1117,149 +1112,46 @@ describe('Database Helpers', () => {
   })
 
   describe('loadWorkflowState', () => {
-    it('returns the Yjs state without a workflow-row query', async () => {
-      const doc = new Y.Doc()
-      const yjsState = {
-        blocks: {
-          'block-yjs': {
-            id: 'block-yjs',
-            type: 'api',
-            name: 'Fresh Yjs block',
-            position: { x: 10, y: 20 },
-            subBlocks: {},
-            outputs: {},
-            enabled: true,
-          },
-        },
-        edges: [],
-        loops: {},
-        parallels: {},
-        lastSaved: '2026-04-06T00:05:00.000Z',
-      }
-      const yjsVariables = {
-        'var-yjs': {
-          id: 'var-yjs',
-          name: 'Live variable',
-          type: 'plain',
-          value: 'latest',
-        },
-      }
-
-      setWorkflowState(doc, yjsState, 'test')
-      setVariables(doc, yjsVariables, 'test')
-      mockReadBootstrappedReviewTargetSnapshot.mockResolvedValue(
-        buildWorkflowSnapshotResponse(Y.encodeStateAsUpdate(doc))
-      )
-
-      const result = await dbHelpers.loadWorkflowState(mockWorkflowId)
-
-      expect(result).toMatchObject({
-        blocks: yjsState.blocks,
-        edges: yjsState.edges,
-        loops: yjsState.loops,
-        parallels: yjsState.parallels,
-        variables: yjsVariables,
-        source: 'yjs',
+    it('loads the saved workflow state from normalized database tables', async () => {
+      const variables = { 'var-db': { id: 'var-db', name: 'risk', value: 'saved' } }
+      const updatedAt = new Date('2026-04-06T00:05:00.000Z')
+      let callCount = 0
+      mockDb.select.mockImplementation(() => {
+        callCount++
+        if (callCount === 1) {
+          return {
+            from: vi.fn().mockReturnValue({
+              where: vi.fn().mockReturnValue({
+                limit: vi.fn().mockResolvedValue([{ variables, updatedAt }]),
+              }),
+            }),
+          }
+        }
+        const rows =
+          callCount === 2
+            ? mockBlocksFromDb
+            : callCount === 3
+              ? mockEdgesFromDb
+              : mockSubflowsFromDb
+        return {
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue(rows),
+          }),
+        }
       })
-      expect(mockDb.select).not.toHaveBeenCalled()
-    })
-
-    it('does not compare Yjs snapshots against workflow row timestamps', async () => {
-      const doc = new Y.Doc()
-      const yjsState = {
-        blocks: {
-          'block-yjs': {
-            id: 'block-yjs',
-            type: 'api',
-            name: 'Fresh Yjs block',
-            position: { x: 10, y: 20 },
-            subBlocks: {},
-            outputs: {},
-            enabled: true,
-          },
-        },
-        edges: [],
-        loops: {},
-        parallels: {},
-        lastSaved: '2026-04-06T00:05:00.000Z',
-      }
-      const yjsVariables = {
-        'var-yjs': {
-          id: 'var-yjs',
-          name: 'Live variable',
-          type: 'plain',
-          value: 'latest',
-        },
-      }
-
-      setWorkflowState(doc, yjsState, 'test')
-      setVariables(doc, yjsVariables, 'test')
-      mockReadBootstrappedReviewTargetSnapshot.mockResolvedValue(
-        buildWorkflowSnapshotResponse(Y.encodeStateAsUpdate(doc))
-      )
-
-      const result = await dbHelpers.loadWorkflowState(mockWorkflowId)
-
-      expect(result).toMatchObject({
-        blocks: yjsState.blocks,
-        edges: yjsState.edges,
-        loops: yjsState.loops,
-        parallels: yjsState.parallels,
-        variables: yjsVariables,
-        source: 'yjs',
-      })
-      expect(mockDb.select).not.toHaveBeenCalled()
-    })
-
-    it('does not read workflow tables when the bootstrapped Yjs read fails', async () => {
-      const error = new Error('socket server unavailable')
-      mockReadBootstrappedReviewTargetSnapshot.mockRejectedValueOnce(error)
-
-      await expect(dbHelpers.loadWorkflowState(mockWorkflowId)).rejects.toThrow(
-        'socket server unavailable'
-      )
-      expect(mockDb.select).not.toHaveBeenCalled()
-    })
-
-    it('prefers the stored Yjs snapshot over the DB materialization', async () => {
-      const doc = new Y.Doc()
-      setWorkflowState(
-        doc,
-        {
-          blocks: {
-            'block-yjs': {
-              id: 'block-yjs',
-              type: 'api',
-              name: 'Stale Yjs block',
-              position: { x: 10, y: 20 },
-              subBlocks: {},
-              outputs: {},
-              enabled: true,
-            },
-          },
-          edges: [],
-          loops: {},
-          parallels: {},
-          lastSaved: '2026-04-06T00:00:00.000Z',
-        },
-        'test'
-      )
-      mockReadBootstrappedReviewTargetSnapshot.mockResolvedValue(
-        buildWorkflowSnapshotResponse(Y.encodeStateAsUpdate(doc))
-      )
 
       const result = await dbHelpers.loadWorkflowState(mockWorkflowId)
 
       expect(result).toMatchObject({
         blocks: expect.objectContaining({
-          'block-yjs': expect.objectContaining({
-            id: 'block-yjs',
-            type: 'api',
-          }),
+          'block-1': expect.objectContaining({ id: 'block-1' }),
         }),
-        source: 'yjs',
+        edges: expect.arrayContaining([expect.objectContaining({ id: 'edge-1' })]),
+        variables,
+        lastSaved: updatedAt.getTime(),
+        source: 'db',
       })
-      expect(mockDb.select).not.toHaveBeenCalled()
+      expect(mockReadBootstrappedReviewTargetSnapshot).not.toHaveBeenCalled()
     })
   })
 
