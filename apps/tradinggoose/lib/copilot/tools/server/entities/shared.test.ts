@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { SKILL_DOCUMENT_FORMAT } from '@/lib/copilot/entity-documents'
+import { MCP_SERVER_DOCUMENT_FORMAT, SKILL_DOCUMENT_FORMAT } from '@/lib/copilot/entity-documents'
 import {
+  buildReviewDocumentDiff,
   executeCreateEntityDocumentMutation,
   executeUpdateEntityDocumentMutation,
 } from './shared'
@@ -103,5 +104,54 @@ describe('entity document mutation helpers', () => {
     expect('preview' in result ? result.preview.documentDiff.after : undefined).toContain(
       'New Skill'
     )
+  })
+
+  it('redacts MCP server secret values in review documents', async () => {
+    const result = await executeCreateEntityDocumentMutation(
+      'mcp_server',
+      {
+        workspaceId: 'workspace-1',
+        documentFormat: MCP_SERVER_DOCUMENT_FORMAT,
+        entityDocument: JSON.stringify({
+          name: 'Private MCP',
+          description: 'Uses auth',
+          transport: 'http',
+          url: 'https://mcp.example.test',
+          headers: { Authorization: 'Bearer secret-token' },
+          command: '',
+          args: [],
+          env: { API_KEY: 'secret-env' },
+          timeout: 30000,
+          retries: 3,
+          enabled: true,
+        }),
+      },
+      { userId: 'user-1', accessLevel: 'limited' },
+      vi.fn()
+    )
+    const after = 'preview' in result ? result.preview.documentDiff.after : ''
+    const diff = buildReviewDocumentDiff(
+      'mcp_server',
+      {
+        name: 'Private MCP',
+        description: 'Uses old auth',
+        transport: 'http',
+        url: 'https://mcp.example.test',
+        headers: { Authorization: 'Bearer old-secret' },
+        command: '',
+        args: [],
+        env: { API_KEY: 'old-secret-env' },
+        timeout: 30000,
+        retries: 3,
+        enabled: true,
+      },
+      JSON.parse(after)
+    )
+
+    expect(after).toContain('[redacted]')
+    expect(after).not.toContain('secret-token')
+    expect(after).not.toContain('secret-env')
+    expect(diff.before).not.toContain('old-secret')
+    expect(diff.after).not.toContain('secret-token')
   })
 })

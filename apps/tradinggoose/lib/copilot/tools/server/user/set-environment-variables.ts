@@ -104,28 +104,6 @@ async function writeEncryptedEnvironmentVariables(
   })
 }
 
-export async function buildEnvironmentVariablesReviewPayload(
-  payload: unknown,
-  context?: ServerToolExecutionContext
-) {
-  const variables = parseEnvironmentVariablesPayload(payload)
-  return {
-    payload: { variables: Object.fromEntries(Object.keys(variables).map((key) => [key, ''])) },
-    encryptedVariables: await encryptEnvironmentVariables(variables, context),
-  }
-}
-
-export async function applyEncryptedEnvironmentVariablesForUser(
-  userId: string,
-  encryptedVariables: Record<string, string>,
-  context?: ServerToolExecutionContext
-) {
-  const variableNames = Object.keys(encryptedVariables)
-  const summary = await readEnvironmentVariableSummary(userId, variableNames)
-  await writeEncryptedEnvironmentVariables(userId, encryptedVariables, context)
-  return buildEnvironmentVariablesResult(variableNames, summary, 'Successfully processed')
-}
-
 export const setEnvironmentVariablesServerTool: BaseServerTool<SetEnvironmentVariablesParams, any> =
   {
     name: 'set_environment_variables',

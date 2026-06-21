@@ -82,6 +82,18 @@ export type EntityDocumentFields<K extends EntityDocumentKind> = z.infer<
   (typeof EntityDocumentSchemas)[K]
 >
 
+const REVIEW_SECRET_PLACEHOLDER = '[redacted]'
+
+function redactStringRecordValues(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {}
+  }
+
+  return Object.fromEntries(
+    Object.keys(value as Record<string, unknown>).map((key) => [key, REVIEW_SECRET_PLACEHOLDER])
+  )
+}
+
 function normalizeEntityFields(
   kind: EntityDocumentKind,
   fields: Record<string, unknown> | null | undefined
@@ -175,6 +187,23 @@ export function parseEntityDocument<K extends EntityDocumentKind>(
   return EntityDocumentSchemas[kind].parse(normalized) as EntityDocumentFields<K>
 }
 
+function redactEntityDocumentFieldsForReview<K extends EntityDocumentKind>(
+  kind: K,
+  fields: Record<string, unknown> | null | undefined
+): EntityDocumentFields<K> {
+  const normalized = normalizeEntityFields(kind, fields)
+  const redacted =
+    kind === 'mcp_server'
+      ? {
+          ...normalized,
+          headers: redactStringRecordValues(normalized.headers),
+          env: redactStringRecordValues(normalized.env),
+        }
+      : normalized
+
+  return EntityDocumentSchemas[kind].parse(redacted) as EntityDocumentFields<K>
+}
+
 export function serializeEntityDocument<K extends EntityDocumentKind>(
   kind: K,
   fields: Record<string, unknown> | null | undefined
@@ -182,6 +211,13 @@ export function serializeEntityDocument<K extends EntityDocumentKind>(
   const normalized = normalizeEntityFields(kind, fields)
   const parsed = EntityDocumentSchemas[kind].parse(normalized)
   return JSON.stringify(parsed, null, 2)
+}
+
+export function serializeEntityDocumentForReview<K extends EntityDocumentKind>(
+  kind: K,
+  fields: Record<string, unknown> | null | undefined
+): string {
+  return JSON.stringify(redactEntityDocumentFieldsForReview(kind, fields), null, 2)
 }
 
 export function getEntityDocumentName(

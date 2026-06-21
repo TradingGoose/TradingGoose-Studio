@@ -3,14 +3,16 @@ import { db } from '@tradinggoose/db'
 import { verification } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
+import {
+  MCP_SERVER_DOCUMENT_FORMAT,
+  parseEntityDocument,
+  serializeEntityDocumentForReview,
+} from '@/lib/copilot/entity-documents'
 import { type ToolId } from '@/lib/copilot/registry'
 import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
 import type { ServerToolExecutionContext } from '@/lib/copilot/tools/server/base-tool'
 import { routeExecution } from '@/lib/copilot/tools/server/router'
-import {
-  applyEncryptedEnvironmentVariablesForUser,
-  buildEnvironmentVariablesReviewPayload,
-} from '@/lib/copilot/tools/server/user/set-environment-variables'
+import { decryptSecret, encryptSecret } from '@/lib/utils-server'
 
 const REVIEW_TOKEN_PREFIX = 'copilot-tool-review:'
 const REVIEW_TOKEN_TTL_MS = 30 * 60 * 1000
@@ -39,53 +41,51 @@ function readBaseSignature(result: unknown): string {
   throw new Error('Server tool review result is missing base state')
 }
 
-function stripReviewMetadata(result: unknown) {
+function redactMcpServerReviewDocument(value: unknown): unknown {
+  if (typeof value !== 'string') {
+    return value
+  }
+
+  if (!value) {
+    return ''
+  }
+
+  return serializeEntityDocumentForReview('mcp_server', parseEntityDocument('mcp_server', value))
+}
+
+function redactReviewSecrets(result: unknown) {
   if (!result || typeof result !== 'object' || Array.isArray(result)) {
     return result
   }
 
-  const { reviewBaseStateHash: _reviewBaseStateHash, ...publicResult } = result as Record<
-    string,
-    unknown
-  >
-  return publicResult
-}
-
-async function buildStagedReviewValue(
-  toolName: ToolId,
-  payload: unknown,
-  result: unknown,
-  context: ServerToolExecutionContext & { userId: string }
-) {
-  const staged: Record<string, unknown> = {
-    userId: context.userId,
-    toolName,
-    payload,
-    baseSignature: readBaseSignature(result),
+  const record = result as Record<string, unknown>
+  if (
+    record.entityKind !== 'mcp_server' &&
+    record.documentFormat !== MCP_SERVER_DOCUMENT_FORMAT
+  ) {
+    return result
   }
 
-  if (toolName === 'set_environment_variables') {
-    const reviewPayload = await buildEnvironmentVariablesReviewPayload(payload, context)
-    staged.payload = reviewPayload.payload
-    staged.encryptedEnvironmentVariables = reviewPayload.encryptedVariables
-  }
-
-  return staged
-}
-
-function readEncryptedEnvironmentVariables(value: unknown): Record<string, string> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('Server tool review token is invalid or expired')
-  }
-
-  return Object.fromEntries(
-    Object.entries(value as Record<string, unknown>).map(([key, encrypted]) => {
-      if (typeof encrypted !== 'string') {
-        throw new Error('Server tool review token is invalid or expired')
+  const publicResult: Record<string, unknown> = { ...record }
+  publicResult.entityDocument = redactMcpServerReviewDocument(publicResult.entityDocument)
+  const preview = record.preview
+  if (preview && typeof preview === 'object' && !Array.isArray(preview)) {
+    const documentDiff = (preview as { documentDiff?: unknown }).documentDiff
+    if (documentDiff && typeof documentDiff === 'object' && !Array.isArray(documentDiff)) {
+      publicResult.preview = {
+        ...preview,
+        documentDiff: {
+          ...(documentDiff as Record<string, unknown>),
+          before: redactMcpServerReviewDocument(
+            (documentDiff as { before?: unknown }).before
+          ),
+          after: redactMcpServerReviewDocument((documentDiff as { after?: unknown }).after),
+        },
       }
-      return [key, encrypted]
-    })
-  )
+    }
+  }
+
+  return publicResult
 }
 
 export async function stageServerManagedToolReview(
@@ -107,22 +107,27 @@ export async function stageServerManagedToolReview(
 
   const reviewToken = nanoid()
   const now = new Date()
-  const publicResult = stripReviewMetadata(result)
-  const stagedValue = await buildStagedReviewValue(toolName, payload, result, {
-    ...context,
-    userId: context.userId,
-  })
+  const { reviewBaseStateHash: _reviewBaseStateHash, ...publicResult } = result as Record<
+    string,
+    unknown
+  >
+  const encryptedPayload = (await encryptSecret(JSON.stringify(payload ?? null))).encrypted
   await db.insert(verification).values({
     id: nanoid(),
     identifier: `${REVIEW_TOKEN_PREFIX}${reviewToken}`,
-    value: JSON.stringify(stagedValue),
+    value: JSON.stringify({
+      userId: context.userId,
+      toolName,
+      encryptedPayload,
+      baseSignature: readBaseSignature(result),
+    }),
     expiresAt: new Date(now.getTime() + REVIEW_TOKEN_TTL_MS),
     createdAt: now,
     updatedAt: now,
   })
 
   return {
-    ...(publicResult as Record<string, unknown>),
+    ...(redactReviewSecrets(publicResult) as Record<string, unknown>),
     reviewToken,
   }
 }
@@ -152,17 +157,15 @@ export async function acceptServerManagedToolReview(
   let staged: {
     userId?: unknown
     toolName?: unknown
-    payload?: unknown
+    encryptedPayload?: unknown
     baseSignature?: unknown
-    encryptedEnvironmentVariables?: unknown
   }
   try {
     staged = JSON.parse(row.value) as {
       userId?: unknown
       toolName?: unknown
-      payload?: unknown
+      encryptedPayload?: unknown
       baseSignature?: unknown
-      encryptedEnvironmentVariables?: unknown
     }
   } catch {
     throw new Error('Server tool review token is invalid or expired')
@@ -176,7 +179,13 @@ export async function acceptServerManagedToolReview(
     throw new Error('Server tool review token does not match this request')
   }
 
-  const currentReview = await routeExecution(toolName, staged.payload, {
+  if (typeof staged.encryptedPayload !== 'string' || !staged.encryptedPayload) {
+    throw new Error('Server tool review token is invalid or expired')
+  }
+
+  const { decrypted } = await decryptSecret(staged.encryptedPayload)
+  const payload = JSON.parse(decrypted)
+  const currentReview = await routeExecution(toolName, payload, {
     ...context,
     accessLevel: 'limited',
   })
@@ -200,16 +209,9 @@ export async function acceptServerManagedToolReview(
     throw new Error('Server tool review token is invalid or expired')
   }
 
-  if (toolName === 'set_environment_variables') {
-    return applyEncryptedEnvironmentVariablesForUser(
-      context.userId,
-      readEncryptedEnvironmentVariables(staged.encryptedEnvironmentVariables),
-      context
-    )
-  }
-
-  return routeExecution(toolName, staged.payload, {
+  const acceptedResult = await routeExecution(toolName, payload, {
     ...context,
     accessLevel: 'full',
   })
+  return redactReviewSecrets(acceptedResult)
 }

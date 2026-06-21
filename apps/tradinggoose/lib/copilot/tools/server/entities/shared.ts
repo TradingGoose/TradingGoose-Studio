@@ -4,6 +4,7 @@ import {
   getEntityDocumentName,
   parseEntityDocument,
   serializeEntityDocument,
+  serializeEntityDocumentForReview,
 } from '@/lib/copilot/entity-documents'
 import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
 import type {
@@ -182,14 +183,28 @@ export function buildDocumentEnvelope(
   }
 }
 
-export function buildDocumentDiff(
+export function buildReviewDocumentEnvelope(
+  kind: SavedEntityDocumentKind,
+  entityId: string | undefined,
+  fields: Record<string, unknown>
+) {
+  return {
+    entityKind: kind,
+    ...(entityId ? { entityId } : {}),
+    entityName: getEntityDocumentName(kind, fields),
+    documentFormat: getEntityDocumentFormat(kind),
+    entityDocument: serializeEntityDocumentForReview(kind, fields),
+  }
+}
+
+export function buildReviewDocumentDiff(
   kind: SavedEntityDocumentKind,
   before: Record<string, unknown>,
   after: Record<string, unknown>
 ) {
   return {
-    before: serializeEntityDocument(kind, before),
-    after: serializeEntityDocument(kind, after),
+    before: serializeEntityDocumentForReview(kind, before),
+    after: serializeEntityDocumentForReview(kind, after),
   }
 }
 
@@ -230,11 +245,11 @@ export async function executeCreateEntityDocumentMutation(
       requiresReview: true,
       success: true,
       workspaceId,
-      ...buildDocumentEnvelope(kind, undefined, fields),
+      ...buildReviewDocumentEnvelope(kind, undefined, fields),
       preview: {
         documentDiff: {
           before: '',
-          after: serializeEntityDocument(kind, fields),
+          after: serializeEntityDocumentForReview(kind, fields),
         },
       },
     }
@@ -266,9 +281,9 @@ export async function executeUpdateEntityDocumentMutation(
     return {
       requiresReview: true,
       success: true,
-      ...buildDocumentEnvelope(kind, entityId, fields),
+      ...buildReviewDocumentEnvelope(kind, entityId, fields),
       preview: {
-        documentDiff: buildDocumentDiff(kind, currentFields, fields),
+        documentDiff: buildReviewDocumentDiff(kind, currentFields, fields),
       },
     }
   }
