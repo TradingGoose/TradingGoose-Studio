@@ -229,6 +229,10 @@ export async function POST(request: NextRequest) {
   }
 
   if (Array.isArray(body)) {
+    if (body.length === 0) {
+      return mcpJsonResponse(jsonRpcError(null, -32600, 'Invalid JSON-RPC request'))
+    }
+
     const responses = (
       await Promise.all(body.map((entry) => handleJsonRpcRequest(entry, auth)))
     ).filter(Boolean)
