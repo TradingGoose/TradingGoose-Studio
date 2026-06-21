@@ -20,6 +20,15 @@ describe('Workflow By ID API Route', () => {
   const mockReadWorkflowAccessContext = vi.fn()
   const mockDeleteYjsSessionInSocketServer = vi.fn()
   const mockLoadWorkflowState = vi.fn()
+  const mockApplyWorkflowEntityName = vi.fn()
+  const mockWorkflowRenameState = {
+    blocks: {},
+    edges: [],
+    loops: {},
+    parallels: {},
+    variables: {},
+    lastSaved: Date.parse('2026-06-21T00:00:00.000Z'),
+  }
 
   beforeEach(() => {
     vi.resetModules()
@@ -67,8 +76,18 @@ describe('Workflow By ID API Route', () => {
     mockReadWorkflowAccessContext.mockReset()
     mockDeleteYjsSessionInSocketServer.mockReset()
     mockLoadWorkflowState.mockReset()
+    mockApplyWorkflowEntityName.mockReset()
     mockDeleteYjsSessionInSocketServer.mockResolvedValue(undefined)
     mockLoadWorkflowState.mockResolvedValue(null)
+    mockApplyWorkflowEntityName.mockResolvedValue({
+      id: 'workflow-123',
+      name: 'Updated Workflow',
+      workspaceId: null,
+    })
+
+    vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
+      applyWorkflowEntityName: mockApplyWorkflowEntityName,
+    }))
 
     vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
       deleteYjsSessionInSocketServer: mockDeleteYjsSessionInSocketServer,
@@ -613,6 +632,7 @@ describe('Workflow By ID API Route', () => {
         isOwner: true,
         isWorkspaceOwner: false,
       })
+      mockLoadWorkflowState.mockResolvedValueOnce(mockWorkflowRenameState)
 
       vi.doMock('@tradinggoose/db', () => ({
         db: {
@@ -666,6 +686,7 @@ describe('Workflow By ID API Route', () => {
         isOwner: false,
         isWorkspaceOwner: false,
       })
+      mockLoadWorkflowState.mockResolvedValueOnce(mockWorkflowRenameState)
 
       vi.doMock('@tradinggoose/db', () => ({
         db: {

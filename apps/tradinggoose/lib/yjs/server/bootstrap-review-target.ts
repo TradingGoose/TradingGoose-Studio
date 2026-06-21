@@ -125,11 +125,13 @@ async function bootstrapSavedEntityFromDb(
 
   const doc = new Y.Doc()
   try {
+    let workflowName: string | null | undefined
     if (descriptor.entityKind === 'workflow') {
       const workflowState = await loadWorkflowStateFromSavedTables(descriptor.entityId)
       if (!workflowState) {
         throw new ReviewTargetBootstrapError(404, 'Workflow not found')
       }
+      workflowName = workflowState.name
 
       setWorkflowState(
         doc,
@@ -160,7 +162,12 @@ async function bootstrapSavedEntityFromDb(
       })
     }
 
-    getMetadataMap(doc).set('bootstrap-touch', Date.now())
+    const metadata = getMetadataMap(doc)
+    metadata.set('bootstrap-touch', Date.now())
+    metadata.set('reseededFromCanonical', true)
+    if (workflowName) {
+      metadata.set('entityName', workflowName)
+    }
     const state = Y.encodeStateAsUpdate(doc)
     await storeCanonicalState(descriptor.yjsSessionId, state)
 

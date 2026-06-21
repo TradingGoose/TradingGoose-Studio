@@ -7,8 +7,15 @@ import {
   skill,
 } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
+import * as Y from 'yjs'
+import { getRedisStorageMode } from '@/lib/redis'
+import { seedEntitySession } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
-import { applyEntityStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import {
+  applyEntityStateInSocketServer,
+  SocketServerBridgeError,
+} from '@/lib/yjs/server/snapshot-bridge'
+import { storeCanonicalState } from '@/socket-server/yjs/persistence'
 
 function parseObjectJson(value: unknown, fieldName: string): Record<string, unknown> {
   const parsed = JSON.parse(String(value ?? ''))
@@ -114,6 +121,21 @@ export async function applySavedEntityState(
   entityId: string,
   fields: Record<string, unknown>
 ): Promise<void> {
-  await applyEntityStateInSocketServer(entityId, entityKind, fields)
+  try {
+    await applyEntityStateInSocketServer(entityId, entityKind, fields)
+  } catch (error) {
+    if (error instanceof SocketServerBridgeError || getRedisStorageMode() !== 'redis') {
+      throw error
+    }
+
+    const doc = new Y.Doc()
+    try {
+      seedEntitySession(doc, { entityKind, payload: fields })
+      await storeCanonicalState(entityId, Y.encodeStateAsUpdate(doc))
+    } finally {
+      doc.destroy()
+    }
+  }
+
   await persistSavedEntityState(entityKind, entityId, fields)
 }

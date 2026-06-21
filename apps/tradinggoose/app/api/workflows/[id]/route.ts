@@ -11,6 +11,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { loadWorkflowState } from '@/lib/workflows/db-helpers'
 import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/utils'
+import { applyWorkflowEntityName } from '@/lib/yjs/server/apply-workflow-state'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
@@ -367,22 +368,40 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    // Build update object
     const updateData: any = { updatedAt: new Date() }
-    if (updates.name !== undefined) updateData.name = updates.name
     if (updates.description !== undefined) updateData.description = updates.description
     if (updates.folderId !== undefined) updateData.folderId = updates.folderId
 
-    // Update the workflow
-    const [updatedWorkflow] = await db
-      .update(workflow)
-      .set(updateData)
-      .where(eq(workflow.id, workflowId))
-      .returning()
+    let updatedWorkflow = null
+    if (updates.name !== undefined) {
+      const workflowState = await loadWorkflowState(workflowId)
+      if (!workflowState) {
+        logger.warn(`[${requestId}] Workflow ${workflowId} is missing saved state for rename`)
+        return NextResponse.json({ error: 'Workflow state is missing' }, { status: 409 })
+      }
+
+      updatedWorkflow = await applyWorkflowEntityName(
+        workflowId,
+        createWorkflowSnapshot({
+          ...workflowState,
+          lastSaved: new Date(workflowState.lastSaved).toISOString(),
+        }),
+        workflowState.variables,
+        updates.name
+      )
+    }
+
+    if (!updatedWorkflow || updates.description !== undefined || updates.folderId !== undefined) {
+      ;[updatedWorkflow] = await db
+        .update(workflow)
+        .set(updateData)
+        .where(eq(workflow.id, workflowId))
+        .returning()
+    }
 
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully updated workflow ${workflowId} in ${elapsed}ms`, {
-      updates: updateData,
+      updates,
     })
 
     return NextResponse.json({ workflow: updatedWorkflow }, { status: 200 })
