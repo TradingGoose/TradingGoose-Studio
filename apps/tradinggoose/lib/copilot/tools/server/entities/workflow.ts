@@ -441,24 +441,24 @@ export const createWorkflowServerTool: BaseServerTool<
       },
       'write'
     )
-    const workflowId = crypto.randomUUID()
-    const now = new Date()
     const name = args.name?.trim() || 'New workflow'
-    const description = typeof args.description === 'string' ? args.description : 'New workflow'
-    const color = getStableVibrantColor(workflowId)
-    const workflowState = createWorkflowSnapshot()
 
     if (shouldStageServerToolMutationForReview(context)) {
       return {
         requiresReview: true,
         success: true,
         entityKind: ENTITY_KIND_WORKFLOW,
-        entityId: workflowId,
         entityName: name,
         workspaceId,
         reviewBaseStateHash: workspaceId,
       }
     }
+
+    const workflowId = crypto.randomUUID()
+    const now = new Date()
+    const description = typeof args.description === 'string' ? args.description : 'New workflow'
+    const color = getStableVibrantColor(workflowId)
+    const workflowState = createWorkflowSnapshot()
 
     await db.insert(workflow).values({
       id: workflowId,
