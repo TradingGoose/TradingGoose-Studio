@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import { WORKFLOW_VARIABLE_DOCUMENT_FORMAT } from '@/lib/copilot/entity-documents'
 import {
-  acceptWorkflowDocumentReview,
   editWorkflowVariableServerTool,
   readWorkflowServerTool,
 } from '@/lib/copilot/tools/server/entities/workflow'
@@ -175,30 +174,4 @@ describe('workflow variable server tools', () => {
     )
   })
 
-  it('applies accepted workflow variable reviews through workflow state persistence', async () => {
-    const result = await editWorkflowVariableServerTool.execute(
-      {
-        entityId: 'wf-1',
-        documentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
-        entityDocument: JSON.stringify({
-          variables: [{ variableId: 'var-1', name: 'riskLimit', type: 'number', value: 25 }],
-        }),
-      },
-      { userId: 'user-1', accessLevel: 'limited' }
-    )
-
-    await acceptWorkflowDocumentReview('edit_workflow_variable', result, {
-      userId: 'user-1',
-      accessLevel: 'limited',
-    })
-
-    expect(mockApplyWorkflowState).toHaveBeenCalledWith(
-      'wf-1',
-      expect.objectContaining({
-        blocks: {},
-        edges: [],
-      }),
-      result.variables
-    )
-  })
 })

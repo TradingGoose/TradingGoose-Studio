@@ -4,7 +4,6 @@ import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
 import { listSkills, upsertSkills } from '@/lib/skills/operations'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
-  acceptEntityDocumentReview,
   buildDocumentEnvelope,
   type EntityCreateResult,
   type EntityListEntry,
@@ -107,18 +106,4 @@ export const renameSkillServerTool: EntityServerTool = {
   execute(args, context) {
     return executeUpdateEntityDocumentMutation(ENTITY_KIND_SKILL, 'rename_skill', args, context)
   },
-}
-
-export function acceptSkillDocumentReview(
-  toolName: string,
-  result: unknown,
-  context: Parameters<typeof acceptEntityDocumentReview>[0]['context']
-) {
-  return acceptEntityDocumentReview({
-    kind: ENTITY_KIND_SKILL,
-    toolName,
-    result,
-    context,
-    create: createSkillEntity,
-  })
 }

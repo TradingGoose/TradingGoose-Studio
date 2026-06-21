@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
     const result = await (reviewAction === 'accept'
       ? acceptServerManagedToolReview(toolId, reviewToken!, executionContext)
       : routeExecution(toolId, payload, executionContext).then((toolResult) =>
-          stageServerManagedToolReview(toolId, toolResult, executionContext)
+          stageServerManagedToolReview(toolId, payload, toolResult, executionContext)
         ))
 
     try {

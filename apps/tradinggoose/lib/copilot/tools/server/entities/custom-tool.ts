@@ -5,7 +5,6 @@ import { listCustomTools, upsertCustomTools } from '@/lib/custom-tools/operation
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
-  acceptEntityDocumentReview,
   buildDocumentEnvelope,
   type EntityCreateResult,
   type EntityListEntry,
@@ -155,18 +154,4 @@ export const renameCustomToolServerTool: EntityServerTool = {
       context
     )
   },
-}
-
-export function acceptCustomToolDocumentReview(
-  toolName: string,
-  result: unknown,
-  context: Parameters<typeof acceptEntityDocumentReview>[0]['context']
-) {
-  return acceptEntityDocumentReview({
-    kind: ENTITY_KIND_CUSTOM_TOOL,
-    toolName,
-    result,
-    context,
-    create: createCustomToolEntity,
-  })
 }

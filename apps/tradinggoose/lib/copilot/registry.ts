@@ -886,6 +886,7 @@ const WorkflowPreviewEdge = z.object({
 const WorkflowMutationResultShape = {
   requiresReview: z.literal(true).optional(),
   workflowState: z.unknown().optional(),
+  reviewBaseStateHash: z.string().optional(),
   preview: z
     .object({
       blockDiff: z.object({

@@ -20,10 +20,7 @@ import { editWorkflowServerTool } from '@/lib/copilot/tools/server/workflow/edit
 import { editWorkflowBlockServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow-block'
 import { generateCreativeWorkflowName } from '@/lib/naming'
 import { VariableManager } from '@/lib/variables/variable-manager'
-import {
-  TG_MERMAID_DOCUMENT_FORMAT,
-  WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
-} from '@/lib/workflows/document-format'
+import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 import {
   readWorkflowContainerBoundaryEdgeViolation,
   readWorkflowEdgeScope,
@@ -516,69 +513,3 @@ export const renameWorkflowServerTool: BaseServerTool<{ entityId: string; name: 
 }
 
 export { editWorkflowServerTool, editWorkflowBlockServerTool }
-
-export async function acceptWorkflowDocumentReview(
-  toolName: string,
-  result: unknown,
-  context: ServerToolExecutionContext | undefined
-) {
-  if (
-    toolName !== 'edit_workflow' &&
-    toolName !== 'edit_workflow_block' &&
-    toolName !== 'edit_workflow_variable'
-  ) {
-    throw new Error(`Unsupported workflow review tool: ${toolName}`)
-  }
-  if (!result || typeof result !== 'object') {
-    throw new Error(`Missing review result for ${toolName}`)
-  }
-
-  const reviewResult = result as {
-    entityKind?: string
-    entityId?: string
-    workflowState?: unknown
-    variables?: unknown
-    entityDocument?: string
-    documentFormat?: string
-  }
-  if (reviewResult.entityKind !== ENTITY_KIND_WORKFLOW) {
-    throw new Error('Review result entityKind must be workflow')
-  }
-  const workflowId = reviewResult.entityId?.trim()
-  if (!workflowId) {
-    throw new Error(`entityId is required for ${toolName}`)
-  }
-  if (toolName === 'edit_workflow_variable') {
-    if (!reviewResult.variables || typeof reviewResult.variables !== 'object') {
-      throw new Error(`variables are required for ${toolName} review acceptance`)
-    }
-    const { workflowState } = await loadWorkflowSnapshotForCopilot(workflowId, context, 'write')
-    await applyWorkflowState(workflowId, workflowState, reviewResult.variables as Record<string, any>)
-
-    return {
-      ...reviewResult,
-      requiresReview: true,
-      success: true,
-    }
-  }
-  if (!reviewResult.workflowState || typeof reviewResult.workflowState !== 'object') {
-    throw new Error(`workflowState is required for ${toolName} review acceptance`)
-  }
-
-  await verifyWorkflowContext(workflowId, context, 'write')
-  await applyWorkflowState(
-    workflowId,
-    createWorkflowSnapshot(reviewResult.workflowState as Partial<WorkflowSnapshot>)
-  )
-
-  return {
-    ...reviewResult,
-    requiresReview: true,
-    success: true,
-    documentFormat:
-      reviewResult.documentFormat ??
-      (toolName === 'edit_workflow'
-        ? WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT
-        : TG_MERMAID_DOCUMENT_FORMAT),
-  }
-}

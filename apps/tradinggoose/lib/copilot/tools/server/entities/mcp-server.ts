@@ -8,7 +8,6 @@ import type { McpTransport } from '@/lib/mcp/types'
 import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
-  acceptEntityDocumentReview,
   applySavedEntityDocument,
   buildDocumentEnvelope,
   type EntityCreateResult,
@@ -219,19 +218,4 @@ export const renameMcpServerServerTool: EntityServerTool = {
       normalizeMcpServerFields
     )
   },
-}
-
-export function acceptMcpServerDocumentReview(
-  toolName: string,
-  result: unknown,
-  context: Parameters<typeof acceptEntityDocumentReview>[0]['context']
-) {
-  return acceptEntityDocumentReview({
-    kind: ENTITY_KIND_MCP_SERVER,
-    toolName,
-    result,
-    context,
-    create: createMcpServerEntity,
-    apply: applyMcpServerDocument,
-  })
 }

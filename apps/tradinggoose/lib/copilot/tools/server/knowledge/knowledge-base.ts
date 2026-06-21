@@ -15,7 +15,6 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import { getQueryStrategy, handleVectorOnlySearch } from '@/app/api/knowledge/search/utils'
 import {
-  acceptEntityDocumentReview,
   buildDocumentEnvelope,
   type EntityCreateResult,
   type EntityDocumentArgs,
@@ -213,18 +212,4 @@ export const queryKnowledgeBaseServerTool: BaseServerTool<{
       })),
     }
   },
-}
-
-export function acceptKnowledgeBaseDocumentReview(
-  toolName: string,
-  result: unknown,
-  context: Parameters<typeof acceptEntityDocumentReview>[0]['context']
-) {
-  return acceptEntityDocumentReview({
-    kind: ENTITY_KIND_KNOWLEDGE_BASE,
-    toolName,
-    result,
-    context,
-    create: createKnowledgeBaseEntity,
-  })
 }

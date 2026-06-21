@@ -1,23 +1,55 @@
+import { createHash } from 'crypto'
 import { db } from '@tradinggoose/db'
 import { verification } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
-import { type ToolId, ToolResultSchemas } from '@/lib/copilot/registry'
+import { type ToolId } from '@/lib/copilot/registry'
+import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
 import type { ServerToolExecutionContext } from '@/lib/copilot/tools/server/base-tool'
-import {
-  acceptCustomToolDocumentReview,
-  acceptIndicatorDocumentReview,
-  acceptMcpServerDocumentReview,
-  acceptSkillDocumentReview,
-  acceptWorkflowDocumentReview,
-} from '@/lib/copilot/tools/server/entities'
-import { acceptKnowledgeBaseDocumentReview } from '@/lib/copilot/tools/server/knowledge/knowledge-base'
+import { routeExecution } from '@/lib/copilot/tools/server/router'
 
 const REVIEW_TOKEN_PREFIX = 'copilot-tool-review:'
 const REVIEW_TOKEN_TTL_MS = 30 * 60 * 1000
 
+function hashValue(value: string) {
+  return createHash('sha256').update(value).digest('hex')
+}
+
+function readBaseSignature(result: unknown): string {
+  if (!result || typeof result !== 'object' || Array.isArray(result)) {
+    throw new Error('Server tool review result is missing base state')
+  }
+
+  const record = result as {
+    preview?: { documentDiff?: { before?: unknown } }
+    reviewBaseStateHash?: unknown
+  }
+  if (typeof record.reviewBaseStateHash === 'string' && record.reviewBaseStateHash) {
+    return `state:${record.reviewBaseStateHash}`
+  }
+  const before = record.preview?.documentDiff?.before
+  if (typeof before === 'string') {
+    return `document:${hashValue(before)}`
+  }
+
+  throw new Error('Server tool review result is missing base state')
+}
+
+function stripReviewMetadata(result: unknown) {
+  if (!result || typeof result !== 'object' || Array.isArray(result)) {
+    return result
+  }
+
+  const { reviewBaseStateHash: _reviewBaseStateHash, ...publicResult } = result as Record<
+    string,
+    unknown
+  >
+  return publicResult
+}
+
 export async function stageServerManagedToolReview(
   toolName: ToolId,
+  payload: unknown,
   result: unknown,
   context?: ServerToolExecutionContext
 ) {
@@ -34,13 +66,15 @@ export async function stageServerManagedToolReview(
 
   const reviewToken = nanoid()
   const now = new Date()
+  const publicResult = stripReviewMetadata(result)
   await db.insert(verification).values({
     id: nanoid(),
     identifier: `${REVIEW_TOKEN_PREFIX}${reviewToken}`,
     value: JSON.stringify({
       userId: context.userId,
       toolName,
-      result,
+      payload,
+      baseSignature: readBaseSignature(result),
     }),
     expiresAt: new Date(now.getTime() + REVIEW_TOKEN_TTL_MS),
     createdAt: now,
@@ -48,7 +82,7 @@ export async function stageServerManagedToolReview(
   })
 
   return {
-    ...result,
+    ...(publicResult as Record<string, unknown>),
     reviewToken,
   }
 }
@@ -62,70 +96,65 @@ export async function acceptServerManagedToolReview(
     throw new Error('Authenticated user is required to accept server tool review')
   }
 
-  return db.transaction(async (tx) => {
-    const [row] = await tx
-      .select({
-        id: verification.id,
-        value: verification.value,
-        expiresAt: verification.expiresAt,
-      })
-      .from(verification)
-      .where(eq(verification.identifier, `${REVIEW_TOKEN_PREFIX}${reviewToken}`))
-      .for('update')
-      .limit(1)
+  const [row] = await db
+    .select({
+      value: verification.value,
+      expiresAt: verification.expiresAt,
+    })
+    .from(verification)
+    .where(eq(verification.identifier, `${REVIEW_TOKEN_PREFIX}${reviewToken}`))
+    .limit(1)
 
-    if (!row || row.expiresAt <= new Date()) {
-      throw new Error('Server tool review token is invalid or expired')
-    }
-
-    let staged: { userId?: unknown; toolName?: unknown; result?: unknown }
-    try {
-      staged = JSON.parse(row.value) as { userId?: unknown; toolName?: unknown; result?: unknown }
-    } catch {
-      throw new Error('Server tool review token is invalid or expired')
-    }
-    if (!staged || staged.userId !== context.userId || staged.toolName !== toolName) {
-      throw new Error('Server tool review token does not match this request')
-    }
-
-    const parsedResult = ToolResultSchemas[toolName].parse(staged.result)
-    const result = await applyServerManagedToolReview(toolName, parsedResult, context)
-    await tx.delete(verification).where(eq(verification.id, row.id))
-    return result
-  })
-}
-
-function applyServerManagedToolReview(
-  toolName: ToolId,
-  parsedResult: unknown,
-  context?: ServerToolExecutionContext
-) {
-  switch (toolName) {
-    case 'edit_workflow':
-    case 'edit_workflow_block':
-    case 'edit_workflow_variable':
-      return acceptWorkflowDocumentReview(toolName, parsedResult, context)
-    case 'create_skill':
-    case 'edit_skill':
-    case 'rename_skill':
-      return acceptSkillDocumentReview(toolName, parsedResult, context)
-    case 'create_custom_tool':
-    case 'edit_custom_tool':
-    case 'rename_custom_tool':
-      return acceptCustomToolDocumentReview(toolName, parsedResult, context)
-    case 'create_indicator':
-    case 'edit_indicator':
-    case 'rename_indicator':
-      return acceptIndicatorDocumentReview(toolName, parsedResult, context)
-    case 'create_knowledge_base':
-    case 'edit_knowledge_base':
-    case 'rename_knowledge_base':
-      return acceptKnowledgeBaseDocumentReview(toolName, parsedResult, context)
-    case 'create_mcp_server':
-    case 'edit_mcp_server':
-    case 'rename_mcp_server':
-      return acceptMcpServerDocumentReview(toolName, parsedResult, context)
-    default:
-      throw new Error(`Server tool ${toolName} does not support review acceptance`)
+  if (!row || row.expiresAt <= new Date()) {
+    throw new Error('Server tool review token is invalid or expired')
   }
+
+  let staged: { userId?: unknown; toolName?: unknown; payload?: unknown; baseSignature?: unknown }
+  try {
+    staged = JSON.parse(row.value) as {
+      userId?: unknown
+      toolName?: unknown
+      payload?: unknown
+      baseSignature?: unknown
+    }
+  } catch {
+    throw new Error('Server tool review token is invalid or expired')
+  }
+  if (
+    !staged ||
+    staged.userId !== context.userId ||
+    staged.toolName !== toolName ||
+    typeof staged.baseSignature !== 'string'
+  ) {
+    throw new Error('Server tool review token does not match this request')
+  }
+
+  const currentReview = await routeExecution(toolName, staged.payload, {
+    ...context,
+    accessLevel: 'limited',
+  })
+  if (readBaseSignature(currentReview) !== staged.baseSignature) {
+    throw new StructuredServerToolError({
+      status: 409,
+      body: {
+        code: 'stale_server_tool_review',
+        error: 'This reviewed Copilot edit is stale because the target changed after review.',
+        hint: 'Ask Copilot to read the current target and prepare the edit again.',
+        retryable: true,
+      },
+    })
+  }
+
+  const [deleted] = await db
+    .delete(verification)
+    .where(eq(verification.identifier, `${REVIEW_TOKEN_PREFIX}${reviewToken}`))
+    .returning({ id: verification.id })
+  if (!deleted) {
+    throw new Error('Server tool review token is invalid or expired')
+  }
+
+  return routeExecution(toolName, staged.payload, {
+    ...context,
+    accessLevel: 'full',
+  })
 }

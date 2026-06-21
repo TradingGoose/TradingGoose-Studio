@@ -1,5 +1,4 @@
 export {
-  acceptCustomToolDocumentReview,
   createCustomToolServerTool,
   editCustomToolServerTool,
   listCustomToolsServerTool,
@@ -7,7 +6,6 @@ export {
   renameCustomToolServerTool,
 } from './custom-tool'
 export {
-  acceptIndicatorDocumentReview,
   createIndicatorServerTool,
   editIndicatorServerTool,
   listIndicatorsServerTool,
@@ -15,7 +13,6 @@ export {
   renameIndicatorServerTool,
 } from './indicator'
 export {
-  acceptMcpServerDocumentReview,
   createMcpServerServerTool,
   editMcpServerServerTool,
   listMcpServersServerTool,
@@ -23,7 +20,6 @@ export {
   renameMcpServerServerTool,
 } from './mcp-server'
 export {
-  acceptSkillDocumentReview,
   createSkillServerTool,
   editSkillServerTool,
   listSkillsServerTool,
@@ -31,7 +27,6 @@ export {
   renameSkillServerTool,
 } from './skill'
 export {
-  acceptWorkflowDocumentReview,
   createWorkflowServerTool,
   editWorkflowVariableServerTool,
   editWorkflowBlockServerTool,

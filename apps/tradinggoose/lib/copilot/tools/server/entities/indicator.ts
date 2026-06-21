@@ -11,7 +11,6 @@ import {
 import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
-  acceptEntityDocumentReview,
   buildDocumentEnvelope,
   type CopilotIndicatorListEntry,
   type EntityCreateResult,
@@ -181,18 +180,4 @@ export const renameIndicatorServerTool: EntityServerTool = {
       context
     )
   },
-}
-
-export function acceptIndicatorDocumentReview(
-  toolName: string,
-  result: unknown,
-  context: Parameters<typeof acceptEntityDocumentReview>[0]['context']
-) {
-  return acceptEntityDocumentReview({
-    kind: ENTITY_KIND_INDICATOR,
-    toolName,
-    result,
-    context,
-    create: createIndicatorEntity,
-  })
 }

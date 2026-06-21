@@ -1,3 +1,4 @@
+import { createHash } from 'crypto'
 import * as Y from 'yjs'
 import {
   type ServerToolExecutionContext,
@@ -96,6 +97,10 @@ function buildWorkflowDocumentPreviewDiff(
   }
 }
 
+function hashWorkflowState(workflowState: WorkflowSnapshot) {
+  return createHash('sha256').update(stableStringifyJsonValue(workflowState)).digest('hex')
+}
+
 export async function loadBaseWorkflowState(
   workflowId: string,
   context?: ServerToolExecutionContext
@@ -171,6 +176,7 @@ export function buildWorkflowMutationResult(params: {
     entityDocument,
     documentFormat: params.documentFormat,
     workflowState: finalWorkflowState,
+    reviewBaseStateHash: hashWorkflowState(baseWorkflowState),
     preview: {
       ...preview,
       warnings,
@@ -195,6 +201,11 @@ export async function resolveWorkflowMutationResultForExecution(
     createWorkflowSnapshot(result.workflowState as Partial<WorkflowSnapshot>)
   )
 
-  const { requiresReview: _requiresReview, preview: _preview, ...appliedResult } = result
+  const {
+    requiresReview: _requiresReview,
+    preview: _preview,
+    reviewBaseStateHash: _reviewBaseStateHash,
+    ...appliedResult
+  } = result
   return appliedResult
 }
