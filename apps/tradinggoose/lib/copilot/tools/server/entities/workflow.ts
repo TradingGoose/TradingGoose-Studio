@@ -18,7 +18,6 @@ import {
 } from '@/lib/copilot/tools/server/base-tool'
 import { editWorkflowServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow'
 import { editWorkflowBlockServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow-block'
-import { generateCreativeWorkflowName } from '@/lib/naming'
 import { VariableManager } from '@/lib/variables/variable-manager'
 import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 import {
@@ -444,10 +443,22 @@ export const createWorkflowServerTool: BaseServerTool<
     )
     const workflowId = crypto.randomUUID()
     const now = new Date()
-    const name = args.name?.trim() || generateCreativeWorkflowName()
+    const name = args.name?.trim() || 'New workflow'
     const description = typeof args.description === 'string' ? args.description : 'New workflow'
     const color = getStableVibrantColor(workflowId)
     const workflowState = createWorkflowSnapshot()
+
+    if (shouldStageServerToolMutationForReview(context)) {
+      return {
+        requiresReview: true,
+        success: true,
+        entityKind: ENTITY_KIND_WORKFLOW,
+        entityId: workflowId,
+        entityName: name,
+        workspaceId,
+        reviewBaseStateHash: workspaceId,
+      }
+    }
 
     await db.insert(workflow).values({
       id: workflowId,
@@ -495,6 +506,18 @@ export const renameWorkflowServerTool: BaseServerTool<{ entityId: string; name: 
     }
 
     const current = await loadWorkflowSnapshotForCopilot(workflowId, context, 'write')
+    if (shouldStageServerToolMutationForReview(context)) {
+      return {
+        requiresReview: true,
+        success: true,
+        entityKind: ENTITY_KIND_WORKFLOW,
+        entityId: workflowId,
+        entityName: nextName,
+        workspaceId: current.workspaceId ?? undefined,
+        reviewBaseStateHash: `${workflowId}:${current.entityName ?? ''}`,
+      }
+    }
+
     const updatedWorkflow = await applyWorkflowEntityName(
       workflowId,
       current.workflowState,

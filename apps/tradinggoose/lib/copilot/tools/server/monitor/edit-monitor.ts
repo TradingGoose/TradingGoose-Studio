@@ -1,15 +1,21 @@
-import { getMonitorRowById } from '@/app/api/monitors/shared'
+import { getMonitorRowById, toMonitorRecord } from '@/app/api/monitors/shared'
 import { updateMonitorForUser } from '@/app/api/monitors/update-service'
 import {
   MONITOR_DOCUMENT_FORMAT,
   parseMonitorDocument,
+  readMonitorDocumentName,
+  serializeMonitorDocument,
 } from '@/lib/copilot/monitor/monitor-documents'
 import {
   buildMonitorDocumentEnvelope,
   type MonitorRecord,
 } from '@/lib/copilot/tools/server/monitor/shared'
-import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
+import {
+  type BaseServerTool,
+  shouldStageServerToolMutationForReview,
+} from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 
 const logger = createLogger('EditMonitorServerTool')
 
@@ -41,6 +47,32 @@ export const editMonitorServerTool: BaseServerTool<EditMonitorArgs> = {
     }
 
     const nextFields = parseMonitorDocument(args.monitorDocument)
+    if (shouldStageServerToolMutationForReview(context)) {
+      const access = await checkWorkspaceAccess(row.workflow.workspaceId, userId)
+      if (!access.exists || !access.hasAccess || !access.canWrite) {
+        throw new Error('Access denied: You do not have permission to edit this monitor')
+      }
+
+      const currentMonitor = (await toMonitorRecord(row.webhook)) as MonitorRecord
+      const currentDocument = buildMonitorDocumentEnvelope(currentMonitor).monitorDocument
+      const nextDocument = serializeMonitorDocument(nextFields)
+      return {
+        requiresReview: true,
+        success: true,
+        surfaceKind: 'monitor' as const,
+        monitorId: args.monitorId,
+        monitorName: readMonitorDocumentName(nextFields),
+        documentFormat: MONITOR_DOCUMENT_FORMAT,
+        monitorDocument: nextDocument,
+        preview: {
+          documentDiff: {
+            before: currentDocument,
+            after: nextDocument,
+          },
+        },
+      }
+    }
+
     const updatedMonitor = (await updateMonitorForUser({
       monitorId: args.monitorId,
       userId,

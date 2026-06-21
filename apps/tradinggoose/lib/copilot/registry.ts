@@ -829,9 +829,9 @@ const McpServerDocumentEnvelope = EntityDocumentEnvelopeBase.extend({
   documentFormat: z.literal(MCP_SERVER_DOCUMENT_FORMAT),
 })
 
-const EditEntityDocumentResultBase = z.object({
+const DocumentDiffReviewMetadata = z.object({
   requiresReview: z.literal(true).optional(),
-  success: z.boolean(),
+  reviewBaseStateHash: z.string().optional(),
   preview: z
     .object({
       documentDiff: z.object({
@@ -842,7 +842,11 @@ const EditEntityDocumentResultBase = z.object({
     .optional(),
 })
 
-const WorkflowMutationResult = WorkflowTargetEnvelope.extend({
+const EditEntityDocumentResultBase = DocumentDiffReviewMetadata.extend({
+  success: z.boolean(),
+})
+
+const WorkflowMutationResult = WorkflowTargetEnvelope.merge(DocumentDiffReviewMetadata).extend({
   success: z.boolean(),
 })
 
@@ -924,6 +928,17 @@ const EditWorkflowVariableResult = WorkflowVariableDocumentEnvelope.extend({
     .optional(),
 })
 
+const EnvironmentVariablesMutationResult = DocumentDiffReviewMetadata.extend({
+  success: z.boolean().optional(),
+  message: z.any().optional(),
+  data: z.any().optional(),
+  variableCount: z.number().optional(),
+  variableNames: z.array(z.string()).optional(),
+  totalVariableCount: z.number().optional(),
+  addedVariables: z.array(z.string()).optional(),
+  updatedVariables: z.array(z.string()).optional(),
+})
+
 const ExecutionEntry = z.object({
   id: z.string(),
   executionId: z.string(),
@@ -1003,7 +1018,7 @@ export const ToolResultSchemas = {
   ]),
   set_environment_variables: z
     .object({ variables: z.record(z.string()) })
-    .or(z.object({ message: z.any().optional(), data: z.any().optional() })),
+    .or(EnvironmentVariablesMutationResult),
   [CopilotTool.read_oauth_credentials]: z.object({
     credentials: z.array(
       z.object({ id: z.string(), provider: z.string(), isDefault: z.boolean().optional() })
@@ -1117,6 +1132,7 @@ export const ToolResultSchemas = {
     .object({
       success: z.boolean(),
     })
+    .merge(DocumentDiffReviewMetadata)
     .merge(MonitorDocumentEnvelope),
   [CopilotTool.list_indicators]: IndicatorListResult,
   [CopilotTool.read_indicator]: IndicatorDocumentEnvelope.extend({
