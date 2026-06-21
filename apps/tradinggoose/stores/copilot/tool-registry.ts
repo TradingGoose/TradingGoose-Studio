@@ -17,8 +17,16 @@ import { SERVER_TOOL_METADATA } from '@/lib/copilot/tools/client/server-tool-met
 import { DeployWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/deploy-workflow'
 import { RunWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/run-workflow'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getQueryClient } from '@/app/query-provider'
+import { customToolsKeys } from '@/hooks/queries/custom-tools'
+import { indicatorKeys } from '@/hooks/queries/indicators'
+import { knowledgeKeys } from '@/hooks/queries/knowledge'
+import { skillsKeys } from '@/hooks/queries/skills'
+import { workflowKeys } from '@/hooks/queries/workflows'
 import type { CopilotToolExecutionProvenance } from '@/stores/copilot/types'
+import { useMcpServersStore } from '@/stores/mcp-servers/store'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
+import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 const logger = createLogger('CopilotToolRegistry')
 
@@ -272,15 +280,59 @@ export function prepareCopilotToolArgs(
   return ToolArgSchemas[toolName].parse(clonedArgs) as Record<string, any>
 }
 
-export async function handleCopilotServerToolSuccess(toolName: string | undefined): Promise<void> {
-  if (toolName !== CopilotTool.set_environment_variables) {
-    return
+type ServerToolSuccessContext = {
+  workspaceId?: string
+}
+
+function readResultWorkspaceId(result: unknown, context?: ServerToolSuccessContext) {
+  if (result && typeof result === 'object' && !Array.isArray(result)) {
+    const workspaceId = (result as { workspaceId?: unknown }).workspaceId
+    if (typeof workspaceId === 'string' && workspaceId.trim()) {
+      return workspaceId
+    }
   }
+  return context?.workspaceId
+}
+
+export async function handleCopilotServerToolSuccess(
+  toolName: string | undefined,
+  result?: unknown,
+  context?: ServerToolSuccessContext
+): Promise<void> {
+  const workspaceId = readResultWorkspaceId(result, context)
 
   try {
-    await useEnvironmentStore.getState().loadEnvironmentVariables()
+    if (toolName === CopilotTool.set_environment_variables) {
+      await useEnvironmentStore.getState().loadEnvironmentVariables()
+      return
+    }
+
+    if (!workspaceId || !toolName || !/^(create|edit|rename)_/.test(toolName)) {
+      return
+    }
+
+    const queryClient = getQueryClient()
+    if (toolName === CopilotTool.create_workflow || toolName === CopilotTool.rename_workflow) {
+      await Promise.all([
+        useWorkflowRegistry.getState().loadWorkflows({ workspaceId }),
+        queryClient.invalidateQueries({ queryKey: workflowKeys.list(workspaceId) }),
+      ])
+    } else if (toolName.endsWith('_skill')) {
+      await queryClient.invalidateQueries({ queryKey: skillsKeys.list(workspaceId) })
+    } else if (toolName.endsWith('_custom_tool')) {
+      await queryClient.invalidateQueries({ queryKey: customToolsKeys.list(workspaceId) })
+    } else if (toolName.endsWith('_indicator')) {
+      await queryClient.invalidateQueries({ queryKey: indicatorKeys.list(workspaceId) })
+    } else if (toolName.endsWith('_knowledge_base')) {
+      await queryClient.invalidateQueries({ queryKey: knowledgeKeys.list(workspaceId) })
+    } else if (toolName.endsWith('_mcp_server')) {
+      await useMcpServersStore.getState().fetchServers(workspaceId)
+    }
   } catch (error) {
-    logger.warn('Failed to refresh environment store after setting variables', { error })
+    logger.warn('Failed to refresh client state after server-managed tool success', {
+      toolName,
+      error,
+    })
   }
 }
 

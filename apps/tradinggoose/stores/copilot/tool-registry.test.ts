@@ -1,14 +1,23 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { getQueryClient } from '@/app/query-provider'
+import { skillsKeys } from '@/hooks/queries/skills'
+import { workflowKeys } from '@/hooks/queries/workflows'
 import {
   createExecutionContext,
   ensureClientToolInstance,
   getToolInterruptDisplays,
+  handleCopilotServerToolSuccess,
   isGatedTool,
   prepareCopilotToolArgs,
 } from '@/stores/copilot/tool-registry'
+import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 describe('tool-registry', () => {
   const toolCallId = 'tool-registry-edit-workflow'
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
 
   it('keeps workflow edit tools server-managed while exposing review interrupts from metadata', () => {
     expect(ensureClientToolInstance('edit_workflow', toolCallId)).toBeUndefined()
@@ -170,5 +179,33 @@ describe('tool-registry', () => {
         'read-block-upstream-references-tool'
       )
     ).toBeUndefined()
+  })
+
+  it('refreshes workflow registry and list query after server-managed workflow mutations', async () => {
+    const loadWorkflows = vi
+      .spyOn(useWorkflowRegistry.getState(), 'loadWorkflows')
+      .mockResolvedValue(undefined)
+    const invalidateQueries = vi
+      .spyOn(getQueryClient(), 'invalidateQueries')
+      .mockResolvedValue(undefined)
+
+    await handleCopilotServerToolSuccess('create_workflow', { workspaceId: 'workspace-1' })
+
+    expect(loadWorkflows).toHaveBeenCalledWith({ workspaceId: 'workspace-1' })
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: workflowKeys.list('workspace-1'),
+    })
+  })
+
+  it('invalidates saved-entity list queries after server-managed saved-entity mutations', async () => {
+    const invalidateQueries = vi
+      .spyOn(getQueryClient(), 'invalidateQueries')
+      .mockResolvedValue(undefined)
+
+    await handleCopilotServerToolSuccess('edit_skill', { workspaceId: 'workspace-1' })
+
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: skillsKeys.list('workspace-1'),
+    })
   })
 })

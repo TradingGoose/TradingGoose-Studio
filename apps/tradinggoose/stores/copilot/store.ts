@@ -1448,7 +1448,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             )
 
             if (logicalSuccess) {
-              await handleCopilotServerToolSuccess(name)
+              await handleCopilotServerToolSuccess(name, result, serverContext)
             }
 
             const completionMessage =
