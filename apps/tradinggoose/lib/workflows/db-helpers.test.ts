@@ -1139,6 +1139,13 @@ describe('Database Helpers', () => {
       mockReadBootstrappedReviewTargetSnapshot.mockResolvedValue(
         buildWorkflowSnapshotResponseFromState(yjsState, yjsVariables)
       )
+      mockDb.select.mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue([{ isDeployed: false, deployedAt: null }]),
+          }),
+        }),
+      })
 
       const result = await dbHelpers.loadWorkflowState(mockWorkflowId)
 
@@ -1147,7 +1154,6 @@ describe('Database Helpers', () => {
         variables: yjsVariables,
         source: 'yjs',
       })
-      expect(mockDb.select).not.toHaveBeenCalled()
     })
 
     it('loads materialized workflow state when no Yjs state exists', async () => {

@@ -134,7 +134,20 @@ export async function loadWorkflowState(
   try {
     const liveState = await loadWorkflowStateFromYjs(workflowId)
     if (liveState) {
-      return { ...liveState, source: 'yjs' }
+      const [workflowDeploymentState] = await db
+        .select({ isDeployed: workflow.isDeployed, deployedAt: workflow.deployedAt })
+        .from(workflow)
+        .where(eq(workflow.id, workflowId))
+        .limit(1)
+      if (!workflowDeploymentState) {
+        return null
+      }
+      return {
+        ...liveState,
+        isDeployed: workflowDeploymentState.isDeployed ?? false,
+        deployedAt: toISOStringOrUndefined(workflowDeploymentState.deployedAt),
+        source: 'yjs',
+      }
     }
   } catch (error) {
     logger.warn(

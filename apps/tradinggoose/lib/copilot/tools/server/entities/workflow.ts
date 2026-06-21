@@ -197,6 +197,8 @@ export async function loadWorkflowSnapshotForCopilot(
       id: workflow.id,
       name: workflow.name,
       workspaceId: workflow.workspaceId,
+      isDeployed: workflow.isDeployed,
+      deployedAt: workflow.deployedAt,
     })
     .from(workflow)
     .where(eq(workflow.id, workflowId))
@@ -226,7 +228,11 @@ export async function loadWorkflowSnapshotForCopilot(
       workflowId,
       entityName: workflowRow.name ?? undefined,
       workspaceId: workflowRow.workspaceId ?? null,
-      workflowState: readWorkflowSnapshot(doc),
+      workflowState: {
+        ...readWorkflowSnapshot(doc),
+        isDeployed: workflowRow.isDeployed ?? false,
+        deployedAt: workflowRow.deployedAt?.toISOString(),
+      },
       variables: getVariablesSnapshot(doc),
     }
   } finally {
