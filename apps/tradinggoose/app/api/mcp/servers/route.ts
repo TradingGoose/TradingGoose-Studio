@@ -9,7 +9,7 @@ import type { McpTransport } from '@/lib/mcp/types'
 import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
-import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
+import { applySavedEntityPersistedState } from '@/lib/yjs/server/apply-entity-state'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { CreateMcpServerSchema } from './schema'
 
@@ -114,7 +114,7 @@ export const POST = withMcpAuth('write')(
         .returning()
 
       try {
-        await applySavedEntityState(
+        await applySavedEntityPersistedState(
           'mcp_server',
           server.id,
           savedEntityRowToFields('mcp_server', server)

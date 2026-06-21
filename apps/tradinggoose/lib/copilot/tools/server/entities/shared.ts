@@ -20,8 +20,8 @@ import {
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import {
-  applySavedEntityState,
-  applySavedEntityStateToYjs,
+  applySavedEntityDraftState,
+  applySavedEntityPersistedState,
 } from '@/lib/yjs/server/apply-entity-state'
 import { readBootstrappedSavedEntityFields } from '@/lib/yjs/server/bootstrap-review-target'
 
@@ -226,7 +226,7 @@ export async function applySavedEntityDocument(
   entityId: string,
   fields: Record<string, unknown>
 ): Promise<void> {
-  await applySavedEntityState(kind as SavedEntityKind, entityId, fields)
+  await applySavedEntityPersistedState(kind as SavedEntityKind, entityId, fields)
 }
 
 export async function executeCreateEntityDocumentMutation(
@@ -303,7 +303,7 @@ export async function executeUpdateEntityDocumentMutation(
   }
 
   if (context?.acceptedReviewBaseStateHash) {
-    await applySavedEntityStateToYjs(kind as SavedEntityKind, entityId, fields)
+    await applySavedEntityDraftState(kind as SavedEntityKind, entityId, fields)
   } else if (apply) {
     await apply({ entityId, fields, workspaceId })
   } else {

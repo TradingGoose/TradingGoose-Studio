@@ -112,7 +112,7 @@ async function persistSavedEntityState(
   }
 }
 
-export async function applySavedEntityStateToYjs(
+export async function applySavedEntityDraftState(
   entityKind: SavedEntityKind,
   entityId: string,
   fields: Record<string, unknown>
@@ -130,11 +130,11 @@ export async function applySavedEntityStateToYjs(
   }
 }
 
-export async function applySavedEntityState(
+export async function applySavedEntityPersistedState(
   entityKind: SavedEntityKind,
   entityId: string,
   fields: Record<string, unknown>
 ): Promise<void> {
-  await applySavedEntityStateToYjs(entityKind, entityId, fields)
+  await applySavedEntityDraftState(entityKind, entityId, fields)
   await persistSavedEntityState(entityKind, entityId, fields)
 }

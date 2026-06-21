@@ -1,5 +1,5 @@
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
-import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
+import { applySavedEntityPersistedState } from '@/lib/yjs/server/apply-entity-state'
 
 export type SavedEntityKind = Exclude<ReviewEntityKind, 'workflow'>
 
@@ -71,7 +71,7 @@ export async function applySavedEntityRows<T extends SavedEntityRow>(
   try {
     await Promise.all(
       rows.map((row) =>
-        applySavedEntityState(entityKind, row.id, savedEntityRowToFields(entityKind, row))
+        applySavedEntityPersistedState(entityKind, row.id, savedEntityRowToFields(entityKind, row))
       )
     )
   } catch (error) {
