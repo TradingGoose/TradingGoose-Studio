@@ -60,7 +60,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         edges: layoutOptions.edges,
       }
     } else {
-      logger.info(`[${requestId}] Loading blocks from saved workflow state`)
+      logger.info(`[${requestId}] Loading blocks from current workflow state`)
       currentWorkflowData = await loadWorkflowState(workflowId)
     }
 

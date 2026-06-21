@@ -33,7 +33,7 @@ const DuplicateRequestSchema = z.object({
 async function loadSourceWorkflowArtifacts(sourceWorkflowId: string): Promise<{
   workflowState: WorkflowState
   variables: Record<string, Variable>
-  source: 'db'
+  source: 'yjs' | 'db'
 }> {
   const stateWithSource = await loadWorkflowState(sourceWorkflowId)
   if (!stateWithSource) {
@@ -42,6 +42,7 @@ async function loadSourceWorkflowArtifacts(sourceWorkflowId: string): Promise<{
 
   return {
     workflowState: {
+      ...(stateWithSource.direction !== undefined ? { direction: stateWithSource.direction } : {}),
       blocks: stateWithSource.blocks,
       edges: stateWithSource.edges,
       loops: stateWithSource.loops,
@@ -147,6 +148,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       )
 
       const duplicatedSnapshot = createWorkflowSnapshot({
+        ...(persistedDuplicatedState.direction !== undefined
+          ? { direction: persistedDuplicatedState.direction }
+          : {}),
         blocks: persistedDuplicatedState.blocks,
         edges: persistedDuplicatedState.edges,
         loops: persistedDuplicatedState.loops,

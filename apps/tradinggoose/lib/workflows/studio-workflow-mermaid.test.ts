@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { applyAutoLayout } from '@/lib/workflows/autolayout'
 import {
-  buildWorkflowDocumentPreviewDiff,
   parseGraphOnlyWorkflowMermaid,
   parseTgMermaidToWorkflow,
   serializeWorkflowToGraphMermaid,
@@ -645,55 +644,5 @@ agentBlock(["Agent"])
     expect(() => parseTgMermaidToWorkflow(invalidDocument)).toThrow(
       'Workflow document edge metadata is inconsistent. Visible Mermaid connections and TG_EDGE payloads must resolve to the same logical workflow edges. missing visible connection lines for inputTrigger:source->agentBlock:target; expected visible lines like `inputTrigger --> agentBlock`.'
     )
-  })
-
-  it('computes block and edge preview diffs from canonical workflow states', () => {
-    const nextState: WorkflowSnapshot = {
-      ...workflowState,
-      blocks: {
-        ...workflowState.blocks,
-        sink: {
-          ...workflowState.blocks.sink,
-          name: 'Send Alert v2',
-        },
-        sink_archive: {
-          id: 'sink_archive',
-          type: 'notion',
-          name: 'Archive Alert',
-          position: { x: 760, y: 24 },
-          enabled: true,
-          subBlocks: {},
-          outputs: {},
-        },
-      },
-      edges: [
-        ...workflowState.edges,
-        {
-          id: 'e-sink-archive',
-          source: 'sink',
-          target: 'sink_archive',
-        },
-      ],
-    }
-
-    expect(buildWorkflowDocumentPreviewDiff(workflowState, nextState)).toEqual({
-      blockDiff: {
-        added: ['sink_archive'],
-        removed: [],
-        updated: ['sink'],
-      },
-      edgeDiff: {
-        added: [
-          {
-            source: 'sink',
-            target: 'sink_archive',
-            sourceHandle: 'source',
-            targetHandle: 'target',
-          },
-        ],
-        removed: [],
-      },
-      warnings: [],
-    })
   })
 })

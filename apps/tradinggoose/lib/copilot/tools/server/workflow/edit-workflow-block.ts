@@ -6,6 +6,10 @@ import type {
 } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getAllowedSubBlockIds } from '@/lib/workflows/block-config-canonicalization'
+import {
+  serializeWorkflowToTgMermaid,
+  TG_MERMAID_DOCUMENT_FORMAT,
+} from '@/lib/workflows/studio-workflow-mermaid'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { getBlock } from '@/blocks'
 import {
@@ -184,7 +188,8 @@ export const editWorkflowBlockServerTool: BaseServerTool<EditWorkflowBlockParams
         workflowId,
         baseWorkflowState,
         nextWorkflowState,
-        requestedDirection: baseWorkflowState.direction,
+        renderEntityDocument: serializeWorkflowToTgMermaid,
+        documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
       })
       return resolveWorkflowMutationResultForExecution(result, context)
     } catch (error) {

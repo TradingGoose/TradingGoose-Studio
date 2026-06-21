@@ -1,7 +1,7 @@
 import type { Edge } from '@xyflow/react'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
-import { inferMermaidDirectionFromWorkflowState } from '@/lib/workflows/workflow-direction'
+import { inferWorkflowDirectionFromState } from '@/lib/workflows/workflow-direction'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import type {
   BlockState,
@@ -1910,7 +1910,7 @@ export function serializeWorkflowToTgMermaid(
   const direction =
     options.direction ??
     workflowState.direction ??
-    inferMermaidDirectionFromWorkflowState(workflowState)
+    inferWorkflowDirectionFromState(workflowState)
   const blocks = workflowState.blocks ?? {}
   const blockIds = Object.keys(blocks).sort((left, right) => left.localeCompare(right))
   const aliases = buildAliasMap(blockIds)
@@ -1974,7 +1974,7 @@ export function serializeWorkflowToGraphMermaid(
   const direction =
     options.direction ??
     workflowState.direction ??
-    inferMermaidDirectionFromWorkflowState(workflowState)
+    inferWorkflowDirectionFromState(workflowState)
   const blocks = workflowState.blocks ?? {}
   const blockIds = Object.keys(blocks).sort((left, right) => left.localeCompare(right))
   const aliases = buildAliasMap(blockIds)
@@ -2111,81 +2111,5 @@ export function parseTgMermaidToWorkflow(
     ...(normalizeMetadataValue(metadata.lastSaved) ? { lastSaved: metadata.lastSaved } : {}),
     ...(metadata.isDeployed !== undefined ? { isDeployed: metadata.isDeployed } : {}),
     ...(normalizeMetadataValue(metadata.deployedAt) ? { deployedAt: metadata.deployedAt } : {}),
-  }
-}
-
-export function buildWorkflowDocumentPreviewDiff(
-  currentWorkflowState: WorkflowSnapshot | undefined,
-  nextWorkflowState: WorkflowSnapshot
-): {
-  blockDiff: { added: string[]; removed: string[]; updated: string[] }
-  edgeDiff: {
-    added: Array<Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>>
-    removed: Array<Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>>
-  }
-  warnings: string[]
-} {
-  const currentBlocks = currentWorkflowState?.blocks ?? {}
-  const nextBlocks = nextWorkflowState.blocks ?? {}
-
-  const currentBlockIds = new Set(Object.keys(currentBlocks))
-  const nextBlockIds = new Set(Object.keys(nextBlocks))
-
-  const added = [...nextBlockIds].filter((blockId) => !currentBlockIds.has(blockId)).sort()
-  const removed = [...currentBlockIds].filter((blockId) => !nextBlockIds.has(blockId)).sort()
-  const updated = [...nextBlockIds]
-    .filter((blockId) => currentBlockIds.has(blockId))
-    .filter(
-      (blockId) => toDocumentJson(currentBlocks[blockId]) !== toDocumentJson(nextBlocks[blockId])
-    )
-    .sort()
-
-  const toComparableEdge = (edge: Edge) => ({
-    source: edge.source,
-    target: edge.target,
-    sourceHandle: edge.sourceHandle || 'source',
-    targetHandle: edge.targetHandle || 'target',
-  })
-
-  const currentEdges = (currentWorkflowState?.edges ?? []).map(toComparableEdge)
-  const nextEdges = (nextWorkflowState.edges ?? []).map(toComparableEdge)
-  const currentEdgeKeys = new Set(
-    currentEdges.map(
-      (edge) => `${edge.source}:${edge.sourceHandle}->${edge.target}:${edge.targetHandle}`
-    )
-  )
-  const nextEdgeKeys = new Set(
-    nextEdges.map(
-      (edge) => `${edge.source}:${edge.sourceHandle}->${edge.target}:${edge.targetHandle}`
-    )
-  )
-
-  const edgeDiff = {
-    added: nextEdges.filter(
-      (edge) =>
-        !currentEdgeKeys.has(
-          `${edge.source}:${edge.sourceHandle}->${edge.target}:${edge.targetHandle}`
-        )
-    ),
-    removed: currentEdges.filter(
-      (edge) =>
-        !nextEdgeKeys.has(
-          `${edge.source}:${edge.sourceHandle}->${edge.target}:${edge.targetHandle}`
-        )
-    ),
-  }
-
-  const warnings: string[] = []
-  if (added.length === 0 && removed.length === 0 && updated.length === 0) {
-    warnings.push('No block changes detected.')
-  }
-  if (edgeDiff.added.length === 0 && edgeDiff.removed.length === 0) {
-    warnings.push('No edge changes detected.')
-  }
-
-  return {
-    blockDiff: { added, removed, updated },
-    edgeDiff,
-    warnings,
   }
 }

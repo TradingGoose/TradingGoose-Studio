@@ -27,7 +27,7 @@ const UpdateWorkflowSchema = z
 /**
  * GET /api/workflows/[id]
  * Fetch a single workflow by ID
- * Uses the saved workflow state loader.
+ * Uses the current workflow state loader.
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const requestId = generateRequestId()

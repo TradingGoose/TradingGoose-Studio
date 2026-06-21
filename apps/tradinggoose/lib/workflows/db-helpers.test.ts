@@ -147,6 +147,20 @@ function buildWorkflowSnapshotResponse(update: Uint8Array) {
   }
 }
 
+function buildWorkflowSnapshotResponseFromState(
+  workflowState: Parameters<typeof setWorkflowState>[1],
+  variables: Record<string, any> = {}
+) {
+  const doc = new Y.Doc()
+  try {
+    setWorkflowState(doc, workflowState, 'test')
+    setVariables(doc, variables, 'test')
+    return buildWorkflowSnapshotResponse(Y.encodeStateAsUpdate(doc))
+  } finally {
+    doc.destroy()
+  }
+}
+
 const mockBlocksFromDb = [
   {
     id: 'block-1',
@@ -953,7 +967,7 @@ describe('Database Helpers', () => {
   })
 
   describe('deployWorkflow', () => {
-    it('should deploy the saved workflow state', async () => {
+    it('should deploy the current workflow state', async () => {
       const savedVariables = {
         'var-db': {
           id: 'var-db',
@@ -1019,7 +1033,7 @@ describe('Database Helpers', () => {
       })
 
       expect(result.success).toBe(true)
-      expect(mockReadBootstrappedReviewTargetSnapshot).not.toHaveBeenCalled()
+      expect(mockReadBootstrappedReviewTargetSnapshot).toHaveBeenCalled()
       expect(result.currentState).toMatchObject({
         blocks: expect.objectContaining({
           'block-1': expect.objectContaining({ id: 'block-1' }),
@@ -1059,7 +1073,6 @@ describe('Database Helpers', () => {
 
   describe('loadWorkflowStateFromYjs', () => {
     it('should decode the workflow state from the bootstrapped Yjs snapshot', async () => {
-      const doc = new Y.Doc()
       const yjsState = {
         blocks: {
           'block-yjs': {
@@ -1086,10 +1099,8 @@ describe('Database Helpers', () => {
         },
       }
 
-      setWorkflowState(doc, yjsState, 'test')
-      setVariables(doc, yjsVariables, 'test')
       mockReadBootstrappedReviewTargetSnapshot.mockResolvedValue(
-        buildWorkflowSnapshotResponse(Y.encodeStateAsUpdate(doc))
+        buildWorkflowSnapshotResponseFromState(yjsState, yjsVariables)
       )
 
       const result = await dbHelpers.loadWorkflowStateFromYjs(mockWorkflowId)
@@ -1112,7 +1123,34 @@ describe('Database Helpers', () => {
   })
 
   describe('loadWorkflowState', () => {
-    it('loads the saved workflow state from normalized database tables', async () => {
+    it('loads the current workflow state from Yjs before saved database tables', async () => {
+      const yjsState = {
+        direction: 'LR' as const,
+        blocks: {},
+        edges: [],
+        loops: {},
+        parallels: {},
+        lastSaved: new Date().toISOString(),
+      }
+      const yjsVariables = {
+        'var-yjs': { id: 'var-yjs', value: 'latest' },
+      }
+
+      mockReadBootstrappedReviewTargetSnapshot.mockResolvedValue(
+        buildWorkflowSnapshotResponseFromState(yjsState, yjsVariables)
+      )
+
+      const result = await dbHelpers.loadWorkflowState(mockWorkflowId)
+
+      expect(result).toMatchObject({
+        direction: 'LR',
+        variables: yjsVariables,
+        source: 'yjs',
+      })
+      expect(mockDb.select).not.toHaveBeenCalled()
+    })
+
+    it('loads materialized workflow state when no Yjs state exists', async () => {
       const variables = { 'var-db': { id: 'var-db', name: 'risk', value: 'saved' } }
       const updatedAt = new Date('2026-04-06T00:05:00.000Z')
       let callCount = 0
@@ -1148,10 +1186,11 @@ describe('Database Helpers', () => {
         }),
         edges: expect.arrayContaining([expect.objectContaining({ id: 'edge-1' })]),
         variables,
+        direction: 'LR',
         lastSaved: updatedAt.getTime(),
         source: 'db',
       })
-      expect(mockReadBootstrappedReviewTargetSnapshot).not.toHaveBeenCalled()
+      expect(mockReadBootstrappedReviewTargetSnapshot).toHaveBeenCalled()
     })
   })
 

@@ -3,16 +3,9 @@ import {
   type ServerToolExecutionContext,
   shouldStageServerToolMutationForReview,
 } from '@/lib/copilot/tools/server/base-tool'
+import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { findIntroducedNonCanonicalSubBlocks } from '@/lib/workflows/block-config-canonicalization'
-import { WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
-import {
-  buildWorkflowDocumentPreviewDiff,
-  serializeWorkflowToGraphMermaid,
-  serializeWorkflowToTgMermaid,
-  TG_MERMAID_DOCUMENT_FORMAT,
-} from '@/lib/workflows/studio-workflow-mermaid'
 import { validateWorkflowState } from '@/lib/workflows/validation'
-import { normalizeWorkflowStateToMermaidDirection } from '@/lib/workflows/workflow-direction'
 import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
 import {
@@ -20,7 +13,88 @@ import {
   readWorkflowSnapshot,
   type WorkflowSnapshot,
 } from '@/lib/yjs/workflow-session'
-import type { WorkflowDirection } from '@/stores/workflows/workflow/types'
+
+function buildWorkflowDocumentPreviewDiff(
+  currentWorkflowState: WorkflowSnapshot | undefined,
+  nextWorkflowState: WorkflowSnapshot
+): {
+  blockDiff: { added: string[]; removed: string[]; updated: string[] }
+  edgeDiff: {
+    added: Array<
+      Pick<WorkflowSnapshot['edges'][number], 'source' | 'target' | 'sourceHandle' | 'targetHandle'>
+    >
+    removed: Array<
+      Pick<WorkflowSnapshot['edges'][number], 'source' | 'target' | 'sourceHandle' | 'targetHandle'>
+    >
+  }
+  warnings: string[]
+} {
+  const currentBlocks = currentWorkflowState?.blocks ?? {}
+  const nextBlocks = nextWorkflowState.blocks ?? {}
+
+  const currentBlockIds = new Set(Object.keys(currentBlocks))
+  const nextBlockIds = new Set(Object.keys(nextBlocks))
+
+  const added = [...nextBlockIds].filter((blockId) => !currentBlockIds.has(blockId)).sort()
+  const removed = [...currentBlockIds].filter((blockId) => !nextBlockIds.has(blockId)).sort()
+  const updated = [...nextBlockIds]
+    .filter((blockId) => currentBlockIds.has(blockId))
+    .filter(
+      (blockId) =>
+        stableStringifyJsonValue(currentBlocks[blockId]) !==
+        stableStringifyJsonValue(nextBlocks[blockId])
+    )
+    .sort()
+
+  const toComparableEdge = (edge: WorkflowSnapshot['edges'][number]) => ({
+    source: edge.source,
+    target: edge.target,
+    sourceHandle: edge.sourceHandle || 'source',
+    targetHandle: edge.targetHandle || 'target',
+  })
+
+  const currentEdges = (currentWorkflowState?.edges ?? []).map(toComparableEdge)
+  const nextEdges = (nextWorkflowState.edges ?? []).map(toComparableEdge)
+  const currentEdgeKeys = new Set(
+    currentEdges.map(
+      (edge) => `${edge.source}:${edge.sourceHandle}->${edge.target}:${edge.targetHandle}`
+    )
+  )
+  const nextEdgeKeys = new Set(
+    nextEdges.map(
+      (edge) => `${edge.source}:${edge.sourceHandle}->${edge.target}:${edge.targetHandle}`
+    )
+  )
+
+  const edgeDiff = {
+    added: nextEdges.filter(
+      (edge) =>
+        !currentEdgeKeys.has(
+          `${edge.source}:${edge.sourceHandle}->${edge.target}:${edge.targetHandle}`
+        )
+    ),
+    removed: currentEdges.filter(
+      (edge) =>
+        !nextEdgeKeys.has(
+          `${edge.source}:${edge.sourceHandle}->${edge.target}:${edge.targetHandle}`
+        )
+    ),
+  }
+
+  const warnings: string[] = []
+  if (added.length === 0 && removed.length === 0 && updated.length === 0) {
+    warnings.push('No block changes detected.')
+  }
+  if (edgeDiff.added.length === 0 && edgeDiff.removed.length === 0) {
+    warnings.push('No edge changes detected.')
+  }
+
+  return {
+    blockDiff: { added, removed, updated },
+    edgeDiff,
+    warnings,
+  }
+}
 
 export async function loadBaseWorkflowState(
   workflowId: string,
@@ -63,12 +137,10 @@ export function buildWorkflowMutationResult(params: {
   workflowId: string
   baseWorkflowState: WorkflowSnapshot
   nextWorkflowState: WorkflowSnapshot
-  requestedDirection?: WorkflowDirection
-  entityDocument?: string
-  documentFormat?: string
+  renderEntityDocument: (workflowState: WorkflowSnapshot) => string
+  documentFormat: string
 }) {
-  const { workflowId, baseWorkflowState, nextWorkflowState, requestedDirection } = params
-  const documentFormat = params.documentFormat ?? TG_MERMAID_DOCUMENT_FORMAT
+  const { workflowId, baseWorkflowState, nextWorkflowState } = params
   const nonCanonicalSubBlockErrors = findIntroducedNonCanonicalSubBlocks(
     nextWorkflowState,
     baseWorkflowState
@@ -83,28 +155,13 @@ export function buildWorkflowMutationResult(params: {
     throw new Error(`Invalid edited workflow: ${validation.errors.join('; ')}`)
   }
 
-  let finalWorkflowState = createWorkflowSnapshot(
+  const finalWorkflowState = createWorkflowSnapshot(
     (validation.sanitizedState as Partial<WorkflowSnapshot> | undefined) ?? nextWorkflowState
   )
-  const direction =
-    requestedDirection ?? finalWorkflowState.direction ?? baseWorkflowState.direction ?? 'TD'
-  const orientationWarnings: string[] = []
-  const normalizedWorkflow = normalizeWorkflowStateToMermaidDirection(finalWorkflowState, direction)
 
-  if (normalizedWorkflow.didRelayout) {
-    orientationWarnings.push(`Re-laid out workflow blocks to match Mermaid direction ${direction}.`)
-  }
-
-  finalWorkflowState = createWorkflowSnapshot(normalizedWorkflow.workflowState)
   const preview = buildWorkflowDocumentPreviewDiff(baseWorkflowState, finalWorkflowState)
-  const warnings = Array.from(
-    new Set([...orientationWarnings, ...preview.warnings, ...validation.warnings])
-  )
-  const entityDocument =
-    params.entityDocument ??
-    (documentFormat === WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT
-      ? serializeWorkflowToGraphMermaid(finalWorkflowState, { direction })
-      : serializeWorkflowToTgMermaid(finalWorkflowState, { direction }))
+  const warnings = Array.from(new Set([...preview.warnings, ...validation.warnings]))
+  const entityDocument = params.renderEntityDocument(finalWorkflowState)
 
   return {
     requiresReview: true,
@@ -112,7 +169,7 @@ export function buildWorkflowMutationResult(params: {
     entityKind: 'workflow' as const,
     entityId: workflowId,
     entityDocument,
-    documentFormat,
+    documentFormat: params.documentFormat,
     workflowState: finalWorkflowState,
     preview: {
       ...preview,

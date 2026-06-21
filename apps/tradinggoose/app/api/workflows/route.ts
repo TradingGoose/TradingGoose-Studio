@@ -52,9 +52,14 @@ function getInitialWorkflowState(
     ? sourceRecord.parallels
     : {}
   const variables = isPlainObject(sourceRecord.variables) ? sourceRecord.variables : {}
+  const direction =
+    sourceRecord.direction === 'TD' || sourceRecord.direction === 'LR'
+      ? sourceRecord.direction
+      : undefined
 
   return {
     canonicalState: {
+      ...(direction ? { direction } : {}),
       blocks: blocks as WorkflowState['blocks'],
       edges: edges as WorkflowState['edges'],
       loops: loops as WorkflowState['loops'],
@@ -206,6 +211,9 @@ export async function POST(req: NextRequest) {
       )
 
       const defaultWorkflowSnapshot = createWorkflowSnapshot({
+        ...(initialStateWithUniqueIds.direction
+          ? { direction: initialStateWithUniqueIds.direction }
+          : {}),
         blocks: initialStateWithUniqueIds.blocks,
         edges: initialStateWithUniqueIds.edges,
         loops: initialStateWithUniqueIds.loops,

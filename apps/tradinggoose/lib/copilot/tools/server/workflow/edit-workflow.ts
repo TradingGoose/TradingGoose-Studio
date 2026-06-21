@@ -6,7 +6,10 @@ import type {
 import { createLogger } from '@/lib/logs/console/logger'
 import { resolveBlockRuntimeState } from '@/lib/workflows/block-outputs'
 import { WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
-import { parseGraphOnlyWorkflowMermaid } from '@/lib/workflows/studio-workflow-mermaid'
+import {
+  parseGraphOnlyWorkflowMermaid,
+  serializeWorkflowToGraphMermaid,
+} from '@/lib/workflows/studio-workflow-mermaid'
 import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
 import { getAbsoluteBlockPosition } from '@/lib/workflows/workflow-direction'
 import { createWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
@@ -268,7 +271,7 @@ export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
       workflowId,
       baseWorkflowState,
       nextWorkflowState,
-      requestedDirection: nextWorkflowState.direction,
+      renderEntityDocument: serializeWorkflowToGraphMermaid,
       documentFormat: WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
     })
 

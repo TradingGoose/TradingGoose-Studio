@@ -81,6 +81,7 @@ export async function GET(request: NextRequest) {
 
     const workflowState: any = {
       deploymentStatuses: {},
+      ...(stateWithSource.direction !== undefined ? { direction: stateWithSource.direction } : {}),
       blocks: stateWithSource.blocks,
       edges: stateWithSource.edges,
       loops: stateWithSource.loops,

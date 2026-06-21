@@ -1,9 +1,8 @@
 import { db, workflow } from '@tradinggoose/db'
 import { eq } from 'drizzle-orm'
-import { resolveStoredDateValue } from '@/lib/time-format'
 import { saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
 import { applyWorkflowStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
-import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import { createWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 export async function applyWorkflowState(
   workflowId: string,
@@ -11,14 +10,19 @@ export async function applyWorkflowState(
   variables?: Record<string, any>,
   entityName?: string
 ): Promise<void> {
-  await applyWorkflowStateInSocketServer(workflowId, workflowState, variables, entityName)
+  const syncedAt = new Date()
+  const appliedWorkflowState = createWorkflowSnapshot({
+    ...workflowState,
+    lastSaved: syncedAt.toISOString(),
+  })
 
-  const saveResult = await saveWorkflowToNormalizedTables(workflowId, workflowState)
+  await applyWorkflowStateInSocketServer(workflowId, appliedWorkflowState, variables, entityName)
+
+  const saveResult = await saveWorkflowToNormalizedTables(workflowId, appliedWorkflowState)
   if (!saveResult.success) {
     throw new Error(saveResult.error || 'Failed to materialize workflow state')
   }
 
-  const syncedAt = resolveStoredDateValue(workflowState.lastSaved) ?? new Date()
   await db
     .update(workflow)
     .set({

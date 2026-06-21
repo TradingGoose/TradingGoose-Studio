@@ -130,7 +130,7 @@ describe('Workflow YAML Export API Route', () => {
   })
 
   it(
-    'uses the saved workflow state and includes variables in the export payload',
+    'uses the current workflow state and includes variables in the export payload',
     { timeout: 10_000 },
     async () => {
     loadWorkflowStateMock.mockResolvedValue({
@@ -193,7 +193,7 @@ describe('Workflow YAML Export API Route', () => {
     }
   )
 
-  it('exports the saved workflow state', async () => {
+  it('exports the current workflow state', async () => {
     loadWorkflowStateMock.mockResolvedValue({
       blocks: {
         'db-block': {

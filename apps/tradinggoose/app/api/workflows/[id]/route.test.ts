@@ -268,7 +268,7 @@ describe('Workflow By ID API Route', () => {
       expect(data.error).toBe('Access denied')
     })
 
-    it('should return saved workflow state when the authoritative loader has it', async () => {
+    it('should return current workflow state when the loader has it', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',
@@ -313,7 +313,7 @@ describe('Workflow By ID API Route', () => {
       expect(data.data.state.edges).toEqual(mockWorkflowState.edges)
     })
 
-    it('should return 409 when saved workflow state is missing', async () => {
+    it('should return 409 when current workflow state is missing', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',

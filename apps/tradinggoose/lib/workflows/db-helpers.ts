@@ -15,6 +15,7 @@ import { reconcilePublishedChatsForDeploymentTx } from '@/lib/chat/published-dep
 import { createLogger } from '@/lib/logs/console/logger'
 import { resolveStoredDateValue } from '@/lib/time-format'
 import { sanitizeAgentToolsInBlocks } from '@/lib/workflows/validation'
+import { inferWorkflowDirectionFromState } from '@/lib/workflows/workflow-direction'
 import { extractPersistedStateFromDoc } from '@/lib/yjs/workflow-session'
 import type { Variable } from '@/stores/variables/types'
 import type {
@@ -121,12 +122,24 @@ export async function loadWorkflowStateFromYjs(
 }
 
 export type WorkflowStateWithSource = PersistedWorkflowState & {
-  source: 'db'
+  source: 'yjs' | 'db'
 }
 
 export async function loadWorkflowState(
   workflowId: string
 ): Promise<WorkflowStateWithSource | null> {
+  try {
+    const liveState = await loadWorkflowStateFromYjs(workflowId)
+    if (liveState) {
+      return { ...liveState, source: 'yjs' }
+    }
+  } catch (error) {
+    logger.warn(
+      `Failed to load live workflow state ${workflowId}; using materialized workflow state`,
+      { error }
+    )
+  }
+
   const savedState = await loadWorkflowStateFromSavedTables(workflowId)
   return savedState ? { ...savedState, source: 'db' } : null
 }
@@ -150,13 +163,18 @@ export async function loadWorkflowStateFromSavedTables(
     return null
   }
 
-  return {
+  const savedState = {
     blocks: normalizedState?.blocks ?? {},
     edges: normalizedState?.edges ?? [],
     loops: normalizedState?.loops ?? {},
     parallels: normalizedState?.parallels ?? {},
     variables: (row.variables as Record<string, any>) ?? {},
     lastSaved: row.updatedAt?.getTime() ?? Date.now(),
+  }
+
+  return {
+    ...savedState,
+    direction: inferWorkflowDirectionFromState(savedState),
   }
 }
 
