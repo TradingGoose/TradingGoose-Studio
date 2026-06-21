@@ -1,10 +1,11 @@
-import { createHash } from 'crypto'
 import { db } from '@tradinggoose/db'
 import { environmentVariables } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import {
+  assertAcceptedServerToolReviewBase,
   type BaseServerTool,
+  hashServerToolReviewBase,
   type ServerToolExecutionContext,
   shouldStageServerToolMutationForReview,
   throwIfServerToolAborted,
@@ -18,9 +19,7 @@ interface SetEnvironmentVariablesParams {
 const EnvVarSchema = z.object({ variables: z.record(z.string()) })
 
 function hashEnvironmentVariableBase(entries: Array<[string, string | null]>): string {
-  return createHash('sha256')
-    .update(JSON.stringify(entries.sort(([left], [right]) => left.localeCompare(right))))
-    .digest('hex')
+  return hashServerToolReviewBase(entries.sort(([left], [right]) => left.localeCompare(right)))
 }
 
 function normalizeEnvVarInput(input: Record<string, unknown> | undefined): Record<string, string> {
@@ -121,18 +120,20 @@ export const setEnvironmentVariablesServerTool: BaseServerTool<SetEnvironmentVar
       throwIfServerToolAborted(context)
 
       const summary = await readEnvironmentVariableSummary(userId, variableNames)
+      const reviewBaseStateHash = hashEnvironmentVariableBase(
+        variableNames.map((key) => [key, summary.existingValueByKey.get(key) ?? null])
+      )
 
       if (shouldStageServerToolMutationForReview(context)) {
         return {
           requiresReview: true,
           success: true,
           ...buildEnvironmentVariablesResult(variableNames, summary, 'Review required for'),
-          reviewBaseStateHash: hashEnvironmentVariableBase(
-            variableNames.map((key) => [key, summary.existingValueByKey.get(key) ?? null])
-          ),
+          reviewBaseStateHash,
         }
       }
 
+      assertAcceptedServerToolReviewBase(context, reviewBaseStateHash)
       const encryptedVariables = await encryptEnvironmentVariables(validatedVariables, context)
       await writeEncryptedEnvironmentVariables(userId, encryptedVariables, context)
       return buildEnvironmentVariablesResult(variableNames, summary, 'Successfully processed')

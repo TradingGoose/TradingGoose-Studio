@@ -1,6 +1,7 @@
-import { createHash } from 'crypto'
 import * as Y from 'yjs'
 import {
+  assertAcceptedServerToolReviewBase,
+  hashServerToolReviewBase,
   type ServerToolExecutionContext,
   shouldStageServerToolMutationForReview,
 } from '@/lib/copilot/tools/server/base-tool'
@@ -97,10 +98,6 @@ function buildWorkflowDocumentPreviewDiff(
   }
 }
 
-function hashWorkflowState(workflowState: WorkflowSnapshot) {
-  return createHash('sha256').update(stableStringifyJsonValue(workflowState)).digest('hex')
-}
-
 export async function loadBaseWorkflowState(
   workflowId: string,
   context?: ServerToolExecutionContext
@@ -176,7 +173,7 @@ export function buildWorkflowMutationResult(params: {
     entityDocument,
     documentFormat: params.documentFormat,
     workflowState: finalWorkflowState,
-    reviewBaseStateHash: hashWorkflowState(baseWorkflowState),
+    reviewBaseStateHash: hashServerToolReviewBase(baseWorkflowState),
     preview: {
       ...preview,
       warnings,
@@ -196,6 +193,7 @@ export async function resolveWorkflowMutationResultForExecution(
     return result
   }
 
+  assertAcceptedServerToolReviewBase(context, result.reviewBaseStateHash)
   await applyWorkflowState(
     result.entityId,
     createWorkflowSnapshot(result.workflowState as Partial<WorkflowSnapshot>)

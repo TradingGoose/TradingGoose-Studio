@@ -12,6 +12,8 @@ import type {
   ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
 import {
+  assertAcceptedServerToolReviewBase,
+  hashServerToolReviewBase,
   shouldStageServerToolMutationForReview,
   withWorkspaceArgContext,
 } from '@/lib/copilot/tools/server/base-tool'
@@ -245,6 +247,7 @@ export async function executeCreateEntityDocumentMutation(
       requiresReview: true,
       success: true,
       workspaceId,
+      reviewBaseStateHash: hashServerToolReviewBase({ kind, workspaceId }),
       ...buildReviewDocumentEnvelope(kind, undefined, fields),
       preview: {
         documentDiff: {
@@ -281,11 +284,19 @@ export async function executeUpdateEntityDocumentMutation(
     return {
       requiresReview: true,
       success: true,
+      reviewBaseStateHash: hashServerToolReviewBase(currentFields),
       ...buildReviewDocumentEnvelope(kind, entityId, fields),
       preview: {
         documentDiff: buildReviewDocumentDiff(kind, currentFields, fields),
       },
     }
+  }
+
+  if (context?.acceptedReviewBaseStateHash) {
+    assertAcceptedServerToolReviewBase(
+      context,
+      hashServerToolReviewBase(await readSavedEntityDocumentFields(kind, entityId, workspaceId))
+    )
   }
 
   if (apply) {

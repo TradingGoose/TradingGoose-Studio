@@ -13,6 +13,8 @@ import type {
   ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
 import {
+  assertAcceptedServerToolReviewBase,
+  hashServerToolReviewBase,
   shouldStageServerToolMutationForReview,
   withWorkspaceArgContext,
 } from '@/lib/copilot/tools/server/base-tool'
@@ -388,6 +390,7 @@ export const editWorkflowVariableServerTool: BaseServerTool<
       entityDocument: args.entityDocument,
     })
     const nextDocument = serializeWorkflowVariableDocument(nextVariables)
+    const currentVariablesBaseHash = hashServerToolReviewBase(variables)
 
     if (shouldStageServerToolMutationForReview(context)) {
       const currentDocument = serializeWorkflowVariableDocument(variables)
@@ -400,6 +403,7 @@ export const editWorkflowVariableServerTool: BaseServerTool<
         documentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
         entityDocument: nextDocument,
         variables: nextVariables,
+        reviewBaseStateHash: currentVariablesBaseHash,
         preview: {
           documentDiff: {
             before: currentDocument,
@@ -409,6 +413,7 @@ export const editWorkflowVariableServerTool: BaseServerTool<
       }
     }
 
+    assertAcceptedServerToolReviewBase(context, currentVariablesBaseHash)
     await applyWorkflowState(workflowId, workflowState, nextVariables)
     return {
       success: true,
@@ -448,7 +453,7 @@ export const createWorkflowServerTool: BaseServerTool<
         entityKind: ENTITY_KIND_WORKFLOW,
         entityName: name,
         workspaceId,
-        reviewBaseStateHash: workspaceId,
+        reviewBaseStateHash: hashServerToolReviewBase({ workspaceId }),
       }
     }
 
@@ -504,6 +509,10 @@ export const renameWorkflowServerTool: BaseServerTool<{ entityId: string; name: 
     }
 
     const current = await loadWorkflowSnapshotForCopilot(workflowId, context, 'write')
+    const currentNameBaseHash = hashServerToolReviewBase({
+      workflowId,
+      entityName: current.entityName ?? '',
+    })
     if (shouldStageServerToolMutationForReview(context)) {
       return {
         requiresReview: true,
@@ -512,10 +521,11 @@ export const renameWorkflowServerTool: BaseServerTool<{ entityId: string; name: 
         entityId: workflowId,
         entityName: nextName,
         workspaceId: current.workspaceId ?? undefined,
-        reviewBaseStateHash: `${workflowId}:${current.entityName ?? ''}`,
+        reviewBaseStateHash: currentNameBaseHash,
       }
     }
 
+    assertAcceptedServerToolReviewBase(context, currentNameBaseHash)
     const updatedWorkflow = await applyWorkflowEntityName(
       workflowId,
       current.workflowState,

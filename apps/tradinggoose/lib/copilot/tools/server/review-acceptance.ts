@@ -1,4 +1,3 @@
-import { createHash } from 'crypto'
 import { db } from '@tradinggoose/db'
 import { verification } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
@@ -9,8 +8,10 @@ import {
   serializeEntityDocumentForReview,
 } from '@/lib/copilot/entity-documents'
 import type { ToolId } from '@/lib/copilot/registry'
-import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
-import type { ServerToolExecutionContext } from '@/lib/copilot/tools/server/base-tool'
+import {
+  assertAcceptedServerToolReviewBase,
+  type ServerToolExecutionContext,
+} from '@/lib/copilot/tools/server/base-tool'
 import { routeExecution } from '@/lib/copilot/tools/server/router'
 import { createLogger } from '@/lib/logs/console/logger'
 import { decryptSecret, encryptSecret } from '@/lib/utils-server'
@@ -23,29 +24,18 @@ type StagedServerToolReview = {
   userId?: unknown
   toolName?: unknown
   encryptedPayload?: unknown
-  baseSignature?: unknown
+  baseStateHash?: unknown
   reviewClaimId?: unknown
 }
 
-function hashValue(value: string) {
-  return createHash('sha256').update(value).digest('hex')
-}
-
-function readBaseSignature(result: unknown): string {
+function readBaseStateHash(result: unknown): string {
   if (!result || typeof result !== 'object' || Array.isArray(result)) {
     throw new Error('Server tool review result is missing base state')
   }
 
-  const record = result as {
-    preview?: { documentDiff?: { before?: unknown } }
-    reviewBaseStateHash?: unknown
-  }
+  const record = result as { reviewBaseStateHash?: unknown }
   if (typeof record.reviewBaseStateHash === 'string' && record.reviewBaseStateHash) {
-    return `state:${record.reviewBaseStateHash}`
-  }
-  const before = record.preview?.documentDiff?.before
-  if (typeof before === 'string') {
-    return `document:${hashValue(before)}`
+    return record.reviewBaseStateHash
   }
 
   throw new Error('Server tool review result is missing base state')
@@ -124,7 +114,7 @@ export async function stageServerManagedToolReview(
       userId: context.userId,
       toolName,
       encryptedPayload,
-      baseSignature: readBaseSignature(result),
+      baseStateHash: readBaseStateHash(result),
     }),
     expiresAt: new Date(now.getTime() + REVIEW_TOKEN_TTL_MS),
     createdAt: now,
@@ -169,7 +159,7 @@ export async function acceptServerManagedToolReview(
     !staged ||
     staged.userId !== context.userId ||
     staged.toolName !== toolName ||
-    typeof staged.baseSignature !== 'string'
+    typeof staged.baseStateHash !== 'string'
   ) {
     throw new Error('Server tool review token does not match this request')
   }
@@ -187,17 +177,10 @@ export async function acceptServerManagedToolReview(
     ...context,
     accessLevel: 'limited',
   })
-  if (readBaseSignature(currentReview) !== staged.baseSignature) {
-    throw new StructuredServerToolError({
-      status: 409,
-      body: {
-        code: 'stale_server_tool_review',
-        error: 'This reviewed Copilot edit is stale because the target changed after review.',
-        hint: 'Ask Copilot to read the current target and prepare the edit again.',
-        retryable: true,
-      },
-    })
-  }
+  assertAcceptedServerToolReviewBase(
+    { ...context, acceptedReviewBaseStateHash: staged.baseStateHash },
+    readBaseStateHash(currentReview)
+  )
 
   const identifier = `${REVIEW_TOKEN_PREFIX}${reviewToken}`
   const claimed = { ...staged, reviewClaimId: nanoid() }
@@ -216,6 +199,7 @@ export async function acceptServerManagedToolReview(
     acceptedResult = await routeExecution(toolName, payload, {
       ...context,
       accessLevel: 'full',
+      acceptedReviewBaseStateHash: staged.baseStateHash,
     })
   } catch (error) {
     await db

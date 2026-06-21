@@ -1,5 +1,3 @@
-import { getMonitorRowById, toMonitorRecord } from '@/app/api/monitors/shared'
-import { updateMonitorForUser } from '@/app/api/monitors/update-service'
 import {
   MONITOR_DOCUMENT_FORMAT,
   parseMonitorDocument,
@@ -7,15 +5,19 @@ import {
   serializeMonitorDocument,
 } from '@/lib/copilot/monitor/monitor-documents'
 import {
+  assertAcceptedServerToolReviewBase,
+  type BaseServerTool,
+  hashServerToolReviewBase,
+  shouldStageServerToolMutationForReview,
+} from '@/lib/copilot/tools/server/base-tool'
+import {
   buildMonitorDocumentEnvelope,
   type MonitorRecord,
 } from '@/lib/copilot/tools/server/monitor/shared'
-import {
-  type BaseServerTool,
-  shouldStageServerToolMutationForReview,
-} from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
+import { getMonitorRowById, toMonitorRecord } from '@/app/api/monitors/shared'
+import { updateMonitorForUser } from '@/app/api/monitors/update-service'
 
 const logger = createLogger('EditMonitorServerTool')
 
@@ -47,14 +49,16 @@ export const editMonitorServerTool: BaseServerTool<EditMonitorArgs> = {
     }
 
     const nextFields = parseMonitorDocument(args.monitorDocument)
+    const currentMonitor = (await toMonitorRecord(row.webhook)) as MonitorRecord
+    const currentDocument = buildMonitorDocumentEnvelope(currentMonitor).monitorDocument
+    const reviewBaseStateHash = hashServerToolReviewBase(currentDocument)
+
     if (shouldStageServerToolMutationForReview(context)) {
       const access = await checkWorkspaceAccess(row.workflow.workspaceId, userId)
       if (!access.exists || !access.hasAccess || !access.canWrite) {
         throw new Error('Access denied: You do not have permission to edit this monitor')
       }
 
-      const currentMonitor = (await toMonitorRecord(row.webhook)) as MonitorRecord
-      const currentDocument = buildMonitorDocumentEnvelope(currentMonitor).monitorDocument
       const nextDocument = serializeMonitorDocument(nextFields)
       return {
         requiresReview: true,
@@ -64,6 +68,7 @@ export const editMonitorServerTool: BaseServerTool<EditMonitorArgs> = {
         monitorName: readMonitorDocumentName(nextFields),
         documentFormat: MONITOR_DOCUMENT_FORMAT,
         monitorDocument: nextDocument,
+        reviewBaseStateHash,
         preview: {
           documentDiff: {
             before: currentDocument,
@@ -73,6 +78,7 @@ export const editMonitorServerTool: BaseServerTool<EditMonitorArgs> = {
       }
     }
 
+    assertAcceptedServerToolReviewBase(context, reviewBaseStateHash)
     const updatedMonitor = (await updateMonitorForUser({
       monitorId: args.monitorId,
       userId,

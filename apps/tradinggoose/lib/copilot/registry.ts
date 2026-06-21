@@ -849,6 +849,9 @@ const EditEntityDocumentResultBase = DocumentDiffReviewMetadata.extend({
 const WorkflowMutationResult = WorkflowTargetEnvelope.merge(DocumentDiffReviewMetadata).extend({
   success: z.boolean(),
 })
+const WorkflowCreateMutationResult = WorkflowMutationResult.extend({
+  entityId: z.string().optional(),
+})
 
 const CustomToolDocumentMutationResult = EditEntityDocumentResultBase.merge(
   CustomToolDocumentEnvelope.extend({
@@ -917,6 +920,7 @@ const EditWorkflowResult = WorkflowGraphDocumentEnvelope.extend(WorkflowMutation
 const EditWorkflowBlockResult = WorkflowDocumentEnvelope.extend(WorkflowMutationResultShape)
 const EditWorkflowVariableResult = WorkflowVariableDocumentEnvelope.extend({
   requiresReview: z.literal(true).optional(),
+  reviewBaseStateHash: z.string().optional(),
   success: z.boolean().optional(),
   preview: z
     .object({
@@ -973,7 +977,7 @@ export const ToolResultSchemas = {
     id: z.string(),
   }),
   [CopilotTool.read_workflow]: WorkflowReadDocumentEnvelope,
-  create_workflow: WorkflowMutationResult,
+  create_workflow: WorkflowCreateMutationResult,
   [CopilotTool.list_workflows]: GenericEntityListResult.extend({
     entityKind: z.literal('workflow'),
   }),
