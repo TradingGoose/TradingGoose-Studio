@@ -1404,20 +1404,19 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             if (acceptingServerReview && !reviewToken) {
               throw new Error('Server tool review token is missing')
             }
-            const result =
-              acceptingServerReview
-                ? await acceptCopilotServerToolReview({
-                    toolName: name,
-                    reviewToken: reviewToken!,
-                    context: serverContext,
-                    signal: get().abortController?.signal,
-                  })
-                : await executeCopilotServerTool({
-                    toolName: name,
-                    payload: preparedArgs,
-                    context: serverContext,
-                    signal: get().abortController?.signal,
-                  })
+            const result = acceptingServerReview
+              ? await acceptCopilotServerToolReview({
+                  toolName: name,
+                  reviewToken: reviewToken!,
+                  context: serverContext,
+                  signal: get().abortController?.signal,
+                })
+              : await executeCopilotServerTool({
+                  toolName: name,
+                  payload: preparedArgs,
+                  context: serverContext,
+                  signal: get().abortController?.signal,
+                })
             const logicalSuccess =
               !result ||
               typeof result !== 'object' ||
@@ -1425,10 +1424,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
               (result as any).success !== false
 
             const currentToolCall = get().toolCallsById[id]
-            if (
-              isToolCallCompletionProtected(currentToolCall?.state) &&
-              !acceptingServerReview
-            ) {
+            if (isToolCallCompletionProtected(currentToolCall?.state) && !acceptingServerReview) {
               return
             }
 

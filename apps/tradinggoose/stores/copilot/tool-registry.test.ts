@@ -136,8 +136,12 @@ describe('tool-registry', () => {
   it('keeps saved entity and workflow document tools off the client-staged execution path', () => {
     expect(ensureClientToolInstance('create_workflow', 'create-workflow-tool')).toBeUndefined()
     expect(ensureClientToolInstance('edit_workflow', 'edit-workflow-tool')).toBeUndefined()
-    expect(ensureClientToolInstance('edit_workflow_block', 'edit-workflow-block-tool')).toBeUndefined()
-    expect(ensureClientToolInstance('edit_workflow_variable', 'edit-workflow-variable-tool')).toBeUndefined()
+    expect(
+      ensureClientToolInstance('edit_workflow_block', 'edit-workflow-block-tool')
+    ).toBeUndefined()
+    expect(
+      ensureClientToolInstance('edit_workflow_variable', 'edit-workflow-variable-tool')
+    ).toBeUndefined()
     expect(ensureClientToolInstance('rename_workflow', 'rename-workflow-tool')).toBeUndefined()
     expect(ensureClientToolInstance('read_workflow', 'read-workflow-tool')).toBeUndefined()
     expect(ensureClientToolInstance('list_workflows', 'list-workflows-tool')).toBeUndefined()
@@ -157,7 +161,9 @@ describe('tool-registry', () => {
     expect(
       ensureClientToolInstance('check_deployment_status', 'check-deployment-status-tool')
     ).toBeUndefined()
-    expect(ensureClientToolInstance('read_block_outputs', 'read-block-outputs-tool')).toBeUndefined()
+    expect(
+      ensureClientToolInstance('read_block_outputs', 'read-block-outputs-tool')
+    ).toBeUndefined()
     expect(
       ensureClientToolInstance(
         'read_block_upstream_references',
