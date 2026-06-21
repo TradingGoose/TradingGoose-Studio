@@ -185,16 +185,7 @@ export async function routeExecution(
     throw new Error(`Unknown server tool: ${toolName}`)
   }
 
-  logger.debug('Routing to tool', {
-    toolName,
-    payloadPreview: (() => {
-      try {
-        return JSON.stringify(payload).slice(0, 200)
-      } catch {
-        return undefined
-      }
-    })(),
-  })
+  logger.debug('Routing to tool', { toolName })
 
   let args: any
   try {

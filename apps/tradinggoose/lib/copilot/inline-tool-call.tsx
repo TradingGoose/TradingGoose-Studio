@@ -116,6 +116,14 @@ const ACTION_VERBS = [
   'Resumed',
 ] as const
 
+const REDACTED_VALUE = '[redacted]'
+
+function redactUrlQuery(value: unknown): string {
+  const url = String(value || '')
+  const queryStart = url.indexOf('?')
+  return queryStart === -1 ? url : `${url.slice(0, queryStart)}?${REDACTED_VALUE}`
+}
+
 function splitActionVerb(text: string): [string | null, string] {
   for (const verb of ACTION_VERBS) {
     if (text.startsWith(`${verb} `)) {
@@ -427,7 +435,7 @@ export function InlineToolCall({
 
   const renderPendingDetails = () => {
     if (toolCall.name === 'make_api_request') {
-      const url = params.url || ''
+      const url = redactUrlQuery(params.url)
       const method = (params.method || '').toUpperCase()
       return (
         <div className='mt-0.5 w-full overflow-hidden rounded border border-muted bg-card'>
@@ -460,19 +468,10 @@ export function InlineToolCall({
 
     if (toolCall.name === 'set_environment_variables') {
       const variables =
-        params.variables && typeof params.variables === 'object' ? params.variables : {}
-
-      // Normalize variables - handle both direct key-value and nested {name, value} format
-      const normalizedEntries: Array<[string, string]> = []
-      Object.entries(variables).forEach(([key, value]) => {
-        if (typeof value === 'object' && value !== null && 'name' in value && 'value' in value) {
-          // Handle {name: "key", value: "val"} format
-          normalizedEntries.push([String((value as any).name), String((value as any).value)])
-        } else {
-          // Handle direct key-value format
-          normalizedEntries.push([key, String(value)])
-        }
-      })
+        params.variables && typeof params.variables === 'object' && !Array.isArray(params.variables)
+          ? params.variables
+          : {}
+      const variableNames = Object.keys(variables)
 
       return (
         <div className='mt-0.5 w-full overflow-hidden rounded border border-muted bg-card'>
@@ -484,11 +483,11 @@ export function InlineToolCall({
               Value
             </div>
           </div>
-          {normalizedEntries.length === 0 ? (
+          {variableNames.length === 0 ? (
             <div className='px-2 py-2 text-muted-foreground text-xs'>No variables provided</div>
           ) : (
             <div className='divide-y divide-muted/60'>
-              {normalizedEntries.map(([name, value]) => (
+              {variableNames.map((name) => (
                 <div
                   key={name}
                   className='grid grid-cols-[auto_1fr] items-center gap-2 px-2 py-1.5'
@@ -498,7 +497,7 @@ export function InlineToolCall({
                   </div>
                   <div className='min-w-0'>
                     <span className='block overflow-x-auto whitespace-nowrap font-mono text-xs text-yellow-700 dark:text-yellow-300'>
-                      {value}
+                      {REDACTED_VALUE}
                     </span>
                   </div>
                 </div>

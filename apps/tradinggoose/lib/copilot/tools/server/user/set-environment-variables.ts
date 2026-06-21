@@ -9,11 +9,10 @@ import {
   shouldStageServerToolMutationForReview,
   throwIfServerToolAborted,
 } from '@/lib/copilot/tools/server/base-tool'
-import { createLogger } from '@/lib/logs/console/logger'
 import { encryptSecret } from '@/lib/utils-server'
 
 interface SetEnvironmentVariablesParams {
-  variables: Record<string, any> | Array<{ name: string; value: string }>
+  variables: Record<string, unknown>
 }
 
 const EnvVarSchema = z.object({ variables: z.record(z.string()) })
@@ -24,23 +23,107 @@ function hashEnvironmentVariableBase(entries: Array<[string, string | null]>): s
     .digest('hex')
 }
 
-function normalizeEnvVarInput(
-  input: Record<string, any> | Array<{ name: string; value: string }>
-): Record<string, string> {
-  if (Array.isArray(input)) {
-    return input.reduce(
-      (acc, item) => {
-        if (item && typeof item.name === 'string') {
-          acc[item.name] = String(item.value ?? '')
-        }
-        return acc
-      },
-      {} as Record<string, string>
-    )
-  }
+function normalizeEnvVarInput(input: Record<string, unknown> | undefined): Record<string, string> {
   return Object.fromEntries(
     Object.entries(input || {}).map(([k, v]) => [k, String(v ?? '')])
   ) as Record<string, string>
+}
+
+function parseEnvironmentVariablesPayload(payload: unknown): Record<string, string> {
+  const variables =
+    payload && typeof payload === 'object' && !Array.isArray(payload)
+      ? (payload as SetEnvironmentVariablesParams).variables
+      : undefined
+  return EnvVarSchema.parse({ variables: normalizeEnvVarInput(variables) }).variables
+}
+
+async function readEnvironmentVariableSummary(userId: string, variableNames: string[]) {
+  const existingRows = await db
+    .select({ key: environmentVariables.key, value: environmentVariables.value })
+    .from(environmentVariables)
+    .where(eq(environmentVariables.userId, userId))
+  const existingKeySet = new Set(existingRows.map((row) => row.key))
+  const existingValueByKey = new Map(existingRows.map((row) => [row.key, row.value]))
+  const added = variableNames.filter((key) => !existingKeySet.has(key))
+  const updated = variableNames.filter((key) => existingKeySet.has(key))
+
+  return { existingRows, existingValueByKey, added, updated }
+}
+
+function buildEnvironmentVariablesResult(
+  variableNames: string[],
+  summary: Awaited<ReturnType<typeof readEnvironmentVariableSummary>>,
+  messagePrefix: string
+) {
+  return {
+    message: `${messagePrefix} ${variableNames.length} environment variable(s): ${summary.added.length} added, ${summary.updated.length} updated`,
+    variableCount: variableNames.length,
+    variableNames,
+    totalVariableCount: summary.existingRows.length + summary.added.length,
+    addedVariables: summary.added,
+    updatedVariables: summary.updated,
+  }
+}
+
+async function encryptEnvironmentVariables(
+  variables: Record<string, string>,
+  context?: ServerToolExecutionContext
+): Promise<Record<string, string>> {
+  const encryptedVariables: Record<string, string> = {}
+  for (const [key, value] of Object.entries(variables)) {
+    throwIfServerToolAborted(context)
+    encryptedVariables[key] = (await encryptSecret(value)).encrypted
+  }
+  return encryptedVariables
+}
+
+async function writeEncryptedEnvironmentVariables(
+  userId: string,
+  encryptedVariables: Record<string, string>,
+  context?: ServerToolExecutionContext
+) {
+  await db.transaction(async (tx) => {
+    for (const [key, encrypted] of Object.entries(encryptedVariables)) {
+      throwIfServerToolAborted(context)
+      await tx
+        .insert(environmentVariables)
+        .values({
+          id: crypto.randomUUID(),
+          userId,
+          key,
+          value: encrypted,
+        })
+        .onConflictDoUpdate({
+          target: [environmentVariables.userId, environmentVariables.key],
+          set: {
+            value: encrypted,
+            updatedAt: new Date(),
+          },
+        })
+    }
+  })
+}
+
+export async function buildEnvironmentVariablesReviewPayload(
+  payload: unknown,
+  context?: ServerToolExecutionContext
+) {
+  const variables = parseEnvironmentVariablesPayload(payload)
+  return {
+    payload: { variables: Object.fromEntries(Object.keys(variables).map((key) => [key, ''])) },
+    encryptedVariables: await encryptEnvironmentVariables(variables, context),
+  }
+}
+
+export async function applyEncryptedEnvironmentVariablesForUser(
+  userId: string,
+  encryptedVariables: Record<string, string>,
+  context?: ServerToolExecutionContext
+) {
+  const variableNames = Object.keys(encryptedVariables)
+  const summary = await readEnvironmentVariableSummary(userId, variableNames)
+  await writeEncryptedEnvironmentVariables(userId, encryptedVariables, context)
+  return buildEnvironmentVariablesResult(variableNames, summary, 'Successfully processed')
 }
 
 export const setEnvironmentVariablesServerTool: BaseServerTool<SetEnvironmentVariablesParams, any> =
@@ -50,80 +133,30 @@ export const setEnvironmentVariablesServerTool: BaseServerTool<SetEnvironmentVar
       params: SetEnvironmentVariablesParams,
       context?: ServerToolExecutionContext
     ): Promise<any> {
-      const logger = createLogger('SetEnvironmentVariablesServerTool')
-
       if (!context?.userId) {
-        logger.error(
-          'Unauthorized attempt to set environment variables - no authenticated user context'
-        )
         throw new Error('Authentication required')
       }
 
       const userId = context.userId
-      const { variables } = params || ({} as SetEnvironmentVariablesParams)
-
-      const normalized = normalizeEnvVarInput(variables || {})
-      const { variables: validatedVariables } = EnvVarSchema.parse({ variables: normalized })
-      const variableEntries = Object.entries(validatedVariables)
+      const validatedVariables = parseEnvironmentVariablesPayload(params)
+      const variableNames = Object.keys(validatedVariables)
       throwIfServerToolAborted(context)
 
-      const existingRows = await db
-        .select({ key: environmentVariables.key, value: environmentVariables.value })
-        .from(environmentVariables)
-        .where(eq(environmentVariables.userId, userId))
-
-      const existingKeySet = new Set(existingRows.map((row) => row.key))
-      const existingValueByKey = new Map(existingRows.map((row) => [row.key, row.value]))
-      const added = variableEntries.filter(([key]) => !existingKeySet.has(key)).map(([key]) => key)
-      const updated = variableEntries.filter(([key]) => existingKeySet.has(key)).map(([key]) => key)
+      const summary = await readEnvironmentVariableSummary(userId, variableNames)
 
       if (shouldStageServerToolMutationForReview(context)) {
-        const variableNames = Object.keys(validatedVariables)
         return {
           requiresReview: true,
           success: true,
-          message: `Review required for ${variableNames.length} environment variable(s): ${added.length} added, ${updated.length} updated`,
-          variableCount: variableNames.length,
-          variableNames,
-          totalVariableCount: existingRows.length + added.length,
-          addedVariables: added,
-          updatedVariables: updated,
+          ...buildEnvironmentVariablesResult(variableNames, summary, 'Review required for'),
           reviewBaseStateHash: hashEnvironmentVariableBase(
-            variableEntries.map(([key]) => [key, existingValueByKey.get(key) ?? null])
+            variableNames.map((key) => [key, summary.existingValueByKey.get(key) ?? null])
           ),
         }
       }
 
-      await db.transaction(async (tx) => {
-        for (const [key, val] of variableEntries) {
-          throwIfServerToolAborted(context)
-          const { encrypted } = await encryptSecret(val)
-
-          await tx
-            .insert(environmentVariables)
-            .values({
-              id: crypto.randomUUID(),
-              userId,
-              key,
-              value: encrypted,
-            })
-            .onConflictDoUpdate({
-              target: [environmentVariables.userId, environmentVariables.key],
-              set: {
-                value: encrypted,
-                updatedAt: new Date(),
-              },
-            })
-        }
-      })
-
-      return {
-        message: `Successfully processed ${Object.keys(validatedVariables).length} environment variable(s): ${added.length} added, ${updated.length} updated`,
-        variableCount: Object.keys(validatedVariables).length,
-        variableNames: Object.keys(validatedVariables),
-        totalVariableCount: existingRows.length + added.length,
-        addedVariables: added,
-        updatedVariables: updated,
-      }
+      const encryptedVariables = await encryptEnvironmentVariables(validatedVariables, context)
+      await writeEncryptedEnvironmentVariables(userId, encryptedVariables, context)
+      return buildEnvironmentVariablesResult(variableNames, summary, 'Successfully processed')
     },
   }

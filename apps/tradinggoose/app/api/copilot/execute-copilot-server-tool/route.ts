@@ -50,11 +50,6 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    try {
-      const preview = JSON.stringify(body).slice(0, 300)
-      logger.debug(`[${tracker.requestId}] Incoming request body preview`, { preview })
-    } catch {}
-
     let parsedBody: z.infer<typeof ExecuteSchema>
     try {
       parsedBody = ExecuteSchema.parse(body)
@@ -122,11 +117,6 @@ export async function POST(req: NextRequest) {
       : routeExecution(toolId, payload, executionContext).then((toolResult) =>
           stageServerManagedToolReview(toolId, payload, toolResult, executionContext)
         ))
-
-    try {
-      const resultPreview = JSON.stringify(result).slice(0, 300)
-      logger.debug(`[${tracker.requestId}] Server tool result preview`, { toolName, resultPreview })
-    } catch {}
 
     return NextResponse.json({ success: true, result })
   } catch (error) {

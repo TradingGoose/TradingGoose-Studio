@@ -24,6 +24,14 @@ interface ToolCallIndicatorProps {
   toolNames?: string[]
 }
 
+const REDACTED_VALUE = '[redacted]'
+
+function redactUrlQuery(value: unknown): string {
+  const url = String(value || '')
+  const queryStart = url.indexOf('?')
+  return queryStart === -1 ? url : `${url.slice(0, queryStart)}?${REDACTED_VALUE}`
+}
+
 // Detection State Component
 export function ToolCallDetection({ content }: { content: string }) {
   return (
@@ -98,9 +106,10 @@ export function ToolCallExecution({ toolCall, isCompact = false }: ToolCallProps
                         <div className='min-w-0'>
                           <span
                             className='block overflow-x-auto whitespace-nowrap font-mono text-foreground text-xs'
-                            title={String((toolCall.parameters as any).url || '')}
+                            title={redactUrlQuery((toolCall.parameters as any).url)}
                           >
-                            {String((toolCall.parameters as any).url || '') || 'URL not provided'}
+                            {redactUrlQuery((toolCall.parameters as any).url) ||
+                              'URL not provided'}
                           </span>
                         </div>
                       </div>
@@ -111,10 +120,11 @@ export function ToolCallExecution({ toolCall, isCompact = false }: ToolCallProps
                     ? (() => {
                         const variables =
                           (toolCall.parameters as any).variables &&
-                          typeof (toolCall.parameters as any).variables === 'object'
+                          typeof (toolCall.parameters as any).variables === 'object' &&
+                          !Array.isArray((toolCall.parameters as any).variables)
                             ? (toolCall.parameters as any).variables
                             : {}
-                        const entries = Object.entries(variables)
+                        const names = Object.keys(variables)
                         return (
                           <div className='w-full overflow-hidden rounded border border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950'>
                             <div className='grid grid-cols-2 gap-0 border-yellow-200/60 border-b px-2 py-1.5 dark:border-yellow-800/60'>
@@ -125,23 +135,23 @@ export function ToolCallExecution({ toolCall, isCompact = false }: ToolCallProps
                                 Value
                               </div>
                             </div>
-                            {entries.length === 0 ? (
+                            {names.length === 0 ? (
                               <div className='px-2 py-2 text-muted-foreground text-xs'>
                                 No variables provided
                               </div>
                             ) : (
                               <div className='divide-y divide-yellow-200 dark:divide-yellow-800'>
-                                {entries.map(([k, v]) => (
+                                {names.map((name) => (
                                   <div
-                                    key={k}
+                                    key={name}
                                     className='grid grid-cols-[auto_1fr] items-center gap-2 px-2 py-1.5'
                                   >
                                     <div className='truncate font-medium text-yellow-800 text-xs dark:text-yellow-200'>
-                                      {k}
+                                      {name}
                                     </div>
                                     <div className='min-w-0'>
                                       <span className='block overflow-x-auto whitespace-nowrap font-mono text-yellow-700 text-xs dark:text-yellow-300'>
-                                        {String(v)}
+                                        {REDACTED_VALUE}
                                       </span>
                                     </div>
                                   </div>
@@ -250,38 +260,6 @@ export function ToolCallCompletion({ toolCall, isCompact = false }: ToolCallProp
         </CollapsibleTrigger>
         <CollapsibleContent className='min-w-0 max-w-full px-3 pb-3'>
           <div className='min-w-0 max-w-full space-y-2'>
-            {toolCall.parameters &&
-              Object.keys(toolCall.parameters).length > 0 &&
-              (toolCall.name === 'make_api_request' ||
-                toolCall.name === 'set_environment_variables') && (
-                <div
-                  className={cn(
-                    'min-w-0 max-w-full rounded p-2',
-                    isSuccess && 'bg-green-100 dark:bg-green-900',
-                    isError && 'bg-red-100 dark:bg-red-900'
-                  )}
-                >
-                  <div
-                    className={cn(
-                      'mb-1 font-medium text-xs',
-                      isSuccess && 'text-green-800 dark:text-green-200',
-                      isError && 'text-red-800 dark:text-red-200'
-                    )}
-                  >
-                    Parameters:
-                  </div>
-                  <div
-                    className={cn(
-                      'min-w-0 max-w-full break-all font-mono text-xs',
-                      isSuccess && 'text-green-700 dark:text-green-300',
-                      isError && 'text-red-700 dark:text-red-300'
-                    )}
-                  >
-                    {JSON.stringify(toolCall.parameters, null, 2)}
-                  </div>
-                </div>
-              )}
-
             {toolCall.error && (
               <div className='min-w-0 max-w-full rounded bg-red-100 p-2 dark:bg-red-900'>
                 <div className='mb-1 font-medium text-red-800 text-xs dark:text-red-200'>

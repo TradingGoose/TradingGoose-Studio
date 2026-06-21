@@ -7,6 +7,10 @@ import { type ToolId } from '@/lib/copilot/registry'
 import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
 import type { ServerToolExecutionContext } from '@/lib/copilot/tools/server/base-tool'
 import { routeExecution } from '@/lib/copilot/tools/server/router'
+import {
+  applyEncryptedEnvironmentVariablesForUser,
+  buildEnvironmentVariablesReviewPayload,
+} from '@/lib/copilot/tools/server/user/set-environment-variables'
 
 const REVIEW_TOKEN_PREFIX = 'copilot-tool-review:'
 const REVIEW_TOKEN_TTL_MS = 30 * 60 * 1000
@@ -47,6 +51,43 @@ function stripReviewMetadata(result: unknown) {
   return publicResult
 }
 
+async function buildStagedReviewValue(
+  toolName: ToolId,
+  payload: unknown,
+  result: unknown,
+  context: ServerToolExecutionContext & { userId: string }
+) {
+  const staged: Record<string, unknown> = {
+    userId: context.userId,
+    toolName,
+    payload,
+    baseSignature: readBaseSignature(result),
+  }
+
+  if (toolName === 'set_environment_variables') {
+    const reviewPayload = await buildEnvironmentVariablesReviewPayload(payload, context)
+    staged.payload = reviewPayload.payload
+    staged.encryptedEnvironmentVariables = reviewPayload.encryptedVariables
+  }
+
+  return staged
+}
+
+function readEncryptedEnvironmentVariables(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Server tool review token is invalid or expired')
+  }
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([key, encrypted]) => {
+      if (typeof encrypted !== 'string') {
+        throw new Error('Server tool review token is invalid or expired')
+      }
+      return [key, encrypted]
+    })
+  )
+}
+
 export async function stageServerManagedToolReview(
   toolName: ToolId,
   payload: unknown,
@@ -67,15 +108,14 @@ export async function stageServerManagedToolReview(
   const reviewToken = nanoid()
   const now = new Date()
   const publicResult = stripReviewMetadata(result)
+  const stagedValue = await buildStagedReviewValue(toolName, payload, result, {
+    ...context,
+    userId: context.userId,
+  })
   await db.insert(verification).values({
     id: nanoid(),
     identifier: `${REVIEW_TOKEN_PREFIX}${reviewToken}`,
-    value: JSON.stringify({
-      userId: context.userId,
-      toolName,
-      payload,
-      baseSignature: readBaseSignature(result),
-    }),
+    value: JSON.stringify(stagedValue),
     expiresAt: new Date(now.getTime() + REVIEW_TOKEN_TTL_MS),
     createdAt: now,
     updatedAt: now,
@@ -109,13 +149,20 @@ export async function acceptServerManagedToolReview(
     throw new Error('Server tool review token is invalid or expired')
   }
 
-  let staged: { userId?: unknown; toolName?: unknown; payload?: unknown; baseSignature?: unknown }
+  let staged: {
+    userId?: unknown
+    toolName?: unknown
+    payload?: unknown
+    baseSignature?: unknown
+    encryptedEnvironmentVariables?: unknown
+  }
   try {
     staged = JSON.parse(row.value) as {
       userId?: unknown
       toolName?: unknown
       payload?: unknown
       baseSignature?: unknown
+      encryptedEnvironmentVariables?: unknown
     }
   } catch {
     throw new Error('Server tool review token is invalid or expired')
@@ -151,6 +198,14 @@ export async function acceptServerManagedToolReview(
     .returning({ id: verification.id })
   if (!deleted) {
     throw new Error('Server tool review token is invalid or expired')
+  }
+
+  if (toolName === 'set_environment_variables') {
+    return applyEncryptedEnvironmentVariablesForUser(
+      context.userId,
+      readEncryptedEnvironmentVariables(staged.encryptedEnvironmentVariables),
+      context
+    )
   }
 
   return routeExecution(toolName, staged.payload, {
