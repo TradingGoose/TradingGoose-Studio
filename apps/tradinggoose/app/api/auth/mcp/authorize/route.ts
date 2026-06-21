@@ -26,6 +26,8 @@ export async function POST(request: NextRequest) {
   const action = formData?.get('action')
   const approvalToken = formData?.get('approvalToken')
   const code = formData?.get('code')
+  const localeValue = formData?.get('locale')
+  const locale = normalizeLocaleCode(typeof localeValue === 'string' ? localeValue : undefined)
 
   if (
     (action !== 'approve' && action !== 'cancel') ||
@@ -34,11 +36,9 @@ export async function POST(request: NextRequest) {
     typeof code !== 'string' ||
     !code
   ) {
-    return redirectToAuthorizeStatus(request, 'en', 'invalid')
+    return redirectToAuthorizeStatus(request, locale, 'invalid')
   }
 
-  const localeValue = formData?.get('locale')
-  const locale = typeof localeValue === 'string' ? localeValue : 'en'
   const session = await getSession(request.headers)
   if (!session?.user?.id) {
     return redirectToLogin(request, locale, code)

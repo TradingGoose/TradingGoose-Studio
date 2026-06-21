@@ -103,11 +103,13 @@ describe('MCP authorize route', () => {
   it('rejects malformed confirmation submissions before auth mutation', async () => {
     const { POST } = await import('./route')
 
-    const response = await POST(createAuthorizeRequest({ action: 'approve', code: 'login-code' }))
+    const response = await POST(
+      createAuthorizeRequest({ action: 'approve', code: 'login-code', locale: 'es' })
+    )
 
     expect(response.status).toBe(307)
     expect(response.headers.get('location')).toBe(
-      'https://studio.example.test/en/mcp/authorize?status=invalid'
+      'https://studio.example.test/es/mcp/authorize?status=invalid'
     )
     expect(mockApproveMcpDeviceLogin).not.toHaveBeenCalled()
     expect(mockCancelMcpDeviceLogin).not.toHaveBeenCalled()
