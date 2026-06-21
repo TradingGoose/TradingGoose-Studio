@@ -115,9 +115,7 @@ async function resolveAuthToken() {
     return existingToken
   }
 
-  const login = await authenticate()
-  await confirmLogin(login)
-  return login.token
+  return authenticate()
 }
 
 async function authenticate() {
@@ -151,7 +149,7 @@ async function authenticate() {
       if (!token) {
         fail('Studio approved login without returning a token')
       }
-      return { code, verificationKey, token }
+      return token
     }
 
     if (status === 'expired') {
@@ -166,19 +164,6 @@ async function authenticate() {
   }
 
   fail('Timed out waiting for browser approval')
-}
-
-async function confirmLogin(login) {
-  const confirmJson = await postJson(baseUrl + '/api/auth/mcp/poll', {
-    code: login.code,
-    verificationKey: login.verificationKey,
-    confirm: true,
-    apiKey: login.token,
-  })
-  const status = String(confirmJson?.status || '')
-  if (status !== 'confirmed') {
-    fail('Studio could not confirm the delivered personal API key')
-  }
 }
 
 async function main() {

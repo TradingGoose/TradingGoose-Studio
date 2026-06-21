@@ -41,9 +41,9 @@ describe('MCP install route', () => {
     expect(script).toContain("baseUrl + '/api/auth/mcp/start'")
     expect(script).toContain("baseUrl + '/api/auth/mcp/poll'")
     expect(script).toContain('const verificationKey = String(startJson?.verificationKey ||')
-    expect(script).toContain('return { code, verificationKey, token }')
-    expect(script).toContain('confirm: true')
-    expect(script).toContain('apiKey: login.token')
+    expect(script).toContain('return token')
+    expect(script).not.toContain('confirmLogin')
+    expect(script).not.toContain('confirm: true')
     expect(script).toContain("baseUrl + '/api/copilot/mcp'")
     expect(script).toContain("method: 'ping'")
     expect(script).toContain('async function isTokenValid(token)')
@@ -67,14 +67,12 @@ describe('MCP install route', () => {
     expect(script).not.toContain('entityId')
 
     const printedTokenIndex = script.indexOf("console.log('Authorization: Bearer ' + token)")
-    const firstConfirmIndex = script.indexOf('await confirmLogin(login)')
-    const firstReturnTokenIndex = script.indexOf('return login.token')
+    const firstReturnTokenIndex = script.indexOf('return token')
     const setupIndex = script.indexOf("if (command === 'setup')")
     const configWriteIndex = script.indexOf(
       'const configPath = runConfigWriter([target, mcpUrl, token])'
     )
-    expect(printedTokenIndex).toBeGreaterThan(firstConfirmIndex)
-    expect(firstReturnTokenIndex).toBeGreaterThan(firstConfirmIndex)
+    expect(printedTokenIndex).toBeGreaterThan(firstReturnTokenIndex)
     expect(configWriteIndex).toBeGreaterThan(setupIndex)
   })
 

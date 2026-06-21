@@ -46,7 +46,6 @@ type DeviceLogin = {
 export type McpDeviceLoginPollResult =
   | { status: 'pending'; intervalSeconds: number; expiresAt: string }
   | { status: 'approved'; apiKey: string; expiresAt: string }
-  | { status: 'confirmed'; expiresAt: string }
   | { status: 'invalid' }
   | { status: 'expired' }
 
@@ -188,39 +187,29 @@ async function issueDeviceLoginPersonalApiKey(
     apiKeyEncrypted: encryptedKey,
   } satisfies IssuedDeviceLogin
 
-  return (await updateDeviceLoginState(login, nextState))
-    ? { status: 'approved', apiKey: plainKey, expiresAt: login.expiresAt.toISOString() }
-    : null
-}
-
-async function confirmDeviceLoginPersonalApiKey(
-  login: DeviceLogin,
-  issuedState: IssuedDeviceLogin,
-  plainKey: string
-): Promise<boolean> {
-  if (issuedState.apiKeyHash !== hashValue(plainKey)) {
-    return false
-  }
-
   const now = new Date()
-  const confirmed = await db.transaction(async (tx) => {
-    const [deleted] = await tx
-      .delete(verification)
-      .where(deviceLoginMatches(login, issuedState))
+  const issued = await db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(verification)
+      .set({
+        value: JSON.stringify(nextState),
+        updatedAt: now,
+      })
+      .where(deviceLoginMatches(login, approvedState))
       .returning({ id: verification.id })
 
-    if (!deleted) {
+    if (!updated) {
       return null
     }
 
     const [createdKey] = await tx
       .insert(apiKey)
       .values({
-        id: issuedState.keyId,
-        userId: issuedState.userId,
+        id: nextState.keyId,
+        userId: nextState.userId,
         workspaceId: null,
         name: `TradingGoose Personal Access ${now.toISOString()}`,
-        key: issuedState.apiKeyEncrypted,
+        key: nextState.apiKeyEncrypted,
         type: 'personal',
         createdAt: now,
         updatedAt: now,
@@ -230,7 +219,9 @@ async function confirmDeviceLoginPersonalApiKey(
     return createdKey
   })
 
-  return Boolean(confirmed)
+  return issued
+    ? { status: 'approved', apiKey: plainKey, expiresAt: login.expiresAt.toISOString() }
+    : null
 }
 
 export async function startMcpDeviceLogin(): Promise<McpDeviceLoginStartResult> {
@@ -301,8 +292,7 @@ export async function createMcpDeviceLoginApprovalChallenge(code: string, userId
 
 export async function pollMcpDeviceLogin(
   code: string,
-  verificationKey: string,
-  options: { confirm?: boolean; apiKey?: string } = {}
+  verificationKey: string
 ): Promise<McpDeviceLoginPollResult> {
   while (true) {
     const login = await readDeviceLogin(code)
@@ -323,21 +313,6 @@ export async function pollMcpDeviceLogin(
     }
 
     const approvedState = login.state
-
-    if (options.confirm) {
-      if (!isIssuedDeviceLogin(approvedState) || !options.apiKey) {
-        return { status: 'invalid' }
-      }
-
-      if (!(await confirmDeviceLoginPersonalApiKey(login, approvedState, options.apiKey))) {
-        return { status: 'invalid' }
-      }
-
-      return {
-        status: 'confirmed',
-        expiresAt: login.expiresAt.toISOString(),
-      }
-    }
 
     if (isIssuedDeviceLogin(approvedState)) {
       return {
