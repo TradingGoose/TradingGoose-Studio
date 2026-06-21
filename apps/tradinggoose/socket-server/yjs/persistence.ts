@@ -26,6 +26,14 @@ function isExpired(blob: YjsSessionBlob): boolean {
   return blob.expiresAt !== null && blob.expiresAt <= Date.now()
 }
 
+function evictOldestLocalEntries(): void {
+  while (localStore.size > MAX_LOCAL_ENTRIES) {
+    const oldest = localStore.keys().next().value
+    if (!oldest) return
+    localStore.delete(oldest)
+  }
+}
+
 async function readRedisUpdatedAt(sessionId: string): Promise<number | null> {
   const redis = getRedisClient()
   if (!redis) {
@@ -126,12 +134,7 @@ export async function storeState(sessionId: string, state: Uint8Array): Promise<
     expiresAt: touchedAt + TTL_MS,
   })
 
-  // Evict oldest entries if over the limit
-  while (localStore.size > MAX_LOCAL_ENTRIES) {
-    const oldest = Array.from(localStore.entries()).find(([, blob]) => blob.expiresAt !== null)?.[0]
-    if (oldest) localStore.delete(oldest)
-    else break
-  }
+  evictOldestLocalEntries()
 }
 
 export async function storeCanonicalState(sessionId: string, state: Uint8Array): Promise<void> {
@@ -152,6 +155,7 @@ export async function storeCanonicalState(sessionId: string, state: Uint8Array):
   if (blob) {
     blob.expiresAt = null
   }
+  evictOldestLocalEntries()
 }
 
 export async function hasSession(sessionId: string): Promise<boolean> {
