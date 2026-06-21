@@ -379,11 +379,9 @@ export const ToolArgSchemas = {
 
   [CopilotTool.read_environment_variables]: WorkspaceTargetArgs.strict(),
 
-  set_environment_variables: z
-    .object({
-      variables: z.record(z.string()),
-    })
-    .strict(),
+  set_environment_variables: WorkspaceTargetArgs.extend({
+    variables: z.record(z.string()),
+  }).strict(),
 
   [CopilotTool.read_oauth_credentials]: WorkspaceTargetArgs.strict(),
 

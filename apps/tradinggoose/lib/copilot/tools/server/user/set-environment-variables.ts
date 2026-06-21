@@ -9,14 +9,20 @@ import {
   type ServerToolExecutionContext,
   shouldStageServerToolMutationForReview,
   throwIfServerToolAborted,
+  withWorkspaceArgContext,
 } from '@/lib/copilot/tools/server/base-tool'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { encryptSecret } from '@/lib/utils-server'
 
 interface SetEnvironmentVariablesParams {
+  workspaceId?: string
   variables: Record<string, unknown>
 }
 
-const EnvVarSchema = z.object({ variables: z.record(z.string()) })
+const EnvVarSchema = z.object({
+  workspaceId: z.string().optional(),
+  variables: z.record(z.string()),
+})
 
 function hashEnvironmentVariableBase(entries: Array<[string, string | null]>): string {
   return hashServerToolReviewBase(entries.sort(([left], [right]) => left.localeCompare(right)))
@@ -28,19 +34,26 @@ function normalizeEnvVarInput(input: Record<string, unknown> | undefined): Recor
   ) as Record<string, string>
 }
 
-function parseEnvironmentVariablesPayload(payload: unknown): Record<string, string> {
-  const variables =
+function parseEnvironmentVariablesPayload(payload: unknown): {
+  workspaceId?: string
+  variables: Record<string, string>
+} {
+  const record =
     payload && typeof payload === 'object' && !Array.isArray(payload)
-      ? (payload as SetEnvironmentVariablesParams).variables
+      ? (payload as SetEnvironmentVariablesParams)
       : undefined
-  return EnvVarSchema.parse({ variables: normalizeEnvVarInput(variables) }).variables
+  const parsed = EnvVarSchema.parse({
+    workspaceId: record?.workspaceId,
+    variables: normalizeEnvVarInput(record?.variables),
+  })
+  return parsed
 }
 
-async function readEnvironmentVariableSummary(userId: string, variableNames: string[]) {
+async function readEnvironmentVariableSummary(workspaceId: string, variableNames: string[]) {
   const existingRows = await db
     .select({ key: environmentVariables.key, value: environmentVariables.value })
     .from(environmentVariables)
-    .where(eq(environmentVariables.userId, userId))
+    .where(eq(environmentVariables.workspaceId, workspaceId))
   const existingKeySet = new Set(existingRows.map((row) => row.key))
   const existingValueByKey = new Map(existingRows.map((row) => [row.key, row.value]))
   const added = variableNames.filter((key) => !existingKeySet.has(key))
@@ -77,7 +90,7 @@ async function encryptEnvironmentVariables(
 }
 
 async function writeEncryptedEnvironmentVariables(
-  userId: string,
+  workspaceId: string,
   encryptedVariables: Record<string, string>,
   context?: ServerToolExecutionContext
 ) {
@@ -88,12 +101,12 @@ async function writeEncryptedEnvironmentVariables(
         .insert(environmentVariables)
         .values({
           id: crypto.randomUUID(),
-          userId,
+          workspaceId,
           key,
           value: encrypted,
         })
         .onConflictDoUpdate({
-          target: [environmentVariables.userId, environmentVariables.key],
+          target: [environmentVariables.workspaceId, environmentVariables.key],
           set: {
             value: encrypted,
             updatedAt: new Date(),
@@ -110,21 +123,32 @@ export const setEnvironmentVariablesServerTool: BaseServerTool<SetEnvironmentVar
       params: SetEnvironmentVariablesParams,
       context?: ServerToolExecutionContext
     ): Promise<any> {
-      if (!context?.userId) {
+      const parsedPayload = parseEnvironmentVariablesPayload(params)
+      const scopedContext = withWorkspaceArgContext(context, parsedPayload)
+      if (!scopedContext?.userId) {
         throw new Error('Authentication required')
       }
 
-      const userId = context.userId
-      const validatedVariables = parseEnvironmentVariablesPayload(params)
-      const variableNames = Object.keys(validatedVariables)
-      throwIfServerToolAborted(context)
+      const userId = scopedContext.userId
+      const workspaceId = scopedContext.workspaceId
+      if (!workspaceId) {
+        throw new Error('workspaceId is required')
+      }
+      const workspaceAccess = await checkWorkspaceAccess(workspaceId, userId)
+      if (!workspaceAccess.exists || !workspaceAccess.hasAccess || !workspaceAccess.canWrite) {
+        throw new Error('Access denied: You do not have permission to edit this workspace')
+      }
 
-      const summary = await readEnvironmentVariableSummary(userId, variableNames)
+      const validatedVariables = parsedPayload.variables
+      const variableNames = Object.keys(validatedVariables)
+      throwIfServerToolAborted(scopedContext)
+
+      const summary = await readEnvironmentVariableSummary(workspaceId, variableNames)
       const reviewBaseStateHash = hashEnvironmentVariableBase(
         variableNames.map((key) => [key, summary.existingValueByKey.get(key) ?? null])
       )
 
-      if (shouldStageServerToolMutationForReview(context)) {
+      if (shouldStageServerToolMutationForReview(scopedContext)) {
         return {
           requiresReview: true,
           success: true,
@@ -133,9 +157,12 @@ export const setEnvironmentVariablesServerTool: BaseServerTool<SetEnvironmentVar
         }
       }
 
-      assertAcceptedServerToolReviewBase(context, reviewBaseStateHash)
-      const encryptedVariables = await encryptEnvironmentVariables(validatedVariables, context)
-      await writeEncryptedEnvironmentVariables(userId, encryptedVariables, context)
+      assertAcceptedServerToolReviewBase(scopedContext, reviewBaseStateHash)
+      const encryptedVariables = await encryptEnvironmentVariables(
+        validatedVariables,
+        scopedContext
+      )
+      await writeEncryptedEnvironmentVariables(workspaceId, encryptedVariables, scopedContext)
       return buildEnvironmentVariablesResult(variableNames, summary, 'Successfully processed')
     },
   }

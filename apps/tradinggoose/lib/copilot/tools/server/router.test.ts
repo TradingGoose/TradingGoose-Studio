@@ -487,6 +487,17 @@ describe('routeExecution', () => {
       { workspaceId: 'workspace-1' },
       context
     )
+
+    await expect(
+      routeExecution('set_environment_variables', { variables: { API_KEY: 'secret' } }, context)
+    ).resolves.toMatchObject({
+      message: 'ok',
+    })
+
+    expect(setEnvironmentVariablesExecute).toHaveBeenCalledWith(
+      { variables: { API_KEY: 'secret' }, workspaceId: 'workspace-1' },
+      context
+    )
   })
 
   it.each([
@@ -497,7 +508,7 @@ describe('routeExecution', () => {
     },
     {
       toolName: 'set_environment_variables',
-      payload: { variables: { API_KEY: 'secret' } },
+      payload: { workspaceId: 'workspace-123', variables: { API_KEY: 'secret' } },
       execute: setEnvironmentVariablesExecute,
     },
     {
