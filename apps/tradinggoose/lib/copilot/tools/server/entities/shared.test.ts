@@ -7,8 +7,7 @@ import {
   executeUpdateEntityDocumentMutation,
 } from './shared'
 
-const { mockApplySavedEntityDraftState, mockApplySavedEntityPersistedState } = vi.hoisted(() => ({
-  mockApplySavedEntityDraftState: vi.fn(),
+const { mockApplySavedEntityPersistedState } = vi.hoisted(() => ({
   mockApplySavedEntityPersistedState: vi.fn(),
 }))
 const mockCheckWorkspaceAccess = vi.hoisted(() => vi.fn())
@@ -24,7 +23,6 @@ vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
-  applySavedEntityDraftState: (...args: unknown[]) => mockApplySavedEntityDraftState(...args),
   applySavedEntityPersistedState: (...args: unknown[]) =>
     mockApplySavedEntityPersistedState(...args),
 }))
@@ -82,7 +80,7 @@ describe('entity document mutation helpers', () => {
     expect(mockReadBootstrappedSavedEntityFields).not.toHaveBeenCalled()
   })
 
-  it('accepts reviewed updates into the saved-entity draft without persisting', async () => {
+  it('persists accepted reviewed updates after verifying the reviewed base', async () => {
     const currentFields = {
       name: 'Existing Skill',
       description: 'Existing description',
@@ -110,8 +108,7 @@ describe('entity document mutation helpers', () => {
       }
     )
 
-    expect(mockApplySavedEntityDraftState).toHaveBeenCalledWith('skill', 'skill-1', nextFields)
-    expect(mockApplySavedEntityPersistedState).not.toHaveBeenCalled()
+    expect(mockApplySavedEntityPersistedState).toHaveBeenCalledWith('skill', 'skill-1', nextFields)
   })
 
   it('keeps Studio create mutations in review mode', async () => {
