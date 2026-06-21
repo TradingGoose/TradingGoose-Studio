@@ -470,6 +470,11 @@ describe('loadWorkflowExecutionBlueprint', () => {
 
     expect(result.workflowContext.variables).toEqual(deployedVariables)
     expect(result.workflowData.blocks.trigger?.subBlocks).toEqual({})
+    const selectShape = (mocks.dbSelect.mock.calls as unknown[][])[0]?.[0] as Record<
+      string,
+      unknown
+    >
+    expect(Object.keys(selectShape)).toEqual(['workspaceId'])
     expect(loadWorkflowState).not.toHaveBeenCalled()
   })
 })

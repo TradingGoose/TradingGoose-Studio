@@ -92,19 +92,27 @@ async function resolveRequiredWorkflowExecutionContext(
   let workflowRecord:
     | {
         workspaceId: string | null
-        variables: unknown
+        variables?: unknown
       }
     | undefined
 
   if (needsWorkflowRecord) {
-    ;[workflowRecord] = await db
-      .select({
-        workspaceId: workflowTable.workspaceId,
-        variables: workflowTable.variables,
-      })
-      .from(workflowTable)
-      .where(eq(workflowTable.id, workflowId))
-      .limit(1)
+    if (workflowContext?.variables === undefined) {
+      ;[workflowRecord] = await db
+        .select({
+          workspaceId: workflowTable.workspaceId,
+          variables: workflowTable.variables,
+        })
+        .from(workflowTable)
+        .where(eq(workflowTable.id, workflowId))
+        .limit(1)
+    } else {
+      ;[workflowRecord] = await db
+        .select({ workspaceId: workflowTable.workspaceId })
+        .from(workflowTable)
+        .where(eq(workflowTable.id, workflowId))
+        .limit(1)
+    }
   }
 
   const workspaceId = providedWorkspaceId ?? workflowRecord?.workspaceId
@@ -266,14 +274,16 @@ export async function loadWorkflowExecutionBlueprint(params: {
       : null
   const workflowContext = await resolveRequiredWorkflowExecutionContext(
     params.workflowId,
-    executionTarget === 'live' &&
-      liveWorkflowState &&
-      params.workflowContext?.variables === undefined
-      ? {
-          ...params.workflowContext,
-          variables: liveWorkflowState.variables,
-        }
-      : params.workflowContext
+    executionTarget === 'deployed'
+      ? { ...params.workflowContext, variables: {} }
+      : executionTarget === 'live' &&
+          liveWorkflowState &&
+          params.workflowContext?.variables === undefined
+        ? {
+            ...params.workflowContext,
+            variables: liveWorkflowState.variables,
+          }
+        : params.workflowContext
   )
   const workflowData =
     executionTarget === 'live'
