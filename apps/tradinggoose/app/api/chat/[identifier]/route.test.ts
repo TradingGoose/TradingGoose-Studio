@@ -50,7 +50,6 @@ vi.mock('@tradinggoose/db/schema', () => ({
     id: 'workflow.id',
     isDeployed: 'workflow.isDeployed',
     workspaceId: 'workflow.workspaceId',
-    variables: 'workflow.variables',
     pinnedApiKeyId: 'workflow.pinnedApiKeyId',
   },
 }))
@@ -280,6 +279,9 @@ describe('/api/chat/[identifier]', () => {
           executionTarget: 'deployed',
         }),
       })
+    )
+    expect(enqueuePendingExecutionMock.mock.calls[0]?.[0].payload).not.toHaveProperty(
+      'workflowVariables'
     )
 
     const body = await response.text()
