@@ -310,13 +310,17 @@ export async function pollMcpDeviceLogin(
       }
 
       if (!(await confirmMcpDeviceLoginKey(login, approvedState, options.apiKey))) {
-        continue
+        return { status: 'invalid' }
       }
 
       return {
         status: 'confirmed',
         expiresAt: login.expiresAt.toISOString(),
       }
+    }
+
+    if (isIssuedDeviceLogin(approvedState)) {
+      return { status: 'invalid' }
     }
 
     const issued = await issueMcpDeviceLoginKey(login, approvedState)
