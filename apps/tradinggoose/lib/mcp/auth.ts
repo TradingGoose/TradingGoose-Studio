@@ -3,10 +3,12 @@ import { db } from '@tradinggoose/db'
 import { apiKey, verification } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
-import { createApiKeyMaterial, encryptApiKey } from '@/lib/api-key/service'
+import { authenticateApiKey } from '@/lib/api-key/auth'
+import { decryptApiKey, encryptApiKey } from '@/lib/api-key/service'
 
 const DEVICE_LOGIN_TTL_MS = 10 * 60 * 1000
 const DEVICE_LOGIN_PREFIX = 'mcp:'
+const MCP_API_KEY_PREFIX = 'sk-tradinggoose-mcp.'
 const POLL_INTERVAL_SECONDS = 2
 
 type PendingDeviceLogin = {
@@ -25,11 +27,13 @@ type ApprovedDeviceLogin = {
   userId: string
   keyId?: string
   apiKeyHash?: string
+  apiKeyEncrypted?: string
 }
 
 type IssuedDeviceLogin = ApprovedDeviceLogin & {
   keyId: string
   apiKeyHash: string
+  apiKeyEncrypted: string
 }
 
 type DeviceLoginState = PendingDeviceLogin | ApprovedDeviceLogin
@@ -66,11 +70,21 @@ function hashValue(value: string) {
   return createHash('sha256').update(value).digest('hex')
 }
 
+function createMcpApiKey(keyId: string) {
+  return `${MCP_API_KEY_PREFIX}${keyId}.${randomBytes(32).toString('base64url')}`
+}
+
+function readMcpApiKeyId(value: string) {
+  const match = value.match(/^sk-tradinggoose-mcp\.([A-Za-z0-9_-]+)\.[A-Za-z0-9_-]+$/)
+  return match?.[1] ?? null
+}
+
 function isIssuedDeviceLogin(state: DeviceLoginState): state is IssuedDeviceLogin {
   return (
     state.status === 'approved' &&
     typeof state.keyId === 'string' &&
-    typeof state.apiKeyHash === 'string'
+    typeof state.apiKeyHash === 'string' &&
+    typeof state.apiKeyEncrypted === 'string'
   )
 }
 
@@ -90,9 +104,14 @@ function parseDeviceLoginState(value: string): DeviceLoginState | null {
     ) {
       return parsed as PendingDeviceLogin
     }
-    const approvedHasNoKey = parsed.keyId === undefined && parsed.apiKeyHash === undefined
+    const approvedHasNoKey =
+      parsed.keyId === undefined &&
+      parsed.apiKeyHash === undefined &&
+      parsed.apiKeyEncrypted === undefined
     const approvedHasIssuedKey =
-      typeof parsed.keyId === 'string' && typeof parsed.apiKeyHash === 'string'
+      typeof parsed.keyId === 'string' &&
+      typeof parsed.apiKeyHash === 'string' &&
+      typeof parsed.apiKeyEncrypted === 'string'
     if (
       parsed.status === 'approved' &&
       typeof parsed.createdAt === 'string' &&
@@ -159,16 +178,18 @@ async function issueMcpDeviceLoginKey(
   approvedState: ApprovedDeviceLogin
 ): Promise<McpDeviceLoginPollResult | null> {
   const keyId = nanoid()
-  const createdKey = await createApiKeyMaterial(false)
+  const plainKey = createMcpApiKey(keyId)
+  const encryptedKey = (await encryptApiKey(plainKey)).encrypted
 
   const nextState = {
     ...approvedState,
     keyId,
-    apiKeyHash: hashValue(createdKey.key),
+    apiKeyHash: hashValue(plainKey),
+    apiKeyEncrypted: encryptedKey,
   } satisfies IssuedDeviceLogin
 
   return (await updateDeviceLoginState(login, nextState))
-    ? { status: 'approved', apiKey: createdKey.key, expiresAt: login.expiresAt.toISOString() }
+    ? { status: 'approved', apiKey: plainKey, expiresAt: login.expiresAt.toISOString() }
     : null
 }
 
@@ -182,7 +203,6 @@ async function confirmMcpDeviceLoginKey(
   }
 
   const now = new Date()
-  const encryptedKey = (await encryptApiKey(plainKey)).encrypted
   const confirmed = await db.transaction(async (tx) => {
     const [deleted] = await tx
       .delete(verification)
@@ -200,7 +220,7 @@ async function confirmMcpDeviceLoginKey(
         userId: issuedState.userId,
         workspaceId: null,
         name: `TradingGoose MCP ${now.toISOString()}`,
-        key: encryptedKey,
+        key: issuedState.apiKeyEncrypted,
         type: 'personal',
         createdAt: now,
         updatedAt: now,
@@ -320,7 +340,11 @@ export async function pollMcpDeviceLogin(
     }
 
     if (isIssuedDeviceLogin(approvedState)) {
-      return { status: 'invalid' }
+      return {
+        status: 'approved',
+        apiKey: (await decryptApiKey(approvedState.apiKeyEncrypted)).decrypted,
+        expiresAt: login.expiresAt.toISOString(),
+      }
     }
 
     const issued = await issueMcpDeviceLoginKey(login, approvedState)
@@ -409,4 +433,31 @@ export async function cancelMcpDeviceLogin({
   }
 
   return { status: 'cancelled' }
+}
+
+export async function authenticateMcpApiKey(token: string) {
+  const keyId = readMcpApiKeyId(token)
+  if (!keyId) {
+    return { success: false as const }
+  }
+
+  const [storedKey] = await db
+    .select({
+      id: apiKey.id,
+      userId: apiKey.userId,
+      key: apiKey.key,
+      expiresAt: apiKey.expiresAt,
+    })
+    .from(apiKey)
+    .where(and(eq(apiKey.id, keyId), eq(apiKey.type, 'personal')))
+    .limit(1)
+
+  if (!storedKey || (storedKey.expiresAt && storedKey.expiresAt < new Date())) {
+    return { success: false as const }
+  }
+
+  const success = storedKey.key === token || (await authenticateApiKey(token, storedKey.key))
+  return success
+    ? { success: true as const, userId: storedKey.userId, keyId: storedKey.id }
+    : { success: false as const }
 }
