@@ -73,6 +73,7 @@ type WorkflowSummary = {
 }
 
 type WorkflowVariableDocumentEntry = {
+  variableId?: string
   name: string
   type: WorkflowVariableType
   value?: unknown
@@ -82,6 +83,7 @@ const WorkflowVariableDocumentSchema = z
   .object({
     variables: z.array(
       z.object({
+        variableId: z.string().trim().min(1).optional(),
         name: z.string().trim().min(1),
         type: z.string().trim().min(1),
         value: z.unknown().optional(),
@@ -234,25 +236,11 @@ export async function loadWorkflowSnapshotForCopilot(
   }
 }
 
-function buildVariablesByName(variables: Record<string, any>): Record<string, any> {
-  const byName: Record<string, any> = {}
-  Object.values(variables).forEach((variable: any) => {
-    if (
-      variable &&
-      typeof variable === 'object' &&
-      typeof variable.id === 'string' &&
-      typeof variable.name === 'string'
-    ) {
-      byName[variable.name] = variable
-    }
-  })
-  return byName
-}
-
 function serializeWorkflowVariableDocument(variables: Record<string, any>): string {
   const entries = Object.values(variables)
     .filter((variable: any) => variable && typeof variable === 'object')
     .map((variable: any) => ({
+      variableId: String(variable.id ?? ''),
       name: String(variable.name ?? ''),
       type: isWorkflowVariableType(variable.type) ? variable.type : 'plain',
       value: variable.value ?? '',
@@ -266,8 +254,17 @@ function serializeWorkflowVariableDocument(variables: Record<string, any>): stri
 function parseWorkflowVariableDocument(entityDocument: string): WorkflowVariableDocumentEntry[] {
   const parsed = WorkflowVariableDocumentSchema.parse(JSON.parse(entityDocument))
   const seenNames = new Set<string>()
+  const seenVariableIds = new Set<string>()
 
   return parsed.variables.map((variable) => {
+    const variableId = variable.variableId?.trim()
+    if (variableId) {
+      if (seenVariableIds.has(variableId)) {
+        throw new Error(`Duplicate workflow variableId: ${variableId}`)
+      }
+      seenVariableIds.add(variableId)
+    }
+
     const name = variable.name.trim()
     if (seenNames.has(name)) {
       throw new Error(`Duplicate workflow variable name: ${name}`)
@@ -279,6 +276,7 @@ function parseWorkflowVariableDocument(entityDocument: string): WorkflowVariable
     }
 
     return {
+      ...(variableId ? { variableId } : {}),
       name,
       type: variable.type,
       value: variable.value,
@@ -301,16 +299,13 @@ function normalizeWorkflowVariableValue(value: unknown, type: WorkflowVariableTy
 
 function buildWorkflowVariablesFromDocument(input: {
   workflowId: string
-  currentVariables: Record<string, any>
   entityDocument: string
 }): Record<string, any> {
-  const existingByName = buildVariablesByName(input.currentVariables)
   const entries = parseWorkflowVariableDocument(input.entityDocument)
 
   return Object.fromEntries(
     entries.map((entry) => {
-      const existing = existingByName[entry.name]
-      const id = typeof existing?.id === 'string' ? existing.id : crypto.randomUUID()
+      const id = entry.variableId ?? crypto.randomUUID()
       return [
         id,
         {
@@ -396,7 +391,6 @@ export const editWorkflowVariableServerTool: BaseServerTool<
     )
     const nextVariables = buildWorkflowVariablesFromDocument({
       workflowId,
-      currentVariables: variables,
       entityDocument: args.entityDocument,
     })
     const nextDocument = serializeWorkflowVariableDocument(nextVariables)

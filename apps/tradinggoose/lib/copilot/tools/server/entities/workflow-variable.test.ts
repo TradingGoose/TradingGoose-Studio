@@ -94,18 +94,18 @@ describe('workflow variable server tools', () => {
 
     expect(result.workflowVariableDocumentFormat).toBe(WORKFLOW_VARIABLE_DOCUMENT_FORMAT)
     expect(JSON.parse(result.workflowVariableDocument)).toEqual({
-      variables: [{ name: 'riskLimit', type: 'number', value: 10 }],
+      variables: [{ variableId: 'var-1', name: 'riskLimit', type: 'number', value: 10 }],
     })
   })
 
-  it('prepares a document-diff review while preserving existing variable ids by name', async () => {
+  it('prepares a document-diff review while preserving existing variable ids', async () => {
     const result = await editWorkflowVariableServerTool.execute(
       {
         entityId: 'wf-1',
         documentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
         entityDocument: JSON.stringify({
           variables: [
-            { name: 'riskLimit', type: 'number', value: 25 },
+            { variableId: 'var-1', name: 'riskLimit', type: 'number', value: 25 },
             { name: 'enabled', type: 'boolean', value: true },
           ],
         }),
@@ -148,7 +148,7 @@ describe('workflow variable server tools', () => {
         documentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
         entityDocument: JSON.stringify({
           variables: [
-            { name: 'riskLimit', type: 'number', value: 25 },
+            { variableId: 'var-1', name: 'riskLimit', type: 'number', value: 25 },
             { name: 'enabled', type: 'boolean', value: true },
           ],
         }),
@@ -181,13 +181,16 @@ describe('workflow variable server tools', () => {
         entityId: 'wf-1',
         documentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
         entityDocument: JSON.stringify({
-          variables: [{ name: 'riskLimit', type: 'number', value: 25 }],
+          variables: [{ variableId: 'var-1', name: 'riskLimit', type: 'number', value: 25 }],
         }),
       },
       { userId: 'user-1', accessLevel: 'limited' }
     )
 
-    await acceptWorkflowDocumentReview('edit_workflow_variable', result, { userId: 'user-1', accessLevel: 'limited' })
+    await acceptWorkflowDocumentReview('edit_workflow_variable', result, {
+      userId: 'user-1',
+      accessLevel: 'limited',
+    })
 
     expect(mockApplyWorkflowState).toHaveBeenCalledWith(
       'wf-1',
