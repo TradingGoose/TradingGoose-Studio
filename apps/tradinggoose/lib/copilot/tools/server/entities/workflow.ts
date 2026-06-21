@@ -69,7 +69,7 @@ type WorkflowSummary = {
 }
 
 type WorkflowVariableDocumentEntry = {
-  variableId?: string
+  variableId: string
   name: string
   type: WorkflowVariableType
   value?: unknown
@@ -79,7 +79,7 @@ const WorkflowVariableDocumentSchema = z
   .object({
     variables: z.array(
       z.object({
-        variableId: z.string().trim().min(1).optional(),
+        variableId: z.string().trim().min(1),
         name: z.string().trim().min(1),
         type: z.string().trim().min(1),
         value: z.unknown().optional(),
@@ -253,13 +253,11 @@ function parseWorkflowVariableDocument(entityDocument: string): WorkflowVariable
   const seenVariableIds = new Set<string>()
 
   return parsed.variables.map((variable) => {
-    const variableId = variable.variableId?.trim()
-    if (variableId) {
-      if (seenVariableIds.has(variableId)) {
-        throw new Error(`Duplicate workflow variableId: ${variableId}`)
-      }
-      seenVariableIds.add(variableId)
+    const variableId = variable.variableId.trim()
+    if (seenVariableIds.has(variableId)) {
+      throw new Error(`Duplicate workflow variableId: ${variableId}`)
     }
+    seenVariableIds.add(variableId)
 
     const name = variable.name.trim()
     if (seenNames.has(name)) {
@@ -272,7 +270,7 @@ function parseWorkflowVariableDocument(entityDocument: string): WorkflowVariable
     }
 
     return {
-      ...(variableId ? { variableId } : {}),
+      variableId,
       name,
       type: variable.type,
       value: variable.value,
@@ -301,7 +299,7 @@ function buildWorkflowVariablesFromDocument(input: {
 
   return Object.fromEntries(
     entries.map((entry) => {
-      const id = entry.variableId ?? crypto.randomUUID()
+      const id = entry.variableId
       return [
         id,
         {

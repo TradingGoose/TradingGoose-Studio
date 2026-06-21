@@ -80,9 +80,6 @@ describe('workflow variable server tools', () => {
         },
       }),
     })
-    vi.stubGlobal('crypto', {
-      randomUUID: vi.fn(() => 'var-2'),
-    })
   })
 
   it('returns workflow variables through read_workflow', async () => {
@@ -105,7 +102,7 @@ describe('workflow variable server tools', () => {
         entityDocument: JSON.stringify({
           variables: [
             { variableId: 'var-1', name: 'riskLimit', type: 'number', value: 25 },
-            { name: 'enabled', type: 'boolean', value: true },
+            { variableId: 'var-2', name: 'enabled', type: 'boolean', value: true },
           ],
         }),
       },
@@ -148,7 +145,7 @@ describe('workflow variable server tools', () => {
         entityDocument: JSON.stringify({
           variables: [
             { variableId: 'var-1', name: 'riskLimit', type: 'number', value: 25 },
-            { name: 'enabled', type: 'boolean', value: true },
+            { variableId: 'var-2', name: 'enabled', type: 'boolean', value: true },
           ],
         }),
       },
@@ -174,4 +171,20 @@ describe('workflow variable server tools', () => {
     )
   })
 
+  it('rejects replacement documents that omit variable ids', async () => {
+    await expect(
+      editWorkflowVariableServerTool.execute(
+        {
+          entityId: 'wf-1',
+          documentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
+          entityDocument: JSON.stringify({
+            variables: [{ name: 'riskLimit', type: 'number', value: 25 }],
+          }),
+        },
+        { userId: 'user-1', accessLevel: 'full' }
+      )
+    ).rejects.toThrow()
+
+    expect(mockApplyWorkflowState).not.toHaveBeenCalled()
+  })
 })
