@@ -264,7 +264,7 @@ async function handleInternalYjsEntityApplyRequest(
         payload: body.fields,
       })
       clearSessionReseededFromCanonical(doc)
-      await storeCanonicalState(entityId, Y.encodeStateAsUpdate(doc))
+      await storeState(entityId, Y.encodeStateAsUpdate(doc))
     } finally {
       if (!liveDoc) doc.destroy()
     }

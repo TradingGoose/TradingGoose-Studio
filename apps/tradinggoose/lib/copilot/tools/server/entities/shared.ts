@@ -19,7 +19,10 @@ import {
 } from '@/lib/copilot/tools/server/base-tool'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
-import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
+import {
+  applySavedEntityState,
+  applySavedEntityStateToYjs,
+} from '@/lib/yjs/server/apply-entity-state'
 import { readBootstrappedSavedEntityFields } from '@/lib/yjs/server/bootstrap-review-target'
 
 export type SavedEntityDocumentKind = EntityDocumentKind
@@ -299,7 +302,9 @@ export async function executeUpdateEntityDocumentMutation(
     )
   }
 
-  if (apply) {
+  if (context?.acceptedReviewBaseStateHash) {
+    await applySavedEntityStateToYjs(kind as SavedEntityKind, entityId, fields)
+  } else if (apply) {
     await apply({ entityId, fields, workspaceId })
   } else {
     await applySavedEntityDocument(kind, entityId, fields)

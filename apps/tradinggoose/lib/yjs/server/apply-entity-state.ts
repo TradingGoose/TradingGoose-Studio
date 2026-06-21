@@ -11,7 +11,7 @@ import * as Y from 'yjs'
 import { seedEntitySession } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { applyEntityStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
-import { storeCanonicalState } from '@/socket-server/yjs/persistence'
+import { storeState } from '@/socket-server/yjs/persistence'
 
 function parseObjectJson(value: unknown, fieldName: string): Record<string, unknown> {
   const parsed = JSON.parse(String(value ?? ''))
@@ -112,7 +112,7 @@ async function persistSavedEntityState(
   }
 }
 
-export async function applySavedEntityState(
+export async function applySavedEntityStateToYjs(
   entityKind: SavedEntityKind,
   entityId: string,
   fields: Record<string, unknown>
@@ -123,11 +123,18 @@ export async function applySavedEntityState(
     const doc = new Y.Doc()
     try {
       seedEntitySession(doc, { entityKind, payload: fields })
-      await storeCanonicalState(entityId, Y.encodeStateAsUpdate(doc))
+      await storeState(entityId, Y.encodeStateAsUpdate(doc))
     } finally {
       doc.destroy()
     }
   }
+}
 
+export async function applySavedEntityState(
+  entityKind: SavedEntityKind,
+  entityId: string,
+  fields: Record<string, unknown>
+): Promise<void> {
+  await applySavedEntityStateToYjs(entityKind, entityId, fields)
   await persistSavedEntityState(entityKind, entityId, fields)
 }

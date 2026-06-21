@@ -27,6 +27,7 @@ import {
 import {
   getState as getPersistedYjsState,
   storeCanonicalState,
+  storeState,
 } from '@/socket-server/yjs/persistence'
 
 export class ReviewTargetBootstrapError extends Error {
@@ -195,7 +196,10 @@ async function bootstrapSavedEntityFromDb(
       metadata.set('entityName', workflowName)
     }
     const state = Y.encodeStateAsUpdate(doc)
-    await storeCanonicalState(descriptor.yjsSessionId, state)
+    await (descriptor.entityKind === 'workflow' ? storeCanonicalState : storeState)(
+      descriptor.yjsSessionId,
+      state
+    )
 
     return {
       descriptor,
