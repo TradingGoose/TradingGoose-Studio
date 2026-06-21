@@ -166,4 +166,24 @@ describe('Copilot MCP route', () => {
     expect(body.result.structuredContent).toEqual({ workflows: [] })
     expect(body.result.content[0].text).toBe(JSON.stringify({ workflows: [] }, null, 2))
   })
+
+  it('returns per-entry invalid request errors for malformed batches', async () => {
+    const { POST } = await import('./route')
+
+    const response = await POST(createMcpRequest([null]))
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body).toEqual([
+      {
+        jsonrpc: '2.0',
+        id: null,
+        error: {
+          code: -32600,
+          message: 'Invalid JSON-RPC request',
+        },
+      },
+    ])
+    expect(mockRouteExecution).not.toHaveBeenCalled()
+  })
 })

@@ -137,7 +137,16 @@ function getToolCallParams(params: unknown) {
   }
 }
 
-async function handleJsonRpcRequest(request: JsonRpcRequest, auth: AuthenticatedMcpUser) {
+function isJsonRpcRequest(value: unknown): value is JsonRpcRequest {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+async function handleJsonRpcRequest(entry: unknown, auth: AuthenticatedMcpUser) {
+  if (!isJsonRpcRequest(entry)) {
+    return jsonRpcError(null, -32600, 'Invalid JSON-RPC request')
+  }
+
+  const request = entry
   const id = request.id ?? null
   if (typeof request.method !== 'string') {
     return jsonRpcError(id, -32600, 'Invalid JSON-RPC request')
