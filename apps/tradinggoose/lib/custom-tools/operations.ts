@@ -72,6 +72,16 @@ export async function upsertCustomTools({
           .limit(1)
 
         if (existingTool.length > 0) {
+          const duplicateTitle = await tx
+            .select({ id: customTools.id })
+            .from(customTools)
+            .where(and(eq(customTools.workspaceId, workspaceId), eq(customTools.title, tool.title)))
+            .limit(1)
+
+          if (duplicateTitle.length > 0 && duplicateTitle[0].id !== tool.id) {
+            throw new Error(`A tool with the title "${tool.title}" already exists in this workspace`)
+          }
+
           logger.info(`[${requestId}] Updated custom tool ${tool.id}`)
           updatedRows.push({
             ...existingTool[0],
