@@ -1,12 +1,8 @@
 import { db, workflow } from '@tradinggoose/db'
 import { eq } from 'drizzle-orm'
 import * as Y from 'yjs'
-import { getRedisStorageMode } from '@/lib/redis'
 import { saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
-import {
-  applyWorkflowStateInSocketServer,
-  SocketServerBridgeError,
-} from '@/lib/yjs/server/snapshot-bridge'
+import { applyWorkflowStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import {
   createWorkflowSnapshot,
   replaceWorkflowDocumentState,
@@ -42,11 +38,7 @@ async function applyWorkflowStateToYjs(
 ) {
   try {
     await applyWorkflowStateInSocketServer(workflowId, workflowState, variables, entityName)
-  } catch (error) {
-    if (error instanceof SocketServerBridgeError || getRedisStorageMode() !== 'redis') {
-      throw error
-    }
-
+  } catch {
     await storeWorkflowStateDirectly(workflowId, workflowState, variables, entityName)
   }
 }
