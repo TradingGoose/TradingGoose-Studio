@@ -8,7 +8,7 @@ import { decryptApiKey, encryptApiKey } from '@/lib/api-key/service'
 
 const DEVICE_LOGIN_TTL_MS = 10 * 60 * 1000
 const DEVICE_LOGIN_PREFIX = 'mcp:'
-const MCP_API_KEY_PREFIX = 'sk-tradinggoose-mcp.'
+const DEVICE_PERSONAL_API_KEY_PREFIX = 'sk-tradinggoose-pat.'
 const POLL_INTERVAL_SECONDS = 2
 
 type PendingDeviceLogin = {
@@ -70,12 +70,12 @@ function hashValue(value: string) {
   return createHash('sha256').update(value).digest('hex')
 }
 
-function createMcpApiKey(keyId: string) {
-  return `${MCP_API_KEY_PREFIX}${keyId}.${randomBytes(32).toString('base64url')}`
+function createDevicePersonalApiKey(keyId: string) {
+  return `${DEVICE_PERSONAL_API_KEY_PREFIX}${keyId}.${randomBytes(32).toString('base64url')}`
 }
 
-function readMcpApiKeyId(value: string) {
-  const match = value.match(/^sk-tradinggoose-mcp\.([A-Za-z0-9_-]+)\.[A-Za-z0-9_-]+$/)
+function readDevicePersonalApiKeyId(value: string) {
+  const match = value.match(/^sk-tradinggoose-pat\.([A-Za-z0-9_-]+)\.[A-Za-z0-9_-]+$/)
   return match?.[1] ?? null
 }
 
@@ -173,12 +173,12 @@ async function updateDeviceLoginState(
   return Boolean(updated)
 }
 
-async function issueMcpDeviceLoginKey(
+async function issueDeviceLoginPersonalApiKey(
   login: DeviceLogin,
   approvedState: ApprovedDeviceLogin
 ): Promise<McpDeviceLoginPollResult | null> {
   const keyId = nanoid()
-  const plainKey = createMcpApiKey(keyId)
+  const plainKey = createDevicePersonalApiKey(keyId)
   const encryptedKey = (await encryptApiKey(plainKey)).encrypted
 
   const nextState = {
@@ -193,7 +193,7 @@ async function issueMcpDeviceLoginKey(
     : null
 }
 
-async function confirmMcpDeviceLoginKey(
+async function confirmDeviceLoginPersonalApiKey(
   login: DeviceLogin,
   issuedState: IssuedDeviceLogin,
   plainKey: string
@@ -219,7 +219,7 @@ async function confirmMcpDeviceLoginKey(
         id: issuedState.keyId,
         userId: issuedState.userId,
         workspaceId: null,
-        name: `TradingGoose MCP ${now.toISOString()}`,
+        name: `TradingGoose Personal Access ${now.toISOString()}`,
         key: issuedState.apiKeyEncrypted,
         type: 'personal',
         createdAt: now,
@@ -329,7 +329,7 @@ export async function pollMcpDeviceLogin(
         return { status: 'invalid' }
       }
 
-      if (!(await confirmMcpDeviceLoginKey(login, approvedState, options.apiKey))) {
+      if (!(await confirmDeviceLoginPersonalApiKey(login, approvedState, options.apiKey))) {
         return { status: 'invalid' }
       }
 
@@ -347,7 +347,7 @@ export async function pollMcpDeviceLogin(
       }
     }
 
-    const issued = await issueMcpDeviceLoginKey(login, approvedState)
+    const issued = await issueDeviceLoginPersonalApiKey(login, approvedState)
     if (!issued) {
       continue
     }
@@ -436,7 +436,7 @@ export async function cancelMcpDeviceLogin({
 }
 
 export async function authenticateMcpApiKey(token: string) {
-  const keyId = readMcpApiKeyId(token)
+  const keyId = readDevicePersonalApiKeyId(token)
   if (!keyId) {
     return { success: false as const }
   }

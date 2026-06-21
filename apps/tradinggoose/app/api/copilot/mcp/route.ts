@@ -75,7 +75,7 @@ async function authenticateCopilotMcpRequest(
 
   const auth = await authenticateMcpApiKey(token)
   if (!auth.success || !auth.userId) {
-    return { error: 'Invalid Copilot MCP bearer token' }
+    return { error: 'Invalid TradingGoose personal API key' }
   }
 
   if (auth.keyId) {

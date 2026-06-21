@@ -137,7 +137,7 @@ async function authenticate() {
     fail('Studio did not return an authorization URL')
   }
 
-  console.log('Open this URL in your browser to approve MCP access:')
+  console.log('Open this URL in your browser to approve a personal API key:')
   console.log(authorizeUrl)
   console.log('')
 
@@ -177,7 +177,7 @@ async function confirmLogin(login) {
   })
   const status = String(confirmJson?.status || '')
   if (status !== 'confirmed') {
-    fail('Studio could not confirm the delivered MCP token')
+    fail('Studio could not confirm the delivered personal API key')
   }
 }
 
@@ -248,7 +248,7 @@ PowerShell:
   irm <studio-url>/mcp/login | iex
 
 Commands:
-  login   Print a valid local MCP bearer token, authenticating when needed.
+  login   Print a valid local personal API bearer token, authenticating when needed.
   setup   Write MCP config, authenticating when needed.
 
 Options:
@@ -367,7 +367,7 @@ POSIX shell:
   curl -fsSL <studio-url>/mcp/login | sh
 
 Commands:
-  login   Print a valid local MCP bearer token, authenticating when needed.
+  login   Print a valid local personal API bearer token, authenticating when needed.
   setup   Write MCP config, authenticating when needed.
 
 Options:

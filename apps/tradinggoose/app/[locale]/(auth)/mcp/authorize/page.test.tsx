@@ -89,7 +89,7 @@ describe('MCP authorize page', () => {
     const markup = renderToStaticMarkup(result)
 
     expect(mockCreateMcpDeviceLoginApprovalChallenge).toHaveBeenCalledWith('login-code', 'user-1')
-    expect(markup).toContain('Aprobar acceso MCP')
+    expect(markup).toContain('Aprobar clave API personal')
     expect(markup).toContain('method="post"')
     expect(markup).toContain('action="/api/auth/mcp/authorize"')
     expect(markup).toContain('name="approvalToken"')

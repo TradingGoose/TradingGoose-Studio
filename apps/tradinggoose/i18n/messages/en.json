@@ -360,9 +360,9 @@
     "mcp": {
       "eyebrow": "MCP authorization",
       "confirm": {
-        "title": "Approve MCP access",
-        "description": "A local TradingGoose MCP setup command is requesting an API key for this account.",
-        "approve": "Approve access",
+        "title": "Approve personal API key",
+        "description": "A local TradingGoose MCP setup command is requesting a personal API key for this account.",
+        "approve": "Approve key",
         "cancel": "Cancel",
         "terminalHint": "Only approve this if you started the setup or login command in your own terminal."
       },
@@ -375,7 +375,7 @@
         "description": "Return to your terminal and run the TradingGoose MCP login command again."
       },
       "approved": {
-        "title": "MCP login approved",
+        "title": "Personal API key approved",
         "description": "Return to your terminal to finish configuring your local agent."
       },
       "cancelled": {
