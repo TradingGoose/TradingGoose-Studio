@@ -1299,6 +1299,7 @@ describe('copilot streaming regressions', () => {
     const assistantMessageId = 'assistant-message-limited-edit'
     const reviewResult = {
       requiresReview: true,
+      reviewToken: 'review-token-limited-edit',
       entityKind: 'workflow',
       entityId: 'wf-limited-edit',
       entityDocument: 'flowchart TD',
@@ -2188,7 +2189,6 @@ describe('copilot streaming regressions', () => {
     })
     expect(parseJsonRequestBody(executeRequest)).toEqual({
       toolName: 'list_workflows',
-      accessLevel: 'limited',
       payload: {
         workspaceId: 'workspace-1',
       },
@@ -2889,6 +2889,7 @@ describe('copilot tool user action delegation', () => {
     const store = getCopilotStore(channelId)
     const reviewResult = {
       requiresReview: true,
+      reviewToken: 'review-token-edit-workflow-order',
       entityKind: 'workflow',
       entityId: 'wf-edit-workflow-order',
       entityDocument:
@@ -2950,7 +2951,6 @@ describe('copilot tool user action delegation', () => {
     })
     expect(parseJsonRequestBody(executeRequest)).toEqual({
       toolName: 'edit_workflow',
-      accessLevel: 'limited',
       payload: {
         entityDocument:
           'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
@@ -2966,6 +2966,7 @@ describe('copilot tool user action delegation', () => {
     const store = getCopilotStore(channelId)
     const reviewResult = {
       requiresReview: true,
+      reviewToken: 'review-token-edit-workflow-review',
       entityKind: 'workflow',
       entityId: 'wf-edit-workflow-review',
       entityDocument:
@@ -3035,9 +3036,8 @@ describe('copilot tool user action delegation', () => {
     })
     expect(parseJsonRequestBody(executeRequest)).toEqual({
       toolName: 'edit_workflow',
-      accessLevel: 'limited',
       reviewAction: 'accept',
-      reviewResult,
+      reviewToken: 'review-token-edit-workflow-review',
     })
     expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.success)
   })
@@ -3107,7 +3107,6 @@ describe('copilot tool user action delegation', () => {
       })
       expect(parseJsonRequestBody(executeRequest)).toEqual({
         toolName: 'make_api_request',
-        accessLevel: 'full',
         payload: {
           url: 'https://example.com/data',
           method: 'GET',

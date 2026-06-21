@@ -13,20 +13,21 @@ import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 
 const logger = createLogger('ExecuteCopilotServerToolAPI')
 
-const ExecuteSchema = z.object({
-  toolName: z.string().min(1),
-  payload: z.unknown().optional(),
-  accessLevel: z.enum(['limited', 'full']),
-  reviewAction: z.enum(['accept']).optional(),
-  reviewResult: z.unknown().optional(),
-  context: z
-    .object({
-      contextEntityKind: z.enum(REVIEW_ENTITY_KINDS).optional(),
-      contextEntityId: z.string().optional(),
-      workspaceId: z.string().optional(),
-    })
-    .optional(),
-})
+const ExecuteSchema = z
+  .object({
+    toolName: z.string().min(1),
+    payload: z.unknown().optional(),
+    reviewAction: z.enum(['accept']).optional(),
+    reviewToken: z.string().optional(),
+    context: z
+      .object({
+        contextEntityKind: z.enum(REVIEW_ENTITY_KINDS).optional(),
+        contextEntityId: z.string().optional(),
+        workspaceId: z.string().optional(),
+      })
+      .optional(),
+  })
+  .strict()
 
 function readPayloadWorkspaceId(payload: unknown): string | undefined {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
@@ -67,7 +68,10 @@ export async function POST(req: NextRequest) {
       throw error
     }
     toolName = parsedBody.toolName
-    const { payload, accessLevel, context, reviewAction, reviewResult } = parsedBody
+    const { payload, context, reviewAction, reviewToken } = parsedBody
+    if (reviewAction === 'accept' && !reviewToken) {
+      return createBadRequestResponse('reviewToken is required to accept a server tool review')
+    }
     const payloadWorkspaceId = readPayloadWorkspaceId(payload)
     const contextWorkspaceId = context?.workspaceId?.trim()
 
@@ -80,7 +84,11 @@ export async function POST(req: NextRequest) {
         ? { ...(context ?? {}), workspaceId: payloadWorkspaceId }
         : context
 
-    const [{ isToolId }, { routeExecution }, { acceptServerManagedToolReview }] =
+    const [
+      { isToolId },
+      { routeExecution },
+      { acceptServerManagedToolReview, stageServerManagedToolReview },
+    ] =
       await Promise.all([
         import('@/lib/copilot/registry'),
         import('@/lib/copilot/tools/server/router'),
@@ -90,8 +98,9 @@ export async function POST(req: NextRequest) {
     if (!isToolId(toolName)) {
       return createBadRequestResponse('Invalid request body for execute-copilot-server-tool')
     }
+    const toolId = toolName
 
-    logger.info(`[${tracker.requestId}] Executing server tool`, { toolName, reviewAction })
+    logger.info(`[${tracker.requestId}] Executing server tool`, { toolName: toolId, reviewAction })
     if (executionContextInput?.workspaceId) {
       const workspaceAccess = await checkWorkspaceAccess(executionContextInput.workspaceId, userId)
       if (!workspaceAccess.exists || !workspaceAccess.hasAccess) {
@@ -104,14 +113,15 @@ export async function POST(req: NextRequest) {
 
     const executionContext = {
       userId,
-      accessLevel,
+      accessLevel: 'limited' as const,
       ...executionContextInput,
       signal: req.signal,
     }
-    const result =
-      reviewAction === 'accept'
-        ? await acceptServerManagedToolReview(toolName, reviewResult, executionContext)
-        : await routeExecution(toolName, payload, executionContext)
+    const result = await (reviewAction === 'accept'
+      ? acceptServerManagedToolReview(toolId, reviewToken!, executionContext)
+      : routeExecution(toolId, payload, executionContext).then((toolResult) =>
+          stageServerManagedToolReview(toolId, toolResult, executionContext)
+        ))
 
     try {
       const resultPreview = JSON.stringify(result).slice(0, 300)

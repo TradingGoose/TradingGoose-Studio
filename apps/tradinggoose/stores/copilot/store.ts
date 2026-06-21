@@ -1396,19 +1396,25 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                 : {}),
               ...(provenance?.workspaceId ? { workspaceId: provenance.workspaceId } : {}),
             }
+            const reviewResult = get().toolCallsById[id]?.result
+            const reviewToken =
+              acceptingServerReview && isCopilotServerToolReviewResult(reviewResult)
+                ? reviewResult.reviewToken
+                : undefined
+            if (acceptingServerReview && !reviewToken) {
+              throw new Error('Server tool review token is missing')
+            }
             const result =
               acceptingServerReview
                 ? await acceptCopilotServerToolReview({
                     toolName: name,
-                    reviewResult: get().toolCallsById[id]?.result,
-                    accessLevel: get().accessLevel,
+                    reviewToken: reviewToken!,
                     context: serverContext,
                     signal: get().abortController?.signal,
                   })
                 : await executeCopilotServerTool({
                     toolName: name,
                     payload: preparedArgs,
-                    accessLevel: get().accessLevel,
                     context: serverContext,
                     signal: get().abortController?.signal,
                   })
