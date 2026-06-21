@@ -6,9 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('Workflow State API Route', () => {
   let loadWorkflowStateFromYjsMock: ReturnType<typeof vi.fn>
-  let saveWorkflowToNormalizedTablesMock: ReturnType<typeof vi.fn>
   let applyWorkflowStateMock: ReturnType<typeof vi.fn>
-  let updateSetMock: ReturnType<typeof vi.fn>
 
   const createRequest = (body: Record<string, unknown>) =>
     new NextRequest('http://localhost:3000/api/workflows/workflow-id/state', {
@@ -41,29 +39,7 @@ describe('Workflow State API Route', () => {
     vi.clearAllMocks()
 
     loadWorkflowStateFromYjsMock = vi.fn().mockResolvedValue(null)
-    saveWorkflowToNormalizedTablesMock = vi.fn().mockResolvedValue({ success: true })
     applyWorkflowStateMock = vi.fn().mockResolvedValue(undefined)
-    updateSetMock = vi.fn().mockReturnValue({
-      where: vi.fn().mockResolvedValue(undefined),
-    })
-
-    vi.doMock('drizzle-orm', () => ({
-      eq: vi.fn((field, value) => ({ field, value })),
-    }))
-
-    vi.doMock('@tradinggoose/db/schema', () => ({
-      workflow: {
-        id: 'id',
-      },
-    }))
-
-    vi.doMock('@tradinggoose/db', () => ({
-      db: {
-        update: vi.fn().mockReturnValue({
-          set: updateSetMock,
-        }),
-      },
-    }))
 
     vi.doMock('@/lib/auth', () => ({
       getSession: vi.fn().mockResolvedValue({
@@ -115,7 +91,6 @@ describe('Workflow State API Route', () => {
       ensureUniqueBlockIds: vi.fn(async (_workflowId: string, state: any) => state),
       ensureUniqueEdgeIds: vi.fn(async (_workflowId: string, state: any) => state),
       loadWorkflowStateFromYjs: loadWorkflowStateFromYjsMock,
-      saveWorkflowToNormalizedTables: saveWorkflowToNormalizedTablesMock,
       toISOStringOrUndefined: vi.fn((value: string | number | Date | null | undefined) =>
         value == null ? undefined : new Date(value).toISOString()
       ),
@@ -172,16 +147,6 @@ describe('Workflow State API Route', () => {
       },
       undefined
     )
-    expect(updateSetMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        variables: {
-          'live-var': expect.objectContaining({
-            name: 'liveVar',
-            value: 'live value',
-          }),
-        },
-      })
-    )
   })
 
   it('rejects saves without request or Yjs variables', async () => {
@@ -192,8 +157,6 @@ describe('Workflow State API Route', () => {
 
     expect(response.status).toBe(409)
     expect(applyWorkflowStateMock).not.toHaveBeenCalled()
-    expect(saveWorkflowToNormalizedTablesMock).not.toHaveBeenCalled()
-    expect(updateSetMock).not.toHaveBeenCalled()
   })
 
   it('rejects saves when authoritative Yjs variable lookup fails', async () => {
@@ -206,15 +169,10 @@ describe('Workflow State API Route', () => {
 
     expect(response.status).toBe(409)
     expect(applyWorkflowStateMock).not.toHaveBeenCalled()
-    expect(saveWorkflowToNormalizedTablesMock).not.toHaveBeenCalled()
-    expect(updateSetMock).not.toHaveBeenCalled()
   })
 
-  it('returns an error when derived table materialization fails after Yjs apply', async () => {
-    saveWorkflowToNormalizedTablesMock.mockResolvedValueOnce({
-      success: false,
-      error: 'validation failed',
-    })
+  it('returns an error when workflow state apply fails', async () => {
+    applyWorkflowStateMock.mockRejectedValueOnce(new Error('validation failed'))
 
     const { PUT } = await import('@/app/api/workflows/[id]/state/route')
     const response = await PUT(
@@ -229,6 +187,5 @@ describe('Workflow State API Route', () => {
 
     expect(response.status).toBe(500)
     expect(applyWorkflowStateMock).toHaveBeenCalledOnce()
-    expect(saveWorkflowToNormalizedTablesMock).toHaveBeenCalledOnce()
   })
 })

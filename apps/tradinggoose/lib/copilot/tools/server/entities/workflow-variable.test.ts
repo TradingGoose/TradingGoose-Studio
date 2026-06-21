@@ -6,16 +6,12 @@ import {
   editWorkflowVariableServerTool,
   readWorkflowServerTool,
 } from '@/lib/copilot/tools/server/entities/workflow'
-import {
-  createWorkflowSnapshot,
-  setVariables,
-  setWorkflowState,
-} from '@/lib/yjs/workflow-session'
+import { createWorkflowSnapshot, setVariables, setWorkflowState } from '@/lib/yjs/workflow-session'
 
 const mockDbLimit = vi.hoisted(() => vi.fn())
 const mockReadBootstrappedReviewTargetSnapshot = vi.hoisted(() => vi.fn())
 const mockVerifyWorkflowAccess = vi.hoisted(() => vi.fn())
-const mockApplyWorkflowStateInSocketServer = vi.hoisted(() => vi.fn())
+const mockApplyWorkflowState = vi.hoisted(() => vi.fn())
 
 vi.mock('@tradinggoose/db', () => ({
   db: {
@@ -38,14 +34,17 @@ vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
     mockReadBootstrappedReviewTargetSnapshot(...args),
 }))
 
-vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
-  applyWorkflowStateInSocketServer: (...args: any[]) =>
-    mockApplyWorkflowStateInSocketServer(...args),
+vi.mock('@/lib/yjs/server/apply-workflow-state', () => ({
+  applyWorkflowState: (...args: any[]) => mockApplyWorkflowState(...args),
+  applyWorkflowEntityName: vi.fn(),
 }))
 
-function workflowSnapshotBase64(variables: Record<string, any>): string {
+function workflowSnapshotBase64(
+  variables: Record<string, any>,
+  workflowState = createWorkflowSnapshot()
+): string {
   const doc = new Y.Doc()
-  setWorkflowState(doc, createWorkflowSnapshot(), 'test')
+  setWorkflowState(doc, workflowState, 'test')
   setVariables(doc, variables, 'test')
   const encoded = Buffer.from(Y.encodeStateAsUpdate(doc)).toString('base64')
   doc.destroy()
@@ -59,7 +58,7 @@ describe('workflow variable server tools', () => {
     mockDbLimit.mockReset()
     mockReadBootstrappedReviewTargetSnapshot.mockReset()
     mockVerifyWorkflowAccess.mockReset()
-    mockApplyWorkflowStateInSocketServer.mockReset()
+    mockApplyWorkflowState.mockReset()
     mockDbLimit.mockResolvedValue([
       {
         id: 'wf-1',
@@ -142,7 +141,7 @@ describe('workflow variable server tools', () => {
     expect(result.preview.documentDiff.after).toContain('enabled')
   })
 
-  it('applies full-access workflow variable edits through the workflow Yjs bridge', async () => {
+  it('applies full-access workflow variable edits through workflow state persistence', async () => {
     const result = await editWorkflowVariableServerTool.execute(
       {
         entityId: 'wf-1',
@@ -166,7 +165,7 @@ describe('workflow variable server tools', () => {
       workspaceId: 'workspace-1',
       documentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
     })
-    expect(mockApplyWorkflowStateInSocketServer).toHaveBeenCalledWith(
+    expect(mockApplyWorkflowState).toHaveBeenCalledWith(
       'wf-1',
       expect.objectContaining({
         blocks: {},
@@ -176,7 +175,7 @@ describe('workflow variable server tools', () => {
     )
   })
 
-  it('applies accepted workflow variable reviews through the workflow Yjs bridge', async () => {
+  it('applies accepted workflow variable reviews through workflow state persistence', async () => {
     const result = await editWorkflowVariableServerTool.execute(
       {
         entityId: 'wf-1',
@@ -190,7 +189,7 @@ describe('workflow variable server tools', () => {
 
     await acceptWorkflowDocumentReview('edit_workflow_variable', result, { userId: 'user-1', accessLevel: 'limited' })
 
-    expect(mockApplyWorkflowStateInSocketServer).toHaveBeenCalledWith(
+    expect(mockApplyWorkflowState).toHaveBeenCalledWith(
       'wf-1',
       expect.objectContaining({
         blocks: {},

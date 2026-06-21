@@ -1,6 +1,3 @@
-import { db } from '@tradinggoose/db'
-import { workflow } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -10,7 +7,6 @@ import {
   ensureUniqueBlockIds,
   ensureUniqueEdgeIds,
   loadWorkflowStateFromYjs,
-  saveWorkflowToNormalizedTables,
   toISOStringOrUndefined,
 } from '@/lib/workflows/db-helpers'
 import { validateWorkflowPermissions } from '@/lib/workflows/utils'
@@ -231,16 +227,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       workflowData.name
     )
 
-    const saveResult = await saveWorkflowToNormalizedTables(workflowId, persistedWorkflowState as any)
-
-    if (!saveResult.success) {
-      logger.error(`[${requestId}] Failed to materialize workflow ${workflowId} state:`, saveResult.error)
-      return NextResponse.json(
-        { error: 'Failed to materialize workflow state', details: saveResult.error },
-        { status: 500 }
-      )
-    }
-
     // Extract and persist custom tools to database
     try {
       const { saved, errors } = await extractAndPersistCustomTools(
@@ -259,17 +245,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     } catch (error) {
       logger.error(`[${requestId}] Failed to persist custom tools`, { error, workflowId })
     }
-
-    // Update workflow metadata and persist variables
-    const syncedAt = new Date(workflowState.lastSaved)
-    await db
-      .update(workflow)
-      .set({
-        lastSynced: syncedAt,
-        updatedAt: syncedAt,
-        variables: resolvedVariables.value ?? {},
-      })
-      .where(eq(workflow.id, workflowId))
 
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully saved workflow ${workflowId} state in ${elapsed}ms`)

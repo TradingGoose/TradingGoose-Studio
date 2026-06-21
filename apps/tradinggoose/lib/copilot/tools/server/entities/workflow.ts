@@ -20,7 +20,6 @@ import { editWorkflowServerTool } from '@/lib/copilot/tools/server/workflow/edit
 import { editWorkflowBlockServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow-block'
 import { generateCreativeWorkflowName } from '@/lib/naming'
 import { VariableManager } from '@/lib/variables/variable-manager'
-import { saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
 import {
   TG_MERMAID_DOCUMENT_FORMAT,
   WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
@@ -31,9 +30,8 @@ import {
   serializeWorkflowToTgMermaid,
 } from '@/lib/workflows/studio-workflow-mermaid'
 import { isWorkflowVariableType, type WorkflowVariableType } from '@/lib/workflows/value-types'
-import { applyWorkflowEntityName } from '@/lib/yjs/server/apply-workflow-state'
+import { applyWorkflowEntityName, applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
-import { applyWorkflowStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import {
   createWorkflowSnapshot,
   getVariablesSnapshot,
@@ -423,7 +421,7 @@ export const editWorkflowVariableServerTool: BaseServerTool<
       }
     }
 
-    await applyWorkflowStateInSocketServer(workflowId, workflowState, nextVariables)
+    await applyWorkflowState(workflowId, workflowState, nextVariables)
     return {
       success: true,
       entityKind: ENTITY_KIND_WORKFLOW,
@@ -480,11 +478,7 @@ export const createWorkflowServerTool: BaseServerTool<
     })
 
     try {
-      await applyWorkflowStateInSocketServer(workflowId, workflowState, {}, name)
-      const saveResult = await saveWorkflowToNormalizedTables(workflowId, workflowState)
-      if (!saveResult.success) {
-        throw new Error(saveResult.error || 'Failed to materialize initial workflow state')
-      }
+      await applyWorkflowState(workflowId, workflowState, {}, name)
     } catch (error) {
       await db.delete(workflow).where(eq(workflow.id, workflowId))
       throw error
@@ -565,11 +559,7 @@ export async function acceptWorkflowDocumentReview(
       throw new Error(`variables are required for ${toolName} review acceptance`)
     }
     const { workflowState } = await loadWorkflowSnapshotForCopilot(workflowId, context, 'write')
-    await applyWorkflowStateInSocketServer(
-      workflowId,
-      workflowState,
-      reviewResult.variables as Record<string, any>
-    )
+    await applyWorkflowState(workflowId, workflowState, reviewResult.variables as Record<string, any>)
 
     return {
       ...reviewResult,
@@ -582,7 +572,7 @@ export async function acceptWorkflowDocumentReview(
   }
 
   await verifyWorkflowContext(workflowId, context, 'write')
-  await applyWorkflowStateInSocketServer(
+  await applyWorkflowState(
     workflowId,
     createWorkflowSnapshot(reviewResult.workflowState as Partial<WorkflowSnapshot>)
   )

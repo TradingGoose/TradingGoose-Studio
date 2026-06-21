@@ -1,4 +1,4 @@
-import { db, workflow, workflowDeploymentVersion } from '@tradinggoose/db'
+import { db, workflowDeploymentVersion } from '@tradinggoose/db'
 import { and, eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -6,7 +6,6 @@ import { generateRequestId } from '@/lib/utils'
 import {
   ensureUniqueBlockIds,
   ensureUniqueEdgeIds,
-  saveWorkflowToNormalizedTables,
 } from '@/lib/workflows/db-helpers'
 import { validateWorkflowPermissions } from '@/lib/workflows/utils'
 import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
@@ -100,20 +99,6 @@ export async function POST(
     })
 
     await applyWorkflowState(id, revertSnapshot, revertVariables)
-
-    const saveResult = await saveWorkflowToNormalizedTables(id, persistedRevertedState)
-    if (!saveResult.success) {
-      return createErrorResponse(saveResult.error || 'Failed to materialize deployed state', 500)
-    }
-
-    await db
-      .update(workflow)
-      .set({
-        lastSynced: now,
-        updatedAt: now,
-        ...(revertVariables ? { variables: revertVariables } : {}),
-      })
-      .where(eq(workflow.id, id))
 
     await pauseMonitorsMissingDeployedTrigger(id)
     await notifyMonitorsReconcile({ requestId, logger })

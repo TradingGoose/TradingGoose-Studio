@@ -12,7 +12,6 @@ import {
   ensureUniqueBlockIds,
   ensureUniqueEdgeIds,
   remapVariableIds,
-  saveWorkflowToNormalizedTables,
 } from '@/lib/workflows/db-helpers'
 import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
@@ -217,11 +216,6 @@ export async function POST(req: NextRequest) {
 
       await applyWorkflowState(workflowId, defaultWorkflowSnapshot, remappedVariables, name)
       logger.info(`[${requestId}] Seeded Yjs doc for new workflow ${workflowId}`)
-
-      const saveResult = await saveWorkflowToNormalizedTables(workflowId, initialStateWithUniqueIds)
-      if (!saveResult.success) {
-        throw new Error(saveResult.error || 'Failed to materialize initial workflow state')
-      }
     } catch (error) {
       await db.delete(workflow).where(eq(workflow.id, workflowId))
       throw error

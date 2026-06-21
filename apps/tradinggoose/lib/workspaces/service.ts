@@ -5,7 +5,6 @@ import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import {
   ensureUniqueBlockIds,
   ensureUniqueEdgeIds,
-  saveWorkflowToNormalizedTables,
 } from '@/lib/workflows/db-helpers'
 import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { toWorkspaceApiRecord } from '@/lib/workspaces/billing-owner'
@@ -121,11 +120,6 @@ export async function createWorkspace(userId: string, name: string) {
       undefined,
       'default-agent'
     )
-
-    const saveResult = await saveWorkflowToNormalizedTables(workflowId, persistedWorkflowState)
-    if (!saveResult.success) {
-      throw new Error(saveResult.error || 'Failed to materialize default workflow state')
-    }
   } catch (error) {
     await db.transaction(async (tx) => {
       await tx.delete(workflow).where(eq(workflow.id, workflowId))

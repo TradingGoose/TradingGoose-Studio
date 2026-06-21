@@ -1,7 +1,7 @@
 import * as Y from 'yjs'
 import {
-  shouldStageServerToolMutationForReview,
   type ServerToolExecutionContext,
+  shouldStageServerToolMutationForReview,
 } from '@/lib/copilot/tools/server/base-tool'
 import { findIntroducedNonCanonicalSubBlocks } from '@/lib/workflows/block-config-canonicalization'
 import { WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
@@ -13,8 +13,8 @@ import {
 } from '@/lib/workflows/studio-workflow-mermaid'
 import { validateWorkflowState } from '@/lib/workflows/validation'
 import { normalizeWorkflowStateToMermaidDirection } from '@/lib/workflows/workflow-direction'
+import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
-import { applyWorkflowStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import {
   createWorkflowSnapshot,
   readWorkflowSnapshot,
@@ -133,7 +133,7 @@ export async function resolveWorkflowMutationResultForExecution(
     return result
   }
 
-  await applyWorkflowStateInSocketServer(
+  await applyWorkflowState(
     result.entityId,
     createWorkflowSnapshot(result.workflowState as Partial<WorkflowSnapshot>)
   )

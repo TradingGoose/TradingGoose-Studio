@@ -17,7 +17,6 @@ describe('Workspaces API Route', () => {
   const updateWhereMock = vi.fn()
   const updateSetMock = vi.fn()
   const updateMock = vi.fn()
-  const mockSaveWorkflowToNormalizedTables = vi.fn()
   const mockApplyWorkflowState = vi.fn()
   let userWorkspaces: Array<{
     workspace: Record<string, unknown>
@@ -37,7 +36,6 @@ describe('Workspaces API Route', () => {
     updateWhereMock.mockResolvedValue([])
     updateSetMock.mockReturnValue({ where: updateWhereMock })
     updateMock.mockReturnValue({ set: updateSetMock })
-    mockSaveWorkflowToNormalizedTables.mockResolvedValue({ success: true })
     mockApplyWorkflowState.mockResolvedValue(undefined)
 
     vi.doMock('@tradinggoose/db', () => ({
@@ -111,7 +109,6 @@ describe('Workspaces API Route', () => {
     vi.doMock('@/lib/workflows/db-helpers', () => ({
       ensureUniqueBlockIds: vi.fn(async (_workflowId: string, state: any) => state),
       ensureUniqueEdgeIds: vi.fn(async (_workflowId: string, state: any) => state),
-      saveWorkflowToNormalizedTables: mockSaveWorkflowToNormalizedTables,
     }))
 
     vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
@@ -253,25 +250,9 @@ describe('Workspaces API Route', () => {
     expect(updateMock).toHaveBeenCalled()
   })
 
-  it.each([
-    [
-      'persistence fails',
-      () =>
-        mockSaveWorkflowToNormalizedTables.mockResolvedValue({
-          success: false,
-          error: 'Failed to persist normalized workflow state',
-        }),
-    ],
-    [
-      'persistence throws',
-      () => mockSaveWorkflowToNormalizedTables.mockRejectedValue(new Error('database unavailable')),
-    ],
-    [
-      'Yjs seeding fails',
-      () => mockApplyWorkflowState.mockRejectedValue(new Error('socket unavailable')),
-    ],
-  ])('removes a newly created workspace when default workflow %s', async (_case, fail) => {
-    fail()
+  it('removes a newly created workspace when default workflow state apply fails', async () => {
+    mockApplyWorkflowState.mockRejectedValue(new Error('socket unavailable'))
+
     const response = await postWorkspace()
 
     expect(response.status).toBe(500)

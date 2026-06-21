@@ -14,7 +14,6 @@ import {
   loadWorkflowState,
   regenerateWorkflowStateIds,
   remapVariableIds,
-  saveWorkflowToNormalizedTables,
 } from '@/lib/workflows/db-helpers'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
@@ -157,14 +156,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       })
 
       await applyWorkflowState(newWorkflowId, duplicatedSnapshot, duplicatedVariables, name)
-
-      const saveResult = await saveWorkflowToNormalizedTables(
-        newWorkflowId,
-        persistedDuplicatedState
-      )
-      if (!saveResult.success) {
-        throw new Error(saveResult.error || 'Failed to materialize duplicated workflow state')
-      }
     } catch (duplicationError) {
       await db.delete(workflow).where(eq(workflow.id, newWorkflowId))
       throw duplicationError
