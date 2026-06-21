@@ -181,13 +181,16 @@ export async function loadWorkflowStateFromSavedTables(
   if (!row) {
     return null
   }
+  if (!normalizedState) {
+    return null
+  }
 
   const savedState = {
     name: row.name,
-    blocks: normalizedState?.blocks ?? {},
-    edges: normalizedState?.edges ?? [],
-    loops: normalizedState?.loops ?? {},
-    parallels: normalizedState?.parallels ?? {},
+    blocks: normalizedState.blocks,
+    edges: normalizedState.edges,
+    loops: normalizedState.loops,
+    parallels: normalizedState.parallels,
     variables: (row.variables as Record<string, any>) ?? {},
     lastSaved: row.updatedAt?.getTime() ?? Date.now(),
     isDeployed: row.isDeployed ?? false,
