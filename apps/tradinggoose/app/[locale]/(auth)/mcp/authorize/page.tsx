@@ -76,6 +76,10 @@ export default async function McpAuthorizePage({
     return renderStatus(mcpCopy.expired)
   }
 
+  if (challenge.status === 'invalid') {
+    return renderStatus(mcpCopy.invalid)
+  }
+
   if (challenge.status === 'approved') {
     return renderStatus(mcpCopy.approved)
   }

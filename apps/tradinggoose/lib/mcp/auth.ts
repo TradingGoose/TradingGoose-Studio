@@ -3,7 +3,7 @@ import { db } from '@tradinggoose/db'
 import { apiKey, verification } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
-import { createApiKeyMaterial } from '@/lib/api-key/service'
+import { createApiKeyMaterial, decryptApiKey } from '@/lib/api-key/service'
 
 const DEVICE_LOGIN_TTL_MS = 10 * 60 * 1000
 const DEVICE_LOGIN_PREFIX = 'mcp:'
@@ -23,6 +23,8 @@ type ApprovedDeviceLogin = {
   verificationKeyHash: string
   approvedAt: string
   userId: string
+  apiKeyId: string
+  encryptedApiKey: string
 }
 
 type DeviceLoginState = PendingDeviceLogin | ApprovedDeviceLogin
@@ -79,7 +81,9 @@ function parseDeviceLoginState(value: string): DeviceLoginState | null {
       typeof parsed.createdAt === 'string' &&
       typeof parsed.verificationKeyHash === 'string' &&
       typeof parsed.approvedAt === 'string' &&
-      typeof parsed.userId === 'string'
+      typeof parsed.userId === 'string' &&
+      typeof parsed.apiKeyId === 'string' &&
+      typeof parsed.encryptedApiKey === 'string'
     ) {
       return parsed as ApprovedDeviceLogin
     }
@@ -134,49 +138,6 @@ async function updateDeviceLoginState(
   return Boolean(updated)
 }
 
-async function issueDeviceLoginPersonalApiKey(
-  login: DeviceLogin,
-  approvedState: ApprovedDeviceLogin
-): Promise<McpDeviceLoginPollResult | null> {
-  const keyId = nanoid()
-  const { key: plainKey, encryptedKey } = await createApiKeyMaterial(true)
-  if (!encryptedKey) {
-    throw new Error('Failed to create MCP personal API key')
-  }
-
-  const now = new Date()
-  const issued = await db.transaction(async (tx) => {
-    const [deleted] = await tx
-      .delete(verification)
-      .where(deviceLoginMatches(login, approvedState))
-      .returning({ id: verification.id })
-
-    if (!deleted) {
-      return null
-    }
-
-    const [createdKey] = await tx
-      .insert(apiKey)
-      .values({
-        id: keyId,
-        userId: approvedState.userId,
-        workspaceId: null,
-        name: `TradingGoose MCP Access ${now.toISOString()}`,
-        key: encryptedKey,
-        type: 'personal',
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning({ id: apiKey.id })
-
-    return createdKey
-  })
-
-  return issued
-    ? { status: 'approved', apiKey: plainKey, expiresAt: login.expiresAt.toISOString() }
-    : null
-}
-
 export async function startMcpDeviceLogin(): Promise<McpDeviceLoginStartResult> {
   const code = randomBytes(32).toString('base64url')
   const verificationKey = randomBytes(32).toString('base64url')
@@ -226,6 +187,10 @@ export async function createMcpDeviceLoginApprovalChallenge(code: string, userId
       }
     }
 
+    if (login.state.approvalToken) {
+      return { status: 'invalid' }
+    }
+
     const approvalToken = randomBytes(32).toString('base64url')
     const nextState = {
       ...login.state,
@@ -265,14 +230,23 @@ export async function pollMcpDeviceLogin(
       }
     }
 
-    const approvedState = login.state
+    const now = new Date()
+    await db
+      .insert(apiKey)
+      .values({
+        id: login.state.apiKeyId,
+        userId: login.state.userId,
+        workspaceId: null,
+        name: `TradingGoose MCP Access ${now.toISOString()}`,
+        key: login.state.encryptedApiKey,
+        type: 'personal',
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing()
 
-    const issued = await issueDeviceLoginPersonalApiKey(login, approvedState)
-    if (!issued) {
-      continue
-    }
-
-    return issued
+    const { decrypted } = await decryptApiKey(login.state.encryptedApiKey)
+    return { status: 'approved', apiKey: decrypted, expiresAt: login.expiresAt.toISOString() }
   }
 }
 
@@ -303,12 +277,19 @@ export async function approveMcpDeviceLogin({
 
   const now = new Date()
   const approvedAt = now.toISOString()
+  const apiKeyId = nanoid()
+  const { encryptedKey } = await createApiKeyMaterial(true, apiKeyId)
+  if (!encryptedKey) {
+    throw new Error('Failed to create MCP personal API key')
+  }
   const approvedState = {
     status: 'approved',
     createdAt: login.state.createdAt,
     verificationKeyHash: login.state.verificationKeyHash,
     approvedAt,
     userId,
+    apiKeyId,
+    encryptedApiKey: encryptedKey,
   } satisfies ApprovedDeviceLogin
 
   if (!(await updateDeviceLoginState(login, approvedState))) {

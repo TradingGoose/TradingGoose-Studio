@@ -37,13 +37,16 @@ export interface CreatedPersonalApiKey {
   key: string
 }
 
-export async function createApiKeyMaterial(useStorage = true): Promise<{
+export async function createApiKeyMaterial(
+  useStorage = true,
+  keyId?: string
+): Promise<{
   key: string
   encryptedKey?: string
 }> {
   try {
     const hasEncryptionKey = env.API_ENCRYPTION_KEY !== undefined
-    const plainKey = hasEncryptionKey ? generateEncryptedApiKey() : generateApiKey()
+    const plainKey = hasEncryptionKey ? generateEncryptedApiKey(keyId) : generateApiKey(keyId)
 
     if (useStorage) {
       const { encrypted } = await encryptApiKey(plainKey)
@@ -67,7 +70,8 @@ export async function createPersonalApiKey({
     throw new Error('API key name is required')
   }
 
-  const { key: plainKey, encryptedKey } = await createApiKeyMaterial(true)
+  const keyId = nanoid()
+  const { key: plainKey, encryptedKey } = await createApiKeyMaterial(true, keyId)
   if (!encryptedKey) {
     throw new Error('Failed to encrypt API key for storage')
   }
@@ -75,7 +79,7 @@ export async function createPersonalApiKey({
   const [newKey] = await db
     .insert(apiKeyTable)
     .values({
-      id: nanoid(),
+      id: keyId,
       userId,
       workspaceId: null,
       name: trimmedName,
@@ -131,6 +135,10 @@ export async function authenticateApiKeyFromHeader(
 
     // Apply filters
     const conditions = []
+    const keyId = /^(?:sk-tradinggoose-|tradinggoose_)([^.]+)/.exec(apiKeyHeader)?.[1]
+    if (keyId) {
+      conditions.push(eq(apiKeyTable.id, keyId))
+    }
 
     if (options.userId) {
       conditions.push(eq(apiKeyTable.userId, options.userId))
@@ -318,16 +326,16 @@ export async function decryptApiKey(encryptedValue: string): Promise<{ decrypted
  * Generates a standardized API key with the 'tradinggoose_' prefix (plain-text format)
  * @returns A new API key string
  */
-export function generateApiKey(): string {
-  return `tradinggoose_${nanoid(32)}`
+export function generateApiKey(keyId = nanoid()): string {
+  return `tradinggoose_${keyId}.${nanoid(32)}`
 }
 
 /**
  * Generates a new encrypted API key with the 'sk-tradinggoose-' prefix
  * @returns A new encrypted API key string
  */
-export function generateEncryptedApiKey(): string {
-  return `sk-tradinggoose-${nanoid(32)}`
+export function generateEncryptedApiKey(keyId = nanoid()): string {
+  return `sk-tradinggoose-${keyId}.${nanoid(32)}`
 }
 
 /**
