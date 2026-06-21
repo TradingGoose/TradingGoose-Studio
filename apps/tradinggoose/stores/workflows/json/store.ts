@@ -1,10 +1,13 @@
 import { createWithEqualityFn as create } from 'zustand/traditional'
 import { devtools } from 'zustand/middleware'
 import { createLogger } from '@/lib/logs/console/logger'
-import { createWorkflowExportFile } from '@/lib/workflows/import-export'
+import {
+  collectWorkflowSkillIds,
+  createWorkflowExportFile,
+} from '@/lib/workflows/import-export'
+import { getEntityFields } from '@/lib/yjs/entity-session'
+import { bootstrapYjsProvider } from '@/lib/yjs/provider'
 import { getSnapshotForWorkflow } from '@/lib/yjs/workflow-session-registry'
-import { useSkillsStore } from '@/stores/skills/store'
-import type { SkillDefinition } from '@/stores/skills/types'
 import { useWorkflowRegistry } from '../registry/store'
 
 const logger = createLogger('WorkflowJsonStore')
@@ -12,16 +15,55 @@ const logger = createLogger('WorkflowJsonStore')
 export interface WorkflowJsonScope {
   workflowId?: string | null
   channelId?: string
-  workspaceSkills?: Array<Pick<SkillDefinition, 'id' | 'name' | 'description' | 'content'>>
 }
 
 interface WorkflowJsonStore {
   json: string
   lastGenerated?: number
 
-  generateJson: (scope?: WorkflowJsonScope) => void
+  generateJson: (scope?: WorkflowJsonScope) => Promise<void>
   getJson: (scope?: WorkflowJsonScope) => Promise<string>
-  refreshJson: (scope?: WorkflowJsonScope) => void
+  refreshJson: (scope?: WorkflowJsonScope) => Promise<void>
+}
+
+async function readWorkflowSkillExportsFromYjs(
+  workflowSnapshot: NonNullable<ReturnType<typeof getSnapshotForWorkflow>>,
+  workspaceId: string | null | undefined
+) {
+  const skillIds = collectWorkflowSkillIds(workflowSnapshot)
+  if (skillIds.length === 0) {
+    return []
+  }
+  if (!workspaceId) {
+    return null
+  }
+
+  return Promise.all(
+    skillIds.map(async (skillId) => {
+      const session = await bootstrapYjsProvider({
+        workspaceId,
+        entityKind: 'skill',
+        entityId: skillId,
+        draftSessionId: null,
+        reviewSessionId: null,
+        yjsSessionId: skillId,
+      })
+
+      try {
+        const fields = getEntityFields(session.doc, 'skill')
+        return {
+          id: skillId,
+          name: String(fields.name ?? ''),
+          description: String(fields.description ?? ''),
+          content: String(fields.content ?? ''),
+        }
+      } finally {
+        session.provider.disconnect()
+        session.provider.destroy()
+        session.doc.destroy()
+      }
+    })
+  )
 }
 
 export const useWorkflowJsonStore = create<WorkflowJsonStore>()(
@@ -30,7 +72,7 @@ export const useWorkflowJsonStore = create<WorkflowJsonStore>()(
       json: '',
       lastGenerated: undefined,
 
-      generateJson: (scope) => {
+      generateJson: async (scope) => {
         const clearJson = () =>
           set({
             json: '',
@@ -68,19 +110,16 @@ export const useWorkflowJsonStore = create<WorkflowJsonStore>()(
             return
           }
 
-          const workspaceSkills =
-            scope?.workspaceSkills ??
-            (currentWorkflow.workspaceId
-              ? useSkillsStore
-                  .getState()
-                  .getAllSkills(currentWorkflow.workspaceId)
-                  .map((skill) => ({
-                    id: skill.id,
-                    name: skill.name,
-                    description: skill.description,
-                    content: skill.content,
-                  }))
-              : [])
+          const workflowSkills = await readWorkflowSkillExportsFromYjs(
+            workflowSnapshot,
+            currentWorkflow.workspaceId
+          )
+
+          if (!workflowSkills) {
+            logger.warn('Workflow workspace missing for skill export:', activeWorkflowId)
+            clearJson()
+            return
+          }
 
           const exportFile = createWorkflowExportFile({
             workflow: {
@@ -88,7 +127,7 @@ export const useWorkflowJsonStore = create<WorkflowJsonStore>()(
               description: currentWorkflow.description ?? '',
               state: workflowSnapshot,
             },
-            skills: workspaceSkills,
+            skills: workflowSkills,
           })
 
           // Convert to formatted JSON
@@ -123,15 +162,15 @@ export const useWorkflowJsonStore = create<WorkflowJsonStore>()(
         // Scoped requests are always refreshed to avoid channel/workflow cache mismatch.
         // Unscoped requests keep the short cache to reduce repeated work.
         if (hasScope || !lastGenerated || currentTime - lastGenerated > 1000) {
-          get().generateJson(scope)
+          await get().generateJson(scope)
           return get().json
         }
 
         return json
       },
 
-      refreshJson: (scope) => {
-        get().generateJson(scope)
+      refreshJson: async (scope) => {
+        await get().generateJson(scope)
       },
     }),
     {

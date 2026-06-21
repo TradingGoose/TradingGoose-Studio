@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import * as Y from 'yjs'
+import { seedEntitySession } from '@/lib/yjs/entity-session'
 
 const mockGetSnapshotForWorkflow = vi.hoisted(() => vi.fn())
+const mockBootstrapYjsProvider = vi.hoisted(() => vi.fn())
 const mockWorkflowRegistryState = vi.hoisted(() => ({
   workflows: {
     'workflow-1': {
@@ -18,6 +21,10 @@ vi.mock('@/lib/yjs/workflow-session-registry', () => ({
   getSnapshotForWorkflow: mockGetSnapshotForWorkflow,
 }))
 
+vi.mock('@/lib/yjs/provider', () => ({
+  bootstrapYjsProvider: mockBootstrapYjsProvider,
+}))
+
 vi.mock('@/stores/workflows/registry/store', () => ({
   useWorkflowRegistry: {
     getState: () => mockWorkflowRegistryState,
@@ -29,6 +36,7 @@ import { useWorkflowJsonStore } from './store'
 describe('workflow json store', () => {
   beforeEach(() => {
     mockGetSnapshotForWorkflow.mockReset()
+    mockBootstrapYjsProvider.mockReset()
     useWorkflowJsonStore.setState({
       json: '',
       lastGenerated: undefined,
@@ -64,20 +72,43 @@ describe('workflow json store', () => {
       isDeployed: false,
       deployedAt: undefined,
     })
-  })
-
-  it('threads workspace skills into the workflow export payload', async () => {
-    await useWorkflowJsonStore.getState().getJson({
-      workflowId: 'workflow-1',
-      channelId: 'channel-1',
-      workspaceSkills: [
-        {
-          id: 'skill-1',
+    mockBootstrapYjsProvider.mockImplementation(async ({ entityId }) => {
+      const doc = new Y.Doc()
+      seedEntitySession(doc, {
+        entityKind: 'skill',
+        payload: {
           name: ' Market Research ',
           description: ' Research the market before execution. ',
           content: 'Review catalysts and confirm direction.',
         },
-      ],
+      })
+      return {
+        doc,
+        provider: {
+          disconnect: vi.fn(),
+          destroy: vi.fn(),
+        },
+        descriptor: {
+          workspaceId: 'workspace-1',
+          entityKind: 'skill',
+          entityId,
+          draftSessionId: null,
+          reviewSessionId: null,
+          yjsSessionId: entityId,
+        },
+        runtime: {
+          docState: 'active',
+          replaySafe: true,
+          reseededFromCanonical: false,
+        },
+      }
+    })
+  })
+
+  it('threads Yjs-backed skills into the workflow export payload', async () => {
+    await useWorkflowJsonStore.getState().getJson({
+      workflowId: 'workflow-1',
+      channelId: 'channel-1',
     })
 
     const payload = JSON.parse(useWorkflowJsonStore.getState().json) as {
@@ -108,6 +139,14 @@ describe('workflow json store', () => {
     }
 
     expect(payload.resourceTypes).toEqual(['workflows', 'skills'])
+    expect(mockBootstrapYjsProvider).toHaveBeenCalledWith({
+      workspaceId: 'workspace-1',
+      entityKind: 'skill',
+      entityId: 'skill-1',
+      draftSessionId: null,
+      reviewSessionId: null,
+      yjsSessionId: 'skill-1',
+    })
     expect(payload.skills).toEqual([
       {
         name: 'Market Research',

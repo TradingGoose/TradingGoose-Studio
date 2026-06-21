@@ -265,7 +265,7 @@ function readWorkflowSkillValues(
   )
 }
 
-function collectWorkflowSkillIds(state: WorkflowState): string[] {
+export function collectWorkflowSkillIds(state: WorkflowState): string[] {
   const orderedSkillIds: string[] = []
   const seenSkillIds = new Set<string>()
 
@@ -431,22 +431,6 @@ export function createWorkflowExportFile({
       ],
     },
   })
-}
-
-export function exportWorkflowAsJson({
-  workflow,
-  skills = [],
-  exportedFrom = WORKFLOW_EXPORT_SOURCE,
-}: {
-  workflow: {
-    name: string
-    description?: string | null
-    state: WorkflowState
-  }
-  skills?: WorkflowSkillSource[]
-  exportedFrom?: string
-}): string {
-  return JSON.stringify(createWorkflowExportFile({ workflow, skills, exportedFrom }), null, 2)
 }
 
 export function parseImportedWorkflowFile(input: unknown): {

@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { widgetHeaderIconButtonClassName } from '@/components/widget-header-control'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useSkills } from '@/hooks/queries/skills'
 import { useWorkflowJsonStore } from '@/stores/workflows/json/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useWorkflowEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
@@ -29,10 +28,6 @@ export function ExportControls({ disabled = false, variant = 'workspace' }: Expo
   const { getJson: readWorkflowExportJson } = useWorkflowJsonStore()
 
   const currentWorkflow = workflowId ? workflows[workflowId] : null
-  const workflowWorkspaceId = currentWorkflow?.workspaceId ?? null
-  const { data: workspaceSkills = [], refetch: refetchWorkspaceSkills } = useSkills(
-    workflowWorkspaceId ?? ''
-  )
 
   const downloadFile = (content: string, filename: string, mimeType: string) => {
     try {
@@ -58,13 +53,9 @@ export function ExportControls({ disabled = false, variant = 'workspace' }: Expo
 
     setIsExporting(true)
     try {
-      const refreshedSkills = workflowWorkspaceId ? await refetchWorkspaceSkills() : null
-      const exportWorkspaceSkills = refreshedSkills?.data ?? workspaceSkills
-
       const jsonContent = await readWorkflowExportJson({
         workflowId,
         channelId,
-        workspaceSkills: exportWorkspaceSkills,
       })
 
       if (!jsonContent) {
