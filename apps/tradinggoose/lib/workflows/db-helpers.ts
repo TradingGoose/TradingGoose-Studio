@@ -82,6 +82,8 @@ export type PersistedWorkflowState = {
   parallels: Record<string, any>
   variables: Record<string, any>
   lastSaved: number
+  isDeployed?: boolean
+  deployedAt?: string
 }
 
 export async function loadWorkflowStateFromYjs(
@@ -152,6 +154,8 @@ export async function loadWorkflowStateFromSavedTables(
       .select({
         variables: workflow.variables,
         updatedAt: workflow.updatedAt,
+        isDeployed: workflow.isDeployed,
+        deployedAt: workflow.deployedAt,
       })
       .from(workflow)
       .where(eq(workflow.id, workflowId))
@@ -170,6 +174,8 @@ export async function loadWorkflowStateFromSavedTables(
     parallels: normalizedState?.parallels ?? {},
     variables: (row.variables as Record<string, any>) ?? {},
     lastSaved: row.updatedAt?.getTime() ?? Date.now(),
+    isDeployed: row.isDeployed ?? false,
+    deployedAt: toISOStringOrUndefined(row.deployedAt),
   }
 
   return {
@@ -982,7 +988,12 @@ export async function deployWorkflow(params: {
     if (!stateWithSource) {
       return { success: false, error: 'Failed to load workflow state' }
     }
-    const { source: _source, ...currentState } = stateWithSource
+    const {
+      source: _source,
+      isDeployed: _isDeployed,
+      deployedAt: _deployedAt,
+      ...currentState
+    } = stateWithSource
 
     const now = new Date()
 

@@ -1153,6 +1153,7 @@ describe('Database Helpers', () => {
     it('loads materialized workflow state when no Yjs state exists', async () => {
       const variables = { 'var-db': { id: 'var-db', name: 'risk', value: 'saved' } }
       const updatedAt = new Date('2026-04-06T00:05:00.000Z')
+      const deployedAt = new Date('2026-04-06T00:10:00.000Z')
       let callCount = 0
       mockDb.select.mockImplementation(() => {
         callCount++
@@ -1160,7 +1161,9 @@ describe('Database Helpers', () => {
           return {
             from: vi.fn().mockReturnValue({
               where: vi.fn().mockReturnValue({
-                limit: vi.fn().mockResolvedValue([{ variables, updatedAt }]),
+                limit: vi
+                  .fn()
+                  .mockResolvedValue([{ variables, updatedAt, isDeployed: true, deployedAt }]),
               }),
             }),
           }
@@ -1188,6 +1191,8 @@ describe('Database Helpers', () => {
         variables,
         direction: 'LR',
         lastSaved: updatedAt.getTime(),
+        isDeployed: true,
+        deployedAt: deployedAt.toISOString(),
         source: 'db',
       })
       expect(mockReadBootstrappedReviewTargetSnapshot).toHaveBeenCalled()

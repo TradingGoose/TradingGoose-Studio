@@ -487,12 +487,15 @@ export interface PersistedDocState {
   parallels: Record<string, Parallel>
   variables: Record<string, any>
   lastSaved: number
+  isDeployed?: boolean
+  deployedAt?: string
 }
 
 export function extractPersistedStateFromDoc(doc: Y.Doc): PersistedDocState {
   const snapshot = readWorkflowSnapshot(doc)
   const variables = getVariablesSnapshot(doc)
   const lastSaved = resolveStoredDateValue(snapshot.lastSaved)?.getTime() ?? Date.now()
+  const deployedAt = resolveStoredDateValue(snapshot.deployedAt)?.toISOString()
 
   return {
     ...(snapshot.direction !== undefined ? { direction: snapshot.direction } : {}),
@@ -502,5 +505,7 @@ export function extractPersistedStateFromDoc(doc: Y.Doc): PersistedDocState {
     parallels: snapshot.parallels || {},
     variables: variables || {},
     lastSaved,
+    ...(snapshot.isDeployed !== undefined ? { isDeployed: snapshot.isDeployed } : {}),
+    ...(deployedAt ? { deployedAt } : {}),
   }
 }
