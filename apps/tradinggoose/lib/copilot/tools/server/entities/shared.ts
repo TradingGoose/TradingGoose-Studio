@@ -1,4 +1,3 @@
-import * as Y from 'yjs'
 import {
   type EntityDocumentKind,
   getEntityDocumentFormat,
@@ -16,11 +15,8 @@ import {
   withWorkspaceArgContext,
 } from '@/lib/copilot/tools/server/base-tool'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
-import { getEntityFields } from '@/lib/yjs/entity-session'
-import type { SavedEntityKind } from '@/lib/yjs/entity-state'
-import { buildSavedEntityYjsDescriptor } from '@/lib/yjs/entity-state'
+import { readSavedEntityFields, type SavedEntityKind } from '@/lib/yjs/entity-state'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
-import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
 
 export type SavedEntityDocumentKind = EntityDocumentKind
 export type EntityDocumentArgs = {
@@ -163,7 +159,9 @@ export function parseEntityMutationDocument(
 
   const expectedFormat = getEntityDocumentFormat(kind)
   if (args.documentFormat && args.documentFormat !== expectedFormat) {
-    throw new Error(`Unsupported documentFormat "${args.documentFormat}". Expected ${expectedFormat}`)
+    throw new Error(
+      `Unsupported documentFormat "${args.documentFormat}". Expected ${expectedFormat}`
+    )
   }
 
   return parseEntityDocument(kind, entityDocument)
@@ -194,25 +192,12 @@ export function buildDocumentDiff(
   }
 }
 
-export async function readSavedEntityYjsFields(
+export async function readSavedEntityDocumentFields(
   kind: SavedEntityDocumentKind,
   entityId: string,
   workspaceId: string
 ): Promise<Record<string, unknown>> {
-  const descriptor = buildSavedEntityYjsDescriptor(kind as SavedEntityKind, entityId, workspaceId)
-  const snapshot = await readBootstrappedReviewTargetSnapshot(descriptor)
-
-  if (!snapshot.snapshotBase64) {
-    throw new Error(`Current Yjs ${ENTITY_KIND_LABELS[kind]} state is required for ${entityId}`)
-  }
-
-  const doc = new Y.Doc()
-  try {
-    Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
-    return getEntityFields(doc, kind as SavedEntityKind)
-  } finally {
-    doc.destroy()
-  }
+  return readSavedEntityFields(kind as SavedEntityKind, entityId, workspaceId)
 }
 
 export async function applySavedEntityDocument(
@@ -276,7 +261,7 @@ export async function executeUpdateEntityDocumentMutation(
   const { workspaceId } = await verifySavedEntityContext(context, kind, entityId, 'write')
 
   if (shouldStageServerToolMutationForReview(context)) {
-    const currentFields = await readSavedEntityYjsFields(kind, entityId, workspaceId)
+    const currentFields = await readSavedEntityDocumentFields(kind, entityId, workspaceId)
     return {
       requiresReview: true,
       success: true,

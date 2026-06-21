@@ -7,7 +7,7 @@ import {
   skill,
 } from '@tradinggoose/db/schema'
 import { and, eq, isNull } from 'drizzle-orm'
-import type { SavedEntityKind } from '@/lib/yjs/entity-state'
+import { type SavedEntityKind, savedEntityRowToFields } from '@/lib/yjs/entity-state'
 
 export async function resolveEntityWorkspaceId(
   entityKind: SavedEntityKind,
@@ -55,4 +55,68 @@ export async function resolveEntityWorkspaceId(
       return row?.workspaceId ?? null
     }
   }
+}
+
+export async function readSavedEntityFieldsFromDb(
+  entityKind: SavedEntityKind,
+  entityId: string,
+  workspaceId: string
+): Promise<Record<string, unknown>> {
+  let row: Parameters<typeof savedEntityRowToFields>[1] | undefined
+
+  switch (entityKind) {
+    case 'skill':
+      ;[row] = await db
+        .select()
+        .from(skill)
+        .where(and(eq(skill.id, entityId), eq(skill.workspaceId, workspaceId)))
+        .limit(1)
+      break
+    case 'custom_tool':
+      ;[row] = await db
+        .select()
+        .from(customTools)
+        .where(and(eq(customTools.id, entityId), eq(customTools.workspaceId, workspaceId)))
+        .limit(1)
+      break
+    case 'indicator':
+      ;[row] = await db
+        .select()
+        .from(pineIndicators)
+        .where(and(eq(pineIndicators.id, entityId), eq(pineIndicators.workspaceId, workspaceId)))
+        .limit(1)
+      break
+    case 'knowledge_base':
+      ;[row] = await db
+        .select()
+        .from(knowledgeBase)
+        .where(
+          and(
+            eq(knowledgeBase.id, entityId),
+            eq(knowledgeBase.workspaceId, workspaceId),
+            isNull(knowledgeBase.deletedAt)
+          )
+        )
+        .limit(1)
+      break
+    case 'mcp_server':
+      ;[row] = await db
+        .select()
+        .from(mcpServers)
+        .where(
+          and(
+            eq(mcpServers.id, entityId),
+            eq(mcpServers.workspaceId, workspaceId),
+            isNull(mcpServers.deletedAt)
+          )
+        )
+        .limit(1)
+      break
+  }
+
+  if (!row) {
+    throw new Error(`Saved ${entityKind} ${entityId} was not found`)
+  }
+
+  return savedEntityRowToFields(entityKind, row)
 }

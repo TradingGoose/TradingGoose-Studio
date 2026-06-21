@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { upsertIndicators } from '@/lib/indicators/custom/operations'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { applySavedEntityYjsStateToRows } from '@/lib/yjs/entity-state'
+import { applySavedEntityCurrentFieldsToRows } from '@/lib/yjs/entity-state'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { authenticateIndicatorRequest, checkWorkspacePermission } from '../utils'
 
@@ -27,7 +27,9 @@ const logWorkspacePermissionDenied = ({
     logger.warn(`[${requestId}] User ${userId} does not have access to workspace ${workspaceId}`)
     return
   }
-  logger.warn(`[${requestId}] User ${userId} does not have write permission for workspace ${workspaceId}`)
+  logger.warn(
+    `[${requestId}] User ${userId} does not have write permission for workspace ${workspaceId}`
+  )
 }
 
 const IndicatorSchema = z.object({
@@ -103,7 +105,7 @@ export async function GET(request: NextRequest) {
       .from(pineIndicators)
       .where(eq(pineIndicators.workspaceId, resolvedWorkspaceId))
       .orderBy(desc(pineIndicators.createdAt))
-    const result = await applySavedEntityYjsStateToRows('indicator', rows)
+    const result = await applySavedEntityCurrentFieldsToRows('indicator', rows)
 
     return NextResponse.json({ data: result }, { status: 200 })
   } catch (error) {

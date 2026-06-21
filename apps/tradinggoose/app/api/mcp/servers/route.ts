@@ -8,10 +8,7 @@ import { mcpService } from '@/lib/mcp/service'
 import type { McpTransport } from '@/lib/mcp/types'
 import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
-import {
-  applySavedEntityYjsStateToRows,
-  savedEntityRowToFields,
-} from '@/lib/yjs/entity-state'
+import { applySavedEntityCurrentFieldsToRows, savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { CreateMcpServerSchema } from './schema'
@@ -39,7 +36,7 @@ export const GET = withMcpAuth('read')(
         .select()
         .from(mcpServers)
         .where(and(eq(mcpServers.workspaceId, workspaceId), isNull(mcpServers.deletedAt)))
-      const servers = await applySavedEntityYjsStateToRows('mcp_server', rows)
+      const servers = await applySavedEntityCurrentFieldsToRows('mcp_server', rows)
 
       logger.info(
         `[${requestId}] Listed ${servers.length} MCP servers for workspace ${workspaceId}`
@@ -117,11 +114,16 @@ export const POST = withMcpAuth('write')(
         })
         .returning()
 
-      await applySavedEntityState(
-        'mcp_server',
-        server.id,
-        savedEntityRowToFields('mcp_server', server)
-      )
+      try {
+        await applySavedEntityState(
+          'mcp_server',
+          server.id,
+          savedEntityRowToFields('mcp_server', server)
+        )
+      } catch (error) {
+        await db.delete(mcpServers).where(eq(mcpServers.id, server.id))
+        throw error
+      }
 
       mcpService.clearCache(workspaceId)
 

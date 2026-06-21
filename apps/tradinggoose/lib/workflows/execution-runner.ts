@@ -281,10 +281,18 @@ export async function loadWorkflowExecutionBlueprint(params: {
     throw new Error(`Workflow ${params.workflowId} has no ${executionTarget} state`)
   }
 
+  const deployedVariables =
+    executionTarget === 'deployed'
+      ? ((workflowData as { variables?: Record<string, any> }).variables ?? {})
+      : null
+
   return {
     workflowId: params.workflowId,
     executionTarget,
-    workflowContext,
+    workflowContext:
+      executionTarget === 'deployed'
+        ? { ...workflowContext, variables: deployedVariables }
+        : workflowContext,
     workflowData: {
       blocks: workflowData.blocks || {},
       edges: workflowData.edges || [],

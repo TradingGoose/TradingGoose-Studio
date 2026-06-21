@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { skill } from '@tradinggoose/db/schema'
-import { and, desc, eq, ne } from 'drizzle-orm'
+import { and, desc, eq, inArray, ne } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -9,10 +9,7 @@ import {
   type SkillTransferRecord,
 } from '@/lib/skills/import-export'
 import { generateRequestId } from '@/lib/utils'
-import {
-  applySavedEntityYjsStateToRows,
-  seedSavedEntityYjsStateFromRows,
-} from '@/lib/yjs/entity-state'
+import { applySavedEntityCurrentFieldsToRows, applySavedEntityRows } from '@/lib/yjs/entity-state'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('SkillsOperations')
@@ -43,7 +40,7 @@ export async function listSkills(params: { workspaceId: string }) {
     .where(eq(skill.workspaceId, params.workspaceId))
     .orderBy(desc(skill.createdAt))
 
-  return applySavedEntityYjsStateToRows('skill', rows)
+  return applySavedEntityCurrentFieldsToRows('skill', rows)
 }
 
 export async function deleteSkill(params: {
@@ -75,7 +72,9 @@ export async function upsertSkills({
   userId,
   requestId = generateRequestId(),
 }: UpsertSkillsParams) {
-  const affectedIds: string[] = []
+  const createdRows: Array<typeof skill.$inferSelect> = []
+  const updatedRows: Array<typeof skill.$inferSelect> = []
+  const createdIds: string[] = []
   const result = await db.transaction(async (tx) => {
     for (const currentSkill of skills) {
       const nowTime = new Date()
@@ -108,18 +107,14 @@ export async function upsertSkills({
             }
           }
 
-          await tx
-            .update(skill)
-            .set({
-              name: currentSkill.name,
-              description: currentSkill.description,
-              content: currentSkill.content,
-              updatedAt: nowTime,
-            })
-            .where(and(eq(skill.id, currentSkill.id), eq(skill.workspaceId, workspaceId)))
-
           logger.info(`[${requestId}] Updated skill ${currentSkill.id}`)
-          affectedIds.push(currentSkill.id)
+          updatedRows.push({
+            ...existingSkill[0],
+            name: currentSkill.name,
+            description: currentSkill.description,
+            content: currentSkill.content,
+            updatedAt: nowTime,
+          })
           continue
         }
       }
@@ -137,7 +132,7 @@ export async function upsertSkills({
       }
 
       const skillId = currentSkill.id || nanoid()
-      await tx.insert(skill).values({
+      const newSkill = {
         id: skillId,
         workspaceId,
         userId,
@@ -146,10 +141,12 @@ export async function upsertSkills({
         content: currentSkill.content,
         createdAt: nowTime,
         updatedAt: nowTime,
-      })
+      }
+      await tx.insert(skill).values(newSkill)
 
       logger.info(`[${requestId}] Created skill "${currentSkill.name}"`)
-      affectedIds.push(skillId)
+      createdRows.push(newSkill)
+      createdIds.push(skillId)
     }
 
     return tx
@@ -159,12 +156,16 @@ export async function upsertSkills({
       .orderBy(desc(skill.createdAt))
   })
 
-  await seedSavedEntityYjsStateFromRows(
-    'skill',
-    result.filter((row) => affectedIds.includes(row.id))
-  )
+  await applySavedEntityRows('skill', createdRows, {
+    rollbackRows: async () => {
+      if (createdIds.length > 0) {
+        await db.delete(skill).where(inArray(skill.id, createdIds))
+      }
+    },
+  })
+  await applySavedEntityRows('skill', updatedRows)
 
-  return applySavedEntityYjsStateToRows('skill', result)
+  return applySavedEntityCurrentFieldsToRows('skill', result)
 }
 
 export async function importSkills({
@@ -227,7 +228,18 @@ export async function importSkills({
     }
   })
 
-  await seedSavedEntityYjsStateFromRows('skill', result.skills)
+  await applySavedEntityRows('skill', result.skills, {
+    rollbackRows: async () => {
+      if (result.skills.length > 0) {
+        await db.delete(skill).where(
+          inArray(
+            skill.id,
+            result.skills.map((row) => row.id)
+          )
+        )
+      }
+    },
+  })
 
   return result
 }

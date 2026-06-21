@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { pineIndicators } from '@tradinggoose/db/schema'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, inArray } from 'drizzle-orm'
 import { getStableVibrantColor } from '@/lib/colors'
 import {
   type IndicatorTransferRecord,
@@ -9,10 +9,7 @@ import {
 import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import {
-  applySavedEntityYjsStateToRows,
-  seedSavedEntityYjsStateFromRows,
-} from '@/lib/yjs/entity-state'
+import { applySavedEntityCurrentFieldsToRows, applySavedEntityRows } from '@/lib/yjs/entity-state'
 
 const logger = createLogger('IndicatorsOperations')
 
@@ -55,7 +52,9 @@ export async function upsertIndicators({
   userId,
   requestId = generateRequestId(),
 }: UpsertIndicatorsParams) {
-  const affectedIds: string[] = []
+  const createdRows: Array<typeof pineIndicators.$inferSelect> = []
+  const updatedRows: Array<typeof pineIndicators.$inferSelect> = []
+  const createdIds: string[] = []
   const result = await db.transaction(async (tx) => {
     for (const indicator of indicators) {
       const nowTime = new Date()
@@ -72,25 +71,21 @@ export async function upsertIndicators({
         if (existing.length > 0) {
           const existingColor = existing[0]?.color
 
-          await tx
-            .update(pineIndicators)
-            .set({
-              name: indicator.name,
-              color: existingColor ?? getStableVibrantColor(indicator.id),
-              pineCode: indicator.pineCode,
-              inputMeta: indicator.inputMeta ?? null,
-              updatedAt: nowTime,
-            })
-            .where(eq(pineIndicators.id, indicator.id))
-
           logger.info(`[${requestId}] Updated Indicator ${indicator.id}`)
-          affectedIds.push(indicator.id)
+          updatedRows.push({
+            ...existing[0],
+            name: indicator.name,
+            color: existingColor ?? getStableVibrantColor(indicator.id),
+            pineCode: indicator.pineCode,
+            inputMeta: indicator.inputMeta ?? null,
+            updatedAt: nowTime,
+          })
           continue
         }
       }
 
       const indicatorId = indicator.id ?? crypto.randomUUID()
-      await tx.insert(pineIndicators).values({
+      const newIndicator = {
         id: indicatorId,
         workspaceId,
         userId,
@@ -100,10 +95,12 @@ export async function upsertIndicators({
         inputMeta: indicator.inputMeta ?? null,
         createdAt: nowTime,
         updatedAt: nowTime,
-      })
+      }
+      await tx.insert(pineIndicators).values(newIndicator)
 
       logger.info(`[${requestId}] Created Indicator ${indicator.name}`)
-      affectedIds.push(indicatorId)
+      createdRows.push(newIndicator)
+      createdIds.push(indicatorId)
     }
 
     return tx
@@ -113,12 +110,16 @@ export async function upsertIndicators({
       .orderBy(desc(pineIndicators.createdAt))
   })
 
-  await seedSavedEntityYjsStateFromRows(
-    'indicator',
-    result.filter((row) => affectedIds.includes(row.id))
-  )
+  await applySavedEntityRows('indicator', createdRows, {
+    rollbackRows: async () => {
+      if (createdIds.length > 0) {
+        await db.delete(pineIndicators).where(inArray(pineIndicators.id, createdIds))
+      }
+    },
+  })
+  await applySavedEntityRows('indicator', updatedRows)
 
-  return applySavedEntityYjsStateToRows('indicator', result)
+  return applySavedEntityCurrentFieldsToRows('indicator', result)
 }
 
 export async function importIndicators({
@@ -174,7 +175,18 @@ export async function importIndicators({
     }
   })
 
-  await seedSavedEntityYjsStateFromRows('indicator', result.indicators)
+  await applySavedEntityRows('indicator', result.indicators, {
+    rollbackRows: async () => {
+      if (result.indicators.length > 0) {
+        await db.delete(pineIndicators).where(
+          inArray(
+            pineIndicators.id,
+            result.indicators.map((row) => row.id)
+          )
+        )
+      }
+    },
+  })
 
   return result
 }

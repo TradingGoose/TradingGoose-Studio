@@ -22,8 +22,8 @@ import type {
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess, getUserEntityPermissions } from '@/lib/permissions/utils'
 import {
-  applySavedEntityYjsStateToRow,
-  applySavedEntityYjsStateToRows,
+  applySavedEntityCurrentFieldsToRow,
+  applySavedEntityCurrentFieldsToRows,
   savedEntityRowToFields,
 } from '@/lib/yjs/entity-state'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
@@ -66,7 +66,7 @@ export async function getKnowledgeBases(
     .groupBy(knowledgeBase.id)
     .orderBy(knowledgeBase.createdAt)
 
-  return applySavedEntityYjsStateToRows(
+  return applySavedEntityCurrentFieldsToRows(
     ENTITY_KIND_KNOWLEDGE_BASE,
     knowledgeBasesWithCounts.map((kb) => ({
       ...kb,
@@ -124,11 +124,16 @@ export async function createKnowledgeBase(
     docCount: 0,
   }
 
-  await applySavedEntityState(
-    ENTITY_KIND_KNOWLEDGE_BASE,
-    created.id,
-    savedEntityRowToFields(ENTITY_KIND_KNOWLEDGE_BASE, created)
-  )
+  try {
+    await applySavedEntityState(
+      ENTITY_KIND_KNOWLEDGE_BASE,
+      created.id,
+      savedEntityRowToFields(ENTITY_KIND_KNOWLEDGE_BASE, created)
+    )
+  } catch (error) {
+    await db.delete(knowledgeBase).where(eq(knowledgeBase.id, kbId))
+    throw error
+  }
 
   return created
 }
@@ -153,7 +158,7 @@ export async function copyKnowledgeBaseToWorkspace(
   if (!sourceKnowledgeBase) {
     throw new Error(`Knowledge base ${sourceKnowledgeBaseId} not found`)
   }
-  const sourceKnowledgeBaseFields = await applySavedEntityYjsStateToRow(
+  const sourceKnowledgeBaseFields = await applySavedEntityCurrentFieldsToRow(
     ENTITY_KIND_KNOWLEDGE_BASE,
     sourceKnowledgeBase
   )
@@ -341,22 +346,6 @@ export async function copyKnowledgeBaseToWorkspace(
     throw error
   }
 
-  if (totalDocumentSize > 0) {
-    try {
-      await incrementStorageUsage(userId, totalDocumentSize, targetWorkspaceId)
-    } catch (error) {
-      logger.error(`[${requestId}] Failed to update copied knowledge base storage usage:`, error)
-    }
-  }
-
-  if (processingJobs.length > 0) {
-    await enqueueDocumentProcessingJobs(processingJobs, requestId)
-  }
-
-  logger.info(
-    `[${requestId}] Copied knowledge base ${sourceKnowledgeBaseId} to workspace ${targetWorkspaceId} as ${newKnowledgeBaseId}`
-  )
-
   const copied = {
     id: newKnowledgeBaseId,
     name: `${sourceKnowledgeBaseFields.name} (Copy)`,
@@ -371,10 +360,34 @@ export async function copyKnowledgeBaseToWorkspace(
     docCount: sourceDocuments.length,
   }
 
-  await applySavedEntityState(
-    ENTITY_KIND_KNOWLEDGE_BASE,
-    copied.id,
-    savedEntityRowToFields(ENTITY_KIND_KNOWLEDGE_BASE, copied)
+  try {
+    await applySavedEntityState(
+      ENTITY_KIND_KNOWLEDGE_BASE,
+      copied.id,
+      savedEntityRowToFields(ENTITY_KIND_KNOWLEDGE_BASE, copied)
+    )
+  } catch (error) {
+    await db.delete(knowledgeBase).where(eq(knowledgeBase.id, newKnowledgeBaseId))
+    if (copiedDocuments.length > 0) {
+      await deleteKnowledgeDocumentFiles(copiedDocuments.map(({ fileUrl }) => fileUrl))
+    }
+    throw error
+  }
+
+  if (totalDocumentSize > 0) {
+    try {
+      await incrementStorageUsage(userId, totalDocumentSize, targetWorkspaceId)
+    } catch (error) {
+      logger.error(`[${requestId}] Failed to update copied knowledge base storage usage:`, error)
+    }
+  }
+
+  if (processingJobs.length > 0) {
+    await enqueueDocumentProcessingJobs(processingJobs, requestId)
+  }
+
+  logger.info(
+    `[${requestId}] Copied knowledge base ${sourceKnowledgeBaseId} to workspace ${targetWorkspaceId} as ${newKnowledgeBaseId}`
   )
 
   return copied
@@ -434,7 +447,7 @@ export async function getKnowledgeBaseById(
     return null
   }
 
-  return applySavedEntityYjsStateToRow(ENTITY_KIND_KNOWLEDGE_BASE, {
+  return applySavedEntityCurrentFieldsToRow(ENTITY_KIND_KNOWLEDGE_BASE, {
     ...result[0],
     chunkingConfig: result[0].chunkingConfig as ChunkingConfig,
     docCount: Number(result[0].docCount),

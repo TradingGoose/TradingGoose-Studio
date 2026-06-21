@@ -313,7 +313,7 @@ describe('Workflow By ID API Route', () => {
       expect(data.data.state.edges).toEqual(mockWorkflowState.edges)
     })
 
-    it('should return 409 when canonical Yjs state is missing', async () => {
+    it('should return 409 when saved workflow state is missing', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',

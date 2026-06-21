@@ -5,11 +5,11 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { DEFAULT_INDICATOR_RUNTIME_ENTRIES } from '@/lib/indicators/default/runtime'
 import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
-import type { InputMetaMap } from '@/lib/indicators/types'
 import { isIndicatorTriggerCapable } from '@/lib/indicators/trigger-detection'
+import type { InputMetaMap } from '@/lib/indicators/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { applySavedEntityYjsStateToRows } from '@/lib/yjs/entity-state'
+import { applySavedEntityCurrentFieldsToRows } from '@/lib/yjs/entity-state'
 import { authenticateIndicatorRequest, checkWorkspacePermission } from '../utils'
 
 const logger = createLogger('IndicatorOptionsAPI')
@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
       })
       .from(pineIndicators)
       .where(eq(pineIndicators.workspaceId, workspaceId))
-      .then((rows) => applySavedEntityYjsStateToRows('indicator', rows))
+      .then((rows) => applySavedEntityCurrentFieldsToRows('indicator', rows))
 
     const customOptions: IndicatorOptionRecord[] = customRows
       .filter((row) => copilotSurface || isIndicatorTriggerCapable(row.pineCode))

@@ -9,8 +9,25 @@ import type {
   ReviewTargetDescriptor,
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
+import { loadWorkflowStateFromSavedTables } from '@/lib/workflows/db-helpers'
+import { seedEntitySession } from '@/lib/yjs/entity-session'
+import type { SavedEntityKind } from '@/lib/yjs/entity-state'
+import {
+  readSavedEntityFieldsFromDb,
+  resolveEntityWorkspaceId,
+} from '@/lib/yjs/server/entity-loaders'
 import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
-import { getState as getPersistedYjsState } from '@/socket-server/yjs/persistence'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import {
+  createWorkflowSnapshot,
+  getMetadataMap,
+  setVariables,
+  setWorkflowState,
+} from '@/lib/yjs/workflow-session'
+import {
+  getState as getPersistedYjsState,
+  storeCanonicalState,
+} from '@/socket-server/yjs/persistence'
 
 export class ReviewTargetBootstrapError extends Error {
   status: number
@@ -99,10 +116,65 @@ async function resolveExistingReviewTarget(
   }
 }
 
+async function bootstrapSavedEntityFromDb(
+  descriptor: ReviewTargetDescriptor
+): Promise<ResolvedReviewTarget> {
+  if (!descriptor.entityId) {
+    throw new ReviewTargetBootstrapError(404, 'Saved entity id is required')
+  }
+
+  const doc = new Y.Doc()
+  try {
+    if (descriptor.entityKind === 'workflow') {
+      const workflowState = await loadWorkflowStateFromSavedTables(descriptor.entityId)
+      if (!workflowState) {
+        throw new ReviewTargetBootstrapError(404, 'Workflow not found')
+      }
+
+      setWorkflowState(
+        doc,
+        createWorkflowSnapshot({
+          direction: workflowState.direction,
+          blocks: workflowState.blocks,
+          edges: workflowState.edges,
+          loops: workflowState.loops,
+          parallels: workflowState.parallels,
+          lastSaved: new Date(workflowState.lastSaved).toISOString(),
+        }),
+        YJS_ORIGINS.SYSTEM
+      )
+      setVariables(doc, workflowState.variables, YJS_ORIGINS.SYSTEM)
+    } else {
+      const entityKind = descriptor.entityKind as SavedEntityKind
+      const workspaceId =
+        descriptor.workspaceId ?? (await resolveEntityWorkspaceId(entityKind, descriptor.entityId))
+      if (!workspaceId) {
+        throw new ReviewTargetBootstrapError(404, 'Saved entity workspace is missing')
+      }
+
+      seedEntitySession(doc, {
+        entityKind,
+        payload: await readSavedEntityFieldsFromDb(entityKind, descriptor.entityId, workspaceId),
+      })
+    }
+
+    getMetadataMap(doc).set('bootstrap-touch', Date.now())
+    const state = Y.encodeStateAsUpdate(doc)
+    await storeCanonicalState(descriptor.yjsSessionId, state)
+
+    return {
+      descriptor,
+      runtime: getRuntimeStateFromUpdate(state),
+    }
+  } finally {
+    doc.destroy()
+  }
+}
+
 /**
  * Ensures a review target has an active Yjs document. If an active blob already
- * exists it is reused. Saved entities require canonical Yjs state; unsaved
- * drafts return the explicit expired state.
+ * exists it is reused. Saved entities start a Yjs editing session from the
+ * saved database state; unsaved drafts return the explicit expired state.
  */
 export async function bootstrapReviewTarget(
   descriptor: ReviewTargetDescriptor
@@ -113,7 +185,7 @@ export async function bootstrapReviewTarget(
   }
 
   if (descriptor.entityId) {
-    throw new ReviewTargetBootstrapError(404, 'Saved entity Yjs state is missing')
+    return bootstrapSavedEntityFromDb(descriptor)
   }
 
   return {

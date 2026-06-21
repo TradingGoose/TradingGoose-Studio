@@ -1,12 +1,7 @@
 import * as Y from 'yjs'
-import {
-  buildYjsTransportEnvelope,
-  serializeYjsTransportEnvelope,
-} from '@/lib/copilot/review-sessions/identity'
 import type { ReviewEntityKind, ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
 import { getEntityFields } from '@/lib/yjs/entity-session'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
-import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
 
 export type SavedEntityKind = Exclude<ReviewEntityKind, 'workflow'>
 
@@ -157,38 +152,32 @@ export function applySavedEntityFieldsToRow<T extends SavedEntityRow>(
   }
 }
 
-export async function readSavedEntityFieldsFromYjs(
+export async function readSavedEntityFields(
   entityKind: SavedEntityKind,
   entityId: string,
   workspaceId: string
 ): Promise<Record<string, unknown>> {
+  const { readBootstrappedReviewTargetSnapshot } = await import(
+    '@/lib/yjs/server/bootstrap-review-target'
+  )
+  const snapshot = await readBootstrappedReviewTargetSnapshot(
+    buildSavedEntityYjsDescriptor(entityKind, entityId, workspaceId)
+  )
+
+  if (!snapshot.snapshotBase64) {
+    throw new Error(`Saved ${entityKind} Yjs state is empty for ${entityId}`)
+  }
+
+  const doc = new Y.Doc()
   try {
-    const descriptor = buildSavedEntityYjsDescriptor(entityKind, entityId, workspaceId)
-    const snapshot = await getYjsSnapshot(
-      entityId,
-      serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
-    )
-
-    if (!snapshot.snapshotBase64) {
-      throw new Error(`Saved ${entityKind} Yjs state is empty for ${entityId}`)
-    }
-
-    const doc = new Y.Doc()
-    try {
-      Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
-      return getEntityFields(doc, entityKind)
-    } finally {
-      doc.destroy()
-    }
-  } catch (error) {
-    if (error instanceof SocketServerBridgeError && error.status === 404) {
-      throw new Error(`Saved ${entityKind} Yjs state is missing for ${entityId}`)
-    }
-    throw error
+    Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
+    return getEntityFields(doc, entityKind)
+  } finally {
+    doc.destroy()
   }
 }
 
-export async function applySavedEntityYjsStateToRow<T extends SavedEntityRow>(
+export async function applySavedEntityCurrentFieldsToRow<T extends SavedEntityRow>(
   entityKind: SavedEntityKind,
   row: T
 ): Promise<T> {
@@ -196,24 +185,30 @@ export async function applySavedEntityYjsStateToRow<T extends SavedEntityRow>(
     return row
   }
 
-  const fields = await readSavedEntityFieldsFromYjs(entityKind, row.id, row.workspaceId)
+  const fields = await readSavedEntityFields(entityKind, row.id, row.workspaceId)
   return applySavedEntityFieldsToRow(entityKind, row, fields)
 }
 
-export async function applySavedEntityYjsStateToRows<T extends SavedEntityRow>(
+export async function applySavedEntityCurrentFieldsToRows<T extends SavedEntityRow>(
   entityKind: SavedEntityKind,
   rows: T[]
 ): Promise<T[]> {
-  return Promise.all(rows.map((row) => applySavedEntityYjsStateToRow(entityKind, row)))
+  return Promise.all(rows.map((row) => applySavedEntityCurrentFieldsToRow(entityKind, row)))
 }
 
-export async function seedSavedEntityYjsStateFromRows<T extends SavedEntityRow>(
+export async function applySavedEntityRows<T extends SavedEntityRow>(
   entityKind: SavedEntityKind,
-  rows: T[]
+  rows: T[],
+  options?: { rollbackRows?: () => Promise<void> }
 ): Promise<void> {
-  await Promise.all(
-    rows.map((row) =>
-      applySavedEntityState(entityKind, row.id, savedEntityRowToFields(entityKind, row))
+  try {
+    await Promise.all(
+      rows.map((row) =>
+        applySavedEntityState(entityKind, row.id, savedEntityRowToFields(entityKind, row))
+      )
     )
-  )
+  } catch (error) {
+    await options?.rollbackRows?.()
+    throw error
+  }
 }

@@ -7,7 +7,7 @@ import { getParsedBody, withMcpAuth } from '@/lib/mcp/middleware'
 import { mcpService } from '@/lib/mcp/service'
 import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
-import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
+import { applySavedEntityCurrentFieldsToRow, savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import { UpdateMcpServerSchema } from '../schema'
 
@@ -63,15 +63,9 @@ export const PATCH = withMcpAuth('write')(
         body.url = urlValidation.normalizedUrl
       }
 
-      // Remove workspaceId from body to prevent it from being updated
-      const { workspaceId: _, ...updateData } = body
-
-      const [updatedServer] = await db
-        .update(mcpServers)
-        .set({
-          ...updateData,
-          updatedAt: new Date(),
-        })
+      const [existingServer] = await db
+        .select()
+        .from(mcpServers)
         .where(
           and(
             eq(mcpServers.id, serverId),
@@ -79,9 +73,9 @@ export const PATCH = withMcpAuth('write')(
             isNull(mcpServers.deletedAt)
           )
         )
-        .returning()
+        .limit(1)
 
-      if (!updatedServer) {
+      if (!existingServer) {
         return createMcpErrorResponse(
           new Error('Server not found or access denied'),
           'Server not found',
@@ -89,11 +83,19 @@ export const PATCH = withMcpAuth('write')(
         )
       }
 
+      const { workspaceId: _, ...updateData } = body
+      const nextServer = {
+        ...existingServer,
+        ...updateData,
+        updatedAt: new Date(),
+      }
+
       await applySavedEntityState(
         'mcp_server',
-        updatedServer.id,
-        savedEntityRowToFields('mcp_server', updatedServer)
+        nextServer.id,
+        savedEntityRowToFields('mcp_server', nextServer)
       )
+      const updatedServer = await applySavedEntityCurrentFieldsToRow('mcp_server', nextServer)
 
       // Clear MCP service cache after update
       mcpService.clearCache(workspaceId)

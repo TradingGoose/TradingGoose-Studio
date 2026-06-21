@@ -8,8 +8,8 @@
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
-import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import { setVariables, setWorkflowState } from '@/lib/yjs/workflow-session'
+import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
 const mockDb = {
   select: vi.fn(),
@@ -23,6 +23,7 @@ const mockWorkflowTable = {
   id: 'id',
   variables: 'variables',
   lastSynced: 'lastSynced',
+  updatedAt: 'updatedAt',
   userId: 'userId',
 }
 
@@ -106,19 +107,19 @@ vi.doMock('@/lib/logs/console/logger', () => ({
 }))
 
 const mockReconcilePublishedChatsForDeploymentTx = vi.fn()
-const mockGetYjsSnapshot = vi.fn()
-class MockSocketServerBridgeError extends Error {
+const mockReadBootstrappedReviewTargetSnapshot = vi.fn()
+class MockReviewTargetBootstrapError extends Error {
   constructor(
     public status: number,
-    public body: string
+    message: string
   ) {
-    super(body)
-    this.name = 'SocketServerBridgeError'
+    super(message)
+    this.name = 'ReviewTargetBootstrapError'
   }
 }
-vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
-  getYjsSnapshot: mockGetYjsSnapshot,
-  SocketServerBridgeError: MockSocketServerBridgeError,
+vi.doMock('@/lib/yjs/server/bootstrap-review-target', () => ({
+  readBootstrappedReviewTargetSnapshot: mockReadBootstrappedReviewTargetSnapshot,
+  ReviewTargetBootstrapError: MockReviewTargetBootstrapError,
 }))
 
 vi.doMock('@/lib/chat/published-deployment', () => ({
@@ -278,7 +279,9 @@ const mockWorkflowState: WorkflowState = {
   deploymentStatuses: {},
 }
 
-const createMockTx = (overrides: Partial<Record<'delete' | 'execute' | 'insert' | 'update', any>> = {}) => ({
+const createMockTx = (
+  overrides: Partial<Record<'delete' | 'execute' | 'insert' | 'update', any>> = {}
+) => ({
   execute: overrides.execute ?? vi.fn().mockResolvedValue([]),
   update:
     overrides.update ??
@@ -316,7 +319,9 @@ describe('Database Helpers', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGetYjsSnapshot.mockRejectedValue(new MockSocketServerBridgeError(404, 'Not found'))
+    mockReadBootstrappedReviewTargetSnapshot.mockRejectedValue(
+      new MockReviewTargetBootstrapError(404, 'Not found')
+    )
     mockReconcilePublishedChatsForDeploymentTx.mockResolvedValue(undefined)
     mockDb.select.mockReturnValue({
       from: vi.fn().mockReturnValue({
@@ -517,7 +522,7 @@ describe('Database Helpers', () => {
 
     it('should handle database connection errors gracefully', async () => {
       const connectionError = new Error('Connection refused')
-        ; (connectionError as any).code = 'ECONNREFUSED'
+      ;(connectionError as any).code = 'ECONNREFUSED'
 
       // Mock database connection error
       mockDb.select.mockReturnValue({
@@ -538,9 +543,9 @@ describe('Database Helpers', () => {
     })
 
     it('should successfully save workflow data to normalized tables', async () => {
-      const mockTransaction = vi.fn().mockImplementation(async (callback) =>
-        callback(createMockTx())
-      )
+      const mockTransaction = vi
+        .fn()
+        .mockImplementation(async (callback) => callback(createMockTx()))
 
       mockDb.transaction = mockTransaction
 
@@ -567,9 +572,9 @@ describe('Database Helpers', () => {
         deploymentStatuses: {},
       }
 
-      const mockTransaction = vi.fn().mockImplementation(async (callback) =>
-        callback(createMockTx())
-      )
+      const mockTransaction = vi
+        .fn()
+        .mockImplementation(async (callback) => callback(createMockTx()))
 
       mockDb.transaction = mockTransaction
 
@@ -596,7 +601,7 @@ describe('Database Helpers', () => {
 
     it('should handle database constraint errors', async () => {
       const constraintError = new Error('Unique constraint violation')
-        ; (constraintError as any).code = '23505'
+      ;(constraintError as any).code = '23505'
 
       const mockTransaction = vi.fn().mockRejectedValue(constraintError)
       mockDb.transaction = mockTransaction
@@ -837,9 +842,9 @@ describe('Database Helpers', () => {
     }
 
     it('should successfully migrate workflow from JSON to normalized tables', async () => {
-      const mockTransaction = vi.fn().mockImplementation(async (callback) =>
-        callback(createMockTx())
-      )
+      const mockTransaction = vi
+        .fn()
+        .mockImplementation(async (callback) => callback(createMockTx()))
 
       mockDb.transaction = mockTransaction
 
@@ -872,9 +877,9 @@ describe('Database Helpers', () => {
         // Missing loops, parallels, and other properties
       }
 
-      const mockTransaction = vi.fn().mockImplementation(async (callback) =>
-        callback(createMockTx())
-      )
+      const mockTransaction = vi
+        .fn()
+        .mockImplementation(async (callback) => callback(createMockTx()))
 
       mockDb.transaction = mockTransaction
 
@@ -932,9 +937,9 @@ describe('Database Helpers', () => {
         })
       }
 
-      const mockTransaction = vi.fn().mockImplementation(async (callback) =>
-        callback(createMockTx())
-      )
+      const mockTransaction = vi
+        .fn()
+        .mockImplementation(async (callback) => callback(createMockTx()))
 
       mockDb.transaction = mockTransaction
 
@@ -979,7 +984,7 @@ describe('Database Helpers', () => {
       setWorkflowState(doc, yjsState, 'test')
       setVariables(doc, yjsVariables, 'test')
 
-      mockGetYjsSnapshot.mockResolvedValue(
+      mockReadBootstrappedReviewTargetSnapshot.mockResolvedValue(
         buildWorkflowSnapshotResponse(Y.encodeStateAsUpdate(doc))
       )
 
@@ -1016,14 +1021,11 @@ describe('Database Helpers', () => {
       })
 
       expect(result.success).toBe(true)
-      expect(mockGetYjsSnapshot).toHaveBeenCalledWith(
-        mockWorkflowId,
+      expect(mockReadBootstrappedReviewTargetSnapshot).toHaveBeenCalledWith(
         expect.objectContaining({
-          targetKind: 'workflow',
-          sessionId: mockWorkflowId,
-          workflowId: mockWorkflowId,
           entityKind: 'workflow',
           entityId: mockWorkflowId,
+          yjsSessionId: mockWorkflowId,
         })
       )
       expect(mockDb.select).not.toHaveBeenCalled()
@@ -1042,6 +1044,7 @@ describe('Database Helpers', () => {
         blocks: yjsState.blocks,
         variables: yjsVariables,
       })
+      expect(deploymentInsert?.data.state).not.toHaveProperty('source')
 
       const workflowUpdate = updateCalls.find((call) => call.table === mockWorkflowTable)
       expect(workflowUpdate?.data.variables).toEqual(yjsVariables)
@@ -1060,7 +1063,7 @@ describe('Database Helpers', () => {
   })
 
   describe('loadWorkflowStateFromYjs', () => {
-    it('should decode the workflow state from the socket-server bridge snapshot', async () => {
+    it('should decode the workflow state from the bootstrapped Yjs snapshot', async () => {
       const doc = new Y.Doc()
       const yjsState = {
         blocks: {
@@ -1090,20 +1093,17 @@ describe('Database Helpers', () => {
 
       setWorkflowState(doc, yjsState, 'test')
       setVariables(doc, yjsVariables, 'test')
-      mockGetYjsSnapshot.mockResolvedValue(
+      mockReadBootstrappedReviewTargetSnapshot.mockResolvedValue(
         buildWorkflowSnapshotResponse(Y.encodeStateAsUpdate(doc))
       )
 
       const result = await dbHelpers.loadWorkflowStateFromYjs(mockWorkflowId)
 
-      expect(mockGetYjsSnapshot).toHaveBeenCalledWith(
-        mockWorkflowId,
+      expect(mockReadBootstrappedReviewTargetSnapshot).toHaveBeenCalledWith(
         expect.objectContaining({
-          targetKind: 'workflow',
-          sessionId: mockWorkflowId,
-          workflowId: mockWorkflowId,
           entityKind: 'workflow',
           entityId: mockWorkflowId,
+          yjsSessionId: mockWorkflowId,
         })
       )
       expect(result).toMatchObject({
@@ -1147,7 +1147,7 @@ describe('Database Helpers', () => {
 
       setWorkflowState(doc, yjsState, 'test')
       setVariables(doc, yjsVariables, 'test')
-      mockGetYjsSnapshot.mockResolvedValue(
+      mockReadBootstrappedReviewTargetSnapshot.mockResolvedValue(
         buildWorkflowSnapshotResponse(Y.encodeStateAsUpdate(doc))
       )
 
@@ -1194,7 +1194,7 @@ describe('Database Helpers', () => {
 
       setWorkflowState(doc, yjsState, 'test')
       setVariables(doc, yjsVariables, 'test')
-      mockGetYjsSnapshot.mockResolvedValue(
+      mockReadBootstrappedReviewTargetSnapshot.mockResolvedValue(
         buildWorkflowSnapshotResponse(Y.encodeStateAsUpdate(doc))
       )
 
@@ -1211,18 +1211,17 @@ describe('Database Helpers', () => {
       expect(mockDb.select).not.toHaveBeenCalled()
     })
 
-    it('returns null when the Yjs bridge errors', async () => {
-      mockGetYjsSnapshot.mockRejectedValueOnce(
-        new Error('socket server unavailable')
+    it('does not read workflow tables when the bootstrapped Yjs read fails', async () => {
+      const error = new Error('socket server unavailable')
+      mockReadBootstrappedReviewTargetSnapshot.mockRejectedValueOnce(error)
+
+      await expect(dbHelpers.loadWorkflowState(mockWorkflowId)).rejects.toThrow(
+        'socket server unavailable'
       )
-
-      const result = await dbHelpers.loadWorkflowState(mockWorkflowId)
-
-      expect(result).toBeNull()
       expect(mockDb.select).not.toHaveBeenCalled()
     })
 
-    it('uses the stored Yjs snapshot without normalized-table fallback', async () => {
+    it('prefers the stored Yjs snapshot over the DB materialization', async () => {
       const doc = new Y.Doc()
       setWorkflowState(
         doc,
@@ -1245,7 +1244,7 @@ describe('Database Helpers', () => {
         },
         'test'
       )
-      mockGetYjsSnapshot.mockResolvedValue(
+      mockReadBootstrappedReviewTargetSnapshot.mockResolvedValue(
         buildWorkflowSnapshotResponse(Y.encodeStateAsUpdate(doc))
       )
 

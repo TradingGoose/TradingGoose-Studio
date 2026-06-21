@@ -429,4 +429,46 @@ describe('loadWorkflowExecutionBlueprint', () => {
     expect(loadDeployedWorkflowState).not.toHaveBeenCalled()
     expect(mocks.dbSelect).not.toHaveBeenCalled()
   })
+
+  it('uses variables from the active deployment for deployed execution', async () => {
+    const { loadDeployedWorkflowState, loadWorkflowState } = await import(
+      '@/lib/workflows/db-helpers'
+    )
+    const deployedVariables = {
+      risk: { id: 'var-deployed', name: 'risk', value: 'deployed' },
+    }
+    vi.mocked(loadDeployedWorkflowState).mockResolvedValueOnce({
+      blocks: {
+        trigger: {
+          id: 'trigger',
+          type: 'api_trigger',
+          name: 'Trigger',
+          position: { x: 0, y: 0 },
+          subBlocks: {},
+          outputs: {},
+          enabled: true,
+        },
+      },
+      edges: [{ id: 'edge-1', source: 'trigger', target: 'worker' }],
+      loops: {},
+      parallels: {},
+      variables: deployedVariables,
+      isFromNormalizedTables: false,
+    })
+    mocks.dbRowsQueue.push([
+      {
+        workspaceId: 'workspace-1',
+        variables: { risk: { id: 'var-live', name: 'risk', value: 'live' } },
+      },
+    ])
+
+    const result = await loadWorkflowExecutionBlueprint({
+      workflowId: 'workflow-1',
+      executionTarget: 'deployed',
+    })
+
+    expect(result.workflowContext.variables).toEqual(deployedVariables)
+    expect(result.workflowData.blocks.trigger?.subBlocks).toEqual({})
+    expect(loadWorkflowState).not.toHaveBeenCalled()
+  })
 })

@@ -35,7 +35,7 @@ import {
   resolveTradingProviderSelectedAccount,
 } from '@/lib/trading/context'
 import { isTradingServiceError } from '@/lib/trading/errors'
-import { applySavedEntityYjsStateToRows } from '@/lib/yjs/entity-state'
+import { applySavedEntityCurrentFieldsToRows } from '@/lib/yjs/entity-state'
 
 type WebhookRow = typeof webhook.$inferSelect
 
@@ -272,7 +272,7 @@ export const ensureTriggerCapableIndicator = async (workspaceId: string, indicat
     .from(pineIndicators)
     .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
     .limit(1)
-    .then((rows) => applySavedEntityYjsStateToRows('indicator', rows))
+    .then((rows) => applySavedEntityCurrentFieldsToRows('indicator', rows))
 
   const customIndicator = customRows[0]
   if (!customIndicator) {
@@ -306,7 +306,7 @@ export const loadIndicatorInputMetadata = async (
     .from(pineIndicators)
     .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
     .limit(1)
-    .then((rows) => applySavedEntityYjsStateToRows('indicator', rows))
+    .then((rows) => applySavedEntityCurrentFieldsToRows('indicator', rows))
 
   const row = rows[0]
   if (!row) {

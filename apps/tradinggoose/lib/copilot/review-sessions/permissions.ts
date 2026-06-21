@@ -306,7 +306,7 @@ function hasAccessToReviewSession(
 /**
  * Loads a review session when the caller can access it.
  * Review-session rows are chat/draft history and remain creator-owned.
- * Saved entities use canonical Yjs entity targets keyed by entityId.
+ * Saved entities use Yjs editing targets keyed by entityId.
  */
 export async function loadReviewSessionForUser(
   reviewSessionId: string,

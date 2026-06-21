@@ -8,7 +8,6 @@ import { getStableVibrantColor } from '@/lib/colors'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
-import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import {
   ensureUniqueBlockIds,
   ensureUniqueEdgeIds,
@@ -17,6 +16,7 @@ import {
   remapVariableIds,
   saveWorkflowToNormalizedTables,
 } from '@/lib/workflows/db-helpers'
+import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import type { Variable } from '@/stores/variables/types'
@@ -31,12 +31,10 @@ const DuplicateRequestSchema = z.object({
   folderId: z.string().nullable().optional(),
 })
 
-async function loadSourceWorkflowArtifacts(
-  sourceWorkflowId: string
-): Promise<{
+async function loadSourceWorkflowArtifacts(sourceWorkflowId: string): Promise<{
   workflowState: WorkflowState
   variables: Record<string, Variable>
-  source: 'yjs'
+  source: 'yjs' | 'db'
 }> {
   const stateWithSource = await loadWorkflowState(sourceWorkflowId)
   if (!stateWithSource) {
@@ -158,14 +156,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         isDeployed: false,
       })
 
-      await applyWorkflowState(
-        newWorkflowId,
-        duplicatedSnapshot,
-        duplicatedVariables,
-        name
-      )
+      await applyWorkflowState(newWorkflowId, duplicatedSnapshot, duplicatedVariables, name)
 
-      const saveResult = await saveWorkflowToNormalizedTables(newWorkflowId, persistedDuplicatedState)
+      const saveResult = await saveWorkflowToNormalizedTables(
+        newWorkflowId,
+        persistedDuplicatedState
+      )
       if (!saveResult.success) {
         throw new Error(saveResult.error || 'Failed to materialize duplicated workflow state')
       }
@@ -174,16 +170,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       throw duplicationError
     }
 
-    logger.info(
-      `[${requestId}] Duplicated workflow state using ${sourceArtifacts.source} source`,
-      {
-        sourceWorkflowId,
-        newWorkflowId,
-        blocksCount: Object.keys(duplicatedWorkflowState.blocks || {}).length,
-        edgesCount: duplicatedWorkflowState.edges?.length || 0,
-        variablesCount: Object.keys(duplicatedVariables).length,
-      }
-    )
+    logger.info(`[${requestId}] Duplicated workflow state using ${sourceArtifacts.source} source`, {
+      sourceWorkflowId,
+      newWorkflowId,
+      blocksCount: Object.keys(duplicatedWorkflowState.blocks || {}).length,
+      edgesCount: duplicatedWorkflowState.edges?.length || 0,
+      variablesCount: Object.keys(duplicatedVariables).length,
+    })
 
     const elapsed = Date.now() - startTime
     logger.info(

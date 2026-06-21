@@ -17,12 +17,12 @@ import { getQueryStrategy, handleVectorOnlySearch } from '@/app/api/knowledge/se
 import {
   acceptEntityDocumentReview,
   buildDocumentEnvelope,
-  executeCreateEntityDocumentMutation,
-  executeUpdateEntityDocumentMutation,
   type EntityCreateResult,
   type EntityDocumentArgs,
   type EntityServerTool,
-  readSavedEntityYjsFields,
+  executeCreateEntityDocumentMutation,
+  executeUpdateEntityDocumentMutation,
+  readSavedEntityDocumentFields,
   requireEntityId,
   verifySavedEntityContext,
   verifyWorkspaceContext,
@@ -127,7 +127,7 @@ export const readKnowledgeBaseServerTool: EntityServerTool = {
     )
     const [kb, fields] = await Promise.all([
       getKnowledgeBaseById(entityId),
-      readSavedEntityYjsFields(ENTITY_KIND_KNOWLEDGE_BASE, entityId, workspaceId),
+      readSavedEntityDocumentFields(ENTITY_KIND_KNOWLEDGE_BASE, entityId, workspaceId),
     ])
     if (!kb) {
       throw new Error('Knowledge base not found')

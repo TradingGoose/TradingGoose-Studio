@@ -9,19 +9,16 @@ import {
   resolveDefaultIndicatorRuntimeEntry,
 } from '@/lib/indicators/default/runtime'
 import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
-import {
-  applySavedEntityYjsStateToRows,
-  savedEntityRowToFields,
-} from '@/lib/yjs/entity-state'
+import { applySavedEntityCurrentFieldsToRows, savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
   acceptEntityDocumentReview,
   buildDocumentEnvelope,
-  executeCreateEntityDocumentMutation,
-  executeUpdateEntityDocumentMutation,
   type CopilotIndicatorListEntry,
   type EntityCreateResult,
   type EntityServerTool,
-  readSavedEntityYjsFields,
+  executeCreateEntityDocumentMutation,
+  executeUpdateEntityDocumentMutation,
+  readSavedEntityDocumentFields,
   requireEntityId,
   requireUserId,
   verifySavedEntityContext,
@@ -42,7 +39,9 @@ function toDefaultIndicatorListEntry(entry: (typeof DEFAULT_INDICATOR_RUNTIME_EN
 }
 
 function toCustomIndicatorListEntry(
-  row: Awaited<ReturnType<typeof applySavedEntityYjsStateToRows<typeof pineIndicators.$inferSelect>>>[number]
+  row: Awaited<
+    ReturnType<typeof applySavedEntityCurrentFieldsToRows<typeof pineIndicators.$inferSelect>>
+  >[number]
 ): CopilotIndicatorListEntry {
   const inputMeta = normalizeInputMetaMap(row.inputMeta)
   const inputTitles = Object.keys(inputMeta ?? {})
@@ -64,7 +63,7 @@ async function listCopilotIndicators(workspaceId: string): Promise<CopilotIndica
     .from(pineIndicators)
     .where(eq(pineIndicators.workspaceId, workspaceId))
     .orderBy(desc(pineIndicators.createdAt))
-    .then((rows) => applySavedEntityYjsStateToRows(ENTITY_KIND_INDICATOR, rows))
+    .then((rows) => applySavedEntityCurrentFieldsToRows(ENTITY_KIND_INDICATOR, rows))
   const customOptions = customRows.map(toCustomIndicatorListEntry)
 
   return [...defaultOptions, ...customOptions].sort((a, b) => a.name.localeCompare(b.name))
@@ -85,7 +84,9 @@ async function createIndicatorEntity(
         name: String(fields.name ?? ''),
         pineCode: String(fields.pineCode ?? ''),
         inputMeta:
-          fields.inputMeta && typeof fields.inputMeta === 'object' && !Array.isArray(fields.inputMeta)
+          fields.inputMeta &&
+          typeof fields.inputMeta === 'object' &&
+          !Array.isArray(fields.inputMeta)
             ? (fields.inputMeta as Record<string, unknown>)
             : undefined,
       },
@@ -144,7 +145,7 @@ export const readIndicatorServerTool: EntityServerTool = {
       entityId,
       'read'
     )
-    const fields = await readSavedEntityYjsFields(ENTITY_KIND_INDICATOR, entityId, workspaceId)
+    const fields = await readSavedEntityDocumentFields(ENTITY_KIND_INDICATOR, entityId, workspaceId)
     return buildDocumentEnvelope(ENTITY_KIND_INDICATOR, entityId, fields)
   },
 }
@@ -164,7 +165,12 @@ export const createIndicatorServerTool: EntityServerTool = {
 export const editIndicatorServerTool: EntityServerTool = {
   name: 'edit_indicator',
   execute(args, context) {
-    return executeUpdateEntityDocumentMutation(ENTITY_KIND_INDICATOR, 'edit_indicator', args, context)
+    return executeUpdateEntityDocumentMutation(
+      ENTITY_KIND_INDICATOR,
+      'edit_indicator',
+      args,
+      context
+    )
   },
 }
 

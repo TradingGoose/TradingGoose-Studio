@@ -20,8 +20,8 @@ import type {
 import { MCP_CONSTANTS } from '@/lib/mcp/utils'
 import { generateRequestId } from '@/lib/utils'
 import {
-  applySavedEntityYjsStateToRow,
-  applySavedEntityYjsStateToRows,
+  applySavedEntityCurrentFieldsToRow,
+  applySavedEntityCurrentFieldsToRows,
 } from '@/lib/yjs/entity-state'
 
 const logger = createLogger('McpService')
@@ -201,7 +201,7 @@ class McpService {
     if (missingVars.length > 0) {
       throw new Error(
         `Missing required environment variable${missingVars.length > 1 ? 's' : ''}: ${missingVars.join(', ')}. ` +
-        `Please set ${missingVars.length > 1 ? 'these variables' : 'this variable'} in your workspace or personal environment settings.`
+          `Please set ${missingVars.length > 1 ? 'these variables' : 'this variable'} in your workspace or personal environment settings.`
       )
     }
 
@@ -263,7 +263,7 @@ class McpService {
       return null
     }
 
-    const config = await applySavedEntityYjsStateToRow('mcp_server', server)
+    const config = await applySavedEntityCurrentFieldsToRow('mcp_server', server)
     if (!config.enabled) {
       return null
     }
@@ -287,30 +287,29 @@ class McpService {
    * Get all enabled servers for a workspace
    */
   private async getWorkspaceServers(workspaceId: string): Promise<McpServerConfig[]> {
-    const whereConditions = [
-      eq(mcpServers.workspaceId, workspaceId),
-      isNull(mcpServers.deletedAt),
-    ]
+    const whereConditions = [eq(mcpServers.workspaceId, workspaceId), isNull(mcpServers.deletedAt)]
 
     const rows = await db
       .select()
       .from(mcpServers)
       .where(and(...whereConditions))
-    const servers = await applySavedEntityYjsStateToRows('mcp_server', rows)
+    const servers = await applySavedEntityCurrentFieldsToRows('mcp_server', rows)
 
-    return servers.filter((server) => server.enabled).map((server) => ({
-      id: server.id,
-      name: server.name,
-      description: server.description || undefined,
-      transport: server.transport as McpTransport,
-      url: server.url || undefined,
-      headers: (server.headers as Record<string, string>) || {},
-      timeout: server.timeout || 30000,
-      retries: server.retries || 3,
-      enabled: server.enabled,
-      createdAt: server.createdAt.toISOString(),
-      updatedAt: server.updatedAt.toISOString(),
-    }))
+    return servers
+      .filter((server) => server.enabled)
+      .map((server) => ({
+        id: server.id,
+        name: server.name,
+        description: server.description || undefined,
+        transport: server.transport as McpTransport,
+        url: server.url || undefined,
+        headers: (server.headers as Record<string, string>) || {},
+        timeout: server.timeout || 30000,
+        retries: server.retries || 3,
+        enabled: server.enabled,
+        createdAt: server.createdAt.toISOString(),
+        updatedAt: server.updatedAt.toISOString(),
+      }))
   }
 
   /**

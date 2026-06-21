@@ -7,12 +7,12 @@ import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
   acceptEntityDocumentReview,
   buildDocumentEnvelope,
-  executeCreateEntityDocumentMutation,
-  executeUpdateEntityDocumentMutation,
   type EntityCreateResult,
   type EntityListEntry,
   type EntityServerTool,
-  readSavedEntityYjsFields,
+  executeCreateEntityDocumentMutation,
+  executeUpdateEntityDocumentMutation,
+  readSavedEntityDocumentFields,
   requireEntityId,
   verifySavedEntityContext,
   verifyWorkspaceContext,
@@ -112,7 +112,11 @@ export const readCustomToolServerTool: EntityServerTool = {
       entityId,
       'read'
     )
-    const fields = await readSavedEntityYjsFields(ENTITY_KIND_CUSTOM_TOOL, entityId, workspaceId)
+    const fields = await readSavedEntityDocumentFields(
+      ENTITY_KIND_CUSTOM_TOOL,
+      entityId,
+      workspaceId
+    )
     return buildDocumentEnvelope(ENTITY_KIND_CUSTOM_TOOL, entityId, fields)
   },
 }

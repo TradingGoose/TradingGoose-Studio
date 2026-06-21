@@ -12,14 +12,9 @@ import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import * as Y from 'yjs'
 import { reconcilePublishedChatsForDeploymentTx } from '@/lib/chat/published-deployment'
-import {
-  buildYjsTransportEnvelope,
-  serializeYjsTransportEnvelope,
-} from '@/lib/copilot/review-sessions/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import { resolveStoredDateValue } from '@/lib/time-format'
 import { sanitizeAgentToolsInBlocks } from '@/lib/workflows/validation'
-import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
 import { extractPersistedStateFromDoc } from '@/lib/yjs/workflow-session'
 import type { Variable } from '@/stores/variables/types'
 import type {
@@ -88,46 +83,40 @@ export type PersistedWorkflowState = {
   lastSaved: number
 }
 
-/**
- * Attempt to load the current workflow state from the authoritative socket
- * server Yjs session through the generic Yjs snapshot transport. The socket
- * server resolves a live workflow doc first and otherwise falls back to its
- * persisted Yjs blob.
- */
 export async function loadWorkflowStateFromYjs(
   workflowId: string
 ): Promise<PersistedWorkflowState | null> {
+  const { readBootstrappedReviewTargetSnapshot, ReviewTargetBootstrapError } = await import(
+    '@/lib/yjs/server/bootstrap-review-target'
+  )
+
+  let snapshot: Awaited<ReturnType<typeof readBootstrappedReviewTargetSnapshot>>
   try {
-    const snapshot = await getYjsSnapshot(
-      workflowId,
-      serializeYjsTransportEnvelope(
-        buildYjsTransportEnvelope({
-          workspaceId: null,
-          entityKind: 'workflow',
-          entityId: workflowId,
-          draftSessionId: null,
-          reviewSessionId: null,
-          yjsSessionId: workflowId,
-        })
-      )
-    )
-
-    if (!snapshot.snapshotBase64) {
-      return null
-    }
-
-    const doc = new Y.Doc()
-    try {
-      Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
-      return extractPersistedStateFromDoc(doc)
-    } finally {
-      doc.destroy()
-    }
+    snapshot = await readBootstrappedReviewTargetSnapshot({
+      workspaceId: null,
+      entityKind: 'workflow',
+      entityId: workflowId,
+      draftSessionId: null,
+      reviewSessionId: null,
+      yjsSessionId: workflowId,
+    })
   } catch (error) {
-    if (error instanceof SocketServerBridgeError && error.status === 404) {
+    if (error instanceof ReviewTargetBootstrapError && error.status === 404) {
       return null
     }
     throw error
+  }
+
+  if (!snapshot.snapshotBase64) {
+    return null
+  }
+
+  const doc = new Y.Doc()
+  try {
+    Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
+    return extractPersistedStateFromDoc(doc)
+  } finally {
+    doc.destroy()
   }
 }
 
@@ -135,22 +124,40 @@ export type WorkflowStateWithSource = PersistedWorkflowState & {
   source: 'yjs'
 }
 
-/**
- * Loads the current editable workflow state from Yjs.
- */
 export async function loadWorkflowState(
   workflowId: string
 ): Promise<WorkflowStateWithSource | null> {
-  try {
-    const yjsState = await loadWorkflowStateFromYjs(workflowId)
-    if (yjsState) {
-      return { ...yjsState, source: 'yjs' }
-    }
-  } catch (error) {
-    logger.warn(`Failed to load Yjs state for workflow ${workflowId}`, error)
+  const yjsState = await loadWorkflowStateFromYjs(workflowId)
+  return yjsState ? { ...yjsState, source: 'yjs' } : null
+}
+
+export async function loadWorkflowStateFromSavedTables(
+  workflowId: string
+): Promise<PersistedWorkflowState | null> {
+  const [workflowRow, normalizedState] = await Promise.all([
+    db
+      .select({
+        variables: workflow.variables,
+        updatedAt: workflow.updatedAt,
+      })
+      .from(workflow)
+      .where(eq(workflow.id, workflowId))
+      .limit(1),
+    loadWorkflowFromNormalizedTables(workflowId),
+  ])
+  const row = workflowRow[0]
+  if (!row) {
+    return null
   }
 
-  return null
+  return {
+    blocks: normalizedState?.blocks ?? {},
+    edges: normalizedState?.edges ?? [],
+    loops: normalizedState?.loops ?? {},
+    parallels: normalizedState?.parallels ?? {},
+    variables: (row.variables as Record<string, any>) ?? {},
+    lastSaved: row.updatedAt?.getTime() ?? Date.now(),
+  }
 }
 
 /**
@@ -394,6 +401,7 @@ export interface NormalizedWorkflowData {
   edges: Edge[]
   loops: Record<string, Loop>
   parallels: Record<string, Parallel>
+  variables?: Record<string, any>
   isFromNormalizedTables: boolean // Flag to indicate source (true = normalized tables, false = deployed state)
 }
 
@@ -558,13 +566,14 @@ export async function loadDeployedWorkflowState(
       throw new Error(`Workflow ${workflowId} has no active deployment`)
     }
 
-    const state = active.state as WorkflowState
+    const state = active.state as WorkflowState & { variables?: Record<string, any> }
 
     return {
       blocks: state.blocks || {},
       edges: state.edges || [],
       loops: state.loops || {},
       parallels: state.parallels || {},
+      variables: state.variables || {},
       isFromNormalizedTables: false,
     }
   } catch (error) {
@@ -955,7 +964,7 @@ export async function deployWorkflow(params: {
     if (!stateWithSource) {
       return { success: false, error: 'Failed to load workflow state' }
     }
-    const currentState: PersistedWorkflowState = stateWithSource
+    const { source: _source, ...currentState } = stateWithSource
 
     const now = new Date()
 

@@ -7,6 +7,7 @@ import { getStableVibrantColor } from '@/lib/colors'
 import { WORKFLOW_VARIABLE_DOCUMENT_FORMAT } from '@/lib/copilot/entity-documents'
 import { verifyWorkflowAccess } from '@/lib/copilot/review-sessions/permissions'
 import { ENTITY_KIND_WORKFLOW, type ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
+import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
 import type {
   BaseServerTool,
   ServerToolExecutionContext,
@@ -15,9 +16,11 @@ import {
   shouldStageServerToolMutationForReview,
   withWorkspaceArgContext,
 } from '@/lib/copilot/tools/server/base-tool'
-import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
+import { editWorkflowServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow'
+import { editWorkflowBlockServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow-block'
 import { generateCreativeWorkflowName } from '@/lib/naming'
 import { VariableManager } from '@/lib/variables/variable-manager'
+import { saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
 import {
   TG_MERMAID_DOCUMENT_FORMAT,
   WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
@@ -27,17 +30,16 @@ import {
   readWorkflowEdgeScope,
   serializeWorkflowToTgMermaid,
 } from '@/lib/workflows/studio-workflow-mermaid'
-import { applyWorkflowStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import { isWorkflowVariableType, type WorkflowVariableType } from '@/lib/workflows/value-types'
+import { applyWorkflowEntityName } from '@/lib/yjs/server/apply-workflow-state'
 import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
+import { applyWorkflowStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import {
-  getVariablesSnapshot,
   createWorkflowSnapshot,
+  getVariablesSnapshot,
   readWorkflowSnapshot,
   type WorkflowSnapshot,
 } from '@/lib/yjs/workflow-session'
-import { isWorkflowVariableType, type WorkflowVariableType } from '@/lib/workflows/value-types'
-import { editWorkflowServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow'
-import { editWorkflowBlockServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow-block'
 import { requireUserId, verifyWorkspaceContext } from './shared'
 
 type WorkflowSummary = {
@@ -477,7 +479,16 @@ export const createWorkflowServerTool: BaseServerTool<
       marketplaceData: null,
     })
 
-    await applyWorkflowStateInSocketServer(workflowId, workflowState, {}, name)
+    try {
+      await applyWorkflowStateInSocketServer(workflowId, workflowState, {}, name)
+      const saveResult = await saveWorkflowToNormalizedTables(workflowId, workflowState)
+      if (!saveResult.success) {
+        throw new Error(saveResult.error || 'Failed to materialize initial workflow state')
+      }
+    } catch (error) {
+      await db.delete(workflow).where(eq(workflow.id, workflowId))
+      throw error
+    }
 
     return {
       success: true,
@@ -498,23 +509,20 @@ export const renameWorkflowServerTool: BaseServerTool<{ entityId: string; name: 
       throw new Error('name is required')
     }
 
-    await verifyWorkflowContext(workflowId, context, 'write')
-    const [updatedWorkflow] = await db
-      .update(workflow)
-      .set({ name: nextName, updatedAt: new Date() })
-      .where(eq(workflow.id, workflowId))
-      .returning()
-
-    if (!updatedWorkflow) {
-      throw new Error('Workflow not found')
-    }
+    const current = await loadWorkflowSnapshotForCopilot(workflowId, context, 'write')
+    const updatedWorkflow = await applyWorkflowEntityName(
+      workflowId,
+      current.workflowState,
+      current.variables,
+      nextName
+    )
 
     return {
       success: true,
       entityKind: ENTITY_KIND_WORKFLOW,
       entityId: workflowId,
       entityName: nextName,
-      workspaceId: updatedWorkflow.workspaceId ?? undefined,
+      workspaceId: updatedWorkflow.workspaceId ?? current.workspaceId ?? undefined,
     }
   },
 }

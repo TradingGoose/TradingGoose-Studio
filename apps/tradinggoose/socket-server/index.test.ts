@@ -5,8 +5,8 @@
  */
 import { createServer, request as httpRequest } from 'http'
 import { io as createClient } from 'socket.io-client'
-import * as Y from 'yjs'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as Y from 'yjs'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getEntityFields } from '@/lib/yjs/entity-session'
 import {
@@ -343,7 +343,7 @@ describe('Socket Server Index Integration', () => {
       }
     })
 
-    it('should apply saved entity state as canonical Yjs state', async () => {
+    it('should apply saved entity state through Yjs', async () => {
       const response = await sendHttpRequestWithOptions(
         PORT,
         '/internal/yjs/entities/skill-1/apply-state',

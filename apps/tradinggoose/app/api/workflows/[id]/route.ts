@@ -6,9 +6,9 @@ import { z } from 'zod'
 import { authenticateApiKeyFromHeader, updateApiKeyLastUsed } from '@/lib/api-key/service'
 import { getSession } from '@/lib/auth'
 import { verifyInternalTokenDetailed } from '@/lib/auth/internal'
+import { hydrateListingUI } from '@/lib/listing/hydrate-ui'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { hydrateListingUI } from '@/lib/listing/hydrate-ui'
 import { loadWorkflowState } from '@/lib/workflows/db-helpers'
 import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/utils'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
@@ -123,11 +123,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       }
     }
 
-    logger.debug(`[${requestId}] Attempting to load workflow ${workflowId} from authoritative state`)
+    logger.debug(
+      `[${requestId}] Attempting to load workflow ${workflowId} from authoritative state`
+    )
     const workflowState = await loadWorkflowState(workflowId)
 
     if (!workflowState) {
-      logger.warn(`[${requestId}] Workflow ${workflowId} is missing canonical Yjs state`)
+      logger.warn(`[${requestId}] Workflow ${workflowId} is missing saved state`)
       return NextResponse.json({ error: 'Workflow state is missing' }, { status: 409 })
     }
 
@@ -289,10 +291,10 @@ export async function DELETE(
     try {
       await deleteYjsSessionInSocketServer(workflowId)
     } catch (error) {
-      logger.warn(
-        `[${requestId}] Failed to delete socket/Yjs session for workflow ${workflowId}`,
-        { error, workflowId }
-      )
+      logger.warn(`[${requestId}] Failed to delete socket/Yjs session for workflow ${workflowId}`, {
+        error,
+        workflowId,
+      })
     }
 
     const elapsed = Date.now() - startTime

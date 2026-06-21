@@ -6,20 +6,17 @@ import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
 import { mcpService } from '@/lib/mcp/service'
 import type { McpTransport } from '@/lib/mcp/types'
 import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
-import {
-  applySavedEntityYjsStateToRows,
-  savedEntityRowToFields,
-} from '@/lib/yjs/entity-state'
+import { applySavedEntityCurrentFieldsToRows, savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
   acceptEntityDocumentReview,
   applySavedEntityDocument,
   buildDocumentEnvelope,
-  executeCreateEntityDocumentMutation,
-  executeUpdateEntityDocumentMutation,
   type EntityCreateResult,
   type EntityListEntry,
   type EntityServerTool,
-  readSavedEntityYjsFields,
+  executeCreateEntityDocumentMutation,
+  executeUpdateEntityDocumentMutation,
+  readSavedEntityDocumentFields,
   requireEntityId,
   verifySavedEntityContext,
   verifyWorkspaceContext,
@@ -116,7 +113,12 @@ async function createMcpServerEntity(
   }
 
   const savedFields = savedEntityRowToFields(ENTITY_KIND_MCP_SERVER, row)
-  await applySavedEntityDocument(ENTITY_KIND_MCP_SERVER, row.id, savedFields)
+  try {
+    await applySavedEntityDocument(ENTITY_KIND_MCP_SERVER, row.id, savedFields)
+  } catch (error) {
+    await db.delete(mcpServers).where(eq(mcpServers.id, row.id))
+    throw error
+  }
   mcpService.clearCache(workspaceId)
 
   return {
@@ -149,7 +151,7 @@ export const listMcpServersServerTool: EntityServerTool<Record<string, never>> =
       .select()
       .from(mcpServers)
       .where(and(eq(mcpServers.workspaceId, workspaceId), isNull(mcpServers.deletedAt)))
-      .then((serverRows) => applySavedEntityYjsStateToRows(ENTITY_KIND_MCP_SERVER, serverRows))
+      .then((serverRows) => applySavedEntityCurrentFieldsToRows(ENTITY_KIND_MCP_SERVER, serverRows))
     const entities = rows.map(toMcpServerListEntry)
 
     return {
@@ -170,7 +172,11 @@ export const readMcpServerServerTool: EntityServerTool = {
       entityId,
       'read'
     )
-    const fields = await readSavedEntityYjsFields(ENTITY_KIND_MCP_SERVER, entityId, workspaceId)
+    const fields = await readSavedEntityDocumentFields(
+      ENTITY_KIND_MCP_SERVER,
+      entityId,
+      workspaceId
+    )
     return buildDocumentEnvelope(ENTITY_KIND_MCP_SERVER, entityId, fields)
   },
 }
