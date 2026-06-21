@@ -19,10 +19,6 @@ import type {
 } from '@/lib/mcp/types'
 import { MCP_CONSTANTS } from '@/lib/mcp/utils'
 import { generateRequestId } from '@/lib/utils'
-import {
-  applySavedEntityCurrentFieldsToRow,
-  applySavedEntityCurrentFieldsToRows,
-} from '@/lib/yjs/entity-state'
 
 const logger = createLogger('McpService')
 
@@ -263,23 +259,22 @@ class McpService {
       return null
     }
 
-    const config = await applySavedEntityCurrentFieldsToRow('mcp_server', server)
-    if (!config.enabled) {
+    if (!server.enabled) {
       return null
     }
 
     return {
-      id: config.id,
-      name: config.name,
-      description: config.description || undefined,
-      transport: config.transport as 'http' | 'sse',
-      url: config.url || undefined,
-      headers: (config.headers as Record<string, string>) || {},
-      timeout: config.timeout || 30000,
-      retries: config.retries || 3,
-      enabled: config.enabled,
-      createdAt: config.createdAt.toISOString(),
-      updatedAt: config.updatedAt.toISOString(),
+      id: server.id,
+      name: server.name,
+      description: server.description || undefined,
+      transport: server.transport as 'http' | 'sse',
+      url: server.url || undefined,
+      headers: (server.headers as Record<string, string>) || {},
+      timeout: server.timeout || 30000,
+      retries: server.retries || 3,
+      enabled: server.enabled,
+      createdAt: server.createdAt.toISOString(),
+      updatedAt: server.updatedAt.toISOString(),
     }
   }
 
@@ -289,11 +284,10 @@ class McpService {
   private async getWorkspaceServers(workspaceId: string): Promise<McpServerConfig[]> {
     const whereConditions = [eq(mcpServers.workspaceId, workspaceId), isNull(mcpServers.deletedAt)]
 
-    const rows = await db
+    const servers = await db
       .select()
       .from(mcpServers)
       .where(and(...whereConditions))
-    const servers = await applySavedEntityCurrentFieldsToRows('mcp_server', rows)
 
     return servers
       .filter((server) => server.enabled)

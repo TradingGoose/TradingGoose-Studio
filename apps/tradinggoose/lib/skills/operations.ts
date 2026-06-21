@@ -9,7 +9,7 @@ import {
   type SkillTransferRecord,
 } from '@/lib/skills/import-export'
 import { generateRequestId } from '@/lib/utils'
-import { applySavedEntityCurrentFieldsToRows, applySavedEntityRows } from '@/lib/yjs/entity-state'
+import { applySavedEntityRows } from '@/lib/yjs/entity-state'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('SkillsOperations')
@@ -34,13 +34,11 @@ interface ImportSkillsParams {
 }
 
 export async function listSkills(params: { workspaceId: string }) {
-  const rows = await db
+  return db
     .select()
     .from(skill)
     .where(eq(skill.workspaceId, params.workspaceId))
     .orderBy(desc(skill.createdAt))
-
-  return applySavedEntityCurrentFieldsToRows('skill', rows)
 }
 
 export async function deleteSkill(params: {
@@ -75,7 +73,7 @@ export async function upsertSkills({
   const createdRows: Array<typeof skill.$inferSelect> = []
   const updatedRows: Array<typeof skill.$inferSelect> = []
   const createdIds: string[] = []
-  const result = await db.transaction(async (tx) => {
+  await db.transaction(async (tx) => {
     for (const currentSkill of skills) {
       const nowTime = new Date()
 
@@ -148,12 +146,6 @@ export async function upsertSkills({
       createdRows.push(newSkill)
       createdIds.push(skillId)
     }
-
-    return tx
-      .select()
-      .from(skill)
-      .where(eq(skill.workspaceId, workspaceId))
-      .orderBy(desc(skill.createdAt))
   })
 
   await applySavedEntityRows('skill', createdRows, {
@@ -165,7 +157,7 @@ export async function upsertSkills({
   })
   await applySavedEntityRows('skill', updatedRows)
 
-  return applySavedEntityCurrentFieldsToRows('skill', result)
+  return listSkills({ workspaceId })
 }
 
 export async function importSkills({

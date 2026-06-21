@@ -15,8 +15,9 @@ import {
   withWorkspaceArgContext,
 } from '@/lib/copilot/tools/server/base-tool'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
-import { readSavedEntityFields, type SavedEntityKind } from '@/lib/yjs/entity-state'
+import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
+import { readSavedEntityFieldsFromDb } from '@/lib/yjs/server/entity-loaders'
 
 export type SavedEntityDocumentKind = EntityDocumentKind
 export type EntityDocumentArgs = {
@@ -197,7 +198,7 @@ export async function readSavedEntityDocumentFields(
   entityId: string,
   workspaceId: string
 ): Promise<Record<string, unknown>> {
-  return readSavedEntityFields(kind as SavedEntityKind, entityId, workspaceId)
+  return readSavedEntityFieldsFromDb(kind as SavedEntityKind, entityId, workspaceId)
 }
 
 export async function applySavedEntityDocument(

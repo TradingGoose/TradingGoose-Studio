@@ -9,7 +9,7 @@ import {
   resolveDefaultIndicatorRuntimeEntry,
 } from '@/lib/indicators/default/runtime'
 import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
-import { applySavedEntityCurrentFieldsToRows, savedEntityRowToFields } from '@/lib/yjs/entity-state'
+import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
   acceptEntityDocumentReview,
   buildDocumentEnvelope,
@@ -39,9 +39,7 @@ function toDefaultIndicatorListEntry(entry: (typeof DEFAULT_INDICATOR_RUNTIME_EN
 }
 
 function toCustomIndicatorListEntry(
-  row: Awaited<
-    ReturnType<typeof applySavedEntityCurrentFieldsToRows<typeof pineIndicators.$inferSelect>>
-  >[number]
+  row: typeof pineIndicators.$inferSelect
 ): CopilotIndicatorListEntry {
   const inputMeta = normalizeInputMetaMap(row.inputMeta)
   const inputTitles = Object.keys(inputMeta ?? {})
@@ -63,7 +61,6 @@ async function listCopilotIndicators(workspaceId: string): Promise<CopilotIndica
     .from(pineIndicators)
     .where(eq(pineIndicators.workspaceId, workspaceId))
     .orderBy(desc(pineIndicators.createdAt))
-    .then((rows) => applySavedEntityCurrentFieldsToRows(ENTITY_KIND_INDICATOR, rows))
   const customOptions = customRows.map(toCustomIndicatorListEntry)
 
   return [...defaultOptions, ...customOptions].sort((a, b) => a.name.localeCompare(b.name))

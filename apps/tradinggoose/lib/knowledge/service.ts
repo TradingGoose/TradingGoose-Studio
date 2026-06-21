@@ -21,11 +21,7 @@ import type {
 } from '@/lib/knowledge/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess, getUserEntityPermissions } from '@/lib/permissions/utils'
-import {
-  applySavedEntityCurrentFieldsToRow,
-  applySavedEntityCurrentFieldsToRows,
-  savedEntityRowToFields,
-} from '@/lib/yjs/entity-state'
+import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
@@ -66,14 +62,11 @@ export async function getKnowledgeBases(
     .groupBy(knowledgeBase.id)
     .orderBy(knowledgeBase.createdAt)
 
-  return applySavedEntityCurrentFieldsToRows(
-    ENTITY_KIND_KNOWLEDGE_BASE,
-    knowledgeBasesWithCounts.map((kb) => ({
-      ...kb,
-      chunkingConfig: kb.chunkingConfig as ChunkingConfig,
-      docCount: Number(kb.docCount),
-    }))
-  )
+  return knowledgeBasesWithCounts.map((kb) => ({
+    ...kb,
+    chunkingConfig: kb.chunkingConfig as ChunkingConfig,
+    docCount: Number(kb.docCount),
+  }))
 }
 
 /**
@@ -158,10 +151,6 @@ export async function copyKnowledgeBaseToWorkspace(
   if (!sourceKnowledgeBase) {
     throw new Error(`Knowledge base ${sourceKnowledgeBaseId} not found`)
   }
-  const sourceKnowledgeBaseFields = await applySavedEntityCurrentFieldsToRow(
-    ENTITY_KIND_KNOWLEDGE_BASE,
-    sourceKnowledgeBase
-  )
 
   const sourceDocuments = await db
     .select()
@@ -209,12 +198,12 @@ export async function copyKnowledgeBaseToWorkspace(
       id: newKnowledgeBaseId,
       userId,
       workspaceId: targetWorkspaceId,
-      name: `${sourceKnowledgeBaseFields.name} (Copy)`,
-      description: sourceKnowledgeBaseFields.description,
+      name: `${sourceKnowledgeBase.name} (Copy)`,
+      description: sourceKnowledgeBase.description,
       tokenCount: sourceKnowledgeBase.tokenCount,
       embeddingModel: sourceKnowledgeBase.embeddingModel,
       embeddingDimension: sourceKnowledgeBase.embeddingDimension,
-      chunkingConfig: sourceKnowledgeBaseFields.chunkingConfig,
+      chunkingConfig: sourceKnowledgeBase.chunkingConfig,
       createdAt: now,
       updatedAt: now,
       deletedAt: null,
@@ -256,10 +245,9 @@ export async function copyKnowledgeBaseToWorkspace(
             mimeType: sourceDocument.mimeType,
           },
           processingOptions: {
-            chunkSize: (sourceKnowledgeBaseFields.chunkingConfig as ChunkingConfig).maxSize,
-            minCharactersPerChunk: (sourceKnowledgeBaseFields.chunkingConfig as ChunkingConfig)
-              .minSize,
-            chunkOverlap: (sourceKnowledgeBaseFields.chunkingConfig as ChunkingConfig).overlap,
+            chunkSize: (sourceKnowledgeBase.chunkingConfig as ChunkingConfig).maxSize,
+            minCharactersPerChunk: (sourceKnowledgeBase.chunkingConfig as ChunkingConfig).minSize,
+            chunkOverlap: (sourceKnowledgeBase.chunkingConfig as ChunkingConfig).overlap,
           },
           requestId,
         })
@@ -348,12 +336,12 @@ export async function copyKnowledgeBaseToWorkspace(
 
   const copied = {
     id: newKnowledgeBaseId,
-    name: `${sourceKnowledgeBaseFields.name} (Copy)`,
-    description: sourceKnowledgeBaseFields.description,
+    name: `${sourceKnowledgeBase.name} (Copy)`,
+    description: sourceKnowledgeBase.description,
     tokenCount: sourceKnowledgeBase.tokenCount,
     embeddingModel: sourceKnowledgeBase.embeddingModel,
     embeddingDimension: sourceKnowledgeBase.embeddingDimension,
-    chunkingConfig: sourceKnowledgeBaseFields.chunkingConfig as ChunkingConfig,
+    chunkingConfig: sourceKnowledgeBase.chunkingConfig as ChunkingConfig,
     createdAt: now,
     updatedAt: now,
     workspaceId: targetWorkspaceId,
@@ -447,11 +435,11 @@ export async function getKnowledgeBaseById(
     return null
   }
 
-  return applySavedEntityCurrentFieldsToRow(ENTITY_KIND_KNOWLEDGE_BASE, {
+  return {
     ...result[0],
     chunkingConfig: result[0].chunkingConfig as ChunkingConfig,
     docCount: Number(result[0].docCount),
-  })
+  }
 }
 
 /**

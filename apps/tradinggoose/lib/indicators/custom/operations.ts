@@ -9,7 +9,7 @@ import {
 import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { applySavedEntityCurrentFieldsToRows, applySavedEntityRows } from '@/lib/yjs/entity-state'
+import { applySavedEntityRows } from '@/lib/yjs/entity-state'
 
 const logger = createLogger('IndicatorsOperations')
 
@@ -55,7 +55,7 @@ export async function upsertIndicators({
   const createdRows: Array<typeof pineIndicators.$inferSelect> = []
   const updatedRows: Array<typeof pineIndicators.$inferSelect> = []
   const createdIds: string[] = []
-  const result = await db.transaction(async (tx) => {
+  await db.transaction(async (tx) => {
     for (const indicator of indicators) {
       const nowTime = new Date()
 
@@ -102,12 +102,6 @@ export async function upsertIndicators({
       createdRows.push(newIndicator)
       createdIds.push(indicatorId)
     }
-
-    return tx
-      .select()
-      .from(pineIndicators)
-      .where(eq(pineIndicators.workspaceId, workspaceId))
-      .orderBy(desc(pineIndicators.createdAt))
   })
 
   await applySavedEntityRows('indicator', createdRows, {
@@ -119,7 +113,11 @@ export async function upsertIndicators({
   })
   await applySavedEntityRows('indicator', updatedRows)
 
-  return applySavedEntityCurrentFieldsToRows('indicator', result)
+  return db
+    .select()
+    .from(pineIndicators)
+    .where(eq(pineIndicators.workspaceId, workspaceId))
+    .orderBy(desc(pineIndicators.createdAt))
 }
 
 export async function importIndicators({

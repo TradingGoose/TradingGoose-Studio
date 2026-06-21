@@ -8,7 +8,7 @@ import {
 } from '@/lib/custom-tools/import-export'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { applySavedEntityCurrentFieldsToRows, applySavedEntityRows } from '@/lib/yjs/entity-state'
+import { applySavedEntityRows } from '@/lib/yjs/entity-state'
 
 const logger = createLogger('CustomToolsOperations')
 
@@ -32,13 +32,11 @@ interface ImportCustomToolsParams {
 }
 
 export async function listCustomTools(params: { workspaceId: string }) {
-  const rows = await db
+  return db
     .select()
     .from(customTools)
     .where(eq(customTools.workspaceId, params.workspaceId))
     .orderBy(desc(customTools.createdAt))
-
-  return applySavedEntityCurrentFieldsToRows('custom_tool', rows)
 }
 
 /**
@@ -53,7 +51,7 @@ export async function upsertCustomTools({
   const createdRows: Array<typeof customTools.$inferSelect> = []
   const updatedRows: Array<typeof customTools.$inferSelect> = []
   const createdIds: string[] = []
-  const result = await db.transaction(async (tx) => {
+  await db.transaction(async (tx) => {
     for (const tool of tools) {
       const nowTime = new Date()
       const duplicateTitle = await tx
@@ -103,12 +101,6 @@ export async function upsertCustomTools({
       createdRows.push(newTool)
       createdIds.push(toolId)
     }
-
-    return tx
-      .select()
-      .from(customTools)
-      .where(eq(customTools.workspaceId, workspaceId))
-      .orderBy(desc(customTools.createdAt))
   })
 
   await applySavedEntityRows('custom_tool', createdRows, {
@@ -120,7 +112,7 @@ export async function upsertCustomTools({
   })
   await applySavedEntityRows('custom_tool', updatedRows)
 
-  return applySavedEntityCurrentFieldsToRows('custom_tool', result)
+  return listCustomTools({ workspaceId })
 }
 
 export async function importCustomTools({

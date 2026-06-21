@@ -7,7 +7,7 @@ import { getParsedBody, withMcpAuth } from '@/lib/mcp/middleware'
 import { mcpService } from '@/lib/mcp/service'
 import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
-import { applySavedEntityCurrentFieldsToRow, savedEntityRowToFields } from '@/lib/yjs/entity-state'
+import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import { UpdateMcpServerSchema } from '../schema'
 
@@ -95,13 +95,12 @@ export const PATCH = withMcpAuth('write')(
         nextServer.id,
         savedEntityRowToFields('mcp_server', nextServer)
       )
-      const updatedServer = await applySavedEntityCurrentFieldsToRow('mcp_server', nextServer)
 
       // Clear MCP service cache after update
       mcpService.clearCache(workspaceId)
 
       logger.info(`[${requestId}] Successfully updated MCP server: ${serverId}`)
-      return createMcpSuccessResponse({ server: updatedServer })
+      return createMcpSuccessResponse({ server: nextServer })
     } catch (error) {
       logger.error(`[${requestId}] Error updating MCP server:`, error)
       return createMcpErrorResponse(

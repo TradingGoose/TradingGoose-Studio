@@ -25,7 +25,6 @@ import {
   isMonitorProviderConfigForProvider,
 } from '@/lib/monitors/sources'
 import { decryptSecret } from '@/lib/utils-server'
-import { applySavedEntityCurrentFieldsToRows } from '@/lib/yjs/entity-state'
 import type { MonitorExecutionPayload } from '@/background/monitor-execution'
 import { executeProviderRequest } from '@/providers/market'
 import { getMarketProviderConfig } from '@/providers/market/providers'
@@ -280,9 +279,7 @@ async function resolveIndicatorDefinitions(
       )
     )
 
-  const indicators = await applySavedEntityCurrentFieldsToRows('indicator', rows)
-
-  indicators.forEach((row) => {
+  rows.forEach((row) => {
     definitions.set(`${row.workspaceId}:${row.id}`, {
       id: row.id,
       name: row.name,

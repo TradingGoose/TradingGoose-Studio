@@ -9,7 +9,6 @@ import { isIndicatorTriggerCapable } from '@/lib/indicators/trigger-detection'
 import type { InputMetaMap } from '@/lib/indicators/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { applySavedEntityCurrentFieldsToRows } from '@/lib/yjs/entity-state'
 import { authenticateIndicatorRequest, checkWorkspacePermission } from '../utils'
 
 const logger = createLogger('IndicatorOptionsAPI')
@@ -97,7 +96,6 @@ export async function GET(request: NextRequest) {
       })
       .from(pineIndicators)
       .where(eq(pineIndicators.workspaceId, workspaceId))
-      .then((rows) => applySavedEntityCurrentFieldsToRows('indicator', rows))
 
     const customOptions: IndicatorOptionRecord[] = customRows
       .filter((row) => copilotSurface || isIndicatorTriggerCapable(row.pineCode))

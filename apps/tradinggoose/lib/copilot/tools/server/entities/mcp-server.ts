@@ -6,7 +6,7 @@ import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
 import { mcpService } from '@/lib/mcp/service'
 import type { McpTransport } from '@/lib/mcp/types'
 import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
-import { applySavedEntityCurrentFieldsToRows, savedEntityRowToFields } from '@/lib/yjs/entity-state'
+import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
   acceptEntityDocumentReview,
   applySavedEntityDocument,
@@ -151,7 +151,6 @@ export const listMcpServersServerTool: EntityServerTool<Record<string, never>> =
       .select()
       .from(mcpServers)
       .where(and(eq(mcpServers.workspaceId, workspaceId), isNull(mcpServers.deletedAt)))
-      .then((serverRows) => applySavedEntityCurrentFieldsToRows(ENTITY_KIND_MCP_SERVER, serverRows))
     const entities = rows.map(toMcpServerListEntry)
 
     return {
