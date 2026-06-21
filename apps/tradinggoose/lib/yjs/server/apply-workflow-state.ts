@@ -1,7 +1,11 @@
 import { db, workflow } from '@tradinggoose/db'
 import { eq } from 'drizzle-orm'
 import * as Y from 'yjs'
-import { saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
+import {
+  ensureUniqueBlockIds,
+  ensureUniqueEdgeIds,
+  saveWorkflowToNormalizedTables,
+} from '@/lib/workflows/db-helpers'
 import { applyWorkflowStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import {
   createWorkflowSnapshot,
@@ -55,14 +59,27 @@ export async function applyWorkflowState(
     lastSaved: syncedAt.toISOString(),
   })
 
-  await applyWorkflowStateToYjs(workflowId, appliedWorkflowState, variables, entityName)
+  const normalizedWorkflowState = await ensureUniqueEdgeIds(
+    workflowId,
+    await ensureUniqueBlockIds(workflowId, appliedWorkflowState)
+  )
+  const { deployedAt, ...storedStateFields } = normalizedWorkflowState
+  const storedWorkflowState = createWorkflowSnapshot({
+    ...storedStateFields,
+    lastSaved: syncedAt.toISOString(),
+    ...(deployedAt
+      ? { deployedAt: typeof deployedAt === 'string' ? deployedAt : deployedAt.toISOString() }
+      : {}),
+  })
 
-  const saveResult = await saveWorkflowToNormalizedTables(workflowId, appliedWorkflowState)
+  await applyWorkflowStateToYjs(workflowId, storedWorkflowState, variables, entityName)
+
+  const saveResult = await saveWorkflowToNormalizedTables(workflowId, storedWorkflowState)
   if (!saveResult.success) {
     throw new Error(saveResult.error || 'Failed to materialize workflow state')
   }
 
-  await db
+  const [updatedWorkflow] = await db
     .update(workflow)
     .set({
       lastSynced: syncedAt,
@@ -70,6 +87,11 @@ export async function applyWorkflowState(
       ...(variables === undefined ? {} : { variables }),
     })
     .where(eq(workflow.id, workflowId))
+    .returning({ id: workflow.id })
+
+  if (!updatedWorkflow) {
+    throw new Error('Workflow not found')
+  }
 }
 
 export async function applyWorkflowEntityName(
