@@ -1,21 +1,31 @@
 import { createHash } from 'crypto'
 import { db } from '@tradinggoose/db'
 import { verification } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import {
   MCP_SERVER_DOCUMENT_FORMAT,
   parseEntityDocument,
   serializeEntityDocumentForReview,
 } from '@/lib/copilot/entity-documents'
-import { type ToolId } from '@/lib/copilot/registry'
+import type { ToolId } from '@/lib/copilot/registry'
 import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
 import type { ServerToolExecutionContext } from '@/lib/copilot/tools/server/base-tool'
 import { routeExecution } from '@/lib/copilot/tools/server/router'
+import { createLogger } from '@/lib/logs/console/logger'
 import { decryptSecret, encryptSecret } from '@/lib/utils-server'
 
 const REVIEW_TOKEN_PREFIX = 'copilot-tool-review:'
 const REVIEW_TOKEN_TTL_MS = 30 * 60 * 1000
+const logger = createLogger('ServerToolReviewAcceptance')
+
+type StagedServerToolReview = {
+  userId?: unknown
+  toolName?: unknown
+  encryptedPayload?: unknown
+  baseSignature?: unknown
+  reviewClaimId?: unknown
+}
 
 function hashValue(value: string) {
   return createHash('sha256').update(value).digest('hex')
@@ -59,10 +69,7 @@ function redactReviewSecrets(result: unknown) {
   }
 
   const record = result as Record<string, unknown>
-  if (
-    record.entityKind !== 'mcp_server' &&
-    record.documentFormat !== MCP_SERVER_DOCUMENT_FORMAT
-  ) {
+  if (record.entityKind !== 'mcp_server' && record.documentFormat !== MCP_SERVER_DOCUMENT_FORMAT) {
     return result
   }
 
@@ -76,9 +83,7 @@ function redactReviewSecrets(result: unknown) {
         ...preview,
         documentDiff: {
           ...(documentDiff as Record<string, unknown>),
-          before: redactMcpServerReviewDocument(
-            (documentDiff as { before?: unknown }).before
-          ),
+          before: redactMcpServerReviewDocument((documentDiff as { before?: unknown }).before),
           after: redactMcpServerReviewDocument((documentDiff as { after?: unknown }).after),
         },
       }
@@ -154,19 +159,9 @@ export async function acceptServerManagedToolReview(
     throw new Error('Server tool review token is invalid or expired')
   }
 
-  let staged: {
-    userId?: unknown
-    toolName?: unknown
-    encryptedPayload?: unknown
-    baseSignature?: unknown
-  }
+  let staged: StagedServerToolReview
   try {
-    staged = JSON.parse(row.value) as {
-      userId?: unknown
-      toolName?: unknown
-      encryptedPayload?: unknown
-      baseSignature?: unknown
-    }
+    staged = JSON.parse(row.value) as StagedServerToolReview
   } catch {
     throw new Error('Server tool review token is invalid or expired')
   }
@@ -181,6 +176,9 @@ export async function acceptServerManagedToolReview(
 
   if (typeof staged.encryptedPayload !== 'string' || !staged.encryptedPayload) {
     throw new Error('Server tool review token is invalid or expired')
+  }
+  if (typeof staged.reviewClaimId === 'string') {
+    throw new Error('Server tool review token is already being accepted')
   }
 
   const { decrypted } = await decryptSecret(staged.encryptedPayload)
@@ -201,17 +199,43 @@ export async function acceptServerManagedToolReview(
     })
   }
 
-  const [deleted] = await db
-    .delete(verification)
-    .where(eq(verification.identifier, `${REVIEW_TOKEN_PREFIX}${reviewToken}`))
+  const identifier = `${REVIEW_TOKEN_PREFIX}${reviewToken}`
+  const claimed = { ...staged, reviewClaimId: nanoid() }
+  const claimedValue = JSON.stringify(claimed)
+  const [claimedRow] = await db
+    .update(verification)
+    .set({ value: claimedValue, updatedAt: new Date() })
+    .where(and(eq(verification.identifier, identifier), eq(verification.value, row.value)))
     .returning({ id: verification.id })
-  if (!deleted) {
+  if (!claimedRow) {
     throw new Error('Server tool review token is invalid or expired')
   }
 
-  const acceptedResult = await routeExecution(toolName, payload, {
-    ...context,
-    accessLevel: 'full',
-  })
+  let acceptedResult: unknown
+  try {
+    acceptedResult = await routeExecution(toolName, payload, {
+      ...context,
+      accessLevel: 'full',
+    })
+  } catch (error) {
+    await db
+      .update(verification)
+      .set({ value: row.value, updatedAt: new Date() })
+      .where(and(eq(verification.identifier, identifier), eq(verification.value, claimedValue)))
+      .catch((restoreError) => {
+        logger.warn('Failed to restore server tool review token after acceptance failure', {
+          error: restoreError,
+          toolName,
+        })
+      })
+    throw error
+  }
+
+  await db
+    .delete(verification)
+    .where(and(eq(verification.identifier, identifier), eq(verification.value, claimedValue)))
+    .catch((error) => {
+      logger.warn('Failed to delete accepted server tool review token', { error, toolName })
+    })
   return redactReviewSecrets(acceptedResult)
 }
