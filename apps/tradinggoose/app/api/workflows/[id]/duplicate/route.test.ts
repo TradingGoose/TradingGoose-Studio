@@ -215,7 +215,7 @@ describe('Workflow Duplicate API Route', () => {
       lastSaved: Date.now(),
       source: 'db',
     })
-    applyWorkflowStateMock.mockRejectedValueOnce(new Error('socket bridge unavailable'))
+    applyWorkflowStateMock.mockRejectedValueOnce(new Error('canonical Yjs unavailable'))
 
     const { POST } = await import('@/app/api/workflows/[id]/duplicate/route')
     const response = await POST(

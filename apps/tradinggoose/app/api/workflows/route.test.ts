@@ -186,7 +186,7 @@ describe('Workflow API Route', () => {
   })
 
   it('rolls back the workflow row when workflow state apply fails', async () => {
-    applyWorkflowStateMock.mockRejectedValueOnce(new Error('socket unavailable'))
+    applyWorkflowStateMock.mockRejectedValueOnce(new Error('canonical Yjs unavailable'))
 
     const { POST } = await import('@/app/api/workflows/route')
     const response = await POST(

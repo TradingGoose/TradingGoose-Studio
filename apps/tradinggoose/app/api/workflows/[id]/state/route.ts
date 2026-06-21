@@ -6,7 +6,6 @@ import { extractAndPersistCustomTools } from '@/lib/workflows/custom-tools-persi
 import {
   ensureUniqueBlockIds,
   ensureUniqueEdgeIds,
-  loadWorkflowStateFromYjs,
   toISOStringOrUndefined,
 } from '@/lib/workflows/db-helpers'
 import { validateWorkflowPermissions } from '@/lib/workflows/utils'
@@ -113,11 +112,6 @@ const WorkflowStateSchema = z.object({
   variables: z.record(z.any()).optional(),
 })
 
-type ResolvedVariables = {
-  value: Record<string, any> | undefined
-  source: 'request' | 'yjs' | 'unavailable'
-}
-
 /**
  * PUT /api/workflows/[id]/state
  * Save complete workflow state to Yjs and materialize derived database tables.
@@ -184,46 +178,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       deployedAt: toISOStringOrUndefined(state.deployedAt),
     }
 
-    // Preserve variables only from the request body or the authoritative Yjs
-    // workflow state loader. Falling back to the workflow row is unsafe when
-    // Next.js and the socket server run as separate processes because the row
-    // may lag behind newer variable edits that exist only in the socket
-    // server's live Yjs doc.
-    let resolvedVariables: ResolvedVariables = {
-      value: state.variables,
-      source: state.variables === undefined ? 'unavailable' : 'request',
-    }
-    if (resolvedVariables.value === undefined) {
-      try {
-        const yjsState = await loadWorkflowStateFromYjs(workflowId)
-        if (yjsState) {
-          resolvedVariables = {
-            value: yjsState.variables,
-            source: 'yjs',
-          }
-        }
-      } catch (error) {
-        logger.warn(
-          `[${requestId}] Skipping authoritative variable lookup for ${workflowId} because the Yjs bridge was unavailable`,
-          { error }
-        )
-      }
-    }
-
-    if (resolvedVariables.source === 'unavailable') {
-      return NextResponse.json(
-        { error: 'Failed to save workflow state', details: 'Current workflow variables are unavailable' },
-        { status: 409 }
-      )
-    }
-
     const stateWithUniqueBlockIds = await ensureUniqueBlockIds(workflowId, workflowState as any)
     const persistedWorkflowState = await ensureUniqueEdgeIds(workflowId, stateWithUniqueBlockIds)
 
     await applyWorkflowState(
       workflowId,
       persistedWorkflowState as WorkflowSnapshot,
-      resolvedVariables.value,
+      state.variables,
       workflowData.name
     )
 

@@ -371,6 +371,25 @@ export function setWorkflowState(doc: Y.Doc, state: WorkflowSnapshot, origin?: s
   }, origin ?? YJS_ORIGINS.SYSTEM)
 }
 
+export function replaceWorkflowDocumentState(
+  doc: Y.Doc,
+  workflowState: WorkflowSnapshot,
+  variables?: Record<string, any>,
+  entityName?: string
+): void {
+  setWorkflowState(doc, workflowState, YJS_ORIGINS.SYSTEM)
+
+  if (variables !== undefined) {
+    setVariables(doc, variables, YJS_ORIGINS.SYSTEM)
+  }
+
+  doc.transact(() => {
+    const metadata = getMetadataMap(doc)
+    metadata.delete('reseededFromCanonical')
+    if (entityName) metadata.set('entityName', entityName)
+  }, YJS_ORIGINS.SYSTEM)
+}
+
 // ---------------------------------------------------------------------------
 // Block mutation helpers
 // ---------------------------------------------------------------------------

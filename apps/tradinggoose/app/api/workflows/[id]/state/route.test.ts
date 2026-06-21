@@ -5,7 +5,6 @@ import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('Workflow State API Route', () => {
-  let loadWorkflowStateFromYjsMock: ReturnType<typeof vi.fn>
   let applyWorkflowStateMock: ReturnType<typeof vi.fn>
 
   const createRequest = (body: Record<string, unknown>) =>
@@ -38,7 +37,6 @@ describe('Workflow State API Route', () => {
     vi.resetModules()
     vi.clearAllMocks()
 
-    loadWorkflowStateFromYjsMock = vi.fn().mockResolvedValue(null)
     applyWorkflowStateMock = vi.fn().mockResolvedValue(undefined)
 
     vi.doMock('@/lib/auth', () => ({
@@ -66,6 +64,7 @@ describe('Workflow State API Route', () => {
         session: { user: { id: 'user-id' } },
         workflow: {
           id: 'workflow-id',
+          name: 'Workflow',
           workspaceId: 'workspace-id',
           variables: {
             'db-var': {
@@ -90,7 +89,6 @@ describe('Workflow State API Route', () => {
     vi.doMock('@/lib/workflows/db-helpers', () => ({
       ensureUniqueBlockIds: vi.fn(async (_workflowId: string, state: any) => state),
       ensureUniqueEdgeIds: vi.fn(async (_workflowId: string, state: any) => state),
-      loadWorkflowStateFromYjs: loadWorkflowStateFromYjsMock,
       toISOStringOrUndefined: vi.fn((value: string | number | Date | null | undefined) =>
         value == null ? undefined : new Date(value).toISOString()
       ),
@@ -112,24 +110,7 @@ describe('Workflow State API Route', () => {
     vi.clearAllMocks()
   })
 
-  it('falls back to authoritative Yjs variables when the request body omits them', async () => {
-    loadWorkflowStateFromYjsMock.mockResolvedValueOnce({
-      blocks: {},
-      edges: [],
-      loops: {},
-      parallels: {},
-      variables: {
-        'live-var': {
-          id: 'live-var',
-          workflowId: 'workflow-id',
-          name: 'liveVar',
-          type: 'plain',
-          value: 'live value',
-        },
-      },
-      lastSaved: Date.now(),
-    })
-
+  it('preserves current Yjs variables when the request body omits them', async () => {
     const { PUT } = await import('@/app/api/workflows/[id]/state/route')
     const response = await PUT(createRequest(validStateBody), {
       params: Promise.resolve({ id: 'workflow-id' }),
@@ -139,36 +120,39 @@ describe('Workflow State API Route', () => {
     expect(applyWorkflowStateMock).toHaveBeenCalledWith(
       'workflow-id',
       expect.any(Object),
-      {
-        'live-var': expect.objectContaining({
-          name: 'liveVar',
-          value: 'live value',
-        }),
-      },
-      undefined
+      undefined,
+      'Workflow'
     )
   })
 
-  it('rejects saves without request or Yjs variables', async () => {
+  it('replaces variables when the request body includes them', async () => {
     const { PUT } = await import('@/app/api/workflows/[id]/state/route')
-    const response = await PUT(createRequest(validStateBody), {
-      params: Promise.resolve({ id: 'workflow-id' }),
-    })
+    const variables = {
+      'request-var': {
+        id: 'request-var',
+        workflowId: 'workflow-id',
+        name: 'requestVar',
+        type: 'plain',
+        value: 'request value',
+      },
+    }
+    const response = await PUT(
+      createRequest({
+        ...validStateBody,
+        variables,
+      }),
+      {
+        params: Promise.resolve({ id: 'workflow-id' }),
+      }
+    )
 
-    expect(response.status).toBe(409)
-    expect(applyWorkflowStateMock).not.toHaveBeenCalled()
-  })
-
-  it('rejects saves when authoritative Yjs variable lookup fails', async () => {
-    loadWorkflowStateFromYjsMock.mockRejectedValueOnce(new Error('socket bridge unavailable'))
-
-    const { PUT } = await import('@/app/api/workflows/[id]/state/route')
-    const response = await PUT(createRequest(validStateBody), {
-      params: Promise.resolve({ id: 'workflow-id' }),
-    })
-
-    expect(response.status).toBe(409)
-    expect(applyWorkflowStateMock).not.toHaveBeenCalled()
+    expect(response.status).toBe(200)
+    expect(applyWorkflowStateMock).toHaveBeenCalledWith(
+      'workflow-id',
+      expect.any(Object),
+      variables,
+      'Workflow'
+    )
   })
 
   it('returns an error when workflow state apply fails', async () => {

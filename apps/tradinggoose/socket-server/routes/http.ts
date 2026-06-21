@@ -12,12 +12,7 @@ import {
   getRuntimeStateFromUpdate,
 } from '@/lib/yjs/server/bootstrap-review-target'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
-import {
-  getMetadataMap as getWorkflowMetadataMap,
-  setVariables,
-  setWorkflowState,
-  type WorkflowSnapshot,
-} from '@/lib/yjs/workflow-session'
+import { replaceWorkflowDocumentState, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { getMonitorRuntimeLockHealth } from '@/socket-server/monitor-runtime-lock'
 import {
   deleteSession,
@@ -214,25 +209,6 @@ function parseApplyEntityStateRequest(body: unknown): ApplyEntityStateRequest {
   }
 }
 
-function replaceWorkflowDocState(
-  doc: Y.Doc,
-  workflowState: WorkflowSnapshot,
-  variables?: Record<string, any>,
-  entityName?: string
-): void {
-  setWorkflowState(doc, workflowState, YJS_ORIGINS.SYSTEM)
-
-  if (variables !== undefined) {
-    setVariables(doc, variables, YJS_ORIGINS.SYSTEM)
-  }
-
-  doc.transact(() => {
-    const metadata = getWorkflowMetadataMap(doc)
-    metadata.delete('reseededFromCanonical')
-    if (entityName) metadata.set('entityName', entityName)
-  }, YJS_ORIGINS.SYSTEM)
-}
-
 function clearSessionReseededFromCanonical(doc: Y.Doc): void {
   doc.transact(() => {
     doc.getMap('metadata').delete('reseededFromCanonical')
@@ -251,7 +227,7 @@ async function handleInternalYjsWorkflowApplyRequest(
     const doc = liveDoc ?? new Y.Doc()
 
     try {
-      replaceWorkflowDocState(doc, body.workflowState, body.variables, body.entityName)
+      replaceWorkflowDocumentState(doc, body.workflowState, body.variables, body.entityName)
       await storeCanonicalState(workflowId, Y.encodeStateAsUpdate(doc))
     } finally {
       if (!liveDoc) doc.destroy()
