@@ -18,7 +18,7 @@ import {
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
-import { readSavedEntityFieldsFromDb } from '@/lib/yjs/server/entity-loaders'
+import { readBootstrappedSavedEntityFields } from '@/lib/yjs/server/bootstrap-review-target'
 
 export type SavedEntityDocumentKind = EntityDocumentKind
 export type EntityDocumentArgs = {
@@ -213,7 +213,7 @@ export async function readSavedEntityDocumentFields(
   entityId: string,
   workspaceId: string
 ): Promise<Record<string, unknown>> {
-  return readSavedEntityFieldsFromDb(kind as SavedEntityKind, entityId, workspaceId)
+  return readBootstrappedSavedEntityFields(kind as SavedEntityKind, entityId, workspaceId)
 }
 
 export async function applySavedEntityDocument(

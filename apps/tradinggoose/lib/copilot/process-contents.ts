@@ -21,8 +21,10 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { escapeRegExp } from '@/lib/utils'
 import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
-import { getEntityFields } from '@/lib/yjs/entity-session'
-import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
+import {
+  readBootstrappedReviewTargetSnapshot,
+  readBootstrappedSavedEntityFields,
+} from '@/lib/yjs/server/bootstrap-review-target'
 import { readWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import type { ChatContext } from '@/stores/copilot/types'
 import { readCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
@@ -191,7 +193,7 @@ async function processEntityContext(params: {
       return null
     }
 
-    const fields = await readCopilotEntityFieldsFromYjs(
+    const fields = await readBootstrappedSavedEntityFields(
       params.entityKind,
       params.entityId,
       access.workspaceId
@@ -219,29 +221,6 @@ async function processEntityContext(params: {
     })
     return null
   }
-}
-
-async function readCopilotEntityFieldsFromYjs(
-  entityKind: 'skill' | 'indicator' | 'custom_tool' | 'knowledge_base' | 'mcp_server',
-  entityId: string,
-  workspaceId: string
-): Promise<Record<string, unknown>> {
-  const fields = await readBootstrappedCopilotYjsDoc(
-    {
-      workspaceId,
-      entityKind,
-      entityId,
-      draftSessionId: null,
-      reviewSessionId: null,
-      yjsSessionId: entityId,
-    },
-    (doc) => getEntityFields(doc, entityKind)
-  )
-  if (!fields) {
-    throw new Error('Saved entity Yjs snapshot is empty')
-  }
-
-  return fields
 }
 
 async function readBootstrappedCopilotYjsDoc<T>(
@@ -513,7 +492,7 @@ async function processKnowledgeContext(
       return null
     }
 
-    const fields = await readCopilotEntityFieldsFromYjs(
+    const fields = await readBootstrappedSavedEntityFields(
       ENTITY_KIND_KNOWLEDGE_BASE,
       knowledgeBaseId,
       access.workspaceId

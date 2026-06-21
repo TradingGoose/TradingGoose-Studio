@@ -10,7 +10,7 @@ import type {
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
 import { loadWorkflowStateFromSavedTables } from '@/lib/workflows/db-helpers'
-import { seedEntitySession } from '@/lib/yjs/entity-session'
+import { getEntityFields, seedEntitySession } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import {
   readSavedEntityFieldsFromDb,
@@ -85,6 +85,32 @@ export async function readBootstrappedReviewTargetSnapshot(descriptor: ReviewTar
     snapshotBase64: Buffer.from(state).toString('base64'),
     descriptor: resolved.descriptor,
     runtime: resolved.runtime,
+  }
+}
+
+export async function readBootstrappedSavedEntityFields(
+  entityKind: SavedEntityKind,
+  entityId: string,
+  workspaceId: string
+): Promise<Record<string, unknown>> {
+  const snapshot = await readBootstrappedReviewTargetSnapshot({
+    workspaceId,
+    entityKind,
+    entityId,
+    draftSessionId: null,
+    reviewSessionId: null,
+    yjsSessionId: entityId,
+  })
+  if (!snapshot.snapshotBase64) {
+    throw new ReviewTargetBootstrapError(404, `Saved ${entityKind} ${entityId} state is missing`)
+  }
+
+  const doc = new Y.Doc()
+  try {
+    Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
+    return getEntityFields(doc, entityKind)
+  } finally {
+    doc.destroy()
   }
 }
 
