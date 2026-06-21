@@ -3,12 +3,10 @@ import { db } from '@tradinggoose/db'
 import { apiKey, verification } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
-import { authenticateApiKey } from '@/lib/api-key/auth'
-import { decryptApiKey, encryptApiKey } from '@/lib/api-key/service'
+import { createApiKeyMaterial, decryptApiKey } from '@/lib/api-key/service'
 
 const DEVICE_LOGIN_TTL_MS = 10 * 60 * 1000
 const DEVICE_LOGIN_PREFIX = 'mcp:'
-const DEVICE_PERSONAL_API_KEY_PREFIX = 'sk-tradinggoose-pat.'
 const POLL_INTERVAL_SECONDS = 2
 
 type PendingDeviceLogin = {
@@ -26,13 +24,11 @@ type ApprovedDeviceLogin = {
   approvedAt: string
   userId: string
   keyId?: string
-  apiKeyHash?: string
   apiKeyEncrypted?: string
 }
 
 type IssuedDeviceLogin = ApprovedDeviceLogin & {
   keyId: string
-  apiKeyHash: string
   apiKeyEncrypted: string
 }
 
@@ -69,20 +65,10 @@ function hashValue(value: string) {
   return createHash('sha256').update(value).digest('hex')
 }
 
-function createDevicePersonalApiKey(keyId: string) {
-  return `${DEVICE_PERSONAL_API_KEY_PREFIX}${keyId}.${randomBytes(32).toString('base64url')}`
-}
-
-function readDevicePersonalApiKeyId(value: string) {
-  const match = value.match(/^sk-tradinggoose-pat\.([A-Za-z0-9_-]+)\.[A-Za-z0-9_-]+$/)
-  return match?.[1] ?? null
-}
-
 function isIssuedDeviceLogin(state: DeviceLoginState): state is IssuedDeviceLogin {
   return (
     state.status === 'approved' &&
     typeof state.keyId === 'string' &&
-    typeof state.apiKeyHash === 'string' &&
     typeof state.apiKeyEncrypted === 'string'
   )
 }
@@ -103,14 +89,9 @@ function parseDeviceLoginState(value: string): DeviceLoginState | null {
     ) {
       return parsed as PendingDeviceLogin
     }
-    const approvedHasNoKey =
-      parsed.keyId === undefined &&
-      parsed.apiKeyHash === undefined &&
-      parsed.apiKeyEncrypted === undefined
+    const approvedHasNoKey = parsed.keyId === undefined && parsed.apiKeyEncrypted === undefined
     const approvedHasIssuedKey =
-      typeof parsed.keyId === 'string' &&
-      typeof parsed.apiKeyHash === 'string' &&
-      typeof parsed.apiKeyEncrypted === 'string'
+      typeof parsed.keyId === 'string' && typeof parsed.apiKeyEncrypted === 'string'
     if (
       parsed.status === 'approved' &&
       typeof parsed.createdAt === 'string' &&
@@ -177,13 +158,14 @@ async function issueDeviceLoginPersonalApiKey(
   approvedState: ApprovedDeviceLogin
 ): Promise<McpDeviceLoginPollResult | null> {
   const keyId = nanoid()
-  const plainKey = createDevicePersonalApiKey(keyId)
-  const encryptedKey = (await encryptApiKey(plainKey)).encrypted
+  const { key: plainKey, encryptedKey } = await createApiKeyMaterial(true)
+  if (!encryptedKey) {
+    throw new Error('Failed to create MCP personal API key')
+  }
 
   const nextState = {
     ...approvedState,
     keyId,
-    apiKeyHash: hashValue(plainKey),
     apiKeyEncrypted: encryptedKey,
   } satisfies IssuedDeviceLogin
 
@@ -208,7 +190,7 @@ async function issueDeviceLoginPersonalApiKey(
         id: nextState.keyId,
         userId: nextState.userId,
         workspaceId: null,
-        name: `TradingGoose Personal Access ${now.toISOString()}`,
+        name: `TradingGoose MCP Access ${now.toISOString()}`,
         key: nextState.apiKeyEncrypted,
         type: 'personal',
         createdAt: now,
@@ -408,31 +390,4 @@ export async function cancelMcpDeviceLogin({
   }
 
   return { status: 'cancelled' }
-}
-
-export async function authenticateMcpApiKey(token: string) {
-  const keyId = readDevicePersonalApiKeyId(token)
-  if (!keyId) {
-    return { success: false as const }
-  }
-
-  const [storedKey] = await db
-    .select({
-      id: apiKey.id,
-      userId: apiKey.userId,
-      key: apiKey.key,
-      expiresAt: apiKey.expiresAt,
-    })
-    .from(apiKey)
-    .where(and(eq(apiKey.id, keyId), eq(apiKey.type, 'personal')))
-    .limit(1)
-
-  if (!storedKey || (storedKey.expiresAt && storedKey.expiresAt < new Date())) {
-    return { success: false as const }
-  }
-
-  const success = storedKey.key === token || (await authenticateApiKey(token, storedKey.key))
-  return success
-    ? { success: true as const, userId: storedKey.userId, keyId: storedKey.id }
-    : { success: false as const }
 }

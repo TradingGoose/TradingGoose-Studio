@@ -6,14 +6,14 @@ import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
-  mockAuthenticateMcpApiKey,
+  mockAuthenticateApiKeyFromHeader,
   mockGetCopilotRuntimeToolManifest,
   mockGetServerToolIds,
   mockGetUserWorkspaces,
   mockRouteExecution,
   mockUpdateApiKeyLastUsed,
 } = vi.hoisted(() => ({
-  mockAuthenticateMcpApiKey: vi.fn(),
+  mockAuthenticateApiKeyFromHeader: vi.fn(),
   mockGetCopilotRuntimeToolManifest: vi.fn(),
   mockGetServerToolIds: vi.fn(),
   mockGetUserWorkspaces: vi.fn(),
@@ -22,11 +22,8 @@ const {
 }))
 
 vi.mock('@/lib/api-key/service', () => ({
+  authenticateApiKeyFromHeader: (...args: unknown[]) => mockAuthenticateApiKeyFromHeader(...args),
   updateApiKeyLastUsed: (...args: unknown[]) => mockUpdateApiKeyLastUsed(...args),
-}))
-
-vi.mock('@/lib/mcp/auth', () => ({
-  authenticateMcpApiKey: (...args: unknown[]) => mockAuthenticateMcpApiKey(...args),
 }))
 
 vi.mock('@/lib/copilot/runtime-tool-manifest', () => ({
@@ -56,7 +53,7 @@ function createMcpRequest(body: unknown, authorization = 'Bearer sk-tradinggoose
 describe('Copilot MCP route', () => {
   beforeEach(() => {
     vi.resetAllMocks()
-    mockAuthenticateMcpApiKey.mockResolvedValue({
+    mockAuthenticateApiKeyFromHeader.mockResolvedValue({
       success: true,
       userId: 'user-1',
       keyId: 'key-1',
@@ -94,7 +91,7 @@ describe('Copilot MCP route', () => {
 
     expect(response.status).toBe(401)
     expect(body.error.message).toBe('Bearer token required')
-    expect(mockAuthenticateMcpApiKey).not.toHaveBeenCalled()
+    expect(mockAuthenticateApiKeyFromHeader).not.toHaveBeenCalled()
   })
 
   it('returns initialize metadata with authenticated workspace context', async () => {
@@ -104,7 +101,9 @@ describe('Copilot MCP route', () => {
     const body = await response.json()
 
     expect(response.headers.get('MCP-Protocol-Version')).toBe('2025-03-26')
-    expect(mockAuthenticateMcpApiKey).toHaveBeenCalledWith('sk-tradinggoose-test')
+    expect(mockAuthenticateApiKeyFromHeader).toHaveBeenCalledWith('sk-tradinggoose-test', {
+      keyTypes: ['personal'],
+    })
     expect(mockUpdateApiKeyLastUsed).toHaveBeenCalledWith('key-1')
     expect(mockGetUserWorkspaces).toHaveBeenCalledWith({ userId: 'user-1', autoCreate: false })
     expect(body.result.capabilities).toEqual({ tools: {} })
@@ -124,7 +123,9 @@ describe('Copilot MCP route', () => {
     )
 
     expect(response.status).toBe(200)
-    expect(mockAuthenticateMcpApiKey).toHaveBeenCalledWith('sk-lowercase')
+    expect(mockAuthenticateApiKeyFromHeader).toHaveBeenCalledWith('sk-lowercase', {
+      keyTypes: ['personal'],
+    })
   })
 
   it('lists only executable server copilot tools', async () => {

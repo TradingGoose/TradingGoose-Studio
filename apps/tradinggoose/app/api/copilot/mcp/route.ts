@@ -1,8 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { updateApiKeyLastUsed } from '@/lib/api-key/service'
+import { authenticateApiKeyFromHeader, updateApiKeyLastUsed } from '@/lib/api-key/service'
 import { getCopilotRuntimeToolManifest } from '@/lib/copilot/runtime-tool-manifest'
 import { getServerToolIds, routeExecution } from '@/lib/copilot/tools/server/router'
-import { authenticateMcpApiKey } from '@/lib/mcp/auth'
 import { getUserWorkspaces } from '@/lib/workspaces/service'
 
 export const dynamic = 'force-dynamic'
@@ -73,7 +72,7 @@ async function authenticateCopilotMcpRequest(
     return { error: 'Bearer token required' }
   }
 
-  const auth = await authenticateMcpApiKey(token)
+  const auth = await authenticateApiKeyFromHeader(token, { keyTypes: ['personal'] })
   if (!auth.success || !auth.userId) {
     return { error: 'Invalid TradingGoose personal API key' }
   }
