@@ -230,6 +230,7 @@ export async function pollMcpDeviceLogin(
       }
     }
 
+    // Keep the approved grant retryable until TTL; code plus verificationKey is the local device secret.
     const now = new Date()
     await db
       .insert(apiKey)
