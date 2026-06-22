@@ -135,6 +135,6 @@ export async function applySavedEntityPersistedState(
   entityId: string,
   fields: Record<string, unknown>
 ): Promise<void> {
-  await applySavedEntityDraftState(entityKind, entityId, fields)
   await persistSavedEntityState(entityKind, entityId, fields)
+  await applySavedEntityDraftState(entityKind, entityId, fields)
 }

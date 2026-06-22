@@ -72,8 +72,6 @@ export async function applyWorkflowState(
       : {}),
   })
 
-  await applyWorkflowStateToYjs(workflowId, storedWorkflowState, variables, entityName)
-
   const saveResult = await saveWorkflowToNormalizedTables(workflowId, storedWorkflowState)
   if (!saveResult.success) {
     throw new Error(saveResult.error || 'Failed to materialize workflow state')
@@ -92,6 +90,8 @@ export async function applyWorkflowState(
   if (!updatedWorkflow) {
     throw new Error('Workflow not found')
   }
+
+  await applyWorkflowStateToYjs(workflowId, storedWorkflowState, variables, entityName)
 }
 
 export async function applyWorkflowEntityName(
@@ -100,8 +100,6 @@ export async function applyWorkflowEntityName(
   variables: Record<string, any>,
   entityName: string
 ): Promise<typeof workflow.$inferSelect> {
-  await applyWorkflowStateToYjs(workflowId, workflowState, variables, entityName)
-
   const [updatedWorkflow] = await db
     .update(workflow)
     .set({ name: entityName, updatedAt: new Date() })
@@ -112,5 +110,6 @@ export async function applyWorkflowEntityName(
     throw new Error('Workflow not found')
   }
 
+  await applyWorkflowStateToYjs(workflowId, workflowState, variables, entityName)
   return updatedWorkflow
 }

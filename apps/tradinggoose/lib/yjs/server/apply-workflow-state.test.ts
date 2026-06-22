@@ -155,8 +155,8 @@ describe('applyWorkflowState', () => {
         'normalized-block': expect.objectContaining({ id: 'normalized-block' }),
       },
     })
-    expect(mockStoreCanonicalState.mock.invocationCallOrder[0]).toBeLessThan(
-      mockSaveWorkflowToNormalizedTables.mock.invocationCallOrder[0]
+    expect(mockSaveWorkflowToNormalizedTables.mock.invocationCallOrder[0]).toBeLessThan(
+      mockStoreCanonicalState.mock.invocationCallOrder[0]
     )
     expect(mockUpdateSet).toHaveBeenCalledWith(
       expect.not.objectContaining({
