@@ -25,6 +25,7 @@ type ApprovedDeviceLogin = {
   userId: string
   apiKeyId: string
   encryptedApiKey: string
+  deliveredAt?: string
 }
 
 type DeviceLoginState = PendingDeviceLogin | ApprovedDeviceLogin
@@ -83,7 +84,8 @@ function parseDeviceLoginState(value: string): DeviceLoginState | null {
       typeof parsed.approvedAt === 'string' &&
       typeof parsed.userId === 'string' &&
       typeof parsed.apiKeyId === 'string' &&
-      typeof parsed.encryptedApiKey === 'string'
+      typeof parsed.encryptedApiKey === 'string' &&
+      (parsed.deliveredAt === undefined || typeof parsed.deliveredAt === 'string')
     ) {
       return parsed as ApprovedDeviceLogin
     }
@@ -230,23 +232,48 @@ export async function pollMcpDeviceLogin(
       }
     }
 
-    // Keep the approved grant retryable until TTL; code plus verificationKey is the local device secret.
+    const approvedState = login.state
+    if (approvedState.deliveredAt) {
+      const [existingKey] = await db
+        .select({ id: apiKey.id })
+        .from(apiKey)
+        .where(eq(apiKey.id, approvedState.apiKeyId))
+        .limit(1)
+      if (!existingKey) {
+        return { status: 'expired' }
+      }
+      const { decrypted } = await decryptApiKey(approvedState.encryptedApiKey)
+      return { status: 'approved', apiKey: decrypted, expiresAt: login.expiresAt.toISOString() }
+    }
+
     const now = new Date()
-    await db
-      .insert(apiKey)
-      .values({
-        id: login.state.apiKeyId,
-        userId: login.state.userId,
+    const deliveredState = { ...approvedState, deliveredAt: now.toISOString() }
+    const delivered = await db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(verification)
+        .set({ value: JSON.stringify(deliveredState), updatedAt: now })
+        .where(deviceLoginMatches(login))
+        .returning({ id: verification.id })
+      if (!updated) {
+        return false
+      }
+      await tx.insert(apiKey).values({
+        id: approvedState.apiKeyId,
+        userId: approvedState.userId,
         workspaceId: null,
         name: `TradingGoose MCP Access ${now.toISOString()}`,
-        key: login.state.encryptedApiKey,
+        key: approvedState.encryptedApiKey,
         type: 'personal',
         createdAt: now,
         updatedAt: now,
       })
-      .onConflictDoNothing()
+      return true
+    })
+    if (!delivered) {
+      continue
+    }
 
-    const { decrypted } = await decryptApiKey(login.state.encryptedApiKey)
+    const { decrypted } = await decryptApiKey(approvedState.encryptedApiKey)
     return { status: 'approved', apiKey: decrypted, expiresAt: login.expiresAt.toISOString() }
   }
 }
