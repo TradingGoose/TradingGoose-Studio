@@ -77,6 +77,7 @@ export function useUserInputMentions({
   const currentWorkflowId = workflowSession?.workflowId ?? null
   const lastSelectionRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 })
   const previousLocaleRef = useRef(locale)
+  const ensureSubmenuLoaded = loaders.ensureSubmenuLoaded
   const getEditorTextLength = () => textareaRef.current?.value.length ?? message.length
 
   const normalizeSelection = (selection: { start: number; end: number }) => {
@@ -541,7 +542,7 @@ export function useUserInputMentions({
     setOpenSubmenuFor(submenu)
     setSubmenuActiveIndex(0)
     setSubmenuQueryStart(getCaretPos())
-    void loaders.ensureSubmenuLoaded(submenu)
+    void ensureSubmenuLoaded(submenu)
   }
 
   const handleMainMentionOptionSelect = (option: MentionOption) => {
@@ -581,7 +582,7 @@ export function useUserInputMentions({
     const active = getActiveMentionQueryAtPosition(normalizedSelection.start, newValue)
 
     if (active) {
-      void loaders.ensureSubmenuLoaded('workflow_blocks')
+      void ensureSubmenuLoaded('workflow_blocks')
       setShowMentionMenu(true)
       setInAggregated(false)
 
@@ -631,7 +632,7 @@ export function useUserInputMentions({
     const pos = getSelection()?.start ?? message.length
     const needsSpaceBefore = pos > 0 && !/\s/.test(message.charAt(pos - 1))
     insertAtCursor(needsSpaceBefore ? ' @' : '@')
-    void loaders.ensureSubmenuLoaded('workflow_blocks')
+    void ensureSubmenuLoaded('workflow_blocks')
     setShowMentionMenu(true)
     setOpenSubmenuFor(null)
     setMentionActiveIndex(0)
@@ -950,7 +951,7 @@ export function useUserInputMentions({
 
     if (mentionQuery.length > 0) {
       for (const submenu of MENTION_SUBMENUS) {
-        void loaders.ensureSubmenuLoaded(submenu)
+        void ensureSubmenuLoaded(submenu)
       }
     }
 
@@ -958,7 +959,7 @@ export function useUserInputMentions({
       setSubmenuActiveIndex(0)
       requestAnimationFrame(() => scrollActiveItemIntoView(0))
     }
-  }, [showMentionMenu, openSubmenuFor, message, locale])
+  }, [showMentionMenu, openSubmenuFor, message, locale, ensureSubmenuLoaded])
 
   useEffect(() => {
     const previousLocale = previousLocaleRef.current
@@ -968,8 +969,8 @@ export function useUserInputMentions({
       return
     }
 
-    void loaders.ensureSubmenuLoaded(openSubmenuFor)
-  }, [showMentionMenu, openSubmenuFor, locale, loaders])
+    void ensureSubmenuLoaded(openSubmenuFor)
+  }, [showMentionMenu, openSubmenuFor, locale, ensureSubmenuLoaded])
 
   useEffect(() => {
     if (openSubmenuFor) {
