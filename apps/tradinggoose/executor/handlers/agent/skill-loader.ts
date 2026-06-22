@@ -62,7 +62,7 @@ export function buildSkillsSystemPromptSection(
 
   return [
     '',
-    `You have access to the following skills. Use the ${skillLoaderToolId} tool to activate a skill when relevant.`,
+    `You have access to the following skills. Use the ${skillLoaderToolId} tool to activate a skill when relevant. Pass the exact skill_id from the id attribute; skill names are display metadata.`,
     '',
     '<available_skills>',
     skillEntries,
@@ -71,10 +71,12 @@ export function buildSkillsSystemPromptSection(
 }
 
 export function buildLoadSkillTool(skillLoaderToolId: string, skills: SkillMetadata[]) {
+  const skillSummaries = skills.map((skill) => `${skill.id} (${skill.name})`).join(', ')
+
   return {
     id: skillLoaderToolId,
     name: skillLoaderToolId,
-    description: `Load a skill to get specialized instructions. Available skills: ${skills.map((skill) => skill.name).join(', ')}`,
+    description: `Load a skill by exact skill_id to get specialized instructions. Available skill ids: ${skillSummaries}`,
     params: {
       [SKILL_LOADER_MARKER]: true,
     },
@@ -84,7 +86,7 @@ export function buildLoadSkillTool(skillLoaderToolId: string, skills: SkillMetad
         skill_id: {
           type: 'string',
           enum: skills.map((skill) => skill.id),
-          description: 'ID of the skill to load',
+          description: 'Exact skill id from available_skills; do not pass the display name',
         },
       },
       required: ['skill_id'],
