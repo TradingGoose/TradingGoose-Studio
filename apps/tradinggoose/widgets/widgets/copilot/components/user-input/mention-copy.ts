@@ -17,16 +17,19 @@ import type {
 } from './types'
 
 type WorkspaceDashboardMessages = Messages['workspace']['dashboard']
+type WorkspaceKnowledgeMessages = Messages['workspace']['knowledge']
 type WorkspaceWidgetsMessages = Messages['workspace']['widgets']
 
 export type CopilotMentionCopy = ReturnType<typeof getCopilotMentionCopy>
 
 export function getCopilotMentionCopy({
   dashboard,
+  knowledge,
   nav,
   widgets,
 }: {
   dashboard: WorkspaceDashboardMessages
+  knowledge: WorkspaceKnowledgeMessages
   nav: Messages['nav']
   widgets: WorkspaceWidgetsMessages
 }) {
@@ -59,12 +62,12 @@ export function getCopilotMentionCopy({
     } satisfies Record<MentionSubmenu, string>,
     emptyStates: {
       chats: copilot.mentions.noPastChats,
-      workflow: copilot.mentions.noWorkflows,
-      skill: copilot.mentions.noSkills,
-      indicator: copilot.mentions.noIndicators,
-      custom_tool: copilot.mentions.noCustomTools,
-      mcp_server: copilot.mentions.noMcpServers,
-      knowledge: copilot.mentions.noKnowledgeBases,
+      workflow: widgets.workflowDropdown.noWorkflowsFound,
+      skill: widgets.skillDropdown.noSkillsFound,
+      indicator: widgets.indicatorDropdown.noIndicatorsFound,
+      custom_tool: widgets.customToolDropdown.noCustomToolsFound,
+      mcp_server: widgets.mcpDropdown.noServersFound,
+      knowledge: knowledge.emptyState.noMatches,
       blocks: copilot.mentions.noBlocksFound,
       workflow_blocks: copilot.mentions.noBlocksInWorkflow,
       logs: copilot.mentions.noExecutionsFound,
@@ -89,6 +92,7 @@ export function useCopilotMentionCopy(): CopilotMentionCopy {
 
   return getCopilotMentionCopy({
     dashboard: messages.workspace.dashboard,
+    knowledge: messages.workspace.knowledge,
     nav: messages.nav,
     widgets,
   })

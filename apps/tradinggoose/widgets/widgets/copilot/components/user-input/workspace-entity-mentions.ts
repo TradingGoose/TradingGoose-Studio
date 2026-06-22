@@ -42,79 +42,52 @@ export async function loadWorkspaceEntityMentionItems(
 
   switch (entityKind) {
     case 'workflow':
-      return sortByRecent(Array.isArray(data?.data) ? data.data : []).flatMap((item: any) => {
-        const name = toTrimmedString(item.name)
-        return item.id
-          ? [
-              {
-                entityKind,
-                id: item.id,
-                name,
-                color: item.color,
-              },
-            ]
-          : []
-      })
+      return sortByRecent(Array.isArray(data?.data) ? data.data : [])
+        .filter((item: any) => item.id)
+        .map((item: any) => ({
+          entityKind,
+          id: item.id,
+          name: toTrimmedString(item.name),
+          color: item.color,
+        }))
     case 'skill':
-      return sortByRecent(Array.isArray(data?.data) ? data.data : []).flatMap((item: any) => {
-        const name = toTrimmedString(item.name)
-        return item.id
-          ? [
-              {
-                entityKind,
-                id: item.id,
-                name,
-                description: toTrimmedString(item.description),
-              },
-            ]
-          : []
-      })
+      return sortByRecent(Array.isArray(data?.data) ? data.data : [])
+        .filter((item: any) => item.id)
+        .map((item: any) => ({
+          entityKind,
+          id: item.id,
+          name: toTrimmedString(item.name),
+          description: toTrimmedString(item.description),
+        }))
     case 'indicator':
-      return sortByRecent(Array.isArray(data?.data) ? data.data : []).flatMap((item: any) => {
-        const name = toTrimmedString(item.name)
-        return item.id
-          ? [
-              {
-                entityKind,
-                id: item.id,
-                name,
-                color: item.color,
-              },
-            ]
-          : []
-      })
+      return sortByRecent(Array.isArray(data?.data) ? data.data : [])
+        .filter((item: any) => item.id)
+        .map((item: any) => ({
+          entityKind,
+          id: item.id,
+          name: toTrimmedString(item.name),
+          color: item.color,
+        }))
     case 'custom_tool':
-      return sortByRecent(Array.isArray(data?.data) ? data.data : []).flatMap((item: any) => {
-        const name = toTrimmedString(item.title)
-        return item.id
-          ? [
-              {
-                entityKind,
-                id: item.id,
-                name,
-                description: toTrimmedString(item.schema?.function?.description),
-              },
-            ]
-          : []
-      })
+      return sortByRecent(Array.isArray(data?.data) ? data.data : [])
+        .filter((item: any) => item.id)
+        .map((item: any) => ({
+          entityKind,
+          id: item.id,
+          name: toTrimmedString(item.title),
+          description: toTrimmedString(item.schema?.function?.description),
+        }))
     case 'mcp_server':
-      return sortByRecent(Array.isArray(data?.data?.servers) ? data.data.servers : []).flatMap(
-        (item: any) => {
-          const name = toTrimmedString(item.name)
-          return item.id
-            ? [
-                {
-                  entityKind,
-                  id: item.id,
-                  name,
-                  description: toTrimmedString(item.description),
-                  transport: toTrimmedString(item.transport),
-                  enabled: item.enabled,
-                  connectionStatus: item.connectionStatus,
-                },
-              ]
-            : []
-        }
-      )
+      return sortByRecent(Array.isArray(data?.data?.servers) ? data.data.servers : [])
+        .filter((item: any) => item.id)
+        .map((item: any) => ({
+          entityKind,
+          id: item.id,
+          name: toTrimmedString(item.name),
+          description: toTrimmedString(item.description),
+          transport: toTrimmedString(item.transport),
+          enabled: item.enabled,
+          connectionStatus: item.connectionStatus,
+        }))
   }
 }

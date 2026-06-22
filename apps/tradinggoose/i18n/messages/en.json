@@ -21425,12 +21425,6 @@
           "matches": "Matches",
           "noMatches": "No matches",
           "noPastChats": "No past chats",
-          "noWorkflows": "No workflows found",
-          "noSkills": "No skills found",
-          "noIndicators": "No indicators found",
-          "noCustomTools": "No custom tools found",
-          "noMcpServers": "No MCP servers found",
-          "noKnowledgeBases": "No knowledge bases found",
           "noBlocksFound": "No blocks found",
           "noBlocksInWorkflow": "No blocks in this workflow",
           "noExecutionsFound": "No executions found"

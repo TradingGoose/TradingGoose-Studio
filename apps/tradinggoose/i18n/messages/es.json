@@ -21425,12 +21425,6 @@
           "matches": "Coincidencias",
           "noMatches": "No hay coincidencias",
           "noPastChats": "No hay chats anteriores",
-          "noWorkflows": "No se encontraron flujos de trabajo",
-          "noSkills": "No se encontraron habilidades",
-          "noIndicators": "No se encontraron indicadores",
-          "noCustomTools": "No se encontraron herramientas personalizadas",
-          "noMcpServers": "No se encontraron servidores MCP",
-          "noKnowledgeBases": "No se encontraron bases de conocimiento",
           "noBlocksFound": "No se encontraron bloques",
           "noBlocksInWorkflow": "No hay bloques en este flujo de trabajo",
           "noExecutionsFound": "No se encontraron ejecuciones"
