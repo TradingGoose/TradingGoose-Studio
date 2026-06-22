@@ -122,7 +122,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       )
     }
 
-    const { key: plainKey, encryptedKey } = await createApiKey(true)
+    const keyId = nanoid()
+    const { key: plainKey, encryptedKey } = await createApiKey(true, keyId)
 
     if (!encryptedKey) {
       throw new Error('Failed to encrypt API key for storage')
@@ -131,7 +132,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const [newKey] = await db
       .insert(apiKey)
       .values({
-        id: nanoid(),
+        id: keyId,
         workspaceId,
         userId: userId,
         createdBy: userId,
