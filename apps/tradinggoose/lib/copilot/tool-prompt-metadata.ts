@@ -221,7 +221,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   [CopilotTool.read_indicator]: {
     description:
-      'Return one indicator as a document payload with `entityDocument` and `documentFormat`. For built-in default indicators, pass `runtimeId` from `list_indicators` to inspect the read-only default indicator document, Pine code, and input metadata. For custom indicators, pass `entityId` from `list_indicators` entries where `editable` is true. Built-in default indicators are read-only.',
+      'Return one indicator as a document payload with `entityDocument` and `documentFormat`. Pass `runtimeId` from `list_indicators` for the callable indicator identity; built-in default indicators are read-only, while custom indicator runtime ids resolve the saved custom indicator document.',
     kind: 'read',
     entityKind: 'indicator',
   },

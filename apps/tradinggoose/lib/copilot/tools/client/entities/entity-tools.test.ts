@@ -457,6 +457,60 @@ describe('entity document tools', () => {
     expect(markCompleteBody.data.entityDocument).toContain('"Length"')
   })
 
+  it('read_indicator reads a custom indicator by runtimeId', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      const method = init?.method || 'GET'
+
+      if (url === '/api/copilot/tools/mark-complete' && method === 'POST') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url} (${method})`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    mockEntityFieldState.values = {
+      name: 'My Custom Indicator',
+      pineCode: 'indicator("My Custom Indicator")',
+      inputMeta: { Length: { defaultValue: 14 } },
+    }
+    const descriptor = mockSavedEntitySession('indicator', 'indicator-1')
+
+    const toolCallId = 'get-indicator-custom-runtime'
+    const tool = new ReadIndicatorClientTool(toolCallId)
+    tool.setExecutionContext({
+      toolCallId,
+      toolName: 'read_indicator',
+      channelId: 'pair-yellow',
+      workspaceId: 'ws-1',
+      log: vi.fn(),
+    })
+
+    await tool.execute({ runtimeId: 'indicator-1' })
+
+    expect(tool.getState()).toBe(ClientToolCallState.success)
+    expect(mockBootstrapYjsProvider).toHaveBeenCalledWith(descriptor)
+
+    const markCompleteCall = fetchMock.mock.calls.find(([input, init]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/tools/mark-complete' && (init?.method || 'GET') === 'POST'
+    })
+    const markCompleteBody = JSON.parse(String(markCompleteCall?.[1]?.body))
+
+    expect(markCompleteBody.data).toMatchObject({
+      entityKind: 'indicator',
+      entityId: 'indicator-1',
+      entityName: 'My Custom Indicator',
+      documentFormat: 'tg-indicator-document-v1',
+    })
+    expect(markCompleteBody.data.entityDocument).toContain('"name": "My Custom Indicator"')
+    expect(markCompleteBody.data.entityDocument).toContain('"pineCode"')
+  })
+
   it('edit_skill bootstraps the canonical saved-entity Yjs session', async () => {
     vi.useFakeTimers()
     try {

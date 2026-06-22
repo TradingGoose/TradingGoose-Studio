@@ -123,13 +123,13 @@ describe('copilot runtime tool manifest', () => {
         }),
         expect.objectContaining({
           name: 'read_indicator',
-          description: expect.stringContaining('pass `runtimeId` from `list_indicators`'),
+          description: expect.stringContaining('Pass `runtimeId` from `list_indicators`'),
           kind: 'read',
           entityKind: 'indicator',
           parameters: expect.objectContaining({
             properties: expect.objectContaining({
               runtimeId: expect.objectContaining({
-                description: expect.stringContaining('Built-in default indicator runtime id'),
+                description: expect.stringContaining('Indicator runtime id'),
               }),
             }),
           }),

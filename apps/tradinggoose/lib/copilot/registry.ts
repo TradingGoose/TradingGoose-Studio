@@ -234,7 +234,7 @@ const GetIndicatorArgs = z
       .min(1)
       .optional()
       .describe(
-        'Built-in default indicator runtime id from `list_indicators`, such as `RSI`. Use this for read-only built-in inspection.'
+        'Indicator runtime id from `list_indicators`. Built-in ids inspect read-only defaults; custom ids resolve the saved custom indicator.'
       ),
   })
   .strict()

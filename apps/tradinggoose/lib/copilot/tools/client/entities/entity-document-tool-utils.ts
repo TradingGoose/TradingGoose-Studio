@@ -401,7 +401,7 @@ export async function readEntityFieldsFromContext(
   entityName: string
   fields: Record<string, unknown>
 }> {
-  const resolvedEntityId = resolveOptionalCopilotEntityId(target)
+  let resolvedEntityId = resolveOptionalCopilotEntityId(target)
   const resolvedRuntimeId =
     kind === 'indicator' ? target?.runtimeId?.trim() || undefined : undefined
 
@@ -411,18 +411,18 @@ export async function readEntityFieldsFromContext(
     }
 
     const indicator = getDefaultIndicator(resolvedRuntimeId)
-    if (!indicator) {
-      throw new Error(`Built-in indicator ${resolvedRuntimeId} was not found`)
+    if (indicator) {
+      return {
+        entityName: indicator.name,
+        fields: {
+          name: indicator.name,
+          pineCode: indicator.pineCode,
+          inputMeta: indicator.inputMeta ?? null,
+        },
+      }
     }
 
-    return {
-      entityName: indicator.name,
-      fields: {
-        name: indicator.name,
-        pineCode: indicator.pineCode,
-        inputMeta: indicator.inputMeta ?? null,
-      },
-    }
+    resolvedEntityId = resolvedRuntimeId
   }
 
   if (!resolvedEntityId) {
