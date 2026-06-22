@@ -9,14 +9,20 @@ import type {
   ReviewTargetDescriptor,
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
-import { loadWorkflowStateFromSavedTables } from '@/lib/workflows/db-helpers'
+import { loadWorkflowStateFromSavedTables, readWorkflowUpdatedAt } from '@/lib/workflows/db-helpers'
 import { getEntityFields, seedEntitySession } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import {
   readSavedEntityFieldsFromDb,
+  readSavedEntityUpdatedAt,
   resolveEntityWorkspaceId,
 } from '@/lib/yjs/server/entity-loaders'
-import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
+import {
+  deleteYjsSessionInSocketServer,
+  getYjsSnapshot,
+  SocketServerBridgeError,
+  type YjsSnapshotResponse,
+} from '@/lib/yjs/server/snapshot-bridge'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import {
   createWorkflowSnapshot,
@@ -57,7 +63,11 @@ export function getRuntimeStateFromUpdate(update: Uint8Array): ReviewTargetRunti
 export async function readBootstrappedReviewTargetSnapshot(descriptor: ReviewTargetDescriptor) {
   const bridgeParams = serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
   try {
-    return await getYjsSnapshot(descriptor.yjsSessionId, bridgeParams)
+    const snapshot = await getYjsSnapshot(descriptor.yjsSessionId, bridgeParams)
+    if (await isSavedTargetSnapshotFresh(descriptor, snapshot)) {
+      return snapshot
+    }
+    await deleteYjsSessionInSocketServer(descriptor.yjsSessionId)
   } catch (error) {
     if (!(error instanceof SocketServerBridgeError) || error.status !== 404) {
       throw error
@@ -87,6 +97,26 @@ export async function readBootstrappedReviewTargetSnapshot(descriptor: ReviewTar
     descriptor: resolved.descriptor,
     runtime: resolved.runtime,
   }
+}
+
+async function isSavedTargetSnapshotFresh(
+  descriptor: ReviewTargetDescriptor,
+  snapshot: YjsSnapshotResponse
+): Promise<boolean> {
+  if (descriptor.reviewSessionId || !descriptor.entityId) {
+    return true
+  }
+
+  const savedAt =
+    descriptor.entityKind === 'workflow'
+      ? await readWorkflowUpdatedAt(descriptor.entityId)
+      : await readSavedEntityUpdatedAt(
+          descriptor.entityKind as SavedEntityKind,
+          descriptor.entityId
+        )
+  return Boolean(
+    savedAt && typeof snapshot.touchedAt === 'number' && snapshot.touchedAt >= savedAt.getTime()
+  )
 }
 
 export async function readBootstrappedSavedEntityFields(

@@ -9,6 +9,7 @@ export interface YjsSnapshotResponse {
   snapshotBase64: string
   descriptor: ReviewTargetDescriptor
   runtime: ReviewTargetRuntimeState
+  touchedAt?: number | null
 }
 
 export class SocketServerBridgeError extends Error {

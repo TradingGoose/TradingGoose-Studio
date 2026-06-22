@@ -9,52 +9,37 @@ import {
 import { and, eq, isNull } from 'drizzle-orm'
 import { type SavedEntityKind, savedEntityRowToFields } from '@/lib/yjs/entity-state'
 
+const ENTITY_TABLES = {
+  skill,
+  custom_tool: customTools,
+  indicator: pineIndicators,
+  knowledge_base: knowledgeBase,
+  mcp_server: mcpServers,
+} as const
+
+function entityTable(entityKind: SavedEntityKind) {
+  return ENTITY_TABLES[entityKind] as any
+}
+
+function entityIdCondition(entityKind: SavedEntityKind, entityId: string) {
+  const table = entityTable(entityKind)
+  const byId = eq(table.id, entityId)
+  return entityKind === 'knowledge_base' || entityKind === 'mcp_server'
+    ? and(byId, isNull(table.deletedAt))
+    : byId
+}
+
 export async function resolveEntityWorkspaceId(
   entityKind: SavedEntityKind,
   entityId: string
 ): Promise<string | null> {
-  switch (entityKind) {
-    case 'skill': {
-      const [row] = await db
-        .select({ workspaceId: skill.workspaceId })
-        .from(skill)
-        .where(eq(skill.id, entityId))
-        .limit(1)
-      return row?.workspaceId ?? null
-    }
-    case 'custom_tool': {
-      const [row] = await db
-        .select({ workspaceId: customTools.workspaceId })
-        .from(customTools)
-        .where(eq(customTools.id, entityId))
-        .limit(1)
-      return row?.workspaceId ?? null
-    }
-    case 'indicator': {
-      const [row] = await db
-        .select({ workspaceId: pineIndicators.workspaceId })
-        .from(pineIndicators)
-        .where(eq(pineIndicators.id, entityId))
-        .limit(1)
-      return row?.workspaceId ?? null
-    }
-    case 'knowledge_base': {
-      const [row] = await db
-        .select({ workspaceId: knowledgeBase.workspaceId })
-        .from(knowledgeBase)
-        .where(and(eq(knowledgeBase.id, entityId), isNull(knowledgeBase.deletedAt)))
-        .limit(1)
-      return row?.workspaceId ?? null
-    }
-    case 'mcp_server': {
-      const [row] = await db
-        .select({ workspaceId: mcpServers.workspaceId })
-        .from(mcpServers)
-        .where(and(eq(mcpServers.id, entityId), isNull(mcpServers.deletedAt)))
-        .limit(1)
-      return row?.workspaceId ?? null
-    }
-  }
+  const table = entityTable(entityKind)
+  const [row] = await db
+    .select({ workspaceId: table.workspaceId })
+    .from(table)
+    .where(entityIdCondition(entityKind, entityId))
+    .limit(1)
+  return row?.workspaceId ?? null
 }
 
 export async function readSavedEntityFieldsFromDb(
@@ -119,4 +104,17 @@ export async function readSavedEntityFieldsFromDb(
   }
 
   return savedEntityRowToFields(entityKind, row)
+}
+
+export async function readSavedEntityUpdatedAt(
+  entityKind: SavedEntityKind,
+  entityId: string
+): Promise<Date | null> {
+  const table = entityTable(entityKind)
+  const [row] = await db
+    .select({ updatedAt: table.updatedAt })
+    .from(table)
+    .where(entityIdCondition(entityKind, entityId))
+    .limit(1)
+  return row?.updatedAt ?? null
 }

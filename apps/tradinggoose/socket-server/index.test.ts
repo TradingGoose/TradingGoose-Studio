@@ -455,6 +455,7 @@ describe('Socket Server Index Integration', () => {
           yjsSessionId: 'workflow-state-update',
         },
         runtime: getRuntimeStateFromDoc(liveDoc!),
+        touchedAt: expect.any(Number),
       })
 
       const doc = new Y.Doc()

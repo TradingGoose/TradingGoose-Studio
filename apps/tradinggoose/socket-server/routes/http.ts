@@ -16,6 +16,7 @@ import { replaceWorkflowDocumentState, type WorkflowSnapshot } from '@/lib/yjs/w
 import { getMonitorRuntimeLockHealth } from '@/socket-server/monitor-runtime-lock'
 import {
   deleteSession,
+  getLastTouchedAt,
   getState,
   storeCanonicalState,
   storeState,
@@ -345,18 +346,13 @@ async function handleInternalYjsSessionClearReseededRequest(
 
 async function getLiveOrPersistedYjsState(
   sessionId: string
-): Promise<{ liveDoc: Y.Doc | null; state: Uint8Array | null }> {
+): Promise<{ liveDoc: Y.Doc | null; state: Uint8Array | null; touchedAt: number | null }> {
   const liveDoc = await getExistingDocument(sessionId)
-  if (liveDoc) {
-    return {
-      liveDoc,
-      state: Y.encodeStateAsUpdate(liveDoc),
-    }
-  }
-
+  const state = liveDoc ? Y.encodeStateAsUpdate(liveDoc) : await getState(sessionId)
   return {
-    liveDoc: null,
-    state: await getState(sessionId),
+    liveDoc,
+    state,
+    touchedAt: state ? await getLastTouchedAt(sessionId) : null,
   }
 }
 
@@ -375,7 +371,7 @@ async function handleInternalYjsSnapshotRequest(
     }
 
     const descriptor = buildReviewTargetDescriptorFromEnvelope(envelope)
-    const { liveDoc, state } = await getLiveOrPersistedYjsState(sessionId)
+    const { liveDoc, state, touchedAt } = await getLiveOrPersistedYjsState(sessionId)
 
     if (!state) {
       res.writeHead(404, { 'Content-Type': 'application/json' })
@@ -391,6 +387,7 @@ async function handleInternalYjsSnapshotRequest(
         snapshotBase64: Buffer.from(state).toString('base64'),
         descriptor,
         runtime,
+        touchedAt,
       })
     )
   } catch (error) {
