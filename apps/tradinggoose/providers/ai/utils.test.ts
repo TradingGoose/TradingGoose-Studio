@@ -681,9 +681,9 @@ describe('Tool Management', () => {
     it.concurrent('should transform valid custom tool schema', () => {
       const customTool = {
         id: 'test-tool',
+        title: 'Test Tool',
         schema: {
           function: {
-            name: 'testFunction',
             description: 'A test function',
             parameters: {
               type: 'object',
@@ -699,11 +699,29 @@ describe('Tool Management', () => {
       const result = transformCustomTool(customTool)
 
       expect(result.id).toBe('custom_test-tool')
-      expect(result.name).toBe('testFunction')
-      expect(result.description).toBe('A test function')
+      expect(result.name).toBe('custom_test-tool')
+      expect(result.description).toBe('Custom tool title: Test Tool. A test function')
       expect(result.parameters.type).toBe('object')
       expect(result.parameters.properties).toBeDefined()
       expect(result.parameters.required).toEqual(['input'])
+    })
+
+    it.concurrent('should preserve entity IDs that already start with the runtime prefix', () => {
+      const result = transformCustomTool({
+        id: 'custom_test-tool',
+        title: 'Test Tool',
+        schema: {
+          function: {
+            parameters: {
+              type: 'object',
+              properties: {},
+            },
+          },
+        },
+      })
+
+      expect(result.id).toBe('custom_custom_test-tool')
+      expect(result.name).toBe('custom_custom_test-tool')
     })
 
     it.concurrent('should throw error for invalid schema', () => {

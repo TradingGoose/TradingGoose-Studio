@@ -1,28 +1,32 @@
 import { z } from 'zod'
 
-const CUSTOM_TOOL_RUNTIME_PREFIX = 'custom_'
+export const CUSTOM_TOOL_RUNTIME_ID_PREFIX = 'custom_'
 const normalizeInlineWhitespace = (value: string) => value.trim().replace(/\s+/g, ' ')
 const normalizeOptionalInlineWhitespace = (value: unknown) =>
   typeof value === 'string' ? normalizeInlineWhitespace(value) : ''
 
-export function resolveCustomToolRuntimeId({
-  id,
-  toolId,
-}: {
-  id?: string | null
-  toolId?: string | null
-}): string {
-  const rawId = (toolId || id || '').trim()
-  if (!rawId) throw new Error('Custom tool id is required')
-  return rawId.startsWith(CUSTOM_TOOL_RUNTIME_PREFIX)
-    ? rawId
-    : `${CUSTOM_TOOL_RUNTIME_PREFIX}${rawId}`
+export function createCustomToolRuntimeId(entityId: string): string {
+  const normalizedEntityId = entityId.trim()
+  if (!normalizedEntityId) throw new Error('Custom tool entity id is required')
+  return `${CUSTOM_TOOL_RUNTIME_ID_PREFIX}${normalizedEntityId}`
 }
 
-export const resolveCustomToolEntityId = (runtimeId: string): string =>
-  runtimeId.startsWith(CUSTOM_TOOL_RUNTIME_PREFIX)
-    ? runtimeId.slice(CUSTOM_TOOL_RUNTIME_PREFIX.length)
-    : runtimeId
+export const isCustomToolRuntimeId = (toolId: string | null | undefined): toolId is string =>
+  typeof toolId === 'string' && toolId.startsWith(CUSTOM_TOOL_RUNTIME_ID_PREFIX)
+
+export function getCustomToolEntityIdFromRuntimeId(runtimeId: string | null | undefined): string {
+  if (
+    typeof runtimeId !== 'string' ||
+    runtimeId !== runtimeId.trim() ||
+    !isCustomToolRuntimeId(runtimeId)
+  ) {
+    throw new Error('Custom tool runtime id is required')
+  }
+
+  const entityId = runtimeId.slice(CUSTOM_TOOL_RUNTIME_ID_PREFIX.length)
+  if (!entityId) throw new Error('Custom tool entity id is required')
+  return entityId
+}
 
 export function buildCustomToolModelDescription({
   title,

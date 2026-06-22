@@ -276,12 +276,7 @@ IMPORTANT FORMATTING RULES:
 
     try {
       const parsed = JSON.parse(jsonSchema)
-      return Boolean(
-        parsed.type === 'function' &&
-          parsed.function?.name &&
-          parsed.function?.parameters?.type &&
-          parsed.function?.parameters?.properties !== undefined
-      )
+      return CustomToolOpenAiSchema.safeParse(parsed).success
     } catch {
       return false
     }
@@ -624,7 +619,6 @@ IMPORTANT FORMATTING RULES:
               placeholder={`{
   "type": "function",
   "function": {
-    "name": "addItemToOrder",
     "description": "",
     "parameters": {
       "type": "object",

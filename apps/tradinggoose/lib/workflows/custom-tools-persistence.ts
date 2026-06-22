@@ -1,5 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import { resolveCustomToolEntityId } from '@/lib/custom-tools/schema'
+import { getCustomToolEntityIdFromRuntimeId } from '@/lib/custom-tools/schema'
 import { upsertCustomTools } from '@/lib/custom-tools/operations'
 
 const logger = createLogger('CustomToolsPersistence')
@@ -130,7 +130,7 @@ export async function persistCustomToolsToDatabase(
 }
 
 function normalizeToolId(tool: CustomTool): string {
-  return resolveCustomToolEntityId(tool.toolId)
+  return getCustomToolEntityIdFromRuntimeId(tool.toolId)
 }
 
 /**

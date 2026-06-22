@@ -1,4 +1,5 @@
 import { generateInternalToken } from '@/lib/auth/internal'
+import { isCustomToolRuntimeId } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { isMcpToolId, parseMcpToolId } from '@/lib/mcp/utils'
 import { validateExternalUrl } from '@/lib/security/input-validation'
@@ -288,7 +289,7 @@ export async function executeTool(
     }
 
     // If it's a custom tool, use the async version with workflowId
-    if (toolId.startsWith('custom_')) {
+    if (isCustomToolRuntimeId(toolId)) {
       tool = await getToolAsync(toolId, scope.workflowId, scope.workspaceId, scope.userId)
       if (!tool) {
         logger.error(`[${requestId}] Custom tool not found: ${toolId}`)
@@ -675,7 +676,7 @@ async function executeToolRequest(
 
     const fullUrl = fullUrlObj.toString()
 
-    if (toolId.startsWith('custom_') && tool.request.body) {
+    if (isCustomToolRuntimeId(toolId) && tool.request.body) {
       const requestBody = tool.request.body(params)
       if (
         typeof requestBody === 'object' &&

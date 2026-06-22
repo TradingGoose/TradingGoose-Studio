@@ -4,6 +4,10 @@ import type { InferSelectModel } from 'drizzle-orm'
 import { and, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
+import {
+  getCustomToolEntityIdFromRuntimeId,
+  isCustomToolRuntimeId,
+} from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { PermissionType } from '@/lib/permissions/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
@@ -511,7 +515,7 @@ export function hasWorkflowChanged(
 }
 
 export function stripCustomToolPrefix(name: string) {
-  return name.startsWith('custom_') ? name.replace('custom_', '') : name
+  return isCustomToolRuntimeId(name) ? getCustomToolEntityIdFromRuntimeId(name) : name
 }
 
 export const workflowHasResponseBlock = (executionResult: ExecutionResult): boolean => {

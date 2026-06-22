@@ -1,4 +1,8 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import {
+  getCustomToolEntityIdFromRuntimeId,
+  isCustomToolRuntimeId,
+} from '@/lib/custom-tools/schema'
 import type { ToolCall, TraceSpan } from '@/lib/logs/types'
 import { isWorkflowBlockType } from '@/executor/consts'
 import type { ExecutionResult } from '@/executor/types'
@@ -696,5 +700,5 @@ function ensureNestedWorkflowsProcessed(span: TraceSpan): TraceSpan {
 }
 
 export function stripCustomToolPrefix(name: string) {
-  return name.startsWith('custom_') ? name.replace('custom_', '') : name
+  return isCustomToolRuntimeId(name) ? getCustomToolEntityIdFromRuntimeId(name) : name
 }

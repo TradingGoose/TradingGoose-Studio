@@ -1,7 +1,8 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   buildCustomToolModelDescription,
-  resolveCustomToolRuntimeId,
+  getCustomToolEntityIdFromRuntimeId,
+  isCustomToolRuntimeId,
 } from '@/lib/custom-tools/schema'
 import { createMcpToolId } from '@/lib/mcp/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
@@ -219,7 +220,8 @@ export class AgentBlockHandler implements BlockHandler {
 
     const filteredSchema = filterSchemaForLLM(tool.schema.function.parameters, userProvidedParams)
 
-    const toolId = resolveCustomToolRuntimeId({ toolId: tool.toolId })
+    const toolId = tool.toolId
+    getCustomToolEntityIdFromRuntimeId(toolId)
     const base: any = {
       id: toolId,
       name: toolId,
@@ -1014,6 +1016,6 @@ export class AgentBlockHandler implements BlockHandler {
   }
 
   private stripCustomToolPrefix(name: string): string {
-    return name.startsWith('custom_') ? name.replace('custom_', '') : name
+    return isCustomToolRuntimeId(name) ? getCustomToolEntityIdFromRuntimeId(name) : name
   }
 }

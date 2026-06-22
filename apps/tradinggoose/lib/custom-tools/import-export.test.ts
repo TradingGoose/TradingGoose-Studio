@@ -5,7 +5,11 @@ import {
   parseImportedCustomToolsFile,
   resolveImportedCustomTools,
 } from '@/lib/custom-tools/import-export'
-import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
+import {
+  createCustomToolRuntimeId,
+  getCustomToolEntityIdFromRuntimeId,
+  parseCustomToolSchemaText,
+} from '@/lib/custom-tools/schema'
 
 const toolSchema = {
   type: 'function' as const,
@@ -83,6 +87,13 @@ describe('custom tools import/export helpers', () => {
         })
       )
     ).toThrow(/Unrecognized key.*name/)
+  })
+
+  it('round-trips custom-tool runtime IDs from canonical entity IDs', () => {
+    const runtimeId = createCustomToolRuntimeId('custom_fetch_top_movers')
+
+    expect(runtimeId).toBe('custom_custom_fetch_top_movers')
+    expect(getCustomToolEntityIdFromRuntimeId(runtimeId)).toBe('custom_fetch_top_movers')
   })
 
   it('serializes unified custom-tool export files as JSON', () => {

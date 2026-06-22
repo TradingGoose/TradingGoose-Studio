@@ -1,4 +1,8 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import {
+  getCustomToolEntityIdFromRuntimeId,
+  isCustomToolRuntimeId,
+} from '@/lib/custom-tools/schema'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
@@ -304,10 +308,10 @@ export function getTool(toolId: string): ToolConfig | undefined {
   if (builtInTool) return builtInTool
 
   // Check if it's a custom tool
-  if (toolId.startsWith('custom_') && typeof window !== 'undefined') {
+  if (isCustomToolRuntimeId(toolId) && typeof window !== 'undefined') {
     // Only try to use the sync version on the client
     const customToolsStore = useCustomToolsStore.getState()
-    const identifier = toolId.replace('custom_', '')
+    const identifier = getCustomToolEntityIdFromRuntimeId(toolId)
 
     const customTool = customToolsStore.getTool(identifier)
 
@@ -332,7 +336,7 @@ export async function getToolAsync(
   if (builtInTool) return builtInTool
 
   // Check if it's a custom tool
-  if (toolId.startsWith('custom_')) {
+  if (isCustomToolRuntimeId(toolId)) {
     return getCustomTool(toolId, workflowId, workspaceId, userId)
   }
 
@@ -384,7 +388,7 @@ async function getCustomTool(
   workspaceId?: string,
   userId?: string
 ): Promise<ToolConfig | undefined> {
-  const identifier = customToolId.replace('custom_', '')
+  const identifier = getCustomToolEntityIdFromRuntimeId(customToolId)
 
   try {
     const baseUrl = getBaseUrl()

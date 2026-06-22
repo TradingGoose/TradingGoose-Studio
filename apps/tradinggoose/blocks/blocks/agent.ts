@@ -1,5 +1,5 @@
 import { AgentIcon } from '@/components/icons/icons'
-import { resolveCustomToolRuntimeId } from '@/lib/custom-tools/schema'
+import { getCustomToolEntityIdFromRuntimeId } from '@/lib/custom-tools/schema'
 import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { BlockConfig, SubBlockOption, SubBlockOptionGroup } from '@/blocks/types'
@@ -483,8 +483,9 @@ Example 3 (Array Input):
             .map((tool: any) => {
               const isCustomTool = tool.type === 'custom-tool'
               const toolId = isCustomTool
-                ? resolveCustomToolRuntimeId({ toolId: tool.toolId })
+                ? tool.toolId
                 : tool.operation || getToolIdFromBlock(tool.type)
+              if (isCustomTool) getCustomToolEntityIdFromRuntimeId(toolId)
               const toolConfig = {
                 id: toolId,
                 name: isCustomTool ? toolId : tool.title,
