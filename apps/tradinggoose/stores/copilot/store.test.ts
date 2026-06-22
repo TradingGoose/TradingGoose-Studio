@@ -2,12 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { registerClientTool, unregisterClientTool } from '@/lib/copilot/tools/client/manager'
 import { encodeSSE } from '@/lib/utils'
+import { getQueryClient } from '@/app/query-provider'
+import { environmentKeys } from '@/hooks/queries/environment'
 import { getCopilotStore } from '@/stores/copilot/store'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 import { createExecutionContext } from '@/stores/copilot/tool-registry'
 import type { ChatContext, CopilotSendRuntimeContext } from '@/stores/copilot/types'
 import { resetCopilotWorkspaceSelectionState } from '@/stores/copilot/workspace-selection'
-import { useEnvironmentStore } from '@/stores/settings/environment/store'
 
 type FetchCall = readonly [input: RequestInfo | URL, init?: RequestInit]
 
@@ -3127,8 +3128,9 @@ describe('copilot tool user action delegation', () => {
     const channelId = 'copilot-env-refresh'
     const toolCallId = 'set-env-tool'
     const store = getCopilotStore(channelId)
-    const originalLoadEnvironmentVariables = useEnvironmentStore.getState().loadEnvironmentVariables
-    const loadEnvironmentVariables = vi.fn(async () => {})
+    const invalidateQueries = vi
+      .spyOn(getQueryClient(), 'invalidateQueries')
+      .mockResolvedValue(undefined)
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString()
       if (url === '/api/copilot/execute-copilot-server-tool') {
@@ -3137,7 +3139,7 @@ describe('copilot tool user action delegation', () => {
           status: 200,
           json: async () => ({
             success: true,
-            result: { message: 'ok' },
+            result: { success: true, scope: 'personal', message: 'ok' },
           }),
         }
       }
@@ -3154,30 +3156,23 @@ describe('copilot tool user action delegation', () => {
     })
 
     vi.stubGlobal('fetch', fetchMock)
-    useEnvironmentStore.setState({ loadEnvironmentVariables } as any)
 
-    try {
-      store.setState({
-        accessLevel: 'full',
-        toolCallsById: {
-          [toolCallId]: {
-            id: toolCallId,
-            name: 'set_environment_variables',
-            state: ClientToolCallState.pending,
-            params: { variables: { API_KEY: 'secret' } },
-          } as any,
-        },
-      })
+    store.setState({
+      accessLevel: 'full',
+      toolCallsById: {
+        [toolCallId]: {
+          id: toolCallId,
+          name: 'set_environment_variables',
+          state: ClientToolCallState.pending,
+          params: { scope: 'personal', variables: { API_KEY: 'secret' } },
+        } as any,
+      },
+    })
 
-      await store.getState().executeCopilotToolCall(toolCallId)
+    await store.getState().executeCopilotToolCall(toolCallId)
 
-      expect(loadEnvironmentVariables).toHaveBeenCalledTimes(1)
-      expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.success)
-    } finally {
-      useEnvironmentStore.setState({
-        loadEnvironmentVariables: originalLoadEnvironmentVariables,
-      } as any)
-    }
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: environmentKeys.personal() })
+    expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.success)
   })
 
   it('persists completed server-managed tool states into assistant message blocks', async () => {

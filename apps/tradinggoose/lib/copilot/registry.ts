@@ -126,6 +126,18 @@ const EntityTargetArgs = z.object({
 const WorkspaceTargetArgs = z.object({
   workspaceId: RequiredId,
 })
+const SetEnvironmentVariablesArgs = z.discriminatedUnion('scope', [
+  z
+    .object({
+      scope: z.literal('personal'),
+      variables: z.record(z.string()),
+    })
+    .strict(),
+  WorkspaceTargetArgs.extend({
+    scope: z.literal('workspace'),
+    variables: z.record(z.string()),
+  }).strict(),
+])
 
 function buildEntityDocumentMutationArgs<TDocumentFormat extends string>(
   documentFormat: TDocumentFormat
@@ -379,9 +391,7 @@ export const ToolArgSchemas = {
 
   [CopilotTool.read_environment_variables]: WorkspaceTargetArgs.strict(),
 
-  set_environment_variables: WorkspaceTargetArgs.extend({
-    variables: z.record(z.string()),
-  }).strict(),
+  set_environment_variables: SetEnvironmentVariablesArgs,
 
   [CopilotTool.read_oauth_credentials]: WorkspaceTargetArgs.strict(),
 
@@ -931,7 +941,9 @@ const EditWorkflowVariableResult = WorkflowVariableDocumentEnvelope.extend({
 })
 
 const EnvironmentVariablesMutationResult = DocumentDiffReviewMetadata.extend({
-  success: z.boolean().optional(),
+  success: z.boolean(),
+  scope: z.enum(['personal', 'workspace']),
+  workspaceId: z.string().optional(),
   message: z.any().optional(),
   data: z.any().optional(),
   variableCount: z.number().optional(),
@@ -1014,13 +1026,14 @@ export const ToolResultSchemas = {
     data: z.any().optional(),
     body: z.any().optional(),
   }),
-  [CopilotTool.read_environment_variables]: z.union([
-    z.object({ variableNames: z.array(z.string()), count: z.number() }),
-    z.object({ variables: z.record(z.string()) }),
-  ]),
-  set_environment_variables: z
-    .object({ variables: z.record(z.string()) })
-    .or(EnvironmentVariablesMutationResult),
+  [CopilotTool.read_environment_variables]: z.object({
+    variableNames: z.array(z.string()),
+    personalVariableNames: z.array(z.string()),
+    workspaceVariableNames: z.array(z.string()),
+    conflicts: z.array(z.string()),
+    count: z.number(),
+  }),
+  set_environment_variables: EnvironmentVariablesMutationResult,
   [CopilotTool.read_oauth_credentials]: z.object({
     credentials: z.array(
       z.object({ id: z.string(), provider: z.string(), isDefault: z.boolean().optional() })

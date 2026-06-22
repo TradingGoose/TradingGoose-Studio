@@ -36,9 +36,19 @@ const readCredentialsExecute = vi.fn(async () => ({
   },
   environment: { variableNames: [], count: 0 },
 }))
-const readEnvironmentVariablesExecute = vi.fn(async () => ({ variableNames: [], count: 0 }))
+const readEnvironmentVariablesExecute = vi.fn(async () => ({
+  variableNames: [],
+  personalVariableNames: [],
+  workspaceVariableNames: [],
+  conflicts: [],
+  count: 0,
+}))
 const readOAuthCredentialsExecute = vi.fn(async () => ({ credentials: [], total: 0 }))
-const setEnvironmentVariablesExecute = vi.fn(async () => ({ message: 'ok' }))
+const setEnvironmentVariablesExecute = vi.fn(async () => ({
+  success: true,
+  scope: 'workspace',
+  message: 'ok',
+}))
 
 vi.mock('@/lib/copilot/tools/server/blocks/get-available-blocks', () => ({
   getAvailableBlocksServerTool: {
@@ -489,13 +499,17 @@ describe('routeExecution', () => {
     )
 
     await expect(
-      routeExecution('set_environment_variables', { variables: { API_KEY: 'secret' } }, context)
+      routeExecution(
+        'set_environment_variables',
+        { scope: 'workspace', variables: { API_KEY: 'secret' } },
+        context
+      )
     ).resolves.toMatchObject({
       message: 'ok',
     })
 
     expect(setEnvironmentVariablesExecute).toHaveBeenCalledWith(
-      { variables: { API_KEY: 'secret' }, workspaceId: 'workspace-1' },
+      { scope: 'workspace', variables: { API_KEY: 'secret' }, workspaceId: 'workspace-1' },
       context
     )
   })
@@ -508,7 +522,11 @@ describe('routeExecution', () => {
     },
     {
       toolName: 'set_environment_variables',
-      payload: { workspaceId: 'workspace-123', variables: { API_KEY: 'secret' } },
+      payload: {
+        scope: 'workspace',
+        workspaceId: 'workspace-123',
+        variables: { API_KEY: 'secret' },
+      },
       execute: setEnvironmentVariablesExecute,
     },
     {

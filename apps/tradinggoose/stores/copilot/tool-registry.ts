@@ -19,13 +19,13 @@ import { RunWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/run-w
 import { createLogger } from '@/lib/logs/console/logger'
 import { getQueryClient } from '@/app/query-provider'
 import { customToolsKeys } from '@/hooks/queries/custom-tools'
+import { environmentKeys } from '@/hooks/queries/environment'
 import { indicatorKeys } from '@/hooks/queries/indicators'
 import { knowledgeKeys } from '@/hooks/queries/knowledge'
 import { skillsKeys } from '@/hooks/queries/skills'
 import { workflowKeys } from '@/hooks/queries/workflows'
 import type { CopilotToolExecutionProvenance } from '@/stores/copilot/types'
 import { useMcpServersStore } from '@/stores/mcp-servers/store'
-import { useEnvironmentStore } from '@/stores/settings/environment/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 const logger = createLogger('CopilotToolRegistry')
@@ -144,7 +144,6 @@ const WORKSPACE_TARGETED_TOOL_NAMES = new Set<ToolId>([
   CopilotTool.list_workflows,
   CopilotTool.get_agent_accessory_catalog,
   CopilotTool.read_environment_variables,
-  CopilotTool.set_environment_variables,
   CopilotTool.read_credentials,
   CopilotTool.read_oauth_credentials,
   CopilotTool.list_gdrive_files,
@@ -276,6 +275,13 @@ export function prepareCopilotToolArgs(
     context.workspaceId
   ) {
     clonedArgs.workspaceId = context.workspaceId
+  } else if (
+    toolName === CopilotTool.set_environment_variables &&
+    clonedArgs.scope === 'workspace' &&
+    !clonedArgs.workspaceId &&
+    context.workspaceId
+  ) {
+    clonedArgs.workspaceId = context.workspaceId
   }
 
   return ToolArgSchemas[toolName].parse(clonedArgs) as Record<string, any>
@@ -303,8 +309,17 @@ export async function handleCopilotServerToolSuccess(
   const workspaceId = readResultWorkspaceId(result, context)
 
   try {
+    const queryClient = getQueryClient()
     if (toolName === CopilotTool.set_environment_variables) {
-      await useEnvironmentStore.getState().loadEnvironmentVariables()
+      const scope =
+        result && typeof result === 'object' && !Array.isArray(result)
+          ? (result as { scope?: unknown }).scope
+          : undefined
+      if (scope === 'workspace' && workspaceId) {
+        await queryClient.invalidateQueries({ queryKey: environmentKeys.workspace(workspaceId) })
+      } else if (scope === 'personal') {
+        await queryClient.invalidateQueries({ queryKey: environmentKeys.personal() })
+      }
       return
     }
 
@@ -312,7 +327,6 @@ export async function handleCopilotServerToolSuccess(
       return
     }
 
-    const queryClient = getQueryClient()
     if (toolName === CopilotTool.create_workflow || toolName === CopilotTool.rename_workflow) {
       await Promise.all([
         useWorkflowRegistry.getState().loadWorkflows({ workspaceId }),

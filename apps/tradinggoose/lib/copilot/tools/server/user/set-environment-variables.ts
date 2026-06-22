@@ -14,46 +14,48 @@ import {
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { encryptSecret } from '@/lib/utils-server'
 
-interface SetEnvironmentVariablesParams {
-  workspaceId?: string
-  variables: Record<string, unknown>
-}
+const EnvVarSchema = z.discriminatedUnion('scope', [
+  z
+    .object({
+      scope: z.literal('personal'),
+      variables: z.record(z.string()),
+    })
+    .strict(),
+  z
+    .object({
+      scope: z.literal('workspace'),
+      workspaceId: z.string().min(1),
+      variables: z.record(z.string()),
+    })
+    .strict(),
+])
+type SetEnvironmentVariablesParams = z.infer<typeof EnvVarSchema>
 
-const EnvVarSchema = z.object({
-  workspaceId: z.string().optional(),
-  variables: z.record(z.string()),
-})
-
-function hashEnvironmentVariableBase(entries: Array<[string, string | null]>): string {
-  return hashServerToolReviewBase(entries.sort(([left], [right]) => left.localeCompare(right)))
-}
-
-function normalizeEnvVarInput(input: Record<string, unknown> | undefined): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(input || {}).map(([k, v]) => [k, String(v ?? '')])
-  ) as Record<string, string>
-}
-
-function parseEnvironmentVariablesPayload(payload: unknown): {
-  workspaceId?: string
-  variables: Record<string, string>
-} {
-  const record =
-    payload && typeof payload === 'object' && !Array.isArray(payload)
-      ? (payload as SetEnvironmentVariablesParams)
-      : undefined
-  const parsed = EnvVarSchema.parse({
-    workspaceId: record?.workspaceId,
-    variables: normalizeEnvVarInput(record?.variables),
+function hashEnvironmentVariableBase(
+  scope: 'personal' | 'workspace',
+  targetId: string,
+  entries: Array<[string, string | null]>
+): string {
+  return hashServerToolReviewBase({
+    scope,
+    targetId,
+    entries: entries.sort(([left], [right]) => left.localeCompare(right)),
   })
-  return parsed
 }
 
-async function readEnvironmentVariableSummary(workspaceId: string, variableNames: string[]) {
+async function readEnvironmentVariableSummary(
+  scope: 'personal' | 'workspace',
+  targetId: string,
+  variableNames: string[]
+) {
   const existingRows = await db
     .select({ key: environmentVariables.key, value: environmentVariables.value })
     .from(environmentVariables)
-    .where(eq(environmentVariables.workspaceId, workspaceId))
+    .where(
+      scope === 'workspace'
+        ? eq(environmentVariables.workspaceId, targetId)
+        : eq(environmentVariables.userId, targetId)
+    )
   const existingKeySet = new Set(existingRows.map((row) => row.key))
   const existingValueByKey = new Map(existingRows.map((row) => [row.key, row.value]))
   const added = variableNames.filter((key) => !existingKeySet.has(key))
@@ -63,11 +65,16 @@ async function readEnvironmentVariableSummary(workspaceId: string, variableNames
 }
 
 function buildEnvironmentVariablesResult(
+  scope: 'personal' | 'workspace',
+  workspaceId: string | undefined,
   variableNames: string[],
   summary: Awaited<ReturnType<typeof readEnvironmentVariableSummary>>,
   messagePrefix: string
 ) {
   return {
+    success: true,
+    scope,
+    workspaceId,
     message: `${messagePrefix} ${variableNames.length} environment variable(s): ${summary.added.length} added, ${summary.updated.length} updated`,
     variableCount: variableNames.length,
     variableNames,
@@ -90,7 +97,8 @@ async function encryptEnvironmentVariables(
 }
 
 async function writeEncryptedEnvironmentVariables(
-  workspaceId: string,
+  scope: 'personal' | 'workspace',
+  targetId: string,
   encryptedVariables: Record<string, string>,
   context?: ServerToolExecutionContext
 ) {
@@ -101,12 +109,15 @@ async function writeEncryptedEnvironmentVariables(
         .insert(environmentVariables)
         .values({
           id: crypto.randomUUID(),
-          workspaceId,
+          ...(scope === 'workspace' ? { workspaceId: targetId } : { userId: targetId }),
           key,
           value: encrypted,
         })
         .onConflictDoUpdate({
-          target: [environmentVariables.workspaceId, environmentVariables.key],
+          target:
+            scope === 'workspace'
+              ? [environmentVariables.workspaceId, environmentVariables.key]
+              : [environmentVariables.userId, environmentVariables.key],
           set: {
             value: encrypted,
             updatedAt: new Date(),
@@ -123,46 +134,74 @@ export const setEnvironmentVariablesServerTool: BaseServerTool<SetEnvironmentVar
       params: SetEnvironmentVariablesParams,
       context?: ServerToolExecutionContext
     ): Promise<any> {
-      const parsedPayload = parseEnvironmentVariablesPayload(params)
-      const scopedContext = withWorkspaceArgContext(context, parsedPayload)
+      const parsedPayload = EnvVarSchema.parse(params)
+      const scopedContext =
+        parsedPayload.scope === 'workspace'
+          ? withWorkspaceArgContext(context, parsedPayload)
+          : context
       if (!scopedContext?.userId) {
         throw new Error('Authentication required')
       }
 
       const userId = scopedContext.userId
-      const workspaceId = scopedContext.workspaceId
-      if (!workspaceId) {
-        throw new Error('workspaceId is required')
-      }
-      const workspaceAccess = await checkWorkspaceAccess(workspaceId, userId)
-      if (!workspaceAccess.exists || !workspaceAccess.hasAccess || !workspaceAccess.canWrite) {
-        throw new Error('Access denied: You do not have permission to edit this workspace')
+      const workspaceId =
+        parsedPayload.scope === 'workspace' ? scopedContext.workspaceId : undefined
+      const targetId = workspaceId ?? userId
+      if (parsedPayload.scope === 'workspace') {
+        if (!workspaceId) {
+          throw new Error('workspaceId is required')
+        }
+        const workspaceAccess = await checkWorkspaceAccess(workspaceId, userId)
+        if (!workspaceAccess.exists || !workspaceAccess.hasAccess || !workspaceAccess.canWrite) {
+          throw new Error('Access denied: You do not have permission to edit this workspace')
+        }
       }
 
-      const validatedVariables = parsedPayload.variables
-      const variableNames = Object.keys(validatedVariables)
+      const variableNames = Object.keys(parsedPayload.variables).sort()
       throwIfServerToolAborted(scopedContext)
 
-      const summary = await readEnvironmentVariableSummary(workspaceId, variableNames)
+      const summary = await readEnvironmentVariableSummary(
+        parsedPayload.scope,
+        targetId,
+        variableNames
+      )
       const reviewBaseStateHash = hashEnvironmentVariableBase(
+        parsedPayload.scope,
+        targetId,
         variableNames.map((key) => [key, summary.existingValueByKey.get(key) ?? null])
       )
 
       if (shouldStageServerToolMutationForReview(scopedContext)) {
         return {
           requiresReview: true,
-          success: true,
-          ...buildEnvironmentVariablesResult(variableNames, summary, 'Review required for'),
+          ...buildEnvironmentVariablesResult(
+            parsedPayload.scope,
+            workspaceId,
+            variableNames,
+            summary,
+            'Review required for'
+          ),
           reviewBaseStateHash,
         }
       }
 
       assertAcceptedServerToolReviewBase(scopedContext, reviewBaseStateHash)
       const encryptedVariables = await encryptEnvironmentVariables(
-        validatedVariables,
+        parsedPayload.variables,
         scopedContext
       )
-      await writeEncryptedEnvironmentVariables(workspaceId, encryptedVariables, scopedContext)
-      return buildEnvironmentVariablesResult(variableNames, summary, 'Successfully processed')
+      await writeEncryptedEnvironmentVariables(
+        parsedPayload.scope,
+        targetId,
+        encryptedVariables,
+        scopedContext
+      )
+      return buildEnvironmentVariablesResult(
+        parsedPayload.scope,
+        workspaceId,
+        variableNames,
+        summary,
+        'Successfully processed'
+      )
     },
   }

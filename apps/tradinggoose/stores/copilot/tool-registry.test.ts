@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getQueryClient } from '@/app/query-provider'
+import { environmentKeys } from '@/hooks/queries/environment'
 import { skillsKeys } from '@/hooks/queries/skills'
 import { workflowKeys } from '@/hooks/queries/workflows'
 import {
@@ -87,11 +88,20 @@ describe('tool-registry', () => {
       provenance: { workspaceId: 'workspace-1' },
     })
 
-    const args = { variables: { API_KEY: 'secret' } }
+    const args = { scope: 'workspace', variables: { API_KEY: 'secret' } }
     expect(prepareCopilotToolArgs('set_environment_variables', args, context)).toEqual({
+      scope: 'workspace',
       workspaceId: 'workspace-1',
       variables: { API_KEY: 'secret' },
     })
+
+    expect(() =>
+      prepareCopilotToolArgs(
+        'set_environment_variables',
+        { variables: { API_KEY: 'secret' } },
+        context
+      )
+    ).toThrow()
   })
 
   it('injects hosted workspace context into workspace-targeted knowledge base tools', () => {
@@ -221,5 +231,22 @@ describe('tool-registry', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: skillsKeys.list('workspace-1'),
     })
+  })
+
+  it('invalidates the matching environment query after server-managed environment mutations', async () => {
+    const invalidateQueries = vi
+      .spyOn(getQueryClient(), 'invalidateQueries')
+      .mockResolvedValue(undefined)
+
+    await handleCopilotServerToolSuccess('set_environment_variables', {
+      success: true,
+      scope: 'workspace',
+      workspaceId: 'workspace-1',
+    })
+
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: environmentKeys.workspace('workspace-1'),
+    })
+    expect(invalidateQueries).toHaveBeenCalledTimes(1)
   })
 })

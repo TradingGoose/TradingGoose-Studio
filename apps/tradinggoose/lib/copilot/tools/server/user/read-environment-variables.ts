@@ -49,18 +49,18 @@ export const readEnvironmentVariablesServerTool: BaseServerTool<
     })
 
     const envResult = await getPersonalAndWorkspaceEnv(userId, workspaceId)
-    const variableNames = [
-      ...new Set([
-        ...Object.keys(envResult.personalEncrypted),
-        ...Object.keys(envResult.workspaceEncrypted),
-      ]),
-    ]
+    const personalVariableNames = Object.keys(envResult.personalEncrypted)
+    const workspaceVariableNames = Object.keys(envResult.workspaceEncrypted)
+    const variableNames = [...new Set([...personalVariableNames, ...workspaceVariableNames])]
     logger.info('Environment variable keys retrieved', {
       userId,
       variableCount: variableNames.length,
     })
     return {
       variableNames,
+      personalVariableNames,
+      workspaceVariableNames,
+      conflicts: envResult.conflicts,
       count: variableNames.length,
     }
   },

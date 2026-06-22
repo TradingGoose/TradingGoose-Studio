@@ -116,12 +116,12 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   [CopilotTool.read_environment_variables]: {
     description:
-      'Read environment variable names for the selected workspace. Use returned names with the exact `{{ENV_VAR_NAME}}` syntax in block inputs.',
+      'Read personal and workspace environment variable names for the selected workspace. Use returned names with the exact `{{ENV_VAR_NAME}}` syntax in block inputs.',
     kind: 'read',
     entityKind: 'environment',
   },
   set_environment_variables: {
-    description: 'Set environment variables in the selected workspace.',
+    description: 'Set personal or workspace environment variables using an explicit scope.',
     kind: 'edit',
     entityKind: 'environment',
   },
