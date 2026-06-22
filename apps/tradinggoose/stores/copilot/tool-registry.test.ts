@@ -80,6 +80,20 @@ describe('tool-registry', () => {
     ).toThrow()
   })
 
+  it('injects hosted workspace context for workspace environment mutations', () => {
+    const context = createExecutionContext({
+      toolCallId,
+      toolName: 'set_environment_variables',
+      provenance: { workspaceId: 'workspace-1' },
+    })
+
+    const args = { variables: { API_KEY: 'secret' } }
+    expect(prepareCopilotToolArgs('set_environment_variables', args, context)).toEqual({
+      workspaceId: 'workspace-1',
+      variables: { API_KEY: 'secret' },
+    })
+  })
+
   it('injects hosted workspace context into workspace-targeted knowledge base tools', () => {
     const context = createExecutionContext({
       toolCallId,

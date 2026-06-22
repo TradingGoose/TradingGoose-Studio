@@ -144,6 +144,7 @@ const WORKSPACE_TARGETED_TOOL_NAMES = new Set<ToolId>([
   CopilotTool.list_workflows,
   CopilotTool.get_agent_accessory_catalog,
   CopilotTool.read_environment_variables,
+  CopilotTool.set_environment_variables,
   CopilotTool.read_credentials,
   CopilotTool.read_oauth_credentials,
   CopilotTool.list_gdrive_files,

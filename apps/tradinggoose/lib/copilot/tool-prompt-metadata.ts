@@ -121,7 +121,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
     entityKind: 'environment',
   },
   set_environment_variables: {
-    description: 'Set environment variables.',
+    description: 'Set environment variables in the selected workspace.',
     kind: 'edit',
     entityKind: 'environment',
   },
