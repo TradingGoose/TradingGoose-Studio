@@ -80,6 +80,7 @@ export function useUserInputMentions({
   const workflowSession = useOptionalWorkflowSession()
   const currentWorkflowId = workflowSession?.workflowId ?? null
   const lastSelectionRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 })
+  const pendingDeletedContextKeysRef = useRef<Set<string>>(new Set())
   const ensureSubmenuLoaded = loaders.ensureSubmenuLoaded
   const getEditorTextLength = () => textareaRef.current?.value.length ?? message.length
 
@@ -182,7 +183,7 @@ export function useUserInputMentions({
     }
 
     const ranges = computeMentionRanges(text)
-    if (ranges.some((range) => atIndex > range.start && atIndex < range.end)) {
+    if (ranges.some((range) => atIndex >= range.start && atIndex < range.end)) {
       return null
     }
 
@@ -455,6 +456,7 @@ export function useUserInputMentions({
       before.endsWith(' ') && after.startsWith(' ')
         ? `${before}${after.slice(1)}`
         : `${before}${after}`
+    pendingDeletedContextKeysRef.current.add(range.contextKey)
     setMessage(next)
     setSelectedContexts((prev) =>
       prev.filter((context) => buildCopilotContextIdentityKey(context) !== range.contextKey)
@@ -829,10 +831,20 @@ export function useUserInputMentions({
     }
 
     setSelectedContexts((prev) => {
+      const deletedContextKeys = pendingDeletedContextKeysRef.current
+      const candidates =
+        deletedContextKeys.size === 0
+          ? prev
+          : prev.filter(
+              (context) => !deletedContextKeys.has(buildCopilotContextIdentityKey(context))
+            )
+      pendingDeletedContextKeysRef.current = new Set()
       const presentKeys = new Set(
-        buildMentionRanges(message, prev).map((range) => range.contextKey)
+        buildMentionRanges(message, candidates).map((range) => range.contextKey)
       )
-      return prev.filter((context) => presentKeys.has(buildCopilotContextIdentityKey(context)))
+      return candidates.filter((context) =>
+        presentKeys.has(buildCopilotContextIdentityKey(context))
+      )
     })
   }, [message])
 
