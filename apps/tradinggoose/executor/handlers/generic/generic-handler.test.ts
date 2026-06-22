@@ -1,6 +1,8 @@
 import '@/executor/__test-utils__/mock-dependencies'
 
 import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest'
+import { createMcpToolId } from '@/lib/mcp/utils'
+import { getBlock } from '@/blocks/index'
 import { BlockType } from '@/executor/consts'
 import { GenericBlockHandler } from '@/executor/handlers/generic/generic-handler'
 import type { ExecutionContext } from '@/executor/types'
@@ -10,6 +12,7 @@ import type { ToolConfig } from '@/tools/types'
 import { getTool } from '@/tools/utils'
 
 const mockGetTool = vi.mocked(getTool)
+const mockGetBlock = vi.mocked(getBlock)
 const mockExecuteTool = executeTool as Mock
 
 describe('GenericBlockHandler', () => {
@@ -64,6 +67,7 @@ describe('GenericBlockHandler', () => {
     vi.clearAllMocks()
 
     // Set up mockGetTool to return mockTool
+    mockGetBlock.mockReturnValue(undefined as any)
     mockGetTool.mockImplementation((toolId) => {
       if (toolId === 'some_custom_tool') {
         return mockTool
@@ -139,6 +143,37 @@ describe('GenericBlockHandler', () => {
       'Tool not found: some_custom_tool'
     )
     expect(mockExecuteTool).not.toHaveBeenCalled()
+  })
+
+  it('derives dynamic MCP tool ids from current block inputs before execution', async () => {
+    mockBlock.metadata = { id: 'mcp', name: 'MCP Tool' }
+    mockBlock.config.tool = 'mcp-stale-server-stale-tool'
+    mockGetBlock.mockReturnValueOnce({
+      tools: {
+        config: {
+          tool: (params: any) => createMcpToolId(params.server, params.tool),
+        },
+      },
+    } as any)
+    const inputs = {
+      server: '550e8400-e29b-41d4-a716-446655440000',
+      tool: 'complex-tool-name',
+      arguments: '{"param":"value"}',
+    }
+    const expectedToolId = createMcpToolId(inputs.server, inputs.tool)
+
+    await handler.execute(mockBlock, inputs, mockContext)
+
+    expect(mockGetTool).not.toHaveBeenCalled()
+    expect(mockExecuteTool).toHaveBeenCalledWith(
+      expectedToolId,
+      {
+        ...inputs,
+        _context: { toolExecutionId: 'generic-block-1' },
+      },
+      false,
+      mockContext
+    )
   })
 
   it('should handle tool execution errors correctly', async () => {

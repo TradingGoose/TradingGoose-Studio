@@ -122,8 +122,8 @@ export function categorizeError(error: unknown): { message: string; status: numb
  * Create standardized MCP tool ID from server ID and tool name
  */
 export function createMcpToolId(serverId: string, toolName: string): string {
-  const encodedServerId = encodeMcpToolIdPart(serverId)
-  const encodedToolName = encodeMcpToolIdPart(toolName)
+  const encodedServerId = encodeURIComponent(serverId)
+  const encodedToolName = encodeURIComponent(toolName)
   return `mcp_${encodedServerId.length}_${encodedServerId}_${encodedToolName}`
 }
 
@@ -132,9 +132,9 @@ export function createMcpToolId(serverId: string, toolName: string): string {
  */
 export function parseMcpToolId(toolId: string): { serverId: string; toolName: string } {
   const payload = toolId.slice('mcp_'.length)
-  const lengthEnd = isMcpToolId(toolId) ? payload.indexOf('_') : -1
+  const lengthEnd = payload.indexOf('_')
   const serverPartLength = Number(payload.slice(0, lengthEnd))
-  if (lengthEnd <= 0 || !Number.isInteger(serverPartLength)) {
+  if (!isMcpToolId(toolId) || lengthEnd <= 0 || !Number.isInteger(serverPartLength)) {
     throw new Error(`Invalid MCP tool ID format: ${toolId}`)
   }
 
@@ -148,20 +148,11 @@ export function parseMcpToolId(toolId: string): { serverId: string; toolName: st
   }
 
   return {
-    serverId: decodeMcpToolIdPart(serverPart),
-    toolName: decodeMcpToolIdPart(toolPart),
+    serverId: decodeURIComponent(serverPart),
+    toolName: decodeURIComponent(toolPart),
   }
 }
 
 export function isMcpToolId(toolId: string): boolean {
   return toolId.startsWith('mcp_')
-}
-
-function encodeMcpToolIdPart(value: string): string {
-  return btoa(unescape(encodeURIComponent(value))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
-}
-
-function decodeMcpToolIdPart(value: string): string {
-  const base64 = value.replace(/-/g, '+').replace(/_/g, '/')
-  return decodeURIComponent(escape(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '='))))
 }

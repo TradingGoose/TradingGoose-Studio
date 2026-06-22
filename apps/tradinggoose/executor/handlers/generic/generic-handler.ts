@@ -24,17 +24,8 @@ export class GenericBlockHandler implements BlockHandler {
   ): Promise<any> {
     logger.info(`Executing block: ${block.id} (Type: ${block.metadata?.id})`)
 
-    const isMcpTool = block.config.tool ? isMcpToolId(block.config.tool) : false
-    let tool = null
-
-    if (!isMcpTool) {
-      tool = getTool(block.config.tool)
-      if (!tool) {
-        throw new Error(`Tool not found: ${block.config.tool}`)
-      }
-    }
-
     let finalInputs = { ...inputs }
+    let toolId = block.config.tool
 
     const blockType = block.metadata?.id
     if (blockType) {
@@ -53,11 +44,30 @@ export class GenericBlockHandler implements BlockHandler {
           })
         }
       }
+      if (blockConfig?.tools?.config?.tool) {
+        try {
+          toolId = blockConfig.tools.config.tool(finalInputs)
+        } catch (error) {
+          logger.warn(`Failed to resolve tool for block type ${blockType}:`, {
+            error: error instanceof Error ? error.message : String(error),
+          })
+        }
+      }
+    }
+
+    const isMcpTool = toolId ? isMcpToolId(toolId) : false
+    let tool = null
+
+    if (!isMcpTool) {
+      tool = getTool(toolId)
+      if (!tool) {
+        throw new Error(`Tool not found: ${toolId}`)
+      }
     }
 
     try {
       const result = await executeTool(
-        block.config.tool,
+        toolId,
         withBlockToolExecutionContext(finalInputs, block, context),
         false, // skipPostProcess
         context // execution context for file processing
@@ -70,12 +80,12 @@ export class GenericBlockHandler implements BlockHandler {
         const errorMessage =
           errorDetails.length > 0
             ? errorDetails.join(' - ')
-            : `Block execution of ${tool?.name || block.config.tool} failed with no error message`
+            : `Block execution of ${tool?.name || toolId} failed with no error message`
 
         const error = new Error(errorMessage)
 
         Object.assign(error, {
-          toolId: block.config.tool,
+          toolId,
           toolName: tool?.name || 'Unknown tool',
           blockId: block.id,
           blockName: block.metadata?.name || 'Unnamed Block',
@@ -89,7 +99,7 @@ export class GenericBlockHandler implements BlockHandler {
       const output = result.output
       let cost = null
 
-      if (block.config.tool?.startsWith('knowledge_') && output?.cost) {
+      if (toolId?.startsWith('knowledge_') && output?.cost) {
         cost = output.cost
       }
 
@@ -109,7 +119,7 @@ export class GenericBlockHandler implements BlockHandler {
       return output
     } catch (error: any) {
       if (!error.message || error.message === 'undefined (undefined)') {
-        let errorMessage = `Block execution of ${tool?.name || block.config.tool} failed`
+        let errorMessage = `Block execution of ${tool?.name || toolId} failed`
 
         if (block.metadata?.name) {
           errorMessage += `: ${block.metadata.name}`
@@ -123,7 +133,7 @@ export class GenericBlockHandler implements BlockHandler {
       }
 
       if (typeof error === 'object' && error !== null) {
-        if (!error.toolId) error.toolId = block.config.tool
+        if (!error.toolId) error.toolId = toolId
         if (!error.blockName) error.blockName = block.metadata?.name || 'Unnamed Block'
       }
 
