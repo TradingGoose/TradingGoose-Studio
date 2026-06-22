@@ -5,6 +5,7 @@ import {
   parseImportedCustomToolsFile,
   resolveImportedCustomTools,
 } from '@/lib/custom-tools/import-export'
+import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 
 const toolSchema = {
   type: 'function' as const,
@@ -68,6 +69,20 @@ describe('custom tools import/export helpers', () => {
         ],
       })
     ).toThrow('Tool title is required')
+  })
+
+  it('rejects function names because custom-tool title is canonical', () => {
+    expect(() =>
+      parseCustomToolSchemaText(
+        JSON.stringify({
+          type: 'function',
+          function: {
+            name: 'fetchTopMovers',
+            parameters: { type: 'object', properties: {} },
+          },
+        })
+      )
+    ).toThrow(/Unrecognized key.*name/)
   })
 
   it('serializes unified custom-tool export files as JSON', () => {
