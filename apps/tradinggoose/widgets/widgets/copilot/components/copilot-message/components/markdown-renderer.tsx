@@ -291,8 +291,13 @@ export default function CopilotMarkdownRenderer({ content }: CopilotMarkdownRend
         inline,
         className,
         children,
+        node: _node,
         ...props
-      }: React.HTMLAttributes<HTMLElement> & { className?: string; inline?: boolean }) => {
+      }: React.HTMLAttributes<HTMLElement> & {
+        className?: string
+        inline?: boolean
+        node?: unknown
+      }) => {
         if (inline) {
           return (
             <code
@@ -341,7 +346,12 @@ export default function CopilotMarkdownRenderer({ content }: CopilotMarkdownRend
       hr: () => <hr className='my-8 border-gray-500/[.07] border-t dark:border-gray-400/[.07]' />,
 
       // Links
-      a: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
+      a: ({
+        href,
+        children,
+        node: _node,
+        ...props
+      }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { node?: unknown }) => (
         <LinkWithPreview href={href || '#'} {...props}>
           {children}
         </LinkWithPreview>
