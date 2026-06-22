@@ -42,15 +42,11 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { workflowId, workspaceId } = body
+    const { workspaceId } = body
 
-    if (
-      body.usesParentExecutionConcurrencySlot !== true ||
-      typeof workflowId !== 'string' ||
-      typeof workspaceId !== 'string'
-    ) {
+    if (typeof workspaceId !== 'string' || !workspaceId.trim()) {
       return respondFailure(
-        'Function execution requires parent workflow execution context',
+        'Function execution requires workspace context',
         Date.now() - startTime,
         400
       )

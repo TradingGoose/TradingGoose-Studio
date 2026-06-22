@@ -21,7 +21,6 @@ const workflowFunctionBody = (body: Record<string, unknown> = {}) => ({
   code: 'return "ok"',
   workflowId: 'workflow-1',
   workspaceId: 'workspace-1',
-  usesParentExecutionConcurrencySlot: true,
   ...body,
 })
 
@@ -138,24 +137,22 @@ describe('Function Execute API Route', () => {
     expect(payload.error).toBe('Unauthorized')
   })
 
-  it('rejects requests without parent workflow execution context', async () => {
+  it('rejects requests without workspace context', async () => {
     const { POST } = await import('@/app/api/function/execute/route')
     const response = await POST(
       createMockRequest('POST', {
         code: 'return "ok"',
-        workflowId: 'workflow-1',
-        workspaceId: 'workspace-1',
       })
     )
     const payload = await response.json()
 
     expect(response.status).toBe(400)
     expect(payload.success).toBe(false)
-    expect(payload.error).toBe('Function execution requires parent workflow execution context')
+    expect(payload.error).toBe('Function execution requires workspace context')
     expect(executeFunctionWithRuntimeGateMock).not.toHaveBeenCalled()
   })
 
-  it('executes under workflow parent context without acquiring a standalone billing gate', async () => {
+  it('executes under workflow context', async () => {
     const { POST } = await import('@/app/api/function/execute/route')
     const response = await POST(createFunctionRequest())
     const payload = await response.json()
@@ -176,6 +173,26 @@ describe('Function Execute API Route', () => {
         }),
       })
     )
+    expect(executeFunctionWithRuntimeGateMock).toHaveBeenCalledOnce()
+  })
+
+  it('executes under workspace context without workflow context', async () => {
+    const { POST } = await import('@/app/api/function/execute/route')
+    const response = await POST(
+      createMockRequest('POST', {
+        code: 'return "ok"',
+        workspaceId: 'workspace-1',
+      })
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload.success).toBe(true)
+    expect(checkServerSideUsageLimitsMock).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+      workflowId: undefined,
+    })
     expect(executeFunctionWithRuntimeGateMock).toHaveBeenCalledOnce()
   })
 

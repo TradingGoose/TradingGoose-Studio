@@ -37,7 +37,7 @@ export type FunctionExecutionPayload = {
   blockData?: Record<string, unknown>
   blockNameMapping?: Record<string, string>
   workflowVariables?: Record<string, unknown>
-  workflowId: string
+  workflowId?: string
   workspaceId: string
   isCustomTool?: boolean
 }

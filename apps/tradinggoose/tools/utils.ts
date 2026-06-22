@@ -283,11 +283,6 @@ export function createCustomToolRequestBody(
       blockNameMapping: blockNameMapping, // Block name to ID mapping
       workflowId: context.workflowId ?? workflowId, // Pass workflowId for server-side context
       userId: context.userId, // Pass userId for auth context
-      ...(context.submissionSource === 'workflow' &&
-      typeof context.workflowId === 'string' &&
-      typeof context.executionId === 'string'
-        ? { usesParentExecutionConcurrencySlot: true }
-        : {}),
       ...(typeof context.workspaceId === 'string' && context.workspaceId
         ? { workspaceId: context.workspaceId }
         : {}),
