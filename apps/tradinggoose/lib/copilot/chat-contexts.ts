@@ -19,7 +19,7 @@ export const extractExplicitCopilotContexts = (
 ): ChatContext[] =>
   Array.isArray(contexts) ? contexts.filter((context) => !isHiddenCopilotContext(context)) : []
 
-const buildContextIdentityKey = (context: ChatContext): string => {
+export const buildCopilotContextIdentityKey = (context: ChatContext): string => {
   const getContextReviewIdentity = () =>
     ('reviewSessionId' in context ? context.reviewSessionId : undefined) ??
     ('draftSessionId' in context ? context.draftSessionId : undefined) ??
@@ -53,7 +53,7 @@ const buildContextIdentityKey = (context: ChatContext): string => {
 const dedupeCopilotContexts = (contexts: ChatContext[]): ChatContext[] => {
   const seen = new Set<string>()
   return contexts.filter((context) => {
-    const key = buildContextIdentityKey(context)
+    const key = buildCopilotContextIdentityKey(context)
     if (seen.has(key)) {
       return false
     }
@@ -70,10 +70,12 @@ export const mergeCopilotContexts = ({
   implicitContexts?: ChatContext[] | null
 }): ChatContext[] => {
   const explicit = dedupeCopilotContexts(extractExplicitCopilotContexts(explicitContexts))
-  const explicitKeys = new Set(explicit.map(buildContextIdentityKey))
+  const explicitKeys = new Set(explicit.map(buildCopilotContextIdentityKey))
   const implicit = dedupeCopilotContexts(
     Array.isArray(implicitContexts)
-      ? implicitContexts.filter((context) => !explicitKeys.has(buildContextIdentityKey(context)))
+      ? implicitContexts.filter(
+          (context) => !explicitKeys.has(buildCopilotContextIdentityKey(context))
+        )
       : []
   )
 

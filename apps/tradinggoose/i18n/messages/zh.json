@@ -21412,8 +21412,6 @@
         },
         "mentions": {
           "workflowBlocks": "工作流模块",
-          "untitledChat": "未命名聊天",
-          "untitled": "未命名",
           "matches": "匹配项",
           "noMatches": "未找到匹配项",
           "noPastChats": "没有历史聊天",

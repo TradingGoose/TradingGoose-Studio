@@ -42,6 +42,7 @@ export const buildImplicitCopilotContexts = ({
         entityKind: config.entityKind,
         entityId,
         workspaceId: resolvedWorkspaceId,
+        label: config.currentLabel,
         current: true,
       })
     )

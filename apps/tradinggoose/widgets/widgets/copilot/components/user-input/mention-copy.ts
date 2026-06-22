@@ -5,6 +5,7 @@ import {
   getMonitorTriggerLabel,
   type MonitorCopy,
 } from '@/app/workspace/[workspaceId]/monitor/copy'
+import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import type { CopilotWorkspaceEntityKind } from '../../workspace-entities'
 import type {
   KnowledgeBaseItem,
@@ -15,17 +16,21 @@ import type {
   WorkspaceEntityItem,
 } from './types'
 
-export type CopilotMentionCopy = ReturnType<typeof getCopilotMentionCopyFromMessages>
+type WorkspaceDashboardMessages = Messages['workspace']['dashboard']
+type WorkspaceWidgetsMessages = Messages['workspace']['widgets']
 
-export function getCopilotMentionCopyFromMessages(messages: Messages) {
-  const workspace = messages.workspace
-  const widgets = workspace?.widgets
-  const copilot = widgets?.copilot
+export type CopilotMentionCopy = ReturnType<typeof getCopilotMentionCopy>
 
-  if (!workspace || !widgets || !copilot) {
-    throw new Error('Missing workspace copilot messages required for mention copy.')
-  }
-
+export function getCopilotMentionCopy({
+  dashboard,
+  nav,
+  widgets,
+}: {
+  dashboard: WorkspaceDashboardMessages
+  nav: Messages['nav']
+  widgets: WorkspaceWidgetsMessages
+}) {
+  const copilot = widgets.copilot
   return {
     optionLabels: {
       chats: widgets.workflowLabels.chats,
@@ -36,9 +41,9 @@ export function getCopilotMentionCopyFromMessages(messages: Messages) {
       mcp_server: widgets.workflowLabels.mcpServers,
       workflow_blocks: copilot.mentions.workflowBlocks,
       blocks: widgets.workflowToolbar.blocks,
-      knowledge: workspace.dashboard.pages.knowledge,
-      docs: messages.nav.docs,
-      logs: workspace.dashboard.pages.logs,
+      knowledge: dashboard.pages.knowledge,
+      docs: nav.docs,
+      logs: dashboard.pages.logs,
     } satisfies Record<MentionOption, string>,
     submenuTitles: {
       chats: widgets.workflowLabels.chats,
@@ -49,8 +54,8 @@ export function getCopilotMentionCopyFromMessages(messages: Messages) {
       mcp_server: widgets.workflowLabels.mcpServers,
       workflow_blocks: copilot.mentions.workflowBlocks,
       blocks: widgets.workflowToolbar.blocks,
-      knowledge: workspace.dashboard.sections.knowledgeBases,
-      logs: workspace.dashboard.pages.logs,
+      knowledge: dashboard.sections.knowledgeBases,
+      logs: dashboard.pages.logs,
     } satisfies Record<MentionSubmenu, string>,
     emptyStates: {
       chats: copilot.mentions.noPastChats,
@@ -64,17 +69,14 @@ export function getCopilotMentionCopyFromMessages(messages: Messages) {
       workflow_blocks: copilot.mentions.noBlocksInWorkflow,
       logs: copilot.mentions.noExecutionsFound,
     } satisfies Record<MentionSubmenu, string>,
-    fallbackLabels: {
-      untitledChat: copilot.mentions.untitledChat,
-      untitledItem: copilot.mentions.untitled,
-      workspaceEntities: {
-        workflow: widgets.workflowDropdown.untitledWorkflow,
-        skill: widgets.skillDropdown.untitledSkill,
-        indicator: widgets.indicatorList.listItem.untitledIndicator,
-        custom_tool: widgets.customToolDropdown.untitledCustomTool,
-        mcp_server: widgets.mcpDropdown.unnamedServer,
-      } satisfies Record<CopilotWorkspaceEntityKind, string>,
-    },
+    untitledLabels: {
+      chats: copilot.history.newChat,
+      workflow: widgets.workflowDropdown.untitledWorkflow,
+      skill: widgets.skillDropdown.untitledSkill,
+      indicator: widgets.indicatorList.listItem.untitledIndicator,
+      custom_tool: widgets.customToolDropdown.untitledCustomTool,
+      mcp_server: widgets.mcpDropdown.unnamedServer,
+    } satisfies Record<'chats' | CopilotWorkspaceEntityKind, string>,
     matches: copilot.mentions.matches,
     noMatches: copilot.mentions.noMatches,
     loading: copilot.history.loading,
@@ -82,7 +84,14 @@ export function getCopilotMentionCopyFromMessages(messages: Messages) {
 }
 
 export function useCopilotMentionCopy(): CopilotMentionCopy {
-  return getCopilotMentionCopyFromMessages(useMessages())
+  const messages = useMessages()
+  const widgets = useWorkspaceWidgetsMessages()
+
+  return getCopilotMentionCopy({
+    dashboard: messages.workspace.dashboard,
+    nav: messages.nav,
+    widgets,
+  })
 }
 
 export function getMentionOptionLabel(copy: CopilotMentionCopy, option: MentionOption): string {
@@ -93,42 +102,29 @@ export function getMentionSubmenuTitle(copy: CopilotMentionCopy, submenu: Mentio
   return copy.submenuTitles[submenu]
 }
 
-export function getWorkspaceEntityMentionEmptyState(
-  copy: CopilotMentionCopy,
-  entityKind: CopilotWorkspaceEntityKind
-): string {
-  return copy.emptyStates[entityKind]
-}
-
 export function getWorkspaceEntityMentionLabel(
   copy: CopilotMentionCopy,
   item: Pick<WorkspaceEntityItem, 'entityKind' | 'name'>
 ): string {
-  const label = item.name.trim()
-  return label || copy.fallbackLabels.workspaceEntities[item.entityKind]
+  return item.name.trim() || copy.untitledLabels[item.entityKind]
 }
 
 export function getPastChatMentionLabel(
   copy: CopilotMentionCopy,
   item: Pick<PastChatItem, 'title'>
 ): string {
-  const label = item.title?.trim()
-  return label || copy.fallbackLabels.untitledChat
+  return item.title?.trim() || copy.untitledLabels.chats
 }
 
-export function getKnowledgeBaseMentionLabel(
-  copy: CopilotMentionCopy,
-  item: Pick<KnowledgeBaseItem, 'name'>
-): string {
-  const label = item.name.trim()
-  return label || copy.fallbackLabels.untitledItem
+export function getKnowledgeBaseMentionLabel(item: Pick<KnowledgeBaseItem, 'name'>): string {
+  return item.name.trim()
 }
 
 export function getLogMentionTriggerLabel(
   copy: MonitorCopy,
   item: Pick<LogItem, 'trigger'>
 ): string {
-  return getMonitorTriggerLabel(copy, (item.trigger || 'manual').toLowerCase())
+  return getMonitorTriggerLabel(copy, (item.trigger ?? 'unknown').toLowerCase())
 }
 
 export function getLogMentionSearchText(

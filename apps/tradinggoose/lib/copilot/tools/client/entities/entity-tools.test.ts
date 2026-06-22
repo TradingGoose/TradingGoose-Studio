@@ -344,9 +344,10 @@ describe('entity document tools', () => {
                 name: 'My Custom Indicator',
                 source: 'custom',
                 editable: true,
-                callableInFunctionBlock: false,
+                callableInFunctionBlock: true,
                 inputTitles: ['Fast Length'],
                 entityId: 'indicator-1',
+                runtimeId: 'indicator-1',
               },
             ],
           }),
@@ -401,9 +402,10 @@ describe('entity document tools', () => {
         name: 'My Custom Indicator',
         source: 'custom',
         editable: true,
-        callableInFunctionBlock: false,
+        callableInFunctionBlock: true,
         inputTitles: ['Fast Length'],
         entityId: 'indicator-1',
+        runtimeId: 'indicator-1',
       },
     ])
   })

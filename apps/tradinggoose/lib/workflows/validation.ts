@@ -1,4 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import { isMcpToolId } from '@/lib/mcp/utils'
 import { getBlock } from '@/blocks/registry'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import { getTool } from '@/tools/utils'
@@ -14,7 +15,6 @@ function isValidCustomToolSchema(tool: any): boolean {
     if (!schema || typeof schema !== 'object') return false
     const fn = schema.function
     if (!fn || typeof fn !== 'object') return false
-    if (!fn.name || typeof fn.name !== 'string') return false
 
     const params = fn.parameters
     if (!params || typeof params !== 'object') return false
@@ -255,7 +255,7 @@ export function validateToolReference(
 
   // Check if it's a custom tool or MCP tool
   const isCustomTool = toolId.startsWith('custom_')
-  const isMcpTool = toolId.startsWith('mcp-')
+  const isMcpTool = isMcpToolId(toolId)
 
   if (!isCustomTool && !isMcpTool) {
     // For built-in tools, verify they exist

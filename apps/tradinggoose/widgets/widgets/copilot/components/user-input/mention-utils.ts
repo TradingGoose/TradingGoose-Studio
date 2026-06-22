@@ -1,9 +1,10 @@
 'use client'
 
+import { buildCopilotContextIdentityKey } from '@/lib/copilot/chat-contexts'
 import type { MonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
+import type { ChatContext } from '@/stores/copilot/types'
 import {
   COPILOT_WORKSPACE_ENTITY_CONFIGS,
-  getCopilotWorkspaceEntityKindFromMentionOption,
   isCopilotWorkspaceEntityMentionOption,
 } from '../../workspace-entities'
 import { MENTION_OPTIONS } from './constants'
@@ -20,7 +21,9 @@ import type {
   BlockItem,
   KnowledgeBaseItem,
   LogItem,
+  MentionItem,
   MentionOption,
+  MentionRange,
   MentionSources,
   MentionSubmenu,
   PastChatItem,
@@ -34,20 +37,72 @@ const normalize = (value: string) =>
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
 
-const includesNormalized = (value: string, query: string) => normalize(value).includes(query)
+const includesNormalized = (value: string, query: string) =>
+  normalize(value).includes(normalize(query))
+
+export function buildMentionRanges(text: string, contexts: ChatContext[]): MentionRange[] {
+  if (!text || contexts.length === 0) {
+    return []
+  }
+
+  const contextsByLabel = new Map<string, Array<{ contextKey: string; label: string }>>()
+
+  for (const context of contexts) {
+    const label = context.label?.trim()
+    if (!label) {
+      continue
+    }
+
+    const entries = contextsByLabel.get(label) ?? []
+    entries.push({ contextKey: buildCopilotContextIdentityKey(context), label })
+    contextsByLabel.set(label, entries)
+  }
+
+  const ranges: MentionRange[] = []
+
+  for (const [label, entries] of contextsByLabel) {
+    const token = `@${label}`
+    let fromIndex = 0
+    let entryIndex = 0
+
+    while (fromIndex <= text.length && entryIndex < entries.length) {
+      const index = text.indexOf(token, fromIndex)
+
+      if (index === -1) {
+        break
+      }
+
+      const beforeChar = index === 0 ? ' ' : text[index - 1]
+      const afterChar = text[index + token.length] ?? ''
+      const hasLeadingBoundary = index === 0 || /\s/.test(beforeChar)
+      const hasTrailingBoundary = index + token.length >= text.length || /\s/.test(afterChar)
+
+      if (hasLeadingBoundary && hasTrailingBoundary) {
+        ranges.push({
+          start: index,
+          end: index + token.length,
+          label,
+          contextKey: entries[entryIndex].contextKey,
+        })
+        entryIndex += 1
+      }
+
+      fromIndex = index + token.length
+    }
+  }
+
+  ranges.sort((left, right) => left.start - right.start)
+  return ranges
+}
 
 export function filterMentionOptions(query: string, copy: CopilotMentionCopy): MentionOption[] {
-  const normalizedQuery = normalize(query)
   return MENTION_OPTIONS.filter((option) =>
-    includesNormalized(getMentionOptionLabel(copy, option), normalizedQuery)
+    includesNormalized(getMentionOptionLabel(copy, option), query)
   )
 }
 
 export function filterPastChats(items: PastChatItem[], query: string, copy: CopilotMentionCopy) {
-  const normalizedQuery = normalize(query)
-  return items.filter((item) =>
-    includesNormalized(getPastChatMentionLabel(copy, item), normalizedQuery)
-  )
+  return items.filter((item) => includesNormalized(getPastChatMentionLabel(copy, item), query))
 }
 
 export function filterWorkspaceEntities(
@@ -55,67 +110,71 @@ export function filterWorkspaceEntities(
   query: string,
   copy: CopilotMentionCopy
 ) {
-  const normalizedQuery = normalize(query)
   return items.filter((item) =>
     includesNormalized(
       [
         getWorkspaceEntityMentionLabel(copy, item),
         item.description || '',
-        item.functionName || '',
         item.transport || '',
       ].join(' '),
-      normalizedQuery
+      query
     )
   )
 }
 
-export function filterKnowledgeBases(
-  items: KnowledgeBaseItem[],
-  query: string,
-  copy: CopilotMentionCopy
-) {
-  const normalizedQuery = normalize(query)
-  return items.filter((item) =>
-    includesNormalized(getKnowledgeBaseMentionLabel(copy, item), normalizedQuery)
-  )
+export function filterKnowledgeBases(items: KnowledgeBaseItem[], query: string) {
+  return items.filter((item) => includesNormalized(getKnowledgeBaseMentionLabel(item), query))
 }
 
 export function filterBlocks(items: BlockItem[], query: string) {
-  const normalizedQuery = normalize(query)
-  return items.filter((item) => includesNormalized(item.name || item.id, normalizedQuery))
+  return items.filter((item) => includesNormalized(item.name || item.id, query))
 }
 
 export function filterWorkflowBlocks(items: WorkflowBlockItem[], query: string) {
-  const normalizedQuery = normalize(query)
-  return items.filter((item) => includesNormalized(item.name || item.id, normalizedQuery))
-}
-
-export function filterWorkspaceEntitiesForOption(
-  option: MentionSubmenu,
-  sources: MentionSources,
-  query: string,
-  copy: CopilotMentionCopy
-) {
-  if (!isCopilotWorkspaceEntityMentionOption(option)) {
-    return []
-  }
-
-  const entityKind = getCopilotWorkspaceEntityKindFromMentionOption(option)
-  return filterWorkspaceEntities(sources.workspaceEntities[entityKind], query, copy)
+  return items.filter((item) => includesNormalized(item.name || item.id, query))
 }
 
 export function filterLogs(items: LogItem[], query: string, monitorCopy: MonitorCopy) {
-  const normalizedQuery = normalize(query)
   return items.filter((item) =>
-    includesNormalized(getLogMentionSearchText(monitorCopy, item), normalizedQuery)
+    includesNormalized(getLogMentionSearchText(monitorCopy, item), query)
   )
+}
+
+export function filterMentionItems(
+  submenu: MentionSubmenu,
+  sources: MentionSources,
+  query: string,
+  monitorCopy: MonitorCopy,
+  mentionCopy: CopilotMentionCopy
+): MentionItem[] {
+  if (submenu === 'chats') {
+    return filterPastChats(sources.pastChats, query, mentionCopy)
+  }
+
+  if (isCopilotWorkspaceEntityMentionOption(submenu)) {
+    return filterWorkspaceEntities(sources.workspaceEntities[submenu], query, mentionCopy)
+  }
+
+  if (submenu === 'knowledge') {
+    return filterKnowledgeBases(sources.knowledgeBases, query)
+  }
+
+  if (submenu === 'blocks') {
+    return filterBlocks(sources.blocksList, query)
+  }
+
+  if (submenu === 'workflow_blocks') {
+    return filterWorkflowBlocks(sources.workflowBlocks, query)
+  }
+
+  return filterLogs(sources.logsList, query, monitorCopy)
 }
 
 export function buildAggregatedMentionItems(
   query: string,
   sources: MentionSources,
-  copy: CopilotMentionCopy,
-  monitorCopy: MonitorCopy
+  monitorCopy: MonitorCopy,
+  mentionCopy: CopilotMentionCopy
 ): AggregatedMentionItem[] {
   const normalizedQuery = normalize(query)
 
@@ -124,38 +183,36 @@ export function buildAggregatedMentionItems(
   }
 
   return [
-    ...filterWorkflowBlocks(sources.workflowBlocks, normalizedQuery).map((value) => ({
+    ...filterWorkflowBlocks(sources.workflowBlocks, query).map((value) => ({
       type: 'workflow_blocks' as const,
       id: value.id,
       value,
     })),
     ...COPILOT_WORKSPACE_ENTITY_CONFIGS.flatMap((config) =>
-      filterWorkspaceEntities(
-        sources.workspaceEntities[config.entityKind],
-        normalizedQuery,
-        copy
-      ).map((value) => ({
-        type: config.entityKind,
-        id: value.id,
-        value,
-      }))
+      filterWorkspaceEntities(sources.workspaceEntities[config.entityKind], query, mentionCopy).map(
+        (value) => ({
+          type: config.entityKind,
+          id: value.id,
+          value,
+        })
+      )
     ),
-    ...filterBlocks(sources.blocksList, normalizedQuery).map((value) => ({
+    ...filterBlocks(sources.blocksList, query).map((value) => ({
       type: 'blocks' as const,
       id: value.id,
       value,
     })),
-    ...filterKnowledgeBases(sources.knowledgeBases, normalizedQuery, copy).map((value) => ({
+    ...filterKnowledgeBases(sources.knowledgeBases, query).map((value) => ({
       type: 'knowledge' as const,
       id: value.id,
       value,
     })),
-    ...filterPastChats(sources.pastChats, normalizedQuery, copy).map((value) => ({
+    ...filterPastChats(sources.pastChats, query, mentionCopy).map((value) => ({
       type: 'chats' as const,
       id: value.reviewSessionId,
       value,
     })),
-    ...filterLogs(sources.logsList, normalizedQuery, monitorCopy).map((value) => ({
+    ...filterLogs(sources.logsList, query, monitorCopy).map((value) => ({
       type: 'logs' as const,
       id: value.id,
       value,

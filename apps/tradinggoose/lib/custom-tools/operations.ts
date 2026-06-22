@@ -137,32 +137,15 @@ export async function importCustomTools({
     const existingTools = await tx
       .select({
         title: customTools.title,
-        schema: customTools.schema,
       })
       .from(customTools)
       .where(eq(customTools.workspaceId, workspaceId))
 
     const usedTitles = new Set(existingTools.map((tool) => tool.title))
-    const usedFunctionNames = new Set(
-      existingTools
-        .map((tool) =>
-          tool.schema &&
-          typeof tool.schema === 'object' &&
-          'function' in tool.schema &&
-          tool.schema.function &&
-          typeof tool.schema.function === 'object' &&
-          'name' in tool.schema.function &&
-          typeof tool.schema.function.name === 'string'
-            ? tool.schema.function.name
-            : ''
-        )
-        .filter((name): name is string => name.length > 0)
-    )
 
     const { tools: resolvedTools, renamedCount } = resolveImportedCustomTools({
       customTools: tools,
       usedTitles,
-      usedFunctionNames,
     })
 
     const nowTime = new Date()

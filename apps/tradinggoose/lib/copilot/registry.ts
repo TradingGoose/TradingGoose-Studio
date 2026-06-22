@@ -656,7 +656,6 @@ const GenericEntityListEntry = z.object({
   workspaceId: z.string().optional(),
   entityDescription: z.string().optional(),
   entityTitle: z.string().optional(),
-  entityFunctionName: z.string().optional(),
   entityTransport: z.string().optional(),
   entityUrl: z.string().optional(),
   entityEnabled: z.boolean().optional(),

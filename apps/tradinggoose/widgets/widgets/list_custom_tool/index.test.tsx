@@ -145,7 +145,6 @@ describe('Custom Tool List header controls', () => {
           schema: {
             type: 'function',
             function: {
-              name: 'fetchTopMovers',
               parameters: {
                 type: 'object',
                 properties: {},
@@ -211,7 +210,6 @@ describe('Custom Tool List header controls', () => {
           schema: {
             type: 'function',
             function: {
-              name: 'fetchTopMovers',
               parameters: {
                 type: 'object',
                 properties: {},

@@ -13,6 +13,7 @@ describe('workspace-entities', () => {
       buildCopilotWorkspaceEntityContext({
         entityKind: 'workflow',
         entityId: 'workflow-1',
+        label: 'Current Workflow',
         current: true,
       })
     ).toEqual({

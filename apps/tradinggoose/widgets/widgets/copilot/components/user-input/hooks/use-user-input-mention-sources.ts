@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocale } from 'next-intl'
 import { createLogger } from '@/lib/logs/console/logger'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
@@ -15,7 +15,6 @@ import { useWorkflowInspectorMessages } from '@/i18n/workspace-widget-hooks'
 import { getSubflowBlockConfig } from '@/widgets/widgets/editor_workflow/components/subflows/config'
 import {
   type CopilotWorkspaceEntityKind,
-  getCopilotWorkspaceEntityKindFromMentionOption,
   isCopilotWorkspaceEntityMentionOption,
 } from '../../../workspace-entities'
 import type {
@@ -55,6 +54,8 @@ const createEmptyWorkspaceEntityLoading = (): Record<CopilotWorkspaceEntityKind,
   mcp_server: false,
 })
 
+const toTrimmedString = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
+
 export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionSourcesOptions) {
   const locale = useLocale()
   const [pastChats, setPastChats] = useState<PastChatItem[]>([])
@@ -74,18 +75,12 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
   const workflowSession = useOptionalWorkflowSession()
   const workflowId = workflowSession?.workflowId ?? null
   const workflowStoreBlocks = useWorkflowBlocks()
-  const workflowInspectorCopy = useWorkflowInspectorMessages()
-  const latestBlocksLocaleRef = useRef(locale)
-  const latestWorkflowBlocksKeyRef = useRef(`${locale}:${workflowId ?? ''}`)
-  const workflowBlocksLoadingRef = useRef(false)
-
-  useEffect(() => {
-    latestBlocksLocaleRef.current = locale
-  }, [locale])
-
-  useEffect(() => {
-    latestWorkflowBlocksKeyRef.current = `${locale}:${workflowId ?? ''}`
-  }, [locale, workflowId])
+  const workflowInspectorMessages = useWorkflowInspectorMessages()
+  const workflowInspectorCopy = useMemo(() => workflowInspectorMessages, [locale])
+  const compareLocalizedBlockMentionNames = useCallback(
+    <T extends { name: string }>(left: T, right: T) => left.name.localeCompare(right.name, locale),
+    [locale]
+  )
 
   const ensurePastChatsLoaded = useCallback(async () => {
     if (isLoadingPastChats || pastChats.length > 0) {
@@ -111,12 +106,19 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
       const items = Array.isArray(data?.chats) ? data.chats : []
 
       setPastChats(
-        items.map((item: any) => ({
-          reviewSessionId: item.reviewSessionId,
-          title: item.title ?? null,
-          workflowId: null,
-          updatedAt: item.updatedAt,
-        }))
+        items.flatMap((item: any) => {
+          const title = toTrimmedString(item.title)
+          return item.reviewSessionId
+            ? [
+                {
+                  reviewSessionId: item.reviewSessionId,
+                  title: title || null,
+                  workflowId: null,
+                  updatedAt: item.updatedAt,
+                },
+              ]
+            : []
+        })
       )
     } catch {
     } finally {
@@ -158,10 +160,10 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
       })
 
       setKnowledgeBases(
-        sorted.map((item: any) => ({
-          id: item.id,
-          name: item.name || '',
-        }))
+        sorted.flatMap((item: any) => {
+          const name = toTrimmedString(item.name)
+          return item.id && name ? [{ id: item.id, name }] : []
+        })
       )
     } catch {
     } finally {
@@ -173,8 +175,6 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
     if (isLoadingBlocks || blocksList.length > 0) {
       return
     }
-
-    const loadLocale = locale
 
     try {
       setIsLoadingBlocks(true)
@@ -188,7 +188,7 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
           iconComponent: block.icon,
           bgColor: sanitizeSolidIconColor(block.bgColor),
         }))
-        .sort((a: any, b: any) => a.name.localeCompare(b.name))
+        .sort(compareLocalizedBlockMentionNames)
 
       const toolBlocks = allBlocks
         .filter((block: any) => !block.hideFromToolbar && block.category === 'tools')
@@ -198,20 +198,14 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
           iconComponent: block.icon,
           bgColor: sanitizeSolidIconColor(block.bgColor),
         }))
-        .sort((a: any, b: any) => a.name.localeCompare(b.name))
-
-      if (latestBlocksLocaleRef.current !== loadLocale) {
-        return
-      }
+        .sort(compareLocalizedBlockMentionNames)
 
       setBlocksList([...regularBlocks, ...toolBlocks])
     } catch {
     } finally {
-      if (latestBlocksLocaleRef.current === loadLocale) {
-        setIsLoadingBlocks(false)
-      }
+      setIsLoadingBlocks(false)
     }
-  }, [blocksList.length, isLoadingBlocks, locale, workflowInspectorCopy])
+  }, [blocksList.length, compareLocalizedBlockMentionNames, isLoadingBlocks, workflowInspectorCopy])
 
   const ensureLogsLoaded = useCallback(async () => {
     if (isLoadingLogs || logsList.length > 0) {
@@ -253,19 +247,12 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
   }, [isLoadingLogs, logsList.length, workspaceId])
 
   const ensureWorkflowBlocksLoaded = useCallback(async () => {
-    if (workflowBlocksLoadingRef.current) {
-      return
-    }
-
     if (!workflowId || Object.keys(workflowStoreBlocks).length === 0) {
       setWorkflowBlocks([])
       return
     }
 
-    const loadKey = `${locale}:${workflowId ?? ''}`
-
     try {
-      workflowBlocksLoadingRef.current = true
       setIsLoadingWorkflowBlocks(true)
       const { registry: blockRegistry } = await import('@/blocks/registry')
       const mapped = Object.values(workflowStoreBlocks).map((block: any) => {
@@ -286,20 +273,13 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
         }
       })
 
-      if (latestWorkflowBlocksKeyRef.current !== loadKey) {
-        return
-      }
-
       setWorkflowBlocks(mapped)
     } catch (error) {
       logger.error('Failed to sync workflow blocks:', error)
     } finally {
-      workflowBlocksLoadingRef.current = false
-      if (latestWorkflowBlocksKeyRef.current === loadKey) {
-        setIsLoadingWorkflowBlocks(false)
-      }
+      setIsLoadingWorkflowBlocks(false)
     }
-  }, [locale, workflowId, workflowInspectorCopy, workflowStoreBlocks])
+  }, [workflowId, workflowInspectorCopy, workflowStoreBlocks])
 
   const ensureSubmenuLoaded = useCallback(
     async (submenu: MentionSubmenu) => {
@@ -309,7 +289,7 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
       }
 
       if (isCopilotWorkspaceEntityMentionOption(submenu)) {
-        await ensureWorkspaceEntityLoaded(getCopilotWorkspaceEntityKindFromMentionOption(submenu))
+        await ensureWorkspaceEntityLoaded(submenu)
         return
       }
 
@@ -342,7 +322,6 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
 
   useEffect(() => {
     setWorkflowBlocks([])
-    workflowBlocksLoadingRef.current = false
     setIsLoadingWorkflowBlocks(false)
   }, [workflowId])
 
@@ -353,7 +332,7 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
 
   useEffect(() => {
     void ensureWorkflowBlocksLoaded()
-  }, [locale, workflowId, workflowStoreBlocks])
+  }, [ensureWorkflowBlocksLoaded])
 
   useEffect(() => {
     if (workflowId && workspaceEntities.workflow.length === 0) {

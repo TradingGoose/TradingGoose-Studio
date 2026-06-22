@@ -21425,8 +21425,6 @@
         },
         "mentions": {
           "workflowBlocks": "Workflow Blocks",
-          "untitledChat": "Untitled chat",
-          "untitled": "Untitled",
           "matches": "Matches",
           "noMatches": "No matches",
           "noPastChats": "No past chats",

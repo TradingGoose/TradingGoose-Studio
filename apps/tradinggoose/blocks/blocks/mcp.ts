@@ -61,12 +61,7 @@ export const McpBlock: BlockConfig<McpResponse> = {
       tool: (params: any) => {
         if (params.server && params.tool) {
           const serverId = params.server
-          let toolName = params.tool
-
-          if (toolName.startsWith(`${serverId}-`)) {
-            toolName = toolName.substring(`${serverId}-`.length)
-          }
-
+          const toolName = params.tool
           return createMcpToolId(serverId, toolName)
         }
         return 'mcp-dynamic'

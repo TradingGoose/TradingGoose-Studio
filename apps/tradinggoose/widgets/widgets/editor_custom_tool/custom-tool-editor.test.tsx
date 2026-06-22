@@ -157,7 +157,6 @@ describe('CustomToolEditor export', () => {
       schema: {
         type: 'function',
         function: {
-          name: 'fetchTopMovers',
           description: 'Fetch top moving symbols.',
           parameters: {
             type: 'object',
@@ -198,7 +197,6 @@ describe('CustomToolEditor export', () => {
           {
             type: 'function',
             function: {
-              name: 'fetchTopMoversCurrent',
               description: 'Fetch top moving symbols.',
               parameters: {
                 type: 'object',
@@ -273,7 +271,6 @@ describe('CustomToolEditor export', () => {
           schema: {
             type: 'function',
             function: {
-              name: 'fetchTopMoversCurrent',
               description: 'Fetch top moving symbols.',
               parameters: {
                 type: 'object',
@@ -306,7 +303,6 @@ describe('CustomToolEditor export', () => {
       schema: {
         type: 'function',
         function: {
-          name: 'fetchTopMovers',
           parameters: {
             type: 'object',
             properties: {},

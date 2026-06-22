@@ -2,6 +2,7 @@
 
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronDown, Loader2, Search, Wrench } from 'lucide-react'
+import { useMessages } from 'next-intl'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,7 +20,6 @@ import {
 } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
 import { useCustomTools } from '@/hooks/queries/custom-tools'
-import { useMessages } from 'next-intl'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
 
@@ -38,8 +38,7 @@ interface CustomToolDropdownProps {
   menuClassName?: string
 }
 
-const getToolTitle = (tool?: CustomToolDefinition | null, fallback = '') =>
-  tool?.title || tool?.schema?.function?.name || fallback
+const getToolTitle = (tool?: CustomToolDefinition | null) => tool?.title.trim() ?? ''
 
 export function CustomToolDropdown({
   workspaceId,
@@ -109,7 +108,7 @@ export function CustomToolDropdown({
     if (!normalizedQuery) return workspaceTools
 
     return workspaceTools.filter((tool) => {
-      const title = getToolTitle(tool, copy.untitledCustomTool).toLowerCase()
+      const title = getToolTitle(tool).toLowerCase()
       const description = tool.schema?.function?.description?.toLowerCase() ?? ''
       return title.includes(normalizedQuery) || description.includes(normalizedQuery)
     })
@@ -202,7 +201,7 @@ export function CustomToolDropdown({
                   />
                 </span>
                 <span className={cn(widgetHeaderMenuTextClassName, 'truncate')}>
-                  {getToolTitle(tool, copy.untitledCustomTool)}
+                  {getToolTitle(tool)}
                 </span>
               </div>
               {isSelected ? <Check className='h-3.5 w-3.5 text-primary' /> : null}
@@ -228,7 +227,7 @@ export function CustomToolDropdown({
 
   const labelContent = selectedTool ? (
     <span className='min-w-0 flex-1 truncate text-left font-medium text-foreground text-sm'>
-      {getToolTitle(selectedTool, copy.untitledCustomTool)}
+      {getToolTitle(selectedTool)}
     </span>
   ) : (
     <span className='min-w-0 flex-1 truncate text-left font-medium text-muted-foreground text-sm'>

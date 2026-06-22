@@ -12,7 +12,6 @@ import type { PairColorContext } from '@/stores/dashboard/pair-store'
 
 type CopilotWorkspaceEntityConfig = {
   entityKind: ReviewEntityKind
-  defaultLabel: string
   currentLabel: string
   idField: 'workflowId' | 'skillId' | 'indicatorId' | 'customToolId' | 'mcpServerId'
 }
@@ -20,31 +19,26 @@ type CopilotWorkspaceEntityConfig = {
 export const COPILOT_WORKSPACE_ENTITY_CONFIGS = [
   {
     entityKind: ENTITY_KIND_WORKFLOW,
-    defaultLabel: 'Workflow',
     currentLabel: 'Current Workflow',
     idField: 'workflowId',
   },
   {
     entityKind: ENTITY_KIND_SKILL,
-    defaultLabel: 'Skill',
     currentLabel: 'Current Skill',
     idField: 'skillId',
   },
   {
     entityKind: ENTITY_KIND_CUSTOM_TOOL,
-    defaultLabel: 'Custom Tool',
     currentLabel: 'Current Tool',
     idField: 'customToolId',
   },
   {
     entityKind: ENTITY_KIND_INDICATOR,
-    defaultLabel: 'Indicator',
     currentLabel: 'Current Indicator',
     idField: 'indicatorId',
   },
   {
     entityKind: ENTITY_KIND_MCP_SERVER,
-    defaultLabel: 'MCP Server',
     currentLabel: 'Current MCP Server',
     idField: 'mcpServerId',
   },
@@ -52,7 +46,6 @@ export const COPILOT_WORKSPACE_ENTITY_CONFIGS = [
 
 export type CopilotWorkspaceEntityKind =
   (typeof COPILOT_WORKSPACE_ENTITY_CONFIGS)[number]['entityKind']
-export type CopilotWorkspaceEntityMentionOption = CopilotWorkspaceEntityKind
 type CopilotWorkspaceEntityContextDetails = {
   entityKind: CopilotWorkspaceEntityKind
   entityId: string | null
@@ -69,19 +62,9 @@ const COPILOT_WORKSPACE_ENTITY_CONFIG_BY_KIND = new Map<
   (typeof COPILOT_WORKSPACE_ENTITY_CONFIGS)[number]
 >(COPILOT_WORKSPACE_ENTITY_CONFIGS.map((config) => [config.entityKind, config]))
 
-const COPILOT_WORKSPACE_ENTITY_CONFIG_BY_MENTION_OPTION = new Map<
-  CopilotWorkspaceEntityMentionOption,
-  (typeof COPILOT_WORKSPACE_ENTITY_CONFIGS)[number]
->(
-  COPILOT_WORKSPACE_ENTITY_CONFIGS.map((config) => [
-    config.entityKind as CopilotWorkspaceEntityMentionOption,
-    config,
-  ])
-)
-
 export const COPILOT_WORKSPACE_ENTITY_MENTION_OPTIONS = COPILOT_WORKSPACE_ENTITY_CONFIGS.map(
   (config) => config.entityKind
-) as CopilotWorkspaceEntityMentionOption[]
+) as CopilotWorkspaceEntityKind[]
 
 export function getCopilotWorkspaceEntityConfig(
   entityKind: CopilotWorkspaceEntityKind
@@ -95,30 +78,10 @@ export function getCopilotWorkspaceEntityConfig(
   return config
 }
 
-export function getCopilotWorkspaceEntityConfigForMentionOption(
-  mentionOption: CopilotWorkspaceEntityMentionOption
-): (typeof COPILOT_WORKSPACE_ENTITY_CONFIGS)[number] {
-  const config = COPILOT_WORKSPACE_ENTITY_CONFIG_BY_MENTION_OPTION.get(mentionOption)
-
-  if (!config) {
-    throw new Error(`Unknown copilot workspace entity mention option: ${mentionOption}`)
-  }
-
-  return config
-}
-
 export function isCopilotWorkspaceEntityMentionOption(
   value: string
-): value is CopilotWorkspaceEntityMentionOption {
-  return COPILOT_WORKSPACE_ENTITY_CONFIG_BY_MENTION_OPTION.has(
-    value as CopilotWorkspaceEntityMentionOption
-  )
-}
-
-export function getCopilotWorkspaceEntityKindFromMentionOption(
-  mentionOption: CopilotWorkspaceEntityMentionOption
-): CopilotWorkspaceEntityKind {
-  return getCopilotWorkspaceEntityConfigForMentionOption(mentionOption).entityKind
+): value is CopilotWorkspaceEntityKind {
+  return COPILOT_WORKSPACE_ENTITY_KIND_SET.has(value)
 }
 
 export function getCopilotWorkspaceEntityKindFromContext(
@@ -209,11 +172,11 @@ export function buildCopilotWorkspaceEntityContext({
   entityKind: CopilotWorkspaceEntityKind
   entityId: string
   workspaceId?: string | null
-  label?: string
+  label: string
   current?: boolean
 }): ChatContext {
   const config = getCopilotWorkspaceEntityConfig(entityKind)
-  const resolvedLabel = label?.trim() || (current ? config.currentLabel : config.defaultLabel)
+  const resolvedLabel = label.trim()
   const normalizedWorkspaceId = normalizeOptionalString(workspaceId)
   const baseContext = {
     ...(normalizedWorkspaceId ? { workspaceId: normalizedWorkspaceId } : {}),

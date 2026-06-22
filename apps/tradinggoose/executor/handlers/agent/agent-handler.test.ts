@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest'
 import { isHosted } from '@/lib/environment'
+import { isMcpToolId } from '@/lib/mcp/utils'
 import { getAllBlocks } from '@/blocks'
 import { BlockType } from '@/executor/consts'
 import { AgentBlockHandler } from '@/executor/handlers/agent/agent-handler'
@@ -210,6 +211,7 @@ describe('AgentBlockHandler', () => {
       mockContext.workspaceId = 'workspace-123'
       mockResolveSkillMetadata.mockResolvedValueOnce([
         {
+          id: 'skill-1',
           name: 'market-research',
           description: 'Research the market before acting',
         },
@@ -341,11 +343,11 @@ describe('AgentBlockHandler', () => {
               tokens: { prompt: 10, completion: 20, total: 30 },
               toolCalls: [
                 {
-                  name: 'auto_tool',
+                  name: 'custom_auto_tool',
                   arguments: { input: 'test input for auto tool' },
                 },
                 {
-                  name: 'force_tool',
+                  name: 'custom_force_tool',
                   arguments: { input: 'test input for force tool' },
                 },
               ],
@@ -362,11 +364,11 @@ describe('AgentBlockHandler', () => {
           {
             type: 'custom-tool',
             title: 'Auto Tool',
+            toolId: 'custom_auto_tool',
             code: 'return { result: "auto tool executed", input }',
             timeout: 1000,
             schema: {
               function: {
-                name: 'auto_tool',
                 description: 'Custom tool with auto usage control',
                 parameters: {
                   type: 'object',
@@ -381,11 +383,11 @@ describe('AgentBlockHandler', () => {
           {
             type: 'custom-tool',
             title: 'Force Tool',
+            toolId: 'custom_force_tool',
             code: 'return { result: "force tool executed", input }',
             timeout: 1000,
             schema: {
               function: {
-                name: 'force_tool',
                 description: 'Custom tool with forced usage control',
                 parameters: {
                   type: 'object',
@@ -400,11 +402,11 @@ describe('AgentBlockHandler', () => {
           {
             type: 'custom-tool',
             title: 'None Tool',
+            toolId: 'custom_none_tool',
             code: 'return { result: "none tool executed", input }',
             timeout: 1000,
             schema: {
               function: {
-                name: 'none_tool',
                 description: 'Custom tool that should be filtered out',
                 parameters: {
                   type: 'object',
@@ -427,9 +429,9 @@ describe('AgentBlockHandler', () => {
 
       expect(capturedTools.length).toBe(2)
 
-      const autoTool = capturedTools.find((t) => t.name === 'auto_tool')
-      const forceTool = capturedTools.find((t) => t.name === 'force_tool')
-      const noneTool = capturedTools.find((t) => t.name === 'none_tool')
+      const autoTool = capturedTools.find((t) => t.name === 'custom_auto_tool')
+      const forceTool = capturedTools.find((t) => t.name === 'custom_force_tool')
+      const noneTool = capturedTools.find((t) => t.name === 'custom_none_tool')
 
       expect(autoTool).toBeDefined()
       expect(forceTool).toBeDefined()
@@ -565,9 +567,9 @@ describe('AgentBlockHandler', () => {
           {
             type: 'custom-tool',
             title: 'Custom Tool - Auto',
+            toolId: 'custom_tool_auto',
             schema: {
               function: {
-                name: 'custom_tool_auto',
                 description: 'A custom tool with auto usage control',
                 parameters: {
                   type: 'object',
@@ -580,9 +582,9 @@ describe('AgentBlockHandler', () => {
           {
             type: 'custom-tool',
             title: 'Custom Tool - Force',
+            toolId: 'custom_tool_force',
             schema: {
               function: {
-                name: 'custom_tool_force',
                 description: 'A custom tool with forced usage',
                 parameters: {
                   type: 'object',
@@ -595,9 +597,9 @@ describe('AgentBlockHandler', () => {
           {
             type: 'custom-tool',
             title: 'Custom Tool - None',
+            toolId: 'custom_tool_none',
             schema: {
               function: {
-                name: 'custom_tool_none',
                 description: 'A custom tool that should not be used',
                 parameters: {
                   type: 'object',
@@ -702,9 +704,9 @@ describe('AgentBlockHandler', () => {
           {
             type: 'custom-tool',
             title: 'Custom Schema Tool',
+            toolId: 'custom_schema_tool',
             schema: {
               function: {
-                name: 'custom_schema_tool',
                 description: 'A tool defined only by schema',
                 parameters: {
                   type: 'object',
@@ -718,11 +720,11 @@ describe('AgentBlockHandler', () => {
           {
             type: 'custom-tool',
             title: 'Custom Code Tool',
+            toolId: 'custom_code_tool',
             code: 'return { result: input * 2 }',
             timeout: 1000,
             schema: {
               function: {
-                name: 'custom_code_tool',
                 description: 'A tool with code execution',
                 parameters: {
                   type: 'object',
@@ -1469,7 +1471,7 @@ describe('AgentBlockHandler', () => {
 
     it('should handle MCP tools in agent execution', async () => {
       mockExecuteTool.mockImplementation((toolId, params, skipPostProcess, context) => {
-        if (toolId.startsWith('mcp-')) {
+        if (isMcpToolId(toolId)) {
           return Promise.resolve({
             success: true,
             output: {
@@ -1723,8 +1725,8 @@ describe('AgentBlockHandler', () => {
       })
 
       mockTransformBlockTool.mockImplementation((tool: any) => ({
-        id: tool.schema?.function?.name || `mcp-${tool.title.toLowerCase().replace(' ', '-')}`,
-        name: tool.schema?.function?.name || tool.title,
+        id: tool.toolId || `mcp-${tool.title.toLowerCase().replace(' ', '-')}`,
+        name: tool.title,
         description: tool.schema?.function?.description || `MCP tool: ${tool.title}`,
         parameters: tool.schema?.function?.parameters || { type: 'object', properties: {} },
         usageControl: tool.usageControl,
@@ -1745,7 +1747,7 @@ describe('AgentBlockHandler', () => {
       let capturedContext: any
       mockExecuteTool.mockImplementation((toolId, params, skipPostProcess, context) => {
         capturedContext = context
-        if (toolId.startsWith('mcp-')) {
+        if (isMcpToolId(toolId)) {
           return Promise.resolve({
             success: true,
             output: { content: [{ type: 'text', text: 'Success' }] },

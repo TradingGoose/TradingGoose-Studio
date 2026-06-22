@@ -1,5 +1,6 @@
 import type { ChatCompletionChunk } from 'openai/resources/chat/completions'
 import type { CompletionUsage } from 'openai/resources/completions'
+import { resolveCustomToolRuntimeId } from '@/lib/custom-tools/schema'
 import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { ExecutionSubmissionSource } from '@/executor/types'
@@ -331,9 +332,11 @@ export function transformCustomTool(customTool: any): ProviderToolConfig {
     throw new Error('Invalid custom tool schema')
   }
 
+  const toolId = resolveCustomToolRuntimeId({ id: customTool.id })
+
   return {
-    id: `custom_${customTool.id}`, // Prefix with 'custom_' to identify custom tools
-    name: schema.function.name,
+    id: toolId,
+    name: toolId,
     description: schema.function.description || '',
     params: {}, // This will be derived from parameters
     parameters: {

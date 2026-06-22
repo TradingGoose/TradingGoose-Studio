@@ -12,7 +12,6 @@ import type { CustomToolDefinition } from '@/stores/custom-tools/types'
 export type { CustomToolTransferRecord } from '@/lib/custom-tools/schema'
 
 const normalizeInlineWhitespace = (value: string) => value.trim().replace(/\s+/g, ' ')
-const normalizeFunctionName = (value: string) => value.trim()
 
 export const CustomToolsTransferListSchema = z
   .array(CustomToolTransferSchema)
@@ -39,7 +38,6 @@ function normalizeToolForTransfer(
     schema: {
       type: 'function',
       function: {
-        name: normalizeFunctionName(tool.schema.function.name),
         description: tool.schema.function.description,
         parameters: {
           type: 'object',
@@ -63,13 +61,15 @@ export function createCustomToolsExportFile({
   customTools: Array<Pick<CustomToolDefinition, 'title' | 'schema' | 'code'>>
   exportedFrom: string
 }): CustomToolsImportFile {
-  return createTradingGooseExportFile({
-    exportedFrom,
-    resourceTypes: ['customTools'],
-    resources: {
-      customTools: customTools.map(normalizeToolForTransfer),
-    },
-  }) as CustomToolsImportFile
+  return CustomToolsImportFileSchema.parse(
+    createTradingGooseExportFile({
+      exportedFrom,
+      resourceTypes: ['customTools'],
+      resources: {
+        customTools: customTools.map(normalizeToolForTransfer),
+      },
+    })
+  ) as CustomToolsImportFile
 }
 
 export function exportCustomToolsAsJson({
@@ -87,6 +87,10 @@ export function resolveImportedCustomToolTitle(
   usedTitles: Iterable<string>
 ): string {
   const normalizedTitle = normalizeInlineWhitespace(title)
+  if (!normalizedTitle) {
+    throw new Error('Custom tool title is required')
+  }
+
   const usedTitlesSet = new Set(Array.from(usedTitles))
 
   if (!usedTitlesSet.has(normalizedTitle)) {
@@ -104,65 +108,28 @@ export function resolveImportedCustomToolTitle(
   return candidate
 }
 
-export function resolveImportedCustomToolFunctionName(
-  functionName: string,
-  usedFunctionNames: Iterable<string>
-): string {
-  const normalizedName = normalizeFunctionName(functionName)
-  const usedFunctionNamesSet = new Set(Array.from(usedFunctionNames))
-
-  if (!usedFunctionNamesSet.has(normalizedName)) {
-    return normalizedName
-  }
-
-  let nextNumber = 1
-  let candidate = `${normalizedName}_imported_${nextNumber}`
-
-  while (usedFunctionNamesSet.has(candidate)) {
-    nextNumber += 1
-    candidate = `${normalizedName}_imported_${nextNumber}`
-  }
-
-  return candidate
-}
-
 export function resolveImportedCustomTools({
   customTools,
   usedTitles,
-  usedFunctionNames,
 }: {
   customTools: CustomToolTransferRecordType[]
   usedTitles: Iterable<string>
-  usedFunctionNames: Iterable<string>
 }) {
   const reservedTitles = new Set(Array.from(usedTitles))
-  const reservedFunctionNames = new Set(Array.from(usedFunctionNames))
   let renamedCount = 0
 
   const resolvedTools = customTools.map((tool) => {
     const resolvedTitle = resolveImportedCustomToolTitle(tool.title, reservedTitles)
-    const resolvedFunctionName = resolveImportedCustomToolFunctionName(
-      tool.schema.function.name,
-      reservedFunctionNames
-    )
 
     reservedTitles.add(resolvedTitle)
-    reservedFunctionNames.add(resolvedFunctionName)
 
-    if (resolvedTitle !== tool.title || resolvedFunctionName !== tool.schema.function.name) {
+    if (resolvedTitle !== tool.title) {
       renamedCount += 1
     }
 
     return {
       ...tool,
       title: resolvedTitle,
-      schema: {
-        ...tool.schema,
-        function: {
-          ...tool.schema.function,
-          name: resolvedFunctionName,
-        },
-      },
     }
   })
 

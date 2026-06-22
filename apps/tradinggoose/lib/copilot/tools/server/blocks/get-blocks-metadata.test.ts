@@ -234,9 +234,10 @@ describe('getBlocksMetadataServerTool', () => {
     expect(result.metadata.function?.inputReferenceGrammar?.blockSpecificRules).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          title: 'Use built-in indicators with full Historical Data output',
+          title: 'Use available indicators with full Historical Data output',
           examples: expect.arrayContaining([
             'await indicator.RSI(<historical_data>, { Length: 7 })',
+            'await indicator["custom-indicator-id"](<historical_data>)',
           ]),
         }),
         expect.objectContaining({

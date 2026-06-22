@@ -21425,8 +21425,6 @@
         },
         "mentions": {
           "workflowBlocks": "Bloques del flujo de trabajo",
-          "untitledChat": "Chat sin título",
-          "untitled": "Sin título",
           "matches": "Coincidencias",
           "noMatches": "No hay coincidencias",
           "noPastChats": "No hay chats anteriores",

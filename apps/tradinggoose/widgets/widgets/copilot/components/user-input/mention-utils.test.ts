@@ -7,16 +7,16 @@ import enMessages from '../../../../../i18n/messages/en.json'
 import esMessages from '../../../../../i18n/messages/es.json'
 import zhMessages from '../../../../../i18n/messages/zh.json'
 import {
-  getCopilotMentionCopyFromMessages,
-  getMentionOptionLabel,
-  getMentionSubmenuTitle,
+  getCopilotMentionCopy,
+  getPastChatMentionLabel,
+  getWorkspaceEntityMentionLabel,
 } from './mention-copy'
 import {
   buildAggregatedMentionItems,
+  buildMentionRanges,
   filterBlocks,
   filterLogs,
   filterMentionOptions,
-  filterWorkspaceEntitiesForOption,
 } from './mention-utils'
 import type { MentionSources } from './types'
 
@@ -52,7 +52,6 @@ const createMentionSources = (): MentionSources => ({
         entityKind: 'custom_tool',
         id: 'tool-1',
         name: 'Slack Alerts',
-        functionName: 'sendSlackAlert',
       },
     ],
     mcp_server: [
@@ -79,9 +78,21 @@ const createMentionSources = (): MentionSources => ({
 })
 
 describe('mention-utils', () => {
-  const enMentionCopy = getCopilotMentionCopyFromMessages(enMessages as any)
-  const esMentionCopy = getCopilotMentionCopyFromMessages(esMessages as any)
-  const zhMentionCopy = getCopilotMentionCopyFromMessages(zhMessages as any)
+  const enMentionCopy = getCopilotMentionCopy({
+    dashboard: (enMessages as any).workspace.dashboard,
+    nav: (enMessages as any).nav,
+    widgets: (enMessages as any).workspace.widgets,
+  })
+  const zhMentionCopy = getCopilotMentionCopy({
+    dashboard: (zhMessages as any).workspace.dashboard,
+    nav: (zhMessages as any).nav,
+    widgets: (zhMessages as any).workspace.widgets,
+  })
+  const esMentionCopy = getCopilotMentionCopy({
+    dashboard: (esMessages as any).workspace.dashboard,
+    nav: (esMessages as any).nav,
+    widgets: (esMessages as any).workspace.widgets,
+  })
   const enMonitorCopy = (enMessages as any).workspace.monitor
   const esMonitorCopy = (esMessages as any).workspace.monitor
   const zhMonitorCopy = (zhMessages as any).workspace.monitor
@@ -91,22 +102,10 @@ describe('mention-utils', () => {
     expect(filterMentionOptions('工具', zhMentionCopy)).toContain('custom_tool')
   })
 
-  it('filters workspace entity submenu items by option', () => {
-    const sources = createMentionSources()
-
-    expect(filterWorkspaceEntitiesForOption('skill', sources, 'risk', enMentionCopy)).toEqual([
-      sources.workspaceEntities.skill[0],
-    ])
-
-    expect(filterWorkspaceEntitiesForOption('mcp_server', sources, 'http', enMentionCopy)).toEqual([
-      sources.workspaceEntities.mcp_server[0],
-    ])
-  })
-
   it('includes workspace entity matches in aggregated search results', () => {
     const sources = createMentionSources()
 
-    expect(buildAggregatedMentionItems('alpha', sources, enMentionCopy, enMonitorCopy)).toEqual([
+    expect(buildAggregatedMentionItems('alpha', sources, enMonitorCopy, enMentionCopy)).toEqual([
       {
         type: 'workflow',
         id: 'workflow-1',
@@ -119,7 +118,7 @@ describe('mention-utils', () => {
       },
     ])
 
-    expect(buildAggregatedMentionItems('slack', sources, enMentionCopy, enMonitorCopy)).toEqual([
+    expect(buildAggregatedMentionItems('slack', sources, enMonitorCopy, enMentionCopy)).toEqual([
       {
         type: 'custom_tool',
         id: 'tool-1',
@@ -135,7 +134,7 @@ describe('mention-utils', () => {
       sources.logsList[0],
     ])
     expect(filterLogs(sources.logsList, '计划', zhMonitorCopy)).toEqual([sources.logsList[0]])
-    expect(buildAggregatedMentionItems('计划', sources, zhMentionCopy, zhMonitorCopy)).toEqual([
+    expect(buildAggregatedMentionItems('计划', sources, zhMonitorCopy, zhMentionCopy)).toEqual([
       {
         type: 'logs',
         id: 'log-1',
@@ -173,7 +172,7 @@ describe('mention-utils', () => {
     ]
 
     expect(
-      buildAggregatedMentionItems('condicion 2', sources, esMentionCopy, esMonitorCopy)
+      buildAggregatedMentionItems('condicion 2', sources, esMonitorCopy, esMentionCopy)
     ).toEqual([
       {
         type: 'workflow_blocks',
@@ -183,10 +182,44 @@ describe('mention-utils', () => {
     ])
   })
 
-  it('uses centralized submenu titles for workspace entity mention groups', () => {
-    expect(getMentionOptionLabel(enMentionCopy, 'workflow')).toBe('Workflows')
-    expect(getMentionSubmenuTitle(enMentionCopy, 'workflow')).toBe('All workflows')
-    expect(getMentionSubmenuTitle(zhMentionCopy, 'indicator')).toBe('指标')
-    expect(getMentionSubmenuTitle(esMentionCopy, 'knowledge')).toBe('Bases de conocimiento')
+  it('uses localized untitled labels for empty chat and workspace entity names', () => {
+    const sources = createMentionSources()
+    sources.pastChats = [{ reviewSessionId: 'chat-1', title: null, workflowId: null }]
+    sources.workspaceEntities.custom_tool = [
+      { entityKind: 'custom_tool', id: 'tool-empty', name: '', description: '' },
+    ]
+    const chatLabel = (esMessages as any).workspace.widgets.copilot.history.newChat
+    const toolLabel = (esMessages as any).workspace.widgets.customToolDropdown.untitledCustomTool
+
+    expect(getPastChatMentionLabel(esMentionCopy, sources.pastChats[0])).toBe(chatLabel)
+    expect(
+      getWorkspaceEntityMentionLabel(esMentionCopy, sources.workspaceEntities.custom_tool[0])
+    ).toBe(toolLabel)
+    expect(buildAggregatedMentionItems(toolLabel, sources, esMonitorCopy, esMentionCopy)).toEqual([
+      { type: 'custom_tool', id: 'tool-empty', value: sources.workspaceEntities.custom_tool[0] },
+    ])
+    expect(buildAggregatedMentionItems(chatLabel, sources, esMonitorCopy, esMentionCopy)).toEqual([
+      { type: 'chats', id: 'chat-1', value: sources.pastChats[0] },
+    ])
+
+    sources.workspaceEntities.custom_tool[0].name = 'untitled'
+    expect(
+      getWorkspaceEntityMentionLabel(esMentionCopy, sources.workspaceEntities.custom_tool[0])
+    ).toBe('untitled')
+
+    sources.pastChats[0].title = 'untitled'
+    expect(getPastChatMentionLabel(esMentionCopy, sources.pastChats[0])).toBe('untitled')
+  })
+
+  it('tracks duplicate mention labels by context identity', () => {
+    const ranges = buildMentionRanges('@Untitled @Untitled', [
+      { kind: 'custom_tool', customToolId: 'tool-1', label: 'Untitled' },
+      { kind: 'custom_tool', customToolId: 'tool-2', label: 'Untitled' },
+    ])
+
+    expect(ranges.map((range) => range.contextKey)).toEqual([
+      'custom_tool:tool-1',
+      'custom_tool:tool-2',
+    ])
   })
 })

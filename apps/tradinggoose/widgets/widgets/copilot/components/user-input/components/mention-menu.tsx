@@ -23,28 +23,22 @@ import { cn } from '@/lib/utils'
 import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import {
   type CopilotWorkspaceEntityKind,
-  getCopilotWorkspaceEntityKindFromMentionOption,
   isCopilotWorkspaceEntityMentionOption,
 } from '../../../workspace-entities'
 import {
+  type CopilotMentionCopy,
   getKnowledgeBaseMentionLabel,
   getLogMentionTriggerLabel,
   getMentionOptionLabel,
   getMentionSubmenuTitle,
   getPastChatMentionLabel,
-  getWorkspaceEntityMentionEmptyState,
   getWorkspaceEntityMentionLabel,
   useCopilotMentionCopy,
 } from '../mention-copy'
 import {
   buildAggregatedMentionItems,
-  filterBlocks,
-  filterKnowledgeBases,
-  filterLogs,
+  filterMentionItems,
   filterMentionOptions,
-  filterPastChats,
-  filterWorkflowBlocks,
-  filterWorkspaceEntitiesForOption,
 } from '../mention-utils'
 import type {
   AggregatedMentionItem,
@@ -231,12 +225,6 @@ const WORKSPACE_ENTITY_ITEM_RENDERERS: Record<
     <>
       {renderCustomToolBadge()}
       <span className='truncate'>{label}</span>
-      {entity.functionName ? (
-        <>
-          <span className='text-muted-foreground'>·</span>
-          <span className='truncate text-muted-foreground text-xs'>{entity.functionName}</span>
-        </>
-      ) : null}
     </>
   ),
   mcp_server: (entity, label) => (
@@ -259,9 +247,7 @@ const renderMainOptionIcon = (option: MentionOption) => {
   }
 
   if (isCopilotWorkspaceEntityMentionOption(option)) {
-    return renderWorkspaceEntityMainOptionIcon(
-      getCopilotWorkspaceEntityKindFromMentionOption(option)
-    )
+    return renderWorkspaceEntityMainOptionIcon(option)
   }
 
   if (option === 'blocks') {
@@ -290,8 +276,8 @@ const renderMainOptionIcon = (option: MentionOption) => {
 const renderMentionItemContent = (
   type: MentionSubmenu,
   item: MentionItem,
-  mentionCopy: ReturnType<typeof useCopilotMentionCopy>,
-  monitorCopy: ReturnType<typeof useMonitorCopy>['copy']
+  monitorCopy: ReturnType<typeof useMonitorCopy>['copy'],
+  mentionCopy: CopilotMentionCopy
 ) => {
   if (type === 'chats') {
     const chat = item as PastChatItem
@@ -318,7 +304,7 @@ const renderMentionItemContent = (
     return (
       <>
         <LibraryBig className='h-3.5 w-3.5 text-muted-foreground' />
-        <span className='truncate'>{getKnowledgeBaseMentionLabel(mentionCopy, knowledgeBase)}</span>
+        <span className='truncate'>{getKnowledgeBaseMentionLabel(knowledgeBase)}</span>
       </>
     )
   }
@@ -364,70 +350,6 @@ const renderMentionItemContent = (
   return null
 }
 
-const getSubmenuItems = (
-  submenu: MentionSubmenu,
-  query: string,
-  sources: MentionSources,
-  mentionCopy: ReturnType<typeof useCopilotMentionCopy>,
-  monitorCopy: ReturnType<typeof useMonitorCopy>['copy']
-): MentionItem[] => {
-  if (submenu === 'chats') {
-    return filterPastChats(sources.pastChats, query, mentionCopy)
-  }
-
-  if (isCopilotWorkspaceEntityMentionOption(submenu)) {
-    return filterWorkspaceEntitiesForOption(submenu, sources, query, mentionCopy)
-  }
-
-  if (submenu === 'knowledge') {
-    return filterKnowledgeBases(sources.knowledgeBases, query, mentionCopy)
-  }
-
-  if (submenu === 'blocks') {
-    return filterBlocks(sources.blocksList, query)
-  }
-
-  if (submenu === 'workflow_blocks') {
-    return filterWorkflowBlocks(sources.workflowBlocks, query)
-  }
-
-  return filterLogs(sources.logsList, query, monitorCopy)
-}
-
-const getSubmenuEmptyState = (
-  submenu: MentionSubmenu,
-  mentionCopy: ReturnType<typeof useCopilotMentionCopy>
-) => {
-  if (submenu === 'chats') {
-    return mentionCopy.emptyStates.chats
-  }
-
-  if (isCopilotWorkspaceEntityMentionOption(submenu)) {
-    return getWorkspaceEntityMentionEmptyState(
-      mentionCopy,
-      getCopilotWorkspaceEntityKindFromMentionOption(submenu)
-    )
-  }
-
-  if (submenu === 'knowledge') {
-    return mentionCopy.emptyStates.knowledge
-  }
-
-  if (submenu === 'blocks') {
-    return mentionCopy.emptyStates.blocks
-  }
-
-  if (submenu === 'workflow_blocks') {
-    return mentionCopy.emptyStates.workflow_blocks
-  }
-
-  return mentionCopy.emptyStates.logs
-}
-
-const isSubmenuLoading = (submenu: MentionSubmenu, loading: MentionMenuProps['loading']) => {
-  return loading[submenu]
-}
-
 const preserveEditorSelection = (event: MouseEvent<HTMLDivElement>) => {
   event.preventDefault()
 }
@@ -464,12 +386,12 @@ export function MentionMenu({
   const aggregatedItems = buildAggregatedMentionItems(
     mentionQuery,
     sources,
-    mentionCopy,
-    monitorCopy
+    monitorCopy,
+    mentionCopy
   )
   const showAggregatedSearch = mentionQuery.length > 0 && filteredOptions.length === 0
   const submenuItems = openSubmenuFor
-    ? getSubmenuItems(openSubmenuFor, submenuQuery, sources, mentionCopy, monitorCopy)
+    ? filterMentionItems(openSubmenuFor, sources, submenuQuery, monitorCopy, mentionCopy)
     : []
 
   return createPortal(
@@ -505,11 +427,11 @@ export function MentionMenu({
               {getMentionSubmenuTitle(mentionCopy, openSubmenuFor)}
             </div>
             <div ref={menuListRef} className='flex-1 overflow-auto overscroll-contain'>
-              {isSubmenuLoading(openSubmenuFor, loading) ? (
+              {loading[openSubmenuFor] ? (
                 <div className='px-2 py-2 text-muted-foreground text-sm'>{mentionCopy.loading}</div>
               ) : submenuItems.length === 0 ? (
                 <div className='px-2 py-2 text-muted-foreground text-sm'>
-                  {getSubmenuEmptyState(openSubmenuFor, mentionCopy)}
+                  {mentionCopy.emptyStates[openSubmenuFor]}
                 </div>
               ) : (
                 submenuItems.map((item, index) => (
@@ -526,7 +448,7 @@ export function MentionMenu({
                     onMouseEnter={() => onSubmenuItemHover(index)}
                     onClick={() => onSelectSubmenuItem(openSubmenuFor, item)}
                   >
-                    {renderMentionItemContent(openSubmenuFor, item, mentionCopy, monitorCopy)}
+                    {renderMentionItemContent(openSubmenuFor, item, monitorCopy, mentionCopy)}
                   </div>
                 ))
               )}
@@ -551,7 +473,7 @@ export function MentionMenu({
                   onMouseEnter={() => onAggregatedItemHover(index)}
                   onClick={() => onSelectAggregatedItem(item)}
                 >
-                  {renderMentionItemContent(item.type, item.value, mentionCopy, monitorCopy)}
+                  {renderMentionItemContent(item.type, item.value, monitorCopy, mentionCopy)}
                 </div>
               ))
             )}
@@ -602,7 +524,7 @@ export function MentionMenu({
                     onMouseEnter={() => onAggregatedItemHover(index)}
                     onClick={() => onSelectAggregatedItem(item)}
                   >
-                    {renderMentionItemContent(item.type, item.value, mentionCopy, monitorCopy)}
+                    {renderMentionItemContent(item.type, item.value, monitorCopy, mentionCopy)}
                   </div>
                 ))}
               </>

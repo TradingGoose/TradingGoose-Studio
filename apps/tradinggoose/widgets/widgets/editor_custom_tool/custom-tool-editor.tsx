@@ -1,6 +1,5 @@
 import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, Code, FileJson } from 'lucide-react'
-import { useLocale } from 'next-intl'
 import {
   createMonacoFunctionBodyDiagnosticSourceBuilder,
   type MonacoEditorHandle,
@@ -10,13 +9,12 @@ import { Label } from '@/components/ui/label'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { exportCustomToolsAsJson } from '@/lib/custom-tools/import-export'
+import { parseCustomToolSchemaValue } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
-import { formatTemplate } from '@/i18n/utils'
-import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import { useUpdateCustomTool } from '@/hooks/queries/custom-tools'
 import { useWand } from '@/hooks/workflow/use-wand'
-import { useCustomToolsStore } from '@/stores/custom-tools/store'
+import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
 import { CodeEditor } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/code-editor/code-editor'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
@@ -110,46 +108,50 @@ export function CustomToolEditor({
       return
     }
 
+    let parsed: any
     try {
-      const parsed = JSON.parse(value)
-
-      if (!parsed.type || parsed.type !== 'function') {
-        setSchemaError(copy.validation.missingTypeFunction)
-        return
-      }
-
-      if (!parsed.function || !parsed.function.name) {
-        setSchemaError(copy.validation.missingFunctionName)
-        return
-      }
-
-      if (!parsed.function.parameters) {
-        setSchemaError(copy.validation.missingFunctionParameters)
-        return
-      }
-
-      if (!parsed.function.parameters.type) {
-        setSchemaError(copy.validation.missingParametersType)
-        return
-      }
-
-      if (parsed.function.parameters.properties === undefined) {
-        setSchemaError(copy.validation.missingParametersProperties)
-        return
-      }
-
-      if (
-        typeof parsed.function.parameters.properties !== 'object' ||
-        parsed.function.parameters.properties === null
-      ) {
-        setSchemaError(copy.validation.parametersPropertiesMustBeObject)
-        return
-      }
-
-      setSchemaError(null)
+      parsed = JSON.parse(value)
     } catch {
       setSchemaError(copy.validation.invalidJsonFormat)
+      return
     }
+
+    if (!parsed.type || parsed.type !== 'function') {
+      setSchemaError(copy.validation.missingTypeFunction)
+      return
+    }
+
+    if (!parsed.function || !parsed.function.parameters) {
+      setSchemaError(copy.validation.missingFunctionParameters)
+      return
+    }
+
+    if (!parsed.function.parameters.type) {
+      setSchemaError(copy.validation.missingParametersType)
+      return
+    }
+
+    if (parsed.function.parameters.properties === undefined) {
+      setSchemaError(copy.validation.missingParametersProperties)
+      return
+    }
+
+    if (
+      typeof parsed.function.parameters.properties !== 'object' ||
+      parsed.function.parameters.properties === null
+    ) {
+      setSchemaError(copy.validation.parametersPropertiesMustBeObject)
+      return
+    }
+
+    try {
+      parseCustomToolSchemaValue(parsed)
+    } catch {
+      setSchemaError(copy.validation.failedToValidateSchema)
+      return
+    }
+
+    setSchemaError(null)
   }
 
   const handleFunctionCodeChange = (value: string) => {
@@ -169,7 +171,6 @@ The output MUST be a single, valid JSON object, starting with { and ending with 
 The JSON schema MUST follow this specific format:
 1. Top-level property "type" must be set to "function"
 2. A "function" object containing:
-   - "name": A concise, camelCase name for the function
    - "description": A clear description of what the function does
    - "parameters": A JSON Schema object describing the function's parameters with:
      - "type": "object"
@@ -313,12 +314,6 @@ IMPORTANT FORMATTING RULES:
         return null
       }
 
-      if (!schema.function || !schema.function.name) {
-        setSchemaError(copy.validation.schemaMustHaveFunctionName)
-        onSectionChange('schema')
-        return null
-      }
-
       if (!schema.function.parameters) {
         setSchemaError(copy.validation.missingFunctionParameters)
         onSectionChange('schema')
@@ -346,7 +341,7 @@ IMPORTANT FORMATTING RULES:
         return null
       }
 
-      return schema
+      return parseCustomToolSchemaValue(schema)
     } catch (error) {
       logger.error('Error validating custom tool schema:', { error })
       setSchemaError(copy.validation.failedToValidateSchema)
@@ -364,27 +359,11 @@ IMPORTANT FORMATTING RULES:
         return
       }
 
-      const nextToolName = schema.function.name
-      const existingTools = useCustomToolsStore.getState().getAllTools(workspaceId)
-      const isDuplicate = existingTools.some((tool) => {
-        if (tool.id === initialValues.id) {
-          return false
-        }
-
-        return tool.schema.function.name === nextToolName
-      })
-
-      if (isDuplicate) {
-        setSchemaError(formatTemplate(copy.validation.duplicateName, { name: nextToolName }))
-        onSectionChange('schema')
-        return
-      }
-
       await updateToolMutation.mutateAsync({
         workspaceId,
         toolId: initialValues.id,
         updates: {
-          title: nextToolName,
+          title: initialValues.title,
           schema,
           code: functionCode || '',
         },
@@ -400,6 +379,7 @@ IMPORTANT FORMATTING RULES:
     parseCurrentSchema,
     functionCode,
     initialValues.id,
+    initialValues.title,
     onSave,
     onSectionChange,
     updateToolMutation,
@@ -412,7 +392,7 @@ IMPORTANT FORMATTING RULES:
       return
     }
 
-    const title = initialValues.title.trim() || schema.function.name
+    const title = initialValues.title.trim()
     const fileNameBase =
       title
         .trim()
@@ -805,7 +785,7 @@ IMPORTANT FORMATTING RULES:
               }}
             >
               <div className='py-1'>
-              <div className='px-2 pt-2.5 pb-0.5 font-medium text-muted-foreground text-xs'>
+                <div className='px-2 pt-2.5 pb-0.5 font-medium text-muted-foreground text-xs'>
                   {copy.form.availableParametersPanel}
                 </div>
                 <div>

@@ -1,14 +1,10 @@
-import type { DefaultIndicatorRuntimeEntry } from '@/lib/indicators/default/runtime'
 import type { BarMs } from '@/lib/indicators/types'
 import type { ListingIdentity } from '@/lib/listing/identity'
 import {
+  type FunctionIndicatorRuntimeManifest,
   FUNCTION_INDICATOR_INVALID_OPTIONS_MESSAGE,
   FUNCTION_INDICATOR_MARKET_SERIES_ERROR_PREFIX,
 } from './function-indicator-runtime'
-
-type IndicatorRuntimeManifest = {
-  indicators: DefaultIndicatorRuntimeEntry[]
-}
 
 const encodeJsonParse = (value: unknown) => JSON.stringify(JSON.stringify(value))
 
@@ -291,7 +287,7 @@ export const buildPineTSFunctionIndicatorRuntimePrologue = ({
   manifest,
   usageHint,
 }: {
-  manifest: IndicatorRuntimeManifest
+  manifest: FunctionIndicatorRuntimeManifest
   usageHint: string
 }) => {
   const manifestPayload = encodeJsonParse(manifest)

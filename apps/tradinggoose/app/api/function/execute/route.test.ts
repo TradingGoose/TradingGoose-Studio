@@ -7,6 +7,7 @@ import { createMockRequest } from '@/app/api/__test-utils__/utils'
 const checkInternalAuthMock = vi.fn()
 const checkServerSideUsageLimitsMock = vi.fn()
 const executeFunctionWithRuntimeGateMock = vi.fn()
+const listCustomIndicatorRuntimeEntriesMock = vi.fn()
 const isBillingEnabledForRuntimeMock = vi.fn()
 const accrueUserUsageCostMock = vi.fn()
 const loggerMock = {
@@ -49,6 +50,9 @@ describe('Function Execute API Route', () => {
       executionTime: 2400,
       userCodeStartLine: 3,
     })
+    listCustomIndicatorRuntimeEntriesMock.mockResolvedValue([
+      { id: 'indicator-1', name: 'Custom Indicator', pineCode: 'indicator("Custom Indicator")' },
+    ])
     isBillingEnabledForRuntimeMock.mockResolvedValue(false)
     accrueUserUsageCostMock.mockResolvedValue(true)
 
@@ -107,6 +111,9 @@ describe('Function Execute API Route', () => {
     vi.doMock('@/app/api/function/e2b-execution', () => ({
       executeFunctionWithRuntimeGate: executeFunctionWithRuntimeGateMock,
     }))
+    vi.doMock('@/lib/indicators/custom/operations', () => ({
+      listCustomIndicatorRuntimeEntries: listCustomIndicatorRuntimeEntriesMock,
+    }))
     vi.doMock('@/lib/execution/local-saturation-limit', () => ({
       getLocalVmSaturationLimitMessage: vi.fn(() => 'Local VM saturated'),
       isLocalVmSaturationLimitError: vi.fn((error: unknown) =>
@@ -161,6 +168,14 @@ describe('Function Execute API Route', () => {
       workspaceId: 'workspace-1',
       workflowId: 'workflow-1',
     })
+    expect(listCustomIndicatorRuntimeEntriesMock).toHaveBeenCalledWith('workspace-1')
+    expect(executeFunctionWithRuntimeGateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        indicatorRuntimeManifest: expect.objectContaining({
+          indicators: expect.arrayContaining([expect.objectContaining({ id: 'indicator-1' })]),
+        }),
+      })
+    )
     expect(executeFunctionWithRuntimeGateMock).toHaveBeenCalledOnce()
   })
 

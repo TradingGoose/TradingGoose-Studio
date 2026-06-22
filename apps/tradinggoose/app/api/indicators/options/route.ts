@@ -111,10 +111,11 @@ export async function GET(request: NextRequest) {
           source: 'custom',
           color: row.color?.trim() || '#3972F6',
           editable: true,
-          callableInFunctionBlock: false,
+          callableInFunctionBlock: true,
           inputTitles,
           ...(inputMeta && inputTitles.length > 0 ? { inputMeta } : {}),
           entityId: row.id,
+          runtimeId: row.id,
         }
       })
 

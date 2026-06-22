@@ -1,17 +1,25 @@
-import {
-  DEFAULT_INDICATOR_RUNTIME_IDS,
-  resolveDefaultIndicatorRuntimeEntry,
-} from '@/lib/indicators/default/runtime'
 import { buildInputsMapFromMeta } from '@/lib/indicators/input-meta'
+import type { InputMetaMap } from '@/lib/indicators/types'
 import { mapMarketSeriesToBarsMs } from '@/lib/indicators/series-data'
 import type { MarketSeries } from '@/providers/market/types'
 import { executeIndicatorInLocalVm } from './local-executor'
 
+export type FunctionIndicatorRuntimeEntry = {
+  id: string
+  name: string
+  pineCode: string
+  inputMeta?: InputMetaMap
+}
+
+export type FunctionIndicatorRuntimeManifest = {
+  indicators: FunctionIndicatorRuntimeEntry[]
+}
+
 export const FUNCTION_INDICATOR_USAGE_HINT =
-  'Use indicator.<ID>(marketSeries) with MarketSeries output from the Historical Data block (e.g. indicator.RSI(<historical_data>)).'
+  'Use indicator.<ID>(marketSeries) or indicator["<ID>"](marketSeries) with MarketSeries output from the Historical Data block (e.g. indicator.RSI(<historical_data>)).'
 
 export const FUNCTION_INDICATOR_INVALID_OPTIONS_MESSAGE =
-  'Indicator options must be an object. Use indicator.<ID>(marketSeries, { Length: 7 }) or indicator.<ID>(marketSeries, { inputs: { ... } }).'
+  'Indicator options must be an object. Use indicator.<ID>(marketSeries, { Length: 7 }) or indicator["<ID>"](marketSeries, { inputs: { ... } }).'
 
 export const FUNCTION_INDICATOR_MARKET_SERIES_ERROR_PREFIX =
   'Indicator runtime expects MarketSeries data from Historical Data block.'
@@ -53,19 +61,21 @@ const parseMarketSeriesForIndicator = (input: unknown): MarketSeries => {
 
 const executeFunctionIndicator = async ({
   alias,
+  manifest,
   marketSeriesInput,
   rawOptions,
   requestId,
   onWarn,
 }: {
   alias: string
+  manifest: FunctionIndicatorRuntimeManifest
   marketSeriesInput: unknown
   rawOptions?: unknown
   requestId: string
   onWarn: (message: string, meta: Record<string, unknown>) => void
 }) => {
   const aliasKey = alias.trim()
-  const entry = resolveDefaultIndicatorRuntimeEntry(aliasKey)
+  const entry = manifest.indicators.find((indicatorEntry) => indicatorEntry.id === aliasKey)
   if (!entry) {
     throw new Error(`Unknown indicator "${aliasKey || alias}".`)
   }
@@ -105,14 +115,16 @@ const executeFunctionIndicator = async ({
 }
 
 export const createFunctionIndicatorRuntime = ({
+  manifest,
   requestId,
   onWarn,
 }: {
+  manifest: FunctionIndicatorRuntimeManifest
   requestId: string
   onWarn: (message: string, meta: Record<string, unknown>) => void
 }) => {
   const runtime: Record<string, unknown> = {
-    list: () => [...DEFAULT_INDICATOR_RUNTIME_IDS],
+    list: () => manifest.indicators.map((entry) => entry.id),
   }
 
   return new Proxy(runtime, {
@@ -122,6 +134,7 @@ export const createFunctionIndicatorRuntime = ({
       return (marketSeriesInput: unknown, rawOptions?: unknown) =>
         executeFunctionIndicator({
           alias: prop,
+          manifest,
           marketSeriesInput,
           rawOptions,
           requestId,

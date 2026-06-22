@@ -1,4 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import { resolveCustomToolEntityId } from '@/lib/custom-tools/schema'
 import { upsertCustomTools } from '@/lib/custom-tools/operations'
 
 const logger = createLogger('CustomToolsPersistence')
@@ -7,10 +8,9 @@ interface CustomTool {
   id?: string
   type: 'custom-tool'
   title: string
-  toolId?: string
+  toolId: string
   schema: {
     function: {
-      name?: string
       description: string
       parameters: Record<string, any>
     }
@@ -68,11 +68,11 @@ export function extractCustomToolsFromWorkflowState(workflowState: any): CustomT
           typeof tool === 'object' &&
           tool.type === 'custom-tool' &&
           tool.title &&
+          tool.toolId &&
           tool.schema?.function &&
           tool.code
         ) {
-          // Use toolId if available, otherwise generate one from title
-          const toolKey = tool.toolId || tool.title
+          const toolKey = tool.toolId
 
           // Deduplicate by toolKey (if same tool appears in multiple blocks)
           if (!customToolsMap.has(toolKey)) {
@@ -107,21 +107,9 @@ export async function persistCustomToolsToDatabase(
   }
 
   const errors: string[] = []
-  const validTools = customToolsList.filter((tool) => {
-    if (!tool.schema?.function?.name) {
-      logger.warn(`Skipping custom tool without function name: ${tool.title}`)
-      return false
-    }
-    return true
-  })
-
-  if (validTools.length === 0) {
-    return { saved: 0, errors: [] }
-  }
-
   try {
     await upsertCustomTools({
-      tools: validTools.map((tool) => ({
+      tools: customToolsList.map((tool) => ({
         id: normalizeToolId(tool),
         title: tool.title,
         schema: tool.schema,
@@ -131,8 +119,8 @@ export async function persistCustomToolsToDatabase(
       userId,
     })
 
-    logger.info(`Persisted ${validTools.length} custom tool(s)`, { workspaceId })
-    return { saved: validTools.length, errors }
+    logger.info(`Persisted ${customToolsList.length} custom tool(s)`, { workspaceId })
+    return { saved: customToolsList.length, errors }
   } catch (error) {
     const errorMsg = `Failed to persist custom tools: ${error instanceof Error ? error.message : String(error)}`
     logger.error(errorMsg, { error })
@@ -142,10 +130,7 @@ export async function persistCustomToolsToDatabase(
 }
 
 function normalizeToolId(tool: CustomTool): string {
-  if (tool.toolId) {
-    return tool.toolId.startsWith('custom_') ? tool.toolId.replace('custom_', '') : tool.toolId
-  }
-  return tool.title
+  return resolveCustomToolEntityId(tool.toolId)
 }
 
 /**

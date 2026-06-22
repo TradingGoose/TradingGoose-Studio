@@ -6,6 +6,7 @@ import {
   type IndicatorTransferRecord,
   resolveImportedIndicatorName,
 } from '@/lib/indicators/import-export'
+import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import {
@@ -15,6 +16,21 @@ import {
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 
 const logger = createLogger('IndicatorsOperations')
+
+export async function listCustomIndicatorRuntimeEntries(workspaceId: string) {
+  const rows = await db
+    .select()
+    .from(pineIndicators)
+    .where(eq(pineIndicators.workspaceId, workspaceId))
+    .then((indicatorRows) => applySavedEntityYjsStateToRows('indicator', indicatorRows))
+
+  return rows.map(({ id, name, pineCode, inputMeta }) => ({
+    id,
+    name,
+    pineCode,
+    inputMeta: normalizeInputMetaMap(inputMeta),
+  }))
+}
 
 interface UpsertIndicatorsParams {
   indicators: Array<{

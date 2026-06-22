@@ -284,12 +284,13 @@ function buildInputReferenceGrammar(
       ? {
           blockSpecificRules: [
             {
-              title: 'Use built-in indicators with full Historical Data output',
+              title: 'Use available indicators with full Historical Data output',
               summary:
-                'Call built-in indicators with `indicator.<ID>(marketSeries)` and pass the full Historical Data output object, not `<historical_data.close>`. The optional second argument must be an object. Use saved indicator input titles as keys, or pass them under `inputs`. Use `indicator.list()` if the built-in ID is unknown.',
+                'Call available indicators with `indicator.<ID>(marketSeries)` or `indicator["<ID>"](marketSeries)` and pass the full Historical Data output object, not `<historical_data.close>`. The optional second argument must be an object. Use saved indicator input titles as keys, or pass them under `inputs`. Use `indicator.list()` if the available ID is unknown.',
               examples: [
                 'await indicator.RSI(<historical_data>)',
                 'await indicator.RSI(<historical_data>, { Length: 7 })',
+                'await indicator["custom-indicator-id"](<historical_data>)',
                 "await indicator.MACD(<historical_data>, { 'Fast Length': 12, 'Slow Length': 26, 'Signal Length': 9 })",
               ],
             },

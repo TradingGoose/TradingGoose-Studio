@@ -22,7 +22,7 @@ export async function resolveSkillMetadata(
     const selectedSkillIds = new Set(skillIds)
     return skills
       .filter((skill) => selectedSkillIds.has(skill.id))
-      .map((skill) => ({ name: skill.name, description: skill.description }))
+      .map((skill) => ({ id: skill.id, name: skill.name, description: skill.description }))
   } catch (error) {
     logger.error('Failed to resolve skill metadata', { error, skillIds, workspaceId })
     return []
@@ -30,25 +30,25 @@ export async function resolveSkillMetadata(
 }
 
 export async function resolveSkillContent(
-  skillName: string,
+  skillId: string,
   workspaceId: string
 ): Promise<string | null> {
-  if (!skillName || !workspaceId) {
+  if (!skillId || !workspaceId) {
     return null
   }
 
   try {
     const rows = await listSkills({ workspaceId })
-    const skill = rows.find((row) => row.name === skillName)
+    const skill = rows.find((row) => row.id === skillId)
 
     if (!skill) {
-      logger.warn('Skill not found', { skillName, workspaceId })
+      logger.warn('Skill not found', { skillId, workspaceId })
       return null
     }
 
     return skill.content
   } catch (error) {
-    logger.error('Failed to resolve skill content', { error, skillName, workspaceId })
+    logger.error('Failed to resolve skill content', { error, skillId, workspaceId })
     return null
   }
 }

@@ -215,7 +215,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   [CopilotTool.list_indicators]: {
     description:
-      'List both built-in default indicators and workspace custom indicators. Each result includes `source`, `editable`, `callableInFunctionBlock`, optional `entityId` for editable custom indicators, optional `runtimeId` for built-in Function-block calls, and optional `inputTitles` showing saved override keys. Use `read_indicator` next to inspect the full indicator document, Pine code, and input metadata for a candidate built-in or custom indicator.',
+      'List both built-in default indicators and workspace custom indicators. Each result includes `source`, `editable`, `callableInFunctionBlock`, optional `entityId` for editable custom indicators, `runtimeId` for Function-block calls, and optional `inputTitles` showing saved override keys. Use `read_indicator` next to inspect the full indicator document, Pine code, and input metadata for a candidate built-in or custom indicator.',
     kind: 'list',
     entityKind: 'indicator',
   },

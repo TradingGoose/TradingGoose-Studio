@@ -8,6 +8,8 @@ const sortByRecent = <T extends { createdAt?: string; updatedAt?: string }>(item
     return rightTime - leftTime
   })
 
+const toTrimmedString = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
+
 export async function loadWorkspaceEntityMentionItems(
   entityKind: CopilotWorkspaceEntityKind,
   workspaceId: string
@@ -40,51 +42,79 @@ export async function loadWorkspaceEntityMentionItems(
 
   switch (entityKind) {
     case 'workflow':
-      return sortByRecent(Array.isArray(data?.data) ? data.data : []).flatMap((item: any) =>
-        item.id
+      return sortByRecent(Array.isArray(data?.data) ? data.data : []).flatMap((item: any) => {
+        const name = toTrimmedString(item.name)
+        return item.id
           ? [
               {
                 entityKind,
                 id: item.id,
-                name: item.name || '',
+                name,
                 color: item.color,
               },
             ]
           : []
-      )
+      })
     case 'skill':
-      return sortByRecent(Array.isArray(data?.data) ? data.data : []).map((item: any) => ({
-        entityKind,
-        id: item.id,
-        name: item.name || '',
-        description: item.description || '',
-      }))
+      return sortByRecent(Array.isArray(data?.data) ? data.data : []).flatMap((item: any) => {
+        const name = toTrimmedString(item.name)
+        return item.id
+          ? [
+              {
+                entityKind,
+                id: item.id,
+                name,
+                description: toTrimmedString(item.description),
+              },
+            ]
+          : []
+      })
     case 'indicator':
-      return sortByRecent(Array.isArray(data?.data) ? data.data : []).map((item: any) => ({
-        entityKind,
-        id: item.id,
-        name: item.name || '',
-        color: item.color,
-      }))
+      return sortByRecent(Array.isArray(data?.data) ? data.data : []).flatMap((item: any) => {
+        const name = toTrimmedString(item.name)
+        return item.id
+          ? [
+              {
+                entityKind,
+                id: item.id,
+                name,
+                color: item.color,
+              },
+            ]
+          : []
+      })
     case 'custom_tool':
-      return sortByRecent(Array.isArray(data?.data) ? data.data : []).map((item: any) => ({
-        entityKind,
-        id: item.id,
-        name: item.title || item.schema?.function?.name || '',
-        description: item.schema?.function?.description || '',
-        functionName: item.schema?.function?.name || '',
-      }))
+      return sortByRecent(Array.isArray(data?.data) ? data.data : []).flatMap((item: any) => {
+        const name = toTrimmedString(item.title)
+        return item.id
+          ? [
+              {
+                entityKind,
+                id: item.id,
+                name,
+                description: toTrimmedString(item.schema?.function?.description),
+              },
+            ]
+          : []
+      })
     case 'mcp_server':
-      return sortByRecent(Array.isArray(data?.data?.servers) ? data.data.servers : []).map(
-        (item: any) => ({
-          entityKind,
-          id: item.id,
-          name: item.name || '',
-          description: item.description || '',
-          transport: item.transport || 'http',
-          enabled: item.enabled,
-          connectionStatus: item.connectionStatus,
-        })
+      return sortByRecent(Array.isArray(data?.data?.servers) ? data.data.servers : []).flatMap(
+        (item: any) => {
+          const name = toTrimmedString(item.name)
+          return item.id
+            ? [
+                {
+                  entityKind,
+                  id: item.id,
+                  name,
+                  description: toTrimmedString(item.description),
+                  transport: toTrimmedString(item.transport),
+                  enabled: item.enabled,
+                  connectionStatus: item.connectionStatus,
+                },
+              ]
+            : []
+        }
       )
   }
 }

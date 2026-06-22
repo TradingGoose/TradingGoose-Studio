@@ -122,21 +122,46 @@ export function categorizeError(error: unknown): { message: string; status: numb
  * Create standardized MCP tool ID from server ID and tool name
  */
 export function createMcpToolId(serverId: string, toolName: string): string {
-  const normalizedServerId = serverId.startsWith('mcp-') ? serverId : `mcp-${serverId}`
-  return `${normalizedServerId}-${toolName}`
+  const encodedServerId = encodeMcpToolIdPart(serverId)
+  const encodedToolName = encodeMcpToolIdPart(toolName)
+  return `mcp_${encodedServerId.length}_${encodedServerId}_${encodedToolName}`
 }
 
 /**
  * Parse MCP tool ID to extract server ID and tool name
  */
 export function parseMcpToolId(toolId: string): { serverId: string; toolName: string } {
-  const parts = toolId.split('-')
-  if (parts.length < 3 || parts[0] !== 'mcp') {
-    throw new Error(`Invalid MCP tool ID format: ${toolId}. Expected: mcp-serverId-toolName`)
+  const payload = toolId.slice('mcp_'.length)
+  const lengthEnd = isMcpToolId(toolId) ? payload.indexOf('_') : -1
+  const serverPartLength = Number(payload.slice(0, lengthEnd))
+  if (lengthEnd <= 0 || !Number.isInteger(serverPartLength)) {
+    throw new Error(`Invalid MCP tool ID format: ${toolId}`)
   }
 
-  const serverId = `${parts[0]}-${parts[1]}`
-  const toolName = parts.slice(2).join('-')
+  const serverPartStart = lengthEnd + 1
+  const serverPartEnd = serverPartStart + serverPartLength
+  const serverPart = payload.slice(serverPartStart, serverPartEnd)
+  const toolPart = payload.slice(serverPartEnd + 1)
 
-  return { serverId, toolName }
+  if (payload[serverPartEnd] !== '_' || !serverPart || !toolPart) {
+    throw new Error(`Invalid MCP tool ID format: ${toolId}`)
+  }
+
+  return {
+    serverId: decodeMcpToolIdPart(serverPart),
+    toolName: decodeMcpToolIdPart(toolPart),
+  }
+}
+
+export function isMcpToolId(toolId: string): boolean {
+  return toolId.startsWith('mcp_')
+}
+
+function encodeMcpToolIdPart(value: string): string {
+  return btoa(unescape(encodeURIComponent(value))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+}
+
+function decodeMcpToolIdPart(value: string): string {
+  const base64 = value.replace(/-/g, '+').replace(/_/g, '/')
+  return decodeURIComponent(escape(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '='))))
 }

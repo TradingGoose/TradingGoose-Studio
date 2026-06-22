@@ -33,7 +33,6 @@ type ApiCustomTool = Partial<CustomToolDefinition> & {
 }
 
 function normalizeCustomTool(tool: ApiCustomTool, workspaceId: string): CustomToolDefinition {
-  const functionName = tool.schema.function?.name || tool.id
   const parameters = tool.schema.function?.parameters ?? {
     type: 'object',
     properties: {},
@@ -55,7 +54,6 @@ function normalizeCustomTool(tool: ApiCustomTool, workspaceId: string): CustomTo
     schema: {
       type: tool.schema.type ?? 'function',
       function: {
-        name: functionName,
         description: tool.schema.function?.description,
         parameters: {
           type: parameters.type ?? 'object',
@@ -99,7 +97,7 @@ async function fetchCustomTools(workspaceId: string): Promise<CustomToolDefiniti
       logger.warn(`Skipping invalid tool at index ${index}: missing or invalid id`)
       return
     }
-    if (!tool.title || typeof tool.title !== 'string') {
+    if (typeof tool.title !== 'string') {
       logger.warn(`Skipping invalid tool at index ${index}: missing or invalid title`)
       return
     }
@@ -155,7 +153,7 @@ export function useCustomTools(workspaceId: string) {
       .map((tool) => {
         const updatedAt =
           typeof tool.updatedAt === 'string' ? tool.updatedAt : (tool.createdAt ?? '')
-        return `${tool.id}:${updatedAt}:${tool.title}:${tool.schema?.function?.name ?? ''}:${tool.code ?? ''}`
+        return `${tool.id}:${updatedAt}:${tool.title}:${JSON.stringify(tool.schema?.function ?? {})}:${tool.code ?? ''}`
       })
       .join('|')
 

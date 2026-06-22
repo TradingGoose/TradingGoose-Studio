@@ -3,10 +3,7 @@
 import type { ComponentType } from 'react'
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
 import type { ChatContext } from '@/stores/copilot/types'
-import type {
-  CopilotWorkspaceEntityKind,
-  CopilotWorkspaceEntityMentionOption,
-} from '../../workspace-entities'
+import type { CopilotWorkspaceEntityKind } from '../../workspace-entities'
 
 export interface MessageFileAttachment {
   id: string
@@ -55,7 +52,7 @@ export interface UserInputRef {
 
 export type MentionOption =
   | 'chats'
-  | CopilotWorkspaceEntityMentionOption
+  | CopilotWorkspaceEntityKind
   | 'workflow_blocks'
   | 'blocks'
   | 'knowledge'
@@ -76,6 +73,7 @@ export interface MentionRange {
   start: number
   end: number
   label: string
+  contextKey: string
 }
 
 export interface PastChatItem {
@@ -91,7 +89,6 @@ export interface WorkspaceEntityItem {
   name: string
   color?: string
   description?: string
-  functionName?: string
   transport?: string
   enabled?: boolean
   connectionStatus?: string

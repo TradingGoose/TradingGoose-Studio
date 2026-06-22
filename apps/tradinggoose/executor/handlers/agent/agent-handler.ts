@@ -1,4 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import { resolveCustomToolRuntimeId } from '@/lib/custom-tools/schema'
 import { createMcpToolId } from '@/lib/mcp/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { getAllBlocks } from '@/blocks'
@@ -29,7 +30,6 @@ const logger = createLogger('AgentBlockHandler')
 const DEFAULT_MODEL = 'gpt-4o'
 const DEFAULT_FUNCTION_TIMEOUT = 600000
 const REQUEST_TIMEOUT = 120000
-const CUSTOM_TOOL_PREFIX = 'custom_'
 
 /**
  * Helper function to collect runtime block outputs and name mappings
@@ -94,12 +94,7 @@ export class AgentBlockHandler implements BlockHandler {
         : null
 
     if (skillMetadata.length > 0 && skillLoaderToolId) {
-      formattedTools.push(
-        buildLoadSkillTool(
-          skillLoaderToolId,
-          skillMetadata.map((skill) => skill.name)
-        )
-      )
+      formattedTools.push(buildLoadSkillTool(skillLoaderToolId, skillMetadata))
     }
 
     const streamingConfig = this.getStreamingConfig(block, context)
@@ -221,10 +216,10 @@ export class AgentBlockHandler implements BlockHandler {
 
     const filteredSchema = filterSchemaForLLM(tool.schema.function.parameters, userProvidedParams)
 
-    const toolId = `${CUSTOM_TOOL_PREFIX}${tool.title}`
+    const toolId = resolveCustomToolRuntimeId({ toolId: tool.toolId })
     const base: any = {
       id: toolId,
-      name: tool.schema.function.name,
+      name: toolId,
       description: tool.schema.function.description || '',
       params: userProvidedParams,
       parameters: {
@@ -436,7 +431,7 @@ export class AgentBlockHandler implements BlockHandler {
 
   private buildMessages(
     inputs: AgentInputs,
-    skillMetadata: Array<{ name: string; description: string }> = [],
+    skillMetadata: Array<{ id: string; name: string; description: string }> = [],
     skillLoaderToolId?: string | null
   ): Message[] | undefined {
     if (

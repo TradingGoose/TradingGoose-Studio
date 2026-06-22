@@ -1,4 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import { isMcpToolId } from '@/lib/mcp/utils'
 import { getBlock } from '@/blocks/index'
 import { withBlockToolExecutionContext } from '@/executor/handlers/tool-execution-context'
 import type { BlockHandler, ExecutionContext } from '@/executor/types'
@@ -23,7 +24,7 @@ export class GenericBlockHandler implements BlockHandler {
   ): Promise<any> {
     logger.info(`Executing block: ${block.id} (Type: ${block.metadata?.id})`)
 
-    const isMcpTool = block.config.tool?.startsWith('mcp-')
+    const isMcpTool = block.config.tool ? isMcpToolId(block.config.tool) : false
     let tool = null
 
     if (!isMcpTool) {

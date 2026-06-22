@@ -1,6 +1,6 @@
 import { generateInternalToken } from '@/lib/auth/internal'
 import { createLogger } from '@/lib/logs/console/logger'
-import { parseMcpToolId } from '@/lib/mcp/utils'
+import { isMcpToolId, parseMcpToolId } from '@/lib/mcp/utils'
 import { validateExternalUrl } from '@/lib/security/input-validation'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { generateRequestId } from '@/lib/utils'
@@ -263,21 +263,21 @@ export async function executeTool(
     let tool: ToolConfig | undefined
 
     if (isSkillLoaderExecution(params)) {
-      const skillName = typeof params.skill_name === 'string' ? params.skill_name : null
-      if (!skillName || !scope.workspaceId) {
+      const skillId = typeof params.skill_id === 'string' ? params.skill_id : null
+      if (!skillId || !scope.workspaceId) {
         return {
           success: false,
-          output: { error: 'Missing skill_name or workspace context' },
-          error: 'Missing skill_name or workspace context',
+          output: { error: 'Missing skill_id or workspace context' },
+          error: 'Missing skill_id or workspace context',
         }
       }
 
-      const content = await resolveSkillContent(skillName, scope.workspaceId)
+      const content = await resolveSkillContent(skillId, scope.workspaceId)
       if (!content) {
         return {
           success: false,
-          output: { error: `Skill "${skillName}" not found` },
-          error: `Skill "${skillName}" not found`,
+          output: { error: `Skill "${skillId}" not found` },
+          error: `Skill "${skillId}" not found`,
         }
       }
 
@@ -293,7 +293,7 @@ export async function executeTool(
       if (!tool) {
         logger.error(`[${requestId}] Custom tool not found: ${toolId}`)
       }
-    } else if (toolId.startsWith('mcp-')) {
+    } else if (isMcpToolId(toolId)) {
       return await executeMcpTool(
         toolId,
         params,
@@ -925,7 +925,7 @@ function validateClientSideParams(
 /**
  * Execute an MCP tool via the server-side proxy
  *
- * @param toolId - MCP tool ID in format "mcp-serverId-toolName"
+ * @param toolId - encoded MCP tool ID
  * @param params - Tool parameters
  * @param executionContext - Execution context
  * @param requestId - Request ID for logging

@@ -2,6 +2,7 @@ const SKILL_LOADER_MARKER = '__tradinggooseSkillLoader'
 export const SKILL_LOADER_TOOL_PREFIX = 'tradinggoose_internal_load_skill'
 
 export interface SkillMetadata {
+  id: string
   name: string
   description: string
 }
@@ -55,7 +56,7 @@ export function buildSkillsSystemPromptSection(
   const skillEntries = skills
     .map(
       (skillMetadata) =>
-        `  <skill name="${escapeXml(skillMetadata.name)}">\n    <description>${escapeXml(skillMetadata.description)}</description>\n  </skill>`
+        `  <skill id="${escapeXml(skillMetadata.id)}" name="${escapeXml(skillMetadata.name)}">\n    <description>${escapeXml(skillMetadata.description)}</description>\n  </skill>`
     )
     .join('\n')
 
@@ -69,24 +70,24 @@ export function buildSkillsSystemPromptSection(
   ].join('\n')
 }
 
-export function buildLoadSkillTool(skillLoaderToolId: string, skillNames: string[]) {
+export function buildLoadSkillTool(skillLoaderToolId: string, skills: SkillMetadata[]) {
   return {
     id: skillLoaderToolId,
     name: skillLoaderToolId,
-    description: `Load a skill to get specialized instructions. Available skills: ${skillNames.join(', ')}`,
+    description: `Load a skill to get specialized instructions. Available skills: ${skills.map((skill) => skill.name).join(', ')}`,
     params: {
       [SKILL_LOADER_MARKER]: true,
     },
     parameters: {
       type: 'object',
       properties: {
-        skill_name: {
+        skill_id: {
           type: 'string',
-          enum: skillNames,
-          description: 'Name of the skill to load',
+          enum: skills.map((skill) => skill.id),
+          description: 'ID of the skill to load',
         },
       },
-      required: ['skill_name'],
+      required: ['skill_id'],
     },
   }
 }

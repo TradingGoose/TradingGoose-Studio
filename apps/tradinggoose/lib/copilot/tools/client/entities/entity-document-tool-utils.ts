@@ -17,7 +17,6 @@ type EntityListEntry = {
   entityName: string
   entityDescription?: string
   entityTitle?: string
-  entityFunctionName?: string
   entityTransport?: string
   entityUrl?: string
   entityEnabled?: boolean
@@ -93,10 +92,8 @@ const ENTITY_API_CONFIG: Record<EntityDocumentKind, EntityApiConfig> = {
     }),
     toListEntry: (item) => ({
       entityId: String(item?.id ?? ''),
-      entityName: String(item?.title ?? item?.schema?.function?.name ?? ''),
+      entityName: String(item?.title ?? ''),
       entityTitle: typeof item?.title === 'string' ? item.title : '',
-      entityFunctionName:
-        typeof item?.schema?.function?.name === 'string' ? item.schema.function.name : undefined,
       entityDescription:
         typeof item?.schema?.function?.description === 'string'
           ? item.schema.function.description
