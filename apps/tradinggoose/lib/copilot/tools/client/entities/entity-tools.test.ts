@@ -186,7 +186,6 @@ describe('entity document tools', () => {
         {
           type: 'function',
           function: {
-            name: 'marketTool',
             description: 'Fetch market data',
             parameters: { type: 'object', properties: {} },
           },
