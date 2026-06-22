@@ -1,5 +1,8 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import { resolveCustomToolRuntimeId } from '@/lib/custom-tools/schema'
+import {
+  buildCustomToolModelDescription,
+  resolveCustomToolRuntimeId,
+} from '@/lib/custom-tools/schema'
 import { createMcpToolId } from '@/lib/mcp/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { getAllBlocks } from '@/blocks'
@@ -220,7 +223,10 @@ export class AgentBlockHandler implements BlockHandler {
     const base: any = {
       id: toolId,
       name: toolId,
-      description: tool.schema.function.description || '',
+      description: buildCustomToolModelDescription({
+        title: tool.title,
+        description: tool.schema.function.description,
+      }),
       params: userProvidedParams,
       parameters: {
         ...filteredSchema,

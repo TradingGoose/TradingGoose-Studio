@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { exportCustomToolsAsJson } from '@/lib/custom-tools/import-export'
-import { parseCustomToolSchemaValue } from '@/lib/custom-tools/schema'
+import { CustomToolOpenAiSchema } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { useUpdateCustomTool } from '@/hooks/queries/custom-tools'
@@ -145,7 +145,7 @@ export function CustomToolEditor({
     }
 
     try {
-      parseCustomToolSchemaValue(parsed)
+      CustomToolOpenAiSchema.parse(parsed)
     } catch {
       setSchemaError(copy.validation.failedToValidateSchema)
       return
@@ -341,7 +341,7 @@ IMPORTANT FORMATTING RULES:
         return null
       }
 
-      return parseCustomToolSchemaValue(schema)
+      return CustomToolOpenAiSchema.parse(schema)
     } catch (error) {
       logger.error('Error validating custom tool schema:', { error })
       setSchemaError(copy.validation.failedToValidateSchema)

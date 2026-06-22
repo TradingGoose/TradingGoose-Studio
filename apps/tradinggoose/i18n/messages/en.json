@@ -20934,7 +20934,6 @@
         "validation": {
           "failedToLoadToolData": "Failed to load tool data. Please try again.",
           "missingTypeFunction": "Missing \"type\": \"function\"",
-          "missingFunctionName": "Missing function.name field",
           "missingFunctionParameters": "Missing function.parameters object",
           "missingParametersType": "Missing parameters.type field",
           "missingParametersProperties": "Missing parameters.properties field",
@@ -20942,9 +20941,7 @@
           "invalidJsonFormat": "Invalid JSON format",
           "schemaCannotBeEmpty": "Schema cannot be empty",
           "schemaMustBeFunctionType": "Schema must have a \"type\" field set to \"function\"",
-          "schemaMustHaveFunctionName": "Schema must have a \"function\" object with a \"name\" field",
           "failedToValidateSchema": "Failed to validate custom tool schema. Please check your inputs and try again.",
-          "duplicateName": "A tool with the name \"{name}\" already exists",
           "failedToSave": "Failed to save custom tool. Please check your inputs and try again."
         },
         "form": {

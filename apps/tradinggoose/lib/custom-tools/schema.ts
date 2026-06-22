@@ -2,6 +2,8 @@ import { z } from 'zod'
 
 const CUSTOM_TOOL_RUNTIME_PREFIX = 'custom_'
 const normalizeInlineWhitespace = (value: string) => value.trim().replace(/\s+/g, ' ')
+const normalizeOptionalInlineWhitespace = (value: unknown) =>
+  typeof value === 'string' ? normalizeInlineWhitespace(value) : ''
 
 export function resolveCustomToolRuntimeId({
   id,
@@ -21,6 +23,22 @@ export const resolveCustomToolEntityId = (runtimeId: string): string =>
   runtimeId.startsWith(CUSTOM_TOOL_RUNTIME_PREFIX)
     ? runtimeId.slice(CUSTOM_TOOL_RUNTIME_PREFIX.length)
     : runtimeId
+
+export function buildCustomToolModelDescription({
+  title,
+  description,
+}: {
+  title?: string | null
+  description?: string | null
+}): string {
+  const normalizedTitle = normalizeOptionalInlineWhitespace(title)
+  return [
+    normalizedTitle ? `Custom tool title: ${normalizedTitle}` : '',
+    normalizeOptionalInlineWhitespace(description),
+  ]
+    .filter(Boolean)
+    .join('. ')
+}
 
 export const CustomToolParametersSchema = z.object({
   type: z.literal('object'),
@@ -72,12 +90,6 @@ export const CustomToolUpsertRequestSchema = z.object({
 
 export type CustomToolTransferRecord = z.infer<typeof CustomToolTransferSchema>
 
-export function parseCustomToolSchemaValue(
-  schemaValue: unknown
-): z.infer<typeof CustomToolOpenAiSchema> {
-  return CustomToolOpenAiSchema.parse(schemaValue)
-}
-
 export function parseCustomToolSchemaText(
   schemaText: unknown
 ): z.infer<typeof CustomToolOpenAiSchema> {
@@ -85,5 +97,5 @@ export function parseCustomToolSchemaText(
     throw new Error('custom tool schemaText is required')
   }
 
-  return parseCustomToolSchemaValue(JSON.parse(schemaText))
+  return CustomToolOpenAiSchema.parse(JSON.parse(schemaText))
 }

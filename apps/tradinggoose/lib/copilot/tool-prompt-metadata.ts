@@ -8,7 +8,7 @@ export interface ToolPromptMetadata {
 }
 
 const CUSTOM_TOOL_DOCUMENT_GUIDANCE =
-  'Use full `tg-custom-tool-document-v1` JSON with exactly `title`, `schemaText`, and `codeText`. `schemaText` is a JSON-encoded string, not an object, containing {"type":"function","function":{"name":"camelCaseName","description":"What the tool does","parameters":{"type":"object","properties":{},"required":[]}}}. `codeText` is raw async JavaScript function body only; use <paramName> for inputs and {{ENV_VAR_NAME}} for environment variables.'
+  'Use full `tg-custom-tool-document-v1` JSON with exactly `title`, `schemaText`, and `codeText`. `title` is the canonical custom-tool name. `schemaText` is a JSON-encoded string, not an object, containing {"type":"function","function":{"description":"What the tool does","parameters":{"type":"object","properties":{},"required":[]}}}. Do not include a `name` property inside `function`. `codeText` is raw async JavaScript function body only; use <paramName> for inputs and {{ENV_VAR_NAME}} for environment variables.'
 
 export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   plan: {
@@ -191,7 +191,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
     entityKind: 'custom_tool',
   },
   rename_custom_tool: {
-    description: `Rename the target custom tool by sending a full custom tool document with the updated title or function name, then return the resulting document. ${CUSTOM_TOOL_DOCUMENT_GUIDANCE}`,
+    description: `Rename the target custom tool by sending a full custom tool document with the updated title, then return the resulting document. ${CUSTOM_TOOL_DOCUMENT_GUIDANCE}`,
     kind: 'rename',
     entityKind: 'custom_tool',
   },

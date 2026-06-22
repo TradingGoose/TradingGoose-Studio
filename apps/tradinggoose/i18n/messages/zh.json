@@ -20921,7 +20921,6 @@
         "validation": {
           "failedToLoadToolData": "无法加载工具数据，请重试。",
           "missingTypeFunction": "缺少 \"type\": \"function\"",
-          "missingFunctionName": "缺少 function.name 字段",
           "missingFunctionParameters": "缺少 function.parameters 对象",
           "missingParametersType": "缺少 parameters.type 字段",
           "missingParametersProperties": "缺少 parameters.properties 字段",
@@ -20929,9 +20928,7 @@
           "invalidJsonFormat": "JSON 格式无效",
           "schemaCannotBeEmpty": "Schema 不能为空",
           "schemaMustBeFunctionType": "Schema 必须有值为 \"function\" 的 \"type\" 字段",
-          "schemaMustHaveFunctionName": "Schema 必须有一个带 \"name\" 字段的 \"function\" 对象",
           "failedToValidateSchema": "无法验证自定义工具 schema，请检查输入后重试。",
-          "duplicateName": "已存在名为 \"{name}\" 的工具",
           "failedToSave": "无法保存自定义工具，请检查输入后重试。"
         },
         "form": {
