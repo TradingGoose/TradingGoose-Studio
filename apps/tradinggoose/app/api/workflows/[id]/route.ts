@@ -12,7 +12,7 @@ import { generateRequestId } from '@/lib/utils'
 import { loadWorkflowState } from '@/lib/workflows/db-helpers'
 import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/utils'
 import { applyWorkflowEntityName } from '@/lib/yjs/server/apply-workflow-state'
-import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import { tryDeleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 const logger = createLogger('WorkflowByIdAPI')
@@ -287,16 +287,7 @@ export async function DELETE(
 
     await db.delete(workflow).where(eq(workflow.id, workflowId))
 
-    // Best-effort cleanup of the authoritative socket/Yjs session.
-    // Do not block workflow deletion if the bridge is unavailable.
-    try {
-      await deleteYjsSessionInSocketServer(workflowId)
-    } catch (error) {
-      logger.warn(`[${requestId}] Failed to delete socket/Yjs session for workflow ${workflowId}`, {
-        error,
-        workflowId,
-      })
-    }
+    await tryDeleteYjsSessionInSocketServer(workflowId)
 
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully deleted workflow ${workflowId} in ${elapsed}ms`)
@@ -387,11 +378,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
           lastSaved: new Date(workflowState.lastSaved).toISOString(),
         }),
         workflowState.variables,
-        updates.name
+        updates.name,
+        updateData
       )
     }
 
-    if (!updatedWorkflow || updates.description !== undefined || updates.folderId !== undefined) {
+    if (!updatedWorkflow) {
       ;[updatedWorkflow] = await db
         .update(workflow)
         .set(updateData)

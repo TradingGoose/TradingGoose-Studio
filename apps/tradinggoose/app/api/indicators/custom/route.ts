@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { upsertIndicators } from '@/lib/indicators/custom/operations'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import { tryDeleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { authenticateIndicatorRequest, checkWorkspacePermission } from '../utils'
 
 const logger = createLogger('IndicatorsAPI')
@@ -220,21 +220,17 @@ export async function DELETE(request: NextRequest) {
       return permissionCheck.response
     }
 
-    const [existingIndicator] = await db
-      .select({ id: pineIndicators.id })
-      .from(pineIndicators)
+    const [deletedIndicator] = await db
+      .delete(pineIndicators)
       .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
-      .limit(1)
+      .returning({ id: pineIndicators.id })
 
-    if (!existingIndicator) {
+    if (!deletedIndicator) {
       logger.warn(`[${requestId}] Indicator not found: ${indicatorId}`)
       return NextResponse.json({ error: 'Indicator not found' }, { status: 404 })
     }
 
-    await deleteYjsSessionInSocketServer(indicatorId)
-    await db
-      .delete(pineIndicators)
-      .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
+    await tryDeleteYjsSessionInSocketServer(indicatorId)
 
     logger.info(`[${requestId}] Deleted indicator ${indicatorId}`)
     return NextResponse.json({ success: true }, { status: 200 })

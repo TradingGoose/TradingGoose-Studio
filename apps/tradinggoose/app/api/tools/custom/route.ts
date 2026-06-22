@@ -9,7 +9,7 @@ import { CustomToolUpsertRequestSchema } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
-import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import { tryDeleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('CustomToolsAPI')
 
@@ -174,20 +174,17 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Write permission required' }, { status: 403 })
     }
 
-    // Check if the tool exists in this workspace
-    const existingTool = await db
-      .select()
-      .from(customTools)
+    const deletedTool = await db
+      .delete(customTools)
       .where(and(eq(customTools.id, toolId), eq(customTools.workspaceId, workspaceId)))
-      .limit(1)
+      .returning({ id: customTools.id })
 
-    if (existingTool.length === 0) {
+    if (deletedTool.length === 0) {
       logger.warn(`[${requestId}] Tool not found: ${toolId}`)
       return NextResponse.json({ error: 'Tool not found' }, { status: 404 })
     }
 
-    await deleteYjsSessionInSocketServer(toolId)
-    await db.delete(customTools).where(eq(customTools.id, toolId))
+    await tryDeleteYjsSessionInSocketServer(toolId)
 
     logger.info(`[${requestId}] Deleted tool: ${toolId}`)
     return NextResponse.json({ success: true })

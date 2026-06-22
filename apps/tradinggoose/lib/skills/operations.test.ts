@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockTransaction, mockNanoid, mockApplySavedEntityPersistedState } = vi.hoisted(() => ({
+const { mockTransaction, mockNanoid, mockApplySavedEntityDraftState } = vi.hoisted(() => ({
   mockTransaction: vi.fn(),
   mockNanoid: vi.fn(),
-  mockApplySavedEntityPersistedState: vi.fn(),
+  mockApplySavedEntityDraftState: vi.fn(),
 }))
 
 vi.mock('@tradinggoose/db', () => ({
@@ -32,8 +32,7 @@ vi.mock('nanoid', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
-  applySavedEntityPersistedState: (...args: unknown[]) =>
-    mockApplySavedEntityPersistedState(...args),
+  applySavedEntityDraftState: (...args: unknown[]) => mockApplySavedEntityDraftState(...args),
 }))
 
 import { importSkills } from '@/lib/skills/operations'
@@ -149,13 +148,13 @@ describe('skills import operations', () => {
     ])
     expect(result.importedCount).toBe(2)
     expect(result.renamedCount).toBe(1)
-    expect(mockApplySavedEntityPersistedState).toHaveBeenCalledTimes(2)
-    expect(mockApplySavedEntityPersistedState).toHaveBeenCalledWith('skill', 'skill-b', {
+    expect(mockApplySavedEntityDraftState).toHaveBeenCalledTimes(2)
+    expect(mockApplySavedEntityDraftState).toHaveBeenCalledWith('skill', 'skill-b', {
       name: 'Execution Plan (imported) 1',
       description: 'Create the execution plan.',
       content: 'Follow the checklist.',
     })
-    expect(mockApplySavedEntityPersistedState).toHaveBeenCalledWith('skill', 'skill-a', {
+    expect(mockApplySavedEntityDraftState).toHaveBeenCalledWith('skill', 'skill-a', {
       name: 'Market Research',
       description: 'Research the market.',
       content: 'Review catalysts.',

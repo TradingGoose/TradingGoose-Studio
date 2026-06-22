@@ -10,7 +10,7 @@ import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import { applySavedEntityPersistedState } from '@/lib/yjs/server/apply-entity-state'
-import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import { tryDeleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { CreateMcpServerSchema } from './schema'
 
 const logger = createLogger('McpServersAPI')
@@ -173,10 +173,9 @@ export const DELETE = withMcpAuth('write')(
       logger.info(`[${requestId}] Deleting MCP server: ${serverId} from workspace: ${workspaceId}`)
 
       const [server] = await db
-        .select({ id: mcpServers.id })
-        .from(mcpServers)
+        .delete(mcpServers)
         .where(and(eq(mcpServers.id, serverId), eq(mcpServers.workspaceId, workspaceId)))
-        .limit(1)
+        .returning({ id: mcpServers.id })
 
       if (!server) {
         return createMcpErrorResponse(
@@ -186,11 +185,7 @@ export const DELETE = withMcpAuth('write')(
         )
       }
 
-      await deleteYjsSessionInSocketServer(serverId)
-      await db
-        .delete(mcpServers)
-        .where(and(eq(mcpServers.id, serverId), eq(mcpServers.workspaceId, workspaceId)))
-
+      await tryDeleteYjsSessionInSocketServer(serverId)
       mcpService.clearCache(workspaceId)
 
       logger.info(`[${requestId}] Successfully deleted MCP server: ${serverId}`)

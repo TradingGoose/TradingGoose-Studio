@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { pineIndicators } from '@tradinggoose/db/schema'
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import { getStableVibrantColor } from '@/lib/colors'
 import {
   type IndicatorTransferRecord,
@@ -9,7 +9,7 @@ import {
 import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { applySavedEntityRows } from '@/lib/yjs/entity-state'
+import { syncSavedEntityRowsToYjs } from '@/lib/yjs/entity-state'
 
 const logger = createLogger('IndicatorsOperations')
 
@@ -54,7 +54,6 @@ export async function upsertIndicators({
 }: UpsertIndicatorsParams) {
   const createdRows: Array<typeof pineIndicators.$inferSelect> = []
   const updatedRows: Array<typeof pineIndicators.$inferSelect> = []
-  const createdIds: string[] = []
   await db.transaction(async (tx) => {
     for (const indicator of indicators) {
       const nowTime = new Date()
@@ -71,15 +70,23 @@ export async function upsertIndicators({
         if (existing.length > 0) {
           const existingColor = existing[0]?.color
 
+          const [updatedIndicator] = await tx
+            .update(pineIndicators)
+            .set({
+              name: indicator.name,
+              color: existingColor ?? getStableVibrantColor(indicator.id),
+              pineCode: indicator.pineCode,
+              inputMeta: indicator.inputMeta ?? null,
+              updatedAt: nowTime,
+            })
+            .where(
+              and(eq(pineIndicators.id, indicator.id), eq(pineIndicators.workspaceId, workspaceId))
+            )
+            .returning()
+          if (updatedIndicator) {
+            updatedRows.push(updatedIndicator)
+          }
           logger.info(`[${requestId}] Updated Indicator ${indicator.id}`)
-          updatedRows.push({
-            ...existing[0],
-            name: indicator.name,
-            color: existingColor ?? getStableVibrantColor(indicator.id),
-            pineCode: indicator.pineCode,
-            inputMeta: indicator.inputMeta ?? null,
-            updatedAt: nowTime,
-          })
           continue
         }
       }
@@ -100,18 +107,10 @@ export async function upsertIndicators({
 
       logger.info(`[${requestId}] Created Indicator ${indicator.name}`)
       createdRows.push(newIndicator)
-      createdIds.push(indicatorId)
     }
   })
 
-  await applySavedEntityRows('indicator', createdRows, {
-    rollbackRows: async () => {
-      if (createdIds.length > 0) {
-        await db.delete(pineIndicators).where(inArray(pineIndicators.id, createdIds))
-      }
-    },
-  })
-  await applySavedEntityRows('indicator', updatedRows)
+  await syncSavedEntityRowsToYjs('indicator', [...createdRows, ...updatedRows])
 
   return db
     .select()
@@ -173,18 +172,7 @@ export async function importIndicators({
     }
   })
 
-  await applySavedEntityRows('indicator', result.indicators, {
-    rollbackRows: async () => {
-      if (result.indicators.length > 0) {
-        await db.delete(pineIndicators).where(
-          inArray(
-            pineIndicators.id,
-            result.indicators.map((row) => row.id)
-          )
-        )
-      }
-    },
-  })
+  await syncSavedEntityRowsToYjs('indicator', result.indicators)
 
   return result
 }

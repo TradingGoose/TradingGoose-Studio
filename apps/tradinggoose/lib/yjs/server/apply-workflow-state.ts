@@ -98,11 +98,12 @@ export async function applyWorkflowEntityName(
   workflowId: string,
   workflowState: WorkflowSnapshot,
   variables: Record<string, any>,
-  entityName: string
+  entityName: string,
+  fields: Partial<typeof workflow.$inferInsert> = {}
 ): Promise<typeof workflow.$inferSelect> {
   const [updatedWorkflow] = await db
     .update(workflow)
-    .set({ name: entityName, updatedAt: new Date() })
+    .set({ ...fields, name: entityName, updatedAt: fields.updatedAt ?? new Date() })
     .where(eq(workflow.id, workflowId))
     .returning()
 

@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { customTools } from '@tradinggoose/db/schema'
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import {
   type CustomToolTransferRecord,
@@ -8,7 +8,7 @@ import {
 } from '@/lib/custom-tools/import-export'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { applySavedEntityRows } from '@/lib/yjs/entity-state'
+import { syncSavedEntityRowsToYjs } from '@/lib/yjs/entity-state'
 
 const logger = createLogger('CustomToolsOperations')
 
@@ -50,7 +50,6 @@ export async function upsertCustomTools({
 }: UpsertCustomToolsParams) {
   const createdRows: Array<typeof customTools.$inferSelect> = []
   const updatedRows: Array<typeof customTools.$inferSelect> = []
-  const createdIds: string[] = []
   await db.transaction(async (tx) => {
     for (const tool of tools) {
       const nowTime = new Date()
@@ -79,17 +78,25 @@ export async function upsertCustomTools({
             .limit(1)
 
           if (duplicateTitle.length > 0 && duplicateTitle[0].id !== tool.id) {
-            throw new Error(`A tool with the title "${tool.title}" already exists in this workspace`)
+            throw new Error(
+              `A tool with the title "${tool.title}" already exists in this workspace`
+            )
           }
 
+          const [updatedTool] = await tx
+            .update(customTools)
+            .set({
+              title: tool.title,
+              schema: tool.schema,
+              code: tool.code,
+              updatedAt: nowTime,
+            })
+            .where(and(eq(customTools.id, tool.id), eq(customTools.workspaceId, workspaceId)))
+            .returning()
+          if (updatedTool) {
+            updatedRows.push(updatedTool)
+          }
           logger.info(`[${requestId}] Updated custom tool ${tool.id}`)
-          updatedRows.push({
-            ...existingTool[0],
-            title: tool.title,
-            schema: tool.schema,
-            code: tool.code,
-            updatedAt: nowTime,
-          })
           continue
         }
       }
@@ -109,18 +116,10 @@ export async function upsertCustomTools({
 
       logger.info(`[${requestId}] Created custom tool ${tool.title}`)
       createdRows.push(newTool)
-      createdIds.push(toolId)
     }
   })
 
-  await applySavedEntityRows('custom_tool', createdRows, {
-    rollbackRows: async () => {
-      if (createdIds.length > 0) {
-        await db.delete(customTools).where(inArray(customTools.id, createdIds))
-      }
-    },
-  })
-  await applySavedEntityRows('custom_tool', updatedRows)
+  await syncSavedEntityRowsToYjs('custom_tool', [...createdRows, ...updatedRows])
 
   return listCustomTools({ workspaceId })
 }
@@ -172,18 +171,7 @@ export async function importCustomTools({
     }
   })
 
-  await applySavedEntityRows('custom_tool', result.tools, {
-    rollbackRows: async () => {
-      if (result.tools.length > 0) {
-        await db.delete(customTools).where(
-          inArray(
-            customTools.id,
-            result.tools.map((row) => row.id)
-          )
-        )
-      }
-    },
-  })
+  await syncSavedEntityRowsToYjs('custom_tool', result.tools)
 
   return result
 }

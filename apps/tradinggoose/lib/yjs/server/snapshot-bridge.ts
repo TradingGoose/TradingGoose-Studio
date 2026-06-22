@@ -142,6 +142,14 @@ export async function deleteYjsSessionInSocketServer(sessionId: string): Promise
   )
 }
 
+export async function tryDeleteYjsSessionInSocketServer(sessionId: string): Promise<void> {
+  try {
+    await deleteYjsSessionInSocketServer(sessionId)
+  } catch {
+    // Yjs session cleanup must not decide durable DB deletion.
+  }
+}
+
 export async function clearYjsSessionReseededFromCanonicalInSocketServer(
   sessionId: string
 ): Promise<void> {

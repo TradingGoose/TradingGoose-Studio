@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { skill } from '@tradinggoose/db/schema'
-import { and, desc, eq, inArray, ne } from 'drizzle-orm'
+import { and, desc, eq, ne } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -9,8 +9,8 @@ import {
   type SkillTransferRecord,
 } from '@/lib/skills/import-export'
 import { generateRequestId } from '@/lib/utils'
-import { applySavedEntityRows } from '@/lib/yjs/entity-state'
-import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import { syncSavedEntityRowsToYjs } from '@/lib/yjs/entity-state'
+import { tryDeleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('SkillsOperations')
 
@@ -45,20 +45,16 @@ export async function deleteSkill(params: {
   skillId: string
   workspaceId: string
 }): Promise<boolean> {
-  const existingSkill = await db
-    .select({ id: skill.id })
-    .from(skill)
+  const deletedSkill = await db
+    .delete(skill)
     .where(and(eq(skill.id, params.skillId), eq(skill.workspaceId, params.workspaceId)))
-    .limit(1)
+    .returning({ id: skill.id })
 
-  if (existingSkill.length === 0) {
+  if (deletedSkill.length === 0) {
     return false
   }
 
-  await deleteYjsSessionInSocketServer(params.skillId)
-  await db
-    .delete(skill)
-    .where(and(eq(skill.id, params.skillId), eq(skill.workspaceId, params.workspaceId)))
+  await tryDeleteYjsSessionInSocketServer(params.skillId)
 
   logger.info(`Deleted skill ${params.skillId}`)
   return true
@@ -72,7 +68,6 @@ export async function upsertSkills({
 }: UpsertSkillsParams) {
   const createdRows: Array<typeof skill.$inferSelect> = []
   const updatedRows: Array<typeof skill.$inferSelect> = []
-  const createdIds: string[] = []
   await db.transaction(async (tx) => {
     for (const currentSkill of skills) {
       const nowTime = new Date()
@@ -105,14 +100,20 @@ export async function upsertSkills({
             }
           }
 
+          const [updatedSkill] = await tx
+            .update(skill)
+            .set({
+              name: currentSkill.name,
+              description: currentSkill.description,
+              content: currentSkill.content,
+              updatedAt: nowTime,
+            })
+            .where(and(eq(skill.id, currentSkill.id), eq(skill.workspaceId, workspaceId)))
+            .returning()
+          if (updatedSkill) {
+            updatedRows.push(updatedSkill)
+          }
           logger.info(`[${requestId}] Updated skill ${currentSkill.id}`)
-          updatedRows.push({
-            ...existingSkill[0],
-            name: currentSkill.name,
-            description: currentSkill.description,
-            content: currentSkill.content,
-            updatedAt: nowTime,
-          })
           continue
         }
       }
@@ -144,18 +145,10 @@ export async function upsertSkills({
 
       logger.info(`[${requestId}] Created skill "${currentSkill.name}"`)
       createdRows.push(newSkill)
-      createdIds.push(skillId)
     }
   })
 
-  await applySavedEntityRows('skill', createdRows, {
-    rollbackRows: async () => {
-      if (createdIds.length > 0) {
-        await db.delete(skill).where(inArray(skill.id, createdIds))
-      }
-    },
-  })
-  await applySavedEntityRows('skill', updatedRows)
+  await syncSavedEntityRowsToYjs('skill', [...createdRows, ...updatedRows])
 
   return listSkills({ workspaceId })
 }
@@ -220,18 +213,7 @@ export async function importSkills({
     }
   })
 
-  await applySavedEntityRows('skill', result.skills, {
-    rollbackRows: async () => {
-      if (result.skills.length > 0) {
-        await db.delete(skill).where(
-          inArray(
-            skill.id,
-            result.skills.map((row) => row.id)
-          )
-        )
-      }
-    },
-  })
+  await syncSavedEntityRowsToYjs('skill', result.skills)
 
   return result
 }
