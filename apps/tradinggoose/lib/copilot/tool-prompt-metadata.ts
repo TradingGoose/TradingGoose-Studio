@@ -131,7 +131,8 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
     entityKind: 'credential',
   },
   [CopilotTool.read_credentials]: {
-    description: 'Read OAuth credentials and related environment variable names for the selected workspace.',
+    description:
+      'Read OAuth credentials and related environment variable names for the selected workspace.',
     kind: 'read',
     entityKind: 'credential',
   },
