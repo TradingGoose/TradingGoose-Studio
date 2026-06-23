@@ -22,7 +22,6 @@ const loggerMock = {
 const workflowFunctionBody = (body: Record<string, unknown> = {}) => ({
   code: 'return "ok"',
   workflowId: 'workflow-1',
-  workspaceId: 'workspace-1',
   ...body,
 })
 
@@ -81,6 +80,9 @@ describe('Function Execute API Route', () => {
     }))
     vi.doMock('@/lib/billing/workspace-billing', () => ({
       resolveWorkflowBillingContext: vi.fn().mockResolvedValue({
+        tier: { id: 'tier-1' },
+      }),
+      resolveWorkspaceBillingContext: vi.fn().mockResolvedValue({
         tier: { id: 'tier-1' },
       }),
     }))
@@ -146,20 +148,32 @@ describe('Function Execute API Route', () => {
     expect(payload.error).toBe('Unauthorized')
   })
 
-  it('rejects requests without workflow context', async () => {
+  it('accepts exactly one execution scope', async () => {
     const { POST } = await import('@/app/api/function/execute/route')
-    const response = await POST(
+    const workspaceResponse = await POST(
       createMockRequest('POST', {
         code: 'return "ok"',
         workspaceId: 'workspace-1',
       })
     )
-    const payload = await response.json()
 
-    expect(response.status).toBe(400)
-    expect(payload.success).toBe(false)
-    expect(payload.error).toBe('Function execution requires workflow context')
-    expect(executeFunctionWithRuntimeGateMock).not.toHaveBeenCalled()
+    expect(workspaceResponse.status).toBe(200)
+    expect(readWorkflowByIdMock).not.toHaveBeenCalled()
+
+    const mixedScopeResponse = await POST(
+      createMockRequest('POST', {
+        code: 'return "ok"',
+        workflowId: 'workflow-1',
+        workspaceId: 'workspace-1',
+      })
+    )
+    const mixedScopePayload = await mixedScopeResponse.json()
+
+    expect(mixedScopeResponse.status).toBe(400)
+    expect(mixedScopePayload.error).toBe(
+      'Function execution accepts either workflow or workspace context, not both'
+    )
+    expect(executeFunctionWithRuntimeGateMock).toHaveBeenCalledOnce()
   })
 
   it('executes under workflow context', async () => {

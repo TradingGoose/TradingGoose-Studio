@@ -275,6 +275,10 @@ export function createCustomToolRequestBody(
     // Get block data and mapping from params (passed from execution context)
     const blockData = params.blockData || {}
     const blockNameMapping = params.blockNameMapping || {}
+    const scopedWorkflowId =
+      typeof context.workflowId === 'string' && context.workflowId ? context.workflowId : workflowId
+    const scopedWorkspaceId =
+      typeof context.workspaceId === 'string' && context.workspaceId ? context.workspaceId : ''
 
     // Include everything needed for execution
     return {
@@ -285,11 +289,12 @@ export function createCustomToolRequestBody(
       workflowVariables: workflowVariables, // Workflow variables for <variable.name> resolution
       blockData: blockData, // Runtime block outputs for <block.field> resolution
       blockNameMapping: blockNameMapping, // Block name to ID mapping
-      workflowId: context.workflowId ?? workflowId, // Pass workflowId for server-side context
       userId: context.userId, // Pass userId for auth context
-      ...(typeof context.workspaceId === 'string' && context.workspaceId
-        ? { workspaceId: context.workspaceId }
-        : {}),
+      ...(scopedWorkflowId
+        ? { workflowId: scopedWorkflowId }
+        : scopedWorkspaceId
+          ? { workspaceId: scopedWorkspaceId }
+          : {}),
       ...(typeof context.workflowLogId === 'string' && context.workflowLogId
         ? { workflowLogId: context.workflowLogId }
         : {}),

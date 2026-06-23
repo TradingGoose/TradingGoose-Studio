@@ -71,6 +71,8 @@ export const functionExecuteTool: ToolConfig<CodeExecutionInput, CodeExecutionOu
       const codeContent = Array.isArray(params.code)
         ? params.code.map((c: { content: string }) => c.content).join('\n')
         : params.code
+      const workflowId = params._context?.workflowId
+      const workspaceId = params._context?.workspaceId
 
       return {
         code: codeContent,
@@ -80,9 +82,8 @@ export const functionExecuteTool: ToolConfig<CodeExecutionInput, CodeExecutionOu
         blockData: params.blockData || {},
         blockNameMapping: params.blockNameMapping || {},
         blockOutputSchemas: params.blockOutputSchemas || {},
-        workflowId: params._context?.workflowId,
         userId: params._context?.userId,
-        ...(params._context?.workspaceId ? { workspaceId: params._context.workspaceId } : {}),
+        ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
         isCustomTool: params.isCustomTool || false,
       }
     },

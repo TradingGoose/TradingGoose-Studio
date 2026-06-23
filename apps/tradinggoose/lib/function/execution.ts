@@ -4,6 +4,7 @@ import { getTierFunctionExecutionMultiplier } from '@/lib/billing/tiers'
 import { accrueUserUsageCost } from '@/lib/billing/usage-accrual'
 import {
   resolveWorkflowBillingContext,
+  resolveWorkspaceBillingContext,
 } from '@/lib/billing/workspace-billing'
 import {
   getLocalVmSaturationLimitMessage,
@@ -36,7 +37,7 @@ export type FunctionExecutionPayload = {
   blockData?: Record<string, unknown>
   blockNameMapping?: Record<string, string>
   workflowVariables?: Record<string, unknown>
-  workflowId: string
+  workflowId?: string | null
   workspaceId: string
   isCustomTool?: boolean
 }
@@ -218,10 +219,15 @@ export async function executeFunctionRequest(
 
     if (await isBillingEnabledForRuntime()) {
       try {
-        const billingContext = await resolveWorkflowBillingContext({
-          workflowId,
-          actorUserId: payload.userId,
-        })
+        const billingContext = workflowId
+          ? await resolveWorkflowBillingContext({
+              workflowId,
+              actorUserId: payload.userId,
+            })
+          : await resolveWorkspaceBillingContext({
+              workspaceId,
+              actorUserId: payload.userId,
+            })
         const billingSettings = await getResolvedBillingSettings()
         functionExecutionCost = calculateFunctionExecutionCost({
           executionTimeMs: runtimeExecution.executionTime,

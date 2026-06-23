@@ -45,7 +45,6 @@ describe('Function Execute Tool', () => {
         envVars: {},
         isCustomTool: false,
         timeout: 5000,
-        workflowId: undefined,
       })
 
       expect(body).toEqual({
@@ -57,7 +56,6 @@ describe('Function Execute Tool', () => {
         blockOutputSchemas: {},
         isCustomTool: false,
         timeout: 5000,
-        workflowId: undefined,
         userId: undefined,
       })
     })
@@ -72,7 +70,6 @@ describe('Function Execute Tool', () => {
         envVars: {},
         isCustomTool: false,
         timeout: 10000,
-        workflowId: undefined,
       })
 
       expect(body).toEqual({
@@ -84,7 +81,6 @@ describe('Function Execute Tool', () => {
         blockNameMapping: {},
         blockOutputSchemas: {},
         isCustomTool: false,
-        workflowId: undefined,
         userId: undefined,
       })
     })
@@ -103,7 +99,6 @@ describe('Function Execute Tool', () => {
         blockNameMapping: {},
         blockOutputSchemas: {},
         isCustomTool: false,
-        workflowId: undefined,
         userId: undefined,
       })
     })
