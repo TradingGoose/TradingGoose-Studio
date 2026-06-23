@@ -42,7 +42,7 @@ export const buildCopilotContextIdentityKey = (context: ChatContext): string => 
     case 'templates':
       return `templates:${context.templateId ?? context.label}`
     case 'docs':
-      return `docs:${context.label}`
+      return 'docs'
     case 'logs':
       return `logs:${context.executionId ?? context.label}`
   }
