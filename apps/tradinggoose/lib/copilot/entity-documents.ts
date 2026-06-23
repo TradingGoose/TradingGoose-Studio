@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
-import { inferInputMetaFromPineCode } from '@/lib/indicators/input-meta'
+import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
 import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
 export const SKILL_DOCUMENT_FORMAT = 'tg-skill-document-v1' as const
 export const CUSTOM_TOOL_DOCUMENT_FORMAT = 'tg-custom-tool-document-v1' as const
@@ -131,13 +131,13 @@ export function normalizeEntityFields(
       return {
         name: typeof source.name === 'string' ? source.name.trim() : '',
         pineCode,
-        inputMeta: inferInputMetaFromPineCode(pineCode) ?? null,
+        inputMeta: normalizeInputMetaMap(source.inputMeta) ?? null,
       }
     }
     case 'mcp_server': {
       const rawUrl = typeof source.url === 'string' ? source.url.trim() : ''
-      const validation = rawUrl ? validateMcpServerUrl(rawUrl) : null
-      if (validation && !validation.isValid) {
+      const validation = validateMcpServerUrl(rawUrl)
+      if (!validation.isValid) {
         throw new Error(`Invalid MCP server URL: ${validation.error}`)
       }
 
@@ -150,7 +150,7 @@ export function normalizeEntityFields(
           source.transport === 'streamable-http'
             ? source.transport
             : 'http',
-        url: validation?.normalizedUrl ?? rawUrl,
+        url: validation.normalizedUrl ?? rawUrl,
         headers:
           source.headers && typeof source.headers === 'object' && !Array.isArray(source.headers)
             ? Object.fromEntries(

@@ -1,12 +1,11 @@
 import { db } from '@tradinggoose/db'
 import { mcpServers } from '@tradinggoose/db/schema'
 import { and, eq, isNull } from 'drizzle-orm'
-import { ENTITY_SECRET_PLACEHOLDER } from '@/lib/copilot/entity-documents'
+import { ENTITY_SECRET_PLACEHOLDER, normalizeEntityFields } from '@/lib/copilot/entity-documents'
 import { ENTITY_KIND_MCP_SERVER } from '@/lib/copilot/review-sessions/types'
 import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
 import { mcpService } from '@/lib/mcp/service'
 import type { McpTransport } from '@/lib/mcp/types'
-import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
   applySavedEntityDocument,
@@ -22,10 +21,6 @@ import {
   verifyWorkspaceContext,
 } from './shared'
 
-function isMcpTransport(value: unknown): value is McpTransport {
-  return value === 'http' || value === 'sse' || value === 'streamable-http'
-}
-
 function normalizeStringRecord(value: unknown): Record<string, string> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return {}
@@ -39,32 +34,10 @@ function normalizeStringRecord(value: unknown): Record<string, string> {
   )
 }
 
-function normalizeMcpServerFields(fields: Record<string, unknown>): Record<string, unknown> {
-  const transport = isMcpTransport(fields.transport) ? fields.transport : 'http'
-  const rawUrl = typeof fields.url === 'string' ? fields.url.trim() : ''
-  let normalizedUrl = rawUrl
-
-  if (rawUrl) {
-    const validation = validateMcpServerUrl(rawUrl)
-    if (!validation.isValid) {
-      throw new Error(`Invalid MCP server URL: ${validation.error}`)
-    }
-    normalizedUrl = validation.normalizedUrl ?? rawUrl
-  }
-
-  return {
-    name: typeof fields.name === 'string' ? fields.name : '',
-    description: typeof fields.description === 'string' ? fields.description : '',
-    transport,
-    url: normalizedUrl,
-    headers: normalizeStringRecord(fields.headers),
-    command: typeof fields.command === 'string' ? fields.command : '',
-    args: Array.isArray(fields.args) ? fields.args.map(String) : [],
-    env: normalizeStringRecord(fields.env),
-    timeout: typeof fields.timeout === 'number' ? fields.timeout : 30000,
-    retries: typeof fields.retries === 'number' ? fields.retries : 3,
-    enabled: typeof fields.enabled === 'boolean' ? fields.enabled : true,
-  }
+function normalizeMcpServerDocumentFields(
+  fields: Record<string, unknown>
+): Record<string, unknown> {
+  return normalizeEntityFields(ENTITY_KIND_MCP_SERVER, fields)
 }
 
 function preserveSecretRecordPlaceholders(
@@ -104,8 +77,8 @@ function preserveMcpServerSecretPlaceholders(
   nextFields: Record<string, unknown>,
   currentFields: Record<string, unknown>
 ): Record<string, unknown> {
-  const normalizedNext = normalizeMcpServerFields(nextFields)
-  const normalizedCurrent = normalizeMcpServerFields(currentFields)
+  const normalizedNext = normalizeMcpServerDocumentFields(nextFields)
+  const normalizedCurrent = normalizeMcpServerDocumentFields(currentFields)
 
   return {
     ...normalizedNext,
@@ -123,7 +96,7 @@ function preserveMcpServerSecretPlaceholders(
 }
 
 function prepareNewMcpServerFields(fields: Record<string, unknown>): Record<string, unknown> {
-  const normalized = normalizeMcpServerFields(fields)
+  const normalized = normalizeMcpServerDocumentFields(fields)
   assertNoSecretPlaceholders(normalized)
   return normalized
 }
@@ -145,7 +118,7 @@ async function createMcpServerEntity(
 ): Promise<EntityCreateResult> {
   const { userId, workspaceId } = await verifyWorkspaceContext(context, 'write')
   const entityId = crypto.randomUUID()
-  const normalized = normalizeMcpServerFields(fields)
+  const normalized = normalizeMcpServerDocumentFields(fields)
 
   const [row] = await db
     .insert(mcpServers)
@@ -268,7 +241,7 @@ export const editMcpServerServerTool: EntityServerTool = {
       args,
       context,
       applyMcpServerDocument,
-      normalizeMcpServerFields
+      normalizeMcpServerDocumentFields
     )
   },
 }
@@ -282,7 +255,7 @@ export const renameMcpServerServerTool: EntityServerTool = {
       args,
       context,
       applyMcpServerDocument,
-      normalizeMcpServerFields
+      normalizeMcpServerDocumentFields
     )
   },
 }
