@@ -8,8 +8,6 @@ import { mcpService } from '@/lib/mcp/service'
 import type { McpTransport } from '@/lib/mcp/types'
 import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
-import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
-import { applySavedEntityPersistedState } from '@/lib/yjs/server/apply-entity-state'
 import { tryDeleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { CreateMcpServerSchema } from './schema'
 
@@ -112,17 +110,6 @@ export const POST = withMcpAuth('write')(
           updatedAt: new Date(),
         })
         .returning()
-
-      try {
-        await applySavedEntityPersistedState(
-          'mcp_server',
-          server.id,
-          savedEntityRowToFields('mcp_server', server)
-        )
-      } catch (error) {
-        await db.delete(mcpServers).where(eq(mcpServers.id, server.id))
-        throw error
-      }
 
       mcpService.clearCache(workspaceId)
 

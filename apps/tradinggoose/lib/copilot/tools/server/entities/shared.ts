@@ -18,8 +18,8 @@ import {
 } from '@/lib/copilot/tools/server/base-tool'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
-import { applySavedEntityPersistedState } from '@/lib/yjs/server/apply-entity-state'
 import { readBootstrappedSavedEntityFields } from '@/lib/yjs/server/bootstrap-review-target'
+import { applyEntityStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 export type SavedEntityDocumentKind = EntityDocumentKind
 export type EntityDocumentArgs = {
@@ -203,12 +203,12 @@ export async function readSavedEntityDocumentFields(
   return readBootstrappedSavedEntityFields(kind as SavedEntityKind, entityId, workspaceId)
 }
 
-export async function applySavedEntityDocument(
+export async function applySavedEntityDocumentToYjs(
   kind: SavedEntityDocumentKind,
   entityId: string,
   fields: Record<string, unknown>
 ): Promise<void> {
-  await applySavedEntityPersistedState(kind as SavedEntityKind, entityId, fields)
+  await applyEntityStateInSocketServer(entityId, kind, fields)
 }
 
 export async function executeCreateEntityDocumentMutation(
@@ -287,7 +287,7 @@ export async function executeUpdateEntityDocumentMutation(
   if (apply) {
     await apply({ entityId, fields, workspaceId })
   } else {
-    await applySavedEntityDocument(kind, entityId, fields)
+    await applySavedEntityDocumentToYjs(kind, entityId, fields)
   }
   return {
     success: true,

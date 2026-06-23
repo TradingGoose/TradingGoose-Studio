@@ -9,7 +9,7 @@ import {
   type SkillTransferRecord,
 } from '@/lib/skills/import-export'
 import { generateRequestId } from '@/lib/utils'
-import { syncSavedEntityRowsToYjs } from '@/lib/yjs/entity-state'
+import { applySavedEntityPersistedState } from '@/lib/yjs/server/apply-entity-state'
 import { tryDeleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('SkillsOperations')
@@ -66,8 +66,11 @@ export async function upsertSkills({
   userId,
   requestId = generateRequestId(),
 }: UpsertSkillsParams) {
-  const createdRows: Array<typeof skill.$inferSelect> = []
-  const updatedRows: Array<typeof skill.$inferSelect> = []
+  const updates: Array<{
+    id: string
+    fields: Record<string, unknown>
+  }> = []
+
   await db.transaction(async (tx) => {
     for (const currentSkill of skills) {
       const nowTime = new Date()
@@ -100,19 +103,14 @@ export async function upsertSkills({
             }
           }
 
-          const [updatedSkill] = await tx
-            .update(skill)
-            .set({
+          updates.push({
+            id: currentSkill.id,
+            fields: {
               name: currentSkill.name,
               description: currentSkill.description,
               content: currentSkill.content,
-              updatedAt: nowTime,
-            })
-            .where(and(eq(skill.id, currentSkill.id), eq(skill.workspaceId, workspaceId)))
-            .returning()
-          if (updatedSkill) {
-            updatedRows.push(updatedSkill)
-          }
+            },
+          })
           logger.info(`[${requestId}] Updated skill ${currentSkill.id}`)
           continue
         }
@@ -144,11 +142,12 @@ export async function upsertSkills({
       await tx.insert(skill).values(newSkill)
 
       logger.info(`[${requestId}] Created skill "${currentSkill.name}"`)
-      createdRows.push(newSkill)
     }
   })
 
-  await syncSavedEntityRowsToYjs('skill', [...createdRows, ...updatedRows])
+  await Promise.all(
+    updates.map(({ id, fields }) => applySavedEntityPersistedState('skill', id, fields))
+  )
 
   return listSkills({ workspaceId })
 }
@@ -212,8 +211,6 @@ export async function importSkills({
       renamedCount,
     }
   })
-
-  await syncSavedEntityRowsToYjs('skill', result.skills)
 
   return result
 }

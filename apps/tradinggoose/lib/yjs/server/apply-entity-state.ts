@@ -136,21 +136,13 @@ async function persistSavedEntityState(
   }
 }
 
-export async function applySavedEntityDraftState(
-  entityKind: SavedEntityKind,
-  entityId: string,
-  fields: Record<string, unknown>
-): Promise<void> {
-  await applyEntityStateInSocketServer(entityId, entityKind, fields)
-}
-
 export async function applySavedEntityPersistedState(
   entityKind: SavedEntityKind,
   entityId: string,
   fields: Record<string, unknown>
 ): Promise<void> {
   const normalizedFields = normalizeSavedEntityFields(entityKind, fields)
-  await applySavedEntityDraftState(entityKind, entityId, normalizedFields)
+  await applyEntityStateInSocketServer(entityId, entityKind, normalizedFields)
   try {
     await persistSavedEntityState(entityKind, entityId, normalizedFields)
   } catch (error) {

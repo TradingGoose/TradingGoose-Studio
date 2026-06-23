@@ -9,7 +9,7 @@ import {
 import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { syncSavedEntityRowsToYjs } from '@/lib/yjs/entity-state'
+import { applySavedEntityPersistedState } from '@/lib/yjs/server/apply-entity-state'
 
 const logger = createLogger('IndicatorsOperations')
 
@@ -51,8 +51,11 @@ export async function upsertIndicators({
   userId,
   requestId = generateRequestId(),
 }: UpsertIndicatorsParams) {
-  const createdRows: Array<typeof pineIndicators.$inferSelect> = []
-  const updatedRows: Array<typeof pineIndicators.$inferSelect> = []
+  const updates: Array<{
+    id: string
+    fields: Record<string, unknown>
+  }> = []
+
   await db.transaction(async (tx) => {
     for (const indicator of indicators) {
       const nowTime = new Date()
@@ -69,22 +72,15 @@ export async function upsertIndicators({
         if (existing.length > 0) {
           const existingColor = existing[0]?.color
 
-          const [updatedIndicator] = await tx
-            .update(pineIndicators)
-            .set({
+          updates.push({
+            id: indicator.id,
+            fields: {
               name: indicator.name,
               color: existingColor ?? getStableVibrantColor(indicator.id),
               pineCode: indicator.pineCode,
               inputMeta: indicator.inputMeta ?? null,
-              updatedAt: nowTime,
-            })
-            .where(
-              and(eq(pineIndicators.id, indicator.id), eq(pineIndicators.workspaceId, workspaceId))
-            )
-            .returning()
-          if (updatedIndicator) {
-            updatedRows.push(updatedIndicator)
-          }
+            },
+          })
           logger.info(`[${requestId}] Updated Indicator ${indicator.id}`)
           continue
         }
@@ -105,11 +101,12 @@ export async function upsertIndicators({
       await tx.insert(pineIndicators).values(newIndicator)
 
       logger.info(`[${requestId}] Created Indicator ${indicator.name}`)
-      createdRows.push(newIndicator)
     }
   })
 
-  await syncSavedEntityRowsToYjs('indicator', [...createdRows, ...updatedRows])
+  await Promise.all(
+    updates.map(({ id, fields }) => applySavedEntityPersistedState('indicator', id, fields))
+  )
 
   return db
     .select()
@@ -170,8 +167,6 @@ export async function importIndicators({
       renamedCount,
     }
   })
-
-  await syncSavedEntityRowsToYjs('indicator', result.indicators)
 
   return result
 }

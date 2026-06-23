@@ -105,16 +105,3 @@ export async function readSavedEntityFieldsFromDb(
 
   return savedEntityRowToFields(entityKind, row)
 }
-
-export async function readSavedEntityUpdatedAt(
-  entityKind: SavedEntityKind,
-  entityId: string
-): Promise<Date | null> {
-  const table = entityTable(entityKind)
-  const [row] = await db
-    .select({ updatedAt: table.updatedAt })
-    .from(table)
-    .where(entityIdCondition(entityKind, entityId))
-    .limit(1)
-  return row?.updatedAt ?? null
-}

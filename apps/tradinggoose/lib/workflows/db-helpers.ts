@@ -134,15 +134,6 @@ export type WorkflowStateWithSource = PersistedWorkflowState & {
   source: 'yjs' | 'db'
 }
 
-export async function readWorkflowUpdatedAt(workflowId: string): Promise<Date | null> {
-  const [row] = await db
-    .select({ updatedAt: workflow.updatedAt })
-    .from(workflow)
-    .where(eq(workflow.id, workflowId))
-    .limit(1)
-  return row?.updatedAt ?? null
-}
-
 export async function loadWorkflowState(
   workflowId: string
 ): Promise<WorkflowStateWithSource | null> {

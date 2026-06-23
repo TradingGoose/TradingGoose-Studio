@@ -8,7 +8,7 @@ import { mcpService } from '@/lib/mcp/service'
 import type { McpTransport } from '@/lib/mcp/types'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
-  applySavedEntityDocument,
+  applySavedEntityDocumentToYjs,
   buildDocumentEnvelope,
   type EntityCreateResult,
   type EntityListEntry,
@@ -147,12 +147,6 @@ async function createMcpServerEntity(
   }
 
   const savedFields = savedEntityRowToFields(ENTITY_KIND_MCP_SERVER, row)
-  try {
-    await applySavedEntityDocument(ENTITY_KIND_MCP_SERVER, row.id, savedFields)
-  } catch (error) {
-    await db.delete(mcpServers).where(eq(mcpServers.id, row.id))
-    throw error
-  }
   mcpService.clearCache(workspaceId)
 
   return {
@@ -171,7 +165,7 @@ async function applyMcpServerDocument(input: {
     input.entityId,
     input.workspaceId
   )
-  await applySavedEntityDocument(
+  await applySavedEntityDocumentToYjs(
     ENTITY_KIND_MCP_SERVER,
     input.entityId,
     preserveMcpServerSecretPlaceholders(input.fields, currentFields)

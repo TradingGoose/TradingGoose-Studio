@@ -21,7 +21,6 @@ import type {
 } from '@/lib/knowledge/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess, getUserEntityPermissions } from '@/lib/permissions/utils'
-import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import { applySavedEntityPersistedState } from '@/lib/yjs/server/apply-entity-state'
 import { tryDeleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
@@ -115,17 +114,6 @@ export async function createKnowledgeBase(
     updatedAt: now,
     workspaceId: data.workspaceId,
     docCount: 0,
-  }
-
-  try {
-    await applySavedEntityPersistedState(
-      ENTITY_KIND_KNOWLEDGE_BASE,
-      created.id,
-      savedEntityRowToFields(ENTITY_KIND_KNOWLEDGE_BASE, created)
-    )
-  } catch (error) {
-    await db.delete(knowledgeBase).where(eq(knowledgeBase.id, kbId))
-    throw error
   }
 
   return created
@@ -346,20 +334,6 @@ export async function copyKnowledgeBaseToWorkspace(
     updatedAt: now,
     workspaceId: targetWorkspaceId,
     docCount: sourceDocuments.length,
-  }
-
-  try {
-    await applySavedEntityPersistedState(
-      ENTITY_KIND_KNOWLEDGE_BASE,
-      copied.id,
-      savedEntityRowToFields(ENTITY_KIND_KNOWLEDGE_BASE, copied)
-    )
-  } catch (error) {
-    await db.delete(knowledgeBase).where(eq(knowledgeBase.id, newKnowledgeBaseId))
-    if (copiedDocuments.length > 0) {
-      await deleteKnowledgeDocumentFiles(copiedDocuments.map(({ fileUrl }) => fileUrl))
-    }
-    throw error
   }
 
   if (totalDocumentSize > 0) {
