@@ -1,7 +1,7 @@
 import { type EntityDocumentKind, getEntityDocumentName } from '@/lib/copilot/entity-documents'
 import type { ClientToolExecutionContext } from '@/lib/copilot/tools/client/base-tool'
 import { resolveOptionalCopilotEntityId } from '@/lib/copilot/tools/entity-target'
-import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
+import { CustomToolOpenAiSchema, parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { getDefaultIndicator } from '@/lib/indicators/default'
 import { getEntityFields, replaceEntityTextField, setEntityField } from '@/lib/yjs/entity-session'
 import { buildSavedEntityYjsDescriptor } from '@/lib/yjs/entity-state'
@@ -17,7 +17,6 @@ type EntityListEntry = {
   entityName: string
   entityDescription?: string
   entityTitle?: string
-  entityFunctionName?: string
   entityTransport?: string
   entityUrl?: string
   entityEnabled?: boolean
@@ -85,7 +84,7 @@ const ENTITY_API_CONFIG: Record<EntityDocumentKind, EntityApiConfig> = {
       title: item?.title ?? '',
       schemaText:
         item?.schema && typeof item.schema === 'object'
-          ? JSON.stringify(item.schema, null, 2)
+          ? JSON.stringify(CustomToolOpenAiSchema.parse(item.schema), null, 2)
           : typeof item?.schemaText === 'string'
             ? item.schemaText
             : '',
@@ -93,10 +92,8 @@ const ENTITY_API_CONFIG: Record<EntityDocumentKind, EntityApiConfig> = {
     }),
     toListEntry: (item) => ({
       entityId: String(item?.id ?? ''),
-      entityName: String(item?.title ?? item?.schema?.function?.name ?? ''),
+      entityName: String(item?.title ?? ''),
       entityTitle: typeof item?.title === 'string' ? item.title : '',
-      entityFunctionName:
-        typeof item?.schema?.function?.name === 'string' ? item.schema.function.name : undefined,
       entityDescription:
         typeof item?.schema?.function?.description === 'string'
           ? item.schema.function.description
@@ -404,7 +401,7 @@ export async function readEntityFieldsFromContext(
   entityName: string
   fields: Record<string, unknown>
 }> {
-  const resolvedEntityId = resolveOptionalCopilotEntityId(target)
+  let resolvedEntityId = resolveOptionalCopilotEntityId(target)
   const resolvedRuntimeId =
     kind === 'indicator' ? target?.runtimeId?.trim() || undefined : undefined
 
@@ -414,18 +411,18 @@ export async function readEntityFieldsFromContext(
     }
 
     const indicator = getDefaultIndicator(resolvedRuntimeId)
-    if (!indicator) {
-      throw new Error(`Built-in indicator ${resolvedRuntimeId} was not found`)
+    if (indicator) {
+      return {
+        entityName: indicator.name,
+        fields: {
+          name: indicator.name,
+          pineCode: indicator.pineCode,
+          inputMeta: indicator.inputMeta ?? null,
+        },
+      }
     }
 
-    return {
-      entityName: indicator.name,
-      fields: {
-        name: indicator.name,
-        pineCode: indicator.pineCode,
-        inputMeta: indicator.inputMeta ?? null,
-      },
-    }
+    resolvedEntityId = resolvedRuntimeId
   }
 
   if (!resolvedEntityId) {

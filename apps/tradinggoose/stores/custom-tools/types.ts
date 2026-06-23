@@ -1,7 +1,6 @@
 export interface CustomToolSchema {
   type: string
   function: {
-    name: string
     description?: string
     parameters: {
       type: string

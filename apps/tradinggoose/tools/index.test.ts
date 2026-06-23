@@ -500,10 +500,15 @@ describe('executeTool Function', () => {
 
   it('should load skill content from workspace storage', async () => {
     const skillLoaderTool = buildLoadSkillTool('tradinggoose_internal_load_skill', [
-      'market-research',
+      {
+        id: 'skill-1',
+        name: 'market-research',
+        description: 'Research the market before acting',
+      },
     ])
     const skillRows = [
       {
+        id: 'skill-1',
         name: 'market-research',
         content: 'Investigate the market and summarize the setup.',
       },
@@ -539,7 +544,7 @@ describe('executeTool Function', () => {
       skillLoaderTool.id,
       {
         ...skillLoaderTool.params,
-        skill_name: 'market-research',
+        skill_id: 'skill-1',
       },
       false,
       createMockExecutionContext()

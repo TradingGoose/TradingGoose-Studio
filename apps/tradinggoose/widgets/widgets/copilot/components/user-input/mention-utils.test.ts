@@ -1,55 +1,29 @@
 import { describe, expect, it } from 'vitest'
+import enMessages from '../../../../../i18n/messages/en.json'
+import esMessages from '../../../../../i18n/messages/es.json'
+import zhMessages from '../../../../../i18n/messages/zh.json'
+import {
+  getCopilotMentionCopy,
+  getMentionOptionLabel,
+  getPastChatMentionLabel,
+  getWorkspaceEntityMentionLabel,
+} from './mention-copy'
 import {
   buildAggregatedMentionItems,
+  buildMentionRanges,
   filterMentionOptions,
-  filterWorkspaceEntitiesForOption,
-  getMentionSubmenuTitle,
+  upsertMentionContextByTextOrder,
 } from './mention-utils'
 import type { MentionSources } from './types'
 
 const createMentionSources = (): MentionSources => ({
   pastChats: [],
   workspaceEntities: {
-    workflow: [
-      {
-        entityKind: 'workflow',
-        id: 'workflow-1',
-        name: 'Alpha Workflow',
-        color: '#3972F6',
-      },
-    ],
-    skill: [
-      {
-        entityKind: 'skill',
-        id: 'skill-1',
-        name: 'Risk Filter',
-        description: 'Filters noisy setups',
-      },
-    ],
-    indicator: [
-      {
-        entityKind: 'indicator',
-        id: 'indicator-1',
-        name: 'Momentum RSI',
-        color: '#22c55e',
-      },
-    ],
-    custom_tool: [
-      {
-        entityKind: 'custom_tool',
-        id: 'tool-1',
-        name: 'Slack Alerts',
-        functionName: 'sendSlackAlert',
-      },
-    ],
-    mcp_server: [
-      {
-        entityKind: 'mcp_server',
-        id: 'mcp-1',
-        name: 'Broker MCP',
-        transport: 'http',
-      },
-    ],
+    workflow: [{ entityKind: 'workflow', id: 'workflow-1', name: 'Alpha Workflow' }],
+    skill: [],
+    indicator: [],
+    custom_tool: [{ entityKind: 'custom_tool', id: 'tool-1', name: 'Slack Alerts' }],
+    mcp_server: [],
   },
   knowledgeBases: [],
   blocksList: [],
@@ -57,46 +31,120 @@ const createMentionSources = (): MentionSources => ({
   workflowBlocks: [],
 })
 
-describe('mention-utils', () => {
-  it('surfaces centralized workspace entity mention options in option filtering', () => {
-    expect(filterMentionOptions('tool')).toContain('Custom Tools')
-    expect(filterMentionOptions('mcp')).toContain('MCP Servers')
+const getMentionCopy = (messages: any) =>
+  getCopilotMentionCopy({
+    dashboard: messages.workspace.dashboard,
+    knowledge: messages.workspace.knowledge,
+    nav: messages.nav,
+    widgets: messages.workspace.widgets,
   })
 
-  it('filters workspace entity submenu items by option', () => {
-    const sources = createMentionSources()
+describe('mention-utils', () => {
+  const enMentionCopy = getMentionCopy(enMessages)
+  const zhMentionCopy = getMentionCopy(zhMessages)
+  const esMentionCopy = getMentionCopy(esMessages)
+  const enMonitorCopy = (enMessages as any).workspace.monitor
 
-    expect(filterWorkspaceEntitiesForOption('Skills', sources, 'risk')).toEqual([
-      sources.workspaceEntities.skill[0],
-    ])
-
-    expect(filterWorkspaceEntitiesForOption('MCP Servers', sources, 'http')).toEqual([
-      sources.workspaceEntities.mcp_server[0],
-    ])
+  it('surfaces centralized workspace entity mention options in option filtering', () => {
+    expect(filterMentionOptions('tool', enMentionCopy)).toContain('custom_tool')
+    expect(filterMentionOptions('工具', zhMentionCopy)).toContain('custom_tool')
   })
 
   it('includes workspace entity matches in aggregated search results', () => {
     const sources = createMentionSources()
 
-    expect(buildAggregatedMentionItems('alpha', sources)).toEqual([
+    expect(buildAggregatedMentionItems('alpha', sources, enMonitorCopy, enMentionCopy)).toEqual([
       {
-        type: 'Workflows',
+        type: 'workflow',
         id: 'workflow-1',
         value: sources.workspaceEntities.workflow[0],
       },
     ])
 
-    expect(buildAggregatedMentionItems('slack', sources)).toEqual([
+    expect(buildAggregatedMentionItems('slack', sources, enMonitorCopy, enMentionCopy)).toEqual([
       {
-        type: 'Custom Tools',
+        type: 'custom_tool',
         id: 'tool-1',
         value: sources.workspaceEntities.custom_tool[0],
       },
     ])
   })
 
-  it('uses centralized submenu titles for workspace entity mention groups', () => {
-    expect(getMentionSubmenuTitle('Workflows')).toBe('All workflows')
-    expect(getMentionSubmenuTitle('Indicators')).toBe('Indicators')
+  it('uses localized untitled labels for empty chat and workspace entity names', () => {
+    const sources = createMentionSources()
+    sources.pastChats = [{ reviewSessionId: 'chat-1', title: null, workflowId: null }]
+    sources.workspaceEntities.custom_tool = [
+      { entityKind: 'custom_tool', id: 'tool-empty', name: '', description: '' },
+    ]
+    const chatLabel = (esMessages as any).workspace.widgets.copilot.history.newChat
+    const toolLabel = (esMessages as any).workspace.widgets.customToolDropdown.untitledCustomTool
+
+    expect(getPastChatMentionLabel(esMentionCopy, sources.pastChats[0])).toBe(chatLabel)
+    expect(
+      getWorkspaceEntityMentionLabel(esMentionCopy, sources.workspaceEntities.custom_tool[0])
+    ).toBe(toolLabel)
+    expect(buildAggregatedMentionItems(toolLabel, sources, enMonitorCopy, esMentionCopy)).toEqual([
+      { type: 'custom_tool', id: 'tool-empty', value: sources.workspaceEntities.custom_tool[0] },
+    ])
+    expect(buildAggregatedMentionItems(chatLabel, sources, enMonitorCopy, esMentionCopy)).toEqual([
+      { type: 'chats', id: 'chat-1', value: sources.pastChats[0] },
+    ])
+
+    sources.workspaceEntities.custom_tool[0].name = 'untitled'
+    expect(
+      getWorkspaceEntityMentionLabel(esMentionCopy, sources.workspaceEntities.custom_tool[0])
+    ).toBe('untitled')
+
+    sources.pastChats[0].title = 'untitled'
+    expect(getPastChatMentionLabel(esMentionCopy, sources.pastChats[0])).toBe('untitled')
+  })
+
+  it('tracks duplicate mention labels by context identity', () => {
+    const ranges = buildMentionRanges('@Untitled @Untitled', [
+      { kind: 'custom_tool', customToolId: 'tool-1', label: 'Untitled' },
+      { kind: 'custom_tool', customToolId: 'tool-2', label: 'Untitled' },
+    ])
+
+    expect(ranges.map((range) => range.contextKey)).toEqual([
+      'custom_tool:tool-1',
+      'custom_tool:tool-2',
+    ])
+  })
+
+  it('orders duplicate mention labels by insertion position', () => {
+    const contexts = upsertMentionContextByTextOrder(
+      [{ kind: 'custom_tool', customToolId: 'tool-1', label: 'Untitled' }],
+      { kind: 'custom_tool', customToolId: 'tool-2', label: 'Untitled' },
+      '@Untitled',
+      0
+    )
+    const ranges = buildMentionRanges('@Untitled @Untitled', contexts)
+
+    expect(ranges.map((range) => range.contextKey)).toEqual([
+      'custom_tool:tool-2',
+      'custom_tool:tool-1',
+    ])
+  })
+
+  it('tracks repeated text for the same mention context', () => {
+    const ranges = buildMentionRanges('@Docs @Docs', [{ kind: 'docs', label: 'Docs' }])
+
+    expect(ranges.map((range) => range.contextKey)).toEqual(['docs', 'docs'])
+  })
+
+  it('tracks the refreshed localized label for the same canonical context', () => {
+    const docsLabel = getMentionOptionLabel(esMentionCopy, 'docs')
+    const ranges = buildMentionRanges(`@Docs @${docsLabel}`, [{ kind: 'docs', label: docsLabel }])
+
+    expect(ranges.map((range) => range.contextKey)).toEqual(['docs'])
+  })
+
+  it('keeps mention ranges when punctuation touches the token', () => {
+    const ranges = buildMentionRanges('(@Docs), @Untitled.', [
+      { kind: 'docs', label: 'Docs' },
+      { kind: 'custom_tool', customToolId: 'tool-1', label: 'Untitled' },
+    ])
+
+    expect(ranges.map((range) => range.contextKey)).toEqual(['docs', 'custom_tool:tool-1'])
   })
 })

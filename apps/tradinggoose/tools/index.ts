@@ -1,4 +1,5 @@
 import { generateInternalToken } from '@/lib/auth/internal'
+import { isCustomToolRuntimeId } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { parseMcpToolId } from '@/lib/mcp/utils'
 import { validateExternalUrl } from '@/lib/security/input-validation'
@@ -261,23 +262,24 @@ export async function executeTool(
   try {
     throwIfToolRequestAborted(options?.signal)
     let tool: ToolConfig | undefined
+    const isMcpTool = toolId.startsWith('mcp-')
 
     if (isSkillLoaderExecution(params)) {
-      const skillName = typeof params.skill_name === 'string' ? params.skill_name : null
-      if (!skillName || !scope.workspaceId) {
+      const skillId = typeof params.skill_id === 'string' ? params.skill_id : null
+      if (!skillId || !scope.workspaceId) {
         return {
           success: false,
-          output: { error: 'Missing skill_name or workspace context' },
-          error: 'Missing skill_name or workspace context',
+          output: { error: 'Missing skill_id or workspace context' },
+          error: 'Missing skill_id or workspace context',
         }
       }
 
-      const content = await resolveSkillContent(skillName, scope.workspaceId)
+      const content = await resolveSkillContent(skillId, scope.workspaceId)
       if (!content) {
         return {
           success: false,
-          output: { error: `Skill "${skillName}" not found` },
-          error: `Skill "${skillName}" not found`,
+          output: { error: `Skill "${skillId}" not found` },
+          error: `Skill "${skillId}" not found`,
         }
       }
 
@@ -288,12 +290,12 @@ export async function executeTool(
     }
 
     // If it's a custom tool, use the async version with workflowId
-    if (toolId.startsWith('custom_')) {
+    if (isCustomToolRuntimeId(toolId)) {
       tool = await getToolAsync(toolId, scope.workflowId, scope.workspaceId, scope.userId)
       if (!tool) {
         logger.error(`[${requestId}] Custom tool not found: ${toolId}`)
       }
-    } else if (toolId.startsWith('mcp-')) {
+    } else if (isMcpTool) {
       return await executeMcpTool(
         toolId,
         params,
@@ -675,7 +677,7 @@ async function executeToolRequest(
 
     const fullUrl = fullUrlObj.toString()
 
-    if (toolId.startsWith('custom_') && tool.request.body) {
+    if (isCustomToolRuntimeId(toolId) && tool.request.body) {
       const requestBody = tool.request.body(params)
       if (
         typeof requestBody === 'object' &&

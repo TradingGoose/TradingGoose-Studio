@@ -211,13 +211,13 @@ export function buildTraceSpans(result: ExecutionResult): {
 
           if (segment.type === 'tool') {
             const matchingToolCall = toolCallsData.find(
-              (tc: { name?: string; [key: string]: unknown }) =>
-                tc.name === segment.name || stripCustomToolPrefix(tc.name || '') === segment.name
+              (tc: { id?: string; name?: string; [key: string]: unknown }) =>
+                tc.id === segment.name || tc.name === segment.name
             )
 
             return {
               id: `${span.id}-segment-${index}`,
-              name: stripCustomToolPrefix(segment.name || ''),
+              name: matchingToolCall?.name || segment.name,
               type: 'tool',
               duration: segment.duration,
               startTime: segmentStartTime,
@@ -267,6 +267,7 @@ export function buildTraceSpans(result: ExecutionResult): {
         const processedToolCalls: ToolCall[] = []
 
         for (const tc of toolCallsList as Array<{
+          id?: string
           name?: string
           duration?: number
           startTime?: string
@@ -281,7 +282,8 @@ export function buildTraceSpans(result: ExecutionResult): {
 
           try {
             const toolCall: ToolCall = {
-              name: stripCustomToolPrefix(tc.name || 'unnamed-tool'),
+              id: typeof tc.id === 'string' ? tc.id : undefined,
+              name: tc.name || 'unnamed-tool',
               duration: tc.duration || 0,
               startTime: tc.startTime || log.startedAt,
               endTime: tc.endTime || log.endedAt,
@@ -693,8 +695,4 @@ function ensureNestedWorkflowsProcessed(span: TraceSpan): TraceSpan {
   processedSpan.children = mergedChildren.length > 0 ? mergedChildren : undefined
 
   return processedSpan
-}
-
-export function stripCustomToolPrefix(name: string) {
-  return name.startsWith('custom_') ? name.replace('custom_', '') : name
 }

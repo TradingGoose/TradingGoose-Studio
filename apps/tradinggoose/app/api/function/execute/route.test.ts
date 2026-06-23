@@ -5,10 +5,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockRequest } from '@/app/api/__test-utils__/utils'
 
 const checkInternalAuthMock = vi.fn()
+const checkWorkspaceAccessMock = vi.fn()
 const checkServerSideUsageLimitsMock = vi.fn()
 const executeFunctionWithRuntimeGateMock = vi.fn()
+const listCustomIndicatorRuntimeEntriesMock = vi.fn()
 const isBillingEnabledForRuntimeMock = vi.fn()
 const accrueUserUsageCostMock = vi.fn()
+const readWorkflowByIdMock = vi.fn()
 const loggerMock = {
   info: vi.fn(),
   error: vi.fn(),
@@ -19,8 +22,6 @@ const loggerMock = {
 const workflowFunctionBody = (body: Record<string, unknown> = {}) => ({
   code: 'return "ok"',
   workflowId: 'workflow-1',
-  workspaceId: 'workspace-1',
-  usesParentExecutionConcurrencySlot: true,
   ...body,
 })
 
@@ -41,6 +42,7 @@ describe('Function Execute API Route', () => {
       currentUsage: 0,
       limit: 100,
     })
+    checkWorkspaceAccessMock.mockResolvedValue({ hasAccess: true, canWrite: true })
     executeFunctionWithRuntimeGateMock.mockResolvedValue({
       engine: 'local_vm',
       success: true,
@@ -49,6 +51,9 @@ describe('Function Execute API Route', () => {
       executionTime: 2400,
       userCodeStartLine: 3,
     })
+    listCustomIndicatorRuntimeEntriesMock.mockResolvedValue([
+      { id: 'indicator-1', pineCode: 'indicator("Custom Indicator")' },
+    ])
     isBillingEnabledForRuntimeMock.mockResolvedValue(false)
     accrueUserUsageCostMock.mockResolvedValue(true)
 
@@ -107,6 +112,18 @@ describe('Function Execute API Route', () => {
     vi.doMock('@/app/api/function/e2b-execution', () => ({
       executeFunctionWithRuntimeGate: executeFunctionWithRuntimeGateMock,
     }))
+    vi.doMock('@/lib/indicators/custom/operations', () => ({
+      listCustomIndicatorRuntimeEntries: listCustomIndicatorRuntimeEntriesMock,
+    }))
+    vi.doMock('@/lib/permissions/utils', () => ({
+      checkWorkspaceAccess: checkWorkspaceAccessMock,
+    }))
+    vi.doMock('@/lib/workflows/utils', () => ({
+      readWorkflowById: readWorkflowByIdMock.mockResolvedValue({
+        id: 'workflow-1',
+        workspaceId: 'workspace-1',
+      }),
+    }))
     vi.doMock('@/lib/execution/local-saturation-limit', () => ({
       getLocalVmSaturationLimitMessage: vi.fn(() => 'Local VM saturated'),
       isLocalVmSaturationLimitError: vi.fn((error: unknown) =>
@@ -131,24 +148,35 @@ describe('Function Execute API Route', () => {
     expect(payload.error).toBe('Unauthorized')
   })
 
-  it('rejects requests without parent workflow execution context', async () => {
+  it('accepts exactly one execution scope', async () => {
     const { POST } = await import('@/app/api/function/execute/route')
-    const response = await POST(
+    const workspaceResponse = await POST(
+      createMockRequest('POST', {
+        code: 'return "ok"',
+        workspaceId: 'workspace-1',
+      })
+    )
+
+    expect(workspaceResponse.status).toBe(200)
+    expect(readWorkflowByIdMock).not.toHaveBeenCalled()
+
+    const mixedScopeResponse = await POST(
       createMockRequest('POST', {
         code: 'return "ok"',
         workflowId: 'workflow-1',
         workspaceId: 'workspace-1',
       })
     )
-    const payload = await response.json()
+    const mixedScopePayload = await mixedScopeResponse.json()
 
-    expect(response.status).toBe(400)
-    expect(payload.success).toBe(false)
-    expect(payload.error).toBe('Function execution requires parent workflow execution context')
-    expect(executeFunctionWithRuntimeGateMock).not.toHaveBeenCalled()
+    expect(mixedScopeResponse.status).toBe(400)
+    expect(mixedScopePayload.error).toBe(
+      'Function execution accepts either workflow or workspace context, not both'
+    )
+    expect(executeFunctionWithRuntimeGateMock).toHaveBeenCalledOnce()
   })
 
-  it('executes under workflow parent context without acquiring a standalone billing gate', async () => {
+  it('executes under workflow context', async () => {
     const { POST } = await import('@/app/api/function/execute/route')
     const response = await POST(createFunctionRequest())
     const payload = await response.json()
@@ -161,7 +189,47 @@ describe('Function Execute API Route', () => {
       workspaceId: 'workspace-1',
       workflowId: 'workflow-1',
     })
+    expect(checkWorkspaceAccessMock).toHaveBeenCalledWith('workspace-1', 'user-1')
+    expect(listCustomIndicatorRuntimeEntriesMock).toHaveBeenCalledWith('workspace-1')
+    expect(executeFunctionWithRuntimeGateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        indicatorRuntimeManifest: expect.objectContaining({
+          indicators: expect.arrayContaining([expect.objectContaining({ id: 'indicator-1' })]),
+        }),
+      })
+    )
     expect(executeFunctionWithRuntimeGateMock).toHaveBeenCalledOnce()
+  })
+
+  it('rejects workflow requests when workspace access is denied', async () => {
+    checkWorkspaceAccessMock.mockResolvedValueOnce({ hasAccess: false, canWrite: false })
+
+    const { POST } = await import('@/app/api/function/execute/route')
+    const response = await POST(createFunctionRequest())
+    const payload = await response.json()
+
+    expect(response.status).toBe(403)
+    expect(payload.success).toBe(false)
+    expect(payload.error).toBe('Access denied')
+    expect(executeFunctionWithRuntimeGateMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects workspace-scoped function execution for read-only workspace members', async () => {
+    checkWorkspaceAccessMock.mockResolvedValueOnce({ hasAccess: true, canWrite: false })
+
+    const { POST } = await import('@/app/api/function/execute/route')
+    const response = await POST(
+      createMockRequest('POST', {
+        code: 'return "ok"',
+        workspaceId: 'workspace-1',
+      })
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(403)
+    expect(payload.success).toBe(false)
+    expect(payload.error).toBe('Access denied')
+    expect(executeFunctionWithRuntimeGateMock).not.toHaveBeenCalled()
   })
 
   it('blocks before runtime when workflow usage is exceeded', async () => {

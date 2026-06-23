@@ -1,8 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import {
-  buildTraceSpans,
-  stripCustomToolPrefix,
-} from '@/lib/logs/execution/trace-spans/trace-spans'
+import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import type { ExecutionResult } from '@/executor/types'
 
 describe('buildTraceSpans', () => {
@@ -62,7 +59,8 @@ describe('buildTraceSpans', () => {
             toolCalls: {
               list: [
                 {
-                  name: 'custom_test_tool',
+                  id: 'custom_test_tool',
+                  name: 'Test Tool',
                   arguments: { input: 'test input' },
                   result: { output: 'test output' },
                   duration: 2000,
@@ -99,7 +97,7 @@ describe('buildTraceSpans', () => {
     expect(segments[0].status).toBe('success')
 
     // Second segment: First tool call
-    expect(segments[1].name).toBe('test_tool') // custom_ prefix should be stripped
+    expect(segments[1].name).toBe('Test Tool')
     expect(segments[1].type).toBe('tool')
     expect(segments[1].duration).toBe(2000)
     expect(segments[1].status).toBe('success')
@@ -180,7 +178,7 @@ describe('buildTraceSpans', () => {
 
     // Check first tool call
     const firstToolCall = agentSpan.toolCalls![0]
-    expect(firstToolCall.name).toBe('test_tool') // custom_ prefix should be stripped
+    expect(firstToolCall.name).toBe('custom_test_tool')
     expect(firstToolCall.duration).toBe(1000)
     expect(firstToolCall.status).toBe('success')
     expect(firstToolCall.input).toEqual({ input: 'test input' })
@@ -383,7 +381,8 @@ describe('buildTraceSpans', () => {
                   duration: 2500,
                 },
                 {
-                  name: 'custom_analysis_tool',
+                  id: 'custom_analysis_tool',
+                  name: 'Analysis Tool',
                   arguments: { data: 'tennis data', mode: 'comprehensive' },
                   result: { analysis: 'Detailed tennis analysis', confidence: 0.95 },
                   duration: 4000,
@@ -436,8 +435,8 @@ describe('buildTraceSpans', () => {
       results: [{ title: 'Tennis News 1' }, { title: 'Tennis News 2' }],
     })
 
-    // 3. Second tool call - analysis_tool (custom_ prefix stripped)
-    expect(segments[2].name).toBe('analysis_tool')
+    // 3. Second tool call - custom tool display name from toolCalls metadata
+    expect(segments[2].name).toBe('Analysis Tool')
     expect(segments[2].type).toBe('tool')
     expect(segments[2].duration).toBe(4000)
     expect(segments[2].status).toBe('success')
@@ -662,18 +661,5 @@ describe('buildTraceSpans', () => {
     expect(functionSpan?.name).toBe('Function 1')
     expect(functionSpan?.status).toBe('error')
     expect((functionSpan?.output as { error?: string })?.error).toContain('Syntax Error')
-  })
-})
-
-describe('stripCustomToolPrefix', () => {
-  test('should strip custom_ prefix from tool names', () => {
-    expect(stripCustomToolPrefix('custom_test_tool')).toBe('test_tool')
-    expect(stripCustomToolPrefix('custom_analysis')).toBe('analysis')
-  })
-
-  test('should leave non-custom tool names unchanged', () => {
-    expect(stripCustomToolPrefix('http_request')).toBe('http_request')
-    expect(stripCustomToolPrefix('serper_search')).toBe('serper_search')
-    expect(stripCustomToolPrefix('regular_tool')).toBe('regular_tool')
   })
 })

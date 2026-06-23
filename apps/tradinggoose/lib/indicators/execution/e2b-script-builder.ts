@@ -1,14 +1,10 @@
-import type { DefaultIndicatorRuntimeEntry } from '@/lib/indicators/default/runtime'
 import type { BarMs } from '@/lib/indicators/types'
 import type { ListingIdentity } from '@/lib/listing/identity'
 import {
   FUNCTION_INDICATOR_INVALID_OPTIONS_MESSAGE,
   FUNCTION_INDICATOR_MARKET_SERIES_ERROR_PREFIX,
+  type FunctionIndicatorRuntimeManifest,
 } from './function-indicator-runtime'
-
-type IndicatorRuntimeManifest = {
-  indicators: DefaultIndicatorRuntimeEntry[]
-}
 
 const encodeJsonParse = (value: unknown) => JSON.stringify(JSON.stringify(value))
 
@@ -291,7 +287,7 @@ export const buildPineTSFunctionIndicatorRuntimePrologue = ({
   manifest,
   usageHint,
 }: {
-  manifest: IndicatorRuntimeManifest
+  manifest: FunctionIndicatorRuntimeManifest
   usageHint: string
 }) => {
   const manifestPayload = encodeJsonParse(manifest)
@@ -308,7 +304,6 @@ ${buildPineTSE2BExecutorCoreSource()}
 const indicator = (() => {
   const indicators = Array.isArray(__tg_indicator_manifest?.indicators) ? __tg_indicator_manifest.indicators : [];
   const indicatorById = new Map(indicators.map((entry) => [entry.id, entry]));
-  const indicatorIds = indicators.map((entry) => entry.id);
   const toTrimmedString = (value) => (typeof value === 'string' ? value.trim() : '');
   const resolveEntry = (alias) => {
     const key = toTrimmedString(alias);
@@ -398,7 +393,6 @@ const indicator = (() => {
       const indicatorState = context?.indicator && typeof context.indicator === 'object' ? context.indicator : {};
       return {
         indicatorId: indicatorEntry.id,
-        indicatorName: indicatorEntry.name,
         plots,
         indicator: indicatorState,
       };
@@ -407,7 +401,7 @@ const indicator = (() => {
       throw new Error('indicator.' + indicatorEntry.id + ' failed: ' + message);
     }
   };
-  const api = { list: () => [...indicatorIds] };
+  const api = { list: () => indicators.map((entry) => entry.id) };
   return new Proxy(api, {
     get(target, prop) {
       if (prop === 'list') return target.list;

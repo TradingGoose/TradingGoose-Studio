@@ -1127,11 +1127,10 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           set((state) => ({
             messages: state.messages.map((msg) =>
               msg.id === assistantMessageId
-                ? {
-                    ...msg,
-                    content: finalContent,
-                    contentBlocks: context.contentBlocks,
-                  }
+                ? (normalizeMessagesForUI(
+                    [{ ...msg, content: finalContent, contentBlocks: context.contentBlocks }],
+                    context.latestTurnStatus
+                  )[0] ?? msg)
                 : msg
             ),
           }))

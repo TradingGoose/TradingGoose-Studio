@@ -32,7 +32,7 @@ describe('handleAuthError', () => {
 
     const { handleAuthError } = await import('./auth-error-handler')
 
-    await handleAuthError('workspace-permissions', '/login')
+    await handleAuthError('socket-auth', '/login')
 
     expect(replaceMock).toHaveBeenCalledWith('/login?callbackUrl=%2Fworkspace&reauth=1#credentials')
   })

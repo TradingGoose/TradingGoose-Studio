@@ -1,15 +1,20 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { createLogger } from '@/lib/logs/console/logger'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { fetchKnowledgeBases as fetchWorkspaceKnowledgeBases } from '@/hooks/queries/knowledge'
+import {
+  getLocalizedBlockNameWithCopy,
+  getLocalizedDefaultBlockNameWithCopy,
+} from '@/i18n/workflow-inspector-core'
+import { useWorkflowInspectorMessages } from '@/i18n/workspace-widget-hooks'
 import { getSubflowBlockConfig } from '@/widgets/widgets/editor_workflow/components/subflows/config'
 import {
   type CopilotWorkspaceEntityKind,
-  getCopilotWorkspaceEntityKindFromMentionOption,
   isCopilotWorkspaceEntityMentionOption,
 } from '../../../workspace-entities'
 import type {
@@ -49,7 +54,10 @@ const createEmptyWorkspaceEntityLoading = (): Record<CopilotWorkspaceEntityKind,
   mcp_server: false,
 })
 
+const toTrimmedString = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
+
 export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionSourcesOptions) {
+  const locale = useLocale()
   const [pastChats, setPastChats] = useState<PastChatItem[]>([])
   const [isLoadingPastChats, setIsLoadingPastChats] = useState(false)
   const [workspaceEntities, setWorkspaceEntities] = useState(createEmptyWorkspaceEntities)
@@ -67,6 +75,12 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
   const workflowSession = useOptionalWorkflowSession()
   const workflowId = workflowSession?.workflowId ?? null
   const workflowStoreBlocks = useWorkflowBlocks()
+  const workflowInspectorMessages = useWorkflowInspectorMessages()
+  const workflowInspectorCopy = useMemo(() => workflowInspectorMessages, [locale])
+  const compareLocalizedBlockMentionNames = useCallback(
+    <T extends { name: string }>(left: T, right: T) => left.name.localeCompare(right.name, locale),
+    [locale]
+  )
 
   const ensurePastChatsLoaded = useCallback(async () => {
     if (isLoadingPastChats || pastChats.length > 0) {
@@ -92,12 +106,19 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
       const items = Array.isArray(data?.chats) ? data.chats : []
 
       setPastChats(
-        items.map((item: any) => ({
-          reviewSessionId: item.reviewSessionId,
-          title: item.title ?? null,
-          workflowId: null,
-          updatedAt: item.updatedAt,
-        }))
+        items.flatMap((item: any) => {
+          const title = toTrimmedString(item.title)
+          return item.reviewSessionId
+            ? [
+                {
+                  reviewSessionId: item.reviewSessionId,
+                  title: title || null,
+                  workflowId: null,
+                  updatedAt: item.updatedAt,
+                },
+              ]
+            : []
+        })
       )
     } catch {
     } finally {
@@ -139,10 +160,10 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
       })
 
       setKnowledgeBases(
-        sorted.map((item: any) => ({
-          id: item.id,
-          name: item.name || 'Untitled',
-        }))
+        sorted.flatMap((item: any) => {
+          const name = toTrimmedString(item.name)
+          return item.id && name ? [{ id: item.id, name }] : []
+        })
       )
     } catch {
     } finally {
@@ -163,28 +184,28 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
         .filter((block: any) => !block.hideFromToolbar && block.category === 'blocks')
         .map((block: any) => ({
           id: block.type,
-          name: block.name || block.type,
+          name: getLocalizedBlockNameWithCopy(workflowInspectorCopy, block),
           iconComponent: block.icon,
           bgColor: sanitizeSolidIconColor(block.bgColor),
         }))
-        .sort((a: any, b: any) => a.name.localeCompare(b.name))
+        .sort(compareLocalizedBlockMentionNames)
 
       const toolBlocks = allBlocks
         .filter((block: any) => !block.hideFromToolbar && block.category === 'tools')
         .map((block: any) => ({
           id: block.type,
-          name: block.name || block.type,
+          name: getLocalizedBlockNameWithCopy(workflowInspectorCopy, block),
           iconComponent: block.icon,
           bgColor: sanitizeSolidIconColor(block.bgColor),
         }))
-        .sort((a: any, b: any) => a.name.localeCompare(b.name))
+        .sort(compareLocalizedBlockMentionNames)
 
       setBlocksList([...regularBlocks, ...toolBlocks])
     } catch {
     } finally {
       setIsLoadingBlocks(false)
     }
-  }, [blocksList.length, isLoadingBlocks])
+  }, [blocksList.length, compareLocalizedBlockMentionNames, isLoadingBlocks, workflowInspectorCopy])
 
   const ensureLogsLoaded = useCallback(async () => {
     if (isLoadingLogs || logsList.length > 0) {
@@ -226,10 +247,6 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
   }, [isLoadingLogs, logsList.length, workspaceId])
 
   const ensureWorkflowBlocksLoaded = useCallback(async () => {
-    if (isLoadingWorkflowBlocks) {
-      return
-    }
-
     if (!workflowId || Object.keys(workflowStoreBlocks).length === 0) {
       setWorkflowBlocks([])
       return
@@ -245,7 +262,11 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
 
         return {
           id: block.id,
-          name: block.name || presentation?.name || block.id,
+          name: getLocalizedDefaultBlockNameWithCopy(
+            workflowInspectorCopy,
+            block.type,
+            block.name || presentation?.name
+          ),
           type: block.type,
           iconComponent: presentation?.icon,
           bgColor: sanitizeSolidIconColor(presentation?.bgColor) || '#6B7280',
@@ -258,31 +279,31 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
     } finally {
       setIsLoadingWorkflowBlocks(false)
     }
-  }, [isLoadingWorkflowBlocks, workflowId, workflowStoreBlocks])
+  }, [workflowId, workflowInspectorCopy, workflowStoreBlocks])
 
   const ensureSubmenuLoaded = useCallback(
     async (submenu: MentionSubmenu) => {
-      if (submenu === 'Chats') {
+      if (submenu === 'chats') {
         await ensurePastChatsLoaded()
         return
       }
 
       if (isCopilotWorkspaceEntityMentionOption(submenu)) {
-        await ensureWorkspaceEntityLoaded(getCopilotWorkspaceEntityKindFromMentionOption(submenu))
+        await ensureWorkspaceEntityLoaded(submenu)
         return
       }
 
-      if (submenu === 'Knowledge') {
+      if (submenu === 'knowledge') {
         await ensureKnowledgeLoaded()
         return
       }
 
-      if (submenu === 'Blocks') {
+      if (submenu === 'blocks') {
         await ensureBlocksLoaded()
         return
       }
 
-      if (submenu === 'Workflow Blocks') {
+      if (submenu === 'workflow_blocks') {
         await ensureWorkflowBlocksLoaded()
         return
       }
@@ -303,6 +324,11 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
     setWorkflowBlocks([])
     setIsLoadingWorkflowBlocks(false)
   }, [workflowId])
+
+  useEffect(() => {
+    setBlocksList([])
+    setIsLoadingBlocks(false)
+  }, [locale])
 
   useEffect(() => {
     void ensureWorkflowBlocksLoaded()
@@ -335,16 +361,16 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
   }
 
   const mentionLoading: Record<MentionSubmenu, boolean> = {
-    Chats: isLoadingPastChats,
-    Workflows: workspaceEntityLoading.workflow,
-    Skills: workspaceEntityLoading.skill,
-    Indicators: workspaceEntityLoading.indicator,
-    'Custom Tools': workspaceEntityLoading.custom_tool,
-    'MCP Servers': workspaceEntityLoading.mcp_server,
-    'Workflow Blocks': isLoadingWorkflowBlocks,
-    Blocks: isLoadingBlocks,
-    Knowledge: isLoadingKnowledge,
-    Logs: isLoadingLogs,
+    chats: isLoadingPastChats,
+    workflow: workspaceEntityLoading.workflow,
+    skill: workspaceEntityLoading.skill,
+    indicator: workspaceEntityLoading.indicator,
+    custom_tool: workspaceEntityLoading.custom_tool,
+    mcp_server: workspaceEntityLoading.mcp_server,
+    workflow_blocks: isLoadingWorkflowBlocks,
+    blocks: isLoadingBlocks,
+    knowledge: isLoadingKnowledge,
+    logs: isLoadingLogs,
   }
 
   return {

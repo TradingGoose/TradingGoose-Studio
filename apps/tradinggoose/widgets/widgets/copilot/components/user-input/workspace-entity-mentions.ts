@@ -8,22 +8,7 @@ const sortByRecent = <T extends { createdAt?: string; updatedAt?: string }>(item
     return rightTime - leftTime
   })
 
-export function getWorkspaceEntityMentionEmptyState(
-  entityKind: CopilotWorkspaceEntityKind
-): string {
-  switch (entityKind) {
-    case 'workflow':
-      return 'No workflows'
-    case 'skill':
-      return 'No skills'
-    case 'indicator':
-      return 'No indicators'
-    case 'custom_tool':
-      return 'No custom tools'
-    case 'mcp_server':
-      return 'No MCP servers'
-  }
-}
+const toTrimmedString = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
 
 export async function loadWorkspaceEntityMentionItems(
   entityKind: CopilotWorkspaceEntityKind,
@@ -57,51 +42,52 @@ export async function loadWorkspaceEntityMentionItems(
 
   switch (entityKind) {
     case 'workflow':
-      return sortByRecent(Array.isArray(data?.data) ? data.data : []).flatMap((item: any) =>
-        item.id && item.name
-          ? [
-              {
-                entityKind,
-                id: item.id,
-                name: item.name,
-                color: item.color,
-              },
-            ]
-          : []
-      )
-    case 'skill':
-      return sortByRecent(Array.isArray(data?.data) ? data.data : []).map((item: any) => ({
-        entityKind,
-        id: item.id,
-        name: item.name || 'Untitled Skill',
-        description: item.description || '',
-      }))
-    case 'indicator':
-      return sortByRecent(Array.isArray(data?.data) ? data.data : []).map((item: any) => ({
-        entityKind,
-        id: item.id,
-        name: item.name || 'Untitled Indicator',
-        color: item.color,
-      }))
-    case 'custom_tool':
-      return sortByRecent(Array.isArray(data?.data) ? data.data : []).map((item: any) => ({
-        entityKind,
-        id: item.id,
-        name: item.title || item.schema?.function?.name || 'Untitled Tool',
-        description: item.schema?.function?.description || '',
-        functionName: item.schema?.function?.name || '',
-      }))
-    case 'mcp_server':
-      return sortByRecent(Array.isArray(data?.data?.servers) ? data.data.servers : []).map(
-        (item: any) => ({
+      return sortByRecent(Array.isArray(data?.data) ? data.data : [])
+        .filter((item: any) => item.id)
+        .map((item: any) => ({
           entityKind,
           id: item.id,
-          name: item.name || 'Untitled MCP Server',
-          description: item.description || '',
-          transport: item.transport || 'http',
+          name: toTrimmedString(item.name),
+          color: item.color,
+        }))
+    case 'skill':
+      return sortByRecent(Array.isArray(data?.data) ? data.data : [])
+        .filter((item: any) => item.id)
+        .map((item: any) => ({
+          entityKind,
+          id: item.id,
+          name: toTrimmedString(item.name),
+          description: toTrimmedString(item.description),
+        }))
+    case 'indicator':
+      return sortByRecent(Array.isArray(data?.data) ? data.data : [])
+        .filter((item: any) => item.id)
+        .map((item: any) => ({
+          entityKind,
+          id: item.id,
+          name: toTrimmedString(item.name),
+          color: item.color,
+        }))
+    case 'custom_tool':
+      return sortByRecent(Array.isArray(data?.data) ? data.data : [])
+        .filter((item: any) => item.id)
+        .map((item: any) => ({
+          entityKind,
+          id: item.id,
+          name: toTrimmedString(item.title),
+          description: toTrimmedString(item.schema?.function?.description),
+        }))
+    case 'mcp_server':
+      return sortByRecent(Array.isArray(data?.data?.servers) ? data.data.servers : [])
+        .filter((item: any) => item.id)
+        .map((item: any) => ({
+          entityKind,
+          id: item.id,
+          name: toTrimmedString(item.name),
+          description: toTrimmedString(item.description),
+          transport: toTrimmedString(item.transport),
           enabled: item.enabled,
           connectionStatus: item.connectionStatus,
-        })
-      )
+        }))
   }
 }

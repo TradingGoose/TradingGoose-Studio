@@ -8,10 +8,7 @@ import {
 } from '@/lib/custom-tools/import-export'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import {
-  applySavedEntityYjsStateToRows,
-  savedEntityRowToFields,
-} from '@/lib/yjs/entity-state'
+import { applySavedEntityYjsStateToRows, savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 
 const logger = createLogger('CustomToolsOperations')
@@ -58,6 +55,15 @@ export async function upsertCustomTools({
   const result = await db.transaction(async (tx) => {
     for (const tool of tools) {
       const nowTime = new Date()
+      const duplicateTitle = await tx
+        .select({ id: customTools.id })
+        .from(customTools)
+        .where(and(eq(customTools.workspaceId, workspaceId), eq(customTools.title, tool.title)))
+        .limit(1)
+
+      if (duplicateTitle[0] && duplicateTitle[0].id !== tool.id) {
+        throw new Error(`A tool with the title "${tool.title}" already exists in this workspace`)
+      }
 
       if (tool.id) {
         const existingTool = await tx
@@ -81,16 +87,6 @@ export async function upsertCustomTools({
           affectedIds.push(tool.id)
           continue
         }
-      }
-
-      const duplicateTitle = await tx
-        .select()
-        .from(customTools)
-        .where(and(eq(customTools.workspaceId, workspaceId), eq(customTools.title, tool.title)))
-        .limit(1)
-
-      if (duplicateTitle.length > 0) {
-        throw new Error(`A tool with the title "${tool.title}" already exists in this workspace`)
       }
 
       const toolId = tool.id || nanoid()
@@ -137,32 +133,15 @@ export async function importCustomTools({
     const existingTools = await tx
       .select({
         title: customTools.title,
-        schema: customTools.schema,
       })
       .from(customTools)
       .where(eq(customTools.workspaceId, workspaceId))
 
     const usedTitles = new Set(existingTools.map((tool) => tool.title))
-    const usedFunctionNames = new Set(
-      existingTools
-        .map((tool) =>
-          tool.schema &&
-          typeof tool.schema === 'object' &&
-          'function' in tool.schema &&
-          tool.schema.function &&
-          typeof tool.schema.function === 'object' &&
-          'name' in tool.schema.function &&
-          typeof tool.schema.function.name === 'string'
-            ? tool.schema.function.name
-            : ''
-        )
-        .filter((name): name is string => name.length > 0)
-    )
 
     const { tools: resolvedTools, renamedCount } = resolveImportedCustomTools({
       customTools: tools,
       usedTitles,
-      usedFunctionNames,
     })
 
     const nowTime = new Date()

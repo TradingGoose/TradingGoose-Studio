@@ -1,3 +1,7 @@
+import {
+  getCustomToolEntityIdFromRuntimeId,
+  isCustomToolRuntimeId,
+} from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
@@ -271,6 +275,10 @@ export function createCustomToolRequestBody(
     // Get block data and mapping from params (passed from execution context)
     const blockData = params.blockData || {}
     const blockNameMapping = params.blockNameMapping || {}
+    const scopedWorkflowId =
+      typeof context.workflowId === 'string' && context.workflowId ? context.workflowId : workflowId
+    const scopedWorkspaceId =
+      typeof context.workspaceId === 'string' && context.workspaceId ? context.workspaceId : ''
 
     // Include everything needed for execution
     return {
@@ -281,16 +289,12 @@ export function createCustomToolRequestBody(
       workflowVariables: workflowVariables, // Workflow variables for <variable.name> resolution
       blockData: blockData, // Runtime block outputs for <block.field> resolution
       blockNameMapping: blockNameMapping, // Block name to ID mapping
-      workflowId: context.workflowId ?? workflowId, // Pass workflowId for server-side context
       userId: context.userId, // Pass userId for auth context
-      ...(context.submissionSource === 'workflow' &&
-      typeof context.workflowId === 'string' &&
-      typeof context.executionId === 'string'
-        ? { usesParentExecutionConcurrencySlot: true }
-        : {}),
-      ...(typeof context.workspaceId === 'string' && context.workspaceId
-        ? { workspaceId: context.workspaceId }
-        : {}),
+      ...(scopedWorkflowId
+        ? { workflowId: scopedWorkflowId }
+        : scopedWorkspaceId
+          ? { workspaceId: scopedWorkspaceId }
+          : {}),
       ...(typeof context.workflowLogId === 'string' && context.workflowLogId
         ? { workflowLogId: context.workflowLogId }
         : {}),
@@ -309,10 +313,10 @@ export function getTool(toolId: string): ToolConfig | undefined {
   if (builtInTool) return builtInTool
 
   // Check if it's a custom tool
-  if (toolId.startsWith('custom_') && typeof window !== 'undefined') {
+  if (isCustomToolRuntimeId(toolId) && typeof window !== 'undefined') {
     // Only try to use the sync version on the client
     const customToolsStore = useCustomToolsStore.getState()
-    const identifier = toolId.replace('custom_', '')
+    const identifier = getCustomToolEntityIdFromRuntimeId(toolId)
 
     const customTool = customToolsStore.getTool(identifier)
 
@@ -337,7 +341,7 @@ export async function getToolAsync(
   if (builtInTool) return builtInTool
 
   // Check if it's a custom tool
-  if (toolId.startsWith('custom_')) {
+  if (isCustomToolRuntimeId(toolId)) {
     return getCustomTool(toolId, workflowId, workspaceId, userId)
   }
 
@@ -389,7 +393,7 @@ async function getCustomTool(
   workspaceId?: string,
   userId?: string
 ): Promise<ToolConfig | undefined> {
-  const identifier = customToolId.replace('custom_', '')
+  const identifier = getCustomToolEntityIdFromRuntimeId(customToolId)
 
   try {
     const baseUrl = getBaseUrl()

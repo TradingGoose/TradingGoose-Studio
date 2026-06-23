@@ -8,7 +8,7 @@ export interface ToolPromptMetadata {
 }
 
 const CUSTOM_TOOL_DOCUMENT_GUIDANCE =
-  'Use full `tg-custom-tool-document-v1` JSON with exactly `title`, `schemaText`, and `codeText`. `schemaText` is a JSON-encoded string, not an object, containing {"type":"function","function":{"name":"camelCaseName","description":"What the tool does","parameters":{"type":"object","properties":{},"required":[]}}}. `codeText` is raw async JavaScript function body only; use <paramName> for inputs and {{ENV_VAR_NAME}} for environment variables.'
+  'Use full `tg-custom-tool-document-v1` JSON with exactly `title`, `schemaText`, and `codeText`. `title` is the canonical custom-tool name. `schemaText` is a JSON-encoded string, not an object, containing {"type":"function","function":{"description":"What the tool does","parameters":{"type":"object","properties":{},"required":[]}}}. Do not include a `name` property inside `function`. `codeText` is raw async JavaScript function body only; use <paramName> for inputs and {{ENV_VAR_NAME}} for environment variables.'
 
 export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   plan: {
@@ -191,7 +191,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
     entityKind: 'custom_tool',
   },
   rename_custom_tool: {
-    description: `Rename the target custom tool by sending a full custom tool document with the updated title or function name, then return the resulting document. ${CUSTOM_TOOL_DOCUMENT_GUIDANCE}`,
+    description: `Rename the target custom tool by sending a full custom tool document with the updated title, then return the resulting document. ${CUSTOM_TOOL_DOCUMENT_GUIDANCE}`,
     kind: 'rename',
     entityKind: 'custom_tool',
   },
@@ -215,13 +215,13 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   [CopilotTool.list_indicators]: {
     description:
-      'List both built-in default indicators and workspace custom indicators. Each result includes `source`, `editable`, `callableInFunctionBlock`, optional `entityId` for editable custom indicators, optional `runtimeId` for built-in Function-block calls, and optional `inputTitles` showing saved override keys. Use `read_indicator` next to inspect the full indicator document, Pine code, and input metadata for a candidate built-in or custom indicator.',
+      'List both built-in default indicators and workspace custom indicators. Each result includes `source`, `editable`, `callableInFunctionBlock`, optional `entityId` for editable custom indicators, `runtimeId` for Function-block calls, and optional `inputTitles` showing saved override keys. Use `read_indicator` next to inspect the full indicator document, Pine code, and input metadata for a candidate built-in or custom indicator.',
     kind: 'list',
     entityKind: 'indicator',
   },
   [CopilotTool.read_indicator]: {
     description:
-      'Return one indicator as a document payload with `entityDocument` and `documentFormat`. For built-in default indicators, pass `runtimeId` from `list_indicators` to inspect the read-only default indicator document, Pine code, and input metadata. For custom indicators, pass `entityId` from `list_indicators` entries where `editable` is true. Built-in default indicators are read-only.',
+      'Return one indicator as a document payload with `entityDocument` and `documentFormat`. Pass `runtimeId` from `list_indicators` for the callable indicator identity; built-in default indicators are read-only, while custom indicator runtime ids resolve the saved custom indicator document.',
     kind: 'read',
     entityKind: 'indicator',
   },

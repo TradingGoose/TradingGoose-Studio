@@ -1,9 +1,11 @@
 import { executeInE2B, isE2BWarmSandboxLimitError } from '@/lib/execution/e2b'
 import { CodeLanguage } from '@/lib/execution/languages'
 import { resolveExecutionRuntimeConfig } from '@/lib/execution/runtime-config'
-import { DEFAULT_INDICATOR_RUNTIME_MANIFEST } from '@/lib/indicators/default/runtime'
 import { buildPineTSFunctionIndicatorRuntimePrologue } from '@/lib/indicators/execution/e2b-script-builder'
-import { FUNCTION_INDICATOR_USAGE_HINT } from '@/lib/indicators/execution/function-indicator-runtime'
+import {
+  type FunctionIndicatorRuntimeManifest,
+  FUNCTION_INDICATOR_USAGE_HINT,
+} from '@/lib/indicators/execution/function-indicator-runtime'
 import { formatE2BError } from './error-formatting'
 import { executeFunctionInLocalVm } from './local-execution'
 import { extractJavaScriptImports } from './typescript-utils'
@@ -16,6 +18,7 @@ type ExecuteFunctionInE2BArgs = {
   executionParams: Record<string, any>
   envVars: Record<string, string>
   contextVariables: Record<string, any>
+  indicatorRuntimeManifest: FunctionIndicatorRuntimeManifest
   isCustomTool: boolean
   timeout: number
   e2bTemplate?: string
@@ -31,6 +34,7 @@ export const executeFunctionInE2B = async ({
   executionParams,
   envVars,
   contextVariables,
+  indicatorRuntimeManifest,
   isCustomTool,
   timeout,
   e2bTemplate,
@@ -70,7 +74,7 @@ export const executeFunctionInE2B = async ({
   }
 
   const indicatorRuntimePrologue = buildPineTSFunctionIndicatorRuntimePrologue({
-    manifest: DEFAULT_INDICATOR_RUNTIME_MANIFEST,
+    manifest: indicatorRuntimeManifest,
     usageHint: FUNCTION_INDICATOR_USAGE_HINT,
   })
   prologue += `${indicatorRuntimePrologue}\n`
@@ -145,6 +149,7 @@ type ExecuteFunctionWithRuntimeGateArgs = {
   executionParams: Record<string, any>
   envVars: Record<string, string>
   contextVariables: Record<string, any>
+  indicatorRuntimeManifest: FunctionIndicatorRuntimeManifest
   timeout: number
   isCustomTool: boolean
   e2bUserScope?: string
@@ -199,6 +204,7 @@ export const executeFunctionWithRuntimeGate = async ({
   executionParams,
   envVars,
   contextVariables,
+  indicatorRuntimeManifest,
   timeout,
   isCustomTool,
   e2bUserScope,
@@ -219,6 +225,7 @@ export const executeFunctionWithRuntimeGate = async ({
         executionParams,
         envVars,
         contextVariables,
+        indicatorRuntimeManifest,
         isCustomTool,
         timeout,
         e2bTemplate: runtimeConfig.e2bTemplate ?? undefined,
@@ -270,6 +277,7 @@ export const executeFunctionWithRuntimeGate = async ({
       executionParams,
       envVars,
       contextVariables,
+      indicatorRuntimeManifest,
       isCustomTool,
       ownerKey: e2bUserScope ? `scope:${e2bUserScope}` : undefined,
       onStdout,

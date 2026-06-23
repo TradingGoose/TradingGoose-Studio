@@ -17,6 +17,7 @@ import type { ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types
 import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
 import { createLogger } from '@/lib/logs/console/logger'
 import { normalizeOptionalString } from '@/lib/utils'
+import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import { useCopilotStore } from '@/stores/copilot/store'
 import { hasUiActiveToolCalls } from '@/stores/copilot/store-state'
 import type { ChatContext, CopilotSendRuntimeContext } from '@/stores/copilot/types'
@@ -74,13 +75,21 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
     const programmaticScrollInFlightRef = useRef(false)
 
     const pairContext = usePairColorContext(pairColor)
+    const entityLabels = useWorkspaceWidgetsMessages().workflowLabels
     const implicitContexts = useMemo(
       () =>
         buildImplicitCopilotContexts({
           workspaceId,
           pairContext,
+          currentLabels: {
+            workflow: entityLabels.currentWorkflow,
+            skill: entityLabels.currentSkill,
+            custom_tool: entityLabels.currentTool,
+            indicator: entityLabels.currentIndicator,
+            mcp_server: entityLabels.currentMcpServer,
+          },
         }),
-      [pairContext, workspaceId]
+      [entityLabels, pairContext, workspaceId]
     )
     const workflowId = resolveCopilotWorkflowId(pairContext) ?? null
     const liveContext = useMemo(

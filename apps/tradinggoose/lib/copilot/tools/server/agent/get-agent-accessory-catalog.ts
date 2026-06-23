@@ -10,6 +10,7 @@ import type {
   GetAgentAccessoryCatalogResultType,
 } from '@/lib/copilot/tools/shared/schemas'
 import { listCustomTools } from '@/lib/custom-tools/operations'
+import { createCustomToolRuntimeId } from '@/lib/custom-tools/schema'
 import { mcpService } from '@/lib/mcp/service'
 import { createMcpToolId } from '@/lib/mcp/utils'
 import { listSkills } from '@/lib/skills/operations'
@@ -104,7 +105,7 @@ export const getAgentAccessoryCatalogServerTool: BaseServerTool<
             value: {
               type: 'custom-tool',
               title: tool.title,
-              toolId: `custom_${tool.id}`,
+              toolId: createCustomToolRuntimeId(tool.id),
               params: {},
               isExpanded: true,
               schema: tool.schema,

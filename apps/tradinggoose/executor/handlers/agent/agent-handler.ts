@@ -1,3 +1,7 @@
+import {
+  buildCustomToolModelDescription,
+  getCustomToolEntityIdFromRuntimeId,
+} from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { createMcpToolId } from '@/lib/mcp/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
@@ -29,7 +33,6 @@ const logger = createLogger('AgentBlockHandler')
 const DEFAULT_MODEL = 'gpt-4o'
 const DEFAULT_FUNCTION_TIMEOUT = 600000
 const REQUEST_TIMEOUT = 120000
-const CUSTOM_TOOL_PREFIX = 'custom_'
 
 /**
  * Helper function to collect runtime block outputs and name mappings
@@ -94,12 +97,7 @@ export class AgentBlockHandler implements BlockHandler {
         : null
 
     if (skillMetadata.length > 0 && skillLoaderToolId) {
-      formattedTools.push(
-        buildLoadSkillTool(
-          skillLoaderToolId,
-          skillMetadata.map((skill) => skill.name)
-        )
-      )
+      formattedTools.push(buildLoadSkillTool(skillLoaderToolId, skillMetadata))
     }
 
     const streamingConfig = this.getStreamingConfig(block, context)
@@ -221,11 +219,15 @@ export class AgentBlockHandler implements BlockHandler {
 
     const filteredSchema = filterSchemaForLLM(tool.schema.function.parameters, userProvidedParams)
 
-    const toolId = `${CUSTOM_TOOL_PREFIX}${tool.title}`
+    const toolId = tool.toolId
+    getCustomToolEntityIdFromRuntimeId(toolId)
     const base: any = {
       id: toolId,
-      name: tool.schema.function.name,
-      description: tool.schema.function.description || '',
+      name: tool.title?.trim(),
+      description: buildCustomToolModelDescription({
+        title: tool.title,
+        description: tool.schema.function.description,
+      }),
       params: userProvidedParams,
       parameters: {
         ...filteredSchema,
@@ -436,7 +438,7 @@ export class AgentBlockHandler implements BlockHandler {
 
   private buildMessages(
     inputs: AgentInputs,
-    skillMetadata: Array<{ name: string; description: string }> = [],
+    skillMetadata: Array<{ id: string; name: string; description: string }> = [],
     skillLoaderToolId?: string | null
   ): Message[] | undefined {
     if (
@@ -695,7 +697,11 @@ export class AgentBlockHandler implements BlockHandler {
       result
     )
 
-    return this.processProviderResponse(result, block, responseFormat)
+    return this.processProviderResponse(
+      this.withToolCallMetadata(result, providerRequest.tools),
+      block,
+      responseFormat
+    )
   }
 
   private async executeBrowserSide(
@@ -755,17 +761,22 @@ export class AgentBlockHandler implements BlockHandler {
     if (contentType?.includes('text/event-stream')) {
       // Handle streaming response
       logger.info('Received streaming response')
-      return this.handleStreamingResponse(response, block)
+      return this.handleStreamingResponse(response, block, providerRequest.tools)
     }
 
     // Handle regular JSON response
     const result = await response.json()
-    return this.processProviderResponse(result, block, responseFormat)
+    return this.processProviderResponse(
+      this.withToolCallMetadata(result, providerRequest.tools),
+      block,
+      responseFormat
+    )
   }
 
   private async handleStreamingResponse(
     response: Response,
-    block: SerializedBlock
+    block: SerializedBlock,
+    tools: any[]
   ): Promise<StreamingExecution> {
     // Check if we have execution data in headers (from StreamingExecution)
     const executionDataHeader = response.headers.get('X-Execution-Data')
@@ -780,7 +791,7 @@ export class AgentBlockHandler implements BlockHandler {
           stream: response.body!,
           execution: {
             success: executionData.success,
-            output: executionData.output || {},
+            output: this.withToolCallMetadata({ output: executionData.output }, tools).output || {},
             error: executionData.error,
             logs: [], // Logs are stripped from headers, will be populated by executor
             metadata: executionData.metadata || {
@@ -985,6 +996,28 @@ export class AgentBlockHandler implements BlockHandler {
     }
   }
 
+  private withToolCallMetadata(result: any, tools: any[] = []) {
+    const toolNames = new Map<string, string>()
+    for (const tool of tools) {
+      if (typeof tool?.id === 'string' && typeof tool.name === 'string') {
+        toolNames.set(tool.id, tool.name.trim())
+      }
+    }
+
+    const apply = (toolCalls?: any[]) =>
+      toolCalls?.forEach((toolCall) => {
+        if (typeof toolCall?.name !== 'string') return
+        const id = toolCall.name
+        const name = toolNames.get(id)
+        if (name) Object.assign(toolCall, { id, name })
+      })
+
+    apply(result?.toolCalls)
+    apply(result?.execution?.output?.toolCalls?.list)
+    apply(result?.output?.toolCalls?.list)
+    return result
+  }
+
   private createResponseMetadata(result: any) {
     return {
       tokens: result.tokens || { prompt: 0, completion: 0, total: 0 },
@@ -999,20 +1032,13 @@ export class AgentBlockHandler implements BlockHandler {
   }
 
   private formatToolCall(tc: any) {
-    const toolName = this.stripCustomToolPrefix(tc.name)
-
     return {
       ...tc,
-      name: toolName,
       startTime: tc.startTime,
       endTime: tc.endTime,
       duration: tc.duration,
       arguments: tc.arguments || tc.input || {},
       result: tc.result || tc.output,
     }
-  }
-
-  private stripCustomToolPrefix(name: string): string {
-    return name.startsWith('custom_') ? name.replace('custom_', '') : name
   }
 }

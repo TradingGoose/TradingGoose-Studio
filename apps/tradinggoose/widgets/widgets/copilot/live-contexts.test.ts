@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { buildImplicitCopilotContexts, resolveCopilotWorkflowId } from './live-contexts'
 
+const currentLabels = {
+  workflow: 'Localized Workflow',
+  skill: 'Localized Skill',
+  custom_tool: 'Localized Tool',
+  indicator: 'Localized Indicator',
+  mcp_server: 'Localized MCP Server',
+}
+
 describe('buildImplicitCopilotContexts', () => {
   it('emits current workflow and active editable entity contexts from pair state', () => {
     expect(
@@ -10,19 +18,20 @@ describe('buildImplicitCopilotContexts', () => {
           workflowId: 'workflow-pair',
           skillId: 'skill-1',
         },
+        currentLabels,
       })
     ).toEqual([
       {
         kind: 'current_workflow',
         workflowId: 'workflow-pair',
         workspaceId: 'workspace-1',
-        label: 'Current Workflow',
+        label: 'Localized Workflow',
       },
       {
         kind: 'current_skill',
         skillId: 'skill-1',
         workspaceId: 'workspace-1',
-        label: 'Current Skill',
+        label: 'Localized Skill',
       },
     ])
   })
@@ -37,13 +46,14 @@ describe('buildImplicitCopilotContexts', () => {
       buildImplicitCopilotContexts({
         workspaceId: 'workspace-1',
         pairContext,
+        currentLabels,
       })
     ).toEqual([
       {
         kind: 'current_workflow',
         workflowId: 'workflow-pair',
         workspaceId: 'workspace-1',
-        label: 'Current Workflow',
+        label: 'Localized Workflow',
       },
     ])
   })
@@ -53,6 +63,7 @@ describe('buildImplicitCopilotContexts', () => {
       buildImplicitCopilotContexts({
         workspaceId: 'workspace-1',
         pairContext: {},
+        currentLabels,
       })
     ).toEqual([])
   })

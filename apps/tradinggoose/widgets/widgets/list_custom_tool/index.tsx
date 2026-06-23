@@ -61,26 +61,25 @@ const sortCustomTools = (tools: CustomToolDefinition[]) =>
   })
 
 const buildNewCustomToolDraft = (tools: CustomToolDefinition[]) => {
-  const existingNames = new Set(
+  const existingTitles = new Set(
     tools
-      .map((tool) => tool.schema?.function?.name?.trim())
-      .filter((name): name is string => Boolean(name))
+      .map((tool) => tool.title.trim())
+      .filter((title): title is string => Boolean(title))
   )
 
-  let nextName = DEFAULT_CUSTOM_TOOL_NAME
+  let nextTitle = DEFAULT_CUSTOM_TOOL_NAME
   let suffix = 2
 
-  while (existingNames.has(nextName)) {
-    nextName = `${DEFAULT_CUSTOM_TOOL_NAME}${suffix}`
+  while (existingTitles.has(nextTitle)) {
+    nextTitle = `${DEFAULT_CUSTOM_TOOL_NAME}${suffix}`
     suffix += 1
   }
 
   return {
-    title: nextName,
+    title: nextTitle,
     schema: {
       type: 'function',
       function: {
-        name: nextName,
         description: '',
         parameters: {
           type: 'object',

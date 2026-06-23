@@ -5,6 +5,7 @@ import { Server, WrenchIcon, XIcon } from 'lucide-react'
 import { useLocale } from 'next-intl'
 import { Toggle } from '@/components/ui/toggle'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { createCustomToolRuntimeId } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { OAuthProvider } from '@/lib/oauth/oauth'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
@@ -369,7 +370,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
     const newTool: StoredTool = {
       type: 'custom-tool',
       title: customTool.title,
-      toolId: `custom_${customTool.id}`,
+      toolId: createCustomToolRuntimeId(customTool.id),
       params: {},
       isExpanded: true,
       schema: customTool.schema,

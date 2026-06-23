@@ -24,7 +24,7 @@ const CustomToolDocumentSchema = z.object({
   schemaText: z
     .string()
     .describe(
-      'JSON text for an OpenAI function tool schema: {"type":"function","function":{"name":"camelCaseName","description":"What the tool does","parameters":{"type":"object","properties":{},"required":[]}}}. This field is a string containing JSON, not an object.'
+      'JSON text for an OpenAI function tool schema: {"type":"function","function":{"description":"What the tool does","parameters":{"type":"object","properties":{},"required":[]}}}. This field is a string containing JSON, not an object. Do not include a `name` property inside `function`; the document `title` is the canonical custom-tool name.'
     ),
   codeText: z
     .string()

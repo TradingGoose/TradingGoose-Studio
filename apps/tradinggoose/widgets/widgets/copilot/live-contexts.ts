@@ -4,12 +4,14 @@ import { normalizePairColorContext, type PairColorContext } from '@/stores/dashb
 import {
   buildCopilotWorkspaceEntityContext,
   COPILOT_WORKSPACE_ENTITY_CONFIGS,
+  type CopilotWorkspaceEntityKind,
   getCopilotWorkspaceEntityIdFromPairContext,
 } from './workspace-entities'
 
 type BuildImplicitCopilotContextsOptions = {
   workspaceId?: string | null
   pairContext?: PairColorContext | null
+  currentLabels: Record<CopilotWorkspaceEntityKind, string>
 }
 
 export function resolveCopilotWorkflowId(
@@ -21,6 +23,7 @@ export function resolveCopilotWorkflowId(
 export const buildImplicitCopilotContexts = ({
   workspaceId,
   pairContext,
+  currentLabels,
 }: BuildImplicitCopilotContextsOptions): ChatContext[] => {
   // These contexts describe what the user is looking at right now. They are sent
   // with each turn, but they do not mount or select editable review sessions.
@@ -42,6 +45,7 @@ export const buildImplicitCopilotContexts = ({
         entityKind: config.entityKind,
         entityId,
         workspaceId: resolvedWorkspaceId,
+        label: currentLabels[config.entityKind],
         current: true,
       })
     )

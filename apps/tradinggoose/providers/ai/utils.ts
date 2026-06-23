@@ -1,5 +1,10 @@
 import type { ChatCompletionChunk } from 'openai/resources/chat/completions'
 import type { CompletionUsage } from 'openai/resources/completions'
+import {
+  buildCustomToolModelDescription,
+  createCustomToolRuntimeId,
+  isCustomToolRuntimeId,
+} from '@/lib/custom-tools/schema'
 import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { ExecutionSubmissionSource } from '@/executor/types'
@@ -331,10 +336,14 @@ export function transformCustomTool(customTool: any): ProviderToolConfig {
     throw new Error('Invalid custom tool schema')
   }
 
+  const toolId = createCustomToolRuntimeId(customTool.id)
   return {
-    id: `custom_${customTool.id}`, // Prefix with 'custom_' to identify custom tools
-    name: schema.function.name,
-    description: schema.function.description || '',
+    id: toolId,
+    name: customTool.title.trim(),
+    description: buildCustomToolModelDescription({
+      title: customTool.title,
+      description: schema.function.description,
+    }),
     params: {}, // This will be derived from parameters
     parameters: {
       type: schema.function.parameters.type,
@@ -418,7 +427,7 @@ export async function transformBlockTool(
   // Get the tool config - check if it's a custom tool that needs async fetching
   let toolConfig: any
 
-  if (toolId.startsWith('custom_') && getToolAsync) {
+  if (isCustomToolRuntimeId(toolId) && getToolAsync) {
     // Use the async version for custom tools
     toolConfig = await getToolAsync(toolId)
   } else {

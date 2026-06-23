@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Pencil, Trash2, Wrench } from 'lucide-react'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages } from 'next-intl'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -14,9 +14,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useMessages } from 'next-intl'
-import type { LocaleCode } from '@/i18n/utils'
 import { cn } from '@/lib/utils'
+import type { LocaleCode } from '@/i18n/utils'
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
 
 interface CustomToolListItemProps {
@@ -29,8 +28,7 @@ interface CustomToolListItemProps {
   isDeleting?: boolean
 }
 
-const getCustomToolTitle = (tool: CustomToolDefinition, fallback = '') =>
-  tool.title || tool.schema?.function?.name || fallback
+const getCustomToolTitle = (tool: CustomToolDefinition) => tool.title.trim()
 
 export function CustomToolListItem({
   tool,
@@ -45,15 +43,15 @@ export function CustomToolListItem({
   const copy = useMessages().workspace.widgets.customToolList.listItem
   const [isHovered, setIsHovered] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
-  const [editValue, setEditValue] = useState(getCustomToolTitle(tool, copy.untitledCustomTool))
+  const [editValue, setEditValue] = useState(getCustomToolTitle(tool))
   const [isRenaming, setIsRenaming] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const nameLabel = getCustomToolTitle(tool, copy.untitledCustomTool)
+  const nameLabel = getCustomToolTitle(tool)
 
   useEffect(() => {
-    setEditValue(getCustomToolTitle(tool, copy.untitledCustomTool))
-  }, [copy.untitledCustomTool, tool.title, tool.schema?.function?.name])
+    setEditValue(getCustomToolTitle(tool))
+  }, [tool.title])
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -65,7 +63,7 @@ export function CustomToolListItem({
   const handleStartEdit = () => {
     if (!canEdit) return
     setIsEditing(true)
-    setEditValue(getCustomToolTitle(tool, copy.untitledCustomTool))
+    setEditValue(getCustomToolTitle(tool))
   }
 
   const handleSaveEdit = async () => {

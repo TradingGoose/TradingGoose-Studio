@@ -370,16 +370,8 @@
         "waitlist": "Honk! Introducing TradingGoose-Studio",
         "open": "Honk! TradingGoose-Studio is here!"
       },
-      "leadWords": [
-        "Build",
-        "Test",
-        "Run"
-      ],
-      "highlightWords": [
-        "Trading Analysis",
-        "Signal Detection",
-        "Risk Assessment"
-      ],
+      "leadWords": ["Build", "Test", "Run"],
+      "highlightWords": ["Trading Analysis", "Signal Detection", "Risk Assessment"],
       "titleConnector": "your",
       "suffix": "with TradingGoose",
       "description": "Connect your own data providers, write custom indicators to monitor market prices, and wire them into workflows that trigger trade, sell, buy, or any action you define.",
@@ -713,13 +705,7 @@
         "experience": {
           "label": "Years of Experience *",
           "placeholder": "Select experience level",
-          "options": [
-            "0-1 years",
-            "1-3 years",
-            "3-5 years",
-            "5-10 years",
-            "10+ years"
-          ]
+          "options": ["0-1 years", "1-3 years", "3-5 years", "5-10 years", "10+ years"]
         },
         "location": {
           "label": "Location *",
@@ -3682,10 +3668,7 @@
             },
             "headers": {
               "title": "Response Headers",
-              "columns": [
-                "Key",
-                "Value"
-              ],
+              "columns": ["Key", "Value"],
               "description": "Additional HTTP headers to include in the response"
             }
           },
@@ -17931,10 +17914,7 @@
             },
             "variables": {
               "title": "Variables",
-              "columns": [
-                "Key",
-                "Value"
-              ]
+              "columns": ["Key", "Value"]
             },
             "apiKey": {
               "title": "Anthropic API Key",
@@ -20954,7 +20934,6 @@
         "validation": {
           "failedToLoadToolData": "Failed to load tool data. Please try again.",
           "missingTypeFunction": "Missing \"type\": \"function\"",
-          "missingFunctionName": "Missing function.name field",
           "missingFunctionParameters": "Missing function.parameters object",
           "missingParametersType": "Missing parameters.type field",
           "missingParametersProperties": "Missing parameters.properties field",
@@ -20962,9 +20941,7 @@
           "invalidJsonFormat": "Invalid JSON format",
           "schemaCannotBeEmpty": "Schema cannot be empty",
           "schemaMustBeFunctionType": "Schema must have a \"type\" field set to \"function\"",
-          "schemaMustHaveFunctionName": "Schema must have a \"function\" object with a \"name\" field",
           "failedToValidateSchema": "Failed to validate custom tool schema. Please check your inputs and try again.",
-          "duplicateName": "A tool with the name \"{name}\" already exists",
           "failedToSave": "Failed to save custom tool. Please check your inputs and try again."
         },
         "form": {
@@ -21442,6 +21419,15 @@
             "lastWeek": "Last Week",
             "older": "Older"
           }
+        },
+        "mentions": {
+          "workflowBlocks": "Workflow Blocks",
+          "matches": "Matches",
+          "noMatches": "No matches",
+          "noPastChats": "No past chats",
+          "noBlocksFound": "No blocks found",
+          "noBlocksInWorkflow": "No blocks in this workflow",
+          "noExecutionsFound": "No executions found"
         },
         "accessLevel": {
           "limited": {

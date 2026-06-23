@@ -117,7 +117,7 @@ const BooleanOptional = z.boolean().optional()
 const NumberOptional = z.number().optional()
 const RequiredId = z.string().trim().min(1)
 const CUSTOM_TOOL_DOCUMENT_ARGUMENT_DESCRIPTION =
-  'Full `tg-custom-tool-document-v1` JSON document with exactly `title`, `schemaText`, and `codeText`. `schemaText` is a JSON-encoded string, not an object, for an OpenAI function tool schema: {"type":"function","function":{"name":"camelCaseName","description":"What the tool does","parameters":{"type":"object","properties":{},"required":[]}}}. `codeText` is raw async JavaScript function body only; use <paramName> for inputs and {{ENV_VAR_NAME}} for environment variables.'
+  'Full `tg-custom-tool-document-v1` JSON document with exactly `title`, `schemaText`, and `codeText`. `title` is the canonical custom-tool name. `schemaText` is a JSON-encoded string, not an object, for an OpenAI function tool schema: {"type":"function","function":{"description":"What the tool does","parameters":{"type":"object","properties":{},"required":[]}}}. Do not include a `name` property inside `function`. `codeText` is raw async JavaScript function body only; use <paramName> for inputs and {{ENV_VAR_NAME}} for environment variables.'
 const OptionalEntityTargetArgs = z.object({
   entityId: z.string().optional(),
 })
@@ -234,7 +234,7 @@ const GetIndicatorArgs = z
       .min(1)
       .optional()
       .describe(
-        'Built-in default indicator runtime id from `list_indicators`, such as `RSI`. Use this for read-only built-in inspection.'
+        'Indicator runtime id from `list_indicators`. Built-in ids inspect read-only defaults; custom ids resolve the saved custom indicator.'
       ),
   })
   .strict()
@@ -656,7 +656,6 @@ const GenericEntityListEntry = z.object({
   workspaceId: z.string().optional(),
   entityDescription: z.string().optional(),
   entityTitle: z.string().optional(),
-  entityFunctionName: z.string().optional(),
   entityTransport: z.string().optional(),
   entityUrl: z.string().optional(),
   entityEnabled: z.boolean().optional(),

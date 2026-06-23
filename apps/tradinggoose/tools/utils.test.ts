@@ -690,7 +690,6 @@ describe('createCustomToolRequestBody', () => {
         API_KEY: 'mock-api-key',
         BASE_URL: 'https://example.com',
       },
-      workflowId: undefined,
       userId: undefined,
       workflowVariables: {},
       blockData: {},
@@ -754,9 +753,9 @@ describe('createCustomToolRequestBody', () => {
         userId: 'user-1',
         workflowId: 'workflow-1',
         workflowLogId: 'log-1',
-        workspaceId: 'workspace-1',
       })
     )
+    expect(result).not.toHaveProperty('workspaceId')
   })
 
   it('fails closed before fetching custom tools when internal auth generation fails', async () => {

@@ -510,10 +510,6 @@ export function hasWorkflowChanged(
   return false
 }
 
-export function stripCustomToolPrefix(name: string) {
-  return name.startsWith('custom_') ? name.replace('custom_', '') : name
-}
-
 export const workflowHasResponseBlock = (executionResult: ExecutionResult): boolean => {
   const hasResponseBlockLog =
     executionResult.logs?.some((log) => log.success && log.blockType === 'response') === true
