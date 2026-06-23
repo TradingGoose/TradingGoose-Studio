@@ -1473,6 +1473,5 @@ describe('AgentBlockHandler', () => {
       expect(requestBody.provider).toBe('openai')
       expect(requestBody.model).toBe('gpt-5')
     })
-
   })
 })

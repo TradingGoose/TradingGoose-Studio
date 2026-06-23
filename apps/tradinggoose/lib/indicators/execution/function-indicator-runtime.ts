@@ -1,6 +1,6 @@
 import { buildInputsMapFromMeta } from '@/lib/indicators/input-meta'
-import type { InputMetaMap } from '@/lib/indicators/types'
 import { mapMarketSeriesToBarsMs } from '@/lib/indicators/series-data'
+import type { InputMetaMap } from '@/lib/indicators/types'
 import type { MarketSeries } from '@/providers/market/types'
 import { executeIndicatorInLocalVm } from './local-executor'
 
