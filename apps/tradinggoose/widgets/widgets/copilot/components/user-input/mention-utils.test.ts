@@ -109,6 +109,12 @@ describe('mention-utils', () => {
     ])
   })
 
+  it('tracks repeated text for the same mention context', () => {
+    const ranges = buildMentionRanges('@Docs @Docs', [{ kind: 'docs', label: 'Docs' }])
+
+    expect(ranges.map((range) => range.contextKey)).toEqual(['docs', 'docs'])
+  })
+
   it('keeps mention ranges when punctuation touches the token', () => {
     const ranges = buildMentionRanges('(@Docs), @Untitled.', [
       { kind: 'docs', label: 'Docs' },

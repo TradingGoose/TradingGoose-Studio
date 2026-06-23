@@ -456,11 +456,19 @@ export function useUserInputMentions({
       before.endsWith(' ') && after.startsWith(' ')
         ? `${before}${after.slice(1)}`
         : `${before}${after}`
-    pendingDeletedContextKeysRef.current.add(range.contextKey)
-    setMessage(next)
-    setSelectedContexts((prev) =>
-      prev.filter((context) => buildCopilotContextIdentityKey(context) !== range.contextKey)
+    const matchingRanges = computeMentionRanges().filter(
+      (mentionRange) => mentionRange.contextKey === range.contextKey
     )
+    const shouldRemoveContext = matchingRanges.length <= 1
+    if (shouldRemoveContext) {
+      pendingDeletedContextKeysRef.current.add(range.contextKey)
+    }
+    setMessage(next)
+    if (shouldRemoveContext) {
+      setSelectedContexts((prev) =>
+        prev.filter((context) => buildCopilotContextIdentityKey(context) !== range.contextKey)
+      )
+    }
 
     restoreEditorSelection(range.start, range.start)
   }

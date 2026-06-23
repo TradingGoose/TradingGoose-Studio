@@ -68,7 +68,7 @@ export function buildMentionRanges(text: string, contexts: ChatContext[]): Menti
     let fromIndex = 0
     let entryIndex = 0
 
-    while (fromIndex <= text.length && entryIndex < entries.length) {
+    while (fromIndex <= text.length) {
       const index = text.indexOf(token, fromIndex)
 
       if (index === -1) {
@@ -81,13 +81,14 @@ export function buildMentionRanges(text: string, contexts: ChatContext[]): Menti
       const hasTrailingBoundary = isMentionBoundary(afterChar)
 
       if (hasLeadingBoundary && hasTrailingBoundary) {
+        const entry = entries[Math.min(entryIndex, entries.length - 1)]
         ranges.push({
           start: index,
           end: index + token.length,
           label,
-          contextKey: entries[entryIndex].contextKey,
+          contextKey: entry.contextKey,
         })
-        entryIndex += 1
+        entryIndex = Math.min(entryIndex + 1, entries.length - 1)
       }
 
       fromIndex = index + token.length
