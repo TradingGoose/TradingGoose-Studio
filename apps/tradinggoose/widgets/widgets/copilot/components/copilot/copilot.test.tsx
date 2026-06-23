@@ -48,6 +48,10 @@ vi.mock('@/lib/logs/console/logger', () => ({
   }),
 }))
 
+vi.mock('@/i18n/workspace-widget-hooks', () => ({
+  useWorkspaceWidgetsMessages: () => ({ workflowLabels: {} }),
+}))
+
 vi.mock('@/stores/copilot/store', () => ({
   useCopilotStore: () => mockStoreState,
   useCopilotStoreApi: () => ({

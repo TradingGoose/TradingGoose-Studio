@@ -12,34 +12,28 @@ import type { PairColorContext } from '@/stores/dashboard/pair-store'
 
 type CopilotWorkspaceEntityConfig = {
   entityKind: ReviewEntityKind
-  currentLabel: string
   idField: 'workflowId' | 'skillId' | 'indicatorId' | 'customToolId' | 'mcpServerId'
 }
 
 export const COPILOT_WORKSPACE_ENTITY_CONFIGS = [
   {
     entityKind: ENTITY_KIND_WORKFLOW,
-    currentLabel: 'Current Workflow',
     idField: 'workflowId',
   },
   {
     entityKind: ENTITY_KIND_SKILL,
-    currentLabel: 'Current Skill',
     idField: 'skillId',
   },
   {
     entityKind: ENTITY_KIND_CUSTOM_TOOL,
-    currentLabel: 'Current Tool',
     idField: 'customToolId',
   },
   {
     entityKind: ENTITY_KIND_INDICATOR,
-    currentLabel: 'Current Indicator',
     idField: 'indicatorId',
   },
   {
     entityKind: ENTITY_KIND_MCP_SERVER,
-    currentLabel: 'Current MCP Server',
     idField: 'mcpServerId',
   },
 ] as const satisfies readonly CopilotWorkspaceEntityConfig[]
