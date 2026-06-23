@@ -40,6 +40,9 @@ const normalize = (value: string) =>
 const includesNormalized = (value: string, query: string) =>
   normalize(value).includes(normalize(query))
 
+const isMentionBoundary = (char: string | undefined) =>
+  !char || /\s/u.test(char) || (/[\p{P}\p{S}]/u.test(char) && !/[-_@]/u.test(char))
+
 export function buildMentionRanges(text: string, contexts: ChatContext[]): MentionRange[] {
   if (!text || contexts.length === 0) {
     return []
@@ -72,10 +75,10 @@ export function buildMentionRanges(text: string, contexts: ChatContext[]): Menti
         break
       }
 
-      const beforeChar = index === 0 ? ' ' : text[index - 1]
+      const beforeChar = index === 0 ? '' : text[index - 1]
       const afterChar = text[index + token.length] ?? ''
-      const hasLeadingBoundary = index === 0 || /\s/.test(beforeChar)
-      const hasTrailingBoundary = index + token.length >= text.length || /\s/.test(afterChar)
+      const hasLeadingBoundary = isMentionBoundary(beforeChar)
+      const hasTrailingBoundary = isMentionBoundary(afterChar)
 
       if (hasLeadingBoundary && hasTrailingBoundary) {
         ranges.push({

@@ -108,4 +108,13 @@ describe('mention-utils', () => {
       'custom_tool:tool-2',
     ])
   })
+
+  it('keeps mention ranges when punctuation touches the token', () => {
+    const ranges = buildMentionRanges('(@Docs), @Untitled.', [
+      { kind: 'docs', label: 'Docs' },
+      { kind: 'custom_tool', customToolId: 'tool-1', label: 'Untitled' },
+    ])
+
+    expect(ranges.map((range) => range.contextKey)).toEqual(['docs', 'custom_tool:tool-1'])
+  })
 })
