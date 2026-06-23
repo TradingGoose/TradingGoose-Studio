@@ -33,6 +33,11 @@ type ApiCustomTool = Partial<CustomToolDefinition> & {
 }
 
 function normalizeCustomTool(tool: ApiCustomTool, workspaceId: string): CustomToolDefinition {
+  const title = tool.title.trim()
+  if (!title) {
+    throw new Error('Custom tool title is required')
+  }
+
   const parameters = tool.schema.function?.parameters ?? {
     type: 'object',
     properties: {},
@@ -40,7 +45,7 @@ function normalizeCustomTool(tool: ApiCustomTool, workspaceId: string): CustomTo
 
   return {
     id: tool.id,
-    title: tool.title,
+    title,
     code: typeof tool.code === 'string' ? tool.code : '',
     workspaceId: tool.workspaceId ?? workspaceId,
     userId: tool.userId ?? null,
