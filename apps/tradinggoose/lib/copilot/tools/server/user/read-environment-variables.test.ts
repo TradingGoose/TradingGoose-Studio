@@ -50,6 +50,9 @@ describe('readEnvironmentVariablesServerTool', () => {
       )
     ).resolves.toEqual({
       variableNames: ['PERSONAL_KEY', 'WORKSPACE_KEY'],
+      personalVariableNames: ['PERSONAL_KEY'],
+      workspaceVariableNames: ['WORKSPACE_KEY'],
+      conflicts: [],
       count: 2,
     })
 
