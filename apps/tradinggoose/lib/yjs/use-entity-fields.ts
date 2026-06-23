@@ -9,11 +9,19 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import * as Y from 'yjs'
+import {
+  buildYjsTransportEnvelope,
+  serializeYjsTransportEnvelope,
+} from '@/lib/copilot/review-sessions/identity'
 import { getFieldsMap, replaceEntityTextField, setEntityField } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { bootstrapYjsProvider, type YjsProviderBootstrapResult } from '@/lib/yjs/provider'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
+import { customToolsKeys } from '@/hooks/queries/custom-tools'
+import { indicatorKeys } from '@/hooks/queries/indicators'
+import { skillsKeys } from '@/hooks/queries/skills'
 
 type SavedEntityYjsSessionState = {
   key: string | null
@@ -26,6 +34,7 @@ export function useSavedEntityYjsSession(
   entityId: string | null | undefined,
   workspaceId: string | null | undefined
 ) {
+  const queryClient = useQueryClient()
   const sessionKey = entityId && workspaceId ? `${entityKind}:${workspaceId}:${entityId}` : null
   const [state, setState] = useState<SavedEntityYjsSessionState>({
     key: null,
@@ -76,9 +85,39 @@ export function useSavedEntityYjsSession(
   }, [entityId, entityKind, sessionKey, workspaceId])
 
   const activeState = state.key === sessionKey ? state : null
+  const save = useCallback(async () => {
+    if (!activeState?.result || !workspaceId) {
+      throw new Error('Yjs session is not ready')
+    }
+
+    const { descriptor } = activeState.result
+    const params = new URLSearchParams({
+      ...serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor)),
+      accessMode: 'write',
+    })
+    const response = await fetch(
+      `/api/yjs/sessions/${encodeURIComponent(descriptor.yjsSessionId)}/snapshot?${params}`,
+      {
+        method: 'POST',
+      }
+    )
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      throw new Error(data.error || 'Failed to save Yjs session')
+    }
+
+    if (entityKind === 'skill') {
+      queryClient.invalidateQueries({ queryKey: skillsKeys.list(workspaceId) })
+    } else if (entityKind === 'custom_tool') {
+      queryClient.invalidateQueries({ queryKey: customToolsKeys.list(workspaceId) })
+    } else if (entityKind === 'indicator') {
+      queryClient.invalidateQueries({ queryKey: indicatorKeys.list(workspaceId) })
+    }
+  }, [activeState?.result, entityKind, queryClient, workspaceId])
 
   return {
     doc: activeState?.result?.doc ?? null,
+    save,
     isLoading: Boolean(sessionKey && !activeState?.result && !activeState?.error),
     error: activeState?.error ?? null,
   }
@@ -92,7 +131,7 @@ export function useSavedEntityYjsSession(
 export function useYjsStringField(
   doc: Y.Doc | null | undefined,
   key: string,
-  fallback: string = ''
+  fallback = ''
 ): [string, (v: string | ((prev: string) => string)) => void] {
   const subscribe = useMemo(() => {
     if (!doc) return (cb: () => void) => () => {}
@@ -186,7 +225,7 @@ export function useYjsField<T>(
 export function useYjsBooleanField(
   doc: Y.Doc | null | undefined,
   key: string,
-  fallback: boolean = false
+  fallback = false
 ): [boolean, (v: boolean) => void] {
   return useYjsField(doc, key, fallback)
 }
@@ -197,7 +236,7 @@ export function useYjsBooleanField(
 export function useYjsNumberField(
   doc: Y.Doc | null | undefined,
   key: string,
-  fallback: number = 0
+  fallback = 0
 ): [number, (v: number) => void] {
   return useYjsField(doc, key, fallback)
 }

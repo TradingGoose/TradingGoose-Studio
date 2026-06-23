@@ -242,37 +242,6 @@ export function useUpdateIndicator() {
       logger.info(`Updated indicator: ${indicatorId}`)
       return data.data
     },
-    onMutate: async ({ workspaceId, indicatorId, updates }) => {
-      await queryClient.cancelQueries({ queryKey: indicatorKeys.list(workspaceId) })
-
-      const previousIndicators = queryClient.getQueryData<IndicatorDefinition[]>(
-        indicatorKeys.list(workspaceId)
-      )
-
-      if (previousIndicators) {
-        queryClient.setQueryData<IndicatorDefinition[]>(
-          indicatorKeys.list(workspaceId),
-          previousIndicators.map((indicator) =>
-            indicator.id === indicatorId
-              ? {
-                  ...indicator,
-                  ...updates,
-                }
-              : indicator
-          )
-        )
-      }
-
-      return { previousIndicators }
-    },
-    onError: (_err, variables, context) => {
-      if (context?.previousIndicators) {
-        queryClient.setQueryData(
-          indicatorKeys.list(variables.workspaceId),
-          context.previousIndicators
-        )
-      }
-    },
     onSettled: (_data, _error, variables) => {
       queryClient.invalidateQueries({ queryKey: indicatorKeys.list(variables.workspaceId) })
     },

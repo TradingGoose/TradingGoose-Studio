@@ -10,16 +10,6 @@ import * as Y from 'yjs'
 import { seedEntitySession } from '@/lib/yjs/entity-session'
 import { SkillEditor } from '@/widgets/widgets/editor_skill/skill-editor'
 
-const mockUseUpdateSkill = vi.fn()
-
-vi.mock('@/hooks/queries/skills', async () => {
-  const actual = await vi.importActual<any>('@/hooks/queries/skills')
-  return {
-    ...actual,
-    useUpdateSkill: () => mockUseUpdateSkill(),
-  }
-})
-
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
@@ -44,7 +34,7 @@ describe('SkillEditor save', () => {
   })
 
   it('saves the current Yjs fields', async () => {
-    const mutateAsync = vi.fn().mockResolvedValue({})
+    const save = vi.fn().mockResolvedValue(undefined)
     const exportRef = createRef<() => void>()
     const saveRef = createRef<() => void>()
     const doc = new Y.Doc()
@@ -57,19 +47,14 @@ describe('SkillEditor save', () => {
     saveRef.current = () => {}
     seedEntitySession(doc, { entityKind: 'skill', payload: initialValues })
 
-    mockUseUpdateSkill.mockReturnValue({
-      isPending: false,
-      mutateAsync,
-    })
-
     await act(async () => {
       root.render(
         <SkillEditor
-          workspaceId='workspace-1'
           exportRef={exportRef as MutableRefObject<() => void>}
           saveRef={saveRef as MutableRefObject<() => void>}
           skillId='skill-1'
           doc={doc}
+          save={save}
         />
       )
     })
@@ -89,15 +74,7 @@ describe('SkillEditor save', () => {
       await Promise.resolve()
     })
 
-    expect(mutateAsync).toHaveBeenCalledWith({
-      workspaceId: 'workspace-1',
-      skillId: 'skill-1',
-      updates: {
-        name: 'Market Research Updated',
-        description: 'Investigate the market.',
-        content: 'Use multiple trusted sources.',
-      },
-    })
+    expect(save).toHaveBeenCalledTimes(1)
     doc.destroy()
   })
 })

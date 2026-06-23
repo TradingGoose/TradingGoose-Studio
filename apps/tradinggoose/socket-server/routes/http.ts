@@ -21,7 +21,11 @@ import {
   storeCanonicalState,
   storeState,
 } from '@/socket-server/yjs/persistence'
-import { getExistingDocument, removeDocument } from '@/socket-server/yjs/upstream-utils'
+import {
+  flushDocumentPersistence,
+  getExistingDocument,
+  removeDocument,
+} from '@/socket-server/yjs/upstream-utils'
 
 interface Logger {
   info: (message: string, ...args: any[]) => void
@@ -348,6 +352,10 @@ async function getLiveOrPersistedYjsState(
   sessionId: string
 ): Promise<{ liveDoc: Y.Doc | null; state: Uint8Array | null; touchedAt: number | null }> {
   const liveDoc = await getExistingDocument(sessionId)
+  if (liveDoc) {
+    await flushDocumentPersistence(sessionId)
+  }
+
   const state = liveDoc ? Y.encodeStateAsUpdate(liveDoc) : await getState(sessionId)
   return {
     liveDoc,

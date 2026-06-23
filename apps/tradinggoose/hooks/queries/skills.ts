@@ -274,36 +274,6 @@ export function useUpdateSkill() {
 
       return data.data
     },
-    onMutate: async ({ workspaceId, skillId, updates }) => {
-      await queryClient.cancelQueries({ queryKey: skillsKeys.list(workspaceId) })
-
-      const previousSkills = queryClient.getQueryData<SkillDefinition[]>(
-        skillsKeys.list(workspaceId)
-      )
-
-      if (previousSkills) {
-        queryClient.setQueryData<SkillDefinition[]>(
-          skillsKeys.list(workspaceId),
-          previousSkills.map((skill) =>
-            skill.id === skillId
-              ? {
-                  ...skill,
-                  name: updates.name ?? skill.name,
-                  description: updates.description ?? skill.description,
-                  content: updates.content ?? skill.content,
-                }
-              : skill
-          )
-        )
-      }
-
-      return { previousSkills }
-    },
-    onError: (_err, variables, context) => {
-      if (context?.previousSkills) {
-        queryClient.setQueryData(skillsKeys.list(variables.workspaceId), context.previousSkills)
-      }
-    },
     onSettled: (_data, _error, variables) => {
       queryClient.invalidateQueries({ queryKey: skillsKeys.list(variables.workspaceId) })
     },
@@ -335,28 +305,7 @@ export function useDeleteSkill() {
 
       return data
     },
-    onMutate: async ({ workspaceId, skillId }) => {
-      await queryClient.cancelQueries({ queryKey: skillsKeys.list(workspaceId) })
-
-      const previousSkills = queryClient.getQueryData<SkillDefinition[]>(
-        skillsKeys.list(workspaceId)
-      )
-
-      if (previousSkills) {
-        queryClient.setQueryData<SkillDefinition[]>(
-          skillsKeys.list(workspaceId),
-          previousSkills.filter((skill) => skill.id !== skillId)
-        )
-      }
-
-      return { previousSkills, workspaceId }
-    },
-    onError: (_err, _variables, context) => {
-      if (context?.previousSkills && context?.workspaceId) {
-        queryClient.setQueryData(skillsKeys.list(context.workspaceId), context.previousSkills)
-      }
-    },
-    onSettled: (_data, _error, variables) => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: skillsKeys.list(variables.workspaceId) })
     },
   })

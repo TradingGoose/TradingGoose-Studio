@@ -10,16 +10,7 @@ import * as Y from 'yjs'
 import { replaceEntityTextField, seedEntitySession, setEntityField } from '@/lib/yjs/entity-session'
 import { CustomToolEditor } from '@/widgets/widgets/editor_custom_tool/custom-tool-editor'
 
-const mockUseUpdateCustomTool = vi.fn()
 const mockUseWand = vi.fn()
-
-vi.mock('@/hooks/queries/custom-tools', async () => {
-  const actual = await vi.importActual<any>('@/hooks/queries/custom-tools')
-  return {
-    ...actual,
-    useUpdateCustomTool: () => mockUseUpdateCustomTool(),
-  }
-})
 
 vi.mock('@/hooks/workflow/use-wand', () => ({
   useWand: (...args: unknown[]) => mockUseWand(...args),
@@ -131,10 +122,6 @@ describe('CustomToolEditor export', () => {
     root = createRoot(container)
     capturedDownloadName = ''
 
-    mockUseUpdateCustomTool.mockReturnValue({
-      isPending: false,
-      mutateAsync: vi.fn(),
-    })
     mockUseWand.mockImplementation(() => createWandState())
 
     createObjectUrlSpy = vi.fn(() => 'blob:custom-tool-export')
@@ -197,6 +184,7 @@ describe('CustomToolEditor export', () => {
           exportRef={exportRef as MutableRefObject<() => void>}
           saveRef={saveRef as MutableRefObject<() => void>}
           doc={doc}
+          save={vi.fn()}
         />
       )
     })
@@ -239,6 +227,7 @@ describe('CustomToolEditor export', () => {
           exportRef={exportRef as MutableRefObject<() => void>}
           saveRef={saveRef as MutableRefObject<() => void>}
           doc={doc}
+          save={vi.fn()}
         />
       )
     })
@@ -326,6 +315,7 @@ describe('CustomToolEditor export', () => {
           exportRef={exportRef as MutableRefObject<() => void>}
           saveRef={saveRef as MutableRefObject<() => void>}
           doc={doc}
+          save={vi.fn()}
         />
       )
     })

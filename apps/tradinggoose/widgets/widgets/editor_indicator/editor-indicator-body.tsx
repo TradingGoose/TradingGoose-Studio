@@ -1,10 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
-import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useMessages } from 'next-intl'
-import { useIndicators } from '@/hooks/queries/indicators'
+import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
+import { useIndicators } from '@/hooks/queries/indicators'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
@@ -46,7 +46,9 @@ export function EditorIndicatorWidgetBody({
     workspaceIndicators.some((indicator) => indicator.id === normalizedRequestedIndicatorId)
   const indicatorId = hasRequestedIndicator
     ? normalizedRequestedIndicatorId
-    : (isLinkedToColorPair ? null : (workspaceIndicators[0]?.id ?? null))
+    : isLinkedToColorPair
+      ? null
+      : (workspaceIndicators[0]?.id ?? null)
   const indicator = indicatorId
     ? (workspaceIndicators.find((candidate) => candidate.id === indicatorId) ?? null)
     : null
@@ -177,6 +179,7 @@ export function EditorIndicatorWidgetBody({
         indicatorId={indicatorId}
         workspaceId={workspaceId}
         doc={indicatorSession.doc}
+        save={indicatorSession.save}
         exportRef={codeExportRef}
         saveRef={codeSaveRef}
         verifyRef={codeVerifyRef}

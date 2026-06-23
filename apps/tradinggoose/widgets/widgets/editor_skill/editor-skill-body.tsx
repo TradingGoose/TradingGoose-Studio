@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useMessages } from 'next-intl'
-import { useSkills } from '@/hooks/queries/skills'
+import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
+import { useSkills } from '@/hooks/queries/skills'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
@@ -42,7 +42,9 @@ export function EditorSkillWidgetBody({
     skills.some((skill) => skill.id === normalizedRequestedSkillId)
   const skillId = hasRequestedSkill
     ? normalizedRequestedSkillId
-    : (isLinkedToColorPair ? null : (skills[0]?.id ?? null))
+    : isLinkedToColorPair
+      ? null
+      : (skills[0]?.id ?? null)
   const skill = skillId ? (skills.find((candidate) => candidate.id === skillId) ?? null) : null
   const skillSession = useSavedEntityYjsSession('skill', skillId, workspaceId)
 
@@ -151,8 +153,8 @@ export function EditorSkillWidgetBody({
   return (
     <div className='flex h-full w-full flex-col overflow-hidden'>
       <SkillEditor
-        workspaceId={workspaceId}
         doc={skillSession.doc}
+        save={skillSession.save}
         skillId={skillId}
         exportRef={exportRef}
         saveRef={saveRef}

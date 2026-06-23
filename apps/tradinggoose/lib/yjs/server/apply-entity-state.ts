@@ -8,23 +8,44 @@ import {
 } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import * as Y from 'yjs'
+import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
+import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { seedEntitySession } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { applyEntityStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { storeState } from '@/socket-server/yjs/persistence'
 
-function parseObjectJson(value: unknown, fieldName: string): Record<string, unknown> {
-  const parsed = JSON.parse(String(value ?? ''))
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error(`${fieldName} must be a JSON object`)
+export class SavedEntityPersistenceError extends Error {
+  constructor(
+    public status: number,
+    message: string
+  ) {
+    super(message)
+    this.name = 'SavedEntityPersistenceError'
   }
-  return parsed as Record<string, unknown>
 }
 
 function objectField(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {}
+}
+
+function normalizeSavedEntityFields(
+  entityKind: SavedEntityKind,
+  fields: Record<string, unknown>
+): Record<string, unknown> {
+  try {
+    const normalized = normalizeEntityFields(entityKind, fields)
+    return entityKind === 'indicator'
+      ? { ...normalized, color: String(fields.color ?? '').trim() }
+      : normalized
+  } catch (error) {
+    throw new SavedEntityPersistenceError(
+      400,
+      error instanceof Error ? error.message : 'Invalid saved entity fields'
+    )
+  }
 }
 
 async function persistSavedEntityState(
@@ -53,7 +74,7 @@ async function persistSavedEntityState(
         .update(customTools)
         .set({
           title: String(fields.title ?? ''),
-          schema: parseObjectJson(fields.schemaText, 'schemaText'),
+          schema: parseCustomToolSchemaText(fields.schemaText),
           code: String(fields.codeText ?? ''),
           updatedAt: now,
         })
@@ -108,7 +129,10 @@ async function persistSavedEntityState(
   }
 
   if (persisted.length === 0) {
-    throw new Error(`Saved ${entityKind} ${entityId} was not found while materializing Yjs state`)
+    throw new SavedEntityPersistenceError(
+      404,
+      `Saved ${entityKind} ${entityId} was not found while materializing Yjs state`
+    )
   }
 }
 
@@ -135,6 +159,7 @@ export async function applySavedEntityPersistedState(
   entityId: string,
   fields: Record<string, unknown>
 ): Promise<void> {
-  await persistSavedEntityState(entityKind, entityId, fields)
-  await applySavedEntityDraftState(entityKind, entityId, fields)
+  const normalizedFields = normalizeSavedEntityFields(entityKind, fields)
+  await persistSavedEntityState(entityKind, entityId, normalizedFields)
+  await applySavedEntityDraftState(entityKind, entityId, normalizedFields)
 }

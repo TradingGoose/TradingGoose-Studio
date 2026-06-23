@@ -14,7 +14,6 @@ import { CustomToolOpenAiSchema } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { useYjsStringField } from '@/lib/yjs/use-entity-fields'
-import { useUpdateCustomTool } from '@/hooks/queries/custom-tools'
 import { useWand } from '@/hooks/workflow/use-wand'
 import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
@@ -30,6 +29,7 @@ interface CustomToolEditorProps {
   blockId: string
   toolId: string
   doc: Y.Doc | null
+  save: () => Promise<void>
   onSave: () => void
   onSectionChange: (section: CustomToolEditorSection) => void
   exportRef: MutableRefObject<() => void>
@@ -41,6 +41,7 @@ export function CustomToolEditor({
   blockId,
   toolId,
   doc,
+  save,
   onSave,
   onSectionChange,
   exportRef,
@@ -64,8 +65,6 @@ export function CustomToolEditor({
   const [activeSourceBlockId, setActiveSourceBlockId] = useState<string | null>(null)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
   const [schemaParamSelectedIndex, setSchemaParamSelectedIndex] = useState(0)
-
-  const updateToolMutation = useUpdateCustomTool()
 
   useEffect(() => {
     setSchemaError(null)
@@ -349,15 +348,12 @@ IMPORTANT FORMATTING RULES:
         return
       }
 
-      await updateToolMutation.mutateAsync({
-        workspaceId,
-        toolId,
-        updates: {
-          title,
-          schema,
-          code: functionCode || '',
-        },
-      })
+      const latestFunctionCode =
+        codeEditorHandleRef.current?.getEditor()?.getValue() ?? functionCode
+
+      setFunctionCode(latestFunctionCode)
+
+      await save()
 
       onSave()
     } catch (error) {
@@ -368,12 +364,13 @@ IMPORTANT FORMATTING RULES:
   }, [
     parseCurrentSchema,
     doc,
-    functionCode,
     onSave,
     onSectionChange,
+    save,
+    functionCode,
+    setFunctionCode,
     toolTitle,
     toolId,
-    updateToolMutation,
     workspaceId,
   ])
 

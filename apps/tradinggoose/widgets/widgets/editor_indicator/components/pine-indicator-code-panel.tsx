@@ -16,8 +16,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { exportIndicatorsAsJson } from '@/lib/indicators/import-export'
 import { executeBrowserPineIndicator } from '@/lib/indicators/browser-execution'
+import { exportIndicatorsAsJson } from '@/lib/indicators/import-export'
 import { buildInputsMapFromMeta, inferInputMetaFromPineCode } from '@/lib/indicators/input-meta'
 import { PINE_CHEAT_SHEET_EXTRA_LIBS } from '@/lib/indicators/pine-cheat-sheet'
 import { mapMarketSeriesToBarsMs } from '@/lib/indicators/series-data'
@@ -25,7 +25,6 @@ import { detectTriggerUsage } from '@/lib/indicators/trigger-detection'
 import { detectUnsupportedFeatures } from '@/lib/indicators/unsupported'
 import { generateMockMarketSeries } from '@/lib/market/mock-series'
 import { useYjsStringField } from '@/lib/yjs/use-entity-fields'
-import { useUpdateIndicator } from '@/hooks/queries/indicators'
 import { useWand } from '@/hooks/workflow/use-wand'
 import {
   CHEAT_SHEET_GROUPS,
@@ -38,6 +37,7 @@ type IndicatorCodePanelProps = {
   indicatorId: string
   workspaceId: string
   doc: Y.Doc | null
+  save: () => Promise<void>
   exportRef: MutableRefObject<() => void>
   saveRef: MutableRefObject<() => void>
   verifyRef: MutableRefObject<() => void>
@@ -162,11 +162,11 @@ export function IndicatorCodePanel({
   indicatorId,
   workspaceId,
   doc,
+  save,
   exportRef,
   saveRef,
   verifyRef,
 }: IndicatorCodePanelProps) {
-  const updateMutation = useUpdateIndicator()
   const [indicatorName] = useYjsStringField(doc, 'name')
   const [pineCode, setPineCode] = useYjsStringField(doc, 'pineCode')
 
@@ -259,27 +259,23 @@ export function IndicatorCodePanel({
 
   const handleSave = useCallback(async () => {
     if (!workspaceId || !indicatorId || !doc) return
-    const disallowedMessage = validateNoDollarGlobals(pineCode)
+    const currentPineCode = codeEditorHandleRef.current?.getEditor()?.getValue() ?? pineCode
+    const disallowedMessage = validateNoDollarGlobals(currentPineCode)
     if (disallowedMessage) {
       setVerifyStatus({ state: 'error', message: disallowedMessage })
       return
     }
-    const inferredInputMeta = inferInputMetaFromPineCode(pineCode)
 
     try {
-      await updateMutation.mutateAsync({
-        workspaceId,
-        indicatorId,
-        updates: {
-          name: indicatorName,
-          pineCode,
-          inputMeta: inferredInputMeta ?? null,
-        },
-      })
+      if (currentPineCode !== pineCode) {
+        setPineCode(currentPineCode)
+      }
+
+      await save()
     } catch (err) {
       console.error('Failed to update indicator', err)
     }
-  }, [workspaceId, indicatorId, doc, updateMutation, indicatorName, pineCode])
+  }, [workspaceId, indicatorId, doc, pineCode, save, setPineCode])
 
   const handleExport = useCallback(() => {
     if (!doc) return
@@ -298,7 +294,9 @@ export function IndicatorCodePanel({
         .trim()
         .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '-')
         .replace(/\s+/g, '-') || 'indicator'
-    const blobUrl = URL.createObjectURL(new Blob([json], { type: 'application/json;charset=utf-8' }))
+    const blobUrl = URL.createObjectURL(
+      new Blob([json], { type: 'application/json;charset=utf-8' })
+    )
     const link = document.createElement('a')
     link.href = blobUrl
     link.download = `${fileNameBase}.json`

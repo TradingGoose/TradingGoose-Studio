@@ -1,21 +1,16 @@
 'use client'
 
-import {
-  type SetStateAction,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
-import { LoadingAgent } from '@/components/ui/loading-agent'
-import { useMcpServerTest } from '@/hooks/use-mcp-server-test'
-import { useMcpTools } from '@/hooks/use-mcp-tools'
+import { type SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMessages } from 'next-intl'
-import { formatTemplate } from '@/i18n/utils'
+import type * as Y from 'yjs'
+import { LoadingAgent } from '@/components/ui/loading-agent'
+import { sanitizeRecord } from '@/lib/utils'
 import { getFieldsMap, setEntityField } from '@/lib/yjs/entity-session'
 import { useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
+import { useMcpServerTest } from '@/hooks/use-mcp-server-test'
+import { useMcpTools } from '@/hooks/use-mcp-tools'
+import { formatTemplate } from '@/i18n/utils'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useMcpServersStore } from '@/stores/mcp-servers/store'
 import type { McpServerWithStatus } from '@/stores/mcp-servers/types'
@@ -26,12 +21,10 @@ import { useMcpSelectionPersistence } from '@/widgets/utils/mcp-selection'
 import { McpServerForm } from '@/widgets/widgets/_shared/mcp/components/mcp-server-form'
 import {
   createDefaultMcpServerFormData,
-  createMcpSavePayload,
   type McpServerFormData,
   resolveMcpServerId,
 } from '@/widgets/widgets/_shared/mcp/utils'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
-import type * as Y from 'yjs'
 
 type EditorMcpWidgetBodyProps = WidgetComponentProps
 
@@ -181,14 +174,12 @@ export function EditorMcpWidgetBody({
     error: serverError,
     fetchServers,
     refreshServer,
-    updateServer,
   } = useMcpServersStore((state) => ({
     servers: state.servers,
     isLoading: state.isLoading,
     error: state.error,
     fetchServers: state.fetchServers,
     refreshServer: state.refreshServer,
-    updateServer: state.updateServer,
   }))
   const { refreshTools, getToolsByServer } = useMcpTools(workspaceId ?? '')
   const { testResult, isTestingConnection, testConnection, clearTestResult } = useMcpServerTest()
@@ -283,7 +274,7 @@ export function EditorMcpWidgetBody({
       name: formDataState.name.trim() || copy.unnamedServer,
       transport: formDataState.transport,
       url: formDataState.url,
-      headers: createMcpSavePayload(formDataState).headers,
+      headers: sanitizeRecord(formDataState.headers),
       timeout: formDataState.timeout,
       workspaceId,
     })
@@ -313,8 +304,7 @@ export function EditorMcpWidgetBody({
   const handleSave = useCallback(async () => {
     if (!workspaceId || !selectedServerId || !serverSession.doc) return
 
-    const payload = createMcpSavePayload(formDataState)
-    if (!payload.name) {
+    if (!formDataState.name.trim()) {
       setSaveError(copy.serverNameRequired)
       return
     }
@@ -322,7 +312,7 @@ export function EditorMcpWidgetBody({
     setSaveError(null)
 
     try {
-      await updateServer(workspaceId, selectedServerId, payload)
+      await serverSession.save()
       initialFormDataRef.current = formDataState
       await fetchServers(workspaceId)
     } catch (error) {
@@ -335,8 +325,8 @@ export function EditorMcpWidgetBody({
     fetchServers,
     formDataState,
     serverSession.doc,
+    serverSession.save,
     selectedServerId,
-    updateServer,
     workspaceId,
   ])
 

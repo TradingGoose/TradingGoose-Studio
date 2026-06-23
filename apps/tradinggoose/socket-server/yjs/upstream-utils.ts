@@ -7,15 +7,15 @@
  * and `cleanupAllDocuments`.
  */
 
-import * as Y from 'yjs'
+import type { IncomingMessage } from 'http'
 import * as awarenessProtocol from '@y/protocols/awareness'
 import * as syncProtocol from '@y/protocols/sync'
 import * as decoding from 'lib0/decoding'
 import * as encoding from 'lib0/encoding'
 import * as map from 'lib0/map'
 import * as mutex from 'lib0/mutex'
-import type { IncomingMessage } from 'http'
 import type { WebSocket } from 'ws'
+import * as Y from 'yjs'
 
 const messageSync = 0
 const messageAwareness = 1
@@ -54,11 +54,7 @@ class WSSharedDoc extends Y.Doc {
     this.awareness.on(
       'update',
       (
-        {
-          added,
-          updated,
-          removed,
-        }: { added: number[]; updated: number[]; removed: number[] },
+        { added, updated, removed }: { added: number[]; updated: number[]; removed: number[] },
         conn: WebSocket | null
       ) => {
         const changedClients = added.concat(updated, removed)
@@ -263,6 +259,16 @@ export async function getExistingDocument(docId: string): Promise<Y.Doc | null> 
 
   await doc.whenInitialized
   return doc
+}
+
+export async function flushDocumentPersistence(docId: string): Promise<void> {
+  const doc = docs.get(docId)
+  if (!doc) {
+    return
+  }
+
+  await doc.whenInitialized
+  await doc.flushPersistence()
 }
 
 export function setupWSConnection(

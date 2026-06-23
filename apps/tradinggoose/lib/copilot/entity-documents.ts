@@ -1,4 +1,7 @@
 import { z } from 'zod'
+import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
+import { inferInputMetaFromPineCode } from '@/lib/indicators/input-meta'
+import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
 export const SKILL_DOCUMENT_FORMAT = 'tg-skill-document-v1' as const
 export const CUSTOM_TOOL_DOCUMENT_FORMAT = 'tg-custom-tool-document-v1' as const
 export const INDICATOR_DOCUMENT_FORMAT = 'tg-indicator-document-v1' as const
@@ -94,7 +97,7 @@ function redactStringRecordValues(value: unknown): Record<string, string> {
   )
 }
 
-function normalizeEntityFields(
+export function normalizeEntityFields(
   kind: EntityDocumentKind,
   fields: Record<string, unknown> | null | undefined
 ): Record<string, unknown> {
@@ -103,38 +106,43 @@ function normalizeEntityFields(
   switch (kind) {
     case 'skill':
       return {
-        name: typeof source.name === 'string' ? source.name : '',
-        description: typeof source.description === 'string' ? source.description : '',
-        content: typeof source.content === 'string' ? source.content : '',
+        name: typeof source.name === 'string' ? source.name.trim() : '',
+        description: typeof source.description === 'string' ? source.description.trim() : '',
+        content: typeof source.content === 'string' ? source.content.trim() : '',
       }
-    case 'custom_tool':
+    case 'custom_tool': {
+      const schemaText = typeof source.schemaText === 'string' ? source.schemaText : ''
       return {
-        title: typeof source.title === 'string' ? source.title : '',
-        schemaText: typeof source.schemaText === 'string' ? source.schemaText : '',
+        title: typeof source.title === 'string' ? source.title.trim().replace(/\s+/g, ' ') : '',
+        schemaText: JSON.stringify(parseCustomToolSchemaText(schemaText), null, 2),
         codeText: typeof source.codeText === 'string' ? source.codeText : '',
       }
-    case 'indicator':
+    }
+    case 'indicator': {
+      const pineCode = typeof source.pineCode === 'string' ? source.pineCode : ''
       return {
-        name: typeof source.name === 'string' ? source.name : '',
-        pineCode: typeof source.pineCode === 'string' ? source.pineCode : '',
-        inputMeta:
-          source.inputMeta &&
-          typeof source.inputMeta === 'object' &&
-          !Array.isArray(source.inputMeta)
-            ? (source.inputMeta as Record<string, unknown>)
-            : null,
+        name: typeof source.name === 'string' ? source.name.trim() : '',
+        pineCode,
+        inputMeta: inferInputMetaFromPineCode(pineCode) ?? null,
       }
-    case 'mcp_server':
+    }
+    case 'mcp_server': {
+      const rawUrl = typeof source.url === 'string' ? source.url.trim() : ''
+      const validation = rawUrl ? validateMcpServerUrl(rawUrl) : null
+      if (validation && !validation.isValid) {
+        throw new Error(`Invalid MCP server URL: ${validation.error}`)
+      }
+
       return {
-        name: typeof source.name === 'string' ? source.name : '',
-        description: typeof source.description === 'string' ? source.description : '',
+        name: typeof source.name === 'string' ? source.name.trim() : '',
+        description: typeof source.description === 'string' ? source.description.trim() : '',
         transport:
           source.transport === 'http' ||
           source.transport === 'sse' ||
           source.transport === 'streamable-http'
             ? source.transport
             : 'http',
-        url: typeof source.url === 'string' ? source.url : '',
+        url: validation?.normalizedUrl ?? rawUrl,
         headers:
           source.headers && typeof source.headers === 'object' && !Array.isArray(source.headers)
             ? Object.fromEntries(
@@ -144,7 +152,7 @@ function normalizeEntityFields(
                 ])
               )
             : {},
-        command: typeof source.command === 'string' ? source.command : '',
+        command: typeof source.command === 'string' ? source.command.trim() : '',
         args: Array.isArray(source.args)
           ? source.args.map((value) => (typeof value === 'string' ? value : String(value ?? '')))
           : [],
@@ -161,10 +169,12 @@ function normalizeEntityFields(
         retries: typeof source.retries === 'number' ? source.retries : 3,
         enabled: typeof source.enabled === 'boolean' ? source.enabled : true,
       }
+    }
     case 'knowledge_base':
       return {
-        name: source.name,
-        description: source.description,
+        name: typeof source.name === 'string' ? source.name.trim() : source.name,
+        description:
+          typeof source.description === 'string' ? source.description.trim() : source.description,
         chunkingConfig: source.chunkingConfig,
       }
   }

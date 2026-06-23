@@ -1,5 +1,4 @@
 import type { McpTransport } from '@/lib/mcp/types'
-import { normalizeStringArray, sanitizeRecord } from '@/lib/utils'
 import { readEntitySelectionState, resolveEntityId } from '@/widgets/utils/entity-selection'
 import { MCP_SERVER_DEFAULTS } from '@/widgets/utils/mcp-defaults'
 
@@ -25,20 +24,6 @@ export const createDefaultMcpServerFormData = (): McpServerFormData => ({
   headers: {},
   args: [],
   env: {},
-})
-
-export const createMcpSavePayload = (formData: McpServerFormData) => ({
-  name: formData.name.trim(),
-  description: formData.description.trim() || null,
-  transport: formData.transport,
-  url: formData.url.trim() || null,
-  headers: sanitizeRecord(formData.headers),
-  command: formData.command.trim() || null,
-  args: normalizeStringArray(formData.args),
-  env: sanitizeRecord(formData.env),
-  timeout: formData.timeout,
-  retries: formData.retries,
-  enabled: formData.enabled,
 })
 
 export const resolveMcpServerId = ({

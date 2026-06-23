@@ -277,6 +277,7 @@ function EditorCustomToolWidgetBody({
         <CustomToolEditor
           activeSection={activeSection}
           doc={customToolSession.doc}
+          save={customToolSession.save}
           toolId={selectedToolId}
           onSectionChange={syncActiveSection}
           onSave={() => {

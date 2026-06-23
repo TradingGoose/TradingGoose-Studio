@@ -4,38 +4,30 @@ import type * as Y from 'yjs'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { formatTemplate } from '@/i18n/utils'
-import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import { createLogger } from '@/lib/logs/console/logger'
 import { exportSkillsAsJson, SKILL_NAME_MAX_LENGTH } from '@/lib/skills/import-export'
 import { useYjsStringField } from '@/lib/yjs/use-entity-fields'
-import { isValidSkillName, useUpdateSkill } from '@/hooks/queries/skills'
+import { isValidSkillName } from '@/hooks/queries/skills'
+import { formatTemplate } from '@/i18n/utils'
+import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 
 const logger = createLogger('SkillEditor')
 
 interface SkillEditorProps {
-  workspaceId: string
   skillId: string
   doc: Y.Doc | null
+  save: () => Promise<void>
   exportRef: MutableRefObject<() => void>
   saveRef: MutableRefObject<() => void>
 }
 
-export function SkillEditor({
-  workspaceId,
-  skillId,
-  doc,
-  exportRef,
-  saveRef,
-}: SkillEditorProps) {
+export function SkillEditor({ skillId, doc, save, exportRef, saveRef }: SkillEditorProps) {
   const copy = useWorkspaceWidgetsMessages().skillEditor
   const [name, setName] = useYjsStringField(doc, 'name')
   const [description, setDescription] = useYjsStringField(doc, 'description')
   const [content, setContent] = useYjsStringField(doc, 'content')
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
-
-  const updateSkillMutation = useUpdateSkill()
 
   useEffect(() => {
     setError(null)
@@ -72,19 +64,7 @@ export function SkillEditor({
     setError(null)
 
     try {
-      await updateSkillMutation.mutateAsync({
-        workspaceId,
-        skillId,
-        updates: {
-          name: trimmedName,
-          description: trimmedDescription,
-          content: trimmedContent,
-        },
-      })
-
-      setName(trimmedName)
-      setDescription(trimmedDescription)
-      setContent(trimmedContent)
+      await save()
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : copy.validation.saveFailed
       logger.error('Failed to save skill', { error: saveError, skillId })
@@ -92,7 +72,7 @@ export function SkillEditor({
     } finally {
       setIsSaving(false)
     }
-  }, [content, description, doc, name, skillId, updateSkillMutation, workspaceId])
+  }, [content, copy.validation, description, doc, name, save, skillId])
 
   const handleExport = useCallback(() => {
     if (!doc) return
@@ -105,7 +85,9 @@ export function SkillEditor({
         .trim()
         .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '-')
         .replace(/\s+/g, '-') || 'skill'
-    const blobUrl = URL.createObjectURL(new Blob([json], { type: 'application/json;charset=utf-8' }))
+    const blobUrl = URL.createObjectURL(
+      new Blob([json], { type: 'application/json;charset=utf-8' })
+    )
     const link = document.createElement('a')
     link.href = blobUrl
     link.download = `${fileNameBase}.json`
@@ -138,9 +120,7 @@ export function SkillEditor({
             disabled={!doc || isSaving}
             maxLength={SKILL_NAME_MAX_LENGTH}
           />
-          <p className='text-muted-foreground text-xs'>
-            {copy.form.helperText}
-          </p>
+          <p className='text-muted-foreground text-xs'>{copy.form.helperText}</p>
         </div>
 
         <div className='space-y-2'>
