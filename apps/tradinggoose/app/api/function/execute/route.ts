@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
 
     const executionWorkspaceId = workflow?.workspaceId ?? workspaceId
     const access = await checkWorkspaceAccess(executionWorkspaceId, auth.userId)
-    if (!access.hasAccess) {
+    if (!access.canWrite) {
       return respondFailure('Access denied', Date.now() - startTime, 403)
     }
 

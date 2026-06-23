@@ -42,7 +42,7 @@ describe('Function Execute API Route', () => {
       currentUsage: 0,
       limit: 100,
     })
-    checkWorkspaceAccessMock.mockResolvedValue({ hasAccess: true })
+    checkWorkspaceAccessMock.mockResolvedValue({ hasAccess: true, canWrite: true })
     executeFunctionWithRuntimeGateMock.mockResolvedValue({
       engine: 'local_vm',
       success: true,
@@ -202,10 +202,28 @@ describe('Function Execute API Route', () => {
   })
 
   it('rejects workflow requests when workspace access is denied', async () => {
-    checkWorkspaceAccessMock.mockResolvedValueOnce({ hasAccess: false })
+    checkWorkspaceAccessMock.mockResolvedValueOnce({ hasAccess: false, canWrite: false })
 
     const { POST } = await import('@/app/api/function/execute/route')
     const response = await POST(createFunctionRequest())
+    const payload = await response.json()
+
+    expect(response.status).toBe(403)
+    expect(payload.success).toBe(false)
+    expect(payload.error).toBe('Access denied')
+    expect(executeFunctionWithRuntimeGateMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects workspace-scoped function execution for read-only workspace members', async () => {
+    checkWorkspaceAccessMock.mockResolvedValueOnce({ hasAccess: true, canWrite: false })
+
+    const { POST } = await import('@/app/api/function/execute/route')
+    const response = await POST(
+      createMockRequest('POST', {
+        code: 'return "ok"',
+        workspaceId: 'workspace-1',
+      })
+    )
     const payload = await response.json()
 
     expect(response.status).toBe(403)
