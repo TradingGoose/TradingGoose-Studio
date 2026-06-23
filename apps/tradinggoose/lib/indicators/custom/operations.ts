@@ -18,7 +18,6 @@ export async function listCustomIndicatorRuntimeEntries(workspaceId: string) {
     .select()
     .from(pineIndicators)
     .where(eq(pineIndicators.workspaceId, workspaceId))
-    .then((indicatorRows) => applySavedEntityYjsStateToRows('indicator', indicatorRows))
 
   return rows.map(({ id, pineCode, inputMeta }) => ({
     id,

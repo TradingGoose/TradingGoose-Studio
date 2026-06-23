@@ -100,11 +100,7 @@ const readBlobText = async (blob: Blob) =>
     reader.readAsText(blob)
   })
 
-const createCustomToolDoc = (initialValues: {
-  title: string
-  schema: unknown
-  code: string
-}) => {
+const createCustomToolDoc = (initialValues: { title: string; schema: unknown; code: string }) => {
   const doc = new Y.Doc()
   seedEntitySession(doc, {
     entityKind: 'custom_tool',
