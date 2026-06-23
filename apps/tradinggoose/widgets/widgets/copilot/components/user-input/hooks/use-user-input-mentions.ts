@@ -50,11 +50,16 @@ interface UseUserInputMentionsOptions {
   }
 }
 
-const appendSelectedContextByIdentity = (contexts: ChatContext[], nextContext: ChatContext) => {
+const upsertSelectedContextByIdentity = (contexts: ChatContext[], nextContext: ChatContext) => {
   const nextContextKey = buildCopilotContextIdentityKey(nextContext)
-  return contexts.some((context) => buildCopilotContextIdentityKey(context) === nextContextKey)
-    ? contexts
-    : [...contexts, nextContext]
+  const existingIndex = contexts.findIndex(
+    (context) => buildCopilotContextIdentityKey(context) === nextContextKey
+  )
+  if (existingIndex === -1) {
+    return [...contexts, nextContext]
+  }
+
+  return contexts.map((context, index) => (index === existingIndex ? nextContext : context))
 }
 
 export function useUserInputMentions({
@@ -291,7 +296,7 @@ export function useUserInputMentions({
     const label = getPastChatMentionLabel(mentionCopy, chat)
     replaceActiveMentionWith(label)
     setSelectedContexts((prev) =>
-      appendSelectedContextByIdentity(prev, {
+      upsertSelectedContextByIdentity(prev, {
         kind: 'past_chat',
         reviewSessionId: chat.reviewSessionId,
         label,
@@ -309,7 +314,7 @@ export function useUserInputMentions({
     }
 
     setSelectedContexts((prev) =>
-      appendSelectedContextByIdentity(
+      upsertSelectedContextByIdentity(
         prev,
         buildCopilotWorkspaceEntityContext({
           entityKind: item.entityKind,
@@ -326,7 +331,7 @@ export function useUserInputMentions({
     const label = getKnowledgeBaseMentionLabel(knowledgeBase)
     replaceActiveMentionWith(label)
     setSelectedContexts((prev) =>
-      appendSelectedContextByIdentity(prev, {
+      upsertSelectedContextByIdentity(prev, {
         kind: 'knowledge',
         knowledgeId: knowledgeBase.id,
         label,
@@ -339,7 +344,7 @@ export function useUserInputMentions({
     const label = block.name || block.id
     replaceActiveMentionWith(label)
     setSelectedContexts((prev) =>
-      appendSelectedContextByIdentity(prev, { kind: 'blocks', blockTypes: [block.id], label })
+      upsertSelectedContextByIdentity(prev, { kind: 'blocks', blockTypes: [block.id], label })
     )
     closeMentionMenu()
   }
@@ -358,7 +363,7 @@ export function useUserInputMentions({
     }
 
     setSelectedContexts((prev) =>
-      appendSelectedContextByIdentity(prev, {
+      upsertSelectedContextByIdentity(prev, {
         kind: 'workflow_block',
         workflowId: currentWorkflowId,
         blockId: block.id,
@@ -374,7 +379,7 @@ export function useUserInputMentions({
       insertAtCursor(`@${label} `)
     }
 
-    setSelectedContexts((prev) => appendSelectedContextByIdentity(prev, { kind: 'docs', label }))
+    setSelectedContexts((prev) => upsertSelectedContextByIdentity(prev, { kind: 'docs', label }))
     closeMentionMenu()
   }
 
@@ -389,7 +394,7 @@ export function useUserInputMentions({
     const label = log.entityName
     replaceActiveMentionWith(label)
     setSelectedContexts((prev) =>
-      appendSelectedContextByIdentity(prev, {
+      upsertSelectedContextByIdentity(prev, {
         kind: 'logs',
         executionId: log.executionId,
         label,

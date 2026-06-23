@@ -4,6 +4,7 @@ import esMessages from '../../../../../i18n/messages/es.json'
 import zhMessages from '../../../../../i18n/messages/zh.json'
 import {
   getCopilotMentionCopy,
+  getMentionOptionLabel,
   getPastChatMentionLabel,
   getWorkspaceEntityMentionLabel,
 } from './mention-copy'
@@ -113,6 +114,13 @@ describe('mention-utils', () => {
     const ranges = buildMentionRanges('@Docs @Docs', [{ kind: 'docs', label: 'Docs' }])
 
     expect(ranges.map((range) => range.contextKey)).toEqual(['docs', 'docs'])
+  })
+
+  it('tracks the refreshed localized label for the same canonical context', () => {
+    const docsLabel = getMentionOptionLabel(esMentionCopy, 'docs')
+    const ranges = buildMentionRanges(`@Docs @${docsLabel}`, [{ kind: 'docs', label: docsLabel }])
+
+    expect(ranges.map((range) => range.contextKey)).toEqual(['docs'])
   })
 
   it('keeps mention ranges when punctuation touches the token', () => {
