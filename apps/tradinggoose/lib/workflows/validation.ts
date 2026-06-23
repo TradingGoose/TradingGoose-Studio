@@ -1,15 +1,19 @@
+import {
+  getCustomToolEntityIdFromRuntimeId,
+  isCustomToolRuntimeId,
+} from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
-import { isCustomToolRuntimeId } from '@/lib/custom-tools/schema'
 import { getBlock } from '@/blocks/registry'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import { getTool } from '@/tools/utils'
 
 const logger = createLogger('WorkflowValidation')
 
-function isValidCustomToolSchema(tool: any): boolean {
+function isValidAgentCustomTool(tool: any): boolean {
   try {
     if (!tool || typeof tool !== 'object') return false
-    if (tool.type !== 'custom-tool') return true // non-custom tools are validated elsewhere
+    if (tool.type !== 'custom-tool') return false
+    getCustomToolEntityIdFromRuntimeId(tool.toolId)
 
     const schema = tool.schema
     if (!schema || typeof schema !== 'object') return false
@@ -57,7 +61,7 @@ export function sanitizeAgentToolsInBlocks(blocks: Record<string, any>): {
           // Allow non-custom tools to pass through as-is
           if (!tool || typeof tool !== 'object') return false
           if (tool.type !== 'custom-tool') return true
-          const ok = isValidCustomToolSchema(tool)
+          const ok = isValidAgentCustomTool(tool)
           if (!ok) {
             logger.warn('Removing invalid custom tool from workflow', {
               blockId,
