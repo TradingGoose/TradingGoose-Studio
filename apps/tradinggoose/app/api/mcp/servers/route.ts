@@ -77,8 +77,8 @@ export const POST = withMcpAuth('write')(
         workspaceId,
       })
 
-      if (isUrlBasedTransport(body.transport as McpTransport) && body.url) {
-        const urlValidation = validateMcpServerUrl(body.url)
+      if (isUrlBasedTransport(body.transport as McpTransport)) {
+        const urlValidation = validateMcpServerUrl(body.url ?? '')
         if (!urlValidation.isValid) {
           return createMcpErrorResponse(
             new Error(`Invalid MCP server URL: ${urlValidation.error}`),
