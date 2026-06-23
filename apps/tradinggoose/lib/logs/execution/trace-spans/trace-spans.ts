@@ -267,6 +267,7 @@ export function buildTraceSpans(result: ExecutionResult): {
         const processedToolCalls: ToolCall[] = []
 
         for (const tc of toolCallsList as Array<{
+          id?: string
           name?: string
           duration?: number
           startTime?: string
