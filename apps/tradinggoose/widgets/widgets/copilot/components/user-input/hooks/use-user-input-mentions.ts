@@ -24,6 +24,7 @@ import {
   filterMentionItems,
   filterMentionOptions,
   isMentionBoundary,
+  upsertMentionContextByTextOrder,
 } from '../mention-utils'
 import type {
   AggregatedMentionItem,
@@ -50,17 +51,7 @@ interface UseUserInputMentionsOptions {
   }
 }
 
-const upsertSelectedContextByIdentity = (contexts: ChatContext[], nextContext: ChatContext) => {
-  const nextContextKey = buildCopilotContextIdentityKey(nextContext)
-  const existingIndex = contexts.findIndex(
-    (context) => buildCopilotContextIdentityKey(context) === nextContextKey
-  )
-  if (existingIndex === -1) {
-    return [...contexts, nextContext]
-  }
-
-  return contexts.map((context, index) => (index === existingIndex ? nextContext : context))
-}
+type MentionInsertion = { start: number }
 
 export function useUserInputMentions({
   disabled,
@@ -231,7 +222,7 @@ export function useUserInputMentions({
   const getFilteredSubmenuItems = (submenu: MentionSubmenu, query: string): MentionItem[] =>
     filterMentionItems(submenu, mentionSources, query, monitorCopy, mentionCopy)
 
-  const insertAtCursor = (text: string) => {
+  const insertAtCursor = (text: string): MentionInsertion => {
     const selection = getSelection()
     const start = selection?.start ?? message.length
     const end = selection?.end ?? message.length
@@ -247,16 +238,17 @@ export function useUserInputMentions({
 
     const nextPos = before.length + text.length
     restoreEditorSelection(nextPos, nextPos)
+    return { start: before.length }
   }
 
-  const replaceActiveMentionWith = (label: string) => {
-    if (!textareaRef.current) return false
+  const replaceActiveMentionWith = (label: string): MentionInsertion | null => {
+    if (!textareaRef.current) return null
 
     const pos = getSelection()?.start ?? message.length
     const active = getActiveMentionQueryAtPosition(pos)
 
     if (!active) {
-      return false
+      return null
     }
 
     const before = message.slice(0, active.start)
@@ -270,7 +262,16 @@ export function useUserInputMentions({
     const cursorPos = before.length + insertion.length
     restoreEditorSelection(cursorPos, cursorPos)
 
-    return true
+    return { start: before.length }
+  }
+
+  const insertMentionToken = (label: string) =>
+    replaceActiveMentionWith(label) ?? insertAtCursor(`@${label} `)
+
+  const selectMentionContext = (context: ChatContext, insertion: MentionInsertion) => {
+    setSelectedContexts((prev) =>
+      upsertMentionContextByTextOrder(prev, context, message, insertion.start)
+    )
   }
 
   const resetActiveMentionQuery = () => {
@@ -294,58 +295,52 @@ export function useUserInputMentions({
 
   const insertPastChatMention = (chat: Pick<PastChatItem, 'reviewSessionId' | 'title'>) => {
     const label = getPastChatMentionLabel(mentionCopy, chat)
-    replaceActiveMentionWith(label)
-    setSelectedContexts((prev) =>
-      upsertSelectedContextByIdentity(prev, {
+    const insertion = insertMentionToken(label)
+    selectMentionContext(
+      {
         kind: 'past_chat',
         reviewSessionId: chat.reviewSessionId,
         label,
-      })
+      },
+      insertion
     )
     closeMentionMenu()
   }
 
   const insertWorkspaceEntityMention = (item: WorkspaceEntityItem) => {
     const label = getWorkspaceEntityMentionLabel(mentionCopy, item)
-    const token = `@${label}`
+    const insertion = insertMentionToken(label)
 
-    if (!replaceActiveMentionWith(label)) {
-      insertAtCursor(`${token} `)
-    }
-
-    setSelectedContexts((prev) =>
-      upsertSelectedContextByIdentity(
-        prev,
-        buildCopilotWorkspaceEntityContext({
-          entityKind: item.entityKind,
-          entityId: item.id,
-          workspaceId,
-          label,
-        })
-      )
+    selectMentionContext(
+      buildCopilotWorkspaceEntityContext({
+        entityKind: item.entityKind,
+        entityId: item.id,
+        workspaceId,
+        label,
+      }),
+      insertion
     )
     closeMentionMenu()
   }
 
   const insertKnowledgeMention = (knowledgeBase: { id: string; name: string }) => {
     const label = getKnowledgeBaseMentionLabel(knowledgeBase)
-    replaceActiveMentionWith(label)
-    setSelectedContexts((prev) =>
-      upsertSelectedContextByIdentity(prev, {
+    const insertion = insertMentionToken(label)
+    selectMentionContext(
+      {
         kind: 'knowledge',
         knowledgeId: knowledgeBase.id,
         label,
-      })
+      },
+      insertion
     )
     closeMentionMenu()
   }
 
   const insertBlockMention = (block: { id: string; name: string }) => {
     const label = block.name || block.id
-    replaceActiveMentionWith(label)
-    setSelectedContexts((prev) =>
-      upsertSelectedContextByIdentity(prev, { kind: 'blocks', blockTypes: [block.id], label })
-    )
+    const insertion = insertMentionToken(label)
+    selectMentionContext({ kind: 'blocks', blockTypes: [block.id], label }, insertion)
     closeMentionMenu()
   }
 
@@ -356,30 +351,25 @@ export function useUserInputMentions({
     }
 
     const label = block.name
-    const token = `@${label}`
+    const insertion = insertMentionToken(label)
 
-    if (!replaceActiveMentionWith(label)) {
-      insertAtCursor(`${token} `)
-    }
-
-    setSelectedContexts((prev) =>
-      upsertSelectedContextByIdentity(prev, {
+    selectMentionContext(
+      {
         kind: 'workflow_block',
         workflowId: currentWorkflowId,
         blockId: block.id,
         label,
-      })
+      },
+      insertion
     )
     closeMentionMenu()
   }
 
   const insertDocsMention = () => {
     const label = getMentionOptionLabel(mentionCopy, 'docs')
-    if (!replaceActiveMentionWith(label)) {
-      insertAtCursor(`@${label} `)
-    }
+    const insertion = insertMentionToken(label)
 
-    setSelectedContexts((prev) => upsertSelectedContextByIdentity(prev, { kind: 'docs', label }))
+    selectMentionContext({ kind: 'docs', label }, insertion)
     closeMentionMenu()
   }
 
@@ -392,13 +382,14 @@ export function useUserInputMentions({
     entityName: string
   }) => {
     const label = log.entityName
-    replaceActiveMentionWith(label)
-    setSelectedContexts((prev) =>
-      upsertSelectedContextByIdentity(prev, {
+    const insertion = insertMentionToken(label)
+    selectMentionContext(
+      {
         kind: 'logs',
         executionId: log.executionId,
         label,
-      })
+      },
+      insertion
     )
     closeMentionMenu()
   }

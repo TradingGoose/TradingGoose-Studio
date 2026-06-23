@@ -99,6 +99,28 @@ export function buildMentionRanges(text: string, contexts: ChatContext[]): Menti
   return ranges
 }
 
+export function upsertMentionContextByTextOrder(
+  contexts: ChatContext[],
+  nextContext: ChatContext,
+  text: string,
+  mentionStart: number
+): ChatContext[] {
+  const nextContextKey = buildCopilotContextIdentityKey(nextContext)
+  const existingIndex = contexts.findIndex(
+    (context) => buildCopilotContextIdentityKey(context) === nextContextKey
+  )
+
+  if (existingIndex !== -1) {
+    return contexts.map((context, index) => (index === existingIndex ? nextContext : context))
+  }
+
+  const insertIndex = buildMentionRanges(text, contexts).filter(
+    (range) => range.start < mentionStart
+  ).length
+
+  return [...contexts.slice(0, insertIndex), nextContext, ...contexts.slice(insertIndex)]
+}
+
 export function filterMentionOptions(query: string, copy: CopilotMentionCopy): MentionOption[] {
   return MENTION_OPTIONS.filter((option) =>
     includesNormalized(getMentionOptionLabel(copy, option), query)

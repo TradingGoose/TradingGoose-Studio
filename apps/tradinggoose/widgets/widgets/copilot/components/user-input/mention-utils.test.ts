@@ -12,6 +12,7 @@ import {
   buildAggregatedMentionItems,
   buildMentionRanges,
   filterMentionOptions,
+  upsertMentionContextByTextOrder,
 } from './mention-utils'
 import type { MentionSources } from './types'
 
@@ -107,6 +108,21 @@ describe('mention-utils', () => {
     expect(ranges.map((range) => range.contextKey)).toEqual([
       'custom_tool:tool-1',
       'custom_tool:tool-2',
+    ])
+  })
+
+  it('orders duplicate mention labels by insertion position', () => {
+    const contexts = upsertMentionContextByTextOrder(
+      [{ kind: 'custom_tool', customToolId: 'tool-1', label: 'Untitled' }],
+      { kind: 'custom_tool', customToolId: 'tool-2', label: 'Untitled' },
+      '@Untitled',
+      0
+    )
+    const ranges = buildMentionRanges('@Untitled @Untitled', contexts)
+
+    expect(ranges.map((range) => range.contextKey)).toEqual([
+      'custom_tool:tool-2',
+      'custom_tool:tool-1',
     ])
   })
 
