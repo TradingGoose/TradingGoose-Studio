@@ -55,6 +55,15 @@ export async function upsertCustomTools({
   const result = await db.transaction(async (tx) => {
     for (const tool of tools) {
       const nowTime = new Date()
+      const duplicateTitle = await tx
+        .select({ id: customTools.id })
+        .from(customTools)
+        .where(and(eq(customTools.workspaceId, workspaceId), eq(customTools.title, tool.title)))
+        .limit(1)
+
+      if (duplicateTitle[0] && duplicateTitle[0].id !== tool.id) {
+        throw new Error(`A tool with the title "${tool.title}" already exists in this workspace`)
+      }
 
       if (tool.id) {
         const existingTool = await tx
@@ -78,16 +87,6 @@ export async function upsertCustomTools({
           affectedIds.push(tool.id)
           continue
         }
-      }
-
-      const duplicateTitle = await tx
-        .select()
-        .from(customTools)
-        .where(and(eq(customTools.workspaceId, workspaceId), eq(customTools.title, tool.title)))
-        .limit(1)
-
-      if (duplicateTitle.length > 0) {
-        throw new Error(`A tool with the title "${tool.title}" already exists in this workspace`)
       }
 
       const toolId = tool.id || nanoid()
