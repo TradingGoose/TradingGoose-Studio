@@ -95,10 +95,14 @@ export function useSavedEntityYjsSession(
       ...serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor)),
       accessMode: 'write',
     })
+    const update = Y.encodeStateAsUpdate(activeState.result.doc)
+    const updateBase64 = btoa(Array.from(update, (byte) => String.fromCharCode(byte)).join(''))
     const response = await fetch(
       `/api/yjs/sessions/${encodeURIComponent(descriptor.yjsSessionId)}/snapshot?${params}`,
       {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ updateBase64 }),
       }
     )
     if (!response.ok) {

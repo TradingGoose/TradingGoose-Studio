@@ -7,13 +7,13 @@ import {
   skill,
 } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
-import * as Y from 'yjs'
 import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
-import { seedEntitySession } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
-import { applyEntityStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
-import { storeState } from '@/socket-server/yjs/persistence'
+import {
+  applyEntityStateInSocketServer,
+  deleteYjsSessionInSocketServer,
+} from '@/lib/yjs/server/snapshot-bridge'
 
 export class SavedEntityPersistenceError extends Error {
   constructor(
@@ -141,17 +141,7 @@ export async function applySavedEntityDraftState(
   entityId: string,
   fields: Record<string, unknown>
 ): Promise<void> {
-  try {
-    await applyEntityStateInSocketServer(entityId, entityKind, fields)
-  } catch {
-    const doc = new Y.Doc()
-    try {
-      seedEntitySession(doc, { entityKind, payload: fields })
-      await storeState(entityId, Y.encodeStateAsUpdate(doc))
-    } finally {
-      doc.destroy()
-    }
-  }
+  await applyEntityStateInSocketServer(entityId, entityKind, fields)
 }
 
 export async function applySavedEntityPersistedState(
@@ -160,6 +150,11 @@ export async function applySavedEntityPersistedState(
   fields: Record<string, unknown>
 ): Promise<void> {
   const normalizedFields = normalizeSavedEntityFields(entityKind, fields)
-  await persistSavedEntityState(entityKind, entityId, normalizedFields)
   await applySavedEntityDraftState(entityKind, entityId, normalizedFields)
+  try {
+    await persistSavedEntityState(entityKind, entityId, normalizedFields)
+  } catch (error) {
+    await deleteYjsSessionInSocketServer(entityId)
+    throw error
+  }
 }

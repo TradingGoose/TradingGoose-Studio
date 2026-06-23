@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
+import * as Y from 'yjs'
 import { getSession } from '@/lib/auth'
 import {
   buildReviewTargetDescriptorFromEnvelope,
@@ -6,6 +7,7 @@ import {
 } from '@/lib/copilot/review-sessions/identity'
 import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
 import { mcpService } from '@/lib/mcp/service'
+import { getEntityFields } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import {
   applySavedEntityPersistedState,
@@ -14,7 +16,6 @@ import {
 import {
   ReviewTargetBootstrapError,
   readBootstrappedReviewTargetSnapshot,
-  readBootstrappedSavedEntityFields,
 } from '@/lib/yjs/server/bootstrap-review-target'
 
 export const dynamic = 'force-dynamic'
@@ -113,12 +114,28 @@ export async function POST(
   const entityKind: SavedEntityKind = descriptor.entityKind
 
   try {
-    const fields = await readBootstrappedSavedEntityFields(
-      entityKind,
-      descriptor.entityId,
-      descriptor.workspaceId
-    )
-    await applySavedEntityPersistedState(entityKind, descriptor.entityId, fields)
+    const { updateBase64 } = (await request.json().catch(() => ({}))) as {
+      updateBase64?: unknown
+    }
+    if (typeof updateBase64 !== 'string' || !updateBase64) {
+      return NextResponse.json({ error: 'updateBase64 is required' }, { status: 400 })
+    }
+
+    const snapshot = await readBootstrappedReviewTargetSnapshot(descriptor)
+    const doc = new Y.Doc()
+    try {
+      if (snapshot.snapshotBase64) {
+        Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
+      }
+      Y.applyUpdate(doc, Buffer.from(updateBase64, 'base64'))
+      await applySavedEntityPersistedState(
+        entityKind,
+        descriptor.entityId,
+        getEntityFields(doc, entityKind)
+      )
+    } finally {
+      doc.destroy()
+    }
     if (descriptor.entityKind === 'mcp_server') {
       mcpService.clearCache(descriptor.workspaceId)
     }

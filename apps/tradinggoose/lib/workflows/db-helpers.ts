@@ -29,6 +29,12 @@ import { SUBFLOW_TYPES } from '@/stores/workflows/workflow/types'
 
 const logger = createLogger('WorkflowDBHelpers')
 
+type WorkflowDbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
+type WorkflowNormalizedCommit = (
+  tx: WorkflowDbTransaction,
+  normalizedState: WorkflowState
+) => Promise<void>
+
 const resolveLockedFromBlockData = (data: unknown): boolean => {
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
     return false
@@ -758,7 +764,8 @@ export async function loadWorkflowFromNormalizedTables(
  */
 export async function saveWorkflowToNormalizedTables(
   workflowId: string,
-  state: WorkflowState
+  state: WorkflowState,
+  commit?: WorkflowNormalizedCommit
 ): Promise<{ success: boolean; error?: string; normalizedState?: WorkflowState }> {
   try {
     const stateWithUniqueBlockIds = await ensureUniqueBlockIds(workflowId, state)
@@ -914,6 +921,8 @@ export async function saveWorkflowToNormalizedTables(
       if (subflowInserts.length > 0) {
         await tx.insert(workflowSubflows).values(subflowInserts)
       }
+
+      await commit?.(tx, normalizedState)
     })
 
     return { success: true, normalizedState }

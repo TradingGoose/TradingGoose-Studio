@@ -1,51 +1,18 @@
 import { db, workflow } from '@tradinggoose/db'
 import { eq } from 'drizzle-orm'
-import * as Y from 'yjs'
 import {
   ensureUniqueBlockIds,
   ensureUniqueEdgeIds,
   saveWorkflowToNormalizedTables,
 } from '@/lib/workflows/db-helpers'
-import { applyWorkflowStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import {
+  applyWorkflowStateInSocketServer,
+  deleteYjsSessionInSocketServer,
+} from '@/lib/yjs/server/snapshot-bridge'
 import {
   createWorkflowSnapshot,
-  replaceWorkflowDocumentState,
   type WorkflowSnapshot,
 } from '@/lib/yjs/workflow-session'
-import { getState, storeCanonicalState } from '@/socket-server/yjs/persistence'
-
-async function storeWorkflowStateDirectly(
-  workflowId: string,
-  workflowState: WorkflowSnapshot,
-  variables?: Record<string, any>,
-  entityName?: string
-) {
-  const doc = new Y.Doc()
-  try {
-    const existingState = await getState(workflowId)
-    if (existingState) {
-      Y.applyUpdate(doc, existingState)
-    }
-
-    replaceWorkflowDocumentState(doc, workflowState, variables, entityName)
-    await storeCanonicalState(workflowId, Y.encodeStateAsUpdate(doc))
-  } finally {
-    doc.destroy()
-  }
-}
-
-async function applyWorkflowStateToYjs(
-  workflowId: string,
-  workflowState: WorkflowSnapshot,
-  variables?: Record<string, any>,
-  entityName?: string
-) {
-  try {
-    await applyWorkflowStateInSocketServer(workflowId, workflowState, variables, entityName)
-  } catch {
-    await storeWorkflowStateDirectly(workflowId, workflowState, variables, entityName)
-  }
-}
 
 export async function applyWorkflowState(
   workflowId: string,
@@ -72,26 +39,35 @@ export async function applyWorkflowState(
       : {}),
   })
 
-  const saveResult = await saveWorkflowToNormalizedTables(workflowId, storedWorkflowState)
-  if (!saveResult.success) {
-    throw new Error(saveResult.error || 'Failed to materialize workflow state')
+  await applyWorkflowStateInSocketServer(workflowId, storedWorkflowState, variables, entityName)
+
+  try {
+    const saveResult = await saveWorkflowToNormalizedTables(
+      workflowId,
+      storedWorkflowState,
+      async (tx) => {
+        const [updatedWorkflow] = await tx
+          .update(workflow)
+          .set({
+            lastSynced: syncedAt,
+            updatedAt: syncedAt,
+            ...(variables === undefined ? {} : { variables }),
+          })
+          .where(eq(workflow.id, workflowId))
+          .returning({ id: workflow.id })
+
+        if (!updatedWorkflow) {
+          throw new Error('Workflow not found')
+        }
+      }
+    )
+    if (!saveResult.success) {
+      throw new Error(saveResult.error || 'Failed to materialize workflow state')
+    }
+  } catch (error) {
+    await deleteYjsSessionInSocketServer(workflowId)
+    throw error
   }
-
-  const [updatedWorkflow] = await db
-    .update(workflow)
-    .set({
-      lastSynced: syncedAt,
-      updatedAt: syncedAt,
-      ...(variables === undefined ? {} : { variables }),
-    })
-    .where(eq(workflow.id, workflowId))
-    .returning({ id: workflow.id })
-
-  if (!updatedWorkflow) {
-    throw new Error('Workflow not found')
-  }
-
-  await applyWorkflowStateToYjs(workflowId, storedWorkflowState, variables, entityName)
 }
 
 export async function applyWorkflowEntityName(
@@ -101,16 +77,22 @@ export async function applyWorkflowEntityName(
   entityName: string,
   fields: Partial<typeof workflow.$inferInsert> = {}
 ): Promise<typeof workflow.$inferSelect> {
-  const [updatedWorkflow] = await db
-    .update(workflow)
-    .set({ ...fields, name: entityName, updatedAt: fields.updatedAt ?? new Date() })
-    .where(eq(workflow.id, workflowId))
-    .returning()
+  await applyWorkflowStateInSocketServer(workflowId, workflowState, variables, entityName)
 
-  if (!updatedWorkflow) {
-    throw new Error('Workflow not found')
+  try {
+    const [updatedWorkflow] = await db
+      .update(workflow)
+      .set({ ...fields, name: entityName, updatedAt: fields.updatedAt ?? new Date() })
+      .where(eq(workflow.id, workflowId))
+      .returning()
+
+    if (!updatedWorkflow) {
+      throw new Error('Workflow not found')
+    }
+
+    return updatedWorkflow
+  } catch (error) {
+    await deleteYjsSessionInSocketServer(workflowId)
+    throw error
   }
-
-  await applyWorkflowStateToYjs(workflowId, workflowState, variables, entityName)
-  return updatedWorkflow
 }
