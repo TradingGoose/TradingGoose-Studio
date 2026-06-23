@@ -2,7 +2,6 @@ import { createLogger } from '@/lib/logs/console/logger'
 import {
   buildCustomToolModelDescription,
   getCustomToolEntityIdFromRuntimeId,
-  isCustomToolRuntimeId,
 } from '@/lib/custom-tools/schema'
 import { createMcpToolId } from '@/lib/mcp/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
@@ -225,6 +224,7 @@ export class AgentBlockHandler implements BlockHandler {
     const base: any = {
       id: toolId,
       name: toolId,
+      displayName: tool.title?.trim() || undefined,
       description: buildCustomToolModelDescription({
         title: tool.title,
         description: tool.schema.function.description,
@@ -698,7 +698,11 @@ export class AgentBlockHandler implements BlockHandler {
       result
     )
 
-    return this.processProviderResponse(result, block, responseFormat)
+    return this.processProviderResponse(
+      this.withToolCallDisplayNames(result, providerRequest.tools),
+      block,
+      responseFormat
+    )
   }
 
   private async executeBrowserSide(
@@ -758,17 +762,22 @@ export class AgentBlockHandler implements BlockHandler {
     if (contentType?.includes('text/event-stream')) {
       // Handle streaming response
       logger.info('Received streaming response')
-      return this.handleStreamingResponse(response, block)
+      return this.handleStreamingResponse(response, block, providerRequest.tools)
     }
 
     // Handle regular JSON response
     const result = await response.json()
-    return this.processProviderResponse(result, block, responseFormat)
+    return this.processProviderResponse(
+      this.withToolCallDisplayNames(result, providerRequest.tools),
+      block,
+      responseFormat
+    )
   }
 
   private async handleStreamingResponse(
     response: Response,
-    block: SerializedBlock
+    block: SerializedBlock,
+    tools: any[]
   ): Promise<StreamingExecution> {
     // Check if we have execution data in headers (from StreamingExecution)
     const executionDataHeader = response.headers.get('X-Execution-Data')
@@ -783,7 +792,8 @@ export class AgentBlockHandler implements BlockHandler {
           stream: response.body!,
           execution: {
             success: executionData.success,
-            output: executionData.output || {},
+            output:
+              this.withToolCallDisplayNames({ output: executionData.output }, tools).output || {},
             error: executionData.error,
             logs: [], // Logs are stripped from headers, will be populated by executor
             metadata: executionData.metadata || {
@@ -988,6 +998,26 @@ export class AgentBlockHandler implements BlockHandler {
     }
   }
 
+  private withToolCallDisplayNames(result: any, tools: any[] = []) {
+    const displayNames = new Map<string, string>()
+    for (const tool of tools) {
+      if (typeof tool?.name === 'string' && typeof tool?.displayName === 'string') {
+        displayNames.set(tool.name, tool.displayName.trim())
+      }
+    }
+
+    const apply = (toolCalls?: any[]) =>
+      toolCalls?.forEach((toolCall) => {
+        const displayName = displayNames.get(toolCall?.name)
+        if (displayName) Object.assign(toolCall, { runtimeName: toolCall.name, name: displayName })
+      })
+
+    apply(result?.toolCalls)
+    apply(result?.execution?.output?.toolCalls?.list)
+    apply(result?.output?.toolCalls?.list)
+    return result
+  }
+
   private createResponseMetadata(result: any) {
     return {
       tokens: result.tokens || { prompt: 0, completion: 0, total: 0 },
@@ -1002,20 +1032,13 @@ export class AgentBlockHandler implements BlockHandler {
   }
 
   private formatToolCall(tc: any) {
-    const toolName = this.stripCustomToolPrefix(tc.name)
-
     return {
       ...tc,
-      name: toolName,
       startTime: tc.startTime,
       endTime: tc.endTime,
       duration: tc.duration,
       arguments: tc.arguments || tc.input || {},
       result: tc.result || tc.output,
     }
-  }
-
-  private stripCustomToolPrefix(name: string): string {
-    return isCustomToolRuntimeId(name) ? getCustomToolEntityIdFromRuntimeId(name) : name
   }
 }

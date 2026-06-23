@@ -1,8 +1,4 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  getCustomToolEntityIdFromRuntimeId,
-  isCustomToolRuntimeId,
-} from '@/lib/custom-tools/schema'
 import type { ToolCall, TraceSpan } from '@/lib/logs/types'
 import { isWorkflowBlockType } from '@/executor/consts'
 import type { ExecutionResult } from '@/executor/types'
@@ -215,13 +211,13 @@ export function buildTraceSpans(result: ExecutionResult): {
 
           if (segment.type === 'tool') {
             const matchingToolCall = toolCallsData.find(
-              (tc: { name?: string; [key: string]: unknown }) =>
-                tc.name === segment.name || stripCustomToolPrefix(tc.name || '') === segment.name
+              (tc: { name?: string; runtimeName?: string; [key: string]: unknown }) =>
+                tc.name === segment.name || tc.runtimeName === segment.name
             )
 
             return {
               id: `${span.id}-segment-${index}`,
-              name: stripCustomToolPrefix(segment.name || ''),
+              name: matchingToolCall?.name || segment.name,
               type: 'tool',
               duration: segment.duration,
               startTime: segmentStartTime,
@@ -285,7 +281,7 @@ export function buildTraceSpans(result: ExecutionResult): {
 
           try {
             const toolCall: ToolCall = {
-              name: stripCustomToolPrefix(tc.name || 'unnamed-tool'),
+              name: tc.name || 'unnamed-tool',
               duration: tc.duration || 0,
               startTime: tc.startTime || log.startedAt,
               endTime: tc.endTime || log.endedAt,
@@ -697,8 +693,4 @@ function ensureNestedWorkflowsProcessed(span: TraceSpan): TraceSpan {
   processedSpan.children = mergedChildren.length > 0 ? mergedChildren : undefined
 
   return processedSpan
-}
-
-export function stripCustomToolPrefix(name: string) {
-  return isCustomToolRuntimeId(name) ? getCustomToolEntityIdFromRuntimeId(name) : name
 }

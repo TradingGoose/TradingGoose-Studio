@@ -422,7 +422,9 @@ describe('AgentBlockHandler', () => {
 
       mockGetProviderFromModel.mockReturnValue('openai')
 
-      await handler.execute(mockBlock, inputs, mockContext)
+      const output = (await handler.execute(mockBlock, inputs, mockContext)) as {
+        toolCalls: { list: Array<{ name: string; runtimeName?: string }> }
+      }
 
       expect(Promise.all).toHaveBeenCalled()
 
@@ -469,6 +471,10 @@ describe('AgentBlockHandler', () => {
       const requestBody = JSON.parse(fetchCall[1].body)
 
       expect(requestBody.tools.length).toBe(2)
+      expect(output.toolCalls.list).toMatchObject([
+        { name: 'Auto Tool', runtimeName: 'custom_auto_tool' },
+        { name: 'Force Tool', runtimeName: 'custom_force_tool' },
+      ])
     })
 
     it('should filter out tools with usageControl set to "none"', async () => {
