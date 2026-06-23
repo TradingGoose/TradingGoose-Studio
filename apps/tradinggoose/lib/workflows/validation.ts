@@ -1,6 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { isCustomToolRuntimeId } from '@/lib/custom-tools/schema'
-import { isMcpToolId } from '@/lib/mcp/utils'
 import { getBlock } from '@/blocks/registry'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import { getTool } from '@/tools/utils'
@@ -256,7 +255,7 @@ export function validateToolReference(
 
   // Check if it's a custom tool or MCP tool
   const isCustomTool = isCustomToolRuntimeId(toolId)
-  const isMcpTool = isMcpToolId(toolId)
+  const isMcpTool = toolId.startsWith('mcp-')
 
   if (!isCustomTool && !isMcpTool) {
     // For built-in tools, verify they exist

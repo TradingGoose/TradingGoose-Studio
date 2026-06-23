@@ -288,14 +288,11 @@ export function McpDynamicArgs({
   const workspaceId = useWorkspaceId()
   const { mcpTools, isLoading } = useMcpTools(workspaceId)
   const [selectedTool] = useSubBlockValue(blockId, 'tool')
-  const [selectedServer] = useSubBlockValue(blockId, 'server')
   const [cachedSchema] = useSubBlockValue(blockId, '_toolSchema')
   const [toolArgs, setToolArgs] = useSubBlockValue(blockId, subBlockId)
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 
-  const selectedToolConfig = mcpTools.find(
-    (tool) => tool.serverId === selectedServer && tool.id === selectedTool
-  )
+  const selectedToolConfig = mcpTools.find((tool) => tool.id === selectedTool)
   const toolSchema = cachedSchema || selectedToolConfig?.inputSchema
 
   const currentArgs = useCallback(() => {

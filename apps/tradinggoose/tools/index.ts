@@ -1,7 +1,7 @@
 import { generateInternalToken } from '@/lib/auth/internal'
 import { isCustomToolRuntimeId } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
-import { isMcpToolId, parseMcpToolId } from '@/lib/mcp/utils'
+import { parseMcpToolId } from '@/lib/mcp/utils'
 import { validateExternalUrl } from '@/lib/security/input-validation'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { generateRequestId } from '@/lib/utils'
@@ -262,6 +262,7 @@ export async function executeTool(
   try {
     throwIfToolRequestAborted(options?.signal)
     let tool: ToolConfig | undefined
+    const isMcpTool = toolId.startsWith('mcp-')
 
     if (isSkillLoaderExecution(params)) {
       const skillId = typeof params.skill_id === 'string' ? params.skill_id : null
@@ -294,7 +295,7 @@ export async function executeTool(
       if (!tool) {
         logger.error(`[${requestId}] Custom tool not found: ${toolId}`)
       }
-    } else if (isMcpToolId(toolId)) {
+    } else if (isMcpTool) {
       return await executeMcpTool(
         toolId,
         params,
@@ -926,7 +927,7 @@ function validateClientSideParams(
 /**
  * Execute an MCP tool via the server-side proxy
  *
- * @param toolId - encoded MCP tool ID
+ * @param toolId - MCP tool ID in format "mcp-serverId-toolName"
  * @param params - Tool parameters
  * @param executionContext - Execution context
  * @param requestId - Request ID for logging
