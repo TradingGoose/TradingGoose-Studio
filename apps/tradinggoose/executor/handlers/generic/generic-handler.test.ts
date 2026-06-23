@@ -151,16 +151,19 @@ describe('GenericBlockHandler', () => {
     mockGetBlock.mockReturnValueOnce({
       tools: {
         config: {
-          tool: (params: any) => createMcpToolId(params.server, params.tool),
+          tool: (params: any) => params.tool,
         },
       },
     } as any)
+    const expectedToolId = createMcpToolId(
+      '550e8400-e29b-41d4-a716-446655440000',
+      'complex-tool-name'
+    )
     const inputs = {
       server: '550e8400-e29b-41d4-a716-446655440000',
-      tool: 'complex-tool-name',
+      tool: expectedToolId,
       arguments: '{"param":"value"}',
     }
-    const expectedToolId = createMcpToolId(inputs.server, inputs.tool)
 
     await handler.execute(mockBlock, inputs, mockContext)
 

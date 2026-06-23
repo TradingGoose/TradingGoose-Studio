@@ -294,7 +294,7 @@ export function McpDynamicArgs({
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 
   const selectedToolConfig = mcpTools.find(
-    (tool) => tool.serverId === selectedServer && tool.name === selectedTool
+    (tool) => tool.serverId === selectedServer && tool.id === selectedTool
   )
   const toolSchema = cachedSchema || selectedToolConfig?.inputSchema
 

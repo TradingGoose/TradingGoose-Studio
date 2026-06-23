@@ -40,26 +40,26 @@ export function McpToolSelector({ blockId, subBlock, disabled = false }: McpTool
 
   const label = subBlock.placeholder || copy.selectTool
 
-  const selectedToolName = storeValue || ''
+  const selectedToolId = storeValue || ''
 
   const availableTools = useMemo(() => {
     if (!serverValue) return []
     return getToolsByServer(serverValue)
   }, [serverValue, getToolsByServer])
 
-  const selectedTool = availableTools.find((tool) => tool.name === selectedToolName)
+  const selectedTool = availableTools.find((tool) => tool.id === selectedToolId)
 
   useEffect(() => {
-    if (serverValue && selectedToolName && !selectedTool && availableTools.length === 0) {
+    if (serverValue && selectedToolId && !selectedTool && availableTools.length === 0) {
       refreshTools()
     }
-  }, [serverValue, selectedToolName, selectedTool, availableTools.length, refreshTools])
+  }, [serverValue, selectedToolId, selectedTool, availableTools.length, refreshTools])
 
   useEffect(() => {
     if (
       storeValue &&
       availableTools.length > 0 &&
-      !availableTools.find((tool) => tool.name === storeValue)
+      !availableTools.find((tool) => tool.id === storeValue)
     ) {
       if (!disabled) {
         setStoreValue('')
@@ -74,10 +74,10 @@ export function McpToolSelector({ blockId, subBlock, disabled = false }: McpTool
     }
   }
 
-  const handleSelect = (toolName: string) => {
-    setStoreValue(toolName)
+  const handleSelect = (toolId: string) => {
+    setStoreValue(toolId)
 
-    const tool = availableTools.find((t) => t.name === toolName)
+    const tool = availableTools.find((t) => t.id === toolId)
     if (tool?.inputSchema) {
       setSchemaCache(tool.inputSchema)
     }
@@ -148,13 +148,13 @@ export function McpToolSelector({ blockId, subBlock, disabled = false }: McpTool
                   <CommandItem
                     key={tool.id}
                     value={`tool-${tool.id}-${tool.name}`}
-                    onSelect={() => handleSelect(tool.name)}
+                    onSelect={() => handleSelect(tool.id)}
                     className='cursor-pointer'
                   >
                     <div className='flex items-center gap-1 overflow-hidden'>
                       <span className='truncate font-normal'>{tool.name}</span>
                     </div>
-                    {tool.name === selectedToolName && <Check className='ml-auto h-4 w-4' />}
+                    {tool.id === selectedToolId && <Check className='ml-auto h-4 w-4' />}
                   </CommandItem>
                 ))}
               </CommandGroup>
