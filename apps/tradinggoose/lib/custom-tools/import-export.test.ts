@@ -34,7 +34,10 @@ describe('custom tools import/export helpers', () => {
       customTools: [
         {
           title: 'Fetch Top Movers',
-          schema: toolSchema,
+          schema: {
+            type: 'function',
+            function: { name: 'fetchTopMovers', ...toolSchema.function },
+          },
           code: 'return { movers: [] }',
         },
       ],
@@ -75,8 +78,8 @@ describe('custom tools import/export helpers', () => {
     ).toThrow('Tool title is required')
   })
 
-  it('rejects function names because custom-tool title is canonical', () => {
-    expect(() =>
+  it('drops function names because custom-tool title is canonical', () => {
+    expect(
       parseCustomToolSchemaText(
         JSON.stringify({
           type: 'function',
@@ -86,7 +89,12 @@ describe('custom tools import/export helpers', () => {
           },
         })
       )
-    ).toThrow(/Unrecognized key.*name/)
+    ).toEqual({
+      type: 'function',
+      function: {
+        parameters: { type: 'object', properties: {} },
+      },
+    })
   })
 
   it('round-trips custom-tool runtime IDs from canonical entity IDs', () => {

@@ -1,7 +1,7 @@
 import { type EntityDocumentKind, getEntityDocumentName } from '@/lib/copilot/entity-documents'
 import type { ClientToolExecutionContext } from '@/lib/copilot/tools/client/base-tool'
 import { resolveOptionalCopilotEntityId } from '@/lib/copilot/tools/entity-target'
-import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
+import { CustomToolOpenAiSchema, parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { getDefaultIndicator } from '@/lib/indicators/default'
 import { getEntityFields, replaceEntityTextField, setEntityField } from '@/lib/yjs/entity-session'
 import { buildSavedEntityYjsDescriptor } from '@/lib/yjs/entity-state'
@@ -84,7 +84,7 @@ const ENTITY_API_CONFIG: Record<EntityDocumentKind, EntityApiConfig> = {
       title: item?.title ?? '',
       schemaText:
         item?.schema && typeof item.schema === 'object'
-          ? JSON.stringify(item.schema, null, 2)
+          ? JSON.stringify(CustomToolOpenAiSchema.parse(item.schema), null, 2)
           : typeof item?.schemaText === 'string'
             ? item.schemaText
             : '',

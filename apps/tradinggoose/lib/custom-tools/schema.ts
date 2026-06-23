@@ -50,19 +50,15 @@ export const CustomToolParametersSchema = z.object({
   required: z.array(z.string()).optional(),
 })
 
-export const CustomToolFunctionSchema = z
-  .object({
-    description: z.string().optional(),
-    parameters: CustomToolParametersSchema,
-  })
-  .strict()
+export const CustomToolFunctionSchema = z.object({
+  description: z.string().optional(),
+  parameters: CustomToolParametersSchema,
+})
 
-export const CustomToolOpenAiSchema = z
-  .object({
-    type: z.literal('function'),
-    function: CustomToolFunctionSchema,
-  })
-  .strict()
+export const CustomToolOpenAiSchema = z.object({
+  type: z.literal('function'),
+  function: CustomToolFunctionSchema,
+})
 
 export const CustomToolTransferSchema = z
   .object({
