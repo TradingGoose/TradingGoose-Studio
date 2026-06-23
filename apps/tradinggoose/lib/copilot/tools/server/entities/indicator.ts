@@ -6,7 +6,7 @@ import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
 import { upsertIndicators } from '@/lib/indicators/custom/operations'
 import {
   DEFAULT_INDICATOR_RUNTIME_ENTRIES,
-  resolveDefaultIndicatorRuntimeEntry,
+  DEFAULT_INDICATOR_RUNTIME_MAP,
 } from '@/lib/indicators/default/runtime'
 import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
@@ -47,9 +47,10 @@ function toCustomIndicatorListEntry(
     name: row.name,
     source: 'custom',
     editable: true,
-    callableInFunctionBlock: false,
+    callableInFunctionBlock: true,
     ...(inputTitles.length > 0 ? { inputTitles } : {}),
     entityId: row.id,
+    runtimeId: row.id,
   }
 }
 
@@ -122,16 +123,27 @@ export const readIndicatorServerTool: EntityServerTool = {
     const runtimeId = args.runtimeId?.trim()
     if (runtimeId) {
       requireUserId(context)
-      const indicator = resolveDefaultIndicatorRuntimeEntry(runtimeId)
-      if (!indicator) {
-        throw new Error(`Built-in indicator ${runtimeId} was not found`)
+      const defaultIndicator = DEFAULT_INDICATOR_RUNTIME_MAP.get(runtimeId)
+      if (defaultIndicator) {
+        return buildDocumentEnvelope(ENTITY_KIND_INDICATOR, undefined, {
+          name: defaultIndicator.name,
+          pineCode: defaultIndicator.pineCode,
+          inputMeta: defaultIndicator.inputMeta ?? null,
+        })
       }
 
-      return buildDocumentEnvelope(ENTITY_KIND_INDICATOR, undefined, {
-        name: indicator.name,
-        pineCode: indicator.pineCode,
-        inputMeta: indicator.inputMeta ?? null,
-      })
+      const { workspaceId } = await verifySavedEntityContext(
+        context,
+        ENTITY_KIND_INDICATOR,
+        runtimeId,
+        'read'
+      )
+      const fields = await readSavedEntityDocumentFields(
+        ENTITY_KIND_INDICATOR,
+        runtimeId,
+        workspaceId
+      )
+      return buildDocumentEnvelope(ENTITY_KIND_INDICATOR, runtimeId, fields)
     }
 
     const entityId = requireEntityId(args, 'read_indicator')
