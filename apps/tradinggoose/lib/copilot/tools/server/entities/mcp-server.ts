@@ -1,6 +1,7 @@
 import { db } from '@tradinggoose/db'
 import { mcpServers } from '@tradinggoose/db/schema'
 import { and, eq, isNull } from 'drizzle-orm'
+import { ENTITY_SECRET_PLACEHOLDER } from '@/lib/copilot/entity-documents'
 import { ENTITY_KIND_MCP_SERVER } from '@/lib/copilot/review-sessions/types'
 import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
 import { mcpService } from '@/lib/mcp/service'
@@ -64,6 +65,67 @@ function normalizeMcpServerFields(fields: Record<string, unknown>): Record<strin
     retries: typeof fields.retries === 'number' ? fields.retries : 3,
     enabled: typeof fields.enabled === 'boolean' ? fields.enabled : true,
   }
+}
+
+function preserveSecretRecordPlaceholders(
+  fieldName: 'headers' | 'env',
+  nextValues: Record<string, string>,
+  currentValues: Record<string, string>
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(nextValues).map(([key, value]) => {
+      if (value !== ENTITY_SECRET_PLACEHOLDER) {
+        return [key, value]
+      }
+      const currentValue = currentValues[key]
+      if (typeof currentValue !== 'string') {
+        throw new Error(`Cannot preserve missing MCP server ${fieldName} value "${key}"`)
+      }
+      return [key, currentValue]
+    })
+  )
+}
+
+function assertNoSecretPlaceholders(fields: Record<string, unknown>): void {
+  for (const fieldName of ['headers', 'env'] as const) {
+    const values = normalizeStringRecord(fields[fieldName])
+    const placeholderKey = Object.entries(values).find(
+      ([, value]) => value === ENTITY_SECRET_PLACEHOLDER
+    )?.[0]
+    if (placeholderKey) {
+      throw new Error(
+        `Cannot use ${ENTITY_SECRET_PLACEHOLDER} for new MCP server ${fieldName} value "${placeholderKey}"`
+      )
+    }
+  }
+}
+
+function preserveMcpServerSecretPlaceholders(
+  nextFields: Record<string, unknown>,
+  currentFields: Record<string, unknown>
+): Record<string, unknown> {
+  const normalizedNext = normalizeMcpServerFields(nextFields)
+  const normalizedCurrent = normalizeMcpServerFields(currentFields)
+
+  return {
+    ...normalizedNext,
+    headers: preserveSecretRecordPlaceholders(
+      'headers',
+      normalizeStringRecord(normalizedNext.headers),
+      normalizeStringRecord(normalizedCurrent.headers)
+    ),
+    env: preserveSecretRecordPlaceholders(
+      'env',
+      normalizeStringRecord(normalizedNext.env),
+      normalizeStringRecord(normalizedCurrent.env)
+    ),
+  }
+}
+
+function prepareNewMcpServerFields(fields: Record<string, unknown>): Record<string, unknown> {
+  const normalized = normalizeMcpServerFields(fields)
+  assertNoSecretPlaceholders(normalized)
+  return normalized
 }
 
 function toMcpServerListEntry(row: typeof mcpServers.$inferSelect): EntityListEntry {
@@ -131,10 +193,15 @@ async function applyMcpServerDocument(input: {
   fields: Record<string, unknown>
   workspaceId: string
 }) {
+  const currentFields = await readSavedEntityDocumentFields(
+    ENTITY_KIND_MCP_SERVER,
+    input.entityId,
+    input.workspaceId
+  )
   await applySavedEntityDocument(
     ENTITY_KIND_MCP_SERVER,
     input.entityId,
-    normalizeMcpServerFields(input.fields)
+    preserveMcpServerSecretPlaceholders(input.fields, currentFields)
   )
   mcpService.clearCache(input.workspaceId)
 }
@@ -187,7 +254,7 @@ export const createMcpServerServerTool: EntityServerTool = {
       args,
       context,
       createMcpServerEntity,
-      normalizeMcpServerFields
+      prepareNewMcpServerFields
     )
   },
 }

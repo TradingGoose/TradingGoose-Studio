@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MCP_SERVER_DOCUMENT_FORMAT, SKILL_DOCUMENT_FORMAT } from '@/lib/copilot/entity-documents'
 import { hashServerToolReviewBase } from '@/lib/copilot/tools/server/base-tool'
 import {
+  buildDocumentEnvelope,
   buildReviewDocumentDiff,
   executeCreateEntityDocumentMutation,
   executeUpdateEntityDocumentMutation,
@@ -141,7 +142,20 @@ describe('entity document mutation helpers', () => {
     )
   })
 
-  it('redacts MCP server secret values in review documents', async () => {
+  it('redacts MCP server secret values in Copilot documents', async () => {
+    const readEnvelope = buildDocumentEnvelope('mcp_server', 'mcp-1', {
+      name: 'Private MCP',
+      description: 'Uses auth',
+      transport: 'http',
+      url: 'https://mcp.example.test',
+      headers: { Authorization: 'Bearer read-secret' },
+      command: '',
+      args: [],
+      env: { API_KEY: 'read-secret-env' },
+      timeout: 30000,
+      retries: 3,
+      enabled: true,
+    })
     const result = await executeCreateEntityDocumentMutation(
       'mcp_server',
       {
@@ -183,6 +197,9 @@ describe('entity document mutation helpers', () => {
       JSON.parse(after)
     )
 
+    expect(readEnvelope.entityDocument).toContain('[redacted]')
+    expect(readEnvelope.entityDocument).not.toContain('read-secret')
+    expect(readEnvelope.entityDocument).not.toContain('read-secret-env')
     expect(after).toContain('[redacted]')
     expect(after).not.toContain('secret-token')
     expect(after).not.toContain('secret-env')

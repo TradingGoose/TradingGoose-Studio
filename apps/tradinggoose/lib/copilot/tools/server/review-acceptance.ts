@@ -2,11 +2,6 @@ import { db } from '@tradinggoose/db'
 import { verification } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
-import {
-  MCP_SERVER_DOCUMENT_FORMAT,
-  parseEntityDocument,
-  serializeEntityDocumentForReview,
-} from '@/lib/copilot/entity-documents'
 import type { ToolId } from '@/lib/copilot/registry'
 import {
   assertAcceptedServerToolReviewBase,
@@ -39,48 +34,6 @@ function readBaseStateHash(result: unknown): string {
   }
 
   throw new Error('Server tool review result is missing base state')
-}
-
-function redactMcpServerReviewDocument(value: unknown): unknown {
-  if (typeof value !== 'string') {
-    return value
-  }
-
-  if (!value) {
-    return ''
-  }
-
-  return serializeEntityDocumentForReview('mcp_server', parseEntityDocument('mcp_server', value))
-}
-
-function redactReviewSecrets(result: unknown) {
-  if (!result || typeof result !== 'object' || Array.isArray(result)) {
-    return result
-  }
-
-  const record = result as Record<string, unknown>
-  if (record.entityKind !== 'mcp_server' && record.documentFormat !== MCP_SERVER_DOCUMENT_FORMAT) {
-    return result
-  }
-
-  const publicResult: Record<string, unknown> = { ...record }
-  publicResult.entityDocument = redactMcpServerReviewDocument(publicResult.entityDocument)
-  const preview = record.preview
-  if (preview && typeof preview === 'object' && !Array.isArray(preview)) {
-    const documentDiff = (preview as { documentDiff?: unknown }).documentDiff
-    if (documentDiff && typeof documentDiff === 'object' && !Array.isArray(documentDiff)) {
-      publicResult.preview = {
-        ...preview,
-        documentDiff: {
-          ...(documentDiff as Record<string, unknown>),
-          before: redactMcpServerReviewDocument((documentDiff as { before?: unknown }).before),
-          after: redactMcpServerReviewDocument((documentDiff as { after?: unknown }).after),
-        },
-      }
-    }
-  }
-
-  return publicResult
 }
 
 export async function stageServerManagedToolReview(
@@ -122,7 +75,7 @@ export async function stageServerManagedToolReview(
   })
 
   return {
-    ...(redactReviewSecrets(publicResult) as Record<string, unknown>),
+    ...publicResult,
     reviewToken,
   }
 }
@@ -221,5 +174,5 @@ export async function acceptServerManagedToolReview(
     .catch((error) => {
       logger.warn('Failed to delete accepted server tool review token', { error, toolName })
     })
-  return redactReviewSecrets(acceptedResult)
+  return acceptedResult
 }

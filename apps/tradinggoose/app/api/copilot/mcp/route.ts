@@ -98,6 +98,7 @@ async function buildInstructions(userId: string) {
     'TradingGoose Copilot MCP exposes the same server-side Copilot tools used by TradingGoose Studio.',
     'Local MCP config stores only this user auth token. Do not store workspaceId, entityId, or entity targets in the local MCP config.',
     'Use entityId for read/edit/rename tools that target an existing entity. Use workspaceId for workspace-scoped tools, including list/create, credential, OAuth, Google Drive, workspace account reads, and workspace-scoped environment writes. Environment writes require scope="personal" or scope="workspace".',
+    'MCP server documents redact header/env secret values as [redacted]. Keep [redacted] to preserve an existing secret, send a concrete value to replace it, or omit the key to delete it.',
     'Accessible workspaces for the authenticated user:',
     ...workspaceLines,
   ].join('\n')

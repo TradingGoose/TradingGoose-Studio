@@ -304,7 +304,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   [CopilotTool.read_mcp_server]: {
     description:
-      'Return one MCP server by `entityId` as an editable document payload with `entityDocument` and `documentFormat`.',
+      'Return one MCP server by `entityId` as an editable document payload. Secret header/env values are redacted as `[redacted]`.',
     kind: 'read',
     entityKind: 'mcp_server',
   },
@@ -316,13 +316,13 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   edit_mcp_server: {
     description:
-      'Update the target MCP server from a full server document and return the resulting document.',
+      'Update the target MCP server from a full server document. Keep `[redacted]` header/env values to preserve existing secrets, send concrete values to replace them, or omit keys to delete them.',
     kind: 'edit',
     entityKind: 'mcp_server',
   },
   rename_mcp_server: {
     description:
-      'Rename the target MCP server by sending a full server document with the updated `name`, then return the resulting document.',
+      'Rename the target MCP server by sending a full server document with the updated `name`. Keep `[redacted]` header/env values to preserve existing secrets.',
     kind: 'rename',
     entityKind: 'mcp_server',
   },
