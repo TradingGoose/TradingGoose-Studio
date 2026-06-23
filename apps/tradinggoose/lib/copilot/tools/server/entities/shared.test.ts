@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { MCP_SERVER_DOCUMENT_FORMAT, SKILL_DOCUMENT_FORMAT } from '@/lib/copilot/entity-documents'
+import {
+  INDICATOR_DOCUMENT_FORMAT,
+  MCP_SERVER_DOCUMENT_FORMAT,
+  SKILL_DOCUMENT_FORMAT,
+} from '@/lib/copilot/entity-documents'
 import { hashServerToolReviewBase } from '@/lib/copilot/tools/server/base-tool'
 import {
   buildDocumentEnvelope,
@@ -110,6 +114,99 @@ describe('entity document mutation helpers', () => {
     )
 
     expect(mockApplySavedEntityPersistedState).toHaveBeenCalledWith('skill', 'skill-1', nextFields)
+  })
+
+  it('preserves indicator input metadata when applying document updates', async () => {
+    const inputMeta = {
+      Mode: {
+        title: 'Mode',
+        type: 'string',
+        defval: 'fast',
+        options: ['fast', 'slow'],
+        value: 'slow',
+      },
+    }
+
+    await executeUpdateEntityDocumentMutation(
+      'indicator',
+      'edit_indicator',
+      {
+        entityId: 'indicator-1',
+        documentFormat: INDICATOR_DOCUMENT_FORMAT,
+        entityDocument: JSON.stringify({
+          name: 'Updated Indicator',
+          pineCode: "const mode = input.string('fast', 'Mode')",
+          inputMeta,
+        }),
+      },
+      { userId: 'user-1', accessLevel: 'full' }
+    )
+
+    expect(mockApplySavedEntityPersistedState).toHaveBeenCalledWith('indicator', 'indicator-1', {
+      name: 'Updated Indicator',
+      pineCode: "const mode = input.string('fast', 'Mode')",
+      inputMeta,
+    })
+  })
+
+  it('rejects MCP server create documents without a URL', async () => {
+    const create = vi.fn()
+
+    await expect(
+      executeCreateEntityDocumentMutation(
+        'mcp_server',
+        {
+          workspaceId: 'workspace-1',
+          documentFormat: MCP_SERVER_DOCUMENT_FORMAT,
+          entityDocument: JSON.stringify({
+            name: 'Missing URL MCP',
+            description: '',
+            transport: 'http',
+            url: '',
+            headers: {},
+            command: '',
+            args: [],
+            env: {},
+            timeout: 30000,
+            retries: 3,
+            enabled: true,
+          }),
+        },
+        { userId: 'user-1', accessLevel: 'full' },
+        create
+      )
+    ).rejects.toThrow('Invalid MCP server URL: URL is required and must be a string')
+
+    expect(create).not.toHaveBeenCalled()
+  })
+
+  it('rejects MCP server edit documents without a URL before persistence', async () => {
+    await expect(
+      executeUpdateEntityDocumentMutation(
+        'mcp_server',
+        'edit_mcp_server',
+        {
+          entityId: 'mcp-1',
+          documentFormat: MCP_SERVER_DOCUMENT_FORMAT,
+          entityDocument: JSON.stringify({
+            name: 'Missing URL MCP',
+            description: '',
+            transport: 'streamable-http',
+            url: '   ',
+            headers: {},
+            command: '',
+            args: [],
+            env: {},
+            timeout: 30000,
+            retries: 3,
+            enabled: true,
+          }),
+        },
+        { userId: 'user-1', accessLevel: 'full' }
+      )
+    ).rejects.toThrow('Invalid MCP server URL: URL is required and must be a string')
+
+    expect(mockApplySavedEntityPersistedState).not.toHaveBeenCalled()
   })
 
   it('keeps Studio create mutations in review mode', async () => {
