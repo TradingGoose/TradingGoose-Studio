@@ -135,5 +135,7 @@ export function getLogMentionSearchText(
   copy: MonitorCopy,
   item: Pick<LogItem, 'entityName' | 'trigger'>
 ): string {
-  return [item.entityName, getLogMentionTriggerLabel(copy, item)].join(' ').trim()
+  const trigger = (item.trigger ?? 'unknown').toLowerCase()
+
+  return [item.entityName, trigger, getMonitorTriggerLabel(copy, trigger)].join(' ').trim()
 }
