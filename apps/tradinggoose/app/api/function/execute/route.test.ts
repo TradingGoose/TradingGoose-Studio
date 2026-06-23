@@ -52,7 +52,7 @@ describe('Function Execute API Route', () => {
       userCodeStartLine: 3,
     })
     listCustomIndicatorRuntimeEntriesMock.mockResolvedValue([
-      { id: 'indicator-1', name: 'Custom Indicator', pineCode: 'indicator("Custom Indicator")' },
+      { id: 'indicator-1', pineCode: 'indicator("Custom Indicator")' },
     ])
     isBillingEnabledForRuntimeMock.mockResolvedValue(false)
     accrueUserUsageCostMock.mockResolvedValue(true)

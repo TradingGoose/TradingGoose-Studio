@@ -6,7 +6,6 @@ import { executeIndicatorInLocalVm } from './local-executor'
 
 export type FunctionIndicatorRuntimeEntry = {
   id: string
-  name: string
   pineCode: string
   inputMeta?: InputMetaMap
 }
@@ -103,7 +102,6 @@ const executeFunctionIndicator = async ({
 
     return {
       indicatorId: entry.id,
-      indicatorName: entry.name,
       plots,
       indicator: indicatorMeta,
     }

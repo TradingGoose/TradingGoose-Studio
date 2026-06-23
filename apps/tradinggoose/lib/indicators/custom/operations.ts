@@ -21,9 +21,8 @@ export async function listCustomIndicatorRuntimeEntries(workspaceId: string) {
     .where(eq(pineIndicators.workspaceId, workspaceId))
     .then((indicatorRows) => applySavedEntityYjsStateToRows('indicator', indicatorRows))
 
-  return rows.map(({ id, name, pineCode, inputMeta }) => ({
+  return rows.map(({ id, pineCode, inputMeta }) => ({
     id,
-    name,
     pineCode,
     inputMeta: normalizeInputMetaMap(inputMeta),
   }))

@@ -150,7 +150,11 @@ export async function executeFunctionRequest(
     executionParams._context = undefined
     const indicatorRuntimeManifest = {
       indicators: [
-        ...DEFAULT_INDICATOR_RUNTIME_ENTRIES,
+        ...DEFAULT_INDICATOR_RUNTIME_ENTRIES.map(({ id, pineCode, inputMeta }) => ({
+          id,
+          pineCode,
+          inputMeta,
+        })),
         ...(await listCustomIndicatorRuntimeEntries(workspaceId)),
       ],
     }
