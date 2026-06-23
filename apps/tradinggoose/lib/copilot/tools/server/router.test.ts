@@ -192,6 +192,25 @@ describe('copilot contract registry', () => {
     expect(getToolContract('unknown_tool')).toBeUndefined()
   })
 
+  it('requires personal or workspace scope for credential and environment reads', () => {
+    for (const toolName of [
+      'read_environment_variables',
+      'read_credentials',
+      'read_oauth_credentials',
+    ] as const) {
+      const args = getToolContract(toolName)?.args
+      expect(args?.parse({ scope: 'personal' })).toEqual({
+        scope: 'personal',
+      })
+      expect(args?.parse({ scope: 'workspace', workspaceId: 'workspace-123' })).toEqual({
+        scope: 'workspace',
+        workspaceId: 'workspace-123',
+      })
+      expect(() => args?.parse({ scope: 'workflow', entityId: 'workflow-123' })).toThrow()
+      expect(() => args?.parse({})).toThrow()
+    }
+  })
+
   it('reuses the shared block schemas in the central contract', () => {
     const contract = getToolContract('get_available_blocks')
 
@@ -482,21 +501,11 @@ describe('routeExecution', () => {
     expect(readWorkflowLogsExecute).toHaveBeenCalledWith(payload, undefined)
   })
 
-  it('injects hosted workspace context for workspace-targeted tools', async () => {
+  it('injects hosted workspace context for workspace-scoped writes', async () => {
     const context = {
       userId: 'user-1',
       workspaceId: 'workspace-1',
     }
-
-    await expect(routeExecution('read_environment_variables', {}, context)).resolves.toMatchObject({
-      variableNames: expect.any(Array),
-      count: expect.any(Number),
-    })
-
-    expect(readEnvironmentVariablesExecute).toHaveBeenCalledWith(
-      { workspaceId: 'workspace-1' },
-      context
-    )
 
     await expect(
       routeExecution(
@@ -517,7 +526,7 @@ describe('routeExecution', () => {
   it.each([
     {
       toolName: 'read_environment_variables',
-      payload: { workspaceId: 'workspace-123' },
+      payload: { scope: 'workspace', workspaceId: 'workspace-123' },
       execute: readEnvironmentVariablesExecute,
     },
     {
@@ -531,7 +540,7 @@ describe('routeExecution', () => {
     },
     {
       toolName: 'read_credentials',
-      payload: { workspaceId: 'workspace-123' },
+      payload: { scope: 'workspace', workspaceId: 'workspace-123' },
       execute: readCredentialsExecute,
     },
     {
@@ -562,7 +571,22 @@ describe('routeExecution', () => {
     },
     {
       toolName: 'read_oauth_credentials',
-      payload: { workspaceId: 'workspace-123' },
+      payload: { scope: 'workspace', workspaceId: 'workspace-123' },
+      execute: readOAuthCredentialsExecute,
+    },
+    {
+      toolName: 'read_environment_variables',
+      payload: { scope: 'personal' },
+      execute: readEnvironmentVariablesExecute,
+    },
+    {
+      toolName: 'read_credentials',
+      payload: { scope: 'personal' },
+      execute: readCredentialsExecute,
+    },
+    {
+      toolName: 'read_oauth_credentials',
+      payload: { scope: 'personal' },
       execute: readOAuthCredentialsExecute,
     },
   ])(

@@ -8,9 +8,9 @@ import { getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 
-interface ReadEnvironmentVariablesParams {
-  workspaceId?: string
-}
+type ReadEnvironmentVariablesParams =
+  | { scope: 'personal' }
+  | { scope: 'workspace'; workspaceId: string }
 
 export const readEnvironmentVariablesServerTool: BaseServerTool<
   ReadEnvironmentVariablesParams,
@@ -23,28 +23,25 @@ export const readEnvironmentVariablesServerTool: BaseServerTool<
   ): Promise<any> {
     const logger = createLogger('ReadEnvironmentVariablesServerTool')
 
-    const scopedContext = withWorkspaceArgContext(context, params)
-
-    if (!scopedContext?.userId) {
-      logger.error(
-        'Unauthorized attempt to access environment variables - no authenticated user context'
-      )
+    if (!context?.userId) {
       throw new Error('Authentication required')
     }
 
-    const userId = scopedContext.userId
-    const workspaceId = scopedContext.workspaceId
-    if (!workspaceId) {
-      throw new Error('workspaceId is required')
-    }
-
-    const workspaceAccess = await checkWorkspaceAccess(workspaceId, userId)
-    if (!workspaceAccess.exists || !workspaceAccess.hasAccess) {
-      throw new Error('Access denied: You do not have permission to use this workspace')
+    const userId = context.userId
+    const scopedContext =
+      params.scope === 'workspace' ? withWorkspaceArgContext(context, params) : context
+    const workspaceId = params.scope === 'workspace' ? scopedContext?.workspaceId : undefined
+    if (params.scope === 'workspace') {
+      if (!workspaceId) throw new Error('workspaceId is required')
+      const workspaceAccess = await checkWorkspaceAccess(workspaceId, userId)
+      if (!workspaceAccess.exists || !workspaceAccess.hasAccess) {
+        throw new Error('Access denied: You do not have permission to use this workspace')
+      }
     }
 
     logger.info('Reading environment variables for authenticated user', {
       userId,
+      scope: params.scope,
       workspaceId,
     })
 

@@ -116,7 +116,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   [CopilotTool.read_environment_variables]: {
     description:
-      'Read personal and workspace environment variable names for the selected workspace. Use returned names with the exact `{{ENV_VAR_NAME}}` syntax in block inputs.',
+      'Read environment variable names through an explicit personal or workspace scope. Use returned names with the exact `{{ENV_VAR_NAME}}` syntax in block inputs.',
     kind: 'read',
     entityKind: 'environment',
   },
@@ -126,13 +126,13 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
     entityKind: 'environment',
   },
   [CopilotTool.read_oauth_credentials]: {
-    description: 'Read OAuth credentials for the selected workspace.',
+    description: 'Read OAuth credentials through an explicit personal or workspace scope.',
     kind: 'read',
     entityKind: 'credential',
   },
   [CopilotTool.read_credentials]: {
     description:
-      'Read OAuth credentials and related environment variable names for the selected workspace.',
+      'Read OAuth credentials and related environment variable names through an explicit personal or workspace scope.',
     kind: 'read',
     entityKind: 'credential',
   },

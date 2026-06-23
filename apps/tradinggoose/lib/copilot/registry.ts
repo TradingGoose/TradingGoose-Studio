@@ -126,6 +126,16 @@ const EntityTargetArgs = z.object({
 const WorkspaceTargetArgs = z.object({
   workspaceId: RequiredId,
 })
+const PersonalOrWorkspaceReadArgs = z.discriminatedUnion('scope', [
+  z
+    .object({
+      scope: z.literal('personal'),
+    })
+    .strict(),
+  WorkspaceTargetArgs.extend({
+    scope: z.literal('workspace'),
+  }).strict(),
+])
 const SetEnvironmentVariablesArgs = z.discriminatedUnion('scope', [
   z
     .object({
@@ -389,13 +399,13 @@ export const ToolArgSchemas = {
     body: z.union([z.record(z.any()), z.string()]).optional(),
   }),
 
-  [CopilotTool.read_environment_variables]: WorkspaceTargetArgs.strict(),
+  [CopilotTool.read_environment_variables]: PersonalOrWorkspaceReadArgs,
 
   set_environment_variables: SetEnvironmentVariablesArgs,
 
-  [CopilotTool.read_oauth_credentials]: WorkspaceTargetArgs.strict(),
+  [CopilotTool.read_oauth_credentials]: PersonalOrWorkspaceReadArgs,
 
-  [CopilotTool.read_credentials]: WorkspaceTargetArgs.strict(),
+  [CopilotTool.read_credentials]: PersonalOrWorkspaceReadArgs,
 
   gdrive_request_access: z.object({}),
 

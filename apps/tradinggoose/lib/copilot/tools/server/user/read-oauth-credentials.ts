@@ -4,13 +4,16 @@ import type {
   ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
 import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
-import { listOAuthCredentialsForUser } from '@/lib/credentials/oauth'
+import {
+  listOAuthConnectionsForUser,
+  listOAuthCredentialsForUser,
+} from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 
-interface ReadOAuthCredentialsParams {
-  workspaceId?: string
-}
+type ReadOAuthCredentialsParams =
+  | { scope: 'personal' }
+  | { scope: 'workspace'; workspaceId: string }
 
 export const readOAuthCredentialsServerTool: BaseServerTool<ReadOAuthCredentialsParams, any> = {
   name: CopilotTool.read_oauth_credentials,
@@ -20,20 +23,21 @@ export const readOAuthCredentialsServerTool: BaseServerTool<ReadOAuthCredentials
   ): Promise<any> {
     const logger = createLogger('ReadOAuthCredentialsServerTool')
 
-    const scopedContext = withWorkspaceArgContext(context, params)
-
-    if (!scopedContext?.userId) {
-      logger.error(
-        'Unauthorized attempt to access OAuth credentials - no authenticated user context'
-      )
+    if (!context?.userId) {
       throw new Error('Authentication required')
     }
 
-    const userId = scopedContext.userId
-    const workspaceId = scopedContext.workspaceId
-    if (!workspaceId) {
-      throw new Error('workspaceId is required')
+    const userId = context.userId
+    if (params.scope === 'personal') {
+      const credentials = await listOAuthConnectionsForUser({ userId })
+      logger.info('Fetched personal OAuth credentials', { userId, count: credentials.length })
+      return { credentials, total: credentials.length }
     }
+
+    const scopedContext = withWorkspaceArgContext(context, params)
+    const workspaceId = scopedContext?.workspaceId
+    if (!workspaceId) throw new Error('workspaceId is required')
+
     const workspaceAccess = await checkWorkspaceAccess(workspaceId, userId)
     if (!workspaceAccess.exists || !workspaceAccess.hasAccess) {
       throw new Error('Access denied: You do not have permission to use this workspace')

@@ -28,6 +28,32 @@ describe('readEnvironmentVariablesServerTool', () => {
     vi.clearAllMocks()
   })
 
+  it('uses personal scope to include authenticated user variables only', async () => {
+    mocks.getPersonalAndWorkspaceEnv.mockResolvedValue({
+      personalEncrypted: { PERSONAL_KEY: 'encrypted-1' },
+      workspaceEncrypted: {},
+      conflicts: [],
+    })
+
+    await expect(
+      readEnvironmentVariablesServerTool.execute(
+        { scope: 'personal' },
+        {
+          userId: 'auth-user',
+        }
+      )
+    ).resolves.toEqual({
+      variableNames: ['PERSONAL_KEY'],
+      personalVariableNames: ['PERSONAL_KEY'],
+      workspaceVariableNames: [],
+      conflicts: [],
+      count: 1,
+    })
+
+    expect(mocks.checkWorkspaceAccess).not.toHaveBeenCalled()
+    expect(mocks.getPersonalAndWorkspaceEnv).toHaveBeenCalledWith('auth-user', undefined)
+  })
+
   it('uses explicit workspace context to include workspace variables', async () => {
     mocks.checkWorkspaceAccess.mockResolvedValue({
       exists: true,
@@ -43,7 +69,7 @@ describe('readEnvironmentVariablesServerTool', () => {
 
     await expect(
       readEnvironmentVariablesServerTool.execute(
-        { workspaceId: 'workspace-1' },
+        { scope: 'workspace', workspaceId: 'workspace-1' },
         {
           userId: 'auth-user',
         }
