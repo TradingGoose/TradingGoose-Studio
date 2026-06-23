@@ -1054,7 +1054,7 @@ describe('MCP Tool Execution', () => {
     try {
       const result = await executeTool(
         createMcpToolId('mcp-123', 'list_files'),
-        { path: '/test' },
+        { server: 'mcp-123', tool: 'list_files', path: '/test' },
         false,
         mockContext
       )
@@ -1073,7 +1073,7 @@ describe('MCP Tool Execution', () => {
     }
   })
 
-  it('should handle MCP tool ID parsing correctly', async () => {
+  it('should execute MCP tools using explicit server and tool params', async () => {
     global.fetch = Object.assign(
       vi.fn().mockImplementation(async (url, options) => {
         const body = JSON.parse(options?.body as string)
@@ -1097,7 +1097,11 @@ describe('MCP Tool Execution', () => {
 
     await executeTool(
       createMcpToolId('550e8400-e29b-41d4-a716-446655440000', 'complex-tool-name'),
-      { param: 'value' },
+      {
+        server: '550e8400-e29b-41d4-a716-446655440000',
+        tool: 'complex-tool-name',
+        param: 'value',
+      },
       false,
       mockContext2
     )
@@ -1192,7 +1196,7 @@ describe('MCP Tool Execution', () => {
 
     const result = await executeTool(
       createMcpToolId('mcp-123', 'nonexistent_tool'),
-      { param: 'value' },
+      { server: 'mcp-123', tool: 'nonexistent_tool', param: 'value' },
       false,
       mockContext5
     )
@@ -1203,10 +1207,24 @@ describe('MCP Tool Execution', () => {
   })
 
   it('should require workspaceId for MCP tools', async () => {
-    const result = await executeTool(createMcpToolId('mcp-123', 'test_tool'), { param: 'value' })
+    const result = await executeTool(createMcpToolId('mcp-123', 'test_tool'), {
+      server: 'mcp-123',
+      tool: 'test_tool',
+      param: 'value',
+    })
 
     expect(result.success).toBe(false)
     expect(result.error).toContain('Missing workspaceId in execution context for MCP tool')
+  })
+
+  it('should require server id for MCP tools', async () => {
+    const result = await executeTool(createMcpToolId('mcp-123', 'test_tool'), {
+      tool: 'test_tool',
+      param: 'value',
+    })
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('Missing server in MCP execution params')
   })
 
   it('should handle invalid MCP tool ID format', async () => {
@@ -1227,7 +1245,7 @@ describe('MCP Tool Execution', () => {
 
     const result = await executeTool(
       createMcpToolId('mcp-123', 'test_tool'),
-      { param: 'value' },
+      { server: 'mcp-123', tool: 'test_tool', param: 'value' },
       false,
       mockContext7
     )
