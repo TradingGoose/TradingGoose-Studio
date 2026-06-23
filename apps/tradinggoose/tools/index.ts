@@ -1,6 +1,7 @@
 import { generateInternalToken } from '@/lib/auth/internal'
 import { isCustomToolRuntimeId } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
+import { parseMcpToolId } from '@/lib/mcp/utils'
 import { validateExternalUrl } from '@/lib/security/input-validation'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { generateRequestId } from '@/lib/utils'
@@ -174,14 +175,9 @@ function createToolRequestSignal(
  * These are internal parameters used by the execution framework, not tool inputs
  */
 const MCP_SYSTEM_PARAMETERS = new Set([
-  'server',
   'serverId',
-  'tool',
   'toolName',
   'serverName',
-  'workspaceId',
-  'workflowId',
-  'requestId',
   '_context',
   'envVars',
   'workflowVariables',
@@ -951,32 +947,7 @@ async function executeMcpTool(
   try {
     logger.info(`[${actualRequestId}] Executing MCP tool: ${toolId}`)
 
-    const serverParam = typeof params.server === 'string' && params.server ? params.server : ''
-    if (!serverParam) {
-      return {
-        success: false,
-        output: {},
-        error: `Missing server in MCP execution params for tool ${toolId}`,
-        timing: {
-          startTime: actualStartTime,
-          endTime: new Date().toISOString(),
-          duration: Date.now() - new Date(actualStartTime).getTime(),
-        },
-      }
-    }
-    const toolName = typeof params.tool === 'string' && params.tool ? params.tool : ''
-    if (!toolName) {
-      return {
-        success: false,
-        output: {},
-        error: `Missing tool in MCP execution params for tool ${toolId}`,
-        timing: {
-          startTime: actualStartTime,
-          endTime: new Date().toISOString(),
-          duration: Date.now() - new Date(actualStartTime).getTime(),
-        },
-      }
-    }
+    const { serverId, toolName } = parseMcpToolId(toolId)
 
     const baseUrl = getBaseUrl()
 
@@ -1033,14 +1004,14 @@ async function executeMcpTool(
     }
 
     const requestBody = {
-      serverId: serverParam,
+      serverId,
       toolName,
       arguments: toolArguments,
       workflowId, // Pass workflow context for user resolution
       workspaceId, // Pass workspace context for scoping
     }
 
-    logger.info(`[${actualRequestId}] Making MCP tool request to ${toolName} on ${serverParam}`, {
+    logger.info(`[${actualRequestId}] Making MCP tool request to ${toolName} on ${serverId}`, {
       hasWorkspaceId: !!workspaceId,
       hasWorkflowId: !!workflowId,
     })
