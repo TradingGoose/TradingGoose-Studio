@@ -2,7 +2,9 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { checkInternalAuth } from '@/lib/auth/hybrid'
 import { executeFunctionRequest } from '@/lib/function/execution'
 import { createLogger } from '@/lib/logs/console/logger'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
+import { readWorkflowById } from '@/lib/workflows/utils'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -42,18 +44,30 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { workspaceId } = body
+    const { workflowId } = body
 
-    if (typeof workspaceId !== 'string' || !workspaceId.trim()) {
+    if (typeof workflowId !== 'string' || !workflowId.trim()) {
       return respondFailure(
-        'Function execution requires workspace context',
+        'Function execution requires workflow context',
         Date.now() - startTime,
         400
       )
     }
 
+    const workflow = await readWorkflowById(workflowId)
+    if (!workflow?.workspaceId) {
+      return respondFailure('Workflow not found', Date.now() - startTime, 404)
+    }
+
+    const access = await checkWorkspaceAccess(workflow.workspaceId, auth.userId)
+    if (!access.hasAccess) {
+      return respondFailure('Access denied', Date.now() - startTime, 403)
+    }
+
     const result = await executeFunctionRequest({
       ...body,
+      workflowId: workflow.id,
+      workspaceId: workflow.workspaceId,
       userId: auth.userId,
       requestId,
     })

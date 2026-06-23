@@ -5,11 +5,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockRequest } from '@/app/api/__test-utils__/utils'
 
 const checkInternalAuthMock = vi.fn()
+const checkWorkspaceAccessMock = vi.fn()
 const checkServerSideUsageLimitsMock = vi.fn()
 const executeFunctionWithRuntimeGateMock = vi.fn()
 const listCustomIndicatorRuntimeEntriesMock = vi.fn()
 const isBillingEnabledForRuntimeMock = vi.fn()
 const accrueUserUsageCostMock = vi.fn()
+const readWorkflowByIdMock = vi.fn()
 const loggerMock = {
   info: vi.fn(),
   error: vi.fn(),
@@ -41,6 +43,7 @@ describe('Function Execute API Route', () => {
       currentUsage: 0,
       limit: 100,
     })
+    checkWorkspaceAccessMock.mockResolvedValue({ hasAccess: true })
     executeFunctionWithRuntimeGateMock.mockResolvedValue({
       engine: 'local_vm',
       success: true,
@@ -80,9 +83,6 @@ describe('Function Execute API Route', () => {
       resolveWorkflowBillingContext: vi.fn().mockResolvedValue({
         tier: { id: 'tier-1' },
       }),
-      resolveWorkspaceBillingContext: vi.fn().mockResolvedValue({
-        tier: { id: 'tier-1' },
-      }),
     }))
     vi.doMock('@/lib/billing/usage-accrual', () => ({
       accrueUserUsageCost: accrueUserUsageCostMock,
@@ -113,6 +113,15 @@ describe('Function Execute API Route', () => {
     vi.doMock('@/lib/indicators/custom/operations', () => ({
       listCustomIndicatorRuntimeEntries: listCustomIndicatorRuntimeEntriesMock,
     }))
+    vi.doMock('@/lib/permissions/utils', () => ({
+      checkWorkspaceAccess: checkWorkspaceAccessMock,
+    }))
+    vi.doMock('@/lib/workflows/utils', () => ({
+      readWorkflowById: readWorkflowByIdMock.mockResolvedValue({
+        id: 'workflow-1',
+        workspaceId: 'workspace-1',
+      }),
+    }))
     vi.doMock('@/lib/execution/local-saturation-limit', () => ({
       getLocalVmSaturationLimitMessage: vi.fn(() => 'Local VM saturated'),
       isLocalVmSaturationLimitError: vi.fn((error: unknown) =>
@@ -137,18 +146,19 @@ describe('Function Execute API Route', () => {
     expect(payload.error).toBe('Unauthorized')
   })
 
-  it('rejects requests without workspace context', async () => {
+  it('rejects requests without workflow context', async () => {
     const { POST } = await import('@/app/api/function/execute/route')
     const response = await POST(
       createMockRequest('POST', {
         code: 'return "ok"',
+        workspaceId: 'workspace-1',
       })
     )
     const payload = await response.json()
 
     expect(response.status).toBe(400)
     expect(payload.success).toBe(false)
-    expect(payload.error).toBe('Function execution requires workspace context')
+    expect(payload.error).toBe('Function execution requires workflow context')
     expect(executeFunctionWithRuntimeGateMock).not.toHaveBeenCalled()
   })
 
@@ -165,6 +175,7 @@ describe('Function Execute API Route', () => {
       workspaceId: 'workspace-1',
       workflowId: 'workflow-1',
     })
+    expect(checkWorkspaceAccessMock).toHaveBeenCalledWith('workspace-1', 'user-1')
     expect(listCustomIndicatorRuntimeEntriesMock).toHaveBeenCalledWith('workspace-1')
     expect(executeFunctionWithRuntimeGateMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -176,24 +187,17 @@ describe('Function Execute API Route', () => {
     expect(executeFunctionWithRuntimeGateMock).toHaveBeenCalledOnce()
   })
 
-  it('executes under workspace context without workflow context', async () => {
+  it('rejects workflow requests when workspace access is denied', async () => {
+    checkWorkspaceAccessMock.mockResolvedValueOnce({ hasAccess: false })
+
     const { POST } = await import('@/app/api/function/execute/route')
-    const response = await POST(
-      createMockRequest('POST', {
-        code: 'return "ok"',
-        workspaceId: 'workspace-1',
-      })
-    )
+    const response = await POST(createFunctionRequest())
     const payload = await response.json()
 
-    expect(response.status).toBe(200)
-    expect(payload.success).toBe(true)
-    expect(checkServerSideUsageLimitsMock).toHaveBeenCalledWith({
-      userId: 'user-1',
-      workspaceId: 'workspace-1',
-      workflowId: undefined,
-    })
-    expect(executeFunctionWithRuntimeGateMock).toHaveBeenCalledOnce()
+    expect(response.status).toBe(403)
+    expect(payload.success).toBe(false)
+    expect(payload.error).toBe('Access denied')
+    expect(executeFunctionWithRuntimeGateMock).not.toHaveBeenCalled()
   })
 
   it('blocks before runtime when workflow usage is exceeded', async () => {
