@@ -337,10 +337,9 @@ export function transformCustomTool(customTool: any): ProviderToolConfig {
   }
 
   const toolId = createCustomToolRuntimeId(customTool.id)
-
   return {
     id: toolId,
-    name: toolId,
+    name: customTool.title.trim(),
     description: buildCustomToolModelDescription({
       title: customTool.title,
       description: schema.function.description,

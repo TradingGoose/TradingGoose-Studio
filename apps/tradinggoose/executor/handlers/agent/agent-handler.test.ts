@@ -423,16 +423,16 @@ describe('AgentBlockHandler', () => {
       mockGetProviderFromModel.mockReturnValue('openai')
 
       const output = (await handler.execute(mockBlock, inputs, mockContext)) as {
-        toolCalls: { list: Array<{ name: string; runtimeName?: string }> }
+        toolCalls: { list: Array<{ id?: string; name: string }> }
       }
 
       expect(Promise.all).toHaveBeenCalled()
 
       expect(capturedTools.length).toBe(2)
 
-      const autoTool = capturedTools.find((t) => t.name === 'custom_auto_tool')
-      const forceTool = capturedTools.find((t) => t.name === 'custom_force_tool')
-      const noneTool = capturedTools.find((t) => t.name === 'custom_none_tool')
+      const autoTool = capturedTools.find((t) => t.id === 'custom_auto_tool')
+      const forceTool = capturedTools.find((t) => t.id === 'custom_force_tool')
+      const noneTool = capturedTools.find((t) => t.id === 'custom_none_tool')
 
       expect(autoTool).toBeDefined()
       expect(forceTool).toBeDefined()
@@ -472,8 +472,8 @@ describe('AgentBlockHandler', () => {
 
       expect(requestBody.tools.length).toBe(2)
       expect(output.toolCalls.list).toMatchObject([
-        { name: 'Auto Tool', runtimeName: 'custom_auto_tool' },
-        { name: 'Force Tool', runtimeName: 'custom_force_tool' },
+        { id: 'custom_auto_tool', name: 'Auto Tool' },
+        { id: 'custom_force_tool', name: 'Force Tool' },
       ])
     })
 
@@ -626,14 +626,16 @@ describe('AgentBlockHandler', () => {
 
       expect(requestBody.tools.length).toBe(2)
 
-      const toolNames = requestBody.tools.map((t: any) => t.name)
-      expect(toolNames).toContain('custom_tool_auto')
-      expect(toolNames).toContain('custom_tool_force')
-      expect(toolNames).not.toContain('custom_tool_none')
+      const toolIds = requestBody.tools.map((t: any) => t.id)
+      expect(toolIds).toContain('custom_tool_auto')
+      expect(toolIds).toContain('custom_tool_force')
+      expect(toolIds).not.toContain('custom_tool_none')
 
-      const autoTool = requestBody.tools.find((t: any) => t.name === 'custom_tool_auto')
-      const forceTool = requestBody.tools.find((t: any) => t.name === 'custom_tool_force')
+      const autoTool = requestBody.tools.find((t: any) => t.id === 'custom_tool_auto')
+      const forceTool = requestBody.tools.find((t: any) => t.id === 'custom_tool_force')
 
+      expect(autoTool.name).toBe('Custom Tool - Auto')
+      expect(forceTool.name).toBe('Custom Tool - Force')
       expect(autoTool.usageControl).toBe('auto')
       expect(forceTool.usageControl).toBe('force')
     })

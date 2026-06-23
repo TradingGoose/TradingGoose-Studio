@@ -211,8 +211,8 @@ export function buildTraceSpans(result: ExecutionResult): {
 
           if (segment.type === 'tool') {
             const matchingToolCall = toolCallsData.find(
-              (tc: { name?: string; runtimeName?: string; [key: string]: unknown }) =>
-                tc.name === segment.name || tc.runtimeName === segment.name
+              (tc: { id?: string; name?: string; [key: string]: unknown }) =>
+                tc.id === segment.name || tc.name === segment.name
             )
 
             return {
@@ -281,6 +281,7 @@ export function buildTraceSpans(result: ExecutionResult): {
 
           try {
             const toolCall: ToolCall = {
+              id: typeof tc.id === 'string' ? tc.id : undefined,
               name: tc.name || 'unnamed-tool',
               duration: tc.duration || 0,
               startTime: tc.startTime || log.startedAt,

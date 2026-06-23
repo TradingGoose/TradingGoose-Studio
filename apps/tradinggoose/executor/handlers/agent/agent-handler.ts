@@ -223,8 +223,7 @@ export class AgentBlockHandler implements BlockHandler {
     getCustomToolEntityIdFromRuntimeId(toolId)
     const base: any = {
       id: toolId,
-      name: toolId,
-      displayName: tool.title?.trim() || undefined,
+      name: tool.title?.trim(),
       description: buildCustomToolModelDescription({
         title: tool.title,
         description: tool.schema.function.description,
@@ -699,7 +698,7 @@ export class AgentBlockHandler implements BlockHandler {
     )
 
     return this.processProviderResponse(
-      this.withToolCallDisplayNames(result, providerRequest.tools),
+      this.withToolCallMetadata(result, providerRequest.tools),
       block,
       responseFormat
     )
@@ -768,7 +767,7 @@ export class AgentBlockHandler implements BlockHandler {
     // Handle regular JSON response
     const result = await response.json()
     return this.processProviderResponse(
-      this.withToolCallDisplayNames(result, providerRequest.tools),
+      this.withToolCallMetadata(result, providerRequest.tools),
       block,
       responseFormat
     )
@@ -792,8 +791,7 @@ export class AgentBlockHandler implements BlockHandler {
           stream: response.body!,
           execution: {
             success: executionData.success,
-            output:
-              this.withToolCallDisplayNames({ output: executionData.output }, tools).output || {},
+            output: this.withToolCallMetadata({ output: executionData.output }, tools).output || {},
             error: executionData.error,
             logs: [], // Logs are stripped from headers, will be populated by executor
             metadata: executionData.metadata || {
@@ -998,18 +996,20 @@ export class AgentBlockHandler implements BlockHandler {
     }
   }
 
-  private withToolCallDisplayNames(result: any, tools: any[] = []) {
-    const displayNames = new Map<string, string>()
+  private withToolCallMetadata(result: any, tools: any[] = []) {
+    const toolNames = new Map<string, string>()
     for (const tool of tools) {
-      if (typeof tool?.name === 'string' && typeof tool?.displayName === 'string') {
-        displayNames.set(tool.name, tool.displayName.trim())
+      if (typeof tool?.id === 'string' && typeof tool.name === 'string') {
+        toolNames.set(tool.id, tool.name.trim())
       }
     }
 
     const apply = (toolCalls?: any[]) =>
       toolCalls?.forEach((toolCall) => {
-        const displayName = displayNames.get(toolCall?.name)
-        if (displayName) Object.assign(toolCall, { runtimeName: toolCall.name, name: displayName })
+        if (typeof toolCall?.name !== 'string') return
+        const id = toolCall.name
+        const name = toolNames.get(id)
+        if (name) Object.assign(toolCall, { id, name })
       })
 
     apply(result?.toolCalls)

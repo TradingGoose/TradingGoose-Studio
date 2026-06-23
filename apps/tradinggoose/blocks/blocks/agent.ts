@@ -488,7 +488,7 @@ Example 3 (Array Input):
               if (isCustomTool) getCustomToolEntityIdFromRuntimeId(toolId)
               const toolConfig = {
                 id: toolId,
-                name: isCustomTool ? toolId : tool.title,
+                name: isCustomTool ? tool.title?.trim() : tool.title,
                 description: isCustomTool ? tool.schema?.function?.description : '',
                 params: tool.params || {},
                 parameters: isCustomTool ? tool.schema?.function?.parameters : {},

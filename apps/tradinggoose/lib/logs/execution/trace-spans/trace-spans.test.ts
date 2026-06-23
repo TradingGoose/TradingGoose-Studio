@@ -59,8 +59,8 @@ describe('buildTraceSpans', () => {
             toolCalls: {
               list: [
                 {
+                  id: 'custom_test_tool',
                   name: 'Test Tool',
-                  runtimeName: 'custom_test_tool',
                   arguments: { input: 'test input' },
                   result: { output: 'test output' },
                   duration: 2000,
@@ -381,8 +381,8 @@ describe('buildTraceSpans', () => {
                   duration: 2500,
                 },
                 {
+                  id: 'custom_analysis_tool',
                   name: 'Analysis Tool',
-                  runtimeName: 'custom_analysis_tool',
                   arguments: { data: 'tennis data', mode: 'comprehensive' },
                   result: { analysis: 'Detailed tennis analysis', confidence: 0.95 },
                   duration: 4000,

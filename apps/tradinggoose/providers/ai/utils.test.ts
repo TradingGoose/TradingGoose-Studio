@@ -699,7 +699,7 @@ describe('Tool Management', () => {
       const result = transformCustomTool(customTool)
 
       expect(result.id).toBe('custom_test-tool')
-      expect(result.name).toBe('custom_test-tool')
+      expect(result.name).toBe('Test Tool')
       expect(result.description).toBe('Custom tool title: Test Tool. A test function')
       expect(result.parameters.type).toBe('object')
       expect(result.parameters.properties).toBeDefined()
@@ -721,7 +721,7 @@ describe('Tool Management', () => {
       })
 
       expect(result.id).toBe('custom_custom_test-tool')
-      expect(result.name).toBe('custom_custom_test-tool')
+      expect(result.name).toBe('Test Tool')
     })
 
     it.concurrent('should throw error for invalid schema', () => {

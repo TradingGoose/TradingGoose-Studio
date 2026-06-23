@@ -60,6 +60,7 @@ export interface ProviderConfig {
 }
 
 export interface FunctionCallResponse {
+  id?: string
   name: string
   arguments: Record<string, any>
   startTime?: string

@@ -30,6 +30,7 @@ export interface CostBreakdown {
 }
 
 export interface ToolCall {
+  id?: string
   name: string
   duration: number
   startTime: string

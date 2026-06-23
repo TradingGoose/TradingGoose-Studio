@@ -135,7 +135,7 @@ describe('AgentBlock', () => {
       const toolIds = result.tools.map((tool: any) => tool.name)
       expect(toolIds).toContain('Tool 1')
       expect(toolIds).not.toContain('Tool 2')
-      expect(toolIds).toContain('custom_custom-tool-1')
+      expect(toolIds).toContain('Custom Tool')
     })
 
     it('should set default usageControl to "auto" if not specified', () => {
@@ -191,7 +191,7 @@ describe('AgentBlock', () => {
       // Verify custom tool transformation
       expect(result.tools[0]).toEqual({
         id: 'custom_custom-tool-1',
-        name: 'custom_custom-tool-1',
+        name: 'Custom Tool',
         description: 'A custom function description',
         params: {},
         parameters: {
