@@ -23,6 +23,7 @@ import {
   buildMentionRanges,
   filterMentionItems,
   filterMentionOptions,
+  isMentionBoundary,
 } from '../mention-utils'
 import type {
   AggregatedMentionItem,
@@ -178,7 +179,7 @@ export function useUserInputMentions({
       return null
     }
 
-    if (atIndex > 0 && !/\s/.test(before.charAt(atIndex - 1))) {
+    if (atIndex > 0 && !isMentionBoundary(before.charAt(atIndex - 1))) {
       return null
     }
 

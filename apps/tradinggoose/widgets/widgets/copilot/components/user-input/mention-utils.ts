@@ -40,7 +40,7 @@ const normalize = (value: string) =>
 const includesNormalized = (value: string, query: string) =>
   normalize(value).includes(normalize(query))
 
-const isMentionBoundary = (char: string | undefined) =>
+export const isMentionBoundary = (char: string | undefined) =>
   !char || /\s/u.test(char) || (/[\p{P}\p{S}]/u.test(char) && !/[-_@]/u.test(char))
 
 export function buildMentionRanges(text: string, contexts: ChatContext[]): MentionRange[] {
