@@ -34,10 +34,7 @@ describe('custom tools import/export helpers', () => {
       customTools: [
         {
           title: 'Fetch Top Movers',
-          schema: {
-            type: 'function',
-            function: { name: 'fetchTopMovers', ...toolSchema.function },
-          },
+          schema: toolSchema,
           code: 'return { movers: [] }',
         },
       ],
