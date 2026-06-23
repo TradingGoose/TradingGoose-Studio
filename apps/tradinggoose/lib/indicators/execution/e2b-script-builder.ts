@@ -1,9 +1,9 @@
 import type { BarMs } from '@/lib/indicators/types'
 import type { ListingIdentity } from '@/lib/listing/identity'
 import {
-  type FunctionIndicatorRuntimeManifest,
   FUNCTION_INDICATOR_INVALID_OPTIONS_MESSAGE,
   FUNCTION_INDICATOR_MARKET_SERIES_ERROR_PREFIX,
+  type FunctionIndicatorRuntimeManifest,
 } from './function-indicator-runtime'
 
 const encodeJsonParse = (value: unknown) => JSON.stringify(JSON.stringify(value))

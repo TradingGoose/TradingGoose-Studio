@@ -9,10 +9,7 @@ import {
 import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import {
-  applySavedEntityYjsStateToRows,
-  savedEntityRowToFields,
-} from '@/lib/yjs/entity-state'
+import { applySavedEntityYjsStateToRows, savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 
 const logger = createLogger('IndicatorsOperations')
