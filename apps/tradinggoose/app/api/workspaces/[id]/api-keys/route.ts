@@ -4,7 +4,7 @@ import { and, eq, inArray } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { createApiKey, getApiKeyDisplayFormat } from '@/lib/api-key/auth'
+import { createApiKeyMaterial, getApiKeyDisplayFormat } from '@/lib/api-key/service'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
@@ -57,16 +57,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .where(and(eq(apiKey.workspaceId, workspaceId), eq(apiKey.type, 'workspace')))
       .orderBy(apiKey.createdAt)
 
-    const formattedWorkspaceKeys = await Promise.all(
-      workspaceKeys.map(async (key) => {
-        const displayFormat = await getApiKeyDisplayFormat(key.key)
-        return {
-          ...key,
-          key: key.key,
-          displayKey: displayFormat,
-        }
-      })
-    )
+    const formattedWorkspaceKeys = workspaceKeys.map((key) => ({
+      ...key,
+      key: key.key,
+      displayKey: getApiKeyDisplayFormat(key.key),
+    }))
 
     return NextResponse.json({
       keys: formattedWorkspaceKeys,
@@ -123,11 +118,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     const keyId = nanoid()
-    const { key: plainKey, encryptedKey } = await createApiKey(true)
-
-    if (!encryptedKey) {
-      throw new Error('Failed to encrypt API key for storage')
-    }
+    const { key: plainKey, storedKey } = await createApiKeyMaterial()
 
     const [newKey] = await db
       .insert(apiKey)
@@ -137,7 +128,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         userId: userId,
         createdBy: userId,
         name,
-        key: encryptedKey,
+        key: storedKey,
         type: 'workspace',
         createdAt: new Date(),
         updatedAt: new Date(),

@@ -68,7 +68,6 @@ function safeCreateEnv() {
     ALLOWED_LOGIN_EMAILS: z.string().optional(),                  // Comma-separated list of allowed email addresses for login
     ALLOWED_LOGIN_DOMAINS: z.string().optional(),                  // Comma-separated list of allowed email domains for login
     ENCRYPTION_KEY: z.string().min(32),                     // Key for encrypting sensitive data
-    API_ENCRYPTION_KEY: z.string().min(32).optional(),          // Dedicated key for encrypting API keys (optional for OSS)
     INTERNAL_API_SECRET: z.string().min(32),                     // Secret for internal API authentication
 
     // Database & Storage

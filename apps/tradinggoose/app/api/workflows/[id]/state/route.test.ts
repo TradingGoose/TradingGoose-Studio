@@ -114,7 +114,7 @@ describe('Workflow State API Route', () => {
   it('rejects workflow saves that omit variables', async () => {
     const { PUT } = await import('@/app/api/workflows/[id]/state/route')
     const bodyWithoutVariables = { ...validStateBody } as Record<string, unknown>
-    delete bodyWithoutVariables.variables
+    bodyWithoutVariables.variables = undefined
     const response = await PUT(createRequest(bodyWithoutVariables), {
       params: Promise.resolve({ id: 'workflow-id' }),
     })

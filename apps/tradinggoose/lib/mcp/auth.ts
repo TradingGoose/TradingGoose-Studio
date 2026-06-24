@@ -3,7 +3,7 @@ import { db } from '@tradinggoose/db'
 import { apiKey, verification } from '@tradinggoose/db/schema'
 import { and, count, eq, gt, like, lte, sql } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
-import { createApiKeyMaterial, decryptApiKey } from '@/lib/api-key/service'
+import { createApiKeyMaterial } from '@/lib/api-key/service'
 
 const DEVICE_LOGIN_TTL_MS = 10 * 60 * 1000
 const DEVICE_LOGIN_PREFIX = 'mcp:'
@@ -25,7 +25,8 @@ type ApprovedDeviceLogin = {
   approvedAt: string
   userId: string
   apiKeyId: string
-  encryptedApiKey: string
+  apiKey: string
+  storedApiKey: string
   deliveredAt?: string
 }
 
@@ -91,7 +92,8 @@ function parseDeviceLoginState(value: string): DeviceLoginState | null {
       typeof parsed.approvedAt === 'string' &&
       typeof parsed.userId === 'string' &&
       typeof parsed.apiKeyId === 'string' &&
-      typeof parsed.encryptedApiKey === 'string' &&
+      typeof parsed.apiKey === 'string' &&
+      typeof parsed.storedApiKey === 'string' &&
       (parsed.deliveredAt === undefined || typeof parsed.deliveredAt === 'string')
     ) {
       return parsed as ApprovedDeviceLogin
@@ -261,8 +263,11 @@ export async function pollMcpDeviceLogin(
       if (!existingKey) {
         return { status: 'expired' }
       }
-      const { decrypted } = await decryptApiKey(approvedState.encryptedApiKey)
-      return { status: 'approved', apiKey: decrypted, expiresAt: login.expiresAt.toISOString() }
+      return {
+        status: 'approved',
+        apiKey: approvedState.apiKey,
+        expiresAt: login.expiresAt.toISOString(),
+      }
     }
 
     const now = new Date()
@@ -281,7 +286,7 @@ export async function pollMcpDeviceLogin(
         userId: approvedState.userId,
         workspaceId: null,
         name: `TradingGoose MCP Access ${now.toISOString()}`,
-        key: approvedState.encryptedApiKey,
+        key: approvedState.storedApiKey,
         type: 'personal',
         createdAt: now,
         updatedAt: now,
@@ -292,8 +297,11 @@ export async function pollMcpDeviceLogin(
       continue
     }
 
-    const { decrypted } = await decryptApiKey(approvedState.encryptedApiKey)
-    return { status: 'approved', apiKey: decrypted, expiresAt: login.expiresAt.toISOString() }
+    return {
+      status: 'approved',
+      apiKey: approvedState.apiKey,
+      expiresAt: login.expiresAt.toISOString(),
+    }
   }
 
   return {
@@ -325,10 +333,7 @@ export async function approveMcpDeviceLogin({
   const now = new Date()
   const approvedAt = now.toISOString()
   const apiKeyId = nanoid()
-  const { encryptedKey } = await createApiKeyMaterial(true)
-  if (!encryptedKey) {
-    throw new Error('Failed to create MCP personal API key')
-  }
+  const { key, storedKey } = await createApiKeyMaterial()
   const approvedState = {
     status: 'approved',
     createdAt: login.state.createdAt,
@@ -336,7 +341,8 @@ export async function approveMcpDeviceLogin({
     approvedAt,
     userId,
     apiKeyId,
-    encryptedApiKey: encryptedKey,
+    apiKey: key,
+    storedApiKey: storedKey,
   } satisfies ApprovedDeviceLogin
 
   if (!(await updateDeviceLoginState(login, approvedState))) {

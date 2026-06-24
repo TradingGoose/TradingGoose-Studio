@@ -2,8 +2,7 @@ import { db } from '@tradinggoose/db'
 import { apiKey } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
-import { getApiKeyDisplayFormat } from '@/lib/api-key/auth'
-import { createPersonalApiKey } from '@/lib/api-key/service'
+import { createPersonalApiKey, getApiKeyDisplayFormat } from '@/lib/api-key/service'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 
@@ -32,16 +31,11 @@ export async function GET(request: NextRequest) {
       .where(and(eq(apiKey.userId, userId), eq(apiKey.type, 'personal')))
       .orderBy(apiKey.createdAt)
 
-    const maskedKeys = await Promise.all(
-      keys.map(async (key) => {
-        const displayFormat = await getApiKeyDisplayFormat(key.key)
-        return {
-          ...key,
-          key: key.key,
-          displayKey: displayFormat,
-        }
-      })
-    )
+    const maskedKeys = keys.map((key) => ({
+      ...key,
+      key: key.key,
+      displayKey: getApiKeyDisplayFormat(key.key),
+    }))
 
     return NextResponse.json({ keys: maskedKeys })
   } catch (error) {
