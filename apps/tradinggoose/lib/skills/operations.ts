@@ -10,7 +10,6 @@ import {
 } from '@/lib/skills/import-export'
 import { generateRequestId } from '@/lib/utils'
 import { applySavedEntityPersistedState } from '@/lib/yjs/server/apply-entity-state'
-import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('SkillsOperations')
 
@@ -53,8 +52,6 @@ export async function deleteSkill(params: {
   if (deletedSkill.length === 0) {
     return false
   }
-
-  await deleteYjsSessionInSocketServer(params.skillId)
 
   logger.info(`Deleted skill ${params.skillId}`)
   return true

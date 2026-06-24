@@ -13,7 +13,6 @@ const {
   mockEnsureUniqueEdgeIds,
   mockGetYjsSnapshot,
   mockSaveWorkflowToNormalizedTables,
-  mockDeleteYjsSessionInSocketServer,
   mockUpdateReturning,
   mockUpdateSet,
   mockUpdateWhere,
@@ -25,7 +24,6 @@ const {
     mockEnsureUniqueEdgeIds: vi.fn(),
     mockGetYjsSnapshot: vi.fn(),
     mockSaveWorkflowToNormalizedTables: vi.fn(),
-    mockDeleteYjsSessionInSocketServer: vi.fn(),
     mockUpdateReturning: vi.fn(),
     mockUpdateSet: vi.fn(),
     mockUpdateWhere: vi.fn(),
@@ -53,7 +51,6 @@ vi.mock('@/lib/workflows/db-helpers', () => ({
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   applyWorkflowStateInSocketServer: mockApplyWorkflowStateInSocketServer,
-  deleteYjsSessionInSocketServer: mockDeleteYjsSessionInSocketServer,
   getYjsSnapshot: mockGetYjsSnapshot,
 }))
 
@@ -85,7 +82,6 @@ describe('applyWorkflowState', () => {
     mockGetYjsSnapshot.mockImplementation(async () => ({
       snapshotBase64: buildWorkflowSnapshotBase64(emptyWorkflowState),
     }))
-    mockDeleteYjsSessionInSocketServer.mockResolvedValue(undefined)
     mockUpdateReturning.mockResolvedValue([{ id: 'workflow-1' }])
     mockUpdateWhere.mockReturnValue({ returning: mockUpdateReturning })
     mockUpdateSet.mockReturnValue({ where: mockUpdateWhere })
@@ -211,10 +207,9 @@ describe('applyWorkflowState', () => {
     expect(mockSaveWorkflowToNormalizedTables).not.toHaveBeenCalled()
     expect(mockGetYjsSnapshot).not.toHaveBeenCalled()
     expect(mockDbUpdate).not.toHaveBeenCalled()
-    expect(mockDeleteYjsSessionInSocketServer).not.toHaveBeenCalled()
   })
 
-  it('clears workflow Yjs state when DB persistence fails after Yjs apply', async () => {
+  it('preserves workflow Yjs state when DB persistence fails after Yjs apply', async () => {
     mockSaveWorkflowToNormalizedTables.mockResolvedValueOnce({
       success: false,
       error: 'db failed',
@@ -226,7 +221,8 @@ describe('applyWorkflowState', () => {
       'db failed'
     )
 
-    expect(mockDeleteYjsSessionInSocketServer).toHaveBeenCalledWith('workflow-1')
+    expect(mockApplyWorkflowStateInSocketServer).toHaveBeenCalledOnce()
+    expect(mockGetYjsSnapshot).toHaveBeenCalledOnce()
     expect(mockDbUpdate).not.toHaveBeenCalled()
   })
 })

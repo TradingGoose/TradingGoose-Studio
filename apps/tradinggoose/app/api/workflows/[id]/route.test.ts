@@ -18,7 +18,6 @@ describe('Workflow By ID API Route', () => {
 
   const mockReadWorkflowById = vi.fn()
   const mockReadWorkflowAccessContext = vi.fn()
-  const mockDeleteYjsSessionInSocketServer = vi.fn()
   const mockLoadWorkflowState = vi.fn()
   const mockApplyWorkflowEntityName = vi.fn()
   const mockWorkflowRenameState = {
@@ -74,10 +73,8 @@ describe('Workflow By ID API Route', () => {
 
     mockReadWorkflowById.mockReset()
     mockReadWorkflowAccessContext.mockReset()
-    mockDeleteYjsSessionInSocketServer.mockReset()
     mockLoadWorkflowState.mockReset()
     mockApplyWorkflowEntityName.mockReset()
-    mockDeleteYjsSessionInSocketServer.mockResolvedValue(undefined)
     mockLoadWorkflowState.mockResolvedValue(null)
     mockApplyWorkflowEntityName.mockResolvedValue({
       id: 'workflow-123',
@@ -87,10 +84,6 @@ describe('Workflow By ID API Route', () => {
 
     vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
       applyWorkflowEntityName: mockApplyWorkflowEntityName,
-    }))
-
-    vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
-      deleteYjsSessionInSocketServer: mockDeleteYjsSessionInSocketServer,
     }))
 
     vi.doMock('@/lib/workflows/utils', () => ({
@@ -368,7 +361,7 @@ describe('Workflow By ID API Route', () => {
   })
 
   describe('DELETE /api/workflows/[id]', () => {
-    it('should delete the socket/Yjs session after deleting the workflow row', async () => {
+    it('should delete the workflow row without socket cleanup', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',
@@ -391,10 +384,6 @@ describe('Workflow By ID API Route', () => {
         isOwner: true,
         isWorkspaceOwner: false,
       })
-      mockDeleteYjsSessionInSocketServer.mockImplementationOnce(async () => {
-        events.push('socket-delete')
-      })
-
       vi.doMock('@tradinggoose/db', () => ({
         db: {
           delete: vi.fn().mockReturnValue({
@@ -418,8 +407,7 @@ describe('Workflow By ID API Route', () => {
       expect(response.status).toBe(200)
       const data = await response.json()
       expect(data.success).toBe(true)
-      expect(mockDeleteYjsSessionInSocketServer).toHaveBeenCalledWith('workflow-123')
-      expect(events).toEqual(['db-delete', 'socket-delete'])
+      expect(events).toEqual(['db-delete'])
     })
 
     it('should not clean up the Yjs session if workflow row deletion fails', async () => {
@@ -467,7 +455,6 @@ describe('Workflow By ID API Route', () => {
       const data = await response.json()
       expect(data.error).toBe('Internal server error')
       expect(deleteWhereMock).toHaveBeenCalledOnce()
-      expect(mockDeleteYjsSessionInSocketServer).not.toHaveBeenCalled()
     })
 
     it('should allow admin to delete workspace workflow', async () => {
@@ -538,8 +525,6 @@ describe('Workflow By ID API Route', () => {
         isOwner: true,
         isWorkspaceOwner: false,
       })
-      mockDeleteYjsSessionInSocketServer.mockResolvedValueOnce(undefined)
-
       vi.doMock('@tradinggoose/db', () => ({
         db: {
           delete: vi.fn().mockReturnValue({
@@ -561,7 +546,6 @@ describe('Workflow By ID API Route', () => {
       const data = await response.json()
       expect(data.success).toBe(true)
       expect(deleteWhereMock).toHaveBeenCalledOnce()
-      expect(mockDeleteYjsSessionInSocketServer).toHaveBeenCalledWith('workflow-123')
     })
 
     it('should deny deletion for non-admin users', async () => {

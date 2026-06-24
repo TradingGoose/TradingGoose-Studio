@@ -9,7 +9,6 @@ import { CustomToolUpsertRequestSchema } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
-import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('CustomToolsAPI')
 
@@ -183,8 +182,6 @@ export async function DELETE(request: NextRequest) {
       logger.warn(`[${requestId}] Tool not found: ${toolId}`)
       return NextResponse.json({ error: 'Tool not found' }, { status: 404 })
     }
-
-    await deleteYjsSessionInSocketServer(toolId)
 
     logger.info(`[${requestId}] Deleted tool: ${toolId}`)
     return NextResponse.json({ success: true })

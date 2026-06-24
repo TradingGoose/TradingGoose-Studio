@@ -16,7 +16,6 @@ import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { replaceWorkflowDocumentState, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { getMonitorRuntimeLockHealth } from '@/socket-server/monitor-runtime-lock'
 import {
-  deleteSession,
   getLastTouchedAt,
   getState,
   storeState,
@@ -25,7 +24,6 @@ import {
   flushDocumentPersistence,
   getDocument,
   getExistingDocument,
-  removeDocument,
   setPersistence,
 } from '@/socket-server/yjs/upstream-utils'
 
@@ -50,7 +48,6 @@ const INTERNAL_YJS_ENTITY_APPLY_PATH = /^\/internal\/yjs\/entities\/([^/]+)\/app
 const INTERNAL_YJS_SNAPSHOT_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/snapshot$/
 const INTERNAL_YJS_SESSION_APPLY_UPDATE_PATH =
   /^\/internal\/yjs\/sessions\/([^/]+)\/apply-update$/
-const INTERNAL_YJS_SESSION_PATH = /^\/internal\/yjs\/sessions\/([^/]+)$/
 
 type ApplyWorkflowStateRequest = {
   workflowState: WorkflowSnapshot
@@ -352,22 +349,6 @@ async function handleInternalYjsSessionApplyUpdateRequest(
   }
 }
 
-async function handleInternalYjsSessionDeleteRequest(
-  res: ServerResponse,
-  logger: Logger,
-  sessionId: string
-): Promise<void> {
-  try {
-    removeDocument(sessionId)
-    await deleteSession(sessionId)
-
-    sendJson(res, 200, { success: true })
-  } catch (error) {
-    logger.error('Error deleting Yjs session', { error, sessionId })
-    sendJson(res, 500, { error: 'Failed to delete Yjs session' })
-  }
-}
-
 async function getLiveOrPersistedYjsState(
   sessionId: string
 ): Promise<{ liveDoc: Y.Doc | null; state: Uint8Array | null; touchedAt: number | null }> {
@@ -477,17 +458,6 @@ async function handleInternalYjsRequest(
   )
   if (applyUpdateId) {
     await handleInternalYjsSessionApplyUpdateRequest(req, parsedUrl, res, logger, applyUpdateId)
-    return true
-  }
-
-  const deleteId = matchInternalRoute(
-    parsedUrl.pathname,
-    INTERNAL_YJS_SESSION_PATH,
-    'DELETE',
-    req.method
-  )
-  if (deleteId) {
-    await handleInternalYjsSessionDeleteRequest(res, logger, deleteId)
     return true
   }
 

@@ -125,18 +125,3 @@ export async function applyYjsUpdateInSocketServer(
     { updateBase64 }
   )
 }
-
-export async function deleteYjsSessionInSocketServer(sessionId: string): Promise<void> {
-  const url = new URL(
-    `/internal/yjs/sessions/${encodeURIComponent(sessionId)}`,
-    getSocketServerUrl()
-  )
-
-  await fetchFromSocketServer(
-    url,
-    {
-      method: 'DELETE',
-    },
-    10000
-  )
-}

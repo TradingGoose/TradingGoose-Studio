@@ -12,7 +12,6 @@ import { generateRequestId } from '@/lib/utils'
 import { loadWorkflowState } from '@/lib/workflows/db-helpers'
 import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/utils'
 import { applyWorkflowEntityName } from '@/lib/yjs/server/apply-workflow-state'
-import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 const logger = createLogger('WorkflowByIdAPI')
@@ -286,8 +285,6 @@ export async function DELETE(
     }
 
     await db.delete(workflow).where(eq(workflow.id, workflowId))
-
-    await deleteYjsSessionInSocketServer(workflowId)
 
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully deleted workflow ${workflowId} in ${elapsed}ms`)

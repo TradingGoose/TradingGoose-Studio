@@ -18,7 +18,6 @@ import { getEntityFields } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import {
   applyEntityStateInSocketServer,
-  deleteYjsSessionInSocketServer,
   getYjsSnapshot,
 } from '@/lib/yjs/server/snapshot-bridge'
 
@@ -185,12 +184,7 @@ export async function applySavedEntityPersistedState(
 ): Promise<void> {
   const normalizedFields = normalizeSavedEntityFields(entityKind, fields)
   await applyEntityStateInSocketServer(entityId, entityKind, normalizedFields)
-  try {
-    await persistSavedEntityYjsState(entityKind, entityId, workspaceId)
-  } catch (error) {
-    await deleteYjsSessionInSocketServer(entityId)
-    throw error
-  }
+  await persistSavedEntityYjsState(entityKind, entityId, workspaceId)
 }
 
 export async function persistSavedEntityYjsState(

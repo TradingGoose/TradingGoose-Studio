@@ -137,39 +137,6 @@ export async function storeState(sessionId: string, state: Uint8Array): Promise<
   evictOldestLocalEntries()
 }
 
-export async function hasSession(sessionId: string): Promise<boolean> {
-  const mode = getRedisStorageMode()
-
-  if (mode === 'redis') {
-    const redis = getRedisClient()
-    if (!redis) {
-      return false
-    }
-
-    // Single Redis call — TTL-based expiry handles staleness (see storeState).
-    const exists = await redis.exists(stateKey(sessionId))
-    return exists === 1
-  }
-
-  return readLocalBlob(sessionId) !== null
-}
-
-export async function deleteSession(sessionId: string): Promise<void> {
-  const mode = getRedisStorageMode()
-
-  if (mode === 'redis') {
-    const redis = getRedisClient()
-    if (!redis) {
-      return
-    }
-
-    await redis.del(stateKey(sessionId), updatedAtKey(sessionId))
-    return
-  }
-
-  localStore.delete(sessionId)
-}
-
 export async function getLastTouchedAt(sessionId: string): Promise<number | null> {
   const mode = getRedisStorageMode()
 

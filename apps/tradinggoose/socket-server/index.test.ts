@@ -11,7 +11,6 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getEntityFields } from '@/lib/yjs/entity-session'
 import {
   extractPersistedStateFromDoc,
-  setVariables,
   setWorkflowState,
 } from '@/lib/yjs/workflow-session'
 import { createSocketIOServer } from '@/socket-server/config/socket'
@@ -493,59 +492,6 @@ describe('Socket Server Index Integration', () => {
       })
     })
 
-    it('should delete the live workflow doc and persisted session through the internal Yjs route', async () => {
-      setPersistence('workflow-2', { getState, storeState })
-      getDocument('workflow-2')
-      const liveDoc = await getExistingDocument('workflow-2')
-
-      setWorkflowState(
-        liveDoc!,
-        {
-          blocks: {
-            old: {
-              id: 'old',
-              type: 'agent',
-              name: 'Old Agent',
-              position: { x: 0, y: 0 },
-              subBlocks: {},
-              outputs: {},
-              enabled: true,
-            },
-          },
-          edges: [],
-          loops: {},
-          parallels: {},
-          lastSaved: '2026-04-05T00:00:00.000Z',
-          isDeployed: false,
-        },
-        'test'
-      )
-      setVariables(
-        liveDoc!,
-        {
-          oldVar: {
-            id: 'oldVar',
-            workflowId: 'workflow-2',
-            name: 'old',
-            type: 'plain',
-            value: 'old',
-          },
-        },
-        'test'
-      )
-      await storeState('workflow-2', Y.encodeStateAsUpdate(liveDoc!))
-
-      const response = await sendHttpRequestWithOptions(PORT, '/internal/yjs/sessions/workflow-2', {
-        method: 'DELETE',
-        headers: {
-          'x-internal-secret': INTERNAL_SECRET,
-        },
-      })
-
-      expect(response.statusCode).toBe(200)
-      expect(await getExistingDocument('workflow-2')).toBeNull()
-      expect(await getState('workflow-2')).toBeNull()
-    })
   })
 
   describe('Socket.IO Server Configuration', () => {

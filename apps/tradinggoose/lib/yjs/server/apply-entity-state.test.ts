@@ -9,7 +9,6 @@ const {
   events,
   mockApplyEntityStateInSocketServer,
   mockDbUpdate,
-  mockDeleteYjsSessionInSocketServer,
   mockGetYjsSnapshot,
   mockUpdateReturning,
   mockUpdateSet,
@@ -18,7 +17,6 @@ const {
   events: [] as string[],
   mockApplyEntityStateInSocketServer: vi.fn(),
   mockDbUpdate: vi.fn(),
-  mockDeleteYjsSessionInSocketServer: vi.fn(),
   mockGetYjsSnapshot: vi.fn(),
   mockUpdateReturning: vi.fn(),
   mockUpdateSet: vi.fn(),
@@ -53,7 +51,6 @@ vi.mock('@/lib/custom-tools/schema', () => ({
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   applyEntityStateInSocketServer: mockApplyEntityStateInSocketServer,
-  deleteYjsSessionInSocketServer: mockDeleteYjsSessionInSocketServer,
   getYjsSnapshot: mockGetYjsSnapshot,
 }))
 
@@ -135,5 +132,18 @@ describe('applySavedEntityPersistedState', () => {
       })
     )
     expect(events).toEqual(['yjs', 'snapshot', 'db'])
+  })
+
+  it('preserves the saved-entity Yjs session when materialization fails', async () => {
+    const { persistSavedEntityYjsState } = await import('./apply-entity-state')
+    mockUpdateReturning.mockResolvedValueOnce([])
+
+    await expect(
+      persistSavedEntityYjsState('skill', 'skill-1', 'workspace-1')
+    ).rejects.toMatchObject({
+      status: 404,
+    })
+
+    expect(events).toEqual(['snapshot', 'db'])
   })
 })

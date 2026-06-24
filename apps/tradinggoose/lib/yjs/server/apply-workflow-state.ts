@@ -12,7 +12,6 @@ import {
 } from '@/lib/workflows/db-helpers'
 import {
   applyWorkflowStateInSocketServer,
-  deleteYjsSessionInSocketServer,
   getYjsSnapshot,
 } from '@/lib/yjs/server/snapshot-bridge'
 import {
@@ -92,33 +91,28 @@ export async function applyWorkflowState(
 
   await applyWorkflowStateInSocketServer(workflowId, storedWorkflowState, variables, entityName)
 
-  try {
-    const appliedState = await readAppliedYjsWorkflowState(workflowId)
-    const saveResult = await saveWorkflowToNormalizedTables(
-      workflowId,
-      appliedState.workflowState,
-      async (tx) => {
-        const [updatedWorkflow] = await tx
-          .update(workflow)
-          .set({
-            lastSynced: syncedAt,
-            updatedAt: syncedAt,
-            variables: appliedState.variables,
-          })
-          .where(eq(workflow.id, workflowId))
-          .returning({ id: workflow.id })
+  const appliedState = await readAppliedYjsWorkflowState(workflowId)
+  const saveResult = await saveWorkflowToNormalizedTables(
+    workflowId,
+    appliedState.workflowState,
+    async (tx) => {
+      const [updatedWorkflow] = await tx
+        .update(workflow)
+        .set({
+          lastSynced: syncedAt,
+          updatedAt: syncedAt,
+          variables: appliedState.variables,
+        })
+        .where(eq(workflow.id, workflowId))
+        .returning({ id: workflow.id })
 
-        if (!updatedWorkflow) {
-          throw new Error('Workflow not found')
-        }
+      if (!updatedWorkflow) {
+        throw new Error('Workflow not found')
       }
-    )
-    if (!saveResult.success) {
-      throw new Error(saveResult.error || 'Failed to materialize workflow state')
     }
-  } catch (error) {
-    await deleteYjsSessionInSocketServer(workflowId)
-    throw error
+  )
+  if (!saveResult.success) {
+    throw new Error(saveResult.error || 'Failed to materialize workflow state')
   }
 }
 
@@ -131,20 +125,15 @@ export async function applyWorkflowEntityName(
 ): Promise<typeof workflow.$inferSelect> {
   await applyWorkflowStateInSocketServer(workflowId, workflowState, variables, entityName)
 
-  try {
-    const [updatedWorkflow] = await db
-      .update(workflow)
-      .set({ ...fields, name: entityName, updatedAt: fields.updatedAt ?? new Date() })
-      .where(eq(workflow.id, workflowId))
-      .returning()
+  const [updatedWorkflow] = await db
+    .update(workflow)
+    .set({ ...fields, name: entityName, updatedAt: fields.updatedAt ?? new Date() })
+    .where(eq(workflow.id, workflowId))
+    .returning()
 
-    if (!updatedWorkflow) {
-      throw new Error('Workflow not found')
-    }
-
-    return updatedWorkflow
-  } catch (error) {
-    await deleteYjsSessionInSocketServer(workflowId)
-    throw error
+  if (!updatedWorkflow) {
+    throw new Error('Workflow not found')
   }
+
+  return updatedWorkflow
 }
