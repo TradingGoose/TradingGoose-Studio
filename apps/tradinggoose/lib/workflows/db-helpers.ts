@@ -205,9 +205,6 @@ export async function loadWorkflowStateFromSavedTables(
   if (!row) {
     return null
   }
-  if (!normalizedState) {
-    return null
-  }
 
   const savedState = {
     name: row.name,
@@ -651,120 +648,104 @@ export async function loadDeployedWorkflowState(
 
 /**
  * Load workflow state from normalized tables
- * Returns null if materialized workflow rows are absent.
  */
 export async function loadWorkflowFromNormalizedTables(
   workflowId: string
-): Promise<NormalizedWorkflowData | null> {
-  try {
-    // Load all components in parallel
-    const [blocks, edges, subflows] = await Promise.all([
-      db.select().from(workflowBlocks).where(eq(workflowBlocks.workflowId, workflowId)),
-      db.select().from(workflowEdges).where(eq(workflowEdges.workflowId, workflowId)),
-      db.select().from(workflowSubflows).where(eq(workflowSubflows.workflowId, workflowId)),
-    ])
+): Promise<NormalizedWorkflowData> {
+  const [blocks, edges, subflows] = await Promise.all([
+    db.select().from(workflowBlocks).where(eq(workflowBlocks.workflowId, workflowId)),
+    db.select().from(workflowEdges).where(eq(workflowEdges.workflowId, workflowId)),
+    db.select().from(workflowSubflows).where(eq(workflowSubflows.workflowId, workflowId)),
+  ])
 
-    // If no blocks found, assume this workflow hasn't been migrated yet
-    if (blocks.length === 0) {
-      return null
+  const blocksMap: Record<string, BlockState> = {}
+  blocks.forEach((block) => {
+    const blockLocked = resolveLockedFromBlockData(block.data)
+    const blockData = upsertLockedInBlockData(block.data || {}, blockLocked)
+
+    const assembled: BlockState = {
+      id: block.id,
+      type: block.type,
+      name: block.name,
+      position: {
+        x: Number(block.positionX),
+        y: Number(block.positionY),
+      },
+      enabled: block.enabled,
+      horizontalHandles: block.horizontalHandles,
+      isWide: block.isWide,
+      advancedMode: block.advancedMode,
+      triggerMode: block.triggerMode,
+      height: Number(block.height),
+      locked: blockLocked,
+      subBlocks: (block.subBlocks as BlockState['subBlocks']) || {},
+      outputs: (block.outputs as BlockState['outputs']) || {},
+      data: blockData,
+      layout: sanitizeBlockLayout(block.layout),
     }
 
-    // Convert blocks to the expected format
-    const blocksMap: Record<string, BlockState> = {}
-    blocks.forEach((block) => {
-      const blockLocked = resolveLockedFromBlockData(block.data)
-      const blockData = upsertLockedInBlockData(block.data || {}, blockLocked)
+    blocksMap[block.id] = assembled
+  })
 
-      const assembled: BlockState = {
-        id: block.id,
-        type: block.type,
-        name: block.name,
-        position: {
-          x: Number(block.positionX),
-          y: Number(block.positionY),
-        },
-        enabled: block.enabled,
-        horizontalHandles: block.horizontalHandles,
-        isWide: block.isWide,
-        advancedMode: block.advancedMode,
-        triggerMode: block.triggerMode,
-        height: Number(block.height),
-        locked: blockLocked,
-        subBlocks: (block.subBlocks as BlockState['subBlocks']) || {},
-        outputs: (block.outputs as BlockState['outputs']) || {},
-        data: blockData,
-        layout: sanitizeBlockLayout(block.layout),
+  const { blocks: sanitizedBlocks } = sanitizeAgentToolsInBlocks(blocksMap)
+
+  const edgesArray: Edge[] = edges.map((edge) => ({
+    id: edge.id,
+    source: edge.sourceBlockId,
+    target: edge.targetBlockId,
+    sourceHandle: edge.sourceHandle ?? undefined,
+    targetHandle: edge.targetHandle ?? undefined,
+    type: 'default',
+    data: {},
+  }))
+
+  const loops: Record<string, Loop> = {}
+  const parallels: Record<string, Parallel> = {}
+
+  subflows.forEach((subflow) => {
+    const config = (subflow.config ?? {}) as Partial<Loop & Parallel>
+
+    if (subflow.type === SUBFLOW_TYPES.LOOP) {
+      const loop: Loop = {
+        id: subflow.id,
+        nodes: Array.isArray((config as Loop).nodes) ? (config as Loop).nodes : [],
+        iterations:
+          typeof (config as Loop).iterations === 'number' ? (config as Loop).iterations : 1,
+        loopType:
+          (config as Loop).loopType === 'for' ||
+          (config as Loop).loopType === 'forEach' ||
+          (config as Loop).loopType === 'while' ||
+          (config as Loop).loopType === 'doWhile'
+            ? (config as Loop).loopType
+            : 'for',
+        forEachItems: (config as Loop).forEachItems ?? '',
+        whileCondition: (config as Loop).whileCondition ?? undefined,
       }
-
-      blocksMap[block.id] = assembled
-    })
-
-    // Sanitize any invalid custom tools in agent blocks to prevent client crashes
-    const { blocks: sanitizedBlocks } = sanitizeAgentToolsInBlocks(blocksMap)
-
-    // Convert edges to the expected format
-    const edgesArray: Edge[] = edges.map((edge) => ({
-      id: edge.id,
-      source: edge.sourceBlockId,
-      target: edge.targetBlockId,
-      sourceHandle: edge.sourceHandle ?? undefined,
-      targetHandle: edge.targetHandle ?? undefined,
-      type: 'default',
-      data: {},
-    }))
-
-    // Convert subflows to loops and parallels
-    const loops: Record<string, Loop> = {}
-    const parallels: Record<string, Parallel> = {}
-
-    subflows.forEach((subflow) => {
-      const config = (subflow.config ?? {}) as Partial<Loop & Parallel>
-
-      if (subflow.type === SUBFLOW_TYPES.LOOP) {
-        const loop: Loop = {
-          id: subflow.id,
-          nodes: Array.isArray((config as Loop).nodes) ? (config as Loop).nodes : [],
-          iterations:
-            typeof (config as Loop).iterations === 'number' ? (config as Loop).iterations : 1,
-          loopType:
-            (config as Loop).loopType === 'for' ||
-            (config as Loop).loopType === 'forEach' ||
-            (config as Loop).loopType === 'while' ||
-            (config as Loop).loopType === 'doWhile'
-              ? (config as Loop).loopType
-              : 'for',
-          forEachItems: (config as Loop).forEachItems ?? '',
-          whileCondition: (config as Loop).whileCondition ?? undefined,
-        }
-        loops[subflow.id] = loop
-      } else if (subflow.type === SUBFLOW_TYPES.PARALLEL) {
-        const parallel: Parallel = {
-          id: subflow.id,
-          nodes: Array.isArray((config as Parallel).nodes) ? (config as Parallel).nodes : [],
-          count: typeof (config as Parallel).count === 'number' ? (config as Parallel).count : 2,
-          distribution: (config as Parallel).distribution ?? '',
-          parallelType:
-            (config as Parallel).parallelType === 'count' ||
-            (config as Parallel).parallelType === 'collection'
-              ? (config as Parallel).parallelType
-              : 'count',
-        }
-        parallels[subflow.id] = parallel
-      } else {
-        logger.warn(`Unknown subflow type: ${subflow.type} for subflow ${subflow.id}`)
+      loops[subflow.id] = loop
+    } else if (subflow.type === SUBFLOW_TYPES.PARALLEL) {
+      const parallel: Parallel = {
+        id: subflow.id,
+        nodes: Array.isArray((config as Parallel).nodes) ? (config as Parallel).nodes : [],
+        count: typeof (config as Parallel).count === 'number' ? (config as Parallel).count : 2,
+        distribution: (config as Parallel).distribution ?? '',
+        parallelType:
+          (config as Parallel).parallelType === 'count' ||
+          (config as Parallel).parallelType === 'collection'
+            ? (config as Parallel).parallelType
+            : 'count',
       }
-    })
-
-    return {
-      blocks: sanitizedBlocks,
-      edges: edgesArray,
-      loops,
-      parallels,
-      isFromNormalizedTables: true,
+      parallels[subflow.id] = parallel
+    } else {
+      logger.warn(`Unknown subflow type: ${subflow.type} for subflow ${subflow.id}`)
     }
-  } catch (error) {
-    logger.error(`Error loading workflow ${workflowId} from normalized tables:`, error)
-    return null
+  })
+
+  return {
+    blocks: sanitizedBlocks,
+    edges: edgesArray,
+    loops,
+    parallels,
+    isFromNormalizedTables: true,
   }
 }
 

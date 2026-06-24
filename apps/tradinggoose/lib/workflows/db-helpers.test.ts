@@ -431,7 +431,7 @@ describe('Database Helpers', () => {
       })
     })
 
-    it('should return null when no blocks are found', async () => {
+    it('should load an empty workflow state when no normalized rows are found', async () => {
       // Mock empty results from all queries
       mockDb.select.mockReturnValue({
         from: vi.fn().mockReturnValue({
@@ -441,10 +441,16 @@ describe('Database Helpers', () => {
 
       const result = await dbHelpers.loadWorkflowFromNormalizedTables(mockWorkflowId)
 
-      expect(result).toBeNull()
+      expect(result).toEqual({
+        blocks: {},
+        edges: [],
+        loops: {},
+        parallels: {},
+        isFromNormalizedTables: true,
+      })
     })
 
-    it('should return null when database query fails', async () => {
+    it('should throw when database query fails', async () => {
       // Mock database error
       mockDb.select.mockReturnValue({
         from: vi.fn().mockReturnValue({
@@ -452,9 +458,9 @@ describe('Database Helpers', () => {
         }),
       })
 
-      const result = await dbHelpers.loadWorkflowFromNormalizedTables(mockWorkflowId)
-
-      expect(result).toBeNull()
+      await expect(dbHelpers.loadWorkflowFromNormalizedTables(mockWorkflowId)).rejects.toThrow(
+        'Database connection failed'
+      )
     })
 
     it('should handle unknown subflow types gracefully', async () => {
@@ -537,7 +543,7 @@ describe('Database Helpers', () => {
       expect(result?.blocks['block-1'].name).toBeNull()
     })
 
-    it('should handle database connection errors gracefully', async () => {
+    it('should throw database connection errors', async () => {
       const connectionError = new Error('Connection refused')
       ;(connectionError as any).code = 'ECONNREFUSED'
 
@@ -548,9 +554,9 @@ describe('Database Helpers', () => {
         }),
       })
 
-      const result = await dbHelpers.loadWorkflowFromNormalizedTables(mockWorkflowId)
-
-      expect(result).toBeNull()
+      await expect(dbHelpers.loadWorkflowFromNormalizedTables(mockWorkflowId)).rejects.toThrow(
+        'Connection refused'
+      )
     })
   })
 
