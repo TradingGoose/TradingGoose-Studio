@@ -17,7 +17,7 @@ export const apiKeysKeys = {
 export interface ApiKey {
   id: string
   name: string
-  key: string
+  key?: string
   displayKey?: string
   lastUsed?: string
   createdAt: string

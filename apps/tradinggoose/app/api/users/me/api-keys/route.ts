@@ -31,10 +31,9 @@ export async function GET(request: NextRequest) {
       .where(and(eq(apiKey.userId, userId), eq(apiKey.type, 'personal')))
       .orderBy(apiKey.createdAt)
 
-    const maskedKeys = keys.map((key) => ({
-      ...key,
-      key: key.key,
-      displayKey: getApiKeyDisplayFormat(key.key),
+    const maskedKeys = keys.map(({ key, ...apiKey }) => ({
+      ...apiKey,
+      displayKey: getApiKeyDisplayFormat(key),
     }))
 
     return NextResponse.json({ keys: maskedKeys })
