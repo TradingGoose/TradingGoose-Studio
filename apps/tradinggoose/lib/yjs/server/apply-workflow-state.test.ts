@@ -7,6 +7,7 @@ import * as Y from 'yjs'
 import { replaceWorkflowDocumentState } from '@/lib/yjs/workflow-session'
 
 const {
+  mockApplyWorkflowEntityNameInSocketServer,
   mockApplyWorkflowStateInSocketServer,
   mockDbUpdate,
   mockEnsureUniqueBlockIds,
@@ -18,6 +19,7 @@ const {
   mockUpdateWhere,
 } = vi.hoisted(() => {
   return {
+    mockApplyWorkflowEntityNameInSocketServer: vi.fn(),
     mockApplyWorkflowStateInSocketServer: vi.fn(),
     mockDbUpdate: vi.fn(),
     mockEnsureUniqueBlockIds: vi.fn(),
@@ -50,6 +52,7 @@ vi.mock('@/lib/workflows/db-helpers', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
+  applyWorkflowEntityNameInSocketServer: mockApplyWorkflowEntityNameInSocketServer,
   applyWorkflowStateInSocketServer: mockApplyWorkflowStateInSocketServer,
   getYjsSnapshot: mockGetYjsSnapshot,
 }))
@@ -72,6 +75,7 @@ function buildWorkflowSnapshotBase64(
 describe('applyWorkflowState', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockApplyWorkflowEntityNameInSocketServer.mockResolvedValue(undefined)
     mockApplyWorkflowStateInSocketServer.mockResolvedValue(undefined)
     mockEnsureUniqueBlockIds.mockImplementation(async (_workflowId, state) => state)
     mockEnsureUniqueEdgeIds.mockImplementation(async (_workflowId, state) => state)
@@ -86,6 +90,26 @@ describe('applyWorkflowState', () => {
     mockUpdateWhere.mockReturnValue({ returning: mockUpdateReturning })
     mockUpdateSet.mockReturnValue({ where: mockUpdateWhere })
     mockDbUpdate.mockReturnValue({ set: mockUpdateSet })
+  })
+
+  it('renames workflow entity metadata without republishing workflow state', async () => {
+    const { applyWorkflowEntityName } = await import('./apply-workflow-state')
+
+    await applyWorkflowEntityName('workflow-1', 'Renamed Workflow', {
+      description: 'Updated description',
+    })
+
+    expect(mockApplyWorkflowEntityNameInSocketServer).toHaveBeenCalledWith(
+      'workflow-1',
+      'Renamed Workflow'
+    )
+    expect(mockApplyWorkflowStateInSocketServer).not.toHaveBeenCalled()
+    expect(mockUpdateSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Renamed Workflow',
+        description: 'Updated description',
+      })
+    )
   })
 
   it('persists the applied Yjs workflow state after publishing to Yjs', async () => {

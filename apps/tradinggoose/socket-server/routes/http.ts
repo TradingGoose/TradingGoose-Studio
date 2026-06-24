@@ -13,7 +13,11 @@ import {
   getRuntimeStateFromUpdate,
 } from '@/lib/yjs/server/bootstrap-review-target'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
-import { replaceWorkflowDocumentState, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import {
+  replaceWorkflowDocumentState,
+  setWorkflowEntityName,
+  type WorkflowSnapshot,
+} from '@/lib/yjs/workflow-session'
 import { getMonitorRuntimeLockHealth } from '@/socket-server/monitor-runtime-lock'
 import {
   getLastTouchedAt,
@@ -50,7 +54,7 @@ const INTERNAL_YJS_SESSION_APPLY_UPDATE_PATH =
   /^\/internal\/yjs\/sessions\/([^/]+)\/apply-update$/
 
 type ApplyWorkflowStateRequest = {
-  workflowState: WorkflowSnapshot
+  workflowState?: WorkflowSnapshot
   variables?: Record<string, any>
   entityName?: string
 }
@@ -163,12 +167,22 @@ function parseApplyWorkflowStateRequest(body: unknown): ApplyWorkflowStateReques
   }
 
   const candidate = body as Record<string, unknown>
+  const workflowState = candidate.workflowState
+  const entityName = typeof candidate.entityName === 'string' ? candidate.entityName.trim() : ''
+
+  if (workflowState === undefined && !entityName) {
+    throw new InvalidInternalYjsRequestError('workflowState or entityName is required')
+  }
+
   if (
-    !candidate.workflowState ||
-    typeof candidate.workflowState !== 'object' ||
-    Array.isArray(candidate.workflowState)
+    workflowState !== undefined &&
+    (!workflowState || typeof workflowState !== 'object' || Array.isArray(workflowState))
   ) {
-    throw new InvalidInternalYjsRequestError('workflowState is required')
+    throw new InvalidInternalYjsRequestError('workflowState must be an object')
+  }
+
+  if (workflowState === undefined && candidate.variables !== undefined) {
+    throw new InvalidInternalYjsRequestError('variables require workflowState')
   }
 
   if (
@@ -181,9 +195,9 @@ function parseApplyWorkflowStateRequest(body: unknown): ApplyWorkflowStateReques
   }
 
   return {
-    workflowState: candidate.workflowState as WorkflowSnapshot,
+    workflowState: workflowState as WorkflowSnapshot | undefined,
     variables: candidate.variables as Record<string, any> | undefined,
-    entityName: typeof candidate.entityName === 'string' ? candidate.entityName.trim() : undefined,
+    entityName: entityName || undefined,
   }
 }
 
@@ -263,7 +277,11 @@ async function handleInternalYjsWorkflowApplyRequest(
       yjsSessionId: workflowId,
     })
 
-    replaceWorkflowDocumentState(doc, body.workflowState, body.variables, body.entityName)
+    if (body.workflowState) {
+      replaceWorkflowDocumentState(doc, body.workflowState, body.variables, body.entityName)
+    } else {
+      setWorkflowEntityName(doc, body.entityName!)
+    }
     await flushDocumentPersistence(workflowId)
 
     sendJson(res, 200, { success: true })

@@ -352,6 +352,38 @@ describe('Socket Server Index Integration', () => {
       } finally {
         doc.destroy()
       }
+
+      const renameResponse = await sendHttpRequestWithOptions(
+        PORT,
+        '/internal/yjs/workflows/workflow-1/apply-state',
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-internal-secret': INTERNAL_SECRET,
+          },
+          body: JSON.stringify({ entityName: 'Renamed Workflow' }),
+        }
+      )
+
+      expect(renameResponse.statusCode).toBe(200)
+      const renamedPersisted = await getState('workflow-1')
+      expect(renamedPersisted).toBeTruthy()
+
+      const renamedDoc = new Y.Doc()
+      try {
+        Y.applyUpdate(renamedDoc, renamedPersisted!)
+        const renamedState = extractPersistedStateFromDoc(renamedDoc)
+        expect(renamedState.blocks['block-1']).toEqual(
+          expect.objectContaining({
+            id: 'block-1',
+            name: 'Applied Agent',
+          })
+        )
+        expect(renamedDoc.getMap('metadata').get('entityName')).toBe('Renamed Workflow')
+      } finally {
+        renamedDoc.destroy()
+      }
     })
 
     it('should apply saved entity state through Yjs', async () => {

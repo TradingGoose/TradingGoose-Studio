@@ -20,14 +20,6 @@ describe('Workflow By ID API Route', () => {
   const mockReadWorkflowAccessContext = vi.fn()
   const mockLoadWorkflowState = vi.fn()
   const mockApplyWorkflowEntityName = vi.fn()
-  const mockWorkflowRenameState = {
-    blocks: {},
-    edges: [],
-    loops: {},
-    parallels: {},
-    variables: {},
-    lastSaved: Date.parse('2026-06-21T00:00:00.000Z'),
-  }
 
   beforeEach(() => {
     vi.resetModules()
@@ -95,6 +87,17 @@ describe('Workflow By ID API Route', () => {
   afterEach(() => {
     vi.clearAllMocks()
   })
+
+  function expectWorkflowRenameApplied() {
+    expect(mockLoadWorkflowState).not.toHaveBeenCalled()
+    expect(mockApplyWorkflowEntityName).toHaveBeenCalledWith(
+      'workflow-123',
+      'Updated Workflow',
+      expect.objectContaining({
+        updatedAt: expect.any(Date),
+      })
+    )
+  }
 
   describe('GET /api/workflows/[id]', () => {
     it('should return 401 when user is not authenticated', async () => {
@@ -595,7 +598,6 @@ describe('Workflow By ID API Route', () => {
       }
 
       const updateData = { name: 'Updated Workflow' }
-      const updatedWorkflow = { ...mockWorkflow, ...updateData, updatedAt: new Date() }
 
       vi.doMock('@/lib/auth', () => ({
         getSession: vi.fn().mockResolvedValue({
@@ -611,20 +613,6 @@ describe('Workflow By ID API Route', () => {
         isOwner: true,
         isWorkspaceOwner: false,
       })
-      mockLoadWorkflowState.mockResolvedValueOnce(mockWorkflowRenameState)
-
-      vi.doMock('@tradinggoose/db', () => ({
-        db: {
-          update: vi.fn().mockReturnValue({
-            set: vi.fn().mockReturnValue({
-              where: vi.fn().mockReturnValue({
-                returning: vi.fn().mockResolvedValue([updatedWorkflow]),
-              }),
-            }),
-          }),
-        },
-        workflow: {},
-      }))
 
       const req = new NextRequest('http://localhost:3000/api/workflows/workflow-123', {
         method: 'PUT',
@@ -638,6 +626,7 @@ describe('Workflow By ID API Route', () => {
       expect(response.status).toBe(200)
       const data = await response.json()
       expect(data.workflow.name).toBe('Updated Workflow')
+      expectWorkflowRenameApplied()
     })
 
     it('should allow users with write permission to update workflow', async () => {
@@ -649,7 +638,6 @@ describe('Workflow By ID API Route', () => {
       }
 
       const updateData = { name: 'Updated Workflow' }
-      const updatedWorkflow = { ...mockWorkflow, ...updateData, updatedAt: new Date() }
 
       vi.doMock('@/lib/auth', () => ({
         getSession: vi.fn().mockResolvedValue({
@@ -665,20 +653,6 @@ describe('Workflow By ID API Route', () => {
         isOwner: false,
         isWorkspaceOwner: false,
       })
-      mockLoadWorkflowState.mockResolvedValueOnce(mockWorkflowRenameState)
-
-      vi.doMock('@tradinggoose/db', () => ({
-        db: {
-          update: vi.fn().mockReturnValue({
-            set: vi.fn().mockReturnValue({
-              where: vi.fn().mockReturnValue({
-                returning: vi.fn().mockResolvedValue([updatedWorkflow]),
-              }),
-            }),
-          }),
-        },
-        workflow: {},
-      }))
 
       const req = new NextRequest('http://localhost:3000/api/workflows/workflow-123', {
         method: 'PUT',
@@ -692,6 +666,7 @@ describe('Workflow By ID API Route', () => {
       expect(response.status).toBe(200)
       const data = await response.json()
       expect(data.workflow.name).toBe('Updated Workflow')
+      expectWorkflowRenameApplied()
     })
 
     it('updates DB-only metadata without loading workflow state', async () => {

@@ -104,6 +104,16 @@ export async function applyWorkflowStateInSocketServer(
   )
 }
 
+export async function applyWorkflowEntityNameInSocketServer(
+  workflowId: string,
+  entityName: string
+): Promise<void> {
+  await postJsonToSocketServer(
+    `/internal/yjs/workflows/${encodeURIComponent(workflowId)}/apply-state`,
+    { entityName }
+  )
+}
+
 export async function applyEntityStateInSocketServer(
   entityId: string,
   entityKind: string,

@@ -380,18 +380,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ workflow: updatedWorkflow }, { status: 200 })
     }
 
-    const workflowState = await loadWorkflowState(workflowId)
-    if (!workflowState) {
-      logger.warn(`[${requestId}] Workflow ${workflowId} is missing saved state for update`)
-      return NextResponse.json({ error: 'Workflow state is missing' }, { status: 409 })
-    }
     const updatedWorkflow = await applyWorkflowEntityName(
       workflowId,
-      createWorkflowSnapshot({
-        ...workflowState,
-        lastSaved: new Date(workflowState.lastSaved).toISOString(),
-      }),
-      workflowState.variables,
       updates.name ?? workflowData.name,
       updateData
     )

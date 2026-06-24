@@ -514,10 +514,23 @@ export const renameWorkflowServerTool: BaseServerTool<{ entityId: string; name: 
       throw new Error('name is required')
     }
 
-    const current = await loadWorkflowSnapshotForCopilot(workflowId, context, 'write')
+    const { workspaceId: accessWorkspaceId } = await verifyWorkflowContext(workflowId, context, 'write')
+    const [current] = await db
+      .select({
+        name: workflow.name,
+        workspaceId: workflow.workspaceId,
+      })
+      .from(workflow)
+      .where(eq(workflow.id, workflowId))
+      .limit(1)
+    if (!current) {
+      throw new Error('Workflow not found')
+    }
+
+    const workspaceId = current.workspaceId ?? accessWorkspaceId
     const currentNameBaseHash = hashServerToolReviewBase({
       workflowId,
-      entityName: current.entityName ?? '',
+      entityName: current.name ?? '',
     })
     if (shouldStageServerToolMutationForReview(context)) {
       return {
@@ -526,25 +539,20 @@ export const renameWorkflowServerTool: BaseServerTool<{ entityId: string; name: 
         entityKind: ENTITY_KIND_WORKFLOW,
         entityId: workflowId,
         entityName: nextName,
-        workspaceId: current.workspaceId ?? undefined,
+        workspaceId: workspaceId ?? undefined,
         reviewBaseStateHash: currentNameBaseHash,
       }
     }
 
     assertAcceptedServerToolReviewBase(context, currentNameBaseHash)
-    const updatedWorkflow = await applyWorkflowEntityName(
-      workflowId,
-      current.workflowState,
-      current.variables,
-      nextName
-    )
+    const updatedWorkflow = await applyWorkflowEntityName(workflowId, nextName)
 
     return {
       success: true,
       entityKind: ENTITY_KIND_WORKFLOW,
       entityId: workflowId,
       entityName: nextName,
-      workspaceId: updatedWorkflow.workspaceId ?? current.workspaceId ?? undefined,
+      workspaceId: updatedWorkflow.workspaceId ?? workspaceId ?? undefined,
     }
   },
 }

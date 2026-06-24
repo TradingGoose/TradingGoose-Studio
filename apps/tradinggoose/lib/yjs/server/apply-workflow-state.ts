@@ -11,6 +11,7 @@ import {
   saveWorkflowToNormalizedTables,
 } from '@/lib/workflows/db-helpers'
 import {
+  applyWorkflowEntityNameInSocketServer,
   applyWorkflowStateInSocketServer,
   getYjsSnapshot,
 } from '@/lib/yjs/server/snapshot-bridge'
@@ -118,12 +119,10 @@ export async function applyWorkflowState(
 
 export async function applyWorkflowEntityName(
   workflowId: string,
-  workflowState: WorkflowSnapshot,
-  variables: Record<string, any>,
   entityName: string,
   fields: Partial<typeof workflow.$inferInsert> = {}
 ): Promise<typeof workflow.$inferSelect> {
-  await applyWorkflowStateInSocketServer(workflowId, workflowState, variables, entityName)
+  await applyWorkflowEntityNameInSocketServer(workflowId, entityName)
 
   const [updatedWorkflow] = await db
     .update(workflow)
