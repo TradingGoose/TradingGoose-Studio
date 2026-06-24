@@ -4,11 +4,17 @@
 
 import { spawnSync } from 'child_process'
 import { NextRequest } from 'next/server'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { buildMcpInstallScript } from '../../../lib/mcp/install-script'
 
-async function callInstaller(pathname: string, command?: string[], headers?: HeadersInit) {
+async function callInstaller(
+  pathname: string,
+  command?: string[],
+  headers?: HeadersInit,
+  origin = 'https://studio.example.test'
+) {
   const { GET } = await import('./route')
-  return GET(new NextRequest(`https://studio.example.test${pathname}`, { headers }), {
+  return GET(new NextRequest(`${origin}${pathname}`, { headers }), {
     params: Promise.resolve({ command }),
   })
 }
@@ -23,13 +29,21 @@ function expectShellScript(script: string) {
 }
 
 describe('MCP install route', () => {
+  beforeEach(() => {
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://studio.example.test')
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
   it('serves the default setup script at /mcp', async () => {
     const response = await callInstaller('/mcp')
     const script = await response.text()
 
     expectShellScript(script)
     expect(response.headers.get('Content-Type')).toBe('text/x-shellscript; charset=utf-8')
-    expect(script).toContain('BASE_URL="https://studio.example.test"')
+    expect(script).toContain("BASE_URL='https://studio.example.test'")
     expect(script).toContain('COMMAND="setup"')
     expect(script).toContain('TARGETS=""')
     expect(script).toContain('curl -fsSL <studio-url>/mcp/setup | sh')
@@ -83,6 +97,42 @@ describe('MCP install route', () => {
     expectShellScript(script)
     expect(script).toContain('COMMAND="setup"')
     expect(script).toContain('TARGETS="codex"')
+  })
+
+  it('uses configured and quoted installer base URLs', async () => {
+    const response = await callInstaller(
+      '/mcp',
+      undefined,
+      undefined,
+      'https://request.example.test'
+    )
+    const script = await response.text()
+
+    expect(script).toContain("BASE_URL='https://studio.example.test'")
+    expect(script).not.toContain('request.example.test')
+
+    const shellScript = buildMcpInstallScript(
+      "https://studio.example.test/$(touch pwn)`bad`'quote",
+      {
+        command: 'login',
+        format: 'sh',
+      }
+    )
+    const powerShellScript = buildMcpInstallScript(
+      "https://studio.example.test/$(bad)`bad`'quote",
+      {
+        command: 'login',
+        format: 'powershell',
+      }
+    )
+
+    expectShellScript(shellScript)
+    expect(shellScript).toContain(
+      "BASE_URL='https://studio.example.test/$(touch pwn)`bad`'\"'\"'quote'"
+    )
+    expect(powerShellScript).toContain(
+      "$BaseUrl = 'https://studio.example.test/$(bad)`bad`''quote'"
+    )
   })
 
   it('serves PowerShell scripts for PowerShell clients', async () => {

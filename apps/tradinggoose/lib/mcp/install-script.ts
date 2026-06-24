@@ -208,13 +208,21 @@ export function buildMcpInstallScript(baseUrl: string, options: McpInstallScript
     : buildShellInstallScript(baseUrl, options)
 }
 
+function shellSingleQuote(value: string) {
+  return `'${value.replaceAll("'", "'\"'\"'")}'`
+}
+
+function powerShellSingleQuote(value: string) {
+  return `'${value.replaceAll("'", "''")}'`
+}
+
 function buildShellInstallScript(baseUrl: string, options: McpInstallScriptOptions) {
   const normalizedBaseUrl = baseUrl.replace(/\/+$/, '')
   const initialTargets = getInitialTargets(options.target)
   const script = String.raw`#!/bin/sh
 set -eu
 
-BASE_URL="${normalizedBaseUrl}"
+BASE_URL=${shellSingleQuote(normalizedBaseUrl)}
 COMMAND="${options.command}"
 TARGETS="${initialTargets}"
 
@@ -331,9 +339,9 @@ function buildPowerShellInstallScript(baseUrl: string, options: McpInstallScript
   const normalizedBaseUrl = baseUrl.replace(/\/+$/, '')
   const initialTargets = getInitialPowerShellTargets(options.target)
 
-  return String.raw`$ErrorActionPreference = 'Stop'
+  return `$ErrorActionPreference = 'Stop'
 
-$BaseUrl = '${normalizedBaseUrl}'
+$BaseUrl = ${powerShellSingleQuote(normalizedBaseUrl)}
 $Command = '${options.command}'
 $Targets = ${initialTargets}
 

@@ -4,6 +4,7 @@ import {
   type McpInstallScriptFormat,
   type McpInstallScriptOptions,
 } from '../../../lib/mcp/install-script'
+import { getBaseUrl } from '../../../lib/urls/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -57,7 +58,7 @@ export async function GET(
 
   const format = resolveScriptFormat(request)
 
-  return new NextResponse(buildMcpInstallScript(request.nextUrl.origin, { ...options, format }), {
+  return new NextResponse(buildMcpInstallScript(getBaseUrl(), { ...options, format }), {
     headers: {
       'Cache-Control': 'no-store',
       'Content-Type':

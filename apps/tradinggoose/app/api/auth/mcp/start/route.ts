@@ -1,16 +1,14 @@
-import { type NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { McpDeviceLoginRateLimitError, startMcpDeviceLogin } from '@/lib/mcp/auth'
+import { getBaseUrl } from '@/lib/urls/utils'
 
 export const dynamic = 'force-dynamic'
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
-    const requesterKey =
-      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-      request.headers.get('x-real-ip')?.trim() ||
-      'unknown'
-    const login = await startMcpDeviceLogin(requesterKey)
-    const authorizeUrl = new URL('/mcp/authorize', request.nextUrl.origin)
+    const baseUrl = getBaseUrl()
+    const login = await startMcpDeviceLogin(`public:${new URL(baseUrl).host}`)
+    const authorizeUrl = new URL('/mcp/authorize', baseUrl)
     authorizeUrl.searchParams.set('code', login.code)
 
     return NextResponse.json({
