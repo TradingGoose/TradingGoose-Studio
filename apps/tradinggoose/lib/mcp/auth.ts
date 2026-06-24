@@ -26,10 +26,6 @@ type ApprovedDeviceLogin = {
   verificationKeyHash: string
   approvedAt: string
   userId: string
-  apiKeyId: string
-  apiKey: string
-  storedApiKey: string
-  deliveredAt?: string
 }
 
 type DeviceLoginState = PendingDeviceLogin | ApprovedDeviceLogin
@@ -95,11 +91,7 @@ function parseDeviceLoginState(value: string): DeviceLoginState | null {
       typeof parsed.createdAt === 'string' &&
       typeof parsed.verificationKeyHash === 'string' &&
       typeof parsed.approvedAt === 'string' &&
-      typeof parsed.userId === 'string' &&
-      typeof parsed.apiKeyId === 'string' &&
-      typeof parsed.apiKey === 'string' &&
-      typeof parsed.storedApiKey === 'string' &&
-      (parsed.deliveredAt === undefined || typeof parsed.deliveredAt === 'string')
+      typeof parsed.userId === 'string'
     ) {
       return parsed as ApprovedDeviceLogin
     }
@@ -275,39 +267,23 @@ export async function pollMcpDeviceLogin(
     }
 
     const approvedState = login.state
-    if (approvedState.deliveredAt) {
-      const [existingKey] = await db
-        .select({ id: apiKey.id })
-        .from(apiKey)
-        .where(eq(apiKey.id, approvedState.apiKeyId))
-        .limit(1)
-      if (!existingKey) {
-        return { status: 'expired' }
-      }
-      return {
-        status: 'approved',
-        apiKey: approvedState.apiKey,
-        expiresAt: login.expiresAt.toISOString(),
-      }
-    }
-
     const now = new Date()
-    const deliveredState = { ...approvedState, deliveredAt: now.toISOString() }
+    const apiKeyId = nanoid()
+    const { key, storedKey } = await createApiKeyMaterial()
     const delivered = await db.transaction(async (tx) => {
-      const [updated] = await tx
-        .update(verification)
-        .set({ value: JSON.stringify(deliveredState), updatedAt: now })
+      const [deleted] = await tx
+        .delete(verification)
         .where(deviceLoginMatches(login))
         .returning({ id: verification.id })
-      if (!updated) {
+      if (!deleted) {
         return false
       }
       await tx.insert(apiKey).values({
-        id: approvedState.apiKeyId,
+        id: apiKeyId,
         userId: approvedState.userId,
         workspaceId: null,
         name: `TradingGoose MCP Access ${now.toISOString()}`,
-        key: approvedState.storedApiKey,
+        key: storedKey,
         type: 'personal',
         createdAt: now,
         updatedAt: now,
@@ -320,7 +296,7 @@ export async function pollMcpDeviceLogin(
 
     return {
       status: 'approved',
-      apiKey: approvedState.apiKey,
+      apiKey: key,
       expiresAt: login.expiresAt.toISOString(),
     }
   }
@@ -362,17 +338,12 @@ export async function approveMcpDeviceLogin({
 
   const now = new Date()
   const approvedAt = now.toISOString()
-  const apiKeyId = nanoid()
-  const { key, storedKey } = await createApiKeyMaterial()
   const approvedState = {
     status: 'approved',
     createdAt: login.state.createdAt,
     verificationKeyHash: login.state.verificationKeyHash,
     approvedAt,
     userId,
-    apiKeyId,
-    apiKey: key,
-    storedApiKey: storedKey,
   } satisfies ApprovedDeviceLogin
 
   if (!(await updateDeviceLoginState(login, approvedState))) {
