@@ -10,6 +10,7 @@ const {
   mockApplyEntityStateInSocketServer,
   mockDbUpdate,
   mockGetYjsSnapshot,
+  mockReadSavedEntityFieldsFromDb,
   mockUpdateReturning,
   mockUpdateSet,
   mockUpdateWhere,
@@ -18,6 +19,7 @@ const {
   mockApplyEntityStateInSocketServer: vi.fn(),
   mockDbUpdate: vi.fn(),
   mockGetYjsSnapshot: vi.fn(),
+  mockReadSavedEntityFieldsFromDb: vi.fn(),
   mockUpdateReturning: vi.fn(),
   mockUpdateSet: vi.fn(),
   mockUpdateWhere: vi.fn(),
@@ -52,6 +54,10 @@ vi.mock('@/lib/custom-tools/schema', () => ({
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   applyEntityStateInSocketServer: mockApplyEntityStateInSocketServer,
   getYjsSnapshot: mockGetYjsSnapshot,
+}))
+
+vi.mock('@/lib/yjs/server/entity-loaders', () => ({
+  readSavedEntityFieldsFromDb: mockReadSavedEntityFieldsFromDb,
 }))
 
 function buildSkillSnapshotBase64(fields: {
@@ -90,6 +96,11 @@ describe('applySavedEntityPersistedState', () => {
         runtime: {},
         touchedAt: Date.now(),
       }
+    })
+    mockReadSavedEntityFieldsFromDb.mockResolvedValue({
+      name: 'DB Skill',
+      description: 'DB description',
+      content: 'Use the saved database state.',
     })
     mockUpdateReturning.mockResolvedValue([{ id: 'skill-1' }])
     mockUpdateWhere.mockReturnValue({ returning: mockUpdateReturning })
@@ -134,7 +145,7 @@ describe('applySavedEntityPersistedState', () => {
     expect(events).toEqual(['yjs', 'snapshot', 'db'])
   })
 
-  it('preserves the saved-entity Yjs session when materialization fails', async () => {
+  it('refreshes the saved-entity Yjs session from DB when materialization fails', async () => {
     const { persistSavedEntityYjsState } = await import('./apply-entity-state')
     mockUpdateReturning.mockResolvedValueOnce([])
 
@@ -144,6 +155,11 @@ describe('applySavedEntityPersistedState', () => {
       status: 404,
     })
 
-    expect(events).toEqual(['snapshot', 'db'])
+    expect(mockApplyEntityStateInSocketServer).toHaveBeenCalledWith('skill-1', 'skill', {
+      name: 'DB Skill',
+      description: 'DB description',
+      content: 'Use the saved database state.',
+    })
+    expect(events).toEqual(['snapshot', 'db', 'yjs'])
   })
 })
