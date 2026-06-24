@@ -83,12 +83,11 @@ export async function POST(req: NextRequest) {
       { isToolId },
       { routeExecution },
       { acceptServerManagedToolReview, stageServerManagedToolReview },
-    ] =
-      await Promise.all([
-        import('@/lib/copilot/registry'),
-        import('@/lib/copilot/tools/server/router'),
-        import('@/lib/copilot/tools/server/review-acceptance'),
-      ])
+    ] = await Promise.all([
+      import('@/lib/copilot/registry'),
+      import('@/lib/copilot/tools/server/router'),
+      import('@/lib/copilot/tools/server/review-acceptance'),
+    ])
 
     if (!isToolId(toolName)) {
       return createBadRequestResponse('Invalid request body for execute-copilot-server-tool')

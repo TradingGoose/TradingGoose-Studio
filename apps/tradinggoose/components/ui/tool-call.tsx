@@ -56,13 +56,13 @@ export function ToolCallExecution({ toolCall, isCompact = false }: ToolCallProps
           >
             <div className='flex min-w-0 items-center gap-2 overflow-hidden'>
               <Settings className='h-4 w-4 shrink-0 animate-pulse text-yellow-600 dark:text-yellow-400' />
-              <span className='min-w-0 truncate font-mono text-yellow-800 text-xs dark:text-yellow-200'>
+              <span className='min-w-0 truncate font-mono text-xs text-yellow-800 dark:text-yellow-200'>
                 {toolCall.displayName || toolCall.name}
               </span>
               {toolCall.progress && (
                 <Badge
                   variant='outline'
-                  className='shrink-0 text-yellow-700 text-xs dark:text-yellow-300'
+                  className='shrink-0 text-xs text-yellow-700 dark:text-yellow-300'
                 >
                   {toolCall.progress}
                 </Badge>
@@ -77,7 +77,7 @@ export function ToolCallExecution({ toolCall, isCompact = false }: ToolCallProps
         </CollapsibleTrigger>
         <CollapsibleContent className='min-w-0 max-w-full px-3 pb-3'>
           <div className='min-w-0 max-w-full space-y-2'>
-            <div className='flex items-center gap-2 text-yellow-700 text-xs dark:text-yellow-300'>
+            <div className='flex items-center gap-2 text-xs text-yellow-700 dark:text-yellow-300'>
               <Loader2 className='h-3 w-3 shrink-0 animate-spin' />
               <span>Executing...</span>
             </div>
@@ -108,8 +108,7 @@ export function ToolCallExecution({ toolCall, isCompact = false }: ToolCallProps
                             className='block overflow-x-auto whitespace-nowrap font-mono text-foreground text-xs'
                             title={redactUrlQuery((toolCall.parameters as any).url)}
                           >
-                            {redactUrlQuery((toolCall.parameters as any).url) ||
-                              'URL not provided'}
+                            {redactUrlQuery((toolCall.parameters as any).url) || 'URL not provided'}
                           </span>
                         </div>
                       </div>
@@ -146,11 +145,11 @@ export function ToolCallExecution({ toolCall, isCompact = false }: ToolCallProps
                                     key={name}
                                     className='grid grid-cols-[auto_1fr] items-center gap-2 px-2 py-1.5'
                                   >
-                                    <div className='truncate font-medium text-yellow-800 text-xs dark:text-yellow-200'>
+                                    <div className='truncate font-medium text-xs text-yellow-800 dark:text-yellow-200'>
                                       {name}
                                     </div>
                                     <div className='min-w-0'>
-                                      <span className='block overflow-x-auto whitespace-nowrap font-mono text-yellow-700 text-xs dark:text-yellow-300'>
+                                      <span className='block overflow-x-auto whitespace-nowrap font-mono text-xs text-yellow-700 dark:text-yellow-300'>
                                         {REDACTED_VALUE}
                                       </span>
                                     </div>
@@ -162,7 +161,6 @@ export function ToolCallExecution({ toolCall, isCompact = false }: ToolCallProps
                         )
                       })()
                     : null}
-
                 </div>
               )}
           </div>
