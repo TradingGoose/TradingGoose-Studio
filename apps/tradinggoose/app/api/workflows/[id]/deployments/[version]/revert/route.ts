@@ -74,7 +74,7 @@ export async function POST(
     }
 
     const now = new Date()
-    const revertVariables = deployedState.variables || undefined
+    const revertVariables = deployedState.variables || {}
 
     const revertedState = {
       blocks: deployedState.blocks,

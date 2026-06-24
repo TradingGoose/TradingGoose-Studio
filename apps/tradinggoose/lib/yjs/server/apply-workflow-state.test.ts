@@ -151,7 +151,7 @@ describe('applyWorkflowState', () => {
         loops: {},
         parallels: {},
       },
-      undefined,
+      {},
       'Workflow Name'
     )
 
@@ -162,7 +162,7 @@ describe('applyWorkflowState', () => {
           'normalized-block': expect.objectContaining({ id: 'normalized-block' }),
         },
       }),
-      undefined,
+      {},
       'Workflow Name'
     )
 
@@ -204,7 +204,7 @@ describe('applyWorkflowState', () => {
 
     const { applyWorkflowState } = await import('./apply-workflow-state')
 
-    await expect(applyWorkflowState('workflow-1', emptyWorkflowState)).rejects.toThrow(
+    await expect(applyWorkflowState('workflow-1', emptyWorkflowState, {})).rejects.toThrow(
       'fetch failed'
     )
 
@@ -222,7 +222,9 @@ describe('applyWorkflowState', () => {
 
     const { applyWorkflowState } = await import('./apply-workflow-state')
 
-    await expect(applyWorkflowState('workflow-1', emptyWorkflowState)).rejects.toThrow('db failed')
+    await expect(applyWorkflowState('workflow-1', emptyWorkflowState, {})).rejects.toThrow(
+      'db failed'
+    )
 
     expect(mockDeleteYjsSessionInSocketServer).toHaveBeenCalledWith('workflow-1')
     expect(mockDbUpdate).not.toHaveBeenCalled()

@@ -8,7 +8,7 @@ import { mcpService } from '@/lib/mcp/service'
 import type { McpTransport } from '@/lib/mcp/types'
 import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
-import { tryDeleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { CreateMcpServerSchema } from './schema'
 
 const logger = createLogger('McpServersAPI')
@@ -172,7 +172,7 @@ export const DELETE = withMcpAuth('write')(
         )
       }
 
-      await tryDeleteYjsSessionInSocketServer(serverId)
+      await deleteYjsSessionInSocketServer(serverId)
       mcpService.clearCache(workspaceId)
 
       logger.info(`[${requestId}] Successfully deleted MCP server: ${serverId}`)

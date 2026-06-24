@@ -117,7 +117,7 @@ export async function createWorkspace(userId: string, name: string) {
         lastSaved,
         isDeployed: false,
       }),
-      undefined,
+      {},
       'default-agent'
     )
   } catch (error) {

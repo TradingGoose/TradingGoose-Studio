@@ -8,6 +8,7 @@ import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { env } from '@/lib/env'
 import { seedEntitySession } from '@/lib/yjs/entity-session'
 import {
+  bootstrapReviewTarget,
   getRuntimeStateFromDoc,
   getRuntimeStateFromUpdate,
 } from '@/lib/yjs/server/bootstrap-review-target'
@@ -22,8 +23,10 @@ import {
 } from '@/socket-server/yjs/persistence'
 import {
   flushDocumentPersistence,
+  getDocument,
   getExistingDocument,
   removeDocument,
+  setPersistence,
 } from '@/socket-server/yjs/upstream-utils'
 
 interface Logger {
@@ -45,8 +48,8 @@ const INTERNAL_SECRET_HEADER = 'x-internal-secret'
 const INTERNAL_YJS_WORKFLOW_APPLY_PATH = /^\/internal\/yjs\/workflows\/([^/]+)\/apply-state$/
 const INTERNAL_YJS_ENTITY_APPLY_PATH = /^\/internal\/yjs\/entities\/([^/]+)\/apply-state$/
 const INTERNAL_YJS_SNAPSHOT_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/snapshot$/
-const INTERNAL_YJS_SESSION_CLEAR_RESEEDED_PATH =
-  /^\/internal\/yjs\/sessions\/([^/]+)\/clear-reseeded$/
+const INTERNAL_YJS_SESSION_APPLY_UPDATE_PATH =
+  /^\/internal\/yjs\/sessions\/([^/]+)\/apply-update$/
 const INTERNAL_YJS_SESSION_PATH = /^\/internal\/yjs\/sessions\/([^/]+)$/
 
 type ApplyWorkflowStateRequest = {
@@ -84,6 +87,11 @@ function isInternalRequestAuthorized(req: IncomingMessage): boolean {
   return typeof providedHeader === 'string' && providedHeader === expectedSecret
 }
 
+function sendJson(res: ServerResponse, status: number, body: unknown): void {
+  res.writeHead(status, { 'Content-Type': 'application/json' })
+  res.end(JSON.stringify(body))
+}
+
 function rejectUnauthorizedRequest(
   req: IncomingMessage,
   res: ServerResponse,
@@ -97,8 +105,7 @@ function rejectUnauthorizedRequest(
     path: req.url,
     method: req.method,
   })
-  res.writeHead(401, { 'Content-Type': 'application/json' })
-  res.end(JSON.stringify({ error: 'Unauthorized' }))
+  sendJson(res, 401, { error: 'Unauthorized' })
   return true
 }
 
@@ -219,6 +226,29 @@ function clearSessionReseededFromCanonical(doc: Y.Doc): void {
   }, YJS_ORIGINS.SYSTEM)
 }
 
+async function getInitializedSessionDocument(sessionId: string): Promise<Y.Doc> {
+  setPersistence(sessionId, { getState, storeState })
+  const doc = getDocument(sessionId) as Y.Doc & { whenInitialized?: Promise<void> }
+  await doc.whenInitialized
+  return doc
+}
+
+async function getBootstrappedApplyDocument(
+  descriptor: ReturnType<typeof buildReviewTargetDescriptorFromEnvelope>
+): Promise<Y.Doc> {
+  if (!(await getExistingDocument(descriptor.yjsSessionId)) && !(await getState(descriptor.yjsSessionId))) {
+    if (!descriptor.entityId) {
+      throw new InvalidInternalYjsRequestError('Saved Yjs session required')
+    }
+    const bootstrapped = await bootstrapReviewTarget(descriptor)
+    if (!bootstrapped.runtime || bootstrapped.runtime.docState !== 'active') {
+      throw new Error('Yjs review target is not active')
+    }
+  }
+
+  return getInitializedSessionDocument(descriptor.yjsSessionId)
+}
+
 async function handleInternalYjsWorkflowApplyRequest(
   req: IncomingMessage,
   res: ServerResponse,
@@ -227,27 +257,25 @@ async function handleInternalYjsWorkflowApplyRequest(
 ): Promise<void> {
   try {
     const body = parseApplyWorkflowStateRequest(await readJsonBody(req))
-    const liveDoc = await getExistingDocument(workflowId)
-    const doc = liveDoc ?? new Y.Doc()
+    const doc = await getBootstrappedApplyDocument({
+      workspaceId: null,
+      entityKind: 'workflow',
+      entityId: workflowId,
+      draftSessionId: null,
+      reviewSessionId: null,
+      yjsSessionId: workflowId,
+    })
 
-    try {
-      replaceWorkflowDocumentState(doc, body.workflowState, body.variables, body.entityName)
-      await storeState(workflowId, Y.encodeStateAsUpdate(doc))
-    } finally {
-      if (!liveDoc) doc.destroy()
-    }
+    replaceWorkflowDocumentState(doc, body.workflowState, body.variables, body.entityName)
+    await flushDocumentPersistence(workflowId)
 
-    res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ success: true }))
+    sendJson(res, 200, { success: true })
   } catch (error) {
     logger.error('Error applying workflow state', { error, workflowId })
     const status = error instanceof InvalidInternalYjsRequestError ? 400 : 500
-    res.writeHead(status, { 'Content-Type': 'application/json' })
-    res.end(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : 'Failed to apply workflow state',
-      })
-    )
+    sendJson(res, status, {
+      error: error instanceof Error ? error.message : 'Failed to apply workflow state',
+    })
   }
 }
 
@@ -259,31 +287,68 @@ async function handleInternalYjsEntityApplyRequest(
 ): Promise<void> {
   try {
     const body = parseApplyEntityStateRequest(await readJsonBody(req))
-    const liveDoc = await getExistingDocument(entityId)
-    const doc = liveDoc ?? new Y.Doc()
+    const doc = await getBootstrappedApplyDocument({
+      workspaceId: null,
+      entityKind: body.entityKind,
+      entityId,
+      draftSessionId: null,
+      reviewSessionId: null,
+      yjsSessionId: entityId,
+    })
 
-    try {
-      seedEntitySession(doc, {
-        entityKind: body.entityKind,
-        payload: body.fields,
-      })
-      clearSessionReseededFromCanonical(doc)
-      await storeState(entityId, Y.encodeStateAsUpdate(doc))
-    } finally {
-      if (!liveDoc) doc.destroy()
-    }
+    seedEntitySession(doc, {
+      entityKind: body.entityKind,
+      payload: body.fields,
+    })
+    clearSessionReseededFromCanonical(doc)
+    await flushDocumentPersistence(entityId)
 
-    res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ success: true }))
+    sendJson(res, 200, { success: true })
   } catch (error) {
     logger.error('Error applying entity state', { error, entityId })
     const status = error instanceof InvalidInternalYjsRequestError ? 400 : 500
-    res.writeHead(status, { 'Content-Type': 'application/json' })
-    res.end(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : 'Failed to apply entity state',
-      })
-    )
+    sendJson(res, status, {
+      error: error instanceof Error ? error.message : 'Failed to apply entity state',
+    })
+  }
+}
+
+async function handleInternalYjsSessionApplyUpdateRequest(
+  req: IncomingMessage,
+  parsedUrl: URL,
+  res: ServerResponse,
+  logger: Logger,
+  sessionId: string
+): Promise<void> {
+  try {
+    const envelope = parseYjsTransportEnvelope(Object.fromEntries(parsedUrl.searchParams))
+    if (envelope.sessionId !== sessionId) {
+      sendJson(res, 409, { error: 'Session ID mismatch', sessionId })
+      return
+    }
+
+    const descriptor = buildReviewTargetDescriptorFromEnvelope(envelope)
+    const body = await readJsonBody(req)
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      throw new InvalidInternalYjsRequestError('Invalid apply session update body')
+    }
+    const updateBase64 = (body as Record<string, unknown>).updateBase64
+    if (typeof updateBase64 !== 'string' || !updateBase64) {
+      throw new InvalidInternalYjsRequestError('updateBase64 is required')
+    }
+    const doc = await getBootstrappedApplyDocument(descriptor)
+
+    Y.applyUpdate(doc, Buffer.from(updateBase64, 'base64'), YJS_ORIGINS.SAVE)
+    clearSessionReseededFromCanonical(doc)
+    await flushDocumentPersistence(sessionId)
+
+    sendJson(res, 200, { success: true })
+  } catch (error) {
+    logger.error('Error applying Yjs session update', { error, path: parsedUrl.pathname })
+    const status = error instanceof InvalidInternalYjsRequestError ? 400 : 500
+    sendJson(res, status, {
+      error: error instanceof Error ? error.message : 'Failed to apply session update',
+    })
   }
 }
 
@@ -296,54 +361,10 @@ async function handleInternalYjsSessionDeleteRequest(
     removeDocument(sessionId)
     await deleteSession(sessionId)
 
-    res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ success: true }))
+    sendJson(res, 200, { success: true })
   } catch (error) {
     logger.error('Error deleting Yjs session', { error, sessionId })
-    res.writeHead(500, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ error: 'Failed to delete Yjs session' }))
-  }
-}
-
-async function handleInternalYjsSessionClearReseededRequest(
-  res: ServerResponse,
-  logger: Logger,
-  sessionId: string
-): Promise<void> {
-  try {
-    const liveDoc = await getExistingDocument(sessionId)
-    if (liveDoc) {
-      clearSessionReseededFromCanonical(liveDoc)
-      await storeState(sessionId, Y.encodeStateAsUpdate(liveDoc))
-
-      res.writeHead(200, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ success: true, updated: true }))
-      return
-    }
-
-    const state = await getState(sessionId)
-    if (!state) {
-      res.writeHead(200, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ success: true, updated: false }))
-      return
-    }
-
-    const doc = new Y.Doc()
-
-    try {
-      Y.applyUpdate(doc, state)
-      clearSessionReseededFromCanonical(doc)
-      await storeState(sessionId, Y.encodeStateAsUpdate(doc))
-    } finally {
-      doc.destroy()
-    }
-
-    res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ success: true, updated: true }))
-  } catch (error) {
-    logger.error('Error clearing reseeded flag from Yjs session', { error, sessionId })
-    res.writeHead(500, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ error: 'Failed to clear reseeded flag' }))
+    sendJson(res, 500, { error: 'Failed to delete Yjs session' })
   }
 }
 
@@ -372,8 +393,7 @@ async function handleInternalYjsSnapshotRequest(
   try {
     const envelope = parseYjsTransportEnvelope(Object.fromEntries(parsedUrl.searchParams))
     if (envelope.sessionId !== sessionId) {
-      res.writeHead(409, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ error: 'Session ID mismatch', sessionId }))
+      sendJson(res, 409, { error: 'Session ID mismatch', sessionId })
       return
     }
 
@@ -381,26 +401,21 @@ async function handleInternalYjsSnapshotRequest(
     const { liveDoc, state, touchedAt } = await getLiveOrPersistedYjsState(sessionId)
 
     if (!state) {
-      res.writeHead(404, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ error: 'Session not found', sessionId }))
+      sendJson(res, 404, { error: 'Session not found', sessionId })
       return
     }
 
     const runtime = liveDoc ? getRuntimeStateFromDoc(liveDoc) : getRuntimeStateFromUpdate(state)
 
-    res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(
-      JSON.stringify({
-        snapshotBase64: Buffer.from(state).toString('base64'),
-        descriptor,
-        runtime,
-        touchedAt,
-      })
-    )
+    sendJson(res, 200, {
+      snapshotBase64: Buffer.from(state).toString('base64'),
+      descriptor,
+      runtime,
+      touchedAt,
+    })
   } catch (error) {
     logger.error('Error getting Yjs snapshot', { error, path: parsedUrl.pathname })
-    res.writeHead(400, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ error: 'Failed to get snapshot' }))
+    sendJson(res, 400, { error: 'Failed to get snapshot' })
   }
 }
 
@@ -454,14 +469,14 @@ async function handleInternalYjsRequest(
     return true
   }
 
-  const clearReseededId = matchInternalRoute(
+  const applyUpdateId = matchInternalRoute(
     parsedUrl.pathname,
-    INTERNAL_YJS_SESSION_CLEAR_RESEEDED_PATH,
+    INTERNAL_YJS_SESSION_APPLY_UPDATE_PATH,
     'POST',
     req.method
   )
-  if (clearReseededId) {
-    await handleInternalYjsSessionClearReseededRequest(res, logger, clearReseededId)
+  if (applyUpdateId) {
+    await handleInternalYjsSessionApplyUpdateRequest(req, parsedUrl, res, logger, applyUpdateId)
     return true
   }
 
@@ -495,15 +510,12 @@ export function createHttpHandler(logger: Logger, options?: HttpHandlerOptions) 
     }
 
     if (req.method === 'GET' && req.url === '/health') {
-      res.writeHead(200, { 'Content-Type': 'application/json' })
-      res.end(
-        JSON.stringify({
-          status: 'ok',
-          timestamp: new Date().toISOString(),
-          connections: resolveConnectionCount(),
-          monitorRuntime: resolveMonitorRuntimeHealth(),
-        })
-      )
+      sendJson(res, 200, {
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        connections: resolveConnectionCount(),
+        monitorRuntime: resolveMonitorRuntimeHealth(),
+      })
       return
     }
 
@@ -513,12 +525,10 @@ export function createHttpHandler(logger: Logger, options?: HttpHandlerOptions) 
       try {
         await triggerMonitorsReconcile?.()
         logger.info('Accepted monitor reconcile request')
-        res.writeHead(200, { 'Content-Type': 'application/json' })
-        res.end(JSON.stringify({ success: true }))
+        sendJson(res, 200, { success: true })
       } catch (error) {
         logger.error('Failed to process monitor reconcile request', { error })
-        res.writeHead(500, { 'Content-Type': 'application/json' })
-        res.end(JSON.stringify({ error: 'Failed to process reconcile request' }))
+        sendJson(res, 500, { error: 'Failed to process reconcile request' })
       }
       return
     }
@@ -533,7 +543,6 @@ export function createHttpHandler(logger: Logger, options?: HttpHandlerOptions) 
       }
     }
 
-    res.writeHead(404, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ error: 'Not found' }))
+    sendJson(res, 404, { error: 'Not found' })
   }
 }

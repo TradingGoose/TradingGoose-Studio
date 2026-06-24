@@ -109,7 +109,7 @@ const WorkflowStateSchema = z.object({
   lastSaved: z.number().optional(),
   isDeployed: z.boolean().optional(),
   deployedAt: z.coerce.date().optional(),
-  variables: z.record(z.any()).optional(),
+  variables: z.record(z.any()),
 })
 
 /**

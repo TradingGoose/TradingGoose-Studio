@@ -12,7 +12,7 @@ import { generateRequestId } from '@/lib/utils'
 import { loadWorkflowState } from '@/lib/workflows/db-helpers'
 import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/utils'
 import { applyWorkflowEntityName } from '@/lib/yjs/server/apply-workflow-state'
-import { tryDeleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 const logger = createLogger('WorkflowByIdAPI')
@@ -287,7 +287,7 @@ export async function DELETE(
 
     await db.delete(workflow).where(eq(workflow.id, workflowId))
 
-    await tryDeleteYjsSessionInSocketServer(workflowId)
+    await deleteYjsSessionInSocketServer(workflowId)
 
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully deleted workflow ${workflowId} in ${elapsed}ms`)
@@ -363,33 +363,21 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (updates.description !== undefined) updateData.description = updates.description
     if (updates.folderId !== undefined) updateData.folderId = updates.folderId
 
-    let updatedWorkflow = null
-    if (updates.name !== undefined) {
-      const workflowState = await loadWorkflowState(workflowId)
-      if (!workflowState) {
-        logger.warn(`[${requestId}] Workflow ${workflowId} is missing saved state for rename`)
-        return NextResponse.json({ error: 'Workflow state is missing' }, { status: 409 })
-      }
-
-      updatedWorkflow = await applyWorkflowEntityName(
-        workflowId,
-        createWorkflowSnapshot({
-          ...workflowState,
-          lastSaved: new Date(workflowState.lastSaved).toISOString(),
-        }),
-        workflowState.variables,
-        updates.name,
-        updateData
-      )
+    const workflowState = await loadWorkflowState(workflowId)
+    if (!workflowState) {
+      logger.warn(`[${requestId}] Workflow ${workflowId} is missing saved state for update`)
+      return NextResponse.json({ error: 'Workflow state is missing' }, { status: 409 })
     }
-
-    if (!updatedWorkflow) {
-      ;[updatedWorkflow] = await db
-        .update(workflow)
-        .set(updateData)
-        .where(eq(workflow.id, workflowId))
-        .returning()
-    }
+    const updatedWorkflow = await applyWorkflowEntityName(
+      workflowId,
+      createWorkflowSnapshot({
+        ...workflowState,
+        lastSaved: new Date(workflowState.lastSaved).toISOString(),
+      }),
+      workflowState.variables,
+      updates.name ?? workflowData.name,
+      updateData
+    )
 
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully updated workflow ${workflowId} in ${elapsed}ms`, {

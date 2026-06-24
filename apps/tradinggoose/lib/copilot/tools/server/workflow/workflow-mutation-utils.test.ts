@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import { loadBaseWorkflowState } from '@/lib/copilot/tools/server/workflow/workflow-mutation-utils'
-import { setWorkflowState, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import { setVariables, setWorkflowState, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 const mocks = vi.hoisted(() => ({
   readBootstrappedReviewTargetSnapshot: vi.fn(),
@@ -17,10 +17,14 @@ vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
     mocks.readBootstrappedReviewTargetSnapshot(...args),
 }))
 
-function encodeWorkflowSnapshot(workflowState: WorkflowSnapshot): string {
+function encodeWorkflowSnapshot(
+  workflowState: WorkflowSnapshot,
+  variables: Record<string, any> = {}
+): string {
   const doc = new Y.Doc()
   try {
     setWorkflowState(doc, workflowState, 'test')
+    setVariables(doc, variables, 'test')
     return Buffer.from(Y.encodeStateAsUpdate(doc)).toString('base64')
   } finally {
     doc.destroy()
@@ -59,7 +63,9 @@ describe('workflow mutation Yjs loader', () => {
       isOwner: false,
     })
     mocks.readBootstrappedReviewTargetSnapshot.mockResolvedValue({
-      snapshotBase64: encodeWorkflowSnapshot(workflowState),
+      snapshotBase64: encodeWorkflowSnapshot(workflowState, {
+        token: { id: 'token', name: 'token', value: 'secret' },
+      }),
       descriptor: {},
       runtime: { docState: 'active', replaySafe: true, reseededFromCanonical: false },
     })
@@ -81,6 +87,11 @@ describe('workflow mutation Yjs loader', () => {
       })
     )
     expect(result.blocks.fn1.name).toBe('Function')
+    expect(result.variables.token).toMatchObject({
+      id: 'token',
+      name: 'token',
+      value: 'secret',
+    })
   })
 
   it('rejects workflow edits without authenticated user context', async () => {

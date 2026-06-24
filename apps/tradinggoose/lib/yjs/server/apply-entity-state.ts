@@ -186,13 +186,21 @@ export async function applySavedEntityPersistedState(
   const normalizedFields = normalizeSavedEntityFields(entityKind, fields)
   await applyEntityStateInSocketServer(entityId, entityKind, normalizedFields)
   try {
-    const yjsFields = normalizeSavedEntityFields(
-      entityKind,
-      await readAppliedYjsEntityFields(entityKind, entityId, workspaceId)
-    )
-    await persistSavedEntityState(entityKind, entityId, yjsFields)
+    await persistSavedEntityYjsState(entityKind, entityId, workspaceId)
   } catch (error) {
     await deleteYjsSessionInSocketServer(entityId)
     throw error
   }
+}
+
+export async function persistSavedEntityYjsState(
+  entityKind: SavedEntityKind,
+  entityId: string,
+  workspaceId: string
+): Promise<void> {
+  const yjsFields = normalizeSavedEntityFields(
+    entityKind,
+    await readAppliedYjsEntityFields(entityKind, entityId, workspaceId)
+  )
+  await persistSavedEntityState(entityKind, entityId, yjsFields)
 }

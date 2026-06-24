@@ -12,6 +12,7 @@ import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
 import {
   createWorkflowSnapshot,
+  getVariablesSnapshot,
   readWorkflowSnapshot,
   type WorkflowSnapshot,
 } from '@/lib/yjs/workflow-session'
@@ -101,7 +102,7 @@ function buildWorkflowDocumentPreviewDiff(
 export async function loadBaseWorkflowState(
   workflowId: string,
   context?: ServerToolExecutionContext
-): Promise<WorkflowSnapshot> {
+): Promise<WorkflowSnapshot & { variables: Record<string, any> }> {
   const userId = context?.userId?.trim()
   if (!userId) {
     throw new Error('Authenticated user is required to edit workflow state')
@@ -129,7 +130,10 @@ export async function loadBaseWorkflowState(
   const doc = new Y.Doc()
   try {
     Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
-    return createWorkflowSnapshot(readWorkflowSnapshot(doc))
+    return {
+      ...createWorkflowSnapshot(readWorkflowSnapshot(doc)),
+      variables: getVariablesSnapshot(doc),
+    }
   } finally {
     doc.destroy()
   }
@@ -137,7 +141,7 @@ export async function loadBaseWorkflowState(
 
 export function buildWorkflowMutationResult(params: {
   workflowId: string
-  baseWorkflowState: WorkflowSnapshot
+  baseWorkflowState: WorkflowSnapshot & { variables: Record<string, any> }
   nextWorkflowState: WorkflowSnapshot
   renderEntityDocument: (workflowState: WorkflowSnapshot) => string
   documentFormat: string
@@ -173,6 +177,7 @@ export function buildWorkflowMutationResult(params: {
     entityDocument,
     documentFormat: params.documentFormat,
     workflowState: finalWorkflowState,
+    variables: params.baseWorkflowState.variables,
     reviewBaseStateHash: hashServerToolReviewBase(baseWorkflowState),
     preview: {
       ...preview,
@@ -196,7 +201,8 @@ export async function resolveWorkflowMutationResultForExecution(
   assertAcceptedServerToolReviewBase(context, result.reviewBaseStateHash)
   await applyWorkflowState(
     result.entityId,
-    createWorkflowSnapshot(result.workflowState as Partial<WorkflowSnapshot>)
+    createWorkflowSnapshot(result.workflowState as Partial<WorkflowSnapshot>),
+    result.variables
   )
 
   const {

@@ -47,6 +47,14 @@ vi.mock('@/lib/redis', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
+  bootstrapReviewTarget: vi.fn(async (descriptor) => ({
+    descriptor,
+    runtime: {
+      docState: 'active',
+      replaySafe: false,
+      reseededFromCanonical: false,
+    },
+  })),
   getRuntimeStateFromDoc: vi.fn(() => ({
     docState: 'active',
     replaySafe: false,
@@ -320,7 +328,7 @@ describe('Socket Server Index Integration', () => {
       )
 
       expect(response.statusCode).toBe(200)
-      expect(await getExistingDocument('workflow-1')).toBeNull()
+      expect(await getExistingDocument('workflow-1')).toBeTruthy()
 
       const persisted = await getState('workflow-1')
       expect(persisted).toBeTruthy()
@@ -369,7 +377,7 @@ describe('Socket Server Index Integration', () => {
       )
 
       expect(response.statusCode).toBe(200)
-      expect(await getExistingDocument('skill-1')).toBeNull()
+      expect(await getExistingDocument('skill-1')).toBeTruthy()
 
       const persisted = await getState('skill-1')
       expect(persisted).toBeTruthy()
@@ -483,84 +491,6 @@ describe('Socket Server Index Integration', () => {
         error: 'Session not found',
         sessionId: 'missing-workflow',
       })
-    })
-
-    it('should clear reseededFromCanonical on the live Yjs session doc', async () => {
-      setPersistence('review-session-live', { getState, storeState })
-      getDocument('review-session-live')
-      const liveDoc = await getExistingDocument('review-session-live')
-
-      liveDoc!.transact(() => {
-        liveDoc!.getMap('fields').set('title', 'Shared Tool')
-        liveDoc!.getMap('metadata').set('reseededFromCanonical', true)
-      }, 'test')
-      await storeState('review-session-live', Y.encodeStateAsUpdate(liveDoc!))
-
-      const response = await sendHttpRequestWithOptions(
-        PORT,
-        '/internal/yjs/sessions/review-session-live/clear-reseeded',
-        {
-          method: 'POST',
-          headers: {
-            'x-internal-secret': INTERNAL_SECRET,
-          },
-        }
-      )
-
-      expect(response.statusCode).toBe(200)
-      expect(JSON.parse(response.body)).toEqual({ success: true, updated: true })
-      expect(await getExistingDocument('review-session-live')).toBe(liveDoc)
-      expect(liveDoc!.getMap('metadata').get('reseededFromCanonical')).toBeUndefined()
-
-      const persisted = await getState('review-session-live')
-      const doc = new Y.Doc()
-      try {
-        Y.applyUpdate(doc, persisted!)
-        expect(doc.getMap('fields').get('title')).toBe('Shared Tool')
-        expect(doc.getMap('metadata').get('reseededFromCanonical')).toBeUndefined()
-      } finally {
-        doc.destroy()
-      }
-    })
-
-    it('should clear reseededFromCanonical from persisted session state without overwriting fields', async () => {
-      const persistedDoc = new Y.Doc()
-      try {
-        persistedDoc.transact(() => {
-          persistedDoc.getMap('fields').set('title', 'Persisted Tool')
-          persistedDoc.getMap('metadata').set('reseededFromCanonical', true)
-        }, 'test')
-        await storeState('review-session-cold', Y.encodeStateAsUpdate(persistedDoc))
-      } finally {
-        persistedDoc.destroy()
-      }
-
-      expect(await getExistingDocument('review-session-cold')).toBeNull()
-
-      const response = await sendHttpRequestWithOptions(
-        PORT,
-        '/internal/yjs/sessions/review-session-cold/clear-reseeded',
-        {
-          method: 'POST',
-          headers: {
-            'x-internal-secret': INTERNAL_SECRET,
-          },
-        }
-      )
-
-      expect(response.statusCode).toBe(200)
-      expect(JSON.parse(response.body)).toEqual({ success: true, updated: true })
-      expect(await getExistingDocument('review-session-cold')).toBeNull()
-
-      const persisted = await getState('review-session-cold')
-      const doc = new Y.Doc()
-      try {
-        Y.applyUpdate(doc, persisted!)
-        expect(doc.getMap('fields').get('title')).toBe('Persisted Tool')
-        expect(doc.getMap('metadata').get('reseededFromCanonical')).toBeUndefined()
-      } finally {
-        doc.destroy()
-      }
     })
 
     it('should delete the live workflow doc and persisted session through the internal Yjs route', async () => {

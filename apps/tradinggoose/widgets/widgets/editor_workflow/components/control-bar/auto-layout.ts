@@ -156,7 +156,9 @@ export async function applyAutoLayoutAndUpdateStore({
 
   try {
     const { getRegisteredWorkflowSession } = await import('@/lib/yjs/workflow-session-registry')
-    const { readWorkflowSnapshot, readWorkflowMap } = await import('@/lib/yjs/workflow-session')
+    const { getVariablesSnapshot, readWorkflowSnapshot, readWorkflowMap } = await import(
+      '@/lib/yjs/workflow-session'
+    )
     const { YJS_ORIGINS } = await import('@/lib/yjs/transaction-origins')
     const { useWorkflowRegistry } = await import('@/stores/workflows/registry/store')
 
@@ -246,6 +248,7 @@ export async function applyAutoLayoutAndUpdateStore({
         loops: stateToSave.loops || {},
         parallels: stateToSave.parallels || {},
         edges: sanitizeEdgesForStateSave(stateToSave.edges || []),
+        variables: getVariablesSnapshot(doc),
       }
 
       const response = await fetch(`/api/workflows/${resolvedWorkflowId}/state`, {

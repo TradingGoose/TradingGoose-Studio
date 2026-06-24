@@ -58,6 +58,18 @@ async function fetchFromSocketServer(
   return response
 }
 
+async function postJsonToSocketServer(path: string, body: unknown): Promise<void> {
+  await fetchFromSocketServer(
+    new URL(path, getSocketServerUrl()),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+    10000
+  )
+}
+
 export async function getYjsSnapshot(
   sessionId: string,
   params?: Record<string, string>
@@ -82,25 +94,13 @@ export async function applyWorkflowStateInSocketServer(
   variables?: Record<string, any>,
   entityName?: string
 ): Promise<void> {
-  const url = new URL(
+  await postJsonToSocketServer(
     `/internal/yjs/workflows/${encodeURIComponent(workflowId)}/apply-state`,
-    getSocketServerUrl()
-  )
-
-  await fetchFromSocketServer(
-    url,
     {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        workflowState,
-        ...(variables === undefined ? {} : { variables }),
-        ...(entityName ? { entityName } : {}),
-      }),
-    },
-    10000
+      workflowState,
+      ...(variables === undefined ? {} : { variables }),
+      ...(entityName ? { entityName } : {}),
+    }
   )
 }
 
@@ -109,21 +109,20 @@ export async function applyEntityStateInSocketServer(
   entityKind: string,
   fields: Record<string, unknown>
 ): Promise<void> {
-  const url = new URL(
+  await postJsonToSocketServer(
     `/internal/yjs/entities/${encodeURIComponent(entityId)}/apply-state`,
-    getSocketServerUrl()
+    { entityKind, fields }
   )
+}
 
-  await fetchFromSocketServer(
-    url,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ entityKind, fields }),
-    },
-    10000
+export async function applyYjsUpdateInSocketServer(
+  sessionId: string,
+  search: string,
+  updateBase64: string
+): Promise<void> {
+  await postJsonToSocketServer(
+    `/internal/yjs/sessions/${encodeURIComponent(sessionId)}/apply-update${search}`,
+    { updateBase64 }
   )
 }
 
@@ -137,31 +136,6 @@ export async function deleteYjsSessionInSocketServer(sessionId: string): Promise
     url,
     {
       method: 'DELETE',
-    },
-    10000
-  )
-}
-
-export async function tryDeleteYjsSessionInSocketServer(sessionId: string): Promise<void> {
-  try {
-    await deleteYjsSessionInSocketServer(sessionId)
-  } catch {
-    // Yjs session cleanup must not decide durable DB deletion.
-  }
-}
-
-export async function clearYjsSessionReseededFromCanonicalInSocketServer(
-  sessionId: string
-): Promise<void> {
-  const url = new URL(
-    `/internal/yjs/sessions/${encodeURIComponent(sessionId)}/clear-reseeded`,
-    getSocketServerUrl()
-  )
-
-  await fetchFromSocketServer(
-    url,
-    {
-      method: 'POST',
     },
     10000
   )

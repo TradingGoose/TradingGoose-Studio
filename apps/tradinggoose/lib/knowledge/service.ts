@@ -22,7 +22,7 @@ import type {
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess, getUserEntityPermissions } from '@/lib/permissions/utils'
 import { applySavedEntityPersistedState } from '@/lib/yjs/server/apply-entity-state'
-import { tryDeleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('KnowledgeBaseService')
 
@@ -437,7 +437,7 @@ export async function deleteKnowledgeBase(
       updatedAt: now,
     })
     .where(eq(knowledgeBase.id, knowledgeBaseId))
-  await tryDeleteYjsSessionInSocketServer(knowledgeBaseId)
+  await deleteYjsSessionInSocketServer(knowledgeBaseId)
 
   logger.info(`[${requestId}] Soft deleted knowledge base: ${knowledgeBaseId}`)
 }

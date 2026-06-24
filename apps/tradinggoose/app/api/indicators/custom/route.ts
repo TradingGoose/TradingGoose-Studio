@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { upsertIndicators } from '@/lib/indicators/custom/operations'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { tryDeleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { authenticateIndicatorRequest, checkWorkspacePermission } from '../utils'
 
 const logger = createLogger('IndicatorsAPI')
@@ -230,7 +230,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Indicator not found' }, { status: 404 })
     }
 
-    await tryDeleteYjsSessionInSocketServer(indicatorId)
+    await deleteYjsSessionInSocketServer(indicatorId)
 
     logger.info(`[${requestId}] Deleted indicator ${indicatorId}`)
     return NextResponse.json({ success: true }, { status: 200 })

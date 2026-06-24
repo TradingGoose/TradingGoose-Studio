@@ -31,6 +31,7 @@ describe('Workflow State API Route', () => {
     edges: [],
     loops: {},
     parallels: {},
+    variables: {},
   }
 
   beforeEach(() => {
@@ -110,19 +111,16 @@ describe('Workflow State API Route', () => {
     vi.clearAllMocks()
   })
 
-  it('preserves current Yjs variables when the request body omits them', async () => {
+  it('rejects workflow saves that omit variables', async () => {
     const { PUT } = await import('@/app/api/workflows/[id]/state/route')
-    const response = await PUT(createRequest(validStateBody), {
+    const bodyWithoutVariables = { ...validStateBody } as Record<string, unknown>
+    delete bodyWithoutVariables.variables
+    const response = await PUT(createRequest(bodyWithoutVariables), {
       params: Promise.resolve({ id: 'workflow-id' }),
     })
 
-    expect(response.status).toBe(200)
-    expect(applyWorkflowStateMock).toHaveBeenCalledWith(
-      'workflow-id',
-      expect.any(Object),
-      undefined,
-      'Workflow'
-    )
+    expect(response.status).toBe(400)
+    expect(applyWorkflowStateMock).not.toHaveBeenCalled()
   })
 
   it('replaces variables when the request body includes them', async () => {
