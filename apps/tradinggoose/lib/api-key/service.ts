@@ -8,6 +8,7 @@ import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('ApiKeyService')
+const API_KEY_WITH_ID_PATTERN = /^(?:sk-tradinggoose-|tradinggoose_)([^.]+)\.[^.]+$/
 
 export interface ApiKeyAuthOptions {
   userId?: string
@@ -111,8 +112,13 @@ export async function authenticateApiKeyFromHeader(
   apiKeyHeader: string,
   options: ApiKeyAuthOptions = {}
 ): Promise<ApiKeyAuthResult> {
-  if (!apiKeyHeader) {
+  const apiKey = apiKeyHeader.trim()
+  if (!apiKey) {
     return { success: false, error: 'API key required' }
+  }
+  const keyId = API_KEY_WITH_ID_PATTERN.exec(apiKey)?.[1]
+  if (!keyId) {
+    return { success: false, error: 'Invalid API key' }
   }
 
   try {
@@ -135,10 +141,7 @@ export async function authenticateApiKeyFromHeader(
 
     // Apply filters
     const conditions = []
-    const keyId = /^(?:sk-tradinggoose-|tradinggoose_)([^.]+)\.[^.]+$/.exec(apiKeyHeader)?.[1]
-    if (keyId) {
-      conditions.push(eq(apiKeyTable.id, keyId))
-    }
+    conditions.push(eq(apiKeyTable.id, keyId))
 
     if (options.userId) {
       conditions.push(eq(apiKeyTable.userId, options.userId))
@@ -176,7 +179,7 @@ export async function authenticateApiKeyFromHeader(
       }
 
       try {
-        const isValid = await authenticateApiKey(apiKeyHeader, storedKey.key)
+        const isValid = await authenticateApiKey(apiKey, storedKey.key)
         if (isValid) {
           return {
             success: true,
