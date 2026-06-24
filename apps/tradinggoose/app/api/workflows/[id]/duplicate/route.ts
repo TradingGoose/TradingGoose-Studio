@@ -9,15 +9,12 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import {
-  ensureUniqueBlockIds,
-  ensureUniqueEdgeIds,
   loadWorkflowState,
   regenerateWorkflowStateIds,
   remapVariableIds,
+  saveWorkflowToNormalizedTables,
 } from '@/lib/workflows/db-helpers'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
-import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
-import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import type { Variable } from '@/stores/variables/types'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
@@ -136,40 +133,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       marketplaceData: null,
     })
 
-    try {
-      const lastSaved = now.toISOString()
-      const stateWithUniqueBlockIds = await ensureUniqueBlockIds(
-        newWorkflowId,
-        duplicatedWorkflowState
-      )
-      const persistedDuplicatedState = await ensureUniqueEdgeIds(
-        newWorkflowId,
-        stateWithUniqueBlockIds
-      )
-
-      const duplicatedSnapshot = createWorkflowSnapshot({
-        ...(persistedDuplicatedState.direction !== undefined
-          ? { direction: persistedDuplicatedState.direction }
-          : {}),
-        blocks: persistedDuplicatedState.blocks,
-        edges: persistedDuplicatedState.edges,
-        loops: persistedDuplicatedState.loops,
-        parallels: persistedDuplicatedState.parallels,
-        lastSaved,
-        isDeployed: false,
-      })
-
-      await applyWorkflowState(newWorkflowId, duplicatedSnapshot, duplicatedVariables, name)
-    } catch (duplicationError) {
+    const saveResult = await saveWorkflowToNormalizedTables(newWorkflowId, {
+      ...duplicatedWorkflowState,
+      lastSaved: now.getTime(),
+      isDeployed: false,
+    })
+    if (!saveResult.success) {
       await db.delete(workflow).where(eq(workflow.id, newWorkflowId))
-      throw duplicationError
+      throw new Error(saveResult.error || 'Failed to persist duplicated workflow state')
     }
+    const persistedDuplicatedState = saveResult.normalizedState ?? duplicatedWorkflowState
 
     logger.info(`[${requestId}] Duplicated workflow state using ${sourceArtifacts.source} source`, {
       sourceWorkflowId,
       newWorkflowId,
-      blocksCount: Object.keys(duplicatedWorkflowState.blocks || {}).length,
-      edgesCount: duplicatedWorkflowState.edges?.length || 0,
+      blocksCount: Object.keys(persistedDuplicatedState.blocks || {}).length,
+      edgesCount: persistedDuplicatedState.edges?.length || 0,
       variablesCount: Object.keys(duplicatedVariables).length,
     })
 
@@ -186,11 +165,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         color: resolvedColor,
         workspaceId,
         folderId: folderId || null,
-        blocksCount: Object.keys(duplicatedWorkflowState.blocks || {}).length,
-        edgesCount: duplicatedWorkflowState.edges?.length || 0,
+        blocksCount: Object.keys(persistedDuplicatedState.blocks || {}).length,
+        edgesCount: persistedDuplicatedState.edges?.length || 0,
         subflowsCount:
-          Object.keys(duplicatedWorkflowState.loops || {}).length +
-          Object.keys(duplicatedWorkflowState.parallels || {}).length,
+          Object.keys(persistedDuplicatedState.loops || {}).length +
+          Object.keys(persistedDuplicatedState.parallels || {}).length,
       },
       { status: 201 }
     )

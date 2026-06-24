@@ -2,14 +2,9 @@ import { db } from '@tradinggoose/db'
 import { permissions, workflow, workspace } from '@tradinggoose/db/schema'
 import { and, desc, eq, isNull } from 'drizzle-orm'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
-import {
-  ensureUniqueBlockIds,
-  ensureUniqueEdgeIds,
-} from '@/lib/workflows/db-helpers'
+import { saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
 import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { toWorkspaceApiRecord } from '@/lib/workspaces/billing-owner'
-import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
-import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 type WorkspaceRecord = typeof workspace.$inferSelect
 
@@ -101,25 +96,12 @@ export async function createWorkspace(userId: string, name: string) {
   })
 
   const { workflowState } = buildDefaultWorkflowArtifacts()
-  const lastSaved = now.toISOString()
 
   try {
-    const stateWithUniqueBlockIds = await ensureUniqueBlockIds(workflowId, workflowState)
-    const persistedWorkflowState = await ensureUniqueEdgeIds(workflowId, stateWithUniqueBlockIds)
-
-    await applyWorkflowState(
-      workflowId,
-      createWorkflowSnapshot({
-        blocks: persistedWorkflowState.blocks,
-        edges: persistedWorkflowState.edges,
-        loops: persistedWorkflowState.loops,
-        parallels: persistedWorkflowState.parallels,
-        lastSaved,
-        isDeployed: false,
-      }),
-      {},
-      'default-agent'
-    )
+    const saveResult = await saveWorkflowToNormalizedTables(workflowId, workflowState)
+    if (!saveResult.success) {
+      throw new Error(saveResult.error || 'Failed to persist default workflow state')
+    }
   } catch (error) {
     await db.transaction(async (tx) => {
       await tx.delete(workflow).where(eq(workflow.id, workflowId))

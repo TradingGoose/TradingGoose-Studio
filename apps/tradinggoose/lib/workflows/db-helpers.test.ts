@@ -21,9 +21,12 @@ const mockDb = {
 
 const mockWorkflowTable = {
   id: 'id',
+  name: 'name',
   variables: 'variables',
   lastSynced: 'lastSynced',
   updatedAt: 'updatedAt',
+  isDeployed: 'isDeployed',
+  deployedAt: 'deployedAt',
   userId: 'userId',
 }
 
@@ -971,7 +974,7 @@ describe('Database Helpers', () => {
         edges: [],
         loops: {},
         parallels: {},
-        lastSaved: new Date().toISOString(),
+        lastSaved: '2026-04-06T00:10:00.000Z',
       }
       const yjsVariables = {
         'var-yjs': {
@@ -1025,7 +1028,13 @@ describe('Database Helpers', () => {
       mockDb.select.mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([{ isDeployed: false, deployedAt: null }]),
+            limit: vi.fn().mockResolvedValue([
+              {
+                isDeployed: false,
+                deployedAt: null,
+                lastSynced: new Date('2026-04-06T00:05:00.000Z'),
+              },
+            ]),
           }),
         }),
       })
@@ -1039,7 +1048,85 @@ describe('Database Helpers', () => {
       })
     })
 
-    it('loads materialized workflow state when no Yjs state exists', async () => {
+    it('ignores stale Yjs workflow state when saved normalized state is newer', async () => {
+      const variables = { 'var-db': { id: 'var-db', name: 'risk', value: 'saved' } }
+      const updatedAt = new Date('2026-04-06T00:20:00.000Z')
+      const yjsState = {
+        direction: 'LR' as const,
+        blocks: {},
+        edges: [],
+        loops: {},
+        parallels: {},
+        lastSaved: '2026-04-06T00:05:00.000Z',
+      }
+      let normalizedQueryCount = 0
+
+      mockReadBootstrappedReviewTargetSnapshot.mockResolvedValue(
+        buildWorkflowSnapshotResponseFromState(yjsState, {
+          'var-yjs': { id: 'var-yjs', value: 'stale' },
+        })
+      )
+      mockDb.select.mockImplementation((selection?: Record<string, unknown>) => {
+        const selectedFields = Object.keys(selection ?? {})
+        if (selectedFields.includes('lastSynced') && !selectedFields.includes('variables')) {
+          return {
+            from: vi.fn().mockReturnValue({
+              where: vi.fn().mockReturnValue({
+                limit: vi.fn().mockResolvedValue([
+                  {
+                    isDeployed: false,
+                    deployedAt: null,
+                    lastSynced: new Date('2026-04-06T00:10:00.000Z'),
+                  },
+                ]),
+              }),
+            }),
+          }
+        }
+        if (selectedFields.includes('variables')) {
+          return {
+            from: vi.fn().mockReturnValue({
+              where: vi.fn().mockReturnValue({
+                limit: vi.fn().mockResolvedValue([
+                  {
+                    name: 'Saved Workflow',
+                    variables,
+                    updatedAt,
+                    isDeployed: false,
+                    deployedAt: null,
+                  },
+                ]),
+              }),
+            }),
+          }
+        }
+
+        normalizedQueryCount += 1
+        const rows =
+          normalizedQueryCount === 1
+            ? mockBlocksFromDb
+            : normalizedQueryCount === 2
+              ? mockEdgesFromDb
+              : mockSubflowsFromDb
+        return {
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue(rows),
+          }),
+        }
+      })
+
+      const result = await dbHelpers.loadWorkflowState(mockWorkflowId)
+
+      expect(result).toMatchObject({
+        blocks: expect.objectContaining({
+          'block-1': expect.objectContaining({ id: 'block-1' }),
+        }),
+        variables,
+        source: 'db',
+      })
+    })
+
+    it('loads saved normalized workflow state when no Yjs state exists', async () => {
       const variables = { 'var-db': { id: 'var-db', name: 'risk', value: 'saved' } }
       const updatedAt = new Date('2026-04-06T00:05:00.000Z')
       const deployedAt = new Date('2026-04-06T00:10:00.000Z')

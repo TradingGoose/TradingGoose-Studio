@@ -8,15 +8,9 @@ import { getStableVibrantColor } from '@/lib/colors'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
-import {
-  ensureUniqueBlockIds,
-  ensureUniqueEdgeIds,
-  remapVariableIds,
-} from '@/lib/workflows/db-helpers'
+import { remapVariableIds, saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
 import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
-import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
-import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
 const logger = createLogger('WorkflowAPI')
@@ -48,9 +42,7 @@ function getInitialWorkflowState(
   const blocks = isPlainObject(sourceRecord.blocks) ? sourceRecord.blocks : {}
   const edges = Array.isArray(sourceRecord.edges) ? sourceRecord.edges : []
   const loops = isPlainObject(sourceRecord.loops) ? sourceRecord.loops : {}
-  const parallels = isPlainObject(sourceRecord.parallels)
-    ? sourceRecord.parallels
-    : {}
+  const parallels = isPlainObject(sourceRecord.parallels) ? sourceRecord.parallels : {}
   const variables = isPlainObject(sourceRecord.variables) ? sourceRecord.variables : {}
   const direction =
     sourceRecord.direction === 'TD' || sourceRecord.direction === 'LR'
@@ -204,29 +196,10 @@ export async function POST(req: NextRequest) {
       marketplaceData: null,
     })
 
-    try {
-      const initialStateWithUniqueIds = await ensureUniqueEdgeIds(
-        workflowId,
-        await ensureUniqueBlockIds(workflowId, initialState.canonicalState)
-      )
-
-      const defaultWorkflowSnapshot = createWorkflowSnapshot({
-        ...(initialStateWithUniqueIds.direction
-          ? { direction: initialStateWithUniqueIds.direction }
-          : {}),
-        blocks: initialStateWithUniqueIds.blocks,
-        edges: initialStateWithUniqueIds.edges,
-        loops: initialStateWithUniqueIds.loops,
-        parallels: initialStateWithUniqueIds.parallels,
-        lastSaved: now.toISOString(),
-        isDeployed: false,
-      })
-
-      await applyWorkflowState(workflowId, defaultWorkflowSnapshot, remappedVariables, name)
-      logger.info(`[${requestId}] Seeded Yjs doc for new workflow ${workflowId}`)
-    } catch (error) {
+    const saveResult = await saveWorkflowToNormalizedTables(workflowId, initialState.canonicalState)
+    if (!saveResult.success) {
       await db.delete(workflow).where(eq(workflow.id, workflowId))
-      throw error
+      throw new Error(saveResult.error || 'Failed to persist initial workflow state')
     }
 
     logger.info(`[${requestId}] Successfully created workflow ${workflowId}`)

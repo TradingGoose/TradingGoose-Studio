@@ -710,6 +710,64 @@ describe('Workflow By ID API Route', () => {
       expect(data.workflow.name).toBe('Updated Workflow')
     })
 
+    it('updates DB-only metadata without loading workflow state', async () => {
+      const mockWorkflow = {
+        id: 'workflow-123',
+        userId: 'user-123',
+        name: 'Test Workflow',
+        description: 'Old description',
+        folderId: null,
+        workspaceId: null,
+      }
+
+      const updateData = { description: 'New description', folderId: 'folder-1' }
+      const updatedWorkflow = { ...mockWorkflow, ...updateData, updatedAt: new Date() }
+
+      vi.doMock('@/lib/auth', () => ({
+        getSession: vi.fn().mockResolvedValue({
+          user: { id: 'user-123' },
+        }),
+      }))
+
+      mockReadWorkflowById.mockResolvedValueOnce(mockWorkflow)
+      mockReadWorkflowAccessContext.mockResolvedValueOnce({
+        workflow: mockWorkflow,
+        workspaceOwnerId: null,
+        workspacePermission: null,
+        isOwner: true,
+        isWorkspaceOwner: false,
+      })
+
+      vi.doMock('@tradinggoose/db', () => ({
+        db: {
+          update: vi.fn().mockReturnValue({
+            set: vi.fn().mockReturnValue({
+              where: vi.fn().mockReturnValue({
+                returning: vi.fn().mockResolvedValue([updatedWorkflow]),
+              }),
+            }),
+          }),
+        },
+        workflow: {},
+      }))
+
+      const req = new NextRequest('http://localhost:3000/api/workflows/workflow-123', {
+        method: 'PUT',
+        body: JSON.stringify(updateData),
+      })
+      const params = Promise.resolve({ id: 'workflow-123' })
+
+      const { PUT } = await import('@/app/api/workflows/[id]/route')
+      const response = await PUT(req, { params })
+
+      expect(response.status).toBe(200)
+      const data = await response.json()
+      expect(data.workflow.description).toBe('New description')
+      expect(data.workflow.folderId).toBe('folder-1')
+      expect(mockLoadWorkflowState).not.toHaveBeenCalled()
+      expect(mockApplyWorkflowEntityName).not.toHaveBeenCalled()
+    })
+
     it('should deny update for users with only read permission', async () => {
       const mockWorkflow = {
         id: 'workflow-123',

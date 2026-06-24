@@ -140,24 +140,42 @@ export async function loadWorkflowState(
   try {
     const liveState = await loadWorkflowStateFromYjs(workflowId)
     if (liveState) {
-      const [workflowDeploymentState] = await db
-        .select({ isDeployed: workflow.isDeployed, deployedAt: workflow.deployedAt })
+      const [workflowStateRow] = await db
+        .select({
+          isDeployed: workflow.isDeployed,
+          deployedAt: workflow.deployedAt,
+          lastSynced: workflow.lastSynced,
+        })
         .from(workflow)
         .where(eq(workflow.id, workflowId))
         .limit(1)
-      if (!workflowDeploymentState) {
+      if (!workflowStateRow) {
         return null
       }
-      return {
-        ...liveState,
-        isDeployed: workflowDeploymentState.isDeployed ?? false,
-        deployedAt: toISOStringOrUndefined(workflowDeploymentState.deployedAt),
-        source: 'yjs',
+
+      const liveSavedAt = resolveStoredDateValue(liveState.lastSaved)
+      const savedLastSynced = resolveStoredDateValue(workflowStateRow.lastSynced)
+      if (!savedLastSynced || (liveSavedAt && liveSavedAt >= savedLastSynced)) {
+        return {
+          ...liveState,
+          isDeployed: workflowStateRow.isDeployed ?? false,
+          deployedAt: toISOStringOrUndefined(workflowStateRow.deployedAt),
+          source: 'yjs',
+        }
       }
+
+      logger.warn(
+        `Ignoring stale live workflow state ${workflowId}; using saved normalized state`,
+        {
+          workflowId,
+          liveLastSaved: liveSavedAt?.toISOString(),
+          savedLastSynced: savedLastSynced.toISOString(),
+        }
+      )
     }
   } catch (error) {
     logger.warn(
-      `Failed to load live workflow state ${workflowId}; using materialized workflow state`,
+      `Failed to load live workflow state ${workflowId}; using saved normalized workflow state`,
       { error }
     )
   }

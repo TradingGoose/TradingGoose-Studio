@@ -363,6 +363,26 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (updates.description !== undefined) updateData.description = updates.description
     if (updates.folderId !== undefined) updateData.folderId = updates.folderId
 
+    if (updates.name === undefined || updates.name === workflowData.name) {
+      const [updatedWorkflow] = await db
+        .update(workflow)
+        .set(updateData)
+        .where(eq(workflow.id, workflowId))
+        .returning()
+
+      if (!updatedWorkflow) {
+        logger.warn(`[${requestId}] Workflow ${workflowId} not found while updating metadata`)
+        return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
+      }
+
+      const elapsed = Date.now() - startTime
+      logger.info(`[${requestId}] Successfully updated workflow ${workflowId} in ${elapsed}ms`, {
+        updates,
+      })
+
+      return NextResponse.json({ workflow: updatedWorkflow }, { status: 200 })
+    }
+
     const workflowState = await loadWorkflowState(workflowId)
     if (!workflowState) {
       logger.warn(`[${requestId}] Workflow ${workflowId} is missing saved state for update`)

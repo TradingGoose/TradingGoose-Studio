@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 describe('Workflow API Route', () => {
   const insertValuesMock = vi.fn()
   const deleteWhereMock = vi.fn()
-  const applyWorkflowStateMock = vi.fn()
+  const saveWorkflowToNormalizedTablesMock = vi.fn()
   const randomUUIDMock = vi.fn()
 
   const createRequest = (body: Record<string, unknown>) =>
@@ -25,7 +25,10 @@ describe('Workflow API Route', () => {
 
     insertValuesMock.mockResolvedValue(undefined)
     deleteWhereMock.mockResolvedValue(undefined)
-    applyWorkflowStateMock.mockResolvedValue(undefined)
+    saveWorkflowToNormalizedTablesMock.mockImplementation(async (_workflowId, state) => ({
+      success: true,
+      normalizedState: state,
+    }))
     randomUUIDMock.mockReset()
     randomUUIDMock.mockReturnValueOnce('workflow-123').mockReturnValueOnce('variable-123')
     vi.stubGlobal('crypto', {
@@ -85,8 +88,6 @@ describe('Workflow API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
-      ensureUniqueBlockIds: vi.fn(async (_workflowId: string, state: any) => state),
-      ensureUniqueEdgeIds: vi.fn(async (_workflowId: string, state: any) => state),
       remapVariableIds: vi.fn((variables: Record<string, any>, workflowId: string) =>
         Object.fromEntries(
           Object.entries(variables).map(([key, variable]) => [
@@ -99,14 +100,7 @@ describe('Workflow API Route', () => {
           ])
         )
       ),
-    }))
-
-    vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
-      applyWorkflowState: applyWorkflowStateMock,
-    }))
-
-    vi.doMock('@/lib/yjs/workflow-session', () => ({
-      createWorkflowSnapshot: vi.fn((snapshot) => snapshot),
+      saveWorkflowToNormalizedTables: saveWorkflowToNormalizedTablesMock,
     }))
 
     vi.doMock('@/lib/telemetry/tracer', () => ({
@@ -118,7 +112,7 @@ describe('Workflow API Route', () => {
     vi.unstubAllGlobals()
   })
 
-  it('applies initial workflow state through the workflow state helper', async () => {
+  it('persists initial workflow state to normalized tables', async () => {
     const initialWorkflowState = {
       blocks: {
         'block-1': {
@@ -157,7 +151,7 @@ describe('Workflow API Route', () => {
 
     expect(response.status).toBe(200)
     expect(insertValuesMock).toHaveBeenCalledOnce()
-    expect(applyWorkflowStateMock).toHaveBeenCalledOnce()
+    expect(saveWorkflowToNormalizedTablesMock).toHaveBeenCalledOnce()
 
     const insertedWorkflow = insertValuesMock.mock.calls[0][0]
 
@@ -170,7 +164,7 @@ describe('Workflow API Route', () => {
       type: 'plain',
       value: 'secret',
     })
-    expect(applyWorkflowStateMock).toHaveBeenCalledWith(
+    expect(saveWorkflowToNormalizedTablesMock).toHaveBeenCalledWith(
       insertedWorkflow.id,
       expect.objectContaining({
         blocks: initialWorkflowState.blocks,
@@ -178,15 +172,16 @@ describe('Workflow API Route', () => {
         loops: initialWorkflowState.loops,
         parallels: initialWorkflowState.parallels,
         isDeployed: false,
-        lastSaved: expect.any(String),
-      }),
-      insertedWorkflow.variables,
-      'Workflow Copy'
+        lastSaved: expect.any(Number),
+      })
     )
   })
 
-  it('rolls back the workflow row when workflow state apply fails', async () => {
-    applyWorkflowStateMock.mockRejectedValueOnce(new Error('canonical Yjs unavailable'))
+  it('rolls back the workflow row when initial state persistence fails', async () => {
+    saveWorkflowToNormalizedTablesMock.mockResolvedValueOnce({
+      success: false,
+      error: 'normalized state unavailable',
+    })
 
     const { POST } = await import('@/app/api/workflows/route')
     const response = await POST(
@@ -204,7 +199,7 @@ describe('Workflow API Route', () => {
     )
 
     expect(response.status).toBe(500)
-    expect(applyWorkflowStateMock).toHaveBeenCalledOnce()
+    expect(saveWorkflowToNormalizedTablesMock).toHaveBeenCalledOnce()
     expect(deleteWhereMock).toHaveBeenCalledOnce()
   })
 
@@ -218,20 +213,18 @@ describe('Workflow API Route', () => {
     )
 
     expect(response.status).toBe(200)
-    expect(applyWorkflowStateMock).toHaveBeenCalledOnce()
+    expect(saveWorkflowToNormalizedTablesMock).toHaveBeenCalledOnce()
 
     const insertedWorkflow = insertValuesMock.mock.calls[0][0]
     expect(insertedWorkflow.variables).toEqual({})
-    expect(applyWorkflowStateMock).toHaveBeenCalledWith(
+    expect(saveWorkflowToNormalizedTablesMock).toHaveBeenCalledWith(
       insertedWorkflow.id,
       expect.objectContaining({
         blocks: {},
         edges: [],
         loops: {},
         parallels: {},
-      }),
-      {},
-      'Blank Workflow'
+      })
     )
   })
 

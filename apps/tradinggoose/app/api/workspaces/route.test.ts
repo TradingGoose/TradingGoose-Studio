@@ -17,7 +17,7 @@ describe('Workspaces API Route', () => {
   const updateWhereMock = vi.fn()
   const updateSetMock = vi.fn()
   const updateMock = vi.fn()
-  const mockApplyWorkflowState = vi.fn()
+  const mockSaveWorkflowToNormalizedTables = vi.fn()
   let userWorkspaces: Array<{
     workspace: Record<string, unknown>
     permissionType: 'admin' | 'write' | 'read' | null
@@ -36,7 +36,7 @@ describe('Workspaces API Route', () => {
     updateWhereMock.mockResolvedValue([])
     updateSetMock.mockReturnValue({ where: updateWhereMock })
     updateMock.mockReturnValue({ set: updateSetMock })
-    mockApplyWorkflowState.mockResolvedValue(undefined)
+    mockSaveWorkflowToNormalizedTables.mockResolvedValue({ success: true })
 
     vi.doMock('@tradinggoose/db', () => ({
       db: {
@@ -107,16 +107,7 @@ describe('Workspaces API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
-      ensureUniqueBlockIds: vi.fn(async (_workflowId: string, state: any) => state),
-      ensureUniqueEdgeIds: vi.fn(async (_workflowId: string, state: any) => state),
-    }))
-
-    vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
-      applyWorkflowState: mockApplyWorkflowState,
-    }))
-
-    vi.doMock('@/lib/yjs/workflow-session', () => ({
-      createWorkflowSnapshot: vi.fn(() => ({})),
+      saveWorkflowToNormalizedTables: mockSaveWorkflowToNormalizedTables,
     }))
 
     vi.doMock('@/lib/workspaces/billing-owner', () => ({
@@ -250,8 +241,11 @@ describe('Workspaces API Route', () => {
     expect(updateMock).toHaveBeenCalled()
   })
 
-  it('removes a newly created workspace when default workflow state apply fails', async () => {
-    mockApplyWorkflowState.mockRejectedValue(new Error('socket unavailable'))
+  it('removes a newly created workspace when default workflow state persistence fails', async () => {
+    mockSaveWorkflowToNormalizedTables.mockResolvedValue({
+      success: false,
+      error: 'normalized state unavailable',
+    })
 
     const response = await postWorkspace()
 
