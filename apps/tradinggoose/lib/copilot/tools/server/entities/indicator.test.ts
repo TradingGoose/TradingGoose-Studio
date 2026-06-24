@@ -60,6 +60,7 @@ describe('indicator server tools', () => {
     })
     mockReadBootstrappedSavedEntityFields.mockResolvedValue({
       name: 'Custom Momentum',
+      color: '#10b981',
       pineCode: 'indicator("Custom Momentum")',
       inputMeta: { Length: { defaultValue: 14 } },
     })
@@ -98,6 +99,7 @@ describe('indicator server tools', () => {
       documentFormat: INDICATOR_DOCUMENT_FORMAT,
     })
     expect(result).not.toHaveProperty('entityId')
+    expect(JSON.parse(result.entityDocument).color).toBe('')
     expect(mockVerifyReviewTargetAccess).not.toHaveBeenCalled()
   })
 
@@ -126,6 +128,10 @@ describe('indicator server tools', () => {
       entityId: 'indicator-custom-1',
       entityName: 'Custom Momentum',
       documentFormat: INDICATOR_DOCUMENT_FORMAT,
+    })
+    expect(JSON.parse(result.entityDocument)).toMatchObject({
+      name: 'Custom Momentum',
+      color: '#10b981',
     })
   })
 })

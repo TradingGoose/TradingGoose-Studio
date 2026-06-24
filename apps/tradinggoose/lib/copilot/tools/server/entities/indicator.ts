@@ -79,6 +79,7 @@ async function createIndicatorEntity(
       {
         id: entityId,
         name: String(fields.name ?? ''),
+        color: String(fields.color ?? ''),
         pineCode: String(fields.pineCode ?? ''),
         inputMeta:
           fields.inputMeta &&
@@ -127,6 +128,7 @@ export const readIndicatorServerTool: EntityServerTool = {
       if (defaultIndicator) {
         return buildDocumentEnvelope(ENTITY_KIND_INDICATOR, undefined, {
           name: defaultIndicator.name,
+          color: '',
           pineCode: defaultIndicator.pineCode,
           inputMeta: defaultIndicator.inputMeta ?? null,
         })

@@ -43,10 +43,7 @@ function normalizeSavedEntityFields(
   fields: Record<string, unknown>
 ): Record<string, unknown> {
   try {
-    const normalized = normalizeEntityFields(entityKind, fields)
-    return entityKind === 'indicator'
-      ? { ...normalized, color: String(fields.color ?? '').trim() }
-      : normalized
+    return normalizeEntityFields(entityKind, fields)
   } catch (error) {
     throw new SavedEntityPersistenceError(
       400,

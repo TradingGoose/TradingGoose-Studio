@@ -145,6 +145,7 @@ describe('entity document mutation helpers', () => {
         documentFormat: INDICATOR_DOCUMENT_FORMAT,
         entityDocument: JSON.stringify({
           name: 'Updated Indicator',
+          color: '#10b981',
           pineCode: "const mode = input.string('fast', 'Mode')",
           inputMeta,
         }),
@@ -158,6 +159,7 @@ describe('entity document mutation helpers', () => {
       'workspace-1',
       {
         name: 'Updated Indicator',
+        color: '#10b981',
         pineCode: "const mode = input.string('fast', 'Mode')",
         inputMeta,
       }

@@ -30,6 +30,7 @@ interface UpsertIndicatorsParams {
   indicators: Array<{
     id?: string
     name: string
+    color?: string
     pineCode: string
     inputMeta?: Record<string, unknown>
   }>
@@ -92,7 +93,7 @@ export async function upsertIndicators({
         workspaceId,
         userId,
         name: indicator.name,
-        color: getStableVibrantColor(indicatorId),
+        color: indicator.color?.trim() || getStableVibrantColor(indicatorId),
         pineCode: indicator.pineCode,
         inputMeta: indicator.inputMeta ?? null,
         createdAt: nowTime,

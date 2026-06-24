@@ -30,6 +30,10 @@ vi.mock('nanoid', () => ({
   nanoid: (...args: unknown[]) => mockNanoid(...args),
 }))
 
+vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
+  applySavedEntityPersistedState: vi.fn(),
+}))
+
 import { importSkills } from '@/lib/skills/operations'
 
 const createQueryChain = (result: unknown) => {
