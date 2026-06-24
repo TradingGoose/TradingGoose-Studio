@@ -98,6 +98,45 @@ describe('editWorkflowServerTool', () => {
     expect(result.entityDocument).toContain('Compute Indicators')
   })
 
+  it('re-lays out existing blocks when the graph direction changes', async () => {
+    mockLoadBaseWorkflowState.mockResolvedValueOnce({
+      ...BASE_WORKFLOW_STATE,
+      direction: 'LR',
+      blocks: {
+        input1: {
+          ...BASE_WORKFLOW_STATE.blocks.input1,
+          horizontalHandles: true,
+          position: { x: 0, y: 0 },
+        },
+        fn1: {
+          ...BASE_WORKFLOW_STATE.blocks.fn1,
+          horizontalHandles: true,
+          position: { x: 550, y: 0 },
+        },
+      },
+    })
+
+    const result = await editWorkflowServerTool.execute(
+      {
+        entityId: 'wf-1',
+        entityDocument: graph([
+          'flowchart TD',
+          '  n1["Input Form<br/>id: input1<br/>type: input_trigger"]',
+          '  n2["Compute Indicators<br/>id: fn1<br/>type: function"]',
+          '  n1 --> n2',
+        ]),
+      },
+      { userId: 'user-1', accessLevel: 'limited' }
+    )
+
+    expect(result.workflowState.direction).toBe('TD')
+    expect(result.workflowState.blocks.input1.horizontalHandles).toBe(false)
+    expect(result.workflowState.blocks.fn1.horizontalHandles).toBe(false)
+    expect(result.workflowState.blocks.fn1.position.y).toBeGreaterThan(
+      result.workflowState.blocks.input1.position.y
+    )
+  })
+
   it('rejects existing block label renames instead of ignoring them', async () => {
     await expect(
       editWorkflowServerTool.execute(
@@ -226,7 +265,7 @@ describe('editWorkflowServerTool', () => {
       {
         entityId: 'wf-1',
         entityDocument: graph([
-          'flowchart LR',
+          'flowchart TD',
           '  subgraph sg_loop1["Loop<br/>id: loop1<br/>type: loop"]',
           '    n1["Compute Indicators<br/>id: fn1<br/>type: function"]',
           '  end',

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getQueryClient } from '@/app/query-provider'
 import { environmentKeys } from '@/hooks/queries/environment'
+import { knowledgeKeys } from '@/hooks/queries/knowledge'
 import { skillsKeys } from '@/hooks/queries/skills'
 import { workflowKeys } from '@/hooks/queries/workflows'
 import {
@@ -81,19 +82,35 @@ describe('tool-registry', () => {
     ).toThrow()
   })
 
-  it('injects hosted workspace context for workspace environment mutations', () => {
+  it('injects hosted workspace context for workspace-scoped environment and credential tools', () => {
     const context = createExecutionContext({
       toolCallId,
       toolName: 'set_environment_variables',
       provenance: { workspaceId: 'workspace-1' },
     })
 
-    const args = { scope: 'workspace', variables: { API_KEY: 'secret' } }
-    expect(prepareCopilotToolArgs('set_environment_variables', args, context)).toEqual({
+    expect(
+      prepareCopilotToolArgs(
+        'set_environment_variables',
+        { scope: 'workspace', variables: { API_KEY: 'secret' } },
+        context
+      )
+    ).toEqual({
       scope: 'workspace',
       workspaceId: 'workspace-1',
       variables: { API_KEY: 'secret' },
     })
+
+    for (const toolName of [
+      'read_environment_variables',
+      'read_credentials',
+      'read_oauth_credentials',
+    ] as const) {
+      expect(prepareCopilotToolArgs(toolName, { scope: 'workspace' }, context)).toEqual({
+        scope: 'workspace',
+        workspaceId: 'workspace-1',
+      })
+    }
 
     expect(() =>
       prepareCopilotToolArgs(
@@ -102,6 +119,24 @@ describe('tool-registry', () => {
         context
       )
     ).toThrow()
+  })
+
+  it('preserves personal scope for environment and credential tools in workspace context', () => {
+    const context = createExecutionContext({
+      toolCallId,
+      toolName: 'read_environment_variables',
+      provenance: { workspaceId: 'workspace-1' },
+    })
+
+    for (const toolName of [
+      'read_environment_variables',
+      'read_credentials',
+      'read_oauth_credentials',
+    ] as const) {
+      expect(prepareCopilotToolArgs(toolName, { scope: 'personal' }, context)).toEqual({
+        scope: 'personal',
+      })
+    }
   })
 
   it('injects hosted workspace context into workspace-targeted knowledge base tools', () => {
@@ -231,6 +266,25 @@ describe('tool-registry', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: skillsKeys.list('workspace-1'),
     })
+  })
+
+  it('invalidates the selected knowledge base detail tree after server-managed knowledge mutations', async () => {
+    const invalidateQueries = vi
+      .spyOn(getQueryClient(), 'invalidateQueries')
+      .mockResolvedValue(undefined)
+
+    await handleCopilotServerToolSuccess('edit_knowledge_base', {
+      workspaceId: 'workspace-1',
+      entityId: 'kb-1',
+    })
+
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: knowledgeKeys.list('workspace-1'),
+    })
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: knowledgeKeys.detail('kb-1'),
+    })
+    expect(invalidateQueries).toHaveBeenCalledTimes(2)
   })
 
   it('invalidates the matching environment query after server-managed environment mutations', async () => {

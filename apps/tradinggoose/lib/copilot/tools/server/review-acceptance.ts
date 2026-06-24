@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { verification } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, like, lte } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import type { ToolId } from '@/lib/copilot/registry'
 import {
@@ -20,7 +20,10 @@ type StagedServerToolReview = {
   toolName?: unknown
   encryptedPayload?: unknown
   baseStateHash?: unknown
-  executionContext?: Pick<ServerToolExecutionContext, 'contextEntityKind' | 'contextEntityId' | 'workspaceId'>
+  executionContext?: Pick<
+    ServerToolExecutionContext,
+    'contextEntityKind' | 'contextEntityId' | 'workspaceId'
+  >
   reviewClaimId?: unknown
 }
 
@@ -35,6 +38,17 @@ function readBaseStateHash(result: unknown): string {
   }
 
   throw new Error('Server tool review result is missing base state')
+}
+
+async function deleteExpiredReviewTokens(now = new Date()) {
+  await db
+    .delete(verification)
+    .where(
+      and(
+        like(verification.identifier, `${REVIEW_TOKEN_PREFIX}%`),
+        lte(verification.expiresAt, now)
+      )
+    )
 }
 
 export async function stageServerManagedToolReview(
@@ -62,6 +76,7 @@ export async function stageServerManagedToolReview(
   >
   const { contextEntityKind, contextEntityId, workspaceId } = context
   const encryptedPayload = (await encryptSecret(JSON.stringify(payload ?? null))).encrypted
+  await deleteExpiredReviewTokens(now)
   await db.insert(verification).values({
     id: nanoid(),
     identifier: `${REVIEW_TOKEN_PREFIX}${reviewToken}`,
@@ -92,16 +107,17 @@ export async function acceptServerManagedToolReview(
     throw new Error('Authenticated user is required to accept server tool review')
   }
 
+  await deleteExpiredReviewTokens()
+
   const [row] = await db
     .select({
       value: verification.value,
-      expiresAt: verification.expiresAt,
     })
     .from(verification)
     .where(eq(verification.identifier, `${REVIEW_TOKEN_PREFIX}${reviewToken}`))
     .limit(1)
 
-  if (!row || row.expiresAt <= new Date()) {
+  if (!row) {
     throw new Error('Server tool review token is invalid or expired')
   }
 

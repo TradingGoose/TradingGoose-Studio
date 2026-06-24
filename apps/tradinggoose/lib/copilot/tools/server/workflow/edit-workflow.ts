@@ -4,6 +4,7 @@ import type {
   ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
+import { applyAutoLayout } from '@/lib/workflows/autolayout'
 import { resolveBlockRuntimeState } from '@/lib/workflows/block-outputs'
 import { WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 import {
@@ -145,6 +146,22 @@ function setParent(
   return { ...block, position: nextPosition, data: nextData }
 }
 
+function applyWorkflowDirectionLayout(
+  blocks: Record<string, BlockState>,
+  edges: WorkflowSnapshot['edges'],
+  direction: 'TD' | 'LR'
+): Record<string, BlockState> {
+  const horizontalHandles = direction === 'LR'
+  const orientedBlocks = Object.fromEntries(
+    Object.entries(blocks).map(([blockId, block]) => [blockId, { ...block, horizontalHandles }])
+  )
+  const layout = applyAutoLayout(orientedBlocks, edges)
+  if (!layout.success) {
+    throw new Error(`Invalid edited workflow: failed to apply ${direction} layout.`)
+  }
+  return layout.blocks
+}
+
 function applyGraphMermaidToWorkflow(
   baseWorkflowState: WorkflowSnapshot,
   entityDocument: string,
@@ -234,14 +251,18 @@ function applyGraphMermaidToWorkflow(
     type: 'default',
     data: {},
   }))
+  const graphDirectionChanged = graph.direction !== (baseWorkflowState.direction ?? 'TD')
+  const finalBlocks = graphDirectionChanged
+    ? applyWorkflowDirectionLayout(blocks, edges, graph.direction)
+    : blocks
 
   return createWorkflowSnapshot({
     ...baseWorkflowState,
     direction: graph.direction,
-    blocks,
+    blocks: finalBlocks,
     edges,
-    loops: generateLoopBlocks(blocks),
-    parallels: generateParallelBlocks(blocks),
+    loops: generateLoopBlocks(finalBlocks),
+    parallels: generateParallelBlocks(finalBlocks),
   }) as WorkflowSnapshot & { direction: 'TD' | 'LR' }
 }
 

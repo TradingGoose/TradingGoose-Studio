@@ -49,6 +49,9 @@ const setEnvironmentVariablesExecute = vi.fn(async () => ({
   scope: 'workspace',
   message: 'ok',
 }))
+const noopEntityExecute = vi.fn(async () => ({}))
+
+const entityTool = (name: string, execute = noopEntityExecute) => ({ name, execute })
 
 vi.mock('@/lib/copilot/tools/server/blocks/get-available-blocks', () => ({
   getAvailableBlocksServerTool: {
@@ -147,6 +150,35 @@ vi.mock('@/lib/copilot/tools/server/user/set-environment-variables', () => ({
     name: 'set_environment_variables',
     execute: setEnvironmentVariablesExecute,
   },
+}))
+vi.mock('@/lib/copilot/tools/server/entities', () => ({
+  createCustomToolServerTool: entityTool('create_custom_tool'),
+  createIndicatorServerTool: entityTool('create_indicator'),
+  createMcpServerServerTool: entityTool('create_mcp_server'),
+  createSkillServerTool: entityTool('create_skill'),
+  createWorkflowServerTool: entityTool('create_workflow'),
+  editCustomToolServerTool: entityTool('edit_custom_tool'),
+  editIndicatorServerTool: entityTool('edit_indicator'),
+  editMcpServerServerTool: entityTool('edit_mcp_server'),
+  editSkillServerTool: entityTool('edit_skill'),
+  editWorkflowBlockServerTool: entityTool('edit_workflow_block'),
+  editWorkflowServerTool: entityTool('edit_workflow', editWorkflowExecute),
+  editWorkflowVariableServerTool: entityTool('edit_workflow_variable'),
+  listCustomToolsServerTool: entityTool('list_custom_tools'),
+  listIndicatorsServerTool: entityTool('list_indicators'),
+  listMcpServersServerTool: entityTool('list_mcp_servers'),
+  listSkillsServerTool: entityTool('list_skills'),
+  listWorkflowsServerTool: entityTool('list_workflows'),
+  readCustomToolServerTool: entityTool('read_custom_tool'),
+  readIndicatorServerTool: entityTool('read_indicator'),
+  readMcpServerServerTool: entityTool('read_mcp_server'),
+  readSkillServerTool: entityTool('read_skill'),
+  readWorkflowServerTool: entityTool('read_workflow'),
+  renameCustomToolServerTool: entityTool('rename_custom_tool'),
+  renameIndicatorServerTool: entityTool('rename_indicator'),
+  renameMcpServerServerTool: entityTool('rename_mcp_server'),
+  renameSkillServerTool: entityTool('rename_skill'),
+  renameWorkflowServerTool: entityTool('rename_workflow'),
 }))
 vi.mock('@/lib/copilot/tools/server/workflow/edit-workflow', () => ({
   editWorkflowServerTool: { name: 'edit_workflow', execute: editWorkflowExecute },

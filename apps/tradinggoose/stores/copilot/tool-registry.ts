@@ -143,9 +143,6 @@ const WORKSPACE_TARGETED_TOOL_NAMES = new Set<ToolId>([
   CopilotTool.create_workflow,
   CopilotTool.list_workflows,
   CopilotTool.get_agent_accessory_catalog,
-  CopilotTool.read_environment_variables,
-  CopilotTool.read_credentials,
-  CopilotTool.read_oauth_credentials,
   CopilotTool.list_gdrive_files,
   CopilotTool.read_gdrive_file,
   CopilotTool.list_knowledge_bases,
@@ -159,6 +156,13 @@ const WORKSPACE_TARGETED_TOOL_NAMES = new Set<ToolId>([
   CopilotTool.create_skill,
   CopilotTool.list_mcp_servers,
   CopilotTool.create_mcp_server,
+])
+
+const WORKSPACE_SCOPED_TOOL_NAMES = new Set<ToolId>([
+  CopilotTool.read_environment_variables,
+  CopilotTool.read_credentials,
+  CopilotTool.read_oauth_credentials,
+  CopilotTool.set_environment_variables,
 ])
 
 export function createExecutionContext(params: {
@@ -276,7 +280,7 @@ export function prepareCopilotToolArgs(
   ) {
     clonedArgs.workspaceId = context.workspaceId
   } else if (
-    toolName === CopilotTool.set_environment_variables &&
+    WORKSPACE_SCOPED_TOOL_NAMES.has(toolName) &&
     clonedArgs.scope === 'workspace' &&
     !clonedArgs.workspaceId &&
     context.workspaceId
@@ -339,7 +343,18 @@ export async function handleCopilotServerToolSuccess(
     } else if (toolName.endsWith('_indicator')) {
       await queryClient.invalidateQueries({ queryKey: indicatorKeys.list(workspaceId) })
     } else if (toolName.endsWith('_knowledge_base')) {
-      await queryClient.invalidateQueries({ queryKey: knowledgeKeys.list(workspaceId) })
+      const entityId =
+        result && typeof result === 'object' && !Array.isArray(result)
+          ? (result as { entityId?: unknown }).entityId
+          : undefined
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: knowledgeKeys.list(workspaceId) }),
+        ...(toolName !== CopilotTool.create_knowledge_base &&
+        typeof entityId === 'string' &&
+        entityId.trim()
+          ? [queryClient.invalidateQueries({ queryKey: knowledgeKeys.detail(entityId) })]
+          : []),
+      ])
     } else if (toolName.endsWith('_mcp_server')) {
       await useMcpServersStore.getState().fetchServers(workspaceId)
     }

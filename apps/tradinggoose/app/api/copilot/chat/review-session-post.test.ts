@@ -13,6 +13,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
   const mockLoadReviewSessionForUser = vi.fn()
   const mockProxyCopilotRequest = vi.fn()
   const mockProcessContextsServer = vi.fn()
+  const mockMirrorLocalCopilotCompletionUsageReports = vi.fn()
   const mockBuildAppendReviewTurn = vi.fn(() => ({
     turn: {
       id: 'turn-1',
@@ -205,6 +206,10 @@ describe('Copilot Chat POST Generic Sessions', () => {
       })),
     }))
 
+    vi.doMock('@/lib/copilot/completion-usage-billing', () => ({
+      mirrorLocalCopilotCompletionUsageReports: mockMirrorLocalCopilotCompletionUsageReports,
+    }))
+
     vi.doMock('@/lib/copilot/agent/utils', () => ({
       requestCopilotTitle: vi.fn().mockResolvedValue(null),
     }))
@@ -296,6 +301,13 @@ describe('Copilot Chat POST Generic Sessions', () => {
 
     vi.doMock('@/lib/copilot/process-contents', () => ({
       processContextsServer: mockProcessContextsServer,
+    }))
+
+    vi.doMock('@/lib/copilot/runtime-tool-manifest', () => ({
+      getCopilotRuntimeToolManifest: vi.fn().mockResolvedValue({
+        version: 'v1',
+        tools: [{ name: 'read_workflow' }, { name: 'edit_workflow' }],
+      }),
     }))
   })
 
