@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   mockAuthenticateApiKeyFromHeader,
+  mockCheckApiEndpointRateLimit,
   mockGetCopilotRuntimeToolManifest,
   mockGetMcpServerToolIds,
   mockGetUserWorkspaces,
@@ -14,11 +15,16 @@ const {
   mockUpdateApiKeyLastUsed,
 } = vi.hoisted(() => ({
   mockAuthenticateApiKeyFromHeader: vi.fn(),
+  mockCheckApiEndpointRateLimit: vi.fn(),
   mockGetCopilotRuntimeToolManifest: vi.fn(),
   mockGetMcpServerToolIds: vi.fn(),
   mockGetUserWorkspaces: vi.fn(),
   mockRouteExecution: vi.fn(),
   mockUpdateApiKeyLastUsed: vi.fn(),
+}))
+
+vi.mock('@/lib/api/rate-limit', () => ({
+  checkApiEndpointRateLimit: (...args: unknown[]) => mockCheckApiEndpointRateLimit(...args),
 }))
 
 vi.mock('@/lib/api-key/service', () => ({
@@ -57,6 +63,13 @@ describe('Copilot MCP route', () => {
       success: true,
       userId: 'user-1',
       keyId: 'key-1',
+    })
+    mockCheckApiEndpointRateLimit.mockResolvedValue({
+      allowed: true,
+      remaining: 99,
+      limit: 100,
+      resetAt: new Date('2026-06-24T12:01:00.000Z'),
+      userId: 'user-1',
     })
     mockGetUserWorkspaces.mockResolvedValue([
       { id: 'workspace-1', name: 'Research', permissions: 'admin' },
@@ -110,6 +123,7 @@ describe('Copilot MCP route', () => {
       keyTypes: ['personal'],
     })
     expect(mockUpdateApiKeyLastUsed).toHaveBeenCalledWith('key-1')
+    expect(mockCheckApiEndpointRateLimit).toHaveBeenCalledWith('user-1', 'copilot-mcp')
     expect(mockGetUserWorkspaces).toHaveBeenCalledWith({ userId: 'user-1', autoCreate: false })
     expect(body.result.capabilities).toEqual({ tools: {} })
     expect(body.result.serverInfo).toEqual({ name: 'TradingGoose', version: '0.1.0' })
@@ -146,6 +160,26 @@ describe('Copilot MCP route', () => {
         inputSchema: { type: 'object', properties: { workspaceId: { type: 'string' } } },
       },
     ])
+  })
+
+  it('returns MCP rate-limit errors from the shared API limiter', async () => {
+    const { POST } = await import('./route')
+    mockCheckApiEndpointRateLimit.mockResolvedValueOnce({
+      allowed: false,
+      remaining: 0,
+      limit: 10,
+      resetAt: new Date('2026-06-24T12:01:00.000Z'),
+      userId: 'user-1',
+    })
+
+    const response = await POST(createMcpRequest({ jsonrpc: '2.0', id: 2, method: 'tools/list' }))
+    const body = await response.json()
+
+    expect(response.status).toBe(429)
+    expect(response.headers.get('X-RateLimit-Limit')).toBe('10')
+    expect(response.headers.get('Retry-After')).toBeTruthy()
+    expect(body.error.message).toBe('Rate limit exceeded')
+    expect(mockGetCopilotRuntimeToolManifest).not.toHaveBeenCalled()
   })
 
   it('rejects tools outside the external MCP allow-list', async () => {
@@ -228,6 +262,25 @@ describe('Copilot MCP route', () => {
         message: 'Invalid JSON-RPC request',
       },
     })
+    expect(mockRouteExecution).not.toHaveBeenCalled()
+  })
+
+  it('rejects oversized JSON-RPC batches before dispatch', async () => {
+    const { POST } = await import('./route')
+
+    const response = await POST(
+      createMcpRequest(
+        Array.from({ length: 11 }, (_, index) => ({
+          jsonrpc: '2.0',
+          id: index + 1,
+          method: 'tools/call',
+          params: { name: 'list_workflows', arguments: { workspaceId: 'workspace-1' } },
+        }))
+      )
+    )
+    const body = await response.json()
+
+    expect(body.error.message).toBe('JSON-RPC batch size cannot exceed 10')
     expect(mockRouteExecution).not.toHaveBeenCalled()
   })
 })

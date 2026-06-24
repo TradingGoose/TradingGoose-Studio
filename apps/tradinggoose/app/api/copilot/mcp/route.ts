@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
+import { checkApiEndpointRateLimit, type RateLimitResult } from '@/lib/api/rate-limit'
 import { authenticateApiKeyFromHeader, updateApiKeyLastUsed } from '@/lib/api-key/service'
 import { getCopilotRuntimeToolManifest } from '@/lib/copilot/runtime-tool-manifest'
 import { getMcpServerToolIds, routeExecution } from '@/lib/copilot/tools/server/router'
@@ -9,6 +10,7 @@ export const dynamic = 'force-dynamic'
 const MCP_PROTOCOL_VERSION = '2025-03-26'
 const SERVER_NAME = 'TradingGoose'
 const SERVER_VERSION = '0.1.0'
+const MAX_JSON_RPC_BATCH_SIZE = 10
 
 type JsonRpcId = string | number | null
 
@@ -51,6 +53,25 @@ function mcpJsonResponse(body: unknown, init?: ResponseInit) {
     ...init,
     headers,
   })
+}
+
+function mcpRateLimitResponse(result: RateLimitResult) {
+  const headers: Record<string, string> = {
+    'X-RateLimit-Limit': result.limit.toString(),
+    'X-RateLimit-Remaining': result.remaining.toString(),
+    'X-RateLimit-Reset': result.resetAt.toISOString(),
+  }
+  const retryAfter = Math.max(0, Math.ceil((result.resetAt.getTime() - Date.now()) / 1000))
+  headers['Retry-After'] = retryAfter.toString()
+
+  const status =
+    result.failureKind === 'auth' ? 401 : result.failureKind === 'dependency' ? 503 : 429
+  const message =
+    result.failureKind === 'dependency'
+      ? result.error || 'Rate limit service unavailable'
+      : result.error || 'Rate limit exceeded'
+
+  return mcpJsonResponse(jsonRpcError(null, -32029, message), { status, headers })
 }
 
 function getBearerToken(request: NextRequest) {
@@ -226,6 +247,11 @@ export async function POST(request: NextRequest) {
     return mcpJsonResponse(jsonRpcError(null, -32001, auth.error), { status: 401 })
   }
 
+  const rateLimit = await checkApiEndpointRateLimit(auth.userId, 'copilot-mcp')
+  if (!rateLimit.allowed) {
+    return mcpRateLimitResponse(rateLimit)
+  }
+
   const body = (await request.json().catch(() => null)) as JsonRpcRequest | JsonRpcRequest[] | null
   if (!body) {
     return mcpJsonResponse(jsonRpcError(null, -32700, 'Invalid JSON body'), { status: 400 })
@@ -235,10 +261,17 @@ export async function POST(request: NextRequest) {
     if (body.length === 0) {
       return mcpJsonResponse(jsonRpcError(null, -32600, 'Invalid JSON-RPC request'))
     }
+    if (body.length > MAX_JSON_RPC_BATCH_SIZE) {
+      return mcpJsonResponse(
+        jsonRpcError(null, -32600, `JSON-RPC batch size cannot exceed ${MAX_JSON_RPC_BATCH_SIZE}`)
+      )
+    }
 
-    const responses = (
-      await Promise.all(body.map((entry) => handleJsonRpcRequest(entry, auth)))
-    ).filter(Boolean)
+    const responses = []
+    for (const entry of body) {
+      const response = await handleJsonRpcRequest(entry, auth)
+      if (response) responses.push(response)
+    }
 
     return responses.length > 0
       ? mcpJsonResponse(responses)
