@@ -24,18 +24,11 @@ function redirectToLogin(request: NextRequest, locale: string, code: string) {
 export async function POST(request: NextRequest) {
   const formData = await request.formData().catch(() => null)
   const action = formData?.get('action')
-  const approvalToken = formData?.get('approvalToken')
   const code = formData?.get('code')
   const localeValue = formData?.get('locale')
   const locale = normalizeLocaleCode(typeof localeValue === 'string' ? localeValue : undefined)
 
-  if (
-    (action !== 'approve' && action !== 'cancel') ||
-    typeof approvalToken !== 'string' ||
-    !approvalToken ||
-    typeof code !== 'string' ||
-    !code
-  ) {
+  if ((action !== 'approve' && action !== 'cancel') || typeof code !== 'string' || !code) {
     return redirectToAuthorizeStatus(request, locale, 'invalid')
   }
 
@@ -46,8 +39,8 @@ export async function POST(request: NextRequest) {
 
   const result =
     action === 'approve'
-      ? await approveMcpDeviceLogin({ code, approvalToken, userId: session.user.id })
-      : await cancelMcpDeviceLogin({ code, approvalToken, userId: session.user.id })
+      ? await approveMcpDeviceLogin({ code, userId: session.user.id })
+      : await cancelMcpDeviceLogin({ code })
 
   return redirectToAuthorizeStatus(request, locale, result.status)
 }

@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'crypto'
 import { db } from '@tradinggoose/db'
 import { apiKey, verification } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, like, lte } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { createApiKeyMaterial, decryptApiKey } from '@/lib/api-key/service'
 
@@ -13,8 +13,6 @@ type PendingDeviceLogin = {
   status: 'pending'
   createdAt: string
   verificationKeyHash: string
-  approvalToken?: string
-  approvalUserId?: string
 }
 
 type ApprovedDeviceLogin = {
@@ -46,6 +44,11 @@ export type McpDeviceLoginApprovalResult =
   | { status: 'expired' }
   | { status: 'invalid' }
 
+export type McpDeviceLoginApprovalStatus =
+  | { status: 'pending'; expiresAt: string }
+  | { status: 'approved'; expiresAt: string }
+  | { status: 'expired' }
+
 export type McpDeviceLoginStartResult = {
   code: string
   verificationKey: string
@@ -71,9 +74,7 @@ function parseDeviceLoginState(value: string): DeviceLoginState | null {
     if (
       parsed.status === 'pending' &&
       typeof parsed.createdAt === 'string' &&
-      typeof parsed.verificationKeyHash === 'string' &&
-      (parsed.approvalToken === undefined || typeof parsed.approvalToken === 'string') &&
-      (parsed.approvalUserId === undefined || typeof parsed.approvalUserId === 'string')
+      typeof parsed.verificationKeyHash === 'string'
     ) {
       return parsed as PendingDeviceLogin
     }
@@ -146,6 +147,15 @@ export async function startMcpDeviceLogin(): Promise<McpDeviceLoginStartResult> 
   const now = new Date()
   const expiresAt = new Date(now.getTime() + DEVICE_LOGIN_TTL_MS)
 
+  await db
+    .delete(verification)
+    .where(
+      and(
+        like(verification.identifier, `${DEVICE_LOGIN_PREFIX}%`),
+        lte(verification.expiresAt, now)
+      )
+    )
+
   await db.insert(verification).values({
     id: nanoid(),
     identifier: getDeviceLoginIdentifier(code),
@@ -167,46 +177,24 @@ export async function startMcpDeviceLogin(): Promise<McpDeviceLoginStartResult> 
   }
 }
 
-export async function createMcpDeviceLoginApprovalChallenge(code: string, userId: string) {
-  while (true) {
-    const login = await readDeviceLogin(code)
-    if (!login) {
-      return { status: 'expired' }
-    }
+export async function readMcpDeviceLoginApprovalStatus(
+  code: string
+): Promise<McpDeviceLoginApprovalStatus> {
+  const login = await readDeviceLogin(code)
+  if (!login) {
+    return { status: 'expired' }
+  }
 
-    if (login.state.status !== 'pending') {
-      return {
-        status: 'approved',
-        expiresAt: login.expiresAt.toISOString(),
-      }
+  if (login.state.status === 'approved') {
+    return {
+      status: 'approved',
+      expiresAt: login.expiresAt.toISOString(),
     }
+  }
 
-    if (login.state.approvalUserId === userId && login.state.approvalToken) {
-      return {
-        status: 'pending',
-        approvalToken: login.state.approvalToken,
-        expiresAt: login.expiresAt.toISOString(),
-      }
-    }
-
-    if (login.state.approvalToken) {
-      return { status: 'invalid' }
-    }
-
-    const approvalToken = randomBytes(32).toString('base64url')
-    const nextState = {
-      ...login.state,
-      approvalToken,
-      approvalUserId: userId,
-    } satisfies PendingDeviceLogin
-
-    if (await updateDeviceLoginState(login, nextState)) {
-      return {
-        status: 'pending',
-        approvalToken,
-        expiresAt: login.expiresAt.toISOString(),
-      }
-    }
+  return {
+    status: 'pending',
+    expiresAt: login.expiresAt.toISOString(),
   }
 }
 
@@ -280,11 +268,9 @@ export async function pollMcpDeviceLogin(
 
 export async function approveMcpDeviceLogin({
   code,
-  approvalToken,
   userId,
 }: {
   code: string
-  approvalToken: string
   userId: string
 }): Promise<McpDeviceLoginApprovalResult> {
   const login = await readDeviceLogin(code)
@@ -297,10 +283,6 @@ export async function approveMcpDeviceLogin({
       status: 'approved',
       expiresAt: login.expiresAt.toISOString(),
     }
-  }
-
-  if (login.state.approvalToken !== approvalToken || login.state.approvalUserId !== userId) {
-    return { status: 'invalid' }
   }
 
   const now = new Date()
@@ -330,25 +312,13 @@ export async function approveMcpDeviceLogin({
   }
 }
 
-export async function cancelMcpDeviceLogin({
-  code,
-  approvalToken,
-  userId,
-}: {
-  code: string
-  approvalToken: string
-  userId: string
-}) {
+export async function cancelMcpDeviceLogin({ code }: { code: string }) {
   const login = await readDeviceLogin(code)
   if (!login) {
     return { status: 'expired' }
   }
 
   if (login.state.status !== 'pending') {
-    return { status: 'invalid' }
-  }
-
-  if (login.state.approvalToken !== approvalToken || login.state.approvalUserId !== userId) {
     return { status: 'invalid' }
   }
 

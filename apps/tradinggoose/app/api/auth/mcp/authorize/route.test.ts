@@ -52,13 +52,12 @@ describe('MCP authorize route', () => {
     mockCancelMcpDeviceLogin.mockResolvedValue({ status: 'cancelled' })
   })
 
-  it('approves a device login only from a submitted confirmation token', async () => {
+  it('approves a device login from an explicit submitted confirmation', async () => {
     const { POST } = await import('./route')
 
     const response = await POST(
       createAuthorizeRequest({
         action: 'approve',
-        approvalToken: 'approval-token',
         code: 'login-code',
         locale: 'es',
       })
@@ -70,19 +69,17 @@ describe('MCP authorize route', () => {
     )
     expect(mockApproveMcpDeviceLogin).toHaveBeenCalledWith({
       code: 'login-code',
-      approvalToken: 'approval-token',
       userId: 'user-1',
     })
     expect(mockCancelMcpDeviceLogin).not.toHaveBeenCalled()
   })
 
-  it('cancels a pending device login through the same confirmation token', async () => {
+  it('cancels a pending device login from an explicit submitted confirmation', async () => {
     const { POST } = await import('./route')
 
     const response = await POST(
       createAuthorizeRequest({
         action: 'cancel',
-        approvalToken: 'approval-token',
         code: 'login-code',
         locale: 'zh',
       })
@@ -94,8 +91,6 @@ describe('MCP authorize route', () => {
     )
     expect(mockCancelMcpDeviceLogin).toHaveBeenCalledWith({
       code: 'login-code',
-      approvalToken: 'approval-token',
-      userId: 'user-1',
     })
     expect(mockApproveMcpDeviceLogin).not.toHaveBeenCalled()
   })
@@ -103,9 +98,7 @@ describe('MCP authorize route', () => {
   it('rejects malformed confirmation submissions before auth mutation', async () => {
     const { POST } = await import('./route')
 
-    const response = await POST(
-      createAuthorizeRequest({ action: 'approve', code: 'login-code', locale: 'es' })
-    )
+    const response = await POST(createAuthorizeRequest({ action: 'approve', locale: 'es' }))
 
     expect(response.status).toBe(307)
     expect(response.headers.get('location')).toBe(

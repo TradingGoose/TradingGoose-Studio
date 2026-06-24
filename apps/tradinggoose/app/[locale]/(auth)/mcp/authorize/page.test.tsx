@@ -3,16 +3,16 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
-  mockCreateMcpDeviceLoginApprovalChallenge,
   mockGetSession,
   mockGetSessionCookie,
   mockHeaders,
+  mockReadMcpDeviceLoginApprovalStatus,
   mockRedirect,
 } = vi.hoisted(() => ({
-  mockCreateMcpDeviceLoginApprovalChallenge: vi.fn(),
   mockGetSession: vi.fn(),
   mockGetSessionCookie: vi.fn(),
   mockHeaders: vi.fn(),
+  mockReadMcpDeviceLoginApprovalStatus: vi.fn(),
   mockRedirect: vi.fn(),
 }))
 
@@ -29,8 +29,8 @@ vi.mock('@/lib/auth', () => ({
 }))
 
 vi.mock('@/lib/mcp/auth', () => ({
-  createMcpDeviceLoginApprovalChallenge: (...args: unknown[]) =>
-    mockCreateMcpDeviceLoginApprovalChallenge(...args),
+  readMcpDeviceLoginApprovalStatus: (...args: unknown[]) =>
+    mockReadMcpDeviceLoginApprovalStatus(...args),
 }))
 
 vi.mock('@/app/(auth)/components/auth-page-header', () => ({
@@ -72,14 +72,13 @@ describe('MCP authorize page', () => {
     mockHeaders.mockResolvedValue(new Headers())
     mockGetSessionCookie.mockReturnValue(null)
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
-    mockCreateMcpDeviceLoginApprovalChallenge.mockResolvedValue({
+    mockReadMcpDeviceLoginApprovalStatus.mockResolvedValue({
       status: 'pending',
-      approvalToken: 'approval-token',
       expiresAt: '2026-06-19T12:00:00.000Z',
     })
   })
 
-  it('renders a confirmation form instead of approving on page load', async () => {
+  it('renders a confirmation form without binding approval on page load', async () => {
     const McpAuthorizePage = (await import('./page')).default
 
     const result = await McpAuthorizePage({
@@ -88,11 +87,9 @@ describe('MCP authorize page', () => {
     })
     const markup = renderToStaticMarkup(result)
 
-    expect(mockCreateMcpDeviceLoginApprovalChallenge).toHaveBeenCalledWith('login-code', 'user-1')
+    expect(mockReadMcpDeviceLoginApprovalStatus).toHaveBeenCalledWith('login-code')
     expect(markup).toContain('Aprobar clave API personal')
     expect(markup).toContain('method="post"')
     expect(markup).toContain('action="/api/auth/mcp/authorize"')
-    expect(markup).toContain('name="approvalToken"')
-    expect(markup).toContain('value="approval-token"')
   })
 })
