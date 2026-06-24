@@ -8,6 +8,7 @@ import {
 import {
   ensureUniqueBlockIds,
   ensureUniqueEdgeIds,
+  loadWorkflowStateFromSavedTables,
   saveWorkflowToNormalizedTables,
 } from '@/lib/workflows/db-helpers'
 import {
@@ -65,6 +66,24 @@ async function readAppliedYjsWorkflowState(workflowId: string): Promise<{
   }
 }
 
+async function refreshWorkflowYjsFromSavedTables(workflowId: string): Promise<void> {
+  const savedState = await loadWorkflowStateFromSavedTables(workflowId)
+  if (!savedState) {
+    throw new Error(`Workflow ${workflowId} canonical DB state is missing`)
+  }
+
+  const { variables, name, lastSaved, ...savedWorkflowState } = savedState
+  await applyWorkflowStateInSocketServer(
+    workflowId,
+    createWorkflowSnapshot({
+      ...savedWorkflowState,
+      lastSaved: new Date(lastSaved).toISOString(),
+    }),
+    variables,
+    name ?? undefined
+  )
+}
+
 export async function applyWorkflowState(
   workflowId: string,
   workflowState: WorkflowSnapshot,
@@ -92,28 +111,33 @@ export async function applyWorkflowState(
 
   await applyWorkflowStateInSocketServer(workflowId, storedWorkflowState, variables, entityName)
 
-  const appliedState = await readAppliedYjsWorkflowState(workflowId)
-  const saveResult = await saveWorkflowToNormalizedTables(
-    workflowId,
-    appliedState.workflowState,
-    async (tx) => {
-      const [updatedWorkflow] = await tx
-        .update(workflow)
-        .set({
-          lastSynced: syncedAt,
-          updatedAt: syncedAt,
-          variables: appliedState.variables,
-        })
-        .where(eq(workflow.id, workflowId))
-        .returning({ id: workflow.id })
+  try {
+    const appliedState = await readAppliedYjsWorkflowState(workflowId)
+    const saveResult = await saveWorkflowToNormalizedTables(
+      workflowId,
+      appliedState.workflowState,
+      async (tx) => {
+        const [updatedWorkflow] = await tx
+          .update(workflow)
+          .set({
+            lastSynced: syncedAt,
+            updatedAt: syncedAt,
+            variables: appliedState.variables,
+          })
+          .where(eq(workflow.id, workflowId))
+          .returning({ id: workflow.id })
 
-      if (!updatedWorkflow) {
-        throw new Error('Workflow not found')
+        if (!updatedWorkflow) {
+          throw new Error('Workflow not found')
+        }
       }
+    )
+    if (!saveResult.success) {
+      throw new Error(saveResult.error || 'Failed to materialize workflow state')
     }
-  )
-  if (!saveResult.success) {
-    throw new Error(saveResult.error || 'Failed to materialize workflow state')
+  } catch (error) {
+    await refreshWorkflowYjsFromSavedTables(workflowId)
+    throw error
   }
 }
 
