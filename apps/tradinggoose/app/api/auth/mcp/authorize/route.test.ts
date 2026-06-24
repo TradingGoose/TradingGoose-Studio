@@ -8,11 +8,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   mockApproveMcpDeviceLogin,
   mockCancelMcpDeviceLogin,
+  mockGetBaseUrl,
   mockGetSession,
   mockGetSessionCookie,
 } = vi.hoisted(() => ({
   mockApproveMcpDeviceLogin: vi.fn(),
   mockCancelMcpDeviceLogin: vi.fn(),
+  mockGetBaseUrl: vi.fn(),
   mockGetSession: vi.fn(),
   mockGetSessionCookie: vi.fn(),
 }))
@@ -30,11 +32,20 @@ vi.mock('@/lib/mcp/auth', () => ({
   cancelMcpDeviceLogin: (...args: unknown[]) => mockCancelMcpDeviceLogin(...args),
 }))
 
-function createAuthorizeRequest(body: Record<string, string>) {
+vi.mock('@/lib/urls/utils', () => ({
+  getBaseUrl: () => mockGetBaseUrl(),
+}))
+
+function createAuthorizeRequest(
+  body: Record<string, string>,
+  headers: Record<string, string> = {}
+) {
   return new NextRequest('https://studio.example.test/api/auth/mcp/authorize', {
     method: 'POST',
     headers: {
       'content-type': 'application/x-www-form-urlencoded',
+      origin: 'https://studio.example.test',
+      ...headers,
     },
     body: new URLSearchParams(body),
   })
@@ -43,6 +54,7 @@ function createAuthorizeRequest(body: Record<string, string>) {
 describe('MCP authorize route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockGetBaseUrl.mockReturnValue('https://studio.example.test')
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
     mockGetSessionCookie.mockReturnValue(null)
     mockApproveMcpDeviceLogin.mockResolvedValue({
@@ -58,6 +70,7 @@ describe('MCP authorize route', () => {
     const response = await POST(
       createAuthorizeRequest({
         action: 'approve',
+        approvalToken: 'approval-token',
         code: 'login-code',
         locale: 'es',
       })
@@ -68,6 +81,7 @@ describe('MCP authorize route', () => {
       'https://studio.example.test/es/mcp/authorize?status=approved'
     )
     expect(mockApproveMcpDeviceLogin).toHaveBeenCalledWith({
+      approvalToken: 'approval-token',
       code: 'login-code',
       userId: 'user-1',
     })
@@ -80,6 +94,7 @@ describe('MCP authorize route', () => {
     const response = await POST(
       createAuthorizeRequest({
         action: 'cancel',
+        approvalToken: 'approval-token',
         code: 'login-code',
         locale: 'zh',
       })
@@ -90,7 +105,9 @@ describe('MCP authorize route', () => {
       'https://studio.example.test/zh/mcp/authorize?status=cancelled'
     )
     expect(mockCancelMcpDeviceLogin).toHaveBeenCalledWith({
+      approvalToken: 'approval-token',
       code: 'login-code',
+      userId: 'user-1',
     })
     expect(mockApproveMcpDeviceLogin).not.toHaveBeenCalled()
   })
@@ -99,6 +116,48 @@ describe('MCP authorize route', () => {
     const { POST } = await import('./route')
 
     const response = await POST(createAuthorizeRequest({ action: 'approve', locale: 'es' }))
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get('location')).toBe(
+      'https://studio.example.test/es/mcp/authorize?status=invalid'
+    )
+    expect(mockApproveMcpDeviceLogin).not.toHaveBeenCalled()
+    expect(mockCancelMcpDeviceLogin).not.toHaveBeenCalled()
+  })
+
+  it('rejects approval submissions without the rendered approval token', async () => {
+    const { POST } = await import('./route')
+
+    const response = await POST(
+      createAuthorizeRequest({
+        action: 'approve',
+        code: 'login-code',
+        locale: 'es',
+      })
+    )
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get('location')).toBe(
+      'https://studio.example.test/es/mcp/authorize?status=invalid'
+    )
+    expect(mockApproveMcpDeviceLogin).not.toHaveBeenCalled()
+    expect(mockCancelMcpDeviceLogin).not.toHaveBeenCalled()
+  })
+
+  it('rejects approval submissions from an untrusted origin', async () => {
+    const { POST } = await import('./route')
+
+    const response = await POST(
+      createAuthorizeRequest(
+        {
+          action: 'approve',
+          approvalToken: 'approval-token',
+          code: 'login-code',
+          locale: 'es',
+        },
+        { origin: 'https://attacker.example.test' }
+      )
+    )
 
     expect(response.status).toBe(307)
     expect(response.headers.get('location')).toBe(

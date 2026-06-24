@@ -6,13 +6,13 @@ const {
   mockGetSession,
   mockGetSessionCookie,
   mockHeaders,
-  mockReadMcpDeviceLoginApprovalStatus,
+  mockCreateMcpDeviceLoginApprovalChallenge,
   mockRedirect,
 } = vi.hoisted(() => ({
+  mockCreateMcpDeviceLoginApprovalChallenge: vi.fn(),
   mockGetSession: vi.fn(),
   mockGetSessionCookie: vi.fn(),
   mockHeaders: vi.fn(),
-  mockReadMcpDeviceLoginApprovalStatus: vi.fn(),
   mockRedirect: vi.fn(),
 }))
 
@@ -29,8 +29,8 @@ vi.mock('@/lib/auth', () => ({
 }))
 
 vi.mock('@/lib/mcp/auth', () => ({
-  readMcpDeviceLoginApprovalStatus: (...args: unknown[]) =>
-    mockReadMcpDeviceLoginApprovalStatus(...args),
+  createMcpDeviceLoginApprovalChallenge: (...args: unknown[]) =>
+    mockCreateMcpDeviceLoginApprovalChallenge(...args),
 }))
 
 vi.mock('@/app/(auth)/components/auth-page-header', () => ({
@@ -72,13 +72,14 @@ describe('MCP authorize page', () => {
     mockHeaders.mockResolvedValue(new Headers())
     mockGetSessionCookie.mockReturnValue(null)
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
-    mockReadMcpDeviceLoginApprovalStatus.mockResolvedValue({
+    mockCreateMcpDeviceLoginApprovalChallenge.mockResolvedValue({
       status: 'pending',
+      approvalToken: 'approval-token',
       expiresAt: '2026-06-19T12:00:00.000Z',
     })
   })
 
-  it('renders a confirmation form without binding approval on page load', async () => {
+  it('renders a confirmation form with a user-bound approval challenge', async () => {
     const McpAuthorizePage = (await import('./page')).default
 
     const result = await McpAuthorizePage({
@@ -87,9 +88,14 @@ describe('MCP authorize page', () => {
     })
     const markup = renderToStaticMarkup(result)
 
-    expect(mockReadMcpDeviceLoginApprovalStatus).toHaveBeenCalledWith('login-code')
+    expect(mockCreateMcpDeviceLoginApprovalChallenge).toHaveBeenCalledWith({
+      code: 'login-code',
+      userId: 'user-1',
+    })
     expect(markup).toContain('Aprobar clave API personal')
     expect(markup).toContain('method="post"')
     expect(markup).toContain('action="/api/auth/mcp/authorize"')
+    expect(markup).toContain('name="approvalToken"')
+    expect(markup).toContain('value="approval-token"')
   })
 })

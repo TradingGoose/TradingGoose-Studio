@@ -2,7 +2,7 @@ import { getSessionCookie } from 'better-auth/cookies'
 import { headers } from 'next/headers'
 import { Button } from '@/components/ui/button'
 import { getSession } from '@/lib/auth'
-import { readMcpDeviceLoginApprovalStatus } from '@/lib/mcp/auth'
+import { createMcpDeviceLoginApprovalChallenge } from '@/lib/mcp/auth'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { inter } from '@/app/fonts/inter'
 import { redirect } from '@/i18n/navigation'
@@ -70,7 +70,10 @@ export default async function McpAuthorizePage({
     })
   }
 
-  const approvalStatus = await readMcpDeviceLoginApprovalStatus(code)
+  const approvalStatus = await createMcpDeviceLoginApprovalChallenge({
+    code,
+    userId: session.user.id,
+  })
 
   if (approvalStatus.status === 'expired') {
     return renderStatus(mcpCopy.expired)
@@ -78,6 +81,10 @@ export default async function McpAuthorizePage({
 
   if (approvalStatus.status === 'approved') {
     return renderStatus(mcpCopy.approved)
+  }
+
+  if (approvalStatus.status !== 'pending') {
+    return renderStatus(mcpCopy.invalid)
   }
 
   return (
@@ -89,6 +96,7 @@ export default async function McpAuthorizePage({
       />
       <form method='post' action='/api/auth/mcp/authorize' className='space-y-3'>
         <input type='hidden' name='code' value={code} />
+        <input type='hidden' name='approvalToken' value={approvalStatus.approvalToken} />
         <input type='hidden' name='locale' value={locale} />
         <div className='flex flex-col gap-3 sm:flex-row sm:justify-center'>
           <Button type='submit' name='action' value='approve' className='text-[15px]'>
