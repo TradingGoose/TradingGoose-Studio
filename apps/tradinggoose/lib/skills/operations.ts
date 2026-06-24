@@ -146,7 +146,9 @@ export async function upsertSkills({
   })
 
   await Promise.all(
-    updates.map(({ id, fields }) => applySavedEntityPersistedState('skill', id, fields))
+    updates.map(({ id, fields }) =>
+      applySavedEntityPersistedState('skill', id, workspaceId, fields)
+    )
   )
 
   return listSkills({ workspaceId })

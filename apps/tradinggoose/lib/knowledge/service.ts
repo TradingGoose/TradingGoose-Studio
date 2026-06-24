@@ -369,7 +369,12 @@ export async function applyKnowledgeBaseMetadata(
     throw new Error(`Knowledge base ${knowledgeBaseId} not found`)
   }
 
-  await applySavedEntityPersistedState(ENTITY_KIND_KNOWLEDGE_BASE, knowledgeBaseId, fields)
+  await applySavedEntityPersistedState(
+    ENTITY_KIND_KNOWLEDGE_BASE,
+    knowledgeBaseId,
+    existing.workspaceId,
+    fields
+  )
 
   logger.info(`[${requestId}] Applied knowledge base metadata through Yjs: ${knowledgeBaseId}`)
 

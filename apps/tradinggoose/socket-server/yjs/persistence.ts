@@ -137,27 +137,6 @@ export async function storeState(sessionId: string, state: Uint8Array): Promise<
   evictOldestLocalEntries()
 }
 
-export async function storeCanonicalState(sessionId: string, state: Uint8Array): Promise<void> {
-  await storeState(sessionId, state)
-
-  const mode = getRedisStorageMode()
-  if (mode === 'redis') {
-    const redis = getRedisClient()
-    if (!redis) {
-      return
-    }
-
-    await redis.multi().persist(stateKey(sessionId)).persist(updatedAtKey(sessionId)).exec()
-    return
-  }
-
-  const blob = localStore.get(sessionId)
-  if (blob) {
-    blob.expiresAt = null
-  }
-  evictOldestLocalEntries()
-}
-
 export async function hasSession(sessionId: string): Promise<boolean> {
   const mode = getRedisStorageMode()
 

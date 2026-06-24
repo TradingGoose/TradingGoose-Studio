@@ -93,6 +93,7 @@ export const PATCH = withMcpAuth('write')(
       await applySavedEntityPersistedState(
         'mcp_server',
         nextServer.id,
+        workspaceId,
         savedEntityRowToFields('mcp_server', nextServer)
       )
 

@@ -131,6 +131,7 @@ export async function POST(
       await applySavedEntityPersistedState(
         entityKind,
         descriptor.entityId,
+        descriptor.workspaceId,
         getEntityFields(doc, entityKind)
       )
     } finally {

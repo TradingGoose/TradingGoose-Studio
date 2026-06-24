@@ -105,7 +105,9 @@ export async function upsertCustomTools({
   })
 
   await Promise.all(
-    updates.map(({ id, fields }) => applySavedEntityPersistedState('custom_tool', id, fields))
+    updates.map(({ id, fields }) =>
+      applySavedEntityPersistedState('custom_tool', id, workspaceId, fields)
+    )
   )
 
   return listCustomTools({ workspaceId })

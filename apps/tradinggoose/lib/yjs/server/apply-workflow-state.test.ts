@@ -3,12 +3,15 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import * as Y from 'yjs'
+import { replaceWorkflowDocumentState } from '@/lib/yjs/workflow-session'
 
 const {
   mockApplyWorkflowStateInSocketServer,
   mockDbUpdate,
   mockEnsureUniqueBlockIds,
   mockEnsureUniqueEdgeIds,
+  mockGetYjsSnapshot,
   mockSaveWorkflowToNormalizedTables,
   mockDeleteYjsSessionInSocketServer,
   mockUpdateReturning,
@@ -20,6 +23,7 @@ const {
     mockDbUpdate: vi.fn(),
     mockEnsureUniqueBlockIds: vi.fn(),
     mockEnsureUniqueEdgeIds: vi.fn(),
+    mockGetYjsSnapshot: vi.fn(),
     mockSaveWorkflowToNormalizedTables: vi.fn(),
     mockDeleteYjsSessionInSocketServer: vi.fn(),
     mockUpdateReturning: vi.fn(),
@@ -50,9 +54,23 @@ vi.mock('@/lib/workflows/db-helpers', () => ({
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   applyWorkflowStateInSocketServer: mockApplyWorkflowStateInSocketServer,
   deleteYjsSessionInSocketServer: mockDeleteYjsSessionInSocketServer,
+  getYjsSnapshot: mockGetYjsSnapshot,
 }))
 
 const emptyWorkflowState = { blocks: {}, edges: [], loops: {}, parallels: {} }
+
+function buildWorkflowSnapshotBase64(
+  workflowState: Parameters<typeof replaceWorkflowDocumentState>[1],
+  variables: Record<string, any> = {}
+): string {
+  const doc = new Y.Doc()
+  try {
+    replaceWorkflowDocumentState(doc, workflowState, variables, 'Workflow Name')
+    return Buffer.from(Y.encodeStateAsUpdate(doc)).toString('base64')
+  } finally {
+    doc.destroy()
+  }
+}
 
 describe('applyWorkflowState', () => {
   beforeEach(() => {
@@ -64,6 +82,9 @@ describe('applyWorkflowState', () => {
       await commit?.({ update: mockDbUpdate }, state)
       return { success: true }
     })
+    mockGetYjsSnapshot.mockImplementation(async () => ({
+      snapshotBase64: buildWorkflowSnapshotBase64(emptyWorkflowState),
+    }))
     mockDeleteYjsSessionInSocketServer.mockResolvedValue(undefined)
     mockUpdateReturning.mockResolvedValue([{ id: 'workflow-1' }])
     mockUpdateWhere.mockReturnValue({ returning: mockUpdateReturning })
@@ -71,7 +92,7 @@ describe('applyWorkflowState', () => {
     mockDbUpdate.mockReturnValue({ set: mockUpdateSet })
   })
 
-  it('publishes the normalized workflow state to Yjs before committing DB changes', async () => {
+  it('persists the applied Yjs workflow state after publishing to Yjs', async () => {
     mockEnsureUniqueBlockIds.mockImplementationOnce(async () => ({
       blocks: {
         'normalized-block': {
@@ -88,6 +109,27 @@ describe('applyWorkflowState', () => {
       loops: {},
       parallels: {},
     }))
+    mockGetYjsSnapshot.mockResolvedValueOnce({
+      snapshotBase64: buildWorkflowSnapshotBase64(
+        {
+          blocks: {
+            'yjs-block': {
+              id: 'yjs-block',
+              type: 'agent',
+              name: 'Yjs Agent',
+              position: { x: 0, y: 0 },
+              subBlocks: {},
+              outputs: {},
+              enabled: true,
+            },
+          },
+          edges: [],
+          loops: {},
+          parallels: {},
+        },
+        { apiKey: { id: 'apiKey', value: 'from-yjs' } }
+      ),
+    })
 
     const { applyWorkflowState } = await import('./apply-workflow-state')
 
@@ -124,22 +166,35 @@ describe('applyWorkflowState', () => {
       'Workflow Name'
     )
 
+    expect(mockGetYjsSnapshot).toHaveBeenCalledWith(
+      'workflow-1',
+      expect.objectContaining({
+        targetKind: 'workflow',
+        sessionId: 'workflow-1',
+        workflowId: 'workflow-1',
+        entityKind: 'workflow',
+        entityId: 'workflow-1',
+      })
+    )
     expect(mockSaveWorkflowToNormalizedTables).toHaveBeenCalledOnce()
     expect(mockSaveWorkflowToNormalizedTables.mock.calls[0][1]).toMatchObject({
       blocks: {
-        'normalized-block': expect.objectContaining({ id: 'normalized-block' }),
+        'yjs-block': expect.objectContaining({ id: 'yjs-block' }),
       },
     })
     expect(mockSaveWorkflowToNormalizedTables.mock.calls[0][2]).toEqual(expect.any(Function))
     expect(mockApplyWorkflowStateInSocketServer.mock.invocationCallOrder[0]).toBeLessThan(
+      mockGetYjsSnapshot.mock.invocationCallOrder[0]
+    )
+    expect(mockGetYjsSnapshot.mock.invocationCallOrder[0]).toBeLessThan(
       mockSaveWorkflowToNormalizedTables.mock.invocationCallOrder[0]
     )
     expect(mockSaveWorkflowToNormalizedTables.mock.invocationCallOrder[0]).toBeLessThan(
       mockDbUpdate.mock.invocationCallOrder[0]
     )
     expect(mockUpdateSet).toHaveBeenCalledWith(
-      expect.not.objectContaining({
-        variables: expect.anything(),
+      expect.objectContaining({
+        variables: { apiKey: { id: 'apiKey', value: 'from-yjs' } },
       })
     )
   })
@@ -154,6 +209,7 @@ describe('applyWorkflowState', () => {
     )
 
     expect(mockSaveWorkflowToNormalizedTables).not.toHaveBeenCalled()
+    expect(mockGetYjsSnapshot).not.toHaveBeenCalled()
     expect(mockDbUpdate).not.toHaveBeenCalled()
     expect(mockDeleteYjsSessionInSocketServer).not.toHaveBeenCalled()
   })

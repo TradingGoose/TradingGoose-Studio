@@ -9,7 +9,7 @@ import {
   getRuntimeStateFromUpdate,
 } from '@/lib/yjs/server/bootstrap-review-target'
 import { authenticateYjsConnection, YjsAuthError } from './auth'
-import { getState, storeCanonicalState, storeState } from './persistence'
+import { getState, storeState } from './persistence'
 import { getExistingDocument, setPersistence, setupWSConnection } from './upstream-utils'
 
 const logger = createLogger('YjsWsHandler')
@@ -37,10 +37,10 @@ export function handleYjsUpgrade(
   const yjsSessionId = decodeURIComponent(match[1])
 
   void authenticateAndPrepareUpgrade(yjsSessionId, url)
-    .then(({ userId, resolvedSessionId, canonical }) => {
+    .then(({ userId, resolvedSessionId }) => {
       setPersistence(resolvedSessionId, {
         getState,
-        storeState: canonical ? storeCanonicalState : storeState,
+        storeState,
       })
 
       const yjsReq = request as YjsIncomingMessage
@@ -66,7 +66,7 @@ export function handleYjsUpgrade(
 async function authenticateAndPrepareUpgrade(
   pathSessionId: string,
   url: URL
-): Promise<{ userId: string; resolvedSessionId: string; canonical: boolean }> {
+): Promise<{ userId: string; resolvedSessionId: string }> {
   const accessMode = parseAccessMode(url)
   const { userId, envelope } = await authenticateYjsConnection(url)
 
@@ -114,10 +114,6 @@ async function authenticateAndPrepareUpgrade(
   return {
     userId,
     resolvedSessionId: pathSessionId,
-    canonical:
-      descriptor.reviewSessionId === null &&
-      descriptor.entityKind === 'workflow' &&
-      descriptor.entityId !== null,
   }
 }
 

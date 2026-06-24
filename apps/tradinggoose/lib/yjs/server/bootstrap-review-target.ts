@@ -29,7 +29,6 @@ import {
 } from '@/lib/yjs/workflow-session'
 import {
   getState as getPersistedYjsState,
-  storeCanonicalState,
   storeState,
 } from '@/socket-server/yjs/persistence'
 
@@ -199,10 +198,7 @@ async function bootstrapSavedEntityFromDb(
       metadata.set('entityName', workflowName)
     }
     const state = Y.encodeStateAsUpdate(doc)
-    await (descriptor.entityKind === 'workflow' ? storeCanonicalState : storeState)(
-      descriptor.yjsSessionId,
-      state
-    )
+    await storeState(descriptor.yjsSessionId, state)
 
     return {
       descriptor,

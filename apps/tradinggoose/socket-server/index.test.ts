@@ -19,7 +19,6 @@ import { createHttpHandler } from '@/socket-server/routes/http'
 import {
   cleanupPersistence,
   getState,
-  storeCanonicalState,
   storeState,
 } from '@/socket-server/yjs/persistence'
 import {
@@ -276,15 +275,6 @@ describe('Socket Server Index Integration', () => {
       expect(copilotWorkflowEdit.statusCode).toBe(404)
       expect(workflowDeleted.statusCode).toBe(404)
       expect(workflowReverted.statusCode).toBe(404)
-    })
-
-    it('bounds canonical local persistence entries', async () => {
-      for (let index = 0; index < 101; index++) {
-        await storeCanonicalState(`canonical-${index}`, new Uint8Array([index]))
-      }
-
-      expect(await getState('canonical-0')).toBeNull()
-      expect(await getState('canonical-100')).toEqual(new Uint8Array([100]))
     })
 
     it('should apply workflow state through the internal Yjs route', async () => {

@@ -7,8 +7,8 @@ import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
 import { mcpService } from '@/lib/mcp/service'
 import type { McpTransport } from '@/lib/mcp/types'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
+import { applySavedEntityPersistedState } from '@/lib/yjs/server/apply-entity-state'
 import {
-  applySavedEntityDocumentToYjs,
   buildDocumentEnvelope,
   type EntityCreateResult,
   type EntityListEntry,
@@ -165,9 +165,10 @@ async function applyMcpServerDocument(input: {
     input.entityId,
     input.workspaceId
   )
-  await applySavedEntityDocumentToYjs(
+  await applySavedEntityPersistedState(
     ENTITY_KIND_MCP_SERVER,
     input.entityId,
+    input.workspaceId,
     preserveMcpServerSecretPlaceholders(input.fields, currentFields)
   )
   mcpService.clearCache(input.workspaceId)

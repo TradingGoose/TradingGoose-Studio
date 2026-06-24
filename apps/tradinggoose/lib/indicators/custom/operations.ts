@@ -105,7 +105,9 @@ export async function upsertIndicators({
   })
 
   await Promise.all(
-    updates.map(({ id, fields }) => applySavedEntityPersistedState('indicator', id, fields))
+    updates.map(({ id, fields }) =>
+      applySavedEntityPersistedState('indicator', id, workspaceId, fields)
+    )
   )
 
   return db

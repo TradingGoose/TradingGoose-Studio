@@ -18,7 +18,6 @@ import {
   deleteSession,
   getLastTouchedAt,
   getState,
-  storeCanonicalState,
   storeState,
 } from '@/socket-server/yjs/persistence'
 import {
@@ -233,7 +232,7 @@ async function handleInternalYjsWorkflowApplyRequest(
 
     try {
       replaceWorkflowDocumentState(doc, body.workflowState, body.variables, body.entityName)
-      await storeCanonicalState(workflowId, Y.encodeStateAsUpdate(doc))
+      await storeState(workflowId, Y.encodeStateAsUpdate(doc))
     } finally {
       if (!liveDoc) doc.destroy()
     }
