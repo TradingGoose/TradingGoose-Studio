@@ -10,7 +10,7 @@ const DEVICE_LOGIN_PREFIX = 'mcp:'
 const DEVICE_LOGIN_LOCK_NAMESPACE = 47_102
 const POLL_INTERVAL_SECONDS = 2
 const DELIVERY_RETRY_LIMIT = 5
-const MAX_PENDING_DEVICE_LOGINS_PER_REQUESTER = 20
+const MAX_ACTIVE_MCP_DEVICE_LOGIN_STARTS_PER_DEPLOYMENT = 200
 
 type PendingDeviceLogin = {
   status: 'pending'
@@ -146,18 +146,18 @@ async function updateDeviceLoginState(
 }
 
 export async function startMcpDeviceLogin(
-  requesterKey: string
+  deploymentKey: string
 ): Promise<McpDeviceLoginStartResult> {
   const code = randomBytes(32).toString('base64url')
   const verificationKey = randomBytes(32).toString('base64url')
   const now = new Date()
   const expiresAt = new Date(now.getTime() + DEVICE_LOGIN_TTL_MS)
-  const requesterHash = hashValue(requesterKey)
-  const requesterIdentifierPrefix = `${DEVICE_LOGIN_PREFIX}${requesterHash}:`
+  const deploymentHash = hashValue(deploymentKey)
+  const deploymentIdentifierPrefix = `${DEVICE_LOGIN_PREFIX}${deploymentHash}:`
 
   await db.transaction(async (tx) => {
     await tx.execute(
-      sql`select pg_advisory_xact_lock(${DEVICE_LOGIN_LOCK_NAMESPACE}, hashtext(${requesterHash}))`
+      sql`select pg_advisory_xact_lock(${DEVICE_LOGIN_LOCK_NAMESPACE}, hashtext(${deploymentHash}))`
     )
 
     await tx
@@ -174,18 +174,18 @@ export async function startMcpDeviceLogin(
       .from(verification)
       .where(
         and(
-          like(verification.identifier, `${requesterIdentifierPrefix}%`),
+          like(verification.identifier, `${deploymentIdentifierPrefix}%`),
           gt(verification.expiresAt, now)
         )
       )
 
-    if ((activeLogins?.count ?? 0) >= MAX_PENDING_DEVICE_LOGINS_PER_REQUESTER) {
+    if ((activeLogins?.count ?? 0) >= MAX_ACTIVE_MCP_DEVICE_LOGIN_STARTS_PER_DEPLOYMENT) {
       throw new McpDeviceLoginRateLimitError()
     }
 
     await tx.insert(verification).values({
       id: nanoid(),
-      identifier: `${requesterIdentifierPrefix}${hashValue(code)}`,
+      identifier: `${deploymentIdentifierPrefix}${hashValue(code)}`,
       value: JSON.stringify({
         status: 'pending',
         createdAt: now.toISOString(),
