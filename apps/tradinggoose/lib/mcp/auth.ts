@@ -8,6 +8,7 @@ import { createApiKeyMaterial, decryptApiKey } from '@/lib/api-key/service'
 const DEVICE_LOGIN_TTL_MS = 10 * 60 * 1000
 const DEVICE_LOGIN_PREFIX = 'mcp:'
 const POLL_INTERVAL_SECONDS = 2
+const DELIVERY_RETRY_LIMIT = 5
 
 type PendingDeviceLogin = {
   status: 'pending'
@@ -202,11 +203,13 @@ export async function pollMcpDeviceLogin(
   code: string,
   verificationKey: string
 ): Promise<McpDeviceLoginPollResult> {
-  while (true) {
+  let lastExpiresAt: string | null = null
+  for (let deliveryAttempt = 0; deliveryAttempt < DELIVERY_RETRY_LIMIT; deliveryAttempt += 1) {
     const login = await readDeviceLogin(code)
     if (!login) {
       return { status: 'expired' }
     }
+    lastExpiresAt = login.expiresAt.toISOString()
 
     if (login.state.verificationKeyHash !== hashValue(verificationKey)) {
       return { status: 'invalid' }
@@ -263,6 +266,12 @@ export async function pollMcpDeviceLogin(
 
     const { decrypted } = await decryptApiKey(approvedState.encryptedApiKey)
     return { status: 'approved', apiKey: decrypted, expiresAt: login.expiresAt.toISOString() }
+  }
+
+  return {
+    status: 'pending',
+    intervalSeconds: POLL_INTERVAL_SECONDS,
+    expiresAt: lastExpiresAt!,
   }
 }
 
