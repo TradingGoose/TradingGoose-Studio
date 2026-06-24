@@ -1,14 +1,16 @@
 import { createHash, randomBytes } from 'crypto'
 import { db } from '@tradinggoose/db'
 import { apiKey, verification } from '@tradinggoose/db/schema'
-import { and, eq, like, lte } from 'drizzle-orm'
+import { and, count, eq, gt, like, lte, sql } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { createApiKeyMaterial, decryptApiKey } from '@/lib/api-key/service'
 
 const DEVICE_LOGIN_TTL_MS = 10 * 60 * 1000
 const DEVICE_LOGIN_PREFIX = 'mcp:'
+const DEVICE_LOGIN_LOCK_NAMESPACE = 47_102
 const POLL_INTERVAL_SECONDS = 2
 const DELIVERY_RETRY_LIMIT = 5
+const MAX_PENDING_DEVICE_LOGINS_PER_REQUESTER = 20
 
 type PendingDeviceLogin = {
   status: 'pending'
@@ -57,8 +59,11 @@ export type McpDeviceLoginStartResult = {
   intervalSeconds: number
 }
 
-function getDeviceLoginIdentifier(code: string) {
-  return `${DEVICE_LOGIN_PREFIX}${hashValue(code)}`
+export class McpDeviceLoginRateLimitError extends Error {
+  constructor() {
+    super('Too many active MCP login attempts. Please wait for existing attempts to expire.')
+    this.name = 'McpDeviceLoginRateLimitError'
+  }
 }
 
 function hashValue(value: string) {
@@ -98,7 +103,6 @@ function parseDeviceLoginState(value: string): DeviceLoginState | null {
 }
 
 async function readDeviceLogin(code: string) {
-  const identifier = getDeviceLoginIdentifier(code)
   const [row] = await db
     .select({
       id: verification.id,
@@ -106,7 +110,7 @@ async function readDeviceLogin(code: string) {
       expiresAt: verification.expiresAt,
     })
     .from(verification)
-    .where(eq(verification.identifier, identifier))
+    .where(like(verification.identifier, `${DEVICE_LOGIN_PREFIX}%:${hashValue(code)}`))
     .limit(1)
 
   if (!row) {
@@ -142,32 +146,56 @@ async function updateDeviceLoginState(
   return Boolean(updated)
 }
 
-export async function startMcpDeviceLogin(): Promise<McpDeviceLoginStartResult> {
+export async function startMcpDeviceLogin(
+  requesterKey: string
+): Promise<McpDeviceLoginStartResult> {
   const code = randomBytes(32).toString('base64url')
   const verificationKey = randomBytes(32).toString('base64url')
   const now = new Date()
   const expiresAt = new Date(now.getTime() + DEVICE_LOGIN_TTL_MS)
+  const requesterHash = hashValue(requesterKey)
+  const requesterIdentifierPrefix = `${DEVICE_LOGIN_PREFIX}${requesterHash}:`
 
-  await db
-    .delete(verification)
-    .where(
-      and(
-        like(verification.identifier, `${DEVICE_LOGIN_PREFIX}%`),
-        lte(verification.expiresAt, now)
-      )
+  await db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(${DEVICE_LOGIN_LOCK_NAMESPACE}, hashtext(${requesterHash}))`
     )
 
-  await db.insert(verification).values({
-    id: nanoid(),
-    identifier: getDeviceLoginIdentifier(code),
-    value: JSON.stringify({
-      status: 'pending',
-      createdAt: now.toISOString(),
-      verificationKeyHash: hashValue(verificationKey),
-    } satisfies PendingDeviceLogin),
-    expiresAt,
-    createdAt: now,
-    updatedAt: now,
+    await tx
+      .delete(verification)
+      .where(
+        and(
+          like(verification.identifier, `${DEVICE_LOGIN_PREFIX}%`),
+          lte(verification.expiresAt, now)
+        )
+      )
+
+    const [activeLogins] = await tx
+      .select({ count: count() })
+      .from(verification)
+      .where(
+        and(
+          like(verification.identifier, `${requesterIdentifierPrefix}%`),
+          gt(verification.expiresAt, now)
+        )
+      )
+
+    if ((activeLogins?.count ?? 0) >= MAX_PENDING_DEVICE_LOGINS_PER_REQUESTER) {
+      throw new McpDeviceLoginRateLimitError()
+    }
+
+    await tx.insert(verification).values({
+      id: nanoid(),
+      identifier: `${requesterIdentifierPrefix}${hashValue(code)}`,
+      value: JSON.stringify({
+        status: 'pending',
+        createdAt: now.toISOString(),
+        verificationKeyHash: hashValue(verificationKey),
+      } satisfies PendingDeviceLogin),
+      expiresAt,
+      createdAt: now,
+      updatedAt: now,
+    })
   })
 
   return {

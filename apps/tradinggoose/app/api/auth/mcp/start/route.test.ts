@@ -5,11 +5,13 @@
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockStartMcpDeviceLogin } = vi.hoisted(() => ({
+const { MockMcpDeviceLoginRateLimitError, mockStartMcpDeviceLogin } = vi.hoisted(() => ({
+  MockMcpDeviceLoginRateLimitError: class extends Error {},
   mockStartMcpDeviceLogin: vi.fn(),
 }))
 
 vi.mock('@/lib/mcp/auth', () => ({
+  McpDeviceLoginRateLimitError: MockMcpDeviceLoginRateLimitError,
   startMcpDeviceLogin: (...args: unknown[]) => mockStartMcpDeviceLogin(...args),
 }))
 
@@ -30,6 +32,7 @@ describe('MCP login start route', () => {
     const response = await POST(
       new NextRequest('https://studio.example.test/api/auth/mcp/start', {
         method: 'POST',
+        headers: { 'x-forwarded-for': '203.0.113.10, 10.0.0.1' },
       })
     )
 
@@ -41,6 +44,27 @@ describe('MCP login start route', () => {
       intervalSeconds: 2,
       authorizeUrl: 'https://studio.example.test/mcp/authorize?code=login-code',
     })
-    expect(mockStartMcpDeviceLogin).toHaveBeenCalledTimes(1)
+    expect(mockStartMcpDeviceLogin).toHaveBeenCalledWith('203.0.113.10')
+  })
+
+  it('returns 429 when too many approval logins are active for the requester', async () => {
+    const { POST } = await import('./route')
+    mockStartMcpDeviceLogin.mockRejectedValueOnce(
+      new MockMcpDeviceLoginRateLimitError(
+        'Too many active MCP login attempts. Please wait for existing attempts to expire.'
+      )
+    )
+
+    const response = await POST(
+      new NextRequest('https://studio.example.test/api/auth/mcp/start', {
+        method: 'POST',
+      })
+    )
+
+    expect(response.status).toBe(429)
+    await expect(response.json()).resolves.toEqual({
+      error: 'Too many active MCP login attempts. Please wait for existing attempts to expire.',
+    })
+    expect(mockStartMcpDeviceLogin).toHaveBeenCalledWith('unknown')
   })
 })
