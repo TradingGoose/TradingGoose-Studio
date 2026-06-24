@@ -306,7 +306,7 @@ export async function approveMcpDeviceLogin({
   const now = new Date()
   const approvedAt = now.toISOString()
   const apiKeyId = nanoid()
-  const { encryptedKey } = await createApiKeyMaterial(true, apiKeyId)
+  const { encryptedKey } = await createApiKeyMaterial(true)
   if (!encryptedKey) {
     throw new Error('Failed to create MCP personal API key')
   }

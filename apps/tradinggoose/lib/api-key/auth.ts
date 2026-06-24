@@ -83,14 +83,11 @@ export async function authenticateApiKey(inputKey: string, storedKey: string): P
  * @param useStorage - Whether to encrypt the key before storage (default: true)
  * @returns Promise<{key: string, encryptedKey?: string}> - The plain key and optionally encrypted version
  */
-export async function createApiKey(
-  useStorage = true,
-  keyId?: string
-): Promise<{
+export async function createApiKey(useStorage = true): Promise<{
   key: string
   encryptedKey?: string
 }> {
-  return createApiKeyMaterial(useStorage, keyId)
+  return createApiKeyMaterial(useStorage)
 }
 
 /**

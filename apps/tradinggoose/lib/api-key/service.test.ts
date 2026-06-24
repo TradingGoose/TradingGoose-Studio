@@ -20,7 +20,11 @@ vi.mock('@/lib/api-key/auth', () => ({
   authenticateApiKey: (...args: unknown[]) => authenticateApiKeyMock(...args),
 }))
 
-import { authenticateApiKeyFromHeader } from '@/lib/api-key/service'
+import {
+  authenticateApiKeyFromHeader,
+  generateApiKey,
+  generateEncryptedApiKey,
+} from '@/lib/api-key/service'
 
 describe('authenticateApiKeyFromHeader', () => {
   beforeEach(() => {
@@ -38,8 +42,8 @@ describe('authenticateApiKeyFromHeader', () => {
     expect(authenticateApiKeyMock).not.toHaveBeenCalled()
   })
 
-  it('authenticates valid keyed personal API keys through a narrowed lookup', async () => {
-    const token = 'sk-tradinggoose-key-1.secret'
+  it('authenticates staging-format personal API keys', async () => {
+    const token = `sk-tradinggoose-${'a'.repeat(32)}`
     whereMock.mockResolvedValue([
       {
         id: 'key-1',
@@ -64,5 +68,10 @@ describe('authenticateApiKeyFromHeader', () => {
 
     expect(whereMock).toHaveBeenCalledOnce()
     expect(authenticateApiKeyMock).toHaveBeenCalledWith(token, 'stored-key')
+  })
+
+  it('generates staging-format API keys without embedded database ids', () => {
+    expect(generateApiKey()).toMatch(/^tradinggoose_[A-Za-z0-9_-]{32}$/)
+    expect(generateEncryptedApiKey()).toMatch(/^sk-tradinggoose-[A-Za-z0-9_-]{32}$/)
   })
 })

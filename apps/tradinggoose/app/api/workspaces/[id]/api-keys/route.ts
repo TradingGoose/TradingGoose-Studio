@@ -123,7 +123,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     const keyId = nanoid()
-    const { key: plainKey, encryptedKey } = await createApiKey(true, keyId)
+    const { key: plainKey, encryptedKey } = await createApiKey(true)
 
     if (!encryptedKey) {
       throw new Error('Failed to encrypt API key for storage')
