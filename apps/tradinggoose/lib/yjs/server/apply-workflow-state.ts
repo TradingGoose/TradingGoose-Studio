@@ -136,7 +136,13 @@ export async function applyWorkflowState(
       throw new Error(saveResult.error || 'Failed to materialize workflow state')
     }
   } catch (error) {
-    await refreshWorkflowYjsFromSavedTables(workflowId)
+    try {
+      await refreshWorkflowYjsFromSavedTables(workflowId)
+    } catch (refreshError) {
+      if (error instanceof Error && error.cause === undefined) {
+        error.cause = refreshError
+      }
+    }
     throw error
   }
 }

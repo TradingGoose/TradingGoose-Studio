@@ -269,4 +269,21 @@ describe('applyWorkflowState', () => {
     expect(mockGetYjsSnapshot).toHaveBeenCalledOnce()
     expect(mockDbUpdate).not.toHaveBeenCalled()
   })
+
+  it('preserves the save error when workflow refresh fails', async () => {
+    mockSaveWorkflowToNormalizedTables.mockResolvedValueOnce({
+      success: false,
+      error: 'db failed',
+    })
+    mockLoadWorkflowStateFromSavedTables.mockResolvedValueOnce(null)
+
+    const { applyWorkflowState } = await import('./apply-workflow-state')
+
+    await expect(applyWorkflowState('workflow-1', emptyWorkflowState, {})).rejects.toMatchObject({
+      message: 'db failed',
+      cause: expect.objectContaining({
+        message: 'Workflow workflow-1 canonical DB state is missing',
+      }),
+    })
+  })
 })
