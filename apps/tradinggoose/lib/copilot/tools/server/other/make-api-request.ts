@@ -17,7 +17,6 @@ interface MakeApiRequestParams {
 
 export const makeApiRequestServerTool: BaseServerTool<MakeApiRequestParams, any> = {
   name: 'make_api_request',
-  exposeToMcp: false,
   async execute(params: MakeApiRequestParams, context?: ServerToolExecutionContext): Promise<any> {
     const logger = createLogger('MakeApiRequestServerTool')
     const { url, method, queryParams, headers, body } = params || ({} as MakeApiRequestParams)

@@ -196,11 +196,12 @@ vi.mock('@/lib/permissions/utils', () => ({
 
 let getToolContract: typeof import('@/lib/copilot/registry').getToolContract
 let isToolId: typeof import('@/lib/copilot/registry').isToolId
+let getMcpServerToolIds: typeof import('@/lib/copilot/tools/server/router').getMcpServerToolIds
 let routeExecution: typeof import('@/lib/copilot/tools/server/router').routeExecution
 
 beforeAll(async () => {
   ;({ getToolContract, isToolId } = await import('@/lib/copilot/registry'))
-  ;({ routeExecution } = await import('@/lib/copilot/tools/server/router'))
+  ;({ getMcpServerToolIds, routeExecution } = await import('@/lib/copilot/tools/server/router'))
 }, 30000)
 
 beforeEach(() => {
@@ -234,6 +235,12 @@ describe('copilot contract registry', () => {
     expect(isToolId('get_indicator_metadata')).toBe(true)
     expect(isToolId('unknown_tool')).toBe(false)
     expect(getToolContract('unknown_tool')).toBeUndefined()
+  })
+
+  it('uses an explicit external MCP tool list', () => {
+    expect(getMcpServerToolIds()).toContain('list_workflows')
+    expect(getMcpServerToolIds()).toContain('get_available_blocks')
+    expect(getMcpServerToolIds()).not.toContain('make_api_request')
   })
 
   it('requires personal or workspace scope for credential and environment reads', () => {

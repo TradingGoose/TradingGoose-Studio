@@ -154,6 +154,62 @@ const lazyServerToolLoaders: Partial<Record<ToolId, () => Promise<BaseServerTool
   },
 }
 
+const mcpServerToolIds = [
+  editWorkflowServerTool.name,
+  editWorkflowBlockServerTool.name,
+  editWorkflowVariableServerTool.name,
+  createWorkflowServerTool.name,
+  renameWorkflowServerTool.name,
+  readWorkflowServerTool.name,
+  listWorkflowsServerTool.name,
+  readWorkflowLogsServerTool.name,
+  searchDocumentationServerTool.name,
+  searchOnlineServerTool.name,
+  readEnvironmentVariablesServerTool.name,
+  setEnvironmentVariablesServerTool.name,
+  listGDriveFilesServerTool.name,
+  readGDriveFileServerTool.name,
+  readOAuthCredentialsServerTool.name,
+  readCredentialsServerTool.name,
+  listKnowledgeBasesServerTool.name,
+  readKnowledgeBaseServerTool.name,
+  createKnowledgeBaseServerTool.name,
+  editKnowledgeBaseServerTool.name,
+  renameKnowledgeBaseServerTool.name,
+  queryKnowledgeBaseServerTool.name,
+  listMonitorsServerTool.name,
+  readMonitorServerTool.name,
+  editMonitorServerTool.name,
+  checkDeploymentStatusServerTool.name,
+  readBlockOutputsServerTool.name,
+  readBlockUpstreamReferencesServerTool.name,
+  listSkillsServerTool.name,
+  readSkillServerTool.name,
+  createSkillServerTool.name,
+  editSkillServerTool.name,
+  renameSkillServerTool.name,
+  listCustomToolsServerTool.name,
+  readCustomToolServerTool.name,
+  createCustomToolServerTool.name,
+  editCustomToolServerTool.name,
+  renameCustomToolServerTool.name,
+  listIndicatorsServerTool.name,
+  readIndicatorServerTool.name,
+  createIndicatorServerTool.name,
+  editIndicatorServerTool.name,
+  renameIndicatorServerTool.name,
+  listMcpServersServerTool.name,
+  readMcpServerServerTool.name,
+  createMcpServerServerTool.name,
+  editMcpServerServerTool.name,
+  renameMcpServerServerTool.name,
+  CopilotTool.get_available_blocks,
+  CopilotTool.get_blocks_metadata,
+  CopilotTool.get_agent_accessory_catalog,
+  CopilotTool.get_indicator_catalog,
+  CopilotTool.get_indicator_metadata,
+] satisfies ToolId[]
+
 export function getServerToolIds(): ToolId[] {
   return [
     ...(Object.keys(serverToolRegistry) as ToolId[]),
@@ -162,9 +218,7 @@ export function getServerToolIds(): ToolId[] {
 }
 
 export function getMcpServerToolIds(): ToolId[] {
-  return getServerToolIds().filter(
-    (toolName) => serverToolRegistry[toolName]?.exposeToMcp !== false
-  )
+  return [...mcpServerToolIds]
 }
 
 async function resolveServerTool(toolName: ToolId): Promise<BaseServerTool<any, any> | null> {
