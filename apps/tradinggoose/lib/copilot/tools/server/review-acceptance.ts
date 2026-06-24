@@ -20,6 +20,7 @@ type StagedServerToolReview = {
   toolName?: unknown
   encryptedPayload?: unknown
   baseStateHash?: unknown
+  executionContext?: Pick<ServerToolExecutionContext, 'contextEntityKind' | 'contextEntityId' | 'workspaceId'>
   reviewClaimId?: unknown
 }
 
@@ -59,6 +60,7 @@ export async function stageServerManagedToolReview(
     string,
     unknown
   >
+  const { contextEntityKind, contextEntityId, workspaceId } = context
   const encryptedPayload = (await encryptSecret(JSON.stringify(payload ?? null))).encrypted
   await db.insert(verification).values({
     id: nanoid(),
@@ -68,6 +70,7 @@ export async function stageServerManagedToolReview(
       toolName,
       encryptedPayload,
       baseStateHash: readBaseStateHash(result),
+      executionContext: { contextEntityKind, contextEntityId, workspaceId },
     }),
     expiresAt: new Date(now.getTime() + REVIEW_TOKEN_TTL_MS),
     createdAt: now,
@@ -120,18 +123,26 @@ export async function acceptServerManagedToolReview(
   if (typeof staged.encryptedPayload !== 'string' || !staged.encryptedPayload) {
     throw new Error('Server tool review token is invalid or expired')
   }
+  if (!staged.executionContext || typeof staged.executionContext !== 'object') {
+    throw new Error('Server tool review token does not match this request')
+  }
   if (typeof staged.reviewClaimId === 'string') {
     throw new Error('Server tool review token is already being accepted')
   }
 
   const { decrypted } = await decryptSecret(staged.encryptedPayload)
   const payload = JSON.parse(decrypted)
+  const executionContext = {
+    ...staged.executionContext,
+    userId: context.userId,
+    signal: context.signal,
+  }
   const currentReview = await routeExecution(toolName, payload, {
-    ...context,
+    ...executionContext,
     accessLevel: 'limited',
   })
   assertAcceptedServerToolReviewBase(
-    { ...context, acceptedReviewBaseStateHash: staged.baseStateHash },
+    { ...executionContext, acceptedReviewBaseStateHash: staged.baseStateHash },
     readBaseStateHash(currentReview)
   )
 
@@ -150,7 +161,7 @@ export async function acceptServerManagedToolReview(
   let acceptedResult: unknown
   try {
     acceptedResult = await routeExecution(toolName, payload, {
-      ...context,
+      ...executionContext,
       accessLevel: 'full',
       acceptedReviewBaseStateHash: staged.baseStateHash,
     })
