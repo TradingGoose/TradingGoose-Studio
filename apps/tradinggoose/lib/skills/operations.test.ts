@@ -23,7 +23,6 @@ vi.mock('drizzle-orm', () => ({
   and: vi.fn((...conditions: unknown[]) => ({ kind: 'and', conditions })),
   desc: vi.fn((value: unknown) => ({ kind: 'desc', value })),
   eq: vi.fn((left: unknown, right: unknown) => ({ kind: 'eq', left, right })),
-  ne: vi.fn((left: unknown, right: unknown) => ({ kind: 'ne', left, right })),
 }))
 
 vi.mock('nanoid', () => ({

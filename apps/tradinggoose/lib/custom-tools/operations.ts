@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { customTools } from '@tradinggoose/db/schema'
-import { and, desc, eq } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import {
   type CustomToolTransferRecord,
@@ -54,40 +54,50 @@ export async function upsertCustomTools({
   }> = []
 
   await db.transaction(async (tx) => {
+    const existingTools = await tx
+      .select({
+        id: customTools.id,
+        title: customTools.title,
+      })
+      .from(customTools)
+      .where(eq(customTools.workspaceId, workspaceId))
+
+    const existingById = new Map(
+      existingTools.map((tool) => [tool.id, { id: tool.id, title: tool.title }])
+    )
+    const plannedTitles = new Map(existingTools.map((tool) => [tool.title, tool.id]))
+
     for (const tool of tools) {
       const nowTime = new Date()
-      const duplicateTitle = await tx
-        .select({ id: customTools.id })
-        .from(customTools)
-        .where(and(eq(customTools.workspaceId, workspaceId), eq(customTools.title, tool.title)))
-        .limit(1)
+      const existingTool = tool.id ? existingById.get(tool.id) : null
+      const conflictingToolId = plannedTitles.get(tool.title)
 
-      if (duplicateTitle[0] && duplicateTitle[0].id !== tool.id) {
+      if (conflictingToolId && conflictingToolId !== tool.id) {
         throw new Error(`A tool with the title "${tool.title}" already exists in this workspace`)
       }
 
-      if (tool.id) {
-        const existingTool = await tx
-          .select()
-          .from(customTools)
-          .where(and(eq(customTools.id, tool.id), eq(customTools.workspaceId, workspaceId)))
-          .limit(1)
-
-        if (existingTool.length > 0) {
-          updates.push({
-            id: tool.id,
-            fields: {
-              title: tool.title,
-              schemaText: JSON.stringify(tool.schema, null, 2),
-              codeText: tool.code,
-            },
-          })
-          logger.info(`[${requestId}] Updated custom tool ${tool.id}`)
-          continue
+      if (existingTool && tool.id) {
+        if (existingTool.title !== tool.title) {
+          plannedTitles.delete(existingTool.title)
+          plannedTitles.set(tool.title, tool.id)
+          existingTool.title = tool.title
         }
+
+        updates.push({
+          id: tool.id,
+          fields: {
+            title: tool.title,
+            schemaText: JSON.stringify(tool.schema, null, 2),
+            codeText: tool.code,
+          },
+        })
+        logger.info(`[${requestId}] Updated custom tool ${tool.id}`)
+        continue
       }
 
       const toolId = tool.id || nanoid()
+      plannedTitles.set(tool.title, toolId)
+      existingById.set(toolId, { id: toolId, title: tool.title })
       const newTool = {
         id: toolId,
         workspaceId,

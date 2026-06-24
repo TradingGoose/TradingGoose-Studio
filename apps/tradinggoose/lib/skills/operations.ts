@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { skill } from '@tradinggoose/db/schema'
-import { and, desc, eq, ne } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -69,63 +69,57 @@ export async function upsertSkills({
   }> = []
 
   await db.transaction(async (tx) => {
+    const existingSkills = await tx
+      .select({
+        id: skill.id,
+        name: skill.name,
+      })
+      .from(skill)
+      .where(eq(skill.workspaceId, workspaceId))
+
+    const existingById = new Map(
+      existingSkills.map((currentSkill) => [
+        currentSkill.id,
+        { id: currentSkill.id, name: currentSkill.name },
+      ])
+    )
+    const plannedNames = new Map(
+      existingSkills.map((currentSkill) => [currentSkill.name, currentSkill.id])
+    )
+
     for (const currentSkill of skills) {
       const nowTime = new Date()
+      const existingSkill = currentSkill.id ? existingById.get(currentSkill.id) : null
+      const conflictingSkillId = plannedNames.get(currentSkill.name)
 
-      if (currentSkill.id) {
-        const existingSkill = await tx
-          .select()
-          .from(skill)
-          .where(and(eq(skill.id, currentSkill.id), eq(skill.workspaceId, workspaceId)))
-          .limit(1)
-
-        if (existingSkill.length > 0) {
-          if (currentSkill.name !== existingSkill[0].name) {
-            const nameConflict = await tx
-              .select({ id: skill.id })
-              .from(skill)
-              .where(
-                and(
-                  eq(skill.workspaceId, workspaceId),
-                  eq(skill.name, currentSkill.name),
-                  ne(skill.id, currentSkill.id)
-                )
-              )
-              .limit(1)
-
-            if (nameConflict.length > 0) {
-              throw new Error(
-                `A skill with the name "${currentSkill.name}" already exists in this workspace`
-              )
-            }
-          }
-
-          updates.push({
-            id: currentSkill.id,
-            fields: {
-              name: currentSkill.name,
-              description: currentSkill.description,
-              content: currentSkill.content,
-            },
-          })
-          logger.info(`[${requestId}] Updated skill ${currentSkill.id}`)
-          continue
-        }
-      }
-
-      const duplicateName = await tx
-        .select({ id: skill.id })
-        .from(skill)
-        .where(and(eq(skill.workspaceId, workspaceId), eq(skill.name, currentSkill.name)))
-        .limit(1)
-
-      if (duplicateName.length > 0) {
+      if (conflictingSkillId && conflictingSkillId !== currentSkill.id) {
         throw new Error(
           `A skill with the name "${currentSkill.name}" already exists in this workspace`
         )
       }
 
+      if (existingSkill && currentSkill.id) {
+        if (existingSkill.name !== currentSkill.name) {
+          plannedNames.delete(existingSkill.name)
+          plannedNames.set(currentSkill.name, currentSkill.id)
+          existingSkill.name = currentSkill.name
+        }
+
+        updates.push({
+          id: currentSkill.id,
+          fields: {
+            name: currentSkill.name,
+            description: currentSkill.description,
+            content: currentSkill.content,
+          },
+        })
+        logger.info(`[${requestId}] Updated skill ${currentSkill.id}`)
+        continue
+      }
+
       const skillId = currentSkill.id || nanoid()
+      plannedNames.set(currentSkill.name, skillId)
+      existingById.set(skillId, { id: skillId, name: currentSkill.name })
       const newSkill = {
         id: skillId,
         workspaceId,
