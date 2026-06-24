@@ -8,12 +8,10 @@ import {
   type ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
 import { routeExecution } from '@/lib/copilot/tools/server/router'
-import { createLogger } from '@/lib/logs/console/logger'
 import { decryptSecret, encryptSecret } from '@/lib/utils-server'
 
 const REVIEW_TOKEN_PREFIX = 'copilot-tool-review:'
 const REVIEW_TOKEN_TTL_MS = 30 * 60 * 1000
-const logger = createLogger('ServerToolReviewAcceptance')
 
 type StagedServerToolReview = {
   userId?: unknown
@@ -24,7 +22,6 @@ type StagedServerToolReview = {
     ServerToolExecutionContext,
     'contextEntityKind' | 'contextEntityId' | 'workspaceId'
   >
-  reviewClaimId?: unknown
 }
 
 function readBaseStateHash(result: unknown): string {
@@ -142,10 +139,6 @@ export async function acceptServerManagedToolReview(
   if (!staged.executionContext || typeof staged.executionContext !== 'object') {
     throw new Error('Server tool review token does not match this request')
   }
-  if (typeof staged.reviewClaimId === 'string') {
-    throw new Error('Server tool review token is already being accepted')
-  }
-
   const { decrypted } = await decryptSecret(staged.encryptedPayload)
   const payload = JSON.parse(decrypted)
   const executionContext = {
@@ -163,43 +156,17 @@ export async function acceptServerManagedToolReview(
   )
 
   const identifier = `${REVIEW_TOKEN_PREFIX}${reviewToken}`
-  const claimed = { ...staged, reviewClaimId: nanoid() }
-  const claimedValue = JSON.stringify(claimed)
-  const [claimedRow] = await db
-    .update(verification)
-    .set({ value: claimedValue, updatedAt: new Date() })
+  const [deletedRow] = await db
+    .delete(verification)
     .where(and(eq(verification.identifier, identifier), eq(verification.value, row.value)))
     .returning({ id: verification.id })
-  if (!claimedRow) {
+  if (!deletedRow) {
     throw new Error('Server tool review token is invalid or expired')
   }
 
-  let acceptedResult: unknown
-  try {
-    acceptedResult = await routeExecution(toolName, payload, {
-      ...executionContext,
-      accessLevel: 'full',
-      acceptedReviewBaseStateHash: staged.baseStateHash,
-    })
-  } catch (error) {
-    await db
-      .update(verification)
-      .set({ value: row.value, updatedAt: new Date() })
-      .where(and(eq(verification.identifier, identifier), eq(verification.value, claimedValue)))
-      .catch((restoreError) => {
-        logger.warn('Failed to restore server tool review token after acceptance failure', {
-          error: restoreError,
-          toolName,
-        })
-      })
-    throw error
-  }
-
-  await db
-    .delete(verification)
-    .where(and(eq(verification.identifier, identifier), eq(verification.value, claimedValue)))
-    .catch((error) => {
-      logger.warn('Failed to delete accepted server tool review token', { error, toolName })
-    })
-  return acceptedResult
+  return routeExecution(toolName, payload, {
+    ...executionContext,
+    accessLevel: 'full',
+    acceptedReviewBaseStateHash: staged.baseStateHash,
+  })
 }

@@ -50,6 +50,7 @@ const setEnvironmentVariablesExecute = vi.fn(async () => ({
   message: 'ok',
 }))
 const noopEntityExecute = vi.fn(async () => ({}))
+const checkWorkspaceAccess = vi.hoisted(() => vi.fn())
 
 const entityTool = (name: string, execute = noopEntityExecute) => ({ name, execute })
 
@@ -189,6 +190,9 @@ vi.mock('@/lib/copilot/tools/server/workflow/read-workflow-logs', () => ({
     execute: readWorkflowLogsExecute,
   },
 }))
+vi.mock('@/lib/permissions/utils', () => ({
+  checkWorkspaceAccess,
+}))
 
 let getToolContract: typeof import('@/lib/copilot/registry').getToolContract
 let isToolId: typeof import('@/lib/copilot/registry').isToolId
@@ -211,6 +215,14 @@ beforeEach(() => {
   readEnvironmentVariablesExecute.mockClear()
   readOAuthCredentialsExecute.mockClear()
   setEnvironmentVariablesExecute.mockClear()
+  noopEntityExecute.mockClear()
+  checkWorkspaceAccess.mockReset()
+  checkWorkspaceAccess.mockResolvedValue({
+    exists: true,
+    hasAccess: true,
+    canWrite: true,
+    workspace: { id: 'workspace-1' },
+  })
 })
 
 describe('copilot contract registry', () => {
@@ -453,6 +465,26 @@ describe('routeExecution', () => {
     await expect(routeExecution('get_available_blocks', {})).resolves.toMatchObject({
       blocks: expect.any(Array),
     })
+  })
+
+  it('rejects inaccessible workspace context before invoking the tool', async () => {
+    checkWorkspaceAccess.mockResolvedValueOnce({
+      exists: true,
+      hasAccess: false,
+      canWrite: false,
+      workspace: { id: 'workspace-denied' },
+    })
+
+    await expect(
+      routeExecution(
+        'list_workflows',
+        { workspaceId: 'workspace-denied' },
+        { userId: 'user-1', accessLevel: 'full' }
+      )
+    ).rejects.toThrow('Access denied: You do not have permission to use this workspace')
+
+    expect(checkWorkspaceAccess).toHaveBeenCalledWith('workspace-denied', 'user-1')
+    expect(noopEntityExecute).not.toHaveBeenCalled()
   })
 
   it('routes indicator catalog requests through the central contract', async () => {
