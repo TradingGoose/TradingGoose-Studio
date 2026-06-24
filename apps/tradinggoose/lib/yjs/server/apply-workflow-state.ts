@@ -67,7 +67,7 @@ async function readAppliedYjsWorkflowState(workflowId: string): Promise<{
 export async function applyWorkflowState(
   workflowId: string,
   workflowState: WorkflowSnapshot,
-  variables: Record<string, any>,
+  variables?: Record<string, any>,
   entityName?: string
 ): Promise<void> {
   const syncedAt = new Date()

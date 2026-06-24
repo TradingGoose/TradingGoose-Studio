@@ -164,4 +164,39 @@ describe('Revert To Deployment Version API Route', () => {
     expect(response.status).toBe(500)
     expect(mockApplyWorkflowState).toHaveBeenCalledOnce()
   })
+
+  it('preserves current variables when the deployment snapshot omits variables', async () => {
+    mockDbSelectLimit.mockResolvedValueOnce([
+      {
+        state: {
+          blocks: {
+            'block-1': {
+              id: 'block-1',
+              type: 'script',
+              subBlocks: {},
+            },
+          },
+          edges: [],
+          loops: {},
+          parallels: {},
+        },
+      },
+    ])
+
+    const { POST } = await import('@/app/api/workflows/[id]/deployments/[version]/revert/route')
+    const request = new NextRequest(
+      'http://localhost:3000/api/workflows/workflow-1/deployments/active/revert'
+    )
+
+    const response = await POST(request, {
+      params: Promise.resolve({ id: 'workflow-1', version: 'active' }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(mockApplyWorkflowState).toHaveBeenCalledWith(
+      'workflow-1',
+      expect.any(Object),
+      undefined
+    )
+  })
 })

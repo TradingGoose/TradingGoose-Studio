@@ -62,6 +62,7 @@ describe('workflow import orchestration', () => {
         edges: [],
         loops: {},
         parallels: {},
+        variables: {},
       })
 
       expect(Object.keys((state as { blocks: Record<string, unknown> }).blocks)).toHaveLength(1)
@@ -142,6 +143,15 @@ describe('workflow import orchestration', () => {
             edges: [],
             loops: {},
             parallels: {},
+            variables: {
+              'var-1': {
+                id: 'var-1',
+                workflowId: 'workflow-source',
+                name: 'risk',
+                type: 'plain',
+                value: 'medium',
+              },
+            },
           },
         },
       ],
@@ -186,6 +196,7 @@ describe('workflow import orchestration', () => {
       expect(workflowId).toBe('workflow-1')
 
       const workflowState = state as {
+        variables: Record<string, unknown>
         blocks: Record<
           string,
           {
@@ -198,6 +209,23 @@ describe('workflow import orchestration', () => {
           }
         >
       }
+
+      const [remappedVariable] = Object.values(workflowState.variables) as Array<{
+        id: string
+        workflowId: string
+        name: string
+        type: string
+        value: string
+      }>
+      expect(Object.keys(workflowState.variables)).toHaveLength(1)
+      expect(workflowState.variables[remappedVariable.id]).toBe(remappedVariable)
+      expect(remappedVariable).toMatchObject({
+        workflowId: 'workflow-1',
+        name: 'risk',
+        type: 'plain',
+        value: 'medium',
+      })
+      expect(remappedVariable.id).not.toBe('var-1')
 
       const [firstBlock] = Object.values(workflowState.blocks)
 

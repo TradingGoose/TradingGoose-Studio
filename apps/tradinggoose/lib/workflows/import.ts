@@ -1,10 +1,14 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import { resolveImportedWorkflowName } from '@/lib/workflows/import-export'
+import { remapVariableIds } from '@/lib/workflows/db-helpers'
+import {
+  resolveImportedWorkflowName,
+  type WorkflowTransferRecord,
+} from '@/lib/workflows/import-export'
 import { parseWorkflowJson } from '@/stores/workflows/json/importer'
-import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
 const logger = createLogger('WorkflowImport')
 const normalizeInlineWhitespace = (value: string) => value.trim().replace(/\s+/g, ' ')
+type ImportedWorkflowState = WorkflowTransferRecord['state']
 
 type ImportedWorkflowSkill = {
   skillId: string
@@ -23,14 +27,14 @@ type ImportWorkflowFromJsonContentParams = {
   existingWorkflowNames: Iterable<string>
   importedSkillsBySourceName?: Map<string, ImportedWorkflowSkill>
   createWorkflow: (params: CreateWorkflowParams) => Promise<string>
-  persistWorkflowState: (workflowId: string, state: WorkflowState) => Promise<void>
+  persistWorkflowState: (workflowId: string, state: ImportedWorkflowState) => Promise<void>
 }
 
 function relinkWorkflowSkillValues(
-  state: WorkflowState,
+  state: ImportedWorkflowState,
   importedSkillsBySourceName: Map<string, ImportedWorkflowSkill>
-): WorkflowState {
-  const clonedState = JSON.parse(JSON.stringify(state)) as WorkflowState
+): ImportedWorkflowState {
+  const clonedState = JSON.parse(JSON.stringify(state)) as ImportedWorkflowState
 
   Object.entries(clonedState.blocks).forEach(([blockId, block]) => {
     const skillSubBlock = block.subBlocks?.skills
@@ -98,12 +102,13 @@ export async function importWorkflowFromJsonContent({
   }
 
   const { data: parsedWorkflowData, errors } = parseWorkflowJson(content, true)
-  let workflowData = parsedWorkflowData
 
-  if (!workflowData || errors.length > 0) {
+  if (!parsedWorkflowData || errors.length > 0) {
     const message = errors[0] ?? 'Failed to parse workflow import file'
     throw new Error(message)
   }
+
+  let workflowData: WorkflowTransferRecord = parsedWorkflowData
 
   if (workflowData.skills.length > 0) {
     if (!importedSkillsBySourceName || importedSkillsBySourceName.size === 0) {
@@ -128,7 +133,10 @@ export async function importWorkflowFromJsonContent({
     workflowName: resolvedName,
   })
 
-  await persistWorkflowState(workflowId, workflowData.state)
+  await persistWorkflowState(workflowId, {
+    ...workflowData.state,
+    variables: remapVariableIds(workflowData.state.variables, workflowId),
+  })
 
   logger.info('Persisted imported workflow state', {
     workflowId,
