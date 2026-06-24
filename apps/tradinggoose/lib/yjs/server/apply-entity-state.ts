@@ -17,10 +17,7 @@ import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { getEntityFields } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { readSavedEntityFieldsFromDb } from '@/lib/yjs/server/entity-loaders'
-import {
-  applyEntityStateInSocketServer,
-  getYjsSnapshot,
-} from '@/lib/yjs/server/snapshot-bridge'
+import { applyEntityStateInSocketServer, getYjsSnapshot } from '@/lib/yjs/server/snapshot-bridge'
 
 export class SavedEntityPersistenceError extends Error {
   constructor(
