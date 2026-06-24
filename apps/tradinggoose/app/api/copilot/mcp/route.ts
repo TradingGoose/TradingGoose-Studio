@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { authenticateApiKeyFromHeader, updateApiKeyLastUsed } from '@/lib/api-key/service'
 import { getCopilotRuntimeToolManifest } from '@/lib/copilot/runtime-tool-manifest'
-import { getServerToolIds, routeExecution } from '@/lib/copilot/tools/server/router'
+import { getMcpServerToolIds, routeExecution } from '@/lib/copilot/tools/server/router'
 import { getUserWorkspaces } from '@/lib/workspaces/service'
 
 export const dynamic = 'force-dynamic'
@@ -95,7 +95,7 @@ async function buildInstructions(userId: string) {
       : ['- No accessible workspaces were found.']
 
   return [
-    'TradingGoose Copilot MCP exposes the same server-side Copilot tools used by TradingGoose Studio.',
+    'TradingGoose Copilot MCP exposes server-side Copilot tools that are safe for external MCP access.',
     'Local MCP config stores only this user auth token. Do not store workspaceId, entityId, or entity targets in the local MCP config.',
     'Use entityId for read/edit/rename tools that target an existing entity. Credential, OAuth, and environment reads require scope="personal" for the authenticated user or scope="workspace" with workspaceId. Workspace-scoped tools, including list/create, Google Drive, and workspace account reads, require workspaceId. Environment writes use the same personal/workspace scope rule.',
     'MCP server documents redact header/env secret values as [redacted]. Keep [redacted] to preserve an existing secret, send a concrete value to replace it, or omit the key to delete it.',
@@ -105,7 +105,7 @@ async function buildInstructions(userId: string) {
 }
 
 async function listMcpTools() {
-  const serverToolIds = new Set<string>(getServerToolIds())
+  const serverToolIds = new Set<string>(getMcpServerToolIds())
   const manifest = await getCopilotRuntimeToolManifest()
 
   return manifest.tools
@@ -182,6 +182,9 @@ async function handleJsonRpcRequest(entry: unknown, auth: AuthenticatedMcpUser) 
       const toolCall = getToolCallParams(request.params)
       if (!toolCall) {
         return jsonRpcError(id, -32602, 'Invalid tools/call params')
+      }
+      if (!getMcpServerToolIds().some((toolName) => toolName === toolCall.name)) {
+        return jsonRpcError(id, -32601, `Unsupported MCP tool: ${toolCall.name}`)
       }
 
       try {

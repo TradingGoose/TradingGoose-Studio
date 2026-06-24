@@ -8,14 +8,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   mockAuthenticateApiKeyFromHeader,
   mockGetCopilotRuntimeToolManifest,
-  mockGetServerToolIds,
+  mockGetMcpServerToolIds,
   mockGetUserWorkspaces,
   mockRouteExecution,
   mockUpdateApiKeyLastUsed,
 } = vi.hoisted(() => ({
   mockAuthenticateApiKeyFromHeader: vi.fn(),
   mockGetCopilotRuntimeToolManifest: vi.fn(),
-  mockGetServerToolIds: vi.fn(),
+  mockGetMcpServerToolIds: vi.fn(),
   mockGetUserWorkspaces: vi.fn(),
   mockRouteExecution: vi.fn(),
   mockUpdateApiKeyLastUsed: vi.fn(),
@@ -31,7 +31,7 @@ vi.mock('@/lib/copilot/runtime-tool-manifest', () => ({
 }))
 
 vi.mock('@/lib/copilot/tools/server/router', () => ({
-  getServerToolIds: (...args: unknown[]) => mockGetServerToolIds(...args),
+  getMcpServerToolIds: (...args: unknown[]) => mockGetMcpServerToolIds(...args),
   routeExecution: (...args: unknown[]) => mockRouteExecution(...args),
 }))
 
@@ -62,7 +62,7 @@ describe('Copilot MCP route', () => {
       { id: 'workspace-1', name: 'Research', permissions: 'admin' },
       { id: 'workspace-2', name: 'Ops', permissions: 'read' },
     ])
-    mockGetServerToolIds.mockReturnValue(['list_workflows', 'read_workflow'])
+    mockGetMcpServerToolIds.mockReturnValue(['list_workflows', 'read_workflow'])
     mockGetCopilotRuntimeToolManifest.mockResolvedValue({
       version: 'v1',
       tools: [
@@ -75,6 +75,11 @@ describe('Copilot MCP route', () => {
           name: 'plan',
           description: 'Client-only planning tool.',
           parameters: { type: 'object', properties: {} },
+        },
+        {
+          name: 'make_api_request',
+          description: 'Make an HTTP request.',
+          parameters: { type: 'object', properties: { url: { type: 'string' } } },
         },
       ],
     })
@@ -141,6 +146,26 @@ describe('Copilot MCP route', () => {
         inputSchema: { type: 'object', properties: { workspaceId: { type: 'string' } } },
       },
     ])
+  })
+
+  it('rejects tools outside the external MCP allow-list', async () => {
+    const { POST } = await import('./route')
+
+    const response = await POST(
+      createMcpRequest({
+        jsonrpc: '2.0',
+        id: 3,
+        method: 'tools/call',
+        params: {
+          name: 'make_api_request',
+          arguments: { url: 'https://example.test', method: 'GET' },
+        },
+      })
+    )
+    const body = await response.json()
+
+    expect(body.error.message).toBe('Unsupported MCP tool: make_api_request')
+    expect(mockRouteExecution).not.toHaveBeenCalled()
   })
 
   it('dispatches tool calls through the server tool router', async () => {

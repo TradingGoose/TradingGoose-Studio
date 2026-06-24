@@ -161,6 +161,12 @@ export function getServerToolIds(): ToolId[] {
   ]
 }
 
+export function getMcpServerToolIds(): ToolId[] {
+  return getServerToolIds().filter(
+    (toolName) => serverToolRegistry[toolName]?.exposeToMcp !== false
+  )
+}
+
 async function resolveServerTool(toolName: ToolId): Promise<BaseServerTool<any, any> | null> {
   const lazyTool = lazyServerToolLoaders[toolName]
   if (lazyTool) return lazyTool()

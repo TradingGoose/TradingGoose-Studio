@@ -93,5 +93,6 @@ export function assertAcceptedServerToolReviewBase(
 
 export interface BaseServerTool<TArgs = any, TResult = any> {
   name: ToolId
+  exposeToMcp?: boolean
   execute(args: TArgs, context?: ServerToolExecutionContext): Promise<TResult>
 }
