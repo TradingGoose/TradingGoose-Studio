@@ -177,6 +177,7 @@ export function IndicatorCodePanel({
     | { state: 'warning'; message: string; warnings: string[] }
     | { state: 'error'; message: string }
   >({ state: 'idle' })
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const [showEnvVars, setShowEnvVars] = useState(false)
   const [envVarSearchTerm, setEnvVarSearchTerm] = useState('')
@@ -216,6 +217,7 @@ export function IndicatorCodePanel({
 
   useEffect(() => {
     setVerifyStatus({ state: 'idle' })
+    setSaveError(null)
   }, [doc, indicatorId])
 
   const updateCursorState = (
@@ -262,9 +264,12 @@ export function IndicatorCodePanel({
     const currentPineCode = codeEditorHandleRef.current?.getEditor()?.getValue() ?? pineCode
     const disallowedMessage = validateNoDollarGlobals(currentPineCode)
     if (disallowedMessage) {
+      setSaveError(null)
       setVerifyStatus({ state: 'error', message: disallowedMessage })
       return
     }
+
+    setSaveError(null)
 
     try {
       if (currentPineCode !== pineCode) {
@@ -273,6 +278,7 @@ export function IndicatorCodePanel({
 
       await save()
     } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save indicator.')
       console.error('Failed to update indicator', err)
     }
   }, [workspaceId, indicatorId, doc, pineCode, save, setPineCode])
@@ -458,6 +464,11 @@ export function IndicatorCodePanel({
             )}
           </Notice>
         )}
+        {saveError ? (
+          <Notice variant='error' title='Save failed'>
+            {saveError}
+          </Notice>
+        ) : null}
       </div>
 
       <div ref={codeEditorRef} className='relative mt-2 flex min-h-0 flex-1 flex-col rounded-md'>
