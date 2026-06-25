@@ -110,7 +110,7 @@ describe('Workflow Duplicate API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
-      loadWorkflowStateFromYjsSession: loadWorkflowStateMock,
+      loadEditableWorkflowState: loadWorkflowStateMock,
       regenerateWorkflowStateIds: regenerateWorkflowStateIdsMock,
       saveWorkflowToNormalizedTables: saveWorkflowToNormalizedTablesMock,
     }))

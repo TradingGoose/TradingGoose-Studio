@@ -162,6 +162,21 @@ export type PersistedWorkflowState = {
   lastSaved: number
 }
 
+export const WORKFLOW_REALTIME_REQUIRED_CODE = 'WORKFLOW_REALTIME_REQUIRED'
+
+export class WorkflowRealtimeRequiredError extends Error {
+  readonly code = WORKFLOW_REALTIME_REQUIRED_CODE
+
+  constructor(cause: unknown) {
+    super(cause instanceof Error ? cause.message : 'Workflow realtime orchestration is required')
+    this.name = 'WorkflowRealtimeRequiredError'
+  }
+}
+
+export const isWorkflowRealtimeRequiredError = (
+  error: unknown
+): error is WorkflowRealtimeRequiredError => error instanceof WorkflowRealtimeRequiredError
+
 function decodeWorkflowSnapshot(snapshotBase64: string): PersistedWorkflowState | null {
   const doc = new Y.Doc()
   try {
@@ -177,7 +192,7 @@ function decodeWorkflowSnapshot(snapshotBase64: string): PersistedWorkflowState 
  * used by the Yjs bootstrap path when a session is not already live. Bridge
  * failures intentionally surface instead of falling back to stale saved tables.
  */
-export async function loadWorkflowStateFromYjsSession(
+export async function loadEditableWorkflowState(
   workflowId: string
 ): Promise<PersistedWorkflowState | null> {
   const { readBootstrappedReviewTargetSnapshot } = await import(
@@ -190,6 +205,8 @@ export async function loadWorkflowStateFromYjsSession(
     draftSessionId: null,
     reviewSessionId: null,
     yjsSessionId: workflowId,
+  }).catch((error) => {
+    throw new WorkflowRealtimeRequiredError(error)
   })
   if (!snapshot.snapshotBase64) {
     return null
@@ -979,7 +996,7 @@ export async function deployWorkflow(params: {
   } = params
 
   try {
-    const editableState = await loadWorkflowStateFromYjsSession(workflowId)
+    const editableState = await loadEditableWorkflowState(workflowId)
     if (!editableState) {
       return { success: false, error: 'Failed to load workflow state' }
     }

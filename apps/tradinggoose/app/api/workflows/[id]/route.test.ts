@@ -34,7 +34,9 @@ describe('Workflow By ID API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
-      loadWorkflowStateFromYjsSession: mockLoadWorkflowState,
+      WORKFLOW_REALTIME_REQUIRED_CODE: 'WORKFLOW_REALTIME_REQUIRED',
+      isWorkflowRealtimeRequiredError: vi.fn(() => false),
+      loadEditableWorkflowState: mockLoadWorkflowState,
     }))
 
     vi.doMock('@tradinggoose/db', () => ({

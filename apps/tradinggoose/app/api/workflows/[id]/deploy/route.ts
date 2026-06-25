@@ -7,7 +7,7 @@ import {
 } from '@/lib/chat/published-deployment'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { deployWorkflow, loadWorkflowStateFromYjsSession } from '@/lib/workflows/db-helpers'
+import { deployWorkflow, loadEditableWorkflowState } from '@/lib/workflows/db-helpers'
 import { hasWorkflowChanged, validateWorkflowPermissions } from '@/lib/workflows/utils'
 import { notifyMonitorsReconcile } from '@/app/api/monitors/reconcile'
 import { pauseMonitorsMissingDeployedTrigger } from '@/app/api/monitors/shared'
@@ -99,7 +99,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .limit(1)
 
     if (active?.state) {
-      const currentState = await loadWorkflowStateFromYjsSession(id)
+      const currentState = await loadEditableWorkflowState(id)
       if (currentState) {
         needsRedeployment = hasWorkflowChanged(currentState, active.state as any)
       }

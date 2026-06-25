@@ -9,7 +9,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import {
-  loadWorkflowStateFromYjsSession,
+  loadEditableWorkflowState,
   regenerateWorkflowStateIds,
   saveWorkflowToNormalizedTables,
 } from '@/lib/workflows/db-helpers'
@@ -31,7 +31,7 @@ async function loadSourceWorkflowArtifacts(sourceWorkflowId: string): Promise<{
   workflowState: WorkflowState
   variables: Record<string, Variable>
 }> {
-  const editableState = await loadWorkflowStateFromYjsSession(sourceWorkflowId)
+  const editableState = await loadEditableWorkflowState(sourceWorkflowId)
   if (!editableState) {
     throw new Error('Failed to load source workflow state')
   }

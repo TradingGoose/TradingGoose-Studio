@@ -66,7 +66,7 @@ vi.mock('@/lib/utils-server', () => ({
 
 vi.mock('@/lib/workflows/db-helpers', () => ({
   loadDeployedWorkflowState: vi.fn(),
-  loadWorkflowStateFromYjsSession: vi.fn(),
+  loadEditableWorkflowState: vi.fn(),
 }))
 
 vi.mock('@/lib/workflows/triggers', () => ({
@@ -403,10 +403,10 @@ describe('loadWorkflowExecutionBlueprint', () => {
   })
 
   it('loads Yjs workflow state for live execution when no snapshot is supplied', async () => {
-    const { loadDeployedWorkflowState, loadWorkflowStateFromYjsSession } = await import(
+    const { loadDeployedWorkflowState, loadEditableWorkflowState } = await import(
       '@/lib/workflows/db-helpers'
     )
-    vi.mocked(loadWorkflowStateFromYjsSession).mockResolvedValueOnce({
+    vi.mocked(loadEditableWorkflowState).mockResolvedValueOnce({
       blocks: { trigger: { subBlocks: {} } },
       edges: [{ source: 'trigger', target: 'worker' }],
       loops: {},
@@ -426,12 +426,12 @@ describe('loadWorkflowExecutionBlueprint', () => {
     expect(result.workflowData.blocks).toEqual({ trigger: { subBlocks: {} } })
     expect(result.workflowContext.variables).toEqual({ risk: { value: 1 } })
     expect(loadDeployedWorkflowState).not.toHaveBeenCalled()
-    expect(loadWorkflowStateFromYjsSession).toHaveBeenCalledWith('workflow-1')
+    expect(loadEditableWorkflowState).toHaveBeenCalledWith('workflow-1')
     expect(mocks.dbSelect).not.toHaveBeenCalled()
   })
 
   it('uses variables from the active deployment for deployed execution', async () => {
-    const { loadDeployedWorkflowState, loadWorkflowStateFromYjsSession } = await import(
+    const { loadDeployedWorkflowState, loadEditableWorkflowState } = await import(
       '@/lib/workflows/db-helpers'
     )
     const deployedVariables = {
@@ -474,6 +474,6 @@ describe('loadWorkflowExecutionBlueprint', () => {
       unknown
     >
     expect(Object.keys(selectShape)).toEqual(['workspaceId'])
-    expect(loadWorkflowStateFromYjsSession).not.toHaveBeenCalled()
+    expect(loadEditableWorkflowState).not.toHaveBeenCalled()
   })
 })

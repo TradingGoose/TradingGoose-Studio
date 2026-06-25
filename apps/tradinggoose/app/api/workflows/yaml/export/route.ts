@@ -8,7 +8,11 @@ import { extractSubBlockValuesFromBlocks } from '@/lib/copilot/workflow/block-ou
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
-import { loadWorkflowStateFromYjsSession } from '@/lib/workflows/db-helpers'
+import {
+  isWorkflowRealtimeRequiredError,
+  loadEditableWorkflowState,
+  WORKFLOW_REALTIME_REQUIRED_CODE,
+} from '@/lib/workflows/db-helpers'
 import { getAllBlocks } from '@/blocks/registry'
 import type { BlockConfig } from '@/blocks/types'
 import { resolveOutputType } from '@/blocks/utils'
@@ -70,7 +74,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    const editableState = await loadWorkflowStateFromYjsSession(workflowId)
+    const editableState = await loadEditableWorkflowState(workflowId)
 
     if (!editableState) {
       return NextResponse.json(
@@ -181,6 +185,16 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     logger.error(`[${requestId}] YAML export failed`, error)
+    if (isWorkflowRealtimeRequiredError(error)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Workflow realtime orchestration is required',
+          code: WORKFLOW_REALTIME_REQUIRED_CODE,
+        },
+        { status: 503 }
+      )
+    }
     return NextResponse.json(
       {
         success: false,

@@ -8,10 +8,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { decryptSecret } from '@/lib/utils-server'
-import {
-  loadDeployedWorkflowState,
-  loadWorkflowStateFromYjsSession,
-} from '@/lib/workflows/db-helpers'
+import { loadDeployedWorkflowState, loadEditableWorkflowState } from '@/lib/workflows/db-helpers'
 import { TriggerUtils } from '@/lib/workflows/triggers'
 import { updateWorkflowRunCounts } from '@/lib/workflows/utils'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
@@ -270,7 +267,7 @@ export async function loadWorkflowExecutionBlueprint(params: {
   const executionTarget = params.executionTarget ?? 'deployed'
   const liveWorkflowState =
     executionTarget === 'live' && !params.workflowData
-      ? await loadWorkflowStateFromYjsSession(params.workflowId)
+      ? await loadEditableWorkflowState(params.workflowId)
       : null
   const workflowContext = await resolveRequiredWorkflowExecutionContext(
     params.workflowId,
