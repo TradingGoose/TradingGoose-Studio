@@ -156,15 +156,36 @@ export async function acceptServerManagedToolReview(
   )
 
   const identifier = `${REVIEW_TOKEN_PREFIX}${reviewToken}`
+  const claimValue = `claimed:${nanoid()}`
+  const [claimedRow] = await db
+    .update(verification)
+    .set({ value: claimValue })
+    .where(and(eq(verification.identifier, identifier), eq(verification.value, row.value)))
+    .returning({ id: verification.id })
+  if (!claimedRow) {
+    throw new Error('Server tool review token is invalid or expired')
+  }
+
   const result = await routeExecution(toolName, payload, {
     ...executionContext,
     accessLevel: 'full',
     acceptedReviewBaseStateHash: staged.baseStateHash,
+  }).catch(async (error) => {
+    await db
+      .update(verification)
+      .set({ value: row.value })
+      .where(and(eq(verification.identifier, identifier), eq(verification.value, claimValue)))
+      .catch((restoreError) => {
+        if (error instanceof Error && error.cause === undefined) {
+          error.cause = restoreError
+        }
+      })
+    throw error
   })
 
   const [deletedRow] = await db
     .delete(verification)
-    .where(and(eq(verification.identifier, identifier), eq(verification.value, row.value)))
+    .where(and(eq(verification.identifier, identifier), eq(verification.value, claimValue)))
     .returning({ id: verification.id })
   if (!deletedRow) {
     throw new Error('Server tool review token is invalid or expired')
