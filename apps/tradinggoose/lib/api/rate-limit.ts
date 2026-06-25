@@ -21,12 +21,14 @@ export interface RateLimitResult {
 export type ApiRateLimitEndpoint =
   | 'api-endpoint'
   | 'copilot-mcp'
+  | 'copilot-mcp-public'
   | 'logs'
   | 'logs-detail'
   | 'mcp-auth-start'
   | 'mcp-auth-poll'
 
 const PUBLIC_API_ENDPOINT_LIMITS: Partial<Record<ApiRateLimitEndpoint, number>> = {
+  'copilot-mcp-public': 300,
   'mcp-auth-start': 20,
   'mcp-auth-poll': 120,
 }
@@ -131,7 +133,7 @@ function getRequesterKey(request: Request): string {
 
 export async function checkPublicApiEndpointRateLimit(
   request: Request,
-  endpoint: Extract<ApiRateLimitEndpoint, 'mcp-auth-start' | 'mcp-auth-poll'>
+  endpoint: Extract<ApiRateLimitEndpoint, 'copilot-mcp-public' | 'mcp-auth-start' | 'mcp-auth-poll'>
 ): Promise<RateLimitResult> {
   const limit = PUBLIC_API_ENDPOINT_LIMITS[endpoint] ?? 0
   const scopeId = `public:${endpoint}:${getRequesterKey(request)}`

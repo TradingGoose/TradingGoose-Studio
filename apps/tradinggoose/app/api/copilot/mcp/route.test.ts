@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   mockAuthenticateApiKeyFromHeader,
   mockCheckApiEndpointRateLimit,
+  mockCheckPublicApiEndpointRateLimit,
   mockGetCopilotRuntimeToolManifest,
   mockGetMcpServerToolIds,
   mockGetUserWorkspaces,
@@ -16,6 +17,7 @@ const {
 } = vi.hoisted(() => ({
   mockAuthenticateApiKeyFromHeader: vi.fn(),
   mockCheckApiEndpointRateLimit: vi.fn(),
+  mockCheckPublicApiEndpointRateLimit: vi.fn(),
   mockGetCopilotRuntimeToolManifest: vi.fn(),
   mockGetMcpServerToolIds: vi.fn(),
   mockGetUserWorkspaces: vi.fn(),
@@ -25,6 +27,8 @@ const {
 
 vi.mock('@/lib/api/rate-limit', () => ({
   checkApiEndpointRateLimit: (...args: unknown[]) => mockCheckApiEndpointRateLimit(...args),
+  checkPublicApiEndpointRateLimit: (...args: unknown[]) =>
+    mockCheckPublicApiEndpointRateLimit(...args),
 }))
 
 vi.mock('@/lib/api-key/service', () => ({
@@ -70,6 +74,12 @@ describe('Copilot MCP route', () => {
       limit: 100,
       resetAt: new Date('2026-06-24T12:01:00.000Z'),
       userId: 'user-1',
+    })
+    mockCheckPublicApiEndpointRateLimit.mockResolvedValue({
+      allowed: true,
+      remaining: 299,
+      limit: 300,
+      resetAt: new Date('2026-06-24T12:01:00.000Z'),
     })
     mockGetUserWorkspaces.mockResolvedValue([
       { id: 'workspace-1', name: 'Research', permissions: 'admin' },
@@ -182,6 +192,22 @@ describe('Copilot MCP route', () => {
     expect(response.headers.get('Retry-After')).toBeTruthy()
     expect(body.error.message).toBe('Rate limit exceeded')
     expect(mockGetCopilotRuntimeToolManifest).not.toHaveBeenCalled()
+  })
+
+  it('applies the public MCP rate limit before API-key authentication', async () => {
+    const { POST } = await import('./route')
+    mockCheckPublicApiEndpointRateLimit.mockResolvedValueOnce({
+      allowed: false,
+      remaining: 0,
+      limit: 300,
+      resetAt: new Date('2026-06-24T12:01:00.000Z'),
+    })
+
+    const response = await POST(createMcpRequest({ jsonrpc: '2.0', id: 2, method: 'tools/list' }))
+
+    expect(response.status).toBe(429)
+    expect(mockAuthenticateApiKeyFromHeader).not.toHaveBeenCalled()
+    expect(mockCheckApiEndpointRateLimit).not.toHaveBeenCalled()
   })
 
   it('rejects tools outside the external MCP allow-list', async () => {

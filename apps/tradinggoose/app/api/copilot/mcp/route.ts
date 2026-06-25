@@ -1,5 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { checkApiEndpointRateLimit, type RateLimitResult } from '@/lib/api/rate-limit'
+import {
+  checkApiEndpointRateLimit,
+  checkPublicApiEndpointRateLimit,
+  type RateLimitResult,
+} from '@/lib/api/rate-limit'
 import { authenticateApiKeyFromHeader, updateApiKeyLastUsed } from '@/lib/api-key/service'
 import { getCopilotRuntimeToolManifest } from '@/lib/copilot/runtime-tool-manifest'
 import { getMcpServerToolIds, routeExecution } from '@/lib/copilot/tools/server/router'
@@ -242,6 +246,11 @@ async function handleJsonRpcRequest(entry: unknown, auth: AuthenticatedMcpUser) 
 }
 
 export async function POST(request: NextRequest) {
+  const publicRateLimit = await checkPublicApiEndpointRateLimit(request, 'copilot-mcp-public')
+  if (!publicRateLimit.allowed) {
+    return mcpRateLimitResponse(publicRateLimit)
+  }
+
   const auth = await authenticateCopilotMcpRequest(request)
   if ('error' in auth) {
     return mcpJsonResponse(jsonRpcError(null, -32001, auth.error), { status: 401 })
