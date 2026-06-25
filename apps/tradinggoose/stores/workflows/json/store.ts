@@ -1,13 +1,9 @@
-import { createWithEqualityFn as create } from 'zustand/traditional'
 import { devtools } from 'zustand/middleware'
+import { createWithEqualityFn as create } from 'zustand/traditional'
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  collectWorkflowSkillIds,
-  createWorkflowExportFile,
-} from '@/lib/workflows/import-export'
-import { getEntityFields } from '@/lib/yjs/entity-session'
-import { bootstrapYjsProvider } from '@/lib/yjs/provider'
+import { createWorkflowExportFile } from '@/lib/workflows/import-export'
 import { getSnapshotForWorkflow } from '@/lib/yjs/workflow-session-registry'
+import { useSkillsStore } from '@/stores/skills/store'
 import { useWorkflowRegistry } from '../registry/store'
 
 const logger = createLogger('WorkflowJsonStore')
@@ -24,46 +20,6 @@ interface WorkflowJsonStore {
   generateJson: (scope?: WorkflowJsonScope) => Promise<void>
   getJson: (scope?: WorkflowJsonScope) => Promise<string>
   refreshJson: (scope?: WorkflowJsonScope) => Promise<void>
-}
-
-async function readWorkflowSkillExportsFromYjs(
-  workflowSnapshot: NonNullable<ReturnType<typeof getSnapshotForWorkflow>>,
-  workspaceId: string | null | undefined
-) {
-  const skillIds = collectWorkflowSkillIds(workflowSnapshot)
-  if (skillIds.length === 0) {
-    return []
-  }
-  if (!workspaceId) {
-    return null
-  }
-
-  return Promise.all(
-    skillIds.map(async (skillId) => {
-      const session = await bootstrapYjsProvider({
-        workspaceId,
-        entityKind: 'skill',
-        entityId: skillId,
-        draftSessionId: null,
-        reviewSessionId: null,
-        yjsSessionId: skillId,
-      })
-
-      try {
-        const fields = getEntityFields(session.doc, 'skill')
-        return {
-          id: skillId,
-          name: String(fields.name ?? ''),
-          description: String(fields.description ?? ''),
-          content: String(fields.content ?? ''),
-        }
-      } finally {
-        session.provider.disconnect()
-        session.provider.destroy()
-        session.doc.destroy()
-      }
-    })
-  )
 }
 
 export const useWorkflowJsonStore = create<WorkflowJsonStore>()(
@@ -110,24 +66,15 @@ export const useWorkflowJsonStore = create<WorkflowJsonStore>()(
             return
           }
 
-          const workflowSkills = await readWorkflowSkillExportsFromYjs(
-            workflowSnapshot,
-            currentWorkflow.workspaceId
-          )
-
-          if (!workflowSkills) {
-            logger.warn('Workflow workspace missing for skill export:', activeWorkflowId)
-            clearJson()
-            return
-          }
-
           const exportFile = createWorkflowExportFile({
             workflow: {
               name: currentWorkflow.name,
               description: currentWorkflow.description ?? '',
               state: workflowSnapshot,
             },
-            skills: workflowSkills,
+            skills: currentWorkflow.workspaceId
+              ? useSkillsStore.getState().getAllSkills(currentWorkflow.workspaceId)
+              : [],
           })
 
           // Convert to formatted JSON

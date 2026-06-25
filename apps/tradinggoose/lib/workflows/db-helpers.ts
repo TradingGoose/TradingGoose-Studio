@@ -103,7 +103,8 @@ function decodeWorkflowSnapshot(snapshotBase64: string): PersistedWorkflowState 
 
 /**
  * Editable workflow reads must go through the Yjs session. Saved tables are only
- * used by the Yjs bootstrap path when a session is not already live.
+ * used by the Yjs bootstrap path when a session is not already live. Bridge
+ * failures intentionally surface instead of falling back to stale saved tables.
  */
 export async function loadWorkflowStateFromYjsSession(
   workflowId: string
