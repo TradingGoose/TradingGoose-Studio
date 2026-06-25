@@ -113,6 +113,7 @@ export async function applyWorkflowState(
 
   try {
     const appliedState = await readAppliedYjsWorkflowState(workflowId)
+    const { deployedAt, isDeployed } = appliedState.workflowState
     const saveResult = await saveWorkflowToNormalizedTables(
       workflowId,
       appliedState.workflowState,
@@ -123,6 +124,12 @@ export async function applyWorkflowState(
             lastSynced: syncedAt,
             updatedAt: syncedAt,
             variables: appliedState.variables,
+            ...(isDeployed === undefined
+              ? {}
+              : {
+                  isDeployed,
+                  deployedAt: isDeployed ? (deployedAt ? new Date(deployedAt) : syncedAt) : null,
+                }),
           })
           .where(eq(workflow.id, workflowId))
           .returning({ id: workflow.id })

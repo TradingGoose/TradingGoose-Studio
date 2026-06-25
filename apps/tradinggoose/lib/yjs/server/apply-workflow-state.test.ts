@@ -153,6 +153,8 @@ describe('applyWorkflowState', () => {
           edges: [],
           loops: {},
           parallels: {},
+          isDeployed: true,
+          deployedAt: '2026-06-19T12:00:00.000Z',
         },
         { apiKey: { id: 'apiKey', value: 'from-yjs' } }
       ),
@@ -222,6 +224,8 @@ describe('applyWorkflowState', () => {
     expect(mockUpdateSet).toHaveBeenCalledWith(
       expect.objectContaining({
         variables: { apiKey: { id: 'apiKey', value: 'from-yjs' } },
+        isDeployed: true,
+        deployedAt: new Date('2026-06-19T12:00:00.000Z'),
       })
     )
   })
