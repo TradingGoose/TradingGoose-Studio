@@ -32,6 +32,10 @@ app:
     INTERNAL_API_SECRET: "dev-32-char-internal-secret-not-secure"
     CRON_SECRET: "dev-32-char-cron-secret-not-for-prod"
 
+    # Optional: API Key Encryption (leave empty for dev, encrypts API keys at rest)
+    # For production, generate 64-char hex using: openssl rand -hex 32
+    API_ENCRYPTION_KEY: ""  # Optional - if not set, API keys stored in plain text
+
 # Realtime service
 realtime:
   enabled: true

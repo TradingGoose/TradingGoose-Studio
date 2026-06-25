@@ -28,7 +28,8 @@ export async function createApiKey(useStorage = true): Promise<{
   encryptedKey?: string
 }> {
   try {
-    const plainKey = env.API_ENCRYPTION_KEY ? generateEncryptedApiKey() : generateApiKey()
+    const plainKey =
+      env.API_ENCRYPTION_KEY !== undefined ? generateEncryptedApiKey() : generateApiKey()
 
     if (useStorage) {
       const encryptedKey = await encryptApiKeyForStorage(plainKey)
@@ -145,6 +146,9 @@ export async function getApiKeyOwnerUserId(
 function getApiEncryptionKey(): Buffer | null {
   const key = env.API_ENCRYPTION_KEY
   if (!key) {
+    logger.warn(
+      'API_ENCRYPTION_KEY not set - API keys will be stored in plain text. Consider setting this for better security.'
+    )
     return null
   }
   if (key.length !== 64) {
@@ -208,9 +212,38 @@ export function isEncryptedKey(storedKey: string): boolean {
 
 export async function authenticateApiKey(inputKey: string, storedKey: string): Promise<boolean> {
   try {
+    if (isEncryptedApiKeyFormat(inputKey)) {
+      if (!isEncryptedKey(storedKey)) {
+        return false
+      }
+      try {
+        const { decrypted } = await decryptApiKey(storedKey)
+        return inputKey === decrypted
+      } catch (decryptError) {
+        logger.error('Failed to decrypt stored API key:', { error: decryptError })
+        return false
+      }
+    }
+
+    if (isPlainApiKeyFormat(inputKey)) {
+      if (isEncryptedKey(storedKey)) {
+        try {
+          const { decrypted } = await decryptApiKey(storedKey)
+          return inputKey === decrypted
+        } catch (decryptError) {
+          logger.error('Failed to decrypt stored API key:', { error: decryptError })
+        }
+      }
+      return inputKey === storedKey
+    }
+
     if (isEncryptedKey(storedKey)) {
-      const { decrypted } = await decryptApiKey(storedKey)
-      return inputKey === decrypted
+      try {
+        const { decrypted } = await decryptApiKey(storedKey)
+        return inputKey === decrypted
+      } catch (decryptError) {
+        logger.error('Failed to decrypt stored API key:', { error: decryptError })
+      }
     }
 
     return inputKey === storedKey
