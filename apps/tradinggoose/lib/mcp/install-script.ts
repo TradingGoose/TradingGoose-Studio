@@ -50,12 +50,11 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-async function postJson(url, body, token) {
+async function postJson(url, body) {
   const response = await fetch(url, {
     method: 'POST',
     headers: {
       ...(body ? { 'content-type': 'application/json' } : {}),
-      ...(token ? { authorization: 'Bearer ' + token } : {}),
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
   })
@@ -80,42 +79,6 @@ function runConfigWriter(args) {
   }
 
   return result.stdout.trim()
-}
-
-function readExistingTokens() {
-  return runConfigWriter(['read-tokens']).split(/\r?\n/).filter(Boolean)
-}
-
-async function isTokenValid(token) {
-  const response = await fetch(mcpUrl, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: 'Bearer ' + token,
-    },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 'auth-check', method: 'ping' }),
-  })
-
-  return response.ok
-}
-
-async function readValidExistingToken() {
-  const tokens = readExistingTokens()
-  for (const token of tokens) {
-    if (await isTokenValid(token)) {
-      return token
-    }
-  }
-  return null
-}
-
-async function resolveAuthToken() {
-  const existingToken = await readValidExistingToken()
-  if (existingToken) {
-    return existingToken
-  }
-
-  return authenticate()
 }
 
 async function authenticate() {
@@ -170,7 +133,7 @@ async function main() {
   requireFetch()
 
   if (command === 'login') {
-    const token = await resolveAuthToken()
+    const token = await authenticate()
     console.log('MCP endpoint:')
     console.log(mcpUrl)
     console.log('')
@@ -187,7 +150,7 @@ async function main() {
       fail('setup requires a selected target')
     }
 
-    const token = await resolveAuthToken()
+    const token = await authenticate()
     console.log('Using MCP endpoint: ' + mcpUrl)
     for (const target of targets) {
       const configPath = runConfigWriter([target, mcpUrl, token])

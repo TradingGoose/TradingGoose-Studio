@@ -29,31 +29,6 @@ function runWriter(home: string, args: string[]) {
   return result.stdout
 }
 
-function shellQuote(value: string) {
-  return `'${value.replaceAll("'", "'\\''")}'`
-}
-
-function runWriterCapture(home: string, args: string[]) {
-  const scriptPath = join(home, 'writer.js')
-  const outputPath = join(home, 'writer.out')
-  writeFileSync(scriptPath, MCP_LOCAL_CONFIG_WRITER_SCRIPT, 'utf8')
-  const command = `node ${shellQuote(scriptPath)} ${args.map(shellQuote).join(' ')} > ${shellQuote(outputPath)}`
-  const result = spawnSync('sh', ['-c', command], {
-    cwd: home,
-    encoding: 'utf8',
-    env: {
-      ...process.env,
-      HOME: home,
-      USERPROFILE: home,
-    },
-    timeout: 5000,
-  })
-
-  expect(result.status).toBe(0)
-  expect(result.stderr).toBe('')
-  return readFileSync(outputPath, 'utf8')
-}
-
 describe('MCP local config writer script', () => {
   it('writes Codex config with TradingGoose HTTP headers', () => {
     const home = mkdtempSync(join(tmpdir(), 'tg-mcp-codex-'))
@@ -98,26 +73,6 @@ describe('MCP local config writer script', () => {
     expect(config).toContain('Authorization = "Bearer new-token"')
     expect(config).toContain('[mcp_servers.other]')
     expect(config).not.toContain('bearer_token_env_var')
-  })
-
-  it('reads Codex bearer token from the configured HTTP headers', () => {
-    const home = mkdtempSync(join(tmpdir(), 'tg-mcp-codex-token-'))
-    runWriter(home, ['codex', 'http://localhost:3000/api/copilot/mcp', 'existing-token'])
-
-    const stdout = runWriterCapture(home, ['read-tokens'])
-
-    expect(stdout.trim()).toBe('existing-token')
-  })
-
-  it('skips malformed JSON client configs while discovering existing tokens', () => {
-    const home = mkdtempSync(join(tmpdir(), 'tg-mcp-token-malformed-'))
-    mkdirSync(join(home, '.cursor'), { recursive: true })
-    writeFileSync(join(home, '.cursor', 'mcp.json'), '{', 'utf8')
-    runWriter(home, ['claude', 'http://localhost:3000/api/copilot/mcp', 'valid-token'])
-
-    const stdout = runWriterCapture(home, ['read-tokens'])
-
-    expect(stdout.trim()).toBe('valid-token')
   })
 
   it('writes JSON client configs with the TradingGoose server name', () => {

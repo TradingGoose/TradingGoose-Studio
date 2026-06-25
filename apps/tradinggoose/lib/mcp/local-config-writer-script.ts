@@ -5,7 +5,6 @@ const path = require('path')
 const target = process.argv[2]
 const mcpUrl = process.argv[3]
 const token = process.argv[4]
-const allTargets = ['codex', 'cursor', 'claude', 'opencode']
 const mcpServerName = 'TradingGoose'
 
 function resolvePathFor(candidate) {
@@ -100,71 +99,6 @@ function writeJsonConfig(filePath, section, entry) {
   }
   config[section][mcpServerName] = entry
   fs.writeFileSync(filePath, JSON.stringify(config, null, 2) + '\n', 'utf8')
-}
-
-function bearerTokenFromHeader(value) {
-  if (typeof value !== 'string') {
-    return null
-  }
-  const match = value.match(/^Bearer\s+(.+)$/)
-  return match ? match[1] : null
-}
-
-function readCodexToken(filePath) {
-  if (!fs.existsSync(filePath)) {
-    return null
-  }
-  const text = fs.readFileSync(filePath, 'utf8')
-  const section = findTomlSection(text, '[mcp_servers.' + mcpServerName + '.http_headers]')
-  const authHeader = section?.match(/(?:^|\n)Authorization\s*=\s*["']([^"']+)["']/)
-  return authHeader ? bearerTokenFromHeader(authHeader[1]) : null
-}
-
-function findTomlSection(text, sectionHeader) {
-  const startIndex = text.indexOf(sectionHeader)
-  if (startIndex === -1) {
-    return null
-  }
-  const rest = text.slice(startIndex + sectionHeader.length)
-  const nextHeaderIndex = rest.search(/\n\[/)
-  return nextHeaderIndex === -1 ? rest : rest.slice(0, nextHeaderIndex)
-}
-
-function readJsonToken(filePath, section) {
-  let config
-  try {
-    config = readJson(filePath)
-  } catch {
-    return null
-  }
-  return bearerTokenFromHeader(config?.[section]?.[mcpServerName]?.headers?.Authorization)
-}
-
-function readTargetToken(candidate) {
-  const filePath = resolvePathFor(candidate)
-  switch (candidate) {
-    case 'codex':
-      return readCodexToken(filePath)
-    case 'cursor':
-    case 'claude':
-      return readJsonToken(filePath, 'mcpServers')
-    case 'opencode':
-      return readJsonToken(filePath, 'mcp')
-    default:
-      throw new Error('Unsupported setup target: ' + candidate)
-  }
-}
-
-if (target === 'read-tokens') {
-  const seen = new Set()
-  for (const candidate of allTargets) {
-    const existingToken = readTargetToken(candidate)
-    if (existingToken && !seen.has(existingToken)) {
-      seen.add(existingToken)
-      console.log(existingToken)
-    }
-  }
-  process.exit(0)
 }
 
 const filePath = resolvePath()
