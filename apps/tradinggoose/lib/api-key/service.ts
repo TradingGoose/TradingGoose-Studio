@@ -7,6 +7,7 @@ import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('ApiKeyService')
+const API_KEY_SECRET_PATTERN = /^[A-Za-z0-9_-]{32}$/
 
 export interface ApiKeyAuthOptions {
   userId?: string
@@ -53,6 +54,9 @@ export async function authenticateApiKeyFromHeader(
   const apiKey = apiKeyHeader.trim()
   if (!apiKey) {
     return { success: false, error: 'API key required' }
+  }
+  if (!isApiKeyFormat(apiKey)) {
+    return { success: false, error: 'Invalid API key' }
   }
 
   try {
@@ -269,6 +273,16 @@ export function generateApiKey(): string {
 
 export function generateEncryptedApiKey(): string {
   return `sk-tradinggoose-${nanoid(32)}`
+}
+
+export function isApiKeyFormat(apiKey: string): boolean {
+  if (isEncryptedApiKeyFormat(apiKey)) {
+    return API_KEY_SECRET_PATTERN.test(apiKey.slice('sk-tradinggoose-'.length))
+  }
+  if (isPlainApiKeyFormat(apiKey)) {
+    return API_KEY_SECRET_PATTERN.test(apiKey.slice('tradinggoose_'.length))
+  }
+  return false
 }
 
 export function isEncryptedApiKeyFormat(apiKey: string): boolean {
