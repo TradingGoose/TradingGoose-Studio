@@ -1,16 +1,15 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { db } from '@tradinggoose/db'
 import { apiKey, verification } from '@tradinggoose/db/schema'
-import { and, eq, gt } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
-import { createApiKeyMaterial } from '@/lib/api-key/service'
+import { createApiKey } from '@/lib/api-key/service'
 import { env } from '@/lib/env'
 import { getBaseUrl } from '@/lib/urls/utils'
 
 const DEVICE_LOGIN_TTL_MS = 10 * 60 * 1000
 const DEVICE_LOGIN_PREFIX = 'mcp:'
 const POLL_INTERVAL_SECONDS = 2
-const MAX_PENDING_DEVICE_LOGINS_PER_REQUESTER = 20
 
 type PendingDeviceLogin = {
   status: 'pending'
@@ -77,10 +76,6 @@ function buildDeviceLoginId(code: string): string {
   return `${DEVICE_LOGIN_PREFIX}${hashValue(`${getDeviceLoginDeploymentScope()}:${code}`)}`
 }
 
-function buildDeviceLoginRequesterIdentifier(requesterKey: string): string {
-  return `${DEVICE_LOGIN_PREFIX}${getDeviceLoginDeploymentScope()}:${hashValue(requesterKey)}`
-}
-
 function createDeviceLoginApprovalToken(code: string, userId: string): string {
   return signDeviceLoginCode(`mcp-approval.${buildDeviceLoginId(code)}.${userId}`)
 }
@@ -90,6 +85,14 @@ function approvalTokenMatches(code: string, userId: string, approvalToken: strin
   return (
     expectedToken.length === approvalToken.length &&
     timingSafeEqual(Buffer.from(expectedToken), Buffer.from(approvalToken))
+  )
+}
+
+function signatureMatches(unsignedCode: string, signature: string): boolean {
+  const expectedSignature = signDeviceLoginCode(unsignedCode)
+  return (
+    expectedSignature.length === signature.length &&
+    timingSafeEqual(Buffer.from(expectedSignature), Buffer.from(signature))
   )
 }
 
@@ -119,6 +122,54 @@ function createDeviceLogin({
       createdAt: now.toISOString(),
       verificationKeyHash,
     } satisfies PendingDeviceLogin,
+  }
+}
+
+function parseDeviceLoginCode(code: string): DeviceLogin | null {
+  const parts = code.split('.')
+  if (parts.length !== 6) {
+    return null
+  }
+
+  const signature = parts.at(-1)
+  if (!signature) {
+    return null
+  }
+
+  const unsignedCode = parts.slice(0, -1).join('.')
+  if (!signatureMatches(unsignedCode, signature)) {
+    return null
+  }
+
+  const [, createdAtValue, expiresAtValue, deploymentScope, verificationKeyHash] = parts
+  if (
+    deploymentScope !== getDeviceLoginDeploymentScope() ||
+    !verificationKeyHash ||
+    !createdAtValue ||
+    !expiresAtValue
+  ) {
+    return null
+  }
+
+  const createdAtTime = Number(createdAtValue)
+  const expiresAtTime = Number(expiresAtValue)
+  if (!Number.isFinite(createdAtTime) || !Number.isFinite(expiresAtTime)) {
+    return null
+  }
+
+  const expiresAt = new Date(expiresAtTime)
+  if (expiresAt <= new Date()) {
+    return null
+  }
+
+  return {
+    id: buildDeviceLoginId(code),
+    state: {
+      status: 'pending',
+      createdAt: new Date(createdAtTime).toISOString(),
+      verificationKeyHash,
+    },
+    expiresAt,
   }
 }
 
@@ -167,7 +218,7 @@ async function readDeviceLogin(code: string) {
     .limit(1)
 
   if (!row) {
-    return null
+    return parseDeviceLoginCode(code)
   }
 
   const state = parseDeviceLoginState(row.value)
@@ -181,6 +232,24 @@ async function readDeviceLogin(code: string) {
     state,
     expiresAt: row.expiresAt,
   }
+}
+
+async function persistPendingDeviceLogin(login: DeviceLogin) {
+  if (login.state.status !== 'pending') {
+    return
+  }
+
+  await db
+    .insert(verification)
+    .values({
+      id: login.id,
+      identifier: login.id,
+      value: JSON.stringify(login.state),
+      expiresAt: login.expiresAt,
+      createdAt: new Date(login.state.createdAt),
+      updatedAt: new Date(),
+    })
+    .onConflictDoNothing({ target: verification.id })
 }
 
 async function updateDeviceLoginState(
@@ -199,33 +268,11 @@ async function updateDeviceLoginState(
   return Boolean(updated)
 }
 
-export async function startMcpDeviceLogin(
-  requesterKey: string
-): Promise<McpDeviceLoginStartResult | null> {
+export async function startMcpDeviceLogin(): Promise<McpDeviceLoginStartResult> {
   const verificationKey = randomBytes(32).toString('base64url')
   const now = new Date()
   const expiresAt = new Date(now.getTime() + DEVICE_LOGIN_TTL_MS)
-  const identifier = buildDeviceLoginRequesterIdentifier(requesterKey)
-  const activeLogins = await db
-    .select({ id: verification.id })
-    .from(verification)
-    .where(and(eq(verification.identifier, identifier), gt(verification.expiresAt, now)))
-    .limit(MAX_PENDING_DEVICE_LOGINS_PER_REQUESTER)
-
-  if (activeLogins.length >= MAX_PENDING_DEVICE_LOGINS_PER_REQUESTER) {
-    return null
-  }
-
   const login = createDeviceLogin({ expiresAt, now, verificationKey })
-
-  await db.insert(verification).values({
-    id: login.id,
-    identifier,
-    value: JSON.stringify(login.state),
-    expiresAt,
-    createdAt: now,
-    updatedAt: now,
-  })
 
   return {
     code: login.code,
@@ -262,6 +309,8 @@ export async function createMcpDeviceLoginApprovalChallenge({
   if (login.state.status !== 'pending') {
     return { status: 'expired' }
   }
+
+  await persistPendingDeviceLogin(login)
 
   return {
     status: 'pending',
@@ -300,7 +349,10 @@ export async function pollMcpDeviceLogin(
 
   const approvedState = login.state
   const now = new Date()
-  const { key, storedKey } = await createApiKeyMaterial()
+  const { key, encryptedKey } = await createApiKey(true)
+  if (!encryptedKey) {
+    throw new Error('Failed to encrypt API key for storage')
+  }
   const delivered = await db.transaction(async (tx) => {
     const [updated] = await tx
       .update(verification)
@@ -321,7 +373,7 @@ export async function pollMcpDeviceLogin(
       userId: approvedState.userId,
       workspaceId: null,
       name: `TradingGoose MCP Access ${now.toISOString()}`,
-      key: storedKey,
+      key: encryptedKey,
       type: 'personal',
       createdAt: now,
       updatedAt: now,
