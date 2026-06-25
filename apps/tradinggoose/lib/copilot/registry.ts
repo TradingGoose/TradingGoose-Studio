@@ -276,8 +276,12 @@ const EditWorkflowVariableArgs = EntityTargetArgs.extend({
     .string()
     .min(1)
     .describe(
-      'Full `tg-workflow-variable-document-v1` JSON document for workflow variables. Preserve existing `variableId` values from `read_workflow`; choose a new unique `variableId` only for a new variable: {"variables":[{"variableId":"var-risk-limit","name":"riskLimit","type":"number","value":100}]}. This is a full replacement document; omit a variable to delete it.'
+      'Full `tg-workflow-variable-document-v1` JSON document for workflow variables. Preserve existing `variableId` values from `read_workflow`; choose a new unique `variableId` only for a new variable: {"variables":[{"variableId":"var-risk-limit","name":"riskLimit","type":"number","value":100}]}.'
     ),
+  removedVariableIds: z
+    .array(z.string().trim().min(1))
+    .optional()
+    .describe('Existing variable ids intentionally removed from the workflow.'),
   documentFormat: z.literal(WORKFLOW_VARIABLE_DOCUMENT_FORMAT).optional(),
 }).strict()
 const KnowledgeBaseDocumentMutationShape = {

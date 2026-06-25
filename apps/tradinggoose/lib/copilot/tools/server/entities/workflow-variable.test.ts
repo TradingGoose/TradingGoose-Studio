@@ -79,7 +79,7 @@ describe('workflow variable server tools', () => {
     mockReadBootstrappedReviewTargetSnapshot.mockResolvedValue({
       snapshotBase64: workflowSnapshotBase64({
         'var-1': {
-          id: 'var-1',
+          id: 'wrong-id',
           workflowId: 'wf-1',
           name: 'riskLimit',
           type: 'number',
@@ -144,17 +144,13 @@ describe('workflow variable server tools', () => {
     expect(result.preview.documentDiff.after).toContain('enabled')
   })
 
-  it('applies full-access workflow variable edits without replaying workflow topology', async () => {
+  it('applies full-access workflow variable deletion without replaying workflow topology', async () => {
     const result = await editWorkflowVariableServerTool.execute(
       {
         entityId: 'wf-1',
         documentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
-        entityDocument: JSON.stringify({
-          variables: [
-            { variableId: 'var-1', name: 'riskLimit', type: 'number', value: 25 },
-            { variableId: 'var-2', name: 'enabled', type: 'boolean', value: true },
-          ],
-        }),
+        entityDocument: JSON.stringify({ variables: [] }),
+        removedVariableIds: ['var-1'],
       },
       { userId: 'user-1', accessLevel: 'full' }
     )
@@ -168,13 +164,29 @@ describe('workflow variable server tools', () => {
       workspaceId: 'workspace-1',
       documentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
     })
-    expect(mockApplyWorkflowPatchInSocketServer).toHaveBeenCalledWith('wf-1', {
-      variables: result.variables,
-    })
+    expect(result.variables).toEqual({})
+    expect(mockApplyWorkflowPatchInSocketServer).toHaveBeenCalledWith('wf-1', { variables: {} })
     expect(mockApplyWorkflowState).not.toHaveBeenCalled()
   })
 
-  it('rejects replacement documents that omit variable ids', async () => {
+  it('rejects variable replacements without stable ids or removal intent', async () => {
+    await expect(
+      editWorkflowVariableServerTool.execute(
+        {
+          entityId: 'wf-1',
+          documentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
+          entityDocument: JSON.stringify({
+            variables: [
+              { variableId: 'var-replacement', name: 'riskLimit', type: 'number', value: 25 },
+            ],
+          }),
+        },
+        { userId: 'user-1', accessLevel: 'full' }
+      )
+    ).rejects.toThrow(
+      'Existing variable ids omitted from edit_workflow_variable entityDocument without removedVariableIds: var-1'
+    )
+
     await expect(
       editWorkflowVariableServerTool.execute(
         {

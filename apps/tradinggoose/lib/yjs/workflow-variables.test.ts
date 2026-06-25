@@ -238,7 +238,7 @@ describe('workflow variable Yjs mutations', () => {
       doc,
       {
         'var-1': {
-          id: 'var-1',
+          id: 'wrong-id',
           workflowId: 'wf-1',
           name: 'Bar Value',
           type: 'plain',
@@ -248,7 +248,7 @@ describe('workflow variable Yjs mutations', () => {
       'test'
     )
 
-    expect(getVariablesSnapshot(doc)['var-1']).toMatchObject({ name: 'Bar Value' })
+    expect(getVariablesSnapshot(doc)['var-1']).toMatchObject({ id: 'var-1', name: 'Bar Value' })
     expect(readWorkflowSnapshot(doc).blocks.blockA.subBlocks.prompt.value).toBe(
       'Use <variable.barvalue> in this prompt'
     )

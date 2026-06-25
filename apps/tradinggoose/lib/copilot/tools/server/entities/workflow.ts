@@ -238,10 +238,10 @@ export async function loadWorkflowSnapshotForCopilot(
 }
 
 function serializeWorkflowVariableDocument(variables: Record<string, any>): string {
-  const entries = Object.values(variables)
-    .filter((variable: any) => variable && typeof variable === 'object')
-    .map((variable: any) => ({
-      variableId: String(variable.id ?? ''),
+  const entries = Object.entries(variables)
+    .filter(([, variable]) => variable && typeof variable === 'object')
+    .map(([variableId, variable]: [string, any]) => ({
+      variableId,
       name: String(variable.name ?? ''),
       type: isWorkflowVariableType(variable.type) ? variable.type : 'plain',
       value: variable.value ?? '',
@@ -372,7 +372,12 @@ export const readWorkflowServerTool: BaseServerTool<{ entityId: string }, any> =
 }
 
 export const editWorkflowVariableServerTool: BaseServerTool<
-  { entityId: string; entityDocument: string; documentFormat?: string },
+  {
+    entityId: string
+    entityDocument: string
+    documentFormat?: string
+    removedVariableIds?: string[]
+  },
   any
 > = {
   name: 'edit_workflow_variable',
@@ -392,6 +397,22 @@ export const editWorkflowVariableServerTool: BaseServerTool<
       workflowId,
       entityDocument: args.entityDocument,
     })
+    const nextVariableIds = new Set(Object.keys(nextVariables))
+    const removedVariableIds = new Set(args.removedVariableIds?.map((id) => id.trim()))
+    const missingRemovalIntents = Object.keys(variables).filter(
+      (id) => !nextVariableIds.has(id) && !removedVariableIds.has(id)
+    )
+    if (missingRemovalIntents.length > 0) {
+      throw new Error(
+        `Invalid edited workflow variables: Existing variable ids omitted from edit_workflow_variable entityDocument without removedVariableIds: ${missingRemovalIntents.join(', ')}.`
+      )
+    }
+    const stillPresentRemovedIds = [...removedVariableIds].filter((id) => nextVariableIds.has(id))
+    if (stillPresentRemovedIds.length > 0) {
+      throw new Error(
+        `Invalid edited workflow variables: removedVariableIds still appear in edit_workflow_variable entityDocument: ${stillPresentRemovedIds.join(', ')}.`
+      )
+    }
     const nextDocument = serializeWorkflowVariableDocument(nextVariables)
     const currentVariablesBaseHash = hashServerToolReviewBase(variables)
 

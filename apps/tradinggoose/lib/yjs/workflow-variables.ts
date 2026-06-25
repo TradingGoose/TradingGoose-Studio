@@ -315,7 +315,7 @@ export function replaceWorkflowVariables(
 
     vMap.clear()
     for (const [key, value] of Object.entries(variables)) {
-      vMap.set(key, value)
+      vMap.set(key, { ...value, id: key })
     }
   }, origin ?? 'variable-replace')
 }
