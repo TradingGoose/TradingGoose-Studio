@@ -27,7 +27,10 @@ type ApprovedDeviceLogin = {
   deliveredAt?: string
 }
 
-type DeviceLoginState = PendingDeviceLogin | ApprovedDeviceLogin
+type DeviceLoginState =
+  | PendingDeviceLogin
+  | ApprovedDeviceLogin
+  | { status: 'cancelled'; verificationKeyHash: string }
 type DeviceLogin = {
   id: string
   state: DeviceLoginState
@@ -167,6 +170,9 @@ function parseDeviceLoginState(value: string): DeviceLoginState | null {
     ) {
       return parsed as ApprovedDeviceLogin
     }
+    if (parsed.status === 'cancelled' && typeof parsed.verificationKeyHash === 'string') {
+      return parsed as DeviceLoginState
+    }
     return null
   } catch {
     return null
@@ -286,6 +292,9 @@ export async function createMcpDeviceLoginApprovalChallenge({
       expiresAt: login.expiresAt.toISOString(),
     }
   }
+  if (login.state.status !== 'pending') {
+    return { status: 'expired' }
+  }
 
   const approvalToken = randomBytes(32).toString('base64url')
   const challengedState = {
@@ -333,12 +342,15 @@ export async function pollMcpDeviceLogin(
     return { status: 'expired' }
   }
 
-  if (login.state.status !== 'approved') {
+  if (login.state.status === 'pending') {
     return {
       status: 'pending',
       intervalSeconds: POLL_INTERVAL_SECONDS,
       expiresAt: login.expiresAt.toISOString(),
     }
+  }
+  if (login.state.status !== 'approved') {
+    return { status: 'expired' }
   }
 
   const approvedState = login.state
@@ -408,6 +420,9 @@ export async function approveMcpDeviceLogin({
       expiresAt: login.expiresAt.toISOString(),
     }
   }
+  if (login.state.status !== 'pending') {
+    return { status: 'invalid' }
+  }
 
   if (
     login.state.approvalUserId !== userId ||
@@ -461,12 +476,19 @@ export async function cancelMcpDeviceLogin({
     return { status: 'invalid' }
   }
 
-  const [deleted] = await db
-    .delete(verification)
+  const [updated] = await db
+    .update(verification)
+    .set({
+      value: JSON.stringify({
+        status: 'cancelled',
+        verificationKeyHash: login.state.verificationKeyHash,
+      }),
+      updatedAt: new Date(),
+    })
     .where(deviceLoginMatches(login))
     .returning({ id: verification.id })
 
-  if (!deleted) {
+  if (!updated) {
     return { status: 'invalid' }
   }
 
