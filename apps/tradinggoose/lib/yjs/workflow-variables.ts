@@ -11,7 +11,10 @@
  */
 
 import type * as Y from 'yjs'
-import { LISTING_IDENTITY_VALUE_TYPE, parseListingIdentityValueStrict } from '@/lib/listing/identity'
+import {
+  LISTING_IDENTITY_VALUE_TYPE,
+  parseListingIdentityValueStrict,
+} from '@/lib/listing/identity'
 import { escapeRegExp } from '@/lib/utils'
 import type { Variable } from '@/stores/variables/types'
 import { rewriteWorkflowContentReferences } from './workflow-reference-rewrite'
@@ -287,6 +290,34 @@ export function deleteWorkflowVariable(doc: Y.Doc, id: string, origin?: string):
   }, origin ?? 'variable-delete')
 
   return true
+}
+
+export function replaceWorkflowVariables(
+  doc: Y.Doc,
+  variables: Record<string, any>,
+  origin?: string
+): void {
+  const vMap = getVariablesMap(doc)
+
+  doc.transact(() => {
+    for (const [id, nextVariable] of Object.entries(variables)) {
+      const current = vMap.get(id) as Variable | undefined
+      const nextName = typeof nextVariable?.name === 'string' ? nextVariable.name : undefined
+      if (current && nextName && current.name !== nextName) {
+        rewriteVariableReferencesInWorkflowContent(
+          readWorkflowMap(doc),
+          readWorkflowTextFieldsMap(doc),
+          current.name,
+          nextName
+        )
+      }
+    }
+
+    vMap.clear()
+    for (const [key, value] of Object.entries(variables)) {
+      vMap.set(key, value)
+    }
+  }, origin ?? 'variable-replace')
 }
 
 export function duplicateWorkflowVariable(

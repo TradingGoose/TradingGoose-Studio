@@ -9,7 +9,11 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import * as Y from 'yjs'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getEntityFields, seedEntitySession } from '@/lib/yjs/entity-session'
-import { extractPersistedStateFromDoc, setWorkflowState } from '@/lib/yjs/workflow-session'
+import {
+  extractPersistedStateFromDoc,
+  setVariables,
+  setWorkflowState,
+} from '@/lib/yjs/workflow-session'
 import { createSocketIOServer } from '@/socket-server/config/socket'
 import { createHttpHandler } from '@/socket-server/routes/http'
 import {
@@ -333,7 +337,13 @@ describe('Socket Server Index Integration', () => {
               type: 'agent',
               name: 'Applied Agent',
               position: { x: 10, y: 20 },
-              subBlocks: {},
+              subBlocks: {
+                prompt: {
+                  id: 'prompt',
+                  type: 'long-input',
+                  value: 'Use <variable.token> in this prompt',
+                },
+              },
               outputs: {},
               enabled: true,
             },
@@ -378,12 +388,30 @@ describe('Socket Server Index Integration', () => {
       expect(mockSaveWorkflowYjsDocToDb).toHaveBeenCalledTimes(2)
       expect(await getExistingDocument('workflow-1')).toBeNull()
 
-      const variables = { var2: { name: 'riskLimit', value: 25 } }
+      const liveDoc = getDocument('workflow-1', true) as Y.Doc
+      setWorkflowState(
+        liveDoc,
+        {
+          blocks: savedWorkflowStates[0]?.blocks ?? {},
+          edges: savedWorkflowStates[0]?.edges ?? [],
+          loops: savedWorkflowStates[0]?.loops ?? {},
+          parallels: savedWorkflowStates[0]?.parallels ?? {},
+        },
+        'test'
+      )
+      setVariables(liveDoc, savedWorkflowStates[0]?.variables ?? {}, 'test')
+
+      const variables = {
+        var1: { id: 'var1', workflowId: 'workflow-1', name: 'riskLimit', value: 25 },
+      }
       const variablesResponse = await applyWorkflowPatch({ variables })
 
       expect(variablesResponse.statusCode).toBe(200)
       expect(mockSaveWorkflowYjsDocToDb).toHaveBeenCalledTimes(3)
       expect(savedWorkflowStates[2]?.variables).toEqual(variables)
+      expect(savedWorkflowStates[2]?.blocks['block-1'].subBlocks.prompt.value).toBe(
+        'Use <variable.risklimit> in this prompt'
+      )
       expect(await getExistingDocument('workflow-1')).toBeNull()
     })
 

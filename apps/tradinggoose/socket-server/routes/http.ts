@@ -19,11 +19,11 @@ import {
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import {
   replaceWorkflowDocumentState,
-  setVariables,
   setWorkflowEntityMetadata,
   type WorkflowMetadataPatch,
   type WorkflowSnapshot,
 } from '@/lib/yjs/workflow-session'
+import { replaceWorkflowVariables } from '@/lib/yjs/workflow-variables'
 import { getMonitorRuntimeLockHealth } from '@/socket-server/monitor-runtime-lock'
 import {
   discardDocument,
@@ -296,7 +296,9 @@ async function handleInternalYjsWorkflowApplyRequest(
       if (body.workflowState) {
         replaceWorkflowDocumentState(doc, body.workflowState, body.variables, body.metadata)
       }
-      if (!body.workflowState && body.variables !== undefined) setVariables(doc, body.variables)
+      if (!body.workflowState && body.variables !== undefined) {
+        replaceWorkflowVariables(doc, body.variables, YJS_ORIGINS.SYSTEM)
+      }
       if (!body.workflowState && body.metadata) setWorkflowEntityMetadata(doc, body.metadata)
       await saveWorkflowYjsDocToDb(workflowId, doc)
       discardDocumentIfIdle(workflowId)
