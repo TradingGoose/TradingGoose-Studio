@@ -18,7 +18,12 @@ import {
 import { escapeRegExp } from '@/lib/utils'
 import type { Variable } from '@/stores/variables/types'
 import { rewriteWorkflowContentReferences } from './workflow-reference-rewrite'
-import { getVariablesMap, readWorkflowMap, readWorkflowTextFieldsMap } from './workflow-session'
+import {
+  getMetadataMap,
+  getVariablesMap,
+  readWorkflowMap,
+  readWorkflowTextFieldsMap,
+} from './workflow-session'
 
 // ---------------------------------------------------------------------------
 // Name generation
@@ -317,6 +322,7 @@ export function replaceWorkflowVariables(
     for (const [key, value] of Object.entries(variables)) {
       vMap.set(key, { ...value, id: key })
     }
+    getMetadataMap(doc).delete('reseededFromCanonical')
   }, origin ?? 'variable-replace')
 }
 
