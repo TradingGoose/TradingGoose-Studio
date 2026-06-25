@@ -156,6 +156,12 @@ export async function acceptServerManagedToolReview(
   )
 
   const identifier = `${REVIEW_TOKEN_PREFIX}${reviewToken}`
+  const result = await routeExecution(toolName, payload, {
+    ...executionContext,
+    accessLevel: 'full',
+    acceptedReviewBaseStateHash: staged.baseStateHash,
+  })
+
   const [deletedRow] = await db
     .delete(verification)
     .where(and(eq(verification.identifier, identifier), eq(verification.value, row.value)))
@@ -164,9 +170,5 @@ export async function acceptServerManagedToolReview(
     throw new Error('Server tool review token is invalid or expired')
   }
 
-  return routeExecution(toolName, payload, {
-    ...executionContext,
-    accessLevel: 'full',
-    acceptedReviewBaseStateHash: staged.baseStateHash,
-  })
+  return result
 }
