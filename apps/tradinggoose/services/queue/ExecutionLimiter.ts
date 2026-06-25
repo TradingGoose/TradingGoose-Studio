@@ -9,10 +9,7 @@ import {
   getTierRateLimits,
 } from '@/lib/billing/tiers'
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  type RateLimitCounterType,
-  type TriggerType,
-} from '@/services/queue/types'
+import type { RateLimitCounterType, TriggerType } from '@/services/queue/types'
 
 const logger = createLogger('ExecutionLimiter')
 const RATE_LIMIT_WINDOW_MS = 60_000
@@ -115,10 +112,11 @@ export class ExecutionLimiter {
     subscription: SubscriptionInfo | null,
     triggerType: TriggerType = 'manual',
     isAsync = false,
-    billingScope?: BillingScope | null
+    billingScope?: BillingScope | null,
+    options: { enforceWithoutBilling?: boolean } = {}
   ): Promise<{ allowed: boolean; remaining: number; resetAt: Date }> {
     try {
-      if (!(await isBillingEnabledForRuntime())) {
+      if (!options.enforceWithoutBilling && !(await isBillingEnabledForRuntime())) {
         return createPermissiveRateLimitResult()
       }
 

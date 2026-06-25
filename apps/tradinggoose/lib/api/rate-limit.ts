@@ -1,5 +1,7 @@
+import { createHash } from 'node:crypto'
 import { getPersonalEffectiveSubscription } from '@/lib/billing/core/subscription'
 import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
+import type { BillingTierRecord } from '@/lib/billing/tiers'
 import { createLogger } from '@/lib/logs/console/logger'
 import { ExecutionLimiter } from '@/services/queue/ExecutionLimiter'
 
@@ -16,7 +18,18 @@ export interface RateLimitResult {
   failureKind?: 'auth' | 'dependency'
 }
 
-export type ApiRateLimitEndpoint = 'api-endpoint' | 'copilot-mcp' | 'logs' | 'logs-detail'
+export type ApiRateLimitEndpoint =
+  | 'api-endpoint'
+  | 'copilot-mcp'
+  | 'logs'
+  | 'logs-detail'
+  | 'mcp-auth-start'
+  | 'mcp-auth-poll'
+
+const PUBLIC_API_ENDPOINT_LIMITS: Partial<Record<ApiRateLimitEndpoint, number>> = {
+  'mcp-auth-start': 20,
+  'mcp-auth-poll': 120,
+}
 
 function getApiEndpointRateLimitScope(userId: string, endpoint: ApiRateLimitEndpoint) {
   return endpoint === 'api-endpoint'
@@ -102,5 +115,54 @@ export async function checkApiEndpointRateLimit(
       failureKind: 'dependency',
       userId,
     }
+  }
+}
+
+function getRequesterKey(request: Request): string {
+  const forwardedFor = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+  const requester =
+    request.headers.get('cf-connecting-ip')?.trim() ||
+    request.headers.get('x-real-ip')?.trim() ||
+    forwardedFor ||
+    'unknown'
+  const userAgent = request.headers.get('user-agent')?.trim() || 'unknown'
+  const host = request.headers.get('host')?.trim() || new URL(request.url).host
+  return createHash('sha256').update(`${host}\n${requester}\n${userAgent}`).digest('hex')
+}
+
+export async function checkPublicApiEndpointRateLimit(
+  request: Request,
+  endpoint: Extract<ApiRateLimitEndpoint, 'mcp-auth-start' | 'mcp-auth-poll'>
+): Promise<RateLimitResult> {
+  const limit = PUBLIC_API_ENDPOINT_LIMITS[endpoint] ?? 0
+  const scopeId = `public:${endpoint}:${getRequesterKey(request)}`
+
+  const result = await rateLimiter.checkRateLimitWithSubscription(
+    scopeId,
+    {
+      referenceType: 'user',
+      referenceId: scopeId,
+      tier: {
+        displayName: endpoint,
+        syncRateLimitPerMinute: 0,
+        asyncRateLimitPerMinute: 0,
+        apiEndpointRateLimitPerMinute: limit,
+      } as BillingTierRecord,
+    },
+    'api-endpoint',
+    false,
+    {
+      scopeType: 'user',
+      scopeId,
+      organizationId: null,
+      userId: null,
+    },
+    { enforceWithoutBilling: true }
+  )
+
+  return {
+    ...result,
+    limit,
+    userId: scopeId,
   }
 }
