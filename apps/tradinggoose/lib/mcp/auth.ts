@@ -1,7 +1,7 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { db } from '@tradinggoose/db'
-import { apiKey, userRateLimits, verification } from '@tradinggoose/db/schema'
-import { and, eq, sql } from 'drizzle-orm'
+import { apiKey, verification } from '@tradinggoose/db/schema'
+import { and, eq, like, lte } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { createApiKey } from '@/lib/api-key/service'
 import { env } from '@/lib/env'
@@ -9,8 +9,6 @@ import { getBaseUrl } from '@/lib/urls/utils'
 
 const DEVICE_LOGIN_TTL_MS = 10 * 60 * 1000
 const DEVICE_LOGIN_PREFIX = 'mcp:'
-const DEVICE_LOGIN_START_RATE_LIMIT = 60
-const DEVICE_LOGIN_START_WINDOW_MS = 60 * 1000
 const POLL_INTERVAL_SECONDS = 2
 
 type PendingDeviceLogin = {
@@ -37,6 +35,7 @@ type DeviceLogin = {
   state: DeviceLoginState
   expiresAt: Date
 }
+type PendingDeviceLoginRecord = DeviceLogin & { state: PendingDeviceLogin }
 
 export type McpDeviceLoginPollResult =
   | { status: 'pending'; intervalSeconds: number; expiresAt: string }
@@ -60,13 +59,6 @@ export type McpDeviceLoginStartResult = {
   verificationKey: string
   expiresAt: string
   intervalSeconds: number
-}
-
-export class McpDeviceLoginRateLimitError extends Error {
-  constructor(public resetAt: Date) {
-    super('Too many MCP login starts')
-    this.name = 'McpDeviceLoginRateLimitError'
-  }
 }
 
 function hashValue(value: string) {
@@ -126,6 +118,7 @@ function createDeviceLogin({
   return {
     code,
     id: buildDeviceLoginId(code),
+    expiresAt,
     state: {
       status: 'pending',
       createdAt: now.toISOString(),
@@ -165,11 +158,7 @@ function parseDeviceLoginCode(code: string): DeviceLogin | null {
   if (!Number.isFinite(createdAtTime) || !Number.isFinite(expiresAtTime)) {
     return null
   }
-
   const expiresAt = new Date(expiresAtTime)
-  if (expiresAt <= new Date()) {
-    return null
-  }
 
   return {
     id: buildDeviceLoginId(code),
@@ -215,12 +204,11 @@ function parseDeviceLoginState(value: string): DeviceLoginState | null {
   }
 }
 
-async function readDeviceLogin(code: string) {
-  const parsedLogin = parseDeviceLoginCode(code)
-  if (!parsedLogin) {
-    return null
-  }
+function isPendingDeviceLoginRecord(login: DeviceLogin): login is PendingDeviceLoginRecord {
+  return login.state.status === 'pending'
+}
 
+async function readPersistedDeviceLogin(login: DeviceLogin, now: Date) {
   const [row] = await db
     .select({
       id: verification.id,
@@ -228,7 +216,7 @@ async function readDeviceLogin(code: string) {
       expiresAt: verification.expiresAt,
     })
     .from(verification)
-    .where(eq(verification.id, parsedLogin.id))
+    .where(eq(verification.id, login.id))
     .limit(1)
 
   if (!row) {
@@ -236,7 +224,7 @@ async function readDeviceLogin(code: string) {
   }
 
   const state = parseDeviceLoginState(row.value)
-  if (!state || row.expiresAt <= new Date()) {
+  if (!state || row.expiresAt <= now) {
     await db.delete(verification).where(eq(verification.id, row.id))
     return null
   }
@@ -246,6 +234,21 @@ async function readDeviceLogin(code: string) {
     state,
     expiresAt: row.expiresAt,
   }
+}
+
+async function readDeviceLogin(code: string) {
+  const parsedLogin = parseDeviceLoginCode(code)
+  if (!parsedLogin) {
+    return null
+  }
+
+  const now = new Date()
+  if (parsedLogin.expiresAt <= now) {
+    await db.delete(verification).where(eq(verification.id, parsedLogin.id))
+    return null
+  }
+
+  return (await readPersistedDeviceLogin(parsedLogin, now)) ?? parsedLogin
 }
 
 async function updateDeviceLoginState(
@@ -264,40 +267,32 @@ async function updateDeviceLoginState(
   return Boolean(updated)
 }
 
-async function enforceDeviceLoginStartRateLimit(now: Date) {
-  const windowStart = new Date(now.getTime() - DEVICE_LOGIN_START_WINDOW_MS)
-  const [record] = await db
-    .insert(userRateLimits)
+async function deleteExpiredDeviceLogins(now: Date) {
+  await db
+    .delete(verification)
+    .where(
+      and(
+        like(verification.identifier, `${DEVICE_LOGIN_PREFIX}%`),
+        lte(verification.expiresAt, now)
+      )
+    )
+}
+
+async function persistPendingDeviceLogin(login: PendingDeviceLoginRecord, now: Date) {
+  await deleteExpiredDeviceLogins(now)
+  await db
+    .insert(verification)
     .values({
-      referenceId: `${DEVICE_LOGIN_PREFIX}start:${getDeviceLoginDeploymentScope()}`,
-      syncApiRequests: 0,
-      asyncApiRequests: 0,
-      apiEndpointRequests: 1,
-      windowStart: now,
-      lastRequestAt: now,
-      isRateLimited: false,
-      rateLimitResetAt: null,
+      id: login.id,
+      identifier: login.id,
+      value: JSON.stringify(login.state),
+      expiresAt: login.expiresAt,
+      createdAt: new Date(login.state.createdAt),
+      updatedAt: now,
     })
-    .onConflictDoUpdate({
-      target: userRateLimits.referenceId,
-      set: {
-        apiEndpointRequests: sql`CASE WHEN ${userRateLimits.windowStart} < ${windowStart.toISOString()} THEN 1 ELSE ${userRateLimits.apiEndpointRequests} + 1 END`,
-        windowStart: sql`CASE WHEN ${userRateLimits.windowStart} < ${windowStart.toISOString()} THEN ${now.toISOString()} ELSE ${userRateLimits.windowStart} END`,
-        lastRequestAt: now,
-      },
-    })
-    .returning({
-      apiEndpointRequests: userRateLimits.apiEndpointRequests,
-      windowStart: userRateLimits.windowStart,
-    })
+    .onConflictDoNothing({ target: verification.id })
 
-  if (!record || record.apiEndpointRequests <= DEVICE_LOGIN_START_RATE_LIMIT) {
-    return
-  }
-
-  throw new McpDeviceLoginRateLimitError(
-    new Date(new Date(record.windowStart).getTime() + DEVICE_LOGIN_START_WINDOW_MS)
-  )
+  return readPersistedDeviceLogin(login, now)
 }
 
 export async function startMcpDeviceLogin(): Promise<McpDeviceLoginStartResult> {
@@ -305,16 +300,6 @@ export async function startMcpDeviceLogin(): Promise<McpDeviceLoginStartResult> 
   const now = new Date()
   const expiresAt = new Date(now.getTime() + DEVICE_LOGIN_TTL_MS)
   const login = createDeviceLogin({ expiresAt, now, verificationKey })
-
-  await enforceDeviceLoginStartRateLimit(now)
-  await db.insert(verification).values({
-    id: login.id,
-    identifier: login.id,
-    value: JSON.stringify(login.state),
-    expiresAt: login.expiresAt,
-    createdAt: now,
-    updatedAt: now,
-  })
 
   return {
     code: login.code,
@@ -331,10 +316,14 @@ export async function createMcpDeviceLoginApprovalChallenge({
   code: string
   userId: string
 }): Promise<McpDeviceLoginApprovalChallengeResult> {
-  const login = await readDeviceLogin(code)
-  if (!login) {
+  const parsedLogin = await readDeviceLogin(code)
+  if (!parsedLogin) {
     return { status: 'expired' }
   }
+  const login = isPendingDeviceLoginRecord(parsedLogin)
+    ? await persistPendingDeviceLogin(parsedLogin, new Date())
+    : parsedLogin
+  if (!login) return { status: 'expired' }
 
   if (login.state.status === 'approved') {
     if (login.state.userId !== userId) {
