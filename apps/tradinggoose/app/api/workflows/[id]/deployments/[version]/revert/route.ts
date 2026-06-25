@@ -3,10 +3,7 @@ import { and, eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import {
-  ensureUniqueBlockIds,
-  ensureUniqueEdgeIds,
-} from '@/lib/workflows/db-helpers'
+import { ensureUniqueBlockIds, ensureUniqueEdgeIds } from '@/lib/workflows/db-helpers'
 import { validateWorkflowPermissions } from '@/lib/workflows/utils'
 import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
@@ -87,8 +84,6 @@ export async function POST(
       loops: deployedState.loops || {},
       parallels: deployedState.parallels || {},
       lastSaved: Date.now(),
-      isDeployed: true,
-      deployedAt: new Date(),
     }
 
     const stateWithUniqueBlockIds = await ensureUniqueBlockIds(id, revertedState)
@@ -99,8 +94,6 @@ export async function POST(
       loops: persistedRevertedState.loops,
       parallels: persistedRevertedState.parallels,
       lastSaved: now.toISOString(),
-      isDeployed: true,
-      deployedAt: now.toISOString(),
     })
 
     await applyWorkflowState(id, revertSnapshot, revertVariables)

@@ -842,10 +842,10 @@ export function useWorkflowMutations() {
 
         if (blockConfig) {
           const initValues = blockProperties?.initialSubBlockValues
-          subBlocks = buildInitialSubBlockStates(
-            blockConfig.subBlocks,
-            initValues
-          ) as Record<string, SubBlockState>
+          subBlocks = buildInitialSubBlockStates(blockConfig.subBlocks, initValues) as Record<
+            string,
+            SubBlockState
+          >
 
           const runtimeState = resolveBlockRuntimeState({
             blockType: type,
@@ -1461,18 +1461,6 @@ export function useWorkflowDoc() {
     edges,
     loops,
     parallels,
-    isDeployed: useYjsMapValue(
-      session?.doc ?? null,
-      YJS_KEYS.WORKFLOW,
-      YJS_KEYS.IS_DEPLOYED,
-      false
-    ),
-    deployedAt: useYjsMapValue(
-      session?.doc ?? null,
-      YJS_KEYS.WORKFLOW,
-      YJS_KEYS.DEPLOYED_AT,
-      undefined
-    ),
     lastSaved: useYjsMapValue(
       session?.doc ?? null,
       YJS_KEYS.WORKFLOW,

@@ -98,8 +98,6 @@ describe('Revert To Deployment Version API Route', () => {
         loops: partial.loops ?? {},
         parallels: partial.parallels ?? {},
         lastSaved: partial.lastSaved,
-        isDeployed: partial.isDeployed,
-        deployedAt: partial.deployedAt,
       })),
     }))
 
@@ -193,10 +191,6 @@ describe('Revert To Deployment Version API Route', () => {
     })
 
     expect(response.status).toBe(200)
-    expect(mockApplyWorkflowState).toHaveBeenCalledWith(
-      'workflow-1',
-      expect.any(Object),
-      undefined
-    )
+    expect(mockApplyWorkflowState).toHaveBeenCalledWith('workflow-1', expect.any(Object), undefined)
   })
 })

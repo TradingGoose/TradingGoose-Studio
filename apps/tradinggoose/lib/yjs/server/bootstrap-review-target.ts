@@ -110,8 +110,6 @@ export async function createSavedReviewTargetBootstrapUpdate(
           loops: workflowState.loops,
           parallels: workflowState.parallels,
           lastSaved: new Date(workflowState.lastSaved).toISOString(),
-          isDeployed: workflowState.isDeployed,
-          deployedAt: workflowState.deployedAt,
         }),
         YJS_ORIGINS.SYSTEM
       )

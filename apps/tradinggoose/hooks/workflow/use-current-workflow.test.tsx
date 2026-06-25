@@ -68,8 +68,6 @@ describe('useCurrentWorkflow', () => {
       edges: [{ id: 'edge-1', source: 'block-1', target: 'block-2' }],
       loops: {},
       parallels: {},
-      isDeployed: true,
-      deployedAt: '2026-04-06T00:00:00.000Z',
       lastSaved: '2026-04-06T01:00:00.000Z',
     })
 
@@ -106,8 +104,6 @@ describe('useCurrentWorkflow', () => {
     expect(currentWorkflow.getEdgeCount()).toBe(1)
     expect(currentWorkflow.hasBlocks()).toBe(true)
     expect(currentWorkflow.hasEdges()).toBe(true)
-    expect(currentWorkflow.isDeployed).toBe(true)
-    expect(currentWorkflow.deployedAt?.toISOString()).toBe('2026-04-06T00:00:00.000Z')
     expect(currentWorkflow.lastSaved).toBe(new Date('2026-04-06T01:00:00.000Z').getTime())
   })
 })

@@ -27,13 +27,9 @@ export async function applyWorkflowState(
     workflowId,
     await ensureUniqueBlockIds(workflowId, appliedWorkflowState)
   )
-  const { deployedAt, ...storedStateFields } = normalizedWorkflowState
   const storedWorkflowState = createWorkflowSnapshot({
-    ...storedStateFields,
+    ...normalizedWorkflowState,
     lastSaved: syncedAt.toISOString(),
-    ...(deployedAt
-      ? { deployedAt: typeof deployedAt === 'string' ? deployedAt : deployedAt.toISOString() }
-      : {}),
   })
 
   await applyWorkflowStateInSocketServer(workflowId, storedWorkflowState, variables, metadata)

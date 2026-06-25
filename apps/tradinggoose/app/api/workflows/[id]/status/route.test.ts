@@ -54,7 +54,7 @@ describe('Workflow Status API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
-      loadWorkflowState: mockLoadWorkflowState,
+      loadEditableWorkflowState: mockLoadWorkflowState,
     }))
 
     vi.doMock('@/lib/workflows/utils', () => ({
@@ -96,10 +96,7 @@ describe('Workflow Status API Route', () => {
     vi.unstubAllGlobals()
   })
 
-  it(
-    'marks variable-only edits as needing redeployment',
-    { timeout: 10_000 },
-    async () => {
+  it('marks variable-only edits as needing redeployment', { timeout: 10_000 }, async () => {
     mockValidateWorkflowAccess.mockResolvedValue({
       error: null,
       workflow: {
@@ -121,7 +118,6 @@ describe('Workflow Status API Route', () => {
           value: 'us-west-2',
         },
       },
-      source: 'db',
     })
 
     mockLimit.mockResolvedValue([
@@ -152,8 +148,7 @@ describe('Workflow Status API Route', () => {
 
     const data = await response.json()
     expect(data.data.needsRedeployment).toBe(true)
-    }
-  )
+  })
 
   it('reports redeployment when the active deployment state omits current variables', async () => {
     mockValidateWorkflowAccess.mockResolvedValue({
@@ -177,7 +172,6 @@ describe('Workflow Status API Route', () => {
           value: 'us-west-2',
         },
       },
-      source: 'db',
     })
 
     mockLimit.mockResolvedValue([

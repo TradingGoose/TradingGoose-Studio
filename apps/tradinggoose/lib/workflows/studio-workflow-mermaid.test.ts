@@ -144,8 +144,6 @@ describe('studio workflow Mermaid documents', () => {
     },
     parallels: {},
     lastSaved: '2026-04-11T00:00:00.000Z',
-    isDeployed: false,
-    deployedAt: '2026-04-10T18:00:00.000Z',
   }
 
   const parallelWorkflowState: WorkflowSnapshot = {

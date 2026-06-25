@@ -9,7 +9,7 @@ import { verifyInternalTokenDetailed } from '@/lib/auth/internal'
 import { hydrateListingUI } from '@/lib/listing/hydrate-ui'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { loadWorkflowState } from '@/lib/workflows/db-helpers'
+import { loadEditableWorkflowState } from '@/lib/workflows/db-helpers'
 import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/utils'
 import { applyWorkflowMetadata } from '@/lib/yjs/server/apply-workflow-state'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
@@ -127,14 +127,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     logger.debug(
       `[${requestId}] Attempting to load workflow ${workflowId} from authoritative state`
     )
-    const workflowState = await loadWorkflowState(workflowId)
+    const workflowState = await loadEditableWorkflowState(workflowId)
 
     if (!workflowState) {
       logger.warn(`[${requestId}] Workflow ${workflowId} is missing saved state`)
       return NextResponse.json({ error: 'Workflow state is missing' }, { status: 409 })
     }
 
-    logger.debug(`[${requestId}] Found ${workflowState.source} workflow state for ${workflowId}:`, {
+    logger.debug(`[${requestId}] Found editable Yjs workflow state for ${workflowId}:`, {
       blocksCount: Object.keys(workflowState.blocks).length,
       edgesCount: workflowState.edges.length,
       loopsCount: Object.keys(workflowState.loops).length,
@@ -182,9 +182,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       },
     }
 
-    logger.info(
-      `[${requestId}] Loaded workflow ${workflowId} from ${workflowState?.source ?? 'empty state'}`
-    )
+    logger.info(`[${requestId}] Loaded editable workflow ${workflowId} from Yjs`)
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully fetched workflow ${workflowId} in ${elapsed}ms`)
 

@@ -9,7 +9,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import {
-  loadWorkflowState,
+  loadEditableWorkflowState,
   regenerateWorkflowStateIds,
   saveWorkflowToNormalizedTables,
 } from '@/lib/workflows/db-helpers'
@@ -30,25 +30,22 @@ const DuplicateRequestSchema = z.object({
 async function loadSourceWorkflowArtifacts(sourceWorkflowId: string): Promise<{
   workflowState: WorkflowState
   variables: Record<string, Variable>
-  source: 'yjs' | 'db'
 }> {
-  const stateWithSource = await loadWorkflowState(sourceWorkflowId)
-  if (!stateWithSource) {
+  const editableState = await loadEditableWorkflowState(sourceWorkflowId)
+  if (!editableState) {
     throw new Error('Failed to load source workflow state')
   }
 
   return {
     workflowState: {
-      ...(stateWithSource.direction !== undefined ? { direction: stateWithSource.direction } : {}),
-      blocks: stateWithSource.blocks,
-      edges: stateWithSource.edges,
-      loops: stateWithSource.loops,
-      parallels: stateWithSource.parallels,
-      lastSaved: stateWithSource.lastSaved ?? Date.now(),
-      isDeployed: false,
+      ...(editableState.direction !== undefined ? { direction: editableState.direction } : {}),
+      blocks: editableState.blocks,
+      edges: editableState.edges,
+      loops: editableState.loops,
+      parallels: editableState.parallels,
+      lastSaved: editableState.lastSaved ?? Date.now(),
     },
-    variables: normalizeVariables(stateWithSource.variables),
-    source: stateWithSource.source,
+    variables: normalizeVariables(editableState.variables),
   }
 }
 
@@ -136,7 +133,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const saveResult = await saveWorkflowToNormalizedTables(newWorkflowId, {
       ...duplicatedWorkflowState,
       lastSaved: now.getTime(),
-      isDeployed: false,
     })
     if (!saveResult.success) {
       await db.delete(workflow).where(eq(workflow.id, newWorkflowId))
@@ -144,7 +140,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
     const persistedDuplicatedState = saveResult.normalizedState ?? duplicatedWorkflowState
 
-    logger.info(`[${requestId}] Duplicated workflow state using ${sourceArtifacts.source} source`, {
+    logger.info(`[${requestId}] Duplicated editable workflow state from Yjs`, {
       sourceWorkflowId,
       newWorkflowId,
       blocksCount: Object.keys(persistedDuplicatedState.blocks || {}).length,

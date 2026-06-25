@@ -17,7 +17,6 @@ import {
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
 import { createLogger } from '@/lib/logs/console/logger'
-import { resolveStoredDateValue } from '@/lib/time-format'
 import { sanitizeAgentToolsInBlocks } from '@/lib/workflows/validation'
 import { inferWorkflowDirectionFromState } from '@/lib/workflows/workflow-direction'
 import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
@@ -95,8 +94,6 @@ export type PersistedWorkflowState = {
   parallels: Record<string, any>
   variables: Record<string, any>
   lastSaved: number
-  isDeployed?: boolean
-  deployedAt?: string
 }
 
 export async function loadWorkflowStateFromYjs(
@@ -140,17 +137,12 @@ function decodeWorkflowSnapshot(snapshotBase64: string): PersistedWorkflowState 
   }
 }
 
-export type WorkflowStateWithSource = PersistedWorkflowState & {
-  source: 'yjs' | 'db'
-}
-
-export async function loadWorkflowState(
+export async function loadEditableWorkflowState(
   workflowId: string
-): Promise<WorkflowStateWithSource | null> {
+): Promise<PersistedWorkflowState | null> {
   const { readBootstrappedReviewTargetSnapshot } = await import(
     '@/lib/yjs/server/bootstrap-review-target'
   )
-  // Existing workflow reads intentionally use the live Yjs bridge; DB is only the bootstrap seed.
   const snapshot = await readBootstrappedReviewTargetSnapshot({
     workspaceId: null,
     entityKind: 'workflow',
@@ -164,7 +156,7 @@ export async function loadWorkflowState(
   }
 
   const state = decodeWorkflowSnapshot(snapshot.snapshotBase64)
-  return state ? { ...state, source: 'yjs' } : null
+  return state
 }
 
 export async function loadWorkflowStateFromSavedTables(
@@ -178,8 +170,6 @@ export async function loadWorkflowStateFromSavedTables(
         folderId: workflow.folderId,
         variables: workflow.variables,
         updatedAt: workflow.updatedAt,
-        isDeployed: workflow.isDeployed,
-        deployedAt: workflow.deployedAt,
       })
       .from(workflow)
       .where(eq(workflow.id, workflowId))
@@ -201,27 +191,12 @@ export async function loadWorkflowStateFromSavedTables(
     parallels: normalizedState.parallels,
     variables: (row.variables as Record<string, any>) ?? {},
     lastSaved: row.updatedAt?.getTime() ?? Date.now(),
-    isDeployed: row.isDeployed ?? false,
-    deployedAt: toISOStringOrUndefined(row.deployedAt),
   }
 
   return {
     ...savedState,
     direction: inferWorkflowDirectionFromState(savedState),
   }
-}
-
-/**
- * Safely coerce an unknown value (string, number, Date, null/undefined) to an
- * ISO-8601 string.  Returns `undefined` when the input cannot be converted.
- *
- * Useful for normalising `lastSaved` / `deployedAt` values that may arrive as
- * epoch numbers from Yjs or as Date objects from the database layer.
- */
-export function toISOStringOrUndefined(
-  value: string | number | Date | null | undefined
-): string | undefined {
-  return resolveStoredDateValue(value)?.toISOString()
 }
 
 export async function ensureUniqueBlockIds(
@@ -907,8 +882,6 @@ export async function saveWorkflowYjsDocToDb(workflowId: string, doc: Y.Doc): Pr
     loops: state.loops,
     parallels: state.parallels,
     lastSaved: syncedAt.toISOString(),
-    isDeployed: state.isDeployed,
-    deployedAt: state.deployedAt,
   }
 
   const saveResult = await saveWorkflowToNormalizedTables(workflowId, workflowState, async (tx) => {
@@ -921,16 +894,6 @@ export async function saveWorkflowYjsDocToDb(workflowId: string, doc: Y.Doc): Pr
         ...(state.description !== undefined ? { description: state.description } : {}),
         ...(state.folderId !== undefined ? { folderId: state.folderId } : {}),
         variables: state.variables,
-        ...(state.isDeployed === undefined
-          ? {}
-          : {
-              isDeployed: state.isDeployed,
-              deployedAt: state.isDeployed
-                ? state.deployedAt
-                  ? new Date(state.deployedAt)
-                  : syncedAt
-                : null,
-            }),
       })
       .where(eq(workflow.id, workflowId))
       .returning({ id: workflow.id })
@@ -975,16 +938,11 @@ export async function deployWorkflow(params: {
   } = params
 
   try {
-    const stateWithSource = await loadWorkflowState(workflowId)
-    if (!stateWithSource) {
+    const editableState = await loadEditableWorkflowState(workflowId)
+    if (!editableState) {
       return { success: false, error: 'Failed to load workflow state' }
     }
-    const {
-      source: _source,
-      isDeployed: _isDeployed,
-      deployedAt: _deployedAt,
-      ...currentState
-    } = stateWithSource
+    const currentState = editableState
 
     const now = new Date()
 

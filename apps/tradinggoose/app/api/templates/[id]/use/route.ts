@@ -101,8 +101,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const saveResult = await saveWorkflowToNormalizedTables(newWorkflowId, {
       ...stateWithoutTemplateVars,
       lastSaved: now.toISOString(),
-      isDeployed: false,
-      deployedAt: undefined,
     })
 
     if (!saveResult.success) {

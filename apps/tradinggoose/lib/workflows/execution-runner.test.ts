@@ -66,7 +66,7 @@ vi.mock('@/lib/utils-server', () => ({
 
 vi.mock('@/lib/workflows/db-helpers', () => ({
   loadDeployedWorkflowState: vi.fn(),
-  loadWorkflowState: vi.fn(),
+  loadEditableWorkflowState: vi.fn(),
   loadWorkflowStateFromYjs: vi.fn(),
 }))
 
@@ -432,7 +432,7 @@ describe('loadWorkflowExecutionBlueprint', () => {
   })
 
   it('uses variables from the active deployment for deployed execution', async () => {
-    const { loadDeployedWorkflowState, loadWorkflowState } = await import(
+    const { loadDeployedWorkflowState, loadEditableWorkflowState } = await import(
       '@/lib/workflows/db-helpers'
     )
     const deployedVariables = {
@@ -475,6 +475,6 @@ describe('loadWorkflowExecutionBlueprint', () => {
       unknown
     >
     expect(Object.keys(selectShape)).toEqual(['workspaceId'])
-    expect(loadWorkflowState).not.toHaveBeenCalled()
+    expect(loadEditableWorkflowState).not.toHaveBeenCalled()
   })
 })

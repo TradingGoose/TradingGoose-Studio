@@ -511,7 +511,6 @@ describe('Socket Server Index Integration', () => {
           loops: {},
           parallels: {},
           lastSaved: '2026-04-06T00:00:00.000Z',
-          isDeployed: false,
         },
         'test'
       )

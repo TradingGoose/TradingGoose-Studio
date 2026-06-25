@@ -159,7 +159,6 @@ describe('Workflow API Route', () => {
         edges: initialWorkflowState.edges,
         loops: initialWorkflowState.loops,
         parallels: initialWorkflowState.parallels,
-        isDeployed: false,
         lastSaved: expect.any(Number),
       })
     )

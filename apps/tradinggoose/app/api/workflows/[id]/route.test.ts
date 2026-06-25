@@ -34,7 +34,7 @@ describe('Workflow By ID API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
-      loadWorkflowState: mockLoadWorkflowState,
+      loadEditableWorkflowState: mockLoadWorkflowState,
     }))
 
     vi.doMock('@tradinggoose/db', () => ({
@@ -160,7 +160,6 @@ describe('Workflow By ID API Route', () => {
         edges: [],
         loops: {},
         parallels: {},
-        source: 'db',
       }
 
       vi.doMock('@/lib/auth', () => ({
@@ -213,7 +212,6 @@ describe('Workflow By ID API Route', () => {
         edges: [],
         loops: {},
         parallels: {},
-        source: 'db',
       }
 
       vi.doMock('@/lib/auth', () => ({
@@ -300,7 +298,6 @@ describe('Workflow By ID API Route', () => {
         edges: [{ id: 'edge-1', source: 'block-1', target: 'block-2' }],
         loops: {},
         parallels: {},
-        source: 'db',
       }
 
       vi.doMock('@/lib/auth', () => ({

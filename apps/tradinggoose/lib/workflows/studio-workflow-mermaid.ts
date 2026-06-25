@@ -1220,10 +1220,7 @@ function parseVisibleWorkflowEdges(
 
     const sourceBlock = blocks[sourceRef.blockId]
     const conditionHandlePrefix = `condition-${sourceRef.blockId}-`
-    if (
-      sourceBlock?.type === 'condition' &&
-      !sourceHandle.startsWith(conditionHandlePrefix)
-    ) {
+    if (sourceBlock?.type === 'condition' && !sourceHandle.startsWith(conditionHandlePrefix)) {
       throw new Error(
         `Workflow graph Mermaid condition edge from "${sourceRef.blockId}" must use canonical sourceHandle "${conditionHandlePrefix}<branch>". Use edit_workflow_block to define condition branches before wiring them.`
       )
@@ -1908,9 +1905,7 @@ export function serializeWorkflowToTgMermaid(
   options: { direction?: WorkflowDirection } = {}
 ): string {
   const direction =
-    options.direction ??
-    workflowState.direction ??
-    inferWorkflowDirectionFromState(workflowState)
+    options.direction ?? workflowState.direction ?? inferWorkflowDirectionFromState(workflowState)
   const blocks = workflowState.blocks ?? {}
   const blockIds = Object.keys(blocks).sort((left, right) => left.localeCompare(right))
   const aliases = buildAliasMap(blockIds)
@@ -1926,8 +1921,6 @@ export function serializeWorkflowToTgMermaid(
       version: TG_MERMAID_DOCUMENT_FORMAT,
       direction,
       ...(workflowState.lastSaved ? { lastSaved: workflowState.lastSaved } : {}),
-      ...(workflowState.isDeployed !== undefined ? { isDeployed: workflowState.isDeployed } : {}),
-      ...(workflowState.deployedAt ? { deployedAt: workflowState.deployedAt } : {}),
     } satisfies WorkflowDocumentMetadata),
   ]
 
@@ -1972,9 +1965,7 @@ export function serializeWorkflowToGraphMermaid(
   options: { direction?: WorkflowDirection } = {}
 ): string {
   const direction =
-    options.direction ??
-    workflowState.direction ??
-    inferWorkflowDirectionFromState(workflowState)
+    options.direction ?? workflowState.direction ?? inferWorkflowDirectionFromState(workflowState)
   const blocks = workflowState.blocks ?? {}
   const blockIds = Object.keys(blocks).sort((left, right) => left.localeCompare(right))
   const aliases = buildAliasMap(blockIds)

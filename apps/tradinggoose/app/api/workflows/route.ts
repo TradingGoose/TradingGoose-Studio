@@ -58,10 +58,6 @@ function getInitialWorkflowState(
       loops: loops as WorkflowState['loops'],
       parallels: parallels as WorkflowState['parallels'],
       lastSaved: now.getTime(),
-      isDeployed: false,
-      deployedAt: undefined,
-      deploymentStatuses: {},
-      needsRedeployment: false,
     },
     variables,
   }

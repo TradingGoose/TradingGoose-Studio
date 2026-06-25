@@ -110,7 +110,7 @@ describe('Workflow Duplicate API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
-      loadWorkflowState: loadWorkflowStateMock,
+      loadEditableWorkflowState: loadWorkflowStateMock,
       regenerateWorkflowStateIds: regenerateWorkflowStateIdsMock,
       saveWorkflowToNormalizedTables: saveWorkflowToNormalizedTablesMock,
     }))
@@ -146,7 +146,6 @@ describe('Workflow Duplicate API Route', () => {
         },
       },
       lastSaved: Date.now(),
-      source: 'db',
     })
 
     const { POST } = await import('@/app/api/workflows/[id]/duplicate/route')
@@ -192,7 +191,6 @@ describe('Workflow Duplicate API Route', () => {
       parallels: {},
       variables: {},
       lastSaved: Date.now(),
-      source: 'db',
     })
     saveWorkflowToNormalizedTablesMock.mockResolvedValueOnce({
       success: false,

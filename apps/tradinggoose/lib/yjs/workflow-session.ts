@@ -5,7 +5,7 @@
  * and provides helpers to read/write the live workflow state.
  *
  * Top-level collections:
- *   - "workflow"  (Y.Map) — blocks, edges, loops, parallels, deployment metadata
+ *   - "workflow"  (Y.Map) — editable blocks, edges, loops, parallels, and save timestamp
  *   - "textFields" (Y.Map) — text-heavy subblock values keyed by blockId/subBlockId
  *   - "variables" (Y.Map) — per-workflow variable records keyed by variable id
  *   - "metadata"  (Y.Map) — session-level workflow metadata (e.g. reseed markers)
@@ -37,8 +37,6 @@ export const YJS_KEYS = {
   PARALLELS: 'parallels',
   DIRECTION: 'direction',
   LAST_SAVED: 'lastSaved',
-  IS_DEPLOYED: 'isDeployed',
-  DEPLOYED_AT: 'deployedAt',
 } as const
 
 const WORKFLOW_TEXT_FIELD_SEPARATOR = '::'
@@ -240,8 +238,6 @@ export interface WorkflowSnapshot {
   loops: Record<string, Loop>
   parallels: Record<string, Parallel>
   lastSaved?: string
-  isDeployed?: boolean
-  deployedAt?: string
 }
 
 export type WorkflowMetadataPatch = {
@@ -269,8 +265,6 @@ function applySnapshotDefaults(partial: Partial<WorkflowSnapshot>): WorkflowSnap
     loops: partial.loops ?? {},
     parallels: partial.parallels ?? {},
     lastSaved: partial.lastSaved,
-    isDeployed: partial.isDeployed,
-    deployedAt: partial.deployedAt,
   }
 }
 
@@ -306,8 +300,6 @@ export function readWorkflowSnapshot(doc: Y.Doc): WorkflowSnapshot {
     loops: wMap.get(YJS_KEYS.LOOPS) ?? {},
     parallels: wMap.get(YJS_KEYS.PARALLELS) ?? {},
     lastSaved: wMap.get(YJS_KEYS.LAST_SAVED),
-    isDeployed: wMap.get(YJS_KEYS.IS_DEPLOYED),
-    deployedAt: wMap.get(YJS_KEYS.DEPLOYED_AT),
   })
 }
 
@@ -333,16 +325,13 @@ export function readWorkflowSnapshotCloned(doc: Y.Doc): WorkflowSnapshot {
     loops,
     parallels,
     lastSaved: wMap.get(YJS_KEYS.LAST_SAVED),
-    isDeployed: wMap.get(YJS_KEYS.IS_DEPLOYED),
-    deployedAt: wMap.get(YJS_KEYS.DEPLOYED_AT),
   })
 }
 
 /**
  * Applies a full workflow state to the Yjs document inside a single
- * transaction.  Optional fields (lastSaved, isDeployed, deployedAt) are only
- * written when present in the incoming state so callers can do partial
- * updates by omitting them.
+ * transaction. Optional lastSaved is only written when present so callers can
+ * do partial updates by omitting it.
  *
  * @param origin - Yjs transaction origin tag (defaults to `'system'`)
  */
@@ -356,8 +345,6 @@ export function setWorkflowState(doc: Y.Doc, state: WorkflowSnapshot, origin?: s
     wMap.set(YJS_KEYS.LOOPS, state.loops ?? {})
     wMap.set(YJS_KEYS.PARALLELS, state.parallels ?? {})
     if (state.lastSaved !== undefined) wMap.set(YJS_KEYS.LAST_SAVED, state.lastSaved)
-    if (state.isDeployed !== undefined) wMap.set(YJS_KEYS.IS_DEPLOYED, state.isDeployed)
-    if (state.deployedAt !== undefined) wMap.set(YJS_KEYS.DEPLOYED_AT, state.deployedAt)
 
     for (const key of Array.from(textFields.keys())) {
       const parsed = parseWorkflowTextFieldKey(key)
@@ -545,8 +532,6 @@ export interface PersistedDocState {
   parallels: Record<string, Parallel>
   variables: Record<string, any>
   lastSaved: number
-  isDeployed?: boolean
-  deployedAt?: string
 }
 
 export function extractPersistedStateFromDoc(doc: Y.Doc): PersistedDocState {
@@ -554,7 +539,6 @@ export function extractPersistedStateFromDoc(doc: Y.Doc): PersistedDocState {
   const metadata = readWorkflowEntityMetadata(doc)
   const variables = getVariablesSnapshot(doc)
   const lastSaved = resolveStoredDateValue(snapshot.lastSaved)?.getTime() ?? Date.now()
-  const deployedAt = resolveStoredDateValue(snapshot.deployedAt)?.toISOString()
 
   return {
     ...metadata,
@@ -565,7 +549,5 @@ export function extractPersistedStateFromDoc(doc: Y.Doc): PersistedDocState {
     parallels: snapshot.parallels || {},
     variables: variables || {},
     lastSaved,
-    ...(snapshot.isDeployed !== undefined ? { isDeployed: snapshot.isDeployed } : {}),
-    ...(deployedAt ? { deployedAt } : {}),
   }
 }
