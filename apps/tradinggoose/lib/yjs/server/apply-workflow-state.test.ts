@@ -95,7 +95,8 @@ describe('applyWorkflowState', () => {
     mockDbUpdate.mockReturnValue({ set: mockUpdateSet })
   })
 
-  it('renames workflow entity metadata without republishing workflow state', async () => {
+  it('renames workflow entity metadata before non-blocking Yjs name sync', async () => {
+    mockApplyWorkflowEntityNameInSocketServer.mockRejectedValueOnce(new Error('socket offline'))
     const { applyWorkflowEntityName } = await import('./apply-workflow-state')
 
     await applyWorkflowEntityName('workflow-1', 'Renamed Workflow', {
@@ -112,6 +113,9 @@ describe('applyWorkflowState', () => {
         name: 'Renamed Workflow',
         description: 'Updated description',
       })
+    )
+    expect(mockDbUpdate.mock.invocationCallOrder[0]).toBeLessThan(
+      mockApplyWorkflowEntityNameInSocketServer.mock.invocationCallOrder[0]
     )
   })
 

@@ -65,10 +65,10 @@ export async function deleteSkill(params: {
     return false
   }
 
-  await deleteYjsSessionInSocketServer(params.skillId)
   await db
     .delete(skill)
     .where(and(eq(skill.id, params.skillId), eq(skill.workspaceId, params.workspaceId)))
+  await deleteYjsSessionInSocketServer(params.skillId).catch(() => undefined)
 
   logger.info(`Deleted skill ${params.skillId}`)
   return true

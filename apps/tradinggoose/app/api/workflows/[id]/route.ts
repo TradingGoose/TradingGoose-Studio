@@ -285,8 +285,8 @@ export async function DELETE(
       }
     }
 
-    await deleteYjsSessionInSocketServer(workflowId)
     await db.delete(workflow).where(eq(workflow.id, workflowId))
+    await deleteYjsSessionInSocketServer(workflowId).catch(() => undefined)
 
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully deleted workflow ${workflowId} in ${elapsed}ms`)

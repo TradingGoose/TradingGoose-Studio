@@ -173,10 +173,10 @@ export const DELETE = withMcpAuth('write')(
         )
       }
 
-      await deleteYjsSessionInSocketServer(serverId)
       await db
         .delete(mcpServers)
         .where(and(eq(mcpServers.id, serverId), eq(mcpServers.workspaceId, workspaceId)))
+      await deleteYjsSessionInSocketServer(serverId).catch(() => undefined)
 
       mcpService.clearCache(workspaceId)
 

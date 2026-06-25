@@ -430,7 +430,6 @@ export async function deleteKnowledgeBase(
 ): Promise<void> {
   const now = new Date()
 
-  await deleteYjsSessionInSocketServer(knowledgeBaseId)
   await db
     .update(knowledgeBase)
     .set({
@@ -438,6 +437,7 @@ export async function deleteKnowledgeBase(
       updatedAt: now,
     })
     .where(eq(knowledgeBase.id, knowledgeBaseId))
+  await deleteYjsSessionInSocketServer(knowledgeBaseId).catch(() => undefined)
 
   logger.info(`[${requestId}] Soft deleted knowledge base: ${knowledgeBaseId}`)
 }

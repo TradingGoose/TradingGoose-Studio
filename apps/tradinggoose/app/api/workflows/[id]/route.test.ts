@@ -370,7 +370,7 @@ describe('Workflow By ID API Route', () => {
   })
 
   describe('DELETE /api/workflows/[id]', () => {
-    it('should terminate the Yjs session before deleting the workflow row', async () => {
+    it('should delete the workflow row before non-blocking Yjs cleanup', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',
@@ -380,6 +380,7 @@ describe('Workflow By ID API Route', () => {
       const events: string[] = []
       mockDeleteYjsSession.mockImplementation(async () => {
         events.push('yjs-delete')
+        throw new Error('socket offline')
       })
 
       vi.doMock('@/lib/auth', () => ({
@@ -419,10 +420,10 @@ describe('Workflow By ID API Route', () => {
       expect(response.status).toBe(200)
       const data = await response.json()
       expect(data.success).toBe(true)
-      expect(events).toEqual(['yjs-delete', 'db-delete'])
+      expect(events).toEqual(['db-delete', 'yjs-delete'])
     })
 
-    it('should return 500 if workflow row deletion fails after session termination', async () => {
+    it('should return 500 if workflow row deletion fails before session cleanup', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',
@@ -466,7 +467,7 @@ describe('Workflow By ID API Route', () => {
       expect(response.status).toBe(500)
       const data = await response.json()
       expect(data.error).toBe('Internal server error')
-      expect(mockDeleteYjsSession).toHaveBeenCalledWith('workflow-123')
+      expect(mockDeleteYjsSession).not.toHaveBeenCalled()
       expect(deleteWhereMock).toHaveBeenCalledOnce()
     })
 
@@ -513,53 +514,6 @@ describe('Workflow By ID API Route', () => {
       expect(response.status).toBe(200)
       const data = await response.json()
       expect(data.success).toBe(true)
-    })
-
-    it('should not delete the workflow row when Yjs session termination fails', async () => {
-      const mockWorkflow = {
-        id: 'workflow-123',
-        userId: 'user-123',
-        name: 'Test Workflow',
-        workspaceId: null,
-      }
-      const deleteWhereMock = vi.fn().mockResolvedValue([{ id: 'workflow-123' }])
-      mockDeleteYjsSession.mockRejectedValueOnce(new Error('socket offline'))
-
-      vi.doMock('@/lib/auth', () => ({
-        getSession: vi.fn().mockResolvedValue({
-          user: { id: 'user-123' },
-        }),
-      }))
-
-      mockReadWorkflowById.mockResolvedValueOnce(mockWorkflow)
-      mockReadWorkflowAccessContext.mockResolvedValueOnce({
-        workflow: mockWorkflow,
-        workspaceOwnerId: null,
-        workspacePermission: null,
-        isOwner: true,
-        isWorkspaceOwner: false,
-      })
-      vi.doMock('@tradinggoose/db', () => ({
-        db: {
-          delete: vi.fn().mockReturnValue({
-            where: deleteWhereMock,
-          }),
-        },
-        workflow: {},
-      }))
-
-      const req = new NextRequest('http://localhost:3000/api/workflows/workflow-123', {
-        method: 'DELETE',
-      })
-      const params = Promise.resolve({ id: 'workflow-123' })
-
-      const { DELETE } = await import('@/app/api/workflows/[id]/route')
-      const response = await DELETE(req, { params })
-
-      expect(response.status).toBe(500)
-      const data = await response.json()
-      expect(data.error).toBe('Internal server error')
-      expect(deleteWhereMock).not.toHaveBeenCalled()
     })
 
     it('should deny deletion for non-admin users', async () => {

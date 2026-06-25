@@ -152,8 +152,6 @@ export async function applyWorkflowEntityName(
   entityName: string,
   fields: Partial<typeof workflow.$inferInsert> = {}
 ): Promise<typeof workflow.$inferSelect> {
-  await applyWorkflowEntityNameInSocketServer(workflowId, entityName)
-
   const [updatedWorkflow] = await db
     .update(workflow)
     .set({ ...fields, name: entityName, updatedAt: fields.updatedAt ?? new Date() })
@@ -163,6 +161,8 @@ export async function applyWorkflowEntityName(
   if (!updatedWorkflow) {
     throw new Error('Workflow not found')
   }
+
+  await applyWorkflowEntityNameInSocketServer(workflowId, entityName).catch(() => undefined)
 
   return updatedWorkflow
 }

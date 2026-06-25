@@ -261,10 +261,10 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Indicator not found' }, { status: 404 })
     }
 
-    await deleteYjsSessionInSocketServer(indicatorId)
     await db
       .delete(pineIndicators)
       .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
+    await deleteYjsSessionInSocketServer(indicatorId).catch(() => undefined)
 
     logger.info(`[${requestId}] Deleted indicator ${indicatorId}`)
     return NextResponse.json({ success: true }, { status: 200 })
