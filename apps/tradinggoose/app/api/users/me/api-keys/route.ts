@@ -1,8 +1,9 @@
 import { db } from '@tradinggoose/db'
 import { apiKey } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
+import { nanoid } from 'nanoid'
 import { type NextRequest, NextResponse } from 'next/server'
-import { createPersonalApiKey, getApiKeyDisplayFormat } from '@/lib/api-key/service'
+import { createApiKey, getApiKeyDisplayFormat } from '@/lib/api-key/service'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 
@@ -31,10 +32,12 @@ export async function GET(request: NextRequest) {
       .where(and(eq(apiKey.userId, userId), eq(apiKey.type, 'personal')))
       .orderBy(apiKey.createdAt)
 
-    const maskedKeys = keys.map(({ key, ...apiKey }) => ({
-      ...apiKey,
-      displayKey: getApiKeyDisplayFormat(key),
-    }))
+    const maskedKeys = await Promise.all(
+      keys.map(async ({ key, ...apiKey }) => ({
+        ...apiKey,
+        displayKey: await getApiKeyDisplayFormat(key),
+      }))
+    )
 
     return NextResponse.json({ keys: maskedKeys })
   } catch (error) {
@@ -79,10 +82,34 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const newKey = await createPersonalApiKey({ userId, name })
+    const { key: plainKey, encryptedKey } = await createApiKey(true)
+    if (!encryptedKey) {
+      throw new Error('Failed to encrypt API key for storage')
+    }
+
+    const [newKey] = await db
+      .insert(apiKey)
+      .values({
+        id: nanoid(),
+        userId,
+        workspaceId: null,
+        name,
+        key: encryptedKey,
+        type: 'personal',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning({
+        id: apiKey.id,
+        name: apiKey.name,
+        createdAt: apiKey.createdAt,
+      })
 
     return NextResponse.json({
-      key: newKey,
+      key: {
+        ...newKey,
+        key: plainKey,
+      },
     })
   } catch (error) {
     logger.error('Failed to create API key', { error })

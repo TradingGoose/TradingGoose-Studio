@@ -67,7 +67,7 @@ export async function validateWorkflowAccess(
 
       // If a pinned key exists, only accept that specific key
       if (workflow.pinnedApiKey?.key) {
-        const isValidPinnedKey = storedApiKeyMatches(apiKeyHeader, workflow.pinnedApiKey.key)
+        const isValidPinnedKey = await storedApiKeyMatches(apiKeyHeader, workflow.pinnedApiKey.key)
         if (!isValidPinnedKey) {
           return {
             error: {
