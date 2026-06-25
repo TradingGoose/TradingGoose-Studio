@@ -3,7 +3,7 @@ import { db } from '@tradinggoose/db'
 import { apiKey, verification } from '@tradinggoose/db/schema'
 import { and, eq, like, lte } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
-import { createApiKey, encryptApiKeyForStorage, isApiKeyFormat } from '@/lib/api-key/service'
+import { encryptApiKeyForStorage, isApiKeyFormat } from '@/lib/api-key/service'
 import { env } from '@/lib/env'
 import { getBaseUrl } from '@/lib/urls/utils'
 
@@ -85,6 +85,14 @@ function buildDeviceLoginId(code: string): string {
 
 function createDeviceLoginApprovalToken(code: string, userId: string): string {
   return signDeviceLoginCode(`mcp-approval.${buildDeviceLoginId(code)}.${userId}`)
+}
+
+function createDeviceLoginApiKey(code: string, verificationKey: string): string {
+  const secret = createHmac('sha256', env.INTERNAL_API_SECRET)
+    .update(`mcp-api-key.${buildDeviceLoginId(code)}.${hashValue(verificationKey)}`)
+    .digest('base64url')
+    .slice(0, 32)
+  return `${env.API_ENCRYPTION_KEY !== undefined ? 'sk-tradinggoose-' : 'tradinggoose_'}${secret}`
 }
 
 function approvalTokenMatches(code: string, userId: string, approvalToken: string): boolean {
@@ -383,10 +391,19 @@ export async function pollMcpDeviceLogin(
     return { status: 'expired' }
   }
 
-  const { key } = await createApiKey(false)
+  const key = createDeviceLoginApiKey(code, verificationKey)
+  const apiKeyHash = hashValue(key)
+  if (login.state.apiKeyHash === apiKeyHash) {
+    return {
+      status: 'approved',
+      apiKey: key,
+      expiresAt: login.expiresAt.toISOString(),
+    }
+  }
+
   const nextState = {
     ...login.state,
-    apiKeyHash: hashValue(key),
+    apiKeyHash,
   } satisfies ApprovedDeviceLogin
   if (!(await updateDeviceLoginState(login, nextState))) {
     return {

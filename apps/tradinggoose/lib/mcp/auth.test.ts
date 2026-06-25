@@ -4,20 +4,17 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { db, mockCreateApiKey, mockEncryptApiKeyForStorage, mockIsApiKeyFormat } = vi.hoisted(
-  () => ({
-    db: {
-      select: vi.fn(),
-      insert: vi.fn(),
-      delete: vi.fn(),
-      update: vi.fn(),
-      transaction: vi.fn(),
-    },
-    mockCreateApiKey: vi.fn(),
-    mockEncryptApiKeyForStorage: vi.fn(),
-    mockIsApiKeyFormat: vi.fn(),
-  })
-)
+const { db, mockEncryptApiKeyForStorage, mockIsApiKeyFormat } = vi.hoisted(() => ({
+  db: {
+    select: vi.fn(),
+    insert: vi.fn(),
+    delete: vi.fn(),
+    update: vi.fn(),
+    transaction: vi.fn(),
+  },
+  mockEncryptApiKeyForStorage: vi.fn(),
+  mockIsApiKeyFormat: vi.fn(),
+}))
 
 const verification = Object.fromEntries(
   ['id', 'identifier', 'value', 'expiresAt', 'createdAt', 'updatedAt'].map((field) => [
@@ -35,7 +32,6 @@ vi.mock('drizzle-orm', () => ({
   lte: vi.fn((field, value) => ({ field, value })),
 }))
 vi.mock('@/lib/api-key/service', () => ({
-  createApiKey: mockCreateApiKey,
   encryptApiKeyForStorage: mockEncryptApiKeyForStorage,
   isApiKeyFormat: mockIsApiKeyFormat,
 }))
@@ -62,6 +58,14 @@ function mockInsertValues() {
   return values
 }
 
+function mockUpdateReturning(result: unknown[] = [{ id: 'device-login-row' }]) {
+  const returning = vi.fn().mockResolvedValue(result)
+  const where = vi.fn(() => ({ returning }))
+  const set = vi.fn(() => ({ where }))
+  db.update.mockReturnValue({ set })
+  return { set, where, returning }
+}
+
 function readCodeFields(code: string) {
   const [, createdAt, expiresAt, , verificationKeyHash] = code.split('.')
   return {
@@ -76,7 +80,6 @@ describe('MCP device login auth', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-06-19T12:00:00.000Z'))
     vi.clearAllMocks()
-    mockCreateApiKey.mockResolvedValue({ key: `sk-tradinggoose-${'a'.repeat(32)}` })
     mockEncryptApiKeyForStorage.mockResolvedValue('encrypted-api-key')
     mockIsApiKeyFormat.mockReturnValue(true)
     mockDelete()
@@ -134,5 +137,30 @@ describe('MCP device login auth', () => {
       status: 'expired',
     })
     expect(db.delete).toHaveBeenCalled()
+  })
+
+  it('returns the same approved API key across repeated polls before acknowledgement', async () => {
+    const { pollMcpDeviceLogin, startMcpDeviceLogin } = await import('./auth')
+    const login = await startMcpDeviceLogin()
+    const fields = readCodeFields(login.code)
+    const approvedRow = {
+      id: 'device-login-row',
+      value: JSON.stringify({
+        status: 'approved',
+        createdAt: fields.createdAt,
+        verificationKeyHash: fields.verificationKeyHash,
+        approvedAt: '2026-06-19T12:01:00.000Z',
+        userId: 'user-1',
+      }),
+      expiresAt: fields.expiresAt,
+    }
+    selectRows([approvedRow], [approvedRow])
+    mockUpdateReturning()
+
+    const firstPoll = await pollMcpDeviceLogin(login.code, login.verificationKey)
+    const secondPoll = await pollMcpDeviceLogin(login.code, login.verificationKey)
+
+    expect(firstPoll).toEqual(secondPoll)
+    expect(firstPoll.status).toBe('approved')
   })
 })
