@@ -125,9 +125,8 @@ function getRequesterKey(request: Request): string {
     request.headers.get('x-real-ip')?.trim() ||
     forwardedFor ||
     'unknown'
-  const userAgent = request.headers.get('user-agent')?.trim() || 'unknown'
   const host = request.headers.get('host')?.trim() || new URL(request.url).host
-  return createHash('sha256').update(`${host}\n${requester}\n${userAgent}`).digest('hex')
+  return createHash('sha256').update(`${host}\n${requester}`).digest('hex')
 }
 
 export async function checkPublicApiEndpointRateLimit(
