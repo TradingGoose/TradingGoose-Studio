@@ -1,4 +1,5 @@
 import {
+  customTools,
   db,
   workflow,
   workflowBlocks,
@@ -12,6 +13,7 @@ import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import * as Y from 'yjs'
 import { reconcilePublishedChatsForDeploymentTx } from '@/lib/chat/published-deployment'
+import { getCustomToolEntityIdFromRuntimeId } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { sanitizeAgentToolsInBlocks } from '@/lib/workflows/validation'
 import { inferWorkflowDirectionFromState } from '@/lib/workflows/workflow-direction'
@@ -76,6 +78,75 @@ const sanitizeBlockLayout = (layout: unknown): BlockState['layout'] => {
   }
 
   return nextLayout
+}
+
+const saveEmbeddedCustomTools = async (
+  tx: WorkflowDbTransaction,
+  workflowId: string,
+  blocks: Iterable<any>
+) => {
+  const embeddedTools = new Map<string, any>()
+  for (const block of blocks) {
+    if (!block || block.type !== 'agent') continue
+    const tools = block.subBlocks?.tools?.value
+    if (!Array.isArray(tools)) continue
+    for (const tool of tools) {
+      if (
+        !tool ||
+        typeof tool !== 'object' ||
+        tool.type !== 'custom-tool' ||
+        typeof tool.title !== 'string' ||
+        typeof tool.toolId !== 'string' ||
+        typeof tool.code !== 'string' ||
+        !tool.schema?.function
+      ) {
+        continue
+      }
+      const title = tool.title.trim()
+      if (!title) continue
+      embeddedTools.set(getCustomToolEntityIdFromRuntimeId(tool.toolId), {
+        title,
+        schema: tool.schema,
+        code: tool.code,
+      })
+    }
+  }
+  if (embeddedTools.size === 0) return
+
+  const [owner] = await tx
+    .select({ workspaceId: workflow.workspaceId, userId: workflow.userId })
+    .from(workflow)
+    .where(eq(workflow.id, workflowId))
+    .limit(1)
+
+  const workspaceId = owner?.workspaceId
+  if (!workspaceId) return
+
+  const now = new Date()
+  await tx
+    .insert(customTools)
+    .values(
+      Array.from(embeddedTools, ([id, tool]) => ({
+        id,
+        workspaceId,
+        userId: owner.userId,
+        title: tool.title,
+        schema: tool.schema,
+        code: tool.code,
+        createdAt: now,
+        updatedAt: now,
+      }))
+    )
+    .onConflictDoUpdate({
+      target: customTools.id,
+      set: {
+        title: sql.raw('excluded."title"'),
+        schema: sql.raw('excluded."schema"'),
+        code: sql.raw('excluded."code"'),
+        updatedAt: now,
+      },
+      setWhere: eq(customTools.workspaceId, workspaceId),
+    })
 }
 
 export type PersistedWorkflowState = {
@@ -820,6 +891,7 @@ export async function saveWorkflowToNormalizedTables(
         await tx.insert(workflowSubflows).values(subflowInserts)
       }
 
+      await saveEmbeddedCustomTools(tx, workflowId, sanitizedBlockRecords)
       await commit?.(tx, normalizedState)
     })
 
