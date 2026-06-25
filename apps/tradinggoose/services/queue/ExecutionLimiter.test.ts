@@ -243,7 +243,12 @@ describe('ExecutionLimiter', () => {
     })
 
     it('allows billed requests when the user has no active subscription tier', async () => {
-      const result = await rateLimiter.checkRateLimitWithSubscription(testUserId, null, 'api', false)
+      const result = await rateLimiter.checkRateLimitWithSubscription(
+        testUserId,
+        null,
+        'api',
+        false
+      )
 
       expect(result.allowed).toBe(true)
       expect(result.remaining).toBe(Number.MAX_SAFE_INTEGER)
