@@ -19,7 +19,7 @@ describe('Workflow By ID API Route', () => {
   const mockReadWorkflowById = vi.fn()
   const mockReadWorkflowAccessContext = vi.fn()
   const mockLoadWorkflowState = vi.fn()
-  const mockApplyWorkflowEntityName = vi.fn()
+  const mockApplyWorkflowMetadata = vi.fn()
   const mockDeleteYjsSession = vi.fn()
 
   beforeEach(() => {
@@ -67,18 +67,20 @@ describe('Workflow By ID API Route', () => {
     mockReadWorkflowById.mockReset()
     mockReadWorkflowAccessContext.mockReset()
     mockLoadWorkflowState.mockReset()
-    mockApplyWorkflowEntityName.mockReset()
+    mockApplyWorkflowMetadata.mockReset()
     mockDeleteYjsSession.mockReset()
     mockLoadWorkflowState.mockResolvedValue(null)
-    mockApplyWorkflowEntityName.mockResolvedValue({
+    mockApplyWorkflowMetadata.mockResolvedValue({
       id: 'workflow-123',
       name: 'Updated Workflow',
+      description: 'Updated description',
+      folderId: 'folder-1',
       workspaceId: null,
     })
     mockDeleteYjsSession.mockResolvedValue(undefined)
 
     vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
-      applyWorkflowEntityName: mockApplyWorkflowEntityName,
+      applyWorkflowMetadata: mockApplyWorkflowMetadata,
     }))
     vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
       deleteYjsSessionInSocketServer: mockDeleteYjsSession,
@@ -96,7 +98,9 @@ describe('Workflow By ID API Route', () => {
 
   function expectWorkflowRenameApplied() {
     expect(mockLoadWorkflowState).not.toHaveBeenCalled()
-    expect(mockApplyWorkflowEntityName).toHaveBeenCalledWith('workflow-123', 'Updated Workflow')
+    expect(mockApplyWorkflowMetadata).toHaveBeenCalledWith('workflow-123', {
+      name: 'Updated Workflow',
+    })
   }
 
   describe('GET /api/workflows/[id]', () => {
@@ -628,7 +632,7 @@ describe('Workflow By ID API Route', () => {
       expectWorkflowRenameApplied()
     })
 
-    it('updates DB-only metadata without loading workflow state', async () => {
+    it('updates workflow metadata through the Yjs session without loading workflow state', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',
@@ -639,7 +643,11 @@ describe('Workflow By ID API Route', () => {
       }
 
       const updateData = { description: 'New description', folderId: 'folder-1' }
-      const updatedWorkflow = { ...mockWorkflow, ...updateData, updatedAt: new Date() }
+      mockApplyWorkflowMetadata.mockResolvedValueOnce({
+        ...mockWorkflow,
+        ...updateData,
+        updatedAt: new Date(),
+      })
 
       vi.doMock('@/lib/auth', () => ({
         getSession: vi.fn().mockResolvedValue({
@@ -656,19 +664,6 @@ describe('Workflow By ID API Route', () => {
         isWorkspaceOwner: false,
       })
 
-      vi.doMock('@tradinggoose/db', () => ({
-        db: {
-          update: vi.fn().mockReturnValue({
-            set: vi.fn().mockReturnValue({
-              where: vi.fn().mockReturnValue({
-                returning: vi.fn().mockResolvedValue([updatedWorkflow]),
-              }),
-            }),
-          }),
-        },
-        workflow: {},
-      }))
-
       const req = new NextRequest('http://localhost:3000/api/workflows/workflow-123', {
         method: 'PUT',
         body: JSON.stringify(updateData),
@@ -683,7 +678,60 @@ describe('Workflow By ID API Route', () => {
       expect(data.workflow.description).toBe('New description')
       expect(data.workflow.folderId).toBe('folder-1')
       expect(mockLoadWorkflowState).not.toHaveBeenCalled()
-      expect(mockApplyWorkflowEntityName).not.toHaveBeenCalled()
+      expect(mockApplyWorkflowMetadata).toHaveBeenCalledWith('workflow-123', updateData)
+    })
+
+    it('updates workflow name, description, and folder in one Yjs metadata patch', async () => {
+      const mockWorkflow = {
+        id: 'workflow-123',
+        userId: 'user-123',
+        name: 'Test Workflow',
+        description: 'Old description',
+        folderId: null,
+        workspaceId: null,
+      }
+      const updateData = {
+        name: 'Updated Workflow',
+        description: 'New description',
+        folderId: 'folder-1',
+      }
+      mockApplyWorkflowMetadata.mockResolvedValueOnce({
+        ...mockWorkflow,
+        ...updateData,
+        updatedAt: new Date(),
+      })
+
+      vi.doMock('@/lib/auth', () => ({
+        getSession: vi.fn().mockResolvedValue({
+          user: { id: 'user-123' },
+        }),
+      }))
+
+      mockReadWorkflowById.mockResolvedValueOnce(mockWorkflow)
+      mockReadWorkflowAccessContext.mockResolvedValueOnce({
+        workflow: mockWorkflow,
+        workspaceOwnerId: null,
+        workspacePermission: null,
+        isOwner: true,
+        isWorkspaceOwner: false,
+      })
+
+      const req = new NextRequest('http://localhost:3000/api/workflows/workflow-123', {
+        method: 'PUT',
+        body: JSON.stringify(updateData),
+      })
+      const params = Promise.resolve({ id: 'workflow-123' })
+
+      const { PUT } = await import('@/app/api/workflows/[id]/route')
+      const response = await PUT(req, { params })
+
+      expect(response.status).toBe(200)
+      const data = await response.json()
+      expect(data.workflow.name).toBe('Updated Workflow')
+      expect(data.workflow.description).toBe('New description')
+      expect(data.workflow.folderId).toBe('folder-1')
+      expect(mockLoadWorkflowState).not.toHaveBeenCalled()
+      expect(mockApplyWorkflowMetadata).toHaveBeenCalledWith('workflow-123', updateData)
     })
 
     it('should deny update for users with only read permission', async () => {

@@ -382,7 +382,7 @@ describe('Socket Server Index Integration', () => {
             'content-type': 'application/json',
             'x-internal-secret': INTERNAL_SECRET,
           },
-          body: JSON.stringify({ entityName: 'Renamed Workflow' }),
+          body: JSON.stringify({ metadata: { name: 'Renamed Workflow' } }),
         }
       )
 

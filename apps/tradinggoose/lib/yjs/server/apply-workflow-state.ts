@@ -2,16 +2,20 @@ import { db, workflow } from '@tradinggoose/db'
 import { eq } from 'drizzle-orm'
 import { ensureUniqueBlockIds, ensureUniqueEdgeIds } from '@/lib/workflows/db-helpers'
 import {
-  applyWorkflowEntityNameInSocketServer,
+  applyWorkflowMetadataInSocketServer,
   applyWorkflowStateInSocketServer,
 } from '@/lib/yjs/server/snapshot-bridge'
-import { createWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import {
+  createWorkflowSnapshot,
+  type WorkflowMetadataPatch,
+  type WorkflowSnapshot,
+} from '@/lib/yjs/workflow-session'
 
 export async function applyWorkflowState(
   workflowId: string,
   workflowState: WorkflowSnapshot,
   variables?: Record<string, any>,
-  entityName?: string
+  metadata?: WorkflowMetadataPatch
 ): Promise<void> {
   const syncedAt = new Date()
   const appliedWorkflowState = createWorkflowSnapshot({
@@ -32,14 +36,14 @@ export async function applyWorkflowState(
       : {}),
   })
 
-  await applyWorkflowStateInSocketServer(workflowId, storedWorkflowState, variables, entityName)
+  await applyWorkflowStateInSocketServer(workflowId, storedWorkflowState, variables, metadata)
 }
 
-export async function applyWorkflowEntityName(
+export async function applyWorkflowMetadata(
   workflowId: string,
-  entityName: string
+  metadata: WorkflowMetadataPatch
 ): Promise<typeof workflow.$inferSelect> {
-  await applyWorkflowEntityNameInSocketServer(workflowId, entityName)
+  await applyWorkflowMetadataInSocketServer(workflowId, metadata)
 
   const [updatedWorkflow] = await db
     .select()

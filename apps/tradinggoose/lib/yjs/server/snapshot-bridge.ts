@@ -3,7 +3,7 @@ import type {
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
 import { env, getInternalRealtimeUrl } from '@/lib/env'
-import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import type { WorkflowMetadataPatch, WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 export interface YjsSnapshotResponse {
   snapshotBase64: string
@@ -92,25 +92,25 @@ export async function applyWorkflowStateInSocketServer(
   workflowId: string,
   workflowState: WorkflowSnapshot,
   variables?: Record<string, any>,
-  entityName?: string
+  metadata?: WorkflowMetadataPatch
 ): Promise<void> {
   await postJsonToSocketServer(
     `/internal/yjs/workflows/${encodeURIComponent(workflowId)}/apply-state`,
     {
       workflowState,
       ...(variables === undefined ? {} : { variables }),
-      ...(entityName ? { entityName } : {}),
+      ...(metadata ? { metadata } : {}),
     }
   )
 }
 
-export async function applyWorkflowEntityNameInSocketServer(
+export async function applyWorkflowMetadataInSocketServer(
   workflowId: string,
-  entityName: string
+  metadata: WorkflowMetadataPatch
 ): Promise<void> {
   await postJsonToSocketServer(
     `/internal/yjs/workflows/${encodeURIComponent(workflowId)}/apply-state`,
-    { entityName }
+    { metadata }
   )
 }
 

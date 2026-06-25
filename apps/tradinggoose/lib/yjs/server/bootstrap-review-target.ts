@@ -16,7 +16,7 @@ import {
   readSavedEntityFieldsFromDb,
   resolveEntityWorkspaceId,
 } from '@/lib/yjs/server/entity-loaders'
-import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
+import { getYjsSnapshot } from '@/lib/yjs/server/snapshot-bridge'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import {
   createWorkflowSnapshot,
@@ -51,32 +51,7 @@ export function getRuntimeStateFromUpdate(update: Uint8Array): ReviewTargetRunti
 
 export async function readBootstrappedReviewTargetSnapshot(descriptor: ReviewTargetDescriptor) {
   const bridgeParams = serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
-  try {
-    return await getYjsSnapshot(descriptor.yjsSessionId, bridgeParams)
-  } catch (error) {
-    if (!(error instanceof SocketServerBridgeError) || error.status !== 404) {
-      throw error
-    }
-  }
-
-  if (!descriptor.entityId) {
-    return {
-      snapshotBase64: '',
-      descriptor,
-      runtime: {
-        docState: 'expired' as const,
-        replaySafe: false,
-        reseededFromCanonical: false,
-      },
-    }
-  }
-
-  const bootstrapped = await createSavedReviewTargetBootstrapUpdate(descriptor)
-  return {
-    snapshotBase64: Buffer.from(bootstrapped.state).toString('base64'),
-    descriptor: bootstrapped.descriptor,
-    runtime: bootstrapped.runtime,
-  }
+  return getYjsSnapshot(descriptor.yjsSessionId, bridgeParams)
 }
 
 export async function readBootstrappedSavedEntityFields(
@@ -115,12 +90,16 @@ export async function createSavedReviewTargetBootstrapUpdate(
   const doc = new Y.Doc()
   try {
     let workflowName: string | null | undefined
+    let workflowDescription: string | null | undefined
+    let workflowFolderId: string | null | undefined
     if (descriptor.entityKind === 'workflow') {
       const workflowState = await loadWorkflowStateFromSavedTables(descriptor.entityId)
       if (!workflowState) {
         throw new ReviewTargetBootstrapError(404, 'Workflow not found')
       }
       workflowName = workflowState.name
+      workflowDescription = workflowState.description
+      workflowFolderId = workflowState.folderId
 
       setWorkflowState(
         doc,
@@ -161,6 +140,12 @@ export async function createSavedReviewTargetBootstrapUpdate(
     metadata.set('reseededFromCanonical', true)
     if (workflowName) {
       metadata.set('entityName', workflowName)
+    }
+    if (workflowDescription !== undefined) {
+      metadata.set('entityDescription', workflowDescription)
+    }
+    if (workflowFolderId !== undefined) {
+      metadata.set('folderId', workflowFolderId)
     }
     const state = Y.encodeStateAsUpdate(doc)
 

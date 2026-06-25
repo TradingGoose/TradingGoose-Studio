@@ -90,7 +90,11 @@ export function readWorkflowTextFieldFromMap(
   return existing instanceof Y.Text ? existing : null
 }
 
-export function readWorkflowTextField(doc: Y.Doc, blockId: string, subBlockId: string): Y.Text | null {
+export function readWorkflowTextField(
+  doc: Y.Doc,
+  blockId: string,
+  subBlockId: string
+): Y.Text | null {
   return readWorkflowTextFieldFromMap(readWorkflowTextFieldsMap(doc), blockId, subBlockId)
 }
 
@@ -240,6 +244,18 @@ export interface WorkflowSnapshot {
   deployedAt?: string
 }
 
+export type WorkflowMetadataPatch = {
+  name?: string
+  description?: string | null
+  folderId?: string | null
+}
+
+export type WorkflowMetadataSnapshot = {
+  name?: string
+  description?: string | null
+  folderId?: string | null
+}
+
 /**
  * Applies safe defaults to a partial snapshot.  Used by both
  * `createWorkflowSnapshot` and `readWorkflowSnapshot` so the defaulting
@@ -262,9 +278,7 @@ function applySnapshotDefaults(partial: Partial<WorkflowSnapshot>): WorkflowSnap
  * Creates a WorkflowSnapshot with safe defaults for all fields.
  * Use this instead of manually spreading `?? {}` / `?? []` at every call site.
  */
-export function createWorkflowSnapshot(
-  partial: Partial<WorkflowSnapshot> = {}
-): WorkflowSnapshot {
+export function createWorkflowSnapshot(partial: Partial<WorkflowSnapshot> = {}): WorkflowSnapshot {
   return applySnapshotDefaults(partial)
 }
 
@@ -375,7 +389,7 @@ export function replaceWorkflowDocumentState(
   doc: Y.Doc,
   workflowState: WorkflowSnapshot,
   variables?: Record<string, any>,
-  entityName?: string
+  metadataPatch?: WorkflowMetadataPatch
 ): void {
   setWorkflowState(doc, workflowState, YJS_ORIGINS.SYSTEM)
 
@@ -384,17 +398,31 @@ export function replaceWorkflowDocumentState(
   }
 
   doc.transact(() => {
-    const metadata = getMetadataMap(doc)
-    metadata.delete('reseededFromCanonical')
-    if (entityName) metadata.set('entityName', entityName)
+    getMetadataMap(doc).delete('reseededFromCanonical')
   }, YJS_ORIGINS.SYSTEM)
+  if (metadataPatch) setWorkflowEntityMetadata(doc, metadataPatch)
 }
 
-export function setWorkflowEntityName(doc: Y.Doc, entityName: string): void {
+export function readWorkflowEntityMetadata(doc: Y.Doc): WorkflowMetadataSnapshot {
+  const metadata = getMetadataMap(doc)
+  return {
+    ...(typeof metadata.get('entityName') === 'string'
+      ? { name: metadata.get('entityName') as string }
+      : {}),
+    ...(metadata.has('entityDescription')
+      ? { description: metadata.get('entityDescription') as string | null }
+      : {}),
+    ...(metadata.has('folderId') ? { folderId: metadata.get('folderId') as string | null } : {}),
+  }
+}
+
+export function setWorkflowEntityMetadata(doc: Y.Doc, patch: WorkflowMetadataPatch): void {
   doc.transact(() => {
     const metadata = getMetadataMap(doc)
     metadata.delete('reseededFromCanonical')
-    metadata.set('entityName', entityName)
+    if (patch.name !== undefined) metadata.set('entityName', patch.name.trim())
+    if (patch.description !== undefined) metadata.set('entityDescription', patch.description)
+    if (patch.folderId !== undefined) metadata.set('folderId', patch.folderId)
   }, YJS_ORIGINS.SYSTEM)
 }
 
@@ -507,6 +535,9 @@ export function setVariables(doc: Y.Doc, variables: Record<string, any>, origin?
  * by both the server-side Yjs loader and the template builder.
  */
 export interface PersistedDocState {
+  name?: string
+  description?: string | null
+  folderId?: string | null
   direction?: WorkflowDirection
   blocks: Record<string, BlockState>
   edges: Edge[]
@@ -520,11 +551,13 @@ export interface PersistedDocState {
 
 export function extractPersistedStateFromDoc(doc: Y.Doc): PersistedDocState {
   const snapshot = readWorkflowSnapshot(doc)
+  const metadata = readWorkflowEntityMetadata(doc)
   const variables = getVariablesSnapshot(doc)
   const lastSaved = resolveStoredDateValue(snapshot.lastSaved)?.getTime() ?? Date.now()
   const deployedAt = resolveStoredDateValue(snapshot.deployedAt)?.toISOString()
 
   return {
+    ...metadata,
     ...(snapshot.direction !== undefined ? { direction: snapshot.direction } : {}),
     blocks: snapshot.blocks || {},
     edges: snapshot.edges || [],

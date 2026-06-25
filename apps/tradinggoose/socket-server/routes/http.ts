@@ -19,7 +19,8 @@ import {
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import {
   replaceWorkflowDocumentState,
-  setWorkflowEntityName,
+  setWorkflowEntityMetadata,
+  type WorkflowMetadataPatch,
   type WorkflowSnapshot,
 } from '@/lib/yjs/workflow-session'
 import { getMonitorRuntimeLockHealth } from '@/socket-server/monitor-runtime-lock'
@@ -55,7 +56,7 @@ const INTERNAL_YJS_SESSION_APPLY_UPDATE_PATH = /^\/internal\/yjs\/sessions\/([^/
 type ApplyWorkflowStateRequest = {
   workflowState?: WorkflowSnapshot
   variables?: Record<string, any>
-  entityName?: string
+  metadata?: WorkflowMetadataPatch
 }
 
 type SavedEntityKind = Exclude<ReviewEntityKind, 'workflow'>
@@ -167,10 +168,19 @@ function parseApplyWorkflowStateRequest(body: unknown): ApplyWorkflowStateReques
 
   const candidate = body as Record<string, unknown>
   const workflowState = candidate.workflowState
-  const entityName = typeof candidate.entityName === 'string' ? candidate.entityName.trim() : ''
+  if (
+    candidate.metadata !== undefined &&
+    (!candidate.metadata ||
+      typeof candidate.metadata !== 'object' ||
+      Array.isArray(candidate.metadata))
+  ) {
+    throw new InvalidInternalYjsRequestError('metadata must be an object')
+  }
+  const metadata =
+    candidate.metadata !== undefined ? (candidate.metadata as WorkflowMetadataPatch) : undefined
 
-  if (workflowState === undefined && !entityName) {
-    throw new InvalidInternalYjsRequestError('workflowState or entityName is required')
+  if (workflowState === undefined && metadata === undefined) {
+    throw new InvalidInternalYjsRequestError('workflowState or metadata is required')
   }
 
   if (
@@ -196,7 +206,7 @@ function parseApplyWorkflowStateRequest(body: unknown): ApplyWorkflowStateReques
   return {
     workflowState: workflowState as WorkflowSnapshot | undefined,
     variables: candidate.variables as Record<string, any> | undefined,
-    entityName: entityName || undefined,
+    metadata,
   }
 }
 
@@ -287,9 +297,9 @@ async function handleInternalYjsWorkflowApplyRequest(
 
     try {
       if (body.workflowState) {
-        replaceWorkflowDocumentState(doc, body.workflowState, body.variables, body.entityName)
+        replaceWorkflowDocumentState(doc, body.workflowState, body.variables, body.metadata)
       } else {
-        setWorkflowEntityName(doc, body.entityName!)
+        setWorkflowEntityMetadata(doc, body.metadata!)
       }
       await saveWorkflowYjsDocToDb(workflowId, doc)
       discardDocumentIfIdle(workflowId)

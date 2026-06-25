@@ -11,7 +11,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { loadWorkflowState } from '@/lib/workflows/db-helpers'
 import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/utils'
-import { applyWorkflowEntityName } from '@/lib/yjs/server/apply-workflow-state'
+import { applyWorkflowMetadata } from '@/lib/yjs/server/apply-workflow-state'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
@@ -163,6 +163,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const finalWorkflowData = {
       ...workflowData,
+      ...(workflowState.name !== undefined ? { name: workflowState.name } : {}),
+      ...(workflowState.description !== undefined
+        ? { description: workflowState.description }
+        : {}),
+      ...(workflowState.folderId !== undefined ? { folderId: workflowState.folderId } : {}),
       state: {
         deploymentStatuses: {},
         ...(resolvedState.direction !== undefined ? { direction: resolvedState.direction } : {}),
@@ -358,34 +363,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    const updateData: any = { updatedAt: new Date() }
-    if (updates.description !== undefined) updateData.description = updates.description
-    if (updates.folderId !== undefined) updateData.folderId = updates.folderId
-
-    if (updates.name === undefined || updates.name === workflowData.name) {
-      const [updatedWorkflow] = await db
-        .update(workflow)
-        .set(updateData)
-        .where(eq(workflow.id, workflowId))
-        .returning()
-
-      if (!updatedWorkflow) {
-        logger.warn(`[${requestId}] Workflow ${workflowId} not found while updating metadata`)
-        return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
-      }
-
-      const elapsed = Date.now() - startTime
-      logger.info(`[${requestId}] Successfully updated workflow ${workflowId} in ${elapsed}ms`, {
-        updates,
-      })
-
-      return NextResponse.json({ workflow: updatedWorkflow }, { status: 200 })
+    const metadata = {
+      ...(updates.name !== undefined ? { name: updates.name } : {}),
+      ...(updates.description !== undefined ? { description: updates.description } : {}),
+      ...(updates.folderId !== undefined ? { folderId: updates.folderId } : {}),
     }
-
-    const updatedWorkflow = await applyWorkflowEntityName(
-      workflowId,
-      updates.name ?? workflowData.name
-    )
+    const updatedWorkflow =
+      Object.keys(metadata).length > 0
+        ? await applyWorkflowMetadata(workflowId, metadata)
+        : workflowData
 
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully updated workflow ${workflowId} in ${elapsed}ms`, {

@@ -5,7 +5,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
-  mockApplyWorkflowEntityNameInSocketServer,
+  mockApplyWorkflowMetadataInSocketServer,
   mockApplyWorkflowStateInSocketServer,
   mockDbUpdate,
   mockDbSelect,
@@ -19,7 +19,7 @@ const {
   mockUpdateWhere,
 } = vi.hoisted(() => {
   return {
-    mockApplyWorkflowEntityNameInSocketServer: vi.fn(),
+    mockApplyWorkflowMetadataInSocketServer: vi.fn(),
     mockApplyWorkflowStateInSocketServer: vi.fn(),
     mockDbUpdate: vi.fn(),
     mockDbSelect: vi.fn(),
@@ -54,7 +54,7 @@ vi.mock('@/lib/workflows/db-helpers', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
-  applyWorkflowEntityNameInSocketServer: mockApplyWorkflowEntityNameInSocketServer,
+  applyWorkflowMetadataInSocketServer: mockApplyWorkflowMetadataInSocketServer,
   applyWorkflowStateInSocketServer: mockApplyWorkflowStateInSocketServer,
 }))
 
@@ -63,7 +63,7 @@ const emptyWorkflowState = { blocks: {}, edges: [], loops: {}, parallels: {} }
 describe('applyWorkflowState', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockApplyWorkflowEntityNameInSocketServer.mockResolvedValue(undefined)
+    mockApplyWorkflowMetadataInSocketServer.mockResolvedValue(undefined)
     mockApplyWorkflowStateInSocketServer.mockResolvedValue(undefined)
     mockEnsureUniqueBlockIds.mockImplementation(async (_workflowId, state) => state)
     mockEnsureUniqueEdgeIds.mockImplementation(async (_workflowId, state) => state)
@@ -77,19 +77,24 @@ describe('applyWorkflowState', () => {
     mockDbSelect.mockReturnValue({ from: mockSelectFrom })
   })
 
-  it('renames workflow entity metadata through the socket-owned Yjs document', async () => {
-    const { applyWorkflowEntityName } = await import('./apply-workflow-state')
+  it('updates workflow entity metadata through the socket-owned Yjs document', async () => {
+    const { applyWorkflowMetadata } = await import('./apply-workflow-state')
 
-    const updatedWorkflow = await applyWorkflowEntityName('workflow-1', 'Renamed Workflow')
+    const updatedWorkflow = await applyWorkflowMetadata('workflow-1', {
+      name: 'Renamed Workflow',
+      description: 'Updated description',
+      folderId: 'folder-1',
+    })
 
-    expect(mockApplyWorkflowEntityNameInSocketServer).toHaveBeenCalledWith(
-      'workflow-1',
-      'Renamed Workflow'
-    )
+    expect(mockApplyWorkflowMetadataInSocketServer).toHaveBeenCalledWith('workflow-1', {
+      name: 'Renamed Workflow',
+      description: 'Updated description',
+      folderId: 'folder-1',
+    })
     expect(mockApplyWorkflowStateInSocketServer).not.toHaveBeenCalled()
     expect(mockDbUpdate).not.toHaveBeenCalled()
     expect(mockDbSelect.mock.invocationCallOrder[0]).toBeGreaterThan(
-      mockApplyWorkflowEntityNameInSocketServer.mock.invocationCallOrder[0]
+      mockApplyWorkflowMetadataInSocketServer.mock.invocationCallOrder[0]
     )
     expect(updatedWorkflow).toMatchObject({ id: 'workflow-1', name: 'Renamed Workflow' })
   })
@@ -133,7 +138,7 @@ describe('applyWorkflowState', () => {
         parallels: {},
       },
       {},
-      'Workflow Name'
+      { name: 'Workflow Name' }
     )
 
     expect(mockApplyWorkflowStateInSocketServer).toHaveBeenCalledWith(
@@ -144,7 +149,7 @@ describe('applyWorkflowState', () => {
         },
       }),
       {},
-      'Workflow Name'
+      { name: 'Workflow Name' }
     )
     expect(mockDbUpdate).not.toHaveBeenCalled()
   })

@@ -28,11 +28,12 @@ import {
   serializeWorkflowToTgMermaid,
 } from '@/lib/workflows/studio-workflow-mermaid'
 import { isWorkflowVariableType, type WorkflowVariableType } from '@/lib/workflows/value-types'
-import { applyWorkflowEntityName, applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
+import { applyWorkflowMetadata, applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
 import {
   createWorkflowSnapshot,
   getVariablesSnapshot,
+  readWorkflowEntityMetadata,
   readWorkflowSnapshot,
   type WorkflowSnapshot,
 } from '@/lib/yjs/workflow-session'
@@ -224,9 +225,10 @@ export async function loadWorkflowSnapshotForCopilot(
   const doc = new Y.Doc()
   try {
     Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
+    const metadata = readWorkflowEntityMetadata(doc)
     return {
       workflowId,
-      entityName: workflowRow.name ?? undefined,
+      entityName: metadata.name ?? workflowRow.name ?? undefined,
       workspaceId: workflowRow.workspaceId ?? null,
       workflowState: {
         ...readWorkflowSnapshot(doc),
@@ -489,7 +491,12 @@ export const createWorkflowServerTool: BaseServerTool<
     })
 
     try {
-      await applyWorkflowState(workflowId, workflowState, {}, name)
+      await applyWorkflowState(
+        workflowId,
+        workflowState,
+        {},
+        { name, description, folderId: args.folderId || null }
+      )
     } catch (error) {
       await db.delete(workflow).where(eq(workflow.id, workflowId))
       throw error
@@ -514,7 +521,11 @@ export const renameWorkflowServerTool: BaseServerTool<{ entityId: string; name: 
       throw new Error('name is required')
     }
 
-    const { workspaceId: accessWorkspaceId } = await verifyWorkflowContext(workflowId, context, 'write')
+    const { workspaceId: accessWorkspaceId } = await verifyWorkflowContext(
+      workflowId,
+      context,
+      'write'
+    )
     const [current] = await db
       .select({
         name: workflow.name,
@@ -545,7 +556,7 @@ export const renameWorkflowServerTool: BaseServerTool<{ entityId: string; name: 
     }
 
     assertAcceptedServerToolReviewBase(context, currentNameBaseHash)
-    const updatedWorkflow = await applyWorkflowEntityName(workflowId, nextName)
+    const updatedWorkflow = await applyWorkflowMetadata(workflowId, { name: nextName })
 
     return {
       success: true,

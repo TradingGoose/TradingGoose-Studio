@@ -86,6 +86,8 @@ const sanitizeBlockLayout = (layout: unknown): BlockState['layout'] => {
 
 export type PersistedWorkflowState = {
   name?: string | null
+  description?: string | null
+  folderId?: string | null
   direction?: WorkflowDirection
   blocks: Record<string, any>
   edges: any[]
@@ -172,6 +174,8 @@ export async function loadWorkflowStateFromSavedTables(
     db
       .select({
         name: workflow.name,
+        description: workflow.description,
+        folderId: workflow.folderId,
         variables: workflow.variables,
         updatedAt: workflow.updatedAt,
         isDeployed: workflow.isDeployed,
@@ -189,6 +193,8 @@ export async function loadWorkflowStateFromSavedTables(
 
   const savedState = {
     name: row.name,
+    description: row.description,
+    folderId: row.folderId,
     blocks: normalizedState.blocks,
     edges: normalizedState.edges,
     loops: normalizedState.loops,
@@ -893,8 +899,6 @@ export async function saveWorkflowToNormalizedTables(
 
 export async function saveWorkflowYjsDocToDb(workflowId: string, doc: Y.Doc): Promise<void> {
   const state = extractPersistedStateFromDoc(doc)
-  const entityName = doc.getMap('metadata').get('entityName')
-  const workflowName = typeof entityName === 'string' ? entityName.trim() : ''
   const syncedAt = new Date()
   const workflowState: WorkflowState = {
     ...(state.direction !== undefined ? { direction: state.direction } : {}),
@@ -913,7 +917,9 @@ export async function saveWorkflowYjsDocToDb(workflowId: string, doc: Y.Doc): Pr
       .set({
         lastSynced: syncedAt,
         updatedAt: syncedAt,
-        ...(workflowName ? { name: workflowName } : {}),
+        ...(state.name ? { name: state.name } : {}),
+        ...(state.description !== undefined ? { description: state.description } : {}),
+        ...(state.folderId !== undefined ? { folderId: state.folderId } : {}),
         variables: state.variables,
         ...(state.isDeployed === undefined
           ? {}
