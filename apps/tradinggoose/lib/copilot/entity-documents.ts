@@ -95,6 +95,7 @@ export type EntityDocumentFields<K extends EntityDocumentKind> = z.infer<
 >
 
 export const ENTITY_SECRET_PLACEHOLDER = '[redacted]'
+const HTTP_HEADER_NAME_PATTERN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/
 
 function redactStringRecordValues(value: unknown): Record<string, string> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -104,6 +105,32 @@ function redactStringRecordValues(value: unknown): Record<string, string> {
   return Object.fromEntries(
     Object.keys(value as Record<string, unknown>).map((key) => [key, ENTITY_SECRET_PLACEHOLDER])
   )
+}
+
+export function normalizeStringRecord(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {}
+  }
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([key, item]) => [
+      key,
+      typeof item === 'string' ? item : String(item ?? ''),
+    ])
+  )
+}
+
+function normalizeHttpHeaderRecord(value: unknown): Record<string, string> {
+  const entries = Object.entries(normalizeStringRecord(value))
+    .map(([key, item]) => [key.trim(), item.trim()] as const)
+    .filter(([key, item]) => key.length > 0 && item.length > 0)
+
+  const invalidKey = entries.find(([key]) => !HTTP_HEADER_NAME_PATTERN.test(key))?.[0]
+  if (invalidKey) {
+    throw new Error(`Invalid MCP server header "${invalidKey}"`)
+  }
+
+  return Object.fromEntries(entries)
 }
 
 export function normalizeEntityFields(
@@ -153,28 +180,12 @@ export function normalizeEntityFields(
             ? source.transport
             : 'http',
         url: validation.normalizedUrl ?? rawUrl,
-        headers:
-          source.headers && typeof source.headers === 'object' && !Array.isArray(source.headers)
-            ? Object.fromEntries(
-                Object.entries(source.headers as Record<string, unknown>).map(([key, value]) => [
-                  key,
-                  typeof value === 'string' ? value : String(value ?? ''),
-                ])
-              )
-            : {},
+        headers: normalizeHttpHeaderRecord(source.headers),
         command: typeof source.command === 'string' ? source.command.trim() : '',
         args: Array.isArray(source.args)
           ? source.args.map((value) => (typeof value === 'string' ? value : String(value ?? '')))
           : [],
-        env:
-          source.env && typeof source.env === 'object' && !Array.isArray(source.env)
-            ? Object.fromEntries(
-                Object.entries(source.env as Record<string, unknown>).map(([key, value]) => [
-                  key,
-                  typeof value === 'string' ? value : String(value ?? ''),
-                ])
-              )
-            : {},
+        env: normalizeStringRecord(source.env),
         timeout: typeof source.timeout === 'number' ? source.timeout : 30000,
         retries: typeof source.retries === 'number' ? source.retries : 3,
         enabled: typeof source.enabled === 'boolean' ? source.enabled : true,

@@ -1,7 +1,11 @@
 import { db } from '@tradinggoose/db'
 import { mcpServers } from '@tradinggoose/db/schema'
 import { and, eq, isNull } from 'drizzle-orm'
-import { ENTITY_SECRET_PLACEHOLDER, normalizeEntityFields } from '@/lib/copilot/entity-documents'
+import {
+  ENTITY_SECRET_PLACEHOLDER,
+  normalizeEntityFields,
+  normalizeStringRecord,
+} from '@/lib/copilot/entity-documents'
 import { ENTITY_KIND_MCP_SERVER } from '@/lib/copilot/review-sessions/types'
 import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
 import { mcpService } from '@/lib/mcp/service'
@@ -20,19 +24,6 @@ import {
   verifySavedEntityContext,
   verifyWorkspaceContext,
 } from './shared'
-
-function normalizeStringRecord(value: unknown): Record<string, string> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return {}
-  }
-
-  return Object.fromEntries(
-    Object.entries(value as Record<string, unknown>).map(([key, item]) => [
-      key,
-      typeof item === 'string' ? item : String(item ?? ''),
-    ])
-  )
-}
 
 function normalizeMcpServerDocumentFields(
   fields: Record<string, unknown>

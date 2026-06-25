@@ -210,6 +210,37 @@ describe('entity document mutation helpers', () => {
     expect(mockApplySavedEntityState).not.toHaveBeenCalled()
   })
 
+  it('drops blank MCP server header rows before persisting state', async () => {
+    await executeUpdateEntityDocumentMutation(
+      'mcp_server',
+      'edit_mcp_server',
+      {
+        entityId: 'mcp-1',
+        documentFormat: MCP_SERVER_DOCUMENT_FORMAT,
+        entityDocument: JSON.stringify({
+          name: 'Header MCP',
+          description: '',
+          transport: 'streamable-http',
+          url: 'https://mcp.example.test',
+          headers: { '': '', Authorization: ' Bearer token ' },
+          command: '',
+          args: [],
+          env: {},
+          timeout: 30000,
+          retries: 3,
+          enabled: true,
+        }),
+      },
+      { userId: 'user-1', accessLevel: 'full' }
+    )
+
+    expect(mockApplySavedEntityState).toHaveBeenCalledWith(
+      'mcp_server',
+      'mcp-1',
+      expect.objectContaining({ headers: { Authorization: 'Bearer token' } })
+    )
+  })
+
   it('keeps Studio create mutations in review mode', async () => {
     const result = await executeCreateEntityDocumentMutation(
       'skill',
