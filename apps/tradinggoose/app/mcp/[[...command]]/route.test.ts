@@ -88,10 +88,10 @@ describe('MCP install route', () => {
     const configWriteIndex = script.indexOf(
       'const configPath = runConfigWriter([target, mcpUrl, login.token])'
     )
-    const acknowledgeIndex = script.indexOf('await acknowledge(login)', configWriteIndex)
+    const acknowledgeIndex = script.indexOf('await acknowledge(login)', setupIndex)
     expect(printedTokenIndex).toBeGreaterThan(firstReturnTokenIndex)
     expect(configWriteIndex).toBeGreaterThan(setupIndex)
-    expect(acknowledgeIndex).toBeGreaterThan(configWriteIndex)
+    expect(acknowledgeIndex).toBeLessThan(configWriteIndex)
   })
 
   it('serves target-specific setup scripts from the URL path', async () => {
