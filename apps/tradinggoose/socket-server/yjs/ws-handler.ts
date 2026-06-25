@@ -5,18 +5,18 @@ import { buildReviewTargetDescriptorFromEnvelope } from '@/lib/copilot/review-se
 import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
+  createSavedReviewTargetBootstrapUpdate,
   getRuntimeStateFromDoc,
-  getRuntimeStateFromUpdate,
 } from '@/lib/yjs/server/bootstrap-review-target'
 import { authenticateYjsConnection, YjsAuthError } from './auth'
-import { getState, storeState } from './persistence'
-import { getExistingDocument, setPersistence, setupWSConnection } from './upstream-utils'
+import { getExistingDocument, setupWSConnection } from './upstream-utils'
 
 const logger = createLogger('YjsWsHandler')
 
 interface YjsIncomingMessage extends IncomingMessage {
   yjsSessionId?: string
   yjsUserId?: string
+  yjsBootstrapState?: Uint8Array
 }
 
 export function handleYjsUpgrade(
@@ -37,15 +37,11 @@ export function handleYjsUpgrade(
   const yjsSessionId = decodeURIComponent(match[1])
 
   void authenticateAndPrepareUpgrade(yjsSessionId, url)
-    .then(({ userId, resolvedSessionId }) => {
-      setPersistence(resolvedSessionId, {
-        getState,
-        storeState,
-      })
-
+    .then(({ bootstrapState, userId, resolvedSessionId }) => {
       const yjsReq = request as YjsIncomingMessage
       yjsReq.yjsSessionId = resolvedSessionId
       yjsReq.yjsUserId = userId
+      yjsReq.yjsBootstrapState = bootstrapState
 
       ensureConnectionHandler(wss)
       wss.handleUpgrade(request, socket, head, (ws: WebSocket) => {
@@ -66,7 +62,7 @@ export function handleYjsUpgrade(
 async function authenticateAndPrepareUpgrade(
   pathSessionId: string,
   url: URL
-): Promise<{ userId: string; resolvedSessionId: string }> {
+): Promise<{ bootstrapState?: Uint8Array; userId: string; resolvedSessionId: string }> {
   const accessMode = parseAccessMode(url)
   const { userId, envelope } = await authenticateYjsConnection(url)
 
@@ -94,15 +90,13 @@ async function authenticateAndPrepareUpgrade(
   }
 
   const liveDoc = await getExistingDocument(pathSessionId)
-  const persistedState = liveDoc ? null : await getState(pathSessionId)
-  const runtime = liveDoc
-    ? getRuntimeStateFromDoc(liveDoc)
-    : persistedState
-      ? getRuntimeStateFromUpdate(persistedState)
+  const bootstrapped = liveDoc
+    ? null
+    : descriptor.entityId
+      ? await createSavedReviewTargetBootstrapUpdate(descriptor)
       : null
+  const runtime = liveDoc ? getRuntimeStateFromDoc(liveDoc) : bootstrapped?.runtime
 
-  // Snapshot bootstrap is the only path that materializes a missing review target.
-  // WebSocket upgrades only attach to an already-bootstrapped Yjs session.
   if (!runtime) {
     throw new YjsAuthError(409, 'Review target is not bootstrapped')
   }
@@ -112,6 +106,7 @@ async function authenticateAndPrepareUpgrade(
   }
 
   return {
+    bootstrapState: bootstrapped?.state,
     userId,
     resolvedSessionId: pathSessionId,
   }
@@ -146,7 +141,7 @@ function ensureConnectionHandler(wss: WebSocketServer): void {
 
     try {
       logger.info('Yjs connection established', { docId, userId: yjsReq.yjsUserId })
-      setupWSConnection(ws, req, { docId, gc: true })
+      setupWSConnection(ws, req, { docId, gc: true, bootstrapState: yjsReq.yjsBootstrapState })
     } catch (error) {
       logger.error('Failed to attach Yjs connection', { docId, error })
       ws.close(4409, 'Failed to attach Yjs session')

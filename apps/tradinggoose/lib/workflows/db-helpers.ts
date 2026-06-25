@@ -126,9 +126,13 @@ export async function loadWorkflowStateFromYjs(
     return null
   }
 
+  return decodeWorkflowSnapshot(snapshot.snapshotBase64)
+}
+
+function decodeWorkflowSnapshot(snapshotBase64: string): PersistedWorkflowState | null {
   const doc = new Y.Doc()
   try {
-    Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
+    Y.applyUpdate(doc, Buffer.from(snapshotBase64, 'base64'))
     return extractPersistedStateFromDoc(doc)
   } finally {
     doc.destroy()
@@ -142,51 +146,23 @@ export type WorkflowStateWithSource = PersistedWorkflowState & {
 export async function loadWorkflowState(
   workflowId: string
 ): Promise<WorkflowStateWithSource | null> {
-  try {
-    const liveState = await loadWorkflowStateFromYjs(workflowId)
-    if (liveState) {
-      const [workflowStateRow] = await db
-        .select({
-          isDeployed: workflow.isDeployed,
-          deployedAt: workflow.deployedAt,
-          lastSynced: workflow.lastSynced,
-        })
-        .from(workflow)
-        .where(eq(workflow.id, workflowId))
-        .limit(1)
-      if (!workflowStateRow) {
-        return null
-      }
-
-      const liveSavedAt = resolveStoredDateValue(liveState.lastSaved)
-      const savedLastSynced = resolveStoredDateValue(workflowStateRow.lastSynced)
-      if (!savedLastSynced || (liveSavedAt && liveSavedAt >= savedLastSynced)) {
-        return {
-          ...liveState,
-          isDeployed: workflowStateRow.isDeployed ?? false,
-          deployedAt: toISOStringOrUndefined(workflowStateRow.deployedAt),
-          source: 'yjs',
-        }
-      }
-
-      logger.warn(
-        `Ignoring stale live workflow state ${workflowId}; using saved normalized state`,
-        {
-          workflowId,
-          liveLastSaved: liveSavedAt?.toISOString(),
-          savedLastSynced: savedLastSynced.toISOString(),
-        }
-      )
-    }
-  } catch (error) {
-    logger.warn(
-      `Failed to load live workflow state ${workflowId}; using saved normalized workflow state`,
-      { error }
-    )
+  const { readBootstrappedReviewTargetSnapshot } = await import(
+    '@/lib/yjs/server/bootstrap-review-target'
+  )
+  const snapshot = await readBootstrappedReviewTargetSnapshot({
+    workspaceId: null,
+    entityKind: 'workflow',
+    entityId: workflowId,
+    draftSessionId: null,
+    reviewSessionId: null,
+    yjsSessionId: workflowId,
+  })
+  if (!snapshot.snapshotBase64) {
+    return null
   }
 
-  const savedState = await loadWorkflowStateFromSavedTables(workflowId)
-  return savedState ? { ...savedState, source: 'db' } : null
+  const state = decodeWorkflowSnapshot(snapshot.snapshotBase64)
+  return state ? { ...state, source: 'yjs' } : null
 }
 
 export async function loadWorkflowStateFromSavedTables(

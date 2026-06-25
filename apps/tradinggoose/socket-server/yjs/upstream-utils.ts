@@ -3,8 +3,8 @@
  *
  * Uses the app's single Yjs runtime and exposes only the helpers this repo
  * needs: `getDocument`, `getExistingDocument`, `peekDocument`,
- * `setupWSConnection`, `setPersistence`, `removeDocument`, `discardDocument`,
- * and `cleanupAllDocuments`.
+ * `setupWSConnection`, `removeDocument`, `discardDocument`, and
+ * `cleanupAllDocuments`.
  */
 
 import type { IncomingMessage } from 'http'
@@ -13,7 +13,6 @@ import * as syncProtocol from '@y/protocols/sync'
 import * as decoding from 'lib0/decoding'
 import * as encoding from 'lib0/encoding'
 import * as map from 'lib0/map'
-import * as mutex from 'lib0/mutex'
 import type { WebSocket } from 'ws'
 import * as Y from 'yjs'
 
@@ -25,24 +24,13 @@ const wsReadyStateOpen = 1
 
 const PING_TIMEOUT = 30_000
 
-export interface YjsPersistence {
-  getState: (docId: string) => Promise<Uint8Array | null>
-  storeState: (docId: string, state: Uint8Array) => Promise<void>
-}
-
 const docs = new Map<string, WSSharedDoc>()
-const persistenceMap = new Map<string, YjsPersistence>()
 
 class WSSharedDoc extends Y.Doc {
   name: string
   conns: Map<WebSocket, Set<number>>
   awareness: awarenessProtocol.Awareness
   whenInitialized: Promise<void>
-
-  private persistScheduled = false
-  private persistInFlight = false
-  private persistPending = false
-  private readonly schedulePersistMutex = mutex.createMutex()
 
   constructor(name: string, gc: boolean) {
     super({ gc })
@@ -84,75 +72,9 @@ class WSSharedDoc extends Y.Doc {
       syncProtocol.writeUpdate(encoder, update)
       const message = encoding.toUint8Array(encoder)
       this.conns.forEach((_ids, conn) => send(this, conn, message))
-      this.schedulePersist()
     })
 
-    this.whenInitialized = this.initialize()
-  }
-
-  private async initialize(): Promise<void> {
-    const persistence = persistenceMap.get(this.name)
-    if (persistence) {
-      const stored = await persistence.getState(this.name)
-      if (stored) {
-        Y.applyUpdate(this, stored)
-      }
-    }
-  }
-
-  private schedulePersist(): void {
-    this.schedulePersistMutex(() => {
-      if (this.persistScheduled) {
-        this.persistPending = true
-        return
-      }
-
-      this.persistScheduled = true
-      queueMicrotask(() => {
-        this.persistScheduled = false
-        void this.flushPersistence()
-      })
-    })
-  }
-
-  /**
-   * Flush pending changes to the persistence backend.
-   *
-   * TODO(EFF-14): Switch to incremental encoding once the persistence layer
-   * supports appending deltas rather than full-state replacement.
-   * The approach would be:
-   *   1. Store `lastSavedStateVector = Y.encodeStateVector(this)` after each
-   *      successful persist.
-   *   2. On flush, encode only the delta:
-   *      `Y.encodeStateAsUpdate(this, this.lastSavedStateVector)`
-   *   3. The persistence layer would need to merge the delta into the stored
-   *      state (e.g. apply it to a scratch Y.Doc and re-encode, or store a
-   *      log of incremental updates and compact periodically).
-   * Currently the persistence API is replace-only (`storeState` overwrites),
-   * so incremental deltas would lose earlier state on reload.
-   */
-  async flushPersistence(): Promise<void> {
-    if (this.persistInFlight) {
-      this.persistPending = true
-      return
-    }
-
-    this.persistInFlight = true
-
-    try {
-      const persistence = persistenceMap.get(this.name)
-      if (!persistence) {
-        return
-      }
-
-      do {
-        this.persistPending = false
-        const state = Y.encodeStateAsUpdate(this)
-        await persistence.storeState(this.name, state)
-      } while (this.persistPending)
-    } finally {
-      this.persistInFlight = false
-    }
+    this.whenInitialized = Promise.resolve()
   }
 }
 
@@ -162,17 +84,11 @@ function cleanupDocument(doc: WSSharedDoc): void {
   }
 
   docs.delete(doc.name)
-  persistenceMap.delete(doc.name)
   doc.destroy()
 }
 
 function finalizeDocumentCleanup(doc: WSSharedDoc): void {
-  void doc
-    .flushPersistence()
-    .catch(() => {})
-    .finally(() => {
-      cleanupDocument(doc)
-    })
+  cleanupDocument(doc)
 }
 
 function send(doc: WSSharedDoc, conn: WebSocket, message: Uint8Array): void {
@@ -239,10 +155,12 @@ function handleMessage(conn: WebSocket, doc: WSSharedDoc, message: Uint8Array): 
   }
 }
 
-export function getDocument(docId: string, gc = true): Y.Doc {
+export function getDocument(docId: string, gc = true, bootstrapState?: Uint8Array): Y.Doc {
   return map.setIfUndefined(docs, docId, () => {
     const doc = new WSSharedDoc(docId, gc)
-    docs.set(docId, doc)
+    if (bootstrapState) {
+      Y.applyUpdate(doc, bootstrapState)
+    }
     return doc
   })
 }
@@ -261,35 +179,20 @@ export async function getExistingDocument(docId: string): Promise<Y.Doc | null> 
   return doc
 }
 
-export async function flushDocumentPersistence(docId: string): Promise<void> {
-  const doc = docs.get(docId)
-  if (!doc) {
-    return
-  }
-
-  await doc.whenInitialized
-  await doc.flushPersistence()
-}
-
 export function setupWSConnection(
   conn: WebSocket,
   _req: IncomingMessage,
   opts: {
     docId: string
     gc?: boolean
-    persistence?: YjsPersistence
-    context?: unknown
+    bootstrapState?: Uint8Array
   }
 ): void {
-  const { docId, gc = true, persistence } = opts
-
-  if (persistence && !persistenceMap.has(docId)) {
-    persistenceMap.set(docId, persistence)
-  }
+  const { docId, gc = true, bootstrapState } = opts
 
   conn.binaryType = 'arraybuffer'
 
-  const doc = getDocument(docId, gc) as WSSharedDoc
+  const doc = getDocument(docId, gc, bootstrapState) as WSSharedDoc
   doc.conns.set(conn, new Set())
 
   conn.on('message', (data: ArrayBuffer) => {
@@ -345,16 +248,6 @@ export function setupWSConnection(
       send(doc, conn, encoding.toUint8Array(awarenessEncoder))
     }
   })
-}
-
-export function setPersistence(
-  docId: string,
-  hooks: {
-    getState: (docId: string) => Promise<Uint8Array | null>
-    storeState: (docId: string, state: Uint8Array) => Promise<void>
-  }
-): void {
-  persistenceMap.set(docId, hooks)
 }
 
 export function removeDocument(docId: string): void {

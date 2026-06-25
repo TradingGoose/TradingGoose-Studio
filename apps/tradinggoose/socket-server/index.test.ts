@@ -9,22 +9,13 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import * as Y from 'yjs'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getEntityFields } from '@/lib/yjs/entity-session'
-import {
-  extractPersistedStateFromDoc,
-  setWorkflowState,
-} from '@/lib/yjs/workflow-session'
+import { extractPersistedStateFromDoc, setWorkflowState } from '@/lib/yjs/workflow-session'
 import { createSocketIOServer } from '@/socket-server/config/socket'
 import { createHttpHandler } from '@/socket-server/routes/http'
-import {
-  cleanupPersistence,
-  getState,
-  storeState,
-} from '@/socket-server/yjs/persistence'
 import {
   cleanupAllDocuments,
   getDocument,
   getExistingDocument,
-  setPersistence,
 } from '@/socket-server/yjs/upstream-utils'
 
 vi.mock(import('@/lib/env'), async (importOriginal) => {
@@ -46,20 +37,16 @@ vi.mock('@/lib/redis', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
-  bootstrapReviewTarget: vi.fn(async (descriptor) => ({
+  createSavedReviewTargetBootstrapUpdate: vi.fn(async (descriptor) => ({
     descriptor,
     runtime: {
       docState: 'active',
       replaySafe: false,
-      reseededFromCanonical: false,
+      reseededFromCanonical: true,
     },
+    state: new Uint8Array([0, 0]),
   })),
   getRuntimeStateFromDoc: vi.fn(() => ({
-    docState: 'active',
-    replaySafe: false,
-    reseededFromCanonical: false,
-  })),
-  getRuntimeStateFromUpdate: vi.fn(() => ({
     docState: 'active',
     replaySafe: false,
     reseededFromCanonical: false,
@@ -198,7 +185,6 @@ describe('Socket Server Index Integration', () => {
 
   beforeEach(async () => {
     cleanupAllDocuments()
-    cleanupPersistence()
 
     // Create HTTP server
     httpServer = createServer()
@@ -236,7 +222,6 @@ describe('Socket Server Index Integration', () => {
 
   afterEach(async () => {
     cleanupAllDocuments()
-    cleanupPersistence()
 
     // Properly close servers and wait for them to fully close
     if (io) {
@@ -329,12 +314,12 @@ describe('Socket Server Index Integration', () => {
       expect(response.statusCode).toBe(200)
       expect(await getExistingDocument('workflow-1')).toBeTruthy()
 
-      const persisted = await getState('workflow-1')
+      const persisted = await getExistingDocument('workflow-1')
       expect(persisted).toBeTruthy()
 
       const doc = new Y.Doc()
       try {
-        Y.applyUpdate(doc, persisted!)
+        Y.applyUpdate(doc, Y.encodeStateAsUpdate(persisted!))
         const state = extractPersistedStateFromDoc(doc)
         expect(state.blocks['block-1']).toEqual(
           expect.objectContaining({
@@ -367,12 +352,12 @@ describe('Socket Server Index Integration', () => {
       )
 
       expect(renameResponse.statusCode).toBe(200)
-      const renamedPersisted = await getState('workflow-1')
+      const renamedPersisted = await getExistingDocument('workflow-1')
       expect(renamedPersisted).toBeTruthy()
 
       const renamedDoc = new Y.Doc()
       try {
-        Y.applyUpdate(renamedDoc, renamedPersisted!)
+        Y.applyUpdate(renamedDoc, Y.encodeStateAsUpdate(renamedPersisted!))
         const renamedState = extractPersistedStateFromDoc(renamedDoc)
         expect(renamedState.blocks['block-1']).toEqual(
           expect.objectContaining({
@@ -410,12 +395,12 @@ describe('Socket Server Index Integration', () => {
       expect(response.statusCode).toBe(200)
       expect(await getExistingDocument('skill-1')).toBeTruthy()
 
-      const persisted = await getState('skill-1')
+      const persisted = await getExistingDocument('skill-1')
       expect(persisted).toBeTruthy()
 
       const doc = new Y.Doc()
       try {
-        Y.applyUpdate(doc, persisted!)
+        Y.applyUpdate(doc, Y.encodeStateAsUpdate(persisted!))
         expect(getEntityFields(doc, 'skill')).toEqual({
           name: 'Risk Skill',
           description: 'Position sizing rules',
@@ -428,11 +413,8 @@ describe('Socket Server Index Integration', () => {
     })
 
     it('should return the internal Yjs workflow snapshot through the generic session route', async () => {
-      const { getRuntimeStateFromDoc, getRuntimeStateFromUpdate } = await import(
-        '@/lib/yjs/server/bootstrap-review-target'
-      )
+      const { getRuntimeStateFromDoc } = await import('@/lib/yjs/server/bootstrap-review-target')
 
-      setPersistence('workflow-state-update', { getState, storeState })
       getDocument('workflow-state-update')
       const liveDoc = await getExistingDocument('workflow-state-update')
 
@@ -484,7 +466,7 @@ describe('Socket Server Index Integration', () => {
           yjsSessionId: 'workflow-state-update',
         },
         runtime: getRuntimeStateFromDoc(liveDoc!),
-        touchedAt: expect.any(Number),
+        touchedAt: null,
       })
 
       const doc = new Y.Doc()
@@ -502,10 +484,9 @@ describe('Socket Server Index Integration', () => {
       }
 
       expect(getRuntimeStateFromDoc).toHaveBeenCalled()
-      expect(getRuntimeStateFromUpdate).not.toHaveBeenCalled()
     })
 
-    it('should return 404 from the internal Yjs snapshot route when no workflow state exists', async () => {
+    it('should bootstrap a saved workflow snapshot into a live Yjs document', async () => {
       const response = await sendHttpRequestWithOptions(
         PORT,
         '/internal/yjs/sessions/missing-workflow/snapshot?targetKind=workflow&sessionId=missing-workflow&workflowId=missing-workflow&entityKind=workflow&entityId=missing-workflow',
@@ -517,13 +498,25 @@ describe('Socket Server Index Integration', () => {
         }
       )
 
-      expect(response.statusCode).toBe(404)
-      expect(JSON.parse(response.body)).toEqual({
-        error: 'Session not found',
-        sessionId: 'missing-workflow',
-      })
+      expect(response.statusCode).toBe(200)
+      expect(await getExistingDocument('missing-workflow')).toBeTruthy()
     })
 
+    it('should bootstrap a saved entity snapshot into a live Yjs document', async () => {
+      const response = await sendHttpRequestWithOptions(
+        PORT,
+        '/internal/yjs/sessions/skill-stale/snapshot?targetKind=entity&sessionId=skill-stale&workspaceId=workspace-1&entityKind=skill&entityId=skill-stale',
+        {
+          method: 'GET',
+          headers: {
+            'x-internal-secret': INTERNAL_SECRET,
+          },
+        }
+      )
+
+      expect(response.statusCode).toBe(200)
+      expect(await getExistingDocument('skill-stale')).toBeTruthy()
+    })
   })
 
   describe('Socket.IO Server Configuration', () => {

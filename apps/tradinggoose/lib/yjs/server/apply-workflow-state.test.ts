@@ -227,7 +227,7 @@ describe('applyWorkflowState', () => {
     )
   })
 
-  it('does not commit workflow DB changes when Yjs persistence fails', async () => {
+  it('does not commit workflow DB changes when the Yjs socket apply fails', async () => {
     mockApplyWorkflowStateInSocketServer.mockRejectedValueOnce(new TypeError('fetch failed'))
 
     const { applyWorkflowState } = await import('./apply-workflow-state')

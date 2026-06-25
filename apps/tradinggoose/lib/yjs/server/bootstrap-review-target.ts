@@ -16,10 +16,7 @@ import {
   readSavedEntityFieldsFromDb,
   resolveEntityWorkspaceId,
 } from '@/lib/yjs/server/entity-loaders'
-import {
-  getYjsSnapshot,
-  SocketServerBridgeError,
-} from '@/lib/yjs/server/snapshot-bridge'
+import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import {
   createWorkflowSnapshot,
@@ -27,10 +24,6 @@ import {
   setVariables,
   setWorkflowState,
 } from '@/lib/yjs/workflow-session'
-import {
-  getState as getPersistedYjsState,
-  storeState,
-} from '@/socket-server/yjs/persistence'
 
 export class ReviewTargetBootstrapError extends Error {
   status: number
@@ -66,28 +59,23 @@ export async function readBootstrappedReviewTargetSnapshot(descriptor: ReviewTar
     }
   }
 
-  const resolved = await bootstrapReviewTarget(descriptor)
-  if (!resolved.runtime) {
-    throw new ReviewTargetBootstrapError(500, 'Bootstrap runtime missing')
-  }
-
-  if (resolved.runtime.docState === 'expired') {
+  if (!descriptor.entityId) {
     return {
       snapshotBase64: '',
-      descriptor: resolved.descriptor,
-      runtime: resolved.runtime,
+      descriptor,
+      runtime: {
+        docState: 'expired' as const,
+        replaySafe: false,
+        reseededFromCanonical: false,
+      },
     }
   }
 
-  const state = await getPersistedYjsState(resolved.descriptor.yjsSessionId)
-  if (!state) {
-    throw new ReviewTargetBootstrapError(500, 'Snapshot not available after bootstrap')
-  }
-
+  const bootstrapped = await createSavedReviewTargetBootstrapUpdate(descriptor)
   return {
-    snapshotBase64: Buffer.from(state).toString('base64'),
-    descriptor: resolved.descriptor,
-    runtime: resolved.runtime,
+    snapshotBase64: Buffer.from(bootstrapped.state).toString('base64'),
+    descriptor: bootstrapped.descriptor,
+    runtime: bootstrapped.runtime,
   }
 }
 
@@ -117,37 +105,9 @@ export async function readBootstrappedSavedEntityFields(
   }
 }
 
-async function getExistingYjsState(sessionId: string): Promise<Uint8Array | null> {
-  const [{ getExistingDocument }, { getState }] = await Promise.all([
-    import('@/socket-server/yjs/upstream-utils'),
-    import('@/socket-server/yjs/persistence'),
-  ])
-
-  const liveDoc = await getExistingDocument(sessionId)
-  if (liveDoc) {
-    return Y.encodeStateAsUpdate(liveDoc)
-  }
-
-  return getState(sessionId)
-}
-
-async function resolveExistingReviewTarget(
+export async function createSavedReviewTargetBootstrapUpdate(
   descriptor: ReviewTargetDescriptor
-): Promise<ResolvedReviewTarget | null> {
-  const existingState = await getExistingYjsState(descriptor.yjsSessionId)
-  if (!existingState) {
-    return null
-  }
-
-  return {
-    descriptor,
-    runtime: getRuntimeStateFromUpdate(existingState),
-  }
-}
-
-async function bootstrapSavedEntityFromDb(
-  descriptor: ReviewTargetDescriptor
-): Promise<ResolvedReviewTarget> {
+): Promise<ResolvedReviewTarget & { state: Uint8Array }> {
   if (!descriptor.entityId) {
     throw new ReviewTargetBootstrapError(404, 'Saved entity id is required')
   }
@@ -198,40 +158,13 @@ async function bootstrapSavedEntityFromDb(
       metadata.set('entityName', workflowName)
     }
     const state = Y.encodeStateAsUpdate(doc)
-    await storeState(descriptor.yjsSessionId, state)
 
     return {
       descriptor,
       runtime: getRuntimeStateFromUpdate(state),
+      state,
     }
   } finally {
     doc.destroy()
-  }
-}
-
-/**
- * Ensures a review target has an active Yjs document. If an active blob already
- * exists it is reused. Saved entities start a Yjs editing session from the
- * saved database state; unsaved drafts return the explicit expired state.
- */
-export async function bootstrapReviewTarget(
-  descriptor: ReviewTargetDescriptor
-): Promise<ResolvedReviewTarget> {
-  const existing = await resolveExistingReviewTarget(descriptor)
-  if (existing) {
-    return existing
-  }
-
-  if (descriptor.entityId) {
-    return bootstrapSavedEntityFromDb(descriptor)
-  }
-
-  return {
-    descriptor,
-    runtime: {
-      docState: 'expired',
-      replaySafe: false,
-      reseededFromCanonical: false,
-    },
   }
 }

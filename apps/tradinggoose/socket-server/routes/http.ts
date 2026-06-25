@@ -8,9 +8,8 @@ import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { env } from '@/lib/env'
 import { seedEntitySession } from '@/lib/yjs/entity-session'
 import {
-  bootstrapReviewTarget,
+  createSavedReviewTargetBootstrapUpdate,
   getRuntimeStateFromDoc,
-  getRuntimeStateFromUpdate,
 } from '@/lib/yjs/server/bootstrap-review-target'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import {
@@ -20,17 +19,9 @@ import {
 } from '@/lib/yjs/workflow-session'
 import { getMonitorRuntimeLockHealth } from '@/socket-server/monitor-runtime-lock'
 import {
-  deleteState,
-  getLastTouchedAt,
-  getState,
-  storeState,
-} from '@/socket-server/yjs/persistence'
-import {
   discardDocument,
-  flushDocumentPersistence,
   getDocument,
   getExistingDocument,
-  setPersistence,
 } from '@/socket-server/yjs/upstream-utils'
 
 interface Logger {
@@ -239,9 +230,13 @@ function clearSessionReseededFromCanonical(doc: Y.Doc): void {
   }, YJS_ORIGINS.SYSTEM)
 }
 
-async function getInitializedSessionDocument(sessionId: string): Promise<Y.Doc> {
-  setPersistence(sessionId, { getState, storeState })
-  const doc = getDocument(sessionId) as Y.Doc & { whenInitialized?: Promise<void> }
+async function getInitializedSessionDocument(
+  sessionId: string,
+  bootstrapState?: Uint8Array
+): Promise<Y.Doc> {
+  const doc = getDocument(sessionId, true, bootstrapState) as Y.Doc & {
+    whenInitialized?: Promise<void>
+  }
   await doc.whenInitialized
   return doc
 }
@@ -249,20 +244,21 @@ async function getInitializedSessionDocument(sessionId: string): Promise<Y.Doc> 
 async function getBootstrappedApplyDocument(
   descriptor: ReturnType<typeof buildReviewTargetDescriptorFromEnvelope>
 ): Promise<Y.Doc> {
-  if (
-    !(await getExistingDocument(descriptor.yjsSessionId)) &&
-    !(await getState(descriptor.yjsSessionId))
-  ) {
-    if (!descriptor.entityId) {
-      throw new InvalidInternalYjsRequestError('Saved Yjs session required')
-    }
-    const bootstrapped = await bootstrapReviewTarget(descriptor)
-    if (!bootstrapped.runtime || bootstrapped.runtime.docState !== 'active') {
-      throw new Error('Yjs review target is not active')
-    }
+  const liveDoc = await getExistingDocument(descriptor.yjsSessionId)
+  if (liveDoc) {
+    return liveDoc
   }
 
-  return getInitializedSessionDocument(descriptor.yjsSessionId)
+  if (!descriptor.entityId) {
+    throw new InvalidInternalYjsRequestError('Saved Yjs session required')
+  }
+
+  const bootstrapped = await createSavedReviewTargetBootstrapUpdate(descriptor)
+  if (!bootstrapped.runtime || bootstrapped.runtime.docState !== 'active') {
+    throw new Error('Yjs review target is not active')
+  }
+
+  return getInitializedSessionDocument(descriptor.yjsSessionId, bootstrapped.state)
 }
 
 async function handleInternalYjsWorkflowApplyRequest(
@@ -287,8 +283,6 @@ async function handleInternalYjsWorkflowApplyRequest(
     } else {
       setWorkflowEntityName(doc, body.entityName!)
     }
-    await flushDocumentPersistence(workflowId)
-
     sendJson(res, 200, { success: true })
   } catch (error) {
     logger.error('Error applying workflow state', { error, workflowId })
@@ -321,7 +315,6 @@ async function handleInternalYjsEntityApplyRequest(
       payload: body.fields,
     })
     clearSessionReseededFromCanonical(doc)
-    await flushDocumentPersistence(entityId)
 
     sendJson(res, 200, { success: true })
   } catch (error) {
@@ -360,7 +353,6 @@ async function handleInternalYjsSessionApplyUpdateRequest(
 
     Y.applyUpdate(doc, Buffer.from(updateBase64, 'base64'), YJS_ORIGINS.SAVE)
     clearSessionReseededFromCanonical(doc)
-    await flushDocumentPersistence(sessionId)
 
     sendJson(res, 200, { success: true })
   } catch (error) {
@@ -369,22 +361,6 @@ async function handleInternalYjsSessionApplyUpdateRequest(
     sendJson(res, status, {
       error: error instanceof Error ? error.message : 'Failed to apply session update',
     })
-  }
-}
-
-async function getLiveOrPersistedYjsState(
-  sessionId: string
-): Promise<{ liveDoc: Y.Doc | null; state: Uint8Array | null; touchedAt: number | null }> {
-  const liveDoc = await getExistingDocument(sessionId)
-  if (liveDoc) {
-    await flushDocumentPersistence(sessionId)
-  }
-
-  const state = liveDoc ? Y.encodeStateAsUpdate(liveDoc) : await getState(sessionId)
-  return {
-    liveDoc,
-    state,
-    touchedAt: state ? await getLastTouchedAt(sessionId) : null,
   }
 }
 
@@ -402,20 +378,28 @@ async function handleInternalYjsSnapshotRequest(
     }
 
     const descriptor = buildReviewTargetDescriptorFromEnvelope(envelope)
-    const { liveDoc, state, touchedAt } = await getLiveOrPersistedYjsState(sessionId)
+    let liveDoc = await getExistingDocument(sessionId)
+    if (!liveDoc && descriptor.entityId) {
+      const bootstrapped = await createSavedReviewTargetBootstrapUpdate(descriptor)
+      if (!bootstrapped.runtime || bootstrapped.runtime.docState !== 'active') {
+        sendJson(res, 410, { error: 'Session expired', sessionId })
+        return
+      }
+      liveDoc = await getInitializedSessionDocument(sessionId, bootstrapped.state)
+    }
 
-    if (!state) {
+    if (!liveDoc) {
       sendJson(res, 404, { error: 'Session not found', sessionId })
       return
     }
 
-    const runtime = liveDoc ? getRuntimeStateFromDoc(liveDoc) : getRuntimeStateFromUpdate(state)
+    const state = Y.encodeStateAsUpdate(liveDoc)
 
     sendJson(res, 200, {
       snapshotBase64: Buffer.from(state).toString('base64'),
       descriptor,
-      runtime,
-      touchedAt,
+      runtime: getRuntimeStateFromDoc(liveDoc),
+      touchedAt: null,
     })
   } catch (error) {
     logger.error('Error getting Yjs snapshot', { error, path: parsedUrl.pathname })
@@ -429,11 +413,7 @@ async function handleInternalYjsSessionDeleteRequest(
   sessionId: string
 ): Promise<void> {
   try {
-    if (await getExistingDocument(sessionId)) {
-      setPersistence(sessionId, { getState, storeState: async () => {} })
-      discardDocument(sessionId)
-    }
-    await deleteState(sessionId)
+    discardDocument(sessionId)
     sendJson(res, 200, { success: true })
   } catch (error) {
     logger.error('Error deleting Yjs session', { error, sessionId })

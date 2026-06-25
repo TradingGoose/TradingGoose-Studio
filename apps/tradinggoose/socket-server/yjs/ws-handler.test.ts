@@ -5,9 +5,8 @@
 import { EventEmitter } from 'node:events'
 import type { IncomingMessage } from 'http'
 import type { Duplex } from 'stream'
-import type { WebSocketServer } from 'ws'
-import * as Y from 'yjs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { WebSocketServer } from 'ws'
 
 const mockLogger = {
   debug: vi.fn(),
@@ -17,12 +16,10 @@ const mockLogger = {
 }
 
 const mockAuthenticateYjsConnection = vi.fn()
+const mockCreateSavedReviewTargetBootstrapUpdate = vi.fn()
 const mockVerifyReviewTargetAccess = vi.fn()
 const mockGetExistingDocument = vi.fn()
-const mockSetPersistence = vi.fn()
 const mockSetupWSConnection = vi.fn()
-const mockGetState = vi.fn()
-const mockStoreState = vi.fn()
 
 class MockYjsAuthError extends Error {
   constructor(
@@ -37,6 +34,13 @@ class MockYjsAuthError extends Error {
 function createRequest(sessionId: string, accessMode: 'read' | 'write' = 'write'): IncomingMessage {
   return {
     url: `/yjs/${encodeURIComponent(sessionId)}?token=test-token&accessMode=${accessMode}&targetKind=workflow&sessionId=${encodeURIComponent(sessionId)}&workflowId=${encodeURIComponent(sessionId)}&entityKind=workflow&entityId=${encodeURIComponent(sessionId)}`,
+    headers: { host: 'localhost:3000' },
+  } as IncomingMessage
+}
+
+function createReviewSessionRequest(sessionId: string): IncomingMessage {
+  return {
+    url: `/yjs/${encodeURIComponent(sessionId)}?token=test-token&accessMode=write&targetKind=review_session&sessionId=${encodeURIComponent(sessionId)}&reviewSessionId=${encodeURIComponent(sessionId)}&workspaceId=workspace-3&entityKind=skill&draftSessionId=draft-1`,
     headers: { host: 'localhost:3000' },
   } as IncomingMessage
 }
@@ -68,12 +72,10 @@ beforeEach(() => {
   vi.resetModules()
 
   mockAuthenticateYjsConnection.mockReset()
+  mockCreateSavedReviewTargetBootstrapUpdate.mockReset()
   mockVerifyReviewTargetAccess.mockReset()
   mockGetExistingDocument.mockReset()
-  mockSetPersistence.mockReset()
   mockSetupWSConnection.mockReset()
-  mockGetState.mockReset()
-  mockStoreState.mockReset()
 
   vi.doMock('@/lib/logs/console/logger', () => ({
     createLogger: vi.fn(() => mockLogger),
@@ -89,31 +91,17 @@ beforeEach(() => {
   }))
 
   vi.doMock('@/lib/yjs/server/bootstrap-review-target', () => ({
+    createSavedReviewTargetBootstrapUpdate: mockCreateSavedReviewTargetBootstrapUpdate,
     getRuntimeStateFromDoc: vi.fn((doc) => ({
       docState: doc.getMap('metadata').get('docState') === 'expired' ? 'expired' : 'active',
       replaySafe: doc.getMap('metadata').get('reseededFromCanonical') !== true,
       reseededFromCanonical: doc.getMap('metadata').get('reseededFromCanonical') === true,
     })),
-    getRuntimeStateFromUpdate: vi.fn((update: Uint8Array) => {
-      const doc = new Y.Doc()
-      Y.applyUpdate(doc, update)
-      return {
-        docState: doc.getMap('metadata').get('docState') === 'expired' ? 'expired' : 'active',
-        replaySafe: doc.getMap('metadata').get('reseededFromCanonical') !== true,
-        reseededFromCanonical: doc.getMap('metadata').get('reseededFromCanonical') === true,
-      }
-    }),
   }))
 
   vi.doMock('./upstream-utils', () => ({
     getExistingDocument: mockGetExistingDocument,
-    setPersistence: mockSetPersistence,
     setupWSConnection: mockSetupWSConnection,
-  }))
-
-  vi.doMock('./persistence', () => ({
-    getState: mockGetState,
-    storeState: mockStoreState,
   }))
 })
 
@@ -211,7 +199,23 @@ describe('handleYjsUpgrade', () => {
       isOwner: false,
     })
     mockGetExistingDocument.mockResolvedValue(null)
-    mockGetState.mockResolvedValue(Y.encodeStateAsUpdate(new Y.Doc()))
+    const bootstrapState = new Uint8Array([0, 0])
+    mockCreateSavedReviewTargetBootstrapUpdate.mockResolvedValue({
+      descriptor: {
+        workspaceId: 'workspace-2',
+        entityKind: 'workflow',
+        entityId: sessionId,
+        draftSessionId: null,
+        reviewSessionId: null,
+        yjsSessionId: sessionId,
+      },
+      runtime: {
+        docState: 'active',
+        replaySafe: true,
+        reseededFromCanonical: true,
+      },
+      state: bootstrapState,
+    })
 
     const { handleYjsUpgrade } = await loadModule()
     handleYjsUpgrade(wss, request, socket, Buffer.alloc(0))
@@ -219,18 +223,12 @@ describe('handleYjsUpgrade', () => {
 
     expect(mockVerifyReviewTargetAccess).toHaveBeenCalledTimes(1)
     expect(mockVerifyReviewTargetAccess.mock.calls[0]?.[2]).toBe('write')
-    expect(mockSetPersistence).toHaveBeenCalledWith(
-      sessionId,
-      expect.objectContaining({
-        getState: expect.any(Function),
-        storeState: mockStoreState,
-      })
-    )
+    expect(mockCreateSavedReviewTargetBootstrapUpdate).toHaveBeenCalled()
     expect(wss.handleUpgrade).toHaveBeenCalledTimes(1)
     expect(mockSetupWSConnection).toHaveBeenCalledWith(
       expect.anything(),
       request,
-      expect.objectContaining({ docId: sessionId, gc: true })
+      expect.objectContaining({ bootstrapState, docId: sessionId, gc: true })
     )
     expect(socket.write).not.toHaveBeenCalled()
     expect(socket.destroy).not.toHaveBeenCalled()
@@ -255,9 +253,9 @@ describe('handleYjsUpgrade', () => {
     expect(socket.destroy).toHaveBeenCalledTimes(1)
   })
 
-  it('rejects websocket upgrades when the review target has not been bootstrapped yet', async () => {
-    const sessionId = 'workflow-unbootstrapped'
-    const request = createRequest(sessionId)
+  it('rejects websocket upgrades for missing non-entity review sessions', async () => {
+    const sessionId = 'review-unbootstrapped'
+    const request = createReviewSessionRequest(sessionId)
     const socket = createSocket()
     const wss = createWebSocketServer()
 
@@ -265,14 +263,14 @@ describe('handleYjsUpgrade', () => {
       userId: 'user-3',
       userName: 'User Three',
       envelope: {
-        targetKind: 'workflow',
+        targetKind: 'review_session',
         sessionId,
-        workflowId: sessionId,
-        reviewSessionId: null,
+        workflowId: null,
+        reviewSessionId: sessionId,
         workspaceId: 'workspace-3',
-        entityKind: 'workflow',
-        entityId: sessionId,
-        draftSessionId: null,
+        entityKind: 'skill',
+        entityId: null,
+        draftSessionId: 'draft-1',
       },
     })
 
@@ -283,7 +281,6 @@ describe('handleYjsUpgrade', () => {
       isOwner: false,
     })
     mockGetExistingDocument.mockResolvedValue(null)
-    mockGetState.mockResolvedValue(null)
 
     const { handleYjsUpgrade } = await loadModule()
     handleYjsUpgrade(wss, request, socket, Buffer.alloc(0))
