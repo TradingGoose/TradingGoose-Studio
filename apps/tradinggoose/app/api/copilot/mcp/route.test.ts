@@ -132,6 +132,8 @@ describe('Copilot MCP route', () => {
     expect(body.result.instructions).toContain(
       'Do not store workspaceId, entityId, or entity targets'
     )
+    expect(body.result.instructions).toContain('trusted personal coding agents')
+    expect(body.result.instructions).toContain('Mutating tools execute directly')
   })
 
   it('accepts a case-insensitive bearer auth scheme', async () => {
@@ -225,6 +227,32 @@ describe('Copilot MCP route', () => {
     )
     expect(body.result.structuredContent).toEqual({ workflows: [] })
     expect(body.result.content[0].text).toBe(JSON.stringify({ workflows: [] }, null, 2))
+  })
+
+  it('dispatches external MCP mutation tools with full personal-agent access', async () => {
+    const { POST } = await import('./route')
+    mockGetMcpServerToolIds.mockReturnValueOnce(['edit_workflow'])
+    mockRouteExecution.mockResolvedValueOnce({ success: true })
+
+    const response = await POST(
+      createMcpRequest({
+        jsonrpc: '2.0',
+        id: 4,
+        method: 'tools/call',
+        params: {
+          name: 'edit_workflow',
+          arguments: { workflowId: 'workflow-1', mermaid: 'graph TD' },
+        },
+      })
+    )
+    const body = await response.json()
+
+    expect(mockRouteExecution).toHaveBeenCalledWith(
+      'edit_workflow',
+      { workflowId: 'workflow-1', mermaid: 'graph TD' },
+      { userId: 'user-1', accessLevel: 'full' }
+    )
+    expect(body.result.structuredContent).toEqual({ success: true })
   })
 
   it('returns per-entry invalid request errors for malformed batches', async () => {

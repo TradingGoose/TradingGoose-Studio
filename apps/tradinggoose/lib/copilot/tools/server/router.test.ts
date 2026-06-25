@@ -239,6 +239,9 @@ describe('copilot contract registry', () => {
 
   it('uses an explicit external MCP tool list', () => {
     expect(getMcpServerToolIds()).toContain('list_workflows')
+    expect(getMcpServerToolIds()).toContain('edit_workflow')
+    expect(getMcpServerToolIds()).toContain('set_environment_variables')
+    expect(getMcpServerToolIds()).toContain('create_mcp_server')
     expect(getMcpServerToolIds()).toContain('get_available_blocks')
     expect(getMcpServerToolIds()).not.toContain('make_api_request')
   })
