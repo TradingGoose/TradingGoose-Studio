@@ -137,7 +137,11 @@ function decodeWorkflowSnapshot(snapshotBase64: string): PersistedWorkflowState 
   }
 }
 
-export async function loadEditableWorkflowState(
+/**
+ * Editable workflow reads must go through the Yjs session. Saved tables are only
+ * used by the Yjs bootstrap path when a session is not already live.
+ */
+export async function loadWorkflowStateFromYjsSession(
   workflowId: string
 ): Promise<PersistedWorkflowState | null> {
   const { readBootstrappedReviewTargetSnapshot } = await import(
@@ -159,7 +163,7 @@ export async function loadEditableWorkflowState(
   return state
 }
 
-export async function loadWorkflowStateFromSavedTables(
+export async function loadWorkflowBootstrapStateFromDb(
   workflowId: string
 ): Promise<PersistedWorkflowState | null> {
   const [workflowRow, normalizedState] = await Promise.all([
@@ -938,7 +942,7 @@ export async function deployWorkflow(params: {
   } = params
 
   try {
-    const editableState = await loadEditableWorkflowState(workflowId)
+    const editableState = await loadWorkflowStateFromYjsSession(workflowId)
     if (!editableState) {
       return { success: false, error: 'Failed to load workflow state' }
     }

@@ -3,7 +3,7 @@ import { and, desc, eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { loadEditableWorkflowState } from '@/lib/workflows/db-helpers'
+import { loadWorkflowStateFromYjsSession } from '@/lib/workflows/db-helpers'
 import { hasWorkflowChanged } from '@/lib/workflows/utils'
 import { validateWorkflowAccess } from '@/app/api/workflows/middleware'
 import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (validation.workflow.isDeployed) {
       // Load current workflow state and the active deployment version in parallel.
       const [currentState, [active]] = await Promise.all([
-        loadEditableWorkflowState(id),
+        loadWorkflowStateFromYjsSession(id),
         db
           .select({ state: workflowDeploymentVersion.state })
           .from(workflowDeploymentVersion)

@@ -9,7 +9,7 @@ import { verifyInternalTokenDetailed } from '@/lib/auth/internal'
 import { hydrateListingUI } from '@/lib/listing/hydrate-ui'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { loadEditableWorkflowState } from '@/lib/workflows/db-helpers'
+import { loadWorkflowStateFromYjsSession } from '@/lib/workflows/db-helpers'
 import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/utils'
 import { applyWorkflowMetadata } from '@/lib/yjs/server/apply-workflow-state'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
@@ -28,7 +28,7 @@ const UpdateWorkflowSchema = z
 /**
  * GET /api/workflows/[id]
  * Fetch a single workflow by ID
- * Uses the current workflow state loader.
+ * Reads through the editable Yjs session; saved DB tables only seed that session.
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const requestId = generateRequestId()
@@ -124,10 +124,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       }
     }
 
-    logger.debug(
-      `[${requestId}] Attempting to load workflow ${workflowId} from authoritative state`
-    )
-    const workflowState = await loadEditableWorkflowState(workflowId)
+    logger.debug(`[${requestId}] Attempting to load workflow ${workflowId} from Yjs session`)
+    const workflowState = await loadWorkflowStateFromYjsSession(workflowId)
 
     if (!workflowState) {
       logger.warn(`[${requestId}] Workflow ${workflowId} is missing saved state`)

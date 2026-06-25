@@ -92,7 +92,7 @@ describe('Workflow YAML Export API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
-      loadEditableWorkflowState: loadWorkflowStateMock,
+      loadWorkflowStateFromYjsSession: loadWorkflowStateMock,
     }))
 
     vi.doMock('@/lib/copilot/workflow/block-output-utils', () => ({

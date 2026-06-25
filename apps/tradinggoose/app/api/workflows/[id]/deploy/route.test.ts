@@ -37,7 +37,7 @@ describe('Workflow Deploy API Route', () => {
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
       deployWorkflow: vi.fn(),
-      loadEditableWorkflowState: (...args: unknown[]) => mockLoadWorkflowState(...args),
+      loadWorkflowStateFromYjsSession: (...args: unknown[]) => mockLoadWorkflowState(...args),
     }))
 
     vi.doMock('@/lib/chat/published-deployment', () => ({

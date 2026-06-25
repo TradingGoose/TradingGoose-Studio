@@ -9,7 +9,7 @@ import type {
   ReviewTargetDescriptor,
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
-import { loadWorkflowStateFromSavedTables } from '@/lib/workflows/db-helpers'
+import { loadWorkflowBootstrapStateFromDb } from '@/lib/workflows/db-helpers'
 import { getEntityFields, seedEntitySession } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import {
@@ -93,7 +93,7 @@ export async function createSavedReviewTargetBootstrapUpdate(
     let workflowDescription: string | null | undefined
     let workflowFolderId: string | null | undefined
     if (descriptor.entityKind === 'workflow') {
-      const workflowState = await loadWorkflowStateFromSavedTables(descriptor.entityId)
+      const workflowState = await loadWorkflowBootstrapStateFromDb(descriptor.entityId)
       if (!workflowState) {
         throw new ReviewTargetBootstrapError(404, 'Workflow not found')
       }

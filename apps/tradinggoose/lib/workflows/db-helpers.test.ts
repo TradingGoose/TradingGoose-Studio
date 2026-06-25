@@ -1017,8 +1017,8 @@ describe('Database Helpers', () => {
     })
   })
 
-  describe('loadEditableWorkflowState', () => {
-    it('loads saved workflow state through a bootstrapped Yjs session', async () => {
+  describe('loadWorkflowStateFromYjsSession', () => {
+    it('loads workflow state through a bootstrapped Yjs session', async () => {
       const yjsState = {
         direction: 'LR' as const,
         blocks: {},
@@ -1035,7 +1035,7 @@ describe('Database Helpers', () => {
         buildWorkflowSnapshotResponseFromState(yjsState, yjsVariables)
       )
 
-      const result = await dbHelpers.loadEditableWorkflowState(mockWorkflowId)
+      const result = await dbHelpers.loadWorkflowStateFromYjsSession(mockWorkflowId)
 
       expect(mockReadBootstrappedReviewTargetSnapshot).toHaveBeenCalledWith({
         workspaceId: null,
@@ -1070,7 +1070,7 @@ describe('Database Helpers', () => {
         },
       })
 
-      const result = await dbHelpers.loadEditableWorkflowState(mockWorkflowId)
+      const result = await dbHelpers.loadWorkflowStateFromYjsSession(mockWorkflowId)
 
       expect(result).toBeNull()
       expect(mockDb.select).not.toHaveBeenCalled()
@@ -1079,7 +1079,7 @@ describe('Database Helpers', () => {
     it('requires the live Yjs bridge for editable workflow state', async () => {
       mockReadBootstrappedReviewTargetSnapshot.mockRejectedValue(new Error('bridge unavailable'))
 
-      await expect(dbHelpers.loadEditableWorkflowState(mockWorkflowId)).rejects.toThrow(
+      await expect(dbHelpers.loadWorkflowStateFromYjsSession(mockWorkflowId)).rejects.toThrow(
         'bridge unavailable'
       )
       expect(mockDb.select).not.toHaveBeenCalled()

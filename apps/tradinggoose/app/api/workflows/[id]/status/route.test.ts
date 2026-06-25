@@ -54,7 +54,7 @@ describe('Workflow Status API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
-      loadEditableWorkflowState: mockLoadWorkflowState,
+      loadWorkflowStateFromYjsSession: mockLoadWorkflowState,
     }))
 
     vi.doMock('@/lib/workflows/utils', () => ({
