@@ -30,6 +30,7 @@ import {
 import { isWorkflowVariableType, type WorkflowVariableType } from '@/lib/workflows/value-types'
 import { applyWorkflowMetadata, applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
+import { applyWorkflowPatchInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import {
   createWorkflowSnapshot,
   getVariablesSnapshot,
@@ -382,7 +383,7 @@ export const editWorkflowVariableServerTool: BaseServerTool<
       )
     }
     const workflowId = requireCopilotEntityId(args, { toolName: 'edit_workflow_variable' })
-    const { workspaceId, workflowState, variables } = await loadWorkflowSnapshotForCopilot(
+    const { workspaceId, variables } = await loadWorkflowSnapshotForCopilot(
       workflowId,
       context,
       'write'
@@ -416,7 +417,7 @@ export const editWorkflowVariableServerTool: BaseServerTool<
     }
 
     assertAcceptedServerToolReviewBase(context, currentVariablesBaseHash)
-    await applyWorkflowState(workflowId, workflowState, nextVariables)
+    await applyWorkflowPatchInSocketServer(workflowId, { variables: nextVariables })
     return {
       success: true,
       entityKind: ENTITY_KIND_WORKFLOW,

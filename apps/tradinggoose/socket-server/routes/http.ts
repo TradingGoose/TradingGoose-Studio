@@ -19,6 +19,7 @@ import {
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import {
   replaceWorkflowDocumentState,
+  setVariables,
   setWorkflowEntityMetadata,
   type WorkflowMetadataPatch,
   type WorkflowSnapshot,
@@ -179,8 +180,8 @@ function parseApplyWorkflowStateRequest(body: unknown): ApplyWorkflowStateReques
   const metadata =
     candidate.metadata !== undefined ? (candidate.metadata as WorkflowMetadataPatch) : undefined
 
-  if (workflowState === undefined && metadata === undefined) {
-    throw new InvalidInternalYjsRequestError('workflowState or metadata is required')
+  if (workflowState === undefined && metadata === undefined && candidate.variables === undefined) {
+    throw new InvalidInternalYjsRequestError('workflowState, variables, or metadata is required')
   }
 
   if (
@@ -188,10 +189,6 @@ function parseApplyWorkflowStateRequest(body: unknown): ApplyWorkflowStateReques
     (!workflowState || typeof workflowState !== 'object' || Array.isArray(workflowState))
   ) {
     throw new InvalidInternalYjsRequestError('workflowState must be an object')
-  }
-
-  if (workflowState === undefined && candidate.variables !== undefined) {
-    throw new InvalidInternalYjsRequestError('variables require workflowState')
   }
 
   if (
@@ -298,9 +295,9 @@ async function handleInternalYjsWorkflowApplyRequest(
     try {
       if (body.workflowState) {
         replaceWorkflowDocumentState(doc, body.workflowState, body.variables, body.metadata)
-      } else {
-        setWorkflowEntityMetadata(doc, body.metadata!)
       }
+      if (!body.workflowState && body.variables !== undefined) setVariables(doc, body.variables)
+      if (!body.workflowState && body.metadata) setWorkflowEntityMetadata(doc, body.metadata)
       await saveWorkflowYjsDocToDb(workflowId, doc)
       discardDocumentIfIdle(workflowId)
     } catch (error) {

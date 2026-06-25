@@ -315,46 +315,45 @@ describe('Socket Server Index Integration', () => {
     })
 
     it('should apply workflow state through the internal Yjs route', async () => {
-      const response = await sendHttpRequestWithOptions(
-        PORT,
-        '/internal/yjs/workflows/workflow-1/apply-state',
-        {
+      const applyWorkflowPatch = (body: unknown) =>
+        sendHttpRequestWithOptions(PORT, '/internal/yjs/workflows/workflow-1/apply-state', {
           method: 'POST',
           headers: {
             'content-type': 'application/json',
             'x-internal-secret': INTERNAL_SECRET,
           },
-          body: JSON.stringify({
-            workflowState: {
-              blocks: {
-                'block-1': {
-                  id: 'block-1',
-                  type: 'agent',
-                  name: 'Applied Agent',
-                  position: { x: 10, y: 20 },
-                  subBlocks: {},
-                  outputs: {},
-                  enabled: true,
-                },
-              },
-              edges: [],
-              loops: {},
-              parallels: {},
-              lastSaved: '2026-04-06T00:00:00.000Z',
-              isDeployed: false,
+          body: JSON.stringify(body),
+        })
+
+      const response = await applyWorkflowPatch({
+        workflowState: {
+          blocks: {
+            'block-1': {
+              id: 'block-1',
+              type: 'agent',
+              name: 'Applied Agent',
+              position: { x: 10, y: 20 },
+              subBlocks: {},
+              outputs: {},
+              enabled: true,
             },
-            variables: {
-              var1: {
-                id: 'var1',
-                workflowId: 'workflow-1',
-                name: 'token',
-                type: 'plain',
-                value: 'secret',
-              },
-            },
-          }),
-        }
-      )
+          },
+          edges: [],
+          loops: {},
+          parallels: {},
+          lastSaved: '2026-04-06T00:00:00.000Z',
+          isDeployed: false,
+        },
+        variables: {
+          var1: {
+            id: 'var1',
+            workflowId: 'workflow-1',
+            name: 'token',
+            type: 'plain',
+            value: 'secret',
+          },
+        },
+      })
 
       expect(response.statusCode).toBe(200)
       expect(mockSaveWorkflowYjsDocToDb).toHaveBeenCalledWith('workflow-1', expect.any(Y.Doc))
@@ -373,21 +372,18 @@ describe('Socket Server Index Integration', () => {
         })
       )
 
-      const renameResponse = await sendHttpRequestWithOptions(
-        PORT,
-        '/internal/yjs/workflows/workflow-1/apply-state',
-        {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            'x-internal-secret': INTERNAL_SECRET,
-          },
-          body: JSON.stringify({ metadata: { name: 'Renamed Workflow' } }),
-        }
-      )
+      const renameResponse = await applyWorkflowPatch({ metadata: { name: 'Renamed Workflow' } })
 
       expect(renameResponse.statusCode).toBe(200)
       expect(mockSaveWorkflowYjsDocToDb).toHaveBeenCalledTimes(2)
+      expect(await getExistingDocument('workflow-1')).toBeNull()
+
+      const variables = { var2: { name: 'riskLimit', value: 25 } }
+      const variablesResponse = await applyWorkflowPatch({ variables })
+
+      expect(variablesResponse.statusCode).toBe(200)
+      expect(mockSaveWorkflowYjsDocToDb).toHaveBeenCalledTimes(3)
+      expect(savedWorkflowStates[2]?.variables).toEqual(variables)
       expect(await getExistingDocument('workflow-1')).toBeNull()
     })
 

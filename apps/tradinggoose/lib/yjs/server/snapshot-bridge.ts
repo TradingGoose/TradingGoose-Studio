@@ -12,6 +12,12 @@ export interface YjsSnapshotResponse {
   touchedAt?: number | null
 }
 
+type WorkflowPatch = {
+  workflowState?: WorkflowSnapshot
+  variables?: Record<string, any>
+  metadata?: WorkflowMetadataPatch
+}
+
 export class SocketServerBridgeError extends Error {
   status: number
   body: string
@@ -88,29 +94,13 @@ export async function getYjsSnapshot(
   return response.json() as Promise<YjsSnapshotResponse>
 }
 
-export async function applyWorkflowStateInSocketServer(
+export async function applyWorkflowPatchInSocketServer(
   workflowId: string,
-  workflowState: WorkflowSnapshot,
-  variables?: Record<string, any>,
-  metadata?: WorkflowMetadataPatch
+  patch: WorkflowPatch
 ): Promise<void> {
   await postJsonToSocketServer(
     `/internal/yjs/workflows/${encodeURIComponent(workflowId)}/apply-state`,
-    {
-      workflowState,
-      ...(variables === undefined ? {} : { variables }),
-      ...(metadata ? { metadata } : {}),
-    }
-  )
-}
-
-export async function applyWorkflowMetadataInSocketServer(
-  workflowId: string,
-  metadata: WorkflowMetadataPatch
-): Promise<void> {
-  await postJsonToSocketServer(
-    `/internal/yjs/workflows/${encodeURIComponent(workflowId)}/apply-state`,
-    { metadata }
+    patch
   )
 }
 

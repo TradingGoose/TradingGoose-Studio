@@ -11,6 +11,7 @@ const mockDbLimit = vi.hoisted(() => vi.fn())
 const mockReadBootstrappedReviewTargetSnapshot = vi.hoisted(() => vi.fn())
 const mockVerifyWorkflowAccess = vi.hoisted(() => vi.fn())
 const mockApplyWorkflowState = vi.hoisted(() => vi.fn())
+const mockApplyWorkflowPatchInSocketServer = vi.hoisted(() => vi.fn())
 
 vi.mock('@tradinggoose/db', () => ({
   db: {
@@ -38,6 +39,11 @@ vi.mock('@/lib/yjs/server/apply-workflow-state', () => ({
   applyWorkflowMetadata: vi.fn(),
 }))
 
+vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
+  applyWorkflowPatchInSocketServer: (...args: any[]) =>
+    mockApplyWorkflowPatchInSocketServer(...args),
+}))
+
 function workflowSnapshotBase64(
   variables: Record<string, any>,
   workflowState = createWorkflowSnapshot()
@@ -58,6 +64,7 @@ describe('workflow variable server tools', () => {
     mockReadBootstrappedReviewTargetSnapshot.mockReset()
     mockVerifyWorkflowAccess.mockReset()
     mockApplyWorkflowState.mockReset()
+    mockApplyWorkflowPatchInSocketServer.mockReset()
     mockDbLimit.mockResolvedValue([
       {
         id: 'wf-1',
@@ -137,7 +144,7 @@ describe('workflow variable server tools', () => {
     expect(result.preview.documentDiff.after).toContain('enabled')
   })
 
-  it('applies full-access workflow variable edits through workflow state persistence', async () => {
+  it('applies full-access workflow variable edits without replaying workflow topology', async () => {
     const result = await editWorkflowVariableServerTool.execute(
       {
         entityId: 'wf-1',
@@ -161,14 +168,10 @@ describe('workflow variable server tools', () => {
       workspaceId: 'workspace-1',
       documentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
     })
-    expect(mockApplyWorkflowState).toHaveBeenCalledWith(
-      'wf-1',
-      expect.objectContaining({
-        blocks: {},
-        edges: [],
-      }),
-      result.variables
-    )
+    expect(mockApplyWorkflowPatchInSocketServer).toHaveBeenCalledWith('wf-1', {
+      variables: result.variables,
+    })
+    expect(mockApplyWorkflowState).not.toHaveBeenCalled()
   })
 
   it('rejects replacement documents that omit variable ids', async () => {
@@ -185,6 +188,7 @@ describe('workflow variable server tools', () => {
       )
     ).rejects.toThrow()
 
+    expect(mockApplyWorkflowPatchInSocketServer).not.toHaveBeenCalled()
     expect(mockApplyWorkflowState).not.toHaveBeenCalled()
   })
 })
