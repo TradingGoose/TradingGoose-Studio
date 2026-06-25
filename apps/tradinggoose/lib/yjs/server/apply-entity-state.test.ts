@@ -143,4 +143,21 @@ describe('applySavedEntityPersistedState', () => {
     expect(mockApplyEntityStateInSocketServer).not.toHaveBeenCalled()
     expect(events).toEqual(['snapshot', 'db'])
   })
+
+  it('does not materialize DB state when the saved-entity Yjs apply fails', async () => {
+    const { applySavedEntityPersistedState } = await import('./apply-entity-state')
+    mockApplyEntityStateInSocketServer.mockRejectedValueOnce(new TypeError('fetch failed'))
+
+    await expect(
+      applySavedEntityPersistedState('skill', 'skill-1', 'workspace-1', {
+        name: 'Copilot Skill',
+        description: 'Copilot description',
+        content: 'Use the Copilot input.',
+      })
+    ).rejects.toThrow('fetch failed')
+
+    expect(mockGetYjsSnapshot).not.toHaveBeenCalled()
+    expect(mockDbUpdate).not.toHaveBeenCalled()
+    expect(events).toEqual([])
+  })
 })

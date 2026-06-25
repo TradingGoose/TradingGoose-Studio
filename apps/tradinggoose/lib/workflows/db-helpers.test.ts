@@ -1076,6 +1076,15 @@ describe('Database Helpers', () => {
       expect(result).toBeNull()
       expect(mockDb.select).not.toHaveBeenCalled()
     })
+
+    it('does not fall back to direct DB reads when the Yjs bridge fails', async () => {
+      mockReadBootstrappedReviewTargetSnapshot.mockRejectedValue(new Error('bridge unavailable'))
+
+      await expect(dbHelpers.loadWorkflowState(mockWorkflowId)).rejects.toThrow(
+        'bridge unavailable'
+      )
+      expect(mockDb.select).not.toHaveBeenCalled()
+    })
   })
 
   describe('advancedMode persistence comparison with isWide', () => {

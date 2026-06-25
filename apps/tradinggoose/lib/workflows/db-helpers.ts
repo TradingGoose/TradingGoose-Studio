@@ -148,6 +148,7 @@ export async function loadWorkflowState(
   const { readBootstrappedReviewTargetSnapshot } = await import(
     '@/lib/yjs/server/bootstrap-review-target'
   )
+  // Existing workflow reads intentionally use the live Yjs bridge; DB is only the bootstrap seed.
   const snapshot = await readBootstrappedReviewTargetSnapshot({
     workspaceId: null,
     entityKind: 'workflow',

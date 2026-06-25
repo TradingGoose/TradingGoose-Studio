@@ -177,6 +177,7 @@ export async function applySavedEntityPersistedState(
   fields: Record<string, unknown>
 ): Promise<void> {
   const normalizedFields = normalizeSavedEntityFields(entityKind, fields)
+  // Existing saved-entity mutations must enter the live Yjs session before DB materialization.
   await applyEntityStateInSocketServer(entityId, entityKind, normalizedFields)
   await persistSavedEntityYjsState(entityKind, entityId, workspaceId)
 }
