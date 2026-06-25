@@ -3,17 +3,17 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import * as Y from 'yjs'
-import { replaceWorkflowDocumentState } from '@/lib/yjs/workflow-session'
 
 const {
   mockApplyWorkflowEntityNameInSocketServer,
   mockApplyWorkflowStateInSocketServer,
   mockDbUpdate,
+  mockDbSelect,
   mockEnsureUniqueBlockIds,
   mockEnsureUniqueEdgeIds,
-  mockGetYjsSnapshot,
-  mockSaveWorkflowToNormalizedTables,
+  mockSelectFrom,
+  mockSelectLimit,
+  mockSelectWhere,
   mockUpdateReturning,
   mockUpdateSet,
   mockUpdateWhere,
@@ -22,10 +22,12 @@ const {
     mockApplyWorkflowEntityNameInSocketServer: vi.fn(),
     mockApplyWorkflowStateInSocketServer: vi.fn(),
     mockDbUpdate: vi.fn(),
+    mockDbSelect: vi.fn(),
     mockEnsureUniqueBlockIds: vi.fn(),
     mockEnsureUniqueEdgeIds: vi.fn(),
-    mockGetYjsSnapshot: vi.fn(),
-    mockSaveWorkflowToNormalizedTables: vi.fn(),
+    mockSelectFrom: vi.fn(),
+    mockSelectLimit: vi.fn(),
+    mockSelectWhere: vi.fn(),
     mockUpdateReturning: vi.fn(),
     mockUpdateSet: vi.fn(),
     mockUpdateWhere: vi.fn(),
@@ -34,6 +36,7 @@ const {
 
 vi.mock('@tradinggoose/db', () => ({
   db: {
+    select: mockDbSelect,
     update: mockDbUpdate,
   },
   workflow: {
@@ -48,29 +51,14 @@ vi.mock('drizzle-orm', () => ({
 vi.mock('@/lib/workflows/db-helpers', () => ({
   ensureUniqueBlockIds: mockEnsureUniqueBlockIds,
   ensureUniqueEdgeIds: mockEnsureUniqueEdgeIds,
-  saveWorkflowToNormalizedTables: mockSaveWorkflowToNormalizedTables,
 }))
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   applyWorkflowEntityNameInSocketServer: mockApplyWorkflowEntityNameInSocketServer,
   applyWorkflowStateInSocketServer: mockApplyWorkflowStateInSocketServer,
-  getYjsSnapshot: mockGetYjsSnapshot,
 }))
 
 const emptyWorkflowState = { blocks: {}, edges: [], loops: {}, parallels: {} }
-
-function buildWorkflowSnapshotBase64(
-  workflowState: Parameters<typeof replaceWorkflowDocumentState>[1],
-  variables: Record<string, any> = {}
-): string {
-  const doc = new Y.Doc()
-  try {
-    replaceWorkflowDocumentState(doc, workflowState, variables, 'Workflow Name')
-    return Buffer.from(Y.encodeStateAsUpdate(doc)).toString('base64')
-  } finally {
-    doc.destroy()
-  }
-}
 
 describe('applyWorkflowState', () => {
   beforeEach(() => {
@@ -79,44 +67,34 @@ describe('applyWorkflowState', () => {
     mockApplyWorkflowStateInSocketServer.mockResolvedValue(undefined)
     mockEnsureUniqueBlockIds.mockImplementation(async (_workflowId, state) => state)
     mockEnsureUniqueEdgeIds.mockImplementation(async (_workflowId, state) => state)
-    mockSaveWorkflowToNormalizedTables.mockImplementation(async (_workflowId, state, commit) => {
-      await commit?.({ update: mockDbUpdate }, state)
-      return { success: true }
-    })
-    mockGetYjsSnapshot.mockImplementation(async () => ({
-      snapshotBase64: buildWorkflowSnapshotBase64(emptyWorkflowState),
-    }))
     mockUpdateReturning.mockResolvedValue([{ id: 'workflow-1' }])
     mockUpdateWhere.mockReturnValue({ returning: mockUpdateReturning })
     mockUpdateSet.mockReturnValue({ where: mockUpdateWhere })
     mockDbUpdate.mockReturnValue({ set: mockUpdateSet })
+    mockSelectLimit.mockResolvedValue([{ id: 'workflow-1', name: 'Renamed Workflow' }])
+    mockSelectWhere.mockReturnValue({ limit: mockSelectLimit })
+    mockSelectFrom.mockReturnValue({ where: mockSelectWhere })
+    mockDbSelect.mockReturnValue({ from: mockSelectFrom })
   })
 
-  it('renames workflow entity metadata before non-blocking Yjs name sync', async () => {
-    mockApplyWorkflowEntityNameInSocketServer.mockRejectedValueOnce(new Error('socket offline'))
+  it('renames workflow entity metadata through the socket-owned Yjs document', async () => {
     const { applyWorkflowEntityName } = await import('./apply-workflow-state')
 
-    await applyWorkflowEntityName('workflow-1', 'Renamed Workflow', {
-      description: 'Updated description',
-    })
+    const updatedWorkflow = await applyWorkflowEntityName('workflow-1', 'Renamed Workflow')
 
     expect(mockApplyWorkflowEntityNameInSocketServer).toHaveBeenCalledWith(
       'workflow-1',
       'Renamed Workflow'
     )
     expect(mockApplyWorkflowStateInSocketServer).not.toHaveBeenCalled()
-    expect(mockUpdateSet).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: 'Renamed Workflow',
-        description: 'Updated description',
-      })
-    )
-    expect(mockDbUpdate.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(mockDbUpdate).not.toHaveBeenCalled()
+    expect(mockDbSelect.mock.invocationCallOrder[0]).toBeGreaterThan(
       mockApplyWorkflowEntityNameInSocketServer.mock.invocationCallOrder[0]
     )
+    expect(updatedWorkflow).toMatchObject({ id: 'workflow-1', name: 'Renamed Workflow' })
   })
 
-  it('persists the applied Yjs workflow state after publishing to Yjs', async () => {
+  it('publishes normalized workflow state to the socket-owned Yjs document', async () => {
     mockEnsureUniqueBlockIds.mockImplementationOnce(async () => ({
       blocks: {
         'normalized-block': {
@@ -133,29 +111,6 @@ describe('applyWorkflowState', () => {
       loops: {},
       parallels: {},
     }))
-    mockGetYjsSnapshot.mockResolvedValueOnce({
-      snapshotBase64: buildWorkflowSnapshotBase64(
-        {
-          blocks: {
-            'yjs-block': {
-              id: 'yjs-block',
-              type: 'agent',
-              name: 'Yjs Agent',
-              position: { x: 0, y: 0 },
-              subBlocks: {},
-              outputs: {},
-              enabled: true,
-            },
-          },
-          edges: [],
-          loops: {},
-          parallels: {},
-          isDeployed: true,
-          deployedAt: '2026-06-19T12:00:00.000Z',
-        },
-        { apiKey: { id: 'apiKey', value: 'from-yjs' } }
-      ),
-    })
 
     const { applyWorkflowState } = await import('./apply-workflow-state')
 
@@ -191,40 +146,7 @@ describe('applyWorkflowState', () => {
       {},
       'Workflow Name'
     )
-
-    expect(mockGetYjsSnapshot).toHaveBeenCalledWith(
-      'workflow-1',
-      expect.objectContaining({
-        targetKind: 'workflow',
-        sessionId: 'workflow-1',
-        workflowId: 'workflow-1',
-        entityKind: 'workflow',
-        entityId: 'workflow-1',
-      })
-    )
-    expect(mockSaveWorkflowToNormalizedTables).toHaveBeenCalledOnce()
-    expect(mockSaveWorkflowToNormalizedTables.mock.calls[0][1]).toMatchObject({
-      blocks: {
-        'yjs-block': expect.objectContaining({ id: 'yjs-block' }),
-      },
-    })
-    expect(mockSaveWorkflowToNormalizedTables.mock.calls[0][2]).toEqual(expect.any(Function))
-    expect(mockApplyWorkflowStateInSocketServer.mock.invocationCallOrder[0]).toBeLessThan(
-      mockGetYjsSnapshot.mock.invocationCallOrder[0]
-    )
-    expect(mockGetYjsSnapshot.mock.invocationCallOrder[0]).toBeLessThan(
-      mockSaveWorkflowToNormalizedTables.mock.invocationCallOrder[0]
-    )
-    expect(mockSaveWorkflowToNormalizedTables.mock.invocationCallOrder[0]).toBeLessThan(
-      mockDbUpdate.mock.invocationCallOrder[0]
-    )
-    expect(mockUpdateSet).toHaveBeenCalledWith(
-      expect.objectContaining({
-        variables: { apiKey: { id: 'apiKey', value: 'from-yjs' } },
-        isDeployed: true,
-        deployedAt: new Date('2026-06-19T12:00:00.000Z'),
-      })
-    )
+    expect(mockDbUpdate).not.toHaveBeenCalled()
   })
 
   it('does not commit workflow DB changes when the Yjs socket apply fails', async () => {
@@ -236,25 +158,6 @@ describe('applyWorkflowState', () => {
       'fetch failed'
     )
 
-    expect(mockSaveWorkflowToNormalizedTables).not.toHaveBeenCalled()
-    expect(mockGetYjsSnapshot).not.toHaveBeenCalled()
-    expect(mockDbUpdate).not.toHaveBeenCalled()
-  })
-
-  it('leaves workflow Yjs unchanged when materialization fails after Yjs apply', async () => {
-    mockSaveWorkflowToNormalizedTables.mockResolvedValueOnce({
-      success: false,
-      error: 'db failed',
-    })
-
-    const { applyWorkflowState } = await import('./apply-workflow-state')
-
-    await expect(applyWorkflowState('workflow-1', emptyWorkflowState, {})).rejects.toThrow(
-      'db failed'
-    )
-
-    expect(mockApplyWorkflowStateInSocketServer).toHaveBeenCalledOnce()
-    expect(mockGetYjsSnapshot).toHaveBeenCalledOnce()
     expect(mockDbUpdate).not.toHaveBeenCalled()
   })
 })

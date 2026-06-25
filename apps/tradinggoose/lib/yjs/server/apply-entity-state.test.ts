@@ -9,7 +9,6 @@ const {
   events,
   mockApplyEntityStateInSocketServer,
   mockDbUpdate,
-  mockGetYjsSnapshot,
   mockUpdateReturning,
   mockUpdateSet,
   mockUpdateWhere,
@@ -17,7 +16,6 @@ const {
   events: [] as string[],
   mockApplyEntityStateInSocketServer: vi.fn(),
   mockDbUpdate: vi.fn(),
-  mockGetYjsSnapshot: vi.fn(),
   mockUpdateReturning: vi.fn(),
   mockUpdateSet: vi.fn(),
   mockUpdateWhere: vi.fn(),
@@ -51,41 +49,23 @@ vi.mock('@/lib/custom-tools/schema', () => ({
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   applyEntityStateInSocketServer: mockApplyEntityStateInSocketServer,
-  getYjsSnapshot: mockGetYjsSnapshot,
 }))
 
-function buildSkillSnapshotBase64(fields: { name: string; description: string; content: string }) {
+function buildSkillDoc(fields: { name: string; description: string; content: string }) {
   const doc = new Y.Doc()
-  try {
-    const map = doc.getMap('fields')
-    map.set('name', fields.name)
-    map.set('description', fields.description)
-    map.set('content', fields.content)
-    return Buffer.from(Y.encodeStateAsUpdate(doc)).toString('base64')
-  } finally {
-    doc.destroy()
-  }
+  const map = doc.getMap('fields')
+  map.set('name', fields.name)
+  map.set('description', fields.description)
+  map.set('content', fields.content)
+  return doc
 }
 
-describe('applySavedEntityPersistedState', () => {
+describe('applySavedEntityState', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     events.length = 0
     mockApplyEntityStateInSocketServer.mockImplementation(async () => {
       events.push('yjs')
-    })
-    mockGetYjsSnapshot.mockImplementation(async () => {
-      events.push('snapshot')
-      return {
-        snapshotBase64: buildSkillSnapshotBase64({
-          name: 'Yjs Skill',
-          description: 'Yjs description',
-          content: 'Use the Yjs document.',
-        }),
-        descriptor: {},
-        runtime: {},
-        touchedAt: Date.now(),
-      }
     })
     mockUpdateReturning.mockResolvedValue([{ id: 'skill-1' }])
     mockUpdateWhere.mockReturnValue({ returning: mockUpdateReturning })
@@ -96,10 +76,10 @@ describe('applySavedEntityPersistedState', () => {
     })
   })
 
-  it('applies entity changes to Yjs before persisting the post-apply Yjs snapshot to DB', async () => {
-    const { applySavedEntityPersistedState } = await import('./apply-entity-state')
+  it('applies entity changes to the socket-owned Yjs session without app-side DB materialization', async () => {
+    const { applySavedEntityState } = await import('./apply-entity-state')
 
-    await applySavedEntityPersistedState('skill', 'skill-1', 'workspace-1', {
+    await applySavedEntityState('skill', 'skill-1', {
       name: 'Copilot Skill',
       description: 'Copilot description',
       content: 'Use the Copilot input.',
@@ -110,53 +90,59 @@ describe('applySavedEntityPersistedState', () => {
       description: 'Copilot description',
       content: 'Use the Copilot input.',
     })
-    expect(mockGetYjsSnapshot).toHaveBeenCalledWith(
-      'skill-1',
-      expect.objectContaining({
-        targetKind: 'entity',
-        sessionId: 'skill-1',
-        workspaceId: 'workspace-1',
-        entityKind: 'skill',
-        entityId: 'skill-1',
-      })
-    )
-    expect(mockUpdateSet).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: 'Yjs Skill',
-        description: 'Yjs description',
-        content: 'Use the Yjs document.',
-      })
-    )
-    expect(events).toEqual(['yjs', 'snapshot', 'db'])
+    expect(mockDbUpdate).not.toHaveBeenCalled()
+    expect(events).toEqual(['yjs'])
   })
 
-  it('leaves saved-entity Yjs unchanged when materialization fails', async () => {
-    const { persistSavedEntityYjsState } = await import('./apply-entity-state')
-    mockUpdateReturning.mockResolvedValueOnce([])
-
-    await expect(
-      persistSavedEntityYjsState('skill', 'skill-1', 'workspace-1')
-    ).rejects.toMatchObject({
-      status: 404,
+  it('materializes saved-entity DB state from a provided Yjs document', async () => {
+    const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
+    const doc = buildSkillDoc({
+      name: 'Yjs Skill',
+      description: 'Yjs description',
+      content: 'Use the Yjs document.',
     })
 
-    expect(mockApplyEntityStateInSocketServer).not.toHaveBeenCalled()
-    expect(events).toEqual(['snapshot', 'db'])
+    try {
+      await saveSavedEntityYjsDocToDb('skill', 'skill-1', doc)
+    } finally {
+      doc.destroy()
+    }
+
+    expect(mockUpdateSet).toHaveBeenCalledWith({
+      name: 'Yjs Skill',
+      description: 'Yjs description',
+      content: 'Use the Yjs document.',
+      updatedAt: expect.any(Date),
+    })
+    expect(events).toEqual(['db'])
+  })
+
+  it('throws when document materialization cannot find the saved entity row', async () => {
+    const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
+    const doc = buildSkillDoc({ name: 'Yjs Skill', description: '', content: '' })
+    mockUpdateReturning.mockResolvedValueOnce([])
+
+    try {
+      await expect(saveSavedEntityYjsDocToDb('skill', 'skill-1', doc)).rejects.toMatchObject({
+        status: 404,
+      })
+    } finally {
+      doc.destroy()
+    }
   })
 
   it('does not materialize DB state when the saved-entity Yjs apply fails', async () => {
-    const { applySavedEntityPersistedState } = await import('./apply-entity-state')
+    const { applySavedEntityState } = await import('./apply-entity-state')
     mockApplyEntityStateInSocketServer.mockRejectedValueOnce(new TypeError('fetch failed'))
 
     await expect(
-      applySavedEntityPersistedState('skill', 'skill-1', 'workspace-1', {
+      applySavedEntityState('skill', 'skill-1', {
         name: 'Copilot Skill',
         description: 'Copilot description',
         content: 'Use the Copilot input.',
       })
     ).rejects.toThrow('fetch failed')
 
-    expect(mockGetYjsSnapshot).not.toHaveBeenCalled()
     expect(mockDbUpdate).not.toHaveBeenCalled()
     expect(events).toEqual([])
   })

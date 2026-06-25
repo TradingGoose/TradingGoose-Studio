@@ -9,7 +9,7 @@ import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
-  applySavedEntityPersistedState,
+  applySavedEntityState,
   SavedEntityPersistenceError,
 } from '@/lib/yjs/server/apply-entity-state'
 import { UpdateMcpServerSchema } from '../schema'
@@ -93,10 +93,9 @@ export const PATCH = withMcpAuth('write')(
         updatedAt: new Date(),
       }
 
-      await applySavedEntityPersistedState(
+      await applySavedEntityState(
         'mcp_server',
         nextServer.id,
-        workspaceId,
         savedEntityRowToFields('mcp_server', nextServer)
       )
 

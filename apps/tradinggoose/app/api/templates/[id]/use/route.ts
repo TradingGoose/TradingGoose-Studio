@@ -5,9 +5,11 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getBaseUrl } from '@/lib/urls/utils'
 import { generateRequestId } from '@/lib/utils'
-import { regenerateWorkflowStateIds } from '@/lib/workflows/db-helpers'
+import {
+  regenerateWorkflowStateIds,
+  saveWorkflowToNormalizedTables,
+} from '@/lib/workflows/db-helpers'
 import { remapVariableIds } from '@/lib/workflows/import-export'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
 
@@ -69,6 +71,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       templateData.state && typeof templateData.state === 'object'
         ? (templateData.state as any)
         : null
+    if (
+      !templateState ||
+      typeof templateState.blocks !== 'object' ||
+      !templateState.blocks ||
+      !Array.isArray(templateState.edges)
+    ) {
+      return NextResponse.json({ error: 'Template workflow state is missing' }, { status: 409 })
+    }
 
     const templateVariables = normalizeVariables(templateState?.variables)
     const remappedVariables = remapVariableIds(templateVariables, newWorkflowId)
@@ -86,33 +96,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       lastSynced: now,
     })
 
-    if (templateState) {
-      const regeneratedState = regenerateWorkflowStateIds(templateState)
-      // Strip template variables from the regenerated state (we use remapped ones)
-      // but include the remapped variables so the save route persists them to Yjs + DB
-      const { variables: _templateVars, ...stateWithoutTemplateVars } = regeneratedState as any
-      const stateWithVariables = {
-        ...stateWithoutTemplateVars,
-        variables: remappedVariables,
-      }
+    const regeneratedState = regenerateWorkflowStateIds(templateState)
+    const { variables: _templateVars, ...stateWithoutTemplateVars } = regeneratedState as any
+    const saveResult = await saveWorkflowToNormalizedTables(newWorkflowId, {
+      ...stateWithoutTemplateVars,
+      lastSaved: now.toISOString(),
+      isDeployed: false,
+      deployedAt: undefined,
+    })
 
-      const stateResponse = await fetch(`${getBaseUrl()}/api/workflows/${newWorkflowId}/state`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          cookie: request.headers.get('cookie') || '',
-        },
-        body: JSON.stringify(stateWithVariables),
-      })
-
-      if (!stateResponse.ok) {
-        logger.error(`[${requestId}] Failed to save workflow state for template use`)
-        await db.delete(workflow).where(eq(workflow.id, newWorkflowId))
-        return NextResponse.json(
-          { error: 'Failed to create workflow from template' },
-          { status: 500 }
-        )
-      }
+    if (!saveResult.success) {
+      logger.error(`[${requestId}] Failed to save workflow state for template use`)
+      await db.delete(workflow).where(eq(workflow.id, newWorkflowId))
+      return NextResponse.json(
+        { error: 'Failed to create workflow from template' },
+        { status: 500 }
+      )
     }
 
     await db

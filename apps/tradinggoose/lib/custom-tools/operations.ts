@@ -8,7 +8,7 @@ import {
 } from '@/lib/custom-tools/import-export'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { applySavedEntityPersistedState } from '@/lib/yjs/server/apply-entity-state'
+import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 
 const logger = createLogger('CustomToolsOperations')
 
@@ -122,7 +122,7 @@ export async function saveCustomTool({
     throw new Error(`A tool with the title "${tool.title}" already exists in this workspace`)
   }
 
-  await applySavedEntityPersistedState('custom_tool', tool.id, workspaceId, {
+  await applySavedEntityState('custom_tool', tool.id, {
     title: tool.title,
     schemaText: JSON.stringify(tool.schema, null, 2),
     codeText: tool.code,

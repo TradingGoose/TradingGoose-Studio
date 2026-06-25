@@ -384,8 +384,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const updatedWorkflow = await applyWorkflowEntityName(
       workflowId,
-      updates.name ?? workflowData.name,
-      updateData
+      updates.name ?? workflowData.name
     )
 
     const elapsed = Date.now() - startTime

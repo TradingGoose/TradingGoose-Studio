@@ -7,16 +7,12 @@ import {
   skill,
 } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
-import * as Y from 'yjs'
+import type * as Y from 'yjs'
 import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
-import {
-  buildYjsTransportEnvelope,
-  serializeYjsTransportEnvelope,
-} from '@/lib/copilot/review-sessions/identity'
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { getEntityFields } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
-import { applyEntityStateInSocketServer, getYjsSnapshot } from '@/lib/yjs/server/snapshot-bridge'
+import { applyEntityStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 export class SavedEntityPersistenceError extends Error {
   constructor(
@@ -136,60 +132,20 @@ async function persistSavedEntityState(
   }
 }
 
-async function readAppliedYjsEntityFields(
+export async function applySavedEntityState(
   entityKind: SavedEntityKind,
   entityId: string,
-  workspaceId: string
-): Promise<Record<string, unknown>> {
-  const snapshot = await getYjsSnapshot(
-    entityId,
-    serializeYjsTransportEnvelope(
-      buildYjsTransportEnvelope({
-        workspaceId,
-        entityKind,
-        entityId,
-        draftSessionId: null,
-        reviewSessionId: null,
-        yjsSessionId: entityId,
-      })
-    )
-  )
-  if (!snapshot.snapshotBase64) {
-    throw new SavedEntityPersistenceError(
-      404,
-      `Saved ${entityKind} ${entityId} Yjs state is missing`
-    )
-  }
-
-  const doc = new Y.Doc()
-  try {
-    Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
-    return getEntityFields(doc, entityKind)
-  } finally {
-    doc.destroy()
-  }
-}
-
-export async function applySavedEntityPersistedState(
-  entityKind: SavedEntityKind,
-  entityId: string,
-  workspaceId: string,
   fields: Record<string, unknown>
 ): Promise<void> {
   const normalizedFields = normalizeSavedEntityFields(entityKind, fields)
-  // Existing saved-entity mutations must enter the live Yjs session before DB materialization.
   await applyEntityStateInSocketServer(entityId, entityKind, normalizedFields)
-  await persistSavedEntityYjsState(entityKind, entityId, workspaceId)
 }
 
-export async function persistSavedEntityYjsState(
+export async function saveSavedEntityYjsDocToDb(
   entityKind: SavedEntityKind,
   entityId: string,
-  workspaceId: string
+  doc: Y.Doc
 ): Promise<void> {
-  const yjsFields = normalizeSavedEntityFields(
-    entityKind,
-    await readAppliedYjsEntityFields(entityKind, entityId, workspaceId)
-  )
+  const yjsFields = normalizeSavedEntityFields(entityKind, getEntityFields(doc, entityKind))
   await persistSavedEntityState(entityKind, entityId, yjsFields)
 }

@@ -30,7 +30,7 @@ vi.mock('nanoid', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
-  applySavedEntityPersistedState: vi.fn(),
+  applySavedEntityState: vi.fn(),
 }))
 
 import { importSkills } from '@/lib/skills/operations'

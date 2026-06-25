@@ -25,12 +25,14 @@ const wsReadyStateOpen = 1
 const PING_TIMEOUT = 30_000
 
 const docs = new Map<string, WSSharedDoc>()
+type DocumentIdleHandler = (docId: string, doc: Y.Doc) => Promise<void> | void
 
 class WSSharedDoc extends Y.Doc {
   name: string
   conns: Map<WebSocket, Set<number>>
   awareness: awarenessProtocol.Awareness
   whenInitialized: Promise<void>
+  onDocumentIdle?: DocumentIdleHandler
 
   constructor(name: string, gc: boolean) {
     super({ gc })
@@ -88,7 +90,20 @@ function cleanupDocument(doc: WSSharedDoc): void {
 }
 
 function finalizeDocumentCleanup(doc: WSSharedDoc): void {
-  cleanupDocument(doc)
+  if (!doc.onDocumentIdle) {
+    cleanupDocument(doc)
+    return
+  }
+
+  void Promise.resolve(doc.onDocumentIdle(doc.name, doc))
+    .then(() => {
+      if (doc.conns.size === 0) {
+        cleanupDocument(doc)
+      }
+    })
+    .catch((error) => {
+      console.error('[yjs upstream-utils] Failed to persist idle document', error)
+    })
 }
 
 function send(doc: WSSharedDoc, conn: WebSocket, message: Uint8Array): void {
@@ -186,13 +201,15 @@ export function setupWSConnection(
     docId: string
     gc?: boolean
     bootstrapState?: Uint8Array
+    onDocumentIdle?: DocumentIdleHandler
   }
 ): void {
-  const { docId, gc = true, bootstrapState } = opts
+  const { docId, gc = true, bootstrapState, onDocumentIdle } = opts
 
   conn.binaryType = 'arraybuffer'
 
   const doc = getDocument(docId, gc, bootstrapState) as WSSharedDoc
+  doc.onDocumentIdle = onDocumentIdle
   doc.conns.set(conn, new Set())
 
   conn.on('message', (data: ArrayBuffer) => {
@@ -285,6 +302,15 @@ export function discardDocument(docId: string): void {
       // ignore
     }
   })
+}
+
+export function discardDocumentIfIdle(docId: string): void {
+  const doc = docs.get(docId)
+  if (!doc || doc.conns.size > 0) {
+    return
+  }
+
+  cleanupDocument(doc)
 }
 
 export function cleanupAllDocuments(): void {

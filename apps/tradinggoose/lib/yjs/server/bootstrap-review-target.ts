@@ -153,6 +153,11 @@ export async function createSavedReviewTargetBootstrapUpdate(
 
     const metadata = getMetadataMap(doc)
     metadata.set('bootstrap-touch', Date.now())
+    metadata.set('entityKind', descriptor.entityKind)
+    metadata.set('entityId', descriptor.entityId)
+    metadata.set('workspaceId', descriptor.workspaceId)
+    metadata.set('draftSessionId', descriptor.draftSessionId)
+    metadata.set('reviewSessionId', descriptor.reviewSessionId)
     metadata.set('reseededFromCanonical', true)
     if (workflowName) {
       metadata.set('entityName', workflowName)

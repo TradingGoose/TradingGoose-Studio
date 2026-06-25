@@ -9,7 +9,7 @@ import {
 import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { applySavedEntityPersistedState } from '@/lib/yjs/server/apply-entity-state'
+import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 
 const logger = createLogger('IndicatorsOperations')
 
@@ -109,7 +109,7 @@ export async function saveIndicator({
     throw new Error(`Indicator ${indicator.id} was not found`)
   }
 
-  await applySavedEntityPersistedState('indicator', indicator.id, workspaceId, {
+  await applySavedEntityState('indicator', indicator.id, {
     name: indicator.name,
     color: existing.color ?? getStableVibrantColor(indicator.id),
     pineCode: indicator.pineCode,

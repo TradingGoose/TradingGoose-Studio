@@ -12,8 +12,8 @@ import {
   executeUpdateEntityDocumentMutation,
 } from './shared'
 
-const { mockApplySavedEntityPersistedState } = vi.hoisted(() => ({
-  mockApplySavedEntityPersistedState: vi.fn(),
+const { mockApplySavedEntityState } = vi.hoisted(() => ({
+  mockApplySavedEntityState: vi.fn(),
 }))
 const mockCheckWorkspaceAccess = vi.hoisted(() => vi.fn())
 const mockReadBootstrappedSavedEntityFields = vi.hoisted(() => vi.fn())
@@ -28,8 +28,7 @@ vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
-  applySavedEntityPersistedState: (...args: unknown[]) =>
-    mockApplySavedEntityPersistedState(...args),
+  applySavedEntityState: (...args: unknown[]) => mockApplySavedEntityState(...args),
 }))
 
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
@@ -77,16 +76,11 @@ describe('entity document mutation helpers', () => {
     })
     expect(result).not.toHaveProperty('requiresReview')
     expect(result).not.toHaveProperty('preview')
-    expect(mockApplySavedEntityPersistedState).toHaveBeenCalledWith(
-      'skill',
-      'skill-1',
-      'workspace-1',
-      {
-        name: 'Updated Skill',
-        description: 'Updated description',
-        content: 'Use the updated process.',
-      }
-    )
+    expect(mockApplySavedEntityState).toHaveBeenCalledWith('skill', 'skill-1', {
+      name: 'Updated Skill',
+      description: 'Updated description',
+      content: 'Use the updated process.',
+    })
     expect(mockReadBootstrappedSavedEntityFields).not.toHaveBeenCalled()
   })
 
@@ -118,12 +112,7 @@ describe('entity document mutation helpers', () => {
       }
     )
 
-    expect(mockApplySavedEntityPersistedState).toHaveBeenCalledWith(
-      'skill',
-      'skill-1',
-      'workspace-1',
-      nextFields
-    )
+    expect(mockApplySavedEntityState).toHaveBeenCalledWith('skill', 'skill-1', nextFields)
   })
 
   it('preserves indicator input metadata when applying document updates', async () => {
@@ -153,17 +142,12 @@ describe('entity document mutation helpers', () => {
       { userId: 'user-1', accessLevel: 'full' }
     )
 
-    expect(mockApplySavedEntityPersistedState).toHaveBeenCalledWith(
-      'indicator',
-      'indicator-1',
-      'workspace-1',
-      {
-        name: 'Updated Indicator',
-        color: '#10b981',
-        pineCode: "const mode = input.string('fast', 'Mode')",
-        inputMeta,
-      }
-    )
+    expect(mockApplySavedEntityState).toHaveBeenCalledWith('indicator', 'indicator-1', {
+      name: 'Updated Indicator',
+      color: '#10b981',
+      pineCode: "const mode = input.string('fast', 'Mode')",
+      inputMeta,
+    })
   })
 
   it('rejects MCP server create documents without a URL', async () => {
@@ -223,7 +207,7 @@ describe('entity document mutation helpers', () => {
       )
     ).rejects.toThrow('Invalid MCP server URL: URL is required and must be a string')
 
-    expect(mockApplySavedEntityPersistedState).not.toHaveBeenCalled()
+    expect(mockApplySavedEntityState).not.toHaveBeenCalled()
   })
 
   it('keeps Studio create mutations in review mode', async () => {

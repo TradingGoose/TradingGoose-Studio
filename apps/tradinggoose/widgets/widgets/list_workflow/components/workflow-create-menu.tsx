@@ -114,21 +114,6 @@ export function DashboardWorkflowCreateMenu({
           .filter((workflow) => workflow.workspaceId === workspaceId)
           .map((workflow) => workflow.name)
 
-        const persistWorkflowState = async (workflowId: string, state: unknown) => {
-          const response = await fetch(`/api/workflows/${workflowId}/state`, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(state),
-          })
-
-          if (!response.ok) {
-            logger.error('Failed to persist imported workflow to database')
-            throw new Error('Failed to save workflow')
-          }
-        }
-
         let importedSkillsBySourceName:
           | ReturnType<typeof buildImportedWorkflowSkillsLookup>
           | undefined
@@ -151,7 +136,6 @@ export function DashboardWorkflowCreateMenu({
           existingWorkflowNames,
           importedSkillsBySourceName,
           createWorkflow,
-          persistWorkflowState,
         })
 
         logger.info('Workflow imported successfully from dashboard widget')

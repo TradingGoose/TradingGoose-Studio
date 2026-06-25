@@ -14,40 +14,6 @@ interface AutoLayoutOptions {
   }
 }
 
-function sanitizeEdgesForStateSave(edges: any[]): any[] {
-  return edges.flatMap((edge: any, index: number) => {
-    const source = typeof edge?.source === 'string' ? edge.source.trim() : ''
-    const target = typeof edge?.target === 'string' ? edge.target.trim() : ''
-
-    if (!source || !target) {
-      return []
-    }
-
-    const sourceHandle =
-      typeof edge?.sourceHandle === 'string' && edge.sourceHandle.length > 0
-        ? edge.sourceHandle
-        : undefined
-    const targetHandle =
-      typeof edge?.targetHandle === 'string' && edge.targetHandle.length > 0
-        ? edge.targetHandle
-        : undefined
-
-    return [
-      {
-        ...edge,
-        id:
-          typeof edge?.id === 'string' && edge.id.length > 0
-            ? edge.id
-            : `${source}-${sourceHandle || 'source'}-${target}-${targetHandle || 'target'}-${index}`,
-        source,
-        target,
-        ...(sourceHandle ? { sourceHandle } : {}),
-        ...(targetHandle ? { targetHandle } : {}),
-      },
-    ]
-  })
-}
-
 export async function applyAutoLayoutToWorkflow(
   workflowId: string,
   blocks: Record<string, any>,
@@ -156,9 +122,7 @@ export async function applyAutoLayoutAndUpdateStore({
 
   try {
     const { getRegisteredWorkflowSession } = await import('@/lib/yjs/workflow-session-registry')
-    const { getVariablesSnapshot, readWorkflowSnapshot, readWorkflowMap } = await import(
-      '@/lib/yjs/workflow-session'
-    )
+    const { readWorkflowSnapshot, readWorkflowMap } = await import('@/lib/yjs/workflow-session')
     const { YJS_ORIGINS } = await import('@/lib/yjs/transaction-origins')
     const { useWorkflowRegistry } = await import('@/stores/workflows/registry/store')
 
@@ -229,81 +193,7 @@ export async function applyAutoLayoutAndUpdateStore({
       workflowId: resolvedWorkflowId,
       channelId,
     })
-
-    try {
-      const updatedSnapshot = readWorkflowSnapshot(doc)
-
-      const stateToSave = {
-        ...updatedSnapshot,
-        deploymentStatuses: undefined,
-        needsRedeployment: undefined,
-        dragStartPosition: undefined,
-      }
-
-      const cleanedWorkflowState = {
-        ...stateToSave,
-        deployedAt: (stateToSave as any).deployedAt
-          ? new Date((stateToSave as any).deployedAt)
-          : undefined,
-        loops: stateToSave.loops || {},
-        parallels: stateToSave.parallels || {},
-        edges: sanitizeEdgesForStateSave(stateToSave.edges || []),
-        variables: getVariablesSnapshot(doc),
-      }
-
-      const response = await fetch(`/api/workflows/${resolvedWorkflowId}/state`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(cleanedWorkflowState),
-      })
-
-      if (!response.ok) {
-        let errorMessage = `HTTP ${response.status}: ${response.statusText}`
-        try {
-          const errorData = await response.json()
-          const details =
-            typeof errorData?.details === 'string'
-              ? errorData.details
-              : JSON.stringify(errorData?.details || errorData)
-          errorMessage = errorData?.error
-            ? `${errorData.error}${details ? ` - ${details}` : ''}`
-            : errorMessage
-        } catch {
-          // Ignore JSON parse errors and fall back to generic message
-        }
-
-        throw new Error(errorMessage)
-      }
-
-      logger.info('Auto layout successfully persisted', {
-        workflowId: resolvedWorkflowId,
-        channelId,
-      })
-      return { success: true }
-    } catch (saveError) {
-      const message =
-        saveError instanceof Error && saveError.message
-          ? saveError.message
-          : JSON.stringify(saveError)
-      logger.error('Failed to persist auto layout, reverting Yjs doc:', {
-        workflowId: resolvedWorkflowId,
-        error: message,
-      })
-
-      doc.transact(() => {
-        const wMap = readWorkflowMap(doc)
-        wMap.set('blocks', blocks)
-      }, YJS_ORIGINS.SYSTEM)
-
-      return {
-        success: false,
-        error: `Failed to save positions: ${
-          saveError instanceof Error ? saveError.message : 'Unknown error'
-        }`,
-      }
-    }
+    return { success: true }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown store update error'
     logger.error('Failed to update store with auto layout:', {

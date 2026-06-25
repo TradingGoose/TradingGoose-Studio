@@ -886,6 +886,9 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
             description: options.description ?? 'New workflow',
             workspaceId,
             folderId: options.folderId || null,
+            ...(options.initialWorkflowState === undefined
+              ? {}
+              : { initialWorkflowState: options.initialWorkflowState }),
           }
 
           const response = await fetch('/api/workflows', {

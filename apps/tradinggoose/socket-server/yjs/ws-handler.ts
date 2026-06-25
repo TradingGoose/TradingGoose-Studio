@@ -1,9 +1,13 @@
 import type { IncomingMessage } from 'http'
 import type { Duplex } from 'stream'
 import type { WebSocket, WebSocketServer } from 'ws'
+import type * as Y from 'yjs'
 import { buildReviewTargetDescriptorFromEnvelope } from '@/lib/copilot/review-sessions/identity'
 import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
 import { createLogger } from '@/lib/logs/console/logger'
+import { saveWorkflowYjsDocToDb } from '@/lib/workflows/db-helpers'
+import type { SavedEntityKind } from '@/lib/yjs/entity-state'
+import { saveSavedEntityYjsDocToDb } from '@/lib/yjs/server/apply-entity-state'
 import {
   createSavedReviewTargetBootstrapUpdate,
   getRuntimeStateFromDoc,
@@ -12,11 +16,38 @@ import { authenticateYjsConnection, YjsAuthError } from './auth'
 import { getExistingDocument, setupWSConnection } from './upstream-utils'
 
 const logger = createLogger('YjsWsHandler')
+const savedEntityKinds = new Set<SavedEntityKind>([
+  'skill',
+  'custom_tool',
+  'indicator',
+  'knowledge_base',
+  'mcp_server',
+])
 
 interface YjsIncomingMessage extends IncomingMessage {
   yjsSessionId?: string
   yjsUserId?: string
   yjsBootstrapState?: Uint8Array
+}
+
+async function persistIdleDocument(docId: string, doc: Y.Doc): Promise<void> {
+  const metadata = doc.getMap<unknown>('metadata')
+  const entityKind = metadata.get('entityKind')
+  if (
+    metadata.get('entityId') !== docId ||
+    metadata.get('draftSessionId') !== null ||
+    metadata.get('reviewSessionId') !== null
+  ) {
+    return
+  }
+
+  if (entityKind === 'workflow') {
+    await saveWorkflowYjsDocToDb(docId, doc)
+    return
+  }
+  if (typeof entityKind === 'string' && savedEntityKinds.has(entityKind as SavedEntityKind)) {
+    await saveSavedEntityYjsDocToDb(entityKind as SavedEntityKind, docId, doc)
+  }
 }
 
 export function handleYjsUpgrade(
@@ -141,7 +172,12 @@ function ensureConnectionHandler(wss: WebSocketServer): void {
 
     try {
       logger.info('Yjs connection established', { docId, userId: yjsReq.yjsUserId })
-      setupWSConnection(ws, req, { docId, gc: true, bootstrapState: yjsReq.yjsBootstrapState })
+      setupWSConnection(ws, req, {
+        docId,
+        gc: true,
+        bootstrapState: yjsReq.yjsBootstrapState,
+        onDocumentIdle: persistIdleDocument,
+      })
     } catch (error) {
       logger.error('Failed to attach Yjs connection', { docId, error })
       ws.close(4409, 'Failed to attach Yjs session')

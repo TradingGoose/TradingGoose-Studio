@@ -9,7 +9,7 @@ import {
   type SkillTransferRecord,
 } from '@/lib/skills/import-export'
 import { generateRequestId } from '@/lib/utils'
-import { applySavedEntityPersistedState } from '@/lib/yjs/server/apply-entity-state'
+import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('SkillsOperations')
@@ -151,7 +151,7 @@ export async function saveSkill({
     throw new Error(`A skill with the name "${currentSkill.name}" already exists in this workspace`)
   }
 
-  await applySavedEntityPersistedState('skill', currentSkill.id, workspaceId, {
+  await applySavedEntityState('skill', currentSkill.id, {
     name: currentSkill.name,
     description: currentSkill.description,
     content: currentSkill.content,

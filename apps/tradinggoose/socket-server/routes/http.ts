@@ -6,7 +6,12 @@ import {
 } from '@/lib/copilot/review-sessions/identity'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { env } from '@/lib/env'
+import { saveWorkflowYjsDocToDb } from '@/lib/workflows/db-helpers'
 import { seedEntitySession } from '@/lib/yjs/entity-session'
+import {
+  SavedEntityPersistenceError,
+  saveSavedEntityYjsDocToDb,
+} from '@/lib/yjs/server/apply-entity-state'
 import {
   createSavedReviewTargetBootstrapUpdate,
   getRuntimeStateFromDoc,
@@ -20,6 +25,7 @@ import {
 import { getMonitorRuntimeLockHealth } from '@/socket-server/monitor-runtime-lock'
 import {
   discardDocument,
+  discardDocumentIfIdle,
   getDocument,
   getExistingDocument,
 } from '@/socket-server/yjs/upstream-utils'
@@ -283,6 +289,8 @@ async function handleInternalYjsWorkflowApplyRequest(
     } else {
       setWorkflowEntityName(doc, body.entityName!)
     }
+    await saveWorkflowYjsDocToDb(workflowId, doc)
+    discardDocumentIfIdle(workflowId)
     sendJson(res, 200, { success: true })
   } catch (error) {
     logger.error('Error applying workflow state', { error, workflowId })
@@ -315,11 +323,18 @@ async function handleInternalYjsEntityApplyRequest(
       payload: body.fields,
     })
     clearSessionReseededFromCanonical(doc)
+    await saveSavedEntityYjsDocToDb(body.entityKind, entityId, doc)
+    discardDocumentIfIdle(entityId)
 
     sendJson(res, 200, { success: true })
   } catch (error) {
     logger.error('Error applying entity state', { error, entityId })
-    const status = error instanceof InvalidInternalYjsRequestError ? 400 : 500
+    const status =
+      error instanceof InvalidInternalYjsRequestError
+        ? 400
+        : error instanceof SavedEntityPersistenceError
+          ? error.status
+          : 500
     sendJson(res, status, {
       error: error instanceof Error ? error.message : 'Failed to apply entity state',
     })
@@ -353,11 +368,20 @@ async function handleInternalYjsSessionApplyUpdateRequest(
 
     Y.applyUpdate(doc, Buffer.from(updateBase64, 'base64'), YJS_ORIGINS.SAVE)
     clearSessionReseededFromCanonical(doc)
+    if (descriptor.entityKind !== 'workflow' && descriptor.entityId) {
+      await saveSavedEntityYjsDocToDb(descriptor.entityKind, descriptor.entityId, doc)
+      discardDocumentIfIdle(sessionId)
+    }
 
     sendJson(res, 200, { success: true })
   } catch (error) {
     logger.error('Error applying Yjs session update', { error, path: parsedUrl.pathname })
-    const status = error instanceof InvalidInternalYjsRequestError ? 400 : 500
+    const status =
+      error instanceof InvalidInternalYjsRequestError
+        ? 400
+        : error instanceof SavedEntityPersistenceError
+          ? error.status
+          : 500
     sendJson(res, status, {
       error: error instanceof Error ? error.message : 'Failed to apply session update',
     })
@@ -379,6 +403,7 @@ async function handleInternalYjsSnapshotRequest(
 
     const descriptor = buildReviewTargetDescriptorFromEnvelope(envelope)
     let liveDoc = await getExistingDocument(sessionId)
+    let bootstrappedForRequest = false
     if (!liveDoc && descriptor.entityId) {
       const bootstrapped = await createSavedReviewTargetBootstrapUpdate(descriptor)
       if (!bootstrapped.runtime || bootstrapped.runtime.docState !== 'active') {
@@ -386,6 +411,7 @@ async function handleInternalYjsSnapshotRequest(
         return
       }
       liveDoc = await getInitializedSessionDocument(sessionId, bootstrapped.state)
+      bootstrappedForRequest = true
     }
 
     if (!liveDoc) {
@@ -401,6 +427,9 @@ async function handleInternalYjsSnapshotRequest(
       runtime: getRuntimeStateFromDoc(liveDoc),
       touchedAt: null,
     })
+    if (bootstrappedForRequest) {
+      discardDocumentIfIdle(sessionId)
+    }
   } catch (error) {
     logger.error('Error getting Yjs snapshot', { error, path: parsedUrl.pathname })
     sendJson(res, 400, { error: 'Failed to get snapshot' })

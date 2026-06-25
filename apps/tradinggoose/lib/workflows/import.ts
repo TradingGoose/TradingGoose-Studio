@@ -1,6 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import {
-  remapVariableIds,
   resolveImportedWorkflowName,
   type WorkflowTransferRecord,
 } from '@/lib/workflows/import-export'
@@ -19,6 +18,7 @@ type CreateWorkflowParams = {
   name: string
   description: string
   workspaceId: string
+  initialWorkflowState: ImportedWorkflowState
 }
 
 type ImportWorkflowFromJsonContentParams = {
@@ -27,7 +27,6 @@ type ImportWorkflowFromJsonContentParams = {
   existingWorkflowNames: Iterable<string>
   importedSkillsBySourceName?: Map<string, ImportedWorkflowSkill>
   createWorkflow: (params: CreateWorkflowParams) => Promise<string>
-  persistWorkflowState: (workflowId: string, state: ImportedWorkflowState) => Promise<void>
 }
 
 function relinkWorkflowSkillValues(
@@ -95,7 +94,6 @@ export async function importWorkflowFromJsonContent({
   existingWorkflowNames,
   importedSkillsBySourceName,
   createWorkflow,
-  persistWorkflowState,
 }: ImportWorkflowFromJsonContentParams): Promise<string> {
   if (!workspaceId) {
     throw new Error('Workspace ID is required to import workflows')
@@ -126,20 +124,12 @@ export async function importWorkflowFromJsonContent({
     name: resolvedName,
     description: workflowData.description,
     workspaceId,
+    initialWorkflowState: workflowData.state,
   })
 
   logger.info('Created workflow row for imported workflow', {
     workflowId,
     workflowName: resolvedName,
-  })
-
-  await persistWorkflowState(workflowId, {
-    ...workflowData.state,
-    variables: remapVariableIds(workflowData.state.variables, workflowId),
-  })
-
-  logger.info('Persisted imported workflow state', {
-    workflowId,
   })
 
   return workflowId

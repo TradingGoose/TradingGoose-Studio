@@ -891,6 +891,54 @@ export async function saveWorkflowToNormalizedTables(
   }
 }
 
+export async function saveWorkflowYjsDocToDb(workflowId: string, doc: Y.Doc): Promise<void> {
+  const state = extractPersistedStateFromDoc(doc)
+  const entityName = doc.getMap('metadata').get('entityName')
+  const workflowName = typeof entityName === 'string' ? entityName.trim() : ''
+  const syncedAt = new Date()
+  const workflowState: WorkflowState = {
+    ...(state.direction !== undefined ? { direction: state.direction } : {}),
+    blocks: state.blocks,
+    edges: state.edges,
+    loops: state.loops,
+    parallels: state.parallels,
+    lastSaved: syncedAt.toISOString(),
+    isDeployed: state.isDeployed,
+    deployedAt: state.deployedAt,
+  }
+
+  const saveResult = await saveWorkflowToNormalizedTables(workflowId, workflowState, async (tx) => {
+    const [updatedWorkflow] = await tx
+      .update(workflow)
+      .set({
+        lastSynced: syncedAt,
+        updatedAt: syncedAt,
+        ...(workflowName ? { name: workflowName } : {}),
+        variables: state.variables,
+        ...(state.isDeployed === undefined
+          ? {}
+          : {
+              isDeployed: state.isDeployed,
+              deployedAt: state.isDeployed
+                ? state.deployedAt
+                  ? new Date(state.deployedAt)
+                  : syncedAt
+                : null,
+            }),
+      })
+      .where(eq(workflow.id, workflowId))
+      .returning({ id: workflow.id })
+
+    if (!updatedWorkflow) {
+      throw new Error('Workflow not found')
+    }
+  })
+
+  if (!saveResult.success) {
+    throw new Error(saveResult.error || 'Failed to materialize workflow Yjs state')
+  }
+}
+
 /**
  * Deploy a workflow by creating a new deployment version
  */

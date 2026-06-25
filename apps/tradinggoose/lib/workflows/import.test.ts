@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { importWorkflowFromJsonContent } from '@/lib/workflows/import'
 
 describe('workflow import orchestration', () => {
-  it('creates the workflow row before persisting the imported state', async () => {
+  it('creates the workflow with imported state as creation-time initialization', async () => {
     const payload = {
       version: '1',
       fileType: 'tradingGooseExport',
@@ -44,50 +44,34 @@ describe('workflow import orchestration', () => {
         name: string
         description: string
         workspaceId: string
+        initialWorkflowState: any
       }) => {
         callOrder.push('createWorkflow')
         expect(params).toMatchObject({
           name: 'Primary Workflow (imported) 1',
           description: 'Workflow imported from the unified schema',
           workspaceId: 'workspace-1',
+          initialWorkflowState: {
+            edges: [],
+            loops: {},
+            parallels: {},
+          },
         })
+        expect(Object.keys(params.initialWorkflowState.blocks)).toHaveLength(1)
         return 'workflow-1'
       }
     )
-
-    const persistWorkflowState = vi.fn(async (workflowId: string, state: unknown) => {
-      callOrder.push('persistWorkflowState')
-      expect(workflowId).toBe('workflow-1')
-      expect(state).toMatchObject({
-        edges: [],
-        loops: {},
-        parallels: {},
-        variables: {},
-      })
-
-      expect(Object.keys((state as { blocks: Record<string, unknown> }).blocks)).toHaveLength(1)
-
-      const [firstBlock] = Object.values(
-        (state as { blocks: Record<string, { type: string; name: string }> }).blocks
-      )
-      expect(firstBlock).toMatchObject({
-        type: 'agent',
-        name: 'Agent 1',
-      })
-    })
 
     const workflowId = await importWorkflowFromJsonContent({
       content: JSON.stringify(payload),
       workspaceId: 'workspace-1',
       existingWorkflowNames: ['Primary Workflow'],
       createWorkflow,
-      persistWorkflowState,
     })
 
     expect(workflowId).toBe('workflow-1')
-    expect(callOrder).toEqual(['createWorkflow', 'persistWorkflowState'])
+    expect(callOrder).toEqual(['createWorkflow'])
     expect(createWorkflow).toHaveBeenCalledTimes(1)
-    expect(persistWorkflowState).toHaveBeenCalledTimes(1)
   })
 
   it('relinks imported skills into workflow blocks before persisting', async () => {
@@ -182,64 +166,54 @@ describe('workflow import orchestration', () => {
         name: string
         description: string
         workspaceId: string
+        initialWorkflowState: any
       }) => {
         expect(params).toMatchObject({
           name: 'Primary Workflow (imported) 1',
           description: 'Workflow imported from the unified schema',
           workspaceId: 'workspace-1',
         })
+
+        const workflowState = params.initialWorkflowState as {
+          variables: Record<string, unknown>
+          blocks: Record<
+            string,
+            {
+              subBlocks?: Record<
+                string,
+                {
+                  value?: Array<{ skillId: string; name: string }>
+                }
+              >
+            }
+          >
+        }
+
+        expect(workflowState.variables).toEqual({
+          'var-1': {
+            id: 'var-1',
+            workflowId: 'workflow-source',
+            name: 'risk',
+            type: 'plain',
+            value: 'medium',
+          },
+        })
+
+        const [firstBlock] = Object.values(workflowState.blocks)
+
+        expect(firstBlock?.subBlocks?.skills?.value).toEqual([
+          {
+            skillId: 'skill-1',
+            name: 'Market Research (imported) 1',
+          },
+          {
+            skillId: 'skill-2',
+            name: 'Execution Plan',
+          },
+        ])
         return 'workflow-1'
       }
     )
-
-    const persistWorkflowState = vi.fn(async (workflowId: string, state: unknown) => {
-      expect(workflowId).toBe('workflow-1')
-
-      const workflowState = state as {
-        variables: Record<string, unknown>
-        blocks: Record<
-          string,
-          {
-            subBlocks?: Record<
-              string,
-              {
-                value?: Array<{ skillId: string; name: string }>
-              }
-            >
-          }
-        >
-      }
-
-      const [remappedVariable] = Object.values(workflowState.variables) as Array<{
-        id: string
-        workflowId: string
-        name: string
-        type: string
-        value: string
-      }>
-      expect(Object.keys(workflowState.variables)).toHaveLength(1)
-      expect(workflowState.variables[remappedVariable.id]).toBe(remappedVariable)
-      expect(remappedVariable).toMatchObject({
-        workflowId: 'workflow-1',
-        name: 'risk',
-        type: 'plain',
-        value: 'medium',
-      })
-      expect(remappedVariable.id).not.toBe('var-1')
-
-      const [firstBlock] = Object.values(workflowState.blocks)
-
-      expect(firstBlock?.subBlocks?.skills?.value).toEqual([
-        {
-          skillId: 'skill-1',
-          name: 'Market Research (imported) 1',
-        },
-        {
-          skillId: 'skill-2',
-          name: 'Execution Plan',
-        },
-      ])
-    })
 
     const workflowId = await importWorkflowFromJsonContent({
       content: JSON.stringify(payload),
@@ -247,11 +221,9 @@ describe('workflow import orchestration', () => {
       existingWorkflowNames: ['Primary Workflow'],
       importedSkillsBySourceName,
       createWorkflow,
-      persistWorkflowState,
     })
 
     expect(workflowId).toBe('workflow-1')
     expect(createWorkflow).toHaveBeenCalledTimes(1)
-    expect(persistWorkflowState).toHaveBeenCalledTimes(1)
   })
 })

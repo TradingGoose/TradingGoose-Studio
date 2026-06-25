@@ -96,13 +96,7 @@ describe('Workflow By ID API Route', () => {
 
   function expectWorkflowRenameApplied() {
     expect(mockLoadWorkflowState).not.toHaveBeenCalled()
-    expect(mockApplyWorkflowEntityName).toHaveBeenCalledWith(
-      'workflow-123',
-      'Updated Workflow',
-      expect.objectContaining({
-        updatedAt: expect.any(Date),
-      })
-    )
+    expect(mockApplyWorkflowEntityName).toHaveBeenCalledWith('workflow-123', 'Updated Workflow')
   }
 
   describe('GET /api/workflows/[id]', () => {

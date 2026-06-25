@@ -18,6 +18,22 @@ import {
   getExistingDocument,
 } from '@/socket-server/yjs/upstream-utils'
 
+const {
+  mockSaveSavedEntityYjsDocToDb,
+  mockSaveWorkflowYjsDocToDb,
+  savedEntityStates,
+  savedWorkflowStates,
+} = vi.hoisted(() => ({
+  mockSaveSavedEntityYjsDocToDb: vi.fn(),
+  mockSaveWorkflowYjsDocToDb: vi.fn(),
+  savedEntityStates: [] as Array<{
+    entityKind: string
+    entityId: string
+    fields: Record<string, unknown>
+  }>,
+  savedWorkflowStates: [] as Array<ReturnType<typeof extractPersistedStateFromDoc>>,
+}))
+
 vi.mock(import('@/lib/env'), async (importOriginal) => {
   const actual = await importOriginal()
   return {
@@ -34,6 +50,22 @@ const INTERNAL_SECRET = '12345678901234567890123456789012'
 vi.mock('@/lib/redis', () => ({
   getRedisClient: vi.fn(() => null),
   getRedisStorageMode: vi.fn(() => 'local'),
+}))
+
+vi.mock('@/lib/workflows/db-helpers', () => ({
+  saveWorkflowYjsDocToDb: mockSaveWorkflowYjsDocToDb,
+}))
+
+vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
+  SavedEntityPersistenceError: class SavedEntityPersistenceError extends Error {
+    constructor(
+      public status: number,
+      message: string
+    ) {
+      super(message)
+    }
+  },
+  saveSavedEntityYjsDocToDb: mockSaveSavedEntityYjsDocToDb,
 }))
 
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
@@ -185,6 +217,18 @@ describe('Socket Server Index Integration', () => {
 
   beforeEach(async () => {
     cleanupAllDocuments()
+    savedWorkflowStates.length = 0
+    savedEntityStates.length = 0
+    mockSaveWorkflowYjsDocToDb.mockImplementation(async (_workflowId, doc) => {
+      savedWorkflowStates.push(extractPersistedStateFromDoc(doc))
+    })
+    mockSaveSavedEntityYjsDocToDb.mockImplementation(async (entityKind, entityId, doc) => {
+      savedEntityStates.push({
+        entityKind,
+        entityId,
+        fields: getEntityFields(doc, entityKind),
+      })
+    })
 
     // Create HTTP server
     httpServer = createServer()
@@ -312,31 +356,21 @@ describe('Socket Server Index Integration', () => {
       )
 
       expect(response.statusCode).toBe(200)
-      expect(await getExistingDocument('workflow-1')).toBeTruthy()
-
-      const persisted = await getExistingDocument('workflow-1')
-      expect(persisted).toBeTruthy()
-
-      const doc = new Y.Doc()
-      try {
-        Y.applyUpdate(doc, Y.encodeStateAsUpdate(persisted!))
-        const state = extractPersistedStateFromDoc(doc)
-        expect(state.blocks['block-1']).toEqual(
-          expect.objectContaining({
-            id: 'block-1',
-            name: 'Applied Agent',
-          })
-        )
-        expect(state.variables.var1).toEqual(
-          expect.objectContaining({
-            id: 'var1',
-            name: 'token',
-            value: 'secret',
-          })
-        )
-      } finally {
-        doc.destroy()
-      }
+      expect(mockSaveWorkflowYjsDocToDb).toHaveBeenCalledWith('workflow-1', expect.any(Y.Doc))
+      expect(await getExistingDocument('workflow-1')).toBeNull()
+      expect(savedWorkflowStates[0]?.blocks['block-1']).toEqual(
+        expect.objectContaining({
+          id: 'block-1',
+          name: 'Applied Agent',
+        })
+      )
+      expect(savedWorkflowStates[0]?.variables.var1).toEqual(
+        expect.objectContaining({
+          id: 'var1',
+          name: 'token',
+          value: 'secret',
+        })
+      )
 
       const renameResponse = await sendHttpRequestWithOptions(
         PORT,
@@ -352,23 +386,8 @@ describe('Socket Server Index Integration', () => {
       )
 
       expect(renameResponse.statusCode).toBe(200)
-      const renamedPersisted = await getExistingDocument('workflow-1')
-      expect(renamedPersisted).toBeTruthy()
-
-      const renamedDoc = new Y.Doc()
-      try {
-        Y.applyUpdate(renamedDoc, Y.encodeStateAsUpdate(renamedPersisted!))
-        const renamedState = extractPersistedStateFromDoc(renamedDoc)
-        expect(renamedState.blocks['block-1']).toEqual(
-          expect.objectContaining({
-            id: 'block-1',
-            name: 'Applied Agent',
-          })
-        )
-        expect(renamedDoc.getMap('metadata').get('entityName')).toBe('Renamed Workflow')
-      } finally {
-        renamedDoc.destroy()
-      }
+      expect(mockSaveWorkflowYjsDocToDb).toHaveBeenCalledTimes(2)
+      expect(await getExistingDocument('workflow-1')).toBeNull()
     })
 
     it('should apply saved entity state through Yjs', async () => {
@@ -393,23 +412,18 @@ describe('Socket Server Index Integration', () => {
       )
 
       expect(response.statusCode).toBe(200)
-      expect(await getExistingDocument('skill-1')).toBeTruthy()
-
-      const persisted = await getExistingDocument('skill-1')
-      expect(persisted).toBeTruthy()
-
-      const doc = new Y.Doc()
-      try {
-        Y.applyUpdate(doc, Y.encodeStateAsUpdate(persisted!))
-        expect(getEntityFields(doc, 'skill')).toEqual({
-          name: 'Risk Skill',
-          description: 'Position sizing rules',
-          content: 'Keep risk below one percent.',
-        })
-        expect(doc.getMap('metadata').get('reseededFromCanonical')).toBeUndefined()
-      } finally {
-        doc.destroy()
-      }
+      expect(savedEntityStates).toEqual([
+        {
+          entityKind: 'skill',
+          entityId: 'skill-1',
+          fields: {
+            name: 'Risk Skill',
+            description: 'Position sizing rules',
+            content: 'Keep risk below one percent.',
+          },
+        },
+      ])
+      expect(await getExistingDocument('skill-1')).toBeNull()
     })
 
     it('should return the internal Yjs workflow snapshot through the generic session route', async () => {
@@ -499,7 +513,7 @@ describe('Socket Server Index Integration', () => {
       )
 
       expect(response.statusCode).toBe(200)
-      expect(await getExistingDocument('missing-workflow')).toBeTruthy()
+      expect(await getExistingDocument('missing-workflow')).toBeNull()
     })
 
     it('should bootstrap a saved entity snapshot into a live Yjs document', async () => {
@@ -515,7 +529,7 @@ describe('Socket Server Index Integration', () => {
       )
 
       expect(response.statusCode).toBe(200)
-      expect(await getExistingDocument('skill-stale')).toBeTruthy()
+      expect(await getExistingDocument('skill-stale')).toBeNull()
     })
   })
 

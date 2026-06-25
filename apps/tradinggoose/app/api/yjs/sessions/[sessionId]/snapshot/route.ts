@@ -6,16 +6,14 @@ import {
 } from '@/lib/copilot/review-sessions/identity'
 import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
 import { mcpService } from '@/lib/mcp/service'
-import type { SavedEntityKind } from '@/lib/yjs/entity-state'
-import {
-  persistSavedEntityYjsState,
-  SavedEntityPersistenceError,
-} from '@/lib/yjs/server/apply-entity-state'
 import {
   ReviewTargetBootstrapError,
   readBootstrappedReviewTargetSnapshot,
 } from '@/lib/yjs/server/bootstrap-review-target'
-import { applyYjsUpdateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import {
+  applyYjsUpdateInSocketServer,
+  SocketServerBridgeError,
+} from '@/lib/yjs/server/snapshot-bridge'
 
 export const dynamic = 'force-dynamic'
 
@@ -110,7 +108,6 @@ export async function POST(
   if (descriptor.entityKind === 'workflow' || !descriptor.entityId || !descriptor.workspaceId) {
     return NextResponse.json({ error: 'Saved entity Yjs session required' }, { status: 400 })
   }
-  const entityKind: SavedEntityKind = descriptor.entityKind
 
   try {
     const { updateBase64 } = (await request.json().catch(() => ({}))) as {
@@ -125,7 +122,6 @@ export async function POST(
       request.nextUrl.search,
       updateBase64
     )
-    await persistSavedEntityYjsState(entityKind, descriptor.entityId, descriptor.workspaceId)
 
     if (descriptor.entityKind === 'mcp_server') {
       mcpService.clearCache(descriptor.workspaceId)
@@ -133,11 +129,14 @@ export async function POST(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    if (
-      error instanceof SavedEntityPersistenceError ||
-      error instanceof ReviewTargetBootstrapError
-    ) {
+    if (error instanceof ReviewTargetBootstrapError) {
       return NextResponse.json({ error: error.message }, { status: error.status })
+    }
+    if (error instanceof SocketServerBridgeError) {
+      return NextResponse.json(
+        { error: error.body || 'Failed to save Yjs session' },
+        { status: error.status }
+      )
     }
 
     return NextResponse.json({ error: 'Failed to save Yjs session' }, { status: 500 })

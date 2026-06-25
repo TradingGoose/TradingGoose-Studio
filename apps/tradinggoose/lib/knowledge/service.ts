@@ -21,7 +21,7 @@ import type {
 } from '@/lib/knowledge/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess, getUserEntityPermissions } from '@/lib/permissions/utils'
-import { applySavedEntityPersistedState } from '@/lib/yjs/server/apply-entity-state'
+import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('KnowledgeBaseService')
@@ -369,10 +369,9 @@ export async function applyKnowledgeBaseMetadata(
     throw new Error(`Knowledge base ${knowledgeBaseId} not found`)
   }
 
-  await applySavedEntityPersistedState(
+  await applySavedEntityState(
     ENTITY_KIND_KNOWLEDGE_BASE,
     knowledgeBaseId,
-    existing.workspaceId,
     fields
   )
 

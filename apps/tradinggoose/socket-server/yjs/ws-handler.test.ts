@@ -99,6 +99,14 @@ beforeEach(() => {
     })),
   }))
 
+  vi.doMock('@/lib/workflows/db-helpers', () => ({
+    saveWorkflowYjsDocToDb: vi.fn(),
+  }))
+
+  vi.doMock('@/lib/yjs/server/apply-entity-state', () => ({
+    saveSavedEntityYjsDocToDb: vi.fn(),
+  }))
+
   vi.doMock('./upstream-utils', () => ({
     getExistingDocument: mockGetExistingDocument,
     setupWSConnection: mockSetupWSConnection,
