@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('Workflow Duplicate API Route', () => {
   let loadWorkflowStateMock: ReturnType<typeof vi.fn>
-  let remapVariableIdsMock: ReturnType<typeof vi.fn>
   let regenerateWorkflowStateIdsMock: ReturnType<typeof vi.fn>
   let saveWorkflowToNormalizedTablesMock: ReturnType<typeof vi.fn>
   let insertValuesMock: ReturnType<typeof vi.fn>
@@ -43,18 +42,6 @@ describe('Workflow Duplicate API Route', () => {
     vi.clearAllMocks()
 
     loadWorkflowStateMock = vi.fn()
-    remapVariableIdsMock = vi.fn((variables, newWorkflowId: string) =>
-      Object.fromEntries(
-        Object.values(variables as Record<string, any>).map((variable, index) => [
-          `remapped-${index + 1}`,
-          {
-            ...variable,
-            id: `remapped-${index + 1}`,
-            workflowId: newWorkflowId,
-          },
-        ])
-      )
-    )
     regenerateWorkflowStateIdsMock = vi.fn((state) => JSON.parse(JSON.stringify(state)))
     saveWorkflowToNormalizedTablesMock = vi.fn(async (_workflowId, state) => ({
       success: true,
@@ -124,7 +111,6 @@ describe('Workflow Duplicate API Route', () => {
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
       loadWorkflowState: loadWorkflowStateMock,
-      remapVariableIds: remapVariableIdsMock,
       regenerateWorkflowStateIds: regenerateWorkflowStateIdsMock,
       saveWorkflowToNormalizedTables: saveWorkflowToNormalizedTablesMock,
     }))

@@ -5,10 +5,11 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { generateRequestId } from '@/lib/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
+import { generateRequestId } from '@/lib/utils'
+import { regenerateWorkflowStateIds } from '@/lib/workflows/db-helpers'
+import { remapVariableIds } from '@/lib/workflows/import-export'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
-import { regenerateWorkflowStateIds, remapVariableIds } from '@/lib/workflows/db-helpers'
 
 const logger = createLogger('TemplateUseAPI')
 
@@ -65,7 +66,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const now = new Date()
 
     const templateState =
-      templateData.state && typeof templateData.state === 'object' ? (templateData.state as any) : null
+      templateData.state && typeof templateData.state === 'object'
+        ? (templateData.state as any)
+        : null
 
     const templateVariables = normalizeVariables(templateState?.variables)
     const remappedVariables = remapVariableIds(templateVariables, newWorkflowId)

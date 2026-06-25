@@ -22,7 +22,6 @@ import { sanitizeAgentToolsInBlocks } from '@/lib/workflows/validation'
 import { inferWorkflowDirectionFromState } from '@/lib/workflows/workflow-direction'
 import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
 import { extractPersistedStateFromDoc } from '@/lib/yjs/workflow-session'
-import type { Variable } from '@/stores/variables/types'
 import type {
   BlockState,
   Loop,
@@ -216,29 +215,6 @@ export function toISOStringOrUndefined(
   value: string | number | Date | null | undefined
 ): string | undefined {
   return resolveStoredDateValue(value)?.toISOString()
-}
-
-/**
- * Create a deep copy of a variables record with fresh IDs and the given
- * `newWorkflowId`.  Used when duplicating a workflow or instantiating a
- * template so variable references are independent.
- */
-export function remapVariableIds(
-  sourceVariables: Record<string, Variable>,
-  newWorkflowId: string
-): Record<string, Variable> {
-  const remapped: Record<string, Variable> = {}
-
-  for (const variable of Object.values(sourceVariables)) {
-    const newVarId = crypto.randomUUID()
-    remapped[newVarId] = {
-      ...variable,
-      id: newVarId,
-      workflowId: newWorkflowId,
-    }
-  }
-
-  return remapped
 }
 
 export async function ensureUniqueBlockIds(

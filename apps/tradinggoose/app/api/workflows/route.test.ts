@@ -88,18 +88,6 @@ describe('Workflow API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
-      remapVariableIds: vi.fn((variables: Record<string, any>, workflowId: string) =>
-        Object.fromEntries(
-          Object.entries(variables).map(([key, variable]) => [
-            key,
-            {
-              ...variable,
-              id: crypto.randomUUID(),
-              workflowId,
-            },
-          ])
-        )
-      ),
       saveWorkflowToNormalizedTables: saveWorkflowToNormalizedTablesMock,
     }))
 

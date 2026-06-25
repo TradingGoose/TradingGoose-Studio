@@ -1,6 +1,6 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import { remapVariableIds } from '@/lib/workflows/db-helpers'
 import {
+  remapVariableIds,
   resolveImportedWorkflowName,
   type WorkflowTransferRecord,
 } from '@/lib/workflows/import-export'

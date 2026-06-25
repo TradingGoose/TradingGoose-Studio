@@ -12,6 +12,7 @@ import {
 import { type ExportWorkflowState, sanitizeForExport } from '@/lib/workflows/json-sanitizer'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import type { SkillDefinition } from '@/stores/skills/types'
+import type { Variable } from '@/stores/variables/types'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
 export const WORKFLOW_EXPORT_SOURCE = 'workflowEditor'
@@ -46,15 +47,32 @@ type ParseWorkflowImportResult = {
   matched: boolean
 }
 
-const WorkflowTransferSchema = z
-  .object({
-    name: z
-      .string()
-      .transform(normalizeInlineWhitespace)
-      .pipe(z.string().min(1, 'Workflow name is required')),
-    description: z.string().transform(normalizeString).optional().default(''),
-    state: z.unknown(),
-  })
+export function remapVariableIds(
+  sourceVariables: Record<string, Variable>,
+  newWorkflowId: string
+): Record<string, Variable> {
+  const remapped: Record<string, Variable> = {}
+
+  for (const variable of Object.values(sourceVariables)) {
+    const newVarId = crypto.randomUUID()
+    remapped[newVarId] = {
+      ...variable,
+      id: newVarId,
+      workflowId: newWorkflowId,
+    }
+  }
+
+  return remapped
+}
+
+const WorkflowTransferSchema = z.object({
+  name: z
+    .string()
+    .transform(normalizeInlineWhitespace)
+    .pipe(z.string().min(1, 'Workflow name is required')),
+  description: z.string().transform(normalizeString).optional().default(''),
+  state: z.unknown(),
+})
 
 const WorkflowImportEnvelopeSchema = TradingGooseExportEnvelopeSchema.extend({
   workflows: z.array(WorkflowTransferSchema).length(1, 'Exactly one workflow is required'),

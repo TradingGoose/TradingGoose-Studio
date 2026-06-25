@@ -11,9 +11,9 @@ import { generateRequestId } from '@/lib/utils'
 import {
   loadWorkflowState,
   regenerateWorkflowStateIds,
-  remapVariableIds,
   saveWorkflowToNormalizedTables,
 } from '@/lib/workflows/db-helpers'
+import { remapVariableIds } from '@/lib/workflows/import-export'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import type { Variable } from '@/stores/variables/types'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
