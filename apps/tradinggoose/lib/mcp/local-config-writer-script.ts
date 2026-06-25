@@ -131,7 +131,12 @@ function findTomlSection(text, sectionHeader) {
 }
 
 function readJsonToken(filePath, section) {
-  const config = readJson(filePath)
+  let config
+  try {
+    config = readJson(filePath)
+  } catch {
+    return null
+  }
   return bearerTokenFromHeader(config?.[section]?.[mcpServerName]?.headers?.Authorization)
 }
 

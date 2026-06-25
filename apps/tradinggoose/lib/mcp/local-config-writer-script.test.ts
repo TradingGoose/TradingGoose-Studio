@@ -109,6 +109,17 @@ describe('MCP local config writer script', () => {
     expect(stdout.trim()).toBe('existing-token')
   })
 
+  it('skips malformed JSON client configs while discovering existing tokens', () => {
+    const home = mkdtempSync(join(tmpdir(), 'tg-mcp-token-malformed-'))
+    mkdirSync(join(home, '.cursor'), { recursive: true })
+    writeFileSync(join(home, '.cursor', 'mcp.json'), '{', 'utf8')
+    runWriter(home, ['claude', 'http://localhost:3000/api/copilot/mcp', 'valid-token'])
+
+    const stdout = runWriterCapture(home, ['read-tokens'])
+
+    expect(stdout.trim()).toBe('valid-token')
+  })
+
   it('writes JSON client configs with the TradingGoose server name', () => {
     const home = mkdtempSync(join(tmpdir(), 'tg-mcp-cursor-'))
     const configPath = join(home, '.cursor', 'mcp.json')
