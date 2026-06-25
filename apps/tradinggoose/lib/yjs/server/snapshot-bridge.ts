@@ -45,23 +45,36 @@ function getInternalSecret(): string {
 async function fetchFromSocketServer(
   url: URL,
   init: RequestInit,
-  timeoutMs = 5000
+  timeoutMs = 5000,
+  attempts = 1
 ): Promise<Response> {
   const headers = new Headers(init.headers)
   headers.set('x-internal-secret', getInternalSecret())
 
-  const response = await fetch(url.toString(), {
-    ...init,
-    headers,
-    signal: AbortSignal.timeout(timeoutMs),
-  })
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const response = await fetch(url.toString(), {
+        ...init,
+        headers,
+        signal: AbortSignal.timeout(timeoutMs),
+      })
 
-  if (!response.ok) {
-    const body = await response.text().catch(() => '')
-    throw new SocketServerBridgeError(response.status, body)
+      if (!response.ok) {
+        const body = await response.text().catch(() => '')
+        throw new SocketServerBridgeError(response.status, body)
+      }
+
+      return response
+    } catch (error) {
+      const canRetry =
+        attempt < attempts && !(error instanceof SocketServerBridgeError && error.status < 500)
+      if (!canRetry) {
+        throw error
+      }
+    }
   }
 
-  return response
+  throw new Error('Socket server bridge failed')
 }
 
 async function postJsonToSocketServer(path: string, body: unknown): Promise<void> {
@@ -90,7 +103,7 @@ export async function getYjsSnapshot(
     }
   }
 
-  const response = await fetchFromSocketServer(url, { method: 'GET' })
+  const response = await fetchFromSocketServer(url, { method: 'GET' }, 5000, 3)
   return response.json() as Promise<YjsSnapshotResponse>
 }
 
