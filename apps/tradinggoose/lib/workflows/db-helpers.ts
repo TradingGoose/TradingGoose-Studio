@@ -12,10 +12,15 @@ import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import * as Y from 'yjs'
 import { reconcilePublishedChatsForDeploymentTx } from '@/lib/chat/published-deployment'
+import {
+  buildYjsTransportEnvelope,
+  serializeYjsTransportEnvelope,
+} from '@/lib/copilot/review-sessions/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import { resolveStoredDateValue } from '@/lib/time-format'
 import { sanitizeAgentToolsInBlocks } from '@/lib/workflows/validation'
 import { inferWorkflowDirectionFromState } from '@/lib/workflows/workflow-direction'
+import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
 import { extractPersistedStateFromDoc } from '@/lib/yjs/workflow-session'
 import type { Variable } from '@/stores/variables/types'
 import type {
@@ -96,22 +101,22 @@ export type PersistedWorkflowState = {
 export async function loadWorkflowStateFromYjs(
   workflowId: string
 ): Promise<PersistedWorkflowState | null> {
-  const { readBootstrappedReviewTargetSnapshot, ReviewTargetBootstrapError } = await import(
-    '@/lib/yjs/server/bootstrap-review-target'
-  )
-
-  let snapshot: Awaited<ReturnType<typeof readBootstrappedReviewTargetSnapshot>>
+  const descriptor = {
+    workspaceId: null,
+    entityKind: 'workflow' as const,
+    entityId: workflowId,
+    draftSessionId: null,
+    reviewSessionId: null,
+    yjsSessionId: workflowId,
+  }
+  let snapshot: Awaited<ReturnType<typeof getYjsSnapshot>>
   try {
-    snapshot = await readBootstrappedReviewTargetSnapshot({
-      workspaceId: null,
-      entityKind: 'workflow',
-      entityId: workflowId,
-      draftSessionId: null,
-      reviewSessionId: null,
-      yjsSessionId: workflowId,
-    })
+    snapshot = await getYjsSnapshot(
+      workflowId,
+      serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
+    )
   } catch (error) {
-    if (error instanceof ReviewTargetBootstrapError && error.status === 404) {
+    if (error instanceof SocketServerBridgeError && error.status === 404) {
       return null
     }
     throw error

@@ -110,19 +110,21 @@ vi.doMock('@/lib/logs/console/logger', () => ({
 }))
 
 const mockReconcilePublishedChatsForDeploymentTx = vi.fn()
-const mockReadBootstrappedReviewTargetSnapshot = vi.fn()
-class MockReviewTargetBootstrapError extends Error {
+const mockGetYjsSnapshot = vi.fn()
+class MockSocketServerBridgeError extends Error {
+  body = ''
+
   constructor(
     public status: number,
     message: string
   ) {
     super(message)
-    this.name = 'ReviewTargetBootstrapError'
+    this.name = 'SocketServerBridgeError'
   }
 }
-vi.doMock('@/lib/yjs/server/bootstrap-review-target', () => ({
-  readBootstrappedReviewTargetSnapshot: mockReadBootstrappedReviewTargetSnapshot,
-  ReviewTargetBootstrapError: MockReviewTargetBootstrapError,
+vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
+  getYjsSnapshot: mockGetYjsSnapshot,
+  SocketServerBridgeError: MockSocketServerBridgeError,
 }))
 
 vi.doMock('@/lib/chat/published-deployment', () => ({
@@ -336,9 +338,7 @@ describe('Database Helpers', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockReadBootstrappedReviewTargetSnapshot.mockRejectedValue(
-      new MockReviewTargetBootstrapError(404, 'Not found')
-    )
+    mockGetYjsSnapshot.mockRejectedValue(new MockSocketServerBridgeError(404, 'Not found'))
     mockReconcilePublishedChatsForDeploymentTx.mockResolvedValue(undefined)
     mockDb.select.mockReturnValue({
       from: vi.fn().mockReturnValue({
@@ -925,7 +925,7 @@ describe('Database Helpers', () => {
       })
 
       expect(result.success).toBe(true)
-      expect(mockReadBootstrappedReviewTargetSnapshot).toHaveBeenCalled()
+      expect(mockGetYjsSnapshot).toHaveBeenCalled()
       expect(result.currentState).toMatchObject({
         blocks: expect.objectContaining({
           'block-1': expect.objectContaining({ id: 'block-1' }),
@@ -964,7 +964,7 @@ describe('Database Helpers', () => {
   })
 
   describe('loadWorkflowStateFromYjs', () => {
-    it('should decode the workflow state from the bootstrapped Yjs snapshot', async () => {
+    it('should decode the workflow state from an existing Yjs snapshot', async () => {
       const yjsState = {
         blocks: {
           'block-yjs': {
@@ -991,17 +991,18 @@ describe('Database Helpers', () => {
         },
       }
 
-      mockReadBootstrappedReviewTargetSnapshot.mockResolvedValue(
+      mockGetYjsSnapshot.mockResolvedValue(
         buildWorkflowSnapshotResponseFromState(yjsState, yjsVariables)
       )
 
       const result = await dbHelpers.loadWorkflowStateFromYjs(mockWorkflowId)
 
-      expect(mockReadBootstrappedReviewTargetSnapshot).toHaveBeenCalledWith(
+      expect(mockGetYjsSnapshot).toHaveBeenCalledWith(
+        mockWorkflowId,
         expect.objectContaining({
+          sessionId: mockWorkflowId,
           entityKind: 'workflow',
           entityId: mockWorkflowId,
-          yjsSessionId: mockWorkflowId,
         })
       )
       expect(result).toMatchObject({
@@ -1028,7 +1029,7 @@ describe('Database Helpers', () => {
         'var-yjs': { id: 'var-yjs', value: 'latest' },
       }
 
-      mockReadBootstrappedReviewTargetSnapshot.mockResolvedValue(
+      mockGetYjsSnapshot.mockResolvedValue(
         buildWorkflowSnapshotResponseFromState(yjsState, yjsVariables)
       )
       mockDb.select.mockReturnValue({
@@ -1067,7 +1068,7 @@ describe('Database Helpers', () => {
       }
       let normalizedQueryCount = 0
 
-      mockReadBootstrappedReviewTargetSnapshot.mockResolvedValue(
+      mockGetYjsSnapshot.mockResolvedValue(
         buildWorkflowSnapshotResponseFromState(yjsState, {
           'var-yjs': { id: 'var-yjs', value: 'stale' },
         })
@@ -1177,7 +1178,7 @@ describe('Database Helpers', () => {
         deployedAt: deployedAt.toISOString(),
         source: 'db',
       })
-      expect(mockReadBootstrappedReviewTargetSnapshot).toHaveBeenCalled()
+      expect(mockGetYjsSnapshot).toHaveBeenCalled()
     })
   })
 
