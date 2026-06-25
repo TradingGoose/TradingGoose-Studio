@@ -8,11 +8,8 @@ import { extractSubBlockValuesFromBlocks } from '@/lib/copilot/workflow/block-ou
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
-import {
-  isWorkflowRealtimeRequiredError,
-  loadEditableWorkflowState,
-  WORKFLOW_REALTIME_REQUIRED_CODE,
-} from '@/lib/workflows/db-helpers'
+import { loadEditableWorkflowState } from '@/lib/workflows/db-helpers'
+import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
 import { getAllBlocks } from '@/blocks/registry'
 import type { BlockConfig } from '@/blocks/types'
 import { resolveOutputType } from '@/blocks/utils'
@@ -185,16 +182,8 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     logger.error(`[${requestId}] YAML export failed`, error)
-    if (isWorkflowRealtimeRequiredError(error)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Workflow realtime orchestration is required',
-          code: WORKFLOW_REALTIME_REQUIRED_CODE,
-        },
-        { status: 503 }
-      )
-    }
+    const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
+    if (realtimeResponse) return realtimeResponse
     return NextResponse.json(
       {
         success: false,

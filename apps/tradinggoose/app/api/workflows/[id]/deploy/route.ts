@@ -11,7 +11,11 @@ import { deployWorkflow, loadEditableWorkflowState } from '@/lib/workflows/db-he
 import { hasWorkflowChanged, validateWorkflowPermissions } from '@/lib/workflows/utils'
 import { notifyMonitorsReconcile } from '@/app/api/monitors/reconcile'
 import { pauseMonitorsMissingDeployedTrigger } from '@/app/api/monitors/shared'
-import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
+import {
+  createErrorResponse,
+  createSuccessResponse,
+  createWorkflowRealtimeRequiredResponse,
+} from '@/app/api/workflows/utils'
 
 const logger = createLogger('WorkflowDeployAPI')
 
@@ -119,6 +123,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     })
   } catch (error: any) {
     logger.error(`[${requestId}] Error fetching deployment info: ${id}`, error)
+    const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
+    if (realtimeResponse) return realtimeResponse
     return createErrorResponse(error.message || 'Failed to fetch deployment information', 500)
   }
 }

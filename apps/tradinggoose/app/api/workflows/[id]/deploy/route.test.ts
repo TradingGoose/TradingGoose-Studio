@@ -58,6 +58,7 @@ describe('Workflow Deploy API Route', () => {
         Response.json({ error }, { status })
       ),
       createSuccessResponse: vi.fn((data: unknown) => Response.json(data, { status: 200 })),
+      createWorkflowRealtimeRequiredResponse: vi.fn(() => null),
     }))
 
     vi.doMock('drizzle-orm', () => ({

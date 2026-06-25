@@ -5,6 +5,7 @@ import { generateRequestId } from '@/lib/utils'
 import { applyAutoLayout } from '@/lib/workflows/autolayout'
 import { loadEditableWorkflowState } from '@/lib/workflows/db-helpers'
 import { validateWorkflowPermissions } from '@/lib/workflows/utils'
+import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -117,6 +118,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     })
   } catch (error) {
     const elapsed = Date.now() - startTime
+    const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
+    if (realtimeResponse) return realtimeResponse
 
     if (error instanceof z.ZodError) {
       logger.warn(`[${requestId}] Invalid autolayout request data`, { errors: error.errors })

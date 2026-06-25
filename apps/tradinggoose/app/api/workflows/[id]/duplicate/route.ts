@@ -15,6 +15,7 @@ import {
 } from '@/lib/workflows/db-helpers'
 import { remapVariableIds } from '@/lib/workflows/import-export'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
+import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
 import type { Variable } from '@/stores/variables/types'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
@@ -170,6 +171,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       { status: 201 }
     )
   } catch (error) {
+    const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
+    if (realtimeResponse) return realtimeResponse
+
     if (error instanceof Error) {
       if (error.message === 'Source workflow not found') {
         logger.warn(`[${requestId}] Source workflow ${sourceWorkflowId} not found`)

@@ -3,14 +3,14 @@ import { and, desc, eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import {
-  isWorkflowRealtimeRequiredError,
-  loadEditableWorkflowState,
-  WORKFLOW_REALTIME_REQUIRED_CODE,
-} from '@/lib/workflows/db-helpers'
+import { loadEditableWorkflowState } from '@/lib/workflows/db-helpers'
 import { hasWorkflowChanged } from '@/lib/workflows/utils'
 import { validateWorkflowAccess } from '@/app/api/workflows/middleware'
-import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
+import {
+  createErrorResponse,
+  createSuccessResponse,
+  createWorkflowRealtimeRequiredResponse,
+} from '@/app/api/workflows/utils'
 
 const logger = createLogger('WorkflowStatusAPI')
 
@@ -63,13 +63,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     })
   } catch (error) {
     logger.error(`[${requestId}] Error getting status for workflow: ${(await params).id}`, error)
-    if (isWorkflowRealtimeRequiredError(error)) {
-      return createErrorResponse(
-        'Workflow realtime orchestration is required',
-        503,
-        WORKFLOW_REALTIME_REQUIRED_CODE
-      )
-    }
+    const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
+    if (realtimeResponse) return realtimeResponse
     return createErrorResponse('Failed to get status', 500)
   }
 }

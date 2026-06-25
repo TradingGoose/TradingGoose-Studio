@@ -9,15 +9,12 @@ import { verifyInternalTokenDetailed } from '@/lib/auth/internal'
 import { hydrateListingUI } from '@/lib/listing/hydrate-ui'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import {
-  isWorkflowRealtimeRequiredError,
-  loadEditableWorkflowState,
-  WORKFLOW_REALTIME_REQUIRED_CODE,
-} from '@/lib/workflows/db-helpers'
+import { loadEditableWorkflowState } from '@/lib/workflows/db-helpers'
 import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/utils'
 import { applyWorkflowMetadata } from '@/lib/yjs/server/apply-workflow-state'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
 
 const logger = createLogger('WorkflowByIdAPI')
 
@@ -192,15 +189,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   } catch (error: any) {
     const elapsed = Date.now() - startTime
     logger.error(`[${requestId}] Error fetching workflow ${workflowId} after ${elapsed}ms`, error)
-    if (isWorkflowRealtimeRequiredError(error)) {
-      return NextResponse.json(
-        {
-          error: 'Workflow realtime orchestration is required',
-          code: WORKFLOW_REALTIME_REQUIRED_CODE,
-        },
-        { status: 503 }
-      )
-    }
+    const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
+    if (realtimeResponse) return realtimeResponse
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
