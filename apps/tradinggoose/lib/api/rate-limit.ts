@@ -16,6 +16,19 @@ export interface RateLimitResult {
   failureKind?: 'auth' | 'dependency'
 }
 
+export type ApiRateLimitEndpoint = 'api-endpoint' | 'copilot-mcp' | 'logs' | 'logs-detail'
+
+function getApiEndpointRateLimitScope(userId: string, endpoint: ApiRateLimitEndpoint) {
+  return endpoint === 'api-endpoint'
+    ? undefined
+    : {
+        scopeType: 'user' as const,
+        scopeId: `${userId}:${endpoint}`,
+        organizationId: null,
+        userId,
+      }
+}
+
 export async function createApiAuthFailureRateLimitResult(error: string): Promise<RateLimitResult> {
   const limit = await isBillingEnabledForRuntime()
     .then((enabled) => (enabled ? 0 : Number.MAX_SAFE_INTEGER))
@@ -32,7 +45,7 @@ export async function createApiAuthFailureRateLimitResult(error: string): Promis
 
 export async function checkApiEndpointRateLimit(
   userId: string,
-  endpoint = 'api-endpoint'
+  endpoint: ApiRateLimitEndpoint = 'api-endpoint'
 ): Promise<RateLimitResult> {
   try {
     const billingEnabled = await isBillingEnabledForRuntime()
@@ -47,12 +60,14 @@ export async function checkApiEndpointRateLimit(
     }
 
     const subscription = await getPersonalEffectiveSubscription(userId)
+    const billingScope = getApiEndpointRateLimitScope(userId, endpoint)
 
     const result = await rateLimiter.checkRateLimitWithSubscription(
       userId,
       subscription,
       'api-endpoint',
-      false
+      false,
+      billingScope
     )
 
     if (!result.allowed) {
@@ -67,7 +82,8 @@ export async function checkApiEndpointRateLimit(
       userId,
       subscription,
       'api-endpoint',
-      false
+      false,
+      billingScope
     )
 
     return {
