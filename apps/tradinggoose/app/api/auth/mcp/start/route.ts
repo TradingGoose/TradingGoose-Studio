@@ -8,7 +8,8 @@ export const dynamic = 'force-dynamic'
 export async function POST(request: NextRequest) {
   const rateLimit = await checkPublicApiEndpointRateLimit(request, 'mcp-auth-start')
   if (!rateLimit.allowed) {
-    return NextResponse.json({ error: rateLimit.error || 'Rate limit exceeded' }, { status: 429 })
+    const status = rateLimit.failureKind === 'dependency' ? 503 : 429
+    return NextResponse.json({ error: rateLimit.error || 'Rate limit exceeded' }, { status })
   }
 
   const baseUrl = getBaseUrl()

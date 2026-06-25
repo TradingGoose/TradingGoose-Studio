@@ -156,7 +156,7 @@ export async function checkPublicApiEndpointRateLimit(
       organizationId: null,
       userId: null,
     },
-    { enforceWithoutBilling: true }
+    { enforceWithoutBilling: true, failClosedOnError: true }
   )
 
   return {

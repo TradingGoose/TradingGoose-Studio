@@ -270,6 +270,28 @@ describe('ExecutionLimiter', () => {
       expect(result.allowed).toBe(true)
       expect(result.remaining).toBe(Number.MAX_SAFE_INTEGER)
     })
+
+    it('denies requests when rate limit storage throws in fail-closed mode', async () => {
+      vi.mocked(db.select).mockImplementationOnce(() => {
+        throw new Error('rate limit storage unavailable')
+      })
+
+      const result = await rateLimiter.checkRateLimitWithSubscription(
+        testUserId,
+        activeSubscription,
+        'api',
+        false,
+        null,
+        { failClosedOnError: true }
+      )
+
+      expect(result).toMatchObject({
+        allowed: false,
+        remaining: 0,
+        error: 'Rate limit service unavailable',
+        failureKind: 'dependency',
+      })
+    })
   })
 
   describe('getRateLimitStatusWithSubscription', () => {

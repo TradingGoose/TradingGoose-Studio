@@ -113,8 +113,14 @@ export class ExecutionLimiter {
     triggerType: TriggerType = 'manual',
     isAsync = false,
     billingScope?: BillingScope | null,
-    options: { enforceWithoutBilling?: boolean } = {}
-  ): Promise<{ allowed: boolean; remaining: number; resetAt: Date }> {
+    options: { enforceWithoutBilling?: boolean; failClosedOnError?: boolean } = {}
+  ): Promise<{
+    allowed: boolean
+    remaining: number
+    resetAt: Date
+    error?: string
+    failureKind?: 'dependency'
+  }> {
     try {
       if (!options.enforceWithoutBilling && !(await isBillingEnabledForRuntime())) {
         return createPermissiveRateLimitResult()
@@ -299,6 +305,16 @@ export class ExecutionLimiter {
         resetAt: new Date(new Date(rateLimitRecord.windowStart).getTime() + RATE_LIMIT_WINDOW_MS),
       }
     } catch (error) {
+      if (options.failClosedOnError) {
+        logger.error('Error checking rate limit; denying request', error)
+        return {
+          allowed: false,
+          remaining: 0,
+          resetAt: new Date(Date.now() + RATE_LIMIT_WINDOW_MS),
+          error: 'Rate limit service unavailable',
+          failureKind: 'dependency',
+        }
+      }
       logger.error('Error checking rate limit; allowing request', error)
       return createPermissiveRateLimitResult()
     }
