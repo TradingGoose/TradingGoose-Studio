@@ -33,12 +33,14 @@ class WSSharedDoc extends Y.Doc {
   awareness: awarenessProtocol.Awareness
   whenInitialized: Promise<void>
   onDocumentIdle?: DocumentIdleHandler
+  hasUnsavedChanges: boolean
 
   constructor(name: string, gc: boolean) {
     super({ gc })
     this.name = name
     this.conns = new Map()
     this.awareness = new awarenessProtocol.Awareness(this)
+    this.hasUnsavedChanges = false
     this.awareness.setLocalState(null)
 
     this.awareness.on(
@@ -69,6 +71,7 @@ class WSSharedDoc extends Y.Doc {
     )
 
     this.on('update', (update: Uint8Array, _origin: unknown) => {
+      this.hasUnsavedChanges = true
       const encoder = encoding.createEncoder()
       encoding.writeVarUint(encoder, messageSync)
       syncProtocol.writeUpdate(encoder, update)
@@ -90,7 +93,7 @@ function cleanupDocument(doc: WSSharedDoc): void {
 }
 
 function finalizeDocumentCleanup(doc: WSSharedDoc): void {
-  if (!doc.onDocumentIdle) {
+  if (!doc.onDocumentIdle || !doc.hasUnsavedChanges) {
     cleanupDocument(doc)
     return
   }
@@ -175,9 +178,16 @@ export function getDocument(docId: string, gc = true, bootstrapState?: Uint8Arra
     const doc = new WSSharedDoc(docId, gc)
     if (bootstrapState) {
       Y.applyUpdate(doc, bootstrapState)
+      doc.hasUnsavedChanges = false
     }
     return doc
   })
+}
+
+export function markDocumentPersisted(doc: Y.Doc): void {
+  if (doc instanceof WSSharedDoc) {
+    doc.hasUnsavedChanges = false
+  }
 }
 
 export function peekDocument(docId: string): Y.Doc | null {

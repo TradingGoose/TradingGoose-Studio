@@ -30,6 +30,7 @@ import {
   discardDocumentIfIdle,
   getDocument,
   getExistingDocument,
+  markDocumentPersisted,
 } from '@/socket-server/yjs/upstream-utils'
 
 interface Logger {
@@ -301,6 +302,7 @@ async function handleInternalYjsWorkflowApplyRequest(
       }
       if (!body.workflowState && body.metadata) setWorkflowEntityMetadata(doc, body.metadata)
       await saveWorkflowYjsDocToDb(workflowId, doc)
+      markDocumentPersisted(doc)
       discardDocumentIfIdle(workflowId)
     } catch (error) {
       discardDocumentIfIdle(descriptor.yjsSessionId)
@@ -341,6 +343,7 @@ async function handleInternalYjsEntityApplyRequest(
       })
       clearSessionReseededFromCanonical(doc)
       await saveSavedEntityYjsDocToDb(body.entityKind, entityId, doc)
+      markDocumentPersisted(doc)
       discardDocumentIfIdle(entityId)
     } catch (error) {
       discardDocumentIfIdle(descriptor.yjsSessionId)
@@ -392,6 +395,7 @@ async function handleInternalYjsSessionApplyUpdateRequest(
       clearSessionReseededFromCanonical(doc)
       if (descriptor.entityKind !== 'workflow' && descriptor.entityId) {
         await saveSavedEntityYjsDocToDb(descriptor.entityKind, descriptor.entityId, doc)
+        markDocumentPersisted(doc)
         discardDocumentIfIdle(sessionId)
       }
     } catch (error) {

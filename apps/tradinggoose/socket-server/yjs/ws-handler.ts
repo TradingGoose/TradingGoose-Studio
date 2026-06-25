@@ -13,7 +13,7 @@ import {
   getRuntimeStateFromDoc,
 } from '@/lib/yjs/server/bootstrap-review-target'
 import { authenticateYjsConnection, YjsAuthError } from './auth'
-import { getExistingDocument, setupWSConnection } from './upstream-utils'
+import { getExistingDocument, markDocumentPersisted, setupWSConnection } from './upstream-utils'
 
 const logger = createLogger('YjsWsHandler')
 const savedEntityKinds = new Set<SavedEntityKind>([
@@ -43,10 +43,12 @@ async function persistIdleDocument(docId: string, doc: Y.Doc): Promise<void> {
 
   if (entityKind === 'workflow') {
     await saveWorkflowYjsDocToDb(docId, doc)
+    markDocumentPersisted(doc)
     return
   }
   if (typeof entityKind === 'string' && savedEntityKinds.has(entityKind as SavedEntityKind)) {
     await saveSavedEntityYjsDocToDb(entityKind as SavedEntityKind, docId, doc)
+    markDocumentPersisted(doc)
   }
 }
 

@@ -618,6 +618,27 @@ describe('Socket Server Index Integration', () => {
   })
 
   describe('Yjs document cleanup', () => {
+    it('should discard a clean idle document without final persistence', async () => {
+      const conn = new (await import('node:events')).EventEmitter() as any
+      conn.readyState = 1
+      conn.send = vi.fn((_message, _options, callback) => callback?.())
+      conn.ping = vi.fn()
+      conn.close = vi.fn()
+      const onDocumentIdle = vi.fn()
+
+      setupWSConnection(conn, {} as any, {
+        docId: 'idle-clean',
+        onDocumentIdle,
+      })
+      expect(await getExistingDocument('idle-clean')).not.toBeNull()
+
+      conn.emit('close')
+      await new Promise((resolve) => setImmediate(resolve))
+
+      expect(onDocumentIdle).not.toHaveBeenCalled()
+      expect(await getExistingDocument('idle-clean')).toBeNull()
+    })
+
     it('should discard an idle document even when final persistence fails', async () => {
       const conn = new (await import('node:events')).EventEmitter() as any
       conn.readyState = 1
@@ -631,6 +652,8 @@ describe('Socket Server Index Integration', () => {
         onDocumentIdle,
       })
       expect(await getExistingDocument('idle-save-failed')).not.toBeNull()
+      const doc = await getExistingDocument('idle-save-failed')
+      doc?.getMap('metadata').set('entityId', 'changed')
 
       conn.emit('close')
       await new Promise((resolve) => setImmediate(resolve))
