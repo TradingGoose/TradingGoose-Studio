@@ -12,14 +12,9 @@ import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import * as Y from 'yjs'
 import { reconcilePublishedChatsForDeploymentTx } from '@/lib/chat/published-deployment'
-import {
-  buildYjsTransportEnvelope,
-  serializeYjsTransportEnvelope,
-} from '@/lib/copilot/review-sessions/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import { sanitizeAgentToolsInBlocks } from '@/lib/workflows/validation'
 import { inferWorkflowDirectionFromState } from '@/lib/workflows/workflow-direction'
-import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
 import { extractPersistedStateFromDoc } from '@/lib/yjs/workflow-session'
 import type {
   BlockState,
@@ -94,37 +89,6 @@ export type PersistedWorkflowState = {
   parallels: Record<string, any>
   variables: Record<string, any>
   lastSaved: number
-}
-
-export async function loadWorkflowStateFromYjs(
-  workflowId: string
-): Promise<PersistedWorkflowState | null> {
-  const descriptor = {
-    workspaceId: null,
-    entityKind: 'workflow' as const,
-    entityId: workflowId,
-    draftSessionId: null,
-    reviewSessionId: null,
-    yjsSessionId: workflowId,
-  }
-  let snapshot: Awaited<ReturnType<typeof getYjsSnapshot>>
-  try {
-    snapshot = await getYjsSnapshot(
-      workflowId,
-      serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
-    )
-  } catch (error) {
-    if (error instanceof SocketServerBridgeError && error.status === 404) {
-      return null
-    }
-    throw error
-  }
-
-  if (!snapshot.snapshotBase64) {
-    return null
-  }
-
-  return decodeWorkflowSnapshot(snapshot.snapshotBase64)
 }
 
 function decodeWorkflowSnapshot(snapshotBase64: string): PersistedWorkflowState | null {

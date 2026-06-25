@@ -10,7 +10,7 @@ import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { decryptSecret } from '@/lib/utils-server'
 import {
   loadDeployedWorkflowState,
-  loadWorkflowStateFromYjs,
+  loadWorkflowStateFromYjsSession,
 } from '@/lib/workflows/db-helpers'
 import { TriggerUtils } from '@/lib/workflows/triggers'
 import { updateWorkflowRunCounts } from '@/lib/workflows/utils'
@@ -270,7 +270,7 @@ export async function loadWorkflowExecutionBlueprint(params: {
   const executionTarget = params.executionTarget ?? 'deployed'
   const liveWorkflowState =
     executionTarget === 'live' && !params.workflowData
-      ? await loadWorkflowStateFromYjs(params.workflowId)
+      ? await loadWorkflowStateFromYjsSession(params.workflowId)
       : null
   const workflowContext = await resolveRequiredWorkflowExecutionContext(
     params.workflowId,

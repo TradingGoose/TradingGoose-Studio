@@ -110,23 +110,7 @@ vi.doMock('@/lib/logs/console/logger', () => ({
 }))
 
 const mockReconcilePublishedChatsForDeploymentTx = vi.fn()
-const mockGetYjsSnapshot = vi.fn()
 const mockReadBootstrappedReviewTargetSnapshot = vi.fn()
-class MockSocketServerBridgeError extends Error {
-  body = ''
-
-  constructor(
-    public status: number,
-    message: string
-  ) {
-    super(message)
-    this.name = 'SocketServerBridgeError'
-  }
-}
-vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
-  getYjsSnapshot: mockGetYjsSnapshot,
-  SocketServerBridgeError: MockSocketServerBridgeError,
-}))
 
 vi.doMock('@/lib/yjs/server/bootstrap-review-target', () => ({
   readBootstrappedReviewTargetSnapshot: mockReadBootstrappedReviewTargetSnapshot,
@@ -343,7 +327,6 @@ describe('Database Helpers', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGetYjsSnapshot.mockRejectedValue(new MockSocketServerBridgeError(404, 'Not found'))
     mockReconcilePublishedChatsForDeploymentTx.mockResolvedValue(undefined)
     mockDb.select.mockReturnValue({
       from: vi.fn().mockReturnValue({
@@ -962,58 +945,6 @@ describe('Database Helpers', () => {
           }),
         })
       )
-    })
-  })
-
-  describe('loadWorkflowStateFromYjs', () => {
-    it('should decode the workflow state from an existing Yjs snapshot', async () => {
-      const yjsState = {
-        blocks: {
-          'block-yjs': {
-            id: 'block-yjs',
-            type: 'api',
-            name: 'Live block',
-            position: { x: 10, y: 20 },
-            subBlocks: {},
-            outputs: {},
-            enabled: true,
-          },
-        },
-        edges: [],
-        loops: {},
-        parallels: {},
-        lastSaved: '2026-04-06T00:10:00.000Z',
-      }
-      const yjsVariables = {
-        'var-yjs': {
-          id: 'var-yjs',
-          name: 'Live variable',
-          type: 'plain',
-          value: 'latest',
-        },
-      }
-
-      mockGetYjsSnapshot.mockResolvedValue(
-        buildWorkflowSnapshotResponseFromState(yjsState, yjsVariables)
-      )
-
-      const result = await dbHelpers.loadWorkflowStateFromYjs(mockWorkflowId)
-
-      expect(mockGetYjsSnapshot).toHaveBeenCalledWith(
-        mockWorkflowId,
-        expect.objectContaining({
-          sessionId: mockWorkflowId,
-          entityKind: 'workflow',
-          entityId: mockWorkflowId,
-        })
-      )
-      expect(result).toMatchObject({
-        blocks: yjsState.blocks,
-        edges: yjsState.edges,
-        loops: yjsState.loops,
-        parallels: yjsState.parallels,
-        variables: yjsVariables,
-      })
     })
   })
 
