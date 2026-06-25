@@ -51,12 +51,10 @@ vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   applyEntityStateInSocketServer: mockApplyEntityStateInSocketServer,
 }))
 
-function buildSkillDoc(fields: { name: string; description: string; content: string }) {
+function buildDoc(fields: Record<string, unknown>) {
   const doc = new Y.Doc()
   const map = doc.getMap('fields')
-  map.set('name', fields.name)
-  map.set('description', fields.description)
-  map.set('content', fields.content)
+  for (const [key, value] of Object.entries(fields)) map.set(key, value)
   return doc
 }
 
@@ -96,7 +94,7 @@ describe('applySavedEntityState', () => {
 
   it('materializes saved-entity DB state from a provided Yjs document', async () => {
     const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
-    const doc = buildSkillDoc({
+    const doc = buildDoc({
       name: 'Yjs Skill',
       description: 'Yjs description',
       content: 'Use the Yjs document.',
@@ -119,7 +117,7 @@ describe('applySavedEntityState', () => {
 
   it('throws when document materialization cannot find the saved entity row', async () => {
     const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
-    const doc = buildSkillDoc({ name: 'Yjs Skill', description: '', content: '' })
+    const doc = buildDoc({ name: 'Yjs Skill', description: '', content: '' })
     mockUpdateReturning.mockResolvedValueOnce([])
 
     try {
@@ -128,6 +126,32 @@ describe('applySavedEntityState', () => {
       })
     } finally {
       doc.destroy()
+    }
+  })
+
+  it('maps saved-entity unique constraint failures to validation errors', async () => {
+    const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
+    const duplicate = Object.assign(new Error('duplicate key'), { code: '23505' })
+    const skillDoc = buildDoc({ name: 'Yjs Skill', description: '', content: '' })
+    const customToolDoc = buildDoc({ title: 'Yjs Tool', schemaText: '{}', codeText: '' })
+
+    try {
+      mockUpdateReturning.mockRejectedValueOnce(duplicate)
+      await expect(saveSavedEntityYjsDocToDb('skill', 'skill-1', skillDoc)).rejects.toMatchObject({
+        status: 409,
+        message: 'A skill with the name "Yjs Skill" already exists in this workspace',
+      })
+
+      mockUpdateReturning.mockRejectedValueOnce(duplicate)
+      await expect(
+        saveSavedEntityYjsDocToDb('custom_tool', 'tool-1', customToolDoc)
+      ).rejects.toMatchObject({
+        status: 409,
+        message: 'A tool with the title "Yjs Tool" already exists in this workspace',
+      })
+    } finally {
+      skillDoc.destroy()
+      customToolDoc.destroy()
     }
   })
 

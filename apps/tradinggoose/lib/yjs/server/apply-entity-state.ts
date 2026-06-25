@@ -30,6 +30,26 @@ function objectField(value: unknown): Record<string, unknown> {
     : {}
 }
 
+function isUniqueConstraintViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === '23505'
+  )
+}
+
+async function mapUniqueConstraint<T>(operation: Promise<T>, message: string): Promise<T> {
+  try {
+    return await operation
+  } catch (error) {
+    if (isUniqueConstraintViolation(error)) {
+      throw new SavedEntityPersistenceError(409, message)
+    }
+    throw error
+  }
+}
+
 function normalizeSavedEntityFields(
   entityKind: SavedEntityKind,
   fields: Record<string, unknown>
@@ -53,30 +73,40 @@ async function persistSavedEntityState(
   let persisted: Array<{ id: string }>
 
   switch (entityKind) {
-    case 'skill':
-      persisted = await db
-        .update(skill)
-        .set({
-          name: String(fields.name ?? ''),
-          description: String(fields.description ?? ''),
-          content: String(fields.content ?? ''),
-          updatedAt: now,
-        })
-        .where(eq(skill.id, entityId))
-        .returning({ id: skill.id })
+    case 'skill': {
+      const name = String(fields.name ?? '')
+      persisted = await mapUniqueConstraint(
+        db
+          .update(skill)
+          .set({
+            name,
+            description: String(fields.description ?? ''),
+            content: String(fields.content ?? ''),
+            updatedAt: now,
+          })
+          .where(eq(skill.id, entityId))
+          .returning({ id: skill.id }),
+        `A skill with the name "${name}" already exists in this workspace`
+      )
       break
-    case 'custom_tool':
-      persisted = await db
-        .update(customTools)
-        .set({
-          title: String(fields.title ?? ''),
-          schema: parseCustomToolSchemaText(fields.schemaText),
-          code: String(fields.codeText ?? ''),
-          updatedAt: now,
-        })
-        .where(eq(customTools.id, entityId))
-        .returning({ id: customTools.id })
+    }
+    case 'custom_tool': {
+      const title = String(fields.title ?? '')
+      persisted = await mapUniqueConstraint(
+        db
+          .update(customTools)
+          .set({
+            title,
+            schema: parseCustomToolSchemaText(fields.schemaText),
+            code: String(fields.codeText ?? ''),
+            updatedAt: now,
+          })
+          .where(eq(customTools.id, entityId))
+          .returning({ id: customTools.id }),
+        `A tool with the title "${title}" already exists in this workspace`
+      )
       break
+    }
     case 'indicator':
       persisted = await db
         .update(pineIndicators)

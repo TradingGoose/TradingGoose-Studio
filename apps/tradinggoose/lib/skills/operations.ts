@@ -133,22 +133,13 @@ export async function saveSkill({
   workspaceId,
   requestId = generateRequestId(),
 }: SaveSkillParams) {
-  const existingSkills = await db
-    .select({
-      id: skill.id,
-      name: skill.name,
-    })
+  const [existingSkill] = await db
+    .select({ id: skill.id })
     .from(skill)
-    .where(eq(skill.workspaceId, workspaceId))
-  const existingSkill = existingSkills.find((candidate) => candidate.id === currentSkill.id)
+    .where(and(eq(skill.id, currentSkill.id), eq(skill.workspaceId, workspaceId)))
+    .limit(1)
   if (!existingSkill) {
     throw new Error(`Skill ${currentSkill.id} was not found`)
-  }
-  const conflictingSkill = existingSkills.find(
-    (candidate) => candidate.name === currentSkill.name && candidate.id !== currentSkill.id
-  )
-  if (conflictingSkill) {
-    throw new Error(`A skill with the name "${currentSkill.name}" already exists in this workspace`)
   }
 
   await applySavedEntityState('skill', currentSkill.id, {

@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { customTools } from '@tradinggoose/db/schema'
-import { desc, eq } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import {
   type CustomToolTransferRecord,
@@ -104,22 +104,13 @@ export async function saveCustomTool({
   workspaceId,
   requestId = generateRequestId(),
 }: SaveCustomToolParams) {
-  const existingTools = await db
-    .select({
-      id: customTools.id,
-      title: customTools.title,
-    })
+  const [existingTool] = await db
+    .select({ id: customTools.id })
     .from(customTools)
-    .where(eq(customTools.workspaceId, workspaceId))
-  const existingTool = existingTools.find((candidate) => candidate.id === tool.id)
+    .where(and(eq(customTools.id, tool.id), eq(customTools.workspaceId, workspaceId)))
+    .limit(1)
   if (!existingTool) {
     throw new Error(`Custom tool ${tool.id} was not found`)
-  }
-  const conflictingTool = existingTools.find(
-    (candidate) => candidate.title === tool.title && candidate.id !== tool.id
-  )
-  if (conflictingTool) {
-    throw new Error(`A tool with the title "${tool.title}" already exists in this workspace`)
   }
 
   await applySavedEntityState('custom_tool', tool.id, {
