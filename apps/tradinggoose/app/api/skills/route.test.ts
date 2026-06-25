@@ -6,7 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockCheckHybridAuth = vi.fn()
 const mockGetUserEntityPermissions = vi.fn()
-const mockUpsertSkills = vi.fn()
+const mockCreateSkills = vi.fn()
+const mockSaveSkill = vi.fn()
 const mockListSkills = vi.fn()
 const mockDeleteSkill = vi.fn()
 
@@ -19,7 +20,8 @@ vi.mock('@/lib/permissions/utils', () => ({
 }))
 
 vi.mock('@/lib/skills/operations', () => ({
-  upsertSkills: mockUpsertSkills,
+  createSkills: mockCreateSkills,
+  saveSkill: mockSaveSkill,
   listSkills: mockListSkills,
   deleteSkill: mockDeleteSkill,
 }))
@@ -45,7 +47,8 @@ describe('Skills API Routes', () => {
     vi.resetAllMocks()
     mockCheckHybridAuth.mockResolvedValue({ success: true, userId: 'user-123' })
     mockGetUserEntityPermissions.mockResolvedValue('admin')
-    mockUpsertSkills.mockResolvedValue([])
+    mockCreateSkills.mockResolvedValue([])
+    mockSaveSkill.mockResolvedValue([])
     mockListSkills.mockResolvedValue([])
     mockDeleteSkill.mockResolvedValue(true)
   })
@@ -99,7 +102,7 @@ describe('Skills API Routes', () => {
   })
 
   it('POST should accept human-readable skill names', async () => {
-    mockUpsertSkills.mockResolvedValue([
+    mockCreateSkills.mockResolvedValue([
       {
         id: 'skill-1',
         name: 'Market Research',

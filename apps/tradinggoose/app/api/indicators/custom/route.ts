@@ -3,9 +3,10 @@ import { pineIndicators, workflow } from '@tradinggoose/db/schema'
 import { and, desc, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { upsertIndicators } from '@/lib/indicators/custom/operations'
+import { createIndicators, saveIndicator } from '@/lib/indicators/custom/operations'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
+import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { authenticateIndicatorRequest, checkWorkspacePermission } from '../utils'
 
 const logger = createLogger('IndicatorsAPI')
@@ -144,12 +145,39 @@ export async function POST(request: NextRequest) {
         return permissionCheck.response
       }
 
-      const resultIndicators = await upsertIndicators({
-        indicators,
-        workspaceId,
-        userId: auth.userId,
-        requestId,
-      })
+      const indicatorsToCreate = indicators.filter((indicator) => !indicator.id)
+      const indicatorsToSave = indicators.filter((indicator) => indicator.id)
+      if (indicatorsToCreate.length > 0 && indicatorsToSave.length > 0) {
+        return NextResponse.json(
+          { error: 'Create and save indicators in separate requests' },
+          { status: 400 }
+        )
+      }
+      if (indicatorsToSave.length > 1) {
+        return NextResponse.json(
+          { error: 'Save one existing indicator per request' },
+          { status: 400 }
+        )
+      }
+
+      const resultIndicators =
+        indicatorsToSave.length === 1
+          ? await saveIndicator({
+              indicator: {
+                id: indicatorsToSave[0].id!,
+                name: indicatorsToSave[0].name,
+                pineCode: indicatorsToSave[0].pineCode,
+                inputMeta: indicatorsToSave[0].inputMeta,
+              },
+              workspaceId,
+              requestId,
+            })
+          : await createIndicators({
+              indicators: indicatorsToCreate,
+              workspaceId,
+              userId: auth.userId,
+              requestId,
+            })
 
       return NextResponse.json({ success: true, data: resultIndicators })
     } catch (validationError) {
@@ -169,6 +197,9 @@ export async function POST(request: NextRequest) {
           { error: 'Invalid request data', details: validationError.errors },
           { status: 400 }
         )
+      }
+      if (validationError instanceof Error && validationError.message.includes('was not found')) {
+        return NextResponse.json({ error: validationError.message }, { status: 404 })
       }
       throw validationError
     }
@@ -219,15 +250,21 @@ export async function DELETE(request: NextRequest) {
       return permissionCheck.response
     }
 
-    const [deletedIndicator] = await db
-      .delete(pineIndicators)
+    const [existingIndicator] = await db
+      .select({ id: pineIndicators.id })
+      .from(pineIndicators)
       .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
-      .returning({ id: pineIndicators.id })
+      .limit(1)
 
-    if (!deletedIndicator) {
+    if (!existingIndicator) {
       logger.warn(`[${requestId}] Indicator not found: ${indicatorId}`)
       return NextResponse.json({ error: 'Indicator not found' }, { status: 404 })
     }
+
+    await deleteYjsSessionInSocketServer(indicatorId)
+    await db
+      .delete(pineIndicators)
+      .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
 
     logger.info(`[${requestId}] Deleted indicator ${indicatorId}`)
     return NextResponse.json({ success: true }, { status: 200 })

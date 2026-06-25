@@ -6,7 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockCheckHybridAuth = vi.fn()
 const mockGetUserEntityPermissions = vi.fn()
-const mockUpsertCustomTools = vi.fn()
+const mockCreateCustomTools = vi.fn()
+const mockSaveCustomTool = vi.fn()
+const mockListCustomTools = vi.fn()
 
 vi.mock('@/lib/auth/hybrid', () => ({
   checkHybridAuth: mockCheckHybridAuth,
@@ -17,7 +19,9 @@ vi.mock('@/lib/permissions/utils', () => ({
 }))
 
 vi.mock('@/lib/custom-tools/operations', () => ({
-  upsertCustomTools: mockUpsertCustomTools,
+  createCustomTools: mockCreateCustomTools,
+  saveCustomTool: mockSaveCustomTool,
+  listCustomTools: mockListCustomTools,
 }))
 
 vi.mock('@tradinggoose/db', () => ({
@@ -45,7 +49,9 @@ describe('Custom Tools API Routes', () => {
     vi.resetAllMocks()
     mockCheckHybridAuth.mockResolvedValue({ success: true, userId: 'user-123' })
     mockGetUserEntityPermissions.mockResolvedValue('admin')
-    mockUpsertCustomTools.mockResolvedValue([])
+    mockCreateCustomTools.mockResolvedValue([])
+    mockSaveCustomTool.mockResolvedValue([])
+    mockListCustomTools.mockResolvedValue([])
   })
 
   afterEach(() => {

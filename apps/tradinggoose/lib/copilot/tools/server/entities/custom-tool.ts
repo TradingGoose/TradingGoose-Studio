@@ -1,7 +1,6 @@
-import { nanoid } from 'nanoid'
 import { ENTITY_KIND_CUSTOM_TOOL } from '@/lib/copilot/review-sessions/types'
 import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
-import { listCustomTools, upsertCustomTools } from '@/lib/custom-tools/operations'
+import { createCustomTools, listCustomTools } from '@/lib/custom-tools/operations'
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
@@ -59,26 +58,24 @@ async function createCustomToolEntity(
   context: Parameters<typeof verifyWorkspaceContext>[0]
 ): Promise<EntityCreateResult> {
   const { userId, workspaceId } = await verifyWorkspaceContext(context, 'write')
-  const entityId = nanoid()
-  const rows = await upsertCustomTools({
+  const rows = await createCustomTools({
     userId,
     workspaceId,
     tools: [
       {
-        id: entityId,
         title: String(fields.title ?? ''),
         schema: parseCustomToolSchemaText(fields.schemaText),
         code: String(fields.codeText ?? ''),
       },
     ],
   })
-  const row = rows.find((candidate) => candidate.id === entityId)
+  const row = rows[0]
   if (!row) {
-    throw new Error('Created custom tool was not returned from canonical upsert')
+    throw new Error('Created custom tool was not returned')
   }
 
   return {
-    entityId,
+    entityId: row.id,
     fields: savedEntityRowToFields(ENTITY_KIND_CUSTOM_TOOL, row),
   }
 }

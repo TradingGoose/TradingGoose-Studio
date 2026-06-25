@@ -71,7 +71,7 @@ export const CustomToolTransferSchema = z
   })
   .strict()
 
-export const CustomToolUpsertRequestSchema = z.object({
+export const CustomToolWriteRequestSchema = z.object({
   workspaceId: z
     .string({ required_error: 'workspaceId is required' })
     .min(1, 'workspaceId is required'),

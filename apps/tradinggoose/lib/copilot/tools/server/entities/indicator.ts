@@ -3,7 +3,7 @@ import { pineIndicators } from '@tradinggoose/db/schema'
 import { desc, eq } from 'drizzle-orm'
 import { ENTITY_KIND_INDICATOR } from '@/lib/copilot/review-sessions/types'
 import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
-import { upsertIndicators } from '@/lib/indicators/custom/operations'
+import { createIndicators } from '@/lib/indicators/custom/operations'
 import {
   DEFAULT_INDICATOR_RUNTIME_ENTRIES,
   DEFAULT_INDICATOR_RUNTIME_MAP,
@@ -71,13 +71,11 @@ async function createIndicatorEntity(
   context: Parameters<typeof verifyWorkspaceContext>[0]
 ): Promise<EntityCreateResult> {
   const { userId, workspaceId } = await verifyWorkspaceContext(context, 'write')
-  const entityId = crypto.randomUUID()
-  const rows = await upsertIndicators({
+  const rows = await createIndicators({
     userId,
     workspaceId,
     indicators: [
       {
-        id: entityId,
         name: String(fields.name ?? ''),
         color: String(fields.color ?? ''),
         pineCode: String(fields.pineCode ?? ''),
@@ -90,13 +88,13 @@ async function createIndicatorEntity(
       },
     ],
   })
-  const row = rows.find((candidate) => candidate.id === entityId)
+  const row = rows[0]
   if (!row) {
-    throw new Error('Created indicator was not returned from canonical upsert')
+    throw new Error('Created indicator was not returned')
   }
 
   return {
-    entityId,
+    entityId: row.id,
     fields: savedEntityRowToFields(ENTITY_KIND_INDICATOR, row),
   }
 }

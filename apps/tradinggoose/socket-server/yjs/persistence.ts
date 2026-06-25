@@ -137,6 +137,19 @@ export async function storeState(sessionId: string, state: Uint8Array): Promise<
   evictOldestLocalEntries()
 }
 
+export async function deleteState(sessionId: string): Promise<void> {
+  if (getRedisStorageMode() === 'redis') {
+    const redis = getRedisClient()
+    if (!redis) {
+      return
+    }
+    await redis.del(stateKey(sessionId), updatedAtKey(sessionId))
+    return
+  }
+
+  localStore.delete(sessionId)
+}
+
 export async function getLastTouchedAt(sessionId: string): Promise<number | null> {
   const mode = getRedisStorageMode()
 

@@ -20,11 +20,13 @@ import {
 } from '@/lib/yjs/workflow-session'
 import { getMonitorRuntimeLockHealth } from '@/socket-server/monitor-runtime-lock'
 import {
+  deleteState,
   getLastTouchedAt,
   getState,
   storeState,
 } from '@/socket-server/yjs/persistence'
 import {
+  discardDocument,
   flushDocumentPersistence,
   getDocument,
   getExistingDocument,
@@ -50,8 +52,8 @@ const INTERNAL_SECRET_HEADER = 'x-internal-secret'
 const INTERNAL_YJS_WORKFLOW_APPLY_PATH = /^\/internal\/yjs\/workflows\/([^/]+)\/apply-state$/
 const INTERNAL_YJS_ENTITY_APPLY_PATH = /^\/internal\/yjs\/entities\/([^/]+)\/apply-state$/
 const INTERNAL_YJS_SNAPSHOT_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/snapshot$/
-const INTERNAL_YJS_SESSION_APPLY_UPDATE_PATH =
-  /^\/internal\/yjs\/sessions\/([^/]+)\/apply-update$/
+const INTERNAL_YJS_SESSION_DELETE_PATH = /^\/internal\/yjs\/sessions\/([^/]+)$/
+const INTERNAL_YJS_SESSION_APPLY_UPDATE_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/apply-update$/
 
 type ApplyWorkflowStateRequest = {
   workflowState?: WorkflowSnapshot
@@ -247,7 +249,10 @@ async function getInitializedSessionDocument(sessionId: string): Promise<Y.Doc> 
 async function getBootstrappedApplyDocument(
   descriptor: ReturnType<typeof buildReviewTargetDescriptorFromEnvelope>
 ): Promise<Y.Doc> {
-  if (!(await getExistingDocument(descriptor.yjsSessionId)) && !(await getState(descriptor.yjsSessionId))) {
+  if (
+    !(await getExistingDocument(descriptor.yjsSessionId)) &&
+    !(await getState(descriptor.yjsSessionId))
+  ) {
     if (!descriptor.entityId) {
       throw new InvalidInternalYjsRequestError('Saved Yjs session required')
     }
@@ -418,6 +423,26 @@ async function handleInternalYjsSnapshotRequest(
   }
 }
 
+async function handleInternalYjsSessionDeleteRequest(
+  res: ServerResponse,
+  logger: Logger,
+  sessionId: string
+): Promise<void> {
+  try {
+    if (await getExistingDocument(sessionId)) {
+      setPersistence(sessionId, { getState, storeState: async () => {} })
+      discardDocument(sessionId)
+    }
+    await deleteState(sessionId)
+    sendJson(res, 200, { success: true })
+  } catch (error) {
+    logger.error('Error deleting Yjs session', { error, sessionId })
+    sendJson(res, 500, {
+      error: error instanceof Error ? error.message : 'Failed to delete Yjs session',
+    })
+  }
+}
+
 function matchInternalRoute(
   pathname: string,
   pattern: RegExp,
@@ -465,6 +490,17 @@ async function handleInternalYjsRequest(
   )
   if (snapshotId) {
     await handleInternalYjsSnapshotRequest(parsedUrl, res, logger, snapshotId)
+    return true
+  }
+
+  const deleteSessionId = matchInternalRoute(
+    parsedUrl.pathname,
+    INTERNAL_YJS_SESSION_DELETE_PATH,
+    'DELETE',
+    req.method
+  )
+  if (deleteSessionId) {
+    await handleInternalYjsSessionDeleteRequest(res, logger, deleteSessionId)
     return true
   }
 

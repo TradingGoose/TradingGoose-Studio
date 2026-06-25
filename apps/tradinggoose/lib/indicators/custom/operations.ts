@@ -26,9 +26,8 @@ export async function listCustomIndicatorRuntimeEntries(workspaceId: string) {
   }))
 }
 
-interface UpsertIndicatorsParams {
+interface CreateIndicatorsParams {
   indicators: Array<{
-    id?: string
     name: string
     color?: string
     pineCode: string
@@ -39,6 +38,17 @@ interface UpsertIndicatorsParams {
   requestId?: string
 }
 
+interface SaveIndicatorParams {
+  indicator: {
+    id: string
+    name: string
+    pineCode: string
+    inputMeta?: Record<string, unknown>
+  }
+  workspaceId: string
+  requestId?: string
+}
+
 interface ImportIndicatorsParams {
   indicators: IndicatorTransferRecord[]
   workspaceId: string
@@ -46,49 +56,23 @@ interface ImportIndicatorsParams {
   requestId?: string
 }
 
-export async function upsertIndicators({
+export async function createIndicators({
   indicators,
   workspaceId,
   userId,
   requestId = generateRequestId(),
-}: UpsertIndicatorsParams) {
-  const updates: Array<{
-    id: string
-    fields: Record<string, unknown>
-  }> = []
+}: CreateIndicatorsParams) {
+  if (indicators.length === 0) {
+    return []
+  }
 
-  await db.transaction(async (tx) => {
+  return await db.transaction(async (tx) => {
+    const nowTime = new Date()
+    const insertValues = []
+
     for (const indicator of indicators) {
-      const nowTime = new Date()
-
-      if (indicator.id) {
-        const existing = await tx
-          .select()
-          .from(pineIndicators)
-          .where(
-            and(eq(pineIndicators.id, indicator.id), eq(pineIndicators.workspaceId, workspaceId))
-          )
-          .limit(1)
-
-        if (existing.length > 0) {
-          const existingColor = existing[0]?.color
-
-          updates.push({
-            id: indicator.id,
-            fields: {
-              name: indicator.name,
-              color: existingColor ?? getStableVibrantColor(indicator.id),
-              pineCode: indicator.pineCode,
-              inputMeta: indicator.inputMeta ?? null,
-            },
-          })
-          logger.info(`[${requestId}] Updated Indicator ${indicator.id}`)
-          continue
-        }
-      }
-
-      const indicatorId = indicator.id ?? crypto.randomUUID()
-      const newIndicator = {
+      const indicatorId = crypto.randomUUID()
+      insertValues.push({
         id: indicatorId,
         workspaceId,
         userId,
@@ -98,19 +82,40 @@ export async function upsertIndicators({
         inputMeta: indicator.inputMeta ?? null,
         createdAt: nowTime,
         updatedAt: nowTime,
-      }
-      await tx.insert(pineIndicators).values(newIndicator)
-
-      logger.info(`[${requestId}] Created Indicator ${indicator.name}`)
+      })
     }
+
+    const createdIndicators = await tx.insert(pineIndicators).values(insertValues).returning()
+    logger.info(`[${requestId}] Created ${createdIndicators.length} indicator(s)`)
+    return createdIndicators
   })
+}
 
-  await Promise.all(
-    updates.map(({ id, fields }) =>
-      applySavedEntityPersistedState('indicator', id, workspaceId, fields)
-    )
-  )
+export async function saveIndicator({
+  indicator,
+  workspaceId,
+  requestId = generateRequestId(),
+}: SaveIndicatorParams) {
+  const [existing] = await db
+    .select({
+      id: pineIndicators.id,
+      color: pineIndicators.color,
+    })
+    .from(pineIndicators)
+    .where(and(eq(pineIndicators.id, indicator.id), eq(pineIndicators.workspaceId, workspaceId)))
+    .limit(1)
 
+  if (!existing) {
+    throw new Error(`Indicator ${indicator.id} was not found`)
+  }
+
+  await applySavedEntityPersistedState('indicator', indicator.id, workspaceId, {
+    name: indicator.name,
+    color: existing.color ?? getStableVibrantColor(indicator.id),
+    pineCode: indicator.pineCode,
+    inputMeta: indicator.inputMeta ?? null,
+  })
+  logger.info(`[${requestId}] Saved Indicator ${indicator.id}`)
   return db
     .select()
     .from(pineIndicators)

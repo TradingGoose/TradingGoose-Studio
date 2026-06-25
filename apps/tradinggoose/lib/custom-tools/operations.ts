@@ -12,15 +12,25 @@ import { applySavedEntityPersistedState } from '@/lib/yjs/server/apply-entity-st
 
 const logger = createLogger('CustomToolsOperations')
 
-interface UpsertCustomToolsParams {
+interface CreateCustomToolsParams {
   tools: Array<{
-    id?: string
     title: string
     schema: Record<string, any>
     code: string
   }>
   workspaceId: string
   userId: string
+  requestId?: string
+}
+
+interface SaveCustomToolParams {
+  tool: {
+    id: string
+    title: string
+    schema: Record<string, any>
+    code: string
+  }
+  workspaceId: string
   requestId?: string
 }
 
@@ -39,21 +49,17 @@ export async function listCustomTools(params: { workspaceId: string }) {
     .orderBy(desc(customTools.createdAt))
 }
 
-/**
- * Create or update custom tools scoped to a workspace.
- */
-export async function upsertCustomTools({
+export async function createCustomTools({
   tools,
   workspaceId,
   userId,
   requestId = generateRequestId(),
-}: UpsertCustomToolsParams) {
-  const updates: Array<{
-    id: string
-    fields: Record<string, unknown>
-  }> = []
+}: CreateCustomToolsParams) {
+  if (tools.length === 0) {
+    return []
+  }
 
-  await db.transaction(async (tx) => {
+  return await db.transaction(async (tx) => {
     const existingTools = await tx
       .select({
         id: customTools.id,
@@ -62,43 +68,20 @@ export async function upsertCustomTools({
       .from(customTools)
       .where(eq(customTools.workspaceId, workspaceId))
 
-    const existingById = new Map(
-      existingTools.map((tool) => [tool.id, { id: tool.id, title: tool.title }])
-    )
     const plannedTitles = new Map(existingTools.map((tool) => [tool.title, tool.id]))
+    const nowTime = new Date()
+    const insertValues = []
 
     for (const tool of tools) {
-      const nowTime = new Date()
-      const existingTool = tool.id ? existingById.get(tool.id) : null
       const conflictingToolId = plannedTitles.get(tool.title)
 
-      if (conflictingToolId && conflictingToolId !== tool.id) {
+      if (conflictingToolId) {
         throw new Error(`A tool with the title "${tool.title}" already exists in this workspace`)
       }
 
-      if (existingTool && tool.id) {
-        if (existingTool.title !== tool.title) {
-          plannedTitles.delete(existingTool.title)
-          plannedTitles.set(tool.title, tool.id)
-          existingTool.title = tool.title
-        }
-
-        updates.push({
-          id: tool.id,
-          fields: {
-            title: tool.title,
-            schemaText: JSON.stringify(tool.schema, null, 2),
-            codeText: tool.code,
-          },
-        })
-        logger.info(`[${requestId}] Updated custom tool ${tool.id}`)
-        continue
-      }
-
-      const toolId = tool.id || nanoid()
+      const toolId = nanoid()
       plannedTitles.set(tool.title, toolId)
-      existingById.set(toolId, { id: toolId, title: tool.title })
-      const newTool = {
+      insertValues.push({
         id: toolId,
         workspaceId,
         userId,
@@ -107,19 +90,44 @@ export async function upsertCustomTools({
         code: tool.code,
         createdAt: nowTime,
         updatedAt: nowTime,
-      }
-      await tx.insert(customTools).values(newTool)
-
-      logger.info(`[${requestId}] Created custom tool ${tool.title}`)
+      })
     }
+
+    const createdTools = await tx.insert(customTools).values(insertValues).returning()
+    logger.info(`[${requestId}] Created ${createdTools.length} custom tool(s)`)
+    return createdTools
   })
+}
 
-  await Promise.all(
-    updates.map(({ id, fields }) =>
-      applySavedEntityPersistedState('custom_tool', id, workspaceId, fields)
-    )
+export async function saveCustomTool({
+  tool,
+  workspaceId,
+  requestId = generateRequestId(),
+}: SaveCustomToolParams) {
+  const existingTools = await db
+    .select({
+      id: customTools.id,
+      title: customTools.title,
+    })
+    .from(customTools)
+    .where(eq(customTools.workspaceId, workspaceId))
+  const existingTool = existingTools.find((candidate) => candidate.id === tool.id)
+  if (!existingTool) {
+    throw new Error(`Custom tool ${tool.id} was not found`)
+  }
+  const conflictingTool = existingTools.find(
+    (candidate) => candidate.title === tool.title && candidate.id !== tool.id
   )
+  if (conflictingTool) {
+    throw new Error(`A tool with the title "${tool.title}" already exists in this workspace`)
+  }
 
+  await applySavedEntityPersistedState('custom_tool', tool.id, workspaceId, {
+    title: tool.title,
+    schemaText: JSON.stringify(tool.schema, null, 2),
+    codeText: tool.code,
+  })
+  logger.info(`[${requestId}] Saved custom tool ${tool.id}`)
   return listCustomTools({ workspaceId })
 }
 

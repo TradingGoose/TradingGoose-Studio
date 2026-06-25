@@ -95,13 +95,6 @@ describe('Workflow State API Route', () => {
       ),
     }))
 
-    vi.doMock('@/lib/workflows/custom-tools-persistence', () => ({
-      extractAndPersistCustomTools: vi.fn().mockResolvedValue({
-        saved: 0,
-        errors: [],
-      }),
-    }))
-
     vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
       applyWorkflowState: applyWorkflowStateMock,
     }))

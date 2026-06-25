@@ -1,7 +1,6 @@
-import { nanoid } from 'nanoid'
 import { ENTITY_KIND_SKILL } from '@/lib/copilot/review-sessions/types'
 import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
-import { listSkills, upsertSkills } from '@/lib/skills/operations'
+import { createSkills, listSkills } from '@/lib/skills/operations'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
   buildDocumentEnvelope,
@@ -30,26 +29,24 @@ async function createSkillEntity(
   context: Parameters<typeof verifyWorkspaceContext>[0]
 ): Promise<EntityCreateResult> {
   const { userId, workspaceId } = await verifyWorkspaceContext(context, 'write')
-  const entityId = nanoid()
-  const rows = await upsertSkills({
+  const rows = await createSkills({
     userId,
     workspaceId,
     skills: [
       {
-        id: entityId,
         name: String(fields.name ?? ''),
         description: String(fields.description ?? ''),
         content: String(fields.content ?? ''),
       },
     ],
   })
-  const row = rows.find((candidate) => candidate.id === entityId)
+  const row = rows[0]
   if (!row) {
-    throw new Error('Created skill was not returned from canonical upsert')
+    throw new Error('Created skill was not returned')
   }
 
   return {
-    entityId,
+    entityId: row.id,
     fields: savedEntityRowToFields(ENTITY_KIND_SKILL, row),
   }
 }

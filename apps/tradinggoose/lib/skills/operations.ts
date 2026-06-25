@@ -10,18 +10,29 @@ import {
 } from '@/lib/skills/import-export'
 import { generateRequestId } from '@/lib/utils'
 import { applySavedEntityPersistedState } from '@/lib/yjs/server/apply-entity-state'
+import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('SkillsOperations')
 
-interface UpsertSkillsParams {
+interface CreateSkillsParams {
   skills: Array<{
-    id?: string
     name: string
     description: string
     content: string
   }>
   workspaceId: string
   userId: string
+  requestId?: string
+}
+
+interface SaveSkillParams {
+  skill: {
+    id: string
+    name: string
+    description: string
+    content: string
+  }
+  workspaceId: string
   requestId?: string
 }
 
@@ -44,31 +55,36 @@ export async function deleteSkill(params: {
   skillId: string
   workspaceId: string
 }): Promise<boolean> {
-  const deletedSkill = await db
-    .delete(skill)
+  const [existingSkill] = await db
+    .select({ id: skill.id })
+    .from(skill)
     .where(and(eq(skill.id, params.skillId), eq(skill.workspaceId, params.workspaceId)))
-    .returning({ id: skill.id })
+    .limit(1)
 
-  if (deletedSkill.length === 0) {
+  if (!existingSkill) {
     return false
   }
+
+  await deleteYjsSessionInSocketServer(params.skillId)
+  await db
+    .delete(skill)
+    .where(and(eq(skill.id, params.skillId), eq(skill.workspaceId, params.workspaceId)))
 
   logger.info(`Deleted skill ${params.skillId}`)
   return true
 }
 
-export async function upsertSkills({
+export async function createSkills({
   skills,
   workspaceId,
   userId,
   requestId = generateRequestId(),
-}: UpsertSkillsParams) {
-  const updates: Array<{
-    id: string
-    fields: Record<string, unknown>
-  }> = []
+}: CreateSkillsParams) {
+  if (skills.length === 0) {
+    return []
+  }
 
-  await db.transaction(async (tx) => {
+  return await db.transaction(async (tx) => {
     const existingSkills = await tx
       .select({
         id: skill.id,
@@ -77,50 +93,24 @@ export async function upsertSkills({
       .from(skill)
       .where(eq(skill.workspaceId, workspaceId))
 
-    const existingById = new Map(
-      existingSkills.map((currentSkill) => [
-        currentSkill.id,
-        { id: currentSkill.id, name: currentSkill.name },
-      ])
-    )
     const plannedNames = new Map(
       existingSkills.map((currentSkill) => [currentSkill.name, currentSkill.id])
     )
+    const nowTime = new Date()
+    const insertValues = []
 
     for (const currentSkill of skills) {
-      const nowTime = new Date()
-      const existingSkill = currentSkill.id ? existingById.get(currentSkill.id) : null
       const conflictingSkillId = plannedNames.get(currentSkill.name)
 
-      if (conflictingSkillId && conflictingSkillId !== currentSkill.id) {
+      if (conflictingSkillId) {
         throw new Error(
           `A skill with the name "${currentSkill.name}" already exists in this workspace`
         )
       }
 
-      if (existingSkill && currentSkill.id) {
-        if (existingSkill.name !== currentSkill.name) {
-          plannedNames.delete(existingSkill.name)
-          plannedNames.set(currentSkill.name, currentSkill.id)
-          existingSkill.name = currentSkill.name
-        }
-
-        updates.push({
-          id: currentSkill.id,
-          fields: {
-            name: currentSkill.name,
-            description: currentSkill.description,
-            content: currentSkill.content,
-          },
-        })
-        logger.info(`[${requestId}] Updated skill ${currentSkill.id}`)
-        continue
-      }
-
-      const skillId = currentSkill.id || nanoid()
+      const skillId = nanoid()
       plannedNames.set(currentSkill.name, skillId)
-      existingById.set(skillId, { id: skillId, name: currentSkill.name })
-      const newSkill = {
+      insertValues.push({
         id: skillId,
         workspaceId,
         userId,
@@ -129,19 +119,44 @@ export async function upsertSkills({
         content: currentSkill.content,
         createdAt: nowTime,
         updatedAt: nowTime,
-      }
-      await tx.insert(skill).values(newSkill)
-
-      logger.info(`[${requestId}] Created skill "${currentSkill.name}"`)
+      })
     }
+
+    const createdSkills = await tx.insert(skill).values(insertValues).returning()
+    logger.info(`[${requestId}] Created ${createdSkills.length} skill(s)`)
+    return createdSkills
   })
+}
 
-  await Promise.all(
-    updates.map(({ id, fields }) =>
-      applySavedEntityPersistedState('skill', id, workspaceId, fields)
-    )
+export async function saveSkill({
+  skill: currentSkill,
+  workspaceId,
+  requestId = generateRequestId(),
+}: SaveSkillParams) {
+  const existingSkills = await db
+    .select({
+      id: skill.id,
+      name: skill.name,
+    })
+    .from(skill)
+    .where(eq(skill.workspaceId, workspaceId))
+  const existingSkill = existingSkills.find((candidate) => candidate.id === currentSkill.id)
+  if (!existingSkill) {
+    throw new Error(`Skill ${currentSkill.id} was not found`)
+  }
+  const conflictingSkill = existingSkills.find(
+    (candidate) => candidate.name === currentSkill.name && candidate.id !== currentSkill.id
   )
+  if (conflictingSkill) {
+    throw new Error(`A skill with the name "${currentSkill.name}" already exists in this workspace`)
+  }
 
+  await applySavedEntityPersistedState('skill', currentSkill.id, workspaceId, {
+    name: currentSkill.name,
+    description: currentSkill.description,
+    content: currentSkill.content,
+  })
+  logger.info(`[${requestId}] Saved skill ${currentSkill.id}`)
   return listSkills({ workspaceId })
 }
 

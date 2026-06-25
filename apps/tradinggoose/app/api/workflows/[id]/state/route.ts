@@ -2,7 +2,6 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { extractAndPersistCustomTools } from '@/lib/workflows/custom-tools-persistence'
 import {
   ensureUniqueBlockIds,
   ensureUniqueEdgeIds,
@@ -187,25 +186,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       state.variables,
       workflowData.name
     )
-
-    // Extract and persist custom tools to database
-    try {
-      const { saved, errors } = await extractAndPersistCustomTools(
-        persistedWorkflowState,
-        workflowData.workspaceId ?? null,
-        userId
-      )
-
-      if (saved > 0) {
-        logger.info(`[${requestId}] Persisted ${saved} custom tool(s) to database`, { workflowId })
-      }
-
-      if (errors.length > 0) {
-        logger.warn(`[${requestId}] Some custom tools failed to persist`, { errors, workflowId })
-      }
-    } catch (error) {
-      logger.error(`[${requestId}] Failed to persist custom tools`, { error, workflowId })
-    }
 
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully saved workflow ${workflowId} state in ${elapsed}ms`)

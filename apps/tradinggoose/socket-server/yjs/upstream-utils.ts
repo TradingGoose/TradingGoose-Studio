@@ -3,7 +3,7 @@
  *
  * Uses the app's single Yjs runtime and exposes only the helpers this repo
  * needs: `getDocument`, `getExistingDocument`, `peekDocument`,
- * `setupWSConnection`, `setPersistence`, `removeDocument`,
+ * `setupWSConnection`, `setPersistence`, `removeDocument`, `discardDocument`,
  * and `cleanupAllDocuments`.
  */
 
@@ -369,6 +369,23 @@ export function removeDocument(docId: string): void {
   }
 
   doc.conns.forEach((_ids, conn) => {
+    try {
+      conn.close()
+    } catch {
+      // ignore
+    }
+  })
+}
+
+export function discardDocument(docId: string): void {
+  const doc = docs.get(docId)
+  if (!doc) {
+    return
+  }
+
+  const conns = Array.from(doc.conns.keys())
+  cleanupDocument(doc)
+  conns.forEach((conn) => {
     try {
       conn.close()
     } catch {

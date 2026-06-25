@@ -4,11 +4,12 @@ import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
-import { listCustomTools, upsertCustomTools } from '@/lib/custom-tools/operations'
-import { CustomToolUpsertRequestSchema } from '@/lib/custom-tools/schema'
+import { createCustomTools, listCustomTools, saveCustomTool } from '@/lib/custom-tools/operations'
+import { CustomToolWriteRequestSchema } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
+import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('CustomToolsAPI')
 
@@ -84,7 +85,7 @@ export async function POST(req: NextRequest) {
 
     try {
       // Validate the request body
-      const { tools, workspaceId } = CustomToolUpsertRequestSchema.parse(body)
+      const { tools, workspaceId } = CustomToolWriteRequestSchema.parse(body)
 
       const permission = await getUserEntityPermissions(authResult.userId, 'workspace', workspaceId)
       if (!permission) {
@@ -101,12 +102,39 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Write permission required' }, { status: 403 })
       }
 
-      const resultTools = await upsertCustomTools({
-        tools,
-        workspaceId,
-        userId: authResult.userId,
-        requestId,
-      })
+      const toolsToCreate = tools.filter((tool) => !tool.id)
+      const toolsToSave = tools.filter((tool) => tool.id)
+      if (toolsToCreate.length > 0 && toolsToSave.length > 0) {
+        return NextResponse.json(
+          { error: 'Create and save custom tools in separate requests' },
+          { status: 400 }
+        )
+      }
+      if (toolsToSave.length > 1) {
+        return NextResponse.json(
+          { error: 'Save one existing custom tool per request' },
+          { status: 400 }
+        )
+      }
+
+      const resultTools =
+        toolsToSave.length === 1
+          ? await saveCustomTool({
+              tool: {
+                id: toolsToSave[0].id!,
+                title: toolsToSave[0].title,
+                schema: toolsToSave[0].schema,
+                code: toolsToSave[0].code,
+              },
+              workspaceId,
+              requestId,
+            })
+          : await createCustomTools({
+              tools: toolsToCreate,
+              workspaceId,
+              userId: authResult.userId,
+              requestId,
+            })
 
       return NextResponse.json({ success: true, data: resultTools })
     } catch (validationError) {
@@ -126,6 +154,12 @@ export async function POST(req: NextRequest) {
           { error: 'Invalid request data', details: validationError.errors },
           { status: 400 }
         )
+      }
+      if (validationError instanceof Error && validationError.message.includes('already exists')) {
+        return NextResponse.json({ error: validationError.message }, { status: 409 })
+      }
+      if (validationError instanceof Error && validationError.message.includes('was not found')) {
+        return NextResponse.json({ error: validationError.message }, { status: 404 })
       }
       throw validationError
     }
@@ -173,15 +207,21 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Write permission required' }, { status: 403 })
     }
 
-    const deletedTool = await db
-      .delete(customTools)
+    const [existingTool] = await db
+      .select({ id: customTools.id })
+      .from(customTools)
       .where(and(eq(customTools.id, toolId), eq(customTools.workspaceId, workspaceId)))
-      .returning({ id: customTools.id })
+      .limit(1)
 
-    if (deletedTool.length === 0) {
+    if (!existingTool) {
       logger.warn(`[${requestId}] Tool not found: ${toolId}`)
       return NextResponse.json({ error: 'Tool not found' }, { status: 404 })
     }
+
+    await deleteYjsSessionInSocketServer(toolId)
+    await db
+      .delete(customTools)
+      .where(and(eq(customTools.id, toolId), eq(customTools.workspaceId, workspaceId)))
 
     logger.info(`[${requestId}] Deleted tool: ${toolId}`)
     return NextResponse.json({ success: true })

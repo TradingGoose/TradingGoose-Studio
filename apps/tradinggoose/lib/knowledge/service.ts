@@ -22,6 +22,7 @@ import type {
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess, getUserEntityPermissions } from '@/lib/permissions/utils'
 import { applySavedEntityPersistedState } from '@/lib/yjs/server/apply-entity-state'
+import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('KnowledgeBaseService')
 
@@ -429,6 +430,7 @@ export async function deleteKnowledgeBase(
 ): Promise<void> {
   const now = new Date()
 
+  await deleteYjsSessionInSocketServer(knowledgeBaseId)
   await db
     .update(knowledgeBase)
     .set({

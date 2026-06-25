@@ -8,6 +8,7 @@ import { mcpService } from '@/lib/mcp/service'
 import type { McpTransport } from '@/lib/mcp/types'
 import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
+import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { CreateMcpServerSchema } from './schema'
 
 const logger = createLogger('McpServersAPI')
@@ -86,7 +87,7 @@ export const POST = withMcpAuth('write')(
         body.url = urlValidation.normalizedUrl
       }
 
-      const serverId = body.id || crypto.randomUUID()
+      const serverId = crypto.randomUUID()
 
       const [server] = await db
         .insert(mcpServers)
@@ -159,9 +160,10 @@ export const DELETE = withMcpAuth('write')(
       logger.info(`[${requestId}] Deleting MCP server: ${serverId} from workspace: ${workspaceId}`)
 
       const [server] = await db
-        .delete(mcpServers)
+        .select({ id: mcpServers.id })
+        .from(mcpServers)
         .where(and(eq(mcpServers.id, serverId), eq(mcpServers.workspaceId, workspaceId)))
-        .returning({ id: mcpServers.id })
+        .limit(1)
 
       if (!server) {
         return createMcpErrorResponse(
@@ -170,6 +172,11 @@ export const DELETE = withMcpAuth('write')(
           404
         )
       }
+
+      await deleteYjsSessionInSocketServer(serverId)
+      await db
+        .delete(mcpServers)
+        .where(and(eq(mcpServers.id, serverId), eq(mcpServers.workspaceId, workspaceId)))
 
       mcpService.clearCache(workspaceId)
 
