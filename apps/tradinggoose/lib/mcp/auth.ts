@@ -66,7 +66,7 @@ function signDeviceLoginCode(unsignedCode: string): string {
   return createHmac('sha256', env.INTERNAL_API_SECRET).update(unsignedCode).digest('base64url')
 }
 
-function buildDeviceLoginIdentifier(code: string): string {
+function buildDeviceLoginId(code: string): string {
   return `${DEVICE_LOGIN_PREFIX}${hashValue(code)}`
 }
 
@@ -91,7 +91,7 @@ function createDeviceLoginCode({
 function readDeviceLoginCode(code: string): {
   state: PendingDeviceLogin
   expiresAt: Date
-  identifier: string
+  id: string
 } | null {
   try {
     const [nonce, issuedAtRaw, expiresAtRaw, verificationKeyHash, encodedSignature, extra] =
@@ -129,7 +129,7 @@ function readDeviceLoginCode(code: string): {
 
     return {
       expiresAt: new Date(expiresAt),
-      identifier: buildDeviceLoginIdentifier(code),
+      id: buildDeviceLoginId(code),
       state: {
         status: 'pending',
         createdAt: new Date(issuedAt).toISOString(),
@@ -181,7 +181,7 @@ async function readDeviceLogin(code: string) {
       expiresAt: verification.expiresAt,
     })
     .from(verification)
-    .where(eq(verification.identifier, buildDeviceLoginIdentifier(code)))
+    .where(eq(verification.id, buildDeviceLoginId(code)))
     .limit(1)
 
   if (!row) {
@@ -237,7 +237,7 @@ export async function createMcpDeviceLoginApprovalChallenge({
   code: string
   userId: string
 }): Promise<McpDeviceLoginApprovalChallengeResult> {
-  const login = await readDeviceLogin(code)
+  let login = await readDeviceLogin(code)
   if (!login) {
     const codeState = readDeviceLoginCode(code)
     if (!codeState) {
@@ -245,23 +245,35 @@ export async function createMcpDeviceLoginApprovalChallenge({
     }
 
     const approvalToken = randomBytes(32).toString('base64url')
-    await db.insert(verification).values({
-      id: nanoid(),
-      identifier: codeState.identifier,
-      value: JSON.stringify({
-        ...codeState.state,
-        approvalUserId: userId,
-        approvalTokenHash: hashValue(approvalToken),
-      } satisfies PendingDeviceLogin),
-      expiresAt: codeState.expiresAt,
-      createdAt: new Date(codeState.state.createdAt),
-      updatedAt: new Date(),
-    })
+    const state = {
+      ...codeState.state,
+      approvalUserId: userId,
+      approvalTokenHash: hashValue(approvalToken),
+    } satisfies PendingDeviceLogin
+    const [inserted] = await db
+      .insert(verification)
+      .values({
+        id: codeState.id,
+        identifier: codeState.id,
+        value: JSON.stringify(state),
+        expiresAt: codeState.expiresAt,
+        createdAt: new Date(codeState.state.createdAt),
+        updatedAt: new Date(),
+      })
+      .onConflictDoNothing({ target: verification.id })
+      .returning({ id: verification.id })
 
-    return {
-      status: 'pending',
-      expiresAt: codeState.expiresAt.toISOString(),
-      approvalToken,
+    if (inserted) {
+      return {
+        status: 'pending',
+        expiresAt: codeState.expiresAt.toISOString(),
+        approvalToken,
+      }
+    }
+
+    login = await readDeviceLogin(code)
+    if (!login) {
+      return { status: 'expired' }
     }
   }
 
@@ -373,7 +385,6 @@ export async function pollMcpDeviceLogin(
     expiresAt: login.expiresAt.toISOString(),
   }
 }
-
 export async function approveMcpDeviceLogin({
   approvalToken,
   code,
