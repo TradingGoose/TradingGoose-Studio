@@ -19,7 +19,7 @@ const logger = createLogger('WorkflowByIdAPI')
 
 const UpdateWorkflowSchema = z
   .object({
-    name: z.string().min(1, 'Name is required').optional(),
+    name: z.string().trim().min(1, 'Name is required').optional(),
     description: z.string().optional(),
     folderId: z.string().nullable().optional(),
   })

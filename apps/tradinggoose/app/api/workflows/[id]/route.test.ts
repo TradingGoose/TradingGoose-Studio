@@ -793,8 +793,7 @@ describe('Workflow By ID API Route', () => {
         isWorkspaceOwner: false,
       })
 
-      // Invalid data - empty name
-      const invalidData = { name: '' }
+      const invalidData = { name: '   ' }
 
       const req = new NextRequest('http://localhost:3000/api/workflows/workflow-123', {
         method: 'PUT',
@@ -808,6 +807,7 @@ describe('Workflow By ID API Route', () => {
       expect(response.status).toBe(400)
       const data = await response.json()
       expect(data.error).toBe('Invalid request data')
+      expect(mockApplyWorkflowMetadata).not.toHaveBeenCalled()
     })
 
     it('should reject generated workflow color updates', async () => {

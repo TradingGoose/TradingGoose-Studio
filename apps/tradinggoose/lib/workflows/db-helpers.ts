@@ -894,7 +894,7 @@ export async function saveWorkflowYjsDocToDb(workflowId: string, doc: Y.Doc): Pr
       .set({
         lastSynced: syncedAt,
         updatedAt: syncedAt,
-        ...(state.name ? { name: state.name } : {}),
+        ...(state.name !== undefined ? { name: state.name } : {}),
         ...(state.description !== undefined ? { description: state.description } : {}),
         ...(state.folderId !== undefined ? { folderId: state.folderId } : {}),
         variables: state.variables,

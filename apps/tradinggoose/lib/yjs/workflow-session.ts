@@ -404,10 +404,15 @@ export function readWorkflowEntityMetadata(doc: Y.Doc): WorkflowMetadataSnapshot
 }
 
 export function setWorkflowEntityMetadata(doc: Y.Doc, patch: WorkflowMetadataPatch): void {
+  const name = patch.name?.trim()
+  if (patch.name !== undefined && !name) {
+    throw new Error('Workflow name is required')
+  }
+
   doc.transact(() => {
     const metadata = getMetadataMap(doc)
     metadata.delete('reseededFromCanonical')
-    if (patch.name !== undefined) metadata.set('entityName', patch.name.trim())
+    if (name !== undefined) metadata.set('entityName', name)
     if (patch.description !== undefined) metadata.set('entityDescription', patch.description)
     if (patch.folderId !== undefined) metadata.set('folderId', patch.folderId)
   }, YJS_ORIGINS.SYSTEM)

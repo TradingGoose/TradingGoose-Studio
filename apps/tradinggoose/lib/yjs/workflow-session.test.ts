@@ -4,6 +4,7 @@ import {
   createWorkflowTextFieldKey,
   readWorkflowSnapshot,
   readWorkflowTextFieldsMap,
+  setWorkflowEntityMetadata,
   setWorkflowState,
 } from './workflow-session'
 
@@ -77,5 +78,13 @@ describe('workflow session text fields', () => {
       'fresh'
     )
     expect(readWorkflowSnapshot(doc).blocks['block-1']?.subBlocks?.code?.value).toBe('fresh')
+  })
+
+  it('rejects blank workflow names before writing metadata', () => {
+    const doc = new Y.Doc()
+
+    expect(() => setWorkflowEntityMetadata(doc, { name: '   ' })).toThrow(
+      'Workflow name is required'
+    )
   })
 })
