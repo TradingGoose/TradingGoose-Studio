@@ -3,7 +3,7 @@ import { db } from '@tradinggoose/db'
 import { apiKey, verification } from '@tradinggoose/db/schema'
 import { and, eq, like, lte } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
-import { createApiKey } from '@/lib/api-key/service'
+import { createApiKey, encryptApiKeyForStorage, isApiKeyFormat } from '@/lib/api-key/service'
 import { env } from '@/lib/env'
 import { getBaseUrl } from '@/lib/urls/utils'
 
@@ -23,6 +23,7 @@ type ApprovedDeviceLogin = {
   verificationKeyHash: string
   approvedAt: string
   userId: string
+  apiKeyHash?: string
   deliveredAt?: string
 }
 
@@ -40,6 +41,11 @@ type PendingDeviceLoginRecord = DeviceLogin & { state: PendingDeviceLogin }
 export type McpDeviceLoginPollResult =
   | { status: 'pending'; intervalSeconds: number; expiresAt: string }
   | { status: 'approved'; apiKey: string; expiresAt: string }
+  | { status: 'invalid' }
+  | { status: 'expired' }
+
+export type McpDeviceLoginAckResult =
+  | { status: 'acknowledged' }
   | { status: 'invalid' }
   | { status: 'expired' }
 
@@ -191,6 +197,7 @@ function parseDeviceLoginState(value: string): DeviceLoginState | null {
       typeof parsed.verificationKeyHash === 'string' &&
       typeof parsed.approvedAt === 'string' &&
       typeof parsed.userId === 'string' &&
+      (parsed.apiKeyHash === undefined || typeof parsed.apiKeyHash === 'string') &&
       (parsed.deliveredAt === undefined || typeof parsed.deliveredAt === 'string')
     ) {
       return parsed as ApprovedDeviceLogin
@@ -376,12 +383,62 @@ export async function pollMcpDeviceLogin(
     return { status: 'expired' }
   }
 
-  const approvedState = login.state
-  const now = new Date()
-  const { key, encryptedKey } = await createApiKey(true)
-  if (!encryptedKey) {
-    throw new Error('Failed to encrypt API key for storage')
+  const { key } = await createApiKey(false)
+  const nextState = {
+    ...login.state,
+    apiKeyHash: hashValue(key),
+  } satisfies ApprovedDeviceLogin
+  if (!(await updateDeviceLoginState(login, nextState))) {
+    return {
+      status: 'pending',
+      intervalSeconds: POLL_INTERVAL_SECONDS,
+      expiresAt: login.expiresAt.toISOString(),
+    }
   }
+
+  return {
+    status: 'approved',
+    apiKey: key,
+    expiresAt: login.expiresAt.toISOString(),
+  }
+}
+
+export async function acknowledgeMcpDeviceLogin({
+  apiKey: plainApiKey,
+  code,
+  verificationKey,
+}: {
+  apiKey: string
+  code: string
+  verificationKey: string
+}): Promise<McpDeviceLoginAckResult> {
+  if (!isApiKeyFormat(plainApiKey)) {
+    return { status: 'invalid' }
+  }
+
+  const login = await readDeviceLogin(code)
+  if (!login) {
+    return { status: 'expired' }
+  }
+
+  if (login.state.verificationKeyHash !== hashValue(verificationKey)) {
+    return { status: 'invalid' }
+  }
+
+  if (login.state.status === 'approved' && login.state.deliveredAt) {
+    return { status: 'expired' }
+  }
+
+  if (login.state.status !== 'approved') {
+    return { status: 'invalid' }
+  }
+  if (login.state.apiKeyHash !== hashValue(plainApiKey)) {
+    return { status: 'invalid' }
+  }
+
+  const now = new Date()
+  const { apiKeyHash: _apiKeyHash, ...approvedState } = login.state
+  const encryptedKey = await encryptApiKeyForStorage(plainApiKey)
   const delivered = await db.transaction(async (tx) => {
     const [updated] = await tx
       .update(verification)
@@ -410,18 +467,10 @@ export async function pollMcpDeviceLogin(
     return true
   })
   if (!delivered) {
-    return {
-      status: 'pending',
-      intervalSeconds: POLL_INTERVAL_SECONDS,
-      expiresAt: login.expiresAt.toISOString(),
-    }
+    return { status: 'invalid' }
   }
 
-  return {
-    status: 'approved',
-    apiKey: key,
-    expiresAt: login.expiresAt.toISOString(),
-  }
+  return { status: 'acknowledged' }
 }
 export async function approveMcpDeviceLogin({
   approvalToken,

@@ -4,15 +4,20 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { db } = vi.hoisted(() => ({
-  db: {
-    select: vi.fn(),
-    insert: vi.fn(),
-    delete: vi.fn(),
-    update: vi.fn(),
-    transaction: vi.fn(),
-  },
-}))
+const { db, mockCreateApiKey, mockEncryptApiKeyForStorage, mockIsApiKeyFormat } = vi.hoisted(
+  () => ({
+    db: {
+      select: vi.fn(),
+      insert: vi.fn(),
+      delete: vi.fn(),
+      update: vi.fn(),
+      transaction: vi.fn(),
+    },
+    mockCreateApiKey: vi.fn(),
+    mockEncryptApiKeyForStorage: vi.fn(),
+    mockIsApiKeyFormat: vi.fn(),
+  })
+)
 
 const verification = Object.fromEntries(
   ['id', 'identifier', 'value', 'expiresAt', 'createdAt', 'updatedAt'].map((field) => [
@@ -29,7 +34,11 @@ vi.mock('drizzle-orm', () => ({
   like: vi.fn((field, value) => ({ field, value })),
   lte: vi.fn((field, value) => ({ field, value })),
 }))
-vi.mock('@/lib/api-key/service', () => ({ createApiKey: vi.fn() }))
+vi.mock('@/lib/api-key/service', () => ({
+  createApiKey: mockCreateApiKey,
+  encryptApiKeyForStorage: mockEncryptApiKeyForStorage,
+  isApiKeyFormat: mockIsApiKeyFormat,
+}))
 vi.mock('@/lib/env', () => ({ env: { INTERNAL_API_SECRET: '12345678901234567890123456789012' } }))
 vi.mock('@/lib/urls/utils', () => ({ getBaseUrl: vi.fn(() => 'https://studio.example.test') }))
 
@@ -67,6 +76,9 @@ describe('MCP device login auth', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-06-19T12:00:00.000Z'))
     vi.clearAllMocks()
+    mockCreateApiKey.mockResolvedValue({ key: `sk-tradinggoose-${'a'.repeat(32)}` })
+    mockEncryptApiKeyForStorage.mockResolvedValue('encrypted-api-key')
+    mockIsApiKeyFormat.mockReturnValue(true)
     mockDelete()
     selectRows()
   })

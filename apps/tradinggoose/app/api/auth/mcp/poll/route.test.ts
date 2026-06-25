@@ -5,7 +5,12 @@
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockCheckPublicApiEndpointRateLimit, mockPollMcpDeviceLogin } = vi.hoisted(() => ({
+const {
+  mockAcknowledgeMcpDeviceLogin,
+  mockCheckPublicApiEndpointRateLimit,
+  mockPollMcpDeviceLogin,
+} = vi.hoisted(() => ({
+  mockAcknowledgeMcpDeviceLogin: vi.fn(),
   mockCheckPublicApiEndpointRateLimit: vi.fn(),
   mockPollMcpDeviceLogin: vi.fn(),
 }))
@@ -16,6 +21,7 @@ vi.mock('@/lib/api/rate-limit', () => ({
 }))
 
 vi.mock('@/lib/mcp/auth', () => ({
+  acknowledgeMcpDeviceLogin: (...args: unknown[]) => mockAcknowledgeMcpDeviceLogin(...args),
   pollMcpDeviceLogin: (...args: unknown[]) => mockPollMcpDeviceLogin(...args),
 }))
 
@@ -32,6 +38,9 @@ describe('MCP login poll route', () => {
       status: 'approved',
       apiKey: 'sk-tradinggoose-token',
       expiresAt: '2026-06-19T12:00:00.000Z',
+    })
+    mockAcknowledgeMcpDeviceLogin.mockResolvedValue({
+      status: 'acknowledged',
     })
   })
 
@@ -52,6 +61,30 @@ describe('MCP login poll route', () => {
     })
     expect(mockCheckPublicApiEndpointRateLimit).toHaveBeenCalledWith(request, 'mcp-auth-poll')
     expect(mockPollMcpDeviceLogin).toHaveBeenCalledWith('login-code', 'verification-key')
+    expect(mockAcknowledgeMcpDeviceLogin).not.toHaveBeenCalled()
+  })
+
+  it('acknowledges a locally persisted device login token', async () => {
+    const { POST } = await import('./route')
+    const request = new NextRequest('https://studio.example.test/api/auth/mcp/poll', {
+      method: 'POST',
+      body: JSON.stringify({
+        code: 'login-code',
+        verificationKey: 'verification-key',
+        ackApiKey: 'sk-tradinggoose-token',
+      }),
+    })
+
+    const response = await POST(request)
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({ status: 'acknowledged' })
+    expect(mockAcknowledgeMcpDeviceLogin).toHaveBeenCalledWith({
+      apiKey: 'sk-tradinggoose-token',
+      code: 'login-code',
+      verificationKey: 'verification-key',
+    })
+    expect(mockPollMcpDeviceLogin).not.toHaveBeenCalled()
   })
 
   it('rejects malformed poll requests', async () => {

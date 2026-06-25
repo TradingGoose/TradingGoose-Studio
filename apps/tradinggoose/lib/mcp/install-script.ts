@@ -112,7 +112,7 @@ async function authenticate() {
       if (!token) {
         fail('Studio approved login without returning a token')
       }
-      return token
+      return { code, verificationKey, token }
     }
 
     if (status === 'expired') {
@@ -129,19 +129,32 @@ async function authenticate() {
   fail('Timed out waiting for browser approval')
 }
 
+async function acknowledge(login) {
+  const ackJson = await postJson(baseUrl + '/api/auth/mcp/poll', {
+    code: login.code,
+    verificationKey: login.verificationKey,
+    ackApiKey: login.token,
+  })
+  const status = String(ackJson?.status || '')
+  if (status !== 'acknowledged') {
+    fail('Studio did not activate the MCP token: ' + (status || 'unknown'))
+  }
+}
+
 async function main() {
   requireFetch()
 
   if (command === 'login') {
-    const token = await authenticate()
+    const login = await authenticate()
+    await acknowledge(login)
     console.log('MCP endpoint:')
     console.log(mcpUrl)
     console.log('')
     console.log('Bearer token:')
-    console.log(token)
+    console.log(login.token)
     console.log('')
     console.log('Use this MCP auth header:')
-    console.log('Authorization: Bearer ' + token)
+    console.log('Authorization: Bearer ' + login.token)
     return
   }
 
@@ -150,12 +163,13 @@ async function main() {
       fail('setup requires a selected target')
     }
 
-    const token = await authenticate()
+    const login = await authenticate()
     console.log('Using MCP endpoint: ' + mcpUrl)
     for (const target of targets) {
-      const configPath = runConfigWriter([target, mcpUrl, token])
+      const configPath = runConfigWriter([target, mcpUrl, login.token])
       console.log('Configured ' + target + ': ' + configPath)
     }
+    await acknowledge(login)
     return
   }
 

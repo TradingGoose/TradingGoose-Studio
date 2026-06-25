@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { checkPublicApiEndpointRateLimit } from '@/lib/api/rate-limit'
-import { pollMcpDeviceLogin } from '@/lib/mcp/auth'
+import { acknowledgeMcpDeviceLogin, pollMcpDeviceLogin } from '@/lib/mcp/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,6 +9,7 @@ const PollRequestSchema = z
   .object({
     code: z.string().min(1),
     verificationKey: z.string().min(1),
+    ackApiKey: z.string().min(1).optional(),
   })
   .strict()
 
@@ -23,6 +24,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid MCP login poll request' }, { status: 400 })
   }
 
-  const result = await pollMcpDeviceLogin(parsed.data.code, parsed.data.verificationKey)
+  const result =
+    parsed.data.ackApiKey !== undefined
+      ? await acknowledgeMcpDeviceLogin({
+          apiKey: parsed.data.ackApiKey,
+          code: parsed.data.code,
+          verificationKey: parsed.data.verificationKey,
+        })
+      : await pollMcpDeviceLogin(parsed.data.code, parsed.data.verificationKey)
   return NextResponse.json(result)
 }
