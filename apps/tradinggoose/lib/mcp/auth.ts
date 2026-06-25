@@ -1,16 +1,14 @@
-import { createHash, randomBytes } from 'crypto'
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { db } from '@tradinggoose/db'
 import { apiKey, verification } from '@tradinggoose/db/schema'
-import { and, count, eq, gt, like, lte, sql } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { createApiKeyMaterial } from '@/lib/api-key/service'
+import { env } from '@/lib/env'
 
 const DEVICE_LOGIN_TTL_MS = 10 * 60 * 1000
 const DEVICE_LOGIN_PREFIX = 'mcp:'
-const DEVICE_LOGIN_LOCK_NAMESPACE = 47_102
 const POLL_INTERVAL_SECONDS = 2
-const DELIVERY_RETRY_LIMIT = 5
-const MAX_ACTIVE_MCP_DEVICE_LOGIN_STARTS_PER_DEPLOYMENT = 200
 
 type PendingDeviceLogin = {
   status: 'pending'
@@ -26,6 +24,7 @@ type ApprovedDeviceLogin = {
   verificationKeyHash: string
   approvedAt: string
   userId: string
+  deliveredAt?: string
 }
 
 type DeviceLoginState = PendingDeviceLogin | ApprovedDeviceLogin
@@ -59,15 +58,87 @@ export type McpDeviceLoginStartResult = {
   intervalSeconds: number
 }
 
-export class McpDeviceLoginRateLimitError extends Error {
-  constructor() {
-    super('Too many active MCP login attempts. Please wait for existing attempts to expire.')
-    this.name = 'McpDeviceLoginRateLimitError'
-  }
-}
-
 function hashValue(value: string) {
   return createHash('sha256').update(value).digest('hex')
+}
+
+function signDeviceLoginCode(unsignedCode: string): string {
+  return createHmac('sha256', env.INTERNAL_API_SECRET).update(unsignedCode).digest('base64url')
+}
+
+function buildDeviceLoginIdentifier(code: string): string {
+  return `${DEVICE_LOGIN_PREFIX}${hashValue(code)}`
+}
+
+function createDeviceLoginCode({
+  expiresAt,
+  now,
+  verificationKey,
+}: {
+  expiresAt: Date
+  now: Date
+  verificationKey: string
+}): string {
+  const unsignedCode = [
+    randomBytes(32).toString('base64url'),
+    String(now.getTime()),
+    String(expiresAt.getTime()),
+    hashValue(verificationKey),
+  ].join('.')
+  return `${unsignedCode}.${signDeviceLoginCode(unsignedCode)}`
+}
+
+function readDeviceLoginCode(code: string): {
+  state: PendingDeviceLogin
+  expiresAt: Date
+  identifier: string
+} | null {
+  try {
+    const [nonce, issuedAtRaw, expiresAtRaw, verificationKeyHash, encodedSignature, extra] =
+      code.split('.')
+    if (
+      !nonce ||
+      !issuedAtRaw ||
+      !expiresAtRaw ||
+      !verificationKeyHash ||
+      !encodedSignature ||
+      extra
+    ) {
+      return null
+    }
+
+    const unsignedCode = `${nonce}.${issuedAtRaw}.${expiresAtRaw}.${verificationKeyHash}`
+    const expectedSignature = signDeviceLoginCode(unsignedCode)
+    const signatureMatches =
+      expectedSignature.length === encodedSignature.length &&
+      timingSafeEqual(Buffer.from(expectedSignature), Buffer.from(encodedSignature))
+
+    if (!signatureMatches) {
+      return null
+    }
+
+    const issuedAt = Number(issuedAtRaw)
+    const expiresAt = Number(expiresAtRaw)
+    if (!Number.isFinite(issuedAt) || !Number.isFinite(expiresAt)) {
+      return null
+    }
+
+    if (expiresAt <= Date.now()) {
+      return null
+    }
+
+    return {
+      expiresAt: new Date(expiresAt),
+      identifier: buildDeviceLoginIdentifier(code),
+      state: {
+        status: 'pending',
+        createdAt: new Date(issuedAt).toISOString(),
+        verificationKeyHash,
+      },
+    }
+  } catch {
+    return null
+  }
 }
 
 function deviceLoginMatches(login: DeviceLogin, state = login.state) {
@@ -91,7 +162,8 @@ function parseDeviceLoginState(value: string): DeviceLoginState | null {
       typeof parsed.createdAt === 'string' &&
       typeof parsed.verificationKeyHash === 'string' &&
       typeof parsed.approvedAt === 'string' &&
-      typeof parsed.userId === 'string'
+      typeof parsed.userId === 'string' &&
+      (parsed.deliveredAt === undefined || typeof parsed.deliveredAt === 'string')
     ) {
       return parsed as ApprovedDeviceLogin
     }
@@ -109,7 +181,7 @@ async function readDeviceLogin(code: string) {
       expiresAt: verification.expiresAt,
     })
     .from(verification)
-    .where(like(verification.identifier, `${DEVICE_LOGIN_PREFIX}%:${hashValue(code)}`))
+    .where(eq(verification.identifier, buildDeviceLoginIdentifier(code)))
     .limit(1)
 
   if (!row) {
@@ -145,60 +217,13 @@ async function updateDeviceLoginState(
   return Boolean(updated)
 }
 
-export async function startMcpDeviceLogin(
-  deploymentKey: string
-): Promise<McpDeviceLoginStartResult> {
-  const code = randomBytes(32).toString('base64url')
+export async function startMcpDeviceLogin(): Promise<McpDeviceLoginStartResult> {
   const verificationKey = randomBytes(32).toString('base64url')
   const now = new Date()
   const expiresAt = new Date(now.getTime() + DEVICE_LOGIN_TTL_MS)
-  const deploymentHash = hashValue(deploymentKey)
-  const deploymentIdentifierPrefix = `${DEVICE_LOGIN_PREFIX}${deploymentHash}:`
-
-  await db.transaction(async (tx) => {
-    await tx.execute(
-      sql`select pg_advisory_xact_lock(${DEVICE_LOGIN_LOCK_NAMESPACE}, hashtext(${deploymentHash}))`
-    )
-
-    await tx
-      .delete(verification)
-      .where(
-        and(
-          like(verification.identifier, `${DEVICE_LOGIN_PREFIX}%`),
-          lte(verification.expiresAt, now)
-        )
-      )
-
-    const [activeLogins] = await tx
-      .select({ count: count() })
-      .from(verification)
-      .where(
-        and(
-          like(verification.identifier, `${deploymentIdentifierPrefix}%`),
-          gt(verification.expiresAt, now)
-        )
-      )
-
-    if ((activeLogins?.count ?? 0) >= MAX_ACTIVE_MCP_DEVICE_LOGIN_STARTS_PER_DEPLOYMENT) {
-      throw new McpDeviceLoginRateLimitError()
-    }
-
-    await tx.insert(verification).values({
-      id: nanoid(),
-      identifier: `${deploymentIdentifierPrefix}${hashValue(code)}`,
-      value: JSON.stringify({
-        status: 'pending',
-        createdAt: now.toISOString(),
-        verificationKeyHash: hashValue(verificationKey),
-      } satisfies PendingDeviceLogin),
-      expiresAt,
-      createdAt: now,
-      updatedAt: now,
-    })
-  })
 
   return {
-    code,
+    code: createDeviceLoginCode({ expiresAt, now, verificationKey }),
     verificationKey,
     expiresAt: expiresAt.toISOString(),
     intervalSeconds: POLL_INTERVAL_SECONDS,
@@ -214,10 +239,36 @@ export async function createMcpDeviceLoginApprovalChallenge({
 }): Promise<McpDeviceLoginApprovalChallengeResult> {
   const login = await readDeviceLogin(code)
   if (!login) {
-    return { status: 'expired' }
+    const codeState = readDeviceLoginCode(code)
+    if (!codeState) {
+      return { status: 'expired' }
+    }
+
+    const approvalToken = randomBytes(32).toString('base64url')
+    await db.insert(verification).values({
+      id: nanoid(),
+      identifier: codeState.identifier,
+      value: JSON.stringify({
+        ...codeState.state,
+        approvalUserId: userId,
+        approvalTokenHash: hashValue(approvalToken),
+      } satisfies PendingDeviceLogin),
+      expiresAt: codeState.expiresAt,
+      createdAt: new Date(codeState.state.createdAt),
+      updatedAt: new Date(),
+    })
+
+    return {
+      status: 'pending',
+      expiresAt: codeState.expiresAt.toISOString(),
+      approvalToken,
+    }
   }
 
   if (login.state.status === 'approved') {
+    if (login.state.deliveredAt) {
+      return { status: 'expired' }
+    }
     return {
       status: 'approved',
       expiresAt: login.expiresAt.toISOString(),
@@ -246,65 +297,80 @@ export async function pollMcpDeviceLogin(
   code: string,
   verificationKey: string
 ): Promise<McpDeviceLoginPollResult> {
-  let lastExpiresAt: string | null = null
-  for (let deliveryAttempt = 0; deliveryAttempt < DELIVERY_RETRY_LIMIT; deliveryAttempt += 1) {
-    const login = await readDeviceLogin(code)
-    if (!login) {
+  const login = await readDeviceLogin(code)
+  if (!login) {
+    const codeState = readDeviceLoginCode(code)
+    if (!codeState) {
       return { status: 'expired' }
     }
-    lastExpiresAt = login.expiresAt.toISOString()
-
-    if (login.state.verificationKeyHash !== hashValue(verificationKey)) {
+    if (codeState.state.verificationKeyHash !== hashValue(verificationKey)) {
       return { status: 'invalid' }
     }
-
-    if (login.state.status !== 'approved') {
-      return {
-        status: 'pending',
-        intervalSeconds: POLL_INTERVAL_SECONDS,
-        expiresAt: login.expiresAt.toISOString(),
-      }
+    return {
+      status: 'pending',
+      intervalSeconds: POLL_INTERVAL_SECONDS,
+      expiresAt: codeState.expiresAt.toISOString(),
     }
+  }
 
-    const approvedState = login.state
-    const now = new Date()
-    const apiKeyId = nanoid()
-    const { key, storedKey } = await createApiKeyMaterial()
-    const delivered = await db.transaction(async (tx) => {
-      const [deleted] = await tx
-        .delete(verification)
-        .where(deviceLoginMatches(login))
-        .returning({ id: verification.id })
-      if (!deleted) {
-        return false
-      }
-      await tx.insert(apiKey).values({
-        id: apiKeyId,
-        userId: approvedState.userId,
-        workspaceId: null,
-        name: `TradingGoose MCP Access ${now.toISOString()}`,
-        key: storedKey,
-        type: 'personal',
-        createdAt: now,
+  if (login.state.verificationKeyHash !== hashValue(verificationKey)) {
+    return { status: 'invalid' }
+  }
+
+  if (login.state.status === 'approved' && login.state.deliveredAt) {
+    return { status: 'expired' }
+  }
+
+  if (login.state.status !== 'approved') {
+    return {
+      status: 'pending',
+      intervalSeconds: POLL_INTERVAL_SECONDS,
+      expiresAt: login.expiresAt.toISOString(),
+    }
+  }
+
+  const approvedState = login.state
+  const now = new Date()
+  const { key, storedKey } = await createApiKeyMaterial()
+  const delivered = await db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(verification)
+      .set({
+        value: JSON.stringify({
+          ...approvedState,
+          deliveredAt: now.toISOString(),
+        } satisfies ApprovedDeviceLogin),
         updatedAt: now,
       })
-      return true
-    })
-    if (!delivered) {
-      continue
+      .where(deviceLoginMatches(login))
+      .returning({ id: verification.id })
+    if (!updated) {
+      return false
     }
-
+    await tx.insert(apiKey).values({
+      id: nanoid(),
+      userId: approvedState.userId,
+      workspaceId: null,
+      name: `TradingGoose MCP Access ${now.toISOString()}`,
+      key: storedKey,
+      type: 'personal',
+      createdAt: now,
+      updatedAt: now,
+    })
+    return true
+  })
+  if (!delivered) {
     return {
-      status: 'approved',
-      apiKey: key,
+      status: 'pending',
+      intervalSeconds: POLL_INTERVAL_SECONDS,
       expiresAt: login.expiresAt.toISOString(),
     }
   }
 
   return {
-    status: 'pending',
-    intervalSeconds: POLL_INTERVAL_SECONDS,
-    expiresAt: lastExpiresAt!,
+    status: 'approved',
+    apiKey: key,
+    expiresAt: login.expiresAt.toISOString(),
   }
 }
 
@@ -323,6 +389,9 @@ export async function approveMcpDeviceLogin({
   }
 
   if (login.state.status === 'approved') {
+    if (login.state.deliveredAt) {
+      return { status: 'invalid' }
+    }
     return {
       status: 'approved',
       expiresAt: login.expiresAt.toISOString(),
