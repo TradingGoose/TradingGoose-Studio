@@ -275,22 +275,28 @@ async function handleInternalYjsWorkflowApplyRequest(
 ): Promise<void> {
   try {
     const body = parseApplyWorkflowStateRequest(await readJsonBody(req))
-    const doc = await getBootstrappedApplyDocument({
+    const descriptor = {
       workspaceId: null,
       entityKind: 'workflow',
       entityId: workflowId,
       draftSessionId: null,
       reviewSessionId: null,
       yjsSessionId: workflowId,
-    })
+    } as const
+    const doc = await getBootstrappedApplyDocument(descriptor)
 
-    if (body.workflowState) {
-      replaceWorkflowDocumentState(doc, body.workflowState, body.variables, body.entityName)
-    } else {
-      setWorkflowEntityName(doc, body.entityName!)
+    try {
+      if (body.workflowState) {
+        replaceWorkflowDocumentState(doc, body.workflowState, body.variables, body.entityName)
+      } else {
+        setWorkflowEntityName(doc, body.entityName!)
+      }
+      await saveWorkflowYjsDocToDb(workflowId, doc)
+      discardDocumentIfIdle(workflowId)
+    } catch (error) {
+      discardDocumentIfIdle(descriptor.yjsSessionId)
+      throw error
     }
-    await saveWorkflowYjsDocToDb(workflowId, doc)
-    discardDocumentIfIdle(workflowId)
     sendJson(res, 200, { success: true })
   } catch (error) {
     logger.error('Error applying workflow state', { error, workflowId })
@@ -309,22 +315,28 @@ async function handleInternalYjsEntityApplyRequest(
 ): Promise<void> {
   try {
     const body = parseApplyEntityStateRequest(await readJsonBody(req))
-    const doc = await getBootstrappedApplyDocument({
+    const descriptor = {
       workspaceId: null,
       entityKind: body.entityKind,
       entityId,
       draftSessionId: null,
       reviewSessionId: null,
       yjsSessionId: entityId,
-    })
+    } as const
+    const doc = await getBootstrappedApplyDocument(descriptor)
 
-    seedEntitySession(doc, {
-      entityKind: body.entityKind,
-      payload: body.fields,
-    })
-    clearSessionReseededFromCanonical(doc)
-    await saveSavedEntityYjsDocToDb(body.entityKind, entityId, doc)
-    discardDocumentIfIdle(entityId)
+    try {
+      seedEntitySession(doc, {
+        entityKind: body.entityKind,
+        payload: body.fields,
+      })
+      clearSessionReseededFromCanonical(doc)
+      await saveSavedEntityYjsDocToDb(body.entityKind, entityId, doc)
+      discardDocumentIfIdle(entityId)
+    } catch (error) {
+      discardDocumentIfIdle(descriptor.yjsSessionId)
+      throw error
+    }
 
     sendJson(res, 200, { success: true })
   } catch (error) {
@@ -366,11 +378,16 @@ async function handleInternalYjsSessionApplyUpdateRequest(
     }
     const doc = await getBootstrappedApplyDocument(descriptor)
 
-    Y.applyUpdate(doc, Buffer.from(updateBase64, 'base64'), YJS_ORIGINS.SAVE)
-    clearSessionReseededFromCanonical(doc)
-    if (descriptor.entityKind !== 'workflow' && descriptor.entityId) {
-      await saveSavedEntityYjsDocToDb(descriptor.entityKind, descriptor.entityId, doc)
-      discardDocumentIfIdle(sessionId)
+    try {
+      Y.applyUpdate(doc, Buffer.from(updateBase64, 'base64'), YJS_ORIGINS.SAVE)
+      clearSessionReseededFromCanonical(doc)
+      if (descriptor.entityKind !== 'workflow' && descriptor.entityId) {
+        await saveSavedEntityYjsDocToDb(descriptor.entityKind, descriptor.entityId, doc)
+        discardDocumentIfIdle(sessionId)
+      }
+    } catch (error) {
+      discardDocumentIfIdle(descriptor.yjsSessionId)
+      throw error
     }
 
     sendJson(res, 200, { success: true })

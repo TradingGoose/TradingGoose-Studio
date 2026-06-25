@@ -8,7 +8,7 @@ import { io as createClient } from 'socket.io-client'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getEntityFields } from '@/lib/yjs/entity-session'
+import { getEntityFields, seedEntitySession } from '@/lib/yjs/entity-session'
 import { extractPersistedStateFromDoc, setWorkflowState } from '@/lib/yjs/workflow-session'
 import { createSocketIOServer } from '@/socket-server/config/socket'
 import { createHttpHandler } from '@/socket-server/routes/http'
@@ -16,6 +16,7 @@ import {
   cleanupAllDocuments,
   getDocument,
   getExistingDocument,
+  setupWSConnection,
 } from '@/socket-server/yjs/upstream-utils'
 
 const {
@@ -426,6 +427,66 @@ describe('Socket Server Index Integration', () => {
       expect(await getExistingDocument('skill-1')).toBeNull()
     })
 
+    it('should discard an idle workflow document when materialization fails', async () => {
+      mockSaveWorkflowYjsDocToDb.mockRejectedValueOnce(new Error('database unavailable'))
+
+      const response = await sendHttpRequestWithOptions(
+        PORT,
+        '/internal/yjs/workflows/workflow-failed/apply-state',
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-internal-secret': INTERNAL_SECRET,
+          },
+          body: JSON.stringify({
+            workflowState: {
+              blocks: {},
+              edges: [],
+              loops: {},
+              parallels: {},
+              lastSaved: '2026-04-06T00:00:00.000Z',
+              isDeployed: false,
+            },
+          }),
+        }
+      )
+
+      expect(response.statusCode).toBe(500)
+      expect(await getExistingDocument('workflow-failed')).toBeNull()
+    })
+
+    it('should discard an idle saved entity document when update materialization fails', async () => {
+      mockSaveSavedEntityYjsDocToDb.mockRejectedValueOnce(new Error('database unavailable'))
+      const updateDoc = new Y.Doc()
+      seedEntitySession(updateDoc, {
+        entityKind: 'skill',
+        payload: {
+          name: 'Unsaved Skill',
+          description: 'Draft',
+          content: 'Draft content',
+        },
+      })
+      const updateBase64 = Buffer.from(Y.encodeStateAsUpdate(updateDoc)).toString('base64')
+      updateDoc.destroy()
+
+      const response = await sendHttpRequestWithOptions(
+        PORT,
+        '/internal/yjs/sessions/skill-update-failed/apply-update?targetKind=entity&sessionId=skill-update-failed&workspaceId=workspace-1&entityKind=skill&entityId=skill-update-failed',
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-internal-secret': INTERNAL_SECRET,
+          },
+          body: JSON.stringify({ updateBase64 }),
+        }
+      )
+
+      expect(response.statusCode).toBe(500)
+      expect(await getExistingDocument('skill-update-failed')).toBeNull()
+    })
+
     it('should return the internal Yjs workflow snapshot through the generic session route', async () => {
       const { getRuntimeStateFromDoc } = await import('@/lib/yjs/server/bootstrap-review-target')
 
@@ -530,6 +591,30 @@ describe('Socket Server Index Integration', () => {
 
       expect(response.statusCode).toBe(200)
       expect(await getExistingDocument('skill-stale')).toBeNull()
+    })
+  })
+
+  describe('Yjs document cleanup', () => {
+    it('should discard an idle document even when final persistence fails', async () => {
+      const conn = new (await import('node:events')).EventEmitter() as any
+      conn.readyState = 1
+      conn.send = vi.fn((_message, _options, callback) => callback?.())
+      conn.ping = vi.fn()
+      conn.close = vi.fn()
+      const onDocumentIdle = vi.fn().mockRejectedValue(new Error('database unavailable'))
+
+      setupWSConnection(conn, {} as any, {
+        docId: 'idle-save-failed',
+        onDocumentIdle,
+      })
+      expect(await getExistingDocument('idle-save-failed')).not.toBeNull()
+
+      conn.emit('close')
+      await new Promise((resolve) => setImmediate(resolve))
+      await new Promise((resolve) => setImmediate(resolve))
+
+      expect(onDocumentIdle).toHaveBeenCalledWith('idle-save-failed', expect.any(Y.Doc))
+      expect(await getExistingDocument('idle-save-failed')).toBeNull()
     })
   })
 

@@ -96,13 +96,13 @@ function finalizeDocumentCleanup(doc: WSSharedDoc): void {
   }
 
   void Promise.resolve(doc.onDocumentIdle(doc.name, doc))
-    .then(() => {
+    .catch((error) => {
+      console.error('[yjs upstream-utils] Failed to persist idle document', error)
+    })
+    .finally(() => {
       if (doc.conns.size === 0) {
         cleanupDocument(doc)
       }
-    })
-    .catch((error) => {
-      console.error('[yjs upstream-utils] Failed to persist idle document', error)
     })
 }
 
