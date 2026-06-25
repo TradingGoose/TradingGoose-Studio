@@ -16,7 +16,6 @@ import {
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { getEntityFields } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
-import { readSavedEntityFieldsFromDb } from '@/lib/yjs/server/entity-loaders'
 import { applyEntityStateInSocketServer, getYjsSnapshot } from '@/lib/yjs/server/snapshot-bridge'
 
 export class SavedEntityPersistenceError extends Error {
@@ -187,21 +186,9 @@ export async function persistSavedEntityYjsState(
   entityId: string,
   workspaceId: string
 ): Promise<void> {
-  try {
-    const yjsFields = normalizeSavedEntityFields(
-      entityKind,
-      await readAppliedYjsEntityFields(entityKind, entityId, workspaceId)
-    )
-    await persistSavedEntityState(entityKind, entityId, yjsFields)
-  } catch (error) {
-    await applyEntityStateInSocketServer(
-      entityId,
-      entityKind,
-      normalizeSavedEntityFields(
-        entityKind,
-        await readSavedEntityFieldsFromDb(entityKind, entityId, workspaceId)
-      )
-    )
-    throw error
-  }
+  const yjsFields = normalizeSavedEntityFields(
+    entityKind,
+    await readAppliedYjsEntityFields(entityKind, entityId, workspaceId)
+  )
+  await persistSavedEntityState(entityKind, entityId, yjsFields)
 }

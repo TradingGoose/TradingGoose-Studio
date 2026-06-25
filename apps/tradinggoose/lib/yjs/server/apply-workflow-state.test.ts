@@ -13,7 +13,6 @@ const {
   mockEnsureUniqueBlockIds,
   mockEnsureUniqueEdgeIds,
   mockGetYjsSnapshot,
-  mockLoadWorkflowStateFromSavedTables,
   mockSaveWorkflowToNormalizedTables,
   mockUpdateReturning,
   mockUpdateSet,
@@ -26,7 +25,6 @@ const {
     mockEnsureUniqueBlockIds: vi.fn(),
     mockEnsureUniqueEdgeIds: vi.fn(),
     mockGetYjsSnapshot: vi.fn(),
-    mockLoadWorkflowStateFromSavedTables: vi.fn(),
     mockSaveWorkflowToNormalizedTables: vi.fn(),
     mockUpdateReturning: vi.fn(),
     mockUpdateSet: vi.fn(),
@@ -50,7 +48,6 @@ vi.mock('drizzle-orm', () => ({
 vi.mock('@/lib/workflows/db-helpers', () => ({
   ensureUniqueBlockIds: mockEnsureUniqueBlockIds,
   ensureUniqueEdgeIds: mockEnsureUniqueEdgeIds,
-  loadWorkflowStateFromSavedTables: mockLoadWorkflowStateFromSavedTables,
   saveWorkflowToNormalizedTables: mockSaveWorkflowToNormalizedTables,
 }))
 
@@ -244,20 +241,10 @@ describe('applyWorkflowState', () => {
     expect(mockDbUpdate).not.toHaveBeenCalled()
   })
 
-  it('refreshes workflow Yjs from DB when persistence fails after Yjs apply', async () => {
+  it('leaves workflow Yjs unchanged when materialization fails after Yjs apply', async () => {
     mockSaveWorkflowToNormalizedTables.mockResolvedValueOnce({
       success: false,
       error: 'db failed',
-    })
-    mockLoadWorkflowStateFromSavedTables.mockResolvedValueOnce({
-      name: 'Canonical Workflow',
-      blocks: {},
-      edges: [],
-      loops: {},
-      parallels: {},
-      variables: { apiKey: { id: 'apiKey', value: 'from-db' } },
-      lastSaved: Date.parse('2026-06-23T00:00:00.000Z'),
-      isDeployed: false,
     })
 
     const { applyWorkflowState } = await import('./apply-workflow-state')
@@ -266,32 +253,8 @@ describe('applyWorkflowState', () => {
       'db failed'
     )
 
-    expect(mockApplyWorkflowStateInSocketServer).toHaveBeenCalledTimes(2)
-    expect(mockApplyWorkflowStateInSocketServer).toHaveBeenNthCalledWith(
-      2,
-      'workflow-1',
-      expect.objectContaining({ blocks: {} }),
-      { apiKey: { id: 'apiKey', value: 'from-db' } },
-      'Canonical Workflow'
-    )
+    expect(mockApplyWorkflowStateInSocketServer).toHaveBeenCalledOnce()
     expect(mockGetYjsSnapshot).toHaveBeenCalledOnce()
     expect(mockDbUpdate).not.toHaveBeenCalled()
-  })
-
-  it('preserves the save error when workflow refresh fails', async () => {
-    mockSaveWorkflowToNormalizedTables.mockResolvedValueOnce({
-      success: false,
-      error: 'db failed',
-    })
-    mockLoadWorkflowStateFromSavedTables.mockResolvedValueOnce(null)
-
-    const { applyWorkflowState } = await import('./apply-workflow-state')
-
-    await expect(applyWorkflowState('workflow-1', emptyWorkflowState, {})).rejects.toMatchObject({
-      message: 'db failed',
-      cause: expect.objectContaining({
-        message: 'Workflow workflow-1 canonical DB state is missing',
-      }),
-    })
   })
 })

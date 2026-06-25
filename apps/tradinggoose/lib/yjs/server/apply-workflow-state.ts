@@ -8,7 +8,6 @@ import {
 import {
   ensureUniqueBlockIds,
   ensureUniqueEdgeIds,
-  loadWorkflowStateFromSavedTables,
   saveWorkflowToNormalizedTables,
 } from '@/lib/workflows/db-helpers'
 import {
@@ -66,24 +65,6 @@ async function readAppliedYjsWorkflowState(workflowId: string): Promise<{
   }
 }
 
-async function refreshWorkflowYjsFromSavedTables(workflowId: string): Promise<void> {
-  const savedState = await loadWorkflowStateFromSavedTables(workflowId)
-  if (!savedState) {
-    throw new Error(`Workflow ${workflowId} canonical DB state is missing`)
-  }
-
-  const { variables, name, lastSaved, ...savedWorkflowState } = savedState
-  await applyWorkflowStateInSocketServer(
-    workflowId,
-    createWorkflowSnapshot({
-      ...savedWorkflowState,
-      lastSaved: new Date(lastSaved).toISOString(),
-    }),
-    variables,
-    name ?? undefined
-  )
-}
-
 export async function applyWorkflowState(
   workflowId: string,
   workflowState: WorkflowSnapshot,
@@ -111,46 +92,39 @@ export async function applyWorkflowState(
 
   await applyWorkflowStateInSocketServer(workflowId, storedWorkflowState, variables, entityName)
 
-  try {
-    const appliedState = await readAppliedYjsWorkflowState(workflowId)
-    const { deployedAt, isDeployed } = appliedState.workflowState
-    const saveResult = await saveWorkflowToNormalizedTables(
-      workflowId,
-      appliedState.workflowState,
-      async (tx) => {
-        const [updatedWorkflow] = await tx
-          .update(workflow)
-          .set({
-            lastSynced: syncedAt,
-            updatedAt: syncedAt,
-            variables: appliedState.variables,
-            ...(isDeployed === undefined
-              ? {}
-              : {
-                  isDeployed,
-                  deployedAt: isDeployed ? (deployedAt ? new Date(deployedAt) : syncedAt) : null,
-                }),
-          })
-          .where(eq(workflow.id, workflowId))
-          .returning({ id: workflow.id })
+  const appliedState = await readAppliedYjsWorkflowState(workflowId)
+  const { deployedAt: appliedDeployedAt, isDeployed } = appliedState.workflowState
+  const saveResult = await saveWorkflowToNormalizedTables(
+    workflowId,
+    appliedState.workflowState,
+    async (tx) => {
+      const [updatedWorkflow] = await tx
+        .update(workflow)
+        .set({
+          lastSynced: syncedAt,
+          updatedAt: syncedAt,
+          variables: appliedState.variables,
+          ...(isDeployed === undefined
+            ? {}
+            : {
+                isDeployed,
+                deployedAt: isDeployed
+                  ? appliedDeployedAt
+                    ? new Date(appliedDeployedAt)
+                    : syncedAt
+                  : null,
+              }),
+        })
+        .where(eq(workflow.id, workflowId))
+        .returning({ id: workflow.id })
 
-        if (!updatedWorkflow) {
-          throw new Error('Workflow not found')
-        }
-      }
-    )
-    if (!saveResult.success) {
-      throw new Error(saveResult.error || 'Failed to materialize workflow state')
-    }
-  } catch (error) {
-    try {
-      await refreshWorkflowYjsFromSavedTables(workflowId)
-    } catch (refreshError) {
-      if (error instanceof Error && error.cause === undefined) {
-        error.cause = refreshError
+      if (!updatedWorkflow) {
+        throw new Error('Workflow not found')
       }
     }
-    throw error
+  )
+  if (!saveResult.success) {
+    throw new Error(saveResult.error || 'Failed to materialize workflow state')
   }
 }
 

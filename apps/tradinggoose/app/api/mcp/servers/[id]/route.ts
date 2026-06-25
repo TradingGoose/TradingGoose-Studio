@@ -8,7 +8,10 @@ import { mcpService } from '@/lib/mcp/service'
 import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
-import { applySavedEntityPersistedState } from '@/lib/yjs/server/apply-entity-state'
+import {
+  applySavedEntityPersistedState,
+  SavedEntityPersistenceError,
+} from '@/lib/yjs/server/apply-entity-state'
 import { UpdateMcpServerSchema } from '../schema'
 
 const logger = createLogger('McpServerAPI')
@@ -104,6 +107,10 @@ export const PATCH = withMcpAuth('write')(
       return createMcpSuccessResponse({ server: nextServer })
     } catch (error) {
       logger.error(`[${requestId}] Error updating MCP server:`, error)
+      if (error instanceof SavedEntityPersistenceError) {
+        return createMcpErrorResponse(error, error.message, error.status)
+      }
+
       return createMcpErrorResponse(
         error instanceof Error ? error : new Error('Failed to update MCP server'),
         'Failed to update MCP server',

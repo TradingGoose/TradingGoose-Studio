@@ -10,7 +10,6 @@ const {
   mockApplyEntityStateInSocketServer,
   mockDbUpdate,
   mockGetYjsSnapshot,
-  mockReadSavedEntityFieldsFromDb,
   mockUpdateReturning,
   mockUpdateSet,
   mockUpdateWhere,
@@ -19,7 +18,6 @@ const {
   mockApplyEntityStateInSocketServer: vi.fn(),
   mockDbUpdate: vi.fn(),
   mockGetYjsSnapshot: vi.fn(),
-  mockReadSavedEntityFieldsFromDb: vi.fn(),
   mockUpdateReturning: vi.fn(),
   mockUpdateSet: vi.fn(),
   mockUpdateWhere: vi.fn(),
@@ -56,15 +54,7 @@ vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   getYjsSnapshot: mockGetYjsSnapshot,
 }))
 
-vi.mock('@/lib/yjs/server/entity-loaders', () => ({
-  readSavedEntityFieldsFromDb: mockReadSavedEntityFieldsFromDb,
-}))
-
-function buildSkillSnapshotBase64(fields: {
-  name: string
-  description: string
-  content: string
-}) {
+function buildSkillSnapshotBase64(fields: { name: string; description: string; content: string }) {
   const doc = new Y.Doc()
   try {
     const map = doc.getMap('fields')
@@ -96,11 +86,6 @@ describe('applySavedEntityPersistedState', () => {
         runtime: {},
         touchedAt: Date.now(),
       }
-    })
-    mockReadSavedEntityFieldsFromDb.mockResolvedValue({
-      name: 'DB Skill',
-      description: 'DB description',
-      content: 'Use the saved database state.',
     })
     mockUpdateReturning.mockResolvedValue([{ id: 'skill-1' }])
     mockUpdateWhere.mockReturnValue({ returning: mockUpdateReturning })
@@ -145,7 +130,7 @@ describe('applySavedEntityPersistedState', () => {
     expect(events).toEqual(['yjs', 'snapshot', 'db'])
   })
 
-  it('refreshes the saved-entity Yjs session from DB when materialization fails', async () => {
+  it('leaves saved-entity Yjs unchanged when materialization fails', async () => {
     const { persistSavedEntityYjsState } = await import('./apply-entity-state')
     mockUpdateReturning.mockResolvedValueOnce([])
 
@@ -155,11 +140,7 @@ describe('applySavedEntityPersistedState', () => {
       status: 404,
     })
 
-    expect(mockApplyEntityStateInSocketServer).toHaveBeenCalledWith('skill-1', 'skill', {
-      name: 'DB Skill',
-      description: 'DB description',
-      content: 'Use the saved database state.',
-    })
-    expect(events).toEqual(['snapshot', 'db', 'yjs'])
+    expect(mockApplyEntityStateInSocketServer).not.toHaveBeenCalled()
+    expect(events).toEqual(['snapshot', 'db'])
   })
 })
