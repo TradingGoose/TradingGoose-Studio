@@ -217,6 +217,29 @@ function sendHttpRequestWithOptions(
   })
 }
 
+function createSkillUpdateBase64(payload: Record<string, unknown>): string {
+  const updateDoc = new Y.Doc()
+  seedEntitySession(updateDoc, { entityKind: 'skill', payload })
+  const updateBase64 = Buffer.from(Y.encodeStateAsUpdate(updateDoc)).toString('base64')
+  updateDoc.destroy()
+  return updateBase64
+}
+
+function applySkillSessionUpdate(port: number, sessionId: string, updateBase64: string) {
+  return sendHttpRequestWithOptions(
+    port,
+    `/internal/yjs/sessions/${sessionId}/apply-update?targetKind=entity&sessionId=${sessionId}&workspaceId=workspace-1&entityKind=skill&entityId=${sessionId}`,
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-internal-secret': INTERNAL_SECRET,
+      },
+      body: JSON.stringify({ updateBase64 }),
+    }
+  )
+}
+
 describe('Socket Server Index Integration', () => {
   let httpServer: any
   let io: any
@@ -537,33 +560,59 @@ describe('Socket Server Index Integration', () => {
 
     it('should discard an idle saved entity document when update materialization fails', async () => {
       mockSaveSavedEntityYjsDocToDb.mockRejectedValueOnce(new Error('database unavailable'))
-      const updateDoc = new Y.Doc()
-      seedEntitySession(updateDoc, {
-        entityKind: 'skill',
-        payload: {
+      const response = await applySkillSessionUpdate(
+        PORT,
+        'skill-update-failed',
+        createSkillUpdateBase64({
           name: 'Unsaved Skill',
           description: 'Draft',
           content: 'Draft content',
-        },
-      })
-      const updateBase64 = Buffer.from(Y.encodeStateAsUpdate(updateDoc)).toString('base64')
-      updateDoc.destroy()
-
-      const response = await sendHttpRequestWithOptions(
-        PORT,
-        '/internal/yjs/sessions/skill-update-failed/apply-update?targetKind=entity&sessionId=skill-update-failed&workspaceId=workspace-1&entityKind=skill&entityId=skill-update-failed',
-        {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            'x-internal-secret': INTERNAL_SECRET,
-          },
-          body: JSON.stringify({ updateBase64 }),
-        }
+        })
       )
 
       expect(response.statusCode).toBe(500)
       expect(await getExistingDocument('skill-update-failed')).toBeNull()
+    })
+
+    it('keeps a connected saved entity draft when update materialization fails', async () => {
+      const conn = new (await import('node:events')).EventEmitter() as any
+      conn.readyState = 1
+      conn.send = vi.fn((_message, _options, callback) => callback?.())
+      conn.ping = vi.fn()
+      conn.close = vi.fn()
+      setupWSConnection(conn, {} as any, { docId: 'skill-update-connected' })
+      const liveDoc = (await getExistingDocument('skill-update-connected'))!
+      seedEntitySession(liveDoc, {
+        entityKind: 'skill',
+        payload: {
+          name: 'Original Skill',
+          description: 'Original',
+          content: 'Original content',
+        },
+      })
+
+      mockSaveSavedEntityYjsDocToDb.mockRejectedValueOnce(new Error('database unavailable'))
+      const response = await applySkillSessionUpdate(
+        PORT,
+        'skill-update-connected',
+        createSkillUpdateBase64({
+          name: 'Unsaved Skill',
+          description: 'Draft',
+          content: 'Draft content',
+        })
+      )
+
+      expect(response.statusCode).toBe(500)
+      expect(
+        getEntityFields((await getExistingDocument('skill-update-connected'))!, 'skill')
+      ).toEqual({
+        name: 'Unsaved Skill',
+        description: 'Draft',
+        content: 'Draft content',
+      })
+
+      conn.emit('close')
+      await new Promise((resolve) => setImmediate(resolve))
     })
 
     it('should return the internal Yjs workflow snapshot through the generic session route', async () => {
