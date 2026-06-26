@@ -424,6 +424,7 @@ async function handleInternalYjsSnapshotRequest(
   logger: Logger,
   sessionId: string
 ): Promise<void> {
+  let descriptor: ReturnType<typeof buildReviewTargetDescriptorFromEnvelope>
   try {
     const envelope = parseYjsTransportEnvelope(Object.fromEntries(parsedUrl.searchParams))
     if (envelope.sessionId !== sessionId) {
@@ -431,7 +432,16 @@ async function handleInternalYjsSnapshotRequest(
       return
     }
 
-    const descriptor = buildReviewTargetDescriptorFromEnvelope(envelope)
+    descriptor = buildReviewTargetDescriptorFromEnvelope(envelope)
+  } catch (error) {
+    logger.error('Invalid Yjs snapshot request', { error, path: parsedUrl.pathname })
+    sendJson(res, 400, {
+      error: error instanceof Error ? error.message : 'Invalid Yjs snapshot request',
+    })
+    return
+  }
+
+  try {
     let liveDoc = await getExistingDocument(sessionId)
     let bootstrappedForRequest = false
     if (!liveDoc && descriptor.entityId) {
@@ -462,7 +472,10 @@ async function handleInternalYjsSnapshotRequest(
     }
   } catch (error) {
     logger.error('Error getting Yjs snapshot', { error, path: parsedUrl.pathname })
-    sendJson(res, 400, { error: 'Failed to get snapshot' })
+    const status = Number((error as { status?: unknown }).status) || 500
+    sendJson(res, status, {
+      error: error instanceof Error ? error.message : 'Failed to get snapshot',
+    })
   }
 }
 

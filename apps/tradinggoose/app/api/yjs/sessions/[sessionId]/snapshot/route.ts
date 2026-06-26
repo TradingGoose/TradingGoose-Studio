@@ -6,16 +6,18 @@ import {
 } from '@/lib/copilot/review-sessions/identity'
 import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
 import { mcpService } from '@/lib/mcp/service'
-import {
-  ReviewTargetBootstrapError,
-  readBootstrappedReviewTargetSnapshot,
-} from '@/lib/yjs/server/bootstrap-review-target'
+import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
 import {
   applyYjsUpdateInSocketServer,
   SocketServerBridgeError,
 } from '@/lib/yjs/server/snapshot-bridge'
 
 export const dynamic = 'force-dynamic'
+
+function getPublicBridgeStatus(error: SocketServerBridgeError) {
+  const { status } = error
+  return status === 400 || status === 404 || status === 409 || status === 410 ? status : 503
+}
 
 async function authorizeYjsSnapshotRequest(
   request: NextRequest,
@@ -88,8 +90,8 @@ export async function GET(
       status: snapshot.runtime.docState === 'expired' ? 410 : 200,
     })
   } catch (error) {
-    if (error instanceof ReviewTargetBootstrapError) {
-      return NextResponse.json({ error: error.message }, { status: error.status })
+    if (error instanceof SocketServerBridgeError) {
+      return NextResponse.json({ error: error.message }, { status: getPublicBridgeStatus(error) })
     }
 
     return NextResponse.json({ error: 'Failed to load snapshot' }, { status: 500 })
@@ -129,14 +131,8 @@ export async function POST(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    if (error instanceof ReviewTargetBootstrapError) {
-      return NextResponse.json({ error: error.message }, { status: error.status })
-    }
     if (error instanceof SocketServerBridgeError) {
-      return NextResponse.json(
-        { error: error.body || 'Failed to save Yjs session' },
-        { status: error.status }
-      )
+      return NextResponse.json({ error: error.message }, { status: getPublicBridgeStatus(error) })
     }
 
     return NextResponse.json({ error: 'Failed to save Yjs session' }, { status: 500 })

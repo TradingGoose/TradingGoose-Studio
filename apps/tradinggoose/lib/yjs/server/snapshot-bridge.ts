@@ -23,10 +23,20 @@ export class SocketServerBridgeError extends Error {
   body: string
 
   constructor(status: number, body: string) {
-    super(`Socket server bridge failed: ${status}${body ? ` ${body}` : ''}`)
+    super(readSocketServerErrorMessage(status, body))
     this.name = 'SocketServerBridgeError'
     this.status = status
     this.body = body
+  }
+}
+
+function readSocketServerErrorMessage(status: number, body: string): string {
+  if (!body) return `Socket server bridge failed: ${status}`
+  try {
+    const error = (JSON.parse(body) as { error?: unknown }).error
+    return typeof error === 'string' && error ? error : body
+  } catch {
+    return body
   }
 }
 
