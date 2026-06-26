@@ -6,6 +6,7 @@ import {
 } from '@/lib/api/rate-limit'
 import { authenticateApiKeyFromHeader, updateApiKeyLastUsed } from '@/lib/api-key/service'
 import { getCopilotRuntimeToolManifest } from '@/lib/copilot/runtime-tool-manifest'
+import { buildCopilotServerToolErrorResponse } from '@/lib/copilot/server-tool-errors'
 import { getMcpServerToolIds, routeExecution } from '@/lib/copilot/tools/server/router'
 import { getUserWorkspaces } from '@/lib/workspaces/service'
 
@@ -181,67 +182,73 @@ async function handleJsonRpcRequest(entry: unknown, auth: AuthenticatedMcpUser) 
     return null
   }
 
-  switch (request.method) {
-    case 'initialize':
-      return jsonRpcResult(id, {
-        protocolVersion: MCP_PROTOCOL_VERSION,
-        capabilities: {
-          tools: {},
-        },
-        serverInfo: {
-          name: SERVER_NAME,
-          version: SERVER_VERSION,
-        },
-        instructions: await buildInstructions(auth.userId),
-      })
-
-    case 'ping':
-      return jsonRpcResult(id, {})
-
-    case 'tools/list':
-      return jsonRpcResult(id, {
-        tools: await listMcpTools(),
-      })
-
-    case 'tools/call': {
-      const toolCall = getToolCallParams(request.params)
-      if (!toolCall) {
-        return jsonRpcError(id, -32602, 'Invalid tools/call params')
-      }
-      if (!getMcpServerToolIds().some((toolName) => toolName === toolCall.name)) {
-        return jsonRpcError(id, -32601, `Unsupported MCP tool: ${toolCall.name}`)
-      }
-
-      try {
-        const result = await routeExecution(toolCall.name, toolCall.args, {
-          userId: auth.userId,
-          accessLevel: 'full',
-        })
+  try {
+    switch (request.method) {
+      case 'initialize':
         return jsonRpcResult(id, {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-          structuredContent: result,
+          protocolVersion: MCP_PROTOCOL_VERSION,
+          capabilities: {
+            tools: {},
+          },
+          serverInfo: {
+            name: SERVER_NAME,
+            version: SERVER_VERSION,
+          },
+          instructions: await buildInstructions(auth.userId),
         })
-      } catch (error) {
+
+      case 'ping':
+        return jsonRpcResult(id, {})
+
+      case 'tools/list':
         return jsonRpcResult(id, {
-          isError: true,
-          content: [
-            {
-              type: 'text',
-              text: error instanceof Error ? error.message : 'Copilot MCP tool call failed',
-            },
-          ],
+          tools: await listMcpTools(),
         })
+
+      case 'tools/call': {
+        const toolCall = getToolCallParams(request.params)
+        if (!toolCall) {
+          return jsonRpcError(id, -32602, 'Invalid tools/call params')
+        }
+        if (!getMcpServerToolIds().some((toolName) => toolName === toolCall.name)) {
+          return jsonRpcError(id, -32601, `Unsupported MCP tool: ${toolCall.name}`)
+        }
+
+        // Tool-execution failures are MCP tool results (isError), not protocol errors,
+        // so the agent sees them; both paths shape errors via the shared sanitizer.
+        try {
+          const result = await routeExecution(toolCall.name, toolCall.args, {
+            userId: auth.userId,
+            accessLevel: 'full',
+          })
+          return jsonRpcResult(id, {
+            content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+            structuredContent: result,
+          })
+        } catch (error) {
+          const structuredError = buildCopilotServerToolErrorResponse(toolCall.name, error)
+          return jsonRpcResult(id, {
+            isError: true,
+            content: [{ type: 'text', text: JSON.stringify(structuredError.body, null, 2) }],
+            structuredContent: structuredError.body,
+          })
+        }
       }
+
+      case 'resources/list':
+        return jsonRpcResult(id, { resources: [] })
+
+      case 'prompts/list':
+        return jsonRpcResult(id, { prompts: [] })
+
+      default:
+        return jsonRpcError(id, -32601, `Unsupported MCP method: ${request.method}`)
     }
-
-    case 'resources/list':
-      return jsonRpcResult(id, { resources: [] })
-
-    case 'prompts/list':
-      return jsonRpcResult(id, { prompts: [] })
-
-    default:
-      return jsonRpcError(id, -32601, `Unsupported MCP method: ${request.method}`)
+  } catch (error) {
+    // Any other method (initialize/tools/list/...) that throws is sanitized through
+    // the same path as Studio instead of leaking a raw Next.js error response.
+    const structuredError = buildCopilotServerToolErrorResponse(undefined, error)
+    return jsonRpcError(id, -32603, structuredError.body.error, structuredError.body)
   }
 }
 

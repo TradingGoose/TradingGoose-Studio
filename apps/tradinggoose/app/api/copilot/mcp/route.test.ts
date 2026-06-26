@@ -282,6 +282,37 @@ describe('Copilot MCP route', () => {
     expect(body.result.structuredContent).toEqual({ success: true })
   })
 
+  it('returns a sanitized tool result when a tool execution fails', async () => {
+    const { POST } = await import('./route')
+    mockGetMcpServerToolIds.mockReturnValue(['list_workflows'])
+    mockRouteExecution.mockRejectedValueOnce(new Error('connection refused at db.internal:5432'))
+
+    const response = await POST(
+      createMcpRequest({
+        jsonrpc: '2.0',
+        id: 6,
+        method: 'tools/call',
+        params: { name: 'list_workflows', arguments: {} },
+      })
+    )
+    const body = await response.json()
+
+    expect(body.error).toBeUndefined()
+    expect(body.result.isError).toBe(true)
+    expect(body.result.structuredContent.code).toBe('server_tool_execution_failed')
+  })
+
+  it('sanitizes errors thrown by non-tool methods instead of leaking a raw response', async () => {
+    const { POST } = await import('./route')
+    mockGetUserWorkspaces.mockRejectedValueOnce(new Error('workspace bootstrap failed at shard-3'))
+
+    const response = await POST(createMcpRequest({ jsonrpc: '2.0', id: 7, method: 'initialize' }))
+    const body = await response.json()
+
+    expect(body.error.code).toBe(-32603)
+    expect(body.error.data.code).toBe('server_tool_execution_failed')
+  })
+
   it('returns per-entry invalid request errors for malformed batches', async () => {
     const { POST } = await import('./route')
 
