@@ -291,7 +291,6 @@ export function IndicatorCodePanel({
         {
           name: indicatorName,
           pineCode,
-          inputMeta: inferInputMetaFromPineCode(pineCode) ?? undefined,
         },
       ],
     })

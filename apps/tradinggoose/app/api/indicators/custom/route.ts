@@ -38,7 +38,6 @@ const IndicatorSchema = z.object({
       id: z.string().optional(),
       name: z.string().min(1, 'Indicator name is required'),
       pineCode: z.string().default(''),
-      inputMeta: z.record(z.any()).optional(),
     })
   ),
 })
@@ -167,7 +166,6 @@ export async function POST(request: NextRequest) {
                 id: indicatorsToSave[0].id!,
                 name: indicatorsToSave[0].name,
                 pineCode: indicatorsToSave[0].pineCode,
-                inputMeta: indicatorsToSave[0].inputMeta,
               },
               workspaceId,
               requestId,

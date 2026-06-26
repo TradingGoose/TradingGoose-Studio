@@ -115,16 +115,11 @@ describe('entity document mutation helpers', () => {
     expect(mockApplySavedEntityState).toHaveBeenCalledWith('skill', 'skill-1', nextFields)
   })
 
-  it('preserves indicator input metadata when applying document updates', async () => {
-    const inputMeta = {
-      Mode: {
-        title: 'Mode',
-        type: 'string',
-        defval: 'fast',
-        options: ['fast', 'slow'],
-        value: 'slow',
-      },
-    }
+  it('keeps indicator input metadata out of Copilot document updates', async () => {
+    const pineCode = `
+const mode = input.enum('fast', 'Mode', ['fast', 'slow'])
+const length = input.int(14, 'Length', 1, 50, 1)
+`
 
     await executeUpdateEntityDocumentMutation(
       'indicator',
@@ -135,8 +130,10 @@ describe('entity document mutation helpers', () => {
         entityDocument: JSON.stringify({
           name: 'Updated Indicator',
           color: '#10b981',
-          pineCode: "const mode = input.string('fast', 'Mode')",
-          inputMeta,
+          pineCode,
+          inputMeta: {
+            Stale: { title: 'Stale', type: 'string', defval: 'old' },
+          },
         }),
       },
       { userId: 'user-1', accessLevel: 'full' }
@@ -145,8 +142,7 @@ describe('entity document mutation helpers', () => {
     expect(mockApplySavedEntityState).toHaveBeenCalledWith('indicator', 'indicator-1', {
       name: 'Updated Indicator',
       color: '#10b981',
-      pineCode: "const mode = input.string('fast', 'Mode')",
-      inputMeta,
+      pineCode,
     })
   })
 

@@ -6,7 +6,7 @@ import {
   type IndicatorTransferRecord,
   resolveImportedIndicatorName,
 } from '@/lib/indicators/import-export'
-import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
+import { inferInputMetaFromPineCode, normalizeInputMetaMap } from '@/lib/indicators/input-meta'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
@@ -31,7 +31,6 @@ interface CreateIndicatorsParams {
     name: string
     color?: string
     pineCode: string
-    inputMeta?: Record<string, unknown>
   }>
   workspaceId: string
   userId: string
@@ -43,7 +42,6 @@ interface SaveIndicatorParams {
     id: string
     name: string
     pineCode: string
-    inputMeta?: Record<string, unknown>
   }
   workspaceId: string
   requestId?: string
@@ -79,7 +77,7 @@ export async function createIndicators({
         name: indicator.name,
         color: indicator.color?.trim() || getStableVibrantColor(indicatorId),
         pineCode: indicator.pineCode,
-        inputMeta: indicator.inputMeta ?? null,
+        inputMeta: inferInputMetaFromPineCode(indicator.pineCode) ?? null,
         createdAt: nowTime,
         updatedAt: nowTime,
       })
@@ -113,7 +111,6 @@ export async function saveIndicator({
     name: indicator.name,
     color: existing.color ?? getStableVibrantColor(indicator.id),
     pineCode: indicator.pineCode,
-    inputMeta: indicator.inputMeta ?? null,
   })
   logger.info(`[${requestId}] Saved Indicator ${indicator.id}`)
   return db
@@ -156,7 +153,7 @@ export async function importIndicators({
         name: nextName,
         color: getStableVibrantColor(indicatorId),
         pineCode: indicator.pineCode,
-        inputMeta: indicator.inputMeta ?? null,
+        inputMeta: inferInputMetaFromPineCode(indicator.pineCode) ?? null,
         createdAt: nowTime,
         updatedAt: nowTime,
       }

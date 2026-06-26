@@ -273,7 +273,6 @@ function serializeEntityContext(
         name: row.name ?? null,
         color: row.color ?? null,
         pineCode: row.pineCode ?? null,
-        inputMeta: row.inputMeta ?? null,
       }
     case 'custom_tool':
       return {

@@ -127,7 +127,7 @@ export const INDICATOR_REFERENCE_SECTION_RECORDS = [
     detail:
       'TradingGoose saves indicators as JSON documents using `tg-indicator-document-v1`. The canonical field set is derived from the live indicator document schema.',
     support: 'curated',
-    relatedIds: ['document.format', 'document.name', 'document.pineCode', 'document.inputMeta'],
+    relatedIds: ['document.format', 'document.name', 'document.pineCode'],
     sourceReferences: [
       {
         label: 'Indicator document schema',
@@ -135,7 +135,7 @@ export const INDICATOR_REFERENCE_SECTION_RECORDS = [
       },
     ],
     queryText:
-      'section:document indicator document saved indicator document format and field-level requirements. tradinggoose saves indicators as json documents using `tg-indicator-document-v1`. the canonical field set is derived from the live indicator document schema. document.format document.name document.pinecode document.inputmeta',
+      'section:document indicator document saved indicator document format and field-level requirements. tradinggoose saves indicators as json documents using `tg-indicator-document-v1`. the canonical field set is derived from the live indicator document schema. document.format document.name document.pinecode',
   },
   {
     id: 'section:runtime',
@@ -299,10 +299,10 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
     title: 'Document Format',
     summary: 'Canonical indicator document format id and top-level field set.',
     detail:
-      'TradingGoose indicator editing tools expect `tg-indicator-document-v1` JSON with the live field set `name, pineCode, inputMeta`.',
+      'TradingGoose indicator editing tools expect `tg-indicator-document-v1` JSON with `name`, `color`, and `pineCode`.',
     support: 'curated',
-    signature: 'tg-indicator-document-v1 = { name, pineCode, inputMeta }',
-    relatedIds: ['document.name', 'document.pineCode', 'document.inputMeta'],
+    signature: 'tg-indicator-document-v1 = { name, color, pineCode }',
+    relatedIds: ['document.name', 'document.pineCode'],
     sourceReferences: [
       {
         label: 'Indicator document schema',
@@ -310,7 +310,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       },
     ],
     queryText:
-      'document.format section:document document format canonical indicator document format id and top-level field set. tradinggoose indicator editing tools expect `tg-indicator-document-v1` json with the live field set `name, pinecode, inputmeta`. tg-indicator-document-v1 = { name, pinecode, inputmeta } document.name document.pinecode document.inputmeta',
+      'document.format section:document document format canonical indicator document format id and top-level field set. tradinggoose indicator editing tools expect `tg-indicator-document-v1` json with `name`, `color`, and `pinecode`. tg-indicator-document-v1 = { name, color, pinecode } document.name document.pinecode',
   },
   {
     id: 'document.name',
@@ -355,25 +355,6 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
     ],
     queryText:
       'document.pinecode section:document document field: pinecode pinets authoring source in the canonical document. the `pinecode` field stores the complete pinets-compatible indicator source executed by the tradinggoose runtime.',
-  },
-  {
-    id: 'document.inputMeta',
-    sectionId: 'section:document',
-    type: 'document_field',
-    title: 'Document Field: inputMeta',
-    summary: 'Saved input-definition map in the canonical document.',
-    detail:
-      'The `inputMeta` field stores the saved input metadata map used by the editor and runtime override flow. TradingGoose can infer common metadata from `input.*(...)` calls, but the saved document remains the canonical state.',
-    support: 'curated',
-    relatedIds: ['section:inputs'],
-    sourceReferences: [
-      {
-        label: 'Indicator document schema',
-        path: 'apps/tradinggoose/lib/copilot/entity-documents.ts',
-      },
-    ],
-    queryText:
-      'document.inputmeta section:document document field: inputmeta saved input-definition map in the canonical document. the `inputmeta` field stores the saved input metadata map used by the editor and runtime override flow. tradinggoose can infer common metadata from `input.*(...)` calls, but the saved document remains the canonical state. section:inputs',
   },
   {
     id: 'runtime.execution',
@@ -427,9 +408,9 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
     title: 'Input Metadata Inference',
     summary: 'How TradingGoose derives editable input metadata from indicator code.',
     detail:
-      'TradingGoose scans `input.*(...)` calls, derives the saved input title and common metadata fields, and uses that map as the stable input override contract.',
+      'TradingGoose scans `input.*(...)` calls, derives input titles, defaults, numeric constraints, and enum options, then uses that map as the stable input override contract.',
     support: 'curated',
-    relatedIds: ['section:inputs', 'document.inputMeta'],
+    relatedIds: ['section:inputs'],
     sourceReferences: [
       {
         label: 'Input metadata inference',
@@ -437,7 +418,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       },
     ],
     queryText:
-      'runtime.input_meta_inference section:runtime input metadata inference how tradinggoose derives editable input metadata from indicator code. tradinggoose scans `input.*(...)` calls, derives the saved input title and common metadata fields, and uses that map as the stable input override contract. section:inputs document.inputmeta',
+      'runtime.input_meta_inference section:runtime input metadata inference how tradinggoose derives editable input metadata from indicator code. tradinggoose scans `input.*(...)` calls, derives input titles, defaults, numeric constraints, and enum options, then uses that map as the stable input override contract. section:inputs runtime.input_meta_inference',
   },
   {
     id: 'context.series',
@@ -567,7 +548,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       'TradingGoose supports `input.any` and preserves the saved title as the stable runtime override key in `inputMeta`.',
     support: 'supported',
     signature: 'input.any(defval, title)',
-    relatedIds: ['document.inputMeta'],
+    relatedIds: ['runtime.input_meta_inference'],
     examples: [
       {
         title: 'Minimal any input',
@@ -585,7 +566,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       },
     ],
     queryText:
-      'input.any section:inputs input.any supported `input.any` helper. tradinggoose supports `input.any` and preserves the saved title as the stable runtime override key in `inputmeta`. input.any(defval, title) document.inputmeta',
+      'input.any section:inputs input.any supported `input.any` helper. tradinggoose supports `input.any` and preserves the saved title as the stable runtime override key in `inputmeta`. input.any(defval, title) runtime.input_meta_inference',
   },
   {
     id: 'input.int',
@@ -597,7 +578,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       'TradingGoose supports `input.int` and infers the declared title, default value, and positional numeric constraints into `inputMeta`. The saved title becomes the stable runtime override key.',
     support: 'supported',
     signature: 'input.int(defval, title, minval?, maxval?, step?)',
-    relatedIds: ['document.inputMeta'],
+    relatedIds: ['runtime.input_meta_inference'],
     examples: [
       {
         title: 'Minimal integer input',
@@ -615,7 +596,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       },
     ],
     queryText:
-      'input.int section:inputs input.int supported `input.int` helper. tradinggoose supports `input.int` and infers the declared title, default value, and positional numeric constraints into `inputmeta`. the saved title becomes the stable runtime override key. input.int(defval, title, minval?, maxval?, step?) document.inputmeta',
+      'input.int section:inputs input.int supported `input.int` helper. tradinggoose supports `input.int` and infers the declared title, default value, and positional numeric constraints into `inputmeta`. the saved title becomes the stable runtime override key. input.int(defval, title, minval?, maxval?, step?) runtime.input_meta_inference',
   },
   {
     id: 'input.float',
@@ -627,7 +608,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       'TradingGoose supports `input.float` and infers the declared title, default value, and positional numeric constraints into `inputMeta`. The saved title becomes the stable runtime override key.',
     support: 'supported',
     signature: 'input.float(defval, title, minval?, maxval?, step?)',
-    relatedIds: ['document.inputMeta'],
+    relatedIds: ['runtime.input_meta_inference'],
     examples: [
       {
         title: 'Minimal float input',
@@ -645,7 +626,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       },
     ],
     queryText:
-      'input.float section:inputs input.float supported `input.float` helper. tradinggoose supports `input.float` and infers the declared title, default value, and positional numeric constraints into `inputmeta`. the saved title becomes the stable runtime override key. input.float(defval, title, minval?, maxval?, step?) document.inputmeta',
+      'input.float section:inputs input.float supported `input.float` helper. tradinggoose supports `input.float` and infers the declared title, default value, and positional numeric constraints into `inputmeta`. the saved title becomes the stable runtime override key. input.float(defval, title, minval?, maxval?, step?) runtime.input_meta_inference',
   },
   {
     id: 'input.bool',
@@ -657,7 +638,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       'TradingGoose supports `input.bool` and preserves the saved title as the stable runtime override key in `inputMeta`.',
     support: 'supported',
     signature: 'input.bool(defval, title)',
-    relatedIds: ['document.inputMeta'],
+    relatedIds: ['runtime.input_meta_inference'],
     examples: [
       {
         title: 'Minimal bool input',
@@ -675,7 +656,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       },
     ],
     queryText:
-      'input.bool section:inputs input.bool supported `input.bool` helper. tradinggoose supports `input.bool` and preserves the saved title as the stable runtime override key in `inputmeta`. input.bool(defval, title) document.inputmeta',
+      'input.bool section:inputs input.bool supported `input.bool` helper. tradinggoose supports `input.bool` and preserves the saved title as the stable runtime override key in `inputmeta`. input.bool(defval, title) runtime.input_meta_inference',
   },
   {
     id: 'input.string',
@@ -687,7 +668,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       'TradingGoose supports `input.string` and preserves the saved title as the stable runtime override key in `inputMeta`.',
     support: 'supported',
     signature: 'input.string(defval, title)',
-    relatedIds: ['document.inputMeta'],
+    relatedIds: ['runtime.input_meta_inference'],
     examples: [
       {
         title: 'Minimal string input',
@@ -705,7 +686,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       },
     ],
     queryText:
-      'input.string section:inputs input.string supported `input.string` helper. tradinggoose supports `input.string` and preserves the saved title as the stable runtime override key in `inputmeta`. input.string(defval, title) document.inputmeta',
+      'input.string section:inputs input.string supported `input.string` helper. tradinggoose supports `input.string` and preserves the saved title as the stable runtime override key in `inputmeta`. input.string(defval, title) runtime.input_meta_inference',
   },
   {
     id: 'input.timeframe',
@@ -717,7 +698,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       'TradingGoose supports `input.timeframe` and preserves the saved title as the stable runtime override key in `inputMeta`.',
     support: 'supported',
     signature: 'input.timeframe(defval, title)',
-    relatedIds: ['document.inputMeta'],
+    relatedIds: ['runtime.input_meta_inference'],
     examples: [
       {
         title: 'Minimal timeframe input',
@@ -735,7 +716,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       },
     ],
     queryText:
-      'input.timeframe section:inputs input.timeframe supported `input.timeframe` helper. tradinggoose supports `input.timeframe` and preserves the saved title as the stable runtime override key in `inputmeta`. input.timeframe(defval, title) document.inputmeta',
+      'input.timeframe section:inputs input.timeframe supported `input.timeframe` helper. tradinggoose supports `input.timeframe` and preserves the saved title as the stable runtime override key in `inputmeta`. input.timeframe(defval, title) runtime.input_meta_inference',
   },
   {
     id: 'input.time',
@@ -747,7 +728,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       'TradingGoose supports `input.time` and preserves the saved title as the stable runtime override key in `inputMeta`.',
     support: 'supported',
     signature: 'input.time(defval, title)',
-    relatedIds: ['document.inputMeta'],
+    relatedIds: ['runtime.input_meta_inference'],
     examples: [
       {
         title: 'Minimal time input',
@@ -765,7 +746,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       },
     ],
     queryText:
-      'input.time section:inputs input.time supported `input.time` helper. tradinggoose supports `input.time` and preserves the saved title as the stable runtime override key in `inputmeta`. input.time(defval, title) document.inputmeta',
+      'input.time section:inputs input.time supported `input.time` helper. tradinggoose supports `input.time` and preserves the saved title as the stable runtime override key in `inputmeta`. input.time(defval, title) runtime.input_meta_inference',
   },
   {
     id: 'input.price',
@@ -777,7 +758,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       'TradingGoose supports `input.price` and preserves the saved title as the stable runtime override key in `inputMeta`.',
     support: 'supported',
     signature: 'input.price(defval, title)',
-    relatedIds: ['document.inputMeta'],
+    relatedIds: ['runtime.input_meta_inference'],
     examples: [
       {
         title: 'Minimal price input',
@@ -795,7 +776,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       },
     ],
     queryText:
-      'input.price section:inputs input.price supported `input.price` helper. tradinggoose supports `input.price` and preserves the saved title as the stable runtime override key in `inputmeta`. input.price(defval, title) document.inputmeta',
+      'input.price section:inputs input.price supported `input.price` helper. tradinggoose supports `input.price` and preserves the saved title as the stable runtime override key in `inputmeta`. input.price(defval, title) runtime.input_meta_inference',
   },
   {
     id: 'input.session',
@@ -807,7 +788,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       'TradingGoose supports `input.session` and preserves the saved title as the stable runtime override key in `inputMeta`.',
     support: 'supported',
     signature: 'input.session(defval, title)',
-    relatedIds: ['document.inputMeta'],
+    relatedIds: ['runtime.input_meta_inference'],
     examples: [
       {
         title: 'Minimal session input',
@@ -825,7 +806,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       },
     ],
     queryText:
-      'input.session section:inputs input.session supported `input.session` helper. tradinggoose supports `input.session` and preserves the saved title as the stable runtime override key in `inputmeta`. input.session(defval, title) document.inputmeta',
+      'input.session section:inputs input.session supported `input.session` helper. tradinggoose supports `input.session` and preserves the saved title as the stable runtime override key in `inputmeta`. input.session(defval, title) runtime.input_meta_inference',
   },
   {
     id: 'input.source',
@@ -837,7 +818,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       'TradingGoose supports `input.source` and preserves the saved title as the stable runtime override key in `inputMeta`.',
     support: 'supported',
     signature: 'input.source(defval, title)',
-    relatedIds: ['document.inputMeta'],
+    relatedIds: ['runtime.input_meta_inference'],
     examples: [
       {
         title: 'Minimal source input',
@@ -855,7 +836,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       },
     ],
     queryText:
-      'input.source section:inputs input.source supported `input.source` helper. tradinggoose supports `input.source` and preserves the saved title as the stable runtime override key in `inputmeta`. input.source(defval, title) document.inputmeta',
+      'input.source section:inputs input.source supported `input.source` helper. tradinggoose supports `input.source` and preserves the saved title as the stable runtime override key in `inputmeta`. input.source(defval, title) runtime.input_meta_inference',
   },
   {
     id: 'input.symbol',
@@ -867,7 +848,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       'TradingGoose supports `input.symbol` and preserves the saved title as the stable runtime override key in `inputMeta`.',
     support: 'supported',
     signature: 'input.symbol(defval, title)',
-    relatedIds: ['document.inputMeta'],
+    relatedIds: ['runtime.input_meta_inference'],
     examples: [
       {
         title: 'Minimal symbol input',
@@ -885,7 +866,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       },
     ],
     queryText:
-      'input.symbol section:inputs input.symbol supported `input.symbol` helper. tradinggoose supports `input.symbol` and preserves the saved title as the stable runtime override key in `inputmeta`. input.symbol(defval, title) document.inputmeta',
+      'input.symbol section:inputs input.symbol supported `input.symbol` helper. tradinggoose supports `input.symbol` and preserves the saved title as the stable runtime override key in `inputmeta`. input.symbol(defval, title) runtime.input_meta_inference',
   },
   {
     id: 'input.text_area',
@@ -897,7 +878,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       'TradingGoose supports `input.text_area` and preserves the saved title as the stable runtime override key in `inputMeta`.',
     support: 'supported',
     signature: 'input.text_area(defval, title)',
-    relatedIds: ['document.inputMeta'],
+    relatedIds: ['runtime.input_meta_inference'],
     examples: [
       {
         title: 'Minimal text_area input',
@@ -915,7 +896,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       },
     ],
     queryText:
-      'input.text_area section:inputs input.text_area supported `input.text_area` helper. tradinggoose supports `input.text_area` and preserves the saved title as the stable runtime override key in `inputmeta`. input.text_area(defval, title) document.inputmeta',
+      'input.text_area section:inputs input.text_area supported `input.text_area` helper. tradinggoose supports `input.text_area` and preserves the saved title as the stable runtime override key in `inputmeta`. input.text_area(defval, title) runtime.input_meta_inference',
   },
   {
     id: 'input.enum',
@@ -924,10 +905,10 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
     title: 'input.enum',
     summary: 'Supported `input.enum` helper.',
     detail:
-      'TradingGoose supports `input.enum` and keeps the saved title as the stable runtime override key. Helper-specific option lists may still need explicit review in the saved document.',
+      'TradingGoose supports `input.enum`, derives literal option lists, and keeps the saved title as the stable runtime override key.',
     support: 'supported',
     signature: 'input.enum(defval, title, options?)',
-    relatedIds: ['document.inputMeta'],
+    relatedIds: ['runtime.input_meta_inference'],
     examples: [
       {
         title: 'Minimal enum input',
@@ -945,7 +926,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       },
     ],
     queryText:
-      'input.enum section:inputs input.enum supported `input.enum` helper. tradinggoose supports `input.enum` and keeps the saved title as the stable runtime override key. helper-specific option lists may still need explicit review in the saved document. input.enum(defval, title, options?) document.inputmeta',
+      'input.enum section:inputs input.enum supported `input.enum` helper. tradinggoose supports `input.enum`, derives literal option lists, and keeps the saved title as the stable runtime override key. input.enum(defval, title, options?) runtime.input_meta_inference',
   },
   {
     id: 'input.color',
@@ -957,7 +938,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       'TradingGoose supports `input.color` and preserves the saved title as the stable runtime override key in `inputMeta`.',
     support: 'supported',
     signature: 'input.color(defval, title)',
-    relatedIds: ['document.inputMeta'],
+    relatedIds: ['runtime.input_meta_inference'],
     examples: [
       {
         title: 'Minimal color input',
@@ -975,7 +956,7 @@ export const INDICATOR_REFERENCE_ITEM_RECORDS = [
       },
     ],
     queryText:
-      'input.color section:inputs input.color supported `input.color` helper. tradinggoose supports `input.color` and preserves the saved title as the stable runtime override key in `inputmeta`. input.color(defval, title) document.inputmeta',
+      'input.color section:inputs input.color supported `input.color` helper. tradinggoose supports `input.color` and preserves the saved title as the stable runtime override key in `inputmeta`. input.color(defval, title) runtime.input_meta_inference',
   },
   {
     id: 'indicator.overlay',

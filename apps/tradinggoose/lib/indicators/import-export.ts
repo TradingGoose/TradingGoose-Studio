@@ -9,15 +9,13 @@ const IMPORTED_INDICATOR_MARKER = '(imported)'
 
 const normalizeInlineWhitespace = (value: string) => value.trim().replace(/\s+/g, ' ')
 
-export const IndicatorTransferSchema = z
-  .object({
-    name: z
-      .string()
-      .transform(normalizeInlineWhitespace)
-      .pipe(z.string().min(1, 'Indicator name is required')),
-    pineCode: z.string(),
-    inputMeta: z.record(z.any()).optional(),
-  })
+export const IndicatorTransferSchema = z.object({
+  name: z
+    .string()
+    .transform(normalizeInlineWhitespace)
+    .pipe(z.string().min(1, 'Indicator name is required')),
+  pineCode: z.string(),
+})
 
 export const IndicatorsTransferListSchema = z
   .array(IndicatorTransferSchema)
@@ -39,15 +37,11 @@ export type IndicatorTransferRecord = z.infer<typeof IndicatorTransferSchema>
 export type IndicatorsImportFile = z.infer<typeof IndicatorsImportFileSchema>
 
 function normalizeIndicatorForTransfer(
-  indicator: Pick<IndicatorDefinition, 'name' | 'pineCode' | 'inputMeta'>
+  indicator: Pick<IndicatorDefinition, 'name' | 'pineCode'>
 ): IndicatorTransferRecord {
   return {
     name: normalizeInlineWhitespace(indicator.name),
     pineCode: indicator.pineCode ?? '',
-    inputMeta:
-      indicator.inputMeta && typeof indicator.inputMeta === 'object'
-        ? indicator.inputMeta
-        : undefined,
   }
 }
 
@@ -59,7 +53,7 @@ export function createIndicatorsExportFile({
   indicators,
   exportedFrom,
 }: {
-  indicators: Array<Pick<IndicatorDefinition, 'name' | 'pineCode' | 'inputMeta'>>
+  indicators: Array<Pick<IndicatorDefinition, 'name' | 'pineCode'>>
   exportedFrom: string
 }): IndicatorsImportFile {
   return createTradingGooseExportFile({
@@ -75,7 +69,7 @@ export function exportIndicatorsAsJson({
   indicators,
   exportedFrom,
 }: {
-  indicators: Array<Pick<IndicatorDefinition, 'name' | 'pineCode' | 'inputMeta'>>
+  indicators: Array<Pick<IndicatorDefinition, 'name' | 'pineCode'>>
   exportedFrom: string
 }): string {
   return JSON.stringify(createIndicatorsExportFile({ indicators, exportedFrom }), null, 2)

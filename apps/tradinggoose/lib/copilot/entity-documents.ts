@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
-import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
+import { inferInputMetaFromPineCode } from '@/lib/indicators/input-meta'
 import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
 export const SKILL_DOCUMENT_FORMAT = 'tg-skill-document-v1' as const
 export const CUSTOM_TOOL_DOCUMENT_FORMAT = 'tg-custom-tool-document-v1' as const
@@ -43,7 +43,6 @@ const IndicatorDocumentSchema = z.object({
   name: z.string(),
   color: z.string(),
   pineCode: z.string(),
-  inputMeta: z.record(z.unknown()).nullable(),
 })
 
 const McpServerDocumentSchema = z.object({
@@ -160,7 +159,7 @@ export function normalizeEntityFields(
         name: typeof source.name === 'string' ? source.name.trim() : '',
         color: typeof source.color === 'string' ? source.color.trim() : '',
         pineCode,
-        inputMeta: normalizeInputMetaMap(source.inputMeta) ?? null,
+        inputMeta: inferInputMetaFromPineCode(pineCode) ?? null,
       }
     }
     case 'mcp_server': {

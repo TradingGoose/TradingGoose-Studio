@@ -79,12 +79,6 @@ async function createIndicatorEntity(
         name: String(fields.name ?? ''),
         color: String(fields.color ?? ''),
         pineCode: String(fields.pineCode ?? ''),
-        inputMeta:
-          fields.inputMeta &&
-          typeof fields.inputMeta === 'object' &&
-          !Array.isArray(fields.inputMeta)
-            ? (fields.inputMeta as Record<string, unknown>)
-            : undefined,
       },
     ],
   })
@@ -128,7 +122,6 @@ export const readIndicatorServerTool: EntityServerTool = {
           name: defaultIndicator.name,
           color: '',
           pineCode: defaultIndicator.pineCode,
-          inputMeta: defaultIndicator.inputMeta ?? null,
         })
       }
 

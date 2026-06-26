@@ -142,7 +142,7 @@ export function useIndicators(workspaceId: string) {
 
 interface CreateIndicatorParams {
   workspaceId: string
-  indicator: Pick<IndicatorDefinition, 'name' | 'pineCode' | 'inputMeta'>
+  indicator: Pick<IndicatorDefinition, 'name' | 'pineCode'>
 }
 
 export function useCreateIndicator() {
@@ -183,9 +183,7 @@ export function useCreateIndicator() {
 interface UpdateIndicatorParams {
   workspaceId: string
   indicatorId: string
-  updates: Partial<
-    Omit<IndicatorDefinition, 'id' | 'workspaceId' | 'userId' | 'color' | 'createdAt' | 'updatedAt'>
-  >
+  updates: Partial<Pick<IndicatorDefinition, 'name' | 'pineCode'>>
 }
 
 interface ImportIndicatorsParams {
@@ -209,10 +207,6 @@ export function useUpdateIndicator() {
         throw new Error('Indicator not found')
       }
 
-      const resolvedInputMeta = Object.hasOwn(updates, 'inputMeta')
-        ? updates.inputMeta
-        : currentIndicator.inputMeta
-
       const response = await fetch(API_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -222,7 +216,6 @@ export function useUpdateIndicator() {
               id: indicatorId,
               name: updates.name ?? currentIndicator.name,
               pineCode: updates.pineCode ?? currentIndicator.pineCode,
-              inputMeta: resolvedInputMeta,
             },
           ],
           workspaceId,
