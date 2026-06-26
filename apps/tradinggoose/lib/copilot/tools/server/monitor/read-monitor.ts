@@ -33,6 +33,6 @@ export const readMonitorServerTool: BaseServerTool<ReadMonitorArgs> = {
     }
 
     const monitor = (await toMonitorRecord(row.webhook)) as MonitorRecord
-    return buildMonitorDocumentEnvelope(monitor)
+    return { ...buildMonitorDocumentEnvelope(monitor), workspaceId }
   },
 }

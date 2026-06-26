@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getQueryClient } from '@/app/query-provider'
+import { MONITOR_DATA_CHANGED_EVENT } from '@/app/workspace/[workspaceId]/monitor/components/data/api'
 import { environmentKeys } from '@/hooks/queries/environment'
 import { knowledgeKeys } from '@/hooks/queries/knowledge'
 import { skillsKeys } from '@/hooks/queries/skills'
@@ -285,6 +286,31 @@ describe('tool-registry', () => {
       queryKey: knowledgeKeys.detail('kb-1'),
     })
     expect(invalidateQueries).toHaveBeenCalledTimes(2)
+  })
+
+  it('notifies monitor pages after server-managed monitor mutations', async () => {
+    class TestCustomEvent<T> {
+      type: string
+      detail: T | undefined
+
+      constructor(type: string, init?: CustomEventInit<T>) {
+        this.type = type
+        this.detail = init?.detail
+      }
+    }
+    const dispatchEvent = vi.fn()
+    vi.stubGlobal('CustomEvent', TestCustomEvent)
+    vi.stubGlobal('window', { dispatchEvent })
+
+    try {
+      await handleCopilotServerToolSuccess('edit_monitor', { workspaceId: 'workspace-1' })
+
+      const event = dispatchEvent.mock.calls[0]?.[0] as TestCustomEvent<{ workspaceId: string }>
+      expect(event.type).toBe(MONITOR_DATA_CHANGED_EVENT)
+      expect(event.detail).toEqual({ workspaceId: 'workspace-1' })
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   it('invalidates the matching environment query after server-managed environment mutations', async () => {

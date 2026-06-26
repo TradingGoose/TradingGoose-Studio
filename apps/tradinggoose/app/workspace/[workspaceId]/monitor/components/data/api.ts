@@ -23,6 +23,7 @@ import type {
 import { parseMonitorSavedViewConfig } from '../view/view-config'
 
 const FALLBACK_INDICATOR_COLOR = '#3972F6'
+export const MONITOR_DATA_CHANGED_EVENT = 'tradinggoose:monitor-data-changed'
 
 type WorkflowTargetFallbackCopy = {
   workflowName: string

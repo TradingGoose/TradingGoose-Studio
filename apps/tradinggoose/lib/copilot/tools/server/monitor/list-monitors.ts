@@ -35,6 +35,7 @@ export const listMonitorsServerTool: BaseServerTool<ListMonitorsArgs> = {
 
     return {
       surfaceKind: 'monitor' as const,
+      workspaceId,
       monitors: monitorEntries,
       count: monitorEntries.length,
     }

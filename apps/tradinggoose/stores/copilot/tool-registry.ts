@@ -18,6 +18,7 @@ import { DeployWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/de
 import { RunWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/run-workflow'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getQueryClient } from '@/app/query-provider'
+import { MONITOR_DATA_CHANGED_EVENT } from '@/app/workspace/[workspaceId]/monitor/components/data/api'
 import { customToolsKeys } from '@/hooks/queries/custom-tools'
 import { environmentKeys } from '@/hooks/queries/environment'
 import { indicatorKeys } from '@/hooks/queries/indicators'
@@ -357,6 +358,12 @@ export async function handleCopilotServerToolSuccess(
       ])
     } else if (toolName.endsWith('_mcp_server')) {
       await useMcpServersStore.getState().fetchServers(workspaceId)
+    } else if (toolName === CopilotTool.edit_monitor) {
+      window.dispatchEvent(
+        new CustomEvent(MONITOR_DATA_CHANGED_EVENT, {
+          detail: { workspaceId },
+        })
+      )
     }
   } catch (error) {
     logger.warn('Failed to refresh client state after server-managed tool success', {

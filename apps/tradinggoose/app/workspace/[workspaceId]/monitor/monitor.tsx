@@ -23,6 +23,7 @@ import {
   deleteMonitorRecord,
   listMonitorViews,
   loadMonitors,
+  MONITOR_DATA_CHANGED_EVENT,
   removeMonitorView,
   reorderMonitorViews,
   setActiveMonitorView,
@@ -578,6 +579,16 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
   useEffect(() => {
     void loadMonitorData()
   }, [loadMonitorData])
+
+  useEffect(() => {
+    const handleMonitorDataChanged = (event: Event) => {
+      const detail = (event as CustomEvent<{ workspaceId?: string }>).detail
+      if (detail?.workspaceId === workspaceId) void loadMonitorData()
+    }
+
+    window.addEventListener(MONITOR_DATA_CHANGED_EVENT, handleMonitorDataChanged)
+    return () => window.removeEventListener(MONITOR_DATA_CHANGED_EVENT, handleMonitorDataChanged)
+  }, [loadMonitorData, workspaceId])
 
   const { executionItems, orderedVisibleLogIds, isSelectionResolved, isLoading, error, refresh } =
     useMonitorWorkspaceLogs({

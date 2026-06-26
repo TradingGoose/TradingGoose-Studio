@@ -64,6 +64,7 @@ export const editMonitorServerTool: BaseServerTool<EditMonitorArgs> = {
         requiresReview: true,
         success: true,
         surfaceKind: 'monitor' as const,
+        workspaceId: row.workflow.workspaceId,
         monitorId: args.monitorId,
         monitorName: readMonitorDocumentName(nextFields),
         documentFormat: MONITOR_DOCUMENT_FORMAT,
@@ -90,6 +91,9 @@ export const editMonitorServerTool: BaseServerTool<EditMonitorArgs> = {
       logger,
     })) as MonitorRecord
 
-    return buildMonitorDocumentEnvelope(updatedMonitor, true)
+    return {
+      ...buildMonitorDocumentEnvelope(updatedMonitor, true),
+      workspaceId: row.workflow.workspaceId,
+    }
   },
 }
