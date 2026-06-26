@@ -4,6 +4,7 @@ import { getSession } from '@/lib/auth'
 import { createKnowledgeBase, getKnowledgeBases } from '@/lib/knowledge/service'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
+import { buildSavedEntityListThroughYjs } from '@/lib/yjs/server/bootstrap-review-target'
 
 const logger = createLogger('KnowledgeBaseAPI')
 
@@ -47,9 +48,11 @@ export async function GET(req: NextRequest) {
 
     const knowledgeBasesWithCounts = await getKnowledgeBases(session.user.id, workspaceId)
 
+    const data = await buildSavedEntityListThroughYjs('knowledge_base', knowledgeBasesWithCounts)
+
     return NextResponse.json({
       success: true,
-      data: knowledgeBasesWithCounts,
+      data,
     })
   } catch (error) {
     logger.error(`[${requestId}] Error fetching knowledge bases`, error)

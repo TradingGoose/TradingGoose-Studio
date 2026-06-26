@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'http'
 import * as Y from 'yjs'
 import {
   buildReviewTargetDescriptorFromEnvelope,
+  buildSavedEntityDescriptor,
   parseYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
@@ -350,14 +351,7 @@ async function handleInternalYjsEntityApplyRequest(
 ): Promise<void> {
   try {
     const body = parseApplyEntityStateRequest(await readJsonBody(req))
-    const descriptor = {
-      workspaceId: null,
-      entityKind: body.entityKind,
-      entityId,
-      draftSessionId: null,
-      reviewSessionId: null,
-      yjsSessionId: entityId,
-    } as const
+    const descriptor = buildSavedEntityDescriptor(body.entityKind, entityId, null)
     const doc = await getBootstrappedApplyDocument(descriptor)
     await applyThroughStaging(
       doc,

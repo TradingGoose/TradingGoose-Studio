@@ -10,6 +10,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import { SavedEntityPersistenceError } from '@/lib/yjs/server/apply-entity-state'
+import { buildSavedEntityListThroughYjs } from '@/lib/yjs/server/bootstrap-review-target'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('CustomToolsAPI')
@@ -62,7 +63,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const result = await listCustomTools({ workspaceId: resolvedWorkspaceId })
+    const rows = await listCustomTools({ workspaceId: resolvedWorkspaceId })
+    const result = await buildSavedEntityListThroughYjs('custom_tool', rows)
 
     return NextResponse.json({ data: result }, { status: 200 })
   } catch (error) {

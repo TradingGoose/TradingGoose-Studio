@@ -31,6 +31,16 @@ vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
   readBootstrappedSavedEntityFields: (...args: unknown[]) =>
     mockReadBootstrappedSavedEntityFields(...args),
+  buildSavedEntityListThroughYjs: async (
+    kind: string,
+    rows: Array<{ id: string; workspaceId: string }>,
+    buildEntry: (row: unknown, fields: unknown) => unknown
+  ) =>
+    Promise.all(
+      rows.map(async (row) =>
+        buildEntry(row, await mockReadBootstrappedSavedEntityFields(kind, row.id, row.workspaceId))
+      )
+    ),
 }))
 
 describe('indicator server tools', () => {

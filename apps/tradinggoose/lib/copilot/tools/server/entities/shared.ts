@@ -5,6 +5,7 @@ import {
   parseEntityDocument,
   serializeEntityDocument,
 } from '@/lib/copilot/entity-documents'
+import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
 import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
 import type {
   BaseServerTool,
@@ -18,8 +19,11 @@ import {
 } from '@/lib/copilot/tools/server/base-tool'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
-import { readBootstrappedSavedEntityFields } from '@/lib/yjs/server/bootstrap-review-target'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
+import {
+  buildSavedEntityListThroughYjs,
+  readBootstrappedSavedEntityFields,
+} from '@/lib/yjs/server/bootstrap-review-target'
 
 export type SavedEntityDocumentKind = EntityDocumentKind
 export type EntityDocumentArgs = {
@@ -30,17 +34,13 @@ export type EntityDocumentArgs = {
   documentFormat?: string
 }
 
+/**
+ * Canonical list_* entry. A list is a discovery surface — "what exists" — so it
+ * carries only the entity's id and canonical name, never per-entity details.
+ */
 export type EntityListEntry = {
   entityId: string
-  entityName?: string
-  workspaceId?: string
-  entityDescription?: string
-  entityTitle?: string
-  entityFunctionName?: string
-  entityTransport?: string
-  entityUrl?: string
-  entityEnabled?: boolean
-  entityConnectionStatus?: string
+  entityName: string
 }
 
 export type CopilotIndicatorListEntry = {
@@ -123,14 +123,7 @@ export async function verifySavedEntityContext(
   const userId = requireUserId(context)
   const access = await verifyReviewTargetAccess(
     userId,
-    {
-      workspaceId: null,
-      entityKind,
-      entityId,
-      draftSessionId: null,
-      reviewSessionId: null,
-      yjsSessionId: entityId,
-    },
+    buildSavedEntityDescriptor(entityKind, entityId, null),
     accessMode
   )
 
@@ -201,6 +194,25 @@ export async function readSavedEntityDocumentFields(
   workspaceId: string
 ): Promise<Record<string, unknown>> {
   return readBootstrappedSavedEntityFields(kind as SavedEntityKind, entityId, workspaceId)
+}
+
+// The canonical list-through-Yjs primitive lives in the Yjs read layer so widget
+// API routes and the MCP service share it too; re-exported here for the tools.
+export { buildSavedEntityListThroughYjs }
+
+/**
+ * Canonical projection for every saved-entity list_* tool: read each row through
+ * Yjs and expose only the discovery info (id + canonical name). One projection
+ * for all kinds — no tool invents its own list mapper.
+ */
+export function buildSavedEntityListInfo<TRow extends { id: string; workspaceId: string }>(
+  entityKind: SavedEntityKind,
+  rows: TRow[]
+): Promise<EntityListEntry[]> {
+  return buildSavedEntityListThroughYjs(entityKind, rows, (row, fields) => ({
+    entityId: row.id,
+    entityName: getEntityDocumentName(entityKind, fields),
+  }))
 }
 
 export async function executeCreateEntityDocumentMutation(

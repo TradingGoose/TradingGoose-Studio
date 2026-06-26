@@ -15,6 +15,16 @@ vi.mock('@/lib/knowledge/service', () => ({
   getKnowledgeBases: vi.fn(),
 }))
 
+vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
+  buildSavedEntityListThroughYjs: async (
+    _kind: string,
+    rows: Array<Record<string, unknown>>,
+    buildEntry: (row: Record<string, unknown>, fields: Record<string, unknown>) => unknown = (
+      row
+    ) => row
+  ) => Promise.all(rows.map((row) => buildEntry(row, row))),
+}))
+
 describe('Knowledge Base API Route', () => {
   const mockAuth$ = mockAuth()
   let mockCreateKnowledgeBase: any

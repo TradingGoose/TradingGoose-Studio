@@ -1,5 +1,6 @@
 import * as Y from 'yjs'
 import {
+  buildSavedEntityDescriptor,
   buildYjsTransportEnvelope,
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
@@ -11,7 +12,7 @@ import type {
 } from '@/lib/copilot/review-sessions/types'
 import { loadWorkflowBootstrapStateFromDb } from '@/lib/workflows/db-helpers'
 import { getEntityFields, seedEntitySession } from '@/lib/yjs/entity-session'
-import type { SavedEntityKind } from '@/lib/yjs/entity-state'
+import { type SavedEntityKind, savedEntityFieldsToRow } from '@/lib/yjs/entity-state'
 import {
   readSavedEntityFieldsFromDb,
   resolveEntityWorkspaceId,
@@ -59,14 +60,9 @@ export async function readBootstrappedSavedEntityFields(
   entityId: string,
   workspaceId: string
 ): Promise<Record<string, unknown>> {
-  const snapshot = await readBootstrappedReviewTargetSnapshot({
-    workspaceId,
-    entityKind,
-    entityId,
-    draftSessionId: null,
-    reviewSessionId: null,
-    yjsSessionId: entityId,
-  })
+  const snapshot = await readBootstrappedReviewTargetSnapshot(
+    buildSavedEntityDescriptor(entityKind, entityId, workspaceId)
+  )
   if (!snapshot.snapshotBase64) {
     throw new ReviewTargetBootstrapError(404, `Saved ${entityKind} ${entityId} state is missing`)
   }
@@ -78,6 +74,35 @@ export async function readBootstrappedSavedEntityFields(
   } finally {
     doc.destroy()
   }
+}
+
+/**
+ * Canonical "list existing saved entities through Yjs" primitive. Reads each
+ * row's fields via {@link readBootstrappedSavedEntityFields} (live session if
+ * open, else a transient DB bootstrap) concurrently, and maps each through a
+ * pure row+fields → entry function. Every list surface (copilot tools, widget
+ * API routes, the MCP service) reuses this instead of re-implementing the loop.
+ *
+ * `buildEntry` defaults to overlaying the live fields onto the row via the
+ * canonical {@link savedEntityFieldsToRow} inverse, so the result is the same
+ * row shape with its fields taken from Yjs — the natural output for the widget
+ * list routes. Callers whose output shape differs (the copilot summaries, the
+ * MCP config) pass their own row→entry projection.
+ */
+export function buildSavedEntityListThroughYjs<
+  TRow extends { id: string; workspaceId: string },
+  TEntry = TRow,
+>(
+  entityKind: SavedEntityKind,
+  rows: TRow[],
+  buildEntry: (row: TRow, fields: Record<string, unknown>) => TEntry = (row, fields) =>
+    ({ ...row, ...savedEntityFieldsToRow(entityKind, fields) }) as TEntry
+): Promise<TEntry[]> {
+  return Promise.all(
+    rows.map(async (row) =>
+      buildEntry(row, await readBootstrappedSavedEntityFields(entityKind, row.id, row.workspaceId))
+    )
+  )
 }
 
 export async function createSavedReviewTargetBootstrapUpdate(

@@ -7,6 +7,7 @@ import { createIndicators, saveIndicator } from '@/lib/indicators/custom/operati
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { SavedEntityPersistenceError } from '@/lib/yjs/server/apply-entity-state'
+import { buildSavedEntityListThroughYjs } from '@/lib/yjs/server/bootstrap-review-target'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { authenticateIndicatorRequest, checkWorkspacePermission } from '../utils'
 
@@ -104,7 +105,8 @@ export async function GET(request: NextRequest) {
       .from(pineIndicators)
       .where(eq(pineIndicators.workspaceId, resolvedWorkspaceId))
       .orderBy(desc(pineIndicators.createdAt))
-    return NextResponse.json({ data: rows }, { status: 200 })
+    const data = await buildSavedEntityListThroughYjs('indicator', rows)
+    return NextResponse.json({ data }, { status: 200 })
   } catch (error) {
     logger.error(`[${requestId}] Error fetching indicators:`, error)
     return NextResponse.json({ error: 'Failed to fetch indicators' }, { status: 500 })

@@ -4,8 +4,8 @@ import { createSkills, listSkills } from '@/lib/skills/operations'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
   buildDocumentEnvelope,
+  buildSavedEntityListInfo,
   type EntityCreateResult,
-  type EntityListEntry,
   type EntityServerTool,
   executeCreateEntityDocumentMutation,
   executeUpdateEntityDocumentMutation,
@@ -14,15 +14,6 @@ import {
   verifySavedEntityContext,
   verifyWorkspaceContext,
 } from './shared'
-
-function toSkillListEntry(row: Awaited<ReturnType<typeof listSkills>>[number]): EntityListEntry {
-  return {
-    entityId: row.id,
-    entityName: row.name,
-    workspaceId: row.workspaceId,
-    entityDescription: row.description ?? '',
-  }
-}
 
 async function createSkillEntity(
   fields: Record<string, unknown>,
@@ -59,7 +50,7 @@ export const listSkillsServerTool: EntityServerTool<Record<string, never>> = {
       'read'
     )
     const rows = await listSkills({ workspaceId })
-    const entities = rows.map(toSkillListEntry)
+    const entities = await buildSavedEntityListInfo(ENTITY_KIND_SKILL, rows)
 
     return {
       entityKind: ENTITY_KIND_SKILL,

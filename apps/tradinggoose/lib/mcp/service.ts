@@ -20,7 +20,10 @@ import type {
 } from '@/lib/mcp/types'
 import { MCP_CONSTANTS } from '@/lib/mcp/utils'
 import { generateRequestId } from '@/lib/utils'
-import { readBootstrappedSavedEntityFields } from '@/lib/yjs/server/bootstrap-review-target'
+import {
+  buildSavedEntityListThroughYjs,
+  readBootstrappedSavedEntityFields,
+} from '@/lib/yjs/server/bootstrap-review-target'
 
 const logger = createLogger('McpService')
 type McpServerRow = InferSelectModel<typeof mcpServers>
@@ -269,35 +272,32 @@ class McpService {
   async listWorkspaceServers(workspaceId: string): Promise<McpServerRow[]> {
     const servers = await this.getWorkspaceServerRows(workspaceId)
 
-    return Promise.all(
-      servers.map(async (server) => {
-        const fields = await this.readServerFields(server)
-        try {
-          const normalized = normalizeEntityFields('mcp_server', fields)
-          return {
-            ...server,
-            name: String(normalized.name ?? ''),
-            description: String(normalized.description ?? '') || null,
-            transport: String(normalized.transport ?? ''),
-            url: String(normalized.url ?? '') || null,
-            headers: normalized.headers,
-            command: String(normalized.command ?? '') || null,
-            args: Array.isArray(normalized.args) ? normalized.args.map(String) : [],
-            env: normalized.env,
-            timeout: Number(normalized.timeout ?? 30000),
-            retries: Number(normalized.retries ?? 3),
-            enabled: normalized.enabled !== false,
-          }
-        } catch (error) {
-          logger.warn(`MCP server ${server.id} has invalid saved-entity state:`, error)
-          return {
-            ...server,
-            connectionStatus: 'error',
-            lastError: error instanceof Error ? error.message : 'Invalid server state',
-          }
+    return buildSavedEntityListThroughYjs('mcp_server', servers, (server, fields) => {
+      try {
+        const normalized = normalizeEntityFields('mcp_server', fields)
+        return {
+          ...server,
+          name: String(normalized.name ?? ''),
+          description: String(normalized.description ?? '') || null,
+          transport: String(normalized.transport ?? ''),
+          url: String(normalized.url ?? '') || null,
+          headers: normalized.headers,
+          command: String(normalized.command ?? '') || null,
+          args: Array.isArray(normalized.args) ? normalized.args.map(String) : [],
+          env: normalized.env,
+          timeout: Number(normalized.timeout ?? 30000),
+          retries: Number(normalized.retries ?? 3),
+          enabled: normalized.enabled !== false,
         }
-      })
-    )
+      } catch (error) {
+        logger.warn(`MCP server ${server.id} has invalid saved-entity state:`, error)
+        return {
+          ...server,
+          connectionStatus: 'error',
+          lastError: error instanceof Error ? error.message : 'Invalid server state',
+        }
+      }
+    })
   }
 
   private async getServerConfig(
@@ -326,9 +326,10 @@ class McpService {
 
   private async getWorkspaceServers(workspaceId: string): Promise<McpServerConfig[]> {
     const servers = await this.getWorkspaceServerRows(workspaceId)
-    const configs = await Promise.all(
-      servers.map(async (server) => {
-        const fields = await this.readServerFields(server)
+    const configs = await buildSavedEntityListThroughYjs(
+      'mcp_server',
+      servers,
+      (server, fields) => {
         try {
           const normalized = normalizeEntityFields('mcp_server', fields)
           return normalized.enabled === false ? null : this.toServerConfig(server, normalized)
@@ -336,7 +337,7 @@ class McpService {
           logger.warn(`Skipping MCP server ${server.id} with invalid saved-entity state:`, error)
           return null
         }
-      })
+      }
     )
 
     return configs.filter((config): config is McpServerConfig => config !== null)

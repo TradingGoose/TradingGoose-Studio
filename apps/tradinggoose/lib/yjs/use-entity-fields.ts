@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import * as Y from 'yjs'
 import {
+  buildSavedEntityDescriptor,
   buildYjsTransportEnvelope,
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
@@ -49,14 +50,7 @@ export function useSavedEntityYjsSession(
     let active = true
     let current: YjsProviderBootstrapResult | null = null
 
-    bootstrapYjsProvider({
-      workspaceId,
-      entityKind,
-      entityId,
-      draftSessionId: null,
-      reviewSessionId: null,
-      yjsSessionId: entityId,
-    })
+    bootstrapYjsProvider(buildSavedEntityDescriptor(entityKind, entityId, workspaceId))
       .then((next) => {
         if (!active) {
           next.provider.disconnect()
@@ -141,9 +135,36 @@ export function useYjsStringField(
     if (!doc) return (cb: () => void) => () => {}
     const fields = getFieldsMap(doc)
     return (cb: () => void) => {
-      const handler = () => cb()
-      fields.observeDeep(handler)
-      return () => fields.unobserveDeep(handler)
+      // Track the Y.Text currently bound to `key` so we can observe in-place
+      // text edits directly and re-bind when the key's value is replaced.
+      let boundText: Y.Text | null = null
+
+      const textHandler = () => cb()
+
+      const bindText = (next: Y.Text | null) => {
+        if (next === boundText) return
+        if (boundText) boundText.unobserve(textHandler)
+        boundText = next
+        if (boundText) boundText.observe(textHandler)
+      }
+
+      const mapHandler = (event: Y.YMapEvent<any>) => {
+        if (!event.keysChanged.has(key)) return
+        // The value at `key` was set/added/deleted: re-bind a Y.Text observer
+        // (or clear it for plain-string values) and notify subscribers.
+        const val = fields.get(key)
+        bindText(val instanceof Y.Text ? val : null)
+        cb()
+      }
+
+      fields.observe(mapHandler)
+      const initial = fields.get(key)
+      bindText(initial instanceof Y.Text ? initial : null)
+
+      return () => {
+        fields.unobserve(mapHandler)
+        if (boundText) boundText.unobserve(textHandler)
+      }
     }
   }, [doc, key])
 

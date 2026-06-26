@@ -5,8 +5,8 @@ import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
   buildDocumentEnvelope,
+  buildSavedEntityListInfo,
   type EntityCreateResult,
-  type EntityListEntry,
   type EntityServerTool,
   executeCreateEntityDocumentMutation,
   executeUpdateEntityDocumentMutation,
@@ -15,43 +15,6 @@ import {
   verifySavedEntityContext,
   verifyWorkspaceContext,
 } from './shared'
-
-function readFunctionSchemaField(row: Awaited<ReturnType<typeof listCustomTools>>[number]) {
-  const functionSchema =
-    row.schema && typeof row.schema === 'object' && 'function' in row.schema
-      ? row.schema.function
-      : null
-
-  if (!functionSchema || typeof functionSchema !== 'object') {
-    return {}
-  }
-
-  return {
-    functionName:
-      'name' in functionSchema && typeof functionSchema.name === 'string'
-        ? functionSchema.name
-        : undefined,
-    functionDescription:
-      'description' in functionSchema && typeof functionSchema.description === 'string'
-        ? functionSchema.description
-        : undefined,
-  }
-}
-
-function toCustomToolListEntry(
-  row: Awaited<ReturnType<typeof listCustomTools>>[number]
-): EntityListEntry {
-  const { functionName, functionDescription } = readFunctionSchemaField(row)
-
-  return {
-    entityId: row.id,
-    entityName: row.title ?? functionName ?? '',
-    workspaceId: row.workspaceId,
-    entityTitle: row.title ?? '',
-    entityFunctionName: functionName,
-    entityDescription: functionDescription,
-  }
-}
 
 async function createCustomToolEntity(
   fields: Record<string, unknown>,
@@ -88,7 +51,7 @@ export const listCustomToolsServerTool: EntityServerTool<Record<string, never>> 
       'read'
     )
     const rows = await listCustomTools({ workspaceId })
-    const entities = rows.map(toCustomToolListEntry)
+    const entities = await buildSavedEntityListInfo(ENTITY_KIND_CUSTOM_TOOL, rows)
 
     return {
       entityKind: ENTITY_KIND_CUSTOM_TOOL,

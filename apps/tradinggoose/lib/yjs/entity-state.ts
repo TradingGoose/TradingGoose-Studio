@@ -61,3 +61,34 @@ export function savedEntityRowToFields(
       }
   }
 }
+
+function parseEntitySchemaText(schemaText: unknown): unknown {
+  if (typeof schemaText !== 'string') {
+    return schemaText ?? {}
+  }
+  try {
+    return JSON.parse(schemaText)
+  } catch {
+    return {}
+  }
+}
+
+/**
+ * Canonical inverse of {@link savedEntityRowToFields}. The Yjs document field
+ * names mirror the entity's editable row columns 1:1 for every kind, so the
+ * inverse is identity — except custom_tool, whose schema/code are stored as
+ * editable text (schemaText/codeText) and parsed back to row columns here.
+ */
+export function savedEntityFieldsToRow(
+  entityKind: SavedEntityKind,
+  fields: Record<string, unknown>
+): Record<string, unknown> {
+  if (entityKind === 'custom_tool') {
+    return {
+      title: fields.title,
+      schema: parseEntitySchemaText(fields.schemaText),
+      code: fields.codeText,
+    }
+  }
+  return fields
+}

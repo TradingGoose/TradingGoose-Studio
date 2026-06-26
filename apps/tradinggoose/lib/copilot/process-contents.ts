@@ -11,6 +11,7 @@ import {
 } from '@tradinggoose/db/schema'
 import { and, asc, eq, isNull } from 'drizzle-orm'
 import * as Y from 'yjs'
+import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
 import {
   verifyReviewTargetAccess,
   verifyWorkflowAccess,
@@ -173,14 +174,7 @@ async function processEntityContext(params: {
   try {
     const access = await verifyReviewTargetAccess(
       params.userId,
-      {
-        entityKind: params.entityKind,
-        entityId: params.entityId,
-        draftSessionId: null,
-        reviewSessionId: null,
-        workspaceId: params.workspaceId,
-        yjsSessionId: params.entityId,
-      },
+      buildSavedEntityDescriptor(params.entityKind, params.entityId, params.workspaceId),
       'read'
     )
     if (!access.hasAccess || !access.workspaceId) {
@@ -472,14 +466,7 @@ async function processKnowledgeContext(
   try {
     const access = await verifyReviewTargetAccess(
       userId,
-      {
-        entityKind: ENTITY_KIND_KNOWLEDGE_BASE,
-        entityId: knowledgeBaseId,
-        draftSessionId: null,
-        reviewSessionId: null,
-        workspaceId,
-        yjsSessionId: knowledgeBaseId,
-      },
+      buildSavedEntityDescriptor(ENTITY_KIND_KNOWLEDGE_BASE, knowledgeBaseId, workspaceId),
       'read'
     )
     if (!access.hasAccess || !access.workspaceId) {

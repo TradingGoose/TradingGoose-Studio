@@ -6,11 +6,11 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getParsedBody, withMcpAuth } from '@/lib/mcp/middleware'
 import { mcpService } from '@/lib/mcp/service'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
-import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
   applySavedEntityState,
   SavedEntityPersistenceError,
 } from '@/lib/yjs/server/apply-entity-state'
+import { readBootstrappedSavedEntityFields } from '@/lib/yjs/server/bootstrap-review-target'
 import { UpdateMcpServerSchema } from '../schema'
 
 const logger = createLogger('McpServerAPI')
@@ -67,6 +67,13 @@ export const PATCH = withMcpAuth('write')(
         )
       }
 
+      // Read the current fields through Yjs (live session if open, else bootstrapped
+      // from DB) so the partial update merges into the canonical state, not a stale row.
+      const currentFields = await readBootstrappedSavedEntityFields(
+        'mcp_server',
+        serverId,
+        workspaceId
+      )
       const { workspaceId: _, ...updateData } = body
       const nextServer = {
         ...existingServer,
@@ -74,11 +81,7 @@ export const PATCH = withMcpAuth('write')(
         updatedAt: new Date(),
       }
 
-      await applySavedEntityState(
-        'mcp_server',
-        nextServer.id,
-        savedEntityRowToFields('mcp_server', nextServer)
-      )
+      await applySavedEntityState('mcp_server', serverId, { ...currentFields, ...updateData })
 
       // Clear MCP service cache after update
       mcpService.clearCache(workspaceId)

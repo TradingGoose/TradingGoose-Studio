@@ -16,6 +16,7 @@ import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import { getQueryStrategy, handleVectorOnlySearch } from '@/app/api/knowledge/search/utils'
 import {
   buildDocumentEnvelope,
+  buildSavedEntityListInfo,
   type EntityCreateResult,
   type EntityDocumentArgs,
   type EntityServerTool,
@@ -28,11 +29,6 @@ import {
 } from '../entities/shared'
 
 const logger = createLogger('KnowledgeBaseServerTools')
-
-function normalizeOptionalString(value: string | null | undefined): string | undefined {
-  const normalized = value?.trim()
-  return normalized ? normalized : undefined
-}
 
 function toIsoString(value: Date | string | null | undefined): string | undefined {
   if (!value) return undefined
@@ -95,20 +91,11 @@ export const listKnowledgeBasesServerTool: BaseServerTool<{ workspaceId: string 
     const scopedContext = withWorkspaceArgContext(context, args)
     const { userId, workspaceId } = await verifyWorkspaceContext(scopedContext, 'read')
     const knowledgeBases = await getKnowledgeBases(userId, workspaceId)
+    const entities = await buildSavedEntityListInfo(ENTITY_KIND_KNOWLEDGE_BASE, knowledgeBases)
 
     return {
       entityKind: ENTITY_KIND_KNOWLEDGE_BASE,
-      entities: knowledgeBases.map((kb) => ({
-        entityId: kb.id,
-        entityName: kb.name,
-        workspaceId: kb.workspaceId,
-        ...(normalizeOptionalString(kb.description) ? { entityDescription: kb.description! } : {}),
-        docCount: kb.docCount,
-        tokenCount: kb.tokenCount,
-        embeddingModel: kb.embeddingModel,
-        createdAt: toIsoString(kb.createdAt),
-        updatedAt: toIsoString(kb.updatedAt),
-      })),
+      entities,
       count: knowledgeBases.length,
     }
   },

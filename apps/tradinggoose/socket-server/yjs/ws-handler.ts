@@ -6,8 +6,6 @@ import { buildReviewTargetDescriptorFromEnvelope } from '@/lib/copilot/review-se
 import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
 import { createLogger } from '@/lib/logs/console/logger'
 import { saveWorkflowYjsDocToDb } from '@/lib/workflows/db-helpers'
-import type { SavedEntityKind } from '@/lib/yjs/entity-state'
-import { saveSavedEntityYjsDocToDb } from '@/lib/yjs/server/apply-entity-state'
 import {
   createSavedReviewTargetBootstrapUpdate,
   getRuntimeStateFromDoc,
@@ -16,13 +14,6 @@ import { authenticateYjsConnection, YjsAuthError } from './auth'
 import { getExistingDocument, markDocumentPersisted, setupWSConnection } from './upstream-utils'
 
 const logger = createLogger('YjsWsHandler')
-const savedEntityKinds = new Set<SavedEntityKind>([
-  'skill',
-  'custom_tool',
-  'indicator',
-  'knowledge_base',
-  'mcp_server',
-])
 
 interface YjsIncomingMessage extends IncomingMessage {
   yjsSessionId?: string
@@ -32,7 +23,6 @@ interface YjsIncomingMessage extends IncomingMessage {
 
 async function persistIdleDocument(docId: string, doc: Y.Doc): Promise<void> {
   const metadata = doc.getMap<unknown>('metadata')
-  const entityKind = metadata.get('entityKind')
   if (
     metadata.get('entityId') !== docId ||
     metadata.get('draftSessionId') !== null ||
@@ -41,13 +31,11 @@ async function persistIdleDocument(docId: string, doc: Y.Doc): Promise<void> {
     return
   }
 
-  if (entityKind === 'workflow') {
+  // Only workflows auto-save on idle. Saved entities (skill, custom_tool,
+  // indicator, knowledge_base, mcp_server) persist ONLY via the explicit Save
+  // path or the Copilot apply path; their dirty docs are discarded on idle.
+  if (metadata.get('entityKind') === 'workflow') {
     await saveWorkflowYjsDocToDb(docId, doc)
-    markDocumentPersisted(doc)
-    return
-  }
-  if (typeof entityKind === 'string' && savedEntityKinds.has(entityKind as SavedEntityKind)) {
-    await saveSavedEntityYjsDocToDb(entityKind as SavedEntityKind, docId, doc)
     markDocumentPersisted(doc)
   }
 }

@@ -12,6 +12,7 @@ import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
   buildDocumentEnvelope,
+  buildSavedEntityListThroughYjs,
   type CopilotIndicatorListEntry,
   type EntityCreateResult,
   type EntityServerTool,
@@ -38,13 +39,14 @@ function toDefaultIndicatorListEntry(entry: (typeof DEFAULT_INDICATOR_RUNTIME_EN
 }
 
 function toCustomIndicatorListEntry(
-  row: typeof pineIndicators.$inferSelect
+  row: typeof pineIndicators.$inferSelect,
+  fields: Record<string, unknown>
 ): CopilotIndicatorListEntry {
-  const inputMeta = normalizeInputMetaMap(row.inputMeta)
+  const inputMeta = normalizeInputMetaMap(fields.inputMeta)
   const inputTitles = Object.keys(inputMeta ?? {})
 
   return {
-    name: row.name,
+    name: String(fields.name ?? ''),
     source: 'custom',
     editable: true,
     callableInFunctionBlock: true,
@@ -61,7 +63,11 @@ async function listCopilotIndicators(workspaceId: string): Promise<CopilotIndica
     .from(pineIndicators)
     .where(eq(pineIndicators.workspaceId, workspaceId))
     .orderBy(desc(pineIndicators.createdAt))
-  const customOptions = customRows.map(toCustomIndicatorListEntry)
+  const customOptions = await buildSavedEntityListThroughYjs(
+    ENTITY_KIND_INDICATOR,
+    customRows,
+    toCustomIndicatorListEntry
+  )
 
   return [...defaultOptions, ...customOptions].sort((a, b) => a.name.localeCompare(b.name))
 }

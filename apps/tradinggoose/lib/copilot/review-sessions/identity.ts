@@ -7,6 +7,7 @@ import {
   type YjsTransportEnvelope,
 } from './types'
 import { normalizeOptionalString } from '@/lib/utils'
+import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 
 const REVIEW_ENTITY_KIND_SET = new Set<string>(REVIEW_ENTITY_KINDS)
 const YJS_TARGET_KIND_SET = new Set<string>(YJS_TARGET_KINDS)
@@ -29,6 +30,28 @@ const requireYjsTargetKind = (value: string | undefined): YjsTargetKind => {
   }
 
   return normalized as YjsTargetKind
+}
+
+/**
+ * Canonical descriptor for a saved entity's own Yjs document (no draft/review
+ * session; the Yjs session id is the entity id). The single source of the
+ * "saved entity Yjs target" contract, reused by the editor session hook, the
+ * server-side field reader, the access check, and the apply route, so every
+ * read/write addresses the entity identically.
+ */
+export function buildSavedEntityDescriptor(
+  entityKind: SavedEntityKind,
+  entityId: string,
+  workspaceId: string | null
+): ReviewTargetDescriptor {
+  return {
+    workspaceId,
+    entityKind,
+    entityId,
+    draftSessionId: null,
+    reviewSessionId: null,
+    yjsSessionId: entityId,
+  }
 }
 
 /**

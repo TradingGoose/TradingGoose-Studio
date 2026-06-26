@@ -14,8 +14,8 @@ import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import {
   buildDocumentEnvelope,
+  buildSavedEntityListInfo,
   type EntityCreateResult,
-  type EntityListEntry,
   type EntityServerTool,
   executeCreateEntityDocumentMutation,
   executeUpdateEntityDocumentMutation,
@@ -92,17 +92,6 @@ function prepareNewMcpServerFields(fields: Record<string, unknown>): Record<stri
   return normalized
 }
 
-function toMcpServerListEntry(row: typeof mcpServers.$inferSelect): EntityListEntry {
-  return {
-    entityId: row.id,
-    entityName: row.name,
-    workspaceId: row.workspaceId,
-    entityTransport: typeof row.transport === 'string' ? row.transport : undefined,
-    entityUrl: typeof row.url === 'string' ? row.url : undefined,
-    entityEnabled: typeof row.enabled === 'boolean' ? row.enabled : undefined,
-  }
-}
-
 async function createMcpServerEntity(
   fields: Record<string, unknown>,
   context: Parameters<typeof verifyWorkspaceContext>[0]
@@ -175,7 +164,7 @@ export const listMcpServersServerTool: EntityServerTool<Record<string, never>> =
       .select()
       .from(mcpServers)
       .where(and(eq(mcpServers.workspaceId, workspaceId), isNull(mcpServers.deletedAt)))
-    const entities = rows.map(toMcpServerListEntry)
+    const entities = await buildSavedEntityListInfo(ENTITY_KIND_MCP_SERVER, rows)
 
     return {
       entityKind: ENTITY_KIND_MCP_SERVER,

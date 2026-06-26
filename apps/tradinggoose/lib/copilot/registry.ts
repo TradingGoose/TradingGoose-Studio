@@ -712,39 +712,15 @@ const WorkflowVariableDocumentEnvelope = WorkflowTargetEnvelope.extend({
   variables: z.record(z.any()),
 })
 
+// A list is a discovery surface: only id + canonical name, no per-entity details.
 const GenericEntityListEntry = z.object({
   entityId: z.string(),
   entityName: z.string().optional(),
-  workspaceId: z.string().optional(),
-  entityDescription: z.string().optional(),
-  entityTitle: z.string().optional(),
-  entityTransport: z.string().optional(),
-  entityUrl: z.string().optional(),
-  entityEnabled: z.boolean().optional(),
-  entityConnectionStatus: z.string().optional(),
 })
 
 const GenericEntityListResult = z.object({
   entityKind: z.enum(['skill', 'custom_tool', 'indicator', 'mcp_server']),
   entities: z.array(GenericEntityListEntry),
-  count: z.number(),
-})
-
-const KnowledgeBaseListEntry = z.object({
-  entityId: z.string(),
-  entityName: z.string(),
-  workspaceId: z.string(),
-  entityDescription: z.string().optional(),
-  docCount: z.number(),
-  tokenCount: z.number(),
-  embeddingModel: z.string(),
-  createdAt: z.string().optional(),
-  updatedAt: z.string().optional(),
-})
-
-const KnowledgeBaseListResult = z.object({
-  entityKind: z.literal('knowledge_base'),
-  entities: z.array(KnowledgeBaseListEntry),
   count: z.number(),
 })
 
@@ -1140,7 +1116,9 @@ export const ToolResultSchemas = {
     chatDeployed: z.boolean(),
     deployedAt: z.string().nullable(),
   }),
-  list_knowledge_bases: KnowledgeBaseListResult,
+  list_knowledge_bases: GenericEntityListResult.extend({
+    entityKind: z.literal('knowledge_base'),
+  }),
   read_knowledge_base: KnowledgeBaseDocumentEnvelope,
   create_knowledge_base: KnowledgeBaseDocumentMutationResult,
   edit_knowledge_base: KnowledgeBaseDocumentMutationResult,
