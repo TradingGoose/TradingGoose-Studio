@@ -63,7 +63,7 @@ export default async function McpAuthorizePage({
         pathname: '/login',
         query: {
           ...(getSessionCookie(requestHeaders) ? { reauth: '1' } : {}),
-          callbackUrl: `/mcp/authorize?code=${encodeURIComponent(code)}`,
+          callbackUrl: `/${locale}/mcp/authorize?code=${encodeURIComponent(code)}`,
         },
       },
       locale,

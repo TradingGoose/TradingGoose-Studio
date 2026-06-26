@@ -14,11 +14,15 @@ function redirectToAuthorizeStatus(locale: string, status: string) {
 }
 
 function redirectToLogin(request: NextRequest, locale: string, code: string) {
-  const url = new URL(`/${normalizeLocaleCode(locale)}/login`, getBaseUrl())
+  const normalizedLocale = normalizeLocaleCode(locale)
+  const url = new URL(`/${normalizedLocale}/login`, getBaseUrl())
   if (getSessionCookie(request.headers)) {
     url.searchParams.set('reauth', '1')
   }
-  url.searchParams.set('callbackUrl', `/mcp/authorize?code=${encodeURIComponent(code)}`)
+  url.searchParams.set(
+    'callbackUrl',
+    `/${normalizedLocale}/mcp/authorize?code=${encodeURIComponent(code)}`
+  )
   return NextResponse.redirect(url)
 }
 
