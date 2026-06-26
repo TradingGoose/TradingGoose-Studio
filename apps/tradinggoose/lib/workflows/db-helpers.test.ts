@@ -694,6 +694,73 @@ describe('Database Helpers', () => {
       })
     })
 
+    it('should sanitize invalid embedded custom tools while saving workflow blocks', async () => {
+      let capturedBlockInserts: any[] = []
+      const workflowState = {
+        blocks: {
+          agent: {
+            id: 'agent',
+            type: 'agent',
+            name: 'Agent',
+            position: { x: 0, y: 0 },
+            subBlocks: {
+              tools: {
+                id: 'tools',
+                type: 'tool-input',
+                value: [
+                  {
+                    type: 'custom-tool',
+                    title: 'Valid tool',
+                    toolId: 'custom_valid-tool',
+                    schema: {
+                      function: {
+                        parameters: { type: 'object', properties: {} },
+                      },
+                    },
+                  },
+                  { type: 'custom-tool', title: 'Invalid tool', toolId: 'not-custom' },
+                ],
+              },
+            },
+            outputs: {},
+            enabled: true,
+          },
+        },
+        edges: [],
+        loops: {},
+        parallels: {},
+        lastSaved: Date.now(),
+      } as unknown as WorkflowState
+
+      mockDb.transaction = vi.fn().mockImplementation(async (callback) => {
+        const tx = createMockTx({
+          insert: vi.fn().mockReturnValue({
+            values: vi.fn().mockImplementation((data) => {
+              if (Array.isArray(data) && data[0]?.positionX !== undefined) {
+                capturedBlockInserts = data
+              }
+              return Promise.resolve([])
+            }),
+          }),
+        })
+        return callback(tx)
+      })
+
+      const result = await dbHelpers.saveWorkflowToNormalizedTables(mockWorkflowId, workflowState)
+      const savedTools = capturedBlockInserts[0].subBlocks.tools.value
+
+      expect(result.success).toBe(true)
+      expect(savedTools).toEqual([
+        expect.objectContaining({
+          title: 'Valid tool',
+          toolId: 'custom_valid-tool',
+          code: '',
+          usageControl: 'auto',
+        }),
+      ])
+      expect(result.normalizedState?.blocks.agent.subBlocks?.tools.value).toEqual(savedTools)
+    })
+
     it('should regenerate edge ids that conflict with another workflow', async () => {
       let capturedEdgeInserts: any[] = []
 
