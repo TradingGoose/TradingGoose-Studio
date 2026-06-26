@@ -29,6 +29,15 @@ function entityIdCondition(entityKind: SavedEntityKind, entityId: string) {
     : byId
 }
 
+class SavedEntityLoadError extends Error {
+  status = 404
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'SavedEntityLoadError'
+  }
+}
+
 export async function resolveEntityWorkspaceId(
   entityKind: SavedEntityKind,
   entityId: string
@@ -100,7 +109,7 @@ export async function readSavedEntityFieldsFromDb(
   }
 
   if (!row) {
-    throw new Error(`Saved ${entityKind} ${entityId} was not found`)
+    throw new SavedEntityLoadError(`Saved ${entityKind} ${entityId} was not found`)
   }
 
   return savedEntityRowToFields(entityKind, row)

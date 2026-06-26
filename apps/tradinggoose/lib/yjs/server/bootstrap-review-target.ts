@@ -17,7 +17,7 @@ import {
   readSavedEntityFieldsFromDb,
   resolveEntityWorkspaceId,
 } from '@/lib/yjs/server/entity-loaders'
-import { getYjsSnapshot } from '@/lib/yjs/server/snapshot-bridge'
+import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import {
   createWorkflowSnapshot,
@@ -77,19 +77,11 @@ export async function readBootstrappedSavedEntityFields(
 }
 
 /**
- * Canonical "list existing saved entities through Yjs" primitive. Reads each
- * row's fields via {@link readBootstrappedSavedEntityFields} (live session if
- * open, else a transient DB bootstrap) concurrently, and maps each through a
- * pure row+fields → entry function. Every list surface (copilot tools, widget
- * API routes, the MCP service) reuses this instead of re-implementing the loop.
- *
- * `buildEntry` defaults to overlaying the live fields onto the row via the
- * canonical {@link savedEntityFieldsToRow} inverse, so the result is the same
- * row shape with its fields taken from Yjs — the natural output for the widget
- * list routes. Callers whose output shape differs (the copilot summaries, the
- * MCP config) pass their own row→entry projection.
+ * Canonical list-through-Yjs primitive for existing saved entities. Row-local
+ * missing/expired snapshots and invalid projections are skipped; realtime
+ * bridge failures still fail the list because saved-entity reads require Yjs.
  */
-export function buildSavedEntityListThroughYjs<
+export async function buildSavedEntityListThroughYjs<
   TRow extends { id: string; workspaceId: string },
   TEntry = TRow,
 >(
@@ -98,11 +90,29 @@ export function buildSavedEntityListThroughYjs<
   buildEntry: (row: TRow, fields: Record<string, unknown>) => TEntry = (row, fields) =>
     ({ ...row, ...savedEntityFieldsToRow(entityKind, fields) }) as TEntry
 ): Promise<TEntry[]> {
-  return Promise.all(
-    rows.map(async (row) =>
-      buildEntry(row, await readBootstrappedSavedEntityFields(entityKind, row.id, row.workspaceId))
-    )
+  const entries: Array<TEntry | null> = await Promise.all(
+    rows.map(async (row): Promise<TEntry | null> => {
+      let fields: Record<string, unknown>
+      try {
+        fields = await readBootstrappedSavedEntityFields(entityKind, row.id, row.workspaceId)
+      } catch (error) {
+        const status =
+          error instanceof ReviewTargetBootstrapError || error instanceof SocketServerBridgeError
+            ? error.status
+            : null
+        if (status === 404 || status === 410) return null
+        throw error
+      }
+
+      try {
+        return buildEntry(row, fields)
+      } catch {
+        return null
+      }
+    })
   )
+
+  return entries.filter((entry): entry is TEntry => entry !== null)
 }
 
 export async function createSavedReviewTargetBootstrapUpdate(
