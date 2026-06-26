@@ -480,6 +480,54 @@ describe('Socket Server Index Integration', () => {
       expect(await getExistingDocument('workflow-failed')).toBeNull()
     })
 
+    it('does not mutate a connected live workflow session when persistence fails', async () => {
+      const conn = new (await import('node:events')).EventEmitter() as any
+      conn.readyState = 1
+      conn.send = vi.fn((_message, _options, callback) => callback?.())
+      conn.ping = vi.fn()
+      conn.close = vi.fn()
+      setupWSConnection(conn, {} as any, { docId: 'workflow-connected' })
+      const liveDoc = (await getExistingDocument('workflow-connected'))!
+      setWorkflowState(
+        liveDoc,
+        { blocks: { keep: { id: 'keep' } as any }, edges: [], loops: {}, parallels: {} },
+        'test'
+      )
+
+      mockSaveWorkflowYjsDocToDb.mockRejectedValueOnce(new Error('database unavailable'))
+
+      const response = await sendHttpRequestWithOptions(
+        PORT,
+        '/internal/yjs/workflows/workflow-connected/apply-state',
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-internal-secret': INTERNAL_SECRET },
+          body: JSON.stringify({
+            workflowState: {
+              blocks: { replaced: { id: 'replaced' } },
+              edges: [],
+              loops: {},
+              parallels: {},
+              lastSaved: '2026-04-06T00:00:00.000Z',
+              isDeployed: false,
+            },
+          }),
+        }
+      )
+
+      // A failed write must never leave connected clients ahead of the database:
+      // the live session still holds the pre-command block.
+      expect(response.statusCode).toBe(500)
+      const liveBlocks = extractPersistedStateFromDoc(
+        (await getExistingDocument('workflow-connected'))!
+      ).blocks
+      expect(liveBlocks).toHaveProperty('keep')
+      expect(liveBlocks).not.toHaveProperty('replaced')
+
+      conn.emit('close')
+      await new Promise((resolve) => setImmediate(resolve))
+    })
+
     it('should discard an idle saved entity document when update materialization fails', async () => {
       mockSaveSavedEntityYjsDocToDb.mockRejectedValueOnce(new Error('database unavailable'))
       const updateDoc = new Y.Doc()

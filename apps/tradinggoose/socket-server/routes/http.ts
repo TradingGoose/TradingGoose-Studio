@@ -275,6 +275,40 @@ async function getBootstrappedApplyDocument(
   return getInitializedSessionDocument(descriptor.yjsSessionId, bootstrapped.state)
 }
 
+/**
+ * Applies a programmatic mutation to a live Yjs apply-document durably: the change
+ * is staged on a detached copy and persisted FIRST, so the live session never
+ * broadcasts state that is not in the database. Only after the write succeeds is
+ * the same mutation reflected into the live document for connected clients.
+ */
+async function applyThroughStaging(
+  doc: Y.Doc,
+  sessionId: string,
+  mutate: (target: Y.Doc) => void,
+  persist: (staged: Y.Doc) => Promise<void>
+): Promise<void> {
+  const staging = new Y.Doc()
+  Y.applyUpdate(staging, Y.encodeStateAsUpdate(doc))
+  try {
+    mutate(staging)
+    await persist(staging)
+    mutate(doc)
+    markDocumentPersisted(doc)
+  } finally {
+    staging.destroy()
+    discardDocumentIfIdle(sessionId)
+  }
+}
+
+function applyWorkflowApplyRequest(doc: Y.Doc, body: ApplyWorkflowStateRequest): void {
+  if (body.workflowState) {
+    replaceWorkflowDocumentState(doc, body.workflowState, body.variables, body.metadata)
+    return
+  }
+  if (body.variables !== undefined) replaceWorkflowVariables(doc, body.variables, YJS_ORIGINS.SYSTEM)
+  if (body.metadata) setWorkflowEntityMetadata(doc, body.metadata)
+}
+
 async function handleInternalYjsWorkflowApplyRequest(
   req: IncomingMessage,
   res: ServerResponse,
@@ -292,22 +326,12 @@ async function handleInternalYjsWorkflowApplyRequest(
       yjsSessionId: workflowId,
     } as const
     const doc = await getBootstrappedApplyDocument(descriptor)
-
-    try {
-      if (body.workflowState) {
-        replaceWorkflowDocumentState(doc, body.workflowState, body.variables, body.metadata)
-      }
-      if (!body.workflowState && body.variables !== undefined) {
-        replaceWorkflowVariables(doc, body.variables, YJS_ORIGINS.SYSTEM)
-      }
-      if (!body.workflowState && body.metadata) setWorkflowEntityMetadata(doc, body.metadata)
-      await saveWorkflowYjsDocToDb(workflowId, doc)
-      markDocumentPersisted(doc)
-      discardDocumentIfIdle(workflowId)
-    } catch (error) {
-      discardDocumentIfIdle(descriptor.yjsSessionId)
-      throw error
-    }
+    await applyThroughStaging(
+      doc,
+      workflowId,
+      (target) => applyWorkflowApplyRequest(target, body),
+      (staged) => saveWorkflowYjsDocToDb(workflowId, staged)
+    )
     sendJson(res, 200, { success: true })
   } catch (error) {
     logger.error('Error applying workflow state', { error, workflowId })
@@ -335,20 +359,15 @@ async function handleInternalYjsEntityApplyRequest(
       yjsSessionId: entityId,
     } as const
     const doc = await getBootstrappedApplyDocument(descriptor)
-
-    try {
-      seedEntitySession(doc, {
-        entityKind: body.entityKind,
-        payload: body.fields,
-      })
-      clearSessionReseededFromCanonical(doc)
-      await saveSavedEntityYjsDocToDb(body.entityKind, entityId, doc)
-      markDocumentPersisted(doc)
-      discardDocumentIfIdle(entityId)
-    } catch (error) {
-      discardDocumentIfIdle(descriptor.yjsSessionId)
-      throw error
-    }
+    await applyThroughStaging(
+      doc,
+      entityId,
+      (target) => {
+        seedEntitySession(target, { entityKind: body.entityKind, payload: body.fields })
+        clearSessionReseededFromCanonical(target)
+      },
+      (staged) => saveSavedEntityYjsDocToDb(body.entityKind, entityId, staged)
+    )
 
     sendJson(res, 200, { success: true })
   } catch (error) {
