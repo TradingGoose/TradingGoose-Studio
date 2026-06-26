@@ -1,5 +1,6 @@
 import * as Y from 'yjs'
 import {
+  buildEntityListDescriptor,
   buildSavedEntityDescriptor,
   buildYjsTransportEnvelope,
   serializeYjsTransportEnvelope,
@@ -11,13 +12,20 @@ import type {
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
 import { loadWorkflowBootstrapStateFromDb } from '@/lib/workflows/db-helpers'
-import { getEntityFields, seedEntitySession } from '@/lib/yjs/entity-session'
-import { type SavedEntityKind, savedEntityFieldsToRow } from '@/lib/yjs/entity-state'
 import {
+  type EntityListMember,
+  getEntityFields,
+  getEntityListMembers,
+  seedEntityListSession,
+  seedEntitySession,
+} from '@/lib/yjs/entity-session'
+import type { SavedEntityKind } from '@/lib/yjs/entity-state'
+import {
+  readEntityListMembersFromDb,
   readSavedEntityFieldsFromDb,
   resolveEntityWorkspaceId,
 } from '@/lib/yjs/server/entity-loaders'
-import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
+import { getYjsSnapshot } from '@/lib/yjs/server/snapshot-bridge'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import {
   createWorkflowSnapshot,
@@ -55,6 +63,39 @@ export async function readBootstrappedReviewTargetSnapshot(descriptor: ReviewTar
   return getYjsSnapshot(descriptor.yjsSessionId, bridgeParams)
 }
 
+export async function readBootstrappedEntityListMembers(
+  entityKind: SavedEntityKind,
+  workspaceId: string
+): Promise<EntityListMember[]> {
+  const snapshot = await readBootstrappedReviewTargetSnapshot(
+    buildEntityListDescriptor(entityKind, workspaceId)
+  )
+  if (!snapshot.snapshotBase64) {
+    return []
+  }
+
+  const doc = new Y.Doc()
+  try {
+    Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
+    return getEntityListMembers(doc)
+  } finally {
+    doc.destroy()
+  }
+}
+
+export async function readBootstrappedSavedEntityListFields(
+  entityKind: SavedEntityKind,
+  workspaceId: string
+): Promise<Array<EntityListMember & { fields: Record<string, unknown> }>> {
+  const members = await readBootstrappedEntityListMembers(entityKind, workspaceId)
+  return Promise.all(
+    members.map(async (member) => ({
+      ...member,
+      fields: await readBootstrappedSavedEntityFields(entityKind, member.entityId, workspaceId),
+    }))
+  )
+}
+
 export async function readBootstrappedSavedEntityFields(
   entityKind: SavedEntityKind,
   entityId: string,
@@ -74,45 +115,6 @@ export async function readBootstrappedSavedEntityFields(
   } finally {
     doc.destroy()
   }
-}
-
-/**
- * Canonical list-through-Yjs primitive for existing saved entities. Row-local
- * missing/expired snapshots and invalid projections are skipped; realtime
- * bridge failures still fail the list because saved-entity reads require Yjs.
- */
-export async function buildSavedEntityListThroughYjs<
-  TRow extends { id: string; workspaceId: string },
-  TEntry = TRow,
->(
-  entityKind: SavedEntityKind,
-  rows: TRow[],
-  buildEntry: (row: TRow, fields: Record<string, unknown>) => TEntry = (row, fields) =>
-    ({ ...row, ...savedEntityFieldsToRow(entityKind, fields) }) as TEntry
-): Promise<TEntry[]> {
-  const entries: Array<TEntry | null> = await Promise.all(
-    rows.map(async (row): Promise<TEntry | null> => {
-      let fields: Record<string, unknown>
-      try {
-        fields = await readBootstrappedSavedEntityFields(entityKind, row.id, row.workspaceId)
-      } catch (error) {
-        const status =
-          error instanceof ReviewTargetBootstrapError || error instanceof SocketServerBridgeError
-            ? error.status
-            : null
-        if (status === 404 || status === 410) return null
-        throw error
-      }
-
-      try {
-        return buildEntry(row, fields)
-      } catch {
-        return null
-      }
-    })
-  )
-
-  return entries.filter((entry): entry is TEntry => entry !== null)
 }
 
 export async function createSavedReviewTargetBootstrapUpdate(
@@ -182,6 +184,29 @@ export async function createSavedReviewTargetBootstrapUpdate(
     if (workflowFolderId !== undefined) {
       metadata.set('folderId', workflowFolderId)
     }
+    const state = Y.encodeStateAsUpdate(doc)
+
+    return {
+      descriptor,
+      runtime: getRuntimeStateFromUpdate(state),
+      state,
+    }
+  } finally {
+    doc.destroy()
+  }
+}
+
+export async function createEntityListBootstrapUpdate(
+  entityKind: SavedEntityKind,
+  workspaceId: string
+): Promise<ResolvedReviewTarget & { state: Uint8Array }> {
+  const descriptor = buildEntityListDescriptor(entityKind, workspaceId)
+  const doc = new Y.Doc()
+  try {
+    seedEntityListSession(doc, await readEntityListMembersFromDb(entityKind, workspaceId))
+
+    const metadata = getMetadataMap(doc)
+    metadata.set('reseededFromCanonical', true)
     const state = Y.encodeStateAsUpdate(doc)
 
     return {

@@ -166,7 +166,15 @@ describe('Indicator List header controls', () => {
 
     expect(mutateAsync).toHaveBeenCalledWith({
       workspaceId: 'workspace-1',
-      file: filePayload,
+      file: {
+        ...filePayload,
+        indicators: [
+          {
+            name: 'RSI Export Example',
+            pineCode: "indicator('RSI Export Example')",
+          },
+        ],
+      },
     })
   })
 

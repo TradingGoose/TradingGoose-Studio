@@ -1,8 +1,18 @@
+import {
+  buildEntityListDescriptor,
+  buildYjsTransportEnvelope,
+  serializeYjsTransportEnvelope,
+} from '@/lib/copilot/review-sessions/identity'
 import type {
   ReviewTargetDescriptor,
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
 import { env, getInternalRealtimeUrl } from '@/lib/env'
+import {
+  createEntityListMemberUpdate,
+  type EntityListMemberMutation,
+} from '@/lib/yjs/entity-session'
+import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import type { WorkflowMetadataPatch, WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 export interface YjsSnapshotResponse {
@@ -147,6 +157,44 @@ export async function applyYjsUpdateInSocketServer(
     `/internal/yjs/sessions/${encodeURIComponent(sessionId)}/apply-update${search}`,
     { updateBase64 }
   )
+}
+
+async function applyEntityListUpdateInSocketServer(
+  entityKind: SavedEntityKind,
+  workspaceId: string,
+  mutation: EntityListMemberMutation | EntityListMemberMutation[]
+): Promise<void> {
+  const descriptor = buildEntityListDescriptor(entityKind, workspaceId)
+  const params = serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
+  const search = new URLSearchParams(params).toString()
+  await applyYjsUpdateInSocketServer(
+    descriptor.yjsSessionId,
+    `?${search}`,
+    Buffer.from(createEntityListMemberUpdate(mutation)).toString('base64')
+  )
+}
+
+export async function notifyEntityListMembersAdded(
+  entityKind: SavedEntityKind,
+  workspaceId: string,
+  members: Array<{ id: string; name: string }>
+): Promise<void> {
+  await applyEntityListUpdateInSocketServer(
+    entityKind,
+    workspaceId,
+    members.map((member) => ({ op: 'add', entityId: member.id, name: member.name }))
+  ).catch(() => undefined)
+}
+
+export async function notifyEntityListMemberRemoved(
+  entityKind: SavedEntityKind,
+  workspaceId: string,
+  entityId: string
+): Promise<void> {
+  await applyEntityListUpdateInSocketServer(entityKind, workspaceId, {
+    op: 'remove',
+    entityId,
+  }).catch(() => undefined)
 }
 
 export async function deleteYjsSessionInSocketServer(sessionId: string): Promise<void> {

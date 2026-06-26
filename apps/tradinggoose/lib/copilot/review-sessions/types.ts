@@ -39,14 +39,13 @@ export interface ResolvedReviewTarget {
   runtime: ReviewTargetRuntimeState
 }
 
-export const YJS_TARGET_KINDS = ['workflow', 'entity', 'review_session'] as const
+export const YJS_TARGET_KINDS = ['entity', 'review_session', 'entity_list'] as const
 
 export type YjsTargetKind = (typeof YJS_TARGET_KINDS)[number]
 
 export interface YjsTransportEnvelope {
   targetKind: YjsTargetKind
   sessionId: string
-  workflowId: string | null
   reviewSessionId: string | null
   workspaceId: string | null
   entityKind: ReviewEntityKind

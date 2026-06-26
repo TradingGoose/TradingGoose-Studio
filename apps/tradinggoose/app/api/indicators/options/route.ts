@@ -1,8 +1,6 @@
-import { db } from '@tradinggoose/db'
-import { pineIndicators } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { listIndicators } from '@/lib/indicators/custom/operations'
 import { DEFAULT_INDICATOR_RUNTIME_ENTRIES } from '@/lib/indicators/default/runtime'
 import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
 import { isIndicatorTriggerCapable } from '@/lib/indicators/trigger-detection'
@@ -85,17 +83,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    const customRows = await db
-      .select({
-        id: pineIndicators.id,
-        workspaceId: pineIndicators.workspaceId,
-        name: pineIndicators.name,
-        color: pineIndicators.color,
-        pineCode: pineIndicators.pineCode,
-        inputMeta: pineIndicators.inputMeta,
-      })
-      .from(pineIndicators)
-      .where(eq(pineIndicators.workspaceId, workspaceId))
+    const customRows = await listIndicators({ workspaceId })
 
     const customOptions: IndicatorOptionRecord[] = customRows
       .filter((row) => copilotSurface || isIndicatorTriggerCapable(row.pineCode))

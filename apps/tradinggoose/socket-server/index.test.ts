@@ -596,7 +596,7 @@ describe('Socket Server Index Integration', () => {
 
       const response = await sendHttpRequestWithOptions(
         PORT,
-        '/internal/yjs/sessions/workflow-state-update/snapshot?targetKind=workflow&sessionId=workflow-state-update&workflowId=workflow-state-update&entityKind=workflow&entityId=workflow-state-update',
+        '/internal/yjs/sessions/workflow-state-update/snapshot?targetKind=entity&sessionId=workflow-state-update&entityKind=workflow&entityId=workflow-state-update',
         {
           method: 'GET',
           headers: {
@@ -642,7 +642,7 @@ describe('Socket Server Index Integration', () => {
     it('should bootstrap a saved workflow snapshot into a live Yjs document', async () => {
       const response = await sendHttpRequestWithOptions(
         PORT,
-        '/internal/yjs/sessions/missing-workflow/snapshot?targetKind=workflow&sessionId=missing-workflow&workflowId=missing-workflow&entityKind=workflow&entityId=missing-workflow',
+        '/internal/yjs/sessions/missing-workflow/snapshot?targetKind=entity&sessionId=missing-workflow&entityKind=workflow&entityId=missing-workflow',
         {
           method: 'GET',
           headers: {

@@ -1,14 +1,17 @@
 import { db } from '@tradinggoose/db'
 import { customTools } from '@tradinggoose/db/schema'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import {
   type CustomToolTransferRecord,
   resolveImportedCustomTools,
 } from '@/lib/custom-tools/import-export'
+import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
+import { readBootstrappedSavedEntityListFields } from '@/lib/yjs/server/bootstrap-review-target'
+import { notifyEntityListMembersAdded } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('CustomToolsOperations')
 
@@ -42,11 +45,17 @@ interface ImportCustomToolsParams {
 }
 
 export async function listCustomTools(params: { workspaceId: string }) {
-  return db
-    .select()
-    .from(customTools)
-    .where(eq(customTools.workspaceId, params.workspaceId))
-    .orderBy(desc(customTools.createdAt))
+  const entries = await readBootstrappedSavedEntityListFields('custom_tool', params.workspaceId)
+  return entries.map(({ entityId, fields }) => ({
+    id: entityId,
+    workspaceId: params.workspaceId,
+    userId: null,
+    title: String(fields.title ?? ''),
+    schema: parseCustomToolSchemaText(fields.schemaText),
+    code: String(fields.codeText ?? ''),
+    createdAt: new Date(0),
+    updatedAt: undefined,
+  }))
 }
 
 export async function createCustomTools({
@@ -59,7 +68,7 @@ export async function createCustomTools({
     return []
   }
 
-  return await db.transaction(async (tx) => {
+  const created = await db.transaction(async (tx) => {
     const existingTools = await tx
       .select({
         id: customTools.id,
@@ -97,6 +106,13 @@ export async function createCustomTools({
     logger.info(`[${requestId}] Created ${createdTools.length} custom tool(s)`)
     return createdTools
   })
+
+  await notifyEntityListMembersAdded(
+    'custom_tool',
+    workspaceId,
+    created.map((createdTool) => ({ id: createdTool.id, name: createdTool.title }))
+  )
+  return created
 }
 
 export async function saveCustomTool({
@@ -169,5 +185,10 @@ export async function importCustomTools({
     }
   })
 
+  await notifyEntityListMembersAdded(
+    'custom_tool',
+    workspaceId,
+    result.tools.map((importedTool) => ({ id: importedTool.id, name: importedTool.title }))
+  )
   return result
 }

@@ -1,6 +1,3 @@
-import { db } from '@tradinggoose/db'
-import { mcpServers } from '@tradinggoose/db/schema'
-import { and, eq, isNull } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getParsedBody, withMcpAuth } from '@/lib/mcp/middleware'
@@ -10,7 +7,10 @@ import {
   applySavedEntityState,
   SavedEntityPersistenceError,
 } from '@/lib/yjs/server/apply-entity-state'
-import { readBootstrappedSavedEntityFields } from '@/lib/yjs/server/bootstrap-review-target'
+import {
+  ReviewTargetBootstrapError,
+  readBootstrappedSavedEntityFields,
+} from '@/lib/yjs/server/bootstrap-review-target'
 import { UpdateMcpServerSchema } from '../schema'
 
 const logger = createLogger('McpServerAPI')
@@ -47,39 +47,13 @@ export const PATCH = withMcpAuth('write')(
         updates: Object.keys(body).filter((k) => k !== 'workspaceId'),
       })
 
-      const [existingServer] = await db
-        .select()
-        .from(mcpServers)
-        .where(
-          and(
-            eq(mcpServers.id, serverId),
-            eq(mcpServers.workspaceId, workspaceId),
-            isNull(mcpServers.deletedAt)
-          )
-        )
-        .limit(1)
-
-      if (!existingServer) {
-        return createMcpErrorResponse(
-          new Error('Server not found or access denied'),
-          'Server not found',
-          404
-        )
-      }
-
-      // Read the current fields through Yjs (live session if open, else bootstrapped
-      // from DB) so the partial update merges into the canonical state, not a stale row.
       const currentFields = await readBootstrappedSavedEntityFields(
         'mcp_server',
         serverId,
         workspaceId
       )
       const { workspaceId: _, ...updateData } = body
-      const nextServer = {
-        ...existingServer,
-        ...updateData,
-        updatedAt: new Date(),
-      }
+      const nextServer = { ...currentFields, ...updateData, id: serverId, workspaceId }
 
       await applySavedEntityState('mcp_server', serverId, { ...currentFields, ...updateData })
 
@@ -90,7 +64,10 @@ export const PATCH = withMcpAuth('write')(
       return createMcpSuccessResponse({ server: nextServer })
     } catch (error) {
       logger.error(`[${requestId}] Error updating MCP server:`, error)
-      if (error instanceof SavedEntityPersistenceError) {
+      if (
+        error instanceof SavedEntityPersistenceError ||
+        error instanceof ReviewTargetBootstrapError
+      ) {
         return createMcpErrorResponse(error, error.message, error.status)
       }
 

@@ -1,6 +1,5 @@
 import { db } from '@tradinggoose/db'
 import { mcpServers } from '@tradinggoose/db/schema'
-import { and, eq, isNull } from 'drizzle-orm'
 import {
   ENTITY_SECRET_PLACEHOLDER,
   normalizeEntityFields,
@@ -12,6 +11,7 @@ import { mcpService } from '@/lib/mcp/service'
 import type { McpTransport } from '@/lib/mcp/types'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
+import { notifyEntityListMembersAdded } from '@/lib/yjs/server/snapshot-bridge'
 import {
   buildDocumentEnvelope,
   buildSavedEntityListInfo,
@@ -128,6 +128,9 @@ async function createMcpServerEntity(
 
   const savedFields = savedEntityRowToFields(ENTITY_KIND_MCP_SERVER, row)
   mcpService.clearCache(workspaceId)
+  await notifyEntityListMembersAdded('mcp_server', workspaceId, [
+    { id: entityId, name: String(normalized.name ?? '') },
+  ])
 
   return {
     entityId,
@@ -160,11 +163,7 @@ export const listMcpServersServerTool: EntityServerTool<Record<string, never>> =
       withWorkspaceArgContext(context, args),
       'read'
     )
-    const rows = await db
-      .select()
-      .from(mcpServers)
-      .where(and(eq(mcpServers.workspaceId, workspaceId), isNull(mcpServers.deletedAt)))
-    const entities = await buildSavedEntityListInfo(ENTITY_KIND_MCP_SERVER, rows)
+    const entities = await buildSavedEntityListInfo(ENTITY_KIND_MCP_SERVER, workspaceId)
 
     return {
       entityKind: ENTITY_KIND_MCP_SERVER,

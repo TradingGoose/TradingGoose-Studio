@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { pineIndicators } from '@tradinggoose/db/schema'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { getStableVibrantColor } from '@/lib/colors'
 import {
   type IndicatorTransferRecord,
@@ -10,19 +10,32 @@ import { inferInputMetaFromPineCode, normalizeInputMetaMap } from '@/lib/indicat
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
+import { readBootstrappedSavedEntityListFields } from '@/lib/yjs/server/bootstrap-review-target'
+import { notifyEntityListMembersAdded } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('IndicatorsOperations')
 
 export async function listCustomIndicatorRuntimeEntries(workspaceId: string) {
-  const rows = await db
-    .select()
-    .from(pineIndicators)
-    .where(eq(pineIndicators.workspaceId, workspaceId))
+  const entries = await readBootstrappedSavedEntityListFields('indicator', workspaceId)
+  return entries.map(({ entityId, fields }) => ({
+    id: entityId,
+    pineCode: String(fields.pineCode ?? ''),
+    inputMeta: normalizeInputMetaMap(fields.inputMeta),
+  }))
+}
 
-  return rows.map(({ id, pineCode, inputMeta }) => ({
-    id,
-    pineCode,
-    inputMeta: normalizeInputMetaMap(inputMeta),
+export async function listIndicators(params: { workspaceId: string }) {
+  const entries = await readBootstrappedSavedEntityListFields('indicator', params.workspaceId)
+  return entries.map(({ entityId, fields }) => ({
+    id: entityId,
+    workspaceId: params.workspaceId,
+    userId: null,
+    name: String(fields.name ?? ''),
+    color: String(fields.color ?? '') || undefined,
+    pineCode: String(fields.pineCode ?? ''),
+    inputMeta: normalizeInputMetaMap(fields.inputMeta),
+    createdAt: new Date(0),
+    updatedAt: undefined,
   }))
 }
 
@@ -64,7 +77,7 @@ export async function createIndicators({
     return []
   }
 
-  return await db.transaction(async (tx) => {
+  const created = await db.transaction(async (tx) => {
     const nowTime = new Date()
     const insertValues = []
 
@@ -87,6 +100,13 @@ export async function createIndicators({
     logger.info(`[${requestId}] Created ${createdIndicators.length} indicator(s)`)
     return createdIndicators
   })
+
+  await notifyEntityListMembersAdded(
+    'indicator',
+    workspaceId,
+    created.map((createdIndicator) => ({ id: createdIndicator.id, name: createdIndicator.name }))
+  )
+  return created
 }
 
 export async function saveIndicator({
@@ -113,11 +133,7 @@ export async function saveIndicator({
     pineCode: indicator.pineCode,
   })
   logger.info(`[${requestId}] Saved Indicator ${indicator.id}`)
-  return db
-    .select()
-    .from(pineIndicators)
-    .where(eq(pineIndicators.workspaceId, workspaceId))
-    .orderBy(desc(pineIndicators.createdAt))
+  return listIndicators({ workspaceId })
 }
 
 export async function importIndicators({
@@ -173,5 +189,10 @@ export async function importIndicators({
     }
   })
 
+  await notifyEntityListMembersAdded(
+    'indicator',
+    workspaceId,
+    result.indicators.map((imported) => ({ id: imported.id, name: imported.name }))
+  )
   return result
 }

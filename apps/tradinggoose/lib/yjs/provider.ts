@@ -19,7 +19,7 @@ export interface YjsProviderBootstrapResult {
 }
 
 const SOCKET_TOKEN_RETRY_MS = 1_000
-const WRITE_SYNC_TIMEOUT_MS = 10_000
+const SYNC_TIMEOUT_MS = 10_000
 
 async function fetchSocketToken(): Promise<string> {
   const res = await fetch('/api/auth/socket-token', {
@@ -59,7 +59,7 @@ async function fetchSnapshot(
   return res.json()
 }
 
-export function waitForYjsWriteSync(provider: WebsocketProvider): Promise<void> {
+export function waitForYjsSync(provider: WebsocketProvider): Promise<void> {
   if (provider.synced) {
     return Promise.resolve()
   }
@@ -85,10 +85,10 @@ export function waitForYjsWriteSync(provider: WebsocketProvider): Promise<void> 
     }
 
     const handleConnectionFailure = () => {
-      finish(new Error('Failed to establish authorized Yjs write sync'))
+      finish(new Error('Failed to establish authorized Yjs sync'))
     }
 
-    timeout = setTimeout(handleConnectionFailure, WRITE_SYNC_TIMEOUT_MS)
+    timeout = setTimeout(handleConnectionFailure, SYNC_TIMEOUT_MS)
     provider.on('sync', handleSync)
     provider.on('connection-close', handleConnectionFailure)
     provider.on('connection-error', handleConnectionFailure)
@@ -170,7 +170,7 @@ export async function bootstrapYjsProvider(
   })
 
   try {
-    await waitForYjsWriteSync(provider)
+    await waitForYjsSync(provider)
   } catch (error) {
     provider.disconnect()
     provider.destroy()

@@ -4,21 +4,9 @@ import { DEFAULT_INDICATOR_RUNTIME_ENTRIES } from '@/lib/indicators/default/runt
 import { listIndicatorsServerTool, readIndicatorServerTool } from './indicator'
 
 const mockCheckWorkspaceAccess = vi.hoisted(() => vi.fn())
-const mockDbOrderBy = vi.hoisted(() => vi.fn())
+const mockReadBootstrappedEntityListMembers = vi.hoisted(() => vi.fn())
 const mockReadBootstrappedSavedEntityFields = vi.hoisted(() => vi.fn())
 const mockVerifyReviewTargetAccess = vi.hoisted(() => vi.fn())
-
-vi.mock('@tradinggoose/db', () => ({
-  db: {
-    select: vi.fn(() => ({
-      from: vi.fn(() => ({
-        where: vi.fn(() => ({
-          orderBy: mockDbOrderBy,
-        })),
-      })),
-    })),
-  },
-}))
 
 vi.mock('@/lib/permissions/utils', () => ({
   checkWorkspaceAccess: (...args: unknown[]) => mockCheckWorkspaceAccess(...args),
@@ -29,18 +17,10 @@ vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
+  readBootstrappedEntityListMembers: (...args: unknown[]) =>
+    mockReadBootstrappedEntityListMembers(...args),
   readBootstrappedSavedEntityFields: (...args: unknown[]) =>
     mockReadBootstrappedSavedEntityFields(...args),
-  buildSavedEntityListThroughYjs: async (
-    kind: string,
-    rows: Array<{ id: string; workspaceId: string }>,
-    buildEntry: (row: unknown, fields: unknown) => unknown
-  ) =>
-    Promise.all(
-      rows.map(async (row) =>
-        buildEntry(row, await mockReadBootstrappedSavedEntityFields(kind, row.id, row.workspaceId))
-      )
-    ),
 }))
 
 describe('indicator server tools', () => {
@@ -51,17 +31,10 @@ describe('indicator server tools', () => {
       hasAccess: true,
       canWrite: true,
     })
-    mockDbOrderBy.mockResolvedValue([
+    mockReadBootstrappedEntityListMembers.mockResolvedValue([
       {
-        id: 'indicator-custom-1',
-        name: 'Custom Momentum',
-        pineCode: 'indicator("Custom Momentum")',
-        inputMeta: { Length: { defaultValue: 14 } },
-        workspaceId: 'workspace-1',
-        userId: 'user-1',
-        color: '#10b981',
-        createdAt: new Date('2026-06-23T00:00:00.000Z'),
-        updatedAt: new Date('2026-06-23T00:00:00.000Z'),
+        entityId: 'indicator-custom-1',
+        entityName: 'Custom Momentum',
       },
     ])
     mockVerifyReviewTargetAccess.mockResolvedValue({
@@ -90,7 +63,6 @@ describe('indicator server tools', () => {
         callableInFunctionBlock: true,
         entityId: 'indicator-custom-1',
         runtimeId: 'indicator-custom-1',
-        inputTitles: ['Length'],
       })
     )
   })

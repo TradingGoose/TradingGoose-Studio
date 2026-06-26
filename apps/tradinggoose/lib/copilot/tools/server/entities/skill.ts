@@ -1,6 +1,6 @@
 import { ENTITY_KIND_SKILL } from '@/lib/copilot/review-sessions/types'
 import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
-import { createSkills, listSkills } from '@/lib/skills/operations'
+import { createSkills } from '@/lib/skills/operations'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
   buildDocumentEnvelope,
@@ -49,8 +49,7 @@ export const listSkillsServerTool: EntityServerTool<Record<string, never>> = {
       withWorkspaceArgContext(context, args),
       'read'
     )
-    const rows = await listSkills({ workspaceId })
-    const entities = await buildSavedEntityListInfo(ENTITY_KIND_SKILL, rows)
+    const entities = await buildSavedEntityListInfo(ENTITY_KIND_SKILL, workspaceId)
 
     return {
       entityKind: ENTITY_KIND_SKILL,

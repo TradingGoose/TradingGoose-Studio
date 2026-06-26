@@ -33,7 +33,7 @@ class MockYjsAuthError extends Error {
 
 function createRequest(sessionId: string, accessMode: 'read' | 'write' = 'write'): IncomingMessage {
   return {
-    url: `/yjs/${encodeURIComponent(sessionId)}?token=test-token&accessMode=${accessMode}&targetKind=workflow&sessionId=${encodeURIComponent(sessionId)}&workflowId=${encodeURIComponent(sessionId)}&entityKind=workflow&entityId=${encodeURIComponent(sessionId)}`,
+    url: `/yjs/${encodeURIComponent(sessionId)}?token=test-token&accessMode=${accessMode}&targetKind=entity&sessionId=${encodeURIComponent(sessionId)}&entityKind=workflow&entityId=${encodeURIComponent(sessionId)}`,
     headers: { host: 'localhost:3000' },
   } as IncomingMessage
 }
@@ -150,9 +150,8 @@ describe('handleYjsUpgrade', () => {
       userId: 'user-1',
       userName: 'User One',
       envelope: {
-        targetKind: 'workflow',
+        targetKind: 'entity',
         sessionId,
-        workflowId: sessionId,
         reviewSessionId: null,
         workspaceId: 'workspace-1',
         entityKind: 'workflow',
@@ -189,9 +188,8 @@ describe('handleYjsUpgrade', () => {
       userId: 'user-2',
       userName: 'User Two',
       envelope: {
-        targetKind: 'workflow',
+        targetKind: 'entity',
         sessionId,
-        workflowId: sessionId,
         reviewSessionId: null,
         workspaceId: 'workspace-2',
         entityKind: 'workflow',
@@ -273,7 +271,6 @@ describe('handleYjsUpgrade', () => {
       envelope: {
         targetKind: 'review_session',
         sessionId,
-        workflowId: null,
         reviewSessionId: sessionId,
         workspaceId: 'workspace-3',
         entityKind: 'skill',

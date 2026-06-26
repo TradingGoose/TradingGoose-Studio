@@ -1,6 +1,6 @@
 import { ENTITY_KIND_CUSTOM_TOOL } from '@/lib/copilot/review-sessions/types'
 import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
-import { createCustomTools, listCustomTools } from '@/lib/custom-tools/operations'
+import { createCustomTools } from '@/lib/custom-tools/operations'
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
@@ -50,8 +50,7 @@ export const listCustomToolsServerTool: EntityServerTool<Record<string, never>> 
       withWorkspaceArgContext(context, args),
       'read'
     )
-    const rows = await listCustomTools({ workspaceId })
-    const entities = await buildSavedEntityListInfo(ENTITY_KIND_CUSTOM_TOOL, rows)
+    const entities = await buildSavedEntityListInfo(ENTITY_KIND_CUSTOM_TOOL, workspaceId)
 
     return {
       entityKind: ENTITY_KIND_CUSTOM_TOOL,

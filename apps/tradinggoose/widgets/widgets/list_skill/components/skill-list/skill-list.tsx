@@ -1,12 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { SKILL_NAME_MAX_LENGTH } from '@/lib/skills/import-export'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useDeleteSkill, useSkills, useUpdateSkill } from '@/hooks/queries/skills'
-import { useMessages } from 'next-intl'
 import { formatTemplate } from '@/i18n/utils'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useSkillsStore } from '@/stores/skills/store'

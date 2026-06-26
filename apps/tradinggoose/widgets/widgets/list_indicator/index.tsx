@@ -2,8 +2,8 @@
 
 import { useCallback } from 'react'
 import { ListChecks } from 'lucide-react'
+import { useLocale, useMessages } from 'next-intl'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
-import { useLocale } from 'next-intl'
 import { parseImportedIndicatorsFile } from '@/lib/indicators/import-export'
 import {
   useUserPermissionsContext,
@@ -16,17 +16,13 @@ import type { IndicatorDefinition } from '@/stores/indicators/types'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { emitIndicatorSelectionChange } from '@/widgets/utils/indicator-selection'
-import { useMessages } from 'next-intl'
 import { IndicatorCreateMenu } from '@/widgets/widgets/list_indicator/components/indicator-create-menu'
 import {
   IndicatorList,
   IndicatorListMessage,
 } from '@/widgets/widgets/list_indicator/components/indicator-list/indicator-list'
 
-const buildNewIndicator = (
-  indicators: IndicatorDefinition[],
-  defaults: { name: string }
-) => {
+const buildNewIndicator = (indicators: IndicatorDefinition[], defaults: { name: string }) => {
   const existingNames = new Set(
     indicators.map((indicator) => indicator.name.trim()).filter((name) => name.length > 0)
   )

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pencil, Plus, Server, Trash2 } from 'lucide-react'
+import { useMessages } from 'next-intl'
 import { shallow } from 'zustand/shallow'
 import {
   AlertDialog,
@@ -35,7 +36,6 @@ import {
   WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
-import { useMessages } from 'next-intl'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useMcpServersStore } from '@/stores/mcp-servers/store'
 import type { McpServerWithStatus } from '@/stores/mcp-servers/types'

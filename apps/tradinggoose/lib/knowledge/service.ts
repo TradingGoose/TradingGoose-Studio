@@ -22,7 +22,12 @@ import type {
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess, getUserEntityPermissions } from '@/lib/permissions/utils'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
-import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import { readBootstrappedSavedEntityListFields } from '@/lib/yjs/server/bootstrap-review-target'
+import {
+  deleteYjsSessionInSocketServer,
+  notifyEntityListMemberRemoved,
+  notifyEntityListMembersAdded,
+} from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('KnowledgeBaseService')
 
@@ -38,33 +43,19 @@ export async function getKnowledgeBases(
     return []
   }
 
-  const knowledgeBasesWithCounts = await db
-    .select({
-      id: knowledgeBase.id,
-      name: knowledgeBase.name,
-      description: knowledgeBase.description,
-      tokenCount: knowledgeBase.tokenCount,
-      embeddingModel: knowledgeBase.embeddingModel,
-      embeddingDimension: knowledgeBase.embeddingDimension,
-      chunkingConfig: knowledgeBase.chunkingConfig,
-      createdAt: knowledgeBase.createdAt,
-      updatedAt: knowledgeBase.updatedAt,
-      workspaceId: knowledgeBase.workspaceId,
-      docCount: count(document.id),
-    })
-    .from(knowledgeBase)
-    .leftJoin(
-      document,
-      and(eq(document.knowledgeBaseId, knowledgeBase.id), isNull(document.deletedAt))
-    )
-    .where(and(isNull(knowledgeBase.deletedAt), eq(knowledgeBase.workspaceId, workspaceId)))
-    .groupBy(knowledgeBase.id)
-    .orderBy(knowledgeBase.createdAt)
-
-  return knowledgeBasesWithCounts.map((kb) => ({
-    ...kb,
-    chunkingConfig: kb.chunkingConfig as ChunkingConfig,
-    docCount: Number(kb.docCount),
+  const entries = await readBootstrappedSavedEntityListFields('knowledge_base', workspaceId)
+  return entries.map(({ entityId, fields }) => ({
+    id: entityId,
+    name: String(fields.name ?? ''),
+    description: String(fields.description ?? '') || null,
+    tokenCount: Number(fields.tokenCount ?? 0),
+    embeddingModel: String(fields.embeddingModel ?? 'text-embedding-3-small'),
+    embeddingDimension: Number(fields.embeddingDimension ?? 1536),
+    chunkingConfig: fields.chunkingConfig as ChunkingConfig,
+    createdAt: new Date(0),
+    updatedAt: new Date(0),
+    workspaceId,
+    docCount: 0,
   }))
 }
 
@@ -116,6 +107,9 @@ export async function createKnowledgeBase(
     docCount: 0,
   }
 
+  await notifyEntityListMembersAdded('knowledge_base', data.workspaceId, [
+    { id: created.id, name: created.name },
+  ])
   return created
 }
 
@@ -352,6 +346,9 @@ export async function copyKnowledgeBaseToWorkspace(
     `[${requestId}] Copied knowledge base ${sourceKnowledgeBaseId} to workspace ${targetWorkspaceId} as ${newKnowledgeBaseId}`
   )
 
+  await notifyEntityListMembersAdded('knowledge_base', targetWorkspaceId, [
+    { id: copied.id, name: copied.name },
+  ])
   return copied
 }
 
@@ -369,11 +366,7 @@ export async function applyKnowledgeBaseMetadata(
     throw new Error(`Knowledge base ${knowledgeBaseId} not found`)
   }
 
-  await applySavedEntityState(
-    ENTITY_KIND_KNOWLEDGE_BASE,
-    knowledgeBaseId,
-    fields
-  )
+  await applySavedEntityState(ENTITY_KIND_KNOWLEDGE_BASE, knowledgeBaseId, fields)
 
   logger.info(`[${requestId}] Applied knowledge base metadata through Yjs: ${knowledgeBaseId}`)
 
@@ -429,6 +422,12 @@ export async function deleteKnowledgeBase(
 ): Promise<void> {
   const now = new Date()
 
+  const [existing] = await db
+    .select({ workspaceId: knowledgeBase.workspaceId })
+    .from(knowledgeBase)
+    .where(eq(knowledgeBase.id, knowledgeBaseId))
+    .limit(1)
+
   await db
     .update(knowledgeBase)
     .set({
@@ -437,6 +436,9 @@ export async function deleteKnowledgeBase(
     })
     .where(eq(knowledgeBase.id, knowledgeBaseId))
   await deleteYjsSessionInSocketServer(knowledgeBaseId).catch(() => undefined)
+  if (existing?.workspaceId) {
+    await notifyEntityListMemberRemoved('knowledge_base', existing.workspaceId, knowledgeBaseId)
+  }
 
   logger.info(`[${requestId}] Soft deleted knowledge base: ${knowledgeBaseId}`)
 }

@@ -1,6 +1,3 @@
-import { db } from '@tradinggoose/db'
-import { mcpServers } from '@tradinggoose/db/schema'
-import { and, eq, isNull } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
 import { withMcpAuth } from '@/lib/mcp/middleware'
@@ -30,26 +27,6 @@ export const POST = withMcpAuth('read')(
         }
       )
 
-      const [server] = await db
-        .select()
-        .from(mcpServers)
-        .where(
-          and(
-            eq(mcpServers.id, serverId),
-            eq(mcpServers.workspaceId, workspaceId),
-            isNull(mcpServers.deletedAt)
-          )
-        )
-        .limit(1)
-
-      if (!server) {
-        return createMcpErrorResponse(
-          new Error('Server not found or access denied'),
-          'Server not found',
-          404
-        )
-      }
-
       let connectionStatus: 'connected' | 'disconnected' | 'error' = 'error'
       let toolCount = 0
       let lastError: string | null = null
@@ -67,24 +44,11 @@ export const POST = withMcpAuth('read')(
         logger.warn(`[${requestId}] Failed to connect to server ${serverId}:`, error)
       }
 
-      const [refreshedServer] = await db
-        .update(mcpServers)
-        .set({
-          lastToolsRefresh: new Date(),
-          connectionStatus,
-          lastError,
-          lastConnected: connectionStatus === 'connected' ? new Date() : server.lastConnected,
-          toolCount,
-          updatedAt: new Date(),
-        })
-        .where(eq(mcpServers.id, serverId))
-        .returning()
-
       logger.info(`[${requestId}] Successfully refreshed MCP server: ${serverId}`)
       return createMcpSuccessResponse({
         status: connectionStatus,
         toolCount,
-        lastConnected: refreshedServer?.lastConnected?.toISOString() || null,
+        lastConnected: connectionStatus === 'connected' ? new Date().toISOString() : null,
         error: lastError,
       })
     } catch (error) {

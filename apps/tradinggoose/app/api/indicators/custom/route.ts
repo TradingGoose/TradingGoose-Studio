@@ -1,14 +1,16 @@
 import { db } from '@tradinggoose/db'
-import { pineIndicators, workflow } from '@tradinggoose/db/schema'
-import { and, desc, eq } from 'drizzle-orm'
+import { pineIndicators } from '@tradinggoose/db/schema'
+import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { createIndicators, saveIndicator } from '@/lib/indicators/custom/operations'
+import { createIndicators, listIndicators, saveIndicator } from '@/lib/indicators/custom/operations'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { SavedEntityPersistenceError } from '@/lib/yjs/server/apply-entity-state'
-import { buildSavedEntityListThroughYjs } from '@/lib/yjs/server/bootstrap-review-target'
-import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import {
+  deleteYjsSessionInSocketServer,
+  notifyEntityListMemberRemoved,
+} from '@/lib/yjs/server/snapshot-bridge'
 import { authenticateIndicatorRequest, checkWorkspacePermission } from '../utils'
 
 const logger = createLogger('IndicatorsAPI')
@@ -48,7 +50,6 @@ export async function GET(request: NextRequest) {
   const requestId = generateRequestId()
   const searchParams = request.nextUrl.searchParams
   const workspaceId = searchParams.get('workspaceId')
-  const workflowId = searchParams.get('workflowId')
 
   try {
     const auth = await authenticateIndicatorRequest({
@@ -61,52 +62,27 @@ export async function GET(request: NextRequest) {
     if ('response' in auth) return auth.response
 
     const userId = auth.userId
-    let resolvedWorkspaceId: string | null = workspaceId
-
-    if (!resolvedWorkspaceId && workflowId) {
-      const [workflowData] = await db
-        .select({ workspaceId: workflow.workspaceId })
-        .from(workflow)
-        .where(eq(workflow.id, workflowId))
-        .limit(1)
-
-      if (!workflowData?.workspaceId) {
-        logger.warn(`[${requestId}] Workflow not found: ${workflowId}`)
-        return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
-      }
-
-      resolvedWorkspaceId = workflowData.workspaceId
-    }
-
-    if (!resolvedWorkspaceId) {
+    if (!workspaceId) {
       logger.warn(`[${requestId}] Missing workspaceId for indicators fetch`)
       return NextResponse.json({ error: 'workspaceId is required' }, { status: 400 })
     }
 
-    if (!(auth.authType === 'internal_jwt' && workflowId)) {
-      const permissionCheck = await checkWorkspacePermission({
+    const permissionCheck = await checkWorkspacePermission({
+      userId,
+      workspaceId,
+      responseShape: 'errorOnly',
+    })
+    if (!permissionCheck.ok) {
+      logWorkspacePermissionDenied({
+        requestId,
         userId,
-        workspaceId: resolvedWorkspaceId,
-        responseShape: 'errorOnly',
+        workspaceId,
+        code: permissionCheck.code,
       })
-      if (!permissionCheck.ok) {
-        logWorkspacePermissionDenied({
-          requestId,
-          userId,
-          workspaceId: resolvedWorkspaceId,
-          code: permissionCheck.code,
-        })
-        return permissionCheck.response
-      }
+      return permissionCheck.response
     }
 
-    const rows = await db
-      .select()
-      .from(pineIndicators)
-      .where(eq(pineIndicators.workspaceId, resolvedWorkspaceId))
-      .orderBy(desc(pineIndicators.createdAt))
-    const data = await buildSavedEntityListThroughYjs('indicator', rows)
-    return NextResponse.json({ data }, { status: 200 })
+    return NextResponse.json({ data: await listIndicators({ workspaceId }) }, { status: 200 })
   } catch (error) {
     logger.error(`[${requestId}] Error fetching indicators:`, error)
     return NextResponse.json({ error: 'Failed to fetch indicators' }, { status: 500 })
@@ -269,6 +245,7 @@ export async function DELETE(request: NextRequest) {
       .delete(pineIndicators)
       .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
     await deleteYjsSessionInSocketServer(indicatorId).catch(() => undefined)
+    await notifyEntityListMemberRemoved('indicator', workspaceId, indicatorId)
 
     logger.info(`[${requestId}] Deleted indicator ${indicatorId}`)
     return NextResponse.json({ success: true }, { status: 200 })

@@ -6,7 +6,7 @@ import type { ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types
 import { deriveUserColor } from '@/lib/utils'
 import {
   bootstrapYjsProvider,
-  waitForYjsWriteSync,
+  waitForYjsSync,
   type YjsProviderBootstrapResult,
 } from '@/lib/yjs/provider'
 import { createYjsUndoTrackedOrigins } from '@/lib/yjs/transaction-origins'
@@ -343,7 +343,7 @@ export async function acquireWritableWorkflowSessionLease(args: {
   }
 
   try {
-    await waitForYjsWriteSync(entry.result.provider)
+    await waitForYjsSync(entry.result.provider)
   } catch (error) {
     release()
     throw error

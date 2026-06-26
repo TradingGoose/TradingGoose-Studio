@@ -36,6 +36,64 @@ export function getEntityMetadataMap(doc: Y.Doc): Y.Map<any> {
   return doc.getMap('metadata')
 }
 
+export interface EntityListMember {
+  entityId: string
+  entityName: string
+}
+
+export type EntityListMemberMutation =
+  | { op: 'add'; entityId: string; name: string }
+  | { op: 'remove'; entityId: string }
+
+function getEntityListMembersMap(doc: Y.Doc): Y.Map<{ name: string; deleted?: boolean }> {
+  return doc.getMap('members')
+}
+
+export function seedEntityListSession(
+  doc: Y.Doc,
+  members: Array<{ id: string; name: string }>
+): void {
+  doc.transact(() => {
+    const listMembers = getEntityListMembersMap(doc)
+    for (const member of members) {
+      listMembers.set(member.id, { name: member.name })
+    }
+  }, YJS_ORIGINS.SYSTEM)
+}
+
+function applyEntityListMutation(doc: Y.Doc, mutation: EntityListMemberMutation): void {
+  doc.transact(() => {
+    getEntityListMembersMap(doc).set(
+      mutation.entityId,
+      mutation.op === 'add' ? { name: mutation.name, deleted: false } : { name: '', deleted: true }
+    )
+  }, YJS_ORIGINS.SYSTEM)
+}
+
+export function createEntityListMemberUpdate(
+  mutations: EntityListMemberMutation | EntityListMemberMutation[]
+): Uint8Array {
+  const doc = new Y.Doc()
+  try {
+    for (const mutation of Array.isArray(mutations) ? mutations : [mutations]) {
+      applyEntityListMutation(doc, mutation)
+    }
+    return Y.encodeStateAsUpdate(doc)
+  } finally {
+    doc.destroy()
+  }
+}
+
+export function getEntityListMembers(doc: Y.Doc): EntityListMember[] {
+  const entries: EntityListMember[] = []
+  getEntityListMembersMap(doc).forEach((value, entityId) => {
+    if (value?.deleted) return
+    entries.push({ entityId, entityName: typeof value?.name === 'string' ? value.name : '' })
+  })
+  entries.sort((a, b) => a.entityName.localeCompare(b.entityName))
+  return entries
+}
+
 /**
  * Metadata key carrying the workspace that owns the entity. Resolved once when
  * the entity doc is bootstrapped and used as the authoritative scope when
@@ -107,6 +165,9 @@ export function seedEntitySession(doc: Y.Doc, options: EntitySessionSeedOptions)
         fields.set('name', payload.name ?? '')
         fields.set('description', payload.description ?? '')
         fields.set('chunkingConfig', payload.chunkingConfig)
+        fields.set('tokenCount', payload.tokenCount ?? 0)
+        fields.set('embeddingModel', payload.embeddingModel ?? 'text-embedding-3-small')
+        fields.set('embeddingDimension', payload.embeddingDimension ?? 1536)
         break
 
       case 'mcp_server':
@@ -161,6 +222,9 @@ export function getEntityFields(doc: Y.Doc, entityKind: ReviewEntityKind): Recor
       result.name = fields.get('name') ?? ''
       result.description = fields.get('description') ?? ''
       result.chunkingConfig = fields.get('chunkingConfig')
+      result.tokenCount = fields.get('tokenCount') ?? 0
+      result.embeddingModel = fields.get('embeddingModel') ?? 'text-embedding-3-small'
+      result.embeddingDimension = fields.get('embeddingDimension') ?? 1536
       break
 
     case 'mcp_server':

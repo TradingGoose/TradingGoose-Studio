@@ -33,6 +33,10 @@ vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
   applySavedEntityState: vi.fn(),
 }))
 
+vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
+  readBootstrappedSavedEntityListFields: vi.fn(),
+}))
+
 import { importSkills } from '@/lib/skills/operations'
 
 const createQueryChain = (result: unknown) => {

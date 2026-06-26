@@ -2,11 +2,17 @@ import type { IncomingMessage } from 'http'
 import type { Duplex } from 'stream'
 import type { WebSocket, WebSocketServer } from 'ws'
 import type * as Y from 'yjs'
-import { buildReviewTargetDescriptorFromEnvelope } from '@/lib/copilot/review-sessions/identity'
+import {
+  buildReviewTargetDescriptorFromEnvelope,
+  isEntityListSessionId,
+} from '@/lib/copilot/review-sessions/identity'
 import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
+import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { saveWorkflowYjsDocToDb } from '@/lib/workflows/db-helpers'
+import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import {
+  createEntityListBootstrapUpdate,
   createSavedReviewTargetBootstrapUpdate,
   getRuntimeStateFromDoc,
 } from '@/lib/yjs/server/bootstrap-review-target'
@@ -22,6 +28,10 @@ interface YjsIncomingMessage extends IncomingMessage {
 }
 
 async function persistIdleDocument(docId: string, doc: Y.Doc): Promise<void> {
+  if (isEntityListSessionId(docId)) {
+    return
+  }
+
   const metadata = doc.getMap<unknown>('metadata')
   if (
     metadata.get('entityId') !== docId ||
@@ -84,7 +94,7 @@ async function authenticateAndPrepareUpgrade(
   pathSessionId: string,
   url: URL
 ): Promise<{ bootstrapState?: Uint8Array; userId: string; resolvedSessionId: string }> {
-  const accessMode = parseAccessMode(url)
+  const accessMode = parseAccessMode(url, pathSessionId)
   const { userId, envelope } = await authenticateYjsConnection(url)
 
   if (envelope.sessionId !== pathSessionId) {
@@ -92,6 +102,7 @@ async function authenticateAndPrepareUpgrade(
   }
 
   const descriptor = buildReviewTargetDescriptorFromEnvelope(envelope)
+  const isListTarget = isEntityListSessionId(descriptor.yjsSessionId)
 
   const access = await verifyReviewTargetAccess(
     userId,
@@ -113,9 +124,14 @@ async function authenticateAndPrepareUpgrade(
   const liveDoc = await getExistingDocument(pathSessionId)
   const bootstrapped = liveDoc
     ? null
-    : descriptor.entityId
-      ? await createSavedReviewTargetBootstrapUpdate(descriptor)
-      : null
+    : isListTarget
+      ? await createEntityListBootstrapUpdate(
+          descriptor.entityKind as SavedEntityKind,
+          descriptor.workspaceId as string
+        )
+      : descriptor.entityId
+        ? await createSavedReviewTargetBootstrapUpdate(descriptor)
+        : null
   const runtime = liveDoc ? getRuntimeStateFromDoc(liveDoc) : bootstrapped?.runtime
 
   if (!runtime) {
@@ -133,17 +149,23 @@ async function authenticateAndPrepareUpgrade(
   }
 }
 
-function parseAccessMode(url: URL): 'write' {
+function parseAccessMode(url: URL, sessionId: string): ReviewAccessMode {
   const accessMode = url.searchParams.get('accessMode')
   if (accessMode !== 'read' && accessMode !== 'write') {
     throw new YjsAuthError(409, 'Invalid or missing access mode')
   }
 
-  if (accessMode !== 'write') {
+  // Entity-list documents are read-only over the socket (membership is written
+  // only by server-side create/delete); every other target requires write.
+  if (isEntityListSessionId(sessionId)) {
+    if (accessMode !== 'read') {
+      throw new YjsAuthError(403, 'Entity-list websocket is read-only')
+    }
+  } else if (accessMode !== 'write') {
     throw new YjsAuthError(403, 'Yjs websocket requires write access')
   }
 
-  return 'write'
+  return accessMode
 }
 
 function ensureConnectionHandler(wss: WebSocketServer): void {

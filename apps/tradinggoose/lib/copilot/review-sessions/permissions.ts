@@ -1,6 +1,7 @@
 import { db } from '@tradinggoose/db'
 import { copilotReviewSessions, permissions, workspace } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
+import { isEntityListSessionId } from '@/lib/copilot/review-sessions/identity'
 import type {
   ReviewAccessMode,
   ReviewEntityKind,
@@ -265,15 +266,20 @@ export async function verifyReviewTargetAccess(
   accessMode: ReviewAccessMode
 ): Promise<ReviewAccessResult> {
   if (reviewTarget.entityKind === 'workflow') {
-    const workflowId =
-      reviewTarget.entityId ?? ('yjsSessionId' in reviewTarget ? reviewTarget.yjsSessionId : null)
-
-    if (!workflowId) {
+    if (!reviewTarget.entityId) {
       logger.warn('Workflow review target missing workflow id', { userId, reviewTarget })
       return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
     }
 
-    return verifyWorkflowAccess(userId, workflowId, accessMode)
+    return verifyWorkflowAccess(userId, reviewTarget.entityId, accessMode)
+  }
+
+  if (reviewTarget.yjsSessionId && isEntityListSessionId(reviewTarget.yjsSessionId)) {
+    if (!reviewTarget.workspaceId) {
+      logger.warn('Entity-list review target missing workspaceId', { userId, reviewTarget })
+      return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
+    }
+    return verifyWorkspaceAccess(userId, reviewTarget.workspaceId, accessMode)
   }
 
   if (!reviewTarget.reviewSessionId) {

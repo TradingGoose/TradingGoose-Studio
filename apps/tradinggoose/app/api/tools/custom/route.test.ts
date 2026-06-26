@@ -44,16 +44,6 @@ vi.mock('@tradinggoose/db/schema', () => ({
   workflow: {},
 }))
 
-vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
-  buildSavedEntityListThroughYjs: async (
-    _kind: string,
-    rows: Array<Record<string, unknown>>,
-    buildEntry: (row: Record<string, unknown>, fields: Record<string, unknown>) => unknown = (
-      row
-    ) => row
-  ) => Promise.all(rows.map((row) => buildEntry(row, row))),
-}))
-
 describe('Custom Tools API Routes', () => {
   beforeEach(() => {
     vi.resetAllMocks()
@@ -80,7 +70,7 @@ describe('Custom Tools API Routes', () => {
     expect(body.error).toBe('Unauthorized')
   })
 
-  it('GET should require workspaceId or workflowId', async () => {
+  it('GET should require workspaceId', async () => {
     const req = new NextRequest('http://localhost:3000/api/tools/custom')
     const { GET } = await import('@/app/api/tools/custom/route')
     const res = await GET(req)

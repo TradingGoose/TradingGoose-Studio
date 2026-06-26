@@ -11,7 +11,6 @@ import {
 import { createSkills, deleteSkill, listSkills, saveSkill } from '@/lib/skills/operations'
 import { generateRequestId } from '@/lib/utils'
 import { SavedEntityPersistenceError } from '@/lib/yjs/server/apply-entity-state'
-import { buildSavedEntityListThroughYjs } from '@/lib/yjs/server/bootstrap-review-target'
 
 const logger = createLogger('SkillsAPI')
 
@@ -59,9 +58,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    const result = await listSkills({ workspaceId })
-    const data = await buildSavedEntityListThroughYjs('skill', result)
-    return NextResponse.json({ data }, { status: 200 })
+    return NextResponse.json({ data: await listSkills({ workspaceId }) }, { status: 200 })
   } catch (error) {
     logger.error(`[${requestId}] Error fetching skills:`, error)
     return NextResponse.json({ error: 'Failed to fetch skills' }, { status: 500 })

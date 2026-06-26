@@ -1,6 +1,3 @@
-import { db } from '@tradinggoose/db'
-import { pineIndicators } from '@tradinggoose/db/schema'
-import { desc, eq } from 'drizzle-orm'
 import { ENTITY_KIND_INDICATOR } from '@/lib/copilot/review-sessions/types'
 import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
 import { createIndicators } from '@/lib/indicators/custom/operations'
@@ -8,11 +5,10 @@ import {
   DEFAULT_INDICATOR_RUNTIME_ENTRIES,
   DEFAULT_INDICATOR_RUNTIME_MAP,
 } from '@/lib/indicators/default/runtime'
-import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
   buildDocumentEnvelope,
-  buildSavedEntityListThroughYjs,
+  buildSavedEntityListInfo,
   type CopilotIndicatorListEntry,
   type EntityCreateResult,
   type EntityServerTool,
@@ -38,35 +34,17 @@ function toDefaultIndicatorListEntry(entry: (typeof DEFAULT_INDICATOR_RUNTIME_EN
   }
 }
 
-function toCustomIndicatorListEntry(
-  row: typeof pineIndicators.$inferSelect,
-  fields: Record<string, unknown>
-): CopilotIndicatorListEntry {
-  const inputMeta = normalizeInputMetaMap(fields.inputMeta)
-  const inputTitles = Object.keys(inputMeta ?? {})
-
-  return {
-    name: String(fields.name ?? ''),
-    source: 'custom',
-    editable: true,
-    callableInFunctionBlock: true,
-    ...(inputTitles.length > 0 ? { inputTitles } : {}),
-    entityId: row.id,
-    runtimeId: row.id,
-  }
-}
-
 async function listCopilotIndicators(workspaceId: string): Promise<CopilotIndicatorListEntry[]> {
   const defaultOptions = DEFAULT_INDICATOR_RUNTIME_ENTRIES.map(toDefaultIndicatorListEntry)
-  const customRows = await db
-    .select()
-    .from(pineIndicators)
-    .where(eq(pineIndicators.workspaceId, workspaceId))
-    .orderBy(desc(pineIndicators.createdAt))
-  const customOptions = await buildSavedEntityListThroughYjs(
-    ENTITY_KIND_INDICATOR,
-    customRows,
-    toCustomIndicatorListEntry
+  const customOptions = (await buildSavedEntityListInfo(ENTITY_KIND_INDICATOR, workspaceId)).map(
+    (entry) => ({
+      name: entry.entityName,
+      source: 'custom' as const,
+      editable: true,
+      callableInFunctionBlock: true,
+      entityId: entry.entityId,
+      runtimeId: entry.entityId,
+    })
   )
 
   return [...defaultOptions, ...customOptions].sort((a, b) => a.name.localeCompare(b.name))

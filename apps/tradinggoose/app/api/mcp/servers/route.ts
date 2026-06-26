@@ -7,7 +7,11 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getParsedBody, withMcpAuth } from '@/lib/mcp/middleware'
 import { mcpService } from '@/lib/mcp/service'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
-import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import {
+  deleteYjsSessionInSocketServer,
+  notifyEntityListMemberRemoved,
+  notifyEntityListMembersAdded,
+} from '@/lib/yjs/server/snapshot-bridge'
 import { CreateMcpServerSchema } from './schema'
 
 const logger = createLogger('McpServersAPI')
@@ -97,6 +101,9 @@ export const POST = withMcpAuth('write')(
       })
 
       mcpService.clearCache(workspaceId)
+      await notifyEntityListMembersAdded('mcp_server', workspaceId, [
+        { id: serverId, name: String(fields.name ?? '') },
+      ])
 
       logger.info(`[${requestId}] Successfully registered MCP server: ${fields.name}`)
 
@@ -162,6 +169,7 @@ export const DELETE = withMcpAuth('write')(
         .delete(mcpServers)
         .where(and(eq(mcpServers.id, serverId), eq(mcpServers.workspaceId, workspaceId)))
       await deleteYjsSessionInSocketServer(serverId).catch(() => undefined)
+      await notifyEntityListMemberRemoved('mcp_server', workspaceId, serverId)
 
       mcpService.clearCache(workspaceId)
 

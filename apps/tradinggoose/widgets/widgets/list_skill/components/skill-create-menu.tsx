@@ -2,7 +2,7 @@
 
 import { type ChangeEvent, useCallback, useRef } from 'react'
 import { Plus, Upload } from 'lucide-react'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages } from 'next-intl'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,8 +10,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useMessages } from 'next-intl'
-import { cn } from '@/lib/utils'
 import {
   widgetHeaderIconButtonClassName,
   widgetHeaderMenuContentClassName,
@@ -19,6 +17,7 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
+import { cn } from '@/lib/utils'
 
 interface SkillCreateMenuProps {
   disabled?: boolean

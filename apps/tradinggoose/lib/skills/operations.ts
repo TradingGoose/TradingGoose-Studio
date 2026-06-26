@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { skill } from '@tradinggoose/db/schema'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -10,7 +10,12 @@ import {
 } from '@/lib/skills/import-export'
 import { generateRequestId } from '@/lib/utils'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
-import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import { readBootstrappedSavedEntityListFields } from '@/lib/yjs/server/bootstrap-review-target'
+import {
+  deleteYjsSessionInSocketServer,
+  notifyEntityListMemberRemoved,
+  notifyEntityListMembersAdded,
+} from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('SkillsOperations')
 
@@ -44,11 +49,17 @@ interface ImportSkillsParams {
 }
 
 export async function listSkills(params: { workspaceId: string }) {
-  return db
-    .select()
-    .from(skill)
-    .where(eq(skill.workspaceId, params.workspaceId))
-    .orderBy(desc(skill.createdAt))
+  const entries = await readBootstrappedSavedEntityListFields('skill', params.workspaceId)
+  return entries.map(({ entityId, fields }) => ({
+    id: entityId,
+    workspaceId: params.workspaceId,
+    userId: null,
+    name: String(fields.name ?? ''),
+    description: String(fields.description ?? ''),
+    content: String(fields.content ?? ''),
+    createdAt: new Date(0),
+    updatedAt: undefined,
+  }))
 }
 
 export async function deleteSkill(params: {
@@ -69,6 +80,7 @@ export async function deleteSkill(params: {
     .delete(skill)
     .where(and(eq(skill.id, params.skillId), eq(skill.workspaceId, params.workspaceId)))
   await deleteYjsSessionInSocketServer(params.skillId).catch(() => undefined)
+  await notifyEntityListMemberRemoved('skill', params.workspaceId, params.skillId)
 
   logger.info(`Deleted skill ${params.skillId}`)
   return true
@@ -84,7 +96,7 @@ export async function createSkills({
     return []
   }
 
-  return await db.transaction(async (tx) => {
+  const created = await db.transaction(async (tx) => {
     const existingSkills = await tx
       .select({
         id: skill.id,
@@ -126,6 +138,13 @@ export async function createSkills({
     logger.info(`[${requestId}] Created ${createdSkills.length} skill(s)`)
     return createdSkills
   })
+
+  await notifyEntityListMembersAdded(
+    'skill',
+    workspaceId,
+    created.map((createdSkill) => ({ id: createdSkill.id, name: createdSkill.name }))
+  )
+  return created
 }
 
 export async function saveSkill({
@@ -211,5 +230,10 @@ export async function importSkills({
     }
   })
 
+  await notifyEntityListMembersAdded(
+    'skill',
+    workspaceId,
+    result.skills.map((importedSkill) => ({ id: importedSkill.id, name: importedSkill.name }))
+  )
   return result
 }

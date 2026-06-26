@@ -5,11 +5,7 @@ import {
   withWorkspaceArgContext,
 } from '@/lib/copilot/tools/server/base-tool'
 import { generateSearchEmbedding } from '@/lib/embeddings/utils'
-import {
-  createKnowledgeBase,
-  getKnowledgeBaseById,
-  getKnowledgeBases,
-} from '@/lib/knowledge/service'
+import { createKnowledgeBase, getKnowledgeBaseById } from '@/lib/knowledge/service'
 import type { ChunkingConfig, KnowledgeBaseWithCounts } from '@/lib/knowledge/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
@@ -89,14 +85,13 @@ export const listKnowledgeBasesServerTool: BaseServerTool<{ workspaceId: string 
   name: 'list_knowledge_bases',
   async execute(args, context) {
     const scopedContext = withWorkspaceArgContext(context, args)
-    const { userId, workspaceId } = await verifyWorkspaceContext(scopedContext, 'read')
-    const knowledgeBases = await getKnowledgeBases(userId, workspaceId)
-    const entities = await buildSavedEntityListInfo(ENTITY_KIND_KNOWLEDGE_BASE, knowledgeBases)
+    const { workspaceId } = await verifyWorkspaceContext(scopedContext, 'read')
+    const entities = await buildSavedEntityListInfo(ENTITY_KIND_KNOWLEDGE_BASE, workspaceId)
 
     return {
       entityKind: ENTITY_KIND_KNOWLEDGE_BASE,
       entities,
-      count: knowledgeBases.length,
+      count: entities.length,
     }
   },
 }

@@ -2,7 +2,7 @@ import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 
 export type SavedEntityKind = Exclude<ReviewEntityKind, 'workflow'>
 
-type SavedEntityRow = {
+export type SavedEntityRow = {
   id: string
   workspaceId: string | null
   [key: string]: any
@@ -41,6 +41,9 @@ export function savedEntityRowToFields(
         name: row.name ?? '',
         description: row.description ?? '',
         chunkingConfig: row.chunkingConfig,
+        tokenCount: row.tokenCount ?? 0,
+        embeddingModel: row.embeddingModel ?? 'text-embedding-3-small',
+        embeddingDimension: row.embeddingDimension ?? 1536,
       }
     case 'mcp_server':
       return {
@@ -60,35 +63,4 @@ export function savedEntityRowToFields(
         enabled: row.enabled ?? true,
       }
   }
-}
-
-function parseEntitySchemaText(schemaText: unknown): unknown {
-  if (typeof schemaText !== 'string') {
-    return schemaText ?? {}
-  }
-  try {
-    return JSON.parse(schemaText)
-  } catch {
-    return {}
-  }
-}
-
-/**
- * Canonical inverse of {@link savedEntityRowToFields}. The Yjs document field
- * names mirror the entity's editable row columns 1:1 for every kind, so the
- * inverse is identity — except custom_tool, whose schema/code are stored as
- * editable text (schemaText/codeText) and parsed back to row columns here.
- */
-export function savedEntityFieldsToRow(
-  entityKind: SavedEntityKind,
-  fields: Record<string, unknown>
-): Record<string, unknown> {
-  if (entityKind === 'custom_tool') {
-    return {
-      title: fields.title,
-      schema: parseEntitySchemaText(fields.schemaText),
-      code: fields.codeText,
-    }
-  }
-  return fields
 }

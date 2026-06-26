@@ -3,6 +3,7 @@ import * as Y from 'yjs'
 import {
   buildReviewTargetDescriptorFromEnvelope,
   buildSavedEntityDescriptor,
+  isEntityListSessionId,
   parseYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
@@ -14,6 +15,7 @@ import {
   saveSavedEntityYjsDocToDb,
 } from '@/lib/yjs/server/apply-entity-state'
 import {
+  createEntityListBootstrapUpdate,
   createSavedReviewTargetBootstrapUpdate,
   getRuntimeStateFromDoc,
 } from '@/lib/yjs/server/bootstrap-review-target'
@@ -306,7 +308,8 @@ function applyWorkflowApplyRequest(doc: Y.Doc, body: ApplyWorkflowStateRequest):
     replaceWorkflowDocumentState(doc, body.workflowState, body.variables, body.metadata)
     return
   }
-  if (body.variables !== undefined) replaceWorkflowVariables(doc, body.variables, YJS_ORIGINS.SYSTEM)
+  if (body.variables !== undefined)
+    replaceWorkflowVariables(doc, body.variables, YJS_ORIGINS.SYSTEM)
   if (body.metadata) setWorkflowEntityMetadata(doc, body.metadata)
 }
 
@@ -401,6 +404,19 @@ async function handleInternalYjsSessionApplyUpdateRequest(
     if (typeof updateBase64 !== 'string' || !updateBase64) {
       throw new InvalidInternalYjsRequestError('updateBase64 is required')
     }
+    if (isEntityListSessionId(descriptor.yjsSessionId)) {
+      const liveDoc = await getExistingDocument(descriptor.yjsSessionId)
+      if (!liveDoc) {
+        sendJson(res, 200, { success: true, applied: false })
+        return
+      }
+      Y.applyUpdate(liveDoc, Buffer.from(updateBase64, 'base64'), YJS_ORIGINS.SYSTEM)
+      markDocumentPersisted(liveDoc)
+      discardDocumentIfIdle(sessionId)
+      sendJson(res, 200, { success: true, applied: true })
+      return
+    }
+
     const doc = await getBootstrappedApplyDocument(descriptor)
 
     try {
@@ -457,14 +473,23 @@ async function handleInternalYjsSnapshotRequest(
   try {
     let liveDoc = await getExistingDocument(sessionId)
     let bootstrappedForRequest = false
-    if (!liveDoc && descriptor.entityId) {
-      const bootstrapped = await createSavedReviewTargetBootstrapUpdate(descriptor)
-      if (!bootstrapped.runtime || bootstrapped.runtime.docState !== 'active') {
-        sendJson(res, 410, { error: 'Session expired', sessionId })
-        return
+    if (!liveDoc) {
+      const bootstrapped = isEntityListSessionId(descriptor.yjsSessionId)
+        ? await createEntityListBootstrapUpdate(
+            descriptor.entityKind as SavedEntityKind,
+            descriptor.workspaceId as string
+          )
+        : descriptor.entityId
+          ? await createSavedReviewTargetBootstrapUpdate(descriptor)
+          : null
+      if (bootstrapped) {
+        if (!bootstrapped.runtime || bootstrapped.runtime.docState !== 'active') {
+          sendJson(res, 410, { error: 'Session expired', sessionId })
+          return
+        }
+        liveDoc = await getInitializedSessionDocument(sessionId, bootstrapped.state)
+        bootstrappedForRequest = true
       }
-      liveDoc = await getInitializedSessionDocument(sessionId, bootstrapped.state)
-      bootstrappedForRequest = true
     }
 
     if (!liveDoc) {

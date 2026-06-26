@@ -21,7 +21,7 @@ import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import {
-  buildSavedEntityListThroughYjs,
+  readBootstrappedEntityListMembers,
   readBootstrappedSavedEntityFields,
 } from '@/lib/yjs/server/bootstrap-review-target'
 
@@ -196,23 +196,16 @@ export async function readSavedEntityDocumentFields(
   return readBootstrappedSavedEntityFields(kind as SavedEntityKind, entityId, workspaceId)
 }
 
-// The canonical list-through-Yjs primitive lives in the Yjs read layer so widget
-// API routes and the MCP service share it too; re-exported here for the tools.
-export { buildSavedEntityListThroughYjs }
-
 /**
- * Canonical projection for every saved-entity list_* tool: read each row through
- * Yjs and expose only the discovery info (id + canonical name). One projection
- * for all kinds — no tool invents its own list mapper.
+ * Canonical read for every saved-entity list_* tool: the workspace's membership
+ * through the live Yjs list session (id + canonical name only). Reflects realtime
+ * create/delete by any user — one read for all kinds, no per-tool list mapper.
  */
-export function buildSavedEntityListInfo<TRow extends { id: string; workspaceId: string }>(
+export function buildSavedEntityListInfo(
   entityKind: SavedEntityKind,
-  rows: TRow[]
+  workspaceId: string
 ): Promise<EntityListEntry[]> {
-  return buildSavedEntityListThroughYjs(entityKind, rows, (row, fields) => ({
-    entityId: row.id,
-    entityName: getEntityDocumentName(entityKind, fields),
-  }))
+  return readBootstrappedEntityListMembers(entityKind, workspaceId)
 }
 
 export async function executeCreateEntityDocumentMutation(

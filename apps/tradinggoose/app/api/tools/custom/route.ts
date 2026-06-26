@@ -1,5 +1,5 @@
 import { db } from '@tradinggoose/db'
-import { customTools, workflow } from '@tradinggoose/db/schema'
+import { customTools } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -10,8 +10,10 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import { SavedEntityPersistenceError } from '@/lib/yjs/server/apply-entity-state'
-import { buildSavedEntityListThroughYjs } from '@/lib/yjs/server/bootstrap-review-target'
-import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import {
+  deleteYjsSessionInSocketServer,
+  notifyEntityListMemberRemoved,
+} from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('CustomToolsAPI')
 
@@ -20,7 +22,6 @@ export async function GET(request: NextRequest) {
   const requestId = generateRequestId()
   const searchParams = request.nextUrl.searchParams
   const workspaceId = searchParams.get('workspaceId')
-  const workflowId = searchParams.get('workflowId')
 
   try {
     const authResult = await checkHybridAuth(request, { requireWorkflowId: false })
@@ -30,43 +31,18 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = authResult.userId
-    let resolvedWorkspaceId: string | null = workspaceId
-
-    if (!resolvedWorkspaceId && workflowId) {
-      const [workflowData] = await db
-        .select({ workspaceId: workflow.workspaceId })
-        .from(workflow)
-        .where(eq(workflow.id, workflowId))
-        .limit(1)
-
-      if (!workflowData?.workspaceId) {
-        logger.warn(`[${requestId}] Workflow not found: ${workflowId}`)
-        return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
-      }
-
-      resolvedWorkspaceId = workflowData.workspaceId
-    }
-
-    if (!resolvedWorkspaceId) {
+    if (!workspaceId) {
       logger.warn(`[${requestId}] Missing workspaceId for custom tools fetch`)
       return NextResponse.json({ error: 'workspaceId is required' }, { status: 400 })
     }
 
-    // Skip permission check for internal JWT workflow proxy requests
-    if (!(authResult.authType === 'internal_jwt' && workflowId)) {
-      const permission = await getUserEntityPermissions(userId, 'workspace', resolvedWorkspaceId)
-      if (!permission) {
-        logger.warn(
-          `[${requestId}] User ${userId} does not have access to workspace ${resolvedWorkspaceId}`
-        )
-        return NextResponse.json({ error: 'Access denied' }, { status: 403 })
-      }
+    const permission = await getUserEntityPermissions(userId, 'workspace', workspaceId)
+    if (!permission) {
+      logger.warn(`[${requestId}] User ${userId} does not have access to workspace ${workspaceId}`)
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    const rows = await listCustomTools({ workspaceId: resolvedWorkspaceId })
-    const result = await buildSavedEntityListThroughYjs('custom_tool', rows)
-
-    return NextResponse.json({ data: result }, { status: 200 })
+    return NextResponse.json({ data: await listCustomTools({ workspaceId }) }, { status: 200 })
   } catch (error) {
     logger.error(`[${requestId}] Error fetching custom tools:`, error)
     return NextResponse.json({ error: 'Failed to fetch custom tools' }, { status: 500 })
@@ -228,6 +204,7 @@ export async function DELETE(request: NextRequest) {
       .delete(customTools)
       .where(and(eq(customTools.id, toolId), eq(customTools.workspaceId, workspaceId)))
     await deleteYjsSessionInSocketServer(toolId).catch(() => undefined)
+    await notifyEntityListMemberRemoved('custom_tool', workspaceId, toolId)
 
     logger.info(`[${requestId}] Deleted tool: ${toolId}`)
     return NextResponse.json({ success: true })
