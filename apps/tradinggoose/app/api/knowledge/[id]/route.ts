@@ -8,6 +8,7 @@ import {
 } from '@/lib/knowledge/service'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
+import { SavedEntityPersistenceError } from '@/lib/yjs/server/apply-entity-state'
 import { checkKnowledgeBaseAccess, checkKnowledgeBaseWriteAccess } from '@/app/api/knowledge/utils'
 
 const logger = createLogger('KnowledgeBaseByIdAPI')
@@ -133,6 +134,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
   } catch (error) {
     logger.error(`[${requestId}] Error updating knowledge base`, error)
+    if (error instanceof SavedEntityPersistenceError) {
+      return NextResponse.json({ error: error.message }, { status: error.status })
+    }
     return NextResponse.json({ error: 'Failed to update knowledge base' }, { status: 500 })
   }
 }
