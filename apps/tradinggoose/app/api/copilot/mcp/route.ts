@@ -97,7 +97,7 @@ async function authenticateCopilotMcpRequest(
     return { error: 'Bearer token required' }
   }
 
-  const auth = await authenticateApiKeyFromHeader(token, { keyTypes: ['mcp'] })
+  const auth = await authenticateApiKeyFromHeader(token, { keyTypes: ['personal'] })
   if (!auth.success || !auth.userId) {
     return { error: 'Invalid TradingGoose MCP token' }
   }

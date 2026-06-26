@@ -10,7 +10,7 @@ const logger = createLogger('ApiKeyService')
 const API_KEY_SECRET_PATTERN = /^[A-Za-z0-9_-]{32}$/
 const DEFAULT_API_KEY_AUTH_TYPES: ApiKeyType[] = ['personal', 'workspace']
 
-export type ApiKeyType = 'personal' | 'workspace' | 'mcp'
+export type ApiKeyType = 'personal' | 'workspace'
 
 export interface ApiKeyAuthOptions {
   userId?: string

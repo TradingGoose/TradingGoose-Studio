@@ -130,7 +130,7 @@ describe('Copilot MCP route', () => {
 
     expect(response.headers.get('MCP-Protocol-Version')).toBe('2025-03-26')
     expect(mockAuthenticateApiKeyFromHeader).toHaveBeenCalledWith('sk-tradinggoose-test', {
-      keyTypes: ['mcp'],
+      keyTypes: ['personal'],
     })
     expect(mockUpdateApiKeyLastUsed).toHaveBeenCalledWith('key-1')
     expect(mockCheckApiEndpointRateLimit).toHaveBeenCalledWith('user-1', 'copilot-mcp')
@@ -156,7 +156,7 @@ describe('Copilot MCP route', () => {
 
     expect(response.status).toBe(200)
     expect(mockAuthenticateApiKeyFromHeader).toHaveBeenCalledWith('sk-lowercase', {
-      keyTypes: ['mcp'],
+      keyTypes: ['personal'],
     })
   })
 

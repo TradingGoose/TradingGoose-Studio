@@ -477,7 +477,7 @@ export async function acknowledgeMcpDeviceLogin({
       workspaceId: null,
       name: `TradingGoose MCP Access ${now.toISOString()}`,
       key: encryptedKey,
-      type: 'mcp',
+      type: 'personal',
       createdAt: now,
       updatedAt: now,
     })
