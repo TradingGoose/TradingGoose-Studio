@@ -135,7 +135,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   } catch (error) {
     logger.error(`[${requestId}] Error updating knowledge base`, error)
     if (error instanceof SavedEntityPersistenceError) {
-      return NextResponse.json({ error: error.message }, { status: error.status })
+      return NextResponse.json(error.responseBody(), { status: error.status })
     }
     return NextResponse.json({ error: 'Failed to update knowledge base' }, { status: 500 })
   }

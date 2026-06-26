@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { createIndicators, saveIndicator } from '@/lib/indicators/custom/operations'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
+import { SavedEntityPersistenceError } from '@/lib/yjs/server/apply-entity-state'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { authenticateIndicatorRequest, checkWorkspacePermission } from '../utils'
 
@@ -195,6 +196,9 @@ export async function POST(request: NextRequest) {
           { error: 'Invalid request data', details: validationError.errors },
           { status: 400 }
         )
+      }
+      if (validationError instanceof SavedEntityPersistenceError) {
+        return NextResponse.json(validationError.responseBody(), { status: validationError.status })
       }
       if (validationError instanceof Error && validationError.message.includes('was not found')) {
         return NextResponse.json({ error: validationError.message }, { status: 404 })

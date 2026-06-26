@@ -155,7 +155,7 @@ describe('applySavedEntityState', () => {
     }
   })
 
-  it('does not materialize DB state when the saved-entity Yjs apply fails', async () => {
+  it('returns the saved-entity realtime contract when the Yjs bridge is unavailable', async () => {
     const { applySavedEntityState } = await import('./apply-entity-state')
     mockApplyEntityStateInSocketServer.mockRejectedValueOnce(new TypeError('fetch failed'))
 
@@ -165,7 +165,7 @@ describe('applySavedEntityState', () => {
         description: 'Copilot description',
         content: 'Use the Copilot input.',
       })
-    ).rejects.toThrow('fetch failed')
+    ).rejects.toMatchObject({ status: 503 })
 
     expect(mockDbUpdate).not.toHaveBeenCalled()
     expect(events).toEqual([])

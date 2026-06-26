@@ -32,6 +32,9 @@ export function createMcpErrorResponse(
   const response: McpApiResponse = {
     success: false,
     error: errorMessage,
+    ...((error as { code?: unknown })?.code
+      ? { code: String((error as { code: unknown }).code) }
+      : {}),
   }
 
   return NextResponse.json(response, { status })

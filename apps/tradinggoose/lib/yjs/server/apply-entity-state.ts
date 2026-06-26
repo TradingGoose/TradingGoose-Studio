@@ -14,13 +14,20 @@ import { getEntityFields } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { applyEntityStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
+const SAVED_ENTITY_REALTIME_REQUIRED_CODE = 'SAVED_ENTITY_REALTIME_REQUIRED'
+
 export class SavedEntityPersistenceError extends Error {
   constructor(
     public status: number,
-    message: string
+    message: string,
+    public code?: string
   ) {
     super(message)
     this.name = 'SavedEntityPersistenceError'
+  }
+
+  responseBody() {
+    return { error: this.message, ...(this.code ? { code: this.code } : {}) }
   }
 }
 
@@ -168,7 +175,22 @@ export async function applySavedEntityState(
   fields: Record<string, unknown>
 ): Promise<void> {
   const normalizedFields = normalizeSavedEntityFields(entityKind, fields)
-  await applyEntityStateInSocketServer(entityId, entityKind, normalizedFields)
+  try {
+    await applyEntityStateInSocketServer(entityId, entityKind, normalizedFields)
+  } catch (error) {
+    const status = Number((error as { status?: unknown }).status)
+    if (status === 400 || status === 404 || status === 409) {
+      throw new SavedEntityPersistenceError(
+        status,
+        error instanceof Error ? error.message : 'Saved entity persistence failed'
+      )
+    }
+    throw new SavedEntityPersistenceError(
+      503,
+      'Saved entity realtime orchestration is required',
+      SAVED_ENTITY_REALTIME_REQUIRED_CODE
+    )
+  }
 }
 
 export async function saveSavedEntityYjsDocToDb(

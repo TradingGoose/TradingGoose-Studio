@@ -9,6 +9,7 @@ import { CustomToolWriteRequestSchema } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
+import { SavedEntityPersistenceError } from '@/lib/yjs/server/apply-entity-state'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('CustomToolsAPI')
@@ -154,6 +155,9 @@ export async function POST(req: NextRequest) {
           { error: 'Invalid request data', details: validationError.errors },
           { status: 400 }
         )
+      }
+      if (validationError instanceof SavedEntityPersistenceError) {
+        return NextResponse.json(validationError.responseBody(), { status: validationError.status })
       }
       if (validationError instanceof Error && validationError.message.includes('already exists')) {
         return NextResponse.json({ error: validationError.message }, { status: 409 })

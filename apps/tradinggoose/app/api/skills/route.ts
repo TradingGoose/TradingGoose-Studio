@@ -10,6 +10,7 @@ import {
 } from '@/lib/skills/import-export'
 import { createSkills, deleteSkill, listSkills, saveSkill } from '@/lib/skills/operations'
 import { generateRequestId } from '@/lib/utils'
+import { SavedEntityPersistenceError } from '@/lib/yjs/server/apply-entity-state'
 
 const logger = createLogger('SkillsAPI')
 
@@ -143,6 +144,9 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      if (validationError instanceof SavedEntityPersistenceError) {
+        return NextResponse.json(validationError.responseBody(), { status: validationError.status })
+      }
       if (validationError instanceof Error && validationError.message.includes('already exists')) {
         return NextResponse.json({ error: validationError.message }, { status: 409 })
       }
