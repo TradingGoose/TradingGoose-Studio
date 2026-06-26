@@ -247,10 +247,7 @@ class McpService {
   }
 
   private async readServerFields(server: McpServerRow): Promise<Record<string, unknown>> {
-    return normalizeEntityFields(
-      'mcp_server',
-      await readBootstrappedSavedEntityFields('mcp_server', server.id, server.workspaceId)
-    )
+    return readBootstrappedSavedEntityFields('mcp_server', server.id, server.workspaceId)
   }
 
   private toServerConfig(server: McpServerRow, fields: Record<string, unknown>): McpServerConfig {
@@ -275,19 +272,29 @@ class McpService {
     return Promise.all(
       servers.map(async (server) => {
         const fields = await this.readServerFields(server)
-        return {
-          ...server,
-          name: String(fields.name ?? ''),
-          description: String(fields.description ?? '') || null,
-          transport: String(fields.transport ?? ''),
-          url: String(fields.url ?? '') || null,
-          headers: fields.headers,
-          command: String(fields.command ?? '') || null,
-          args: Array.isArray(fields.args) ? fields.args.map(String) : [],
-          env: fields.env,
-          timeout: Number(fields.timeout ?? 30000),
-          retries: Number(fields.retries ?? 3),
-          enabled: fields.enabled !== false,
+        try {
+          const normalized = normalizeEntityFields('mcp_server', fields)
+          return {
+            ...server,
+            name: String(normalized.name ?? ''),
+            description: String(normalized.description ?? '') || null,
+            transport: String(normalized.transport ?? ''),
+            url: String(normalized.url ?? '') || null,
+            headers: normalized.headers,
+            command: String(normalized.command ?? '') || null,
+            args: Array.isArray(normalized.args) ? normalized.args.map(String) : [],
+            env: normalized.env,
+            timeout: Number(normalized.timeout ?? 30000),
+            retries: Number(normalized.retries ?? 3),
+            enabled: normalized.enabled !== false,
+          }
+        } catch (error) {
+          logger.warn(`MCP server ${server.id} has invalid saved-entity state:`, error)
+          return {
+            ...server,
+            connectionStatus: 'error',
+            lastError: error instanceof Error ? error.message : 'Invalid server state',
+          }
         }
       })
     )
@@ -313,7 +320,7 @@ class McpService {
       return null
     }
 
-    const fields = await this.readServerFields(server)
+    const fields = normalizeEntityFields('mcp_server', await this.readServerFields(server))
     return fields.enabled === false ? null : this.toServerConfig(server, fields)
   }
 
@@ -322,7 +329,13 @@ class McpService {
     const configs = await Promise.all(
       servers.map(async (server) => {
         const fields = await this.readServerFields(server)
-        return fields.enabled === false ? null : this.toServerConfig(server, fields)
+        try {
+          const normalized = normalizeEntityFields('mcp_server', fields)
+          return normalized.enabled === false ? null : this.toServerConfig(server, normalized)
+        } catch (error) {
+          logger.warn(`Skipping MCP server ${server.id} with invalid saved-entity state:`, error)
+          return null
+        }
       })
     )
 
