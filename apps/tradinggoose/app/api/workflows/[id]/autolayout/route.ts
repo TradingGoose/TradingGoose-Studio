@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { applyAutoLayout } from '@/lib/workflows/autolayout'
-import { loadEditableWorkflowState } from '@/lib/workflows/db-helpers'
+import { requireEditableWorkflowState } from '@/lib/workflows/db-helpers'
 import { validateWorkflowPermissions } from '@/lib/workflows/utils'
 import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
 
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
     } else {
       logger.info(`[${requestId}] Loading blocks from current workflow state`)
-      currentWorkflowData = await loadEditableWorkflowState(workflowId)
+      currentWorkflowData = await requireEditableWorkflowState(workflowId)
     }
 
     if (!currentWorkflowData) {

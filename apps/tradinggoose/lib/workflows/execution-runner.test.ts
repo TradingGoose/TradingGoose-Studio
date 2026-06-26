@@ -66,7 +66,7 @@ vi.mock('@/lib/utils-server', () => ({
 
 vi.mock('@/lib/workflows/db-helpers', () => ({
   loadDeployedWorkflowState: vi.fn(),
-  loadEditableWorkflowState: vi.fn(),
+  requireEditableWorkflowState: vi.fn(),
 }))
 
 vi.mock('@/lib/workflows/triggers', () => ({
@@ -403,10 +403,10 @@ describe('loadWorkflowExecutionBlueprint', () => {
   })
 
   it('loads Yjs workflow state for live execution when no snapshot is supplied', async () => {
-    const { loadDeployedWorkflowState, loadEditableWorkflowState } = await import(
+    const { loadDeployedWorkflowState, requireEditableWorkflowState } = await import(
       '@/lib/workflows/db-helpers'
     )
-    vi.mocked(loadEditableWorkflowState).mockResolvedValueOnce({
+    vi.mocked(requireEditableWorkflowState).mockResolvedValueOnce({
       blocks: { trigger: { subBlocks: {} } },
       edges: [{ source: 'trigger', target: 'worker' }],
       loops: {},
@@ -426,12 +426,12 @@ describe('loadWorkflowExecutionBlueprint', () => {
     expect(result.workflowData.blocks).toEqual({ trigger: { subBlocks: {} } })
     expect(result.workflowContext.variables).toEqual({ risk: { value: 1 } })
     expect(loadDeployedWorkflowState).not.toHaveBeenCalled()
-    expect(loadEditableWorkflowState).toHaveBeenCalledWith('workflow-1')
+    expect(requireEditableWorkflowState).toHaveBeenCalledWith('workflow-1')
     expect(mocks.dbSelect).not.toHaveBeenCalled()
   })
 
   it('uses variables from the active deployment for deployed execution', async () => {
-    const { loadDeployedWorkflowState, loadEditableWorkflowState } = await import(
+    const { loadDeployedWorkflowState, requireEditableWorkflowState } = await import(
       '@/lib/workflows/db-helpers'
     )
     const deployedVariables = {
@@ -474,6 +474,6 @@ describe('loadWorkflowExecutionBlueprint', () => {
       unknown
     >
     expect(Object.keys(selectShape)).toEqual(['workspaceId'])
-    expect(loadEditableWorkflowState).not.toHaveBeenCalled()
+    expect(requireEditableWorkflowState).not.toHaveBeenCalled()
   })
 })

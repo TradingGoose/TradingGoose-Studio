@@ -121,7 +121,7 @@ function decodeWorkflowSnapshot(snapshotBase64: string): PersistedWorkflowState 
  * used by the Yjs bootstrap path when a session is not already live. Bridge
  * failures intentionally surface instead of falling back to stale saved tables.
  */
-export async function loadEditableWorkflowState(
+export async function requireEditableWorkflowState(
   workflowId: string
 ): Promise<PersistedWorkflowState | null> {
   const { readBootstrappedReviewTargetSnapshot } = await import(
@@ -926,7 +926,7 @@ export async function deployWorkflow(params: {
   } = params
 
   try {
-    const editableState = await loadEditableWorkflowState(workflowId)
+    const editableState = await requireEditableWorkflowState(workflowId)
     if (!editableState) {
       return { success: false, error: 'Failed to load workflow state' }
     }
@@ -1045,6 +1045,9 @@ export async function deployWorkflow(params: {
     }
   } catch (error) {
     logger.error(`Error deploying workflow ${workflowId}:`, error)
+    if (isWorkflowRealtimeRequiredError(error)) {
+      throw error
+    }
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
