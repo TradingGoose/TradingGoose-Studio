@@ -9,7 +9,11 @@ import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { notifyMonitorsReconcile } from '@/app/api/monitors/reconcile'
 import { pauseMonitorsMissingDeployedTrigger } from '@/app/api/monitors/shared'
-import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
+import {
+  createErrorResponse,
+  createSuccessResponse,
+  createWorkflowRealtimeRequiredResponse,
+} from '@/app/api/workflows/utils'
 
 const logger = createLogger('RevertToDeploymentVersionAPI')
 
@@ -107,6 +111,8 @@ export async function POST(
     })
   } catch (error: any) {
     logger.error('Error reverting to deployment version', error)
+    const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
+    if (realtimeResponse) return realtimeResponse
     return createErrorResponse(error.message || 'Failed to revert', 500)
   }
 }

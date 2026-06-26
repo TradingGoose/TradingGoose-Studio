@@ -1,6 +1,10 @@
 import { db, workflow } from '@tradinggoose/db'
 import { eq } from 'drizzle-orm'
-import { ensureUniqueBlockIds, ensureUniqueEdgeIds } from '@/lib/workflows/db-helpers'
+import {
+  ensureUniqueBlockIds,
+  ensureUniqueEdgeIds,
+  WorkflowRealtimeRequiredError,
+} from '@/lib/workflows/db-helpers'
 import { applyWorkflowPatchInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import {
   createWorkflowSnapshot,
@@ -29,18 +33,26 @@ export async function applyWorkflowState(
     lastSaved: syncedAt.toISOString(),
   })
 
-  await applyWorkflowPatchInSocketServer(workflowId, {
-    workflowState: storedWorkflowState,
-    ...(variables === undefined ? {} : { variables }),
-    ...(metadata ? { metadata } : {}),
-  })
+  try {
+    await applyWorkflowPatchInSocketServer(workflowId, {
+      workflowState: storedWorkflowState,
+      ...(variables === undefined ? {} : { variables }),
+      ...(metadata ? { metadata } : {}),
+    })
+  } catch (error) {
+    throw new WorkflowRealtimeRequiredError(error)
+  }
 }
 
 export async function applyWorkflowMetadata(
   workflowId: string,
   metadata: WorkflowMetadataPatch
 ): Promise<typeof workflow.$inferSelect> {
-  await applyWorkflowPatchInSocketServer(workflowId, { metadata })
+  try {
+    await applyWorkflowPatchInSocketServer(workflowId, { metadata })
+  } catch (error) {
+    throw new WorkflowRealtimeRequiredError(error)
+  }
 
   const [updatedWorkflow] = await db
     .select()

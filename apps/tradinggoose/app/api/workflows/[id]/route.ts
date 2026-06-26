@@ -391,6 +391,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     logger.error(`[${requestId}] Error updating workflow ${workflowId} after ${elapsed}ms`, error)
+    const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
+    if (realtimeResponse) return realtimeResponse
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

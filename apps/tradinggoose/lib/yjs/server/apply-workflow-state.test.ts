@@ -43,6 +43,14 @@ vi.mock('drizzle-orm', () => ({
 vi.mock('@/lib/workflows/db-helpers', () => ({
   ensureUniqueBlockIds: mockEnsureUniqueBlockIds,
   ensureUniqueEdgeIds: mockEnsureUniqueEdgeIds,
+  WorkflowRealtimeRequiredError: class WorkflowRealtimeRequiredError extends Error {
+    readonly code = 'WORKFLOW_REALTIME_REQUIRED'
+
+    constructor(cause: unknown) {
+      super(cause instanceof Error ? cause.message : 'Workflow realtime orchestration is required')
+      this.name = 'WorkflowRealtimeRequiredError'
+    }
+  },
 }))
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({

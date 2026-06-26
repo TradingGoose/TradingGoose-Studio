@@ -104,6 +104,7 @@ describe('Revert To Deployment Version API Route', () => {
     vi.doMock('@/app/api/workflows/utils', () => ({
       createErrorResponse: vi.fn((error, status) => Response.json({ error }, { status })),
       createSuccessResponse: vi.fn((data) => Response.json({ data }, { status: 200 })),
+      createWorkflowRealtimeRequiredResponse: vi.fn(() => null),
     }))
 
     vi.doMock('@/app/api/monitors/reconcile', () => ({
