@@ -67,6 +67,17 @@ export async function validateWorkflowAccess(
 
       // If a pinned key exists, only accept that specific key
       if (workflow.pinnedApiKey?.key) {
+        if (
+          workflow.pinnedApiKey.type !== 'personal' &&
+          workflow.pinnedApiKey.type !== 'workspace'
+        ) {
+          return {
+            error: {
+              message: 'Unauthorized: Invalid API key',
+              status: 401,
+            },
+          }
+        }
         const isValidPinnedKey = await storedApiKeyMatches(apiKeyHeader, workflow.pinnedApiKey.key)
         if (!isValidPinnedKey) {
           return {
@@ -82,7 +93,7 @@ export async function validateWorkflowAccess(
             success: true,
             userId: workflow.pinnedApiKey.userId,
             keyId: workflow.pinnedApiKey.id,
-            keyType: workflow.pinnedApiKey.type === 'workspace' ? 'workspace' : 'personal',
+            keyType: workflow.pinnedApiKey.type,
             workspaceId: workflow.pinnedApiKey.workspaceId || undefined,
           },
         }

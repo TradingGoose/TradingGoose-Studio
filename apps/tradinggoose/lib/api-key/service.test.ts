@@ -67,4 +67,15 @@ describe('API key service', () => {
     })
     expect(mockDbSelect).not.toHaveBeenCalled()
   })
+
+  it('only authenticates MCP keys when MCP scope is explicit', async () => {
+    const { authenticateApiKeyFromHeader } = await import('./service')
+    const { eq, inArray } = await import('drizzle-orm')
+
+    await authenticateApiKeyFromHeader(`tradinggoose_${'a'.repeat(32)}`)
+    expect(inArray).toHaveBeenCalledWith('apiKey.type', ['personal', 'workspace'])
+
+    await authenticateApiKeyFromHeader(`tradinggoose_${'a'.repeat(32)}`, { keyTypes: ['mcp'] })
+    expect(eq).toHaveBeenCalledWith('apiKey.type', 'mcp')
+  })
 })

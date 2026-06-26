@@ -1,5 +1,9 @@
 import type { NextRequest } from 'next/server'
-import { authenticateApiKeyFromHeader, updateApiKeyLastUsed } from '@/lib/api-key/service'
+import {
+  type ApiKeyType,
+  authenticateApiKeyFromHeader,
+  updateApiKeyLastUsed,
+} from '@/lib/api-key/service'
 import { getSession } from '@/lib/auth'
 import {
   type InternalTokenVerificationResult,
@@ -28,7 +32,7 @@ export interface AuthResult {
   userName?: string | null
   userEmail?: string | null
   authType?: (typeof AuthType)[keyof typeof AuthType]
-  apiKeyType?: 'personal' | 'workspace'
+  apiKeyType?: ApiKeyType
   internalWorkflowExecution?: InternalWorkflowExecutionContext
   error?: string
 }

@@ -130,7 +130,7 @@ describe('Copilot MCP route', () => {
 
     expect(response.headers.get('MCP-Protocol-Version')).toBe('2025-03-26')
     expect(mockAuthenticateApiKeyFromHeader).toHaveBeenCalledWith('sk-tradinggoose-test', {
-      keyTypes: ['personal'],
+      keyTypes: ['mcp'],
     })
     expect(mockUpdateApiKeyLastUsed).toHaveBeenCalledWith('key-1')
     expect(mockCheckApiEndpointRateLimit).toHaveBeenCalledWith('user-1', 'copilot-mcp')
@@ -144,6 +144,7 @@ describe('Copilot MCP route', () => {
     )
     expect(body.result.instructions).toContain('trusted personal coding agents')
     expect(body.result.instructions).toContain('Mutating tools execute directly')
+    expect(body.result.instructions).toContain('authenticated MCP key')
   })
 
   it('accepts a case-insensitive bearer auth scheme', async () => {
@@ -155,7 +156,7 @@ describe('Copilot MCP route', () => {
 
     expect(response.status).toBe(200)
     expect(mockAuthenticateApiKeyFromHeader).toHaveBeenCalledWith('sk-lowercase', {
-      keyTypes: ['personal'],
+      keyTypes: ['mcp'],
     })
   })
 

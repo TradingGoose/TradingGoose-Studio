@@ -8,18 +8,21 @@ import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('ApiKeyService')
 const API_KEY_SECRET_PATTERN = /^[A-Za-z0-9_-]{32}$/
+const DEFAULT_API_KEY_AUTH_TYPES: ApiKeyType[] = ['personal', 'workspace']
+
+export type ApiKeyType = 'personal' | 'workspace' | 'mcp'
 
 export interface ApiKeyAuthOptions {
   userId?: string
   workspaceId?: string
-  keyTypes?: ('personal' | 'workspace')[]
+  keyTypes?: ApiKeyType[]
 }
 
 export interface ApiKeyAuthResult {
   success: boolean
   userId?: string
   keyId?: string
-  keyType?: 'personal' | 'workspace'
+  keyType?: ApiKeyType
   workspaceId?: string
   error?: string
 }
@@ -70,10 +73,11 @@ export async function authenticateApiKeyFromHeader(
       conditions.push(eq(apiKeyTable.workspaceId, options.workspaceId))
     }
 
-    if (options.keyTypes?.length === 1) {
-      conditions.push(eq(apiKeyTable.type, options.keyTypes[0]))
-    } else if (options.keyTypes?.length) {
-      conditions.push(inArray(apiKeyTable.type, options.keyTypes))
+    const keyTypes = options.keyTypes?.length ? options.keyTypes : DEFAULT_API_KEY_AUTH_TYPES
+    if (keyTypes.length === 1) {
+      conditions.push(eq(apiKeyTable.type, keyTypes[0]))
+    } else {
+      conditions.push(inArray(apiKeyTable.type, keyTypes))
     }
 
     const query = db
@@ -103,7 +107,7 @@ export async function authenticateApiKeyFromHeader(
         success: true,
         userId: storedKey.userId,
         keyId: storedKey.id,
-        keyType: storedKey.type as 'personal' | 'workspace',
+        keyType: storedKey.type as ApiKeyType,
         workspaceId: storedKey.workspaceId || undefined,
       }
     }

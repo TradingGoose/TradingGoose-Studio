@@ -97,9 +97,9 @@ async function authenticateCopilotMcpRequest(
     return { error: 'Bearer token required' }
   }
 
-  const auth = await authenticateApiKeyFromHeader(token, { keyTypes: ['personal'] })
+  const auth = await authenticateApiKeyFromHeader(token, { keyTypes: ['mcp'] })
   if (!auth.success || !auth.userId) {
-    return { error: 'Invalid TradingGoose personal API key' }
+    return { error: 'Invalid TradingGoose MCP token' }
   }
 
   if (auth.keyId) {
@@ -122,7 +122,7 @@ async function buildInstructions(userId: string) {
   return [
     'TradingGoose Copilot MCP exposes server-side Copilot tools for trusted personal coding agents, including direct mutation tools.',
     'Local MCP config stores only this user auth token. Do not store workspaceId, entityId, or entity targets in the local MCP config.',
-    'Use tools/list as the source of truth for each tool input schema; target identifiers are tool-specific and come from list/read tool results. Mutating tools execute directly for the authenticated personal API key; Studio review tokens are not part of the external MCP protocol. Credential, OAuth, and environment reads require scope="personal" for the authenticated user or scope="workspace" with workspaceId. Workspace-scoped tools, including list/create, Google Drive, and workspace account reads, require workspaceId. Environment writes use the same personal/workspace scope rule.',
+    'Use tools/list as the source of truth for each tool input schema; target identifiers are tool-specific and come from list/read tool results. Mutating tools execute directly for the authenticated MCP key; Studio review tokens are not part of the external MCP protocol. Credential, OAuth, and environment reads require scope="personal" for the authenticated user or scope="workspace" with workspaceId. Workspace-scoped tools, including list/create, Google Drive, and workspace account reads, require workspaceId. Environment writes use the same personal/workspace scope rule.',
     'MCP server documents redact header/env secret values as [redacted]. Keep [redacted] to preserve an existing secret, send a concrete value to replace it, or omit the key to delete it.',
     'Accessible workspaces for the authenticated user:',
     ...workspaceLines,
