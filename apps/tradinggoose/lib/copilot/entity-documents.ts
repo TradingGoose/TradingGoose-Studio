@@ -163,6 +163,14 @@ export function normalizeEntityFields(
       }
     }
     case 'mcp_server': {
+      if (
+        source.transport !== 'http' &&
+        source.transport !== 'sse' &&
+        source.transport !== 'streamable-http'
+      ) {
+        throw new Error(`Invalid MCP server transport "${String(source.transport ?? '')}"`)
+      }
+
       const rawUrl = typeof source.url === 'string' ? source.url.trim() : ''
       const validation = validateMcpServerUrl(rawUrl)
       if (!validation.isValid) {
@@ -172,12 +180,7 @@ export function normalizeEntityFields(
       return {
         name: typeof source.name === 'string' ? source.name.trim() : '',
         description: typeof source.description === 'string' ? source.description.trim() : '',
-        transport:
-          source.transport === 'http' ||
-          source.transport === 'sse' ||
-          source.transport === 'streamable-http'
-            ? source.transport
-            : 'http',
+        transport: source.transport,
         url: validation.normalizedUrl ?? rawUrl,
         headers: normalizeHttpHeaderRecord(source.headers),
         command: typeof source.command === 'string' ? source.command.trim() : '',

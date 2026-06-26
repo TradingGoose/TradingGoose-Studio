@@ -1,12 +1,11 @@
 import { db } from '@tradinggoose/db'
 import { mcpServers } from '@tradinggoose/db/schema'
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
+import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getParsedBody, withMcpAuth } from '@/lib/mcp/middleware'
 import { mcpService } from '@/lib/mcp/service'
-import type { McpTransport } from '@/lib/mcp/types'
-import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { CreateMcpServerSchema } from './schema'
@@ -16,13 +15,6 @@ const logger = createLogger('McpServersAPI')
 export const dynamic = 'force-dynamic'
 
 /**
- * Check if transport type requires a URL
- */
-function isUrlBasedTransport(transport: McpTransport): boolean {
-  return transport === 'http' || transport === 'sse' || transport === 'streamable-http'
-}
-
-/**
  * GET - List all registered MCP servers for the workspace
  */
 export const GET = withMcpAuth('read')(
@@ -30,10 +22,7 @@ export const GET = withMcpAuth('read')(
     try {
       logger.info(`[${requestId}] Listing MCP servers for workspace ${workspaceId}`)
 
-      const servers = await db
-        .select()
-        .from(mcpServers)
-        .where(and(eq(mcpServers.workspaceId, workspaceId), isNull(mcpServers.deletedAt)))
+      const servers = await mcpService.listWorkspaceServers(workspaceId)
 
       logger.info(
         `[${requestId}] Listed ${servers.length} MCP servers for workspace ${workspaceId}`
@@ -75,53 +64,49 @@ export const POST = withMcpAuth('write')(
         workspaceId,
       })
 
-      if (isUrlBasedTransport(body.transport as McpTransport)) {
-        const urlValidation = validateMcpServerUrl(body.url ?? '')
-        if (!urlValidation.isValid) {
-          return createMcpErrorResponse(
-            new Error(`Invalid MCP server URL: ${urlValidation.error}`),
-            'Invalid server URL',
-            400
-          )
-        }
-        body.url = urlValidation.normalizedUrl
+      let fields: Record<string, unknown>
+      try {
+        fields = normalizeEntityFields('mcp_server', body)
+      } catch (error) {
+        return createMcpErrorResponse(
+          error instanceof Error ? error : new Error('Invalid MCP server fields'),
+          'Invalid MCP server fields',
+          400
+        )
       }
 
       const serverId = crypto.randomUUID()
 
-      const [server] = await db
-        .insert(mcpServers)
-        .values({
-          id: serverId,
-          workspaceId,
-          createdBy: userId,
-          name: body.name,
-          description: body.description ?? null,
-          transport: body.transport,
-          url: body.url ?? null,
-          headers: body.headers || {},
-          command: body.command ?? null,
-          args: body.args ?? [],
-          env: body.env ?? {},
-          timeout: body.timeout || 30000,
-          retries: body.retries || 3,
-          enabled: body.enabled !== false,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .returning()
+      await db.insert(mcpServers).values({
+        id: serverId,
+        workspaceId,
+        createdBy: userId,
+        name: String(fields.name ?? ''),
+        description: String(fields.description ?? '') || null,
+        transport: String(fields.transport ?? ''),
+        url: String(fields.url ?? '') || null,
+        headers: fields.headers,
+        command: String(fields.command ?? '') || null,
+        args: Array.isArray(fields.args) ? fields.args.map(String) : [],
+        env: fields.env,
+        timeout: Number(fields.timeout ?? 30000),
+        retries: Number(fields.retries ?? 3),
+        enabled: fields.enabled !== false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
 
       mcpService.clearCache(workspaceId)
 
-      logger.info(`[${requestId}] Successfully registered MCP server: ${body.name}`)
+      logger.info(`[${requestId}] Successfully registered MCP server: ${fields.name}`)
 
       // Track MCP server registration
       try {
         const { trackPlatformEvent } = await import('@/lib/telemetry/tracer')
         trackPlatformEvent('platform.mcp.server_added', {
           'mcp.server_id': serverId,
-          'mcp.server_name': body.name,
-          'mcp.transport': body.transport,
+          'mcp.server_name': String(fields.name ?? ''),
+          'mcp.transport': String(fields.transport ?? ''),
           'workspace.id': workspaceId,
         })
       } catch (_e) {

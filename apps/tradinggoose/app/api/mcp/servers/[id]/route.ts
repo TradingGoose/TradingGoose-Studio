@@ -5,7 +5,6 @@ import type { NextRequest } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getParsedBody, withMcpAuth } from '@/lib/mcp/middleware'
 import { mcpService } from '@/lib/mcp/service'
-import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
@@ -47,24 +46,6 @@ export const PATCH = withMcpAuth('write')(
         userId,
         updates: Object.keys(body).filter((k) => k !== 'workspaceId'),
       })
-
-      // Validate URL if being updated
-      if (
-        body.url &&
-        (body.transport === 'http' ||
-          body.transport === 'sse' ||
-          body.transport === 'streamable-http')
-      ) {
-        const urlValidation = validateMcpServerUrl(body.url)
-        if (!urlValidation.isValid) {
-          return createMcpErrorResponse(
-            new Error(`Invalid MCP server URL: ${urlValidation.error}`),
-            'Invalid server URL',
-            400
-          )
-        }
-        body.url = urlValidation.normalizedUrl
-      }
 
       const [existingServer] = await db
         .select()

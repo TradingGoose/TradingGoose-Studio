@@ -4,7 +4,8 @@
 
 import { db } from '@tradinggoose/db'
 import { mcpServers } from '@tradinggoose/db/schema'
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, eq, type InferSelectModel, isNull } from 'drizzle-orm'
+import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
 import { isTest } from '@/lib/environment'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -19,8 +20,10 @@ import type {
 } from '@/lib/mcp/types'
 import { MCP_CONSTANTS } from '@/lib/mcp/utils'
 import { generateRequestId } from '@/lib/utils'
+import { readBootstrappedSavedEntityFields } from '@/lib/yjs/server/bootstrap-review-target'
 
 const logger = createLogger('McpService')
+type McpServerRow = InferSelectModel<typeof mcpServers>
 
 interface ToolCache {
   tools: McpTool[]
@@ -236,9 +239,60 @@ class McpService {
     }
   }
 
-  /**
-   * Get server configuration from database
-   */
+  private async getWorkspaceServerRows(workspaceId: string): Promise<McpServerRow[]> {
+    return db
+      .select()
+      .from(mcpServers)
+      .where(and(eq(mcpServers.workspaceId, workspaceId), isNull(mcpServers.deletedAt)))
+  }
+
+  private async readServerFields(server: McpServerRow): Promise<Record<string, unknown>> {
+    return normalizeEntityFields(
+      'mcp_server',
+      await readBootstrappedSavedEntityFields('mcp_server', server.id, server.workspaceId)
+    )
+  }
+
+  private toServerConfig(server: McpServerRow, fields: Record<string, unknown>): McpServerConfig {
+    return {
+      id: server.id,
+      name: String(fields.name ?? ''),
+      description: String(fields.description ?? '') || undefined,
+      transport: fields.transport as McpTransport,
+      url: String(fields.url ?? '') || undefined,
+      headers: fields.headers as Record<string, string>,
+      timeout: Number(fields.timeout ?? 30000),
+      retries: Number(fields.retries ?? 3),
+      enabled: fields.enabled !== false,
+      createdAt: server.createdAt.toISOString(),
+      updatedAt: server.updatedAt.toISOString(),
+    }
+  }
+
+  async listWorkspaceServers(workspaceId: string): Promise<McpServerRow[]> {
+    const servers = await this.getWorkspaceServerRows(workspaceId)
+
+    return Promise.all(
+      servers.map(async (server) => {
+        const fields = await this.readServerFields(server)
+        return {
+          ...server,
+          name: String(fields.name ?? ''),
+          description: String(fields.description ?? '') || null,
+          transport: String(fields.transport ?? ''),
+          url: String(fields.url ?? '') || null,
+          headers: fields.headers,
+          command: String(fields.command ?? '') || null,
+          args: Array.isArray(fields.args) ? fields.args.map(String) : [],
+          env: fields.env,
+          timeout: Number(fields.timeout ?? 30000),
+          retries: Number(fields.retries ?? 3),
+          enabled: fields.enabled !== false,
+        }
+      })
+    )
+  }
+
   private async getServerConfig(
     serverId: string,
     workspaceId: string
@@ -259,51 +313,20 @@ class McpService {
       return null
     }
 
-    if (!server.enabled) {
-      return null
-    }
-
-    return {
-      id: server.id,
-      name: server.name,
-      description: server.description || undefined,
-      transport: server.transport as 'http' | 'sse',
-      url: server.url || undefined,
-      headers: (server.headers as Record<string, string>) || {},
-      timeout: server.timeout || 30000,
-      retries: server.retries || 3,
-      enabled: server.enabled,
-      createdAt: server.createdAt.toISOString(),
-      updatedAt: server.updatedAt.toISOString(),
-    }
+    const fields = await this.readServerFields(server)
+    return fields.enabled === false ? null : this.toServerConfig(server, fields)
   }
 
-  /**
-   * Get all enabled servers for a workspace
-   */
   private async getWorkspaceServers(workspaceId: string): Promise<McpServerConfig[]> {
-    const whereConditions = [eq(mcpServers.workspaceId, workspaceId), isNull(mcpServers.deletedAt)]
+    const servers = await this.getWorkspaceServerRows(workspaceId)
+    const configs = await Promise.all(
+      servers.map(async (server) => {
+        const fields = await this.readServerFields(server)
+        return fields.enabled === false ? null : this.toServerConfig(server, fields)
+      })
+    )
 
-    const servers = await db
-      .select()
-      .from(mcpServers)
-      .where(and(...whereConditions))
-
-    return servers
-      .filter((server) => server.enabled)
-      .map((server) => ({
-        id: server.id,
-        name: server.name,
-        description: server.description || undefined,
-        transport: server.transport as McpTransport,
-        url: server.url || undefined,
-        headers: (server.headers as Record<string, string>) || {},
-        timeout: server.timeout || 30000,
-        retries: server.retries || 3,
-        enabled: server.enabled,
-        createdAt: server.createdAt.toISOString(),
-        updatedAt: server.updatedAt.toISOString(),
-      }))
+    return configs.filter((config): config is McpServerConfig => config !== null)
   }
 
   /**
