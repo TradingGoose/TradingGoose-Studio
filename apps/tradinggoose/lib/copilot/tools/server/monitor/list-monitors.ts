@@ -1,8 +1,11 @@
-import { listMonitorRows, toMonitorRecord } from '@/app/api/monitors/shared'
-import { buildMonitorListEntry, type MonitorRecord } from '@/lib/copilot/tools/server/monitor/shared'
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
+import {
+  buildMonitorListEntry,
+  type MonitorRecord,
+} from '@/lib/copilot/tools/server/monitor/shared'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
+import { listMonitorRows, toMonitorRecord } from '@/app/api/monitors/shared'
 
 type ListMonitorsArgs = {
   workspaceId: string
@@ -30,7 +33,9 @@ export const listMonitorsServerTool: BaseServerTool<ListMonitorsArgs> = {
       workflowId: args.entityId,
       blockId: args.blockId,
     })
-    const monitors = (await Promise.all(rows.map((row) => toMonitorRecord(row.webhook)))) as MonitorRecord[]
+    const monitors = (await Promise.all(
+      rows.map((row) => toMonitorRecord(row.webhook))
+    )) as MonitorRecord[]
     const monitorEntries = monitors.map(buildMonitorListEntry)
 
     return {

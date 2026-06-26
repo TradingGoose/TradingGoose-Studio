@@ -155,8 +155,7 @@ export async function loadWorkflowTargetOptions(
 
           const resolvedBlockId = toTrimmed(data?.id) || blockId
           const workflowName = toTrimmed(workflowRow?.name) || fallbackCopy.workflowName
-          const blockName =
-            toTrimmed(data?.name) || fallbackCopy.triggerBlockNames[data.type]
+          const blockName = toTrimmed(data?.name) || fallbackCopy.triggerBlockNames[data.type]
           const source = getMonitorProviderForTriggerId(data.type)
           return {
             source,

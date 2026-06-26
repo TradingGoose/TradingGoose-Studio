@@ -1,10 +1,10 @@
-import { getMonitorRowById, toMonitorRecord } from '@/app/api/monitors/shared'
+import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import {
   buildMonitorDocumentEnvelope,
   type MonitorRecord,
 } from '@/lib/copilot/tools/server/monitor/shared'
-import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
+import { getMonitorRowById, toMonitorRecord } from '@/app/api/monitors/shared'
 
 type ReadMonitorArgs = {
   monitorId: string
