@@ -279,10 +279,8 @@ async function getBootstrappedApplyDocument(
 }
 
 /**
- * Applies a programmatic mutation to a live Yjs apply-document durably: the change
- * is staged on a detached copy and persisted FIRST, so the live session never
- * broadcasts state that is not in the database. Only after the write succeeds is
- * the same mutation reflected into the live document for connected clients.
+ * Applies a server-authored mutation durably: the change is staged on a detached
+ * copy and persisted before it is reflected into the live collaborative document.
  */
 async function applyThroughStaging(
   doc: Y.Doc,
@@ -420,6 +418,8 @@ async function handleInternalYjsSessionApplyUpdateRequest(
     const doc = await getBootstrappedApplyDocument(descriptor)
 
     try {
+      // Client explicit-save flush: merge the user's collaborative draft first,
+      // then materialize it. Persistence failure keeps the draft for correction.
       Y.applyUpdate(doc, Buffer.from(updateBase64, 'base64'), YJS_ORIGINS.SAVE)
       clearSessionReseededFromCanonical(doc)
       if (descriptor.entityKind !== 'workflow' && descriptor.entityId) {
