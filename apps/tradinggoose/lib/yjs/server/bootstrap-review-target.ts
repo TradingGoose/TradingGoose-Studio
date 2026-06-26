@@ -92,6 +92,7 @@ export async function createSavedReviewTargetBootstrapUpdate(
     let workflowName: string | null | undefined
     let workflowDescription: string | null | undefined
     let workflowFolderId: string | null | undefined
+    let resolvedWorkspaceId: string | null = descriptor.workspaceId
     if (descriptor.entityKind === 'workflow') {
       const workflowState = await loadWorkflowBootstrapStateFromDb(descriptor.entityId)
       if (!workflowState) {
@@ -121,6 +122,7 @@ export async function createSavedReviewTargetBootstrapUpdate(
       if (!workspaceId) {
         throw new ReviewTargetBootstrapError(404, 'Saved entity workspace is missing')
       }
+      resolvedWorkspaceId = workspaceId
 
       seedEntitySession(doc, {
         entityKind,
@@ -132,7 +134,7 @@ export async function createSavedReviewTargetBootstrapUpdate(
     metadata.set('bootstrap-touch', Date.now())
     metadata.set('entityKind', descriptor.entityKind)
     metadata.set('entityId', descriptor.entityId)
-    metadata.set('workspaceId', descriptor.workspaceId)
+    metadata.set('workspaceId', resolvedWorkspaceId)
     metadata.set('draftSessionId', descriptor.draftSessionId)
     metadata.set('reviewSessionId', descriptor.reviewSessionId)
     metadata.set('reseededFromCanonical', true)

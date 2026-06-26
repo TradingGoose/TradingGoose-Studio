@@ -74,15 +74,22 @@ vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
-  createSavedReviewTargetBootstrapUpdate: vi.fn(async (descriptor) => ({
-    descriptor,
-    runtime: {
-      docState: 'active',
-      replaySafe: false,
-      reseededFromCanonical: true,
-    },
-    state: new Uint8Array([0, 0]),
-  })),
+  createSavedReviewTargetBootstrapUpdate: vi.fn(async (descriptor) => {
+    const Y = await import('yjs')
+    const doc = new Y.Doc()
+    doc.getMap('metadata').set('workspaceId', descriptor.workspaceId ?? 'workspace-1')
+    const state = Y.encodeStateAsUpdate(doc)
+    doc.destroy()
+    return {
+      descriptor,
+      runtime: {
+        docState: 'active',
+        replaySafe: false,
+        reseededFromCanonical: true,
+      },
+      state,
+    }
+  }),
   getRuntimeStateFromDoc: vi.fn(() => ({
     docState: 'active',
     replaySafe: false,

@@ -28,14 +28,15 @@ vi.mock('@tradinggoose/db', () => ({
 }))
 
 vi.mock('@tradinggoose/db/schema', () => ({
-  customTools: { id: 'customTools.id' },
-  knowledgeBase: { id: 'knowledgeBase.id' },
-  mcpServers: { id: 'mcpServers.id' },
-  pineIndicators: { id: 'pineIndicators.id' },
-  skill: { id: 'skill.id' },
+  customTools: { id: 'customTools.id', workspaceId: 'customTools.workspaceId' },
+  knowledgeBase: { id: 'knowledgeBase.id', workspaceId: 'knowledgeBase.workspaceId' },
+  mcpServers: { id: 'mcpServers.id', workspaceId: 'mcpServers.workspaceId' },
+  pineIndicators: { id: 'pineIndicators.id', workspaceId: 'pineIndicators.workspaceId' },
+  skill: { id: 'skill.id', workspaceId: 'skill.workspaceId' },
 }))
 
 vi.mock('drizzle-orm', () => ({
+  and: vi.fn((...conditions) => ({ and: conditions })),
   eq: vi.fn((field, value) => ({ field, value })),
 }))
 
@@ -51,10 +52,13 @@ vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   applyEntityStateInSocketServer: mockApplyEntityStateInSocketServer,
 }))
 
-function buildDoc(fields: Record<string, unknown>) {
+function buildDoc(fields: Record<string, unknown>, workspaceId: string | null = 'workspace-1') {
   const doc = new Y.Doc()
   const map = doc.getMap('fields')
   for (const [key, value] of Object.entries(fields)) map.set(key, value)
+  if (workspaceId !== null) {
+    doc.getMap('metadata').set('workspaceId', workspaceId)
+  }
   return doc
 }
 
@@ -112,7 +116,28 @@ describe('applySavedEntityState', () => {
       content: 'Use the Yjs document.',
       updatedAt: expect.any(Date),
     })
+    expect(mockUpdateWhere).toHaveBeenCalledWith({
+      and: [
+        { field: 'skill.id', value: 'skill-1' },
+        { field: 'skill.workspaceId', value: 'workspace-1' },
+      ],
+    })
     expect(events).toEqual(['db'])
+  })
+
+  it('refuses to materialize when the Yjs document carries no workspace identity', async () => {
+    const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
+    const doc = buildDoc({ name: 'Yjs Skill', description: '', content: '' }, null)
+
+    try {
+      await expect(saveSavedEntityYjsDocToDb('skill', 'skill-1', doc)).rejects.toMatchObject({
+        status: 404,
+      })
+    } finally {
+      doc.destroy()
+    }
+
+    expect(mockDbUpdate).not.toHaveBeenCalled()
   })
 
   it('throws when document materialization cannot find the saved entity row', async () => {

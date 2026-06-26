@@ -6,7 +6,9 @@
  *
  * Top-level collections:
  *   - "fields"   (Y.Map) — entity-kind-specific field values
- *   - "metadata"  (Y.Map) — session-level metadata (bootstrap-touch, etc.)
+ *   - "metadata"  (Y.Map) — session-level metadata: the resolved `workspaceId`
+ *                            that owns the entity (its canonical persistence
+ *                            scope), plus bootstrap-touch and identity markers.
  *
  * Entity-kind adapters:
  *   - skill:        name, description, content
@@ -32,6 +34,18 @@ export function getFieldsMap(doc: Y.Doc): Y.Map<any> {
 
 export function getEntityMetadataMap(doc: Y.Doc): Y.Map<any> {
   return doc.getMap('metadata')
+}
+
+/**
+ * Metadata key carrying the workspace that owns the entity. Resolved once when
+ * the entity doc is bootstrapped and used as the authoritative scope when
+ * materializing the doc back to its canonical DB row.
+ */
+export const ENTITY_METADATA_WORKSPACE_ID_KEY = 'workspaceId'
+
+export function getEntityWorkspaceId(doc: Y.Doc): string | null {
+  const value = getEntityMetadataMap(doc).get(ENTITY_METADATA_WORKSPACE_ID_KEY)
+  return typeof value === 'string' && value.length > 0 ? value : null
 }
 
 // ---------------------------------------------------------------------------

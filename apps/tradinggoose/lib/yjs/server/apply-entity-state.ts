@@ -6,11 +6,11 @@ import {
   pineIndicators,
   skill,
 } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import type * as Y from 'yjs'
 import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
-import { getEntityFields } from '@/lib/yjs/entity-session'
+import { getEntityFields, getEntityWorkspaceId } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { applyEntityStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
@@ -74,7 +74,8 @@ function normalizeSavedEntityFields(
 async function persistSavedEntityState(
   entityKind: SavedEntityKind,
   entityId: string,
-  fields: Record<string, unknown>
+  fields: Record<string, unknown>,
+  workspaceId: string
 ): Promise<void> {
   const now = new Date()
   let persisted: Array<{ id: string }>
@@ -91,7 +92,7 @@ async function persistSavedEntityState(
             content: String(fields.content ?? ''),
             updatedAt: now,
           })
-          .where(eq(skill.id, entityId))
+          .where(and(eq(skill.id, entityId), eq(skill.workspaceId, workspaceId)))
           .returning({ id: skill.id }),
         `A skill with the name "${name}" already exists in this workspace`
       )
@@ -108,7 +109,7 @@ async function persistSavedEntityState(
             code: String(fields.codeText ?? ''),
             updatedAt: now,
           })
-          .where(eq(customTools.id, entityId))
+          .where(and(eq(customTools.id, entityId), eq(customTools.workspaceId, workspaceId)))
           .returning({ id: customTools.id }),
         `A tool with the title "${title}" already exists in this workspace`
       )
@@ -124,7 +125,7 @@ async function persistSavedEntityState(
           inputMeta: objectField(fields.inputMeta),
           updatedAt: now,
         })
-        .where(eq(pineIndicators.id, entityId))
+        .where(and(eq(pineIndicators.id, entityId), eq(pineIndicators.workspaceId, workspaceId)))
         .returning({ id: pineIndicators.id })
       break
     case 'knowledge_base':
@@ -136,7 +137,7 @@ async function persistSavedEntityState(
           chunkingConfig: fields.chunkingConfig,
           updatedAt: now,
         })
-        .where(eq(knowledgeBase.id, entityId))
+        .where(and(eq(knowledgeBase.id, entityId), eq(knowledgeBase.workspaceId, workspaceId)))
         .returning({ id: knowledgeBase.id })
       break
     case 'mcp_server':
@@ -156,7 +157,7 @@ async function persistSavedEntityState(
           enabled: fields.enabled !== false,
           updatedAt: now,
         })
-        .where(eq(mcpServers.id, entityId))
+        .where(and(eq(mcpServers.id, entityId), eq(mcpServers.workspaceId, workspaceId)))
         .returning({ id: mcpServers.id })
       break
   }
@@ -199,5 +200,12 @@ export async function saveSavedEntityYjsDocToDb(
   doc: Y.Doc
 ): Promise<void> {
   const yjsFields = normalizeSavedEntityFields(entityKind, getEntityFields(doc, entityKind))
-  await persistSavedEntityState(entityKind, entityId, yjsFields)
+  const workspaceId = getEntityWorkspaceId(doc)
+  if (!workspaceId) {
+    throw new SavedEntityPersistenceError(
+      404,
+      `Saved ${entityKind} ${entityId} workspace is missing while materializing Yjs state`
+    )
+  }
+  await persistSavedEntityState(entityKind, entityId, yjsFields, workspaceId)
 }
