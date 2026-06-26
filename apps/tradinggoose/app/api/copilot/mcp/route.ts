@@ -110,7 +110,7 @@ async function authenticateCopilotMcpRequest(
 }
 
 async function buildInstructions(userId: string) {
-  const workspaces = await getUserWorkspaces({ userId, autoCreate: false })
+  const workspaces = await getUserWorkspaces({ userId })
   const workspaceLines =
     workspaces.length > 0
       ? workspaces.map(
