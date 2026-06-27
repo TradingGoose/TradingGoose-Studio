@@ -88,23 +88,25 @@ export async function readBootstrappedSavedEntityListFields(
   workspaceId: string
 ): Promise<Array<EntityListMember & { fields: Record<string, unknown> }>> {
   const members = await readBootstrappedEntityListMembers(entityKind, workspaceId)
-  const entries: Array<EntityListMember & { fields: Record<string, unknown> }> = []
-
-  for (const member of members) {
-    try {
-      entries.push({
-        ...member,
-        fields: await readBootstrappedSavedEntityFields(entityKind, member.entityId, workspaceId),
-      })
-    } catch (error) {
-      if (error instanceof ReviewTargetBootstrapError && error.status === 404) {
-        continue
+  const entries = await Promise.all(
+    members.map(async (member) => {
+      try {
+        return {
+          ...member,
+          fields: await readBootstrappedSavedEntityFields(entityKind, member.entityId, workspaceId),
+        }
+      } catch (error) {
+        if (error instanceof ReviewTargetBootstrapError && error.status === 404) {
+          return null
+        }
+        throw error
       }
-      throw error
-    }
-  }
+    })
+  )
 
-  return entries
+  return entries.filter(
+    (entry): entry is EntityListMember & { fields: Record<string, unknown> } => entry !== null
+  )
 }
 
 export async function readBootstrappedSavedEntityFields(
