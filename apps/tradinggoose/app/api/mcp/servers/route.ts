@@ -33,6 +33,8 @@ export const GET = withMcpAuth('read')(
           await db
             .select({
               id: mcpServers.id,
+              name: mcpServers.name,
+              enabled: mcpServers.enabled,
               connectionStatus: mcpServers.connectionStatus,
               lastError: mcpServers.lastError,
               toolCount: mcpServers.toolCount,
@@ -43,22 +45,22 @@ export const GET = withMcpAuth('read')(
             .where(and(eq(mcpServers.workspaceId, workspaceId), isNull(mcpServers.deletedAt)))
         ).map((row) => [row.id, row])
       )
-      const servers = listMembers.map((server) => {
+      const servers = listMembers.flatMap((server) => {
         const status = statusById.get(server.entityId)
+        if (!status) {
+          return []
+        }
+
         return {
           id: server.entityId,
-          name: server.entityName,
-          enabled: server.enabled !== false,
+          name: status.name,
+          enabled: status.enabled !== false,
           workspaceId,
-          ...(status
-            ? {
-                connectionStatus: status.connectionStatus,
-                lastError: status.lastError,
-                toolCount: status.toolCount,
-                lastConnected: status.lastConnected?.toISOString(),
-                lastToolsRefresh: status.lastToolsRefresh?.toISOString(),
-              }
-            : {}),
+          connectionStatus: status.connectionStatus,
+          lastError: status.lastError,
+          toolCount: status.toolCount,
+          lastConnected: status.lastConnected?.toISOString(),
+          lastToolsRefresh: status.lastToolsRefresh?.toISOString(),
         }
       })
 
@@ -191,13 +193,18 @@ export const DELETE = withMcpAuth('write')(
 
       logger.info(`[${requestId}] Deleting MCP server: ${serverId} from workspace: ${workspaceId}`)
 
-      const [existingServer] = await db
-        .select({ id: mcpServers.id })
-        .from(mcpServers)
-        .where(and(eq(mcpServers.id, serverId), eq(mcpServers.workspaceId, workspaceId)))
-        .limit(1)
+      const [deletedServer] = await db
+        .delete(mcpServers)
+        .where(
+          and(
+            eq(mcpServers.id, serverId),
+            eq(mcpServers.workspaceId, workspaceId),
+            isNull(mcpServers.deletedAt)
+          )
+        )
+        .returning({ id: mcpServers.id })
 
-      if (!existingServer) {
+      if (!deletedServer) {
         return createMcpErrorResponse(
           new Error('Server not found or access denied'),
           'Server not found',
@@ -205,17 +212,23 @@ export const DELETE = withMcpAuth('write')(
         )
       }
 
-      await deleteYjsSessionInSocketServer(existingServer.id)
-      await notifyEntityListMemberRemoved('mcp_server', workspaceId, existingServer.id)
-      await db
-        .delete(mcpServers)
-        .where(and(eq(mcpServers.id, existingServer.id), eq(mcpServers.workspaceId, workspaceId)))
+      const cleanupResults = await Promise.allSettled([
+        deleteYjsSessionInSocketServer(deletedServer.id),
+        notifyEntityListMemberRemoved('mcp_server', workspaceId, deletedServer.id),
+      ])
+      const cleanupFailure = cleanupResults.find((result) => result.status === 'rejected')
+      if (cleanupFailure) {
+        logger.warn(`[${requestId}] Deleted MCP server but failed realtime cleanup`, {
+          error: cleanupFailure.reason,
+          serverId: deletedServer.id,
+        })
+      }
 
       mcpService.clearCache(workspaceId)
 
-      logger.info(`[${requestId}] Successfully deleted MCP server: ${existingServer.id}`)
+      logger.info(`[${requestId}] Successfully deleted MCP server: ${deletedServer.id}`)
       return createMcpSuccessResponse({
-        message: `Server ${existingServer.id} deleted successfully`,
+        message: `Server ${deletedServer.id} deleted successfully`,
       })
     } catch (error) {
       logger.error(`[${requestId}] Error deleting MCP server:`, error)

@@ -1,3 +1,6 @@
+import { db } from '@tradinggoose/db'
+import { mcpServers } from '@tradinggoose/db/schema'
+import { and, eq, isNull } from 'drizzle-orm'
 import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
 import { isTest } from '@/lib/environment'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
@@ -263,6 +266,21 @@ class McpService {
     workspaceId: string
   ): Promise<McpServerConfig | null> {
     try {
+      const [server] = await db
+        .select({ id: mcpServers.id })
+        .from(mcpServers)
+        .where(
+          and(
+            eq(mcpServers.id, serverId),
+            eq(mcpServers.workspaceId, workspaceId),
+            isNull(mcpServers.deletedAt)
+          )
+        )
+        .limit(1)
+      if (!server) {
+        return null
+      }
+
       const fields = normalizeEntityFields(
         'mcp_server',
         await readBootstrappedSavedEntityFields('mcp_server', serverId, workspaceId)
@@ -277,8 +295,19 @@ class McpService {
   }
 
   private async getWorkspaceServers(workspaceId: string): Promise<McpServerConfig[]> {
+    const activeServerIds = new Set(
+      (
+        await db
+          .select({ id: mcpServers.id })
+          .from(mcpServers)
+          .where(and(eq(mcpServers.workspaceId, workspaceId), isNull(mcpServers.deletedAt)))
+      ).map((server) => server.id)
+    )
     const servers = await readBootstrappedSavedEntityListFields('mcp_server', workspaceId)
     return servers.flatMap((server) => {
+      if (!activeServerIds.has(server.entityId)) {
+        return []
+      }
       const normalized = normalizeEntityFields('mcp_server', server.fields)
       return normalized.enabled === false ? [] : [this.toServerConfig(server.entityId, normalized)]
     })

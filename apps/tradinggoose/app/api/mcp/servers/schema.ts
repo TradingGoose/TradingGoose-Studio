@@ -16,8 +16,7 @@ const McpServerBaseSchema = z.object({
 
 export const CreateMcpServerSchema = McpServerBaseSchema
 
-export const UpdateMcpServerSchema = McpServerBaseSchema.partial().extend({
-  description: z.string().optional().nullable(),
-  command: z.string().optional().nullable(),
+export const RenameMcpServerSchema = z.object({
+  name: z.string().trim().min(1),
   workspaceId: z.string().optional(),
 })
