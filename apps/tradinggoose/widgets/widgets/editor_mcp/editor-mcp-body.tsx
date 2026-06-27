@@ -280,8 +280,12 @@ export function EditorMcpWidgetBody({
     if (!workspaceId || !selectedServerId) return
 
     try {
-      await refreshServerApi(selectedServerId, workspaceId, copy.failedToRefreshMcpServer)
-      await refreshServer(workspaceId, selectedServerId)
+      const refreshResult = await refreshServerApi(
+        selectedServerId,
+        workspaceId,
+        copy.failedToRefreshMcpServer
+      )
+      await refreshServer(workspaceId, selectedServerId, refreshResult?.data)
       await refreshTools(true)
       await fetchServers(workspaceId)
     } catch (refreshError) {

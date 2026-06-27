@@ -58,7 +58,16 @@ export interface McpServersActions {
     updates: Partial<McpServerWithStatus>
   ) => Promise<McpServerWithStatus | null>
   deleteServer: (workspaceId: string, id: string) => Promise<void>
-  refreshServer: (workspaceId: string, id: string) => Promise<void>
+  refreshServer: (
+    workspaceId: string,
+    id: string,
+    result?: {
+      status?: McpServerWithStatus['connectionStatus']
+      toolCount?: number
+      lastConnected?: string | null
+      error?: string | null
+    }
+  ) => Promise<void>
 }
 
 export const initialState: McpServersState = {

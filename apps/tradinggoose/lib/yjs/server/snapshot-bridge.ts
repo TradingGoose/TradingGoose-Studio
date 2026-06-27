@@ -188,7 +188,7 @@ export async function notifyEntityListMembersAdded(
       name: member.name,
       ...(typeof member.enabled === 'boolean' ? { enabled: member.enabled } : {}),
     }))
-  ).catch(() => undefined)
+  )
 }
 
 export async function notifyEntityListMemberRemoved(
@@ -199,7 +199,7 @@ export async function notifyEntityListMemberRemoved(
   await applyEntityListUpdateInSocketServer(entityKind, workspaceId, {
     op: 'remove',
     entityId,
-  }).catch(() => undefined)
+  })
 }
 
 export async function deleteYjsSessionInSocketServer(sessionId: string): Promise<void> {

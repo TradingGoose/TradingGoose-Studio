@@ -174,7 +174,7 @@ export const useMcpServersStore = create<McpServersState & McpServersActions>()(
         }
       },
 
-      refreshServer: async (workspaceId: string, id: string) => {
+      refreshServer: async (workspaceId: string, id: string, result) => {
         const refreshedAt = new Date().toISOString()
 
         set((state) => ({
@@ -183,6 +183,10 @@ export const useMcpServersStore = create<McpServersState & McpServersActions>()(
               ? {
                   ...server,
                   lastToolsRefresh: refreshedAt,
+                  ...(result?.status ? { connectionStatus: result.status } : {}),
+                  ...(typeof result?.toolCount === 'number' ? { toolCount: result.toolCount } : {}),
+                  ...(result?.lastConnected ? { lastConnected: result.lastConnected } : {}),
+                  ...(result ? { lastError: result.error || undefined } : {}),
                 }
               : server
           ),

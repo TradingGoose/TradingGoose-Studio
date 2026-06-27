@@ -50,7 +50,7 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
   const serversFingerprint = useMemo(() => {
     return servers
       .filter((s) => !s.deletedAt)
-      .map((s) => s.id)
+      .map((s) => `${s.id}:${s.enabled !== false ? '1' : '0'}`)
       .sort()
       .join('|')
   }, [servers])
@@ -145,7 +145,7 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
     }
 
     logger.info('Active servers changed, refreshing MCP tools', {
-      serverCount: servers.filter((s) => !s.deletedAt).length,
+      serverCount: servers.filter((s) => !s.deletedAt && s.enabled !== false).length,
       fingerprint: serversFingerprint,
     })
 

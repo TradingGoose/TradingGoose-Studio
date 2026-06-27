@@ -1,5 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { mcpServers } from '@tradinggoose/db/schema'
+import { eq } from 'drizzle-orm'
 import {
   ENTITY_SECRET_PLACEHOLDER,
   normalizeEntityFields,
@@ -127,10 +128,15 @@ async function createMcpServerEntity(
   }
 
   const savedFields = savedEntityRowToFields(ENTITY_KIND_MCP_SERVER, row)
+  try {
+    await notifyEntityListMembersAdded('mcp_server', workspaceId, [
+      { id: entityId, name: String(normalized.name ?? ''), enabled: normalized.enabled !== false },
+    ])
+  } catch (error) {
+    await db.delete(mcpServers).where(eq(mcpServers.id, entityId))
+    throw error
+  }
   mcpService.clearCache(workspaceId)
-  await notifyEntityListMembersAdded('mcp_server', workspaceId, [
-    { id: entityId, name: String(normalized.name ?? ''), enabled: normalized.enabled !== false },
-  ])
 
   return {
     entityId,

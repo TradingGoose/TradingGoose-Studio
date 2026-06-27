@@ -100,10 +100,16 @@ export const POST = withMcpAuth('write')(
         updatedAt: new Date(),
       })
 
+      try {
+        await notifyEntityListMembersAdded('mcp_server', workspaceId, [
+          { id: serverId, name: String(fields.name ?? ''), enabled: fields.enabled !== false },
+        ])
+      } catch (error) {
+        await db.delete(mcpServers).where(eq(mcpServers.id, serverId))
+        throw error
+      }
+
       mcpService.clearCache(workspaceId)
-      await notifyEntityListMembersAdded('mcp_server', workspaceId, [
-        { id: serverId, name: String(fields.name ?? ''), enabled: fields.enabled !== false },
-      ])
 
       logger.info(`[${requestId}] Successfully registered MCP server: ${fields.name}`)
 
@@ -158,17 +164,16 @@ export const DELETE = withMcpAuth('write')(
         .limit(1)
 
       if (!server) {
-        return createMcpErrorResponse(
-          new Error('Server not found or access denied'),
-          'Server not found',
-          404
-        )
+        await deleteYjsSessionInSocketServer(serverId)
+        await notifyEntityListMemberRemoved('mcp_server', workspaceId, serverId)
+        mcpService.clearCache(workspaceId)
+        return createMcpSuccessResponse({ message: `Server ${serverId} deleted successfully` })
       }
 
       await db
         .delete(mcpServers)
         .where(and(eq(mcpServers.id, serverId), eq(mcpServers.workspaceId, workspaceId)))
-      await deleteYjsSessionInSocketServer(serverId).catch(() => undefined)
+      await deleteYjsSessionInSocketServer(serverId)
       await notifyEntityListMemberRemoved('mcp_server', workspaceId, serverId)
 
       mcpService.clearCache(workspaceId)
