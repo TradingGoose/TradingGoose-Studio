@@ -86,10 +86,6 @@ export async function createKnowledgeBase(
     deletedAt: null,
   }
 
-  await db.insert(knowledgeBase).values(newKnowledgeBase)
-
-  logger.info(`[${requestId}] Created knowledge base: ${data.name} (${kbId})`)
-
   const created = {
     id: kbId,
     name: data.name,
@@ -104,9 +100,14 @@ export async function createKnowledgeBase(
     docCount: 0,
   }
 
-  await notifyEntityListMembersUpserted('knowledge_base', data.workspaceId, [
-    { id: created.id, name: created.name },
-  ])
+  await db.transaction(async (tx) => {
+    await tx.insert(knowledgeBase).values(newKnowledgeBase)
+    await notifyEntityListMembersUpserted('knowledge_base', data.workspaceId, [
+      { id: created.id, name: created.name },
+    ])
+  })
+
+  logger.info(`[${requestId}] Created knowledge base: ${data.name} (${kbId})`)
   return created
 }
 
@@ -172,12 +173,13 @@ export async function copyKnowledgeBaseToWorkspace(
     throw error
   }
 
+  const copiedName = `${sourceKnowledgeBase.name} (Copy)`
   const copyTransaction = db.transaction(async (tx) => {
     await tx.insert(knowledgeBase).values({
       id: newKnowledgeBaseId,
       userId,
       workspaceId: targetWorkspaceId,
-      name: `${sourceKnowledgeBase.name} (Copy)`,
+      name: copiedName,
       description: sourceKnowledgeBase.description,
       tokenCount: sourceKnowledgeBase.tokenCount,
       embeddingModel: sourceKnowledgeBase.embeddingModel,
@@ -302,6 +304,10 @@ export async function copyKnowledgeBaseToWorkspace(
         )
       }
     }
+
+    await notifyEntityListMembersUpserted('knowledge_base', targetWorkspaceId, [
+      { id: newKnowledgeBaseId, name: copiedName },
+    ])
   })
 
   try {
@@ -315,7 +321,7 @@ export async function copyKnowledgeBaseToWorkspace(
 
   const copied = {
     id: newKnowledgeBaseId,
-    name: `${sourceKnowledgeBase.name} (Copy)`,
+    name: copiedName,
     description: sourceKnowledgeBase.description,
     tokenCount: sourceKnowledgeBase.tokenCount,
     embeddingModel: sourceKnowledgeBase.embeddingModel,
@@ -343,9 +349,6 @@ export async function copyKnowledgeBaseToWorkspace(
     `[${requestId}] Copied knowledge base ${sourceKnowledgeBaseId} to workspace ${targetWorkspaceId} as ${newKnowledgeBaseId}`
   )
 
-  await notifyEntityListMembersUpserted('knowledge_base', targetWorkspaceId, [
-    { id: copied.id, name: copied.name },
-  ])
   return copied
 }
 
