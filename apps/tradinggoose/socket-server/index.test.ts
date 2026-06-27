@@ -590,6 +590,14 @@ describe('Socket Server Index Integration', () => {
           content: 'Original content',
         },
       })
+      seedEntitySession(liveDoc, {
+        entityKind: 'skill',
+        payload: {
+          name: 'Unsaved Skill',
+          description: 'Draft',
+          content: 'Draft content',
+        },
+      })
 
       mockSaveSavedEntityYjsDocToDb.mockRejectedValueOnce(new Error('database unavailable'))
       const response = await applySkillSessionUpdate(
