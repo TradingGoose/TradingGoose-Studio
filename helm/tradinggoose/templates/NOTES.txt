@@ -45,7 +45,7 @@ WARNING: You have disabled the internal PostgreSQL database.
 Make sure to configure an external database connection in your values.yaml file.
 {{- end }}
 
-{{- if not .Values.app.env.BETTER_AUTH_SECRET }}
+{{- if or (not .Values.app.env.BETTER_AUTH_SECRET) (not .Values.app.env.ENCRYPTION_KEY) }}
 
 ⚠️  SECURITY WARNING: Required secrets are not configured!
 

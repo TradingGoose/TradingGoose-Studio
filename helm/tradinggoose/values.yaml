@@ -69,8 +69,9 @@ app:
     CRON_SECRET: ""         # OPTIONAL - required only if cronjobs.enabled=true, authenticates scheduled job requests
 
     # API Key Encryption
+    # Required only when API-key access or MCP token issuance is used.
     # Generate 64-character hex string using: openssl rand -hex 32 (outputs 64 hex chars = 32 bytes)
-    API_ENCRYPTION_KEY: ""  # REQUIRED - encrypts API keys at rest
+    API_ENCRYPTION_KEY: ""
 
     # Email & Communication
     EMAIL_VERIFICATION_ENABLED: "false"                   # Enable email verification for user registration and login (defaults to false)
