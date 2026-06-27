@@ -1,7 +1,3 @@
-/**
- * MCP Service - Clean stateless service for MCP operations
- */
-
 import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
 import { isTest } from '@/lib/environment'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
@@ -19,19 +15,11 @@ import { MCP_CONSTANTS } from '@/lib/mcp/utils'
 import { generateRequestId } from '@/lib/utils'
 import {
   ReviewTargetBootstrapError,
-  readBootstrappedEntityListMembers,
   readBootstrappedSavedEntityFields,
   readBootstrappedSavedEntityListFields,
 } from '@/lib/yjs/server/bootstrap-review-target'
 
 const logger = createLogger('McpService')
-
-type McpServerListItem = {
-  id: string
-  name: string
-  enabled: boolean
-  workspaceId: string
-}
 
 export class McpServerNotFoundError extends Error {
   readonly status = 404
@@ -268,16 +256,6 @@ class McpService {
       retries: Number(fields.retries ?? 3),
       enabled: fields.enabled !== false,
     }
-  }
-
-  async listWorkspaceServers(workspaceId: string): Promise<McpServerListItem[]> {
-    const servers = await readBootstrappedEntityListMembers('mcp_server', workspaceId)
-    return servers.map((server) => ({
-      id: server.entityId,
-      name: server.entityName,
-      enabled: server.enabled !== false,
-      workspaceId,
-    }))
   }
 
   private async getServerConfig(

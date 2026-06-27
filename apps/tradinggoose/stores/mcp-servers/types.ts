@@ -65,6 +65,7 @@ export interface McpServersActions {
       status?: McpServerWithStatus['connectionStatus']
       toolCount?: number
       lastConnected?: string | null
+      lastToolsRefresh?: string | null
       error?: string | null
     }
   ) => Promise<void>

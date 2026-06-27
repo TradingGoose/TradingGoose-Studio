@@ -26,21 +26,7 @@ export const useMcpServersStore = create<McpServersState & McpServersActions>()(
           const listedServers: McpServersState['servers'] = Array.isArray(data.data?.servers)
             ? data.data.servers
             : []
-          set((state) => ({
-            servers: listedServers.map((server) => {
-              const previous = state.servers.find(
-                (item) => item.id === server.id && item.workspaceId === server.workspaceId
-              )
-              return {
-                ...server,
-                connectionStatus: previous?.connectionStatus,
-                lastError: previous?.lastError,
-                lastConnected: previous?.lastConnected,
-                lastToolsRefresh: previous?.lastToolsRefresh,
-              }
-            }),
-            isLoading: false,
-          }))
+          set({ servers: listedServers, isLoading: false })
           logger.info(
             `Fetched ${data.data?.servers?.length || 0} MCP servers for workspace ${workspaceId}`
           )
@@ -177,7 +163,7 @@ export const useMcpServersStore = create<McpServersState & McpServersActions>()(
       },
 
       refreshServer: async (workspaceId: string, id: string, result) => {
-        const refreshedAt = new Date().toISOString()
+        const refreshedAt = result?.lastToolsRefresh ?? new Date().toISOString()
 
         set((state) => ({
           servers: state.servers.map((server) =>

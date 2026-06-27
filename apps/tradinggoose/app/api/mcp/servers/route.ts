@@ -1,12 +1,13 @@
 import { db } from '@tradinggoose/db'
 import { mcpServers } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getParsedBody, withMcpAuth } from '@/lib/mcp/middleware'
 import { mcpService } from '@/lib/mcp/service'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
+import { readBootstrappedEntityListMembers } from '@/lib/yjs/server/bootstrap-review-target'
 import {
   deleteYjsSessionInSocketServer,
   notifyEntityListMemberRemoved,
@@ -26,7 +27,40 @@ export const GET = withMcpAuth('read')(
     try {
       logger.info(`[${requestId}] Listing MCP servers for workspace ${workspaceId}`)
 
-      const servers = await mcpService.listWorkspaceServers(workspaceId)
+      const listMembers = await readBootstrappedEntityListMembers('mcp_server', workspaceId)
+      const statusById = new Map(
+        (
+          await db
+            .select({
+              id: mcpServers.id,
+              connectionStatus: mcpServers.connectionStatus,
+              lastError: mcpServers.lastError,
+              toolCount: mcpServers.toolCount,
+              lastConnected: mcpServers.lastConnected,
+              lastToolsRefresh: mcpServers.lastToolsRefresh,
+            })
+            .from(mcpServers)
+            .where(and(eq(mcpServers.workspaceId, workspaceId), isNull(mcpServers.deletedAt)))
+        ).map((row) => [row.id, row])
+      )
+      const servers = listMembers.map((server) => {
+        const status = statusById.get(server.entityId)
+        return {
+          id: server.entityId,
+          name: server.entityName,
+          enabled: server.enabled !== false,
+          workspaceId,
+          ...(status
+            ? {
+                connectionStatus: status.connectionStatus,
+                lastError: status.lastError,
+                toolCount: status.toolCount,
+                lastConnected: status.lastConnected?.toISOString(),
+                lastToolsRefresh: status.lastToolsRefresh?.toISOString(),
+              }
+            : {}),
+        }
+      })
 
       logger.info(
         `[${requestId}] Listed ${servers.length} MCP servers for workspace ${workspaceId}`
@@ -157,12 +191,13 @@ export const DELETE = withMcpAuth('write')(
 
       logger.info(`[${requestId}] Deleting MCP server: ${serverId} from workspace: ${workspaceId}`)
 
-      const [deletedServer] = await db
-        .delete(mcpServers)
+      const [existingServer] = await db
+        .select({ id: mcpServers.id })
+        .from(mcpServers)
         .where(and(eq(mcpServers.id, serverId), eq(mcpServers.workspaceId, workspaceId)))
-        .returning({ id: mcpServers.id })
+        .limit(1)
 
-      if (!deletedServer) {
+      if (!existingServer) {
         return createMcpErrorResponse(
           new Error('Server not found or access denied'),
           'Server not found',
@@ -170,14 +205,17 @@ export const DELETE = withMcpAuth('write')(
         )
       }
 
-      await deleteYjsSessionInSocketServer(deletedServer.id)
-      await notifyEntityListMemberRemoved('mcp_server', workspaceId, deletedServer.id)
+      await deleteYjsSessionInSocketServer(existingServer.id)
+      await notifyEntityListMemberRemoved('mcp_server', workspaceId, existingServer.id)
+      await db
+        .delete(mcpServers)
+        .where(and(eq(mcpServers.id, existingServer.id), eq(mcpServers.workspaceId, workspaceId)))
 
       mcpService.clearCache(workspaceId)
 
-      logger.info(`[${requestId}] Successfully deleted MCP server: ${deletedServer.id}`)
+      logger.info(`[${requestId}] Successfully deleted MCP server: ${existingServer.id}`)
       return createMcpSuccessResponse({
-        message: `Server ${deletedServer.id} deleted successfully`,
+        message: `Server ${existingServer.id} deleted successfully`,
       })
     } catch (error) {
       logger.error(`[${requestId}] Error deleting MCP server:`, error)
