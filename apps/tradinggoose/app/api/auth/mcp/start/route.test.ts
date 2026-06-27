@@ -5,14 +5,23 @@
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockCheckPublicApiEndpointRateLimit, mockStartMcpDeviceLogin } = vi.hoisted(() => ({
+const {
+  mockCheckPublicApiEndpointRateLimit,
+  mockIsApiKeyStorageAvailable,
+  mockStartMcpDeviceLogin,
+} = vi.hoisted(() => ({
   mockCheckPublicApiEndpointRateLimit: vi.fn(),
+  mockIsApiKeyStorageAvailable: vi.fn(),
   mockStartMcpDeviceLogin: vi.fn(),
 }))
 
 vi.mock('@/lib/api/rate-limit', () => ({
   checkPublicApiEndpointRateLimit: (...args: unknown[]) =>
     mockCheckPublicApiEndpointRateLimit(...args),
+}))
+
+vi.mock('@/lib/api-key/service', () => ({
+  isApiKeyStorageAvailable: (...args: unknown[]) => mockIsApiKeyStorageAvailable(...args),
 }))
 
 vi.mock('@/lib/mcp/auth', () => ({
@@ -29,6 +38,7 @@ describe('MCP login start route', () => {
       resetAt: new Date('2026-06-19T12:01:00.000Z'),
       limit: 20,
     })
+    mockIsApiKeyStorageAvailable.mockReturnValue(true)
     mockStartMcpDeviceLogin.mockResolvedValue({
       code: 'login-code',
       verificationKey: 'verification-key',

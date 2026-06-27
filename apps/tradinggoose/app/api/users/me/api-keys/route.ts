@@ -3,7 +3,11 @@ import { apiKey } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { type NextRequest, NextResponse } from 'next/server'
-import { createApiKey, getApiKeyDisplayFormat } from '@/lib/api-key/service'
+import {
+  createApiKey,
+  getApiKeyDisplayFormat,
+  isApiKeyStorageAvailable,
+} from '@/lib/api-key/service'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 
@@ -80,6 +84,10 @@ export async function POST(request: NextRequest) {
         },
         { status: 409 }
       )
+    }
+
+    if (!isApiKeyStorageAvailable()) {
+      return NextResponse.json({ error: 'API key access is not configured' }, { status: 503 })
     }
 
     const { key: plainKey, storedKey } = await createApiKey(true)

@@ -8,16 +8,22 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   mockAcknowledgeMcpDeviceLogin,
   mockCheckPublicApiEndpointRateLimit,
+  mockIsApiKeyStorageAvailable,
   mockPollMcpDeviceLogin,
 } = vi.hoisted(() => ({
   mockAcknowledgeMcpDeviceLogin: vi.fn(),
   mockCheckPublicApiEndpointRateLimit: vi.fn(),
+  mockIsApiKeyStorageAvailable: vi.fn(),
   mockPollMcpDeviceLogin: vi.fn(),
 }))
 
 vi.mock('@/lib/api/rate-limit', () => ({
   checkPublicApiEndpointRateLimit: (...args: unknown[]) =>
     mockCheckPublicApiEndpointRateLimit(...args),
+}))
+
+vi.mock('@/lib/api-key/service', () => ({
+  isApiKeyStorageAvailable: (...args: unknown[]) => mockIsApiKeyStorageAvailable(...args),
 }))
 
 vi.mock('@/lib/mcp/auth', () => ({
@@ -34,6 +40,7 @@ describe('MCP login poll route', () => {
       resetAt: new Date('2026-06-19T12:01:00.000Z'),
       limit: 120,
     })
+    mockIsApiKeyStorageAvailable.mockReturnValue(true)
     mockPollMcpDeviceLogin.mockResolvedValue({
       status: 'approved',
       apiKey: 'sk-tradinggoose-token',

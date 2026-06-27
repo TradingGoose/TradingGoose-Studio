@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { checkPublicApiEndpointRateLimit } from '@/lib/api/rate-limit'
+import { isApiKeyStorageAvailable } from '@/lib/api-key/service'
 import { startMcpDeviceLogin } from '@/lib/mcp/auth'
 import { getBaseUrl } from '@/lib/urls/utils'
 
@@ -10,6 +11,9 @@ export async function POST(request: NextRequest) {
   if (!rateLimit.allowed) {
     const status = rateLimit.failureKind === 'dependency' ? 503 : 429
     return NextResponse.json({ error: rateLimit.error || 'Rate limit exceeded' }, { status })
+  }
+  if (!isApiKeyStorageAvailable()) {
+    return NextResponse.json({ error: 'API key access is not configured' }, { status: 503 })
   }
 
   const baseUrl = getBaseUrl()

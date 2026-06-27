@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { checkPublicApiEndpointRateLimit } from '@/lib/api/rate-limit'
+import { isApiKeyStorageAvailable } from '@/lib/api-key/service'
 import { acknowledgeMcpDeviceLogin, pollMcpDeviceLogin } from '@/lib/mcp/auth'
 
 export const dynamic = 'force-dynamic'
@@ -23,6 +24,10 @@ export async function POST(request: NextRequest) {
   const parsed = PollRequestSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid MCP login poll request' }, { status: 400 })
+  }
+
+  if (!isApiKeyStorageAvailable()) {
+    return NextResponse.json({ error: 'API key access is not configured' }, { status: 503 })
   }
 
   const result =

@@ -185,6 +185,10 @@ function getApiEncryptionKey(): Buffer {
   return Buffer.from(key, 'hex')
 }
 
+export function isApiKeyStorageAvailable(): boolean {
+  return Boolean(env.API_ENCRYPTION_KEY)
+}
+
 function encryptApiKeyForStorage(apiKey: string): string {
   const iv = randomBytes(12)
   const cipher = createCipheriv('aes-256-gcm', getApiEncryptionKey(), iv)
