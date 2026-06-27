@@ -125,6 +125,8 @@ vi.mock('@/lib/utils', () => ({
   },
 }))
 
+import { GET, POST } from './route'
+
 const chatParams = () => ({ params: Promise.resolve({ identifier: 'test-chat' }) })
 const postChatRequest = (body: Record<string, unknown>) =>
   new NextRequest('https://example.com/api/chat/test-chat', {
@@ -234,7 +236,6 @@ describe('/api/chat/[identifier]', () => {
   })
 
   it('returns chat metadata for a valid identifier', async () => {
-    const { GET } = await import('./route')
     const response = await GET(
       new NextRequest('https://example.com/api/chat/test-chat'),
       chatParams()
@@ -249,7 +250,6 @@ describe('/api/chat/[identifier]', () => {
   })
 
   it('queues chat workflow messages and returns an SSE response from queued result', async () => {
-    const { POST } = await import('./route')
     const response = await POST(
       postChatRequest({
         input: 'Hello',
@@ -306,7 +306,6 @@ describe('/api/chat/[identifier]', () => {
     })
 
     try {
-      const { POST } = await import('./route')
       const response = await POST(
         postChatRequest({
           input: 'Hello',
@@ -332,7 +331,6 @@ describe('/api/chat/[identifier]', () => {
   it('requires a pinned API key owner for queued chat execution attribution', async () => {
     getApiKeyOwnerUserIdMock.mockResolvedValueOnce(null)
 
-    const { POST } = await import('./route')
     const response = await POST(postChatRequest({ input: 'Hello' }), chatParams())
 
     expect(response.status).toBe(503)
