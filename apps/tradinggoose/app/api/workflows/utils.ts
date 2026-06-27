@@ -21,7 +21,7 @@ export function createSuccessResponse(data: any) {
 export function createWorkflowRealtimeRequiredResponse(error: unknown) {
   if (!isWorkflowRealtimeRequiredError(error)) return null
   return createErrorResponse(
-    'Workflow realtime orchestration is required',
+    'Editable workflow realtime orchestration is required',
     503,
     WORKFLOW_REALTIME_REQUIRED_CODE
   )

@@ -47,7 +47,11 @@ vi.mock('@/lib/workflows/db-helpers', () => ({
     readonly code = 'WORKFLOW_REALTIME_REQUIRED'
 
     constructor(cause: unknown) {
-      super(cause instanceof Error ? cause.message : 'Workflow realtime orchestration is required')
+      super(
+        cause instanceof Error
+          ? cause.message
+          : 'Editable workflow realtime orchestration is required'
+      )
       this.name = 'WorkflowRealtimeRequiredError'
     }
   },
