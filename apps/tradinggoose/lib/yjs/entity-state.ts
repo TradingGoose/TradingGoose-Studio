@@ -8,6 +8,21 @@ export type SavedEntityRow = {
   [key: string]: any
 }
 
+export class SavedEntityRealtimeRequiredError extends Error {
+  readonly code = 'SAVED_ENTITY_REALTIME_REQUIRED'
+  readonly status = 503
+  readonly retryable = true
+
+  constructor() {
+    super('Saved entity realtime orchestration is required')
+    this.name = 'SavedEntityRealtimeRequiredError'
+  }
+
+  responseBody() {
+    return { error: this.message, code: this.code, retryable: this.retryable }
+  }
+}
+
 export function savedEntityRowToFields(
   entityKind: SavedEntityKind,
   row: SavedEntityRow

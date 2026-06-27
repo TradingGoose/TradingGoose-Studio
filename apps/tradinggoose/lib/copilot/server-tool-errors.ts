@@ -129,13 +129,13 @@ function buildEditWorkflowError(message: string): CopilotServerToolErrorResponse
       ? 'Use only the canonical sub-block ids from `get_blocks_metadata` for that block type. Keep the existing canonical ids and remove invented keys.'
       : details.includes('removedBlockIds')
         ? 'Keep every existing block id in the Mermaid graph unless the user explicitly asked to remove it; list intentional removals in `removedBlockIds`.'
-      : details.includes('immutable identities')
-        ? 'Keep the existing block id/type pair unchanged. `edit_workflow` rewrites topology only; it cannot replace an existing block or change its type.'
-      : details.includes('unknown block type')
-        ? 'Use block types exactly as returned by `get_available_blocks` or `get_blocks_metadata`.'
-        : details.includes('Edge references non-existent')
-          ? 'Every edge source and target must match a block id in the same document.'
-          : 'Return a complete workflow graph that validates as workflow state. Preserve block ids and valid edge references.'
+        : details.includes('immutable identities')
+          ? 'Keep the existing block id/type pair unchanged. `edit_workflow` rewrites topology only; it cannot replace an existing block or change its type.'
+          : details.includes('unknown block type')
+            ? 'Use block types exactly as returned by `get_available_blocks` or `get_blocks_metadata`.'
+            : details.includes('Edge references non-existent')
+              ? 'Every edge source and target must match a block id in the same document.'
+              : 'Return a complete workflow graph that validates as workflow state. Preserve block ids and valid edge references.'
 
     return {
       status: 422,
@@ -174,6 +174,17 @@ export function buildCopilotServerToolErrorResponse(
   }
 
   const message = error instanceof Error ? error.message : 'Failed to execute server tool'
+  const typedError = error as { status?: unknown; code?: unknown; retryable?: unknown }
+  if (typeof typedError.status === 'number' && typeof typedError.code === 'string') {
+    return {
+      status: typedError.status,
+      body: {
+        code: typedError.code,
+        error: message,
+        ...(typeof typedError.retryable === 'boolean' ? { retryable: typedError.retryable } : {}),
+      },
+    }
+  }
 
   if (toolName === 'edit_workflow') {
     const structuredError = buildEditWorkflowError(message)

@@ -19,13 +19,13 @@ import {
   seedEntityListSession,
   seedEntitySession,
 } from '@/lib/yjs/entity-session'
-import type { SavedEntityKind } from '@/lib/yjs/entity-state'
+import { type SavedEntityKind, SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 import {
   readEntityListMembersFromDb,
   readSavedEntityFieldsFromDb,
   resolveEntityWorkspaceId,
 } from '@/lib/yjs/server/entity-loaders'
-import { getYjsSnapshot } from '@/lib/yjs/server/snapshot-bridge'
+import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import {
   createWorkflowSnapshot,
@@ -58,6 +58,13 @@ export function getRuntimeStateFromUpdate(update: Uint8Array): ReviewTargetRunti
   }
 }
 
+function mapSavedEntitySnapshotError(error: unknown): never {
+  if (error instanceof SocketServerBridgeError && error.status < 500) {
+    throw new ReviewTargetBootstrapError(error.status, error.message)
+  }
+  throw new SavedEntityRealtimeRequiredError()
+}
+
 export async function readBootstrappedReviewTargetSnapshot(descriptor: ReviewTargetDescriptor) {
   const bridgeParams = serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
   return getYjsSnapshot(descriptor.yjsSessionId, bridgeParams)
@@ -69,7 +76,7 @@ export async function readBootstrappedEntityListMembers(
 ): Promise<EntityListMember[]> {
   const snapshot = await readBootstrappedReviewTargetSnapshot(
     buildEntityListDescriptor(entityKind, workspaceId)
-  )
+  ).catch(mapSavedEntitySnapshotError)
   if (!snapshot.snapshotBase64) {
     return []
   }
@@ -116,7 +123,7 @@ export async function readBootstrappedSavedEntityFields(
 ): Promise<Record<string, unknown>> {
   const snapshot = await readBootstrappedReviewTargetSnapshot(
     buildSavedEntityDescriptor(entityKind, entityId, workspaceId)
-  )
+  ).catch(mapSavedEntitySnapshotError)
   if (!snapshot.snapshotBase64) {
     throw new ReviewTargetBootstrapError(404, `Saved ${entityKind} ${entityId} state is missing`)
   }

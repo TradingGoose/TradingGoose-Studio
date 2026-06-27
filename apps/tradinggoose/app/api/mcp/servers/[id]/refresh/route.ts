@@ -6,6 +6,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { withMcpAuth } from '@/lib/mcp/middleware'
 import { McpServerNotFoundError, mcpService } from '@/lib/mcp/service'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
+import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 
 const logger = createLogger('McpServerRefreshAPI')
 
@@ -62,7 +63,10 @@ export const POST = withMcpAuth('read')(
           `[${requestId}] Successfully connected to server ${serverId}, discovered ${toolCount} tools`
         )
       } catch (error) {
-        if (error instanceof McpServerNotFoundError) {
+        if (
+          error instanceof McpServerNotFoundError ||
+          error instanceof SavedEntityRealtimeRequiredError
+        ) {
           throw error
         }
         connectionStatus = 'error'
@@ -96,6 +100,9 @@ export const POST = withMcpAuth('read')(
       logger.error(`[${requestId}] Error refreshing MCP server:`, error)
       if (error instanceof McpServerNotFoundError) {
         return createMcpErrorResponse(error, 'Server not found', error.status)
+      }
+      if (error instanceof SavedEntityRealtimeRequiredError) {
+        return createMcpErrorResponse(error, error.message, error.status)
       }
       return createMcpErrorResponse(
         error instanceof Error ? error : new Error('Failed to refresh MCP server'),

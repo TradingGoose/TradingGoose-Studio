@@ -7,6 +7,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getParsedBody, withMcpAuth } from '@/lib/mcp/middleware'
 import { mcpService } from '@/lib/mcp/service'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
+import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 import { readBootstrappedEntityListMembers } from '@/lib/yjs/server/bootstrap-review-target'
 import {
   deleteYjsSessionInSocketServer,
@@ -69,6 +70,9 @@ export const GET = withMcpAuth('read')(
       )
       return createMcpSuccessResponse({ servers })
     } catch (error) {
+      if (error instanceof SavedEntityRealtimeRequiredError) {
+        return createMcpErrorResponse(error, error.message, error.status)
+      }
       logger.error(`[${requestId}] Error listing MCP servers:`, error)
       return createMcpErrorResponse(
         error instanceof Error ? error : new Error('Failed to list MCP servers'),

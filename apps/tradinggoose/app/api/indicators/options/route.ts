@@ -7,6 +7,7 @@ import { isIndicatorTriggerCapable } from '@/lib/indicators/trigger-detection'
 import type { InputMetaMap } from '@/lib/indicators/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
+import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 import { authenticateIndicatorRequest, checkWorkspacePermission } from '../utils'
 
 const logger = createLogger('IndicatorOptionsAPI')
@@ -111,6 +112,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: merged }, { status: 200 })
   } catch (error) {
+    if (error instanceof SavedEntityRealtimeRequiredError) {
+      return NextResponse.json(error.responseBody(), { status: error.status })
+    }
     logger.error(`[${requestId}] Failed to list indicator options`, { error })
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

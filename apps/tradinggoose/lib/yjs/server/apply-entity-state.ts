@@ -14,8 +14,6 @@ import { getEntityFields, getEntityWorkspaceId } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { applyEntityStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
-const SAVED_ENTITY_REALTIME_REQUIRED_CODE = 'SAVED_ENTITY_REALTIME_REQUIRED'
-
 export class SavedEntityPersistenceError extends Error {
   constructor(
     public status: number,
@@ -189,7 +187,7 @@ export async function applySavedEntityState(
     throw new SavedEntityPersistenceError(
       503,
       'Saved entity realtime orchestration is required',
-      SAVED_ENTITY_REALTIME_REQUIRED_CODE
+      'SAVED_ENTITY_REALTIME_REQUIRED'
     )
   }
 }

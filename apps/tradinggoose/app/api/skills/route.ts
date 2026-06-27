@@ -10,6 +10,7 @@ import {
 } from '@/lib/skills/import-export'
 import { createSkills, deleteSkill, listSkills, saveSkill } from '@/lib/skills/operations'
 import { generateRequestId } from '@/lib/utils'
+import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 import { SavedEntityPersistenceError } from '@/lib/yjs/server/apply-entity-state'
 
 const logger = createLogger('SkillsAPI')
@@ -60,6 +61,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: await listSkills({ workspaceId }) }, { status: 200 })
   } catch (error) {
+    if (error instanceof SavedEntityRealtimeRequiredError) {
+      return NextResponse.json(error.responseBody(), { status: error.status })
+    }
     logger.error(`[${requestId}] Error fetching skills:`, error)
     return NextResponse.json({ error: 'Failed to fetch skills' }, { status: 500 })
   }
