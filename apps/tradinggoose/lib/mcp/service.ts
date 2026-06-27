@@ -33,6 +33,15 @@ type McpServerListItem = {
   workspaceId: string
 }
 
+export class McpServerNotFoundError extends Error {
+  readonly status = 404
+
+  constructor(serverId: string) {
+    super(`Server ${serverId} not found or not accessible`)
+    this.name = 'McpServerNotFoundError'
+  }
+}
+
 interface ToolCache {
   tools: McpTool[]
   expiry: Date
@@ -331,7 +340,7 @@ class McpService {
 
       const config = await this.getServerConfig(serverId, workspaceId)
       if (!config) {
-        throw new Error(`Server ${serverId} not found or not accessible`)
+        throw new McpServerNotFoundError(serverId)
       }
 
       const resolvedConfig = await this.resolveConfigEnvVars(config, userId, workspaceId)
@@ -439,7 +448,7 @@ class McpService {
 
       const config = await this.getServerConfig(serverId, workspaceId)
       if (!config) {
-        throw new Error(`Server ${serverId} not found or not accessible`)
+        throw new McpServerNotFoundError(serverId)
       }
 
       const resolvedConfig = await this.resolveConfigEnvVars(config, userId, workspaceId)

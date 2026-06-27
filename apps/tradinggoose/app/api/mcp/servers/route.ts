@@ -157,29 +157,28 @@ export const DELETE = withMcpAuth('write')(
 
       logger.info(`[${requestId}] Deleting MCP server: ${serverId} from workspace: ${workspaceId}`)
 
-      const [server] = await db
-        .select({ id: mcpServers.id })
-        .from(mcpServers)
-        .where(and(eq(mcpServers.id, serverId), eq(mcpServers.workspaceId, workspaceId)))
-        .limit(1)
-
-      if (!server) {
-        await deleteYjsSessionInSocketServer(serverId)
-        await notifyEntityListMemberRemoved('mcp_server', workspaceId, serverId)
-        mcpService.clearCache(workspaceId)
-        return createMcpSuccessResponse({ message: `Server ${serverId} deleted successfully` })
-      }
-
-      await db
+      const [deletedServer] = await db
         .delete(mcpServers)
         .where(and(eq(mcpServers.id, serverId), eq(mcpServers.workspaceId, workspaceId)))
-      await deleteYjsSessionInSocketServer(serverId)
-      await notifyEntityListMemberRemoved('mcp_server', workspaceId, serverId)
+        .returning({ id: mcpServers.id })
+
+      if (!deletedServer) {
+        return createMcpErrorResponse(
+          new Error('Server not found or access denied'),
+          'Server not found',
+          404
+        )
+      }
+
+      await deleteYjsSessionInSocketServer(deletedServer.id)
+      await notifyEntityListMemberRemoved('mcp_server', workspaceId, deletedServer.id)
 
       mcpService.clearCache(workspaceId)
 
-      logger.info(`[${requestId}] Successfully deleted MCP server: ${serverId}`)
-      return createMcpSuccessResponse({ message: `Server ${serverId} deleted successfully` })
+      logger.info(`[${requestId}] Successfully deleted MCP server: ${deletedServer.id}`)
+      return createMcpSuccessResponse({
+        message: `Server ${deletedServer.id} deleted successfully`,
+      })
     } catch (error) {
       logger.error(`[${requestId}] Error deleting MCP server:`, error)
       return createMcpErrorResponse(

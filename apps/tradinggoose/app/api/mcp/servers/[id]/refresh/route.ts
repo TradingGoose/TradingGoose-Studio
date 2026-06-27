@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
 import { withMcpAuth } from '@/lib/mcp/middleware'
-import { mcpService } from '@/lib/mcp/service'
+import { McpServerNotFoundError, mcpService } from '@/lib/mcp/service'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
 
 const logger = createLogger('McpServerRefreshAPI')
@@ -39,6 +39,9 @@ export const POST = withMcpAuth('read')(
           `[${requestId}] Successfully connected to server ${serverId}, discovered ${toolCount} tools`
         )
       } catch (error) {
+        if (error instanceof McpServerNotFoundError) {
+          throw error
+        }
         connectionStatus = 'error'
         lastError = error instanceof Error ? error.message : 'Connection test failed'
         logger.warn(`[${requestId}] Failed to connect to server ${serverId}:`, error)
@@ -53,6 +56,9 @@ export const POST = withMcpAuth('read')(
       })
     } catch (error) {
       logger.error(`[${requestId}] Error refreshing MCP server:`, error)
+      if (error instanceof McpServerNotFoundError) {
+        return createMcpErrorResponse(error, 'Server not found', error.status)
+      }
       return createMcpErrorResponse(
         error instanceof Error ? error : new Error('Failed to refresh MCP server'),
         'Failed to refresh MCP server',
