@@ -3,14 +3,10 @@ import { and, desc, eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { requireEditableWorkflowState } from '@/lib/workflows/db-helpers'
+import { loadWorkflowBootstrapStateFromDb } from '@/lib/workflows/db-helpers'
 import { hasWorkflowChanged } from '@/lib/workflows/utils'
 import { validateWorkflowAccess } from '@/app/api/workflows/middleware'
-import {
-  createErrorResponse,
-  createSuccessResponse,
-  createWorkflowRealtimeRequiredResponse,
-} from '@/app/api/workflows/utils'
+import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
 
 const logger = createLogger('WorkflowStatusAPI')
 
@@ -32,7 +28,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (validation.workflow.isDeployed) {
       // Load current workflow state and the active deployment version in parallel.
       const [currentState, [active]] = await Promise.all([
-        requireEditableWorkflowState(id),
+        loadWorkflowBootstrapStateFromDb(id),
         db
           .select({ state: workflowDeploymentVersion.state })
           .from(workflowDeploymentVersion)
@@ -46,11 +42,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           .limit(1),
       ])
 
-      if (!currentState) {
-        return createErrorResponse('Failed to load workflow state', 500)
-      }
-
-      if (active?.state) {
+      if (currentState && active?.state) {
         needsRedeployment = hasWorkflowChanged(currentState as any, active.state as any)
       }
     }
@@ -63,8 +55,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     })
   } catch (error) {
     logger.error(`[${requestId}] Error getting status for workflow: ${(await params).id}`, error)
-    const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
-    if (realtimeResponse) return realtimeResponse
     return createErrorResponse('Failed to get status', 500)
   }
 }

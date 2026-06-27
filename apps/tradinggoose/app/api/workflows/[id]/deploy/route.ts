@@ -7,7 +7,7 @@ import {
 } from '@/lib/chat/published-deployment'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { deployWorkflow, requireEditableWorkflowState } from '@/lib/workflows/db-helpers'
+import { deployWorkflow, loadWorkflowBootstrapStateFromDb } from '@/lib/workflows/db-helpers'
 import { hasWorkflowChanged, validateWorkflowPermissions } from '@/lib/workflows/utils'
 import { notifyMonitorsReconcile } from '@/app/api/monitors/reconcile'
 import { pauseMonitorsMissingDeployedTrigger } from '@/app/api/monitors/shared'
@@ -103,7 +103,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .limit(1)
 
     if (active?.state) {
-      const currentState = await requireEditableWorkflowState(id)
+      const currentState = await loadWorkflowBootstrapStateFromDb(id)
       if (currentState) {
         needsRedeployment = hasWorkflowChanged(currentState, active.state as any)
       }
@@ -123,8 +123,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     })
   } catch (error: any) {
     logger.error(`[${requestId}] Error fetching deployment info: ${id}`, error)
-    const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
-    if (realtimeResponse) return realtimeResponse
     return createErrorResponse(error.message || 'Failed to fetch deployment information', 500)
   }
 }
