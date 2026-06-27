@@ -71,9 +71,6 @@ export const useMcpServersStore = create<McpServersState & McpServersActions>()(
             timeout: requestBody.timeout ?? 30000,
             retries: requestBody.retries ?? 3,
             enabled: requestBody.enabled ?? true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            connectionStatus: 'disconnected' as const,
           }
           set((state) => ({
             servers: [...state.servers, newServer],
@@ -114,7 +111,6 @@ export const useMcpServersStore = create<McpServersState & McpServersActions>()(
                 ? {
                     ...server,
                     ...(updatedServer || updates),
-                    updatedAt: updatedServer?.updatedAt || new Date().toISOString(),
                   }
                 : server
             ),
@@ -185,6 +181,6 @@ export const useMcpServersStore = create<McpServersState & McpServersActions>()(
   )
 )
 
-export const useEnabledServers = () => {
-  return useMcpServersStore((state) => state.servers.filter((s) => s.enabled && !s.deletedAt))
+export const useVisibleServers = () => {
+  return useMcpServersStore((state) => state.servers.filter((s) => !s.deletedAt))
 }

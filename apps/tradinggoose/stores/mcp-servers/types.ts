@@ -4,7 +4,7 @@ export interface McpServerWithStatus {
   id: string
   name: string
   description?: string | null
-  transport: McpTransport
+  transport?: McpTransport
   url?: string | null
   headers?: Record<string, string>
   command?: string | null

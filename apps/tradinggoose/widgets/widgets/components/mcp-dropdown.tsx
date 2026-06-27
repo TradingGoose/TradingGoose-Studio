@@ -124,12 +124,7 @@ export function McpDropdown({
     return workspaceServers.filter((server) => {
       const name = server.name?.toLowerCase() ?? ''
       const id = server.id.toLowerCase()
-      const url = server.url?.toLowerCase() ?? ''
-      return (
-        name.includes(normalizedQuery) ||
-        id.includes(normalizedQuery) ||
-        url.includes(normalizedQuery)
-      )
+      return name.includes(normalizedQuery) || id.includes(normalizedQuery)
     })
   }, [searchQuery, workspaceServers])
 

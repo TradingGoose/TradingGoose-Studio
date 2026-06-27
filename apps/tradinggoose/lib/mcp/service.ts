@@ -19,21 +19,17 @@ import { MCP_CONSTANTS } from '@/lib/mcp/utils'
 import { generateRequestId } from '@/lib/utils'
 import {
   ReviewTargetBootstrapError,
+  readBootstrappedEntityListMembers,
   readBootstrappedSavedEntityFields,
   readBootstrappedSavedEntityListFields,
 } from '@/lib/yjs/server/bootstrap-review-target'
 
 const logger = createLogger('McpService')
 
-type McpServerListItem = Omit<McpServerConfig, 'description' | 'url'> & {
+type McpServerListItem = {
+  id: string
+  name: string
   workspaceId: string
-  description: string | null
-  url: string | null
-  command: string | null
-  args: string[]
-  env: Record<string, string>
-  connectionStatus?: 'connected' | 'disconnected' | 'error'
-  lastError?: string
 }
 
 interface ToolCache {
@@ -265,21 +261,12 @@ class McpService {
   }
 
   async listWorkspaceServers(workspaceId: string): Promise<McpServerListItem[]> {
-    const servers = await readBootstrappedSavedEntityListFields('mcp_server', workspaceId)
-    return servers.map((server) => {
-      const normalized = normalizeEntityFields('mcp_server', server.fields)
-      const config = this.toServerConfig(server.entityId, normalized)
-      return {
-        ...config,
-        workspaceId,
-        description: config.description ?? null,
-        url: config.url ?? null,
-        command: String(normalized.command ?? '') || null,
-        args: Array.isArray(normalized.args) ? normalized.args.map(String) : [],
-        env: normalized.env as Record<string, string>,
-        connectionStatus: 'disconnected' as const,
-      }
-    })
+    const servers = await readBootstrappedEntityListMembers('mcp_server', workspaceId)
+    return servers.map((server) => ({
+      id: server.entityId,
+      name: server.entityName,
+      workspaceId,
+    }))
   }
 
   private async getServerConfig(
