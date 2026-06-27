@@ -17,7 +17,7 @@ import {
   getRuntimeStateFromDoc,
 } from '@/lib/yjs/server/bootstrap-review-target'
 import { authenticateYjsConnection, YjsAuthError } from './auth'
-import { getExistingDocument, markDocumentPersisted, setupWSConnection } from './upstream-utils'
+import { getExistingDocument, setupWSConnection } from './upstream-utils'
 
 const logger = createLogger('YjsWsHandler')
 
@@ -25,9 +25,10 @@ interface YjsIncomingMessage extends IncomingMessage {
   yjsSessionId?: string
   yjsUserId?: string
   yjsBootstrapState?: Uint8Array
+  yjsPersistLiveUpdates?: boolean
 }
 
-async function persistIdleDocument(docId: string, doc: Y.Doc): Promise<void> {
+async function persistWorkflowDocument(docId: string, doc: Y.Doc): Promise<void> {
   if (isEntityListSessionId(docId)) {
     return
   }
@@ -41,12 +42,8 @@ async function persistIdleDocument(docId: string, doc: Y.Doc): Promise<void> {
     return
   }
 
-  // Only workflows auto-save on idle. Saved entities (skill, custom_tool,
-  // indicator, knowledge_base, mcp_server) persist ONLY via the explicit Save
-  // path or the Copilot apply path; their dirty docs are discarded on idle.
   if (metadata.get('entityKind') === 'workflow') {
     await saveWorkflowYjsDocToDb(docId, doc)
-    markDocumentPersisted(doc)
   }
 }
 
@@ -68,11 +65,12 @@ export function handleYjsUpgrade(
   const yjsSessionId = decodeURIComponent(match[1])
 
   void authenticateAndPrepareUpgrade(yjsSessionId, url)
-    .then(({ bootstrapState, userId, resolvedSessionId }) => {
+    .then(({ bootstrapState, userId, resolvedSessionId, persistLiveUpdates }) => {
       const yjsReq = request as YjsIncomingMessage
       yjsReq.yjsSessionId = resolvedSessionId
       yjsReq.yjsUserId = userId
       yjsReq.yjsBootstrapState = bootstrapState
+      yjsReq.yjsPersistLiveUpdates = persistLiveUpdates
 
       ensureConnectionHandler(wss)
       wss.handleUpgrade(request, socket, head, (ws: WebSocket) => {
@@ -93,7 +91,12 @@ export function handleYjsUpgrade(
 async function authenticateAndPrepareUpgrade(
   pathSessionId: string,
   url: URL
-): Promise<{ bootstrapState?: Uint8Array; userId: string; resolvedSessionId: string }> {
+): Promise<{
+  bootstrapState?: Uint8Array
+  userId: string
+  resolvedSessionId: string
+  persistLiveUpdates: boolean
+}> {
   const accessMode = parseAccessMode(url, pathSessionId)
   const { userId, envelope } = await authenticateYjsConnection(url)
 
@@ -146,6 +149,8 @@ async function authenticateAndPrepareUpgrade(
     bootstrapState: bootstrapped?.state,
     userId,
     resolvedSessionId: pathSessionId,
+    persistLiveUpdates:
+      descriptor.entityKind === 'workflow' && descriptor.entityId === pathSessionId,
   }
 }
 
@@ -188,7 +193,8 @@ function ensureConnectionHandler(wss: WebSocketServer): void {
         docId,
         gc: true,
         bootstrapState: yjsReq.yjsBootstrapState,
-        onDocumentIdle: persistIdleDocument,
+        onDocumentIdle: persistWorkflowDocument,
+        onDocumentUpdate: yjsReq.yjsPersistLiveUpdates ? persistWorkflowDocument : undefined,
       })
     } catch (error) {
       logger.error('Failed to attach Yjs connection', { docId, error })

@@ -25,22 +25,24 @@ const wsReadyStateOpen = 1
 const PING_TIMEOUT = 30_000
 
 const docs = new Map<string, WSSharedDoc>()
-type DocumentIdleHandler = (docId: string, doc: Y.Doc) => Promise<void> | void
+type DocumentPersistenceHandler = (docId: string, doc: Y.Doc) => Promise<void> | void
 
 class WSSharedDoc extends Y.Doc {
   name: string
   conns: Map<WebSocket, Set<number>>
   awareness: awarenessProtocol.Awareness
   whenInitialized: Promise<void>
-  onDocumentIdle?: DocumentIdleHandler
-  hasUnsavedChanges: boolean
+  onDocumentIdle?: DocumentPersistenceHandler
+  onDocumentUpdate?: DocumentPersistenceHandler
+  hasUnsavedChanges = false
+  isPersisting = false
+  needsPersist = false
 
   constructor(name: string, gc: boolean) {
     super({ gc })
     this.name = name
     this.conns = new Map()
     this.awareness = new awarenessProtocol.Awareness(this)
-    this.hasUnsavedChanges = false
     this.awareness.setLocalState(null)
 
     this.awareness.on(
@@ -72,6 +74,7 @@ class WSSharedDoc extends Y.Doc {
 
     this.on('update', (update: Uint8Array, _origin: unknown) => {
       this.hasUnsavedChanges = true
+      scheduleDocumentPersistence(this)
       const encoder = encoding.createEncoder()
       encoding.writeVarUint(encoder, messageSync)
       syncProtocol.writeUpdate(encoder, update)
@@ -81,6 +84,36 @@ class WSSharedDoc extends Y.Doc {
 
     this.whenInitialized = Promise.resolve()
   }
+}
+
+function scheduleDocumentPersistence(doc: WSSharedDoc): void {
+  const persist = doc.onDocumentUpdate
+  if (!persist) {
+    return
+  }
+
+  if (doc.isPersisting) {
+    doc.needsPersist = true
+    return
+  }
+
+  doc.isPersisting = true
+  doc.needsPersist = false
+  void Promise.resolve(persist(doc.name, doc))
+    .then(() => {
+      if (!doc.needsPersist) {
+        doc.hasUnsavedChanges = false
+      }
+    })
+    .catch((error) => {
+      console.error('[yjs upstream-utils] Failed to persist live document', error)
+    })
+    .finally(() => {
+      doc.isPersisting = false
+      if (doc.needsPersist) {
+        scheduleDocumentPersistence(doc)
+      }
+    })
 }
 
 function cleanupDocument(doc: WSSharedDoc): void {
@@ -211,15 +244,19 @@ export function setupWSConnection(
     docId: string
     gc?: boolean
     bootstrapState?: Uint8Array
-    onDocumentIdle?: DocumentIdleHandler
+    onDocumentIdle?: DocumentPersistenceHandler
+    onDocumentUpdate?: DocumentPersistenceHandler
   }
 ): void {
-  const { docId, gc = true, bootstrapState, onDocumentIdle } = opts
+  const { docId, gc = true, bootstrapState, onDocumentIdle, onDocumentUpdate } = opts
 
   conn.binaryType = 'arraybuffer'
 
   const doc = getDocument(docId, gc, bootstrapState) as WSSharedDoc
   doc.onDocumentIdle = onDocumentIdle
+  if (onDocumentUpdate) {
+    doc.onDocumentUpdate = onDocumentUpdate
+  }
   doc.conns.set(conn, new Set())
 
   conn.on('message', (data: ArrayBuffer) => {

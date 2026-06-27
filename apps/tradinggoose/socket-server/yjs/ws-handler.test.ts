@@ -234,7 +234,12 @@ describe('handleYjsUpgrade', () => {
     expect(mockSetupWSConnection).toHaveBeenCalledWith(
       expect.anything(),
       request,
-      expect.objectContaining({ bootstrapState, docId: sessionId, gc: true })
+      expect.objectContaining({
+        bootstrapState,
+        docId: sessionId,
+        gc: true,
+        onDocumentUpdate: expect.any(Function),
+      })
     )
     expect(socket.write).not.toHaveBeenCalled()
     expect(socket.destroy).not.toHaveBeenCalled()
