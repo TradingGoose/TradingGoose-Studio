@@ -310,7 +310,7 @@ export function EditorMcpWidgetBody({
     try {
       await serverSession.save()
       initialFormDataRef.current = formDataState
-      await fetchServers(workspaceId)
+      await handleRefreshTools()
     } catch (error) {
       console.error('Failed to save MCP server', error)
       setSaveError(copy.failedToSaveMcpServer)
@@ -318,8 +318,8 @@ export function EditorMcpWidgetBody({
   }, [
     copy.failedToSaveMcpServer,
     copy.serverNameRequired,
-    fetchServers,
     formDataState,
+    handleRefreshTools,
     serverSession.doc,
     serverSession.save,
     selectedServerId,

@@ -353,8 +353,9 @@ const ListMcpWidgetContent = ({
       await updateServer(workspaceId, serverId, {
         name,
       })
+      await refreshTools(true)
     },
-    [permissions.canEdit, updateServer, workspaceId]
+    [permissions.canEdit, refreshTools, updateServer, workspaceId]
   )
 
   const handleDeleteServer = useCallback(

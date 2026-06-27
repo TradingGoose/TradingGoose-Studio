@@ -21,7 +21,24 @@ export const useMcpServersStore = create<McpServersState & McpServersActions>()(
             throw new Error(data.error || 'Failed to fetch servers')
           }
 
-          set({ servers: data.data?.servers || [], isLoading: false })
+          const listedServers: McpServersState['servers'] = Array.isArray(data.data?.servers)
+            ? data.data.servers
+            : []
+          set((state) => ({
+            servers: listedServers.map((server) => {
+              const previous = state.servers.find(
+                (item) => item.id === server.id && item.workspaceId === server.workspaceId
+              )
+              return {
+                ...server,
+                connectionStatus: previous?.connectionStatus,
+                lastError: previous?.lastError,
+                lastConnected: previous?.lastConnected,
+                lastToolsRefresh: previous?.lastToolsRefresh,
+              }
+            }),
+            isLoading: false,
+          }))
           logger.info(
             `Fetched ${data.data?.servers?.length || 0} MCP servers for workspace ${workspaceId}`
           )
@@ -104,14 +121,13 @@ export const useMcpServersStore = create<McpServersState & McpServersActions>()(
           }
 
           const updatedServer = data.data?.server || null
+          const nextName =
+            typeof updatedServer?.name === 'string' ? updatedServer.name : updates.name
 
           set((state) => ({
             servers: state.servers.map((server) =>
-              server.id === id && server.workspaceId === workspaceId
-                ? {
-                    ...server,
-                    ...(updatedServer || updates),
-                  }
+              server.id === id && server.workspaceId === workspaceId && nextName
+                ? { ...server, name: nextName }
                 : server
             ),
             isLoading: false,
