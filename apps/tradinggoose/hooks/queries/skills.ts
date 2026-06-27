@@ -41,12 +41,7 @@ function normalizeSkill(
     name: rawSkill.name,
     description: rawSkill.description,
     content: rawSkill.content,
-    createdAt:
-      typeof rawSkill.createdAt === 'string'
-        ? rawSkill.createdAt
-        : rawSkill.updatedAt && typeof rawSkill.updatedAt === 'string'
-          ? rawSkill.updatedAt
-          : new Date().toISOString(),
+    createdAt: typeof rawSkill.createdAt === 'string' ? rawSkill.createdAt : undefined,
     updatedAt: typeof rawSkill.updatedAt === 'string' ? rawSkill.updatedAt : undefined,
   }
 }

@@ -34,8 +34,6 @@ export async function listIndicators(params: { workspaceId: string }) {
     color: String(fields.color ?? '') || undefined,
     pineCode: String(fields.pineCode ?? ''),
     inputMeta: normalizeInputMetaMap(fields.inputMeta),
-    createdAt: new Date(0),
-    updatedAt: undefined,
   }))
 }
 

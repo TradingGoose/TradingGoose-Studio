@@ -1041,13 +1041,8 @@
       "title": "Knowledge",
       "searchPlaceholder": "Search knowledge bases...",
       "sort": {
-        "lastUpdated": "Last Updated",
-        "newestFirst": "Newest First",
-        "oldestFirst": "Oldest First",
         "nameAsc": "Name (A-Z)",
-        "nameDesc": "Name (Z-A)",
-        "mostDocuments": "Most Documents",
-        "leastDocuments": "Least Documents"
+        "nameDesc": "Name (Z-A)"
       },
       "actions": {
         "create": "Create",
@@ -1083,14 +1078,10 @@
         "failedToCopy": "Failed to copy knowledge base"
       },
       "baseOverview": {
-        "docsSingular": "doc",
-        "docsPlural": "docs",
-        "updated": "Updated",
-        "created": "Created",
         "copyId": "Copy knowledge base ID",
         "deleteButtonLabel": "Delete knowledge base",
         "deleteTitle": "Delete Knowledge Base",
-        "deleteDescription": "Are you sure you want to delete \"{title}\"? This will remove the knowledge base and its {count} document{plural} permanently.",
+        "deleteDescription": "Are you sure you want to delete \"{title}\"? This will permanently remove the knowledge base.",
         "cancel": "Cancel",
         "deleteConfirm": "Delete",
         "deleting": "Deleting..."

@@ -49,12 +49,7 @@ function normalizeCustomTool(tool: ApiCustomTool, workspaceId: string): CustomTo
     code: typeof tool.code === 'string' ? tool.code : '',
     workspaceId: tool.workspaceId ?? workspaceId,
     userId: tool.userId ?? null,
-    createdAt:
-      typeof tool.createdAt === 'string'
-        ? tool.createdAt
-        : tool.updatedAt && typeof tool.updatedAt === 'string'
-          ? tool.updatedAt
-          : new Date().toISOString(),
+    createdAt: typeof tool.createdAt === 'string' ? tool.createdAt : undefined,
     updatedAt: typeof tool.updatedAt === 'string' ? tool.updatedAt : undefined,
     schema: {
       type: tool.schema.type ?? 'function',

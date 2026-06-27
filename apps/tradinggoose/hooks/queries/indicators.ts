@@ -36,12 +36,7 @@ function normalizeIndicator(indicator: ApiIndicator, workspaceId: string): Indic
       indicator.inputMeta && typeof indicator.inputMeta === 'object'
         ? (indicator.inputMeta as InputMetaMap)
         : undefined,
-    createdAt:
-      typeof indicator.createdAt === 'string'
-        ? indicator.createdAt
-        : indicator.updatedAt && typeof indicator.updatedAt === 'string'
-          ? indicator.updatedAt
-          : new Date().toISOString(),
+    createdAt: typeof indicator.createdAt === 'string' ? indicator.createdAt : undefined,
     updatedAt: typeof indicator.updatedAt === 'string' ? indicator.updatedAt : undefined,
   }
 }

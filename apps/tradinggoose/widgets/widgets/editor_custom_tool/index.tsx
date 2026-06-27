@@ -36,11 +36,7 @@ import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/component
 import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const sortCustomTools = (tools: CustomToolDefinition[]) =>
-  [...tools].sort((a, b) => {
-    const aTime = Date.parse(a.updatedAt ?? a.createdAt ?? '')
-    const bTime = Date.parse(b.updatedAt ?? b.createdAt ?? '')
-    return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime)
-  })
+  [...tools].sort((a, b) => a.title.localeCompare(b.title))
 
 function emitCustomToolEditorAction(detail: CustomToolEditorActionEventDetail) {
   window.dispatchEvent(

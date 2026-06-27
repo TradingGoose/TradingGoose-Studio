@@ -52,10 +52,7 @@ export async function getKnowledgeBases(
     embeddingModel: String(fields.embeddingModel ?? 'text-embedding-3-small'),
     embeddingDimension: Number(fields.embeddingDimension ?? 1536),
     chunkingConfig: fields.chunkingConfig as ChunkingConfig,
-    createdAt: new Date(0),
-    updatedAt: new Date(0),
     workspaceId,
-    docCount: 0,
   }))
 }
 

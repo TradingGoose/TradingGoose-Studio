@@ -53,8 +53,6 @@ export async function listCustomTools(params: { workspaceId: string }) {
     title: String(fields.title ?? ''),
     schema: parseCustomToolSchemaText(fields.schemaText),
     code: String(fields.codeText ?? ''),
-    createdAt: new Date(0),
-    updatedAt: undefined,
   }))
 }
 

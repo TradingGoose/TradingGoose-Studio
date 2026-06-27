@@ -26,7 +26,6 @@ import {
   dropdownContentClass,
   filterButtonClass,
   SORT_OPTION_DEFINITIONS,
-  type SortOption,
   type SortOrder,
 } from '@/app/workspace/[workspaceId]/knowledge/components/shared'
 import {
@@ -37,10 +36,6 @@ import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/provide
 import { GlobalNavbarHeader } from '@/global-navbar'
 import { useKnowledgeBasesList } from '@/hooks/use-knowledge'
 import type { KnowledgeBaseData } from '@/stores/knowledge/store'
-
-interface KnowledgeBaseWithDocCount extends KnowledgeBaseData {
-  docCount?: number
-}
 
 export function Knowledge() {
   const params = useParams()
@@ -54,10 +49,9 @@ export function Knowledge() {
 
   const [searchQuery, setSearchQuery] = useState('')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
-  const [sortBy, setSortBy] = useState<SortOption>('updatedAt')
-  const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
 
-  const currentSortValue = `${sortBy}-${sortOrder}`
+  const currentSortValue = `name-${sortOrder}`
   const sortOptions = useMemo(
     () =>
       SORT_OPTION_DEFINITIONS.map((option) => ({
@@ -67,11 +61,10 @@ export function Knowledge() {
     [t]
   )
   const currentSortLabel =
-    sortOptions.find((opt) => opt.value === currentSortValue)?.label || t('sort.lastUpdated')
+    sortOptions.find((opt) => opt.value === currentSortValue)?.label || t('sort.nameAsc')
 
   const handleSortChange = (value: string) => {
-    const [field, order] = value.split('-') as [SortOption, SortOrder]
-    setSortBy(field)
+    const [, order] = value.split('-') as ['name', SortOrder]
     setSortOrder(order)
   }
 
@@ -85,16 +78,13 @@ export function Knowledge() {
 
   const filteredAndSortedKnowledgeBases = useMemo(() => {
     const filtered = filterKnowledgeBases(knowledgeBases, searchQuery)
-    return sortKnowledgeBases(filtered, sortBy, sortOrder)
-  }, [knowledgeBases, searchQuery, sortBy, sortOrder])
+    return sortKnowledgeBases(filtered, sortOrder)
+  }, [knowledgeBases, searchQuery, sortOrder])
 
-  const formatKnowledgeBaseForDisplay = (kb: KnowledgeBaseWithDocCount) => ({
+  const formatKnowledgeBaseForDisplay = (kb: KnowledgeBaseData) => ({
     id: kb.id,
     title: kb.name,
-    docCount: kb.docCount || 0,
     description: kb.description || t('defaults.noDescriptionProvided'),
-    createdAt: kb.createdAt,
-    updatedAt: kb.updatedAt,
   })
 
   const headerLeftContent = (
@@ -132,7 +122,7 @@ export function Knowledge() {
         >
           <div className={`${commandListClass} py-1`}>
             {sortOptions.map((option, index) => (
-                <div key={option.value}>
+              <div key={option.value}>
                 <DropdownMenuItem
                   onSelect={() => handleSortChange(option.value)}
                   className='flex cursor-pointer items-center justify-between rounded-md px-3 py-2 font-[380] text-card-foreground text-sm hover:bg-secondary/50 focus:bg-secondary/50'
@@ -177,9 +167,7 @@ export function Knowledge() {
                 {/* Error State */}
                 {error && (
                   <div className='mb-4 rounded-md border border-red-200 bg-red-50 p-4'>
-                    <p className='text-red-800 text-sm'>
-                      {t('errors.load', { error })}
-                    </p>
+                    <p className='text-red-800 text-sm'>{t('errors.load', { error })}</p>
                     <button
                       onClick={handleRetry}
                       className='mt-2 text-red-600 text-sm underline hover:text-red-800'
@@ -211,7 +199,7 @@ export function Knowledge() {
                           onClick={
                             userPermissions.canEdit === true
                               ? () => setIsCreateModalOpen(true)
-                              : () => { }
+                              : () => {}
                           }
                           icon={<LibraryBig className='h-4 w-4 text-muted-foreground' />}
                         />
@@ -222,18 +210,13 @@ export function Knowledge() {
                       )
                     ) : (
                       filteredAndSortedKnowledgeBases.map((kb) => {
-                        const displayData = formatKnowledgeBaseForDisplay(
-                          kb as KnowledgeBaseWithDocCount
-                        )
+                        const displayData = formatKnowledgeBaseForDisplay(kb)
                         return (
                           <BaseOverview
                             key={kb.id}
                             id={displayData.id}
                             title={displayData.title}
-                            docCount={displayData.docCount}
                             description={displayData.description}
-                            createdAt={displayData.createdAt}
-                            updatedAt={displayData.updatedAt}
                             canEdit={canManageKnowledgeBases}
                           />
                         )

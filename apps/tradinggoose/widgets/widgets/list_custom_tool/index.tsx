@@ -53,11 +53,7 @@ import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/component
 const DEFAULT_CUSTOM_TOOL_NAME = 'newCustomTool'
 
 const sortCustomTools = (tools: CustomToolDefinition[]) =>
-  [...tools].sort((a, b) => {
-    const aTime = Date.parse(a.updatedAt ?? a.createdAt ?? '')
-    const bTime = Date.parse(b.updatedAt ?? b.createdAt ?? '')
-    return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime)
-  })
+  [...tools].sort((a, b) => a.title.localeCompare(b.title))
 
 const buildNewCustomToolDraft = (tools: CustomToolDefinition[]) => {
   const existingTitles = new Set(

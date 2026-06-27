@@ -65,11 +65,7 @@ export function CustomToolDropdown({
 
   const workspaceTools = useMemo(() => {
     const tools = queryTools.length > 0 ? queryTools : storedTools
-    return [...tools].sort((a, b) => {
-      const aTime = Date.parse(a.updatedAt ?? a.createdAt ?? '')
-      const bTime = Date.parse(b.updatedAt ?? b.createdAt ?? '')
-      return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime)
-    })
+    return [...tools].sort((a, b) => a.title.localeCompare(b.title))
   }, [queryTools, storedTools])
 
   const selectedToolId = value ?? null

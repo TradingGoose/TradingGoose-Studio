@@ -8,7 +8,7 @@ export interface IndicatorDefinition {
   color?: string
   pineCode: string
   inputMeta?: InputMetaMap | null
-  createdAt: string
+  createdAt?: string
   updatedAt?: string
 }
 

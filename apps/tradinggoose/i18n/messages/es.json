@@ -1041,13 +1041,8 @@
       "title": "Conocimiento",
       "searchPlaceholder": "Buscar bases de conocimiento...",
       "sort": {
-        "lastUpdated": "Última actualización",
-        "newestFirst": "Más recientes primero",
-        "oldestFirst": "Más antiguos primero",
         "nameAsc": "Nombre (A-Z)",
-        "nameDesc": "Nombre (Z-A)",
-        "mostDocuments": "Más documentos",
-        "leastDocuments": "Menos documentos"
+        "nameDesc": "Nombre (Z-A)"
       },
       "actions": {
         "create": "Crear",
@@ -1083,14 +1078,10 @@
         "failedToCopy": "Error al copiar la base de conocimiento"
       },
       "baseOverview": {
-        "docsSingular": "doc",
-        "docsPlural": "docs",
-        "updated": "Actualizado",
-        "created": "Creado",
         "copyId": "Copiar ID de la base de conocimiento",
         "deleteButtonLabel": "Eliminar base de conocimiento",
         "deleteTitle": "Eliminar base de conocimiento",
-        "deleteDescription": "¿Estás seguro de que quieres eliminar \"{title}\"? Esto eliminará la base de conocimiento y sus {count} documento{plural} de forma permanente.",
+        "deleteDescription": "¿Estás seguro de que quieres eliminar \"{title}\"? Esto eliminará la base de conocimiento de forma permanente.",
         "cancel": "Cancelar",
         "deleteConfirm": "Eliminar",
         "deleting": "Eliminando..."

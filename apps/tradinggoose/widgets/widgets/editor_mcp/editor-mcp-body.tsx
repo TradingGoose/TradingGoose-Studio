@@ -194,11 +194,7 @@ export function EditorMcpWidgetBody({
       workspaceId
         ? servers
             .filter((server) => server.workspaceId === workspaceId && !server.deletedAt)
-            .sort((a, b) => {
-              const aTime = Date.parse(a.updatedAt ?? a.createdAt ?? '')
-              const bTime = Date.parse(b.updatedAt ?? b.createdAt ?? '')
-              return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime)
-            })
+            .sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id))
         : [],
     [servers, workspaceId]
   )
@@ -401,13 +397,6 @@ export function EditorMcpWidgetBody({
             </span>
           </div>
           <div className='flex flex-wrap items-center gap-2 text-muted-foreground text-xs'>
-            {selectedServer.updatedAt ? (
-              <span>
-                {formatTemplate(copy.updated, {
-                  time: formatRelativeTime(selectedServer.updatedAt, copy.relativeTime) ?? '',
-                })}
-              </span>
-            ) : null}
             {selectedServer.lastToolsRefresh ? (
               <span>
                 {formatTemplate(copy.toolsRefreshed, {

@@ -57,8 +57,6 @@ export async function listSkills(params: { workspaceId: string }) {
     name: String(fields.name ?? ''),
     description: String(fields.description ?? ''),
     content: String(fields.content ?? ''),
-    createdAt: new Date(0),
-    updatedAt: undefined,
   }))
 }
 

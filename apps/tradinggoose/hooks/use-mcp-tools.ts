@@ -50,7 +50,10 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
   const serversFingerprint = useMemo(() => {
     return servers
       .filter((s) => s.enabled && !s.deletedAt)
-      .map((s) => `${s.id}-${s.enabled}-${s.updatedAt}`)
+      .map(
+        (s) =>
+          `${s.id}:${s.enabled}:${s.transport}:${s.url ?? ''}:${JSON.stringify(s.headers ?? {})}`
+      )
       .sort()
       .join('|')
   }, [servers])

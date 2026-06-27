@@ -89,11 +89,7 @@ export function IndicatorDropdown({
   const workspaceIndicators = useMemo(() => {
     if (!workspaceId) return []
     const scoped = [...indicators]
-    return scoped.sort((a, b) => {
-      const aTime = Date.parse(a.createdAt)
-      const bTime = Date.parse(b.createdAt)
-      return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime)
-    })
+    return scoped.sort((a, b) => a.name.localeCompare(b.name))
   }, [indicators, workspaceId])
 
   const defaultIndicatorOptions = useMemo<IndicatorOption[]>(

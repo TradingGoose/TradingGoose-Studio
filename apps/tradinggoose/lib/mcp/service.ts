@@ -36,8 +36,6 @@ type McpServerListItem = Omit<McpServerConfig, 'description' | 'url'> & {
   lastError?: string
 }
 
-const EPOCH_ISO = new Date(0).toISOString()
-
 interface ToolCache {
   tools: McpTool[]
   expiry: Date
@@ -252,11 +250,7 @@ class McpService {
     }
   }
 
-  private toServerConfig(
-    serverId: string,
-    fields: Record<string, unknown>,
-    timestamps: { createdAt?: string; updatedAt?: string } = {}
-  ): McpServerConfig {
+  private toServerConfig(serverId: string, fields: Record<string, unknown>): McpServerConfig {
     return {
       id: serverId,
       name: String(fields.name ?? ''),
@@ -267,8 +261,6 @@ class McpService {
       timeout: Number(fields.timeout ?? 30000),
       retries: Number(fields.retries ?? 3),
       enabled: fields.enabled !== false,
-      createdAt: timestamps.createdAt ?? EPOCH_ISO,
-      updatedAt: timestamps.updatedAt ?? EPOCH_ISO,
     }
   }
 

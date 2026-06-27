@@ -237,11 +237,7 @@ const ListMcpWidgetContent = ({
       workspaceId
         ? servers
             .filter((server) => server.workspaceId === workspaceId && !server.deletedAt)
-            .sort((a, b) => {
-              const aTime = Date.parse(a.updatedAt ?? a.createdAt ?? '')
-              const bTime = Date.parse(b.updatedAt ?? b.createdAt ?? '')
-              return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime)
-            })
+            .sort((a, b) => getServerName(a, '').localeCompare(getServerName(b, '')))
         : [],
     [servers, workspaceId]
   )

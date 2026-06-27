@@ -2,6 +2,7 @@
 
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronDown, Loader2, Search, Server } from 'lucide-react'
+import { useMessages } from 'next-intl'
 import { shallow } from 'zustand/shallow'
 import {
   DropdownMenu,
@@ -19,7 +20,6 @@ import {
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
-import { useMessages } from 'next-intl'
 import { useMcpServersStore } from '@/stores/mcp-servers/store'
 import type { McpServerWithStatus } from '@/stores/mcp-servers/types'
 
@@ -77,11 +77,7 @@ export function McpDropdown({
 
     return servers
       .filter((server) => server.workspaceId === workspaceId && !server.deletedAt)
-      .sort((a, b) => {
-        const aTime = Date.parse(a.updatedAt ?? a.createdAt ?? '')
-        const bTime = Date.parse(b.updatedAt ?? b.createdAt ?? '')
-        return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime)
-      })
+      .sort((a, b) => getServerLabel(a).localeCompare(getServerLabel(b)))
   }, [servers, workspaceId])
 
   const selectedServerId = value ?? null
