@@ -8,14 +8,11 @@ import {
 } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import type * as Y from 'yjs'
-import { getEntityDocumentName, normalizeEntityFields } from '@/lib/copilot/entity-documents'
+import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { getEntityFields, getEntityWorkspaceId } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
-import {
-  applyEntityStateInSocketServer,
-  notifyEntityListMembersAdded,
-} from '@/lib/yjs/server/snapshot-bridge'
+import { applyEntityStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 const SAVED_ENTITY_REALTIME_REQUIRED_CODE = 'SAVED_ENTITY_REALTIME_REQUIRED'
 
@@ -211,11 +208,4 @@ export async function saveSavedEntityYjsDocToDb(
     )
   }
   await persistSavedEntityState(entityKind, entityId, yjsFields, workspaceId)
-  await notifyEntityListMembersAdded(entityKind, workspaceId, [
-    {
-      id: entityId,
-      name: getEntityDocumentName(entityKind, yjsFields),
-      ...(entityKind === 'mcp_server' ? { enabled: yjsFields.enabled !== false } : {}),
-    },
-  ])
 }
