@@ -6,7 +6,11 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getParsedBody, withMcpAuth } from '@/lib/mcp/middleware'
 import { mcpService } from '@/lib/mcp/service'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
-import { notifyEntityListMembersUpserted } from '@/lib/yjs/server/snapshot-bridge'
+import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
+import {
+  applySavedEntityState,
+  SavedEntityPersistenceError,
+} from '@/lib/yjs/server/apply-entity-state'
 import { RenameMcpServerSchema } from '../schema'
 
 const logger = createLogger('McpServerAPI')
@@ -43,12 +47,9 @@ export const PATCH = withMcpAuth('write')(
         updates: Object.keys(body).filter((k) => k !== 'workspaceId'),
       })
 
-      const [updatedServer] = await db
-        .update(mcpServers)
-        .set({
-          name: body.name.trim(),
-          updatedAt: new Date(),
-        })
+      const [server] = await db
+        .select()
+        .from(mcpServers)
         .where(
           and(
             eq(mcpServers.id, serverId),
@@ -56,9 +57,9 @@ export const PATCH = withMcpAuth('write')(
             isNull(mcpServers.deletedAt)
           )
         )
-        .returning({ id: mcpServers.id, name: mcpServers.name, enabled: mcpServers.enabled })
+        .limit(1)
 
-      if (!updatedServer) {
+      if (!server) {
         return createMcpErrorResponse(
           new Error('Server not found or access denied'),
           'Server not found',
@@ -66,20 +67,9 @@ export const PATCH = withMcpAuth('write')(
         )
       }
 
-      try {
-        await notifyEntityListMembersUpserted('mcp_server', workspaceId, [
-          {
-            id: serverId,
-            name: updatedServer.name,
-            enabled: updatedServer.enabled !== false,
-          },
-        ])
-      } catch (error) {
-        logger.warn(`[${requestId}] Updated MCP server but failed list projection update`, {
-          error,
-          serverId,
-        })
-      }
+      const fields = savedEntityRowToFields('mcp_server', server)
+      const name = body.name.trim()
+      await applySavedEntityState('mcp_server', serverId, { ...fields, name })
 
       // Clear MCP service cache after update
       mcpService.clearCache(workspaceId)
@@ -89,11 +79,15 @@ export const PATCH = withMcpAuth('write')(
         server: {
           id: serverId,
           workspaceId,
-          name: updatedServer.name,
-          enabled: updatedServer.enabled !== false,
+          name,
+          enabled: fields.enabled !== false,
         },
       })
     } catch (error) {
+      if (error instanceof SavedEntityPersistenceError) {
+        return createMcpErrorResponse(error, error.message, error.status)
+      }
+
       logger.error(`[${requestId}] Error updating MCP server:`, error)
       return createMcpErrorResponse(
         error instanceof Error ? error : new Error('Failed to update MCP server'),

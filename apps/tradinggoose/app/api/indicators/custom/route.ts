@@ -241,11 +241,14 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Indicator not found' }, { status: 404 })
     }
 
-    await deleteYjsSessionInSocketServer(indicatorId)
-    await notifyEntityListMemberRemoved('indicator', workspaceId, indicatorId)
     await db
       .delete(pineIndicators)
       .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
+
+    await Promise.allSettled([
+      deleteYjsSessionInSocketServer(indicatorId),
+      notifyEntityListMemberRemoved('indicator', workspaceId, indicatorId),
+    ])
 
     logger.info(`[${requestId}] Deleted indicator ${indicatorId}`)
     return NextResponse.json({ success: true }, { status: 200 })

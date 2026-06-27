@@ -95,15 +95,18 @@ export async function createIndicators({
     }
 
     const createdIndicators = await tx.insert(pineIndicators).values(insertValues).returning()
+    await notifyEntityListMembersUpserted(
+      'indicator',
+      workspaceId,
+      createdIndicators.map((createdIndicator) => ({
+        id: createdIndicator.id,
+        name: createdIndicator.name,
+      }))
+    )
     logger.info(`[${requestId}] Created ${createdIndicators.length} indicator(s)`)
     return createdIndicators
   })
 
-  await notifyEntityListMembersUpserted(
-    'indicator',
-    workspaceId,
-    created.map((createdIndicator) => ({ id: createdIndicator.id, name: createdIndicator.name }))
-  )
   return created
 }
 
@@ -174,6 +177,11 @@ export async function importIndicators({
     })
 
     const importedIndicators = await tx.insert(pineIndicators).values(importValues).returning()
+    await notifyEntityListMembersUpserted(
+      'indicator',
+      workspaceId,
+      importedIndicators.map((imported) => ({ id: imported.id, name: imported.name }))
+    )
 
     logger.info(`[${requestId}] Imported ${importedIndicators.length} indicator(s)`, {
       workspaceId,
@@ -187,10 +195,5 @@ export async function importIndicators({
     }
   })
 
-  await notifyEntityListMembersUpserted(
-    'indicator',
-    workspaceId,
-    result.indicators.map((imported) => ({ id: imported.id, name: imported.name }))
-  )
   return result
 }

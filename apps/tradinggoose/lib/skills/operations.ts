@@ -74,11 +74,14 @@ export async function deleteSkill(params: {
     return false
   }
 
-  await deleteYjsSessionInSocketServer(params.skillId)
-  await notifyEntityListMemberRemoved('skill', params.workspaceId, params.skillId)
   await db
     .delete(skill)
     .where(and(eq(skill.id, params.skillId), eq(skill.workspaceId, params.workspaceId)))
+
+  await Promise.allSettled([
+    deleteYjsSessionInSocketServer(params.skillId),
+    notifyEntityListMemberRemoved('skill', params.workspaceId, params.skillId),
+  ])
 
   logger.info(`Deleted skill ${params.skillId}`)
   return true
@@ -133,15 +136,15 @@ export async function createSkills({
     }
 
     const createdSkills = await tx.insert(skill).values(insertValues).returning()
+    await notifyEntityListMembersUpserted(
+      'skill',
+      workspaceId,
+      createdSkills.map((createdSkill) => ({ id: createdSkill.id, name: createdSkill.name }))
+    )
     logger.info(`[${requestId}] Created ${createdSkills.length} skill(s)`)
     return createdSkills
   })
 
-  await notifyEntityListMembersUpserted(
-    'skill',
-    workspaceId,
-    created.map((createdSkill) => ({ id: createdSkill.id, name: createdSkill.name }))
-  )
   return created
 }
 
@@ -214,6 +217,11 @@ export async function importSkills({
     })
 
     const persistedSkills = await tx.insert(skill).values(insertValues).returning()
+    await notifyEntityListMembersUpserted(
+      'skill',
+      workspaceId,
+      persistedSkills.map((importedSkill) => ({ id: importedSkill.id, name: importedSkill.name }))
+    )
 
     logger.info(`[${requestId}] Imported ${persistedSkills.length} skill(s)`, {
       workspaceId,
@@ -228,10 +236,5 @@ export async function importSkills({
     }
   })
 
-  await notifyEntityListMembersUpserted(
-    'skill',
-    workspaceId,
-    result.skills.map((importedSkill) => ({ id: importedSkill.id, name: importedSkill.name }))
-  )
   return result
 }
