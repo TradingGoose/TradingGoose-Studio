@@ -780,6 +780,45 @@ describe('createCustomToolRequestBody', () => {
     }
   })
 
+  it('uses workspaceId for server-side custom tool lookup when workflowId is also present', async () => {
+    const serverWindow = global.window
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: 'custom-tool-123',
+              title: 'Custom Weather Tool',
+              code: 'return params',
+              schema: {
+                function: {
+                  description: 'Get weather information',
+                  parameters: { type: 'object', properties: {} },
+                },
+              },
+            },
+          ],
+        }),
+        { status: 200 }
+      ) as any
+    )
+
+    try {
+      ;(global as any).window = undefined
+
+      await expect(
+        getToolAsync('custom_custom-tool-123', 'workflow-123', 'workspace-456', 'user-123')
+      ).resolves.toBeDefined()
+
+      const requestUrl = new URL(String(fetchSpy.mock.calls[0]?.[0]))
+      expect(requestUrl.searchParams.get('workspaceId')).toBe('workspace-456')
+      expect(requestUrl.searchParams.has('workflowId')).toBe(false)
+    } finally {
+      global.window = serverWindow
+      fetchSpy.mockRestore()
+    }
+  })
+
   it('does not resolve server-side custom tools by title', async () => {
     const serverWindow = global.window
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(

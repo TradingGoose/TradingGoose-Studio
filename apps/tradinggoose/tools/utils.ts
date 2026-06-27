@@ -399,11 +399,10 @@ async function getCustomTool(
     const baseUrl = getBaseUrl()
     const url = new URL('/api/tools/custom', baseUrl)
 
-    // Add identifiers as query parameters if available
-    if (workflowId) {
-      url.searchParams.append('workflowId', workflowId)
-    } else if (workspaceId) {
+    if (workspaceId) {
       url.searchParams.append('workspaceId', workspaceId)
+    } else if (workflowId) {
+      url.searchParams.append('workflowId', workflowId)
     }
 
     const headers: Record<string, string> = {}

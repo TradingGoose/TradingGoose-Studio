@@ -9,6 +9,7 @@ import { CustomToolWriteRequestSchema } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
+import { readWorkflowAccessContext } from '@/lib/workflows/utils'
 import { SavedEntityPersistenceError } from '@/lib/yjs/server/apply-entity-state'
 import {
   deleteYjsSessionInSocketServer,
@@ -21,7 +22,8 @@ const logger = createLogger('CustomToolsAPI')
 export async function GET(request: NextRequest) {
   const requestId = generateRequestId()
   const searchParams = request.nextUrl.searchParams
-  const workspaceId = searchParams.get('workspaceId')
+  const queryWorkspaceId = searchParams.get('workspaceId')?.trim() ?? ''
+  const workflowId = searchParams.get('workflowId')?.trim() ?? ''
 
   try {
     const authResult = await checkHybridAuth(request, { requireWorkflowId: false })
@@ -31,15 +33,34 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = authResult.userId
-    if (!workspaceId) {
-      logger.warn(`[${requestId}] Missing workspaceId for custom tools fetch`)
-      return NextResponse.json({ error: 'workspaceId is required' }, { status: 400 })
-    }
-
-    const permission = await getUserEntityPermissions(userId, 'workspace', workspaceId)
-    if (!permission) {
-      logger.warn(`[${requestId}] User ${userId} does not have access to workspace ${workspaceId}`)
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    let workspaceId = queryWorkspaceId
+    if (!workspaceId && workflowId) {
+      const accessContext = await readWorkflowAccessContext(workflowId, userId)
+      if (!accessContext) {
+        return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
+      }
+      if (
+        !accessContext.isOwner &&
+        !accessContext.isWorkspaceOwner &&
+        !accessContext.workspacePermission
+      ) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+      }
+      if (!accessContext.workflow.workspaceId) {
+        return NextResponse.json({ error: 'Workflow workspace is missing' }, { status: 404 })
+      }
+      workspaceId = accessContext.workflow.workspaceId
+    } else if (!workspaceId) {
+      logger.warn(`[${requestId}] Missing workspaceId or workflowId for custom tools fetch`)
+      return NextResponse.json({ error: 'workspaceId or workflowId is required' }, { status: 400 })
+    } else {
+      const permission = await getUserEntityPermissions(userId, 'workspace', workspaceId)
+      if (!permission) {
+        logger.warn(
+          `[${requestId}] User ${userId} does not have access to workspace ${workspaceId}`
+        )
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+      }
     }
 
     return NextResponse.json({ data: await listCustomTools({ workspaceId }) }, { status: 200 })
