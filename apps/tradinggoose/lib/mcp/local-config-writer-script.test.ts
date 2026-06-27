@@ -106,4 +106,41 @@ describe('MCP local config writer script', () => {
       },
     })
   })
+
+  it.each([
+    [
+      'claude',
+      ['.claude.json'],
+      {
+        mcpServers: {
+          TradingGoose: {
+            type: 'http',
+            url: 'http://localhost:3000/api/copilot/mcp',
+            headers: { Authorization: 'Bearer mcp-token' },
+          },
+        },
+      },
+    ],
+    [
+      'opencode',
+      ['.config', 'opencode', 'opencode.json'],
+      {
+        mcp: {
+          TradingGoose: {
+            type: 'remote',
+            url: 'http://localhost:3000/api/copilot/mcp',
+            enabled: true,
+            headers: { Authorization: 'Bearer mcp-token' },
+          },
+        },
+      },
+    ],
+  ])('writes %s config', (target, pathParts, expectedConfig) => {
+    const home = mkdtempSync(join(tmpdir(), `tg-mcp-${target}-`))
+    const configPath = join(home, ...pathParts)
+
+    runWriter(home, [target, 'http://localhost:3000/api/copilot/mcp', 'mcp-token'])
+
+    expect(JSON.parse(readFileSync(configPath, 'utf8'))).toEqual(expectedConfig)
+  })
 })
