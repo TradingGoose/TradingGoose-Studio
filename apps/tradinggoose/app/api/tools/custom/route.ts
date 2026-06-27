@@ -221,11 +221,11 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Tool not found' }, { status: 404 })
     }
 
+    await deleteYjsSessionInSocketServer(toolId)
+    await notifyEntityListMemberRemoved('custom_tool', workspaceId, toolId)
     await db
       .delete(customTools)
       .where(and(eq(customTools.id, toolId), eq(customTools.workspaceId, workspaceId)))
-    await deleteYjsSessionInSocketServer(toolId).catch(() => undefined)
-    await notifyEntityListMemberRemoved('custom_tool', workspaceId, toolId)
 
     logger.info(`[${requestId}] Deleted tool: ${toolId}`)
     return NextResponse.json({ success: true })

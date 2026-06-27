@@ -74,11 +74,11 @@ export async function deleteSkill(params: {
     return false
   }
 
+  await deleteYjsSessionInSocketServer(params.skillId)
+  await notifyEntityListMemberRemoved('skill', params.workspaceId, params.skillId)
   await db
     .delete(skill)
     .where(and(eq(skill.id, params.skillId), eq(skill.workspaceId, params.workspaceId)))
-  await deleteYjsSessionInSocketServer(params.skillId).catch(() => undefined)
-  await notifyEntityListMemberRemoved('skill', params.workspaceId, params.skillId)
 
   logger.info(`Deleted skill ${params.skillId}`)
   return true
