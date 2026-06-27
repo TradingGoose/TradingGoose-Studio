@@ -5,6 +5,8 @@ import { initialState, type McpServersActions, type McpServersState } from './ty
 
 const logger = createLogger('McpServersStore')
 
+export const MCP_TOOLS_CHANGED_EVENT = 'tradinggoose:mcp-tools-changed'
+
 export const useMcpServersStore = create<McpServersState & McpServersActions>()(
   devtools(
     (set) => ({

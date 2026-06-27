@@ -11,7 +11,7 @@ import { WrenchIcon } from 'lucide-react'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { McpTool } from '@/lib/mcp/types'
 import { createMcpToolId } from '@/lib/mcp/utils'
-import { useMcpServersStore } from '@/stores/mcp-servers/store'
+import { MCP_TOOLS_CHANGED_EVENT, useMcpServersStore } from '@/stores/mcp-servers/store'
 
 const logger = createLogger('useMcpTools')
 
@@ -152,6 +152,20 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
     lastProcessedFingerprintRef.current = serversFingerprint
     refreshTools()
   }, [normalizedWorkspaceId, serversFingerprint, refreshTools, servers])
+
+  useEffect(() => {
+    if (!normalizedWorkspaceId) return
+
+    const handleToolsChanged = (event: Event) => {
+      const workspaceId = (event as CustomEvent<{ workspaceId?: string }>).detail?.workspaceId
+      if (workspaceId === normalizedWorkspaceId) {
+        void refreshTools(true)
+      }
+    }
+
+    window.addEventListener(MCP_TOOLS_CHANGED_EVENT, handleToolsChanged)
+    return () => window.removeEventListener(MCP_TOOLS_CHANGED_EVENT, handleToolsChanged)
+  }, [normalizedWorkspaceId, refreshTools])
 
   // Auto-refresh every 5 minutes
   useEffect(() => {

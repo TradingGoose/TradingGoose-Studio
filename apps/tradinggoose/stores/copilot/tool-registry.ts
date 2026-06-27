@@ -26,7 +26,7 @@ import { knowledgeKeys } from '@/hooks/queries/knowledge'
 import { skillsKeys } from '@/hooks/queries/skills'
 import { workflowKeys } from '@/hooks/queries/workflows'
 import type { CopilotToolExecutionProvenance } from '@/stores/copilot/types'
-import { useMcpServersStore } from '@/stores/mcp-servers/store'
+import { MCP_TOOLS_CHANGED_EVENT, useMcpServersStore } from '@/stores/mcp-servers/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 const logger = createLogger('CopilotToolRegistry')
@@ -358,6 +358,11 @@ export async function handleCopilotServerToolSuccess(
       ])
     } else if (toolName.endsWith('_mcp_server')) {
       await useMcpServersStore.getState().fetchServers(workspaceId)
+      window.dispatchEvent(
+        new CustomEvent(MCP_TOOLS_CHANGED_EVENT, {
+          detail: { workspaceId },
+        })
+      )
     } else if (toolName === CopilotTool.edit_monitor) {
       window.dispatchEvent(
         new CustomEvent(MONITOR_DATA_CHANGED_EVENT, {
