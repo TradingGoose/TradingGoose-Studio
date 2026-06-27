@@ -34,7 +34,7 @@ app:
 
     # API Key Encryption
     # Generate 64-character hex string using: openssl rand -hex 32
-    API_ENCRYPTION_KEY: "your-64-char-hex-api-encryption-key-here"
+    API_ENCRYPTION_KEY: ""
     
     # Email verification (set to true if you want to require email verification)
     EMAIL_VERIFICATION_ENABLED: "false"

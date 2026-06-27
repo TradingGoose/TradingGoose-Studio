@@ -27,7 +27,7 @@ app:
 
     # API Key Encryption
     # Generate 64-character hex string using: openssl rand -hex 32
-    API_ENCRYPTION_KEY: "your-64-char-hex-api-encryption-key-here"
+    API_ENCRYPTION_KEY: ""
     
     # UI Branding & Whitelabeling Configuration
     NEXT_PUBLIC_BRAND_NAME: "Acme AI Studio"

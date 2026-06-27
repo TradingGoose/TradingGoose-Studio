@@ -33,7 +33,7 @@ app:
 
     # API Key Encryption
     # Generate 64-character hex string using: openssl rand -hex 32
-    API_ENCRYPTION_KEY: ""  # Required; set via --set flag or external secret manager
+    API_ENCRYPTION_KEY: ""  # Optional unless API-key access or MCP token issuance is used
     
     NODE_ENV: "production"
     NEXT_TELEMETRY_DISABLED: "1"
