@@ -208,6 +208,17 @@ export function buildSavedEntityListInfo(
   return readBootstrappedEntityListMembers(entityKind, workspaceId)
 }
 
+async function hashCreateEntityReviewBase(
+  kind: SavedEntityDocumentKind,
+  workspaceId: string
+): Promise<string> {
+  return hashServerToolReviewBase({
+    kind,
+    workspaceId,
+    entities: await buildSavedEntityListInfo(kind as SavedEntityKind, workspaceId),
+  })
+}
+
 export async function executeCreateEntityDocumentMutation(
   kind: SavedEntityDocumentKind,
   args: EntityDocumentArgs,
@@ -229,7 +240,7 @@ export async function executeCreateEntityDocumentMutation(
       requiresReview: true,
       success: true,
       workspaceId,
-      reviewBaseStateHash: hashServerToolReviewBase({ kind, workspaceId }),
+      reviewBaseStateHash: await hashCreateEntityReviewBase(kind, workspaceId),
       ...buildDocumentEnvelope(kind, undefined, fields),
       preview: {
         documentDiff: {
@@ -240,6 +251,9 @@ export async function executeCreateEntityDocumentMutation(
     }
   }
 
+  if (context?.acceptedReviewBaseStateHash) {
+    assertAcceptedServerToolReviewBase(context, await hashCreateEntityReviewBase(kind, workspaceId))
+  }
   const created = await create(fields, scopedContext)
   return {
     success: true,

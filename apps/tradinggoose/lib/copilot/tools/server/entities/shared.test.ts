@@ -16,6 +16,7 @@ const { mockApplySavedEntityState } = vi.hoisted(() => ({
   mockApplySavedEntityState: vi.fn(),
 }))
 const mockCheckWorkspaceAccess = vi.hoisted(() => vi.fn())
+const mockReadBootstrappedEntityListMembers = vi.hoisted(() => vi.fn())
 const mockReadBootstrappedSavedEntityFields = vi.hoisted(() => vi.fn())
 const mockVerifyReviewTargetAccess = vi.hoisted(() => vi.fn())
 
@@ -32,6 +33,8 @@ vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
+  readBootstrappedEntityListMembers: (...args: unknown[]) =>
+    mockReadBootstrappedEntityListMembers(...args),
   readBootstrappedSavedEntityFields: (...args: unknown[]) =>
     mockReadBootstrappedSavedEntityFields(...args),
 }))
@@ -48,6 +51,7 @@ describe('entity document mutation helpers', () => {
       hasAccess: true,
       workspaceId: 'workspace-1',
     })
+    mockReadBootstrappedEntityListMembers.mockResolvedValue([])
   })
 
   it('applies full-access updates without building a review preview', async () => {

@@ -79,6 +79,22 @@ type WorkflowVariableDocumentEntry = {
   value?: unknown
 }
 
+async function hashWorkflowCreateReviewBase(workspaceId: string): Promise<string> {
+  const rows = await db
+    .select({ entityId: workflow.id, entityName: workflow.name })
+    .from(workflow)
+    .where(eq(workflow.workspaceId, workspaceId))
+  rows.sort(
+    (left, right) =>
+      left.entityName.localeCompare(right.entityName) || left.entityId.localeCompare(right.entityId)
+  )
+  return hashServerToolReviewBase({
+    kind: ENTITY_KIND_WORKFLOW,
+    workspaceId,
+    entities: rows,
+  })
+}
+
 const WorkflowVariableDocumentSchema = z
   .object({
     variables: z.array(
@@ -477,10 +493,13 @@ export const createWorkflowServerTool: BaseServerTool<
         entityKind: ENTITY_KIND_WORKFLOW,
         entityName: name,
         workspaceId,
-        reviewBaseStateHash: hashServerToolReviewBase({ workspaceId }),
+        reviewBaseStateHash: await hashWorkflowCreateReviewBase(workspaceId),
       }
     }
 
+    if (context?.acceptedReviewBaseStateHash) {
+      assertAcceptedServerToolReviewBase(context, await hashWorkflowCreateReviewBase(workspaceId))
+    }
     const workflowId = crypto.randomUUID()
     const now = new Date()
     const description = typeof args.description === 'string' ? args.description : 'New workflow'
