@@ -51,12 +51,13 @@ describe('Workflow Status API Route', () => {
       createErrorResponse: vi.fn((error, status) =>
         Response.json({ success: false, error }, { status })
       ),
+      createWorkflowRealtimeRequiredResponse: vi.fn(() => null),
     }))
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
       WORKFLOW_REALTIME_REQUIRED_CODE: 'WORKFLOW_REALTIME_REQUIRED',
       isWorkflowRealtimeRequiredError: vi.fn(() => false),
-      loadWorkflowBootstrapStateFromDb: mockLoadWorkflowState,
+      requireEditableWorkflowState: mockLoadWorkflowState,
     }))
 
     vi.doMock('@/lib/workflows/utils', () => ({
