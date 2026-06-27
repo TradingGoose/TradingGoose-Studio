@@ -42,7 +42,6 @@ vi.mock('drizzle-orm', () => ({
 
 vi.mock('@/lib/copilot/entity-documents', () => ({
   normalizeEntityFields: vi.fn((_entityKind, fields) => fields),
-  getEntityDocumentName: vi.fn((_entityKind, fields) => String(fields?.name ?? '')),
 }))
 
 vi.mock('@/lib/custom-tools/schema', () => ({
@@ -51,7 +50,6 @@ vi.mock('@/lib/custom-tools/schema', () => ({
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   applyEntityStateInSocketServer: mockApplyEntityStateInSocketServer,
-  notifyEntityListMembersAdded: vi.fn(),
 }))
 
 function buildDoc(fields: Record<string, unknown>, workspaceId: string | null = 'workspace-1') {

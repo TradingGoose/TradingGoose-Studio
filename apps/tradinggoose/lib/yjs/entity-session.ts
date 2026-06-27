@@ -43,13 +43,26 @@ export interface EntityListMember {
 }
 
 export type EntityListMemberMutation =
-  | { op: 'add'; entityId: string; name: string; enabled?: boolean }
+  | { op: 'upsert'; entityId: string; name: string; enabled?: boolean }
   | { op: 'remove'; entityId: string }
 
 function getEntityListMembersMap(
   doc: Y.Doc
 ): Y.Map<{ name: string; enabled?: boolean; deleted?: boolean }> {
   return doc.getMap('members')
+}
+
+export function getEntityListMemberFromFields(
+  entityKind: Exclude<ReviewEntityKind, 'workflow'>,
+  entityId: string,
+  fields: Record<string, unknown>
+): { id: string; name: string; enabled?: boolean } {
+  const nameKey = entityKind === 'custom_tool' ? 'title' : 'name'
+  return {
+    id: entityId,
+    name: String(fields[nameKey] ?? ''),
+    ...(entityKind === 'mcp_server' ? { enabled: fields.enabled !== false } : {}),
+  }
 }
 
 export function seedEntityListSession(
@@ -71,7 +84,7 @@ function applyEntityListMutation(doc: Y.Doc, mutation: EntityListMemberMutation)
   doc.transact(() => {
     getEntityListMembersMap(doc).set(
       mutation.entityId,
-      mutation.op === 'add'
+      mutation.op === 'upsert'
         ? {
             name: mutation.name,
             deleted: false,
@@ -82,17 +95,12 @@ function applyEntityListMutation(doc: Y.Doc, mutation: EntityListMemberMutation)
   }, YJS_ORIGINS.SYSTEM)
 }
 
-export function createEntityListMemberUpdate(
+export function applyEntityListMutations(
+  doc: Y.Doc,
   mutations: EntityListMemberMutation | EntityListMemberMutation[]
-): Uint8Array {
-  const doc = new Y.Doc()
-  try {
-    for (const mutation of Array.isArray(mutations) ? mutations : [mutations]) {
-      applyEntityListMutation(doc, mutation)
-    }
-    return Y.encodeStateAsUpdate(doc)
-  } finally {
-    doc.destroy()
+): void {
+  for (const mutation of Array.isArray(mutations) ? mutations : [mutations]) {
+    applyEntityListMutation(doc, mutation)
   }
 }
 

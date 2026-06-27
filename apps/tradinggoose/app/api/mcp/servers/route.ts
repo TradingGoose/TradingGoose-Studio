@@ -10,7 +10,7 @@ import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/util
 import {
   deleteYjsSessionInSocketServer,
   notifyEntityListMemberRemoved,
-  notifyEntityListMembersAdded,
+  notifyEntityListMembersUpserted,
 } from '@/lib/yjs/server/snapshot-bridge'
 import { CreateMcpServerSchema } from './schema'
 
@@ -101,7 +101,7 @@ export const POST = withMcpAuth('write')(
       })
 
       try {
-        await notifyEntityListMembersAdded('mcp_server', workspaceId, [
+        await notifyEntityListMembersUpserted('mcp_server', workspaceId, [
           { id: serverId, name: String(fields.name ?? ''), enabled: fields.enabled !== false },
         ])
       } catch (error) {

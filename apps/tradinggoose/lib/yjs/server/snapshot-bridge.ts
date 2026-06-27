@@ -1,17 +1,9 @@
-import {
-  buildEntityListDescriptor,
-  buildYjsTransportEnvelope,
-  serializeYjsTransportEnvelope,
-} from '@/lib/copilot/review-sessions/identity'
+import { buildEntityListDescriptor } from '@/lib/copilot/review-sessions/identity'
 import type {
   ReviewTargetDescriptor,
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
 import { env, getInternalRealtimeUrl } from '@/lib/env'
-import {
-  createEntityListMemberUpdate,
-  type EntityListMemberMutation,
-} from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import type { WorkflowMetadataPatch, WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
@@ -159,36 +151,24 @@ export async function applyYjsUpdateInSocketServer(
   )
 }
 
-async function applyEntityListUpdateInSocketServer(
+async function postEntityListMembersToSocketServer(
   entityKind: SavedEntityKind,
   workspaceId: string,
-  mutation: EntityListMemberMutation | EntityListMemberMutation[]
+  body: unknown
 ): Promise<void> {
   const descriptor = buildEntityListDescriptor(entityKind, workspaceId)
-  const params = serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
-  const search = new URLSearchParams(params).toString()
-  await applyYjsUpdateInSocketServer(
-    descriptor.yjsSessionId,
-    `?${search}`,
-    Buffer.from(createEntityListMemberUpdate(mutation)).toString('base64')
+  await postJsonToSocketServer(
+    `/internal/yjs/sessions/${encodeURIComponent(descriptor.yjsSessionId)}/members`,
+    body
   )
 }
 
-export async function notifyEntityListMembersAdded(
+export async function notifyEntityListMembersUpserted(
   entityKind: SavedEntityKind,
   workspaceId: string,
   members: Array<{ id: string; name: string; enabled?: boolean }>
 ): Promise<void> {
-  await applyEntityListUpdateInSocketServer(
-    entityKind,
-    workspaceId,
-    members.map((member) => ({
-      op: 'add',
-      entityId: member.id,
-      name: member.name,
-      ...(typeof member.enabled === 'boolean' ? { enabled: member.enabled } : {}),
-    }))
-  )
+  await postEntityListMembersToSocketServer(entityKind, workspaceId, { members })
 }
 
 export async function notifyEntityListMemberRemoved(
@@ -196,10 +176,7 @@ export async function notifyEntityListMemberRemoved(
   workspaceId: string,
   entityId: string
 ): Promise<void> {
-  await applyEntityListUpdateInSocketServer(entityKind, workspaceId, {
-    op: 'remove',
-    entityId,
-  })
+  await postEntityListMembersToSocketServer(entityKind, workspaceId, { remove: entityId })
 }
 
 export async function deleteYjsSessionInSocketServer(sessionId: string): Promise<void> {

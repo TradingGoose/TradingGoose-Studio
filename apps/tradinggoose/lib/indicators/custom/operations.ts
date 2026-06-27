@@ -11,7 +11,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import { readBootstrappedSavedEntityListFields } from '@/lib/yjs/server/bootstrap-review-target'
-import { notifyEntityListMembersAdded } from '@/lib/yjs/server/snapshot-bridge'
+import { notifyEntityListMembersUpserted } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('IndicatorsOperations')
 
@@ -99,7 +99,7 @@ export async function createIndicators({
     return createdIndicators
   })
 
-  await notifyEntityListMembersAdded(
+  await notifyEntityListMembersUpserted(
     'indicator',
     workspaceId,
     created.map((createdIndicator) => ({ id: createdIndicator.id, name: createdIndicator.name }))
@@ -187,7 +187,7 @@ export async function importIndicators({
     }
   })
 
-  await notifyEntityListMembersAdded(
+  await notifyEntityListMembersUpserted(
     'indicator',
     workspaceId,
     result.indicators.map((imported) => ({ id: imported.id, name: imported.name }))

@@ -26,7 +26,7 @@ import { readBootstrappedSavedEntityListFields } from '@/lib/yjs/server/bootstra
 import {
   deleteYjsSessionInSocketServer,
   notifyEntityListMemberRemoved,
-  notifyEntityListMembersAdded,
+  notifyEntityListMembersUpserted,
 } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('KnowledgeBaseService')
@@ -104,7 +104,7 @@ export async function createKnowledgeBase(
     docCount: 0,
   }
 
-  await notifyEntityListMembersAdded('knowledge_base', data.workspaceId, [
+  await notifyEntityListMembersUpserted('knowledge_base', data.workspaceId, [
     { id: created.id, name: created.name },
   ])
   return created
@@ -343,7 +343,7 @@ export async function copyKnowledgeBaseToWorkspace(
     `[${requestId}] Copied knowledge base ${sourceKnowledgeBaseId} to workspace ${targetWorkspaceId} as ${newKnowledgeBaseId}`
   )
 
-  await notifyEntityListMembersAdded('knowledge_base', targetWorkspaceId, [
+  await notifyEntityListMembersUpserted('knowledge_base', targetWorkspaceId, [
     { id: copied.id, name: copied.name },
   ])
   return copied

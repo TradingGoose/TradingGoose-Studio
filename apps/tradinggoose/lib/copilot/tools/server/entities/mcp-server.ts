@@ -12,7 +12,7 @@ import { mcpService } from '@/lib/mcp/service'
 import type { McpTransport } from '@/lib/mcp/types'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
-import { notifyEntityListMembersAdded } from '@/lib/yjs/server/snapshot-bridge'
+import { notifyEntityListMembersUpserted } from '@/lib/yjs/server/snapshot-bridge'
 import {
   buildDocumentEnvelope,
   buildSavedEntityListInfo,
@@ -129,7 +129,7 @@ async function createMcpServerEntity(
 
   const savedFields = savedEntityRowToFields(ENTITY_KIND_MCP_SERVER, row)
   try {
-    await notifyEntityListMembersAdded('mcp_server', workspaceId, [
+    await notifyEntityListMembersUpserted('mcp_server', workspaceId, [
       { id: entityId, name: String(normalized.name ?? ''), enabled: normalized.enabled !== false },
     ])
   } catch (error) {

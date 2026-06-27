@@ -3,12 +3,18 @@
  *
  * @vitest-environment node
  */
+import { EventEmitter } from 'node:events'
 import { createServer, request as httpRequest } from 'http'
 import { io as createClient } from 'socket.io-client'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getEntityFields, seedEntitySession } from '@/lib/yjs/entity-session'
+import {
+  getEntityFields,
+  getEntityListMembers,
+  seedEntityListSession,
+  seedEntitySession,
+} from '@/lib/yjs/entity-session'
 import {
   extractPersistedStateFromDoc,
   setVariables,
@@ -240,6 +246,16 @@ function applySkillSessionUpdate(port: number, sessionId: string, updateBase64: 
   )
 }
 
+async function connectTestDocument(docId: string) {
+  const conn = new EventEmitter() as any
+  conn.readyState = 1
+  conn.send = vi.fn((_message, _options, callback) => callback?.())
+  conn.ping = vi.fn()
+  conn.close = vi.fn()
+  setupWSConnection(conn, {} as any, { docId })
+  return { conn, doc: (await getExistingDocument(docId))! }
+}
+
 describe('Socket Server Index Integration', () => {
   let httpServer: any
   let io: any
@@ -446,6 +462,9 @@ describe('Socket Server Index Integration', () => {
     })
 
     it('should apply saved entity state through Yjs', async () => {
+      const { conn, doc: listDoc } = await connectTestDocument('list:skill:workspace-1')
+      seedEntityListSession(listDoc, [{ id: 'skill-1', name: 'Old Skill' }])
+
       const response = await sendHttpRequestWithOptions(
         PORT,
         '/internal/yjs/entities/skill-1/apply-state',
@@ -479,6 +498,15 @@ describe('Socket Server Index Integration', () => {
         },
       ])
       expect(await getExistingDocument('skill-1')).toBeNull()
+      expect(getEntityListMembers(listDoc)).toEqual([
+        {
+          entityId: 'skill-1',
+          entityName: 'Risk Skill',
+        },
+      ])
+
+      conn.emit('close')
+      await new Promise((resolve) => setImmediate(resolve))
     })
 
     it('should discard an idle workflow document when materialization fails', async () => {
@@ -511,13 +539,7 @@ describe('Socket Server Index Integration', () => {
     })
 
     it('does not mutate a connected live workflow session when persistence fails', async () => {
-      const conn = new (await import('node:events')).EventEmitter() as any
-      conn.readyState = 1
-      conn.send = vi.fn((_message, _options, callback) => callback?.())
-      conn.ping = vi.fn()
-      conn.close = vi.fn()
-      setupWSConnection(conn, {} as any, { docId: 'workflow-connected' })
-      const liveDoc = (await getExistingDocument('workflow-connected'))!
+      const { conn, doc: liveDoc } = await connectTestDocument('workflow-connected')
       setWorkflowState(
         liveDoc,
         { blocks: { keep: { id: 'keep' } as any }, edges: [], loops: {}, parallels: {} },
@@ -575,13 +597,7 @@ describe('Socket Server Index Integration', () => {
     })
 
     it('keeps a connected saved entity draft when update materialization fails', async () => {
-      const conn = new (await import('node:events')).EventEmitter() as any
-      conn.readyState = 1
-      conn.send = vi.fn((_message, _options, callback) => callback?.())
-      conn.ping = vi.fn()
-      conn.close = vi.fn()
-      setupWSConnection(conn, {} as any, { docId: 'skill-update-connected' })
-      const liveDoc = (await getExistingDocument('skill-update-connected'))!
+      const { conn, doc: liveDoc } = await connectTestDocument('skill-update-connected')
       seedEntitySession(liveDoc, {
         entityKind: 'skill',
         payload: {

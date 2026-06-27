@@ -14,7 +14,7 @@ import { readBootstrappedSavedEntityListFields } from '@/lib/yjs/server/bootstra
 import {
   deleteYjsSessionInSocketServer,
   notifyEntityListMemberRemoved,
-  notifyEntityListMembersAdded,
+  notifyEntityListMembersUpserted,
 } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('SkillsOperations')
@@ -137,7 +137,7 @@ export async function createSkills({
     return createdSkills
   })
 
-  await notifyEntityListMembersAdded(
+  await notifyEntityListMembersUpserted(
     'skill',
     workspaceId,
     created.map((createdSkill) => ({ id: createdSkill.id, name: createdSkill.name }))
@@ -228,7 +228,7 @@ export async function importSkills({
     }
   })
 
-  await notifyEntityListMembersAdded(
+  await notifyEntityListMembersUpserted(
     'skill',
     workspaceId,
     result.skills.map((importedSkill) => ({ id: importedSkill.id, name: importedSkill.name }))

@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'http'
 import * as Y from 'yjs'
 import {
+  buildEntityListDescriptor,
   buildReviewTargetDescriptorFromEnvelope,
   buildSavedEntityDescriptor,
   isEntityListSessionId,
@@ -9,7 +10,14 @@ import {
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { env } from '@/lib/env'
 import { saveWorkflowYjsDocToDb } from '@/lib/workflows/db-helpers'
-import { seedEntitySession } from '@/lib/yjs/entity-session'
+import {
+  applyEntityListMutations,
+  type EntityListMemberMutation,
+  getEntityFields,
+  getEntityListMemberFromFields,
+  getEntityWorkspaceId,
+  seedEntitySession,
+} from '@/lib/yjs/entity-session'
 import {
   SavedEntityPersistenceError,
   saveSavedEntityYjsDocToDb,
@@ -57,6 +65,7 @@ const INTERNAL_YJS_ENTITY_APPLY_PATH = /^\/internal\/yjs\/entities\/([^/]+)\/app
 const INTERNAL_YJS_SNAPSHOT_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/snapshot$/
 const INTERNAL_YJS_SESSION_DELETE_PATH = /^\/internal\/yjs\/sessions\/([^/]+)$/
 const INTERNAL_YJS_SESSION_APPLY_UPDATE_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/apply-update$/
+const INTERNAL_YJS_ENTITY_LIST_MEMBERS_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/members$/
 
 type ApplyWorkflowStateRequest = {
   workflowState?: WorkflowSnapshot
@@ -311,6 +320,86 @@ function applyWorkflowApplyRequest(doc: Y.Doc, body: ApplyWorkflowStateRequest):
   if (body.metadata) setWorkflowEntityMetadata(doc, body.metadata)
 }
 
+async function syncEntityListMemberFromDoc(
+  entityKind: SavedEntityKind,
+  entityId: string,
+  entityDoc: Y.Doc
+): Promise<void> {
+  const workspaceId = getEntityWorkspaceId(entityDoc)
+  if (!workspaceId) {
+    return
+  }
+
+  const descriptor = buildEntityListDescriptor(entityKind, workspaceId)
+  const listDoc = await getExistingDocument(descriptor.yjsSessionId)
+  if (!listDoc) {
+    return
+  }
+
+  const member = getEntityListMemberFromFields(
+    entityKind,
+    entityId,
+    getEntityFields(entityDoc, entityKind)
+  )
+  applyEntityListMutations(listDoc, {
+    op: 'upsert',
+    entityId: member.id,
+    name: member.name,
+    ...(typeof member.enabled === 'boolean' ? { enabled: member.enabled } : {}),
+  })
+  markDocumentPersisted(listDoc)
+  discardDocumentIfIdle(descriptor.yjsSessionId)
+}
+
+async function handleInternalYjsEntityListMembersRequest(
+  req: IncomingMessage,
+  res: ServerResponse,
+  logger: Logger,
+  sessionId: string
+): Promise<void> {
+  try {
+    if (!isEntityListSessionId(sessionId)) {
+      throw new InvalidInternalYjsRequestError('Entity-list session ID is required')
+    }
+
+    const liveDoc = await getExistingDocument(sessionId)
+    if (!liveDoc) {
+      sendJson(res, 200, { success: true, applied: false })
+      return
+    }
+
+    const body = (await readJsonBody(req)) as {
+      members?: Array<{ id?: unknown; name?: unknown; enabled?: unknown }>
+      remove?: unknown
+    }
+    const mutations: EntityListMemberMutation[] = [
+      ...(body.members ?? []).map((member) => {
+        if (typeof member.id !== 'string' || typeof member.name !== 'string') {
+          throw new InvalidInternalYjsRequestError('Entity-list member id and name are required')
+        }
+        return {
+          op: 'upsert' as const,
+          entityId: member.id,
+          name: member.name,
+          ...(typeof member.enabled === 'boolean' ? { enabled: member.enabled } : {}),
+        }
+      }),
+      ...(typeof body.remove === 'string'
+        ? [{ op: 'remove' as const, entityId: body.remove }]
+        : []),
+    ]
+    applyEntityListMutations(liveDoc, mutations)
+    markDocumentPersisted(liveDoc)
+    discardDocumentIfIdle(sessionId)
+    sendJson(res, 200, { success: true, applied: true })
+  } catch (error) {
+    logger.error('Error applying entity-list members', { error, sessionId })
+    sendJson(res, error instanceof InvalidInternalYjsRequestError ? 400 : 500, {
+      error: error instanceof Error ? error.message : 'Failed to apply entity-list members',
+    })
+  }
+}
+
 async function handleInternalYjsWorkflowApplyRequest(
   req: IncomingMessage,
   res: ServerResponse,
@@ -363,6 +452,7 @@ async function handleInternalYjsEntityApplyRequest(
       },
       (staged) => saveSavedEntityYjsDocToDb(body.entityKind, entityId, staged)
     )
+    await syncEntityListMemberFromDoc(body.entityKind, entityId, doc)
 
     sendJson(res, 200, { success: true })
   } catch (error) {
@@ -402,19 +492,6 @@ async function handleInternalYjsSessionApplyUpdateRequest(
     if (typeof updateBase64 !== 'string' || !updateBase64) {
       throw new InvalidInternalYjsRequestError('updateBase64 is required')
     }
-    if (isEntityListSessionId(descriptor.yjsSessionId)) {
-      const liveDoc = await getExistingDocument(descriptor.yjsSessionId)
-      if (!liveDoc) {
-        sendJson(res, 200, { success: true, applied: false })
-        return
-      }
-      Y.applyUpdate(liveDoc, Buffer.from(updateBase64, 'base64'), YJS_ORIGINS.SYSTEM)
-      markDocumentPersisted(liveDoc)
-      discardDocumentIfIdle(sessionId)
-      sendJson(res, 200, { success: true, applied: true })
-      return
-    }
-
     const doc = await getBootstrappedApplyDocument(descriptor)
 
     try {
@@ -424,6 +501,7 @@ async function handleInternalYjsSessionApplyUpdateRequest(
       clearSessionReseededFromCanonical(doc)
       if (descriptor.entityKind !== 'workflow' && descriptor.entityId) {
         await saveSavedEntityYjsDocToDb(descriptor.entityKind, descriptor.entityId, doc)
+        await syncEntityListMemberFromDoc(descriptor.entityKind, descriptor.entityId, doc)
         markDocumentPersisted(doc)
         discardDocumentIfIdle(sessionId)
       }
@@ -580,6 +658,17 @@ async function handleInternalYjsRequest(
   )
   if (snapshotId) {
     await handleInternalYjsSnapshotRequest(parsedUrl, res, logger, snapshotId)
+    return true
+  }
+
+  const memberListId = matchInternalRoute(
+    parsedUrl.pathname,
+    INTERNAL_YJS_ENTITY_LIST_MEMBERS_PATH,
+    'POST',
+    req.method
+  )
+  if (memberListId) {
+    await handleInternalYjsEntityListMembersRequest(req, res, logger, memberListId)
     return true
   }
 

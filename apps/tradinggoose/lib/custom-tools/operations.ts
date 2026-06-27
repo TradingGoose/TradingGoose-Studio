@@ -11,7 +11,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import { readBootstrappedSavedEntityListFields } from '@/lib/yjs/server/bootstrap-review-target'
-import { notifyEntityListMembersAdded } from '@/lib/yjs/server/snapshot-bridge'
+import { notifyEntityListMembersUpserted } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('CustomToolsOperations')
 
@@ -105,7 +105,7 @@ export async function createCustomTools({
     return createdTools
   })
 
-  await notifyEntityListMembersAdded(
+  await notifyEntityListMembersUpserted(
     'custom_tool',
     workspaceId,
     created.map((createdTool) => ({ id: createdTool.id, name: createdTool.title }))
@@ -183,7 +183,7 @@ export async function importCustomTools({
     }
   })
 
-  await notifyEntityListMembersAdded(
+  await notifyEntityListMembersUpserted(
     'custom_tool',
     workspaceId,
     result.tools.map((importedTool) => ({ id: importedTool.id, name: importedTool.title }))
