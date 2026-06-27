@@ -118,9 +118,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       )
     }
 
-    const { key: plainKey, encryptedKey } = await createApiKey(true)
-    if (!encryptedKey) {
-      throw new Error('Failed to encrypt API key for storage')
+    const { key: plainKey, storedKey } = await createApiKey(true)
+    if (!storedKey) {
+      throw new Error('Failed to prepare API key for storage')
     }
 
     const [newKey] = await db
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         userId: userId,
         createdBy: userId,
         name,
-        key: encryptedKey,
+        key: storedKey,
         type: 'workspace',
         createdAt: new Date(),
         updatedAt: new Date(),

@@ -31,9 +31,10 @@ vi.mock('drizzle-orm', () => ({
   and: vi.fn((...conditions) => ({ conditions })),
   eq: vi.fn((field, value) => ({ field, value })),
   inArray: vi.fn((field, values) => ({ field, values })),
+  like: vi.fn((field, value) => ({ field, value })),
 }))
 
-vi.mock('@/lib/env', () => ({ env: {} }))
+vi.mock('@/lib/env', () => ({ env: { API_ENCRYPTION_KEY: 'a'.repeat(64) } }))
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({
     debug: vi.fn(),
@@ -46,7 +47,9 @@ vi.mock('@/lib/logs/console/logger', () => ({
 function mockApiKeyRows(rows: unknown[]) {
   mockDbSelect.mockReturnValue({
     from: vi.fn(() => ({
-      where: vi.fn().mockResolvedValue(rows),
+      where: vi.fn(() => ({
+        limit: vi.fn().mockResolvedValue(rows),
+      })),
     })),
   })
 }
@@ -68,14 +71,48 @@ describe('API key service', () => {
     expect(mockDbSelect).not.toHaveBeenCalled()
   })
 
-  it('uses eq for a single key type and inArray for the default set', async () => {
+  it('rejects retired plaintext API-key prefixes before reading key records', async () => {
     const { authenticateApiKeyFromHeader } = await import('./service')
-    const { eq, inArray } = await import('drizzle-orm')
 
-    await authenticateApiKeyFromHeader(`tradinggoose_${'a'.repeat(32)}`)
+    await expect(
+      authenticateApiKeyFromHeader(`tradinggoose_${'a'.repeat(32)}`)
+    ).resolves.toMatchObject({
+      success: false,
+      error: 'Invalid API key',
+    })
+    expect(mockDbSelect).not.toHaveBeenCalled()
+  })
+
+  it('looks up the stored key by stable encrypted-storage prefix and scopes by key type', async () => {
+    const { authenticateApiKeyFromHeader, getStoredApiKey } = await import('./service')
+    const { eq, inArray, like } = await import('drizzle-orm')
+
+    const apiKey = `sk-tradinggoose-${'a'.repeat(32)}`
+    await authenticateApiKeyFromHeader(apiKey)
+    const [displayKey, lookupDigest] = getStoredApiKey(apiKey).split(':')
+    expect(like).toHaveBeenCalledWith('apiKey.key', `${displayKey}:${lookupDigest}:%`)
     expect(inArray).toHaveBeenCalledWith('apiKey.type', ['personal', 'workspace'])
 
-    await authenticateApiKeyFromHeader(`tradinggoose_${'a'.repeat(32)}`, { keyTypes: ['personal'] })
+    await authenticateApiKeyFromHeader(apiKey, { keyTypes: ['personal'] })
     expect(eq).toHaveBeenCalledWith('apiKey.type', 'personal')
+  })
+
+  it('stores encrypted API keys with stable lookup prefixes', async () => {
+    const { getStoredApiKey, storedApiKeyMatches } = await import('./service')
+    const apiKey = `sk-tradinggoose-${'b'.repeat(32)}`
+    const firstStoredKey = getStoredApiKey(apiKey)
+    const secondStoredKey = getStoredApiKey(apiKey)
+
+    expect(firstStoredKey).not.toBe(secondStoredKey)
+    expect(firstStoredKey.split(':').slice(0, 2)).toEqual(secondStoredKey.split(':').slice(0, 2))
+    await expect(storedApiKeyMatches(apiKey, firstStoredKey)).resolves.toBe(true)
+  })
+
+  it('rejects retired stored API-key formats without fallback decryption', async () => {
+    const { storedApiKeyMatches } = await import('./service')
+
+    await expect(
+      storedApiKeyMatches(`sk-tradinggoose-${'b'.repeat(32)}`, 'iv:ciphertext:authTag')
+    ).resolves.toBe(false)
   })
 })

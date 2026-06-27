@@ -3,7 +3,7 @@ import { db } from '@tradinggoose/db'
 import { apiKey, verification } from '@tradinggoose/db/schema'
 import { and, eq, like, lte } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
-import { encryptApiKeyForStorage, isApiKeyFormat } from '@/lib/api-key/service'
+import { getStoredApiKey, isApiKeyFormat } from '@/lib/api-key/service'
 import { env } from '@/lib/env'
 import { getBaseUrl } from '@/lib/urls/utils'
 
@@ -92,7 +92,7 @@ function createDeviceLoginApiKey(code: string, verificationKey: string): string 
     .update(`mcp-api-key.${buildDeviceLoginId(code)}.${hashValue(verificationKey)}`)
     .digest('base64url')
     .slice(0, 32)
-  return `${env.API_ENCRYPTION_KEY !== undefined ? 'sk-tradinggoose-' : 'tradinggoose_'}${secret}`
+  return `sk-tradinggoose-${secret}`
 }
 
 function approvalTokenMatches(code: string, userId: string, approvalToken: string): boolean {
@@ -455,7 +455,7 @@ export async function acknowledgeMcpDeviceLogin({
 
   const now = new Date()
   const { apiKeyHash: _apiKeyHash, ...approvedState } = login.state
-  const encryptedKey = await encryptApiKeyForStorage(plainApiKey)
+  const storedKey = getStoredApiKey(plainApiKey)
   const delivered = await db.transaction(async (tx) => {
     const [updated] = await tx
       .update(verification)
@@ -476,7 +476,7 @@ export async function acknowledgeMcpDeviceLogin({
       userId: approvedState.userId,
       workspaceId: null,
       name: `TradingGoose MCP Access ${now.toISOString()}`,
-      key: encryptedKey,
+      key: storedKey,
       type: 'personal',
       createdAt: now,
       updatedAt: now,

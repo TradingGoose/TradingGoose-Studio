@@ -79,7 +79,7 @@ export const apiKey = pgTable(
     createdBy: text('created_by').references(() => user.id, { onDelete: 'set null' }), // Who created the workspace key
     name: text('name').notNull(),
     key: text('key').notNull().unique(),
-    type: text('type').notNull().default('personal'), // 'personal', 'workspace', or 'mcp'
+    type: text('type').notNull().default('personal'), // 'personal' or 'workspace'
     lastUsed: timestamp('last_used'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -89,7 +89,7 @@ export const apiKey = pgTable(
     // Ensure only workspace keys have a workspace_id.
     workspaceTypeCheck: check(
       'workspace_type_check',
-      sql`(type = 'workspace' AND workspace_id IS NOT NULL) OR (type IN ('personal', 'mcp') AND workspace_id IS NULL)`
+      sql`(type = 'workspace' AND workspace_id IS NOT NULL) OR (type = 'personal' AND workspace_id IS NULL)`
     ),
   })
 )

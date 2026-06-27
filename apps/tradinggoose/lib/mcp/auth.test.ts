@@ -4,7 +4,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { db, mockEncryptApiKeyForStorage, mockIsApiKeyFormat } = vi.hoisted(() => ({
+const { db, mockGetStoredApiKey, mockIsApiKeyFormat } = vi.hoisted(() => ({
   db: {
     select: vi.fn(),
     insert: vi.fn(),
@@ -12,7 +12,7 @@ const { db, mockEncryptApiKeyForStorage, mockIsApiKeyFormat } = vi.hoisted(() =>
     update: vi.fn(),
     transaction: vi.fn(),
   },
-  mockEncryptApiKeyForStorage: vi.fn(),
+  mockGetStoredApiKey: vi.fn(),
   mockIsApiKeyFormat: vi.fn(),
 }))
 
@@ -32,7 +32,7 @@ vi.mock('drizzle-orm', () => ({
   lte: vi.fn((field, value) => ({ field, value })),
 }))
 vi.mock('@/lib/api-key/service', () => ({
-  encryptApiKeyForStorage: mockEncryptApiKeyForStorage,
+  getStoredApiKey: mockGetStoredApiKey,
   isApiKeyFormat: mockIsApiKeyFormat,
 }))
 vi.mock('@/lib/env', () => ({ env: { INTERNAL_API_SECRET: '12345678901234567890123456789012' } }))
@@ -80,7 +80,7 @@ describe('MCP device login auth', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-06-19T12:00:00.000Z'))
     vi.clearAllMocks()
-    mockEncryptApiKeyForStorage.mockResolvedValue('encrypted-api-key')
+    mockGetStoredApiKey.mockReturnValue('stored-api-key')
     mockIsApiKeyFormat.mockReturnValue(true)
     mockDelete()
     selectRows()
