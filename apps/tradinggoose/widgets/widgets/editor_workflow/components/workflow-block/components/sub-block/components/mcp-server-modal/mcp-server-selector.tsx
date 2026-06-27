@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { SubBlockConfig } from '@/blocks/types'
-import { useMcpServersStore, useVisibleServers } from '@/stores/mcp-servers/store'
+import { useEnabledServers, useMcpServersStore } from '@/stores/mcp-servers/store'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
@@ -30,7 +30,7 @@ export function McpServerSelector({ blockId, subBlock, disabled = false }: McpSe
   const [open, setOpen] = useState(false)
 
   const { fetchServers, isLoading, error } = useMcpServersStore()
-  const visibleServers = useVisibleServers()
+  const enabledServers = useEnabledServers()
 
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlock.id)
 
@@ -38,7 +38,7 @@ export function McpServerSelector({ blockId, subBlock, disabled = false }: McpSe
 
   const selectedServerId = storeValue || ''
 
-  const selectedServer = visibleServers.find((server) => server.id === selectedServerId)
+  const selectedServer = enabledServers.find((server) => server.id === selectedServerId)
 
   useEffect(() => {
     fetchServers(workspaceId)
@@ -103,9 +103,9 @@ export function McpServerSelector({ blockId, subBlock, disabled = false }: McpSe
                 </div>
               )}
             </CommandEmpty>
-            {visibleServers.length > 0 && (
+            {enabledServers.length > 0 && (
               <CommandGroup>
-                {visibleServers.map((server) => (
+                {enabledServers.map((server) => (
                   <CommandItem
                     key={server.id}
                     value={`server-${server.id}-${server.name}`}

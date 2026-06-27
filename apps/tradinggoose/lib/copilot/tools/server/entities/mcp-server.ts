@@ -129,7 +129,7 @@ async function createMcpServerEntity(
   const savedFields = savedEntityRowToFields(ENTITY_KIND_MCP_SERVER, row)
   mcpService.clearCache(workspaceId)
   await notifyEntityListMembersAdded('mcp_server', workspaceId, [
-    { id: entityId, name: String(normalized.name ?? '') },
+    { id: entityId, name: String(normalized.name ?? ''), enabled: normalized.enabled !== false },
   ])
 
   return {

@@ -56,7 +56,20 @@ export async function resolveEntityWorkspaceId(
 export async function readEntityListMembersFromDb(
   entityKind: SavedEntityKind,
   workspaceId: string
-): Promise<Array<{ id: string; name: string }>> {
+): Promise<Array<{ id: string; name: string; enabled?: boolean }>> {
+  if (entityKind === 'mcp_server') {
+    const rows = await db
+      .select({ id: mcpServers.id, name: mcpServers.name, enabled: mcpServers.enabled })
+      .from(mcpServers)
+      .where(entityCondition(entityKind, [eq(mcpServers.workspaceId, workspaceId)]))
+
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name ?? '',
+      enabled: row.enabled !== false,
+    }))
+  }
+
   const { table, name } = entityConfig(entityKind)
   const rows: Array<{ id: string; name: string | null }> = await db
     .select({ id: table.id, name })

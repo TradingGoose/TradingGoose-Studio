@@ -76,7 +76,10 @@ export function McpDropdown({
     if (!workspaceId) return []
 
     return servers
-      .filter((server) => server.workspaceId === workspaceId && !server.deletedAt)
+      .filter(
+        (server) =>
+          server.workspaceId === workspaceId && !server.deletedAt && server.enabled !== false
+      )
       .sort((a, b) => getServerLabel(a).localeCompare(getServerLabel(b)))
   }, [servers, workspaceId])
 

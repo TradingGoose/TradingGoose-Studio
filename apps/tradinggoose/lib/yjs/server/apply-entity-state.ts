@@ -212,6 +212,10 @@ export async function saveSavedEntityYjsDocToDb(
   }
   await persistSavedEntityState(entityKind, entityId, yjsFields, workspaceId)
   await notifyEntityListMembersAdded(entityKind, workspaceId, [
-    { id: entityId, name: getEntityDocumentName(entityKind, yjsFields) },
+    {
+      id: entityId,
+      name: getEntityDocumentName(entityKind, yjsFields),
+      ...(entityKind === 'mcp_server' ? { enabled: yjsFields.enabled !== false } : {}),
+    },
   ])
 }

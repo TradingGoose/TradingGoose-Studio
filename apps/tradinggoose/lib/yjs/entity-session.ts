@@ -39,24 +39,30 @@ export function getEntityMetadataMap(doc: Y.Doc): Y.Map<any> {
 export interface EntityListMember {
   entityId: string
   entityName: string
+  enabled?: boolean
 }
 
 export type EntityListMemberMutation =
-  | { op: 'add'; entityId: string; name: string }
+  | { op: 'add'; entityId: string; name: string; enabled?: boolean }
   | { op: 'remove'; entityId: string }
 
-function getEntityListMembersMap(doc: Y.Doc): Y.Map<{ name: string; deleted?: boolean }> {
+function getEntityListMembersMap(
+  doc: Y.Doc
+): Y.Map<{ name: string; enabled?: boolean; deleted?: boolean }> {
   return doc.getMap('members')
 }
 
 export function seedEntityListSession(
   doc: Y.Doc,
-  members: Array<{ id: string; name: string }>
+  members: Array<{ id: string; name: string; enabled?: boolean }>
 ): void {
   doc.transact(() => {
     const listMembers = getEntityListMembersMap(doc)
     for (const member of members) {
-      listMembers.set(member.id, { name: member.name })
+      listMembers.set(member.id, {
+        name: member.name,
+        ...(typeof member.enabled === 'boolean' ? { enabled: member.enabled } : {}),
+      })
     }
   }, YJS_ORIGINS.SYSTEM)
 }
@@ -65,7 +71,13 @@ function applyEntityListMutation(doc: Y.Doc, mutation: EntityListMemberMutation)
   doc.transact(() => {
     getEntityListMembersMap(doc).set(
       mutation.entityId,
-      mutation.op === 'add' ? { name: mutation.name, deleted: false } : { name: '', deleted: true }
+      mutation.op === 'add'
+        ? {
+            name: mutation.name,
+            deleted: false,
+            ...(typeof mutation.enabled === 'boolean' ? { enabled: mutation.enabled } : {}),
+          }
+        : { name: '', deleted: true }
     )
   }, YJS_ORIGINS.SYSTEM)
 }
@@ -88,7 +100,11 @@ export function getEntityListMembers(doc: Y.Doc): EntityListMember[] {
   const entries: EntityListMember[] = []
   getEntityListMembersMap(doc).forEach((value, entityId) => {
     if (value?.deleted) return
-    entries.push({ entityId, entityName: typeof value?.name === 'string' ? value.name : '' })
+    entries.push({
+      entityId,
+      entityName: typeof value?.name === 'string' ? value.name : '',
+      ...(typeof value?.enabled === 'boolean' ? { enabled: value.enabled } : {}),
+    })
   })
   entries.sort((a, b) => a.entityName.localeCompare(b.entityName))
   return entries

@@ -102,7 +102,7 @@ export const POST = withMcpAuth('write')(
 
       mcpService.clearCache(workspaceId)
       await notifyEntityListMembersAdded('mcp_server', workspaceId, [
-        { id: serverId, name: String(fields.name ?? '') },
+        { id: serverId, name: String(fields.name ?? ''), enabled: fields.enabled !== false },
       ])
 
       logger.info(`[${requestId}] Successfully registered MCP server: ${fields.name}`)

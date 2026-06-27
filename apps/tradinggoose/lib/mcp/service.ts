@@ -29,6 +29,7 @@ const logger = createLogger('McpService')
 type McpServerListItem = {
   id: string
   name: string
+  enabled: boolean
   workspaceId: string
 }
 
@@ -265,6 +266,7 @@ class McpService {
     return servers.map((server) => ({
       id: server.entityId,
       name: server.entityName,
+      enabled: server.enabled !== false,
       workspaceId,
     }))
   }

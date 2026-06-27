@@ -197,6 +197,8 @@ export const useMcpServersStore = create<McpServersState & McpServersActions>()(
   )
 )
 
-export const useVisibleServers = () => {
-  return useMcpServersStore((state) => state.servers.filter((s) => !s.deletedAt))
+export const useEnabledServers = () => {
+  return useMcpServersStore((state) =>
+    state.servers.filter((server) => !server.deletedAt && server.enabled !== false)
+  )
 }

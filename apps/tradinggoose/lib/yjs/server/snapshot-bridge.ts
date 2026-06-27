@@ -177,12 +177,17 @@ async function applyEntityListUpdateInSocketServer(
 export async function notifyEntityListMembersAdded(
   entityKind: SavedEntityKind,
   workspaceId: string,
-  members: Array<{ id: string; name: string }>
+  members: Array<{ id: string; name: string; enabled?: boolean }>
 ): Promise<void> {
   await applyEntityListUpdateInSocketServer(
     entityKind,
     workspaceId,
-    members.map((member) => ({ op: 'add', entityId: member.id, name: member.name }))
+    members.map((member) => ({
+      op: 'add',
+      entityId: member.id,
+      name: member.name,
+      ...(typeof member.enabled === 'boolean' ? { enabled: member.enabled } : {}),
+    }))
   ).catch(() => undefined)
 }
 
