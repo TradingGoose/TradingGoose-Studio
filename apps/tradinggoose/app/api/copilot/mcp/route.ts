@@ -12,8 +12,8 @@ import { createDefaultWorkspaceForUser, getUserWorkspaces } from '@/lib/workspac
 
 export const dynamic = 'force-dynamic'
 
-const MCP_PROTOCOL_VERSION = '2025-03-26'
-const MCP_NEGOTIABLE_PROTOCOL_VERSIONS = ['2025-06-18', MCP_PROTOCOL_VERSION]
+const MCP_PROTOCOL_VERSION = '2025-06-18'
+const MCP_NEGOTIABLE_PROTOCOL_VERSIONS = [MCP_PROTOCOL_VERSION, '2025-03-26']
 const MCP_ACCEPTED_RESPONSE_INIT = {
   status: 202,
   headers: { 'MCP-Protocol-Version': MCP_PROTOCOL_VERSION },
@@ -57,7 +57,15 @@ function jsonRpcError(id: JsonRpcId | null, code: number, message: string, data?
 
 function mcpJsonResponse(body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers)
-  headers.set('MCP-Protocol-Version', MCP_PROTOCOL_VERSION)
+  const responseProtocolVersion = (body as { result?: { protocolVersion?: unknown } } | null)
+    ?.result?.protocolVersion
+  headers.set(
+    'MCP-Protocol-Version',
+    typeof responseProtocolVersion === 'string' &&
+      MCP_NEGOTIABLE_PROTOCOL_VERSIONS.includes(responseProtocolVersion)
+      ? responseProtocolVersion
+      : MCP_PROTOCOL_VERSION
+  )
 
   return NextResponse.json(body, {
     ...init,
@@ -225,7 +233,7 @@ async function handleJsonRpcRequest(entry: unknown, auth: AuthenticatedMcpUser) 
         }
 
         return jsonRpcResult(id, {
-          protocolVersion: MCP_PROTOCOL_VERSION,
+          protocolVersion,
           capabilities: {
             tools: {},
           },
@@ -317,7 +325,11 @@ export async function POST(request: NextRequest) {
   const isInitialize = Array.isArray(body)
     ? body.some(isInitializeRequest)
     : isInitializeRequest(body)
-  if (requestProtocolVersion && !isInitialize && requestProtocolVersion !== MCP_PROTOCOL_VERSION) {
+  if (
+    requestProtocolVersion &&
+    !isInitialize &&
+    !MCP_NEGOTIABLE_PROTOCOL_VERSIONS.includes(requestProtocolVersion)
+  ) {
     return mcpJsonResponse(jsonRpcError(null, -32000, 'Unsupported MCP protocol version'), {
       status: 400,
     })
@@ -349,4 +361,14 @@ export async function POST(request: NextRequest) {
 
   const response = await handleJsonRpcRequest(body, auth)
   return response ? mcpJsonResponse(response) : new NextResponse(null, MCP_ACCEPTED_RESPONSE_INIT)
+}
+
+export async function GET() {
+  return new NextResponse(null, {
+    status: 405,
+    headers: {
+      Allow: 'POST',
+      'MCP-Protocol-Version': MCP_PROTOCOL_VERSION,
+    },
+  })
 }

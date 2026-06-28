@@ -148,7 +148,7 @@ describe('Copilot MCP route', () => {
     const response = await POST(createMcpRequest(initializeRequest()))
     const body = await response.json()
 
-    expect(response.headers.get('MCP-Protocol-Version')).toBe('2025-03-26')
+    expect(response.headers.get('MCP-Protocol-Version')).toBe('2025-06-18')
     expect(mockAuthenticateApiKeyFromHeader).toHaveBeenCalledWith('sk-tradinggoose-test', {
       keyTypes: ['personal'],
     })
@@ -166,6 +166,16 @@ describe('Copilot MCP route', () => {
     expect(body.result.instructions).toContain('Mutating tools execute directly')
     expect(body.result.instructions).toContain('authenticated MCP key')
     expect(body.result.instructions).not.toContain('No accessible workspaces')
+  })
+
+  it('keeps older supported MCP protocol negotiation internally consistent', async () => {
+    const { POST } = await import('./route')
+
+    const response = await POST(createMcpRequest(initializeRequest(2, '2025-03-26')))
+    const body = await response.json()
+
+    expect(response.headers.get('MCP-Protocol-Version')).toBe('2025-03-26')
+    expect(body.result.protocolVersion).toBe('2025-03-26')
   })
 
   it('repairs workspace-less authenticated users during initialize', async () => {
@@ -364,11 +374,18 @@ describe('Copilot MCP route', () => {
     const notificationResponse = await POST(
       createMcpRequest({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} })
     )
-    const wrongProtocolHeaderResponse = await POST(
+    const negotiatedProtocolHeaderResponse = await POST(
       createMcpRequest(
         { jsonrpc: '2.0', id: 11, method: 'tools/list' },
         'Bearer sk-tradinggoose-test',
         { 'MCP-Protocol-Version': '2025-06-18' }
+      )
+    )
+    const wrongProtocolHeaderResponse = await POST(
+      createMcpRequest(
+        { jsonrpc: '2.0', id: 12, method: 'tools/list' },
+        'Bearer sk-tradinggoose-test',
+        { 'MCP-Protocol-Version': '1.0' }
       )
     )
 
@@ -382,10 +399,21 @@ describe('Copilot MCP route', () => {
       '2025-03-26',
     ])
     expect(notificationResponse.status).toBe(202)
+    expect(negotiatedProtocolHeaderResponse.status).toBe(200)
     expect(wrongProtocolHeaderResponse.status).toBe(400)
     expect((await wrongProtocolHeaderResponse.json()).error.message).toBe(
       'Unsupported MCP protocol version'
     )
+  })
+
+  it('explicitly rejects GET streams because this MCP endpoint is POST-only', async () => {
+    const { GET } = await import('./route')
+
+    const response = await GET()
+
+    expect(response.status).toBe(405)
+    expect(response.headers.get('allow')).toBe('POST')
+    expect(response.headers.get('MCP-Protocol-Version')).toBe('2025-06-18')
   })
 
   it('returns per-entry invalid request errors for malformed batches', async () => {

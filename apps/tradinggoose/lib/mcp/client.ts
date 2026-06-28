@@ -2,7 +2,7 @@
  * MCP (Model Context Protocol) JSON-RPC 2.0 Client
  *
  * Implements the client side of MCP protocol with support for:
- * - Streamable HTTP transport (MCP 2025-03-26)
+ * - Streamable HTTP transport (MCP 2025-06-18 and 2025-03-26)
  * - Connection lifecycle management
  * - Tool execution and discovery
  * - Session management with Mcp-Session-Id header
