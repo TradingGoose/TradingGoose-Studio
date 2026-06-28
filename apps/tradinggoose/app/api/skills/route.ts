@@ -160,6 +160,9 @@ export async function POST(request: NextRequest) {
       throw validationError
     }
   } catch (error) {
+    if (error instanceof SavedEntityRealtimeRequiredError) {
+      return NextResponse.json(error.responseBody(), { status: error.status })
+    }
     logger.error(`[${requestId}] Error updating skills`, error)
     return NextResponse.json({ error: 'Failed to update skills' }, { status: 500 })
   }

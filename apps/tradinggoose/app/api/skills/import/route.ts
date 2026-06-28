@@ -6,6 +6,7 @@ import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { parseImportedSkillsFile } from '@/lib/skills/import-export'
 import { importSkills } from '@/lib/skills/operations'
 import { generateRequestId } from '@/lib/utils'
+import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 
 const logger = createLogger('SkillsImportAPI')
 
@@ -60,6 +61,9 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
+    if (error instanceof SavedEntityRealtimeRequiredError) {
+      return NextResponse.json(error.responseBody(), { status: error.status })
+    }
     if (error instanceof z.ZodError) {
       logger.warn(`[${requestId}] Invalid skills import data`, { errors: error.errors })
       const workspaceError = error.errors.find(

@@ -140,14 +140,9 @@ export const POST = withMcpAuth('write')(
         updatedAt: new Date(),
       })
 
-      try {
-        await notifyEntityListMembersUpserted('mcp_server', workspaceId, [
-          { id: serverId, name: String(fields.name ?? ''), enabled: fields.enabled !== false },
-        ])
-      } catch (error) {
-        await db.delete(mcpServers).where(eq(mcpServers.id, serverId))
-        throw error
-      }
+      await notifyEntityListMembersUpserted('mcp_server', workspaceId, [
+        { id: serverId, name: String(fields.name ?? ''), enabled: fields.enabled !== false },
+      ])
 
       mcpService.clearCache(workspaceId)
 
@@ -168,6 +163,9 @@ export const POST = withMcpAuth('write')(
 
       return createMcpSuccessResponse({ serverId }, 201)
     } catch (error) {
+      if (error instanceof SavedEntityRealtimeRequiredError) {
+        return createMcpErrorResponse(error, error.message, error.status)
+      }
       logger.error(`[${requestId}] Error registering MCP server:`, error)
       return createMcpErrorResponse(
         error instanceof Error ? error : new Error('Failed to register MCP server'),

@@ -100,12 +100,10 @@ export async function createKnowledgeBase(
     docCount: 0,
   }
 
-  await db.transaction(async (tx) => {
-    await tx.insert(knowledgeBase).values(newKnowledgeBase)
-    await notifyEntityListMembersUpserted('knowledge_base', data.workspaceId, [
-      { id: created.id, name: created.name },
-    ])
-  })
+  await db.insert(knowledgeBase).values(newKnowledgeBase)
+  await notifyEntityListMembersUpserted('knowledge_base', data.workspaceId, [
+    { id: created.id, name: created.name },
+  ])
 
   logger.info(`[${requestId}] Created knowledge base: ${data.name} (${kbId})`)
   return created
@@ -304,10 +302,6 @@ export async function copyKnowledgeBaseToWorkspace(
         )
       }
     }
-
-    await notifyEntityListMembersUpserted('knowledge_base', targetWorkspaceId, [
-      { id: newKnowledgeBaseId, name: copiedName },
-    ])
   })
 
   try {
@@ -344,6 +338,10 @@ export async function copyKnowledgeBaseToWorkspace(
   if (processingJobs.length > 0) {
     await enqueueDocumentProcessingJobs(processingJobs, requestId)
   }
+
+  await notifyEntityListMembersUpserted('knowledge_base', targetWorkspaceId, [
+    { id: copied.id, name: copied.name },
+  ])
 
   logger.info(
     `[${requestId}] Copied knowledge base ${sourceKnowledgeBaseId} to workspace ${targetWorkspaceId} as ${newKnowledgeBaseId}`

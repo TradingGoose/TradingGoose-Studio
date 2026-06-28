@@ -4,7 +4,7 @@ import type {
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
 import { env, getInternalRealtimeUrl } from '@/lib/env'
-import type { SavedEntityKind } from '@/lib/yjs/entity-state'
+import { type SavedEntityKind, SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 import type { WorkflowMetadataPatch, WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 export interface YjsSnapshotResponse {
@@ -157,10 +157,17 @@ async function postEntityListMembersToSocketServer(
   body: unknown
 ): Promise<void> {
   const descriptor = buildEntityListDescriptor(entityKind, workspaceId)
-  await postJsonToSocketServer(
-    `/internal/yjs/sessions/${encodeURIComponent(descriptor.yjsSessionId)}/members`,
-    body
-  )
+  try {
+    await postJsonToSocketServer(
+      `/internal/yjs/sessions/${encodeURIComponent(descriptor.yjsSessionId)}/members`,
+      body
+    )
+  } catch (error) {
+    if (error instanceof SocketServerBridgeError && error.status < 500) {
+      throw error
+    }
+    throw new SavedEntityRealtimeRequiredError()
+  }
 }
 
 export async function notifyEntityListMembersUpserted(

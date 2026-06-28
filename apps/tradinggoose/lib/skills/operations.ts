@@ -136,15 +136,15 @@ export async function createSkills({
     }
 
     const createdSkills = await tx.insert(skill).values(insertValues).returning()
-    await notifyEntityListMembersUpserted(
-      'skill',
-      workspaceId,
-      createdSkills.map((createdSkill) => ({ id: createdSkill.id, name: createdSkill.name }))
-    )
-    logger.info(`[${requestId}] Created ${createdSkills.length} skill(s)`)
     return createdSkills
   })
 
+  await notifyEntityListMembersUpserted(
+    'skill',
+    workspaceId,
+    created.map((createdSkill) => ({ id: createdSkill.id, name: createdSkill.name }))
+  )
+  logger.info(`[${requestId}] Created ${created.length} skill(s)`)
   return created
 }
 
@@ -217,16 +217,6 @@ export async function importSkills({
     })
 
     const persistedSkills = await tx.insert(skill).values(insertValues).returning()
-    await notifyEntityListMembersUpserted(
-      'skill',
-      workspaceId,
-      persistedSkills.map((importedSkill) => ({ id: importedSkill.id, name: importedSkill.name }))
-    )
-
-    logger.info(`[${requestId}] Imported ${persistedSkills.length} skill(s)`, {
-      workspaceId,
-      renamedCount,
-    })
 
     return {
       skills: persistedSkills,
@@ -236,5 +226,14 @@ export async function importSkills({
     }
   })
 
+  await notifyEntityListMembersUpserted(
+    'skill',
+    workspaceId,
+    result.skills.map((importedSkill) => ({ id: importedSkill.id, name: importedSkill.name }))
+  )
+  logger.info(`[${requestId}] Imported ${result.skills.length} skill(s)`, {
+    workspaceId,
+    renamedCount: result.renamedCount,
+  })
   return result
 }

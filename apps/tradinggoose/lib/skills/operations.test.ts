@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockTransaction, mockNanoid } = vi.hoisted(() => ({
+const { mockTransaction, mockNanoid, mockNotifyEntityListMembersUpserted } = vi.hoisted(() => ({
   mockTransaction: vi.fn(),
   mockNanoid: vi.fn(),
+  mockNotifyEntityListMembersUpserted: vi.fn(),
 }))
 
 vi.mock('@tradinggoose/db', () => ({
@@ -35,6 +36,12 @@ vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
 
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
   readBootstrappedSavedEntityListFields: vi.fn(),
+}))
+
+vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
+  deleteYjsSessionInSocketServer: vi.fn(),
+  notifyEntityListMemberRemoved: vi.fn(),
+  notifyEntityListMembersUpserted: mockNotifyEntityListMembersUpserted,
 }))
 
 import { importSkills } from '@/lib/skills/operations'

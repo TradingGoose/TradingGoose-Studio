@@ -171,6 +171,9 @@ export async function POST(req: NextRequest) {
       throw validationError
     }
   } catch (error) {
+    if (error instanceof SavedEntityRealtimeRequiredError) {
+      return NextResponse.json(error.responseBody(), { status: error.status })
+    }
     logger.error(`[${requestId}] Error updating custom tools`, error)
     return NextResponse.json({ error: 'Failed to update custom tools' }, { status: 500 })
   }

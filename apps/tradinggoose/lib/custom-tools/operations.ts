@@ -101,15 +101,15 @@ export async function createCustomTools({
     }
 
     const createdTools = await tx.insert(customTools).values(insertValues).returning()
-    await notifyEntityListMembersUpserted(
-      'custom_tool',
-      workspaceId,
-      createdTools.map((createdTool) => ({ id: createdTool.id, name: createdTool.title }))
-    )
-    logger.info(`[${requestId}] Created ${createdTools.length} custom tool(s)`)
     return createdTools
   })
 
+  await notifyEntityListMembersUpserted(
+    'custom_tool',
+    workspaceId,
+    created.map((createdTool) => ({ id: createdTool.id, name: createdTool.title }))
+  )
+  logger.info(`[${requestId}] Created ${created.length} custom tool(s)`)
   return created
 }
 
@@ -170,16 +170,6 @@ export async function importCustomTools({
     }))
 
     const importedTools = await tx.insert(customTools).values(importValues).returning()
-    await notifyEntityListMembersUpserted(
-      'custom_tool',
-      workspaceId,
-      importedTools.map((importedTool) => ({ id: importedTool.id, name: importedTool.title }))
-    )
-
-    logger.info(`[${requestId}] Imported ${importedTools.length} custom tool(s)`, {
-      workspaceId,
-      renamedCount,
-    })
 
     return {
       tools: importedTools,
@@ -188,5 +178,14 @@ export async function importCustomTools({
     }
   })
 
+  await notifyEntityListMembersUpserted(
+    'custom_tool',
+    workspaceId,
+    result.tools.map((importedTool) => ({ id: importedTool.id, name: importedTool.title }))
+  )
+  logger.info(`[${requestId}] Imported ${result.tools.length} custom tool(s)`, {
+    workspaceId,
+    renamedCount: result.renamedCount,
+  })
   return result
 }
