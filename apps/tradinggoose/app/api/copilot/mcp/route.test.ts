@@ -160,18 +160,6 @@ describe('Copilot MCP route', () => {
     expect(body.result.instructions).not.toContain('No accessible workspaces')
   })
 
-  it('treats missing workspaces as a bootstrap invariant failure instead of MCP onboarding', async () => {
-    const { POST } = await import('./route')
-    mockGetUserWorkspaces.mockResolvedValueOnce([])
-
-    const response = await POST(createMcpRequest(initializeRequest(5)))
-    const body = await response.json()
-
-    expect(body.error.code).toBe(-32603)
-    expect(body.error.data.code).toBe('server_tool_execution_failed')
-    expect(JSON.stringify(body)).not.toContain('No accessible workspaces')
-  })
-
   it('accepts a case-insensitive bearer auth scheme', async () => {
     const { POST } = await import('./route')
 

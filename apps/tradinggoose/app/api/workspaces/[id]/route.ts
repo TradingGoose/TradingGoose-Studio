@@ -15,6 +15,7 @@ import {
   WorkspaceBillingOwnerUpdateError,
   workspaceBillingOwnerSchema,
 } from '@/lib/workspaces/billing-owner'
+import { getUserWorkspaces } from '@/lib/workspaces/service'
 
 const logger = createLogger('WorkspaceByIdAPI')
 
@@ -209,6 +210,11 @@ export async function DELETE(
   const userPermission = await getUserEntityPermissions(session.user.id, 'workspace', workspaceId)
   if (userPermission !== 'admin') {
     return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
+  }
+
+  const userWorkspaces = await getUserWorkspaces({ userId: session.user.id, autoCreate: false })
+  if (userWorkspaces.length <= 1) {
+    return NextResponse.json({ error: 'Cannot delete your last workspace' }, { status: 400 })
   }
 
   try {
