@@ -10,7 +10,7 @@ import { and, eq, inArray } from 'drizzle-orm'
 import type * as Y from 'yjs'
 import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
-import { getEntityFields, getEntityWorkspaceId } from '@/lib/yjs/entity-session'
+import { getEntityFields, getEntityWorkspaceId, seedEntitySession } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import {
   applyEntityStateInSocketServer,
@@ -232,4 +232,5 @@ export async function saveSavedEntityYjsDocToDb(
     )
   }
   await persistSavedEntityState(entityKind, entityId, yjsFields, workspaceId)
+  seedEntitySession(doc, { entityKind, payload: yjsFields })
 }

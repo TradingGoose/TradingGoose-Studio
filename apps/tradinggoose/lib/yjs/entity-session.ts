@@ -189,9 +189,13 @@ export function seedEntitySession(doc: Y.Doc, options: EntitySessionSeedOptions)
         fields.set('name', payload.name ?? '')
         fields.set('description', payload.description ?? '')
         fields.set('chunkingConfig', payload.chunkingConfig)
-        fields.set('tokenCount', payload.tokenCount ?? 0)
-        fields.set('embeddingModel', payload.embeddingModel ?? 'text-embedding-3-small')
-        fields.set('embeddingDimension', payload.embeddingDimension ?? 1536)
+        if ('tokenCount' in payload) fields.set('tokenCount', payload.tokenCount ?? 0)
+        if ('embeddingModel' in payload) {
+          fields.set('embeddingModel', payload.embeddingModel ?? 'text-embedding-3-small')
+        }
+        if ('embeddingDimension' in payload) {
+          fields.set('embeddingDimension', payload.embeddingDimension ?? 1536)
+        }
         break
 
       case 'mcp_server':

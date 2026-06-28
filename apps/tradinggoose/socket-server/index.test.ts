@@ -464,6 +464,14 @@ describe('Socket Server Index Integration', () => {
     it('should apply saved entity state through Yjs', async () => {
       const { conn, doc: listDoc } = await connectTestDocument('list:skill:workspace-1')
       seedEntityListSession(listDoc, [{ id: 'skill-1', name: 'Old Skill' }])
+      mockSaveSavedEntityYjsDocToDb.mockImplementationOnce(async (entityKind, entityId, doc) => {
+        doc.getMap('fields').set('name', 'Canonical Risk Skill')
+        savedEntityStates.push({
+          entityKind,
+          entityId,
+          fields: getEntityFields(doc, entityKind),
+        })
+      })
 
       const response = await sendHttpRequestWithOptions(
         PORT,
@@ -491,7 +499,7 @@ describe('Socket Server Index Integration', () => {
           entityKind: 'skill',
           entityId: 'skill-1',
           fields: {
-            name: 'Risk Skill',
+            name: 'Canonical Risk Skill',
             description: 'Position sizing rules',
             content: 'Keep risk below one percent.',
           },
@@ -501,7 +509,7 @@ describe('Socket Server Index Integration', () => {
       expect(getEntityListMembers(listDoc)).toEqual([
         {
           entityId: 'skill-1',
-          entityName: 'Risk Skill',
+          entityName: 'Canonical Risk Skill',
         },
       ])
 

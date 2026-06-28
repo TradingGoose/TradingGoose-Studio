@@ -97,29 +97,47 @@ describe('applySavedEntityState', () => {
   })
 
   it('materializes saved-entity DB state from a provided Yjs document', async () => {
+    const { normalizeEntityFields } = await import('@/lib/copilot/entity-documents')
+    const { getEntityFields } = await import('@/lib/yjs/entity-session')
     const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
+    const inputMeta = {
+      length: { name: 'length', title: 'Length', type: 'int', defval: 14 },
+    }
+    vi.mocked(normalizeEntityFields).mockImplementationOnce((_entityKind, fields) => ({
+      ...fields,
+      name: 'Canonical Indicator',
+      inputMeta,
+    }))
     const doc = buildDoc({
-      name: 'Yjs Skill',
-      description: 'Yjs description',
-      content: 'Use the Yjs document.',
+      name: 'Draft Indicator',
+      color: '#ff0000',
+      pineCode: 'indicator("Draft")',
+      inputMeta: { stale: true },
     })
 
     try {
-      await saveSavedEntityYjsDocToDb('skill', 'skill-1', doc)
+      await saveSavedEntityYjsDocToDb('indicator', 'indicator-1', doc)
+      expect(getEntityFields(doc, 'indicator')).toEqual({
+        name: 'Canonical Indicator',
+        color: '#ff0000',
+        pineCode: 'indicator("Draft")',
+        inputMeta,
+      })
     } finally {
       doc.destroy()
     }
 
     expect(mockUpdateSet).toHaveBeenCalledWith({
-      name: 'Yjs Skill',
-      description: 'Yjs description',
-      content: 'Use the Yjs document.',
+      name: 'Canonical Indicator',
+      color: '#ff0000',
+      pineCode: 'indicator("Draft")',
+      inputMeta,
       updatedAt: expect.any(Date),
     })
     expect(mockUpdateWhere).toHaveBeenCalledWith({
       and: [
-        { field: 'skill.id', value: 'skill-1' },
-        { field: 'skill.workspaceId', value: 'workspace-1' },
+        { field: 'pineIndicators.id', value: 'indicator-1' },
+        { field: 'pineIndicators.workspaceId', value: 'workspace-1' },
       ],
     })
     expect(events).toEqual(['db'])

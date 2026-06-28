@@ -297,12 +297,13 @@ async function applyThroughStaging(
   mutate: (target: Y.Doc) => void,
   persist: (staged: Y.Doc) => Promise<void>
 ): Promise<void> {
+  const liveState = Y.encodeStateVector(doc)
   const staging = new Y.Doc()
   Y.applyUpdate(staging, Y.encodeStateAsUpdate(doc))
   try {
     mutate(staging)
     await persist(staging)
-    mutate(doc)
+    Y.applyUpdate(doc, Y.encodeStateAsUpdate(staging, liveState), YJS_ORIGINS.SYSTEM)
     markDocumentPersisted(doc)
   } finally {
     staging.destroy()
