@@ -10,14 +10,14 @@ import {
   applySavedEntityState,
   SavedEntityPersistenceError,
 } from '@/lib/yjs/server/apply-entity-state'
-import { RenameMcpServerSchema } from '../schema'
+import { UpdateMcpServerSchema } from '../schema'
 
 const logger = createLogger('McpServerAPI')
 
 export const dynamic = 'force-dynamic'
 
 /**
- * PATCH - Rename an MCP server in the workspace (requires write permission)
+ * PATCH - Update an MCP server in the workspace (requires write permission)
  */
 export const PATCH = withMcpAuth('write')(
   async (
@@ -30,7 +30,7 @@ export const PATCH = withMcpAuth('write')(
     try {
       const rawBody = getParsedBody(request) || (await request.json())
 
-      const parseResult = RenameMcpServerSchema.safeParse(rawBody)
+      const parseResult = UpdateMcpServerSchema.safeParse(rawBody)
       if (!parseResult.success) {
         return createMcpErrorResponse(
           new Error(`Invalid request body: ${parseResult.error.message}`),
@@ -66,17 +66,18 @@ export const PATCH = withMcpAuth('write')(
         )
       }
 
+      const { workspaceId: _bodyWorkspaceId, ...updates } = body
       const fields = savedEntityRowToFields('mcp_server', server)
-      const name = body.name.trim()
-      await applySavedEntityState('mcp_server', serverId, { ...fields, name })
+      const nextFields = { ...fields, ...updates }
+      await applySavedEntityState('mcp_server', serverId, nextFields)
 
       logger.info(`[${requestId}] Successfully updated MCP server: ${serverId}`)
       return createMcpSuccessResponse({
         server: {
           id: serverId,
           workspaceId,
-          name,
-          enabled: fields.enabled !== false,
+          name: String(nextFields.name ?? ''),
+          enabled: nextFields.enabled !== false,
         },
       })
     } catch (error) {

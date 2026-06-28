@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { mcpServers } from '@tradinggoose/db/schema'
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, eq, inArray, isNull } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getParsedBody, withMcpAuth } from '@/lib/mcp/middleware'
@@ -27,23 +27,32 @@ export const GET = withMcpAuth('read')(
       logger.info(`[${requestId}] Listing MCP servers for workspace ${workspaceId}`)
 
       const listMembers = await requireSavedEntityListMembers('mcp_server', workspaceId)
+      const listMemberIds = listMembers.map((member) => member.entityId)
       const statusById = new Map(
-        (
-          await db
-            .select({
-              id: mcpServers.id,
-              name: mcpServers.name,
-              enabled: mcpServers.enabled,
-              updatedAt: mcpServers.updatedAt,
-              connectionStatus: mcpServers.connectionStatus,
-              lastError: mcpServers.lastError,
-              toolCount: mcpServers.toolCount,
-              lastConnected: mcpServers.lastConnected,
-              lastToolsRefresh: mcpServers.lastToolsRefresh,
-            })
-            .from(mcpServers)
-            .where(and(eq(mcpServers.workspaceId, workspaceId), isNull(mcpServers.deletedAt)))
-        ).map((row) => [row.id, row])
+        listMemberIds.length === 0
+          ? []
+          : (
+              await db
+                .select({
+                  id: mcpServers.id,
+                  name: mcpServers.name,
+                  enabled: mcpServers.enabled,
+                  updatedAt: mcpServers.updatedAt,
+                  connectionStatus: mcpServers.connectionStatus,
+                  lastError: mcpServers.lastError,
+                  toolCount: mcpServers.toolCount,
+                  lastConnected: mcpServers.lastConnected,
+                  lastToolsRefresh: mcpServers.lastToolsRefresh,
+                })
+                .from(mcpServers)
+                .where(
+                  and(
+                    eq(mcpServers.workspaceId, workspaceId),
+                    inArray(mcpServers.id, listMemberIds),
+                    isNull(mcpServers.deletedAt)
+                  )
+                )
+            ).map((row) => [row.id, row])
       )
       const servers = listMembers.flatMap((server) => {
         const status = statusById.get(server.entityId)

@@ -112,13 +112,13 @@ async function authenticateCopilotMcpRequest(
 
 async function buildInstructions(userId: string) {
   const workspaces = await getUserWorkspaces({ userId, autoCreate: false })
-  const workspaceLines =
-    workspaces.length > 0
-      ? workspaces.map(
-          (workspace) =>
-            `- ${workspace.name}: workspaceId=${workspace.id}, permissions=${workspace.permissions}`
-        )
-      : ['- No accessible workspaces were found.']
+  if (workspaces.length === 0) {
+    throw new Error('Authenticated TradingGoose users must have at least one workspace')
+  }
+  const workspaceLines = workspaces.map(
+    (workspace) =>
+      `- ${workspace.name}: workspaceId=${workspace.id}, permissions=${workspace.permissions}`
+  )
 
   return [
     'TradingGoose Copilot MCP exposes server-side Copilot tools for trusted personal coding agents, including direct mutation tools.',
