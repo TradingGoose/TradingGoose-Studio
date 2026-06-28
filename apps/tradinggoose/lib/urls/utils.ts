@@ -1,12 +1,6 @@
 import { getEnv } from '@/lib/env'
 
-type RequestOrigin = Pick<Request, 'url'>
-
-export function getBaseUrl(request?: RequestOrigin): string {
-  if (request) {
-    return new URL(request.url).origin
-  }
-
+export function getBaseUrl(): string {
   const value = getEnv('NEXT_PUBLIC_APP_URL')?.trim()
 
   if (!value) {

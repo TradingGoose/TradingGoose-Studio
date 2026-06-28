@@ -58,7 +58,7 @@ export async function GET(
 
   const format = resolveScriptFormat(request)
 
-  return new NextResponse(buildMcpInstallScript(getBaseUrl(request), { ...options, format }), {
+  return new NextResponse(buildMcpInstallScript(getBaseUrl(), { ...options, format }), {
     headers: {
       'Cache-Control': 'no-store',
       'Content-Type':

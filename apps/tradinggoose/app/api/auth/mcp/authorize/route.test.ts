@@ -55,9 +55,7 @@ function createAuthorizeRequest(
 describe('MCP authorize route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGetBaseUrl.mockImplementation((request?: NextRequest) =>
-      request ? new URL(request.url).origin : 'https://studio.example.test'
-    )
+    mockGetBaseUrl.mockReturnValue('https://studio.example.test')
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
     mockGetSessionCookie.mockReturnValue(null)
     mockApproveMcpDeviceLogin.mockResolvedValue({
@@ -78,14 +76,14 @@ describe('MCP authorize route', () => {
           code: 'login-code',
           locale: 'es',
         },
-        {},
+        { origin: 'https://studio.example.test' },
         'https://preview.example.test'
       )
     )
 
     expect(response.status).toBe(307)
     expect(response.headers.get('location')).toBe(
-      'https://preview.example.test/es/mcp/authorize?status=approved'
+      'https://studio.example.test/es/mcp/authorize?status=approved'
     )
     expect(mockApproveMcpDeviceLogin).toHaveBeenCalledWith({
       approvalToken: 'approval-token',

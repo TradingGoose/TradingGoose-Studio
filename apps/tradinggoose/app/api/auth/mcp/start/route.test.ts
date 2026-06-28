@@ -65,7 +65,7 @@ describe('MCP login start route', () => {
       verificationKey: 'verification-key',
       expiresAt: '2026-06-19T12:00:00.000Z',
       intervalSeconds: 2,
-      authorizeUrl: 'https://preview.example.test/mcp/authorize?code=login-code',
+      authorizeUrl: 'https://studio.example.test/mcp/authorize?code=login-code',
     })
     expect(mockCheckPublicApiEndpointRateLimit).toHaveBeenCalledWith(request, 'mcp-auth-start')
     expect(mockStartMcpDeviceLogin).toHaveBeenCalledWith()

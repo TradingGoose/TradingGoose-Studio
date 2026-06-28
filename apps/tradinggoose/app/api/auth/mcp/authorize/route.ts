@@ -7,15 +7,15 @@ import { normalizeLocaleCode } from '@/i18n/utils'
 
 export const dynamic = 'force-dynamic'
 
-function redirectToAuthorizeStatus(request: NextRequest, locale: string, status: string) {
-  const url = new URL(`/${normalizeLocaleCode(locale)}/mcp/authorize`, getBaseUrl(request))
+function redirectToAuthorizeStatus(locale: string, status: string) {
+  const url = new URL(`/${normalizeLocaleCode(locale)}/mcp/authorize`, getBaseUrl())
   url.searchParams.set('status', status)
   return NextResponse.redirect(url)
 }
 
 function redirectToLogin(request: NextRequest, locale: string, code: string) {
   const normalizedLocale = normalizeLocaleCode(locale)
-  const url = new URL(`/${normalizedLocale}/login`, getBaseUrl(request))
+  const url = new URL(`/${normalizedLocale}/login`, getBaseUrl())
   if (getSessionCookie(request.headers)) {
     url.searchParams.set('reauth', '1')
   }
@@ -27,7 +27,7 @@ function redirectToLogin(request: NextRequest, locale: string, code: string) {
 }
 
 function hasTrustedFormOrigin(request: NextRequest) {
-  const trustedOrigin = new URL(getBaseUrl(request)).origin
+  const trustedOrigin = new URL(getBaseUrl()).origin
   const submittedOrigin = request.headers.get('origin')
   if (submittedOrigin) {
     try {
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     !approvalToken ||
     !hasTrustedFormOrigin(request)
   ) {
-    return redirectToAuthorizeStatus(request, locale, 'invalid')
+    return redirectToAuthorizeStatus(locale, 'invalid')
   }
 
   const session = await getSession(request.headers)
@@ -78,5 +78,5 @@ export async function POST(request: NextRequest) {
       ? await approveMcpDeviceLogin({ approvalToken, code, userId: session.user.id })
       : await cancelMcpDeviceLogin({ approvalToken, code, userId: session.user.id })
 
-  return redirectToAuthorizeStatus(request, locale, result.status)
+  return redirectToAuthorizeStatus(locale, result.status)
 }

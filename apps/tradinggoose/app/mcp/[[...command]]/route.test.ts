@@ -104,7 +104,7 @@ describe('MCP install route', () => {
     expect(script).toContain('TARGETS="codex"')
   })
 
-  it('uses request-origin and quoted installer base URLs', async () => {
+  it('uses configured and quoted installer base URLs', async () => {
     const response = await callInstaller(
       '/mcp',
       undefined,
@@ -113,8 +113,8 @@ describe('MCP install route', () => {
     )
     const script = await response.text()
 
-    expect(script).toContain("BASE_URL='https://request.example.test'")
-    expect(script).not.toContain("BASE_URL='https://studio.example.test'")
+    expect(script).toContain("BASE_URL='https://studio.example.test'")
+    expect(script).not.toContain("BASE_URL='https://request.example.test'")
 
     const shellScript = buildMcpInstallScript(
       "https://studio.example.test/$(touch pwn)`bad`'quote",
