@@ -214,7 +214,7 @@ const ListMcpWidgetContent = ({
   const permissions = useUserPermissionsContext()
   const [hasRequestedLoad, setHasRequestedLoad] = useState(false)
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
-  const { servers, isLoading, error, fetchServers, deleteServer, updateServer } =
+  const { servers, isLoading, error, fetchServers, deleteServer, renameServer } =
     useMcpServersStore(
       (state) => ({
         servers: state.servers,
@@ -222,7 +222,7 @@ const ListMcpWidgetContent = ({
         error: state.error,
         fetchServers: state.fetchServers,
         deleteServer: state.deleteServer,
-        updateServer: state.updateServer,
+        renameServer: state.renameServer,
       }),
       shallow
     )
@@ -350,12 +350,10 @@ const ListMcpWidgetContent = ({
     async (serverId: string, name: string) => {
       if (!workspaceId || !permissions.canEdit) return
 
-      await updateServer(workspaceId, serverId, {
-        name,
-      })
+      await renameServer(workspaceId, serverId, name)
       await refreshTools(true)
     },
-    [permissions.canEdit, refreshTools, updateServer, workspaceId]
+    [permissions.canEdit, refreshTools, renameServer, workspaceId]
   )
 
   const handleDeleteServer = useCallback(

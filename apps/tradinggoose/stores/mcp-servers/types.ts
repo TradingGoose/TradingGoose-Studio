@@ -52,10 +52,10 @@ export interface McpServersActions {
       | 'workspaceId'
     >
   ) => Promise<McpServerWithStatus>
-  updateServer: (
+  renameServer: (
     workspaceId: string,
     id: string,
-    updates: Partial<McpServerWithStatus>
+    name: string
   ) => Promise<McpServerWithStatus | null>
   deleteServer: (workspaceId: string, id: string) => Promise<void>
   refreshServer: (

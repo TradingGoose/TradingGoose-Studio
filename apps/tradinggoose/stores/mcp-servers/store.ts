@@ -92,25 +92,24 @@ export const useMcpServersStore = create<McpServersState & McpServersActions>()(
         }
       },
 
-      updateServer: async (workspaceId: string, id: string, updates) => {
+      renameServer: async (workspaceId: string, id: string, name: string) => {
         set({ isLoading: true, error: null })
 
         try {
           const response = await fetch(`/api/mcp/servers/${id}?workspaceId=${workspaceId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updates),
+            body: JSON.stringify({ name }),
           })
 
           const data = await response.json()
 
           if (!response.ok) {
-            throw new Error(data.error || 'Failed to update server')
+            throw new Error(data.error || 'Failed to rename server')
           }
 
           const updatedServer = data.data?.server || null
-          const nextName =
-            typeof updatedServer?.name === 'string' ? updatedServer.name : updates.name
+          const nextName = typeof updatedServer?.name === 'string' ? updatedServer.name : name
 
           set((state) => ({
             servers: state.servers.map((server) =>
@@ -121,11 +120,11 @@ export const useMcpServersStore = create<McpServersState & McpServersActions>()(
             isLoading: false,
           }))
 
-          logger.info(`Updated MCP server: ${id} in workspace: ${workspaceId}`)
+          logger.info(`Renamed MCP server: ${id} in workspace: ${workspaceId}`)
           return updatedServer
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Failed to update server'
-          logger.error('Failed to update MCP server:', error)
+          const errorMessage = error instanceof Error ? error.message : 'Failed to rename server'
+          logger.error('Failed to rename MCP server:', error)
           set({ error: errorMessage, isLoading: false })
           throw error
         }
