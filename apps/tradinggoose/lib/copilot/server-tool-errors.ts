@@ -176,18 +176,6 @@ export function buildCopilotServerToolErrorResponse(
   }
 
   const message = error instanceof Error ? error.message : 'Failed to execute server tool'
-  const typedError = error as { status?: unknown; code?: unknown; retryable?: unknown }
-  if (typeof typedError.status === 'number' && typeof typedError.code === 'string') {
-    return {
-      status: typedError.status,
-      body: {
-        code: typedError.code,
-        error: GENERIC_SERVER_TOOL_ERROR,
-        ...(typeof typedError.retryable === 'boolean' ? { retryable: typedError.retryable } : {}),
-      },
-    }
-  }
-
   if (toolName === 'edit_workflow') {
     const structuredError = buildEditWorkflowError(message)
     if (structuredError) {
