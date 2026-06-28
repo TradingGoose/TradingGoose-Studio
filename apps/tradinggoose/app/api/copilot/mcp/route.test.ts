@@ -49,12 +49,17 @@ vi.mock('@/lib/workspaces/service', () => ({
   getUserWorkspaces: (...args: unknown[]) => mockGetUserWorkspaces(...args),
 }))
 
-function createMcpRequest(body: unknown, authorization = 'Bearer sk-tradinggoose-test') {
+function createMcpRequest(
+  body: unknown,
+  authorization = 'Bearer sk-tradinggoose-test',
+  headers: Record<string, string> = {}
+) {
   return new NextRequest('https://studio.example.test/api/copilot/mcp', {
     method: 'POST',
     headers: {
       authorization,
       'content-type': 'application/json',
+      ...headers,
     },
     body: JSON.stringify(body),
   })
@@ -348,6 +353,16 @@ describe('Copilot MCP route', () => {
       createMcpRequest({ jsonrpc: '2.0', id: 9, method: 'initialize', params: {} })
     )
     const unsupportedVersionResponse = await POST(createMcpRequest(initializeRequest(10, '1.0')))
+    const notificationResponse = await POST(
+      createMcpRequest({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} })
+    )
+    const wrongProtocolHeaderResponse = await POST(
+      createMcpRequest(
+        { jsonrpc: '2.0', id: 11, method: 'tools/list' },
+        'Bearer sk-tradinggoose-test',
+        { 'MCP-Protocol-Version': '2025-06-18' }
+      )
+    )
 
     expect((await invalidJsonRpcResponse.json()).error.code).toBe(-32600)
     expect((await nullIdResponse.json()).error.code).toBe(-32600)
@@ -355,6 +370,11 @@ describe('Copilot MCP route', () => {
     const unsupportedVersionBody = await unsupportedVersionResponse.json()
     expect(unsupportedVersionBody.error.code).toBe(-32000)
     expect(unsupportedVersionBody.error.data.supportedProtocolVersions).toEqual(['2025-06-18', '2025-03-26'])
+    expect(notificationResponse.status).toBe(202)
+    expect(wrongProtocolHeaderResponse.status).toBe(400)
+    expect((await wrongProtocolHeaderResponse.json()).error.message).toBe(
+      'Unsupported MCP protocol version'
+    )
   })
 
   it('returns per-entry invalid request errors for malformed batches', async () => {

@@ -14,6 +14,7 @@ export const dynamic = 'force-dynamic'
 
 const MCP_PROTOCOL_VERSION = '2025-03-26'
 const MCP_NEGOTIABLE_PROTOCOL_VERSIONS = ['2025-06-18', MCP_PROTOCOL_VERSION]
+const MCP_ACCEPTED_RESPONSE_INIT = { status: 202, headers: { 'MCP-Protocol-Version': MCP_PROTOCOL_VERSION } }
 const SERVER_NAME = 'TradingGoose'
 const SERVER_VERSION = '0.1.0'
 const MAX_JSON_RPC_BATCH_SIZE = 10
@@ -308,6 +309,15 @@ export async function POST(request: NextRequest) {
     return mcpJsonResponse(jsonRpcError(null, -32700, 'Invalid JSON body'), { status: 400 })
   }
 
+  const requestProtocolVersion = request.headers.get('MCP-Protocol-Version')
+  const isInitialize = Array.isArray(body) ? body.some(isInitializeRequest) : isInitializeRequest(body)
+  if (requestProtocolVersion && !isInitialize && requestProtocolVersion !== MCP_PROTOCOL_VERSION) {
+    return mcpJsonResponse(
+      jsonRpcError(null, -32000, 'Unsupported MCP protocol version'),
+      { status: 400 }
+    )
+  }
+
   if (Array.isArray(body)) {
     if (body.length === 0) {
       return mcpJsonResponse(jsonRpcError(null, -32600, 'Invalid JSON-RPC request'))
@@ -329,9 +339,9 @@ export async function POST(request: NextRequest) {
 
     return responses.length > 0
       ? mcpJsonResponse(responses)
-      : new NextResponse(null, { status: 204 })
+      : new NextResponse(null, MCP_ACCEPTED_RESPONSE_INIT)
   }
 
   const response = await handleJsonRpcRequest(body, auth)
-  return response ? mcpJsonResponse(response) : new NextResponse(null, { status: 204 })
+  return response ? mcpJsonResponse(response) : new NextResponse(null, MCP_ACCEPTED_RESPONSE_INIT)
 }
