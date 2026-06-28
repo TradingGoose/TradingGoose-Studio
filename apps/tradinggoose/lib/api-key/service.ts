@@ -11,6 +11,7 @@ const API_KEY_SECRET_PATTERN = /^[A-Za-z0-9_-]{32}$/
 const API_ENCRYPTION_KEY_PATTERN = /^[a-fA-F0-9]{64}$/
 const API_KEY_PREFIX = 'sk-tradinggoose-'
 const STORED_API_KEY_SEPARATOR = ':'
+const API_KEY_ACCESS_NOT_CONFIGURED = 'API key access is not configured'
 const DEFAULT_API_KEY_AUTH_TYPES: ApiKeyType[] = ['personal', 'workspace']
 // Canonical stored shape: display:lookupDigest:iv:ciphertext:authTag.
 // Retired plaintext/encrypted rows are intentionally not authenticated.
@@ -60,6 +61,9 @@ export async function authenticateApiKeyFromHeader(
   const apiKey = apiKeyHeader.trim()
   if (!apiKey) {
     return { success: false, error: 'API key required' }
+  }
+  if (!isApiKeyStorageAvailable()) {
+    return { success: false, error: API_KEY_ACCESS_NOT_CONFIGURED }
   }
   if (!isApiKeyFormat(apiKey)) {
     return { success: false, error: 'Invalid API key' }
@@ -178,7 +182,7 @@ function getApiKeyLookupDigest(apiKey: string): string {
 function getApiEncryptionKey(): Buffer {
   const key = env.API_ENCRYPTION_KEY
   if (!key) {
-    throw new Error('API_ENCRYPTION_KEY is required for API key storage')
+    throw new Error(API_KEY_ACCESS_NOT_CONFIGURED)
   }
   if (!API_ENCRYPTION_KEY_PATTERN.test(key)) {
     throw new Error('API_ENCRYPTION_KEY must be a 64-character hex string (32 bytes)')
@@ -238,7 +242,11 @@ function constantTimeEqual(left: string, right: string): boolean {
 }
 
 export async function storedApiKeyMatches(apiKey: string, storedApiKey: string): Promise<boolean> {
-  if (!isApiKeyFormat(apiKey) || !isStoredApiKeyFormat(storedApiKey)) {
+  if (
+    !isApiKeyStorageAvailable() ||
+    !isApiKeyFormat(apiKey) ||
+    !isStoredApiKeyFormat(storedApiKey)
+  ) {
     return false
   }
   const [, lookupDigest] = storedApiKey.split(STORED_API_KEY_SEPARATOR)

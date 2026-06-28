@@ -477,7 +477,7 @@ export async function acknowledgeMcpDeviceLogin({
       id: nanoid(),
       userId: approvedState.userId,
       workspaceId: null,
-      name: `TradingGoose MCP Access ${now.toISOString()}`,
+      name: `TradingGoose Personal API Key (MCP setup) ${now.toISOString()}`,
       key: storedKey,
       type: 'personal',
       createdAt: now,

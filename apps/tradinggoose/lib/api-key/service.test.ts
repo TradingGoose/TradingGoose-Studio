@@ -4,8 +4,9 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockDbSelect } = vi.hoisted(() => ({
+const { mockDbSelect, mockEnv } = vi.hoisted(() => ({
   mockDbSelect: vi.fn(),
+  mockEnv: { API_ENCRYPTION_KEY: 'a'.repeat(64) } as { API_ENCRYPTION_KEY?: string },
 }))
 
 vi.mock('@tradinggoose/db', () => ({
@@ -34,7 +35,7 @@ vi.mock('drizzle-orm', () => ({
   like: vi.fn((field, value) => ({ field, value })),
 }))
 
-vi.mock('@/lib/env', () => ({ env: { API_ENCRYPTION_KEY: 'a'.repeat(64) } }))
+vi.mock('@/lib/env', () => ({ env: mockEnv }))
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({
     debug: vi.fn(),
@@ -58,6 +59,7 @@ describe('API key service', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
+    mockEnv.API_ENCRYPTION_KEY = 'a'.repeat(64)
     mockApiKeyRows([])
   })
 
@@ -68,6 +70,25 @@ describe('API key service', () => {
       success: false,
       error: 'Invalid API key',
     })
+    expect(mockDbSelect).not.toHaveBeenCalled()
+  })
+
+  it('disables API-key authentication when encrypted storage is not configured', async () => {
+    mockEnv.API_ENCRYPTION_KEY = undefined
+    const { authenticateApiKeyFromHeader, storedApiKeyMatches } = await import('./service')
+
+    await expect(
+      authenticateApiKeyFromHeader(`sk-tradinggoose-${'a'.repeat(32)}`)
+    ).resolves.toMatchObject({
+      success: false,
+      error: 'API key access is not configured',
+    })
+    await expect(
+      storedApiKeyMatches(
+        `sk-tradinggoose-${'a'.repeat(32)}`,
+        'sk-tradinggoose-...aaaa:'.concat('b'.repeat(64), ':iv:encrypted:tag')
+      )
+    ).resolves.toBe(false)
     expect(mockDbSelect).not.toHaveBeenCalled()
   })
 
