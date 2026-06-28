@@ -15,6 +15,7 @@ import * as encoding from 'lib0/encoding'
 import * as map from 'lib0/map'
 import type { WebSocket } from 'ws'
 import * as Y from 'yjs'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 
 const messageSync = 0
 const messageAwareness = 1
@@ -34,9 +35,11 @@ class WSSharedDoc extends Y.Doc {
   whenInitialized: Promise<void>
   onDocumentIdle?: DocumentPersistenceHandler
   onDocumentUpdate?: DocumentPersistenceHandler
+  onDocumentUpdateDebounceMs = 0
   hasUnsavedChanges = false
   isPersisting = false
   needsPersist = false
+  persistTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor(name: string, gc: boolean) {
     super({ gc })
@@ -72,9 +75,11 @@ class WSSharedDoc extends Y.Doc {
       }
     )
 
-    this.on('update', (update: Uint8Array, _origin: unknown) => {
-      this.hasUnsavedChanges = true
-      scheduleDocumentPersistence(this)
+    this.on('update', (update: Uint8Array, origin: unknown) => {
+      if (origin !== YJS_ORIGINS.SYSTEM) {
+        this.hasUnsavedChanges = true
+        scheduleDocumentPersistence(this)
+      }
       const encoder = encoding.createEncoder()
       encoding.writeVarUint(encoder, messageSync)
       syncProtocol.writeUpdate(encoder, update)
@@ -87,6 +92,28 @@ class WSSharedDoc extends Y.Doc {
 }
 
 function scheduleDocumentPersistence(doc: WSSharedDoc): void {
+  if (doc.persistTimer) {
+    clearTimeout(doc.persistTimer)
+    doc.persistTimer = null
+  }
+
+  if (doc.isPersisting) {
+    doc.needsPersist = true
+    return
+  }
+
+  if (doc.onDocumentUpdateDebounceMs > 0) {
+    doc.persistTimer = setTimeout(() => {
+      doc.persistTimer = null
+      runDocumentPersistence(doc)
+    }, doc.onDocumentUpdateDebounceMs)
+    return
+  }
+
+  runDocumentPersistence(doc)
+}
+
+function runDocumentPersistence(doc: WSSharedDoc): void {
   const persist = doc.onDocumentUpdate
   if (!persist) {
     return
@@ -126,6 +153,11 @@ function cleanupDocument(doc: WSSharedDoc): void {
 }
 
 function finalizeDocumentCleanup(doc: WSSharedDoc): void {
+  if (doc.persistTimer) {
+    clearTimeout(doc.persistTimer)
+    doc.persistTimer = null
+  }
+
   if (!doc.onDocumentIdle || !doc.hasUnsavedChanges) {
     cleanupDocument(doc)
     return
@@ -246,9 +278,17 @@ export function setupWSConnection(
     bootstrapState?: Uint8Array
     onDocumentIdle?: DocumentPersistenceHandler
     onDocumentUpdate?: DocumentPersistenceHandler
+    onDocumentUpdateDebounceMs?: number
   }
 ): void {
-  const { docId, gc = true, bootstrapState, onDocumentIdle, onDocumentUpdate } = opts
+  const {
+    docId,
+    gc = true,
+    bootstrapState,
+    onDocumentIdle,
+    onDocumentUpdate,
+    onDocumentUpdateDebounceMs,
+  } = opts
 
   conn.binaryType = 'arraybuffer'
 
@@ -256,6 +296,7 @@ export function setupWSConnection(
   doc.onDocumentIdle = onDocumentIdle
   if (onDocumentUpdate) {
     doc.onDocumentUpdate = onDocumentUpdate
+    doc.onDocumentUpdateDebounceMs = onDocumentUpdateDebounceMs ?? 0
   }
   doc.conns.set(conn, new Set())
 

@@ -15,7 +15,8 @@ import { reconcilePublishedChatsForDeploymentTx } from '@/lib/chat/published-dep
 import { createLogger } from '@/lib/logs/console/logger'
 import { sanitizeAgentToolsInBlocks } from '@/lib/workflows/validation'
 import { inferWorkflowDirectionFromState } from '@/lib/workflows/workflow-direction'
-import { extractPersistedStateFromDoc } from '@/lib/yjs/workflow-session'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import { extractPersistedStateFromDoc, setWorkflowState } from '@/lib/yjs/workflow-session'
 import type {
   BlockState,
   Loop,
@@ -897,6 +898,14 @@ export async function saveWorkflowYjsDocToDb(workflowId: string, doc: Y.Doc): Pr
 
   if (!saveResult.success) {
     throw new Error(saveResult.error || 'Failed to materialize workflow Yjs state')
+  }
+
+  if (saveResult.normalizedState) {
+    setWorkflowState(
+      doc,
+      { ...saveResult.normalizedState, lastSaved: syncedAt.toISOString() },
+      YJS_ORIGINS.SYSTEM
+    )
   }
 }
 

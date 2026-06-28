@@ -20,6 +20,7 @@ import { authenticateYjsConnection, YjsAuthError } from './auth'
 import { getExistingDocument, setupWSConnection } from './upstream-utils'
 
 const logger = createLogger('YjsWsHandler')
+const WORKFLOW_LIVE_PERSIST_DEBOUNCE_MS = 1500
 
 interface YjsIncomingMessage extends IncomingMessage {
   yjsSessionId?: string
@@ -195,6 +196,7 @@ function ensureConnectionHandler(wss: WebSocketServer): void {
         bootstrapState: yjsReq.yjsBootstrapState,
         onDocumentIdle: persistWorkflowDocument,
         onDocumentUpdate: yjsReq.yjsPersistLiveUpdates ? persistWorkflowDocument : undefined,
+        onDocumentUpdateDebounceMs: WORKFLOW_LIVE_PERSIST_DEBOUNCE_MS,
       })
     } catch (error) {
       logger.error('Failed to attach Yjs connection', { docId, error })
