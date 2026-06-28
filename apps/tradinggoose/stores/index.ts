@@ -1,6 +1,7 @@
 'use client'
 
 import { createLogger } from '@/lib/logs/console/logger'
+import { getQueryClient } from '@/app/query-provider'
 import { resetWorkspacePermissionsStore } from '@/hooks/use-workspace-permissions'
 import { useConsoleStore } from '@/stores/console/store'
 import { getCopilotStore, useCopilotStore } from '@/stores/copilot/store'
@@ -26,6 +27,7 @@ export async function clearUserData(): Promise<void> {
 
     // Reset all stores to their initial state
     resetAllStores()
+    getQueryClient().clear()
 
     // Clear localStorage except for essential app settings (minimal usage)
     const keysToKeep = ['next-favicon', 'theme']
