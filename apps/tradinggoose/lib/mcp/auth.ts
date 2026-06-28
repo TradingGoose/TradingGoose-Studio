@@ -443,7 +443,9 @@ export async function acknowledgeMcpDeviceLogin({
   }
 
   if (login.state.status === 'approved' && login.state.deliveredAt) {
-    return { status: 'expired' }
+    return hashValue(plainApiKey) === hashValue(createDeviceLoginApiKey(code, verificationKey))
+      ? { status: 'acknowledged' }
+      : { status: 'invalid' }
   }
 
   if (login.state.status !== 'approved') {

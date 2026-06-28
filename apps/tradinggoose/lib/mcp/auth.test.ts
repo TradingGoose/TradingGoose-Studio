@@ -139,19 +139,22 @@ describe('MCP device login auth', () => {
     expect(db.delete).toHaveBeenCalled()
   })
 
-  it('returns the same approved API key across repeated polls before acknowledgement', async () => {
-    const { pollMcpDeviceLogin, startMcpDeviceLogin } = await import('./auth')
+  it('returns the same approved API key across repeated polls and acknowledges delivered retries', async () => {
+    const { acknowledgeMcpDeviceLogin, pollMcpDeviceLogin, startMcpDeviceLogin } = await import(
+      './auth'
+    )
     const login = await startMcpDeviceLogin()
     const fields = readCodeFields(login.code)
+    const approvedState = {
+      status: 'approved',
+      createdAt: fields.createdAt,
+      verificationKeyHash: fields.verificationKeyHash,
+      approvedAt: '2026-06-19T12:01:00.000Z',
+      userId: 'user-1',
+    }
     const approvedRow = {
       id: 'device-login-row',
-      value: JSON.stringify({
-        status: 'approved',
-        createdAt: fields.createdAt,
-        verificationKeyHash: fields.verificationKeyHash,
-        approvedAt: '2026-06-19T12:01:00.000Z',
-        userId: 'user-1',
-      }),
+      value: JSON.stringify(approvedState),
       expiresAt: fields.expiresAt,
     }
     selectRows([approvedRow], [approvedRow])
@@ -162,5 +165,26 @@ describe('MCP device login auth', () => {
 
     expect(firstPoll).toEqual(secondPoll)
     expect(firstPoll.status).toBe('approved')
+    if (firstPoll.status !== 'approved') throw new Error('Expected approved device login')
+
+    selectRows([
+      {
+        id: 'device-login-row',
+        value: JSON.stringify({
+          ...approvedState,
+          deliveredAt: '2026-06-19T12:02:00.000Z',
+        }),
+        expiresAt: fields.expiresAt,
+      },
+    ])
+
+    await expect(
+      acknowledgeMcpDeviceLogin({
+        apiKey: firstPoll.apiKey,
+        code: login.code,
+        verificationKey: login.verificationKey,
+      })
+    ).resolves.toEqual({ status: 'acknowledged' })
+    expect(db.transaction).not.toHaveBeenCalled()
   })
 })

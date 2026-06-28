@@ -33,18 +33,19 @@ vi.mock('@/lib/mcp/auth', () => ({
 }))
 
 vi.mock('@/lib/urls/utils', () => ({
-  getBaseUrl: () => mockGetBaseUrl(),
+  getBaseUrl: (...args: unknown[]) => mockGetBaseUrl(...args),
 }))
 
 function createAuthorizeRequest(
   body: Record<string, string>,
-  headers: Record<string, string> = {}
+  headers: Record<string, string> = {},
+  origin = 'https://studio.example.test'
 ) {
-  return new NextRequest('https://studio.example.test/api/auth/mcp/authorize', {
+  return new NextRequest(`${origin}/api/auth/mcp/authorize`, {
     method: 'POST',
     headers: {
       'content-type': 'application/x-www-form-urlencoded',
-      origin: 'https://studio.example.test',
+      origin,
       ...headers,
     },
     body: new URLSearchParams(body),
@@ -54,7 +55,9 @@ function createAuthorizeRequest(
 describe('MCP authorize route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGetBaseUrl.mockReturnValue('https://studio.example.test')
+    mockGetBaseUrl.mockImplementation((request?: NextRequest) =>
+      request ? new URL(request.url).origin : 'https://studio.example.test'
+    )
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
     mockGetSessionCookie.mockReturnValue(null)
     mockApproveMcpDeviceLogin.mockResolvedValue({
@@ -68,17 +71,21 @@ describe('MCP authorize route', () => {
     const { POST } = await import('./route')
 
     const response = await POST(
-      createAuthorizeRequest({
-        action: 'approve',
-        approvalToken: 'approval-token',
-        code: 'login-code',
-        locale: 'es',
-      })
+      createAuthorizeRequest(
+        {
+          action: 'approve',
+          approvalToken: 'approval-token',
+          code: 'login-code',
+          locale: 'es',
+        },
+        {},
+        'https://preview.example.test'
+      )
     )
 
     expect(response.status).toBe(307)
     expect(response.headers.get('location')).toBe(
-      'https://studio.example.test/es/mcp/authorize?status=approved'
+      'https://preview.example.test/es/mcp/authorize?status=approved'
     )
     expect(mockApproveMcpDeviceLogin).toHaveBeenCalledWith({
       approvalToken: 'approval-token',

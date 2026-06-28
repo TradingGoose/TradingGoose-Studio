@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'API key access is not configured' }, { status: 503 })
   }
 
-  const baseUrl = getBaseUrl()
+  const baseUrl = getBaseUrl(request)
   const login = await startMcpDeviceLogin()
   const authorizeUrl = new URL('/mcp/authorize', baseUrl)
   authorizeUrl.searchParams.set('code', login.code)

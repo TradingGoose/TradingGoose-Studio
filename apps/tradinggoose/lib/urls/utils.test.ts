@@ -22,6 +22,12 @@ describe('url helpers', () => {
     expect(getBaseUrl()).toBe('https://www.tradinggoose.ai')
   })
 
+  it('uses the request origin when a request is provided', () => {
+    const request = new Request('https://preview.example.test/api/auth/mcp/start')
+
+    expect(getBaseUrl(request)).toBe('https://preview.example.test')
+  })
+
   it('treats preview and production as configured app URLs', () => {
     mockEnv.NEXT_PUBLIC_APP_URL = 'https://preview.tradinggoose.ai'
 

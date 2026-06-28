@@ -53,7 +53,7 @@ describe('MCP login start route', () => {
 
   it('starts a browser approval login and returns an absolute approval URL', async () => {
     const { POST } = await import('./route')
-    const request = new NextRequest('https://studio.example.test/api/auth/mcp/start', {
+    const request = new NextRequest('https://preview.example.test/api/auth/mcp/start', {
       method: 'POST',
     })
 
@@ -65,7 +65,7 @@ describe('MCP login start route', () => {
       verificationKey: 'verification-key',
       expiresAt: '2026-06-19T12:00:00.000Z',
       intervalSeconds: 2,
-      authorizeUrl: 'https://studio.example.test/mcp/authorize?code=login-code',
+      authorizeUrl: 'https://preview.example.test/mcp/authorize?code=login-code',
     })
     expect(mockCheckPublicApiEndpointRateLimit).toHaveBeenCalledWith(request, 'mcp-auth-start')
     expect(mockStartMcpDeviceLogin).toHaveBeenCalledWith()
