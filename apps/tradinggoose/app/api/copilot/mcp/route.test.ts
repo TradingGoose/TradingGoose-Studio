@@ -60,7 +60,7 @@ function createMcpRequest(body: unknown, authorization = 'Bearer sk-tradinggoose
   })
 }
 
-function initializeRequest(id: string | number = 1, protocolVersion = '2025-03-26') {
+function initializeRequest(id: string | number = 1, protocolVersion = '2025-06-18') {
   return {
     jsonrpc: '2.0',
     id,
@@ -354,7 +354,7 @@ describe('Copilot MCP route', () => {
     expect((await invalidInitializeResponse.json()).error.code).toBe(-32602)
     const unsupportedVersionBody = await unsupportedVersionResponse.json()
     expect(unsupportedVersionBody.error.code).toBe(-32000)
-    expect(unsupportedVersionBody.error.data.supportedProtocolVersions).toEqual(['2025-03-26'])
+    expect(unsupportedVersionBody.error.data.supportedProtocolVersions).toEqual(['2025-06-18', '2025-03-26'])
   })
 
   it('returns per-entry invalid request errors for malformed batches', async () => {

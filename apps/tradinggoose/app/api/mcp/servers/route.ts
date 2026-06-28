@@ -35,8 +35,6 @@ export const GET = withMcpAuth('read')(
               await db
                 .select({
                   id: mcpServers.id,
-                  name: mcpServers.name,
-                  enabled: mcpServers.enabled,
                   updatedAt: mcpServers.updatedAt,
                   connectionStatus: mcpServers.connectionStatus,
                   lastError: mcpServers.lastError,
@@ -62,8 +60,8 @@ export const GET = withMcpAuth('read')(
 
         return {
           id: server.entityId,
-          name: status.name,
-          enabled: status.enabled !== false,
+          name: server.entityName,
+          enabled: server.enabled !== false,
           workspaceId,
           updatedAt: status.updatedAt?.toISOString(),
           connectionStatus: status.connectionStatus,

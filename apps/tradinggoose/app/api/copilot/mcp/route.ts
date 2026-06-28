@@ -13,6 +13,7 @@ import { getUserWorkspaces } from '@/lib/workspaces/service'
 export const dynamic = 'force-dynamic'
 
 const MCP_PROTOCOL_VERSION = '2025-03-26'
+const MCP_NEGOTIABLE_PROTOCOL_VERSIONS = ['2025-06-18', MCP_PROTOCOL_VERSION]
 const SERVER_NAME = 'TradingGoose'
 const SERVER_VERSION = '0.1.0'
 const MAX_JSON_RPC_BATCH_SIZE = 10
@@ -212,9 +213,9 @@ async function handleJsonRpcRequest(entry: unknown, auth: AuthenticatedMcpUser) 
         if (!protocolVersion) {
           return jsonRpcError(id, -32602, 'Invalid initialize params')
         }
-        if (protocolVersion !== MCP_PROTOCOL_VERSION) {
+        if (!MCP_NEGOTIABLE_PROTOCOL_VERSIONS.includes(protocolVersion)) {
           return jsonRpcError(id, -32000, 'Unsupported MCP protocol version', {
-            supportedProtocolVersions: [MCP_PROTOCOL_VERSION],
+            supportedProtocolVersions: MCP_NEGOTIABLE_PROTOCOL_VERSIONS,
           })
         }
 

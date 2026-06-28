@@ -182,6 +182,16 @@ export function buildCopilotServerToolErrorResponse(
       return structuredError
     }
   }
+  if (toolName === 'edit_workflow_variable' && /^(Invalid edited workflow variables:|Duplicate workflow variable|Unsupported workflow variable|Unsupported documentFormat ")/.test(message)) {
+    return {
+      status: 422,
+      body: {
+        code: 'invalid_workflow_variable_document',
+        error: message,
+        retryable: true,
+      },
+    }
+  }
 
   return {
     status: 500,

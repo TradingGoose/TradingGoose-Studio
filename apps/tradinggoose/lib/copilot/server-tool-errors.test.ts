@@ -99,6 +99,10 @@ describe('copilot server tool errors', () => {
       'make_api_request',
       new Error('socket hang up at db.internal:5432')
     )
+    const variableResponse = buildCopilotServerToolErrorResponse(
+      'edit_workflow_variable',
+      new Error('Invalid edited workflow variables: Missing removedVariableIds.')
+    )
 
     expect(response).toEqual({
       status: 500,
@@ -109,6 +113,8 @@ describe('copilot server tool errors', () => {
       },
     })
     expect(response.body.error).not.toContain('db.internal')
+    expect(variableResponse.status).toBe(422)
+    expect(variableResponse.body.error).toContain('removedVariableIds')
   })
 
   it('returns a structured 422 payload for tool argument schema failures', () => {
