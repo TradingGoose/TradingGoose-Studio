@@ -2,7 +2,7 @@ import { getSessionCookie } from 'better-auth/cookies'
 import { headers } from 'next/headers'
 import { getSession } from '@/lib/auth'
 import { readWorkflowAccessContext } from '@/lib/workflows/utils'
-import { getUserWorkspaces } from '@/lib/workspaces/service'
+import { createDefaultWorkspaceForUser, getUserWorkspaces } from '@/lib/workspaces/service'
 import { redirect } from '@/i18n/navigation'
 import { type LocaleCode, normalizeCallbackUrl, requireCanonicalCallbackPath } from '@/i18n/utils'
 
@@ -88,10 +88,8 @@ export default async function WorkspacePage({
   }
 
   const [workspace] = await getUserWorkspaces({ userId })
+  const targetWorkspace =
+    workspace ?? (await createDefaultWorkspaceForUser(userId, session.user.name))
 
-  if (!workspace) {
-    throw new Error('Authenticated user account has no workspace')
-  }
-
-  return redirect({ href: `/workspace/${workspace.id}/dashboard`, locale })
+  return redirect({ href: `/workspace/${targetWorkspace.id}/dashboard`, locale })
 }
