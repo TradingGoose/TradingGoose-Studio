@@ -9,14 +9,16 @@ import {
 import { inferInputMetaFromPineCode, normalizeInputMetaMap } from '@/lib/indicators/input-meta'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
-import { readBootstrappedSavedEntityListFields } from '@/lib/yjs/server/bootstrap-review-target'
-import { notifyEntityListMembersUpserted } from '@/lib/yjs/server/snapshot-bridge'
+import {
+  applySavedEntityState,
+  publishCreatedSavedEntityListMembers,
+} from '@/lib/yjs/server/apply-entity-state'
+import { requireSavedEntityListFields } from '@/lib/yjs/server/bootstrap-review-target'
 
 const logger = createLogger('IndicatorsOperations')
 
 export async function listCustomIndicatorRuntimeEntries(workspaceId: string) {
-  const entries = await readBootstrappedSavedEntityListFields('indicator', workspaceId)
+  const entries = await requireSavedEntityListFields('indicator', workspaceId)
   return entries.map(({ entityId, fields }) => ({
     id: entityId,
     pineCode: String(fields.pineCode ?? ''),
@@ -25,7 +27,7 @@ export async function listCustomIndicatorRuntimeEntries(workspaceId: string) {
 }
 
 export async function listIndicators(params: { workspaceId: string }) {
-  const entries = await readBootstrappedSavedEntityListFields('indicator', params.workspaceId)
+  const entries = await requireSavedEntityListFields('indicator', params.workspaceId)
   return entries.map(({ entityId, fields }) => ({
     id: entityId,
     workspaceId: params.workspaceId,
@@ -98,13 +100,10 @@ export async function createIndicators({
     return createdIndicators
   })
 
-  await notifyEntityListMembersUpserted(
+  await publishCreatedSavedEntityListMembers(
     'indicator',
     workspaceId,
-    created.map((createdIndicator) => ({
-      id: createdIndicator.id,
-      name: createdIndicator.name,
-    }))
+    created.map((createdIndicator) => ({ id: createdIndicator.id, name: createdIndicator.name }))
   )
   logger.info(`[${requestId}] Created ${created.length} indicator(s)`)
   return created
@@ -185,7 +184,7 @@ export async function importIndicators({
     }
   })
 
-  await notifyEntityListMembersUpserted(
+  await publishCreatedSavedEntityListMembers(
     'indicator',
     workspaceId,
     result.indicators.map((imported) => ({ id: imported.id, name: imported.name }))

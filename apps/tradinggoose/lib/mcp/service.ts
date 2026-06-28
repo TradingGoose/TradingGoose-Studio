@@ -17,7 +17,7 @@ import type {
 import { MCP_CONSTANTS } from '@/lib/mcp/utils'
 import { generateRequestId } from '@/lib/utils'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
-import { notifyEntityListMembersUpserted } from '@/lib/yjs/server/snapshot-bridge'
+import { publishCreatedSavedEntityListMembers } from '@/lib/yjs/server/apply-entity-state'
 
 const logger = createLogger('McpService')
 
@@ -306,18 +306,13 @@ class McpService {
       throw new Error('Created MCP server was not returned from canonical insert')
     }
 
-    try {
-      await notifyEntityListMembersUpserted('mcp_server', input.workspaceId, [
-        {
-          id: entityId,
-          name: String(normalized.name ?? ''),
-          enabled: normalized.enabled !== false,
-        },
-      ])
-    } catch (error) {
-      await db.delete(mcpServers).where(eq(mcpServers.id, entityId))
-      throw error
-    }
+    await publishCreatedSavedEntityListMembers('mcp_server', input.workspaceId, [
+      {
+        id: entityId,
+        name: String(normalized.name ?? ''),
+        enabled: normalized.enabled !== false,
+      },
+    ])
 
     this.clearCache(input.workspaceId)
     return { entityId, fields: savedEntityRowToFields('mcp_server', row) }

@@ -21,8 +21,8 @@ import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import {
-  readBootstrappedEntityListMembers,
   readBootstrappedSavedEntityFields,
+  requireSavedEntityListMembers,
 } from '@/lib/yjs/server/bootstrap-review-target'
 
 export type SavedEntityDocumentKind = EntityDocumentKind
@@ -205,7 +205,7 @@ export function buildSavedEntityListInfo(
   entityKind: SavedEntityKind,
   workspaceId: string
 ): Promise<EntityListEntry[]> {
-  return readBootstrappedEntityListMembers(entityKind, workspaceId)
+  return requireSavedEntityListMembers(entityKind, workspaceId)
 }
 
 async function hashCreateEntityReviewBase(

@@ -21,12 +21,14 @@ import type {
 } from '@/lib/knowledge/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess, getUserEntityPermissions } from '@/lib/permissions/utils'
-import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
-import { readBootstrappedSavedEntityListFields } from '@/lib/yjs/server/bootstrap-review-target'
+import {
+  applySavedEntityState,
+  publishCreatedSavedEntityListMembers,
+} from '@/lib/yjs/server/apply-entity-state'
+import { requireSavedEntityListFields } from '@/lib/yjs/server/bootstrap-review-target'
 import {
   deleteYjsSessionInSocketServer,
   notifyEntityListMemberRemoved,
-  notifyEntityListMembersUpserted,
 } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('KnowledgeBaseService')
@@ -43,7 +45,7 @@ export async function getKnowledgeBases(
     return []
   }
 
-  const entries = await readBootstrappedSavedEntityListFields('knowledge_base', workspaceId)
+  const entries = await requireSavedEntityListFields('knowledge_base', workspaceId)
   return entries.map(({ entityId, fields }) => ({
     id: entityId,
     name: String(fields.name ?? ''),
@@ -101,7 +103,7 @@ export async function createKnowledgeBase(
   }
 
   await db.insert(knowledgeBase).values(newKnowledgeBase)
-  await notifyEntityListMembersUpserted('knowledge_base', data.workspaceId, [
+  await publishCreatedSavedEntityListMembers('knowledge_base', data.workspaceId, [
     { id: created.id, name: created.name },
   ])
 
@@ -327,6 +329,17 @@ export async function copyKnowledgeBaseToWorkspace(
     docCount: sourceDocuments.length,
   }
 
+  await publishCreatedSavedEntityListMembers(
+    'knowledge_base',
+    targetWorkspaceId,
+    [{ id: copied.id, name: copied.name }],
+    async () => {
+      if (copiedDocuments.length > 0) {
+        await deleteKnowledgeDocumentFiles(copiedDocuments.map(({ fileUrl }) => fileUrl))
+      }
+    }
+  )
+
   if (totalDocumentSize > 0) {
     try {
       await incrementStorageUsage(userId, totalDocumentSize, targetWorkspaceId)
@@ -338,10 +351,6 @@ export async function copyKnowledgeBaseToWorkspace(
   if (processingJobs.length > 0) {
     await enqueueDocumentProcessingJobs(processingJobs, requestId)
   }
-
-  await notifyEntityListMembersUpserted('knowledge_base', targetWorkspaceId, [
-    { id: copied.id, name: copied.name },
-  ])
 
   logger.info(
     `[${requestId}] Copied knowledge base ${sourceKnowledgeBaseId} to workspace ${targetWorkspaceId} as ${newKnowledgeBaseId}`

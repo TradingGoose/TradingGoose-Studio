@@ -32,10 +32,11 @@ vi.mock('nanoid', () => ({
 
 vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
   applySavedEntityState: vi.fn(),
+  publishCreatedSavedEntityListMembers: mockNotifyEntityListMembersUpserted,
 }))
 
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
-  readBootstrappedSavedEntityListFields: vi.fn(),
+  requireSavedEntityListFields: vi.fn(),
 }))
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({

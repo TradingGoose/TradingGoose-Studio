@@ -9,12 +9,14 @@ import {
   type SkillTransferRecord,
 } from '@/lib/skills/import-export'
 import { generateRequestId } from '@/lib/utils'
-import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
-import { readBootstrappedSavedEntityListFields } from '@/lib/yjs/server/bootstrap-review-target'
+import {
+  applySavedEntityState,
+  publishCreatedSavedEntityListMembers,
+} from '@/lib/yjs/server/apply-entity-state'
+import { requireSavedEntityListFields } from '@/lib/yjs/server/bootstrap-review-target'
 import {
   deleteYjsSessionInSocketServer,
   notifyEntityListMemberRemoved,
-  notifyEntityListMembersUpserted,
 } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('SkillsOperations')
@@ -49,7 +51,7 @@ interface ImportSkillsParams {
 }
 
 export async function listSkills(params: { workspaceId: string }) {
-  const entries = await readBootstrappedSavedEntityListFields('skill', params.workspaceId)
+  const entries = await requireSavedEntityListFields('skill', params.workspaceId)
   return entries.map(({ entityId, fields }) => ({
     id: entityId,
     workspaceId: params.workspaceId,
@@ -139,7 +141,7 @@ export async function createSkills({
     return createdSkills
   })
 
-  await notifyEntityListMembersUpserted(
+  await publishCreatedSavedEntityListMembers(
     'skill',
     workspaceId,
     created.map((createdSkill) => ({ id: createdSkill.id, name: createdSkill.name }))
@@ -226,7 +228,7 @@ export async function importSkills({
     }
   })
 
-  await notifyEntityListMembersUpserted(
+  await publishCreatedSavedEntityListMembers(
     'skill',
     workspaceId,
     result.skills.map((importedSkill) => ({ id: importedSkill.id, name: importedSkill.name }))

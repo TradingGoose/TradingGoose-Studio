@@ -6,13 +6,16 @@ import {
   pineIndicators,
   skill,
 } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import type * as Y from 'yjs'
 import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { getEntityFields, getEntityWorkspaceId } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
-import { applyEntityStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import {
+  applyEntityStateInSocketServer,
+  notifyEntityListMembersUpserted,
+} from '@/lib/yjs/server/snapshot-bridge'
 
 export class SavedEntityPersistenceError extends Error {
   constructor(
@@ -66,6 +69,29 @@ function normalizeSavedEntityFields(
       400,
       error instanceof Error ? error.message : 'Invalid saved entity fields'
     )
+  }
+}
+
+export async function publishCreatedSavedEntityListMembers(
+  entityKind: SavedEntityKind,
+  workspaceId: string,
+  members: Array<{ id: string; name: string; enabled?: boolean }>,
+  afterRollback?: () => Promise<unknown>
+): Promise<void> {
+  try {
+    await notifyEntityListMembersUpserted(entityKind, workspaceId, members)
+  } catch (error) {
+    const ids = members.map((member) => member.id)
+    if (entityKind === 'skill') await db.delete(skill).where(inArray(skill.id, ids))
+    if (entityKind === 'custom_tool')
+      await db.delete(customTools).where(inArray(customTools.id, ids))
+    if (entityKind === 'indicator')
+      await db.delete(pineIndicators).where(inArray(pineIndicators.id, ids))
+    if (entityKind === 'knowledge_base')
+      await db.delete(knowledgeBase).where(inArray(knowledgeBase.id, ids))
+    if (entityKind === 'mcp_server') await db.delete(mcpServers).where(inArray(mcpServers.id, ids))
+    await afterRollback?.()
+    throw error
   }
 }
 

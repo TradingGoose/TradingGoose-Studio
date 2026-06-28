@@ -17,7 +17,7 @@ vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
-  readBootstrappedEntityListMembers: (...args: unknown[]) =>
+  requireSavedEntityListMembers: (...args: unknown[]) =>
     mockReadBootstrappedEntityListMembers(...args),
   readBootstrappedSavedEntityFields: (...args: unknown[]) =>
     mockReadBootstrappedSavedEntityFields(...args),

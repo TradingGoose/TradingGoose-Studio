@@ -9,9 +9,11 @@ import {
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
-import { readBootstrappedSavedEntityListFields } from '@/lib/yjs/server/bootstrap-review-target'
-import { notifyEntityListMembersUpserted } from '@/lib/yjs/server/snapshot-bridge'
+import {
+  applySavedEntityState,
+  publishCreatedSavedEntityListMembers,
+} from '@/lib/yjs/server/apply-entity-state'
+import { requireSavedEntityListFields } from '@/lib/yjs/server/bootstrap-review-target'
 
 const logger = createLogger('CustomToolsOperations')
 
@@ -45,7 +47,7 @@ interface ImportCustomToolsParams {
 }
 
 export async function listCustomTools(params: { workspaceId: string }) {
-  const entries = await readBootstrappedSavedEntityListFields('custom_tool', params.workspaceId)
+  const entries = await requireSavedEntityListFields('custom_tool', params.workspaceId)
   return entries.map(({ entityId, fields }) => ({
     id: entityId,
     workspaceId: params.workspaceId,
@@ -104,7 +106,7 @@ export async function createCustomTools({
     return createdTools
   })
 
-  await notifyEntityListMembersUpserted(
+  await publishCreatedSavedEntityListMembers(
     'custom_tool',
     workspaceId,
     created.map((createdTool) => ({ id: createdTool.id, name: createdTool.title }))
@@ -178,7 +180,7 @@ export async function importCustomTools({
     }
   })
 
-  await notifyEntityListMembersUpserted(
+  await publishCreatedSavedEntityListMembers(
     'custom_tool',
     workspaceId,
     result.tools.map((importedTool) => ({ id: importedTool.id, name: importedTool.title }))
