@@ -1,8 +1,8 @@
+import { QueryClient } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { registerClientTool, unregisterClientTool } from '@/lib/copilot/tools/client/manager'
 import { encodeSSE } from '@/lib/utils'
-import { getQueryClient } from '@/app/query-provider'
 import { environmentKeys } from '@/hooks/queries/environment'
 import { getCopilotStore } from '@/stores/copilot/store'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
@@ -749,9 +749,7 @@ describe('copilot streaming regressions', () => {
         role: 'assistant',
         content: '',
         timestamp: '2026-04-13T00:00:01.000Z',
-        contentBlocks: [
-          toolBlock('checkoff_todo', 'todo-tool-collision', { id: 'todo-1' }),
-        ],
+        contentBlocks: [toolBlock('checkoff_todo', 'todo-tool-collision', { id: 'todo-1' })],
       },
     ] as any
 
@@ -2893,8 +2891,7 @@ describe('copilot tool user action delegation', () => {
       reviewToken: 'review-token-edit-workflow-order',
       entityKind: 'workflow',
       entityId: 'wf-edit-workflow-order',
-      entityDocument:
-        'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
+      entityDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
       documentFormat: 'tg-workflow-graph-mermaid-v1',
       workflowState: {
         blocks: {},
@@ -2953,8 +2950,7 @@ describe('copilot tool user action delegation', () => {
     expect(parseJsonRequestBody(executeRequest)).toEqual({
       toolName: 'edit_workflow',
       payload: {
-        entityDocument:
-          'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
+        entityDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
         entityId: 'wf-edit-workflow-order',
       },
     })
@@ -2970,8 +2966,7 @@ describe('copilot tool user action delegation', () => {
       reviewToken: 'review-token-edit-workflow-review',
       entityKind: 'workflow',
       entityId: 'wf-edit-workflow-review',
-      entityDocument:
-        'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
+      entityDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
       documentFormat: 'tg-workflow-graph-mermaid-v1',
       workflowState: {
         blocks: {},
@@ -3129,7 +3124,7 @@ describe('copilot tool user action delegation', () => {
     const toolCallId = 'set-env-tool'
     const store = getCopilotStore(channelId)
     const invalidateQueries = vi
-      .spyOn(getQueryClient(), 'invalidateQueries')
+      .spyOn(QueryClient.prototype, 'invalidateQueries')
       .mockResolvedValue(undefined)
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString()

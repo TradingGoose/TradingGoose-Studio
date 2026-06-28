@@ -1,5 +1,5 @@
+import { QueryClient } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { getQueryClient } from '@/app/query-provider'
 import { MONITOR_DATA_CHANGED_EVENT } from '@/app/workspace/[workspaceId]/monitor/components/data/api'
 import { environmentKeys } from '@/hooks/queries/environment'
 import { knowledgeKeys } from '@/hooks/queries/knowledge'
@@ -247,7 +247,7 @@ describe('tool-registry', () => {
       .spyOn(useWorkflowRegistry.getState(), 'loadWorkflows')
       .mockResolvedValue(undefined)
     const invalidateQueries = vi
-      .spyOn(getQueryClient(), 'invalidateQueries')
+      .spyOn(QueryClient.prototype, 'invalidateQueries')
       .mockResolvedValue(undefined)
 
     await handleCopilotServerToolSuccess('create_workflow', { workspaceId: 'workspace-1' })
@@ -260,7 +260,7 @@ describe('tool-registry', () => {
 
   it('invalidates saved-entity list queries after server-managed saved-entity mutations', async () => {
     const invalidateQueries = vi
-      .spyOn(getQueryClient(), 'invalidateQueries')
+      .spyOn(QueryClient.prototype, 'invalidateQueries')
       .mockResolvedValue(undefined)
 
     await handleCopilotServerToolSuccess('edit_skill', { workspaceId: 'workspace-1' })
@@ -272,7 +272,7 @@ describe('tool-registry', () => {
 
   it('invalidates the selected knowledge base detail tree after server-managed knowledge mutations', async () => {
     const invalidateQueries = vi
-      .spyOn(getQueryClient(), 'invalidateQueries')
+      .spyOn(QueryClient.prototype, 'invalidateQueries')
       .mockResolvedValue(undefined)
 
     await handleCopilotServerToolSuccess('edit_knowledge_base', {
@@ -346,7 +346,7 @@ describe('tool-registry', () => {
 
   it('invalidates the matching environment query after server-managed environment mutations', async () => {
     const invalidateQueries = vi
-      .spyOn(getQueryClient(), 'invalidateQueries')
+      .spyOn(QueryClient.prototype, 'invalidateQueries')
       .mockResolvedValue(undefined)
     const dispatchEvent = vi.fn()
     vi.stubGlobal('window', { dispatchEvent })
