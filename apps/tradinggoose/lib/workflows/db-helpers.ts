@@ -260,6 +260,16 @@ export async function ensureUniqueBlockIds(
       ...block,
       id: nextId,
       data: nextData,
+      subBlocks: block.subBlocks
+        ? Object.fromEntries(
+            Object.entries(block.subBlocks).map(([subBlockId, subBlock]) => [
+              subBlockId,
+              typeof subBlock?.value === 'string' && remap.has(subBlock.value)
+                ? { ...subBlock, value: remap.get(subBlock.value)! }
+                : subBlock,
+            ])
+          )
+        : block.subBlocks,
     }
   })
 
