@@ -73,7 +73,7 @@ export type PrepareEntityDocumentFields = (
   fields: Record<string, unknown>
 ) => Record<string, unknown>
 
-export const ENTITY_KIND_LABELS: Record<SavedEntityDocumentKind, string> = {
+const ENTITY_KIND_LABELS: Record<SavedEntityDocumentKind, string> = {
   skill: 'skill',
   custom_tool: 'custom tool',
   indicator: 'indicator',
@@ -89,7 +89,7 @@ export function requireUserId(context?: ServerToolExecutionContext): string {
   return userId
 }
 
-export function requireWorkspaceId(context?: ServerToolExecutionContext): string {
+function requireWorkspaceId(context?: ServerToolExecutionContext): string {
   const workspaceId = context?.workspaceId?.trim()
   if (!workspaceId) {
     throw new Error(
@@ -144,7 +144,7 @@ export function requireEntityId(args: EntityDocumentArgs, toolName: string): str
   return entityId
 }
 
-export function parseEntityMutationDocument(
+function parseEntityMutationDocument(
   kind: SavedEntityDocumentKind,
   args: EntityDocumentArgs
 ): Record<string, unknown> {
