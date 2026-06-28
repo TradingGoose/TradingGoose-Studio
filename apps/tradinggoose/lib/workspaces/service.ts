@@ -8,11 +8,7 @@ import { toWorkspaceApiRecord } from '@/lib/workspaces/billing-owner'
 
 type WorkspaceRecord = typeof workspace.$inferSelect
 
-export async function getUserWorkspaces({
-  userId,
-}: {
-  userId: string
-}) {
+export async function getUserWorkspaces({ userId }: { userId: string }) {
   const workspaceAccess = buildWorkspaceAccessScope(userId, workspace.id)
   const userWorkspaces = await db
     .select({
@@ -23,6 +19,10 @@ export async function getUserWorkspaces({
     .leftJoin(permissions, workspaceAccess.permissionJoin)
     .where(workspaceAccess.accessFilter)
     .orderBy(desc(workspace.createdAt))
+
+  if (userWorkspaces.length === 0) {
+    return [await createDefaultWorkspaceForUser(userId)]
+  }
 
   return userWorkspaces.map(({ workspace: workspaceDetails, permissionType }) => {
     const resolvedPermissionType = workspaceDetails.ownerId === userId ? 'admin' : permissionType
