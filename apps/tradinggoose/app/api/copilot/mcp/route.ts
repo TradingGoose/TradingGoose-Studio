@@ -13,11 +13,8 @@ import { createDefaultWorkspaceForUser, getUserWorkspaces } from '@/lib/workspac
 export const dynamic = 'force-dynamic'
 
 const MCP_PROTOCOL_VERSION = '2025-06-18'
-const MCP_NEGOTIABLE_PROTOCOL_VERSIONS = [MCP_PROTOCOL_VERSION, '2025-03-26']
-const MCP_ACCEPTED_RESPONSE_INIT = {
-  status: 202,
-  headers: { 'MCP-Protocol-Version': MCP_PROTOCOL_VERSION },
-}
+const MCP_DEFAULT_PROTOCOL_VERSION = '2025-03-26'
+const MCP_NEGOTIABLE_PROTOCOL_VERSIONS = [MCP_PROTOCOL_VERSION, MCP_DEFAULT_PROTOCOL_VERSION]
 const SERVER_NAME = 'TradingGoose'
 const SERVER_VERSION = '0.1.0'
 const MAX_JSON_RPC_BATCH_SIZE = 10
@@ -55,7 +52,11 @@ function jsonRpcError(id: JsonRpcId | null, code: number, message: string, data?
   }
 }
 
-function mcpJsonResponse(body: unknown, init?: ResponseInit) {
+function mcpJsonResponse(
+  body: unknown,
+  init?: ResponseInit,
+  protocolVersion = MCP_DEFAULT_PROTOCOL_VERSION
+) {
   const headers = new Headers(init?.headers)
   const responseProtocolVersion = (body as { result?: { protocolVersion?: unknown } } | null)
     ?.result?.protocolVersion
@@ -64,12 +65,19 @@ function mcpJsonResponse(body: unknown, init?: ResponseInit) {
     typeof responseProtocolVersion === 'string' &&
       MCP_NEGOTIABLE_PROTOCOL_VERSIONS.includes(responseProtocolVersion)
       ? responseProtocolVersion
-      : MCP_PROTOCOL_VERSION
+      : protocolVersion
   )
 
   return NextResponse.json(body, {
     ...init,
     headers,
+  })
+}
+
+function mcpAcceptedResponse(protocolVersion: string) {
+  return new NextResponse(null, {
+    status: 202,
+    headers: { 'MCP-Protocol-Version': protocolVersion },
   })
 }
 
@@ -170,6 +178,9 @@ function getToolCallParams(params: unknown) {
   if (typeof name !== 'string' || name.trim().length === 0) {
     return null
   }
+  if (args !== undefined && (!args || typeof args !== 'object' || Array.isArray(args))) {
+    return null
+  }
 
   return {
     name,
@@ -179,6 +190,13 @@ function getToolCallParams(params: unknown) {
 
 function isJsonRpcRequest(value: unknown): value is JsonRpcRequest {
   return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isJsonRpcResponse(value: unknown) {
+  if (!isJsonRpcRequest(value) || value.jsonrpc !== '2.0' || value.method !== undefined) {
+    return false
+  }
+  return 'result' in value || 'error' in value
 }
 
 function getResponseId(request: JsonRpcRequest): JsonRpcId | null {
@@ -325,42 +343,45 @@ export async function POST(request: NextRequest) {
   const isInitialize = Array.isArray(body)
     ? body.some(isInitializeRequest)
     : isInitializeRequest(body)
-  if (
-    requestProtocolVersion &&
-    !isInitialize &&
-    !MCP_NEGOTIABLE_PROTOCOL_VERSIONS.includes(requestProtocolVersion)
-  ) {
-    return mcpJsonResponse(jsonRpcError(null, -32000, 'Unsupported MCP protocol version'), {
+  const protocolVersion =
+    requestProtocolVersion ?? (isInitialize ? MCP_PROTOCOL_VERSION : MCP_DEFAULT_PROTOCOL_VERSION)
+  const json = (body: unknown, init?: ResponseInit) => mcpJsonResponse(body, init, protocolVersion)
+  const accepted = () => mcpAcceptedResponse(protocolVersion)
+
+  if (!isInitialize && !MCP_NEGOTIABLE_PROTOCOL_VERSIONS.includes(protocolVersion)) {
+    return json(jsonRpcError(null, -32000, 'Unsupported MCP protocol version'), {
       status: 400,
     })
   }
 
   if (Array.isArray(body)) {
     if (body.length === 0) {
-      return mcpJsonResponse(jsonRpcError(null, -32600, 'Invalid JSON-RPC request'))
+      return json(jsonRpcError(null, -32600, 'Invalid JSON-RPC request'))
     }
     if (body.length > MAX_JSON_RPC_BATCH_SIZE) {
-      return mcpJsonResponse(
+      return json(
         jsonRpcError(null, -32600, `JSON-RPC batch size cannot exceed ${MAX_JSON_RPC_BATCH_SIZE}`)
       )
     }
     if (body.some(isInitializeRequest)) {
-      return mcpJsonResponse(jsonRpcError(null, -32600, 'initialize cannot be batched'))
+      return json(jsonRpcError(null, -32600, 'initialize cannot be batched'))
     }
 
     const responses = []
     for (const entry of body) {
+      if (isJsonRpcResponse(entry)) continue
       const response = await handleJsonRpcRequest(entry, auth)
       if (response) responses.push(response)
     }
 
-    return responses.length > 0
-      ? mcpJsonResponse(responses)
-      : new NextResponse(null, MCP_ACCEPTED_RESPONSE_INIT)
+    return responses.length > 0 ? json(responses) : accepted()
   }
 
+  if (isJsonRpcResponse(body)) {
+    return accepted()
+  }
   const response = await handleJsonRpcRequest(body, auth)
-  return response ? mcpJsonResponse(response) : new NextResponse(null, MCP_ACCEPTED_RESPONSE_INIT)
+  return response ? json(response) : accepted()
 }
 
 export async function GET() {

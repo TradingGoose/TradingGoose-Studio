@@ -207,6 +207,7 @@ describe('Copilot MCP route', () => {
     const response = await POST(createMcpRequest({ jsonrpc: '2.0', id: 2, method: 'tools/list' }))
     const body = await response.json()
 
+    expect(response.headers.get('MCP-Protocol-Version')).toBe('2025-03-26')
     expect(body.result.tools).toEqual([
       {
         name: 'list_workflows',
@@ -388,6 +389,17 @@ describe('Copilot MCP route', () => {
         { 'MCP-Protocol-Version': '1.0' }
       )
     )
+    const invalidToolArgumentsResponse = await POST(
+      createMcpRequest({
+        jsonrpc: '2.0',
+        id: 13,
+        method: 'tools/call',
+        params: { name: 'list_workflows', arguments: [] },
+      })
+    )
+    const jsonRpcResponseMessage = await POST(
+      createMcpRequest({ jsonrpc: '2.0', id: 14, result: {} })
+    )
 
     expect((await invalidJsonRpcResponse.json()).error.code).toBe(-32600)
     expect((await nullIdResponse.json()).error.code).toBe(-32600)
@@ -404,6 +416,12 @@ describe('Copilot MCP route', () => {
     expect((await wrongProtocolHeaderResponse.json()).error.message).toBe(
       'Unsupported MCP protocol version'
     )
+    const invalidToolArgumentsBody = await invalidToolArgumentsResponse.json()
+    expect(invalidToolArgumentsBody.error.code).toBe(-32602)
+    expect(invalidToolArgumentsBody.error.message).toBe('Invalid tools/call params')
+    expect(jsonRpcResponseMessage.status).toBe(202)
+    expect(await jsonRpcResponseMessage.text()).toBe('')
+    expect(mockRouteExecution).not.toHaveBeenCalled()
   })
 
   it('explicitly rejects GET streams because this MCP endpoint is POST-only', async () => {
