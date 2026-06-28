@@ -8,6 +8,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('ApiKeyService')
 const API_KEY_SECRET_PATTERN = /^[A-Za-z0-9_-]{32}$/
+const API_ENCRYPTION_KEY_PATTERN = /^[a-fA-F0-9]{64}$/
 const API_KEY_PREFIX = 'sk-tradinggoose-'
 const STORED_API_KEY_SEPARATOR = ':'
 const DEFAULT_API_KEY_AUTH_TYPES: ApiKeyType[] = ['personal', 'workspace']
@@ -179,14 +180,14 @@ function getApiEncryptionKey(): Buffer {
   if (!key) {
     throw new Error('API_ENCRYPTION_KEY is required for API key storage')
   }
-  if (!/^[a-fA-F0-9]{64}$/.test(key)) {
+  if (!API_ENCRYPTION_KEY_PATTERN.test(key)) {
     throw new Error('API_ENCRYPTION_KEY must be a 64-character hex string (32 bytes)')
   }
   return Buffer.from(key, 'hex')
 }
 
 export function isApiKeyStorageAvailable(): boolean {
-  return Boolean(env.API_ENCRYPTION_KEY)
+  return Boolean(env.API_ENCRYPTION_KEY && API_ENCRYPTION_KEY_PATTERN.test(env.API_ENCRYPTION_KEY))
 }
 
 function encryptApiKeyForStorage(apiKey: string): string {
