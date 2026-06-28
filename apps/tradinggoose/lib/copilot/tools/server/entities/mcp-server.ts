@@ -115,7 +115,6 @@ async function applyMcpServerDocument(input: {
     input.entityId,
     preserveMcpServerSecretPlaceholders(input.fields, currentFields)
   )
-  mcpService.clearCache(input.workspaceId)
 }
 
 export const listMcpServersServerTool: EntityServerTool<Record<string, never>> = {

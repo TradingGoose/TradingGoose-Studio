@@ -91,7 +91,7 @@ describe('MCP install route', () => {
     const acknowledgeIndex = script.indexOf('await acknowledge(login)', setupIndex)
     expect(printedTokenIndex).toBeGreaterThan(firstReturnTokenIndex)
     expect(configWriteIndex).toBeGreaterThan(setupIndex)
-    expect(acknowledgeIndex).toBeLessThan(configWriteIndex)
+    expect(acknowledgeIndex).toBeGreaterThan(configWriteIndex)
   })
 
   it('serves target-specific setup scripts from the URL path', async () => {

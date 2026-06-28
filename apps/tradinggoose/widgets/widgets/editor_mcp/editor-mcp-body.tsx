@@ -286,7 +286,7 @@ export function EditorMcpWidgetBody({
         copy.failedToRefreshMcpServer
       )
       await refreshServer(workspaceId, selectedServerId, refreshResult?.data)
-      await refreshTools(true)
+      await refreshTools()
       await fetchServers(workspaceId)
     } catch (refreshError) {
       console.error('Failed to refresh MCP server tools', refreshError)

@@ -197,8 +197,6 @@ export const DELETE = withMcpAuth('write')(
         })
       }
 
-      mcpService.clearCache(workspaceId)
-
       logger.info(`[${requestId}] Successfully deleted MCP server: ${deletedServer.id}`)
       return createMcpSuccessResponse({
         message: `Server ${deletedServer.id} deleted successfully`,

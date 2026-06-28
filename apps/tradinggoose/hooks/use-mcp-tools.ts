@@ -31,7 +31,7 @@ export interface UseMcpToolsResult {
   mcpTools: McpToolForUI[]
   isLoading: boolean
   error: string | null
-  refreshTools: (forceRefresh?: boolean) => Promise<void>
+  refreshTools: () => Promise<void>
   getToolsByServer: (serverId: string) => McpToolForUI[]
 }
 
@@ -56,7 +56,7 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
   }, [servers])
 
   const refreshTools = useCallback(
-    async (forceRefresh = false) => {
+    async () => {
       if (!normalizedWorkspaceId) {
         setMcpTools([])
         setError(null)
@@ -68,12 +68,12 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
       setError(null)
 
       try {
-        logger.info('Discovering MCP tools', { forceRefresh, workspaceId: normalizedWorkspaceId })
+        logger.info('Discovering MCP tools', { workspaceId: normalizedWorkspaceId })
 
         const response = await fetch(
           `/api/mcp/tools/discover?workspaceId=${encodeURIComponent(
             normalizedWorkspaceId
-          )}&refresh=${forceRefresh}`
+          )}`
         )
 
         if (!response.ok) {
@@ -159,7 +159,7 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
     const handleToolsChanged = (event: Event) => {
       const workspaceId = (event as CustomEvent<{ workspaceId?: string }>).detail?.workspaceId
       if (workspaceId === normalizedWorkspaceId) {
-        void refreshTools(true)
+        void refreshTools()
       }
     }
 

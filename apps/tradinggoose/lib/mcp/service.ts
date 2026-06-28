@@ -2,7 +2,6 @@ import { db } from '@tradinggoose/db'
 import { mcpServers } from '@tradinggoose/db/schema'
 import { and, eq, isNull } from 'drizzle-orm'
 import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
-import { isTest } from '@/lib/environment'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { McpClient } from '@/lib/mcp/client'
@@ -14,7 +13,6 @@ import type {
   McpToolResult,
   McpTransport,
 } from '@/lib/mcp/types'
-import { MCP_CONSTANTS } from '@/lib/mcp/utils'
 import { generateRequestId } from '@/lib/utils'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import { publishCreatedSavedEntityListMembers } from '@/lib/yjs/server/apply-entity-state'
@@ -39,156 +37,7 @@ export class McpServerConfigError extends Error {
   }
 }
 
-interface ToolCache {
-  tools: McpTool[]
-  expiry: Date
-  lastAccessed: Date
-}
-
-interface CacheStats {
-  totalEntries: number
-  activeEntries: number
-  expiredEntries: number
-  maxCacheSize: number
-  cacheHitRate: number
-  memoryUsage: {
-    approximateBytes: number
-    entriesEvicted: number
-  }
-}
-
 class McpService {
-  private toolCache = new Map<string, ToolCache>()
-  private readonly cacheTimeout = MCP_CONSTANTS.CACHE_TIMEOUT
-  private readonly maxCacheSize = 1000
-  private cleanupInterval: NodeJS.Timeout | null = null
-  private cacheHits = 0
-  private cacheMisses = 0
-  private entriesEvicted = 0
-
-  constructor() {
-    this.startPeriodicCleanup()
-  }
-
-  /**
-   * Start periodic cleanup of expired cache entries
-   */
-  private startPeriodicCleanup(): void {
-    this.cleanupInterval = setInterval(
-      () => {
-        this.cleanupExpiredEntries()
-      },
-      5 * 60 * 1000
-    )
-  }
-
-  /**
-   * Stop periodic cleanup
-   */
-  private stopPeriodicCleanup(): void {
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval)
-      this.cleanupInterval = null
-    }
-  }
-
-  /**
-   * Cleanup expired cache entries
-   */
-  private cleanupExpiredEntries(): void {
-    const now = new Date()
-    const expiredKeys: string[] = []
-
-    this.toolCache.forEach((cache, key) => {
-      if (cache.expiry <= now) {
-        expiredKeys.push(key)
-      }
-    })
-
-    expiredKeys.forEach((key) => this.toolCache.delete(key))
-
-    if (expiredKeys.length > 0) {
-      logger.debug(`Cleaned up ${expiredKeys.length} expired cache entries`)
-    }
-  }
-
-  /**
-   * Evict least recently used entries when cache exceeds max size
-   */
-  private evictLRUEntries(): void {
-    if (this.toolCache.size <= this.maxCacheSize) {
-      return
-    }
-
-    const entries: { key: string; cache: ToolCache }[] = []
-    this.toolCache.forEach((cache, key) => {
-      entries.push({ key, cache })
-    })
-    entries.sort((a, b) => a.cache.lastAccessed.getTime() - b.cache.lastAccessed.getTime())
-
-    const entriesToRemove = this.toolCache.size - this.maxCacheSize + 1
-    for (let i = 0; i < entriesToRemove && i < entries.length; i++) {
-      this.toolCache.delete(entries[i].key)
-      this.entriesEvicted++
-    }
-
-    logger.debug(`Evicted ${entriesToRemove} LRU cache entries to maintain size limit`)
-  }
-
-  /**
-   * Get cache entry and update last accessed time
-   */
-  private getCacheEntry(key: string): ToolCache | undefined {
-    const entry = this.toolCache.get(key)
-    if (entry) {
-      entry.lastAccessed = new Date()
-      this.cacheHits++
-      return entry
-    }
-    this.cacheMisses++
-    return undefined
-  }
-
-  /**
-   * Set cache entry with LRU eviction
-   */
-  private setCacheEntry(key: string, tools: McpTool[]): void {
-    const now = new Date()
-    const cache: ToolCache = {
-      tools,
-      expiry: new Date(now.getTime() + this.cacheTimeout),
-      lastAccessed: now,
-    }
-
-    this.toolCache.set(key, cache)
-
-    this.evictLRUEntries()
-  }
-
-  /**
-   * Calculate approximate memory usage of cache
-   */
-  private calculateMemoryUsage(): number {
-    let totalBytes = 0
-
-    this.toolCache.forEach((cache, key) => {
-      totalBytes += key.length * 2 // UTF-16 encoding
-      totalBytes += JSON.stringify(cache.tools).length * 2
-      totalBytes += 64
-    })
-
-    return totalBytes
-  }
-
-  /**
-   * Dispose of the service and cleanup resources
-   */
-  dispose(): void {
-    this.stopPeriodicCleanup()
-    this.toolCache.clear()
-    logger.info('MCP Service disposed and cleanup stopped')
-  }
-
   /**
    * Resolve environment variables in strings
    */
@@ -314,7 +163,6 @@ class McpService {
       },
     ])
 
-    this.clearCache(input.workspaceId)
     return { entityId, fields: savedEntityRowToFields('mcp_server', row) }
   }
 
@@ -416,24 +264,10 @@ class McpService {
   /**
    * Discover tools from all workspace servers
    */
-  async discoverTools(
-    userId: string,
-    workspaceId: string,
-    forceRefresh = false
-  ): Promise<McpTool[]> {
+  async discoverTools(userId: string, workspaceId: string): Promise<McpTool[]> {
     const requestId = generateRequestId()
 
-    const cacheKey = `workspace:${workspaceId}`
-
     try {
-      if (!forceRefresh) {
-        const cached = this.getCacheEntry(cacheKey)
-        if (cached && cached.expiry > new Date()) {
-          logger.debug(`[${requestId}] Using cached tools for user ${userId}`)
-          return cached.tools
-        }
-      }
-
       logger.info(`[${requestId}] Discovering MCP tools for workspace ${workspaceId}`)
 
       const servers = await this.getWorkspaceServers(workspaceId)
@@ -470,8 +304,6 @@ class McpService {
           )
         }
       })
-
-      this.setCacheEntry(cacheKey, allTools)
 
       logger.info(
         `[${requestId}] Discovered ${allTools.length} tools from ${servers.length} servers`
@@ -568,70 +400,6 @@ class McpService {
     }
   }
 
-  /**
-   * Clear tool cache for a workspace or all workspaces
-   */
-  clearCache(workspaceId?: string): void {
-    if (workspaceId) {
-      const workspaceCacheKey = `workspace:${workspaceId}`
-      this.toolCache.delete(workspaceCacheKey)
-      logger.debug(`Cleared MCP tool cache for workspace ${workspaceId}`)
-    } else {
-      this.toolCache.clear()
-      this.cacheHits = 0
-      this.cacheMisses = 0
-      this.entriesEvicted = 0
-      logger.debug('Cleared all MCP tool cache and reset statistics')
-    }
-  }
-
-  /**
-   * Get comprehensive cache statistics
-   */
-  getCacheStats(): CacheStats {
-    const entries: { key: string; cache: ToolCache }[] = []
-    this.toolCache.forEach((cache, key) => {
-      entries.push({ key, cache })
-    })
-
-    const now = new Date()
-    const activeEntries = entries.filter(({ cache }) => cache.expiry > now)
-    const totalRequests = this.cacheHits + this.cacheMisses
-    const hitRate = totalRequests > 0 ? this.cacheHits / totalRequests : 0
-
-    return {
-      totalEntries: entries.length,
-      activeEntries: activeEntries.length,
-      expiredEntries: entries.length - activeEntries.length,
-      maxCacheSize: this.maxCacheSize,
-      cacheHitRate: Math.round(hitRate * 100) / 100,
-      memoryUsage: {
-        approximateBytes: this.calculateMemoryUsage(),
-        entriesEvicted: this.entriesEvicted,
-      },
-    }
-  }
 }
 
 export const mcpService = new McpService()
-
-/**
- * Setup process signal handlers for graceful shutdown
- */
-export function setupMcpServiceCleanup() {
-  if (isTest) {
-    return
-  }
-
-  const cleanup = () => {
-    mcpService.dispose()
-  }
-
-  process.on('SIGTERM', cleanup)
-  process.on('SIGINT', cleanup)
-
-  return () => {
-    process.removeListener('SIGTERM', cleanup)
-    process.removeListener('SIGINT', cleanup)
-  }
-}

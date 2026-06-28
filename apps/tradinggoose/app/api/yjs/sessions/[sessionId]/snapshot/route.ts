@@ -5,7 +5,6 @@ import {
   parseYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
 import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
-import { mcpService } from '@/lib/mcp/service'
 import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
 import {
   applyYjsUpdateInSocketServer,
@@ -124,10 +123,6 @@ export async function POST(
       request.nextUrl.search,
       updateBase64
     )
-
-    if (descriptor.entityKind === 'mcp_server') {
-      mcpService.clearCache(descriptor.workspaceId)
-    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

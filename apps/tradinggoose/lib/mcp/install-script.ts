@@ -161,12 +161,12 @@ async function main() {
     }
 
     const login = await authenticate()
-    await acknowledge(login)
     console.log('Using MCP endpoint: ' + mcpUrl)
     for (const target of targets) {
       const configPath = runConfigWriter([target, mcpUrl, login.token])
       console.log('Configured ' + target + ': ' + configPath)
     }
+    await acknowledge(login)
     return
   }
 

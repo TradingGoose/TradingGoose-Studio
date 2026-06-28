@@ -351,7 +351,7 @@ const ListMcpWidgetContent = ({
       if (!workspaceId || !permissions.canEdit) return
 
       await renameServer(workspaceId, serverId, name)
-      await refreshTools(true)
+      await refreshTools()
     },
     [permissions.canEdit, refreshTools, renameServer, workspaceId]
   )
@@ -364,7 +364,7 @@ const ListMcpWidgetContent = ({
       setDeletingIds((prev) => new Set(prev).add(serverId))
       try {
         await deleteServer(workspaceId, serverId)
-        await refreshTools(true)
+        await refreshTools()
         if (selectedServerId === serverId) {
           handleSelectServer(null)
         }

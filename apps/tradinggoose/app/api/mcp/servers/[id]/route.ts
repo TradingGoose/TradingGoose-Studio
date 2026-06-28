@@ -4,7 +4,6 @@ import { and, eq, isNull } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getParsedBody, withMcpAuth } from '@/lib/mcp/middleware'
-import { mcpService } from '@/lib/mcp/service'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
@@ -70,9 +69,6 @@ export const PATCH = withMcpAuth('write')(
       const fields = savedEntityRowToFields('mcp_server', server)
       const name = body.name.trim()
       await applySavedEntityState('mcp_server', serverId, { ...fields, name })
-
-      // Clear MCP service cache after update
-      mcpService.clearCache(workspaceId)
 
       logger.info(`[${requestId}] Successfully updated MCP server: ${serverId}`)
       return createMcpSuccessResponse({
