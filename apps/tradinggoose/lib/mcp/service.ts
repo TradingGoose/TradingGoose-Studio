@@ -16,11 +16,13 @@ import type {
 } from '@/lib/mcp/types'
 import { MCP_CONSTANTS } from '@/lib/mcp/utils'
 import { generateRequestId } from '@/lib/utils'
+import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import {
   ReviewTargetBootstrapError,
   readBootstrappedSavedEntityFields,
   readBootstrappedSavedEntityListFields,
 } from '@/lib/yjs/server/bootstrap-review-target'
+import { notifyEntityListMembersUpserted } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('McpService')
 
@@ -30,6 +32,15 @@ export class McpServerNotFoundError extends Error {
   constructor(serverId: string) {
     super(`Server ${serverId} not found or not accessible`)
     this.name = 'McpServerNotFoundError'
+  }
+}
+
+export class McpServerConfigError extends Error {
+  readonly status = 400
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'McpServerConfigError'
   }
 }
 
@@ -259,6 +270,62 @@ class McpService {
       retries: Number(fields.retries ?? 3),
       enabled: fields.enabled !== false,
     }
+  }
+
+  async createWorkspaceServer(input: {
+    userId: string
+    workspaceId: string
+    fields: Record<string, unknown>
+  }): Promise<{ entityId: string; fields: Record<string, unknown> }> {
+    let normalized: Record<string, unknown>
+    try {
+      normalized = normalizeEntityFields('mcp_server', input.fields)
+    } catch (error) {
+      throw new McpServerConfigError(error instanceof Error ? error.message : 'Invalid MCP server')
+    }
+
+    const entityId = crypto.randomUUID()
+    const [row] = await db
+      .insert(mcpServers)
+      .values({
+        id: entityId,
+        workspaceId: input.workspaceId,
+        createdBy: input.userId,
+        name: String(normalized.name ?? ''),
+        description: String(normalized.description ?? '') || null,
+        transport: normalized.transport as McpTransport,
+        url: String(normalized.url ?? '') || null,
+        headers: normalized.headers,
+        command: String(normalized.command ?? '') || null,
+        args: Array.isArray(normalized.args) ? normalized.args.map(String) : [],
+        env: normalized.env,
+        timeout: Number(normalized.timeout ?? 30000),
+        retries: Number(normalized.retries ?? 3),
+        enabled: normalized.enabled !== false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning()
+
+    if (!row) {
+      throw new Error('Created MCP server was not returned from canonical insert')
+    }
+
+    try {
+      await notifyEntityListMembersUpserted('mcp_server', input.workspaceId, [
+        {
+          id: entityId,
+          name: String(normalized.name ?? ''),
+          enabled: normalized.enabled !== false,
+        },
+      ])
+    } catch (error) {
+      await db.delete(mcpServers).where(eq(mcpServers.id, entityId))
+      throw error
+    }
+
+    this.clearCache(input.workspaceId)
+    return { entityId, fields: savedEntityRowToFields('mcp_server', row) }
   }
 
   private async getServerConfig(

@@ -1,6 +1,3 @@
-import { db } from '@tradinggoose/db'
-import { mcpServers } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
 import {
   ENTITY_SECRET_PLACEHOLDER,
   normalizeEntityFields,
@@ -9,10 +6,7 @@ import {
 import { ENTITY_KIND_MCP_SERVER } from '@/lib/copilot/review-sessions/types'
 import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
 import { mcpService } from '@/lib/mcp/service'
-import type { McpTransport } from '@/lib/mcp/types'
-import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
-import { notifyEntityListMembersUpserted } from '@/lib/yjs/server/snapshot-bridge'
 import {
   buildDocumentEnvelope,
   buildSavedEntityListInfo,
@@ -98,49 +92,11 @@ async function createMcpServerEntity(
   context: Parameters<typeof verifyWorkspaceContext>[0]
 ): Promise<EntityCreateResult> {
   const { userId, workspaceId } = await verifyWorkspaceContext(context, 'write')
-  const entityId = crypto.randomUUID()
-  const normalized = normalizeMcpServerDocumentFields(fields)
-
-  const [row] = await db
-    .insert(mcpServers)
-    .values({
-      id: entityId,
-      workspaceId,
-      createdBy: userId,
-      name: String(normalized.name ?? ''),
-      description: String(normalized.description ?? '') || null,
-      transport: normalized.transport as McpTransport,
-      url: String(normalized.url ?? '') || null,
-      headers: normalizeStringRecord(normalized.headers),
-      command: String(normalized.command ?? '') || null,
-      args: Array.isArray(normalized.args) ? normalized.args.map(String) : [],
-      env: normalizeStringRecord(normalized.env),
-      timeout: Number(normalized.timeout ?? 30000),
-      retries: Number(normalized.retries ?? 3),
-      enabled: normalized.enabled !== false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .returning()
-
-  if (!row) {
-    throw new Error('Created MCP server was not returned from canonical insert')
-  }
-
-  const savedFields = savedEntityRowToFields(ENTITY_KIND_MCP_SERVER, row)
-  try {
-    await notifyEntityListMembersUpserted('mcp_server', workspaceId, [
-      { id: entityId, name: String(normalized.name ?? ''), enabled: normalized.enabled !== false },
-    ])
-  } catch (error) {
-    await db.delete(mcpServers).where(eq(mcpServers.id, entityId))
-    throw error
-  }
-  mcpService.clearCache(workspaceId)
+  const created = await mcpService.createWorkspaceServer({ userId, workspaceId, fields })
 
   return {
-    entityId,
-    fields: savedFields,
+    entityId: created.entityId,
+    fields: created.fields,
   }
 }
 
