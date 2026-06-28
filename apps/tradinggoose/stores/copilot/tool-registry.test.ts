@@ -348,16 +348,28 @@ describe('tool-registry', () => {
     const invalidateQueries = vi
       .spyOn(getQueryClient(), 'invalidateQueries')
       .mockResolvedValue(undefined)
+    const dispatchEvent = vi.fn()
+    vi.stubGlobal('window', { dispatchEvent })
 
-    await handleCopilotServerToolSuccess('set_environment_variables', {
-      success: true,
-      scope: 'workspace',
-      workspaceId: 'workspace-1',
-    })
+    try {
+      await handleCopilotServerToolSuccess('set_environment_variables', {
+        success: true,
+        scope: 'workspace',
+        workspaceId: 'workspace-1',
+      })
 
-    expect(invalidateQueries).toHaveBeenCalledWith({
-      queryKey: environmentKeys.workspace('workspace-1'),
-    })
-    expect(invalidateQueries).toHaveBeenCalledTimes(1)
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: environmentKeys.workspace('workspace-1'),
+      })
+      expect(invalidateQueries).toHaveBeenCalledTimes(1)
+      expect(dispatchEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: MCP_TOOLS_CHANGED_EVENT,
+          detail: { workspaceId: 'workspace-1' },
+        })
+      )
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })

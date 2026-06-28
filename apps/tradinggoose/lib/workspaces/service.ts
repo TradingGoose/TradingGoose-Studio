@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { permissions, workflow, workspace } from '@tradinggoose/db/schema'
-import { and, desc, eq, isNull } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
 import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
@@ -10,12 +10,8 @@ type WorkspaceRecord = typeof workspace.$inferSelect
 
 export async function getUserWorkspaces({
   userId,
-  userName,
-  autoCreate = true,
 }: {
   userId: string
-  userName?: string | null
-  autoCreate?: boolean
 }) {
   const workspaceAccess = buildWorkspaceAccessScope(userId, workspace.id)
   const userWorkspaces = await db
@@ -27,20 +23,6 @@ export async function getUserWorkspaces({
     .leftJoin(permissions, workspaceAccess.permissionJoin)
     .where(workspaceAccess.accessFilter)
     .orderBy(desc(workspace.createdAt))
-
-  if (userWorkspaces.length === 0) {
-    if (!autoCreate) {
-      return []
-    }
-
-    const defaultWorkspace = await createDefaultWorkspace(userId, userName)
-    await migrateExistingWorkflows(userId, defaultWorkspace.id)
-    return [defaultWorkspace]
-  }
-
-  if (autoCreate) {
-    await ensureWorkflowsHaveWorkspace(userId, userWorkspaces[0].workspace.id)
-  }
 
   return userWorkspaces.map(({ workspace: workspaceDetails, permissionType }) => {
     const resolvedPermissionType = workspaceDetails.ownerId === userId ? 'admin' : permissionType
@@ -54,6 +36,11 @@ export async function getUserWorkspaces({
       permissions: resolvedPermissionType,
     }
   })
+}
+
+export async function createDefaultWorkspaceForUser(userId: string, userName?: string | null) {
+  const firstName = userName?.split(' ')[0] || null
+  return createWorkspace(userId, firstName ? `${firstName}'s Workspace` : 'My Workspace')
 }
 
 export async function createWorkspace(userId: string, name: string) {
@@ -115,29 +102,4 @@ export async function createWorkspace(userId: string, name: string) {
     role: 'owner',
     permissions: 'admin',
   }
-}
-
-async function createDefaultWorkspace(userId: string, userName?: string | null) {
-  const firstName = userName?.split(' ')[0] || null
-  return createWorkspace(userId, firstName ? `${firstName}'s Workspace` : 'My Workspace')
-}
-
-async function migrateExistingWorkflows(userId: string, workspaceId: string) {
-  await db
-    .update(workflow)
-    .set({
-      workspaceId,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(workflow.userId, userId), isNull(workflow.workspaceId)))
-}
-
-async function ensureWorkflowsHaveWorkspace(userId: string, defaultWorkspaceId: string) {
-  await db
-    .update(workflow)
-    .set({
-      workspaceId: defaultWorkspaceId,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(workflow.userId, userId), isNull(workflow.workspaceId)))
 }

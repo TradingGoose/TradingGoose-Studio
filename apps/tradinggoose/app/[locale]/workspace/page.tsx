@@ -87,13 +87,10 @@ export default async function WorkspacePage({
     }
   }
 
-  const [workspace] = await getUserWorkspaces({
-    userId,
-    userName: session.user.name,
-  })
+  const [workspace] = await getUserWorkspaces({ userId })
 
   if (!workspace) {
-    throw new Error('Expected workspace bootstrap to return a workspace')
+    throw new Error('Authenticated user account has no workspace')
   }
 
   return redirect({ href: `/workspace/${workspace.id}/dashboard`, locale })

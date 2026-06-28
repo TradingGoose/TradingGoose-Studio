@@ -101,6 +101,10 @@ vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: vi.fn(() => mockLogger),
 }))
 
+vi.mock('@/lib/workspaces/service', () => ({
+  getUserWorkspaces: vi.fn(),
+}))
+
 describe('Workspace by id PATCH route', () => {
   beforeEach(() => {
     vi.resetModules()

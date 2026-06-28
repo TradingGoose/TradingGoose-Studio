@@ -146,20 +146,6 @@ describe('Workspace root page access guard', () => {
 
     expect(mockGetUserWorkspaces).toHaveBeenCalledWith({
       userId: 'user-1',
-      userName: 'Ada Lovelace',
-    })
-  })
-
-  it('bootstraps a workspace on the server when the user has none and redirects to it', async () => {
-    mockGetUserWorkspaces.mockResolvedValue([{ id: 'workspace-bootstrapped' }])
-
-    await expect(renderWorkspacePage('en')).rejects.toThrow(
-      'redirect:/en/workspace/workspace-bootstrapped/dashboard'
-    )
-
-    expect(mockGetUserWorkspaces).toHaveBeenCalledWith({
-      userId: 'user-1',
-      userName: 'Ada Lovelace',
     })
   })
 })

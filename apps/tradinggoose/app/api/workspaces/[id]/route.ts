@@ -212,7 +212,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
   }
 
-  const userWorkspaces = await getUserWorkspaces({ userId: session.user.id, autoCreate: false })
+  const userWorkspaces = await getUserWorkspaces({ userId: session.user.id })
   if (userWorkspaces.length <= 1) {
     return NextResponse.json({ error: 'Cannot delete your last workspace' }, { status: 400 })
   }

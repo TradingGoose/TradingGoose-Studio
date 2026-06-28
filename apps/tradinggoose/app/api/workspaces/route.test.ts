@@ -1,7 +1,6 @@
 /**
  * @vitest-environment node
  */
-import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('Workspaces API Route', () => {
@@ -14,9 +13,6 @@ describe('Workspaces API Route', () => {
   const deleteMock = vi.fn((_table: unknown) => ({
     where: deleteWhereMock,
   }))
-  const updateWhereMock = vi.fn()
-  const updateSetMock = vi.fn()
-  const updateMock = vi.fn()
   const mockSaveWorkflowToNormalizedTables = vi.fn()
   let userWorkspaces: Array<{
     workspace: Record<string, unknown>
@@ -33,9 +29,6 @@ describe('Workspaces API Route', () => {
       callback({ insert: txInsertMock, delete: deleteMock })
     )
     deleteWhereMock.mockResolvedValue(undefined)
-    updateWhereMock.mockResolvedValue([])
-    updateSetMock.mockReturnValue({ where: updateWhereMock })
-    updateMock.mockReturnValue({ set: updateSetMock })
     mockSaveWorkflowToNormalizedTables.mockResolvedValue({ success: true })
 
     vi.doMock('@tradinggoose/db', () => ({
@@ -55,7 +48,6 @@ describe('Workspaces API Route', () => {
             })),
           })),
         })),
-        update: updateMock,
         transaction: transactionMock,
       },
     }))
@@ -137,18 +129,17 @@ describe('Workspaces API Route', () => {
     )
   }
 
-  it('returns an empty list without creating a default workspace when autoCreate=false', async () => {
+  it('returns an empty list without creating a default workspace during reads', async () => {
     const { GET } = await import('@/app/api/workspaces/route')
 
-    const response = await GET(new NextRequest('http://localhost/api/workspaces?autoCreate=false'))
+    const response = await GET()
 
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ workspaces: [] })
     expect(transactionMock).not.toHaveBeenCalled()
-    expect(updateMock).not.toHaveBeenCalled()
   })
 
-  it('lists existing workspaces without running workspace migration side effects when autoCreate=false', async () => {
+  it('lists existing workspaces without running migration side effects', async () => {
     userWorkspaces = [
       {
         workspace: {
@@ -167,7 +158,7 @@ describe('Workspaces API Route', () => {
 
     const { GET } = await import('@/app/api/workspaces/route')
 
-    const response = await GET(new NextRequest('http://localhost/api/workspaces?autoCreate=false'))
+    const response = await GET()
     const data = await response.json()
 
     expect(response.status).toBe(200)
@@ -182,7 +173,6 @@ describe('Workspaces API Route', () => {
       role: 'owner',
       permissions: 'admin',
     })
-    expect(updateMock).not.toHaveBeenCalled()
     expect(transactionMock).not.toHaveBeenCalled()
   })
 
@@ -205,7 +195,7 @@ describe('Workspaces API Route', () => {
 
     const { GET } = await import('@/app/api/workspaces/route')
 
-    const response = await GET(new NextRequest('http://localhost/api/workspaces?autoCreate=false'))
+    const response = await GET()
     const data = await response.json()
 
     expect(response.status).toBe(200)
@@ -217,28 +207,6 @@ describe('Workspaces API Route', () => {
       }),
     ])
     expect(transactionMock).not.toHaveBeenCalled()
-  })
-
-  it('auto-creates a default workspace with the canonical workspace shape', async () => {
-    const { GET } = await import('@/app/api/workspaces/route')
-
-    const response = await GET(new NextRequest('http://localhost/api/workspaces'))
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.workspaces).toEqual([
-      expect.objectContaining({
-        name: "Bruz's Workspace",
-        role: 'owner',
-        permissions: 'admin',
-        billingOwner: {
-          type: 'user',
-          userId: 'user-1',
-        },
-      }),
-    ])
-    expect(transactionMock).toHaveBeenCalled()
-    expect(updateMock).toHaveBeenCalled()
   })
 
   it('removes a newly created workspace when default workflow state persistence fails', async () => {

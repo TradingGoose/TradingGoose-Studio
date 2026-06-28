@@ -113,7 +113,7 @@ async function authenticateCopilotMcpRequest(
 }
 
 async function buildInstructions(userId: string) {
-  const workspaces = await getUserWorkspaces({ userId, autoCreate: false })
+  const workspaces = await getUserWorkspaces({ userId })
   if (workspaces.length === 0) {
     throw new Error('Authenticated TradingGoose users must have at least one workspace')
   }

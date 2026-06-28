@@ -6,7 +6,7 @@
  */
 
 import type React from 'react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { WrenchIcon } from 'lucide-react'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { McpTool } from '@/lib/mcp/types'
@@ -14,6 +14,7 @@ import { createMcpToolId } from '@/lib/mcp/utils'
 import { MCP_TOOLS_CHANGED_EVENT, useMcpServersStore } from '@/stores/mcp-servers/store'
 
 const logger = createLogger('useMcpTools')
+const DISCOVERY_CACHE_MS = 5 * 60 * 1000
 
 export interface McpToolForUI {
   id: string
@@ -35,6 +36,58 @@ export interface UseMcpToolsResult {
   getToolsByServer: (serverId: string) => McpToolForUI[]
 }
 
+const discoveryCache = new Map<string, { expiresAt: number; tools: McpToolForUI[] }>()
+const discoveryRequests = new Map<string, Promise<McpToolForUI[]>>()
+
+async function discoverMcpTools(
+  workspaceId: string,
+  serversFingerprint: string,
+  force: boolean
+) {
+  const cacheKey = `${workspaceId}:${serversFingerprint}`
+  const pending = discoveryRequests.get(cacheKey)
+  if (pending) return pending
+
+  const cached = discoveryCache.get(cacheKey)
+  if (!force && cached && cached.expiresAt > Date.now()) {
+    return cached.tools
+  }
+
+  const request = fetch(`/api/mcp/tools/discover?workspaceId=${encodeURIComponent(workspaceId)}`)
+    .then(async (response) => {
+      if (!response.ok) {
+        throw new Error(`Failed to discover MCP tools: ${response.status} ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to discover MCP tools')
+      }
+
+      const tools = (data.data.tools || []).map((tool: McpTool) => ({
+        id: createMcpToolId(tool.serverId, tool.name),
+        name: tool.name,
+        description: tool.description,
+        serverId: tool.serverId,
+        serverName: tool.serverName,
+        type: 'mcp' as const,
+        inputSchema: tool.inputSchema,
+        bgColor: '#6366F1',
+        icon: WrenchIcon,
+      }))
+
+      discoveryCache.set(cacheKey, { expiresAt: Date.now() + DISCOVERY_CACHE_MS, tools })
+      logger.info(`Discovered ${tools.length} MCP tools`)
+      return tools
+    })
+    .finally(() => {
+      discoveryRequests.delete(cacheKey)
+    })
+
+  discoveryRequests.set(cacheKey, request)
+  return request
+}
+
 export function useMcpTools(workspaceId: string): UseMcpToolsResult {
   const [mcpTools, setMcpTools] = useState<McpToolForUI[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -42,9 +95,6 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
   const normalizedWorkspaceId = workspaceId.trim()
 
   const servers = useMcpServersStore((state) => state.servers)
-
-  // Track the last fingerprint
-  const lastProcessedFingerprintRef = useRef<string>('')
 
   // Create a stable server fingerprint
   const serversFingerprint = useMemo(() => {
@@ -55,9 +105,14 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
       .join('|')
   }, [servers])
 
-  const refreshTools = useCallback(
-    async () => {
-      if (!normalizedWorkspaceId) {
+  const hasEnabledServers = useMemo(
+    () => servers.some((server) => !server.deletedAt && server.enabled !== false),
+    [servers]
+  )
+
+  const loadTools = useCallback(
+    async (force = false) => {
+      if (!normalizedWorkspaceId || !hasEnabledServers) {
         setMcpTools([])
         setError(null)
         setIsLoading(false)
@@ -69,41 +124,7 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
 
       try {
         logger.info('Discovering MCP tools', { workspaceId: normalizedWorkspaceId })
-
-        const response = await fetch(
-          `/api/mcp/tools/discover?workspaceId=${encodeURIComponent(
-            normalizedWorkspaceId
-          )}`
-        )
-
-        if (!response.ok) {
-          throw new Error(`Failed to discover MCP tools: ${response.status} ${response.statusText}`)
-        }
-
-        const data = await response.json()
-
-        if (!data.success) {
-          throw new Error(data.error || 'Failed to discover MCP tools')
-        }
-
-        const tools = data.data.tools || []
-        const transformedTools = tools.map((tool: McpTool) => ({
-          id: createMcpToolId(tool.serverId, tool.name),
-          name: tool.name,
-          description: tool.description,
-          serverId: tool.serverId,
-          serverName: tool.serverName,
-          type: 'mcp' as const,
-          inputSchema: tool.inputSchema,
-          bgColor: '#6366F1',
-          icon: WrenchIcon,
-        }))
-
-        setMcpTools(transformedTools)
-
-        logger.info(
-          `Discovered ${transformedTools.length} MCP tools from ${data.data.byServer ? Object.keys(data.data.byServer).length : 0} servers`
-        )
+        setMcpTools(await discoverMcpTools(normalizedWorkspaceId, serversFingerprint, force))
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to discover MCP tools'
         logger.error('Error discovering MCP tools:', err)
@@ -113,8 +134,10 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
         setIsLoading(false)
       }
     },
-    [normalizedWorkspaceId, workspaceId]
+    [hasEnabledServers, normalizedWorkspaceId, serversFingerprint]
   )
+
+  const refreshTools = useCallback(() => loadTools(true), [loadTools])
 
   const getToolsByServer = useCallback(
     (serverId: string): McpToolForUI[] => {
@@ -131,34 +154,15 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
       return
     }
 
-    refreshTools()
-  }, [normalizedWorkspaceId, refreshTools])
-
-  // Refresh tools when servers change
-  useEffect(() => {
-    if (
-      !normalizedWorkspaceId ||
-      !serversFingerprint ||
-      serversFingerprint === lastProcessedFingerprintRef.current
-    ) {
-      return
-    }
-
-    logger.info('Active servers changed, refreshing MCP tools', {
-      serverCount: servers.filter((s) => !s.deletedAt && s.enabled !== false).length,
-      fingerprint: serversFingerprint,
-    })
-
-    lastProcessedFingerprintRef.current = serversFingerprint
-    refreshTools()
-  }, [normalizedWorkspaceId, serversFingerprint, refreshTools, servers])
+    void loadTools()
+  }, [loadTools, normalizedWorkspaceId])
 
   useEffect(() => {
     if (!normalizedWorkspaceId) return
 
     const handleToolsChanged = (event: Event) => {
       const workspaceId = (event as CustomEvent<{ workspaceId?: string }>).detail?.workspaceId
-      if (workspaceId === normalizedWorkspaceId) {
+      if (!workspaceId || workspaceId === normalizedWorkspaceId) {
         void refreshTools()
       }
     }
@@ -172,14 +176,14 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
     const interval = setInterval(
       () => {
         if (!isLoading && normalizedWorkspaceId) {
-          refreshTools()
+          void loadTools()
         }
       },
       5 * 60 * 1000
     )
 
     return () => clearInterval(interval)
-  }, [isLoading, normalizedWorkspaceId, refreshTools])
+  }, [isLoading, loadTools, normalizedWorkspaceId])
 
   return {
     mcpTools,

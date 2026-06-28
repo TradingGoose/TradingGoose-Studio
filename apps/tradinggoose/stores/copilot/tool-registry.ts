@@ -325,6 +325,7 @@ export async function handleCopilotServerToolSuccess(
       } else if (scope === 'personal') {
         await queryClient.invalidateQueries({ queryKey: environmentKeys.personal() })
       }
+      window.dispatchEvent(new CustomEvent(MCP_TOOLS_CHANGED_EVENT, { detail: { workspaceId } }))
       return
     }
 
