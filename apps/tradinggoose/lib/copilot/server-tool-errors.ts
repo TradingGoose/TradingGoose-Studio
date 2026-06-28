@@ -16,6 +16,8 @@ export interface CopilotServerToolErrorResponse {
   body: CopilotServerToolErrorPayload
 }
 
+const GENERIC_SERVER_TOOL_ERROR = 'Server tool execution failed'
+
 export class StructuredServerToolError extends Error {
   public readonly status: number
   public readonly code: string
@@ -180,7 +182,7 @@ export function buildCopilotServerToolErrorResponse(
       status: typedError.status,
       body: {
         code: typedError.code,
-        error: message,
+        error: GENERIC_SERVER_TOOL_ERROR,
         ...(typeof typedError.retryable === 'boolean' ? { retryable: typedError.retryable } : {}),
       },
     }
@@ -197,7 +199,7 @@ export function buildCopilotServerToolErrorResponse(
     status: 500,
     body: {
       code: 'server_tool_execution_failed',
-      error: message,
+      error: GENERIC_SERVER_TOOL_ERROR,
       retryable: false,
     },
   }

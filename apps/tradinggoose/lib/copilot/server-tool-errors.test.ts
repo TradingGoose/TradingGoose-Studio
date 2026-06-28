@@ -97,17 +97,18 @@ describe('copilot server tool errors', () => {
   it('falls back to a generic 500 payload for unknown tool failures', () => {
     const response = buildCopilotServerToolErrorResponse(
       'make_api_request',
-      new Error('socket hang up')
+      new Error('socket hang up at db.internal:5432')
     )
 
     expect(response).toEqual({
       status: 500,
       body: {
         code: 'server_tool_execution_failed',
-        error: 'socket hang up',
+        error: 'Server tool execution failed',
         retryable: false,
       },
     })
+    expect(response.body.error).not.toContain('db.internal')
   })
 
   it('returns a structured 422 payload for tool argument schema failures', () => {

@@ -60,6 +60,15 @@ function createMcpRequest(body: unknown, authorization = 'Bearer sk-tradinggoose
   })
 }
 
+function initializeRequest(id: string | number = 1, protocolVersion = '2025-03-26') {
+  return {
+    jsonrpc: '2.0',
+    id,
+    method: 'initialize',
+    params: { protocolVersion },
+  }
+}
+
 describe('Copilot MCP route', () => {
   beforeEach(() => {
     vi.resetAllMocks()
@@ -112,9 +121,7 @@ describe('Copilot MCP route', () => {
   it('rejects requests without bearer auth', async () => {
     const { POST } = await import('./route')
 
-    const response = await POST(
-      createMcpRequest({ jsonrpc: '2.0', id: 1, method: 'initialize' }, '')
-    )
+    const response = await POST(createMcpRequest(initializeRequest(), ''))
     const body = await response.json()
 
     expect(response.status).toBe(401)
@@ -125,7 +132,7 @@ describe('Copilot MCP route', () => {
   it('returns initialize metadata with authenticated workspace context', async () => {
     const { POST } = await import('./route')
 
-    const response = await POST(createMcpRequest({ jsonrpc: '2.0', id: 1, method: 'initialize' }))
+    const response = await POST(createMcpRequest(initializeRequest()))
     const body = await response.json()
 
     expect(response.headers.get('MCP-Protocol-Version')).toBe('2025-03-26')
@@ -134,7 +141,7 @@ describe('Copilot MCP route', () => {
     })
     expect(mockUpdateApiKeyLastUsed).toHaveBeenCalledWith('key-1')
     expect(mockCheckApiEndpointRateLimit).toHaveBeenCalledWith('user-1', 'copilot-mcp')
-    expect(mockGetUserWorkspaces).toHaveBeenCalledWith({ userId: 'user-1', autoCreate: true })
+    expect(mockGetUserWorkspaces).toHaveBeenCalledWith({ userId: 'user-1', autoCreate: false })
     expect(body.result.capabilities).toEqual({ tools: {} })
     expect(body.result.serverInfo).toEqual({ name: 'TradingGoose', version: '0.1.0' })
     expect(body.result.instructions).toContain('workspaceId=workspace-1, permissions=admin')
@@ -150,9 +157,7 @@ describe('Copilot MCP route', () => {
   it('accepts a case-insensitive bearer auth scheme', async () => {
     const { POST } = await import('./route')
 
-    const response = await POST(
-      createMcpRequest({ jsonrpc: '2.0', id: 1, method: 'initialize' }, 'bearer sk-lowercase')
-    )
+    const response = await POST(createMcpRequest(initializeRequest(), 'bearer sk-lowercase'))
 
     expect(response.status).toBe(200)
     expect(mockAuthenticateApiKeyFromHeader).toHaveBeenCalledWith('sk-lowercase', {
@@ -300,17 +305,43 @@ describe('Copilot MCP route', () => {
     expect(body.error).toBeUndefined()
     expect(body.result.isError).toBe(true)
     expect(body.result.structuredContent.code).toBe('server_tool_execution_failed')
+    expect(body.result.structuredContent.error).toBe('Server tool execution failed')
+    expect(body.result.content[0].text).not.toContain('db.internal')
   })
 
   it('sanitizes errors thrown by non-tool methods instead of leaking a raw response', async () => {
     const { POST } = await import('./route')
     mockGetUserWorkspaces.mockRejectedValueOnce(new Error('workspace bootstrap failed at shard-3'))
 
-    const response = await POST(createMcpRequest({ jsonrpc: '2.0', id: 7, method: 'initialize' }))
+    const response = await POST(createMcpRequest(initializeRequest(7)))
     const body = await response.json()
 
     expect(body.error.code).toBe(-32603)
     expect(body.error.data.code).toBe('server_tool_execution_failed')
+    expect(body.error.message).toBe('Server tool execution failed')
+    expect(JSON.stringify(body)).not.toContain('shard-3')
+  })
+
+  it('enforces JSON-RPC and MCP initialize request shape', async () => {
+    const { POST } = await import('./route')
+
+    const invalidJsonRpcResponse = await POST(
+      createMcpRequest({ jsonrpc: '1.0', id: 8, method: 'ping' })
+    )
+    const nullIdResponse = await POST(
+      createMcpRequest({ jsonrpc: '2.0', id: null, method: 'ping' })
+    )
+    const invalidInitializeResponse = await POST(
+      createMcpRequest({ jsonrpc: '2.0', id: 9, method: 'initialize', params: {} })
+    )
+    const unsupportedVersionResponse = await POST(createMcpRequest(initializeRequest(10, '1.0')))
+
+    expect((await invalidJsonRpcResponse.json()).error.code).toBe(-32600)
+    expect((await nullIdResponse.json()).error.code).toBe(-32600)
+    expect((await invalidInitializeResponse.json()).error.code).toBe(-32602)
+    const unsupportedVersionBody = await unsupportedVersionResponse.json()
+    expect(unsupportedVersionBody.error.code).toBe(-32000)
+    expect(unsupportedVersionBody.error.data.supportedProtocolVersions).toEqual(['2025-03-26'])
   })
 
   it('returns per-entry invalid request errors for malformed batches', async () => {
@@ -368,5 +399,16 @@ describe('Copilot MCP route', () => {
 
     expect(body.error.message).toBe('JSON-RPC batch size cannot exceed 10')
     expect(mockRouteExecution).not.toHaveBeenCalled()
+  })
+
+  it('rejects batched initialize requests', async () => {
+    const { POST } = await import('./route')
+
+    const response = await POST(createMcpRequest([initializeRequest()]))
+    const body = await response.json()
+
+    expect(body.error.code).toBe(-32600)
+    expect(body.error.message).toBe('initialize cannot be batched')
+    expect(mockGetUserWorkspaces).not.toHaveBeenCalled()
   })
 })

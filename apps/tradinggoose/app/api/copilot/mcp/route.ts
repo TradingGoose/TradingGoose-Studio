@@ -17,12 +17,12 @@ const SERVER_NAME = 'TradingGoose'
 const SERVER_VERSION = '0.1.0'
 const MAX_JSON_RPC_BATCH_SIZE = 10
 
-type JsonRpcId = string | number | null
+type JsonRpcId = string | number
 
 type JsonRpcRequest = {
-  jsonrpc?: string
-  id?: JsonRpcId
-  method?: string
+  jsonrpc?: unknown
+  id?: unknown
+  method?: unknown
   params?: unknown
 }
 
@@ -38,7 +38,7 @@ function jsonRpcResult(id: JsonRpcId, result: unknown) {
   }
 }
 
-function jsonRpcError(id: JsonRpcId, code: number, message: string, data?: unknown) {
+function jsonRpcError(id: JsonRpcId | null, code: number, message: string, data?: unknown) {
   return {
     jsonrpc: '2.0',
     id,
@@ -111,7 +111,7 @@ async function authenticateCopilotMcpRequest(
 }
 
 async function buildInstructions(userId: string) {
-  const workspaces = await getUserWorkspaces({ userId, autoCreate: true })
+  const workspaces = await getUserWorkspaces({ userId, autoCreate: false })
   const workspaceLines =
     workspaces.length > 0
       ? workspaces.map(
@@ -167,13 +167,33 @@ function isJsonRpcRequest(value: unknown): value is JsonRpcRequest {
   return !!value && typeof value === 'object' && !Array.isArray(value)
 }
 
+function getResponseId(request: JsonRpcRequest): JsonRpcId | null {
+  return typeof request.id === 'string' || typeof request.id === 'number' ? request.id : null
+}
+
+function getInitializeProtocolVersion(params: unknown) {
+  if (!params || typeof params !== 'object' || Array.isArray(params)) {
+    return null
+  }
+
+  const protocolVersion = (params as { protocolVersion?: unknown }).protocolVersion
+  return typeof protocolVersion === 'string' ? protocolVersion : null
+}
+
+function isInitializeRequest(value: unknown) {
+  return isJsonRpcRequest(value) && value.method === 'initialize'
+}
+
 async function handleJsonRpcRequest(entry: unknown, auth: AuthenticatedMcpUser) {
   if (!isJsonRpcRequest(entry)) {
     return jsonRpcError(null, -32600, 'Invalid JSON-RPC request')
   }
 
   const request = entry
-  const id = request.id ?? null
+  const id = getResponseId(request)
+  if (request.jsonrpc !== '2.0') {
+    return jsonRpcError(id, -32600, 'Invalid JSON-RPC request')
+  }
   if (typeof request.method !== 'string') {
     return jsonRpcError(id, -32600, 'Invalid JSON-RPC request')
   }
@@ -181,10 +201,23 @@ async function handleJsonRpcRequest(entry: unknown, auth: AuthenticatedMcpUser) 
   if (request.id === undefined) {
     return null
   }
+  if (id === null) {
+    return jsonRpcError(null, -32600, 'Invalid JSON-RPC request')
+  }
 
   try {
     switch (request.method) {
-      case 'initialize':
+      case 'initialize': {
+        const protocolVersion = getInitializeProtocolVersion(request.params)
+        if (!protocolVersion) {
+          return jsonRpcError(id, -32602, 'Invalid initialize params')
+        }
+        if (protocolVersion !== MCP_PROTOCOL_VERSION) {
+          return jsonRpcError(id, -32000, 'Unsupported MCP protocol version', {
+            supportedProtocolVersions: [MCP_PROTOCOL_VERSION],
+          })
+        }
+
         return jsonRpcResult(id, {
           protocolVersion: MCP_PROTOCOL_VERSION,
           capabilities: {
@@ -196,6 +229,7 @@ async function handleJsonRpcRequest(entry: unknown, auth: AuthenticatedMcpUser) 
           },
           instructions: await buildInstructions(auth.userId),
         })
+      }
 
       case 'ping':
         return jsonRpcResult(id, {})
@@ -281,6 +315,9 @@ export async function POST(request: NextRequest) {
       return mcpJsonResponse(
         jsonRpcError(null, -32600, `JSON-RPC batch size cannot exceed ${MAX_JSON_RPC_BATCH_SIZE}`)
       )
+    }
+    if (body.some(isInitializeRequest)) {
+      return mcpJsonResponse(jsonRpcError(null, -32600, 'initialize cannot be batched'))
     }
 
     const responses = []
