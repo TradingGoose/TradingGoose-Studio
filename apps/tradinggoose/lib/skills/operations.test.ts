@@ -36,7 +36,7 @@ vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
-  requireSavedEntityListFields: vi.fn(),
+  requireSavedEntityRealtimeListFields: vi.fn(),
 }))
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({

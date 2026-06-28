@@ -10,7 +10,7 @@ import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import {
   regenerateWorkflowStateIds,
-  requireEditableWorkflowState,
+  requireWorkflowRealtimeState,
   saveWorkflowToNormalizedTables,
 } from '@/lib/workflows/db-helpers'
 import { remapVariableIds } from '@/lib/workflows/import-export'
@@ -28,11 +28,11 @@ const DuplicateRequestSchema = z.object({
   folderId: z.string().nullable().optional(),
 })
 
-async function loadSourceWorkflowArtifacts(sourceWorkflowId: string): Promise<{
+async function loadSourceWorkflowRealtimeArtifacts(sourceWorkflowId: string): Promise<{
   workflowState: WorkflowState
   variables: Record<string, Variable>
 }> {
-  const editableState = await requireEditableWorkflowState(sourceWorkflowId)
+  const editableState = await requireWorkflowRealtimeState(sourceWorkflowId)
   if (!editableState) {
     throw new Error('Failed to load source workflow state')
   }
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       )
     }
 
-    const sourceArtifacts = await loadSourceWorkflowArtifacts(sourceWorkflowId)
+    const sourceArtifacts = await loadSourceWorkflowRealtimeArtifacts(sourceWorkflowId)
 
     const newWorkflowId = crypto.randomUUID()
     const now = new Date()

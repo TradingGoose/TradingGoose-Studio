@@ -111,7 +111,7 @@ describe('Workflow Duplicate API Route', () => {
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
       isWorkflowRealtimeRequiredError: vi.fn(() => false),
-      requireEditableWorkflowState: loadWorkflowStateMock,
+      requireWorkflowRealtimeState: loadWorkflowStateMock,
       regenerateWorkflowStateIds: regenerateWorkflowStateIdsMock,
       saveWorkflowToNormalizedTables: saveWorkflowToNormalizedTablesMock,
       WORKFLOW_REALTIME_REQUIRED_CODE: 'WORKFLOW_REALTIME_REQUIRED',

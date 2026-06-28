@@ -57,7 +57,7 @@ describe('Workflow Status API Route', () => {
     vi.doMock('@/lib/workflows/db-helpers', () => ({
       WORKFLOW_REALTIME_REQUIRED_CODE: 'WORKFLOW_REALTIME_REQUIRED',
       isWorkflowRealtimeRequiredError: vi.fn(() => false),
-      requireEditableWorkflowState: mockLoadWorkflowState,
+      requireWorkflowRealtimeState: mockLoadWorkflowState,
     }))
 
     vi.doMock('@/lib/workflows/utils', () => ({

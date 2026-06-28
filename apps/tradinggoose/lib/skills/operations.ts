@@ -13,7 +13,7 @@ import {
   applySavedEntityState,
   publishCreatedSavedEntityListMembers,
 } from '@/lib/yjs/server/apply-entity-state'
-import { requireSavedEntityListFields } from '@/lib/yjs/server/bootstrap-review-target'
+import { requireSavedEntityRealtimeListFields } from '@/lib/yjs/server/bootstrap-review-target'
 import {
   deleteYjsSessionInSocketServer,
   notifyEntityListMemberRemoved,
@@ -51,7 +51,7 @@ interface ImportSkillsParams {
 }
 
 export async function listSkills(params: { workspaceId: string }) {
-  const entries = await requireSavedEntityListFields('skill', params.workspaceId)
+  const entries = await requireSavedEntityRealtimeListFields('skill', params.workspaceId)
   return entries.map(({ entityId, fields }) => ({
     id: entityId,
     workspaceId: params.workspaceId,

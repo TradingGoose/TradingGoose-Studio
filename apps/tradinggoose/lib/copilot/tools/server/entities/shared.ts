@@ -22,7 +22,7 @@ import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import {
   readBootstrappedSavedEntityFields,
-  requireSavedEntityListMembers,
+  requireSavedEntityRealtimeListMembers,
 } from '@/lib/yjs/server/bootstrap-review-target'
 
 export type SavedEntityDocumentKind = EntityDocumentKind
@@ -205,7 +205,7 @@ export function buildSavedEntityListInfo(
   entityKind: SavedEntityKind,
   workspaceId: string
 ): Promise<EntityListEntry[]> {
-  return requireSavedEntityListMembers(entityKind, workspaceId)
+  return requireSavedEntityRealtimeListMembers(entityKind, workspaceId)
 }
 
 async function hashCreateEntityReviewBase(

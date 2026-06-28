@@ -33,7 +33,7 @@ vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
-  requireSavedEntityListMembers: (...args: unknown[]) =>
+  requireSavedEntityRealtimeListMembers: (...args: unknown[]) =>
     mockReadBootstrappedEntityListMembers(...args),
   readBootstrappedSavedEntityFields: (...args: unknown[]) =>
     mockReadBootstrappedSavedEntityFields(...args),

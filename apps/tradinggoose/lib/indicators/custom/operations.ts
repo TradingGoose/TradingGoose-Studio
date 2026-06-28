@@ -13,12 +13,12 @@ import {
   applySavedEntityState,
   publishCreatedSavedEntityListMembers,
 } from '@/lib/yjs/server/apply-entity-state'
-import { requireSavedEntityListFields } from '@/lib/yjs/server/bootstrap-review-target'
+import { requireSavedEntityRealtimeListFields } from '@/lib/yjs/server/bootstrap-review-target'
 
 const logger = createLogger('IndicatorsOperations')
 
 export async function listCustomIndicatorRuntimeEntries(workspaceId: string) {
-  const entries = await requireSavedEntityListFields('indicator', workspaceId)
+  const entries = await requireSavedEntityRealtimeListFields('indicator', workspaceId)
   return entries.map(({ entityId, fields }) => ({
     id: entityId,
     pineCode: String(fields.pineCode ?? ''),
@@ -27,7 +27,7 @@ export async function listCustomIndicatorRuntimeEntries(workspaceId: string) {
 }
 
 export async function listIndicators(params: { workspaceId: string }) {
-  const entries = await requireSavedEntityListFields('indicator', params.workspaceId)
+  const entries = await requireSavedEntityRealtimeListFields('indicator', params.workspaceId)
   return entries.map(({ entityId, fields }) => ({
     id: entityId,
     workspaceId: params.workspaceId,

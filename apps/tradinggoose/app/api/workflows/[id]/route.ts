@@ -9,7 +9,7 @@ import { verifyInternalTokenDetailed } from '@/lib/auth/internal'
 import { hydrateListingUI } from '@/lib/listing/hydrate-ui'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { requireEditableWorkflowState } from '@/lib/workflows/db-helpers'
+import { requireWorkflowRealtimeState } from '@/lib/workflows/db-helpers'
 import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/utils'
 import { applyWorkflowMetadata } from '@/lib/yjs/server/apply-workflow-state'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
@@ -126,7 +126,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     logger.debug(`[${requestId}] Attempting to load workflow ${workflowId} from Yjs session`)
-    const workflowState = await requireEditableWorkflowState(workflowId)
+    const workflowState = await requireWorkflowRealtimeState(workflowId)
 
     if (!workflowState) {
       logger.warn(`[${requestId}] Workflow ${workflowId} is missing saved state`)

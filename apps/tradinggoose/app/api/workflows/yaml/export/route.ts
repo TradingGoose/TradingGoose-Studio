@@ -8,7 +8,7 @@ import { extractSubBlockValuesFromBlocks } from '@/lib/copilot/workflow/block-ou
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
-import { requireEditableWorkflowState } from '@/lib/workflows/db-helpers'
+import { requireWorkflowRealtimeState } from '@/lib/workflows/db-helpers'
 import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
 import { getAllBlocks } from '@/blocks/registry'
 import type { BlockConfig } from '@/blocks/types'
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    const editableState = await requireEditableWorkflowState(workflowId)
+    const editableState = await requireWorkflowRealtimeState(workflowId)
 
     if (!editableState) {
       return NextResponse.json(

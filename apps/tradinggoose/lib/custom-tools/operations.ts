@@ -13,7 +13,7 @@ import {
   applySavedEntityState,
   publishCreatedSavedEntityListMembers,
 } from '@/lib/yjs/server/apply-entity-state'
-import { requireSavedEntityListFields } from '@/lib/yjs/server/bootstrap-review-target'
+import { requireSavedEntityRealtimeListFields } from '@/lib/yjs/server/bootstrap-review-target'
 
 const logger = createLogger('CustomToolsOperations')
 
@@ -47,7 +47,7 @@ interface ImportCustomToolsParams {
 }
 
 export async function listCustomTools(params: { workspaceId: string }) {
-  const entries = await requireSavedEntityListFields('custom_tool', params.workspaceId)
+  const entries = await requireSavedEntityRealtimeListFields('custom_tool', params.workspaceId)
   return entries.map(({ entityId, fields }) => ({
     id: entityId,
     workspaceId: params.workspaceId,

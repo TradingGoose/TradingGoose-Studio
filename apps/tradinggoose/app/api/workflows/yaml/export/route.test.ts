@@ -94,7 +94,7 @@ describe('Workflow YAML Export API Route', () => {
     vi.doMock('@/lib/workflows/db-helpers', () => ({
       WORKFLOW_REALTIME_REQUIRED_CODE: 'WORKFLOW_REALTIME_REQUIRED',
       isWorkflowRealtimeRequiredError: vi.fn(() => false),
-      requireEditableWorkflowState: loadWorkflowStateMock,
+      requireWorkflowRealtimeState: loadWorkflowStateMock,
     }))
 
     vi.doMock('@/lib/copilot/workflow/block-output-utils', () => ({

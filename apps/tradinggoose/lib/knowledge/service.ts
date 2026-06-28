@@ -25,7 +25,7 @@ import {
   applySavedEntityState,
   publishCreatedSavedEntityListMembers,
 } from '@/lib/yjs/server/apply-entity-state'
-import { requireSavedEntityListFields } from '@/lib/yjs/server/bootstrap-review-target'
+import { requireSavedEntityRealtimeListFields } from '@/lib/yjs/server/bootstrap-review-target'
 import {
   deleteYjsSessionInSocketServer,
   notifyEntityListMemberRemoved,
@@ -45,7 +45,7 @@ export async function getKnowledgeBases(
     return []
   }
 
-  const entries = await requireSavedEntityListFields('knowledge_base', workspaceId)
+  const entries = await requireSavedEntityRealtimeListFields('knowledge_base', workspaceId)
   return entries.map(({ entityId, fields }) => ({
     id: entityId,
     name: String(fields.name ?? ''),

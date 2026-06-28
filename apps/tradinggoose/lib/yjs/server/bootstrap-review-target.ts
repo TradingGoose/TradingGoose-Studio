@@ -70,7 +70,7 @@ export async function readBootstrappedReviewTargetSnapshot(descriptor: ReviewTar
   return getYjsSnapshot(descriptor.yjsSessionId, bridgeParams)
 }
 
-export async function requireSavedEntityListMembers(
+export async function requireSavedEntityRealtimeListMembers(
   entityKind: SavedEntityKind,
   workspaceId: string
 ): Promise<EntityListMember[]> {
@@ -93,11 +93,11 @@ export async function requireSavedEntityListMembers(
   }
 }
 
-export async function requireSavedEntityListFields(
+export async function requireSavedEntityRealtimeListFields(
   entityKind: SavedEntityKind,
   workspaceId: string
 ): Promise<Array<EntityListMember & { fields: Record<string, unknown> }>> {
-  const members = await requireSavedEntityListMembers(entityKind, workspaceId)
+  const members = await requireSavedEntityRealtimeListMembers(entityKind, workspaceId)
   const entries = await Promise.all(
     members.map(async (member) => {
       try {
