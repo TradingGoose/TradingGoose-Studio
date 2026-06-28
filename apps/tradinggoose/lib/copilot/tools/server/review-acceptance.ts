@@ -8,6 +8,7 @@ import {
   type ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
 import { routeExecution } from '@/lib/copilot/tools/server/router'
+import { normalizeOptionalString } from '@/lib/utils'
 import { decryptSecret, encryptSecret } from '@/lib/utils-server'
 
 const REVIEW_TOKEN_PREFIX = 'copilot-tool-review:'
@@ -138,6 +139,11 @@ export async function acceptServerManagedToolReview(
   }
   if (!staged.executionContext || typeof staged.executionContext !== 'object') {
     throw new Error('Server tool review token does not match this request')
+  }
+  const requestWorkspaceId = normalizeOptionalString(context.workspaceId)
+  const stagedWorkspaceId = normalizeOptionalString(staged.executionContext.workspaceId)
+  if (requestWorkspaceId && requestWorkspaceId !== stagedWorkspaceId) {
+    throw new Error('workspaceId does not match execution context')
   }
   const { decrypted } = await decryptSecret(staged.encryptedPayload)
   const payload = JSON.parse(decrypted)

@@ -271,7 +271,16 @@ export async function verifyReviewTargetAccess(
       return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
     }
 
-    return verifyWorkflowAccess(userId, reviewTarget.entityId, accessMode)
+    const access = await verifyWorkflowAccess(userId, reviewTarget.entityId, accessMode)
+    if (reviewTarget.workspaceId && reviewTarget.workspaceId !== access.workspaceId) {
+      logger.warn('Workflow workspace mismatch', {
+        userId,
+        workflowId: reviewTarget.entityId,
+      })
+      return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
+    }
+
+    return access
   }
 
   if (reviewTarget.yjsSessionId && isEntityListSessionId(reviewTarget.yjsSessionId)) {

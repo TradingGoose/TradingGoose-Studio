@@ -17,11 +17,6 @@ import type {
 import { MCP_CONSTANTS } from '@/lib/mcp/utils'
 import { generateRequestId } from '@/lib/utils'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
-import {
-  ReviewTargetBootstrapError,
-  readBootstrappedSavedEntityFields,
-  readBootstrappedSavedEntityListFields,
-} from '@/lib/yjs/server/bootstrap-review-target'
 import { notifyEntityListMembersUpserted } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('McpService')
@@ -332,51 +327,37 @@ class McpService {
     serverId: string,
     workspaceId: string
   ): Promise<McpServerConfig | null> {
-    try {
-      const [server] = await db
-        .select({ id: mcpServers.id })
-        .from(mcpServers)
-        .where(
-          and(
-            eq(mcpServers.id, serverId),
-            eq(mcpServers.workspaceId, workspaceId),
-            isNull(mcpServers.deletedAt)
-          )
+    const [server] = await db
+      .select()
+      .from(mcpServers)
+      .where(
+        and(
+          eq(mcpServers.id, serverId),
+          eq(mcpServers.workspaceId, workspaceId),
+          isNull(mcpServers.deletedAt)
         )
-        .limit(1)
-      if (!server) {
-        return null
-      }
-
-      const fields = normalizeEntityFields(
-        'mcp_server',
-        await readBootstrappedSavedEntityFields('mcp_server', serverId, workspaceId)
       )
-      return fields.enabled === false ? null : this.toServerConfig(serverId, fields)
-    } catch (error) {
-      if (error instanceof ReviewTargetBootstrapError && error.status === 404) {
-        return null
-      }
-      throw error
+      .limit(1)
+    if (!server) {
+      return null
     }
+
+    const fields = normalizeEntityFields('mcp_server', savedEntityRowToFields('mcp_server', server))
+    return fields.enabled === false ? null : this.toServerConfig(serverId, fields)
   }
 
   private async getWorkspaceServers(workspaceId: string): Promise<McpServerConfig[]> {
-    const activeServerIds = new Set(
-      (
-        await db
-          .select({ id: mcpServers.id })
-          .from(mcpServers)
-          .where(and(eq(mcpServers.workspaceId, workspaceId), isNull(mcpServers.deletedAt)))
-      ).map((server) => server.id)
-    )
-    const servers = await readBootstrappedSavedEntityListFields('mcp_server', workspaceId)
+    const servers = await db
+      .select()
+      .from(mcpServers)
+      .where(and(eq(mcpServers.workspaceId, workspaceId), isNull(mcpServers.deletedAt)))
+
     return servers.flatMap((server) => {
-      if (!activeServerIds.has(server.entityId)) {
-        return []
-      }
-      const normalized = normalizeEntityFields('mcp_server', server.fields)
-      return normalized.enabled === false ? [] : [this.toServerConfig(server.entityId, normalized)]
+      const fields = normalizeEntityFields(
+        'mcp_server',
+        savedEntityRowToFields('mcp_server', server)
+      )
+      return fields.enabled === false ? [] : [this.toServerConfig(server.id, fields)]
     })
   }
 

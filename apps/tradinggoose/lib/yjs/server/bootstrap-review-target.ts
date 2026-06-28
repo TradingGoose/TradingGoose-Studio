@@ -84,7 +84,10 @@ export async function readBootstrappedEntityListMembers(
   const doc = new Y.Doc()
   try {
     Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
-    return getEntityListMembers(doc)
+    const activeEntityIds = new Set(
+      (await readEntityListMembersFromDb(entityKind, workspaceId)).map((member) => member.id)
+    )
+    return getEntityListMembers(doc).filter((member) => activeEntityIds.has(member.entityId))
   } finally {
     doc.destroy()
   }

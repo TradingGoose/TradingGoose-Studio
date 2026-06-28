@@ -9,7 +9,7 @@ import { createWorkflowSnapshot, setVariables, setWorkflowState } from '@/lib/yj
 
 const mockDbLimit = vi.hoisted(() => vi.fn())
 const mockReadBootstrappedReviewTargetSnapshot = vi.hoisted(() => vi.fn())
-const mockVerifyWorkflowAccess = vi.hoisted(() => vi.fn())
+const mockVerifyReviewTargetAccess = vi.hoisted(() => vi.fn())
 const mockApplyWorkflowState = vi.hoisted(() => vi.fn())
 const mockApplyWorkflowPatchInSocketServer = vi.hoisted(() => vi.fn())
 
@@ -26,7 +26,7 @@ vi.mock('@tradinggoose/db', () => ({
 }))
 
 vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
-  verifyWorkflowAccess: (...args: any[]) => mockVerifyWorkflowAccess(...args),
+  verifyReviewTargetAccess: (...args: any[]) => mockVerifyReviewTargetAccess(...args),
 }))
 
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
@@ -62,7 +62,7 @@ describe('workflow variable server tools', () => {
     vi.unstubAllGlobals()
     mockDbLimit.mockReset()
     mockReadBootstrappedReviewTargetSnapshot.mockReset()
-    mockVerifyWorkflowAccess.mockReset()
+    mockVerifyReviewTargetAccess.mockReset()
     mockApplyWorkflowState.mockReset()
     mockApplyWorkflowPatchInSocketServer.mockReset()
     mockDbLimit.mockResolvedValue([
@@ -72,7 +72,7 @@ describe('workflow variable server tools', () => {
         workspaceId: 'workspace-1',
       },
     ])
-    mockVerifyWorkflowAccess.mockResolvedValue({
+    mockVerifyReviewTargetAccess.mockResolvedValue({
       hasAccess: true,
       workspaceId: 'workspace-1',
     })

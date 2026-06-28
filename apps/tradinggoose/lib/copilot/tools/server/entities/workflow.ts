@@ -5,7 +5,7 @@ import * as Y from 'yjs'
 import { z } from 'zod'
 import { getStableVibrantColor } from '@/lib/colors'
 import { WORKFLOW_VARIABLE_DOCUMENT_FORMAT } from '@/lib/copilot/entity-documents'
-import { verifyWorkflowAccess } from '@/lib/copilot/review-sessions/permissions'
+import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
 import { ENTITY_KIND_WORKFLOW, type ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
 import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
 import type {
@@ -188,7 +188,15 @@ async function verifyWorkflowContext(
   accessMode: ReviewAccessMode
 ) {
   const userId = requireUserId(context)
-  const access = await verifyWorkflowAccess(userId, workflowId, accessMode)
+  const access = await verifyReviewTargetAccess(
+    userId,
+    {
+      workspaceId: context?.workspaceId?.trim() ?? null,
+      entityKind: ENTITY_KIND_WORKFLOW,
+      entityId: workflowId,
+    },
+    accessMode
+  )
   if (!access.hasAccess) {
     throw new Error(
       `Access denied: You do not have permission to ${accessMode === 'write' ? 'edit' : 'read'} this workflow`

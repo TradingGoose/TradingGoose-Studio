@@ -123,7 +123,7 @@ export async function verifySavedEntityContext(
   const userId = requireUserId(context)
   const access = await verifyReviewTargetAccess(
     userId,
-    buildSavedEntityDescriptor(entityKind, entityId, null),
+    buildSavedEntityDescriptor(entityKind, entityId, context?.workspaceId?.trim() ?? null),
     accessMode
   )
 

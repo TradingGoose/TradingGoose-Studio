@@ -146,6 +146,33 @@ describe('review session permissions', () => {
     })
   })
 
+  it('rejects workflow targets when the supplied workspace does not match the workflow', async () => {
+    mockReadWorkflowAccessContext.mockResolvedValueOnce({
+      workflow: {
+        id: 'workflow-1',
+        userId: 'member-1',
+        workspaceId: 'workspace-actual',
+      } as NonNullable<Awaited<ReturnType<typeof readWorkflowAccessContext>>>['workflow'],
+      workspaceOwnerId: 'owner-1',
+      workspacePermission: 'write',
+      isOwner: false,
+      isWorkspaceOwner: false,
+    })
+
+    const result = await verifyReviewTargetAccess(
+      'collaborator-1',
+      { entityKind: 'workflow', entityId: 'workflow-1', workspaceId: 'workspace-supplied' },
+      'read'
+    )
+
+    expect(result).toEqual({
+      hasAccess: false,
+      userPermission: null,
+      workspaceId: null,
+      isOwner: false,
+    })
+  })
+
   it('rejects review-session targets that carry entity ids', async () => {
     const reviewSessionRow = [
       {
