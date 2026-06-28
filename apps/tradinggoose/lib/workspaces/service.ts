@@ -20,10 +20,6 @@ export async function getUserWorkspaces({ userId }: { userId: string }) {
     .where(workspaceAccess.accessFilter)
     .orderBy(desc(workspace.createdAt))
 
-  if (userWorkspaces.length === 0) {
-    return [await createDefaultWorkspaceForUser(userId)]
-  }
-
   return userWorkspaces.map(({ workspace: workspaceDetails, permissionType }) => {
     const resolvedPermissionType = workspaceDetails.ownerId === userId ? 'admin' : permissionType
     if (!resolvedPermissionType) {
