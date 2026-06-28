@@ -1,12 +1,11 @@
 import { db } from '@tradinggoose/db'
-import { permissions, workflow, workspace } from '@tradinggoose/db/schema'
-import { desc, eq } from 'drizzle-orm'
+import { permissions, workspace } from '@tradinggoose/db/schema'
+import { desc, eq, sql } from 'drizzle-orm'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
-import { saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
-import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { toWorkspaceApiRecord } from '@/lib/workspaces/billing-owner'
 
 type WorkspaceRecord = typeof workspace.$inferSelect
+const DEFAULT_WORKSPACE_BOOTSTRAP_LOCK_NAMESPACE = 1_904_202_615
 
 export async function getUserWorkspaces({ userId }: { userId: string }) {
   const workspaceAccess = buildWorkspaceAccessScope(userId, workspace.id)
@@ -36,14 +35,34 @@ export async function getUserWorkspaces({ userId }: { userId: string }) {
 
 export async function createDefaultWorkspaceForUser(userId: string, userName?: string | null) {
   const firstName = userName?.split(' ')[0] || null
-  return createWorkspace(userId, firstName ? `${firstName}'s Workspace` : 'My Workspace')
+  const name = firstName ? `${firstName}'s Workspace` : 'My Workspace'
+
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(${DEFAULT_WORKSPACE_BOOTSTRAP_LOCK_NAMESPACE}, hashtext(${userId}))`
+    )
+
+    const [existingWorkspace] = await tx
+      .select()
+      .from(workspace)
+      .where(eq(workspace.ownerId, userId))
+      .orderBy(desc(workspace.createdAt))
+      .limit(1)
+
+    if (existingWorkspace) {
+      return toOwnedWorkspaceApiRecord(existingWorkspace)
+    }
+
+    const workspaceDetails = buildWorkspaceRecord(userId, name)
+    await tx.insert(workspace).values(workspaceDetails)
+    return toOwnedWorkspaceApiRecord(workspaceDetails)
+  })
 }
 
-export async function createWorkspace(userId: string, name: string) {
+function buildWorkspaceRecord(userId: string, name: string): WorkspaceRecord {
   const workspaceId = crypto.randomUUID()
-  const workflowId = crypto.randomUUID()
   const now = new Date()
-  const workspaceDetails = {
+  return {
     id: workspaceId,
     name,
     ownerId: userId,
@@ -54,48 +73,18 @@ export async function createWorkspace(userId: string, name: string) {
     createdAt: now,
     updatedAt: now,
   } satisfies WorkspaceRecord
+}
 
-  await db.transaction(async (tx) => {
-    await tx.insert(workspace).values(workspaceDetails)
-
-    await tx.insert(workflow).values({
-      id: workflowId,
-      userId,
-      workspaceId,
-      folderId: null,
-      name: 'default-agent',
-      description: 'Your first workflow - start building here!',
-      color: '#3972F6',
-      lastSynced: now,
-      createdAt: now,
-      updatedAt: now,
-      isDeployed: false,
-      collaborators: [],
-      runCount: 0,
-      variables: {},
-      isPublished: false,
-      marketplaceData: null,
-    })
-  })
-
-  const { workflowState } = buildDefaultWorkflowArtifacts()
-
-  try {
-    const saveResult = await saveWorkflowToNormalizedTables(workflowId, workflowState)
-    if (!saveResult.success) {
-      throw new Error(saveResult.error || 'Failed to persist default workflow state')
-    }
-  } catch (error) {
-    await db.transaction(async (tx) => {
-      await tx.delete(workflow).where(eq(workflow.id, workflowId))
-      await tx.delete(workspace).where(eq(workspace.id, workspaceId))
-    })
-    throw error
-  }
-
+function toOwnedWorkspaceApiRecord(workspaceDetails: WorkspaceRecord) {
   return {
     ...toWorkspaceApiRecord(workspaceDetails),
     role: 'owner',
     permissions: 'admin',
   }
+}
+
+export async function createWorkspace(userId: string, name: string) {
+  const workspaceDetails = buildWorkspaceRecord(userId, name)
+  await db.insert(workspace).values(workspaceDetails)
+  return toOwnedWorkspaceApiRecord(workspaceDetails)
 }

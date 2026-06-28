@@ -8,13 +8,16 @@ import { authenticateApiKeyFromHeader, updateApiKeyLastUsed } from '@/lib/api-ke
 import { getCopilotRuntimeToolManifest } from '@/lib/copilot/runtime-tool-manifest'
 import { buildCopilotServerToolErrorResponse } from '@/lib/copilot/server-tool-errors'
 import { getMcpServerToolIds, routeExecution } from '@/lib/copilot/tools/server/router'
-import { getUserWorkspaces } from '@/lib/workspaces/service'
+import { createDefaultWorkspaceForUser, getUserWorkspaces } from '@/lib/workspaces/service'
 
 export const dynamic = 'force-dynamic'
 
 const MCP_PROTOCOL_VERSION = '2025-03-26'
 const MCP_NEGOTIABLE_PROTOCOL_VERSIONS = ['2025-06-18', MCP_PROTOCOL_VERSION]
-const MCP_ACCEPTED_RESPONSE_INIT = { status: 202, headers: { 'MCP-Protocol-Version': MCP_PROTOCOL_VERSION } }
+const MCP_ACCEPTED_RESPONSE_INIT = {
+  status: 202,
+  headers: { 'MCP-Protocol-Version': MCP_PROTOCOL_VERSION },
+}
 const SERVER_NAME = 'TradingGoose'
 const SERVER_VERSION = '0.1.0'
 const MAX_JSON_RPC_BATCH_SIZE = 10
@@ -113,10 +116,11 @@ async function authenticateCopilotMcpRequest(
 }
 
 async function buildInstructions(userId: string) {
-  const workspaces = await getUserWorkspaces({ userId })
-  if (workspaces.length === 0) {
-    throw new Error('Authenticated TradingGoose users must have at least one workspace')
-  }
+  const existingWorkspaces = await getUserWorkspaces({ userId })
+  const workspaces =
+    existingWorkspaces.length > 0
+      ? existingWorkspaces
+      : [await createDefaultWorkspaceForUser(userId)]
   const workspaceLines = workspaces.map(
     (workspace) =>
       `- ${workspace.name}: workspaceId=${workspace.id}, permissions=${workspace.permissions}`
@@ -310,12 +314,13 @@ export async function POST(request: NextRequest) {
   }
 
   const requestProtocolVersion = request.headers.get('MCP-Protocol-Version')
-  const isInitialize = Array.isArray(body) ? body.some(isInitializeRequest) : isInitializeRequest(body)
+  const isInitialize = Array.isArray(body)
+    ? body.some(isInitializeRequest)
+    : isInitializeRequest(body)
   if (requestProtocolVersion && !isInitialize && requestProtocolVersion !== MCP_PROTOCOL_VERSION) {
-    return mcpJsonResponse(
-      jsonRpcError(null, -32000, 'Unsupported MCP protocol version'),
-      { status: 400 }
-    )
+    return mcpJsonResponse(jsonRpcError(null, -32000, 'Unsupported MCP protocol version'), {
+      status: 400,
+    })
   }
 
   if (Array.isArray(body)) {

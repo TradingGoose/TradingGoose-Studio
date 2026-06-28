@@ -5,15 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('Workspaces API Route', () => {
   const transactionMock = vi.fn()
-  const txInsertValuesMock = vi.fn()
-  const txInsertMock = vi.fn(() => ({
-    values: txInsertValuesMock,
-  }))
-  const deleteWhereMock = vi.fn()
-  const deleteMock = vi.fn((_table: unknown) => ({
-    where: deleteWhereMock,
-  }))
-  const mockSaveWorkflowToNormalizedTables = vi.fn()
   let userWorkspaces: Array<{
     workspace: Record<string, unknown>
     permissionType: 'admin' | 'write' | 'read' | null
@@ -24,16 +15,8 @@ describe('Workspaces API Route', () => {
     vi.clearAllMocks()
     userWorkspaces = []
 
-    txInsertValuesMock.mockResolvedValue(undefined)
-    transactionMock.mockImplementation(async (callback) =>
-      callback({ insert: txInsertMock, delete: deleteMock })
-    )
-    deleteWhereMock.mockResolvedValue(undefined)
-    mockSaveWorkflowToNormalizedTables.mockResolvedValue({ success: true })
-
     vi.doMock('@tradinggoose/db', () => ({
       db: {
-        delete: deleteMock,
         select: vi.fn(() => ({
           from: vi.fn(() => ({
             leftJoin: vi.fn(() => ({
@@ -49,6 +32,9 @@ describe('Workspaces API Route', () => {
           })),
         })),
         transaction: transactionMock,
+        insert: vi.fn(() => ({
+          values: vi.fn().mockResolvedValue(undefined),
+        })),
       },
     }))
 
@@ -58,11 +44,6 @@ describe('Workspaces API Route', () => {
         userId: 'permissions.userId',
         entityType: 'permissions.entityType',
         entityId: 'permissions.entityId',
-      },
-      workflow: {
-        id: 'workflow.id',
-        userId: 'workflow.userId',
-        workspaceId: 'workflow.workspaceId',
       },
       workspace: {
         id: 'workspace.id',
@@ -87,21 +68,6 @@ describe('Workspaces API Route', () => {
       })),
     }))
 
-    vi.doMock('@/lib/workflows/defaults', () => ({
-      buildDefaultWorkflowArtifacts: vi.fn(() => ({
-        workflowState: {
-          blocks: {},
-          edges: [],
-          loops: {},
-          parallels: {},
-        },
-      })),
-    }))
-
-    vi.doMock('@/lib/workflows/db-helpers', () => ({
-      saveWorkflowToNormalizedTables: mockSaveWorkflowToNormalizedTables,
-    }))
-
     vi.doMock('@/lib/workspaces/billing-owner', () => ({
       toWorkspaceApiRecord: vi.fn((workspace) => ({
         ...workspace,
@@ -118,16 +84,6 @@ describe('Workspaces API Route', () => {
   afterEach(() => {
     vi.clearAllMocks()
   })
-
-  async function postWorkspace() {
-    const { POST } = await import('@/app/api/workspaces/route')
-    return POST(
-      new Request('http://localhost/api/workspaces', {
-        method: 'POST',
-        body: JSON.stringify({ name: 'New Workspace' }),
-      })
-    )
-  }
 
   it('returns an empty list without creating a default workspace during reads', async () => {
     const { GET } = await import('@/app/api/workspaces/route')
@@ -207,22 +163,5 @@ describe('Workspaces API Route', () => {
       }),
     ])
     expect(transactionMock).not.toHaveBeenCalled()
-  })
-
-  it('removes a newly created workspace when default workflow state persistence fails', async () => {
-    mockSaveWorkflowToNormalizedTables.mockResolvedValue({
-      success: false,
-      error: 'normalized state unavailable',
-    })
-
-    const response = await postWorkspace()
-
-    expect(response.status).toBe(500)
-    expect(await response.json()).toEqual({ error: 'Failed to create workspace' })
-    expect(deleteMock.mock.calls.map(([table]) => table)).toEqual([
-      expect.objectContaining({ workspaceId: 'workflow.workspaceId' }),
-      expect.objectContaining({ ownerId: 'workspace.ownerId' }),
-    ])
-    expect(deleteWhereMock).toHaveBeenCalledTimes(2)
   })
 })

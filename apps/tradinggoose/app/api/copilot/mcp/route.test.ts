@@ -9,6 +9,7 @@ const {
   mockAuthenticateApiKeyFromHeader,
   mockCheckApiEndpointRateLimit,
   mockCheckPublicApiEndpointRateLimit,
+  mockCreateDefaultWorkspaceForUser,
   mockGetCopilotRuntimeToolManifest,
   mockGetMcpServerToolIds,
   mockGetUserWorkspaces,
@@ -18,6 +19,7 @@ const {
   mockAuthenticateApiKeyFromHeader: vi.fn(),
   mockCheckApiEndpointRateLimit: vi.fn(),
   mockCheckPublicApiEndpointRateLimit: vi.fn(),
+  mockCreateDefaultWorkspaceForUser: vi.fn(),
   mockGetCopilotRuntimeToolManifest: vi.fn(),
   mockGetMcpServerToolIds: vi.fn(),
   mockGetUserWorkspaces: vi.fn(),
@@ -46,6 +48,7 @@ vi.mock('@/lib/copilot/tools/server/router', () => ({
 }))
 
 vi.mock('@/lib/workspaces/service', () => ({
+  createDefaultWorkspaceForUser: (...args: unknown[]) => mockCreateDefaultWorkspaceForUser(...args),
   getUserWorkspaces: (...args: unknown[]) => mockGetUserWorkspaces(...args),
 }))
 
@@ -99,6 +102,11 @@ describe('Copilot MCP route', () => {
       { id: 'workspace-1', name: 'Research', permissions: 'admin' },
       { id: 'workspace-2', name: 'Ops', permissions: 'read' },
     ])
+    mockCreateDefaultWorkspaceForUser.mockResolvedValue({
+      id: 'workspace-created',
+      name: 'My Workspace',
+      permissions: 'admin',
+    })
     mockGetMcpServerToolIds.mockReturnValue(['list_workflows', 'read_workflow'])
     mockGetCopilotRuntimeToolManifest.mockResolvedValue({
       version: 'v1',
@@ -158,6 +166,18 @@ describe('Copilot MCP route', () => {
     expect(body.result.instructions).toContain('Mutating tools execute directly')
     expect(body.result.instructions).toContain('authenticated MCP key')
     expect(body.result.instructions).not.toContain('No accessible workspaces')
+  })
+
+  it('repairs workspace-less authenticated users during initialize', async () => {
+    const { POST } = await import('./route')
+    mockGetUserWorkspaces.mockResolvedValueOnce([])
+
+    const response = await POST(createMcpRequest(initializeRequest()))
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(mockCreateDefaultWorkspaceForUser).toHaveBeenCalledWith('user-1')
+    expect(body.result.instructions).toContain('workspaceId=workspace-created, permissions=admin')
   })
 
   it('accepts a case-insensitive bearer auth scheme', async () => {
@@ -357,7 +377,10 @@ describe('Copilot MCP route', () => {
     expect((await invalidInitializeResponse.json()).error.code).toBe(-32602)
     const unsupportedVersionBody = await unsupportedVersionResponse.json()
     expect(unsupportedVersionBody.error.code).toBe(-32000)
-    expect(unsupportedVersionBody.error.data.supportedProtocolVersions).toEqual(['2025-06-18', '2025-03-26'])
+    expect(unsupportedVersionBody.error.data.supportedProtocolVersions).toEqual([
+      '2025-06-18',
+      '2025-03-26',
+    ])
     expect(notificationResponse.status).toBe(202)
     expect(wrongProtocolHeaderResponse.status).toBe(400)
     expect((await wrongProtocolHeaderResponse.json()).error.message).toBe(
