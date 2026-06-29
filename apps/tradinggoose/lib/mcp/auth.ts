@@ -71,6 +71,15 @@ function hashValue(value: string) {
   return createHash('sha256').update(value).digest('hex')
 }
 
+function hashValueMatches(value: string, expectedHash: string | undefined): boolean {
+  const actualHash = hashValue(value)
+  return (
+    !!expectedHash &&
+    actualHash.length === expectedHash.length &&
+    timingSafeEqual(Buffer.from(actualHash), Buffer.from(expectedHash))
+  )
+}
+
 function signDeviceLoginCode(unsignedCode: string): string {
   return createHmac('sha256', env.INTERNAL_API_SECRET).update(unsignedCode).digest('base64url')
 }
@@ -372,7 +381,7 @@ export async function pollMcpDeviceLogin(
     return { status: 'expired' }
   }
 
-  if (login.state.verificationKeyHash !== hashValue(verificationKey)) {
+  if (!hashValueMatches(verificationKey, login.state.verificationKeyHash)) {
     return { status: 'invalid' }
   }
 
@@ -393,7 +402,7 @@ export async function pollMcpDeviceLogin(
 
   const key = createDeviceLoginApiKey(code, verificationKey)
   const apiKeyHash = hashValue(key)
-  if (login.state.apiKeyHash === apiKeyHash) {
+  if (hashValueMatches(key, login.state.apiKeyHash)) {
     return {
       status: 'approved',
       apiKey: key,
@@ -438,12 +447,12 @@ export async function acknowledgeMcpDeviceLogin({
     return { status: 'expired' }
   }
 
-  if (login.state.verificationKeyHash !== hashValue(verificationKey)) {
+  if (!hashValueMatches(verificationKey, login.state.verificationKeyHash)) {
     return { status: 'invalid' }
   }
 
   if (login.state.status === 'approved' && login.state.deliveredAt) {
-    return hashValue(plainApiKey) === hashValue(createDeviceLoginApiKey(code, verificationKey))
+    return hashValueMatches(plainApiKey, hashValue(createDeviceLoginApiKey(code, verificationKey)))
       ? { status: 'acknowledged' }
       : { status: 'invalid' }
   }
@@ -451,7 +460,7 @@ export async function acknowledgeMcpDeviceLogin({
   if (login.state.status !== 'approved') {
     return { status: 'invalid' }
   }
-  if (login.state.apiKeyHash !== hashValue(plainApiKey)) {
+  if (!hashValueMatches(plainApiKey, login.state.apiKeyHash)) {
     return { status: 'invalid' }
   }
 
