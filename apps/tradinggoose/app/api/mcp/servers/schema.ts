@@ -21,7 +21,3 @@ export const CreateMcpServerSchema = McpServerBaseSchema.refine(
     path: ['url'],
   }
 )
-
-export const RenameMcpServerSchema = z.object({
-  name: z.string().trim().min(1),
-}).strict()

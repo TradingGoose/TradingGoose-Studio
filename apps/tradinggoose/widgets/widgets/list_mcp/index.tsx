@@ -31,7 +31,7 @@ import {
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
-import { useEntityList } from '@/lib/yjs/use-entity-fields'
+import { saveSavedEntityField, useEntityList } from '@/lib/yjs/use-entity-fields'
 import {
   useUserPermissionsContext,
   WorkspacePermissionsProvider,
@@ -216,11 +216,10 @@ const ListMcpWidgetContent = ({
   const permissions = useUserPermissionsContext()
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
   const { members, isLoading, error } = useEntityList('mcp_server', workspaceId)
-  const { servers, deleteServer, renameServer } = useMcpServersStore(
+  const { servers, deleteServer } = useMcpServersStore(
     (state) => ({
       servers: state.servers,
       deleteServer: state.deleteServer,
-      renameServer: state.renameServer,
     }),
     shallow
   )
@@ -350,10 +349,10 @@ const ListMcpWidgetContent = ({
     async (serverId: string, name: string) => {
       if (!workspaceId || !permissions.canEdit) return
 
-      await renameServer(workspaceId, serverId, name)
+      await saveSavedEntityField('mcp_server', serverId, workspaceId, 'name', name)
       await refreshTools()
     },
-    [permissions.canEdit, refreshTools, renameServer, workspaceId]
+    [permissions.canEdit, refreshTools, workspaceId]
   )
 
   const handleDeleteServer = useCallback(
