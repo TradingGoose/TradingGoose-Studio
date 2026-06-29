@@ -5,8 +5,10 @@ import {
   mcpServers,
   pineIndicators,
   skill,
+  workflow,
 } from '@tradinggoose/db/schema'
 import { and, eq, isNull, type SQL } from 'drizzle-orm'
+import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import {
   type SavedEntityKind,
   type SavedEntityRow,
@@ -54,9 +56,21 @@ export async function resolveEntityWorkspaceId(
 }
 
 export async function readEntityListMembersFromDb(
-  entityKind: SavedEntityKind,
+  entityKind: ReviewEntityKind,
   workspaceId: string
 ): Promise<Array<{ id: string; name: string; enabled?: boolean }>> {
+  if (entityKind === 'workflow') {
+    const rows = await db
+      .select({ id: workflow.id, name: workflow.name })
+      .from(workflow)
+      .where(eq(workflow.workspaceId, workspaceId))
+
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+    }))
+  }
+
   if (entityKind === 'mcp_server') {
     const rows = await db
       .select({ id: mcpServers.id, name: mcpServers.name, enabled: mcpServers.enabled })

@@ -31,6 +31,7 @@ import {
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import {
   useUserPermissionsContext,
   WorkspacePermissionsProvider,
@@ -213,34 +214,43 @@ const ListMcpWidgetContent = ({
   const workspaceId = context?.workspaceId ?? null
   const copy = useMessages().workspace.widgets.mcpList
   const permissions = useUserPermissionsContext()
-  const [hasRequestedLoad, setHasRequestedLoad] = useState(false)
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
-  const { servers, isLoading, error, fetchServers, deleteServer, renameServer } =
-    useMcpServersStore(
-      (state) => ({
-        servers: state.servers,
-        isLoading: state.isLoading,
-        error: state.error,
-        fetchServers: state.fetchServers,
-        deleteServer: state.deleteServer,
-        renameServer: state.renameServer,
-      }),
-      shallow
-    )
+  const { members, isLoading, error } = useEntityList('mcp_server', workspaceId)
+  const { servers, deleteServer, renameServer } = useMcpServersStore(
+    (state) => ({
+      servers: state.servers,
+      deleteServer: state.deleteServer,
+      renameServer: state.renameServer,
+    }),
+    shallow
+  )
   const { refreshTools } = useMcpTools(workspaceId ?? '')
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
   const setPairContext = useSetPairColorContext()
 
+  const serverStatusById = useMemo(() => {
+    return new Map(servers.map((server) => [server.id, server]))
+  }, [servers])
+
   const workspaceServers = useMemo(
     () =>
       workspaceId
-        ? servers
-            .filter((server) => server.workspaceId === workspaceId && !server.deletedAt)
+        ? members
+            .map((member) => {
+              const cachedServer = serverStatusById.get(member.entityId)
+              return {
+                ...(cachedServer ?? {}),
+                id: member.entityId,
+                workspaceId,
+                name: member.entityName,
+                enabled: member.enabled !== false,
+              }
+            })
             .sort((a, b) => getServerName(a, '').localeCompare(getServerName(b, '')))
         : [],
-    [servers, workspaceId]
+    [members, serverStatusById, workspaceId]
   )
 
   const selectedServerId = resolveMcpServerId({
@@ -250,17 +260,6 @@ const ListMcpWidgetContent = ({
   const selectedServer = selectedServerId
     ? (workspaceServers.find((server) => server.id === selectedServerId) ?? null)
     : null
-
-  useEffect(() => {
-    if (!workspaceId || workspaceServers.length > 0) {
-      return
-    }
-
-    setHasRequestedLoad(true)
-    fetchServers(workspaceId).catch((fetchError) => {
-      console.error('Failed to load MCP servers for list widget', fetchError)
-    })
-  }, [fetchServers, workspaceId, workspaceServers.length])
 
   useMcpSelectionPersistence({
     onWidgetParamsChange,
@@ -276,7 +275,7 @@ const ListMcpWidgetContent = ({
   })
 
   useEffect(() => {
-    if (!selectedServerId || selectedServer || !hasRequestedLoad) {
+    if (!selectedServerId || selectedServer || isLoading) {
       return
     }
 
@@ -300,8 +299,8 @@ const ListMcpWidgetContent = ({
       widgetKey: 'editor_mcp',
     })
   }, [
-    hasRequestedLoad,
     isLinkedToColorPair,
+    isLoading,
     onWidgetParamsChange,
     panelId,
     pairContext?.mcpServerId,
@@ -390,10 +389,6 @@ const ListMcpWidgetContent = ({
     ]
   )
 
-  useEffect(() => {
-    setHasRequestedLoad(false)
-  }, [workspaceId])
-
   if (!workspaceId) {
     return <WidgetMessage message={copy.body.selectWorkspace} />
   }
@@ -402,7 +397,7 @@ const ListMcpWidgetContent = ({
     return <WidgetMessage message={error} />
   }
 
-  if ((isLoading || !hasRequestedLoad) && workspaceServers.length === 0) {
+  if (isLoading && workspaceServers.length === 0) {
     return (
       <div className='flex h-full w-full items-center justify-center'>
         <LoadingAgent size='md' />

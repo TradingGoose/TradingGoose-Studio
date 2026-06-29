@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { LayoutList } from 'lucide-react'
-import { useLocale } from 'next-intl'
+import { useMessages } from 'next-intl'
 import { shallow } from 'zustand/shallow'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
+import { getStableVibrantColor } from '@/lib/colors'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { useMessages } from 'next-intl'
-import type { LocaleCode } from '@/i18n/utils'
 import { useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
@@ -39,31 +39,23 @@ const WorkflowListWidgetBody = ({
   onWidgetParamsChange,
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId ?? null
-  const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.workflowList
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const metadataChannelId = WORKSPACE_BOOTSTRAP_CHANNEL
   const selectionChannelId = isLinkedToColorPair
     ? `pair-${resolvedPairColor}`
     : WORKSPACE_BOOTSTRAP_CHANNEL
-  const { workflows, metadataHydrationPhase, loadWorkflows, createWorkflow, activeWorkflowId } =
-    useWorkflowRegistry(
-      (state) => ({
-        workflows: state.workflows,
-        metadataHydrationPhase: state.getHydration(metadataChannelId).phase,
-        loadWorkflows: state.loadWorkflows,
-        createWorkflow: state.createWorkflow,
-        activeWorkflowId: state.getActiveWorkflowId(selectionChannelId),
-      }),
-      shallow
-    )
-  const [hasRequestedLoad, setHasRequestedLoad] = useState(false)
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const { members, isLoading, error } = useEntityList('workflow', workspaceId)
+  const { createWorkflow, activeWorkflowId } = useWorkflowRegistry(
+    (state) => ({
+      createWorkflow: state.createWorkflow,
+      activeWorkflowId: state.getActiveWorkflowId(selectionChannelId),
+    }),
+    shallow
+  )
   const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false)
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null)
   const setPairContext = useSetPairColorContext()
-  const isLoading = metadataHydrationPhase === 'metadata-loading'
   const paramsWorkflowId = useMemo(() => {
     if (isLinkedToColorPair) return null
     if (!widget || !widget.params || typeof widget.params !== 'object') return null
@@ -78,80 +70,26 @@ const WorkflowListWidgetBody = ({
     setSelectedWorkflowId(paramsWorkflowId)
   }, [paramsWorkflowId, selectedWorkflowId])
 
-  const workspaceHasWorkflows = useMemo(() => {
-    if (!workspaceId) {
-      return false
-    }
-    return Object.values(workflows ?? {}).some((workflow) => workflow?.workspaceId === workspaceId)
-  }, [workflows, workspaceId])
-
-  useEffect(() => {
-    if (!workspaceId) {
-      setLoadError(null)
-      setHasRequestedLoad(false)
-      return
-    }
-
-    if (workspaceHasWorkflows) {
-      setLoadError(null)
-      return
-    }
-
-    let cancelled = false
-    setLoadError(null)
-    setHasRequestedLoad(true)
-
-    loadWorkflows({ workspaceId, channelId: metadataChannelId }).catch((error) => {
-      if (!cancelled) {
-        console.error('Failed to load workflows for dashboard workflow list widget', error)
-        setLoadError(copy.body.unableToLoadWorkflows)
-      }
-    })
-
-    return () => {
-      cancelled = true
-    }
-  }, [workspaceId, workspaceHasWorkflows, loadWorkflows, metadataChannelId])
-
-  const hasInitialized = useMemo(() => {
-    if (!workspaceId) {
-      return true
-    }
-    if (workspaceHasWorkflows || Boolean(loadError)) {
-      return true
-    }
-    return hasRequestedLoad && !isLoading
-  }, [workspaceId, workspaceHasWorkflows, loadError, hasRequestedLoad, isLoading])
-
-  const { regularWorkflows, marketplaceWorkflows } = useMemo(() => {
-    const regular: WorkflowMetadata[] = []
-    const marketplace: WorkflowMetadata[] = []
-
-    if (!workspaceId) {
-      return { regularWorkflows: regular, marketplaceWorkflows: marketplace }
-    }
-
-    const sortByCreatedAt = (a: WorkflowMetadata, b: WorkflowMetadata) =>
-      b.createdAt.getTime() - a.createdAt.getTime()
-
-    Object.values(workflows ?? {}).forEach((workflow) => {
-      if (!workflow || workflow.workspaceId !== workspaceId) {
-        return
-      }
-
-      if (workflow.marketplaceData?.status === 'temp') {
-        marketplace.push(workflow)
-      } else {
-        regular.push(workflow)
-      }
-    })
-
-    regular.sort(sortByCreatedAt)
-    marketplace.sort(sortByCreatedAt)
-
-    return { regularWorkflows: regular, marketplaceWorkflows: marketplace }
-  }, [workflows, workspaceId])
-
+  const regularWorkflows = useMemo<WorkflowMetadata[]>(
+    () =>
+      workspaceId
+        ? members.map((member) => {
+            const createdAt = new Date(0)
+            return {
+              id: member.entityId,
+              name: member.entityName,
+              description: '',
+              color: getStableVibrantColor(member.entityId),
+              lastModified: createdAt,
+              createdAt,
+              marketplaceData: null,
+              workspaceId,
+              folderId: null,
+            }
+          })
+        : [],
+    [members, workspaceId]
+  )
   useEffect(() => {
     if (!selectedWorkflowId) {
       return
@@ -207,12 +145,12 @@ const WorkflowListWidgetBody = ({
       return null
     }
 
-    if (activeWorkflowId && workflows?.[activeWorkflowId]?.workspaceId === workspaceId) {
+    if (activeWorkflowId && regularWorkflows.some((workflow) => workflow.id === activeWorkflowId)) {
       return activeWorkflowId
     }
 
     return regularWorkflows[0]?.id ?? null
-  }, [selectedWorkflowId, activeWorkflowId, regularWorkflows, workspaceId, workflows])
+  }, [selectedWorkflowId, activeWorkflowId, regularWorkflows, workspaceId])
 
   const handleCreateWorkflow = useCallback(
     async (folderId?: string) => {
@@ -269,11 +207,11 @@ const WorkflowListWidgetBody = ({
     return <WidgetMessage message={copy.body.selectWorkspace} />
   }
 
-  if (loadError) {
-    return <WidgetMessage message={loadError} />
+  if (error) {
+    return <WidgetMessage message={error} />
   }
 
-  if (!hasInitialized) {
+  if (isLoading) {
     return (
       <div className='flex h-full items-center justify-center'>
         <LoadingAgent size='md' />
@@ -291,8 +229,8 @@ const WorkflowListWidgetBody = ({
         <div className='h-full w-full overflow-hidden p-2'>
           <FolderTree
             regularWorkflows={regularWorkflows}
-            marketplaceWorkflows={marketplaceWorkflows}
-            isLoading={isLoading || !hasInitialized}
+            marketplaceWorkflows={[]}
+            isLoading={isLoading}
             onCreateWorkflow={handleCreateWorkflow}
             workspaceIdOverride={workspaceId}
             workflowIdOverride={effectiveActiveWorkflowId}
@@ -318,7 +256,6 @@ export const workflowListWidget: DashboardWidgetDefinition = {
 }
 
 const WorkflowListHeaderRight = ({ workspaceId }: { workspaceId?: string }) => {
-  const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.workflowList
   const handleWorkflowCreated = useCallback(
     (workflowId: string) => {

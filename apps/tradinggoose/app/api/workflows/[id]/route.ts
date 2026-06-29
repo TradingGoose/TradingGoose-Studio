@@ -12,7 +12,10 @@ import { generateRequestId } from '@/lib/utils'
 import { requireWorkflowRealtimeState } from '@/lib/workflows/db-helpers'
 import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/utils'
 import { applyWorkflowMetadata } from '@/lib/yjs/server/apply-workflow-state'
-import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import {
+  deleteYjsSessionInSocketServer,
+  notifyEntityListMemberRemoved,
+} from '@/lib/yjs/server/snapshot-bridge'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
 
@@ -290,6 +293,9 @@ export async function DELETE(
     }
 
     await db.delete(workflow).where(eq(workflow.id, workflowId))
+    if (workflowData.workspaceId) {
+      await notifyEntityListMemberRemoved('workflow', workflowData.workspaceId, workflowId)
+    }
     await deleteYjsSessionInSocketServer(workflowId).catch(() => undefined)
 
     const elapsed = Date.now() - startTime

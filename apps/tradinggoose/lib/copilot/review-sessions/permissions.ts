@@ -265,6 +265,14 @@ export async function verifyReviewTargetAccess(
   reviewTarget: ReviewTargetAccessInput | ReviewTargetDescriptor,
   accessMode: ReviewAccessMode
 ): Promise<ReviewAccessResult> {
+  if (reviewTarget.yjsSessionId && isEntityListSessionId(reviewTarget.yjsSessionId)) {
+    if (!reviewTarget.workspaceId) {
+      logger.warn('Entity-list review target missing workspaceId', { userId, reviewTarget })
+      return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
+    }
+    return verifyWorkspaceAccess(userId, reviewTarget.workspaceId, accessMode)
+  }
+
   if (reviewTarget.entityKind === 'workflow') {
     if (!reviewTarget.entityId) {
       logger.warn('Workflow review target missing workflow id', { userId, reviewTarget })
@@ -281,14 +289,6 @@ export async function verifyReviewTargetAccess(
     }
 
     return access
-  }
-
-  if (reviewTarget.yjsSessionId && isEntityListSessionId(reviewTarget.yjsSessionId)) {
-    if (!reviewTarget.workspaceId) {
-      logger.warn('Entity-list review target missing workspaceId', { userId, reviewTarget })
-      return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
-    }
-    return verifyWorkspaceAccess(userId, reviewTarget.workspaceId, accessMode)
   }
 
   if (!reviewTarget.reviewSessionId) {

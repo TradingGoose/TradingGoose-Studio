@@ -29,7 +29,10 @@ import {
 } from '@/lib/workflows/studio-workflow-mermaid'
 import { isWorkflowVariableType, type WorkflowVariableType } from '@/lib/workflows/value-types'
 import { applyWorkflowMetadata, applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
-import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
+import {
+  readBootstrappedReviewTargetSnapshot,
+  requireEntityRealtimeListMembers,
+} from '@/lib/yjs/server/bootstrap-review-target'
 import { applyWorkflowPatchInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import {
   createWorkflowSnapshot,
@@ -350,25 +353,12 @@ export const listWorkflowsServerTool: BaseServerTool<{ workspaceId?: string }, a
       withWorkspaceArgContext(context, args),
       'read'
     )
-    const rows = await db
-      .select({
-        id: workflow.id,
-        name: workflow.name,
-        workspaceId: workflow.workspaceId,
-        description: workflow.description,
-      })
-      .from(workflow)
-      .where(eq(workflow.workspaceId, workspaceId))
+    const entities = await requireEntityRealtimeListMembers(ENTITY_KIND_WORKFLOW, workspaceId)
 
     return {
       entityKind: ENTITY_KIND_WORKFLOW,
-      entities: rows.map((row) => ({
-        entityId: row.id,
-        ...(row.name ? { entityName: row.name } : {}),
-        ...(row.workspaceId ? { workspaceId: row.workspaceId } : {}),
-        ...(row.description ? { entityDescription: row.description } : {}),
-      })),
-      count: rows.length,
+      entities,
+      count: entities.length,
     }
   },
 }

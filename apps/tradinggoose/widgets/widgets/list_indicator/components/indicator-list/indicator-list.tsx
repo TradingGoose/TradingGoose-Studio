@@ -1,17 +1,15 @@
 'use client'
 
 import { useCallback, useMemo, useState } from 'react'
-import { useLocale, useMessages } from 'next-intl'
+import { useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
+import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
+import { getEntityFields } from '@/lib/yjs/entity-session'
+import { bootstrapYjsProvider } from '@/lib/yjs/provider'
+import { saveSavedEntityField, useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import {
-  useCreateIndicator,
-  useDeleteIndicator,
-  useIndicators,
-  useUpdateIndicator,
-} from '@/hooks/queries/indicators'
+import { useCreateIndicator, useDeleteIndicator } from '@/hooks/queries/indicators'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import { useIndicatorsStore } from '@/stores/indicators/store'
 import type { IndicatorDefinition } from '@/stores/indicators/types'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
@@ -35,16 +33,14 @@ export function IndicatorList({
   panelId,
   pairColor = 'gray',
 }: WidgetComponentProps) {
-  const locale = useLocale()
   const copy = useMessages().workspace.widgets.indicatorList
   const workspaceId = context?.workspaceId ?? null
   const permissions = useUserPermissionsContext()
   const [copyingIds, setCopyingIds] = useState<Set<string>>(new Set())
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
-  const { data: indicators = [], isLoading, error } = useIndicators(workspaceId ?? '')
+  const { members, isLoading, error } = useEntityList('indicator', workspaceId)
   const createMutation = useCreateIndicator()
   const deleteMutation = useDeleteIndicator()
-  const updateMutation = useUpdateIndicator()
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -62,11 +58,20 @@ export function IndicatorList({
     },
   })
 
-  const storedIndicators = useIndicatorsStore((state) =>
-    state.getAllIndicators(workspaceId ?? undefined)
+  const listIndicators = useMemo<IndicatorDefinition[]>(
+    () =>
+      workspaceId
+        ? members.map((member) => ({
+            id: member.entityId,
+            workspaceId,
+            userId: null,
+            name: member.entityName,
+            color: '',
+            pineCode: '',
+          }))
+        : [],
+    [members, workspaceId]
   )
-
-  const listIndicators = indicators.length > 0 ? indicators : storedIndicators
 
   const selectedIndicatorId = useMemo(() => {
     if (isLinkedToColorPair) {
@@ -136,13 +141,9 @@ export function IndicatorList({
   const handleRename = useCallback(
     async (indicatorId: string, name: string) => {
       if (!workspaceId || !permissions.canEdit) return
-      await updateMutation.mutateAsync({
-        workspaceId,
-        indicatorId,
-        updates: { name },
-      })
+      await saveSavedEntityField('indicator', indicatorId, workspaceId, 'name', name)
     },
-    [permissions.canEdit, updateMutation, workspaceId]
+    [permissions.canEdit, workspaceId]
   )
 
   const handleCopy = useCallback(
@@ -154,11 +155,23 @@ export function IndicatorList({
 
       try {
         const copiedName = `${indicator.name || copy.listItem.untitledIndicator} (Copy)`
+        const sourceSession = await bootstrapYjsProvider(
+          buildSavedEntityDescriptor('indicator', indicator.id, workspaceId)
+        )
+        let pineCode = ''
+        try {
+          pineCode = getEntityFields(sourceSession.doc, 'indicator').pineCode ?? ''
+        } finally {
+          sourceSession.provider.disconnect()
+          sourceSession.provider.destroy()
+          sourceSession.doc.destroy()
+        }
+
         const createdIndicators = await createMutation.mutateAsync({
           workspaceId,
           indicator: {
             name: copiedName,
-            pineCode: indicator.pineCode ?? '',
+            pineCode,
           },
         })
         const copiedIndicatorId =
@@ -179,7 +192,13 @@ export function IndicatorList({
         })
       }
     },
-    [createMutation, handleSelect, permissions.canEdit, workspaceId]
+    [
+      copy.listItem.untitledIndicator,
+      createMutation,
+      handleSelect,
+      permissions.canEdit,
+      workspaceId,
+    ]
   )
 
   if (isLoading) {
@@ -190,11 +209,8 @@ export function IndicatorList({
     )
   }
 
-  const errorMessage =
-    error instanceof Error ? error.message : error ? copy.body.failedToLoadIndicators : null
-
-  if (errorMessage) {
-    return <IndicatorListMessage message={errorMessage} />
+  if (error) {
+    return <IndicatorListMessage message={error} />
   }
 
   return (

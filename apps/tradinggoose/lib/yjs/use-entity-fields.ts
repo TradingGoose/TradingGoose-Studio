@@ -9,20 +9,24 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
 import * as Y from 'yjs'
 import {
+  buildEntityListDescriptor,
   buildSavedEntityDescriptor,
   buildYjsTransportEnvelope,
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
-import { getFieldsMap, replaceEntityTextField, setEntityField } from '@/lib/yjs/entity-session'
+import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
+import {
+  type EntityListMember,
+  getEntityListMembers,
+  getFieldsMap,
+  replaceEntityTextField,
+  setEntityField,
+} from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { bootstrapYjsProvider, type YjsProviderBootstrapResult } from '@/lib/yjs/provider'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
-import { customToolsKeys } from '@/hooks/queries/custom-tools'
-import { indicatorKeys } from '@/hooks/queries/indicators'
-import { skillsKeys } from '@/hooks/queries/skills'
 
 type SavedEntityYjsSessionState = {
   key: string | null
@@ -30,13 +34,39 @@ type SavedEntityYjsSessionState = {
   error: string | null
 }
 
-export function useSavedEntityYjsSession(
-  entityKind: SavedEntityKind,
-  entityId: string | null | undefined,
-  workspaceId: string | null | undefined
+function closeYjsSession(result: YjsProviderBootstrapResult): void {
+  result.provider.disconnect()
+  result.provider.destroy()
+  result.doc.destroy()
+}
+
+async function saveYjsSessionSnapshot(result: YjsProviderBootstrapResult): Promise<void> {
+  const { descriptor } = result
+  const params = new URLSearchParams({
+    ...serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor)),
+    accessMode: 'write',
+  })
+  const update = Y.encodeStateAsUpdate(result.doc)
+  const updateBase64 = btoa(Array.from(update, (byte) => String.fromCharCode(byte)).join(''))
+  const response = await fetch(
+    `/api/yjs/sessions/${encodeURIComponent(descriptor.yjsSessionId)}/snapshot?${params}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ updateBase64 }),
+    }
+  )
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}))
+    throw new Error(data.error || 'Failed to save Yjs session')
+  }
+}
+
+function useYjsSession(
+  sessionKey: string | null,
+  openSession: (() => Promise<YjsProviderBootstrapResult>) | null,
+  errorMessage: string
 ) {
-  const queryClient = useQueryClient()
-  const sessionKey = entityId && workspaceId ? `${entityKind}:${workspaceId}:${entityId}` : null
   const [state, setState] = useState<SavedEntityYjsSessionState>({
     key: null,
     result: null,
@@ -45,17 +75,15 @@ export function useSavedEntityYjsSession(
 
   useEffect(() => {
     setState({ key: sessionKey, result: null, error: null })
-    if (!entityId || !workspaceId || !sessionKey) return
+    if (!sessionKey || !openSession) return
 
     let active = true
     let current: YjsProviderBootstrapResult | null = null
 
-    bootstrapYjsProvider(buildSavedEntityDescriptor(entityKind, entityId, workspaceId))
+    openSession()
       .then((next) => {
         if (!active) {
-          next.provider.disconnect()
-          next.provider.destroy()
-          next.doc.destroy()
+          closeYjsSession(next)
           return
         }
         current = next
@@ -66,56 +94,98 @@ export function useSavedEntityYjsSession(
         setState({
           key: sessionKey,
           result: null,
-          error: nextError instanceof Error ? nextError.message : 'Failed to open entity session',
+          error: nextError instanceof Error ? nextError.message : errorMessage,
         })
       })
 
     return () => {
       active = false
-      current?.provider.disconnect()
-      current?.provider.destroy()
-      current?.doc.destroy()
+      if (current) closeYjsSession(current)
     }
-  }, [entityId, entityKind, sessionKey, workspaceId])
+  }, [errorMessage, openSession, sessionKey])
 
-  const activeState = state.key === sessionKey ? state : null
+  return state.key === sessionKey ? state : null
+}
+
+export function useSavedEntityYjsSession(
+  entityKind: SavedEntityKind,
+  entityId: string | null | undefined,
+  workspaceId: string | null | undefined
+) {
+  const sessionKey = entityId && workspaceId ? `${entityKind}:${workspaceId}:${entityId}` : null
+  const openSession = useCallback(
+    () => bootstrapYjsProvider(buildSavedEntityDescriptor(entityKind, entityId!, workspaceId!)),
+    [entityId, entityKind, workspaceId]
+  )
+  const activeState = useYjsSession(
+    sessionKey,
+    sessionKey ? openSession : null,
+    'Failed to open entity session'
+  )
   const save = useCallback(async () => {
     if (!activeState?.result || !workspaceId) {
       throw new Error('Yjs session is not ready')
     }
 
-    const { descriptor } = activeState.result
-    const params = new URLSearchParams({
-      ...serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor)),
-      accessMode: 'write',
-    })
-    const update = Y.encodeStateAsUpdate(activeState.result.doc)
-    const updateBase64 = btoa(Array.from(update, (byte) => String.fromCharCode(byte)).join(''))
-    const response = await fetch(
-      `/api/yjs/sessions/${encodeURIComponent(descriptor.yjsSessionId)}/snapshot?${params}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ updateBase64 }),
-      }
-    )
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}))
-      throw new Error(data.error || 'Failed to save Yjs session')
-    }
-
-    if (entityKind === 'skill') {
-      queryClient.invalidateQueries({ queryKey: skillsKeys.list(workspaceId) })
-    } else if (entityKind === 'custom_tool') {
-      queryClient.invalidateQueries({ queryKey: customToolsKeys.list(workspaceId) })
-    } else if (entityKind === 'indicator') {
-      queryClient.invalidateQueries({ queryKey: indicatorKeys.list(workspaceId) })
-    }
-  }, [activeState?.result, entityKind, queryClient, workspaceId])
+    await saveYjsSessionSnapshot(activeState.result)
+  }, [activeState?.result, workspaceId])
 
   return {
     doc: activeState?.result?.doc ?? null,
     save,
+    isLoading: Boolean(sessionKey && !activeState?.result && !activeState?.error),
+    error: activeState?.error ?? null,
+  }
+}
+
+export async function saveSavedEntityField(
+  entityKind: SavedEntityKind,
+  entityId: string,
+  workspaceId: string,
+  key: string,
+  value: unknown
+): Promise<void> {
+  const result = await bootstrapYjsProvider(
+    buildSavedEntityDescriptor(entityKind, entityId, workspaceId)
+  )
+  try {
+    setEntityField(result.doc, key, value)
+    await saveYjsSessionSnapshot(result)
+  } finally {
+    closeYjsSession(result)
+  }
+}
+
+export function useEntityList(
+  entityKind: ReviewEntityKind,
+  workspaceId: string | null | undefined
+) {
+  const sessionKey = workspaceId ? `list:${entityKind}:${workspaceId}` : null
+  const openSession = useCallback(
+    () => bootstrapYjsProvider(buildEntityListDescriptor(entityKind, workspaceId!)),
+    [entityKind, workspaceId]
+  )
+  const activeState = useYjsSession(
+    sessionKey,
+    sessionKey ? openSession : null,
+    'Failed to open entity list'
+  )
+  const doc = activeState?.result?.doc ?? null
+
+  const subscribe = useMemo(() => {
+    if (!doc) return (cb: () => void) => () => {}
+    const members = doc.getMap('members')
+    return (cb: () => void) => {
+      members.observe(cb)
+      return () => members.unobserve(cb)
+    }
+  }, [doc])
+
+  const extract = useCallback(() => (doc ? getEntityListMembers(doc) : []), [doc])
+  const members = useYjsSubscription<EntityListMember[]>(subscribe, extract, [])
+
+  return {
+    members,
     isLoading: Boolean(sessionKey && !activeState?.result && !activeState?.error),
     error: activeState?.error ?? null,
   }

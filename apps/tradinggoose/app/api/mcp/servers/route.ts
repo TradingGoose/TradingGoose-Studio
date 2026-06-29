@@ -9,7 +9,7 @@ import { getParsedBody, withMcpAuth } from '@/lib/mcp/middleware'
 import { McpServerConfigError, mcpService } from '@/lib/mcp/service'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
 import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
-import { requireSavedEntityRealtimeListMembers } from '@/lib/yjs/server/bootstrap-review-target'
+import { requireEntityRealtimeListMembers } from '@/lib/yjs/server/bootstrap-review-target'
 import {
   deleteYjsSessionInSocketServer,
   notifyEntityListMemberRemoved,
@@ -28,7 +28,7 @@ export const GET = withMcpAuth('read')(
     try {
       logger.info(`[${requestId}] Listing MCP servers for workspace ${workspaceId}`)
 
-      const listMembers = await requireSavedEntityRealtimeListMembers('mcp_server', workspaceId)
+      const listMembers = await requireEntityRealtimeListMembers('mcp_server', workspaceId)
       const listMemberIds = listMembers.map((member) => member.entityId)
       const statusById = new Map(
         listMemberIds.length === 0

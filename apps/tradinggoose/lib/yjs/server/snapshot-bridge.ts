@@ -1,10 +1,11 @@
 import { buildEntityListDescriptor } from '@/lib/copilot/review-sessions/identity'
 import type {
+  ReviewEntityKind,
   ReviewTargetDescriptor,
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
 import { env, getInternalRealtimeUrl } from '@/lib/env'
-import { type SavedEntityKind, SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
+import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 import type { WorkflowMetadataPatch, WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 export interface YjsSnapshotResponse {
@@ -152,7 +153,7 @@ export async function applyYjsUpdateInSocketServer(
 }
 
 async function postEntityListMembersToSocketServer(
-  entityKind: SavedEntityKind,
+  entityKind: ReviewEntityKind,
   workspaceId: string,
   body: unknown
 ): Promise<void> {
@@ -171,7 +172,7 @@ async function postEntityListMembersToSocketServer(
 }
 
 export async function notifyEntityListMembersUpserted(
-  entityKind: SavedEntityKind,
+  entityKind: ReviewEntityKind,
   workspaceId: string,
   members: Array<{ id: string; name: string; enabled?: boolean }>
 ): Promise<void> {
@@ -179,7 +180,7 @@ export async function notifyEntityListMembersUpserted(
 }
 
 export async function notifyEntityListMemberRemoved(
-  entityKind: SavedEntityKind,
+  entityKind: ReviewEntityKind,
   workspaceId: string,
   entityId: string
 ): Promise<void> {

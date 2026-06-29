@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react'
 import { ListChecks } from 'lucide-react'
-import { useLocale, useMessages } from 'next-intl'
+import { useMessages } from 'next-intl'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { parseImportedIndicatorsFile } from '@/lib/indicators/import-export'
 import {
@@ -11,8 +11,6 @@ import {
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useCreateIndicator, useImportIndicators } from '@/hooks/queries/indicators'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import { useIndicatorsStore } from '@/stores/indicators/store'
-import type { IndicatorDefinition } from '@/stores/indicators/types'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { emitIndicatorSelectionChange } from '@/widgets/utils/indicator-selection'
@@ -22,21 +20,9 @@ import {
   IndicatorListMessage,
 } from '@/widgets/widgets/list_indicator/components/indicator-list/indicator-list'
 
-const buildNewIndicator = (indicators: IndicatorDefinition[], defaults: { name: string }) => {
-  const existingNames = new Set(
-    indicators.map((indicator) => indicator.name.trim()).filter((name) => name.length > 0)
-  )
-
-  let nextName = defaults.name
-  let suffix = 2
-
-  while (existingNames.has(nextName)) {
-    nextName = `${defaults.name} ${suffix}`
-    suffix += 1
-  }
-
+const buildNewIndicator = (defaults: { name: string }) => {
   return {
-    name: nextName,
+    name: defaults.name,
     color: '',
     pineCode: '',
     inputMeta: undefined,
@@ -52,14 +38,10 @@ const IndicatorListHeaderRight = ({
   panelId?: string
   pairColor?: PairColor
 }) => {
-  const locale = useLocale()
   const copy = useMessages().workspace.widgets
   const permissions = useUserPermissionsContext()
   const createIndicatorMutation = useCreateIndicator()
   const importMutation = useImportIndicators()
-  const storedIndicators = useIndicatorsStore((state) =>
-    workspaceId ? state.getAllIndicators(workspaceId) : []
-  )
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -71,7 +53,7 @@ const IndicatorListHeaderRight = ({
     void createIndicatorMutation
       .mutateAsync({
         workspaceId,
-        indicator: buildNewIndicator(storedIndicators, {
+        indicator: buildNewIndicator({
           name: copy.indicatorList.createMenu.newIndicator,
         }),
       })
@@ -110,7 +92,6 @@ const IndicatorListHeaderRight = ({
     permissions.canEdit,
     resolvedPairColor,
     setPairContext,
-    storedIndicators,
     workspaceId,
   ])
 
@@ -152,7 +133,6 @@ const ListIndicatorHeaderRight = ({
   panelId?: string
   pairColor?: PairColor
 }) => {
-  const locale = useLocale()
   const copy = useMessages().workspace.widgets.indicatorList
   if (!workspaceId) {
     return <span className='text-muted-foreground text-xs'>{copy.header.explorer}</span>
@@ -172,7 +152,6 @@ const ListIndicatorHeaderRight = ({
 }
 
 const ListIndicatorWidgetBody = (props: WidgetComponentProps) => {
-  const locale = useLocale()
   const copy = useMessages().workspace.widgets.indicatorList
   const workspaceId = props.context?.workspaceId ?? null
   if (!workspaceId) {

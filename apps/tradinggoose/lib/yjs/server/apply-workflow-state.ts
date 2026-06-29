@@ -5,12 +5,33 @@ import {
   ensureUniqueEdgeIds,
   WorkflowRealtimeRequiredError,
 } from '@/lib/workflows/db-helpers'
-import { applyWorkflowPatchInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import {
+  applyWorkflowPatchInSocketServer,
+  notifyEntityListMembersUpserted,
+} from '@/lib/yjs/server/snapshot-bridge'
 import {
   createWorkflowSnapshot,
   type WorkflowMetadataPatch,
   type WorkflowSnapshot,
 } from '@/lib/yjs/workflow-session'
+
+async function publishWorkflowListMember(workflowId: string): Promise<void> {
+  const [row] = await db
+    .select({
+      id: workflow.id,
+      workspaceId: workflow.workspaceId,
+      name: workflow.name,
+    })
+    .from(workflow)
+    .where(eq(workflow.id, workflowId))
+    .limit(1)
+
+  if (!row?.workspaceId) return
+
+  await notifyEntityListMembersUpserted('workflow', row.workspaceId, [
+    { id: row.id, name: row.name },
+  ])
+}
 
 export async function applyWorkflowState(
   workflowId: string,
@@ -39,6 +60,7 @@ export async function applyWorkflowState(
       ...(variables === undefined ? {} : { variables }),
       ...(metadata ? { metadata } : {}),
     })
+    await publishWorkflowListMember(workflowId)
   } catch (error) {
     throw new WorkflowRealtimeRequiredError(error)
   }
@@ -62,6 +84,8 @@ export async function applyWorkflowMetadata(
   if (!updatedWorkflow) {
     throw new Error('Workflow not found')
   }
+
+  await publishWorkflowListMember(workflowId)
 
   return updatedWorkflow
 }

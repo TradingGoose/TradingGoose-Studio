@@ -8,6 +8,7 @@ import {
 import { getReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/runtime'
 import type {
   ResolvedReviewTarget,
+  ReviewEntityKind,
   ReviewTargetDescriptor,
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
@@ -70,8 +71,8 @@ export async function readBootstrappedReviewTargetSnapshot(descriptor: ReviewTar
   return getYjsSnapshot(descriptor.yjsSessionId, bridgeParams)
 }
 
-export async function requireSavedEntityRealtimeListMembers(
-  entityKind: SavedEntityKind,
+export async function requireEntityRealtimeListMembers(
+  entityKind: ReviewEntityKind,
   workspaceId: string
 ): Promise<EntityListMember[]> {
   const snapshot = await readBootstrappedReviewTargetSnapshot(
@@ -97,7 +98,7 @@ export async function requireSavedEntityRealtimeListFields(
   entityKind: SavedEntityKind,
   workspaceId: string
 ): Promise<Array<EntityListMember & { fields: Record<string, unknown> }>> {
-  const members = await requireSavedEntityRealtimeListMembers(entityKind, workspaceId)
+  const members = await requireEntityRealtimeListMembers(entityKind, workspaceId)
   const entries = await Promise.all(
     members.map(async (member) => {
       try {
@@ -220,7 +221,7 @@ export async function createSavedReviewTargetBootstrapUpdate(
 }
 
 export async function createEntityListBootstrapUpdate(
-  entityKind: SavedEntityKind,
+  entityKind: ReviewEntityKind,
   workspaceId: string
 ): Promise<ResolvedReviewTarget & { state: Uint8Array }> {
   const descriptor = buildEntityListDescriptor(entityKind, workspaceId)
