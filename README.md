@@ -48,7 +48,33 @@ It is built for analytics, research, charting, monitoring, and workflow automati
   <img alt="Project Overview" src="apps/tradinggoose/public/static/preview-light.png" width="2559">
 </picture>
 
+---
 
+### Copilot-MCP
+
+You can install TradingGoose MCP to use any local agentic tool like Codex, Claude Code, Cursor, ZCode as Copilot to perform TradingGoose-Studio operations
+
+#### Mac/Linux:
+connect to the hosted instance:
+```
+curl -fsSL https://TradingGoose.ai/mcp/setup | sh
+``` 
+
+connect to self-hosted instance:
+```
+curl -fsSL http://localhost:3000/mcp/setup | sh
+``` 
+
+#### Windows
+connect to the hosted instance:
+```
+irm https://TradingGoose.ai/mcp/setup | iex
+``` 
+
+connect to self-hosted instance:
+```
+irm http://localhost:3000/mcp/setup | iex
+``` 
 
 ## Quick Start
 
@@ -86,12 +112,10 @@ cd ../../packages/db && cp .env.example .env
 
 #### 4. Run database migrations
 ```
-cd packages/db
-bunx drizzle-kit migrate --config=./drizzle.config.ts
+bun run db:migrate
 ```
-#### 5. Start development servers
+#### 5. Start full development servers
 ```
-cd ../..
 bun run dev:full
 ```
 
