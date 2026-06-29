@@ -43,8 +43,7 @@ describe('Individual Folder API Route', () => {
 
   const { mockAuthenticatedUser, mockUnauthenticated } = mockAuth(TEST_USER)
   const mockGetUserEntityPermissions = vi.fn()
-  const mockNotifyEntityListMembersUpserted = vi.fn()
-  const mockApplyWorkflowPatchInSocketServer = vi.fn()
+  const mockApplyWorkflowMetadata = vi.fn()
 
   function createFolderDbMock(options: FolderDbMockOptions = {}) {
     const {
@@ -127,15 +126,13 @@ describe('Individual Folder API Route', () => {
     setupCommonApiMocks()
 
     mockGetUserEntityPermissions.mockResolvedValue('admin')
-    mockNotifyEntityListMembersUpserted.mockResolvedValue(undefined)
-    mockApplyWorkflowPatchInSocketServer.mockResolvedValue(undefined)
+    mockApplyWorkflowMetadata.mockResolvedValue(undefined)
 
     vi.doMock('@/lib/permissions/utils', () => ({
       getUserEntityPermissions: mockGetUserEntityPermissions,
     }))
-    vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
-      notifyEntityListMembersUpserted: mockNotifyEntityListMembersUpserted,
-      applyWorkflowPatchInSocketServer: mockApplyWorkflowPatchInSocketServer,
+    vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
+      applyWorkflowMetadata: mockApplyWorkflowMetadata,
     }))
   })
 
@@ -466,13 +463,8 @@ describe('Individual Folder API Route', () => {
         movedFolders: 1,
         movedWorkflows: 1,
       })
-      expect(mockNotifyEntityListMembersUpserted).toHaveBeenCalledWith(
-        'workflow',
-        'workspace-123',
-        [{ id: 'workflow-1', name: 'Workflow 1', folderId: 'parent-folder' }]
-      )
-      expect(mockApplyWorkflowPatchInSocketServer).toHaveBeenCalledWith('workflow-1', {
-        metadata: { folderId: 'parent-folder' },
+      expect(mockApplyWorkflowMetadata).toHaveBeenCalledWith('workflow-1', {
+        folderId: 'parent-folder',
       })
     })
 

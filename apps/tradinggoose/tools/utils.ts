@@ -3,7 +3,6 @@ import {
   isCustomToolRuntimeId,
 } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getBaseUrl } from '@/lib/urls/utils'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
 import { tools } from '@/tools/registry'
@@ -333,8 +332,7 @@ export function getTool(toolId: string): ToolConfig | undefined {
 export async function getToolAsync(
   toolId: string,
   workflowId?: string,
-  workspaceId?: string,
-  userId?: string
+  workspaceId?: string
 ): Promise<ToolConfig | undefined> {
   // Check for built-in tools
   const builtInTool = tools[toolId]
@@ -342,14 +340,20 @@ export async function getToolAsync(
 
   // Check if it's a custom tool
   if (isCustomToolRuntimeId(toolId)) {
-    return getCustomTool(toolId, workflowId, workspaceId, userId)
+    if (typeof window !== 'undefined') return getTool(toolId)
+    return getCustomTool(toolId, workflowId, workspaceId)
   }
 
   return undefined
 }
 
 // Helper function to create a tool config from a custom tool
-function createToolConfig(customTool: any, customToolId: string): ToolConfig {
+function createToolConfig(
+  customTool: any,
+  customToolId: string,
+  isClient = true,
+  workflowId?: string
+): ToolConfig {
   // Create a parameter schema from the custom tool schema
   const params = createParamSchema(customTool)
 
@@ -366,7 +370,7 @@ function createToolConfig(customTool: any, customToolId: string): ToolConfig {
       url: '/api/function/execute',
       method: 'POST',
       headers: () => ({ 'Content-Type': 'application/json' }),
-      body: createCustomToolRequestBody(customTool, true),
+      body: createCustomToolRequestBody(customTool, isClient, workflowId),
     },
 
     // Standard response handling for custom tools
@@ -387,93 +391,55 @@ function createToolConfig(customTool: any, customToolId: string): ToolConfig {
 }
 
 // Create a tool config from a custom tool definition
+async function resolveWorkflowWorkspaceId(workflowId: string): Promise<string | null> {
+  const [{ db }, { workflow }, { eq }] = await Promise.all([
+    import('@tradinggoose/db'),
+    import('@tradinggoose/db/schema'),
+    import('drizzle-orm'),
+  ])
+  const [row] = await db
+    .select({ workspaceId: workflow.workspaceId })
+    .from(workflow)
+    .where(eq(workflow.id, workflowId))
+    .limit(1)
+  return row?.workspaceId ?? null
+}
+
 async function getCustomTool(
   customToolId: string,
   workflowId?: string,
-  workspaceId?: string,
-  userId?: string
+  workspaceId?: string
 ): Promise<ToolConfig | undefined> {
   const identifier = getCustomToolEntityIdFromRuntimeId(customToolId)
 
   try {
-    const baseUrl = getBaseUrl()
-    const url = new URL('/api/tools/custom', baseUrl)
-
-    if (workspaceId) {
-      url.searchParams.append('workspaceId', workspaceId)
-    } else if (workflowId) {
-      url.searchParams.append('workflowId', workflowId)
-    }
-
-    const headers: Record<string, string> = {}
-    if (typeof window === 'undefined') {
-      try {
-        const { generateInternalToken } = await import('@/lib/auth/internal')
-        const internalToken = await generateInternalToken(userId)
-        headers.Authorization = `Bearer ${internalToken}`
-      } catch (error) {
-        logger.warn('Failed to generate internal token for custom tools fetch', { error })
-        throw error
-      }
-    }
-
-    const response = await fetch(url.toString(), { headers })
-
-    if (!response.ok) {
-      logger.error(`Failed to fetch custom tools: ${response.statusText}`)
+    const scopedWorkspaceId =
+      workspaceId ?? (workflowId ? await resolveWorkflowWorkspaceId(workflowId) : null)
+    if (!scopedWorkspaceId) {
+      logger.error(`Workspace context is required for custom tool ${identifier}`)
       return undefined
     }
 
-    const result = await response.json()
+    const [{ db }, { customTools }, { and, eq }] = await Promise.all([
+      import('@tradinggoose/db'),
+      import('@tradinggoose/db/schema'),
+      import('drizzle-orm'),
+    ])
 
-    if (!result.data || !Array.isArray(result.data)) {
-      logger.error(`Invalid response when fetching custom tools: ${JSON.stringify(result)}`)
-      return undefined
-    }
-
-    const customTool = result.data.find((tool: any) => tool.id === identifier)
+    const [customTool] = await db
+      .select()
+      .from(customTools)
+      .where(and(eq(customTools.id, identifier), eq(customTools.workspaceId, scopedWorkspaceId)))
+      .limit(1)
 
     if (!customTool) {
       logger.error(`Custom tool not found: ${identifier}`)
       return undefined
     }
 
-    // Create a parameter schema
-    const params = createParamSchema(customTool)
-
-    // Create a tool config for the custom tool
-    return {
-      id: customToolId,
-      name: customTool.title,
-      description: customTool.schema.function?.description || '',
-      version: '1.0.0',
-      params,
-
-      // Request configuration - for custom tools we'll use the execute endpoint
-      request: {
-        url: '/api/function/execute',
-        method: 'POST',
-        headers: () => ({ 'Content-Type': 'application/json' }),
-        body: createCustomToolRequestBody(customTool, false, workflowId),
-      },
-
-      // Same response handling as client-side
-      transformResponse: async (response: Response) => {
-        const data = await response.json()
-
-        if (!data.success) {
-          throw new Error(data.error || 'Custom tool execution failed')
-        }
-
-        return {
-          success: true,
-          output: data.output.result || data.output,
-          error: undefined,
-        }
-      },
-    }
+    return createToolConfig(customTool, customToolId, false, workflowId)
   } catch (error) {
-    logger.error(`Error fetching custom tool ${identifier} from API:`, error)
+    logger.error(`Error fetching custom tool ${identifier} from DB:`, error)
     return undefined
   }
 }

@@ -1,5 +1,7 @@
+import { db } from '@tradinggoose/db'
+import { skill } from '@tradinggoose/db/schema'
+import { and, eq, inArray } from 'drizzle-orm'
 import { createLogger } from '@/lib/logs/console/logger'
-import { listSkills } from '@/lib/skills/operations'
 import type { SkillInput } from '@/executor/handlers/agent/types'
 import type { SkillMetadata } from './skill-loader'
 
@@ -18,11 +20,15 @@ export async function resolveSkillMetadata(
   }
 
   try {
-    const skills = await listSkills({ workspaceId })
-    const selectedSkillIds = new Set(skillIds)
-    return skills
-      .filter((skill) => selectedSkillIds.has(skill.id))
-      .map((skill) => ({ id: skill.id, name: skill.name, description: skill.description }))
+    const rows = await db
+      .select({ id: skill.id, name: skill.name, description: skill.description })
+      .from(skill)
+      .where(and(eq(skill.workspaceId, workspaceId), inArray(skill.id, skillIds)))
+    const metadataById = new Map(rows.map((row) => [row.id, row]))
+    return skillIds.flatMap((skillId) => {
+      const row = metadataById.get(skillId)
+      return row ? [{ id: row.id, name: row.name, description: row.description }] : []
+    })
   } catch (error) {
     logger.error('Failed to resolve skill metadata', { error, skillIds, workspaceId })
     return []
@@ -38,15 +44,18 @@ export async function resolveSkillContent(
   }
 
   try {
-    const rows = await listSkills({ workspaceId })
-    const skill = rows.find((row) => row.id === skillId)
+    const [row] = await db
+      .select({ content: skill.content })
+      .from(skill)
+      .where(and(eq(skill.id, skillId), eq(skill.workspaceId, workspaceId)))
+      .limit(1)
 
-    if (!skill) {
+    if (!row) {
       logger.warn('Skill not found', { skillId, workspaceId })
       return null
     }
 
-    return skill.content
+    return row.content
   } catch (error) {
     logger.error('Failed to resolve skill content', { error, skillId, workspaceId })
     return null

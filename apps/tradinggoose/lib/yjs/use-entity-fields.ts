@@ -27,6 +27,11 @@ import {
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { bootstrapYjsProvider, type YjsProviderBootstrapResult } from '@/lib/yjs/provider'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
+import { getQueryClient } from '@/app/query-provider'
+import { customToolsKeys } from '@/hooks/queries/custom-tools'
+import { indicatorKeys } from '@/hooks/queries/indicators'
+import { knowledgeKeys } from '@/hooks/queries/knowledge'
+import { skillsKeys } from '@/hooks/queries/skills'
 
 type SavedEntityYjsSessionState = {
   key: string | null
@@ -59,6 +64,34 @@ async function saveYjsSessionSnapshot(result: YjsProviderBootstrapResult): Promi
   if (!response.ok) {
     const data = await response.json().catch(() => ({}))
     throw new Error(data.error || 'Failed to save Yjs session')
+  }
+}
+
+function invalidateSavedEntityQueries(
+  entityKind: SavedEntityKind,
+  entityId: string,
+  workspaceId: string
+): void {
+  const queryClient = getQueryClient()
+
+  switch (entityKind) {
+    case 'skill':
+      void queryClient.invalidateQueries({ queryKey: skillsKeys.list(workspaceId) })
+      return
+    case 'custom_tool':
+      void queryClient.invalidateQueries({ queryKey: customToolsKeys.list(workspaceId) })
+      void queryClient.invalidateQueries({ queryKey: customToolsKeys.detail(entityId) })
+      return
+    case 'indicator':
+      void queryClient.invalidateQueries({ queryKey: indicatorKeys.list(workspaceId) })
+      void queryClient.invalidateQueries({ queryKey: indicatorKeys.detail(entityId) })
+      return
+    case 'knowledge_base':
+      void queryClient.invalidateQueries({ queryKey: knowledgeKeys.list(workspaceId) })
+      void queryClient.invalidateQueries({ queryKey: knowledgeKeys.detail(entityId) })
+      return
+    case 'mcp_server':
+      return
   }
 }
 
@@ -123,12 +156,13 @@ export function useSavedEntityYjsSession(
     'Failed to open entity session'
   )
   const save = useCallback(async () => {
-    if (!activeState?.result || !workspaceId) {
+    if (!activeState?.result || !entityId || !workspaceId) {
       throw new Error('Yjs session is not ready')
     }
 
     await saveYjsSessionSnapshot(activeState.result)
-  }, [activeState?.result, workspaceId])
+    invalidateSavedEntityQueries(entityKind, entityId, workspaceId)
+  }, [activeState?.result, entityId, entityKind, workspaceId])
 
   return {
     doc: activeState?.result?.doc ?? null,
@@ -151,6 +185,7 @@ export async function saveSavedEntityField(
   try {
     setEntityField(result.doc, key, value)
     await saveYjsSessionSnapshot(result)
+    invalidateSavedEntityQueries(entityKind, entityId, workspaceId)
   } finally {
     closeYjsSession(result)
   }

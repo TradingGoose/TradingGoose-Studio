@@ -407,7 +407,7 @@ export class AgentBlockHandler implements BlockHandler {
       selectedOperation: tool.operation,
       getAllBlocks,
       getToolAsync: (toolId: string) =>
-        getToolAsync(toolId, context.workflowId, context.workspaceId, context.userId),
+        getToolAsync(toolId, context.workflowId, context.workspaceId),
       getTool,
       createLLMToolSchema,
     })

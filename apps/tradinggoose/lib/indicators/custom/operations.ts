@@ -18,11 +18,19 @@ import { requireSavedEntityRealtimeListFields } from '@/lib/yjs/server/bootstrap
 const logger = createLogger('IndicatorsOperations')
 
 export async function listCustomIndicatorRuntimeEntries(workspaceId: string) {
-  const entries = await requireSavedEntityRealtimeListFields('indicator', workspaceId)
-  return entries.map(({ entityId, fields }) => ({
-    id: entityId,
-    pineCode: String(fields.pineCode ?? ''),
-    inputMeta: normalizeInputMetaMap(fields.inputMeta),
+  const rows = await db
+    .select({
+      id: pineIndicators.id,
+      pineCode: pineIndicators.pineCode,
+      inputMeta: pineIndicators.inputMeta,
+    })
+    .from(pineIndicators)
+    .where(eq(pineIndicators.workspaceId, workspaceId))
+
+  return rows.map((row) => ({
+    id: row.id,
+    pineCode: row.pineCode,
+    inputMeta: normalizeInputMetaMap(row.inputMeta),
   }))
 }
 

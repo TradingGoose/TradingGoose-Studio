@@ -5,10 +5,8 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
-import {
-  applyWorkflowPatchInSocketServer,
-  notifyEntityListMembersUpserted,
-} from '@/lib/yjs/server/snapshot-bridge'
+import { applyWorkflowMetadata } from '@/lib/yjs/server/apply-workflow-state'
+import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
 
 const logger = createLogger('FoldersIDAPI')
 
@@ -137,9 +135,15 @@ export async function DELETE(
       )
 
     const affectedWorkflows = await db
-      .select({ id: workflow.id, name: workflow.name })
+      .select({ id: workflow.id })
       .from(workflow)
       .where(and(eq(workflow.workspaceId, existingFolder.workspaceId), eq(workflow.folderId, id)))
+
+    await Promise.all(
+      affectedWorkflows.map((movedWorkflow) =>
+        applyWorkflowMetadata(movedWorkflow.id, { folderId: parentId })
+      )
+    )
 
     await db.transaction(async (tx) => {
       if (childFolders.length > 0) {
@@ -154,34 +158,8 @@ export async function DELETE(
           )
       }
 
-      if (affectedWorkflows.length > 0) {
-        await tx
-          .update(workflow)
-          .set({ folderId: parentId, updatedAt: new Date() })
-          .where(
-            and(eq(workflow.workspaceId, existingFolder.workspaceId), eq(workflow.folderId, id))
-          )
-      }
-
       await tx.delete(workflowFolder).where(eq(workflowFolder.id, id))
     })
-
-    if (affectedWorkflows.length > 0) {
-      await Promise.allSettled([
-        notifyEntityListMembersUpserted(
-          'workflow',
-          existingFolder.workspaceId,
-          affectedWorkflows.map((movedWorkflow) => ({
-            id: movedWorkflow.id,
-            name: movedWorkflow.name,
-            folderId: parentId,
-          }))
-        ),
-        ...affectedWorkflows.map((movedWorkflow) =>
-          applyWorkflowPatchInSocketServer(movedWorkflow.id, { metadata: { folderId: parentId } })
-        ),
-      ])
-    }
 
     logger.info('Deleted folder and promoted direct children:', {
       id,
@@ -198,6 +176,9 @@ export async function DELETE(
       movedWorkflows: affectedWorkflows.length,
     })
   } catch (error) {
+    const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
+    if (realtimeResponse) return realtimeResponse
+
     logger.error('Error deleting folder:', { error })
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

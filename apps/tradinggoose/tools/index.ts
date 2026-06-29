@@ -291,7 +291,7 @@ export async function executeTool(
 
     // If it's a custom tool, use the async version with workflowId
     if (isCustomToolRuntimeId(toolId)) {
-      tool = await getToolAsync(toolId, scope.workflowId, scope.workspaceId, scope.userId)
+      tool = await getToolAsync(toolId, scope.workflowId, scope.workspaceId)
       if (!tool) {
         logger.error(`[${requestId}] Custom tool not found: ${toolId}`)
       }

@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { generateInternalToken } from '@/lib/auth/internal'
 import type { ToolConfig } from '@/tools/types'
 import {
   createCustomToolRequestBody,
@@ -12,6 +11,19 @@ import {
   validateRequiredParametersAfterMerge,
 } from '@/tools/utils'
 
+const dbMocks = vi.hoisted(() => {
+  let rows: unknown[] = []
+  const setRows = (nextRows: unknown[]) => {
+    rows = nextRows
+  }
+  const limit = vi.fn(() => Promise.resolve(rows))
+  const where = vi.fn(() => ({ limit }))
+  const from = vi.fn(() => ({ where }))
+  const select = vi.fn(() => ({ from }))
+
+  return { from, limit, select, setRows, where }
+})
+
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: vi.fn().mockReturnValue({
     debug: vi.fn(),
@@ -21,8 +33,10 @@ vi.mock('@/lib/logs/console/logger', () => ({
   }),
 }))
 
-vi.mock('@/lib/auth/internal', () => ({
-  generateInternalToken: vi.fn().mockResolvedValue('mock-internal-token'),
+vi.mock('@tradinggoose/db', () => ({
+  db: {
+    select: dbMocks.select,
+  },
 }))
 
 vi.mock('@/stores/settings/environment/store', () => {
@@ -43,6 +57,7 @@ vi.mock('@/stores/settings/environment/store', () => {
 const originalWindow = global.window
 beforeEach(() => {
   global.window = {} as any
+  dbMocks.setRows([])
 })
 
 afterEach(() => {
@@ -758,21 +773,30 @@ describe('createCustomToolRequestBody', () => {
     expect(result).not.toHaveProperty('workspaceId')
   })
 
-  it('fails closed before fetching custom tools when internal auth generation fails', async () => {
+  it('does not use the custom-tools API for server-side custom tool lookup', async () => {
     const serverWindow = global.window
-    const fetchSpy = vi
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(new Response(JSON.stringify({ data: [] }), { status: 200 }) as any)
-    vi.mocked(generateInternalToken).mockRejectedValueOnce(new Error('token boom'))
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    dbMocks.setRows([
+      {
+        id: 'custom-tool-123',
+        title: 'Custom Weather Tool',
+        code: 'return params',
+        schema: {
+          function: {
+            description: 'Get weather information',
+            parameters: { type: 'object', properties: {} },
+          },
+        },
+      },
+    ])
 
     try {
       ;(global as any).window = undefined
 
       await expect(
-        getToolAsync('custom_custom-tool-123', undefined, 'workspace-456', 'user-123')
-      ).resolves.toBeUndefined()
+        getToolAsync('custom_custom-tool-123', undefined, 'workspace-456')
+      ).resolves.toBeDefined()
 
-      expect(generateInternalToken).toHaveBeenCalledWith('user-123')
       expect(fetchSpy).not.toHaveBeenCalled()
     } finally {
       global.window = serverWindow
@@ -782,75 +806,44 @@ describe('createCustomToolRequestBody', () => {
 
   it('uses workspaceId for server-side custom tool lookup when workflowId is also present', async () => {
     const serverWindow = global.window
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          data: [
-            {
-              id: 'custom-tool-123',
-              title: 'Custom Weather Tool',
-              code: 'return params',
-              schema: {
-                function: {
-                  description: 'Get weather information',
-                  parameters: { type: 'object', properties: {} },
-                },
-              },
-            },
-          ],
-        }),
-        { status: 200 }
-      ) as any
-    )
+    dbMocks.setRows([
+      {
+        id: 'custom-tool-123',
+        title: 'Custom Weather Tool',
+        code: 'return params',
+        schema: {
+          function: {
+            description: 'Get weather information',
+            parameters: { type: 'object', properties: {} },
+          },
+        },
+      },
+    ])
 
     try {
       ;(global as any).window = undefined
 
       await expect(
-        getToolAsync('custom_custom-tool-123', 'workflow-123', 'workspace-456', 'user-123')
+        getToolAsync('custom_custom-tool-123', 'workflow-123', 'workspace-456')
       ).resolves.toBeDefined()
 
-      const requestUrl = new URL(String(fetchSpy.mock.calls[0]?.[0]))
-      expect(requestUrl.searchParams.get('workspaceId')).toBe('workspace-456')
-      expect(requestUrl.searchParams.has('workflowId')).toBe(false)
+      expect(dbMocks.select).toHaveBeenCalledOnce()
     } finally {
       global.window = serverWindow
-      fetchSpy.mockRestore()
     }
   })
 
   it('does not resolve server-side custom tools by title', async () => {
     const serverWindow = global.window
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          data: [
-            {
-              id: 'custom-tool-123',
-              title: 'Custom Weather Tool',
-              code: 'return params',
-              schema: {
-                function: {
-                  description: 'Get weather information',
-                  parameters: { type: 'object', properties: {} },
-                },
-              },
-            },
-          ],
-        }),
-        { status: 200 }
-      ) as any
-    )
 
     try {
       ;(global as any).window = undefined
 
       await expect(
-        getToolAsync('custom_Custom Weather Tool', undefined, 'workspace-456', 'user-123')
+        getToolAsync('custom_Custom Weather Tool', undefined, 'workspace-456')
       ).resolves.toBeUndefined()
     } finally {
       global.window = serverWindow
-      fetchSpy.mockRestore()
     }
   })
 })

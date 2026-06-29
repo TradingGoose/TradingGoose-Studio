@@ -216,9 +216,10 @@ const ListMcpWidgetContent = ({
   const permissions = useUserPermissionsContext()
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
   const { members, isLoading, error } = useEntityList('mcp_server', workspaceId)
-  const { servers, deleteServer } = useMcpServersStore(
+  const { servers, fetchServers, deleteServer } = useMcpServersStore(
     (state) => ({
       servers: state.servers,
+      fetchServers: state.fetchServers,
       deleteServer: state.deleteServer,
     }),
     shallow
@@ -228,6 +229,11 @@ const ListMcpWidgetContent = ({
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
   const setPairContext = useSetPairColorContext()
+
+  useEffect(() => {
+    if (!workspaceId) return
+    void fetchServers(workspaceId)
+  }, [fetchServers, workspaceId])
 
   const serverStatusById = useMemo(() => {
     return new Map(servers.map((server) => [server.id, server]))

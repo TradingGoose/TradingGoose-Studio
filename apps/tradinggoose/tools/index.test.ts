@@ -32,16 +32,11 @@ const dbMocks = vi.hoisted(() => {
 
   return { from, limit, select, setRows, where }
 })
-const listSkillsMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@tradinggoose/db', () => ({
   db: {
     select: dbMocks.select,
   },
-}))
-
-vi.mock('@/lib/skills/operations', () => ({
-  listSkills: listSkillsMock,
 }))
 
 vi.mock('@/lib/auth/internal', () => ({
@@ -185,7 +180,6 @@ describe('executeTool Function', () => {
         Promise.resolve([]).then(resolve, reject),
     }))
     dbMocks.limit.mockImplementation(() => Promise.resolve([]))
-    listSkillsMock.mockResolvedValue([])
 
     // Mock fetch
     global.fetch = Object.assign(
@@ -512,7 +506,7 @@ describe('executeTool Function', () => {
         description: 'Research the market before acting',
       },
     ])
-    listSkillsMock.mockResolvedValueOnce([
+    dbMocks.limit.mockResolvedValueOnce([
       {
         id: 'skill-1',
         name: 'market-research',
