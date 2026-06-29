@@ -244,7 +244,7 @@ export function getDocument(docId: string, gc = true, bootstrapState?: Uint8Arra
   return map.setIfUndefined(docs, docId, () => {
     const doc = new WSSharedDoc(docId, gc)
     if (bootstrapState) {
-      Y.applyUpdate(doc, bootstrapState)
+      Y.applyUpdate(doc, bootstrapState, YJS_ORIGINS.SYSTEM)
       doc.hasUnsavedChanges = false
     }
     return doc

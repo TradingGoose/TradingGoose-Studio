@@ -37,8 +37,8 @@ async function persistWorkflowDocument(docId: string, doc: Y.Doc): Promise<void>
   const metadata = doc.getMap<unknown>('metadata')
   if (
     metadata.get('entityId') !== docId ||
-    metadata.get('draftSessionId') !== null ||
-    metadata.get('reviewSessionId') !== null
+    metadata.get('draftSessionId') != null ||
+    metadata.get('reviewSessionId') != null
   ) {
     return
   }
