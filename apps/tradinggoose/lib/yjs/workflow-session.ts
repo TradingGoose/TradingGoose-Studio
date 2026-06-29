@@ -237,7 +237,7 @@ export interface WorkflowSnapshot {
   edges: Edge[]
   loops: Record<string, Loop>
   parallels: Record<string, Parallel>
-  lastSaved?: string
+  lastSaved?: string | number
 }
 
 export type WorkflowMetadataPatch = {

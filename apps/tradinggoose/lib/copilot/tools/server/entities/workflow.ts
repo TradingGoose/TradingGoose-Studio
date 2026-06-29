@@ -528,7 +528,6 @@ export const createWorkflowServerTool: BaseServerTool<
       isDeployed: false,
       collaborators: [],
       runCount: 0,
-      variables: {},
       isPublished: false,
       marketplaceData: null,
     })

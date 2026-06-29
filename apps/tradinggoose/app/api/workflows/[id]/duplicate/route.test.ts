@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 describe('Workflow Duplicate API Route', () => {
   let loadWorkflowStateMock: ReturnType<typeof vi.fn>
   let regenerateWorkflowStateIdsMock: ReturnType<typeof vi.fn>
-  let saveWorkflowToNormalizedTablesMock: ReturnType<typeof vi.fn>
+  let applyWorkflowStateMock: ReturnType<typeof vi.fn>
   let insertValuesMock: ReturnType<typeof vi.fn>
   let deleteWhereMock: ReturnType<typeof vi.fn>
 
@@ -43,10 +43,7 @@ describe('Workflow Duplicate API Route', () => {
 
     loadWorkflowStateMock = vi.fn()
     regenerateWorkflowStateIdsMock = vi.fn((state) => JSON.parse(JSON.stringify(state)))
-    saveWorkflowToNormalizedTablesMock = vi.fn(async (_workflowId, state) => ({
-      success: true,
-      normalizedState: state,
-    }))
+    applyWorkflowStateMock = vi.fn().mockResolvedValue(undefined)
     insertValuesMock = vi.fn().mockResolvedValue(undefined)
     deleteWhereMock = vi.fn().mockResolvedValue(undefined)
 
@@ -113,8 +110,11 @@ describe('Workflow Duplicate API Route', () => {
       isWorkflowRealtimeRequiredError: vi.fn(() => false),
       requireWorkflowRealtimeState: loadWorkflowStateMock,
       regenerateWorkflowStateIds: regenerateWorkflowStateIdsMock,
-      saveWorkflowToNormalizedTables: saveWorkflowToNormalizedTablesMock,
       WORKFLOW_REALTIME_REQUIRED_CODE: 'WORKFLOW_REALTIME_REQUIRED',
+    }))
+
+    vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
+      applyWorkflowState: applyWorkflowStateMock,
     }))
   })
 
@@ -160,11 +160,12 @@ describe('Workflow Duplicate API Route', () => {
 
     expect(response.status).toBe(201)
     expect(insertValuesMock).toHaveBeenCalledOnce()
-    expect(saveWorkflowToNormalizedTablesMock).toHaveBeenCalledOnce()
+    expect(applyWorkflowStateMock).toHaveBeenCalledOnce()
 
     const insertedWorkflow = insertValuesMock.mock.calls[0][0]
-    const persistedWorkflowId = saveWorkflowToNormalizedTablesMock.mock.calls[0][0]
-    const persistedState = saveWorkflowToNormalizedTablesMock.mock.calls[0][1]
+    const persistedWorkflowId = applyWorkflowStateMock.mock.calls[0][0]
+    const persistedState = applyWorkflowStateMock.mock.calls[0][1]
+    const persistedVariables = applyWorkflowStateMock.mock.calls[0][2]
 
     expect(insertedWorkflow.id).toBe(persistedWorkflowId)
     expect(persistedState.blocks).toEqual(
@@ -174,18 +175,18 @@ describe('Workflow Duplicate API Route', () => {
         }),
       })
     )
-    expect(Object.keys(insertedWorkflow.variables)).toHaveLength(1)
-    expect(Object.values(insertedWorkflow.variables)).toEqual([
+    expect(Object.keys(persistedVariables)).toHaveLength(1)
+    expect(Object.values(persistedVariables)).toEqual([
       expect.objectContaining({
         name: 'liveVar',
         value: 'live value',
         workflowId: persistedWorkflowId,
       }),
     ])
-    expect((Object.values(insertedWorkflow.variables)[0] as { id: string }).id).not.toBe('live-var')
+    expect((Object.values(persistedVariables)[0] as { id: string }).id).not.toBe('live-var')
   })
 
-  it('rolls back the duplicate when normalized state persistence fails', async () => {
+  it('rolls back the duplicate when Yjs state materialization fails', async () => {
     loadWorkflowStateMock.mockResolvedValue({
       blocks: {},
       edges: [],
@@ -194,10 +195,7 @@ describe('Workflow Duplicate API Route', () => {
       variables: {},
       lastSaved: Date.now(),
     })
-    saveWorkflowToNormalizedTablesMock.mockResolvedValueOnce({
-      success: false,
-      error: 'normalized state unavailable',
-    })
+    applyWorkflowStateMock.mockRejectedValueOnce(new Error('realtime unavailable'))
 
     const { POST } = await import('@/app/api/workflows/[id]/duplicate/route')
     const response = await POST(
@@ -208,7 +206,7 @@ describe('Workflow Duplicate API Route', () => {
     )
 
     expect(response.status).toBe(500)
-    expect(saveWorkflowToNormalizedTablesMock).toHaveBeenCalledOnce()
+    expect(applyWorkflowStateMock).toHaveBeenCalledOnce()
     expect(deleteWhereMock).toHaveBeenCalledOnce()
   })
 

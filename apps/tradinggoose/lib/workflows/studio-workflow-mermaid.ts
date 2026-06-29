@@ -1920,7 +1920,7 @@ export function serializeWorkflowToTgMermaid(
     toCommentLine(TG_WORKFLOW_PREFIX, {
       version: TG_MERMAID_DOCUMENT_FORMAT,
       direction,
-      ...(workflowState.lastSaved ? { lastSaved: workflowState.lastSaved } : {}),
+      ...(workflowState.lastSaved ? { lastSaved: String(workflowState.lastSaved) } : {}),
     } satisfies WorkflowDocumentMetadata),
   ]
 

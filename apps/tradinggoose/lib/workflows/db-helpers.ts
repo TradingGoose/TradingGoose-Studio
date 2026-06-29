@@ -28,11 +28,12 @@ import { SUBFLOW_TYPES } from '@/stores/workflows/workflow/types'
 
 const logger = createLogger('WorkflowDBHelpers')
 
-type WorkflowDbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
-type WorkflowNormalizedCommit = (
-  tx: WorkflowDbTransaction,
-  normalizedState: WorkflowState
-) => Promise<void>
+type PersistableWorkflowState = WorkflowState & {
+  name?: string
+  description?: string | null
+  folderId?: string | null
+  variables?: Record<string, any>
+}
 
 const resolveLockedFromBlockData = (data: unknown): boolean => {
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
@@ -694,14 +695,15 @@ export async function loadWorkflowFromNormalizedTables(
  */
 export async function saveWorkflowToNormalizedTables(
   workflowId: string,
-  state: WorkflowState,
-  commit?: WorkflowNormalizedCommit
+  state: PersistableWorkflowState
 ): Promise<{ success: boolean; error?: string; normalizedState?: WorkflowState }> {
   try {
-    const stateWithUniqueBlockIds = await ensureUniqueBlockIds(workflowId, state)
+    const { name, description, folderId, variables, ...graphState } = state
+    const stateWithUniqueBlockIds = await ensureUniqueBlockIds(workflowId, graphState)
     const stateWithUniqueEdgeIds = await ensureUniqueEdgeIds(workflowId, stateWithUniqueBlockIds)
     const { blocks } = sanitizeAgentToolsInBlocks(stateWithUniqueEdgeIds.blocks || {})
     const normalizedState = { ...stateWithUniqueEdgeIds, blocks }
+    const savedAt = new Date(state.lastSaved ?? Date.now())
 
     const sanitizeNumberForDecimal = (value: unknown): string => {
       if (typeof value !== 'number' || !Number.isFinite(value)) {
@@ -854,7 +856,17 @@ export async function saveWorkflowToNormalizedTables(
         await tx.insert(workflowSubflows).values(subflowInserts)
       }
 
-      await commit?.(tx, normalizedState)
+      await tx
+        .update(workflow)
+        .set({
+          lastSynced: savedAt,
+          updatedAt: savedAt,
+          ...(name !== undefined ? { name } : {}),
+          ...(description !== undefined ? { description } : {}),
+          ...(folderId !== undefined ? { folderId } : {}),
+          ...(variables !== undefined ? { variables } : {}),
+        })
+        .where(eq(workflow.id, workflowId))
     })
 
     return { success: true, normalizedState }
@@ -878,33 +890,20 @@ export async function saveWorkflowToNormalizedTables(
 export async function saveWorkflowYjsDocToDb(workflowId: string, doc: Y.Doc): Promise<void> {
   const state = extractPersistedStateFromDoc(doc)
   const syncedAt = new Date()
-  const workflowState: WorkflowState = {
+  const workflowState: PersistableWorkflowState = {
     ...(state.direction !== undefined ? { direction: state.direction } : {}),
     blocks: state.blocks,
     edges: state.edges,
     loops: state.loops,
     parallels: state.parallels,
+    ...(state.name != null ? { name: state.name } : {}),
+    ...(state.description !== undefined ? { description: state.description } : {}),
+    ...(state.folderId !== undefined ? { folderId: state.folderId } : {}),
+    variables: state.variables,
     lastSaved: syncedAt.toISOString(),
   }
 
-  const saveResult = await saveWorkflowToNormalizedTables(workflowId, workflowState, async (tx) => {
-    const [updatedWorkflow] = await tx
-      .update(workflow)
-      .set({
-        lastSynced: syncedAt,
-        updatedAt: syncedAt,
-        ...(state.name !== undefined ? { name: state.name } : {}),
-        ...(state.description !== undefined ? { description: state.description } : {}),
-        ...(state.folderId !== undefined ? { folderId: state.folderId } : {}),
-        variables: state.variables,
-      })
-      .where(eq(workflow.id, workflowId))
-      .returning({ id: workflow.id })
-
-    if (!updatedWorkflow) {
-      throw new Error('Workflow not found')
-    }
-  })
+  const saveResult = await saveWorkflowToNormalizedTables(workflowId, workflowState)
 
   if (!saveResult.success) {
     throw new Error(saveResult.error || 'Failed to materialize workflow Yjs state')

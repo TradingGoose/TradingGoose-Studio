@@ -8,10 +8,11 @@ import { getStableVibrantColor } from '@/lib/colors'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
-import { saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
 import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { remapVariableIds } from '@/lib/workflows/import-export'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
+import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
+import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
 const logger = createLogger('WorkflowAPI')
@@ -188,15 +189,20 @@ export async function POST(req: NextRequest) {
       isDeployed: false,
       collaborators: [],
       runCount: 0,
-      variables: remappedVariables,
       isPublished: false,
       marketplaceData: null,
     })
 
-    const saveResult = await saveWorkflowToNormalizedTables(workflowId, initialState.canonicalState)
-    if (!saveResult.success) {
+    try {
+      await applyWorkflowState(
+        workflowId,
+        createWorkflowSnapshot(initialState.canonicalState),
+        remappedVariables,
+        { name, description, folderId: folderId || null }
+      )
+    } catch (error) {
       await db.delete(workflow).where(eq(workflow.id, workflowId))
-      throw new Error(saveResult.error || 'Failed to persist initial workflow state')
+      throw error
     }
 
     logger.info(`[${requestId}] Successfully created workflow ${workflowId}`)

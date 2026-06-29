@@ -6,12 +6,11 @@ import { v4 as uuidv4 } from 'uuid'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import {
-  regenerateWorkflowStateIds,
-  saveWorkflowToNormalizedTables,
-} from '@/lib/workflows/db-helpers'
+import { regenerateWorkflowStateIds } from '@/lib/workflows/db-helpers'
 import { remapVariableIds } from '@/lib/workflows/import-export'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
+import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
+import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 const logger = createLogger('TemplateUseAPI')
 
@@ -82,29 +81,30 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const templateVariables = normalizeVariables(templateState?.variables)
     const remappedVariables = remapVariableIds(templateVariables, newWorkflowId)
+    const workflowName = `${templateData.name} (copy)`
 
     await db.insert(workflow).values({
       id: newWorkflowId,
       workspaceId: workspaceId,
-      name: `${templateData.name} (copy)`,
+      name: workflowName,
       description: templateData.description,
       color: templateData.color,
       userId: session.user.id,
-      variables: remappedVariables,
       createdAt: now,
       updatedAt: now,
       lastSynced: now,
     })
 
     const regeneratedState = regenerateWorkflowStateIds(templateState)
-    const { variables: _templateVars, ...stateWithoutTemplateVars } = regeneratedState as any
-    const saveResult = await saveWorkflowToNormalizedTables(newWorkflowId, {
-      ...stateWithoutTemplateVars,
-      lastSaved: now.toISOString(),
-    })
-
-    if (!saveResult.success) {
-      logger.error(`[${requestId}] Failed to save workflow state for template use`)
+    try {
+      await applyWorkflowState(
+        newWorkflowId,
+        createWorkflowSnapshot(regeneratedState),
+        remappedVariables,
+        { name: workflowName, description: templateData.description }
+      )
+    } catch (error) {
+      logger.error(`[${requestId}] Failed to save workflow state for template use`, error)
       await db.delete(workflow).where(eq(workflow.id, newWorkflowId))
       return NextResponse.json(
         { error: 'Failed to create workflow from template' },

@@ -554,19 +554,35 @@ describe('Database Helpers', () => {
     })
 
     it('should successfully save workflow data to normalized tables', async () => {
-      const mockTransaction = vi
-        .fn()
-        .mockImplementation(async (callback) => callback(createMockTx()))
+      const variables = {
+        'var-1': { id: 'var-1', workflowId: mockWorkflowId, name: 'risk', value: '1' },
+      }
+      let capturedWorkflowUpdate: Record<string, unknown> | undefined
+      const mockTransaction = vi.fn().mockImplementation(async (callback) =>
+        callback(
+          createMockTx({
+            update: vi.fn((table) => ({
+              set: vi.fn((data: Record<string, unknown>) => ({
+                where: vi.fn().mockImplementation(async () => {
+                  if (table === mockWorkflowTable) capturedWorkflowUpdate = data
+                  return []
+                }),
+              })),
+            })),
+          })
+        )
+      )
 
       mockDb.transaction = mockTransaction
 
-      const result = await dbHelpers.saveWorkflowToNormalizedTables(
-        mockWorkflowId,
-        mockWorkflowState
-      )
+      const result = await dbHelpers.saveWorkflowToNormalizedTables(mockWorkflowId, {
+        ...mockWorkflowState,
+        variables,
+      })
 
       expect(result.success).toBe(true)
       expect(result.normalizedState).toEqual(mockWorkflowState)
+      expect(capturedWorkflowUpdate).toEqual(expect.objectContaining({ variables }))
 
       // Verify transaction was called
       expect(mockTransaction).toHaveBeenCalledTimes(1)
