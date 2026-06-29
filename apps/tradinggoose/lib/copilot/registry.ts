@@ -712,10 +712,11 @@ const WorkflowVariableDocumentEnvelope = WorkflowTargetEnvelope.extend({
   variables: z.record(z.any()),
 })
 
-// A list is a discovery surface: only id + canonical name, no per-entity details.
+// A list is a discovery surface: id, canonical name, and basic usability state.
 const GenericEntityListEntry = z.object({
   entityId: z.string(),
   entityName: z.string().optional(),
+  enabled: z.boolean().optional(),
 })
 
 const GenericEntityListResult = z.object({

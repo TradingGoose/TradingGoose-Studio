@@ -24,5 +24,4 @@ export const CreateMcpServerSchema = McpServerBaseSchema.refine(
 
 export const RenameMcpServerSchema = z.object({
   name: z.string().trim().min(1),
-  workspaceId: z.string().optional(),
-})
+}).strict()

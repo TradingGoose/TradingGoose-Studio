@@ -35,12 +35,13 @@ export type EntityDocumentArgs = {
 }
 
 /**
- * Canonical list_* entry. A list is a discovery surface — "what exists" — so it
- * carries only the entity's id and canonical name, never per-entity details.
+ * Canonical list_* entry. A list is a discovery surface — "what exists" — plus
+ * the minimum state needed to know whether a listed item is usable.
  */
 export type EntityListEntry = {
   entityId: string
   entityName: string
+  enabled?: boolean
 }
 
 export type CopilotIndicatorListEntry = {
@@ -198,8 +199,8 @@ export async function readSavedEntityDocumentFields(
 
 /**
  * Canonical read for every saved-entity list_* tool: the workspace's membership
- * through the live Yjs list session (id + canonical name only). Reflects realtime
- * create/delete by any user — one read for all kinds, no per-tool list mapper.
+ * through the live Yjs list session. Reflects realtime create/delete/rename and
+ * basic usability state by any user — one read for all kinds, no per-tool mapper.
  */
 export function buildSavedEntityListInfo(
   entityKind: SavedEntityKind,
