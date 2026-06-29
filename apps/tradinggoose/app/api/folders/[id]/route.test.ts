@@ -15,6 +15,8 @@ import {
 
 interface FolderDbMockOptions {
   folderLookupResult?: any
+  childFoldersResult?: any[]
+  workflowsResult?: any[]
   updateResult?: any[]
   throwError?: boolean
   circularCheckResults?: any[]
@@ -41,10 +43,14 @@ describe('Individual Folder API Route', () => {
 
   const { mockAuthenticatedUser, mockUnauthenticated } = mockAuth(TEST_USER)
   const mockGetUserEntityPermissions = vi.fn()
+  const mockNotifyEntityListMembersUpserted = vi.fn()
+  const mockApplyWorkflowPatchInSocketServer = vi.fn()
 
   function createFolderDbMock(options: FolderDbMockOptions = {}) {
     const {
       folderLookupResult = mockFolder,
+      childFoldersResult = [],
+      workflowsResult = [],
       updateResult = [{ ...mockFolder, name: 'Updated Folder' }],
       throwError = false,
       circularCheckResults = [],
@@ -74,6 +80,12 @@ describe('Individual Folder API Route', () => {
               const result = circularCheckResults[index] ? [circularCheckResults[index]] : []
               return Promise.resolve(callback(result))
             }
+            if (callCount === 2) {
+              return Promise.resolve(callback(childFoldersResult))
+            }
+            if (callCount === 3) {
+              return Promise.resolve(callback(workflowsResult))
+            }
             return Promise.resolve(callback([]))
           }),
         })),
@@ -97,6 +109,9 @@ describe('Individual Folder API Route', () => {
         select: mockSelect,
         update: mockUpdate,
         delete: mockDelete,
+        transaction: vi.fn(async (callback) =>
+          callback({ update: mockUpdate, delete: mockDelete })
+        ),
       },
       mocks: {
         select: mockSelect,
@@ -112,9 +127,15 @@ describe('Individual Folder API Route', () => {
     setupCommonApiMocks()
 
     mockGetUserEntityPermissions.mockResolvedValue('admin')
+    mockNotifyEntityListMembersUpserted.mockResolvedValue(undefined)
+    mockApplyWorkflowPatchInSocketServer.mockResolvedValue(undefined)
 
     vi.doMock('@/lib/permissions/utils', () => ({
       getUserEntityPermissions: mockGetUserEntityPermissions,
+    }))
+    vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
+      notifyEntityListMembersUpserted: mockNotifyEntityListMembersUpserted,
+      applyWorkflowPatchInSocketServer: mockApplyWorkflowPatchInSocketServer,
     }))
   })
 
@@ -417,14 +438,15 @@ describe('Individual Folder API Route', () => {
   })
 
   describe('DELETE /api/folders/[id]', () => {
-    it('should delete folder and all contents successfully', async () => {
+    it('should delete the folder and move direct child folders and workflows up one level', async () => {
       mockAuthenticatedUser()
 
       const dbMock = createFolderDbMock({
-        folderLookupResult: mockFolder,
+        folderLookupResult: { ...mockFolder, parentId: 'parent-folder' },
+        childFoldersResult: [{ id: 'child-folder' }],
+        workflowsResult: [{ id: 'workflow-1', name: 'Workflow 1' }],
       })
 
-      // Mock the recursive deletion function
       vi.doMock('@tradinggoose/db', () => dbMock)
 
       const req = createMockRequest('DELETE')
@@ -438,7 +460,20 @@ describe('Individual Folder API Route', () => {
 
       const data = await response.json()
       expect(data).toHaveProperty('success', true)
-      expect(data).toHaveProperty('deletedItems')
+      expect(data).toMatchObject({
+        deletedFolderId: 'folder-1',
+        parentId: 'parent-folder',
+        movedFolders: 1,
+        movedWorkflows: 1,
+      })
+      expect(mockNotifyEntityListMembersUpserted).toHaveBeenCalledWith(
+        'workflow',
+        'workspace-123',
+        [{ id: 'workflow-1', name: 'Workflow 1', folderId: 'parent-folder' }]
+      )
+      expect(mockApplyWorkflowPatchInSocketServer).toHaveBeenCalledWith('workflow-1', {
+        metadata: { folderId: 'parent-folder' },
+      })
     })
 
     it('should return 401 for unauthenticated delete requests', async () => {
