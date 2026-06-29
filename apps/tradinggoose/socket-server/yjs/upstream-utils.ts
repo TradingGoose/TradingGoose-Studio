@@ -133,6 +133,8 @@ function runDocumentPersistence(doc: WSSharedDoc): void {
       }
     })
     .catch((error) => {
+      doc.hasUnsavedChanges = true
+      doc.needsPersist = true
       console.error('[yjs upstream-utils] Failed to persist live document', error)
     })
     .finally(() => {

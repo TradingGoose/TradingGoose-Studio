@@ -5,6 +5,8 @@ import { generateRequestId } from '@/lib/utils'
 import { applyAutoLayout } from '@/lib/workflows/autolayout'
 import { requireWorkflowRealtimeState } from '@/lib/workflows/db-helpers'
 import { validateWorkflowPermissions } from '@/lib/workflows/utils'
+import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
+import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
 
 export const dynamic = 'force-dynamic'
@@ -52,22 +54,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       userId,
     })
 
-    let currentWorkflowData: { blocks: Record<string, any>; edges: any[] } | null
+    const currentWorkflowState = await requireWorkflowRealtimeState(workflowId)
+
+    if (!currentWorkflowState) {
+      logger.error(`[${requestId}] Could not load workflow ${workflowId} for autolayout`)
+      return NextResponse.json({ error: 'Could not load workflow data' }, { status: 500 })
+    }
+
+    const layoutInput =
+      layoutOptions.blocks && layoutOptions.edges
+        ? { blocks: layoutOptions.blocks, edges: layoutOptions.edges }
+        : { blocks: currentWorkflowState.blocks, edges: currentWorkflowState.edges }
 
     if (layoutOptions.blocks && layoutOptions.edges) {
       logger.info(`[${requestId}] Using provided blocks with live measurements`)
-      currentWorkflowData = {
-        blocks: layoutOptions.blocks,
-        edges: layoutOptions.edges,
-      }
     } else {
       logger.info(`[${requestId}] Loading blocks from current workflow state`)
-      currentWorkflowData = await requireWorkflowRealtimeState(workflowId)
-    }
-
-    if (!currentWorkflowData) {
-      logger.error(`[${requestId}] Could not load workflow ${workflowId} for autolayout`)
-      return NextResponse.json({ error: 'Could not load workflow data' }, { status: 500 })
     }
 
     const autoLayoutOptions = {
@@ -80,11 +82,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       alignment: layoutOptions.alignment ?? 'center',
     }
 
-    const layoutResult = applyAutoLayout(
-      currentWorkflowData.blocks,
-      currentWorkflowData.edges,
-      autoLayoutOptions
-    )
+    const layoutResult = applyAutoLayout(layoutInput.blocks, layoutInput.edges, autoLayoutOptions)
 
     if (!layoutResult.success || !layoutResult.blocks) {
       logger.error(`[${requestId}] Auto layout failed:`, {
@@ -98,6 +96,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         { status: 500 }
       )
     }
+
+    await applyWorkflowState(
+      workflowId,
+      createWorkflowSnapshot({
+        direction: currentWorkflowState.direction,
+        blocks: layoutResult.blocks,
+        edges: layoutInput.edges,
+        loops: currentWorkflowState.loops,
+        parallels: currentWorkflowState.parallels,
+      })
+    )
 
     const elapsed = Date.now() - startTime
     const blockCount = Object.keys(layoutResult.blocks).length
@@ -113,7 +122,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       data: {
         blockCount,
         elapsed: `${elapsed}ms`,
-        layoutedBlocks: layoutResult.blocks,
       },
     })
   } catch (error) {

@@ -21,7 +21,6 @@ export async function applyAutoLayoutToWorkflow(
   options: AutoLayoutOptions = {}
 ): Promise<{
   success: boolean
-  layoutedBlocks?: Record<string, any>
   error?: string
 }> {
   try {
@@ -84,14 +83,11 @@ export async function applyAutoLayoutToWorkflow(
     logger.info('Successfully applied auto layout', {
       workflowId,
       originalBlockCount: Object.keys(blocks).length,
-      layoutedBlockCount: result.data?.layoutedBlocks
-        ? Object.keys(result.data.layoutedBlocks).length
-        : 0,
+      layoutedBlockCount: result.data?.blockCount ?? 0,
     })
 
     return {
       success: true,
-      layoutedBlocks: result.data?.layoutedBlocks || blocks,
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown auto layout error'
@@ -104,17 +100,17 @@ export async function applyAutoLayoutToWorkflow(
   }
 }
 
-interface ApplyAutoLayoutAndUpdateStoreParams {
+interface ApplyAutoLayoutParams {
   workflowId: string
   channelId?: string
   options?: AutoLayoutOptions
 }
 
-export async function applyAutoLayoutAndUpdateStore({
+export async function applyAutoLayoutToActiveWorkflow({
   workflowId,
   channelId,
   options = {},
-}: ApplyAutoLayoutAndUpdateStoreParams): Promise<{
+}: ApplyAutoLayoutParams): Promise<{
   success: boolean
   error?: string
 }> {
@@ -122,8 +118,7 @@ export async function applyAutoLayoutAndUpdateStore({
 
   try {
     const { getRegisteredWorkflowSession } = await import('@/lib/yjs/workflow-session-registry')
-    const { readWorkflowSnapshot, readWorkflowMap } = await import('@/lib/yjs/workflow-session')
-    const { YJS_ORIGINS } = await import('@/lib/yjs/transaction-origins')
+    const { readWorkflowSnapshot } = await import('@/lib/yjs/workflow-session')
     const { useWorkflowRegistry } = await import('@/stores/workflows/registry/store')
 
     const registryState = useWorkflowRegistry.getState()
@@ -178,18 +173,11 @@ export async function applyAutoLayoutAndUpdateStore({
 
     const result = await applyAutoLayoutToWorkflow(resolvedWorkflowId, blocks, edges, options)
 
-    if (!result.success || !result.layoutedBlocks) {
+    if (!result.success) {
       return { success: false, error: result.error }
     }
 
-    const doc = session.doc
-    doc.transact(() => {
-      const wMap = readWorkflowMap(doc)
-      wMap.set('blocks', result.layoutedBlocks!)
-      wMap.set('lastSaved', Date.now())
-    }, YJS_ORIGINS.USER)
-
-    logger.info('Successfully updated Yjs doc with auto layout', {
+    logger.info('Successfully applied durable auto layout', {
       workflowId: resolvedWorkflowId,
       channelId,
     })

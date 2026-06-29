@@ -448,17 +448,16 @@ const WorkflowCanvas = React.memo(
       [getNodes, blocks]
     )
 
-    // Auto-layout handler - now uses frontend auto layout for immediate updates
+    // Auto-layout handler
     const handleAutoLayout = useCallback(async () => {
       if (Object.keys(blocks).length === 0) return
 
       try {
-        // Use the shared auto layout utility for immediate frontend updates
-        const { applyAutoLayoutAndUpdateStore } = await import(
+        const { applyAutoLayoutToActiveWorkflow } = await import(
           '@/widgets/widgets/editor_workflow/components/control-bar/auto-layout'
         )
 
-        const result = await applyAutoLayoutAndUpdateStore({
+        const result = await applyAutoLayoutToActiveWorkflow({
           workflowId: activeWorkflowId!,
           channelId: resolvedChannelId,
         })

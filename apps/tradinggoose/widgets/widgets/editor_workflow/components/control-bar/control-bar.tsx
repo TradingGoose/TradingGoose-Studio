@@ -352,12 +352,11 @@ export function ControlBar({
       setIsAutoLayouting(true)
       setAutoLayoutError(null)
       try {
-        // Use the shared auto layout utility for immediate frontend updates
-        const { applyAutoLayoutAndUpdateStore } = await import(
+        const { applyAutoLayoutToActiveWorkflow } = await import(
           '@/widgets/widgets/editor_workflow/components/control-bar/auto-layout'
         )
 
-        const result = await applyAutoLayoutAndUpdateStore({
+        const result = await applyAutoLayoutToActiveWorkflow({
           workflowId: activeWorkflowId!,
           channelId,
         })

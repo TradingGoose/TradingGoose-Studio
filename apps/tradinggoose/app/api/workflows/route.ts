@@ -13,6 +13,7 @@ import { remapVariableIds } from '@/lib/workflows/import-export'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
 const logger = createLogger('WorkflowAPI')
@@ -218,6 +219,9 @@ export async function POST(req: NextRequest) {
       updatedAt: now,
     })
   } catch (error) {
+    const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
+    if (realtimeResponse) return realtimeResponse
+
     if (error instanceof z.ZodError) {
       logger.warn(`[${requestId}] Invalid workflow creation data`, {
         errors: error.errors,
