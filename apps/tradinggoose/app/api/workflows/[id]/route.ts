@@ -293,10 +293,12 @@ export async function DELETE(
     }
 
     await db.delete(workflow).where(eq(workflow.id, workflowId))
-    if (workflowData.workspaceId) {
-      await notifyEntityListMemberRemoved('workflow', workflowData.workspaceId, workflowId)
-    }
-    await deleteYjsSessionInSocketServer(workflowId).catch(() => undefined)
+    await Promise.allSettled([
+      workflowData.workspaceId
+        ? notifyEntityListMemberRemoved('workflow', workflowData.workspaceId, workflowId)
+        : Promise.resolve(),
+      deleteYjsSessionInSocketServer(workflowId),
+    ])
 
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully deleted workflow ${workflowId} in ${elapsed}ms`)

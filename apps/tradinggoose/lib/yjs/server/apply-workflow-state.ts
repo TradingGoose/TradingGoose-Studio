@@ -61,10 +61,10 @@ export async function applyWorkflowState(
       ...(variables === undefined ? {} : { variables }),
       ...(metadata ? { metadata } : {}),
     })
-    await publishWorkflowListMember(workflowId)
   } catch (error) {
     throw new WorkflowRealtimeRequiredError(error)
   }
+  await Promise.allSettled([publishWorkflowListMember(workflowId)])
 }
 
 export async function applyWorkflowMetadata(
@@ -86,7 +86,7 @@ export async function applyWorkflowMetadata(
     throw new Error('Workflow not found')
   }
 
-  await publishWorkflowListMember(workflowId)
+  await Promise.allSettled([publishWorkflowListMember(workflowId)])
 
   return updatedWorkflow
 }
