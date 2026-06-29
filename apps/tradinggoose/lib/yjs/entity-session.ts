@@ -41,15 +41,27 @@ export interface EntityListMember {
   entityName: string
   enabled?: boolean
   folderId?: string | null
+  color?: string
 }
 
 export type EntityListMemberMutation =
-  | { op: 'upsert'; entityId: string; name: string; enabled?: boolean; folderId?: string | null }
+  | {
+      op: 'upsert'
+      entityId: string
+      name: string
+      enabled?: boolean
+      folderId?: string | null
+      color?: string
+    }
   | { op: 'remove'; entityId: string }
 
-function getEntityListMembersMap(
-  doc: Y.Doc
-): Y.Map<{ name: string; enabled?: boolean; folderId?: string | null; deleted?: boolean }> {
+function getEntityListMembersMap(doc: Y.Doc): Y.Map<{
+  name: string
+  enabled?: boolean
+  folderId?: string | null
+  color?: string
+  deleted?: boolean
+}> {
   return doc.getMap('members')
 }
 
@@ -57,18 +69,27 @@ export function getEntityListMemberFromFields(
   entityKind: Exclude<ReviewEntityKind, 'workflow'>,
   entityId: string,
   fields: Record<string, unknown>
-): { id: string; name: string; enabled?: boolean } {
+): { id: string; name: string; enabled?: boolean; color?: string } {
   const nameKey = entityKind === 'custom_tool' ? 'title' : 'name'
   return {
     id: entityId,
     name: String(fields[nameKey] ?? ''),
     ...(entityKind === 'mcp_server' ? { enabled: fields.enabled !== false } : {}),
+    ...(entityKind === 'indicator' && typeof fields.color === 'string'
+      ? { color: fields.color }
+      : {}),
   }
 }
 
 export function seedEntityListSession(
   doc: Y.Doc,
-  members: Array<{ id: string; name: string; enabled?: boolean; folderId?: string | null }>
+  members: Array<{
+    id: string
+    name: string
+    enabled?: boolean
+    folderId?: string | null
+    color?: string
+  }>
 ): void {
   doc.transact(() => {
     const listMembers = getEntityListMembersMap(doc)
@@ -77,6 +98,7 @@ export function seedEntityListSession(
         name: member.name,
         ...(typeof member.enabled === 'boolean' ? { enabled: member.enabled } : {}),
         ...('folderId' in member ? { folderId: member.folderId ?? null } : {}),
+        ...(typeof member.color === 'string' ? { color: member.color } : {}),
       })
     }
   }, YJS_ORIGINS.SYSTEM)
@@ -92,6 +114,7 @@ function applyEntityListMutation(doc: Y.Doc, mutation: EntityListMemberMutation)
             deleted: false,
             ...(typeof mutation.enabled === 'boolean' ? { enabled: mutation.enabled } : {}),
             ...('folderId' in mutation ? { folderId: mutation.folderId ?? null } : {}),
+            ...(typeof mutation.color === 'string' ? { color: mutation.color } : {}),
           }
         : { name: '', deleted: true }
     )
@@ -116,6 +139,7 @@ export function getEntityListMembers(doc: Y.Doc): EntityListMember[] {
       entityName: typeof value?.name === 'string' ? value.name : '',
       ...(typeof value?.enabled === 'boolean' ? { enabled: value.enabled } : {}),
       ...(value && 'folderId' in value ? { folderId: value.folderId ?? null } : {}),
+      ...(typeof value?.color === 'string' ? { color: value.color } : {}),
     })
   })
   entries.sort((a, b) => a.entityName.localeCompare(b.entityName))

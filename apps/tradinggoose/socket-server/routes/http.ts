@@ -347,6 +347,7 @@ async function syncEntityListMemberFromDoc(
     entityId: member.id,
     name: member.name,
     ...(typeof member.enabled === 'boolean' ? { enabled: member.enabled } : {}),
+    ...(typeof member.color === 'string' ? { color: member.color } : {}),
   })
   markDocumentPersisted(listDoc)
   discardDocumentIfIdle(descriptor.yjsSessionId)
@@ -370,7 +371,13 @@ async function handleInternalYjsEntityListMembersRequest(
     }
 
     const body = (await readJsonBody(req)) as {
-      members?: Array<{ id?: unknown; name?: unknown; enabled?: unknown; folderId?: unknown }>
+      members?: Array<{
+        id?: unknown
+        name?: unknown
+        enabled?: unknown
+        folderId?: unknown
+        color?: unknown
+      }>
       remove?: unknown
     }
     const mutations: EntityListMemberMutation[] = [
@@ -386,6 +393,7 @@ async function handleInternalYjsEntityListMembersRequest(
           ...(typeof member.folderId === 'string' || member.folderId === null
             ? { folderId: member.folderId }
             : {}),
+          ...(typeof member.color === 'string' ? { color: member.color } : {}),
         }
       }),
       ...(typeof body.remove === 'string'

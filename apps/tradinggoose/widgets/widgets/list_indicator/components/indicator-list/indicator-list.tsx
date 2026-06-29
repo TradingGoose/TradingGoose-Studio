@@ -66,7 +66,7 @@ export function IndicatorList({
             workspaceId,
             userId: null,
             name: member.entityName,
-            color: '',
+            color: member.color,
             pineCode: '',
           }))
         : [],

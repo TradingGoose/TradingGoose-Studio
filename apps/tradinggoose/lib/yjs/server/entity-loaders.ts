@@ -58,7 +58,9 @@ export async function resolveEntityWorkspaceId(
 export async function readEntityListMembersFromDb(
   entityKind: ReviewEntityKind,
   workspaceId: string
-): Promise<Array<{ id: string; name: string; enabled?: boolean; folderId?: string | null }>> {
+): Promise<
+  Array<{ id: string; name: string; enabled?: boolean; folderId?: string | null; color?: string }>
+> {
   if (entityKind === 'workflow') {
     const rows = await db
       .select({ id: workflow.id, name: workflow.name, folderId: workflow.folderId })
@@ -82,6 +84,19 @@ export async function readEntityListMembersFromDb(
       id: row.id,
       name: row.name ?? '',
       enabled: row.enabled !== false,
+    }))
+  }
+
+  if (entityKind === 'indicator') {
+    const rows = await db
+      .select({ id: pineIndicators.id, name: pineIndicators.name, color: pineIndicators.color })
+      .from(pineIndicators)
+      .where(entityCondition(entityKind, [eq(pineIndicators.workspaceId, workspaceId)]))
+
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name ?? '',
+      ...(typeof row.color === 'string' && row.color.trim() ? { color: row.color } : {}),
     }))
   }
 

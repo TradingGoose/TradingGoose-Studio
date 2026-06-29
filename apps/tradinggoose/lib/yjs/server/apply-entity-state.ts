@@ -75,7 +75,7 @@ function normalizeSavedEntityFields(
 export async function publishCreatedSavedEntityListMembers(
   entityKind: SavedEntityKind,
   workspaceId: string,
-  members: Array<{ id: string; name: string; enabled?: boolean }>,
+  members: Array<{ id: string; name: string; enabled?: boolean; color?: string }>,
   afterRollback?: () => Promise<unknown>
 ): Promise<void> {
   try {

@@ -174,7 +174,13 @@ async function postEntityListMembersToSocketServer(
 export async function notifyEntityListMembersUpserted(
   entityKind: ReviewEntityKind,
   workspaceId: string,
-  members: Array<{ id: string; name: string; enabled?: boolean; folderId?: string | null }>
+  members: Array<{
+    id: string
+    name: string
+    enabled?: boolean
+    folderId?: string | null
+    color?: string
+  }>
 ): Promise<void> {
   await postEntityListMembersToSocketServer(entityKind, workspaceId, { members })
 }

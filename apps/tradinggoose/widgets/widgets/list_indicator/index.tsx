@@ -5,6 +5,8 @@ import { ListChecks } from 'lucide-react'
 import { useMessages } from 'next-intl'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { parseImportedIndicatorsFile } from '@/lib/indicators/import-export'
+import { generateAvailableName } from '@/lib/naming'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import {
   useUserPermissionsContext,
   WorkspacePermissionsProvider,
@@ -23,9 +25,7 @@ import {
 const buildNewIndicator = (defaults: { name: string }) => {
   return {
     name: defaults.name,
-    color: '',
     pineCode: '',
-    inputMeta: undefined,
   }
 }
 
@@ -46,6 +46,7 @@ const IndicatorListHeaderRight = ({
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
   const setPairContext = useSetPairColorContext()
+  const { members } = useEntityList('indicator', workspaceId)
 
   const handleCreateIndicator = useCallback(() => {
     if (!workspaceId || !permissions.canEdit) return
@@ -54,7 +55,10 @@ const IndicatorListHeaderRight = ({
       .mutateAsync({
         workspaceId,
         indicator: buildNewIndicator({
-          name: copy.indicatorList.createMenu.newIndicator,
+          name: generateAvailableName(
+            members.map((member) => member.entityName),
+            copy.indicatorList.createMenu.newIndicator
+          ),
         }),
       })
       .then((createdIndicators) => {
@@ -87,7 +91,9 @@ const IndicatorListHeaderRight = ({
       })
   }, [
     createIndicatorMutation,
+    copy.indicatorList.createMenu.newIndicator,
     isLinkedToColorPair,
+    members,
     panelId,
     permissions.canEdit,
     resolvedPairColor,

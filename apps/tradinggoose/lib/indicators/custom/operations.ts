@@ -103,7 +103,11 @@ export async function createIndicators({
   await publishCreatedSavedEntityListMembers(
     'indicator',
     workspaceId,
-    created.map((createdIndicator) => ({ id: createdIndicator.id, name: createdIndicator.name }))
+    created.map((createdIndicator) => ({
+      id: createdIndicator.id,
+      name: createdIndicator.name,
+      color: createdIndicator.color,
+    }))
   )
   logger.info(`[${requestId}] Created ${created.length} indicator(s)`)
   return created
@@ -187,7 +191,11 @@ export async function importIndicators({
   await publishCreatedSavedEntityListMembers(
     'indicator',
     workspaceId,
-    result.indicators.map((imported) => ({ id: imported.id, name: imported.name }))
+    result.indicators.map((imported) => ({
+      id: imported.id,
+      name: imported.name,
+      color: imported.color,
+    }))
   )
   logger.info(`[${requestId}] Imported ${result.indicators.length} indicator(s)`, {
     workspaceId,
