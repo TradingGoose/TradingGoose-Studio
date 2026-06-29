@@ -162,7 +162,8 @@ export function useEntityList(
 ) {
   const sessionKey = workspaceId ? `list:${entityKind}:${workspaceId}` : null
   const openSession = useCallback(
-    () => bootstrapYjsProvider(buildEntityListDescriptor(entityKind, workspaceId!)),
+    () =>
+      bootstrapYjsProvider(buildEntityListDescriptor(entityKind, workspaceId!), undefined, 'read'),
     [entityKind, workspaceId]
   )
   const activeState = useYjsSession(

@@ -40,15 +40,16 @@ export interface EntityListMember {
   entityId: string
   entityName: string
   enabled?: boolean
+  folderId?: string | null
 }
 
 export type EntityListMemberMutation =
-  | { op: 'upsert'; entityId: string; name: string; enabled?: boolean }
+  | { op: 'upsert'; entityId: string; name: string; enabled?: boolean; folderId?: string | null }
   | { op: 'remove'; entityId: string }
 
 function getEntityListMembersMap(
   doc: Y.Doc
-): Y.Map<{ name: string; enabled?: boolean; deleted?: boolean }> {
+): Y.Map<{ name: string; enabled?: boolean; folderId?: string | null; deleted?: boolean }> {
   return doc.getMap('members')
 }
 
@@ -67,7 +68,7 @@ export function getEntityListMemberFromFields(
 
 export function seedEntityListSession(
   doc: Y.Doc,
-  members: Array<{ id: string; name: string; enabled?: boolean }>
+  members: Array<{ id: string; name: string; enabled?: boolean; folderId?: string | null }>
 ): void {
   doc.transact(() => {
     const listMembers = getEntityListMembersMap(doc)
@@ -75,6 +76,7 @@ export function seedEntityListSession(
       listMembers.set(member.id, {
         name: member.name,
         ...(typeof member.enabled === 'boolean' ? { enabled: member.enabled } : {}),
+        ...('folderId' in member ? { folderId: member.folderId ?? null } : {}),
       })
     }
   }, YJS_ORIGINS.SYSTEM)
@@ -89,6 +91,7 @@ function applyEntityListMutation(doc: Y.Doc, mutation: EntityListMemberMutation)
             name: mutation.name,
             deleted: false,
             ...(typeof mutation.enabled === 'boolean' ? { enabled: mutation.enabled } : {}),
+            ...('folderId' in mutation ? { folderId: mutation.folderId ?? null } : {}),
           }
         : { name: '', deleted: true }
     )
@@ -112,6 +115,7 @@ export function getEntityListMembers(doc: Y.Doc): EntityListMember[] {
       entityId,
       entityName: typeof value?.name === 'string' ? value.name : '',
       ...(typeof value?.enabled === 'boolean' ? { enabled: value.enabled } : {}),
+      ...(value && 'folderId' in value ? { folderId: value.folderId ?? null } : {}),
     })
   })
   entries.sort((a, b) => a.entityName.localeCompare(b.entityName))

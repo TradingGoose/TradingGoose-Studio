@@ -58,16 +58,17 @@ export async function resolveEntityWorkspaceId(
 export async function readEntityListMembersFromDb(
   entityKind: ReviewEntityKind,
   workspaceId: string
-): Promise<Array<{ id: string; name: string; enabled?: boolean }>> {
+): Promise<Array<{ id: string; name: string; enabled?: boolean; folderId?: string | null }>> {
   if (entityKind === 'workflow') {
     const rows = await db
-      .select({ id: workflow.id, name: workflow.name })
+      .select({ id: workflow.id, name: workflow.name, folderId: workflow.folderId })
       .from(workflow)
       .where(eq(workflow.workspaceId, workspaceId))
 
     return rows.map((row) => ({
       id: row.id,
       name: row.name,
+      folderId: row.folderId,
     }))
   }
 

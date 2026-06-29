@@ -5,6 +5,7 @@ import {
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
 import type {
+  ReviewAccessMode,
   ReviewTargetDescriptor,
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
@@ -38,7 +39,8 @@ async function fetchSocketToken(): Promise<string> {
 
 async function fetchSnapshot(
   sessionId: string,
-  envelopeParams: Record<string, string>
+  envelopeParams: Record<string, string>,
+  accessMode: ReviewAccessMode
 ): Promise<{
   snapshotBase64: string
   descriptor: ReviewTargetDescriptor
@@ -46,7 +48,7 @@ async function fetchSnapshot(
 }> {
   const params = new URLSearchParams({
     ...envelopeParams,
-    accessMode: 'write',
+    accessMode,
   })
   const res = await fetch(`/api/yjs/sessions/${encodeURIComponent(sessionId)}/snapshot?${params}`, {
     cache: 'no-store',
@@ -101,13 +103,14 @@ export function waitForYjsSync(provider: WebsocketProvider): Promise<void> {
 
 export async function bootstrapYjsProvider(
   descriptor: ReviewTargetDescriptor,
-  wsOrigin = getDefaultWsOrigin()
+  wsOrigin = getDefaultWsOrigin(),
+  accessMode: ReviewAccessMode = 'write'
 ): Promise<YjsProviderBootstrapResult> {
   const doc = new Y.Doc()
 
   const initialEnvelope = buildYjsTransportEnvelope(descriptor)
   const initialEnvelopeParams = serializeYjsTransportEnvelope(initialEnvelope)
-  const snapshot = await fetchSnapshot(descriptor.yjsSessionId, initialEnvelopeParams)
+  const snapshot = await fetchSnapshot(descriptor.yjsSessionId, initialEnvelopeParams, accessMode)
   const resolvedDescriptor = snapshot.descriptor
   const runtime = snapshot.runtime
 
@@ -123,7 +126,7 @@ export async function bootstrapYjsProvider(
   const token = await fetchSocketToken()
 
   const provider = new WebsocketProvider(serverUrl, resolvedDescriptor.yjsSessionId, doc, {
-    params: { token, accessMode: 'write', ...envelopeParams },
+    params: { token, accessMode, ...envelopeParams },
     connect: true,
   })
 
@@ -143,7 +146,7 @@ export async function bootstrapYjsProvider(
         const nextToken = await fetchSocketToken()
         currentProvider.params = {
           token: nextToken,
-          accessMode: 'write',
+          accessMode,
           ...envelopeParams,
         }
         currentProvider.connect()

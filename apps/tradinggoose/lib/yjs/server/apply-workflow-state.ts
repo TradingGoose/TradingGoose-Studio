@@ -21,6 +21,7 @@ async function publishWorkflowListMember(workflowId: string): Promise<void> {
       id: workflow.id,
       workspaceId: workflow.workspaceId,
       name: workflow.name,
+      folderId: workflow.folderId,
     })
     .from(workflow)
     .where(eq(workflow.id, workflowId))
@@ -29,7 +30,7 @@ async function publishWorkflowListMember(workflowId: string): Promise<void> {
   if (!row?.workspaceId) return
 
   await notifyEntityListMembersUpserted('workflow', row.workspaceId, [
-    { id: row.id, name: row.name },
+    { id: row.id, name: row.name, folderId: row.folderId },
   ])
 }
 

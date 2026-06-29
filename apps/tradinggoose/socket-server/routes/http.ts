@@ -370,7 +370,7 @@ async function handleInternalYjsEntityListMembersRequest(
     }
 
     const body = (await readJsonBody(req)) as {
-      members?: Array<{ id?: unknown; name?: unknown; enabled?: unknown }>
+      members?: Array<{ id?: unknown; name?: unknown; enabled?: unknown; folderId?: unknown }>
       remove?: unknown
     }
     const mutations: EntityListMemberMutation[] = [
@@ -383,6 +383,9 @@ async function handleInternalYjsEntityListMembersRequest(
           entityId: member.id,
           name: member.name,
           ...(typeof member.enabled === 'boolean' ? { enabled: member.enabled } : {}),
+          ...(typeof member.folderId === 'string' || member.folderId === null
+            ? { folderId: member.folderId }
+            : {}),
         }
       }),
       ...(typeof body.remove === 'string'
@@ -555,7 +558,7 @@ async function handleInternalYjsSnapshotRequest(
     if (!liveDoc) {
       const bootstrapped = isEntityListSessionId(descriptor.yjsSessionId)
         ? await createEntityListBootstrapUpdate(
-            descriptor.entityKind as SavedEntityKind,
+            descriptor.entityKind,
             descriptor.workspaceId as string
           )
         : descriptor.entityId

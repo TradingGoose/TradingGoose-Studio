@@ -84,12 +84,34 @@ const WorkflowListWidgetBody = ({
               createdAt,
               marketplaceData: null,
               workspaceId,
-              folderId: null,
+              folderId: member.folderId ?? null,
             }
           })
         : [],
     [members, workspaceId]
   )
+
+  useEffect(() => {
+    if (!workspaceId) return
+    useWorkflowRegistry.setState((state) => ({
+      workflows: {
+        ...state.workflows,
+        ...Object.fromEntries(
+          regularWorkflows.map((workflow) => [
+            workflow.id,
+            {
+              ...workflow,
+              ...state.workflows[workflow.id],
+              name: workflow.name,
+              folderId: workflow.folderId,
+              workspaceId: workflow.workspaceId,
+            },
+          ])
+        ),
+      },
+    }))
+  }, [regularWorkflows, workspaceId])
+
   useEffect(() => {
     if (!selectedWorkflowId) {
       return
