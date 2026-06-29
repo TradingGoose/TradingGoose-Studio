@@ -8,38 +8,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   mockAuthenticateIndicatorRequest,
   mockCheckWorkspacePermission,
-  mockFrom,
-  mockSelect,
-  mockWhere,
+  mockListIndicators,
   mockIsIndicatorTriggerCapable,
 } = vi.hoisted(() => ({
   mockAuthenticateIndicatorRequest: vi.fn(),
   mockCheckWorkspacePermission: vi.fn(),
-  mockFrom: vi.fn(),
-  mockSelect: vi.fn(),
-  mockWhere: vi.fn(),
+  mockListIndicators: vi.fn(),
   mockIsIndicatorTriggerCapable: vi.fn(),
 }))
 
-vi.mock('@tradinggoose/db', () => ({
-  db: {
-    select: mockSelect,
-  },
-}))
-
-vi.mock('@tradinggoose/db/schema', () => ({
-  pineIndicators: {
-    id: 'pineIndicators.id',
-    name: 'pineIndicators.name',
-    color: 'pineIndicators.color',
-    pineCode: 'pineIndicators.pineCode',
-    inputMeta: 'pineIndicators.inputMeta',
-    workspaceId: 'pineIndicators.workspaceId',
-  },
-}))
-
-vi.mock('drizzle-orm', () => ({
-  eq: vi.fn((field: unknown, value: unknown) => ({ field, type: 'eq', value })),
+vi.mock('@/lib/indicators/custom/operations', () => ({
+  listIndicators: (...args: unknown[]) => mockListIndicators(...args),
 }))
 
 vi.mock('@/lib/indicators/default/runtime', () => ({
@@ -81,7 +60,7 @@ describe('indicator options route', () => {
     })
     mockCheckWorkspacePermission.mockResolvedValue({ ok: true, permission: 'admin' })
     mockIsIndicatorTriggerCapable.mockImplementation((code: string) => code === 'trigger-capable')
-    mockWhere.mockResolvedValue([
+    mockListIndicators.mockResolvedValue([
       {
         id: 'custom-trigger',
         name: 'Custom Trigger',
@@ -111,8 +90,6 @@ describe('indicator options route', () => {
         },
       },
     ])
-    mockFrom.mockReturnValue({ where: mockWhere })
-    mockSelect.mockReturnValue({ from: mockFrom })
   })
 
   const getOptions = async (search: string) => {

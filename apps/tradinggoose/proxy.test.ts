@@ -329,6 +329,86 @@ describe('proxy auth routing', () => {
     expect(response.cookies.get('NEXT_LOCALE')).toBeUndefined()
   })
 
+  it('exempts Codex MCP requests with an empty user-agent from suspicious user-agent filtering', async () => {
+    const { proxy } = await import('./proxy')
+    const response = await proxy(
+      new NextRequest('http://localhost:3000/api/copilot/mcp', {
+        method: 'POST',
+        headers: {
+          'user-agent': '',
+        },
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('x-middleware-rewrite')).toBeNull()
+    expect(response.cookies.get('NEXT_LOCALE')).toBeUndefined()
+  })
+
+  it('does not exempt Codex MCP requests from non-empty suspicious user-agent filtering', async () => {
+    const { proxy } = await import('./proxy')
+    const response = await proxy(
+      new NextRequest('http://localhost:3000/api/copilot/mcp', {
+        method: 'POST',
+        headers: {
+          'user-agent': 'sqlmap',
+        },
+      })
+    )
+
+    expect(response.status).toBe(403)
+    expect(response.headers.get('x-middleware-rewrite')).toBeNull()
+  })
+
+  it('keeps the MCP script route canonical for curl clients', async () => {
+    const { proxy } = await import('./proxy')
+    const response = await proxy(
+      new NextRequest('http://localhost:3000/mcp', {
+        headers: {
+          'user-agent': 'curl/8.0',
+        },
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('location')).toBeNull()
+    expect(response.headers.get('x-middleware-rewrite')).toBeNull()
+    expect(response.cookies.get('NEXT_LOCALE')).toBeUndefined()
+  })
+
+  it('keeps target-specific MCP setup script routes canonical for curl clients', async () => {
+    const { proxy } = await import('./proxy')
+    const response = await proxy(
+      new NextRequest('http://localhost:3000/mcp/setup/codex', {
+        headers: {
+          'user-agent': 'curl/8.0',
+        },
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('location')).toBeNull()
+    expect(response.headers.get('x-middleware-rewrite')).toBeNull()
+    expect(response.cookies.get('NEXT_LOCALE')).toBeUndefined()
+  })
+
+  it('localizes the MCP browser authorization page instead of treating it as a script route', async () => {
+    const { proxy } = await import('./proxy')
+    const response = await proxy(
+      new NextRequest('http://localhost:3000/mcp/authorize?code=login-code', {
+        headers: {
+          'user-agent': 'vitest',
+        },
+      })
+    )
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get('location')).toBe(
+      'http://localhost:3000/en/mcp/authorize?code=login-code'
+    )
+    expect(response.cookies.get('NEXT_LOCALE')?.value).toBe('en')
+  })
+
   it('does not exempt localized API-shaped webhook paths from suspicious user-agent filtering', async () => {
     const { proxy } = await import('./proxy')
     const response = await proxy(

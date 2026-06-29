@@ -17,19 +17,17 @@ export const GET = withMcpAuth('read')(
     try {
       const { searchParams } = new URL(request.url)
       const serverId = searchParams.get('serverId')
-      const forceRefresh = searchParams.get('refresh') === 'true'
 
       logger.info(`[${requestId}] Discovering MCP tools for user ${userId}`, {
         serverId,
         workspaceId,
-        forceRefresh,
       })
 
       let tools
       if (serverId) {
         tools = await mcpService.discoverServerTools(userId, serverId, workspaceId)
       } else {
-        tools = await mcpService.discoverTools(userId, workspaceId, forceRefresh)
+        tools = await mcpService.discoverTools(userId, workspaceId)
       }
 
       const byServer: Record<string, number> = {}

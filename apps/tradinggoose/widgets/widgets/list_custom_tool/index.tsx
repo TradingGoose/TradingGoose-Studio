@@ -2,7 +2,7 @@
 
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Upload, Wrench } from 'lucide-react'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages } from 'next-intl'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,8 +19,6 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
-import { useMessages } from 'next-intl'
-import type { LocaleCode } from '@/i18n/utils'
 import { parseImportedCustomToolsFile } from '@/lib/custom-tools/import-export'
 import { cn } from '@/lib/utils'
 import {
@@ -34,6 +32,7 @@ import {
   useImportCustomTools,
   useUpdateCustomTool,
 } from '@/hooks/queries/custom-tools'
+import type { LocaleCode } from '@/i18n/utils'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
@@ -54,17 +53,11 @@ import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/component
 const DEFAULT_CUSTOM_TOOL_NAME = 'newCustomTool'
 
 const sortCustomTools = (tools: CustomToolDefinition[]) =>
-  [...tools].sort((a, b) => {
-    const aTime = Date.parse(a.updatedAt ?? a.createdAt ?? '')
-    const bTime = Date.parse(b.updatedAt ?? b.createdAt ?? '')
-    return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime)
-  })
+  [...tools].sort((a, b) => a.title.localeCompare(b.title))
 
 const buildNewCustomToolDraft = (tools: CustomToolDefinition[]) => {
   const existingTitles = new Set(
-    tools
-      .map((tool) => tool.title.trim())
-      .filter((title): title is string => Boolean(title))
+    tools.map((tool) => tool.title.trim()).filter((title): title is string => Boolean(title))
   )
 
   let nextTitle = DEFAULT_CUSTOM_TOOL_NAME

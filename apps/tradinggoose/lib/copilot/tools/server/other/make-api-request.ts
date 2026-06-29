@@ -89,7 +89,6 @@ export const makeApiRequestServerTool: BaseServerTool<MakeApiRequestParams, any>
     if (totalChars > CAP) {
       const preview = normalized.slice(0, CAP)
       logger.warn('API response truncated by character cap', {
-        url,
         method,
         totalChars,
         previewChars: preview.length,
@@ -105,7 +104,7 @@ export const makeApiRequestServerTool: BaseServerTool<MakeApiRequestParams, any>
         note: `Response truncated to ${CAP} characters to avoid large payloads`,
       }
     }
-    logger.info('API request executed', { url, method, status, totalChars })
+    logger.info('API request executed', { method, status, totalChars })
     return { data: normalized, status, headers: respHeaders }
   },
 }

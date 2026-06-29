@@ -165,7 +165,7 @@ export const normalizeIndicatorInputOverrides = (
     const coerced = normalizeIndicatorInputValue(meta, value)
     if (typeof coerced === 'undefined') return
 
-    const defaultValue = normalizeIndicatorInputValue(meta, meta.value ?? meta.defval)
+    const defaultValue = normalizeIndicatorInputValue(meta, meta.defval)
     if (inputValuesEqual(coerced, defaultValue)) return
 
     normalized[title] = coerced

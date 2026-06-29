@@ -1,33 +1,38 @@
-import { db } from '@tradinggoose/db'
-import { workflow } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
 import * as Y from 'yjs'
 import {
+  buildEntityListDescriptor,
+  buildSavedEntityDescriptor,
   buildYjsTransportEnvelope,
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
-import {
-  loadCustomTool,
-  loadIndicator,
-  loadMcpServer,
-  loadSkill,
-} from '@/lib/yjs/server/entity-loaders'
+import { getReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/runtime'
 import type {
   ResolvedReviewTarget,
   ReviewTargetDescriptor,
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
-import { getReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/runtime'
-import { seedEntitySession } from '@/lib/yjs/entity-session'
+import { loadWorkflowBootstrapStateFromDb } from '@/lib/workflows/db-helpers'
 import {
-  getMetadataMap as readWorkflowMetadataMap,
+  type EntityListMember,
+  getEntityFields,
+  getEntityListMembers,
+  seedEntityListSession,
+  seedEntitySession,
+} from '@/lib/yjs/entity-session'
+import { type SavedEntityKind, SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
+import {
+  readEntityListMembersFromDb,
+  readSavedEntityFieldsFromDb,
+  resolveEntityWorkspaceId,
+} from '@/lib/yjs/server/entity-loaders'
+import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import {
+  createWorkflowSnapshot,
+  getMetadataMap,
   setVariables,
   setWorkflowState,
 } from '@/lib/yjs/workflow-session'
-import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
-import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
-import { loadWorkflowFromNormalizedTables } from '@/lib/workflows/db-helpers'
-import { getState as getPersistedYjsState } from '@/socket-server/yjs/persistence'
 
 export class ReviewTargetBootstrapError extends Error {
   status: number
@@ -37,12 +42,6 @@ export class ReviewTargetBootstrapError extends Error {
     this.name = 'ReviewTargetBootstrapError'
     this.status = status
   }
-}
-
-const ACTIVE_RESEEDED_RUNTIME: ReviewTargetRuntimeState = {
-  docState: 'active',
-  replaySafe: false,
-  reseededFromCanonical: true,
 }
 
 export function getRuntimeStateFromDoc(doc: Y.Doc): ReviewTargetRuntimeState {
@@ -59,294 +58,186 @@ export function getRuntimeStateFromUpdate(update: Uint8Array): ReviewTargetRunti
   }
 }
 
+function mapSavedEntitySnapshotError(error: unknown): never {
+  if (error instanceof SocketServerBridgeError && error.status < 500) {
+    throw new ReviewTargetBootstrapError(error.status, error.message)
+  }
+  throw new SavedEntityRealtimeRequiredError()
+}
+
 export async function readBootstrappedReviewTargetSnapshot(descriptor: ReviewTargetDescriptor) {
   const bridgeParams = serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
-  try {
-    return await getYjsSnapshot(descriptor.yjsSessionId, bridgeParams)
-  } catch (error) {
-    if (!(error instanceof SocketServerBridgeError) || error.status !== 404) {
-      throw error
-    }
-  }
-
-  const resolved = await bootstrapReviewTarget(descriptor)
-  if (!resolved.runtime) {
-    throw new ReviewTargetBootstrapError(500, 'Bootstrap runtime missing')
-  }
-
-  if (resolved.runtime.docState === 'expired') {
-    return {
-      snapshotBase64: '',
-      descriptor: resolved.descriptor,
-      runtime: resolved.runtime,
-    }
-  }
-
-  const state = await getPersistedYjsState(resolved.descriptor.yjsSessionId)
-  if (!state) {
-    throw new ReviewTargetBootstrapError(500, 'Snapshot not available after bootstrap')
-  }
-
-  return {
-    snapshotBase64: Buffer.from(state).toString('base64'),
-    descriptor: resolved.descriptor,
-    runtime: resolved.runtime,
-  }
+  return getYjsSnapshot(descriptor.yjsSessionId, bridgeParams)
 }
 
-async function getExistingYjsState(sessionId: string): Promise<Uint8Array | null> {
-  const [{ getExistingDocument }, { getState }] = await Promise.all([
-    import('@/socket-server/yjs/upstream-utils'),
-    import('@/socket-server/yjs/persistence'),
-  ])
-
-  const liveDoc = await getExistingDocument(sessionId)
-  if (liveDoc) {
-    return Y.encodeStateAsUpdate(liveDoc)
-  }
-
-  return getState(sessionId)
-}
-
-async function getBootstrapDoc(sessionId: string): Promise<Y.Doc> {
-  const [{ getDocument, setPersistence }, { getState, storeState }] = await Promise.all([
-    import('@/socket-server/yjs/upstream-utils'),
-    import('@/socket-server/yjs/persistence'),
-  ])
-
-  setPersistence(sessionId, { getState, storeState })
-  return getDocument(sessionId)
-}
-
-async function persistDoc(sessionId: string, doc: Y.Doc): Promise<void> {
-  const { storeState } = await import('@/socket-server/yjs/persistence')
-  await storeState(sessionId, Y.encodeStateAsUpdate(doc))
-}
-
-async function resolveExistingReviewTarget(
-  descriptor: ReviewTargetDescriptor
-): Promise<ResolvedReviewTarget | null> {
-  const existingState = await getExistingYjsState(descriptor.yjsSessionId)
-  if (!existingState) {
-    return null
-  }
-
-  return {
-    descriptor,
-    runtime: getRuntimeStateFromUpdate(existingState),
-  }
-}
-
-/**
- * Ensures a review target has an active Yjs document. If an active blob already
- * exists it is reused; saved targets are reseeded from canonical data on loss;
- * unsaved drafts return the explicit expired state.
- */
-export async function bootstrapReviewTarget(
-  descriptor: ReviewTargetDescriptor
-): Promise<ResolvedReviewTarget> {
-  const existing = await resolveExistingReviewTarget(descriptor)
-  if (existing) {
-    return existing
-  }
-
-  if (descriptor.entityKind === 'workflow') {
-    return bootstrapWorkflowTarget(descriptor)
-  }
-
-  if (descriptor.entityId) {
-    return bootstrapSavedEntityTarget(descriptor)
-  }
-
-  return {
-    descriptor,
-    runtime: {
-      docState: 'expired',
-      replaySafe: false,
-      reseededFromCanonical: false,
-    },
-  }
-}
-
-async function bootstrapWorkflowTarget(
-  descriptor: ReviewTargetDescriptor
-): Promise<ResolvedReviewTarget> {
-  const workflowId = descriptor.entityId ?? descriptor.yjsSessionId
-  if (!workflowId) {
-    throw new ReviewTargetBootstrapError(404, 'Workflow target is missing a workflow id')
-  }
-
-  const [workflowRow] = await db
-    .select({
-      id: workflow.id,
-      name: workflow.name,
-      workspaceId: workflow.workspaceId,
-      updatedAt: workflow.updatedAt,
-      isDeployed: workflow.isDeployed,
-      deployedAt: workflow.deployedAt,
-      variables: workflow.variables,
-    })
-    .from(workflow)
-    .where(eq(workflow.id, workflowId))
-    .limit(1)
-
-  if (!workflowRow) {
-    throw new ReviewTargetBootstrapError(404, 'Workflow target no longer exists')
-  }
-
-  const normalizedState = await loadWorkflowFromNormalizedTables(workflowId)
-  const workflowSnapshot: WorkflowSnapshot = {
-    blocks: normalizedState?.blocks ?? {},
-    edges: normalizedState?.edges ?? [],
-    loops: normalizedState?.loops ?? {},
-    parallels: normalizedState?.parallels ?? {},
-    lastSaved: workflowRow.updatedAt?.toISOString(),
-    isDeployed: workflowRow.isDeployed,
-    deployedAt: workflowRow.deployedAt?.toISOString(),
-  }
-
-  const doc = await getBootstrapDoc(workflowId)
-  setWorkflowState(doc, workflowSnapshot, 'bootstrap')
-  setVariables(doc, ((workflowRow.variables as Record<string, any> | null) ?? {}) as Record<string, any>, 'bootstrap')
-
-  doc.transact(() => {
-    const metadata = readWorkflowMetadataMap(doc)
-    metadata.set('entityName', workflowRow.name)
-    metadata.set('reseededFromCanonical', true)
-  }, 'bootstrap')
-
-  await persistDoc(workflowId, doc)
-
-  return {
-    descriptor: {
-      ...descriptor,
-      workspaceId: workflowRow.workspaceId ?? descriptor.workspaceId,
-      entityId: workflowId,
-      yjsSessionId: workflowId,
-    },
-    runtime: ACTIVE_RESEEDED_RUNTIME,
-  }
-}
-
-async function bootstrapSavedEntityTarget(
-  descriptor: ReviewTargetDescriptor
-): Promise<ResolvedReviewTarget> {
-  if (!descriptor.entityId) {
-    throw new ReviewTargetBootstrapError(409, 'Saved entity target is missing entityId')
-  }
-
-  if (!descriptor.workspaceId) {
-    throw new ReviewTargetBootstrapError(409, 'Saved entity target is missing workspaceId')
-  }
-
-  const canonical = await loadCanonicalEntitySeed(descriptor)
-  const doc = await getBootstrapDoc(descriptor.entityId)
-
-  seedEntitySession(doc, {
-    entityKind: descriptor.entityKind,
-    payload: canonical.payload,
-  })
-
-  doc.transact(() => {
-    doc.getMap('metadata').set('reseededFromCanonical', true)
-  }, 'bootstrap')
-
-  await persistDoc(descriptor.entityId, doc)
-
-  return {
-    descriptor: {
-      ...descriptor,
-      workspaceId: canonical.workspaceId,
-      entityId: descriptor.entityId,
-      reviewSessionId: null,
-      yjsSessionId: descriptor.entityId,
-    },
-    runtime: ACTIVE_RESEEDED_RUNTIME,
-  }
-}
-
-async function loadCanonicalEntitySeed(descriptor: ReviewTargetDescriptor): Promise<{
+export async function requireSavedEntityRealtimeListMembers(
+  entityKind: SavedEntityKind,
   workspaceId: string
-  payload: Record<string, unknown>
-}> {
-  switch (descriptor.entityKind) {
-    case 'skill': {
-      const row = await loadSkill(descriptor.entityId!, descriptor.workspaceId!)
-      if (!row) {
-        throw new ReviewTargetBootstrapError(404, 'Skill target no longer exists')
-      }
+): Promise<EntityListMember[]> {
+  const snapshot = await readBootstrappedReviewTargetSnapshot(
+    buildEntityListDescriptor(entityKind, workspaceId)
+  ).catch(mapSavedEntitySnapshotError)
+  if (!snapshot.snapshotBase64) {
+    return []
+  }
 
-      return {
-        workspaceId: row.workspaceId,
-        payload: {
-          name: row.name,
-          description: row.description,
-          content: row.content,
-        },
-      }
-    }
-    case 'custom_tool': {
-      const row = await loadCustomTool(descriptor.entityId!, descriptor.workspaceId!)
-      if (!row) {
-        throw new ReviewTargetBootstrapError(404, 'Custom tool target no longer exists')
-      }
+  const doc = new Y.Doc()
+  try {
+    Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
+    const activeEntityIds = new Set(
+      (await readEntityListMembersFromDb(entityKind, workspaceId)).map((member) => member.id)
+    )
+    return getEntityListMembers(doc).filter((member) => activeEntityIds.has(member.entityId))
+  } finally {
+    doc.destroy()
+  }
+}
 
-      return {
-        workspaceId: row.workspaceId,
-        payload: {
-          title: row.title,
-          schemaText:
-            typeof row.schema === 'string' ? row.schema : JSON.stringify(row.schema ?? {}, null, 2),
-          codeText: row.code,
-        },
+export async function requireSavedEntityRealtimeListFields(
+  entityKind: SavedEntityKind,
+  workspaceId: string
+): Promise<Array<EntityListMember & { fields: Record<string, unknown> }>> {
+  const members = await requireSavedEntityRealtimeListMembers(entityKind, workspaceId)
+  const entries = await Promise.all(
+    members.map(async (member) => {
+      try {
+        return {
+          ...member,
+          fields: await readBootstrappedSavedEntityFields(entityKind, member.entityId, workspaceId),
+        }
+      } catch (error) {
+        if (error instanceof ReviewTargetBootstrapError && error.status === 404) {
+          return null
+        }
+        throw error
       }
-    }
-    case 'indicator': {
-      const row = await loadIndicator(descriptor.entityId!, descriptor.workspaceId!)
-      if (!row) {
-        throw new ReviewTargetBootstrapError(404, 'Indicator target no longer exists')
-      }
+    })
+  )
 
-      return {
-        workspaceId: row.workspaceId,
-        payload: {
-          name: row.name,
-          color: row.color,
-          pineCode: row.pineCode,
-          inputMeta: row.inputMeta,
-        },
-      }
-    }
-    case 'mcp_server': {
-      const row = await loadMcpServer(descriptor.entityId!, descriptor.workspaceId!)
-      if (!row) {
-        throw new ReviewTargetBootstrapError(404, 'MCP server target no longer exists')
-      }
+  return entries.filter(
+    (entry): entry is EntityListMember & { fields: Record<string, unknown> } => entry !== null
+  )
+}
 
-      return {
-        workspaceId: row.workspaceId,
-        payload: {
-          name: row.name,
-          description: row.description ?? '',
-          transport: row.transport,
-          url: row.url ?? '',
-          headers:
-            row.headers && typeof row.headers === 'object' && !Array.isArray(row.headers)
-              ? row.headers
-              : {},
-          command: row.command ?? '',
-          args: Array.isArray(row.args) ? row.args : [],
-          env:
-            row.env && typeof row.env === 'object' && !Array.isArray(row.env) ? row.env : {},
-          timeout: row.timeout ?? 30000,
-          retries: row.retries ?? 3,
-          enabled: row.enabled ?? true,
-        },
+export async function readBootstrappedSavedEntityFields(
+  entityKind: SavedEntityKind,
+  entityId: string,
+  workspaceId: string
+): Promise<Record<string, unknown>> {
+  const snapshot = await readBootstrappedReviewTargetSnapshot(
+    buildSavedEntityDescriptor(entityKind, entityId, workspaceId)
+  ).catch(mapSavedEntitySnapshotError)
+  if (!snapshot.snapshotBase64) {
+    throw new ReviewTargetBootstrapError(404, `Saved ${entityKind} ${entityId} state is missing`)
+  }
+
+  const doc = new Y.Doc()
+  try {
+    Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
+    return getEntityFields(doc, entityKind)
+  } finally {
+    doc.destroy()
+  }
+}
+
+export async function createSavedReviewTargetBootstrapUpdate(
+  descriptor: ReviewTargetDescriptor
+): Promise<ResolvedReviewTarget & { state: Uint8Array }> {
+  if (!descriptor.entityId) {
+    throw new ReviewTargetBootstrapError(404, 'Saved entity id is required')
+  }
+
+  const doc = new Y.Doc()
+  try {
+    let workflowName: string | null | undefined
+    let workflowDescription: string | null | undefined
+    let workflowFolderId: string | null | undefined
+    let resolvedWorkspaceId: string | null = descriptor.workspaceId
+    if (descriptor.entityKind === 'workflow') {
+      const workflowState = await loadWorkflowBootstrapStateFromDb(descriptor.entityId)
+      if (!workflowState) {
+        throw new ReviewTargetBootstrapError(404, 'Workflow not found')
       }
+      workflowName = workflowState.name
+      workflowDescription = workflowState.description
+      workflowFolderId = workflowState.folderId
+
+      setWorkflowState(
+        doc,
+        createWorkflowSnapshot({
+          direction: workflowState.direction,
+          blocks: workflowState.blocks,
+          edges: workflowState.edges,
+          loops: workflowState.loops,
+          parallels: workflowState.parallels,
+          lastSaved: new Date(workflowState.lastSaved).toISOString(),
+        }),
+        YJS_ORIGINS.SYSTEM
+      )
+      setVariables(doc, workflowState.variables, YJS_ORIGINS.SYSTEM)
+    } else {
+      const entityKind = descriptor.entityKind as SavedEntityKind
+      const workspaceId =
+        descriptor.workspaceId ?? (await resolveEntityWorkspaceId(entityKind, descriptor.entityId))
+      if (!workspaceId) {
+        throw new ReviewTargetBootstrapError(404, 'Saved entity workspace is missing')
+      }
+      resolvedWorkspaceId = workspaceId
+
+      seedEntitySession(doc, {
+        entityKind,
+        payload: await readSavedEntityFieldsFromDb(entityKind, descriptor.entityId, workspaceId),
+      })
     }
-    case 'workflow':
-      throw new ReviewTargetBootstrapError(409, 'Workflow targets must use workflow bootstrap')
-    default:
-      throw new ReviewTargetBootstrapError(409, 'Unsupported review target')
+
+    const metadata = getMetadataMap(doc)
+    metadata.set('bootstrap-touch', Date.now())
+    metadata.set('entityKind', descriptor.entityKind)
+    metadata.set('entityId', descriptor.entityId)
+    metadata.set('workspaceId', resolvedWorkspaceId)
+    metadata.set('draftSessionId', descriptor.draftSessionId)
+    metadata.set('reviewSessionId', descriptor.reviewSessionId)
+    metadata.set('reseededFromCanonical', true)
+    if (workflowName) {
+      metadata.set('entityName', workflowName)
+    }
+    if (workflowDescription !== undefined) {
+      metadata.set('entityDescription', workflowDescription)
+    }
+    if (workflowFolderId !== undefined) {
+      metadata.set('folderId', workflowFolderId)
+    }
+    const state = Y.encodeStateAsUpdate(doc)
+
+    return {
+      descriptor,
+      runtime: getRuntimeStateFromUpdate(state),
+      state,
+    }
+  } finally {
+    doc.destroy()
+  }
+}
+
+export async function createEntityListBootstrapUpdate(
+  entityKind: SavedEntityKind,
+  workspaceId: string
+): Promise<ResolvedReviewTarget & { state: Uint8Array }> {
+  const descriptor = buildEntityListDescriptor(entityKind, workspaceId)
+  const doc = new Y.Doc()
+  try {
+    seedEntityListSession(doc, await readEntityListMembersFromDb(entityKind, workspaceId))
+
+    const metadata = getMetadataMap(doc)
+    metadata.set('reseededFromCanonical', true)
+    const state = Y.encodeStateAsUpdate(doc)
+
+    return {
+      descriptor,
+      runtime: getRuntimeStateFromUpdate(state),
+      state,
+    }
+  } finally {
+    doc.destroy()
   }
 }

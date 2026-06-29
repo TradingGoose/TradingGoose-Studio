@@ -7,8 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 describe('Workflow API Route', () => {
   const insertValuesMock = vi.fn()
   const deleteWhereMock = vi.fn()
-  const saveWorkflowToNormalizedTablesMock = vi.fn()
-  const tryApplyWorkflowStateMock = vi.fn()
+  const applyWorkflowStateMock = vi.fn()
   const randomUUIDMock = vi.fn()
 
   const createRequest = (body: Record<string, unknown>) =>
@@ -26,8 +25,7 @@ describe('Workflow API Route', () => {
 
     insertValuesMock.mockResolvedValue(undefined)
     deleteWhereMock.mockResolvedValue(undefined)
-    saveWorkflowToNormalizedTablesMock.mockResolvedValue({ success: true })
-    tryApplyWorkflowStateMock.mockResolvedValue({ success: true })
+    applyWorkflowStateMock.mockResolvedValue(undefined)
     randomUUIDMock.mockReset()
     randomUUIDMock.mockReturnValueOnce('workflow-123').mockReturnValueOnce('variable-123')
     vi.stubGlobal('crypto', {
@@ -86,28 +84,12 @@ describe('Workflow API Route', () => {
       generateRequestId: vi.fn(() => 'request-id'),
     }))
 
-    vi.doMock('@/lib/workflows/db-helpers', () => ({
-      remapVariableIds: vi.fn((variables: Record<string, any>, workflowId: string) =>
-        Object.fromEntries(
-          Object.entries(variables).map(([key, variable]) => [
-            key,
-            {
-              ...variable,
-              id: crypto.randomUUID(),
-              workflowId,
-            },
-          ])
-        )
-      ),
-      saveWorkflowToNormalizedTables: saveWorkflowToNormalizedTablesMock,
-    }))
-
     vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
-      tryApplyWorkflowState: tryApplyWorkflowStateMock,
+      applyWorkflowState: applyWorkflowStateMock,
     }))
 
-    vi.doMock('@/lib/yjs/workflow-session', () => ({
-      createWorkflowSnapshot: vi.fn((snapshot) => snapshot),
+    vi.doMock('@/app/api/workflows/utils', () => ({
+      createWorkflowRealtimeRequiredResponse: vi.fn(() => null),
     }))
 
     vi.doMock('@/lib/telemetry/tracer', () => ({
@@ -119,7 +101,7 @@ describe('Workflow API Route', () => {
     vi.unstubAllGlobals()
   })
 
-  it('persists initial workflow state canonically before seeding Yjs', async () => {
+  it('applies initial workflow state through Yjs materialization', async () => {
     const initialWorkflowState = {
       blocks: {
         'block-1': {
@@ -158,13 +140,13 @@ describe('Workflow API Route', () => {
 
     expect(response.status).toBe(200)
     expect(insertValuesMock).toHaveBeenCalledOnce()
-    expect(saveWorkflowToNormalizedTablesMock).toHaveBeenCalledOnce()
-    expect(tryApplyWorkflowStateMock).toHaveBeenCalledOnce()
+    expect(applyWorkflowStateMock).toHaveBeenCalledOnce()
 
     const insertedWorkflow = insertValuesMock.mock.calls[0][0]
-    const canonicalState = saveWorkflowToNormalizedTablesMock.mock.calls[0][1]
+    const persistedState = applyWorkflowStateMock.mock.calls[0][1]
+    const persistedVariables = applyWorkflowStateMock.mock.calls[0][2]
 
-    const insertedVariableValues = Object.values(insertedWorkflow.variables as Record<string, any>)
+    const insertedVariableValues = Object.values(persistedVariables as Record<string, any>)
     expect(insertedVariableValues).toHaveLength(1)
     expect(insertedVariableValues[0]).toEqual({
       id: 'variable-123',
@@ -173,32 +155,25 @@ describe('Workflow API Route', () => {
       type: 'plain',
       value: 'secret',
     })
-    expect(saveWorkflowToNormalizedTablesMock).toHaveBeenCalledWith(
+    expect(applyWorkflowStateMock).toHaveBeenCalledWith(
       insertedWorkflow.id,
       expect.objectContaining({
         blocks: initialWorkflowState.blocks,
         edges: initialWorkflowState.edges,
         loops: initialWorkflowState.loops,
         parallels: initialWorkflowState.parallels,
-        isDeployed: false,
-      })
-    )
-    expect(canonicalState.lastSaved).toEqual(expect.any(Number))
-    expect(tryApplyWorkflowStateMock).toHaveBeenCalledWith(
-      insertedWorkflow.id,
-      expect.objectContaining({
-        blocks: initialWorkflowState.blocks,
       }),
-      insertedWorkflow.variables,
-      'Workflow Copy'
+      persistedVariables,
+      expect.objectContaining({
+        name: 'Workflow Copy',
+        description: 'Created from seed',
+        folderId: null,
+      })
     )
   })
 
-  it('rolls back the workflow row when canonical initial-state persistence fails', async () => {
-    saveWorkflowToNormalizedTablesMock.mockResolvedValueOnce({
-      success: false,
-      error: 'save failed',
-    })
+  it('rolls back the workflow row when initial state persistence fails', async () => {
+    applyWorkflowStateMock.mockRejectedValueOnce(new Error('realtime unavailable'))
 
     const { POST } = await import('@/app/api/workflows/route')
     const response = await POST(
@@ -216,9 +191,36 @@ describe('Workflow API Route', () => {
     )
 
     expect(response.status).toBe(500)
-    expect(saveWorkflowToNormalizedTablesMock).toHaveBeenCalledOnce()
+    expect(applyWorkflowStateMock).toHaveBeenCalledOnce()
     expect(deleteWhereMock).toHaveBeenCalledOnce()
-    expect(tryApplyWorkflowStateMock).not.toHaveBeenCalled()
+  })
+
+  it('applies default workflow state when no initial state is provided', async () => {
+    const { POST } = await import('@/app/api/workflows/route')
+    const response = await POST(
+      createRequest({
+        name: 'Blank Workflow',
+        workspaceId: 'workspace-1',
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(applyWorkflowStateMock).toHaveBeenCalledOnce()
+
+    const insertedWorkflow = insertValuesMock.mock.calls[0][0]
+    const persistedVariables = applyWorkflowStateMock.mock.calls[0][2]
+    expect(persistedVariables).toEqual({})
+    expect(applyWorkflowStateMock).toHaveBeenCalledWith(
+      insertedWorkflow.id,
+      expect.objectContaining({
+        blocks: {},
+        edges: [],
+        loops: {},
+        parallels: {},
+      }),
+      {},
+      expect.any(Object)
+    )
   })
 
   it('rejects workflow creation without workspace scope', async () => {

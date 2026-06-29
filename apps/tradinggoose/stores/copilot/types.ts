@@ -88,7 +88,7 @@ export type ChatContext =
   | { kind: 'blocks'; blockTypes?: string[]; label: string }
   | { kind: 'logs'; executionId?: string; label: string }
   | { kind: 'workflow_block'; workflowId: string; blockId: string; label: string }
-  | { kind: 'knowledge'; knowledgeId?: string; label: string }
+  | { kind: 'knowledge'; knowledgeId?: string; workspaceId?: string; label: string }
   | { kind: 'templates'; templateId?: string; label: string }
   | { kind: 'docs'; label: string }
 

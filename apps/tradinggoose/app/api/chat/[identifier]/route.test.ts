@@ -50,7 +50,6 @@ vi.mock('@tradinggoose/db/schema', () => ({
     id: 'workflow.id',
     isDeployed: 'workflow.isDeployed',
     workspaceId: 'workflow.workspaceId',
-    variables: 'workflow.variables',
     pinnedApiKeyId: 'workflow.pinnedApiKeyId',
   },
 }))
@@ -125,6 +124,8 @@ vi.mock('@/lib/utils', () => ({
     Connection: 'keep-alive',
   },
 }))
+
+import { GET, POST } from './route'
 
 const chatParams = () => ({ params: Promise.resolve({ identifier: 'test-chat' }) })
 const postChatRequest = (body: Record<string, unknown>) =>
@@ -235,7 +236,6 @@ describe('/api/chat/[identifier]', () => {
   })
 
   it('returns chat metadata for a valid identifier', async () => {
-    const { GET } = await import('./route')
     const response = await GET(
       new NextRequest('https://example.com/api/chat/test-chat'),
       chatParams()
@@ -250,7 +250,6 @@ describe('/api/chat/[identifier]', () => {
   })
 
   it('queues chat workflow messages and returns an SSE response from queued result', async () => {
-    const { POST } = await import('./route')
     const response = await POST(
       postChatRequest({
         input: 'Hello',
@@ -281,6 +280,9 @@ describe('/api/chat/[identifier]', () => {
         }),
       })
     )
+    expect(enqueuePendingExecutionMock.mock.calls[0]?.[0].payload).not.toHaveProperty(
+      'workflowVariables'
+    )
 
     const body = await response.text()
 
@@ -304,7 +306,6 @@ describe('/api/chat/[identifier]', () => {
     })
 
     try {
-      const { POST } = await import('./route')
       const response = await POST(
         postChatRequest({
           input: 'Hello',
@@ -330,7 +331,6 @@ describe('/api/chat/[identifier]', () => {
   it('requires a pinned API key owner for queued chat execution attribution', async () => {
     getApiKeyOwnerUserIdMock.mockResolvedValueOnce(null)
 
-    const { POST } = await import('./route')
     const response = await POST(postChatRequest({ input: 'Hello' }), chatParams())
 
     expect(response.status).toBe(503)

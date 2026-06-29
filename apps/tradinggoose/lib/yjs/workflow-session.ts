@@ -5,7 +5,7 @@
  * and provides helpers to read/write the live workflow state.
  *
  * Top-level collections:
- *   - "workflow"  (Y.Map) — blocks, edges, loops, parallels, deployment metadata
+ *   - "workflow"  (Y.Map) — editable blocks, edges, loops, parallels, and save timestamp
  *   - "textFields" (Y.Map) — text-heavy subblock values keyed by blockId/subBlockId
  *   - "variables" (Y.Map) — per-workflow variable records keyed by variable id
  *   - "metadata"  (Y.Map) — session-level workflow metadata (e.g. reseed markers)
@@ -37,8 +37,6 @@ export const YJS_KEYS = {
   PARALLELS: 'parallels',
   DIRECTION: 'direction',
   LAST_SAVED: 'lastSaved',
-  IS_DEPLOYED: 'isDeployed',
-  DEPLOYED_AT: 'deployedAt',
 } as const
 
 const WORKFLOW_TEXT_FIELD_SEPARATOR = '::'
@@ -90,7 +88,11 @@ export function readWorkflowTextFieldFromMap(
   return existing instanceof Y.Text ? existing : null
 }
 
-export function readWorkflowTextField(doc: Y.Doc, blockId: string, subBlockId: string): Y.Text | null {
+export function readWorkflowTextField(
+  doc: Y.Doc,
+  blockId: string,
+  subBlockId: string
+): Y.Text | null {
   return readWorkflowTextFieldFromMap(readWorkflowTextFieldsMap(doc), blockId, subBlockId)
 }
 
@@ -235,9 +237,19 @@ export interface WorkflowSnapshot {
   edges: Edge[]
   loops: Record<string, Loop>
   parallels: Record<string, Parallel>
-  lastSaved?: string
-  isDeployed?: boolean
-  deployedAt?: string
+  lastSaved?: string | number
+}
+
+export type WorkflowMetadataPatch = {
+  name?: string
+  description?: string | null
+  folderId?: string | null
+}
+
+export type WorkflowMetadataSnapshot = {
+  name?: string
+  description?: string | null
+  folderId?: string | null
 }
 
 /**
@@ -253,8 +265,6 @@ function applySnapshotDefaults(partial: Partial<WorkflowSnapshot>): WorkflowSnap
     loops: partial.loops ?? {},
     parallels: partial.parallels ?? {},
     lastSaved: partial.lastSaved,
-    isDeployed: partial.isDeployed,
-    deployedAt: partial.deployedAt,
   }
 }
 
@@ -262,9 +272,7 @@ function applySnapshotDefaults(partial: Partial<WorkflowSnapshot>): WorkflowSnap
  * Creates a WorkflowSnapshot with safe defaults for all fields.
  * Use this instead of manually spreading `?? {}` / `?? []` at every call site.
  */
-export function createWorkflowSnapshot(
-  partial: Partial<WorkflowSnapshot> = {}
-): WorkflowSnapshot {
+export function createWorkflowSnapshot(partial: Partial<WorkflowSnapshot> = {}): WorkflowSnapshot {
   return applySnapshotDefaults(partial)
 }
 
@@ -292,8 +300,6 @@ export function readWorkflowSnapshot(doc: Y.Doc): WorkflowSnapshot {
     loops: wMap.get(YJS_KEYS.LOOPS) ?? {},
     parallels: wMap.get(YJS_KEYS.PARALLELS) ?? {},
     lastSaved: wMap.get(YJS_KEYS.LAST_SAVED),
-    isDeployed: wMap.get(YJS_KEYS.IS_DEPLOYED),
-    deployedAt: wMap.get(YJS_KEYS.DEPLOYED_AT),
   })
 }
 
@@ -319,16 +325,13 @@ export function readWorkflowSnapshotCloned(doc: Y.Doc): WorkflowSnapshot {
     loops,
     parallels,
     lastSaved: wMap.get(YJS_KEYS.LAST_SAVED),
-    isDeployed: wMap.get(YJS_KEYS.IS_DEPLOYED),
-    deployedAt: wMap.get(YJS_KEYS.DEPLOYED_AT),
   })
 }
 
 /**
  * Applies a full workflow state to the Yjs document inside a single
- * transaction.  Optional fields (lastSaved, isDeployed, deployedAt) are only
- * written when present in the incoming state so callers can do partial
- * updates by omitting them.
+ * transaction. Optional lastSaved is only written when present so callers can
+ * do partial updates by omitting it.
  *
  * @param origin - Yjs transaction origin tag (defaults to `'system'`)
  */
@@ -342,8 +345,6 @@ export function setWorkflowState(doc: Y.Doc, state: WorkflowSnapshot, origin?: s
     wMap.set(YJS_KEYS.LOOPS, state.loops ?? {})
     wMap.set(YJS_KEYS.PARALLELS, state.parallels ?? {})
     if (state.lastSaved !== undefined) wMap.set(YJS_KEYS.LAST_SAVED, state.lastSaved)
-    if (state.isDeployed !== undefined) wMap.set(YJS_KEYS.IS_DEPLOYED, state.isDeployed)
-    if (state.deployedAt !== undefined) wMap.set(YJS_KEYS.DEPLOYED_AT, state.deployedAt)
 
     for (const key of Array.from(textFields.keys())) {
       const parsed = parseWorkflowTextFieldKey(key)
@@ -369,6 +370,52 @@ export function setWorkflowState(doc: Y.Doc, state: WorkflowSnapshot, origin?: s
       textFields.set(key, next)
     }
   }, origin ?? YJS_ORIGINS.SYSTEM)
+}
+
+export function replaceWorkflowDocumentState(
+  doc: Y.Doc,
+  workflowState: WorkflowSnapshot,
+  variables?: Record<string, any>,
+  metadataPatch?: WorkflowMetadataPatch
+): void {
+  setWorkflowState(doc, workflowState, YJS_ORIGINS.SYSTEM)
+
+  if (variables !== undefined) {
+    setVariables(doc, variables, YJS_ORIGINS.SYSTEM)
+  }
+
+  doc.transact(() => {
+    getMetadataMap(doc).delete('reseededFromCanonical')
+  }, YJS_ORIGINS.SYSTEM)
+  if (metadataPatch) setWorkflowEntityMetadata(doc, metadataPatch)
+}
+
+export function readWorkflowEntityMetadata(doc: Y.Doc): WorkflowMetadataSnapshot {
+  const metadata = getMetadataMap(doc)
+  return {
+    ...(typeof metadata.get('entityName') === 'string'
+      ? { name: metadata.get('entityName') as string }
+      : {}),
+    ...(metadata.has('entityDescription')
+      ? { description: metadata.get('entityDescription') as string | null }
+      : {}),
+    ...(metadata.has('folderId') ? { folderId: metadata.get('folderId') as string | null } : {}),
+  }
+}
+
+export function setWorkflowEntityMetadata(doc: Y.Doc, patch: WorkflowMetadataPatch): void {
+  const name = patch.name?.trim()
+  if (patch.name !== undefined && !name) {
+    throw new Error('Workflow name is required')
+  }
+
+  doc.transact(() => {
+    const metadata = getMetadataMap(doc)
+    metadata.delete('reseededFromCanonical')
+    if (name !== undefined) metadata.set('entityName', name)
+    if (patch.description !== undefined) metadata.set('entityDescription', patch.description)
+    if (patch.folderId !== undefined) metadata.set('folderId', patch.folderId)
+  }, YJS_ORIGINS.SYSTEM)
 }
 
 // ---------------------------------------------------------------------------
@@ -480,6 +527,9 @@ export function setVariables(doc: Y.Doc, variables: Record<string, any>, origin?
  * by both the server-side Yjs loader and the template builder.
  */
 export interface PersistedDocState {
+  name?: string
+  description?: string | null
+  folderId?: string | null
   direction?: WorkflowDirection
   blocks: Record<string, BlockState>
   edges: Edge[]
@@ -491,10 +541,12 @@ export interface PersistedDocState {
 
 export function extractPersistedStateFromDoc(doc: Y.Doc): PersistedDocState {
   const snapshot = readWorkflowSnapshot(doc)
+  const metadata = readWorkflowEntityMetadata(doc)
   const variables = getVariablesSnapshot(doc)
   const lastSaved = resolveStoredDateValue(snapshot.lastSaved)?.getTime() ?? Date.now()
 
   return {
+    ...metadata,
     ...(snapshot.direction !== undefined ? { direction: snapshot.direction } : {}),
     blocks: snapshot.blocks || {},
     edges: snapshot.edges || [],

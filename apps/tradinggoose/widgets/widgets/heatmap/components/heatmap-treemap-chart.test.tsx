@@ -323,7 +323,7 @@ describe('HeatmapTreemapChart', () => {
 
     const button = container.querySelector('button')
     const icon = container.querySelector('img')
-    expect(button?.textContent?.trim()).toBe('')
+    await vi.waitFor(() => expect(button?.textContent?.trim()).toBe(''))
     expect(icon?.style.width).toBe('16px')
     expect(icon?.style.height).toBe('16px')
   })

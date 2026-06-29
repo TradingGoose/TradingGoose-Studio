@@ -1,5 +1,8 @@
-import * as Y from 'yjs'
-import type { ReviewTargetDocState, ReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/types'
+import type * as Y from 'yjs'
+import type {
+  ReviewTargetDocState,
+  ReviewTargetRuntimeState,
+} from '@/lib/copilot/review-sessions/types'
 
 function isReviewTargetDocState(value: unknown): value is ReviewTargetDocState {
   return value === 'active' || value === 'expired'

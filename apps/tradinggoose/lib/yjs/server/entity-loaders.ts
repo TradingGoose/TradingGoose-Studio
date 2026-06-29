@@ -1,90 +1,101 @@
 import { db } from '@tradinggoose/db'
-import { customTools, mcpServers, pineIndicators, skill } from '@tradinggoose/db/schema'
-import { and, eq, isNull } from 'drizzle-orm'
-import type { SavedEntityKind } from '@/lib/yjs/entity-state'
+import {
+  customTools,
+  knowledgeBase,
+  mcpServers,
+  pineIndicators,
+  skill,
+} from '@tradinggoose/db/schema'
+import { and, eq, isNull, type SQL } from 'drizzle-orm'
+import {
+  type SavedEntityKind,
+  type SavedEntityRow,
+  savedEntityRowToFields,
+} from '@/lib/yjs/entity-state'
+
+const ENTITY_TABLES = {
+  skill: { table: skill, name: skill.name },
+  custom_tool: { table: customTools, name: customTools.title },
+  indicator: { table: pineIndicators, name: pineIndicators.name },
+  knowledge_base: { table: knowledgeBase, name: knowledgeBase.name, softDelete: true },
+  mcp_server: { table: mcpServers, name: mcpServers.name, softDelete: true },
+} as const
+
+function entityConfig(entityKind: SavedEntityKind) {
+  return ENTITY_TABLES[entityKind] as any
+}
+
+function entityCondition(entityKind: SavedEntityKind, clauses: SQL[]): SQL | undefined {
+  const { table, softDelete } = entityConfig(entityKind)
+  const conditions = softDelete ? [...clauses, isNull(table.deletedAt)] : clauses
+  return conditions.length === 1 ? conditions[0] : and(...conditions)
+}
+
+class SavedEntityLoadError extends Error {
+  status = 404
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'SavedEntityLoadError'
+  }
+}
 
 export async function resolveEntityWorkspaceId(
   entityKind: SavedEntityKind,
   entityId: string
 ): Promise<string | null> {
-  switch (entityKind) {
-    case 'skill': {
-      const [row] = await db
-        .select({ workspaceId: skill.workspaceId })
-        .from(skill)
-        .where(eq(skill.id, entityId))
-        .limit(1)
-      return row?.workspaceId ?? null
-    }
-    case 'custom_tool': {
-      const [row] = await db
-        .select({ workspaceId: customTools.workspaceId })
-        .from(customTools)
-        .where(eq(customTools.id, entityId))
-        .limit(1)
-      return row?.workspaceId ?? null
-    }
-    case 'indicator': {
-      const [row] = await db
-        .select({ workspaceId: pineIndicators.workspaceId })
-        .from(pineIndicators)
-        .where(eq(pineIndicators.id, entityId))
-        .limit(1)
-      return row?.workspaceId ?? null
-    }
-    case 'mcp_server': {
-      const [row] = await db
-        .select({ workspaceId: mcpServers.workspaceId })
-        .from(mcpServers)
-        .where(and(eq(mcpServers.id, entityId), isNull(mcpServers.deletedAt)))
-        .limit(1)
-      return row?.workspaceId ?? null
-    }
+  const { table } = entityConfig(entityKind)
+  const [row] = await db
+    .select({ workspaceId: table.workspaceId })
+    .from(table)
+    .where(entityCondition(entityKind, [eq(table.id, entityId)]))
+    .limit(1)
+  return row?.workspaceId ?? null
+}
+
+export async function readEntityListMembersFromDb(
+  entityKind: SavedEntityKind,
+  workspaceId: string
+): Promise<Array<{ id: string; name: string; enabled?: boolean }>> {
+  if (entityKind === 'mcp_server') {
+    const rows = await db
+      .select({ id: mcpServers.id, name: mcpServers.name, enabled: mcpServers.enabled })
+      .from(mcpServers)
+      .where(entityCondition(entityKind, [eq(mcpServers.workspaceId, workspaceId)]))
+
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name ?? '',
+      enabled: row.enabled !== false,
+    }))
   }
+
+  const { table, name } = entityConfig(entityKind)
+  const rows: Array<{ id: string; name: string | null }> = await db
+    .select({ id: table.id, name })
+    .from(table)
+    .where(entityCondition(entityKind, [eq(table.workspaceId, workspaceId)]))
+
+  return rows.map((row) => ({ id: row.id, name: row.name ?? '' }))
 }
 
-export async function loadSkill(entityId: string, workspaceId: string) {
+export async function readSavedEntityFieldsFromDb(
+  entityKind: SavedEntityKind,
+  entityId: string,
+  workspaceId: string
+): Promise<Record<string, unknown>> {
+  const { table } = entityConfig(entityKind)
   const [row] = await db
     .select()
-    .from(skill)
-    .where(and(eq(skill.id, entityId), eq(skill.workspaceId, workspaceId)))
-    .limit(1)
-
-  return row ?? null
-}
-
-export async function loadCustomTool(entityId: string, workspaceId: string) {
-  const [row] = await db
-    .select()
-    .from(customTools)
-    .where(and(eq(customTools.id, entityId), eq(customTools.workspaceId, workspaceId)))
-    .limit(1)
-
-  return row ?? null
-}
-
-export async function loadIndicator(entityId: string, workspaceId: string) {
-  const [row] = await db
-    .select()
-    .from(pineIndicators)
-    .where(and(eq(pineIndicators.id, entityId), eq(pineIndicators.workspaceId, workspaceId)))
-    .limit(1)
-
-  return row ?? null
-}
-
-export async function loadMcpServer(entityId: string, workspaceId: string) {
-  const [row] = await db
-    .select()
-    .from(mcpServers)
+    .from(table)
     .where(
-      and(
-        eq(mcpServers.id, entityId),
-        eq(mcpServers.workspaceId, workspaceId),
-        isNull(mcpServers.deletedAt)
-      )
+      entityCondition(entityKind, [eq(table.id, entityId), eq(table.workspaceId, workspaceId)])
     )
     .limit(1)
 
-  return row ?? null
+  if (!row) {
+    throw new SavedEntityLoadError(`Saved ${entityKind} ${entityId} was not found`)
+  }
+
+  return savedEntityRowToFields(entityKind, row as SavedEntityRow)
 }

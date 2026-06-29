@@ -116,6 +116,14 @@ const ACTION_VERBS = [
   'Resumed',
 ] as const
 
+const REDACTED_VALUE = '[redacted]'
+
+function redactUrlQuery(value: unknown): string {
+  const url = String(value || '')
+  const queryStart = url.indexOf('?')
+  return queryStart === -1 ? url : `${url.slice(0, queryStart)}?${REDACTED_VALUE}`
+}
+
 function splitActionVerb(text: string): [string | null, string] {
   for (const verb of ACTION_VERBS) {
     if (text.startsWith(`${verb} `)) {
@@ -214,7 +222,9 @@ function isEntityReviewKind(entityKind: unknown): entityKind is string {
     entityKind === 'skill' ||
     entityKind === 'custom_tool' ||
     entityKind === 'indicator' ||
-    entityKind === 'mcp_server'
+    entityKind === 'mcp_server' ||
+    entityKind === 'knowledge_base' ||
+    entityKind === 'workflow'
   )
 }
 
@@ -239,15 +249,19 @@ function readEntityReviewPayload(toolCall: CopilotToolCall): EntityReviewPayload
   }
 
   const entityLabel =
-    result?.entityKind === 'custom_tool'
-      ? 'Custom Tool'
-      : result?.entityKind === 'mcp_server'
-        ? 'MCP Server'
-        : result?.entityKind === 'indicator'
-          ? 'Indicator'
-          : result?.entityKind === 'skill'
-            ? 'Skill'
-            : 'Entity'
+    result?.entityKind === 'workflow' && toolCall.name === 'edit_workflow_variable'
+      ? 'Workflow Variable'
+      : result?.entityKind === 'custom_tool'
+        ? 'Custom Tool'
+        : result?.entityKind === 'mcp_server'
+          ? 'MCP Server'
+          : result?.entityKind === 'knowledge_base'
+            ? 'Knowledge Base'
+            : result?.entityKind === 'indicator'
+              ? 'Indicator'
+              : result?.entityKind === 'skill'
+                ? 'Skill'
+                : 'Entity'
   return {
     title:
       toolCall.state === ClientToolCallState.success
@@ -394,15 +408,11 @@ export function InlineToolCall({
 
   const isExpandablePending =
     toolState === 'pending' &&
-    (toolName === 'make_api_request' ||
-      toolName === 'set_environment_variables' ||
-      toolName === 'set_workflow_variables')
+    (toolName === 'make_api_request' || toolName === 'set_environment_variables')
 
   const [expanded, setExpanded] = useState(isExpandablePending)
   const isExpandableTool =
-    toolName === 'make_api_request' ||
-    toolName === 'set_environment_variables' ||
-    toolName === 'set_workflow_variables'
+    toolName === 'make_api_request' || toolName === 'set_environment_variables'
 
   const accessLevel = useCopilotStore((s) => s.accessLevel)
 
@@ -425,7 +435,7 @@ export function InlineToolCall({
 
   const renderPendingDetails = () => {
     if (toolCall.name === 'make_api_request') {
-      const url = params.url || ''
+      const url = redactUrlQuery(params.url)
       const method = (params.method || '').toUpperCase()
       return (
         <div className='mt-0.5 w-full overflow-hidden rounded border border-muted bg-card'>
@@ -458,19 +468,10 @@ export function InlineToolCall({
 
     if (toolCall.name === 'set_environment_variables') {
       const variables =
-        params.variables && typeof params.variables === 'object' ? params.variables : {}
-
-      // Normalize variables - handle both direct key-value and nested {name, value} format
-      const normalizedEntries: Array<[string, string]> = []
-      Object.entries(variables).forEach(([key, value]) => {
-        if (typeof value === 'object' && value !== null && 'name' in value && 'value' in value) {
-          // Handle {name: "key", value: "val"} format
-          normalizedEntries.push([String((value as any).name), String((value as any).value)])
-        } else {
-          // Handle direct key-value format
-          normalizedEntries.push([key, String(value)])
-        }
-      })
+        params.variables && typeof params.variables === 'object' && !Array.isArray(params.variables)
+          ? params.variables
+          : {}
+      const variableNames = Object.keys(variables)
 
       return (
         <div className='mt-0.5 w-full overflow-hidden rounded border border-muted bg-card'>
@@ -482,11 +483,11 @@ export function InlineToolCall({
               Value
             </div>
           </div>
-          {normalizedEntries.length === 0 ? (
+          {variableNames.length === 0 ? (
             <div className='px-2 py-2 text-muted-foreground text-xs'>No variables provided</div>
           ) : (
             <div className='divide-y divide-muted/60'>
-              {normalizedEntries.map(([name, value]) => (
+              {variableNames.map((name) => (
                 <div
                   key={name}
                   className='grid grid-cols-[auto_1fr] items-center gap-2 px-2 py-1.5'
@@ -496,56 +497,8 @@ export function InlineToolCall({
                   </div>
                   <div className='min-w-0'>
                     <span className='block overflow-x-auto whitespace-nowrap font-mono text-xs text-yellow-700 dark:text-yellow-300'>
-                      {value}
+                      {REDACTED_VALUE}
                     </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )
-    }
-
-    if (toolCall.name === 'set_workflow_variables') {
-      const ops = Array.isArray(params.operations) ? (params.operations as any[]) : []
-      return (
-        <div className='mt-0.5 w-full overflow-hidden rounded border border-muted bg-card'>
-          <div className='grid grid-cols-3 gap-0 border-muted/60 border-b bg-muted/40 px-2 py-1.5'>
-            <div className='font-medium text-[10px] text-muted-foreground uppercase tracking-wide'>
-              Name
-            </div>
-            <div className='font-medium text-[10px] text-muted-foreground uppercase tracking-wide'>
-              Type
-            </div>
-            <div className='font-medium text-[10px] text-muted-foreground uppercase tracking-wide'>
-              Value
-            </div>
-          </div>
-          {ops.length === 0 ? (
-            <div className='px-2 py-2 text-muted-foreground text-xs'>No operations provided</div>
-          ) : (
-            <div className='divide-y divide-yellow-200 dark:divide-yellow-800'>
-              {ops.map((op, idx) => (
-                <div key={idx} className='grid grid-cols-3 items-center gap-0 px-2 py-1.5'>
-                  <div className='min-w-0'>
-                    <span className='truncate text-xs text-yellow-800 dark:text-yellow-200'>
-                      {String(op.name || '')}
-                    </span>
-                  </div>
-                  <div>
-                    <span className='rounded border px-1 py-0.5 text-[10px] text-muted-foreground'>
-                      {String(op.type || '')}
-                    </span>
-                  </div>
-                  <div className='min-w-0'>
-                    {op.value !== undefined ? (
-                      <span className='block overflow-x-auto whitespace-nowrap font-mono text-xs text-yellow-700 dark:text-yellow-300'>
-                        {String(op.value)}
-                      </span>
-                    ) : (
-                      <span className='text-muted-foreground text-xs'>—</span>
-                    )}
                   </div>
                 </div>
               ))}

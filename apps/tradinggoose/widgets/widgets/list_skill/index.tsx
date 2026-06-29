@@ -2,8 +2,8 @@
 
 import { useCallback } from 'react'
 import { ToolCase } from 'lucide-react'
+import { useLocale, useMessages } from 'next-intl'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
-import { useLocale } from 'next-intl'
 import { parseImportedSkillsFile } from '@/lib/skills/import-export'
 import {
   useUserPermissionsContext,
@@ -20,7 +20,6 @@ import {
   SKILL_EDITOR_WIDGET_KEY,
   SKILL_LIST_WIDGET_KEY,
 } from '@/widgets/widgets/_shared/skill/utils'
-import { useMessages } from 'next-intl'
 import { SkillCreateMenu } from '@/widgets/widgets/list_skill/components/skill-create-menu'
 import {
   SkillList,

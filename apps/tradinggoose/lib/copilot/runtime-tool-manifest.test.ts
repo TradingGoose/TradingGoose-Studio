@@ -60,9 +60,9 @@ describe('copilot runtime tool manifest', () => {
           entityKind: 'environment',
         }),
         expect.objectContaining({
-          name: 'read_workflow_variables',
-          description: expect.stringContaining('<variable.name>'),
-          kind: 'read',
+          name: 'edit_workflow_variable',
+          description: expect.stringContaining('workflow-variable document'),
+          kind: 'edit',
           entityKind: 'workflow',
         }),
         expect.objectContaining({
@@ -290,8 +290,8 @@ describe('copilot runtime tool manifest', () => {
       ?.semanticValidators?.find((validator) => validator.kind === 'string_json_schema')?.args
       ?.schema as { properties?: Record<string, unknown>; required?: string[] } | undefined
     expect(createWorkflowProperties).not.toHaveProperty('color')
-    expect(createIndicatorSchema?.properties ?? {}).not.toHaveProperty('color')
-    expect(createIndicatorSchema?.required ?? []).not.toContain('color')
+    expect(createIndicatorSchema?.properties ?? {}).toHaveProperty('color')
+    expect(createIndicatorSchema?.required ?? []).toContain('color')
     expect(editWorkflowProperties).toHaveProperty('entityId')
     expect(editWorkflowProperties).toHaveProperty('entityDocument')
     expect(editWorkflowProperties).toHaveProperty('removedBlockIds')

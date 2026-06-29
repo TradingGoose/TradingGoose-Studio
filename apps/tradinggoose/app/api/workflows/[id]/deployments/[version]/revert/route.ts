@@ -1,15 +1,19 @@
-import { db, workflow, workflowDeploymentVersion } from '@tradinggoose/db'
+import { db, workflowDeploymentVersion } from '@tradinggoose/db'
 import { and, eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
+import { ensureUniqueBlockIds, ensureUniqueEdgeIds } from '@/lib/workflows/db-helpers'
 import { validateWorkflowPermissions } from '@/lib/workflows/utils'
-import { tryApplyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
+import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { notifyMonitorsReconcile } from '@/app/api/monitors/reconcile'
 import { pauseMonitorsMissingDeployedTrigger } from '@/app/api/monitors/shared'
-import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
+import {
+  createErrorResponse,
+  createSuccessResponse,
+  createWorkflowRealtimeRequiredResponse,
+} from '@/app/api/workflows/utils'
 
 const logger = createLogger('RevertToDeploymentVersionAPI')
 
@@ -71,52 +75,32 @@ export async function POST(
     }
 
     const now = new Date()
-    const revertVariables = deployedState.variables || undefined
+    const revertVariables =
+      deployedState.variables &&
+      typeof deployedState.variables === 'object' &&
+      !Array.isArray(deployedState.variables)
+        ? deployedState.variables
+        : undefined
 
-    const saveResult = await saveWorkflowToNormalizedTables(id, {
+    const revertedState = {
       blocks: deployedState.blocks,
       edges: deployedState.edges,
       loops: deployedState.loops || {},
       parallels: deployedState.parallels || {},
       lastSaved: Date.now(),
-      isDeployed: true,
-      deployedAt: new Date(),
-    })
-
-    if (!saveResult.success) {
-      return createErrorResponse(saveResult.error || 'Failed to save deployed state', 500)
     }
 
-    const persistedRevertedState = saveResult.normalizedState ?? {
-      blocks: deployedState.blocks,
-      edges: deployedState.edges,
-      loops: deployedState.loops || {},
-      parallels: deployedState.parallels || {},
-      lastSaved: Date.now(),
-      isDeployed: true,
-      deployedAt: new Date(),
-    }
+    const stateWithUniqueBlockIds = await ensureUniqueBlockIds(id, revertedState)
+    const persistedRevertedState = await ensureUniqueEdgeIds(id, stateWithUniqueBlockIds)
     const revertSnapshot = createWorkflowSnapshot({
       blocks: persistedRevertedState.blocks,
       edges: persistedRevertedState.edges,
       loops: persistedRevertedState.loops,
       parallels: persistedRevertedState.parallels,
       lastSaved: now.toISOString(),
-      isDeployed: true,
-      deployedAt: now.toISOString(),
     })
 
-    await db
-      .update(workflow)
-      .set({
-        lastSynced: now,
-        updatedAt: now,
-        ...(revertVariables ? { variables: revertVariables } : {}),
-      })
-      .where(eq(workflow.id, id))
-
-    // Publish the reverted state to Yjs only after the durable writes succeed.
-    await tryApplyWorkflowState(id, revertSnapshot, revertVariables)
+    await applyWorkflowState(id, revertSnapshot, revertVariables)
 
     await pauseMonitorsMissingDeployedTrigger(id)
     await notifyMonitorsReconcile({ requestId, logger })
@@ -127,6 +111,8 @@ export async function POST(
     })
   } catch (error: any) {
     logger.error('Error reverting to deployment version', error)
+    const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
+    if (realtimeResponse) return realtimeResponse
     return createErrorResponse(error.message || 'Failed to revert', 500)
   }
 }

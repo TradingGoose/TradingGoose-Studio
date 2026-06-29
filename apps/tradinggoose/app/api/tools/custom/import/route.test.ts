@@ -47,7 +47,6 @@ describe('Custom tools import route', () => {
           schema: {
             type: 'function',
             function: {
-              name: 'myTool_imported_1',
               parameters: {
                 type: 'object',
                 properties: {},
@@ -81,7 +80,6 @@ describe('Custom tools import route', () => {
               schema: {
                 type: 'function',
                 function: {
-                  name: 'myTool',
                   parameters: {
                     type: 'object',
                     properties: {},
@@ -112,7 +110,6 @@ describe('Custom tools import route', () => {
             schema: {
               type: 'function',
               function: {
-                name: 'myTool',
                 parameters: {
                   type: 'object',
                   properties: {},
@@ -143,7 +140,6 @@ describe('Custom tools import route', () => {
               schema: {
                 type: 'function',
                 function: {
-                  name: 'myTool',
                   parameters: {
                     type: 'object',
                     properties: {},
@@ -184,7 +180,6 @@ describe('Custom tools import route', () => {
               schema: {
                 type: 'function',
                 function: {
-                  name: 'myTool',
                   parameters: {
                     type: 'object',
                     properties: {},
@@ -229,7 +224,6 @@ describe('Custom tools import route', () => {
               schema: {
                 type: 'function',
                 function: {
-                  name: 'myTool',
                   parameters: {
                     type: 'object',
                     properties: {},
@@ -281,7 +275,6 @@ describe('Custom tools import route', () => {
               schema: {
                 type: 'function',
                 function: {
-                  name: 'myTool',
                   parameters: {
                     type: 'object',
                     properties: {},

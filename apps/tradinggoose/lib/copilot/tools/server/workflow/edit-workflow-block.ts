@@ -1,11 +1,22 @@
 import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
 import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
-import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
+import type {
+  BaseServerTool,
+  ServerToolExecutionContext,
+} from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getAllowedSubBlockIds } from '@/lib/workflows/block-config-canonicalization'
+import {
+  serializeWorkflowToTgMermaid,
+  TG_MERMAID_DOCUMENT_FORMAT,
+} from '@/lib/workflows/studio-workflow-mermaid'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { getBlock } from '@/blocks'
-import { buildWorkflowMutationResult, loadBaseWorkflowState } from './workflow-mutation-utils'
+import {
+  buildWorkflowMutationResult,
+  loadBaseWorkflowState,
+  resolveWorkflowMutationResultForExecution,
+} from './workflow-mutation-utils'
 
 interface EditWorkflowBlockParams {
   entityId: string
@@ -14,7 +25,6 @@ interface EditWorkflowBlockParams {
   name?: string
   enabled?: boolean
   subBlocks?: Record<string, unknown>
-  currentWorkflowState: string
 }
 
 function normalizeOptionalString(value?: string): string | undefined {
@@ -41,9 +51,12 @@ function throwInvalidBlockEdit(input: {
 
 export const editWorkflowBlockServerTool: BaseServerTool<EditWorkflowBlockParams, any> = {
   name: 'edit_workflow_block',
-  async execute(params: EditWorkflowBlockParams): Promise<any> {
+  async execute(
+    params: EditWorkflowBlockParams,
+    context?: ServerToolExecutionContext
+  ): Promise<any> {
     const logger = createLogger('EditWorkflowBlockServerTool')
-    const { blockId, blockType, name, enabled, subBlocks, currentWorkflowState } = params
+    const { blockId, blockType, name, enabled, subBlocks } = params
     const workflowId = requireCopilotEntityId(params, { toolName: 'edit_workflow_block' })
 
     if (!blockId?.trim()) {
@@ -79,7 +92,7 @@ export const editWorkflowBlockServerTool: BaseServerTool<EditWorkflowBlockParams
       subBlockCount: Object.keys(nextSubBlocks).length,
     })
 
-    const baseWorkflowState = await loadBaseWorkflowState(workflowId, currentWorkflowState)
+    const baseWorkflowState = await loadBaseWorkflowState(workflowId, context)
     const currentBlock = baseWorkflowState.blocks[blockId]
 
     if (!currentBlock) {
@@ -171,12 +184,14 @@ export const editWorkflowBlockServerTool: BaseServerTool<EditWorkflowBlockParams
     })
 
     try {
-      return buildWorkflowMutationResult({
+      const result = buildWorkflowMutationResult({
         workflowId,
         baseWorkflowState,
         nextWorkflowState,
-        requestedDirection: baseWorkflowState.direction,
+        renderEntityDocument: serializeWorkflowToTgMermaid,
+        documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
       })
+      return resolveWorkflowMutationResultForExecution(result, context)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       if (!message.startsWith('Invalid edited workflow:')) {

@@ -641,7 +641,7 @@ For production deployments, make sure to:
 
 **Optional Security (Recommended for Production):**
 - `CRON_SECRET`: Authenticates scheduled job requests to API endpoints (required only if `cronjobs.enabled=true`)
-- `API_ENCRYPTION_KEY`: Encrypts API keys at rest in database (must be exactly 64 hex characters). If not set, API keys are stored in plain text. Generate using: `openssl rand -hex 32` (outputs 64 hex chars representing 32 bytes)
+- `API_ENCRYPTION_KEY`: Required for API-key access and MCP token issuance; encrypts API keys at rest in database (must be exactly 64 hex characters). Generate using: `openssl rand -hex 32`
 
 ### Example secure values:
 
@@ -652,7 +652,7 @@ app:
     ENCRYPTION_KEY: "your-secure-encryption-key-here"
     INTERNAL_API_SECRET: "your-secure-internal-api-secret-here"
     CRON_SECRET: "your-secure-cron-secret-here"
-    API_ENCRYPTION_KEY: "your-64-char-hex-string-for-api-key-encryption"  # Optional but recommended
+    API_ENCRYPTION_KEY: "your-64-char-hex-string-for-api-key-encryption"
 
 postgresql:
   auth:

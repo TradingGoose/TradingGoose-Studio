@@ -2,15 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Download, Save, SquareTerminal } from 'lucide-react'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
-import { useMessages } from 'next-intl'
-import type { LocaleCode } from '@/i18n/utils'
+import { useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
 import { useCustomTools } from '@/hooks/queries/custom-tools'
-import { useCustomToolsStore } from '@/stores/custom-tools/store'
+import type { LocaleCode } from '@/i18n/utils'
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
@@ -37,11 +36,7 @@ import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/component
 import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const sortCustomTools = (tools: CustomToolDefinition[]) =>
-  [...tools].sort((a, b) => {
-    const aTime = Date.parse(a.updatedAt ?? a.createdAt ?? '')
-    const bTime = Date.parse(b.updatedAt ?? b.createdAt ?? '')
-    return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime)
-  })
+  [...tools].sort((a, b) => a.title.localeCompare(b.title))
 
 function emitCustomToolEditorAction(detail: CustomToolEditorActionEventDetail) {
   window.dispatchEvent(
@@ -115,9 +110,6 @@ function EditorCustomToolWidgetBody({
   const copy = useMessages().workspace.widgets.customToolEditor
   const workspaceId = context?.workspaceId ?? null
   const { data: queryTools = [], isLoading, error, refetch } = useCustomTools(workspaceId ?? '')
-  const storedTools = useCustomToolsStore((state) =>
-    workspaceId ? state.getAllTools(workspaceId) : []
-  )
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -126,10 +118,7 @@ function EditorCustomToolWidgetBody({
   const saveRef = useRef<() => void>(() => {})
   const [activeSection, setActiveSection] = useState<CustomToolEditorSection>('schema')
 
-  const tools = useMemo(
-    () => sortCustomTools(queryTools.length > 0 ? queryTools : storedTools),
-    [queryTools, storedTools]
-  )
+  const tools = useMemo(() => sortCustomTools(queryTools), [queryTools])
 
   const paramsCustomToolId = resolveCustomToolId({ params })
   const requestedCustomToolId = isLinkedToColorPair
@@ -176,6 +165,7 @@ function EditorCustomToolWidgetBody({
   const selectedTool = selectedToolId
     ? (tools.find((tool) => tool.id === selectedToolId) ?? null)
     : null
+  const customToolSession = useSavedEntityYjsSession('custom_tool', selectedToolId, workspaceId)
 
   useEffect(() => {
     if (!selectedToolId) return
@@ -208,12 +198,12 @@ function EditorCustomToolWidgetBody({
   ])
 
   useEffect(() => {
-    if (!selectedTool?.id) {
+    if (!selectedToolId) {
       return
     }
 
     syncActiveSection('schema')
-  }, [selectedTool?.id, syncActiveSection])
+  }, [selectedToolId, syncActiveSection])
 
   useCustomToolEditorActions({
     onExport: () => exportRef.current(),
@@ -261,6 +251,18 @@ function EditorCustomToolWidgetBody({
     return <WidgetStateMessage message={copy.body.customToolNotFound} />
   }
 
+  if (customToolSession.error) {
+    return <WidgetStateMessage message={customToolSession.error} />
+  }
+
+  if (customToolSession.isLoading) {
+    return (
+      <div className='flex h-full w-full items-center justify-center'>
+        <LoadingAgent size='md' />
+      </div>
+    )
+  }
+
   return (
     <WorkflowRouteProvider
       workspaceId={workspaceId}
@@ -270,6 +272,9 @@ function EditorCustomToolWidgetBody({
       <div className='flex h-full w-full flex-col overflow-hidden'>
         <CustomToolEditor
           activeSection={activeSection}
+          doc={customToolSession.doc}
+          save={customToolSession.save}
+          toolId={selectedToolId}
           onSectionChange={syncActiveSection}
           onSave={() => {
             refetch().catch((refetchError) => {
@@ -279,12 +284,6 @@ function EditorCustomToolWidgetBody({
           exportRef={exportRef}
           saveRef={saveRef}
           blockId='dashboard-custom-tool-editor'
-          initialValues={{
-            id: selectedTool.id,
-            title: selectedTool.title,
-            schema: selectedTool.schema,
-            code: selectedTool.code || '',
-          }}
         />
       </div>
     </WorkflowRouteProvider>

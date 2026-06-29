@@ -49,12 +49,7 @@ function normalizeCustomTool(tool: ApiCustomTool, workspaceId: string): CustomTo
     code: typeof tool.code === 'string' ? tool.code : '',
     workspaceId: tool.workspaceId ?? workspaceId,
     userId: tool.userId ?? null,
-    createdAt:
-      typeof tool.createdAt === 'string'
-        ? tool.createdAt
-        : tool.updatedAt && typeof tool.updatedAt === 'string'
-          ? tool.updatedAt
-          : new Date().toISOString(),
+    createdAt: typeof tool.createdAt === 'string' ? tool.createdAt : undefined,
     updatedAt: typeof tool.updatedAt === 'string' ? tool.updatedAt : undefined,
     schema: {
       type: tool.schema.type ?? 'function',
@@ -320,36 +315,6 @@ export function useUpdateCustomTool() {
       logger.info(`Updated custom tool: ${toolId}`)
       return data.data
     },
-    onMutate: async ({ workspaceId, toolId, updates }) => {
-      await queryClient.cancelQueries({ queryKey: customToolsKeys.list(workspaceId) })
-
-      const previousTools = queryClient.getQueryData<CustomToolDefinition[]>(
-        customToolsKeys.list(workspaceId)
-      )
-
-      if (previousTools) {
-        queryClient.setQueryData<CustomToolDefinition[]>(
-          customToolsKeys.list(workspaceId),
-          previousTools.map((tool) =>
-            tool.id === toolId
-              ? {
-                  ...tool,
-                  title: updates.title ?? tool.title,
-                  schema: updates.schema ?? tool.schema,
-                  code: updates.code ?? tool.code,
-                }
-              : tool
-          )
-        )
-      }
-
-      return { previousTools }
-    },
-    onError: (_err, variables, context) => {
-      if (context?.previousTools) {
-        queryClient.setQueryData(customToolsKeys.list(variables.workspaceId), context.previousTools)
-      }
-    },
     onSettled: (_data, _error, variables) => {
       queryClient.invalidateQueries({ queryKey: customToolsKeys.list(variables.workspaceId) })
     },
@@ -386,28 +351,7 @@ export function useDeleteCustomTool() {
       logger.info(`Deleted custom tool: ${toolId}`)
       return data
     },
-    onMutate: async ({ workspaceId, toolId }) => {
-      await queryClient.cancelQueries({ queryKey: customToolsKeys.list(workspaceId) })
-
-      const previousTools = queryClient.getQueryData<CustomToolDefinition[]>(
-        customToolsKeys.list(workspaceId)
-      )
-
-      if (previousTools) {
-        queryClient.setQueryData<CustomToolDefinition[]>(
-          customToolsKeys.list(workspaceId),
-          previousTools.filter((tool) => tool.id !== toolId)
-        )
-      }
-
-      return { previousTools, workspaceId }
-    },
-    onError: (_err, _variables, context) => {
-      if (context?.previousTools && context?.workspaceId) {
-        queryClient.setQueryData(customToolsKeys.list(context.workspaceId), context.previousTools)
-      }
-    },
-    onSettled: (_data, _error, variables) => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: customToolsKeys.list(variables.workspaceId) })
     },
   })

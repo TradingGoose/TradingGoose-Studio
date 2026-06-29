@@ -129,12 +129,14 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
   useEffect(() => {
     if (images.length > 0 && scrollContainerRef.current) {
       const scrollContainer = scrollContainerRef.current
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         scrollContainer.scrollTo({
           top: scrollContainer.scrollHeight,
           behavior: 'smooth',
         })
       }, SCROLL_DELAY_MS)
+
+      return () => clearTimeout(timer)
     }
   }, [images.length])
 

@@ -24,6 +24,14 @@ interface ToolCallIndicatorProps {
   toolNames?: string[]
 }
 
+const REDACTED_VALUE = '[redacted]'
+
+function redactUrlQuery(value: unknown): string {
+  const url = String(value || '')
+  const queryStart = url.indexOf('?')
+  return queryStart === -1 ? url : `${url.slice(0, queryStart)}?${REDACTED_VALUE}`
+}
+
 // Detection State Component
 export function ToolCallDetection({ content }: { content: string }) {
   return (
@@ -48,13 +56,13 @@ export function ToolCallExecution({ toolCall, isCompact = false }: ToolCallProps
           >
             <div className='flex min-w-0 items-center gap-2 overflow-hidden'>
               <Settings className='h-4 w-4 shrink-0 animate-pulse text-yellow-600 dark:text-yellow-400' />
-              <span className='min-w-0 truncate font-mono text-yellow-800 text-xs dark:text-yellow-200'>
+              <span className='min-w-0 truncate font-mono text-xs text-yellow-800 dark:text-yellow-200'>
                 {toolCall.displayName || toolCall.name}
               </span>
               {toolCall.progress && (
                 <Badge
                   variant='outline'
-                  className='shrink-0 text-yellow-700 text-xs dark:text-yellow-300'
+                  className='shrink-0 text-xs text-yellow-700 dark:text-yellow-300'
                 >
                   {toolCall.progress}
                 </Badge>
@@ -69,15 +77,14 @@ export function ToolCallExecution({ toolCall, isCompact = false }: ToolCallProps
         </CollapsibleTrigger>
         <CollapsibleContent className='min-w-0 max-w-full px-3 pb-3'>
           <div className='min-w-0 max-w-full space-y-2'>
-            <div className='flex items-center gap-2 text-yellow-700 text-xs dark:text-yellow-300'>
+            <div className='flex items-center gap-2 text-xs text-yellow-700 dark:text-yellow-300'>
               <Loader2 className='h-3 w-3 shrink-0 animate-spin' />
               <span>Executing...</span>
             </div>
             {toolCall.parameters &&
               Object.keys(toolCall.parameters).length > 0 &&
               (toolCall.name === 'make_api_request' ||
-                toolCall.name === 'set_environment_variables' ||
-                toolCall.name === 'set_workflow_variables') && (
+                toolCall.name === 'set_environment_variables') && (
                 <div className='min-w-0 max-w-full rounded border border-yellow-200 bg-yellow-50 p-2 dark:border-yellow-800 dark:bg-yellow-950'>
                   {toolCall.name === 'make_api_request' ? (
                     <div className='w-full overflow-hidden rounded border border-muted bg-card'>
@@ -99,9 +106,9 @@ export function ToolCallExecution({ toolCall, isCompact = false }: ToolCallProps
                         <div className='min-w-0'>
                           <span
                             className='block overflow-x-auto whitespace-nowrap font-mono text-foreground text-xs'
-                            title={String((toolCall.parameters as any).url || '')}
+                            title={redactUrlQuery((toolCall.parameters as any).url)}
                           >
-                            {String((toolCall.parameters as any).url || '') || 'URL not provided'}
+                            {redactUrlQuery((toolCall.parameters as any).url) || 'URL not provided'}
                           </span>
                         </div>
                       </div>
@@ -112,10 +119,11 @@ export function ToolCallExecution({ toolCall, isCompact = false }: ToolCallProps
                     ? (() => {
                         const variables =
                           (toolCall.parameters as any).variables &&
-                          typeof (toolCall.parameters as any).variables === 'object'
+                          typeof (toolCall.parameters as any).variables === 'object' &&
+                          !Array.isArray((toolCall.parameters as any).variables)
                             ? (toolCall.parameters as any).variables
                             : {}
-                        const entries = Object.entries(variables)
+                        const names = Object.keys(variables)
                         return (
                           <div className='w-full overflow-hidden rounded border border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950'>
                             <div className='grid grid-cols-2 gap-0 border-yellow-200/60 border-b px-2 py-1.5 dark:border-yellow-800/60'>
@@ -126,81 +134,24 @@ export function ToolCallExecution({ toolCall, isCompact = false }: ToolCallProps
                                 Value
                               </div>
                             </div>
-                            {entries.length === 0 ? (
+                            {names.length === 0 ? (
                               <div className='px-2 py-2 text-muted-foreground text-xs'>
                                 No variables provided
                               </div>
                             ) : (
                               <div className='divide-y divide-yellow-200 dark:divide-yellow-800'>
-                                {entries.map(([k, v]) => (
+                                {names.map((name) => (
                                   <div
-                                    key={k}
+                                    key={name}
                                     className='grid grid-cols-[auto_1fr] items-center gap-2 px-2 py-1.5'
                                   >
-                                    <div className='truncate font-medium text-yellow-800 text-xs dark:text-yellow-200'>
-                                      {k}
+                                    <div className='truncate font-medium text-xs text-yellow-800 dark:text-yellow-200'>
+                                      {name}
                                     </div>
                                     <div className='min-w-0'>
-                                      <span className='block overflow-x-auto whitespace-nowrap font-mono text-yellow-700 text-xs dark:text-yellow-300'>
-                                        {String(v)}
+                                      <span className='block overflow-x-auto whitespace-nowrap font-mono text-xs text-yellow-700 dark:text-yellow-300'>
+                                        {REDACTED_VALUE}
                                       </span>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })()
-                    : null}
-
-                  {toolCall.name === 'set_workflow_variables'
-                    ? (() => {
-                        const ops = Array.isArray((toolCall.parameters as any).operations)
-                          ? ((toolCall.parameters as any).operations as any[])
-                          : []
-                        return (
-                          <div className='w-full overflow-hidden rounded border border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950'>
-                            <div className='grid grid-cols-3 gap-0 border-yellow-200/60 border-b px-2 py-1.5 dark:border-yellow-800/60'>
-                              <div className='font-medium text-[10px] text-yellow-700 uppercase tracking-wide dark:text-yellow-300'>
-                                Name
-                              </div>
-                              <div className='font-medium text-[10px] text-yellow-700 uppercase tracking-wide dark:text-yellow-300'>
-                                Type
-                              </div>
-                              <div className='font-medium text-[10px] text-yellow-700 uppercase tracking-wide dark:text-yellow-300'>
-                                Value
-                              </div>
-                            </div>
-                            {ops.length === 0 ? (
-                              <div className='px-2 py-2 text-muted-foreground text-xs'>
-                                No operations provided
-                              </div>
-                            ) : (
-                              <div className='divide-y divide-yellow-200 dark:divide-yellow-800'>
-                                {ops.map((op, idx) => (
-                                  <div
-                                    key={idx}
-                                    className='grid grid-cols-3 items-center gap-0 px-2 py-1.5'
-                                  >
-                                    <div className='min-w-0'>
-                                      <span className='truncate text-yellow-800 text-xs dark:text-yellow-200'>
-                                        {String(op.name || '')}
-                                      </span>
-                                    </div>
-                                    <div>
-                                      <span className='rounded border px-1 py-0.5 text-[10px] text-muted-foreground'>
-                                        {String(op.type || '')}
-                                      </span>
-                                    </div>
-                                    <div className='min-w-0'>
-                                      {op.value !== undefined ? (
-                                        <span className='block overflow-x-auto whitespace-nowrap font-mono text-yellow-700 text-xs dark:text-yellow-300'>
-                                          {String(op.value)}
-                                        </span>
-                                      ) : (
-                                        <span className='text-muted-foreground text-xs'>—</span>
-                                      )}
                                     </div>
                                   </div>
                                 ))}
@@ -307,38 +258,6 @@ export function ToolCallCompletion({ toolCall, isCompact = false }: ToolCallProp
         </CollapsibleTrigger>
         <CollapsibleContent className='min-w-0 max-w-full px-3 pb-3'>
           <div className='min-w-0 max-w-full space-y-2'>
-            {toolCall.parameters &&
-              Object.keys(toolCall.parameters).length > 0 &&
-              (toolCall.name === 'make_api_request' ||
-                toolCall.name === 'set_environment_variables') && (
-                <div
-                  className={cn(
-                    'min-w-0 max-w-full rounded p-2',
-                    isSuccess && 'bg-green-100 dark:bg-green-900',
-                    isError && 'bg-red-100 dark:bg-red-900'
-                  )}
-                >
-                  <div
-                    className={cn(
-                      'mb-1 font-medium text-xs',
-                      isSuccess && 'text-green-800 dark:text-green-200',
-                      isError && 'text-red-800 dark:text-red-200'
-                    )}
-                  >
-                    Parameters:
-                  </div>
-                  <div
-                    className={cn(
-                      'min-w-0 max-w-full break-all font-mono text-xs',
-                      isSuccess && 'text-green-700 dark:text-green-300',
-                      isError && 'text-red-700 dark:text-red-300'
-                    )}
-                  >
-                    {JSON.stringify(toolCall.parameters, null, 2)}
-                  </div>
-                </div>
-              )}
-
             {toolCall.error && (
               <div className='min-w-0 max-w-full rounded bg-red-100 p-2 dark:bg-red-900'>
                 <div className='mb-1 font-medium text-red-800 text-xs dark:text-red-200'>

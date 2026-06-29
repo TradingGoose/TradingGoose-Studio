@@ -48,7 +48,33 @@ It is built for analytics, research, charting, monitoring, and workflow automati
   <img alt="Project Overview" src="apps/tradinggoose/public/static/preview-light.png" width="2559">
 </picture>
 
+---
 
+### Copilot-MCP
+
+You can install TradingGoose MCP to use any local agentic tool like Codex, Claude Code, Cursor, ZCode as Copilot to perform TradingGoose-Studio operations
+
+#### Mac/Linux:
+connect to the hosted instance:
+```
+curl -fsSL https://TradingGoose.ai/mcp/setup | sh
+``` 
+
+connect to self-hosted instance:
+```
+curl -fsSL http://localhost:3000/mcp/setup | sh
+``` 
+
+#### Windows
+connect to the hosted instance:
+```
+irm https://TradingGoose.ai/mcp/setup | iex
+``` 
+
+connect to self-hosted instance:
+```
+irm http://localhost:3000/mcp/setup | iex
+``` 
 
 ## Quick Start
 
@@ -86,12 +112,10 @@ cd ../../packages/db && cp .env.example .env
 
 #### 4. Run database migrations
 ```
-cd packages/db
-bunx drizzle-kit migrate --config=./drizzle.config.ts
+bun run db:migrate
 ```
-#### 5. Start development servers
+#### 5. Start full development servers
 ```
-cd ../..
 bun run dev:full
 ```
 
@@ -101,9 +125,9 @@ If you use Docker Compose, copy `apps/tradinggoose/.env.example.docker` to
 `apps/tradinggoose/.env` and set the required secrets before running the
 compose manifests. The `.env` must include `POSTGRES_*`,
 `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_SOCKET_URL`, `BETTER_AUTH_SECRET`,
-`ENCRYPTION_KEY`, `API_ENCRYPTION_KEY`, and `INTERNAL_API_SECRET`. The
-`ENCRYPTION_KEY` value is shared by both the app and realtime containers, and
-`API_ENCRYPTION_KEY` enables encrypted API-key storage in the app container.
+`ENCRYPTION_KEY`, and `INTERNAL_API_SECRET`. Set `API_ENCRYPTION_KEY` when
+API-key access or MCP token issuance is used; it encrypts API keys at rest in
+the app container.
 `NEXT_PUBLIC_SOCKET_URL` should point at `http://localhost:3002` for local
 Compose runs; production deployments must override it with a browser-reachable
 public URL. The prod and Ollama compose files also require `IMAGE_TAG` and

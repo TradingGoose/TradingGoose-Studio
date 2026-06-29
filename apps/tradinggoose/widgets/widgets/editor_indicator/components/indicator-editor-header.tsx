@@ -1,20 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, Download, Save } from 'lucide-react'
 import { useLocale } from 'next-intl'
-import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useMessages } from 'next-intl'
-import { exportIndicatorsAsJson } from '@/lib/indicators/import-export'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import { useIndicatorsStore } from '@/stores/indicators/store'
 import type { PairColor } from '@/widgets/pair-colors'
-import {
-  emitIndicatorEditorAction,
-  useIndicatorEditorState,
-} from '@/widgets/utils/indicator-editor-actions'
+import { emitIndicatorEditorAction } from '@/widgets/utils/indicator-editor-actions'
 import { emitIndicatorSelectionChange } from '@/widgets/utils/indicator-selection'
+import { EntityEditorHeaderButton } from '@/widgets/widgets/components/entity-editor-buttons'
 import { IndicatorDropdown } from '@/widgets/widgets/components/pine-indicator-dropdown'
 
 interface IndicatorEditorSelectorProps {
@@ -79,25 +72,6 @@ interface IndicatorEditorActionButtonProps {
   pairColor?: PairColor
 }
 
-const sanitizeFileNameSegment = (value: string) =>
-  value
-    .trim()
-    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '-')
-    .replace(/\s+/g, '-')
-
-const downloadJsonFile = (fileName: string, content: string) => {
-  const blob = new Blob([content], { type: 'application/json;charset=utf-8' })
-  const blobUrl = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-
-  link.href = blobUrl
-  link.download = fileName
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(blobUrl)
-}
-
 export function IndicatorEditorExportButton({
   workspaceId,
   indicatorId,
@@ -110,72 +84,20 @@ export function IndicatorEditorExportButton({
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
-  const [isDirty, setIsDirty] = useState(true)
 
   const resolvedIndicatorId = isLinkedToColorPair
     ? (pairContext?.indicatorId ?? null)
     : (indicatorId ?? null)
-  const indicator = useIndicatorsStore((state) =>
-    workspaceId && resolvedIndicatorId
-      ? state.readIndicator(resolvedIndicatorId, workspaceId)
-      : undefined
-  )
-
-  useIndicatorEditorState({
-    panelId,
-    widget: widgetKey ? ({ key: widgetKey } as { key: string }) : null,
-    onStateChange: (detail) => {
-      setIsDirty(detail.isDirty)
-    },
-  })
-
-  useEffect(() => {
-    setIsDirty(true)
-  }, [resolvedIndicatorId, workspaceId])
-
-  const fileName = useMemo(() => {
-    if (!indicator?.name) {
-      return 'indicator.json'
-    }
-
-    const normalized = sanitizeFileNameSegment(indicator.name)
-    return normalized.length > 0 ? `${normalized}.json` : 'indicator.json'
-  }, [indicator?.name])
-
-  const exportDisabled = !workspaceId || !resolvedIndicatorId || !indicator || isDirty
-  const tooltipText =
-    exportDisabled && indicator && isDirty ? copy.saveBeforeExporting : copy.exportIndicator
-
-  const handleExport = useCallback(() => {
-    if (!indicator) return
-
-    const json = exportIndicatorsAsJson({
-      exportedFrom: 'indicatorEditor',
-      indicators: [indicator],
-    })
-
-    downloadJsonFile(fileName, json)
-  }, [fileName, indicator])
+  const exportDisabled = !workspaceId || !resolvedIndicatorId
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className='inline-flex'>
-          <Button
-            type='button'
-            variant='outline'
-            size='sm'
-            className='h-7 w-7 text-xs'
-            onClick={handleExport}
-            disabled={exportDisabled}
-          >
-            <Download className='h-4 w-4' />
-            <span className='sr-only'>{copy.exportIndicator}</span>
-          </Button>
-        </span>
-      </TooltipTrigger>
-      <TooltipContent side='top'>{tooltipText}</TooltipContent>
-    </Tooltip>
+    <EntityEditorHeaderButton
+      tooltip={copy.exportIndicator}
+      label={copy.exportIndicator}
+      icon={Download}
+      disabled={exportDisabled}
+      onClick={() => emitIndicatorEditorAction({ action: 'export', panelId, widgetKey })}
+    />
   )
 }
 
@@ -197,33 +119,15 @@ export function IndicatorEditorSaveButton({
     : (indicatorId ?? null)
   const saveDisabled = !workspaceId || !resolvedIndicatorId
 
-  const handleSave = () => {
-    emitIndicatorEditorAction({
-      action: 'save',
-      panelId,
-      widgetKey,
-    })
-  }
-
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className='inline-flex'>
-          <Button
-            type='button'
-            variant='default'
-            size='sm'
-            className='h-7 w-7 text-xs'
-            onClick={handleSave}
-            disabled={saveDisabled}
-          >
-            <Save className='h-4 w-4' />
-            <span className='sr-only'>{copy.saveIndicator}</span>
-          </Button>
-        </span>
-      </TooltipTrigger>
-      <TooltipContent side='top'>{copy.saveIndicator}</TooltipContent>
-    </Tooltip>
+    <EntityEditorHeaderButton
+      tooltip={copy.saveIndicator}
+      label={copy.saveIndicator}
+      icon={Save}
+      disabled={saveDisabled}
+      variant='default'
+      onClick={() => emitIndicatorEditorAction({ action: 'save', panelId, widgetKey })}
+    />
   )
 }
 
@@ -245,32 +149,14 @@ export function IndicatorEditorVerifyButton({
     : (indicatorId ?? null)
   const verifyDisabled = !workspaceId || !resolvedIndicatorId
 
-  const handleVerify = () => {
-    emitIndicatorEditorAction({
-      action: 'verify',
-      panelId,
-      widgetKey,
-    })
-  }
-
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className='inline-flex'>
-          <Button
-            type='button'
-            variant='secondary'
-            size='sm'
-            className='h-7 w-7 text-xs'
-            onClick={handleVerify}
-            disabled={verifyDisabled}
-          >
-            <Check className='h-4 w-4' />
-            <span className='sr-only'>{copy.verifyIndicator}</span>
-          </Button>
-        </span>
-      </TooltipTrigger>
-      <TooltipContent side='top'>Verify indicator</TooltipContent>
-    </Tooltip>
+    <EntityEditorHeaderButton
+      tooltip={copy.verifyIndicator}
+      label={copy.verifyIndicator}
+      icon={Check}
+      disabled={verifyDisabled}
+      variant='secondary'
+      onClick={() => emitIndicatorEditorAction({ action: 'verify', panelId, widgetKey })}
+    />
   )
 }

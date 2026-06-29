@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -10,9 +10,8 @@ const createWorkspaceSchema = z.object({
 })
 
 // Get all workspaces for the current user
-export async function GET(request: NextRequest) {
+export async function GET() {
   const session = await getSession()
-  const allowWorkspaceBootstrap = request.nextUrl.searchParams.get('autoCreate') !== 'false'
 
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -20,8 +19,6 @@ export async function GET(request: NextRequest) {
 
   const workspaces = await getUserWorkspaces({
     userId: session.user.id,
-    userName: session.user.name,
-    autoCreate: allowWorkspaceBootstrap,
   })
 
   return NextResponse.json({ workspaces })

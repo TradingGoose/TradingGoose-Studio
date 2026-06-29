@@ -3,12 +3,13 @@ import { workflow } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
+import { simAgentClient } from '@/lib/copilot/agent/client'
+import { extractSubBlockValuesFromBlocks } from '@/lib/copilot/workflow/block-output-utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
-import { simAgentClient } from '@/lib/copilot/agent/client'
 import { generateRequestId } from '@/lib/utils'
-import { loadWorkflowState } from '@/lib/workflows/db-helpers'
-import { extractSubBlockValuesFromBlocks } from '@/lib/copilot/tools/client/workflow/block-output-utils'
+import { requireWorkflowRealtimeState } from '@/lib/workflows/db-helpers'
+import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
 import { getAllBlocks } from '@/blocks/registry'
 import type { BlockConfig } from '@/blocks/types'
 import { resolveOutputType } from '@/blocks/utils'
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
 
     const userId = session.user.id
 
-    // Fetch the workflow from database
+    // Fetch workflow metadata for access checks.
     const workflowData = await db
       .select()
       .from(workflow)
@@ -70,9 +71,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    const stateWithSource = await loadWorkflowState(workflowId)
+    const editableState = await requireWorkflowRealtimeState(workflowId)
 
-    if (!stateWithSource) {
+    if (!editableState) {
       return NextResponse.json(
         { success: false, error: 'Workflow has no state data' },
         { status: 400 }
@@ -81,17 +82,18 @@ export async function GET(request: NextRequest) {
 
     const workflowState: any = {
       deploymentStatuses: {},
-      blocks: stateWithSource.blocks,
-      edges: stateWithSource.edges,
-      loops: stateWithSource.loops,
-      parallels: stateWithSource.parallels,
-      variables: stateWithSource.variables || {},
-      lastSaved: stateWithSource.lastSaved ?? Date.now(),
+      ...(editableState.direction !== undefined ? { direction: editableState.direction } : {}),
+      blocks: editableState.blocks,
+      edges: editableState.edges,
+      loops: editableState.loops,
+      parallels: editableState.parallels,
+      variables: editableState.variables || {},
+      lastSaved: editableState.lastSaved ?? Date.now(),
       isDeployed: workflowData.isDeployed ?? false,
       deployedAt: workflowData.deployedAt,
     }
 
-    logger.info(`[${requestId}] Loaded workflow ${workflowId} from ${stateWithSource.source}`, {
+    logger.info(`[${requestId}] Loaded editable workflow ${workflowId} from Yjs`, {
       blocksCount: Object.keys(workflowState.blocks).length,
       edgesCount: workflowState.edges.length,
       variablesCount: Object.keys(workflowState.variables || {}).length,
@@ -180,6 +182,8 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     logger.error(`[${requestId}] YAML export failed`, error)
+    const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
+    if (realtimeResponse) return realtimeResponse
     return NextResponse.json(
       {
         success: false,

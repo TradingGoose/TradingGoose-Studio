@@ -1,10 +1,9 @@
-import { createWithEqualityFn as create } from 'zustand/traditional'
 import { devtools } from 'zustand/middleware'
+import { createWithEqualityFn as create } from 'zustand/traditional'
 import { createLogger } from '@/lib/logs/console/logger'
 import { createWorkflowExportFile } from '@/lib/workflows/import-export'
 import { getSnapshotForWorkflow } from '@/lib/yjs/workflow-session-registry'
 import { useSkillsStore } from '@/stores/skills/store'
-import type { SkillDefinition } from '@/stores/skills/types'
 import { useWorkflowRegistry } from '../registry/store'
 
 const logger = createLogger('WorkflowJsonStore')
@@ -12,16 +11,15 @@ const logger = createLogger('WorkflowJsonStore')
 export interface WorkflowJsonScope {
   workflowId?: string | null
   channelId?: string
-  workspaceSkills?: Array<Pick<SkillDefinition, 'id' | 'name' | 'description' | 'content'>>
 }
 
 interface WorkflowJsonStore {
   json: string
   lastGenerated?: number
 
-  generateJson: (scope?: WorkflowJsonScope) => void
+  generateJson: (scope?: WorkflowJsonScope) => Promise<void>
   getJson: (scope?: WorkflowJsonScope) => Promise<string>
-  refreshJson: (scope?: WorkflowJsonScope) => void
+  refreshJson: (scope?: WorkflowJsonScope) => Promise<void>
 }
 
 export const useWorkflowJsonStore = create<WorkflowJsonStore>()(
@@ -30,7 +28,7 @@ export const useWorkflowJsonStore = create<WorkflowJsonStore>()(
       json: '',
       lastGenerated: undefined,
 
-      generateJson: (scope) => {
+      generateJson: async (scope) => {
         const clearJson = () =>
           set({
             json: '',
@@ -68,27 +66,15 @@ export const useWorkflowJsonStore = create<WorkflowJsonStore>()(
             return
           }
 
-          const workspaceSkills =
-            scope?.workspaceSkills ??
-            (currentWorkflow.workspaceId
-              ? useSkillsStore
-                  .getState()
-                  .getAllSkills(currentWorkflow.workspaceId)
-                  .map((skill) => ({
-                    id: skill.id,
-                    name: skill.name,
-                    description: skill.description,
-                    content: skill.content,
-                  }))
-              : [])
-
           const exportFile = createWorkflowExportFile({
             workflow: {
               name: currentWorkflow.name,
               description: currentWorkflow.description ?? '',
               state: workflowSnapshot,
             },
-            skills: workspaceSkills,
+            skills: currentWorkflow.workspaceId
+              ? useSkillsStore.getState().getAllSkills(currentWorkflow.workspaceId)
+              : [],
           })
 
           // Convert to formatted JSON
@@ -123,15 +109,15 @@ export const useWorkflowJsonStore = create<WorkflowJsonStore>()(
         // Scoped requests are always refreshed to avoid channel/workflow cache mismatch.
         // Unscoped requests keep the short cache to reduce repeated work.
         if (hasScope || !lastGenerated || currentTime - lastGenerated > 1000) {
-          get().generateJson(scope)
+          await get().generateJson(scope)
           return get().json
         }
 
         return json
       },
 
-      refreshJson: (scope) => {
-        get().generateJson(scope)
+      refreshJson: async (scope) => {
+        await get().generateJson(scope)
       },
     }),
     {

@@ -14,14 +14,6 @@ describe('indicator import/export helpers', () => {
         {
           name: 'RSI Export Example',
           pineCode: "indicator('RSI Export Example')",
-          inputMeta: {
-            Length: {
-              title: 'Length',
-              type: 'int',
-              defval: 14,
-              minval: 1,
-            },
-          },
         },
       ],
     })
@@ -40,14 +32,6 @@ describe('indicator import/export helpers', () => {
         {
           name: 'RSI Export Example',
           pineCode: "indicator('RSI Export Example')",
-          inputMeta: {
-            Length: {
-              title: 'Length',
-              type: 'int',
-              defval: 14,
-              minval: 1,
-            },
-          },
         },
       ],
     })
@@ -60,7 +44,6 @@ describe('indicator import/export helpers', () => {
         {
           name: 'RSI Export Example',
           pineCode: "indicator('RSI Export Example')",
-          inputMeta: undefined,
         },
       ],
     })
@@ -83,7 +66,7 @@ describe('indicator import/export helpers', () => {
     })
   })
 
-  it('parses mixed unified import files and returns the indicators section', () => {
+  it('parses mixed unified import files and ignores supplied input metadata', () => {
     const parsed = parseImportedIndicatorsFile({
       version: '1',
       fileType: 'tradingGooseExport',
@@ -98,7 +81,9 @@ describe('indicator import/export helpers', () => {
         {
           name: '  RSI   Export Example  ',
           pineCode: "indicator('RSI Export Example')",
-          inputMeta: {},
+          inputMeta: {
+            Stale: { title: 'Stale', type: 'string', defval: 'old' },
+          },
         },
       ],
     })
@@ -107,7 +92,6 @@ describe('indicator import/export helpers', () => {
       {
         name: 'RSI Export Example',
         pineCode: "indicator('RSI Export Example')",
-        inputMeta: {},
       },
     ])
   })

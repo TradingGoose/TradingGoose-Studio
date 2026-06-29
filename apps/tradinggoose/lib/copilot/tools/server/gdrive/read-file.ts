@@ -2,18 +2,15 @@ import {
   type BaseServerTool,
   type ServerToolExecutionContext,
   throwIfServerToolAborted,
+  withWorkspaceArgContext,
 } from '@/lib/copilot/tools/server/base-tool'
-import {
-  createWorkflowPermissionError,
-  resolveServerWorkspaceId,
-  resolveServerWorkflowScope,
-} from '@/lib/copilot/tools/server/workflow/workflow-scope'
 import { getOAuthAccessTokenForUserCredential } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { executeTool } from '@/tools'
 
 interface ReadGDriveFileParams {
-  entityId?: string
+  workspaceId?: string
   credentialId?: string
   fileId?: string
   type?: 'doc' | 'sheet'
@@ -24,16 +21,16 @@ export const readGDriveFileServerTool: BaseServerTool<ReadGDriveFileParams, any>
   name: 'read_gdrive_file',
   async execute(params: ReadGDriveFileParams, context?: ServerToolExecutionContext): Promise<any> {
     const logger = createLogger('ReadGDriveFileServerTool')
+    const scopedContext = withWorkspaceArgContext(context, params)
 
-    const userId = context?.userId
+    const userId = scopedContext?.userId
     const credentialId = params?.credentialId
     const fileId = params?.fileId
     const type = params?.type
-    const workflowScope = await resolveServerWorkflowScope(params, context)
 
     logger.info('read_gdrive_file input', {
       hasUserId: !!userId,
-      workflowId: workflowScope?.workflowId,
+      workspaceId: scopedContext?.workspaceId,
       hasCredentialId: !!credentialId,
       hasFileId: !!fileId,
       type,
@@ -43,11 +40,15 @@ export const readGDriveFileServerTool: BaseServerTool<ReadGDriveFileParams, any>
     if (!userId || !credentialId || !fileId || !type) {
       throw new Error('Authentication, credentialId, fileId and type are required')
     }
-    if (workflowScope && !workflowScope.hasAccess) {
-      throw new Error(createWorkflowPermissionError('access Google Drive files in'))
+    const workspaceId = scopedContext?.workspaceId
+    if (!workspaceId) {
+      throw new Error('workspaceId is required')
     }
-    throwIfServerToolAborted(context)
-    const workspaceId = resolveServerWorkspaceId(context, workflowScope)
+    const workspaceAccess = await checkWorkspaceAccess(workspaceId, userId)
+    if (!workspaceAccess.exists || !workspaceAccess.hasAccess) {
+      throw new Error('Access denied: You do not have permission to use this workspace')
+    }
+    throwIfServerToolAborted(scopedContext)
 
     const accessToken = await getOAuthAccessTokenForUserCredential({
       credentialId,
@@ -67,9 +68,9 @@ export const readGDriveFileServerTool: BaseServerTool<ReadGDriveFileParams, any>
         { accessToken, fileId },
         false,
         undefined,
-        { signal: context?.signal }
+        { signal: scopedContext?.signal }
       )
-      throwIfServerToolAborted(context)
+      throwIfServerToolAborted(scopedContext)
       if (!result.success) throw new Error(result.error || 'Failed to read Google Drive document')
       const output = (result as any).output || result
       const content = output?.output?.content ?? output?.content
@@ -87,9 +88,9 @@ export const readGDriveFileServerTool: BaseServerTool<ReadGDriveFileParams, any>
         },
         false,
         undefined,
-        { signal: context?.signal }
+        { signal: scopedContext?.signal }
       )
-      throwIfServerToolAborted(context)
+      throwIfServerToolAborted(scopedContext)
       if (!result.success) throw new Error(result.error || 'Failed to read Google Sheets data')
       const output = (result as any).output || result
       const rows: string[][] = output?.output?.data?.values || output?.data?.values || []

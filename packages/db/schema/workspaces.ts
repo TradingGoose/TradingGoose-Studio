@@ -86,7 +86,7 @@ export const apiKey = pgTable(
     expiresAt: timestamp('expires_at'),
   },
   (table) => ({
-    // Ensure workspace keys have a workspace_id and personal keys don't
+    // Ensure only workspace keys have a workspace_id.
     workspaceTypeCheck: check(
       'workspace_type_check',
       sql`(type = 'workspace' AND workspace_id IS NOT NULL) OR (type = 'personal' AND workspace_id IS NULL)`

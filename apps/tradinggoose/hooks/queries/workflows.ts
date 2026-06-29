@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateCreativeWorkflowName } from '@/lib/naming'
-import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 const logger = createLogger('WorkflowQueries')
@@ -51,21 +50,6 @@ export function useCreateWorkflow() {
       const workflowId = createdWorkflow.id
 
       logger.info(`Successfully created workflow ${workflowId}`)
-
-      const { workflowState } = buildDefaultWorkflowArtifacts()
-
-      const stateResponse = await fetch(`/api/workflows/${workflowId}/state`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(workflowState),
-      })
-
-      if (!stateResponse.ok) {
-        const text = await stateResponse.text()
-        logger.error('Failed to persist default Start block:', text)
-      } else {
-        logger.info('Successfully persisted default Start block')
-      }
 
       return {
         id: workflowId,

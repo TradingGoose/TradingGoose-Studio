@@ -6,23 +6,15 @@ import type { MutableRefObject } from 'react'
 import { act, createRef } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as Y from 'yjs'
+import { seedEntitySession } from '@/lib/yjs/entity-session'
 import { SkillEditor } from '@/widgets/widgets/editor_skill/skill-editor'
-
-const mockUseUpdateSkill = vi.fn()
-
-vi.mock('@/hooks/queries/skills', async () => {
-  const actual = await vi.importActual<any>('@/hooks/queries/skills')
-  return {
-    ...actual,
-    useUpdateSkill: () => mockUseUpdateSkill(),
-  }
-})
 
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
 
-describe('SkillEditor dirty state', () => {
+describe('SkillEditor save', () => {
   let container: HTMLDivElement
   let root: Root
 
@@ -41,29 +33,28 @@ describe('SkillEditor dirty state', () => {
     container.remove()
   })
 
-  it('returns to a clean state after a successful save', async () => {
-    const mutateAsync = vi.fn().mockResolvedValue({})
-    const onDirtyChange = vi.fn()
+  it('saves the current Yjs fields', async () => {
+    const save = vi.fn().mockResolvedValue(undefined)
+    const exportRef = createRef<() => void>()
     const saveRef = createRef<() => void>()
+    const doc = new Y.Doc()
+    const initialValues = {
+      id: 'skill-1',
+      name: 'Market Research',
+      description: 'Investigate the market.',
+      content: 'Use multiple trusted sources.',
+    }
     saveRef.current = () => {}
-
-    mockUseUpdateSkill.mockReturnValue({
-      isPending: false,
-      mutateAsync,
-    })
+    seedEntitySession(doc, { entityKind: 'skill', payload: initialValues })
 
     await act(async () => {
       root.render(
         <SkillEditor
-          workspaceId='workspace-1'
+          exportRef={exportRef as MutableRefObject<() => void>}
           saveRef={saveRef as MutableRefObject<() => void>}
-          onDirtyChange={onDirtyChange}
-          initialValues={{
-            id: 'skill-1',
-            name: 'Market Research',
-            description: 'Investigate the market.',
-            content: 'Use multiple trusted sources.',
-          }}
+          skillId='skill-1'
+          doc={doc}
+          save={save}
         />
       )
     })
@@ -78,22 +69,12 @@ describe('SkillEditor dirty state', () => {
       nameInput!.dispatchEvent(new Event('change', { bubbles: true }))
     })
 
-    expect(onDirtyChange).toHaveBeenLastCalledWith(true)
-
     await act(async () => {
       saveRef.current?.()
       await Promise.resolve()
     })
 
-    expect(mutateAsync).toHaveBeenCalledWith({
-      workspaceId: 'workspace-1',
-      skillId: 'skill-1',
-      updates: {
-        name: 'Market Research Updated',
-        description: 'Investigate the market.',
-        content: 'Use multiple trusted sources.',
-      },
-    })
-    expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+    expect(save).toHaveBeenCalledTimes(1)
+    doc.destroy()
   })
 })

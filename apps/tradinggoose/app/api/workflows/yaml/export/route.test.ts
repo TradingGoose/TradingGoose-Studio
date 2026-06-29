@@ -92,19 +92,20 @@ describe('Workflow YAML Export API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
-      loadWorkflowState: loadWorkflowStateMock,
+      WORKFLOW_REALTIME_REQUIRED_CODE: 'WORKFLOW_REALTIME_REQUIRED',
+      isWorkflowRealtimeRequiredError: vi.fn(() => false),
+      requireWorkflowRealtimeState: loadWorkflowStateMock,
     }))
 
-    vi.doMock('@/lib/copilot/tools/client/workflow/block-output-utils', () => ({
+    vi.doMock('@/lib/copilot/workflow/block-output-utils', () => ({
       extractSubBlockValuesFromBlocks: vi.fn((blocks: Record<string, any>) =>
         Object.fromEntries(
           Object.entries(blocks).map(([blockId, block]) => [
             blockId,
             Object.fromEntries(
-              Object.entries(block?.subBlocks || {}).map(([subBlockId, subBlock]: [string, any]) => [
-                subBlockId,
-                subBlock?.value,
-              ])
+              Object.entries(block?.subBlocks || {}).map(
+                ([subBlockId, subBlock]: [string, any]) => [subBlockId, subBlock?.value]
+              )
             ),
           ])
         )
@@ -130,43 +131,42 @@ describe('Workflow YAML Export API Route', () => {
   })
 
   it(
-    'prefers the live Yjs workflow snapshot and includes variables in the export payload',
+    'uses the current workflow state and includes variables in the export payload',
     { timeout: 10_000 },
     async () => {
-    loadWorkflowStateMock.mockResolvedValue({
-      blocks: {
-        'live-block': {
-          id: 'live-block',
-          type: 'agent',
-          name: 'Live Agent',
-          position: { x: 0, y: 0 },
-          subBlocks: {
-            prompt: { id: 'prompt', type: 'long-input', value: 'live value' },
+      loadWorkflowStateMock.mockResolvedValue({
+        blocks: {
+          'live-block': {
+            id: 'live-block',
+            type: 'agent',
+            name: 'Live Agent',
+            position: { x: 0, y: 0 },
+            subBlocks: {
+              prompt: { id: 'prompt', type: 'long-input', value: 'live value' },
+            },
+            outputs: {},
+            enabled: true,
           },
-          outputs: {},
-          enabled: true,
         },
-      },
-      edges: [],
-      loops: {},
-      parallels: {},
-      variables: {
-        'live-var': {
-          id: 'live-var',
-          workflowId: 'workflow-id',
-          name: 'liveVar',
-          type: 'plain',
-          value: 'live',
+        edges: [],
+        loops: {},
+        parallels: {},
+        variables: {
+          'live-var': {
+            id: 'live-var',
+            workflowId: 'workflow-id',
+            name: 'liveVar',
+            type: 'plain',
+            value: 'live',
+          },
         },
-      },
-      lastSaved: Date.now(),
-      source: 'yjs',
-    })
+        lastSaved: Date.now(),
+      })
 
-    const { GET } = await import('@/app/api/workflows/yaml/export/route')
-    const response = await GET(createRequest())
+      const { GET } = await import('@/app/api/workflows/yaml/export/route')
+      const response = await GET(createRequest())
 
-    expect(response.status).toBe(200)
+      expect(response.status).toBe(200)
       expect(makeRequestMock).toHaveBeenCalledWith(
         '/api/workflow/to-yaml',
         expect.objectContaining({
@@ -193,7 +193,7 @@ describe('Workflow YAML Export API Route', () => {
     }
   )
 
-  it('falls back to canonical saved state and workflow-row variables when no live doc exists', async () => {
+  it('exports the current workflow state', async () => {
     loadWorkflowStateMock.mockResolvedValue({
       blocks: {
         'db-block': {
@@ -221,7 +221,6 @@ describe('Workflow YAML Export API Route', () => {
         },
       },
       lastSaved: Date.now(),
-      source: 'normalized',
     })
 
     const { GET } = await import('@/app/api/workflows/yaml/export/route')

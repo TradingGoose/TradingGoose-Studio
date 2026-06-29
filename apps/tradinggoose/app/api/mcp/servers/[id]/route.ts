@@ -1,22 +1,24 @@
-import { db } from '@tradinggoose/db'
-import { mcpServers } from '@tradinggoose/db/schema'
-import { and, eq, isNull } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
+import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
+import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getParsedBody, withMcpAuth } from '@/lib/mcp/middleware'
-import { mcpService } from '@/lib/mcp/service'
-import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
-import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
-import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
-import { UpdateMcpServerSchema } from '../schema'
+import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
+import {
+  applySavedEntityState,
+  SavedEntityPersistenceError,
+} from '@/lib/yjs/server/apply-entity-state'
+import { readBootstrappedSavedEntityFields } from '@/lib/yjs/server/bootstrap-review-target'
+import { RenameMcpServerSchema } from '../schema'
 
 const logger = createLogger('McpServerAPI')
 
 export const dynamic = 'force-dynamic'
 
 /**
- * PATCH - Update an MCP server in the workspace (requires write or admin permission)
+ * PATCH - Rename an MCP server in the workspace (requires write permission).
+ * Full config edits are saved through the MCP saved-entity Yjs session.
  */
 export const PATCH = withMcpAuth('write')(
   async (
@@ -29,7 +31,7 @@ export const PATCH = withMcpAuth('write')(
     try {
       const rawBody = getParsedBody(request) || (await request.json())
 
-      const parseResult = UpdateMcpServerSchema.safeParse(rawBody)
+      const parseResult = RenameMcpServerSchema.safeParse(rawBody)
       if (!parseResult.success) {
         return createMcpErrorResponse(
           new Error(`Invalid request body: ${parseResult.error.message}`),
@@ -42,46 +44,15 @@ export const PATCH = withMcpAuth('write')(
 
       logger.info(`[${requestId}] Updating MCP server: ${serverId} in workspace: ${workspaceId}`, {
         userId,
-        updates: Object.keys(body).filter((k) => k !== 'workspaceId'),
+        updates: ['name'],
       })
 
-      // Validate URL if being updated
-      if (
-        body.url &&
-        (body.transport === 'http' ||
-          body.transport === 'sse' ||
-          body.transport === 'streamable-http')
-      ) {
-        const urlValidation = validateMcpServerUrl(body.url)
-        if (!urlValidation.isValid) {
-          return createMcpErrorResponse(
-            new Error(`Invalid MCP server URL: ${urlValidation.error}`),
-            'Invalid server URL',
-            400
-          )
-        }
-        body.url = urlValidation.normalizedUrl
-      }
-
-      // Remove workspaceId from body to prevent it from being updated
-      const { workspaceId: _, ...updateData } = body
-
-      const [updatedServer] = await db
-        .update(mcpServers)
-        .set({
-          ...updateData,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(mcpServers.id, serverId),
-            eq(mcpServers.workspaceId, workspaceId),
-            isNull(mcpServers.deletedAt)
-          )
-        )
-        .returning()
-
-      if (!updatedServer) {
+      const access = await verifyReviewTargetAccess(
+        userId,
+        buildSavedEntityDescriptor('mcp_server', serverId, workspaceId),
+        'write'
+      )
+      if (!access.hasAccess || access.workspaceId !== workspaceId) {
         return createMcpErrorResponse(
           new Error('Server not found or access denied'),
           'Server not found',
@@ -89,18 +60,30 @@ export const PATCH = withMcpAuth('write')(
         )
       }
 
-      await applySavedEntityState(
+      const currentFields = await readBootstrappedSavedEntityFields(
         'mcp_server',
-        updatedServer.id,
-        savedEntityRowToFields('mcp_server', updatedServer)
+        serverId,
+        workspaceId
       )
-
-      // Clear MCP service cache after update
-      mcpService.clearCache(workspaceId)
+      await applySavedEntityState('mcp_server', serverId, { ...currentFields, name: body.name })
 
       logger.info(`[${requestId}] Successfully updated MCP server: ${serverId}`)
-      return createMcpSuccessResponse({ server: updatedServer })
+      return createMcpSuccessResponse({
+        server: {
+          id: serverId,
+          workspaceId,
+          name: body.name,
+        },
+      })
     } catch (error) {
+      if (error instanceof SavedEntityRealtimeRequiredError) {
+        return createMcpErrorResponse(error, error.message, error.status)
+      }
+
+      if (error instanceof SavedEntityPersistenceError) {
+        return createMcpErrorResponse(error, error.message, error.status)
+      }
+
       logger.error(`[${requestId}] Error updating MCP server:`, error)
       return createMcpErrorResponse(
         error instanceof Error ? error : new Error('Failed to update MCP server'),

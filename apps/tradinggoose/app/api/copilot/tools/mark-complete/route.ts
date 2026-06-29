@@ -151,26 +151,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-
-    // Log raw body shape for diagnostics (avoid dumping huge payloads)
-    try {
-      const bodyPreview = JSON.stringify(body).slice(0, 300)
-      logger.debug(`[${tracker.requestId}] Incoming mark-complete raw body preview`, {
-        preview: `${bodyPreview}${bodyPreview.length === 300 ? '...' : ''}`,
-      })
-    } catch {}
-
     const parsed = MarkCompleteSchema.parse(body)
-
-    const messagePreview = (() => {
-      try {
-        const s =
-          typeof parsed.message === 'string' ? parsed.message : JSON.stringify(parsed.message)
-        return s ? `${s.slice(0, 200)}${s.length > 200 ? '...' : ''}` : undefined
-      } catch {
-        return undefined
-      }
-    })()
 
     logger.info(`[${tracker.requestId}] Forwarding tool mark-complete`, {
       userId,
@@ -179,7 +160,6 @@ export async function POST(req: NextRequest) {
       status: parsed.status,
       hasMessage: parsed.message !== undefined,
       hasData: parsed.data !== undefined,
-      messagePreview,
       agentUrl: await getCopilotApiUrl('/api/tools/mark-complete'),
     })
 

@@ -1,27 +1,54 @@
-import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
+import { createCipheriv, createDecipheriv, createHmac, randomBytes, timingSafeEqual } from 'crypto'
 import { db } from '@tradinggoose/db'
-import { apiKey as apiKeyTable, workspace } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { apiKey as apiKeyTable } from '@tradinggoose/db/schema'
+import { and, eq, inArray, like, type SQL } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
-import { authenticateApiKey } from '@/lib/api-key/auth'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('ApiKeyService')
+const API_KEY_SECRET_PATTERN = /^[A-Za-z0-9_-]{32}$/
+const API_ENCRYPTION_KEY_PATTERN = /^[a-fA-F0-9]{64}$/
+const API_KEY_PREFIX = 'sk-tradinggoose-'
+const STORED_API_KEY_SEPARATOR = ':'
+const API_KEY_ACCESS_NOT_CONFIGURED = 'API key access is not configured'
+const DEFAULT_API_KEY_AUTH_TYPES: ApiKeyType[] = ['personal', 'workspace']
+// Current API-key contract: only sk-tradinggoose-* rows stored as
+// display:lookupDigest:iv:ciphertext:authTag are authenticated or listed.
+
+export type ApiKeyType = 'personal' | 'workspace'
 
 export interface ApiKeyAuthOptions {
   userId?: string
   workspaceId?: string
-  keyTypes?: ('personal' | 'workspace')[]
+  keyTypes?: ApiKeyType[]
 }
 
 export interface ApiKeyAuthResult {
   success: boolean
   userId?: string
   keyId?: string
-  keyType?: 'personal' | 'workspace'
+  keyType?: ApiKeyType
   workspaceId?: string
   error?: string
+}
+
+export async function createApiKey(useStorage = true): Promise<{
+  key: string
+  storedKey?: string
+}> {
+  try {
+    const plainKey = generateApiKey()
+
+    if (useStorage) {
+      return { key: plainKey, storedKey: getStoredApiKey(plainKey) }
+    }
+
+    return { key: plainKey }
+  } catch (error) {
+    logger.error('API key creation error:', { error })
+    throw new Error('Failed to create API key')
+  }
 }
 
 /**
@@ -31,13 +58,36 @@ export async function authenticateApiKeyFromHeader(
   apiKeyHeader: string,
   options: ApiKeyAuthOptions = {}
 ): Promise<ApiKeyAuthResult> {
-  if (!apiKeyHeader) {
+  const apiKey = apiKeyHeader.trim()
+  if (!apiKey) {
     return { success: false, error: 'API key required' }
+  }
+  if (!isApiKeyStorageAvailable()) {
+    return { success: false, error: API_KEY_ACCESS_NOT_CONFIGURED }
+  }
+  if (!isApiKeyFormat(apiKey)) {
+    return { success: false, error: 'Invalid API key' }
   }
 
   try {
-    // Build query based on options
-    let query = db
+    const conditions: SQL[] = [like(apiKeyTable.key, `${getStoredApiKeyLookupPrefix(apiKey)}%`)]
+
+    if (options.userId) {
+      conditions.push(eq(apiKeyTable.userId, options.userId))
+    }
+
+    if (options.workspaceId) {
+      conditions.push(eq(apiKeyTable.workspaceId, options.workspaceId))
+    }
+
+    const keyTypes = options.keyTypes?.length ? options.keyTypes : DEFAULT_API_KEY_AUTH_TYPES
+    if (keyTypes.length === 1) {
+      conditions.push(eq(apiKeyTable.type, keyTypes[0]))
+    } else {
+      conditions.push(inArray(apiKeyTable.type, keyTypes))
+    }
+
+    const query = db
       .select({
         id: apiKeyTable.id,
         userId: apiKeyTable.userId,
@@ -48,66 +98,22 @@ export async function authenticateApiKeyFromHeader(
       })
       .from(apiKeyTable)
 
-    // Add workspace join if needed for workspace keys
-    if (options.workspaceId || options.keyTypes?.includes('workspace')) {
-      query = query.leftJoin(workspace, eq(apiKeyTable.workspaceId, workspace.id)) as any
+    const [storedKey] = await query.where(and(...conditions)).limit(1)
+    if (!storedKey || (storedKey.expiresAt && storedKey.expiresAt < new Date())) {
+      return { success: false, error: 'Invalid API key' }
     }
 
-    // Apply filters
-    const conditions = []
-
-    if (options.userId) {
-      conditions.push(eq(apiKeyTable.userId, options.userId))
+    if (!(await storedApiKeyMatches(apiKey, storedKey.key))) {
+      return { success: false, error: 'Invalid API key' }
     }
 
-    if (options.workspaceId) {
-      conditions.push(eq(apiKeyTable.workspaceId, options.workspaceId))
+    return {
+      success: true,
+      userId: storedKey.userId,
+      keyId: storedKey.id,
+      keyType: storedKey.type as ApiKeyType,
+      workspaceId: storedKey.workspaceId || undefined,
     }
-
-    if (options.keyTypes?.length) {
-      if (options.keyTypes.length === 1) {
-        conditions.push(eq(apiKeyTable.type, options.keyTypes[0]))
-      } else {
-        // For multiple types, we'll filter in memory since drizzle's inArray is complex here
-      }
-    }
-
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as any
-    }
-
-    const keyRecords = await query
-
-    // Filter by keyTypes in memory if multiple types specified
-    const filteredRecords =
-      options.keyTypes?.length && options.keyTypes.length > 1
-        ? keyRecords.filter((record) => options.keyTypes!.includes(record.type as any))
-        : keyRecords
-
-    // Authenticate each key
-    for (const storedKey of filteredRecords) {
-      // Skip expired keys
-      if (storedKey.expiresAt && storedKey.expiresAt < new Date()) {
-        continue
-      }
-
-      try {
-        const isValid = await authenticateApiKey(apiKeyHeader, storedKey.key)
-        if (isValid) {
-          return {
-            success: true,
-            userId: storedKey.userId,
-            keyId: storedKey.id,
-            keyType: storedKey.type as 'personal' | 'workspace',
-            workspaceId: storedKey.workspaceId || undefined,
-          }
-        }
-      } catch (error) {
-        logger.error('Error authenticating API key:', error)
-      }
-    }
-
-    return { success: false, error: 'Invalid API key' }
   } catch (error) {
     logger.error('API key authentication error:', error)
     return { success: false, error: 'Authentication failed' }
@@ -146,128 +152,124 @@ export async function getApiKeyOwnerUserId(
   }
 }
 
-/**
- * Get the API encryption key from the environment
- * @returns The API encryption key
- */
-function getApiEncryptionKey(): Buffer | null {
+export function generateApiKey(): string {
+  return `${API_KEY_PREFIX}${nanoid(32)}`
+}
+
+export function isApiKeyFormat(apiKey: string): boolean {
+  if (isCurrentApiKeyFormat(apiKey)) {
+    return API_KEY_SECRET_PATTERN.test(apiKey.slice(API_KEY_PREFIX.length))
+  }
+  return false
+}
+
+export function isCurrentApiKeyFormat(apiKey: string): boolean {
+  return apiKey.startsWith(API_KEY_PREFIX)
+}
+
+export function formatApiKeyForDisplay(apiKey: string): string {
+  const last4 = apiKey.slice(-4)
+  if (isCurrentApiKeyFormat(apiKey)) {
+    return `${API_KEY_PREFIX}...${last4}`
+  }
+  return `...${last4}`
+}
+
+function getApiKeyLookupDigest(apiKey: string): string {
+  return createHmac('sha256', getApiEncryptionKey()).update(apiKey).digest('hex')
+}
+
+function getApiEncryptionKey(): Buffer {
   const key = env.API_ENCRYPTION_KEY
   if (!key) {
-    logger.warn(
-      'API_ENCRYPTION_KEY not set - API keys will be stored in plain text. Consider setting this for better security.'
-    )
-    return null
+    throw new Error(API_KEY_ACCESS_NOT_CONFIGURED)
   }
-  if (key.length !== 64) {
+  if (!API_ENCRYPTION_KEY_PATTERN.test(key)) {
     throw new Error('API_ENCRYPTION_KEY must be a 64-character hex string (32 bytes)')
   }
   return Buffer.from(key, 'hex')
 }
 
-/**
- * Encrypts an API key using the dedicated API encryption key
- * @param apiKey - The API key to encrypt
- * @returns A promise that resolves to an object containing the encrypted API key and IV
- */
-export async function encryptApiKey(apiKey: string): Promise<{ encrypted: string; iv: string }> {
-  const key = getApiEncryptionKey()
+export function isApiKeyStorageAvailable(): boolean {
+  return Boolean(env.API_ENCRYPTION_KEY && API_ENCRYPTION_KEY_PATTERN.test(env.API_ENCRYPTION_KEY))
+}
 
-  // If no API encryption key is set, return the key as-is for backward compatibility
-  if (!key) {
-    return { encrypted: apiKey, iv: '' }
-  }
-
-  const iv = randomBytes(16)
-  const cipher = createCipheriv('aes-256-gcm', key, iv)
+function encryptApiKeyForStorage(apiKey: string): string {
+  const iv = randomBytes(12)
+  const cipher = createCipheriv('aes-256-gcm', getApiEncryptionKey(), iv)
   let encrypted = cipher.update(apiKey, 'utf8', 'hex')
   encrypted += cipher.final('hex')
-
-  const authTag = cipher.getAuthTag()
-
-  // Format: iv:encrypted:authTag
-  return {
-    encrypted: `${iv.toString('hex')}:${encrypted}:${authTag.toString('hex')}`,
-    iv: iv.toString('hex'),
-  }
+  return [
+    formatApiKeyForDisplay(apiKey),
+    getApiKeyLookupDigest(apiKey),
+    iv.toString('hex'),
+    encrypted,
+    cipher.getAuthTag().toString('hex'),
+  ].join(STORED_API_KEY_SEPARATOR)
 }
 
-/**
- * Decrypts an API key using the dedicated API encryption key
- * @param encryptedValue - The encrypted value in format "iv:encrypted:authTag" or plain text
- * @returns A promise that resolves to an object containing the decrypted API key
- */
-export async function decryptApiKey(encryptedValue: string): Promise<{ decrypted: string }> {
-  // Check if this is actually encrypted (contains colons)
-  if (!encryptedValue.includes(':') || encryptedValue.split(':').length !== 3) {
-    // This is a plain text key, return as-is
-    return { decrypted: encryptedValue }
-  }
-
-  const key = getApiEncryptionKey()
-
-  // If no API encryption key is set, assume it's plain text
-  if (!key) {
-    return { decrypted: encryptedValue }
-  }
-
-  const parts = encryptedValue.split(':')
-  const ivHex = parts[0]
-  const authTagHex = parts[parts.length - 1]
-  const encrypted = parts.slice(1, -1).join(':')
-
+function decryptStoredApiKey(storedApiKey: string): string {
+  const [, , ivHex, encrypted, authTagHex] = storedApiKey.split(STORED_API_KEY_SEPARATOR)
   if (!ivHex || !encrypted || !authTagHex) {
-    throw new Error('Invalid encrypted API key format. Expected "iv:encrypted:authTag"')
+    throw new Error('Invalid stored API key format')
   }
 
-  const iv = Buffer.from(ivHex, 'hex')
-  const authTag = Buffer.from(authTagHex, 'hex')
+  const decipher = createDecipheriv('aes-256-gcm', getApiEncryptionKey(), Buffer.from(ivHex, 'hex'))
+  decipher.setAuthTag(Buffer.from(authTagHex, 'hex'))
+  let decrypted = decipher.update(encrypted, 'hex', 'utf8')
+  decrypted += decipher.final('utf8')
+  return decrypted
+}
 
+function getStoredApiKeyLookupPrefix(apiKey: string): string {
+  return [formatApiKeyForDisplay(apiKey), getApiKeyLookupDigest(apiKey), ''].join(
+    STORED_API_KEY_SEPARATOR
+  )
+}
+
+export function getStoredApiKey(apiKey: string): string {
+  return encryptApiKeyForStorage(apiKey)
+}
+
+function isCurrentStoredApiKeyFormat(storedApiKey: string): boolean {
+  const [displayKey, lookupDigest, iv, encrypted, authTag, extra] =
+    storedApiKey.split(STORED_API_KEY_SEPARATOR)
+  return Boolean(
+    displayKey?.startsWith(API_KEY_PREFIX) &&
+      lookupDigest?.length === 64 &&
+      iv &&
+      encrypted &&
+      authTag &&
+      !extra
+  )
+}
+
+function constantTimeEqual(left: string, right: string): boolean {
+  return left.length === right.length && timingSafeEqual(Buffer.from(left), Buffer.from(right))
+}
+
+export async function storedApiKeyMatches(apiKey: string, storedApiKey: string): Promise<boolean> {
+  if (
+    !isApiKeyStorageAvailable() ||
+    !isApiKeyFormat(apiKey) ||
+    !isCurrentStoredApiKeyFormat(storedApiKey)
+  ) {
+    return false
+  }
+  const [, lookupDigest] = storedApiKey.split(STORED_API_KEY_SEPARATOR)
+  if (!lookupDigest || !constantTimeEqual(getApiKeyLookupDigest(apiKey), lookupDigest)) {
+    return false
+  }
   try {
-    const decipher = createDecipheriv('aes-256-gcm', key, iv)
-    decipher.setAuthTag(authTag)
-
-    let decrypted = decipher.update(encrypted, 'hex', 'utf8')
-    decrypted += decipher.final('utf8')
-
-    return { decrypted }
-  } catch (error: unknown) {
-    logger.error('API key decryption error:', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-    })
-    throw error
+    return constantTimeEqual(apiKey, decryptStoredApiKey(storedApiKey))
+  } catch (error) {
+    logger.error('Failed to decrypt stored API key:', { error })
+    return false
   }
 }
 
-/**
- * Generates a standardized API key with the 'tradinggoose_' prefix (plain-text format)
- * @returns A new API key string
- */
-export function generateApiKey(): string {
-  return `tradinggoose_${nanoid(32)}`
-}
-
-/**
- * Generates a new encrypted API key with the 'sk-tradinggoose-' prefix
- * @returns A new encrypted API key string
- */
-export function generateEncryptedApiKey(): string {
-  return `sk-tradinggoose-${nanoid(32)}`
-}
-
-/**
- * Determines if an API key uses the new encrypted format based on prefix
- * @param apiKey - The API key to check
- * @returns true if the key uses the new encrypted format (sk-tradinggoose- prefix)
- */
-export function isEncryptedApiKeyFormat(apiKey: string): boolean {
-  return apiKey.startsWith('sk-tradinggoose-')
-}
-
-/**
- * Determines if an API key uses the plain-text format based on prefix
- * @param apiKey - The API key to check
- * @returns true if the key uses the plain-text format (tradinggoose_ prefix)
- */
-export function isLegacyApiKeyFormat(apiKey: string): boolean {
-  return apiKey.startsWith('tradinggoose_') && !apiKey.startsWith('sk-tradinggoose-')
+export function getApiKeyDisplayFormat(storedApiKey: string): string | null {
+  return isCurrentStoredApiKeyFormat(storedApiKey)
+    ? storedApiKey.split(STORED_API_KEY_SEPARATOR)[0]
+    : null
 }

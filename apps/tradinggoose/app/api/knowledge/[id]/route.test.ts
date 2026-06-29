@@ -18,7 +18,7 @@ mockConsoleLogger()
 
 vi.mock('@/lib/knowledge/service', () => ({
   getKnowledgeBaseById: vi.fn(),
-  updateKnowledgeBase: vi.fn(),
+  applyKnowledgeBaseMetadata: vi.fn(),
   deleteKnowledgeBase: vi.fn(),
 }))
 
@@ -31,7 +31,7 @@ describe('Knowledge Base By ID API Route', () => {
   const mockAuth$ = mockAuth()
 
   let mockGetKnowledgeBaseById: any
-  let mockUpdateKnowledgeBase: any
+  let mockApplyKnowledgeBaseMetadata: any
   let mockDeleteKnowledgeBase: any
   let mockCheckKnowledgeBaseAccess: any
   let mockCheckKnowledgeBaseWriteAccess: any
@@ -84,7 +84,7 @@ describe('Knowledge Base By ID API Route', () => {
     const knowledgeUtils = await import('@/app/api/knowledge/utils')
 
     mockGetKnowledgeBaseById = knowledgeService.getKnowledgeBaseById as any
-    mockUpdateKnowledgeBase = knowledgeService.updateKnowledgeBase as any
+    mockApplyKnowledgeBaseMetadata = knowledgeService.applyKnowledgeBaseMetadata as any
     mockDeleteKnowledgeBase = knowledgeService.deleteKnowledgeBase as any
     mockCheckKnowledgeBaseAccess = knowledgeUtils.checkKnowledgeBaseAccess as any
     mockCheckKnowledgeBaseWriteAccess = knowledgeUtils.checkKnowledgeBaseWriteAccess as any
@@ -218,7 +218,8 @@ describe('Knowledge Base By ID API Route', () => {
       })
 
       const updatedKnowledgeBase = { ...mockKnowledgeBase, ...validUpdateData }
-      mockUpdateKnowledgeBase.mockResolvedValueOnce(updatedKnowledgeBase)
+      mockGetKnowledgeBaseById.mockResolvedValueOnce(mockKnowledgeBase)
+      mockApplyKnowledgeBaseMetadata.mockResolvedValueOnce(updatedKnowledgeBase)
 
       const req = createMockRequest('PUT', validUpdateData)
       const { PUT } = await import('@/app/api/knowledge/[id]/route')
@@ -229,12 +230,12 @@ describe('Knowledge Base By ID API Route', () => {
       expect(data.success).toBe(true)
       expect(data.data.name).toBe('Updated Knowledge Base')
       expect(mockCheckKnowledgeBaseWriteAccess).toHaveBeenCalledWith('kb-123', 'user-123')
-      expect(mockUpdateKnowledgeBase).toHaveBeenCalledWith(
+      expect(mockApplyKnowledgeBaseMetadata).toHaveBeenCalledWith(
         'kb-123',
         {
           name: validUpdateData.name,
           description: validUpdateData.description,
-          chunkingConfig: undefined,
+          chunkingConfig: mockKnowledgeBase.chunkingConfig,
         },
         expect.any(String)
       )
@@ -304,7 +305,8 @@ describe('Knowledge Base By ID API Route', () => {
         knowledgeBase: { id: 'kb-123', userId: 'user-123' },
       })
 
-      mockUpdateKnowledgeBase.mockRejectedValueOnce(new Error('Database error'))
+      mockGetKnowledgeBaseById.mockResolvedValueOnce(mockKnowledgeBase)
+      mockApplyKnowledgeBaseMetadata.mockRejectedValueOnce(new Error('Yjs apply error'))
 
       const req = createMockRequest('PUT', validUpdateData)
       const { PUT } = await import('@/app/api/knowledge/[id]/route')

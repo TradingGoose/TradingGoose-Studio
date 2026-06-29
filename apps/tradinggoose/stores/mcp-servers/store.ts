@@ -5,6 +5,8 @@ import { initialState, type McpServersActions, type McpServersState } from './ty
 
 const logger = createLogger('McpServersStore')
 
+export const MCP_TOOLS_CHANGED_EVENT = 'tradinggoose:mcp-tools-changed'
+
 export const useMcpServersStore = create<McpServersState & McpServersActions>()(
   devtools(
     (set) => ({
@@ -21,7 +23,10 @@ export const useMcpServersStore = create<McpServersState & McpServersActions>()(
             throw new Error(data.error || 'Failed to fetch servers')
           }
 
-          set({ servers: data.data?.servers || [], isLoading: false })
+          const listedServers: McpServersState['servers'] = Array.isArray(data.data?.servers)
+            ? data.data.servers
+            : []
+          set({ servers: listedServers, isLoading: false })
           logger.info(
             `Fetched ${data.data?.servers?.length || 0} MCP servers for workspace ${workspaceId}`
           )
@@ -71,9 +76,6 @@ export const useMcpServersStore = create<McpServersState & McpServersActions>()(
             timeout: requestBody.timeout ?? 30000,
             retries: requestBody.retries ?? 3,
             enabled: requestBody.enabled ?? true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            connectionStatus: 'disconnected' as const,
           }
           set((state) => ({
             servers: [...state.servers, newServer],
@@ -90,42 +92,39 @@ export const useMcpServersStore = create<McpServersState & McpServersActions>()(
         }
       },
 
-      updateServer: async (workspaceId: string, id: string, updates) => {
+      renameServer: async (workspaceId: string, id: string, name: string) => {
         set({ isLoading: true, error: null })
 
         try {
           const response = await fetch(`/api/mcp/servers/${id}?workspaceId=${workspaceId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updates),
+            body: JSON.stringify({ name }),
           })
 
           const data = await response.json()
 
           if (!response.ok) {
-            throw new Error(data.error || 'Failed to update server')
+            throw new Error(data.error || 'Failed to rename server')
           }
 
           const updatedServer = data.data?.server || null
+          const nextName = typeof updatedServer?.name === 'string' ? updatedServer.name : name
 
           set((state) => ({
             servers: state.servers.map((server) =>
-              server.id === id && server.workspaceId === workspaceId
-                ? {
-                    ...server,
-                    ...(updatedServer || updates),
-                    updatedAt: updatedServer?.updatedAt || new Date().toISOString(),
-                  }
+              server.id === id && server.workspaceId === workspaceId && nextName
+                ? { ...server, name: nextName }
                 : server
             ),
             isLoading: false,
           }))
 
-          logger.info(`Updated MCP server: ${id} in workspace: ${workspaceId}`)
+          logger.info(`Renamed MCP server: ${id} in workspace: ${workspaceId}`)
           return updatedServer
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Failed to update server'
-          logger.error('Failed to update MCP server:', error)
+          const errorMessage = error instanceof Error ? error.message : 'Failed to rename server'
+          logger.error('Failed to rename MCP server:', error)
           set({ error: errorMessage, isLoading: false })
           throw error
         }
@@ -162,8 +161,8 @@ export const useMcpServersStore = create<McpServersState & McpServersActions>()(
         }
       },
 
-      refreshServer: async (workspaceId: string, id: string) => {
-        const refreshedAt = new Date().toISOString()
+      refreshServer: async (workspaceId: string, id: string, result) => {
+        const refreshedAt = result?.lastToolsRefresh ?? new Date().toISOString()
 
         set((state) => ({
           servers: state.servers.map((server) =>
@@ -171,6 +170,10 @@ export const useMcpServersStore = create<McpServersState & McpServersActions>()(
               ? {
                   ...server,
                   lastToolsRefresh: refreshedAt,
+                  ...(result?.status ? { connectionStatus: result.status } : {}),
+                  ...(typeof result?.toolCount === 'number' ? { toolCount: result.toolCount } : {}),
+                  ...(result?.lastConnected ? { lastConnected: result.lastConnected } : {}),
+                  ...(result ? { lastError: result.error || undefined } : {}),
                 }
               : server
           ),
@@ -186,5 +189,7 @@ export const useMcpServersStore = create<McpServersState & McpServersActions>()(
 )
 
 export const useEnabledServers = () => {
-  return useMcpServersStore((state) => state.servers.filter((s) => s.enabled && !s.deletedAt))
+  return useMcpServersStore((state) =>
+    state.servers.filter((server) => !server.deletedAt && server.enabled !== false)
+  )
 }

@@ -3,7 +3,7 @@
  */
 
 import { NextRequest } from 'next/server'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TradingServiceError } from '@/lib/trading/errors'
 import { createMockRequest } from '@/app/api/__test-utils__/utils'
 
@@ -18,6 +18,7 @@ const mockUpdateOrderHistoryResult = vi.fn()
 const mockFetch = vi.fn()
 const idempotencyStore = new Map<string, unknown>()
 let idempotencyCounter = 0
+let routePost: typeof import('@/app/api/providers/trading/order/route').POST
 
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({
@@ -71,6 +72,10 @@ vi.mock('@/providers/trading/portfolio', async () => {
     ...(actual as object),
     listPortfolioIdentities: mockListPortfolioIdentities,
   }
+})
+
+beforeAll(async () => {
+  ;({ POST: routePost } = await import('@/app/api/providers/trading/order/route'))
 })
 
 const stockListing = {
@@ -211,8 +216,7 @@ describe('Trading provider order route', () => {
   })
 
   it('rejects invalid JSON before auth or broker calls', async () => {
-    const { POST } = await import('@/app/api/providers/trading/order/route')
-    const response = await POST(
+    const response = await routePost(
       new NextRequest('http://localhost:3000/api/providers/trading/order', {
         method: 'POST',
         body: '{',

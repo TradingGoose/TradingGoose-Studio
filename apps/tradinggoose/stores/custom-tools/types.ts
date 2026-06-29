@@ -17,7 +17,7 @@ export interface CustomToolDefinition {
   title: string
   schema: CustomToolSchema
   code: string
-  createdAt: string
+  createdAt?: string
   updatedAt?: string
 }
 

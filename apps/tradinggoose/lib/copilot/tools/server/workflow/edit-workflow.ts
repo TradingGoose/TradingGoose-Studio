@@ -1,22 +1,32 @@
 import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
-import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
+import type {
+  BaseServerTool,
+  ServerToolExecutionContext,
+} from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
+import { applyAutoLayout } from '@/lib/workflows/autolayout'
 import { resolveBlockRuntimeState } from '@/lib/workflows/block-outputs'
 import { WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
-import { parseGraphOnlyWorkflowMermaid } from '@/lib/workflows/studio-workflow-mermaid'
+import {
+  parseGraphOnlyWorkflowMermaid,
+  serializeWorkflowToGraphMermaid,
+} from '@/lib/workflows/studio-workflow-mermaid'
 import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
 import { getAbsoluteBlockPosition } from '@/lib/workflows/workflow-direction'
 import { createWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { getBlock } from '@/blocks'
 import type { BlockState, Position } from '@/stores/workflows/workflow/types'
 import { generateLoopBlocks, generateParallelBlocks } from '@/stores/workflows/workflow/utils'
-import { buildWorkflowMutationResult, loadBaseWorkflowState } from './workflow-mutation-utils'
+import {
+  buildWorkflowMutationResult,
+  loadBaseWorkflowState,
+  resolveWorkflowMutationResultForExecution,
+} from './workflow-mutation-utils'
 
 interface EditWorkflowParams {
   entityId: string
   entityDocument: string
   removedBlockIds?: string[]
-  currentWorkflowState: string
 }
 
 function buildStableEdgeId(edge: {
@@ -136,6 +146,22 @@ function setParent(
   return { ...block, position: nextPosition, data: nextData }
 }
 
+function applyWorkflowDirectionLayout(
+  blocks: Record<string, BlockState>,
+  edges: WorkflowSnapshot['edges'],
+  direction: 'TD' | 'LR'
+): Record<string, BlockState> {
+  const horizontalHandles = direction === 'LR'
+  const orientedBlocks = Object.fromEntries(
+    Object.entries(blocks).map(([blockId, block]) => [blockId, { ...block, horizontalHandles }])
+  )
+  const layout = applyAutoLayout(orientedBlocks, edges)
+  if (!layout.success) {
+    throw new Error(`Invalid edited workflow: failed to apply ${direction} layout.`)
+  }
+  return layout.blocks
+}
+
 function applyGraphMermaidToWorkflow(
   baseWorkflowState: WorkflowSnapshot,
   entityDocument: string,
@@ -225,22 +251,26 @@ function applyGraphMermaidToWorkflow(
     type: 'default',
     data: {},
   }))
+  const graphDirectionChanged = graph.direction !== (baseWorkflowState.direction ?? 'TD')
+  const finalBlocks = graphDirectionChanged
+    ? applyWorkflowDirectionLayout(blocks, edges, graph.direction)
+    : blocks
 
   return createWorkflowSnapshot({
     ...baseWorkflowState,
     direction: graph.direction,
-    blocks,
+    blocks: finalBlocks,
     edges,
-    loops: generateLoopBlocks(blocks),
-    parallels: generateParallelBlocks(blocks),
+    loops: generateLoopBlocks(finalBlocks),
+    parallels: generateParallelBlocks(finalBlocks),
   }) as WorkflowSnapshot & { direction: 'TD' | 'LR' }
 }
 
 export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
   name: 'edit_workflow',
-  async execute(params: EditWorkflowParams): Promise<any> {
+  async execute(params: EditWorkflowParams, context?: ServerToolExecutionContext): Promise<any> {
     const logger = createLogger('EditWorkflowServerTool')
-    const { entityDocument, removedBlockIds, currentWorkflowState } = params
+    const { entityDocument, removedBlockIds } = params
     const workflowId = requireCopilotEntityId(params, { toolName: 'edit_workflow' })
 
     if (!entityDocument || entityDocument.trim().length === 0) {
@@ -252,7 +282,7 @@ export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
       documentLength: entityDocument.length,
     })
 
-    const baseWorkflowState = await loadBaseWorkflowState(workflowId, currentWorkflowState)
+    const baseWorkflowState = await loadBaseWorkflowState(workflowId, context)
     const nextWorkflowState = applyGraphMermaidToWorkflow(
       baseWorkflowState,
       entityDocument,
@@ -262,17 +292,17 @@ export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
       workflowId,
       baseWorkflowState,
       nextWorkflowState,
-      requestedDirection: nextWorkflowState.direction,
+      renderEntityDocument: serializeWorkflowToGraphMermaid,
       documentFormat: WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
     })
 
-    logger.info('edit_workflow successfully applied workflow graph', {
+    logger.info('edit_workflow prepared workflow graph review', {
       workflowId,
       blocksCount: Object.keys(result.workflowState.blocks).length,
       edgesCount: result.workflowState.edges.length,
       warningCount: result.preview?.warnings.length ?? 0,
     })
 
-    return result
+    return resolveWorkflowMutationResultForExecution(result, context)
   },
 }

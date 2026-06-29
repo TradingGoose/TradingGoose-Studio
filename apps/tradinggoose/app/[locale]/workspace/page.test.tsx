@@ -7,6 +7,7 @@ const mockRedirect = vi.fn((url: string) => {
 const mockGetSession = vi.fn()
 const mockHeaders = vi.fn()
 const mockGetUserWorkspaces = vi.fn()
+const mockCreateDefaultWorkspaceForUser = vi.fn()
 const mockReadWorkflowAccessContext = vi.fn()
 
 function mockLocalizedRedirect({
@@ -38,6 +39,7 @@ vi.mock('@/lib/auth', () => ({
 }))
 
 vi.mock('@/lib/workspaces/service', () => ({
+  createDefaultWorkspaceForUser: (...args: unknown[]) => mockCreateDefaultWorkspaceForUser(...args),
   getUserWorkspaces: (...args: unknown[]) => mockGetUserWorkspaces(...args),
 }))
 
@@ -72,6 +74,7 @@ describe('Workspace root page access guard', () => {
       },
     })
     mockGetUserWorkspaces.mockResolvedValue([{ id: 'workspace-1' }])
+    mockCreateDefaultWorkspaceForUser.mockResolvedValue({ id: 'workspace-created' })
     mockReadWorkflowAccessContext.mockResolvedValue(null)
   })
 
@@ -146,20 +149,16 @@ describe('Workspace root page access guard', () => {
 
     expect(mockGetUserWorkspaces).toHaveBeenCalledWith({
       userId: 'user-1',
-      userName: 'Ada Lovelace',
     })
   })
 
-  it('bootstraps a workspace on the server when the user has none and redirects to it', async () => {
-    mockGetUserWorkspaces.mockResolvedValue([{ id: 'workspace-bootstrapped' }])
+  it('repairs authenticated users with no workspace from the workspace entrypoint', async () => {
+    mockGetUserWorkspaces.mockResolvedValue([])
 
     await expect(renderWorkspacePage('en')).rejects.toThrow(
-      'redirect:/en/workspace/workspace-bootstrapped/dashboard'
+      'redirect:/en/workspace/workspace-created/dashboard'
     )
 
-    expect(mockGetUserWorkspaces).toHaveBeenCalledWith({
-      userId: 'user-1',
-      userName: 'Ada Lovelace',
-    })
+    expect(mockCreateDefaultWorkspaceForUser).toHaveBeenCalledWith('user-1', 'Ada Lovelace')
   })
 })

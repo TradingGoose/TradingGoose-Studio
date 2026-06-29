@@ -1,24 +1,10 @@
 /**
  * @vitest-environment node
  */
-import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('Workspaces API Route', () => {
   const transactionMock = vi.fn()
-  const txInsertValuesMock = vi.fn()
-  const txInsertMock = vi.fn(() => ({
-    values: txInsertValuesMock,
-  }))
-  const deleteWhereMock = vi.fn()
-  const deleteMock = vi.fn((_table: unknown) => ({
-    where: deleteWhereMock,
-  }))
-  const updateWhereMock = vi.fn()
-  const updateSetMock = vi.fn()
-  const updateMock = vi.fn()
-  const mockSaveWorkflowToNormalizedTables = vi.fn()
-  const mockTryApplyWorkflowState = vi.fn()
   let userWorkspaces: Array<{
     workspace: Record<string, unknown>
     permissionType: 'admin' | 'write' | 'read' | null
@@ -29,20 +15,8 @@ describe('Workspaces API Route', () => {
     vi.clearAllMocks()
     userWorkspaces = []
 
-    txInsertValuesMock.mockResolvedValue(undefined)
-    transactionMock.mockImplementation(async (callback) =>
-      callback({ insert: txInsertMock, delete: deleteMock })
-    )
-    deleteWhereMock.mockResolvedValue(undefined)
-    updateWhereMock.mockResolvedValue([])
-    updateSetMock.mockReturnValue({ where: updateWhereMock })
-    updateMock.mockReturnValue({ set: updateSetMock })
-    mockSaveWorkflowToNormalizedTables.mockResolvedValue({ success: true })
-    mockTryApplyWorkflowState.mockResolvedValue({ success: true })
-
     vi.doMock('@tradinggoose/db', () => ({
       db: {
-        delete: deleteMock,
         select: vi.fn(() => ({
           from: vi.fn(() => ({
             leftJoin: vi.fn(() => ({
@@ -57,8 +31,10 @@ describe('Workspaces API Route', () => {
             })),
           })),
         })),
-        update: updateMock,
         transaction: transactionMock,
+        insert: vi.fn(() => ({
+          values: vi.fn().mockResolvedValue(undefined),
+        })),
       },
     }))
 
@@ -68,11 +44,6 @@ describe('Workspaces API Route', () => {
         userId: 'permissions.userId',
         entityType: 'permissions.entityType',
         entityId: 'permissions.entityId',
-      },
-      workflow: {
-        id: 'workflow.id',
-        userId: 'workflow.userId',
-        workspaceId: 'workflow.workspaceId',
       },
       workspace: {
         id: 'workspace.id',
@@ -97,29 +68,6 @@ describe('Workspaces API Route', () => {
       })),
     }))
 
-    vi.doMock('@/lib/workflows/defaults', () => ({
-      buildDefaultWorkflowArtifacts: vi.fn(() => ({
-        workflowState: {
-          blocks: {},
-          edges: [],
-          loops: {},
-          parallels: {},
-        },
-      })),
-    }))
-
-    vi.doMock('@/lib/workflows/db-helpers', () => ({
-      saveWorkflowToNormalizedTables: mockSaveWorkflowToNormalizedTables,
-    }))
-
-    vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
-      tryApplyWorkflowState: mockTryApplyWorkflowState,
-    }))
-
-    vi.doMock('@/lib/yjs/workflow-session', () => ({
-      createWorkflowSnapshot: vi.fn(() => ({})),
-    }))
-
     vi.doMock('@/lib/workspaces/billing-owner', () => ({
       toWorkspaceApiRecord: vi.fn((workspace) => ({
         ...workspace,
@@ -137,28 +85,17 @@ describe('Workspaces API Route', () => {
     vi.clearAllMocks()
   })
 
-  async function postWorkspace() {
-    const { POST } = await import('@/app/api/workspaces/route')
-    return POST(
-      new Request('http://localhost/api/workspaces', {
-        method: 'POST',
-        body: JSON.stringify({ name: 'New Workspace' }),
-      })
-    )
-  }
-
-  it('returns an empty list without creating a default workspace when autoCreate=false', async () => {
+  it('returns an empty list without creating a default workspace during reads', async () => {
     const { GET } = await import('@/app/api/workspaces/route')
 
-    const response = await GET(new NextRequest('http://localhost/api/workspaces?autoCreate=false'))
+    const response = await GET()
 
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ workspaces: [] })
     expect(transactionMock).not.toHaveBeenCalled()
-    expect(updateMock).not.toHaveBeenCalled()
   })
 
-  it('lists existing workspaces without running workspace migration side effects when autoCreate=false', async () => {
+  it('lists existing workspaces without running migration side effects', async () => {
     userWorkspaces = [
       {
         workspace: {
@@ -177,7 +114,7 @@ describe('Workspaces API Route', () => {
 
     const { GET } = await import('@/app/api/workspaces/route')
 
-    const response = await GET(new NextRequest('http://localhost/api/workspaces?autoCreate=false'))
+    const response = await GET()
     const data = await response.json()
 
     expect(response.status).toBe(200)
@@ -192,7 +129,6 @@ describe('Workspaces API Route', () => {
       role: 'owner',
       permissions: 'admin',
     })
-    expect(updateMock).not.toHaveBeenCalled()
     expect(transactionMock).not.toHaveBeenCalled()
   })
 
@@ -215,7 +151,7 @@ describe('Workspaces API Route', () => {
 
     const { GET } = await import('@/app/api/workspaces/route')
 
-    const response = await GET(new NextRequest('http://localhost/api/workspaces?autoCreate=false'))
+    const response = await GET()
     const data = await response.json()
 
     expect(response.status).toBe(200)
@@ -227,61 +163,5 @@ describe('Workspaces API Route', () => {
       }),
     ])
     expect(transactionMock).not.toHaveBeenCalled()
-  })
-
-  it('auto-creates a default workspace with the canonical workspace shape', async () => {
-    const { GET } = await import('@/app/api/workspaces/route')
-
-    const response = await GET(new NextRequest('http://localhost/api/workspaces'))
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.workspaces).toEqual([
-      expect.objectContaining({
-        name: "Bruz's Workspace",
-        role: 'owner',
-        permissions: 'admin',
-        billingOwner: {
-          type: 'user',
-          userId: 'user-1',
-        },
-      }),
-    ])
-    expect(transactionMock).toHaveBeenCalled()
-    expect(updateMock).toHaveBeenCalled()
-  })
-
-  it.each([
-    [
-      'persistence fails',
-      () =>
-        mockSaveWorkflowToNormalizedTables.mockResolvedValue({
-          success: false,
-          error: 'Failed to persist normalized workflow state',
-        }),
-    ],
-    [
-      'persistence throws',
-      () => mockSaveWorkflowToNormalizedTables.mockRejectedValue(new Error('database unavailable')),
-    ],
-    [
-      'Yjs seeding fails',
-      () =>
-        mockTryApplyWorkflowState.mockResolvedValue({
-          success: false,
-          error: new Error('socket unavailable'),
-        }),
-    ],
-  ])('removes a newly created workspace when default workflow %s', async (_case, fail) => {
-    fail()
-    const response = await postWorkspace()
-
-    expect(response.status).toBe(500)
-    expect(await response.json()).toEqual({ error: 'Failed to create workspace' })
-    expect(deleteMock.mock.calls.map(([table]) => table)).toEqual([
-      expect.objectContaining({ workspaceId: 'workflow.workspaceId' }),
-      expect.objectContaining({ ownerId: 'workspace.ownerId' }),
-    ])
-    expect(deleteWhereMock).toHaveBeenCalledTimes(2)
   })
 })

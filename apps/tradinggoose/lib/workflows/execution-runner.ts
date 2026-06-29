@@ -8,10 +8,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { decryptSecret } from '@/lib/utils-server'
-import {
-  loadDeployedWorkflowState,
-  loadWorkflowFromNormalizedTables,
-} from '@/lib/workflows/db-helpers'
+import { loadDeployedWorkflowState, requireWorkflowRealtimeState } from '@/lib/workflows/db-helpers'
 import { TriggerUtils } from '@/lib/workflows/triggers'
 import { updateWorkflowRunCounts } from '@/lib/workflows/utils'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
@@ -92,19 +89,27 @@ async function resolveRequiredWorkflowExecutionContext(
   let workflowRecord:
     | {
         workspaceId: string | null
-        variables: unknown
+        variables?: unknown
       }
     | undefined
 
   if (needsWorkflowRecord) {
-    ;[workflowRecord] = await db
-      .select({
-        workspaceId: workflowTable.workspaceId,
-        variables: workflowTable.variables,
-      })
-      .from(workflowTable)
-      .where(eq(workflowTable.id, workflowId))
-      .limit(1)
+    if (workflowContext?.variables === undefined) {
+      ;[workflowRecord] = await db
+        .select({
+          workspaceId: workflowTable.workspaceId,
+          variables: workflowTable.variables,
+        })
+        .from(workflowTable)
+        .where(eq(workflowTable.id, workflowId))
+        .limit(1)
+    } else {
+      ;[workflowRecord] = await db
+        .select({ workspaceId: workflowTable.workspaceId })
+        .from(workflowTable)
+        .where(eq(workflowTable.id, workflowId))
+        .limit(1)
+    }
   }
 
   const workspaceId = providedWorkspaceId ?? workflowRecord?.workspaceId
@@ -260,23 +265,44 @@ export async function loadWorkflowExecutionBlueprint(params: {
   workflowData?: WorkflowExecutionBlueprint['workflowData']
 }): Promise<WorkflowExecutionBlueprint> {
   const executionTarget = params.executionTarget ?? 'deployed'
+  const liveWorkflowState =
+    executionTarget === 'live' && !params.workflowData
+      ? await requireWorkflowRealtimeState(params.workflowId)
+      : null
   const workflowContext = await resolveRequiredWorkflowExecutionContext(
     params.workflowId,
-    params.workflowContext
+    executionTarget === 'deployed'
+      ? { ...params.workflowContext, variables: {} }
+      : executionTarget === 'live' &&
+          liveWorkflowState &&
+          params.workflowContext?.variables === undefined
+        ? {
+            ...params.workflowContext,
+            variables: liveWorkflowState.variables,
+          }
+        : params.workflowContext
   )
   const workflowData =
     executionTarget === 'live'
-      ? (params.workflowData ?? (await loadWorkflowFromNormalizedTables(params.workflowId)))
+      ? (params.workflowData ?? liveWorkflowState)
       : await loadDeployedWorkflowState(params.workflowId)
 
   if (!workflowData) {
     throw new Error(`Workflow ${params.workflowId} has no ${executionTarget} state`)
   }
 
+  const deployedVariables =
+    executionTarget === 'deployed'
+      ? ((workflowData as { variables?: Record<string, any> }).variables ?? {})
+      : null
+
   return {
     workflowId: params.workflowId,
     executionTarget,
-    workflowContext,
+    workflowContext:
+      executionTarget === 'deployed'
+        ? { ...workflowContext, variables: deployedVariables }
+        : workflowContext,
     workflowData: {
       blocks: workflowData.blocks || {},
       edges: workflowData.edges || [],

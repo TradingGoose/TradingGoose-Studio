@@ -9,6 +9,8 @@ export interface ToolPromptMetadata {
 
 const CUSTOM_TOOL_DOCUMENT_GUIDANCE =
   'Use full `tg-custom-tool-document-v1` JSON with exactly `title`, `schemaText`, and `codeText`. `title` is the canonical custom-tool name. `schemaText` is a JSON-encoded string, not an object, containing {"type":"function","function":{"description":"What the tool does","parameters":{"type":"object","properties":{},"required":[]}}}. Do not include a `name` property inside `function`. `codeText` is raw async JavaScript function body only; use <paramName> for inputs and {{ENV_VAR_NAME}} for environment variables.'
+const KNOWLEDGE_BASE_DOCUMENT_GUIDANCE =
+  'Use full `tg-knowledge-base-document-v1` JSON with exactly `name`, `description`, and `chunkingConfig` fields. `chunkingConfig` must include numeric `maxSize`, `minSize`, and `overlap`.'
 
 export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   plan: {
@@ -28,7 +30,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   [CopilotTool.read_workflow]: {
     description:
-      'Read a workflow by exact `entityId` and return full `tg-mermaid-v1` inspection Mermaid in `entityDocument`, plus `workflowSummary.blocks[].connections` counts and exact raw `workflowSummary.edges` with external/internal scope. Do not submit this full document to `edit_workflow`; that tool accepts minimal graph-only Mermaid. For topology, use only these edges/counts; do not infer graph connections from subBlock text references like `<...>`. `connectionIssues` only reports malformed existing edges.',
+      'Read a workflow by exact `entityId` and return full `tg-mermaid-v1` inspection Mermaid in `entityDocument`, workflow variables in `workflowVariableDocument`, plus `workflowSummary.blocks[].connections` counts and exact raw `workflowSummary.edges` with external/internal scope. Do not submit the full workflow Mermaid to `edit_workflow`; that tool accepts minimal graph-only Mermaid. Use `workflowVariableDocument` with `edit_workflow_variable` for variable changes. For topology, use only these edges/counts; do not infer graph connections from subBlock text references like `<...>`. `connectionIssues` only reports malformed existing edges.',
     kind: 'read',
     entityKind: 'workflow',
   },
@@ -81,7 +83,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   [CopilotTool.get_agent_accessory_catalog]: {
     description:
-      'Get available Agent block accessories for the current workflow workspace. Returns `tools` options for Agent `subBlocks.tools` and `skills` options for Agent `subBlocks.skills`; write selected option `value` objects with `edit_workflow_block`.',
+      'Get available Agent block accessories for the selected workspace. Returns `tools` options for Agent `subBlocks.tools` and `skills` options for Agent `subBlocks.skills`; write selected option `value` objects with `edit_workflow_block`.',
     kind: 'inspect',
     entityKind: 'workflow',
   },
@@ -114,22 +116,23 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   [CopilotTool.read_environment_variables]: {
     description:
-      'Read environment variables for the current workspace or workflow context. Use returned names with the exact `{{ENV_VAR_NAME}}` syntax in block inputs.',
+      'Read environment variable names through an explicit personal or workspace scope. Use returned names with the exact `{{ENV_VAR_NAME}}` syntax in block inputs.',
     kind: 'read',
     entityKind: 'environment',
   },
   set_environment_variables: {
-    description: 'Set environment variables.',
+    description: 'Set personal or workspace environment variables using an explicit scope.',
     kind: 'edit',
     entityKind: 'environment',
   },
   [CopilotTool.read_oauth_credentials]: {
-    description: 'Read OAuth credentials.',
+    description: 'Read OAuth credentials through an explicit personal or workspace scope.',
     kind: 'read',
     entityKind: 'credential',
   },
   [CopilotTool.read_credentials]: {
-    description: 'Read OAuth credentials and related environment variable names.',
+    description:
+      'Read OAuth credentials and related environment variable names through an explicit personal or workspace scope.',
     kind: 'read',
     entityKind: 'credential',
   },
@@ -139,14 +142,9 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
     kind: 'list',
     entityKind: 'workflow',
   },
-  [CopilotTool.read_workflow_variables]: {
+  [CopilotTool.edit_workflow_variable]: {
     description:
-      'Read workflow variables. Use returned names with the exact `<variable.name>` syntax in block inputs.',
-    kind: 'read',
-    entityKind: 'workflow',
-  },
-  [CopilotTool.set_workflow_variables]: {
-    description: 'Add, edit, or delete global workflow variables.',
+      'Edit global workflow variables by replacing the full workflow-variable document returned by `read_workflow`. Use returned names with the exact `<variable.name>` syntax in block inputs.',
     kind: 'edit',
     entityKind: 'workflow',
   },
@@ -165,9 +163,36 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
     kind: 'read',
     entityKind: 'workflow',
   },
-  knowledge_base: {
-    description: 'Create, list, get, or query knowledge bases.',
-    kind: 'knowledge',
+  list_knowledge_bases: {
+    description:
+      'List knowledge bases in the current workspace. If the user identifies one by name, use this list to select the exact `entityId`.',
+    kind: 'list',
+    entityKind: 'knowledge_base',
+  },
+  read_knowledge_base: {
+    description: `Read one knowledge base by exact \`entityId\` as an editable document payload with \`entityDocument\` and \`documentFormat\`. ${KNOWLEDGE_BASE_DOCUMENT_GUIDANCE}`,
+    kind: 'read',
+    entityKind: 'knowledge_base',
+  },
+  create_knowledge_base: {
+    description: `Create a knowledge base in the current workspace from a full knowledge-base document and return the created document. ${KNOWLEDGE_BASE_DOCUMENT_GUIDANCE}`,
+    kind: 'create',
+    entityKind: 'knowledge_base',
+  },
+  edit_knowledge_base: {
+    description: `Update the target knowledge base from a full knowledge-base document and return the resulting document. ${KNOWLEDGE_BASE_DOCUMENT_GUIDANCE}`,
+    kind: 'edit',
+    entityKind: 'knowledge_base',
+  },
+  rename_knowledge_base: {
+    description: `Rename the target knowledge base by sending a full knowledge-base document with the updated \`name\`, then return the resulting document. ${KNOWLEDGE_BASE_DOCUMENT_GUIDANCE}`,
+    kind: 'rename',
+    entityKind: 'knowledge_base',
+  },
+  query_knowledge_base: {
+    description:
+      'Search one knowledge base by exact `entityId` and query text. Use `read_knowledge_base` or `list_knowledge_bases` first when resolving a named knowledge base.',
+    kind: 'search',
     entityKind: 'knowledge_base',
   },
   list_custom_tools: {
@@ -279,7 +304,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   [CopilotTool.read_mcp_server]: {
     description:
-      'Return one MCP server by `entityId` as an editable document payload with `entityDocument` and `documentFormat`.',
+      'Return one MCP server by `entityId` as an editable document payload. Secret header/env values are redacted as `[redacted]`.',
     kind: 'read',
     entityKind: 'mcp_server',
   },
@@ -291,13 +316,13 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   edit_mcp_server: {
     description:
-      'Update the target MCP server from a full server document and return the resulting document.',
+      'Update the target MCP server from a full server document. Keep `[redacted]` header/env values to preserve existing secrets, send concrete values to replace them, or omit keys to delete them.',
     kind: 'edit',
     entityKind: 'mcp_server',
   },
   rename_mcp_server: {
     description:
-      'Rename the target MCP server by sending a full server document with the updated `name`, then return the resulting document.',
+      'Rename the target MCP server by sending a full server document with the updated `name`. Keep `[redacted]` header/env values to preserve existing secrets.',
     kind: 'rename',
     entityKind: 'mcp_server',
   },
@@ -324,13 +349,13 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   list_gdrive_files: {
     description:
-      'List Google Drive files using the credentialId returned by gdrive_request_access.',
+      'List Google Drive files in the selected workspace using the credentialId returned by gdrive_request_access.',
     kind: 'list',
     entityKind: 'google_drive',
   },
   read_gdrive_file: {
     description:
-      'Read a Google doc or sheet using the credentialId returned by gdrive_request_access.',
+      'Read a Google doc or sheet in the selected workspace using the credentialId returned by gdrive_request_access.',
     kind: 'read',
     entityKind: 'google_drive',
   },

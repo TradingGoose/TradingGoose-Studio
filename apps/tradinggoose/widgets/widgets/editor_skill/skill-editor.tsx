@@ -1,82 +1,41 @@
 import { type MutableRefObject, useCallback, useEffect, useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
+import type * as Y from 'yjs'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { createLogger } from '@/lib/logs/console/logger'
+import { exportSkillsAsJson, SKILL_NAME_MAX_LENGTH } from '@/lib/skills/import-export'
+import { useYjsStringField } from '@/lib/yjs/use-entity-fields'
+import { isValidSkillName } from '@/hooks/queries/skills'
 import { formatTemplate } from '@/i18n/utils'
 import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
-import { createLogger } from '@/lib/logs/console/logger'
-import { SKILL_NAME_MAX_LENGTH } from '@/lib/skills/import-export'
-import { isValidSkillName, useUpdateSkill } from '@/hooks/queries/skills'
-import { useSkillsStore } from '@/stores/skills/store'
 
 const logger = createLogger('SkillEditor')
 
-interface SkillInitialValues {
-  id: string
-  name: string
-  description: string
-  content: string
-}
-
 interface SkillEditorProps {
-  workspaceId: string
-  initialValues: SkillInitialValues
+  skillId: string
+  doc: Y.Doc | null
+  save: () => Promise<void>
+  exportRef: MutableRefObject<() => void>
   saveRef: MutableRefObject<() => void>
-  onDirtyChange?: (isDirty: boolean) => void
 }
 
-export function SkillEditor({
-  workspaceId,
-  initialValues,
-  saveRef,
-  onDirtyChange,
-}: SkillEditorProps) {
+export function SkillEditor({ skillId, doc, save, exportRef, saveRef }: SkillEditorProps) {
   const copy = useWorkspaceWidgetsMessages().skillEditor
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [content, setContent] = useState('')
+  const [name, setName] = useYjsStringField(doc, 'name')
+  const [description, setDescription] = useYjsStringField(doc, 'description')
+  const [content, setContent] = useYjsStringField(doc, 'content')
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
-  const [savedValues, setSavedValues] = useState({
-    name: '',
-    description: '',
-    content: '',
-  })
-
-  const updateSkillMutation = useUpdateSkill()
 
   useEffect(() => {
-    const nextSavedValues = {
-      name: initialValues.name,
-      description: initialValues.description,
-      content: initialValues.content,
-    }
-
-    setName(nextSavedValues.name)
-    setDescription(nextSavedValues.description)
-    setContent(nextSavedValues.content)
-    setSavedValues(nextSavedValues)
     setError(null)
-  }, [initialValues.content, initialValues.description, initialValues.id, initialValues.name])
-
-  useEffect(() => {
-    onDirtyChange?.(
-      name !== savedValues.name ||
-        description !== savedValues.description ||
-        content !== savedValues.content
-    )
-  }, [
-    content,
-    description,
-    name,
-    onDirtyChange,
-    savedValues.content,
-    savedValues.description,
-    savedValues.name,
-  ])
+  }, [doc, skillId])
 
   const handleSave = useCallback(async () => {
+    if (!doc) return
+
     const trimmedName = name.trim()
     const trimmedDescription = description.trim()
     const trimmedContent = content.trim()
@@ -101,50 +60,46 @@ export function SkillEditor({
       return
     }
 
-    const existingSkills = useSkillsStore.getState().getAllSkills(workspaceId)
-    const isDuplicate = existingSkills.some((skill) => {
-      if (skill.id === initialValues.id) {
-        return false
-      }
-
-      return skill.name === trimmedName
-    })
-
-    if (isDuplicate) {
-      setError(formatTemplate(copy.validation.duplicateName, { name: trimmedName }))
-      return
-    }
-
     setIsSaving(true)
     setError(null)
 
     try {
-      await updateSkillMutation.mutateAsync({
-        workspaceId,
-        skillId: initialValues.id,
-        updates: {
-          name: trimmedName,
-          description: trimmedDescription,
-          content: trimmedContent,
-        },
-      })
-
-      setName(trimmedName)
-      setDescription(trimmedDescription)
-      setContent(trimmedContent)
-      setSavedValues({
-        name: trimmedName,
-        description: trimmedDescription,
-        content: trimmedContent,
-      })
+      await save()
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : copy.validation.saveFailed
-      logger.error('Failed to save skill', { error: saveError, skillId: initialValues.id })
+      logger.error('Failed to save skill', { error: saveError, skillId })
       setError(message)
     } finally {
       setIsSaving(false)
     }
-  }, [content, description, initialValues.id, name, updateSkillMutation, workspaceId])
+  }, [content, copy.validation, description, doc, name, save, skillId])
+
+  const handleExport = useCallback(() => {
+    if (!doc) return
+    const json = exportSkillsAsJson({
+      exportedFrom: 'skillEditor',
+      skills: [{ name, description, content }],
+    })
+    const fileNameBase =
+      name
+        .trim()
+        .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '-')
+        .replace(/\s+/g, '-') || 'skill'
+    const blobUrl = URL.createObjectURL(
+      new Blob([json], { type: 'application/json;charset=utf-8' })
+    )
+    const link = document.createElement('a')
+    link.href = blobUrl
+    link.download = `${fileNameBase}.json`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(blobUrl)
+  }, [content, description, doc, name])
+
+  useEffect(() => {
+    exportRef.current = handleExport
+  }, [exportRef, handleExport])
 
   useEffect(() => {
     saveRef.current = () => {
@@ -162,12 +117,10 @@ export function SkillEditor({
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder={copy.form.namePlaceholder}
-            disabled={isSaving}
+            disabled={!doc || isSaving}
             maxLength={SKILL_NAME_MAX_LENGTH}
           />
-          <p className='text-muted-foreground text-xs'>
-            {copy.form.helperText}
-          </p>
+          <p className='text-muted-foreground text-xs'>{copy.form.helperText}</p>
         </div>
 
         <div className='space-y-2'>
@@ -177,7 +130,7 @@ export function SkillEditor({
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             placeholder={copy.form.descriptionPlaceholder}
-            disabled={isSaving}
+            disabled={!doc || isSaving}
             maxLength={1024}
           />
         </div>
@@ -189,7 +142,7 @@ export function SkillEditor({
             value={content}
             onChange={(event) => setContent(event.target.value)}
             placeholder={copy.form.instructionsPlaceholder}
-            disabled={isSaving}
+            disabled={!doc || isSaving}
             className='min-h-[320px] resize-y font-mono text-sm'
             maxLength={50000}
           />

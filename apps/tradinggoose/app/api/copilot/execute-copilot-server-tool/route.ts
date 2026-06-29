@@ -13,17 +13,32 @@ import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 
 const logger = createLogger('ExecuteCopilotServerToolAPI')
 
-const ExecuteSchema = z.object({
-  toolName: z.string().min(1),
-  payload: z.unknown().optional(),
-  context: z
-    .object({
-      contextEntityKind: z.enum(REVIEW_ENTITY_KINDS).optional(),
-      contextEntityId: z.string().optional(),
-      workspaceId: z.string().optional(),
-    })
-    .optional(),
-})
+const ExecuteSchema = z
+  .object({
+    toolName: z.string().min(1),
+    payload: z.unknown().optional(),
+    reviewAction: z.enum(['accept']).optional(),
+    reviewToken: z.string().optional(),
+    context: z
+      .object({
+        contextEntityKind: z.enum(REVIEW_ENTITY_KINDS).optional(),
+        contextEntityId: z.string().optional(),
+        workspaceId: z.string().optional(),
+      })
+      .optional(),
+  })
+  .strict()
+
+function readPayloadWorkspaceId(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return undefined
+  }
+
+  const workspaceId = (payload as { workspaceId?: unknown }).workspaceId
+  return typeof workspaceId === 'string' && workspaceId.trim().length > 0
+    ? workspaceId.trim()
+    : undefined
+}
 
 export async function POST(req: NextRequest) {
   const tracker = createRequestTracker()
@@ -35,11 +50,6 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    try {
-      const preview = JSON.stringify(body).slice(0, 300)
-      logger.debug(`[${tracker.requestId}] Incoming request body preview`, { preview })
-    } catch {}
-
     let parsedBody: z.infer<typeof ExecuteSchema>
     try {
       parsedBody = ExecuteSchema.parse(body)
@@ -53,20 +63,40 @@ export async function POST(req: NextRequest) {
       throw error
     }
     toolName = parsedBody.toolName
-    const { payload, context } = parsedBody
+    const { payload, context, reviewAction, reviewToken } = parsedBody
+    if (reviewAction === 'accept' && !reviewToken) {
+      return createBadRequestResponse('reviewToken is required to accept a server tool review')
+    }
+    const payloadWorkspaceId = readPayloadWorkspaceId(payload)
+    const contextWorkspaceId = context?.workspaceId?.trim()
 
-    const [{ isToolId }, { routeExecution }] = await Promise.all([
+    if (payloadWorkspaceId && contextWorkspaceId && payloadWorkspaceId !== contextWorkspaceId) {
+      return createBadRequestResponse('workspaceId does not match execution context')
+    }
+
+    const executionContextInput =
+      payloadWorkspaceId && !contextWorkspaceId
+        ? { ...(context ?? {}), workspaceId: payloadWorkspaceId }
+        : context
+
+    const [
+      { isToolId },
+      { routeExecution },
+      { acceptServerManagedToolReview, stageServerManagedToolReview },
+    ] = await Promise.all([
       import('@/lib/copilot/registry'),
       import('@/lib/copilot/tools/server/router'),
+      import('@/lib/copilot/tools/server/review-acceptance'),
     ])
 
     if (!isToolId(toolName)) {
       return createBadRequestResponse('Invalid request body for execute-copilot-server-tool')
     }
+    const toolId = toolName
 
-    logger.info(`[${tracker.requestId}] Executing server tool`, { toolName })
-    if (context?.workspaceId) {
-      const workspaceAccess = await checkWorkspaceAccess(context.workspaceId, userId)
+    logger.info(`[${tracker.requestId}] Executing server tool`, { toolName: toolId, reviewAction })
+    if (executionContextInput?.workspaceId) {
+      const workspaceAccess = await checkWorkspaceAccess(executionContextInput.workspaceId, userId)
       if (!workspaceAccess.exists || !workspaceAccess.hasAccess) {
         return NextResponse.json(
           { error: 'Access denied to this workspace', code: 'WORKSPACE_ACCESS_DENIED' },
@@ -75,16 +105,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const result = await routeExecution(toolName, payload, {
+    const executionContext = {
       userId,
-      ...context,
+      accessLevel: 'limited' as const,
+      ...executionContextInput,
       signal: req.signal,
-    })
-
-    try {
-      const resultPreview = JSON.stringify(result).slice(0, 300)
-      logger.debug(`[${tracker.requestId}] Server tool result preview`, { toolName, resultPreview })
-    } catch {}
+    }
+    const result = await (reviewAction === 'accept'
+      ? acceptServerManagedToolReview(toolId, reviewToken!, executionContext)
+      : routeExecution(toolId, payload, executionContext).then((toolResult) =>
+          stageServerManagedToolReview(toolId, payload, toolResult, executionContext)
+        ))
 
     return NextResponse.json({ success: true, result })
   } catch (error) {

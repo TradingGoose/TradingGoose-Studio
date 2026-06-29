@@ -4,16 +4,16 @@ import {
   parseImportedWorkflowFile,
   type WorkflowTransferRecord,
 } from '@/lib/workflows/import-export'
-import type { WorkflowState } from '../workflow/types'
 
 const logger = createLogger('WorkflowJsonImporter')
+type ImportedWorkflowState = WorkflowTransferRecord['state']
 
 /**
  * Generate new IDs for all blocks and edges to avoid conflicts
  */
-function regenerateIds(workflowState: WorkflowState): WorkflowState {
+function regenerateIds(workflowState: ImportedWorkflowState): ImportedWorkflowState {
   const blockIdMap = new Map<string, string>()
-  const newBlocks: WorkflowState['blocks'] = {}
+  const newBlocks: ImportedWorkflowState['blocks'] = {}
 
   // First pass: create new IDs for all blocks
   Object.entries(workflowState.blocks).forEach(([oldId, block]) => {
@@ -35,7 +35,7 @@ function regenerateIds(workflowState: WorkflowState): WorkflowState {
 
   // Third pass: update loops with new block IDs
   // CRITICAL: Loop IDs must match their block IDs (loops are keyed by their block ID)
-  const newLoops: WorkflowState['loops'] = {}
+  const newLoops: ImportedWorkflowState['loops'] = {}
   if (workflowState.loops) {
     Object.entries(workflowState.loops).forEach(([oldLoopId, loop]) => {
       // Map the loop ID using the block ID mapping (loop ID = block ID)
@@ -50,7 +50,7 @@ function regenerateIds(workflowState: WorkflowState): WorkflowState {
 
   // Fourth pass: update parallels with new block IDs
   // CRITICAL: Parallel IDs must match their block IDs (parallels are keyed by their block ID)
-  const newParallels: WorkflowState['parallels'] = {}
+  const newParallels: ImportedWorkflowState['parallels'] = {}
   if (workflowState.parallels) {
     Object.entries(workflowState.parallels).forEach(([oldParallelId, parallel]) => {
       // Map the parallel ID using the block ID mapping (parallel ID = block ID)
@@ -103,6 +103,7 @@ function regenerateIds(workflowState: WorkflowState): WorkflowState {
     edges: newEdges,
     loops: newLoops,
     parallels: newParallels,
+    variables: workflowState.variables,
   }
 }
 

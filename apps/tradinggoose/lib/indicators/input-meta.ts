@@ -260,6 +260,17 @@ const parseInputArgs = (argsRaw: string): string[] => {
   return args
 }
 
+const parseLiteralArray = (raw: string): unknown[] | undefined => {
+  const trimmed = raw.trim()
+  if (!trimmed.startsWith('[') || !trimmed.endsWith(']')) return undefined
+
+  const values = parseInputArgs(trimmed.slice(1, -1))
+    .map(parseLiteral)
+    .filter((value) => typeof value !== 'undefined')
+
+  return values.length > 0 ? values : undefined
+}
+
 const resolveTitle = (args: string[], argsRaw: string): string | undefined => {
   const titleValue = parseLiteral(args[1] ?? '')
   if (typeof titleValue === 'string' && titleValue.trim()) {
@@ -297,17 +308,24 @@ export const inferInputMetaFromPineCode = (code: string): InputMetaMap | undefin
       meta.defval = defval
     }
 
-    const minval = parseLiteral(args[2] ?? '')
-    if (typeof minval === 'number' && Number.isFinite(minval)) {
-      meta.minval = minval
+    if (type === 'int' || type === 'float') {
+      const minval = parseLiteral(args[2] ?? '')
+      if (typeof minval === 'number' && Number.isFinite(minval)) {
+        meta.minval = minval
+      }
+      const maxval = parseLiteral(args[3] ?? '')
+      if (typeof maxval === 'number' && Number.isFinite(maxval)) {
+        meta.maxval = maxval
+      }
+      const step = parseLiteral(args[4] ?? '')
+      if (typeof step === 'number' && Number.isFinite(step)) {
+        meta.step = step
+      }
     }
-    const maxval = parseLiteral(args[3] ?? '')
-    if (typeof maxval === 'number' && Number.isFinite(maxval)) {
-      meta.maxval = maxval
-    }
-    const step = parseLiteral(args[4] ?? '')
-    if (typeof step === 'number' && Number.isFinite(step)) {
-      meta.step = step
+
+    const options = type === 'enum' ? parseLiteralArray(args[2] ?? '') : undefined
+    if (options) {
+      meta.options = options
     }
 
     inputMeta[meta.title] = meta
@@ -369,7 +387,7 @@ export const buildInputsMapFromMeta = (
   entries.forEach(([title, meta]) => {
     if (!meta || !title.trim()) return
     const overrideValue = overrides ? overrides[title] : undefined
-    const resolved = coerceValue(meta, overrideValue ?? meta.value ?? meta.defval)
+    const resolved = coerceValue(meta, overrideValue ?? meta.defval)
     if (typeof resolved !== 'undefined') {
       result[title] = resolved
     }

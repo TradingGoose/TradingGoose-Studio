@@ -8,8 +8,10 @@ import {
   SKILL_DESCRIPTION_MAX_LENGTH,
   SKILL_NAME_MAX_LENGTH,
 } from '@/lib/skills/import-export'
-import { deleteSkill, listSkills, upsertSkills } from '@/lib/skills/operations'
+import { createSkills, deleteSkill, listSkills, saveSkill } from '@/lib/skills/operations'
 import { generateRequestId } from '@/lib/utils'
+import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
+import { SavedEntityPersistenceError } from '@/lib/yjs/server/apply-entity-state'
 
 const logger = createLogger('SkillsAPI')
 
@@ -57,9 +59,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    const result = await listSkills({ workspaceId })
-    return NextResponse.json({ data: result }, { status: 200 })
+    return NextResponse.json({ data: await listSkills({ workspaceId }) }, { status: 200 })
   } catch (error) {
+    if (error instanceof SavedEntityRealtimeRequiredError) {
+      return NextResponse.json(error.responseBody(), { status: error.status })
+    }
     logger.error(`[${requestId}] Error fetching skills:`, error)
     return NextResponse.json({ error: 'Failed to fetch skills' }, { status: 500 })
   }
@@ -95,12 +99,36 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Write permission required' }, { status: 403 })
       }
 
-      const resultSkills = await upsertSkills({
-        skills,
-        workspaceId,
-        userId: authResult.userId,
-        requestId,
-      })
+      const skillsToCreate = skills.filter((skill) => !skill.id)
+      const skillsToSave = skills.filter((skill) => skill.id)
+      if (skillsToCreate.length > 0 && skillsToSave.length > 0) {
+        return NextResponse.json(
+          { error: 'Create and save skills in separate requests' },
+          { status: 400 }
+        )
+      }
+      if (skillsToSave.length > 1) {
+        return NextResponse.json({ error: 'Save one existing skill per request' }, { status: 400 })
+      }
+
+      const resultSkills =
+        skillsToSave.length === 1
+          ? await saveSkill({
+              skill: {
+                id: skillsToSave[0].id!,
+                name: skillsToSave[0].name,
+                description: skillsToSave[0].description,
+                content: skillsToSave[0].content,
+              },
+              workspaceId,
+              requestId,
+            })
+          : await createSkills({
+              skills: skillsToCreate,
+              workspaceId,
+              userId: authResult.userId,
+              requestId,
+            })
 
       return NextResponse.json({ success: true, data: resultSkills })
     } catch (validationError) {
@@ -119,13 +147,22 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      if (validationError instanceof SavedEntityPersistenceError) {
+        return NextResponse.json(validationError.responseBody(), { status: validationError.status })
+      }
       if (validationError instanceof Error && validationError.message.includes('already exists')) {
         return NextResponse.json({ error: validationError.message }, { status: 409 })
+      }
+      if (validationError instanceof Error && validationError.message.includes('was not found')) {
+        return NextResponse.json({ error: validationError.message }, { status: 404 })
       }
 
       throw validationError
     }
   } catch (error) {
+    if (error instanceof SavedEntityRealtimeRequiredError) {
+      return NextResponse.json(error.responseBody(), { status: error.status })
+    }
     logger.error(`[${requestId}] Error updating skills`, error)
     return NextResponse.json({ error: 'Failed to update skills' }, { status: 500 })
   }

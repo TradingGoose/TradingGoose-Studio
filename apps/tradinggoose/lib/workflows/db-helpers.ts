@@ -12,18 +12,11 @@ import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import * as Y from 'yjs'
 import { reconcilePublishedChatsForDeploymentTx } from '@/lib/chat/published-deployment'
-import {
-  buildYjsTransportEnvelope,
-  serializeYjsTransportEnvelope,
-} from '@/lib/copilot/review-sessions/identity'
 import { createLogger } from '@/lib/logs/console/logger'
-import { resolveStoredDateValue } from '@/lib/time-format'
 import { sanitizeAgentToolsInBlocks } from '@/lib/workflows/validation'
-import { normalizeVariables } from '@/lib/workflows/variable-utils'
-import { inferMermaidDirectionFromWorkflowState } from '@/lib/workflows/workflow-direction'
-import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
-import { extractPersistedStateFromDoc } from '@/lib/yjs/workflow-session'
-import type { Variable } from '@/stores/variables/types'
+import { inferWorkflowDirectionFromState } from '@/lib/workflows/workflow-direction'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import { extractPersistedStateFromDoc, setWorkflowState } from '@/lib/yjs/workflow-session'
 import type {
   BlockState,
   Loop,
@@ -34,6 +27,13 @@ import type {
 import { SUBFLOW_TYPES } from '@/stores/workflows/workflow/types'
 
 const logger = createLogger('WorkflowDBHelpers')
+
+type PersistableWorkflowState = WorkflowState & {
+  name?: string
+  description?: string | null
+  folderId?: string | null
+  variables?: Record<string, any>
+}
 
 const resolveLockedFromBlockData = (data: unknown): boolean => {
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
@@ -81,6 +81,9 @@ const sanitizeBlockLayout = (layout: unknown): BlockState['layout'] => {
 }
 
 export type PersistedWorkflowState = {
+  name?: string | null
+  description?: string | null
+  folderId?: string | null
   direction?: WorkflowDirection
   blocks: Record<string, any>
   edges: any[]
@@ -90,191 +93,102 @@ export type PersistedWorkflowState = {
   lastSaved: number
 }
 
+export const WORKFLOW_REALTIME_REQUIRED_CODE = 'WORKFLOW_REALTIME_REQUIRED'
+
+export class WorkflowRealtimeRequiredError extends Error {
+  readonly code = WORKFLOW_REALTIME_REQUIRED_CODE
+
+  constructor(cause: unknown) {
+    super(
+      cause instanceof Error
+        ? cause.message
+        : 'Editable workflow realtime orchestration is required'
+    )
+    this.name = 'WorkflowRealtimeRequiredError'
+  }
+}
+
+export const isWorkflowRealtimeRequiredError = (
+  error: unknown
+): error is WorkflowRealtimeRequiredError => error instanceof WorkflowRealtimeRequiredError
+
+function decodeWorkflowSnapshot(snapshotBase64: string): PersistedWorkflowState | null {
+  const doc = new Y.Doc()
+  try {
+    Y.applyUpdate(doc, Buffer.from(snapshotBase64, 'base64'))
+    return extractPersistedStateFromDoc(doc)
+  } finally {
+    doc.destroy()
+  }
+}
+
 /**
- * Attempt to load the current workflow state from the authoritative socket
- * server Yjs session through the generic Yjs snapshot transport. The socket
- * server resolves a live workflow doc first and otherwise falls back to its
- * persisted Yjs blob.
- *
- * Returns `null` when neither source has data for the given workflow,
- * signalling the caller to fall back to the normalized DB tables.
+ * Editable workflow reads must go through the Yjs session. Saved tables are only
+ * used by the Yjs bootstrap path when a session is not already live. Bridge
+ * failures intentionally surface instead of falling back to stale saved tables.
  */
-export async function loadWorkflowStateFromYjs(
+export async function requireWorkflowRealtimeState(
   workflowId: string
 ): Promise<PersistedWorkflowState | null> {
-  try {
-    const snapshot = await getYjsSnapshot(
-      workflowId,
-      serializeYjsTransportEnvelope(
-        buildYjsTransportEnvelope({
-          workspaceId: null,
-          entityKind: 'workflow',
-          entityId: workflowId,
-          draftSessionId: null,
-          reviewSessionId: null,
-          yjsSessionId: workflowId,
-        })
-      )
-    )
-
-    if (!snapshot.snapshotBase64) {
-      return null
-    }
-
-    const doc = new Y.Doc()
-    try {
-      Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
-      return extractPersistedStateFromDoc(doc)
-    } finally {
-      doc.destroy()
-    }
-  } catch (error) {
-    if (error instanceof SocketServerBridgeError && error.status === 404) {
-      return null
-    }
-    throw error
-  }
-}
-
-export type WorkflowStateWithSource = PersistedWorkflowState & {
-  source: 'yjs' | 'normalized'
-}
-
-/**
- * Loads the current workflow state from Yjs (live doc or persisted session),
- * then from the normalized DB tables + workflow row variables.
- *
- * Callers that already have the workflow row can pass `lastSynced` to avoid
- * an extra staleness-check query on the common fresh-Yjs path.
- *
- * Returns `null` when neither source has data for the given workflow.
- *
- * The Yjs lookup is intentionally awaited before the DB query.  Yjs is the
- * authoritative source when a live session or persisted session exists, and
- * running both in parallel would waste a DB round-trip in the common case
- * while risking returning stale normalized-table data if the concurrent
- * result were used by mistake.
- */
-export async function loadWorkflowState(
-  workflowId: string,
-  lastSynced?: Date
-): Promise<WorkflowStateWithSource | null> {
-  const providedWorkflowLastSynced = resolveStoredDateValue(lastSynced)
-  let workflowRowPromise:
-    | Promise<
-        | {
-            variables: unknown
-            lastSynced: unknown
-          }
-        | undefined
-      >
-    | undefined
-
-  const loadWorkflowRow = () => {
-    if (!workflowRowPromise) {
-      workflowRowPromise = db
-        .select({ variables: workflow.variables, lastSynced: workflow.lastSynced })
-        .from(workflow)
-        .where(eq(workflow.id, workflowId))
-        .limit(1)
-        .then((rows) => rows[0])
-    }
-
-    return workflowRowPromise
-  }
-
-  try {
-    const yjsState = await loadWorkflowStateFromYjs(workflowId)
-    if (yjsState) {
-      const workflowLastSynced =
-        providedWorkflowLastSynced ?? resolveStoredDateValue((await loadWorkflowRow())?.lastSynced)
-      const yjsLastSaved = resolveStoredDateValue(yjsState.lastSaved)
-
-      if (
-        !workflowLastSynced ||
-        (yjsLastSaved && yjsLastSaved.getTime() >= workflowLastSynced.getTime())
-      ) {
-        return { ...yjsState, source: 'yjs' }
-      }
-
-      logger.warn(
-        `Ignoring stale Yjs workflow state for ${workflowId} because normalized state is newer`,
-        {
-          workflowId,
-          workflowLastSynced: workflowLastSynced.toISOString(),
-          yjsLastSaved: yjsLastSaved?.toISOString(),
-        }
-      )
-    }
-  } catch (error) {
-    logger.warn(
-      `Failed to load authoritative Yjs state for workflow ${workflowId}; loading normalized state`,
-      error
-    )
-  }
-
-  // Load normalized tables and workflow variables in parallel
-  const [normalizedData, resolvedWorkflowRow] = await Promise.all([
-    loadWorkflowFromNormalizedTables(workflowId),
-    loadWorkflowRow(),
-  ])
-
-  if (!normalizedData) {
+  const { readBootstrappedReviewTargetSnapshot } = await import(
+    '@/lib/yjs/server/bootstrap-review-target'
+  )
+  const snapshot = await readBootstrappedReviewTargetSnapshot({
+    workspaceId: null,
+    entityKind: 'workflow',
+    entityId: workflowId,
+    draftSessionId: null,
+    reviewSessionId: null,
+    yjsSessionId: workflowId,
+  }).catch((error) => {
+    throw new WorkflowRealtimeRequiredError(error)
+  })
+  if (!snapshot.snapshotBase64) {
     return null
   }
 
+  const state = decodeWorkflowSnapshot(snapshot.snapshotBase64)
+  return state
+}
+
+export async function loadWorkflowBootstrapStateFromDb(
+  workflowId: string
+): Promise<PersistedWorkflowState | null> {
+  const [workflowRow, normalizedState] = await Promise.all([
+    db
+      .select({
+        name: workflow.name,
+        description: workflow.description,
+        folderId: workflow.folderId,
+        variables: workflow.variables,
+        updatedAt: workflow.updatedAt,
+      })
+      .from(workflow)
+      .where(eq(workflow.id, workflowId))
+      .limit(1),
+    loadWorkflowFromNormalizedTables(workflowId),
+  ])
+  const row = workflowRow[0]
+  if (!row) {
+    return null
+  }
+
+  const savedState = {
+    name: row.name,
+    description: row.description,
+    folderId: row.folderId,
+    blocks: normalizedState.blocks,
+    edges: normalizedState.edges,
+    loops: normalizedState.loops,
+    parallels: normalizedState.parallels,
+    variables: (row.variables as Record<string, any>) ?? {},
+    lastSaved: row.updatedAt?.getTime() ?? Date.now(),
+  }
+
   return {
-    direction:
-      normalizedData.blocks && Object.keys(normalizedData.blocks).length > 0
-        ? inferMermaidDirectionFromWorkflowState({
-            blocks: normalizedData.blocks,
-            edges: normalizedData.edges,
-          })
-        : undefined,
-    blocks: normalizedData.blocks,
-    edges: normalizedData.edges,
-    loops: normalizedData.loops,
-    parallels: normalizedData.parallels,
-    variables: normalizeVariables(resolvedWorkflowRow?.variables),
-    lastSaved: Date.now(),
-    source: 'normalized',
+    ...savedState,
+    direction: inferWorkflowDirectionFromState(savedState),
   }
-}
-
-/**
- * Safely coerce an unknown value (string, number, Date, null/undefined) to an
- * ISO-8601 string.  Returns `undefined` when the input cannot be converted.
- *
- * Useful for normalising `lastSaved` / `deployedAt` values that may arrive as
- * epoch numbers from Yjs or as Date objects from the database layer.
- */
-export function toISOStringOrUndefined(
-  value: string | number | Date | null | undefined
-): string | undefined {
-  return resolveStoredDateValue(value)?.toISOString()
-}
-
-/**
- * Create a deep copy of a variables record with fresh IDs and the given
- * `newWorkflowId`.  Used when duplicating a workflow or instantiating a
- * template so variable references are independent.
- */
-export function remapVariableIds(
-  sourceVariables: Record<string, Variable>,
-  newWorkflowId: string
-): Record<string, Variable> {
-  const remapped: Record<string, Variable> = {}
-
-  for (const variable of Object.values(sourceVariables)) {
-    const newVarId = crypto.randomUUID()
-    remapped[newVarId] = {
-      ...variable,
-      id: newVarId,
-      workflowId: newWorkflowId,
-    }
-  }
-
-  return remapped
 }
 
 export async function ensureUniqueBlockIds(
@@ -347,6 +261,16 @@ export async function ensureUniqueBlockIds(
       ...block,
       id: nextId,
       data: nextData,
+      subBlocks: block.subBlocks
+        ? Object.fromEntries(
+            Object.entries(block.subBlocks).map(([subBlockId, subBlock]) => [
+              subBlockId,
+              typeof subBlock?.value === 'string' && remap.has(subBlock.value)
+                ? { ...subBlock, value: remap.get(subBlock.value)! }
+                : subBlock,
+            ])
+          )
+        : block.subBlocks,
     }
   })
 
@@ -482,6 +406,7 @@ export interface NormalizedWorkflowData {
   edges: Edge[]
   loops: Record<string, Loop>
   parallels: Record<string, Parallel>
+  variables?: Record<string, any>
   isFromNormalizedTables: boolean // Flag to indicate source (true = normalized tables, false = deployed state)
 }
 
@@ -646,13 +571,14 @@ export async function loadDeployedWorkflowState(
       throw new Error(`Workflow ${workflowId} has no active deployment`)
     }
 
-    const state = active.state as WorkflowState
+    const state = active.state as WorkflowState & { variables?: Record<string, any> }
 
     return {
       blocks: state.blocks || {},
       edges: state.edges || [],
       loops: state.loops || {},
       parallels: state.parallels || {},
+      variables: state.variables || {},
       isFromNormalizedTables: false,
     }
   } catch (error) {
@@ -663,120 +589,104 @@ export async function loadDeployedWorkflowState(
 
 /**
  * Load workflow state from normalized tables
- * Returns null if no normalized data exists.
  */
 export async function loadWorkflowFromNormalizedTables(
   workflowId: string
-): Promise<NormalizedWorkflowData | null> {
-  try {
-    // Load all components in parallel
-    const [blocks, edges, subflows] = await Promise.all([
-      db.select().from(workflowBlocks).where(eq(workflowBlocks.workflowId, workflowId)),
-      db.select().from(workflowEdges).where(eq(workflowEdges.workflowId, workflowId)),
-      db.select().from(workflowSubflows).where(eq(workflowSubflows.workflowId, workflowId)),
-    ])
+): Promise<NormalizedWorkflowData> {
+  const [blocks, edges, subflows] = await Promise.all([
+    db.select().from(workflowBlocks).where(eq(workflowBlocks.workflowId, workflowId)),
+    db.select().from(workflowEdges).where(eq(workflowEdges.workflowId, workflowId)),
+    db.select().from(workflowSubflows).where(eq(workflowSubflows.workflowId, workflowId)),
+  ])
 
-    // If no blocks found, assume this workflow hasn't been migrated yet
-    if (blocks.length === 0) {
-      return null
+  const blocksMap: Record<string, BlockState> = {}
+  blocks.forEach((block) => {
+    const blockLocked = resolveLockedFromBlockData(block.data)
+    const blockData = upsertLockedInBlockData(block.data || {}, blockLocked)
+
+    const assembled: BlockState = {
+      id: block.id,
+      type: block.type,
+      name: block.name,
+      position: {
+        x: Number(block.positionX),
+        y: Number(block.positionY),
+      },
+      enabled: block.enabled,
+      horizontalHandles: block.horizontalHandles,
+      isWide: block.isWide,
+      advancedMode: block.advancedMode,
+      triggerMode: block.triggerMode,
+      height: Number(block.height),
+      locked: blockLocked,
+      subBlocks: (block.subBlocks as BlockState['subBlocks']) || {},
+      outputs: (block.outputs as BlockState['outputs']) || {},
+      data: blockData,
+      layout: sanitizeBlockLayout(block.layout),
     }
 
-    // Convert blocks to the expected format
-    const blocksMap: Record<string, BlockState> = {}
-    blocks.forEach((block) => {
-      const blockLocked = resolveLockedFromBlockData(block.data)
-      const blockData = upsertLockedInBlockData(block.data || {}, blockLocked)
+    blocksMap[block.id] = assembled
+  })
 
-      const assembled: BlockState = {
-        id: block.id,
-        type: block.type,
-        name: block.name,
-        position: {
-          x: Number(block.positionX),
-          y: Number(block.positionY),
-        },
-        enabled: block.enabled,
-        horizontalHandles: block.horizontalHandles,
-        isWide: block.isWide,
-        advancedMode: block.advancedMode,
-        triggerMode: block.triggerMode,
-        height: Number(block.height),
-        locked: blockLocked,
-        subBlocks: (block.subBlocks as BlockState['subBlocks']) || {},
-        outputs: (block.outputs as BlockState['outputs']) || {},
-        data: blockData,
-        layout: sanitizeBlockLayout(block.layout),
+  const { blocks: sanitizedBlocks } = sanitizeAgentToolsInBlocks(blocksMap)
+
+  const edgesArray: Edge[] = edges.map((edge) => ({
+    id: edge.id,
+    source: edge.sourceBlockId,
+    target: edge.targetBlockId,
+    sourceHandle: edge.sourceHandle ?? undefined,
+    targetHandle: edge.targetHandle ?? undefined,
+    type: 'default',
+    data: {},
+  }))
+
+  const loops: Record<string, Loop> = {}
+  const parallels: Record<string, Parallel> = {}
+
+  subflows.forEach((subflow) => {
+    const config = (subflow.config ?? {}) as Partial<Loop & Parallel>
+
+    if (subflow.type === SUBFLOW_TYPES.LOOP) {
+      const loop: Loop = {
+        id: subflow.id,
+        nodes: Array.isArray((config as Loop).nodes) ? (config as Loop).nodes : [],
+        iterations:
+          typeof (config as Loop).iterations === 'number' ? (config as Loop).iterations : 1,
+        loopType:
+          (config as Loop).loopType === 'for' ||
+          (config as Loop).loopType === 'forEach' ||
+          (config as Loop).loopType === 'while' ||
+          (config as Loop).loopType === 'doWhile'
+            ? (config as Loop).loopType
+            : 'for',
+        forEachItems: (config as Loop).forEachItems ?? '',
+        whileCondition: (config as Loop).whileCondition ?? undefined,
       }
-
-      blocksMap[block.id] = assembled
-    })
-
-    // Sanitize any invalid custom tools in agent blocks to prevent client crashes
-    const { blocks: sanitizedBlocks } = sanitizeAgentToolsInBlocks(blocksMap)
-
-    // Convert edges to the expected format
-    const edgesArray: Edge[] = edges.map((edge) => ({
-      id: edge.id,
-      source: edge.sourceBlockId,
-      target: edge.targetBlockId,
-      sourceHandle: edge.sourceHandle ?? undefined,
-      targetHandle: edge.targetHandle ?? undefined,
-      type: 'default',
-      data: {},
-    }))
-
-    // Convert subflows to loops and parallels
-    const loops: Record<string, Loop> = {}
-    const parallels: Record<string, Parallel> = {}
-
-    subflows.forEach((subflow) => {
-      const config = (subflow.config ?? {}) as Partial<Loop & Parallel>
-
-      if (subflow.type === SUBFLOW_TYPES.LOOP) {
-        const loop: Loop = {
-          id: subflow.id,
-          nodes: Array.isArray((config as Loop).nodes) ? (config as Loop).nodes : [],
-          iterations:
-            typeof (config as Loop).iterations === 'number' ? (config as Loop).iterations : 1,
-          loopType:
-            (config as Loop).loopType === 'for' ||
-            (config as Loop).loopType === 'forEach' ||
-            (config as Loop).loopType === 'while' ||
-            (config as Loop).loopType === 'doWhile'
-              ? (config as Loop).loopType
-              : 'for',
-          forEachItems: (config as Loop).forEachItems ?? '',
-          whileCondition: (config as Loop).whileCondition ?? undefined,
-        }
-        loops[subflow.id] = loop
-      } else if (subflow.type === SUBFLOW_TYPES.PARALLEL) {
-        const parallel: Parallel = {
-          id: subflow.id,
-          nodes: Array.isArray((config as Parallel).nodes) ? (config as Parallel).nodes : [],
-          count: typeof (config as Parallel).count === 'number' ? (config as Parallel).count : 2,
-          distribution: (config as Parallel).distribution ?? '',
-          parallelType:
-            (config as Parallel).parallelType === 'count' ||
-            (config as Parallel).parallelType === 'collection'
-              ? (config as Parallel).parallelType
-              : 'count',
-        }
-        parallels[subflow.id] = parallel
-      } else {
-        logger.warn(`Unknown subflow type: ${subflow.type} for subflow ${subflow.id}`)
+      loops[subflow.id] = loop
+    } else if (subflow.type === SUBFLOW_TYPES.PARALLEL) {
+      const parallel: Parallel = {
+        id: subflow.id,
+        nodes: Array.isArray((config as Parallel).nodes) ? (config as Parallel).nodes : [],
+        count: typeof (config as Parallel).count === 'number' ? (config as Parallel).count : 2,
+        distribution: (config as Parallel).distribution ?? '',
+        parallelType:
+          (config as Parallel).parallelType === 'count' ||
+          (config as Parallel).parallelType === 'collection'
+            ? (config as Parallel).parallelType
+            : 'count',
       }
-    })
-
-    return {
-      blocks: sanitizedBlocks,
-      edges: edgesArray,
-      loops,
-      parallels,
-      isFromNormalizedTables: true,
+      parallels[subflow.id] = parallel
+    } else {
+      logger.warn(`Unknown subflow type: ${subflow.type} for subflow ${subflow.id}`)
     }
-  } catch (error) {
-    logger.error(`Error loading workflow ${workflowId} from normalized tables:`, error)
-    return null
+  })
+
+  return {
+    blocks: sanitizedBlocks,
+    edges: edgesArray,
+    loops,
+    parallels,
+    isFromNormalizedTables: true,
   }
 }
 
@@ -785,11 +695,15 @@ export async function loadWorkflowFromNormalizedTables(
  */
 export async function saveWorkflowToNormalizedTables(
   workflowId: string,
-  state: WorkflowState
+  state: PersistableWorkflowState
 ): Promise<{ success: boolean; error?: string; normalizedState?: WorkflowState }> {
   try {
-    const stateWithUniqueBlockIds = await ensureUniqueBlockIds(workflowId, state)
-    const normalizedState = await ensureUniqueEdgeIds(workflowId, stateWithUniqueBlockIds)
+    const { name, description, folderId, variables, ...graphState } = state
+    const stateWithUniqueBlockIds = await ensureUniqueBlockIds(workflowId, graphState)
+    const stateWithUniqueEdgeIds = await ensureUniqueEdgeIds(workflowId, stateWithUniqueBlockIds)
+    const { blocks } = sanitizeAgentToolsInBlocks(stateWithUniqueEdgeIds.blocks || {})
+    const normalizedState = { ...stateWithUniqueEdgeIds, blocks }
+    const savedAt = new Date(state.lastSaved ?? Date.now())
 
     const sanitizeNumberForDecimal = (value: unknown): string => {
       if (typeof value !== 'number' || !Number.isFinite(value)) {
@@ -941,6 +855,18 @@ export async function saveWorkflowToNormalizedTables(
       if (subflowInserts.length > 0) {
         await tx.insert(workflowSubflows).values(subflowInserts)
       }
+
+      await tx
+        .update(workflow)
+        .set({
+          lastSynced: savedAt,
+          updatedAt: savedAt,
+          ...(name !== undefined ? { name } : {}),
+          ...(description !== undefined ? { description } : {}),
+          ...(folderId !== undefined ? { folderId } : {}),
+          ...(variables !== undefined ? { variables } : {}),
+        })
+        .where(eq(workflow.id, workflowId))
     })
 
     return { success: true, normalizedState }
@@ -961,51 +887,34 @@ export async function saveWorkflowToNormalizedTables(
   }
 }
 
-/**
- * Check if a workflow exists in normalized tables
- */
-export async function workflowExistsInNormalizedTables(workflowId: string): Promise<boolean> {
-  try {
-    const blocks = await db
-      .select({ id: workflowBlocks.id })
-      .from(workflowBlocks)
-      .where(eq(workflowBlocks.workflowId, workflowId))
-      .limit(1)
-
-    return blocks.length > 0
-  } catch (error) {
-    logger.error(`Error checking if workflow ${workflowId} exists in normalized tables:`, error)
-    return false
+export async function saveWorkflowYjsDocToDb(workflowId: string, doc: Y.Doc): Promise<void> {
+  const state = extractPersistedStateFromDoc(doc)
+  const syncedAt = new Date()
+  const workflowState: PersistableWorkflowState = {
+    ...(state.direction !== undefined ? { direction: state.direction } : {}),
+    blocks: state.blocks,
+    edges: state.edges,
+    loops: state.loops,
+    parallels: state.parallels,
+    ...(state.name != null ? { name: state.name } : {}),
+    ...(state.description !== undefined ? { description: state.description } : {}),
+    ...(state.folderId !== undefined ? { folderId: state.folderId } : {}),
+    variables: state.variables,
+    lastSaved: syncedAt.toISOString(),
   }
-}
 
-/**
- * Migrate a workflow from JSON blob to normalized tables
- */
-export async function migrateWorkflowToNormalizedTables(
-  workflowId: string,
-  jsonState: any
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    // Convert JSON state to WorkflowState format
-    // Only include fields that are actually persisted to normalized tables
-    const workflowState: WorkflowState = {
-      blocks: jsonState.blocks || {},
-      edges: jsonState.edges || [],
-      loops: jsonState.loops || {},
-      parallels: jsonState.parallels || {},
-      lastSaved: jsonState.lastSaved,
-      isDeployed: jsonState.isDeployed,
-      deployedAt: jsonState.deployedAt,
-    }
+  const saveResult = await saveWorkflowToNormalizedTables(workflowId, workflowState)
 
-    return await saveWorkflowToNormalizedTables(workflowId, workflowState)
-  } catch (error) {
-    logger.error(`Error migrating workflow ${workflowId} to normalized tables:`, error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    }
+  if (!saveResult.success) {
+    throw new Error(saveResult.error || 'Failed to materialize workflow Yjs state')
+  }
+
+  if (saveResult.normalizedState) {
+    setWorkflowState(
+      doc,
+      { ...saveResult.normalizedState, lastSaved: syncedAt.toISOString() },
+      YJS_ORIGINS.SYSTEM
+    )
   }
 }
 
@@ -1039,11 +948,11 @@ export async function deployWorkflow(params: {
   } = params
 
   try {
-    const stateWithSource = await loadWorkflowState(workflowId)
-    if (!stateWithSource) {
+    const editableState = await requireWorkflowRealtimeState(workflowId)
+    if (!editableState) {
       return { success: false, error: 'Failed to load workflow state' }
     }
-    const currentState: PersistedWorkflowState = stateWithSource
+    const currentState = editableState
 
     const now = new Date()
 
@@ -1158,6 +1067,9 @@ export async function deployWorkflow(params: {
     }
   } catch (error) {
     logger.error(`Error deploying workflow ${workflowId}:`, error)
+    if (isWorkflowRealtimeRequiredError(error)) {
+      throw error
+    }
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',

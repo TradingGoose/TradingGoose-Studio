@@ -1,44 +1,152 @@
-import { findIntroducedNonCanonicalSubBlocks } from '@/lib/workflows/block-config-canonicalization'
-import { WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
+import * as Y from 'yjs'
 import {
-  buildWorkflowDocumentPreviewDiff,
-  serializeWorkflowToGraphMermaid,
-  serializeWorkflowToTgMermaid,
-  TG_MERMAID_DOCUMENT_FORMAT,
-} from '@/lib/workflows/studio-workflow-mermaid'
+  assertAcceptedServerToolReviewBase,
+  hashServerToolReviewBase,
+  type ServerToolExecutionContext,
+  shouldStageServerToolMutationForReview,
+} from '@/lib/copilot/tools/server/base-tool'
+import { stableStringifyJsonValue } from '@/lib/json/stable'
+import { findIntroducedNonCanonicalSubBlocks } from '@/lib/workflows/block-config-canonicalization'
 import { validateWorkflowState } from '@/lib/workflows/validation'
-import { normalizeWorkflowStateToMermaidDirection } from '@/lib/workflows/workflow-direction'
-import { createWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
-import type { WorkflowDirection } from '@/stores/workflows/workflow/types'
+import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
+import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
+import {
+  createWorkflowSnapshot,
+  getVariablesSnapshot,
+  readWorkflowSnapshot,
+  type WorkflowSnapshot,
+} from '@/lib/yjs/workflow-session'
 
-function parseCurrentWorkflowState(currentWorkflowState: string): WorkflowSnapshot {
-  try {
-    return createWorkflowSnapshot(JSON.parse(currentWorkflowState))
-  } catch {
-    throw new Error('Invalid currentWorkflowState format')
+function buildWorkflowDocumentPreviewDiff(
+  currentWorkflowState: WorkflowSnapshot | undefined,
+  nextWorkflowState: WorkflowSnapshot
+): {
+  blockDiff: { added: string[]; removed: string[]; updated: string[] }
+  edgeDiff: {
+    added: Array<
+      Pick<WorkflowSnapshot['edges'][number], 'source' | 'target' | 'sourceHandle' | 'targetHandle'>
+    >
+    removed: Array<
+      Pick<WorkflowSnapshot['edges'][number], 'source' | 'target' | 'sourceHandle' | 'targetHandle'>
+    >
+  }
+  warnings: string[]
+} {
+  const currentBlocks = currentWorkflowState?.blocks ?? {}
+  const nextBlocks = nextWorkflowState.blocks ?? {}
+
+  const currentBlockIds = new Set(Object.keys(currentBlocks))
+  const nextBlockIds = new Set(Object.keys(nextBlocks))
+
+  const added = [...nextBlockIds].filter((blockId) => !currentBlockIds.has(blockId)).sort()
+  const removed = [...currentBlockIds].filter((blockId) => !nextBlockIds.has(blockId)).sort()
+  const updated = [...nextBlockIds]
+    .filter((blockId) => currentBlockIds.has(blockId))
+    .filter(
+      (blockId) =>
+        stableStringifyJsonValue(currentBlocks[blockId]) !==
+        stableStringifyJsonValue(nextBlocks[blockId])
+    )
+    .sort()
+
+  const toComparableEdge = (edge: WorkflowSnapshot['edges'][number]) => ({
+    source: edge.source,
+    target: edge.target,
+    sourceHandle: edge.sourceHandle || 'source',
+    targetHandle: edge.targetHandle || 'target',
+  })
+
+  const currentEdges = (currentWorkflowState?.edges ?? []).map(toComparableEdge)
+  const nextEdges = (nextWorkflowState.edges ?? []).map(toComparableEdge)
+  const currentEdgeKeys = new Set(
+    currentEdges.map(
+      (edge) => `${edge.source}:${edge.sourceHandle}->${edge.target}:${edge.targetHandle}`
+    )
+  )
+  const nextEdgeKeys = new Set(
+    nextEdges.map(
+      (edge) => `${edge.source}:${edge.sourceHandle}->${edge.target}:${edge.targetHandle}`
+    )
+  )
+
+  const edgeDiff = {
+    added: nextEdges.filter(
+      (edge) =>
+        !currentEdgeKeys.has(
+          `${edge.source}:${edge.sourceHandle}->${edge.target}:${edge.targetHandle}`
+        )
+    ),
+    removed: currentEdges.filter(
+      (edge) =>
+        !nextEdgeKeys.has(
+          `${edge.source}:${edge.sourceHandle}->${edge.target}:${edge.targetHandle}`
+        )
+    ),
+  }
+
+  const warnings: string[] = []
+  if (added.length === 0 && removed.length === 0 && updated.length === 0) {
+    warnings.push('No block changes detected.')
+  }
+  if (edgeDiff.added.length === 0 && edgeDiff.removed.length === 0) {
+    warnings.push('No edge changes detected.')
+  }
+
+  return {
+    blockDiff: { added, removed, updated },
+    edgeDiff,
+    warnings,
   }
 }
 
 export async function loadBaseWorkflowState(
   workflowId: string,
-  currentWorkflowState: string
-): Promise<WorkflowSnapshot> {
-  if (!currentWorkflowState) {
+  context?: ServerToolExecutionContext
+): Promise<WorkflowSnapshot & { variables: Record<string, any> }> {
+  const userId = context?.userId?.trim()
+  if (!userId) {
+    throw new Error('Authenticated user is required to edit workflow state')
+  }
+
+  const { verifyWorkflowAccess } = await import('@/lib/copilot/review-sessions/permissions')
+  const access = await verifyWorkflowAccess(userId, workflowId, 'write')
+  if (!access.hasAccess) {
+    throw new Error('Access denied: You do not have permission to edit this workflow')
+  }
+
+  const snapshot = await readBootstrappedReviewTargetSnapshot({
+    workspaceId: access.workspaceId ?? context?.workspaceId ?? null,
+    entityKind: 'workflow',
+    entityId: workflowId,
+    draftSessionId: null,
+    reviewSessionId: null,
+    yjsSessionId: workflowId,
+  })
+
+  if (!snapshot.snapshotBase64) {
     throw new Error(`Current Yjs workflow state is required for ${workflowId}`)
   }
-  return parseCurrentWorkflowState(currentWorkflowState)
+
+  const doc = new Y.Doc()
+  try {
+    Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
+    return {
+      ...createWorkflowSnapshot(readWorkflowSnapshot(doc)),
+      variables: getVariablesSnapshot(doc),
+    }
+  } finally {
+    doc.destroy()
+  }
 }
 
 export function buildWorkflowMutationResult(params: {
   workflowId: string
-  baseWorkflowState: WorkflowSnapshot
+  baseWorkflowState: WorkflowSnapshot & { variables: Record<string, any> }
   nextWorkflowState: WorkflowSnapshot
-  requestedDirection?: WorkflowDirection
-  entityDocument?: string
-  documentFormat?: string
+  renderEntityDocument: (workflowState: WorkflowSnapshot) => string
+  documentFormat: string
 }) {
-  const { workflowId, baseWorkflowState, nextWorkflowState, requestedDirection } = params
-  const documentFormat = params.documentFormat ?? TG_MERMAID_DOCUMENT_FORMAT
+  const { workflowId, baseWorkflowState, nextWorkflowState } = params
   const nonCanonicalSubBlockErrors = findIntroducedNonCanonicalSubBlocks(
     nextWorkflowState,
     baseWorkflowState
@@ -53,34 +161,24 @@ export function buildWorkflowMutationResult(params: {
     throw new Error(`Invalid edited workflow: ${validation.errors.join('; ')}`)
   }
 
-  let finalWorkflowState = createWorkflowSnapshot(
+  const finalWorkflowState = createWorkflowSnapshot(
     (validation.sanitizedState as Partial<WorkflowSnapshot> | undefined) ?? nextWorkflowState
   )
-  const direction =
-    requestedDirection ?? finalWorkflowState.direction ?? baseWorkflowState.direction ?? 'TD'
-  const orientationWarnings: string[] = []
-  const normalizedWorkflow = normalizeWorkflowStateToMermaidDirection(finalWorkflowState, direction)
 
-  if (normalizedWorkflow.didRelayout) {
-    orientationWarnings.push(`Re-laid out workflow blocks to match Mermaid direction ${direction}.`)
-  }
-
-  finalWorkflowState = createWorkflowSnapshot(normalizedWorkflow.workflowState)
   const preview = buildWorkflowDocumentPreviewDiff(baseWorkflowState, finalWorkflowState)
-  const warnings = Array.from(new Set([...orientationWarnings, ...preview.warnings, ...validation.warnings]))
-  const entityDocument =
-    params.entityDocument ??
-    (documentFormat === WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT
-      ? serializeWorkflowToGraphMermaid(finalWorkflowState, { direction })
-      : serializeWorkflowToTgMermaid(finalWorkflowState, { direction }))
+  const warnings = Array.from(new Set([...preview.warnings, ...validation.warnings]))
+  const entityDocument = params.renderEntityDocument(finalWorkflowState)
 
   return {
+    requiresReview: true,
     success: true,
     entityKind: 'workflow' as const,
     entityId: workflowId,
     entityDocument,
-    documentFormat,
+    documentFormat: params.documentFormat,
     workflowState: finalWorkflowState,
+    variables: params.baseWorkflowState.variables,
+    reviewBaseStateHash: hashServerToolReviewBase(baseWorkflowState),
     preview: {
       ...preview,
       warnings,
@@ -90,4 +188,28 @@ export function buildWorkflowMutationResult(params: {
       edgesCount: Array.isArray(finalWorkflowState.edges) ? finalWorkflowState.edges.length : 0,
     },
   }
+}
+
+export async function resolveWorkflowMutationResultForExecution(
+  result: ReturnType<typeof buildWorkflowMutationResult>,
+  context?: ServerToolExecutionContext
+) {
+  if (shouldStageServerToolMutationForReview(context)) {
+    return result
+  }
+
+  assertAcceptedServerToolReviewBase(context, result.reviewBaseStateHash)
+  await applyWorkflowState(
+    result.entityId,
+    createWorkflowSnapshot(result.workflowState as Partial<WorkflowSnapshot>),
+    result.variables
+  )
+
+  const {
+    requiresReview: _requiresReview,
+    preview: _preview,
+    reviewBaseStateHash: _reviewBaseStateHash,
+    ...appliedResult
+  } = result
+  return appliedResult
 }

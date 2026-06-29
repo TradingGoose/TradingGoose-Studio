@@ -195,6 +195,9 @@ Validate required secrets and reject default placeholder values
 {{- if and .Values.app.enabled (eq .Values.app.env.ENCRYPTION_KEY "CHANGE-ME-32-CHAR-ENCRYPTION-KEY-FOR-PROD") }}
 {{- fail "app.env.ENCRYPTION_KEY must not use the default placeholder value. Generate a secure key with: openssl rand -hex 32" }}
 {{- end }}
+{{- if and .Values.app.enabled .Values.app.env.API_ENCRYPTION_KEY (not (regexMatch "^[a-fA-F0-9]{64}$" .Values.app.env.API_ENCRYPTION_KEY)) }}
+{{- fail "app.env.API_ENCRYPTION_KEY must be exactly 64 hex characters. Generate it with: openssl rand -hex 32" }}
+{{- end }}
 {{- if and .Values.realtime.enabled (eq .Values.realtime.env.BETTER_AUTH_SECRET "CHANGE-ME-32-CHAR-SECRET-FOR-PRODUCTION-USE") }}
 {{- fail "realtime.env.BETTER_AUTH_SECRET must not use the default placeholder value. Generate a secure secret with: openssl rand -hex 32" }}
 {{- end }}

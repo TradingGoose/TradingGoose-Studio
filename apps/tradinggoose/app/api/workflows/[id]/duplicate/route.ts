@@ -8,15 +8,15 @@ import { getStableVibrantColor } from '@/lib/colors'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
-import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import {
-  loadWorkflowState,
   regenerateWorkflowStateIds,
-  remapVariableIds,
-  saveWorkflowToNormalizedTables,
+  requireWorkflowRealtimeState,
 } from '@/lib/workflows/db-helpers'
-import { tryApplyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
+import { remapVariableIds } from '@/lib/workflows/import-export'
+import { normalizeVariables } from '@/lib/workflows/variable-utils'
+import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
 import type { Variable } from '@/stores/variables/types'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
@@ -29,38 +29,25 @@ const DuplicateRequestSchema = z.object({
   folderId: z.string().nullable().optional(),
 })
 
-async function loadSourceWorkflowArtifacts(
-  sourceWorkflowId: string,
-  sourceVariables: unknown
-): Promise<{
+async function loadSourceWorkflowRealtimeArtifacts(sourceWorkflowId: string): Promise<{
   workflowState: WorkflowState
   variables: Record<string, Variable>
-  source: 'yjs' | 'normalized'
 }> {
-  const stateWithSource = await loadWorkflowState(sourceWorkflowId)
-  if (!stateWithSource) {
+  const editableState = await requireWorkflowRealtimeState(sourceWorkflowId)
+  if (!editableState) {
     throw new Error('Failed to load source workflow state')
   }
 
-  // When the state came from Yjs the variables are already embedded in the
-  // snapshot.  For the normalized-table path, prefer the caller-supplied
-  // source variables (from the workflow row).
-  const variables =
-    stateWithSource.source === 'yjs'
-      ? normalizeVariables(stateWithSource.variables)
-      : normalizeVariables(sourceVariables)
-
   return {
     workflowState: {
-      blocks: stateWithSource.blocks,
-      edges: stateWithSource.edges,
-      loops: stateWithSource.loops,
-      parallels: stateWithSource.parallels,
-      lastSaved: stateWithSource.lastSaved ?? Date.now(),
-      isDeployed: false,
+      ...(editableState.direction !== undefined ? { direction: editableState.direction } : {}),
+      blocks: editableState.blocks,
+      edges: editableState.edges,
+      loops: editableState.loops,
+      parallels: editableState.parallels,
+      lastSaved: editableState.lastSaved ?? Date.now(),
     },
-    variables,
-    source: stateWithSource.source,
+    variables: normalizeVariables(editableState.variables),
   }
 }
 
@@ -117,7 +104,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       )
     }
 
-    const sourceArtifacts = await loadSourceWorkflowArtifacts(sourceWorkflowId, source.variables)
+    const sourceArtifacts = await loadSourceWorkflowRealtimeArtifacts(sourceWorkflowId)
 
     const newWorkflowId = crypto.randomUUID()
     const now = new Date()
@@ -125,6 +112,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const duplicatedWorkflowState = regenerateWorkflowStateIds(sourceArtifacts.workflowState)
     const duplicatedVariables = remapVariableIds(sourceArtifacts.variables, newWorkflowId)
+    const resolvedDescription = description || source.description
 
     await db.insert(workflow).values({
       id: newWorkflowId,
@@ -132,7 +120,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       workspaceId,
       folderId: folderId || null,
       name,
-      description: description || source.description,
+      description: resolvedDescription,
       color: resolvedColor,
       lastSynced: now,
       createdAt: now,
@@ -140,58 +128,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       isDeployed: false,
       collaborators: [],
       runCount: 0,
-      variables: duplicatedVariables,
       isPublished: false,
       marketplaceData: null,
     })
 
     try {
-      const lastSaved = now.toISOString()
-
-      // Persist canonical workflow state before best-effort Yjs sync so the duplicate
-      // survives bridge outages and never depends on socket-server availability.
-      const saveResult = await saveWorkflowToNormalizedTables(newWorkflowId, duplicatedWorkflowState)
-      if (!saveResult.success) {
-        throw new Error(saveResult.error || 'Failed to save duplicated workflow state')
-      }
-
-      const persistedDuplicatedState = saveResult.normalizedState ?? duplicatedWorkflowState
-      const duplicatedSnapshot = createWorkflowSnapshot({
-        blocks: persistedDuplicatedState.blocks,
-        edges: persistedDuplicatedState.edges,
-        loops: persistedDuplicatedState.loops,
-        parallels: persistedDuplicatedState.parallels,
-        lastSaved,
-        isDeployed: false,
-      })
-
-      const yjsApplyResult = await tryApplyWorkflowState(
+      await applyWorkflowState(
         newWorkflowId,
-        duplicatedSnapshot,
+        createWorkflowSnapshot(duplicatedWorkflowState),
         duplicatedVariables,
-        name
+        { name, description: resolvedDescription, folderId: folderId || null }
       )
-      if (!yjsApplyResult.success) {
-        logger.warn(
-          `[${requestId}] Duplicated workflow ${newWorkflowId} without Yjs sync; canonical state was persisted`,
-          { sourceWorkflowId, newWorkflowId, error: yjsApplyResult.error }
-        )
-      }
-    } catch (duplicationError) {
+    } catch (error) {
       await db.delete(workflow).where(eq(workflow.id, newWorkflowId))
-      throw duplicationError
+      throw error
     }
 
-    logger.info(
-      `[${requestId}] Duplicated workflow state using ${sourceArtifacts.source} source`,
-      {
-        sourceWorkflowId,
-        newWorkflowId,
-        blocksCount: Object.keys(duplicatedWorkflowState.blocks || {}).length,
-        edgesCount: duplicatedWorkflowState.edges?.length || 0,
-        variablesCount: Object.keys(duplicatedVariables).length,
-      }
-    )
+    logger.info(`[${requestId}] Duplicated editable workflow state from Yjs`, {
+      sourceWorkflowId,
+      newWorkflowId,
+      blocksCount: Object.keys(duplicatedWorkflowState.blocks || {}).length,
+      edgesCount: duplicatedWorkflowState.edges?.length || 0,
+      variablesCount: Object.keys(duplicatedVariables).length,
+    })
 
     const elapsed = Date.now() - startTime
     logger.info(
@@ -215,6 +174,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       { status: 201 }
     )
   } catch (error) {
+    const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
+    if (realtimeResponse) return realtimeResponse
+
     if (error instanceof Error) {
       if (error.message === 'Source workflow not found') {
         logger.warn(`[${requestId}] Source workflow ${sourceWorkflowId} not found`)

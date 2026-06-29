@@ -3,7 +3,11 @@ import { apiKey } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { type NextRequest, NextResponse } from 'next/server'
-import { createApiKey, getApiKeyDisplayFormat } from '@/lib/api-key/auth'
+import {
+  createApiKey,
+  getApiKeyDisplayFormat,
+  isApiKeyStorageAvailable,
+} from '@/lib/api-key/service'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 
@@ -32,16 +36,10 @@ export async function GET(request: NextRequest) {
       .where(and(eq(apiKey.userId, userId), eq(apiKey.type, 'personal')))
       .orderBy(apiKey.createdAt)
 
-    const maskedKeys = await Promise.all(
-      keys.map(async (key) => {
-        const displayFormat = await getApiKeyDisplayFormat(key.key)
-        return {
-          ...key,
-          key: key.key,
-          displayKey: displayFormat,
-        }
-      })
-    )
+    const maskedKeys = keys.flatMap(({ key, ...apiKey }) => {
+      const displayKey = getApiKeyDisplayFormat(key)
+      return displayKey ? [{ ...apiKey, displayKey }] : []
+    })
 
     return NextResponse.json({ keys: maskedKeys })
   } catch (error) {
@@ -86,10 +84,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { key: plainKey, encryptedKey } = await createApiKey(true)
+    if (!isApiKeyStorageAvailable()) {
+      return NextResponse.json({ error: 'API key access is not configured' }, { status: 503 })
+    }
 
-    if (!encryptedKey) {
-      throw new Error('Failed to encrypt API key for storage')
+    const { key: plainKey, storedKey } = await createApiKey(true)
+    if (!storedKey) {
+      throw new Error('Failed to prepare API key for storage')
     }
 
     const [newKey] = await db
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest) {
         userId,
         workspaceId: null,
         name,
-        key: encryptedKey,
+        key: storedKey,
         type: 'personal',
         createdAt: new Date(),
         updatedAt: new Date(),

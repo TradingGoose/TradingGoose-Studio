@@ -330,6 +330,7 @@ export function useUserInputMentions({
       {
         kind: 'knowledge',
         knowledgeId: knowledgeBase.id,
+        workspaceId,
         label,
       },
       insertion

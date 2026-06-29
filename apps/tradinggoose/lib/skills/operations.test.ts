@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockTransaction, mockNanoid } = vi.hoisted(() => ({
+const { mockTransaction, mockNanoid, mockNotifyEntityListMembersUpserted } = vi.hoisted(() => ({
   mockTransaction: vi.fn(),
   mockNanoid: vi.fn(),
+  mockNotifyEntityListMembersUpserted: vi.fn(),
 }))
 
 vi.mock('@tradinggoose/db', () => ({
@@ -23,11 +24,25 @@ vi.mock('drizzle-orm', () => ({
   and: vi.fn((...conditions: unknown[]) => ({ kind: 'and', conditions })),
   desc: vi.fn((value: unknown) => ({ kind: 'desc', value })),
   eq: vi.fn((left: unknown, right: unknown) => ({ kind: 'eq', left, right })),
-  ne: vi.fn((left: unknown, right: unknown) => ({ kind: 'ne', left, right })),
 }))
 
 vi.mock('nanoid', () => ({
   nanoid: (...args: unknown[]) => mockNanoid(...args),
+}))
+
+vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
+  applySavedEntityState: vi.fn(),
+  publishCreatedSavedEntityListMembers: mockNotifyEntityListMembersUpserted,
+}))
+
+vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
+  requireSavedEntityRealtimeListFields: vi.fn(),
+}))
+
+vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
+  deleteYjsSessionInSocketServer: vi.fn(),
+  notifyEntityListMemberRemoved: vi.fn(),
+  notifyEntityListMembersUpserted: mockNotifyEntityListMembersUpserted,
 }))
 
 import { importSkills } from '@/lib/skills/operations'

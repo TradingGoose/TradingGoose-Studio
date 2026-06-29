@@ -3,13 +3,13 @@ import * as Y from 'yjs'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 
 const mockBootstrapYjsProvider = vi.fn()
-const mockWaitForYjsWriteSync = vi.fn()
+const mockWaitForYjsSync = vi.fn()
 const mockRegisterWorkflowSession = vi.fn()
 const mockUnregisterWorkflowSession = vi.fn()
 
 vi.mock('@/lib/yjs/provider', () => ({
   bootstrapYjsProvider: (...args: any[]) => mockBootstrapYjsProvider(...args),
-  waitForYjsWriteSync: (...args: any[]) => mockWaitForYjsWriteSync(...args),
+  waitForYjsSync: (...args: any[]) => mockWaitForYjsSync(...args),
 }))
 
 vi.mock('@/lib/yjs/workflow-session-registry', () => ({
@@ -84,8 +84,8 @@ describe('workflow shared session lifecycle', () => {
     vi.resetModules()
     vi.useFakeTimers()
     mockBootstrapYjsProvider.mockReset()
-    mockWaitForYjsWriteSync.mockReset()
-    mockWaitForYjsWriteSync.mockResolvedValue(undefined)
+    mockWaitForYjsSync.mockReset()
+    mockWaitForYjsSync.mockResolvedValue(undefined)
     mockRegisterWorkflowSession.mockReset()
     mockUnregisterWorkflowSession.mockReset()
     globalThis.__workflowYjsSessionEntries = undefined
@@ -176,7 +176,7 @@ describe('workflow shared session lifecycle', () => {
       workflowId: 'workflow-1',
       workspaceId: 'workspace-1',
     })
-    expect(mockWaitForYjsWriteSync).toHaveBeenCalledWith(provider)
+    expect(mockWaitForYjsSync).toHaveBeenCalledWith(provider)
     expect(writeLease.session.entityName).toBe('Workflow 1')
     expect(writeLease.session.workspaceId).toBe('workspace-1')
     writeLease.release()

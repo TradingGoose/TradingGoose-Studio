@@ -8,8 +8,8 @@ const mockGetBlocksMetadataExecute = vi.fn()
 const mockVerifyWorkflowAccess = vi.fn()
 const mockVerifyReviewTargetAccess = vi.fn()
 const mockReadBootstrappedReviewTargetSnapshot = vi.fn()
+const mockReadBootstrappedSavedEntityFields = vi.fn()
 const mockReadWorkflowSnapshot = vi.fn()
-const mockGetEntityFields = vi.fn()
 const mockSanitizeForCopilot = vi.fn((value) => value)
 const mockAnd = vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' }))
 const mockEq = vi.fn((field: unknown, value: unknown) => ({ field, type: 'eq', value }))
@@ -94,14 +94,11 @@ vi.mock('@/lib/copilot/tools/server/blocks/get-blocks-metadata', () => ({
 
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
   readBootstrappedReviewTargetSnapshot: mockReadBootstrappedReviewTargetSnapshot,
+  readBootstrappedSavedEntityFields: mockReadBootstrappedSavedEntityFields,
 }))
 
 vi.mock('@/lib/yjs/workflow-session', () => ({
   readWorkflowSnapshot: mockReadWorkflowSnapshot,
-}))
-
-vi.mock('@/lib/yjs/entity-session', () => ({
-  getEntityFields: mockGetEntityFields,
 }))
 
 vi.mock('@/lib/workflows/json-sanitizer', () => ({
@@ -115,8 +112,8 @@ describe('processContextsServer', () => {
     mockVerifyWorkflowAccess.mockReset()
     mockVerifyReviewTargetAccess.mockReset()
     mockReadBootstrappedReviewTargetSnapshot.mockReset()
+    mockReadBootstrappedSavedEntityFields.mockReset()
     mockReadWorkflowSnapshot.mockReset()
-    mockGetEntityFields.mockReset()
     mockSanitizeForCopilot.mockClear()
     mockAnd.mockClear()
     mockEq.mockClear()
@@ -183,15 +180,7 @@ describe('processContextsServer', () => {
   })
 
   it('hydrates current entity contexts from Yjs', async () => {
-    const doc = new Y.Doc()
-    const snapshotBase64 = Buffer.from(Y.encodeStateAsUpdate(doc)).toString('base64')
-    doc.destroy()
-    mockReadBootstrappedReviewTargetSnapshot.mockResolvedValue({
-      snapshotBase64,
-      descriptor: {},
-      runtime: { docState: 'active', replaySafe: false, reseededFromCanonical: false },
-    })
-    mockGetEntityFields.mockReturnValue({
+    mockReadBootstrappedSavedEntityFields.mockResolvedValue({
       name: 'Canonical Skill',
       description: 'Canonical description',
       content: 'Canonical content',
@@ -222,15 +211,11 @@ describe('processContextsServer', () => {
       },
       'read'
     )
-    expect(mockReadBootstrappedReviewTargetSnapshot).toHaveBeenCalledWith({
-      workspaceId: 'workspace-1',
-      entityKind: 'skill',
-      entityId: 'skill-1',
-      draftSessionId: null,
-      reviewSessionId: null,
-      yjsSessionId: 'skill-1',
-    })
-    expect(mockGetEntityFields).toHaveBeenCalledWith(expect.any(Y.Doc), 'skill')
+    expect(mockReadBootstrappedSavedEntityFields).toHaveBeenCalledWith(
+      'skill',
+      'skill-1',
+      'workspace-1'
+    )
     expect(result).toEqual([
       {
         type: 'current_skill',
@@ -272,7 +257,7 @@ describe('processContextsServer', () => {
     )
 
     expect(mockVerifyReviewTargetAccess).toHaveBeenCalled()
-    expect(mockReadBootstrappedReviewTargetSnapshot).not.toHaveBeenCalled()
+    expect(mockReadBootstrappedSavedEntityFields).not.toHaveBeenCalled()
     expect(result).toEqual([])
   })
 

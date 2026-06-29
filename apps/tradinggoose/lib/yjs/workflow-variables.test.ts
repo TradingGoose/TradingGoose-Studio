@@ -15,6 +15,7 @@ import {
   deleteWorkflowVariable,
   duplicateWorkflowVariable,
   readWorkflowVariables,
+  replaceWorkflowVariables,
   updateWorkflowVariable,
 } from '@/lib/yjs/workflow-variables'
 
@@ -221,6 +222,38 @@ describe('workflow variable Yjs mutations', () => {
         },
       },
     })
+  })
+
+  it('replaces the variable map and rewrites renamed variable references by id', () => {
+    const doc = createDoc()
+    doc.getMap('metadata').set('reseededFromCanonical', true)
+
+    addWorkflowVariable(
+      doc,
+      { workflowId: 'wf-1', name: 'Foo Value', type: 'plain', value: 'hello' },
+      'var-1',
+      'test'
+    )
+
+    replaceWorkflowVariables(
+      doc,
+      {
+        'var-1': {
+          id: 'wrong-id',
+          workflowId: 'wf-1',
+          name: 'Bar Value',
+          type: 'plain',
+          value: 'hello',
+        },
+      },
+      'test'
+    )
+
+    expect(getVariablesSnapshot(doc)['var-1']).toMatchObject({ id: 'var-1', name: 'Bar Value' })
+    expect(doc.getMap('metadata').get('reseededFromCanonical')).toBeUndefined()
+    expect(readWorkflowSnapshot(doc).blocks.blockA.subBlocks.prompt.value).toBe(
+      'Use <variable.barvalue> in this prompt'
+    )
   })
 
   it('duplicates and deletes variables through the Yjs map', () => {

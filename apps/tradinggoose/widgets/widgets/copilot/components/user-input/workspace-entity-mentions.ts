@@ -78,16 +78,16 @@ export async function loadWorkspaceEntityMentionItems(
           description: toTrimmedString(item.schema?.function?.description),
         }))
     case 'mcp_server':
-      return sortByRecent(Array.isArray(data?.data?.servers) ? data.data.servers : [])
+      return (Array.isArray(data?.data?.servers) ? data.data.servers : [])
         .filter((item: any) => item.id)
+        .sort((left: any, right: any) =>
+          toTrimmedString(left.name).localeCompare(toTrimmedString(right.name))
+        )
         .map((item: any) => ({
           entityKind,
           id: item.id,
           name: toTrimmedString(item.name),
-          description: toTrimmedString(item.description),
-          transport: toTrimmedString(item.transport),
-          enabled: item.enabled,
-          connectionStatus: item.connectionStatus,
+          enabled: item.enabled !== false,
         }))
   }
 }

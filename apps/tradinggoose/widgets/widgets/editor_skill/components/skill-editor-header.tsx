@@ -1,16 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Download, Save } from 'lucide-react'
 import { useLocale } from 'next-intl'
-import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useMessages } from 'next-intl'
-import { exportSkillsAsJson } from '@/lib/skills/import-export'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import { useSkillsStore } from '@/stores/skills/store'
 import type { PairColor } from '@/widgets/pair-colors'
-import { emitSkillEditorAction, useSkillEditorState } from '@/widgets/utils/skill-editor-actions'
+import { emitSkillEditorAction } from '@/widgets/utils/skill-editor-actions'
 import { emitSkillSelectionChange } from '@/widgets/utils/skill-selection'
 import {
   readEntitySelectionState,
@@ -79,25 +74,6 @@ interface SkillEditorActionButtonProps {
   params?: Record<string, unknown> | null
 }
 
-const sanitizeFileNameSegment = (value: string) =>
-  value
-    .trim()
-    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '-')
-    .replace(/\s+/g, '-')
-
-const downloadJsonFile = (fileName: string, content: string) => {
-  const blob = new Blob([content], { type: 'application/json;charset=utf-8' })
-  const blobUrl = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-
-  link.href = blobUrl
-  link.download = fileName
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(blobUrl)
-}
-
 export function SkillEditorExportButton({
   workspaceId,
   skillId,
@@ -110,68 +86,18 @@ export function SkillEditorExportButton({
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
-  const [isDirty, setIsDirty] = useState(true)
 
   const resolvedSkillId = isLinkedToColorPair ? (pairContext?.skillId ?? null) : (skillId ?? null)
-  const skill = useSkillsStore((state) =>
-    workspaceId && resolvedSkillId ? state.readSkill(resolvedSkillId, workspaceId) : undefined
-  )
-
-  useSkillEditorState({
-    panelId,
-    widget: widgetKey ? ({ key: widgetKey } as { key: string }) : null,
-    onStateChange: (detail) => {
-      setIsDirty(detail.isDirty)
-    },
-  })
-
-  useEffect(() => {
-    setIsDirty(true)
-  }, [resolvedSkillId, workspaceId])
-
-  const fileName = useMemo(() => {
-    if (!skill?.name) {
-      return 'skill.json'
-    }
-
-    const normalized = sanitizeFileNameSegment(skill.name)
-    return normalized.length > 0 ? `${normalized}.json` : 'skill.json'
-  }, [skill?.name])
-
-  const exportDisabled = !workspaceId || !resolvedSkillId || !skill || isDirty
-  const tooltipText =
-    exportDisabled && skill && isDirty ? copy.saveBeforeExporting : copy.exportSkill
-
-  const handleExport = useCallback(() => {
-    if (!skill) return
-
-    const json = exportSkillsAsJson({
-      exportedFrom: 'skillEditor',
-      skills: [skill],
-    })
-
-    downloadJsonFile(fileName, json)
-  }, [fileName, skill])
+  const exportDisabled = !workspaceId || !resolvedSkillId
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className='inline-flex'>
-          <Button
-            type='button'
-            variant='outline'
-            size='sm'
-            className='h-7 w-7 text-xs'
-            onClick={handleExport}
-            disabled={exportDisabled}
-          >
-            <Download className='h-4 w-4' />
-            <span className='sr-only'>{copy.exportSkill}</span>
-          </Button>
-        </span>
-      </TooltipTrigger>
-      <TooltipContent side='top'>{tooltipText}</TooltipContent>
-    </Tooltip>
+    <EntityEditorHeaderButton
+      tooltip={copy.exportSkill}
+      label={copy.exportSkill}
+      icon={Download}
+      disabled={exportDisabled}
+      onClick={() => emitSkillEditorAction({ action: 'export', panelId, widgetKey })}
+    />
   )
 }
 

@@ -51,10 +51,13 @@ describe('Workflow Status API Route', () => {
       createErrorResponse: vi.fn((error, status) =>
         Response.json({ success: false, error }, { status })
       ),
+      createWorkflowRealtimeRequiredResponse: vi.fn(() => null),
     }))
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
-      loadWorkflowState: mockLoadWorkflowState,
+      WORKFLOW_REALTIME_REQUIRED_CODE: 'WORKFLOW_REALTIME_REQUIRED',
+      isWorkflowRealtimeRequiredError: vi.fn(() => false),
+      requireWorkflowRealtimeState: mockLoadWorkflowState,
     }))
 
     vi.doMock('@/lib/workflows/utils', () => ({
@@ -96,10 +99,7 @@ describe('Workflow Status API Route', () => {
     vi.unstubAllGlobals()
   })
 
-  it(
-    'marks variable-only edits as needing redeployment',
-    { timeout: 10_000 },
-    async () => {
+  it('marks variable-only edits as needing redeployment', { timeout: 10_000 }, async () => {
     mockValidateWorkflowAccess.mockResolvedValue({
       error: null,
       workflow: {
@@ -121,7 +121,6 @@ describe('Workflow Status API Route', () => {
           value: 'us-west-2',
         },
       },
-      source: 'normalized',
     })
 
     mockLimit.mockResolvedValue([
@@ -152,8 +151,7 @@ describe('Workflow Status API Route', () => {
 
     const data = await response.json()
     expect(data.data.needsRedeployment).toBe(true)
-    }
-  )
+  })
 
   it('reports redeployment when the active deployment state omits current variables', async () => {
     mockValidateWorkflowAccess.mockResolvedValue({
@@ -177,7 +175,6 @@ describe('Workflow Status API Route', () => {
           value: 'us-west-2',
         },
       },
-      source: 'normalized',
     })
 
     mockLimit.mockResolvedValue([
@@ -201,5 +198,30 @@ describe('Workflow Status API Route', () => {
 
     const data = await response.json()
     expect(data.data.needsRedeployment).toBe(true)
+  })
+
+  it('returns conflict when deployed workflow editable state is missing', async () => {
+    mockValidateWorkflowAccess.mockResolvedValue({
+      error: null,
+      workflow: {
+        isDeployed: true,
+        deployedAt: null,
+        isPublished: false,
+      },
+    })
+    mockLoadWorkflowState.mockResolvedValue(null)
+    mockLimit.mockResolvedValue([{ state: { blocks: {}, edges: [], loops: {}, parallels: {} } }])
+
+    const request = new NextRequest('http://localhost:3000/api/workflows/workflow-123/status')
+    const params = Promise.resolve({ id: 'workflow-123' })
+
+    const { GET } = await import('@/app/api/workflows/[id]/status/route')
+    const response = await GET(request, { params })
+
+    expect(response.status).toBe(409)
+    expect(await response.json()).toMatchObject({
+      success: false,
+      error: 'Workflow state is missing',
+    })
   })
 })

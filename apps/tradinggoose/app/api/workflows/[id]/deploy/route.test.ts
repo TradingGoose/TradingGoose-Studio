@@ -37,7 +37,7 @@ describe('Workflow Deploy API Route', () => {
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
       deployWorkflow: vi.fn(),
-      loadWorkflowState: (...args: unknown[]) => mockLoadWorkflowState(...args),
+      requireWorkflowRealtimeState: (...args: unknown[]) => mockLoadWorkflowState(...args),
     }))
 
     vi.doMock('@/lib/chat/published-deployment', () => ({
@@ -58,6 +58,7 @@ describe('Workflow Deploy API Route', () => {
         Response.json({ error }, { status })
       ),
       createSuccessResponse: vi.fn((data: unknown) => Response.json(data, { status: 200 })),
+      createWorkflowRealtimeRequiredResponse: vi.fn(() => null),
     }))
 
     vi.doMock('drizzle-orm', () => ({

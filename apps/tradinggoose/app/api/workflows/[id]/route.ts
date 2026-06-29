@@ -6,19 +6,21 @@ import { z } from 'zod'
 import { authenticateApiKeyFromHeader, updateApiKeyLastUsed } from '@/lib/api-key/service'
 import { getSession } from '@/lib/auth'
 import { verifyInternalTokenDetailed } from '@/lib/auth/internal'
+import { hydrateListingUI } from '@/lib/listing/hydrate-ui'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { hydrateListingUI } from '@/lib/listing/hydrate-ui'
-import { loadWorkflowState } from '@/lib/workflows/db-helpers'
+import { requireWorkflowRealtimeState } from '@/lib/workflows/db-helpers'
 import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/utils'
+import { applyWorkflowMetadata } from '@/lib/yjs/server/apply-workflow-state'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
 
 const logger = createLogger('WorkflowByIdAPI')
 
 const UpdateWorkflowSchema = z
   .object({
-    name: z.string().min(1, 'Name is required').optional(),
+    name: z.string().trim().min(1, 'Name is required').optional(),
     description: z.string().optional(),
     folderId: z.string().nullable().optional(),
   })
@@ -27,7 +29,7 @@ const UpdateWorkflowSchema = z
 /**
  * GET /api/workflows/[id]
  * Fetch a single workflow by ID
- * Uses the authoritative Yjs-first workflow state loader.
+ * Reads through the editable Yjs session; saved DB tables only seed that session.
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const requestId = generateRequestId()
@@ -123,32 +125,29 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       }
     }
 
-    logger.debug(`[${requestId}] Attempting to load workflow ${workflowId} from authoritative state`)
-    const workflowState = await loadWorkflowState(workflowId, workflowData.lastSynced)
+    logger.debug(`[${requestId}] Attempting to load workflow ${workflowId} from Yjs session`)
+    const workflowState = await requireWorkflowRealtimeState(workflowId)
 
     if (!workflowState) {
-      logger.warn(
-        `[${requestId}] Workflow ${workflowId} has no stored state, returning empty state`
-      )
-    } else {
-      logger.debug(`[${requestId}] Found ${workflowState.source} workflow state for ${workflowId}:`, {
-        blocksCount: Object.keys(workflowState.blocks).length,
-        edgesCount: workflowState.edges.length,
-        loopsCount: Object.keys(workflowState.loops).length,
-        parallelsCount: Object.keys(workflowState.parallels).length,
-        loops: workflowState.loops,
-      })
+      logger.warn(`[${requestId}] Workflow ${workflowId} is missing saved state`)
+      return NextResponse.json({ error: 'Workflow state is missing' }, { status: 409 })
     }
 
-    const resolvedState = workflowState
-      ? createWorkflowSnapshot({
-          direction: workflowState.direction,
-          blocks: workflowState.blocks,
-          edges: workflowState.edges,
-          loops: workflowState.loops,
-          parallels: workflowState.parallels,
-        })
-      : createWorkflowSnapshot()
+    logger.debug(`[${requestId}] Found editable Yjs workflow state for ${workflowId}:`, {
+      blocksCount: Object.keys(workflowState.blocks).length,
+      edgesCount: workflowState.edges.length,
+      loopsCount: Object.keys(workflowState.loops).length,
+      parallelsCount: Object.keys(workflowState.parallels).length,
+      loops: workflowState.loops,
+    })
+
+    const resolvedState = createWorkflowSnapshot({
+      direction: workflowState.direction,
+      blocks: workflowState.blocks,
+      edges: workflowState.edges,
+      loops: workflowState.loops,
+      parallels: workflowState.parallels,
+    })
 
     let resolvedBlocks = resolvedState.blocks
     if (!isInternalCall && resolvedState.blocks) {
@@ -163,6 +162,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const finalWorkflowData = {
       ...workflowData,
+      ...(workflowState.name !== undefined ? { name: workflowState.name } : {}),
+      ...(workflowState.description !== undefined
+        ? { description: workflowState.description }
+        : {}),
+      ...(workflowState.folderId !== undefined ? { folderId: workflowState.folderId } : {}),
       state: {
         deploymentStatuses: {},
         ...(resolvedState.direction !== undefined ? { direction: resolvedState.direction } : {}),
@@ -173,13 +177,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         lastSaved: Date.now(),
         isDeployed: workflowData.isDeployed || false,
         deployedAt: workflowData.deployedAt,
-        variables: workflowState?.variables ?? {},
+        variables: workflowState.variables,
       },
     }
 
-    logger.info(
-      `[${requestId}] Loaded workflow ${workflowId} from ${workflowState?.source ?? 'empty state'}`
-    )
+    logger.info(`[${requestId}] Loaded editable workflow ${workflowId} from Yjs`)
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully fetched workflow ${workflowId} in ${elapsed}ms`)
 
@@ -187,6 +189,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   } catch (error: any) {
     const elapsed = Date.now() - startTime
     logger.error(`[${requestId}] Error fetching workflow ${workflowId} after ${elapsed}ms`, error)
+    const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
+    if (realtimeResponse) return realtimeResponse
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -286,17 +290,7 @@ export async function DELETE(
     }
 
     await db.delete(workflow).where(eq(workflow.id, workflowId))
-
-    // Best-effort cleanup of the authoritative socket/Yjs session.
-    // Do not block workflow deletion if the bridge is unavailable.
-    try {
-      await deleteYjsSessionInSocketServer(workflowId)
-    } catch (error) {
-      logger.warn(
-        `[${requestId}] Failed to delete socket/Yjs session for workflow ${workflowId}`,
-        { error, workflowId }
-      )
-    }
+    await deleteYjsSessionInSocketServer(workflowId).catch(() => undefined)
 
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully deleted workflow ${workflowId} in ${elapsed}ms`)
@@ -368,22 +362,19 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    // Build update object
-    const updateData: any = { updatedAt: new Date() }
-    if (updates.name !== undefined) updateData.name = updates.name
-    if (updates.description !== undefined) updateData.description = updates.description
-    if (updates.folderId !== undefined) updateData.folderId = updates.folderId
-
-    // Update the workflow
-    const [updatedWorkflow] = await db
-      .update(workflow)
-      .set(updateData)
-      .where(eq(workflow.id, workflowId))
-      .returning()
+    const metadata = {
+      ...(updates.name !== undefined ? { name: updates.name } : {}),
+      ...(updates.description !== undefined ? { description: updates.description } : {}),
+      ...(updates.folderId !== undefined ? { folderId: updates.folderId } : {}),
+    }
+    const updatedWorkflow =
+      Object.keys(metadata).length > 0
+        ? await applyWorkflowMetadata(workflowId, metadata)
+        : workflowData
 
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully updated workflow ${workflowId} in ${elapsed}ms`, {
-      updates: updateData,
+      updates,
     })
 
     return NextResponse.json({ workflow: updatedWorkflow }, { status: 200 })
@@ -400,6 +391,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     logger.error(`[${requestId}] Error updating workflow ${workflowId} after ${elapsed}ms`, error)
+    const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
+    if (realtimeResponse) return realtimeResponse
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

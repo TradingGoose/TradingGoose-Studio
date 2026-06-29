@@ -10,12 +10,3 @@ export function applySnapshotToDoc(doc: Y.Doc, snapshotBase64: string): void {
   const bytes = Uint8Array.from(binaryString, (c) => c.charCodeAt(0))
   Y.applyUpdate(doc, bytes)
 }
-
-/**
- * Encodes a Yjs doc state as a base64 string.
- */
-export function encodeDocAsBase64(doc: Y.Doc): string {
-  const update = Y.encodeStateAsUpdate(doc)
-  const binaryString = Array.from(update, (byte) => String.fromCharCode(byte)).join('')
-  return btoa(binaryString)
-}

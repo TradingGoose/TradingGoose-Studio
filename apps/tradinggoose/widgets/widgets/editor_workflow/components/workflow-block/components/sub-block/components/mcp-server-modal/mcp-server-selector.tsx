@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Check, ChevronDown, RefreshCw } from 'lucide-react'
+import { useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -13,7 +14,6 @@ import {
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { SubBlockConfig } from '@/blocks/types'
-import { useMessages } from 'next-intl'
 import { useEnabledServers, useMcpServersStore } from '@/stores/mcp-servers/store'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'

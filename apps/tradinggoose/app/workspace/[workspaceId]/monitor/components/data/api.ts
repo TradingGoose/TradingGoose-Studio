@@ -23,6 +23,7 @@ import type {
 import { parseMonitorSavedViewConfig } from '../view/view-config'
 
 const FALLBACK_INDICATOR_COLOR = '#3972F6'
+export const MONITOR_DATA_CHANGED_EVENT = 'tradinggoose:monitor-data-changed'
 
 type WorkflowTargetFallbackCopy = {
   workflowName: string
@@ -154,8 +155,7 @@ export async function loadWorkflowTargetOptions(
 
           const resolvedBlockId = toTrimmed(data?.id) || blockId
           const workflowName = toTrimmed(workflowRow?.name) || fallbackCopy.workflowName
-          const blockName =
-            toTrimmed(data?.name) || fallbackCopy.triggerBlockNames[data.type]
+          const blockName = toTrimmed(data?.name) || fallbackCopy.triggerBlockNames[data.type]
           const source = getMonitorProviderForTriggerId(data.type)
           return {
             source,

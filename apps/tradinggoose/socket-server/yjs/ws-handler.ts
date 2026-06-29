@@ -1,24 +1,51 @@
 import type { IncomingMessage } from 'http'
 import type { Duplex } from 'stream'
 import type { WebSocket, WebSocketServer } from 'ws'
+import type * as Y from 'yjs'
 import {
   buildReviewTargetDescriptorFromEnvelope,
+  isEntityListSessionId,
 } from '@/lib/copilot/review-sessions/identity'
 import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
+import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
 import { createLogger } from '@/lib/logs/console/logger'
+import { saveWorkflowYjsDocToDb } from '@/lib/workflows/db-helpers'
+import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import {
+  createEntityListBootstrapUpdate,
+  createSavedReviewTargetBootstrapUpdate,
   getRuntimeStateFromDoc,
-  getRuntimeStateFromUpdate,
 } from '@/lib/yjs/server/bootstrap-review-target'
 import { authenticateYjsConnection, YjsAuthError } from './auth'
-import { getState, storeState } from './persistence'
-import { getExistingDocument, setPersistence, setupWSConnection } from './upstream-utils'
+import { getExistingDocument, setupWSConnection } from './upstream-utils'
 
 const logger = createLogger('YjsWsHandler')
+const WORKFLOW_LIVE_PERSIST_DEBOUNCE_MS = 1500
 
 interface YjsIncomingMessage extends IncomingMessage {
   yjsSessionId?: string
   yjsUserId?: string
+  yjsBootstrapState?: Uint8Array
+  yjsPersistLiveUpdates?: boolean
+}
+
+async function persistWorkflowDocument(docId: string, doc: Y.Doc): Promise<void> {
+  if (isEntityListSessionId(docId)) {
+    return
+  }
+
+  const metadata = doc.getMap<unknown>('metadata')
+  if (
+    metadata.get('entityId') !== docId ||
+    metadata.get('draftSessionId') != null ||
+    metadata.get('reviewSessionId') != null
+  ) {
+    return
+  }
+
+  if (metadata.get('entityKind') === 'workflow') {
+    await saveWorkflowYjsDocToDb(docId, doc)
+  }
 }
 
 export function handleYjsUpgrade(
@@ -39,12 +66,12 @@ export function handleYjsUpgrade(
   const yjsSessionId = decodeURIComponent(match[1])
 
   void authenticateAndPrepareUpgrade(yjsSessionId, url)
-    .then(({ userId, resolvedSessionId }) => {
-      setPersistence(resolvedSessionId, { getState, storeState })
-
+    .then(({ bootstrapState, userId, resolvedSessionId, persistLiveUpdates }) => {
       const yjsReq = request as YjsIncomingMessage
       yjsReq.yjsSessionId = resolvedSessionId
       yjsReq.yjsUserId = userId
+      yjsReq.yjsBootstrapState = bootstrapState
+      yjsReq.yjsPersistLiveUpdates = persistLiveUpdates
 
       ensureConnectionHandler(wss)
       wss.handleUpgrade(request, socket, head, (ws: WebSocket) => {
@@ -65,8 +92,13 @@ export function handleYjsUpgrade(
 async function authenticateAndPrepareUpgrade(
   pathSessionId: string,
   url: URL
-): Promise<{ userId: string; resolvedSessionId: string }> {
-  const accessMode = parseAccessMode(url)
+): Promise<{
+  bootstrapState?: Uint8Array
+  userId: string
+  resolvedSessionId: string
+  persistLiveUpdates: boolean
+}> {
+  const accessMode = parseAccessMode(url, pathSessionId)
   const { userId, envelope } = await authenticateYjsConnection(url)
 
   if (envelope.sessionId !== pathSessionId) {
@@ -74,6 +106,7 @@ async function authenticateAndPrepareUpgrade(
   }
 
   const descriptor = buildReviewTargetDescriptorFromEnvelope(envelope)
+  const isListTarget = isEntityListSessionId(descriptor.yjsSessionId)
 
   const access = await verifyReviewTargetAccess(
     userId,
@@ -93,15 +126,18 @@ async function authenticateAndPrepareUpgrade(
   }
 
   const liveDoc = await getExistingDocument(pathSessionId)
-  const persistedState = liveDoc ? null : await getState(pathSessionId)
-  const runtime = liveDoc
-    ? getRuntimeStateFromDoc(liveDoc)
-    : persistedState
-      ? getRuntimeStateFromUpdate(persistedState)
-      : null
+  const bootstrapped = liveDoc
+    ? null
+    : isListTarget
+      ? await createEntityListBootstrapUpdate(
+          descriptor.entityKind as SavedEntityKind,
+          descriptor.workspaceId as string
+        )
+      : descriptor.entityId
+        ? await createSavedReviewTargetBootstrapUpdate(descriptor)
+        : null
+  const runtime = liveDoc ? getRuntimeStateFromDoc(liveDoc) : bootstrapped?.runtime
 
-  // Snapshot bootstrap is the only path that materializes a missing review target.
-  // WebSocket upgrades only attach to an already-bootstrapped Yjs session.
   if (!runtime) {
     throw new YjsAuthError(409, 'Review target is not bootstrapped')
   }
@@ -111,22 +147,31 @@ async function authenticateAndPrepareUpgrade(
   }
 
   return {
+    bootstrapState: bootstrapped?.state,
     userId,
     resolvedSessionId: pathSessionId,
+    persistLiveUpdates:
+      descriptor.entityKind === 'workflow' && descriptor.entityId === pathSessionId,
   }
 }
 
-function parseAccessMode(url: URL): 'write' {
+function parseAccessMode(url: URL, sessionId: string): ReviewAccessMode {
   const accessMode = url.searchParams.get('accessMode')
   if (accessMode !== 'read' && accessMode !== 'write') {
     throw new YjsAuthError(409, 'Invalid or missing access mode')
   }
 
-  if (accessMode !== 'write') {
+  // Entity-list documents are read-only over the socket (membership is written
+  // only by server-side create/delete); every other target requires write.
+  if (isEntityListSessionId(sessionId)) {
+    if (accessMode !== 'read') {
+      throw new YjsAuthError(403, 'Entity-list websocket is read-only')
+    }
+  } else if (accessMode !== 'write') {
     throw new YjsAuthError(403, 'Yjs websocket requires write access')
   }
 
-  return 'write'
+  return accessMode
 }
 
 function ensureConnectionHandler(wss: WebSocketServer): void {
@@ -145,7 +190,14 @@ function ensureConnectionHandler(wss: WebSocketServer): void {
 
     try {
       logger.info('Yjs connection established', { docId, userId: yjsReq.yjsUserId })
-      setupWSConnection(ws, req, { docId, gc: true })
+      setupWSConnection(ws, req, {
+        docId,
+        gc: true,
+        bootstrapState: yjsReq.yjsBootstrapState,
+        onDocumentIdle: persistWorkflowDocument,
+        onDocumentUpdate: yjsReq.yjsPersistLiveUpdates ? persistWorkflowDocument : undefined,
+        onDocumentUpdateDebounceMs: WORKFLOW_LIVE_PERSIST_DEBOUNCE_MS,
+      })
     } catch (error) {
       logger.error('Failed to attach Yjs connection', { docId, error })
       ws.close(4409, 'Failed to attach Yjs session')

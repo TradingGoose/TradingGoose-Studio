@@ -1,9 +1,10 @@
-import * as Y from 'yjs'
 import { describe, expect, it } from 'vitest'
+import * as Y from 'yjs'
 import {
   createWorkflowTextFieldKey,
   readWorkflowSnapshot,
   readWorkflowTextFieldsMap,
+  setWorkflowEntityMetadata,
   setWorkflowState,
 } from './workflow-session'
 
@@ -38,7 +39,9 @@ describe('workflow session text fields', () => {
     sharedText.insert(0, 'live-ytext-value')
     textFields.set(createWorkflowTextFieldKey('block-1', 'code'), sharedText)
 
-    expect(readWorkflowSnapshot(doc).blocks['block-1']?.subBlocks?.code?.value).toBe('live-ytext-value')
+    expect(readWorkflowSnapshot(doc).blocks['block-1']?.subBlocks?.code?.value).toBe(
+      'live-ytext-value'
+    )
   })
 
   it('keeps existing Y.Text entries in sync when workflow state is replaced', () => {
@@ -73,9 +76,17 @@ describe('workflow session text fields', () => {
     })
 
     expect(textFields.get(createWorkflowTextFieldKey('block-1', 'code'))).toBeInstanceOf(Y.Text)
-    expect((textFields.get(createWorkflowTextFieldKey('block-1', 'code')) as Y.Text).toString()).toBe(
-      'fresh'
-    )
+    expect(
+      (textFields.get(createWorkflowTextFieldKey('block-1', 'code')) as Y.Text).toString()
+    ).toBe('fresh')
     expect(readWorkflowSnapshot(doc).blocks['block-1']?.subBlocks?.code?.value).toBe('fresh')
+  })
+
+  it('rejects blank workflow names before writing metadata', () => {
+    const doc = new Y.Doc()
+
+    expect(() => setWorkflowEntityMetadata(doc, { name: '   ' })).toThrow(
+      'Workflow name is required'
+    )
   })
 })

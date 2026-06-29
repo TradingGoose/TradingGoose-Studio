@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server'
-import { authenticateApiKey } from '@/lib/api-key/auth'
 import {
   type ApiKeyAuthResult,
   authenticateApiKeyFromHeader,
+  storedApiKeyMatches,
   updateApiKeyLastUsed,
 } from '@/lib/api-key/service'
 import { env } from '@/lib/env'
@@ -67,7 +67,18 @@ export async function validateWorkflowAccess(
 
       // If a pinned key exists, only accept that specific key
       if (workflow.pinnedApiKey?.key) {
-        const isValidPinnedKey = await authenticateApiKey(apiKeyHeader, workflow.pinnedApiKey.key)
+        if (
+          workflow.pinnedApiKey.type !== 'personal' &&
+          workflow.pinnedApiKey.type !== 'workspace'
+        ) {
+          return {
+            error: {
+              message: 'Unauthorized: Invalid API key',
+              status: 401,
+            },
+          }
+        }
+        const isValidPinnedKey = await storedApiKeyMatches(apiKeyHeader, workflow.pinnedApiKey.key)
         if (!isValidPinnedKey) {
           return {
             error: {
@@ -82,45 +93,45 @@ export async function validateWorkflowAccess(
             success: true,
             userId: workflow.pinnedApiKey.userId,
             keyId: workflow.pinnedApiKey.id,
-            keyType: workflow.pinnedApiKey.type === 'workspace' ? 'workspace' : 'personal',
+            keyType: workflow.pinnedApiKey.type,
             workspaceId: workflow.pinnedApiKey.workspaceId || undefined,
           },
         }
+      }
+
+      // Try personal keys first
+      const personalResult = await authenticateApiKeyFromHeader(apiKeyHeader, {
+        userId: workflow.userId as string,
+        keyTypes: ['personal'],
+      })
+
+      let validResult = null
+      if (personalResult.success) {
+        validResult = personalResult
       } else {
-        // Try personal keys first
-        const personalResult = await authenticateApiKeyFromHeader(apiKeyHeader, {
-          userId: workflow.userId as string,
-          keyTypes: ['personal'],
+        // Try workspace keys
+        const workspaceResult = await authenticateApiKeyFromHeader(apiKeyHeader, {
+          workspaceId: workflow.workspaceId as string,
+          keyTypes: ['workspace'],
         })
 
-        let validResult = null
-        if (personalResult.success) {
-          validResult = personalResult
-        } else {
-          // Try workspace keys
-          const workspaceResult = await authenticateApiKeyFromHeader(apiKeyHeader, {
-            workspaceId: workflow.workspaceId as string,
-            keyTypes: ['workspace'],
-          })
-
-          if (workspaceResult.success) {
-            validResult = workspaceResult
-          }
+        if (workspaceResult.success) {
+          validResult = workspaceResult
         }
-
-        // If no valid key found, reject
-        if (!validResult) {
-          return {
-            error: {
-              message: 'Unauthorized: Invalid API key',
-              status: 401,
-            },
-          }
-        }
-
-        await updateApiKeyLastUsed(validResult.keyId!)
-        return { workflow, apiKeyAuth: validResult }
       }
+
+      // If no valid key found, reject
+      if (!validResult) {
+        return {
+          error: {
+            message: 'Unauthorized: Invalid API key',
+            status: 401,
+          },
+        }
+      }
+
+      await updateApiKeyLastUsed(validResult.keyId!)
+      return { workflow, apiKeyAuth: validResult }
     }
     return { workflow }
   } catch (error) {

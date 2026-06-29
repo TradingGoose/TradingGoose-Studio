@@ -1,20 +1,34 @@
+import type { LucideIcon } from 'lucide-react'
 import {
+  Activity,
+  BarChart3,
   Blocks,
   BookOpen,
   BookOpenText,
   Bot,
+  Check,
+  Code2,
+  Database,
+  FileJson,
   FileSearch,
   FileText,
   FolderOpen,
+  GitBranch,
   Globe,
   Globe2,
+  Grid2x2,
   Key,
   KeyRound,
   ListFilter,
+  ListChecks,
   Loader2,
   MinusCircle,
+  Rocket,
+  Server,
   Settings2,
+  Tag,
   TerminalSquare,
+  Workflow,
   X,
   XCircle,
 } from 'lucide-react'
@@ -23,6 +37,72 @@ import {
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
+
+function createEntityListMetadata(pluralLabel: string, icon: LucideIcon): BaseClientToolMetadata {
+  return {
+    displayNames: {
+      [ClientToolCallState.generating]: { text: `Listing ${pluralLabel}`, icon: Loader2 },
+      [ClientToolCallState.pending]: { text: `Listing ${pluralLabel}`, icon: Loader2 },
+      [ClientToolCallState.executing]: { text: `Listing ${pluralLabel}`, icon: Loader2 },
+      [ClientToolCallState.success]: { text: `Listed ${pluralLabel}`, icon },
+      [ClientToolCallState.error]: { text: `Failed to list ${pluralLabel}`, icon: XCircle },
+      [ClientToolCallState.aborted]: { text: `Aborted listing ${pluralLabel}`, icon: XCircle },
+      [ClientToolCallState.rejected]: { text: `Skipped listing ${pluralLabel}`, icon: MinusCircle },
+    },
+  }
+}
+
+function createEntityReadMetadata(label: string): BaseClientToolMetadata {
+  return {
+    displayNames: {
+      [ClientToolCallState.generating]: { text: `Reading ${label} document`, icon: Loader2 },
+      [ClientToolCallState.pending]: { text: `Reading ${label} document`, icon: Loader2 },
+      [ClientToolCallState.executing]: { text: `Reading ${label} document`, icon: Loader2 },
+      [ClientToolCallState.success]: { text: `Read ${label} document`, icon: FileJson },
+      [ClientToolCallState.error]: { text: `Failed to read ${label} document`, icon: XCircle },
+      [ClientToolCallState.aborted]: { text: `Aborted reading ${label} document`, icon: XCircle },
+      [ClientToolCallState.rejected]: {
+        text: `Skipped reading ${label} document`,
+        icon: MinusCircle,
+      },
+    },
+  }
+}
+
+function createEntityMutationMetadata(
+  label: string,
+  action: 'create' | 'edit' | 'rename',
+  icon: LucideIcon
+): BaseClientToolMetadata {
+  const gerund = action === 'create' ? 'Creating' : action === 'rename' ? 'Renaming' : 'Editing'
+  const gerundLower = gerund.toLowerCase()
+  const past = action === 'create' ? 'Created' : action === 'rename' ? 'Renamed' : 'Edited'
+
+  return {
+    displayNames: {
+      [ClientToolCallState.generating]: { text: `${gerund} ${label} document`, icon: Loader2 },
+      [ClientToolCallState.pending]: { text: `${gerund} ${label} document`, icon: Loader2 },
+      [ClientToolCallState.executing]: { text: `${gerund} ${label} document`, icon: Loader2 },
+      [ClientToolCallState.success]: { text: `${past} ${label} document`, icon },
+      [ClientToolCallState.error]: {
+        text: `Failed to ${action} ${label} document`,
+        icon: XCircle,
+      },
+      [ClientToolCallState.aborted]: {
+        text: `Aborted ${gerundLower} ${label} document`,
+        icon: XCircle,
+      },
+      [ClientToolCallState.rejected]: {
+        text: `Skipped ${gerundLower} ${label} document`,
+        icon: MinusCircle,
+      },
+    },
+    interrupt: {
+      accept: { text: 'Apply changes', icon: Check },
+      reject: { text: 'Skip', icon: MinusCircle },
+    },
+  }
+}
 
 export const SERVER_TOOL_METADATA = {
   [CopilotTool.read_workflow_logs]: {
@@ -210,6 +290,252 @@ export const SERVER_TOOL_METADATA = {
       },
     },
   },
+  list_knowledge_bases: createEntityListMetadata('knowledge bases', Database),
+  read_knowledge_base: createEntityReadMetadata('knowledge base'),
+  create_knowledge_base: createEntityMutationMetadata('knowledge base', 'create', Database),
+  edit_knowledge_base: createEntityMutationMetadata('knowledge base', 'edit', Database),
+  rename_knowledge_base: createEntityMutationMetadata('knowledge base', 'rename', Database),
+  query_knowledge_base: {
+    displayNames: {
+      [ClientToolCallState.generating]: { text: 'Querying knowledge base', icon: Loader2 },
+      [ClientToolCallState.pending]: { text: 'Querying knowledge base', icon: Loader2 },
+      [ClientToolCallState.executing]: { text: 'Querying knowledge base', icon: Loader2 },
+      [ClientToolCallState.success]: { text: 'Queried knowledge base', icon: Database },
+      [ClientToolCallState.error]: { text: 'Failed to query knowledge base', icon: XCircle },
+      [ClientToolCallState.aborted]: { text: 'Aborted querying knowledge base', icon: XCircle },
+      [ClientToolCallState.rejected]: { text: 'Skipped querying knowledge base', icon: MinusCircle },
+    },
+  },
+  [CopilotTool.list_workflows]: createEntityListMetadata('workflows', ListChecks),
+  [CopilotTool.read_workflow]: {
+    displayNames: {
+      [ClientToolCallState.generating]: { text: 'Analyzing your workflow', icon: Loader2 },
+      [ClientToolCallState.pending]: { text: 'Analyzing your workflow', icon: Workflow },
+      [ClientToolCallState.executing]: { text: 'Analyzing your workflow', icon: Loader2 },
+      [ClientToolCallState.success]: { text: 'Analyzed your workflow', icon: Workflow },
+      [ClientToolCallState.error]: { text: 'Failed to analyze your workflow', icon: XCircle },
+      [ClientToolCallState.aborted]: { text: 'Aborted analyzing your workflow', icon: XCircle },
+      [ClientToolCallState.rejected]: { text: 'Skipped analyzing your workflow', icon: MinusCircle },
+    },
+  },
+  [CopilotTool.edit_workflow_variable]: {
+    displayNames: {
+      [ClientToolCallState.generating]: {
+        text: 'Preparing workflow variable changes',
+        icon: Loader2,
+      },
+      [ClientToolCallState.pending]: { text: 'Set workflow variables?', icon: Settings2 },
+      [ClientToolCallState.executing]: { text: 'Editing workflow variables', icon: Loader2 },
+      [ClientToolCallState.success]: { text: 'Workflow variables updated', icon: Settings2 },
+      [ClientToolCallState.error]: { text: 'Failed to edit workflow variables', icon: XCircle },
+      [ClientToolCallState.review]: { text: 'Review workflow variable changes', icon: Settings2 },
+      [ClientToolCallState.aborted]: { text: 'Aborted editing workflow variables', icon: XCircle },
+      [ClientToolCallState.rejected]: {
+        text: 'Rejected workflow variable changes',
+        icon: MinusCircle,
+      },
+    },
+    interrupt: {
+      accept: { text: 'Accept changes', icon: Check },
+      reject: { text: 'Reject changes', icon: MinusCircle },
+    },
+  },
+  create_workflow: {
+    displayNames: {
+      [ClientToolCallState.generating]: { text: 'Creating workflow', icon: Loader2 },
+      [ClientToolCallState.pending]: { text: 'Create workflow?', icon: Grid2x2 },
+      [ClientToolCallState.executing]: { text: 'Creating workflow', icon: Loader2 },
+      [ClientToolCallState.success]: { text: 'Created workflow', icon: Check },
+      [ClientToolCallState.error]: { text: 'Failed to create workflow', icon: XCircle },
+      [ClientToolCallState.aborted]: { text: 'Aborted creating workflow', icon: XCircle },
+      [ClientToolCallState.rejected]: { text: 'Skipped creating workflow', icon: MinusCircle },
+    },
+    interrupt: {
+      accept: { text: 'Allow', icon: Check },
+      reject: { text: 'Skip', icon: MinusCircle },
+    },
+  },
+  edit_workflow: {
+    displayNames: {
+      [ClientToolCallState.generating]: { text: 'Editing your workflow', icon: Loader2 },
+      [ClientToolCallState.pending]: { text: 'Editing your workflow', icon: Loader2 },
+      [ClientToolCallState.executing]: { text: 'Editing your workflow', icon: Loader2 },
+      [ClientToolCallState.success]: { text: 'Edited your workflow', icon: Grid2x2 },
+      [ClientToolCallState.error]: { text: 'Failed to edit your workflow', icon: XCircle },
+      [ClientToolCallState.review]: { text: 'Review your workflow changes', icon: Grid2x2 },
+      [ClientToolCallState.rejected]: { text: 'Rejected workflow changes', icon: MinusCircle },
+      [ClientToolCallState.aborted]: { text: 'Aborted editing your workflow', icon: XCircle },
+    },
+    interrupt: {
+      accept: { text: 'Accept changes', icon: Check },
+      reject: { text: 'Reject changes', icon: MinusCircle },
+    },
+  },
+  edit_workflow_block: {
+    displayNames: {
+      [ClientToolCallState.generating]: { text: 'Editing your workflow block', icon: Loader2 },
+      [ClientToolCallState.pending]: { text: 'Editing your workflow block', icon: Loader2 },
+      [ClientToolCallState.executing]: { text: 'Editing your workflow block', icon: Loader2 },
+      [ClientToolCallState.success]: { text: 'Edited your workflow block', icon: Grid2x2 },
+      [ClientToolCallState.error]: { text: 'Failed to edit workflow block', icon: XCircle },
+      [ClientToolCallState.review]: { text: 'Review your workflow block changes', icon: Grid2x2 },
+      [ClientToolCallState.rejected]: { text: 'Rejected workflow block changes', icon: MinusCircle },
+      [ClientToolCallState.aborted]: { text: 'Aborted editing workflow block', icon: XCircle },
+    },
+    interrupt: {
+      accept: { text: 'Accept changes', icon: Check },
+      reject: { text: 'Reject changes', icon: MinusCircle },
+    },
+  },
+  rename_workflow: {
+    displayNames: {
+      [ClientToolCallState.generating]: { text: 'Renaming workflow', icon: Loader2 },
+      [ClientToolCallState.pending]: { text: 'Rename workflow?', icon: Grid2x2 },
+      [ClientToolCallState.executing]: { text: 'Renaming workflow', icon: Loader2 },
+      [ClientToolCallState.success]: { text: 'Renamed workflow', icon: Check },
+      [ClientToolCallState.error]: { text: 'Failed to rename workflow', icon: XCircle },
+      [ClientToolCallState.aborted]: { text: 'Aborted renaming workflow', icon: XCircle },
+      [ClientToolCallState.rejected]: { text: 'Skipped renaming workflow', icon: MinusCircle },
+    },
+    interrupt: {
+      accept: { text: 'Allow', icon: Check },
+      reject: { text: 'Skip', icon: MinusCircle },
+    },
+  },
+  check_deployment_status: {
+    displayNames: {
+      [ClientToolCallState.generating]: {
+        text: 'Checking deployment status',
+        icon: Loader2,
+      },
+      [ClientToolCallState.pending]: { text: 'Checking deployment status', icon: Loader2 },
+      [ClientToolCallState.executing]: { text: 'Checking deployment status', icon: Loader2 },
+      [ClientToolCallState.success]: { text: 'Checked deployment status', icon: Rocket },
+      [ClientToolCallState.error]: { text: 'Failed to check deployment status', icon: XCircle },
+      [ClientToolCallState.aborted]: {
+        text: 'Aborted checking deployment status',
+        icon: XCircle,
+      },
+      [ClientToolCallState.rejected]: {
+        text: 'Skipped checking deployment status',
+        icon: MinusCircle,
+      },
+    },
+  },
+  list_monitors: {
+    displayNames: {
+      [ClientToolCallState.generating]: { text: 'Listing monitors', icon: Loader2 },
+      [ClientToolCallState.pending]: { text: 'Listing monitors', icon: Activity },
+      [ClientToolCallState.executing]: { text: 'Listing monitors', icon: Loader2 },
+      [ClientToolCallState.success]: { text: 'Listed monitors', icon: Activity },
+      [ClientToolCallState.error]: { text: 'Failed to list monitors', icon: XCircle },
+      [ClientToolCallState.aborted]: { text: 'Aborted listing monitors', icon: XCircle },
+      [ClientToolCallState.rejected]: { text: 'Skipped listing monitors', icon: MinusCircle },
+    },
+  },
+  [CopilotTool.read_monitor]: {
+    displayNames: {
+      [ClientToolCallState.generating]: { text: 'Reading monitor document', icon: Loader2 },
+      [ClientToolCallState.pending]: { text: 'Reading monitor document', icon: FileJson },
+      [ClientToolCallState.executing]: { text: 'Reading monitor document', icon: Loader2 },
+      [ClientToolCallState.success]: { text: 'Read monitor document', icon: FileJson },
+      [ClientToolCallState.error]: { text: 'Failed to read monitor document', icon: XCircle },
+      [ClientToolCallState.aborted]: { text: 'Aborted reading monitor document', icon: XCircle },
+      [ClientToolCallState.rejected]: {
+        text: 'Skipped reading monitor document',
+        icon: MinusCircle,
+      },
+    },
+  },
+  edit_monitor: {
+    displayNames: {
+      [ClientToolCallState.generating]: { text: 'Editing monitor document', icon: Loader2 },
+      [ClientToolCallState.pending]: { text: 'Edit monitor document?', icon: Activity },
+      [ClientToolCallState.executing]: { text: 'Editing monitor document', icon: Loader2 },
+      [ClientToolCallState.success]: { text: 'Edited monitor document', icon: Check },
+      [ClientToolCallState.error]: { text: 'Failed to edit monitor document', icon: XCircle },
+      [ClientToolCallState.aborted]: { text: 'Aborted editing monitor document', icon: XCircle },
+      [ClientToolCallState.rejected]: { text: 'Skipped editing monitor document', icon: XCircle },
+    },
+    interrupt: {
+      accept: { text: 'Allow', icon: Check },
+      reject: { text: 'Skip', icon: XCircle },
+    },
+  },
+  [CopilotTool.read_block_outputs]: {
+    displayNames: {
+      [ClientToolCallState.generating]: { text: 'Getting block outputs', icon: Loader2 },
+      [ClientToolCallState.pending]: { text: 'Getting block outputs', icon: Tag },
+      [ClientToolCallState.executing]: { text: 'Getting block outputs', icon: Loader2 },
+      [ClientToolCallState.aborted]: { text: 'Aborted getting outputs', icon: XCircle },
+      [ClientToolCallState.success]: { text: 'Retrieved block outputs', icon: Tag },
+      [ClientToolCallState.error]: { text: 'Failed to get outputs', icon: XCircle },
+      [ClientToolCallState.rejected]: { text: 'Skipped getting outputs', icon: MinusCircle },
+    },
+    getDynamicText: (params, state) => {
+      const blockIds = params?.blockIds
+      if (!Array.isArray(blockIds) || blockIds.length === 0) return undefined
+      const count = blockIds.length
+      switch (state) {
+        case ClientToolCallState.success:
+          return `Retrieved outputs for ${count} block${count > 1 ? 's' : ''}`
+        case ClientToolCallState.executing:
+        case ClientToolCallState.generating:
+        case ClientToolCallState.pending:
+          return `Getting outputs for ${count} block${count > 1 ? 's' : ''}`
+        case ClientToolCallState.error:
+          return `Failed to get outputs for ${count} block${count > 1 ? 's' : ''}`
+      }
+      return undefined
+    },
+  },
+  [CopilotTool.read_block_upstream_references]: {
+    displayNames: {
+      [ClientToolCallState.generating]: { text: 'Getting upstream references', icon: Loader2 },
+      [ClientToolCallState.pending]: { text: 'Getting upstream references', icon: GitBranch },
+      [ClientToolCallState.executing]: { text: 'Getting upstream references', icon: Loader2 },
+      [ClientToolCallState.aborted]: { text: 'Aborted getting references', icon: XCircle },
+      [ClientToolCallState.success]: { text: 'Retrieved upstream references', icon: GitBranch },
+      [ClientToolCallState.error]: { text: 'Failed to get references', icon: XCircle },
+      [ClientToolCallState.rejected]: { text: 'Skipped getting references', icon: MinusCircle },
+    },
+    getDynamicText: (params, state) => {
+      const blockIds = params?.blockIds
+      if (!Array.isArray(blockIds) || blockIds.length === 0) return undefined
+      const count = blockIds.length
+      switch (state) {
+        case ClientToolCallState.success:
+          return `Retrieved references for ${count} block${count > 1 ? 's' : ''}`
+        case ClientToolCallState.executing:
+        case ClientToolCallState.generating:
+        case ClientToolCallState.pending:
+          return `Getting references for ${count} block${count > 1 ? 's' : ''}`
+        case ClientToolCallState.error:
+          return `Failed to get references for ${count} block${count > 1 ? 's' : ''}`
+      }
+      return undefined
+    },
+  },
+  list_custom_tools: createEntityListMetadata('custom tools', Code2),
+  [CopilotTool.read_custom_tool]: createEntityReadMetadata('custom tool'),
+  create_custom_tool: createEntityMutationMetadata('custom tool', 'create', Code2),
+  edit_custom_tool: createEntityMutationMetadata('custom tool', 'edit', Code2),
+  rename_custom_tool: createEntityMutationMetadata('custom tool', 'rename', Code2),
+  [CopilotTool.list_indicators]: createEntityListMetadata('indicators', BarChart3),
+  [CopilotTool.read_indicator]: createEntityReadMetadata('indicator'),
+  create_indicator: createEntityMutationMetadata('indicator', 'create', BarChart3),
+  edit_indicator: createEntityMutationMetadata('indicator', 'edit', BarChart3),
+  rename_indicator: createEntityMutationMetadata('indicator', 'rename', BarChart3),
+  list_skills: createEntityListMetadata('skills', BookOpen),
+  [CopilotTool.read_skill]: createEntityReadMetadata('skill'),
+  create_skill: createEntityMutationMetadata('skill', 'create', BookOpen),
+  edit_skill: createEntityMutationMetadata('skill', 'edit', BookOpen),
+  rename_skill: createEntityMutationMetadata('skill', 'rename', BookOpen),
+  list_mcp_servers: createEntityListMetadata('MCP servers', Server),
+  [CopilotTool.read_mcp_server]: createEntityReadMetadata('MCP server'),
+  create_mcp_server: createEntityMutationMetadata('MCP server', 'create', Server),
+  edit_mcp_server: createEntityMutationMetadata('MCP server', 'edit', Server),
+  rename_mcp_server: createEntityMutationMetadata('MCP server', 'rename', Server),
   list_gdrive_files: {
     displayNames: {
       [ClientToolCallState.generating]: { text: 'Listing GDrive files', icon: Loader2 },

@@ -1,45 +1,67 @@
-import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
-import { createLogger } from '@/lib/logs/console/logger'
-import { applyWorkflowStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import { db, workflow } from '@tradinggoose/db'
+import { eq } from 'drizzle-orm'
+import {
+  ensureUniqueBlockIds,
+  ensureUniqueEdgeIds,
+  WorkflowRealtimeRequiredError,
+} from '@/lib/workflows/db-helpers'
+import { applyWorkflowPatchInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import {
+  createWorkflowSnapshot,
+  type WorkflowMetadataPatch,
+  type WorkflowSnapshot,
+} from '@/lib/yjs/workflow-session'
 
-const logger = createLogger('ApplyWorkflowState')
-
-/**
- * Applies a complete workflow state replacement to the Yjs doc for a workflow.
- * This is the server-only bridge used by POST /api/workflows, duplicate, template-use,
- * checkpoint-revert, deployment-revert, and workspace bootstrap.
- *
- * Server routes must not bypass this helper by posting raw body state directly
- * to a save route that now reads from Yjs.
- */
 export async function applyWorkflowState(
   workflowId: string,
   workflowState: WorkflowSnapshot,
   variables?: Record<string, any>,
-  entityName?: string
+  metadata?: WorkflowMetadataPatch
 ): Promise<void> {
-  await applyWorkflowStateInSocketServer(workflowId, workflowState, variables, entityName)
+  const syncedAt = new Date()
+  const appliedWorkflowState = createWorkflowSnapshot({
+    ...workflowState,
+    lastSaved: syncedAt.toISOString(),
+  })
+
+  const normalizedWorkflowState = await ensureUniqueEdgeIds(
+    workflowId,
+    await ensureUniqueBlockIds(workflowId, appliedWorkflowState)
+  )
+  const storedWorkflowState = createWorkflowSnapshot({
+    ...normalizedWorkflowState,
+    lastSaved: syncedAt.toISOString(),
+  })
+
+  try {
+    await applyWorkflowPatchInSocketServer(workflowId, {
+      workflowState: storedWorkflowState,
+      ...(variables === undefined ? {} : { variables }),
+      ...(metadata ? { metadata } : {}),
+    })
+  } catch (error) {
+    throw new WorkflowRealtimeRequiredError(error)
+  }
 }
 
-/**
- * Non-fatal wrapper around `applyWorkflowState`.  Catches any error, logs a
- * warning, and returns a result object so callers don't need their own
- * try/catch for what is typically a "best-effort" Yjs sync.
- */
-export async function tryApplyWorkflowState(
+export async function applyWorkflowMetadata(
   workflowId: string,
-  workflowState: WorkflowSnapshot,
-  variables?: Record<string, any>,
-  entityName?: string
-): Promise<{ success: boolean; error?: unknown }> {
+  metadata: WorkflowMetadataPatch
+): Promise<typeof workflow.$inferSelect> {
   try {
-    await applyWorkflowState(workflowId, workflowState, variables, entityName)
-    return { success: true }
+    await applyWorkflowPatchInSocketServer(workflowId, { metadata })
   } catch (error) {
-    logger.warn('Failed to apply workflow state to Yjs doc (non-fatal)', {
-      workflowId,
-      error,
-    })
-    return { success: false, error }
+    throw new WorkflowRealtimeRequiredError(error)
   }
+
+  const [updatedWorkflow] = await db
+    .select()
+    .from(workflow)
+    .where(eq(workflow.id, workflowId))
+    .limit(1)
+  if (!updatedWorkflow) {
+    throw new Error('Workflow not found')
+  }
+
+  return updatedWorkflow
 }

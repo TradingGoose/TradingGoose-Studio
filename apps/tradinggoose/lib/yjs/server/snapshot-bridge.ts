@@ -1,14 +1,23 @@
+import { buildEntityListDescriptor } from '@/lib/copilot/review-sessions/identity'
 import type {
   ReviewTargetDescriptor,
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
 import { env, getInternalRealtimeUrl } from '@/lib/env'
-import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import { type SavedEntityKind, SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
+import type { WorkflowMetadataPatch, WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 export interface YjsSnapshotResponse {
   snapshotBase64: string
   descriptor: ReviewTargetDescriptor
   runtime: ReviewTargetRuntimeState
+  touchedAt?: number | null
+}
+
+type WorkflowPatch = {
+  workflowState?: WorkflowSnapshot
+  variables?: Record<string, any>
+  metadata?: WorkflowMetadataPatch
 }
 
 export class SocketServerBridgeError extends Error {
@@ -16,10 +25,20 @@ export class SocketServerBridgeError extends Error {
   body: string
 
   constructor(status: number, body: string) {
-    super(`Socket server bridge failed: ${status}${body ? ` ${body}` : ''}`)
+    super(readSocketServerErrorMessage(status, body))
     this.name = 'SocketServerBridgeError'
     this.status = status
     this.body = body
+  }
+}
+
+function readSocketServerErrorMessage(status: number, body: string): string {
+  if (!body) return `Socket server bridge failed: ${status}`
+  try {
+    const error = (JSON.parse(body) as { error?: unknown }).error
+    return typeof error === 'string' && error ? error : body
+  } catch {
+    return body
   }
 }
 
@@ -38,23 +57,48 @@ function getInternalSecret(): string {
 async function fetchFromSocketServer(
   url: URL,
   init: RequestInit,
-  timeoutMs = 5000
+  timeoutMs = 5000,
+  attempts = 1
 ): Promise<Response> {
   const headers = new Headers(init.headers)
   headers.set('x-internal-secret', getInternalSecret())
 
-  const response = await fetch(url.toString(), {
-    ...init,
-    headers,
-    signal: AbortSignal.timeout(timeoutMs),
-  })
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const response = await fetch(url.toString(), {
+        ...init,
+        headers,
+        signal: AbortSignal.timeout(timeoutMs),
+      })
 
-  if (!response.ok) {
-    const body = await response.text().catch(() => '')
-    throw new SocketServerBridgeError(response.status, body)
+      if (!response.ok) {
+        const body = await response.text().catch(() => '')
+        throw new SocketServerBridgeError(response.status, body)
+      }
+
+      return response
+    } catch (error) {
+      const canRetry =
+        attempt < attempts && !(error instanceof SocketServerBridgeError && error.status < 500)
+      if (!canRetry) {
+        throw error
+      }
+    }
   }
 
-  return response
+  throw new Error('Socket server bridge failed')
+}
+
+async function postJsonToSocketServer(path: string, body: unknown): Promise<void> {
+  await fetchFromSocketServer(
+    new URL(path, getSocketServerUrl()),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+    10000
+  )
 }
 
 export async function getYjsSnapshot(
@@ -71,35 +115,17 @@ export async function getYjsSnapshot(
     }
   }
 
-  const response = await fetchFromSocketServer(url, { method: 'GET' })
+  const response = await fetchFromSocketServer(url, { method: 'GET' }, 5000, 3)
   return response.json() as Promise<YjsSnapshotResponse>
 }
 
-export async function applyWorkflowStateInSocketServer(
+export async function applyWorkflowPatchInSocketServer(
   workflowId: string,
-  workflowState: WorkflowSnapshot,
-  variables?: Record<string, any>,
-  entityName?: string
+  patch: WorkflowPatch
 ): Promise<void> {
-  const url = new URL(
+  await postJsonToSocketServer(
     `/internal/yjs/workflows/${encodeURIComponent(workflowId)}/apply-state`,
-    getSocketServerUrl()
-  )
-
-  await fetchFromSocketServer(
-    url,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        workflowState,
-        ...(variables === undefined ? {} : { variables }),
-        ...(entityName ? { entityName } : {}),
-      }),
-    },
-    10000
+    patch
   )
 }
 
@@ -108,52 +134,62 @@ export async function applyEntityStateInSocketServer(
   entityKind: string,
   fields: Record<string, unknown>
 ): Promise<void> {
-  const url = new URL(
+  await postJsonToSocketServer(
     `/internal/yjs/entities/${encodeURIComponent(entityId)}/apply-state`,
-    getSocketServerUrl()
+    { entityKind, fields }
   )
+}
 
-  await fetchFromSocketServer(
-    url,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ entityKind, fields }),
-    },
-    10000
+export async function applyYjsUpdateInSocketServer(
+  sessionId: string,
+  search: string,
+  updateBase64: string
+): Promise<void> {
+  await postJsonToSocketServer(
+    `/internal/yjs/sessions/${encodeURIComponent(sessionId)}/apply-update${search}`,
+    { updateBase64 }
   )
+}
+
+async function postEntityListMembersToSocketServer(
+  entityKind: SavedEntityKind,
+  workspaceId: string,
+  body: unknown
+): Promise<void> {
+  const descriptor = buildEntityListDescriptor(entityKind, workspaceId)
+  try {
+    await postJsonToSocketServer(
+      `/internal/yjs/sessions/${encodeURIComponent(descriptor.yjsSessionId)}/members`,
+      body
+    )
+  } catch (error) {
+    if (error instanceof SocketServerBridgeError && error.status < 500) {
+      throw error
+    }
+    throw new SavedEntityRealtimeRequiredError()
+  }
+}
+
+export async function notifyEntityListMembersUpserted(
+  entityKind: SavedEntityKind,
+  workspaceId: string,
+  members: Array<{ id: string; name: string; enabled?: boolean }>
+): Promise<void> {
+  await postEntityListMembersToSocketServer(entityKind, workspaceId, { members })
+}
+
+export async function notifyEntityListMemberRemoved(
+  entityKind: SavedEntityKind,
+  workspaceId: string,
+  entityId: string
+): Promise<void> {
+  await postEntityListMembersToSocketServer(entityKind, workspaceId, { remove: entityId })
 }
 
 export async function deleteYjsSessionInSocketServer(sessionId: string): Promise<void> {
-  const url = new URL(
-    `/internal/yjs/sessions/${encodeURIComponent(sessionId)}`,
-    getSocketServerUrl()
-  )
-
   await fetchFromSocketServer(
-    url,
-    {
-      method: 'DELETE',
-    },
-    10000
-  )
-}
-
-export async function clearYjsSessionReseededFromCanonicalInSocketServer(
-  sessionId: string
-): Promise<void> {
-  const url = new URL(
-    `/internal/yjs/sessions/${encodeURIComponent(sessionId)}/clear-reseeded`,
-    getSocketServerUrl()
-  )
-
-  await fetchFromSocketServer(
-    url,
-    {
-      method: 'POST',
-    },
+    new URL(`/internal/yjs/sessions/${encodeURIComponent(sessionId)}`, getSocketServerUrl()),
+    { method: 'DELETE' },
     10000
   )
 }

@@ -1,10 +1,9 @@
 'use client'
 
 import { useCallback, useMemo, useState } from 'react'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { useMessages } from 'next-intl'
 import {
   useCreateIndicator,
   useDeleteIndicator,
@@ -160,10 +159,6 @@ export function IndicatorList({
           indicator: {
             name: copiedName,
             pineCode: indicator.pineCode ?? '',
-            inputMeta:
-              indicator.inputMeta && typeof indicator.inputMeta === 'object'
-                ? indicator.inputMeta
-                : null,
           },
         })
         const copiedIndicatorId =
@@ -184,12 +179,7 @@ export function IndicatorList({
         })
       }
     },
-    [
-      createMutation,
-      handleSelect,
-      permissions.canEdit,
-      workspaceId,
-    ]
+    [createMutation, handleSelect, permissions.canEdit, workspaceId]
   )
 
   if (isLoading) {

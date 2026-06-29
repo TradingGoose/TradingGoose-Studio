@@ -262,6 +262,7 @@ export interface McpApiResponse<T = any> {
   success: boolean
   data?: T
   error?: string
+  code?: string
 }
 
 export interface McpToolDiscoveryResponse {

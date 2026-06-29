@@ -36,12 +36,7 @@ function normalizeIndicator(indicator: ApiIndicator, workspaceId: string): Indic
       indicator.inputMeta && typeof indicator.inputMeta === 'object'
         ? (indicator.inputMeta as InputMetaMap)
         : undefined,
-    createdAt:
-      typeof indicator.createdAt === 'string'
-        ? indicator.createdAt
-        : indicator.updatedAt && typeof indicator.updatedAt === 'string'
-          ? indicator.updatedAt
-          : new Date().toISOString(),
+    createdAt: typeof indicator.createdAt === 'string' ? indicator.createdAt : undefined,
     updatedAt: typeof indicator.updatedAt === 'string' ? indicator.updatedAt : undefined,
   }
 }
@@ -142,7 +137,7 @@ export function useIndicators(workspaceId: string) {
 
 interface CreateIndicatorParams {
   workspaceId: string
-  indicator: Pick<IndicatorDefinition, 'name' | 'pineCode' | 'inputMeta'>
+  indicator: Pick<IndicatorDefinition, 'name' | 'pineCode'>
 }
 
 export function useCreateIndicator() {
@@ -183,9 +178,7 @@ export function useCreateIndicator() {
 interface UpdateIndicatorParams {
   workspaceId: string
   indicatorId: string
-  updates: Partial<
-    Omit<IndicatorDefinition, 'id' | 'workspaceId' | 'userId' | 'color' | 'createdAt' | 'updatedAt'>
-  >
+  updates: Partial<Pick<IndicatorDefinition, 'name' | 'pineCode'>>
 }
 
 interface ImportIndicatorsParams {
@@ -209,10 +202,6 @@ export function useUpdateIndicator() {
         throw new Error('Indicator not found')
       }
 
-      const resolvedInputMeta = Object.hasOwn(updates, 'inputMeta')
-        ? updates.inputMeta
-        : currentIndicator.inputMeta
-
       const response = await fetch(API_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -222,7 +211,6 @@ export function useUpdateIndicator() {
               id: indicatorId,
               name: updates.name ?? currentIndicator.name,
               pineCode: updates.pineCode ?? currentIndicator.pineCode,
-              inputMeta: resolvedInputMeta,
             },
           ],
           workspaceId,
@@ -241,37 +229,6 @@ export function useUpdateIndicator() {
 
       logger.info(`Updated indicator: ${indicatorId}`)
       return data.data
-    },
-    onMutate: async ({ workspaceId, indicatorId, updates }) => {
-      await queryClient.cancelQueries({ queryKey: indicatorKeys.list(workspaceId) })
-
-      const previousIndicators = queryClient.getQueryData<IndicatorDefinition[]>(
-        indicatorKeys.list(workspaceId)
-      )
-
-      if (previousIndicators) {
-        queryClient.setQueryData<IndicatorDefinition[]>(
-          indicatorKeys.list(workspaceId),
-          previousIndicators.map((indicator) =>
-            indicator.id === indicatorId
-              ? {
-                  ...indicator,
-                  ...updates,
-                }
-              : indicator
-          )
-        )
-      }
-
-      return { previousIndicators }
-    },
-    onError: (_err, variables, context) => {
-      if (context?.previousIndicators) {
-        queryClient.setQueryData(
-          indicatorKeys.list(variables.workspaceId),
-          context.previousIndicators
-        )
-      }
     },
     onSettled: (_data, _error, variables) => {
       queryClient.invalidateQueries({ queryKey: indicatorKeys.list(variables.workspaceId) })

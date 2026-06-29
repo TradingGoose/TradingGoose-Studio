@@ -75,6 +75,7 @@ export interface WorkflowRegistryActions {
     description?: string
     workspaceId?: string
     folderId?: string | null
+    initialWorkflowState?: any
   }) => Promise<string>
   duplicateWorkflow: (sourceId: string) => Promise<string | null>
   readWorkflowDeploymentStatus: (workflowId: string | null) => DeploymentStatus | null

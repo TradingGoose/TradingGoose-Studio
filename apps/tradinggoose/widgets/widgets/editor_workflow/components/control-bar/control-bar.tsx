@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronDown, LayoutDashboard, Play, RefreshCw, X } from 'lucide-react'
+import { AlertTriangle, ChevronDown, LayoutDashboard, Play, RefreshCw, X } from 'lucide-react'
 import {
   Button,
   DropdownMenu,
@@ -110,6 +110,7 @@ export function ControlBar({
   // Local state
   const [, forceUpdate] = useState({})
   const [isAutoLayouting, setIsAutoLayouting] = useState(false)
+  const [autoLayoutError, setAutoLayoutError] = useState<string | null>(null)
 
   // Deployed state management
   const [deployedState, setDeployedState] = useState<WorkflowState | null>(null)
@@ -349,13 +350,13 @@ export function ControlBar({
       }
 
       setIsAutoLayouting(true)
+      setAutoLayoutError(null)
       try {
-        // Use the shared auto layout utility for immediate frontend updates
-        const { applyAutoLayoutAndUpdateStore } = await import(
+        const { applyAutoLayoutToActiveWorkflow } = await import(
           '@/widgets/widgets/editor_workflow/components/control-bar/auto-layout'
         )
 
-        const result = await applyAutoLayoutAndUpdateStore({
+        const result = await applyAutoLayoutToActiveWorkflow({
           workflowId: activeWorkflowId!,
           channelId,
         })
@@ -364,11 +365,11 @@ export function ControlBar({
           logger.info('Auto layout completed successfully')
         } else {
           logger.error('Auto layout failed:', result.error)
-          // You could add a toast notification here if available
+          setAutoLayoutError(result.error ?? 'Auto layout failed')
         }
       } catch (error) {
         logger.error('Auto layout error:', error)
-        // You could add a toast notification here if available
+        setAutoLayoutError(error instanceof Error ? error.message : 'Auto layout failed')
       } finally {
         setIsAutoLayouting(false)
       }
@@ -562,6 +563,19 @@ export function ControlBar({
 
   return (
     <div className={containerClass}>
+      {autoLayoutError ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className='flex h-7 max-w-48 items-center gap-1 rounded-sm border border-destructive/30 bg-destructive/10 px-2 text-destructive'>
+              <AlertTriangle className='h-3.5 w-3.5 shrink-0' />
+              <span className='truncate text-xs'>Auto layout failed</span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side='bottom' className='max-w-xs'>
+            {autoLayoutError}
+          </TooltipContent>
+        </Tooltip>
+      ) : null}
       {showOptionalControls && <ExportControls variant={variant} />}
       {showOptionalControls && renderAutoLayoutButton()}
       {renderDeployButton()}

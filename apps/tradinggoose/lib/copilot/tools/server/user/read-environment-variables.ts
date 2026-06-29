@@ -3,17 +3,14 @@ import type {
   BaseServerTool,
   ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
-import {
-  createWorkflowPermissionError,
-  resolveServerWorkspaceId,
-  resolveServerWorkflowScope,
-} from '@/lib/copilot/tools/server/workflow/workflow-scope'
-import { getEnvironmentVariableKeys, getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
+import { withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
+import { getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
 import { createLogger } from '@/lib/logs/console/logger'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 
-interface ReadEnvironmentVariablesParams {
-  entityId?: string
-}
+type ReadEnvironmentVariablesParams =
+  | { scope: 'personal' }
+  | { scope: 'workspace'; workspaceId: string }
 
 export const readEnvironmentVariablesServerTool: BaseServerTool<
   ReadEnvironmentVariablesParams,
@@ -27,57 +24,41 @@ export const readEnvironmentVariablesServerTool: BaseServerTool<
     const logger = createLogger('ReadEnvironmentVariablesServerTool')
 
     if (!context?.userId) {
-      logger.error(
-        'Unauthorized attempt to access environment variables - no authenticated user context'
-      )
       throw new Error('Authentication required')
     }
 
-    const authenticatedUserId = context.userId
-
-    const workflowScope = await resolveServerWorkflowScope(params, context)
-    if (workflowScope && !workflowScope.hasAccess) {
-      const errorMessage = createWorkflowPermissionError('access environment variables in')
-      logger.error('Unauthorized attempt to access environment variables', {
-        workflowId: workflowScope.workflowId,
-        authenticatedUserId,
-      })
-      throw new Error(errorMessage)
-    }
-
-    const userId = authenticatedUserId
-    const workspaceId = resolveServerWorkspaceId(context, workflowScope)
-
-    logger.info('Reading environment variables for authenticated user', {
-      userId,
-      workflowId: workflowScope?.workflowId,
-      workspaceId,
-    })
-
-    if (workspaceId) {
-      const envResult = await getPersonalAndWorkspaceEnv(userId, workspaceId)
-      const variableNames = [
-        ...new Set([
-          ...Object.keys(envResult.personalEncrypted),
-          ...Object.keys(envResult.workspaceEncrypted),
-        ]),
-      ]
-      logger.info('Environment variable keys retrieved', {
-        userId,
-        workflowId: workflowScope?.workflowId,
-        variableCount: variableNames.length,
-      })
-      return {
-        variableNames,
-        count: variableNames.length,
+    const userId = context.userId
+    const scopedContext =
+      params.scope === 'workspace' ? withWorkspaceArgContext(context, params) : context
+    const workspaceId = params.scope === 'workspace' ? scopedContext?.workspaceId : undefined
+    if (params.scope === 'workspace') {
+      if (!workspaceId) throw new Error('workspaceId is required')
+      const workspaceAccess = await checkWorkspaceAccess(workspaceId, userId)
+      if (!workspaceAccess.exists || !workspaceAccess.hasAccess) {
+        throw new Error('Access denied: You do not have permission to use this workspace')
       }
     }
 
-    const result = await getEnvironmentVariableKeys(userId)
-    logger.info('Environment variable keys retrieved', { userId, variableCount: result.count })
+    logger.info('Reading environment variables for authenticated user', {
+      userId,
+      scope: params.scope,
+      workspaceId,
+    })
+
+    const envResult = await getPersonalAndWorkspaceEnv(userId, workspaceId)
+    const personalVariableNames = Object.keys(envResult.personalEncrypted)
+    const workspaceVariableNames = Object.keys(envResult.workspaceEncrypted)
+    const variableNames = [...new Set([...personalVariableNames, ...workspaceVariableNames])]
+    logger.info('Environment variable keys retrieved', {
+      userId,
+      variableCount: variableNames.length,
+    })
     return {
-      variableNames: result.variableNames,
-      count: result.count,
+      variableNames,
+      personalVariableNames,
+      workspaceVariableNames,
+      conflicts: envResult.conflicts,
+      count: variableNames.length,
     }
   },
 }

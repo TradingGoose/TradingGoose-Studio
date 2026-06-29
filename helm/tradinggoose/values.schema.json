@@ -94,6 +94,11 @@
               "minLength": 32,
               "description": "Encryption key (minimum 32 characters required)"
             },
+            "API_ENCRYPTION_KEY": {
+              "type": "string",
+              "pattern": "^$|^[a-fA-F0-9]{64}$",
+              "description": "Dedicated API-key encryption key; required only when API-key access or MCP token issuance is used"
+            },
             "NEXT_PUBLIC_APP_URL": {
               "type": "string",
               "format": "uri",

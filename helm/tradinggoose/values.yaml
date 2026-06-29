@@ -68,10 +68,11 @@ app:
     # Generate using: openssl rand -hex 32
     CRON_SECRET: ""         # OPTIONAL - required only if cronjobs.enabled=true, authenticates scheduled job requests
 
-    # Optional: API Key Encryption (RECOMMENDED for production)
+    # API Key Encryption
+    # Required only when API-key access or MCP token issuance is used.
     # Generate 64-character hex string using: openssl rand -hex 32 (outputs 64 hex chars = 32 bytes)
-    API_ENCRYPTION_KEY: ""  # OPTIONAL - encrypts API keys at rest, must be exactly 64 hex characters, if not set keys stored in plain text
-    
+    API_ENCRYPTION_KEY: ""
+
     # Email & Communication
     EMAIL_VERIFICATION_ENABLED: "false"                   # Enable email verification for user registration and login (defaults to false)
     RESEND_API_KEY: ""                                    # Resend API key for transactional emails

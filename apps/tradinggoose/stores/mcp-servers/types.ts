@@ -4,7 +4,7 @@ export interface McpServerWithStatus {
   id: string
   name: string
   description?: string | null
-  transport: McpTransport
+  transport?: McpTransport
   url?: string | null
   headers?: Record<string, string>
   command?: string | null
@@ -52,13 +52,23 @@ export interface McpServersActions {
       | 'workspaceId'
     >
   ) => Promise<McpServerWithStatus>
-  updateServer: (
+  renameServer: (
     workspaceId: string,
     id: string,
-    updates: Partial<McpServerWithStatus>
+    name: string
   ) => Promise<McpServerWithStatus | null>
   deleteServer: (workspaceId: string, id: string) => Promise<void>
-  refreshServer: (workspaceId: string, id: string) => Promise<void>
+  refreshServer: (
+    workspaceId: string,
+    id: string,
+    result?: {
+      status?: McpServerWithStatus['connectionStatus']
+      toolCount?: number
+      lastConnected?: string | null
+      lastToolsRefresh?: string | null
+      error?: string | null
+    }
+  ) => Promise<void>
 }
 
 export const initialState: McpServersState = {

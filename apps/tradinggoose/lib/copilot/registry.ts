@@ -2,15 +2,16 @@ import { z } from 'zod'
 import {
   CUSTOM_TOOL_DOCUMENT_FORMAT,
   INDICATOR_DOCUMENT_FORMAT,
+  KNOWLEDGE_BASE_DOCUMENT_FORMAT,
   MCP_SERVER_DOCUMENT_FORMAT,
   SKILL_DOCUMENT_FORMAT,
+  WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
 } from '@/lib/copilot/entity-documents'
 import { MONITOR_DOCUMENT_FORMAT } from '@/lib/copilot/monitor/monitor-documents'
 import {
   TG_MERMAID_DOCUMENT_FORMAT,
   WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
 } from '@/lib/workflows/document-format'
-import { WORKFLOW_VARIABLE_TYPES, type WorkflowVariableType } from '@/lib/workflows/value-types'
 import {
   GetAgentAccessoryCatalogInput,
   GetAgentAccessoryCatalogResult,
@@ -22,17 +23,11 @@ import {
   GetIndicatorCatalogResult,
   GetIndicatorMetadataInput,
   GetIndicatorMetadataResult,
-  KnowledgeBaseArgsSchema,
-  KnowledgeBaseResultSchema,
   ReadBlockOutputsInput,
   ReadBlockOutputsResult,
   ReadBlockUpstreamReferencesInput,
   ReadBlockUpstreamReferencesResult,
 } from './tools/shared/schemas'
-
-const WorkflowVariableTypeSchema = z.enum(
-  WORKFLOW_VARIABLE_TYPES as [WorkflowVariableType, ...WorkflowVariableType[]]
-)
 
 // Tool IDs supported by the Copilot runtime
 export const COPILOT_TOOL_IDS = [
@@ -59,12 +54,16 @@ export const COPILOT_TOOL_IDS = [
   'read_oauth_credentials',
   'read_credentials',
   'list_workflows',
-  'read_workflow_variables',
-  'set_workflow_variables',
+  'edit_workflow_variable',
   'oauth_request_access',
   'deploy_workflow',
   'check_deployment_status',
-  'knowledge_base',
+  'list_knowledge_bases',
+  'read_knowledge_base',
+  'create_knowledge_base',
+  'edit_knowledge_base',
+  'rename_knowledge_base',
+  'query_knowledge_base',
   'list_custom_tools',
   'read_custom_tool',
   'create_custom_tool',
@@ -124,6 +123,31 @@ const OptionalEntityTargetArgs = z.object({
 const EntityTargetArgs = z.object({
   entityId: RequiredId,
 })
+const WorkspaceTargetArgs = z.object({
+  workspaceId: RequiredId,
+})
+const PersonalOrWorkspaceReadArgs = z.discriminatedUnion('scope', [
+  z
+    .object({
+      scope: z.literal('personal'),
+    })
+    .strict(),
+  WorkspaceTargetArgs.extend({
+    scope: z.literal('workspace'),
+  }).strict(),
+])
+const SetEnvironmentVariablesArgs = z.discriminatedUnion('scope', [
+  z
+    .object({
+      scope: z.literal('personal'),
+      variables: z.record(z.string()),
+    })
+    .strict(),
+  WorkspaceTargetArgs.extend({
+    scope: z.literal('workspace'),
+    variables: z.record(z.string()),
+  }).strict(),
+])
 
 function buildEntityDocumentMutationArgs<TDocumentFormat extends string>(
   documentFormat: TDocumentFormat
@@ -139,12 +163,10 @@ function buildEntityDocumentMutationArgs<TDocumentFormat extends string>(
 function buildEntityDocumentCreateArgs<TDocumentFormat extends string>(
   documentFormat: TDocumentFormat
 ) {
-  return z
-    .object({
-      entityDocument: z.string().min(1),
-      documentFormat: z.literal(documentFormat).optional(),
-    })
-    .strict()
+  return WorkspaceTargetArgs.extend({
+    entityDocument: z.string().min(1),
+    documentFormat: z.literal(documentFormat).optional(),
+  }).strict()
 }
 
 const CreateWorkflowArgs = z
@@ -152,7 +174,7 @@ const CreateWorkflowArgs = z
     name: z.string().trim().min(1).optional(),
     description: z.string().optional(),
     folderId: z.string().nullable().optional(),
-    workspaceId: RequiredId.optional(),
+    workspaceId: RequiredId,
   })
   .strict()
 
@@ -221,8 +243,7 @@ const CustomToolDocumentMutationShape = {
 const EditCustomToolArgs = EntityTargetArgs.extend(CustomToolDocumentMutationShape)
   .strict()
   .describe('Update a saved custom tool by replacing the full custom-tool document.')
-const CreateCustomToolArgs = z
-  .object(CustomToolDocumentMutationShape)
+const CreateCustomToolArgs = WorkspaceTargetArgs.extend(CustomToolDocumentMutationShape)
   .strict()
   .describe('Create a custom tool from the full custom-tool document.')
 const GetIndicatorArgs = z
@@ -250,6 +271,44 @@ const EditSkillArgs = buildEntityDocumentMutationArgs(SKILL_DOCUMENT_FORMAT)
 const CreateSkillArgs = buildEntityDocumentCreateArgs(SKILL_DOCUMENT_FORMAT)
 const EditMcpServerArgs = buildEntityDocumentMutationArgs(MCP_SERVER_DOCUMENT_FORMAT)
 const CreateMcpServerArgs = buildEntityDocumentCreateArgs(MCP_SERVER_DOCUMENT_FORMAT)
+const EditWorkflowVariableArgs = EntityTargetArgs.extend({
+  entityDocument: z
+    .string()
+    .min(1)
+    .describe(
+      'Full `tg-workflow-variable-document-v1` JSON document for workflow variables. Preserve existing `variableId` values from `read_workflow`; choose a new unique `variableId` only for a new variable: {"variables":[{"variableId":"var-risk-limit","name":"riskLimit","type":"number","value":100}]}.'
+    ),
+  removedVariableIds: z
+    .array(z.string().trim().min(1))
+    .optional()
+    .describe('Existing variable ids intentionally removed from the workflow.'),
+  documentFormat: z.literal(WORKFLOW_VARIABLE_DOCUMENT_FORMAT).optional(),
+}).strict()
+const KnowledgeBaseDocumentMutationShape = {
+  entityDocument: z
+    .string()
+    .min(1)
+    .describe(
+      'Full `tg-knowledge-base-document-v1` JSON document with exactly `name`, `description`, and `chunkingConfig`: {"name":"Research","description":"","chunkingConfig":{"maxSize":1024,"minSize":1,"overlap":200}}.'
+    ),
+  documentFormat: z.literal(KNOWLEDGE_BASE_DOCUMENT_FORMAT).optional(),
+}
+const CreateKnowledgeBaseArgs = WorkspaceTargetArgs.extend(KnowledgeBaseDocumentMutationShape)
+  .strict()
+  .describe('Create a knowledge base in a workspace from the full knowledge-base document.')
+const EditKnowledgeBaseArgs = EntityTargetArgs.extend(KnowledgeBaseDocumentMutationShape)
+  .strict()
+  .describe('Update a knowledge base by replacing the full knowledge-base document.')
+const RenameKnowledgeBaseArgs = EditKnowledgeBaseArgs.describe(
+  'Rename a knowledge base by replacing the full knowledge-base document with an updated `name`.'
+)
+const QueryKnowledgeBaseArgs = z
+  .object({
+    entityId: RequiredId,
+    query: z.string().trim().min(1),
+    topK: z.number().min(1).max(50).optional(),
+  })
+  .strict()
 
 // Tool argument schemas for the Studio runtime tool surface
 export const ToolArgSchemas = {
@@ -279,21 +338,8 @@ export const ToolArgSchemas = {
     })
     .strict(),
   create_workflow: CreateWorkflowArgs,
-  [CopilotTool.list_workflows]: z.object({}),
-  [CopilotTool.read_workflow_variables]: z.object({
-    entityId: RequiredId,
-  }),
-  [CopilotTool.set_workflow_variables]: z.object({
-    entityId: RequiredId,
-    operations: z.array(
-      z.object({
-        operation: z.enum(['add', 'delete', 'edit']),
-        name: z.string(),
-        type: WorkflowVariableTypeSchema.optional(),
-        value: z.string().optional(),
-      })
-    ),
-  }),
+  [CopilotTool.list_workflows]: WorkspaceTargetArgs.strict(),
+  [CopilotTool.edit_workflow_variable]: EditWorkflowVariableArgs,
   oauth_request_access: z.object({
     providerName: z.string().optional(),
   }),
@@ -357,44 +403,46 @@ export const ToolArgSchemas = {
     body: z.union([z.record(z.any()), z.string()]).optional(),
   }),
 
-  [CopilotTool.read_environment_variables]: OptionalEntityTargetArgs,
+  [CopilotTool.read_environment_variables]: PersonalOrWorkspaceReadArgs,
 
-  set_environment_variables: OptionalEntityTargetArgs.extend({
-    variables: z.record(z.string()),
-  }),
+  set_environment_variables: SetEnvironmentVariablesArgs,
 
-  [CopilotTool.read_oauth_credentials]: OptionalEntityTargetArgs,
+  [CopilotTool.read_oauth_credentials]: PersonalOrWorkspaceReadArgs,
 
-  [CopilotTool.read_credentials]: OptionalEntityTargetArgs,
+  [CopilotTool.read_credentials]: PersonalOrWorkspaceReadArgs,
 
   gdrive_request_access: z.object({}),
 
-  list_gdrive_files: OptionalEntityTargetArgs.extend({
+  list_gdrive_files: WorkspaceTargetArgs.extend({
     credentialId: z.string(),
     search_query: z.string().optional(),
     num_results: z.number().optional().default(50),
-  }),
+  }).strict(),
 
-  read_gdrive_file: z.object({
+  read_gdrive_file: WorkspaceTargetArgs.extend({
     credentialId: z.string(),
     fileId: z.string(),
     type: z.enum(['doc', 'sheet']),
     range: z.string().optional(),
-    entityId: z.string().optional(),
-  }),
+  }).strict(),
 
-  knowledge_base: KnowledgeBaseArgsSchema,
+  list_knowledge_bases: WorkspaceTargetArgs.strict(),
+  read_knowledge_base: EntityTargetArgs,
+  create_knowledge_base: CreateKnowledgeBaseArgs,
+  edit_knowledge_base: EditKnowledgeBaseArgs,
+  rename_knowledge_base: RenameKnowledgeBaseArgs,
+  query_knowledge_base: QueryKnowledgeBaseArgs,
 
-  list_custom_tools: z.object({}),
+  list_custom_tools: WorkspaceTargetArgs.strict(),
   [CopilotTool.read_custom_tool]: EntityTargetArgs,
   create_custom_tool: CreateCustomToolArgs,
   edit_custom_tool: EditCustomToolArgs,
   rename_custom_tool: EditCustomToolArgs,
 
-  list_monitors: z.object({
+  list_monitors: WorkspaceTargetArgs.extend({
     entityId: z.string().optional(),
     blockId: z.string().optional(),
-  }),
+  }).strict(),
   [CopilotTool.read_monitor]: z.object({
     monitorId: RequiredId,
   }),
@@ -404,19 +452,19 @@ export const ToolArgSchemas = {
     documentFormat: z.literal(MONITOR_DOCUMENT_FORMAT).optional(),
   }),
 
-  [CopilotTool.list_indicators]: z.object({}),
+  [CopilotTool.list_indicators]: WorkspaceTargetArgs.strict(),
   [CopilotTool.read_indicator]: GetIndicatorArgs,
   create_indicator: CreateIndicatorArgs,
   edit_indicator: EditIndicatorArgs,
   rename_indicator: EditIndicatorArgs,
 
-  list_skills: z.object({}),
+  list_skills: WorkspaceTargetArgs.strict(),
   [CopilotTool.read_skill]: EntityTargetArgs,
   create_skill: CreateSkillArgs,
   edit_skill: EditSkillArgs,
   rename_skill: EditSkillArgs,
 
-  list_mcp_servers: z.object({}),
+  list_mcp_servers: WorkspaceTargetArgs.strict(),
   [CopilotTool.read_mcp_server]: EntityTargetArgs,
   create_mcp_server: CreateMcpServerArgs,
   edit_mcp_server: EditMcpServerArgs,
@@ -439,12 +487,8 @@ export const ToolArgSchemas = {
   }),
 } as const
 
-const CurrentWorkflowStateArg = { currentWorkflowState: z.string().min(1) }
-
 export const ServerToolArgSchemas = {
   ...ToolArgSchemas,
-  edit_workflow: EditWorkflowArgs.extend(CurrentWorkflowStateArg),
-  edit_workflow_block: EditWorkflowBlockArgs.extend(CurrentWorkflowStateArg),
 } satisfies Record<ToolId, z.ZodTypeAny>
 
 // Tool-specific SSE schemas (tool_call with typed arguments)
@@ -476,13 +520,9 @@ export const ToolSSESchemas = {
     CopilotTool.list_workflows,
     ToolArgSchemas.list_workflows
   ),
-  [CopilotTool.read_workflow_variables]: toolCallSSEFor(
-    CopilotTool.read_workflow_variables,
-    ToolArgSchemas.read_workflow_variables
-  ),
-  [CopilotTool.set_workflow_variables]: toolCallSSEFor(
-    CopilotTool.set_workflow_variables,
-    ToolArgSchemas.set_workflow_variables
+  [CopilotTool.edit_workflow_variable]: toolCallSSEFor(
+    CopilotTool.edit_workflow_variable,
+    ToolArgSchemas.edit_workflow_variable
   ),
   edit_workflow: toolCallSSEFor('edit_workflow', ToolArgSchemas.edit_workflow),
   edit_workflow_block: toolCallSSEFor('edit_workflow_block', ToolArgSchemas.edit_workflow_block),
@@ -543,7 +583,18 @@ export const ToolSSESchemas = {
     'check_deployment_status',
     ToolArgSchemas.check_deployment_status
   ),
-  knowledge_base: toolCallSSEFor('knowledge_base', ToolArgSchemas.knowledge_base),
+  list_knowledge_bases: toolCallSSEFor('list_knowledge_bases', ToolArgSchemas.list_knowledge_bases),
+  read_knowledge_base: toolCallSSEFor('read_knowledge_base', ToolArgSchemas.read_knowledge_base),
+  create_knowledge_base: toolCallSSEFor(
+    'create_knowledge_base',
+    ToolArgSchemas.create_knowledge_base
+  ),
+  edit_knowledge_base: toolCallSSEFor('edit_knowledge_base', ToolArgSchemas.edit_knowledge_base),
+  rename_knowledge_base: toolCallSSEFor(
+    'rename_knowledge_base',
+    ToolArgSchemas.rename_knowledge_base
+  ),
+  query_knowledge_base: toolCallSSEFor('query_knowledge_base', ToolArgSchemas.query_knowledge_base),
   list_custom_tools: toolCallSSEFor('list_custom_tools', ToolArgSchemas.list_custom_tools),
   [CopilotTool.read_custom_tool]: toolCallSSEFor(
     CopilotTool.read_custom_tool,
@@ -646,26 +697,64 @@ const WorkflowSummaryResult = z.object({
   ),
 })
 
-const WorkflowReadDocumentEnvelope = WorkflowDocumentEnvelope.extend({
-  workflowSummary: WorkflowSummaryResult,
+const WorkflowVariableReadEnvelope = z.object({
+  workflowVariableDocumentFormat: z.literal(WORKFLOW_VARIABLE_DOCUMENT_FORMAT),
+  workflowVariableDocument: z.string(),
 })
 
+const WorkflowReadDocumentEnvelope = WorkflowDocumentEnvelope.extend({
+  workflowSummary: WorkflowSummaryResult,
+}).merge(WorkflowVariableReadEnvelope)
+
+const WorkflowVariableDocumentEnvelope = WorkflowTargetEnvelope.extend({
+  documentFormat: z.literal(WORKFLOW_VARIABLE_DOCUMENT_FORMAT),
+  entityDocument: z.string(),
+  variables: z.record(z.any()),
+})
+
+// A list is a discovery surface: id, canonical name, and basic usability state.
 const GenericEntityListEntry = z.object({
   entityId: z.string(),
   entityName: z.string().optional(),
-  workspaceId: z.string().optional(),
-  entityDescription: z.string().optional(),
-  entityTitle: z.string().optional(),
-  entityTransport: z.string().optional(),
-  entityUrl: z.string().optional(),
-  entityEnabled: z.boolean().optional(),
-  entityConnectionStatus: z.string().optional(),
+  enabled: z.boolean().optional(),
 })
 
 const GenericEntityListResult = z.object({
   entityKind: z.enum(['skill', 'custom_tool', 'indicator', 'mcp_server']),
   entities: z.array(GenericEntityListEntry),
   count: z.number(),
+})
+
+const KnowledgeBaseDocumentEnvelope = z.object({
+  entityKind: z.literal('knowledge_base'),
+  entityId: z.string(),
+  entityName: z.string().optional(),
+  workspaceId: z.string().optional(),
+  documentFormat: z.literal(KNOWLEDGE_BASE_DOCUMENT_FORMAT),
+  entityDocument: z.string(),
+  docCount: z.number().optional(),
+  tokenCount: z.number().optional(),
+  embeddingModel: z.string().optional(),
+  embeddingDimension: z.number().optional(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+})
+
+const QueryKnowledgeBaseResult = z.object({
+  entityKind: z.literal('knowledge_base'),
+  entityId: z.string(),
+  entityName: z.string().optional(),
+  query: z.string(),
+  topK: z.number(),
+  totalResults: z.number(),
+  results: z.array(
+    z.object({
+      documentId: z.string(),
+      content: z.string(),
+      chunkIndex: z.number(),
+      similarity: z.number(),
+    })
+  ),
 })
 
 const IndicatorListEntry = z.object({
@@ -705,9 +794,13 @@ const MonitorListEntry = z.object({
   monitorDescription: z.string().optional(),
   workflowId: z.string(),
   blockId: z.string(),
+  source: z.string().optional(),
   providerId: z.string(),
-  indicatorId: z.string(),
-  interval: z.string(),
+  indicatorId: z.string().optional(),
+  interval: z.string().optional(),
+  serviceId: z.string().optional(),
+  credentialId: z.string().optional(),
+  accountId: z.string().optional(),
   isActive: z.boolean(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
@@ -735,8 +828,9 @@ const McpServerDocumentEnvelope = EntityDocumentEnvelopeBase.extend({
   documentFormat: z.literal(MCP_SERVER_DOCUMENT_FORMAT),
 })
 
-const EditEntityDocumentResultBase = z.object({
-  success: z.boolean(),
+const DocumentDiffReviewMetadata = z.object({
+  requiresReview: z.literal(true).optional(),
+  reviewBaseStateHash: z.string().optional(),
   preview: z
     .object({
       documentDiff: z.object({
@@ -747,8 +841,15 @@ const EditEntityDocumentResultBase = z.object({
     .optional(),
 })
 
-const WorkflowMutationResult = WorkflowTargetEnvelope.extend({
+const EditEntityDocumentResultBase = DocumentDiffReviewMetadata.extend({
   success: z.boolean(),
+})
+
+const WorkflowMutationResult = WorkflowTargetEnvelope.merge(DocumentDiffReviewMetadata).extend({
+  success: z.boolean(),
+})
+const WorkflowCreateMutationResult = WorkflowMutationResult.extend({
+  entityId: z.string().optional(),
 })
 
 const CustomToolDocumentMutationResult = EditEntityDocumentResultBase.merge(
@@ -769,6 +870,12 @@ const SkillDocumentMutationResult = EditEntityDocumentResultBase.merge(
   })
 )
 
+const KnowledgeBaseDocumentMutationResult = EditEntityDocumentResultBase.merge(
+  KnowledgeBaseDocumentEnvelope.extend({
+    entityId: z.string().optional(),
+  })
+)
+
 const McpServerDocumentMutationResult = EditEntityDocumentResultBase.merge(
   McpServerDocumentEnvelope.extend({
     entityKind: z.literal('mcp_server'),
@@ -783,7 +890,9 @@ const WorkflowPreviewEdge = z.object({
 })
 
 const WorkflowMutationResultShape = {
+  requiresReview: z.literal(true).optional(),
   workflowState: z.unknown().optional(),
+  reviewBaseStateHash: z.string().optional(),
   preview: z
     .object({
       blockDiff: z.object({
@@ -808,6 +917,32 @@ const WorkflowMutationResultShape = {
 
 const EditWorkflowResult = WorkflowGraphDocumentEnvelope.extend(WorkflowMutationResultShape)
 const EditWorkflowBlockResult = WorkflowDocumentEnvelope.extend(WorkflowMutationResultShape)
+const EditWorkflowVariableResult = WorkflowVariableDocumentEnvelope.extend({
+  requiresReview: z.literal(true).optional(),
+  reviewBaseStateHash: z.string().optional(),
+  success: z.boolean().optional(),
+  preview: z
+    .object({
+      documentDiff: z.object({
+        before: z.string(),
+        after: z.string(),
+      }),
+    })
+    .optional(),
+})
+
+const EnvironmentVariablesMutationResult = DocumentDiffReviewMetadata.extend({
+  success: z.boolean(),
+  scope: z.enum(['personal', 'workspace']),
+  workspaceId: z.string().optional(),
+  message: z.any().optional(),
+  data: z.any().optional(),
+  variableCount: z.number().optional(),
+  variableNames: z.array(z.string()).optional(),
+  totalVariableCount: z.number().optional(),
+  addedVariables: z.array(z.string()).optional(),
+  updatedVariables: z.array(z.string()).optional(),
+})
 
 const ExecutionEntry = z.object({
   id: z.string(),
@@ -843,16 +978,11 @@ export const ToolResultSchemas = {
     id: z.string(),
   }),
   [CopilotTool.read_workflow]: WorkflowReadDocumentEnvelope,
-  create_workflow: WorkflowMutationResult,
+  create_workflow: WorkflowCreateMutationResult,
   [CopilotTool.list_workflows]: GenericEntityListResult.extend({
     entityKind: z.literal('workflow'),
   }),
-  [CopilotTool.read_workflow_variables]: z
-    .object({ variables: z.record(z.any()) })
-    .or(z.array(z.object({ name: z.string(), value: z.any() }))),
-  [CopilotTool.set_workflow_variables]: z
-    .object({ variables: z.record(z.any()) })
-    .or(z.object({ message: z.any().optional(), data: z.any().optional() })),
+  [CopilotTool.edit_workflow_variable]: EditWorkflowVariableResult,
   oauth_request_access: z.object({
     granted: z.boolean().optional(),
     message: z.string().optional(),
@@ -887,13 +1017,14 @@ export const ToolResultSchemas = {
     data: z.any().optional(),
     body: z.any().optional(),
   }),
-  [CopilotTool.read_environment_variables]: z.union([
-    z.object({ variableNames: z.array(z.string()), count: z.number() }),
-    z.object({ variables: z.record(z.string()) }),
-  ]),
-  set_environment_variables: z
-    .object({ variables: z.record(z.string()) })
-    .or(z.object({ message: z.any().optional(), data: z.any().optional() })),
+  [CopilotTool.read_environment_variables]: z.object({
+    variableNames: z.array(z.string()),
+    personalVariableNames: z.array(z.string()),
+    workspaceVariableNames: z.array(z.string()),
+    conflicts: z.array(z.string()),
+    count: z.number(),
+  }),
+  set_environment_variables: EnvironmentVariablesMutationResult,
   [CopilotTool.read_oauth_credentials]: z.object({
     credentials: z.array(
       z.object({ id: z.string(), provider: z.string(), isDefault: z.boolean().optional() })
@@ -986,7 +1117,14 @@ export const ToolResultSchemas = {
     chatDeployed: z.boolean(),
     deployedAt: z.string().nullable(),
   }),
-  knowledge_base: KnowledgeBaseResultSchema,
+  list_knowledge_bases: GenericEntityListResult.extend({
+    entityKind: z.literal('knowledge_base'),
+  }),
+  read_knowledge_base: KnowledgeBaseDocumentEnvelope,
+  create_knowledge_base: KnowledgeBaseDocumentMutationResult,
+  edit_knowledge_base: KnowledgeBaseDocumentMutationResult,
+  rename_knowledge_base: KnowledgeBaseDocumentMutationResult,
+  query_knowledge_base: QueryKnowledgeBaseResult,
   list_custom_tools: GenericEntityListResult.extend({
     entityKind: z.literal('custom_tool'),
   }),
@@ -1002,6 +1140,7 @@ export const ToolResultSchemas = {
     .object({
       success: z.boolean(),
     })
+    .merge(DocumentDiffReviewMetadata)
     .merge(MonitorDocumentEnvelope),
   [CopilotTool.list_indicators]: IndicatorListResult,
   [CopilotTool.read_indicator]: IndicatorDocumentEnvelope.extend({

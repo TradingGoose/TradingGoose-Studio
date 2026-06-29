@@ -356,6 +356,32 @@
         "ssoDisabled": "SSO身份验证已禁用。请使用其他登录方式。",
         "failed": "SSO登录失败。请重试。"
       }
+    },
+    "mcp": {
+      "eyebrow": "MCP 授权",
+      "confirm": {
+        "title": "批准个人 API 密钥",
+        "description": "本地 TradingGoose MCP 设置命令正在请求为此账户创建个人 API 密钥。",
+        "approve": "批准密钥",
+        "cancel": "取消",
+        "terminalHint": "仅在你自己终端中启动了设置或登录命令时才批准。"
+      },
+      "invalid": {
+        "title": "MCP 登录无效",
+        "description": "本地设置命令未提供有效的登录代码。"
+      },
+      "expired": {
+        "title": "MCP 登录已过期",
+        "description": "返回终端并重新运行 TradingGoose MCP 登录命令。"
+      },
+      "approved": {
+        "title": "个人 API 密钥已批准",
+        "description": "返回终端完成本地代理配置。"
+      },
+      "cancelled": {
+        "title": "MCP 登录已取消",
+        "description": "未创建 API 密钥。你可以关闭此页面。"
+      }
     }
   },
   "localeNames": {
@@ -1002,13 +1028,8 @@
       "title": "知识库",
       "searchPlaceholder": "搜索知识库...",
       "sort": {
-        "lastUpdated": "最近更新",
-        "newestFirst": "最新在前",
-        "oldestFirst": "最早在前",
         "nameAsc": "名称（A-Z）",
-        "nameDesc": "名称（Z-A）",
-        "mostDocuments": "文档最多",
-        "leastDocuments": "文档最少"
+        "nameDesc": "名称（Z-A）"
       },
       "actions": {
         "create": "创建",
@@ -1044,14 +1065,10 @@
         "failedToCopy": "复制知识库失败"
       },
       "baseOverview": {
-        "docsSingular": "个文档",
-        "docsPlural": "个文档",
-        "updated": "已更新",
-        "created": "已创建",
         "copyId": "复制知识库 ID",
         "deleteButtonLabel": "删除知识库",
         "deleteTitle": "删除知识库",
-        "deleteDescription": "确定要删除“{title}”吗？此操作将永久删除该知识库及其 {count} 个文档{plural}。",
+        "deleteDescription": "确定要删除“{title}”吗？此操作将永久删除该知识库。",
         "cancel": "取消",
         "deleteConfirm": "删除",
         "deleting": "删除中..."

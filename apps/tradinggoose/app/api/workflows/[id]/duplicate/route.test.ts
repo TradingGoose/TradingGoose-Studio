@@ -6,10 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('Workflow Duplicate API Route', () => {
   let loadWorkflowStateMock: ReturnType<typeof vi.fn>
-  let remapVariableIdsMock: ReturnType<typeof vi.fn>
   let regenerateWorkflowStateIdsMock: ReturnType<typeof vi.fn>
-  let saveWorkflowToNormalizedTablesMock: ReturnType<typeof vi.fn>
-  let tryApplyWorkflowStateMock: ReturnType<typeof vi.fn>
+  let applyWorkflowStateMock: ReturnType<typeof vi.fn>
   let insertValuesMock: ReturnType<typeof vi.fn>
   let deleteWhereMock: ReturnType<typeof vi.fn>
 
@@ -44,21 +42,8 @@ describe('Workflow Duplicate API Route', () => {
     vi.clearAllMocks()
 
     loadWorkflowStateMock = vi.fn()
-    remapVariableIdsMock = vi.fn((variables, newWorkflowId: string) =>
-      Object.fromEntries(
-        Object.values(variables as Record<string, any>).map((variable, index) => [
-          `remapped-${index + 1}`,
-          {
-            ...variable,
-            id: `remapped-${index + 1}`,
-            workflowId: newWorkflowId,
-          },
-        ])
-      )
-    )
     regenerateWorkflowStateIdsMock = vi.fn((state) => JSON.parse(JSON.stringify(state)))
-    saveWorkflowToNormalizedTablesMock = vi.fn().mockResolvedValue({ success: true })
-    tryApplyWorkflowStateMock = vi.fn().mockResolvedValue({ success: true })
+    applyWorkflowStateMock = vi.fn().mockResolvedValue(undefined)
     insertValuesMock = vi.fn().mockResolvedValue(undefined)
     deleteWhereMock = vi.fn().mockResolvedValue(undefined)
 
@@ -122,18 +107,14 @@ describe('Workflow Duplicate API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
-      loadWorkflowState: loadWorkflowStateMock,
-      remapVariableIds: remapVariableIdsMock,
+      isWorkflowRealtimeRequiredError: vi.fn(() => false),
+      requireWorkflowRealtimeState: loadWorkflowStateMock,
       regenerateWorkflowStateIds: regenerateWorkflowStateIdsMock,
-      saveWorkflowToNormalizedTables: saveWorkflowToNormalizedTablesMock,
+      WORKFLOW_REALTIME_REQUIRED_CODE: 'WORKFLOW_REALTIME_REQUIRED',
     }))
 
     vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
-      tryApplyWorkflowState: tryApplyWorkflowStateMock,
-    }))
-
-    vi.doMock('@/lib/yjs/workflow-session', () => ({
-      createWorkflowSnapshot: vi.fn((snapshot: Record<string, unknown>) => snapshot),
+      applyWorkflowState: applyWorkflowStateMock,
     }))
   })
 
@@ -141,7 +122,7 @@ describe('Workflow Duplicate API Route', () => {
     vi.clearAllMocks()
   })
 
-  it('prefers the live Yjs source graph and variables when duplicating a workflow', async () => {
+  it('uses the saved source graph and variables when duplicating a workflow', async () => {
     loadWorkflowStateMock.mockResolvedValue({
       blocks: {
         'live-block': {
@@ -167,7 +148,6 @@ describe('Workflow Duplicate API Route', () => {
         },
       },
       lastSaved: Date.now(),
-      source: 'yjs',
     })
 
     const { POST } = await import('@/app/api/workflows/[id]/duplicate/route')
@@ -180,42 +160,33 @@ describe('Workflow Duplicate API Route', () => {
 
     expect(response.status).toBe(201)
     expect(insertValuesMock).toHaveBeenCalledOnce()
-    expect(saveWorkflowToNormalizedTablesMock).toHaveBeenCalledOnce()
-    expect(tryApplyWorkflowStateMock).toHaveBeenCalledOnce()
+    expect(applyWorkflowStateMock).toHaveBeenCalledOnce()
 
     const insertedWorkflow = insertValuesMock.mock.calls[0][0]
-    const appliedWorkflowId = tryApplyWorkflowStateMock.mock.calls[0][0]
-    const appliedSnapshot = tryApplyWorkflowStateMock.mock.calls[0][1]
-    const appliedVariables = tryApplyWorkflowStateMock.mock.calls[0][2]
-    const savedState = saveWorkflowToNormalizedTablesMock.mock.calls[0][1]
+    const persistedWorkflowId = applyWorkflowStateMock.mock.calls[0][0]
+    const persistedState = applyWorkflowStateMock.mock.calls[0][1]
+    const persistedVariables = applyWorkflowStateMock.mock.calls[0][2]
 
-    expect(insertedWorkflow.id).toBe(appliedWorkflowId)
-    expect(appliedSnapshot.blocks).toEqual(
+    expect(insertedWorkflow.id).toBe(persistedWorkflowId)
+    expect(persistedState.blocks).toEqual(
       expect.objectContaining({
-        [Object.keys(appliedSnapshot.blocks)[0]]: expect.objectContaining({
+        [Object.keys(persistedState.blocks)[0]]: expect.objectContaining({
           name: 'Live Agent',
         }),
       })
     )
-    expect(savedState.blocks).toEqual(
-      expect.objectContaining({
-        [Object.keys(savedState.blocks)[0]]: expect.objectContaining({
-          name: 'Live Agent',
-        }),
-      })
-    )
-    expect(Object.keys(appliedVariables)).toHaveLength(1)
-    expect(Object.values(appliedVariables)).toEqual([
+    expect(Object.keys(persistedVariables)).toHaveLength(1)
+    expect(Object.values(persistedVariables)).toEqual([
       expect.objectContaining({
         name: 'liveVar',
         value: 'live value',
-        workflowId: appliedWorkflowId,
+        workflowId: persistedWorkflowId,
       }),
     ])
-    expect((Object.values(appliedVariables)[0] as { id: string }).id).not.toBe('live-var')
+    expect((Object.values(persistedVariables)[0] as { id: string }).id).not.toBe('live-var')
   })
 
-  it('keeps the duplicate when canonical persistence succeeds but Yjs sync fails', async () => {
+  it('rolls back the duplicate when Yjs state materialization fails', async () => {
     loadWorkflowStateMock.mockResolvedValue({
       blocks: {},
       edges: [],
@@ -223,12 +194,8 @@ describe('Workflow Duplicate API Route', () => {
       parallels: {},
       variables: {},
       lastSaved: Date.now(),
-      source: 'normalized',
     })
-    tryApplyWorkflowStateMock.mockResolvedValueOnce({
-      success: false,
-      error: new Error('socket bridge unavailable'),
-    })
+    applyWorkflowStateMock.mockRejectedValueOnce(new Error('realtime unavailable'))
 
     const { POST } = await import('@/app/api/workflows/[id]/duplicate/route')
     const response = await POST(
@@ -238,10 +205,9 @@ describe('Workflow Duplicate API Route', () => {
       }
     )
 
-    expect(response.status).toBe(201)
-    expect(saveWorkflowToNormalizedTablesMock).toHaveBeenCalledOnce()
-    expect(tryApplyWorkflowStateMock).toHaveBeenCalledOnce()
-    expect(deleteWhereMock).not.toHaveBeenCalled()
+    expect(response.status).toBe(500)
+    expect(applyWorkflowStateMock).toHaveBeenCalledOnce()
+    expect(deleteWhereMock).toHaveBeenCalledOnce()
   })
 
   it('rejects duplication without workspace scope', async () => {

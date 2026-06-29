@@ -153,6 +153,9 @@ describe('public copy', () => {
       getPublicCopy('en').auth.common.verifyEmail
     )
     expect(getPublicCopy('en').auth.common.loading).toBe('Loading...')
+    expect(getPublicCopy('en').auth.mcp.approved.title).toBe('Personal API key approved')
+    expect(getPublicCopy('es').auth.mcp.approved.title).toBe('Clave API personal aprobada')
+    expect(getPublicCopy('zh').auth.mcp.approved.title).toBe('个人 API 密钥已批准')
   })
 
   it('includes localized verification screen copy', () => {

@@ -3,41 +3,128 @@ import { environmentVariables } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import {
+  assertAcceptedServerToolReviewBase,
   type BaseServerTool,
+  hashServerToolReviewBase,
   type ServerToolExecutionContext,
+  shouldStageServerToolMutationForReview,
   throwIfServerToolAborted,
+  withWorkspaceArgContext,
 } from '@/lib/copilot/tools/server/base-tool'
-import {
-  createWorkflowPermissionError,
-  resolveServerWorkflowScope,
-} from '@/lib/copilot/tools/server/workflow/workflow-scope'
-import { createLogger } from '@/lib/logs/console/logger'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { encryptSecret } from '@/lib/utils-server'
 
-interface SetEnvironmentVariablesParams {
-  variables: Record<string, any> | Array<{ name: string; value: string }>
-  entityId?: string
+const EnvVarSchema = z.discriminatedUnion('scope', [
+  z
+    .object({
+      scope: z.literal('personal'),
+      variables: z.record(z.string()),
+    })
+    .strict(),
+  z
+    .object({
+      scope: z.literal('workspace'),
+      workspaceId: z.string().min(1),
+      variables: z.record(z.string()),
+    })
+    .strict(),
+])
+type SetEnvironmentVariablesParams = z.infer<typeof EnvVarSchema>
+
+function hashEnvironmentVariableBase(
+  scope: 'personal' | 'workspace',
+  targetId: string,
+  entries: Array<[string, string | null]>
+): string {
+  return hashServerToolReviewBase({
+    scope,
+    targetId,
+    entries: entries.sort(([left], [right]) => left.localeCompare(right)),
+  })
 }
 
-const EnvVarSchema = z.object({ variables: z.record(z.string()) })
-
-function normalizeEnvVarInput(
-  input: Record<string, any> | Array<{ name: string; value: string }>
-): Record<string, string> {
-  if (Array.isArray(input)) {
-    return input.reduce(
-      (acc, item) => {
-        if (item && typeof item.name === 'string') {
-          acc[item.name] = String(item.value ?? '')
-        }
-        return acc
-      },
-      {} as Record<string, string>
+async function readEnvironmentVariableSummary(
+  scope: 'personal' | 'workspace',
+  targetId: string,
+  variableNames: string[]
+) {
+  const existingRows = await db
+    .select({ key: environmentVariables.key, value: environmentVariables.value })
+    .from(environmentVariables)
+    .where(
+      scope === 'workspace'
+        ? eq(environmentVariables.workspaceId, targetId)
+        : eq(environmentVariables.userId, targetId)
     )
+  const existingKeySet = new Set(existingRows.map((row) => row.key))
+  const existingValueByKey = new Map(existingRows.map((row) => [row.key, row.value]))
+  const added = variableNames.filter((key) => !existingKeySet.has(key))
+  const updated = variableNames.filter((key) => existingKeySet.has(key))
+
+  return { existingRows, existingValueByKey, added, updated }
+}
+
+function buildEnvironmentVariablesResult(
+  scope: 'personal' | 'workspace',
+  workspaceId: string | undefined,
+  variableNames: string[],
+  summary: Awaited<ReturnType<typeof readEnvironmentVariableSummary>>,
+  messagePrefix: string
+) {
+  return {
+    success: true,
+    scope,
+    workspaceId,
+    message: `${messagePrefix} ${variableNames.length} environment variable(s): ${summary.added.length} added, ${summary.updated.length} updated`,
+    variableCount: variableNames.length,
+    variableNames,
+    totalVariableCount: summary.existingRows.length + summary.added.length,
+    addedVariables: summary.added,
+    updatedVariables: summary.updated,
   }
-  return Object.fromEntries(
-    Object.entries(input || {}).map(([k, v]) => [k, String(v ?? '')])
-  ) as Record<string, string>
+}
+
+async function encryptEnvironmentVariables(
+  variables: Record<string, string>,
+  context?: ServerToolExecutionContext
+): Promise<Record<string, string>> {
+  const encryptedVariables: Record<string, string> = {}
+  for (const [key, value] of Object.entries(variables)) {
+    throwIfServerToolAborted(context)
+    encryptedVariables[key] = (await encryptSecret(value)).encrypted
+  }
+  return encryptedVariables
+}
+
+async function writeEncryptedEnvironmentVariables(
+  scope: 'personal' | 'workspace',
+  targetId: string,
+  encryptedVariables: Record<string, string>,
+  context?: ServerToolExecutionContext
+) {
+  await db.transaction(async (tx) => {
+    for (const [key, encrypted] of Object.entries(encryptedVariables)) {
+      throwIfServerToolAborted(context)
+      await tx
+        .insert(environmentVariables)
+        .values({
+          id: crypto.randomUUID(),
+          ...(scope === 'workspace' ? { workspaceId: targetId } : { userId: targetId }),
+          key,
+          value: encrypted,
+        })
+        .onConflictDoUpdate({
+          target:
+            scope === 'workspace'
+              ? [environmentVariables.workspaceId, environmentVariables.key]
+              : [environmentVariables.userId, environmentVariables.key],
+          set: {
+            value: encrypted,
+            updatedAt: new Date(),
+          },
+        })
+    }
+  })
 }
 
 export const setEnvironmentVariablesServerTool: BaseServerTool<SetEnvironmentVariablesParams, any> =
@@ -47,74 +134,74 @@ export const setEnvironmentVariablesServerTool: BaseServerTool<SetEnvironmentVar
       params: SetEnvironmentVariablesParams,
       context?: ServerToolExecutionContext
     ): Promise<any> {
-      const logger = createLogger('SetEnvironmentVariablesServerTool')
-
-      if (!context?.userId) {
-        logger.error(
-          'Unauthorized attempt to set environment variables - no authenticated user context'
-        )
+      const parsedPayload = EnvVarSchema.parse(params)
+      const scopedContext =
+        parsedPayload.scope === 'workspace'
+          ? withWorkspaceArgContext(context, parsedPayload)
+          : context
+      if (!scopedContext?.userId) {
         throw new Error('Authentication required')
       }
 
-      const authenticatedUserId = context.userId
-      const { variables } = params || ({} as SetEnvironmentVariablesParams)
-
-      const workflowScope = await resolveServerWorkflowScope(params, context)
-      if (workflowScope && !workflowScope.hasAccess) {
-        const errorMessage = createWorkflowPermissionError('modify environment variables in')
-        logger.error('Unauthorized attempt to set environment variables', {
-          workflowId: workflowScope.workflowId,
-          authenticatedUserId,
-        })
-        throw new Error(errorMessage)
-      }
-
-      const userId = authenticatedUserId
-
-      const normalized = normalizeEnvVarInput(variables || {})
-      const { variables: validatedVariables } = EnvVarSchema.parse({ variables: normalized })
-      const variableEntries = Object.entries(validatedVariables)
-      throwIfServerToolAborted(context)
-
-      const existingRows = await db
-        .select({ key: environmentVariables.key })
-        .from(environmentVariables)
-        .where(eq(environmentVariables.userId, userId))
-
-      const existingKeySet = new Set(existingRows.map((row) => row.key))
-      const added = variableEntries.filter(([key]) => !existingKeySet.has(key)).map(([key]) => key)
-      const updated = variableEntries.filter(([key]) => existingKeySet.has(key)).map(([key]) => key)
-
-      await db.transaction(async (tx) => {
-        for (const [key, val] of variableEntries) {
-          throwIfServerToolAborted(context)
-          const { encrypted } = await encryptSecret(val)
-
-          await tx
-            .insert(environmentVariables)
-            .values({
-              id: crypto.randomUUID(),
-              userId,
-              key,
-              value: encrypted,
-            })
-            .onConflictDoUpdate({
-              target: [environmentVariables.userId, environmentVariables.key],
-              set: {
-                value: encrypted,
-                updatedAt: new Date(),
-              },
-            })
+      const userId = scopedContext.userId
+      const workspaceId =
+        parsedPayload.scope === 'workspace' ? scopedContext.workspaceId : undefined
+      const targetId = workspaceId ?? userId
+      if (parsedPayload.scope === 'workspace') {
+        if (!workspaceId) {
+          throw new Error('workspaceId is required')
         }
-      })
-
-      return {
-        message: `Successfully processed ${Object.keys(validatedVariables).length} environment variable(s): ${added.length} added, ${updated.length} updated`,
-        variableCount: Object.keys(validatedVariables).length,
-        variableNames: Object.keys(validatedVariables),
-        totalVariableCount: existingRows.length + added.length,
-        addedVariables: added,
-        updatedVariables: updated,
+        const workspaceAccess = await checkWorkspaceAccess(workspaceId, userId)
+        if (!workspaceAccess.exists || !workspaceAccess.hasAccess || !workspaceAccess.canWrite) {
+          throw new Error('Access denied: You do not have permission to edit this workspace')
+        }
       }
+
+      const variableNames = Object.keys(parsedPayload.variables).sort()
+      throwIfServerToolAborted(scopedContext)
+
+      const summary = await readEnvironmentVariableSummary(
+        parsedPayload.scope,
+        targetId,
+        variableNames
+      )
+      const reviewBaseStateHash = hashEnvironmentVariableBase(
+        parsedPayload.scope,
+        targetId,
+        variableNames.map((key) => [key, summary.existingValueByKey.get(key) ?? null])
+      )
+
+      if (shouldStageServerToolMutationForReview(scopedContext)) {
+        return {
+          requiresReview: true,
+          ...buildEnvironmentVariablesResult(
+            parsedPayload.scope,
+            workspaceId,
+            variableNames,
+            summary,
+            'Review required for'
+          ),
+          reviewBaseStateHash,
+        }
+      }
+
+      assertAcceptedServerToolReviewBase(scopedContext, reviewBaseStateHash)
+      const encryptedVariables = await encryptEnvironmentVariables(
+        parsedPayload.variables,
+        scopedContext
+      )
+      await writeEncryptedEnvironmentVariables(
+        parsedPayload.scope,
+        targetId,
+        encryptedVariables,
+        scopedContext
+      )
+      return buildEnvironmentVariablesResult(
+        parsedPayload.scope,
+        workspaceId,
+        variableNames,
+        summary,
+        'Successfully processed'
+      )
     },
   }

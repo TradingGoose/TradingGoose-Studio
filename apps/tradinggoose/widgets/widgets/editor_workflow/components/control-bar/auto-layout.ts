@@ -14,40 +14,6 @@ interface AutoLayoutOptions {
   }
 }
 
-function sanitizeEdgesForStateSave(edges: any[]): any[] {
-  return edges.flatMap((edge: any, index: number) => {
-    const source = typeof edge?.source === 'string' ? edge.source.trim() : ''
-    const target = typeof edge?.target === 'string' ? edge.target.trim() : ''
-
-    if (!source || !target) {
-      return []
-    }
-
-    const sourceHandle =
-      typeof edge?.sourceHandle === 'string' && edge.sourceHandle.length > 0
-        ? edge.sourceHandle
-        : undefined
-    const targetHandle =
-      typeof edge?.targetHandle === 'string' && edge.targetHandle.length > 0
-        ? edge.targetHandle
-        : undefined
-
-    return [
-      {
-        ...edge,
-        id:
-          typeof edge?.id === 'string' && edge.id.length > 0
-            ? edge.id
-            : `${source}-${sourceHandle || 'source'}-${target}-${targetHandle || 'target'}-${index}`,
-        source,
-        target,
-        ...(sourceHandle ? { sourceHandle } : {}),
-        ...(targetHandle ? { targetHandle } : {}),
-      },
-    ]
-  })
-}
-
 export async function applyAutoLayoutToWorkflow(
   workflowId: string,
   blocks: Record<string, any>,
@@ -55,7 +21,6 @@ export async function applyAutoLayoutToWorkflow(
   options: AutoLayoutOptions = {}
 ): Promise<{
   success: boolean
-  layoutedBlocks?: Record<string, any>
   error?: string
 }> {
   try {
@@ -118,14 +83,11 @@ export async function applyAutoLayoutToWorkflow(
     logger.info('Successfully applied auto layout', {
       workflowId,
       originalBlockCount: Object.keys(blocks).length,
-      layoutedBlockCount: result.data?.layoutedBlocks
-        ? Object.keys(result.data.layoutedBlocks).length
-        : 0,
+      layoutedBlockCount: result.data?.blockCount ?? 0,
     })
 
     return {
       success: true,
-      layoutedBlocks: result.data?.layoutedBlocks || blocks,
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown auto layout error'
@@ -138,17 +100,17 @@ export async function applyAutoLayoutToWorkflow(
   }
 }
 
-interface ApplyAutoLayoutAndUpdateStoreParams {
+interface ApplyAutoLayoutParams {
   workflowId: string
   channelId?: string
   options?: AutoLayoutOptions
 }
 
-export async function applyAutoLayoutAndUpdateStore({
+export async function applyAutoLayoutToActiveWorkflow({
   workflowId,
   channelId,
   options = {},
-}: ApplyAutoLayoutAndUpdateStoreParams): Promise<{
+}: ApplyAutoLayoutParams): Promise<{
   success: boolean
   error?: string
 }> {
@@ -156,8 +118,7 @@ export async function applyAutoLayoutAndUpdateStore({
 
   try {
     const { getRegisteredWorkflowSession } = await import('@/lib/yjs/workflow-session-registry')
-    const { readWorkflowSnapshot, readWorkflowMap } = await import('@/lib/yjs/workflow-session')
-    const { YJS_ORIGINS } = await import('@/lib/yjs/transaction-origins')
+    const { readWorkflowSnapshot } = await import('@/lib/yjs/workflow-session')
     const { useWorkflowRegistry } = await import('@/stores/workflows/registry/store')
 
     const registryState = useWorkflowRegistry.getState()
@@ -212,95 +173,15 @@ export async function applyAutoLayoutAndUpdateStore({
 
     const result = await applyAutoLayoutToWorkflow(resolvedWorkflowId, blocks, edges, options)
 
-    if (!result.success || !result.layoutedBlocks) {
+    if (!result.success) {
       return { success: false, error: result.error }
     }
 
-    const doc = session.doc
-    doc.transact(() => {
-      const wMap = readWorkflowMap(doc)
-      wMap.set('blocks', result.layoutedBlocks!)
-      wMap.set('lastSaved', Date.now())
-    }, YJS_ORIGINS.USER)
-
-    logger.info('Successfully updated Yjs doc with auto layout', {
+    logger.info('Successfully applied durable auto layout', {
       workflowId: resolvedWorkflowId,
       channelId,
     })
-
-    try {
-      const updatedSnapshot = readWorkflowSnapshot(doc)
-
-      const stateToSave = {
-        ...updatedSnapshot,
-        deploymentStatuses: undefined,
-        needsRedeployment: undefined,
-        dragStartPosition: undefined,
-      }
-
-      const cleanedWorkflowState = {
-        ...stateToSave,
-        deployedAt: (stateToSave as any).deployedAt
-          ? new Date((stateToSave as any).deployedAt)
-          : undefined,
-        loops: stateToSave.loops || {},
-        parallels: stateToSave.parallels || {},
-        edges: sanitizeEdgesForStateSave(stateToSave.edges || []),
-      }
-
-      const response = await fetch(`/api/workflows/${resolvedWorkflowId}/state`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(cleanedWorkflowState),
-      })
-
-      if (!response.ok) {
-        let errorMessage = `HTTP ${response.status}: ${response.statusText}`
-        try {
-          const errorData = await response.json()
-          const details =
-            typeof errorData?.details === 'string'
-              ? errorData.details
-              : JSON.stringify(errorData?.details || errorData)
-          errorMessage = errorData?.error
-            ? `${errorData.error}${details ? ` - ${details}` : ''}`
-            : errorMessage
-        } catch {
-          // Ignore JSON parse errors and fall back to generic message
-        }
-
-        throw new Error(errorMessage)
-      }
-
-      logger.info('Auto layout successfully persisted to database', {
-        workflowId: resolvedWorkflowId,
-        channelId,
-      })
-      return { success: true }
-    } catch (saveError) {
-      const message =
-        saveError instanceof Error && saveError.message
-          ? saveError.message
-          : JSON.stringify(saveError)
-      logger.error('Failed to save auto layout to database, reverting Yjs doc:', {
-        workflowId: resolvedWorkflowId,
-        error: message,
-      })
-
-      doc.transact(() => {
-        const wMap = readWorkflowMap(doc)
-        wMap.set('blocks', blocks)
-      }, YJS_ORIGINS.SYSTEM)
-
-      return {
-        success: false,
-        error: `Failed to save positions to database: ${
-          saveError instanceof Error ? saveError.message : 'Unknown error'
-        }`,
-      }
-    }
+    return { success: true }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown store update error'
     logger.error('Failed to update store with auto layout:', {

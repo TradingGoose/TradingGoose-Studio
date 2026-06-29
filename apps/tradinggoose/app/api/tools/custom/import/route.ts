@@ -6,6 +6,7 @@ import { importCustomTools } from '@/lib/custom-tools/operations'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
+import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 
 const logger = createLogger('CustomToolsImportAPI')
 
@@ -59,6 +60,9 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
+    if (error instanceof SavedEntityRealtimeRequiredError) {
+      return NextResponse.json(error.responseBody(), { status: error.status })
+    }
     if (error instanceof z.ZodError) {
       logger.warn(`[${requestId}] Invalid custom tools import data`, { errors: error.errors })
       const workspaceError = error.errors.find(

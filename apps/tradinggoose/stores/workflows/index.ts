@@ -14,8 +14,6 @@ function getYjsWorkflowState(workflowId: string): WorkflowState | null {
     loops: snapshot.loops ?? {},
     parallels: snapshot.parallels ?? {},
     lastSaved: snapshot.lastSaved,
-    isDeployed: snapshot.isDeployed,
-    deployedAt: snapshot.deployedAt,
   } as WorkflowState
 }
 
@@ -154,4 +152,3 @@ export { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 export type { WorkflowMetadata } from '@/stores/workflows/registry/types'
 export { mergeSubblockState } from '@/stores/workflows/utils'
 export type { WorkflowState } from '@/stores/workflows/workflow/types'
-

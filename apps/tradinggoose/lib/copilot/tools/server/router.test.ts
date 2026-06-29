@@ -1,5 +1,9 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  KNOWLEDGE_BASE_DOCUMENT_FORMAT,
+  WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
+} from '@/lib/copilot/entity-documents'
+import {
   TG_MERMAID_DOCUMENT_FORMAT,
   WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
 } from '@/lib/workflows/document-format'
@@ -32,9 +36,23 @@ const readCredentialsExecute = vi.fn(async () => ({
   },
   environment: { variableNames: [], count: 0 },
 }))
-const readEnvironmentVariablesExecute = vi.fn(async () => ({ variableNames: [], count: 0 }))
+const readEnvironmentVariablesExecute = vi.fn(async () => ({
+  variableNames: [],
+  personalVariableNames: [],
+  workspaceVariableNames: [],
+  conflicts: [],
+  count: 0,
+}))
 const readOAuthCredentialsExecute = vi.fn(async () => ({ credentials: [], total: 0 }))
-const setEnvironmentVariablesExecute = vi.fn(async () => ({ message: 'ok' }))
+const setEnvironmentVariablesExecute = vi.fn(async () => ({
+  success: true,
+  scope: 'workspace',
+  message: 'ok',
+}))
+const noopEntityExecute = vi.fn(async () => ({}))
+const checkWorkspaceAccess = vi.hoisted(() => vi.fn())
+
+const entityTool = (name: string, execute = noopEntityExecute) => ({ name, execute })
 
 vi.mock('@/lib/copilot/tools/server/blocks/get-available-blocks', () => ({
   getAvailableBlocksServerTool: {
@@ -79,9 +97,29 @@ vi.mock('@/lib/copilot/tools/server/gdrive/read-file', () => ({
   readGDriveFileServerTool: { name: 'read_gdrive_file', execute: readGDriveFileExecute },
 }))
 vi.mock('@/lib/copilot/tools/server/knowledge/knowledge-base', () => ({
-  knowledgeBaseServerTool: {
-    name: 'knowledge_base',
-    execute: vi.fn(async () => ({ results: [] })),
+  listKnowledgeBasesServerTool: {
+    name: 'list_knowledge_bases',
+    execute: vi.fn(async () => ({ entityKind: 'knowledge_base', entities: [], count: 0 })),
+  },
+  readKnowledgeBaseServerTool: {
+    name: 'read_knowledge_base',
+    execute: vi.fn(),
+  },
+  createKnowledgeBaseServerTool: {
+    name: 'create_knowledge_base',
+    execute: vi.fn(),
+  },
+  editKnowledgeBaseServerTool: {
+    name: 'edit_knowledge_base',
+    execute: vi.fn(),
+  },
+  renameKnowledgeBaseServerTool: {
+    name: 'rename_knowledge_base',
+    execute: vi.fn(),
+  },
+  queryKnowledgeBaseServerTool: {
+    name: 'query_knowledge_base',
+    execute: vi.fn(),
   },
 }))
 vi.mock('@/lib/copilot/tools/server/other/make-api-request', () => ({
@@ -114,6 +152,35 @@ vi.mock('@/lib/copilot/tools/server/user/set-environment-variables', () => ({
     execute: setEnvironmentVariablesExecute,
   },
 }))
+vi.mock('@/lib/copilot/tools/server/entities', () => ({
+  createCustomToolServerTool: entityTool('create_custom_tool'),
+  createIndicatorServerTool: entityTool('create_indicator'),
+  createMcpServerServerTool: entityTool('create_mcp_server'),
+  createSkillServerTool: entityTool('create_skill'),
+  createWorkflowServerTool: entityTool('create_workflow'),
+  editCustomToolServerTool: entityTool('edit_custom_tool'),
+  editIndicatorServerTool: entityTool('edit_indicator'),
+  editMcpServerServerTool: entityTool('edit_mcp_server'),
+  editSkillServerTool: entityTool('edit_skill'),
+  editWorkflowBlockServerTool: entityTool('edit_workflow_block'),
+  editWorkflowServerTool: entityTool('edit_workflow', editWorkflowExecute),
+  editWorkflowVariableServerTool: entityTool('edit_workflow_variable'),
+  listCustomToolsServerTool: entityTool('list_custom_tools'),
+  listIndicatorsServerTool: entityTool('list_indicators'),
+  listMcpServersServerTool: entityTool('list_mcp_servers'),
+  listSkillsServerTool: entityTool('list_skills'),
+  listWorkflowsServerTool: entityTool('list_workflows'),
+  readCustomToolServerTool: entityTool('read_custom_tool'),
+  readIndicatorServerTool: entityTool('read_indicator'),
+  readMcpServerServerTool: entityTool('read_mcp_server'),
+  readSkillServerTool: entityTool('read_skill'),
+  readWorkflowServerTool: entityTool('read_workflow'),
+  renameCustomToolServerTool: entityTool('rename_custom_tool'),
+  renameIndicatorServerTool: entityTool('rename_indicator'),
+  renameMcpServerServerTool: entityTool('rename_mcp_server'),
+  renameSkillServerTool: entityTool('rename_skill'),
+  renameWorkflowServerTool: entityTool('rename_workflow'),
+}))
 vi.mock('@/lib/copilot/tools/server/workflow/edit-workflow', () => ({
   editWorkflowServerTool: { name: 'edit_workflow', execute: editWorkflowExecute },
 }))
@@ -123,14 +190,18 @@ vi.mock('@/lib/copilot/tools/server/workflow/read-workflow-logs', () => ({
     execute: readWorkflowLogsExecute,
   },
 }))
+vi.mock('@/lib/permissions/utils', () => ({
+  checkWorkspaceAccess,
+}))
 
 let getToolContract: typeof import('@/lib/copilot/registry').getToolContract
 let isToolId: typeof import('@/lib/copilot/registry').isToolId
+let getMcpServerToolIds: typeof import('@/lib/copilot/tools/server/router').getMcpServerToolIds
 let routeExecution: typeof import('@/lib/copilot/tools/server/router').routeExecution
 
 beforeAll(async () => {
   ;({ getToolContract, isToolId } = await import('@/lib/copilot/registry'))
-  ;({ routeExecution } = await import('@/lib/copilot/tools/server/router'))
+  ;({ getMcpServerToolIds, routeExecution } = await import('@/lib/copilot/tools/server/router'))
 }, 30000)
 
 beforeEach(() => {
@@ -145,6 +216,14 @@ beforeEach(() => {
   readEnvironmentVariablesExecute.mockClear()
   readOAuthCredentialsExecute.mockClear()
   setEnvironmentVariablesExecute.mockClear()
+  noopEntityExecute.mockClear()
+  checkWorkspaceAccess.mockReset()
+  checkWorkspaceAccess.mockResolvedValue({
+    exists: true,
+    hasAccess: true,
+    canWrite: true,
+    workspace: { id: 'workspace-1' },
+  })
 })
 
 describe('copilot contract registry', () => {
@@ -156,6 +235,34 @@ describe('copilot contract registry', () => {
     expect(isToolId('get_indicator_metadata')).toBe(true)
     expect(isToolId('unknown_tool')).toBe(false)
     expect(getToolContract('unknown_tool')).toBeUndefined()
+  })
+
+  it('uses an explicit external MCP tool list', () => {
+    expect(getMcpServerToolIds()).toContain('list_workflows')
+    expect(getMcpServerToolIds()).toContain('edit_workflow')
+    expect(getMcpServerToolIds()).toContain('set_environment_variables')
+    expect(getMcpServerToolIds()).toContain('create_mcp_server')
+    expect(getMcpServerToolIds()).toContain('get_available_blocks')
+    expect(getMcpServerToolIds()).not.toContain('make_api_request')
+  })
+
+  it('requires personal or workspace scope for credential and environment reads', () => {
+    for (const toolName of [
+      'read_environment_variables',
+      'read_credentials',
+      'read_oauth_credentials',
+    ] as const) {
+      const args = getToolContract(toolName)?.args
+      expect(args?.parse({ scope: 'personal' })).toEqual({
+        scope: 'personal',
+      })
+      expect(args?.parse({ scope: 'workspace', workspaceId: 'workspace-123' })).toEqual({
+        scope: 'workspace',
+        workspaceId: 'workspace-123',
+      })
+      expect(() => args?.parse({ scope: 'workflow', entityId: 'workflow-123' })).toThrow()
+      expect(() => args?.parse({})).toThrow()
+    }
   })
 
   it('reuses the shared block schemas in the central contract', () => {
@@ -173,12 +280,12 @@ describe('copilot contract registry', () => {
   it('exposes the agent accessory catalog contract', () => {
     const contract = getToolContract('get_agent_accessory_catalog')
 
-    expect(contract?.args.parse({})).toEqual({})
-    expect(contract?.args.parse({ entityId: 'workflow-123' })).toEqual({
-      entityId: 'workflow-123',
+    expect(contract?.args.parse({ workspaceId: 'workspace-123' })).toEqual({
+      workspaceId: 'workspace-123',
     })
     expect(contract?.result.parse(agentAccessoryCatalogResult)).toEqual(agentAccessoryCatalogResult)
-    expect(() => contract?.args.parse({ workspaceId: 'workspace-123' })).toThrow()
+    expect(() => contract?.args.parse({})).toThrow()
+    expect(() => contract?.args.parse({ entityId: 'workflow-123' })).toThrow()
   })
 
   it('enforces workflow identity in workflow read/list results', () => {
@@ -187,6 +294,8 @@ describe('copilot contract registry', () => {
       entityId: 'workflow-123',
       entityDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
       documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
+      workflowVariableDocumentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
+      workflowVariableDocument: '{"variables":[]}',
       workflowSummary: {
         blocks: [],
         edges: [],
@@ -211,6 +320,8 @@ describe('copilot contract registry', () => {
         entityId: 'workflow-123',
         entityDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
         documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
+        workflowVariableDocumentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
+        workflowVariableDocument: '{"variables":[]}',
         workflowSummary: {
           blocks: [
             {
@@ -253,14 +364,87 @@ describe('copilot contract registry', () => {
       triggerBlockId: 'trigger-1',
     })
     expect(
-      getToolContract('set_workflow_variables')?.args.parse({
+      getToolContract('edit_workflow_variable')?.args.parse({
         entityId: 'workflow-123',
-        operations: [],
+        entityDocument: '{"variables":[]}',
+        documentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
       })
     ).toEqual({
       entityId: 'workflow-123',
-      operations: [],
+      entityDocument: '{"variables":[]}',
+      documentFormat: WORKFLOW_VARIABLE_DOCUMENT_FORMAT,
     })
+  })
+
+  it('exposes knowledge base document contracts without the legacy operation wrapper', () => {
+    const entityDocument =
+      '{"name":"Research","description":"","chunkingConfig":{"maxSize":1024,"minSize":1,"overlap":200}}'
+    const mutationArgs = {
+      entityId: 'kb-123',
+      entityDocument,
+      documentFormat: KNOWLEDGE_BASE_DOCUMENT_FORMAT,
+    }
+    const envelope = {
+      entityKind: 'knowledge_base',
+      entityId: 'kb-123',
+      entityName: 'Research',
+      workspaceId: 'workspace-123',
+      documentFormat: KNOWLEDGE_BASE_DOCUMENT_FORMAT,
+      entityDocument,
+      docCount: 0,
+      tokenCount: 0,
+      embeddingModel: 'text-embedding-3-small',
+      embeddingDimension: 1536,
+    }
+
+    expect(
+      getToolContract('list_knowledge_bases')?.args.parse({ workspaceId: 'workspace-123' })
+    ).toEqual({ workspaceId: 'workspace-123' })
+    expect(
+      getToolContract('create_knowledge_base')?.args.parse({
+        workspaceId: 'workspace-123',
+        entityDocument,
+        documentFormat: KNOWLEDGE_BASE_DOCUMENT_FORMAT,
+      })
+    ).toEqual({
+      workspaceId: 'workspace-123',
+      entityDocument,
+      documentFormat: KNOWLEDGE_BASE_DOCUMENT_FORMAT,
+    })
+    expect(getToolContract('rename_knowledge_base')?.args.parse(mutationArgs)).toEqual(mutationArgs)
+    expect(() =>
+      getToolContract('rename_knowledge_base')?.args.parse({ entityId: 'kb-123', name: 'Research' })
+    ).toThrow()
+    expect(getToolContract('read_knowledge_base')?.result.parse(envelope)).toEqual(envelope)
+    expect(
+      getToolContract('edit_knowledge_base')?.result.parse({
+        ...envelope,
+        requiresReview: true,
+        success: true,
+        preview: {
+          documentDiff: {
+            before: entityDocument,
+            after: entityDocument,
+          },
+        },
+      })
+    ).toMatchObject({
+      entityKind: 'knowledge_base',
+      entityId: 'kb-123',
+      requiresReview: true,
+      success: true,
+    })
+    expect(
+      getToolContract('query_knowledge_base')?.result.parse({
+        entityKind: 'knowledge_base',
+        entityId: 'kb-123',
+        entityName: 'Research',
+        query: 'risk',
+        topK: 5,
+        totalResults: 1,
+        results: [{ documentId: 'doc-1', content: 'risk note', chunkIndex: 0, similarity: 0.9 }],
+      })
+    ).toMatchObject({ entityId: 'kb-123', totalResults: 1 })
   })
 })
 
@@ -293,6 +477,26 @@ describe('routeExecution', () => {
     })
   })
 
+  it('rejects inaccessible workspace context before invoking the tool', async () => {
+    checkWorkspaceAccess.mockResolvedValueOnce({
+      exists: true,
+      hasAccess: false,
+      canWrite: false,
+      workspace: { id: 'workspace-denied' },
+    })
+
+    await expect(
+      routeExecution(
+        'list_workflows',
+        { workspaceId: 'workspace-denied' },
+        { userId: 'user-1', accessLevel: 'full' }
+      )
+    ).rejects.toThrow('Access denied: You do not have permission to use this workspace')
+
+    expect(checkWorkspaceAccess).toHaveBeenCalledWith('workspace-denied', 'user-1')
+    expect(noopEntityExecute).not.toHaveBeenCalled()
+  })
+
   it('routes indicator catalog requests through the central contract', async () => {
     await expect(
       routeExecution('get_indicator_catalog', { query: 'input', includeItems: true })
@@ -311,8 +515,7 @@ describe('routeExecution', () => {
   it('routes agent accessory catalog requests through the central contract', async () => {
     const context = {
       userId: 'user-1',
-      contextEntityKind: 'workflow' as const,
-      contextEntityId: 'workflow-current',
+      workspaceId: 'workspace-1',
     }
 
     await expect(routeExecution('get_agent_accessory_catalog', {}, context)).resolves.toMatchObject(
@@ -322,7 +525,10 @@ describe('routeExecution', () => {
       }
     )
 
-    expect(getAgentAccessoryCatalogExecute).toHaveBeenCalledWith({}, context)
+    expect(getAgentAccessoryCatalogExecute).toHaveBeenCalledWith(
+      { workspaceId: 'workspace-1' },
+      context
+    )
   })
 
   it('routes indicator metadata requests through the central contract', async () => {
@@ -343,7 +549,6 @@ describe('routeExecution', () => {
     const payload = {
       entityDocument: 'flowchart TD\n  n1["Input<br/>id: input1<br/>type: input_trigger"]',
       entityId: 'workflow-123',
-      currentWorkflowState: '{"blocks":{}}',
     }
 
     await expect(routeExecution('edit_workflow', payload)).resolves.toMatchObject({
@@ -370,48 +575,58 @@ describe('routeExecution', () => {
     expect(readWorkflowLogsExecute).toHaveBeenCalledWith(payload, undefined)
   })
 
-  it('forwards ambient workflow context separately from raw tool args', async () => {
+  it('injects hosted workspace context for workspace-scoped writes', async () => {
     const context = {
       userId: 'user-1',
-      contextEntityKind: 'workflow' as const,
-      contextEntityId: 'workflow-current',
+      workspaceId: 'workspace-1',
     }
 
-    await expect(routeExecution('read_environment_variables', {}, context)).resolves.toMatchObject({
-      variableNames: expect.any(Array),
-      count: expect.any(Number),
+    await expect(
+      routeExecution(
+        'set_environment_variables',
+        { scope: 'workspace', variables: { API_KEY: 'secret' } },
+        context
+      )
+    ).resolves.toMatchObject({
+      message: 'ok',
     })
 
-    expect(readEnvironmentVariablesExecute).toHaveBeenCalledWith({}, context)
+    expect(setEnvironmentVariablesExecute).toHaveBeenCalledWith(
+      { scope: 'workspace', variables: { API_KEY: 'secret' }, workspaceId: 'workspace-1' },
+      context
+    )
   })
 
   it.each([
     {
       toolName: 'read_environment_variables',
-      payload: { entityId: 'workflow-123' },
+      payload: { scope: 'workspace', workspaceId: 'workspace-123' },
       execute: readEnvironmentVariablesExecute,
     },
     {
       toolName: 'set_environment_variables',
-      payload: { entityId: 'workflow-123', variables: { API_KEY: 'secret' } },
+      payload: {
+        scope: 'workspace',
+        workspaceId: 'workspace-123',
+        variables: { API_KEY: 'secret' },
+      },
       execute: setEnvironmentVariablesExecute,
     },
     {
       toolName: 'read_credentials',
-      payload: { entityId: 'workflow-123' },
+      payload: { scope: 'workspace', workspaceId: 'workspace-123' },
       execute: readCredentialsExecute,
     },
     {
       toolName: 'list_gdrive_files',
       payload: {
-        entityId: 'workflow-123',
+        workspaceId: 'workspace-123',
         credentialId: 'credential-1',
-        userId: 'spoofed-user',
         search_query: 'report',
         num_results: 3,
       },
       expectedArgs: {
-        entityId: 'workflow-123',
+        workspaceId: 'workspace-123',
         credentialId: 'credential-1',
         search_query: 'report',
         num_results: 3,
@@ -421,7 +636,7 @@ describe('routeExecution', () => {
     {
       toolName: 'read_gdrive_file',
       payload: {
-        entityId: 'workflow-123',
+        workspaceId: 'workspace-123',
         credentialId: 'credential-1',
         fileId: 'file-1',
         type: 'doc',
@@ -430,15 +645,39 @@ describe('routeExecution', () => {
     },
     {
       toolName: 'read_oauth_credentials',
-      payload: { entityId: 'workflow-123' },
+      payload: { scope: 'workspace', workspaceId: 'workspace-123' },
+      execute: readOAuthCredentialsExecute,
+    },
+    {
+      toolName: 'read_environment_variables',
+      payload: { scope: 'personal' },
+      execute: readEnvironmentVariablesExecute,
+    },
+    {
+      toolName: 'read_credentials',
+      payload: { scope: 'personal' },
+      execute: readCredentialsExecute,
+    },
+    {
+      toolName: 'read_oauth_credentials',
+      payload: { scope: 'personal' },
       execute: readOAuthCredentialsExecute,
     },
   ])(
-    'preserves entityId when routing $toolName',
+    'preserves explicit args when routing $toolName',
     async ({ toolName, payload, expectedArgs, execute }) => {
-      await expect(routeExecution(toolName, payload)).resolves.toBeDefined()
+      const workspaceId =
+        typeof (payload as { workspaceId?: unknown }).workspaceId === 'string'
+          ? (payload as { workspaceId: string }).workspaceId
+          : undefined
+      const context = workspaceId ? { userId: 'user-1' } : undefined
 
-      expect(execute).toHaveBeenCalledWith(expectedArgs ?? payload, undefined)
+      await expect(routeExecution(toolName, payload, context)).resolves.toBeDefined()
+
+      expect(execute).toHaveBeenCalledWith(
+        expectedArgs ?? payload,
+        workspaceId ? { userId: 'user-1', workspaceId } : undefined
+      )
     }
   )
 })

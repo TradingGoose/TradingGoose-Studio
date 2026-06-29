@@ -1,42 +1,62 @@
 import { db } from '@tradinggoose/db'
 import { pineIndicators } from '@tradinggoose/db/schema'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { getStableVibrantColor } from '@/lib/colors'
 import {
   type IndicatorTransferRecord,
   resolveImportedIndicatorName,
 } from '@/lib/indicators/import-export'
-import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
+import { inferInputMetaFromPineCode, normalizeInputMetaMap } from '@/lib/indicators/input-meta'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { applySavedEntityYjsStateToRows, savedEntityRowToFields } from '@/lib/yjs/entity-state'
-import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
+import {
+  applySavedEntityState,
+  publishCreatedSavedEntityListMembers,
+} from '@/lib/yjs/server/apply-entity-state'
+import { requireSavedEntityRealtimeListFields } from '@/lib/yjs/server/bootstrap-review-target'
 
 const logger = createLogger('IndicatorsOperations')
 
 export async function listCustomIndicatorRuntimeEntries(workspaceId: string) {
-  const rows = await db
-    .select()
-    .from(pineIndicators)
-    .where(eq(pineIndicators.workspaceId, workspaceId))
-    .then((indicatorRows) => applySavedEntityYjsStateToRows('indicator', indicatorRows))
-
-  return rows.map(({ id, pineCode, inputMeta }) => ({
-    id,
-    pineCode,
-    inputMeta: normalizeInputMetaMap(inputMeta),
+  const entries = await requireSavedEntityRealtimeListFields('indicator', workspaceId)
+  return entries.map(({ entityId, fields }) => ({
+    id: entityId,
+    pineCode: String(fields.pineCode ?? ''),
+    inputMeta: normalizeInputMetaMap(fields.inputMeta),
   }))
 }
 
-interface UpsertIndicatorsParams {
+export async function listIndicators(params: { workspaceId: string }) {
+  const entries = await requireSavedEntityRealtimeListFields('indicator', params.workspaceId)
+  return entries.map(({ entityId, fields }) => ({
+    id: entityId,
+    workspaceId: params.workspaceId,
+    userId: null,
+    name: String(fields.name ?? ''),
+    color: String(fields.color ?? '') || undefined,
+    pineCode: String(fields.pineCode ?? ''),
+    inputMeta: normalizeInputMetaMap(fields.inputMeta),
+  }))
+}
+
+interface CreateIndicatorsParams {
   indicators: Array<{
-    id?: string
     name: string
+    color?: string
     pineCode: string
-    inputMeta?: Record<string, unknown>
   }>
   workspaceId: string
   userId: string
+  requestId?: string
+}
+
+interface SaveIndicatorParams {
+  indicator: {
+    id: string
+    name: string
+    pineCode: string
+  }
+  workspaceId: string
   requestId?: string
 }
 
@@ -47,79 +67,73 @@ interface ImportIndicatorsParams {
   requestId?: string
 }
 
-export async function upsertIndicators({
+export async function createIndicators({
   indicators,
   workspaceId,
   userId,
   requestId = generateRequestId(),
-}: UpsertIndicatorsParams) {
-  const affectedIds: string[] = []
-  const result = await db.transaction(async (tx) => {
+}: CreateIndicatorsParams) {
+  if (indicators.length === 0) {
+    return []
+  }
+
+  const created = await db.transaction(async (tx) => {
+    const nowTime = new Date()
+    const insertValues = []
+
     for (const indicator of indicators) {
-      const nowTime = new Date()
-
-      if (indicator.id) {
-        const existing = await tx
-          .select()
-          .from(pineIndicators)
-          .where(
-            and(eq(pineIndicators.id, indicator.id), eq(pineIndicators.workspaceId, workspaceId))
-          )
-          .limit(1)
-
-        if (existing.length > 0) {
-          const existingColor = existing[0]?.color
-
-          await tx
-            .update(pineIndicators)
-            .set({
-              name: indicator.name,
-              color: existingColor ?? getStableVibrantColor(indicator.id),
-              pineCode: indicator.pineCode,
-              inputMeta: indicator.inputMeta ?? null,
-              updatedAt: nowTime,
-            })
-            .where(eq(pineIndicators.id, indicator.id))
-
-          logger.info(`[${requestId}] Updated Indicator ${indicator.id}`)
-          affectedIds.push(indicator.id)
-          continue
-        }
-      }
-
-      const indicatorId = indicator.id ?? crypto.randomUUID()
-      await tx.insert(pineIndicators).values({
+      const indicatorId = crypto.randomUUID()
+      insertValues.push({
         id: indicatorId,
         workspaceId,
         userId,
         name: indicator.name,
-        color: getStableVibrantColor(indicatorId),
+        color: indicator.color?.trim() || getStableVibrantColor(indicatorId),
         pineCode: indicator.pineCode,
-        inputMeta: indicator.inputMeta ?? null,
+        inputMeta: inferInputMetaFromPineCode(indicator.pineCode) ?? null,
         createdAt: nowTime,
         updatedAt: nowTime,
       })
-
-      logger.info(`[${requestId}] Created Indicator ${indicator.name}`)
-      affectedIds.push(indicatorId)
     }
 
-    return tx
-      .select()
-      .from(pineIndicators)
-      .where(eq(pineIndicators.workspaceId, workspaceId))
-      .orderBy(desc(pineIndicators.createdAt))
+    const createdIndicators = await tx.insert(pineIndicators).values(insertValues).returning()
+    return createdIndicators
   })
 
-  await Promise.all(
-    result
-      .filter((row) => affectedIds.includes(row.id))
-      .map((row) =>
-        applySavedEntityState('indicator', row.id, savedEntityRowToFields('indicator', row))
-      )
+  await publishCreatedSavedEntityListMembers(
+    'indicator',
+    workspaceId,
+    created.map((createdIndicator) => ({ id: createdIndicator.id, name: createdIndicator.name }))
   )
+  logger.info(`[${requestId}] Created ${created.length} indicator(s)`)
+  return created
+}
 
-  return applySavedEntityYjsStateToRows('indicator', result)
+export async function saveIndicator({
+  indicator,
+  workspaceId,
+  requestId = generateRequestId(),
+}: SaveIndicatorParams) {
+  const [existing] = await db
+    .select({
+      id: pineIndicators.id,
+      color: pineIndicators.color,
+    })
+    .from(pineIndicators)
+    .where(and(eq(pineIndicators.id, indicator.id), eq(pineIndicators.workspaceId, workspaceId)))
+    .limit(1)
+
+  if (!existing) {
+    throw new Error(`Indicator ${indicator.id} was not found`)
+  }
+
+  await applySavedEntityState('indicator', indicator.id, {
+    name: indicator.name,
+    color: existing.color ?? getStableVibrantColor(indicator.id),
+    pineCode: indicator.pineCode,
+  })
+  logger.info(`[${requestId}] Saved Indicator ${indicator.id}`)
+  return listIndicators({ workspaceId })
 }
 
 export async function importIndicators({
@@ -128,7 +142,7 @@ export async function importIndicators({
   userId,
   requestId = generateRequestId(),
 }: ImportIndicatorsParams) {
-  return await db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const existingIndicators = await tx
       .select({ name: pineIndicators.name })
       .from(pineIndicators)
@@ -155,7 +169,7 @@ export async function importIndicators({
         name: nextName,
         color: getStableVibrantColor(indicatorId),
         pineCode: indicator.pineCode,
-        inputMeta: indicator.inputMeta ?? null,
+        inputMeta: inferInputMetaFromPineCode(indicator.pineCode) ?? null,
         createdAt: nowTime,
         updatedAt: nowTime,
       }
@@ -163,15 +177,21 @@ export async function importIndicators({
 
     const importedIndicators = await tx.insert(pineIndicators).values(importValues).returning()
 
-    logger.info(`[${requestId}] Imported ${importedIndicators.length} indicator(s)`, {
-      workspaceId,
-      renamedCount,
-    })
-
     return {
       indicators: importedIndicators,
       importedCount: importedIndicators.length,
       renamedCount,
     }
   })
+
+  await publishCreatedSavedEntityListMembers(
+    'indicator',
+    workspaceId,
+    result.indicators.map((imported) => ({ id: imported.id, name: imported.name }))
+  )
+  logger.info(`[${requestId}] Imported ${result.indicators.length} indicator(s)`, {
+    workspaceId,
+    renamedCount: result.renamedCount,
+  })
+  return result
 }

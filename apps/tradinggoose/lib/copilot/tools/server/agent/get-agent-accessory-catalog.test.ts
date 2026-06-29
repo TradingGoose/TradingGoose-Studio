@@ -1,12 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mockResolveServerWorkflowScope = vi.hoisted(() => vi.fn())
-const mockResolveServerWorkspaceId = vi.hoisted(() => vi.fn())
 const mockListCustomTools = vi.hoisted(() => vi.fn())
+const mockCheckWorkspaceAccess = vi.hoisted(() => vi.fn())
 
-vi.mock('@/lib/copilot/tools/server/workflow/workflow-scope', () => ({
-  resolveServerWorkflowScope: mockResolveServerWorkflowScope,
-  resolveServerWorkspaceId: mockResolveServerWorkspaceId,
+vi.mock('@/lib/permissions/utils', () => ({
+  checkWorkspaceAccess: mockCheckWorkspaceAccess,
 }))
 
 vi.mock('@/lib/copilot/tools/server/blocks/block-mermaid-catalog', () => ({
@@ -39,12 +37,12 @@ import { getAgentAccessoryCatalogServerTool } from './get-agent-accessory-catalo
 
 describe('getAgentAccessoryCatalogServerTool', () => {
   beforeEach(() => {
-    mockResolveServerWorkflowScope.mockResolvedValue({
+    mockCheckWorkspaceAccess.mockResolvedValue({
+      exists: true,
       hasAccess: true,
-      workspaceId: 'workspace-1',
-      workflowId: 'workflow-1',
+      canWrite: true,
+      workspace: { id: 'workspace-1' },
     })
-    mockResolveServerWorkspaceId.mockReturnValue('workspace-1')
     mockListCustomTools.mockResolvedValue([
       {
         id: 'custom-tool-1',
@@ -62,7 +60,7 @@ describe('getAgentAccessoryCatalogServerTool', () => {
 
   it('emits executable custom tool IDs from canonical custom tool database IDs', async () => {
     const result = await getAgentAccessoryCatalogServerTool.execute(
-      { entityId: 'workflow-1' },
+      { workspaceId: 'workspace-1' },
       { userId: 'user-1' }
     )
 

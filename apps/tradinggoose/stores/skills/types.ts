@@ -5,7 +5,7 @@ export interface SkillDefinition {
   name: string
   description: string
   content: string
-  createdAt: string
+  createdAt?: string
   updatedAt?: string
 }
 

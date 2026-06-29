@@ -82,6 +82,7 @@ import {
 } from '@/lib/system-services/stripe-runtime'
 import { getResolvedSystemSettings } from '@/lib/system-settings/service'
 import { getBaseUrl } from '@/lib/urls/utils'
+import { createDefaultWorkspaceForUser } from '@/lib/workspaces/service'
 import { localizeUrl } from '@/i18n/utils'
 import { resolveAlpacaTradingBaseUrl } from '@/providers/trading/alpaca/config'
 import { resolveTradierBaseUrl } from '@/providers/trading/tradier/client'
@@ -457,6 +458,8 @@ export const auth = betterAuth({
           logger.info('[databaseHooks.user.create.after] User created, initializing stats', {
             userId: user.id,
           })
+
+          await createDefaultWorkspaceForUser(user.id, user.name)
 
           try {
             await markWaitlistEntrySignedUp(user.email, user.id)

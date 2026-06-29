@@ -6,7 +6,6 @@ export type InputMeta = {
   maxval?: number
   step?: number
   options?: unknown[]
-  value?: unknown
 }
 
 export type InputMetaMap = Record<string, InputMeta>

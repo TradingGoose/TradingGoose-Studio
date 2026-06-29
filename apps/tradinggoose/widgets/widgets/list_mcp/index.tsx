@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pencil, Plus, Server, Trash2 } from 'lucide-react'
+import { useMessages } from 'next-intl'
 import { shallow } from 'zustand/shallow'
 import {
   AlertDialog,
@@ -35,7 +36,6 @@ import {
   WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
-import { useMessages } from 'next-intl'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useMcpServersStore } from '@/stores/mcp-servers/store'
 import type { McpServerWithStatus } from '@/stores/mcp-servers/types'
@@ -47,6 +47,7 @@ import { resolveMcpServerId } from '@/widgets/widgets/_shared/mcp/utils'
 
 const buildDefaultMcpServer = (name: string) => ({
   ...MCP_SERVER_DEFAULTS,
+  enabled: false,
   name,
   transport: 'streamable-http' as const,
 })
@@ -214,7 +215,7 @@ const ListMcpWidgetContent = ({
   const permissions = useUserPermissionsContext()
   const [hasRequestedLoad, setHasRequestedLoad] = useState(false)
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
-  const { servers, isLoading, error, fetchServers, deleteServer, updateServer } =
+  const { servers, isLoading, error, fetchServers, deleteServer, renameServer } =
     useMcpServersStore(
       (state) => ({
         servers: state.servers,
@@ -222,7 +223,7 @@ const ListMcpWidgetContent = ({
         error: state.error,
         fetchServers: state.fetchServers,
         deleteServer: state.deleteServer,
-        updateServer: state.updateServer,
+        renameServer: state.renameServer,
       }),
       shallow
     )
@@ -237,11 +238,7 @@ const ListMcpWidgetContent = ({
       workspaceId
         ? servers
             .filter((server) => server.workspaceId === workspaceId && !server.deletedAt)
-            .sort((a, b) => {
-              const aTime = Date.parse(a.updatedAt ?? a.createdAt ?? '')
-              const bTime = Date.parse(b.updatedAt ?? b.createdAt ?? '')
-              return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime)
-            })
+            .sort((a, b) => getServerName(a, '').localeCompare(getServerName(b, '')))
         : [],
     [servers, workspaceId]
   )
@@ -354,11 +351,10 @@ const ListMcpWidgetContent = ({
     async (serverId: string, name: string) => {
       if (!workspaceId || !permissions.canEdit) return
 
-      await updateServer(workspaceId, serverId, {
-        name,
-      })
+      await renameServer(workspaceId, serverId, name)
+      await refreshTools()
     },
-    [permissions.canEdit, updateServer, workspaceId]
+    [permissions.canEdit, refreshTools, renameServer, workspaceId]
   )
 
   const handleDeleteServer = useCallback(
@@ -369,7 +365,7 @@ const ListMcpWidgetContent = ({
       setDeletingIds((prev) => new Set(prev).add(serverId))
       try {
         await deleteServer(workspaceId, serverId)
-        await refreshTools(true)
+        await refreshTools()
         if (selectedServerId === serverId) {
           handleSelectServer(null)
         }
