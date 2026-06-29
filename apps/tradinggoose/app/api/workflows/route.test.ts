@@ -88,6 +88,10 @@ describe('Workflow API Route', () => {
       applyWorkflowState: applyWorkflowStateMock,
     }))
 
+    vi.doMock('@/app/api/workflows/utils', () => ({
+      createWorkflowRealtimeRequiredResponse: vi.fn(() => null),
+    }))
+
     vi.doMock('@/lib/telemetry/tracer', () => ({
       trackPlatformEvent: vi.fn(),
     }))
