@@ -188,10 +188,6 @@ export const DELETE = withMcpAuth('write')(
         )
       }
 
-      await Promise.all([
-        deleteYjsSessionInSocketServer(serverId),
-        notifyEntityListMemberRemoved('mcp_server', workspaceId, serverId),
-      ])
       await db
         .delete(mcpServers)
         .where(
@@ -202,14 +198,16 @@ export const DELETE = withMcpAuth('write')(
           )
         )
 
+      await Promise.allSettled([
+        deleteYjsSessionInSocketServer(serverId),
+        notifyEntityListMemberRemoved('mcp_server', workspaceId, serverId),
+      ])
+
       logger.info(`[${requestId}] Successfully deleted MCP server: ${serverId}`)
       return createMcpSuccessResponse({
         message: `Server ${serverId} deleted successfully`,
       })
     } catch (error) {
-      if (error instanceof SavedEntityRealtimeRequiredError) {
-        return createMcpErrorResponse(error, error.message, error.status)
-      }
       logger.error(`[${requestId}] Error deleting MCP server:`, error)
       return createMcpErrorResponse(
         error instanceof Error ? error : new Error('Failed to delete MCP server'),
