@@ -2,6 +2,8 @@ import { db } from '@tradinggoose/db'
 import { mcpServers } from '@tradinggoose/db/schema'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
+import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
+import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getParsedBody, withMcpAuth } from '@/lib/mcp/middleware'
 import { McpServerConfigError, mcpService } from '@/lib/mcp/service'
@@ -173,7 +175,24 @@ export const DELETE = withMcpAuth('write')(
 
       logger.info(`[${requestId}] Deleting MCP server: ${serverId} from workspace: ${workspaceId}`)
 
-      const [deletedServer] = await db
+      const access = await verifyReviewTargetAccess(
+        userId,
+        buildSavedEntityDescriptor('mcp_server', serverId, workspaceId),
+        'write'
+      )
+      if (!access.hasAccess || access.workspaceId !== workspaceId) {
+        return createMcpErrorResponse(
+          new Error('Server not found or access denied'),
+          'Server not found',
+          404
+        )
+      }
+
+      await Promise.all([
+        deleteYjsSessionInSocketServer(serverId),
+        notifyEntityListMemberRemoved('mcp_server', workspaceId, serverId),
+      ])
+      await db
         .delete(mcpServers)
         .where(
           and(
@@ -182,33 +201,15 @@ export const DELETE = withMcpAuth('write')(
             isNull(mcpServers.deletedAt)
           )
         )
-        .returning({ id: mcpServers.id })
 
-      if (!deletedServer) {
-        return createMcpErrorResponse(
-          new Error('Server not found or access denied'),
-          'Server not found',
-          404
-        )
-      }
-
-      const cleanupResults = await Promise.allSettled([
-        deleteYjsSessionInSocketServer(deletedServer.id),
-        notifyEntityListMemberRemoved('mcp_server', workspaceId, deletedServer.id),
-      ])
-      const cleanupFailure = cleanupResults.find((result) => result.status === 'rejected')
-      if (cleanupFailure) {
-        logger.warn(`[${requestId}] Deleted MCP server but failed realtime cleanup`, {
-          error: cleanupFailure.reason,
-          serverId: deletedServer.id,
-        })
-      }
-
-      logger.info(`[${requestId}] Successfully deleted MCP server: ${deletedServer.id}`)
+      logger.info(`[${requestId}] Successfully deleted MCP server: ${serverId}`)
       return createMcpSuccessResponse({
-        message: `Server ${deletedServer.id} deleted successfully`,
+        message: `Server ${serverId} deleted successfully`,
       })
     } catch (error) {
+      if (error instanceof SavedEntityRealtimeRequiredError) {
+        return createMcpErrorResponse(error, error.message, error.status)
+      }
       logger.error(`[${requestId}] Error deleting MCP server:`, error)
       return createMcpErrorResponse(
         error instanceof Error ? error : new Error('Failed to delete MCP server'),

@@ -22,10 +22,7 @@ export const CreateMcpServerSchema = McpServerBaseSchema.refine(
   }
 )
 
-export const UpdateMcpServerSchema = McpServerBaseSchema.partial()
-  .extend({
-    workspaceId: z.string().optional(),
-  })
-  .refine(({ workspaceId: _workspaceId, ...updates }) => Object.keys(updates).length > 0, {
-    message: 'At least one MCP server field is required',
-  })
+export const RenameMcpServerSchema = z.object({
+  name: z.string().trim().min(1),
+  workspaceId: z.string().optional(),
+})
