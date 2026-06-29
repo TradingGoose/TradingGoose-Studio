@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   INDICATOR_DOCUMENT_FORMAT,
   MCP_SERVER_DOCUMENT_FORMAT,
+  normalizeEntityFields,
   SKILL_DOCUMENT_FORMAT,
 } from '@/lib/copilot/entity-documents'
 import { hashServerToolReviewBase } from '@/lib/copilot/tools/server/base-tool'
@@ -179,6 +180,24 @@ const length = input.int(14, 'Length', 1, 50, 1)
     ).rejects.toThrow('Invalid MCP server URL: URL is required and must be a string')
 
     expect(create).not.toHaveBeenCalled()
+  })
+
+  it('allows disabled MCP server drafts without a URL', () => {
+    expect(
+      normalizeEntityFields('mcp_server', {
+        name: 'Draft MCP',
+        description: '',
+        transport: 'streamable-http',
+        url: '',
+        headers: {},
+        command: '',
+        args: [],
+        env: {},
+        timeout: 30000,
+        retries: 3,
+        enabled: false,
+      })
+    ).toMatchObject({ name: 'Draft MCP', url: '', enabled: false })
   })
 
   it('rejects MCP server edit documents without a URL before persisting state', async () => {

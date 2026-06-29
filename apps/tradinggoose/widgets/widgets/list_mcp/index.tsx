@@ -47,6 +47,7 @@ import { resolveMcpServerId } from '@/widgets/widgets/_shared/mcp/utils'
 
 const buildDefaultMcpServer = (name: string) => ({
   ...MCP_SERVER_DEFAULTS,
+  enabled: false,
   name,
   transport: 'streamable-http' as const,
 })

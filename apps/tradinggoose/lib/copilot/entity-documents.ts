@@ -171,9 +171,13 @@ export function normalizeEntityFields(
         throw new Error(`Invalid MCP server transport "${String(source.transport ?? '')}"`)
       }
 
+      const enabled = typeof source.enabled === 'boolean' ? source.enabled : true
       const rawUrl = typeof source.url === 'string' ? source.url.trim() : ''
-      const validation = validateMcpServerUrl(rawUrl)
-      if (!validation.isValid) {
+      const validation = rawUrl ? validateMcpServerUrl(rawUrl) : null
+      if (!rawUrl && enabled) {
+        throw new Error('Invalid MCP server URL: URL is required and must be a string')
+      }
+      if (validation && !validation.isValid) {
         throw new Error(`Invalid MCP server URL: ${validation.error}`)
       }
 
@@ -181,7 +185,7 @@ export function normalizeEntityFields(
         name: typeof source.name === 'string' ? source.name.trim() : '',
         description: typeof source.description === 'string' ? source.description.trim() : '',
         transport: source.transport,
-        url: validation.normalizedUrl ?? rawUrl,
+        url: validation?.normalizedUrl ?? rawUrl,
         headers: normalizeHttpHeaderRecord(source.headers),
         command: typeof source.command === 'string' ? source.command.trim() : '',
         args: Array.isArray(source.args)
@@ -190,7 +194,7 @@ export function normalizeEntityFields(
         env: normalizeStringRecord(source.env),
         timeout: typeof source.timeout === 'number' ? source.timeout : 30000,
         retries: typeof source.retries === 'number' ? source.retries : 3,
-        enabled: typeof source.enabled === 'boolean' ? source.enabled : true,
+        enabled,
       }
     }
     case 'knowledge_base':

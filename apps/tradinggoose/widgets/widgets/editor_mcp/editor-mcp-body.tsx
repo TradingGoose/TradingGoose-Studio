@@ -277,7 +277,14 @@ export function EditorMcpWidgetBody({
   }, [copy.unnamedServer, formDataState, selectedServerId, testConnection, workspaceId])
 
   const handleRefreshTools = useCallback(async () => {
-    if (!workspaceId || !selectedServerId) return
+    if (
+      !workspaceId ||
+      !selectedServerId ||
+      formDataState.enabled === false ||
+      !formDataState.url?.trim()
+    ) {
+      return
+    }
 
     try {
       const refreshResult = await refreshServerApi(
@@ -295,6 +302,8 @@ export function EditorMcpWidgetBody({
   }, [
     copy.failedToRefreshMcpServer,
     fetchServers,
+    formDataState.enabled,
+    formDataState.url,
     refreshServer,
     refreshTools,
     selectedServerId,
