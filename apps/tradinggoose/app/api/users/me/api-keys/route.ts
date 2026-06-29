@@ -36,12 +36,10 @@ export async function GET(request: NextRequest) {
       .where(and(eq(apiKey.userId, userId), eq(apiKey.type, 'personal')))
       .orderBy(apiKey.createdAt)
 
-    const maskedKeys = await Promise.all(
-      keys.map(async ({ key, ...apiKey }) => ({
-        ...apiKey,
-        displayKey: await getApiKeyDisplayFormat(key),
-      }))
-    )
+    const maskedKeys = keys.flatMap(({ key, ...apiKey }) => {
+      const displayKey = getApiKeyDisplayFormat(key)
+      return displayKey ? [{ ...apiKey, displayKey }] : []
+    })
 
     return NextResponse.json({ keys: maskedKeys })
   } catch (error) {

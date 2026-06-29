@@ -130,10 +130,11 @@ describe('API key service', () => {
   })
 
   it('rejects retired stored API-key formats without fallback decryption', async () => {
-    const { storedApiKeyMatches } = await import('./service')
+    const { getApiKeyDisplayFormat, storedApiKeyMatches } = await import('./service')
 
     await expect(
       storedApiKeyMatches(`sk-tradinggoose-${'b'.repeat(32)}`, 'iv:ciphertext:authTag')
     ).resolves.toBe(false)
+    expect(getApiKeyDisplayFormat('iv:ciphertext:authTag')).toBeNull()
   })
 })

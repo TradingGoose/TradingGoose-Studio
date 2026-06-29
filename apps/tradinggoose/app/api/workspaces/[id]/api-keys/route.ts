@@ -61,12 +61,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .where(and(eq(apiKey.workspaceId, workspaceId), eq(apiKey.type, 'workspace')))
       .orderBy(apiKey.createdAt)
 
-    const formattedWorkspaceKeys = await Promise.all(
-      workspaceKeys.map(async ({ key, ...apiKey }) => ({
-        ...apiKey,
-        displayKey: await getApiKeyDisplayFormat(key),
-      }))
-    )
+    const formattedWorkspaceKeys = workspaceKeys.flatMap(({ key, ...apiKey }) => {
+      const displayKey = getApiKeyDisplayFormat(key)
+      return displayKey ? [{ ...apiKey, displayKey }] : []
+    })
 
     return NextResponse.json({
       keys: formattedWorkspaceKeys,

@@ -13,8 +13,8 @@ const API_KEY_PREFIX = 'sk-tradinggoose-'
 const STORED_API_KEY_SEPARATOR = ':'
 const API_KEY_ACCESS_NOT_CONFIGURED = 'API key access is not configured'
 const DEFAULT_API_KEY_AUTH_TYPES: ApiKeyType[] = ['personal', 'workspace']
-// Canonical stored shape: display:lookupDigest:iv:ciphertext:authTag.
-// Retired plaintext/encrypted rows are intentionally not authenticated.
+// Current API-key contract: only sk-tradinggoose-* rows stored as
+// display:lookupDigest:iv:ciphertext:authTag are authenticated or listed.
 
 export type ApiKeyType = 'personal' | 'workspace'
 
@@ -231,10 +231,17 @@ export function getStoredApiKey(apiKey: string): string {
   return encryptApiKeyForStorage(apiKey)
 }
 
-function isStoredApiKeyFormat(storedApiKey: string): boolean {
+function isCurrentStoredApiKeyFormat(storedApiKey: string): boolean {
   const [displayKey, lookupDigest, iv, encrypted, authTag, extra] =
     storedApiKey.split(STORED_API_KEY_SEPARATOR)
-  return Boolean(displayKey && lookupDigest?.length === 64 && iv && encrypted && authTag && !extra)
+  return Boolean(
+    displayKey?.startsWith(API_KEY_PREFIX) &&
+      lookupDigest?.length === 64 &&
+      iv &&
+      encrypted &&
+      authTag &&
+      !extra
+  )
 }
 
 function constantTimeEqual(left: string, right: string): boolean {
@@ -245,7 +252,7 @@ export async function storedApiKeyMatches(apiKey: string, storedApiKey: string):
   if (
     !isApiKeyStorageAvailable() ||
     !isApiKeyFormat(apiKey) ||
-    !isStoredApiKeyFormat(storedApiKey)
+    !isCurrentStoredApiKeyFormat(storedApiKey)
   ) {
     return false
   }
@@ -261,9 +268,8 @@ export async function storedApiKeyMatches(apiKey: string, storedApiKey: string):
   }
 }
 
-export async function getApiKeyDisplayFormat(storedApiKey: string): Promise<string> {
-  if (!isStoredApiKeyFormat(storedApiKey)) {
-    return '****'
-  }
-  return storedApiKey.split(STORED_API_KEY_SEPARATOR)[0]
+export function getApiKeyDisplayFormat(storedApiKey: string): string | null {
+  return isCurrentStoredApiKeyFormat(storedApiKey)
+    ? storedApiKey.split(STORED_API_KEY_SEPARATOR)[0]
+    : null
 }
