@@ -46,7 +46,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           .limit(1),
       ])
 
-      if (currentState && active?.state) {
+      if (!currentState) {
+        logger.warn(`[${requestId}] Workflow ${id} is missing editable state`)
+        return createErrorResponse('Workflow state is missing', 409)
+      }
+
+      if (active?.state) {
         needsRedeployment = hasWorkflowChanged(currentState as any, active.state as any)
       }
     }
