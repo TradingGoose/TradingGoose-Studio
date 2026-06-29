@@ -20,6 +20,7 @@ import {
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
 import { parseImportedCustomToolsFile } from '@/lib/custom-tools/import-export'
+import { generateAvailableName } from '@/lib/naming'
 import { cn } from '@/lib/utils'
 import { saveSavedEntityField, useEntityList } from '@/lib/yjs/use-entity-fields'
 import {
@@ -64,9 +65,9 @@ const DEFAULT_CUSTOM_TOOL_SCHEMA = {
   },
 }
 
-const buildNewCustomToolDraft = () => {
+const buildNewCustomToolDraft = (title = DEFAULT_CUSTOM_TOOL_NAME) => {
   return {
-    title: DEFAULT_CUSTOM_TOOL_NAME,
+    title,
     schema: DEFAULT_CUSTOM_TOOL_SCHEMA,
     code: '',
   }
@@ -194,6 +195,7 @@ function CustomToolListHeaderRight({
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
   const setPairContext = useSetPairColorContext()
+  const { members } = useEntityList('custom_tool', workspaceId)
 
   const handleCreateTool = useCallback(() => {
     if (!workspaceId || !permissions.canEdit) return
@@ -201,7 +203,12 @@ function CustomToolListHeaderRight({
     void createToolMutation
       .mutateAsync({
         workspaceId,
-        tool: buildNewCustomToolDraft(),
+        tool: buildNewCustomToolDraft(
+          generateAvailableName(
+            members.map((member) => member.entityName),
+            DEFAULT_CUSTOM_TOOL_NAME
+          )
+        ),
       })
       .then((createdTools) => {
         const createdTool = createdTools[0]
@@ -234,6 +241,7 @@ function CustomToolListHeaderRight({
   }, [
     createToolMutation,
     isLinkedToColorPair,
+    members,
     panelId,
     permissions.canEdit,
     resolvedPairColor,

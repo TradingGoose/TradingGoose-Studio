@@ -4,7 +4,9 @@ import { useCallback } from 'react'
 import { ToolCase } from 'lucide-react'
 import { useMessages } from 'next-intl'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
+import { generateAvailableName } from '@/lib/naming'
 import { parseImportedSkillsFile } from '@/lib/skills/import-export'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import {
   useUserPermissionsContext,
   WorkspacePermissionsProvider,
@@ -41,6 +43,7 @@ const SkillListHeaderRight = ({
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
   const setPairContext = useSetPairColorContext()
+  const { members } = useEntityList('skill', workspaceId)
 
   const handleCreateSkill = useCallback(() => {
     if (!workspaceId || !permissions.canEdit) return
@@ -49,7 +52,10 @@ const SkillListHeaderRight = ({
       .mutateAsync({
         workspaceId,
         skill: {
-          name: copy.skillEditor.defaults.name,
+          name: generateAvailableName(
+            members.map((member) => member.entityName),
+            copy.skillEditor.defaults.name
+          ),
           description: copy.skillEditor.defaults.description,
           content: copy.skillEditor.defaults.content,
         },
@@ -84,7 +90,11 @@ const SkillListHeaderRight = ({
       })
   }, [
     createSkillMutation,
+    copy.skillEditor.defaults.content,
+    copy.skillEditor.defaults.description,
+    copy.skillEditor.defaults.name,
     isLinkedToColorPair,
+    members,
     panelId,
     permissions.canEdit,
     resolvedPairColor,
