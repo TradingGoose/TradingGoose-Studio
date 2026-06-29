@@ -17,36 +17,18 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { Link, useRouter } from '@/i18n/navigation'
 import { useFolderStore, useIsWorkflowSelected } from '@/stores/folders/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
-import { Link, useRouter } from '@/i18n/navigation'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('WorkflowItem')
-
-// Helper function to lighten a hex color
-function lightenColor(hex: string, percent = 30): string {
-  // Remove # if present
-  const color = hex.replace('#', '')
-
-  // Parse RGB values
-  const num = Number.parseInt(color, 16)
-  const r = Math.min(255, Math.floor((num >> 16) + ((255 - (num >> 16)) * percent) / 100))
-  const g = Math.min(
-    255,
-    Math.floor(((num >> 8) & 0x00ff) + ((255 - ((num >> 8) & 0x00ff)) * percent) / 100)
-  )
-  const b = Math.min(255, Math.floor((num & 0x0000ff) + ((255 - (num & 0x0000ff)) * percent) / 100))
-
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`
-}
 
 interface WorkflowItemProps {
   workflow: WorkflowMetadata
   active: boolean
   isMarketplace?: boolean
-  level: number
   isDragOver?: boolean
   onSelect?: (workflow: WorkflowMetadata) => void
   disableNavigation?: boolean
@@ -57,7 +39,6 @@ export function WorkflowItem({
   workflow,
   active,
   isMarketplace,
-  level,
   isDragOver = false,
   onSelect,
   disableNavigation = false,
