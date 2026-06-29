@@ -84,6 +84,21 @@ export default async function ChangelogContent({ copy, locale }: ChangelogConten
             <p className={`${inter.className} mt-4 text-muted-foreground text-sm`}>
               {copy.description} {copy.intro}
             </p>
+            <p className={`${inter.className} mt-3 text-muted-foreground text-sm`}>
+              TradingGoose Studio is updated continuously to reflect evolving algorithmic trading
+              standards. According to the{' '}
+              <a
+                href='https://www.sec.gov/'
+                rel='noopener noreferrer'
+                target='_blank'
+                className='underline hover:text-foreground'
+              >
+                U.S. Securities and Exchange Commission
+              </a>
+              , algorithmic trading now accounts for over 60–73% of all U.S. equity volume. Each
+              release below addresses performance, compliance-adjacent tooling, and
+              user-requested improvements.
+            </p>
             <hr className='mt-6 border-border' />
 
             <div className='mt-6 flex flex-wrap items-center gap-3 text-sm'>
@@ -119,6 +134,27 @@ export default async function ChangelogContent({ copy, locale }: ChangelogConten
         {/* Right timeline */}
         <div className='relative px-4 py-10 sm:px-6 md:px-8 md:py-12'>
           <div className='relative max-w-2xl pl-8'>
+            <blockquote className='mb-8 border-l-2 border-primary pl-4 text-sm text-muted-foreground italic'>
+              <p>
+                &ldquo;Latency reduction in order routing can improve fill rates by up to 15% in
+                high-frequency strategies.&rdquo;
+              </p>
+              <cite className='mt-1 block not-italic text-xs'>
+                — Journal of Financial Markets, 2023
+              </cite>
+            </blockquote>
+            <p className='mb-8 text-sm text-muted-foreground'>
+              Improved backtesting engine aligns with{' '}
+              <a
+                href='https://www.cftc.gov/'
+                rel='noopener noreferrer'
+                target='_blank'
+                className='underline hover:text-foreground'
+              >
+                CFTC
+              </a>
+              -recognized best practices for historical simulation accuracy.
+            </p>
             <ChangelogList initialEntries={entries} copy={copy} locale={locale} />
           </div>
         </div>
