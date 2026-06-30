@@ -81,14 +81,12 @@ describe('applyWorkflowState', () => {
     const updatedWorkflow = await applyWorkflowMetadata('workflow-1', {
       name: 'Renamed Workflow',
       description: 'Updated description',
-      folderId: 'folder-1',
     })
 
     expect(mockApplyWorkflowPatchInSocketServer).toHaveBeenCalledWith('workflow-1', {
       metadata: {
         name: 'Renamed Workflow',
         description: 'Updated description',
-        folderId: 'folder-1',
       },
     })
     expect(mockDbUpdate).not.toHaveBeenCalled()

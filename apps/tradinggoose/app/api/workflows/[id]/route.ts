@@ -11,7 +11,10 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { requireWorkflowRealtimeState } from '@/lib/workflows/db-helpers'
 import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/utils'
-import { applyWorkflowMetadata } from '@/lib/yjs/server/apply-workflow-state'
+import {
+  applyWorkflowMetadata,
+  publishWorkflowListMember,
+} from '@/lib/yjs/server/apply-workflow-state'
 import {
   deleteYjsSessionInSocketServer,
   notifyEntityListMemberRemoved,
@@ -169,7 +172,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       ...(workflowState.description !== undefined
         ? { description: workflowState.description }
         : {}),
-      ...(workflowState.folderId !== undefined ? { folderId: workflowState.folderId } : {}),
       state: {
         deploymentStatuses: {},
         ...(resolvedState.direction !== undefined ? { direction: resolvedState.direction } : {}),
@@ -373,12 +375,21 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const metadata = {
       ...(updates.name !== undefined ? { name: updates.name } : {}),
       ...(updates.description !== undefined ? { description: updates.description } : {}),
-      ...(updates.folderId !== undefined ? { folderId: updates.folderId } : {}),
     }
-    const updatedWorkflow =
+    let updatedWorkflow =
       Object.keys(metadata).length > 0
         ? await applyWorkflowMetadata(workflowId, metadata)
         : workflowData
+
+    if (updates.folderId !== undefined) {
+      const updatedAt = new Date()
+      await db
+        .update(workflow)
+        .set({ folderId: updates.folderId, updatedAt })
+        .where(eq(workflow.id, workflowId))
+      updatedWorkflow = { ...updatedWorkflow, folderId: updates.folderId, updatedAt }
+      await Promise.allSettled([publishWorkflowListMember(workflowId)])
+    }
 
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully updated workflow ${workflowId} in ${elapsed}ms`, {

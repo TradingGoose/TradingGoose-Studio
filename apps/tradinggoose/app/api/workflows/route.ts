@@ -199,7 +199,7 @@ export async function POST(req: NextRequest) {
         workflowId,
         createWorkflowSnapshot(initialState.canonicalState),
         remappedVariables,
-        { name, description, folderId: folderId || null }
+        { name, description }
       )
     } catch (error) {
       await db.delete(workflow).where(eq(workflow.id, workflowId))

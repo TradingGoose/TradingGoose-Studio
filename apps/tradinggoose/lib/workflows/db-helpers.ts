@@ -31,7 +31,6 @@ const logger = createLogger('WorkflowDBHelpers')
 type PersistableWorkflowState = WorkflowState & {
   name?: string
   description?: string | null
-  folderId?: string | null
   variables?: Record<string, any>
 }
 
@@ -698,7 +697,7 @@ export async function saveWorkflowToNormalizedTables(
   state: PersistableWorkflowState
 ): Promise<{ success: boolean; error?: string; normalizedState?: WorkflowState }> {
   try {
-    const { name, description, folderId, variables, ...graphState } = state
+    const { name, description, variables, ...graphState } = state
     const stateWithUniqueBlockIds = await ensureUniqueBlockIds(workflowId, graphState)
     const stateWithUniqueEdgeIds = await ensureUniqueEdgeIds(workflowId, stateWithUniqueBlockIds)
     const { blocks } = sanitizeAgentToolsInBlocks(stateWithUniqueEdgeIds.blocks || {})
@@ -863,7 +862,6 @@ export async function saveWorkflowToNormalizedTables(
           updatedAt: savedAt,
           ...(name !== undefined ? { name } : {}),
           ...(description !== undefined ? { description } : {}),
-          ...(folderId !== undefined ? { folderId } : {}),
           ...(variables !== undefined ? { variables } : {}),
         })
         .where(eq(workflow.id, workflowId))
@@ -898,7 +896,6 @@ export async function saveWorkflowYjsDocToDb(workflowId: string, doc: Y.Doc): Pr
     parallels: state.parallels,
     ...(state.name != null ? { name: state.name } : {}),
     ...(state.description !== undefined ? { description: state.description } : {}),
-    ...(state.folderId !== undefined ? { folderId: state.folderId } : {}),
     variables: state.variables,
     lastSaved: syncedAt.toISOString(),
   }

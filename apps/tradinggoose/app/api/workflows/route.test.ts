@@ -167,7 +167,6 @@ describe('Workflow API Route', () => {
       expect.objectContaining({
         name: 'Workflow Copy',
         description: 'Created from seed',
-        folderId: null,
       })
     )
   })

@@ -15,7 +15,7 @@ import {
   type WorkflowSnapshot,
 } from '@/lib/yjs/workflow-session'
 
-async function publishWorkflowListMember(workflowId: string): Promise<void> {
+export async function publishWorkflowListMember(workflowId: string): Promise<void> {
   const [row] = await db
     .select({
       id: workflow.id,

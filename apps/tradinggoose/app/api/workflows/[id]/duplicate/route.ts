@@ -137,7 +137,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         newWorkflowId,
         createWorkflowSnapshot(duplicatedWorkflowState),
         duplicatedVariables,
-        { name, description: resolvedDescription, folderId: folderId || null }
+        { name, description: resolvedDescription }
       )
     } catch (error) {
       await db.delete(workflow).where(eq(workflow.id, newWorkflowId))

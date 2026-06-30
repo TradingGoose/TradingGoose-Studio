@@ -152,7 +152,6 @@ export async function createSavedReviewTargetBootstrapUpdate(
   try {
     let workflowName: string | null | undefined
     let workflowDescription: string | null | undefined
-    let workflowFolderId: string | null | undefined
     let resolvedWorkspaceId: string | null = descriptor.workspaceId
     if (descriptor.entityKind === 'workflow') {
       const workflowState = await loadWorkflowBootstrapStateFromDb(descriptor.entityId)
@@ -161,7 +160,6 @@ export async function createSavedReviewTargetBootstrapUpdate(
       }
       workflowName = workflowState.name
       workflowDescription = workflowState.description
-      workflowFolderId = workflowState.folderId
 
       setWorkflowState(
         doc,
@@ -204,9 +202,6 @@ export async function createSavedReviewTargetBootstrapUpdate(
     }
     if (workflowDescription !== undefined) {
       metadata.set('entityDescription', workflowDescription)
-    }
-    if (workflowFolderId !== undefined) {
-      metadata.set('folderId', workflowFolderId)
     }
     const state = Y.encodeStateAsUpdate(doc)
 

@@ -20,6 +20,7 @@ describe('Workflow By ID API Route', () => {
   const mockReadWorkflowAccessContext = vi.fn()
   const mockLoadWorkflowState = vi.fn()
   const mockApplyWorkflowMetadata = vi.fn()
+  const mockPublishWorkflowListMember = vi.fn()
   const mockDeleteYjsSession = vi.fn()
   const mockNotifyEntityListMemberRemoved = vi.fn()
 
@@ -47,6 +48,9 @@ describe('Workflow By ID API Route', () => {
             where: vi.fn().mockResolvedValue([]),
           }),
         }),
+        update: vi.fn().mockReturnValue({
+          set: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue([]) }),
+        }),
       },
     }))
 
@@ -60,6 +64,7 @@ describe('Workflow By ID API Route', () => {
       },
       workflow: {
         id: 'id',
+        folderId: 'folderId',
       },
     }))
 
@@ -71,6 +76,7 @@ describe('Workflow By ID API Route', () => {
     mockReadWorkflowAccessContext.mockReset()
     mockLoadWorkflowState.mockReset()
     mockApplyWorkflowMetadata.mockReset()
+    mockPublishWorkflowListMember.mockReset()
     mockDeleteYjsSession.mockReset()
     mockNotifyEntityListMemberRemoved.mockReset()
     mockLoadWorkflowState.mockResolvedValue(null)
@@ -81,11 +87,13 @@ describe('Workflow By ID API Route', () => {
       folderId: 'folder-1',
       workspaceId: null,
     })
+    mockPublishWorkflowListMember.mockResolvedValue(undefined)
     mockDeleteYjsSession.mockResolvedValue(undefined)
     mockNotifyEntityListMemberRemoved.mockResolvedValue(undefined)
 
     vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
       applyWorkflowMetadata: mockApplyWorkflowMetadata,
+      publishWorkflowListMember: mockPublishWorkflowListMember,
     }))
     vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
       deleteYjsSessionInSocketServer: mockDeleteYjsSession,
@@ -640,7 +648,7 @@ describe('Workflow By ID API Route', () => {
       expectWorkflowRenameApplied()
     })
 
-    it('updates workflow metadata through the Yjs session without loading workflow state', async () => {
+    it('updates workflow metadata without loading workflow state', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',
@@ -650,7 +658,7 @@ describe('Workflow By ID API Route', () => {
         workspaceId: null,
       }
 
-      const updateData = { description: 'New description', folderId: 'folder-1' }
+      const updateData = { description: 'New description' }
       mockApplyWorkflowMetadata.mockResolvedValueOnce({
         ...mockWorkflow,
         ...updateData,
@@ -684,12 +692,13 @@ describe('Workflow By ID API Route', () => {
       expect(response.status).toBe(200)
       const data = await response.json()
       expect(data.workflow.description).toBe('New description')
-      expect(data.workflow.folderId).toBe('folder-1')
       expect(mockLoadWorkflowState).not.toHaveBeenCalled()
-      expect(mockApplyWorkflowMetadata).toHaveBeenCalledWith('workflow-123', updateData)
+      expect(mockApplyWorkflowMetadata).toHaveBeenCalledWith('workflow-123', {
+        description: 'New description',
+      })
     })
 
-    it('updates workflow name, description, and folder in one Yjs metadata patch', async () => {
+    it('updates workflow name and description through the workflow session', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',
@@ -701,7 +710,6 @@ describe('Workflow By ID API Route', () => {
       const updateData = {
         name: 'Updated Workflow',
         description: 'New description',
-        folderId: 'folder-1',
       }
       mockApplyWorkflowMetadata.mockResolvedValueOnce({
         ...mockWorkflow,
@@ -737,9 +745,11 @@ describe('Workflow By ID API Route', () => {
       const data = await response.json()
       expect(data.workflow.name).toBe('Updated Workflow')
       expect(data.workflow.description).toBe('New description')
-      expect(data.workflow.folderId).toBe('folder-1')
       expect(mockLoadWorkflowState).not.toHaveBeenCalled()
-      expect(mockApplyWorkflowMetadata).toHaveBeenCalledWith('workflow-123', updateData)
+      expect(mockApplyWorkflowMetadata).toHaveBeenCalledWith('workflow-123', {
+        name: 'Updated Workflow',
+        description: 'New description',
+      })
     })
 
     it('should deny update for users with only read permission', async () => {
