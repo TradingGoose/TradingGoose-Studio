@@ -262,9 +262,6 @@ const ListMcpWidgetContent = ({
     params,
     pairContext: isLinkedToColorPair ? pairContext : null,
   })
-  const selectedServer = selectedServerId
-    ? (workspaceServers.find((server) => server.id === selectedServerId) ?? null)
-    : null
 
   useMcpSelectionPersistence({
     onWidgetParamsChange,
@@ -278,43 +275,6 @@ const ListMcpWidgetContent = ({
       setPairContext(resolvedPairColor, { mcpServerId: serverId })
     },
   })
-
-  useEffect(() => {
-    if (!selectedServerId || selectedServer || isLoading) {
-      return
-    }
-
-    const currentParams =
-      params && typeof params === 'object' ? (params as Record<string, unknown>) : {}
-
-    if (isLinkedToColorPair) {
-      if (pairContext?.mcpServerId !== null) {
-        setPairContext(resolvedPairColor, { mcpServerId: null })
-      }
-      return
-    }
-
-    onWidgetParamsChange?.({
-      ...currentParams,
-      mcpServerId: null,
-    })
-    emitMcpSelectionChange({
-      serverId: null,
-      panelId,
-      widgetKey: 'editor_mcp',
-    })
-  }, [
-    isLinkedToColorPair,
-    isLoading,
-    onWidgetParamsChange,
-    panelId,
-    pairContext?.mcpServerId,
-    params,
-    resolvedPairColor,
-    selectedServer,
-    selectedServerId,
-    setPairContext,
-  ])
 
   const handleSelectServer = useCallback(
     (serverId: string | null) => {

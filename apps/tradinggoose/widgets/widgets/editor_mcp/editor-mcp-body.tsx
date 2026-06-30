@@ -360,11 +360,11 @@ export function EditorMcpWidgetBody({
     return <WidgetStateMessage message={copy.selectWorkspaceToEdit} />
   }
 
-  if (serverError && workspaceServers.length === 0 && !isServersLoading) {
+  if (!selectedServerId && serverError && workspaceServers.length === 0 && !isServersLoading) {
     return <WidgetStateMessage message={serverError} />
   }
 
-  if (isServersLoading && workspaceServers.length === 0) {
+  if (!selectedServerId && isServersLoading && workspaceServers.length === 0) {
     return (
       <div className='flex h-full w-full items-center justify-center'>
         <LoadingAgent size='md' />
@@ -380,10 +380,6 @@ export function EditorMcpWidgetBody({
     )
   }
 
-  if (!selectedServer) {
-    return <WidgetStateMessage message={copy.mcpServerNotFound} />
-  }
-
   if (serverSession.error) {
     return <WidgetStateMessage message={serverSession.error} />
   }
@@ -396,7 +392,7 @@ export function EditorMcpWidgetBody({
     )
   }
 
-  const displayStatus = selectedServer.connectionStatus ?? 'disconnected'
+  const displayStatus = selectedServer?.connectionStatus ?? 'disconnected'
 
   return (
     <div className='flex h-full w-full flex-col overflow-hidden'>
@@ -417,7 +413,7 @@ export function EditorMcpWidgetBody({
             </span>
           </div>
           <div className='flex flex-wrap items-center gap-2 text-muted-foreground text-xs'>
-            {selectedServer.lastToolsRefresh ? (
+            {selectedServer?.lastToolsRefresh ? (
               <span>
                 {formatTemplate(copy.toolsRefreshed, {
                   time:
@@ -425,7 +421,7 @@ export function EditorMcpWidgetBody({
                 })}
               </span>
             ) : null}
-            {selectedServer.lastConnected ? (
+            {selectedServer?.lastConnected ? (
               <span>
                 {formatTemplate(copy.lastConnected, {
                   time: formatRelativeTime(selectedServer.lastConnected, copy.relativeTime) ?? '',
@@ -473,10 +469,10 @@ export function EditorMcpWidgetBody({
           )}
         </div>
 
-        {selectedServer.lastError ? (
+        {selectedServer?.lastError ? (
           <div className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-sm'>
             <p className='font-medium'>{copy.lastError}</p>
-            <p className='text-destructive/80 text-xs'>{selectedServer.lastError}</p>
+            <p className='text-destructive/80 text-xs'>{selectedServer?.lastError}</p>
           </div>
         ) : null}
 

@@ -40,6 +40,17 @@ type SavedEntityYjsSessionState = {
   error: string | null
 }
 
+type SharedYjsSessionEntry = {
+  key: string
+  result: YjsProviderBootstrapResult | null
+  error: string | null
+  refCount: number
+  initPromise: Promise<void> | null
+  listeners: Set<() => void>
+}
+
+const sharedYjsSessionEntries = new Map<string, SharedYjsSessionEntry>()
+
 function closeYjsSession(result: YjsProviderBootstrapResult): void {
   result.provider.disconnect()
   result.provider.destroy()
@@ -66,6 +77,76 @@ async function saveYjsSessionSnapshot(result: YjsProviderBootstrapResult): Promi
     const data = await response.json().catch(() => ({}))
     throw new Error(data.error || 'Failed to save Yjs session')
   }
+}
+
+function readSharedYjsSessionEntry(entry: SharedYjsSessionEntry): SavedEntityYjsSessionState {
+  return {
+    key: entry.key,
+    result: entry.result,
+    error: entry.error,
+  }
+}
+
+function emitSharedYjsSessionEntry(entry: SharedYjsSessionEntry): void {
+  for (const listener of entry.listeners) {
+    listener()
+  }
+}
+
+function getSharedYjsSessionEntry(sessionKey: string): SharedYjsSessionEntry {
+  const current = sharedYjsSessionEntries.get(sessionKey)
+  if (current) return current
+
+  const entry: SharedYjsSessionEntry = {
+    key: sessionKey,
+    result: null,
+    error: null,
+    refCount: 0,
+    initPromise: null,
+    listeners: new Set(),
+  }
+  sharedYjsSessionEntries.set(sessionKey, entry)
+  return entry
+}
+
+function initializeSharedYjsSessionEntry(
+  entry: SharedYjsSessionEntry,
+  openSession: () => Promise<YjsProviderBootstrapResult>,
+  errorMessage: string
+): void {
+  if (entry.initPromise || entry.result) return
+
+  entry.error = null
+  entry.initPromise = openSession()
+    .then((next) => {
+      if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.refCount === 0) {
+        closeYjsSession(next)
+        return
+      }
+
+      entry.result = next
+    })
+    .catch((nextError) => {
+      if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.refCount === 0) return
+      entry.error = nextError instanceof Error ? nextError.message : errorMessage
+    })
+    .finally(() => {
+      if (sharedYjsSessionEntries.get(entry.key) !== entry) return
+      entry.initPromise = null
+      emitSharedYjsSessionEntry(entry)
+    })
+}
+
+function releaseSharedYjsSessionEntry(entry: SharedYjsSessionEntry): void {
+  entry.refCount = Math.max(0, entry.refCount - 1)
+  if (entry.refCount > 0) return
+
+  sharedYjsSessionEntries.delete(entry.key)
+  if (entry.result) {
+    closeYjsSession(entry.result)
+    entry.result = null
+  }
+  entry.listeners.clear()
 }
 
 function invalidateSavedEntityQueries(
@@ -109,33 +190,22 @@ function useYjsSession(
   })
 
   useEffect(() => {
-    setState({ key: sessionKey, result: null, error: null })
-    if (!sessionKey || !openSession) return
+    if (!sessionKey || !openSession) {
+      setState({ key: sessionKey, result: null, error: null })
+      return
+    }
 
-    let active = true
-    let current: YjsProviderBootstrapResult | null = null
+    const entry = getSharedYjsSessionEntry(sessionKey)
+    entry.refCount += 1
 
-    openSession()
-      .then((next) => {
-        if (!active) {
-          closeYjsSession(next)
-          return
-        }
-        current = next
-        setState({ key: sessionKey, result: next, error: null })
-      })
-      .catch((nextError) => {
-        if (!active) return
-        setState({
-          key: sessionKey,
-          result: null,
-          error: nextError instanceof Error ? nextError.message : errorMessage,
-        })
-      })
+    const syncState = () => setState(readSharedYjsSessionEntry(entry))
+    entry.listeners.add(syncState)
+    syncState()
+    initializeSharedYjsSessionEntry(entry, openSession, errorMessage)
 
     return () => {
-      active = false
-      if (current) closeYjsSession(current)
+      entry.listeners.delete(syncState)
+      releaseSharedYjsSessionEntry(entry)
     }
   }, [errorMessage, openSession, sessionKey])
 

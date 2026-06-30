@@ -4,7 +4,6 @@ import { useEffect, useRef } from 'react'
 import { useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
-import { useSkills } from '@/hooks/queries/skills'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
@@ -26,7 +25,6 @@ export function EditorSkillWidgetBody({
 }: EditorSkillWidgetBodyProps) {
   const copy = useMessages().workspace.widgets.skillEditor.body
   const workspaceId = context?.workspaceId ?? null
-  const { data: skills = [], isLoading, error } = useSkills(workspaceId ?? '')
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -37,15 +35,7 @@ export function EditorSkillWidgetBody({
   const paramsSkillId = getSkillIdFromParams(params)
   const requestedSkillId = isLinkedToColorPair ? (pairContext?.skillId ?? null) : paramsSkillId
   const normalizedRequestedSkillId = requestedSkillId?.trim() ?? ''
-  const hasRequestedSkill =
-    normalizedRequestedSkillId.length > 0 &&
-    skills.some((skill) => skill.id === normalizedRequestedSkillId)
-  const skillId = hasRequestedSkill
-    ? normalizedRequestedSkillId
-    : isLinkedToColorPair
-      ? null
-      : (skills[0]?.id ?? null)
-  const skill = skillId ? (skills.find((candidate) => candidate.id === skillId) ?? null) : null
+  const skillId = normalizedRequestedSkillId.length > 0 ? normalizedRequestedSkillId : null
   const skillSession = useSavedEntityYjsSession('skill', skillId, workspaceId)
 
   useEffect(() => {
@@ -104,38 +94,12 @@ export function EditorSkillWidgetBody({
     return <WidgetStateMessage message={copy.selectWorkspace} />
   }
 
-  if (error && skills.length === 0) {
-    return (
-      <WidgetStateMessage
-        message={error instanceof Error ? error.message : copy.failedToLoadSkills}
-      />
-    )
-  }
-
-  if (isLoading && skills.length === 0) {
-    return (
-      <div className='flex h-full w-full items-center justify-center'>
-        <LoadingAgent size='md' />
-      </div>
-    )
-  }
-
   if (!skillId) {
     return (
       <WidgetStateMessage
-        message={
-          isLinkedToColorPair
-            ? normalizedRequestedSkillId.length > 0
-              ? copy.skillNotFound
-              : copy.noSharedSkillSelected
-            : copy.selectSkillToEdit
-        }
+        message={isLinkedToColorPair ? copy.noSharedSkillSelected : copy.selectSkillToEdit}
       />
     )
-  }
-
-  if (!skill) {
-    return <WidgetStateMessage message={copy.skillNotFound} />
   }
 
   if (skillSession.error) {

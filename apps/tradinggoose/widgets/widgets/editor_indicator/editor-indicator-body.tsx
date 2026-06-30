@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef } from 'react'
 import { useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
-import { useIndicators } from '@/hooks/queries/indicators'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
@@ -26,7 +25,6 @@ export function EditorIndicatorWidgetBody({
 }: EditorIndicatorWidgetBodyProps) {
   const copy = useMessages().workspace.widgets.indicatorEditor.body
   const workspaceId = context?.workspaceId ?? null
-  const { data: indicators = [], isLoading, error } = useIndicators(workspaceId ?? '')
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -37,21 +35,9 @@ export function EditorIndicatorWidgetBody({
     ? (pairContext?.indicatorId ?? null)
     : paramsIndicatorId
 
-  const workspaceIndicators = workspaceId
-    ? indicators.filter((indicator) => indicator.workspaceId === workspaceId)
-    : []
   const normalizedRequestedIndicatorId = requestedIndicatorId?.trim() ?? ''
-  const hasRequestedIndicator =
-    normalizedRequestedIndicatorId.length > 0 &&
-    workspaceIndicators.some((indicator) => indicator.id === normalizedRequestedIndicatorId)
-  const indicatorId = hasRequestedIndicator
-    ? normalizedRequestedIndicatorId
-    : isLinkedToColorPair
-      ? null
-      : (workspaceIndicators[0]?.id ?? null)
-  const indicator = indicatorId
-    ? (workspaceIndicators.find((candidate) => candidate.id === indicatorId) ?? null)
-    : null
+  const indicatorId =
+    normalizedRequestedIndicatorId.length > 0 ? normalizedRequestedIndicatorId : null
   const indicatorSession = useSavedEntityYjsSession('indicator', indicatorId, workspaceId)
 
   useEffect(() => {
@@ -127,38 +113,12 @@ export function EditorIndicatorWidgetBody({
     return <WidgetStateMessage message={copy.selectWorkspace} />
   }
 
-  if (error) {
-    return (
-      <WidgetStateMessage
-        message={error instanceof Error ? error.message : copy.failedToLoadIndicators}
-      />
-    )
-  }
-
-  if (isLoading && workspaceIndicators.length === 0) {
-    return (
-      <div className='flex h-full w-full items-center justify-center'>
-        <LoadingAgent size='md' />
-      </div>
-    )
-  }
-
   if (!indicatorId) {
     return (
       <WidgetStateMessage
-        message={
-          isLinkedToColorPair
-            ? normalizedRequestedIndicatorId.length > 0
-              ? copy.indicatorNotFound
-              : copy.noSharedIndicatorSelected
-            : copy.selectIndicatorToEdit
-        }
+        message={isLinkedToColorPair ? copy.noSharedIndicatorSelected : copy.selectIndicatorToEdit}
       />
     )
-  }
-
-  if (!indicator) {
-    return <WidgetStateMessage message={copy.indicatorNotFound} />
   }
 
   if (indicatorSession.error) {
