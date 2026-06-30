@@ -12,6 +12,7 @@ import {
   useWorkflowSelectionPersistence,
 } from '@/widgets/utils/workflow-selection'
 import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
+import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 import { WorkflowWidgetControlBar } from '@/widgets/widgets/editor_workflow/components/workflow-controlbar'
 import type { WorkflowCanvasUIConfig } from '@/widgets/widgets/editor_workflow/components/workflow-editor/workflow-canvas'
 import WorkflowEditorApp from '@/widgets/widgets/editor_workflow/components/workflow-editor-app'
@@ -175,12 +176,6 @@ const WorkflowEditorWidgetBody = ({
     </div>
   )
 }
-
-const WidgetStateMessage = ({ message }: { message: string }) => (
-  <div className='flex h-full w-full items-center justify-center px-4 text-center text-muted-foreground text-xs'>
-    {message}
-  </div>
-)
 
 type WorkflowEditorHeaderSelectorProps = {
   workspaceId?: string

@@ -36,10 +36,13 @@ export function EditorIndicatorWidgetBody({
     : paramsIndicatorId
 
   const normalizedRequestedIndicatorId = requestedIndicatorId?.trim() ?? ''
-  const { members: indicatorMembers } = useEntityList('indicator', workspaceId)
-  const indicatorId = indicatorMembers.some(
-    (member) => member.entityId === normalizedRequestedIndicatorId
-  )
+  const hasRequestedIndicator = normalizedRequestedIndicatorId.length > 0
+  const {
+    members: indicatorMembers,
+    isLoading: isIndicatorListLoading,
+    error: indicatorListError,
+  } = useEntityList('indicator', workspaceId)
+  const indicatorId = hasRequestedIndicator
     ? normalizedRequestedIndicatorId
     : isLinkedToColorPair
       ? null
@@ -119,23 +122,27 @@ export function EditorIndicatorWidgetBody({
     return <WidgetStateMessage message={copy.selectWorkspace} />
   }
 
-  if (!indicatorId) {
-    return (
-      <WidgetStateMessage
-        message={isLinkedToColorPair ? copy.noSharedIndicatorSelected : copy.selectIndicatorToEdit}
-      />
-    )
+  if (!hasRequestedIndicator && indicatorListError) {
+    return <WidgetStateMessage message={indicatorListError} />
   }
 
   if (indicatorSession.error) {
     return <WidgetStateMessage message={indicatorSession.error} />
   }
 
-  if (indicatorSession.isLoading) {
+  if ((!hasRequestedIndicator && isIndicatorListLoading) || indicatorSession.isLoading) {
     return (
       <div className='flex h-full w-full items-center justify-center'>
         <LoadingAgent size='md' />
       </div>
+    )
+  }
+
+  if (!indicatorId) {
+    return (
+      <WidgetStateMessage
+        message={isLinkedToColorPair ? copy.noSharedIndicatorSelected : copy.selectIndicatorToEdit}
+      />
     )
   }
 

@@ -14,9 +14,8 @@ import { widgetHeaderControlClassName } from '@/components/widget-header-control
 import { getStableVibrantColor } from '@/lib/colors'
 import { DEFAULT_INDICATORS_META } from '@/lib/indicators/default'
 import { cn } from '@/lib/utils'
-import { useIndicators } from '@/hooks/queries/indicators'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
-import { useIndicatorsStore } from '@/stores/indicators/store'
 
 const FALLBACK_COLOR = '#3972F6'
 
@@ -65,7 +64,6 @@ export function IndicatorDropdown({
   const widgetsCopy = useWorkspaceWidgetsMessages()
   const copy = widgetsCopy.indicatorDropdown
   const [internalValue, setInternalValue] = useState<string[]>([])
-  const [loadError, setLoadError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [activeFilterId, setActiveFilterId] = useState<IndicatorFilterId>(
@@ -76,21 +74,20 @@ export function IndicatorDropdown({
   const isMultiSelect = selectionMode === 'multiple'
 
   const {
-    isLoading: queryLoading,
-    error: queryError,
-    refetch,
-    isFetching,
-  } = useIndicators(workspaceId ?? '')
-
-  const indicators = useIndicatorsStore((state) =>
-    workspaceId ? state.getAllIndicators(workspaceId) : []
-  )
+    members,
+    isLoading: listLoading,
+    error: listError,
+  } = useEntityList('indicator', workspaceId)
 
   const workspaceIndicators = useMemo(() => {
     if (!workspaceId) return []
-    const scoped = [...indicators]
+    const scoped = members.map((member) => ({
+      id: member.entityId,
+      name: member.entityName,
+      color: member.color,
+    }))
     return scoped.sort((a, b) => a.name.localeCompare(b.name))
-  }, [indicators, workspaceId])
+  }, [members, workspaceId])
 
   const defaultIndicatorOptions = useMemo<IndicatorOption[]>(
     () =>
@@ -141,8 +138,9 @@ export function IndicatorDropdown({
   }, [isMultiSelect, selectedIndicatorIds, selectedIndicator, indicatorOptions])
 
   const hasIndicators = indicatorOptions.length > 0
-  const isLoading = queryLoading && !hasIndicators
+  const isLoading = listLoading && !hasIndicators
   const isDropdownDisabled = disabled || !workspaceId
+  const loadError = listError || null
 
   const tooltipText = !workspaceId
     ? copy.selectWorkspaceFirst
@@ -153,7 +151,6 @@ export function IndicatorDropdown({
         : copy.tooltip
 
   useEffect(() => {
-    setLoadError(null)
     setSearchQuery('')
     setDropdownOpen(false)
     setActiveFilterId(includeDefaults ? 'default' : 'custom')
@@ -161,18 +158,6 @@ export function IndicatorDropdown({
       setInternalValue([])
     }
   }, [workspaceId, isControlled, includeDefaults])
-
-  useEffect(() => {
-    if (queryError) {
-      setLoadError(copy.failedToLoadIndicators)
-    }
-  }, [copy.failedToLoadIndicators, queryError])
-
-  useEffect(() => {
-    if (indicatorOptions.length > 0 && loadError) {
-      setLoadError(null)
-    }
-  }, [indicatorOptions.length, loadError])
 
   const selectedFilterId = useMemo<IndicatorFilterId>(() => {
     if (!includeDefaults) return 'custom'
@@ -189,15 +174,6 @@ export function IndicatorDropdown({
       setInternalValue(nextIds)
       onChange?.(nextIds)
     }
-  }
-
-  const handleRetry = () => {
-    if (!workspaceId) return
-    setLoadError(null)
-    refetch().catch((error) => {
-      console.error('Failed to load indicators for indicator dropdown', error)
-      setLoadError(copy.failedToLoadIndicators)
-    })
   }
 
   const handleToggleIndicator = (id: string) => {
@@ -254,7 +230,7 @@ export function IndicatorDropdown({
     return groups
   }, [copy.customIndicators, copy.defaultIndicators, includeDefaults])
 
-  const shouldShowLoadingState = (isLoading || isFetching) && !hasIndicators
+  const shouldShowLoadingState = isLoading && !hasIndicators
   const emptyContent = (() => {
     if (!workspaceId) return copy.selectWorkspaceFirst
 
@@ -262,13 +238,6 @@ export function IndicatorDropdown({
       return (
         <div className='space-y-2 text-xs'>
           <p className='text-destructive'>{loadError}</p>
-          <button
-            type='button'
-            className='font-semibold text-primary text-xs hover:underline'
-            onClick={handleRetry}
-          >
-            {copy.retry}
-          </button>
         </div>
       )
     }

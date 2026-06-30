@@ -35,8 +35,13 @@ export function EditorSkillWidgetBody({
   const paramsSkillId = getSkillIdFromParams(params)
   const requestedSkillId = isLinkedToColorPair ? (pairContext?.skillId ?? null) : paramsSkillId
   const normalizedRequestedSkillId = requestedSkillId?.trim() ?? ''
-  const { members: skillMembers } = useEntityList('skill', workspaceId)
-  const skillId = skillMembers.some((member) => member.entityId === normalizedRequestedSkillId)
+  const hasRequestedSkill = normalizedRequestedSkillId.length > 0
+  const {
+    members: skillMembers,
+    isLoading: isSkillListLoading,
+    error: skillListError,
+  } = useEntityList('skill', workspaceId)
+  const skillId = hasRequestedSkill
     ? normalizedRequestedSkillId
     : isLinkedToColorPair
       ? null
@@ -99,23 +104,27 @@ export function EditorSkillWidgetBody({
     return <WidgetStateMessage message={copy.selectWorkspace} />
   }
 
-  if (!skillId) {
-    return (
-      <WidgetStateMessage
-        message={isLinkedToColorPair ? copy.noSharedSkillSelected : copy.selectSkillToEdit}
-      />
-    )
+  if (!hasRequestedSkill && skillListError) {
+    return <WidgetStateMessage message={skillListError} />
   }
 
   if (skillSession.error) {
     return <WidgetStateMessage message={skillSession.error} />
   }
 
-  if (skillSession.isLoading) {
+  if ((!hasRequestedSkill && isSkillListLoading) || skillSession.isLoading) {
     return (
       <div className='flex h-full w-full items-center justify-center'>
         <LoadingAgent size='md' />
       </div>
+    )
+  }
+
+  if (!skillId) {
+    return (
+      <WidgetStateMessage
+        message={isLinkedToColorPair ? copy.noSharedSkillSelected : copy.selectSkillToEdit}
+      />
     )
   }
 

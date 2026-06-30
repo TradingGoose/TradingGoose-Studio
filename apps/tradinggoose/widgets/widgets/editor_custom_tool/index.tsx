@@ -116,10 +116,13 @@ function EditorCustomToolWidgetBody({
     ? (pairContext?.customToolId ?? null)
     : paramsCustomToolId
   const normalizedRequestedCustomToolId = requestedCustomToolId?.trim() ?? ''
-  const { members: customToolMembers } = useEntityList('custom_tool', workspaceId)
-  const selectedToolId = customToolMembers.some(
-    (member) => member.entityId === normalizedRequestedCustomToolId
-  )
+  const hasRequestedCustomTool = normalizedRequestedCustomToolId.length > 0
+  const {
+    members: customToolMembers,
+    isLoading: isCustomToolListLoading,
+    error: customToolListError,
+  } = useEntityList('custom_tool', workspaceId)
+  const selectedToolId = hasRequestedCustomTool
     ? normalizedRequestedCustomToolId
     : isLinkedToColorPair
       ? null
@@ -205,29 +208,29 @@ function EditorCustomToolWidgetBody({
     return <WidgetStateMessage message={copy.body.selectWorkspace} />
   }
 
-  if (!selectedToolId) {
-    return (
-      <WidgetStateMessage
-        message={
-          isLinkedToColorPair
-            ? normalizedRequestedCustomToolId.length > 0
-              ? copy.body.customToolNotFound
-              : copy.body.noSharedCustomToolSelected
-            : copy.body.noCustomToolsYet
-        }
-      />
-    )
+  if (!hasRequestedCustomTool && customToolListError) {
+    return <WidgetStateMessage message={customToolListError} />
   }
 
   if (customToolSession.error) {
     return <WidgetStateMessage message={customToolSession.error} />
   }
 
-  if (customToolSession.isLoading) {
+  if ((!hasRequestedCustomTool && isCustomToolListLoading) || customToolSession.isLoading) {
     return (
       <div className='flex h-full w-full items-center justify-center'>
         <LoadingAgent size='md' />
       </div>
+    )
+  }
+
+  if (!selectedToolId) {
+    return (
+      <WidgetStateMessage
+        message={
+          isLinkedToColorPair ? copy.body.noSharedCustomToolSelected : copy.body.noCustomToolsYet
+        }
+      />
     )
   }
 
