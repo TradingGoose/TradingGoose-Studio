@@ -5,7 +5,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
-import { notifyEntityListMembersUpserted } from '@/lib/yjs/server/snapshot-bridge'
+import { applyWorkflowMetadata } from '@/lib/yjs/server/apply-workflow-state'
 
 const logger = createLogger('FoldersIDAPI')
 
@@ -133,7 +133,16 @@ export async function DELETE(
         )
       )
 
-    const movedWorkflows = await db.transaction(async (tx) => {
+    const movedWorkflows = await db
+      .select({ id: workflow.id })
+      .from(workflow)
+      .where(and(eq(workflow.workspaceId, existingFolder.workspaceId), eq(workflow.folderId, id)))
+
+    for (const movedWorkflow of movedWorkflows) {
+      await applyWorkflowMetadata(movedWorkflow.id, { folderId: parentId })
+    }
+
+    await db.transaction(async (tx) => {
       const now = new Date()
       if (childFolders.length > 0) {
         await tx
@@ -147,30 +156,8 @@ export async function DELETE(
           )
       }
 
-      const movedWorkflows = await tx
-        .update(workflow)
-        .set({ folderId: parentId, updatedAt: now })
-        .where(and(eq(workflow.workspaceId, existingFolder.workspaceId), eq(workflow.folderId, id)))
-        .returning({
-          id: workflow.id,
-          name: workflow.name,
-          folderId: workflow.folderId,
-          color: workflow.color,
-        })
-
       await tx.delete(workflowFolder).where(eq(workflowFolder.id, id))
-      return movedWorkflows
     })
-
-    if (movedWorkflows.length > 0) {
-      await notifyEntityListMembersUpserted(
-        'workflow',
-        existingFolder.workspaceId,
-        movedWorkflows
-      ).catch((error) => {
-        logger.warn('Failed to publish promoted workflows to live list:', { error, id })
-      })
-    }
 
     logger.info('Deleted folder and promoted direct children:', {
       id,
