@@ -6,7 +6,7 @@ import { validateExternalUrl } from '@/lib/security/input-validation'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { generateRequestId } from '@/lib/utils'
 import { isSkillLoaderExecution } from '@/executor/handlers/agent/skill-loader'
-import { resolveSkillContent } from '@/executor/handlers/agent/skills-resolver'
+import { resolvePersistedSkillContent } from '@/executor/handlers/agent/skills-resolver'
 import type { ExecutionContext } from '@/executor/types'
 import type { ErrorInfo } from '@/tools/error-extractors'
 import { extractErrorMessage } from '@/tools/error-extractors'
@@ -274,7 +274,7 @@ export async function executeTool(
         }
       }
 
-      const content = await resolveSkillContent(skillId, scope.workspaceId)
+      const content = await resolvePersistedSkillContent(skillId, scope.workspaceId)
       if (!content) {
         return {
           success: false,

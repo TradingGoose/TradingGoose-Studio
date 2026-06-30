@@ -341,7 +341,7 @@ export async function getToolAsync(
   // Check if it's a custom tool
   if (isCustomToolRuntimeId(toolId)) {
     if (typeof window !== 'undefined') return getTool(toolId)
-    return getCustomTool(toolId, workflowId, workspaceId)
+    return getPersistedCustomTool(toolId, workflowId, workspaceId)
   }
 
   return undefined
@@ -405,7 +405,7 @@ async function resolveWorkflowWorkspaceId(workflowId: string): Promise<string | 
   return row?.workspaceId ?? null
 }
 
-async function getCustomTool(
+async function getPersistedCustomTool(
   customToolId: string,
   workflowId?: string,
   workspaceId?: string

@@ -10,7 +10,7 @@ import {
   getLocalVmSaturationLimitMessage,
   isLocalVmSaturationLimitError,
 } from '@/lib/execution/local-saturation-limit'
-import { listCustomIndicatorRuntimeEntries } from '@/lib/indicators/custom/operations'
+import { listPersistedCustomIndicatorRuntimeEntries } from '@/lib/indicators/custom/operations'
 import { DEFAULT_INDICATOR_RUNTIME_ENTRIES } from '@/lib/indicators/default/runtime'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
@@ -155,7 +155,7 @@ export async function executeFunctionRequest(
           pineCode,
           inputMeta,
         })),
-        ...(await listCustomIndicatorRuntimeEntries(workspaceId)),
+        ...(await listPersistedCustomIndicatorRuntimeEntries(workspaceId)),
       ],
     }
 

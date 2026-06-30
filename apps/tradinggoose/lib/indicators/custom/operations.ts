@@ -17,7 +17,7 @@ import { requireSavedEntityRealtimeListFields } from '@/lib/yjs/server/bootstrap
 
 const logger = createLogger('IndicatorsOperations')
 
-export async function listCustomIndicatorRuntimeEntries(workspaceId: string) {
+export async function listPersistedCustomIndicatorRuntimeEntries(workspaceId: string) {
   const rows = await db
     .select({
       id: pineIndicators.id,

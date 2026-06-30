@@ -7,7 +7,7 @@ import type { SkillMetadata } from './skill-loader'
 
 const logger = createLogger('SkillsResolver')
 
-export async function resolveSkillMetadata(
+export async function resolvePersistedSkillMetadata(
   skillInputs: SkillInput[],
   workspaceId: string
 ): Promise<SkillMetadata[]> {
@@ -35,7 +35,7 @@ export async function resolveSkillMetadata(
   }
 }
 
-export async function resolveSkillContent(
+export async function resolvePersistedSkillContent(
   skillId: string,
   workspaceId: string
 ): Promise<string | null> {

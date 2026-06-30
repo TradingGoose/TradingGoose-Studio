@@ -26,7 +26,7 @@ import {
   buildSkillsSystemPromptSection,
   createSkillLoaderToolId,
 } from './skill-loader'
-import { resolveSkillMetadata } from './skills-resolver'
+import { resolvePersistedSkillMetadata } from './skills-resolver'
 
 const logger = createLogger('AgentBlockHandler')
 
@@ -85,7 +85,7 @@ export class AgentBlockHandler implements BlockHandler {
       : []
     const skillMetadata =
       skillInputs.length > 0 && context.workspaceId
-        ? await resolveSkillMetadata(skillInputs, context.workspaceId)
+        ? await resolvePersistedSkillMetadata(skillInputs, context.workspaceId)
         : []
     const skillLoaderToolId =
       skillMetadata.length > 0
