@@ -2,11 +2,10 @@ import { db } from '@tradinggoose/db'
 import { workflow, workflowFolder } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
-import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
-import { publishWorkflowListMember } from '@/lib/yjs/server/apply-workflow-state'
+import { notifyEntityListMembersUpserted } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('FoldersIDAPI')
 
@@ -152,15 +151,26 @@ export async function DELETE(
         .update(workflow)
         .set({ folderId: parentId, updatedAt: now })
         .where(and(eq(workflow.workspaceId, existingFolder.workspaceId), eq(workflow.folderId, id)))
-        .returning({ id: workflow.id })
+        .returning({
+          id: workflow.id,
+          name: workflow.name,
+          folderId: workflow.folderId,
+          color: workflow.color,
+        })
 
       await tx.delete(workflowFolder).where(eq(workflowFolder.id, id))
       return movedWorkflows
     })
 
-    await Promise.all(
-      movedWorkflows.map((movedWorkflow) => publishWorkflowListMember(movedWorkflow.id))
-    )
+    if (movedWorkflows.length > 0) {
+      await notifyEntityListMembersUpserted(
+        'workflow',
+        existingFolder.workspaceId,
+        movedWorkflows
+      ).catch((error) => {
+        logger.warn('Failed to publish promoted workflows to live list:', { error, id })
+      })
+    }
 
     logger.info('Deleted folder and promoted direct children:', {
       id,
@@ -178,8 +188,6 @@ export async function DELETE(
     })
   } catch (error) {
     logger.error('Error deleting folder:', { error })
-    const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
-    if (realtimeResponse) return realtimeResponse
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

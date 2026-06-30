@@ -16,35 +16,40 @@ import {
   type WorkflowSnapshot,
 } from '@/lib/yjs/workflow-session'
 
+// Workflow list sessions are live projections; workflow DB/Yjs persistence is the durable write.
 export async function publishWorkflowListMember(workflowId: string): Promise<void> {
-  const [row] = await db
-    .select({
-      id: workflow.id,
-      workspaceId: workflow.workspaceId,
-      name: workflow.name,
-      folderId: workflow.folderId,
-      color: workflow.color,
-    })
-    .from(workflow)
-    .where(eq(workflow.id, workflowId))
-    .limit(1)
+  try {
+    const [row] = await db
+      .select({
+        id: workflow.id,
+        workspaceId: workflow.workspaceId,
+        name: workflow.name,
+        folderId: workflow.folderId,
+        color: workflow.color,
+      })
+      .from(workflow)
+      .where(eq(workflow.id, workflowId))
+      .limit(1)
 
-  if (!row?.workspaceId) return
+    if (!row?.workspaceId) return
 
-  await notifyEntityListMembersUpserted('workflow', row.workspaceId, [
-    { id: row.id, name: row.name, folderId: row.folderId, color: row.color },
-  ]).catch((error) => {
-    throw new WorkflowRealtimeRequiredError(error)
-  })
+    await notifyEntityListMembersUpserted('workflow', row.workspaceId, [
+      { id: row.id, name: row.name, folderId: row.folderId, color: row.color },
+    ])
+  } catch {
+    return
+  }
 }
 
 export async function removeWorkflowListMember(
   workspaceId: string,
   workflowId: string
 ): Promise<void> {
-  await notifyEntityListMemberRemoved('workflow', workspaceId, workflowId).catch((error) => {
-    throw new WorkflowRealtimeRequiredError(error)
-  })
+  try {
+    await notifyEntityListMemberRemoved('workflow', workspaceId, workflowId)
+  } catch {
+    return
+  }
 }
 
 export async function applyWorkflowState(

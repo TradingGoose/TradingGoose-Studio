@@ -10,8 +10,6 @@ const {
   mockDbSelect,
   mockEnsureUniqueBlockIds,
   mockEnsureUniqueEdgeIds,
-  mockNotifyEntityListMemberRemoved,
-  mockNotifyEntityListMembersUpserted,
   mockSelectFrom,
   mockSelectLimit,
   mockSelectWhere,
@@ -22,8 +20,6 @@ const {
     mockDbSelect: vi.fn(),
     mockEnsureUniqueBlockIds: vi.fn(),
     mockEnsureUniqueEdgeIds: vi.fn(),
-    mockNotifyEntityListMemberRemoved: vi.fn(),
-    mockNotifyEntityListMembersUpserted: vi.fn(),
     mockSelectFrom: vi.fn(),
     mockSelectLimit: vi.fn(),
     mockSelectWhere: vi.fn(),
@@ -63,8 +59,6 @@ vi.mock('@/lib/workflows/db-helpers', () => ({
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   applyWorkflowPatchInSocketServer: mockApplyWorkflowPatchInSocketServer,
-  notifyEntityListMemberRemoved: mockNotifyEntityListMemberRemoved,
-  notifyEntityListMembersUpserted: mockNotifyEntityListMembersUpserted,
 }))
 
 const emptyWorkflowState = { blocks: {}, edges: [], loops: {}, parallels: {} }
@@ -73,8 +67,6 @@ describe('applyWorkflowState', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockApplyWorkflowPatchInSocketServer.mockResolvedValue(undefined)
-    mockNotifyEntityListMemberRemoved.mockResolvedValue(undefined)
-    mockNotifyEntityListMembersUpserted.mockResolvedValue(undefined)
     mockEnsureUniqueBlockIds.mockImplementation(async (_workflowId, state) => state)
     mockEnsureUniqueEdgeIds.mockImplementation(async (_workflowId, state) => state)
     mockSelectLimit.mockResolvedValue([{ id: 'workflow-1', name: 'Renamed Workflow' }])
@@ -171,28 +163,5 @@ describe('applyWorkflowState', () => {
     )
 
     expect(mockDbUpdate).not.toHaveBeenCalled()
-  })
-
-  it('requires workflow list projection sync', async () => {
-    mockSelectLimit.mockResolvedValueOnce([
-      {
-        id: 'workflow-1',
-        workspaceId: 'workspace-1',
-        name: 'Workflow',
-        folderId: null,
-        color: '#64748b',
-      },
-    ])
-    mockNotifyEntityListMembersUpserted.mockRejectedValueOnce(new Error('socket unavailable'))
-    mockNotifyEntityListMemberRemoved.mockRejectedValueOnce(new Error('socket unavailable'))
-
-    const { publishWorkflowListMember, removeWorkflowListMember } = await import(
-      './apply-workflow-state'
-    )
-
-    await expect(publishWorkflowListMember('workflow-1')).rejects.toThrow('socket unavailable')
-    await expect(removeWorkflowListMember('workspace-1', 'workflow-1')).rejects.toThrow(
-      'socket unavailable'
-    )
   })
 })

@@ -42,7 +42,7 @@ describe('Individual Folder API Route', () => {
 
   const { mockAuthenticatedUser, mockUnauthenticated } = mockAuth(TEST_USER)
   const mockGetUserEntityPermissions = vi.fn()
-  const mockPublishWorkflowListMember = vi.fn()
+  const mockNotifyEntityListMembersUpserted = vi.fn()
 
   function createFolderDbMock(options: FolderDbMockOptions = {}) {
     const {
@@ -121,13 +121,13 @@ describe('Individual Folder API Route', () => {
     setupCommonApiMocks()
 
     mockGetUserEntityPermissions.mockResolvedValue('admin')
-    mockPublishWorkflowListMember.mockResolvedValue(undefined)
+    mockNotifyEntityListMembersUpserted.mockResolvedValue(undefined)
 
     vi.doMock('@/lib/permissions/utils', () => ({
       getUserEntityPermissions: mockGetUserEntityPermissions,
     }))
-    vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
-      publishWorkflowListMember: mockPublishWorkflowListMember,
+    vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
+      notifyEntityListMembersUpserted: mockNotifyEntityListMembersUpserted,
     }))
   })
 
@@ -436,7 +436,9 @@ describe('Individual Folder API Route', () => {
       const dbMock = createFolderDbMock({
         folderLookupResult: { ...mockFolder, parentId: 'parent-folder' },
         childFoldersResult: [{ id: 'child-folder' }],
-        updateResult: [{ id: 'workflow-1' }],
+        updateResult: [
+          { id: 'workflow-1', name: 'Workflow 1', folderId: 'parent-folder', color: '#64748b' },
+        ],
       })
 
       vi.doMock('@tradinggoose/db', () => dbMock)
@@ -458,7 +460,11 @@ describe('Individual Folder API Route', () => {
         movedFolders: 1,
         movedWorkflows: 1,
       })
-      expect(mockPublishWorkflowListMember).toHaveBeenCalledWith('workflow-1')
+      expect(mockNotifyEntityListMembersUpserted).toHaveBeenCalledWith(
+        'workflow',
+        'workspace-123',
+        [{ id: 'workflow-1', name: 'Workflow 1', folderId: 'parent-folder', color: '#64748b' }]
+      )
     })
 
     it('should return 401 for unauthenticated delete requests', async () => {
