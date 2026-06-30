@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { LayoutList } from 'lucide-react'
 import { useMessages } from 'next-intl'
-import { shallow } from 'zustand/shallow'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { getStableVibrantColor } from '@/lib/colors'
@@ -11,7 +10,6 @@ import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { WORKSPACE_BOOTSTRAP_CHANNEL } from '@/stores/workflows/registry/types'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
@@ -41,17 +39,8 @@ const WorkflowListWidgetBody = ({
   const copy = useMessages().workspace.widgets.workflowList
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
-  const selectionChannelId = isLinkedToColorPair
-    ? `pair-${resolvedPairColor}`
-    : WORKSPACE_BOOTSTRAP_CHANNEL
   const { members, isLoading, error } = useEntityList('workflow', workspaceId)
-  const { createWorkflow, activeWorkflowId } = useWorkflowRegistry(
-    (state) => ({
-      createWorkflow: state.createWorkflow,
-      activeWorkflowId: state.getActiveWorkflowId(selectionChannelId),
-    }),
-    shallow
-  )
+  const createWorkflow = useWorkflowRegistry((state) => state.createWorkflow)
   const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false)
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null)
   const setPairContext = useSetPairColorContext()
@@ -62,12 +51,6 @@ const WorkflowListWidgetBody = ({
     const value = widget.params.workflowId
     return typeof value === 'string' && value.trim().length > 0 ? value : null
   }, [isLinkedToColorPair, widget?.params])
-
-  useEffect(() => {
-    if (!paramsWorkflowId) return
-    if (paramsWorkflowId === selectedWorkflowId) return
-    setSelectedWorkflowId(paramsWorkflowId)
-  }, [paramsWorkflowId, selectedWorkflowId])
 
   const regularWorkflows = useMemo<WorkflowListEntry[]>(
     () =>
@@ -85,6 +68,12 @@ const WorkflowListWidgetBody = ({
         : [],
     [members, workspaceId]
   )
+
+  useEffect(() => {
+    if (!paramsWorkflowId) return
+    if (paramsWorkflowId === selectedWorkflowId) return
+    setSelectedWorkflowId(paramsWorkflowId)
+  }, [paramsWorkflowId, selectedWorkflowId])
 
   useEffect(() => {
     if (!workspaceId) {
@@ -117,22 +106,6 @@ const WorkflowListWidgetBody = ({
     setSelectedWorkflowId,
     onWidgetParamsChange,
   ])
-
-  const effectiveActiveWorkflowId = useMemo(() => {
-    if (selectedWorkflowId) {
-      return selectedWorkflowId
-    }
-
-    if (!workspaceId) {
-      return null
-    }
-
-    if (activeWorkflowId && regularWorkflows.some((workflow) => workflow.id === activeWorkflowId)) {
-      return activeWorkflowId
-    }
-
-    return regularWorkflows[0]?.id ?? null
-  }, [selectedWorkflowId, activeWorkflowId, regularWorkflows, workspaceId])
 
   const handleCreateWorkflow = useCallback(
     async (folderId?: string) => {
@@ -205,7 +178,7 @@ const WorkflowListWidgetBody = ({
     <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
       <WorkflowRouteProvider
         workspaceId={workspaceId}
-        workflowId={effectiveActiveWorkflowId ?? 'dashboard-workflow-list'}
+        workflowId={selectedWorkflowId ?? 'dashboard-workflow-list'}
         channelId='dashboard-workflow-list'
       >
         <div className='h-full w-full overflow-hidden p-2'>
@@ -215,7 +188,7 @@ const WorkflowListWidgetBody = ({
             isLoading={isLoading}
             onCreateWorkflow={handleCreateWorkflow}
             workspaceIdOverride={workspaceId}
-            workflowIdOverride={effectiveActiveWorkflowId}
+            workflowIdOverride={selectedWorkflowId}
             onWorkflowSelect={handleWorkflowSelect}
             disableNavigation
           />
