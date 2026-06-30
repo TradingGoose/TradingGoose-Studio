@@ -1,6 +1,9 @@
 import { readSavedEntityFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
+import { createLogger } from '@/lib/logs/console/logger'
 import type { SkillInput } from '@/executor/handlers/agent/types'
 import type { SkillMetadata } from './skill-loader'
+
+const logger = createLogger('SkillsResolver')
 
 export async function resolveSkillMetadata(
   skillInputs: SkillInput[],
@@ -15,21 +18,28 @@ export async function resolveSkillMetadata(
     return []
   }
 
-  return Promise.all(
+  const skills = await Promise.all(
     skillIds.map(async (skillId) => {
-      const fields = await readSavedEntityFieldsForExecution(
-        'skill',
-        skillId,
-        workspaceId,
-        isDeployedContext
-      )
-      return {
-        id: skillId,
-        name: String(fields.name ?? ''),
-        description: String(fields.description ?? ''),
+      try {
+        const fields = await readSavedEntityFieldsForExecution(
+          'skill',
+          skillId,
+          workspaceId,
+          isDeployedContext
+        )
+        return {
+          id: skillId,
+          name: String(fields.name ?? ''),
+          description: String(fields.description ?? ''),
+        }
+      } catch (error) {
+        logger.warn('Failed to resolve skill metadata', { error, skillId, workspaceId })
+        return null
       }
     })
   )
+
+  return skills.filter((skill): skill is SkillMetadata => skill !== null)
 }
 
 export async function resolveSkillContent(
@@ -41,11 +51,16 @@ export async function resolveSkillContent(
     return null
   }
 
-  const fields = await readSavedEntityFieldsForExecution(
-    'skill',
-    skillId,
-    workspaceId,
-    isDeployedContext
-  )
-  return String(fields.content ?? '')
+  try {
+    const fields = await readSavedEntityFieldsForExecution(
+      'skill',
+      skillId,
+      workspaceId,
+      isDeployedContext
+    )
+    return String(fields.content ?? '')
+  } catch (error) {
+    logger.warn('Failed to resolve skill content', { error, skillId, workspaceId })
+    return null
+  }
 }
