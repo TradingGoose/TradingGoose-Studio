@@ -73,7 +73,7 @@ const WorkflowListWidgetBody = ({
     rawSelectedWorkflowId &&
     regularWorkflows.some((workflow) => workflow.id === rawSelectedWorkflowId)
       ? rawSelectedWorkflowId
-      : (regularWorkflows[0]?.id ?? null)
+      : null
 
   useEffect(() => {
     if (!workspaceId) {
