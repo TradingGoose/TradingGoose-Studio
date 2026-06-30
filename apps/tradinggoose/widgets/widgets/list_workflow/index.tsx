@@ -69,32 +69,7 @@ const WorkflowListWidgetBody = ({
     [members, workspaceId]
   )
 
-  const selectedWorkflowId =
-    rawSelectedWorkflowId &&
-    (isLoading ||
-      error ||
-      regularWorkflows.some((workflow) => workflow.id === rawSelectedWorkflowId))
-      ? rawSelectedWorkflowId
-      : null
-
-  useEffect(() => {
-    if (!rawSelectedWorkflowId || selectedWorkflowId || isLoading || error) return
-
-    if (isLinkedToColorPair) {
-      setPairContext(resolvedPairColor, { workflowId: undefined })
-    } else {
-      onWidgetParamsChange?.({ workflowId: null })
-    }
-  }, [
-    error,
-    isLinkedToColorPair,
-    isLoading,
-    onWidgetParamsChange,
-    rawSelectedWorkflowId,
-    resolvedPairColor,
-    selectedWorkflowId,
-    setPairContext,
-  ])
+  const selectedWorkflowId = rawSelectedWorkflowId
 
   useEffect(() => {
     if (!workspaceId) {

@@ -1,13 +1,12 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { shallow } from 'zustand/shallow'
+import { useEffect, useMemo } from 'react'
 import {
   type PairColorContext,
   usePairColorStore,
 } from '@/stores/dashboard/pair-store'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { WORKSPACE_BOOTSTRAP_CHANNEL } from '@/stores/workflows/registry/types'
 import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
@@ -39,7 +38,6 @@ type UseWorkflowWidgetStateResult = {
   activeWorkflowIdForChannel: string | null
 }
 
-const MAX_METADATA_LOAD_ATTEMPTS = 2
 const EMPTY_PAIR_CONTEXT: Readonly<PairColorContext> = Object.freeze({})
 
 export const useWorkflowWidgetState = ({
@@ -60,26 +58,15 @@ export const useWorkflowWidgetState = ({
     panelId,
     fallbackWidgetKey,
   })
-  // Metadata is workspace-scoped, not pair-scoped. Loading it through the shared bootstrap channel
-  // avoids pair-context resets discarding in-flight metadata requests before a pair has an active workflow.
-  const metadataChannelId = WORKSPACE_BOOTSTRAP_CHANNEL
   const shouldUsePairWorkflowContext = usePairWorkflowContext && resolvedPairColor !== 'gray'
   const pairContext = usePairColorStore((state) =>
     shouldUsePairWorkflowContext ? state.contexts[resolvedPairColor] : EMPTY_PAIR_CONTEXT
   )
-  const { workflows, loadWorkflows, setActiveWorkflow } = useWorkflowRegistry(
-    (state) => ({
-      workflows: state.workflows,
-      loadWorkflows: state.loadWorkflows,
-      setActiveWorkflow: state.setActiveWorkflow,
-    }),
-    shallow
+  const { members, isLoading: isListLoading, error: listError } = useEntityList(
+    'workflow',
+    workspaceId
   )
-
-  const workflowMap = workflows ?? {}
-  const [hasRequestedLoad, setHasRequestedLoad] = useState(false)
-  const [loadError, setLoadError] = useState<WorkflowWidgetLoadError | null>(null)
-  const [loadAttempts, setLoadAttempts] = useState(0)
+  const setActiveWorkflow = useWorkflowRegistry((state) => state.setActiveWorkflow)
 
   const requestedWorkflowId = useMemo(() => {
     if (
@@ -96,128 +83,27 @@ export const useWorkflowWidgetState = ({
   const rawActiveWorkflowIdForChannel = useWorkflowRegistry((state) =>
     state.getActiveWorkflowId(channelId)
   )
-  const metadataHydration = useWorkflowRegistry((state) => state.getHydration(metadataChannelId))
   const isChannelHydrating = useWorkflowRegistry((state) => state.isChannelHydrating(channelId))
-  const isMetadataChannelHydrating = useWorkflowRegistry((state) =>
-    state.isChannelHydrating(metadataChannelId)
-  )
 
-  const workspaceWorkflowMap = useMemo(() => {
-    if (!workspaceId) {
-      return {}
-    }
-
-    return Object.fromEntries(
-      Object.entries(workflowMap).filter(([, workflow]) => workflow?.workspaceId === workspaceId)
-    )
-  }, [workflowMap, workspaceId])
-
-  const workflowIds = useMemo(() => Object.keys(workspaceWorkflowMap), [workspaceWorkflowMap])
-
-  const workspaceHasWorkflows = workflowIds.length > 0
-
-  useEffect(() => {
-    setLoadError(null)
-    setHasRequestedLoad(false)
-    setLoadAttempts(0)
-  }, [workspaceId, metadataChannelId])
-
-  useEffect(() => {
-    if (!workspaceId) {
-      return
-    }
-
-    if (workspaceHasWorkflows) {
-      return
-    }
-
-    if (
-      metadataHydration.phase === 'metadata-loading' ||
-      metadataHydration.phase === 'state-loading'
-    ) {
-      return
-    }
-
-    if (
-      metadataHydration.phase !== 'idle' &&
-      metadataHydration.phase !== 'error' &&
-      metadataHydration.phase !== 'metadata-ready'
-    ) {
-      return
-    }
-
-    if (loadAttempts >= MAX_METADATA_LOAD_ATTEMPTS) {
-      return
-    }
-
-    let cancelled = false
-    setHasRequestedLoad(true)
-    setLoadAttempts((previous) => previous + 1)
-    loadWorkflows({ workspaceId, channelId: metadataChannelId }).catch((error) => {
-      if (cancelled) {
-        return
-      }
-
-      console.error(`Failed to load workflows for ${loggerScope}`, error)
-      setLoadError(
-        error instanceof Error &&
-          (error.message === 'Unauthorized' || error.message === 'Forbidden')
-          ? 'authenticationRequiredToLoadWorkflows'
-          : 'unableToLoadWorkflows'
-      )
-    })
-
-    return () => {
-      cancelled = true
-    }
-  }, [
-    workspaceId,
-    workspaceHasWorkflows,
-    metadataHydration.phase,
-    loadAttempts,
-    loadWorkflows,
-    loggerScope,
-    metadataChannelId,
-  ])
+  const workflowIds = useMemo(() => members.map((member) => member.entityId), [members])
 
   const resolvedWorkflowId = useMemo(() => {
-    if (workflowIds.length === 0) {
-      return null
-    }
-
-    const pairWorkflowId =
-      shouldUsePairWorkflowContext &&
-      pairContext.workflowId &&
-      workspaceWorkflowMap[pairContext.workflowId]
-        ? pairContext.workflowId
-        : null
-
-    if (pairWorkflowId) {
-      return pairWorkflowId
-    }
-
     if (shouldUsePairWorkflowContext) {
-      return null
+      return pairContext.workflowId ?? null
     }
 
-    const channelWorkflowId =
-      rawActiveWorkflowIdForChannel && workspaceWorkflowMap[rawActiveWorkflowIdForChannel]
-        ? rawActiveWorkflowIdForChannel
-        : null
-
-    if (channelWorkflowId) {
-      return channelWorkflowId
+    if (rawActiveWorkflowIdForChannel) {
+      return rawActiveWorkflowIdForChannel
     }
 
-    if (requestedWorkflowId && workspaceWorkflowMap[requestedWorkflowId]) {
+    if (requestedWorkflowId) {
       return requestedWorkflowId
     }
 
-    return workflowIds[0]
+    return workflowIds[0] ?? null
   }, [
     workflowIds,
     pairContext.workflowId,
-    workspaceWorkflowMap,
     rawActiveWorkflowIdForChannel,
     requestedWorkflowId,
     shouldUsePairWorkflowContext,
@@ -248,15 +134,8 @@ export const useWorkflowWidgetState = ({
     loggerScope,
   ])
 
-  const hasLoadedWorkflows = useMemo(() => {
-    if (!workspaceId) {
-      return true
-    }
-    if (workspaceHasWorkflows || Boolean(loadError)) {
-      return true
-    }
-    return hasRequestedLoad && metadataHydration.phase !== 'metadata-loading'
-  }, [workspaceId, workspaceHasWorkflows, loadError, hasRequestedLoad, metadataHydration.phase])
+  const loadError: WorkflowWidgetLoadError | null = listError ? 'unableToLoadWorkflows' : null
+  const hasLoadedWorkflows = !workspaceId || Boolean(listError) || !isListLoading
 
   useEffect(() => {
     if (resolvedPairColor !== 'gray' || !resolvedWorkflowId || !onWidgetParamsChange) {
@@ -278,7 +157,7 @@ export const useWorkflowWidgetState = ({
     resolvedWorkflowId,
     hasLoadedWorkflows,
     loadError,
-    isLoading: isMetadataChannelHydrating || isChannelHydrating,
+    isLoading: isListLoading || isChannelHydrating,
     workflowIds,
     activeWorkflowIdForChannel: activeWorkflowIdForChannel ?? null,
   }
