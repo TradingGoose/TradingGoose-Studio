@@ -87,20 +87,6 @@ const WorkflowListWidgetBody = ({
   )
 
   useEffect(() => {
-    if (!selectedWorkflowId) {
-      return
-    }
-
-    if (paramsWorkflowId && selectedWorkflowId === paramsWorkflowId) {
-      return
-    }
-
-    if (!regularWorkflows.some((w) => w.id === selectedWorkflowId)) {
-      setSelectedWorkflowId(null)
-    }
-  }, [selectedWorkflowId, regularWorkflows, paramsWorkflowId])
-
-  useEffect(() => {
     if (!workspaceId) {
       return
     }

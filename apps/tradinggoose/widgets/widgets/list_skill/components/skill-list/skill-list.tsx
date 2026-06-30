@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { SKILL_NAME_MAX_LENGTH } from '@/lib/skills/import-export'
@@ -112,14 +112,6 @@ export function SkillList({
       setPairContext,
     ]
   )
-
-  useEffect(() => {
-    if (!selectedSkillId || listSkills.some((skill) => skill.id === selectedSkillId)) {
-      return
-    }
-
-    handleSelect(null)
-  }, [handleSelect, listSkills, selectedSkillId])
 
   const handleDelete = useCallback(
     async (skillId: string) => {
