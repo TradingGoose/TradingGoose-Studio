@@ -20,17 +20,17 @@ import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/provide
 import { Link, useRouter } from '@/i18n/navigation'
 import { useFolderStore, useIsWorkflowSelected } from '@/stores/folders/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
+import type { WorkflowMetadataSeed } from '@/stores/workflows/registry/types'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('WorkflowItem')
 
 interface WorkflowItemProps {
-  workflow: WorkflowMetadata
+  workflow: WorkflowMetadataSeed
   active: boolean
   isMarketplace?: boolean
   isDragOver?: boolean
-  onSelect?: (workflow: WorkflowMetadata) => void
+  onSelect?: (workflow: WorkflowMetadataSeed) => void
   disableNavigation?: boolean
   canDelete?: boolean
 }
@@ -105,7 +105,7 @@ export function WorkflowItem({
 
     setIsRenaming(true)
     try {
-      await updateWorkflow(workflow.id, { name: editValue.trim() })
+      await updateWorkflow(workflow.id, { name: editValue.trim() }, workflow)
       logger.info(`Successfully renamed workflow from "${workflow.name}" to "${editValue.trim()}"`)
       setIsEditing(false)
     } catch (error) {
@@ -225,7 +225,7 @@ export function WorkflowItem({
 
     setIsDuplicating(true)
     try {
-      const duplicatedWorkflowId = await duplicateWorkflow(workflow.id)
+      const duplicatedWorkflowId = await duplicateWorkflow(workflow.id, workflow)
       if (!duplicatedWorkflowId) return
 
       const duplicatedWorkflow = useWorkflowRegistry.getState().workflows[duplicatedWorkflowId]
@@ -255,6 +255,7 @@ export function WorkflowItem({
     onSelect,
     router,
     userPermissions.canEdit,
+    workflow,
     workflow.id,
     workspaceId,
   ])

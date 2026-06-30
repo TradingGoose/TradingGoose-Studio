@@ -11,13 +11,12 @@ import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
 import { WORKSPACE_BOOTSTRAP_CHANNEL } from '@/stores/workflows/registry/types'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { DashboardWorkflowCreateMenu } from '@/widgets/widgets/list_workflow/components/workflow-create-menu'
-import { FolderTree } from './components/folder-tree/folder-tree'
+import { FolderTree, type WorkflowListEntry } from './components/folder-tree/folder-tree'
 
 const WORKFLOW_LIST_WORKFLOW_CREATED_EVENT = 'dashboard-workflow-list:workflow-created'
 
@@ -70,19 +69,15 @@ const WorkflowListWidgetBody = ({
     setSelectedWorkflowId(paramsWorkflowId)
   }, [paramsWorkflowId, selectedWorkflowId])
 
-  const regularWorkflows = useMemo<WorkflowMetadata[]>(
+  const regularWorkflows = useMemo<WorkflowListEntry[]>(
     () =>
       workspaceId
         ? members.map((member) => {
-            const createdAt = new Date(0)
             return {
               id: member.entityId,
               name: member.entityName,
               description: '',
-              color: getStableVibrantColor(member.entityId),
-              lastModified: createdAt,
-              createdAt,
-              marketplaceData: null,
+              color: member.color ?? getStableVibrantColor(member.entityId),
               workspaceId,
               folderId: member.folderId ?? null,
             }
@@ -90,27 +85,6 @@ const WorkflowListWidgetBody = ({
         : [],
     [members, workspaceId]
   )
-
-  useEffect(() => {
-    if (!workspaceId) return
-    useWorkflowRegistry.setState((state) => ({
-      workflows: {
-        ...state.workflows,
-        ...Object.fromEntries(
-          regularWorkflows.map((workflow) => [
-            workflow.id,
-            {
-              ...workflow,
-              ...state.workflows[workflow.id],
-              name: workflow.name,
-              folderId: workflow.folderId,
-              workspaceId: workflow.workspaceId,
-            },
-          ])
-        ),
-      },
-    }))
-  }, [regularWorkflows, workspaceId])
 
   useEffect(() => {
     if (!selectedWorkflowId) {
@@ -214,7 +188,7 @@ const WorkflowListWidgetBody = ({
   )
 
   const handleWorkflowSelect = useCallback(
-    (workflow: WorkflowMetadata) => {
+    (workflow: WorkflowListEntry) => {
       setSelectedWorkflowId(workflow.id)
       if (isLinkedToColorPair) {
         setPairContext(resolvedPairColor, { workflowId: workflow.id })

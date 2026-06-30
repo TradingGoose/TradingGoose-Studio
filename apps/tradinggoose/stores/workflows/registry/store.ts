@@ -3,13 +3,13 @@ import { createWithEqualityFn as create } from 'zustand/traditional'
 import { getStableVibrantColor } from '@/lib/colors'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateCreativeWorkflowName } from '@/lib/naming'
-import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { API_ENDPOINTS } from '@/stores/constants'
 import { usePairColorStore } from '@/stores/dashboard/pair-store'
 import type {
   ChannelHydrationState,
   DeploymentStatus,
   WorkflowMetadata,
+  WorkflowMetadataSeed,
   WorkflowRegistry,
 } from '@/stores/workflows/registry/types'
 import { WORKSPACE_BOOTSTRAP_CHANNEL } from '@/stores/workflows/registry/types'
@@ -954,9 +954,9 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
       /**
        * Duplicates an existing workflow
        */
-      duplicateWorkflow: async (sourceId: string) => {
+      duplicateWorkflow: async (sourceId: string, source?: WorkflowMetadataSeed) => {
         const { workflows } = get()
-        const sourceWorkflow = workflows[sourceId]
+        const sourceWorkflow = workflows[sourceId] ?? source
 
         if (!sourceWorkflow) {
           set({ error: `Workflow ${sourceId} not found` })
@@ -1005,57 +1005,14 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
         // Generate new workflow metadata using the server-generated ID
         const newWorkflow: WorkflowMetadata = {
           id,
-          name: `${sourceWorkflow.name} (Copy)`,
+          name: duplicatedWorkflow.name ?? `${sourceWorkflow.name} (Copy)`,
           lastModified: new Date(),
           createdAt: new Date(),
-          description: sourceWorkflow.description,
+          description: duplicatedWorkflow.description ?? sourceWorkflow.description,
           color: duplicatedWorkflow.color || getStableVibrantColor(id),
           workspaceId, // Include the workspaceId in the new workflow
-          folderId: sourceWorkflow.folderId, // Include the folderId from source workflow
+          folderId: duplicatedWorkflow.folderId ?? sourceWorkflow.folderId, // Include the folderId from source workflow
           // Do not copy marketplace data
-        }
-
-        // Get the current workflow state from the Yjs session
-        const { getRegisteredWorkflowSession: getYjsSession } =
-          require('@/lib/yjs/workflow-session-registry') as typeof import('@/lib/yjs/workflow-session-registry')
-        const { readWorkflowSnapshot: getYjsSnapshot } =
-          require('@/lib/yjs/workflow-session') as typeof import('@/lib/yjs/workflow-session')
-        const yjsSession = getYjsSession(sourceId)
-        const currentWorkflowState = yjsSession?.doc ? getYjsSnapshot(yjsSession.doc) : null
-
-        // If we're duplicating the active workflow, use current state
-        // Otherwise, we need to fetch it from DB or use empty state
-        let sourceState: any
-
-        if (sourceId === getActiveWorkflowIdFromState(get()) && currentWorkflowState) {
-          // Source is the active workflow, copy current state from Yjs
-          sourceState = {
-            blocks: currentWorkflowState.blocks || {},
-            edges: currentWorkflowState.edges || [],
-            loops: currentWorkflowState.loops || {},
-            parallels: currentWorkflowState.parallels || {},
-          }
-        } else {
-          const defaultArtifacts = buildDefaultWorkflowArtifacts()
-          sourceState = {
-            blocks: defaultArtifacts.workflowState.blocks,
-            edges: defaultArtifacts.workflowState.edges,
-            loops: defaultArtifacts.workflowState.loops,
-            parallels: defaultArtifacts.workflowState.parallels,
-          }
-        }
-
-        // Create the new workflow state with copied content
-        const newState = {
-          blocks: sourceState.blocks,
-          edges: sourceState.edges,
-          loops: sourceState.loops,
-          parallels: sourceState.parallels,
-          isDeployed: false,
-          deployedAt: undefined,
-          workspaceId,
-          deploymentStatuses: {},
-          lastSaved: Date.now(),
         }
 
         // Add workflow to registry
@@ -1078,13 +1035,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
       ) => {
         const skipApi = options?.skipApi ?? false
         const templateAction = options?.templateAction
-        const { workflows } = get()
-        const workflowToDelete = workflows[id]
-
-        if (!workflowToDelete) {
-          logger.warn(`Attempted to delete non-existent workflow: ${id}`)
-          return
-        }
         set({ error: null })
 
         if (!skipApi) {
@@ -1178,28 +1128,36 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
       // Update workflow metadata
       updateWorkflow: async (
         id: string,
-        metadata: Partial<Pick<WorkflowMetadata, 'name' | 'description' | 'folderId'>>
+        metadata: Partial<Pick<WorkflowMetadata, 'name' | 'description' | 'folderId'>>,
+        source?: WorkflowMetadataSeed
       ) => {
         const { workflows } = get()
-        const workflow = workflows[id]
-        if (!workflow) {
-          logger.warn(`Cannot update workflow ${id}: not found in registry`)
-          return
-        }
+        const workflow = workflows[id] ?? source
+        const workflowForState: WorkflowMetadata | null = workflow
+          ? {
+              ...workflow,
+              lastModified: workflow.lastModified ?? new Date(),
+              createdAt: workflow.createdAt ?? new Date(),
+            }
+          : null
 
         // Optimistically update local state first
-        set((state) => ({
-          workflows: {
-            ...state.workflows,
-            [id]: {
-              ...workflow,
-              ...metadata,
-              lastModified: new Date(),
-              createdAt: workflow.createdAt, // Preserve creation date
+        if (workflowForState) {
+          set((state) => ({
+            workflows: {
+              ...state.workflows,
+              [id]: {
+                ...workflowForState,
+                ...metadata,
+                lastModified: new Date(),
+                createdAt: workflowForState.createdAt,
+              },
             },
-          },
-          error: null,
-        }))
+            error: null,
+          }))
+        } else {
+          set({ error: null })
+        }
 
         // Persist to database via API
         try {
@@ -1222,15 +1180,17 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
             workflows: {
               ...state.workflows,
               [id]: {
-                ...state.workflows[id],
+                ...(state.workflows[id] ?? workflowForState),
+                id: updatedWorkflow.id ?? id,
                 name: updatedWorkflow.name,
                 description: updatedWorkflow.description,
                 color: updatedWorkflow.color,
+                workspaceId: updatedWorkflow.workspaceId,
                 folderId: updatedWorkflow.folderId,
                 lastModified: new Date(updatedWorkflow.updatedAt),
                 createdAt: updatedWorkflow.createdAt
                   ? new Date(updatedWorkflow.createdAt)
-                  : state.workflows[id].createdAt,
+                  : ((state.workflows[id] ?? workflowForState)?.createdAt ?? new Date()),
               },
             },
           }))
@@ -1241,7 +1201,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           set((state) => ({
             workflows: {
               ...state.workflows,
-              [id]: workflow, // Revert to original state
+              ...(workflowForState ? { [id]: workflowForState } : {}),
             },
             error: `Failed to update workflow: ${error instanceof Error ? error.message : 'Unknown error'}`,
           }))

@@ -22,6 +22,12 @@ export interface WorkflowMetadata {
   folderId?: string | null
 }
 
+export type WorkflowMetadataSeed = Pick<
+  WorkflowMetadata,
+  'id' | 'name' | 'description' | 'color' | 'workspaceId' | 'folderId'
+> &
+  Partial<Pick<WorkflowMetadata, 'lastModified' | 'createdAt' | 'marketplaceData'>>
+
 export type HydrationPhase =
   | 'idle'
   | 'metadata-loading'
@@ -65,7 +71,8 @@ export interface WorkflowRegistryActions {
   ) => Promise<void>
   updateWorkflow: (
     id: string,
-    metadata: Partial<Pick<WorkflowMetadata, 'name' | 'description' | 'folderId'>>
+    metadata: Partial<Pick<WorkflowMetadata, 'name' | 'description' | 'folderId'>>,
+    source?: WorkflowMetadataSeed
   ) => Promise<void>
   createWorkflow: (options?: {
     isInitial?: boolean
@@ -77,7 +84,7 @@ export interface WorkflowRegistryActions {
     folderId?: string | null
     initialWorkflowState?: any
   }) => Promise<string>
-  duplicateWorkflow: (sourceId: string) => Promise<string | null>
+  duplicateWorkflow: (sourceId: string, source?: WorkflowMetadataSeed) => Promise<string | null>
   readWorkflowDeploymentStatus: (workflowId: string | null) => DeploymentStatus | null
   setDeploymentStatus: (
     workflowId: string | null,

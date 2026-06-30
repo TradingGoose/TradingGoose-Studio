@@ -6,23 +6,28 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { createLogger } from '@/lib/logs/console/logger'
 import { type FolderTreeNode, useFolderStore } from '@/stores/folders/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
+import type { WorkflowMetadataSeed } from '@/stores/workflows/registry/types'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { FolderItem } from './components/folder-item'
 import { WorkflowItem } from './components/workflow-item'
 
 const logger = createLogger('FolderTree')
 
+export type WorkflowListEntry = WorkflowMetadataSeed
+
 interface FolderSectionProps {
   folder: FolderTreeNode
   level: number
   onCreateWorkflow: (folderId?: string) => void
-  onWorkflowSelect?: (workflow: WorkflowMetadata) => void
+  onWorkflowSelect?: (workflow: WorkflowListEntry) => void
   disableNavigation?: boolean
-  workflowsByFolder: Record<string, WorkflowMetadata[]>
+  workflowsByFolder: Record<string, WorkflowListEntry[]>
   expandedFolders: Set<string>
   activeWorkflowId: string | null
-  updateWorkflow: (id: string, updates: Partial<WorkflowMetadata>) => Promise<void>
+  updateWorkflow: (
+    id: string,
+    updates: Partial<Pick<WorkflowListEntry, 'folderId'>>
+  ) => Promise<void>
   updateFolder: (id: string, updates: any) => Promise<any>
   canDeleteWorkflow: boolean
   renderFolderTree: (
@@ -36,7 +41,7 @@ interface FolderSectionProps {
 // Helper function to count visible items, excluding content of the last expanded folder
 const countVisibleItemsForLine = (
   folder: FolderTreeNode,
-  workflowsByFolder: Record<string, WorkflowMetadata[]>,
+  workflowsByFolder: Record<string, WorkflowListEntry[]>,
   expandedFolders: Set<string>
 ): number => {
   if (!expandedFolders.has(folder.id)) {
@@ -250,7 +255,10 @@ function FolderSection({
 
 // Custom hook for drag and drop handling
 function useDragHandlers(
-  updateWorkflow: (id: string, updates: Partial<WorkflowMetadata>) => Promise<void>,
+  updateWorkflow: (
+    id: string,
+    updates: Partial<Pick<WorkflowListEntry, 'folderId'>>
+  ) => Promise<void>,
   updateFolder: (id: string, updates: any) => Promise<any>,
   targetFolderId: string | null, // null for root
   logMessage?: string
@@ -372,13 +380,13 @@ function useDragHandlers(
 }
 
 interface FolderTreeProps {
-  regularWorkflows: WorkflowMetadata[]
-  marketplaceWorkflows: WorkflowMetadata[]
+  regularWorkflows: WorkflowListEntry[]
+  marketplaceWorkflows: WorkflowListEntry[]
   isLoading?: boolean
   onCreateWorkflow: (folderId?: string) => Promise<string | undefined> | undefined
   workspaceIdOverride?: string | null
   workflowIdOverride?: string | null
-  onWorkflowSelect?: (workflow: WorkflowMetadata) => void
+  onWorkflowSelect?: (workflow: WorkflowListEntry) => void
   disableNavigation?: boolean
 }
 
@@ -508,7 +516,7 @@ export function FolderTree({
       acc[folderId].push(workflow)
       return acc
     },
-    {} as Record<string, WorkflowMetadata[]>
+    {} as Record<string, WorkflowListEntry[]>
   )
   const canDeleteWorkflow = regularWorkflows.length > 1
 
