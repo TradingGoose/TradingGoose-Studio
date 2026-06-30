@@ -17,7 +17,7 @@ export const GET = withMcpAuth('read')(
     try {
       const { searchParams } = new URL(request.url)
       const serverId = searchParams.get('serverId')
-      const isDeployedContext = searchParams.get('isDeployedContext') === 'true'
+      const isDeployedContext = searchParams.get('isDeployedContext') !== 'false'
 
       logger.info(`[${requestId}] Discovering MCP tools for user ${userId}`, {
         serverId,
@@ -67,7 +67,7 @@ export const POST = withMcpAuth('read')(
     try {
       const body = getParsedBody(request) || (await request.json())
       const { serverIds } = body
-      const isDeployedContext = body.isDeployedContext === true
+      const isDeployedContext = body.isDeployedContext !== false
 
       if (!Array.isArray(serverIds)) {
         return createMcpErrorResponse(
