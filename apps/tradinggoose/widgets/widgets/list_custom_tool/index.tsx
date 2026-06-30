@@ -1,6 +1,6 @@
 'use client'
 
-import { type ChangeEvent, useCallback, useMemo, useRef, useState } from 'react'
+import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Upload, Wrench } from 'lucide-react'
 import { useMessages } from 'next-intl'
 import {
@@ -393,6 +393,12 @@ function ListCustomToolWidgetBodyInner({
       setPairContext,
     ]
   )
+
+  useEffect(() => {
+    if (!selectedToolId || isLoading || error) return
+    if (tools.some((tool) => tool.id === selectedToolId)) return
+    syncSelection(null)
+  }, [error, isLoading, selectedToolId, syncSelection, tools])
 
   const handleDeleteTool = useCallback(
     async (customToolId: string) => {
