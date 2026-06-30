@@ -307,6 +307,7 @@ export class AgentBlockHandler implements BlockHandler {
       } else {
         throw new Error('workflowId is required for internal JWT authentication')
       }
+      url.searchParams.set('isDeployedContext', String(context.isDeployedContext !== false))
 
       const response = await fetch(url.toString(), {
         method: 'GET',
@@ -374,6 +375,7 @@ export class AgentBlockHandler implements BlockHandler {
               arguments: callParams,
               workspaceId: context.workspaceId,
               workflowId: context.workflowId,
+              isDeployedContext: context.isDeployedContext !== false,
             }),
           })
 
