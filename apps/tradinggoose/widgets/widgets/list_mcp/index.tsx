@@ -125,6 +125,36 @@ const ListMcpHeaderRightContent = ({
   const pairContext = usePairColorContext(resolvedPairColor)
   const setPairContext = useSetPairColorContext()
   const createServer = useMcpServersStore((state) => state.createServer)
+  const { members } = useEntityList('mcp_server', workspaceId)
+  const [pendingCreatedServerId, setPendingCreatedServerId] = useState<string | null>(null)
+
+  const selectServer = useCallback(
+    (serverId: string) => {
+      if (isLinkedToColorPair) {
+        setPairContext(resolvedPairColor, { mcpServerId: serverId })
+        return
+      }
+
+      emitMcpSelectionChange({
+        serverId,
+        panelId,
+        widgetKey: 'list_mcp',
+      })
+      emitMcpSelectionChange({
+        serverId,
+        panelId,
+        widgetKey: 'editor_mcp',
+      })
+    },
+    [isLinkedToColorPair, panelId, resolvedPairColor, setPairContext]
+  )
+
+  useEffect(() => {
+    if (!pendingCreatedServerId) return
+    if (!members.some((member) => member.entityId === pendingCreatedServerId)) return
+    selectServer(pendingCreatedServerId)
+    setPendingCreatedServerId(null)
+  }, [members, pendingCreatedServerId, selectServer])
 
   const handleCreateServer = useCallback(() => {
     if (!workspaceId || !permissions.canEdit) return
@@ -138,21 +168,11 @@ const ListMcpHeaderRightContent = ({
           throw new Error('Created MCP server is missing an id')
         }
 
-        if (isLinkedToColorPair) {
-          setPairContext(resolvedPairColor, { mcpServerId: createdServerId })
-          return
+        if (members.some((member) => member.entityId === createdServerId)) {
+          selectServer(createdServerId)
+        } else {
+          setPendingCreatedServerId(createdServerId)
         }
-
-        emitMcpSelectionChange({
-          serverId: createdServerId,
-          panelId,
-          widgetKey: 'list_mcp',
-        })
-        emitMcpSelectionChange({
-          serverId: createdServerId,
-          panelId,
-          widgetKey: 'editor_mcp',
-        })
       })
       .catch((error) => {
         console.error('Failed to create MCP server from list widget', error)
@@ -160,11 +180,9 @@ const ListMcpHeaderRightContent = ({
   }, [
     createServer,
     copy.defaults.newMcpServerName,
-    isLinkedToColorPair,
-    panelId,
+    members,
     permissions.canEdit,
-    resolvedPairColor,
-    setPairContext,
+    selectServer,
     workspaceId,
   ])
 
@@ -353,6 +371,12 @@ const ListMcpWidgetContent = ({
       workspaceId,
     ]
   )
+
+  useEffect(() => {
+    if (!selectedServerId || isLoading) return
+    if (workspaceServers.some((server) => server.id === selectedServerId)) return
+    handleSelectServer(null)
+  }, [handleSelectServer, isLoading, selectedServerId, workspaceServers])
 
   if (!workspaceId) {
     return <WidgetMessage message={copy.body.selectWorkspace} />
