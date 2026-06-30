@@ -85,10 +85,7 @@ export async function requireEntityRealtimeListMembers(
   const doc = new Y.Doc()
   try {
     Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
-    const activeEntityIds = new Set(
-      (await readEntityListMembersFromDb(entityKind, workspaceId)).map((member) => member.id)
-    )
-    return getEntityListMembers(doc).filter((member) => activeEntityIds.has(member.entityId))
+    return getEntityListMembers(doc)
   } finally {
     doc.destroy()
   }
@@ -236,4 +233,12 @@ export async function createEntityListBootstrapUpdate(
   } finally {
     doc.destroy()
   }
+}
+
+export async function reseedEntityListSessionFromDb(
+  doc: Y.Doc,
+  entityKind: ReviewEntityKind,
+  workspaceId: string
+): Promise<void> {
+  seedEntityListSession(doc, await readEntityListMembersFromDb(entityKind, workspaceId))
 }

@@ -37,12 +37,13 @@ export function EditorIndicatorWidgetBody({
 
   const normalizedRequestedIndicatorId = requestedIndicatorId?.trim() ?? ''
   const { members: indicatorMembers } = useEntityList('indicator', workspaceId)
-  const indicatorId =
-    normalizedRequestedIndicatorId.length > 0
-      ? normalizedRequestedIndicatorId
-      : isLinkedToColorPair
-        ? null
-        : (indicatorMembers[0]?.entityId ?? null)
+  const indicatorId = indicatorMembers.some(
+    (member) => member.entityId === normalizedRequestedIndicatorId
+  )
+    ? normalizedRequestedIndicatorId
+    : isLinkedToColorPair
+      ? null
+      : (indicatorMembers[0]?.entityId ?? null)
   const indicatorSession = useSavedEntityYjsSession('indicator', indicatorId, workspaceId)
 
   useEffect(() => {

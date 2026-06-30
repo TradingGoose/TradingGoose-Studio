@@ -26,6 +26,7 @@ import {
   createEntityListBootstrapUpdate,
   createSavedReviewTargetBootstrapUpdate,
   getRuntimeStateFromDoc,
+  reseedEntityListSessionFromDb,
 } from '@/lib/yjs/server/bootstrap-review-target'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import {
@@ -585,6 +586,15 @@ async function handleInternalYjsSnapshotRequest(
     if (!liveDoc) {
       sendJson(res, 404, { error: 'Session not found', sessionId })
       return
+    }
+
+    if (isEntityListSessionId(descriptor.yjsSessionId)) {
+      await reseedEntityListSessionFromDb(
+        liveDoc,
+        descriptor.entityKind,
+        descriptor.workspaceId as string
+      )
+      markDocumentPersisted(liveDoc)
     }
 
     const state = Y.encodeStateAsUpdate(liveDoc)

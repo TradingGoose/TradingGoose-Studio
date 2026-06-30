@@ -117,12 +117,13 @@ function EditorCustomToolWidgetBody({
     : paramsCustomToolId
   const normalizedRequestedCustomToolId = requestedCustomToolId?.trim() ?? ''
   const { members: customToolMembers } = useEntityList('custom_tool', workspaceId)
-  const selectedToolId =
-    normalizedRequestedCustomToolId.length > 0
-      ? normalizedRequestedCustomToolId
-      : isLinkedToColorPair
-        ? null
-        : (customToolMembers[0]?.entityId ?? null)
+  const selectedToolId = customToolMembers.some(
+    (member) => member.entityId === normalizedRequestedCustomToolId
+  )
+    ? normalizedRequestedCustomToolId
+    : isLinkedToColorPair
+      ? null
+      : (customToolMembers[0]?.entityId ?? null)
 
   useCustomToolSelectionPersistence({
     onWidgetParamsChange,

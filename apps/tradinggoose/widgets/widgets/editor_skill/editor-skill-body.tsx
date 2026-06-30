@@ -36,12 +36,11 @@ export function EditorSkillWidgetBody({
   const requestedSkillId = isLinkedToColorPair ? (pairContext?.skillId ?? null) : paramsSkillId
   const normalizedRequestedSkillId = requestedSkillId?.trim() ?? ''
   const { members: skillMembers } = useEntityList('skill', workspaceId)
-  const skillId =
-    normalizedRequestedSkillId.length > 0
-      ? normalizedRequestedSkillId
-      : isLinkedToColorPair
-        ? null
-        : (skillMembers[0]?.entityId ?? null)
+  const skillId = skillMembers.some((member) => member.entityId === normalizedRequestedSkillId)
+    ? normalizedRequestedSkillId
+    : isLinkedToColorPair
+      ? null
+      : (skillMembers[0]?.entityId ?? null)
   const skillSession = useSavedEntityYjsSession('skill', skillId, workspaceId)
 
   useEffect(() => {

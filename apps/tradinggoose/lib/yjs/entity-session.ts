@@ -93,13 +93,27 @@ export function seedEntityListSession(
 ): void {
   doc.transact(() => {
     const listMembers = getEntityListMembersMap(doc)
+    const memberIds = new Set(members.map((member) => member.id))
+    listMembers.forEach((_value, entityId) => {
+      if (!memberIds.has(entityId)) listMembers.delete(entityId)
+    })
     for (const member of members) {
-      listMembers.set(member.id, {
+      const next = {
         name: member.name,
         ...(typeof member.enabled === 'boolean' ? { enabled: member.enabled } : {}),
         ...('folderId' in member ? { folderId: member.folderId ?? null } : {}),
         ...(typeof member.color === 'string' ? { color: member.color } : {}),
-      })
+      }
+      const current = listMembers.get(member.id)
+      if (
+        current?.deleted ||
+        current?.name !== next.name ||
+        current?.enabled !== next.enabled ||
+        current?.folderId !== next.folderId ||
+        current?.color !== next.color
+      ) {
+        listMembers.set(member.id, next)
+      }
     }
   }, YJS_ORIGINS.SYSTEM)
 }

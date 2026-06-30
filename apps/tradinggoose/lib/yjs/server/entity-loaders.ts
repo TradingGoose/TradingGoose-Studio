@@ -63,7 +63,12 @@ export async function readEntityListMembersFromDb(
 > {
   if (entityKind === 'workflow') {
     const rows = await db
-      .select({ id: workflow.id, name: workflow.name, folderId: workflow.folderId })
+      .select({
+        id: workflow.id,
+        name: workflow.name,
+        folderId: workflow.folderId,
+        color: workflow.color,
+      })
       .from(workflow)
       .where(eq(workflow.workspaceId, workspaceId))
 
@@ -71,6 +76,7 @@ export async function readEntityListMembersFromDb(
       id: row.id,
       name: row.name,
       folderId: row.folderId,
+      color: row.color,
     }))
   }
 

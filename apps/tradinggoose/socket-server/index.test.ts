@@ -96,6 +96,7 @@ vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
       state,
     }
   }),
+  reseedEntityListSessionFromDb: vi.fn(),
   getRuntimeStateFromDoc: vi.fn(() => ({
     docState: 'active',
     replaySafe: false,
