@@ -6,7 +6,7 @@ import { validateExternalUrl } from '@/lib/security/input-validation'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { generateRequestId } from '@/lib/utils'
 import { isSkillLoaderExecution } from '@/executor/handlers/agent/skill-loader'
-import { resolvePersistedSkillContent } from '@/executor/handlers/agent/skills-resolver'
+import { resolveSkillContent } from '@/executor/handlers/agent/skills-resolver'
 import type { ExecutionContext } from '@/executor/types'
 import type { ErrorInfo } from '@/tools/error-extractors'
 import { extractErrorMessage } from '@/tools/error-extractors'
@@ -43,6 +43,7 @@ function resolveExecutionScope(
   workflowLogId?: string
   toolExecutionId?: string
   submissionSource?: string
+  isDeployedContext?: boolean
 } {
   const context = params._context || {}
 
@@ -54,6 +55,7 @@ function resolveExecutionScope(
     workflowLogId: executionContext?.workflowLogId ?? context.workflowLogId,
     toolExecutionId: context.toolExecutionId,
     submissionSource: executionContext?.submissionSource ?? context.submissionSource,
+    isDeployedContext: executionContext?.isDeployedContext ?? context.isDeployedContext,
   }
 }
 
@@ -274,7 +276,11 @@ export async function executeTool(
         }
       }
 
-      const content = await resolvePersistedSkillContent(skillId, scope.workspaceId)
+      const content = await resolveSkillContent(
+        skillId,
+        scope.workspaceId,
+        scope.isDeployedContext !== false
+      )
       if (!content) {
         return {
           success: false,
@@ -291,7 +297,12 @@ export async function executeTool(
 
     // If it's a custom tool, use the async version with workflowId
     if (isCustomToolRuntimeId(toolId)) {
-      tool = await getToolAsync(toolId, scope.workflowId, scope.workspaceId)
+      tool = await getToolAsync(
+        toolId,
+        scope.workflowId,
+        scope.workspaceId,
+        scope.isDeployedContext !== false
+      )
       if (!tool) {
         logger.error(`[${requestId}] Custom tool not found: ${toolId}`)
       }
@@ -325,6 +336,7 @@ export async function executeTool(
         workflowLogId: scope.workflowLogId,
         toolExecutionId: scope.toolExecutionId,
         submissionSource: scope.submissionSource,
+        isDeployedContext: scope.isDeployedContext,
       }
       if (
         mergedContext.workflowId ||
@@ -332,7 +344,8 @@ export async function executeTool(
         mergedContext.executionId ||
         mergedContext.workflowLogId ||
         mergedContext.toolExecutionId ||
-        mergedContext.submissionSource
+        mergedContext.submissionSource ||
+        typeof mergedContext.isDeployedContext === 'boolean'
       ) {
         ;(contextParams as any)._context = mergedContext
       }
@@ -1009,6 +1022,9 @@ async function executeMcpTool(
       arguments: toolArguments,
       workflowId, // Pass workflow context for user resolution
       workspaceId, // Pass workspace context for scoping
+      ...(typeof scope.isDeployedContext === 'boolean'
+        ? { isDeployedContext: scope.isDeployedContext }
+        : {}),
     }
 
     logger.info(`[${actualRequestId}] Making MCP tool request to ${toolName} on ${serverId}`, {

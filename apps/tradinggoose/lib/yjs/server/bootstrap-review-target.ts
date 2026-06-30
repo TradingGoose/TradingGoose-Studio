@@ -117,6 +117,39 @@ export async function requireSavedEntityRealtimeListFields(
   )
 }
 
+export async function readSavedEntityFieldsForExecution(
+  entityKind: SavedEntityKind,
+  entityId: string,
+  workspaceId: string,
+  isDeployedContext: boolean
+): Promise<Record<string, unknown>> {
+  return isDeployedContext
+    ? readSavedEntityFieldsFromDb(entityKind, entityId, workspaceId)
+    : readBootstrappedSavedEntityFields(entityKind, entityId, workspaceId)
+}
+
+export async function readSavedEntityListFieldsForExecution(
+  entityKind: SavedEntityKind,
+  workspaceId: string,
+  isDeployedContext: boolean
+): Promise<Array<EntityListMember & { fields: Record<string, unknown> }>> {
+  if (!isDeployedContext) {
+    return requireSavedEntityRealtimeListFields(entityKind, workspaceId)
+  }
+
+  const members = await readEntityListMembersFromDb(entityKind, workspaceId)
+  return Promise.all(
+    members.map(async (member) => ({
+      entityId: member.id,
+      entityName: member.name,
+      ...(typeof member.enabled === 'boolean' ? { enabled: member.enabled } : {}),
+      ...('folderId' in member ? { folderId: member.folderId ?? null } : {}),
+      ...(typeof member.color === 'string' ? { color: member.color } : {}),
+      fields: await readSavedEntityFieldsFromDb(entityKind, member.id, workspaceId),
+    }))
+  )
+}
+
 export async function readBootstrappedSavedEntityFields(
   entityKind: SavedEntityKind,
   entityId: string,

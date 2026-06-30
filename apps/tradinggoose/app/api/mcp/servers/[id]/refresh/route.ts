@@ -56,7 +56,7 @@ export const POST = withMcpAuth('read')(
       let lastError: string | null = null
 
       try {
-        const tools = await mcpService.discoverServerTools(userId, serverId, workspaceId)
+        const tools = await mcpService.discoverServerTools(userId, serverId, workspaceId, false)
         connectionStatus = 'connected'
         toolCount = tools.length
         logger.info(

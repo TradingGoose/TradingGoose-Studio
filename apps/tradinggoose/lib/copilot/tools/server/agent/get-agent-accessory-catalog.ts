@@ -91,7 +91,7 @@ export const getAgentAccessoryCatalogServerTool: BaseServerTool<
     const [blockToolOptions, customToolRows, mcpToolRows, skillRows] = await Promise.all([
       getBlockToolOptions(),
       listCustomTools({ workspaceId }),
-      mcpService.discoverTools(scopedContext.userId, workspaceId),
+      mcpService.discoverTools(scopedContext.userId, workspaceId, false),
       listSkills({ workspaceId }),
     ])
 

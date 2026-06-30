@@ -10,7 +10,7 @@ import {
   getLocalVmSaturationLimitMessage,
   isLocalVmSaturationLimitError,
 } from '@/lib/execution/local-saturation-limit'
-import { listPersistedCustomIndicatorRuntimeEntries } from '@/lib/indicators/custom/operations'
+import { listCustomIndicatorRuntimeEntries } from '@/lib/indicators/custom/operations'
 import { DEFAULT_INDICATOR_RUNTIME_ENTRIES } from '@/lib/indicators/default/runtime'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
@@ -40,6 +40,7 @@ export type FunctionExecutionPayload = {
   workflowId?: string | null
   workspaceId: string
   isCustomTool?: boolean
+  isDeployedContext?: boolean
 }
 
 type FunctionExecutionResponseBody = {
@@ -123,6 +124,7 @@ export async function executeFunctionRequest(
       workflowId,
       workspaceId,
       isCustomTool = false,
+      isDeployedContext = true,
     } = payload
     const e2bUserScope = payload.userId
 
@@ -155,7 +157,7 @@ export async function executeFunctionRequest(
           pineCode,
           inputMeta,
         })),
-        ...(await listPersistedCustomIndicatorRuntimeEntries(workspaceId)),
+        ...(await listCustomIndicatorRuntimeEntries(workspaceId, isDeployedContext)),
       ],
     }
 

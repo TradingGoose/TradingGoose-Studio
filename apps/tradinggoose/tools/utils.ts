@@ -1,6 +1,7 @@
 import {
   getCustomToolEntityIdFromRuntimeId,
   isCustomToolRuntimeId,
+  parseCustomToolSchemaText,
 } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
@@ -300,6 +301,9 @@ export function createCustomToolRequestBody(
       ...(typeof context.submissionSource === 'string' && context.submissionSource
         ? { submissionSource: context.submissionSource }
         : {}),
+      ...(typeof context.isDeployedContext === 'boolean'
+        ? { isDeployedContext: context.isDeployedContext }
+        : {}),
       isCustomTool: true, // Flag to indicate this is a custom tool execution
     }
   }
@@ -332,7 +336,8 @@ export function getTool(toolId: string): ToolConfig | undefined {
 export async function getToolAsync(
   toolId: string,
   workflowId?: string,
-  workspaceId?: string
+  workspaceId?: string,
+  isDeployedContext = true
 ): Promise<ToolConfig | undefined> {
   // Check for built-in tools
   const builtInTool = tools[toolId]
@@ -341,7 +346,7 @@ export async function getToolAsync(
   // Check if it's a custom tool
   if (isCustomToolRuntimeId(toolId)) {
     if (typeof window !== 'undefined') return getTool(toolId)
-    return getPersistedCustomTool(toolId, workflowId, workspaceId)
+    return getServerCustomTool(toolId, workflowId, workspaceId, isDeployedContext)
   }
 
   return undefined
@@ -405,10 +410,11 @@ async function resolveWorkflowWorkspaceId(workflowId: string): Promise<string | 
   return row?.workspaceId ?? null
 }
 
-async function getPersistedCustomTool(
+async function getServerCustomTool(
   customToolId: string,
-  workflowId?: string,
-  workspaceId?: string
+  workflowId: string | undefined,
+  workspaceId: string | undefined,
+  isDeployedContext: boolean
 ): Promise<ToolConfig | undefined> {
   const identifier = getCustomToolEntityIdFromRuntimeId(customToolId)
 
@@ -420,26 +426,28 @@ async function getPersistedCustomTool(
       return undefined
     }
 
-    const [{ db }, { customTools }, { and, eq }] = await Promise.all([
-      import('@tradinggoose/db'),
-      import('@tradinggoose/db/schema'),
-      import('drizzle-orm'),
-    ])
+    const { readSavedEntityFieldsForExecution } = await import(
+      '@/lib/yjs/server/bootstrap-review-target'
+    )
+    const fields = await readSavedEntityFieldsForExecution(
+      'custom_tool',
+      identifier,
+      scopedWorkspaceId,
+      isDeployedContext
+    )
 
-    const [customTool] = await db
-      .select()
-      .from(customTools)
-      .where(and(eq(customTools.id, identifier), eq(customTools.workspaceId, scopedWorkspaceId)))
-      .limit(1)
-
-    if (!customTool) {
-      logger.error(`Custom tool not found: ${identifier}`)
-      return undefined
-    }
-
-    return createToolConfig(customTool, customToolId, false, workflowId)
+    return createToolConfig(
+      {
+        title: String(fields.title ?? ''),
+        schema: parseCustomToolSchemaText(fields.schemaText),
+        code: String(fields.codeText ?? ''),
+      },
+      customToolId,
+      false,
+      workflowId
+    )
   } catch (error) {
-    logger.error(`Error fetching custom tool ${identifier} from DB:`, error)
+    logger.error(`Error fetching custom tool ${identifier}:`, error)
     return undefined
   }
 }

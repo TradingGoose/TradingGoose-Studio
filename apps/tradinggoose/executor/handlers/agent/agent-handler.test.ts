@@ -34,7 +34,7 @@ vi.mock('@/tools', () => ({
 }))
 
 vi.mock('@/executor/handlers/agent/skills-resolver', () => ({
-  resolvePersistedSkillMetadata: mockResolveSkillMetadata,
+  resolveSkillMetadata: mockResolveSkillMetadata,
 }))
 
 global.fetch = Object.assign(vi.fn(), { preconnect: vi.fn() }) as typeof fetch

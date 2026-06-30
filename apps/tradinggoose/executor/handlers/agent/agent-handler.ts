@@ -26,7 +26,7 @@ import {
   buildSkillsSystemPromptSection,
   createSkillLoaderToolId,
 } from './skill-loader'
-import { resolvePersistedSkillMetadata } from './skills-resolver'
+import { resolveSkillMetadata } from './skills-resolver'
 
 const logger = createLogger('AgentBlockHandler')
 
@@ -85,7 +85,11 @@ export class AgentBlockHandler implements BlockHandler {
       : []
     const skillMetadata =
       skillInputs.length > 0 && context.workspaceId
-        ? await resolvePersistedSkillMetadata(skillInputs, context.workspaceId)
+        ? await resolveSkillMetadata(
+            skillInputs,
+            context.workspaceId,
+            context.isDeployedContext !== false
+          )
         : []
     const skillLoaderToolId =
       skillMetadata.length > 0
@@ -407,7 +411,12 @@ export class AgentBlockHandler implements BlockHandler {
       selectedOperation: tool.operation,
       getAllBlocks,
       getToolAsync: (toolId: string) =>
-        getToolAsync(toolId, context.workflowId, context.workspaceId),
+        getToolAsync(
+          toolId,
+          context.workflowId,
+          context.workspaceId,
+          context.isDeployedContext !== false
+        ),
       getTool,
       createLLMToolSchema,
     })

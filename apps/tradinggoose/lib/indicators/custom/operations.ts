@@ -13,24 +13,26 @@ import {
   applySavedEntityState,
   publishCreatedSavedEntityListMembers,
 } from '@/lib/yjs/server/apply-entity-state'
-import { requireSavedEntityRealtimeListFields } from '@/lib/yjs/server/bootstrap-review-target'
+import {
+  readSavedEntityListFieldsForExecution,
+  requireSavedEntityRealtimeListFields,
+} from '@/lib/yjs/server/bootstrap-review-target'
 
 const logger = createLogger('IndicatorsOperations')
 
-export async function listPersistedCustomIndicatorRuntimeEntries(workspaceId: string) {
-  const rows = await db
-    .select({
-      id: pineIndicators.id,
-      pineCode: pineIndicators.pineCode,
-      inputMeta: pineIndicators.inputMeta,
-    })
-    .from(pineIndicators)
-    .where(eq(pineIndicators.workspaceId, workspaceId))
-
-  return rows.map((row) => ({
-    id: row.id,
-    pineCode: row.pineCode,
-    inputMeta: normalizeInputMetaMap(row.inputMeta),
+export async function listCustomIndicatorRuntimeEntries(
+  workspaceId: string,
+  isDeployedContext: boolean
+) {
+  const entries = await readSavedEntityListFieldsForExecution(
+    'indicator',
+    workspaceId,
+    isDeployedContext
+  )
+  return entries.map(({ entityId, fields }) => ({
+    id: entityId,
+    pineCode: String(fields.pineCode ?? ''),
+    inputMeta: normalizeInputMetaMap(fields.inputMeta),
   }))
 }
 

@@ -25,9 +25,9 @@ export const GET = withMcpAuth('read')(
 
       let tools
       if (serverId) {
-        tools = await mcpService.discoverServerTools(userId, serverId, workspaceId)
+        tools = await mcpService.discoverServerTools(userId, serverId, workspaceId, false)
       } else {
-        tools = await mcpService.discoverTools(userId, workspaceId)
+        tools = await mcpService.discoverTools(userId, workspaceId, false)
       }
 
       const byServer: Record<string, number> = {}
@@ -77,7 +77,7 @@ export const POST = withMcpAuth('read')(
 
       const results = await Promise.allSettled(
         serverIds.map(async (serverId: string) => {
-          const tools = await mcpService.discoverServerTools(userId, serverId, workspaceId)
+          const tools = await mcpService.discoverServerTools(userId, serverId, workspaceId, false)
           return { serverId, toolCount: tools.length }
         })
       )

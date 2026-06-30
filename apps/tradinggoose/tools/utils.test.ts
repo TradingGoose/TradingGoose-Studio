@@ -11,18 +11,7 @@ import {
   validateRequiredParametersAfterMerge,
 } from '@/tools/utils'
 
-const dbMocks = vi.hoisted(() => {
-  let rows: unknown[] = []
-  const setRows = (nextRows: unknown[]) => {
-    rows = nextRows
-  }
-  const limit = vi.fn(() => Promise.resolve(rows))
-  const where = vi.fn(() => ({ limit }))
-  const from = vi.fn(() => ({ where }))
-  const select = vi.fn(() => ({ from }))
-
-  return { from, limit, select, setRows, where }
-})
+const readSavedEntityFieldsForExecutionMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: vi.fn().mockReturnValue({
@@ -33,10 +22,8 @@ vi.mock('@/lib/logs/console/logger', () => ({
   }),
 }))
 
-vi.mock('@tradinggoose/db', () => ({
-  db: {
-    select: dbMocks.select,
-  },
+vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
+  readSavedEntityFieldsForExecution: readSavedEntityFieldsForExecutionMock,
 }))
 
 vi.mock('@/stores/settings/environment/store', () => {
@@ -57,7 +44,7 @@ vi.mock('@/stores/settings/environment/store', () => {
 const originalWindow = global.window
 beforeEach(() => {
   global.window = {} as any
-  dbMocks.setRows([])
+  readSavedEntityFieldsForExecutionMock.mockRejectedValue(new Error('not found'))
 })
 
 afterEach(() => {
@@ -776,19 +763,17 @@ describe('createCustomToolRequestBody', () => {
   it('does not use the custom-tools API for server-side custom tool lookup', async () => {
     const serverWindow = global.window
     const fetchSpy = vi.spyOn(globalThis, 'fetch')
-    dbMocks.setRows([
-      {
-        id: 'custom-tool-123',
-        title: 'Custom Weather Tool',
-        code: 'return params',
-        schema: {
-          function: {
-            description: 'Get weather information',
-            parameters: { type: 'object', properties: {} },
-          },
+    readSavedEntityFieldsForExecutionMock.mockResolvedValueOnce({
+      title: 'Custom Weather Tool',
+      codeText: 'return params',
+      schemaText: JSON.stringify({
+        type: 'function',
+        function: {
+          description: 'Get weather information',
+          parameters: { type: 'object', properties: {} },
         },
-      },
-    ])
+      }),
+    })
 
     try {
       ;(global as any).window = undefined
@@ -798,6 +783,12 @@ describe('createCustomToolRequestBody', () => {
       ).resolves.toBeDefined()
 
       expect(fetchSpy).not.toHaveBeenCalled()
+      expect(readSavedEntityFieldsForExecutionMock).toHaveBeenCalledWith(
+        'custom_tool',
+        'custom-tool-123',
+        'workspace-456',
+        true
+      )
     } finally {
       global.window = serverWindow
       fetchSpy.mockRestore()
@@ -806,19 +797,17 @@ describe('createCustomToolRequestBody', () => {
 
   it('uses workspaceId for server-side custom tool lookup when workflowId is also present', async () => {
     const serverWindow = global.window
-    dbMocks.setRows([
-      {
-        id: 'custom-tool-123',
-        title: 'Custom Weather Tool',
-        code: 'return params',
-        schema: {
-          function: {
-            description: 'Get weather information',
-            parameters: { type: 'object', properties: {} },
-          },
+    readSavedEntityFieldsForExecutionMock.mockResolvedValueOnce({
+      title: 'Custom Weather Tool',
+      codeText: 'return params',
+      schemaText: JSON.stringify({
+        type: 'function',
+        function: {
+          description: 'Get weather information',
+          parameters: { type: 'object', properties: {} },
         },
-      },
-    ])
+      }),
+    })
 
     try {
       ;(global as any).window = undefined
@@ -827,7 +816,12 @@ describe('createCustomToolRequestBody', () => {
         getToolAsync('custom_custom-tool-123', 'workflow-123', 'workspace-456')
       ).resolves.toBeDefined()
 
-      expect(dbMocks.select).toHaveBeenCalledOnce()
+      expect(readSavedEntityFieldsForExecutionMock).toHaveBeenCalledWith(
+        'custom_tool',
+        'custom-tool-123',
+        'workspace-456',
+        true
+      )
     } finally {
       global.window = serverWindow
     }
