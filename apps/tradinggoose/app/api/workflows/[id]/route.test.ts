@@ -21,8 +21,8 @@ describe('Workflow By ID API Route', () => {
   const mockLoadWorkflowState = vi.fn()
   const mockApplyWorkflowMetadata = vi.fn()
   const mockPublishWorkflowListMember = vi.fn()
+  const mockRemoveWorkflowListMember = vi.fn()
   const mockDeleteYjsSession = vi.fn()
-  const mockNotifyEntityListMemberRemoved = vi.fn()
 
   beforeEach(() => {
     vi.resetModules()
@@ -77,8 +77,8 @@ describe('Workflow By ID API Route', () => {
     mockLoadWorkflowState.mockReset()
     mockApplyWorkflowMetadata.mockReset()
     mockPublishWorkflowListMember.mockReset()
+    mockRemoveWorkflowListMember.mockReset()
     mockDeleteYjsSession.mockReset()
-    mockNotifyEntityListMemberRemoved.mockReset()
     mockLoadWorkflowState.mockResolvedValue(null)
     mockApplyWorkflowMetadata.mockResolvedValue({
       id: 'workflow-123',
@@ -88,16 +88,16 @@ describe('Workflow By ID API Route', () => {
       workspaceId: null,
     })
     mockPublishWorkflowListMember.mockResolvedValue(undefined)
+    mockRemoveWorkflowListMember.mockResolvedValue(undefined)
     mockDeleteYjsSession.mockResolvedValue(undefined)
-    mockNotifyEntityListMemberRemoved.mockResolvedValue(undefined)
 
     vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
       applyWorkflowMetadata: mockApplyWorkflowMetadata,
       publishWorkflowListMember: mockPublishWorkflowListMember,
+      removeWorkflowListMember: mockRemoveWorkflowListMember,
     }))
     vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
       deleteYjsSessionInSocketServer: mockDeleteYjsSession,
-      notifyEntityListMemberRemoved: mockNotifyEntityListMemberRemoved,
     }))
 
     vi.doMock('@/lib/workflows/utils', () => ({
@@ -523,11 +523,7 @@ describe('Workflow By ID API Route', () => {
       expect(response.status).toBe(200)
       const data = await response.json()
       expect(data.success).toBe(true)
-      expect(mockNotifyEntityListMemberRemoved).toHaveBeenCalledWith(
-        'workflow',
-        'workspace-456',
-        'workflow-123'
-      )
+      expect(mockRemoveWorkflowListMember).toHaveBeenCalledWith('workspace-456', 'workflow-123')
     })
 
     it('should deny deletion for non-admin users', async () => {

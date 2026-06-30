@@ -157,7 +157,7 @@ export async function DELETE(
       return movedWorkflows
     })
 
-    await Promise.allSettled(
+    await Promise.all(
       movedWorkflows.map((movedWorkflow) => publishWorkflowListMember(movedWorkflow.id))
     )
 

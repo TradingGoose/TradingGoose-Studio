@@ -7,6 +7,7 @@ import {
 } from '@/lib/workflows/db-helpers'
 import {
   applyWorkflowPatchInSocketServer,
+  notifyEntityListMemberRemoved,
   notifyEntityListMembersUpserted,
 } from '@/lib/yjs/server/snapshot-bridge'
 import {
@@ -30,9 +31,24 @@ export async function publishWorkflowListMember(workflowId: string): Promise<voi
 
   if (!row?.workspaceId) return
 
-  await notifyEntityListMembersUpserted('workflow', row.workspaceId, [
-    { id: row.id, name: row.name, folderId: row.folderId, color: row.color },
-  ])
+  try {
+    await notifyEntityListMembersUpserted('workflow', row.workspaceId, [
+      { id: row.id, name: row.name, folderId: row.folderId, color: row.color },
+    ])
+  } catch (error) {
+    throw new WorkflowRealtimeRequiredError(error)
+  }
+}
+
+export async function removeWorkflowListMember(
+  workspaceId: string,
+  workflowId: string
+): Promise<void> {
+  try {
+    await notifyEntityListMemberRemoved('workflow', workspaceId, workflowId)
+  } catch (error) {
+    throw new WorkflowRealtimeRequiredError(error)
+  }
 }
 
 export async function applyWorkflowState(
@@ -65,7 +81,7 @@ export async function applyWorkflowState(
   } catch (error) {
     throw new WorkflowRealtimeRequiredError(error)
   }
-  await Promise.allSettled([publishWorkflowListMember(workflowId)])
+  await publishWorkflowListMember(workflowId)
 }
 
 export async function applyWorkflowMetadata(
@@ -87,7 +103,7 @@ export async function applyWorkflowMetadata(
     throw new Error('Workflow not found')
   }
 
-  await Promise.allSettled([publishWorkflowListMember(workflowId)])
+  await publishWorkflowListMember(workflowId)
 
   return updatedWorkflow
 }

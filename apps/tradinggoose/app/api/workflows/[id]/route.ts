@@ -14,11 +14,9 @@ import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/uti
 import {
   applyWorkflowMetadata,
   publishWorkflowListMember,
+  removeWorkflowListMember,
 } from '@/lib/yjs/server/apply-workflow-state'
-import {
-  deleteYjsSessionInSocketServer,
-  notifyEntityListMemberRemoved,
-} from '@/lib/yjs/server/snapshot-bridge'
+import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
 
@@ -295,12 +293,10 @@ export async function DELETE(
     }
 
     await db.delete(workflow).where(eq(workflow.id, workflowId))
-    await Promise.allSettled([
-      workflowData.workspaceId
-        ? notifyEntityListMemberRemoved('workflow', workflowData.workspaceId, workflowId)
-        : Promise.resolve(),
-      deleteYjsSessionInSocketServer(workflowId),
-    ])
+    if (workflowData.workspaceId) {
+      await removeWorkflowListMember(workflowData.workspaceId, workflowId)
+    }
+    await Promise.allSettled([deleteYjsSessionInSocketServer(workflowId)])
 
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully deleted workflow ${workflowId} in ${elapsed}ms`)
@@ -309,6 +305,8 @@ export async function DELETE(
   } catch (error: any) {
     const elapsed = Date.now() - startTime
     logger.error(`[${requestId}] Error deleting workflow ${workflowId} after ${elapsed}ms`, error)
+    const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
+    if (realtimeResponse) return realtimeResponse
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -388,7 +386,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         .set({ folderId: updates.folderId, updatedAt })
         .where(eq(workflow.id, workflowId))
       updatedWorkflow = { ...updatedWorkflow, folderId: updates.folderId, updatedAt }
-      await Promise.allSettled([publishWorkflowListMember(workflowId)])
+      await publishWorkflowListMember(workflowId)
     }
 
     const elapsed = Date.now() - startTime
