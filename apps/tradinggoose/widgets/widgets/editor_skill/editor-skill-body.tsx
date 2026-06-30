@@ -41,11 +41,8 @@ export function EditorSkillWidgetBody({
     isLoading: isSkillListLoading,
     error: skillListError,
   } = useEntityList('skill', workspaceId)
-  const requestedSkillMember = hasRequestedSkill
-    ? skillMembers.find((member) => member.entityId === normalizedRequestedSkillId)
-    : null
   const skillId = hasRequestedSkill
-    ? (requestedSkillMember?.entityId ?? null)
+    ? normalizedRequestedSkillId
     : isLinkedToColorPair
       ? null
       : (skillMembers[0]?.entityId ?? null)
@@ -107,19 +104,15 @@ export function EditorSkillWidgetBody({
     return <WidgetStateMessage message={copy.selectWorkspace} />
   }
 
-  if (skillListError) {
+  if (!hasRequestedSkill && skillListError) {
     return <WidgetStateMessage message={skillListError} />
-  }
-
-  if (hasRequestedSkill && !isSkillListLoading && !requestedSkillMember) {
-    return <WidgetStateMessage message={copy.skillNotFound} />
   }
 
   if (skillSession.error) {
     return <WidgetStateMessage message={skillSession.error} />
   }
 
-  if (isSkillListLoading || skillSession.isLoading) {
+  if ((!hasRequestedSkill && isSkillListLoading) || skillSession.isLoading) {
     return (
       <div className='flex h-full w-full items-center justify-center'>
         <LoadingAgent size='md' />

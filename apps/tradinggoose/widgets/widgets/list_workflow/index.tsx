@@ -8,7 +8,7 @@ import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-con
 import { getStableVibrantColor } from '@/lib/colors'
 import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { useSetPairColorContext } from '@/stores/dashboard/pair-store'
+import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
@@ -39,18 +39,18 @@ const WorkflowListWidgetBody = ({
   const copy = useMessages().workspace.widgets.workflowList
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
+  const pairContext = usePairColorContext(resolvedPairColor)
   const { members, isLoading, error } = useEntityList('workflow', workspaceId)
   const createWorkflow = useWorkflowRegistry((state) => state.createWorkflow)
   const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false)
-  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null)
   const setPairContext = useSetPairColorContext()
-  const paramsWorkflowId = useMemo(() => {
-    if (isLinkedToColorPair) return null
+  const rawSelectedWorkflowId = useMemo(() => {
+    if (isLinkedToColorPair) return pairContext?.workflowId ?? null
     if (!widget || !widget.params || typeof widget.params !== 'object') return null
     if (!('workflowId' in widget.params)) return null
     const value = widget.params.workflowId
     return typeof value === 'string' && value.trim().length > 0 ? value : null
-  }, [isLinkedToColorPair, widget?.params])
+  }, [isLinkedToColorPair, pairContext?.workflowId, widget?.params])
 
   const regularWorkflows = useMemo<WorkflowListEntry[]>(
     () =>
@@ -69,11 +69,32 @@ const WorkflowListWidgetBody = ({
     [members, workspaceId]
   )
 
+  const selectedWorkflowId =
+    rawSelectedWorkflowId &&
+    (isLoading ||
+      error ||
+      regularWorkflows.some((workflow) => workflow.id === rawSelectedWorkflowId))
+      ? rawSelectedWorkflowId
+      : null
+
   useEffect(() => {
-    if (!paramsWorkflowId) return
-    if (paramsWorkflowId === selectedWorkflowId) return
-    setSelectedWorkflowId(paramsWorkflowId)
-  }, [paramsWorkflowId, selectedWorkflowId])
+    if (!rawSelectedWorkflowId || selectedWorkflowId || isLoading || error) return
+
+    if (isLinkedToColorPair) {
+      setPairContext(resolvedPairColor, { workflowId: undefined })
+    } else {
+      onWidgetParamsChange?.({ workflowId: null })
+    }
+  }, [
+    error,
+    isLinkedToColorPair,
+    isLoading,
+    onWidgetParamsChange,
+    rawSelectedWorkflowId,
+    resolvedPairColor,
+    selectedWorkflowId,
+    setPairContext,
+  ])
 
   useEffect(() => {
     if (!workspaceId) {
@@ -86,7 +107,6 @@ const WorkflowListWidgetBody = ({
       if (!detail || detail.workspaceId !== workspaceId || !detail.workflowId) {
         return
       }
-      setSelectedWorkflowId(detail.workflowId)
       if (isLinkedToColorPair) {
         setPairContext(resolvedPairColor, { workflowId: detail.workflowId })
       } else {
@@ -98,14 +118,7 @@ const WorkflowListWidgetBody = ({
     return () => {
       window.removeEventListener(WORKFLOW_LIST_WORKFLOW_CREATED_EVENT, handler as EventListener)
     }
-  }, [
-    workspaceId,
-    resolvedPairColor,
-    isLinkedToColorPair,
-    setPairContext,
-    setSelectedWorkflowId,
-    onWidgetParamsChange,
-  ])
+  }, [workspaceId, resolvedPairColor, isLinkedToColorPair, setPairContext, onWidgetParamsChange])
 
   const handleCreateWorkflow = useCallback(
     async (folderId?: string) => {
@@ -124,7 +137,6 @@ const WorkflowListWidgetBody = ({
           folderId: folderId ?? undefined,
         })
         const createdId = newWorkflowId ?? null
-        setSelectedWorkflowId(createdId)
         if (createdId && isLinkedToColorPair) {
           setPairContext(resolvedPairColor, { workflowId: createdId })
         } else if (createdId) {
@@ -148,7 +160,6 @@ const WorkflowListWidgetBody = ({
 
   const handleWorkflowSelect = useCallback(
     (workflow: WorkflowListEntry) => {
-      setSelectedWorkflowId(workflow.id)
       if (isLinkedToColorPair) {
         setPairContext(resolvedPairColor, { workflowId: workflow.id })
       } else {
