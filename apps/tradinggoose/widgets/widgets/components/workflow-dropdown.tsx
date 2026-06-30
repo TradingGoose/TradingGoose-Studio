@@ -61,7 +61,7 @@ export function WorkflowDropdown({
   const [searchQuery, setSearchQuery] = useState('')
   const resolvedPairColor = pairColor && pairColor !== 'gray' ? pairColor : 'gray'
   const isPairContextActive = resolvedPairColor !== 'gray'
-  const { members, error, isLoading } = useEntityList('workflow', workspaceId)
+  const { members, error, isLoading, retry } = useEntityList('workflow', workspaceId)
 
   const setPairContext = useSetPairColorContext()
 
@@ -227,7 +227,7 @@ export function WorkflowDropdown({
   )
 
   return (
-    <DropdownMenu modal={false}>
+    <DropdownMenu modal={false} onOpenChange={(open) => open && error && retry?.()}>
       <Tooltip>
         <TooltipTrigger asChild>
           <span className='inline-flex'>

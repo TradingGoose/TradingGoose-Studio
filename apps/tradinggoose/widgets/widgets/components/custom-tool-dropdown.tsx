@@ -55,7 +55,10 @@ export function CustomToolDropdown({
 }: CustomToolDropdownProps) {
   const copy = useMessages().workspace.widgets.customToolDropdown
   const [searchQuery, setSearchQuery] = useState('')
-  const { members, error, isLoading: listLoading } = useEntityList('custom_tool', workspaceId)
+  const { members, error, isLoading: listLoading, retry } = useEntityList(
+    'custom_tool',
+    workspaceId
+  )
 
   const workspaceTools = useMemo(() => {
     if (!workspaceId) return []
@@ -209,7 +212,7 @@ export function CustomToolDropdown({
   )
 
   return (
-    <DropdownMenu modal={false}>
+    <DropdownMenu modal={false} onOpenChange={(open) => open && errorMessage && retry?.()}>
       <Tooltip>
         <TooltipTrigger asChild>
           <span className='inline-flex'>

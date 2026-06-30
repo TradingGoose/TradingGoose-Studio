@@ -8,7 +8,7 @@
  * read/write through the collaborative Yjs document when available.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as Y from 'yjs'
 import {
   buildEntityListDescriptor,
@@ -117,6 +117,7 @@ function initializeSharedYjsSessionEntry(
   if (entry.initPromise || entry.result) return
 
   entry.error = null
+  emitSharedYjsSessionEntry(entry)
   entry.initPromise = openSession()
     .then((next) => {
       if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.refCount === 0) {
@@ -183,6 +184,7 @@ function useYjsSession(
   openSession: (() => Promise<YjsProviderBootstrapResult>) | null,
   errorMessage: string
 ) {
+  const entryRef = useRef<SharedYjsSessionEntry | null>(null)
   const [state, setState] = useState<SavedEntityYjsSessionState>({
     key: null,
     result: null,
@@ -196,6 +198,7 @@ function useYjsSession(
     }
 
     const entry = getSharedYjsSessionEntry(sessionKey)
+    entryRef.current = entry
     entry.refCount += 1
 
     const syncState = () => setState(readSharedYjsSessionEntry(entry))
@@ -205,11 +208,18 @@ function useYjsSession(
 
     return () => {
       entry.listeners.delete(syncState)
+      if (entryRef.current === entry) entryRef.current = null
       releaseSharedYjsSessionEntry(entry)
     }
   }, [errorMessage, openSession, sessionKey])
 
-  return state.key === sessionKey ? state : null
+  const retry = useCallback(() => {
+    const entry = entryRef.current
+    if (!entry || !openSession) return
+    initializeSharedYjsSessionEntry(entry, openSession, errorMessage)
+  }, [errorMessage, openSession])
+
+  return state.key === sessionKey ? { ...state, retry } : null
 }
 
 export function useSavedEntityYjsSession(
@@ -296,6 +306,7 @@ export function useEntityList(
     members,
     isLoading: Boolean(sessionKey && !activeState?.result && !activeState?.error),
     error: activeState?.error ?? null,
+    retry: activeState?.retry,
   }
 }
 
