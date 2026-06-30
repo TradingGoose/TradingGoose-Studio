@@ -42,8 +42,11 @@ export function EditorIndicatorWidgetBody({
     isLoading: isIndicatorListLoading,
     error: indicatorListError,
   } = useEntityList('indicator', workspaceId)
+  const requestedIndicatorMember = hasRequestedIndicator
+    ? indicatorMembers.find((member) => member.entityId === normalizedRequestedIndicatorId)
+    : null
   const indicatorId = hasRequestedIndicator
-    ? normalizedRequestedIndicatorId
+    ? (requestedIndicatorMember?.entityId ?? null)
     : isLinkedToColorPair
       ? null
       : (indicatorMembers[0]?.entityId ?? null)
@@ -122,15 +125,19 @@ export function EditorIndicatorWidgetBody({
     return <WidgetStateMessage message={copy.selectWorkspace} />
   }
 
-  if (!hasRequestedIndicator && indicatorListError) {
+  if (indicatorListError) {
     return <WidgetStateMessage message={indicatorListError} />
+  }
+
+  if (hasRequestedIndicator && !isIndicatorListLoading && !requestedIndicatorMember) {
+    return <WidgetStateMessage message={copy.indicatorNotFound} />
   }
 
   if (indicatorSession.error) {
     return <WidgetStateMessage message={indicatorSession.error} />
   }
 
-  if ((!hasRequestedIndicator && isIndicatorListLoading) || indicatorSession.isLoading) {
+  if (isIndicatorListLoading || indicatorSession.isLoading) {
     return (
       <div className='flex h-full w-full items-center justify-center'>
         <LoadingAgent size='md' />
