@@ -16,9 +16,12 @@ const mockLogger = {
 }
 
 const mockAuthenticateYjsConnection = vi.fn()
+const mockCreateEntityListBootstrapUpdate = vi.fn()
 const mockCreateSavedReviewTargetBootstrapUpdate = vi.fn()
+const mockReseedEntityListSessionFromDb = vi.fn()
 const mockVerifyReviewTargetAccess = vi.fn()
 const mockGetExistingDocument = vi.fn()
+const mockMarkDocumentPersisted = vi.fn()
 const mockSetupWSConnection = vi.fn()
 
 class MockYjsAuthError extends Error {
@@ -72,9 +75,12 @@ beforeEach(() => {
   vi.resetModules()
 
   mockAuthenticateYjsConnection.mockReset()
+  mockCreateEntityListBootstrapUpdate.mockReset()
   mockCreateSavedReviewTargetBootstrapUpdate.mockReset()
+  mockReseedEntityListSessionFromDb.mockReset()
   mockVerifyReviewTargetAccess.mockReset()
   mockGetExistingDocument.mockReset()
+  mockMarkDocumentPersisted.mockReset()
   mockSetupWSConnection.mockReset()
 
   vi.doMock('@/lib/logs/console/logger', () => ({
@@ -91,7 +97,9 @@ beforeEach(() => {
   }))
 
   vi.doMock('@/lib/yjs/server/bootstrap-review-target', () => ({
+    createEntityListBootstrapUpdate: mockCreateEntityListBootstrapUpdate,
     createSavedReviewTargetBootstrapUpdate: mockCreateSavedReviewTargetBootstrapUpdate,
+    reseedEntityListSessionFromDb: mockReseedEntityListSessionFromDb,
     getRuntimeStateFromDoc: vi.fn((doc) => ({
       docState: doc.getMap('metadata').get('docState') === 'expired' ? 'expired' : 'active',
       replaySafe: doc.getMap('metadata').get('reseededFromCanonical') !== true,
@@ -109,6 +117,7 @@ beforeEach(() => {
 
   vi.doMock('./upstream-utils', () => ({
     getExistingDocument: mockGetExistingDocument,
+    markDocumentPersisted: mockMarkDocumentPersisted,
     setupWSConnection: mockSetupWSConnection,
   }))
 })

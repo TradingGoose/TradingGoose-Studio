@@ -10,14 +10,14 @@ import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissi
 import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { saveWorkflowYjsDocToDb } from '@/lib/workflows/db-helpers'
-import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import {
   createEntityListBootstrapUpdate,
   createSavedReviewTargetBootstrapUpdate,
   getRuntimeStateFromDoc,
+  reseedEntityListSessionFromDb,
 } from '@/lib/yjs/server/bootstrap-review-target'
 import { authenticateYjsConnection, YjsAuthError } from './auth'
-import { getExistingDocument, setupWSConnection } from './upstream-utils'
+import { getExistingDocument, markDocumentPersisted, setupWSConnection } from './upstream-utils'
 
 const logger = createLogger('YjsWsHandler')
 const WORKFLOW_LIVE_PERSIST_DEBOUNCE_MS = 1500
@@ -126,11 +126,20 @@ async function authenticateAndPrepareUpgrade(
   }
 
   const liveDoc = await getExistingDocument(pathSessionId)
+  if (liveDoc && isListTarget) {
+    await reseedEntityListSessionFromDb(
+      liveDoc,
+      descriptor.entityKind,
+      descriptor.workspaceId as string
+    )
+    markDocumentPersisted(liveDoc)
+  }
+
   const bootstrapped = liveDoc
     ? null
     : isListTarget
       ? await createEntityListBootstrapUpdate(
-          descriptor.entityKind as SavedEntityKind,
+          descriptor.entityKind,
           descriptor.workspaceId as string
         )
       : descriptor.entityId
