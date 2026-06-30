@@ -172,13 +172,15 @@ export async function bootstrapYjsProvider(
     scheduleReconnectWithFreshToken(currentProvider)
   })
 
-  try {
-    await waitForYjsSync(provider)
-  } catch (error) {
-    provider.disconnect()
-    provider.destroy()
-    doc.destroy()
-    throw error
+  if (accessMode === 'write') {
+    try {
+      await waitForYjsSync(provider)
+    } catch (error) {
+      provider.disconnect()
+      provider.destroy()
+      doc.destroy()
+      throw error
+    }
   }
 
   return {
