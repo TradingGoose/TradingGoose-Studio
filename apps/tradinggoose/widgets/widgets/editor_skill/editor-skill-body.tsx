@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
-import { useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
+import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
@@ -35,7 +35,13 @@ export function EditorSkillWidgetBody({
   const paramsSkillId = getSkillIdFromParams(params)
   const requestedSkillId = isLinkedToColorPair ? (pairContext?.skillId ?? null) : paramsSkillId
   const normalizedRequestedSkillId = requestedSkillId?.trim() ?? ''
-  const skillId = normalizedRequestedSkillId.length > 0 ? normalizedRequestedSkillId : null
+  const { members: skillMembers } = useEntityList('skill', workspaceId)
+  const skillId =
+    normalizedRequestedSkillId.length > 0
+      ? normalizedRequestedSkillId
+      : isLinkedToColorPair
+        ? null
+        : (skillMembers[0]?.entityId ?? null)
   const skillSession = useSavedEntityYjsSession('skill', skillId, workspaceId)
 
   useEffect(() => {

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
-import { useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
+import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
@@ -36,8 +36,13 @@ export function EditorIndicatorWidgetBody({
     : paramsIndicatorId
 
   const normalizedRequestedIndicatorId = requestedIndicatorId?.trim() ?? ''
+  const { members: indicatorMembers } = useEntityList('indicator', workspaceId)
   const indicatorId =
-    normalizedRequestedIndicatorId.length > 0 ? normalizedRequestedIndicatorId : null
+    normalizedRequestedIndicatorId.length > 0
+      ? normalizedRequestedIndicatorId
+      : isLinkedToColorPair
+        ? null
+        : (indicatorMembers[0]?.entityId ?? null)
   const indicatorSession = useSavedEntityYjsSession('indicator', indicatorId, workspaceId)
 
   useEffect(() => {

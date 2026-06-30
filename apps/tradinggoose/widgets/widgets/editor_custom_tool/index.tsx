@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
-import { useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
+import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
 import type { LocaleCode } from '@/i18n/utils'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
@@ -116,8 +116,13 @@ function EditorCustomToolWidgetBody({
     ? (pairContext?.customToolId ?? null)
     : paramsCustomToolId
   const normalizedRequestedCustomToolId = requestedCustomToolId?.trim() ?? ''
+  const { members: customToolMembers } = useEntityList('custom_tool', workspaceId)
   const selectedToolId =
-    normalizedRequestedCustomToolId.length > 0 ? normalizedRequestedCustomToolId : null
+    normalizedRequestedCustomToolId.length > 0
+      ? normalizedRequestedCustomToolId
+      : isLinkedToColorPair
+        ? null
+        : (customToolMembers[0]?.entityId ?? null)
 
   useCustomToolSelectionPersistence({
     onWidgetParamsChange,
