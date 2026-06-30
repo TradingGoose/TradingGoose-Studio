@@ -173,7 +173,7 @@ describe('applyWorkflowState', () => {
     expect(mockDbUpdate).not.toHaveBeenCalled()
   })
 
-  it('does not fail durable workflow mutations when list projection sync fails', async () => {
+  it('requires workflow list projection sync', async () => {
     mockSelectLimit.mockResolvedValueOnce([
       {
         id: 'workflow-1',
@@ -190,7 +190,9 @@ describe('applyWorkflowState', () => {
       './apply-workflow-state'
     )
 
-    await expect(publishWorkflowListMember('workflow-1')).resolves.toBeUndefined()
-    await expect(removeWorkflowListMember('workspace-1', 'workflow-1')).resolves.toBeUndefined()
+    await expect(publishWorkflowListMember('workflow-1')).rejects.toThrow('socket unavailable')
+    await expect(removeWorkflowListMember('workspace-1', 'workflow-1')).rejects.toThrow(
+      'socket unavailable'
+    )
   })
 })

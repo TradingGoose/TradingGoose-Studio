@@ -2,6 +2,7 @@ import { db } from '@tradinggoose/db'
 import { workflow, workflowFolder } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
+import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
@@ -177,6 +178,8 @@ export async function DELETE(
     })
   } catch (error) {
     logger.error('Error deleting folder:', { error })
+    const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
+    if (realtimeResponse) return realtimeResponse
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

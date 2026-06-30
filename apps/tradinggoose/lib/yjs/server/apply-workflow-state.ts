@@ -33,14 +33,18 @@ export async function publishWorkflowListMember(workflowId: string): Promise<voi
 
   await notifyEntityListMembersUpserted('workflow', row.workspaceId, [
     { id: row.id, name: row.name, folderId: row.folderId, color: row.color },
-  ]).catch(() => undefined)
+  ]).catch((error) => {
+    throw new WorkflowRealtimeRequiredError(error)
+  })
 }
 
 export async function removeWorkflowListMember(
   workspaceId: string,
   workflowId: string
 ): Promise<void> {
-  await notifyEntityListMemberRemoved('workflow', workspaceId, workflowId).catch(() => undefined)
+  await notifyEntityListMemberRemoved('workflow', workspaceId, workflowId).catch((error) => {
+    throw new WorkflowRealtimeRequiredError(error)
+  })
 }
 
 export async function applyWorkflowState(
