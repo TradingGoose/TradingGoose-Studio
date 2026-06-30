@@ -688,13 +688,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
         const channelKey = resolveChannelKey(channelId)
         const state = get()
         const workflowMetadata = state.workflows[workflowId]
-
-        if (!workflowMetadata) {
-          logger.error(`Workflow ${workflowId} not found in registry`)
-          set({ error: `Workflow not found: ${workflowId}` })
-          throw new Error(`Workflow not found: ${workflowId}`)
-        }
-
         const activeWorkflowIdForChannel = getActiveWorkflowIdFromState(state, channelKey)
         const hydration = getHydrationFromState(state, channelKey)
 
@@ -711,7 +704,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
         }
 
         const requestId = crypto.randomUUID()
-        const workspaceId = workflowMetadata.workspaceId ?? hydration.workspaceId ?? null
+        const workspaceId = workflowMetadata?.workspaceId ?? hydration.workspaceId ?? null
 
         set((current) => {
           const nextHydrationByChannel: Record<string, ChannelHydrationState> = {
@@ -813,9 +806,15 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
             return {}
           }
 
+          const {
+            workflows: fetchedWorkflows,
+            deploymentStatuses: fetchedDeploymentStatuses,
+          } = mapRegistryMetadata([workflowData])
+          const fetchedWorkflow = fetchedWorkflows[workflowData.id ?? workflowId]
+          const resolvedWorkspaceId = fetchedWorkflow?.workspaceId ?? workspaceId
           const nextHydrationByChannel: Record<string, ChannelHydrationState> = {
             ...current.hydrationByChannel,
-            [channelKey]: createReadyHydrationState(workspaceId, workflowId),
+            [channelKey]: createReadyHydrationState(resolvedWorkspaceId, workflowId),
           }
 
           if (
@@ -825,17 +824,11 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
             delete nextHydrationByChannel[WORKSPACE_BOOTSTRAP_CHANNEL]
           }
 
-          const nextDeploymentStatuses = { ...current.deploymentStatuses }
-          if (workflowData?.isDeployed || workflowData?.deployedAt) {
-            nextDeploymentStatuses[workflowId] = {
-              isDeployed: workflowData.isDeployed || false,
-              deployedAt: workflowData.deployedAt ? new Date(workflowData.deployedAt) : undefined,
-              apiKey: workflowData.apiKey || undefined,
-              needsRedeployment: false,
-            }
-          }
-
           return {
+            workflows: {
+              ...current.workflows,
+              ...(fetchedWorkflow ? { [workflowId]: fetchedWorkflow } : {}),
+            },
             activeWorkflowIds: {
               ...current.activeWorkflowIds,
               [channelKey]: workflowId,
@@ -844,7 +837,10 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
               ...current.loadedWorkflowIds,
               [channelKey]: true,
             },
-            deploymentStatuses: nextDeploymentStatuses,
+            deploymentStatuses: {
+              ...current.deploymentStatuses,
+              ...fetchedDeploymentStatuses,
+            },
             hydrationByChannel: nextHydrationByChannel,
             isLoading: deriveIsMetadataLoading(nextHydrationByChannel),
             error: null,

@@ -86,26 +86,31 @@ export const useWorkflowWidgetState = ({
   const isChannelHydrating = useWorkflowRegistry((state) => state.isChannelHydrating(channelId))
 
   const workflowIds = useMemo(() => members.map((member) => member.entityId), [members])
+  const hasLoadedWorkflows = !workspaceId || Boolean(listError) || !isListLoading
+  const shouldValidateWorkflowIds = Boolean(workspaceId) && !listError && !isListLoading
 
   const resolvedWorkflowId = useMemo(() => {
+    const resolveWorkflowId = (workflowId: string | null | undefined) => {
+      if (!workflowId) return null
+      return !shouldValidateWorkflowIds || workflowIds.includes(workflowId) ? workflowId : null
+    }
+
     if (shouldUsePairWorkflowContext) {
-      return pairContext.workflowId ?? null
+      return resolveWorkflowId(pairContext.workflowId)
     }
 
-    if (rawActiveWorkflowIdForChannel) {
-      return rawActiveWorkflowIdForChannel
-    }
-
-    if (requestedWorkflowId) {
-      return requestedWorkflowId
-    }
-
-    return workflowIds[0] ?? null
+    return (
+      resolveWorkflowId(rawActiveWorkflowIdForChannel) ??
+      resolveWorkflowId(requestedWorkflowId) ??
+      (hasLoadedWorkflows ? (workflowIds[0] ?? null) : null)
+    )
   }, [
     workflowIds,
+    hasLoadedWorkflows,
     pairContext.workflowId,
     rawActiveWorkflowIdForChannel,
     requestedWorkflowId,
+    shouldValidateWorkflowIds,
     shouldUsePairWorkflowContext,
   ])
 
@@ -135,7 +140,6 @@ export const useWorkflowWidgetState = ({
   ])
 
   const loadError: WorkflowWidgetLoadError | null = listError ? 'unableToLoadWorkflows' : null
-  const hasLoadedWorkflows = !workspaceId || Boolean(listError) || !isListLoading
 
   useEffect(() => {
     if (resolvedPairColor !== 'gray' || !resolvedWorkflowId || !onWidgetParamsChange) {
