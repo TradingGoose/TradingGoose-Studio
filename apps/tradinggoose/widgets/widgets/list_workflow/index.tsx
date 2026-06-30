@@ -202,6 +202,7 @@ export const workflowListWidget: DashboardWidgetDefinition = {
 
 const WorkflowListHeaderRight = ({ workspaceId }: { workspaceId?: string }) => {
   const copy = useMessages().workspace.widgets.workflowList
+  const { members } = useEntityList('workflow', workspaceId)
   const handleWorkflowCreated = useCallback(
     (workflowId: string) => {
       if (!workspaceId || !workflowId) {
@@ -225,6 +226,7 @@ const WorkflowListHeaderRight = ({ workspaceId }: { workspaceId?: string }) => {
       <div className={widgetHeaderButtonGroupClassName()}>
         <DashboardWorkflowCreateMenu
           workspaceId={workspaceId}
+          existingWorkflowNames={members.map((member) => member.entityName)}
           onWorkflowCreated={handleWorkflowCreated}
         />
       </div>

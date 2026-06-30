@@ -303,21 +303,10 @@ export function hasWorkflowsInitiallyLoaded(): boolean {
 // Track if initial load has happened to prevent premature navigation
 let hasInitiallyLoaded = false
 
-// Cache for workflow data to prevent redundant fetches
-const workflowCache = new Map<string, { data: any; timestamp: number }>()
-const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
-
 // Map to track in-flight requests for deduplication
 const pendingRequests = new Map<string, Promise<any>>()
 
 async function fetchWorkflowData(id: string): Promise<any> {
-  // Check cache first
-  const cached = workflowCache.get(id)
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    logger.info(`Using cached data for workflow ${id}`)
-    return cached.data
-  }
-
   // Check for pending request
   if (pendingRequests.has(id)) {
     logger.info(`Reusing in-flight request for workflow ${id}`)
@@ -332,9 +321,6 @@ async function fetchWorkflowData(id: string): Promise<any> {
         throw new Error(`Failed to fetch workflow: ${response.statusText}`)
       }
       const { data } = await response.json()
-
-      // Update cache
-      workflowCache.set(id, { data, timestamp: Date.now() })
       return data
     } finally {
       // Remove from pending requests
@@ -555,8 +541,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           hasInitiallyLoaded = false
 
           // Clear current workspace state
-          workflowCache.clear()
-
           set((state) => {
             const existingHydration = state.hydrationByChannel
             const realChannels = getRealHydrationChannels(existingHydration)
