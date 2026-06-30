@@ -243,11 +243,13 @@ export interface WorkflowSnapshot {
 export type WorkflowMetadataPatch = {
   name?: string
   description?: string | null
+  folderId?: string | null
 }
 
 export type WorkflowMetadataSnapshot = {
   name?: string
   description?: string | null
+  folderId?: string | null
 }
 
 /**
@@ -397,6 +399,9 @@ export function readWorkflowEntityMetadata(doc: Y.Doc): WorkflowMetadataSnapshot
     ...(metadata.has('entityDescription')
       ? { description: metadata.get('entityDescription') as string | null }
       : {}),
+    ...(metadata.has('entityFolderId')
+      ? { folderId: metadata.get('entityFolderId') as string | null }
+      : {}),
   }
 }
 
@@ -411,6 +416,7 @@ export function setWorkflowEntityMetadata(doc: Y.Doc, patch: WorkflowMetadataPat
     metadata.delete('reseededFromCanonical')
     if (name !== undefined) metadata.set('entityName', name)
     if (patch.description !== undefined) metadata.set('entityDescription', patch.description)
+    if (patch.folderId !== undefined) metadata.set('entityFolderId', patch.folderId)
   }, YJS_ORIGINS.SYSTEM)
 }
 
@@ -525,6 +531,7 @@ export function setVariables(doc: Y.Doc, variables: Record<string, any>, origin?
 export interface PersistedDocState {
   name?: string
   description?: string | null
+  folderId?: string | null
   direction?: WorkflowDirection
   blocks: Record<string, BlockState>
   edges: Edge[]

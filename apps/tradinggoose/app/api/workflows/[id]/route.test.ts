@@ -20,7 +20,6 @@ describe('Workflow By ID API Route', () => {
   const mockReadWorkflowAccessContext = vi.fn()
   const mockLoadWorkflowState = vi.fn()
   const mockApplyWorkflowMetadata = vi.fn()
-  const mockPublishWorkflowListMember = vi.fn()
   const mockRemoveWorkflowListMember = vi.fn()
   const mockDeleteYjsSession = vi.fn()
 
@@ -39,6 +38,7 @@ describe('Workflow By ID API Route', () => {
       WORKFLOW_REALTIME_REQUIRED_CODE: 'WORKFLOW_REALTIME_REQUIRED',
       isWorkflowRealtimeRequiredError: vi.fn(() => false),
       requireWorkflowRealtimeState: mockLoadWorkflowState,
+      removeWorkflowListMember: mockRemoveWorkflowListMember,
     }))
 
     vi.doMock('@tradinggoose/db', () => ({
@@ -76,7 +76,6 @@ describe('Workflow By ID API Route', () => {
     mockReadWorkflowAccessContext.mockReset()
     mockLoadWorkflowState.mockReset()
     mockApplyWorkflowMetadata.mockReset()
-    mockPublishWorkflowListMember.mockReset()
     mockRemoveWorkflowListMember.mockReset()
     mockDeleteYjsSession.mockReset()
     mockLoadWorkflowState.mockResolvedValue(null)
@@ -87,14 +86,11 @@ describe('Workflow By ID API Route', () => {
       folderId: 'folder-1',
       workspaceId: null,
     })
-    mockPublishWorkflowListMember.mockResolvedValue(undefined)
     mockRemoveWorkflowListMember.mockResolvedValue(undefined)
     mockDeleteYjsSession.mockResolvedValue(undefined)
 
     vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
       applyWorkflowMetadata: mockApplyWorkflowMetadata,
-      publishWorkflowListMember: mockPublishWorkflowListMember,
-      removeWorkflowListMember: mockRemoveWorkflowListMember,
     }))
     vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
       deleteYjsSessionInSocketServer: mockDeleteYjsSession,
@@ -694,7 +690,7 @@ describe('Workflow By ID API Route', () => {
       })
     })
 
-    it('updates workflow name and description through the workflow session', async () => {
+    it('updates workflow metadata through the workflow session', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',
@@ -706,6 +702,7 @@ describe('Workflow By ID API Route', () => {
       const updateData = {
         name: 'Updated Workflow',
         description: 'New description',
+        folderId: 'folder-1',
       }
       mockApplyWorkflowMetadata.mockResolvedValueOnce({
         ...mockWorkflow,
@@ -741,10 +738,12 @@ describe('Workflow By ID API Route', () => {
       const data = await response.json()
       expect(data.workflow.name).toBe('Updated Workflow')
       expect(data.workflow.description).toBe('New description')
+      expect(data.workflow.folderId).toBe('folder-1')
       expect(mockLoadWorkflowState).not.toHaveBeenCalled()
       expect(mockApplyWorkflowMetadata).toHaveBeenCalledWith('workflow-123', {
         name: 'Updated Workflow',
         description: 'New description',
+        folderId: 'folder-1',
       })
     })
 
