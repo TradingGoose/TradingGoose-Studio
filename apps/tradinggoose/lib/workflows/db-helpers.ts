@@ -119,11 +119,15 @@ export async function refreshWorkflowListForWorkflow(workflowId: string): Promis
 
   if (!row?.workspaceId) return
 
-  await refreshEntityListSession('workflow', row.workspaceId)
+  await refreshWorkflowList(row.workspaceId)
 }
 
 export async function refreshWorkflowList(workspaceId: string): Promise<void> {
-  await refreshEntityListSession('workflow', workspaceId)
+  try {
+    await refreshEntityListSession('workflow', workspaceId)
+  } catch (error) {
+    throw new WorkflowRealtimeRequiredError(error)
+  }
 }
 
 function decodeWorkflowSnapshot(snapshotBase64: string): PersistedWorkflowState | null {
