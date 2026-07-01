@@ -162,15 +162,10 @@ export async function refreshEntityListSession(
   const params = new URLSearchParams(
     serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
   )
-  try {
-    await postJsonToSocketServer(
-      `/internal/yjs/sessions/${encodeURIComponent(descriptor.yjsSessionId)}/members?${params}`,
-      {}
-    )
-  } catch {
-    // Projection refresh cannot fail committed DB commands; discard makes clients rebootstrap.
-    await deleteYjsSessionInSocketServer(descriptor.yjsSessionId).catch(() => {})
-  }
+  await postJsonToSocketServer(
+    `/internal/yjs/sessions/${encodeURIComponent(descriptor.yjsSessionId)}/members?${params}`,
+    {}
+  )
 }
 
 export async function deleteYjsSessionInSocketServer(sessionId: string): Promise<void> {
