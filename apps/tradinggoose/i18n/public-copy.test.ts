@@ -256,9 +256,6 @@ describe('public copy', () => {
     expect(getPublicCopy('en').workspace.widgets.workflowVariables.unableToLoadWorkflows).toBe(
       'Unable to load workflows'
     )
-    expect(
-      getPublicCopy('es').workspace.widgets.workflowVariables.authenticationRequiredToLoadWorkflows
-    ).toContain('autenticación')
     expect(getPublicCopy('zh').workspace.widgets.workflowEditor.whileConditionPlaceholder).toBe(
       '<counter.value> < 10'
     )

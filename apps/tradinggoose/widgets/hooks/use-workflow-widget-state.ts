@@ -19,17 +19,13 @@ type UseWorkflowWidgetStateOptions = Pick<
   usePairWorkflowContext?: boolean
 }
 
-export type WorkflowWidgetLoadError =
-  | 'unableToLoadWorkflows'
-  | 'authenticationRequiredToLoadWorkflows'
-
 type UseWorkflowWidgetStateResult = {
   resolvedPairColor: PairColor
   channelId: string
   requestedWorkflowId: string | null
   resolvedWorkflowId: string | null
   hasLoadedWorkflows: boolean
-  loadError: WorkflowWidgetLoadError | null
+  loadError: 'unableToLoadWorkflows' | null
   isLoading: boolean
   workflowIds: string[]
   activeWorkflowIdForChannel: string | null
@@ -133,7 +129,7 @@ export const useWorkflowWidgetState = ({
     loggerScope,
   ])
 
-  const loadError: WorkflowWidgetLoadError | null = listError ? 'unableToLoadWorkflows' : null
+  const loadError: 'unableToLoadWorkflows' | null = listError ? 'unableToLoadWorkflows' : null
 
   return {
     resolvedPairColor,
