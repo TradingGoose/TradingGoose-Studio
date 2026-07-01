@@ -41,11 +41,15 @@ const discoveryRequests = new Map<string, Promise<McpToolForUI[]>>()
 
 async function discoverMcpTools(workspaceId: string, serversFingerprint: string, force: boolean) {
   const cacheKey = `${workspaceId}:${serversFingerprint}`
-  const pending = discoveryRequests.get(cacheKey)
-  if (pending) return pending
+  if (force) {
+    discoveryCache.delete(cacheKey)
+  } else {
+    const pending = discoveryRequests.get(cacheKey)
+    if (pending) return pending
+  }
 
   const cached = discoveryCache.get(cacheKey)
-  if (!force && cached && cached.expiresAt > Date.now()) {
+  if (cached && cached.expiresAt > Date.now()) {
     return cached.tools
   }
 
@@ -74,12 +78,16 @@ async function discoverMcpTools(workspaceId: string, serversFingerprint: string,
         icon: WrenchIcon,
       }))
 
-      discoveryCache.set(cacheKey, { expiresAt: Date.now() + DISCOVERY_CACHE_MS, tools })
+      if (discoveryRequests.get(cacheKey) === request) {
+        discoveryCache.set(cacheKey, { expiresAt: Date.now() + DISCOVERY_CACHE_MS, tools })
+      }
       logger.info(`Discovered ${tools.length} MCP tools`)
       return tools
     })
     .finally(() => {
-      discoveryRequests.delete(cacheKey)
+      if (discoveryRequests.get(cacheKey) === request) {
+        discoveryRequests.delete(cacheKey)
+      }
     })
 
   discoveryRequests.set(cacheKey, request)
