@@ -7,6 +7,7 @@ import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fi
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
+import { resolveEntityIdFromList } from '@/widgets/utils/entity-selection'
 import { useSkillEditorActions } from '@/widgets/utils/skill-editor-actions'
 import { useSkillSelectionPersistence } from '@/widgets/utils/skill-selection'
 import { getSkillIdFromParams } from '@/widgets/widgets/_shared/skill/utils'
@@ -44,11 +45,11 @@ export function EditorSkillWidgetBody({
   const requestedSkillMember = hasRequestedSkill
     ? skillMembers.find((member) => member.entityId === normalizedRequestedSkillId)
     : null
-  const skillId = hasRequestedSkill
-    ? (requestedSkillMember?.entityId ?? null)
-    : isLinkedToColorPair
-      ? null
-      : (skillMembers[0]?.entityId ?? null)
+  const skillId = resolveEntityIdFromList({
+    requestedEntityId: requestedSkillId,
+    entityIds: skillMembers.map((member) => member.entityId),
+    useDefaultEntity: !isLinkedToColorPair,
+  })
   const skillSession = useSavedEntityYjsSession('skill', skillId, workspaceId)
 
   useEffect(() => {

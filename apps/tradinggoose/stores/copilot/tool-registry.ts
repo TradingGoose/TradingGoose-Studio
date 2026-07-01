@@ -17,6 +17,7 @@ import { SERVER_TOOL_METADATA } from '@/lib/copilot/tools/client/server-tool-met
 import { DeployWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/deploy-workflow'
 import { RunWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/run-workflow'
 import { createLogger } from '@/lib/logs/console/logger'
+import { MCP_TOOLS_CHANGED_EVENT } from '@/lib/mcp/utils'
 import { getQueryClient } from '@/app/query-provider'
 import { MONITOR_DATA_CHANGED_EVENT } from '@/app/workspace/[workspaceId]/monitor/components/data/api'
 import { customToolsKeys } from '@/hooks/queries/custom-tools'
@@ -26,7 +27,6 @@ import { knowledgeKeys } from '@/hooks/queries/knowledge'
 import { skillsKeys } from '@/hooks/queries/skills'
 import { workflowKeys } from '@/hooks/queries/workflows'
 import type { CopilotToolExecutionProvenance } from '@/stores/copilot/types'
-import { MCP_TOOLS_CHANGED_EVENT, useMcpServersStore } from '@/stores/mcp-servers/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 const logger = createLogger('CopilotToolRegistry')
@@ -358,7 +358,6 @@ export async function handleCopilotServerToolSuccess(
           : []),
       ])
     } else if (toolName.endsWith('_mcp_server')) {
-      await useMcpServersStore.getState().fetchServers(workspaceId)
       window.dispatchEvent(
         new CustomEvent(MCP_TOOLS_CHANGED_EVENT, {
           detail: { workspaceId },

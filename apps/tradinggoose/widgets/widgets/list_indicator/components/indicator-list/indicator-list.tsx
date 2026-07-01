@@ -13,6 +13,7 @@ import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/
 import type { IndicatorDefinition } from '@/stores/indicators/types'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
+import { resolveEntityIdFromList } from '@/widgets/utils/entity-selection'
 import {
   emitIndicatorSelectionChange,
   useIndicatorSelectionPersistence,
@@ -73,12 +74,14 @@ export function IndicatorList({
     [members, workspaceId]
   )
 
-  const selectedIndicatorId = useMemo(() => {
-    if (isLinkedToColorPair) {
-      return pairContext?.indicatorId ?? null
-    }
-    return getIndicatorIdFromParams(params)
-  }, [isLinkedToColorPair, pairContext?.indicatorId, params])
+  const requestedIndicatorId = isLinkedToColorPair
+    ? (pairContext?.indicatorId ?? null)
+    : getIndicatorIdFromParams(params)
+  const selectedIndicatorId = resolveEntityIdFromList({
+    requestedEntityId: requestedIndicatorId,
+    entityIds: listIndicators.map((indicator) => indicator.id),
+    useDefaultEntity: false,
+  })
 
   const handleSelect = useCallback(
     (indicatorId: string | null) => {

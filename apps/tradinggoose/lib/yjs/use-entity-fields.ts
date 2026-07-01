@@ -32,7 +32,6 @@ import { customToolsKeys } from '@/hooks/queries/custom-tools'
 import { indicatorKeys } from '@/hooks/queries/indicators'
 import { knowledgeKeys } from '@/hooks/queries/knowledge'
 import { skillsKeys } from '@/hooks/queries/skills'
-import { useMcpServersStore } from '@/stores/mcp-servers/store'
 
 type SavedEntityYjsSessionState = {
   key: string | null
@@ -174,7 +173,6 @@ function invalidateSavedEntityQueries(
       void queryClient.invalidateQueries({ queryKey: knowledgeKeys.detail(entityId) })
       return
     case 'mcp_server':
-      void useMcpServersStore.getState().fetchServers(workspaceId)
       return
   }
 }

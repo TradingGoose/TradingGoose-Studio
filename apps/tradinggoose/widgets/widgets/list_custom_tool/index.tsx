@@ -1,6 +1,6 @@
 'use client'
 
-import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type ChangeEvent, useCallback, useMemo, useRef, useState } from 'react'
 import { Plus, Upload, Wrench } from 'lucide-react'
 import { useMessages } from 'next-intl'
 import {
@@ -40,6 +40,7 @@ import {
   emitCustomToolSelectionChange,
   useCustomToolSelectionPersistence,
 } from '@/widgets/utils/custom-tool-selection'
+import { resolveEntityIdFromList } from '@/widgets/utils/entity-selection'
 import { CustomToolListItem } from '@/widgets/widgets/_shared/custom_tool/components/custom-tool-list-item'
 import {
   CUSTOM_TOOL_EDITOR_WIDGET_KEY,
@@ -340,13 +341,15 @@ function ListCustomToolWidgetBodyInner({
     [members, workspaceId]
   )
 
-  const selectedToolId = useMemo(() => {
-    if (isLinkedToColorPair) {
-      return resolveCustomToolId({ pairContext, params })
-    }
-
-    return resolveCustomToolId({ params })
-  }, [isLinkedToColorPair, pairContext, params])
+  const requestedToolId = resolveCustomToolId({
+    params,
+    pairContext: isLinkedToColorPair ? pairContext : null,
+  })
+  const selectedToolId = resolveEntityIdFromList({
+    requestedEntityId: requestedToolId,
+    entityIds: tools.map((tool) => tool.id),
+    useDefaultEntity: false,
+  })
 
   useCustomToolSelectionPersistence({
     onWidgetParamsChange,
@@ -393,12 +396,6 @@ function ListCustomToolWidgetBodyInner({
       setPairContext,
     ]
   )
-
-  useEffect(() => {
-    if (!selectedToolId || isLoading || error) return
-    if (tools.some((tool) => tool.id === selectedToolId)) return
-    syncSelection(null)
-  }, [error, isLoading, selectedToolId, syncSelection, tools])
 
   const handleDeleteTool = useCallback(
     async (customToolId: string) => {

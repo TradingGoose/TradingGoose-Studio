@@ -7,6 +7,7 @@ import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fi
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
+import { resolveEntityIdFromList } from '@/widgets/utils/entity-selection'
 import { useIndicatorEditorActions } from '@/widgets/utils/indicator-editor-actions'
 import { useIndicatorSelectionPersistence } from '@/widgets/utils/indicator-selection'
 import { IndicatorCodePanel } from '@/widgets/widgets/editor_indicator/components/pine-indicator-code-panel'
@@ -45,11 +46,11 @@ export function EditorIndicatorWidgetBody({
   const requestedIndicatorMember = hasRequestedIndicator
     ? indicatorMembers.find((member) => member.entityId === normalizedRequestedIndicatorId)
     : null
-  const indicatorId = hasRequestedIndicator
-    ? (requestedIndicatorMember?.entityId ?? null)
-    : isLinkedToColorPair
-      ? null
-      : (indicatorMembers[0]?.entityId ?? null)
+  const indicatorId = resolveEntityIdFromList({
+    requestedEntityId: requestedIndicatorId,
+    entityIds: indicatorMembers.map((member) => member.entityId),
+    useDefaultEntity: !isLinkedToColorPair,
+  })
   const indicatorSession = useSavedEntityYjsSession('indicator', indicatorId, workspaceId)
 
   useEffect(() => {

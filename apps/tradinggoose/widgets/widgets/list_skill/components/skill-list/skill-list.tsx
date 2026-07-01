@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { SKILL_NAME_MAX_LENGTH } from '@/lib/skills/import-export'
@@ -12,6 +12,7 @@ import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/
 import type { SkillDefinition } from '@/stores/skills/types'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
+import { resolveEntityIdFromList } from '@/widgets/utils/entity-selection'
 import {
   emitSkillSelectionChange,
   useSkillSelectionPersistence,
@@ -74,10 +75,15 @@ export function SkillList({
     [members, workspaceId]
   )
 
-  const selectedSkillId = useMemo(
-    () => resolveSkillId({ params, pairContext: isLinkedToColorPair ? pairContext : null }),
-    [isLinkedToColorPair, pairContext, params]
-  )
+  const requestedSkillId = resolveSkillId({
+    params,
+    pairContext: isLinkedToColorPair ? pairContext : null,
+  })
+  const selectedSkillId = resolveEntityIdFromList({
+    requestedEntityId: requestedSkillId,
+    entityIds: listSkills.map((skill) => skill.id),
+    useDefaultEntity: false,
+  })
 
   const handleSelect = useCallback(
     (skillId: string | null) => {
@@ -112,12 +118,6 @@ export function SkillList({
       setPairContext,
     ]
   )
-
-  useEffect(() => {
-    if (!selectedSkillId || isLoading || error) return
-    if (listSkills.some((skill) => skill.id === selectedSkillId)) return
-    handleSelect(null)
-  }, [error, handleSelect, isLoading, listSkills, selectedSkillId])
 
   const handleDelete = useCallback(
     async (skillId: string) => {

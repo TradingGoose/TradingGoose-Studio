@@ -21,6 +21,7 @@ import {
   emitCustomToolSelectionChange,
   useCustomToolSelectionPersistence,
 } from '@/widgets/utils/custom-tool-selection'
+import { resolveEntityIdFromList } from '@/widgets/utils/entity-selection'
 import {
   CUSTOM_TOOL_EDITOR_WIDGET_KEY,
   resolveCustomToolId,
@@ -125,11 +126,11 @@ function EditorCustomToolWidgetBody({
   const requestedCustomToolMember = hasRequestedCustomTool
     ? customToolMembers.find((member) => member.entityId === normalizedRequestedCustomToolId)
     : null
-  const selectedToolId = hasRequestedCustomTool
-    ? (requestedCustomToolMember?.entityId ?? null)
-    : isLinkedToColorPair
-      ? null
-      : (customToolMembers[0]?.entityId ?? null)
+  const selectedToolId = resolveEntityIdFromList({
+    requestedEntityId: requestedCustomToolId,
+    entityIds: customToolMembers.map((member) => member.entityId),
+    useDefaultEntity: !isLinkedToColorPair,
+  })
 
   useCustomToolSelectionPersistence({
     onWidgetParamsChange,

@@ -12,6 +12,7 @@ import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
+import { resolveEntityId, resolveEntityIdFromList } from '@/widgets/utils/entity-selection'
 import {
   emitWorkflowSelectionChange,
   useWorkflowSelectionPersistence,
@@ -58,14 +59,6 @@ const WorkflowListWidgetBody = ({
     params: widgetParams,
   })
 
-  const rawSelectedWorkflowId = useMemo(() => {
-    if (isLinkedToColorPair) return pairContext?.workflowId ?? null
-    if (!widgetParams || typeof widgetParams !== 'object') return null
-    if (!('workflowId' in widgetParams)) return null
-    const value = widgetParams.workflowId
-    return typeof value === 'string' && value.trim().length > 0 ? value : null
-  }, [isLinkedToColorPair, pairContext?.workflowId, widgetParams])
-
   const regularWorkflows = useMemo<WorkflowListEntry[]>(
     () =>
       workspaceId
@@ -83,11 +76,14 @@ const WorkflowListWidgetBody = ({
     [members, workspaceId]
   )
 
-  const selectedWorkflowId =
-    rawSelectedWorkflowId &&
-    regularWorkflows.some((workflow) => workflow.id === rawSelectedWorkflowId)
-      ? rawSelectedWorkflowId
-      : null
+  const requestedWorkflowId = isLinkedToColorPair
+    ? (pairContext?.workflowId ?? null)
+    : resolveEntityId('workflowId', { params: widgetParams })
+  const selectedWorkflowId = resolveEntityIdFromList({
+    requestedEntityId: requestedWorkflowId,
+    entityIds: regularWorkflows.map((workflow) => workflow.id),
+    useDefaultEntity: false,
+  })
 
   useEffect(() => {
     if (!workspaceId) {

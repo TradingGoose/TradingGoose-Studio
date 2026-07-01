@@ -7,6 +7,7 @@ import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
+import { resolveEntityId, resolveEntityIdFromList } from '@/widgets/utils/entity-selection'
 
 type UseWorkflowWidgetStateOptions = Pick<
   WidgetComponentProps,
@@ -61,17 +62,14 @@ export const useWorkflowWidgetState = ({
   } = useEntityList('workflow', workspaceId)
   const setActiveWorkflow = useWorkflowRegistry((state) => state.setActiveWorkflow)
 
-  const requestedWorkflowId = useMemo(() => {
-    if (
-      (resolvedPairColor !== 'gray' && shouldUsePairWorkflowContext) ||
-      !params ||
-      typeof params !== 'object'
-    ) {
-      return null
-    }
-
-    return 'workflowId' in params && params.workflowId ? String(params.workflowId) : null
-  }, [resolvedPairColor, params, shouldUsePairWorkflowContext])
+  const requestedWorkflowId = useMemo(
+    () =>
+      resolveEntityId('workflowId', {
+        params: shouldUsePairWorkflowContext ? null : params,
+        pairContext: shouldUsePairWorkflowContext ? pairContext : null,
+      }),
+    [pairContext, params, shouldUsePairWorkflowContext]
+  )
 
   const rawActiveWorkflowIdForChannel = useWorkflowRegistry((state) =>
     state.getActiveWorkflowId(channelId)
@@ -83,21 +81,18 @@ export const useWorkflowWidgetState = ({
   const canResolveWorkflowIds = Boolean(workspaceId) && !listError && !isListLoading
 
   const resolvedWorkflowId = useMemo(() => {
-    const resolveWorkflowId = (workflowId: string | null | undefined) => {
-      if (!workflowId) return null
-      return canResolveWorkflowIds && workflowIds.includes(workflowId) ? workflowId : null
-    }
+    if (!canResolveWorkflowIds) return null
 
-    if (shouldUsePairWorkflowContext) {
-      return resolveWorkflowId(pairContext.workflowId)
-    }
+    const canUseDefaultEntity = !shouldUsePairWorkflowContext && !requestedWorkflowId
 
-    return (
-      resolveWorkflowId(rawActiveWorkflowIdForChannel) ?? resolveWorkflowId(requestedWorkflowId)
-    )
+    return resolveEntityIdFromList({
+      requestedEntityId: requestedWorkflowId,
+      fallbackEntityId: canUseDefaultEntity ? rawActiveWorkflowIdForChannel : null,
+      entityIds: workflowIds,
+      useDefaultEntity: canUseDefaultEntity,
+    })
   }, [
     workflowIds,
-    pairContext.workflowId,
     rawActiveWorkflowIdForChannel,
     requestedWorkflowId,
     canResolveWorkflowIds,

@@ -18,6 +18,8 @@ export const MCP_CLIENT_CONSTANTS = {
   AUTO_REFRESH_INTERVAL: 5 * 60 * 1000,
 } as const
 
+export const MCP_TOOLS_CHANGED_EVENT = 'tradinggoose:mcp-tools-changed'
+
 /**
  * Create standardized MCP error response
  */

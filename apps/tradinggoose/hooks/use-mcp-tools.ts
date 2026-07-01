@@ -10,8 +10,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { WrenchIcon } from 'lucide-react'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { McpTool } from '@/lib/mcp/types'
-import { createMcpToolId } from '@/lib/mcp/utils'
-import { MCP_TOOLS_CHANGED_EVENT, useMcpServersStore } from '@/stores/mcp-servers/store'
+import { createMcpToolId, MCP_TOOLS_CHANGED_EVENT } from '@/lib/mcp/utils'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 
 const logger = createLogger('useMcpTools')
 const DISCOVERY_CACHE_MS = 5 * 60 * 1000
@@ -39,11 +39,7 @@ export interface UseMcpToolsResult {
 const discoveryCache = new Map<string, { expiresAt: number; tools: McpToolForUI[] }>()
 const discoveryRequests = new Map<string, Promise<McpToolForUI[]>>()
 
-async function discoverMcpTools(
-  workspaceId: string,
-  serversFingerprint: string,
-  force: boolean
-) {
+async function discoverMcpTools(workspaceId: string, serversFingerprint: string, force: boolean) {
   const cacheKey = `${workspaceId}:${serversFingerprint}`
   const pending = discoveryRequests.get(cacheKey)
   if (pending) return pending
@@ -96,25 +92,49 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
   const [error, setError] = useState<string | null>(null)
   const normalizedWorkspaceId = workspaceId.trim()
 
-  const servers = useMcpServersStore((state) => state.servers)
+  const {
+    members: serverMembers,
+    isLoading: isServerListLoading,
+    error: serverListError,
+  } = useEntityList('mcp_server', normalizedWorkspaceId || null)
 
-  // Create a stable server fingerprint
   const serversFingerprint = useMemo(() => {
-    return servers
-      .filter((s) => !s.deletedAt)
-      .map((s) => `${s.id}:${s.enabled !== false ? '1' : '0'}:${s.updatedAt ?? ''}`)
+    return serverMembers
+      .filter((member) => member.enabled !== false)
+      .map((member) => `${member.entityId}:${member.entityName}`)
       .sort()
       .join('|')
-  }, [servers])
+  }, [serverMembers])
 
   const hasEnabledServers = useMemo(
-    () => servers.some((server) => !server.deletedAt && server.enabled !== false),
-    [servers]
+    () => serverMembers.some((member) => member.enabled !== false),
+    [serverMembers]
   )
 
   const loadTools = useCallback(
     async (force = false) => {
-      if (!normalizedWorkspaceId || !hasEnabledServers) {
+      if (!normalizedWorkspaceId) {
+        setMcpTools([])
+        setError(null)
+        setIsLoading(false)
+        return
+      }
+
+      if (serverListError) {
+        setMcpTools([])
+        setError(serverListError)
+        setIsLoading(false)
+        return
+      }
+
+      if (isServerListLoading) {
+        setMcpTools([])
+        setError(null)
+        setIsLoading(true)
+        return
+      }
+
+      if (!hasEnabledServers) {
         setMcpTools([])
         setError(null)
         setIsLoading(false)
@@ -136,7 +156,13 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
         setIsLoading(false)
       }
     },
-    [hasEnabledServers, normalizedWorkspaceId, serversFingerprint]
+    [
+      hasEnabledServers,
+      isServerListLoading,
+      normalizedWorkspaceId,
+      serverListError,
+      serversFingerprint,
+    ]
   )
 
   const refreshTools = useCallback(() => loadTools(true), [loadTools])
