@@ -23,6 +23,7 @@ import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { escapeRegExp } from '@/lib/utils'
 import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
 import {
+  ReviewTargetBootstrapError,
   readBootstrappedReviewTargetSnapshot,
   readBootstrappedSavedEntityFields,
 } from '@/lib/yjs/server/bootstrap-review-target'
@@ -207,13 +208,17 @@ async function processEntityContext(params: {
       ),
     }
   } catch (error) {
-    logger.error('Error processing entity context', {
-      entityKind: params.entityKind,
-      entityId: params.entityId,
-      workspaceId: params.workspaceId,
-      error,
-    })
-    return null
+    // Only a genuinely missing entity degrades to "no context"; realtime
+    // failures must surface instead of silently omitting attached context.
+    if (error instanceof ReviewTargetBootstrapError && error.status === 404) {
+      logger.warn('Skipping missing copilot entity context', {
+        entityKind: params.entityKind,
+        entityId: params.entityId,
+        workspaceId: params.workspaceId,
+      })
+      return null
+    }
+    throw error
   }
 }
 
@@ -503,8 +508,11 @@ async function processKnowledgeContext(
     const content = JSON.stringify(summary, null, 2)
     return { type: 'knowledge', tag, content }
   } catch (error) {
-    logger.error('Error processing knowledge context', { knowledgeBaseId, error })
-    return null
+    if (error instanceof ReviewTargetBootstrapError && error.status === 404) {
+      logger.warn('Skipping missing knowledge context', { knowledgeBaseId })
+      return null
+    }
+    throw error
   }
 }
 

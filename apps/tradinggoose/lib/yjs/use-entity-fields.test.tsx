@@ -1,6 +1,5 @@
 /** @vitest-environment jsdom */
 
-import React from 'react'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -63,8 +62,8 @@ function createMockSession(members: Record<string, { name: string }>) {
     descriptor: {},
     runtime: {},
     accessMode: 'read' as const,
-    emitConnectionClose: () => {
-      for (const handler of Array.from(listeners.get('connection-close') ?? [])) {
+    emit: (event: string) => {
+      for (const handler of Array.from(listeners.get(event) ?? [])) {
         handler()
       }
     },
@@ -133,7 +132,7 @@ describe('useEntityList read-session lifecycle', () => {
     expect(captured.current?.members.map((m) => m.entityName)).toEqual(['Alpha', 'Gone'])
 
     await act(async () => {
-      stale.emitConnectionClose()
+      stale.emit('connection-close')
     })
     expect(stale.provider.destroy).toHaveBeenCalledTimes(1)
     expect(captured.current?.isLoading).toBe(true)
@@ -158,7 +157,8 @@ describe('useEntityList read-session lifecycle', () => {
     expect(captured.current?.members.map((m) => m.entityName)).toEqual(['Alpha'])
 
     await act(async () => {
-      stale.emitConnectionClose()
+      stale.emit('connection-error')
+      stale.emit('connection-close')
     })
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1_000)
@@ -180,7 +180,7 @@ describe('useEntityList read-session lifecycle', () => {
 
     await renderList('workspace-release')
     await act(async () => {
-      stale.emitConnectionClose()
+      stale.emit('connection-close')
     })
     await act(async () => {
       root!.unmount()

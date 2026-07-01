@@ -415,39 +415,33 @@ async function getServerCustomTool(
   workflowId: string | undefined,
   workspaceId: string | undefined,
   isDeployedContext: boolean
-): Promise<ToolConfig | undefined> {
+): Promise<ToolConfig> {
   const identifier = getCustomToolEntityIdFromRuntimeId(customToolId)
 
-  try {
-    const scopedWorkspaceId =
-      workspaceId ?? (workflowId ? await resolveWorkflowWorkspaceId(workflowId) : null)
-    if (!scopedWorkspaceId) {
-      logger.error(`Workspace context is required for custom tool ${identifier}`)
-      return undefined
-    }
-
-    const { readSavedEntityFieldsForExecution } = await import(
-      '@/lib/yjs/server/bootstrap-review-target'
-    )
-    const fields = await readSavedEntityFieldsForExecution(
-      'custom_tool',
-      identifier,
-      scopedWorkspaceId,
-      isDeployedContext
-    )
-
-    return createToolConfig(
-      {
-        title: String(fields.title ?? ''),
-        schema: parseCustomToolSchemaText(fields.schemaText),
-        code: String(fields.codeText ?? ''),
-      },
-      customToolId,
-      false,
-      workflowId
-    )
-  } catch (error) {
-    logger.error(`Error fetching custom tool ${identifier}:`, error)
-    return undefined
+  const scopedWorkspaceId =
+    workspaceId ?? (workflowId ? await resolveWorkflowWorkspaceId(workflowId) : null)
+  if (!scopedWorkspaceId) {
+    throw new Error(`Workspace context is required for custom tool ${identifier}`)
   }
+
+  const { readSavedEntityFieldsForExecution } = await import(
+    '@/lib/yjs/server/bootstrap-review-target'
+  )
+  const fields = await readSavedEntityFieldsForExecution(
+    'custom_tool',
+    identifier,
+    scopedWorkspaceId,
+    isDeployedContext
+  )
+
+  return createToolConfig(
+    {
+      title: String(fields.title ?? ''),
+      schema: parseCustomToolSchemaText(fields.schemaText),
+      code: String(fields.codeText ?? ''),
+    },
+    customToolId,
+    false,
+    workflowId
+  )
 }

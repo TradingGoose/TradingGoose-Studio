@@ -130,13 +130,17 @@ function initializeSharedYjsSessionEntry(
         // Read sessions end on connection loss (see bootstrapYjsProvider):
         // the server-owned projection doc is a disposable lineage, so replace
         // the whole session from a fresh snapshot instead of resyncing it.
-        next.provider.on('connection-close', () => {
+        // Both loss signals are handled; the guards make error-then-close
+        // idempotent.
+        const handleConnectionLoss = () => {
           if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.result !== next) return
           entry.result = null
           closeYjsSession(next)
           emitSharedYjsSessionEntry(entry)
           scheduleSharedYjsSessionReopen(entry, openSession, errorMessage)
-        })
+        }
+        next.provider.on('connection-close', handleConnectionLoss)
+        next.provider.on('connection-error', handleConnectionLoss)
       }
     })
     .catch((nextError) => {

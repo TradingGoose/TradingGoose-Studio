@@ -194,18 +194,13 @@ export class AgentBlockHandler implements BlockHandler {
           return usageControl !== 'none'
         })
         .map(async (tool) => {
-          try {
-            if (tool.type === 'custom-tool' && tool.schema) {
-              return await this.createCustomTool(tool, context)
-            }
-            if (tool.type === 'mcp') {
-              return await this.createMcpTool(tool, context)
-            }
-            return this.transformBlockTool(tool, context)
-          } catch (error) {
-            logger.error(`[AgentHandler] Error creating tool:`, { tool, error })
-            return null
+          if (tool.type === 'custom-tool' && tool.schema) {
+            return await this.createCustomTool(tool, context)
           }
+          if (tool.type === 'mcp') {
+            return await this.createMcpTool(tool, context)
+          }
+          return this.transformBlockTool(tool, context)
         })
     )
 
@@ -315,19 +310,14 @@ export class AgentBlockHandler implements BlockHandler {
       })
       if (!response.ok) {
         const errorText = await response.text().catch(() => '')
-        logger.warn(
-          `Failed to discover tools from server ${serverId} (status ${response.status})`,
-          { errorText }
+        throw new Error(
+          `Failed to discover tools from MCP server ${serverId} (status ${response.status})${errorText ? `: ${errorText}` : ''}`
         )
-        return null
       }
 
       const data = await response.json()
       if (!data.success) {
-        logger.warn(`MCP discovery returned unsuccessful for ${serverId}`, {
-          error: data.error,
-        })
-        return null
+        throw new Error(data.error || `MCP tool discovery failed for server ${serverId}`)
       }
 
       const mcpTool = data.data.tools.find((t: any) => t.name === toolName)
@@ -404,7 +394,7 @@ export class AgentBlockHandler implements BlockHandler {
       }
     } catch (error) {
       logger.warn(`Failed to create MCP tool ${toolName} from server ${serverId}:`, error)
-      return null
+      throw error
     }
   }
 

@@ -281,13 +281,6 @@ export async function executeTool(
         scope.workspaceId,
         scope.isDeployedContext !== false
       )
-      if (!content) {
-        return {
-          success: false,
-          output: { error: `Skill "${skillId}" not found` },
-          error: `Skill "${skillId}" not found`,
-        }
-      }
 
       return {
         success: true,
@@ -303,9 +296,6 @@ export async function executeTool(
         scope.workspaceId,
         scope.isDeployedContext !== false
       )
-      if (!tool) {
-        logger.error(`[${requestId}] Custom tool not found: ${toolId}`)
-      }
     } else if (isMcpTool) {
       return await executeMcpTool(
         toolId,

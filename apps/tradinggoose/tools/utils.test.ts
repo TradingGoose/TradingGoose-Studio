@@ -827,15 +827,18 @@ describe('createCustomToolRequestBody', () => {
     }
   })
 
-  it('does not resolve server-side custom tools by title', async () => {
+  it('surfaces execution-read failures instead of masking them as undefined', async () => {
     const serverWindow = global.window
+    readSavedEntityFieldsForExecutionMock.mockRejectedValueOnce(
+      new Error('Saved custom_tool Custom Weather Tool was not found')
+    )
 
     try {
       ;(global as any).window = undefined
 
       await expect(
         getToolAsync('custom_Custom Weather Tool', undefined, 'workspace-456')
-      ).resolves.toBeUndefined()
+      ).rejects.toThrow('was not found')
     } finally {
       global.window = serverWindow
     }
