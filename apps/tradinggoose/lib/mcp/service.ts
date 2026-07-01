@@ -13,11 +13,11 @@ import type {
 } from '@/lib/mcp/types'
 import { generateRequestId } from '@/lib/utils'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
-import { publishCreatedSavedEntityListMembers } from '@/lib/yjs/server/apply-entity-state'
 import {
   readSavedEntityFieldsForExecution,
   readSavedEntityListFieldsForExecution,
 } from '@/lib/yjs/server/bootstrap-review-target'
+import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('McpService')
 
@@ -157,13 +157,7 @@ class McpService {
       throw new Error('Created MCP server was not returned from canonical insert')
     }
 
-    await publishCreatedSavedEntityListMembers('mcp_server', input.workspaceId, [
-      {
-        id: entityId,
-        name: String(normalized.name ?? ''),
-        enabled: normalized.enabled !== false,
-      },
-    ])
+    await refreshEntityListSession('mcp_server', input.workspaceId)
 
     return { entityId, fields: savedEntityRowToFields('mcp_server', row) }
   }

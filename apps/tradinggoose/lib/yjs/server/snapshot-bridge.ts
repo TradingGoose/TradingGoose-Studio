@@ -1,4 +1,8 @@
-import { buildEntityListDescriptor } from '@/lib/copilot/review-sessions/identity'
+import {
+  buildEntityListDescriptor,
+  buildYjsTransportEnvelope,
+  serializeYjsTransportEnvelope,
+} from '@/lib/copilot/review-sessions/identity'
 import type {
   ReviewEntityKind,
   ReviewTargetDescriptor,
@@ -131,16 +135,11 @@ export async function applyWorkflowPatchInSocketServer(
 export async function applyEntityStateInSocketServer(
   entityId: string,
   entityKind: string,
-  fields: Record<string, unknown>,
-  listMember?: {
-    name: string
-    enabled?: boolean
-    color?: string
-  }
+  fields: Record<string, unknown>
 ): Promise<void> {
   await postJsonToSocketServer(
     `/internal/yjs/entities/${encodeURIComponent(entityId)}/apply-state`,
-    { entityKind, fields, listMember }
+    { entityKind, fields }
   )
 }
 
@@ -155,42 +154,23 @@ export async function applyYjsUpdateInSocketServer(
   )
 }
 
-async function postEntityListMembersToSocketServer(
+export async function refreshEntityListSession(
   entityKind: ReviewEntityKind,
-  workspaceId: string,
-  body: unknown
+  workspaceId: string
 ): Promise<void> {
   const descriptor = buildEntityListDescriptor(entityKind, workspaceId)
+  const params = new URLSearchParams(
+    serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
+  )
   try {
     await postJsonToSocketServer(
-      `/internal/yjs/sessions/${encodeURIComponent(descriptor.yjsSessionId)}/members`,
-      body
+      `/internal/yjs/sessions/${encodeURIComponent(descriptor.yjsSessionId)}/members?${params}`,
+      {}
     )
   } catch {
-    // Entity-list sessions are DB-seeded projections; snapshot reads repair missed live publishes.
+    // List sessions are DB-seeded projections; discard forces connected clients to rebootstrap.
+    await deleteYjsSessionInSocketServer(descriptor.yjsSessionId).catch(() => {})
   }
-}
-
-export async function notifyEntityListMembersUpserted(
-  entityKind: ReviewEntityKind,
-  workspaceId: string,
-  members: Array<{
-    id: string
-    name: string
-    enabled?: boolean
-    folderId?: string | null
-    color?: string
-  }>
-): Promise<void> {
-  await postEntityListMembersToSocketServer(entityKind, workspaceId, { members })
-}
-
-export async function notifyEntityListMemberRemoved(
-  entityKind: ReviewEntityKind,
-  workspaceId: string,
-  entityId: string
-): Promise<void> {
-  await postEntityListMembersToSocketServer(entityKind, workspaceId, { remove: entityId })
 }
 
 export async function deleteYjsSessionInSocketServer(sessionId: string): Promise<void> {

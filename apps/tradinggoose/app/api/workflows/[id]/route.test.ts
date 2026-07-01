@@ -19,8 +19,8 @@ describe('Workflow By ID API Route', () => {
   const mockReadWorkflowById = vi.fn()
   const mockReadWorkflowAccessContext = vi.fn()
   const mockLoadWorkflowState = vi.fn()
-  const mockPublishWorkflowListMember = vi.fn()
-  const mockRemoveWorkflowListMember = vi.fn()
+  const mockRefreshWorkflowListForWorkflow = vi.fn()
+  const mockRefreshWorkflowList = vi.fn()
   const mockDeleteYjsSession = vi.fn()
   const mockDbUpdateReturning = vi.fn()
   const mockDbUpdateWhere = vi.fn()
@@ -41,8 +41,8 @@ describe('Workflow By ID API Route', () => {
       WORKFLOW_REALTIME_REQUIRED_CODE: 'WORKFLOW_REALTIME_REQUIRED',
       isWorkflowRealtimeRequiredError: vi.fn(() => false),
       requireWorkflowRealtimeState: mockLoadWorkflowState,
-      publishWorkflowListMember: mockPublishWorkflowListMember,
-      removeWorkflowListMember: mockRemoveWorkflowListMember,
+      refreshWorkflowListForWorkflow: mockRefreshWorkflowListForWorkflow,
+      refreshWorkflowList: mockRefreshWorkflowList,
     }))
 
     vi.doMock('@tradinggoose/db', () => ({
@@ -79,14 +79,14 @@ describe('Workflow By ID API Route', () => {
     mockReadWorkflowById.mockReset()
     mockReadWorkflowAccessContext.mockReset()
     mockLoadWorkflowState.mockReset()
-    mockPublishWorkflowListMember.mockReset()
-    mockRemoveWorkflowListMember.mockReset()
+    mockRefreshWorkflowListForWorkflow.mockReset()
+    mockRefreshWorkflowList.mockReset()
     mockDeleteYjsSession.mockReset()
     mockDbUpdateReturning.mockReset()
     mockDbUpdateWhere.mockReset()
     mockDbUpdateSet.mockReset()
     mockLoadWorkflowState.mockResolvedValue(null)
-    mockPublishWorkflowListMember.mockResolvedValue(undefined)
+    mockRefreshWorkflowListForWorkflow.mockResolvedValue(undefined)
     mockDbUpdateWhere.mockReturnValue({ returning: mockDbUpdateReturning })
     mockDbUpdateSet.mockReturnValue({ where: mockDbUpdateWhere })
     mockDbUpdateReturning.mockResolvedValue([
@@ -98,7 +98,7 @@ describe('Workflow By ID API Route', () => {
         workspaceId: null,
       },
     ])
-    mockRemoveWorkflowListMember.mockResolvedValue(undefined)
+    mockRefreshWorkflowList.mockResolvedValue(undefined)
     mockDeleteYjsSession.mockResolvedValue(undefined)
 
     vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
@@ -120,7 +120,7 @@ describe('Workflow By ID API Route', () => {
     expect(mockDbUpdateSet).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'Updated Workflow' })
     )
-    expect(mockPublishWorkflowListMember).toHaveBeenCalledWith('workflow-123')
+    expect(mockRefreshWorkflowListForWorkflow).toHaveBeenCalledWith('workflow-123')
   }
 
   describe('GET /api/workflows/[id]', () => {
@@ -529,7 +529,7 @@ describe('Workflow By ID API Route', () => {
       expect(response.status).toBe(200)
       const data = await response.json()
       expect(data.success).toBe(true)
-      expect(mockRemoveWorkflowListMember).toHaveBeenCalledWith('workspace-456', 'workflow-123')
+      expect(mockRefreshWorkflowList).toHaveBeenCalledWith('workspace-456')
     })
 
     it('should deny deletion for non-admin users', async () => {
@@ -698,7 +698,7 @@ describe('Workflow By ID API Route', () => {
       expect(data.workflow.description).toBe('New description')
       expect(mockLoadWorkflowState).not.toHaveBeenCalled()
       expect(mockDbUpdateSet).toHaveBeenCalledWith(expect.objectContaining(updateData))
-      expect(mockPublishWorkflowListMember).not.toHaveBeenCalled()
+      expect(mockRefreshWorkflowListForWorkflow).not.toHaveBeenCalled()
     })
 
     it('updates workflow row metadata and publishes list fields', async () => {
@@ -754,7 +754,7 @@ describe('Workflow By ID API Route', () => {
       expect(data.workflow.folderId).toBe('folder-1')
       expect(mockLoadWorkflowState).not.toHaveBeenCalled()
       expect(mockDbUpdateSet).toHaveBeenCalledWith(expect.objectContaining(updateData))
-      expect(mockPublishWorkflowListMember).toHaveBeenCalledWith('workflow-123')
+      expect(mockRefreshWorkflowListForWorkflow).toHaveBeenCalledWith('workflow-123')
     })
 
     it('should deny update for users with only read permission', async () => {

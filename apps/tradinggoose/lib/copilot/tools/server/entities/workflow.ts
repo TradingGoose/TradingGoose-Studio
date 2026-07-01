@@ -21,7 +21,7 @@ import {
 import { editWorkflowServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow'
 import { editWorkflowBlockServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow-block'
 import { VariableManager } from '@/lib/variables/variable-manager'
-import { publishWorkflowListMember } from '@/lib/workflows/db-helpers'
+import { refreshWorkflowListForWorkflow } from '@/lib/workflows/db-helpers'
 import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 import {
   readWorkflowContainerBoundaryEdgeViolation,
@@ -523,7 +523,7 @@ export const createWorkflowServerTool: BaseServerTool<
 
     try {
       await applyWorkflowState(workflowId, workflowState, {})
-      await publishWorkflowListMember(workflowId)
+      await refreshWorkflowListForWorkflow(workflowId)
     } catch (error) {
       await db.delete(workflow).where(eq(workflow.id, workflowId))
       throw error
@@ -591,7 +591,7 @@ export const renameWorkflowServerTool: BaseServerTool<{ entityId: string; name: 
     if (!updatedWorkflow) {
       throw new Error('Workflow not found')
     }
-    await publishWorkflowListMember(workflowId)
+    await refreshWorkflowListForWorkflow(workflowId)
 
     return {
       success: true,

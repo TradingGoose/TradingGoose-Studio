@@ -10,11 +10,7 @@ import {
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { env } from '@/lib/env'
 import { saveWorkflowYjsDocToDb } from '@/lib/workflows/db-helpers'
-import {
-  applyEntityListMutations,
-  type EntityListMemberMutation,
-  seedEntitySession,
-} from '@/lib/yjs/entity-session'
+import { seedEntitySession } from '@/lib/yjs/entity-session'
 import {
   SavedEntityPersistenceError,
   saveSavedEntityYjsDocToDb,
@@ -70,11 +66,6 @@ type SavedEntityKind = Exclude<ReviewEntityKind, 'workflow'>
 type ApplyEntityStateRequest = {
   entityKind: SavedEntityKind
   fields: Record<string, any>
-  listMember?: {
-    name: string
-    enabled?: boolean
-    color?: string
-  }
 }
 
 class InvalidInternalYjsRequestError extends Error {
@@ -230,20 +221,9 @@ function parseApplyEntityStateRequest(body: unknown): ApplyEntityStateRequest {
     throw new InvalidInternalYjsRequestError('fields are required')
   }
 
-  const listMember =
-    candidate.listMember &&
-    typeof candidate.listMember === 'object' &&
-    !Array.isArray(candidate.listMember)
-      ? (candidate.listMember as Record<string, unknown>)
-      : null
-  if (listMember && typeof listMember.name !== 'string') {
-    throw new InvalidInternalYjsRequestError('listMember.name is required')
-  }
-
   return {
     entityKind: candidate.entityKind,
     fields: candidate.fields as Record<string, any>,
-    listMember: listMember as ApplyEntityStateRequest['listMember'],
   }
 }
 
@@ -317,11 +297,9 @@ function applyWorkflowApplyRequest(doc: Y.Doc, body: ApplyWorkflowStateRequest):
     replaceWorkflowVariables(doc, body.variables, YJS_ORIGINS.SYSTEM)
 }
 
-async function applySavedEntityListMemberToLiveDoc(
+async function refreshSavedEntityListDoc(
   entityKind: SavedEntityKind,
-  entityId: string,
-  entityDoc: Y.Doc,
-  member: NonNullable<ApplyEntityStateRequest['listMember']>
+  entityDoc: Y.Doc
 ): Promise<void> {
   const workspaceId = entityDoc.getMap('metadata').get('workspaceId')
   if (typeof workspaceId !== 'string' || !workspaceId) return
@@ -330,19 +308,17 @@ async function applySavedEntityListMemberToLiveDoc(
   const listDoc = await getExistingDocument(descriptor.yjsSessionId)
   if (!listDoc) return
 
-  applyEntityListMutations(listDoc, {
-    op: 'upsert',
-    entityId,
-    name: member.name,
-    ...(typeof member.enabled === 'boolean' ? { enabled: member.enabled } : {}),
-    ...(typeof member.color === 'string' ? { color: member.color } : {}),
-  })
-  markDocumentPersisted(listDoc)
-  discardDocumentIfIdle(descriptor.yjsSessionId)
+  try {
+    await reseedEntityListSessionFromDb(listDoc, entityKind, workspaceId)
+    markDocumentPersisted(listDoc)
+    discardDocumentIfIdle(descriptor.yjsSessionId)
+  } catch {
+    discardDocument(descriptor.yjsSessionId)
+  }
 }
 
 async function handleInternalYjsEntityListMembersRequest(
-  req: IncomingMessage,
+  parsedUrl: URL,
   res: ServerResponse,
   logger: Logger,
   sessionId: string
@@ -358,37 +334,16 @@ async function handleInternalYjsEntityListMembersRequest(
       return
     }
 
-    const body = (await readJsonBody(req)) as {
-      members?: Array<{
-        id?: unknown
-        name?: unknown
-        enabled?: unknown
-        folderId?: unknown
-        color?: unknown
-      }>
-      remove?: unknown
+    const envelope = parseYjsTransportEnvelope(Object.fromEntries(parsedUrl.searchParams))
+    if (envelope.sessionId !== sessionId) {
+      throw new InvalidInternalYjsRequestError('Session ID mismatch')
     }
-    const mutations: EntityListMemberMutation[] = [
-      ...(body.members ?? []).map((member) => {
-        if (typeof member.id !== 'string' || typeof member.name !== 'string') {
-          throw new InvalidInternalYjsRequestError('Entity-list member id and name are required')
-        }
-        return {
-          op: 'upsert' as const,
-          entityId: member.id,
-          name: member.name,
-          ...(typeof member.enabled === 'boolean' ? { enabled: member.enabled } : {}),
-          ...(typeof member.folderId === 'string' || member.folderId === null
-            ? { folderId: member.folderId }
-            : {}),
-          ...(typeof member.color === 'string' ? { color: member.color } : {}),
-        }
-      }),
-      ...(typeof body.remove === 'string'
-        ? [{ op: 'remove' as const, entityId: body.remove }]
-        : []),
-    ]
-    applyEntityListMutations(liveDoc, mutations)
+    const descriptor = buildReviewTargetDescriptorFromEnvelope(envelope)
+    await reseedEntityListSessionFromDb(
+      liveDoc,
+      descriptor.entityKind,
+      descriptor.workspaceId as string
+    )
     markDocumentPersisted(liveDoc)
     discardDocumentIfIdle(sessionId)
     sendJson(res, 200, { success: true, applied: true })
@@ -454,8 +409,7 @@ async function handleInternalYjsEntityApplyRequest(
         await saveSavedEntityYjsDocToDb(body.entityKind, entityId, staged)
       }
     )
-    if (body.listMember)
-      await applySavedEntityListMemberToLiveDoc(body.entityKind, entityId, doc, body.listMember)
+    await refreshSavedEntityListDoc(body.entityKind, doc)
 
     sendJson(res, 200, { success: true })
   } catch (error) {
@@ -503,17 +457,8 @@ async function handleInternalYjsSessionApplyUpdateRequest(
       Y.applyUpdate(doc, Buffer.from(updateBase64, 'base64'), YJS_ORIGINS.SAVE)
       clearSessionReseededFromCanonical(doc)
       if (descriptor.entityKind !== 'workflow' && descriptor.entityId) {
-        const result = await saveSavedEntityYjsDocToDb(
-          descriptor.entityKind,
-          descriptor.entityId,
-          doc
-        )
-        await applySavedEntityListMemberToLiveDoc(
-          descriptor.entityKind,
-          descriptor.entityId,
-          doc,
-          result.listMember
-        )
+        await saveSavedEntityYjsDocToDb(descriptor.entityKind, descriptor.entityId, doc)
+        await refreshSavedEntityListDoc(descriptor.entityKind, doc)
         markDocumentPersisted(doc)
         discardDocumentIfIdle(sessionId)
       }
@@ -689,7 +634,7 @@ async function handleInternalYjsRequest(
     req.method
   )
   if (memberListId) {
-    await handleInternalYjsEntityListMembersRequest(req, res, logger, memberListId)
+    await handleInternalYjsEntityListMembersRequest(parsedUrl, res, logger, memberListId)
     return true
   }
 

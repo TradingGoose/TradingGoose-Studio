@@ -6,7 +6,10 @@ import { v4 as uuidv4 } from 'uuid'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { publishWorkflowListMember, regenerateWorkflowStateIds } from '@/lib/workflows/db-helpers'
+import {
+  refreshWorkflowListForWorkflow,
+  regenerateWorkflowStateIds,
+} from '@/lib/workflows/db-helpers'
 import { remapVariableIds } from '@/lib/workflows/import-export'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
@@ -102,7 +105,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         createWorkflowSnapshot(regeneratedState),
         remappedVariables
       )
-      await publishWorkflowListMember(newWorkflowId)
+      await refreshWorkflowListForWorkflow(newWorkflowId)
     } catch (error) {
       logger.error(`[${requestId}] Failed to save workflow state for template use`, error)
       await db.delete(workflow).where(eq(workflow.id, newWorkflowId))

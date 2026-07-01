@@ -96,7 +96,13 @@ vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
       state,
     }
   }),
-  reseedEntityListSessionFromDb: vi.fn(),
+  reseedEntityListSessionFromDb: vi.fn(async (doc) => {
+    const latest = savedEntityStates.at(-1)
+    if (!latest) return
+    const name =
+      latest.entityKind === 'custom_tool' ? latest.fields.title : latest.fields.name
+    doc.getMap('members').set(latest.entityId, { name: String(name ?? '') })
+  }),
   getRuntimeStateFromDoc: vi.fn(() => ({
     docState: 'active',
     replaySafe: false,
@@ -281,15 +287,6 @@ describe('Socket Server Index Integration', () => {
         entityId,
         fields,
       })
-      return {
-        listMember: {
-          name: String(fields[entityKind === 'custom_tool' ? 'title' : 'name'] ?? ''),
-          ...(entityKind === 'mcp_server' ? { enabled: fields.enabled !== false } : {}),
-          ...(entityKind === 'indicator' && typeof fields.color === 'string'
-            ? { color: fields.color }
-            : {}),
-        },
-      }
     })
 
     // Create HTTP server
@@ -476,7 +473,6 @@ describe('Socket Server Index Integration', () => {
           entityId,
           fields: getEntityFields(doc, entityKind),
         })
-        return { listMember: { name: 'Canonical Risk Skill' } }
       })
 
       const response = await sendHttpRequestWithOptions(
@@ -494,9 +490,6 @@ describe('Socket Server Index Integration', () => {
               name: 'Risk Skill',
               description: 'Position sizing rules',
               content: 'Keep risk below one percent.',
-            },
-            listMember: {
-              name: 'Risk Skill',
             },
           }),
         }
@@ -518,7 +511,7 @@ describe('Socket Server Index Integration', () => {
       expect(getEntityListMembers(listDoc)).toEqual([
         {
           entityId: 'skill-1',
-          entityName: 'Risk Skill',
+          entityName: 'Canonical Risk Skill',
         },
       ])
 

@@ -12,10 +12,7 @@ import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { getEntityFields, getEntityWorkspaceId, seedEntitySession } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
-import {
-  applyEntityStateInSocketServer,
-  notifyEntityListMembersUpserted,
-} from '@/lib/yjs/server/snapshot-bridge'
+import { applyEntityStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 export class SavedEntityPersistenceError extends Error {
   constructor(
@@ -70,34 +67,6 @@ function normalizeSavedEntityFields(
       error instanceof Error ? error.message : 'Invalid saved entity fields'
     )
   }
-}
-
-function getSavedEntityListMember(
-  entityKind: SavedEntityKind,
-  fields: Record<string, unknown>
-): { name: string; enabled?: boolean; color?: string } {
-  switch (entityKind) {
-    case 'custom_tool':
-      return { name: String(fields.title ?? '') }
-    case 'mcp_server':
-      return { name: String(fields.name ?? ''), enabled: fields.enabled !== false }
-    case 'indicator':
-      return {
-        name: String(fields.name ?? ''),
-        ...(typeof fields.color === 'string' ? { color: fields.color } : {}),
-      }
-    case 'skill':
-    case 'knowledge_base':
-      return { name: String(fields.name ?? '') }
-  }
-}
-
-export async function publishCreatedSavedEntityListMembers(
-  entityKind: SavedEntityKind,
-  workspaceId: string,
-  members: Array<{ id: string; name: string; enabled?: boolean; color?: string }>
-): Promise<void> {
-  await notifyEntityListMembersUpserted(entityKind, workspaceId, members)
 }
 
 async function persistSavedEntityState(
@@ -206,12 +175,7 @@ export async function applySavedEntityState(
 ): Promise<void> {
   const normalizedFields = normalizeSavedEntityFields(entityKind, fields)
   try {
-    await applyEntityStateInSocketServer(
-      entityId,
-      entityKind,
-      normalizedFields,
-      getSavedEntityListMember(entityKind, normalizedFields)
-    )
+    await applyEntityStateInSocketServer(entityId, entityKind, normalizedFields)
   } catch (error) {
     const status = Number((error as { status?: unknown }).status)
     if (status === 400 || status === 404 || status === 409) {
@@ -232,7 +196,7 @@ export async function saveSavedEntityYjsDocToDb(
   entityKind: SavedEntityKind,
   entityId: string,
   doc: Y.Doc
-): Promise<{ listMember: { name: string; enabled?: boolean; color?: string } }> {
+): Promise<void> {
   const yjsFields = normalizeSavedEntityFields(entityKind, getEntityFields(doc, entityKind))
   const workspaceId = getEntityWorkspaceId(doc)
   if (!workspaceId) {
@@ -243,5 +207,4 @@ export async function saveSavedEntityYjsDocToDb(
   }
   await persistSavedEntityState(entityKind, entityId, yjsFields, workspaceId)
   seedEntitySession(doc, { entityKind, payload: yjsFields })
-  return { listMember: getSavedEntityListMember(entityKind, yjsFields) }
 }

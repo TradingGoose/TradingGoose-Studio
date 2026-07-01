@@ -21,14 +21,11 @@ import type {
 } from '@/lib/knowledge/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess, getUserEntityPermissions } from '@/lib/permissions/utils'
-import {
-  applySavedEntityState,
-  publishCreatedSavedEntityListMembers,
-} from '@/lib/yjs/server/apply-entity-state'
+import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import { requireSavedEntityRealtimeListFields } from '@/lib/yjs/server/bootstrap-review-target'
 import {
   deleteYjsSessionInSocketServer,
-  notifyEntityListMemberRemoved,
+  refreshEntityListSession,
 } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('KnowledgeBaseService')
@@ -103,9 +100,7 @@ export async function createKnowledgeBase(
   }
 
   await db.insert(knowledgeBase).values(newKnowledgeBase)
-  await publishCreatedSavedEntityListMembers('knowledge_base', data.workspaceId, [
-    { id: created.id, name: created.name },
-  ])
+  await refreshEntityListSession('knowledge_base', data.workspaceId)
 
   logger.info(`[${requestId}] Created knowledge base: ${data.name} (${kbId})`)
   return created
@@ -329,11 +324,7 @@ export async function copyKnowledgeBaseToWorkspace(
     docCount: sourceDocuments.length,
   }
 
-  await publishCreatedSavedEntityListMembers(
-    'knowledge_base',
-    targetWorkspaceId,
-    [{ id: copied.id, name: copied.name }]
-  )
+  await refreshEntityListSession('knowledge_base', targetWorkspaceId)
 
   if (totalDocumentSize > 0) {
     try {
@@ -439,7 +430,7 @@ export async function deleteKnowledgeBase(
     .where(eq(knowledgeBase.id, knowledgeBaseId))
 
   if (existing?.workspaceId) {
-    await notifyEntityListMemberRemoved('knowledge_base', existing.workspaceId, knowledgeBaseId)
+    await refreshEntityListSession('knowledge_base', existing.workspaceId)
     await Promise.allSettled([deleteYjsSessionInSocketServer(knowledgeBaseId)])
   }
 

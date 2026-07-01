@@ -9,7 +9,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import {
-  publishWorkflowListMember,
+  refreshWorkflowListForWorkflow,
   regenerateWorkflowStateIds,
   requireWorkflowRealtimeState,
 } from '@/lib/workflows/db-helpers'
@@ -139,7 +139,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         createWorkflowSnapshot(duplicatedWorkflowState),
         duplicatedVariables
       )
-      await publishWorkflowListMember(newWorkflowId)
+      await refreshWorkflowListForWorkflow(newWorkflowId)
     } catch (error) {
       await db.delete(workflow).where(eq(workflow.id, newWorkflowId))
       throw error

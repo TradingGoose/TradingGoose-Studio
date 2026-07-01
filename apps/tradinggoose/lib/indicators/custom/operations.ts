@@ -9,14 +9,12 @@ import {
 import { inferInputMetaFromPineCode, normalizeInputMetaMap } from '@/lib/indicators/input-meta'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import {
-  applySavedEntityState,
-  publishCreatedSavedEntityListMembers,
-} from '@/lib/yjs/server/apply-entity-state'
+import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 import {
   readSavedEntityListFieldsForExecution,
   requireSavedEntityRealtimeListFields,
 } from '@/lib/yjs/server/bootstrap-review-target'
+import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('IndicatorsOperations')
 
@@ -110,15 +108,7 @@ export async function createIndicators({
     return createdIndicators
   })
 
-  await publishCreatedSavedEntityListMembers(
-    'indicator',
-    workspaceId,
-    created.map((createdIndicator) => ({
-      id: createdIndicator.id,
-      name: createdIndicator.name,
-      color: createdIndicator.color,
-    }))
-  )
+  await refreshEntityListSession('indicator', workspaceId)
   logger.info(`[${requestId}] Created ${created.length} indicator(s)`)
   return created
 }
@@ -198,15 +188,7 @@ export async function importIndicators({
     }
   })
 
-  await publishCreatedSavedEntityListMembers(
-    'indicator',
-    workspaceId,
-    result.indicators.map((imported) => ({
-      id: imported.id,
-      name: imported.name,
-      color: imported.color,
-    }))
-  )
+  await refreshEntityListSession('indicator', workspaceId)
   logger.info(`[${requestId}] Imported ${result.indicators.length} indicator(s)`, {
     workspaceId,
     renamedCount: result.renamedCount,

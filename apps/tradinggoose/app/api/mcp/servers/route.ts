@@ -12,7 +12,7 @@ import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 import { requireEntityRealtimeListMembers } from '@/lib/yjs/server/bootstrap-review-target'
 import {
   deleteYjsSessionInSocketServer,
-  notifyEntityListMemberRemoved,
+  refreshEntityListSession,
 } from '@/lib/yjs/server/snapshot-bridge'
 import { CreateMcpServerSchema } from './schema'
 
@@ -198,7 +198,7 @@ export const DELETE = withMcpAuth('write')(
           )
         )
 
-      await notifyEntityListMemberRemoved('mcp_server', workspaceId, serverId)
+      await refreshEntityListSession('mcp_server', workspaceId)
       await Promise.allSettled([deleteYjsSessionInSocketServer(serverId)])
 
       logger.info(`[${requestId}] Successfully deleted MCP server: ${serverId}`)

@@ -91,7 +91,7 @@ describe('applySavedEntityState', () => {
       name: 'Copilot Skill',
       description: 'Copilot description',
       content: 'Use the Copilot input.',
-    }, { name: 'Copilot Skill' })
+    })
     expect(mockDbUpdate).not.toHaveBeenCalled()
     expect(events).toEqual(['yjs'])
   })

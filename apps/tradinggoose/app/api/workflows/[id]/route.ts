@@ -10,8 +10,8 @@ import { hydrateListingUI } from '@/lib/listing/hydrate-ui'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import {
-  publishWorkflowListMember,
-  removeWorkflowListMember,
+  refreshWorkflowListForWorkflow,
+  refreshWorkflowList,
   requireWorkflowRealtimeState,
 } from '@/lib/workflows/db-helpers'
 import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/utils'
@@ -289,7 +289,7 @@ export async function DELETE(
 
     await db.delete(workflow).where(eq(workflow.id, workflowId))
     if (workflowData.workspaceId) {
-      await removeWorkflowListMember(workflowData.workspaceId, workflowId)
+      await refreshWorkflowList(workflowData.workspaceId)
     }
     await Promise.allSettled([deleteYjsSessionInSocketServer(workflowId)])
 
@@ -380,7 +380,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
     }
     if (updates.name !== undefined || updates.folderId !== undefined) {
-      await publishWorkflowListMember(workflowId)
+      await refreshWorkflowListForWorkflow(workflowId)
     }
 
     const elapsed = Date.now() - startTime

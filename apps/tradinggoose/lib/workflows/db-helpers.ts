@@ -16,10 +16,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { sanitizeAgentToolsInBlocks } from '@/lib/workflows/validation'
 import { inferWorkflowDirectionFromState } from '@/lib/workflows/workflow-direction'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
-import {
-  notifyEntityListMemberRemoved,
-  notifyEntityListMembersUpserted,
-} from '@/lib/yjs/server/snapshot-bridge'
+import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 import { extractPersistedStateFromDoc, setWorkflowState } from '@/lib/yjs/workflow-session'
 import type {
   BlockState,
@@ -111,14 +108,10 @@ export const isWorkflowRealtimeRequiredError = (
 ): error is WorkflowRealtimeRequiredError => error instanceof WorkflowRealtimeRequiredError
 
 // Workflow list sessions are live projections of workflow row metadata.
-export async function publishWorkflowListMember(workflowId: string): Promise<void> {
+export async function refreshWorkflowListForWorkflow(workflowId: string): Promise<void> {
   const [row] = await db
     .select({
-      id: workflow.id,
       workspaceId: workflow.workspaceId,
-      name: workflow.name,
-      folderId: workflow.folderId,
-      color: workflow.color,
     })
     .from(workflow)
     .where(eq(workflow.id, workflowId))
@@ -126,16 +119,11 @@ export async function publishWorkflowListMember(workflowId: string): Promise<voi
 
   if (!row?.workspaceId) return
 
-  await notifyEntityListMembersUpserted('workflow', row.workspaceId, [
-    { id: row.id, name: row.name, folderId: row.folderId, color: row.color },
-  ])
+  await refreshEntityListSession('workflow', row.workspaceId)
 }
 
-export async function removeWorkflowListMember(
-  workspaceId: string,
-  workflowId: string
-): Promise<void> {
-  await notifyEntityListMemberRemoved('workflow', workspaceId, workflowId)
+export async function refreshWorkflowList(workspaceId: string): Promise<void> {
+  await refreshEntityListSession('workflow', workspaceId)
 }
 
 function decodeWorkflowSnapshot(snapshotBase64: string): PersistedWorkflowState | null {

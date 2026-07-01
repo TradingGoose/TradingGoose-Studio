@@ -14,7 +14,7 @@ import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 import { SavedEntityPersistenceError } from '@/lib/yjs/server/apply-entity-state'
 import {
   deleteYjsSessionInSocketServer,
-  notifyEntityListMemberRemoved,
+  refreshEntityListSession,
 } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('CustomToolsAPI')
@@ -232,7 +232,7 @@ export async function DELETE(request: NextRequest) {
       .delete(customTools)
       .where(and(eq(customTools.id, toolId), eq(customTools.workspaceId, workspaceId)))
 
-    await notifyEntityListMemberRemoved('custom_tool', workspaceId, toolId)
+    await refreshEntityListSession('custom_tool', workspaceId)
     await Promise.allSettled([deleteYjsSessionInSocketServer(toolId)])
 
     logger.info(`[${requestId}] Deleted tool: ${toolId}`)

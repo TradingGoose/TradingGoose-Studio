@@ -5,7 +5,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
-import { publishWorkflowListMember } from '@/lib/workflows/db-helpers'
+import { refreshWorkflowListForWorkflow } from '@/lib/workflows/db-helpers'
 
 const logger = createLogger('FoldersIDAPI')
 
@@ -159,7 +159,7 @@ export async function DELETE(
     })
 
     await Promise.all(
-      movedWorkflows.map(({ id: workflowId }) => publishWorkflowListMember(workflowId))
+      movedWorkflows.map(({ id: workflowId }) => refreshWorkflowListForWorkflow(workflowId))
     )
 
     logger.info('Deleted folder and promoted direct children:', {

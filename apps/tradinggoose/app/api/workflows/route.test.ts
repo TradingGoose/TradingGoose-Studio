@@ -8,7 +8,7 @@ describe('Workflow API Route', () => {
   const insertValuesMock = vi.fn()
   const deleteWhereMock = vi.fn()
   const applyWorkflowStateMock = vi.fn()
-  const publishWorkflowListMemberMock = vi.fn()
+  const refreshWorkflowListForWorkflowMock = vi.fn()
   const randomUUIDMock = vi.fn()
 
   const createRequest = (body: Record<string, unknown>) =>
@@ -27,7 +27,7 @@ describe('Workflow API Route', () => {
     insertValuesMock.mockResolvedValue(undefined)
     deleteWhereMock.mockResolvedValue(undefined)
     applyWorkflowStateMock.mockResolvedValue(undefined)
-    publishWorkflowListMemberMock.mockResolvedValue(undefined)
+    refreshWorkflowListForWorkflowMock.mockResolvedValue(undefined)
     randomUUIDMock.mockReset()
     randomUUIDMock.mockReturnValueOnce('workflow-123').mockReturnValueOnce('variable-123')
     vi.stubGlobal('crypto', {
@@ -87,7 +87,7 @@ describe('Workflow API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
-      publishWorkflowListMember: publishWorkflowListMemberMock,
+      refreshWorkflowListForWorkflow: refreshWorkflowListForWorkflowMock,
     }))
 
     vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
@@ -147,7 +147,7 @@ describe('Workflow API Route', () => {
     expect(response.status).toBe(200)
     expect(insertValuesMock).toHaveBeenCalledOnce()
     expect(applyWorkflowStateMock).toHaveBeenCalledOnce()
-    expect(publishWorkflowListMemberMock).toHaveBeenCalledWith('workflow-123')
+    expect(refreshWorkflowListForWorkflowMock).toHaveBeenCalledWith('workflow-123')
 
     const insertedWorkflow = insertValuesMock.mock.calls[0][0]
     const persistedState = applyWorkflowStateMock.mock.calls[0][1]
@@ -194,7 +194,7 @@ describe('Workflow API Route', () => {
 
     expect(response.status).toBe(500)
     expect(applyWorkflowStateMock).toHaveBeenCalledOnce()
-    expect(publishWorkflowListMemberMock).not.toHaveBeenCalled()
+    expect(refreshWorkflowListForWorkflowMock).not.toHaveBeenCalled()
     expect(deleteWhereMock).toHaveBeenCalledOnce()
   })
 
@@ -209,7 +209,7 @@ describe('Workflow API Route', () => {
 
     expect(response.status).toBe(200)
     expect(applyWorkflowStateMock).toHaveBeenCalledOnce()
-    expect(publishWorkflowListMemberMock).toHaveBeenCalledWith('workflow-123')
+    expect(refreshWorkflowListForWorkflowMock).toHaveBeenCalledWith('workflow-123')
 
     const insertedWorkflow = insertValuesMock.mock.calls[0][0]
     const persistedVariables = applyWorkflowStateMock.mock.calls[0][2]

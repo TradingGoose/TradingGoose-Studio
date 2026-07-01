@@ -47,17 +47,6 @@ export interface EntityListMember {
   color?: string
 }
 
-export type EntityListMemberMutation =
-  | {
-      op: 'upsert'
-      entityId: string
-      name: string
-      enabled?: boolean
-      folderId?: string | null
-      color?: string
-    }
-  | { op: 'remove'; entityId: string }
-
 function getEntityListMembersMap(doc: Y.Doc): Y.Map<{
   name: string
   enabled?: boolean
@@ -103,32 +92,6 @@ export function seedEntityListSession(
       }
     }
   }, YJS_ORIGINS.SYSTEM)
-}
-
-function applyEntityListMutation(doc: Y.Doc, mutation: EntityListMemberMutation): void {
-  doc.transact(() => {
-    getEntityListMembersMap(doc).set(
-      mutation.entityId,
-      mutation.op === 'upsert'
-        ? {
-            name: mutation.name,
-            deleted: false,
-            ...(typeof mutation.enabled === 'boolean' ? { enabled: mutation.enabled } : {}),
-            ...('folderId' in mutation ? { folderId: mutation.folderId ?? null } : {}),
-            ...(typeof mutation.color === 'string' ? { color: mutation.color } : {}),
-          }
-        : { name: '', deleted: true }
-    )
-  }, YJS_ORIGINS.SYSTEM)
-}
-
-export function applyEntityListMutations(
-  doc: Y.Doc,
-  mutations: EntityListMemberMutation | EntityListMemberMutation[]
-): void {
-  for (const mutation of Array.isArray(mutations) ? mutations : [mutations]) {
-    applyEntityListMutation(doc, mutation)
-  }
 }
 
 export function getEntityListMembers(doc: Y.Doc): EntityListMember[] {
