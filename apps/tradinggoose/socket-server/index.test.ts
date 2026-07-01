@@ -5,6 +5,8 @@
  */
 import { EventEmitter } from 'node:events'
 import { createServer, request as httpRequest } from 'http'
+import * as syncProtocol from '@y/protocols/sync'
+import * as encoding from 'lib0/encoding'
 import { io as createClient } from 'socket.io-client'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
@@ -99,8 +101,7 @@ vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
   reseedEntityListSessionFromDb: vi.fn(async (doc) => {
     const latest = savedEntityStates.at(-1)
     if (!latest) return
-    const name =
-      latest.entityKind === 'custom_tool' ? latest.fields.title : latest.fields.name
+    const name = latest.entityKind === 'custom_tool' ? latest.fields.title : latest.fields.name
     doc.getMap('members').set(latest.entityId, { name: String(name ?? '') })
   }),
   getRuntimeStateFromDoc: vi.fn(() => ({
@@ -238,6 +239,13 @@ function createSkillUpdateBase64(payload: Record<string, unknown>): string {
   return updateBase64
 }
 
+function createSyncUpdateMessage(update: Uint8Array): Uint8Array {
+  const encoder = encoding.createEncoder()
+  encoding.writeVarUint(encoder, 0)
+  syncProtocol.writeUpdate(encoder, update)
+  return encoding.toUint8Array(encoder)
+}
+
 function applySkillSessionUpdate(port: number, sessionId: string, updateBase64: string) {
   return sendHttpRequestWithOptions(
     port,
@@ -259,7 +267,7 @@ async function connectTestDocument(docId: string) {
   conn.send = vi.fn((_message, _options, callback) => callback?.())
   conn.ping = vi.fn()
   conn.close = vi.fn()
-  setupWSConnection(conn, {} as any, { docId })
+  setupWSConnection(conn, {} as any, { docId, accessMode: 'write' })
   return { conn, doc: (await getExistingDocument(docId))! }
 }
 
@@ -756,6 +764,36 @@ describe('Socket Server Index Integration', () => {
   })
 
   describe('Yjs document cleanup', () => {
+    it('does not apply client updates from read-only Yjs connections', async () => {
+      const bootstrapDoc = new Y.Doc()
+      seedEntityListSession(bootstrapDoc, [{ id: 'skill-1', name: 'Skill 1' }])
+      const bootstrapState = Y.encodeStateAsUpdate(bootstrapDoc)
+      bootstrapDoc.destroy()
+
+      const conn = new (await import('node:events')).EventEmitter() as any
+      conn.readyState = 1
+      conn.send = vi.fn((_message, _options, callback) => callback?.())
+      conn.ping = vi.fn()
+      conn.close = vi.fn()
+
+      setupWSConnection(conn, {} as any, {
+        docId: 'list:skill:workspace-1',
+        accessMode: 'read',
+        bootstrapState,
+      })
+
+      const doc = (await getExistingDocument('list:skill:workspace-1'))!
+      const updateDoc = new Y.Doc()
+      seedEntityListSession(updateDoc, [{ id: 'spoofed-skill', name: 'Spoofed Skill' }])
+      conn.emit('message', createSyncUpdateMessage(Y.encodeStateAsUpdate(updateDoc)))
+      updateDoc.destroy()
+
+      await new Promise((resolve) => setImmediate(resolve))
+
+      expect(getEntityListMembers(doc).map((member) => member.entityId)).toEqual(['skill-1'])
+      expect(conn.close).toHaveBeenCalled()
+    })
+
     it('should discard a clean idle document without final persistence', async () => {
       const conn = new (await import('node:events')).EventEmitter() as any
       conn.readyState = 1
@@ -766,6 +804,7 @@ describe('Socket Server Index Integration', () => {
 
       setupWSConnection(conn, {} as any, {
         docId: 'idle-clean',
+        accessMode: 'write',
         onDocumentIdle,
       })
       expect(await getExistingDocument('idle-clean')).not.toBeNull()
@@ -787,6 +826,7 @@ describe('Socket Server Index Integration', () => {
 
       setupWSConnection(conn, {} as any, {
         docId: 'idle-save-failed',
+        accessMode: 'write',
         onDocumentIdle,
       })
       expect(await getExistingDocument('idle-save-failed')).not.toBeNull()

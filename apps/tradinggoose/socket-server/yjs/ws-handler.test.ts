@@ -246,6 +246,7 @@ describe('handleYjsUpgrade', () => {
       expect.objectContaining({
         bootstrapState,
         docId: sessionId,
+        accessMode: 'write',
         gc: true,
         onDocumentUpdate: expect.any(Function),
       })

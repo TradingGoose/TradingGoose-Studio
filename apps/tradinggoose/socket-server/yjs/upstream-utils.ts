@@ -15,6 +15,7 @@ import * as encoding from 'lib0/encoding'
 import * as map from 'lib0/map'
 import type { WebSocket } from 'ws'
 import * as Y from 'yjs'
+import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 
 const messageSync = 0
@@ -211,7 +212,12 @@ function closeConn(doc: WSSharedDoc, conn: WebSocket): void {
   }
 }
 
-function handleMessage(conn: WebSocket, doc: WSSharedDoc, message: Uint8Array): void {
+function handleMessage(
+  conn: WebSocket,
+  doc: WSSharedDoc,
+  message: Uint8Array,
+  accessMode: ReviewAccessMode
+): void {
   try {
     const encoder = encoding.createEncoder()
     const decoder = decoding.createDecoder(message)
@@ -219,6 +225,13 @@ function handleMessage(conn: WebSocket, doc: WSSharedDoc, message: Uint8Array): 
 
     switch (messageType) {
       case messageSync:
+        if (
+          accessMode === 'read' &&
+          decoding.peekVarUint(decoder) !== syncProtocol.messageYjsSyncStep1
+        ) {
+          closeConn(doc, conn)
+          break
+        }
         encoding.writeVarUint(encoder, messageSync)
         syncProtocol.readSyncMessage(decoder, encoder, doc, conn)
         if (encoding.length(encoder) > 1) {
@@ -276,6 +289,7 @@ export function setupWSConnection(
   _req: IncomingMessage,
   opts: {
     docId: string
+    accessMode: ReviewAccessMode
     gc?: boolean
     bootstrapState?: Uint8Array
     onDocumentIdle?: DocumentPersistenceHandler
@@ -285,6 +299,7 @@ export function setupWSConnection(
 ): void {
   const {
     docId,
+    accessMode,
     gc = true,
     bootstrapState,
     onDocumentIdle,
@@ -304,7 +319,7 @@ export function setupWSConnection(
 
   conn.on('message', (data: ArrayBuffer) => {
     void doc.whenInitialized.then(() => {
-      handleMessage(conn, doc, new Uint8Array(data))
+      handleMessage(conn, doc, new Uint8Array(data), accessMode)
     })
   })
 
@@ -341,7 +356,11 @@ export function setupWSConnection(
   void doc.whenInitialized.then(() => {
     const encoder = encoding.createEncoder()
     encoding.writeVarUint(encoder, messageSync)
-    syncProtocol.writeSyncStep1(encoder, doc)
+    if (accessMode === 'read') {
+      syncProtocol.writeSyncStep2(encoder, doc)
+    } else {
+      syncProtocol.writeSyncStep1(encoder, doc)
+    }
     send(doc, conn, encoding.toUint8Array(encoder))
 
     const awarenessStates = doc.awareness.getStates()
