@@ -188,6 +188,7 @@ describe('AgentBlockHandler', () => {
       }
 
       mockGetProviderFromModel.mockReturnValue('openai')
+      mockContext.isDeployedContext = false
 
       const expectedOutput = {
         content: 'Mocked response content',
@@ -203,6 +204,10 @@ describe('AgentBlockHandler', () => {
 
       expect(mockGetProviderFromModel).toHaveBeenCalledWith('gpt-4o')
       expect(mockFetch).toHaveBeenCalledWith(expect.any(String), expect.any(Object))
+      const [, init] = mockFetch.mock.calls.find(([url]) =>
+        String(url).includes('/api/providers')
+      )!
+      expect(JSON.parse(String(init.body)).isDeployedContext).toBe(false)
       expect(result).toEqual(expectedOutput)
     })
 

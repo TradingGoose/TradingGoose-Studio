@@ -619,6 +619,7 @@ export class AgentBlockHandler implements BlockHandler {
       workflowVariables: context.workflowVariables || {},
       blockData,
       blockNameMapping,
+      isDeployedContext: context.isDeployedContext !== false,
       reasoningEffort: inputs.reasoningEffort,
       verbosity: inputs.verbosity,
     }

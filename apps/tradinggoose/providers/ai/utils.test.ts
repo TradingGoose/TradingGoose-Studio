@@ -794,6 +794,7 @@ describe('Tool Management', () => {
           workflowVariables: { symbol: 'AAPL' },
           blockData: { blockA: { output: 1 } },
           blockNameMapping: { source: 'blockA' },
+          isDeployedContext: false,
         }
       )
 
@@ -805,7 +806,7 @@ describe('Tool Management', () => {
           submissionSource: 'workflow',
           chatId: 'chat-1',
           userId: 'user-1',
-          isDeployedContext: true,
+          isDeployedContext: false,
         },
         envVars: { API_KEY: 'secret' },
         workflowVariables: { symbol: 'AAPL' },
