@@ -17,6 +17,7 @@ import {
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
+import { MCP_TOOLS_CHANGED_EVENT } from '@/lib/mcp/utils'
 import {
   type EntityListMember,
   getEntityListMembers,
@@ -173,6 +174,7 @@ function invalidateSavedEntityQueries(
       void queryClient.invalidateQueries({ queryKey: knowledgeKeys.detail(entityId) })
       return
     case 'mcp_server':
+      window.dispatchEvent(new CustomEvent(MCP_TOOLS_CHANGED_EVENT, { detail: { workspaceId } }))
       return
   }
 }
