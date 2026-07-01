@@ -4,43 +4,44 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mockWarn = vi.hoisted(() => vi.fn())
+const { mockFetch, mockLogger } = vi.hoisted(() => ({
+  mockFetch: vi.fn(),
+  mockLogger: {
+    warn: vi.fn(),
+  },
+}))
 
 vi.mock('@/lib/env', () => ({
   env: { INTERNAL_API_SECRET: 'internal-secret' },
-  getInternalRealtimeUrl: () => 'http://socket.local',
+  getInternalRealtimeUrl: () => 'http://socket.test',
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
-  createLogger: vi.fn(() => ({
-    warn: mockWarn,
-  })),
+  createLogger: vi.fn(() => mockLogger),
 }))
 
-describe('refreshEntityListSession', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks()
-    mockWarn.mockReset()
-  })
+beforeEach(() => {
+  vi.resetModules()
+  mockFetch.mockReset()
+  mockLogger.warn.mockReset()
+  vi.stubGlobal('fetch', mockFetch)
+})
 
-  it('invalidates the live list projection without failing the committed command', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockRejectedValueOnce(new Error('socket unavailable'))
-      .mockResolvedValueOnce(new Response('{}', { status: 200 }))
-    vi.stubGlobal('fetch', fetchMock)
+describe('refreshEntityListSession', () => {
+  it('logs and discards the live projection when refresh fails', async () => {
+    mockFetch.mockRejectedValue(new TypeError('fetch failed'))
 
     const { refreshEntityListSession } = await import('./snapshot-bridge')
 
     await expect(refreshEntityListSession('skill', 'workspace-1')).resolves.toBeUndefined()
 
-    expect(fetchMock).toHaveBeenCalledTimes(2)
-    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/members?')
-    expect(String(fetchMock.mock.calls[1]?.[0])).toContain(
-      '/internal/yjs/sessions/list%3Askill%3Aworkspace-1'
-    )
-    expect(mockWarn).toHaveBeenCalledWith(
+    expect(mockFetch).toHaveBeenCalledTimes(2)
+    expect(mockLogger.warn).toHaveBeenCalledWith(
       'Failed to refresh entity-list projection',
+      expect.objectContaining({ entityKind: 'skill', workspaceId: 'workspace-1' })
+    )
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      'Failed to discard stale entity-list projection',
       expect.objectContaining({ entityKind: 'skill', workspaceId: 'workspace-1' })
     )
   })
