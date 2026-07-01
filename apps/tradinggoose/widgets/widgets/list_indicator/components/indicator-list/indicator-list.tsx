@@ -127,6 +127,7 @@ export function IndicatorList({
 
       try {
         await deleteMutation.mutateAsync({ workspaceId, indicatorId })
+        if (selectedIndicatorId === indicatorId) handleSelect(null)
       } finally {
         setDeletingIds((prev) => {
           const next = new Set(prev)
@@ -135,7 +136,7 @@ export function IndicatorList({
         })
       }
     },
-    [deleteMutation, permissions.canEdit, workspaceId]
+    [deleteMutation, handleSelect, permissions.canEdit, selectedIndicatorId, workspaceId]
   )
 
   const handleRename = useCallback(

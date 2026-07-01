@@ -342,6 +342,7 @@ const ListMcpWidgetContent = ({
       setDeletingIds((prev) => new Set(prev).add(serverId))
       try {
         await deleteMcpServer(workspaceId, serverId)
+        if (selectedServerId === serverId) handleSelectServer(null)
         await refreshTools()
       } catch (deleteError) {
         console.error('Failed to delete MCP server', deleteError)
@@ -353,7 +354,14 @@ const ListMcpWidgetContent = ({
         })
       }
     },
-    [deletingIds, permissions.canEdit, refreshTools, workspaceId]
+    [
+      deletingIds,
+      handleSelectServer,
+      permissions.canEdit,
+      refreshTools,
+      selectedServerId,
+      workspaceId,
+    ]
   )
 
   if (!workspaceId) {

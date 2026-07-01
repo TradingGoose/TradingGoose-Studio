@@ -128,6 +128,7 @@ export function SkillList({
 
       try {
         await deleteMutation.mutateAsync({ workspaceId, skillId })
+        if (selectedSkillId === skillId) handleSelect(null)
       } finally {
         setDeletingIds((prev) => {
           const next = new Set(prev)
@@ -136,7 +137,7 @@ export function SkillList({
         })
       }
     },
-    [deleteMutation, permissions.canEdit, workspaceId]
+    [deleteMutation, handleSelect, permissions.canEdit, selectedSkillId, workspaceId]
   )
 
   const handleRename = useCallback(
