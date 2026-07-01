@@ -958,6 +958,7 @@ export function prepareToolExecution(
     ...(request.submissionSource ? { submissionSource: request.submissionSource } : {}),
     ...(request.chatId ? { chatId: request.chatId } : {}),
     ...(request.userId ? { userId: request.userId } : {}),
+    isDeployedContext: true,
   }
 
   // Add system parameters for execution
