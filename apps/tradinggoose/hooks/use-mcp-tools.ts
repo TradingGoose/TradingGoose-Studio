@@ -104,6 +104,7 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
     members: serverMembers,
     isLoading: isServerListLoading,
     error: serverListError,
+    retry: retryServerList,
   } = useEntityList('mcp_server', normalizedWorkspaceId || null)
 
   const serversFingerprint = useMemo(() => {
@@ -129,6 +130,9 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
       }
 
       if (serverListError) {
+        if (force) {
+          retryServerList?.()
+        }
         setMcpTools([])
         setError(serverListError)
         setIsLoading(false)
@@ -168,6 +172,7 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
       hasEnabledServers,
       isServerListLoading,
       normalizedWorkspaceId,
+      retryServerList,
       serverListError,
       serversFingerprint,
     ]
@@ -212,14 +217,14 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
     const interval = setInterval(
       () => {
         if (!isLoading && normalizedWorkspaceId) {
-          void loadTools()
+          void loadTools(Boolean(serverListError))
         }
       },
       5 * 60 * 1000
     )
 
     return () => clearInterval(interval)
-  }, [isLoading, loadTools, normalizedWorkspaceId])
+  }, [isLoading, loadTools, normalizedWorkspaceId, serverListError])
 
   return {
     mcpTools,

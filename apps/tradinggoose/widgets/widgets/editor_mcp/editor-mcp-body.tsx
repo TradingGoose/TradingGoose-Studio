@@ -158,6 +158,9 @@ export function EditorMcpWidgetBody({
     useDefaultEntity: !isLinkedToColorPair,
   })
 
+  const selectedServerStatus = selectedServerId
+    ? serverMembers.find((member) => member.entityId === selectedServerId)?.connectionStatus
+    : undefined
   const selectedServerTools = selectedServerId ? getToolsByServer(selectedServerId) : []
   const serverSession = useSavedEntityYjsSession('mcp_server', selectedServerId, workspaceId)
   const [formDataState, setFormDataState] = useMcpServerYjsFormData(
@@ -339,7 +342,9 @@ export function EditorMcpWidgetBody({
     ? testResult.success
       ? 'connected'
       : 'error'
-    : 'disconnected'
+    : selectedServerStatus === 'connected' || selectedServerStatus === 'error'
+      ? selectedServerStatus
+      : 'disconnected'
 
   return (
     <div className='flex h-full w-full flex-col overflow-hidden'>
