@@ -332,12 +332,7 @@ export async function copyKnowledgeBaseToWorkspace(
   await publishCreatedSavedEntityListMembers(
     'knowledge_base',
     targetWorkspaceId,
-    [{ id: copied.id, name: copied.name }],
-    async () => {
-      if (copiedDocuments.length > 0) {
-        await deleteKnowledgeDocumentFiles(copiedDocuments.map(({ fileUrl }) => fileUrl))
-      }
-    }
+    [{ id: copied.id, name: copied.name }]
   )
 
   if (totalDocumentSize > 0) {

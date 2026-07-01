@@ -5,7 +5,6 @@ import type {
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
 import { env, getInternalRealtimeUrl } from '@/lib/env'
-import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 export interface YjsSnapshotResponse {
@@ -167,11 +166,8 @@ async function postEntityListMembersToSocketServer(
       `/internal/yjs/sessions/${encodeURIComponent(descriptor.yjsSessionId)}/members`,
       body
     )
-  } catch (error) {
-    if (error instanceof SocketServerBridgeError && error.status < 500) {
-      throw error
-    }
-    throw new SavedEntityRealtimeRequiredError()
+  } catch {
+    // Entity-list sessions are DB-seeded projections; snapshot reads repair missed live publishes.
   }
 }
 
