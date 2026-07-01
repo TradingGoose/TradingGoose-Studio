@@ -406,9 +406,6 @@ function ListCustomToolWidgetBodyInner({
 
       try {
         await deleteToolMutation.mutateAsync({ workspaceId, toolId: customToolId })
-        if (selectedToolId === customToolId) {
-          syncSelection(null)
-        }
       } finally {
         setDeletingToolIds((prev) => {
           const next = new Set(prev)
@@ -417,7 +414,7 @@ function ListCustomToolWidgetBodyInner({
         })
       }
     },
-    [deleteToolMutation, permissions.canEdit, selectedToolId, syncSelection, workspaceId]
+    [deleteToolMutation, permissions.canEdit, workspaceId]
   )
 
   const handleRenameTool = useCallback(
