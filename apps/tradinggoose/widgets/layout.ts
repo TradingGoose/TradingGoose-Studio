@@ -176,7 +176,7 @@ export function createDefaultLayoutState(): LayoutNode {
           {
             id: createLayoutNodeId(),
             type: 'panel',
-            widget: { key: 'empty', pairColor: 'gray', params: { workflowId: 'default' } },
+            widget: { key: 'empty', pairColor: 'gray', params: null },
           },
           {
             id: createLayoutNodeId(),

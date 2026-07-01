@@ -1,11 +1,8 @@
 'use client'
 
 import { useEffect, useMemo } from 'react'
-import {
-  type PairColorContext,
-  usePairColorStore,
-} from '@/stores/dashboard/pair-store'
 import { useEntityList } from '@/lib/yjs/use-entity-fields'
+import { type PairColorContext, usePairColorStore } from '@/stores/dashboard/pair-store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 import type { PairColor } from '@/widgets/pair-colors'
@@ -61,10 +58,11 @@ export const useWorkflowWidgetState = ({
   const pairContext = usePairColorStore((state) =>
     shouldUsePairWorkflowContext ? state.contexts[resolvedPairColor] : EMPTY_PAIR_CONTEXT
   )
-  const { members, isLoading: isListLoading, error: listError } = useEntityList(
-    'workflow',
-    workspaceId
-  )
+  const {
+    members,
+    isLoading: isListLoading,
+    error: listError,
+  } = useEntityList('workflow', workspaceId)
   const setActiveWorkflow = useWorkflowRegistry((state) => state.setActiveWorkflow)
 
   const requestedWorkflowId = useMemo(() => {
@@ -86,12 +84,12 @@ export const useWorkflowWidgetState = ({
 
   const workflowIds = useMemo(() => members.map((member) => member.entityId), [members])
   const hasLoadedWorkflows = !workspaceId || Boolean(listError) || !isListLoading
-  const shouldValidateWorkflowIds = Boolean(workspaceId) && !listError && !isListLoading
+  const canResolveWorkflowIds = Boolean(workspaceId) && !listError && !isListLoading
 
   const resolvedWorkflowId = useMemo(() => {
     const resolveWorkflowId = (workflowId: string | null | undefined) => {
       if (!workflowId) return null
-      return !shouldValidateWorkflowIds || workflowIds.includes(workflowId) ? workflowId : null
+      return canResolveWorkflowIds && workflowIds.includes(workflowId) ? workflowId : null
     }
 
     if (shouldUsePairWorkflowContext) {
@@ -99,15 +97,14 @@ export const useWorkflowWidgetState = ({
     }
 
     return (
-      resolveWorkflowId(rawActiveWorkflowIdForChannel) ??
-      resolveWorkflowId(requestedWorkflowId)
+      resolveWorkflowId(rawActiveWorkflowIdForChannel) ?? resolveWorkflowId(requestedWorkflowId)
     )
   }, [
     workflowIds,
     pairContext.workflowId,
     rawActiveWorkflowIdForChannel,
     requestedWorkflowId,
-    shouldValidateWorkflowIds,
+    canResolveWorkflowIds,
     shouldUsePairWorkflowContext,
   ])
 

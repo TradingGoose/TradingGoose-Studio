@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback } from 'react'
 import { Braces, Plus } from 'lucide-react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -7,9 +7,7 @@ import {
   useWorkflowDropdownMessages,
   useWorkflowVariablesMessages,
 } from '@/i18n/workspace-widget-hooks'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { WORKFLOW_VARIABLES_ADD_EVENT } from '@/widgets/events'
-import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
@@ -110,23 +108,16 @@ const WorkflowVariablesHeaderActions = ({
   panelId,
 }: WorkflowVariablesHeaderActionsProps) => {
   const copy = useWorkflowVariablesMessages()
-  const { channelId, resolvedPairColor, widgetKey } = resolveWidgetChannel({
-    pairColor: widget?.pairColor,
+  const { channelId, resolvedWorkflowId } = useWorkflowWidgetState({
+    workspaceId,
+    pairColor: widget?.pairColor ?? 'gray',
     widget,
     panelId,
+    params: widget?.params ?? null,
     fallbackWidgetKey: 'workflow-variables',
+    loggerScope: 'workflow variables add button',
+    activateWorkflow: false,
   })
-
-  const paramsWorkflowId = useMemo(() => {
-    if (!widget?.params || typeof widget.params !== 'object') return null
-    const value = (widget.params as Record<string, unknown>).workflowId
-    return typeof value === 'string' && value.trim().length > 0 ? value : null
-  }, [widget?.params])
-
-  const activeWorkflowId = useWorkflowRegistry((state) => state.getActiveWorkflowId(channelId))
-
-  const resolvedWorkflowId =
-    resolvedPairColor === 'gray' ? (paramsWorkflowId ?? activeWorkflowId) : activeWorkflowId
 
   const isDisabled = !workspaceId || !resolvedWorkflowId
 
@@ -135,10 +126,10 @@ const WorkflowVariablesHeaderActions = ({
 
     window.dispatchEvent(
       new CustomEvent(WORKFLOW_VARIABLES_ADD_EVENT, {
-        detail: { panelId, channelId, workflowId: resolvedWorkflowId, widgetKey },
+        detail: { panelId, channelId },
       })
     )
-  }, [isDisabled, resolvedWorkflowId, panelId, channelId, widgetKey])
+  }, [isDisabled, panelId, channelId, resolvedWorkflowId])
 
   return (
     <Tooltip>
@@ -215,11 +206,6 @@ export const workflowVariablesWidget: DashboardWidgetDefinition = {
   description: 'Inspect and edit variables for a selected workflow.',
   component: (props) => <WorkflowVariablesWidgetBody {...props} />,
   renderHeader: ({ widget, context, panelId }) => {
-    const workflowId =
-      widget?.params && typeof widget.params === 'object' && 'workflowId' in widget.params
-        ? (widget.params.workflowId as string)
-        : null
-
     return {
       center: (
         <WorkflowVariablesHeaderWorkflowSelector
