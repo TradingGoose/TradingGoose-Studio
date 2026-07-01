@@ -102,6 +102,38 @@ export async function readEntityListMembersFromDb(
     }))
   }
 
+  if (entityKind === 'skill') {
+    const rows = await db
+      .select({ id: skill.id, name: skill.name, description: skill.description })
+      .from(skill)
+      .where(entityCondition(entityKind, [eq(skill.workspaceId, workspaceId)]))
+
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name ?? '',
+      description: row.description ?? undefined,
+    }))
+  }
+
+  if (entityKind === 'custom_tool') {
+    const rows = await db
+      .select({ id: customTools.id, name: customTools.title, schema: customTools.schema })
+      .from(customTools)
+      .where(entityCondition(entityKind, [eq(customTools.workspaceId, workspaceId)]))
+
+    return rows.map((row) => {
+      const schema = row.schema as { function?: { description?: unknown } } | null
+      return {
+        id: row.id,
+        name: row.name ?? '',
+        description:
+          typeof schema?.function?.description === 'string'
+            ? schema.function.description
+            : undefined,
+      }
+    })
+  }
+
   if (entityKind === 'indicator') {
     const rows = await db
       .select({ id: pineIndicators.id, name: pineIndicators.name, color: pineIndicators.color })

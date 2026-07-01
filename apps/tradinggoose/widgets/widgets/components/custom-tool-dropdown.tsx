@@ -39,6 +39,7 @@ interface CustomToolDropdownProps {
 type CustomToolDropdownOption = {
   id: string
   title: string
+  description: string
 }
 
 const getToolTitle = (tool?: CustomToolDropdownOption | null) => tool?.title.trim() ?? ''
@@ -55,16 +56,19 @@ export function CustomToolDropdown({
 }: CustomToolDropdownProps) {
   const copy = useMessages().workspace.widgets.customToolDropdown
   const [searchQuery, setSearchQuery] = useState('')
-  const { members, error, isLoading: listLoading, retry } = useEntityList(
-    'custom_tool',
-    workspaceId
-  )
+  const {
+    members,
+    error,
+    isLoading: listLoading,
+    retry,
+  } = useEntityList('custom_tool', workspaceId)
 
   const workspaceTools = useMemo(() => {
     if (!workspaceId) return []
     return members.map((member) => ({
       id: member.entityId,
       title: member.entityName,
+      description: member.entityDescription ?? '',
     }))
   }, [members, workspaceId])
 
@@ -100,7 +104,9 @@ export function CustomToolDropdown({
 
     return workspaceTools.filter((tool) => {
       const title = getToolTitle(tool).toLowerCase()
-      return title.includes(normalizedQuery)
+      return (
+        title.includes(normalizedQuery) || tool.description.toLowerCase().includes(normalizedQuery)
+      )
     })
   }, [searchQuery, workspaceTools])
 

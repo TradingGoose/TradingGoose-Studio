@@ -2,6 +2,7 @@
 
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronDown, Loader2, Search, ToolCase } from 'lucide-react'
+import { useMessages } from 'next-intl'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,7 +20,6 @@ import {
 } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
 import { useEntityList } from '@/lib/yjs/use-entity-fields'
-import { useMessages } from 'next-intl'
 
 const DROPDOWN_MAX_HEIGHT = '20rem'
 const DROPDOWN_VIEWPORT_HEIGHT = '14rem'
@@ -39,6 +39,7 @@ interface SkillDropdownProps {
 type SkillDropdownOption = {
   id: string
   name: string
+  description: string
 }
 
 const getSkillTitle = (skill?: SkillDropdownOption | null, fallback = '') => skill?.name || fallback
@@ -62,6 +63,7 @@ export function SkillDropdown({
         ? members.map((member) => ({
             id: member.entityId,
             name: member.entityName,
+            description: member.entityDescription ?? '',
           }))
         : [],
     [members, workspaceId]
@@ -101,7 +103,9 @@ export function SkillDropdown({
 
     return skills.filter((skill) => {
       const name = skill.name.toLowerCase()
-      return name.includes(normalizedQuery)
+      return (
+        name.includes(normalizedQuery) || skill.description.toLowerCase().includes(normalizedQuery)
+      )
     })
   }, [searchQuery, skills])
 
