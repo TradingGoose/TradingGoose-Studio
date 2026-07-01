@@ -9,7 +9,10 @@ import type {
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
 import { env, getInternalRealtimeUrl } from '@/lib/env'
+import { createLogger } from '@/lib/logs/console/logger'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
+
+const logger = createLogger('YjsSnapshotBridge')
 
 export interface YjsSnapshotResponse {
   snapshotBase64: string
@@ -162,10 +165,21 @@ export async function refreshEntityListSession(
   const params = new URLSearchParams(
     serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
   )
-  await postJsonToSocketServer(
-    `/internal/yjs/sessions/${encodeURIComponent(descriptor.yjsSessionId)}/members?${params}`,
-    {}
-  )
+  try {
+    await postJsonToSocketServer(
+      `/internal/yjs/sessions/${encodeURIComponent(descriptor.yjsSessionId)}/members?${params}`,
+      {}
+    )
+  } catch (error) {
+    logger.warn('Failed to refresh entity-list projection', { entityKind, workspaceId, error })
+    await deleteYjsSessionInSocketServer(descriptor.yjsSessionId).catch((discardError) => {
+      logger.warn('Failed to discard stale entity-list projection', {
+        entityKind,
+        workspaceId,
+        error: discardError,
+      })
+    })
+  }
 }
 
 export async function deleteYjsSessionInSocketServer(sessionId: string): Promise<void> {
