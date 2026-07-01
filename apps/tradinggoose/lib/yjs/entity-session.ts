@@ -46,6 +46,8 @@ export interface EntityListMember {
   enabled?: boolean
   folderId?: string | null
   color?: string
+  updatedAt?: string
+  connectionStatus?: string
 }
 
 function getEntityListMembersMap(doc: Y.Doc): Y.Map<{
@@ -54,6 +56,8 @@ function getEntityListMembersMap(doc: Y.Doc): Y.Map<{
   enabled?: boolean
   folderId?: string | null
   color?: string
+  updatedAt?: string
+  connectionStatus?: string
   deleted?: boolean
 }> {
   return doc.getMap('members')
@@ -68,6 +72,8 @@ export function seedEntityListSession(
     enabled?: boolean
     folderId?: string | null
     color?: string
+    updatedAt?: string
+    connectionStatus?: string
   }>
 ): void {
   doc.transact(() => {
@@ -83,6 +89,10 @@ export function seedEntityListSession(
         ...(typeof member.enabled === 'boolean' ? { enabled: member.enabled } : {}),
         ...('folderId' in member ? { folderId: member.folderId ?? null } : {}),
         ...(typeof member.color === 'string' ? { color: member.color } : {}),
+        ...(typeof member.updatedAt === 'string' ? { updatedAt: member.updatedAt } : {}),
+        ...(typeof member.connectionStatus === 'string'
+          ? { connectionStatus: member.connectionStatus }
+          : {}),
       }
       const current = listMembers.get(member.id)
       if (
@@ -91,7 +101,9 @@ export function seedEntityListSession(
         current?.description !== next.description ||
         current?.enabled !== next.enabled ||
         current?.folderId !== next.folderId ||
-        current?.color !== next.color
+        current?.color !== next.color ||
+        current?.updatedAt !== next.updatedAt ||
+        current?.connectionStatus !== next.connectionStatus
       ) {
         listMembers.set(member.id, next)
       }
@@ -110,6 +122,10 @@ export function getEntityListMembers(doc: Y.Doc): EntityListMember[] {
       ...(typeof value?.enabled === 'boolean' ? { enabled: value.enabled } : {}),
       ...(value && 'folderId' in value ? { folderId: value.folderId ?? null } : {}),
       ...(typeof value?.color === 'string' ? { color: value.color } : {}),
+      ...(typeof value?.updatedAt === 'string' ? { updatedAt: value.updatedAt } : {}),
+      ...(typeof value?.connectionStatus === 'string'
+        ? { connectionStatus: value.connectionStatus }
+        : {}),
     })
   })
   entries.sort((a, b) => a.entityName.localeCompare(b.entityName))

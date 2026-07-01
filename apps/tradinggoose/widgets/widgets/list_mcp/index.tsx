@@ -87,9 +87,16 @@ type McpServerListEntry = {
   workspaceId: string
   name: string
   enabled: boolean
+  connectionStatus?: string
 }
 
 const getServerName = (server: McpServerListEntry, fallback: string) => server.name || fallback
+
+const getServerIconColor = (status?: string) => {
+  if (status === 'connected') return '#10b981'
+  if (status === 'error') return '#ef4444'
+  return '#64748b'
+}
 
 const McpCreateMenu = ({
   disabled = false,
@@ -252,6 +259,7 @@ const ListMcpWidgetContent = ({
               workspaceId,
               name: member.entityName,
               enabled: member.enabled !== false,
+              connectionStatus: member.connectionStatus,
             }))
             .sort((a, b) => getServerName(a, '').localeCompare(getServerName(b, '')))
         : [],
@@ -413,7 +421,7 @@ const McpServerListItem = ({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const displayName = getServerName(server, copy.unnamedMcpServer)
-  const iconColor = '#64748b'
+  const iconColor = getServerIconColor(server.connectionStatus)
 
   useEffect(() => {
     setEditValue(server.name ?? '')

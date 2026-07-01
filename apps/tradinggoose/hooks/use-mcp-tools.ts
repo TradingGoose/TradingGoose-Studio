@@ -109,7 +109,7 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
   const serversFingerprint = useMemo(() => {
     return serverMembers
       .filter((member) => member.enabled !== false)
-      .map((member) => `${member.entityId}:${member.entityName}`)
+      .map((member) => `${member.entityId}:${member.entityName}:${member.updatedAt ?? ''}`)
       .sort()
       .join('|')
   }, [serverMembers])

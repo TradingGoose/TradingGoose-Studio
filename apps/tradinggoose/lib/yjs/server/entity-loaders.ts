@@ -66,6 +66,8 @@ export async function readEntityListMembersFromDb(
     enabled?: boolean
     folderId?: string | null
     color?: string
+    updatedAt?: string
+    connectionStatus?: string
   }>
 > {
   if (entityKind === 'workflow') {
@@ -91,7 +93,13 @@ export async function readEntityListMembersFromDb(
 
   if (entityKind === 'mcp_server') {
     const rows = await db
-      .select({ id: mcpServers.id, name: mcpServers.name, enabled: mcpServers.enabled })
+      .select({
+        id: mcpServers.id,
+        name: mcpServers.name,
+        enabled: mcpServers.enabled,
+        updatedAt: mcpServers.updatedAt,
+        connectionStatus: mcpServers.connectionStatus,
+      })
       .from(mcpServers)
       .where(entityCondition(entityKind, [eq(mcpServers.workspaceId, workspaceId)]))
 
@@ -99,6 +107,8 @@ export async function readEntityListMembersFromDb(
       id: row.id,
       name: row.name ?? '',
       enabled: row.enabled !== false,
+      updatedAt: row.updatedAt?.toISOString(),
+      connectionStatus: row.connectionStatus ?? 'disconnected',
     }))
   }
 
