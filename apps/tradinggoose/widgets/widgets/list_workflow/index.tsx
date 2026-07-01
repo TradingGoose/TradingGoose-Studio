@@ -10,9 +10,8 @@ import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import type { PairColor } from '@/widgets/pair-colors'
+import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
-import { resolveEntityId, resolveEntityIdFromList } from '@/widgets/utils/entity-selection'
 import {
   emitWorkflowSelectionChange,
   useWorkflowSelectionPersistence,
@@ -44,14 +43,26 @@ const WorkflowListWidgetBody = ({
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId ?? null
   const copy = useMessages().workspace.widgets.workflowList
-  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
+  const widgetParams = params ?? widget?.params ?? null
+  const {
+    channelId,
+    resolvedPairColor,
+    resolvedWorkflowId: selectedWorkflowId,
+  } = useWorkflowWidgetState({
+    workspaceId: workspaceId ?? undefined,
+    pairColor,
+    widget,
+    panelId,
+    params: widgetParams,
+    fallbackWidgetKey: 'workflow_list',
+    loggerScope: 'workflow list widget',
+  })
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
   const { members, isLoading, error } = useEntityList('workflow', workspaceId)
   const createWorkflow = useWorkflowRegistry((state) => state.createWorkflow)
   const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false)
   const setPairContext = useSetPairColorContext()
-  const widgetParams = params ?? widget?.params ?? null
   useWorkflowSelectionPersistence({
     onWidgetParamsChange,
     panelId,
@@ -75,15 +86,6 @@ const WorkflowListWidgetBody = ({
         : [],
     [members, workspaceId]
   )
-
-  const requestedWorkflowId = isLinkedToColorPair
-    ? (pairContext?.workflowId ?? null)
-    : resolveEntityId('workflowId', { params: widgetParams })
-  const selectedWorkflowId = resolveEntityIdFromList({
-    requestedEntityId: requestedWorkflowId,
-    entityIds: regularWorkflows.map((workflow) => workflow.id),
-    useDefaultEntity: !isLinkedToColorPair && !requestedWorkflowId,
-  })
 
   useEffect(() => {
     if (!workspaceId) {
@@ -179,7 +181,7 @@ const WorkflowListWidgetBody = ({
       <WorkflowRouteProvider
         workspaceId={workspaceId}
         workflowId={selectedWorkflowId ?? 'dashboard-workflow-list'}
-        channelId='dashboard-workflow-list'
+        channelId={channelId}
       >
         <div className='h-full w-full overflow-hidden p-2'>
           <FolderTree
