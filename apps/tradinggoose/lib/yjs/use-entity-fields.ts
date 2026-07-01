@@ -126,6 +126,18 @@ function initializeSharedYjsSessionEntry(
       }
 
       entry.result = next
+      if (next.accessMode === 'read') {
+        // Read sessions end on connection loss (see bootstrapYjsProvider):
+        // the server-owned projection doc is a disposable lineage, so replace
+        // the whole session from a fresh snapshot instead of resyncing it.
+        next.provider.on('connection-close', () => {
+          if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.result !== next) return
+          entry.result = null
+          closeYjsSession(next)
+          emitSharedYjsSessionEntry(entry)
+          scheduleSharedYjsSessionReopen(entry, openSession, errorMessage)
+        })
+      }
     })
     .catch((nextError) => {
       if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.refCount === 0) return
@@ -136,6 +148,25 @@ function initializeSharedYjsSessionEntry(
       entry.initPromise = null
       emitSharedYjsSessionEntry(entry)
     })
+}
+
+const SESSION_REOPEN_RETRY_MS = 1_000
+
+// A session that was live recovers itself: reopen attempts are paced at the
+// same 1s cadence write sessions use for token rotation, and keep retrying
+// until the session is live again or the entry is released.
+function scheduleSharedYjsSessionReopen(
+  entry: SharedYjsSessionEntry,
+  openSession: () => Promise<YjsProviderBootstrapResult>,
+  errorMessage: string
+): void {
+  setTimeout(() => {
+    if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.refCount === 0) return
+    initializeSharedYjsSessionEntry(entry, openSession, errorMessage)
+    void entry.initPromise?.then(() => {
+      if (!entry.result) scheduleSharedYjsSessionReopen(entry, openSession, errorMessage)
+    })
+  }, SESSION_REOPEN_RETRY_MS)
 }
 
 function releaseSharedYjsSessionEntry(entry: SharedYjsSessionEntry): void {

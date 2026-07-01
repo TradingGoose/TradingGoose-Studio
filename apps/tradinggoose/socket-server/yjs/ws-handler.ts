@@ -14,10 +14,9 @@ import {
   createEntityListBootstrapUpdate,
   createSavedReviewTargetBootstrapUpdate,
   getRuntimeStateFromDoc,
-  reseedEntityListSessionFromDb,
 } from '@/lib/yjs/server/bootstrap-review-target'
 import { authenticateYjsConnection, YjsAuthError } from './auth'
-import { getExistingDocument, markDocumentPersisted, setupWSConnection } from './upstream-utils'
+import { getExistingDocument, setupWSConnection } from './upstream-utils'
 
 const logger = createLogger('YjsWsHandler')
 const WORKFLOW_LIVE_PERSIST_DEBOUNCE_MS = 1500
@@ -128,15 +127,9 @@ async function authenticateAndPrepareUpgrade(
     throw new YjsAuthError(403, 'Forbidden')
   }
 
+  // Every list connect follows a fresh snapshot fetch, which reseeds live
+  // list docs from DB (routes/http.ts), so no upgrade-time reseed is needed.
   const liveDoc = await getExistingDocument(pathSessionId)
-  if (liveDoc && isListTarget) {
-    await reseedEntityListSessionFromDb(
-      liveDoc,
-      descriptor.entityKind,
-      descriptor.workspaceId as string
-    )
-    markDocumentPersisted(liveDoc)
-  }
 
   const bootstrapped = liveDoc
     ? null

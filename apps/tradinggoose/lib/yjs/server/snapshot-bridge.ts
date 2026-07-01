@@ -157,6 +157,14 @@ export async function applyYjsUpdateInSocketServer(
   )
 }
 
+/**
+ * Converge the live entity-list projection after a committed membership
+ * mutation. The DB rows are canonical and the list doc is a disposable
+ * projection, so this never rejects: a mutation's success must not depend on
+ * projection fan-out. On refresh failure the projection is discarded instead,
+ * which closes subscriber connections so every viewer rebootstraps a fresh
+ * doc from canonical DB state.
+ */
 export async function refreshEntityListSession(
   entityKind: ReviewEntityKind,
   workspaceId: string
@@ -173,7 +181,7 @@ export async function refreshEntityListSession(
   } catch (error) {
     logger.warn('Failed to refresh entity-list projection', { entityKind, workspaceId, error })
     await deleteYjsSessionInSocketServer(descriptor.yjsSessionId).catch((discardError) => {
-      logger.warn('Failed to discard stale entity-list projection', {
+      logger.error('Failed to discard stale entity-list projection', {
         entityKind,
         workspaceId,
         error: discardError,

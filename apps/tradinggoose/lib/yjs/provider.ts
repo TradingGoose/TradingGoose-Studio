@@ -17,6 +17,7 @@ export interface YjsProviderBootstrapResult {
   provider: WebsocketProvider
   descriptor: ReviewTargetDescriptor
   runtime: ReviewTargetRuntimeState
+  accessMode: ReviewAccessMode
 }
 
 const SOCKET_TOKEN_RETRY_MS = 1_000
@@ -130,49 +131,54 @@ export async function bootstrapYjsProvider(
     connect: true,
   })
 
-  let tokenRefreshInFlight: Promise<void> | null = null
-  let tokenRefreshRetryTimeout: ReturnType<typeof setTimeout> | null = null
-
-  const scheduleReconnectWithFreshToken = (currentProvider: WebsocketProvider) => {
-    if (!currentProvider.shouldConnect || tokenRefreshInFlight || tokenRefreshRetryTimeout) {
-      return
-    }
-
-    // Better Auth one-time tokens are consumed on verify, so every reconnect
-    // must rotate the token before y-websocket attempts the next connection.
-    currentProvider.shouldConnect = false
-    tokenRefreshInFlight = (async () => {
-      try {
-        const nextToken = await fetchSocketToken()
-        currentProvider.params = {
-          token: nextToken,
-          accessMode,
-          ...envelopeParams,
-        }
-        currentProvider.connect()
-      } catch (error) {
-        console.error('[YjsProvider] Failed to refresh socket token', error)
-        tokenRefreshRetryTimeout = setTimeout(() => {
-          tokenRefreshRetryTimeout = null
-          scheduleReconnectWithFreshToken(currentProvider)
-        }, SOCKET_TOKEN_RETRY_MS)
-      } finally {
-        tokenRefreshInFlight = null
-      }
-    })()
-  }
-
-  provider.on(
-    'connection-close',
-    (_event: CloseEvent | null, currentProvider: WebsocketProvider) => {
-      scheduleReconnectWithFreshToken(currentProvider)
-    }
-  )
-  provider.on('connection-error', (_event: Event, currentProvider: WebsocketProvider) => {
-    scheduleReconnectWithFreshToken(currentProvider)
-  })
-
+  // Reconnection is a write-session concern: unsaved collaborative edits must
+  // merge back, so the same doc resyncs with a rotated token. A read session
+  // subscribes to a server-owned projection whose lineage is disposable —
+  // connection loss ends the session, and its owner rebootstraps a fresh doc
+  // from a fresh snapshot instead of resyncing one the server regenerated.
   if (accessMode === 'write') {
+    let tokenRefreshInFlight: Promise<void> | null = null
+    let tokenRefreshRetryTimeout: ReturnType<typeof setTimeout> | null = null
+
+    const scheduleReconnectWithFreshToken = (currentProvider: WebsocketProvider) => {
+      if (!currentProvider.shouldConnect || tokenRefreshInFlight || tokenRefreshRetryTimeout) {
+        return
+      }
+
+      // Better Auth one-time tokens are consumed on verify, so every reconnect
+      // must rotate the token before y-websocket attempts the next connection.
+      currentProvider.shouldConnect = false
+      tokenRefreshInFlight = (async () => {
+        try {
+          const nextToken = await fetchSocketToken()
+          currentProvider.params = {
+            token: nextToken,
+            accessMode,
+            ...envelopeParams,
+          }
+          currentProvider.connect()
+        } catch (error) {
+          console.error('[YjsProvider] Failed to refresh socket token', error)
+          tokenRefreshRetryTimeout = setTimeout(() => {
+            tokenRefreshRetryTimeout = null
+            scheduleReconnectWithFreshToken(currentProvider)
+          }, SOCKET_TOKEN_RETRY_MS)
+        } finally {
+          tokenRefreshInFlight = null
+        }
+      })()
+    }
+
+    provider.on(
+      'connection-close',
+      (_event: CloseEvent | null, currentProvider: WebsocketProvider) => {
+        scheduleReconnectWithFreshToken(currentProvider)
+      }
+    )
+    provider.on('connection-error', (_event: Event, currentProvider: WebsocketProvider) => {
+      scheduleReconnectWithFreshToken(currentProvider)
+    })
+
     try {
       await waitForYjsSync(provider)
     } catch (error) {
@@ -188,6 +194,7 @@ export async function bootstrapYjsProvider(
     provider,
     descriptor: resolvedDescriptor,
     runtime,
+    accessMode,
   }
 }
 
