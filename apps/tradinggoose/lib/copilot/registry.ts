@@ -716,6 +716,7 @@ const WorkflowVariableDocumentEnvelope = WorkflowTargetEnvelope.extend({
 const GenericEntityListEntry = z.object({
   entityId: z.string(),
   entityName: z.string().optional(),
+  entityDescription: z.string().optional(),
   enabled: z.boolean().optional(),
 })
 

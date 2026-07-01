@@ -379,7 +379,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (!updatedWorkflow) {
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
     }
-    if (updates.name !== undefined || updates.folderId !== undefined) {
+    if (updates.name !== undefined || updates.description !== undefined || updates.folderId !== undefined) {
       await refreshWorkflowListForWorkflow(workflowId)
     }
 

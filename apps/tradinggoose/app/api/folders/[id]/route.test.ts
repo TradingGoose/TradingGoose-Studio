@@ -42,7 +42,7 @@ describe('Individual Folder API Route', () => {
 
   const { mockAuthenticatedUser, mockUnauthenticated } = mockAuth(TEST_USER)
   const mockGetUserEntityPermissions = vi.fn()
-  const mockRefreshWorkflowListForWorkflow = vi.fn()
+  const mockRefreshWorkflowList = vi.fn()
 
   function createFolderDbMock(options: FolderDbMockOptions = {}) {
     const {
@@ -121,13 +121,13 @@ describe('Individual Folder API Route', () => {
     setupCommonApiMocks()
 
     mockGetUserEntityPermissions.mockResolvedValue('admin')
-    mockRefreshWorkflowListForWorkflow.mockResolvedValue(undefined)
+    mockRefreshWorkflowList.mockResolvedValue(undefined)
 
     vi.doMock('@/lib/permissions/utils', () => ({
       getUserEntityPermissions: mockGetUserEntityPermissions,
     }))
     vi.doMock('@/lib/workflows/db-helpers', () => ({
-      refreshWorkflowListForWorkflow: mockRefreshWorkflowListForWorkflow,
+      refreshWorkflowList: mockRefreshWorkflowList,
     }))
   })
 
@@ -458,7 +458,7 @@ describe('Individual Folder API Route', () => {
         movedFolders: 1,
         movedWorkflows: 1,
       })
-      expect(mockRefreshWorkflowListForWorkflow).toHaveBeenCalledWith('workflow-1')
+      expect(mockRefreshWorkflowList).toHaveBeenCalledWith('workspace-123')
     })
 
     it('should return 401 for unauthenticated delete requests', async () => {

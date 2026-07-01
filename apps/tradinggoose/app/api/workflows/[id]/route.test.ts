@@ -698,7 +698,7 @@ describe('Workflow By ID API Route', () => {
       expect(data.workflow.description).toBe('New description')
       expect(mockLoadWorkflowState).not.toHaveBeenCalled()
       expect(mockDbUpdateSet).toHaveBeenCalledWith(expect.objectContaining(updateData))
-      expect(mockRefreshWorkflowListForWorkflow).not.toHaveBeenCalled()
+      expect(mockRefreshWorkflowListForWorkflow).toHaveBeenCalledWith('workflow-123')
     })
 
     it('updates workflow row metadata and publishes list fields', async () => {

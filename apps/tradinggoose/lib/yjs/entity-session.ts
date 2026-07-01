@@ -42,6 +42,7 @@ export function getEntityMetadataMap(doc: Y.Doc): Y.Map<any> {
 export interface EntityListMember {
   entityId: string
   entityName: string
+  entityDescription?: string
   enabled?: boolean
   folderId?: string | null
   color?: string
@@ -49,6 +50,7 @@ export interface EntityListMember {
 
 function getEntityListMembersMap(doc: Y.Doc): Y.Map<{
   name: string
+  description?: string
   enabled?: boolean
   folderId?: string | null
   color?: string
@@ -62,6 +64,7 @@ export function seedEntityListSession(
   members: Array<{
     id: string
     name: string
+    description?: string
     enabled?: boolean
     folderId?: string | null
     color?: string
@@ -76,6 +79,7 @@ export function seedEntityListSession(
     for (const member of members) {
       const next = {
         name: member.name,
+        ...(typeof member.description === 'string' ? { description: member.description } : {}),
         ...(typeof member.enabled === 'boolean' ? { enabled: member.enabled } : {}),
         ...('folderId' in member ? { folderId: member.folderId ?? null } : {}),
         ...(typeof member.color === 'string' ? { color: member.color } : {}),
@@ -84,6 +88,7 @@ export function seedEntityListSession(
       if (
         current?.deleted ||
         current?.name !== next.name ||
+        current?.description !== next.description ||
         current?.enabled !== next.enabled ||
         current?.folderId !== next.folderId ||
         current?.color !== next.color
@@ -101,6 +106,7 @@ export function getEntityListMembers(doc: Y.Doc): EntityListMember[] {
     entries.push({
       entityId,
       entityName: typeof value?.name === 'string' ? value.name : '',
+      ...(typeof value?.description === 'string' ? { entityDescription: value.description } : {}),
       ...(typeof value?.enabled === 'boolean' ? { enabled: value.enabled } : {}),
       ...(value && 'folderId' in value ? { folderId: value.folderId ?? null } : {}),
       ...(typeof value?.color === 'string' ? { color: value.color } : {}),

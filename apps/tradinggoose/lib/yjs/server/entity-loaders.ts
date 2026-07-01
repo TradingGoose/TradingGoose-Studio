@@ -59,13 +59,21 @@ export async function readEntityListMembersFromDb(
   entityKind: ReviewEntityKind,
   workspaceId: string
 ): Promise<
-  Array<{ id: string; name: string; enabled?: boolean; folderId?: string | null; color?: string }>
+  Array<{
+    id: string
+    name: string
+    description?: string
+    enabled?: boolean
+    folderId?: string | null
+    color?: string
+  }>
 > {
   if (entityKind === 'workflow') {
     const rows = await db
       .select({
         id: workflow.id,
         name: workflow.name,
+        description: workflow.description,
         folderId: workflow.folderId,
         color: workflow.color,
       })
@@ -75,6 +83,7 @@ export async function readEntityListMembersFromDb(
     return rows.map((row) => ({
       id: row.id,
       name: row.name,
+      description: row.description ?? undefined,
       folderId: row.folderId,
       color: row.color,
     }))
