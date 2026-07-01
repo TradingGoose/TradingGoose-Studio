@@ -82,7 +82,7 @@ const WorkflowListWidgetBody = ({
   const selectedWorkflowId = resolveEntityIdFromList({
     requestedEntityId: requestedWorkflowId,
     entityIds: regularWorkflows.map((workflow) => workflow.id),
-    useDefaultEntity: false,
+    useDefaultEntity: !isLinkedToColorPair && !requestedWorkflowId,
   })
 
   useEffect(() => {
