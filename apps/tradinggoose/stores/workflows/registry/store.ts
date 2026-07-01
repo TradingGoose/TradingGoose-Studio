@@ -923,7 +923,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
        */
       duplicateWorkflow: async (sourceId: string, source?: WorkflowMetadataSeed) => {
         const { workflows } = get()
-        const sourceWorkflow = workflows[sourceId] ?? source
+        const sourceWorkflow = source ?? workflows[sourceId]
 
         if (!sourceWorkflow) {
           set({ error: `Workflow ${sourceId} not found` })

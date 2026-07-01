@@ -41,6 +41,7 @@ interface WorkflowDropdownProps {
 type WorkflowDropdownOption = {
   id: string
   name: string
+  description: string
   color: string
   workspaceId: string
   folderId?: string | null
@@ -71,6 +72,7 @@ export function WorkflowDropdown({
     return members.map((member) => ({
       id: member.entityId,
       name: member.entityName,
+      description: member.entityDescription ?? '',
       color: member.color ?? '#64748b',
       workspaceId,
       folderId: member.folderId ?? null,
@@ -121,6 +123,7 @@ export function WorkflowDropdown({
       const name = workflow.name || copy.untitledWorkflow
       return (
         name.toLowerCase().includes(normalizedQuery) ||
+        workflow.description.toLowerCase().includes(normalizedQuery) ||
         workflow.id.toLowerCase().includes(normalizedQuery)
       )
     })
