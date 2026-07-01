@@ -159,7 +159,9 @@ export function IndicatorList({
       try {
         const copiedName = `${indicator.name || copy.listItem.untitledIndicator} (Copy)`
         const sourceSession = await bootstrapYjsProvider(
-          buildSavedEntityDescriptor('indicator', indicator.id, workspaceId)
+          buildSavedEntityDescriptor('indicator', indicator.id, workspaceId),
+          undefined,
+          'read'
         )
         let pineCode = ''
         try {
