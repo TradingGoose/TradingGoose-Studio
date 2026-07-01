@@ -1,8 +1,3 @@
-export interface MarketplaceData {
-  id: string // Marketplace entry ID to track original marketplace source
-  status: 'owner' | 'temp'
-}
-
 export interface DeploymentStatus {
   isDeployed: boolean
   deployedAt?: Date
@@ -17,7 +12,6 @@ export interface WorkflowMetadata {
   createdAt: Date
   description?: string
   color: string
-  marketplaceData?: MarketplaceData | null
   workspaceId?: string
   folderId?: string | null
 }
@@ -26,7 +20,7 @@ export type WorkflowMetadataSeed = Pick<
   WorkflowMetadata,
   'id' | 'name' | 'description' | 'color' | 'workspaceId' | 'folderId'
 > &
-  Partial<Pick<WorkflowMetadata, 'lastModified' | 'createdAt' | 'marketplaceData'>>
+  Partial<Pick<WorkflowMetadata, 'lastModified' | 'createdAt'>>
 
 export type HydrationPhase =
   | 'idle'
@@ -76,8 +70,6 @@ export interface WorkflowRegistryActions {
   ) => Promise<void>
   createWorkflow: (options?: {
     isInitial?: boolean
-    marketplaceId?: string
-    marketplaceState?: any
     name?: string
     description?: string
     workspaceId?: string

@@ -8,8 +8,8 @@ import { getStableVibrantColor } from '@/lib/colors'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
-import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { refreshWorkflowListForWorkflow } from '@/lib/workflows/db-helpers'
+import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { remapVariableIds } from '@/lib/workflows/import-export'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
@@ -191,8 +191,6 @@ export async function POST(req: NextRequest) {
       isDeployed: false,
       collaborators: [],
       runCount: 0,
-      isPublished: false,
-      marketplaceData: null,
     })
 
     try {

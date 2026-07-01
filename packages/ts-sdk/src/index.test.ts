@@ -84,7 +84,6 @@ describe('TradingGooseClient', () => {
         json: vi.fn().mockResolvedValue({
           isDeployed: true,
           deployedAt: '2023-01-01T00:00:00Z',
-          isPublished: false,
           needsRedeployment: false,
         }),
       }
@@ -101,7 +100,6 @@ describe('TradingGooseClient', () => {
         json: vi.fn().mockResolvedValue({
           isDeployed: false,
           deployedAt: null,
-          isPublished: false,
           needsRedeployment: true,
         }),
       }

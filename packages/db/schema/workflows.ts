@@ -73,8 +73,6 @@ export const workflow = pgTable(
     runCount: integer('run_count').notNull().default(0),
     lastRunAt: timestamp('last_run_at'),
     variables: json('variables').default('{}'),
-    isPublished: boolean('is_published').notNull().default(false),
-    marketplaceData: json('marketplace_data'),
   },
   (table) => ({
     userIdIdx: index('workflow_user_id_idx').on(table.userId),
@@ -436,24 +434,6 @@ export const pendingExecution = pgTable(
     statusIdx: index('pending_execution_status_idx').on(table.status),
   })
 )
-
-export const marketplace = pgTable('marketplace', {
-  id: text('id').primaryKey(),
-  workflowId: text('workflow_id')
-    .notNull()
-    .references(() => workflow.id, { onDelete: 'cascade' }),
-  state: json('state').notNull(),
-  name: text('name').notNull(),
-  description: text('description'),
-  authorId: text('author_id')
-    .notNull()
-    .references(() => user.id),
-  authorName: text('author_name').notNull(),
-  views: integer('views').notNull().default(0),
-  category: text('category'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-})
 
 export const memory = pgTable(
   'memory',

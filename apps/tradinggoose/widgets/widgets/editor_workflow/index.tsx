@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Workflow } from 'lucide-react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
-import { useWorkflowEditorMessages } from '@/i18n/workspace-widget-hooks'
+import {
+  useWorkflowDropdownMessages,
+  useWorkflowEditorMessages,
+} from '@/i18n/workspace-widget-hooks'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
@@ -38,6 +41,7 @@ const WorkflowEditorWidgetBody = ({
 }: WidgetComponentProps) => {
   const workspaceId = context?.workspaceId
   const copy = useWorkflowEditorMessages()
+  const dropdownCopy = useWorkflowDropdownMessages()
   const widgetKey = widget?.key ?? 'editor_workflow'
   const toolbarScopeId = readWorkflowToolbarScopeId(widgetKey, panelId)
   const {
@@ -152,11 +156,7 @@ const WorkflowEditorWidgetBody = ({
       return <WidgetStateMessage message={copy.noSharedWorkflowSelected} />
     }
 
-    return (
-      <div className='flex h-full w-full items-center justify-center '>
-        <LoadingAgent size='md' />
-      </div>
-    )
+    return <WidgetStateMessage message={dropdownCopy.selectWorkflow} />
   }
 
   return (

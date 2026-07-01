@@ -59,7 +59,7 @@ const WorkflowListWidgetBody = ({
             return {
               id: member.entityId,
               name: member.entityName,
-              description: '',
+              description: member.entityDescription ?? '',
               color: member.color ?? getStableVibrantColor(member.entityId),
               workspaceId,
               folderId: member.folderId ?? null,
@@ -174,7 +174,6 @@ const WorkflowListWidgetBody = ({
         <div className='h-full w-full overflow-hidden p-2'>
           <FolderTree
             regularWorkflows={regularWorkflows}
-            marketplaceWorkflows={[]}
             isLoading={isLoading}
             onCreateWorkflow={handleCreateWorkflow}
             workspaceIdOverride={workspaceId}

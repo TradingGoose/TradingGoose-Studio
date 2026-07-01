@@ -381,7 +381,6 @@ function useDragHandlers(
 
 interface FolderTreeProps {
   regularWorkflows: WorkflowListEntry[]
-  marketplaceWorkflows: WorkflowListEntry[]
   isLoading?: boolean
   onCreateWorkflow: (folderId?: string) => Promise<string | undefined> | undefined
   workspaceIdOverride?: string | null
@@ -392,7 +391,6 @@ interface FolderTreeProps {
 
 export function FolderTree({
   regularWorkflows,
-  marketplaceWorkflows,
   isLoading = false,
   onCreateWorkflow,
   workspaceIdOverride = null,
@@ -608,15 +606,12 @@ export function FolderTree({
           ))}
 
           {/* Empty state */}
-          {!showLoading &&
-            regularWorkflows.length === 0 &&
-            marketplaceWorkflows.length === 0 &&
-            folderTree.length === 0 && (
-              <div className='break-words px-2 py-1.5 pr-12 text-muted-foreground text-xs'>
-                No workflows or folders in {workspaceId ? 'this workspace' : 'your account'}. Create
-                one to get started.
-              </div>
-            )}
+          {!showLoading && regularWorkflows.length === 0 && folderTree.length === 0 && (
+            <div className='break-words px-2 py-1.5 pr-12 text-muted-foreground text-xs'>
+              No workflows or folders in {workspaceId ? 'this workspace' : 'your account'}. Create
+              one to get started.
+            </div>
+          )}
         </div>
       </div>
     </div>

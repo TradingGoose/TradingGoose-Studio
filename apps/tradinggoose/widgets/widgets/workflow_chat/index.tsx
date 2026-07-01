@@ -9,6 +9,7 @@ import {
   widgetHeaderControlClassName,
   widgetHeaderIconButtonClassName,
 } from '@/components/widget-header-control'
+import { useWorkflowChatMessages, useWorkflowDropdownMessages } from '@/i18n/workspace-widget-hooks'
 import { useChatStore } from '@/stores/chat/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
@@ -20,7 +21,6 @@ import {
   useWorkflowSelectionPersistence,
 } from '@/widgets/utils/workflow-selection'
 import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
-import { useWorkflowChatMessages } from '@/i18n/workspace-widget-hooks'
 import { OutputSelect } from './components'
 import WorkflowChatApp, { WorkflowChatSessionProviders } from './components/workflow-chat-app'
 
@@ -33,6 +33,7 @@ const ChatWidgetBody = ({
   onWidgetParamsChange,
 }: WidgetComponentProps) => {
   const copy = useWorkflowChatMessages()
+  const dropdownCopy = useWorkflowDropdownMessages()
   const workspaceId = context?.workspaceId
   const {
     channelId,
@@ -80,11 +81,7 @@ const ChatWidgetBody = ({
   }
 
   if (!resolvedWorkflowId) {
-    return (
-      <div className='flex h-full w-full items-center justify-center bg-background'>
-        <LoadingAgent size='md' />
-      </div>
-    )
+    return <WidgetStateMessage message={dropdownCopy.selectWorkflow} />
   }
 
   return (

@@ -517,8 +517,6 @@ export const createWorkflowServerTool: BaseServerTool<
       isDeployed: false,
       collaborators: [],
       runCount: 0,
-      isPublished: false,
-      marketplaceData: null,
     })
 
     try {

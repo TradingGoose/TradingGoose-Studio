@@ -3,6 +3,10 @@ import { Braces, Plus } from 'lucide-react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { widgetHeaderIconButtonClassName } from '@/components/widget-header-control'
+import {
+  useWorkflowDropdownMessages,
+  useWorkflowVariablesMessages,
+} from '@/i18n/workspace-widget-hooks'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { WORKFLOW_VARIABLES_ADD_EVENT } from '@/widgets/events'
 import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
@@ -14,11 +18,10 @@ import {
   useWorkflowSelectionPersistence,
 } from '@/widgets/utils/workflow-selection'
 import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
-import { useWorkflowVariablesMessages } from '@/i18n/workspace-widget-hooks'
 import WorkflowVariablesApp from './components/workflow-variables-app'
 
 const WidgetStateMessage = ({ message }: { message: string }) => (
-  <div className='flex h-full w-full items-center justify-center  px-4 text-center text-muted-foreground text-xs'>
+  <div className='flex h-full w-full items-center justify-center px-4 text-center text-muted-foreground text-xs'>
     {message}
   </div>
 )
@@ -32,6 +35,7 @@ const WorkflowVariablesWidgetBody = ({
   onWidgetParamsChange,
 }: WidgetComponentProps) => {
   const copy = useWorkflowVariablesMessages()
+  const dropdownCopy = useWorkflowDropdownMessages()
   const workspaceId = context?.workspaceId
   const {
     channelId,
@@ -80,11 +84,7 @@ const WorkflowVariablesWidgetBody = ({
   }
 
   if (!resolvedWorkflowId) {
-    return (
-      <div className='flex h-full w-full items-center justify-center '>
-        <LoadingAgent size='md' />
-      </div>
-    )
+    return <WidgetStateMessage message={dropdownCopy.selectWorkflow} />
   }
 
   return (

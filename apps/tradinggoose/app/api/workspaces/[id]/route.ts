@@ -239,8 +239,7 @@ export async function DELETE(
           await tx.delete(templates).where(inArray(templates.workflowId, workflowIds))
           logger.info(`Deleted templates for workflows in workspace ${workspaceId}`)
         } else {
-          // Set workflowId to null for templates to create "orphaned" templates
-          // This allows templates to remain in marketplace but without source workflows
+          // Set workflowId to null so templates can remain without source workflows.
           await tx
             .update(templates)
             .set({ workflowId: null })

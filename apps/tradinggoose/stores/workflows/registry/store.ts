@@ -227,9 +227,7 @@ const mapRegistryMetadata = (rows: any[]) => {
       name,
       description,
       color,
-      variables,
       createdAt,
-      marketplaceData,
       workspaceId,
       folderId,
       isDeployed,
@@ -244,7 +242,6 @@ const mapRegistryMetadata = (rows: any[]) => {
       color: color || getStableVibrantColor(id),
       lastModified: createdAt ? new Date(createdAt) : new Date(),
       createdAt: createdAt ? new Date(createdAt) : new Date(),
-      marketplaceData: marketplaceData || null,
       workspaceId,
       folderId: folderId || null,
     }
@@ -760,7 +757,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
             deployedAt: workflowData.deployedAt ? new Date(workflowData.deployedAt) : undefined,
             apiKey: workflowData.apiKey,
             lastSaved: Date.now(),
-            marketplaceData: workflowData.marketplaceData || null,
             deploymentStatuses: {},
           }
         } else {
@@ -790,10 +786,8 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
             return {}
           }
 
-          const {
-            workflows: fetchedWorkflows,
-            deploymentStatuses: fetchedDeploymentStatuses,
-          } = mapRegistryMetadata([workflowData])
+          const { workflows: fetchedWorkflows, deploymentStatuses: fetchedDeploymentStatuses } =
+            mapRegistryMetadata([workflowData])
           const fetchedWorkflow = fetchedWorkflows[workflowData.id ?? workflowId]
           const resolvedWorkspaceId = fetchedWorkflow?.workspaceId ?? workspaceId
           const nextHydrationByChannel: Record<string, ChannelHydrationState> = {
@@ -895,15 +889,8 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
             createdAt: new Date(),
             description: createdWorkflow.description,
             color: createdWorkflow.color,
-            marketplaceData: options.marketplaceId
-              ? { id: options.marketplaceId, status: 'temp' as const }
-              : undefined,
             workspaceId,
             folderId: createdWorkflow.folderId,
-          }
-
-          if (options.marketplaceId && options.marketplaceState) {
-            logger.info(`Created workflow from marketplace: ${options.marketplaceId}`)
           }
 
           // Add workflow to registry with server-generated ID
@@ -992,7 +979,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           color: duplicatedWorkflow.color || getStableVibrantColor(id),
           workspaceId, // Include the workspaceId in the new workflow
           folderId: duplicatedWorkflow.folderId ?? sourceWorkflow.folderId, // Include the folderId from source workflow
-          // Do not copy marketplace data
         }
 
         // Add workflow to registry

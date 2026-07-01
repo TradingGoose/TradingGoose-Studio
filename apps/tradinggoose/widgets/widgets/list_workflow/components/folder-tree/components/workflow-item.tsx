@@ -28,7 +28,6 @@ const logger = createLogger('WorkflowItem')
 interface WorkflowItemProps {
   workflow: WorkflowMetadataSeed
   active: boolean
-  isMarketplace?: boolean
   isDragOver?: boolean
   onSelect?: (workflow: WorkflowMetadataSeed) => void
   disableNavigation?: boolean
@@ -38,7 +37,6 @@ interface WorkflowItemProps {
 export function WorkflowItem({
   workflow,
   active,
-  isMarketplace,
   isDragOver = false,
   onSelect,
   disableNavigation = false,
@@ -91,7 +89,6 @@ export function WorkflowItem({
   }, [isEditing])
 
   const handleStartEdit = () => {
-    if (isMarketplace) return
     setIsEditing(true)
     setEditValue(workflow.name)
   }
@@ -163,7 +160,7 @@ export function WorkflowItem({
   }, [])
 
   const handleDeleteWorkflow = useCallback(async () => {
-    if (!userPermissions.canEdit || isMarketplace || !canDelete) return
+    if (!userPermissions.canEdit || !canDelete) return
 
     setDeleteState((prev) => ({ ...prev, isDeleting: true }))
 
@@ -189,7 +186,6 @@ export function WorkflowItem({
   }, [
     canDelete,
     checkPublishedTemplates,
-    isMarketplace,
     removeWorkflow,
     resetDeleteState,
     userPermissions.canEdit,
@@ -198,7 +194,7 @@ export function WorkflowItem({
 
   const handleTemplateAction = useCallback(
     async (action: 'keep' | 'delete') => {
-      if (!userPermissions.canEdit || isMarketplace || !canDelete) return
+      if (!userPermissions.canEdit || !canDelete) return
 
       setDeleteState((prev) => ({ ...prev, isDeleting: true }))
 
@@ -210,18 +206,11 @@ export function WorkflowItem({
         setDeleteState((prev) => ({ ...prev, isDeleting: false }))
       }
     },
-    [
-      canDelete,
-      isMarketplace,
-      removeWorkflow,
-      resetDeleteState,
-      userPermissions.canEdit,
-      workflow.id,
-    ]
+    [canDelete, removeWorkflow, resetDeleteState, userPermissions.canEdit, workflow.id]
   )
 
   const handleDuplicateWorkflow = useCallback(async () => {
-    if (!userPermissions.canEdit || isMarketplace || isDuplicating) return
+    if (!userPermissions.canEdit || isDuplicating) return
 
     setIsDuplicating(true)
     try {
@@ -251,7 +240,6 @@ export function WorkflowItem({
     disableNavigation,
     duplicateWorkflow,
     isDuplicating,
-    isMarketplace,
     onSelect,
     router,
     userPermissions.canEdit,
@@ -288,7 +276,7 @@ export function WorkflowItem({
   }
 
   const handleDragStart = (e: React.DragEvent) => {
-    if (isMarketplace || isEditing) return
+    if (isEditing) return
 
     dragStartedRef.current = true
     setIsDragging(true)
@@ -346,14 +334,10 @@ export function WorkflowItem({
               )}
             >
               {workflow.name}
-              {isMarketplace && ' (Preview)'}
             </span>
           </TooltipTrigger>
           <TooltipContent side='top' align='start' sideOffset={10}>
-            <p>
-              {workflow.name}
-              {isMarketplace && ' (Preview)'}
-            </p>
+            <p>{workflow.name}</p>
           </TooltipContent>
         </Tooltip>
       ) : (
@@ -366,7 +350,6 @@ export function WorkflowItem({
           )}
         >
           {workflow.name}
-          {isMarketplace && ' (Preview)'}
         </span>
       )}
     </>
@@ -381,7 +364,7 @@ export function WorkflowItem({
           isSelected && selectedWorkflows.size > 1 && !active && !isDragOver ? 'bg-muted' : '',
           isDragging ? 'opacity-50' : ''
         )}
-        draggable={!isMarketplace && !isEditing}
+        draggable={!isEditing}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onMouseEnter={() => setIsHovered(true)}
@@ -427,7 +410,7 @@ export function WorkflowItem({
           </Link>
         )}
 
-        {!isMarketplace && !isEditing && isHovered && userPermissions.canEdit && (
+        {!isEditing && isHovered && userPermissions.canEdit && (
           <div
             className='flex items-center justify-center gap-1'
             onClick={(e) => e.stopPropagation()}

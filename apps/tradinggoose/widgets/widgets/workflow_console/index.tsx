@@ -8,6 +8,10 @@ import {
   widgetHeaderIconButtonClassName,
 } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
+import {
+  useWorkflowConsoleMessages,
+  useWorkflowDropdownMessages,
+} from '@/i18n/workspace-widget-hooks'
 import { useConsoleStore } from '@/stores/console/store'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { WidgetInstance } from '@/widgets/layout'
@@ -22,7 +26,6 @@ import { useWorkflowConsoleUiState } from './components/terminal/terminal-ui-sto
 import type { BlockInfo } from './components/terminal/types'
 import { filterEntries } from './components/terminal/utils'
 import WorkflowConsoleApp from './components/workflow-console-app'
-import { useWorkflowConsoleMessages } from '@/i18n/workspace-widget-hooks'
 
 const WorkflowConsoleWidgetBody = ({
   params,
@@ -33,6 +36,7 @@ const WorkflowConsoleWidgetBody = ({
   onWidgetParamsChange,
 }: WidgetComponentProps) => {
   const copy = useWorkflowConsoleMessages()
+  const dropdownCopy = useWorkflowDropdownMessages()
   const workspaceId = context?.workspaceId
   const {
     channelId,
@@ -100,11 +104,7 @@ const WorkflowConsoleWidgetBody = ({
   }
 
   if (!resolvedWorkflowId) {
-    return (
-      <div className='flex h-full w-full items-center justify-center '>
-        <LoadingAgent size='md' />
-      </div>
-    )
+    return <WidgetStateMessage message={dropdownCopy.selectWorkflow} />
   }
 
   return (

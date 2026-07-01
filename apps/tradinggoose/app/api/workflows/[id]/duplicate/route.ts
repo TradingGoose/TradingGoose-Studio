@@ -129,8 +129,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       isDeployed: false,
       collaborators: [],
       runCount: 0,
-      isPublished: false,
-      marketplaceData: null,
     })
 
     try {
