@@ -9,6 +9,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
+import { publishWorkflowListMember } from '@/lib/workflows/db-helpers'
 import { remapVariableIds } from '@/lib/workflows/import-export'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
@@ -198,9 +199,9 @@ export async function POST(req: NextRequest) {
       await applyWorkflowState(
         workflowId,
         createWorkflowSnapshot(initialState.canonicalState),
-        remappedVariables,
-        { name, description }
+        remappedVariables
       )
+      await publishWorkflowListMember(workflowId)
     } catch (error) {
       await db.delete(workflow).where(eq(workflow.id, workflowId))
       throw error

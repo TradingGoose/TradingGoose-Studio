@@ -198,10 +198,8 @@ export const DELETE = withMcpAuth('write')(
           )
         )
 
-      await Promise.allSettled([
-        deleteYjsSessionInSocketServer(serverId),
-        notifyEntityListMemberRemoved('mcp_server', workspaceId, serverId),
-      ])
+      await notifyEntityListMemberRemoved('mcp_server', workspaceId, serverId)
+      await Promise.allSettled([deleteYjsSessionInSocketServer(serverId)])
 
       logger.info(`[${requestId}] Successfully deleted MCP server: ${serverId}`)
       return createMcpSuccessResponse({

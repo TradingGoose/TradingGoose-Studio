@@ -232,10 +232,8 @@ export async function DELETE(request: NextRequest) {
       .delete(customTools)
       .where(and(eq(customTools.id, toolId), eq(customTools.workspaceId, workspaceId)))
 
-    await Promise.allSettled([
-      deleteYjsSessionInSocketServer(toolId),
-      notifyEntityListMemberRemoved('custom_tool', workspaceId, toolId),
-    ])
+    await notifyEntityListMemberRemoved('custom_tool', workspaceId, toolId)
+    await Promise.allSettled([deleteYjsSessionInSocketServer(toolId)])
 
     logger.info(`[${requestId}] Deleted tool: ${toolId}`)
     return NextResponse.json({ success: true })

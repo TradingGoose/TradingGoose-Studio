@@ -180,18 +180,12 @@ export async function createSavedReviewTargetBootstrapUpdate(
 
   const doc = new Y.Doc()
   try {
-    let workflowName: string | null | undefined
-    let workflowDescription: string | null | undefined
-    let workflowFolderId: string | null | undefined
     let resolvedWorkspaceId: string | null = descriptor.workspaceId
     if (descriptor.entityKind === 'workflow') {
       const workflowState = await loadWorkflowBootstrapStateFromDb(descriptor.entityId)
       if (!workflowState) {
         throw new ReviewTargetBootstrapError(404, 'Workflow not found')
       }
-      workflowName = workflowState.name
-      workflowDescription = workflowState.description
-      workflowFolderId = workflowState.folderId
 
       setWorkflowState(
         doc,
@@ -229,15 +223,6 @@ export async function createSavedReviewTargetBootstrapUpdate(
     metadata.set('draftSessionId', descriptor.draftSessionId)
     metadata.set('reviewSessionId', descriptor.reviewSessionId)
     metadata.set('reseededFromCanonical', true)
-    if (workflowName) {
-      metadata.set('entityName', workflowName)
-    }
-    if (workflowDescription !== undefined) {
-      metadata.set('entityDescription', workflowDescription)
-    }
-    if (workflowFolderId !== undefined) {
-      metadata.set('entityFolderId', workflowFolderId)
-    }
     const state = Y.encodeStateAsUpdate(doc)
 
     return {

@@ -275,11 +275,21 @@ describe('Socket Server Index Integration', () => {
       savedWorkflowStates.push(extractPersistedStateFromDoc(doc))
     })
     mockSaveSavedEntityYjsDocToDb.mockImplementation(async (entityKind, entityId, doc) => {
+      const fields = getEntityFields(doc, entityKind)
       savedEntityStates.push({
         entityKind,
         entityId,
-        fields: getEntityFields(doc, entityKind),
+        fields,
       })
+      return {
+        listMember: {
+          name: String(fields[entityKind === 'custom_tool' ? 'title' : 'name'] ?? ''),
+          ...(entityKind === 'mcp_server' ? { enabled: fields.enabled !== false } : {}),
+          ...(entityKind === 'indicator' && typeof fields.color === 'string'
+            ? { color: fields.color }
+            : {}),
+        },
+      }
     })
 
     // Create HTTP server
@@ -429,12 +439,6 @@ describe('Socket Server Index Integration', () => {
         })
       )
 
-      const renameResponse = await applyWorkflowPatch({ metadata: { name: 'Renamed Workflow' } })
-
-      expect(renameResponse.statusCode).toBe(200)
-      expect(mockSaveWorkflowYjsDocToDb).toHaveBeenCalledTimes(2)
-      expect(await getExistingDocument('workflow-1')).toBeNull()
-
       const liveDoc = getDocument('workflow-1', true) as Y.Doc
       setWorkflowState(
         liveDoc,
@@ -454,9 +458,9 @@ describe('Socket Server Index Integration', () => {
       const variablesResponse = await applyWorkflowPatch({ variables })
 
       expect(variablesResponse.statusCode).toBe(200)
-      expect(mockSaveWorkflowYjsDocToDb).toHaveBeenCalledTimes(3)
-      expect(savedWorkflowStates[2]?.variables).toEqual(variables)
-      expect(savedWorkflowStates[2]?.blocks['block-1'].subBlocks.prompt.value).toBe(
+      expect(mockSaveWorkflowYjsDocToDb).toHaveBeenCalledTimes(2)
+      expect(savedWorkflowStates[1]?.variables).toEqual(variables)
+      expect(savedWorkflowStates[1]?.blocks['block-1'].subBlocks.prompt.value).toBe(
         'Use <variable.risklimit> in this prompt'
       )
       expect(await getExistingDocument('workflow-1')).toBeNull()
@@ -472,6 +476,7 @@ describe('Socket Server Index Integration', () => {
           entityId,
           fields: getEntityFields(doc, entityKind),
         })
+        return { listMember: { name: 'Canonical Risk Skill' } }
       })
 
       const response = await sendHttpRequestWithOptions(
@@ -489,6 +494,9 @@ describe('Socket Server Index Integration', () => {
               name: 'Risk Skill',
               description: 'Position sizing rules',
               content: 'Keep risk below one percent.',
+            },
+            listMember: {
+              name: 'Risk Skill',
             },
           }),
         }
@@ -510,7 +518,7 @@ describe('Socket Server Index Integration', () => {
       expect(getEntityListMembers(listDoc)).toEqual([
         {
           entityId: 'skill-1',
-          entityName: 'Canonical Risk Skill',
+          entityName: 'Risk Skill',
         },
       ])
 

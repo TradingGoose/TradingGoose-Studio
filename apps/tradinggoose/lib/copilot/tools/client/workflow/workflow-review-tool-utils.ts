@@ -203,10 +203,8 @@ export async function getReadableWorkflowState(
   const liveSession = getRegisteredWorkflowSession(resolvedWorkflowId)
 
   if (liveSession) {
-    const entityName = normalizeWorkflowTargetValue(liveSession.entityName)
     return {
       workflowId: liveSession.workflowId,
-      ...(entityName ? { entityName } : {}),
       workflowState: readWorkflowSnapshot(liveSession.doc),
       workspaceId: liveSession.workspaceId ?? null,
       variables: getVariablesSnapshot(liveSession.doc),
@@ -218,10 +216,8 @@ export async function getReadableWorkflowState(
     workspaceId: executionContext.workspaceId ?? null,
   })
   try {
-    const entityName = normalizeWorkflowTargetValue(lease.session.entityName)
     return {
       workflowId: lease.session.workflowId,
-      ...(entityName ? { entityName } : {}),
       workflowState: readWorkflowSnapshot(lease.session.doc),
       workspaceId: lease.session.workspaceId ?? null,
       variables: getVariablesSnapshot(lease.session.doc),

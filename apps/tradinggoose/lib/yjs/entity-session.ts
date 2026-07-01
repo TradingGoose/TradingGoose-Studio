@@ -5,10 +5,13 @@
  * and provides helpers to seed and read the live entity field state.
  *
  * Top-level collections:
- *   - "fields"   (Y.Map) — entity-kind-specific field values
+ *   - "fields"   (Y.Map) — entity-kind-specific editable field values
  *   - "metadata"  (Y.Map) — session-level metadata: the resolved `workspaceId`
  *                            that owns the entity (its canonical persistence
  *                            scope), plus bootstrap-touch and identity markers.
+ *   - "members"   (Y.Map) — entity-list sessions only. List discovery metadata
+ *                            is mutated explicitly by create/update/delete flows,
+ *                            never inferred from a saved entity document.
  *
  * Entity-kind adapters:
  *   - skill:        name, description, content
@@ -63,22 +66,6 @@ function getEntityListMembersMap(doc: Y.Doc): Y.Map<{
   deleted?: boolean
 }> {
   return doc.getMap('members')
-}
-
-export function getEntityListMemberFromFields(
-  entityKind: Exclude<ReviewEntityKind, 'workflow'>,
-  entityId: string,
-  fields: Record<string, unknown>
-): { id: string; name: string; enabled?: boolean; color?: string } {
-  const nameKey = entityKind === 'custom_tool' ? 'title' : 'name'
-  return {
-    id: entityId,
-    name: String(fields[nameKey] ?? ''),
-    ...(entityKind === 'mcp_server' ? { enabled: fields.enabled !== false } : {}),
-    ...(entityKind === 'indicator' && typeof fields.color === 'string'
-      ? { color: fields.color }
-      : {}),
-  }
 }
 
 export function seedEntityListSession(

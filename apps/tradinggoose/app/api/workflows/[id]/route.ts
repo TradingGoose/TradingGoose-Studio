@@ -9,9 +9,12 @@ import { verifyInternalTokenDetailed } from '@/lib/auth/internal'
 import { hydrateListingUI } from '@/lib/listing/hydrate-ui'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { removeWorkflowListMember, requireWorkflowRealtimeState } from '@/lib/workflows/db-helpers'
+import {
+  publishWorkflowListMember,
+  removeWorkflowListMember,
+  requireWorkflowRealtimeState,
+} from '@/lib/workflows/db-helpers'
 import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/utils'
-import { applyWorkflowMetadata } from '@/lib/yjs/server/apply-workflow-state'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
@@ -162,11 +165,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const finalWorkflowData = {
       ...workflowData,
-      ...(workflowState.name !== undefined ? { name: workflowState.name } : {}),
-      ...(workflowState.description !== undefined
-        ? { description: workflowState.description }
-        : {}),
-      ...(workflowState.folderId !== undefined ? { folderId: workflowState.folderId } : {}),
       state: {
         deploymentStatuses: {},
         ...(resolvedState.direction !== undefined ? { direction: resolvedState.direction } : {}),
@@ -310,7 +308,7 @@ export async function DELETE(
 
 /**
  * PUT /api/workflows/[id]
- * Update workflow metadata (name, description, folderId)
+ * Update workflow row metadata (name, description, folderId)
  */
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const requestId = generateRequestId()
@@ -367,15 +365,23 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    const metadata = {
+    const rowUpdates = {
       ...(updates.name !== undefined ? { name: updates.name } : {}),
       ...(updates.description !== undefined ? { description: updates.description } : {}),
       ...(updates.folderId !== undefined ? { folderId: updates.folderId } : {}),
+      updatedAt: new Date(),
     }
-    const updatedWorkflow =
-      Object.keys(metadata).length > 0
-        ? await applyWorkflowMetadata(workflowId, metadata)
-        : workflowData
+    const [updatedWorkflow] = await db
+      .update(workflow)
+      .set(rowUpdates)
+      .where(eq(workflow.id, workflowId))
+      .returning()
+    if (!updatedWorkflow) {
+      return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
+    }
+    if (updates.name !== undefined || updates.folderId !== undefined) {
+      await publishWorkflowListMember(workflowId)
+    }
 
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully updated workflow ${workflowId} in ${elapsed}ms`, {

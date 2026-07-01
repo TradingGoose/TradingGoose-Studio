@@ -13,7 +13,6 @@ import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 export interface RegisteredWorkflowSession {
   workflowId: string
-  entityName?: string
   workspaceId?: string | null
   doc: Y.Doc
 }

@@ -55,7 +55,6 @@ describe('workflow-review-tool-utils', () => {
 
     mockGetRegisteredWorkflowSession.mockReturnValue({
       workflowId: 'workflow-live',
-      entityName: 'Live Workflow',
       workspaceId: 'workspace-live',
       doc,
     })
@@ -70,7 +69,6 @@ describe('workflow-review-tool-utils', () => {
       'workflow-live'
     )
     expect(result.workflowId).toBe('workflow-live')
-    expect(result.entityName).toBe('Live Workflow')
     expect(result.workspaceId).toBe('workspace-live')
     expect(result.workflowState.blocks['block-1']).toMatchObject({
       type: 'agent',
@@ -92,7 +90,6 @@ describe('workflow-review-tool-utils', () => {
     mockAcquireWritableWorkflowSessionLease.mockResolvedValue({
       session: {
         workflowId: 'workflow-db',
-        entityName: 'Background Workflow',
         workspaceId: 'workspace-db',
         doc,
       },
@@ -109,7 +106,6 @@ describe('workflow-review-tool-utils', () => {
       'workflow-db'
     )
     expect(result.workflowId).toBe('workflow-db')
-    expect(result.entityName).toBe('Background Workflow')
     expect(result.workspaceId).toBe('workspace-db')
     expect(mockAcquireWritableWorkflowSessionLease).toHaveBeenCalledWith({
       workflowId: 'workflow-db',

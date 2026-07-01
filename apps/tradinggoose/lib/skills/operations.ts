@@ -80,10 +80,8 @@ export async function deleteSkill(params: {
     .delete(skill)
     .where(and(eq(skill.id, params.skillId), eq(skill.workspaceId, params.workspaceId)))
 
-  await Promise.allSettled([
-    deleteYjsSessionInSocketServer(params.skillId),
-    notifyEntityListMemberRemoved('skill', params.workspaceId, params.skillId),
-  ])
+  await notifyEntityListMemberRemoved('skill', params.workspaceId, params.skillId)
+  await Promise.allSettled([deleteYjsSessionInSocketServer(params.skillId)])
 
   logger.info(`Deleted skill ${params.skillId}`)
   return true

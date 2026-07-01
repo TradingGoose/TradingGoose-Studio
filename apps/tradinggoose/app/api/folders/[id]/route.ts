@@ -5,7 +5,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
-import { applyWorkflowMetadata } from '@/lib/yjs/server/apply-workflow-state'
+import { publishWorkflowListMember } from '@/lib/workflows/db-helpers'
 
 const logger = createLogger('FoldersIDAPI')
 
@@ -133,14 +133,7 @@ export async function DELETE(
         )
       )
 
-    const movedWorkflows = await db
-      .select({ id: workflow.id })
-      .from(workflow)
-      .where(and(eq(workflow.workspaceId, existingFolder.workspaceId), eq(workflow.folderId, id)))
-
-    for (const movedWorkflow of movedWorkflows) {
-      await applyWorkflowMetadata(movedWorkflow.id, { folderId: parentId })
-    }
+    let movedWorkflows: Array<{ id: string }> = []
 
     await db.transaction(async (tx) => {
       const now = new Date()
@@ -156,8 +149,18 @@ export async function DELETE(
           )
       }
 
+      movedWorkflows = await tx
+        .update(workflow)
+        .set({ folderId: parentId, updatedAt: now })
+        .where(and(eq(workflow.workspaceId, existingFolder.workspaceId), eq(workflow.folderId, id)))
+        .returning({ id: workflow.id })
+
       await tx.delete(workflowFolder).where(eq(workflowFolder.id, id))
     })
+
+    await Promise.all(
+      movedWorkflows.map(({ id: workflowId }) => publishWorkflowListMember(workflowId))
+    )
 
     logger.info('Deleted folder and promoted direct children:', {
       id,

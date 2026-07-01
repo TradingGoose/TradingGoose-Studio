@@ -252,10 +252,8 @@ export async function DELETE(request: NextRequest) {
       .delete(pineIndicators)
       .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
 
-    await Promise.allSettled([
-      deleteYjsSessionInSocketServer(indicatorId),
-      notifyEntityListMemberRemoved('indicator', workspaceId, indicatorId),
-    ])
+    await notifyEntityListMemberRemoved('indicator', workspaceId, indicatorId)
+    await Promise.allSettled([deleteYjsSessionInSocketServer(indicatorId)])
 
     logger.info(`[${requestId}] Deleted indicator ${indicatorId}`)
     return NextResponse.json({ success: true }, { status: 200 })

@@ -72,6 +72,26 @@ function normalizeSavedEntityFields(
   }
 }
 
+function getSavedEntityListMember(
+  entityKind: SavedEntityKind,
+  fields: Record<string, unknown>
+): { name: string; enabled?: boolean; color?: string } {
+  switch (entityKind) {
+    case 'custom_tool':
+      return { name: String(fields.title ?? '') }
+    case 'mcp_server':
+      return { name: String(fields.name ?? ''), enabled: fields.enabled !== false }
+    case 'indicator':
+      return {
+        name: String(fields.name ?? ''),
+        ...(typeof fields.color === 'string' ? { color: fields.color } : {}),
+      }
+    case 'skill':
+    case 'knowledge_base':
+      return { name: String(fields.name ?? '') }
+  }
+}
+
 export async function publishCreatedSavedEntityListMembers(
   entityKind: SavedEntityKind,
   workspaceId: string,
@@ -201,7 +221,12 @@ export async function applySavedEntityState(
 ): Promise<void> {
   const normalizedFields = normalizeSavedEntityFields(entityKind, fields)
   try {
-    await applyEntityStateInSocketServer(entityId, entityKind, normalizedFields)
+    await applyEntityStateInSocketServer(
+      entityId,
+      entityKind,
+      normalizedFields,
+      getSavedEntityListMember(entityKind, normalizedFields)
+    )
   } catch (error) {
     const status = Number((error as { status?: unknown }).status)
     if (status === 400 || status === 404 || status === 409) {
@@ -222,7 +247,7 @@ export async function saveSavedEntityYjsDocToDb(
   entityKind: SavedEntityKind,
   entityId: string,
   doc: Y.Doc
-): Promise<void> {
+): Promise<{ listMember: { name: string; enabled?: boolean; color?: string } }> {
   const yjsFields = normalizeSavedEntityFields(entityKind, getEntityFields(doc, entityKind))
   const workspaceId = getEntityWorkspaceId(doc)
   if (!workspaceId) {
@@ -233,4 +258,5 @@ export async function saveSavedEntityYjsDocToDb(
   }
   await persistSavedEntityState(entityKind, entityId, yjsFields, workspaceId)
   seedEntitySession(doc, { entityKind, payload: yjsFields })
+  return { listMember: getSavedEntityListMember(entityKind, yjsFields) }
 }

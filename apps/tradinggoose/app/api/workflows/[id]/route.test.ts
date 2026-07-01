@@ -19,9 +19,12 @@ describe('Workflow By ID API Route', () => {
   const mockReadWorkflowById = vi.fn()
   const mockReadWorkflowAccessContext = vi.fn()
   const mockLoadWorkflowState = vi.fn()
-  const mockApplyWorkflowMetadata = vi.fn()
+  const mockPublishWorkflowListMember = vi.fn()
   const mockRemoveWorkflowListMember = vi.fn()
   const mockDeleteYjsSession = vi.fn()
+  const mockDbUpdateReturning = vi.fn()
+  const mockDbUpdateWhere = vi.fn()
+  const mockDbUpdateSet = vi.fn()
 
   beforeEach(() => {
     vi.resetModules()
@@ -38,6 +41,7 @@ describe('Workflow By ID API Route', () => {
       WORKFLOW_REALTIME_REQUIRED_CODE: 'WORKFLOW_REALTIME_REQUIRED',
       isWorkflowRealtimeRequiredError: vi.fn(() => false),
       requireWorkflowRealtimeState: mockLoadWorkflowState,
+      publishWorkflowListMember: mockPublishWorkflowListMember,
       removeWorkflowListMember: mockRemoveWorkflowListMember,
     }))
 
@@ -49,7 +53,7 @@ describe('Workflow By ID API Route', () => {
           }),
         }),
         update: vi.fn().mockReturnValue({
-          set: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue([]) }),
+          set: mockDbUpdateSet,
         }),
       },
     }))
@@ -75,23 +79,28 @@ describe('Workflow By ID API Route', () => {
     mockReadWorkflowById.mockReset()
     mockReadWorkflowAccessContext.mockReset()
     mockLoadWorkflowState.mockReset()
-    mockApplyWorkflowMetadata.mockReset()
+    mockPublishWorkflowListMember.mockReset()
     mockRemoveWorkflowListMember.mockReset()
     mockDeleteYjsSession.mockReset()
+    mockDbUpdateReturning.mockReset()
+    mockDbUpdateWhere.mockReset()
+    mockDbUpdateSet.mockReset()
     mockLoadWorkflowState.mockResolvedValue(null)
-    mockApplyWorkflowMetadata.mockResolvedValue({
-      id: 'workflow-123',
-      name: 'Updated Workflow',
-      description: 'Updated description',
-      folderId: 'folder-1',
-      workspaceId: null,
-    })
+    mockPublishWorkflowListMember.mockResolvedValue(undefined)
+    mockDbUpdateWhere.mockReturnValue({ returning: mockDbUpdateReturning })
+    mockDbUpdateSet.mockReturnValue({ where: mockDbUpdateWhere })
+    mockDbUpdateReturning.mockResolvedValue([
+      {
+        id: 'workflow-123',
+        name: 'Updated Workflow',
+        description: 'Updated description',
+        folderId: 'folder-1',
+        workspaceId: null,
+      },
+    ])
     mockRemoveWorkflowListMember.mockResolvedValue(undefined)
     mockDeleteYjsSession.mockResolvedValue(undefined)
 
-    vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
-      applyWorkflowMetadata: mockApplyWorkflowMetadata,
-    }))
     vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
       deleteYjsSessionInSocketServer: mockDeleteYjsSession,
     }))
@@ -108,9 +117,10 @@ describe('Workflow By ID API Route', () => {
 
   function expectWorkflowRenameApplied() {
     expect(mockLoadWorkflowState).not.toHaveBeenCalled()
-    expect(mockApplyWorkflowMetadata).toHaveBeenCalledWith('workflow-123', {
-      name: 'Updated Workflow',
-    })
+    expect(mockDbUpdateSet).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Updated Workflow' })
+    )
+    expect(mockPublishWorkflowListMember).toHaveBeenCalledWith('workflow-123')
   }
 
   describe('GET /api/workflows/[id]', () => {
@@ -651,11 +661,13 @@ describe('Workflow By ID API Route', () => {
       }
 
       const updateData = { description: 'New description' }
-      mockApplyWorkflowMetadata.mockResolvedValueOnce({
-        ...mockWorkflow,
-        ...updateData,
-        updatedAt: new Date(),
-      })
+      mockDbUpdateReturning.mockResolvedValueOnce([
+        {
+          ...mockWorkflow,
+          ...updateData,
+          updatedAt: new Date(),
+        },
+      ])
 
       vi.doMock('@/lib/auth', () => ({
         getSession: vi.fn().mockResolvedValue({
@@ -685,12 +697,11 @@ describe('Workflow By ID API Route', () => {
       const data = await response.json()
       expect(data.workflow.description).toBe('New description')
       expect(mockLoadWorkflowState).not.toHaveBeenCalled()
-      expect(mockApplyWorkflowMetadata).toHaveBeenCalledWith('workflow-123', {
-        description: 'New description',
-      })
+      expect(mockDbUpdateSet).toHaveBeenCalledWith(expect.objectContaining(updateData))
+      expect(mockPublishWorkflowListMember).not.toHaveBeenCalled()
     })
 
-    it('updates workflow metadata through the workflow session', async () => {
+    it('updates workflow row metadata and publishes list fields', async () => {
       const mockWorkflow = {
         id: 'workflow-123',
         userId: 'user-123',
@@ -704,11 +715,13 @@ describe('Workflow By ID API Route', () => {
         description: 'New description',
         folderId: 'folder-1',
       }
-      mockApplyWorkflowMetadata.mockResolvedValueOnce({
-        ...mockWorkflow,
-        ...updateData,
-        updatedAt: new Date(),
-      })
+      mockDbUpdateReturning.mockResolvedValueOnce([
+        {
+          ...mockWorkflow,
+          ...updateData,
+          updatedAt: new Date(),
+        },
+      ])
 
       vi.doMock('@/lib/auth', () => ({
         getSession: vi.fn().mockResolvedValue({
@@ -740,11 +753,8 @@ describe('Workflow By ID API Route', () => {
       expect(data.workflow.description).toBe('New description')
       expect(data.workflow.folderId).toBe('folder-1')
       expect(mockLoadWorkflowState).not.toHaveBeenCalled()
-      expect(mockApplyWorkflowMetadata).toHaveBeenCalledWith('workflow-123', {
-        name: 'Updated Workflow',
-        description: 'New description',
-        folderId: 'folder-1',
-      })
+      expect(mockDbUpdateSet).toHaveBeenCalledWith(expect.objectContaining(updateData))
+      expect(mockPublishWorkflowListMember).toHaveBeenCalledWith('workflow-123')
     })
 
     it('should deny update for users with only read permission', async () => {
@@ -823,7 +833,7 @@ describe('Workflow By ID API Route', () => {
       expect(response.status).toBe(400)
       const data = await response.json()
       expect(data.error).toBe('Invalid request data')
-      expect(mockApplyWorkflowMetadata).not.toHaveBeenCalled()
+      expect(mockDbUpdateSet).not.toHaveBeenCalled()
     })
 
     it('should reject generated workflow color updates', async () => {

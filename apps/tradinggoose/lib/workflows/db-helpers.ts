@@ -33,9 +33,6 @@ import { SUBFLOW_TYPES } from '@/stores/workflows/workflow/types'
 const logger = createLogger('WorkflowDBHelpers')
 
 type PersistableWorkflowState = WorkflowState & {
-  name?: string
-  description?: string | null
-  folderId?: string | null
   variables?: Record<string, any>
 }
 
@@ -85,9 +82,6 @@ const sanitizeBlockLayout = (layout: unknown): BlockState['layout'] => {
 }
 
 export type PersistedWorkflowState = {
-  name?: string | null
-  description?: string | null
-  folderId?: string | null
   direction?: WorkflowDirection
   blocks: Record<string, any>
   edges: any[]
@@ -116,40 +110,32 @@ export const isWorkflowRealtimeRequiredError = (
   error: unknown
 ): error is WorkflowRealtimeRequiredError => error instanceof WorkflowRealtimeRequiredError
 
-// Workflow list sessions are live projections; workflow DB/Yjs persistence is the durable write.
-async function publishWorkflowListMember(workflowId: string): Promise<void> {
-  try {
-    const [row] = await db
-      .select({
-        id: workflow.id,
-        workspaceId: workflow.workspaceId,
-        name: workflow.name,
-        folderId: workflow.folderId,
-        color: workflow.color,
-      })
-      .from(workflow)
-      .where(eq(workflow.id, workflowId))
-      .limit(1)
+// Workflow list sessions are live projections of workflow row metadata.
+export async function publishWorkflowListMember(workflowId: string): Promise<void> {
+  const [row] = await db
+    .select({
+      id: workflow.id,
+      workspaceId: workflow.workspaceId,
+      name: workflow.name,
+      folderId: workflow.folderId,
+      color: workflow.color,
+    })
+    .from(workflow)
+    .where(eq(workflow.id, workflowId))
+    .limit(1)
 
-    if (!row?.workspaceId) return
+  if (!row?.workspaceId) return
 
-    await notifyEntityListMembersUpserted('workflow', row.workspaceId, [
-      { id: row.id, name: row.name, folderId: row.folderId, color: row.color },
-    ])
-  } catch {
-    return
-  }
+  await notifyEntityListMembersUpserted('workflow', row.workspaceId, [
+    { id: row.id, name: row.name, folderId: row.folderId, color: row.color },
+  ])
 }
 
 export async function removeWorkflowListMember(
   workspaceId: string,
   workflowId: string
 ): Promise<void> {
-  try {
-    await notifyEntityListMemberRemoved('workflow', workspaceId, workflowId)
-  } catch {
-    return
-  }
+  await notifyEntityListMemberRemoved('workflow', workspaceId, workflowId)
 }
 
 function decodeWorkflowSnapshot(snapshotBase64: string): PersistedWorkflowState | null {
@@ -197,9 +183,6 @@ export async function loadWorkflowBootstrapStateFromDb(
   const [workflowRow, normalizedState] = await Promise.all([
     db
       .select({
-        name: workflow.name,
-        description: workflow.description,
-        folderId: workflow.folderId,
         variables: workflow.variables,
         updatedAt: workflow.updatedAt,
       })
@@ -214,9 +197,6 @@ export async function loadWorkflowBootstrapStateFromDb(
   }
 
   const savedState = {
-    name: row.name,
-    description: row.description,
-    folderId: row.folderId,
     blocks: normalizedState.blocks,
     edges: normalizedState.edges,
     loops: normalizedState.loops,
@@ -738,7 +718,7 @@ export async function saveWorkflowToNormalizedTables(
   state: PersistableWorkflowState
 ): Promise<{ success: boolean; error?: string; normalizedState?: WorkflowState }> {
   try {
-    const { name, description, folderId, variables, ...graphState } = state
+    const { variables, ...graphState } = state
     const stateWithUniqueBlockIds = await ensureUniqueBlockIds(workflowId, graphState)
     const stateWithUniqueEdgeIds = await ensureUniqueEdgeIds(workflowId, stateWithUniqueBlockIds)
     const { blocks } = sanitizeAgentToolsInBlocks(stateWithUniqueEdgeIds.blocks || {})
@@ -901,9 +881,6 @@ export async function saveWorkflowToNormalizedTables(
         .set({
           lastSynced: savedAt,
           updatedAt: savedAt,
-          ...(name !== undefined ? { name } : {}),
-          ...(description !== undefined ? { description } : {}),
-          ...(folderId !== undefined ? { folderId } : {}),
           ...(variables !== undefined ? { variables } : {}),
         })
         .where(eq(workflow.id, workflowId))
@@ -936,9 +913,6 @@ export async function saveWorkflowYjsDocToDb(workflowId: string, doc: Y.Doc): Pr
     edges: state.edges,
     loops: state.loops,
     parallels: state.parallels,
-    ...(state.name != null ? { name: state.name } : {}),
-    ...(state.description !== undefined ? { description: state.description } : {}),
-    ...(state.folderId !== undefined ? { folderId: state.folderId } : {}),
     variables: state.variables,
     lastSaved: syncedAt.toISOString(),
   }
@@ -957,7 +931,6 @@ export async function saveWorkflowYjsDocToDb(workflowId: string, doc: Y.Doc): Pr
     )
   }
 
-  await publishWorkflowListMember(workflowId)
 }
 
 /**

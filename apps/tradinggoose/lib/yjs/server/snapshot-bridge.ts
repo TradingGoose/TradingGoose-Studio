@@ -6,7 +6,7 @@ import type {
 } from '@/lib/copilot/review-sessions/types'
 import { env, getInternalRealtimeUrl } from '@/lib/env'
 import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
-import type { WorkflowMetadataPatch, WorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 export interface YjsSnapshotResponse {
   snapshotBase64: string
@@ -18,7 +18,6 @@ export interface YjsSnapshotResponse {
 type WorkflowPatch = {
   workflowState?: WorkflowSnapshot
   variables?: Record<string, any>
-  metadata?: WorkflowMetadataPatch
 }
 
 export class SocketServerBridgeError extends Error {
@@ -133,11 +132,16 @@ export async function applyWorkflowPatchInSocketServer(
 export async function applyEntityStateInSocketServer(
   entityId: string,
   entityKind: string,
-  fields: Record<string, unknown>
+  fields: Record<string, unknown>,
+  listMember?: {
+    name: string
+    enabled?: boolean
+    color?: string
+  }
 ): Promise<void> {
   await postJsonToSocketServer(
     `/internal/yjs/entities/${encodeURIComponent(entityId)}/apply-state`,
-    { entityKind, fields }
+    { entityKind, fields, listMember }
   )
 }
 

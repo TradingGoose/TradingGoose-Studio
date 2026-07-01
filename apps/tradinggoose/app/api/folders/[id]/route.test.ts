@@ -16,7 +16,6 @@ import {
 interface FolderDbMockOptions {
   folderLookupResult?: any
   childFoldersResult?: any[]
-  movedWorkflowsResult?: any[]
   updateResult?: any[]
   throwError?: boolean
   circularCheckResults?: any[]
@@ -43,13 +42,12 @@ describe('Individual Folder API Route', () => {
 
   const { mockAuthenticatedUser, mockUnauthenticated } = mockAuth(TEST_USER)
   const mockGetUserEntityPermissions = vi.fn()
-  const mockApplyWorkflowMetadata = vi.fn()
+  const mockPublishWorkflowListMember = vi.fn()
 
   function createFolderDbMock(options: FolderDbMockOptions = {}) {
     const {
       folderLookupResult = mockFolder,
       childFoldersResult = [],
-      movedWorkflowsResult = [],
       updateResult = [{ ...mockFolder, name: 'Updated Folder' }],
       throwError = false,
       circularCheckResults = [],
@@ -81,9 +79,6 @@ describe('Individual Folder API Route', () => {
             }
             if (callCount === 2) {
               return Promise.resolve(callback(childFoldersResult))
-            }
-            if (callCount === 3) {
-              return Promise.resolve(callback(movedWorkflowsResult))
             }
             return Promise.resolve(callback([]))
           }),
@@ -126,13 +121,13 @@ describe('Individual Folder API Route', () => {
     setupCommonApiMocks()
 
     mockGetUserEntityPermissions.mockResolvedValue('admin')
-    mockApplyWorkflowMetadata.mockResolvedValue(undefined)
+    mockPublishWorkflowListMember.mockResolvedValue(undefined)
 
     vi.doMock('@/lib/permissions/utils', () => ({
       getUserEntityPermissions: mockGetUserEntityPermissions,
     }))
-    vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
-      applyWorkflowMetadata: mockApplyWorkflowMetadata,
+    vi.doMock('@/lib/workflows/db-helpers', () => ({
+      publishWorkflowListMember: mockPublishWorkflowListMember,
     }))
   })
 
@@ -441,7 +436,7 @@ describe('Individual Folder API Route', () => {
       const dbMock = createFolderDbMock({
         folderLookupResult: { ...mockFolder, parentId: 'parent-folder' },
         childFoldersResult: [{ id: 'child-folder' }],
-        movedWorkflowsResult: [{ id: 'workflow-1' }],
+        updateResult: [{ id: 'workflow-1' }],
       })
 
       vi.doMock('@tradinggoose/db', () => dbMock)
@@ -463,9 +458,7 @@ describe('Individual Folder API Route', () => {
         movedFolders: 1,
         movedWorkflows: 1,
       })
-      expect(mockApplyWorkflowMetadata).toHaveBeenCalledWith('workflow-1', {
-        folderId: 'parent-folder',
-      })
+      expect(mockPublishWorkflowListMember).toHaveBeenCalledWith('workflow-1')
     })
 
     it('should return 401 for unauthenticated delete requests', async () => {
@@ -533,6 +526,7 @@ describe('Individual Folder API Route', () => {
 
       const dbMock = createFolderDbMock({
         folderLookupResult: mockFolder,
+        updateResult: [],
       })
       vi.doMock('@tradinggoose/db', () => dbMock)
 

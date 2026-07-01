@@ -21,6 +21,7 @@ import {
 import { editWorkflowServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow'
 import { editWorkflowBlockServerTool } from '@/lib/copilot/tools/server/workflow/edit-workflow-block'
 import { VariableManager } from '@/lib/variables/variable-manager'
+import { publishWorkflowListMember } from '@/lib/workflows/db-helpers'
 import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 import {
   readWorkflowContainerBoundaryEdgeViolation,
@@ -28,7 +29,7 @@ import {
   serializeWorkflowToTgMermaid,
 } from '@/lib/workflows/studio-workflow-mermaid'
 import { isWorkflowVariableType, type WorkflowVariableType } from '@/lib/workflows/value-types'
-import { applyWorkflowMetadata, applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
+import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import {
   readBootstrappedReviewTargetSnapshot,
   requireEntityRealtimeListMembers,
@@ -37,7 +38,6 @@ import { applyWorkflowPatchInSocketServer } from '@/lib/yjs/server/snapshot-brid
 import {
   createWorkflowSnapshot,
   getVariablesSnapshot,
-  readWorkflowEntityMetadata,
   readWorkflowSnapshot,
   type WorkflowSnapshot,
 } from '@/lib/yjs/workflow-session'
@@ -251,10 +251,9 @@ export async function loadWorkflowSnapshotForCopilot(
   const doc = new Y.Doc()
   try {
     Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
-    const metadata = readWorkflowEntityMetadata(doc)
     return {
       workflowId,
-      entityName: metadata.name ?? workflowRow.name ?? undefined,
+      entityName: workflowRow.name ?? undefined,
       workspaceId: workflowRow.workspaceId ?? null,
       workflowState: readWorkflowSnapshot(doc),
       variables: getVariablesSnapshot(doc),
@@ -523,7 +522,8 @@ export const createWorkflowServerTool: BaseServerTool<
     })
 
     try {
-      await applyWorkflowState(workflowId, workflowState, {}, { name, description })
+      await applyWorkflowState(workflowId, workflowState, {})
+      await publishWorkflowListMember(workflowId)
     } catch (error) {
       await db.delete(workflow).where(eq(workflow.id, workflowId))
       throw error
@@ -583,7 +583,15 @@ export const renameWorkflowServerTool: BaseServerTool<{ entityId: string; name: 
     }
 
     assertAcceptedServerToolReviewBase(context, currentNameBaseHash)
-    const updatedWorkflow = await applyWorkflowMetadata(workflowId, { name: nextName })
+    const [updatedWorkflow] = await db
+      .update(workflow)
+      .set({ name: nextName, updatedAt: new Date() })
+      .where(eq(workflow.id, workflowId))
+      .returning()
+    if (!updatedWorkflow) {
+      throw new Error('Workflow not found')
+    }
+    await publishWorkflowListMember(workflowId)
 
     return {
       success: true,

@@ -8,6 +8,7 @@ describe('Workflow Duplicate API Route', () => {
   let loadWorkflowStateMock: ReturnType<typeof vi.fn>
   let regenerateWorkflowStateIdsMock: ReturnType<typeof vi.fn>
   let applyWorkflowStateMock: ReturnType<typeof vi.fn>
+  let publishWorkflowListMemberMock: ReturnType<typeof vi.fn>
   let insertValuesMock: ReturnType<typeof vi.fn>
   let deleteWhereMock: ReturnType<typeof vi.fn>
 
@@ -44,6 +45,7 @@ describe('Workflow Duplicate API Route', () => {
     loadWorkflowStateMock = vi.fn()
     regenerateWorkflowStateIdsMock = vi.fn((state) => JSON.parse(JSON.stringify(state)))
     applyWorkflowStateMock = vi.fn().mockResolvedValue(undefined)
+    publishWorkflowListMemberMock = vi.fn().mockResolvedValue(undefined)
     insertValuesMock = vi.fn().mockResolvedValue(undefined)
     deleteWhereMock = vi.fn().mockResolvedValue(undefined)
 
@@ -110,6 +112,7 @@ describe('Workflow Duplicate API Route', () => {
       isWorkflowRealtimeRequiredError: vi.fn(() => false),
       requireWorkflowRealtimeState: loadWorkflowStateMock,
       regenerateWorkflowStateIds: regenerateWorkflowStateIdsMock,
+      publishWorkflowListMember: publishWorkflowListMemberMock,
       WORKFLOW_REALTIME_REQUIRED_CODE: 'WORKFLOW_REALTIME_REQUIRED',
     }))
 
@@ -161,6 +164,7 @@ describe('Workflow Duplicate API Route', () => {
     expect(response.status).toBe(201)
     expect(insertValuesMock).toHaveBeenCalledOnce()
     expect(applyWorkflowStateMock).toHaveBeenCalledOnce()
+    expect(publishWorkflowListMemberMock).toHaveBeenCalledOnce()
 
     const insertedWorkflow = insertValuesMock.mock.calls[0][0]
     const persistedWorkflowId = applyWorkflowStateMock.mock.calls[0][0]
@@ -168,6 +172,7 @@ describe('Workflow Duplicate API Route', () => {
     const persistedVariables = applyWorkflowStateMock.mock.calls[0][2]
 
     expect(insertedWorkflow.id).toBe(persistedWorkflowId)
+    expect(publishWorkflowListMemberMock).toHaveBeenCalledWith(persistedWorkflowId)
     expect(persistedState.blocks).toEqual(
       expect.objectContaining({
         [Object.keys(persistedState.blocks)[0]]: expect.objectContaining({
@@ -207,6 +212,7 @@ describe('Workflow Duplicate API Route', () => {
 
     expect(response.status).toBe(500)
     expect(applyWorkflowStateMock).toHaveBeenCalledOnce()
+    expect(publishWorkflowListMemberMock).not.toHaveBeenCalled()
     expect(deleteWhereMock).toHaveBeenCalledOnce()
   })
 

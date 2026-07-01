@@ -444,10 +444,8 @@ export async function deleteKnowledgeBase(
     .where(eq(knowledgeBase.id, knowledgeBaseId))
 
   if (existing?.workspaceId) {
-    await Promise.allSettled([
-      deleteYjsSessionInSocketServer(knowledgeBaseId),
-      notifyEntityListMemberRemoved('knowledge_base', existing.workspaceId, knowledgeBaseId),
-    ])
+    await notifyEntityListMemberRemoved('knowledge_base', existing.workspaceId, knowledgeBaseId)
+    await Promise.allSettled([deleteYjsSessionInSocketServer(knowledgeBaseId)])
   }
 
   logger.info(`[${requestId}] Soft deleted knowledge base: ${knowledgeBaseId}`)

@@ -13,9 +13,6 @@ import { saveWorkflowYjsDocToDb } from '@/lib/workflows/db-helpers'
 import {
   applyEntityListMutations,
   type EntityListMemberMutation,
-  getEntityFields,
-  getEntityListMemberFromFields,
-  getEntityWorkspaceId,
   seedEntitySession,
 } from '@/lib/yjs/entity-session'
 import {
@@ -29,12 +26,7 @@ import {
   reseedEntityListSessionFromDb,
 } from '@/lib/yjs/server/bootstrap-review-target'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
-import {
-  replaceWorkflowDocumentState,
-  setWorkflowEntityMetadata,
-  type WorkflowMetadataPatch,
-  type WorkflowSnapshot,
-} from '@/lib/yjs/workflow-session'
+import { replaceWorkflowDocumentState, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { replaceWorkflowVariables } from '@/lib/yjs/workflow-variables'
 import { getMonitorRuntimeLockHealth } from '@/socket-server/monitor-runtime-lock'
 import {
@@ -71,7 +63,6 @@ const INTERNAL_YJS_ENTITY_LIST_MEMBERS_PATH = /^\/internal\/yjs\/sessions\/([^/]
 type ApplyWorkflowStateRequest = {
   workflowState?: WorkflowSnapshot
   variables?: Record<string, any>
-  metadata?: WorkflowMetadataPatch
 }
 
 type SavedEntityKind = Exclude<ReviewEntityKind, 'workflow'>
@@ -79,6 +70,11 @@ type SavedEntityKind = Exclude<ReviewEntityKind, 'workflow'>
 type ApplyEntityStateRequest = {
   entityKind: SavedEntityKind
   fields: Record<string, any>
+  listMember?: {
+    name: string
+    enabled?: boolean
+    color?: string
+  }
 }
 
 class InvalidInternalYjsRequestError extends Error {
@@ -183,19 +179,9 @@ function parseApplyWorkflowStateRequest(body: unknown): ApplyWorkflowStateReques
 
   const candidate = body as Record<string, unknown>
   const workflowState = candidate.workflowState
-  if (
-    candidate.metadata !== undefined &&
-    (!candidate.metadata ||
-      typeof candidate.metadata !== 'object' ||
-      Array.isArray(candidate.metadata))
-  ) {
-    throw new InvalidInternalYjsRequestError('metadata must be an object')
-  }
-  const metadata =
-    candidate.metadata !== undefined ? (candidate.metadata as WorkflowMetadataPatch) : undefined
 
-  if (workflowState === undefined && metadata === undefined && candidate.variables === undefined) {
-    throw new InvalidInternalYjsRequestError('workflowState, variables, or metadata is required')
+  if (workflowState === undefined && candidate.variables === undefined) {
+    throw new InvalidInternalYjsRequestError('workflowState or variables is required')
   }
 
   if (
@@ -217,7 +203,6 @@ function parseApplyWorkflowStateRequest(body: unknown): ApplyWorkflowStateReques
   return {
     workflowState: workflowState as WorkflowSnapshot | undefined,
     variables: candidate.variables as Record<string, any> | undefined,
-    metadata,
   }
 }
 
@@ -245,9 +230,20 @@ function parseApplyEntityStateRequest(body: unknown): ApplyEntityStateRequest {
     throw new InvalidInternalYjsRequestError('fields are required')
   }
 
+  const listMember =
+    candidate.listMember &&
+    typeof candidate.listMember === 'object' &&
+    !Array.isArray(candidate.listMember)
+      ? (candidate.listMember as Record<string, unknown>)
+      : null
+  if (listMember && typeof listMember.name !== 'string') {
+    throw new InvalidInternalYjsRequestError('listMember.name is required')
+  }
+
   return {
     entityKind: candidate.entityKind,
     fields: candidate.fields as Record<string, any>,
+    listMember: listMember as ApplyEntityStateRequest['listMember'],
   }
 }
 
@@ -314,38 +310,29 @@ async function applyThroughStaging(
 
 function applyWorkflowApplyRequest(doc: Y.Doc, body: ApplyWorkflowStateRequest): void {
   if (body.workflowState) {
-    replaceWorkflowDocumentState(doc, body.workflowState, body.variables, body.metadata)
+    replaceWorkflowDocumentState(doc, body.workflowState, body.variables)
     return
   }
   if (body.variables !== undefined)
     replaceWorkflowVariables(doc, body.variables, YJS_ORIGINS.SYSTEM)
-  if (body.metadata) setWorkflowEntityMetadata(doc, body.metadata)
 }
 
-async function syncEntityListMemberFromDoc(
+async function applySavedEntityListMemberToLiveDoc(
   entityKind: SavedEntityKind,
   entityId: string,
-  entityDoc: Y.Doc
+  entityDoc: Y.Doc,
+  member: NonNullable<ApplyEntityStateRequest['listMember']>
 ): Promise<void> {
-  const workspaceId = getEntityWorkspaceId(entityDoc)
-  if (!workspaceId) {
-    return
-  }
+  const workspaceId = entityDoc.getMap('metadata').get('workspaceId')
+  if (typeof workspaceId !== 'string' || !workspaceId) return
 
   const descriptor = buildEntityListDescriptor(entityKind, workspaceId)
   const listDoc = await getExistingDocument(descriptor.yjsSessionId)
-  if (!listDoc) {
-    return
-  }
+  if (!listDoc) return
 
-  const member = getEntityListMemberFromFields(
-    entityKind,
-    entityId,
-    getEntityFields(entityDoc, entityKind)
-  )
   applyEntityListMutations(listDoc, {
     op: 'upsert',
-    entityId: member.id,
+    entityId,
     name: member.name,
     ...(typeof member.enabled === 'boolean' ? { enabled: member.enabled } : {}),
     ...(typeof member.color === 'string' ? { color: member.color } : {}),
@@ -463,9 +450,12 @@ async function handleInternalYjsEntityApplyRequest(
         seedEntitySession(target, { entityKind: body.entityKind, payload: body.fields })
         clearSessionReseededFromCanonical(target)
       },
-      (staged) => saveSavedEntityYjsDocToDb(body.entityKind, entityId, staged)
+      async (staged) => {
+        await saveSavedEntityYjsDocToDb(body.entityKind, entityId, staged)
+      }
     )
-    await syncEntityListMemberFromDoc(body.entityKind, entityId, doc)
+    if (body.listMember)
+      await applySavedEntityListMemberToLiveDoc(body.entityKind, entityId, doc, body.listMember)
 
     sendJson(res, 200, { success: true })
   } catch (error) {
@@ -513,8 +503,17 @@ async function handleInternalYjsSessionApplyUpdateRequest(
       Y.applyUpdate(doc, Buffer.from(updateBase64, 'base64'), YJS_ORIGINS.SAVE)
       clearSessionReseededFromCanonical(doc)
       if (descriptor.entityKind !== 'workflow' && descriptor.entityId) {
-        await saveSavedEntityYjsDocToDb(descriptor.entityKind, descriptor.entityId, doc)
-        await syncEntityListMemberFromDoc(descriptor.entityKind, descriptor.entityId, doc)
+        const result = await saveSavedEntityYjsDocToDb(
+          descriptor.entityKind,
+          descriptor.entityId,
+          doc
+        )
+        await applySavedEntityListMemberToLiveDoc(
+          descriptor.entityKind,
+          descriptor.entityId,
+          doc,
+          result.listMember
+        )
         markDocumentPersisted(doc)
         discardDocumentIfIdle(sessionId)
       }

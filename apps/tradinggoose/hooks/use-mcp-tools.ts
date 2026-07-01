@@ -53,7 +53,9 @@ async function discoverMcpTools(
     return cached.tools
   }
 
-  const request = fetch(`/api/mcp/tools/discover?workspaceId=${encodeURIComponent(workspaceId)}`)
+  const request = fetch(
+    `/api/mcp/tools/discover?workspaceId=${encodeURIComponent(workspaceId)}&isDeployedContext=false`
+  )
     .then(async (response) => {
       if (!response.ok) {
         throw new Error(`Failed to discover MCP tools: ${response.status} ${response.statusText}`)
