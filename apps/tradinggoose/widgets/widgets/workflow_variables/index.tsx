@@ -58,7 +58,6 @@ const WorkflowVariablesWidgetBody = ({
   useWorkflowSelectionPersistence({
     onWidgetParamsChange,
     panelId,
-    widget,
     pairColor: resolvedPairColor,
     params,
   })
@@ -191,11 +190,10 @@ const WorkflowVariablesHeaderWorkflowSelector = ({
 
       emitWorkflowSelectionChange({
         panelId,
-        widgetKey: widget?.key,
         workflowId,
       })
     },
-    [panelId, resolvedPairColor, widget?.key]
+    [panelId, resolvedPairColor]
   )
 
   return (

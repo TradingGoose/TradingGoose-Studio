@@ -4,13 +4,11 @@ import {
   WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT,
   type WorkflowWidgetSelectEventDetail,
 } from '@/widgets/events'
-import type { WidgetInstance } from '@/widgets/layout'
 import type { PairColor } from '@/widgets/pair-colors'
 
 interface UseWorkflowSelectionPersistenceOptions {
   onWidgetParamsChange?: (params: Record<string, unknown> | null) => void
   panelId?: string
-  widget?: WidgetInstance | null
   pairColor?: PairColor
   params?: Record<string, unknown> | null
 }
@@ -39,7 +37,6 @@ const sanitizeWorkflowWidgetParams = (
 export function useWorkflowSelectionPersistence({
   onWidgetParamsChange,
   panelId,
-  widget,
   pairColor = 'gray',
   params,
 }: UseWorkflowSelectionPersistenceOptions) {
@@ -61,7 +58,6 @@ export function useWorkflowSelectionPersistence({
       if (!detail?.workflowId) return
       if (pairColor !== 'gray') return
       if (panelId && detail.panelId && detail.panelId !== panelId) return
-      if (widget?.key && detail.widgetKey && detail.widgetKey !== widget.key) return
 
       const currentParams = latestParamsRef.current ?? {}
       const nextParams = sanitizeWorkflowWidgetParams({
@@ -85,20 +81,15 @@ export function useWorkflowSelectionPersistence({
         handleWorkflowSelect as EventListener
       )
     }
-  }, [onWidgetParamsChange, panelId, pairColor, widget?.key])
+  }, [onWidgetParamsChange, panelId, pairColor])
 }
 
 interface EmitWorkflowSelectionOptions {
   workflowId: string
   panelId?: string
-  widgetKey?: string
 }
 
-export function emitWorkflowSelectionChange({
-  workflowId,
-  panelId,
-  widgetKey,
-}: EmitWorkflowSelectionOptions) {
+export function emitWorkflowSelectionChange({ workflowId, panelId }: EmitWorkflowSelectionOptions) {
   if (!workflowId) return
 
   window.dispatchEvent(
@@ -106,7 +97,6 @@ export function emitWorkflowSelectionChange({
       detail: {
         workflowId,
         panelId,
-        widgetKey,
       },
     })
   )

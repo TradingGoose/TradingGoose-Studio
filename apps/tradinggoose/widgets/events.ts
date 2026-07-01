@@ -19,7 +19,6 @@ export const HEATMAP_WIDGET_UPDATE_PARAMS_EVENT = 'heatmap-widgets:update-params
 export type WorkflowWidgetSelectEventDetail = {
   workflowId: string
   panelId?: string
-  widgetKey?: string
 }
 
 export type DataChartWidgetUpdateEventDetail = {

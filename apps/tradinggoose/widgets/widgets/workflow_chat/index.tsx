@@ -56,7 +56,6 @@ const ChatWidgetBody = ({
   useWorkflowSelectionPersistence({
     onWidgetParamsChange,
     panelId,
-    widget,
     pairColor: resolvedPairColor,
     params,
   })
@@ -212,11 +211,10 @@ const ChatWorkflowHeaderSelector = ({
 
       emitWorkflowSelectionChange({
         panelId,
-        widgetKey: widget?.key ?? undefined,
         workflowId,
       })
     },
-    [panelId, resolvedPairColor, widget?.key]
+    [panelId, resolvedPairColor]
   )
 
   return (

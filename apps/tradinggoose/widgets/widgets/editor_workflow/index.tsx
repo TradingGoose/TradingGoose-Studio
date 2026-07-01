@@ -64,7 +64,6 @@ const WorkflowEditorWidgetBody = ({
   useWorkflowSelectionPersistence({
     onWidgetParamsChange,
     panelId,
-    widget,
     pairColor: resolvedPairColor,
     params,
   })
@@ -205,7 +204,6 @@ const WorkflowEditorHeaderSelector = ({
 
     emitWorkflowSelectionChange({
       panelId,
-      widgetKey: widget?.key ?? undefined,
       workflowId,
     })
   }

@@ -59,7 +59,6 @@ const WorkflowConsoleWidgetBody = ({
   useWorkflowSelectionPersistence({
     onWidgetParamsChange,
     panelId,
-    widget,
     pairColor: resolvedPairColor,
     params,
   })
@@ -328,7 +327,6 @@ const WorkflowConsoleHeaderSelector = ({
 
     emitWorkflowSelectionChange({
       panelId,
-      widgetKey: widget?.key ?? undefined,
       workflowId,
     })
   }
