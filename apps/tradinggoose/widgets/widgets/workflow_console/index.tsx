@@ -49,7 +49,6 @@ const WorkflowConsoleWidgetBody = ({
     widget,
     panelId,
     params,
-    onWidgetParamsChange,
     fallbackWidgetKey: 'workflow-console',
     loggerScope: 'workflow logs widget',
   })

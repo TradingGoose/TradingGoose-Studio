@@ -47,7 +47,6 @@ const WorkflowVariablesWidgetBody = ({
     widget,
     panelId,
     params,
-    onWidgetParamsChange,
     fallbackWidgetKey: 'workflow-variables',
     loggerScope: 'workflow variables widget',
   })

@@ -13,7 +13,7 @@ import type { WidgetComponentProps } from '@/widgets/types'
 
 type UseWorkflowWidgetStateOptions = Pick<
   WidgetComponentProps,
-  'params' | 'pairColor' | 'panelId' | 'widget' | 'onWidgetParamsChange'
+  'params' | 'pairColor' | 'panelId' | 'widget'
 > & {
   workspaceId?: string
   fallbackWidgetKey: string
@@ -46,7 +46,6 @@ export const useWorkflowWidgetState = ({
   widget,
   panelId,
   params,
-  onWidgetParamsChange,
   fallbackWidgetKey,
   loggerScope = 'workflow widget',
   activateWorkflow = true,
@@ -101,12 +100,10 @@ export const useWorkflowWidgetState = ({
 
     return (
       resolveWorkflowId(rawActiveWorkflowIdForChannel) ??
-      resolveWorkflowId(requestedWorkflowId) ??
-      (hasLoadedWorkflows ? (workflowIds[0] ?? null) : null)
+      resolveWorkflowId(requestedWorkflowId)
     )
   }, [
     workflowIds,
-    hasLoadedWorkflows,
     pairContext.workflowId,
     rawActiveWorkflowIdForChannel,
     requestedWorkflowId,
@@ -140,19 +137,6 @@ export const useWorkflowWidgetState = ({
   ])
 
   const loadError: WorkflowWidgetLoadError | null = listError ? 'unableToLoadWorkflows' : null
-
-  useEffect(() => {
-    if (resolvedPairColor !== 'gray' || !resolvedWorkflowId || !onWidgetParamsChange) {
-      return
-    }
-
-    if (requestedWorkflowId === resolvedWorkflowId) {
-      return
-    }
-
-    const nextParams = { ...(params ?? {}), workflowId: resolvedWorkflowId }
-    onWidgetParamsChange(nextParams)
-  }, [resolvedPairColor, resolvedWorkflowId, requestedWorkflowId, onWidgetParamsChange, params])
 
   return {
     resolvedPairColor,

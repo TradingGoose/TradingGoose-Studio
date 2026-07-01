@@ -9,7 +9,6 @@ import type {
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
 import { env, getInternalRealtimeUrl } from '@/lib/env'
-import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 export interface YjsSnapshotResponse {
@@ -169,10 +168,8 @@ export async function refreshEntityListSession(
       {}
     )
   } catch {
-    // List sessions are DB-seeded projections; discard forces connected clients to rebootstrap.
-    await deleteYjsSessionInSocketServer(descriptor.yjsSessionId).catch(() => {
-      throw new SavedEntityRealtimeRequiredError()
-    })
+    // Projection refresh cannot fail committed DB commands; discard makes clients rebootstrap.
+    await deleteYjsSessionInSocketServer(descriptor.yjsSessionId).catch(() => {})
   }
 }
 

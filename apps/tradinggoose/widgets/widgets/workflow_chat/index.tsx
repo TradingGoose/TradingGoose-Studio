@@ -49,7 +49,6 @@ const ChatWidgetBody = ({
     widget,
     panelId,
     params,
-    onWidgetParamsChange,
     fallbackWidgetKey: 'workflow-chat',
     loggerScope: 'workflow chat widget',
   })

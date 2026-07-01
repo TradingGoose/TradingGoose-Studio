@@ -54,7 +54,6 @@ const WorkflowEditorWidgetBody = ({
     widget,
     panelId,
     params,
-    onWidgetParamsChange,
     fallbackWidgetKey: 'editor_workflow',
     loggerScope: 'workflow editor widget',
   })
