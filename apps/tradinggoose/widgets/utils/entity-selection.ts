@@ -26,6 +26,14 @@ export function resolveEntityId(
   return typeof value === 'string' ? normalizeEntityId(value) : null
 }
 
+/**
+ * Validated selection: an explicitly requested id resolves exactly or to null
+ * (the empty/not-found state) — never silently to another entity. Falling
+ * back on a stale requested id would open the wrong entity during projection
+ * lag (letting params-sync effects overwrite the requested selection) and
+ * silently jump editors to an arbitrary entity after a delete. Fallback and
+ * default-first apply only when nothing was requested.
+ */
 export function resolveEntityIdFromList({
   requestedEntityId,
   fallbackEntityId,
