@@ -112,50 +112,72 @@ function getSharedYjsSessionEntry(sessionKey: string): SharedYjsSessionEntry {
 function initializeSharedYjsSessionEntry(
   entry: SharedYjsSessionEntry,
   openSession: () => Promise<YjsProviderBootstrapResult>,
-  errorMessage: string
+  errorMessage: string,
+  staleResult?: YjsProviderBootstrapResult
 ): void {
-  if (entry.initPromise || entry.result) return
+  if (entry.initPromise || (!staleResult && entry.result)) return
 
-  entry.error = null
-  emitSharedYjsSessionEntry(entry)
+  if (!staleResult) {
+    entry.error = null
+    emitSharedYjsSessionEntry(entry)
+  }
   entry.initPromise = openSession()
     .then((next) => {
-      if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.refCount === 0) {
+      if (
+        sharedYjsSessionEntries.get(entry.key) !== entry ||
+        entry.refCount === 0 ||
+        (staleResult && entry.result !== staleResult)
+      ) {
         closeYjsSession(next)
         return
       }
 
       entry.result = next
+      entry.error = null
       if (next.accessMode === 'read') {
-        // Read sessions end on connection loss (see bootstrapYjsProvider):
-        // the server-owned projection doc is a disposable lineage, so replace
-        // the whole session from a fresh snapshot instead of resyncing it.
-        // Both loss signals are handled; the guards make error-then-close
-        // idempotent.
-        const handleConnectionLoss = () => {
-          if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.result !== next) return
-          entry.result = null
-          closeYjsSession(next)
-          emitSharedYjsSessionEntry(entry)
-          scheduleSharedYjsSessionReopen(entry, openSession, errorMessage)
-        }
-        next.provider.on('connection-close', handleConnectionLoss)
-        next.provider.on('connection-error', handleConnectionLoss)
+        attachReadSessionReopen(entry, next, openSession, errorMessage)
+      }
+      if (staleResult) {
+        emitSharedYjsSessionEntry(entry)
+        closeYjsSession(staleResult)
       }
     })
     .catch((nextError) => {
       if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.refCount === 0) return
-      entry.error = nextError instanceof Error ? nextError.message : errorMessage
+      if (!staleResult) {
+        entry.error = nextError instanceof Error ? nextError.message : errorMessage
+      }
     })
     .finally(() => {
       if (sharedYjsSessionEntries.get(entry.key) !== entry) return
       entry.initPromise = null
       emitSharedYjsSessionEntry(entry)
-      if (!entry.result) scheduleSharedYjsSessionReopen(entry, openSession, errorMessage)
+      if (staleResult ? entry.result === staleResult : !entry.result) {
+        scheduleSharedYjsSessionReopen(entry, openSession, errorMessage, staleResult)
+      }
     })
 }
 
 const SESSION_REOPEN_RETRY_MS = 1_000
+
+function attachReadSessionReopen(
+  entry: SharedYjsSessionEntry,
+  result: YjsProviderBootstrapResult,
+  openSession: () => Promise<YjsProviderBootstrapResult>,
+  errorMessage: string
+): void {
+  let handled = false
+  const handleConnectionLoss = () => {
+    if (handled) return
+    handled = true
+    result.provider.off('connection-close', handleConnectionLoss)
+    result.provider.off('connection-error', handleConnectionLoss)
+    if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.result !== result) return
+    scheduleSharedYjsSessionReopen(entry, openSession, errorMessage, result)
+  }
+  result.provider.on('connection-close', handleConnectionLoss)
+  result.provider.on('connection-error', handleConnectionLoss)
+}
 
 // A subscribed session converges to live: every failed open — initial or
 // after connection loss — retries at the same 1s cadence write sessions use
@@ -163,11 +185,12 @@ const SESSION_REOPEN_RETRY_MS = 1_000
 function scheduleSharedYjsSessionReopen(
   entry: SharedYjsSessionEntry,
   openSession: () => Promise<YjsProviderBootstrapResult>,
-  errorMessage: string
+  errorMessage: string,
+  staleResult?: YjsProviderBootstrapResult
 ): void {
   setTimeout(() => {
     if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.refCount === 0) return
-    initializeSharedYjsSessionEntry(entry, openSession, errorMessage)
+    initializeSharedYjsSessionEntry(entry, openSession, errorMessage, staleResult)
   }, SESSION_REOPEN_RETRY_MS)
 }
 

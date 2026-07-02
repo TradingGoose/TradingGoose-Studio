@@ -134,13 +134,15 @@ describe('useEntityList read-session lifecycle', () => {
     await act(async () => {
       stale.emit('connection-close')
     })
-    expect(stale.provider.destroy).toHaveBeenCalledTimes(1)
-    expect(captured.current?.isLoading).toBe(true)
+    expect(stale.provider.destroy).not.toHaveBeenCalled()
+    expect(captured.current?.isLoading).toBe(false)
+    expect(captured.current?.members.map((m) => m.entityName)).toEqual(['Alpha', 'Gone'])
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1_000)
     })
     expect(mockBootstrapYjsProvider).toHaveBeenCalledTimes(2)
+    expect(stale.provider.destroy).toHaveBeenCalledTimes(1)
     expect(captured.current?.members.map((m) => m.entityName)).toEqual(['Alpha'])
     expect(captured.current?.error).toBeNull()
   })
@@ -181,7 +183,8 @@ describe('useEntityList read-session lifecycle', () => {
       await vi.advanceTimersByTimeAsync(1_000)
     })
     expect(mockBootstrapYjsProvider).toHaveBeenCalledTimes(2)
-    expect(captured.current?.error).toBe('offline')
+    expect(captured.current?.members.map((m) => m.entityName)).toEqual(['Alpha'])
+    expect(captured.current?.error).toBeNull()
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1_000)
