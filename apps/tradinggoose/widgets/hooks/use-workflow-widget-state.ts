@@ -29,7 +29,6 @@ type UseWorkflowWidgetStateResult = {
   loadError: 'unableToLoadWorkflows' | null
   isLoading: boolean
   workflowIds: string[]
-  activeWorkflowIdForChannel: string | null
 }
 
 const EMPTY_PAIR_CONTEXT: Readonly<PairColorContext> = Object.freeze({})
@@ -71,10 +70,9 @@ export const useWorkflowWidgetState = ({
     [pairContext, params, shouldUsePairWorkflowContext]
   )
 
-  const rawActiveWorkflowIdForChannel = useWorkflowRegistry((state) =>
+  const activeWorkflowIdForChannel = useWorkflowRegistry((state) =>
     state.getActiveWorkflowId(channelId)
   )
-  const isChannelHydrating = useWorkflowRegistry((state) => state.isChannelHydrating(channelId))
 
   const workflowIds = useMemo(() => members.map((member) => member.entityId), [members])
   const hasLoadedWorkflows = !workspaceId || Boolean(listError) || !isListLoading
@@ -83,25 +81,12 @@ export const useWorkflowWidgetState = ({
   const resolvedWorkflowId = useMemo(() => {
     if (!canResolveWorkflowIds) return null
 
-    const canFollowChannel = !shouldUsePairWorkflowContext && !requestedWorkflowId
-
     return resolveEntityIdFromList({
       requestedEntityId: requestedWorkflowId,
-      fallbackEntityId: canFollowChannel ? rawActiveWorkflowIdForChannel : null,
       entityIds: workflowIds,
       useDefaultEntity: !shouldUsePairWorkflowContext,
     })
-  }, [
-    workflowIds,
-    rawActiveWorkflowIdForChannel,
-    requestedWorkflowId,
-    canResolveWorkflowIds,
-    shouldUsePairWorkflowContext,
-  ])
-
-  const activeWorkflowIdForChannel = activateWorkflow
-    ? rawActiveWorkflowIdForChannel
-    : resolvedWorkflowId
+  }, [workflowIds, requestedWorkflowId, canResolveWorkflowIds, shouldUsePairWorkflowContext])
 
   useEffect(() => {
     if (!activateWorkflow) {
@@ -133,8 +118,7 @@ export const useWorkflowWidgetState = ({
     resolvedWorkflowId,
     hasLoadedWorkflows,
     loadError,
-    isLoading: isListLoading || isChannelHydrating,
+    isLoading: isListLoading,
     workflowIds,
-    activeWorkflowIdForChannel: activeWorkflowIdForChannel ?? null,
   }
 }

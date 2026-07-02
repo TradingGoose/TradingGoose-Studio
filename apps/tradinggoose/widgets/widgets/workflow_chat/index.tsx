@@ -41,7 +41,6 @@ const ChatWidgetBody = ({
     loadError,
     isLoading,
     workflowIds,
-    activeWorkflowIdForChannel,
   } = useWorkflowWidgetState({
     workspaceId,
     pairColor,

@@ -102,46 +102,29 @@ export async function applyAutoLayoutToWorkflow(
 
 interface ApplyAutoLayoutParams {
   workflowId: string
-  channelId?: string
   options?: AutoLayoutOptions
 }
 
 export async function applyAutoLayoutToActiveWorkflow({
   workflowId,
-  channelId,
   options = {},
 }: ApplyAutoLayoutParams): Promise<{
   success: boolean
   error?: string
 }> {
-  let resolvedWorkflowId: string | undefined = workflowId
-
   try {
     const { getRegisteredWorkflowSession } = await import('@/lib/yjs/workflow-session-registry')
     const { readWorkflowSnapshot } = await import('@/lib/yjs/workflow-session')
-    const { useWorkflowRegistry } = await import('@/stores/workflows/registry/store')
 
-    const registryState = useWorkflowRegistry.getState()
-    const activeWorkflowIdForChannel = registryState.getActiveWorkflowId(channelId)
-    resolvedWorkflowId = workflowId ?? activeWorkflowIdForChannel
-
-    if (!resolvedWorkflowId) {
-      logger.error('Auto layout aborted: no active workflow for channel', { channelId })
+    if (!workflowId) {
+      logger.error('Auto layout aborted: no workflow selected')
       return { success: false, error: 'No workflow selected' }
     }
 
-    if (workflowId && workflowId !== activeWorkflowIdForChannel) {
-      logger.warn('Auto layout workflow mismatch detected, correcting', {
-        requestedWorkflowId: workflowId,
-        activeWorkflowIdForChannel,
-        channelId,
-      })
-    }
-
-    const session = getRegisteredWorkflowSession(resolvedWorkflowId)
+    const session = getRegisteredWorkflowSession(workflowId)
     if (!session?.doc) {
       logger.error('Auto layout aborted: no Yjs session for workflow', {
-        workflowId: resolvedWorkflowId,
+        workflowId,
       })
       return { success: false, error: 'No active workflow session' }
     }
@@ -151,19 +134,19 @@ export async function applyAutoLayoutToActiveWorkflow({
     const hasLockedBlocks = Object.values(blocks).some((block) => Boolean(block.locked))
 
     logger.info('Auto layout store data:', {
-      workflowId: resolvedWorkflowId,
+      workflowId,
       blockCount: Object.keys(blocks).length,
       edgeCount: edges.length,
     })
 
     if (Object.keys(blocks).length === 0) {
-      logger.warn('No blocks to layout', { workflowId: resolvedWorkflowId })
+      logger.warn('No blocks to layout', { workflowId })
       return { success: false, error: 'No blocks to layout' }
     }
 
     if (hasLockedBlocks) {
       logger.info('Auto layout skipped: workflow contains locked blocks', {
-        workflowId: resolvedWorkflowId,
+        workflowId,
       })
       return {
         success: false,
@@ -171,21 +154,20 @@ export async function applyAutoLayoutToActiveWorkflow({
       }
     }
 
-    const result = await applyAutoLayoutToWorkflow(resolvedWorkflowId, blocks, edges, options)
+    const result = await applyAutoLayoutToWorkflow(workflowId, blocks, edges, options)
 
     if (!result.success) {
       return { success: false, error: result.error }
     }
 
     logger.info('Successfully applied durable auto layout', {
-      workflowId: resolvedWorkflowId,
-      channelId,
+      workflowId,
     })
     return { success: true }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown store update error'
     logger.error('Failed to update store with auto layout:', {
-      workflowId: resolvedWorkflowId ?? workflowId,
+      workflowId,
       error: errorMessage,
     })
 

@@ -19,7 +19,6 @@ let mockWorkflowWidgetState: any = {
   loadError: null,
   isLoading: false,
   workflowIds: ['wf-1'],
-  activeWorkflowIdForChannel: 'wf-1',
 }
 
 const mockChatStore = {
@@ -130,7 +129,6 @@ describe('chatWidget header', () => {
       loadError: null,
       isLoading: false,
       workflowIds: ['wf-1'],
-      activeWorkflowIdForChannel: 'wf-1',
     }
     mockChatStore.setSelectedWorkflowOutput.mockClear()
     mockChatStore.clearChat.mockClear()

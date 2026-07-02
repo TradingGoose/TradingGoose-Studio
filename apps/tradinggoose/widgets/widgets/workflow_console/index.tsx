@@ -46,7 +46,6 @@ const WorkflowConsoleWidgetBody = ({
     loadError,
     isLoading,
     workflowIds,
-    activeWorkflowIdForChannel,
   } = useWorkflowWidgetState({
     workspaceId,
     pairColor,

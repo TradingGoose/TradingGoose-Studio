@@ -1,29 +1,16 @@
 'use client'
 
-import { useMemo } from 'react'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { widgetHeaderControlClassName } from '@/components/widget-header-control'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
 import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
+import type { WidgetInstance } from '@/widgets/layout'
+import { ControlBar } from '@/widgets/widgets/editor_workflow/components/control-bar/control-bar'
 import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useWorkflowEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import type { WidgetInstance } from '@/widgets/layout'
-import { isPairColor, type PairColor } from '@/widgets/pair-colors'
-import { ControlBar } from '@/widgets/widgets/editor_workflow/components/control-bar/control-bar'
 
 const FALLBACK_TEXT_CLASS = widgetHeaderControlClassName('text-muted-foreground/80')
-
-export const readWorkflowWidgetChannelId = (
-  pairColor: PairColor,
-  widgetKey: string,
-  panelId?: string
-) => {
-  if (pairColor !== 'gray') {
-    return `pair-${pairColor}`
-  }
-  return `${widgetKey}-${panelId ?? 'panel'}`
-}
 
 interface WorkflowWidgetControlBarProps {
   workspaceId?: string
@@ -37,30 +24,28 @@ export function WorkflowWidgetControlBar({
   panelId,
 }: WorkflowWidgetControlBarProps) {
   const copy = useWorkflowEditorCopy()
-  if (!workspaceId) {
-    return <span className={FALLBACK_TEXT_CLASS}>{copy.controlsUnavailable}</span>
-  }
+  const { channelId, resolvedWorkflowId } = useWorkflowWidgetState({
+    workspaceId,
+    pairColor: widget?.pairColor ?? 'gray',
+    widget,
+    panelId,
+    params: widget?.params ?? null,
+    fallbackWidgetKey: 'editor_workflow',
+    loggerScope: 'workflow editor control bar',
+    activateWorkflow: false,
+  })
 
-  const resolvedPairColor = isPairColor(widget?.pairColor) ? widget?.pairColor : 'gray'
-  const widgetKey = widget?.key ?? 'workflow-editor'
-  const channelId = useMemo(
-    () => readWorkflowWidgetChannelId(resolvedPairColor, widgetKey, panelId),
-    [resolvedPairColor, widgetKey, panelId]
-  )
-
-  const activeWorkflowId = useWorkflowRegistry((state) => state.getActiveWorkflowId(channelId))
-
-  if (!activeWorkflowId) {
+  if (!workspaceId || !resolvedWorkflowId) {
     return <span className={FALLBACK_TEXT_CLASS}>{copy.controlsUnavailable}</span>
   }
 
   return (
     <TooltipProvider delayDuration={100}>
       <WorkspacePermissionsProvider workspaceId={workspaceId} inheritUser>
-        <WorkflowSessionProvider workspaceId={workspaceId} workflowId={activeWorkflowId}>
+        <WorkflowSessionProvider workspaceId={workspaceId} workflowId={resolvedWorkflowId}>
           <WorkflowRouteProvider
             workspaceId={workspaceId}
-            workflowId={activeWorkflowId}
+            workflowId={resolvedWorkflowId}
             channelId={channelId}
           >
             <ControlBar

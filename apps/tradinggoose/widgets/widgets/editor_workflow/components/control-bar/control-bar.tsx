@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, ChevronDown, LayoutDashboard, Play, RefreshCw, X } from 'lucide-react'
 import {
   Button,
@@ -99,8 +99,9 @@ export function ControlBar({
   const copy = useWorkflowEditorCopy()
   const { data: session } = useSession()
   const { workflowId, channelId } = useWorkflowRoute()
-  const isRegistryLoading = useWorkflowRegistry((state) => state.isLoading)
   const activeWorkflowId = workflowId
+  const activeWorkflowIdRef = useRef(activeWorkflowId)
+  activeWorkflowIdRef.current = activeWorkflowId
   const { isExecuting, isWorkflowSessionReady, handleRunWorkflow, handleCancelExecution } =
     useWorkflowExecution()
 
@@ -176,17 +177,13 @@ export function ControlBar({
     // Store the workflow ID at the start of the request to prevent race conditions
     const requestWorkflowId = activeWorkflowId
 
-    // Helper to get current active workflow ID for race condition checks
-    const getCurrentActiveWorkflowId = () =>
-      useWorkflowRegistry.getState().getActiveWorkflowId(channelId)
-
     try {
       setIsLoadingDeployedState(true)
 
       const response = await fetch(`/api/workflows/${requestWorkflowId}/deployed`)
 
       // Check if the workflow ID changed during the request (user navigated away)
-      if (requestWorkflowId !== getCurrentActiveWorkflowId()) {
+      if (requestWorkflowId !== activeWorkflowIdRef.current) {
         logger.debug('Workflow changed during deployed state fetch, ignoring response')
         return
       }
@@ -201,18 +198,18 @@ export function ControlBar({
 
       const data = await response.json()
 
-      if (requestWorkflowId === getCurrentActiveWorkflowId()) {
+      if (requestWorkflowId === activeWorkflowIdRef.current) {
         setDeployedState(data.deployedState || null)
       } else {
         logger.debug('Workflow changed after deployed state response, ignoring result')
       }
     } catch (error) {
       logger.error('Error fetching deployed state:', { error })
-      if (requestWorkflowId === getCurrentActiveWorkflowId()) {
+      if (requestWorkflowId === activeWorkflowIdRef.current) {
         setDeployedState(null)
       }
     } finally {
-      if (requestWorkflowId === getCurrentActiveWorkflowId()) {
+      if (requestWorkflowId === activeWorkflowIdRef.current) {
         setIsLoadingDeployedState(false)
       }
     }
@@ -225,19 +222,13 @@ export function ControlBar({
       return
     }
 
-    if (isRegistryLoading) {
-      setDeployedState(null)
-      setIsLoadingDeployedState(false)
-      return
-    }
-
     if (isDeployed) {
       fetchDeployedState()
     } else {
       setDeployedState(null)
       setIsLoadingDeployedState(false)
     }
-  }, [activeWorkflowId, isDeployed, isRegistryLoading])
+  }, [activeWorkflowId, isDeployed])
 
   useEffect(() => {
     if (!activeWorkflowId || !deployedState) {
@@ -270,7 +261,7 @@ export function ControlBar({
   }, [activeWorkflowId, deployedState, currentBlocks, currentEdges, isLoadingDeployedState])
 
   useEffect(() => {
-    if (session?.user?.id && !isRegistryLoading) {
+    if (session?.user?.id) {
       checkUserUsage().then((usage) => {
         if (usage) {
           setUsageExceeded(usage.isExceeded)
@@ -278,7 +269,7 @@ export function ControlBar({
         }
       })
     }
-  }, [session?.user?.id, isRegistryLoading])
+  }, [session?.user?.id])
 
   /**
    * Check user usage limits and cache results
@@ -358,7 +349,6 @@ export function ControlBar({
 
         const result = await applyAutoLayoutToActiveWorkflow({
           workflowId: activeWorkflowId!,
-          channelId,
         })
 
         if (result.success) {
