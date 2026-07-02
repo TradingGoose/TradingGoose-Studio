@@ -80,10 +80,6 @@ export const useWorkflowWidgetState = ({
   const hasLoadedWorkflows = !workspaceId || Boolean(listError) || !isListLoading
   const canResolveWorkflowIds = Boolean(workspaceId) && !listError && !isListLoading
 
-  // Workflow selection is explicit or follows the shared channel — never an
-  // implicit first-entity default. A default would be shown-but-recorded-
-  // nowhere state, so reloads could reopen a different workflow than the one
-  // the user was working in.
   const resolvedWorkflowId = useMemo(() => {
     if (!canResolveWorkflowIds) return null
 
@@ -93,7 +89,7 @@ export const useWorkflowWidgetState = ({
       requestedEntityId: requestedWorkflowId,
       fallbackEntityId: canFollowChannel ? rawActiveWorkflowIdForChannel : null,
       entityIds: workflowIds,
-      useDefaultEntity: false,
+      useDefaultEntity: !shouldUsePairWorkflowContext,
     })
   }, [
     workflowIds,

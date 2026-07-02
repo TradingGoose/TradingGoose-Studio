@@ -6,6 +6,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -348,7 +349,7 @@ export function DashboardClient({
     setIsSearchOpen(false)
   }, [dashboardIdentity, initialLayouts, initialTree, layoutId])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     hydratePairStoreFromColorPairs(normalizedInitialColorPairs)
   }, [normalizedInitialColorPairs])
 
