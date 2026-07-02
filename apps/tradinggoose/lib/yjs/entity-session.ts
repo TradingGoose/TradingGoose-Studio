@@ -65,7 +65,7 @@ function getEntityListMembersMap(doc: Y.Doc): Y.Map<{
   return doc.getMap('members')
 }
 
-export function seedEntityListSession(
+export function replaceEntityListSessionMembers(
   doc: Y.Doc,
   members: Array<{
     id: string

@@ -17,7 +17,7 @@ import {
   type EntityListMember,
   getEntityFields,
   getEntityListMembers,
-  seedEntityListSession,
+  replaceEntityListSessionMembers,
   seedEntitySession,
 } from '@/lib/yjs/entity-session'
 import { type SavedEntityKind, SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
@@ -265,7 +265,10 @@ export async function createEntityListBootstrapUpdate(
   const descriptor = buildEntityListDescriptor(entityKind, workspaceId)
   const doc = new Y.Doc()
   try {
-    seedEntityListSession(doc, await readEntityListMembersFromDb(entityKind, workspaceId))
+    replaceEntityListSessionMembers(
+      doc,
+      await readEntityListMembersFromDb(entityKind, workspaceId)
+    )
 
     const metadata = getMetadataMap(doc)
     metadata.set('reseededFromCanonical', true)
@@ -290,7 +293,10 @@ export async function reseedEntityListSessionFromDb(
   const reseed = previous
     .catch(() => undefined)
     .then(async () => {
-      seedEntityListSession(doc, await readEntityListMembersFromDb(entityKind, workspaceId))
+      replaceEntityListSessionMembers(
+        doc,
+        await readEntityListMembersFromDb(entityKind, workspaceId)
+      )
     })
   entityListReseedQueues.set(doc, reseed)
   try {

@@ -14,7 +14,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import {
   getEntityFields,
   getEntityListMembers,
-  seedEntityListSession,
+  replaceEntityListSessionMembers,
   seedEntitySession,
 } from '@/lib/yjs/entity-session'
 import {
@@ -473,7 +473,7 @@ describe('Socket Server Index Integration', () => {
 
     it('should apply saved entity state through Yjs', async () => {
       const { conn, doc: listDoc } = await connectTestDocument('list:skill:workspace-1')
-      seedEntityListSession(listDoc, [{ id: 'skill-1', name: 'Old Skill' }])
+      replaceEntityListSessionMembers(listDoc, [{ id: 'skill-1', name: 'Old Skill' }])
       mockSaveSavedEntityYjsDocToDb.mockImplementationOnce(async (entityKind, entityId, doc) => {
         doc.getMap('fields').set('name', 'Canonical Risk Skill')
         savedEntityStates.push({
@@ -766,7 +766,7 @@ describe('Socket Server Index Integration', () => {
   describe('Yjs document cleanup', () => {
     it('does not apply client updates from read-only Yjs connections', async () => {
       const bootstrapDoc = new Y.Doc()
-      seedEntityListSession(bootstrapDoc, [{ id: 'skill-1', name: 'Skill 1' }])
+      replaceEntityListSessionMembers(bootstrapDoc, [{ id: 'skill-1', name: 'Skill 1' }])
       const bootstrapState = Y.encodeStateAsUpdate(bootstrapDoc)
       bootstrapDoc.destroy()
 
@@ -784,7 +784,7 @@ describe('Socket Server Index Integration', () => {
 
       const doc = (await getExistingDocument('list:skill:workspace-1'))!
       const updateDoc = new Y.Doc()
-      seedEntityListSession(updateDoc, [{ id: 'spoofed-skill', name: 'Spoofed Skill' }])
+      replaceEntityListSessionMembers(updateDoc, [{ id: 'spoofed-skill', name: 'Spoofed Skill' }])
       conn.emit('message', createSyncUpdateMessage(Y.encodeStateAsUpdate(updateDoc)))
       updateDoc.destroy()
 
