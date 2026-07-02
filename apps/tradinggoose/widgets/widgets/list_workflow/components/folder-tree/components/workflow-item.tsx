@@ -51,13 +51,9 @@ export function WorkflowItem({
   const [deleteState, setDeleteState] = useState<{
     showDialog: boolean
     isDeleting: boolean
-    showTemplateChoice: boolean
-    publishedTemplates: { id: string; name: string }[]
   }>({
     showDialog: false,
     isDeleting: false,
-    showTemplateChoice: false,
-    publishedTemplates: [],
   })
   const dragStartedRef = useRef(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -142,21 +138,7 @@ export function WorkflowItem({
     setDeleteState({
       showDialog: false,
       isDeleting: false,
-      showTemplateChoice: false,
-      publishedTemplates: [],
     })
-  }, [])
-
-  const checkPublishedTemplates = useCallback(async (workflowId: string) => {
-    const checkResponse = await fetch(`/api/workflows/${workflowId}?check-templates=true`, {
-      method: 'DELETE',
-    })
-
-    if (!checkResponse.ok) {
-      throw new Error(`Failed to check templates: ${checkResponse.statusText}`)
-    }
-
-    return checkResponse.json()
   }, [])
 
   const handleDeleteWorkflow = useCallback(async () => {
@@ -165,18 +147,6 @@ export function WorkflowItem({
     setDeleteState((prev) => ({ ...prev, isDeleting: true }))
 
     try {
-      const checkData = await checkPublishedTemplates(workflow.id)
-
-      if (checkData?.hasPublishedTemplates) {
-        setDeleteState((prev) => ({
-          ...prev,
-          isDeleting: false,
-          showTemplateChoice: true,
-          publishedTemplates: checkData.publishedTemplates || [],
-        }))
-        return
-      }
-
       await removeWorkflow(workflow.id)
       resetDeleteState()
     } catch (error) {
@@ -185,29 +155,11 @@ export function WorkflowItem({
     }
   }, [
     canDelete,
-    checkPublishedTemplates,
     removeWorkflow,
     resetDeleteState,
     userPermissions.canEdit,
     workflow.id,
   ])
-
-  const handleTemplateAction = useCallback(
-    async (action: 'keep' | 'delete') => {
-      if (!userPermissions.canEdit || !canDelete) return
-
-      setDeleteState((prev) => ({ ...prev, isDeleting: true }))
-
-      try {
-        await removeWorkflow(workflow.id, { templateAction: action })
-        resetDeleteState()
-      } catch (error) {
-        logger.error('Error deleting workflow with template action:', error)
-        setDeleteState((prev) => ({ ...prev, isDeleting: false }))
-      }
-    },
-    [canDelete, removeWorkflow, resetDeleteState, userPermissions.canEdit, workflow.id]
-  )
 
   const handleDuplicateWorkflow = useCallback(async () => {
     if (!userPermissions.canEdit || isDuplicating) return
@@ -450,8 +402,6 @@ export function WorkflowItem({
                   setDeleteState({
                     showDialog: true,
                     isDeleting: false,
-                    showTemplateChoice: false,
-                    publishedTemplates: [],
                   })
                 }}
               >
@@ -473,77 +423,30 @@ export function WorkflowItem({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {deleteState.showTemplateChoice ? 'Published Templates Found' : 'Delete workflow?'}
-            </AlertDialogTitle>
-            {deleteState.showTemplateChoice ? (
-              <div className='space-y-3'>
-                <AlertDialogDescription>
-                  This workflow has {deleteState.publishedTemplates.length} published template
-                  {deleteState.publishedTemplates.length === 1 ? '' : 's'}:
-                </AlertDialogDescription>
-                {deleteState.publishedTemplates.length > 0 && (
-                  <ul className='list-disc space-y-1 pl-6'>
-                    {deleteState.publishedTemplates.map((template) => (
-                      <li key={template.id}>{template.name}</li>
-                    ))}
-                  </ul>
-                )}
-                <AlertDialogDescription>
-                  What would you like to do with the published template
-                  {deleteState.publishedTemplates.length === 1 ? '' : 's'}?
-                </AlertDialogDescription>
-              </div>
-            ) : (
-              <AlertDialogDescription>
-                Deleting this workflow will permanently remove all associated blocks, executions,
-                and configuration.{' '}
-                <span className='text-red-500 dark:text-red-500'>
-                  This action cannot be undone.
-                </span>
-              </AlertDialogDescription>
-            )}
+            <AlertDialogTitle>Delete workflow?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deleting this workflow will permanently remove all associated blocks, executions, and
+              configuration.{' '}
+              <span className='text-red-500 dark:text-red-500'>
+                This action cannot be undone.
+              </span>
+            </AlertDialogDescription>
           </AlertDialogHeader>
 
           <AlertDialogFooter className='flex'>
-            {deleteState.showTemplateChoice ? (
-              <div className='flex w-full gap-2'>
-                <Button
-                  variant='outline'
-                  onClick={() => handleTemplateAction('keep')}
-                  disabled={deleteState.isDeleting}
-                  className='h-9 flex-1 rounded-sm'
-                >
-                  Keep templates
-                </Button>
-                <Button
-                  onClick={() => handleTemplateAction('delete')}
-                  disabled={deleteState.isDeleting}
-                  className='h-9 flex-1 rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
-                >
-                  {deleteState.isDeleting ? 'Deleting...' : 'Delete templates'}
-                </Button>
-              </div>
-            ) : (
-              <>
-                <AlertDialogCancel
-                  className='h-9 w-full rounded-sm'
-                  disabled={deleteState.isDeleting}
-                >
-                  Cancel
-                </AlertDialogCancel>
-                <Button
-                  onClick={(e) => {
-                    e.preventDefault()
-                    handleDeleteWorkflow()
-                  }}
-                  disabled={deleteState.isDeleting}
-                  className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
-                >
-                  {deleteState.isDeleting ? 'Deleting...' : 'Delete'}
-                </Button>
-              </>
-            )}
+            <AlertDialogCancel className='h-9 w-full rounded-sm' disabled={deleteState.isDeleting}>
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              onClick={(e) => {
+                e.preventDefault()
+                handleDeleteWorkflow()
+              }}
+              disabled={deleteState.isDeleting}
+              className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
+            >
+              {deleteState.isDeleting ? 'Deleting...' : 'Delete'}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

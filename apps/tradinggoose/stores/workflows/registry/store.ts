@@ -995,18 +995,13 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
       },
 
       // Delete workflow and clean up associated storage
-      removeWorkflow: async (
-        id: string,
-        options?: { skipApi?: boolean; templateAction?: 'keep' | 'delete' }
-      ) => {
+      removeWorkflow: async (id: string, options?: { skipApi?: boolean }) => {
         const skipApi = options?.skipApi ?? false
-        const templateAction = options?.templateAction
         set({ error: null })
 
         if (!skipApi) {
           try {
-            const query = templateAction ? `?deleteTemplates=${templateAction}` : ''
-            const response = await fetch(`/api/workflows/${id}${query}`, {
+            const response = await fetch(`/api/workflows/${id}`, {
               method: 'DELETE',
             })
 
