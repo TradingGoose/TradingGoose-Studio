@@ -44,8 +44,13 @@ function normalizeSkill(
   }
 }
 
-export async function fetchSkills(workspaceId: string): Promise<SkillDefinition[]> {
-  const response = await fetch(`${API_ENDPOINT}?workspaceId=${workspaceId}`)
+export async function fetchSkills(
+  workspaceId: string,
+  options: { state?: 'persisted' | 'live' } = {}
+): Promise<SkillDefinition[]> {
+  const params = new URLSearchParams({ workspaceId })
+  if (options.state === 'live') params.set('state', 'live')
+  const response = await fetch(`${API_ENDPOINT}?${params}`)
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}))

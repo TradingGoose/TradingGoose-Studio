@@ -52,7 +52,9 @@ export const useWorkflowJsonStore = create<WorkflowJsonStore>()(
               description: scope.description ?? '',
               state: workflowSnapshot,
             },
-            skills: scope.workspaceId ? await fetchSkills(scope.workspaceId) : [],
+            skills: scope.workspaceId
+              ? await fetchSkills(scope.workspaceId, { state: 'live' })
+              : [],
           })
 
           // Convert to formatted JSON

@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
   const requestId = generateRequestId()
   const searchParams = request.nextUrl.searchParams
   const workspaceId = searchParams.get('workspaceId')
+  const state = searchParams.get('state') ?? 'persisted'
 
   try {
     const authResult = await checkHybridAuth(request, { requireWorkflowId: false })
@@ -50,6 +51,9 @@ export async function GET(request: NextRequest) {
       logger.warn(`[${requestId}] Missing workspaceId`)
       return NextResponse.json({ error: 'workspaceId is required' }, { status: 400 })
     }
+    if (state !== 'persisted' && state !== 'live') {
+      return NextResponse.json({ error: 'Invalid skill state' }, { status: 400 })
+    }
 
     const permission = await getUserEntityPermissions(authResult.userId, 'workspace', workspaceId)
     if (!permission) {
@@ -59,7 +63,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    return NextResponse.json({ data: await listSkills({ workspaceId }) }, { status: 200 })
+    return NextResponse.json({ data: await listSkills({ workspaceId, state }) }, { status: 200 })
   } catch (error) {
     if (error instanceof SavedEntityRealtimeRequiredError) {
       return NextResponse.json(error.responseBody(), { status: error.status })
