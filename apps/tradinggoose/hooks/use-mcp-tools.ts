@@ -6,7 +6,7 @@
  */
 
 import type React from 'react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { WrenchIcon } from 'lucide-react'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { McpTool } from '@/lib/mcp/types'
@@ -98,6 +98,7 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
   const [mcpTools, setMcpTools] = useState<McpToolForUI[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const loadIdRef = useRef(0)
   const normalizedWorkspaceId = workspaceId.trim()
 
   const {
@@ -121,6 +122,8 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
 
   const loadTools = useCallback(
     async (force = false) => {
+      const loadId = ++loadIdRef.current
+
       if (!normalizedWorkspaceId) {
         setMcpTools([])
         setError(null)
@@ -154,14 +157,19 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
 
       try {
         logger.info('Discovering MCP tools', { workspaceId: normalizedWorkspaceId })
-        setMcpTools(await discoverMcpTools(normalizedWorkspaceId, serversFingerprint, force))
+        const tools = await discoverMcpTools(normalizedWorkspaceId, serversFingerprint, force)
+        if (loadId !== loadIdRef.current) return
+        setMcpTools(tools)
       } catch (err) {
+        if (loadId !== loadIdRef.current) return
         const errorMessage = err instanceof Error ? err.message : 'Failed to discover MCP tools'
         logger.error('Error discovering MCP tools:', err)
         setError(errorMessage)
         setMcpTools([])
       } finally {
-        setIsLoading(false)
+        if (loadId === loadIdRef.current) {
+          setIsLoading(false)
+        }
       }
     },
     [

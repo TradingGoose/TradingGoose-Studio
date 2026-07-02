@@ -59,26 +59,19 @@ export const useWorkflowWidgetState = ({
     pairContext: shouldUsePairWorkflowContext ? pairContext : null,
   })
 
-  const workflowIds = useMemo(
-    () =>
-      [...members]
-        .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
-        .map((member) => member.entityId),
-    [members]
-  )
+  const workflowIds = useMemo(() => members.map((member) => member.entityId), [members])
   const hasLoadedWorkflows = !workspaceId || Boolean(listError) || !isListLoading
   const canResolveWorkflowIds = Boolean(workspaceId) && !listError && !isListLoading
 
   const resolvedWorkflowId = useMemo(() => {
     if (!canResolveWorkflowIds) return null
 
-    // Unstored gray widgets intentionally derive the current newest workflow.
     return resolveEntityIdFromList({
       requestedEntityId: storedWorkflowId,
       entityIds: workflowIds,
-      useDefaultEntity: !shouldUsePairWorkflowContext,
+      useDefaultEntity: false,
     })
-  }, [workflowIds, storedWorkflowId, canResolveWorkflowIds, shouldUsePairWorkflowContext])
+  }, [workflowIds, storedWorkflowId, canResolveWorkflowIds])
 
   const loadError: 'unableToLoadWorkflows' | null = listError ? 'unableToLoadWorkflows' : null
 
