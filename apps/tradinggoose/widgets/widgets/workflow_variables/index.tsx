@@ -50,7 +50,6 @@ const WorkflowVariablesWidgetBody = ({
     panelId,
     params,
     fallbackWidgetKey: 'workflow-variables',
-    loggerScope: 'workflow variables widget',
   })
 
   useWorkflowSelectionPersistence({
@@ -115,8 +114,6 @@ const WorkflowVariablesHeaderActions = ({
     panelId,
     params: widget?.params ?? null,
     fallbackWidgetKey: 'workflow-variables',
-    loggerScope: 'workflow variables add button',
-    activateWorkflow: false,
   })
 
   const isDisabled = !workspaceId || !resolvedWorkflowId
@@ -169,8 +166,6 @@ const WorkflowVariablesHeaderWorkflowSelector = ({
     panelId,
     params: widget?.params ?? null,
     fallbackWidgetKey: 'workflow-variables',
-    loggerScope: 'workflow variables header',
-    activateWorkflow: false,
   })
 
   const handleWorkflowChange = useCallback(

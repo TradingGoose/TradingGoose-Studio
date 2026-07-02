@@ -13,7 +13,6 @@ import { cn } from '@/lib/utils'
 import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import type { SubBlockConfig, SubBlockOption } from '@/blocks/types'
 import { ResponseBlockHandler } from '@/executor/handlers/response/response-handler'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-depends-on-gate'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
@@ -98,11 +97,7 @@ export function Dropdown({
 
   const routeContext = useOptionalWorkflowRoute()
   const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
-  const routeWorkflowId = routeContext?.workflowId ?? null
-  const activeWorkflowId = useWorkflowRegistry((state) =>
-    state.getActiveWorkflowId(resolvedChannelId)
-  )
-  const resolvedWorkflowId = activeWorkflowId ?? routeWorkflowId
+  const resolvedWorkflowId = routeContext?.workflowId ?? null
   const allBlocks = useWorkflowBlocks()
   const blockContextValues = useMemo(() => {
     if (!resolvedWorkflowId) return undefined

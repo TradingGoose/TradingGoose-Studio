@@ -30,7 +30,6 @@ import { validateName } from '@/lib/utils'
 import { useWorkflowVariables } from '@/lib/yjs/use-workflow-doc'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import type { Variable, VariableType } from '@/stores/variables/types'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useWorkflowVariablesMessages } from '@/i18n/workspace-widget-hooks'
 
 const logger = createLogger('Variables')
@@ -45,8 +44,7 @@ export function Variables({
   hideAddButtons = false,
 }: VariablesProps = {}) {
   const copy = useWorkflowVariablesMessages()
-  const activeWorkflowId = useWorkflowRegistry((state) => state.getActiveWorkflowId())
-  const workflowId = workflowIdProp ?? activeWorkflowId
+  const workflowId = workflowIdProp ?? null
   const yjsVariables = useWorkflowVariables()
   const {
     collaborativeUpdateVariable,

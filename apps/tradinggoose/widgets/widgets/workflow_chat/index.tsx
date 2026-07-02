@@ -48,7 +48,6 @@ const ChatWidgetBody = ({
     panelId,
     params,
     fallbackWidgetKey: 'workflow-chat',
-    loggerScope: 'workflow chat widget',
   })
   useWorkflowSelectionPersistence({
     onWidgetParamsChange,
@@ -117,8 +116,6 @@ function ChatOutputsHeader({
     panelId,
     params: widget?.params ?? null,
     fallbackWidgetKey: 'workflow-chat',
-    loggerScope: 'workflow chat outputs',
-    activateWorkflow: false,
   })
 
   const selectedOutputs = useMemo(() => {
@@ -190,8 +187,6 @@ const ChatWorkflowHeaderSelector = ({
     panelId,
     params: widget?.params ?? null,
     fallbackWidgetKey: 'workflow-chat',
-    loggerScope: 'workflow chat header',
-    activateWorkflow: false,
   })
 
   const handleWorkflowChange = useCallback(
@@ -236,8 +231,6 @@ function ClearChatButton({
     panelId,
     params: widget?.params ?? null,
     fallbackWidgetKey: 'workflow-chat',
-    loggerScope: 'workflow chat clear button',
-    activateWorkflow: false,
   })
   const clearChat = useChatStore((state) => state.clearChat)
   const hasMessages = useChatStore(

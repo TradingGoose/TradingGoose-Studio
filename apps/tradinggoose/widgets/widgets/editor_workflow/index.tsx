@@ -59,7 +59,6 @@ const WorkflowEditorWidgetBody = ({
     panelId,
     params,
     fallbackWidgetKey: 'editor_workflow',
-    loggerScope: 'workflow editor widget',
   })
   useWorkflowSelectionPersistence({
     onWidgetParamsChange,
@@ -168,7 +167,6 @@ const WorkflowEditorWidgetBody = ({
           toolbarScopeId={toolbarScopeId}
           ui={WORKFLOW_WIDGET_UI_CONFIG}
           viewportBounds={widgetBounds ?? undefined}
-          disableNavigation={true}
         />
       </WorkflowUIConfigProvider>
     </div>
@@ -193,8 +191,6 @@ const WorkflowEditorHeaderSelector = ({
     panelId,
     params: widget?.params ?? null,
     fallbackWidgetKey: 'editor_workflow',
-    loggerScope: 'workflow editor header',
-    activateWorkflow: false,
   })
 
   const handleWorkflowChange = (workflowId: string) => {

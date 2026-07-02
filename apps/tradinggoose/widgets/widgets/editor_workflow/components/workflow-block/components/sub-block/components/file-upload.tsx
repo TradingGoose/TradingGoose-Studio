@@ -21,11 +21,8 @@ import type { WorkspaceFileRecord } from '@/lib/uploads/contexts/workspace'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
 import { formatFileSize as formatLocalizedFileSize } from '@/i18n/formatters'
 import type { LocaleCode } from '@/i18n/utils'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import {
-  useOptionalWorkflowRoute,
   useWorkflowId,
   useWorkspaceId,
 } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
@@ -83,12 +80,7 @@ export function FileUpload({
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Stores
-  const routeContext = useOptionalWorkflowRoute()
-  const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
-  const registryWorkflowId = useWorkflowRegistry((state) =>
-    state.getActiveWorkflowId(resolvedChannelId)
-  )
-  const activeWorkflowId = useWorkflowId() || registryWorkflowId || null
+  const activeWorkflowId = useWorkflowId()
   const workspaceId = useWorkspaceId()
 
   const value = storeValue

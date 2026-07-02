@@ -53,7 +53,6 @@ const WorkflowConsoleWidgetBody = ({
     panelId,
     params,
     fallbackWidgetKey: 'workflow-console',
-    loggerScope: 'workflow logs widget',
   })
   useWorkflowSelectionPersistence({
     onWidgetParamsChange,
@@ -143,8 +142,6 @@ const WorkflowConsoleHeaderControls = ({
     panelId,
     params: widget?.params ?? null,
     fallbackWidgetKey: 'workflow-console',
-    loggerScope: 'workflow logs header controls',
-    activateWorkflow: false,
   })
 
   const entries = useConsoleStore((state) => state.entries)
@@ -315,8 +312,6 @@ const WorkflowConsoleHeaderSelector = ({
     panelId,
     params: widget?.params ?? null,
     fallbackWidgetKey: 'workflow-console',
-    loggerScope: 'workflow logs header',
-    activateWorkflow: false,
   })
 
   const handleWorkflowChange = (workflowId: string) => {

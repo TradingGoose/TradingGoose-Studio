@@ -85,6 +85,7 @@ export const POST = withMcpAuth('read')(
           lastError,
           lastConnected,
           toolCount,
+          updatedAt: now,
         })
         .where(and(eq(mcpServers.id, serverId), eq(mcpServers.workspaceId, workspaceId)))
       await refreshEntityListSession('mcp_server', workspaceId)

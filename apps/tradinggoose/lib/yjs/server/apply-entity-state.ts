@@ -139,21 +139,33 @@ async function persistSavedEntityState(
         .returning({ id: knowledgeBase.id })
       break
     case 'mcp_server':
+      const url = String(fields.url ?? '') || null
+      const enabled = fields.enabled !== false
+      const disconnectedState =
+        !enabled || !url
+          ? {
+              connectionStatus: 'disconnected' as const,
+              lastError: null,
+              lastToolsRefresh: null,
+              toolCount: 0,
+            }
+          : {}
       persisted = await db
         .update(mcpServers)
         .set({
           name: String(fields.name ?? ''),
           description: String(fields.description ?? '') || null,
           transport: String(fields.transport ?? 'http'),
-          url: String(fields.url ?? '') || null,
+          url,
           headers: objectField(fields.headers),
           command: String(fields.command ?? '') || null,
           args: Array.isArray(fields.args) ? fields.args.map(String) : [],
           env: objectField(fields.env),
           timeout: Number(fields.timeout ?? 30000),
           retries: Number(fields.retries ?? 3),
-          enabled: fields.enabled !== false,
+          enabled,
           updatedAt: now,
+          ...disconnectedState,
         })
         .where(and(eq(mcpServers.id, entityId), eq(mcpServers.workspaceId, workspaceId)))
         .returning({ id: mcpServers.id })

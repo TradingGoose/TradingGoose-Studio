@@ -24,10 +24,8 @@ import { getBlock } from '@/blocks'
 import { useStreamCleanup } from '@/hooks/use-stream-cleanup'
 import { useCurrentWorkflow } from '@/hooks/workflow'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
-import { useRouter } from '@/i18n/navigation'
 import { useCopilotStore } from '@/stores/copilot/store'
 import { useExecutionStore } from '@/stores/execution/store'
-import { hasWorkflowsInitiallyLoaded, useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { getUniqueBlockName } from '@/stores/workflows/utils'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import { isBlockProtected } from '@/stores/workflows/workflow/utils'
@@ -130,20 +128,13 @@ const defaultUIConfig: Required<WorkflowCanvasUIConfig> = {
 
 type WorkflowCanvasProps = {
   ui?: WorkflowCanvasUIConfig
-  disableNavigation?: boolean
   channelId?: string
   toolbarScopeId?: string
   viewportBounds?: WorkflowViewportBounds
 }
 
 const WorkflowCanvas = React.memo(
-  ({
-    ui,
-    disableNavigation = false,
-    channelId,
-    toolbarScopeId,
-    viewportBounds,
-  }: WorkflowCanvasProps) => {
+  ({ ui, channelId, toolbarScopeId, viewportBounds }: WorkflowCanvasProps) => {
     const uiConfig = useMemo(() => ({ ...defaultUIConfig, ...ui }), [ui])
     const { getLocalizedDefaultBlockName } = useWorkflowI18n()
 
@@ -224,7 +215,6 @@ const WorkflowCanvas = React.memo(
     })
 
     // Hooks
-    const router = useRouter()
     const { workspaceId, workflowId } = useWorkflowRoute()
     const resolvedChannelId = useMemo(() => channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID, [channelId])
     const reactFlowId = useMemo(() => `workflow-${resolvedChannelId}`, [resolvedChannelId])
@@ -256,14 +246,6 @@ const WorkflowCanvas = React.memo(
 
     const effectiveWorkflowId = workflowId ?? null
     const isWorkflowReady = Boolean(effectiveWorkflowId && workflowSession?.doc)
-    const shouldHandleNavigation = !disableNavigation
-
-    const workflows = useWorkflowRegistry((state) => state.workflows)
-    const setActiveWorkflow = useWorkflowRegistry((state) => state.setActiveWorkflow)
-    const activeWorkflowId = useWorkflowRegistry((state) =>
-      state.getActiveWorkflowId(resolvedChannelId)
-    )
-    const hydration = useWorkflowRegistry((state) => state.getHydration(resolvedChannelId))
 
     // Use the clean abstraction for current workflow state
     const currentWorkflow = useCurrentWorkflow()
@@ -1101,87 +1083,6 @@ const WorkflowCanvas = React.memo(
       },
       [screenToFlowPosition, isPointInLoopNodeWrapper, getNodes, blocks]
     )
-
-    // Keep the legacy registry channel in sync for metadata/status consumers.
-    useEffect(() => {
-      const currentId = effectiveWorkflowId
-      if (!currentId || !workflows[currentId]) return
-
-      if (activeWorkflowId !== currentId) {
-        setActiveWorkflow({ workflowId: currentId, channelId: resolvedChannelId }).catch(
-          (error) => {
-            logger.error('Failed to activate workflow for channel', {
-              error,
-              channelId: resolvedChannelId,
-            })
-          }
-        )
-      }
-    }, [effectiveWorkflowId, workflows, activeWorkflowId, setActiveWorkflow, resolvedChannelId])
-
-    // Handle navigation and validation
-    useEffect(() => {
-      if (!shouldHandleNavigation) {
-        return
-      }
-
-      const validateAndNavigate = async () => {
-        const workflowIds = Object.keys(workflows)
-        const currentId = workflowId
-
-        // Wait for initial load to complete before making navigation decisions
-        if (!hasWorkflowsInitiallyLoaded() || hydration.phase === 'metadata-loading') {
-          return
-        }
-
-        // If no workflows exist after loading, redirect to workspace root
-        if (workflowIds.length === 0) {
-          logger.info('No workflows found, redirecting to workspace root')
-          router.replace(`/workspace/${workspaceId}/dashboard`)
-          return
-        }
-
-        // Navigate to existing workflow or first available
-        if (!workflows[currentId]) {
-          logger.info(`Workflow ${currentId} not found, redirecting to first available workflow`)
-
-          // Validate that workflows belong to the current workspace before redirecting
-          const workspaceWorkflows = workflowIds.filter((id) => {
-            const workflow = workflows[id]
-            return workflow.workspaceId === workspaceId
-          })
-
-          if (workspaceWorkflows.length > 0) {
-            router.replace(`/workspace/${workspaceId}/dashboard`)
-          } else {
-            // No valid workflows for this workspace, redirect to workspace root
-            router.replace(`/workspace/${workspaceId}/dashboard`)
-          }
-          return
-        }
-
-        // Validate that the current workflow belongs to the current workspace
-        const currentWorkflow = workflows[currentId]
-        if (currentWorkflow && currentWorkflow.workspaceId !== workspaceId) {
-          logger.warn(
-            `Workflow ${currentId} belongs to workspace ${currentWorkflow.workspaceId}, not ${workspaceId}`
-          )
-          // Redirect to the correct workspace for this workflow
-          router.replace(`/workspace/${currentWorkflow.workspaceId}/dashboard`)
-          return
-        }
-      }
-
-      validateAndNavigate()
-    }, [
-      shouldHandleNavigation,
-      workflowId,
-      workflows,
-      hydration.phase,
-      workspaceId,
-      router,
-      hasWorkflowsInitiallyLoaded,
-    ])
 
     const blockConfigCache = useRef(new Map())
     const getBlockConfig = useCallback((type: string) => {

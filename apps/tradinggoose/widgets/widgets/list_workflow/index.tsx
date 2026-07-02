@@ -56,7 +56,6 @@ const WorkflowListWidgetBody = ({
     panelId,
     params: widgetParams,
     fallbackWidgetKey: 'workflow_list',
-    loggerScope: 'workflow list widget',
   })
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)

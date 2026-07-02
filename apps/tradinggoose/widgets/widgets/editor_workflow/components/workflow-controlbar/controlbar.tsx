@@ -31,8 +31,6 @@ export function WorkflowWidgetControlBar({
     panelId,
     params: widget?.params ?? null,
     fallbackWidgetKey: 'editor_workflow',
-    loggerScope: 'workflow editor control bar',
-    activateWorkflow: false,
   })
 
   if (!workspaceId || !resolvedWorkflowId) {
