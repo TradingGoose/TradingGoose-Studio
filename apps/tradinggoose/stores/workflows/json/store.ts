@@ -3,7 +3,7 @@ import { createWithEqualityFn as create } from 'zustand/traditional'
 import { createLogger } from '@/lib/logs/console/logger'
 import { createWorkflowExportFile } from '@/lib/workflows/import-export'
 import { getSnapshotForWorkflow } from '@/lib/yjs/workflow-session-registry'
-import { useSkillsStore } from '@/stores/skills/store'
+import { fetchSkills } from '@/hooks/queries/skills'
 
 const logger = createLogger('WorkflowJsonStore')
 
@@ -52,9 +52,7 @@ export const useWorkflowJsonStore = create<WorkflowJsonStore>()(
               description: scope.description ?? '',
               state: workflowSnapshot,
             },
-            skills: scope.workspaceId
-              ? useSkillsStore.getState().getAllSkills(scope.workspaceId)
-              : [],
+            skills: scope.workspaceId ? await fetchSkills(scope.workspaceId) : [],
           })
 
           // Convert to formatted JSON

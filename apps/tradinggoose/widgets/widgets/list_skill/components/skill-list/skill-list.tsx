@@ -9,7 +9,7 @@ import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/provide
 import { useDeleteSkill } from '@/hooks/queries/skills'
 import { formatTemplate } from '@/i18n/utils'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import type { SkillDefinition } from '@/stores/skills/types'
+import type { SkillDefinition } from '@/lib/skills/types'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { resolveEntityIdFromList } from '@/widgets/utils/entity-selection'

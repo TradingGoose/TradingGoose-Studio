@@ -11,7 +11,7 @@ import {
 } from '@/lib/skills/import-export'
 import { type ExportWorkflowState, sanitizeForExport } from '@/lib/workflows/json-sanitizer'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
-import type { SkillDefinition } from '@/stores/skills/types'
+import type { SkillDefinition } from '@/lib/skills/types'
 import type { Variable } from '@/stores/variables/types'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 

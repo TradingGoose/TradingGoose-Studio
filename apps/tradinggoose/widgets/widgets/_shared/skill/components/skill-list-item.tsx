@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useMessages } from 'next-intl'
 import { cn } from '@/lib/utils'
-import type { SkillDefinition } from '@/stores/skills/types'
+import type { SkillDefinition } from '@/lib/skills/types'
 
 interface SkillListItemProps {
   skill: SkillDefinition

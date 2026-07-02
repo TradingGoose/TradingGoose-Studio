@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { useSkillsStore } from '@/stores/skills/store'
 
 const mockGetSnapshotForWorkflow = vi.hoisted(() => vi.fn())
+const mockFetchSkills = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/yjs/workflow-session-registry', () => ({
   getSnapshotForWorkflow: mockGetSnapshotForWorkflow,
+}))
+vi.mock('@/hooks/queries/skills', () => ({
+  fetchSkills: mockFetchSkills,
 }))
 
 import { useWorkflowJsonStore } from './store'
@@ -12,7 +15,7 @@ import { useWorkflowJsonStore } from './store'
 describe('workflow json store', () => {
   beforeEach(() => {
     mockGetSnapshotForWorkflow.mockReset()
-    useSkillsStore.getState().resetAll()
+    mockFetchSkills.mockReset()
     useWorkflowJsonStore.setState({
       json: '',
     })
@@ -47,7 +50,7 @@ describe('workflow json store', () => {
       isDeployed: false,
       deployedAt: undefined,
     })
-    useSkillsStore.getState().setSkills('workspace-1', [
+    mockFetchSkills.mockResolvedValue([
       {
         id: 'skill-1',
         workspaceId: 'workspace-1',
@@ -76,6 +79,8 @@ describe('workflow json store', () => {
       description: 'Workflow imported from the unified schema',
       workspaceId: 'workspace-1',
     })
+
+    expect(mockFetchSkills).toHaveBeenCalledWith('workspace-1')
 
     const payload = JSON.parse(useWorkflowJsonStore.getState().json) as {
       resourceTypes: string[]
