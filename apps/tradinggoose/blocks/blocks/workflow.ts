@@ -6,14 +6,15 @@ import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 const logger = createLogger('WorkflowBlock')
 
 // Helper function to get available workflows for the dropdown
-const getAvailableWorkflows = (channelId: string): Array<{ label: string; id: string }> => {
+const getAvailableWorkflows = (
+  currentWorkflowId: string | null
+): Array<{ label: string; id: string }> => {
   try {
     const { workflows } = useWorkflowRegistry.getState()
-    const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId(channelId)
 
     // Filter out the current workflow to prevent recursion
     const availableWorkflows = Object.entries(workflows)
-      .filter(([id]) => id !== activeWorkflowId)
+      .filter(([id]) => id !== currentWorkflowId)
       .map(([id, workflow]) => ({
         label: workflow.name || `Workflow ${id.slice(0, 8)}`,
         id: id,
@@ -31,7 +32,7 @@ const fetchAvailableWorkflows = async (
   _blockId: string,
   _subBlockId: string,
   context: BlockOptionLoaderContext
-) => getAvailableWorkflows(context.channelId)
+) => getAvailableWorkflows(context.workflowId)
 
 export const WorkflowBlock: BlockConfig = {
   type: 'workflow',

@@ -1,6 +1,6 @@
 import { GmailIcon } from '@/components/icons/icons'
 import { createLogger } from '@/lib/logs/console/logger'
-import { readActiveSubBlockValue } from '@/lib/yjs/workflow-session-registry'
+import { readSubBlockValue } from '@/lib/yjs/workflow-session-registry'
 import type { TriggerConfig } from '@/triggers/types'
 
 const logger = createLogger('GmailPollingTrigger')
@@ -35,7 +35,9 @@ export const gmailPollingTrigger: TriggerConfig = {
       required: false,
       options: [], // Will be populated dynamically from user's Gmail labels
       fetchOptions: async (blockId: string, _subBlockId: string, context) => {
-        const credentialId = readActiveSubBlockValue(blockId, 'triggerCredentials') as string | null
+        const credentialId = readSubBlockValue(context.workflowId, blockId, 'triggerCredentials') as
+          | string
+          | null
         if (!credentialId) {
           // Return a sentinel to prevent infinite retry loops when credential is missing
           throw new Error('No Gmail credential selected')

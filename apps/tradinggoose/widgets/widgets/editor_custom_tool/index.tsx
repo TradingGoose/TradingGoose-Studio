@@ -10,7 +10,7 @@ import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-con
 import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
 import type { LocaleCode } from '@/i18n/utils'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import {
   CUSTOM_TOOL_EDITOR_ACTION_EVENT,
   type CustomToolEditorActionEventDetail,

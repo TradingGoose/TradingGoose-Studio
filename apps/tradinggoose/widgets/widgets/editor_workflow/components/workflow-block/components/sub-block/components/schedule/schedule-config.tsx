@@ -254,7 +254,7 @@ export function ScheduleConfig({
 
       // Get the fully merged current state with updated values
       // This ensures we send the complete, correct workflow state to the backend
-      const currentWorkflowWithValues = readWorkflowWithValues(workflowId, channelId)
+      const currentWorkflowWithValues = readWorkflowWithValues(workflowId)
       if (!currentWorkflowWithValues) {
         setError('failedToGetCurrentWorkflowState')
         return false

@@ -9,7 +9,6 @@ import {
   readWorkflowTextFieldValue,
   type WorkflowSnapshot,
 } from '@/lib/yjs/workflow-session'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 export interface RegisteredWorkflowSession {
   workflowId: string
@@ -93,16 +92,6 @@ export function readSubBlockValue(
   const wMap = readWorkflowMap(session.doc)
   const blocks = wMap.get(YJS_KEYS.BLOCKS) as Record<string, any> | undefined
   return blocks?.[blockId]?.subBlocks?.[subBlockId]?.value ?? null
-}
-
-/**
- * Reads a subblock value using the currently active workflow from the registry.
- * Convenience wrapper used by trigger pollers and other consumers that operate
- * in an "active workflow" context.
- */
-export function readActiveSubBlockValue(blockId: string, subBlockId: string): any {
-  const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId()
-  return readSubBlockValue(activeWorkflowId, blockId, subBlockId)
 }
 
 /**

@@ -3,12 +3,13 @@ import type { BlockConfig, BlockOptionLoaderContext } from '@/blocks/types'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 // Helper: list workflows excluding self
-const getAvailableWorkflows = (channelId: string): Array<{ label: string; id: string }> => {
+const getAvailableWorkflows = (
+  currentWorkflowId: string | null
+): Array<{ label: string; id: string }> => {
   try {
     const { workflows } = useWorkflowRegistry.getState()
-    const activeWorkflowId = useWorkflowRegistry.getState().getActiveWorkflowId(channelId)
     return Object.entries(workflows)
-      .filter(([id]) => id !== activeWorkflowId)
+      .filter(([id]) => id !== currentWorkflowId)
       .map(([id, w]) => ({ label: w.name || `Workflow ${id.slice(0, 8)}`, id }))
       .sort((a, b) => a.label.localeCompare(b.label))
   } catch {
@@ -20,7 +21,7 @@ const fetchAvailableWorkflows = async (
   _blockId: string,
   _subBlockId: string,
   context: BlockOptionLoaderContext
-) => getAvailableWorkflows(context.channelId)
+) => getAvailableWorkflows(context.workflowId)
 
 // New workflow block variant that visualizes child Input Trigger schema for mapping
 export const WorkflowInputBlock: BlockConfig = {

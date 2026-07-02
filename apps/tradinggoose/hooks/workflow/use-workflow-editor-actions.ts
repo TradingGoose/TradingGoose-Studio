@@ -5,10 +5,8 @@ import type { YjsOrigin } from '@/lib/yjs/transaction-origins'
 import { useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
 import { useWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { getBlock } from '@/blocks'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { getUniqueBlockName } from '@/stores/workflows/utils'
 import type { Position } from '@/stores/workflows/workflow/types'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('WorkflowEditorActions')
@@ -18,13 +16,9 @@ const logger = createLogger('WorkflowEditorActions')
  */
 export function useWorkflowEditorActions() {
   const workflowRoute = useOptionalWorkflowRoute()
-  const channelId = workflowRoute?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
   const routeWorkflowId = workflowRoute?.workflowId ?? null
-  const activeWorkflowId = useWorkflowRegistry(
-    useCallback((state) => state.getActiveWorkflowId(channelId), [channelId])
-  )
 
-  const { readWorkflowSnapshot } = useWorkflowSession()
+  const { doc, readWorkflowSnapshot } = useWorkflowSession()
   const mutations = useWorkflowMutations()
 
   const getBlocksSnapshot = useCallback(() => {
@@ -35,8 +29,7 @@ export function useWorkflowEditorActions() {
     return readWorkflowSnapshot()?.edges ?? []
   }, [readWorkflowSnapshot])
 
-  // Derive connection status from whether we have an active workflow
-  const isConnectedToWorkflow = !!activeWorkflowId
+  const isConnectedToWorkflow = Boolean(routeWorkflowId && doc)
 
   const collaborativeAddBlock = useCallback(
     (
@@ -366,7 +359,7 @@ export function useWorkflowEditorActions() {
 
   const collaborativeAddVariable = useCallback(
     (variableData: { name: string; type: any; value: any; workflowId: string }) => {
-      const workflowId = variableData.workflowId || routeWorkflowId || activeWorkflowId
+      const workflowId = variableData.workflowId || routeWorkflowId
       if (!workflowId) {
         return ''
       }
@@ -376,7 +369,7 @@ export function useWorkflowEditorActions() {
         workflowId,
       })
     },
-    [activeWorkflowId, mutations, routeWorkflowId]
+    [mutations, routeWorkflowId]
   )
 
   const collaborativeDeleteVariable = useCallback(
