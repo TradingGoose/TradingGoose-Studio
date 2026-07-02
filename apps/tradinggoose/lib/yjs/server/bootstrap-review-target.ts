@@ -45,6 +45,8 @@ export class ReviewTargetBootstrapError extends Error {
   }
 }
 
+const entityListReseedQueues = new WeakMap<Y.Doc, Promise<void>>()
+
 export function getRuntimeStateFromDoc(doc: Y.Doc): ReviewTargetRuntimeState {
   return getReviewTargetRuntimeState(doc)
 }
@@ -284,5 +286,18 @@ export async function reseedEntityListSessionFromDb(
   entityKind: ReviewEntityKind,
   workspaceId: string
 ): Promise<void> {
-  seedEntityListSession(doc, await readEntityListMembersFromDb(entityKind, workspaceId))
+  const previous = entityListReseedQueues.get(doc) ?? Promise.resolve()
+  const reseed = previous
+    .catch(() => undefined)
+    .then(async () => {
+      seedEntityListSession(doc, await readEntityListMembersFromDb(entityKind, workspaceId))
+    })
+  entityListReseedQueues.set(doc, reseed)
+  try {
+    await reseed
+  } finally {
+    if (entityListReseedQueues.get(doc) === reseed) {
+      entityListReseedQueues.delete(doc)
+    }
+  }
 }
