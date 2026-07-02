@@ -184,7 +184,7 @@ describe('useEntityList read-session lifecycle', () => {
     })
     expect(mockBootstrapYjsProvider).toHaveBeenCalledTimes(2)
     expect(captured.current?.members.map((m) => m.entityName)).toEqual(['Alpha'])
-    expect(captured.current?.error).toBeNull()
+    expect(captured.current?.error).toBe('offline')
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1_000)

@@ -144,9 +144,7 @@ function initializeSharedYjsSessionEntry(
     })
     .catch((nextError) => {
       if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.refCount === 0) return
-      if (!staleResult) {
-        entry.error = nextError instanceof Error ? nextError.message : errorMessage
-      }
+      entry.error = nextError instanceof Error ? nextError.message : errorMessage
     })
     .finally(() => {
       if (sharedYjsSessionEntries.get(entry.key) !== entry) return
