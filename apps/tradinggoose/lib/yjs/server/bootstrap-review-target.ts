@@ -66,6 +66,12 @@ function mapSavedEntitySnapshotError(error: unknown): never {
   throw new SavedEntityRealtimeRequiredError()
 }
 
+function isNotFoundError(error: unknown): boolean {
+  return (
+    typeof error === 'object' && error !== null && (error as { status?: number }).status === 404
+  )
+}
+
 export async function readBootstrappedReviewTargetSnapshot(descriptor: ReviewTargetDescriptor) {
   const bridgeParams = serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
   return getYjsSnapshot(descriptor.yjsSessionId, bridgeParams)
@@ -110,9 +116,7 @@ export async function requireSavedEntityRealtimeListFields(
           fields: await readBootstrappedSavedEntityFields(entityKind, member.entityId, workspaceId),
         }
       } catch (error) {
-        if (error instanceof ReviewTargetBootstrapError && error.status === 404) {
-          return null
-        }
+        if (isNotFoundError(error)) return null
         throw error
       }
     })
@@ -144,15 +148,26 @@ export async function readSavedEntityListFieldsForExecution(
   }
 
   const members = await readEntityListMembersFromDb(entityKind, workspaceId)
-  return Promise.all(
-    members.map(async (member) => ({
-      entityId: member.id,
-      entityName: member.name,
-      ...(typeof member.enabled === 'boolean' ? { enabled: member.enabled } : {}),
-      ...('folderId' in member ? { folderId: member.folderId ?? null } : {}),
-      ...(typeof member.color === 'string' ? { color: member.color } : {}),
-      fields: await readSavedEntityFieldsFromDb(entityKind, member.id, workspaceId),
-    }))
+  const entries = await Promise.all(
+    members.map(async (member) => {
+      try {
+        return {
+          entityId: member.id,
+          entityName: member.name,
+          ...(typeof member.enabled === 'boolean' ? { enabled: member.enabled } : {}),
+          ...('folderId' in member ? { folderId: member.folderId ?? null } : {}),
+          ...(typeof member.color === 'string' ? { color: member.color } : {}),
+          fields: await readSavedEntityFieldsFromDb(entityKind, member.id, workspaceId),
+        }
+      } catch (error) {
+        if (isNotFoundError(error)) return null
+        throw error
+      }
+    })
+  )
+
+  return entries.filter(
+    (entry): entry is EntityListMember & { fields: Record<string, unknown> } => entry !== null
   )
 }
 
