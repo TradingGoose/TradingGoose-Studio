@@ -12,6 +12,7 @@ import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
+import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
 import {
   emitWorkflowSelectionChange,
   useWorkflowSelectionPersistence,
@@ -87,6 +88,18 @@ const WorkflowListWidgetBody = ({
     [members, workspaceId]
   )
 
+  const selectWorkflowId = useCallback(
+    (workflowId: string) => {
+      if (isLinkedToColorPair) {
+        setPairContext(resolvedPairColor, { workflowId })
+      } else {
+        emitWorkflowSelectionChange({ panelId, workflowId })
+      }
+    },
+    [resolvedPairColor, isLinkedToColorPair, setPairContext, panelId]
+  )
+  const selectWorkflowIdWhenListed = usePendingEntitySelection(members, selectWorkflowId)
+
   useEffect(() => {
     if (!workspaceId) {
       return
@@ -98,18 +111,14 @@ const WorkflowListWidgetBody = ({
       if (!detail || detail.workspaceId !== workspaceId || !detail.workflowId) {
         return
       }
-      if (isLinkedToColorPair) {
-        setPairContext(resolvedPairColor, { workflowId: detail.workflowId })
-      } else {
-        emitWorkflowSelectionChange({ panelId, workflowId: detail.workflowId })
-      }
+      selectWorkflowIdWhenListed(detail.workflowId)
     }
 
     window.addEventListener(WORKFLOW_LIST_WORKFLOW_CREATED_EVENT, handler as EventListener)
     return () => {
       window.removeEventListener(WORKFLOW_LIST_WORKFLOW_CREATED_EVENT, handler as EventListener)
     }
-  }, [workspaceId, resolvedPairColor, isLinkedToColorPair, setPairContext, panelId])
+  }, [workspaceId, selectWorkflowIdWhenListed])
 
   const handleCreateWorkflow = useCallback(
     async (folderId?: string) => {
@@ -128,36 +137,22 @@ const WorkflowListWidgetBody = ({
           folderId: folderId ?? undefined,
         })
         const createdId = newWorkflowId ?? null
-        if (createdId && isLinkedToColorPair) {
-          setPairContext(resolvedPairColor, { workflowId: createdId })
-        } else if (createdId) {
-          emitWorkflowSelectionChange({ panelId, workflowId: createdId })
+        if (createdId) {
+          selectWorkflowIdWhenListed(createdId)
         }
         return createdId
       } finally {
         setIsCreatingWorkflow(false)
       }
     },
-    [
-      workspaceId,
-      createWorkflow,
-      isCreatingWorkflow,
-      resolvedPairColor,
-      isLinkedToColorPair,
-      setPairContext,
-      panelId,
-    ]
+    [workspaceId, createWorkflow, isCreatingWorkflow, selectWorkflowIdWhenListed]
   )
 
   const handleWorkflowSelect = useCallback(
     (workflow: WorkflowListEntry) => {
-      if (isLinkedToColorPair) {
-        setPairContext(resolvedPairColor, { workflowId: workflow.id })
-      } else {
-        emitWorkflowSelectionChange({ panelId, workflowId: workflow.id })
-      }
+      selectWorkflowIdWhenListed(workflow.id)
     },
-    [resolvedPairColor, isLinkedToColorPair, setPairContext, panelId]
+    [selectWorkflowIdWhenListed]
   )
 
   if (!workspaceId) {

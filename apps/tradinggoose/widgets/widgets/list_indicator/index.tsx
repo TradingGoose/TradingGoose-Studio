@@ -16,6 +16,7 @@ import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { emitIndicatorSelectionChange } from '@/widgets/utils/indicator-selection'
+import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
 import { IndicatorCreateMenu } from '@/widgets/widgets/list_indicator/components/indicator-create-menu'
 import {
   IndicatorList,
@@ -48,6 +49,28 @@ const IndicatorListHeaderRight = ({
   const setPairContext = useSetPairColorContext()
   const { members } = useEntityList('indicator', workspaceId)
 
+  const selectIndicator = useCallback(
+    (createdIndicatorId: string) => {
+      if (isLinkedToColorPair) {
+        setPairContext(resolvedPairColor, { indicatorId: createdIndicatorId })
+        return
+      }
+
+      emitIndicatorSelectionChange({
+        indicatorId: createdIndicatorId,
+        panelId,
+        widgetKey: 'list_indicator',
+      })
+      emitIndicatorSelectionChange({
+        indicatorId: createdIndicatorId,
+        panelId,
+        widgetKey: 'editor_indicator',
+      })
+    },
+    [isLinkedToColorPair, panelId, resolvedPairColor, setPairContext]
+  )
+  const selectIndicatorWhenListed = usePendingEntitySelection(members, selectIndicator)
+
   const handleCreateIndicator = useCallback(() => {
     if (!workspaceId || !permissions.canEdit) return
 
@@ -70,21 +93,7 @@ const IndicatorListHeaderRight = ({
           throw new Error('Created indicator is missing an id')
         }
 
-        if (isLinkedToColorPair) {
-          setPairContext(resolvedPairColor, { indicatorId: createdIndicatorId })
-          return
-        }
-
-        emitIndicatorSelectionChange({
-          indicatorId: createdIndicatorId,
-          panelId,
-          widgetKey: 'list_indicator',
-        })
-        emitIndicatorSelectionChange({
-          indicatorId: createdIndicatorId,
-          panelId,
-          widgetKey: 'editor_indicator',
-        })
+        selectIndicatorWhenListed(createdIndicatorId)
       })
       .catch((error) => {
         console.error('Failed to create indicator from list widget', error)
@@ -92,12 +101,9 @@ const IndicatorListHeaderRight = ({
   }, [
     createIndicatorMutation,
     copy.indicatorList.createMenu.newIndicator,
-    isLinkedToColorPair,
     members,
-    panelId,
     permissions.canEdit,
-    resolvedPairColor,
-    setPairContext,
+    selectIndicatorWhenListed,
     workspaceId,
   ])
 

@@ -16,6 +16,7 @@ import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { emitSkillSelectionChange } from '@/widgets/utils/skill-selection'
+import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
 import {
   SKILL_EDITOR_WIDGET_KEY,
   SKILL_LIST_WIDGET_KEY,
@@ -45,6 +46,28 @@ const SkillListHeaderRight = ({
   const setPairContext = useSetPairColorContext()
   const { members } = useEntityList('skill', workspaceId)
 
+  const selectSkill = useCallback(
+    (createdSkillId: string) => {
+      if (isLinkedToColorPair) {
+        setPairContext(resolvedPairColor, { skillId: createdSkillId })
+        return
+      }
+
+      emitSkillSelectionChange({
+        skillId: createdSkillId,
+        panelId,
+        widgetKey: SKILL_LIST_WIDGET_KEY,
+      })
+      emitSkillSelectionChange({
+        skillId: createdSkillId,
+        panelId,
+        widgetKey: SKILL_EDITOR_WIDGET_KEY,
+      })
+    },
+    [isLinkedToColorPair, panelId, resolvedPairColor, setPairContext]
+  )
+  const selectSkillWhenListed = usePendingEntitySelection(members, selectSkill)
+
   const handleCreateSkill = useCallback(() => {
     if (!workspaceId || !permissions.canEdit) return
 
@@ -69,21 +92,7 @@ const SkillListHeaderRight = ({
           throw new Error('Created skill is missing an id')
         }
 
-        if (isLinkedToColorPair) {
-          setPairContext(resolvedPairColor, { skillId: createdSkillId })
-          return
-        }
-
-        emitSkillSelectionChange({
-          skillId: createdSkillId,
-          panelId,
-          widgetKey: SKILL_LIST_WIDGET_KEY,
-        })
-        emitSkillSelectionChange({
-          skillId: createdSkillId,
-          panelId,
-          widgetKey: SKILL_EDITOR_WIDGET_KEY,
-        })
+        selectSkillWhenListed(createdSkillId)
       })
       .catch((error) => {
         console.error('Failed to create skill from list widget', error)
@@ -93,12 +102,9 @@ const SkillListHeaderRight = ({
     copy.skillEditor.defaults.content,
     copy.skillEditor.defaults.description,
     copy.skillEditor.defaults.name,
-    isLinkedToColorPair,
     members,
-    panelId,
     permissions.canEdit,
-    resolvedPairColor,
-    setPairContext,
+    selectSkillWhenListed,
     workspaceId,
   ])
 

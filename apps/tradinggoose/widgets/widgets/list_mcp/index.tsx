@@ -42,6 +42,7 @@ import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/
 import { resolveEntityIdFromList } from '@/widgets/utils/entity-selection'
 import { MCP_SERVER_DEFAULTS } from '@/widgets/utils/mcp-defaults'
 import { emitMcpSelectionChange, useMcpSelectionPersistence } from '@/widgets/utils/mcp-selection'
+import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
 import { resolveMcpServerId } from '@/widgets/widgets/_shared/mcp/utils'
 
 const buildDefaultMcpServer = (name: string) => ({
@@ -150,7 +151,6 @@ const ListMcpHeaderRightContent = ({
   const pairContext = usePairColorContext(resolvedPairColor)
   const setPairContext = useSetPairColorContext()
   const { members } = useEntityList('mcp_server', workspaceId)
-  const [pendingCreatedServerId, setPendingCreatedServerId] = useState<string | null>(null)
 
   const selectServer = useCallback(
     (serverId: string) => {
@@ -172,29 +172,17 @@ const ListMcpHeaderRightContent = ({
     },
     [isLinkedToColorPair, panelId, resolvedPairColor, setPairContext]
   )
-
-  useEffect(() => {
-    if (!pendingCreatedServerId) return
-    if (!members.some((member) => member.entityId === pendingCreatedServerId)) return
-    selectServer(pendingCreatedServerId)
-    setPendingCreatedServerId(null)
-  }, [members, pendingCreatedServerId, selectServer])
+  const selectServerWhenListed = usePendingEntitySelection(members, selectServer)
 
   const handleCreateServer = useCallback(() => {
     if (!workspaceId || !permissions.canEdit) return
 
     void createMcpServer(workspaceId, buildDefaultMcpServer(copy.defaults.newMcpServerName))
-      .then((createdServerId) => {
-        if (members.some((member) => member.entityId === createdServerId)) {
-          selectServer(createdServerId)
-        } else {
-          setPendingCreatedServerId(createdServerId)
-        }
-      })
+      .then(selectServerWhenListed)
       .catch((error) => {
         console.error('Failed to create MCP server from list widget', error)
       })
-  }, [copy.defaults.newMcpServerName, members, permissions.canEdit, selectServer, workspaceId])
+  }, [copy.defaults.newMcpServerName, permissions.canEdit, selectServerWhenListed, workspaceId])
 
   return (
     <McpCreateMenu

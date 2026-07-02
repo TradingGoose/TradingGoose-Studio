@@ -18,6 +18,7 @@ import {
   emitIndicatorSelectionChange,
   useIndicatorSelectionPersistence,
 } from '@/widgets/utils/indicator-selection'
+import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
 import { getIndicatorIdFromParams } from '@/widgets/widgets/editor_indicator/utils'
 import { IndicatorListItem } from './components/indicator-list-item'
 
@@ -118,6 +119,8 @@ export function IndicatorList({
     ]
   )
 
+  const selectIndicatorWhenListed = usePendingEntitySelection(members, handleSelect)
+
   const handleDelete = useCallback(
     async (indicatorId: string) => {
       if (!workspaceId || !permissions.canEdit) return
@@ -186,7 +189,7 @@ export function IndicatorList({
           throw new Error('Created indicator copy is missing an id')
         }
 
-        handleSelect(copiedIndicatorId)
+        selectIndicatorWhenListed(copiedIndicatorId)
       } finally {
         setCopyingIds((prev) => {
           const next = new Set(prev)
@@ -198,7 +201,7 @@ export function IndicatorList({
     [
       copy.listItem.untitledIndicator,
       createMutation,
-      handleSelect,
+      selectIndicatorWhenListed,
       permissions.canEdit,
       workspaceId,
     ]

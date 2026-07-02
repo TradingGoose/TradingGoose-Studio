@@ -41,6 +41,7 @@ import {
   useCustomToolSelectionPersistence,
 } from '@/widgets/utils/custom-tool-selection'
 import { resolveEntityIdFromList } from '@/widgets/utils/entity-selection'
+import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
 import { CustomToolListItem } from '@/widgets/widgets/_shared/custom_tool/components/custom-tool-list-item'
 import {
   CUSTOM_TOOL_EDITOR_WIDGET_KEY,
@@ -198,6 +199,28 @@ function CustomToolListHeaderRight({
   const setPairContext = useSetPairColorContext()
   const { members } = useEntityList('custom_tool', workspaceId)
 
+  const selectTool = useCallback(
+    (createdToolId: string) => {
+      if (isLinkedToColorPair) {
+        setPairContext(resolvedPairColor, { customToolId: createdToolId })
+        return
+      }
+
+      emitCustomToolSelectionChange({
+        customToolId: createdToolId,
+        panelId,
+        widgetKey: CUSTOM_TOOL_LIST_WIDGET_KEY,
+      })
+      emitCustomToolSelectionChange({
+        customToolId: createdToolId,
+        panelId,
+        widgetKey: CUSTOM_TOOL_EDITOR_WIDGET_KEY,
+      })
+    },
+    [isLinkedToColorPair, panelId, resolvedPairColor, setPairContext]
+  )
+  const selectToolWhenListed = usePendingEntitySelection(members, selectTool)
+
   const handleCreateTool = useCallback(() => {
     if (!workspaceId || !permissions.canEdit) return
 
@@ -220,35 +243,12 @@ function CustomToolListHeaderRight({
           throw new Error('Created custom tool is missing an id')
         }
 
-        if (isLinkedToColorPair) {
-          setPairContext(resolvedPairColor, { customToolId: createdToolId })
-          return
-        }
-
-        emitCustomToolSelectionChange({
-          customToolId: createdToolId,
-          panelId,
-          widgetKey: CUSTOM_TOOL_LIST_WIDGET_KEY,
-        })
-        emitCustomToolSelectionChange({
-          customToolId: createdToolId,
-          panelId,
-          widgetKey: CUSTOM_TOOL_EDITOR_WIDGET_KEY,
-        })
+        selectToolWhenListed(createdToolId)
       })
       .catch((error) => {
         console.error('Failed to create custom tool from list widget', error)
       })
-  }, [
-    createToolMutation,
-    isLinkedToColorPair,
-    members,
-    panelId,
-    permissions.canEdit,
-    resolvedPairColor,
-    setPairContext,
-    workspaceId,
-  ])
+  }, [createToolMutation, members, permissions.canEdit, selectToolWhenListed, workspaceId])
 
   const handleImportCustomTools = useCallback(
     async (content: string) => {
