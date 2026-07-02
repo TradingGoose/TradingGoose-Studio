@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import type { SubBlockConfig, SubBlockOption } from '@/blocks/types'
 import { ResponseBlockHandler } from '@/executor/handlers/response/response-handler'
@@ -99,6 +100,14 @@ export function Dropdown({
   const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
   const resolvedWorkflowId = routeContext?.workflowId ?? null
   const allBlocks = useWorkflowBlocks()
+  const blockType = allBlocks[blockId]?.type
+  const isWorkflowSelector =
+    subBlockId === 'workflowId' && (blockType === 'workflow' || blockType === 'workflow_input')
+  const {
+    members: workflowMembers,
+    isLoading: isLoadingWorkflowOptions,
+    error: workflowOptionsError,
+  } = useEntityList('workflow', isWorkflowSelector ? routeContext?.workspaceId : null)
   const blockContextValues = useMemo(() => {
     if (!resolvedWorkflowId) return undefined
     const block = allBlocks[blockId]
@@ -187,12 +196,33 @@ export function Dropdown({
     })
   }, [fetchedOptions])
 
+  const workflowOptions = useMemo<DropdownOptionObject[]>(
+    () =>
+      workflowMembers
+        .filter((member) => member.entityId !== resolvedWorkflowId)
+        .map((member) => ({
+          id: member.entityId,
+          label: member.entityName || `Workflow ${member.entityId.slice(0, 8)}`,
+          searchLabel: [member.entityName, member.entityDescription].filter(Boolean).join(' '),
+        })),
+    [resolvedWorkflowId, workflowMembers]
+  )
+
   const availableOptions = useMemo<Array<string | DropdownOptionObject>>(() => {
+    if (isWorkflowSelector) {
+      return workflowOptions
+    }
     if (fetchOptions && normalizedFetchedOptions.length > 0) {
       return normalizedFetchedOptions
     }
     return evaluatedOptions ?? []
-  }, [fetchOptions, normalizedFetchedOptions, evaluatedOptions])
+  }, [
+    isWorkflowSelector,
+    workflowOptions,
+    fetchOptions,
+    normalizedFetchedOptions,
+    evaluatedOptions,
+  ])
 
   const getOptionValue = (
     option:
@@ -209,7 +239,13 @@ export function Dropdown({
     return typeof option === 'string' ? option : hasExplicitValue(option) ? option.value : option.id
   }
 
-  const optionsReady = fetchOptions ? hasFetchedOptions && !isLoadingOptions && !fetchError : true
+  const resolvedFetchError = isWorkflowSelector ? workflowOptionsError : fetchError
+  const isLoadingAvailableOptions = isWorkflowSelector ? isLoadingWorkflowOptions : isLoadingOptions
+  const optionsReady = isWorkflowSelector
+    ? !isLoadingWorkflowOptions && !workflowOptionsError
+    : fetchOptions
+      ? hasFetchedOptions && !isLoadingOptions && !fetchError
+      : true
   const hasValue = value !== null && value !== undefined && value !== ''
 
   const clearSelectedValue = useCallback(() => {
@@ -480,7 +516,7 @@ export function Dropdown({
 
   const hasOptions = filteredOptions.length > 0
   const emptyMessage =
-    fetchError || (shouldFilter ? copy.noMatchingOptions : copy.noOptionsAvailable)
+    resolvedFetchError || (shouldFilter ? copy.noMatchingOptions : copy.noOptionsAvailable)
   const triggerLabel = selectedOption?.label ?? ''
   const triggerRightLabel = selectedOption?.rightLabel
 
@@ -536,7 +572,7 @@ export function Dropdown({
           className='allow-scroll max-h-48 overflow-y-auto p-1'
           style={{ scrollbarWidth: 'thin' }}
         >
-          {isLoadingOptions ? (
+          {isLoadingAvailableOptions ? (
             <DropdownMenuItem disabled className='justify-center text-muted-foreground'>
               {copy.loading}
             </DropdownMenuItem>

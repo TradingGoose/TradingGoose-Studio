@@ -74,8 +74,9 @@ export const useWorkflowWidgetState = ({
     return resolveEntityIdFromList({
       requestedEntityId: requestedWorkflowId,
       entityIds: workflowIds,
+      useDefaultEntity: !shouldUsePairWorkflowContext,
     })
-  }, [workflowIds, requestedWorkflowId, canResolveWorkflowIds])
+  }, [workflowIds, requestedWorkflowId, canResolveWorkflowIds, shouldUsePairWorkflowContext])
 
   const loadError: 'unableToLoadWorkflows' | null = listError ? 'unableToLoadWorkflows' : null
 

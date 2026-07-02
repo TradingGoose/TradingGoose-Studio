@@ -23,7 +23,7 @@ interface ExportControlsProps {
 export function ExportControls({ disabled = false, variant = 'workspace' }: ExportControlsProps) {
   const copy = useWorkflowEditorCopy()
   const [isExporting, setIsExporting] = useState(false)
-  const { workspaceId, workflowId, channelId } = useWorkflowRoute()
+  const { workspaceId, workflowId } = useWorkflowRoute()
   const { members } = useEntityList('workflow', workspaceId)
   const { getJson: readWorkflowExportJson } = useWorkflowJsonStore()
 
@@ -55,7 +55,9 @@ export function ExportControls({ disabled = false, variant = 'workspace' }: Expo
     try {
       const jsonContent = await readWorkflowExportJson({
         workflowId,
-        channelId,
+        name: currentWorkflow.entityName,
+        description: currentWorkflow.entityDescription,
+        workspaceId,
       })
 
       if (!jsonContent) {

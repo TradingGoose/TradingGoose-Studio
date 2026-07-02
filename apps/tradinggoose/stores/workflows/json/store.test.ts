@@ -2,27 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSkillsStore } from '@/stores/skills/store'
 
 const mockGetSnapshotForWorkflow = vi.hoisted(() => vi.fn())
-const mockWorkflowRegistryState = vi.hoisted(() => ({
-  workflows: {
-    'workflow-1': {
-      id: 'workflow-1',
-      name: 'Primary Workflow',
-      description: 'Workflow imported from the unified schema',
-      color: '#3972F6',
-      workspaceId: 'workspace-1',
-    },
-  },
-  getActiveWorkflowId: vi.fn(() => 'workflow-1'),
-}))
 
 vi.mock('@/lib/yjs/workflow-session-registry', () => ({
   getSnapshotForWorkflow: mockGetSnapshotForWorkflow,
-}))
-
-vi.mock('@/stores/workflows/registry/store', () => ({
-  useWorkflowRegistry: {
-    getState: () => mockWorkflowRegistryState,
-  },
 }))
 
 import { useWorkflowJsonStore } from './store'
@@ -33,7 +15,6 @@ describe('workflow json store', () => {
     useSkillsStore.getState().resetAll()
     useWorkflowJsonStore.setState({
       json: '',
-      lastGenerated: undefined,
     })
 
     mockGetSnapshotForWorkflow.mockReturnValue({
@@ -91,7 +72,9 @@ describe('workflow json store', () => {
   it('threads workspace skills into the workflow export payload', async () => {
     await useWorkflowJsonStore.getState().getJson({
       workflowId: 'workflow-1',
-      channelId: 'channel-1',
+      name: 'Primary Workflow',
+      description: 'Workflow imported from the unified schema',
+      workspaceId: 'workspace-1',
     })
 
     const payload = JSON.parse(useWorkflowJsonStore.getState().json) as {
