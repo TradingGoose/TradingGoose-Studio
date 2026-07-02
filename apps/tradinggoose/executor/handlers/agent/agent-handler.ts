@@ -184,10 +184,14 @@ export class AgentBlockHandler implements BlockHandler {
     return undefined
   }
 
+  // An agent block runs with exactly the tools selected on it (minus explicit
+  // usageControl 'none') or fails with the reason — hydration never silently
+  // drops a tool. Per-call failures during the run still surface to the model
+  // as tool errors, which is where graceful degradation belongs.
   private async formatTools(inputTools: ToolInput[], context: ExecutionContext): Promise<any[]> {
     if (!Array.isArray(inputTools)) return []
 
-    const tools = await Promise.all(
+    return Promise.all(
       inputTools
         .filter((tool) => {
           const usageControl = tool.usageControl || 'auto'
@@ -203,12 +207,6 @@ export class AgentBlockHandler implements BlockHandler {
           return this.transformBlockTool(tool, context)
         })
     )
-
-    const filteredTools = tools.filter(
-      (tool): tool is NonNullable<typeof tool> => tool !== null && tool !== undefined
-    )
-
-    return filteredTools
   }
 
   private async createCustomTool(tool: ToolInput, context: ExecutionContext): Promise<any> {
@@ -273,8 +271,7 @@ export class AgentBlockHandler implements BlockHandler {
     const { serverId, toolName, ...userProvidedParams } = tool.params || {}
 
     if (!serverId || !toolName) {
-      logger.error('MCP tool missing required parameters:', { serverId, toolName })
-      return null
+      throw new Error('MCP tool selection is missing serverId or toolName')
     }
 
     try {
@@ -322,8 +319,7 @@ export class AgentBlockHandler implements BlockHandler {
 
       const mcpTool = data.data.tools.find((t: any) => t.name === toolName)
       if (!mcpTool) {
-        logger.warn(`MCP tool ${toolName} not found on server ${serverId}`)
-        return null
+        throw new Error(`MCP tool ${toolName} not found on server ${serverId}`)
       }
 
       const toolId = createMcpToolId(serverId, toolName)
@@ -413,9 +409,10 @@ export class AgentBlockHandler implements BlockHandler {
       createLLMToolSchema,
     })
 
-    if (transformedTool) {
-      transformedTool.usageControl = tool.usageControl || 'auto'
+    if (!transformedTool) {
+      throw new Error(`Unable to resolve tool ${tool.title || tool.toolId}`)
     }
+    transformedTool.usageControl = tool.usageControl || 'auto'
     return transformedTool
   }
 

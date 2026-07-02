@@ -204,9 +204,7 @@ describe('AgentBlockHandler', () => {
 
       expect(mockGetProviderFromModel).toHaveBeenCalledWith('gpt-4o')
       expect(mockFetch).toHaveBeenCalledWith(expect.any(String), expect.any(Object))
-      const [, init] = mockFetch.mock.calls.find(([url]) =>
-        String(url).includes('/api/providers')
-      )!
+      const [, init] = mockFetch.mock.calls.find(([url]) => String(url).includes('/api/providers'))!
       expect(JSON.parse(String(init.body)).isDeployedContext).toBe(false)
       expect(result).toEqual(expectedOutput)
     })
@@ -705,6 +703,29 @@ describe('AgentBlockHandler', () => {
       )
       expect(mockFetch).toHaveBeenCalledWith(expect.any(String), expect.any(Object))
       expect(result).toEqual(expectedOutput)
+    })
+
+    it('fails the block when a selected tool cannot be hydrated', async () => {
+      const inputs = {
+        model: 'gpt-4o',
+        userPrompt: 'Analyze this data.',
+        apiKey: 'test-api-key',
+        tools: [
+          {
+            id: 'block_tool_1',
+            title: 'Data Analysis Tool',
+            operation: 'analyze',
+          },
+        ],
+      }
+
+      mockTransformBlockTool.mockResolvedValue(null)
+      mockGetProviderFromModel.mockReturnValue('openai')
+
+      await expect(handler.execute(mockBlock, inputs, mockContext)).rejects.toThrow(
+        'Unable to resolve tool Data Analysis Tool'
+      )
+      expect(mockFetch).not.toHaveBeenCalled()
     })
 
     it('should execute with custom tools (schema only and with code)', async () => {
