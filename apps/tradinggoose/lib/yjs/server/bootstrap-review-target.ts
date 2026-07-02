@@ -105,7 +105,7 @@ export async function requireEntityRealtimeListMembers(
   }
 }
 
-export async function requireSavedEntityRealtimeListFields(
+async function readLiveSavedEntityListFieldsForExecution(
   entityKind: SavedEntityKind,
   workspaceId: string
 ): Promise<Array<EntityListMember & { fields: Record<string, unknown> }>> {
@@ -146,7 +146,7 @@ export async function readSavedEntityListFieldsForExecution(
   isDeployedContext: boolean
 ): Promise<Array<EntityListMember & { fields: Record<string, unknown> }>> {
   if (!isDeployedContext) {
-    return requireSavedEntityRealtimeListFields(entityKind, workspaceId)
+    return readLiveSavedEntityListFieldsForExecution(entityKind, workspaceId)
   }
 
   const members = await readEntityListMembersFromDb(entityKind, workspaceId)

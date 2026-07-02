@@ -22,7 +22,6 @@ import type {
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess, getUserEntityPermissions } from '@/lib/permissions/utils'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
-import { requireSavedEntityRealtimeListFields } from '@/lib/yjs/server/bootstrap-review-target'
 import {
   deleteYjsSessionInSocketServer,
   refreshEntityListSession,
@@ -42,16 +41,22 @@ export async function getKnowledgeBases(
     return []
   }
 
-  const entries = await requireSavedEntityRealtimeListFields('knowledge_base', workspaceId)
-  return entries.map(({ entityId, fields }) => ({
-    id: entityId,
-    name: String(fields.name ?? ''),
-    description: String(fields.description ?? '') || null,
-    tokenCount: Number(fields.tokenCount ?? 0),
-    embeddingModel: String(fields.embeddingModel ?? 'text-embedding-3-small'),
-    embeddingDimension: Number(fields.embeddingDimension ?? 1536),
-    chunkingConfig: fields.chunkingConfig as ChunkingConfig,
-    workspaceId,
+  const rows = await db
+    .select()
+    .from(knowledgeBase)
+    .where(and(eq(knowledgeBase.workspaceId, workspaceId), isNull(knowledgeBase.deletedAt)))
+
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    tokenCount: row.tokenCount,
+    embeddingModel: row.embeddingModel,
+    embeddingDimension: row.embeddingDimension,
+    chunkingConfig: row.chunkingConfig as ChunkingConfig,
+    workspaceId: row.workspaceId,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   }))
 }
 

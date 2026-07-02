@@ -34,10 +34,6 @@ vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
   applySavedEntityState: vi.fn(),
 }))
 
-vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
-  requireSavedEntityRealtimeListFields: vi.fn(),
-}))
-
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   deleteYjsSessionInSocketServer: vi.fn(),
   refreshEntityListSession: mockNotifyEntityListMembersUpserted,

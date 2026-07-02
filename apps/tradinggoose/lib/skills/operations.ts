@@ -10,7 +10,6 @@ import {
 } from '@/lib/skills/import-export'
 import { generateRequestId } from '@/lib/utils'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
-import { requireSavedEntityRealtimeListFields } from '@/lib/yjs/server/bootstrap-review-target'
 import {
   deleteYjsSessionInSocketServer,
   refreshEntityListSession,
@@ -48,15 +47,7 @@ interface ImportSkillsParams {
 }
 
 export async function listSkills(params: { workspaceId: string }) {
-  const entries = await requireSavedEntityRealtimeListFields('skill', params.workspaceId)
-  return entries.map(({ entityId, fields }) => ({
-    id: entityId,
-    workspaceId: params.workspaceId,
-    userId: null,
-    name: String(fields.name ?? ''),
-    description: String(fields.description ?? ''),
-    content: String(fields.content ?? ''),
-  }))
+  return db.select().from(skill).where(eq(skill.workspaceId, params.workspaceId))
 }
 
 export async function deleteSkill(params: {

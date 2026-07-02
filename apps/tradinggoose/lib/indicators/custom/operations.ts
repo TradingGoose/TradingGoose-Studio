@@ -10,10 +10,7 @@ import { inferInputMetaFromPineCode, normalizeInputMetaMap } from '@/lib/indicat
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
-import {
-  readSavedEntityListFieldsForExecution,
-  requireSavedEntityRealtimeListFields,
-} from '@/lib/yjs/server/bootstrap-review-target'
+import { readSavedEntityListFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
 import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('IndicatorsOperations')
@@ -35,16 +32,7 @@ export async function listCustomIndicatorRuntimeEntries(
 }
 
 export async function listIndicators(params: { workspaceId: string }) {
-  const entries = await requireSavedEntityRealtimeListFields('indicator', params.workspaceId)
-  return entries.map(({ entityId, fields }) => ({
-    id: entityId,
-    workspaceId: params.workspaceId,
-    userId: null,
-    name: String(fields.name ?? ''),
-    color: String(fields.color ?? '') || undefined,
-    pineCode: String(fields.pineCode ?? ''),
-    inputMeta: normalizeInputMetaMap(fields.inputMeta),
-  }))
+  return db.select().from(pineIndicators).where(eq(pineIndicators.workspaceId, params.workspaceId))
 }
 
 interface CreateIndicatorsParams {
