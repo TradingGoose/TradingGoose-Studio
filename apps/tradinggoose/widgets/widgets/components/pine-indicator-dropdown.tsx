@@ -77,7 +77,6 @@ export function IndicatorDropdown({
     members,
     isLoading: listLoading,
     error: listError,
-    retry,
   } = useEntityList('indicator', workspaceId)
 
   const workspaceIndicators = useMemo(() => {
@@ -301,7 +300,6 @@ export function IndicatorDropdown({
   const setOpen = (open: boolean) => {
     setDropdownOpen(open)
     if (open) {
-      if (listError) retry?.()
       setActiveFilterId(selectedFilterId)
       return
     }

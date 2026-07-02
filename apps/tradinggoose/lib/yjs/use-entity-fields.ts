@@ -8,7 +8,7 @@
  * read/write through the collaborative Yjs document when available.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import * as Y from 'yjs'
 import {
   buildEntityListDescriptor,
@@ -151,14 +151,15 @@ function initializeSharedYjsSessionEntry(
       if (sharedYjsSessionEntries.get(entry.key) !== entry) return
       entry.initPromise = null
       emitSharedYjsSessionEntry(entry)
+      if (!entry.result) scheduleSharedYjsSessionReopen(entry, openSession, errorMessage)
     })
 }
 
 const SESSION_REOPEN_RETRY_MS = 1_000
 
-// A session that was live recovers itself: reopen attempts are paced at the
-// same 1s cadence write sessions use for token rotation, and keep retrying
-// until the session is live again or the entry is released.
+// A subscribed session converges to live: every failed open — initial or
+// after connection loss — retries at the same 1s cadence write sessions use
+// for token rotation, until the session is live or the entry is released.
 function scheduleSharedYjsSessionReopen(
   entry: SharedYjsSessionEntry,
   openSession: () => Promise<YjsProviderBootstrapResult>,
@@ -167,9 +168,6 @@ function scheduleSharedYjsSessionReopen(
   setTimeout(() => {
     if (sharedYjsSessionEntries.get(entry.key) !== entry || entry.refCount === 0) return
     initializeSharedYjsSessionEntry(entry, openSession, errorMessage)
-    void entry.initPromise?.then(() => {
-      if (!entry.result) scheduleSharedYjsSessionReopen(entry, openSession, errorMessage)
-    })
   }, SESSION_REOPEN_RETRY_MS)
 }
 
@@ -219,7 +217,6 @@ function useYjsSession(
   openSession: (() => Promise<YjsProviderBootstrapResult>) | null,
   errorMessage: string
 ) {
-  const entryRef = useRef<SharedYjsSessionEntry | null>(null)
   const [state, setState] = useState<SavedEntityYjsSessionState>({
     key: null,
     result: null,
@@ -233,7 +230,6 @@ function useYjsSession(
     }
 
     const entry = getSharedYjsSessionEntry(sessionKey)
-    entryRef.current = entry
     entry.refCount += 1
 
     const syncState = () => setState(readSharedYjsSessionEntry(entry))
@@ -243,18 +239,11 @@ function useYjsSession(
 
     return () => {
       entry.listeners.delete(syncState)
-      if (entryRef.current === entry) entryRef.current = null
       releaseSharedYjsSessionEntry(entry)
     }
   }, [errorMessage, openSession, sessionKey])
 
-  const retry = useCallback(() => {
-    const entry = entryRef.current
-    if (!entry || !openSession) return
-    initializeSharedYjsSessionEntry(entry, openSession, errorMessage)
-  }, [errorMessage, openSession])
-
-  return state.key === sessionKey ? { ...state, retry } : null
+  return state.key === sessionKey ? state : null
 }
 
 export function useSavedEntityYjsSession(
@@ -341,7 +330,6 @@ export function useEntityList(
     members,
     isLoading: Boolean(sessionKey && !activeState?.result && !activeState?.error),
     error: activeState?.error ?? null,
-    retry: activeState?.retry,
   }
 }
 

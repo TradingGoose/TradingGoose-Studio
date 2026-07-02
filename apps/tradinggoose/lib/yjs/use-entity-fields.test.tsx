@@ -145,6 +145,23 @@ describe('useEntityList read-session lifecycle', () => {
     expect(captured.current?.error).toBeNull()
   })
 
+  it('retries a failed initial open until the session is live', async () => {
+    const fresh = createMockSession({ 'id-1': { name: 'Alpha' } })
+    mockBootstrapYjsProvider
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce(fresh)
+
+    const captured = await renderList('workspace-first-open')
+    expect(captured.current?.error).toBe('offline')
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000)
+    })
+    expect(mockBootstrapYjsProvider).toHaveBeenCalledTimes(2)
+    expect(captured.current?.members.map((m) => m.entityName)).toEqual(['Alpha'])
+    expect(captured.current?.error).toBeNull()
+  })
+
   it('keeps retrying failed reopens until the session is live again', async () => {
     const stale = createMockSession({ 'id-1': { name: 'Alpha' } })
     const fresh = createMockSession({ 'id-3': { name: 'Beta' } })

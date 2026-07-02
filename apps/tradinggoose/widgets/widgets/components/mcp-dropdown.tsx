@@ -56,7 +56,7 @@ export function McpDropdown({
 }: McpDropdownProps) {
   const copy = useMessages().workspace.widgets.mcpDropdown
   const [searchQuery, setSearchQuery] = useState('')
-  const { members, isLoading, error, retry } = useEntityList('mcp_server', workspaceId)
+  const { members, isLoading, error } = useEntityList('mcp_server', workspaceId)
 
   const workspaceServers = useMemo(() => {
     if (!workspaceId) return []
@@ -217,7 +217,7 @@ export function McpDropdown({
   )
 
   return (
-    <DropdownMenu modal={false} onOpenChange={(open) => open && error && retry?.()}>
+    <DropdownMenu modal={false}>
       <Tooltip>
         <TooltipTrigger asChild>
           <span className='inline-flex'>

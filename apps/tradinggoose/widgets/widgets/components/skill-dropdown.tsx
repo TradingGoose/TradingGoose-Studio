@@ -56,7 +56,7 @@ export function SkillDropdown({
 }: SkillDropdownProps) {
   const copy = useMessages().workspace.widgets.skillDropdown
   const [searchQuery, setSearchQuery] = useState('')
-  const { members, error, isLoading: listLoading, retry } = useEntityList('skill', workspaceId)
+  const { members, error, isLoading: listLoading } = useEntityList('skill', workspaceId)
   const skills = useMemo<SkillDropdownOption[]>(
     () =>
       workspaceId
@@ -216,7 +216,7 @@ export function SkillDropdown({
   )
 
   return (
-    <DropdownMenu modal={false} onOpenChange={(open) => open && errorMessage && retry?.()}>
+    <DropdownMenu modal={false}>
       <Tooltip>
         <TooltipTrigger asChild>
           <span className='inline-flex'>
