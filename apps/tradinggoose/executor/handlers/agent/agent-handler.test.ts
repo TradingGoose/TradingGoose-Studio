@@ -31,6 +31,7 @@ vi.mock('@/blocks', () => ({
 
 vi.mock('@/tools', () => ({
   executeTool: vi.fn(),
+  getToolAsync: vi.fn(),
 }))
 
 vi.mock('@/executor/handlers/agent/skills-resolver', () => ({

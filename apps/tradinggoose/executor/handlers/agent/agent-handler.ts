@@ -18,9 +18,9 @@ import { getBlockToolExecutionId } from '@/executor/handlers/tool-execution-cont
 import type { BlockHandler, ExecutionContext, StreamingExecution } from '@/executor/types'
 import { getProviderFromModel, transformBlockTool } from '@/providers/ai/utils'
 import type { SerializedBlock } from '@/serializer/types'
-import { executeTool } from '@/tools'
+import { executeTool, getToolAsync } from '@/tools'
 import { createLLMToolSchema } from '@/tools/params'
-import { getTool, getToolAsync } from '@/tools/utils'
+import { getTool } from '@/tools/utils'
 import {
   buildLoadSkillTool,
   buildSkillsSystemPromptSection,

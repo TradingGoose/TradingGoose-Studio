@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getToolAsync } from '@/tools'
 import type { ToolConfig } from '@/tools/types'
 import {
   createCustomToolRequestBody,
@@ -6,7 +7,6 @@ import {
   executeRequest,
   formatRequestParams,
   getClientEnvVars,
-  getToolAsync,
   transformTable,
   validateRequiredParametersAfterMerge,
 } from '@/tools/utils'

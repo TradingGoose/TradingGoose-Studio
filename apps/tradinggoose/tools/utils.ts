@@ -1,7 +1,6 @@
 import {
   getCustomToolEntityIdFromRuntimeId,
   isCustomToolRuntimeId,
-  parseCustomToolSchemaText,
 } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
@@ -332,28 +331,8 @@ export function getTool(toolId: string): ToolConfig | undefined {
   return undefined
 }
 
-// Get a tool by its ID asynchronously (supports server-side)
-export async function getToolAsync(
-  toolId: string,
-  workflowId?: string,
-  workspaceId?: string,
-  isDeployedContext = true
-): Promise<ToolConfig | undefined> {
-  // Check for built-in tools
-  const builtInTool = tools[toolId]
-  if (builtInTool) return builtInTool
-
-  // Check if it's a custom tool
-  if (isCustomToolRuntimeId(toolId)) {
-    if (typeof window !== 'undefined') return getTool(toolId)
-    return getServerCustomTool(toolId, workflowId, workspaceId, isDeployedContext)
-  }
-
-  return undefined
-}
-
 // Helper function to create a tool config from a custom tool
-function createToolConfig(
+export function createToolConfig(
   customTool: any,
   customToolId: string,
   isClient = true,
@@ -393,55 +372,4 @@ function createToolConfig(
       }
     },
   }
-}
-
-// Create a tool config from a custom tool definition
-async function resolveWorkflowWorkspaceId(workflowId: string): Promise<string | null> {
-  const [{ db }, { workflow }, { eq }] = await Promise.all([
-    import('@tradinggoose/db'),
-    import('@tradinggoose/db/schema'),
-    import('drizzle-orm'),
-  ])
-  const [row] = await db
-    .select({ workspaceId: workflow.workspaceId })
-    .from(workflow)
-    .where(eq(workflow.id, workflowId))
-    .limit(1)
-  return row?.workspaceId ?? null
-}
-
-async function getServerCustomTool(
-  customToolId: string,
-  workflowId: string | undefined,
-  workspaceId: string | undefined,
-  isDeployedContext: boolean
-): Promise<ToolConfig> {
-  const identifier = getCustomToolEntityIdFromRuntimeId(customToolId)
-
-  const scopedWorkspaceId =
-    workspaceId ?? (workflowId ? await resolveWorkflowWorkspaceId(workflowId) : null)
-  if (!scopedWorkspaceId) {
-    throw new Error(`Workspace context is required for custom tool ${identifier}`)
-  }
-
-  const { readSavedEntityFieldsForExecution } = await import(
-    '@/lib/yjs/server/bootstrap-review-target'
-  )
-  const fields = await readSavedEntityFieldsForExecution(
-    'custom_tool',
-    identifier,
-    scopedWorkspaceId,
-    isDeployedContext
-  )
-
-  return createToolConfig(
-    {
-      title: String(fields.title ?? ''),
-      schema: parseCustomToolSchemaText(fields.schemaText),
-      code: String(fields.codeText ?? ''),
-    },
-    customToolId,
-    false,
-    workflowId
-  )
 }
