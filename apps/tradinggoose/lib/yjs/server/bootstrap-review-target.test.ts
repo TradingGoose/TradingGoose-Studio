@@ -1,9 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import { getEntityListMembers } from '@/lib/yjs/entity-session'
+import { reseedEntityListSessionFromDb } from './bootstrap-review-target'
 
 const { readEntityListMembersFromDb } = vi.hoisted(() => ({
   readEntityListMembersFromDb: vi.fn(),
+}))
+
+vi.mock('@/lib/yjs/server/entity-loaders', () => ({
+  readEntityListMembersFromDb,
+  readSavedEntityFieldsFromDb: vi.fn(),
+  resolveEntityWorkspaceId: vi.fn(),
 }))
 
 function deferred<T>() {
@@ -21,15 +28,7 @@ async function flushMicrotasks() {
 
 describe('reseedEntityListSessionFromDb', () => {
   beforeEach(() => {
-    vi.resetModules()
-    vi.doUnmock('@/lib/yjs/server/bootstrap-review-target')
-    vi.doUnmock('./bootstrap-review-target')
     readEntityListMembersFromDb.mockReset()
-    vi.doMock('@/lib/yjs/server/entity-loaders', () => ({
-      readEntityListMembersFromDb,
-      readSavedEntityFieldsFromDb: vi.fn(),
-      resolveEntityWorkspaceId: vi.fn(),
-    }))
   })
 
   it('serializes destructive full reseeds for the same list document', async () => {
@@ -39,9 +38,6 @@ describe('reseedEntityListSessionFromDb', () => {
       .mockReturnValueOnce(olderSnapshot.promise)
       .mockReturnValueOnce(newerSnapshot.promise)
 
-    const { reseedEntityListSessionFromDb } = await vi.importActual<
-      typeof import('./bootstrap-review-target')
-    >('./bootstrap-review-target')
     const doc = new Y.Doc()
     try {
       const first = reseedEntityListSessionFromDb(doc, 'workflow', 'workspace-1')
@@ -68,5 +64,5 @@ describe('reseedEntityListSessionFromDb', () => {
     } finally {
       doc.destroy()
     }
-  }, 15_000)
+  })
 })

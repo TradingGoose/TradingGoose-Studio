@@ -20,7 +20,6 @@ type UseWorkflowWidgetStateOptions = Pick<
 type UseWorkflowWidgetStateResult = {
   resolvedPairColor: PairColor
   channelId: string
-  requestedWorkflowId: string | null
   resolvedWorkflowId: string | null
   hasLoadedWorkflows: boolean
   loadError: 'unableToLoadWorkflows' | null
@@ -55,35 +54,37 @@ export const useWorkflowWidgetState = ({
     error: listError,
   } = useEntityList('workflow', workspaceId)
 
-  const requestedWorkflowId = useMemo(
-    () =>
-      resolveEntityId('workflowId', {
-        params: shouldUsePairWorkflowContext ? null : params,
-        pairContext: shouldUsePairWorkflowContext ? pairContext : null,
-      }),
-    [pairContext, params, shouldUsePairWorkflowContext]
-  )
+  const storedWorkflowId = resolveEntityId('workflowId', {
+    params: shouldUsePairWorkflowContext ? null : params,
+    pairContext: shouldUsePairWorkflowContext ? pairContext : null,
+  })
 
-  const workflowIds = useMemo(() => members.map((member) => member.entityId), [members])
+  const workflowIds = useMemo(
+    () =>
+      [...members]
+        .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+        .map((member) => member.entityId),
+    [members]
+  )
   const hasLoadedWorkflows = !workspaceId || Boolean(listError) || !isListLoading
   const canResolveWorkflowIds = Boolean(workspaceId) && !listError && !isListLoading
 
   const resolvedWorkflowId = useMemo(() => {
     if (!canResolveWorkflowIds) return null
 
+    // Unstored gray widgets intentionally derive the current newest workflow.
     return resolveEntityIdFromList({
-      requestedEntityId: requestedWorkflowId,
+      requestedEntityId: storedWorkflowId,
       entityIds: workflowIds,
       useDefaultEntity: !shouldUsePairWorkflowContext,
     })
-  }, [workflowIds, requestedWorkflowId, canResolveWorkflowIds, shouldUsePairWorkflowContext])
+  }, [workflowIds, storedWorkflowId, canResolveWorkflowIds, shouldUsePairWorkflowContext])
 
   const loadError: 'unableToLoadWorkflows' | null = listError ? 'unableToLoadWorkflows' : null
 
   return {
     resolvedPairColor,
     channelId,
-    requestedWorkflowId,
     resolvedWorkflowId,
     hasLoadedWorkflows,
     loadError,

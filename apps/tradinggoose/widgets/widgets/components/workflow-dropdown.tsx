@@ -69,14 +69,16 @@ export function WorkflowDropdown({
   const workspaceWorkflows = useMemo<WorkflowDropdownOption[]>(() => {
     if (!workspaceId) return []
 
-    return members.map((member) => ({
-      id: member.entityId,
-      name: member.entityName,
-      description: member.entityDescription ?? '',
-      color: member.color ?? '#64748b',
-      workspaceId,
-      folderId: member.folderId ?? null,
-    }))
+    return [...members]
+      .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+      .map((member) => ({
+        id: member.entityId,
+        name: member.entityName,
+        description: member.entityDescription ?? '',
+        color: member.color ?? '#64748b',
+        workspaceId,
+        folderId: member.folderId ?? null,
+      }))
   }, [members, workspaceId])
 
   const selectedWorkflowId = value ?? null
