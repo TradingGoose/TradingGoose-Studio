@@ -66,6 +66,7 @@ export async function readEntityListMembersFromDb(
     enabled?: boolean
     folderId?: string | null
     color?: string
+    createdAt?: string
     updatedAt?: string
     connectionStatus?: string
   }>
@@ -78,6 +79,7 @@ export async function readEntityListMembersFromDb(
         description: workflow.description,
         folderId: workflow.folderId,
         color: workflow.color,
+        createdAt: workflow.createdAt,
       })
       .from(workflow)
       .where(eq(workflow.workspaceId, workspaceId))
@@ -88,6 +90,7 @@ export async function readEntityListMembersFromDb(
       description: row.description ?? undefined,
       folderId: row.folderId,
       color: row.color,
+      createdAt: row.createdAt?.toISOString(),
     }))
   }
 

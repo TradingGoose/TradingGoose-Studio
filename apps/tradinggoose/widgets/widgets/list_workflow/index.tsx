@@ -71,19 +71,23 @@ const WorkflowListWidgetBody = ({
     params: widgetParams,
   })
 
+  // Workflows list newest-first; the projection's canonical name order is a
+  // deterministic base, not the workflow list's presentation order.
   const regularWorkflows = useMemo<WorkflowListEntry[]>(
     () =>
       workspaceId
-        ? members.map((member) => {
-            return {
-              id: member.entityId,
-              name: member.entityName,
-              description: member.entityDescription ?? '',
-              color: member.color ?? getStableVibrantColor(member.entityId),
-              workspaceId,
-              folderId: member.folderId ?? null,
-            }
-          })
+        ? [...members]
+            .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+            .map((member) => {
+              return {
+                id: member.entityId,
+                name: member.entityName,
+                description: member.entityDescription ?? '',
+                color: member.color ?? getStableVibrantColor(member.entityId),
+                workspaceId,
+                folderId: member.folderId ?? null,
+              }
+            })
         : [],
     [members, workspaceId]
   )

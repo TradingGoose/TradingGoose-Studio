@@ -46,6 +46,7 @@ export interface EntityListMember {
   enabled?: boolean
   folderId?: string | null
   color?: string
+  createdAt?: string
   updatedAt?: string
   connectionStatus?: string
 }
@@ -56,6 +57,7 @@ function getEntityListMembersMap(doc: Y.Doc): Y.Map<{
   enabled?: boolean
   folderId?: string | null
   color?: string
+  createdAt?: string
   updatedAt?: string
   connectionStatus?: string
   deleted?: boolean
@@ -72,6 +74,7 @@ export function seedEntityListSession(
     enabled?: boolean
     folderId?: string | null
     color?: string
+    createdAt?: string
     updatedAt?: string
     connectionStatus?: string
   }>
@@ -89,6 +92,7 @@ export function seedEntityListSession(
         ...(typeof member.enabled === 'boolean' ? { enabled: member.enabled } : {}),
         ...('folderId' in member ? { folderId: member.folderId ?? null } : {}),
         ...(typeof member.color === 'string' ? { color: member.color } : {}),
+        ...(typeof member.createdAt === 'string' ? { createdAt: member.createdAt } : {}),
         ...(typeof member.updatedAt === 'string' ? { updatedAt: member.updatedAt } : {}),
         ...(typeof member.connectionStatus === 'string'
           ? { connectionStatus: member.connectionStatus }
@@ -102,6 +106,7 @@ export function seedEntityListSession(
         current?.enabled !== next.enabled ||
         current?.folderId !== next.folderId ||
         current?.color !== next.color ||
+        current?.createdAt !== next.createdAt ||
         current?.updatedAt !== next.updatedAt ||
         current?.connectionStatus !== next.connectionStatus
       ) {
@@ -122,6 +127,7 @@ export function getEntityListMembers(doc: Y.Doc): EntityListMember[] {
       ...(typeof value?.enabled === 'boolean' ? { enabled: value.enabled } : {}),
       ...(value && 'folderId' in value ? { folderId: value.folderId ?? null } : {}),
       ...(typeof value?.color === 'string' ? { color: value.color } : {}),
+      ...(typeof value?.createdAt === 'string' ? { createdAt: value.createdAt } : {}),
       ...(typeof value?.updatedAt === 'string' ? { updatedAt: value.updatedAt } : {}),
       ...(typeof value?.connectionStatus === 'string'
         ? { connectionStatus: value.connectionStatus }
