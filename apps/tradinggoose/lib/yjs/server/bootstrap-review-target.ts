@@ -71,6 +71,12 @@ export async function readBootstrappedReviewTargetSnapshot(descriptor: ReviewTar
   return getYjsSnapshot(descriptor.yjsSessionId, bridgeParams)
 }
 
+/**
+ * The snapshot route reseeds live entity-list docs from canonical DB rows
+ * before serving (socket-server/routes/http.ts), so this read is DB-fresh:
+ * members from a stale live doc — e.g. after a failed refresh whose discard
+ * also failed — cannot reach it.
+ */
 export async function requireEntityRealtimeListMembers(
   entityKind: ReviewEntityKind,
   workspaceId: string

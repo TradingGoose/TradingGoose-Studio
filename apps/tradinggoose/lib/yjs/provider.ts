@@ -136,6 +136,10 @@ export async function bootstrapYjsProvider(
   // subscribes to a server-owned projection whose lineage is disposable —
   // connection loss ends the session, and its owner rebootstraps a fresh doc
   // from a fresh snapshot instead of resyncing one the server regenerated.
+  // A read result is DB-fresh at resolve time (the snapshot route reseeds
+  // live list docs before serving) and eventually consistent afterwards:
+  // websocket updates stream in asynchronously, so the doc must be observed,
+  // not treated as a point-in-time authority after resolve.
   if (accessMode === 'write') {
     let tokenRefreshInFlight: Promise<void> | null = null
     let tokenRefreshRetryTimeout: ReturnType<typeof setTimeout> | null = null

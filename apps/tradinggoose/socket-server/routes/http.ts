@@ -338,6 +338,8 @@ async function handleInternalYjsEntityListMembersRequest(
     if (envelope.sessionId !== sessionId) {
       throw new InvalidInternalYjsRequestError('Session ID mismatch')
     }
+    // buildReviewTargetDescriptorFromEnvelope rejects entity_list envelopes
+    // without a workspaceId, so the cast below cannot see null.
     const descriptor = buildReviewTargetDescriptorFromEnvelope(envelope)
     await reseedEntityListSessionFromDb(
       liveDoc,
