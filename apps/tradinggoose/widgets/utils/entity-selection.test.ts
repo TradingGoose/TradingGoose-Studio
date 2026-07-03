@@ -18,17 +18,10 @@ describe('entity id resolution', () => {
     })
   })
 
-  it('recovers stale requested ids only when default selection is enabled', () => {
+  it('defaults only when no entity id was requested', () => {
     const entityIds = ['a', 'b']
     expect(
       resolveEntityIdFromList({ requestedEntityId: 'deleted', fallbackEntityId: 'a', entityIds })
-    ).toBe('a')
-    expect(
-      resolveEntityIdFromList({
-        requestedEntityId: 'deleted',
-        entityIds,
-        useDefaultEntity: false,
-      })
     ).toBeNull()
     expect(resolveEntityIdFromList({ fallbackEntityId: 'b', entityIds })).toBe('b')
     expect(resolveEntityIdFromList({ entityIds })).toBe('a')

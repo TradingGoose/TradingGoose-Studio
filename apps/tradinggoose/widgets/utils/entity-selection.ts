@@ -41,8 +41,7 @@ export function resolveEntityIdFromList({
   useDefaultEntity?: boolean
 }): string | null {
   const requested = normalizeEntityId(requestedEntityId)
-  if (requested && entityIds.includes(requested)) return requested
-  if (requested && !useDefaultEntity) return null
+  if (requested) return entityIds.includes(requested) ? requested : null
 
   const fallback = normalizeEntityId(fallbackEntityId)
   if (fallback && entityIds.includes(fallback)) return fallback
