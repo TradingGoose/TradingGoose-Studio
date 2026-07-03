@@ -14,6 +14,7 @@ import {
   emitWorkflowSelectionChange,
   useWorkflowSelectionPersistence,
 } from '@/widgets/utils/workflow-selection'
+import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
 import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 import { WorkflowWidgetControlBar } from '@/widgets/widgets/editor_workflow/components/workflow-controlbar'
@@ -63,6 +64,14 @@ const WorkflowEditorWidgetBody = ({
   useWorkflowSelectionPersistence({
     onWidgetParamsChange,
     panelId,
+    pairColor: resolvedPairColor,
+    params,
+    scopeKey: widgetKey,
+  })
+  usePersistResolvedEntityId({
+    entityId: resolvedWorkflowId,
+    entityIdKey: 'workflowId',
+    onWidgetParamsChange,
     pairColor: resolvedPairColor,
     params,
   })
@@ -201,6 +210,7 @@ const WorkflowEditorHeaderSelector = ({
     emitWorkflowSelectionChange({
       panelId,
       workflowId,
+      widgetKey: widget?.key ?? 'editor_workflow',
     })
   }
 

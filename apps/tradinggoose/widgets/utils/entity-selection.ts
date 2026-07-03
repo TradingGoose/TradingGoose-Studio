@@ -1,3 +1,6 @@
+import { useEffect } from 'react'
+import type { PairColor } from '@/widgets/pair-colors'
+
 export interface EntitySelectionState {
   selectedEntityId: string | null
 }
@@ -65,4 +68,32 @@ export function readEntitySelectionState(options: {
       pairContext: options.pairContext,
     }),
   }
+}
+
+export function usePersistResolvedEntityId({
+  entityId,
+  entityIdKey,
+  onWidgetParamsChange,
+  pairColor = 'gray',
+  params,
+}: {
+  entityId?: string | null
+  entityIdKey: string
+  onWidgetParamsChange?: (params: Record<string, unknown> | null) => void
+  pairColor?: PairColor
+  params?: Record<string, unknown> | null
+}) {
+  useEffect(() => {
+    if (pairColor !== 'gray') return
+    if (!entityId) return
+    if (!onWidgetParamsChange) return
+
+    const currentEntityId = resolveEntityId(entityIdKey, { params })
+    if (currentEntityId === entityId) return
+
+    onWidgetParamsChange({
+      ...(params ?? {}),
+      [entityIdKey]: entityId,
+    })
+  }, [entityId, entityIdKey, onWidgetParamsChange, pairColor, params])
 }

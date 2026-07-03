@@ -1,13 +1,16 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useRef } from 'react'
 import { useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
-import { resolveEntityIdFromList } from '@/widgets/utils/entity-selection'
+import {
+  resolveEntityIdFromList,
+  usePersistResolvedEntityId,
+} from '@/widgets/utils/entity-selection'
 import { useSkillEditorActions } from '@/widgets/utils/skill-editor-actions'
 import { useSkillSelectionPersistence } from '@/widgets/utils/skill-selection'
 import { getSkillIdFromParams } from '@/widgets/widgets/_shared/skill/utils'
@@ -52,38 +55,13 @@ export function EditorSkillWidgetBody({
   })
   const skillSession = useSavedEntityYjsSession('skill', skillId, workspaceId)
 
-  useEffect(() => {
-    if (!skillId) {
-      return
-    }
-
-    if (isLinkedToColorPair) {
-      if (pairContext?.skillId === skillId) {
-        return
-      }
-
-      setPairContext(resolvedPairColor, { skillId })
-      return
-    }
-
-    if (!onWidgetParamsChange || paramsSkillId === skillId) {
-      return
-    }
-
-    onWidgetParamsChange({
-      ...(params ?? {}),
-      skillId,
-    })
-  }, [
-    isLinkedToColorPair,
+  usePersistResolvedEntityId({
+    entityId: skillId,
+    entityIdKey: 'skillId',
     onWidgetParamsChange,
-    pairContext?.skillId,
+    pairColor: resolvedPairColor,
     params,
-    paramsSkillId,
-    resolvedPairColor,
-    setPairContext,
-    skillId,
-  ])
+  })
 
   useSkillSelectionPersistence({
     onWidgetParamsChange,

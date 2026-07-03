@@ -1,103 +1,50 @@
-import { useEffect, useRef } from 'react'
-import { isEqual } from 'lodash'
-import {
-  WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT,
-  type WorkflowWidgetSelectEventDetail,
-} from '@/widgets/events'
+import { WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT } from '@/widgets/events'
 import type { PairColor } from '@/widgets/pair-colors'
+import {
+  createEmitSelectionChange,
+  createSelectionPersistenceHook,
+  type UseSelectionPersistenceOptions,
+} from '@/widgets/utils/selection-persistence-factory'
+
+const useWorkflowSelectionPersistenceGeneric = createSelectionPersistenceHook({
+  eventName: WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT,
+  detailIdKey: 'workflowId',
+})
 
 interface UseWorkflowSelectionPersistenceOptions {
   onWidgetParamsChange?: (params: Record<string, unknown> | null) => void
   panelId?: string
-  pairColor?: PairColor
   params?: Record<string, unknown> | null
-}
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
-const normalizeString = (value: unknown) => {
-  if (typeof value !== 'string') return undefined
-  const trimmed = value.trim()
-  return trimmed || undefined
-}
-
-const sanitizeWorkflowWidgetParams = (
-  params: Record<string, unknown> | null | undefined
-): Record<string, unknown> | null => {
-  if (!params || !isRecord(params)) return null
-
-  const { workflowId: rawWorkflowId, ...restParams } = params
-  const workflowId = normalizeString(rawWorkflowId)
-  const nextParams = workflowId ? { ...restParams, workflowId } : restParams
-
-  return Object.keys(nextParams).length > 0 ? nextParams : null
+  pairColor?: PairColor
+  onWorkflowSelect?: (workflowId: string | null) => void
+  scopeKey?: string
 }
 
 export function useWorkflowSelectionPersistence({
-  onWidgetParamsChange,
-  panelId,
-  pairColor = 'gray',
-  params,
+  onWorkflowSelect,
+  ...rest
 }: UseWorkflowSelectionPersistenceOptions) {
-  const latestParamsRef = useRef<Record<string, unknown> | null>(
-    sanitizeWorkflowWidgetParams(params)
-  )
-
-  useEffect(() => {
-    latestParamsRef.current = sanitizeWorkflowWidgetParams(params)
-  }, [params])
-
-  useEffect(() => {
-    if (!onWidgetParamsChange) {
-      return
-    }
-
-    const handleWorkflowSelect = (event: Event) => {
-      const detail = (event as CustomEvent<WorkflowWidgetSelectEventDetail>).detail
-      if (!detail?.workflowId) return
-      if (pairColor !== 'gray') return
-      if (panelId && detail.panelId && detail.panelId !== panelId) return
-
-      const currentParams = latestParamsRef.current ?? {}
-      const nextParams = sanitizeWorkflowWidgetParams({
-        ...currentParams,
-        workflowId: detail.workflowId,
-      })
-
-      if (isEqual(currentParams, nextParams)) return
-      latestParamsRef.current = nextParams
-      onWidgetParamsChange(nextParams)
-    }
-
-    window.addEventListener(
-      WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT,
-      handleWorkflowSelect as EventListener
-    )
-
-    return () => {
-      window.removeEventListener(
-        WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT,
-        handleWorkflowSelect as EventListener
-      )
-    }
-  }, [onWidgetParamsChange, panelId, pairColor])
+  const opts: UseSelectionPersistenceOptions = {
+    ...rest,
+    onEntitySelect: onWorkflowSelect,
+  }
+  useWorkflowSelectionPersistenceGeneric(opts)
 }
+
+const emitGeneric = createEmitSelectionChange({
+  eventName: WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT,
+  detailIdKey: 'workflowId',
+})
 
 interface EmitWorkflowSelectionOptions {
-  workflowId: string
+  workflowId?: string | null
   panelId?: string
+  widgetKey: string
 }
 
-export function emitWorkflowSelectionChange({ workflowId, panelId }: EmitWorkflowSelectionOptions) {
-  if (!workflowId) return
-
-  window.dispatchEvent(
-    new CustomEvent<WorkflowWidgetSelectEventDetail>(WORKFLOW_WIDGET_SELECT_WORKFLOW_EVENT, {
-      detail: {
-        workflowId,
-        panelId,
-      },
-    })
-  )
+export function emitWorkflowSelectionChange({
+  workflowId,
+  ...rest
+}: EmitWorkflowSelectionOptions) {
+  emitGeneric({ ...rest, entityId: workflowId })
 }

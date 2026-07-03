@@ -21,7 +21,10 @@ import {
   emitCustomToolSelectionChange,
   useCustomToolSelectionPersistence,
 } from '@/widgets/utils/custom-tool-selection'
-import { resolveEntityIdFromList } from '@/widgets/utils/entity-selection'
+import {
+  resolveEntityIdFromList,
+  usePersistResolvedEntityId,
+} from '@/widgets/utils/entity-selection'
 import {
   CUSTOM_TOOL_EDITOR_WIDGET_KEY,
   resolveCustomToolId,
@@ -162,35 +165,13 @@ function EditorCustomToolWidgetBody({
 
   const customToolSession = useSavedEntityYjsSession('custom_tool', selectedToolId, workspaceId)
 
-  useEffect(() => {
-    if (!selectedToolId) return
-    if (isLinkedToColorPair) {
-      if (pairContext?.customToolId === selectedToolId) {
-        return
-      }
-
-      setPairContext(resolvedPairColor, { customToolId: selectedToolId })
-      return
-    }
-
-    if (!onWidgetParamsChange || paramsCustomToolId === selectedToolId) {
-      return
-    }
-
-    onWidgetParamsChange({
-      ...(params ?? {}),
-      customToolId: selectedToolId,
-    })
-  }, [
-    isLinkedToColorPair,
+  usePersistResolvedEntityId({
+    entityId: selectedToolId,
+    entityIdKey: 'customToolId',
     onWidgetParamsChange,
-    pairContext?.customToolId,
+    pairColor: resolvedPairColor,
     params,
-    paramsCustomToolId,
-    resolvedPairColor,
-    selectedToolId,
-    setPairContext,
-  ])
+  })
 
   useEffect(() => {
     if (!selectedToolId) {

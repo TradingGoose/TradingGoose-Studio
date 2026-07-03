@@ -14,6 +14,7 @@ import { useChatStore } from '@/stores/chat/store'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
+import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
 import {
   emitWorkflowSelectionChange,
   useWorkflowSelectionPersistence,
@@ -33,6 +34,7 @@ const ChatWidgetBody = ({
   const copy = useWorkflowChatMessages()
   const dropdownCopy = useWorkflowDropdownMessages()
   const workspaceId = context?.workspaceId
+  const widgetKey = widget?.key ?? 'workflow_chat'
   const {
     channelId,
     resolvedPairColor,
@@ -54,7 +56,16 @@ const ChatWidgetBody = ({
     panelId,
     pairColor: resolvedPairColor,
     params,
+    scopeKey: widgetKey,
   })
+  usePersistResolvedEntityId({
+    entityId: resolvedWorkflowId,
+    entityIdKey: 'workflowId',
+    onWidgetParamsChange,
+    pairColor: resolvedPairColor,
+    params,
+  })
+
   if (!workspaceId) {
     return <WidgetStateMessage message={copy.selectWorkspace} />
   }
@@ -198,9 +209,10 @@ const ChatWorkflowHeaderSelector = ({
       emitWorkflowSelectionChange({
         panelId,
         workflowId,
+        widgetKey: widget?.key ?? 'workflow_chat',
       })
     },
-    [panelId, resolvedPairColor]
+    [panelId, resolvedPairColor, widget?.key]
   )
 
   return (

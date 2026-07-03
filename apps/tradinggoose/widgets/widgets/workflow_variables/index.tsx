@@ -11,6 +11,7 @@ import { WORKFLOW_VARIABLES_ADD_EVENT } from '@/widgets/events'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
+import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
 import {
   emitWorkflowSelectionChange,
   useWorkflowSelectionPersistence,
@@ -35,6 +36,7 @@ const WorkflowVariablesWidgetBody = ({
   const copy = useWorkflowVariablesMessages()
   const dropdownCopy = useWorkflowDropdownMessages()
   const workspaceId = context?.workspaceId
+  const widgetKey = widget?.key ?? 'workflow_variables'
   const {
     channelId,
     resolvedPairColor,
@@ -55,6 +57,15 @@ const WorkflowVariablesWidgetBody = ({
   useWorkflowSelectionPersistence({
     onWidgetParamsChange,
     panelId,
+    pairColor: resolvedPairColor,
+    params,
+    scopeKey: widgetKey,
+  })
+
+  usePersistResolvedEntityId({
+    entityId: resolvedWorkflowId,
+    entityIdKey: 'workflowId',
+    onWidgetParamsChange,
     pairColor: resolvedPairColor,
     params,
   })
@@ -177,9 +188,10 @@ const WorkflowVariablesHeaderWorkflowSelector = ({
       emitWorkflowSelectionChange({
         panelId,
         workflowId,
+        widgetKey: widget?.key ?? 'workflow_variables',
       })
     },
-    [panelId, resolvedPairColor]
+    [panelId, resolvedPairColor, widget?.key]
   )
 
   return (

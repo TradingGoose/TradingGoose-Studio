@@ -1,13 +1,16 @@
 'use client'
 
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useRef } from 'react'
 import { useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
-import { resolveEntityIdFromList } from '@/widgets/utils/entity-selection'
+import {
+  resolveEntityIdFromList,
+  usePersistResolvedEntityId,
+} from '@/widgets/utils/entity-selection'
 import { useIndicatorEditorActions } from '@/widgets/utils/indicator-editor-actions'
 import { useIndicatorSelectionPersistence } from '@/widgets/utils/indicator-selection'
 import { IndicatorCodePanel } from '@/widgets/widgets/editor_indicator/components/pine-indicator-code-panel'
@@ -53,38 +56,13 @@ export function EditorIndicatorWidgetBody({
   })
   const indicatorSession = useSavedEntityYjsSession('indicator', indicatorId, workspaceId)
 
-  useEffect(() => {
-    if (!indicatorId) {
-      return
-    }
-
-    if (isLinkedToColorPair) {
-      if (pairContext?.indicatorId === indicatorId) {
-        return
-      }
-
-      setPairContext(resolvedPairColor, { indicatorId })
-      return
-    }
-
-    if (!onWidgetParamsChange || paramsIndicatorId === indicatorId) {
-      return
-    }
-
-    onWidgetParamsChange({
-      ...(params ?? {}),
-      indicatorId,
-    })
-  }, [
-    indicatorId,
-    isLinkedToColorPair,
+  usePersistResolvedEntityId({
+    entityId: indicatorId,
+    entityIdKey: 'indicatorId',
     onWidgetParamsChange,
-    pairContext?.indicatorId,
+    pairColor: resolvedPairColor,
     params,
-    paramsIndicatorId,
-    resolvedPairColor,
-    setPairContext,
-  ])
+  })
 
   useIndicatorSelectionPersistence({
     onWidgetParamsChange,

@@ -16,6 +16,7 @@ import { useConsoleStore } from '@/stores/console/store'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
+import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
 import {
   emitWorkflowSelectionChange,
   useWorkflowSelectionPersistence,
@@ -38,6 +39,7 @@ const WorkflowConsoleWidgetBody = ({
   const copy = useWorkflowConsoleMessages()
   const dropdownCopy = useWorkflowDropdownMessages()
   const workspaceId = context?.workspaceId
+  const widgetKey = widget?.key ?? 'workflow_console'
   const {
     channelId,
     resolvedPairColor,
@@ -59,7 +61,16 @@ const WorkflowConsoleWidgetBody = ({
     panelId,
     pairColor: resolvedPairColor,
     params,
+    scopeKey: widgetKey,
   })
+  usePersistResolvedEntityId({
+    entityId: resolvedWorkflowId,
+    entityIdKey: 'workflowId',
+    onWidgetParamsChange,
+    pairColor: resolvedPairColor,
+    params,
+  })
+
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [panelWidth, setPanelWidth] = useState(0)
   const fallbackPanelWidth = typeof window !== 'undefined' ? window.innerWidth : 1200
@@ -322,6 +333,7 @@ const WorkflowConsoleHeaderSelector = ({
     emitWorkflowSelectionChange({
       panelId,
       workflowId,
+      widgetKey: widget?.key ?? 'workflow_console',
     })
   }
 

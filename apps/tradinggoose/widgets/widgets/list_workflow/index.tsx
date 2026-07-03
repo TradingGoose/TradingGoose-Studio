@@ -12,6 +12,7 @@ import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
+import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
 import {
   emitWorkflowSelectionChange,
@@ -45,6 +46,7 @@ const WorkflowListWidgetBody = ({
   const workspaceId = context?.workspaceId ?? null
   const copy = useMessages().workspace.widgets.workflowList
   const widgetParams = params ?? widget?.params ?? null
+  const widgetKey = widget?.key ?? 'workflow_list'
   const {
     channelId,
     resolvedPairColor,
@@ -66,6 +68,15 @@ const WorkflowListWidgetBody = ({
   useWorkflowSelectionPersistence({
     onWidgetParamsChange,
     panelId,
+    pairColor: resolvedPairColor,
+    params: widgetParams,
+    scopeKey: widgetKey,
+  })
+
+  usePersistResolvedEntityId({
+    entityId: selectedWorkflowId,
+    entityIdKey: 'workflowId',
+    onWidgetParamsChange,
     pairColor: resolvedPairColor,
     params: widgetParams,
   })
@@ -96,10 +107,10 @@ const WorkflowListWidgetBody = ({
       if (isLinkedToColorPair) {
         setPairContext(resolvedPairColor, { workflowId })
       } else {
-        emitWorkflowSelectionChange({ panelId, workflowId })
+        emitWorkflowSelectionChange({ panelId, workflowId, widgetKey })
       }
     },
-    [resolvedPairColor, isLinkedToColorPair, setPairContext, panelId]
+    [resolvedPairColor, isLinkedToColorPair, setPairContext, panelId, widgetKey]
   )
   const selectWorkflowIdWhenListed = usePendingEntitySelection(members, selectWorkflowId)
 
