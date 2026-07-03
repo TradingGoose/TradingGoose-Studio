@@ -83,10 +83,11 @@ export function WorkflowDropdown({
 
   const selectedWorkflowId = value ?? null
   const selectedWorkflow = workspaceWorkflows.find((workflow) => workflow.id === selectedWorkflowId)
+  const hasWorkflows = workspaceWorkflows.length > 0
   const isDropdownDisabled = disabled || !workspaceId
   const tooltipText = !workspaceId
     ? copy.selectWorkspaceFirst
-    : error
+    : error && !hasWorkflows
       ? copy.unableToLoad
       : disabled
         ? copy.workflowSelectionUnavailable
@@ -140,7 +141,7 @@ export function WorkflowDropdown({
       )
     }
 
-    if (error) {
+    if (error && !hasWorkflows) {
       return (
         <div className='space-y-2 px-3 py-2 text-xs'>
           <p className='text-destructive'>{error}</p>

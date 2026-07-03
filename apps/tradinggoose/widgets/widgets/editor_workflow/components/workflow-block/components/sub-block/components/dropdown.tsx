@@ -239,10 +239,18 @@ export function Dropdown({
     return typeof option === 'string' ? option : hasExplicitValue(option) ? option.value : option.id
   }
 
-  const resolvedFetchError = isWorkflowSelector ? workflowOptionsError : fetchError
-  const isLoadingAvailableOptions = isWorkflowSelector ? isLoadingWorkflowOptions : isLoadingOptions
+  const hasWorkflowOptions = workflowOptions.length > 0
+  const workflowOptionsUnavailable = Boolean(workflowOptionsError && !hasWorkflowOptions)
+  const resolvedFetchError = isWorkflowSelector
+    ? workflowOptionsUnavailable
+      ? workflowOptionsError
+      : null
+    : fetchError
+  const isLoadingAvailableOptions = isWorkflowSelector
+    ? isLoadingWorkflowOptions && !hasWorkflowOptions
+    : isLoadingOptions
   const optionsReady = isWorkflowSelector
-    ? !isLoadingWorkflowOptions && !workflowOptionsError
+    ? !isLoadingAvailableOptions && !workflowOptionsUnavailable
     : fetchOptions
       ? hasFetchedOptions && !isLoadingOptions && !fetchError
       : true

@@ -59,21 +59,37 @@ export const useWorkflowWidgetState = ({
     pairContext: shouldUsePairWorkflowContext ? pairContext : null,
   })
 
-  const workflowIds = useMemo(() => members.map((member) => member.entityId), [members])
-  const hasLoadedWorkflows = !workspaceId || Boolean(listError) || !isListLoading
-  const canResolveWorkflowIds = Boolean(workspaceId) && !listError && !isListLoading
+  const workflowIds = useMemo(
+    () =>
+      [...members]
+        .sort((left, right) => (right.createdAt ?? '').localeCompare(left.createdAt ?? ''))
+        .map((member) => member.entityId),
+    [members]
+  )
+  const hasWorkflowMembers = workflowIds.length > 0
+  const hasLoadedWorkflows =
+    !workspaceId || hasWorkflowMembers || Boolean(listError) || !isListLoading
 
   const resolvedWorkflowId = useMemo(() => {
-    if (!canResolveWorkflowIds) return null
+    if (!workspaceId || (!hasWorkflowMembers && (listError || isListLoading))) return null
 
     return resolveEntityIdFromList({
       requestedEntityId: storedWorkflowId,
       entityIds: workflowIds,
-      useDefaultEntity: false,
+      useDefaultEntity: !shouldUsePairWorkflowContext,
     })
-  }, [workflowIds, storedWorkflowId, canResolveWorkflowIds])
+  }, [
+    workflowIds,
+    storedWorkflowId,
+    workspaceId,
+    hasWorkflowMembers,
+    listError,
+    isListLoading,
+    shouldUsePairWorkflowContext,
+  ])
 
-  const loadError: 'unableToLoadWorkflows' | null = listError ? 'unableToLoadWorkflows' : null
+  const loadError: 'unableToLoadWorkflows' | null =
+    listError && !hasWorkflowMembers ? 'unableToLoadWorkflows' : null
 
   return {
     resolvedPairColor,
@@ -81,7 +97,7 @@ export const useWorkflowWidgetState = ({
     resolvedWorkflowId,
     hasLoadedWorkflows,
     loadError,
-    isLoading: isListLoading,
+    isLoading: isListLoading && !hasWorkflowMembers,
     workflowIds,
   }
 }

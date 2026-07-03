@@ -162,11 +162,11 @@ const WorkflowListWidgetBody = ({
     return <WidgetMessage message={copy.body.selectWorkspace} />
   }
 
-  if (error) {
+  if (error && regularWorkflows.length === 0) {
     return <WidgetMessage message={error} />
   }
 
-  if (isLoading) {
+  if (isLoading && regularWorkflows.length === 0) {
     return (
       <div className='flex h-full items-center justify-center'>
         <LoadingAgent size='md' />
