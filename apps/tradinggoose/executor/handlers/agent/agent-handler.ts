@@ -184,29 +184,35 @@ export class AgentBlockHandler implements BlockHandler {
     return undefined
   }
 
-  // An agent block runs with exactly the tools selected on it (minus explicit
-  // usageControl 'none') or fails with the reason — hydration never silently
-  // drops a tool. Per-call failures during the run still surface to the model
-  // as tool errors, which is where graceful degradation belongs.
   private async formatTools(inputTools: ToolInput[], context: ExecutionContext): Promise<any[]> {
     if (!Array.isArray(inputTools)) return []
 
-    return Promise.all(
+    const tools = await Promise.all(
       inputTools
         .filter((tool) => {
           const usageControl = tool.usageControl || 'auto'
           return usageControl !== 'none'
         })
         .map(async (tool) => {
-          if (tool.type === 'custom-tool' && tool.schema) {
-            return await this.createCustomTool(tool, context)
+          try {
+            if (tool.type === 'custom-tool' && tool.schema) {
+              return await this.createCustomTool(tool, context)
+            }
+            if (tool.type === 'mcp') {
+              return await this.createMcpTool(tool, context)
+            }
+            return this.transformBlockTool(tool, context)
+          } catch (error) {
+            logger.warn(
+              `Skipping unavailable agent tool ${tool.title || tool.toolId || tool.type}:`,
+              error
+            )
+            return null
           }
-          if (tool.type === 'mcp') {
-            return await this.createMcpTool(tool, context)
-          }
-          return this.transformBlockTool(tool, context)
         })
     )
+
+    return tools.filter((tool): tool is NonNullable<typeof tool> => Boolean(tool))
   }
 
   private async createCustomTool(tool: ToolInput, context: ExecutionContext): Promise<any> {
@@ -274,123 +280,118 @@ export class AgentBlockHandler implements BlockHandler {
       throw new Error('MCP tool selection is missing serverId or toolName')
     }
 
-    try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
 
-      if (typeof window === 'undefined') {
-        try {
-          const { generateInternalToken } = await import('@/lib/auth/internal')
-          const internalToken = await generateInternalToken(context.userId)
-          headers.Authorization = `Bearer ${internalToken}`
-        } catch (error) {
-          logger.error(`Failed to generate internal token for MCP tool discovery:`, error)
-        }
+    if (typeof window === 'undefined') {
+      try {
+        const { generateInternalToken } = await import('@/lib/auth/internal')
+        const internalToken = await generateInternalToken(context.userId)
+        headers.Authorization = `Bearer ${internalToken}`
+      } catch (error) {
+        logger.error(`Failed to generate internal token for MCP tool discovery:`, error)
       }
+    }
 
-      const url = new URL('/api/mcp/tools/discover', getBaseUrl())
-      url.searchParams.set('serverId', serverId)
-      if (context.workspaceId) {
-        url.searchParams.set('workspaceId', context.workspaceId)
-      } else {
-        throw new Error('workspaceId is required for MCP tool discovery')
-      }
-      if (context.workflowId) {
-        url.searchParams.set('workflowId', context.workflowId)
-      } else {
-        throw new Error('workflowId is required for internal JWT authentication')
-      }
-      url.searchParams.set('isDeployedContext', String(context.isDeployedContext !== false))
+    const url = new URL('/api/mcp/tools/discover', getBaseUrl())
+    url.searchParams.set('serverId', serverId)
+    if (context.workspaceId) {
+      url.searchParams.set('workspaceId', context.workspaceId)
+    } else {
+      throw new Error('workspaceId is required for MCP tool discovery')
+    }
+    if (context.workflowId) {
+      url.searchParams.set('workflowId', context.workflowId)
+    } else {
+      throw new Error('workflowId is required for internal JWT authentication')
+    }
+    url.searchParams.set('isDeployedContext', String(context.isDeployedContext !== false))
 
-      const response = await fetch(url.toString(), {
-        method: 'GET',
-        headers,
-      })
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => '')
-        throw new Error(
-          `Failed to discover tools from MCP server ${serverId} (status ${response.status})${errorText ? `: ${errorText}` : ''}`
-        )
-      }
-
-      const data = await response.json()
-      if (!data.success) {
-        throw new Error(data.error || `MCP tool discovery failed for server ${serverId}`)
-      }
-
-      const mcpTool = data.data.tools.find((t: any) => t.name === toolName)
-      if (!mcpTool) {
-        throw new Error(`MCP tool ${toolName} not found on server ${serverId}`)
-      }
-
-      const toolId = createMcpToolId(serverId, toolName)
-
-      const { filterSchemaForLLM } = await import('@/tools/params')
-      const filteredSchema = filterSchemaForLLM(
-        mcpTool.inputSchema || { type: 'object', properties: {} },
-        userProvidedParams
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers,
+    })
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '')
+      throw new Error(
+        `Failed to discover tools from MCP server ${serverId} (status ${response.status})${errorText ? `: ${errorText}` : ''}`
       )
+    }
 
-      return {
-        id: toolId,
-        name: toolName,
-        description: mcpTool.description || `MCP tool ${toolName} from ${mcpTool.serverName}`,
-        parameters: filteredSchema,
-        params: userProvidedParams,
-        usageControl: tool.usageControl || 'auto',
-        executeFunction: async (callParams: Record<string, any>) => {
-          logger.info(`Executing MCP tool ${toolName} on server ${serverId}`)
+    const data = await response.json()
+    if (!data.success) {
+      throw new Error(data.error || `MCP tool discovery failed for server ${serverId}`)
+    }
 
-          const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    const mcpTool = data.data.tools.find((t: any) => t.name === toolName)
+    if (!mcpTool) {
+      throw new Error(`MCP tool ${toolName} not found on server ${serverId}`)
+    }
 
-          if (typeof window === 'undefined') {
-            try {
-              const { generateInternalToken } = await import('@/lib/auth/internal')
-              const internalToken = await generateInternalToken(context.userId)
-              headers.Authorization = `Bearer ${internalToken}`
-            } catch (error) {
-              logger.error(`Failed to generate internal token for MCP tool ${toolName}:`, error)
-            }
+    const toolId = createMcpToolId(serverId, toolName)
+
+    const { filterSchemaForLLM } = await import('@/tools/params')
+    const filteredSchema = filterSchemaForLLM(
+      mcpTool.inputSchema || { type: 'object', properties: {} },
+      userProvidedParams
+    )
+
+    return {
+      id: toolId,
+      name: toolName,
+      description: mcpTool.description || `MCP tool ${toolName} from ${mcpTool.serverName}`,
+      parameters: filteredSchema,
+      params: userProvidedParams,
+      usageControl: tool.usageControl || 'auto',
+      executeFunction: async (callParams: Record<string, any>) => {
+        logger.info(`Executing MCP tool ${toolName} on server ${serverId}`)
+
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+
+        if (typeof window === 'undefined') {
+          try {
+            const { generateInternalToken } = await import('@/lib/auth/internal')
+            const internalToken = await generateInternalToken(context.userId)
+            headers.Authorization = `Bearer ${internalToken}`
+          } catch (error) {
+            logger.error(`Failed to generate internal token for MCP tool ${toolName}:`, error)
           }
+        }
 
-          const execResponse = await fetch(`${getBaseUrl()}/api/mcp/tools/execute`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              serverId,
-              toolName,
-              arguments: callParams,
-              workspaceId: context.workspaceId,
-              workflowId: context.workflowId,
-              isDeployedContext: context.isDeployedContext !== false,
-            }),
-          })
+        const execResponse = await fetch(`${getBaseUrl()}/api/mcp/tools/execute`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            serverId,
+            toolName,
+            arguments: callParams,
+            workspaceId: context.workspaceId,
+            workflowId: context.workflowId,
+            isDeployedContext: context.isDeployedContext !== false,
+          }),
+        })
 
-          if (!execResponse.ok) {
-            throw new Error(
-              `MCP tool execution failed: ${execResponse.status} ${execResponse.statusText}`
-            )
-          }
+        if (!execResponse.ok) {
+          throw new Error(
+            `MCP tool execution failed: ${execResponse.status} ${execResponse.statusText}`
+          )
+        }
 
-          const result = await execResponse.json()
-          if (!result.success) {
-            throw new Error(result.error || 'MCP tool execution failed')
-          }
+        const result = await execResponse.json()
+        if (!result.success) {
+          throw new Error(result.error || 'MCP tool execution failed')
+        }
 
-          return {
-            success: true,
-            output: result.data.output || {},
-            metadata: {
-              source: 'mcp',
-              serverId,
-              serverName: mcpTool.serverName,
-              toolName,
-            },
-          }
-        },
-      }
-    } catch (error) {
-      logger.warn(`Failed to create MCP tool ${toolName} from server ${serverId}:`, error)
-      throw error
+        return {
+          success: true,
+          output: result.data.output || {},
+          metadata: {
+            source: 'mcp',
+            serverId,
+            serverName: mcpTool.serverName,
+            toolName,
+          },
+        }
+      },
     }
   }
 
@@ -409,9 +410,7 @@ export class AgentBlockHandler implements BlockHandler {
       createLLMToolSchema,
     })
 
-    if (!transformedTool) {
-      throw new Error(`Unable to resolve tool ${tool.title || tool.toolId}`)
-    }
+    if (!transformedTool) return null
     transformedTool.usageControl = tool.usageControl || 'auto'
     return transformedTool
   }
