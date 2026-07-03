@@ -80,8 +80,8 @@ describe('indicator options route', () => {
         },
       },
       {
-        id: 'custom-malformed',
-        name: 'Custom Malformed',
+        id: 'custom-without-inputs',
+        name: 'Custom Without Inputs',
         color: '#654321',
         pineCode: 'trigger-capable',
         inputMeta: undefined,
@@ -100,8 +100,8 @@ describe('indicator options route', () => {
 
     expect(response.status).toBe(200)
     expect(payload.data.map((entry: any) => entry.id).sort()).toEqual([
-      'custom-malformed',
       'custom-trigger',
+      'custom-without-inputs',
       'default-trigger',
     ])
 
@@ -122,9 +122,11 @@ describe('indicator options route', () => {
       })
     )
 
-    const malformedOption = payload.data.find((entry: any) => entry.id === 'custom-malformed')
-    expect(malformedOption.inputTitles).toEqual([])
-    expect(malformedOption.inputMeta).toBeUndefined()
+    const optionWithoutInputs = payload.data.find(
+      (entry: any) => entry.id === 'custom-without-inputs'
+    )
+    expect(optionWithoutInputs.inputTitles).toEqual([])
+    expect(optionWithoutInputs.inputMeta).toBeUndefined()
   })
 
   it('keeps copilot surface broader than monitor surface', async () => {
@@ -133,9 +135,9 @@ describe('indicator options route', () => {
 
     expect(response.status).toBe(200)
     expect(payload.data.map((entry: any) => entry.id).sort()).toEqual([
-      'custom-malformed',
       'custom-study',
       'custom-trigger',
+      'custom-without-inputs',
       'default-study',
       'default-trigger',
     ])
