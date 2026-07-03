@@ -193,11 +193,17 @@ function EditorCustomToolWidgetBody({
     return <WidgetStateMessage message={copy.body.selectWorkspace} />
   }
 
-  if (customToolListError) {
+  if (customToolListError && customToolMembers.length === 0) {
     return <WidgetStateMessage message={customToolListError} />
   }
 
-  if (hasRequestedCustomTool && !isCustomToolListLoading && !requestedCustomToolMember) {
+  if (
+    hasRequestedCustomTool &&
+    !isCustomToolListLoading &&
+    !customToolListError &&
+    !requestedCustomToolMember &&
+    !selectedToolId
+  ) {
     return <WidgetStateMessage message={copy.body.customToolNotFound} />
   }
 

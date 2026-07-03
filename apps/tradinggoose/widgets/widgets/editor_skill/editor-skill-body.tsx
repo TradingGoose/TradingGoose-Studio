@@ -86,11 +86,17 @@ export function EditorSkillWidgetBody({
     return <WidgetStateMessage message={copy.selectWorkspace} />
   }
 
-  if (skillListError) {
+  if (skillListError && skillMembers.length === 0) {
     return <WidgetStateMessage message={skillListError} />
   }
 
-  if (hasRequestedSkill && !isSkillListLoading && !requestedSkillMember) {
+  if (
+    hasRequestedSkill &&
+    !isSkillListLoading &&
+    !skillListError &&
+    !requestedSkillMember &&
+    !skillId
+  ) {
     return <WidgetStateMessage message={copy.skillNotFound} />
   }
 

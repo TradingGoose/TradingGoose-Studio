@@ -313,11 +313,17 @@ export function EditorMcpWidgetBody({
     return <WidgetStateMessage message={copy.selectWorkspaceToEdit} />
   }
 
-  if (serverListError) {
+  if (serverListError && serverMembers.length === 0) {
     return <WidgetStateMessage message={serverListError} />
   }
 
-  if (requestedServerId && !isServerListLoading && !requestedServerMember) {
+  if (
+    requestedServerId &&
+    !isServerListLoading &&
+    !serverListError &&
+    !requestedServerMember &&
+    !selectedServerId
+  ) {
     return <WidgetStateMessage message={copy.mcpServerNotFound} />
   }
 

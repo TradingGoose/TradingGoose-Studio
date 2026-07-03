@@ -104,11 +104,17 @@ export function EditorIndicatorWidgetBody({
     return <WidgetStateMessage message={copy.selectWorkspace} />
   }
 
-  if (indicatorListError) {
+  if (indicatorListError && indicatorMembers.length === 0) {
     return <WidgetStateMessage message={indicatorListError} />
   }
 
-  if (hasRequestedIndicator && !isIndicatorListLoading && !requestedIndicatorMember) {
+  if (
+    hasRequestedIndicator &&
+    !isIndicatorListLoading &&
+    !indicatorListError &&
+    !requestedIndicatorMember &&
+    !indicatorId
+  ) {
     return <WidgetStateMessage message={copy.indicatorNotFound} />
   }
 
