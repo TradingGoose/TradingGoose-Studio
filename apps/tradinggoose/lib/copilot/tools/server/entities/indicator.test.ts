@@ -4,8 +4,8 @@ import { DEFAULT_INDICATOR_RUNTIME_ENTRIES } from '@/lib/indicators/default/runt
 import { listIndicatorsServerTool, readIndicatorServerTool } from './indicator'
 
 const mockCheckWorkspaceAccess = vi.hoisted(() => vi.fn())
-const mockReadBootstrappedEntityListMembers = vi.hoisted(() => vi.fn())
 const mockReadBootstrappedSavedEntityFields = vi.hoisted(() => vi.fn())
+const mockReadEntityListMembersFromDb = vi.hoisted(() => vi.fn())
 const mockVerifyReviewTargetAccess = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/permissions/utils', () => ({
@@ -17,10 +17,12 @@ vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
-  requireEntityRealtimeListMembers: (...args: unknown[]) =>
-    mockReadBootstrappedEntityListMembers(...args),
   readBootstrappedSavedEntityFields: (...args: unknown[]) =>
     mockReadBootstrappedSavedEntityFields(...args),
+}))
+
+vi.mock('@/lib/yjs/server/entity-loaders', () => ({
+  readEntityListMembersFromDb: (...args: unknown[]) => mockReadEntityListMembersFromDb(...args),
 }))
 
 describe('indicator server tools', () => {
@@ -31,10 +33,10 @@ describe('indicator server tools', () => {
       hasAccess: true,
       canWrite: true,
     })
-    mockReadBootstrappedEntityListMembers.mockResolvedValue([
+    mockReadEntityListMembersFromDb.mockResolvedValue([
       {
-        entityId: 'indicator-custom-1',
-        entityName: 'Custom Momentum',
+        id: 'indicator-custom-1',
+        name: 'Custom Momentum',
       },
     ])
     mockVerifyReviewTargetAccess.mockResolvedValue({

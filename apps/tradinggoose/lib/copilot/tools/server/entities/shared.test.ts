@@ -9,6 +9,7 @@ import { hashServerToolReviewBase } from '@/lib/copilot/tools/server/base-tool'
 import {
   buildDocumentEnvelope,
   buildReviewDocumentDiff,
+  buildSavedEntityListInfo,
   executeCreateEntityDocumentMutation,
   executeUpdateEntityDocumentMutation,
 } from './shared'
@@ -17,8 +18,8 @@ const { mockApplySavedEntityState } = vi.hoisted(() => ({
   mockApplySavedEntityState: vi.fn(),
 }))
 const mockCheckWorkspaceAccess = vi.hoisted(() => vi.fn())
-const mockReadBootstrappedEntityListMembers = vi.hoisted(() => vi.fn())
 const mockReadBootstrappedSavedEntityFields = vi.hoisted(() => vi.fn())
+const mockReadEntityListMembersFromDb = vi.hoisted(() => vi.fn())
 const mockVerifyReviewTargetAccess = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/permissions/utils', () => ({
@@ -34,10 +35,12 @@ vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
 }))
 
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
-  requireEntityRealtimeListMembers: (...args: unknown[]) =>
-    mockReadBootstrappedEntityListMembers(...args),
   readBootstrappedSavedEntityFields: (...args: unknown[]) =>
     mockReadBootstrappedSavedEntityFields(...args),
+}))
+
+vi.mock('@/lib/yjs/server/entity-loaders', () => ({
+  readEntityListMembersFromDb: (...args: unknown[]) => mockReadEntityListMembersFromDb(...args),
 }))
 
 describe('entity document mutation helpers', () => {
@@ -52,7 +55,28 @@ describe('entity document mutation helpers', () => {
       hasAccess: true,
       workspaceId: 'workspace-1',
     })
-    mockReadBootstrappedEntityListMembers.mockResolvedValue([])
+    mockReadEntityListMembersFromDb.mockResolvedValue([])
+  })
+
+  it('builds server list entries from canonical DB membership', async () => {
+    mockReadEntityListMembersFromDb.mockResolvedValueOnce([
+      {
+        id: 'skill-1',
+        name: 'Skill 1',
+        description: 'Use Skill 1 for summaries.',
+        color: '#10b981',
+      },
+    ])
+
+    await expect(buildSavedEntityListInfo('skill', 'workspace-1')).resolves.toEqual([
+      {
+        entityId: 'skill-1',
+        entityName: 'Skill 1',
+        entityDescription: 'Use Skill 1 for summaries.',
+        color: '#10b981',
+      },
+    ])
+    expect(mockReadEntityListMembersFromDb).toHaveBeenCalledWith('skill', 'workspace-1')
   })
 
   it('applies full-access updates without building a review preview', async () => {

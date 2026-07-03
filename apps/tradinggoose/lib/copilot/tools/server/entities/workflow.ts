@@ -32,8 +32,8 @@ import { isWorkflowVariableType, type WorkflowVariableType } from '@/lib/workflo
 import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import {
   readBootstrappedReviewTargetSnapshot,
-  requireEntityRealtimeListMembers,
 } from '@/lib/yjs/server/bootstrap-review-target'
+import { readEntityListMembersFromDb } from '@/lib/yjs/server/entity-loaders'
 import { applyWorkflowPatchInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import {
   createWorkflowSnapshot,
@@ -352,7 +352,18 @@ export const listWorkflowsServerTool: BaseServerTool<{ workspaceId?: string }, a
       withWorkspaceArgContext(context, args),
       'read'
     )
-    const entities = await requireEntityRealtimeListMembers(ENTITY_KIND_WORKFLOW, workspaceId)
+    const entities = (await readEntityListMembersFromDb(ENTITY_KIND_WORKFLOW, workspaceId)).map(
+      (member) => ({
+        entityId: member.id,
+        entityName: member.name,
+        ...(typeof member.description === 'string'
+          ? { entityDescription: member.description }
+          : {}),
+        ...('folderId' in member ? { folderId: member.folderId ?? null } : {}),
+        ...(typeof member.color === 'string' ? { color: member.color } : {}),
+        ...(typeof member.createdAt === 'string' ? { createdAt: member.createdAt } : {}),
+      })
+    )
 
     return {
       entityKind: ENTITY_KIND_WORKFLOW,
