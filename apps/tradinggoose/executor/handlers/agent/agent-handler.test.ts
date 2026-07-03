@@ -314,6 +314,25 @@ describe('AgentBlockHandler', () => {
       expect(systemMessage?.content).toContain('tradinggoose_internal_load_skill_2')
     })
 
+    it('fails when selected skill metadata cannot be hydrated', async () => {
+      mockResolveSkillMetadata.mockRejectedValueOnce(new Error('Skill not found'))
+
+      await expect(
+        handler.execute(
+          mockBlock,
+          {
+            model: 'gpt-4o',
+            userPrompt: 'Use the selected skill.',
+            apiKey: 'test-api-key',
+            skills: [{ skillId: 'deleted-skill' }],
+          },
+          mockContext
+        )
+      ).rejects.toThrow('Skill not found')
+
+      expect(mockFetch).not.toHaveBeenCalled()
+    })
+
     it('should preserve executeFunction for custom tools with different usageControl settings', async () => {
       let capturedTools: any[] = []
 
@@ -706,7 +725,7 @@ describe('AgentBlockHandler', () => {
       expect(result).toEqual(expectedOutput)
     })
 
-    it('omits selected tools that cannot be hydrated', async () => {
+    it('fails when a selected tool cannot be hydrated', async () => {
       const inputs = {
         model: 'gpt-4o',
         userPrompt: 'Analyze this data.',
@@ -723,22 +742,18 @@ describe('AgentBlockHandler', () => {
       mockTransformBlockTool.mockResolvedValue(null)
       mockGetProviderFromModel.mockReturnValue('openai')
 
-      const result = await handler.execute(mockBlock, inputs, mockContext)
+      await expect(handler.execute(mockBlock, inputs, mockContext)).rejects.toThrow(
+        'Agent tool Data Analysis Tool could not be resolved'
+      )
 
       expect(mockTransformBlockTool).toHaveBeenCalledWith(
         inputs.tools[0],
         expect.objectContaining({ selectedOperation: 'analyze' })
       )
-      expect(mockFetch).toHaveBeenCalledWith(expect.any(String), expect.any(Object))
-      expect(result).toEqual(
-        expect.objectContaining({
-          content: 'Mocked response content',
-          toolResults: [],
-        })
-      )
+      expect(mockFetch).not.toHaveBeenCalled()
     })
 
-    it('omits unavailable MCP tool selections before provider startup', async () => {
+    it('fails unavailable MCP tool selections before provider startup', async () => {
       const inputs = {
         model: 'gpt-4o',
         userPrompt: 'Use the MCP tool if available.',
@@ -757,17 +772,13 @@ describe('AgentBlockHandler', () => {
 
       mockGetProviderFromModel.mockReturnValue('openai')
 
-      const result = await handler.execute(mockBlock, inputs, mockContext)
+      await expect(handler.execute(mockBlock, inputs, mockContext)).rejects.toThrow(
+        'MCP tool discovery failed for server deleted-server'
+      )
       const calledUrls = mockFetch.mock.calls.map(([url]) => String(url))
 
       expect(calledUrls.some((url) => url.includes('/api/mcp/tools/discover'))).toBe(true)
-      expect(calledUrls.some((url) => url.includes('/api/providers'))).toBe(true)
-      expect(result).toEqual(
-        expect.objectContaining({
-          content: 'Mocked response content',
-          toolResults: [],
-        })
-      )
+      expect(calledUrls.some((url) => url.includes('/api/providers'))).toBe(false)
     })
 
     it('should execute with custom tools (schema only and with code)', async () => {

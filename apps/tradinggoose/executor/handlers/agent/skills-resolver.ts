@@ -15,7 +15,7 @@ export async function resolveSkillMetadata(
     return []
   }
 
-  const entries = await Promise.allSettled(
+  return Promise.all(
     skillIds.map(async (skillId) => {
       const fields = await readSavedEntityFieldsForExecution(
         'skill',
@@ -30,8 +30,6 @@ export async function resolveSkillMetadata(
       }
     })
   )
-
-  return entries.flatMap((entry) => (entry.status === 'fulfilled' ? [entry.value] : []))
 }
 
 export async function resolveSkillContent(

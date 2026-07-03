@@ -194,25 +194,17 @@ export class AgentBlockHandler implements BlockHandler {
           return usageControl !== 'none'
         })
         .map(async (tool) => {
-          try {
-            if (tool.type === 'custom-tool' && tool.schema) {
-              return await this.createCustomTool(tool, context)
-            }
-            if (tool.type === 'mcp') {
-              return await this.createMcpTool(tool, context)
-            }
-            return this.transformBlockTool(tool, context)
-          } catch (error) {
-            logger.warn(
-              `Skipping unavailable agent tool ${tool.title || tool.toolId || tool.type}:`,
-              error
-            )
-            return null
+          if (tool.type === 'custom-tool' && tool.schema) {
+            return await this.createCustomTool(tool, context)
           }
+          if (tool.type === 'mcp') {
+            return await this.createMcpTool(tool, context)
+          }
+          return this.transformBlockTool(tool, context)
         })
     )
 
-    return tools.filter((tool): tool is NonNullable<typeof tool> => Boolean(tool))
+    return tools
   }
 
   private async createCustomTool(tool: ToolInput, context: ExecutionContext): Promise<any> {
@@ -410,7 +402,9 @@ export class AgentBlockHandler implements BlockHandler {
       createLLMToolSchema,
     })
 
-    if (!transformedTool) return null
+    if (!transformedTool) {
+      throw new Error(`Agent tool ${tool.title || tool.toolId || tool.type} could not be resolved`)
+    }
     transformedTool.usageControl = tool.usageControl || 'auto'
     return transformedTool
   }
