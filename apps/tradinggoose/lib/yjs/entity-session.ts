@@ -134,7 +134,10 @@ export function getEntityListMembers(doc: Y.Doc): EntityListMember[] {
         : {}),
     })
   })
-  entries.sort((a, b) => a.entityName.localeCompare(b.entityName))
+  entries.sort((a, b) => {
+    const nameOrder = a.entityName.localeCompare(b.entityName)
+    return nameOrder || a.entityId.localeCompare(b.entityId)
+  })
   return entries
 }
 
