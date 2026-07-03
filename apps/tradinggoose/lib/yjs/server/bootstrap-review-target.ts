@@ -79,10 +79,10 @@ export async function readBootstrappedReviewTargetSnapshot(descriptor: ReviewTar
   return getYjsSnapshot(descriptor.yjsSessionId, bridgeParams)
 }
 
-async function requireEntityRealtimeListMembers(
-  entityKind: ReviewEntityKind,
+async function readLiveSavedEntityListFieldsForExecution(
+  entityKind: SavedEntityKind,
   workspaceId: string
-): Promise<EntityListMember[]> {
+): Promise<Array<EntityListMember & { fields: Record<string, unknown> }>> {
   const snapshot = await readBootstrappedReviewTargetSnapshot(
     buildEntityListDescriptor(entityKind, workspaceId)
   ).catch(mapSavedEntitySnapshotError)
@@ -93,34 +93,30 @@ async function requireEntityRealtimeListMembers(
   const doc = new Y.Doc()
   try {
     Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
-    return getEntityListMembers(doc)
+    const entries = await Promise.all(
+      getEntityListMembers(doc).map(async (member) => {
+        try {
+          return {
+            ...member,
+            fields: await readBootstrappedSavedEntityFields(
+              entityKind,
+              member.entityId,
+              workspaceId
+            ),
+          }
+        } catch (error) {
+          if (isNotFoundError(error)) return null
+          throw error
+        }
+      })
+    )
+
+    return entries.filter(
+      (entry): entry is EntityListMember & { fields: Record<string, unknown> } => entry !== null
+    )
   } finally {
     doc.destroy()
   }
-}
-
-async function readLiveSavedEntityListFieldsForExecution(
-  entityKind: SavedEntityKind,
-  workspaceId: string
-): Promise<Array<EntityListMember & { fields: Record<string, unknown> }>> {
-  const members = await requireEntityRealtimeListMembers(entityKind, workspaceId)
-  const entries = await Promise.all(
-    members.map(async (member) => {
-      try {
-        return {
-          ...member,
-          fields: await readBootstrappedSavedEntityFields(entityKind, member.entityId, workspaceId),
-        }
-      } catch (error) {
-        if (isNotFoundError(error)) return null
-        throw error
-      }
-    })
-  )
-
-  return entries.filter(
-    (entry): entry is EntityListMember & { fields: Record<string, unknown> } => entry !== null
-  )
 }
 
 export async function readSavedEntityFieldsForExecution(
