@@ -7,7 +7,7 @@ import {
   skill,
   workflow,
 } from '@tradinggoose/db/schema'
-import { and, eq, isNull, type SQL } from 'drizzle-orm'
+import { and, asc, eq, isNull, type SQL } from 'drizzle-orm'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import {
   type SavedEntityKind,
@@ -83,6 +83,7 @@ export async function readEntityListMembersFromDb(
       })
       .from(workflow)
       .where(eq(workflow.workspaceId, workspaceId))
+      .orderBy(asc(workflow.name), asc(workflow.id))
 
     return rows.map((row) => ({
       id: row.id,
@@ -105,6 +106,7 @@ export async function readEntityListMembersFromDb(
       })
       .from(mcpServers)
       .where(entityCondition(entityKind, [eq(mcpServers.workspaceId, workspaceId)]))
+      .orderBy(asc(mcpServers.name), asc(mcpServers.id))
 
     return rows.map((row) => ({
       id: row.id,
@@ -120,6 +122,7 @@ export async function readEntityListMembersFromDb(
       .select({ id: skill.id, name: skill.name, description: skill.description })
       .from(skill)
       .where(entityCondition(entityKind, [eq(skill.workspaceId, workspaceId)]))
+      .orderBy(asc(skill.name), asc(skill.id))
 
     return rows.map((row) => ({
       id: row.id,
@@ -133,6 +136,7 @@ export async function readEntityListMembersFromDb(
       .select({ id: customTools.id, name: customTools.title, schema: customTools.schema })
       .from(customTools)
       .where(entityCondition(entityKind, [eq(customTools.workspaceId, workspaceId)]))
+      .orderBy(asc(customTools.title), asc(customTools.id))
 
     return rows.map((row) => {
       const schema = row.schema as { function?: { description?: unknown } } | null
@@ -152,6 +156,7 @@ export async function readEntityListMembersFromDb(
       .select({ id: pineIndicators.id, name: pineIndicators.name, color: pineIndicators.color })
       .from(pineIndicators)
       .where(entityCondition(entityKind, [eq(pineIndicators.workspaceId, workspaceId)]))
+      .orderBy(asc(pineIndicators.name), asc(pineIndicators.id))
 
     return rows.map((row) => ({
       id: row.id,
@@ -165,6 +170,7 @@ export async function readEntityListMembersFromDb(
     .select({ id: table.id, name })
     .from(table)
     .where(entityCondition(entityKind, [eq(table.workspaceId, workspaceId)]))
+    .orderBy(asc(name), asc(table.id))
 
   return rows.map((row) => ({ id: row.id, name: row.name ?? '' }))
 }
