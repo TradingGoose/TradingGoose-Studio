@@ -350,7 +350,7 @@ export function useEntityList(
   return {
     members,
     isLoading: Boolean(sessionKey && !activeState?.result && !activeState?.error),
-    error: activeState?.error ?? null,
+    error: members.length === 0 ? (activeState?.error ?? null) : null,
   }
 }
 

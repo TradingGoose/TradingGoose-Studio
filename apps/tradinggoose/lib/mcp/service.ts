@@ -201,8 +201,13 @@ class McpService {
     )
 
     return servers.flatMap(({ entityId, fields: rawFields }) => {
-      const fields = normalizeEntityFields('mcp_server', rawFields)
-      return fields.enabled === false ? [] : [this.toServerConfig(entityId, fields)]
+      try {
+        const fields = normalizeEntityFields('mcp_server', rawFields)
+        return fields.enabled === false ? [] : [this.toServerConfig(entityId, fields)]
+      } catch (error) {
+        logger.warn(`Skipping invalid MCP server ${entityId} during workspace discovery:`, error)
+        return []
+      }
     })
   }
 
