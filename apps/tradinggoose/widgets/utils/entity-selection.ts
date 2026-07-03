@@ -29,6 +29,12 @@ export function resolveEntityId(
   return typeof value === 'string' ? normalizeEntityId(value) : null
 }
 
+/**
+ * Shared dashboard entity selection policy:
+ * - a non-empty requested id is authoritative and resolves to null if absent;
+ * - an empty requested id may use a fallback/default when the caller allows it;
+ * - linked color-pair widgets pass useDefaultEntity=false, so they never auto-claim.
+ */
 export function resolveEntityIdFromList({
   requestedEntityId,
   fallbackEntityId,
@@ -76,6 +82,8 @@ export function usePersistResolvedEntityId({
   params?: Record<string, unknown> | null
 }) {
   useEffect(() => {
+    // Gray widgets own their local params, so an auto-claimed default becomes stable.
+    // Missing explicit ids resolve to null and are intentionally not rewritten here.
     if (pairColor !== 'gray') return
     if (!entityId) return
     if (!onWidgetParamsChange) return
