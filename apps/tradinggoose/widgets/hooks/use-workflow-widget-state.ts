@@ -88,8 +88,7 @@ export const useWorkflowWidgetState = ({
     shouldUsePairWorkflowContext,
   ])
 
-  const loadError: 'unableToLoadWorkflows' | null =
-    listError && !hasWorkflowMembers ? 'unableToLoadWorkflows' : null
+  const loadError: 'unableToLoadWorkflows' | null = listError ? 'unableToLoadWorkflows' : null
 
   return {
     resolvedPairColor,
