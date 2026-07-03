@@ -13,7 +13,10 @@ import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/
 import type { IndicatorDefinition } from '@/stores/indicators/types'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
-import { resolveEntityIdFromList } from '@/widgets/utils/entity-selection'
+import {
+  resolveEntityIdFromList,
+  usePersistResolvedEntityId,
+} from '@/widgets/utils/entity-selection'
 import {
   emitIndicatorSelectionChange,
   useIndicatorSelectionPersistence,
@@ -81,7 +84,15 @@ export function IndicatorList({
   const selectedIndicatorId = resolveEntityIdFromList({
     requestedEntityId: requestedIndicatorId,
     entityIds: listIndicators.map((indicator) => indicator.id),
-    useDefaultEntity: false,
+    useDefaultEntity: !isLinkedToColorPair,
+  })
+
+  usePersistResolvedEntityId({
+    entityId: selectedIndicatorId,
+    entityIdKey: 'indicatorId',
+    onWidgetParamsChange,
+    pairColor: resolvedPairColor,
+    params,
   })
 
   const handleSelect = useCallback(

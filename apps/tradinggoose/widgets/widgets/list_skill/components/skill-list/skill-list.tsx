@@ -12,7 +12,10 @@ import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/
 import type { SkillDefinition } from '@/lib/skills/types'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
-import { resolveEntityIdFromList } from '@/widgets/utils/entity-selection'
+import {
+  resolveEntityIdFromList,
+  usePersistResolvedEntityId,
+} from '@/widgets/utils/entity-selection'
 import {
   emitSkillSelectionChange,
   useSkillSelectionPersistence,
@@ -82,7 +85,15 @@ export function SkillList({
   const selectedSkillId = resolveEntityIdFromList({
     requestedEntityId: requestedSkillId,
     entityIds: listSkills.map((skill) => skill.id),
-    useDefaultEntity: false,
+    useDefaultEntity: !isLinkedToColorPair,
+  })
+
+  usePersistResolvedEntityId({
+    entityId: selectedSkillId,
+    entityIdKey: 'skillId',
+    onWidgetParamsChange,
+    pairColor: resolvedPairColor,
+    params,
   })
 
   const handleSelect = useCallback(

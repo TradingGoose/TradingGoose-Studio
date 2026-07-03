@@ -40,7 +40,10 @@ import {
   emitCustomToolSelectionChange,
   useCustomToolSelectionPersistence,
 } from '@/widgets/utils/custom-tool-selection'
-import { resolveEntityIdFromList } from '@/widgets/utils/entity-selection'
+import {
+  resolveEntityIdFromList,
+  usePersistResolvedEntityId,
+} from '@/widgets/utils/entity-selection'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
 import { CustomToolListItem } from '@/widgets/widgets/_shared/custom_tool/components/custom-tool-list-item'
 import {
@@ -348,7 +351,15 @@ function ListCustomToolWidgetBodyInner({
   const selectedToolId = resolveEntityIdFromList({
     requestedEntityId: requestedToolId,
     entityIds: tools.map((tool) => tool.id),
-    useDefaultEntity: false,
+    useDefaultEntity: !isLinkedToColorPair,
+  })
+
+  usePersistResolvedEntityId({
+    entityId: selectedToolId,
+    entityIdKey: 'customToolId',
+    onWidgetParamsChange,
+    pairColor: resolvedPairColor,
+    params,
   })
 
   useCustomToolSelectionPersistence({

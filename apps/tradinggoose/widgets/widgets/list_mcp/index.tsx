@@ -39,7 +39,10 @@ import { useMcpTools } from '@/hooks/use-mcp-tools'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
-import { resolveEntityIdFromList } from '@/widgets/utils/entity-selection'
+import {
+  resolveEntityIdFromList,
+  usePersistResolvedEntityId,
+} from '@/widgets/utils/entity-selection'
 import { MCP_SERVER_DEFAULTS } from '@/widgets/utils/mcp-defaults'
 import { emitMcpSelectionChange, useMcpSelectionPersistence } from '@/widgets/utils/mcp-selection'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
@@ -261,7 +264,15 @@ const ListMcpWidgetContent = ({
   const selectedServerId = resolveEntityIdFromList({
     requestedEntityId: requestedServerId,
     entityIds: workspaceServers.map((server) => server.id),
-    useDefaultEntity: false,
+    useDefaultEntity: !isLinkedToColorPair,
+  })
+
+  usePersistResolvedEntityId({
+    entityId: selectedServerId,
+    entityIdKey: 'mcpServerId',
+    onWidgetParamsChange,
+    pairColor: resolvedPairColor,
+    params,
   })
 
   useMcpSelectionPersistence({
