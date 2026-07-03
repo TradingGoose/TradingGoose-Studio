@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, ChevronDown, LayoutDashboard, Play, RefreshCw, X } from 'lucide-react'
 import {
   Button,
@@ -32,7 +32,6 @@ import {
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useWorkflowExecution } from '@/hooks/workflow/use-workflow-execution'
 import { formatTemplate } from '@/i18n/utils'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import {
   DeploymentControls,
@@ -114,6 +113,7 @@ export function ControlBar({
   const [autoLayoutError, setAutoLayoutError] = useState<string | null>(null)
 
   // Deployed state management
+  const [isDeployed, setIsDeployed] = useState(false)
   const [deployedState, setDeployedState] = useState<WorkflowState | null>(null)
   const [isLoadingDeployedState, setIsLoadingDeployedState] = useState<boolean>(false)
 
@@ -152,24 +152,55 @@ export function ControlBar({
     isWorkflowBlocked || !userPermissions.canEdit || !canRunWithShortcut
   )
 
-  // Get deployment status from registry
-  const deploymentStatus = useWorkflowRegistry((state) =>
-    state.readWorkflowDeploymentStatus(activeWorkflowId)
-  )
-  const isDeployed = deploymentStatus?.isDeployed || false
-
   // Update the time display every minute
   useEffect(() => {
     const interval = setInterval(() => forceUpdate({}), 60000)
     return () => clearInterval(interval)
   }, [])
 
+  const fetchDeploymentStatus = useCallback(async () => {
+    if (!activeWorkflowId) {
+      setIsDeployed(false)
+      setChangeDetected(false)
+      return false
+    }
+
+    const requestWorkflowId = activeWorkflowId
+
+    try {
+      const response = await fetch(`/api/workflows/${requestWorkflowId}/status`)
+      if (requestWorkflowId !== activeWorkflowIdRef.current) {
+        return false
+      }
+
+      if (!response.ok) {
+        logger.error('Failed to fetch workflow status:', response.status, response.statusText)
+        setIsDeployed(false)
+        setChangeDetected(false)
+        return false
+      }
+
+      const data = await response.json()
+      const nextIsDeployed = Boolean(data.isDeployed)
+      setIsDeployed(nextIsDeployed)
+      setChangeDetected(Boolean(data.needsRedeployment))
+      return nextIsDeployed
+    } catch (error) {
+      logger.error('Error fetching workflow status:', error)
+      if (requestWorkflowId === activeWorkflowIdRef.current) {
+        setIsDeployed(false)
+        setChangeDetected(false)
+      }
+      return false
+    }
+  }, [activeWorkflowId])
+
   /**
    * Fetches the deployed state of the workflow from the server
    * This is the single source of truth for deployed workflow state
    */
-  const fetchDeployedState = async () => {
-    if (!activeWorkflowId || !isDeployed) {
+  const fetchDeployedState = useCallback(async () => {
+    if (!activeWorkflowId) {
       setDeployedState(null)
       return
     }
@@ -213,7 +244,11 @@ export function ControlBar({
         setIsLoadingDeployedState(false)
       }
     }
-  }
+  }, [activeWorkflowId])
+
+  useEffect(() => {
+    void fetchDeploymentStatus()
+  }, [fetchDeploymentStatus, currentBlocks, currentEdges])
 
   useEffect(() => {
     if (!activeWorkflowId) {
@@ -223,42 +258,12 @@ export function ControlBar({
     }
 
     if (isDeployed) {
-      fetchDeployedState()
+      void fetchDeployedState()
     } else {
       setDeployedState(null)
       setIsLoadingDeployedState(false)
     }
-  }, [activeWorkflowId, isDeployed])
-
-  useEffect(() => {
-    if (!activeWorkflowId || !deployedState) {
-      setChangeDetected(false)
-      return
-    }
-
-    if (isLoadingDeployedState) {
-      return
-    }
-
-    // Check if the live workflow state differs from the deployed state
-    const checkForChanges = async () => {
-      try {
-        const response = await fetch(`/api/workflows/${activeWorkflowId}/status`)
-        if (response.ok) {
-          const data = await response.json()
-          setChangeDetected(data.needsRedeployment || false)
-        } else {
-          logger.error('Failed to fetch workflow status:', response.status, response.statusText)
-          setChangeDetected(false)
-        }
-      } catch (error) {
-        logger.error('Error fetching workflow status:', error)
-        setChangeDetected(false)
-      }
-    }
-
-    checkForChanges()
-  }, [activeWorkflowId, deployedState, currentBlocks, currentEdges, isLoadingDeployedState])
+  }, [activeWorkflowId, fetchDeployedState, isDeployed])
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -321,11 +326,13 @@ export function ControlBar({
   const renderDeployButton = () => (
     <DeploymentControls
       activeWorkflowId={activeWorkflowId}
+      isDeployed={isDeployed}
       needsRedeployment={changeDetected}
       setNeedsRedeployment={setChangeDetected}
       deployedState={deployedState}
       isLoadingDeployedState={isLoadingDeployedState}
       refetchDeployedState={fetchDeployedState}
+      refetchDeploymentStatus={fetchDeploymentStatus}
       userPermissions={userPermissions}
       variant={variant}
     />
