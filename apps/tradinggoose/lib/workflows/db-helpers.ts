@@ -108,18 +108,23 @@ export const isWorkflowRealtimeRequiredError = (
 ): error is WorkflowRealtimeRequiredError => error instanceof WorkflowRealtimeRequiredError
 
 // Workflow list sessions are live projections of workflow row metadata.
+// Refresh failures must not invalidate the committed workflow row.
 export async function refreshWorkflowListForWorkflow(workflowId: string): Promise<void> {
-  const [row] = await db
-    .select({
-      workspaceId: workflow.workspaceId,
-    })
-    .from(workflow)
-    .where(eq(workflow.id, workflowId))
-    .limit(1)
+  try {
+    const [row] = await db
+      .select({
+        workspaceId: workflow.workspaceId,
+      })
+      .from(workflow)
+      .where(eq(workflow.id, workflowId))
+      .limit(1)
 
-  if (!row?.workspaceId) return
+    if (!row?.workspaceId) return
 
-  await refreshWorkflowList(row.workspaceId)
+    await refreshWorkflowList(row.workspaceId)
+  } catch (error) {
+    logger.warn('Failed to refresh workflow-list projection', { workflowId, error })
+  }
 }
 
 export async function refreshWorkflowList(workspaceId: string): Promise<void> {

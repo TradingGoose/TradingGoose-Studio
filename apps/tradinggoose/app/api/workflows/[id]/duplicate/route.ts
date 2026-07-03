@@ -137,11 +137,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         createWorkflowSnapshot(duplicatedWorkflowState),
         duplicatedVariables
       )
-      await refreshWorkflowListForWorkflow(newWorkflowId)
     } catch (error) {
       await db.delete(workflow).where(eq(workflow.id, newWorkflowId))
       throw error
     }
+    await refreshWorkflowListForWorkflow(newWorkflowId)
 
     logger.info(`[${requestId}] Duplicated editable workflow state from Yjs`, {
       sourceWorkflowId,

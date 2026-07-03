@@ -111,9 +111,14 @@ vi.doMock('@/lib/logs/console/logger', () => ({
 
 const mockReconcilePublishedChatsForDeploymentTx = vi.fn()
 const mockReadBootstrappedReviewTargetSnapshot = vi.fn()
+const mockRefreshEntityListSession = vi.fn()
 
 vi.doMock('@/lib/yjs/server/bootstrap-review-target', () => ({
   readBootstrappedReviewTargetSnapshot: mockReadBootstrappedReviewTargetSnapshot,
+}))
+
+vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
+  refreshEntityListSession: mockRefreshEntityListSession,
 }))
 
 vi.doMock('@/lib/chat/published-deployment', () => ({
@@ -328,6 +333,7 @@ describe('Database Helpers', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockReconcilePublishedChatsForDeploymentTx.mockResolvedValue(undefined)
+    mockRefreshEntityListSession.mockResolvedValue(undefined)
     mockDb.select.mockReturnValue({
       from: vi.fn().mockReturnValue({
         where: vi.fn().mockResolvedValue([]),
@@ -337,6 +343,31 @@ describe('Database Helpers', () => {
 
   afterEach(() => {
     vi.resetAllMocks()
+  })
+
+  describe('refreshWorkflowListForWorkflow', () => {
+    it('refreshes the workflow list for the owning workspace', async () => {
+      mockDb.select.mockReturnValueOnce({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue([{ workspaceId: 'workspace-1' }]),
+          }),
+        }),
+      })
+
+      await dbHelpers.refreshWorkflowListForWorkflow('workflow-1')
+
+      expect(mockRefreshEntityListSession).toHaveBeenCalledWith('workflow', 'workspace-1')
+    })
+
+    it('does not reject when the workspace lookup fails', async () => {
+      mockDb.select.mockImplementationOnce(() => {
+        throw new Error('database unavailable')
+      })
+
+      await expect(dbHelpers.refreshWorkflowListForWorkflow('workflow-1')).resolves.toBeUndefined()
+      expect(mockRefreshEntityListSession).not.toHaveBeenCalled()
+    })
   })
 
   describe('loadWorkflowFromNormalizedTables', () => {

@@ -532,11 +532,11 @@ export const createWorkflowServerTool: BaseServerTool<
 
     try {
       await applyWorkflowState(workflowId, workflowState, {})
-      await refreshWorkflowListForWorkflow(workflowId)
     } catch (error) {
       await db.delete(workflow).where(eq(workflow.id, workflowId))
       throw error
     }
+    await refreshWorkflowListForWorkflow(workflowId)
 
     return {
       success: true,

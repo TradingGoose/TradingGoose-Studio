@@ -199,11 +199,11 @@ export async function POST(req: NextRequest) {
         createWorkflowSnapshot(initialState.canonicalState),
         remappedVariables
       )
-      await refreshWorkflowListForWorkflow(workflowId)
     } catch (error) {
       await db.delete(workflow).where(eq(workflow.id, workflowId))
       throw error
     }
+    await refreshWorkflowListForWorkflow(workflowId)
 
     logger.info(`[${requestId}] Successfully created workflow ${workflowId}`)
 
