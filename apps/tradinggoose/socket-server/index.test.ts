@@ -105,7 +105,7 @@ vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
       const latest = savedEntityStates.at(-1)
       if (!latest) return
       const name = latest.entityKind === 'custom_tool' ? latest.fields.title : latest.fields.name
-      doc.getMap('members').set(latest.entityId, { name: String(name ?? '') })
+      replaceEntityListSessionMembers(doc, [{ id: latest.entityId, name: String(name ?? '') }])
     }
   ),
   getRuntimeStateFromDoc: vi.fn(() => ({
@@ -734,11 +734,16 @@ describe('Socket Server Index Integration', () => {
       expect(getRuntimeStateFromDoc).toHaveBeenCalled()
     })
 
-    it('serves an existing entity-list snapshot without reseeding from DB', async () => {
+    it('reseeds an existing entity-list snapshot from DB', async () => {
       const sessionId = 'list:skill:workspace-1'
       getDocument(sessionId)
       const liveDoc = await getExistingDocument(sessionId)
       replaceEntityListSessionMembers(liveDoc!, [{ id: 'skill-live', name: 'Live Skill' }])
+      savedEntityStates.push({
+        entityKind: 'skill',
+        entityId: 'skill-db',
+        fields: { name: 'DB Skill' },
+      })
       const encodedSessionId = encodeURIComponent(sessionId)
 
       const response = await sendHttpRequestWithOptions(
@@ -753,14 +758,18 @@ describe('Socket Server Index Integration', () => {
       )
 
       expect(response.statusCode).toBe(200)
-      expect(mockReseedEntityListSessionFromDb).not.toHaveBeenCalled()
+      expect(mockReseedEntityListSessionFromDb).toHaveBeenCalledWith(
+        liveDoc,
+        'skill',
+        'workspace-1'
+      )
 
       const data = JSON.parse(response.body)
       const snapshotDoc = new Y.Doc()
       try {
         Y.applyUpdate(snapshotDoc, Buffer.from(data.snapshotBase64, 'base64'))
         expect(getEntityListMembers(snapshotDoc).map((member) => member.entityId)).toEqual([
-          'skill-live',
+          'skill-db',
         ])
       } finally {
         snapshotDoc.destroy()

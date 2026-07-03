@@ -534,6 +534,15 @@ async function handleInternalYjsSnapshotRequest(
       return
     }
 
+    if (isEntityListSessionId(descriptor.yjsSessionId)) {
+      await reseedEntityListSessionFromDb(
+        liveDoc,
+        descriptor.entityKind,
+        descriptor.workspaceId as string
+      )
+      markDocumentPersisted(liveDoc)
+    }
+
     const state = Y.encodeStateAsUpdate(liveDoc)
 
     sendJson(res, 200, {
