@@ -725,7 +725,7 @@ describe('AgentBlockHandler', () => {
       expect(result).toEqual(expectedOutput)
     })
 
-    it('fails when a selected tool cannot be hydrated', async () => {
+    it('fails when any selected tool cannot be hydrated', async () => {
       const inputs = {
         model: 'gpt-4o',
         userPrompt: 'Analyze this data.',
@@ -736,18 +736,36 @@ describe('AgentBlockHandler', () => {
             title: 'Data Analysis Tool',
             operation: 'analyze',
           },
+          {
+            id: 'missing_tool',
+            title: 'Missing Tool',
+            operation: 'analyze',
+          },
         ],
       }
 
-      mockTransformBlockTool.mockResolvedValue(null)
+      mockTransformBlockTool.mockImplementation((tool: any) =>
+        tool.id === 'block_tool_1'
+          ? {
+              id: 'transformed_block_tool_1',
+              name: 'block_tool_1_analyze',
+              description: 'Transformed tool',
+              parameters: { type: 'object', properties: {} },
+            }
+          : null
+      )
       mockGetProviderFromModel.mockReturnValue('openai')
 
       await expect(handler.execute(mockBlock, inputs, mockContext)).rejects.toThrow(
-        'Agent tool Data Analysis Tool could not be resolved'
+        'Agent tool Missing Tool could not be resolved'
       )
 
       expect(mockTransformBlockTool).toHaveBeenCalledWith(
         inputs.tools[0],
+        expect.objectContaining({ selectedOperation: 'analyze' })
+      )
+      expect(mockTransformBlockTool).toHaveBeenCalledWith(
+        inputs.tools[1],
         expect.objectContaining({ selectedOperation: 'analyze' })
       )
       expect(mockFetch).not.toHaveBeenCalled()

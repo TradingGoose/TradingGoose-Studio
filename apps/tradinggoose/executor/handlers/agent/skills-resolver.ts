@@ -15,6 +15,7 @@ export async function resolveSkillMetadata(
     return []
   }
 
+  // Selected skills are required prompt dependencies; missing skills must fail agent startup.
   return Promise.all(
     skillIds.map(async (skillId) => {
       const fields = await readSavedEntityFieldsForExecution(

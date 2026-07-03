@@ -187,6 +187,7 @@ export class AgentBlockHandler implements BlockHandler {
   private async formatTools(inputTools: ToolInput[], context: ExecutionContext): Promise<any[]> {
     if (!Array.isArray(inputTools)) return []
 
+    // Selected tools are required agent dependencies; fail before provider startup if one is stale.
     const tools = await Promise.all(
       inputTools
         .filter((tool) => {

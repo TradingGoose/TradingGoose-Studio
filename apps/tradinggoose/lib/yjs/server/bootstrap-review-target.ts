@@ -79,7 +79,7 @@ export async function readBootstrappedReviewTargetSnapshot(descriptor: ReviewTar
   return getYjsSnapshot(descriptor.yjsSessionId, bridgeParams)
 }
 
-export async function requireEntityRealtimeListMembers(
+async function requireEntityRealtimeListMembers(
   entityKind: ReviewEntityKind,
   workspaceId: string
 ): Promise<EntityListMember[]> {
