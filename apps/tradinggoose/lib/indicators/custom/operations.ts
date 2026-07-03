@@ -45,7 +45,7 @@ export async function listIndicators(params: { workspaceId: string }) {
       name: String(fields.name ?? ''),
       color: String(fields.color ?? ''),
       pineCode,
-      inputMeta: inferInputMetaFromPineCode(pineCode) ?? null,
+      inputMeta: inferInputMetaFromPineCode(pineCode),
     }
   })
 }
@@ -101,7 +101,6 @@ export async function createIndicators({
         name: indicator.name,
         color: indicator.color?.trim() || getStableVibrantColor(indicatorId),
         pineCode: indicator.pineCode,
-        inputMeta: inferInputMetaFromPineCode(indicator.pineCode) ?? null,
         createdAt: nowTime,
         updatedAt: nowTime,
       })
@@ -176,7 +175,6 @@ export async function importIndicators({
         name: nextName,
         color: getStableVibrantColor(indicatorId),
         pineCode: indicator.pineCode,
-        inputMeta: inferInputMetaFromPineCode(indicator.pineCode) ?? null,
         createdAt: nowTime,
         updatedAt: nowTime,
       }

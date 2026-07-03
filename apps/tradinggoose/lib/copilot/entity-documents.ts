@@ -1,6 +1,5 @@
 import { z } from 'zod'
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
-import { inferInputMetaFromPineCode } from '@/lib/indicators/input-meta'
 import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
 export const SKILL_DOCUMENT_FORMAT = 'tg-skill-document-v1' as const
 export const CUSTOM_TOOL_DOCUMENT_FORMAT = 'tg-custom-tool-document-v1' as const
@@ -154,12 +153,10 @@ export function normalizeEntityFields(
       }
     }
     case 'indicator': {
-      const pineCode = typeof source.pineCode === 'string' ? source.pineCode : ''
       return {
         name: typeof source.name === 'string' ? source.name.trim() : '',
         color: typeof source.color === 'string' ? source.color.trim() : '',
-        pineCode,
-        inputMeta: inferInputMetaFromPineCode(pineCode) ?? null,
+        pineCode: typeof source.pineCode === 'string' ? source.pineCode : '',
       }
     }
     case 'mcp_server': {

@@ -120,7 +120,6 @@ async function persistSavedEntityState(
           name: String(fields.name ?? ''),
           color: String(fields.color ?? ''),
           pineCode: String(fields.pineCode ?? ''),
-          inputMeta: objectField(fields.inputMeta),
           updatedAt: now,
         })
         .where(and(eq(pineIndicators.id, entityId), eq(pineIndicators.workspaceId, workspaceId)))

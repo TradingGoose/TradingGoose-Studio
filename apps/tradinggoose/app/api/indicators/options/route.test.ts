@@ -68,7 +68,6 @@ describe('indicator options route', () => {
         pineCode: 'trigger-capable',
         inputMeta: {
           Threshold: { title: 'Threshold', type: 'float', defval: 2.5 },
-          Broken: { title: '' },
         },
       },
       {
@@ -85,9 +84,7 @@ describe('indicator options route', () => {
         name: 'Custom Malformed',
         color: '#654321',
         pineCode: 'trigger-capable',
-        inputMeta: {
-          Broken: { title: '' },
-        },
+        inputMeta: undefined,
       },
     ])
   })
@@ -97,7 +94,7 @@ describe('indicator options route', () => {
     return GET(new NextRequest(`http://localhost/api/indicators/options${search}`))
   }
 
-  it('returns monitor-surface trigger-capable options with normalized input metadata', async () => {
+  it('returns monitor-surface trigger-capable options with derived input metadata', async () => {
     const response = await getOptions('?workspaceId=workspace-1&surface=monitor')
     const payload = await response.json()
 

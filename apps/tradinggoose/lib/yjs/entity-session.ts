@@ -16,7 +16,7 @@
  * Entity-kind adapters:
  *   - skill:        name, description, content
  *   - custom_tool:  title, schemaText (Y.Text), codeText (Y.Text)
- *   - indicator:    name, color, pineCode (Y.Text), inputMeta
+ *   - indicator:    name, color, pineCode (Y.Text)
  *   - knowledge_base: name, description, chunkingConfig
  *   - mcp_server:   name, description, transport, url, headers, command,
  *                    args, env, timeout, retries, enabled
@@ -201,7 +201,6 @@ export function seedEntitySession(doc: Y.Doc, options: EntitySessionSeedOptions)
         const pineCode = new Y.Text()
         pineCode.insert(0, payload.pineCode ?? '')
         fields.set('pineCode', pineCode)
-        fields.set('inputMeta', payload.inputMeta ?? null)
         break
       }
 
@@ -263,7 +262,6 @@ export function getEntityFields(doc: Y.Doc, entityKind: ReviewEntityKind): Recor
       result.name = fields.get('name') ?? ''
       result.color = fields.get('color') ?? ''
       result.pineCode = fields.get('pineCode')?.toString() ?? ''
-      result.inputMeta = fields.get('inputMeta')
       break
 
     case 'knowledge_base':
