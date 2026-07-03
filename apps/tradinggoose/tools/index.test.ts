@@ -552,6 +552,30 @@ describe('executeTool Function', () => {
     expect(global.fetch).not.toHaveBeenCalled()
   })
 
+  it('should return a scoped error when selected skill content is missing', async () => {
+    const skillLoaderTool = buildLoadSkillTool('tradinggoose_internal_load_skill', [
+      {
+        id: 'deleted-skill',
+        name: 'deleted',
+        description: 'Deleted skill',
+      },
+    ])
+
+    const result = await executeTool(
+      skillLoaderTool.id,
+      {
+        ...skillLoaderTool.params,
+        skill_id: 'deleted-skill',
+      },
+      false,
+      createMockExecutionContext()
+    )
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('was not found')
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
   it('should handle non-existent tool', async () => {
     // Create the mock with a matching implementation
     vi.spyOn(console, 'error').mockImplementation(() => {})
