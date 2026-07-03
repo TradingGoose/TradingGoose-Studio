@@ -40,8 +40,6 @@ interface SaveSkillParams {
   requestId?: string
 }
 
-type SkillListState = 'persisted' | 'live'
-
 interface ImportSkillsParams {
   skills: SkillTransferRecord[]
   workspaceId: string
@@ -49,20 +47,16 @@ interface ImportSkillsParams {
   requestId?: string
 }
 
-export async function listSkills(params: { workspaceId: string; state?: SkillListState }) {
-  if (params.state === 'live') {
-    const entries = await readSavedEntityListFieldsForExecution('skill', params.workspaceId, false)
-    return entries.map(({ entityId, fields }) => ({
-      id: entityId,
-      workspaceId: params.workspaceId,
-      userId: null,
-      name: String(fields.name ?? ''),
-      description: String(fields.description ?? ''),
-      content: String(fields.content ?? ''),
-    }))
-  }
-
-  return db.select().from(skill).where(eq(skill.workspaceId, params.workspaceId))
+export async function listSkills(params: { workspaceId: string }) {
+  const entries = await readSavedEntityListFieldsForExecution('skill', params.workspaceId, false)
+  return entries.map(({ entityId, fields }) => ({
+    id: entityId,
+    workspaceId: params.workspaceId,
+    userId: null,
+    name: String(fields.name ?? ''),
+    description: String(fields.description ?? ''),
+    content: String(fields.content ?? ''),
+  }))
 }
 
 export async function deleteSkill(params: {

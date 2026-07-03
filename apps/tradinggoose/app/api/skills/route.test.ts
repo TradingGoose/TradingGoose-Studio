@@ -79,23 +79,13 @@ describe('Skills API Routes', () => {
     expect(body.error).toBe('workspaceId is required')
   })
 
-  it('GET should pass live state to skill listing when requested', async () => {
-    const req = new NextRequest('http://localhost:3000/api/skills?workspaceId=ws-1&state=live')
+  it('GET should list live workspace skills', async () => {
+    const req = new NextRequest('http://localhost:3000/api/skills?workspaceId=ws-1')
     const { GET } = await import('@/app/api/skills/route')
     const res = await GET(req)
 
     expect(res.status).toBe(200)
-    expect(mockListSkills).toHaveBeenCalledWith({ workspaceId: 'ws-1', state: 'live' })
-  })
-
-  it('GET should reject invalid skill state', async () => {
-    const req = new NextRequest('http://localhost:3000/api/skills?workspaceId=ws-1&state=draft')
-    const { GET } = await import('@/app/api/skills/route')
-    const res = await GET(req)
-    const body = await res.json()
-
-    expect(res.status).toBe(400)
-    expect(body.error).toBe('Invalid skill state')
+    expect(mockListSkills).toHaveBeenCalledWith({ workspaceId: 'ws-1' })
   })
 
   it('POST should require workspaceId in body', async () => {

@@ -80,7 +80,7 @@ describe('workflow json store', () => {
       workspaceId: 'workspace-1',
     })
 
-    expect(mockFetchSkills).toHaveBeenCalledWith('workspace-1', { state: 'live' })
+    expect(mockFetchSkills).toHaveBeenCalledWith('workspace-1')
 
     const payload = JSON.parse(useWorkflowJsonStore.getState().json) as {
       resourceTypes: string[]

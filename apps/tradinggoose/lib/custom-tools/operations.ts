@@ -6,9 +6,11 @@ import {
   type CustomToolTransferRecord,
   resolveImportedCustomTools,
 } from '@/lib/custom-tools/import-export'
+import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
+import { readSavedEntityListFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
 import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('CustomToolsOperations')
@@ -43,7 +45,19 @@ interface ImportCustomToolsParams {
 }
 
 export async function listCustomTools(params: { workspaceId: string }) {
-  return db.select().from(customTools).where(eq(customTools.workspaceId, params.workspaceId))
+  const entries = await readSavedEntityListFieldsForExecution(
+    'custom_tool',
+    params.workspaceId,
+    false
+  )
+  return entries.map(({ entityId, fields }) => ({
+    id: entityId,
+    workspaceId: params.workspaceId,
+    userId: null,
+    title: String(fields.title ?? ''),
+    schema: parseCustomToolSchemaText(fields.schemaText),
+    code: String(fields.codeText ?? ''),
+  }))
 }
 
 export async function createCustomTools({
