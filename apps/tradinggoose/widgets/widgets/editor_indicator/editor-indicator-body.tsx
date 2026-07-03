@@ -69,6 +69,7 @@ export function EditorIndicatorWidgetBody({
     panelId,
     params,
     pairColor: resolvedPairColor,
+    scopeKey: 'editor_indicator',
     onIndicatorSelect: (nextId) => {
       if (!isLinkedToColorPair) return
       if (pairContext?.indicatorId === nextId) return

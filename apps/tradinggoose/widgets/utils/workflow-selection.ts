@@ -17,7 +17,7 @@ interface UseWorkflowSelectionPersistenceOptions {
   params?: Record<string, unknown> | null
   pairColor?: PairColor
   onWorkflowSelect?: (workflowId: string | null) => void
-  scopeKey?: string
+  scopeKey: string
 }
 
 export function useWorkflowSelectionPersistence({

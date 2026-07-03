@@ -6,14 +6,11 @@ import {
   type UseSelectionPersistenceOptions,
 } from '@/widgets/utils/selection-persistence-factory'
 
-const DEFAULT_SCOPE_KEY = 'editor_indicator'
-
 // Hook
 
 const useIndicatorSelectionPersistenceGeneric = createSelectionPersistenceHook({
   eventName: INDICATOR_WIDGET_SELECT_EVENT,
   detailIdKey: 'indicatorId',
-  defaultScopeKey: DEFAULT_SCOPE_KEY,
 })
 
 interface UseIndicatorSelectionPersistenceOptions {
@@ -22,7 +19,7 @@ interface UseIndicatorSelectionPersistenceOptions {
   params?: Record<string, unknown> | null
   pairColor?: PairColor
   onIndicatorSelect?: (indicatorId: string | null) => void
-  scopeKey?: string
+  scopeKey: string
 }
 
 export function useIndicatorSelectionPersistence({

@@ -55,6 +55,7 @@ export function IndicatorList({
     panelId,
     params,
     pairColor: resolvedPairColor,
+    scopeKey: 'list_indicator',
     onIndicatorSelect: (indicatorId) => {
       if (!isLinkedToColorPair) return
       if (pairContext?.indicatorId === indicatorId) return

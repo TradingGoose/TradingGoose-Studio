@@ -13,7 +13,10 @@ import {
 } from '@/widgets/utils/entity-selection'
 import { useSkillEditorActions } from '@/widgets/utils/skill-editor-actions'
 import { useSkillSelectionPersistence } from '@/widgets/utils/skill-selection'
-import { getSkillIdFromParams } from '@/widgets/widgets/_shared/skill/utils'
+import {
+  getSkillIdFromParams,
+  SKILL_EDITOR_WIDGET_KEY,
+} from '@/widgets/widgets/_shared/skill/utils'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 import { SkillEditor } from '@/widgets/widgets/editor_skill/skill-editor'
 
@@ -68,6 +71,7 @@ export function EditorSkillWidgetBody({
     panelId,
     params,
     pairColor: resolvedPairColor,
+    scopeKey: SKILL_EDITOR_WIDGET_KEY,
     onSkillSelect: (nextSkillId) => {
       if (!isLinkedToColorPair) return
       if (pairContext?.skillId === nextSkillId) return
