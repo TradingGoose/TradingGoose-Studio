@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { mcpServers } from '@tradinggoose/db/schema'
-import { and, eq, inArray, isNull } from 'drizzle-orm'
+import { and, asc, eq, isNull } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
 import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
@@ -8,8 +8,6 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getParsedBody, withMcpAuth } from '@/lib/mcp/middleware'
 import { McpServerConfigError, mcpService } from '@/lib/mcp/service'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
-import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
-import { requireEntityRealtimeListMembers } from '@/lib/yjs/server/bootstrap-review-target'
 import {
   deleteYjsSessionInSocketServer,
   refreshEntityListSession,
@@ -28,60 +26,40 @@ export const GET = withMcpAuth('read')(
     try {
       logger.info(`[${requestId}] Listing MCP servers for workspace ${workspaceId}`)
 
-      const listMembers = await requireEntityRealtimeListMembers('mcp_server', workspaceId)
-      const listMemberIds = listMembers.map((member) => member.entityId)
-      const statusById = new Map(
-        listMemberIds.length === 0
-          ? []
-          : (
-              await db
-                .select({
-                  id: mcpServers.id,
-                  updatedAt: mcpServers.updatedAt,
-                  connectionStatus: mcpServers.connectionStatus,
-                  lastError: mcpServers.lastError,
-                  toolCount: mcpServers.toolCount,
-                  lastConnected: mcpServers.lastConnected,
-                  lastToolsRefresh: mcpServers.lastToolsRefresh,
-                })
-                .from(mcpServers)
-                .where(
-                  and(
-                    eq(mcpServers.workspaceId, workspaceId),
-                    inArray(mcpServers.id, listMemberIds),
-                    isNull(mcpServers.deletedAt)
-                  )
-                )
-            ).map((row) => [row.id, row])
-      )
-      const servers = listMembers.flatMap((server) => {
-        const status = statusById.get(server.entityId)
-        if (!status) {
-          return []
-        }
+      const rows = await db
+        .select({
+          id: mcpServers.id,
+          name: mcpServers.name,
+          enabled: mcpServers.enabled,
+          updatedAt: mcpServers.updatedAt,
+          connectionStatus: mcpServers.connectionStatus,
+          lastError: mcpServers.lastError,
+          toolCount: mcpServers.toolCount,
+          lastConnected: mcpServers.lastConnected,
+          lastToolsRefresh: mcpServers.lastToolsRefresh,
+        })
+        .from(mcpServers)
+        .where(and(eq(mcpServers.workspaceId, workspaceId), isNull(mcpServers.deletedAt)))
+        .orderBy(asc(mcpServers.name), asc(mcpServers.id))
 
-        return {
-          id: server.entityId,
-          name: server.entityName,
-          enabled: server.enabled !== false,
-          workspaceId,
-          updatedAt: status.updatedAt?.toISOString(),
-          connectionStatus: status.connectionStatus,
-          lastError: status.lastError,
-          toolCount: status.toolCount,
-          lastConnected: status.lastConnected?.toISOString(),
-          lastToolsRefresh: status.lastToolsRefresh?.toISOString(),
-        }
-      })
+      const servers = rows.map((server) => ({
+        id: server.id,
+        name: server.name,
+        enabled: server.enabled !== false,
+        workspaceId,
+        updatedAt: server.updatedAt?.toISOString(),
+        connectionStatus: server.connectionStatus,
+        lastError: server.lastError,
+        toolCount: server.toolCount,
+        lastConnected: server.lastConnected?.toISOString(),
+        lastToolsRefresh: server.lastToolsRefresh?.toISOString(),
+      }))
 
       logger.info(
         `[${requestId}] Listed ${servers.length} MCP servers for workspace ${workspaceId}`
       )
       return createMcpSuccessResponse({ servers })
     } catch (error) {
-      if (error instanceof SavedEntityRealtimeRequiredError) {
-        return createMcpErrorResponse(error, error.message, error.status)
-      }
       logger.error(`[${requestId}] Error listing MCP servers:`, error)
       return createMcpErrorResponse(
         error instanceof Error ? error : new Error('Failed to list MCP servers'),
@@ -141,9 +119,6 @@ export const POST = withMcpAuth('write')(
       return createMcpSuccessResponse({ serverId: created.entityId }, 201)
     } catch (error) {
       if (error instanceof McpServerConfigError) {
-        return createMcpErrorResponse(error, error.message, error.status)
-      }
-      if (error instanceof SavedEntityRealtimeRequiredError) {
         return createMcpErrorResponse(error, error.message, error.status)
       }
       logger.error(`[${requestId}] Error registering MCP server:`, error)
