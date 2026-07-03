@@ -10,8 +10,8 @@ import { hydrateListingUI } from '@/lib/listing/hydrate-ui'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import {
-  refreshWorkflowListForWorkflow,
   refreshWorkflowList,
+  refreshWorkflowListForWorkflow,
   requireWorkflowRealtimeState,
 } from '@/lib/workflows/db-helpers'
 import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/utils'
@@ -337,7 +337,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (!updatedWorkflow) {
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
     }
-    if (updates.name !== undefined || updates.description !== undefined || updates.folderId !== undefined) {
+    if (
+      updates.name !== undefined ||
+      updates.description !== undefined ||
+      updates.folderId !== undefined
+    ) {
       await refreshWorkflowListForWorkflow(workflowId)
     }
 

@@ -137,7 +137,7 @@ async function persistSavedEntityState(
         .where(and(eq(knowledgeBase.id, entityId), eq(knowledgeBase.workspaceId, workspaceId)))
         .returning({ id: knowledgeBase.id })
       break
-    case 'mcp_server':
+    case 'mcp_server': {
       const url = String(fields.url ?? '') || null
       const enabled = fields.enabled !== false
       const disconnectedState =
@@ -169,6 +169,7 @@ async function persistSavedEntityState(
         .where(and(eq(mcpServers.id, entityId), eq(mcpServers.workspaceId, workspaceId)))
         .returning({ id: mcpServers.id })
       break
+    }
   }
 
   if (persisted.length === 0) {

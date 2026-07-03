@@ -288,9 +288,7 @@ export function DeployModal({
       ? document.getElementById(overlayRootId)
       : null
   const isWorkflowDeployed =
-    isDeployed ||
-    Boolean(deploymentInfo?.isDeployed) ||
-    Boolean(deployedState)
+    isDeployed || Boolean(deploymentInfo?.isDeployed) || Boolean(deployedState)
   const mergedBlocks = workflowId ? mergeSubblockState(currentBlocks, workflowId) : currentBlocks
   const blockList = Object.values(mergedBlocks)
   const shouldDisableTriggerWrite = !userPermissions.canEdit

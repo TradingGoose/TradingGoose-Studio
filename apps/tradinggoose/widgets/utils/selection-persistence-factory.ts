@@ -111,7 +111,11 @@ export interface EmitSelectionChangeOptions {
  * Creates an emit function that dispatches a `CustomEvent` with the selected entity ID.
  */
 export function createEmitSelectionChange(config: EmitSelectionChangeConfig) {
-  return function emitSelectionChange({ entityId, panelId, widgetKey }: EmitSelectionChangeOptions) {
+  return function emitSelectionChange({
+    entityId,
+    panelId,
+    widgetKey,
+  }: EmitSelectionChangeOptions) {
     if (!widgetKey) return
 
     window.dispatchEvent(

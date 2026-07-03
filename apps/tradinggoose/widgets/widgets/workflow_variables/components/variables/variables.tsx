@@ -29,8 +29,8 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { validateName } from '@/lib/utils'
 import { useWorkflowVariables } from '@/lib/yjs/use-workflow-doc'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
-import type { Variable, VariableType } from '@/stores/variables/types'
 import { useWorkflowVariablesMessages } from '@/i18n/workspace-widget-hooks'
+import type { Variable, VariableType } from '@/stores/variables/types'
 
 const logger = createLogger('Variables')
 

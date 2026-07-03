@@ -362,7 +362,6 @@ class McpService {
       throw error
     }
   }
-
 }
 
 export const mcpService = new McpService()

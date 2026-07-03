@@ -7,20 +7,132 @@
   "variables": {},
   "panelMap": {},
   "layout": [
-    { "h": 3, "i": "d1a2b3c4-1111-4a11-b111-000000000001", "moved": false, "static": false, "w": 3, "x": 0, "y": 0 },
-    { "h": 3, "i": "d1a2b3c4-1111-4a11-b111-000000000002", "moved": false, "static": false, "w": 3, "x": 3, "y": 0 },
-    { "h": 3, "i": "d1a2b3c4-1111-4a11-b111-000000000003", "moved": false, "static": false, "w": 3, "x": 6, "y": 0 },
-    { "h": 3, "i": "d1a2b3c4-1111-4a11-b111-000000000004", "moved": false, "static": false, "w": 3, "x": 9, "y": 0 },
-    { "h": 6, "i": "d1a2b3c4-2222-4a22-b222-000000000005", "moved": false, "static": false, "w": 6, "x": 0, "y": 3 },
-    { "h": 6, "i": "d1a2b3c4-2222-4a22-b222-000000000006", "moved": false, "static": false, "w": 6, "x": 6, "y": 3 },
-    { "h": 6, "i": "d1a2b3c4-3333-4a33-b333-000000000007", "moved": false, "static": false, "w": 6, "x": 0, "y": 9 },
-    { "h": 6, "i": "d1a2b3c4-3333-4a33-b333-000000000008", "moved": false, "static": false, "w": 6, "x": 6, "y": 9 },
-    { "h": 6, "i": "d1a2b3c4-4444-4a44-b444-000000000009", "moved": false, "static": false, "w": 6, "x": 0, "y": 15 },
-    { "h": 6, "i": "d1a2b3c4-4444-4a44-b444-000000000010", "moved": false, "static": false, "w": 6, "x": 6, "y": 15 },
-    { "h": 6, "i": "d1a2b3c4-5555-4a55-b555-000000000011", "moved": false, "static": false, "w": 6, "x": 0, "y": 21 },
-    { "h": 6, "i": "d1a2b3c4-5555-4a55-b555-000000000012", "moved": false, "static": false, "w": 6, "x": 6, "y": 21 },
-    { "h": 6, "i": "d1a2b3c4-6666-4a66-b666-000000000013", "moved": false, "static": false, "w": 6, "x": 0, "y": 27 },
-    { "h": 6, "i": "d1a2b3c4-6666-4a66-b666-000000000014", "moved": false, "static": false, "w": 6, "x": 6, "y": 27 }
+    {
+      "h": 3,
+      "i": "d1a2b3c4-1111-4a11-b111-000000000001",
+      "moved": false,
+      "static": false,
+      "w": 3,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "h": 3,
+      "i": "d1a2b3c4-1111-4a11-b111-000000000002",
+      "moved": false,
+      "static": false,
+      "w": 3,
+      "x": 3,
+      "y": 0
+    },
+    {
+      "h": 3,
+      "i": "d1a2b3c4-1111-4a11-b111-000000000003",
+      "moved": false,
+      "static": false,
+      "w": 3,
+      "x": 6,
+      "y": 0
+    },
+    {
+      "h": 3,
+      "i": "d1a2b3c4-1111-4a11-b111-000000000004",
+      "moved": false,
+      "static": false,
+      "w": 3,
+      "x": 9,
+      "y": 0
+    },
+    {
+      "h": 6,
+      "i": "d1a2b3c4-2222-4a22-b222-000000000005",
+      "moved": false,
+      "static": false,
+      "w": 6,
+      "x": 0,
+      "y": 3
+    },
+    {
+      "h": 6,
+      "i": "d1a2b3c4-2222-4a22-b222-000000000006",
+      "moved": false,
+      "static": false,
+      "w": 6,
+      "x": 6,
+      "y": 3
+    },
+    {
+      "h": 6,
+      "i": "d1a2b3c4-3333-4a33-b333-000000000007",
+      "moved": false,
+      "static": false,
+      "w": 6,
+      "x": 0,
+      "y": 9
+    },
+    {
+      "h": 6,
+      "i": "d1a2b3c4-3333-4a33-b333-000000000008",
+      "moved": false,
+      "static": false,
+      "w": 6,
+      "x": 6,
+      "y": 9
+    },
+    {
+      "h": 6,
+      "i": "d1a2b3c4-4444-4a44-b444-000000000009",
+      "moved": false,
+      "static": false,
+      "w": 6,
+      "x": 0,
+      "y": 15
+    },
+    {
+      "h": 6,
+      "i": "d1a2b3c4-4444-4a44-b444-000000000010",
+      "moved": false,
+      "static": false,
+      "w": 6,
+      "x": 6,
+      "y": 15
+    },
+    {
+      "h": 6,
+      "i": "d1a2b3c4-5555-4a55-b555-000000000011",
+      "moved": false,
+      "static": false,
+      "w": 6,
+      "x": 0,
+      "y": 21
+    },
+    {
+      "h": 6,
+      "i": "d1a2b3c4-5555-4a55-b555-000000000012",
+      "moved": false,
+      "static": false,
+      "w": 6,
+      "x": 6,
+      "y": 21
+    },
+    {
+      "h": 6,
+      "i": "d1a2b3c4-6666-4a66-b666-000000000013",
+      "moved": false,
+      "static": false,
+      "w": 6,
+      "x": 0,
+      "y": 27
+    },
+    {
+      "h": 6,
+      "i": "d1a2b3c4-6666-4a66-b666-000000000014",
+      "moved": false,
+      "static": false,
+      "w": 6,
+      "x": 6,
+      "y": 27
+    }
   ],
   "widgets": [
     {
@@ -48,15 +160,46 @@
       "timePreferance": "GLOBAL_TIME",
       "yAxisUnit": "none",
       "selectedLogFields": [
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "timestamp",
+          "signal": "logs",
+          "type": "log"
+        },
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "body",
+          "signal": "logs",
+          "type": "log"
+        }
       ],
       "selectedTracesFields": [
-        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        {
+          "fieldContext": "resource",
+          "fieldDataType": "string",
+          "name": "service.name",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "duration_nano",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "response_status_code",
+          "signal": "traces"
+        }
       ],
       "query": {
         "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },
@@ -99,15 +242,46 @@
       "timePreferance": "GLOBAL_TIME",
       "yAxisUnit": "none",
       "selectedLogFields": [
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "timestamp",
+          "signal": "logs",
+          "type": "log"
+        },
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "body",
+          "signal": "logs",
+          "type": "log"
+        }
       ],
       "selectedTracesFields": [
-        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        {
+          "fieldContext": "resource",
+          "fieldDataType": "string",
+          "name": "service.name",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "duration_nano",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "response_status_code",
+          "signal": "traces"
+        }
       ],
       "query": {
         "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },
@@ -150,15 +324,46 @@
       "timePreferance": "GLOBAL_TIME",
       "yAxisUnit": "none",
       "selectedLogFields": [
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "timestamp",
+          "signal": "logs",
+          "type": "log"
+        },
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "body",
+          "signal": "logs",
+          "type": "log"
+        }
       ],
       "selectedTracesFields": [
-        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        {
+          "fieldContext": "resource",
+          "fieldDataType": "string",
+          "name": "service.name",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "duration_nano",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "response_status_code",
+          "signal": "traces"
+        }
       ],
       "query": {
         "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },
@@ -201,15 +406,46 @@
       "timePreferance": "GLOBAL_TIME",
       "yAxisUnit": "none",
       "selectedLogFields": [
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "timestamp",
+          "signal": "logs",
+          "type": "log"
+        },
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "body",
+          "signal": "logs",
+          "type": "log"
+        }
       ],
       "selectedTracesFields": [
-        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        {
+          "fieldContext": "resource",
+          "fieldDataType": "string",
+          "name": "service.name",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "duration_nano",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "response_status_code",
+          "signal": "traces"
+        }
       ],
       "query": {
         "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },
@@ -252,15 +488,46 @@
       "timePreferance": "GLOBAL_TIME",
       "yAxisUnit": "none",
       "selectedLogFields": [
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "timestamp",
+          "signal": "logs",
+          "type": "log"
+        },
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "body",
+          "signal": "logs",
+          "type": "log"
+        }
       ],
       "selectedTracesFields": [
-        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        {
+          "fieldContext": "resource",
+          "fieldDataType": "string",
+          "name": "service.name",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "duration_nano",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "response_status_code",
+          "signal": "traces"
+        }
       ],
       "query": {
         "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },
@@ -303,15 +570,46 @@
       "timePreferance": "GLOBAL_TIME",
       "yAxisUnit": "ms",
       "selectedLogFields": [
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "timestamp",
+          "signal": "logs",
+          "type": "log"
+        },
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "body",
+          "signal": "logs",
+          "type": "log"
+        }
       ],
       "selectedTracesFields": [
-        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        {
+          "fieldContext": "resource",
+          "fieldDataType": "string",
+          "name": "service.name",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "duration_nano",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "response_status_code",
+          "signal": "traces"
+        }
       ],
       "query": {
         "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },
@@ -360,15 +658,46 @@
       "timePreferance": "GLOBAL_TIME",
       "yAxisUnit": "none",
       "selectedLogFields": [
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "timestamp",
+          "signal": "logs",
+          "type": "log"
+        },
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "body",
+          "signal": "logs",
+          "type": "log"
+        }
       ],
       "selectedTracesFields": [
-        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        {
+          "fieldContext": "resource",
+          "fieldDataType": "string",
+          "name": "service.name",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "duration_nano",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "response_status_code",
+          "signal": "traces"
+        }
       ],
       "query": {
         "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },
@@ -411,15 +740,46 @@
       "timePreferance": "GLOBAL_TIME",
       "yAxisUnit": "none",
       "selectedLogFields": [
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "timestamp",
+          "signal": "logs",
+          "type": "log"
+        },
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "body",
+          "signal": "logs",
+          "type": "log"
+        }
       ],
       "selectedTracesFields": [
-        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        {
+          "fieldContext": "resource",
+          "fieldDataType": "string",
+          "name": "service.name",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "duration_nano",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "response_status_code",
+          "signal": "traces"
+        }
       ],
       "query": {
         "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },
@@ -462,15 +822,46 @@
       "timePreferance": "GLOBAL_TIME",
       "yAxisUnit": "none",
       "selectedLogFields": [
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "timestamp",
+          "signal": "logs",
+          "type": "log"
+        },
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "body",
+          "signal": "logs",
+          "type": "log"
+        }
       ],
       "selectedTracesFields": [
-        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        {
+          "fieldContext": "resource",
+          "fieldDataType": "string",
+          "name": "service.name",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "duration_nano",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "response_status_code",
+          "signal": "traces"
+        }
       ],
       "query": {
         "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },
@@ -513,15 +904,46 @@
       "timePreferance": "GLOBAL_TIME",
       "yAxisUnit": "none",
       "selectedLogFields": [
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "timestamp",
+          "signal": "logs",
+          "type": "log"
+        },
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "body",
+          "signal": "logs",
+          "type": "log"
+        }
       ],
       "selectedTracesFields": [
-        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        {
+          "fieldContext": "resource",
+          "fieldDataType": "string",
+          "name": "service.name",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "duration_nano",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "response_status_code",
+          "signal": "traces"
+        }
       ],
       "query": {
         "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },
@@ -564,15 +986,46 @@
       "timePreferance": "GLOBAL_TIME",
       "yAxisUnit": "none",
       "selectedLogFields": [
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "timestamp",
+          "signal": "logs",
+          "type": "log"
+        },
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "body",
+          "signal": "logs",
+          "type": "log"
+        }
       ],
       "selectedTracesFields": [
-        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        {
+          "fieldContext": "resource",
+          "fieldDataType": "string",
+          "name": "service.name",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "duration_nano",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "response_status_code",
+          "signal": "traces"
+        }
       ],
       "query": {
         "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },
@@ -615,15 +1068,46 @@
       "timePreferance": "GLOBAL_TIME",
       "yAxisUnit": "none",
       "selectedLogFields": [
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "timestamp",
+          "signal": "logs",
+          "type": "log"
+        },
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "body",
+          "signal": "logs",
+          "type": "log"
+        }
       ],
       "selectedTracesFields": [
-        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        {
+          "fieldContext": "resource",
+          "fieldDataType": "string",
+          "name": "service.name",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "duration_nano",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "response_status_code",
+          "signal": "traces"
+        }
       ],
       "query": {
         "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },
@@ -666,15 +1150,46 @@
       "timePreferance": "GLOBAL_TIME",
       "yAxisUnit": "none",
       "selectedLogFields": [
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "timestamp",
+          "signal": "logs",
+          "type": "log"
+        },
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "body",
+          "signal": "logs",
+          "type": "log"
+        }
       ],
       "selectedTracesFields": [
-        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        {
+          "fieldContext": "resource",
+          "fieldDataType": "string",
+          "name": "service.name",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "duration_nano",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "response_status_code",
+          "signal": "traces"
+        }
       ],
       "query": {
         "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },
@@ -717,15 +1232,46 @@
       "timePreferance": "GLOBAL_TIME",
       "yAxisUnit": "none",
       "selectedLogFields": [
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "timestamp", "signal": "logs", "type": "log" },
-        { "dataType": "", "fieldContext": "log", "fieldDataType": "", "isIndexed": false, "name": "body", "signal": "logs", "type": "log" }
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "timestamp",
+          "signal": "logs",
+          "type": "log"
+        },
+        {
+          "dataType": "",
+          "fieldContext": "log",
+          "fieldDataType": "",
+          "isIndexed": false,
+          "name": "body",
+          "signal": "logs",
+          "type": "log"
+        }
       ],
       "selectedTracesFields": [
-        { "fieldContext": "resource", "fieldDataType": "string", "name": "service.name", "signal": "traces" },
+        {
+          "fieldContext": "resource",
+          "fieldDataType": "string",
+          "name": "service.name",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "string", "name": "name", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "duration_nano", "signal": "traces" },
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "duration_nano",
+          "signal": "traces"
+        },
         { "fieldContext": "span", "fieldDataType": "", "name": "http_method", "signal": "traces" },
-        { "fieldContext": "span", "fieldDataType": "", "name": "response_status_code", "signal": "traces" }
+        {
+          "fieldContext": "span",
+          "fieldDataType": "",
+          "name": "response_status_code",
+          "signal": "traces"
+        }
       ],
       "query": {
         "builder": { "queryData": [], "queryFormulas": [], "queryTraceOperator": [] },

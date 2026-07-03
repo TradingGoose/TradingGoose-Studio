@@ -10,11 +10,11 @@ import {
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
+import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
 import {
   emitWorkflowSelectionChange,
   useWorkflowSelectionPersistence,
 } from '@/widgets/utils/workflow-selection'
-import { usePersistResolvedEntityId } from '@/widgets/utils/entity-selection'
 import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 import { WorkflowWidgetControlBar } from '@/widgets/widgets/editor_workflow/components/workflow-controlbar'

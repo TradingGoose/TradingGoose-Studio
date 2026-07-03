@@ -8,8 +8,8 @@ import { widgetHeaderIconButtonClassName } from '@/components/widget-header-cont
 import { createLogger } from '@/lib/logs/console/logger'
 import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useWorkflowJsonStore } from '@/stores/workflows/json/store'
-import { useWorkflowEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkflowEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 const logger = createLogger('ExportControls')
 

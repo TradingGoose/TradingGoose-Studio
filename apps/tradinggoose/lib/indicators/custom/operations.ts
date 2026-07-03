@@ -35,7 +35,11 @@ export async function listCustomIndicatorRuntimeEntries(
 }
 
 export async function listIndicators(params: { workspaceId: string }) {
-  const entries = await readSavedEntityListFieldsForExecution('indicator', params.workspaceId, false)
+  const entries = await readSavedEntityListFieldsForExecution(
+    'indicator',
+    params.workspaceId,
+    false
+  )
   return entries.map(({ entityId, fields }) => {
     const pineCode = String(fields.pineCode ?? '')
     return {

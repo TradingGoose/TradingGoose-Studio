@@ -42,9 +42,6 @@ interface EmitWorkflowSelectionOptions {
   widgetKey: string
 }
 
-export function emitWorkflowSelectionChange({
-  workflowId,
-  ...rest
-}: EmitWorkflowSelectionOptions) {
+export function emitWorkflowSelectionChange({ workflowId, ...rest }: EmitWorkflowSelectionOptions) {
   emitGeneric({ ...rest, entityId: workflowId })
 }

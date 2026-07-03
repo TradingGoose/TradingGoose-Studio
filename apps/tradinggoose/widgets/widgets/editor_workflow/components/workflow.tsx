@@ -4,12 +4,12 @@ import React, { useMemo } from 'react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useWorkflowSession } from '@/lib/yjs/workflow-session-host'
+import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 import { ErrorBoundary } from '@/widgets/widgets/editor_workflow/components/error'
 import WorkflowCanvas, {
   type WorkflowCanvasUIConfig,
 } from '@/widgets/widgets/editor_workflow/components/workflow-editor/workflow-canvas'
 import { useWorkflowUIConfig } from '@/widgets/widgets/editor_workflow/context/workflow-ui-context'
-import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 import { useWorkflowEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 export type WorkflowUIConfig = WorkflowCanvasUIConfig

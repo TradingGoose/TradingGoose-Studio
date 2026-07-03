@@ -4,17 +4,14 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const {
-  mockApplyWorkflowPatchInSocketServer,
-  mockEnsureUniqueBlockIds,
-  mockEnsureUniqueEdgeIds,
-} = vi.hoisted(() => {
-  return {
-    mockApplyWorkflowPatchInSocketServer: vi.fn(),
-    mockEnsureUniqueBlockIds: vi.fn(),
-    mockEnsureUniqueEdgeIds: vi.fn(),
-  }
-})
+const { mockApplyWorkflowPatchInSocketServer, mockEnsureUniqueBlockIds, mockEnsureUniqueEdgeIds } =
+  vi.hoisted(() => {
+    return {
+      mockApplyWorkflowPatchInSocketServer: vi.fn(),
+      mockEnsureUniqueBlockIds: vi.fn(),
+      mockEnsureUniqueEdgeIds: vi.fn(),
+    }
+  })
 
 vi.mock('@/lib/workflows/db-helpers', () => ({
   ensureUniqueBlockIds: mockEnsureUniqueBlockIds,

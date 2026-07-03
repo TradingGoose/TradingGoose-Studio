@@ -6,10 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { widgetHeaderIconButtonClassName } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
-import { DeployModal } from '@/widgets/widgets/editor_workflow/components/control-bar/components'
-import { useDeploymentCopy } from '@/widgets/widgets/editor_workflow/copy'
 import type { WorkspaceUserPermissions } from '@/hooks/use-user-permissions'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
+import { DeployModal } from '@/widgets/widgets/editor_workflow/components/control-bar/components'
+import { useDeploymentCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 type ControlVariant = 'workspace' | 'widget'
 
@@ -122,9 +122,9 @@ export function DeploymentControls({
             {isDeployed && workflowNeedsRedeployment && (
               <div className='pointer-events-none absolute right-1 bottom-1 flex items-center justify-center'>
                 <div className='relative'>
-                <div className='absolute inset-0 h-[6px] w-[6px] animate-ping rounded-full bg-yellow-500/50' />
-                <div className='zoom-in fade-in relative h-[6px] w-[6px] animate-in rounded-full bg-yellow-500/80 duration-300' />
-              </div>
+                  <div className='absolute inset-0 h-[6px] w-[6px] animate-ping rounded-full bg-yellow-500/50' />
+                  <div className='zoom-in fade-in relative h-[6px] w-[6px] animate-in rounded-full bg-yellow-500/80 duration-300' />
+                </div>
                 <span className='sr-only'>{copy.needsRedeployment}</span>
               </div>
             )}

@@ -2,9 +2,12 @@
  * @vitest-environment jsdom
  */
 
-import * as Y from 'yjs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ReviewTargetDescriptor, ReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/types'
+import type * as Y from 'yjs'
+import type {
+  ReviewTargetDescriptor,
+  ReviewTargetRuntimeState,
+} from '@/lib/copilot/review-sessions/types'
 
 const fetchMock = vi.fn()
 
@@ -315,5 +318,4 @@ describe('bootstrapYjsProvider', () => {
     expect(result.provider).toBe(providerInstances[0])
     expect(providerInstances[0].params.accessMode).toBe('write')
   })
-
 })

@@ -30,9 +30,7 @@ import {
 } from '@/lib/workflows/studio-workflow-mermaid'
 import { isWorkflowVariableType, type WorkflowVariableType } from '@/lib/workflows/value-types'
 import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
-import {
-  readBootstrappedReviewTargetSnapshot,
-} from '@/lib/yjs/server/bootstrap-review-target'
+import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
 import { readEntityListMembersFromDb } from '@/lib/yjs/server/entity-loaders'
 import { applyWorkflowPatchInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import {

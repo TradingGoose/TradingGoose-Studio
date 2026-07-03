@@ -153,13 +153,7 @@ export function WorkflowItem({
       logger.error('Error deleting workflow:', error)
       setDeleteState((prev) => ({ ...prev, isDeleting: false }))
     }
-  }, [
-    canDelete,
-    removeWorkflow,
-    resetDeleteState,
-    userPermissions.canEdit,
-    workflow.id,
-  ])
+  }, [canDelete, removeWorkflow, resetDeleteState, userPermissions.canEdit, workflow.id])
 
   const handleDuplicateWorkflow = useCallback(async () => {
     if (!userPermissions.canEdit || isDuplicating) return
@@ -427,9 +421,7 @@ export function WorkflowItem({
             <AlertDialogDescription>
               Deleting this workflow will permanently remove all associated blocks, executions, and
               configuration.{' '}
-              <span className='text-red-500 dark:text-red-500'>
-                This action cannot be undone.
-              </span>
+              <span className='text-red-500 dark:text-red-500'>This action cannot be undone.</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
 

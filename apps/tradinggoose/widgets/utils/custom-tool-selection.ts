@@ -1,8 +1,8 @@
 import { CUSTOM_TOOL_WIDGET_SELECT_EVENT } from '@/widgets/events'
 import type { PairColor } from '@/widgets/pair-colors'
 import {
-  createSelectionPersistenceHook,
   createEmitSelectionChange,
+  createSelectionPersistenceHook,
   type UseSelectionPersistenceOptions,
 } from '@/widgets/utils/selection-persistence-factory'
 

@@ -1,13 +1,13 @@
 'use client'
 
-import * as Y from 'yjs'
+import type * as Y from 'yjs'
 import {
-  YJS_KEYS,
-  readWorkflowMap,
   getVariablesSnapshot,
+  readWorkflowMap,
   readWorkflowSnapshot,
   readWorkflowTextFieldValue,
   type WorkflowSnapshot,
+  YJS_KEYS,
 } from '@/lib/yjs/workflow-session'
 
 export interface RegisteredWorkflowSession {

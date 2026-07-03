@@ -4,21 +4,19 @@ import { useCallback, useMemo, useState } from 'react'
 import { useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { SKILL_NAME_MAX_LENGTH } from '@/lib/skills/import-export'
+import type { SkillDefinition } from '@/lib/skills/types'
 import { saveSavedEntityField, useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useDeleteSkill } from '@/hooks/queries/skills'
 import { formatTemplate } from '@/i18n/utils'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import type { SkillDefinition } from '@/lib/skills/types'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
 import {
   resolveEntityIdFromList,
   usePersistResolvedEntityId,
 } from '@/widgets/utils/entity-selection'
-import {
-  useSkillSelectionPersistence,
-} from '@/widgets/utils/skill-selection'
+import { useSkillSelectionPersistence } from '@/widgets/utils/skill-selection'
 import { SkillListItem } from '@/widgets/widgets/_shared/skill/components/skill-list-item'
 import {
   normalizeSkillName,

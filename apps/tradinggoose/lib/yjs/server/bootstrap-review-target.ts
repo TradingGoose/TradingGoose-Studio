@@ -259,10 +259,7 @@ export async function createEntityListBootstrapUpdate(
   const descriptor = buildEntityListDescriptor(entityKind, workspaceId)
   const doc = new Y.Doc()
   try {
-    replaceEntityListSessionMembers(
-      doc,
-      await readEntityListMembersFromDb(entityKind, workspaceId)
-    )
+    replaceEntityListSessionMembers(doc, await readEntityListMembersFromDb(entityKind, workspaceId))
 
     const metadata = getMetadataMap(doc)
     metadata.set('reseededFromCanonical', true)
@@ -285,10 +282,7 @@ export async function reseedEntityListSessionFromDb(
 ): Promise<void> {
   const previous = entityListReseedQueues.get(doc) ?? Promise.resolve()
   const reseed = previous.then(async () => {
-    replaceEntityListSessionMembers(
-      doc,
-      await readEntityListMembersFromDb(entityKind, workspaceId)
-    )
+    replaceEntityListSessionMembers(doc, await readEntityListMembersFromDb(entityKind, workspaceId))
   })
   const tail = reseed.catch(() => undefined)
   entityListReseedQueues.set(doc, tail)

@@ -17,9 +17,7 @@ import {
   resolveEntityIdFromList,
   usePersistResolvedEntityId,
 } from '@/widgets/utils/entity-selection'
-import {
-  useIndicatorSelectionPersistence,
-} from '@/widgets/utils/indicator-selection'
+import { useIndicatorSelectionPersistence } from '@/widgets/utils/indicator-selection'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
 import { getIndicatorIdFromParams } from '@/widgets/widgets/editor_indicator/utils'
 import { IndicatorListItem } from './components/indicator-list-item'

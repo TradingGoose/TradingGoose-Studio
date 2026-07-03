@@ -116,9 +116,7 @@ describe('public copy', () => {
     const zhCopilot = getPublicCopy('zh').workspace.widgets.copilot
 
     expect(enCopilot.welcome.cards.reviewChangesSafely.title).toBe('Review changes safely')
-    expect(esCopilot.welcome.cards.reviewChangesSafely.title).toBe(
-      'Revisar cambios con seguridad'
-    )
+    expect(esCopilot.welcome.cards.reviewChangesSafely.title).toBe('Revisar cambios con seguridad')
     expect(zhCopilot.input.attachFile).toBe('附加文件')
     expect(esCopilot.message.copy).toBe('Copiar')
     expect(zhCopilot.message.sources).toBe('来源：')

@@ -15,8 +15,8 @@ import { reconcilePublishedChatsForDeploymentTx } from '@/lib/chat/published-dep
 import { createLogger } from '@/lib/logs/console/logger'
 import { sanitizeAgentToolsInBlocks } from '@/lib/workflows/validation'
 import { inferWorkflowDirectionFromState } from '@/lib/workflows/workflow-direction'
-import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { extractPersistedStateFromDoc, setWorkflowState } from '@/lib/yjs/workflow-session'
 import type {
   BlockState,
@@ -923,7 +923,6 @@ export async function saveWorkflowYjsDocToDb(workflowId: string, doc: Y.Doc): Pr
       YJS_ORIGINS.SYSTEM
     )
   }
-
 }
 
 /**
