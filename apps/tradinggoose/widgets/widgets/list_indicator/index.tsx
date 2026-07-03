@@ -61,11 +61,6 @@ const IndicatorListHeaderRight = ({
         panelId,
         widgetKey: 'list_indicator',
       })
-      emitIndicatorSelectionChange({
-        indicatorId: createdIndicatorId,
-        panelId,
-        widgetKey: 'editor_indicator',
-      })
     },
     [isLinkedToColorPair, panelId, resolvedPairColor, setPairContext]
   )

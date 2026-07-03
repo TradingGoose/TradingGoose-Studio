@@ -18,7 +18,6 @@ import {
   usePersistResolvedEntityId,
 } from '@/widgets/utils/entity-selection'
 import {
-  emitIndicatorSelectionChange,
   useIndicatorSelectionPersistence,
 } from '@/widgets/utils/indicator-selection'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
@@ -112,12 +111,6 @@ export function IndicatorList({
           indicatorId,
         })
       }
-
-      emitIndicatorSelectionChange({
-        indicatorId,
-        panelId,
-        widgetKey: 'editor_indicator',
-      })
     },
     [
       isLinkedToColorPair,

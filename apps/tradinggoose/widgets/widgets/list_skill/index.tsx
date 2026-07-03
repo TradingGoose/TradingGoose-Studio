@@ -17,10 +17,7 @@ import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { emitSkillSelectionChange } from '@/widgets/utils/skill-selection'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
-import {
-  SKILL_EDITOR_WIDGET_KEY,
-  SKILL_LIST_WIDGET_KEY,
-} from '@/widgets/widgets/_shared/skill/utils'
+import { SKILL_LIST_WIDGET_KEY } from '@/widgets/widgets/_shared/skill/utils'
 import { SkillCreateMenu } from '@/widgets/widgets/list_skill/components/skill-create-menu'
 import {
   SkillList,
@@ -57,11 +54,6 @@ const SkillListHeaderRight = ({
         skillId: createdSkillId,
         panelId,
         widgetKey: SKILL_LIST_WIDGET_KEY,
-      })
-      emitSkillSelectionChange({
-        skillId: createdSkillId,
-        panelId,
-        widgetKey: SKILL_EDITOR_WIDGET_KEY,
       })
     },
     [isLinkedToColorPair, panelId, resolvedPairColor, setPairContext]

@@ -17,14 +17,12 @@ import {
   usePersistResolvedEntityId,
 } from '@/widgets/utils/entity-selection'
 import {
-  emitSkillSelectionChange,
   useSkillSelectionPersistence,
 } from '@/widgets/utils/skill-selection'
 import { SkillListItem } from '@/widgets/widgets/_shared/skill/components/skill-list-item'
 import {
   normalizeSkillName,
   resolveSkillId,
-  SKILL_EDITOR_WIDGET_KEY,
   SKILL_LIST_WIDGET_KEY,
 } from '@/widgets/widgets/_shared/skill/utils'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
@@ -111,12 +109,6 @@ export function SkillList({
       onWidgetParamsChange?.({
         ...currentParams,
         skillId,
-      })
-
-      emitSkillSelectionChange({
-        skillId,
-        panelId,
-        widgetKey: SKILL_EDITOR_WIDGET_KEY,
       })
     },
     [

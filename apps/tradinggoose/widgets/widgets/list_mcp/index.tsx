@@ -167,11 +167,6 @@ const ListMcpHeaderRightContent = ({
         panelId,
         widgetKey: 'list_mcp',
       })
-      emitMcpSelectionChange({
-        serverId,
-        panelId,
-        widgetKey: 'editor_mcp',
-      })
     },
     [isLinkedToColorPair, panelId, resolvedPairColor, setPairContext]
   )
@@ -303,12 +298,6 @@ const ListMcpWidgetContent = ({
       onWidgetParamsChange?.({
         ...currentParams,
         mcpServerId: serverId,
-      })
-
-      emitMcpSelectionChange({
-        serverId,
-        panelId,
-        widgetKey: 'editor_mcp',
       })
     },
     [

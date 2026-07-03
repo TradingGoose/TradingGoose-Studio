@@ -47,7 +47,6 @@ import {
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
 import { CustomToolListItem } from '@/widgets/widgets/_shared/custom_tool/components/custom-tool-list-item'
 import {
-  CUSTOM_TOOL_EDITOR_WIDGET_KEY,
   CUSTOM_TOOL_LIST_WIDGET_KEY,
   resolveCustomToolId,
 } from '@/widgets/widgets/_shared/custom_tool/utils'
@@ -213,11 +212,6 @@ function CustomToolListHeaderRight({
         customToolId: createdToolId,
         panelId,
         widgetKey: CUSTOM_TOOL_LIST_WIDGET_KEY,
-      })
-      emitCustomToolSelectionChange({
-        customToolId: createdToolId,
-        panelId,
-        widgetKey: CUSTOM_TOOL_EDITOR_WIDGET_KEY,
       })
     },
     [isLinkedToColorPair, panelId, resolvedPairColor, setPairContext]
@@ -390,11 +384,6 @@ function ListCustomToolWidgetBodyInner({
       onWidgetParamsChange?.({
         ...currentParams,
         customToolId,
-      })
-      emitCustomToolSelectionChange({
-        customToolId,
-        panelId,
-        widgetKey: CUSTOM_TOOL_EDITOR_WIDGET_KEY,
       })
     },
     [
