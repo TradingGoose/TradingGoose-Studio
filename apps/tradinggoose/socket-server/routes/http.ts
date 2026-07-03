@@ -534,13 +534,20 @@ async function handleInternalYjsSnapshotRequest(
       return
     }
 
-    if (isEntityListSessionId(descriptor.yjsSessionId)) {
-      await reseedEntityListSessionFromDb(
-        liveDoc,
-        descriptor.entityKind,
-        descriptor.workspaceId as string
-      )
-      markDocumentPersisted(liveDoc)
+    if (isEntityListSessionId(descriptor.yjsSessionId) && !bootstrappedForRequest) {
+      try {
+        await reseedEntityListSessionFromDb(
+          liveDoc,
+          descriptor.entityKind,
+          descriptor.workspaceId as string
+        )
+        markDocumentPersisted(liveDoc)
+      } catch (error) {
+        logger.warn('Failed to reseed existing entity-list snapshot; serving live projection', {
+          error,
+          sessionId,
+        })
+      }
     }
 
     const state = Y.encodeStateAsUpdate(liveDoc)

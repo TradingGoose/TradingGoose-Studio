@@ -776,6 +776,44 @@ describe('Socket Server Index Integration', () => {
       }
     })
 
+    it('serves an existing entity-list snapshot when DB reseed fails', async () => {
+      const sessionId = 'list:skill:workspace-1'
+      getDocument(sessionId)
+      const liveDoc = await getExistingDocument(sessionId)
+      replaceEntityListSessionMembers(liveDoc!, [{ id: 'skill-live', name: 'Live Skill' }])
+      mockReseedEntityListSessionFromDb.mockRejectedValueOnce(new Error('database unavailable'))
+      const encodedSessionId = encodeURIComponent(sessionId)
+
+      const response = await sendHttpRequestWithOptions(
+        PORT,
+        `/internal/yjs/sessions/${encodedSessionId}/snapshot?targetKind=entity_list&sessionId=${encodedSessionId}&workspaceId=workspace-1&entityKind=skill`,
+        {
+          method: 'GET',
+          headers: {
+            'x-internal-secret': INTERNAL_SECRET,
+          },
+        }
+      )
+
+      expect(response.statusCode).toBe(200)
+      expect(mockReseedEntityListSessionFromDb).toHaveBeenCalledWith(
+        liveDoc,
+        'skill',
+        'workspace-1'
+      )
+
+      const data = JSON.parse(response.body)
+      const snapshotDoc = new Y.Doc()
+      try {
+        Y.applyUpdate(snapshotDoc, Buffer.from(data.snapshotBase64, 'base64'))
+        expect(getEntityListMembers(snapshotDoc).map((member) => member.entityId)).toEqual([
+          'skill-live',
+        ])
+      } finally {
+        snapshotDoc.destroy()
+      }
+    })
+
     it('should bootstrap a saved workflow snapshot into a live Yjs document', async () => {
       const response = await sendHttpRequestWithOptions(
         PORT,
