@@ -1440,13 +1440,9 @@ export function useWorkflowMutations() {
 }
 
 // ---------------------------------------------------------------------------
-// Convenience: combined read+write hook (replaces useWorkflowStore())
+// Convenience: combined read+write hook
 // ---------------------------------------------------------------------------
 
-/**
- * Drop-in replacement for components that destructure both state and actions
- * from useWorkflowStore(). Returns the same shape.
- */
 export function useWorkflowDoc() {
   const blocks = useWorkflowBlocks()
   const edges = useWorkflowEdges()
