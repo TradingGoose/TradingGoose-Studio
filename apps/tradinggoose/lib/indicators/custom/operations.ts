@@ -6,7 +6,7 @@ import {
   type IndicatorTransferRecord,
   resolveImportedIndicatorName,
 } from '@/lib/indicators/import-export'
-import { inferInputMetaFromPineCode, normalizeInputMetaMap } from '@/lib/indicators/input-meta'
+import { inferInputMetaFromPineCode } from '@/lib/indicators/input-meta'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
@@ -24,15 +24,30 @@ export async function listCustomIndicatorRuntimeEntries(
     workspaceId,
     isDeployedContext
   )
-  return entries.map(({ entityId, fields }) => ({
-    id: entityId,
-    pineCode: String(fields.pineCode ?? ''),
-    inputMeta: normalizeInputMetaMap(fields.inputMeta),
-  }))
+  return entries.map(({ entityId, fields }) => {
+    const pineCode = String(fields.pineCode ?? '')
+    return {
+      id: entityId,
+      pineCode,
+      inputMeta: inferInputMetaFromPineCode(pineCode),
+    }
+  })
 }
 
 export async function listIndicators(params: { workspaceId: string }) {
-  return db.select().from(pineIndicators).where(eq(pineIndicators.workspaceId, params.workspaceId))
+  const entries = await readSavedEntityListFieldsForExecution('indicator', params.workspaceId, false)
+  return entries.map(({ entityId, fields }) => {
+    const pineCode = String(fields.pineCode ?? '')
+    return {
+      id: entityId,
+      workspaceId: params.workspaceId,
+      userId: null,
+      name: String(fields.name ?? ''),
+      color: String(fields.color ?? ''),
+      pineCode,
+      inputMeta: inferInputMetaFromPineCode(pineCode) ?? null,
+    }
+  })
 }
 
 interface CreateIndicatorsParams {
