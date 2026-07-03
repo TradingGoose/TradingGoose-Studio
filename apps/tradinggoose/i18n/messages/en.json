@@ -997,44 +997,7 @@
         "monitor": "Monitor",
         "logs": "Logs",
         "knowledge": "Knowledge",
-        "templates": "Templates",
         "docs": "Docs"
-      }
-    },
-    "templates": {
-      "title": "Templates",
-      "description": "Grab a template and start building,\nor make one from scratch.",
-      "searchPlaceholder": "Search templates...",
-      "sections": {
-        "your": "Your templates",
-        "recent": "Recent"
-      },
-      "categories": {
-        "marketing": "Marketing",
-        "sales": "Sales",
-        "finance": "Finance",
-        "support": "Support",
-        "artificial-intelligence": "Artificial Intelligence",
-        "other": "Other"
-      },
-      "detail": {
-        "notFoundTitle": "Template Not Found",
-        "notFoundDescription": "The template you're looking for doesn't exist.",
-        "noWorkflowDataTitle": "No Workflow Data",
-        "noWorkflowDataDescription": "This template doesn't contain workflow state data.",
-        "previewErrorTitle": "Preview Error",
-        "previewErrorDescription": "Unable to render workflow preview",
-        "goBack": "Go back",
-        "workflowPreview": "Workflow Preview",
-        "useThisTemplate": "Use this template",
-        "use": "Use",
-        "by": "by"
-      },
-      "loginRequired": "Please log in to view templates",
-      "errorPage": {
-        "title": "Error Loading Template",
-        "description": "There was an error loading this template.",
-        "templateIdLabel": "Template ID:"
       }
     },
     "knowledge": {
@@ -18524,111 +18487,6 @@
           "duplicateDescription": "A workflow can only have one {triggerName} trigger block. Please remove the existing one before adding a new one.",
           "dismiss": "Got it"
         },
-        "templateModal": {
-          "title": {
-            "loading": "Loading...",
-            "update": "Update Template",
-            "publish": "Publish Template"
-          },
-          "fields": {
-            "icon": "Icon",
-            "color": "Color",
-            "name": "Name",
-            "author": "Author",
-            "category": "Category",
-            "description": "Description"
-          },
-          "placeholders": {
-            "name": "Enter template name",
-            "author": "Enter author name",
-            "category": "Select a category",
-            "description": "Describe what this template does..."
-          },
-          "actions": {
-            "close": "Close",
-            "delete": "Delete"
-          },
-          "submit": {
-            "updating": "Updating...",
-            "publishing": "Publishing...",
-            "update": "Update Template",
-            "publish": "Publish Template"
-          },
-          "delete": {
-            "title": "Delete Template?",
-            "description": "Deleting this template will remove it from the gallery. This action cannot be undone.",
-            "cancel": "Cancel",
-            "confirm": "Delete",
-            "deleting": "Deleting..."
-          },
-          "validation": {
-            "nameRequired": "Name is required",
-            "nameTooLong": "Name must be less than 100 characters",
-            "descriptionRequired": "Description is required",
-            "descriptionTooLong": "Description must be less than 500 characters",
-            "authorRequired": "Author is required",
-            "authorTooLong": "Author must be less than 100 characters",
-            "categoryRequired": "Category is required",
-            "iconRequired": "Icon is required",
-            "colorInvalid": "Color must be a valid hex color (e.g., #3972F6)"
-          },
-          "errors": {
-            "workflowNotReady": "Workflow session is not ready yet. Wait for the editor to finish loading.",
-            "create": "Failed to create template",
-            "update": "Failed to update template",
-            "delete": "Failed to delete template"
-          },
-          "categories": {
-            "marketing": "Marketing",
-            "sales": "Sales",
-            "finance": "Finance",
-            "support": "Support",
-            "artificialIntelligence": "Artificial Intelligence",
-            "other": "Other"
-          },
-          "icons": {
-            "fileText": "File Text",
-            "notebook": "Notebook",
-            "book": "Book",
-            "edit": "Edit",
-            "barChart": "Bar Chart",
-            "lineChart": "Line Chart",
-            "trendingUp": "Trending Up",
-            "target": "Target",
-            "database": "Database",
-            "server": "Server",
-            "cloud": "Cloud",
-            "folder": "Folder",
-            "megaphone": "Megaphone",
-            "mail": "Mail",
-            "message": "Message",
-            "phone": "Phone",
-            "bell": "Bell",
-            "dollarSign": "Dollar Sign",
-            "creditCard": "Credit Card",
-            "calculator": "Calculator",
-            "shoppingCart": "Shopping Cart",
-            "briefcase": "Briefcase",
-            "headphones": "Headphones",
-            "user": "User",
-            "users": "Users",
-            "settings": "Settings",
-            "wrench": "Wrench",
-            "bot": "Bot",
-            "brain": "Brain",
-            "cpu": "CPU",
-            "code": "Code",
-            "zap": "Zap",
-            "workflow": "Workflow",
-            "search": "Search",
-            "play": "Play",
-            "layers": "Layers",
-            "lightbulb": "Lightbulb",
-            "star": "Star",
-            "globe": "Globe",
-            "award": "Award"
-          }
-        },
         "webhookSettings": {
           "title": "Webhook Notifications",
           "searchPlaceholder": "Search webhooks...",
@@ -21384,7 +21242,7 @@
             }
           },
           "tipPrefix": "Tip: Use",
-          "tipSuffix": "to reference chats, workflows, knowledge, blocks, or templates",
+          "tipSuffix": "to reference chats, workflows, knowledge, or blocks",
           "shiftEnter": "Shift+Enter for newline"
         },
         "input": {

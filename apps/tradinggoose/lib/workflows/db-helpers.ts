@@ -419,7 +419,7 @@ export interface NormalizedWorkflowData {
 }
 
 /**
- * Regenerates all IDs in a workflow state to avoid conflicts when duplicating or using templates.
+ * Regenerates all IDs in a workflow state to avoid conflicts when duplicating workflows.
  * Returns a new state with all IDs regenerated and references updated.
  */
 export function regenerateWorkflowStateIds(state: WorkflowState): WorkflowState {

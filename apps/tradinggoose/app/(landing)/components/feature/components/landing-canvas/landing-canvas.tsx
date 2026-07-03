@@ -123,18 +123,6 @@ export function LandingCanvas({
     <div className='relative mx-auto flex h-[612px] w-full max-w-[1285px] border-none'>
       <DotPattern className='pointer-events-none absolute inset-0 z-0 h-full w-full opacity-20' />
 
-      {/* Use template button overlay */}
-      {/* <button
-        type='button'
-        aria-label='Use template'
-        className='absolute top-[24px] left-[50px] z-20 inline-flex items-center justify-center rounded-md border border-[#343434] bg-gradient-to-b from-[#060606] to-[#323232] px-3 py-1.5 text-sm text-white shadow-[inset_0_1.25px_2.5px_0_#9B77FF] transition-all duration-200'
-        onClick={() => {
-          // Template usage logic will be implemented here
-        }}
-      >
-        Use template
-      </button> */}
-
       <div ref={flowWrapRef} className='relative z-10 h-full w-full'>
         <ReactFlowProvider>
           <LandingFlow

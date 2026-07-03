@@ -657,7 +657,6 @@ const ChatMessageSchema = z.object({
           'logs',
           'workflow_block',
           'knowledge',
-          'templates',
           'docs',
         ]),
         label: z.string(),
@@ -671,7 +670,6 @@ const ChatMessageSchema = z.object({
         blockTypes: z.array(z.string()).optional(),
         knowledgeId: z.string().optional(),
         blockId: z.string().optional(),
-        templateId: z.string().optional(),
         executionId: z.string().optional(),
         draftSessionId: z.string().optional(),
         // For workflow_block, provide both workflowId and blockId

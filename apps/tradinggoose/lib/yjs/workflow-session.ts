@@ -482,7 +482,7 @@ export function setVariables(doc: Y.Doc, variables: Record<string, any>, origin?
 /**
  * Reads the full persisted workflow state (blocks, edges, loops, parallels,
  * variables) from a Y.Doc in one call.  This is the canonical extraction used
- * by both the server-side Yjs loader and the template builder.
+ * by the server-side Yjs loader.
  */
 export interface PersistedDocState {
   direction?: WorkflowDirection

@@ -211,8 +211,6 @@ describe('public copy', () => {
       getPublicCopy('zh').workspace.widgets.blockEditor.blockLongDescriptions.stagehand_agent
     ).toContain('浏览网页并执行任务')
     expect(getPublicCopy('en').workspace.knowledge.title).toBe('Knowledge')
-    expect(getPublicCopy('en').workspace.templates.title).toBe('Templates')
-    expect(getPublicCopy('es').workspace.templates.sections.your).toBe('Tus plantillas')
     expect(getPublicCopy('zh').workspace.layoutTabs.renameAriaLabel).toContain('{name}')
     expect(getPublicCopy('zh').workspace.logs.title.logs).toBe('日志')
     expect(getPublicCopy('en').workspace.widgets.selector.selectWidget).toBe('Select widget')
@@ -275,9 +273,6 @@ describe('public copy', () => {
       '{used} of {total} tag slots used'
     )
     expect(getPublicCopy('zh').workspace.widgets.workflowVariables.addVariable).toBe('添加变量')
-    expect(getPublicCopy('en').workspace.widgets.blockEditor.templateModal.title.publish).toBe(
-      'Publish Template'
-    )
     expect(getPublicCopy('en').workspace.widgets.blockEditor.dropdown.failedToFetchOptions).toBe(
       'Failed to fetch options'
     )

@@ -24,7 +24,6 @@ export function ReadOnlyNodeEditorPanel({
   const {
     workflowEditorCopy: copy,
     readOnlyPreviewCopy: previewCopy,
-    getLocalizedDefaultBlockName,
     localizeWorkflowSubBlockConfig,
   } = useWorkflowI18n()
   const selectedBlock = useMemo(() => {
@@ -57,7 +56,7 @@ export function ReadOnlyNodeEditorPanel({
   }
 
   const blockConfig = getBlock(selectedBlock.type)
-  const localizedBlockName = getLocalizedDefaultBlockName(selectedBlock.type, selectedBlock.name)
+  const blockName = selectedBlock.name
   const previewConfig = (() => {
     if (selectedBlock.type === 'loop') {
       const loop = workflowState.loops?.[selectedBlock.id]
@@ -136,7 +135,7 @@ export function ReadOnlyNodeEditorPanel({
           <p className='text-muted-foreground text-xs uppercase tracking-wide'>
             {copy.previewInspector}
           </p>
-          <h3 className='line-clamp-2 font-medium text-sm'>{localizedBlockName}</h3>
+          <h3 className='line-clamp-2 font-medium text-sm'>{blockName}</h3>
         </header>
 
         {previewConfig.subBlocks.length > 0 ? (

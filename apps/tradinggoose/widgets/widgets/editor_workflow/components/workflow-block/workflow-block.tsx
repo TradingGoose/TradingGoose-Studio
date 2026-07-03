@@ -63,13 +63,9 @@ type WorkflowBlockNode = Node<WorkflowBlockProps, 'workflowBlock'>
 export const WorkflowBlock = memo(
   function WorkflowBlock({ id, data, selected }: NodeProps<WorkflowBlockNode>) {
     const { type, config, name, isActive: dataIsActive, isPending } = data
-    const {
-      formatWorkflowTemplate,
-      getLocalizedDefaultBlockName,
-      localizeWorkflowSubBlockConfig,
-      workflowLabelsCopy,
-    } = useWorkflowI18n()
-    const displayName = getLocalizedDefaultBlockName(type, name)
+    const { formatWorkflowTemplate, localizeWorkflowSubBlockConfig, workflowLabelsCopy } =
+      useWorkflowI18n()
+    const displayName = name
 
     // State management
     const [, setIsConnecting] = useState(false)

@@ -126,7 +126,7 @@ describe('Workflow API Route', () => {
       variables: {
         'var-1': {
           id: 'var-1',
-          workflowId: 'template-workflow',
+          workflowId: 'source-workflow',
           name: 'apiKey',
           type: 'plain',
           value: 'secret',

@@ -984,44 +984,7 @@
         "monitor": "监控",
         "logs": "日志",
         "knowledge": "知识",
-        "templates": "模板",
         "docs": "文档"
-      }
-    },
-    "templates": {
-      "title": "模板",
-      "description": "选择一个模板开始构建，\n或者从零开始创建一个。",
-      "searchPlaceholder": "搜索模板...",
-      "sections": {
-        "your": "我的模板",
-        "recent": "最近使用"
-      },
-      "categories": {
-        "marketing": "市场营销",
-        "sales": "销售",
-        "finance": "财务",
-        "support": "支持",
-        "artificial-intelligence": "人工智能",
-        "other": "其他"
-      },
-      "detail": {
-        "notFoundTitle": "模板未找到",
-        "notFoundDescription": "您查找的模板不存在。",
-        "noWorkflowDataTitle": "无工作流数据",
-        "noWorkflowDataDescription": "此模板不包含工作流状态数据。",
-        "previewErrorTitle": "预览错误",
-        "previewErrorDescription": "无法渲染工作流预览",
-        "goBack": "返回",
-        "workflowPreview": "工作流预览",
-        "useThisTemplate": "使用此模板",
-        "use": "使用",
-        "by": "由"
-      },
-      "loginRequired": "请登录以查看模板",
-      "errorPage": {
-        "title": "加载模板出错",
-        "description": "加载此模板时出错。",
-        "templateIdLabel": "模板ID："
       }
     },
     "knowledge": {
@@ -18511,111 +18474,6 @@
           "duplicateDescription": "一个工作流只能有一个 {triggerName} 触发器块。请先删除已有的触发器，再添加新的。",
           "dismiss": "知道了"
         },
-        "templateModal": {
-          "title": {
-            "loading": "加载中...",
-            "update": "更新模板",
-            "publish": "发布模板"
-          },
-          "fields": {
-            "icon": "图标",
-            "color": "颜色",
-            "name": "名称",
-            "author": "作者",
-            "category": "分类",
-            "description": "描述"
-          },
-          "placeholders": {
-            "name": "输入模板名称",
-            "author": "输入作者名称",
-            "category": "选择一个分类",
-            "description": "描述此模板的作用..."
-          },
-          "actions": {
-            "close": "关闭",
-            "delete": "删除"
-          },
-          "submit": {
-            "updating": "更新中...",
-            "publishing": "发布中...",
-            "update": "更新模板",
-            "publish": "发布模板"
-          },
-          "delete": {
-            "title": "删除模板？",
-            "description": "删除此模板后，它将从模板库中移除。此操作无法撤销。",
-            "cancel": "取消",
-            "confirm": "删除",
-            "deleting": "删除中..."
-          },
-          "validation": {
-            "nameRequired": "名称为必填项",
-            "nameTooLong": "名称必须少于 100 个字符",
-            "descriptionRequired": "描述为必填项",
-            "descriptionTooLong": "描述必须少于 500 个字符",
-            "authorRequired": "作者为必填项",
-            "authorTooLong": "作者必须少于 100 个字符",
-            "categoryRequired": "分类为必填项",
-            "iconRequired": "图标为必填项",
-            "colorInvalid": "颜色必须是有效的十六进制颜色（例如 #3972F6）"
-          },
-          "errors": {
-            "workflowNotReady": "工作流会话尚未准备好。请等待编辑器完成加载。",
-            "create": "无法创建模板",
-            "update": "无法更新模板",
-            "delete": "无法删除模板"
-          },
-          "categories": {
-            "marketing": "营销",
-            "sales": "销售",
-            "finance": "金融",
-            "support": "支持",
-            "artificialIntelligence": "人工智能",
-            "other": "其他"
-          },
-          "icons": {
-            "fileText": "文本文档",
-            "notebook": "笔记本",
-            "book": "书籍",
-            "edit": "编辑",
-            "barChart": "柱状图",
-            "lineChart": "折线图",
-            "trendingUp": "上升趋势",
-            "target": "目标",
-            "database": "数据库",
-            "server": "服务器",
-            "cloud": "云",
-            "folder": "文件夹",
-            "megaphone": "扩音器",
-            "mail": "邮件",
-            "message": "消息",
-            "phone": "电话",
-            "bell": "铃铛",
-            "dollarSign": "美元符号",
-            "creditCard": "信用卡",
-            "calculator": "计算器",
-            "shoppingCart": "购物车",
-            "briefcase": "公文包",
-            "headphones": "耳机",
-            "user": "用户",
-            "users": "用户组",
-            "settings": "设置",
-            "wrench": "扳手",
-            "bot": "机器人",
-            "brain": "大脑",
-            "cpu": "CPU",
-            "code": "代码",
-            "zap": "闪电",
-            "workflow": "工作流",
-            "search": "搜索",
-            "play": "播放",
-            "layers": "图层",
-            "lightbulb": "灯泡",
-            "star": "星标",
-            "globe": "地球",
-            "award": "奖项"
-          }
-        },
         "webhookSettings": {
           "title": "Webhook 通知",
           "searchPlaceholder": "搜索 Webhook...",
@@ -21371,7 +21229,7 @@
             }
           },
           "tipPrefix": "提示：使用",
-          "tipSuffix": "来引用聊天、工作流、知识、区块或模板",
+          "tipSuffix": "来引用聊天、工作流、知识或区块",
           "shiftEnter": "Shift+Enter 换行"
         },
         "input": {
@@ -22510,7 +22368,11 @@
         "body": "你的组织账单层级已在 {brandName} 生效。现在你拥有更高容量、高级控制和组织范围访问权限。",
         "cta": "访问你的账户",
         "nextStepsTitle": "后续步骤",
-        "nextSteps": ["- 邀请团队成员加入组织", "- 配置工作区权限", "- 使用新限制开始构建工作流"],
+        "nextSteps": [
+          "- 邀请团队成员加入组织",
+          "- 配置工作区权限",
+          "- 使用新限制开始构建工作流"
+        ],
         "help": "需要入门帮助？回复此邮件，我们的团队会协助你。"
       },
       "planWelcome": {

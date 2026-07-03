@@ -997,44 +997,7 @@
         "monitor": "Monitoreo",
         "logs": "Registros",
         "knowledge": "Conocimiento",
-        "templates": "Plantillas",
         "docs": "Documentos"
-      }
-    },
-    "templates": {
-      "title": "Plantillas",
-      "description": "Toma una plantilla y empieza a construir,\no crea una desde cero.",
-      "searchPlaceholder": "Buscar plantillas...",
-      "sections": {
-        "your": "Tus plantillas",
-        "recent": "Recientes"
-      },
-      "categories": {
-        "marketing": "Marketing",
-        "sales": "Ventas",
-        "finance": "Finanzas",
-        "support": "Soporte",
-        "artificial-intelligence": "Inteligencia artificial",
-        "other": "Otro"
-      },
-      "detail": {
-        "notFoundTitle": "Plantilla no encontrada",
-        "notFoundDescription": "La plantilla que buscas no existe.",
-        "noWorkflowDataTitle": "Sin datos del flujo de trabajo",
-        "noWorkflowDataDescription": "Esta plantilla no contiene datos del estado del flujo de trabajo.",
-        "previewErrorTitle": "Error de vista previa",
-        "previewErrorDescription": "No se pudo renderizar la vista previa del flujo de trabajo",
-        "goBack": "Volver",
-        "workflowPreview": "Vista previa del flujo de trabajo",
-        "useThisTemplate": "Usar esta plantilla",
-        "use": "Usar",
-        "by": "por"
-      },
-      "loginRequired": "Inicia sesión para ver las plantillas",
-      "errorPage": {
-        "title": "Error al cargar la plantilla",
-        "description": "Hubo un error al cargar esta plantilla.",
-        "templateIdLabel": "ID de plantilla:"
       }
     },
     "knowledge": {
@@ -18524,111 +18487,6 @@
           "duplicateDescription": "Un flujo solo puede tener un bloque disparador de {triggerName}. Elimina el existente antes de agregar uno nuevo.",
           "dismiss": "Entendido"
         },
-        "templateModal": {
-          "title": {
-            "loading": "Cargando...",
-            "update": "Actualizar plantilla",
-            "publish": "Publicar plantilla"
-          },
-          "fields": {
-            "icon": "Icono",
-            "color": "Color",
-            "name": "Nombre",
-            "author": "Autor",
-            "category": "Categoría",
-            "description": "Descripción"
-          },
-          "placeholders": {
-            "name": "Ingresa el nombre de la plantilla",
-            "author": "Ingresa el nombre del autor",
-            "category": "Selecciona una categoría",
-            "description": "Describe lo que hace esta plantilla..."
-          },
-          "actions": {
-            "close": "Cerrar",
-            "delete": "Eliminar"
-          },
-          "submit": {
-            "updating": "Actualizando...",
-            "publishing": "Publicando...",
-            "update": "Actualizar plantilla",
-            "publish": "Publicar plantilla"
-          },
-          "delete": {
-            "title": "¿Eliminar plantilla?",
-            "description": "Eliminar esta plantilla la quitará de la galería. Esta acción no se puede deshacer.",
-            "cancel": "Cancelar",
-            "confirm": "Eliminar",
-            "deleting": "Eliminando..."
-          },
-          "validation": {
-            "nameRequired": "El nombre es obligatorio",
-            "nameTooLong": "El nombre debe tener menos de 100 caracteres",
-            "descriptionRequired": "La descripción es obligatoria",
-            "descriptionTooLong": "La descripción debe tener menos de 500 caracteres",
-            "authorRequired": "El autor es obligatorio",
-            "authorTooLong": "El autor debe tener menos de 100 caracteres",
-            "categoryRequired": "La categoría es obligatoria",
-            "iconRequired": "El icono es obligatorio",
-            "colorInvalid": "El color debe ser un valor hexadecimal válido (por ejemplo, #3972F6)"
-          },
-          "errors": {
-            "workflowNotReady": "La sesión del flujo aún no está lista. Espera a que el editor termine de cargar.",
-            "create": "No se pudo crear la plantilla",
-            "update": "No se pudo actualizar la plantilla",
-            "delete": "No se pudo eliminar la plantilla"
-          },
-          "categories": {
-            "marketing": "Marketing",
-            "sales": "Ventas",
-            "finance": "Finanzas",
-            "support": "Soporte",
-            "artificialIntelligence": "Inteligencia artificial",
-            "other": "Otro"
-          },
-          "icons": {
-            "fileText": "Archivo de texto",
-            "notebook": "Cuaderno",
-            "book": "Libro",
-            "edit": "Editar",
-            "barChart": "Gráfico de barras",
-            "lineChart": "Gráfico de líneas",
-            "trendingUp": "Tendencia alcista",
-            "target": "Objetivo",
-            "database": "Base de datos",
-            "server": "Servidor",
-            "cloud": "Nube",
-            "folder": "Carpeta",
-            "megaphone": "Megáfono",
-            "mail": "Correo",
-            "message": "Mensaje",
-            "phone": "Teléfono",
-            "bell": "Campana",
-            "dollarSign": "Signo de dólar",
-            "creditCard": "Tarjeta de crédito",
-            "calculator": "Calculadora",
-            "shoppingCart": "Carrito de compras",
-            "briefcase": "Maletín",
-            "headphones": "Auriculares",
-            "user": "Usuario",
-            "users": "Usuarios",
-            "settings": "Configuración",
-            "wrench": "Llave",
-            "bot": "Bot",
-            "brain": "Cerebro",
-            "cpu": "CPU",
-            "code": "Código",
-            "zap": "Rayo",
-            "workflow": "Flujo de trabajo",
-            "search": "Buscar",
-            "play": "Reproducir",
-            "layers": "Capas",
-            "lightbulb": "Bombilla",
-            "star": "Estrella",
-            "globe": "Globo",
-            "award": "Premio"
-          }
-        },
         "webhookSettings": {
           "title": "Notificaciones por webhook",
           "searchPlaceholder": "Buscar webhooks...",
@@ -21384,7 +21242,7 @@
             }
           },
           "tipPrefix": "Consejo: usa",
-          "tipSuffix": "para hacer referencia a chats, flujos de trabajo, conocimiento, bloques o plantillas",
+          "tipSuffix": "para hacer referencia a chats, flujos de trabajo, conocimiento o bloques",
           "shiftEnter": "Shift+Enter para nueva línea"
         },
         "input": {

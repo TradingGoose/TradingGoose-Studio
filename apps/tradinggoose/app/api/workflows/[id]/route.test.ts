@@ -59,13 +59,6 @@ describe('Workflow By ID API Route', () => {
     }))
 
     vi.doMock('@tradinggoose/db/schema', () => ({
-      templates: {
-        workflowId: 'workflowId',
-        id: 'id',
-        name: 'name',
-        views: 'views',
-        stars: 'stars',
-      },
       workflow: {
         id: 'id',
         folderId: 'folderId',

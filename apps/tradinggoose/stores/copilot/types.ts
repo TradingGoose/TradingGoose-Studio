@@ -89,7 +89,6 @@ export type ChatContext =
   | { kind: 'logs'; executionId?: string; label: string }
   | { kind: 'workflow_block'; workflowId: string; blockId: string; label: string }
   | { kind: 'knowledge'; knowledgeId?: string; workspaceId?: string; label: string }
-  | { kind: 'templates'; templateId?: string; label: string }
   | { kind: 'docs'; label: string }
 
 export interface CopilotChat {

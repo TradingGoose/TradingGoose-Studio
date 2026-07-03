@@ -241,6 +241,7 @@ describe('WorkflowBlock localization', () => {
       })
     )
 
+    expect(markup).toContain('Condition')
     expect(markup).toContain('Siguiente paso')
     expect(markup).toContain('Bloqueado')
     expect(markup).toContain('Deshabilitado')

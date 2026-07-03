@@ -19,7 +19,6 @@ import {
   LibraryBig,
   ScrollText,
   Search,
-  Shapes,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Input } from '@/components/ui/input'
@@ -494,12 +493,6 @@ export function DashboardClient({
         name: t('pages.knowledge'),
         icon: LibraryBig,
         href: `/workspace/${workspaceId}/knowledge`,
-      },
-      {
-        id: 'templates',
-        name: t('pages.templates'),
-        icon: Shapes,
-        href: `/workspace/${workspaceId}/templates`,
       },
       {
         id: 'docs',

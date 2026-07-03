@@ -97,15 +97,13 @@ function PreviewNodeCard({
 }
 
 function LocalizedPreviewNode({ id, data }: NodeProps<PreviewCanvasNode>) {
-  const { getLocalizedDefaultBlockName, localizeWorkflowSubBlockConfig } = useWorkflowI18n()
+  const { localizeWorkflowSubBlockConfig } = useWorkflowI18n()
   const blockConfig = useMemo(
     () => getBlock(data.type) ?? data.config ?? null,
     [data.type, data.config]
   )
   const previewStateRaw = data.subBlockValues ?? data.blockState?.subBlocks ?? {}
-  const localizedBlockName = blockConfig
-    ? getLocalizedDefaultBlockName(blockConfig.type, data.name)
-    : data.name
+  const blockName = data.name
   const triggerId = blockConfig
     ? resolveTriggerIdFromSubBlocks(previewStateRaw, blockConfig.triggers?.available)
     : null
@@ -173,7 +171,7 @@ function LocalizedPreviewNode({ id, data }: NodeProps<PreviewCanvasNode>) {
     <PreviewNodeCard
       data={data}
       blockConfig={blockConfig}
-      title={localizedBlockName}
+      title={blockName}
       isEnabled={isEnabled}
       useHorizontalHandles={useHorizontalHandles}
       summary={summary}

@@ -247,7 +247,7 @@ export function DeployModal({
 }: DeployModalProps) {
   const copy = useDeploymentCopy()
   const workflowEditorCopy = useWorkflowEditorCopy()
-  const { getLocalizedDefaultBlockName, workflowInspectorCopy } = useWorkflowI18n()
+  const { workflowInspectorCopy } = useWorkflowI18n()
   const workspaceId = useWorkspaceId()
   const userPermissions = useUserPermissionsContext()
   const deploymentStatus = useWorkflowRegistry((state) =>
@@ -332,7 +332,7 @@ export function DeployModal({
       return {
         key: `trigger-${block.id}`,
         blockId: block.id,
-        label: getLocalizedDefaultBlockName(block.type, block.name),
+        label: block.name,
         triggerId,
         icon:
           triggerDef?.icon ??

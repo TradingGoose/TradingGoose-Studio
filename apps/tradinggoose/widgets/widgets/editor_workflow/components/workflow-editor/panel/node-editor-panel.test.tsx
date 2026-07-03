@@ -256,7 +256,7 @@ describe('NodeEditorPanel', () => {
     }
   })
 
-  it('renders localized block titles and sub-block copy through the shared row builder', () => {
+  it('renders the raw block title and localized sub-block copy through the shared row builder', () => {
     mockSelectedBlock = {
       id: 'agent-1',
       type: 'agent',
@@ -271,7 +271,8 @@ describe('NodeEditorPanel', () => {
       })
     )
 
-    expect(markup).toContain('Agente')
+    expect(markup).toContain('Agent')
+    expect(markup).not.toContain('Agente')
     expect(markup).toContain('Prompt del sistema')
     expect(markup).toContain('Prompt del usuario')
     expect(markup).toContain('Modelo')
@@ -366,7 +367,7 @@ describe('NodeEditorPanel', () => {
 
     expect(mockCollaborativeUpdateBlockName).not.toHaveBeenCalled()
     expect(container.querySelector('input[type="text"]')).toBeNull()
-    expect(container.textContent).toContain('Agente')
+    expect(container.textContent).toContain('Agent')
   })
 
   it('renders the missing-node fallback instead of crashing when the selected block is absent', () => {
