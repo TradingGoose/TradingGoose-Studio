@@ -65,4 +65,24 @@ describe('reseedEntityListSessionFromDb', () => {
       doc.destroy()
     }
   })
+
+  it('reports the current reseed failure while allowing the next queued reseed to run', async () => {
+    readEntityListMembersFromDb
+      .mockRejectedValueOnce(new Error('database unavailable'))
+      .mockResolvedValueOnce([{ id: 'workflow-2', name: 'Workflow 2' }])
+
+    const doc = new Y.Doc()
+    try {
+      const first = reseedEntityListSessionFromDb(doc, 'workflow', 'workspace-1')
+      const second = reseedEntityListSessionFromDb(doc, 'workflow', 'workspace-1')
+
+      await expect(first).rejects.toThrow('database unavailable')
+      await second
+
+      expect(readEntityListMembersFromDb).toHaveBeenCalledTimes(2)
+      expect(getEntityListMembers(doc).map((member) => member.entityId)).toEqual(['workflow-2'])
+    } finally {
+      doc.destroy()
+    }
+  })
 })

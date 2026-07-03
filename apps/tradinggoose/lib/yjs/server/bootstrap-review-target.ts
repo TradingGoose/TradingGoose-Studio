@@ -79,12 +79,6 @@ export async function readBootstrappedReviewTargetSnapshot(descriptor: ReviewTar
   return getYjsSnapshot(descriptor.yjsSessionId, bridgeParams)
 }
 
-/**
- * The snapshot route reseeds live entity-list docs from canonical DB rows
- * before serving (socket-server/routes/http.ts), so this read is DB-fresh:
- * members from a stale live doc — e.g. after a failed refresh whose discard
- * also failed — cannot reach it.
- */
 export async function requireEntityRealtimeListMembers(
   entityKind: ReviewEntityKind,
   workspaceId: string
@@ -290,19 +284,18 @@ export async function reseedEntityListSessionFromDb(
   workspaceId: string
 ): Promise<void> {
   const previous = entityListReseedQueues.get(doc) ?? Promise.resolve()
-  const reseed = previous
-    .catch(() => undefined)
-    .then(async () => {
-      replaceEntityListSessionMembers(
-        doc,
-        await readEntityListMembersFromDb(entityKind, workspaceId)
-      )
-    })
-  entityListReseedQueues.set(doc, reseed)
+  const reseed = previous.then(async () => {
+    replaceEntityListSessionMembers(
+      doc,
+      await readEntityListMembersFromDb(entityKind, workspaceId)
+    )
+  })
+  const tail = reseed.catch(() => undefined)
+  entityListReseedQueues.set(doc, tail)
   try {
     await reseed
   } finally {
-    if (entityListReseedQueues.get(doc) === reseed) {
+    if (entityListReseedQueues.get(doc) === tail) {
       entityListReseedQueues.delete(doc)
     }
   }

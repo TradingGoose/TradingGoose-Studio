@@ -32,11 +32,13 @@ import {
 } from '@/socket-server/yjs/upstream-utils'
 
 const {
+  mockReseedEntityListSessionFromDb,
   mockSaveSavedEntityYjsDocToDb,
   mockSaveWorkflowYjsDocToDb,
   savedEntityStates,
   savedWorkflowStates,
 } = vi.hoisted(() => ({
+  mockReseedEntityListSessionFromDb: vi.fn(),
   mockSaveSavedEntityYjsDocToDb: vi.fn(),
   mockSaveWorkflowYjsDocToDb: vi.fn(),
   savedEntityStates: [] as Array<{
@@ -98,12 +100,14 @@ vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
       state,
     }
   }),
-  reseedEntityListSessionFromDb: vi.fn(async (doc) => {
-    const latest = savedEntityStates.at(-1)
-    if (!latest) return
-    const name = latest.entityKind === 'custom_tool' ? latest.fields.title : latest.fields.name
-    doc.getMap('members').set(latest.entityId, { name: String(name ?? '') })
-  }),
+  reseedEntityListSessionFromDb: mockReseedEntityListSessionFromDb.mockImplementation(
+    async (doc) => {
+      const latest = savedEntityStates.at(-1)
+      if (!latest) return
+      const name = latest.entityKind === 'custom_tool' ? latest.fields.title : latest.fields.name
+      doc.getMap('members').set(latest.entityId, { name: String(name ?? '') })
+    }
+  ),
   getRuntimeStateFromDoc: vi.fn(() => ({
     docState: 'active',
     replaySafe: false,
@@ -728,6 +732,39 @@ describe('Socket Server Index Integration', () => {
       }
 
       expect(getRuntimeStateFromDoc).toHaveBeenCalled()
+    })
+
+    it('serves an existing entity-list snapshot without reseeding from DB', async () => {
+      const sessionId = 'list:skill:workspace-1'
+      getDocument(sessionId)
+      const liveDoc = await getExistingDocument(sessionId)
+      replaceEntityListSessionMembers(liveDoc!, [{ id: 'skill-live', name: 'Live Skill' }])
+      const encodedSessionId = encodeURIComponent(sessionId)
+
+      const response = await sendHttpRequestWithOptions(
+        PORT,
+        `/internal/yjs/sessions/${encodedSessionId}/snapshot?targetKind=entity_list&sessionId=${encodedSessionId}&workspaceId=workspace-1&entityKind=skill`,
+        {
+          method: 'GET',
+          headers: {
+            'x-internal-secret': INTERNAL_SECRET,
+          },
+        }
+      )
+
+      expect(response.statusCode).toBe(200)
+      expect(mockReseedEntityListSessionFromDb).not.toHaveBeenCalled()
+
+      const data = JSON.parse(response.body)
+      const snapshotDoc = new Y.Doc()
+      try {
+        Y.applyUpdate(snapshotDoc, Buffer.from(data.snapshotBase64, 'base64'))
+        expect(getEntityListMembers(snapshotDoc).map((member) => member.entityId)).toEqual([
+          'skill-live',
+        ])
+      } finally {
+        snapshotDoc.destroy()
+      }
     })
 
     it('should bootstrap a saved workflow snapshot into a live Yjs document', async () => {
