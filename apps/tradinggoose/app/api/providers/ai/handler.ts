@@ -42,6 +42,7 @@ export interface ProviderRouteBody {
   reasoningEffort?: string
   verbosity?: string
   thinkingLevel?: string
+  isDeployedContext?: boolean
 }
 
 interface HandleAIProviderParams {
@@ -88,6 +89,7 @@ export async function handleAIProviderRequest({
     reasoningEffort,
     verbosity,
     thinkingLevel,
+    isDeployedContext,
   } = body
 
   const providerConfig = getProvider(providerId)
@@ -182,6 +184,7 @@ export async function handleAIProviderRequest({
     reasoningEffort,
     verbosity,
     thinkingLevel,
+    isDeployedContext,
   })
 
   const executionTime = Date.now() - startTime

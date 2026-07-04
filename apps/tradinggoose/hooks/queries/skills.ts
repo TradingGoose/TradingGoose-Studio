@@ -1,9 +1,7 @@
-import { useEffect, useRef } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createLogger } from '@/lib/logs/console/logger'
 import { type ImportedSkillTransferRecord, SKILL_NAME_MAX_LENGTH } from '@/lib/skills/import-export'
-import { useSkillsStore } from '@/stores/skills/store'
-import type { SkillDefinition } from '@/stores/skills/types'
+import type { SkillDefinition } from '@/lib/skills/types'
 
 const logger = createLogger('SkillsQueries')
 const API_ENDPOINT = '/api/skills'
@@ -46,12 +44,9 @@ function normalizeSkill(
   }
 }
 
-function syncSkillsToStore(workspaceId: string, skills: SkillDefinition[]) {
-  useSkillsStore.getState().setSkills(workspaceId, skills)
-}
-
-async function fetchSkills(workspaceId: string): Promise<SkillDefinition[]> {
-  const response = await fetch(`${API_ENDPOINT}?workspaceId=${workspaceId}`)
+export async function fetchSkills(workspaceId: string): Promise<SkillDefinition[]> {
+  const params = new URLSearchParams({ workspaceId })
+  const response = await fetch(`${API_ENDPOINT}?${params}`)
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}))
@@ -95,43 +90,6 @@ async function fetchSkills(workspaceId: string): Promise<SkillDefinition[]> {
   })
 
   return normalizedSkills
-}
-
-export function useSkills(workspaceId: string) {
-  const query = useQuery<SkillDefinition[]>({
-    queryKey: skillsKeys.list(workspaceId),
-    queryFn: () => fetchSkills(workspaceId),
-    enabled: !!workspaceId,
-    staleTime: 60 * 1000,
-  })
-
-  const lastSyncRef = useRef<string>('')
-
-  useEffect(() => {
-    lastSyncRef.current = ''
-  }, [workspaceId])
-
-  useEffect(() => {
-    if (!workspaceId || !query.data) return
-
-    const signature = query.data
-      .map((skill) => {
-        const updatedAt =
-          typeof skill.updatedAt === 'string' ? skill.updatedAt : (skill.createdAt ?? '')
-        return `${skill.id}:${updatedAt}:${skill.name}:${skill.description}:${skill.content}`
-      })
-      .join('|')
-    const syncKey = `${workspaceId}:${signature}`
-
-    if (syncKey === lastSyncRef.current) {
-      return
-    }
-
-    lastSyncRef.current = syncKey
-    syncSkillsToStore(workspaceId, query.data)
-  }, [query.data, workspaceId])
-
-  return query
 }
 
 interface CreateSkillParams {

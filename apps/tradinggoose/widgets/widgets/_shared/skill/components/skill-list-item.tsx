@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Pencil, ToolCase, Trash2 } from 'lucide-react'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages } from 'next-intl'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -14,9 +14,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useMessages } from 'next-intl'
+import type { SkillDefinition } from '@/lib/skills/types'
 import { cn } from '@/lib/utils'
-import type { SkillDefinition } from '@/stores/skills/types'
 
 interface SkillListItemProps {
   skill: SkillDefinition

@@ -6,12 +6,12 @@
  */
 
 import type React from 'react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { WrenchIcon } from 'lucide-react'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { McpTool } from '@/lib/mcp/types'
-import { createMcpToolId } from '@/lib/mcp/utils'
-import { MCP_TOOLS_CHANGED_EVENT, useMcpServersStore } from '@/stores/mcp-servers/store'
+import { createMcpToolId, MCP_TOOLS_CHANGED_EVENT } from '@/lib/mcp/utils'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 
 const logger = createLogger('useMcpTools')
 const DISCOVERY_CACHE_MS = 5 * 60 * 1000
@@ -39,21 +39,23 @@ export interface UseMcpToolsResult {
 const discoveryCache = new Map<string, { expiresAt: number; tools: McpToolForUI[] }>()
 const discoveryRequests = new Map<string, Promise<McpToolForUI[]>>()
 
-async function discoverMcpTools(
-  workspaceId: string,
-  serversFingerprint: string,
-  force: boolean
-) {
+async function discoverMcpTools(workspaceId: string, serversFingerprint: string, force: boolean) {
   const cacheKey = `${workspaceId}:${serversFingerprint}`
-  const pending = discoveryRequests.get(cacheKey)
-  if (pending) return pending
+  if (force) {
+    discoveryCache.delete(cacheKey)
+  } else {
+    const pending = discoveryRequests.get(cacheKey)
+    if (pending) return pending
+  }
 
   const cached = discoveryCache.get(cacheKey)
-  if (!force && cached && cached.expiresAt > Date.now()) {
+  if (cached && cached.expiresAt > Date.now()) {
     return cached.tools
   }
 
-  const request = fetch(`/api/mcp/tools/discover?workspaceId=${encodeURIComponent(workspaceId)}`)
+  const request = fetch(
+    `/api/mcp/tools/discover?workspaceId=${encodeURIComponent(workspaceId)}&isDeployedContext=false`
+  )
     .then(async (response) => {
       if (!response.ok) {
         throw new Error(`Failed to discover MCP tools: ${response.status} ${response.statusText}`)
@@ -76,12 +78,16 @@ async function discoverMcpTools(
         icon: WrenchIcon,
       }))
 
-      discoveryCache.set(cacheKey, { expiresAt: Date.now() + DISCOVERY_CACHE_MS, tools })
+      if (discoveryRequests.get(cacheKey) === request) {
+        discoveryCache.set(cacheKey, { expiresAt: Date.now() + DISCOVERY_CACHE_MS, tools })
+      }
       logger.info(`Discovered ${tools.length} MCP tools`)
       return tools
     })
     .finally(() => {
-      discoveryRequests.delete(cacheKey)
+      if (discoveryRequests.get(cacheKey) === request) {
+        discoveryRequests.delete(cacheKey)
+      }
     })
 
   discoveryRequests.set(cacheKey, request)
@@ -92,27 +98,54 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
   const [mcpTools, setMcpTools] = useState<McpToolForUI[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const loadIdRef = useRef(0)
   const normalizedWorkspaceId = workspaceId.trim()
 
-  const servers = useMcpServersStore((state) => state.servers)
+  const {
+    members: serverMembers,
+    isLoading: isServerListLoading,
+    error: serverListError,
+  } = useEntityList('mcp_server', normalizedWorkspaceId || null)
 
-  // Create a stable server fingerprint
   const serversFingerprint = useMemo(() => {
-    return servers
-      .filter((s) => !s.deletedAt)
-      .map((s) => `${s.id}:${s.enabled !== false ? '1' : '0'}:${s.updatedAt ?? ''}`)
+    return serverMembers
+      .filter((member) => member.enabled !== false)
+      .map((member) => `${member.entityId}:${member.entityName}:${member.updatedAt ?? ''}`)
       .sort()
       .join('|')
-  }, [servers])
+  }, [serverMembers])
 
   const hasEnabledServers = useMemo(
-    () => servers.some((server) => !server.deletedAt && server.enabled !== false),
-    [servers]
+    () => serverMembers.some((member) => member.enabled !== false),
+    [serverMembers]
   )
 
   const loadTools = useCallback(
     async (force = false) => {
-      if (!normalizedWorkspaceId || !hasEnabledServers) {
+      const loadId = ++loadIdRef.current
+
+      if (!normalizedWorkspaceId) {
+        setMcpTools([])
+        setError(null)
+        setIsLoading(false)
+        return
+      }
+
+      if (serverListError) {
+        setMcpTools([])
+        setError(serverListError)
+        setIsLoading(false)
+        return
+      }
+
+      if (isServerListLoading) {
+        setMcpTools([])
+        setError(null)
+        setIsLoading(true)
+        return
+      }
+
+      if (!hasEnabledServers) {
         setMcpTools([])
         setError(null)
         setIsLoading(false)
@@ -124,17 +157,28 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
 
       try {
         logger.info('Discovering MCP tools', { workspaceId: normalizedWorkspaceId })
-        setMcpTools(await discoverMcpTools(normalizedWorkspaceId, serversFingerprint, force))
+        const tools = await discoverMcpTools(normalizedWorkspaceId, serversFingerprint, force)
+        if (loadId !== loadIdRef.current) return
+        setMcpTools(tools)
       } catch (err) {
+        if (loadId !== loadIdRef.current) return
         const errorMessage = err instanceof Error ? err.message : 'Failed to discover MCP tools'
         logger.error('Error discovering MCP tools:', err)
         setError(errorMessage)
         setMcpTools([])
       } finally {
-        setIsLoading(false)
+        if (loadId === loadIdRef.current) {
+          setIsLoading(false)
+        }
       }
     },
-    [hasEnabledServers, normalizedWorkspaceId, serversFingerprint]
+    [
+      hasEnabledServers,
+      isServerListLoading,
+      normalizedWorkspaceId,
+      serverListError,
+      serversFingerprint,
+    ]
   )
 
   const refreshTools = useCallback(() => loadTools(true), [loadTools])
@@ -176,14 +220,14 @@ export function useMcpTools(workspaceId: string): UseMcpToolsResult {
     const interval = setInterval(
       () => {
         if (!isLoading && normalizedWorkspaceId) {
-          void loadTools()
+          void loadTools(Boolean(serverListError))
         }
       },
       5 * 60 * 1000
     )
 
     return () => clearInterval(interval)
-  }, [isLoading, loadTools, normalizedWorkspaceId])
+  }, [isLoading, loadTools, normalizedWorkspaceId, serverListError])
 
   return {
     mcpTools,

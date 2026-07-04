@@ -60,7 +60,6 @@ import { getBlock } from '@/blocks'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import { formatTemplate } from '@/i18n/utils'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { mergeSubblockState } from '@/stores/workflows/utils'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import { getTrigger, isNativeTrigger } from '@/triggers'
@@ -89,11 +88,13 @@ interface DeployModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   workflowId: string | null
+  isDeployed: boolean
   needsRedeployment: boolean
   setNeedsRedeployment: (value: boolean) => void
   deployedState: WorkflowState | null
   isLoadingDeployedState: boolean
   refetchDeployedState: () => Promise<void>
+  refetchDeploymentStatus: () => Promise<boolean>
 }
 
 interface ApiKey {
@@ -239,21 +240,19 @@ export function DeployModal({
   open,
   onOpenChange,
   workflowId,
+  isDeployed,
   needsRedeployment,
   setNeedsRedeployment,
   deployedState,
   isLoadingDeployedState,
   refetchDeployedState,
+  refetchDeploymentStatus,
 }: DeployModalProps) {
   const copy = useDeploymentCopy()
   const workflowEditorCopy = useWorkflowEditorCopy()
-  const { getLocalizedDefaultBlockName, workflowInspectorCopy } = useWorkflowI18n()
+  const { workflowInspectorCopy } = useWorkflowI18n()
   const workspaceId = useWorkspaceId()
   const userPermissions = useUserPermissionsContext()
-  const deploymentStatus = useWorkflowRegistry((state) =>
-    state.readWorkflowDeploymentStatus(workflowId)
-  )
-  const setDeploymentStatus = useWorkflowRegistry((state) => state.setDeploymentStatus)
   const currentBlocks = useWorkflowBlocks()
   const { collaborativeToggleBlockAdvancedMode } = useWorkflowEditorActions()
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -289,9 +288,7 @@ export function DeployModal({
       ? document.getElementById(overlayRootId)
       : null
   const isWorkflowDeployed =
-    Boolean(deploymentStatus?.isDeployed) ||
-    Boolean(deploymentInfo?.isDeployed) ||
-    Boolean(deployedState)
+    isDeployed || Boolean(deploymentInfo?.isDeployed) || Boolean(deployedState)
   const mergedBlocks = workflowId ? mergeSubblockState(currentBlocks, workflowId) : currentBlocks
   const blockList = Object.values(mergedBlocks)
   const shouldDisableTriggerWrite = !userPermissions.canEdit
@@ -332,7 +329,7 @@ export function DeployModal({
       return {
         key: `trigger-${block.id}`,
         blockId: block.id,
-        label: getLocalizedDefaultBlockName(block.type, block.name),
+        label: block.name,
         triggerId,
         icon:
           triggerDef?.icon ??
@@ -824,6 +821,7 @@ export function DeployModal({
 
         const data = await response.json()
         if (!data.isDeployed) {
+          setNeedsRedeployment(false)
           setDeploymentInfo(null)
           return
         }
@@ -838,9 +836,10 @@ export function DeployModal({
           pinnedApiKeyId: data.pinnedApiKeyId ?? null,
           endpoint,
           exampleCommand: `curl -X POST -H "X-API-Key: ${data.apiKey}" -H "Content-Type: application/json"${inputFormatExample} ${endpoint}`,
-          needsRedeployment,
+          needsRedeployment: Boolean(data.needsRedeployment),
           hasReusableApiKey: Boolean(data.hasReusableApiKey),
         })
+        setNeedsRedeployment(Boolean(data.needsRedeployment))
       } catch (error) {
         logger.error('Error fetching deployment info:', { error })
       } finally {
@@ -882,12 +881,7 @@ export function DeployModal({
 
       const responseData = await response.json()
 
-      const isActivating = versionToActivate !== null
-      const isDeployedStatus = isActivating ? true : (responseData.isDeployed ?? false)
-      const deployedAtTime = responseData.deployedAt ? new Date(responseData.deployedAt) : undefined
       const apiKeyFromResponse = responseData.apiKey || normalizedApiKey || ''
-
-      setDeploymentStatus(workflowId, isDeployedStatus, deployedAtTime, apiKeyFromResponse)
 
       const matchingKey = apiKeys.find(
         (k) => k.key === apiKeyFromResponse || k.id === normalizedApiKey
@@ -898,10 +892,7 @@ export function DeployModal({
 
       const isActivatingVersion = versionToActivate !== null
       setNeedsRedeployment(isActivatingVersion)
-      if (workflowId) {
-        useWorkflowRegistry.getState().setWorkflowNeedsRedeployment(workflowId, isActivatingVersion)
-      }
-
+      await refetchDeploymentStatus()
       await refetchDeployedState()
       await fetchVersions()
 
@@ -918,9 +909,10 @@ export function DeployModal({
           pinnedApiKeyId: deploymentData.pinnedApiKeyId ?? null,
           endpoint: apiEndpoint,
           exampleCommand: `curl -X POST -H "X-API-Key: ${deploymentData.apiKey}" -H "Content-Type: application/json"${inputFormatExample} ${apiEndpoint}`,
-          needsRedeployment: isActivatingVersion,
+          needsRedeployment: Boolean(deploymentData.needsRedeployment),
           hasReusableApiKey: Boolean(deploymentData.hasReusableApiKey),
         })
+        setNeedsRedeployment(Boolean(deploymentData.needsRedeployment))
       }
 
       setVersionToActivate(null)
@@ -1040,7 +1032,10 @@ export function DeployModal({
         throw new Error(errorData.error || 'Failed to undeploy workflow')
       }
 
-      setDeploymentStatus(workflowId, false)
+      setNeedsRedeployment(false)
+      await refetchDeploymentStatus()
+      await refetchDeployedState()
+      setDeploymentInfo(null)
       setPublishedChat(null)
       onOpenChange(false)
     } catch (error: unknown) {
@@ -1068,20 +1063,10 @@ export function DeployModal({
         throw new Error(errorData.error || 'Failed to redeploy workflow')
       }
 
-      const { isDeployed: newDeployStatus, deployedAt, apiKey } = await response.json()
-
-      setDeploymentStatus(
-        workflowId,
-        newDeployStatus,
-        deployedAt ? new Date(deployedAt) : undefined,
-        apiKey
-      )
+      await response.json()
 
       setNeedsRedeployment(false)
-      if (workflowId) {
-        useWorkflowRegistry.getState().setWorkflowNeedsRedeployment(workflowId, false)
-      }
-
+      await refetchDeploymentStatus()
       await refetchDeployedState()
       await fetchVersions()
 

@@ -138,7 +138,6 @@ describe('workflow shared session lifecycle', () => {
 
   it('reuses one bootstrapped workflow session across multiple acquisitions', async () => {
     const doc = new Y.Doc()
-    doc.getMap('metadata').set('entityName', 'Workflow 1')
     const destroyDoc = vi.spyOn(doc, 'destroy')
     const provider = createMockProvider()
 
@@ -177,13 +176,11 @@ describe('workflow shared session lifecycle', () => {
       workspaceId: 'workspace-1',
     })
     expect(mockWaitForYjsSync).toHaveBeenCalledWith(provider)
-    expect(writeLease.session.entityName).toBe('Workflow 1')
     expect(writeLease.session.workspaceId).toBe('workspace-1')
     writeLease.release()
 
     expect(mockRegisterWorkflowSession).toHaveBeenCalledWith({
       workflowId: 'workflow-1',
-      entityName: 'Workflow 1',
       workspaceId: 'workspace-1',
       doc,
     })

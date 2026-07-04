@@ -1,11 +1,18 @@
-import { buildEntityListDescriptor } from '@/lib/copilot/review-sessions/identity'
+import {
+  buildEntityListDescriptor,
+  buildYjsTransportEnvelope,
+  serializeYjsTransportEnvelope,
+} from '@/lib/copilot/review-sessions/identity'
 import type {
+  ReviewEntityKind,
   ReviewTargetDescriptor,
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
 import { env, getInternalRealtimeUrl } from '@/lib/env'
-import { type SavedEntityKind, SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
-import type { WorkflowMetadataPatch, WorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import { createLogger } from '@/lib/logs/console/logger'
+import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
+
+const logger = createLogger('YjsSnapshotBridge')
 
 export interface YjsSnapshotResponse {
   snapshotBase64: string
@@ -17,7 +24,6 @@ export interface YjsSnapshotResponse {
 type WorkflowPatch = {
   workflowState?: WorkflowSnapshot
   variables?: Record<string, any>
-  metadata?: WorkflowMetadataPatch
 }
 
 export class SocketServerBridgeError extends Error {
@@ -151,39 +157,37 @@ export async function applyYjsUpdateInSocketServer(
   )
 }
 
-async function postEntityListMembersToSocketServer(
-  entityKind: SavedEntityKind,
-  workspaceId: string,
-  body: unknown
+/**
+ * Converge the live entity-list projection after a committed membership
+ * mutation. The DB rows are canonical and the list doc is a disposable
+ * projection, so this never rejects: a mutation's success must not depend on
+ * projection fan-out. On refresh failure the projection is discarded instead,
+ * which closes subscriber connections so every viewer rebootstraps a fresh
+ * doc from canonical DB state.
+ */
+export async function refreshEntityListSession(
+  entityKind: ReviewEntityKind,
+  workspaceId: string
 ): Promise<void> {
   const descriptor = buildEntityListDescriptor(entityKind, workspaceId)
+  const params = new URLSearchParams(
+    serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
+  )
   try {
     await postJsonToSocketServer(
-      `/internal/yjs/sessions/${encodeURIComponent(descriptor.yjsSessionId)}/members`,
-      body
+      `/internal/yjs/sessions/${encodeURIComponent(descriptor.yjsSessionId)}/members?${params}`,
+      {}
     )
   } catch (error) {
-    if (error instanceof SocketServerBridgeError && error.status < 500) {
-      throw error
-    }
-    throw new SavedEntityRealtimeRequiredError()
+    logger.warn('Failed to refresh entity-list projection', { entityKind, workspaceId, error })
+    await deleteYjsSessionInSocketServer(descriptor.yjsSessionId).catch((discardError) => {
+      logger.error('Failed to discard stale entity-list projection', {
+        entityKind,
+        workspaceId,
+        error: discardError,
+      })
+    })
   }
-}
-
-export async function notifyEntityListMembersUpserted(
-  entityKind: SavedEntityKind,
-  workspaceId: string,
-  members: Array<{ id: string; name: string; enabled?: boolean }>
-): Promise<void> {
-  await postEntityListMembersToSocketServer(entityKind, workspaceId, { members })
-}
-
-export async function notifyEntityListMemberRemoved(
-  entityKind: SavedEntityKind,
-  workspaceId: string,
-  entityId: string
-): Promise<void> {
-  await postEntityListMembersToSocketServer(entityKind, workspaceId, { remove: entityId })
 }
 
 export async function deleteYjsSessionInSocketServer(sessionId: string): Promise<void> {

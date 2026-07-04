@@ -17,9 +17,9 @@ export const QUICK_ORDER_WIDGET_UPDATE_PARAMS_EVENT = 'quick-order-widgets:updat
 export const HEATMAP_WIDGET_UPDATE_PARAMS_EVENT = 'heatmap-widgets:update-params'
 
 export type WorkflowWidgetSelectEventDetail = {
-  workflowId: string
+  workflowId?: string | null
   panelId?: string
-  widgetKey?: string
+  widgetKey: string
 }
 
 export type DataChartWidgetUpdateEventDetail = {

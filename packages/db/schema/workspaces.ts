@@ -151,7 +151,6 @@ export const pineIndicators = pgTable(
     name: text('name').notNull().default('New Indicator'),
     color: text('color').notNull().default('#3972F6'),
     pineCode: text('pine_code').notNull().default(''),
-    inputMeta: json('input_meta'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },

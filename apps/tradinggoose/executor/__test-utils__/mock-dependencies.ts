@@ -20,7 +20,6 @@ vi.mock('@/blocks/index', () => ({
 // Tools
 vi.mock('@/tools/utils', () => ({
   getTool: vi.fn(),
-  getToolAsync: vi.fn(),
   validateToolRequest: vi.fn(), // Keep for backward compatibility
   formatRequestParams: vi.fn(),
   transformTable: vi.fn(),

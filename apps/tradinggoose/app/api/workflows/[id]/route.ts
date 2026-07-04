@@ -1,5 +1,5 @@
 import { db } from '@tradinggoose/db'
-import { templates, workflow } from '@tradinggoose/db/schema'
+import { workflow } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -9,9 +9,12 @@ import { verifyInternalTokenDetailed } from '@/lib/auth/internal'
 import { hydrateListingUI } from '@/lib/listing/hydrate-ui'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { requireWorkflowRealtimeState } from '@/lib/workflows/db-helpers'
+import {
+  refreshWorkflowList,
+  refreshWorkflowListForWorkflow,
+  requireWorkflowRealtimeState,
+} from '@/lib/workflows/db-helpers'
 import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/utils'
-import { applyWorkflowMetadata } from '@/lib/yjs/server/apply-workflow-state'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { createWorkflowRealtimeRequiredResponse } from '@/app/api/workflows/utils'
@@ -162,11 +165,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const finalWorkflowData = {
       ...workflowData,
-      ...(workflowState.name !== undefined ? { name: workflowState.name } : {}),
-      ...(workflowState.description !== undefined
-        ? { description: workflowState.description }
-        : {}),
-      ...(workflowState.folderId !== undefined ? { folderId: workflowState.folderId } : {}),
       state: {
         deploymentStatuses: {},
         ...(resolvedState.direction !== undefined ? { direction: resolvedState.direction } : {}),
@@ -247,50 +245,11 @@ export async function DELETE(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    // Check if workflow has published templates before deletion
-    const { searchParams } = new URL(request.url)
-    const checkTemplates = searchParams.get('check-templates') === 'true'
-    const deleteTemplatesParam = searchParams.get('deleteTemplates')
-
-    if (checkTemplates) {
-      // Return template information for frontend to handle
-      const publishedTemplates = await db
-        .select()
-        .from(templates)
-        .where(eq(templates.workflowId, workflowId))
-
-      return NextResponse.json({
-        hasPublishedTemplates: publishedTemplates.length > 0,
-        count: publishedTemplates.length,
-        publishedTemplates: publishedTemplates.map((t) => ({
-          id: t.id,
-          name: t.name,
-          views: t.views,
-          stars: t.stars,
-        })),
-      })
-    }
-
-    // Handle template deletion based on user choice
-    if (deleteTemplatesParam !== null) {
-      const deleteTemplates = deleteTemplatesParam === 'delete'
-
-      if (deleteTemplates) {
-        // Delete all templates associated with this workflow
-        await db.delete(templates).where(eq(templates.workflowId, workflowId))
-        logger.info(`[${requestId}] Deleted templates for workflow ${workflowId}`)
-      } else {
-        // Orphan the templates (set workflowId to null)
-        await db
-          .update(templates)
-          .set({ workflowId: null })
-          .where(eq(templates.workflowId, workflowId))
-        logger.info(`[${requestId}] Orphaned templates for workflow ${workflowId}`)
-      }
-    }
-
     await db.delete(workflow).where(eq(workflow.id, workflowId))
-    await deleteYjsSessionInSocketServer(workflowId).catch(() => undefined)
+    if (workflowData.workspaceId) {
+      await refreshWorkflowList(workflowData.workspaceId)
+    }
+    await Promise.allSettled([deleteYjsSessionInSocketServer(workflowId)])
 
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully deleted workflow ${workflowId} in ${elapsed}ms`)
@@ -299,13 +258,15 @@ export async function DELETE(
   } catch (error: any) {
     const elapsed = Date.now() - startTime
     logger.error(`[${requestId}] Error deleting workflow ${workflowId} after ${elapsed}ms`, error)
+    const realtimeResponse = createWorkflowRealtimeRequiredResponse(error)
+    if (realtimeResponse) return realtimeResponse
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
 /**
  * PUT /api/workflows/[id]
- * Update workflow metadata (name, description, folderId)
+ * Update workflow row metadata (name, description, folderId)
  */
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const requestId = generateRequestId()
@@ -362,15 +323,27 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    const metadata = {
+    const rowUpdates = {
       ...(updates.name !== undefined ? { name: updates.name } : {}),
       ...(updates.description !== undefined ? { description: updates.description } : {}),
       ...(updates.folderId !== undefined ? { folderId: updates.folderId } : {}),
+      updatedAt: new Date(),
     }
-    const updatedWorkflow =
-      Object.keys(metadata).length > 0
-        ? await applyWorkflowMetadata(workflowId, metadata)
-        : workflowData
+    const [updatedWorkflow] = await db
+      .update(workflow)
+      .set(rowUpdates)
+      .where(eq(workflow.id, workflowId))
+      .returning()
+    if (!updatedWorkflow) {
+      return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
+    }
+    if (
+      updates.name !== undefined ||
+      updates.description !== undefined ||
+      updates.folderId !== undefined
+    ) {
+      await refreshWorkflowListForWorkflow(workflowId)
+    }
 
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully updated workflow ${workflowId} in ${elapsed}ms`, {

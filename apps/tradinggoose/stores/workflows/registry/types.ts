@@ -1,8 +1,3 @@
-export interface MarketplaceData {
-  id: string // Marketplace entry ID to track original marketplace source
-  status: 'owner' | 'temp'
-}
-
 export interface DeploymentStatus {
   isDeployed: boolean
   deployedAt?: Date
@@ -17,10 +12,15 @@ export interface WorkflowMetadata {
   createdAt: Date
   description?: string
   color: string
-  marketplaceData?: MarketplaceData | null
   workspaceId?: string
   folderId?: string | null
 }
+
+export type WorkflowMetadataSeed = Pick<
+  WorkflowMetadata,
+  'id' | 'name' | 'description' | 'color' | 'workspaceId' | 'folderId'
+> &
+  Partial<Pick<WorkflowMetadata, 'lastModified' | 'createdAt'>>
 
 export type HydrationPhase =
   | 'idle'
@@ -59,25 +59,21 @@ export interface WorkflowRegistryActions {
   setActiveWorkflow: (params: { workflowId: string; channelId?: string }) => Promise<void>
   switchToWorkspace: (id: string) => Promise<void>
   loadWorkflows: (params: { workspaceId: string; channelId?: string }) => Promise<void>
-  removeWorkflow: (
-    id: string,
-    options?: { skipApi?: boolean; templateAction?: 'keep' | 'delete' }
-  ) => Promise<void>
+  removeWorkflow: (id: string, options?: { skipApi?: boolean }) => Promise<void>
   updateWorkflow: (
     id: string,
-    metadata: Partial<Pick<WorkflowMetadata, 'name' | 'description' | 'folderId'>>
+    metadata: Partial<Pick<WorkflowMetadata, 'name' | 'description' | 'folderId'>>,
+    source?: WorkflowMetadataSeed
   ) => Promise<void>
   createWorkflow: (options?: {
     isInitial?: boolean
-    marketplaceId?: string
-    marketplaceState?: any
     name?: string
     description?: string
     workspaceId?: string
     folderId?: string | null
     initialWorkflowState?: any
   }) => Promise<string>
-  duplicateWorkflow: (sourceId: string) => Promise<string | null>
+  duplicateWorkflow: (sourceId: string, source?: WorkflowMetadataSeed) => Promise<string | null>
   readWorkflowDeploymentStatus: (workflowId: string | null) => DeploymentStatus | null
   setDeploymentStatus: (
     workflowId: string | null,

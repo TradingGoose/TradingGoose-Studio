@@ -1,5 +1,6 @@
 import { QueryClient } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { MCP_TOOLS_CHANGED_EVENT } from '@/lib/mcp/utils'
 import { MONITOR_DATA_CHANGED_EVENT } from '@/app/workspace/[workspaceId]/monitor/components/data/api'
 import { environmentKeys } from '@/hooks/queries/environment'
 import { knowledgeKeys } from '@/hooks/queries/knowledge'
@@ -13,7 +14,6 @@ import {
   isGatedTool,
   prepareCopilotToolArgs,
 } from '@/stores/copilot/tool-registry'
-import { MCP_TOOLS_CHANGED_EVENT, useMcpServersStore } from '@/stores/mcp-servers/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 describe('tool-registry', () => {
@@ -314,7 +314,7 @@ describe('tool-registry', () => {
     }
   })
 
-  it('refreshes MCP servers and notifies MCP tool discovery after server-managed MCP mutations', async () => {
+  it('notifies MCP tool discovery after server-managed MCP mutations', async () => {
     class TestCustomEvent<T> {
       type: string
       detail: T | undefined
@@ -325,9 +325,6 @@ describe('tool-registry', () => {
       }
     }
     const dispatchEvent = vi.fn()
-    const fetchServers = vi
-      .spyOn(useMcpServersStore.getState(), 'fetchServers')
-      .mockResolvedValue(undefined)
     vi.stubGlobal('CustomEvent', TestCustomEvent)
     vi.stubGlobal('window', { dispatchEvent })
 
@@ -335,12 +332,10 @@ describe('tool-registry', () => {
       await handleCopilotServerToolSuccess('edit_mcp_server', { workspaceId: 'workspace-1' })
 
       const event = dispatchEvent.mock.calls[0]?.[0] as TestCustomEvent<{ workspaceId: string }>
-      expect(fetchServers).toHaveBeenCalledWith('workspace-1')
       expect(event.type).toBe(MCP_TOOLS_CHANGED_EVENT)
       expect(event.detail).toEqual({ workspaceId: 'workspace-1' })
     } finally {
       vi.unstubAllGlobals()
-      fetchServers.mockRestore()
     }
   })
 

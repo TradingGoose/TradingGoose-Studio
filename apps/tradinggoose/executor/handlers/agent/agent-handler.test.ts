@@ -31,6 +31,7 @@ vi.mock('@/blocks', () => ({
 
 vi.mock('@/tools', () => ({
   executeTool: vi.fn(),
+  getToolAsync: vi.fn(),
 }))
 
 vi.mock('@/executor/handlers/agent/skills-resolver', () => ({
@@ -188,6 +189,7 @@ describe('AgentBlockHandler', () => {
       }
 
       mockGetProviderFromModel.mockReturnValue('openai')
+      mockContext.isDeployedContext = false
 
       const expectedOutput = {
         content: 'Mocked response content',
@@ -203,6 +205,8 @@ describe('AgentBlockHandler', () => {
 
       expect(mockGetProviderFromModel).toHaveBeenCalledWith('gpt-4o')
       expect(mockFetch).toHaveBeenCalledWith(expect.any(String), expect.any(Object))
+      const [, init] = mockFetch.mock.calls.find(([url]) => String(url).includes('/api/providers'))!
+      expect(JSON.parse(String(init.body)).isDeployedContext).toBe(false)
       expect(result).toEqual(expectedOutput)
     })
 
@@ -308,6 +312,29 @@ describe('AgentBlockHandler', () => {
       expect(toolIds).toContain('tradinggoose_internal_load_skill')
       expect(generatedSkillToolId).toBe('tradinggoose_internal_load_skill_2')
       expect(systemMessage?.content).toContain('tradinggoose_internal_load_skill_2')
+    })
+
+    it('executes without a skill loader when selected skills are unavailable', async () => {
+      mockResolveSkillMetadata.mockResolvedValueOnce([])
+
+      await handler.execute(
+        mockBlock,
+        {
+          model: 'gpt-4o',
+          userPrompt: 'Use the selected skill.',
+          apiKey: 'test-api-key',
+          skills: [{ skillId: 'deleted-skill' }],
+        },
+        mockContext
+      )
+
+      const [, init] = mockFetch.mock.calls.find(([url]) => String(url).includes('/api/providers'))!
+      const providerRequest = JSON.parse(String(init.body))
+
+      expect(providerRequest.tools).toEqual([])
+      expect(providerRequest.messages).toEqual([
+        { role: 'user', content: 'Use the selected skill.' },
+      ])
     })
 
     it('should preserve executeFunction for custom tools with different usageControl settings', async () => {
@@ -700,6 +727,83 @@ describe('AgentBlockHandler', () => {
       )
       expect(mockFetch).toHaveBeenCalledWith(expect.any(String), expect.any(Object))
       expect(result).toEqual(expectedOutput)
+    })
+
+    it('skips selected tools that cannot be hydrated', async () => {
+      const inputs = {
+        model: 'gpt-4o',
+        userPrompt: 'Analyze this data.',
+        apiKey: 'test-api-key',
+        tools: [
+          {
+            id: 'block_tool_1',
+            title: 'Data Analysis Tool',
+            operation: 'analyze',
+          },
+          {
+            id: 'missing_tool',
+            title: 'Missing Tool',
+            operation: 'analyze',
+          },
+        ],
+      }
+
+      mockTransformBlockTool.mockImplementation((tool: any) =>
+        tool.id === 'block_tool_1'
+          ? {
+              id: 'transformed_block_tool_1',
+              name: 'block_tool_1_analyze',
+              description: 'Transformed tool',
+              parameters: { type: 'object', properties: {} },
+            }
+          : null
+      )
+      mockGetProviderFromModel.mockReturnValue('openai')
+
+      await handler.execute(mockBlock, inputs, mockContext)
+
+      expect(mockTransformBlockTool).toHaveBeenCalledWith(
+        inputs.tools[0],
+        expect.objectContaining({ selectedOperation: 'analyze' })
+      )
+      expect(mockTransformBlockTool).toHaveBeenCalledWith(
+        inputs.tools[1],
+        expect.objectContaining({ selectedOperation: 'analyze' })
+      )
+      const [, init] = mockFetch.mock.calls.find(([url]) => String(url).includes('/api/providers'))!
+      const providerRequest = JSON.parse(String(init.body))
+
+      expect(providerRequest.tools).toHaveLength(1)
+      expect(providerRequest.tools[0].id).toBe('transformed_block_tool_1')
+    })
+
+    it('skips unavailable MCP tool selections before provider startup', async () => {
+      const inputs = {
+        model: 'gpt-4o',
+        userPrompt: 'Use the MCP tool if available.',
+        apiKey: 'test-api-key',
+        tools: [
+          {
+            type: 'mcp',
+            title: 'Read Files',
+            params: {
+              serverId: 'deleted-server',
+              toolName: 'read_file',
+            },
+          },
+        ],
+      }
+
+      mockGetProviderFromModel.mockReturnValue('openai')
+
+      await handler.execute(mockBlock, inputs, mockContext)
+      const calledUrls = mockFetch.mock.calls.map(([url]) => String(url))
+      const [, init] = mockFetch.mock.calls.find(([url]) => String(url).includes('/api/providers'))!
+      const providerRequest = JSON.parse(String(init.body))
+
+      expect(calledUrls.some((url) => url.includes('/api/mcp/tools/discover'))).toBe(true)
+      expect(calledUrls.some((url) => url.includes('/api/providers'))).toBe(true)
+      expect(providerRequest.tools).toEqual([])
     })
 
     it('should execute with custom tools (schema only and with code)', async () => {

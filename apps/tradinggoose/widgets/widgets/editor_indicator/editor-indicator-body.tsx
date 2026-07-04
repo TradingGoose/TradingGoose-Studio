@@ -1,13 +1,16 @@
 'use client'
 
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useRef } from 'react'
 import { useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
-import { useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
-import { useIndicators } from '@/hooks/queries/indicators'
+import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
+import {
+  resolveEntityIdFromList,
+  usePersistResolvedEntityId,
+} from '@/widgets/utils/entity-selection'
 import { useIndicatorEditorActions } from '@/widgets/utils/indicator-editor-actions'
 import { useIndicatorSelectionPersistence } from '@/widgets/utils/indicator-selection'
 import { IndicatorCodePanel } from '@/widgets/widgets/editor_indicator/components/pine-indicator-code-panel'
@@ -26,7 +29,6 @@ export function EditorIndicatorWidgetBody({
 }: EditorIndicatorWidgetBodyProps) {
   const copy = useMessages().workspace.widgets.indicatorEditor.body
   const workspaceId = context?.workspaceId ?? null
-  const { data: indicators = [], isLoading, error } = useIndicators(workspaceId ?? '')
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -37,61 +39,37 @@ export function EditorIndicatorWidgetBody({
     ? (pairContext?.indicatorId ?? null)
     : paramsIndicatorId
 
-  const workspaceIndicators = workspaceId
-    ? indicators.filter((indicator) => indicator.workspaceId === workspaceId)
-    : []
   const normalizedRequestedIndicatorId = requestedIndicatorId?.trim() ?? ''
-  const hasRequestedIndicator =
-    normalizedRequestedIndicatorId.length > 0 &&
-    workspaceIndicators.some((indicator) => indicator.id === normalizedRequestedIndicatorId)
-  const indicatorId = hasRequestedIndicator
-    ? normalizedRequestedIndicatorId
-    : isLinkedToColorPair
-      ? null
-      : (workspaceIndicators[0]?.id ?? null)
-  const indicator = indicatorId
-    ? (workspaceIndicators.find((candidate) => candidate.id === indicatorId) ?? null)
+  const hasRequestedIndicator = normalizedRequestedIndicatorId.length > 0
+  const {
+    members: indicatorMembers,
+    isLoading: isIndicatorListLoading,
+    error: indicatorListError,
+  } = useEntityList('indicator', workspaceId)
+  const requestedIndicatorMember = hasRequestedIndicator
+    ? indicatorMembers.find((member) => member.entityId === normalizedRequestedIndicatorId)
     : null
+  const indicatorId = resolveEntityIdFromList({
+    requestedEntityId: requestedIndicatorId,
+    entityIds: indicatorMembers.map((member) => member.entityId),
+    useDefaultEntity: !isLinkedToColorPair,
+  })
   const indicatorSession = useSavedEntityYjsSession('indicator', indicatorId, workspaceId)
 
-  useEffect(() => {
-    if (!indicatorId) {
-      return
-    }
-
-    if (isLinkedToColorPair) {
-      if (pairContext?.indicatorId === indicatorId) {
-        return
-      }
-
-      setPairContext(resolvedPairColor, { indicatorId })
-      return
-    }
-
-    if (!onWidgetParamsChange || paramsIndicatorId === indicatorId) {
-      return
-    }
-
-    onWidgetParamsChange({
-      ...(params ?? {}),
-      indicatorId,
-    })
-  }, [
-    indicatorId,
-    isLinkedToColorPair,
+  usePersistResolvedEntityId({
+    entityId: indicatorId,
+    entityIdKey: 'indicatorId',
     onWidgetParamsChange,
-    pairContext?.indicatorId,
+    pairColor: resolvedPairColor,
     params,
-    paramsIndicatorId,
-    resolvedPairColor,
-    setPairContext,
-  ])
+  })
 
   useIndicatorSelectionPersistence({
     onWidgetParamsChange,
     panelId,
     params,
     pairColor: resolvedPairColor,
+    scopeKey: 'editor_indicator',
     onIndicatorSelect: (nextId) => {
       if (!isLinkedToColorPair) return
       if (pairContext?.indicatorId === nextId) return
@@ -127,15 +105,25 @@ export function EditorIndicatorWidgetBody({
     return <WidgetStateMessage message={copy.selectWorkspace} />
   }
 
-  if (error) {
-    return (
-      <WidgetStateMessage
-        message={error instanceof Error ? error.message : copy.failedToLoadIndicators}
-      />
-    )
+  if (indicatorListError && indicatorMembers.length === 0) {
+    return <WidgetStateMessage message={indicatorListError} />
   }
 
-  if (isLoading && workspaceIndicators.length === 0) {
+  if (
+    hasRequestedIndicator &&
+    !isIndicatorListLoading &&
+    !indicatorListError &&
+    !requestedIndicatorMember &&
+    !indicatorId
+  ) {
+    return <WidgetStateMessage message={copy.indicatorNotFound} />
+  }
+
+  if (indicatorSession.error) {
+    return <WidgetStateMessage message={indicatorSession.error} />
+  }
+
+  if (isIndicatorListLoading || indicatorSession.isLoading) {
     return (
       <div className='flex h-full w-full items-center justify-center'>
         <LoadingAgent size='md' />
@@ -146,30 +134,8 @@ export function EditorIndicatorWidgetBody({
   if (!indicatorId) {
     return (
       <WidgetStateMessage
-        message={
-          isLinkedToColorPair
-            ? normalizedRequestedIndicatorId.length > 0
-              ? copy.indicatorNotFound
-              : copy.noSharedIndicatorSelected
-            : copy.selectIndicatorToEdit
-        }
+        message={isLinkedToColorPair ? copy.noSharedIndicatorSelected : copy.selectIndicatorToEdit}
       />
-    )
-  }
-
-  if (!indicator) {
-    return <WidgetStateMessage message={copy.indicatorNotFound} />
-  }
-
-  if (indicatorSession.error) {
-    return <WidgetStateMessage message={indicatorSession.error} />
-  }
-
-  if (indicatorSession.isLoading) {
-    return (
-      <div className='flex h-full w-full items-center justify-center'>
-        <LoadingAgent size='md' />
-      </div>
     )
   }
 

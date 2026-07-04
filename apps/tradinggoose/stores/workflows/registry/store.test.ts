@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { WORKSPACE_BOOTSTRAP_CHANNEL, type WorkflowMetadata } from '@/stores/workflows/registry/types'
+import {
+  WORKSPACE_BOOTSTRAP_CHANNEL,
+  type WorkflowMetadata,
+} from '@/stores/workflows/registry/types'
 
 type Deferred<T> = {
   promise: Promise<T>
@@ -8,7 +11,7 @@ type Deferred<T> = {
   reject: (error?: unknown) => void
 }
 
-const createDeferred = <T,>(): Deferred<T> => {
+const createDeferred = <T>(): Deferred<T> => {
   let resolve!: (value: T) => void
   let reject!: (error?: unknown) => void
 
@@ -77,7 +80,6 @@ const createWorkflowMetadata = (id: string, workspaceId = 'ws-test'): WorkflowMe
   lastModified: new Date('2026-03-02T00:00:00.000Z'),
   workspaceId,
   folderId: null,
-  marketplaceData: null,
 })
 
 const resetRegistryState = () => {
@@ -156,7 +158,8 @@ describe('workflow registry stale metadata handling', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn((input: RequestInfo | URL) => {
-        const rawUrl = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+        const rawUrl =
+          typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         const url = new URL(rawUrl, 'http://localhost:3000')
         const workspaceId = url.searchParams.get('workspaceId')
         if (!workspaceId) {
@@ -238,7 +241,8 @@ describe('workflow registry stale metadata handling', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn((input: RequestInfo | URL) => {
-        const rawUrl = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+        const rawUrl =
+          typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         const url = new URL(rawUrl, 'http://localhost:3000')
         const workspaceId = url.searchParams.get('workspaceId')
         if (!workspaceId) {

@@ -1,18 +1,16 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Download, Save, SquareTerminal } from 'lucide-react'
 import { useLocale, useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
-import { useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
-import { useCustomTools } from '@/hooks/queries/custom-tools'
+import { useEntityList, useSavedEntityYjsSession } from '@/lib/yjs/use-entity-fields'
 import type { LocaleCode } from '@/i18n/utils'
-import type { CustomToolDefinition } from '@/stores/custom-tools/types'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/store-client'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import {
   CUSTOM_TOOL_EDITOR_ACTION_EVENT,
   type CustomToolEditorActionEventDetail,
@@ -24,6 +22,10 @@ import {
   useCustomToolSelectionPersistence,
 } from '@/widgets/utils/custom-tool-selection'
 import {
+  resolveEntityIdFromList,
+  usePersistResolvedEntityId,
+} from '@/widgets/utils/entity-selection'
+import {
   CUSTOM_TOOL_EDITOR_WIDGET_KEY,
   resolveCustomToolId,
 } from '@/widgets/widgets/_shared/custom_tool/utils'
@@ -34,9 +36,6 @@ import {
 } from '@/widgets/widgets/editor_custom_tool/custom-tool-editor'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-
-const sortCustomTools = (tools: CustomToolDefinition[]) =>
-  [...tools].sort((a, b) => a.title.localeCompare(b.title))
 
 function emitCustomToolEditorAction(detail: CustomToolEditorActionEventDetail) {
   window.dispatchEvent(
@@ -106,10 +105,8 @@ function EditorCustomToolWidgetBody({
   panelId,
   widget,
 }: WidgetComponentProps) {
-  const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.customToolEditor
   const workspaceId = context?.workspaceId ?? null
-  const { data: queryTools = [], isLoading, error, refetch } = useCustomTools(workspaceId ?? '')
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -118,21 +115,25 @@ function EditorCustomToolWidgetBody({
   const saveRef = useRef<() => void>(() => {})
   const [activeSection, setActiveSection] = useState<CustomToolEditorSection>('schema')
 
-  const tools = useMemo(() => sortCustomTools(queryTools), [queryTools])
-
   const paramsCustomToolId = resolveCustomToolId({ params })
   const requestedCustomToolId = isLinkedToColorPair
     ? (pairContext?.customToolId ?? null)
     : paramsCustomToolId
   const normalizedRequestedCustomToolId = requestedCustomToolId?.trim() ?? ''
-  const hasRequestedTool =
-    normalizedRequestedCustomToolId.length > 0 &&
-    tools.some((tool) => tool.id === normalizedRequestedCustomToolId)
-  const selectedToolId = hasRequestedTool
-    ? normalizedRequestedCustomToolId
-    : isLinkedToColorPair
-      ? null
-      : (tools[0]?.id ?? null)
+  const hasRequestedCustomTool = normalizedRequestedCustomToolId.length > 0
+  const {
+    members: customToolMembers,
+    isLoading: isCustomToolListLoading,
+    error: customToolListError,
+  } = useEntityList('custom_tool', workspaceId)
+  const requestedCustomToolMember = hasRequestedCustomTool
+    ? customToolMembers.find((member) => member.entityId === normalizedRequestedCustomToolId)
+    : null
+  const selectedToolId = resolveEntityIdFromList({
+    requestedEntityId: requestedCustomToolId,
+    entityIds: customToolMembers.map((member) => member.entityId),
+    useDefaultEntity: !isLinkedToColorPair,
+  })
 
   useCustomToolSelectionPersistence({
     onWidgetParamsChange,
@@ -162,40 +163,15 @@ function EditorCustomToolWidgetBody({
     [panelId, widget?.key]
   )
 
-  const selectedTool = selectedToolId
-    ? (tools.find((tool) => tool.id === selectedToolId) ?? null)
-    : null
   const customToolSession = useSavedEntityYjsSession('custom_tool', selectedToolId, workspaceId)
 
-  useEffect(() => {
-    if (!selectedToolId) return
-    if (isLinkedToColorPair) {
-      if (pairContext?.customToolId === selectedToolId) {
-        return
-      }
-
-      setPairContext(resolvedPairColor, { customToolId: selectedToolId })
-      return
-    }
-
-    if (!onWidgetParamsChange || paramsCustomToolId === selectedToolId) {
-      return
-    }
-
-    onWidgetParamsChange({
-      ...(params ?? {}),
-      customToolId: selectedToolId,
-    })
-  }, [
-    isLinkedToColorPair,
+  usePersistResolvedEntityId({
+    entityId: selectedToolId,
+    entityIdKey: 'customToolId',
     onWidgetParamsChange,
-    pairContext?.customToolId,
+    pairColor: resolvedPairColor,
     params,
-    paramsCustomToolId,
-    resolvedPairColor,
-    selectedToolId,
-    setPairContext,
-  ])
+  })
 
   useEffect(() => {
     if (!selectedToolId) {
@@ -217,15 +193,25 @@ function EditorCustomToolWidgetBody({
     return <WidgetStateMessage message={copy.body.selectWorkspace} />
   }
 
-  if (error && tools.length === 0) {
-    return (
-      <WidgetStateMessage
-        message={error instanceof Error ? error.message : copy.body.failedToLoadCustomTools}
-      />
-    )
+  if (customToolListError && customToolMembers.length === 0) {
+    return <WidgetStateMessage message={customToolListError} />
   }
 
-  if (isLoading && tools.length === 0) {
+  if (
+    hasRequestedCustomTool &&
+    !isCustomToolListLoading &&
+    !customToolListError &&
+    !requestedCustomToolMember &&
+    !selectedToolId
+  ) {
+    return <WidgetStateMessage message={copy.body.customToolNotFound} />
+  }
+
+  if (customToolSession.error) {
+    return <WidgetStateMessage message={customToolSession.error} />
+  }
+
+  if (isCustomToolListLoading || customToolSession.isLoading) {
     return (
       <div className='flex h-full w-full items-center justify-center'>
         <LoadingAgent size='md' />
@@ -237,29 +223,9 @@ function EditorCustomToolWidgetBody({
     return (
       <WidgetStateMessage
         message={
-          isLinkedToColorPair
-            ? normalizedRequestedCustomToolId.length > 0
-              ? copy.body.customToolNotFound
-              : copy.body.noSharedCustomToolSelected
-            : copy.body.noCustomToolsYet
+          isLinkedToColorPair ? copy.body.noSharedCustomToolSelected : copy.body.noCustomToolsYet
         }
       />
-    )
-  }
-
-  if (!selectedTool) {
-    return <WidgetStateMessage message={copy.body.customToolNotFound} />
-  }
-
-  if (customToolSession.error) {
-    return <WidgetStateMessage message={customToolSession.error} />
-  }
-
-  if (customToolSession.isLoading) {
-    return (
-      <div className='flex h-full w-full items-center justify-center'>
-        <LoadingAgent size='md' />
-      </div>
     )
   }
 
@@ -276,11 +242,6 @@ function EditorCustomToolWidgetBody({
           save={customToolSession.save}
           toolId={selectedToolId}
           onSectionChange={syncActiveSection}
-          onSave={() => {
-            refetch().catch((refetchError) => {
-              console.error('Failed to refresh custom tools after save', refetchError)
-            })
-          }}
           exportRef={exportRef}
           saveRef={saveRef}
           blockId='dashboard-custom-tool-editor'

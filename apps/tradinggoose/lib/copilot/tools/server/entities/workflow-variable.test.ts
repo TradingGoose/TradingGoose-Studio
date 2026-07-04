@@ -36,7 +36,6 @@ vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
 
 vi.mock('@/lib/yjs/server/apply-workflow-state', () => ({
   applyWorkflowState: (...args: any[]) => mockApplyWorkflowState(...args),
-  applyWorkflowMetadata: vi.fn(),
 }))
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({

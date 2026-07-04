@@ -79,6 +79,15 @@ describe('Skills API Routes', () => {
     expect(body.error).toBe('workspaceId is required')
   })
 
+  it('GET should list live workspace skills', async () => {
+    const req = new NextRequest('http://localhost:3000/api/skills?workspaceId=ws-1')
+    const { GET } = await import('@/app/api/skills/route')
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    expect(mockListSkills).toHaveBeenCalledWith({ workspaceId: 'ws-1' })
+  })
+
   it('POST should require workspaceId in body', async () => {
     const req = new NextRequest('http://localhost:3000/api/skills', {
       method: 'POST',

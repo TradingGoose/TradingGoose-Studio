@@ -20,10 +20,8 @@ import {
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
-import {
-  readBootstrappedSavedEntityFields,
-  requireSavedEntityRealtimeListMembers,
-} from '@/lib/yjs/server/bootstrap-review-target'
+import { readBootstrappedSavedEntityFields } from '@/lib/yjs/server/bootstrap-review-target'
+import { readEntityListMembersFromDb } from '@/lib/yjs/server/entity-loaders'
 
 export type SavedEntityDocumentKind = EntityDocumentKind
 export type EntityDocumentArgs = {
@@ -41,7 +39,10 @@ export type EntityDocumentArgs = {
 export type EntityListEntry = {
   entityId: string
   entityName: string
+  entityDescription?: string
   enabled?: boolean
+  color?: string
+  connectionStatus?: string
 }
 
 export type CopilotIndicatorListEntry = {
@@ -198,15 +199,25 @@ export async function readSavedEntityDocumentFields(
 }
 
 /**
- * Canonical read for every saved-entity list_* tool: the workspace's membership
- * through the live Yjs list session. Reflects realtime create/delete/rename and
- * basic usability state by any user — one read for all kinds, no per-tool mapper.
+ * Canonical read for every server-side saved-entity list_* tool: the workspace's
+ * active rows. Live Yjs list sessions are the browser realtime projection; server
+ * tools must not return a stale projection when that session is degraded.
  */
-export function buildSavedEntityListInfo(
+export async function buildSavedEntityListInfo(
   entityKind: SavedEntityKind,
   workspaceId: string
 ): Promise<EntityListEntry[]> {
-  return requireSavedEntityRealtimeListMembers(entityKind, workspaceId)
+  const members = await readEntityListMembersFromDb(entityKind, workspaceId)
+  return members.map((member) => ({
+    entityId: member.id,
+    entityName: member.name,
+    ...(typeof member.description === 'string' ? { entityDescription: member.description } : {}),
+    ...(typeof member.enabled === 'boolean' ? { enabled: member.enabled } : {}),
+    ...(typeof member.color === 'string' ? { color: member.color } : {}),
+    ...(typeof member.connectionStatus === 'string'
+      ? { connectionStatus: member.connectionStatus }
+      : {}),
+  }))
 }
 
 async function hashCreateEntityReviewBase(

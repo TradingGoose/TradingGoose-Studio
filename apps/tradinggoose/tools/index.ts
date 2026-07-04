@@ -1,5 +1,9 @@
 import { generateInternalToken } from '@/lib/auth/internal'
-import { isCustomToolRuntimeId } from '@/lib/custom-tools/schema'
+import {
+  getCustomToolEntityIdFromRuntimeId,
+  isCustomToolRuntimeId,
+  parseCustomToolSchemaText,
+} from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { parseMcpToolId } from '@/lib/mcp/utils'
 import { validateExternalUrl } from '@/lib/security/input-validation'
@@ -12,9 +16,9 @@ import type { ErrorInfo } from '@/tools/error-extractors'
 import { extractErrorMessage } from '@/tools/error-extractors'
 import type { ToolConfig, ToolResponse } from '@/tools/types'
 import {
+  createToolConfig,
   formatRequestParams,
   getTool,
-  getToolAsync,
   validateRequiredParametersAfterMerge,
 } from '@/tools/utils'
 
@@ -43,6 +47,7 @@ function resolveExecutionScope(
   workflowLogId?: string
   toolExecutionId?: string
   submissionSource?: string
+  isDeployedContext?: boolean
 } {
   const context = params._context || {}
 
@@ -54,12 +59,79 @@ function resolveExecutionScope(
     workflowLogId: executionContext?.workflowLogId ?? context.workflowLogId,
     toolExecutionId: context.toolExecutionId,
     submissionSource: executionContext?.submissionSource ?? context.submissionSource,
+    isDeployedContext: executionContext?.isDeployedContext ?? context.isDeployedContext,
   }
 }
 
 type ExecutionScope = ReturnType<typeof resolveExecutionScope>
 type ToolExecutionOptions = {
   signal?: AbortSignal
+}
+
+async function resolveWorkflowWorkspaceId(workflowId: string): Promise<string | null> {
+  const [{ db }, { workflow }, { eq }] = await Promise.all([
+    import('@tradinggoose/db'),
+    import('@tradinggoose/db/schema'),
+    import('drizzle-orm'),
+  ])
+  const [row] = await db
+    .select({ workspaceId: workflow.workspaceId })
+    .from(workflow)
+    .where(eq(workflow.id, workflowId))
+    .limit(1)
+  return row?.workspaceId ?? null
+}
+
+async function getServerCustomTool(
+  customToolId: string,
+  workflowId: string | undefined,
+  workspaceId: string | undefined,
+  isDeployedContext: boolean
+): Promise<ToolConfig> {
+  const identifier = getCustomToolEntityIdFromRuntimeId(customToolId)
+  const scopedWorkspaceId =
+    workspaceId ?? (workflowId ? await resolveWorkflowWorkspaceId(workflowId) : null)
+  if (!scopedWorkspaceId) {
+    throw new Error(`Workspace context is required for custom tool ${identifier}`)
+  }
+
+  const { readSavedEntityFieldsForExecution } = await import(
+    '@/lib/yjs/server/bootstrap-review-target'
+  )
+  const fields = await readSavedEntityFieldsForExecution(
+    'custom_tool',
+    identifier,
+    scopedWorkspaceId,
+    isDeployedContext
+  )
+
+  return createToolConfig(
+    {
+      title: String(fields.title ?? ''),
+      schema: parseCustomToolSchemaText(fields.schemaText),
+      code: String(fields.codeText ?? ''),
+    },
+    customToolId,
+    false,
+    workflowId
+  )
+}
+
+export async function getToolAsync(
+  toolId: string,
+  workflowId?: string,
+  workspaceId?: string,
+  isDeployedContext = true
+): Promise<ToolConfig | undefined> {
+  const builtInTool = getTool(toolId)
+  if (builtInTool) return builtInTool
+
+  if (isCustomToolRuntimeId(toolId)) {
+    if (typeof window !== 'undefined') return getTool(toolId)
+    return getServerCustomTool(toolId, workflowId, workspaceId, isDeployedContext)
+  }
+
+  return undefined
 }
 
 function generateScopedInternalToken(scope: ExecutionScope) {
@@ -274,14 +346,11 @@ export async function executeTool(
         }
       }
 
-      const content = await resolveSkillContent(skillId, scope.workspaceId)
-      if (!content) {
-        return {
-          success: false,
-          output: { error: `Skill "${skillId}" not found` },
-          error: `Skill "${skillId}" not found`,
-        }
-      }
+      const content = await resolveSkillContent(
+        skillId,
+        scope.workspaceId,
+        scope.isDeployedContext !== false
+      )
 
       return {
         success: true,
@@ -291,10 +360,12 @@ export async function executeTool(
 
     // If it's a custom tool, use the async version with workflowId
     if (isCustomToolRuntimeId(toolId)) {
-      tool = await getToolAsync(toolId, scope.workflowId, scope.workspaceId, scope.userId)
-      if (!tool) {
-        logger.error(`[${requestId}] Custom tool not found: ${toolId}`)
-      }
+      tool = await getToolAsync(
+        toolId,
+        scope.workflowId,
+        scope.workspaceId,
+        scope.isDeployedContext !== false
+      )
     } else if (isMcpTool) {
       return await executeMcpTool(
         toolId,
@@ -325,6 +396,7 @@ export async function executeTool(
         workflowLogId: scope.workflowLogId,
         toolExecutionId: scope.toolExecutionId,
         submissionSource: scope.submissionSource,
+        isDeployedContext: scope.isDeployedContext,
       }
       if (
         mergedContext.workflowId ||
@@ -332,7 +404,8 @@ export async function executeTool(
         mergedContext.executionId ||
         mergedContext.workflowLogId ||
         mergedContext.toolExecutionId ||
-        mergedContext.submissionSource
+        mergedContext.submissionSource ||
+        typeof mergedContext.isDeployedContext === 'boolean'
       ) {
         ;(contextParams as any)._context = mergedContext
       }
@@ -1009,6 +1082,9 @@ async function executeMcpTool(
       arguments: toolArguments,
       workflowId, // Pass workflow context for user resolution
       workspaceId, // Pass workspace context for scoping
+      ...(typeof scope.isDeployedContext === 'boolean'
+        ? { isDeployedContext: scope.isDeployedContext }
+        : {}),
     }
 
     logger.info(`[${actualRequestId}] Making MCP tool request to ${toolName} on ${serverId}`, {

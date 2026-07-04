@@ -7,8 +7,6 @@ import type { SubBlockConfig } from '@/blocks/types'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
 import type { LocaleCode } from '@/i18n/utils'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import {
   ConfluenceFileSelector,
   GoogleCalendarSelector,
@@ -39,11 +37,7 @@ export function FileSelectorInput({
   const locale = useLocale() as LocaleCode
   const { collaborativeSetSubblockValue } = useWorkflowEditorActions()
   const routeContext = useOptionalWorkflowRoute()
-  const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
-  const registryWorkflowId = useWorkflowRegistry((state) =>
-    state.getActiveWorkflowId(resolvedChannelId)
-  )
-  const workflowIdFromUrl = routeContext?.workflowId || registryWorkflowId || ''
+  const workflowIdFromUrl = routeContext?.workflowId || ''
   const workspaceIdFromRoute = routeContext?.workspaceId || ''
   const getContextValue = (key: string) => {
     const value = contextValues?.[key]

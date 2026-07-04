@@ -1,25 +1,26 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useLocale, useMessages } from 'next-intl'
+import { useCallback, useMemo, useState } from 'react'
+import { useMessages } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { SKILL_NAME_MAX_LENGTH } from '@/lib/skills/import-export'
+import type { SkillDefinition } from '@/lib/skills/types'
+import { saveSavedEntityField, useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { useDeleteSkill, useSkills, useUpdateSkill } from '@/hooks/queries/skills'
+import { useDeleteSkill } from '@/hooks/queries/skills'
 import { formatTemplate } from '@/i18n/utils'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import { useSkillsStore } from '@/stores/skills/store'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
 import {
-  emitSkillSelectionChange,
-  useSkillSelectionPersistence,
-} from '@/widgets/utils/skill-selection'
+  resolveEntityIdFromList,
+  usePersistResolvedEntityId,
+} from '@/widgets/utils/entity-selection'
+import { useSkillSelectionPersistence } from '@/widgets/utils/skill-selection'
 import { SkillListItem } from '@/widgets/widgets/_shared/skill/components/skill-list-item'
 import {
   normalizeSkillName,
   resolveSkillId,
-  SKILL_EDITOR_WIDGET_KEY,
   SKILL_LIST_WIDGET_KEY,
 } from '@/widgets/widgets/_shared/skill/utils'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
@@ -33,18 +34,13 @@ export function SkillList({
   panelId,
   pairColor = 'gray',
 }: WidgetComponentProps) {
-  const locale = useLocale()
   const copy = useMessages().workspace.widgets.skillList
   const skillValidationCopy = useMessages().workspace.widgets.skillEditor.validation
   const workspaceId = context?.workspaceId ?? null
   const permissions = useUserPermissionsContext()
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
-  const { data: querySkills = [], isLoading, error } = useSkills(workspaceId ?? '')
+  const { members, isLoading, error } = useEntityList('skill', workspaceId)
   const deleteMutation = useDeleteSkill()
-  const updateMutation = useUpdateSkill()
-  const storedSkills = useSkillsStore((state) =>
-    workspaceId ? state.getAllSkills(workspaceId) : []
-  )
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -63,12 +59,38 @@ export function SkillList({
     },
   })
 
-  const listSkills = querySkills.length > 0 ? querySkills : storedSkills
-
-  const selectedSkillId = useMemo(
-    () => resolveSkillId({ params, pairContext: isLinkedToColorPair ? pairContext : null }),
-    [isLinkedToColorPair, pairContext, params]
+  const listSkills = useMemo<SkillDefinition[]>(
+    () =>
+      workspaceId
+        ? members.map((member) => ({
+            id: member.entityId,
+            workspaceId,
+            userId: null,
+            name: member.entityName,
+            description: '',
+            content: '',
+          }))
+        : [],
+    [members, workspaceId]
   )
+
+  const requestedSkillId = resolveSkillId({
+    params,
+    pairContext: isLinkedToColorPair ? pairContext : null,
+  })
+  const selectedSkillId = resolveEntityIdFromList({
+    requestedEntityId: requestedSkillId,
+    entityIds: listSkills.map((skill) => skill.id),
+    useDefaultEntity: !isLinkedToColorPair,
+  })
+
+  usePersistResolvedEntityId({
+    entityId: selectedSkillId,
+    entityIdKey: 'skillId',
+    onWidgetParamsChange,
+    pairColor: resolvedPairColor,
+    params,
+  })
 
   const handleSelect = useCallback(
     (skillId: string | null) => {
@@ -86,12 +108,6 @@ export function SkillList({
         ...currentParams,
         skillId,
       })
-
-      emitSkillSelectionChange({
-        skillId,
-        panelId,
-        widgetKey: SKILL_EDITOR_WIDGET_KEY,
-      })
     },
     [
       isLinkedToColorPair,
@@ -104,14 +120,6 @@ export function SkillList({
     ]
   )
 
-  useEffect(() => {
-    if (!selectedSkillId || listSkills.some((skill) => skill.id === selectedSkillId)) {
-      return
-    }
-
-    handleSelect(null)
-  }, [handleSelect, listSkills, selectedSkillId])
-
   const handleDelete = useCallback(
     async (skillId: string) => {
       if (!workspaceId || !permissions.canEdit) return
@@ -121,9 +129,7 @@ export function SkillList({
 
       try {
         await deleteMutation.mutateAsync({ workspaceId, skillId })
-        if (selectedSkillId === skillId) {
-          handleSelect(null)
-        }
+        if (selectedSkillId === skillId) handleSelect(null)
       } finally {
         setDeletingIds((prev) => {
           const next = new Set(prev)
@@ -150,15 +156,9 @@ export function SkillList({
         )
       }
 
-      await updateMutation.mutateAsync({
-        workspaceId,
-        skillId,
-        updates: {
-          name: normalizedName,
-        },
-      })
+      await saveSavedEntityField('skill', skillId, workspaceId, 'name', normalizedName)
     },
-    [permissions.canEdit, updateMutation, workspaceId]
+    [permissions.canEdit, workspaceId]
   )
 
   if (isLoading && listSkills.length === 0) {
@@ -170,11 +170,7 @@ export function SkillList({
   }
 
   if (error && listSkills.length === 0) {
-    return (
-      <SkillListMessage
-        message={error instanceof Error ? error.message : copy.body.failedToLoadSkills}
-      />
-    )
+    return <SkillListMessage message={error || copy.body.failedToLoadSkills} />
   }
 
   return (

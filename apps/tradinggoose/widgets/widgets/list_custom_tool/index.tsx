@@ -1,8 +1,8 @@
 'use client'
 
-import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type ChangeEvent, useCallback, useMemo, useRef, useState } from 'react'
 import { Plus, Upload, Wrench } from 'lucide-react'
-import { useLocale, useMessages } from 'next-intl'
+import { useMessages } from 'next-intl'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,20 +20,18 @@ import {
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
 import { parseImportedCustomToolsFile } from '@/lib/custom-tools/import-export'
+import { generateAvailableName } from '@/lib/naming'
 import { cn } from '@/lib/utils'
+import { saveSavedEntityField, useEntityList } from '@/lib/yjs/use-entity-fields'
 import {
   useUserPermissionsContext,
   WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import {
   useCreateCustomTool,
-  useCustomTools,
   useDeleteCustomTool,
   useImportCustomTools,
-  useUpdateCustomTool,
 } from '@/hooks/queries/custom-tools'
-import type { LocaleCode } from '@/i18n/utils'
-import { useCustomToolsStore } from '@/stores/custom-tools/store'
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
@@ -42,9 +40,13 @@ import {
   emitCustomToolSelectionChange,
   useCustomToolSelectionPersistence,
 } from '@/widgets/utils/custom-tool-selection'
+import {
+  resolveEntityIdFromList,
+  usePersistResolvedEntityId,
+} from '@/widgets/utils/entity-selection'
+import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
 import { CustomToolListItem } from '@/widgets/widgets/_shared/custom_tool/components/custom-tool-list-item'
 import {
-  CUSTOM_TOOL_EDITOR_WIDGET_KEY,
   CUSTOM_TOOL_LIST_WIDGET_KEY,
   resolveCustomToolId,
 } from '@/widgets/widgets/_shared/custom_tool/utils'
@@ -55,32 +57,22 @@ const DEFAULT_CUSTOM_TOOL_NAME = 'newCustomTool'
 const sortCustomTools = (tools: CustomToolDefinition[]) =>
   [...tools].sort((a, b) => a.title.localeCompare(b.title))
 
-const buildNewCustomToolDraft = (tools: CustomToolDefinition[]) => {
-  const existingTitles = new Set(
-    tools.map((tool) => tool.title.trim()).filter((title): title is string => Boolean(title))
-  )
-
-  let nextTitle = DEFAULT_CUSTOM_TOOL_NAME
-  let suffix = 2
-
-  while (existingTitles.has(nextTitle)) {
-    nextTitle = `${DEFAULT_CUSTOM_TOOL_NAME}${suffix}`
-    suffix += 1
-  }
-
-  return {
-    title: nextTitle,
-    schema: {
-      type: 'function',
-      function: {
-        description: '',
-        parameters: {
-          type: 'object',
-          properties: {},
-          required: [],
-        },
-      },
+const DEFAULT_CUSTOM_TOOL_SCHEMA = {
+  type: 'function',
+  function: {
+    description: '',
+    parameters: {
+      type: 'object',
+      properties: {},
+      required: [],
     },
+  },
+}
+
+const buildNewCustomToolDraft = (title = DEFAULT_CUSTOM_TOOL_NAME) => {
+  return {
+    title,
+    schema: DEFAULT_CUSTOM_TOOL_SCHEMA,
     code: '',
   }
 }
@@ -100,7 +92,6 @@ function CustomToolCreateMenu({
   onCreateCustomTool?: () => void
   onImportCustomTools?: (content: string, filename?: string) => Promise<void> | void
 }) {
-  const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.customToolList.createMenu
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -204,13 +195,28 @@ function CustomToolListHeaderRight({
   const permissions = useUserPermissionsContext()
   const createToolMutation = useCreateCustomTool()
   const importMutation = useImportCustomTools()
-  const storedTools = useCustomToolsStore((state) =>
-    workspaceId ? state.getAllTools(workspaceId) : []
-  )
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
   const setPairContext = useSetPairColorContext()
+  const { members } = useEntityList('custom_tool', workspaceId)
+
+  const selectTool = useCallback(
+    (createdToolId: string) => {
+      if (isLinkedToColorPair) {
+        setPairContext(resolvedPairColor, { customToolId: createdToolId })
+        return
+      }
+
+      emitCustomToolSelectionChange({
+        customToolId: createdToolId,
+        panelId,
+        widgetKey: CUSTOM_TOOL_LIST_WIDGET_KEY,
+      })
+    },
+    [isLinkedToColorPair, panelId, resolvedPairColor, setPairContext]
+  )
+  const selectToolWhenListed = usePendingEntitySelection(members, selectTool)
 
   const handleCreateTool = useCallback(() => {
     if (!workspaceId || !permissions.canEdit) return
@@ -218,7 +224,12 @@ function CustomToolListHeaderRight({
     void createToolMutation
       .mutateAsync({
         workspaceId,
-        tool: buildNewCustomToolDraft(storedTools),
+        tool: buildNewCustomToolDraft(
+          generateAvailableName(
+            members.map((member) => member.entityName),
+            DEFAULT_CUSTOM_TOOL_NAME
+          )
+        ),
       })
       .then((createdTools) => {
         const createdTool = createdTools[0]
@@ -229,35 +240,12 @@ function CustomToolListHeaderRight({
           throw new Error('Created custom tool is missing an id')
         }
 
-        if (isLinkedToColorPair) {
-          setPairContext(resolvedPairColor, { customToolId: createdToolId })
-          return
-        }
-
-        emitCustomToolSelectionChange({
-          customToolId: createdToolId,
-          panelId,
-          widgetKey: CUSTOM_TOOL_LIST_WIDGET_KEY,
-        })
-        emitCustomToolSelectionChange({
-          customToolId: createdToolId,
-          panelId,
-          widgetKey: CUSTOM_TOOL_EDITOR_WIDGET_KEY,
-        })
+        selectToolWhenListed(createdToolId)
       })
       .catch((error) => {
         console.error('Failed to create custom tool from list widget', error)
       })
-  }, [
-    createToolMutation,
-    isLinkedToColorPair,
-    panelId,
-    permissions.canEdit,
-    resolvedPairColor,
-    setPairContext,
-    storedTools,
-    workspaceId,
-  ])
+  }, [createToolMutation, members, permissions.canEdit, selectToolWhenListed, workspaceId])
 
   const handleImportCustomTools = useCallback(
     async (content: string) => {
@@ -297,7 +285,6 @@ const ListCustomToolHeaderRight = ({
   panelId?: string
   pairColor?: PairColor
 }) => {
-  const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.customToolList.header
   if (!workspaceId) {
     return <span className='text-muted-foreground text-xs'>{copy.explorer}</span>
@@ -324,15 +311,10 @@ function ListCustomToolWidgetBodyInner({
   panelId,
 }: WidgetComponentProps) {
   const workspaceId = context?.workspaceId ?? null
-  const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.customToolList.body
   const permissions = useUserPermissionsContext()
-  const { data: queryTools = [], isLoading, error } = useCustomTools(workspaceId ?? '')
-  const storedTools = useCustomToolsStore((state) =>
-    workspaceId ? state.getAllTools(workspaceId) : []
-  )
+  const { members, isLoading, error } = useEntityList('custom_tool', workspaceId)
   const deleteToolMutation = useDeleteCustomTool()
-  const updateToolMutation = useUpdateCustomTool()
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
@@ -340,17 +322,39 @@ function ListCustomToolWidgetBodyInner({
   const [deletingToolIds, setDeletingToolIds] = useState<Set<string>>(new Set())
 
   const tools = useMemo(
-    () => sortCustomTools(queryTools.length > 0 ? queryTools : storedTools),
-    [queryTools, storedTools]
+    () =>
+      sortCustomTools(
+        workspaceId
+          ? members.map((member) => ({
+              id: member.entityId,
+              workspaceId,
+              userId: null,
+              title: member.entityName,
+              schema: DEFAULT_CUSTOM_TOOL_SCHEMA,
+              code: '',
+            }))
+          : []
+      ),
+    [members, workspaceId]
   )
 
-  const selectedToolId = useMemo(() => {
-    if (isLinkedToColorPair) {
-      return resolveCustomToolId({ pairContext, params })
-    }
+  const requestedToolId = resolveCustomToolId({
+    params,
+    pairContext: isLinkedToColorPair ? pairContext : null,
+  })
+  const selectedToolId = resolveEntityIdFromList({
+    requestedEntityId: requestedToolId,
+    entityIds: tools.map((tool) => tool.id),
+    useDefaultEntity: !isLinkedToColorPair,
+  })
 
-    return resolveCustomToolId({ params })
-  }, [isLinkedToColorPair, pairContext, params])
+  usePersistResolvedEntityId({
+    entityId: selectedToolId,
+    entityIdKey: 'customToolId',
+    onWidgetParamsChange,
+    pairColor: resolvedPairColor,
+    params,
+  })
 
   useCustomToolSelectionPersistence({
     onWidgetParamsChange,
@@ -381,11 +385,6 @@ function ListCustomToolWidgetBodyInner({
         ...currentParams,
         customToolId,
       })
-      emitCustomToolSelectionChange({
-        customToolId,
-        panelId,
-        widgetKey: CUSTOM_TOOL_EDITOR_WIDGET_KEY,
-      })
     },
     [
       isLinkedToColorPair,
@@ -398,18 +397,6 @@ function ListCustomToolWidgetBodyInner({
     ]
   )
 
-  useEffect(() => {
-    if (!selectedToolId) {
-      return
-    }
-
-    if (tools.some((tool) => tool.id === selectedToolId)) {
-      return
-    }
-
-    syncSelection(null)
-  }, [selectedToolId, syncSelection, tools])
-
   const handleDeleteTool = useCallback(
     async (customToolId: string) => {
       if (!workspaceId || !permissions.canEdit) return
@@ -419,9 +406,7 @@ function ListCustomToolWidgetBodyInner({
 
       try {
         await deleteToolMutation.mutateAsync({ workspaceId, toolId: customToolId })
-        if (selectedToolId === customToolId) {
-          syncSelection(null)
-        }
+        if (selectedToolId === customToolId) syncSelection(null)
       } finally {
         setDeletingToolIds((prev) => {
           const next = new Set(prev)
@@ -437,15 +422,9 @@ function ListCustomToolWidgetBodyInner({
     async (customToolId: string, title: string) => {
       if (!workspaceId || !permissions.canEdit) return
 
-      await updateToolMutation.mutateAsync({
-        workspaceId,
-        toolId: customToolId,
-        updates: {
-          title,
-        },
-      })
+      await saveSavedEntityField('custom_tool', customToolId, workspaceId, 'title', title)
     },
-    [permissions.canEdit, updateToolMutation, workspaceId]
+    [permissions.canEdit, workspaceId]
   )
 
   if (isLoading && tools.length === 0) {
@@ -457,11 +436,7 @@ function ListCustomToolWidgetBodyInner({
   }
 
   if (error && tools.length === 0) {
-    return (
-      <WidgetStateMessage
-        message={error instanceof Error ? error.message : copy.failedToLoadCustomTools}
-      />
-    )
+    return <WidgetStateMessage message={error || copy.failedToLoadCustomTools} />
   }
 
   return (
@@ -490,7 +465,6 @@ function ListCustomToolWidgetBodyInner({
 
 const ListCustomToolWidgetBody = (props: WidgetComponentProps) => {
   const workspaceId = props.context?.workspaceId ?? null
-  const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.customToolList.body
   if (!workspaceId) {
     return <WidgetStateMessage message={copy.selectWorkspace} />

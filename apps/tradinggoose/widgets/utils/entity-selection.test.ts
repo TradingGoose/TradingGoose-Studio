@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { readEntitySelectionState } from './entity-selection'
+import { readEntitySelectionState, resolveEntityIdFromList } from './entity-selection'
 
 describe('entity id resolution', () => {
   it('uses linked pair entity id over stale widget params', () => {
@@ -16,5 +16,21 @@ describe('entity id resolution', () => {
     ).toEqual({
       selectedEntityId: 'skill-linked',
     })
+  })
+
+  it('does not fall back when a requested entity id is missing', () => {
+    const entityIds = ['a', 'b']
+    expect(
+      resolveEntityIdFromList({ requestedEntityId: 'deleted', fallbackEntityId: 'a', entityIds })
+    ).toBeNull()
+    expect(resolveEntityIdFromList({ requestedEntityId: 'deleted', entityIds })).toBeNull()
+  })
+
+  it('defaults only when no entity id was requested', () => {
+    const entityIds = ['a', 'b']
+    expect(resolveEntityIdFromList({ fallbackEntityId: 'b', entityIds })).toBe('b')
+    expect(resolveEntityIdFromList({ entityIds })).toBe('a')
+    expect(resolveEntityIdFromList({ requestedEntityId: '', entityIds })).toBe('a')
+    expect(resolveEntityIdFromList({ entityIds, useDefaultEntity: false })).toBeNull()
   })
 })

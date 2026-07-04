@@ -1,19 +1,16 @@
 import { SKILL_WIDGET_SELECT_EVENT } from '@/widgets/events'
 import type { PairColor } from '@/widgets/pair-colors'
 import {
-  createSelectionPersistenceHook,
   createEmitSelectionChange,
+  createSelectionPersistenceHook,
   type UseSelectionPersistenceOptions,
 } from '@/widgets/utils/selection-persistence-factory'
-
-const DEFAULT_SCOPE_KEY = 'editor_skill'
 
 // Hook
 
 const useSkillSelectionPersistenceGeneric = createSelectionPersistenceHook({
   eventName: SKILL_WIDGET_SELECT_EVENT,
   detailIdKey: 'skillId',
-  defaultScopeKey: DEFAULT_SCOPE_KEY,
 })
 
 interface UseSkillSelectionPersistenceOptions {
@@ -22,7 +19,7 @@ interface UseSkillSelectionPersistenceOptions {
   params?: Record<string, unknown> | null
   pairColor?: PairColor
   onSkillSelect?: (skillId: string | null) => void
-  scopeKey?: string
+  scopeKey: string
 }
 
 export function useSkillSelectionPersistence({
@@ -49,9 +46,6 @@ interface EmitSkillSelectionOptions {
   widgetKey: string
 }
 
-export function emitSkillSelectionChange({
-  skillId,
-  ...rest
-}: EmitSkillSelectionOptions) {
+export function emitSkillSelectionChange({ skillId, ...rest }: EmitSkillSelectionOptions) {
   emitGeneric({ ...rest, entityId: skillId })
 }

@@ -5,15 +5,18 @@
  * and provides helpers to seed and read the live entity field state.
  *
  * Top-level collections:
- *   - "fields"   (Y.Map) — entity-kind-specific field values
+ *   - "fields"   (Y.Map) — entity-kind-specific editable field values
  *   - "metadata"  (Y.Map) — session-level metadata: the resolved `workspaceId`
  *                            that owns the entity (its canonical persistence
  *                            scope), plus bootstrap-touch and identity markers.
+ *   - "members"   (Y.Map) — entity-list sessions only. List discovery metadata
+ *                            is mutated explicitly by create/update/delete flows,
+ *                            never inferred from a saved entity document.
  *
  * Entity-kind adapters:
  *   - skill:        name, description, content
  *   - custom_tool:  title, schemaText (Y.Text), codeText (Y.Text)
- *   - indicator:    name, color, pineCode (Y.Text), inputMeta
+ *   - indicator:    name, color, pineCode (Y.Text)
  *   - knowledge_base: name, description, chunkingConfig
  *   - mcp_server:   name, description, transport, url, headers, command,
  *                    args, env, timeout, retries, enabled
@@ -39,69 +42,78 @@ export function getEntityMetadataMap(doc: Y.Doc): Y.Map<any> {
 export interface EntityListMember {
   entityId: string
   entityName: string
+  entityDescription?: string
   enabled?: boolean
+  folderId?: string | null
+  color?: string
+  createdAt?: string
+  updatedAt?: string
+  connectionStatus?: string
 }
 
-export type EntityListMemberMutation =
-  | { op: 'upsert'; entityId: string; name: string; enabled?: boolean }
-  | { op: 'remove'; entityId: string }
-
-function getEntityListMembersMap(
-  doc: Y.Doc
-): Y.Map<{ name: string; enabled?: boolean; deleted?: boolean }> {
+function getEntityListMembersMap(doc: Y.Doc): Y.Map<{
+  name: string
+  description?: string
+  enabled?: boolean
+  folderId?: string | null
+  color?: string
+  createdAt?: string
+  updatedAt?: string
+  connectionStatus?: string
+  deleted?: boolean
+}> {
   return doc.getMap('members')
 }
 
-export function getEntityListMemberFromFields(
-  entityKind: Exclude<ReviewEntityKind, 'workflow'>,
-  entityId: string,
-  fields: Record<string, unknown>
-): { id: string; name: string; enabled?: boolean } {
-  const nameKey = entityKind === 'custom_tool' ? 'title' : 'name'
-  return {
-    id: entityId,
-    name: String(fields[nameKey] ?? ''),
-    ...(entityKind === 'mcp_server' ? { enabled: fields.enabled !== false } : {}),
-  }
-}
-
-export function seedEntityListSession(
+export function replaceEntityListSessionMembers(
   doc: Y.Doc,
-  members: Array<{ id: string; name: string; enabled?: boolean }>
+  members: Array<{
+    id: string
+    name: string
+    description?: string
+    enabled?: boolean
+    folderId?: string | null
+    color?: string
+    createdAt?: string
+    updatedAt?: string
+    connectionStatus?: string
+  }>
 ): void {
   doc.transact(() => {
     const listMembers = getEntityListMembersMap(doc)
+    const memberIds = new Set(members.map((member) => member.id))
+    listMembers.forEach((_value, entityId) => {
+      if (!memberIds.has(entityId)) listMembers.delete(entityId)
+    })
     for (const member of members) {
-      listMembers.set(member.id, {
+      const next = {
         name: member.name,
+        ...(typeof member.description === 'string' ? { description: member.description } : {}),
         ...(typeof member.enabled === 'boolean' ? { enabled: member.enabled } : {}),
-      })
+        ...('folderId' in member ? { folderId: member.folderId ?? null } : {}),
+        ...(typeof member.color === 'string' ? { color: member.color } : {}),
+        ...(typeof member.createdAt === 'string' ? { createdAt: member.createdAt } : {}),
+        ...(typeof member.updatedAt === 'string' ? { updatedAt: member.updatedAt } : {}),
+        ...(typeof member.connectionStatus === 'string'
+          ? { connectionStatus: member.connectionStatus }
+          : {}),
+      }
+      const current = listMembers.get(member.id)
+      if (
+        current?.deleted ||
+        current?.name !== next.name ||
+        current?.description !== next.description ||
+        current?.enabled !== next.enabled ||
+        current?.folderId !== next.folderId ||
+        current?.color !== next.color ||
+        current?.createdAt !== next.createdAt ||
+        current?.updatedAt !== next.updatedAt ||
+        current?.connectionStatus !== next.connectionStatus
+      ) {
+        listMembers.set(member.id, next)
+      }
     }
   }, YJS_ORIGINS.SYSTEM)
-}
-
-function applyEntityListMutation(doc: Y.Doc, mutation: EntityListMemberMutation): void {
-  doc.transact(() => {
-    getEntityListMembersMap(doc).set(
-      mutation.entityId,
-      mutation.op === 'upsert'
-        ? {
-            name: mutation.name,
-            deleted: false,
-            ...(typeof mutation.enabled === 'boolean' ? { enabled: mutation.enabled } : {}),
-          }
-        : { name: '', deleted: true }
-    )
-  }, YJS_ORIGINS.SYSTEM)
-}
-
-export function applyEntityListMutations(
-  doc: Y.Doc,
-  mutations: EntityListMemberMutation | EntityListMemberMutation[]
-): void {
-  for (const mutation of Array.isArray(mutations) ? mutations : [mutations]) {
-    applyEntityListMutation(doc, mutation)
-  }
 }
 
 export function getEntityListMembers(doc: Y.Doc): EntityListMember[] {
@@ -111,10 +123,21 @@ export function getEntityListMembers(doc: Y.Doc): EntityListMember[] {
     entries.push({
       entityId,
       entityName: typeof value?.name === 'string' ? value.name : '',
+      ...(typeof value?.description === 'string' ? { entityDescription: value.description } : {}),
       ...(typeof value?.enabled === 'boolean' ? { enabled: value.enabled } : {}),
+      ...(value && 'folderId' in value ? { folderId: value.folderId ?? null } : {}),
+      ...(typeof value?.color === 'string' ? { color: value.color } : {}),
+      ...(typeof value?.createdAt === 'string' ? { createdAt: value.createdAt } : {}),
+      ...(typeof value?.updatedAt === 'string' ? { updatedAt: value.updatedAt } : {}),
+      ...(typeof value?.connectionStatus === 'string'
+        ? { connectionStatus: value.connectionStatus }
+        : {}),
     })
   })
-  entries.sort((a, b) => a.entityName.localeCompare(b.entityName))
+  entries.sort((a, b) => {
+    const nameOrder = a.entityName.localeCompare(b.entityName)
+    return nameOrder || a.entityId.localeCompare(b.entityId)
+  })
   return entries
 }
 
@@ -181,7 +204,6 @@ export function seedEntitySession(doc: Y.Doc, options: EntitySessionSeedOptions)
         const pineCode = new Y.Text()
         pineCode.insert(0, payload.pineCode ?? '')
         fields.set('pineCode', pineCode)
-        fields.set('inputMeta', payload.inputMeta ?? null)
         break
       }
 
@@ -243,7 +265,6 @@ export function getEntityFields(doc: Y.Doc, entityKind: ReviewEntityKind): Recor
       result.name = fields.get('name') ?? ''
       result.color = fields.get('color') ?? ''
       result.pineCode = fields.get('pineCode')?.toString() ?? ''
-      result.inputMeta = fields.get('inputMeta')
       break
 
     case 'knowledge_base':

@@ -240,18 +240,6 @@ export interface WorkflowSnapshot {
   lastSaved?: string | number
 }
 
-export type WorkflowMetadataPatch = {
-  name?: string
-  description?: string | null
-  folderId?: string | null
-}
-
-export type WorkflowMetadataSnapshot = {
-  name?: string
-  description?: string | null
-  folderId?: string | null
-}
-
 /**
  * Applies safe defaults to a partial snapshot.  Used by both
  * `createWorkflowSnapshot` and `readWorkflowSnapshot` so the defaulting
@@ -375,8 +363,7 @@ export function setWorkflowState(doc: Y.Doc, state: WorkflowSnapshot, origin?: s
 export function replaceWorkflowDocumentState(
   doc: Y.Doc,
   workflowState: WorkflowSnapshot,
-  variables?: Record<string, any>,
-  metadataPatch?: WorkflowMetadataPatch
+  variables?: Record<string, any>
 ): void {
   setWorkflowState(doc, workflowState, YJS_ORIGINS.SYSTEM)
 
@@ -386,35 +373,6 @@ export function replaceWorkflowDocumentState(
 
   doc.transact(() => {
     getMetadataMap(doc).delete('reseededFromCanonical')
-  }, YJS_ORIGINS.SYSTEM)
-  if (metadataPatch) setWorkflowEntityMetadata(doc, metadataPatch)
-}
-
-export function readWorkflowEntityMetadata(doc: Y.Doc): WorkflowMetadataSnapshot {
-  const metadata = getMetadataMap(doc)
-  return {
-    ...(typeof metadata.get('entityName') === 'string'
-      ? { name: metadata.get('entityName') as string }
-      : {}),
-    ...(metadata.has('entityDescription')
-      ? { description: metadata.get('entityDescription') as string | null }
-      : {}),
-    ...(metadata.has('folderId') ? { folderId: metadata.get('folderId') as string | null } : {}),
-  }
-}
-
-export function setWorkflowEntityMetadata(doc: Y.Doc, patch: WorkflowMetadataPatch): void {
-  const name = patch.name?.trim()
-  if (patch.name !== undefined && !name) {
-    throw new Error('Workflow name is required')
-  }
-
-  doc.transact(() => {
-    const metadata = getMetadataMap(doc)
-    metadata.delete('reseededFromCanonical')
-    if (name !== undefined) metadata.set('entityName', name)
-    if (patch.description !== undefined) metadata.set('entityDescription', patch.description)
-    if (patch.folderId !== undefined) metadata.set('folderId', patch.folderId)
   }, YJS_ORIGINS.SYSTEM)
 }
 
@@ -524,12 +482,9 @@ export function setVariables(doc: Y.Doc, variables: Record<string, any>, origin?
 /**
  * Reads the full persisted workflow state (blocks, edges, loops, parallels,
  * variables) from a Y.Doc in one call.  This is the canonical extraction used
- * by both the server-side Yjs loader and the template builder.
+ * by the server-side Yjs loader.
  */
 export interface PersistedDocState {
-  name?: string
-  description?: string | null
-  folderId?: string | null
   direction?: WorkflowDirection
   blocks: Record<string, BlockState>
   edges: Edge[]
@@ -541,12 +496,10 @@ export interface PersistedDocState {
 
 export function extractPersistedStateFromDoc(doc: Y.Doc): PersistedDocState {
   const snapshot = readWorkflowSnapshot(doc)
-  const metadata = readWorkflowEntityMetadata(doc)
   const variables = getVariablesSnapshot(doc)
   const lastSaved = resolveStoredDateValue(snapshot.lastSaved)?.getTime() ?? Date.now()
 
   return {
-    ...metadata,
     ...(snapshot.direction !== undefined ? { direction: snapshot.direction } : {}),
     blocks: snapshot.blocks || {},
     edges: snapshot.edges || [],

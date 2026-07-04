@@ -5,8 +5,10 @@ import {
   mcpServers,
   pineIndicators,
   skill,
+  workflow,
 } from '@tradinggoose/db/schema'
-import { and, eq, isNull, type SQL } from 'drizzle-orm'
+import { and, asc, eq, isNull, type SQL } from 'drizzle-orm'
+import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import {
   type SavedEntityKind,
   type SavedEntityRow,
@@ -54,19 +56,112 @@ export async function resolveEntityWorkspaceId(
 }
 
 export async function readEntityListMembersFromDb(
-  entityKind: SavedEntityKind,
+  entityKind: ReviewEntityKind,
   workspaceId: string
-): Promise<Array<{ id: string; name: string; enabled?: boolean }>> {
+): Promise<
+  Array<{
+    id: string
+    name: string
+    description?: string
+    enabled?: boolean
+    folderId?: string | null
+    color?: string
+    createdAt?: string
+    updatedAt?: string
+    connectionStatus?: string
+  }>
+> {
+  if (entityKind === 'workflow') {
+    const rows = await db
+      .select({
+        id: workflow.id,
+        name: workflow.name,
+        description: workflow.description,
+        folderId: workflow.folderId,
+        color: workflow.color,
+        createdAt: workflow.createdAt,
+      })
+      .from(workflow)
+      .where(eq(workflow.workspaceId, workspaceId))
+      .orderBy(asc(workflow.name), asc(workflow.id))
+
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      description: row.description ?? undefined,
+      folderId: row.folderId,
+      color: row.color,
+      createdAt: row.createdAt?.toISOString(),
+    }))
+  }
+
   if (entityKind === 'mcp_server') {
     const rows = await db
-      .select({ id: mcpServers.id, name: mcpServers.name, enabled: mcpServers.enabled })
+      .select({
+        id: mcpServers.id,
+        name: mcpServers.name,
+        enabled: mcpServers.enabled,
+        updatedAt: mcpServers.updatedAt,
+        connectionStatus: mcpServers.connectionStatus,
+      })
       .from(mcpServers)
       .where(entityCondition(entityKind, [eq(mcpServers.workspaceId, workspaceId)]))
+      .orderBy(asc(mcpServers.name), asc(mcpServers.id))
 
     return rows.map((row) => ({
       id: row.id,
       name: row.name ?? '',
       enabled: row.enabled !== false,
+      updatedAt: row.updatedAt?.toISOString(),
+      connectionStatus: row.connectionStatus ?? 'disconnected',
+    }))
+  }
+
+  if (entityKind === 'skill') {
+    const rows = await db
+      .select({ id: skill.id, name: skill.name, description: skill.description })
+      .from(skill)
+      .where(entityCondition(entityKind, [eq(skill.workspaceId, workspaceId)]))
+      .orderBy(asc(skill.name), asc(skill.id))
+
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name ?? '',
+      description: row.description ?? undefined,
+    }))
+  }
+
+  if (entityKind === 'custom_tool') {
+    const rows = await db
+      .select({ id: customTools.id, name: customTools.title, schema: customTools.schema })
+      .from(customTools)
+      .where(entityCondition(entityKind, [eq(customTools.workspaceId, workspaceId)]))
+      .orderBy(asc(customTools.title), asc(customTools.id))
+
+    return rows.map((row) => {
+      const schema = row.schema as { function?: { description?: unknown } } | null
+      return {
+        id: row.id,
+        name: row.name ?? '',
+        description:
+          typeof schema?.function?.description === 'string'
+            ? schema.function.description
+            : undefined,
+      }
+    })
+  }
+
+  if (entityKind === 'indicator') {
+    const rows = await db
+      .select({ id: pineIndicators.id, name: pineIndicators.name, color: pineIndicators.color })
+      .from(pineIndicators)
+      .where(entityCondition(entityKind, [eq(pineIndicators.workspaceId, workspaceId)]))
+      .orderBy(asc(pineIndicators.name), asc(pineIndicators.id))
+
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name ?? '',
+      ...(typeof row.color === 'string' && row.color.trim() ? { color: row.color } : {}),
     }))
   }
 
@@ -75,6 +170,7 @@ export async function readEntityListMembersFromDb(
     .select({ id: table.id, name })
     .from(table)
     .where(entityCondition(entityKind, [eq(table.workspaceId, workspaceId)]))
+    .orderBy(asc(name), asc(table.id))
 
   return rows.map((row) => ({ id: row.id, name: row.name ?? '' }))
 }

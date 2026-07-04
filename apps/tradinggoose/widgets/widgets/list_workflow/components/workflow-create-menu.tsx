@@ -31,11 +31,13 @@ const logger = createLogger('DashboardWorkflowCreateMenu')
 
 export interface DashboardWorkflowCreateMenuProps {
   workspaceId?: string | null
+  existingWorkflowNames: string[]
   onWorkflowCreated?: (workflowId: string) => void
 }
 
 export function DashboardWorkflowCreateMenu({
   workspaceId,
+  existingWorkflowNames,
   onWorkflowCreated,
 }: DashboardWorkflowCreateMenuProps) {
   const [isCreatingFolder, setIsCreatingFolder] = useState(false)
@@ -110,9 +112,6 @@ export function DashboardWorkflowCreateMenu({
         }
 
         const parsedFile = JSON.parse(content) as unknown
-        const existingWorkflowNames = Object.values(useWorkflowRegistry.getState().workflows)
-          .filter((workflow) => workflow.workspaceId === workspaceId)
-          .map((workflow) => workflow.name)
 
         let importedSkillsBySourceName:
           | ReturnType<typeof buildImportedWorkflowSkillsLookup>
@@ -149,7 +148,7 @@ export function DashboardWorkflowCreateMenu({
         setIsImporting(false)
       }
     },
-    [workspaceId, createWorkflow, importSkillsMutation, onWorkflowCreated]
+    [workspaceId, existingWorkflowNames, createWorkflow, importSkillsMutation, onWorkflowCreated]
   )
 
   const handleImportWorkflow = useCallback(() => {

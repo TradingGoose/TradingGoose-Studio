@@ -41,7 +41,6 @@ vi.mock('@tradinggoose/db', () => ({
   },
   knowledgeBase: {},
   permissions: {},
-  templates: {},
   workflow: {
     id: 'workflow.id',
     workspaceId: 'workflow.workspaceId',
@@ -57,7 +56,6 @@ vi.mock('drizzle-orm', async () => {
     ...actual,
     eq: vi.fn((field, value) => ({ field, value, type: 'eq' })),
     and: vi.fn((...conditions) => ({ conditions, type: 'and' })),
-    inArray: vi.fn((field, values) => ({ field, values, type: 'inArray' })),
   }
 })
 

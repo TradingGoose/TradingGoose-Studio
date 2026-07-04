@@ -8,6 +8,7 @@ import { getStableVibrantColor } from '@/lib/colors'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
+import { refreshWorkflowListForWorkflow } from '@/lib/workflows/db-helpers'
 import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { remapVariableIds } from '@/lib/workflows/import-export'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
@@ -190,21 +191,19 @@ export async function POST(req: NextRequest) {
       isDeployed: false,
       collaborators: [],
       runCount: 0,
-      isPublished: false,
-      marketplaceData: null,
     })
 
     try {
       await applyWorkflowState(
         workflowId,
         createWorkflowSnapshot(initialState.canonicalState),
-        remappedVariables,
-        { name, description, folderId: folderId || null }
+        remappedVariables
       )
     } catch (error) {
       await db.delete(workflow).where(eq(workflow.id, workflowId))
       throw error
     }
+    await refreshWorkflowListForWorkflow(workflowId)
 
     logger.info(`[${requestId}] Successfully created workflow ${workflowId}`)
 

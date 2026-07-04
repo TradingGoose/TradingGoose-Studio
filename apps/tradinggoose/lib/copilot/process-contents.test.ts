@@ -39,7 +39,6 @@ vi.mock('@tradinggoose/db/schema', () => ({
     entityId: 'permissions.entityId',
     userId: 'permissions.userId',
   },
-  templates: {},
   workflow: {
     id: 'workflow.id',
     name: 'workflow.name',

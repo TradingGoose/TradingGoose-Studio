@@ -15,6 +15,7 @@ import { reconcilePublishedChatsForDeploymentTx } from '@/lib/chat/published-dep
 import { createLogger } from '@/lib/logs/console/logger'
 import { sanitizeAgentToolsInBlocks } from '@/lib/workflows/validation'
 import { inferWorkflowDirectionFromState } from '@/lib/workflows/workflow-direction'
+import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { extractPersistedStateFromDoc, setWorkflowState } from '@/lib/yjs/workflow-session'
 import type {
@@ -29,9 +30,6 @@ import { SUBFLOW_TYPES } from '@/stores/workflows/workflow/types'
 const logger = createLogger('WorkflowDBHelpers')
 
 type PersistableWorkflowState = WorkflowState & {
-  name?: string
-  description?: string | null
-  folderId?: string | null
   variables?: Record<string, any>
 }
 
@@ -81,9 +79,6 @@ const sanitizeBlockLayout = (layout: unknown): BlockState['layout'] => {
 }
 
 export type PersistedWorkflowState = {
-  name?: string | null
-  description?: string | null
-  folderId?: string | null
   direction?: WorkflowDirection
   blocks: Record<string, any>
   edges: any[]
@@ -111,6 +106,30 @@ export class WorkflowRealtimeRequiredError extends Error {
 export const isWorkflowRealtimeRequiredError = (
   error: unknown
 ): error is WorkflowRealtimeRequiredError => error instanceof WorkflowRealtimeRequiredError
+
+// Workflow list sessions are live projections of workflow row metadata.
+// Refresh failures must not invalidate the committed workflow row.
+export async function refreshWorkflowListForWorkflow(workflowId: string): Promise<void> {
+  try {
+    const [row] = await db
+      .select({
+        workspaceId: workflow.workspaceId,
+      })
+      .from(workflow)
+      .where(eq(workflow.id, workflowId))
+      .limit(1)
+
+    if (!row?.workspaceId) return
+
+    await refreshWorkflowList(row.workspaceId)
+  } catch (error) {
+    logger.warn('Failed to refresh workflow-list projection', { workflowId, error })
+  }
+}
+
+export async function refreshWorkflowList(workspaceId: string): Promise<void> {
+  await refreshEntityListSession('workflow', workspaceId)
+}
 
 function decodeWorkflowSnapshot(snapshotBase64: string): PersistedWorkflowState | null {
   const doc = new Y.Doc()
@@ -157,9 +176,6 @@ export async function loadWorkflowBootstrapStateFromDb(
   const [workflowRow, normalizedState] = await Promise.all([
     db
       .select({
-        name: workflow.name,
-        description: workflow.description,
-        folderId: workflow.folderId,
         variables: workflow.variables,
         updatedAt: workflow.updatedAt,
       })
@@ -174,9 +190,6 @@ export async function loadWorkflowBootstrapStateFromDb(
   }
 
   const savedState = {
-    name: row.name,
-    description: row.description,
-    folderId: row.folderId,
     blocks: normalizedState.blocks,
     edges: normalizedState.edges,
     loops: normalizedState.loops,
@@ -411,7 +424,7 @@ export interface NormalizedWorkflowData {
 }
 
 /**
- * Regenerates all IDs in a workflow state to avoid conflicts when duplicating or using templates.
+ * Regenerates all IDs in a workflow state to avoid conflicts when duplicating workflows.
  * Returns a new state with all IDs regenerated and references updated.
  */
 export function regenerateWorkflowStateIds(state: WorkflowState): WorkflowState {
@@ -698,7 +711,7 @@ export async function saveWorkflowToNormalizedTables(
   state: PersistableWorkflowState
 ): Promise<{ success: boolean; error?: string; normalizedState?: WorkflowState }> {
   try {
-    const { name, description, folderId, variables, ...graphState } = state
+    const { variables, ...graphState } = state
     const stateWithUniqueBlockIds = await ensureUniqueBlockIds(workflowId, graphState)
     const stateWithUniqueEdgeIds = await ensureUniqueEdgeIds(workflowId, stateWithUniqueBlockIds)
     const { blocks } = sanitizeAgentToolsInBlocks(stateWithUniqueEdgeIds.blocks || {})
@@ -861,9 +874,6 @@ export async function saveWorkflowToNormalizedTables(
         .set({
           lastSynced: savedAt,
           updatedAt: savedAt,
-          ...(name !== undefined ? { name } : {}),
-          ...(description !== undefined ? { description } : {}),
-          ...(folderId !== undefined ? { folderId } : {}),
           ...(variables !== undefined ? { variables } : {}),
         })
         .where(eq(workflow.id, workflowId))
@@ -896,9 +906,6 @@ export async function saveWorkflowYjsDocToDb(workflowId: string, doc: Y.Doc): Pr
     edges: state.edges,
     loops: state.loops,
     parallels: state.parallels,
-    ...(state.name != null ? { name: state.name } : {}),
-    ...(state.description !== undefined ? { description: state.description } : {}),
-    ...(state.folderId !== undefined ? { folderId: state.folderId } : {}),
     variables: state.variables,
     lastSaved: syncedAt.toISOString(),
   }

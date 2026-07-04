@@ -9,11 +9,9 @@ import {
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import {
-  applySavedEntityState,
-  publishCreatedSavedEntityListMembers,
-} from '@/lib/yjs/server/apply-entity-state'
-import { requireSavedEntityRealtimeListFields } from '@/lib/yjs/server/bootstrap-review-target'
+import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
+import { readSavedEntityListFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
+import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('CustomToolsOperations')
 
@@ -47,7 +45,11 @@ interface ImportCustomToolsParams {
 }
 
 export async function listCustomTools(params: { workspaceId: string }) {
-  const entries = await requireSavedEntityRealtimeListFields('custom_tool', params.workspaceId)
+  const entries = await readSavedEntityListFieldsForExecution(
+    'custom_tool',
+    params.workspaceId,
+    false
+  )
   return entries.map(({ entityId, fields }) => ({
     id: entityId,
     workspaceId: params.workspaceId,
@@ -106,11 +108,7 @@ export async function createCustomTools({
     return createdTools
   })
 
-  await publishCreatedSavedEntityListMembers(
-    'custom_tool',
-    workspaceId,
-    created.map((createdTool) => ({ id: createdTool.id, name: createdTool.title }))
-  )
+  await refreshEntityListSession('custom_tool', workspaceId)
   logger.info(`[${requestId}] Created ${created.length} custom tool(s)`)
   return created
 }
@@ -180,11 +178,7 @@ export async function importCustomTools({
     }
   })
 
-  await publishCreatedSavedEntityListMembers(
-    'custom_tool',
-    workspaceId,
-    result.tools.map((importedTool) => ({ id: importedTool.id, name: importedTool.title }))
-  )
+  await refreshEntityListSession('custom_tool', workspaceId)
   logger.info(`[${requestId}] Imported ${result.tools.length} custom tool(s)`, {
     workspaceId,
     renamedCount: result.renamedCount,

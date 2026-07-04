@@ -1,13 +1,14 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import { listSkills } from '@/lib/skills/operations'
+import { readSavedEntityFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
 import type { SkillInput } from '@/executor/handlers/agent/types'
 import type { SkillMetadata } from './skill-loader'
 
-const logger = createLogger('SkillsResolver')
+const logger = createLogger('AgentSkillsResolver')
 
 export async function resolveSkillMetadata(
   skillInputs: SkillInput[],
-  workspaceId: string
+  workspaceId: string,
+  isDeployedContext: boolean
 ): Promise<SkillMetadata[]> {
   const skillIds = skillInputs
     .map((skillInput) => skillInput.skillId)
@@ -17,38 +18,39 @@ export async function resolveSkillMetadata(
     return []
   }
 
-  try {
-    const skills = await listSkills({ workspaceId })
-    const selectedSkillIds = new Set(skillIds)
-    return skills
-      .filter((skill) => selectedSkillIds.has(skill.id))
-      .map((skill) => ({ id: skill.id, name: skill.name, description: skill.description }))
-  } catch (error) {
-    logger.error('Failed to resolve skill metadata', { error, skillIds, workspaceId })
+  const results = await Promise.allSettled(
+    skillIds.map(async (skillId) => {
+      const fields = await readSavedEntityFieldsForExecution(
+        'skill',
+        skillId,
+        workspaceId,
+        isDeployedContext
+      )
+      return {
+        id: skillId,
+        name: String(fields.name ?? ''),
+        description: String(fields.description ?? ''),
+      }
+    })
+  )
+
+  return results.flatMap((result, index) => {
+    if (result.status === 'fulfilled') return [result.value]
+    logger.warn(`Skipping unavailable agent skill ${skillIds[index]}:`, result.reason)
     return []
-  }
+  })
 }
 
 export async function resolveSkillContent(
   skillId: string,
-  workspaceId: string
-): Promise<string | null> {
-  if (!skillId || !workspaceId) {
-    return null
-  }
-
-  try {
-    const rows = await listSkills({ workspaceId })
-    const skill = rows.find((row) => row.id === skillId)
-
-    if (!skill) {
-      logger.warn('Skill not found', { skillId, workspaceId })
-      return null
-    }
-
-    return skill.content
-  } catch (error) {
-    logger.error('Failed to resolve skill content', { error, skillId, workspaceId })
-    return null
-  }
+  workspaceId: string,
+  isDeployedContext: boolean
+): Promise<string> {
+  const fields = await readSavedEntityFieldsForExecution(
+    'skill',
+    skillId,
+    workspaceId,
+    isDeployedContext
+  )
+  return String(fields.content ?? '')
 }

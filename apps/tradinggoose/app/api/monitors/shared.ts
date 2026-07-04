@@ -7,7 +7,7 @@ import {
 } from '@tradinggoose/db/schema'
 import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import { DEFAULT_INDICATOR_RUNTIME_MAP } from '@/lib/indicators/default/runtime'
-import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
+import { inferInputMetaFromPineCode } from '@/lib/indicators/input-meta'
 import {
   type IndicatorMonitorProviderConfig,
   toPublicIndicatorMonitorProviderConfig,
@@ -299,7 +299,7 @@ export const loadIndicatorInputMetadata = async (
     .select({
       id: pineIndicators.id,
       workspaceId: pineIndicators.workspaceId,
-      inputMeta: pineIndicators.inputMeta,
+      pineCode: pineIndicators.pineCode,
     })
     .from(pineIndicators)
     .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
@@ -310,7 +310,7 @@ export const loadIndicatorInputMetadata = async (
     throw new Error(`Indicator ${indicatorId} not found.`)
   }
 
-  const inputMeta = normalizeInputMetaMap(row.inputMeta)
+  const inputMeta = inferInputMetaFromPineCode(row.pineCode)
   return {
     id: row.id,
     ...(inputMeta && Object.keys(inputMeta).length > 0 ? { inputMeta } : {}),

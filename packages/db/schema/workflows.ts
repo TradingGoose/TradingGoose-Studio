@@ -73,8 +73,6 @@ export const workflow = pgTable(
     runCount: integer('run_count').notNull().default(0),
     lastRunAt: timestamp('last_run_at'),
     variables: json('variables').default('{}'),
-    isPublished: boolean('is_published').notNull().default(false),
-    marketplaceData: json('marketplace_data'),
   },
   (table) => ({
     userIdIdx: index('workflow_user_id_idx').on(table.userId),
@@ -437,24 +435,6 @@ export const pendingExecution = pgTable(
   })
 )
 
-export const marketplace = pgTable('marketplace', {
-  id: text('id').primaryKey(),
-  workflowId: text('workflow_id')
-    .notNull()
-    .references(() => workflow.id, { onDelete: 'cascade' }),
-  state: json('state').notNull(),
-  name: text('name').notNull(),
-  description: text('description'),
-  authorId: text('author_id')
-    .notNull()
-    .references(() => user.id),
-  authorName: text('author_name').notNull(),
-  views: integer('views').notNull().default(0),
-  category: text('category'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-})
-
 export const memory = pgTable(
   'memory',
   {
@@ -589,84 +569,6 @@ export const chat = pgTable(
       deploymentVersionIdx: index('chat_deployment_version_idx').on(table.deploymentVersionId),
     }
   }
-)
-
-export const templates = pgTable(
-  'templates',
-  {
-    id: text('id').primaryKey(),
-    workflowId: text('workflow_id').references(() => workflow.id),
-    userId: text('user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    name: text('name').notNull(),
-    description: text('description'),
-    author: text('author').notNull(),
-    views: integer('views').notNull().default(0),
-    stars: integer('stars').notNull().default(0),
-    color: text('color').notNull().default('#3972F6'),
-    icon: text('icon').notNull().default('FileText'), // Lucide icon name as string
-    category: text('category').notNull(),
-    state: jsonb('state').notNull(), // Using jsonb for better performance
-    createdAt: timestamp('created_at').notNull().defaultNow(),
-    updatedAt: timestamp('updated_at').notNull().defaultNow(),
-  },
-  (table) => ({
-    // Primary access patterns
-    workflowIdIdx: index('templates_workflow_id_idx').on(table.workflowId),
-    userIdIdx: index('templates_user_id_idx').on(table.userId),
-    categoryIdx: index('templates_category_idx').on(table.category),
-
-    // Sorting indexes for popular/trending templates
-    viewsIdx: index('templates_views_idx').on(table.views),
-    starsIdx: index('templates_stars_idx').on(table.stars),
-
-    // Composite indexes for common queries
-    categoryViewsIdx: index('templates_category_views_idx').on(table.category, table.views),
-    categoryStarsIdx: index('templates_category_stars_idx').on(table.category, table.stars),
-    userCategoryIdx: index('templates_user_category_idx').on(table.userId, table.category),
-
-    // Temporal indexes
-    createdAtIdx: index('templates_created_at_idx').on(table.createdAt),
-    updatedAtIdx: index('templates_updated_at_idx').on(table.updatedAt),
-  })
-)
-
-export const templateStars = pgTable(
-  'template_stars',
-  {
-    id: text('id').primaryKey(),
-    userId: text('user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    templateId: text('template_id')
-      .notNull()
-      .references(() => templates.id, { onDelete: 'cascade' }),
-    starredAt: timestamp('starred_at').notNull().defaultNow(),
-    createdAt: timestamp('created_at').notNull().defaultNow(),
-  },
-  (table) => ({
-    // Primary access patterns
-    userIdIdx: index('template_stars_user_id_idx').on(table.userId),
-    templateIdIdx: index('template_stars_template_id_idx').on(table.templateId),
-
-    // Composite indexes for common queries
-    userTemplateIdx: index('template_stars_user_template_idx').on(table.userId, table.templateId),
-    templateUserIdx: index('template_stars_template_user_idx').on(table.templateId, table.userId),
-
-    // Temporal indexes for analytics
-    starredAtIdx: index('template_stars_starred_at_idx').on(table.starredAt),
-    templateStarredAtIdx: index('template_stars_template_starred_at_idx').on(
-      table.templateId,
-      table.starredAt
-    ),
-
-    // Uniqueness constraint - prevent duplicate stars
-    uniqueUserTemplateConstraint: uniqueIndex('template_stars_user_template_unique').on(
-      table.userId,
-      table.templateId
-    ),
-  })
 )
 
 // Idempotency keys for preventing duplicate processing across all webhooks and triggers

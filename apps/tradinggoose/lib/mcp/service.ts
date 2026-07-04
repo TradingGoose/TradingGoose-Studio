@@ -1,13 +1,11 @@
 import { db } from '@tradinggoose/db'
 import { mcpServers } from '@tradinggoose/db/schema'
-import { and, eq, isNull } from 'drizzle-orm'
 import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { McpClient } from '@/lib/mcp/client'
 import type {
   McpServerConfig,
-  McpServerSummary,
   McpTool,
   McpToolCall,
   McpToolResult,
@@ -15,7 +13,11 @@ import type {
 } from '@/lib/mcp/types'
 import { generateRequestId } from '@/lib/utils'
 import { savedEntityRowToFields } from '@/lib/yjs/entity-state'
-import { publishCreatedSavedEntityListMembers } from '@/lib/yjs/server/apply-entity-state'
+import {
+  readSavedEntityFieldsForExecution,
+  readSavedEntityListFieldsForExecution,
+} from '@/lib/yjs/server/bootstrap-review-target'
+import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('McpService')
 
@@ -155,52 +157,57 @@ class McpService {
       throw new Error('Created MCP server was not returned from canonical insert')
     }
 
-    await publishCreatedSavedEntityListMembers('mcp_server', input.workspaceId, [
-      {
-        id: entityId,
-        name: String(normalized.name ?? ''),
-        enabled: normalized.enabled !== false,
-      },
-    ])
+    await refreshEntityListSession('mcp_server', input.workspaceId)
 
     return { entityId, fields: savedEntityRowToFields('mcp_server', row) }
   }
 
   private async getServerConfig(
     serverId: string,
-    workspaceId: string
+    workspaceId: string,
+    isDeployedContext = true
   ): Promise<McpServerConfig | null> {
-    const [server] = await db
-      .select()
-      .from(mcpServers)
-      .where(
-        and(
-          eq(mcpServers.id, serverId),
-          eq(mcpServers.workspaceId, workspaceId),
-          isNull(mcpServers.deletedAt)
-        )
-      )
-      .limit(1)
-    if (!server) {
-      return null
-    }
-
-    const fields = normalizeEntityFields('mcp_server', savedEntityRowToFields('mcp_server', server))
-    return fields.enabled === false ? null : this.toServerConfig(serverId, fields)
-  }
-
-  private async getWorkspaceServers(workspaceId: string): Promise<McpServerConfig[]> {
-    const servers = await db
-      .select()
-      .from(mcpServers)
-      .where(and(eq(mcpServers.workspaceId, workspaceId), isNull(mcpServers.deletedAt)))
-
-    return servers.flatMap((server) => {
+    try {
       const fields = normalizeEntityFields(
         'mcp_server',
-        savedEntityRowToFields('mcp_server', server)
+        await readSavedEntityFieldsForExecution(
+          'mcp_server',
+          serverId,
+          workspaceId,
+          isDeployedContext
+        )
       )
-      return fields.enabled === false ? [] : [this.toServerConfig(server.id, fields)]
+      return fields.enabled === false ? null : this.toServerConfig(serverId, fields)
+    } catch (error) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        (error as { status?: number }).status === 404
+      ) {
+        return null
+      }
+      throw error
+    }
+  }
+
+  private async getWorkspaceServers(
+    workspaceId: string,
+    isDeployedContext = true
+  ): Promise<McpServerConfig[]> {
+    const servers = await readSavedEntityListFieldsForExecution(
+      'mcp_server',
+      workspaceId,
+      isDeployedContext
+    )
+
+    return servers.flatMap(({ entityId, fields: rawFields }) => {
+      try {
+        const fields = normalizeEntityFields('mcp_server', rawFields)
+        return fields.enabled === false ? [] : [this.toServerConfig(entityId, fields)]
+      } catch (error) {
+        logger.warn(`Skipping invalid MCP server ${entityId} during workspace discovery:`, error)
+        return []
+      }
     })
   }
 
@@ -227,7 +234,8 @@ class McpService {
     userId: string,
     serverId: string,
     toolCall: McpToolCall,
-    workspaceId: string
+    workspaceId: string,
+    isDeployedContext = true
   ): Promise<McpToolResult> {
     const requestId = generateRequestId()
 
@@ -236,7 +244,7 @@ class McpService {
         `[${requestId}] Executing MCP tool ${toolCall.name} on server ${serverId} for user ${userId}`
       )
 
-      const config = await this.getServerConfig(serverId, workspaceId)
+      const config = await this.getServerConfig(serverId, workspaceId, isDeployedContext)
       if (!config) {
         throw new McpServerNotFoundError(serverId)
       }
@@ -264,13 +272,17 @@ class McpService {
   /**
    * Discover tools from all workspace servers
    */
-  async discoverTools(userId: string, workspaceId: string): Promise<McpTool[]> {
+  async discoverTools(
+    userId: string,
+    workspaceId: string,
+    isDeployedContext = true
+  ): Promise<McpTool[]> {
     const requestId = generateRequestId()
 
     try {
       logger.info(`[${requestId}] Discovering MCP tools for workspace ${workspaceId}`)
 
-      const servers = await this.getWorkspaceServers(workspaceId)
+      const servers = await this.getWorkspaceServers(workspaceId, isDeployedContext)
 
       if (servers.length === 0) {
         logger.info(`[${requestId}] No servers found for workspace ${workspaceId}`)
@@ -321,14 +333,15 @@ class McpService {
   async discoverServerTools(
     userId: string,
     serverId: string,
-    workspaceId: string
+    workspaceId: string,
+    isDeployedContext = true
   ): Promise<McpTool[]> {
     const requestId = generateRequestId()
 
     try {
       logger.info(`[${requestId}] Discovering tools from server ${serverId} for user ${userId}`)
 
-      const config = await this.getServerConfig(serverId, workspaceId)
+      const config = await this.getServerConfig(serverId, workspaceId, isDeployedContext)
       if (!config) {
         throw new McpServerNotFoundError(serverId)
       }
@@ -349,57 +362,6 @@ class McpService {
       throw error
     }
   }
-
-  /**
-   * Get server summaries for a user
-   */
-  async getServerSummaries(userId: string, workspaceId: string): Promise<McpServerSummary[]> {
-    const requestId = generateRequestId()
-
-    try {
-      logger.info(`[${requestId}] Getting server summaries for workspace ${workspaceId}`)
-
-      const servers = await this.getWorkspaceServers(workspaceId)
-      const summaries: McpServerSummary[] = []
-
-      for (const config of servers) {
-        try {
-          const resolvedConfig = await this.resolveConfigEnvVars(config, userId, workspaceId)
-          const client = await this.createClient(resolvedConfig)
-          const tools = await client.listTools()
-          await client.disconnect()
-
-          summaries.push({
-            id: config.id,
-            name: config.name,
-            url: config.url,
-            transport: config.transport,
-            status: 'connected',
-            toolCount: tools.length,
-            lastSeen: new Date(),
-            error: undefined,
-          })
-        } catch (error) {
-          summaries.push({
-            id: config.id,
-            name: config.name,
-            url: config.url,
-            transport: config.transport,
-            status: 'error',
-            toolCount: 0,
-            lastSeen: undefined,
-            error: error instanceof Error ? error.message : 'Connection failed',
-          })
-        }
-      }
-
-      return summaries
-    } catch (error) {
-      logger.error(`[${requestId}] Failed to get server summaries for user ${userId}:`, error)
-      throw error
-    }
-  }
-
 }
 
 export const mcpService = new McpService()

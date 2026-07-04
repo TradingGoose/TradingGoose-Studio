@@ -32,17 +32,15 @@ vi.mock('nanoid', () => ({
 
 vi.mock('@/lib/yjs/server/apply-entity-state', () => ({
   applySavedEntityState: vi.fn(),
-  publishCreatedSavedEntityListMembers: mockNotifyEntityListMembersUpserted,
 }))
 
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
-  requireSavedEntityRealtimeListFields: vi.fn(),
+  readSavedEntityListFieldsForExecution: vi.fn(),
 }))
 
 vi.mock('@/lib/yjs/server/snapshot-bridge', () => ({
   deleteYjsSessionInSocketServer: vi.fn(),
-  notifyEntityListMemberRemoved: vi.fn(),
-  notifyEntityListMembersUpserted: mockNotifyEntityListMembersUpserted,
+  refreshEntityListSession: mockNotifyEntityListMembersUpserted,
 }))
 
 import { importSkills } from '@/lib/skills/operations'

@@ -40,6 +40,7 @@ export type FunctionExecutionPayload = {
   workflowId?: string | null
   workspaceId: string
   isCustomTool?: boolean
+  isDeployedContext?: boolean
 }
 
 type FunctionExecutionResponseBody = {
@@ -123,6 +124,7 @@ export async function executeFunctionRequest(
       workflowId,
       workspaceId,
       isCustomTool = false,
+      isDeployedContext = true,
     } = payload
     const e2bUserScope = payload.userId
 
@@ -155,7 +157,7 @@ export async function executeFunctionRequest(
           pineCode,
           inputMeta,
         })),
-        ...(await listCustomIndicatorRuntimeEntries(workspaceId)),
+        ...(await listCustomIndicatorRuntimeEntries(workspaceId, isDeployedContext)),
       ],
     }
 

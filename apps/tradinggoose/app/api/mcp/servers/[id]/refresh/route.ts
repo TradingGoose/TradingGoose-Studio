@@ -7,6 +7,7 @@ import { withMcpAuth } from '@/lib/mcp/middleware'
 import { McpServerNotFoundError, mcpService } from '@/lib/mcp/service'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
 import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
+import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('McpServerRefreshAPI')
 
@@ -56,7 +57,7 @@ export const POST = withMcpAuth('read')(
       let lastError: string | null = null
 
       try {
-        const tools = await mcpService.discoverServerTools(userId, serverId, workspaceId)
+        const tools = await mcpService.discoverServerTools(userId, serverId, workspaceId, false)
         connectionStatus = 'connected'
         toolCount = tools.length
         logger.info(
@@ -84,8 +85,10 @@ export const POST = withMcpAuth('read')(
           lastError,
           lastConnected,
           toolCount,
+          updatedAt: now,
         })
         .where(and(eq(mcpServers.id, serverId), eq(mcpServers.workspaceId, workspaceId)))
+      await refreshEntityListSession('mcp_server', workspaceId)
 
       logger.info(`[${requestId}] Successfully refreshed MCP server: ${serverId}`)
       return createMcpSuccessResponse({

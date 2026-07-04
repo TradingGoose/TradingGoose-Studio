@@ -6,37 +6,52 @@ import {
   type IndicatorTransferRecord,
   resolveImportedIndicatorName,
 } from '@/lib/indicators/import-export'
-import { inferInputMetaFromPineCode, normalizeInputMetaMap } from '@/lib/indicators/input-meta'
+import { inferInputMetaFromPineCode } from '@/lib/indicators/input-meta'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import {
-  applySavedEntityState,
-  publishCreatedSavedEntityListMembers,
-} from '@/lib/yjs/server/apply-entity-state'
-import { requireSavedEntityRealtimeListFields } from '@/lib/yjs/server/bootstrap-review-target'
+import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
+import { readSavedEntityListFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
+import { refreshEntityListSession } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('IndicatorsOperations')
 
-export async function listCustomIndicatorRuntimeEntries(workspaceId: string) {
-  const entries = await requireSavedEntityRealtimeListFields('indicator', workspaceId)
-  return entries.map(({ entityId, fields }) => ({
-    id: entityId,
-    pineCode: String(fields.pineCode ?? ''),
-    inputMeta: normalizeInputMetaMap(fields.inputMeta),
-  }))
+export async function listCustomIndicatorRuntimeEntries(
+  workspaceId: string,
+  isDeployedContext: boolean
+) {
+  const entries = await readSavedEntityListFieldsForExecution(
+    'indicator',
+    workspaceId,
+    isDeployedContext
+  )
+  return entries.map(({ entityId, fields }) => {
+    const pineCode = String(fields.pineCode ?? '')
+    return {
+      id: entityId,
+      pineCode,
+      inputMeta: inferInputMetaFromPineCode(pineCode),
+    }
+  })
 }
 
 export async function listIndicators(params: { workspaceId: string }) {
-  const entries = await requireSavedEntityRealtimeListFields('indicator', params.workspaceId)
-  return entries.map(({ entityId, fields }) => ({
-    id: entityId,
-    workspaceId: params.workspaceId,
-    userId: null,
-    name: String(fields.name ?? ''),
-    color: String(fields.color ?? '') || undefined,
-    pineCode: String(fields.pineCode ?? ''),
-    inputMeta: normalizeInputMetaMap(fields.inputMeta),
-  }))
+  const entries = await readSavedEntityListFieldsForExecution(
+    'indicator',
+    params.workspaceId,
+    false
+  )
+  return entries.map(({ entityId, fields }) => {
+    const pineCode = String(fields.pineCode ?? '')
+    return {
+      id: entityId,
+      workspaceId: params.workspaceId,
+      userId: null,
+      name: String(fields.name ?? ''),
+      color: String(fields.color ?? ''),
+      pineCode,
+      inputMeta: inferInputMetaFromPineCode(pineCode),
+    }
+  })
 }
 
 interface CreateIndicatorsParams {
@@ -90,7 +105,6 @@ export async function createIndicators({
         name: indicator.name,
         color: indicator.color?.trim() || getStableVibrantColor(indicatorId),
         pineCode: indicator.pineCode,
-        inputMeta: inferInputMetaFromPineCode(indicator.pineCode) ?? null,
         createdAt: nowTime,
         updatedAt: nowTime,
       })
@@ -100,11 +114,7 @@ export async function createIndicators({
     return createdIndicators
   })
 
-  await publishCreatedSavedEntityListMembers(
-    'indicator',
-    workspaceId,
-    created.map((createdIndicator) => ({ id: createdIndicator.id, name: createdIndicator.name }))
-  )
+  await refreshEntityListSession('indicator', workspaceId)
   logger.info(`[${requestId}] Created ${created.length} indicator(s)`)
   return created
 }
@@ -169,7 +179,6 @@ export async function importIndicators({
         name: nextName,
         color: getStableVibrantColor(indicatorId),
         pineCode: indicator.pineCode,
-        inputMeta: inferInputMetaFromPineCode(indicator.pineCode) ?? null,
         createdAt: nowTime,
         updatedAt: nowTime,
       }
@@ -184,11 +193,7 @@ export async function importIndicators({
     }
   })
 
-  await publishCreatedSavedEntityListMembers(
-    'indicator',
-    workspaceId,
-    result.indicators.map((imported) => ({ id: imported.id, name: imported.name }))
-  )
+  await refreshEntityListSession('indicator', workspaceId)
   logger.info(`[${requestId}] Imported ${result.indicators.length} indicator(s)`, {
     workspaceId,
     renamedCount: result.renamedCount,

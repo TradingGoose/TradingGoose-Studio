@@ -30,7 +30,6 @@ interface CustomToolEditorProps {
   toolId: string
   doc: Y.Doc | null
   save: () => Promise<void>
-  onSave: () => void
   onSectionChange: (section: CustomToolEditorSection) => void
   exportRef: MutableRefObject<() => void>
   saveRef: MutableRefObject<() => void>
@@ -42,7 +41,6 @@ export function CustomToolEditor({
   toolId,
   doc,
   save,
-  onSave,
   onSectionChange,
   exportRef,
   saveRef,
@@ -354,8 +352,6 @@ IMPORTANT FORMATTING RULES:
       setFunctionCode(latestFunctionCode)
 
       await save()
-
-      onSave()
     } catch (error) {
       logger.error('Error saving custom tool:', { error })
       setSchemaError(copy.validation.failedToSave)
@@ -364,7 +360,6 @@ IMPORTANT FORMATTING RULES:
   }, [
     parseCurrentSchema,
     doc,
-    onSave,
     onSectionChange,
     save,
     functionCode,

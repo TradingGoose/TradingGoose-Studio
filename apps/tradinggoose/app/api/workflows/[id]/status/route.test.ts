@@ -105,7 +105,6 @@ describe('Workflow Status API Route', () => {
       workflow: {
         isDeployed: true,
         deployedAt: null,
-        isPublished: false,
       },
     })
 
@@ -159,7 +158,6 @@ describe('Workflow Status API Route', () => {
       workflow: {
         isDeployed: true,
         deployedAt: null,
-        isPublished: false,
       },
     })
 
@@ -206,7 +204,6 @@ describe('Workflow Status API Route', () => {
       workflow: {
         isDeployed: true,
         deployedAt: null,
-        isPublished: false,
       },
     })
     mockLoadWorkflowState.mockResolvedValue(null)

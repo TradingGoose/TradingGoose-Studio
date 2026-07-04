@@ -9,14 +9,11 @@ import {
   type SkillTransferRecord,
 } from '@/lib/skills/import-export'
 import { generateRequestId } from '@/lib/utils'
-import {
-  applySavedEntityState,
-  publishCreatedSavedEntityListMembers,
-} from '@/lib/yjs/server/apply-entity-state'
-import { requireSavedEntityRealtimeListFields } from '@/lib/yjs/server/bootstrap-review-target'
+import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
+import { readSavedEntityListFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
 import {
   deleteYjsSessionInSocketServer,
-  notifyEntityListMemberRemoved,
+  refreshEntityListSession,
 } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('SkillsOperations')
@@ -51,7 +48,7 @@ interface ImportSkillsParams {
 }
 
 export async function listSkills(params: { workspaceId: string }) {
-  const entries = await requireSavedEntityRealtimeListFields('skill', params.workspaceId)
+  const entries = await readSavedEntityListFieldsForExecution('skill', params.workspaceId, false)
   return entries.map(({ entityId, fields }) => ({
     id: entityId,
     workspaceId: params.workspaceId,
@@ -80,10 +77,8 @@ export async function deleteSkill(params: {
     .delete(skill)
     .where(and(eq(skill.id, params.skillId), eq(skill.workspaceId, params.workspaceId)))
 
-  await Promise.allSettled([
-    deleteYjsSessionInSocketServer(params.skillId),
-    notifyEntityListMemberRemoved('skill', params.workspaceId, params.skillId),
-  ])
+  await refreshEntityListSession('skill', params.workspaceId)
+  await Promise.allSettled([deleteYjsSessionInSocketServer(params.skillId)])
 
   logger.info(`Deleted skill ${params.skillId}`)
   return true
@@ -141,11 +136,7 @@ export async function createSkills({
     return createdSkills
   })
 
-  await publishCreatedSavedEntityListMembers(
-    'skill',
-    workspaceId,
-    created.map((createdSkill) => ({ id: createdSkill.id, name: createdSkill.name }))
-  )
+  await refreshEntityListSession('skill', workspaceId)
   logger.info(`[${requestId}] Created ${created.length} skill(s)`)
   return created
 }
@@ -228,11 +219,7 @@ export async function importSkills({
     }
   })
 
-  await publishCreatedSavedEntityListMembers(
-    'skill',
-    workspaceId,
-    result.skills.map((importedSkill) => ({ id: importedSkill.id, name: importedSkill.name }))
-  )
+  await refreshEntityListSession('skill', workspaceId)
   logger.info(`[${requestId}] Imported ${result.skills.length} skill(s)`, {
     workspaceId,
     renamedCount: result.renamedCount,

@@ -2,9 +2,12 @@
  * @vitest-environment jsdom
  */
 
-import * as Y from 'yjs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ReviewTargetDescriptor, ReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/types'
+import type * as Y from 'yjs'
+import type {
+  ReviewTargetDescriptor,
+  ReviewTargetRuntimeState,
+} from '@/lib/copilot/review-sessions/types'
 
 const fetchMock = vi.fn()
 
@@ -255,6 +258,42 @@ describe('bootstrapYjsProvider', () => {
     consoleErrorSpy.mockRestore()
   })
 
+  it('ends read sessions on connection loss instead of resyncing a dead projection', async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+
+      if (url === '/api/auth/socket-token') {
+        return jsonResponse({ token: 'token-1' })
+      }
+
+      if (url.startsWith('/api/yjs/sessions/workflow-1/snapshot?')) {
+        expect(url).toContain('accessMode=read')
+        return jsonResponse({
+          snapshotBase64: '',
+          descriptor,
+          runtime,
+        })
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    const { bootstrapYjsProvider } = await import('./provider')
+    const result = await bootstrapYjsProvider(descriptor, 'ws://localhost:3002', 'read')
+    const provider = result.provider as unknown as MockWebsocketProvider
+
+    expect(result.accessMode).toBe('read')
+    const tokenFetches = fetchMock.mock.calls.length
+
+    provider.emit('connection-close', null, provider)
+    provider.emit('connection-error', new Event('error'), provider)
+    await Promise.resolve()
+
+    expect(fetchMock).toHaveBeenCalledTimes(tokenFetches)
+    expect(provider.connect).toHaveBeenCalledTimes(1)
+    expect(provider.params.token).toBe('token-1')
+  })
+
   it('requires write access on the snapshot request and waits for provider sync', async () => {
     fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString()
@@ -279,5 +318,4 @@ describe('bootstrapYjsProvider', () => {
     expect(result.provider).toBe(providerInstances[0])
     expect(providerInstances[0].params.accessMode).toBe('write')
   })
-
 })

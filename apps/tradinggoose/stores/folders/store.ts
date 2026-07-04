@@ -1,19 +1,8 @@
-import { createWithEqualityFn as create } from 'zustand/traditional'
 import { devtools } from 'zustand/middleware'
+import { createWithEqualityFn as create } from 'zustand/traditional'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 const logger = createLogger('FoldersStore')
-
-export interface Workflow {
-  id: string
-  folderId?: string | null
-  name?: string
-  description?: string
-  userId?: string
-  workspaceId?: string
-  [key: string]: any // For additional properties
-}
 
 export interface WorkflowFolder {
   id: string
@@ -73,10 +62,6 @@ interface FolderState {
   }) => Promise<WorkflowFolder>
   updateFolderAPI: (id: string, updates: Partial<WorkflowFolder>) => Promise<WorkflowFolder>
   deleteFolder: (id: string, workspaceId: string) => Promise<void>
-
-  // Helper functions
-  isWorkflowInDeletedSubfolder: (workflow: Workflow, deletedFolderId: string) => boolean
-  removeSubfoldersRecursively: (parentFolderId: string) => void
 }
 
 export const useFolderStore = create<FolderState>()(
@@ -317,7 +302,7 @@ export const useFolderStore = create<FolderState>()(
         return processedFolder
       },
 
-      deleteFolder: async (id: string, workspaceId: string) => {
+      deleteFolder: async (id: string, _workspaceId: string) => {
         const response = await fetch(`/api/folders/${id}`, { method: 'DELETE' })
 
         if (!response.ok) {
@@ -326,76 +311,22 @@ export const useFolderStore = create<FolderState>()(
         }
 
         const responseData = await response.json()
-        const workflowRegistry = useWorkflowRegistry.getState()
+        const parentId = typeof responseData.parentId === 'string' ? responseData.parentId : null
 
-        const collectDescendantFolderIds = (folderId: string): string[] => {
-          const childFolders = get().getChildFolders(folderId)
-          return childFolders.flatMap((child) => [child.id, ...collectDescendantFolderIds(child.id)])
+        for (const childFolder of get().getChildFolders(id)) {
+          get().updateFolder(childFolder.id, { parentId })
         }
-
-        const descendantFolderIds = collectDescendantFolderIds(id)
-        const allFolderIds = [id, ...descendantFolderIds]
-        const workflowIdsToRemove = Object.values(workflowRegistry.workflows)
-          .filter(
-            (workflow) =>
-              workflow.workspaceId === workspaceId &&
-              workflow.folderId &&
-              allFolderIds.includes(workflow.folderId)
-          )
-          .map((workflow) => workflow.id)
-
-        // Remove the folder from local state
         get().removeFolder(id)
 
-        // Remove from expanded state
         set((state) => {
           const newExpanded = new Set(state.expandedFolders)
-          allFolderIds.forEach((folderId) => newExpanded.delete(folderId))
+          newExpanded.delete(id)
           return { expandedFolders: newExpanded }
         })
 
-        // Remove subfolders from local state
-        get().removeSubfoldersRecursively(id)
-
-        if (workflowIdsToRemove.length > 0) {
-          await Promise.all(
-            workflowIdsToRemove.map((workflowId) =>
-              workflowRegistry.removeWorkflow(workflowId, { skipApi: true })
-            )
-          )
-        }
-
         logger.info(
-          `Deleted ${responseData.deletedItems.workflows} workflow(s) and ${responseData.deletedItems.folders} folder(s)`
+          `Deleted folder ${id}; moved ${responseData.movedFolders ?? 0} folder(s) and ${responseData.movedWorkflows ?? 0} workflow(s) up one level`
         )
-      },
-
-      isWorkflowInDeletedSubfolder: (workflow: Workflow, deletedFolderId: string) => {
-        if (!workflow.folderId) return false
-
-        const folders = get().folders
-        let currentFolderId: string | null = workflow.folderId
-
-        while (currentFolderId && folders[currentFolderId]) {
-          if (currentFolderId === deletedFolderId) {
-            return true
-          }
-          currentFolderId = folders[currentFolderId].parentId
-        }
-
-        return false
-      },
-
-      removeSubfoldersRecursively: (parentFolderId: string) => {
-        const folders = get().folders
-        const childFolderIds = Object.keys(folders).filter(
-          (id) => folders[id].parentId === parentFolderId
-        )
-
-        childFolderIds.forEach((childId) => {
-          get().removeSubfoldersRecursively(childId)
-          get().removeFolder(childId)
-        })
       },
     }),
     { name: 'folder-store' }

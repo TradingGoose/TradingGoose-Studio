@@ -83,6 +83,9 @@ export const functionExecuteTool: ToolConfig<CodeExecutionInput, CodeExecutionOu
         blockNameMapping: params.blockNameMapping || {},
         blockOutputSchemas: params.blockOutputSchemas || {},
         userId: params._context?.userId,
+        ...(typeof params._context?.isDeployedContext === 'boolean'
+          ? { isDeployedContext: params._context.isDeployedContext }
+          : {}),
         ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
         isCustomTool: params.isCustomTool || false,
       }

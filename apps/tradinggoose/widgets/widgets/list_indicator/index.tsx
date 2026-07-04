@@ -2,44 +2,31 @@
 
 import { useCallback } from 'react'
 import { ListChecks } from 'lucide-react'
-import { useLocale, useMessages } from 'next-intl'
+import { useMessages } from 'next-intl'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { parseImportedIndicatorsFile } from '@/lib/indicators/import-export'
+import { generateAvailableName } from '@/lib/naming'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import {
   useUserPermissionsContext,
   WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useCreateIndicator, useImportIndicators } from '@/hooks/queries/indicators'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import { useIndicatorsStore } from '@/stores/indicators/store'
-import type { IndicatorDefinition } from '@/stores/indicators/types'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { emitIndicatorSelectionChange } from '@/widgets/utils/indicator-selection'
+import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
 import { IndicatorCreateMenu } from '@/widgets/widgets/list_indicator/components/indicator-create-menu'
 import {
   IndicatorList,
   IndicatorListMessage,
 } from '@/widgets/widgets/list_indicator/components/indicator-list/indicator-list'
 
-const buildNewIndicator = (indicators: IndicatorDefinition[], defaults: { name: string }) => {
-  const existingNames = new Set(
-    indicators.map((indicator) => indicator.name.trim()).filter((name) => name.length > 0)
-  )
-
-  let nextName = defaults.name
-  let suffix = 2
-
-  while (existingNames.has(nextName)) {
-    nextName = `${defaults.name} ${suffix}`
-    suffix += 1
-  }
-
+const buildNewIndicator = (defaults: { name: string }) => {
   return {
-    name: nextName,
-    color: '',
+    name: defaults.name,
     pineCode: '',
-    inputMeta: undefined,
   }
 }
 
@@ -52,18 +39,32 @@ const IndicatorListHeaderRight = ({
   panelId?: string
   pairColor?: PairColor
 }) => {
-  const locale = useLocale()
   const copy = useMessages().workspace.widgets
   const permissions = useUserPermissionsContext()
   const createIndicatorMutation = useCreateIndicator()
   const importMutation = useImportIndicators()
-  const storedIndicators = useIndicatorsStore((state) =>
-    workspaceId ? state.getAllIndicators(workspaceId) : []
-  )
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
   const setPairContext = useSetPairColorContext()
+  const { members } = useEntityList('indicator', workspaceId)
+
+  const selectIndicator = useCallback(
+    (createdIndicatorId: string) => {
+      if (isLinkedToColorPair) {
+        setPairContext(resolvedPairColor, { indicatorId: createdIndicatorId })
+        return
+      }
+
+      emitIndicatorSelectionChange({
+        indicatorId: createdIndicatorId,
+        panelId,
+        widgetKey: 'list_indicator',
+      })
+    },
+    [isLinkedToColorPair, panelId, resolvedPairColor, setPairContext]
+  )
+  const selectIndicatorWhenListed = usePendingEntitySelection(members, selectIndicator)
 
   const handleCreateIndicator = useCallback(() => {
     if (!workspaceId || !permissions.canEdit) return
@@ -71,8 +72,11 @@ const IndicatorListHeaderRight = ({
     void createIndicatorMutation
       .mutateAsync({
         workspaceId,
-        indicator: buildNewIndicator(storedIndicators, {
-          name: copy.indicatorList.createMenu.newIndicator,
+        indicator: buildNewIndicator({
+          name: generateAvailableName(
+            members.map((member) => member.entityName),
+            copy.indicatorList.createMenu.newIndicator
+          ),
         }),
       })
       .then((createdIndicators) => {
@@ -84,33 +88,17 @@ const IndicatorListHeaderRight = ({
           throw new Error('Created indicator is missing an id')
         }
 
-        if (isLinkedToColorPair) {
-          setPairContext(resolvedPairColor, { indicatorId: createdIndicatorId })
-          return
-        }
-
-        emitIndicatorSelectionChange({
-          indicatorId: createdIndicatorId,
-          panelId,
-          widgetKey: 'list_indicator',
-        })
-        emitIndicatorSelectionChange({
-          indicatorId: createdIndicatorId,
-          panelId,
-          widgetKey: 'editor_indicator',
-        })
+        selectIndicatorWhenListed(createdIndicatorId)
       })
       .catch((error) => {
         console.error('Failed to create indicator from list widget', error)
       })
   }, [
     createIndicatorMutation,
-    isLinkedToColorPair,
-    panelId,
+    copy.indicatorList.createMenu.newIndicator,
+    members,
     permissions.canEdit,
-    resolvedPairColor,
-    setPairContext,
-    storedIndicators,
+    selectIndicatorWhenListed,
     workspaceId,
   ])
 
@@ -152,7 +140,6 @@ const ListIndicatorHeaderRight = ({
   panelId?: string
   pairColor?: PairColor
 }) => {
-  const locale = useLocale()
   const copy = useMessages().workspace.widgets.indicatorList
   if (!workspaceId) {
     return <span className='text-muted-foreground text-xs'>{copy.header.explorer}</span>
@@ -172,7 +159,6 @@ const ListIndicatorHeaderRight = ({
 }
 
 const ListIndicatorWidgetBody = (props: WidgetComponentProps) => {
-  const locale = useLocale()
   const copy = useMessages().workspace.widgets.indicatorList
   const workspaceId = props.context?.workspaceId ?? null
   if (!workspaceId) {

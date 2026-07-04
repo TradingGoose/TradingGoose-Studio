@@ -5,6 +5,8 @@
  */
 import { EventEmitter } from 'node:events'
 import { createServer, request as httpRequest } from 'http'
+import * as syncProtocol from '@y/protocols/sync'
+import * as encoding from 'lib0/encoding'
 import { io as createClient } from 'socket.io-client'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
@@ -12,7 +14,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import {
   getEntityFields,
   getEntityListMembers,
-  seedEntityListSession,
+  replaceEntityListSessionMembers,
   seedEntitySession,
 } from '@/lib/yjs/entity-session'
 import {
@@ -30,11 +32,13 @@ import {
 } from '@/socket-server/yjs/upstream-utils'
 
 const {
+  mockReseedEntityListSessionFromDb,
   mockSaveSavedEntityYjsDocToDb,
   mockSaveWorkflowYjsDocToDb,
   savedEntityStates,
   savedWorkflowStates,
 } = vi.hoisted(() => ({
+  mockReseedEntityListSessionFromDb: vi.fn(),
   mockSaveSavedEntityYjsDocToDb: vi.fn(),
   mockSaveWorkflowYjsDocToDb: vi.fn(),
   savedEntityStates: [] as Array<{
@@ -96,6 +100,14 @@ vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
       state,
     }
   }),
+  reseedEntityListSessionFromDb: mockReseedEntityListSessionFromDb.mockImplementation(
+    async (doc) => {
+      const latest = savedEntityStates.at(-1)
+      if (!latest) return
+      const name = latest.entityKind === 'custom_tool' ? latest.fields.title : latest.fields.name
+      replaceEntityListSessionMembers(doc, [{ id: latest.entityId, name: String(name ?? '') }])
+    }
+  ),
   getRuntimeStateFromDoc: vi.fn(() => ({
     docState: 'active',
     replaySafe: false,
@@ -231,6 +243,13 @@ function createSkillUpdateBase64(payload: Record<string, unknown>): string {
   return updateBase64
 }
 
+function createSyncUpdateMessage(update: Uint8Array): Uint8Array {
+  const encoder = encoding.createEncoder()
+  encoding.writeVarUint(encoder, 0)
+  syncProtocol.writeUpdate(encoder, update)
+  return encoding.toUint8Array(encoder)
+}
+
 function applySkillSessionUpdate(port: number, sessionId: string, updateBase64: string) {
   return sendHttpRequestWithOptions(
     port,
@@ -252,7 +271,7 @@ async function connectTestDocument(docId: string) {
   conn.send = vi.fn((_message, _options, callback) => callback?.())
   conn.ping = vi.fn()
   conn.close = vi.fn()
-  setupWSConnection(conn, {} as any, { docId })
+  setupWSConnection(conn, {} as any, { docId, accessMode: 'write' })
   return { conn, doc: (await getExistingDocument(docId))! }
 }
 
@@ -274,10 +293,11 @@ describe('Socket Server Index Integration', () => {
       savedWorkflowStates.push(extractPersistedStateFromDoc(doc))
     })
     mockSaveSavedEntityYjsDocToDb.mockImplementation(async (entityKind, entityId, doc) => {
+      const fields = getEntityFields(doc, entityKind)
       savedEntityStates.push({
         entityKind,
         entityId,
-        fields: getEntityFields(doc, entityKind),
+        fields,
       })
     })
 
@@ -428,12 +448,6 @@ describe('Socket Server Index Integration', () => {
         })
       )
 
-      const renameResponse = await applyWorkflowPatch({ metadata: { name: 'Renamed Workflow' } })
-
-      expect(renameResponse.statusCode).toBe(200)
-      expect(mockSaveWorkflowYjsDocToDb).toHaveBeenCalledTimes(2)
-      expect(await getExistingDocument('workflow-1')).toBeNull()
-
       const liveDoc = getDocument('workflow-1', true) as Y.Doc
       setWorkflowState(
         liveDoc,
@@ -453,9 +467,9 @@ describe('Socket Server Index Integration', () => {
       const variablesResponse = await applyWorkflowPatch({ variables })
 
       expect(variablesResponse.statusCode).toBe(200)
-      expect(mockSaveWorkflowYjsDocToDb).toHaveBeenCalledTimes(3)
-      expect(savedWorkflowStates[2]?.variables).toEqual(variables)
-      expect(savedWorkflowStates[2]?.blocks['block-1'].subBlocks.prompt.value).toBe(
+      expect(mockSaveWorkflowYjsDocToDb).toHaveBeenCalledTimes(2)
+      expect(savedWorkflowStates[1]?.variables).toEqual(variables)
+      expect(savedWorkflowStates[1]?.blocks['block-1'].subBlocks.prompt.value).toBe(
         'Use <variable.risklimit> in this prompt'
       )
       expect(await getExistingDocument('workflow-1')).toBeNull()
@@ -463,7 +477,7 @@ describe('Socket Server Index Integration', () => {
 
     it('should apply saved entity state through Yjs', async () => {
       const { conn, doc: listDoc } = await connectTestDocument('list:skill:workspace-1')
-      seedEntityListSession(listDoc, [{ id: 'skill-1', name: 'Old Skill' }])
+      replaceEntityListSessionMembers(listDoc, [{ id: 'skill-1', name: 'Old Skill' }])
       mockSaveSavedEntityYjsDocToDb.mockImplementationOnce(async (entityKind, entityId, doc) => {
         doc.getMap('fields').set('name', 'Canonical Risk Skill')
         savedEntityStates.push({
@@ -720,6 +734,86 @@ describe('Socket Server Index Integration', () => {
       expect(getRuntimeStateFromDoc).toHaveBeenCalled()
     })
 
+    it('reseeds an existing entity-list snapshot from DB', async () => {
+      const sessionId = 'list:skill:workspace-1'
+      getDocument(sessionId)
+      const liveDoc = await getExistingDocument(sessionId)
+      replaceEntityListSessionMembers(liveDoc!, [{ id: 'skill-live', name: 'Live Skill' }])
+      savedEntityStates.push({
+        entityKind: 'skill',
+        entityId: 'skill-db',
+        fields: { name: 'DB Skill' },
+      })
+      const encodedSessionId = encodeURIComponent(sessionId)
+
+      const response = await sendHttpRequestWithOptions(
+        PORT,
+        `/internal/yjs/sessions/${encodedSessionId}/snapshot?targetKind=entity_list&sessionId=${encodedSessionId}&workspaceId=workspace-1&entityKind=skill`,
+        {
+          method: 'GET',
+          headers: {
+            'x-internal-secret': INTERNAL_SECRET,
+          },
+        }
+      )
+
+      expect(response.statusCode).toBe(200)
+      expect(mockReseedEntityListSessionFromDb).toHaveBeenCalledWith(
+        liveDoc,
+        'skill',
+        'workspace-1'
+      )
+
+      const data = JSON.parse(response.body)
+      const snapshotDoc = new Y.Doc()
+      try {
+        Y.applyUpdate(snapshotDoc, Buffer.from(data.snapshotBase64, 'base64'))
+        expect(getEntityListMembers(snapshotDoc).map((member) => member.entityId)).toEqual([
+          'skill-db',
+        ])
+      } finally {
+        snapshotDoc.destroy()
+      }
+    })
+
+    it('serves an existing entity-list snapshot when DB reseed fails', async () => {
+      const sessionId = 'list:skill:workspace-1'
+      getDocument(sessionId)
+      const liveDoc = await getExistingDocument(sessionId)
+      replaceEntityListSessionMembers(liveDoc!, [{ id: 'skill-live', name: 'Live Skill' }])
+      mockReseedEntityListSessionFromDb.mockRejectedValueOnce(new Error('database unavailable'))
+      const encodedSessionId = encodeURIComponent(sessionId)
+
+      const response = await sendHttpRequestWithOptions(
+        PORT,
+        `/internal/yjs/sessions/${encodedSessionId}/snapshot?targetKind=entity_list&sessionId=${encodedSessionId}&workspaceId=workspace-1&entityKind=skill`,
+        {
+          method: 'GET',
+          headers: {
+            'x-internal-secret': INTERNAL_SECRET,
+          },
+        }
+      )
+
+      expect(response.statusCode).toBe(200)
+      expect(mockReseedEntityListSessionFromDb).toHaveBeenCalledWith(
+        liveDoc,
+        'skill',
+        'workspace-1'
+      )
+
+      const data = JSON.parse(response.body)
+      const snapshotDoc = new Y.Doc()
+      try {
+        Y.applyUpdate(snapshotDoc, Buffer.from(data.snapshotBase64, 'base64'))
+        expect(getEntityListMembers(snapshotDoc).map((member) => member.entityId)).toEqual([
+          'skill-live',
+        ])
+      } finally {
+        snapshotDoc.destroy()
+      }
+    })
+
     it('should bootstrap a saved workflow snapshot into a live Yjs document', async () => {
       const response = await sendHttpRequestWithOptions(
         PORT,
@@ -754,6 +848,36 @@ describe('Socket Server Index Integration', () => {
   })
 
   describe('Yjs document cleanup', () => {
+    it('does not apply client updates from read-only Yjs connections', async () => {
+      const bootstrapDoc = new Y.Doc()
+      replaceEntityListSessionMembers(bootstrapDoc, [{ id: 'skill-1', name: 'Skill 1' }])
+      const bootstrapState = Y.encodeStateAsUpdate(bootstrapDoc)
+      bootstrapDoc.destroy()
+
+      const conn = new (await import('node:events')).EventEmitter() as any
+      conn.readyState = 1
+      conn.send = vi.fn((_message, _options, callback) => callback?.())
+      conn.ping = vi.fn()
+      conn.close = vi.fn()
+
+      setupWSConnection(conn, {} as any, {
+        docId: 'list:skill:workspace-1',
+        accessMode: 'read',
+        bootstrapState,
+      })
+
+      const doc = (await getExistingDocument('list:skill:workspace-1'))!
+      const updateDoc = new Y.Doc()
+      replaceEntityListSessionMembers(updateDoc, [{ id: 'spoofed-skill', name: 'Spoofed Skill' }])
+      conn.emit('message', createSyncUpdateMessage(Y.encodeStateAsUpdate(updateDoc)))
+      updateDoc.destroy()
+
+      await new Promise((resolve) => setImmediate(resolve))
+
+      expect(getEntityListMembers(doc).map((member) => member.entityId)).toEqual(['skill-1'])
+      expect(conn.close).toHaveBeenCalled()
+    })
+
     it('should discard a clean idle document without final persistence', async () => {
       const conn = new (await import('node:events')).EventEmitter() as any
       conn.readyState = 1
@@ -764,6 +888,7 @@ describe('Socket Server Index Integration', () => {
 
       setupWSConnection(conn, {} as any, {
         docId: 'idle-clean',
+        accessMode: 'write',
         onDocumentIdle,
       })
       expect(await getExistingDocument('idle-clean')).not.toBeNull()
@@ -785,6 +910,7 @@ describe('Socket Server Index Integration', () => {
 
       setupWSConnection(conn, {} as any, {
         docId: 'idle-save-failed',
+        accessMode: 'write',
         onDocumentIdle,
       })
       expect(await getExistingDocument('idle-save-failed')).not.toBeNull()

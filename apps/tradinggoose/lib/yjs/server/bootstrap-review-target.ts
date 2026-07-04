@@ -8,6 +8,7 @@ import {
 import { getReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/runtime'
 import type {
   ResolvedReviewTarget,
+  ReviewEntityKind,
   ReviewTargetDescriptor,
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
@@ -16,7 +17,7 @@ import {
   type EntityListMember,
   getEntityFields,
   getEntityListMembers,
-  seedEntityListSession,
+  replaceEntityListSessionMembers,
   seedEntitySession,
 } from '@/lib/yjs/entity-session'
 import { type SavedEntityKind, SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
@@ -44,6 +45,8 @@ export class ReviewTargetBootstrapError extends Error {
   }
 }
 
+const entityListReseedQueues = new WeakMap<Y.Doc, Promise<void>>()
+
 export function getRuntimeStateFromDoc(doc: Y.Doc): ReviewTargetRuntimeState {
   return getReviewTargetRuntimeState(doc)
 }
@@ -65,15 +68,21 @@ function mapSavedEntitySnapshotError(error: unknown): never {
   throw new SavedEntityRealtimeRequiredError()
 }
 
+function isNotFoundError(error: unknown): boolean {
+  return (
+    typeof error === 'object' && error !== null && (error as { status?: number }).status === 404
+  )
+}
+
 export async function readBootstrappedReviewTargetSnapshot(descriptor: ReviewTargetDescriptor) {
   const bridgeParams = serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
   return getYjsSnapshot(descriptor.yjsSessionId, bridgeParams)
 }
 
-export async function requireSavedEntityRealtimeListMembers(
+async function readLiveSavedEntityListFieldsForExecution(
   entityKind: SavedEntityKind,
   workspaceId: string
-): Promise<EntityListMember[]> {
+): Promise<Array<EntityListMember & { fields: Record<string, unknown> }>> {
   const snapshot = await readBootstrappedReviewTargetSnapshot(
     buildEntityListDescriptor(entityKind, workspaceId)
   ).catch(mapSavedEntitySnapshotError)
@@ -84,31 +93,66 @@ export async function requireSavedEntityRealtimeListMembers(
   const doc = new Y.Doc()
   try {
     Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
-    const activeEntityIds = new Set(
-      (await readEntityListMembersFromDb(entityKind, workspaceId)).map((member) => member.id)
+    const entries = await Promise.all(
+      getEntityListMembers(doc).map(async (member) => {
+        try {
+          return {
+            ...member,
+            fields: await readBootstrappedSavedEntityFields(
+              entityKind,
+              member.entityId,
+              workspaceId
+            ),
+          }
+        } catch (error) {
+          if (isNotFoundError(error)) return null
+          throw error
+        }
+      })
     )
-    return getEntityListMembers(doc).filter((member) => activeEntityIds.has(member.entityId))
+
+    return entries.filter(
+      (entry): entry is EntityListMember & { fields: Record<string, unknown> } => entry !== null
+    )
   } finally {
     doc.destroy()
   }
 }
 
-export async function requireSavedEntityRealtimeListFields(
+export async function readSavedEntityFieldsForExecution(
   entityKind: SavedEntityKind,
-  workspaceId: string
+  entityId: string,
+  workspaceId: string,
+  isDeployedContext: boolean
+): Promise<Record<string, unknown>> {
+  return isDeployedContext
+    ? readSavedEntityFieldsFromDb(entityKind, entityId, workspaceId)
+    : readBootstrappedSavedEntityFields(entityKind, entityId, workspaceId)
+}
+
+export async function readSavedEntityListFieldsForExecution(
+  entityKind: SavedEntityKind,
+  workspaceId: string,
+  isDeployedContext: boolean
 ): Promise<Array<EntityListMember & { fields: Record<string, unknown> }>> {
-  const members = await requireSavedEntityRealtimeListMembers(entityKind, workspaceId)
+  if (!isDeployedContext) {
+    return readLiveSavedEntityListFieldsForExecution(entityKind, workspaceId)
+  }
+
+  const members = await readEntityListMembersFromDb(entityKind, workspaceId)
   const entries = await Promise.all(
     members.map(async (member) => {
       try {
         return {
-          ...member,
-          fields: await readBootstrappedSavedEntityFields(entityKind, member.entityId, workspaceId),
+          entityId: member.id,
+          entityName: member.name,
+          ...(typeof member.enabled === 'boolean' ? { enabled: member.enabled } : {}),
+          ...('folderId' in member ? { folderId: member.folderId ?? null } : {}),
+          ...(typeof member.color === 'string' ? { color: member.color } : {}),
+          fields: await readSavedEntityFieldsFromDb(entityKind, member.id, workspaceId),
         }
       } catch (error) {
-        if (error instanceof ReviewTargetBootstrapError && error.status === 404) {
-          return null
-        }
+        if (isNotFoundError(error)) return null
         throw error
       }
     })
@@ -149,18 +193,12 @@ export async function createSavedReviewTargetBootstrapUpdate(
 
   const doc = new Y.Doc()
   try {
-    let workflowName: string | null | undefined
-    let workflowDescription: string | null | undefined
-    let workflowFolderId: string | null | undefined
     let resolvedWorkspaceId: string | null = descriptor.workspaceId
     if (descriptor.entityKind === 'workflow') {
       const workflowState = await loadWorkflowBootstrapStateFromDb(descriptor.entityId)
       if (!workflowState) {
         throw new ReviewTargetBootstrapError(404, 'Workflow not found')
       }
-      workflowName = workflowState.name
-      workflowDescription = workflowState.description
-      workflowFolderId = workflowState.folderId
 
       setWorkflowState(
         doc,
@@ -198,15 +236,6 @@ export async function createSavedReviewTargetBootstrapUpdate(
     metadata.set('draftSessionId', descriptor.draftSessionId)
     metadata.set('reviewSessionId', descriptor.reviewSessionId)
     metadata.set('reseededFromCanonical', true)
-    if (workflowName) {
-      metadata.set('entityName', workflowName)
-    }
-    if (workflowDescription !== undefined) {
-      metadata.set('entityDescription', workflowDescription)
-    }
-    if (workflowFolderId !== undefined) {
-      metadata.set('folderId', workflowFolderId)
-    }
     const state = Y.encodeStateAsUpdate(doc)
 
     return {
@@ -220,13 +249,13 @@ export async function createSavedReviewTargetBootstrapUpdate(
 }
 
 export async function createEntityListBootstrapUpdate(
-  entityKind: SavedEntityKind,
+  entityKind: ReviewEntityKind,
   workspaceId: string
 ): Promise<ResolvedReviewTarget & { state: Uint8Array }> {
   const descriptor = buildEntityListDescriptor(entityKind, workspaceId)
   const doc = new Y.Doc()
   try {
-    seedEntityListSession(doc, await readEntityListMembersFromDb(entityKind, workspaceId))
+    replaceEntityListSessionMembers(doc, await readEntityListMembersFromDb(entityKind, workspaceId))
 
     const metadata = getMetadataMap(doc)
     metadata.set('reseededFromCanonical', true)
@@ -239,5 +268,25 @@ export async function createEntityListBootstrapUpdate(
     }
   } finally {
     doc.destroy()
+  }
+}
+
+export async function reseedEntityListSessionFromDb(
+  doc: Y.Doc,
+  entityKind: ReviewEntityKind,
+  workspaceId: string
+): Promise<void> {
+  const previous = entityListReseedQueues.get(doc) ?? Promise.resolve()
+  const reseed = previous.then(async () => {
+    replaceEntityListSessionMembers(doc, await readEntityListMembersFromDb(entityKind, workspaceId))
+  })
+  const tail = reseed.catch(() => undefined)
+  entityListReseedQueues.set(doc, tail)
+  try {
+    await reseed
+  } finally {
+    if (entityListReseedQueues.get(doc) === tail) {
+      entityListReseedQueues.delete(doc)
+    }
   }
 }

@@ -39,8 +39,6 @@ export const buildCopilotContextIdentityKey = (context: ChatContext): string => 
       return `blocks:${[...(context.blockTypes ?? [])].sort().join(',')}`
     case 'knowledge':
       return `knowledge:${context.knowledgeId ?? context.label}`
-    case 'templates':
-      return `templates:${context.templateId ?? context.label}`
     case 'docs':
       return 'docs'
     case 'logs':

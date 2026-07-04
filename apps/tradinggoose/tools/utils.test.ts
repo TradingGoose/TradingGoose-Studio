@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { generateInternalToken } from '@/lib/auth/internal'
+import { getToolAsync } from '@/tools'
 import type { ToolConfig } from '@/tools/types'
 import {
   createCustomToolRequestBody,
@@ -7,10 +7,11 @@ import {
   executeRequest,
   formatRequestParams,
   getClientEnvVars,
-  getToolAsync,
   transformTable,
   validateRequiredParametersAfterMerge,
 } from '@/tools/utils'
+
+const readSavedEntityFieldsForExecutionMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: vi.fn().mockReturnValue({
@@ -21,8 +22,8 @@ vi.mock('@/lib/logs/console/logger', () => ({
   }),
 }))
 
-vi.mock('@/lib/auth/internal', () => ({
-  generateInternalToken: vi.fn().mockResolvedValue('mock-internal-token'),
+vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
+  readSavedEntityFieldsForExecution: readSavedEntityFieldsForExecutionMock,
 }))
 
 vi.mock('@/stores/settings/environment/store', () => {
@@ -43,6 +44,7 @@ vi.mock('@/stores/settings/environment/store', () => {
 const originalWindow = global.window
 beforeEach(() => {
   global.window = {} as any
+  readSavedEntityFieldsForExecutionMock.mockRejectedValue(new Error('not found'))
 })
 
 afterEach(() => {
@@ -758,22 +760,35 @@ describe('createCustomToolRequestBody', () => {
     expect(result).not.toHaveProperty('workspaceId')
   })
 
-  it('fails closed before fetching custom tools when internal auth generation fails', async () => {
+  it('does not use the custom-tools API for server-side custom tool lookup', async () => {
     const serverWindow = global.window
-    const fetchSpy = vi
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(new Response(JSON.stringify({ data: [] }), { status: 200 }) as any)
-    vi.mocked(generateInternalToken).mockRejectedValueOnce(new Error('token boom'))
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    readSavedEntityFieldsForExecutionMock.mockResolvedValueOnce({
+      title: 'Custom Weather Tool',
+      codeText: 'return params',
+      schemaText: JSON.stringify({
+        type: 'function',
+        function: {
+          description: 'Get weather information',
+          parameters: { type: 'object', properties: {} },
+        },
+      }),
+    })
 
     try {
       ;(global as any).window = undefined
 
       await expect(
-        getToolAsync('custom_custom-tool-123', undefined, 'workspace-456', 'user-123')
-      ).resolves.toBeUndefined()
+        getToolAsync('custom_custom-tool-123', undefined, 'workspace-456')
+      ).resolves.toBeDefined()
 
-      expect(generateInternalToken).toHaveBeenCalledWith('user-123')
       expect(fetchSpy).not.toHaveBeenCalled()
+      expect(readSavedEntityFieldsForExecutionMock).toHaveBeenCalledWith(
+        'custom_tool',
+        'custom-tool-123',
+        'workspace-456',
+        true
+      )
     } finally {
       global.window = serverWindow
       fetchSpy.mockRestore()
@@ -782,75 +797,50 @@ describe('createCustomToolRequestBody', () => {
 
   it('uses workspaceId for server-side custom tool lookup when workflowId is also present', async () => {
     const serverWindow = global.window
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          data: [
-            {
-              id: 'custom-tool-123',
-              title: 'Custom Weather Tool',
-              code: 'return params',
-              schema: {
-                function: {
-                  description: 'Get weather information',
-                  parameters: { type: 'object', properties: {} },
-                },
-              },
-            },
-          ],
-        }),
-        { status: 200 }
-      ) as any
-    )
+    readSavedEntityFieldsForExecutionMock.mockResolvedValueOnce({
+      title: 'Custom Weather Tool',
+      codeText: 'return params',
+      schemaText: JSON.stringify({
+        type: 'function',
+        function: {
+          description: 'Get weather information',
+          parameters: { type: 'object', properties: {} },
+        },
+      }),
+    })
 
     try {
       ;(global as any).window = undefined
 
       await expect(
-        getToolAsync('custom_custom-tool-123', 'workflow-123', 'workspace-456', 'user-123')
+        getToolAsync('custom_custom-tool-123', 'workflow-123', 'workspace-456')
       ).resolves.toBeDefined()
 
-      const requestUrl = new URL(String(fetchSpy.mock.calls[0]?.[0]))
-      expect(requestUrl.searchParams.get('workspaceId')).toBe('workspace-456')
-      expect(requestUrl.searchParams.has('workflowId')).toBe(false)
+      expect(readSavedEntityFieldsForExecutionMock).toHaveBeenCalledWith(
+        'custom_tool',
+        'custom-tool-123',
+        'workspace-456',
+        true
+      )
     } finally {
       global.window = serverWindow
-      fetchSpy.mockRestore()
     }
   })
 
-  it('does not resolve server-side custom tools by title', async () => {
+  it('surfaces execution-read failures instead of masking them as undefined', async () => {
     const serverWindow = global.window
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          data: [
-            {
-              id: 'custom-tool-123',
-              title: 'Custom Weather Tool',
-              code: 'return params',
-              schema: {
-                function: {
-                  description: 'Get weather information',
-                  parameters: { type: 'object', properties: {} },
-                },
-              },
-            },
-          ],
-        }),
-        { status: 200 }
-      ) as any
+    readSavedEntityFieldsForExecutionMock.mockRejectedValueOnce(
+      new Error('Saved custom_tool Custom Weather Tool was not found')
     )
 
     try {
       ;(global as any).window = undefined
 
       await expect(
-        getToolAsync('custom_Custom Weather Tool', undefined, 'workspace-456', 'user-123')
-      ).resolves.toBeUndefined()
+        getToolAsync('custom_Custom Weather Tool', undefined, 'workspace-456')
+      ).rejects.toThrow('was not found')
     } finally {
       global.window = serverWindow
-      fetchSpy.mockRestore()
     }
   })
 })

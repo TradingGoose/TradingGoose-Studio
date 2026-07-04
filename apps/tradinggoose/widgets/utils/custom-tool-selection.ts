@@ -1,19 +1,16 @@
 import { CUSTOM_TOOL_WIDGET_SELECT_EVENT } from '@/widgets/events'
 import type { PairColor } from '@/widgets/pair-colors'
 import {
-  createSelectionPersistenceHook,
   createEmitSelectionChange,
+  createSelectionPersistenceHook,
   type UseSelectionPersistenceOptions,
 } from '@/widgets/utils/selection-persistence-factory'
-
-const DEFAULT_SCOPE_KEY = 'editor_custom_tool'
 
 // Hook
 
 const useCustomToolSelectionPersistenceGeneric = createSelectionPersistenceHook({
   eventName: CUSTOM_TOOL_WIDGET_SELECT_EVENT,
   detailIdKey: 'customToolId',
-  defaultScopeKey: DEFAULT_SCOPE_KEY,
 })
 
 interface UseCustomToolSelectionPersistenceOptions {
@@ -22,7 +19,7 @@ interface UseCustomToolSelectionPersistenceOptions {
   params?: Record<string, unknown> | null
   pairColor?: PairColor
   onCustomToolSelect?: (customToolId: string | null) => void
-  scopeKey?: string
+  scopeKey: string
 }
 
 export function useCustomToolSelectionPersistence({

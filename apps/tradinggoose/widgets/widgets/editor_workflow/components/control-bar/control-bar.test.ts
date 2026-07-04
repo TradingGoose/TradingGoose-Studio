@@ -19,10 +19,6 @@ vi.mock('@/lib/yjs/workflow-session', () => ({
   getVariablesSnapshot: vi.fn(() => ({})),
 }))
 
-vi.mock('@/stores/workflows/registry/store', () => ({
-  useWorkflowRegistry: vi.fn(() => ({})),
-}))
-
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({
     error: vi.fn(),

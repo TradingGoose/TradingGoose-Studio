@@ -9,7 +9,6 @@ import { useCustomToolsStore } from '@/stores/custom-tools/store'
 import { useExecutionStore } from '@/stores/execution/store'
 import { useIndicatorsStore } from '@/stores/indicators/store'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
-import { useSkillsStore } from '@/stores/skills/store'
 import { useSubscriptionStore } from '@/stores/subscription/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
@@ -73,7 +72,6 @@ export const resetAllStores = () => {
   useConsoleStore.setState({ entries: [] })
   getCopilotStore().setState({ messages: [], isSendingMessage: false })
   useCustomToolsStore.getState().resetAll()
-  useSkillsStore.getState().resetAll()
   useIndicatorsStore.getState().resetAll()
   resetWorkspacePermissionsStore()
   // Variables store has no tracking to reset; registry hydrates
@@ -89,7 +87,6 @@ export const logAllStores = () => {
     console: useConsoleStore.getState(),
     copilot: getCopilotStore().getState(),
     customTools: useCustomToolsStore.getState(),
-    skills: useSkillsStore.getState(),
     indicators: useIndicatorsStore.getState(),
     subscription: useSubscriptionStore.getState(),
   }

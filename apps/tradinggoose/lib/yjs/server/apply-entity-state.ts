@@ -6,16 +6,13 @@ import {
   pineIndicators,
   skill,
 } from '@tradinggoose/db/schema'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import type * as Y from 'yjs'
 import { normalizeEntityFields } from '@/lib/copilot/entity-documents'
 import { parseCustomToolSchemaText } from '@/lib/custom-tools/schema'
 import { getEntityFields, getEntityWorkspaceId, seedEntitySession } from '@/lib/yjs/entity-session'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
-import {
-  applyEntityStateInSocketServer,
-  notifyEntityListMembersUpserted,
-} from '@/lib/yjs/server/snapshot-bridge'
+import { applyEntityStateInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 export class SavedEntityPersistenceError extends Error {
   constructor(
@@ -72,29 +69,6 @@ function normalizeSavedEntityFields(
   }
 }
 
-export async function publishCreatedSavedEntityListMembers(
-  entityKind: SavedEntityKind,
-  workspaceId: string,
-  members: Array<{ id: string; name: string; enabled?: boolean }>,
-  afterRollback?: () => Promise<unknown>
-): Promise<void> {
-  try {
-    await notifyEntityListMembersUpserted(entityKind, workspaceId, members)
-  } catch (error) {
-    const ids = members.map((member) => member.id)
-    if (entityKind === 'skill') await db.delete(skill).where(inArray(skill.id, ids))
-    if (entityKind === 'custom_tool')
-      await db.delete(customTools).where(inArray(customTools.id, ids))
-    if (entityKind === 'indicator')
-      await db.delete(pineIndicators).where(inArray(pineIndicators.id, ids))
-    if (entityKind === 'knowledge_base')
-      await db.delete(knowledgeBase).where(inArray(knowledgeBase.id, ids))
-    if (entityKind === 'mcp_server') await db.delete(mcpServers).where(inArray(mcpServers.id, ids))
-    await afterRollback?.()
-    throw error
-  }
-}
-
 async function persistSavedEntityState(
   entityKind: SavedEntityKind,
   entityId: string,
@@ -146,7 +120,6 @@ async function persistSavedEntityState(
           name: String(fields.name ?? ''),
           color: String(fields.color ?? ''),
           pineCode: String(fields.pineCode ?? ''),
-          inputMeta: objectField(fields.inputMeta),
           updatedAt: now,
         })
         .where(and(eq(pineIndicators.id, entityId), eq(pineIndicators.workspaceId, workspaceId)))
@@ -164,26 +137,39 @@ async function persistSavedEntityState(
         .where(and(eq(knowledgeBase.id, entityId), eq(knowledgeBase.workspaceId, workspaceId)))
         .returning({ id: knowledgeBase.id })
       break
-    case 'mcp_server':
+    case 'mcp_server': {
+      const url = String(fields.url ?? '') || null
+      const enabled = fields.enabled !== false
+      const disconnectedState =
+        !enabled || !url
+          ? {
+              connectionStatus: 'disconnected' as const,
+              lastError: null,
+              lastToolsRefresh: null,
+              toolCount: 0,
+            }
+          : {}
       persisted = await db
         .update(mcpServers)
         .set({
           name: String(fields.name ?? ''),
           description: String(fields.description ?? '') || null,
           transport: String(fields.transport ?? 'http'),
-          url: String(fields.url ?? '') || null,
+          url,
           headers: objectField(fields.headers),
           command: String(fields.command ?? '') || null,
           args: Array.isArray(fields.args) ? fields.args.map(String) : [],
           env: objectField(fields.env),
           timeout: Number(fields.timeout ?? 30000),
           retries: Number(fields.retries ?? 3),
-          enabled: fields.enabled !== false,
+          enabled,
           updatedAt: now,
+          ...disconnectedState,
         })
         .where(and(eq(mcpServers.id, entityId), eq(mcpServers.workspaceId, workspaceId)))
         .returning({ id: mcpServers.id })
       break
+    }
   }
 
   if (persisted.length === 0) {

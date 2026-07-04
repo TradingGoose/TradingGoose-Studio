@@ -4,36 +4,34 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Background,
   ConnectionLineType,
-  ReactFlow,
   type Edge,
   type Node,
+  ReactFlow,
   useOnSelectionChange,
   useReactFlow,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { createLogger } from '@/lib/logs/console/logger'
 import { TriggerUtils } from '@/lib/workflows/triggers'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import { useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
+import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import {
   useUserPermissionsContext,
   useWorkspacePermissionsContext,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { getBlock } from '@/blocks'
-import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
-import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { useStreamCleanup } from '@/hooks/use-stream-cleanup'
 import { useCurrentWorkflow } from '@/hooks/workflow'
+import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import { useCopilotStore } from '@/stores/copilot/store'
 import { useExecutionStore } from '@/stores/execution/store'
-import { hasWorkflowsInitiallyLoaded, useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { getUniqueBlockName } from '@/stores/workflows/utils'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
-import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
-import { useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
 import { isBlockProtected } from '@/stores/workflows/workflow/utils'
 import { ControlBar } from '@/widgets/widgets/editor_workflow/components/control-bar/control-bar'
 import { FloatingControls } from '@/widgets/widgets/editor_workflow/components/floating-controls/floating-controls'
 import { TriggerList } from '@/widgets/widgets/editor_workflow/components/trigger-list/trigger-list'
-import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 import {
   TriggerWarningDialog,
   TriggerWarningType,
@@ -50,10 +48,6 @@ import {
   deriveCanvasNodes,
   getStableBlocksHash,
 } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/derive-canvas-nodes'
-import {
-  shouldAutoFitWorkflowView,
-  WORKFLOW_FIT_VIEW_PADDING,
-} from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/workflow-view-fit'
 import {
   getNodeAbsolutePosition,
   getNodeSourceAnchorPosition,
@@ -82,13 +76,17 @@ import {
   subscribeUpdateSubBlockValue,
   type UpdateSubBlockValuePayload,
 } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/workflow-editor-event-bus'
+import {
+  shouldAutoFitWorkflowView,
+  WORKFLOW_FIT_VIEW_PADDING,
+} from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/workflow-view-fit'
 import { NodeEditorPanel } from '@/widgets/widgets/editor_workflow/components/workflow-editor/panel/node-editor-panel'
 import {
   registerToolbarAddBlockHandler,
   type ToolbarAddBlockRequest,
 } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar/toolbar-add-block-dispatcher'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { useRouter } from '@/i18n/navigation'
+import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 
 const logger = createLogger('Workflow')
 
@@ -130,24 +128,15 @@ const defaultUIConfig: Required<WorkflowCanvasUIConfig> = {
 
 type WorkflowCanvasProps = {
   ui?: WorkflowCanvasUIConfig
-  disableNavigation?: boolean
   channelId?: string
   toolbarScopeId?: string
   viewportBounds?: WorkflowViewportBounds
 }
 
 const WorkflowCanvas = React.memo(
-  ({
-    ui,
-    disableNavigation = false,
-    channelId,
-    toolbarScopeId,
-    viewportBounds,
-  }: WorkflowCanvasProps) => {
+  ({ ui, channelId, toolbarScopeId, viewportBounds }: WorkflowCanvasProps) => {
     const uiConfig = useMemo(() => ({ ...defaultUIConfig, ...ui }), [ui])
     const { getLocalizedDefaultBlockName } = useWorkflowI18n()
-    // State
-    const [isWorkflowReady, setIsWorkflowReady] = useState(false)
 
     // State for tracking node dragging
     const [potentialParentId, setPotentialParentId] = useState<string | null>(null)
@@ -193,23 +182,26 @@ const WorkflowCanvas = React.memo(
     // Throttled cursor tracking via Yjs Awareness
     const lastCursorBroadcast = useRef(0)
     const reactFlowInstance = useReactFlow()
-    const handleMouseMove = useCallback((event: React.MouseEvent) => {
-      const awareness = awarenessRef.current
-      if (!awareness) return
-      const now = performance.now()
-      if (now - lastCursorBroadcast.current < 50) return // 20fps throttle
-      lastCursorBroadcast.current = now
-      try {
-        const flowPosition = reactFlowInstance.screenToFlowPosition({
-          x: event.clientX,
-          y: event.clientY,
-        })
-        const current = awareness.getLocalState() ?? {}
-        awareness.setLocalState({ ...current, cursor: flowPosition })
-      } catch {
-        // screenToFlowPosition can throw if ReactFlow is not initialized yet
-      }
-    }, [reactFlowInstance])
+    const handleMouseMove = useCallback(
+      (event: React.MouseEvent) => {
+        const awareness = awarenessRef.current
+        if (!awareness) return
+        const now = performance.now()
+        if (now - lastCursorBroadcast.current < 50) return // 20fps throttle
+        lastCursorBroadcast.current = now
+        try {
+          const flowPosition = reactFlowInstance.screenToFlowPosition({
+            x: event.clientX,
+            y: event.clientY,
+          })
+          const current = awareness.getLocalState() ?? {}
+          awareness.setLocalState({ ...current, cursor: flowPosition })
+        } catch {
+          // screenToFlowPosition can throw if ReactFlow is not initialized yet
+        }
+      },
+      [reactFlowInstance]
+    )
 
     // State for trigger warning dialog
     const [triggerWarning, setTriggerWarning] = useState<{
@@ -223,7 +215,6 @@ const WorkflowCanvas = React.memo(
     })
 
     // Hooks
-    const router = useRouter()
     const { workspaceId, workflowId } = useWorkflowRoute()
     const resolvedChannelId = useMemo(() => channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID, [channelId])
     const reactFlowId = useMemo(() => `workflow-${resolvedChannelId}`, [resolvedChannelId])
@@ -254,17 +245,7 @@ const WorkflowCanvas = React.memo(
     const containerHeightClass = viewportBounds ? 'h-full' : 'h-screen'
 
     const effectiveWorkflowId = workflowId ?? null
-    const shouldHandleNavigation = !disableNavigation
-
-    const workflows = useWorkflowRegistry((state) => state.workflows)
-    const setActiveWorkflow = useWorkflowRegistry((state) => state.setActiveWorkflow)
-    const activeWorkflowId = useWorkflowRegistry((state) =>
-      state.getActiveWorkflowId(resolvedChannelId)
-    )
-    const hydration = useWorkflowRegistry((state) => state.getHydration(resolvedChannelId))
-    const isChannelHydrating = useWorkflowRegistry((state) =>
-      state.isChannelHydrating(resolvedChannelId)
-    )
+    const isWorkflowReady = Boolean(effectiveWorkflowId && workflowSession?.doc)
 
     // Use the clean abstraction for current workflow state
     const currentWorkflow = useCurrentWorkflow()
@@ -274,7 +255,12 @@ const WorkflowCanvas = React.memo(
     const storeUpdateBlockPosition = yjsMutations.updateBlockPosition
 
     // Local ref for tracking drag start position (used for undo/redo move entries)
-    const dragStartPositionRef = useRef<{id: string, x: number, y: number, parentId?: string | null} | null>(null)
+    const dragStartPositionRef = useRef<{
+      id: string
+      x: number
+      y: number
+      parentId?: string | null
+    } | null>(null)
 
     // Get copilot cleanup function
     const copilotCleanup = useCopilotStore((state) => state.cleanup)
@@ -458,8 +444,7 @@ const WorkflowCanvas = React.memo(
         )
 
         const result = await applyAutoLayoutToActiveWorkflow({
-          workflowId: activeWorkflowId!,
-          channelId: resolvedChannelId,
+          workflowId: effectiveWorkflowId!,
         })
 
         if (result.success) {
@@ -470,7 +455,7 @@ const WorkflowCanvas = React.memo(
       } catch (error) {
         logger.error('Auto layout error:', error)
       }
-    }, [activeWorkflowId, blocks, resolvedChannelId])
+    }, [blocks, effectiveWorkflowId, resolvedChannelId])
 
     const debouncedAutoLayout = useCallback(() => {
       const debounceTimer = setTimeout(() => {
@@ -818,7 +803,13 @@ const WorkflowCanvas = React.memo(
           enableTriggerMode || false
         )
       },
-      [addBlock, blocks, getCanonicalUniqueBlockName, getLocalizedDefaultBlockName, projectViewportCenter]
+      [
+        addBlock,
+        blocks,
+        getCanonicalUniqueBlockName,
+        getLocalizedDefaultBlockName,
+        projectViewportCenter,
+      ]
     )
 
     // Update the onDrop handler
@@ -1092,104 +1083,6 @@ const WorkflowCanvas = React.memo(
       },
       [screenToFlowPosition, isPointInLoopNodeWrapper, getNodes, blocks]
     )
-
-    // Initialize workflow when it exists in registry and isn't active
-    useEffect(() => {
-      const currentId = effectiveWorkflowId
-      if (!currentId || !workflows[currentId]) return
-
-      if (activeWorkflowId !== currentId) {
-        setActiveWorkflow({ workflowId: currentId, channelId: resolvedChannelId }).catch(
-          (error) => {
-            logger.error('Failed to activate workflow for channel', {
-              error,
-              channelId: resolvedChannelId,
-            })
-          }
-        )
-      }
-    }, [effectiveWorkflowId, workflows, activeWorkflowId, setActiveWorkflow, resolvedChannelId])
-
-    // Track when workflow is ready for rendering
-    useEffect(() => {
-      const currentId = effectiveWorkflowId
-
-      // Workflow is ready when:
-      // 1. We have an active workflow that matches the URL
-      // 2. The workflow exists in the registry
-      // 3. This channel is not currently hydrating
-      const shouldBeReady =
-        currentId !== null &&
-        activeWorkflowId === currentId &&
-        Boolean(workflows[currentId]) &&
-        !isChannelHydrating
-
-      setIsWorkflowReady(shouldBeReady)
-    }, [activeWorkflowId, effectiveWorkflowId, workflows, isChannelHydrating])
-
-    // Handle navigation and validation
-    useEffect(() => {
-      if (!shouldHandleNavigation) {
-        return
-      }
-
-      const validateAndNavigate = async () => {
-        const workflowIds = Object.keys(workflows)
-        const currentId = workflowId
-
-        // Wait for initial load to complete before making navigation decisions
-        if (!hasWorkflowsInitiallyLoaded() || hydration.phase === 'metadata-loading') {
-          return
-        }
-
-        // If no workflows exist after loading, redirect to workspace root
-        if (workflowIds.length === 0) {
-          logger.info('No workflows found, redirecting to workspace root')
-          router.replace(`/workspace/${workspaceId}/dashboard`)
-          return
-        }
-
-        // Navigate to existing workflow or first available
-        if (!workflows[currentId]) {
-          logger.info(`Workflow ${currentId} not found, redirecting to first available workflow`)
-
-          // Validate that workflows belong to the current workspace before redirecting
-          const workspaceWorkflows = workflowIds.filter((id) => {
-            const workflow = workflows[id]
-            return workflow.workspaceId === workspaceId
-          })
-
-          if (workspaceWorkflows.length > 0) {
-            router.replace(`/workspace/${workspaceId}/dashboard`)
-          } else {
-            // No valid workflows for this workspace, redirect to workspace root
-            router.replace(`/workspace/${workspaceId}/dashboard`)
-          }
-          return
-        }
-
-        // Validate that the current workflow belongs to the current workspace
-        const currentWorkflow = workflows[currentId]
-        if (currentWorkflow && currentWorkflow.workspaceId !== workspaceId) {
-          logger.warn(
-            `Workflow ${currentId} belongs to workspace ${currentWorkflow.workspaceId}, not ${workspaceId}`
-          )
-          // Redirect to the correct workspace for this workflow
-          router.replace(`/workspace/${currentWorkflow.workspaceId}/dashboard`)
-          return
-        }
-      }
-
-      validateAndNavigate()
-    }, [
-      shouldHandleNavigation,
-      workflowId,
-      workflows,
-      hydration.phase,
-      workspaceId,
-      router,
-      hasWorkflowsInitiallyLoaded,
-    ])
 
     const blockConfigCache = useRef(new Map())
     const getBlockConfig = useCallback((type: string) => {
@@ -1655,7 +1548,7 @@ const WorkflowCanvas = React.memo(
       )
     }, [collaborativeSetSubblockValue, resolvedChannelId, effectiveWorkflowId])
 
-    // Show skeleton UI while loading until the workflow store is hydrated
+    // Show skeleton UI until the routed workflow Yjs session is mounted.
     const showSkeletonUI = !isWorkflowReady
 
     if (showSkeletonUI) {
@@ -1663,7 +1556,12 @@ const WorkflowCanvas = React.memo(
         <div className={`flex ${containerHeightClass} w-full flex-col overflow-hidden`}>
           <div className='relative h-full w-full flex-1 transition-all duration-200'>
             <div className='workflow-container h-full'>
-              <Background bgColor='transparent' color='hsl(var(--workflow-dots))' size={4} gap={40} />
+              <Background
+                bgColor='transparent'
+                color='hsl(var(--workflow-dots))'
+                size={4}
+                gap={40}
+              />
             </div>
           </div>
         </div>
@@ -1671,7 +1569,10 @@ const WorkflowCanvas = React.memo(
     }
 
     return (
-      <div className={`${containerHeightClass} w-full overflow-hidden`} onMouseMove={handleMouseMove}>
+      <div
+        className={`${containerHeightClass} w-full overflow-hidden`}
+        onMouseMove={handleMouseMove}
+      >
         <div
           id={
             effectiveWorkflowId ? `workflow-editor-overlay-root-${effectiveWorkflowId}` : undefined

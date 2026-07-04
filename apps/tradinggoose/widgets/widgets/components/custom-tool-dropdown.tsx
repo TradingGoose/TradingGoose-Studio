@@ -19,9 +19,7 @@ import {
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
-import { useCustomTools } from '@/hooks/queries/custom-tools'
-import { useCustomToolsStore } from '@/stores/custom-tools/store'
-import type { CustomToolDefinition } from '@/stores/custom-tools/types'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 
 const DROPDOWN_MAX_HEIGHT = '20rem'
 const DROPDOWN_VIEWPORT_HEIGHT = '14rem'
@@ -30,7 +28,7 @@ const CUSTOM_TOOL_ICON_COLOR = '#d97706'
 interface CustomToolDropdownProps {
   workspaceId?: string | null
   value?: string | null
-  onChange?: (customToolId: string | null, tool?: CustomToolDefinition) => void
+  onChange?: (customToolId: string | null) => void
   disabled?: boolean
   placeholder?: string
   align?: 'start' | 'end'
@@ -38,7 +36,13 @@ interface CustomToolDropdownProps {
   menuClassName?: string
 }
 
-const getToolTitle = (tool?: CustomToolDefinition | null) => tool?.title.trim() ?? ''
+type CustomToolDropdownOption = {
+  id: string
+  title: string
+  description: string
+}
+
+const getToolTitle = (tool?: CustomToolDropdownOption | null) => tool?.title.trim() ?? ''
 
 export function CustomToolDropdown({
   workspaceId,
@@ -52,33 +56,23 @@ export function CustomToolDropdown({
 }: CustomToolDropdownProps) {
   const copy = useMessages().workspace.widgets.customToolDropdown
   const [searchQuery, setSearchQuery] = useState('')
-  const {
-    data: queryTools = [],
-    error: toolsError,
-    isLoading: toolsLoading,
-    isFetching,
-    refetch,
-  } = useCustomTools(workspaceId ?? '')
-  const storedTools = useCustomToolsStore((state) =>
-    workspaceId ? state.getAllTools(workspaceId) : []
-  )
+  const { members, error, isLoading: listLoading } = useEntityList('custom_tool', workspaceId)
 
   const workspaceTools = useMemo(() => {
-    const tools = queryTools.length > 0 ? queryTools : storedTools
-    return [...tools].sort((a, b) => a.title.localeCompare(b.title))
-  }, [queryTools, storedTools])
+    if (!workspaceId) return []
+    return members.map((member) => ({
+      id: member.entityId,
+      title: member.entityName,
+      description: member.entityDescription ?? '',
+    }))
+  }, [members, workspaceId])
 
   const selectedToolId = value ?? null
   const selectedTool = workspaceTools.find((tool) => tool.id === selectedToolId) ?? null
   const hasTools = workspaceTools.length > 0
-  const isLoading = (toolsLoading || isFetching) && !hasTools
+  const isLoading = listLoading && !hasTools
   const isDropdownDisabled = disabled || !workspaceId
-  const errorMessage =
-    toolsError instanceof Error
-      ? toolsError.message
-      : toolsError
-        ? copy.unableToLoadCustomTools
-        : null
+  const errorMessage = error || null
   const tooltipText = !workspaceId
     ? copy.selectWorkspaceToChooseCustomTools
     : errorMessage
@@ -105,20 +99,14 @@ export function CustomToolDropdown({
 
     return workspaceTools.filter((tool) => {
       const title = getToolTitle(tool).toLowerCase()
-      const description = tool.schema?.function?.description?.toLowerCase() ?? ''
-      return title.includes(normalizedQuery) || description.includes(normalizedQuery)
+      return (
+        title.includes(normalizedQuery) || tool.description.toLowerCase().includes(normalizedQuery)
+      )
     })
   }, [searchQuery, workspaceTools])
 
-  const handleRetry = () => {
-    if (!workspaceId) return
-    refetch().catch((error) => {
-      console.error('Failed to reload custom tools for custom tool dropdown', error)
-    })
-  }
-
-  const handleSelect = (tool: CustomToolDefinition) => {
-    onChange?.(tool.id, tool)
+  const handleSelect = (tool: CustomToolDropdownOption) => {
+    onChange?.(tool.id)
   }
 
   const renderMenuBody = () => {
@@ -134,13 +122,6 @@ export function CustomToolDropdown({
       return (
         <div className='space-y-2 px-3 py-2 text-xs'>
           <p className='text-destructive'>{errorMessage}</p>
-          <button
-            type='button'
-            className='font-semibold text-primary text-xs hover:underline'
-            onClick={handleRetry}
-          >
-            {copy.retry}
-          </button>
         </div>
       )
     }

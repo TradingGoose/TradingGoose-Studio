@@ -1,8 +1,5 @@
 import { CopilotTool } from '@/lib/copilot/registry'
-import {
-  type BaseServerTool,
-  withWorkspaceArgContext,
-} from '@/lib/copilot/tools/server/base-tool'
+import { type BaseServerTool, withWorkspaceArgContext } from '@/lib/copilot/tools/server/base-tool'
 import { listWorkflowBlockCatalogItems } from '@/lib/copilot/tools/server/blocks/block-mermaid-catalog'
 import type {
   GetAgentAccessoryCatalogInputType,
@@ -91,7 +88,7 @@ export const getAgentAccessoryCatalogServerTool: BaseServerTool<
     const [blockToolOptions, customToolRows, mcpToolRows, skillRows] = await Promise.all([
       getBlockToolOptions(),
       listCustomTools({ workspaceId }),
-      mcpService.discoverTools(scopedContext.userId, workspaceId),
+      mcpService.discoverTools(scopedContext.userId, workspaceId, false),
       listSkills({ workspaceId }),
     ])
 

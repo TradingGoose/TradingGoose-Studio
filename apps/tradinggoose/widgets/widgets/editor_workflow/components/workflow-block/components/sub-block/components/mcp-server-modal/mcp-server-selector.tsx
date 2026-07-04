@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Check, ChevronDown, RefreshCw } from 'lucide-react'
 import { useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
@@ -13,8 +13,8 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import type { SubBlockConfig } from '@/blocks/types'
-import { useEnabledServers, useMcpServersStore } from '@/stores/mcp-servers/store'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
@@ -29,8 +29,17 @@ export function McpServerSelector({ blockId, subBlock, disabled = false }: McpSe
   const workspaceId = useWorkspaceId()
   const [open, setOpen] = useState(false)
 
-  const { fetchServers, isLoading, error } = useMcpServersStore()
-  const enabledServers = useEnabledServers()
+  const { members, isLoading, error } = useEntityList('mcp_server', workspaceId)
+  const enabledServers = useMemo(
+    () =>
+      members
+        .filter((member) => member.enabled !== false)
+        .map((member) => ({
+          id: member.entityId,
+          name: member.entityName,
+        })),
+    [members]
+  )
 
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlock.id)
 
@@ -40,15 +49,8 @@ export function McpServerSelector({ blockId, subBlock, disabled = false }: McpSe
 
   const selectedServer = enabledServers.find((server) => server.id === selectedServerId)
 
-  useEffect(() => {
-    fetchServers(workspaceId)
-  }, [fetchServers, workspaceId])
-
   const handleOpenChange = (isOpen: boolean) => {
     setOpen((prev) => (prev === isOpen ? prev : isOpen))
-    if (isOpen) {
-      fetchServers(workspaceId)
-    }
   }
 
   const handleSelect = (serverId: string) => {

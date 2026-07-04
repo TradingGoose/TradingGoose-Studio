@@ -17,38 +17,19 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { Link, useRouter } from '@/i18n/navigation'
 import { useFolderStore, useIsWorkflowSelected } from '@/stores/folders/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
-import { Link, useRouter } from '@/i18n/navigation'
+import type { WorkflowMetadataSeed } from '@/stores/workflows/registry/types'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('WorkflowItem')
 
-// Helper function to lighten a hex color
-function lightenColor(hex: string, percent = 30): string {
-  // Remove # if present
-  const color = hex.replace('#', '')
-
-  // Parse RGB values
-  const num = Number.parseInt(color, 16)
-  const r = Math.min(255, Math.floor((num >> 16) + ((255 - (num >> 16)) * percent) / 100))
-  const g = Math.min(
-    255,
-    Math.floor(((num >> 8) & 0x00ff) + ((255 - ((num >> 8) & 0x00ff)) * percent) / 100)
-  )
-  const b = Math.min(255, Math.floor((num & 0x0000ff) + ((255 - (num & 0x0000ff)) * percent) / 100))
-
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`
-}
-
 interface WorkflowItemProps {
-  workflow: WorkflowMetadata
+  workflow: WorkflowMetadataSeed
   active: boolean
-  isMarketplace?: boolean
-  level: number
   isDragOver?: boolean
-  onSelect?: (workflow: WorkflowMetadata) => void
+  onSelect?: (workflow: WorkflowMetadataSeed) => void
   disableNavigation?: boolean
   canDelete?: boolean
 }
@@ -56,8 +37,6 @@ interface WorkflowItemProps {
 export function WorkflowItem({
   workflow,
   active,
-  isMarketplace,
-  level,
   isDragOver = false,
   onSelect,
   disableNavigation = false,
@@ -72,13 +51,9 @@ export function WorkflowItem({
   const [deleteState, setDeleteState] = useState<{
     showDialog: boolean
     isDeleting: boolean
-    showTemplateChoice: boolean
-    publishedTemplates: { id: string; name: string }[]
   }>({
     showDialog: false,
     isDeleting: false,
-    showTemplateChoice: false,
-    publishedTemplates: [],
   })
   const dragStartedRef = useRef(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -110,7 +85,6 @@ export function WorkflowItem({
   }, [isEditing])
 
   const handleStartEdit = () => {
-    if (isMarketplace) return
     setIsEditing(true)
     setEditValue(workflow.name)
   }
@@ -124,7 +98,7 @@ export function WorkflowItem({
 
     setIsRenaming(true)
     try {
-      await updateWorkflow(workflow.id, { name: editValue.trim() })
+      await updateWorkflow(workflow.id, { name: editValue.trim() }, workflow)
       logger.info(`Successfully renamed workflow from "${workflow.name}" to "${editValue.trim()}"`)
       setIsEditing(false)
     } catch (error) {
@@ -164,87 +138,29 @@ export function WorkflowItem({
     setDeleteState({
       showDialog: false,
       isDeleting: false,
-      showTemplateChoice: false,
-      publishedTemplates: [],
     })
-  }, [])
-
-  const checkPublishedTemplates = useCallback(async (workflowId: string) => {
-    const checkResponse = await fetch(`/api/workflows/${workflowId}?check-templates=true`, {
-      method: 'DELETE',
-    })
-
-    if (!checkResponse.ok) {
-      throw new Error(`Failed to check templates: ${checkResponse.statusText}`)
-    }
-
-    return checkResponse.json()
   }, [])
 
   const handleDeleteWorkflow = useCallback(async () => {
-    if (!userPermissions.canEdit || isMarketplace || !canDelete) return
+    if (!userPermissions.canEdit || !canDelete) return
 
     setDeleteState((prev) => ({ ...prev, isDeleting: true }))
 
     try {
-      const checkData = await checkPublishedTemplates(workflow.id)
-
-      if (checkData?.hasPublishedTemplates) {
-        setDeleteState((prev) => ({
-          ...prev,
-          isDeleting: false,
-          showTemplateChoice: true,
-          publishedTemplates: checkData.publishedTemplates || [],
-        }))
-        return
-      }
-
       await removeWorkflow(workflow.id)
       resetDeleteState()
     } catch (error) {
       logger.error('Error deleting workflow:', error)
       setDeleteState((prev) => ({ ...prev, isDeleting: false }))
     }
-  }, [
-    canDelete,
-    checkPublishedTemplates,
-    isMarketplace,
-    removeWorkflow,
-    resetDeleteState,
-    userPermissions.canEdit,
-    workflow.id,
-  ])
-
-  const handleTemplateAction = useCallback(
-    async (action: 'keep' | 'delete') => {
-      if (!userPermissions.canEdit || isMarketplace || !canDelete) return
-
-      setDeleteState((prev) => ({ ...prev, isDeleting: true }))
-
-      try {
-        await removeWorkflow(workflow.id, { templateAction: action })
-        resetDeleteState()
-      } catch (error) {
-        logger.error('Error deleting workflow with template action:', error)
-        setDeleteState((prev) => ({ ...prev, isDeleting: false }))
-      }
-    },
-    [
-      canDelete,
-      isMarketplace,
-      removeWorkflow,
-      resetDeleteState,
-      userPermissions.canEdit,
-      workflow.id,
-    ]
-  )
+  }, [canDelete, removeWorkflow, resetDeleteState, userPermissions.canEdit, workflow.id])
 
   const handleDuplicateWorkflow = useCallback(async () => {
-    if (!userPermissions.canEdit || isMarketplace || isDuplicating) return
+    if (!userPermissions.canEdit || isDuplicating) return
 
     setIsDuplicating(true)
     try {
-      const duplicatedWorkflowId = await duplicateWorkflow(workflow.id)
+      const duplicatedWorkflowId = await duplicateWorkflow(workflow.id, workflow)
       if (!duplicatedWorkflowId) return
 
       const duplicatedWorkflow = useWorkflowRegistry.getState().workflows[duplicatedWorkflowId]
@@ -270,10 +186,10 @@ export function WorkflowItem({
     disableNavigation,
     duplicateWorkflow,
     isDuplicating,
-    isMarketplace,
     onSelect,
     router,
     userPermissions.canEdit,
+    workflow,
     workflow.id,
     workspaceId,
   ])
@@ -306,7 +222,7 @@ export function WorkflowItem({
   }
 
   const handleDragStart = (e: React.DragEvent) => {
-    if (isMarketplace || isEditing) return
+    if (isEditing) return
 
     dragStartedRef.current = true
     setIsDragging(true)
@@ -364,14 +280,10 @@ export function WorkflowItem({
               )}
             >
               {workflow.name}
-              {isMarketplace && ' (Preview)'}
             </span>
           </TooltipTrigger>
           <TooltipContent side='top' align='start' sideOffset={10}>
-            <p>
-              {workflow.name}
-              {isMarketplace && ' (Preview)'}
-            </p>
+            <p>{workflow.name}</p>
           </TooltipContent>
         </Tooltip>
       ) : (
@@ -384,7 +296,6 @@ export function WorkflowItem({
           )}
         >
           {workflow.name}
-          {isMarketplace && ' (Preview)'}
         </span>
       )}
     </>
@@ -399,7 +310,7 @@ export function WorkflowItem({
           isSelected && selectedWorkflows.size > 1 && !active && !isDragOver ? 'bg-muted' : '',
           isDragging ? 'opacity-50' : ''
         )}
-        draggable={!isMarketplace && !isEditing}
+        draggable={!isEditing}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onMouseEnter={() => setIsHovered(true)}
@@ -445,7 +356,7 @@ export function WorkflowItem({
           </Link>
         )}
 
-        {!isMarketplace && !isEditing && isHovered && userPermissions.canEdit && (
+        {!isEditing && isHovered && userPermissions.canEdit && (
           <div
             className='flex items-center justify-center gap-1'
             onClick={(e) => e.stopPropagation()}
@@ -485,8 +396,6 @@ export function WorkflowItem({
                   setDeleteState({
                     showDialog: true,
                     isDeleting: false,
-                    showTemplateChoice: false,
-                    publishedTemplates: [],
                   })
                 }}
               >
@@ -508,77 +417,28 @@ export function WorkflowItem({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {deleteState.showTemplateChoice ? 'Published Templates Found' : 'Delete workflow?'}
-            </AlertDialogTitle>
-            {deleteState.showTemplateChoice ? (
-              <div className='space-y-3'>
-                <AlertDialogDescription>
-                  This workflow has {deleteState.publishedTemplates.length} published template
-                  {deleteState.publishedTemplates.length === 1 ? '' : 's'}:
-                </AlertDialogDescription>
-                {deleteState.publishedTemplates.length > 0 && (
-                  <ul className='list-disc space-y-1 pl-6'>
-                    {deleteState.publishedTemplates.map((template) => (
-                      <li key={template.id}>{template.name}</li>
-                    ))}
-                  </ul>
-                )}
-                <AlertDialogDescription>
-                  What would you like to do with the published template
-                  {deleteState.publishedTemplates.length === 1 ? '' : 's'}?
-                </AlertDialogDescription>
-              </div>
-            ) : (
-              <AlertDialogDescription>
-                Deleting this workflow will permanently remove all associated blocks, executions,
-                and configuration.{' '}
-                <span className='text-red-500 dark:text-red-500'>
-                  This action cannot be undone.
-                </span>
-              </AlertDialogDescription>
-            )}
+            <AlertDialogTitle>Delete workflow?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deleting this workflow will permanently remove all associated blocks, executions, and
+              configuration.{' '}
+              <span className='text-red-500 dark:text-red-500'>This action cannot be undone.</span>
+            </AlertDialogDescription>
           </AlertDialogHeader>
 
           <AlertDialogFooter className='flex'>
-            {deleteState.showTemplateChoice ? (
-              <div className='flex w-full gap-2'>
-                <Button
-                  variant='outline'
-                  onClick={() => handleTemplateAction('keep')}
-                  disabled={deleteState.isDeleting}
-                  className='h-9 flex-1 rounded-sm'
-                >
-                  Keep templates
-                </Button>
-                <Button
-                  onClick={() => handleTemplateAction('delete')}
-                  disabled={deleteState.isDeleting}
-                  className='h-9 flex-1 rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
-                >
-                  {deleteState.isDeleting ? 'Deleting...' : 'Delete templates'}
-                </Button>
-              </div>
-            ) : (
-              <>
-                <AlertDialogCancel
-                  className='h-9 w-full rounded-sm'
-                  disabled={deleteState.isDeleting}
-                >
-                  Cancel
-                </AlertDialogCancel>
-                <Button
-                  onClick={(e) => {
-                    e.preventDefault()
-                    handleDeleteWorkflow()
-                  }}
-                  disabled={deleteState.isDeleting}
-                  className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
-                >
-                  {deleteState.isDeleting ? 'Deleting...' : 'Delete'}
-                </Button>
-              </>
-            )}
+            <AlertDialogCancel className='h-9 w-full rounded-sm' disabled={deleteState.isDeleting}>
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              onClick={(e) => {
+                e.preventDefault()
+                handleDeleteWorkflow()
+              }}
+              disabled={deleteState.isDeleting}
+              className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
+            >
+              {deleteState.isDeleting ? 'Deleting...' : 'Delete'}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

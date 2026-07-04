@@ -46,10 +46,6 @@ export function savedEntityRowToFields(
         name: row.name ?? '',
         color: row.color ?? '',
         pineCode: row.pineCode ?? '',
-        inputMeta:
-          row.inputMeta && typeof row.inputMeta === 'object' && !Array.isArray(row.inputMeta)
-            ? row.inputMeta
-            : null,
       }
     case 'knowledge_base':
       return {

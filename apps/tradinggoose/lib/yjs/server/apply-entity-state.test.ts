@@ -100,19 +100,14 @@ describe('applySavedEntityState', () => {
     const { normalizeEntityFields } = await import('@/lib/copilot/entity-documents')
     const { getEntityFields } = await import('@/lib/yjs/entity-session')
     const { saveSavedEntityYjsDocToDb } = await import('./apply-entity-state')
-    const inputMeta = {
-      length: { name: 'length', title: 'Length', type: 'int', defval: 14 },
-    }
     vi.mocked(normalizeEntityFields).mockImplementationOnce((_entityKind, fields) => ({
       ...fields,
       name: 'Canonical Indicator',
-      inputMeta,
     }))
     const doc = buildDoc({
       name: 'Draft Indicator',
       color: '#ff0000',
       pineCode: 'indicator("Draft")',
-      inputMeta: { stale: true },
     })
 
     try {
@@ -121,7 +116,6 @@ describe('applySavedEntityState', () => {
         name: 'Canonical Indicator',
         color: '#ff0000',
         pineCode: 'indicator("Draft")',
-        inputMeta,
       })
     } finally {
       doc.destroy()
@@ -131,7 +125,6 @@ describe('applySavedEntityState', () => {
       name: 'Canonical Indicator',
       color: '#ff0000',
       pineCode: 'indicator("Draft")',
-      inputMeta,
       updatedAt: expect.any(Date),
     })
     expect(mockUpdateWhere).toHaveBeenCalledWith({

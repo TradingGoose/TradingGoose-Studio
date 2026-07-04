@@ -773,6 +773,7 @@ describe('Tool Management', () => {
           workspaceId: 'workspace-1',
           chatId: 'chat-1',
           userId: 'user-1',
+          isDeployedContext: true,
         },
       })
       expect(executionParams._context).not.toHaveProperty('workflowId')
@@ -793,6 +794,7 @@ describe('Tool Management', () => {
           workflowVariables: { symbol: 'AAPL' },
           blockData: { blockA: { output: 1 } },
           blockNameMapping: { source: 'blockA' },
+          isDeployedContext: false,
         }
       )
 
@@ -804,6 +806,7 @@ describe('Tool Management', () => {
           submissionSource: 'workflow',
           chatId: 'chat-1',
           userId: 'user-1',
+          isDeployedContext: false,
         },
         envVars: { API_KEY: 'secret' },
         workflowVariables: { symbol: 'AAPL' },

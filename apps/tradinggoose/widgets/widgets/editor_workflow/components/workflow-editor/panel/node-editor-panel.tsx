@@ -46,8 +46,7 @@ const panelClassName =
   'allow-scroll !m-2 max-h-[calc(100%-1rem)] min-w-0 w-[calc(100%-1rem)] max-w-96 overflow-y-auto rounded-lg border bg-card shadow-md'
 
 export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
-  const { workflowEditorCopy, workflowInspectorCopy, getLocalizedDefaultBlockName } =
-    useWorkflowI18n()
+  const { workflowEditorCopy, workflowInspectorCopy } = useWorkflowI18n()
   const userPermissions = useUserPermissionsContext()
   const selectedBlock = useBlock(selectedNodeId ?? '')
   const selectedLoop = useLoop(selectedNodeId ?? '')
@@ -241,9 +240,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
 
   const subflowIterationInputValue = tempIterationValue ?? String(subflowIterations)
   const subflowMaxIterations = selectedBlock?.type === 'loop' ? 100 : 20
-  const selectedBlockDisplayName = selectedBlock
-    ? getLocalizedDefaultBlockName(selectedBlock.type, selectedBlock.name)
-    : ''
+  const selectedBlockDisplayName = selectedBlock ? selectedBlock.name : ''
 
   const handleSubflowTypeChange = useCallback(
     (newType: string) => {

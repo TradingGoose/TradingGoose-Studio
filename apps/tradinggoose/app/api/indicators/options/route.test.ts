@@ -68,7 +68,6 @@ describe('indicator options route', () => {
         pineCode: 'trigger-capable',
         inputMeta: {
           Threshold: { title: 'Threshold', type: 'float', defval: 2.5 },
-          Broken: { title: '' },
         },
       },
       {
@@ -81,13 +80,11 @@ describe('indicator options route', () => {
         },
       },
       {
-        id: 'custom-malformed',
-        name: 'Custom Malformed',
+        id: 'custom-without-inputs',
+        name: 'Custom Without Inputs',
         color: '#654321',
         pineCode: 'trigger-capable',
-        inputMeta: {
-          Broken: { title: '' },
-        },
+        inputMeta: undefined,
       },
     ])
   })
@@ -97,14 +94,14 @@ describe('indicator options route', () => {
     return GET(new NextRequest(`http://localhost/api/indicators/options${search}`))
   }
 
-  it('returns monitor-surface trigger-capable options with normalized input metadata', async () => {
+  it('returns monitor-surface trigger-capable options with derived input metadata', async () => {
     const response = await getOptions('?workspaceId=workspace-1&surface=monitor')
     const payload = await response.json()
 
     expect(response.status).toBe(200)
     expect(payload.data.map((entry: any) => entry.id).sort()).toEqual([
-      'custom-malformed',
       'custom-trigger',
+      'custom-without-inputs',
       'default-trigger',
     ])
 
@@ -125,9 +122,11 @@ describe('indicator options route', () => {
       })
     )
 
-    const malformedOption = payload.data.find((entry: any) => entry.id === 'custom-malformed')
-    expect(malformedOption.inputTitles).toEqual([])
-    expect(malformedOption.inputMeta).toBeUndefined()
+    const optionWithoutInputs = payload.data.find(
+      (entry: any) => entry.id === 'custom-without-inputs'
+    )
+    expect(optionWithoutInputs.inputTitles).toEqual([])
+    expect(optionWithoutInputs.inputMeta).toBeUndefined()
   })
 
   it('keeps copilot surface broader than monitor surface', async () => {
@@ -136,9 +135,9 @@ describe('indicator options route', () => {
 
     expect(response.status).toBe(200)
     expect(payload.data.map((entry: any) => entry.id).sort()).toEqual([
-      'custom-malformed',
       'custom-study',
       'custom-trigger',
+      'custom-without-inputs',
       'default-study',
       'default-trigger',
     ])

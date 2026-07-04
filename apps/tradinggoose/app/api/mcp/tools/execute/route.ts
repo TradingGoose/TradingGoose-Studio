@@ -58,6 +58,7 @@ export const POST = withMcpAuth('read')(
       })
 
       const { serverId, toolName, arguments: args } = body
+      const isDeployedContext = body.isDeployedContext !== false
 
       const serverIdValidation = validateStringParam(serverId, 'serverId')
       if (!serverIdValidation.isValid) {
@@ -77,7 +78,12 @@ export const POST = withMcpAuth('read')(
 
       let tool = null
       try {
-        const tools = await mcpService.discoverServerTools(userId, serverId, workspaceId)
+        const tools = await mcpService.discoverServerTools(
+          userId,
+          serverId,
+          workspaceId,
+          isDeployedContext
+        )
         tool = tools.find((t) => t.name === toolName)
 
         if (!tool) {
@@ -176,7 +182,7 @@ export const POST = withMcpAuth('read')(
       }
 
       const result = await Promise.race([
-        mcpService.executeTool(userId, serverId, toolCall, workspaceId),
+        mcpService.executeTool(userId, serverId, toolCall, workspaceId, isDeployedContext),
         new Promise<never>((_, reject) =>
           setTimeout(
             () => reject(new Error('Tool execution timeout')),

@@ -5,6 +5,7 @@ import {
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
 import type {
+  ReviewAccessMode,
   ReviewTargetDescriptor,
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
@@ -16,6 +17,7 @@ export interface YjsProviderBootstrapResult {
   provider: WebsocketProvider
   descriptor: ReviewTargetDescriptor
   runtime: ReviewTargetRuntimeState
+  accessMode: ReviewAccessMode
 }
 
 const SOCKET_TOKEN_RETRY_MS = 1_000
@@ -38,7 +40,8 @@ async function fetchSocketToken(): Promise<string> {
 
 async function fetchSnapshot(
   sessionId: string,
-  envelopeParams: Record<string, string>
+  envelopeParams: Record<string, string>,
+  accessMode: ReviewAccessMode
 ): Promise<{
   snapshotBase64: string
   descriptor: ReviewTargetDescriptor
@@ -46,7 +49,7 @@ async function fetchSnapshot(
 }> {
   const params = new URLSearchParams({
     ...envelopeParams,
-    accessMode: 'write',
+    accessMode,
   })
   const res = await fetch(`/api/yjs/sessions/${encodeURIComponent(sessionId)}/snapshot?${params}`, {
     cache: 'no-store',
@@ -101,13 +104,14 @@ export function waitForYjsSync(provider: WebsocketProvider): Promise<void> {
 
 export async function bootstrapYjsProvider(
   descriptor: ReviewTargetDescriptor,
-  wsOrigin = getDefaultWsOrigin()
+  wsOrigin = getDefaultWsOrigin(),
+  accessMode: ReviewAccessMode = 'write'
 ): Promise<YjsProviderBootstrapResult> {
   const doc = new Y.Doc()
 
   const initialEnvelope = buildYjsTransportEnvelope(descriptor)
   const initialEnvelopeParams = serializeYjsTransportEnvelope(initialEnvelope)
-  const snapshot = await fetchSnapshot(descriptor.yjsSessionId, initialEnvelopeParams)
+  const snapshot = await fetchSnapshot(descriptor.yjsSessionId, initialEnvelopeParams, accessMode)
   const resolvedDescriptor = snapshot.descriptor
   const runtime = snapshot.runtime
 
@@ -123,59 +127,70 @@ export async function bootstrapYjsProvider(
   const token = await fetchSocketToken()
 
   const provider = new WebsocketProvider(serverUrl, resolvedDescriptor.yjsSessionId, doc, {
-    params: { token, accessMode: 'write', ...envelopeParams },
+    params: { token, accessMode, ...envelopeParams },
     connect: true,
   })
 
-  let tokenRefreshInFlight: Promise<void> | null = null
-  let tokenRefreshRetryTimeout: ReturnType<typeof setTimeout> | null = null
+  // Reconnection is a write-session concern: unsaved collaborative edits must
+  // merge back, so the same doc resyncs with a rotated token. A read session
+  // subscribes to a server-owned projection whose lineage is disposable —
+  // connection loss ends the session, and its owner rebootstraps a fresh doc
+  // from a fresh snapshot instead of resyncing one the server regenerated.
+  // A read result is DB-fresh at resolve time (the snapshot route reseeds
+  // live list docs before serving) and eventually consistent afterwards:
+  // websocket updates stream in asynchronously, so the doc must be observed,
+  // not treated as a point-in-time authority after resolve.
+  if (accessMode === 'write') {
+    let tokenRefreshInFlight: Promise<void> | null = null
+    let tokenRefreshRetryTimeout: ReturnType<typeof setTimeout> | null = null
 
-  const scheduleReconnectWithFreshToken = (currentProvider: WebsocketProvider) => {
-    if (!currentProvider.shouldConnect || tokenRefreshInFlight || tokenRefreshRetryTimeout) {
-      return
-    }
-
-    // Better Auth one-time tokens are consumed on verify, so every reconnect
-    // must rotate the token before y-websocket attempts the next connection.
-    currentProvider.shouldConnect = false
-    tokenRefreshInFlight = (async () => {
-      try {
-        const nextToken = await fetchSocketToken()
-        currentProvider.params = {
-          token: nextToken,
-          accessMode: 'write',
-          ...envelopeParams,
-        }
-        currentProvider.connect()
-      } catch (error) {
-        console.error('[YjsProvider] Failed to refresh socket token', error)
-        tokenRefreshRetryTimeout = setTimeout(() => {
-          tokenRefreshRetryTimeout = null
-          scheduleReconnectWithFreshToken(currentProvider)
-        }, SOCKET_TOKEN_RETRY_MS)
-      } finally {
-        tokenRefreshInFlight = null
+    const scheduleReconnectWithFreshToken = (currentProvider: WebsocketProvider) => {
+      if (!currentProvider.shouldConnect || tokenRefreshInFlight || tokenRefreshRetryTimeout) {
+        return
       }
-    })()
-  }
 
-  provider.on(
-    'connection-close',
-    (_event: CloseEvent | null, currentProvider: WebsocketProvider) => {
-      scheduleReconnectWithFreshToken(currentProvider)
+      // Better Auth one-time tokens are consumed on verify, so every reconnect
+      // must rotate the token before y-websocket attempts the next connection.
+      currentProvider.shouldConnect = false
+      tokenRefreshInFlight = (async () => {
+        try {
+          const nextToken = await fetchSocketToken()
+          currentProvider.params = {
+            token: nextToken,
+            accessMode,
+            ...envelopeParams,
+          }
+          currentProvider.connect()
+        } catch (error) {
+          console.error('[YjsProvider] Failed to refresh socket token', error)
+          tokenRefreshRetryTimeout = setTimeout(() => {
+            tokenRefreshRetryTimeout = null
+            scheduleReconnectWithFreshToken(currentProvider)
+          }, SOCKET_TOKEN_RETRY_MS)
+        } finally {
+          tokenRefreshInFlight = null
+        }
+      })()
     }
-  )
-  provider.on('connection-error', (_event: Event, currentProvider: WebsocketProvider) => {
-    scheduleReconnectWithFreshToken(currentProvider)
-  })
 
-  try {
-    await waitForYjsSync(provider)
-  } catch (error) {
-    provider.disconnect()
-    provider.destroy()
-    doc.destroy()
-    throw error
+    provider.on(
+      'connection-close',
+      (_event: CloseEvent | null, currentProvider: WebsocketProvider) => {
+        scheduleReconnectWithFreshToken(currentProvider)
+      }
+    )
+    provider.on('connection-error', (_event: Event, currentProvider: WebsocketProvider) => {
+      scheduleReconnectWithFreshToken(currentProvider)
+    })
+
+    try {
+      await waitForYjsSync(provider)
+    } catch (error) {
+      provider.disconnect()
+      provider.destroy()
+      doc.destroy()
+      throw error
+    }
   }
 
   return {
@@ -183,6 +198,7 @@ export async function bootstrapYjsProvider(
     provider,
     descriptor: resolvedDescriptor,
     runtime,
+    accessMode,
   }
 }
 

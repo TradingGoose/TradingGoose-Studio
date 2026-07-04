@@ -16,6 +16,7 @@ const mockLogger = {
 }
 
 const mockAuthenticateYjsConnection = vi.fn()
+const mockCreateEntityListBootstrapUpdate = vi.fn()
 const mockCreateSavedReviewTargetBootstrapUpdate = vi.fn()
 const mockVerifyReviewTargetAccess = vi.fn()
 const mockGetExistingDocument = vi.fn()
@@ -72,6 +73,7 @@ beforeEach(() => {
   vi.resetModules()
 
   mockAuthenticateYjsConnection.mockReset()
+  mockCreateEntityListBootstrapUpdate.mockReset()
   mockCreateSavedReviewTargetBootstrapUpdate.mockReset()
   mockVerifyReviewTargetAccess.mockReset()
   mockGetExistingDocument.mockReset()
@@ -91,6 +93,7 @@ beforeEach(() => {
   }))
 
   vi.doMock('@/lib/yjs/server/bootstrap-review-target', () => ({
+    createEntityListBootstrapUpdate: mockCreateEntityListBootstrapUpdate,
     createSavedReviewTargetBootstrapUpdate: mockCreateSavedReviewTargetBootstrapUpdate,
     getRuntimeStateFromDoc: vi.fn((doc) => ({
       docState: doc.getMap('metadata').get('docState') === 'expired' ? 'expired' : 'active',
@@ -237,6 +240,7 @@ describe('handleYjsUpgrade', () => {
       expect.objectContaining({
         bootstrapState,
         docId: sessionId,
+        accessMode: 'write',
         gc: true,
         onDocumentUpdate: expect.any(Function),
       })

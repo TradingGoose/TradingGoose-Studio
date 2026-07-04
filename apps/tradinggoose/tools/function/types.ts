@@ -15,6 +15,7 @@ export interface CodeExecutionInput {
     userId?: string
     executionId?: string
     submissionSource?: string
+    isDeployedContext?: boolean
   }
   isCustomTool?: boolean
 }

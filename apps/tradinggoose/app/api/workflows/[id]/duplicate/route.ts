@@ -9,6 +9,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import {
+  refreshWorkflowListForWorkflow,
   regenerateWorkflowStateIds,
   requireWorkflowRealtimeState,
 } from '@/lib/workflows/db-helpers'
@@ -128,21 +129,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       isDeployed: false,
       collaborators: [],
       runCount: 0,
-      isPublished: false,
-      marketplaceData: null,
     })
 
     try {
       await applyWorkflowState(
         newWorkflowId,
         createWorkflowSnapshot(duplicatedWorkflowState),
-        duplicatedVariables,
-        { name, description: resolvedDescription, folderId: folderId || null }
+        duplicatedVariables
       )
     } catch (error) {
       await db.delete(workflow).where(eq(workflow.id, newWorkflowId))
       throw error
     }
+    await refreshWorkflowListForWorkflow(newWorkflowId)
 
     logger.info(`[${requestId}] Duplicated editable workflow state from Yjs`, {
       sourceWorkflowId,

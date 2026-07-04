@@ -113,10 +113,6 @@ vi.mock('@/lib/get-block', () => ({
   }),
 }))
 
-vi.mock('@/stores/workflows/workflow/store-client', () => ({
-  DEFAULT_WORKFLOW_CHANNEL_ID: 'default',
-}))
-
 vi.mock('@/stores/workflows/registry/store', () => ({
   useWorkflowRegistry: vi.fn((selector?: (state: any) => any) => {
     const state = {

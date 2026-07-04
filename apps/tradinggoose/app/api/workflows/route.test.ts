@@ -8,6 +8,7 @@ describe('Workflow API Route', () => {
   const insertValuesMock = vi.fn()
   const deleteWhereMock = vi.fn()
   const applyWorkflowStateMock = vi.fn()
+  const refreshWorkflowListForWorkflowMock = vi.fn()
   const randomUUIDMock = vi.fn()
 
   const createRequest = (body: Record<string, unknown>) =>
@@ -26,6 +27,7 @@ describe('Workflow API Route', () => {
     insertValuesMock.mockResolvedValue(undefined)
     deleteWhereMock.mockResolvedValue(undefined)
     applyWorkflowStateMock.mockResolvedValue(undefined)
+    refreshWorkflowListForWorkflowMock.mockResolvedValue(undefined)
     randomUUIDMock.mockReset()
     randomUUIDMock.mockReturnValueOnce('workflow-123').mockReturnValueOnce('variable-123')
     vi.stubGlobal('crypto', {
@@ -84,6 +86,10 @@ describe('Workflow API Route', () => {
       generateRequestId: vi.fn(() => 'request-id'),
     }))
 
+    vi.doMock('@/lib/workflows/db-helpers', () => ({
+      refreshWorkflowListForWorkflow: refreshWorkflowListForWorkflowMock,
+    }))
+
     vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
       applyWorkflowState: applyWorkflowStateMock,
     }))
@@ -120,7 +126,7 @@ describe('Workflow API Route', () => {
       variables: {
         'var-1': {
           id: 'var-1',
-          workflowId: 'template-workflow',
+          workflowId: 'source-workflow',
           name: 'apiKey',
           type: 'plain',
           value: 'secret',
@@ -141,6 +147,7 @@ describe('Workflow API Route', () => {
     expect(response.status).toBe(200)
     expect(insertValuesMock).toHaveBeenCalledOnce()
     expect(applyWorkflowStateMock).toHaveBeenCalledOnce()
+    expect(refreshWorkflowListForWorkflowMock).toHaveBeenCalledWith('workflow-123')
 
     const insertedWorkflow = insertValuesMock.mock.calls[0][0]
     const persistedState = applyWorkflowStateMock.mock.calls[0][1]
@@ -163,12 +170,7 @@ describe('Workflow API Route', () => {
         loops: initialWorkflowState.loops,
         parallels: initialWorkflowState.parallels,
       }),
-      persistedVariables,
-      expect.objectContaining({
-        name: 'Workflow Copy',
-        description: 'Created from seed',
-        folderId: null,
-      })
+      persistedVariables
     )
   })
 
@@ -192,6 +194,7 @@ describe('Workflow API Route', () => {
 
     expect(response.status).toBe(500)
     expect(applyWorkflowStateMock).toHaveBeenCalledOnce()
+    expect(refreshWorkflowListForWorkflowMock).not.toHaveBeenCalled()
     expect(deleteWhereMock).toHaveBeenCalledOnce()
   })
 
@@ -206,6 +209,7 @@ describe('Workflow API Route', () => {
 
     expect(response.status).toBe(200)
     expect(applyWorkflowStateMock).toHaveBeenCalledOnce()
+    expect(refreshWorkflowListForWorkflowMock).toHaveBeenCalledWith('workflow-123')
 
     const insertedWorkflow = insertValuesMock.mock.calls[0][0]
     const persistedVariables = applyWorkflowStateMock.mock.calls[0][2]
@@ -218,8 +222,7 @@ describe('Workflow API Route', () => {
         loops: {},
         parallels: {},
       }),
-      {},
-      expect.any(Object)
+      {}
     )
   })
 

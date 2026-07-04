@@ -32,16 +32,11 @@ const dbMocks = vi.hoisted(() => {
 
   return { from, limit, select, setRows, where }
 })
-const listSkillsMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@tradinggoose/db', () => ({
   db: {
     select: dbMocks.select,
   },
-}))
-
-vi.mock('@/lib/skills/operations', () => ({
-  listSkills: listSkillsMock,
 }))
 
 vi.mock('@/lib/auth/internal', () => ({
@@ -185,7 +180,6 @@ describe('executeTool Function', () => {
         Promise.resolve([]).then(resolve, reject),
     }))
     dbMocks.limit.mockImplementation(() => Promise.resolve([]))
-    listSkillsMock.mockResolvedValue([])
 
     // Mock fetch
     global.fetch = Object.assign(
@@ -512,7 +506,7 @@ describe('executeTool Function', () => {
         description: 'Research the market before acting',
       },
     ])
-    listSkillsMock.mockResolvedValueOnce([
+    dbMocks.limit.mockResolvedValueOnce([
       {
         id: 'skill-1',
         name: 'market-research',
@@ -555,6 +549,30 @@ describe('executeTool Function', () => {
     expect(result.output).toEqual({
       content: 'Investigate the market and summarize the setup.',
     })
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it('should return a scoped error when selected skill content is missing', async () => {
+    const skillLoaderTool = buildLoadSkillTool('tradinggoose_internal_load_skill', [
+      {
+        id: 'deleted-skill',
+        name: 'deleted',
+        description: 'Deleted skill',
+      },
+    ])
+
+    const result = await executeTool(
+      skillLoaderTool.id,
+      {
+        ...skillLoaderTool.params,
+        skill_id: 'deleted-skill',
+      },
+      false,
+      createMockExecutionContext()
+    )
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('was not found')
     expect(global.fetch).not.toHaveBeenCalled()
   })
 

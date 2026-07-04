@@ -179,7 +179,6 @@ describe('CustomToolEditor export', () => {
           activeSection='schema'
           blockId='dashboard-custom-tool-editor'
           toolId='tool-1'
-          onSave={vi.fn()}
           onSectionChange={onSectionChange}
           exportRef={exportRef as MutableRefObject<() => void>}
           saveRef={saveRef as MutableRefObject<() => void>}
@@ -222,7 +221,6 @@ describe('CustomToolEditor export', () => {
           activeSection='code'
           blockId='dashboard-custom-tool-editor'
           toolId='tool-1'
-          onSave={vi.fn()}
           onSectionChange={onSectionChange}
           exportRef={exportRef as MutableRefObject<() => void>}
           saveRef={saveRef as MutableRefObject<() => void>}
@@ -310,7 +308,6 @@ describe('CustomToolEditor export', () => {
           activeSection='schema'
           blockId='dashboard-custom-tool-editor'
           toolId='tool-1'
-          onSave={vi.fn()}
           onSectionChange={onSectionChange}
           exportRef={exportRef as MutableRefObject<() => void>}
           saveRef={saveRef as MutableRefObject<() => void>}

@@ -31,7 +31,6 @@ vi.mock('@tradinggoose/db/schema', () => ({
     workspaceId: 'pineIndicators.workspaceId',
     name: 'pineIndicators.name',
     pineCode: 'pineIndicators.pineCode',
-    inputMeta: 'pineIndicators.inputMeta',
   },
   webhook: {
     id: 'webhook.id',
@@ -80,7 +79,7 @@ vi.mock('@/lib/indicators/dispatch', () => ({
 
 vi.mock('@/lib/indicators/input-meta', () => ({
   buildInputsMapFromMeta: vi.fn(() => ({})),
-  normalizeInputMetaMap: vi.fn(() => ({})),
+  inferInputMetaFromPineCode: vi.fn(() => ({})),
 }))
 
 vi.mock('@/lib/indicators/series-data', () => ({

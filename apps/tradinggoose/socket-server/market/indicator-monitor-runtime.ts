@@ -11,13 +11,13 @@ import {
 } from '@/lib/execution/pending-execution'
 import { DEFAULT_INDICATOR_RUNTIME_MAP } from '@/lib/indicators/default/runtime'
 import { resolveDispatchIntervalMs } from '@/lib/indicators/dispatch'
-import { buildInputsMapFromMeta, normalizeInputMetaMap } from '@/lib/indicators/input-meta'
+import { buildInputsMapFromMeta, inferInputMetaFromPineCode } from '@/lib/indicators/input-meta'
 import {
   mapMarketBarToBarMs,
   mapMarketSeriesToBarsMs,
   normalizeBarsMs,
 } from '@/lib/indicators/series-data'
-import type { BarMs } from '@/lib/indicators/types'
+import type { BarMs, InputMetaMap } from '@/lib/indicators/types'
 import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -63,7 +63,7 @@ type IndicatorDefinition = {
   id: string
   name: string
   pineCode: string
-  inputMeta?: Record<string, unknown>
+  inputMeta?: InputMetaMap
 }
 
 type MonitorRuntimeConfig = {
@@ -251,7 +251,7 @@ async function resolveIndicatorDefinitions(
       id: monitor.indicatorId,
       name: defaultIndicator.name,
       pineCode: defaultIndicator.pineCode,
-      inputMeta: defaultIndicator.inputMeta as Record<string, unknown> | undefined,
+      inputMeta: defaultIndicator.inputMeta,
     })
   })
 
@@ -269,7 +269,6 @@ async function resolveIndicatorDefinitions(
       workspaceId: pineIndicators.workspaceId,
       name: pineIndicators.name,
       pineCode: pineIndicators.pineCode,
-      inputMeta: pineIndicators.inputMeta,
     })
     .from(pineIndicators)
     .where(
@@ -284,7 +283,7 @@ async function resolveIndicatorDefinitions(
       id: row.id,
       name: row.name,
       pineCode: row.pineCode,
-      inputMeta: (row.inputMeta as Record<string, unknown> | undefined) ?? undefined,
+      inputMeta: inferInputMetaFromPineCode(row.pineCode),
     })
   })
 
@@ -638,8 +637,7 @@ export class IndicatorMonitorRuntime {
       throw new Error('Unable to resolve provider symbol')
     }
 
-    const inputMeta = normalizeInputMetaMap(indicator.inputMeta)
-    const inputsMap = buildInputsMapFromMeta(inputMeta, monitor.indicatorInputs)
+    const inputsMap = buildInputsMapFromMeta(indicator.inputMeta, monitor.indicatorInputs)
 
     const initialBars = await this.fetchMonitorBars(monitor, auth)
     const cappedBars = initialBars.slice(-MONITOR_WINDOW_BARS)

@@ -939,6 +939,7 @@ export function prepareToolExecution(
     workflowVariables?: Record<string, any>
     blockData?: Record<string, any>
     blockNameMapping?: Record<string, string>
+    isDeployedContext?: boolean
   }
 ): {
   toolParams: Record<string, any>
@@ -958,6 +959,7 @@ export function prepareToolExecution(
     ...(request.submissionSource ? { submissionSource: request.submissionSource } : {}),
     ...(request.chatId ? { chatId: request.chatId } : {}),
     ...(request.userId ? { userId: request.userId } : {}),
+    isDeployedContext: request.isDeployedContext ?? true,
   }
 
   // Add system parameters for execution

@@ -35,8 +35,6 @@ const WORKFLOW_BASE_SELECTION = {
   runCount: workflowTable.runCount,
   lastRunAt: workflowTable.lastRunAt,
   variables: workflowTable.variables,
-  isPublished: workflowTable.isPublished,
-  marketplaceData: workflowTable.marketplaceData,
   pinnedApiKeyKey: apiKey.key,
   pinnedApiKeyName: apiKey.name,
   pinnedApiKeyType: apiKey.type,

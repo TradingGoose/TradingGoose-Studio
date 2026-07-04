@@ -12,7 +12,6 @@ interface WorkflowEditorAppProps {
   workspaceId: string
   workflowId: string
   ui?: WorkflowCanvasUIConfig
-  disableNavigation?: boolean
   channelId?: string
   toolbarScopeId?: string
   viewportBounds?: { x: number; y: number; width: number; height: number }
@@ -22,7 +21,6 @@ const WorkflowEditorApp = ({
   workspaceId,
   workflowId,
   ui,
-  disableNavigation,
   channelId = DEFAULT_WORKFLOW_CHANNEL_ID,
   toolbarScopeId,
   viewportBounds,
@@ -51,7 +49,6 @@ const WorkflowEditorApp = ({
             channelId={channelId}
             toolbarScopeId={toolbarScopeId}
             ui={ui}
-            disableNavigation={disableNavigation}
             viewportBounds={viewportBounds}
           />
         </WorkflowRouteProvider>

@@ -33,9 +33,8 @@ export interface UseSelectionPersistenceOptions {
  * selected entity ID into widget params (gray pair) or calls a callback
  * (non-gray pair).
  *
- * All four entity-selection files (`custom-tool-selection`, `skill-selection`,
- * `indicator-selection`, `mcp-selection`) share identical logic; only the
- * event name, detail ID key, and params ID key differ.
+ * Entity-selection files share identical logic; only the event name, detail ID
+ * key, and params ID key differ.
  */
 export function createSelectionPersistenceHook(config: SelectionPersistenceConfig) {
   const { eventName, detailIdKey, defaultScopeKey } = config
@@ -112,7 +111,11 @@ export interface EmitSelectionChangeOptions {
  * Creates an emit function that dispatches a `CustomEvent` with the selected entity ID.
  */
 export function createEmitSelectionChange(config: EmitSelectionChangeConfig) {
-  return function emitSelectionChange({ entityId, panelId, widgetKey }: EmitSelectionChangeOptions) {
+  return function emitSelectionChange({
+    entityId,
+    panelId,
+    widgetKey,
+  }: EmitSelectionChangeOptions) {
     if (!widgetKey) return
 
     window.dispatchEvent(

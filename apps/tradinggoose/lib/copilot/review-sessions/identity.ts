@@ -56,7 +56,7 @@ export function buildSavedEntityDescriptor(
 
 const ENTITY_LIST_SESSION_PREFIX = 'list:'
 
-function buildEntityListSessionId(entityKind: SavedEntityKind, workspaceId: string): string {
+function buildEntityListSessionId(entityKind: ReviewEntityKind, workspaceId: string): string {
   return `${ENTITY_LIST_SESSION_PREFIX}${entityKind}:${workspaceId}`
 }
 
@@ -65,7 +65,7 @@ export function isEntityListSessionId(sessionId: string): boolean {
 }
 
 export function buildEntityListDescriptor(
-  entityKind: SavedEntityKind,
+  entityKind: ReviewEntityKind,
   workspaceId: string
 ): ReviewTargetDescriptor {
   return {
@@ -108,10 +108,6 @@ export function buildReviewTargetDescriptorFromEnvelope(
   envelope: YjsTransportEnvelope
 ): ReviewTargetDescriptor {
   if (envelope.targetKind === 'entity_list') {
-    if (envelope.entityKind === 'workflow') {
-      throw new Error('Entity-list Yjs envelope cannot use entityKind="workflow"')
-    }
-
     if (!envelope.workspaceId) {
       throw new Error('Entity-list Yjs envelope requires workspaceId')
     }

@@ -5,6 +5,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
+import { refreshWorkflowList } from '@/lib/workflows/db-helpers'
 
 const logger = createLogger('FoldersIDAPI')
 
@@ -83,7 +84,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   }
 }
 
-// DELETE - Delete a folder and all its contents
+// DELETE - Delete one folder and promote its direct children one level up.
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -121,65 +122,62 @@ export async function DELETE(
       )
     }
 
-    // Recursively delete folder and all its contents
-    const deletionStats = await deleteFolderRecursively(id, existingFolder.workspaceId)
+    const parentId = existingFolder.parentId ?? null
+    const childFolders = await db
+      .select({ id: workflowFolder.id })
+      .from(workflowFolder)
+      .where(
+        and(
+          eq(workflowFolder.parentId, id),
+          eq(workflowFolder.workspaceId, existingFolder.workspaceId)
+        )
+      )
 
-    logger.info('Deleted folder and all contents:', {
+    let movedWorkflows: Array<{ id: string }> = []
+
+    await db.transaction(async (tx) => {
+      const now = new Date()
+      if (childFolders.length > 0) {
+        await tx
+          .update(workflowFolder)
+          .set({ parentId, updatedAt: now })
+          .where(
+            and(
+              eq(workflowFolder.parentId, id),
+              eq(workflowFolder.workspaceId, existingFolder.workspaceId)
+            )
+          )
+      }
+
+      movedWorkflows = await tx
+        .update(workflow)
+        .set({ folderId: parentId, updatedAt: now })
+        .where(and(eq(workflow.workspaceId, existingFolder.workspaceId), eq(workflow.folderId, id)))
+        .returning({ id: workflow.id })
+
+      await tx.delete(workflowFolder).where(eq(workflowFolder.id, id))
+    })
+
+    await refreshWorkflowList(existingFolder.workspaceId)
+
+    logger.info('Deleted folder and promoted direct children:', {
       id,
-      deletionStats,
+      parentId,
+      movedFolders: childFolders.length,
+      movedWorkflows: movedWorkflows.length,
     })
 
     return NextResponse.json({
       success: true,
-      deletedItems: deletionStats,
+      deletedFolderId: id,
+      parentId,
+      movedFolders: childFolders.length,
+      movedWorkflows: movedWorkflows.length,
     })
   } catch (error) {
     logger.error('Error deleting folder:', { error })
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-}
-
-// Helper function to recursively delete a folder and all its contents
-async function deleteFolderRecursively(
-  folderId: string,
-  workspaceId: string
-): Promise<{ folders: number; workflows: number }> {
-  const stats = { folders: 0, workflows: 0 }
-
-  // Get all child folders first (workspace-scoped, not user-scoped)
-  const childFolders = await db
-    .select({ id: workflowFolder.id })
-    .from(workflowFolder)
-    .where(and(eq(workflowFolder.parentId, folderId), eq(workflowFolder.workspaceId, workspaceId)))
-
-  // Recursively delete child folders
-  for (const childFolder of childFolders) {
-    const childStats = await deleteFolderRecursively(childFolder.id, workspaceId)
-    stats.folders += childStats.folders
-    stats.workflows += childStats.workflows
-  }
-
-  // Delete all workflows in this folder (workspace-scoped, not user-scoped)
-  // The database cascade will handle deleting related workflow_blocks, workflow_edges, workflow_subflows
-  const workflowsInFolder = await db
-    .select({ id: workflow.id })
-    .from(workflow)
-    .where(and(eq(workflow.folderId, folderId), eq(workflow.workspaceId, workspaceId)))
-
-  if (workflowsInFolder.length > 0) {
-    await db
-      .delete(workflow)
-      .where(and(eq(workflow.folderId, folderId), eq(workflow.workspaceId, workspaceId)))
-
-    stats.workflows += workflowsInFolder.length
-  }
-
-  // Delete this folder
-  await db.delete(workflowFolder).where(eq(workflowFolder.id, folderId))
-
-  stats.folders += 1
-
-  return stats
 }
 
 // Helper function to check for circular references

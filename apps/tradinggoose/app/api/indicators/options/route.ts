@@ -2,7 +2,6 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { listIndicators } from '@/lib/indicators/custom/operations'
 import { DEFAULT_INDICATOR_RUNTIME_ENTRIES } from '@/lib/indicators/default/runtime'
-import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
 import { isIndicatorTriggerCapable } from '@/lib/indicators/trigger-detection'
 import type { InputMetaMap } from '@/lib/indicators/types'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -89,7 +88,7 @@ export async function GET(request: NextRequest) {
     const customOptions: IndicatorOptionRecord[] = customRows
       .filter((row) => copilotSurface || isIndicatorTriggerCapable(row.pineCode))
       .map((row) => {
-        const inputMeta = normalizeInputMetaMap(row.inputMeta)
+        const inputMeta = row.inputMeta ?? undefined
         const inputTitles = Object.keys(inputMeta ?? {})
 
         return {

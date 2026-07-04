@@ -4,7 +4,6 @@ import {
   copilotReviewSessions,
   document,
   permissions,
-  templates,
   workflow,
   workflowExecutionLogs,
   workspace,
@@ -23,6 +22,7 @@ import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { escapeRegExp } from '@/lib/utils'
 import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
 import {
+  ReviewTargetBootstrapError,
   readBootstrappedReviewTargetSnapshot,
   readBootstrappedSavedEntityFields,
 } from '@/lib/yjs/server/bootstrap-review-target'
@@ -45,7 +45,6 @@ export type AgentContextType =
   | 'blocks'
   | 'logs'
   | 'knowledge'
-  | 'templates'
   | 'workflow_block'
   | 'docs'
 
@@ -108,9 +107,6 @@ export async function processContextsServer(
       }
       if (ctx.kind === 'blocks') {
         return await processBlocksMetadata(ctx.blockTypes ?? [], ctx.label ? `@${ctx.label}` : '@')
-      }
-      if (ctx.kind === 'templates' && ctx.templateId) {
-        return await processTemplateContext(ctx.templateId, ctx.label ? `@${ctx.label}` : '@')
       }
       if (ctx.kind === 'logs' && ctx.executionId) {
         return await processExecutionLogContext(
@@ -207,13 +203,17 @@ async function processEntityContext(params: {
       ),
     }
   } catch (error) {
-    logger.error('Error processing entity context', {
-      entityKind: params.entityKind,
-      entityId: params.entityId,
-      workspaceId: params.workspaceId,
-      error,
-    })
-    return null
+    // Only a genuinely missing entity degrades to "no context"; realtime
+    // failures must surface instead of silently omitting attached context.
+    if (error instanceof ReviewTargetBootstrapError && error.status === 404) {
+      logger.warn('Skipping missing copilot entity context', {
+        entityKind: params.entityKind,
+        entityId: params.entityId,
+        workspaceId: params.workspaceId,
+      })
+      return null
+    }
+    throw error
   }
 }
 
@@ -503,8 +503,11 @@ async function processKnowledgeContext(
     const content = JSON.stringify(summary, null, 2)
     return { type: 'knowledge', tag, content }
   } catch (error) {
-    logger.error('Error processing knowledge context', { knowledgeBaseId, error })
-    return null
+    if (error instanceof ReviewTargetBootstrapError && error.status === 404) {
+      logger.warn('Skipping missing knowledge context', { knowledgeBaseId })
+      return null
+    }
+    throw error
   }
 }
 
@@ -531,45 +534,6 @@ async function processBlocksMetadata(
     return { type: 'blocks', tag, content }
   } catch (error) {
     logger.error('Error processing block metadata', { blockTypes, error })
-    return null
-  }
-}
-
-async function processTemplateContext(
-  templateId: string,
-  tag: string
-): Promise<AgentContext | null> {
-  try {
-    const rows = await db
-      .select({
-        id: templates.id,
-        name: templates.name,
-        description: templates.description,
-        category: templates.category,
-        author: templates.author,
-        stars: templates.stars,
-        state: templates.state,
-      })
-      .from(templates)
-      .where(eq(templates.id, templateId))
-      .limit(1)
-    const t = rows?.[0]
-    if (!t) return null
-    const workflowState = (t as any).state || {}
-    // Match read-workflow format: just the workflow state JSON
-    const summary = {
-      id: t.id,
-      name: t.name,
-      description: t.description || '',
-      category: t.category,
-      author: t.author,
-      stars: t.stars || 0,
-      workflow: workflowState,
-    }
-    const content = JSON.stringify(summary)
-    return { type: 'templates', tag, content }
-  } catch (error) {
-    logger.error('Error processing template context', { templateId, error })
     return null
   }
 }
