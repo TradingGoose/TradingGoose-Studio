@@ -187,7 +187,6 @@ export class AgentBlockHandler implements BlockHandler {
   private async formatTools(inputTools: ToolInput[], context: ExecutionContext): Promise<any[]> {
     if (!Array.isArray(inputTools)) return []
 
-    // Selected tools are required agent dependencies; fail before provider startup if one is stale.
     const tools = await Promise.all(
       inputTools
         .filter((tool) => {
@@ -195,17 +194,25 @@ export class AgentBlockHandler implements BlockHandler {
           return usageControl !== 'none'
         })
         .map(async (tool) => {
-          if (tool.type === 'custom-tool' && tool.schema) {
-            return await this.createCustomTool(tool, context)
+          try {
+            if (tool.type === 'custom-tool' && tool.schema) {
+              return await this.createCustomTool(tool, context)
+            }
+            if (tool.type === 'mcp') {
+              return await this.createMcpTool(tool, context)
+            }
+            return await this.transformBlockTool(tool, context)
+          } catch (error) {
+            logger.warn(
+              `Skipping unavailable agent tool ${tool.title || tool.toolId || tool.type}:`,
+              error
+            )
+            return null
           }
-          if (tool.type === 'mcp') {
-            return await this.createMcpTool(tool, context)
-          }
-          return this.transformBlockTool(tool, context)
         })
     )
 
-    return tools
+    return tools.filter((tool): tool is NonNullable<typeof tool> => tool !== null)
   }
 
   private async createCustomTool(tool: ToolInput, context: ExecutionContext): Promise<any> {

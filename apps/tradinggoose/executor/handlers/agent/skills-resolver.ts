@@ -1,6 +1,9 @@
+import { createLogger } from '@/lib/logs/console/logger'
 import { readSavedEntityFieldsForExecution } from '@/lib/yjs/server/bootstrap-review-target'
 import type { SkillInput } from '@/executor/handlers/agent/types'
 import type { SkillMetadata } from './skill-loader'
+
+const logger = createLogger('AgentSkillsResolver')
 
 export async function resolveSkillMetadata(
   skillInputs: SkillInput[],
@@ -15,8 +18,7 @@ export async function resolveSkillMetadata(
     return []
   }
 
-  // Selected skills are required prompt dependencies; missing skills must fail agent startup.
-  return Promise.all(
+  const results = await Promise.allSettled(
     skillIds.map(async (skillId) => {
       const fields = await readSavedEntityFieldsForExecution(
         'skill',
@@ -31,6 +33,12 @@ export async function resolveSkillMetadata(
       }
     })
   )
+
+  return results.flatMap((result, index) => {
+    if (result.status === 'fulfilled') return [result.value]
+    logger.warn(`Skipping unavailable agent skill ${skillIds[index]}:`, result.reason)
+    return []
+  })
 }
 
 export async function resolveSkillContent(

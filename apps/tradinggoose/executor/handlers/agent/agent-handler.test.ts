@@ -314,23 +314,27 @@ describe('AgentBlockHandler', () => {
       expect(systemMessage?.content).toContain('tradinggoose_internal_load_skill_2')
     })
 
-    it('fails when selected skill metadata cannot be hydrated', async () => {
-      mockResolveSkillMetadata.mockRejectedValueOnce(new Error('Skill not found'))
+    it('executes without a skill loader when selected skills are unavailable', async () => {
+      mockResolveSkillMetadata.mockResolvedValueOnce([])
 
-      await expect(
-        handler.execute(
-          mockBlock,
-          {
-            model: 'gpt-4o',
-            userPrompt: 'Use the selected skill.',
-            apiKey: 'test-api-key',
-            skills: [{ skillId: 'deleted-skill' }],
-          },
-          mockContext
-        )
-      ).rejects.toThrow('Skill not found')
+      await handler.execute(
+        mockBlock,
+        {
+          model: 'gpt-4o',
+          userPrompt: 'Use the selected skill.',
+          apiKey: 'test-api-key',
+          skills: [{ skillId: 'deleted-skill' }],
+        },
+        mockContext
+      )
 
-      expect(mockFetch).not.toHaveBeenCalled()
+      const [, init] = mockFetch.mock.calls.find(([url]) => String(url).includes('/api/providers'))!
+      const providerRequest = JSON.parse(String(init.body))
+
+      expect(providerRequest.tools).toEqual([])
+      expect(providerRequest.messages).toEqual([
+        { role: 'user', content: 'Use the selected skill.' },
+      ])
     })
 
     it('should preserve executeFunction for custom tools with different usageControl settings', async () => {
@@ -725,7 +729,7 @@ describe('AgentBlockHandler', () => {
       expect(result).toEqual(expectedOutput)
     })
 
-    it('fails when any selected tool cannot be hydrated', async () => {
+    it('skips selected tools that cannot be hydrated', async () => {
       const inputs = {
         model: 'gpt-4o',
         userPrompt: 'Analyze this data.',
@@ -756,9 +760,7 @@ describe('AgentBlockHandler', () => {
       )
       mockGetProviderFromModel.mockReturnValue('openai')
 
-      await expect(handler.execute(mockBlock, inputs, mockContext)).rejects.toThrow(
-        'Agent tool Missing Tool could not be resolved'
-      )
+      await handler.execute(mockBlock, inputs, mockContext)
 
       expect(mockTransformBlockTool).toHaveBeenCalledWith(
         inputs.tools[0],
@@ -768,10 +770,14 @@ describe('AgentBlockHandler', () => {
         inputs.tools[1],
         expect.objectContaining({ selectedOperation: 'analyze' })
       )
-      expect(mockFetch).not.toHaveBeenCalled()
+      const [, init] = mockFetch.mock.calls.find(([url]) => String(url).includes('/api/providers'))!
+      const providerRequest = JSON.parse(String(init.body))
+
+      expect(providerRequest.tools).toHaveLength(1)
+      expect(providerRequest.tools[0].id).toBe('transformed_block_tool_1')
     })
 
-    it('fails unavailable MCP tool selections before provider startup', async () => {
+    it('skips unavailable MCP tool selections before provider startup', async () => {
       const inputs = {
         model: 'gpt-4o',
         userPrompt: 'Use the MCP tool if available.',
@@ -790,13 +796,14 @@ describe('AgentBlockHandler', () => {
 
       mockGetProviderFromModel.mockReturnValue('openai')
 
-      await expect(handler.execute(mockBlock, inputs, mockContext)).rejects.toThrow(
-        'MCP tool discovery failed for server deleted-server'
-      )
+      await handler.execute(mockBlock, inputs, mockContext)
       const calledUrls = mockFetch.mock.calls.map(([url]) => String(url))
+      const [, init] = mockFetch.mock.calls.find(([url]) => String(url).includes('/api/providers'))!
+      const providerRequest = JSON.parse(String(init.body))
 
       expect(calledUrls.some((url) => url.includes('/api/mcp/tools/discover'))).toBe(true)
-      expect(calledUrls.some((url) => url.includes('/api/providers'))).toBe(false)
+      expect(calledUrls.some((url) => url.includes('/api/providers'))).toBe(true)
+      expect(providerRequest.tools).toEqual([])
     })
 
     it('should execute with custom tools (schema only and with code)', async () => {
